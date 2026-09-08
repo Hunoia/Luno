@@ -6,7 +6,6 @@ import android.app.Application
 import android.content.Context
 import coil.ImageLoader
 import coil.ImageLoaderFactory
-import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import android.os.Build
 import android.os.Process
@@ -35,12 +34,6 @@ class App : Application(), ImageLoaderFactory {
             .memoryCache {
                 MemoryCache.Builder(this)
                     .maxSizePercent(0.25)
-                    .build()
-            }
-            .diskCache {
-                DiskCache.Builder()
-                    .directory(cacheDir.resolve("coil"))
-                    .maxSizeBytes(50 * 1024 * 1024)
                     .build()
             }
             .build()

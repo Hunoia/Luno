@@ -11,6 +11,7 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
 
     private const val SEPARATOR = "gulugulu_CRASH_REPORT"
     private const val CRASH_FILE_NAME = "crashlog"
+    private const val MAX_CRASH_ENTRIES = 10
 
     private val defaultHandler: Thread.UncaughtExceptionHandler? = Thread.getDefaultUncaughtExceptionHandler()
 
@@ -47,7 +48,19 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
         builder.append("$SEPARATOR\n")
 
         if (File(crashFilePath).exists()) {
-            builder.append(File(crashFilePath).readText())
+            val existing = File(crashFilePath).readText()
+            val entries = existing.split(SEPARATOR)
+                .map { it.trimIndent() }
+                .filter { it.isNotEmpty() }
+            val kept = if (entries.size >= MAX_CRASH_ENTRIES) {
+                entries.takeLast(MAX_CRASH_ENTRIES - 1)
+            } else {
+                entries
+            }
+            kept.forEach { entry ->
+                builder.append(entry)
+                builder.append("$SEPARATOR\n")
+            }
         }
 
         File(crashDir).mkdirs()

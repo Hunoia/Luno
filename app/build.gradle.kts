@@ -21,7 +21,7 @@ android {
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
     }
     signingConfigs {
         val localProperties = project.rootProject.file("local.properties")
@@ -122,10 +122,6 @@ dependencies {
     implementation(platform(libs.compose.bom))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
-    testImplementation(libs.junit)
-    testImplementation(libs.mockk)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
     implementation(libs.com.aaronzzx.fastcompose.compose)
     implementation(libs.com.aaronzzx.fastcompose.compose.accessibility)
     implementation(libs.com.tiann.freereflection)

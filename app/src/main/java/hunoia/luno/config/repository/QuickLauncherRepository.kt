@@ -5,6 +5,10 @@ import hunoia.luno.config.model.QuickAppLauncherSettings
 
 internal class QuickLauncherRepository(private val stores: SettingsStores) {
 
+    companion object {
+        private const val MAX_LAUNCH_HISTORY = 500
+    }
+
     suspend fun updateQuickAppLauncherLayout(layout: QuickAppLauncherSettings) {
         stores._quickAppLauncherSettings.updateData { old ->
             old.copy(
@@ -35,9 +39,17 @@ internal class QuickLauncherRepository(private val stores: SettingsStores) {
 
     suspend fun recordQuickAppLaunch(appKey: String) {
         stores._quickAppLauncherSettings.updateData { old ->
+            val newTimeMap = old.recentLaunchTime + (appKey to System.currentTimeMillis())
+            val newCountMap = old.launchCount + (appKey to ((old.launchCount[appKey] ?: 0L) + 1L))
+            val trimmedTimeMap = if (newTimeMap.size > MAX_LAUNCH_HISTORY) {
+                newTimeMap.entries.sortedBy { it.value }.takeLast(MAX_LAUNCH_HISTORY).associate { it.key to it.value }
+            } else {
+                newTimeMap
+            }
+            val trimmedCountMap = newCountMap.filterKeys { it in trimmedTimeMap }
             old.copy(
-                recentLaunchTime = old.recentLaunchTime + (appKey to System.currentTimeMillis()),
-                launchCount = old.launchCount + (appKey to ((old.launchCount[appKey] ?: 0L) + 1L))
+                recentLaunchTime = trimmedTimeMap,
+                launchCount = trimmedCountMap,
             )
         }
     }
