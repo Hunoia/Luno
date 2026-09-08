@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_status_running">运行正常</string>
+    <string name="home_status_needs_attention">需要处理</string>
+    <string name="home_status_unavailable">暂不可用</string>
+    <string name="home_status_running_desc">核心状态可用，侧边手势可正常响应。</string>
+    <string name="home_status_accessibility_desc">开启无障碍后可使用侧边手势。</string>
+    <string name="home_status_gesture_desc">启用手势后恢复侧边触发。</string>
+    <string name="home_status_shizuku_not_installed_desc">安装 Shizuku 后可授权系统能力。</string>
+    <string name="home_status_shizuku_not_running_desc">启动 Shizuku 后刷新状态。</string>
+    <string name="home_status_shizuku_not_authorized_desc">授权后可使用需要系统权限的功能。</string>
+    <string name="home_status_keep_alive_desc">启用后可降低服务被系统回收的概率。</string>
+    <string name="status_accessibility_enabled">无障碍：已开启</string>
+    <string name="status_accessibility_disabled">无障碍：未开启</string>
+    <string name="status_gesture_enabled">手势：已启用</string>
+    <string name="status_gesture_disabled">手势：已关闭</string>
+    <string name="status_keep_alive_enabled">保活：已启用</string>
+    <string name="status_keep_alive_disabled">保活：未启用</string>
+    <string name="status_shizuku_not_installed">Shizuku：未安装</string>
+    <string name="status_shizuku_not_running">Shizuku：未运行</string>
+    <string name="status_shizuku_not_authorized">Shizuku：未授权</string>
+    <string name="status_shizuku_authorized">Shizuku：已授权</string>
+    <string name="open_accessibility">开启无障碍</string>
+    <string name="enable_gesture">启用手势</string>
+    <string name="request_shizuku_permission">请求权限</string>
+    <string name="refresh_status">刷新状态</string>
+    <string name="enable_keep_alive">启用保活</string>
+    <string name="restore_confirm_title">确认恢复配置？</string>
+    <string name="restore_confirm_desc">恢复后将覆盖当前设置。</string>
+    <string name="confirm_restore">确认恢复</string>
+    <string name="restore_precheck_cannot_read_file">无法读取备份文件</string>
+    <string name="restore_precheck_invalid_format">备份格式不正确</string>
+    <string name="restore_precheck_empty_backup">备份内容为空</string>
+    <string name="restore_precheck_incompatible_version">备份版本不兼容</string>
+    <string name="restore_precheck_verification_failed">恢复校验失败</string>
+</resources>

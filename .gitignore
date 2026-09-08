@@ -1,0 +1,16 @@
+# Build
+build/
+.gradle/
+.kotlin/
+
+# IDE
+.idea/
+
+# Signing & Config
+local.properties
+*.jks
+*.keystore
+keystore/
+keystore.properties
+signing.properties
+google-services.json
