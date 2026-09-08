@@ -45,10 +45,6 @@ import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.ui.component.displayNameRes
 import hunoia.luno.config.model.SubGestureAngle
 import hunoia.luno.config.model.copyDirectionAngleBoundary
-import hunoia.luno.ui.theme.ContentPaddingHorizontal
-import hunoia.luno.ui.theme.ContentPaddingVertical
-import hunoia.luno.ui.theme.ItemPadding
-import hunoia.luno.ui.theme.SectionPadding
 import java.lang.Math
 import kotlin.math.PI
 import kotlin.math.atan2
@@ -127,7 +123,7 @@ private fun DirectionAngleContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = ContentPaddingHorizontal, vertical = ContentPaddingVertical)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -143,7 +139,7 @@ private fun DirectionAngleContent(
             }
         }
 
-        Spacer(modifier = Modifier.height(SectionPadding))
+        Spacer(modifier = Modifier.height(24.dp))
 
         Box(
             modifier = Modifier
@@ -154,11 +150,11 @@ private fun DirectionAngleContent(
                     shape = MaterialTheme.shapes.extraLarge
                 )
                 .border(
-                    width = Spacing1,
+                    width = 1.dp,
                     color = MaterialTheme.colorScheme.outlineVariant,
                     shape = MaterialTheme.shapes.extraLarge
                 )
-                .padding(horizontal = Spacing24, vertical = Spacing16)
+                .padding(horizontal = 24.dp, vertical = 16.dp)
         ) {
             Column {
                 SubGestureAngleDial(
@@ -169,7 +165,7 @@ private fun DirectionAngleContent(
                     onBoundariesChange = { draftBoundaries = it },
                     color = color
                 )
-                Spacer(modifier = Modifier.height(Spacing12))
+                Spacer(modifier = Modifier.height(12.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
@@ -196,8 +192,8 @@ private fun DirectionAngleContent(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = SectionPadding),
-            horizontalArrangement = Arrangement.spacedBy(ItemPadding)
+                .padding(top = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             OutlinedButton(
                 modifier = Modifier.weight(1f),
@@ -222,7 +218,7 @@ private fun SubGestureAngleDial(
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.primary
 ) {
-    val dragHandleRadius = Spacing10
+    val dragHandleRadius = 10.dp
     val dragHitRadius = 26.dp
     var circleRadius by remember { mutableStateOf(0f) }
     var circleCenter by remember { mutableStateOf(Offset.Zero) }
@@ -290,27 +286,27 @@ private fun SubGestureAngleDial(
             radius = dialRadius,
             center = myCenter,
             alpha = 0.25f,
-            style = Stroke(width = Spacing2.toPx())
+            style = Stroke(width = 2.dp.toPx())
         )
         drawCircle(
             color = color,
             radius = lineRadius,
             center = myCenter,
             alpha = 0.18f,
-            style = Stroke(width = Spacing1.toPx())
+            style = Stroke(width = 1.dp.toPx())
         )
 
         drawLine(
             color = color.copy(alpha = 0.18f),
             start = Offset(x = myCenter.x - lineRadius, y = myCenter.y),
             end = Offset(x = myCenter.x + lineRadius, y = myCenter.y),
-            strokeWidth = Spacing1.toPx(),
+            strokeWidth = 1.dp.toPx(),
         )
         drawLine(
             color = color.copy(alpha = 0.18f),
             start = Offset(x = myCenter.x, y = myCenter.y - lineRadius),
             end = Offset(x = myCenter.x, y = myCenter.y + lineRadius),
-            strokeWidth = Spacing1.toPx(),
+            strokeWidth = 1.dp.toPx(),
         )
 
         boundaries.forEachIndexed { index, bound ->
@@ -320,7 +316,7 @@ private fun SubGestureAngleDial(
                 y = myCenter.y - lineRadius * sin(angleRad)
             )
             drawLine(color = color, start = myCenter, end = offset, strokeWidth = lineWidthPx)
-            drawCircle(color = Color.White, radius = pointRadiusPx + Spacing2.toPx(), center = offset)
+            drawCircle(color = Color.White, radius = pointRadiusPx + 2.dp.toPx(), center = offset)
             drawCircle(color = color, radius = pointRadiusPx, center = offset)
         }
 

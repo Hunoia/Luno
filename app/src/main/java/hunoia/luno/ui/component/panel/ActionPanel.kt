@@ -68,7 +68,7 @@ import hunoia.luno.ui.theme.AnimNormal
 import hunoia.luno.ui.theme.AnimPanelResize
 import hunoia.luno.ui.theme.MiniWindowDefaultHeight
 import hunoia.luno.ui.theme.MiniWindowWidth
-import hunoia.luno.ui.theme.RootPadding
+import hunoia.luno.ui.theme.CardShape
 import kotlinx.coroutines.flow.filter
 
 
@@ -115,7 +115,7 @@ fun ActionPanel(
                 modifier = Modifier
                     .align(Alignment.Center)
                     .displayCutoutPadding()
-                    .padding(RootPadding),
+                    .padding(12.dp),
                 visible = selectedAction.value == ActionFacade.EXTRA_LAUNCH_APP,
                 enter = enter,
                 exit = ExitTransition.None
@@ -139,8 +139,8 @@ fun ActionPanel(
                                 thisModifier.size(width = width, height = height)
                             }
                             .background(
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                                shape = MaterialTheme.shapes.small
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                shape = CardShape
                             )
                     )
                 }

@@ -12,6 +12,8 @@ import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.resolveDisplayName
 import hunoia.luno.core.AppContext
 import hunoia.luno.R
+import hunoia.luno.keepalive.KeepAliveUseCase
+import hunoia.luno.permission.PermissionStateUseCase
 import hunoia.luno.shizuku.ShizukuManager
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.delay
@@ -102,9 +104,55 @@ class HomeVM : HomeVMBase() {
         updateUiState {
             it.copy(
                 isSubGestureListExpanded = false,
-                isGestureButtonListExpanded = false
+                isGestureButtonListExpanded = false,
+                gestureBottomSheetVisible = false,
+                moreMenuVisible = false,
             ).withRuntimeStatus()
         }
+    }
+
+    fun showGestureBottomSheet() {
+        updateUiState { it.copy(gestureBottomSheetVisible = true) }
+    }
+
+    fun showGestureBottomSheet(tab: GestureTab) {
+        updateUiState {
+            it.copy(
+                gestureTab = tab,
+                gestureBottomSheetVisible = true,
+                moreMenuVisible = false,
+            )
+        }
+    }
+
+    fun selectGestureTab(tab: GestureTab) {
+        updateUiState { it.copy(gestureTab = tab).withRuntimeStatus() }
+    }
+
+    fun toggleGestureBottomSheet(tab: GestureTab) {
+        updateUiState {
+            if (it.gestureBottomSheetVisible && it.gestureTab == tab) {
+                it.copy(gestureBottomSheetVisible = false)
+            } else {
+                it.copy(
+                    gestureTab = tab,
+                    gestureBottomSheetVisible = true,
+                    moreMenuVisible = false,
+                )
+            }
+        }
+    }
+
+    fun hideGestureBottomSheet() {
+        updateUiState { it.copy(gestureBottomSheetVisible = false) }
+    }
+
+    fun showMoreMenu() {
+        updateUiState { it.copy(moreMenuVisible = true, gestureBottomSheetVisible = false) }
+    }
+
+    fun hideMoreMenu() {
+        updateUiState { it.copy(moreMenuVisible = false) }
     }
 
     fun expandSubGestureList(expanded: Boolean, scrollOffset: Int = Int.MAX_VALUE) {
@@ -173,10 +221,30 @@ class HomeVM : HomeVMBase() {
     }
 
     fun onAppGestureEnabledChange(enabled: Boolean) {
-        updateUiState {
-            it.copy(isGestureSwitchEnabled = enabled).withRuntimeStatus()
+        onGestureSwitchChange(enabled) {}
+    }
+
+    fun onGestureSwitchChange(enabled: Boolean, onAccessibilityNeeded: () -> Unit) {
+        if (!enabled) {
+            updateUiState {
+                it.copy(isGestureSwitchEnabled = false).withRuntimeStatus()
+            }
+            saveGestureSwitchEnabled(false)
+            return
         }
-        saveGestureSwitchEnabled(enabled)
+        viewModelScope.launch {
+            val permissionState = PermissionStateUseCase.loadHomePermissionState(AppContext.get())
+            if (!permissionState.isAccessibilityEnabled) {
+                withContext(Dispatchers.Main) { onAccessibilityNeeded() }
+                return@launch
+            }
+            runCatching { ShizukuManager.requestPermission() }
+            runCatching { KeepAliveUseCase.setEnabled(AppContext.get(), true) { _ -> } }
+            updateUiState {
+                it.copy(isGestureSwitchEnabled = true).withRuntimeStatus()
+            }
+            saveGestureSwitchEnabled(true)
+        }
     }
 
     fun onGestureButtonEnabledChange(button: GestureButton, enabled: Boolean) {

@@ -4,6 +4,7 @@ import hunoia.luno.ui.theme.*
 import hunoia.luno.R
 import hunoia.luno.ui.component.ExpressiveCard
 import hunoia.luno.ui.component.settings.CompactSettingsRow
+import androidx.compose.ui.unit.dp
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -40,7 +41,6 @@ import kotlin.math.roundToInt
 fun HomeExcludeCard(onClick: () -> Unit) {
     CompactSettingsRow(
         title = stringResource(id = R.string.exclude_app_short),
-        subtitle = stringResource(id = R.string.exclude_app_hint),
         icon = Icons.Default.Block,
         onClick = onClick,
     )
@@ -50,18 +50,7 @@ fun HomeExcludeCard(onClick: () -> Unit) {
 fun HomePointerCard(onClick: () -> Unit) {
     CompactSettingsRow(
         title = stringResource(id = R.string.pointer),
-        subtitle = stringResource(id = R.string.pointer_hint),
         icon = Icons.Default.TouchApp,
-        onClick = onClick,
-    )
-}
-
-@Composable
-fun HomeActionLibraryCard(onClick: () -> Unit) {
-    CompactSettingsRow(
-        title = stringResource(id = R.string.action_library),
-        subtitle = stringResource(id = R.string.action_library_hint),
-        icon = Icons.AutoMirrored.Filled.LibraryBooks,
         onClick = onClick,
     )
 }
@@ -70,7 +59,6 @@ fun HomeActionLibraryCard(onClick: () -> Unit) {
 fun HomeActionSettingsCard(onClick: () -> Unit) {
     CompactSettingsRow(
         title = stringResource(id = R.string.action_settings),
-        subtitle = stringResource(id = R.string.action_settings_hint),
         icon = Icons.Default.Tune,
         onClick = onClick,
     )
@@ -84,14 +72,14 @@ fun HomeFrozenCard(
     onUnfreezeClick: () -> Unit,
 ) {
     ExpressiveCard(
-        title = stringResource(id = R.string.frozen_app_manage_short),
-        subtitle = stringResource(id = R.string.frozen_app_count_info, uiState.selectedFrozenAppCount, uiState.frozenAppCount),
+        title = stringResource(id = R.string.frozen_app_manage_short) + " (${uiState.selectedFrozenAppCount}/${uiState.frozenAppCount})",
+        subtitle = "",
         icon = Icons.Default.AcUnit,
         onClick = onClick,
         accent = MaterialTheme.colorScheme.tertiaryContainer,
         onAccent = MaterialTheme.colorScheme.onTertiaryContainer,
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing12)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             FilledTonalButton(onClick = onFreezeClick, modifier = Modifier.weight(1f)) {
                 Text(stringResource(id = R.string.freeze_action))
             }
@@ -118,7 +106,7 @@ fun HomeToolsCard(
         icon = Icons.Default.Build,
         onClick = {},
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing12)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             FilledTonalButton(onClick = onBackupClick, modifier = Modifier.weight(1f)) {
                 Text(stringResource(id = R.string.backup))
             }
@@ -126,7 +114,7 @@ fun HomeToolsCard(
                 Text(stringResource(id = R.string.restore))
             }
         }
-        Spacer(Modifier.height(Spacing8))
+        Spacer(Modifier.height(8.dp))
         OutlinedButton(onClick = onResetToggle, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(id = R.string.default_action))
         }
@@ -141,20 +129,20 @@ fun HomeToolsCard(
                     .onGloballyPositioned { coords ->
                         onCardAreaPosition(coords.positionInWindow().y.roundToInt())
                     }
-                    .padding(top = Spacing12),
+                    .padding(top = 12.dp),
                 shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.tertiaryContainer,
+                color = MaterialTheme.colorScheme.errorContainer,
             ) {
-                Column(modifier = Modifier.padding(Spacing14)) {
+                Column(modifier = Modifier.padding(14.dp)) {
                     Text(
                         text = stringResource(id = R.string.reset_default_settings_warning),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
                     )
-                    Spacer(Modifier.height(Spacing12))
+                    Spacer(Modifier.height(12.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(Spacing6),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         FilledTonalButton(
                             onClick = onResetDismiss,

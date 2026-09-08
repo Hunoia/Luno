@@ -7,12 +7,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -22,8 +20,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import hunoia.luno.ui.theme.Spacing10
-import hunoia.luno.ui.theme.Spacing16
 
 @Composable
 fun TabChip(
@@ -32,21 +28,12 @@ fun TabChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
-        modifier = modifier,
+    FilterChip(
+        selected = selected,
         onClick = onClick,
-        shape = MaterialTheme.shapes.large,
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer
-        else MaterialTheme.colorScheme.surfaceContainerHigh,
-    ) {
-        Text(
-            modifier = Modifier.padding(horizontal = Spacing16, vertical = Spacing10),
-            text = text,
-            style = MaterialTheme.typography.titleMedium,
-            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
-            else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+        label = { Text(text) },
+        modifier = modifier,
+    )
 }
 
 @Composable

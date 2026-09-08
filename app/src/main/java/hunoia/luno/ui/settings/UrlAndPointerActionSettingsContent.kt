@@ -1,6 +1,7 @@
 package hunoia.luno.ui.settings
 
 import hunoia.luno.ui.theme.*
+import androidx.compose.ui.unit.dp
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -48,8 +49,8 @@ fun UrlSettingsContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = ItemPadding),
-        verticalArrangement = Arrangement.spacedBy(ItemPadding)
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         OutlinedTextField(
             modifier = Modifier.fillMaxWidth(),
@@ -133,7 +134,7 @@ private fun OpenUrlQueryParameterRow(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(ItemPadding),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Switch(

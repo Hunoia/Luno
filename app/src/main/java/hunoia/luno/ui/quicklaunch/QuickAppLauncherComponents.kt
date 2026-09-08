@@ -67,8 +67,8 @@ internal fun KeyboardRow(
     onToken: (String) -> Unit,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        val cellWidth = (maxWidth - Spacing6 * (keys.size - 1)) / keys.size
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing6), modifier = Modifier.fillMaxWidth()) {
+        val cellWidth = (maxWidth - 6.dp * (keys.size - 1)) / keys.size
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
             keys.forEach { (label, token) ->
                 val interactionSource = remember { MutableInteractionSource() }
                 val isPressed by interactionSource.collectIsPressedAsState()
@@ -168,7 +168,7 @@ internal fun AppItem(app: AppInfo, iconHeight: Dp? = null, onClick: () -> Unit, 
                 onClick = { onClick() },
                 onLongClick = { onLongPress() }
             )
-            .padding(Spacing4),
+            .padding(4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         val iconMod = if (iconHeight != null) {

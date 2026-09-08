@@ -62,13 +62,10 @@ import hunoia.luno.ui.component.MyColumn
 import hunoia.luno.ui.component.TopBar
 import hunoia.luno.ui.component.input.MyTextSlider
 import hunoia.luno.ui.theme.CardShape
-import hunoia.luno.ui.theme.ItemPadding
 import hunoia.luno.ui.theme.MarkColorSize
-import hunoia.luno.ui.theme.Spacing12
-import hunoia.luno.ui.theme.Spacing14
-import hunoia.luno.ui.theme.Spacing16
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,7 +82,7 @@ fun ActionSettingsScreen(onBack: () -> Unit) {
     ) { padding ->
         MyColumn(
             modifier = Modifier.padding(padding),
-            verticalArrangement = Arrangement.spacedBy(Spacing12),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             ExpressiveCard(
                 icon = Icons.Default.Visibility,
@@ -136,38 +133,40 @@ fun ActionSettingsScreen(onBack: () -> Unit) {
             }
 
             buttons.sortedBy { it.id }.forEachIndexed { index, button ->
-                GestureButtonOverrideCard(
+                OverrideCard(
                     label = button.name.ifBlank { stringResource(R.string.gesture_button_name, index + 1) },
-                    button = button,
-                    globalActionSettings = actionSettings,
-                    globalMiniWindow = advancedSettings.miniWindowSettings(),
-                    globalPointerContinuousMode = gestureSettings.pointer.continuousMode,
-                    onUpdate = { updated ->
+                    color = button.color,
+                    actionSettingsOverride = button.actionSettingsOverride,
+                    onUpdateOverride = { updated ->
                         scope.launch {
                             ConfigProvider.updateGestureButtons { list ->
-                                list.map { if (it.id == button.id) updated else it }
+                                list.map { if (it.id == button.id) it.copy(actionSettingsOverride = updated) else it }
                             }
                         }
                     },
+                    globalActionSettings = actionSettings,
+                    globalMiniWindow = advancedSettings.miniWindowSettings(),
+                    globalPointerContinuousMode = gestureSettings.pointer.continuousMode,
                 )
             }
 
             subGestureSettings.subGestures.sortedBy { it.name.ifBlank { it.id } }.forEach { subGesture ->
-                SubGestureOverrideCard(
+                OverrideCard(
                     label = subGesture.name.ifBlank { stringResource(R.string.action_sub_gesture) },
-                    subGesture = subGesture,
-                    globalActionSettings = actionSettings,
-                    globalMiniWindow = advancedSettings.miniWindowSettings(),
-                    globalPointerContinuousMode = gestureSettings.pointer.continuousMode,
-                    onUpdate = { updated ->
+                    color = subGesture.color,
+                    actionSettingsOverride = subGesture.actionSettingsOverride,
+                    onUpdateOverride = { updated ->
                         scope.launch {
                             ConfigProvider.updateSubGestureSettings { settings ->
                                 settings.copy(
-                                    subGestures = settings.subGestures.map { if (it.id == subGesture.id) updated else it }
+                                    subGestures = settings.subGestures.map { if (it.id == subGesture.id) it.copy(actionSettingsOverride = updated) else it }
                                 )
                             }
                         }
                     },
+                    globalActionSettings = actionSettings,
+                    globalMiniWindow = advancedSettings.miniWindowSettings(),
+                    globalPointerContinuousMode = gestureSettings.pointer.continuousMode,
                 )
             }
         }
@@ -175,19 +174,20 @@ fun ActionSettingsScreen(onBack: () -> Unit) {
 }
 
 @Composable
-private fun GestureButtonOverrideCard(
+private fun OverrideCard(
     label: String,
-    button: GestureButton,
+    color: Int,
+    actionSettingsOverride: GestureButtonActionSettingsOverride,
+    onUpdateOverride: (GestureButtonActionSettingsOverride) -> Unit,
     globalActionSettings: ActionSettings,
     globalMiniWindow: MiniWindowSettings,
     globalPointerContinuousMode: Boolean,
-    onUpdate: (GestureButton) -> Unit,
 ) {
-    var expanded by remember(button.id) { mutableStateOf(false) }
-    val dotColor = if (button.color == android.graphics.Color.TRANSPARENT) {
+    var expanded by remember { mutableStateOf(false) }
+    val dotColor = if (color == android.graphics.Color.TRANSPARENT) {
         MaterialTheme.colorScheme.primary
     } else {
-        Color(button.color)
+        Color(color)
     }
     val arrowRotation by animateFloatAsState(
         targetValue = if (expanded) 0f else -90f,
@@ -203,9 +203,9 @@ private fun GestureButtonOverrideCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = Spacing16, vertical = Spacing14),
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Spacing12),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Box(
                     modifier = Modifier
@@ -231,199 +231,70 @@ private fun GestureButtonOverrideCard(
             ) {
                 Column(
                     modifier = Modifier
-                        .padding(horizontal = Spacing16)
-                        .padding(bottom = Spacing16),
-                    verticalArrangement = Arrangement.spacedBy(ItemPadding),
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     OverrideSection(
                         title = stringResource(R.string.action_hide_gesture_button),
-                        enabled = button.actionSettingsOverride.hideGestureButton != null,
+                        enabled = actionSettingsOverride.hideGestureButton != null,
                         onEnabledChange = { enabled ->
-                            button.updateOverride(onUpdate) {
-                                copy(hideGestureButton = if (enabled) globalActionSettings.hideGestureButton else null)
-                            }
+                            onUpdateOverride(actionSettingsOverride.copy(
+                                hideGestureButton = if (enabled) globalActionSettings.hideGestureButton else null
+                            ))
                         },
                     ) {
                         HideGestureButtonControls(
-                            settings = button.actionSettingsOverride.hideGestureButton ?: globalActionSettings.hideGestureButton,
-                            onChange = { next -> button.updateOverride(onUpdate) { copy(hideGestureButton = next) } },
+                            settings = actionSettingsOverride.hideGestureButton ?: globalActionSettings.hideGestureButton,
+                            onChange = { next -> onUpdateOverride(actionSettingsOverride.copy(hideGestureButton = next)) },
                         )
                     }
                     OverrideSection(
                         title = stringResource(R.string.action_volume_scrub),
-                        enabled = button.actionSettingsOverride.volumeScrub != null,
+                        enabled = actionSettingsOverride.volumeScrub != null,
                         onEnabledChange = { enabled ->
-                            button.updateOverride(onUpdate) {
-                                copy(volumeScrub = if (enabled) globalActionSettings.volumeScrub else null)
-                            }
+                            onUpdateOverride(actionSettingsOverride.copy(
+                                volumeScrub = if (enabled) globalActionSettings.volumeScrub else null
+                            ))
                         },
                     ) {
                         VolumeScrubControls(
-                            settings = button.actionSettingsOverride.volumeScrub ?: globalActionSettings.volumeScrub,
-                            onChange = { next -> button.updateOverride(onUpdate) { copy(volumeScrub = next) } },
+                            settings = actionSettingsOverride.volumeScrub ?: globalActionSettings.volumeScrub,
+                            onChange = { next -> onUpdateOverride(actionSettingsOverride.copy(volumeScrub = next)) },
                         )
                     }
                     OverrideSection(
                         title = stringResource(R.string.mini_window_position_short),
-                        enabled = button.actionSettingsOverride.miniWindow != null,
+                        enabled = actionSettingsOverride.miniWindow != null,
                         onEnabledChange = { enabled ->
-                            button.updateOverride(onUpdate) { copy(miniWindow = if (enabled) globalMiniWindow else null) }
+                            onUpdateOverride(actionSettingsOverride.copy(
+                                miniWindow = if (enabled) globalMiniWindow else null
+                            ))
                         },
                     ) {
                         MiniWindowControls(
-                            settings = button.actionSettingsOverride.miniWindow ?: globalMiniWindow,
-                            onChange = { next -> button.updateOverride(onUpdate) { copy(miniWindow = next) } },
+                            settings = actionSettingsOverride.miniWindow ?: globalMiniWindow,
+                            onChange = { next -> onUpdateOverride(actionSettingsOverride.copy(miniWindow = next)) },
                         )
                     }
                     OverrideSection(
                         title = stringResource(R.string.pointer_continuous_mode),
-                        enabled = button.actionSettingsOverride.pointerContinuousMode != null,
+                        enabled = actionSettingsOverride.pointerContinuousMode != null,
                         onEnabledChange = { enabled ->
-                            button.updateOverride(onUpdate) { copy(pointerContinuousMode = if (enabled) globalPointerContinuousMode else null) }
+                            onUpdateOverride(actionSettingsOverride.copy(
+                                pointerContinuousMode = if (enabled) globalPointerContinuousMode else null
+                            ))
                         },
                     ) {
                         PointerContinuousModeControls(
-                            enabled = button.actionSettingsOverride.pointerContinuousMode ?: globalPointerContinuousMode,
-                            onChange = { next -> button.updateOverride(onUpdate) { copy(pointerContinuousMode = next) } },
+                            enabled = actionSettingsOverride.pointerContinuousMode ?: globalPointerContinuousMode,
+                            onChange = { next -> onUpdateOverride(actionSettingsOverride.copy(pointerContinuousMode = next)) },
                         )
                     }
                 }
             }
         }
     }
-}
-
-private fun GestureButton.updateOverride(
-    onUpdate: (GestureButton) -> Unit,
-    transform: GestureButtonActionSettingsOverride.() -> GestureButtonActionSettingsOverride,
-) {
-    onUpdate(copy(actionSettingsOverride = actionSettingsOverride.transform()))
-}
-
-@Composable
-private fun SubGestureOverrideCard(
-    label: String,
-    subGesture: SubGesture,
-    globalActionSettings: ActionSettings,
-    globalMiniWindow: MiniWindowSettings,
-    globalPointerContinuousMode: Boolean,
-    onUpdate: (SubGesture) -> Unit,
-) {
-    var expanded by remember(subGesture.id) { mutableStateOf(false) }
-    val dotColor = if (subGesture.color == android.graphics.Color.TRANSPARENT) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        Color(subGesture.color)
-    }
-    val arrowRotation by animateFloatAsState(
-        targetValue = if (expanded) 0f else -90f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "arrow",
-    )
-    Card(
-        onClick = { expanded = !expanded },
-        shape = CardShape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-    ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = Spacing16, vertical = Spacing14),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Spacing12),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(MarkColorSize)
-                        .clip(CircleShape)
-                        .background(dotColor.copy(alpha = 0.7f)),
-                )
-                Text(
-                    modifier = Modifier.weight(1f),
-                    text = label,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Icon(
-                    modifier = Modifier.graphicsLayer { rotationZ = arrowRotation },
-                    imageVector = Icons.Default.ArrowDropDown,
-                    contentDescription = null,
-                )
-            }
-            AnimatedVisibility(
-                visible = expanded,
-                enter = expandVertically(),
-                exit = shrinkVertically(),
-            ) {
-                Column(
-                    modifier = Modifier
-                        .padding(horizontal = Spacing16)
-                        .padding(bottom = Spacing16),
-                    verticalArrangement = Arrangement.spacedBy(ItemPadding),
-                ) {
-                    OverrideSection(
-                        title = stringResource(R.string.action_hide_gesture_button),
-                        enabled = subGesture.actionSettingsOverride.hideGestureButton != null,
-                        onEnabledChange = { enabled ->
-                            subGesture.updateOverride(onUpdate) {
-                                copy(hideGestureButton = if (enabled) globalActionSettings.hideGestureButton else null)
-                            }
-                        },
-                    ) {
-                        HideGestureButtonControls(
-                            settings = subGesture.actionSettingsOverride.hideGestureButton ?: globalActionSettings.hideGestureButton,
-                            onChange = { next -> subGesture.updateOverride(onUpdate) { copy(hideGestureButton = next) } },
-                        )
-                    }
-                    OverrideSection(
-                        title = stringResource(R.string.action_volume_scrub),
-                        enabled = subGesture.actionSettingsOverride.volumeScrub != null,
-                        onEnabledChange = { enabled ->
-                            subGesture.updateOverride(onUpdate) {
-                                copy(volumeScrub = if (enabled) globalActionSettings.volumeScrub else null)
-                            }
-                        },
-                    ) {
-                        VolumeScrubControls(
-                            settings = subGesture.actionSettingsOverride.volumeScrub ?: globalActionSettings.volumeScrub,
-                            onChange = { next -> subGesture.updateOverride(onUpdate) { copy(volumeScrub = next) } },
-                        )
-                    }
-                    OverrideSection(
-                        title = stringResource(R.string.mini_window_position_short),
-                        enabled = subGesture.actionSettingsOverride.miniWindow != null,
-                        onEnabledChange = { enabled ->
-                            subGesture.updateOverride(onUpdate) { copy(miniWindow = if (enabled) globalMiniWindow else null) }
-                        },
-                    ) {
-                        MiniWindowControls(
-                            settings = subGesture.actionSettingsOverride.miniWindow ?: globalMiniWindow,
-                            onChange = { next -> subGesture.updateOverride(onUpdate) { copy(miniWindow = next) } },
-                        )
-                    }
-                    OverrideSection(
-                        title = stringResource(R.string.pointer_continuous_mode),
-                        enabled = subGesture.actionSettingsOverride.pointerContinuousMode != null,
-                        onEnabledChange = { enabled ->
-                            subGesture.updateOverride(onUpdate) { copy(pointerContinuousMode = if (enabled) globalPointerContinuousMode else null) }
-                        },
-                    ) {
-                        PointerContinuousModeControls(
-                            enabled = subGesture.actionSettingsOverride.pointerContinuousMode ?: globalPointerContinuousMode,
-                            onChange = { next -> subGesture.updateOverride(onUpdate) { copy(pointerContinuousMode = next) } },
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-private fun SubGesture.updateOverride(
-    onUpdate: (SubGesture) -> Unit,
-    transform: GestureButtonActionSettingsOverride.() -> GestureButtonActionSettingsOverride,
-) {
-    onUpdate(copy(actionSettingsOverride = actionSettingsOverride.transform()))
 }
 
 @Composable
@@ -433,7 +304,7 @@ private fun OverrideSection(
     onEnabledChange: (Boolean) -> Unit,
     content: @Composable () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(ItemPadding)) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         ExpressiveSwitchItem(
             title = title,
             subtitle = if (enabled) stringResource(R.string.custom_action_setting) else stringResource(R.string.follow_global_action_setting),
@@ -544,5 +415,5 @@ private fun PointerContinuousModeControls(enabled: Boolean, onChange: (Boolean) 
         checked = enabled,
         onCheckedChange = onChange,
     )
-    Spacer(Modifier.height(Spacing12))
+    Spacer(Modifier.height(12.dp))
 }

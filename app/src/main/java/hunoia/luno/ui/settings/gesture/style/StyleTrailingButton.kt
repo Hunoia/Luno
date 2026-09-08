@@ -11,7 +11,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.config.model.ActionPanelStyles
-import hunoia.luno.ui.theme.Spacing4
 
 @Composable
 fun StyleTrailingButton(
@@ -25,7 +24,7 @@ fun StyleTrailingButton(
     ) {
         Text(
             text = actionPanelStyleText(currentStyle),
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = Spacing4),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

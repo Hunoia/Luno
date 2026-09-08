@@ -23,21 +23,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import hunoia.luno.ui.theme.CardShape
-import hunoia.luno.ui.theme.Spacing12
-import hunoia.luno.ui.theme.Spacing16
-import hunoia.luno.ui.theme.Spacing4
-import hunoia.luno.ui.theme.Spacing48
+import androidx.compose.ui.unit.dp
 
 @Composable
 fun ExpressiveCard(
-    icon: ImageVector,
     title: String,
     subtitle: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
     accent: Color = MaterialTheme.colorScheme.primaryContainer,
     onAccent: Color = MaterialTheme.colorScheme.onPrimaryContainer,
-    iconSize: Dp = Spacing48,
+    iconSize: Dp = 48.dp,
     trailing: @Composable (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -47,24 +44,26 @@ fun ExpressiveCard(
         shape = CardShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
     ) {
-        Column(modifier = Modifier.padding(Spacing16)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Spacing12),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Surface(
-                    modifier = Modifier.size(iconSize),
-                    shape = MaterialTheme.shapes.large,
-                    color = accent,
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(imageVector = icon, contentDescription = null, tint = onAccent)
+                if (icon != null) {
+                    Surface(
+                        modifier = Modifier.size(iconSize),
+                        shape = MaterialTheme.shapes.large,
+                        color = accent,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(imageVector = icon, contentDescription = null, tint = onAccent)
+                        }
                     }
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(text = title, style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.height(Spacing4))
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         text = subtitle,
                         style = MaterialTheme.typography.bodySmall,
@@ -73,7 +72,7 @@ fun ExpressiveCard(
                 }
                 trailing?.invoke()
             }
-            Spacer(Modifier.height(Spacing16))
+            Spacer(Modifier.height(16.dp))
             content()
         }
     }

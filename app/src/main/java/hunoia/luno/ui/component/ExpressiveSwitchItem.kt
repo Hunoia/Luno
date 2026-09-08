@@ -31,11 +31,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import hunoia.luno.config.defaults.SettingsUiDefaults
-import hunoia.luno.ui.theme.ContentPaddingHorizontal
-import hunoia.luno.ui.theme.ContentPaddingVerticalWithSection
+import hunoia.luno.ui.theme.CardShape
 import hunoia.luno.ui.theme.DividerHeight
-import hunoia.luno.ui.theme.IconTextPadding
-import hunoia.luno.ui.theme.ItemPadding
 import hunoia.luno.ui.theme.MainSecondaryTextPadding
 import hunoia.luno.ui.theme.MarkColorSize
 import hunoia.luno.ui.theme.MinItemHeight
@@ -68,7 +65,7 @@ fun ExpressiveSwitchItem(
             }
         },
         enabled = enabled,
-        shape = MaterialTheme.shapes.large,
+        shape = CardShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Row(
@@ -83,11 +80,11 @@ fun ExpressiveSwitchItem(
                     it.heightIn(min = minHeight)
                 }
                 .padding(
-                    horizontal = ContentPaddingHorizontal,
-                    vertical = ContentPaddingVerticalWithSection,
+                    horizontal = 12.dp,
+                    vertical = 12.dp,
                 ),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(ItemPadding),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             val paddingVV = when (mainSecondaryTextPadding) {
                 true -> MainSecondaryTextPadding
@@ -101,7 +98,7 @@ fun ExpressiveSwitchItem(
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(IconTextPadding),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (icon != null) {
@@ -135,7 +132,7 @@ fun ExpressiveSwitchItem(
                         modifier = Modifier.width(IntrinsicSize.Max),
                         text = subtitle,
                         color = secondaryTextColor,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )

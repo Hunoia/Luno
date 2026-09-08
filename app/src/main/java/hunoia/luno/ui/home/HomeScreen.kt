@@ -5,16 +5,23 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.contract.ActivityResultContracts.CreateDocument
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -26,14 +33,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
@@ -48,9 +59,11 @@ import hunoia.luno.ui.component.MyColumn
 import hunoia.luno.ui.component.TopBar
 import hunoia.luno.ui.component.color.ColorPickerBottomSheet
 import hunoia.luno.ui.component.color.ColorSelection
-import hunoia.luno.ui.theme.SectionPadding
-import hunoia.luno.ui.theme.Spacing12
+import hunoia.luno.ui.actionlibrary.ActionLibraryScreen
+import hunoia.luno.ui.theme.ExpressiveMotion
 import hunoia.luno.ui.theme.resolveColor
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreHoriz
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -61,19 +74,17 @@ fun HomeScreen(
     onNavToPointerSettings: () -> Unit = {},
     onNavToFrozenManage: () -> Unit = {},
     onNavToAppBlacklist: () -> Unit = {},
-    onNavToActionLibrary: () -> Unit = {},
     onNavToActionSettings: () -> Unit = {},
     vm: HomeVM = viewModel()
 ) {
     val scrollState = rememberScrollState()
+    var mainTab by rememberSaveable { mutableStateOf(MainTab.Home) }
     var showResetConfirm by remember { mutableStateOf(false) }
     var showRestoreConfirm by remember { mutableStateOf(false) }
     var pendingRestoreUri by remember { mutableStateOf<Uri?>(null) }
     var colorPickerTarget by remember { mutableStateOf<Any?>(null) }
     var colorPickerColor by remember { mutableStateOf(Color.Transparent) }
     var myColumnWindowY by remember { mutableIntStateOf(0) }
-    var cardAreaWindowY by remember { mutableIntStateOf(0) }
-    var gestureSectionWindowY by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
 
     DisposableEffect(Unit) {
@@ -87,13 +98,13 @@ fun HomeScreen(
                 is UiEvent.ScrollToBottom -> {
                     scrollState.animateScrollTo(
                         value = scrollState.maxValue,
-                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                        animationSpec = ExpressiveMotion.slowSpatialSpec()
                     )
                 }
                 is UiEvent.ScrollToEvent -> {
                     scrollState.animateScrollTo(
                         value = event.offsetY,
-                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                        animationSpec = ExpressiveMotion.slowSpatialSpec()
                     )
                 }
             }
@@ -122,7 +133,7 @@ fun HomeScreen(
             }
         }
 
-        Box {
+        Box(modifier = Modifier.fillMaxSize()) {
             if (colorPickerTarget != null) {
                 val scheme = MaterialTheme.colorScheme
                 val themeColorArgb = remember(scheme) {
@@ -186,165 +197,175 @@ fun HomeScreen(
                 )
             }
 
-            Scaffold(topBar = {
-                TopBar(
-                    onBack = { },
-                    title = stringResource(id = R.string.home_title),
-                    showBackIcon = false,
-                    actions = {}
-                )
-            }) { padding ->
-                MyColumn(
-                    modifier = Modifier
-                        .padding(padding)
-                        .onGloballyPositioned { coords ->
-                            myColumnWindowY = coords.positionInWindow().y.roundToInt()
-                        },
-                    scrollState = scrollState,
-                ) {
-                    HomeRuntimeStatusCard(
-                        status = uiState.runtimeStatus,
-                        isGestureSwitchEnabled = uiState.isGestureSwitchEnabled,
-                        onGestureSwitchEnabledChange = vm::onAppGestureEnabledChange,
-                        onAction = { action ->
-                            when (action) {
-                                HomeRuntimeAction.None -> Unit
-                                HomeRuntimeAction.OpenAccessibility -> context.gotoAccessibilitySettings()
-                                HomeRuntimeAction.EnableGesture -> vm.onAppGestureEnabledChange(true)
-                                HomeRuntimeAction.RequestShizukuPermission -> vm.requestShizukuPermission()
-                                HomeRuntimeAction.RefreshStatus -> {
-                                    vm.updatePermissionState()
-                                    vm.refreshShizukuStatus()
-                                }
-                                HomeRuntimeAction.EnableKeepAlive -> vm.onKeepAliveChange(true)
-                            }
-                        },
-                    )
+            val topBarAlpha by animateFloatAsState(
+                targetValue = (scrollState.value / 160f).coerceIn(0f, 1f),
+                animationSpec = tween(durationMillis = 240),
+                label = "topBarGradientAlpha",
+            )
 
-                    Spacer(Modifier.height(SectionPadding))
-
-                    HomeCoreConfigSection(
-                        onActionSettingsClick = onNavToActionSettings,
-                        onActionLibraryClick = onNavToActionLibrary,
-                        onPointerClick = onNavToPointerSettings,
-                    )
-
-                    Spacer(Modifier.height(SectionPadding))
-
-                    LaunchedEffect(
-                        uiState.isGestureButtonListExpanded,
-                        uiState.isSubGestureListExpanded,
-                    ) {
-                        if (uiState.isGestureButtonListExpanded || uiState.isSubGestureListExpanded) {
-                            kotlinx.coroutines.delay(120)
-                            val targetScroll = (scrollState.value + gestureSectionWindowY - myColumnWindowY - 60).coerceAtLeast(0)
-                            scrollState.animateScrollTo(
-                                targetScroll,
-                                animationSpec = tween(
-                                    durationMillis = 400,
-                                    easing = FastOutSlowInEasing,
-                                ),
-                            )
-                        }
+            Scaffold(
+                topBar = {
+                    if (mainTab != MainTab.ActionLibrary) {
+                        TopBar(
+                            title = when (mainTab) {
+                                MainTab.Home -> stringResource(id = R.string.home_title)
+                                MainTab.Gesture -> stringResource(id = R.string.gesture_settings)
+                                MainTab.ActionLibrary -> stringResource(id = R.string.action_library)
+                            },
+                            showBackIcon = false,
+                            actions = {},
+                            gradientAlpha = topBarAlpha,
+                        )
                     }
+                }
+            ) { padding ->
+                Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+                    when (mainTab) {
+                        MainTab.Home -> {
+                            MyColumn(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .onGloballyPositioned { coords ->
+                                        myColumnWindowY = coords.positionInWindow().y.roundToInt()
+                                    },
+                                scrollState = scrollState,
+                            ) {
+                                HomeRuntimeStatusCard(
+                                    isGestureSwitchEnabled = uiState.isGestureSwitchEnabled,
+                                    onGestureSwitchEnabledChange = { enabled ->
+                                        vm.onGestureSwitchChange(enabled) { context.gotoAccessibilitySettings() }
+                                    },
+                                )
 
-                    HomeGestureSections(
-                        uiState = uiState,
-                        onGestureHeaderClick = {
-                            if (uiState.isGestureButtonListExpanded) {
-                                vm.expandGestureButtonList(false)
-                            } else {
-                                vm.expandSubGestureList(false)
-                                vm.expandGestureButtonList(true)
-                            }
-                        },
-                        onSubHeaderClick = {
-                            if (uiState.isSubGestureListExpanded) {
-                                vm.expandSubGestureList(false)
-                            } else {
-                                vm.expandGestureButtonList(false)
-                                vm.expandSubGestureList(true)
-                            }
-                        },
-                        onGestureButtonClick = onNavToGestureButtonSettings,
-                        onSubGestureClick = onNavToSubGestureEditor,
-                        onGestureCheckedChange = { button, enabled -> vm.onGestureButtonEnabledChange(button, enabled) },
-                        onSubCheckedChange = { gesture, enabled -> vm.onSubGestureEnabledChange(gesture, enabled) },
-                        onAddGesture = { vm.addGestureButton() },
-                        onAddSub = {
-                            val id = java.util.UUID.randomUUID().toString()
-                            vm.addSubGesture(id)
-                        },
-                        onMarkColorClick = { target ->
-                            colorPickerTarget = target
-                            colorPickerColor = when (target) {
-                                is GestureButton -> Color(target.color)
-                                is SubGesture -> Color(target.color)
-                                else -> Color.Transparent
-                            }
-                        },
-                        onGestureButtonRename = { button ->
-                            vm.showRenameDialog(RenameTarget.GestureButton(button = button))
-                        },
-                        onSubGestureRename = { gesture ->
-                            vm.showRenameDialog(RenameTarget.SubGesture(gesture = gesture))
-                        },
-                        onSectionPositioned = { gestureSectionWindowY = it },
-                    )
+                                Spacer(Modifier.height(24.dp))
 
-                    Spacer(Modifier.height(SectionPadding))
-
-                    HomeAdvancedSection(
-                        uiState = uiState,
-                        onExcludeClick = onNavToAppBlacklist,
-                        onFrozenClick = onNavToFrozenManage,
-                        onFreezeClick = { vm.oneKeyFreeze() },
-                        onUnfreezeClick = { vm.oneKeyUnfreeze() },
-                        onBackupClick = {
-                            val appName = context.getString(context.applicationInfo.labelRes)
-                            val date = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
-                            createFileLauncher.launch("${appName}_$date.zip")
-                        },
-                        onRestoreClick = { getFileLauncher.launch("*/*") },
-                        onResetToggle = { showResetConfirm = !showResetConfirm },
-                        showResetConfirm = showResetConfirm,
-                        onResetConfirm = {
-                            vm.reset()
-                            showResetConfirm = false
-                        },
-                        onResetDismiss = { showResetConfirm = false },
-                        onCardAreaPosition = { cardAreaWindowY = it },
-                    )
-
-                    LaunchedEffect(showResetConfirm) {
-                        if (showResetConfirm) {
-                            kotlinx.coroutines.delay(120)
-                            if (cardAreaWindowY > 0 && myColumnWindowY > 0) {
-                                val targetScroll = (cardAreaWindowY - myColumnWindowY - 120).coerceAtLeast(0)
-                                if (targetScroll > scrollState.value) {
-                                    scrollState.animateScrollTo(
-                                        targetScroll,
-                                        animationSpec = tween(
-                                            durationMillis = 400,
-                                            easing = FastOutSlowInEasing,
-                                        ),
+                                Column {
+                                    HomeActionSettingsCard(onClick = onNavToActionSettings)
+                                    Spacer(Modifier.height(8.dp))
+                                    HomePointerCard(onClick = onNavToPointerSettings)
+                                    Spacer(Modifier.height(8.dp))
+                                    HomeExcludeCard(onClick = onNavToAppBlacklist)
+                                    Spacer(Modifier.height(8.dp))
+                                    HomeFrozenCard(
+                                        uiState = uiState,
+                                        onClick = onNavToFrozenManage,
+                                        onFreezeClick = { vm.oneKeyFreeze() },
+                                        onUnfreezeClick = { vm.oneKeyUnfreeze() },
                                     )
                                 }
+                            }
+                        }
+
+                        MainTab.Gesture -> {
+                            GesturePanel(
+                                gestureButtons = uiState.gestureButtons,
+                                subGestures = uiState.subGestures,
+                                onGestureButtonClick = onNavToGestureButtonSettings,
+                                onSubGestureClick = onNavToSubGestureEditor,
+                                onGestureCheckedChange = { button, enabled -> vm.onGestureButtonEnabledChange(button, enabled) },
+                                onSubCheckedChange = { gesture, enabled -> vm.onSubGestureEnabledChange(gesture, enabled) },
+                                onAddGesture = { vm.addGestureButton() },
+                                onAddSub = {
+                                    val id = java.util.UUID.randomUUID().toString()
+                                    vm.addSubGesture(id)
+                                },
+                                onMarkColorClick = { target ->
+                                    colorPickerTarget = target
+                                    colorPickerColor = when (target) {
+                                        is GestureButton -> Color(target.color)
+                                        is SubGesture -> Color(target.color)
+                                        else -> Color.Transparent
+                                    }
+                                },
+                                onGestureButtonRename = { button ->
+                                    vm.showRenameDialog(RenameTarget.GestureButton(button = button))
+                                },
+                                onSubGestureRename = { gesture ->
+                                    vm.showRenameDialog(RenameTarget.SubGesture(gesture = gesture))
+                                },
+                            )
+                        }
+
+                        MainTab.ActionLibrary -> {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(bottom = 88.dp)
+                            ) {
+                                ActionLibraryScreen(onBack = { mainTab = MainTab.Home })
                             }
                         }
                     }
                 }
 
-                RenameDialog(
-                    target = uiState.renameDialogTarget,
-                    onDismissRequest = { vm.hideRenameDialog() },
-                    onConfirm = { target, name -> vm.doRename(target, name) },
-                )
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 16.dp),
+                    verticalAlignment = Alignment.Bottom,
+                ) {
+                    if (showResetConfirm) {
+                        AlertDialog(
+                            onDismissRequest = { showResetConfirm = false },
+                            title = { Text(stringResource(id = R.string.reset_default_settings_warning)) },
+                            text = { Text(stringResource(id = R.string.reset_default_settings_warning_desc)) },
+                            confirmButton = {
+                                TextButton(
+                                    onClick = {
+                                        vm.reset()
+                                        showResetConfirm = false
+                                    }
+                                ) {
+                                    Text(stringResource(id = R.string.confirm_reset))
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showResetConfirm = false }) {
+                                    Text(stringResource(id = R.string.cancel))
+                                }
+                            },
+                        )
+                    }
+
+                    MainTabBar(
+                        selectedTab = mainTab,
+                        onTabSelected = { tab -> mainTab = tab },
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .padding(start = 12.dp)
+                            .size(52.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                            .clickable { vm.showMoreMenu() },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        MorePopupMenu(
+                            expanded = uiState.moreMenuVisible,
+                            onDismissRequest = { vm.hideMoreMenu() },
+                            onBackupClick = {
+                                val appName = context.getString(context.applicationInfo.labelRes)
+                                val date = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
+                                createFileLauncher.launch("${appName}_$date.zip")
+                            },
+                            onRestoreClick = { getFileLauncher.launch("*/*") },
+                            onResetClick = { showResetConfirm = true },
+                        )
+
+                        Icon(
+                            imageVector = Icons.Filled.MoreHoriz,
+                            contentDescription = stringResource(id = R.string.more),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
 
-            GestureButtonOverlay(
-                visible = uiState.isGestureButtonListExpanded,
-                gestureButtons = uiState.gestureButtons,
+            RenameDialog(
+                target = uiState.renameDialogTarget,
+                onDismissRequest = { vm.hideRenameDialog() },
+                onConfirm = { target, name -> vm.doRename(target, name) },
             )
         }
     }

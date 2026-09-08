@@ -94,7 +94,7 @@ fun PasswordGeneratorPanel(
                 .fillMaxWidth()
                 .heightIn(max = 560.dp)
                 .verticalScroll(rememberScrollState())
-                .padding(Spacing20),
+                .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
                     OutlinedTextField(
@@ -147,7 +147,7 @@ fun PasswordGeneratorPanel(
                                 activeTrackColor = MaterialTheme.colorScheme.tertiary,
                             )
                         )
-                        Spacer(modifier = Modifier.width(Spacing12))
+                        Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             text = config.length.toString(),
                             style = MaterialTheme.typography.bodyLarge,
@@ -173,7 +173,7 @@ fun PasswordGeneratorPanel(
                         FilledTonalIconButton(onClick = { regenerate() }) {
                             Icon(imageVector = Icons.Default.Refresh, contentDescription = null)
                         }
-                        Spacer(modifier = Modifier.width(Spacing24))
+                        Spacer(modifier = Modifier.width(24.dp))
                         FilledTonalIconButton(
                             enabled = password.isNotEmpty(),
                             onClick = {

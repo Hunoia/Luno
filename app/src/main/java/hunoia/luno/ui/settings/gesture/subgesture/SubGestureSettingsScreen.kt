@@ -193,7 +193,7 @@ fun SubGestureSettingsScreen(
                 postfixTitle = {
                     Box(
                         modifier = Modifier
-                            .padding(start = IconTextPadding)
+                            .padding(start = 8.dp)
                             .size(MarkColorSize)
                             .background(
                                 color = Color(gesture.color).copy(alpha = GestureButtonColorAlpha),
@@ -219,7 +219,7 @@ fun SubGestureSettingsScreen(
         }) { innerPadding ->
             MyColumn(
                 modifier = Modifier.padding(innerPadding),
-                verticalArrangement = Arrangement.spacedBy(Spacing12)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 val styleGestureButton = remember(gesture.id, gesture.color, gesture.longSlideActionPanelStyles) {
                     GestureButton(
@@ -359,7 +359,7 @@ private fun SubGestureVibrationContent(
     gesture: SubGesture,
     vm: SubGestureSettingsVM
 ) {
-    MyColumn(verticalArrangement = Arrangement.spacedBy(Spacing8)) {
+    MyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         CompactSettingsSwitchRow(
             onCheckedChange = { vm.onSubSlideVibrateChange(it) },
             checked = gesture.slideVibrate,

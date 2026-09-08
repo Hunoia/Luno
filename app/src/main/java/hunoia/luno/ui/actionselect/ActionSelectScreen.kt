@@ -175,7 +175,7 @@ fun ActionSelectContent(
                     Box(modifier = Modifier.weight(1f)) {
                         ActionPage(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(bottom = ScrollBottomPadding),
+                            contentPadding = PaddingValues(bottom = 24.dp),
                             actions = uiState.actions,
                             actionLibraryEntries = uiState.actionLibraryEntries,
                             subGestures = uiState.subGestures,
@@ -268,13 +268,13 @@ private fun SelectedBottomBar(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shadowElevation = 8.dp,
+        tonalElevation = 8.dp,
         color = MaterialTheme.colorScheme.surfaceContainer,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = ContentPaddingHorizontal * 2, vertical = Spacing8),
+                .padding(horizontal = 12.dp * 2, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -287,10 +287,10 @@ private fun SelectedBottomBar(
                 Icon(
                     imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                     contentDescription = null,
-                    modifier = Modifier.size(Spacing20),
+                    modifier = Modifier.size(20.dp),
                 )
             }
-            Spacer(Modifier.width(Spacing4))
+            Spacer(Modifier.width(4.dp))
             FilledTonalButton(onClick = onDone) {
                 Text(stringResource(R.string.done))
             }

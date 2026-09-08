@@ -19,7 +19,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import hunoia.luno.ui.theme.ShapeLarge
-import hunoia.luno.ui.theme.Spacing64
 
 @Composable
 fun EmptyState(
@@ -30,19 +29,19 @@ fun EmptyState(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = Spacing24, horizontal = Spacing16),
+            .padding(vertical = 24.dp, horizontal = 16.dp),
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
         Column(
-            modifier = Modifier.padding(vertical = Spacing32, horizontal = Spacing24),
+            modifier = Modifier.padding(vertical = 32.dp, horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(Spacing12)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(Spacing64),
+                modifier = Modifier.size(64.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = IconEmptyAlpha)
             )
             Text(

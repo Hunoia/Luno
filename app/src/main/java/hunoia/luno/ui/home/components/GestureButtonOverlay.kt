@@ -3,6 +3,7 @@ package hunoia.luno.ui.home
 import hunoia.luno.ui.theme.*
 import hunoia.luno.config.defaults.SettingsUiDefaults.GestureButtonColorAlpha
 import hunoia.luno.gesture.GestureFacade
+import androidx.compose.ui.unit.dp
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
@@ -45,14 +46,14 @@ fun GestureButtonOverlay(
                             },
                             topLeft = bounds.topLeft,
                             size = bounds.size,
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(Spacing4.toPx(), Spacing4.toPx())
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx())
                         )
                         drawRoundRect(
                             color = colorScheme.outlineVariant,
                             topLeft = bounds.topLeft,
                             size = bounds.size,
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(Spacing4.toPx(), Spacing4.toPx()),
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = Spacing1.toPx())
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx()),
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
                         )
                     }
                 }

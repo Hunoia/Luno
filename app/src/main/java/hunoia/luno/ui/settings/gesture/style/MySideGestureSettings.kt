@@ -16,8 +16,7 @@ import hunoia.luno.R
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.ui.component.ExpressiveRow
-import hunoia.luno.ui.theme.Spacing20
-import hunoia.luno.ui.theme.Spacing32
+import androidx.compose.ui.unit.dp
 
 @Composable
 fun MySideGestureSettings(
@@ -41,7 +40,7 @@ fun MySideGestureSettings(
         trailing = trailing,
         icon = {
             Surface(
-                modifier = Modifier.size(Spacing32),
+                modifier = Modifier.size(32.dp),
                 shape = MaterialTheme.shapes.medium,
                 color = accent,
             ) {
@@ -49,7 +48,7 @@ fun MySideGestureSettings(
                     Icon(
                         modifier = Modifier
                             .graphicsLayer { rotationZ = rotation }
-                            .size(Spacing20),
+                            .size(20.dp),
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
                         tint = onAccent,

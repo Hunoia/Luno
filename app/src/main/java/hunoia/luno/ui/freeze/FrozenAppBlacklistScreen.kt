@@ -56,6 +56,7 @@ import hunoia.luno.ui.component.EmptyState
 import hunoia.luno.ui.component.TopBar
 import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.theme.*
+import androidx.compose.ui.unit.dp
 
 @Composable
 fun FrozenAppBlacklistContent(
@@ -150,15 +151,15 @@ fun FrozenAppBlacklistContent(
                             AppSearchBar(
                                 query = searchQuery,
                                 onQueryChange = { searchQuery = it },
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = ContentPaddingHorizontal),
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                                 placeholder = stringResource(R.string.search_app_hint),
                             )
 
                             LazyRow(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = ContentPaddingHorizontal, vertical = Spacing4),
-                                horizontalArrangement = Arrangement.spacedBy(Spacing8)
+                                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 item {
                                     FilterChip(
@@ -206,7 +207,7 @@ fun FrozenAppBlacklistContent(
 
                             if (excludedCount > 0) {
                                 Surface(
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = ContentPaddingHorizontal * 2, vertical = Spacing4),
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp * 2, vertical = 4.dp),
                                     shape = SheetTopShape,
                                     color = MaterialTheme.colorScheme.surfaceContainerHigh
                                 ) {
@@ -217,14 +218,14 @@ fun FrozenAppBlacklistContent(
                                         ),
                                         style = MaterialTheme.typography.labelMedium,
                                         color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(horizontal = Spacing16, vertical = Spacing10)
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
                                     )
                                 }
                             }
 
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(bottom = ScrollBottomPadding)
+                                contentPadding = PaddingValues(bottom = 24.dp)
                             ) {
                                 if (!hasAnyMatch && (searchQuery.isNotBlank() || filterType != null)) {
                                     item {
@@ -282,7 +283,7 @@ private fun AppBlacklistItem(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = Spacing12, vertical = Spacing4),
+            .padding(horizontal = 12.dp, vertical = 4.dp),
         onClick = { onSelect(!selected) },
         shape = CardShape,
         color = if (selected) MaterialTheme.colorScheme.primaryContainer
@@ -291,13 +292,13 @@ private fun AppBlacklistItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = ContentPaddingVertical),
+                .padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             val context = LocalContext.current
             AsyncImage(
                 modifier = Modifier
-                    .padding(start = ContentPaddingHorizontal)
+                    .padding(start = 12.dp)
                     .size(MinInteractiveSize),
                 model = appInfo.icon,
                 contentDescription = null,
@@ -306,7 +307,7 @@ private fun AppBlacklistItem(
             )
             Column(
                 modifier = Modifier
-                    .padding(start = IconTextPadding, end = ItemPadding)
+                    .padding(start = 8.dp, end = 16.dp)
                     .weight(1f)
             ) {
                 Text(

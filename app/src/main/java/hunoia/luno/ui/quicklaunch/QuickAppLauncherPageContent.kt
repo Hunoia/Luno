@@ -67,7 +67,7 @@ internal fun SettingsPageContent(
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .padding(vertical = Spacing6)
+                    .padding(vertical = 6.dp)
                     .clickable {
                         onNavigateToApp()
                     }
@@ -75,7 +75,7 @@ internal fun SettingsPageContent(
                 Box(
                     modifier = Modifier
                         .width(44.dp)
-                        .height(Spacing5)
+                        .height(5.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
                 )
@@ -127,7 +127,7 @@ internal fun PasswordPageContent(
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .padding(vertical = Spacing6)
+                    .padding(vertical = 6.dp)
                     .clickable {
                         onNavigateToApp()
                     }
@@ -135,7 +135,7 @@ internal fun PasswordPageContent(
                 Box(
                     modifier = Modifier
                         .width(44.dp)
-                        .height(Spacing5)
+                        .height(5.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
                 )

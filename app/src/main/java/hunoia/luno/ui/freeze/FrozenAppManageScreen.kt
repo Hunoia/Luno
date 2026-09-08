@@ -53,6 +53,7 @@ import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.EmptyState
 import hunoia.luno.ui.component.TopBar
 import hunoia.luno.ui.theme.*
+import androidx.compose.ui.unit.dp
 
 @Composable
 fun FrozenAppManageContent(
@@ -113,15 +114,15 @@ fun FrozenAppManageContent(
                 AppSearchBar(
                     query = searchQuery,
                     onQueryChange = { vm.onQueryChange(it); searchQuery = it },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = ContentPaddingHorizontal),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                     placeholder = stringResource(R.string.search_app_hint),
                 )
 
                 LazyRow(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = ContentPaddingHorizontal, vertical = Spacing4),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing8)
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     item {
                         val isAll = filterType == null
@@ -159,7 +160,7 @@ fun FrozenAppManageContent(
                 }
 
                 Surface(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = ContentPaddingHorizontal * 2, vertical = Spacing4),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp * 2, vertical = 4.dp),
                     shape = SheetTopShape,
                     color = MaterialTheme.colorScheme.surfaceContainerHigh
                 ) {
@@ -167,7 +168,7 @@ fun FrozenAppManageContent(
                         text = stringResource(R.string.frozen_app_count_info, selectedCount, frozenCount),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = Spacing16, vertical = Spacing10)
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
                     )
                 }
 
@@ -175,7 +176,7 @@ fun FrozenAppManageContent(
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = ScrollBottomPadding)
+                    contentPadding = PaddingValues(bottom = 24.dp)
                 ) {
                     if (!hasAnyMatch && (searchQuery.isNotBlank() || filterType != null)) {
                         item {
@@ -213,7 +214,7 @@ private fun FrozenAppItem(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = Spacing12, vertical = Spacing4),
+            .padding(horizontal = 12.dp, vertical = 4.dp),
         shape = CardShape,
         color = if (checked) MaterialTheme.colorScheme.primaryContainer
                 else MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -225,12 +226,12 @@ private fun FrozenAppItem(
                     onClick = { onCheckedChange(!checked) },
                     onLongClick = onLongClick
                 )
-                .padding(vertical = ContentPaddingVertical),
+                .padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             AsyncImage(
                 modifier = Modifier
-                    .padding(start = ContentPaddingHorizontal)
+                    .padding(start = 12.dp)
                     .size(MinInteractiveSize),
                 model = app.icon,
                 contentDescription = null,
@@ -239,7 +240,7 @@ private fun FrozenAppItem(
             )
             Column(
                 modifier = Modifier
-                    .padding(start = IconTextPadding, end = ItemPadding)
+                    .padding(start = 8.dp, end = 16.dp)
                     .weight(1f)
             ) {
                 Text(
@@ -261,7 +262,7 @@ private fun FrozenAppItem(
             }
             if (isFrozen) {
                 Icon(
-                    modifier = Modifier.padding(end = Spacing4),
+                    modifier = Modifier.padding(end = 4.dp),
                     imageVector = Icons.Default.AcUnit,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant

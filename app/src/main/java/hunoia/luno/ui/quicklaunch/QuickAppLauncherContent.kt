@@ -160,7 +160,7 @@ internal fun QuickAppLauncherContent(
                     shape = MaterialTheme.shapes.extraLarge,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
                 ) {
-                    Column(modifier = Modifier.padding(horizontal = Spacing12, vertical = Spacing10)) {
+                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
                         val contentHeightFraction = state.launcherSettings.contentHeightFraction
                         val candidateRows = state.launcherSettings.candidateRows.coerceIn(1, 3)
                         val chunkedApps = remember(state.filteredApps, candidateRows) { state.filteredApps.chunked(candidateRows) }
@@ -168,10 +168,10 @@ internal fun QuickAppLauncherContent(
                         val screenHeightPx = DensityProvider.screenHeightPx
                         val panelHeightDp = with(density) { (screenHeightPx * contentHeightFraction).toDp() }
                         val keyHeight = state.launcherSettings.keyHeightDp.dp
-                        val keyboardHeight = keyHeight * 3 + Spacing6 * 2
+                        val keyboardHeight = keyHeight * 3 + 6.dp * 2
                         val minCandidateHeight = 40.dp * candidateRows
-                        val contentDp = (panelHeightDp - Spacing10 * 2).coerceAtLeast(keyboardHeight + Spacing6 + minCandidateHeight)
-                        val candidateHeight = contentDp - keyboardHeight - Spacing6
+                        val contentDp = (panelHeightDp - 10.dp * 2).coerceAtLeast(keyboardHeight + 6.dp + minCandidateHeight)
+                        val candidateHeight = contentDp - keyboardHeight - 6.dp
                         val contentHeight = contentDp
                         AnimatedContent(
                             targetState = currentPage,
@@ -208,19 +208,19 @@ internal fun QuickAppLauncherContent(
                                                         state.clearTokens()
                                                     }
                                                 )
-                                                Spacer(modifier = Modifier.height(Spacing6))
+                                                Spacer(modifier = Modifier.height(6.dp))
                                                 KeyboardRow(
                                                     view,
                                                     listOf("QW" to "qw", "ER" to "er", "TY" to "ty", "UI" to "ui", "OP" to "op"),
                                                     keyHeight = keyHeight
                                                 ) { token -> state.addToken(token) }
-                                                Spacer(modifier = Modifier.height(Spacing6))
+                                                Spacer(modifier = Modifier.height(6.dp))
                                                 KeyboardRow(
                                                     view,
                                                     listOf("AS" to "as", "DF" to "df", "GH" to "gh", "JK" to "jk", "L" to "l"),
                                                     keyHeight = keyHeight
                                                 ) { token -> state.addToken(token) }
-                                                Spacer(modifier = Modifier.height(Spacing6))
+                                                Spacer(modifier = Modifier.height(6.dp))
                                                 KeyboardRow(
                                                     view,
                                                     listOf("调整" to null, "ZX" to "zx", "CV" to "cv", "BN" to "bn", "M" to "m", "删除" to null),

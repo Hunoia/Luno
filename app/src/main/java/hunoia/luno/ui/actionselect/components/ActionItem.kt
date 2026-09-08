@@ -73,7 +73,7 @@ fun ActionItem(
         modifier = modifier
             .alpha(if (enabled) 1f else SettingsUiDefaults.DisabledAlpha)
             .fillMaxWidth()
-            .padding(horizontal = Spacing12, vertical = Spacing4),
+            .padding(horizontal = 12.dp, vertical = 4.dp),
         onClick = { onSelect(!selected) },
         enabled = enabled,
         shape = CardShape,
@@ -83,20 +83,20 @@ fun ActionItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = MinInteractiveSize)
-                .padding(vertical = Spacing8),
+                .padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             val context = LocalContext.current
             val icon = actionIcon(action)
             Surface(
                 modifier = Modifier
-                    .padding(start = ContentPaddingHorizontal)
-                    .size(Spacing40),
+                    .padding(start = 12.dp)
+                    .size(40.dp),
                 shape = IconBoxShape,
                 color = if (selected) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.primaryContainer,
             ) {
-                Box(modifier = Modifier.padding(Spacing8), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.padding(8.dp), contentAlignment = Alignment.Center) {
                     if (icon is ImageVector) {
                         Image(
                             imageVector = icon,
@@ -120,12 +120,12 @@ fun ActionItem(
 
             Column(
                 modifier = Modifier
-                    .padding(horizontal = ItemPadding)
+                    .padding(horizontal = 16.dp)
                     .weight(1f)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(ItemPadding)
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
                         modifier = Modifier
@@ -139,7 +139,7 @@ fun ActionItem(
                     if (showSettings) {
                         Box(
                             modifier = Modifier
-                                .size(Spacing32)
+                                .size(32.dp)
                                 .combinedClickable(
                                     enabled = enabled,
                                     onClick = { onSettingsClick?.invoke() },
@@ -154,7 +154,7 @@ fun ActionItem(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                modifier = Modifier.size(Spacing20),
+                                modifier = Modifier.size(20.dp),
                                 imageVector = Icons.Default.Settings,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -188,7 +188,7 @@ fun SelectedBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = ContentPaddingHorizontal * 2, vertical = Spacing4),
+            .padding(horizontal = 12.dp * 2, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -203,7 +203,7 @@ fun SelectedBar(
         Spacer(Modifier.weight(1f))
         TextButton(
             onClick = onClearAll,
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = Spacing2)
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
         ) {
             Text(stringResource(R.string.clear_all))
         }

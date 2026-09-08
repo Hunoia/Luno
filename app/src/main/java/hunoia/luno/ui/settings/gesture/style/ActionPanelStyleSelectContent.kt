@@ -43,9 +43,6 @@ import hunoia.luno.R
 import hunoia.luno.config.model.ActionPanelStylesDefaults
 import hunoia.luno.config.model.ActionPanelStyles
 import hunoia.luno.config.model.ArcStyle
-import hunoia.luno.ui.theme.ContentPaddingHorizontal
-import hunoia.luno.ui.theme.ContentPaddingVerticalWithSection
-import hunoia.luno.ui.theme.ItemPadding
 import hunoia.luno.ui.theme.MinItemHeightNoSecondary
 import hunoia.luno.ui.component.MyColumn
 import hunoia.luno.ui.component.input.MyTextSlider
@@ -62,7 +59,7 @@ fun ActionPanelStyleSelectContent(
 ) {
     val type = ActionPanelStyles.TYPE_ARC
     Column {
-        MyColumn(verticalArrangement = Arrangement.spacedBy(Spacing12)) {
+        MyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             ActionPanelStyleCard(
                 nameRes = R.string.action_panel_style_arc,
                 descRes = R.string.action_panel_style_arc_hint,
@@ -84,7 +81,7 @@ fun ActionPanelStyleConfigContent(
     var itemSizeDp by remember(style.itemSize) { mutableFloatStateOf(with(density) { style.itemSize.toDp().value }) }
     var spreadSpacing by remember(style.spreadSpacing) { mutableFloatStateOf(style.spreadSpacing) }
 
-    MyColumn(verticalArrangement = Arrangement.spacedBy(Spacing12)) {
+    MyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
             text = stringResource(R.string.action_panel_style_arc),
             style = MaterialTheme.typography.titleMedium,
@@ -146,11 +143,11 @@ private fun ActionPanelStyleCard(
                 .fillMaxWidth()
                 .heightIn(min = MinItemHeightNoSecondary + 28.dp)
                 .padding(
-                    horizontal = ContentPaddingHorizontal,
-                    vertical = ContentPaddingVerticalWithSection
+                    horizontal = 12.dp,
+                    vertical = 12.dp
                 ),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(ItemPadding)
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Box(modifier = Modifier.size(80.dp)) {
                 ArcStylePreview(modifier = Modifier.fillMaxSize())
@@ -169,7 +166,7 @@ private fun ActionPanelStyleCard(
                     else MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    modifier = Modifier.padding(top = Spacing2),
+                    modifier = Modifier.padding(top = 2.dp),
                     text = stringResource(id = descRes),
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 2,
@@ -183,7 +180,7 @@ private fun ActionPanelStyleCard(
                     modifier = Modifier
                         .size(36.dp)
                         .clipToBorder(
-                            width = Spacing1,
+                            width = 1.dp,
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
                             shape = CircleShape
                         )
@@ -191,7 +188,7 @@ private fun ActionPanelStyleCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        modifier = Modifier.size(Spacing20),
+                        modifier = Modifier.size(20.dp),
                         imageVector = Icons.Default.Settings,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary
@@ -215,9 +212,9 @@ internal fun PreviewStage(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(Spacing4)
+                .padding(4.dp)
                 .clipToBorder(
-                    width = Spacing1,
+                    width = 1.dp,
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.9f),
                     shape = MaterialTheme.shapes.small
                 )
@@ -233,7 +230,7 @@ internal fun ArcStylePreview(modifier: Modifier = Modifier) {
         val colorScheme = MaterialTheme.colorScheme
         Canvas(modifier = Modifier.fillMaxSize()) {
             val anchor = Offset(x = -size.width * 0.08f, y = size.height * 0.5f)
-            val itemRadius = Spacing4.toPx()
+            val itemRadius = 4.dp.toPx()
             val innerArcRadius = size.minDimension * 0.37f
             val outerArcRadius = size.minDimension * 0.56f
 

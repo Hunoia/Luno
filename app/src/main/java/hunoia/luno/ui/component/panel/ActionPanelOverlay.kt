@@ -25,13 +25,6 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.action.TriggerType
 import hunoia.luno.config.model.Action
-import hunoia.luno.ui.theme.Spacing4
-import hunoia.luno.ui.theme.Spacing8
-import hunoia.luno.ui.theme.Spacing12
-import hunoia.luno.ui.theme.Spacing16
-import hunoia.luno.ui.theme.Spacing20
-import hunoia.luno.ui.theme.Spacing24
-import hunoia.luno.ui.theme.Spacing32
 
 @Composable
 internal fun ActionPanelBackdrop(
@@ -71,27 +64,27 @@ internal fun SelectedActionPill(
     val longPress = triggerType == TriggerType.LongPress
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(Spacing24),
+        shape = RoundedCornerShape(24.dp),
         color = if (longPress) accentColor else MaterialTheme.colorScheme.surfaceContainerHigh,
-        shadowElevation = Spacing8,
-        tonalElevation = Spacing4,
+        shadowElevation = 8.dp,
+        tonalElevation = 4.dp,
     ) {
         Row(
             modifier = Modifier
                 .widthIn(max = 260.dp)
-                .padding(horizontal = Spacing12, vertical = Spacing8),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Surface(
-                modifier = Modifier.size(Spacing32),
+                modifier = Modifier.size(32.dp),
                 shape = CircleShape,
                 color = if (longPress) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f) else accentColor,
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    ActionPanelIcon(action = action, iconSize = Spacing20, bitmapIconSize = Spacing24)
+                    ActionPanelIcon(action = action, iconSize = 20.dp, bitmapIconSize = 24.dp)
                 }
             }
-            Spacer(Modifier.width(Spacing8))
+            Spacer(Modifier.width(8.dp))
             Text(
                 modifier = Modifier.weight(1f, false),
                 text = label,
@@ -99,13 +92,13 @@ internal fun SelectedActionPill(
                 style = MaterialTheme.typography.titleSmall,
                 color = if (longPress) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
             )
-            Spacer(Modifier.width(Spacing8))
+            Spacer(Modifier.width(8.dp))
             Surface(
-                shape = RoundedCornerShape(Spacing16),
+                shape = RoundedCornerShape(16.dp),
                 color = if (longPress) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f) else accentColor.copy(alpha = 0.18f),
             ) {
                 Text(
-                    modifier = Modifier.padding(horizontal = Spacing8, vertical = Spacing4),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     text = stringResource(if (longPress) R.string.long_press else R.string.tap),
                     style = MaterialTheme.typography.labelSmall,
                     color = if (longPress) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer,

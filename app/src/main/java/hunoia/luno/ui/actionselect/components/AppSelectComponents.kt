@@ -44,10 +44,6 @@ import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.bridge.intent.gotoAppDetailSettings
 import hunoia.luno.ui.actionselect.UiState.SelectedRecord
-import hunoia.luno.ui.theme.ContentPaddingHorizontal
-import hunoia.luno.ui.theme.ContentPaddingVertical
-import hunoia.luno.ui.theme.IconTextPadding
-import hunoia.luno.ui.theme.ItemPadding
 import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.TopBarPaddingExtra
 import kotlinx.coroutines.launch
@@ -81,7 +77,7 @@ internal fun AppPage(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = Spacing32),
+                                .padding(vertical = 32.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -147,7 +143,7 @@ internal fun AppItem(
         modifier = modifier
             .alpha(if (enabled) 1f else SettingsUiDefaults.DisabledAlpha)
             .fillMaxWidth()
-            .padding(horizontal = Spacing12, vertical = Spacing4),
+            .padding(horizontal = 12.dp, vertical = 4.dp),
         shape = CardShape,
         color = if (selected) MaterialTheme.colorScheme.primaryContainer
                 else MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -160,13 +156,13 @@ internal fun AppItem(
                     onLongClick = onLongClick,
                     onClick = { onSelect(!selected) }
                 )
-                .padding(vertical = ContentPaddingVertical),
+                .padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             val context = LocalContext.current
             AsyncImage(
                 modifier = Modifier
-                    .padding(start = ContentPaddingHorizontal)
+                    .padding(start = 12.dp)
                     .size(MinInteractiveSize),
                 model = appInfo.icon,
                 contentDescription = null,
@@ -175,16 +171,16 @@ internal fun AppItem(
             )
             Column(
                 modifier = Modifier
-                    .padding(start = IconTextPadding, end = ItemPadding)
+                    .padding(start = 8.dp, end = 16.dp)
                     .weight(1f)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Spacing8)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     if (appInfo.miniWindow) {
                         Icon(
-                            modifier = Modifier.size(Spacing16),
+                            modifier = Modifier.size(16.dp),
                             imageVector = Icons.Default.Window,
                             contentDescription = null
                         )

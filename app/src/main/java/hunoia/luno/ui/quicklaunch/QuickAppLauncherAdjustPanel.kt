@@ -38,8 +38,8 @@ internal fun QuickAppLauncherAdjustPanel(
 
     val screenH = LocalConfiguration.current.screenHeightDp
     val kd = settings.keyHeightDp.dp
-    val minPanel = kd * 3 + Spacing6 * 2 + 40.dp * settings.candidateRows + Spacing6 + Spacing10 * 2
-    val maxPanel = kd * 3 + Spacing6 * 2 + 96.dp * settings.candidateRows + Spacing6 + Spacing10 * 2
+    val minPanel = kd * 3 + 6.dp * 2 + 40.dp * settings.candidateRows + 6.dp + 10.dp * 2
+    val maxPanel = kd * 3 + 6.dp * 2 + 96.dp * settings.candidateRows + 6.dp + 10.dp * 2
     val heightMin = (minPanel / screenH.dp).coerceIn(0.25f, 0.95f)
     val heightMax = (maxPanel / screenH.dp).coerceIn(0.25f, 0.95f)
 
@@ -97,8 +97,8 @@ internal fun QuickAppLauncherAdjustPanel(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    horizontal = ContentPaddingHorizontal,
-                    vertical = ContentPaddingVerticalWithSection,
+                    horizontal = 12.dp,
+                    vertical = 12.dp,
                 ),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,

@@ -1,5 +1,6 @@
 package hunoia.luno.ui.settings.gesture.button
 import hunoia.luno.ui.theme.*
+import androidx.compose.ui.unit.dp
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,7 +45,7 @@ fun GestureButtonVibrationContent(
     vm: GestureButtonSettingsVM
 ) {
     val scrollState = rememberScrollState()
-    MyColumn(verticalArrangement = Arrangement.spacedBy(Spacing8)) {
+    MyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         ExpressiveSwitchItem(
             onCheckedChange = { vm.onSlideVibrateChange(it) },
             checked = button.slideVibrate,
@@ -97,9 +98,9 @@ fun VibrationEffectSelector(
             .fillMaxWidth()
             .heightIn(min = MinItemHeightNoSecondary)
             .onSingleClick { showDropdown = true }
-            .padding(horizontal = ContentPaddingHorizontal, vertical = ContentPaddingVerticalWithSection),
+            .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(ItemPadding)
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
             modifier = Modifier.weight(1f),

@@ -66,13 +66,6 @@ import hunoia.luno.R
 import hunoia.luno.config.model.ThemeColorKey
 import hunoia.luno.ui.theme.displayNameRes
 import hunoia.luno.ui.theme.resolveColor
-import hunoia.luno.ui.theme.Spacing12
-import hunoia.luno.ui.theme.Spacing16
-import hunoia.luno.ui.theme.Spacing2
-import hunoia.luno.ui.theme.Spacing4
-import hunoia.luno.ui.theme.Spacing24
-import hunoia.luno.ui.theme.Spacing48
-import hunoia.luno.ui.theme.Spacing8
 
 
 sealed class ColorSelection {
@@ -137,29 +130,29 @@ fun ColorPickerBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(bottom = Spacing12),
+                .padding(bottom = 12.dp),
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = Spacing16, vertical = Spacing16),
-                verticalArrangement = Arrangement.spacedBy(Spacing12),
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Spacing12),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(Spacing48)
+                            .size(48.dp)
                             .clip(CircleShape)
                             .background(
                                 color = previewColor,
                                 shape = CircleShape,
                             )
                             .border(
-                                width = Spacing2,
+                                width = 2.dp,
                                 color = MaterialTheme.colorScheme.outlineVariant,
                                 shape = CircleShape,
                             ),
@@ -171,7 +164,7 @@ fun ColorPickerBottomSheet(
                             .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                     ) {
                         Text(
-                            modifier = Modifier.padding(horizontal = Spacing12, vertical = Spacing12),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
                             text = "#$hexColor",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -200,11 +193,11 @@ fun ColorPickerBottomSheet(
                         1 -> {
                             val chunked = ThemeColorKey.entries
                                 .chunked(3)
-                            Column(verticalArrangement = Arrangement.spacedBy(Spacing8)) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 chunked.forEach { row ->
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(Spacing8),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     ) {
                                         row.forEach { themeKey ->
                                             val color = themeKey.resolveColor()
@@ -218,7 +211,7 @@ fun ColorPickerBottomSheet(
                                                         else MaterialTheme.colorScheme.surface,
                                                     )
                                                     .clickable { selectedThemeKey = themeKey }
-                                                    .padding(vertical = Spacing8),
+                                                    .padding(vertical = 8.dp),
                                                 horizontalAlignment = Alignment.CenterHorizontally,
                                             ) {
                                                 Box(
@@ -234,7 +227,7 @@ fun ColorPickerBottomSheet(
                                                         .clip(CircleShape)
                                                         .background(color),
                                                 )
-                                                Spacer(Modifier.height(Spacing4))
+                                                Spacer(Modifier.height(4.dp))
                                                 Text(
                                                     text = stringResource(id = themeKey.displayNameRes),
                                                     style = MaterialTheme.typography.labelSmall,
@@ -267,8 +260,8 @@ fun ColorPickerBottomSheet(
                 val hueBarHeight = with(density) { 24.dp }
 
                 Column(
-                    modifier = Modifier.padding(horizontal = Spacing24, vertical = Spacing12),
-                    verticalArrangement = Arrangement.spacedBy(Spacing12),
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Box(
                         modifier = Modifier
@@ -349,9 +342,9 @@ fun ColorPickerBottomSheet(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = Spacing16, vertical = Spacing12),
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Spacing12),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     TabChip(
                         selected = selectedTab == 0,
@@ -387,7 +380,7 @@ fun ColorPickerBottomSheet(
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
                         )
-                        Spacer(Modifier.width(Spacing4))
+                        Spacer(Modifier.width(4.dp))
                         Text(text = stringResource(id = R.string.confirm))
                     }
                 }

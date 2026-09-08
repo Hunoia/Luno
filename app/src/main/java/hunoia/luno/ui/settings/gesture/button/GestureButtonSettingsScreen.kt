@@ -66,13 +66,8 @@ import hunoia.luno.config.model.LongSlideActionPanelStyles
 import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleConfigContent
 import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleSelectContent
 import hunoia.luno.ui.settings.gesture.subgesture.GestureButtonAngleContent
-import hunoia.luno.ui.theme.ContentPaddingHorizontal
-import hunoia.luno.ui.theme.ContentPaddingVerticalWithSection
-import hunoia.luno.ui.theme.IconTextPadding
-import hunoia.luno.ui.theme.ItemPadding
 import hunoia.luno.ui.theme.MarkColorSize
 import hunoia.luno.ui.theme.MinItemHeightNoSecondary
-import hunoia.luno.ui.theme.SectionPadding
 import hunoia.luno.ui.component.MyAlertDialog
 import hunoia.luno.ui.component.MyColumn
 import hunoia.luno.ui.component.ExpressiveCard
@@ -138,7 +133,7 @@ fun GestureButtonSettingsScreen(
                         if (uiState.gestureButton != null) {
                             Box(
                                 modifier = Modifier
-                                    .padding(start = IconTextPadding)
+                                    .padding(start = 8.dp)
                                     .size(MarkColorSize)
                                     .background(
                                         color = when (uiState.gestureButton.color == android.graphics.Color.TRANSPARENT) {
@@ -169,7 +164,7 @@ fun GestureButtonSettingsScreen(
                     }
                     MyColumn(
                         modifier = Modifier.padding(innerPadding),
-                        verticalArrangement = Arrangement.spacedBy(Spacing12)
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         GestureButtonTapActionsCard(
                             gestureButton = gestureButton,

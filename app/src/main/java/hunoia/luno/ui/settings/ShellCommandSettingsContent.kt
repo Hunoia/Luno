@@ -61,8 +61,8 @@ fun ShellCommandSettingsContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = ItemPadding),
-        verticalArrangement = Arrangement.spacedBy(ItemPadding)
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         OutlinedTextField(
             modifier = Modifier.fillMaxWidth(),
@@ -111,7 +111,7 @@ fun ShellCommandSettingsContent(
                         .fillMaxWidth()
                         .heightIn(max = 180.dp)
                         .verticalScroll(rememberScrollState())
-                        .padding(ItemPadding),
+                        .padding(16.dp),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

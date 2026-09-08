@@ -31,8 +31,6 @@ import hunoia.luno.config.defaults.SettingsUiDefaults.MinSlideTriggerDistance
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.ui.component.MyColumn
 import hunoia.luno.ui.component.input.MyTextSlider
-import hunoia.luno.ui.theme.ContentPaddingHorizontal
-import hunoia.luno.ui.theme.Spacing8
 import kotlin.math.roundToInt
 
 @Composable
@@ -153,7 +151,7 @@ fun GestureSlideTriggerDistanceContent(
 @Composable
 private fun SliderGroupLabel(text: String) {
     Text(
-        modifier = Modifier.padding(horizontal = ContentPaddingHorizontal),
+        modifier = Modifier.padding(horizontal = 12.dp),
         text = text,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         style = MaterialTheme.typography.labelMedium,
@@ -168,7 +166,7 @@ private fun DistanceTextSlider(
     text: String,
     valueRangeDp: ClosedFloatingPointRange<Float>,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing8)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         MyTextSlider(
             value = valueDp,
             onValueChange = onValueDpChange,
@@ -190,9 +188,9 @@ private fun DistanceRelationshipPreview(
     val colorScheme = MaterialTheme.colorScheme
     Canvas(
         modifier = Modifier
-            .padding(horizontal = ContentPaddingHorizontal)
+            .padding(horizontal = 12.dp)
             .fillMaxWidth()
-            .height(Spacing8)
+            .height(8.dp)
     ) {
         val centerY = size.height / 2f
         val strokeWidth = 4.dp.toPx()
@@ -229,9 +227,9 @@ private fun DistancePreviewBar(
     val colorScheme = MaterialTheme.colorScheme
     Canvas(
         modifier = Modifier
-            .padding(horizontal = ContentPaddingHorizontal)
+            .padding(horizontal = 12.dp)
             .fillMaxWidth()
-            .height(Spacing8)
+            .height(8.dp)
     ) {
         val centerY = size.height / 2f
         val strokeWidth = 4.dp.toPx()

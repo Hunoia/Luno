@@ -65,11 +65,7 @@ import hunoia.luno.ui.component.TopBar
 import hunoia.luno.ui.settings.ActivitySettingsContent
 import hunoia.luno.ui.settings.ShellCommandSettingsContent
 import hunoia.luno.ui.settings.UrlSettingsContent
-import hunoia.luno.ui.theme.ContentPaddingHorizontal
-import hunoia.luno.ui.theme.ScrollBottomPadding
-import hunoia.luno.ui.theme.Spacing12
-import hunoia.luno.ui.theme.Spacing4
-import hunoia.luno.ui.theme.Spacing8
+import androidx.compose.material3.HorizontalDivider
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,13 +108,13 @@ fun ActionLibraryScreen(
             }
         }
     ) { padding ->
-        LazyColumn(contentPadding = PaddingValues(bottom = ScrollBottomPadding), modifier = Modifier.padding(padding)) {
+        LazyColumn(contentPadding = PaddingValues(bottom = 24.dp), modifier = Modifier.padding(padding)) {
             item {
                 AppSearchBar(
                     query = query,
                     onQueryChange = { query = it },
                     placeholder = stringResource(R.string.action_library_search_hint),
-                    modifier = Modifier.padding(horizontal = ContentPaddingHorizontal * 2, vertical = Spacing8),
+                    modifier = Modifier.padding(horizontal = 12.dp * 2, vertical = 8.dp),
                 )
             }
             item {
@@ -138,7 +134,7 @@ fun ActionLibraryScreen(
                     },
                     onSelectAll = { selectedIds = filtered.map { it.id }.toSet() },
                     onDeleteSelected = { deletingSelected = selectedIds.isNotEmpty() },
-                    modifier = Modifier.padding(horizontal = ContentPaddingHorizontal * 2, vertical = Spacing4),
+                    modifier = Modifier.padding(horizontal = 12.dp * 2, vertical = 4.dp),
                 )
             }
             if (filtered.isEmpty()) {
@@ -150,7 +146,7 @@ fun ActionLibraryScreen(
                             text = stringResource(type.titleRes),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = ContentPaddingHorizontal * 2, vertical = Spacing8),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp * 2, vertical = 8.dp),
                         )
                     }
                     items(entries, key = { it.id }) { entry ->
@@ -235,10 +231,10 @@ private fun ActionLibraryControls(
     onDeleteSelected: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing4)) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(Spacing8),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             FilterChip(
@@ -256,7 +252,7 @@ private fun ActionLibraryControls(
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(Spacing8),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TextButton(onClick = { onSortMenuExpandedChange(true) }) {
@@ -310,20 +306,24 @@ private fun ActionLibraryItem(
     var menuExpanded by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
-        shape = MaterialTheme.shapes.large,
+        shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing12, vertical = Spacing4),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
     ) {
-        Row(modifier = Modifier.fillMaxWidth().padding(Spacing12), horizontalArrangement = Arrangement.spacedBy(Spacing12)) {
+        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             if (selectionMode) {
                 Checkbox(checked = selected, onCheckedChange = onSelectedChange)
             }
             Icon(entry.type.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Column(modifier = Modifier.weight(1f)) {
                 Text(entry.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(entry.summary(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(stringResource(R.string.action_library_reference_count, referenceCount), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(entry.summary(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            Text(
+                text = stringResource(R.string.action_library_reference_count, referenceCount),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             if (!selectionMode) {
                 IconButton(onClick = { menuExpanded = true }) {
                     Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more))
@@ -385,12 +385,12 @@ private fun ActionLibraryEditDialog(entry: ActionLibraryEntry, onDismiss: () -> 
             color = MaterialTheme.colorScheme.surface,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(Spacing12)
+                .padding(12.dp)
                 .heightIn(max = 720.dp),
         ) {
             Column(
-                modifier = Modifier.padding(Spacing12),
-                verticalArrangement = Arrangement.spacedBy(Spacing12),
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(stringResource(R.string.action_library_edit), style = MaterialTheme.typography.titleLarge)
                 Column(
@@ -398,7 +398,7 @@ private fun ActionLibraryEditDialog(entry: ActionLibraryEntry, onDismiss: () -> 
                         .fillMaxWidth()
                         .weight(1f, fill = false)
                         .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(Spacing12),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                 OutlinedTextField(
                     value = name,

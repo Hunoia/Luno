@@ -102,9 +102,6 @@ fun SideGestureApp() {
                         onNavToAppBlacklist = {
                             navController.navigate(AppBlacklist)
                         },
-                        onNavToActionLibrary = {
-                            navController.navigate(ActionLibrary)
-                        },
                         onNavToActionSettings = {
                             navController.navigate(ActionSettings)
                         }

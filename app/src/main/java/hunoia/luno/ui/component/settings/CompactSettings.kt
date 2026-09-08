@@ -34,17 +34,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import hunoia.luno.config.defaults.SettingsUiDefaults
 import hunoia.luno.ui.theme.CardShape
-import hunoia.luno.ui.theme.ContentPaddingHorizontal
 import hunoia.luno.ui.theme.IconBoxShape
-import hunoia.luno.ui.theme.IconTextPadding
-import hunoia.luno.ui.theme.ItemPadding
 import hunoia.luno.ui.theme.MinItemHeightNoSecondary
-import hunoia.luno.ui.theme.Spacing10
-import hunoia.luno.ui.theme.Spacing12
-import hunoia.luno.ui.theme.Spacing16
-import hunoia.luno.ui.theme.Spacing32
-import hunoia.luno.ui.theme.Spacing4
-import hunoia.luno.ui.theme.Spacing8
 
 @Composable
 fun CompactSettingsGroup(
@@ -56,16 +47,16 @@ fun CompactSettingsGroup(
     Column(modifier = modifier.fillMaxWidth()) {
         if (title.isNotEmpty()) {
             Text(
-                modifier = Modifier.padding(horizontal = ContentPaddingHorizontal, vertical = Spacing4),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 text = title,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.titleSmall,
                 maxLines = 1,
             )
         }
         if (subtitle.isNotEmpty()) {
             Text(
-                modifier = Modifier.padding(horizontal = ContentPaddingHorizontal).padding(bottom = Spacing8),
+                modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp),
                 text = subtitle,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
@@ -78,7 +69,7 @@ fun CompactSettingsGroup(
             shape = CardShape,
             color = MaterialTheme.colorScheme.surfaceContainer,
         ) {
-            Column(modifier = Modifier.padding(Spacing8), verticalArrangement = Arrangement.spacedBy(Spacing4)) {
+            Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 content()
             }
         }
@@ -99,26 +90,26 @@ fun CompactSettingsRow(
         modifier = modifier.alpha(if (enabled) 1f else SettingsUiDefaults.DisabledAlpha).fillMaxWidth(),
         onClick = { if (enabled) onClick?.invoke() },
         enabled = enabled && onClick != null,
-        shape = MaterialTheme.shapes.large,
+        shape = CardShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = MinItemHeightNoSecondary)
-                .padding(horizontal = Spacing12, vertical = Spacing10),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(ItemPadding),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             if (icon != null) {
                 Surface(
-                    modifier = Modifier.size(Spacing32),
+                    modifier = Modifier.size(32.dp),
                     shape = IconBoxShape,
                     color = MaterialTheme.colorScheme.secondaryContainer,
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            modifier = Modifier.size(Spacing16),
+                            modifier = Modifier.size(16.dp),
                             imageVector = icon,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -126,13 +117,13 @@ fun CompactSettingsRow(
                     }
                 }
             }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(IconTextPadding / 2)) {
-                Text(text = title, style = MaterialTheme.typography.titleSmall, maxLines = 1)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(text = title, style = MaterialTheme.typography.titleMedium, maxLines = 1)
                 if (subtitle.isNotEmpty()) {
                     Text(
                         text = subtitle,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -211,7 +202,7 @@ fun CompactExpandableSettingsGroup(
             enter = expandVertically(),
             exit = shrinkVertically(),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing4)) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 content()
             }

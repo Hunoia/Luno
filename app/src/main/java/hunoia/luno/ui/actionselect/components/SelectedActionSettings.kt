@@ -73,16 +73,16 @@ fun SelectedActionSettings(
     var tileWidth by remember { mutableStateOf(0f) }
     var tileHeight by remember { mutableStateOf(0f) }
     val density = LocalDensity.current
-    val spacingPx = with(density) { Spacing8.toPx() }
+    val spacingPx = with(density) { 8.dp.toPx() }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = Spacing8)
+            .padding(bottom = 8.dp)
             .animateContentSize(animationSpec = tween(AnimNormal.toInt())),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = ContentPaddingHorizontal * 2),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp * 2),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (longPressTargetIndex == null) {
@@ -120,10 +120,10 @@ fun SelectedActionSettings(
             columns = GridCells.Fixed(4),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = ContentPaddingHorizontal * 2)
+                .padding(horizontal = 12.dp * 2)
                 .heightIn(max = 184.dp),
-            horizontalArrangement = Arrangement.spacedBy(Spacing8),
-            verticalArrangement = Arrangement.spacedBy(Spacing8),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(
                 count = selectedItems.size,
@@ -264,11 +264,11 @@ private fun SelectedTile(
         color = bgColor,
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(Spacing4),
+            modifier = Modifier.fillMaxWidth().padding(4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Box(modifier = Modifier.size(Spacing24), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
                 when (icon) {
                     is ImageVector -> Image(
                         imageVector = icon,
@@ -286,7 +286,7 @@ private fun SelectedTile(
                     )
                 }
             }
-            Spacer(Modifier.height(Spacing2))
+            Spacer(Modifier.height(2.dp))
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
@@ -297,7 +297,7 @@ private fun SelectedTile(
                         else MaterialTheme.colorScheme.onSurface,
             )
             if (longPressLabel != null && !isLongPressTarget) {
-                Spacer(Modifier.height(Spacing1))
+                Spacer(Modifier.height(1.dp))
                 Text(
                     text = longPressLabel,
                     style = MaterialTheme.typography.labelSmall,

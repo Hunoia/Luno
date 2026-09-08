@@ -91,8 +91,8 @@ fun ActivitySettingsContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = ItemPadding),
-        verticalArrangement = Arrangement.spacedBy(ItemPadding)
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         if (selectedApp == null) {
             AppSearchBar(
@@ -110,7 +110,7 @@ fun ActivitySettingsContent(
                         .fillMaxWidth()
                         .heightIn(max = 300.dp)
                         .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(Spacing4)
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     filteredApps.forEach { item ->
                         Row(
@@ -121,8 +121,8 @@ fun ActivitySettingsContent(
                                     appQuery = ""
                                     activityQuery = ""
                                 }
-                                .padding(vertical = Spacing6),
-                            horizontalArrangement = Arrangement.spacedBy(ItemPadding),
+                                .padding(vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             var icon by remember(item.packageName) { mutableStateOf<Drawable?>(null) }
@@ -181,7 +181,7 @@ fun ActivitySettingsContent(
                         .fillMaxWidth()
                         .heightIn(max = 250.dp)
                         .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(Spacing4)
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     (if (activityQuery.isBlank()) activityOptions else filteredActivities).forEach { activity ->
                         Row(
@@ -197,8 +197,8 @@ fun ActivitySettingsContent(
                                     )
                                     if (onDataChange != null) onDataChange(data) else onConfirm(data)
                                 }
-                                .padding(vertical = Spacing6),
-                            horizontalArrangement = Arrangement.spacedBy(ItemPadding),
+                                .padding(vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(

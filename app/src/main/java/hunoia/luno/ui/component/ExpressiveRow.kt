@@ -22,14 +22,11 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import hunoia.luno.config.defaults.SettingsUiDefaults
-import hunoia.luno.ui.theme.ContentPaddingHorizontal
-import hunoia.luno.ui.theme.ContentPaddingVerticalWithSection
-import hunoia.luno.ui.theme.IconTextPadding
-import hunoia.luno.ui.theme.ItemPadding
 import hunoia.luno.ui.theme.CardShape
 import hunoia.luno.ui.theme.MainSecondaryTextPadding
 import hunoia.luno.ui.theme.MinItemHeight
 import hunoia.luno.ui.theme.MinItemHeightNoSecondary
+import androidx.compose.ui.unit.dp
 
 @Composable
 fun ExpressiveRow(
@@ -63,18 +60,18 @@ fun ExpressiveRow(
                     it.heightIn(min = minHeight)
                 }
                 .padding(
-                    horizontal = ContentPaddingHorizontal,
-                    vertical = ContentPaddingVerticalWithSection,
+                    horizontal = 12.dp,
+                    vertical = 12.dp,
                 ),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(ItemPadding),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(
                 modifier = Modifier
                     .weight(1f)
                     .height(IntrinsicSize.Max),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(IconTextPadding),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 icon?.invoke()
                 Column(
@@ -94,7 +91,7 @@ fun ExpressiveRow(
                             modifier = Modifier.width(IntrinsicSize.Max),
                             text = secondaryText,
                             color = secondaryTextColor,
-                            style = MaterialTheme.typography.labelMedium,
+                            style = MaterialTheme.typography.bodySmall,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )

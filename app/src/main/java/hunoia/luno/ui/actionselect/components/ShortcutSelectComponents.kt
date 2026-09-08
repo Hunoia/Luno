@@ -40,10 +40,6 @@ import hunoia.luno.quicklaunch.model.icon
 import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.ui.actionselect.UiState.SelectedRecord
-import hunoia.luno.ui.theme.ContentPaddingHorizontal
-import hunoia.luno.ui.theme.ContentPaddingVertical
-import hunoia.luno.ui.theme.IconTextPadding
-import hunoia.luno.ui.theme.ItemPadding
 import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.SubMinInteractiveSize
 import hunoia.luno.ui.theme.TopBarPaddingExtra
@@ -79,7 +75,7 @@ internal fun ShortcutPage(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = Spacing32),
+                                .padding(vertical = 32.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -107,8 +103,8 @@ internal fun ShortcutPage(
                                 modifier = Modifier
                                     .background(color = MaterialTheme.colorScheme.background)
                                     .fillMaxWidth()
-                                    .padding(vertical = ContentPaddingVertical)
-                                    .padding(horizontal = ContentPaddingHorizontal * 2),
+                                    .padding(vertical = 6.dp)
+                                    .padding(horizontal = 12.dp * 2),
                                 text = stringResource(R.string.create_shortcut),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.titleMedium
@@ -142,8 +138,8 @@ internal fun ShortcutPage(
                                 modifier = Modifier
                                     .background(color = MaterialTheme.colorScheme.background)
                                     .fillMaxWidth()
-                                    .padding(vertical = ContentPaddingVertical)
-                                    .padding(horizontal = ContentPaddingHorizontal * 2),
+                                    .padding(vertical = 6.dp)
+                                    .padding(horizontal = 12.dp * 2),
                                 text = stringResource(R.string.launch_shortcut),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.titleMedium
@@ -196,7 +192,7 @@ internal fun LauncherInfoItem(
         modifier = modifier
             .alpha(if (canLauncherInfoEnabled(launcherInfo)) 1f else SettingsUiDefaults.DisabledAlpha)
             .fillMaxWidth()
-            .padding(horizontal = Spacing12, vertical = Spacing4),
+            .padding(horizontal = 12.dp, vertical = 4.dp),
         shape = CardShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
@@ -205,13 +201,13 @@ internal fun LauncherInfoItem(
                 modifier = Modifier
                     .fillMaxWidth()
                     .onClick(enabled = canLauncherInfoEnabled(launcherInfo)) { onClick() }
-                    .padding(vertical = ContentPaddingVertical),
+                    .padding(vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 val context = LocalContext.current
                 AsyncImage(
                     modifier = Modifier
-                        .padding(start = ContentPaddingHorizontal)
+                        .padding(start = 12.dp)
                         .size(MinInteractiveSize),
                     model = launcherInfo.icon,
                     contentDescription = null,
@@ -219,7 +215,7 @@ internal fun LauncherInfoItem(
                 )
                 Column(
                     modifier = Modifier
-                        .padding(start = IconTextPadding, end = ItemPadding)
+                        .padding(start = 8.dp, end = 16.dp)
                         .weight(1f)
                 ) {
                     Text(
@@ -240,14 +236,14 @@ internal fun LauncherInfoItem(
                 }
             }
 
-            Column(modifier = Modifier.padding(start = Spacing8, end = Spacing8, bottom = Spacing8)) {
+            Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
                 launcherInfo.shortcuts.fastForEach { shortcutInfo ->
                     key(shortcutInfo) {
                         val selected = isShortcutInfoSelected(shortcutInfo)
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = Spacing4),
+                                .padding(top = 4.dp),
                             onClick = { onSelect(shortcutInfo, !selected) },
                             enabled = canShortcutInfoEnabled(shortcutInfo),
                             shape = IconBoxShape,
@@ -255,13 +251,13 @@ internal fun LauncherInfoItem(
                                     else MaterialTheme.colorScheme.surfaceContainer,
                         ) {
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = Spacing8),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 val context = LocalContext.current
                                 AsyncImage(
                                     modifier = Modifier
-                                        .padding(start = ContentPaddingHorizontal)
+                                        .padding(start = 12.dp)
                                         .size(SubMinInteractiveSize),
                                     model = shortcutInfo.icon,
                                     contentDescription = null,
@@ -269,7 +265,7 @@ internal fun LauncherInfoItem(
                                 )
                                 Column(
                                     modifier = Modifier
-                                        .padding(start = IconTextPadding, end = ItemPadding)
+                                        .padding(start = 8.dp, end = 16.dp)
                                         .weight(1f)
                                 ) {
                                     Text(

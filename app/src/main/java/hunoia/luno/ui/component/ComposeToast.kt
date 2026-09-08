@@ -59,8 +59,8 @@ fun ComposeToast(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                .padding(horizontal = Spacing24)
-                .padding(bottom = Spacing12),
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 12.dp),
             hostState = snackbarHostState
         ) { snackbarData ->
             Text(
@@ -72,7 +72,7 @@ fun ComposeToast(modifier: Modifier = Modifier) {
                     )
                     .padding(
                         vertical = 8.dp,
-                        horizontal = Spacing16
+                        horizontal = 16.dp
                     )
                     .wrapContentSize(),
                 text = snackbarData.visuals.message,

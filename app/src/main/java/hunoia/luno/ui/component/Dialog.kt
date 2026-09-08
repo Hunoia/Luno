@@ -62,8 +62,6 @@ import hunoia.luno.bridge.WallpaperChangedEvent
 import hunoia.luno.config.model.ThemeColorKey
 import hunoia.luno.ui.theme.resolveColor
 import hunoia.luno.ui.theme.DialogHexTextWidth
-import hunoia.luno.ui.theme.DialogTitlePadding
-import hunoia.luno.ui.theme.ItemPadding
 import hunoia.luno.ui.theme.SubMinInteractiveSize
 import hunoia.luno.ui.component.displayNameRes
 import hunoia.luno.bridge.DensityProvider

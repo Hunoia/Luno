@@ -42,7 +42,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.query.AppSearch.key
-import hunoia.luno.ui.theme.ScrollBottomPadding
 
 @Composable
 internal fun PageMatchIcon(
@@ -53,7 +52,7 @@ internal fun PageMatchIcon(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(Spacing4)
+            .padding(4.dp)
             .clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -88,7 +87,7 @@ internal fun CandidateAppRows(
     onLongPress: (AppInfo, Boolean) -> Unit,
     onPageMatchClick: (Page) -> Unit,
 ) {
-    val iconHeight = (candidateHeight - Spacing2 * (rows - 1)) / rows - Spacing4 * 2
+    val iconHeight = (candidateHeight - 2.dp * (rows - 1)) / rows - 4.dp * 2
     val rowState = rememberLazyListState()
     LaunchedEffect(chunkedApps) {
         rowState.animateScrollToItem(0)
@@ -100,14 +99,14 @@ internal fun CandidateAppRows(
     ) {
         LazyRow(
             state = rowState,
-            horizontalArrangement = Arrangement.spacedBy(Spacing2),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
             modifier = Modifier.fillMaxSize()
         ) {
             if (pageMatches.isNotEmpty()) {
                 item {
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(Spacing2),
-                        modifier = Modifier.width(Spacing64)
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                        modifier = Modifier.width(64.dp)
                     ) {
                         pageMatches.forEach { (name, page) ->
                             PageMatchIcon(
@@ -121,8 +120,8 @@ internal fun CandidateAppRows(
             }
             items(chunkedApps, key = { chunk -> chunk.firstOrNull()?.key() ?: "empty" }) { columnApps ->
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(Spacing2),
-                    modifier = Modifier.width(Spacing64)
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier.width(64.dp)
                 ) {
                     columnApps.forEach { app ->
                         key(app.key()) {
@@ -179,9 +178,9 @@ internal fun AppGrid(
         LazyVerticalGrid(
             state = gridState,
             columns = GridCells.Fixed(gridColumns),
-            verticalArrangement = Arrangement.spacedBy(Spacing4),
-            horizontalArrangement = Arrangement.spacedBy(Spacing4),
-            contentPadding = PaddingValues(bottom = ScrollBottomPadding),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            contentPadding = PaddingValues(bottom = 24.dp),
             modifier = Modifier.fillMaxSize()
         ) {
             if (pageMatches.isNotEmpty()) {
@@ -227,7 +226,7 @@ internal fun AppGrid(
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .padding(vertical = Spacing6)
+                    .padding(vertical = 6.dp)
                     .clickable {
                         view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                         onExpandKeyboard()
@@ -236,7 +235,7 @@ internal fun AppGrid(
                 Box(
                     modifier = Modifier
                         .width(44.dp)
-                        .height(Spacing5)
+                        .height(5.dp)
                             .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
                 )

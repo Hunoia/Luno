@@ -94,7 +94,7 @@ fun PointerCursor(
                 color = Color.Red.copy(alpha = 0.62f * entranceAnim.value),
                 radius = radius * 2.2f,
                 center = renderedPosition,
-                style = Stroke(width = Spacing2.toPx()),
+                style = Stroke(width = 2.dp.toPx()),
             )
         }
         if (pulse > 0f) {
@@ -102,20 +102,20 @@ fun PointerCursor(
                 color = baseColor.copy(alpha = pulse * 0.26f),
                 radius = radius * (1.25f + (1f - pulse) * 1.1f),
                 center = renderedPosition,
-                style = Stroke(width = Spacing2.toPx()),
+                style = Stroke(width = 2.dp.toPx()),
             )
         }
         drawCircle(
             color = Color.Black.copy(alpha = 0.75f * visibleAlpha),
             radius = ringRadius,
             center = renderedPosition,
-            style = Stroke(width = Spacing4.toPx()),
+            style = Stroke(width = 4.dp.toPx()),
         )
         drawCircle(
             color = Color.White.copy(alpha = 0.9f * visibleAlpha),
             radius = ringRadius,
             center = renderedPosition,
-            style = Stroke(width = Spacing2.toPx()),
+            style = Stroke(width = 2.dp.toPx()),
         )
         drawCircle(
             color = baseColor,
@@ -131,7 +131,7 @@ fun PointerCursor(
                 color = baseColor.copy(alpha = (1f - rippleAnim.value) * 0.4f),
                 radius = radius * (1f + rippleAnim.value * 3f),
                 center = renderedPosition,
-                style = Stroke(width = Spacing2.toPx()),
+                style = Stroke(width = 2.dp.toPx()),
             )
         }
     }

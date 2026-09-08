@@ -165,7 +165,7 @@ internal fun ActionPage(
             AppSearchBar(
                 query = query,
                 onQueryChange = { query = it },
-                modifier = Modifier.padding(horizontal = ContentPaddingHorizontal * 2, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 12.dp * 2, vertical = 8.dp),
                 placeholder = stringResource(R.string.search_hint_all),
             )
         }
@@ -173,8 +173,8 @@ internal fun ActionPage(
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = ContentPaddingHorizontal * 2, vertical = Spacing4),
-                horizontalArrangement = Arrangement.spacedBy(Spacing8)
+                    .padding(horizontal = 12.dp * 2, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(categoryChips) { (chipKey, label) ->
                     val isSelected = when (chipKey) {
@@ -227,7 +227,7 @@ internal fun ActionPage(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = ContentPaddingHorizontal * 2, vertical = 8.dp)
+                                .padding(horizontal = 12.dp * 2, vertical = 8.dp)
                         )
                     }
                     items(
@@ -260,7 +260,7 @@ internal fun ActionPage(
                             text = stringResource(type.titleRes),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = ContentPaddingHorizontal * 2, vertical = 8.dp)
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp * 2, vertical = 8.dp)
                         )
                     }
                     items(items = entries, key = { "lib_${it.id}" }) { entry ->
@@ -294,7 +294,7 @@ internal fun ActionPage(
             if (filteredCreateShortcuts.isNotEmpty()) {
                 stickyHeader(key = "create_shortcuts") {
                     Text(stringResource(R.string.create_shortcut), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = ContentPaddingHorizontal * 2, vertical = 8.dp))
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp * 2, vertical = 8.dp))
                 }
                 items(items = filteredCreateShortcuts, key = { "cs_${it.qualifiedName}" }) { item ->
                     LauncherInfoItem(launcherInfo = item, selectSingle = selectSingle || selectingLongPress,
@@ -310,7 +310,7 @@ internal fun ActionPage(
             if (filteredLaunchShortcuts.isNotEmpty()) {
                 stickyHeader(key = "launch_shortcuts") {
                     Text(stringResource(R.string.launch_shortcut), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = ContentPaddingHorizontal * 2, vertical = 8.dp))
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp * 2, vertical = 8.dp))
                 }
                 items(items = filteredLaunchShortcuts, key = { "ls_${it.qualifiedName}" }) { item ->
                     LauncherInfoItem(launcherInfo = item, selectSingle = selectSingle || selectingLongPress,

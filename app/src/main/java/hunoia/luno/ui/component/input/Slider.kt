@@ -7,7 +7,7 @@ import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -35,11 +35,77 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.unit.dp
-import hunoia.luno.ui.theme.ContentPaddingHorizontal
-import hunoia.luno.ui.theme.ContentPaddingVerticalWithSection
-import hunoia.luno.ui.theme.IconTextPadding
 import hunoia.luno.ui.theme.MinItemHeightNoSecondary
-import kotlin.math.roundToInt
+
+
+@Composable
+private fun SliderSurface(
+    text: String,
+    modifier: Modifier = Modifier,
+    valueDisplay: String? = null,
+    sliderValueHint: Pair<String, String>? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = MinItemHeightNoSecondary)
+                .padding(vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    modifier = Modifier.widthIn(max = SliderTextMaxWidth),
+                    text = text,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1
+                )
+                if (valueDisplay != null) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = valueDisplay,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1
+                    )
+                }
+            }
+            if (sliderValueHint != null) {
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .fillMaxWidth()
+                ) {
+                    Text(
+                        modifier = Modifier.align(Alignment.CenterStart),
+                        text = sliderValueHint.first,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1
+                    )
+                    Text(
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                        text = sliderValueHint.second,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1
+                    )
+                }
+            }
+            content()
+        }
+    }
+}
 
 @Composable
 fun MyTextSlider(
@@ -54,74 +120,23 @@ fun MyTextSlider(
     valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
     steps: Int? = null,
 ) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    SliderSurface(
+        modifier = modifier,
+        text = text,
+        valueDisplay = valueDisplay,
+        sliderValueHint = sliderValueHint,
     ) {
-        Column(
+        MySlider(
             modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = MinItemHeightNoSecondary)
-                .padding(vertical = ContentPaddingVerticalWithSection),
-            verticalArrangement = Arrangement.spacedBy(IconTextPadding)
-        ) {
-            Row(
-                modifier = Modifier
-                    .padding(horizontal = ContentPaddingHorizontal)
-                    .fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    modifier = Modifier                .widthIn(max = SliderTextMaxWidth),
-                    text = text,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1
-                )
-                if (valueDisplay != null) {
-                    Spacer(modifier = Modifier.width(IconTextPadding))
-                    Text(
-                        text = valueDisplay,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelSmall,
-                        maxLines = 1
-                    )
-                }
-            }
-            if (sliderValueHint != null) {
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = ContentPaddingHorizontal)
-                        .fillMaxWidth()
-                ) {
-                    Text(
-                        modifier = Modifier.align(Alignment.CenterStart),
-                        text = sliderValueHint.first,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1
-                    )
-                    Text(
-                        modifier = Modifier.align(Alignment.CenterEnd),
-                        text = sliderValueHint.second,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1
-                    )
-                }
-            }
-            MySlider(
-                modifier = Modifier
-                    .padding(horizontal = ContentPaddingHorizontal)
-                    .height(SliderTrackHeight),
-                enabled = enabled,
-                value = value,
-                onValueChange = onValueChange,
-                onValueChangeFinished = onValueChangeFinished,
-                valueRange = valueRange,
-                steps = steps,
-            )
-        }
+                .padding(horizontal = 12.dp)
+                .height(SliderTrackHeight),
+            enabled = enabled,
+            value = value,
+            onValueChange = onValueChange,
+            onValueChangeFinished = onValueChangeFinished,
+            valueRange = valueRange,
+            steps = steps,
+        )
     }
 }
 
@@ -136,59 +151,21 @@ fun MyTextRangeSlider(
     onValueChangeFinished: (() -> Unit)? = null,
     valueRange: ClosedFloatingPointRange<Float> = 0f..1f
 ) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    SliderSurface(
+        modifier = modifier,
+        text = text,
+        sliderValueHint = sliderValueHint,
     ) {
-        Column(
+        MyRangeSlider(
             modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = MinItemHeightNoSecondary)
-                .padding(vertical = ContentPaddingVerticalWithSection),
-            verticalArrangement = Arrangement.spacedBy(IconTextPadding)
-        ) {
-            Text(
-                modifier = Modifier
-                    .padding(horizontal = ContentPaddingHorizontal)
-                    .width(IntrinsicSize.Max),
-                text = text,
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1
-            )
-            if (sliderValueHint != null) {
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = ContentPaddingHorizontal)
-                        .fillMaxWidth()
-                ) {
-                    Text(
-                        modifier = Modifier.align(Alignment.CenterStart),
-                        text = sliderValueHint.first,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1
-                    )
-                    Text(
-                        modifier = Modifier.align(Alignment.CenterEnd),
-                        text = sliderValueHint.second,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1
-                    )
-                }
-            }
-            MyRangeSlider(
-                modifier = Modifier
-                    .padding(horizontal = ContentPaddingHorizontal - Spacing6)
-                    .height(SliderTrackHeight),
-                enabled = enabled,
-                value = value,
-                onValueChange = onValueChange,
-                onValueChangeFinished = onValueChangeFinished,
-                valueRange = valueRange
-            )
-        }
+                .padding(horizontal = 12.dp - 6.dp)
+                .height(SliderTrackHeight),
+            enabled = enabled,
+            value = value,
+            onValueChange = onValueChange,
+            onValueChangeFinished = onValueChangeFinished,
+            valueRange = valueRange
+        )
     }
 }
 
@@ -239,7 +216,7 @@ fun MySlider(
         thumb = {
             SliderDefaults.Thumb(
                 modifier = Modifier
-                    .requiredSize(Spacing20)
+                    .requiredSize(20.dp)
                     .drawWithContent {
                         drawContent()
                         if (enabled) {
@@ -285,7 +262,7 @@ fun MyRangeSlider(
     val thumb: @Composable (MutableInteractionSource) -> Unit = { interactionSource ->
         SliderDefaults.Thumb(
             modifier = Modifier
-                .requiredSize(Spacing20)
+                .requiredSize(20.dp)
                 .drawWithContent {
                     drawContent()
                     if (enabled) {
