@@ -64,8 +64,6 @@ fun <T> GestureButton.whenVertical(vertical: T, horizontal: T): T = if (isVertic
 
 fun GestureButton.whenVerticalFloat(vertical: () -> Float, horizontal: () -> Float): Float = if (isVertical) vertical() else horizontal()
 
-fun GestureButton.horizontalMirror(pos: Float, neg: Float): Float = pos
-
 fun GestureButton.mirroredButton(): GestureButton? {
     if (!mirrorHorizontal) return null
     return copy(bounds = bounds.copy(x = 1f - bounds.x - bounds.width), mirrorHorizontal = false)

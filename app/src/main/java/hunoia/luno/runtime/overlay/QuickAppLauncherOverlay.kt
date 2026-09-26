@@ -82,12 +82,14 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.savedstate.SavedStateRegistryOwner
 import android.content.Context
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
@@ -106,16 +108,17 @@ interface QuickAppLauncherOverlayHost : LifecycleOwner, ViewModelStoreOwner, Sav
     val coroutineScope: CoroutineScope
     val advancedSettings: AdvancedSettings?
 
-    fun requestEnableFrozenPackage(packageName: String, onResult: (Boolean) -> Unit)
+    fun requestEnableDisabledPackage(packageName: String, onResult: (Boolean) -> Unit)
 }
 
 class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
-    private var overlayView: View? = null
+    @Volatile private var overlayView: View? = null
     private var overlayParams: WindowManager.LayoutParams? = null
-    private var isShowing = false
+    @Volatile private var isShowing = false
     private var isHiding = false
     private var triggerCloseAnimated: (() -> Unit)? = null
     private var lastCloseMs: Long = 0L
+    @Volatile private var pendingJob: Job? = null
     var onAppLaunchRequested: ((AppInfo) -> Unit)? = null
 
     fun toggle() {
@@ -128,8 +131,13 @@ class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
     }
 
     fun close() {
-        if (isHiding || overlayView == null) {
-            if (BuildConfig.DEBUG) Log.d("LunoLauncher","close: skipped (isHiding=$isHiding overlayView=${overlayView != null})")
+        if (overlayView == null) {
+            val cancelled = cancelPendingShow()
+            if (BuildConfig.DEBUG) Log.d("LunoLauncher", "close: no overlay (cancelledPendingShow=$cancelled)")
+            return
+        }
+        if (isHiding) {
+            if (BuildConfig.DEBUG) Log.d("LunoLauncher", "close: skipped (already hiding)")
             return
         }
         val reason = "explicit close"
@@ -144,6 +152,7 @@ class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
     }
 
     fun closeImmediately() {
+        cancelPendingShow()
         if (overlayView == null) {
             return
         }
@@ -152,6 +161,14 @@ class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
         lastCloseMs = System.currentTimeMillis()
         if (BuildConfig.DEBUG) Log.d("LunoLauncher", "closeImmediately: removing overlay")
         removeOverlayView()
+    }
+
+    private fun cancelPendingShow(): Boolean {
+        val job = pendingJob ?: return false
+        pendingJob = null
+        job.cancel()
+        if (overlayView == null) isShowing = false
+        return true
     }
 
     private fun animateOut(view: View) {
@@ -186,10 +203,16 @@ class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
 
         cleanupExistingOverlay()
 
-        host.coroutineScope.launch {
-            val initialSettings = loadSettingsAsync()
-            withContext(Dispatchers.Main.immediate) {
-                showOverlayView(initialSettings)
+        pendingJob = host.coroutineScope.launch {
+            try {
+                val initialSettings = loadSettingsAsync()
+                withContext(Dispatchers.Main.immediate) {
+                    if (!isActive) return@withContext
+                    showOverlayView(initialSettings)
+                }
+            } finally {
+                if (pendingJob === coroutineContext[Job]) pendingJob = null
+                if (overlayView == null) isShowing = false
             }
         }
     }
@@ -223,7 +246,7 @@ class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
                 SideGestureTheme {
                     QuickAppLauncherContent(
                         initialSettings = initialSettings,
-                        requestEnableFrozenPackage = host::requestEnableFrozenPackage,
+                        requestEnableDisabledPackage = host::requestEnableDisabledPackage,
                         onCloseAnimated = {
                             isShowing = false
                             isHiding = true
@@ -260,7 +283,10 @@ class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
                 }
             }
         }
-        wm.addView(composeView, lp)
+        if (!wm.safeAddView(composeView, lp)) {
+            isShowing = false
+            return
+        }
         overlayView = composeView
         overlayParams = lp
         isShowing = false

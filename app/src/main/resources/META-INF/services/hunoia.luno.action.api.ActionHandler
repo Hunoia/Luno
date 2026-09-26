@@ -1,9 +1,0 @@
-hunoia.luno.action.handlers.AppLaunchActionHandler
-hunoia.luno.action.handlers.MediaActionHandler
-hunoia.luno.action.handlers.NavigationActionHandler
-hunoia.luno.action.handlers.PasswordGeneratorActionHandler
-hunoia.luno.action.handlers.RandomNameActionHandler
-hunoia.luno.action.handlers.ShortcutActionHandler
-hunoia.luno.action.handlers.ShellCommandActionHandler
-hunoia.luno.action.handlers.SystemActionHandler
-hunoia.luno.action.handlers.VolumeScrubActionHandler

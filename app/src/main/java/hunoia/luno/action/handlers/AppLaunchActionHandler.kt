@@ -75,7 +75,7 @@ object AppLaunchActionHandler : ActionHandler {
 
     private fun handleExtraLaunchApp(action: Action, context: ActionHandlerContext) {
         val appInfo = action.appInfo ?: return
-        launchAppWithFrozenSupport(context, appInfo, appInfo.miniWindow)
+        launchAppWithDisabledSupport(context, appInfo, appInfo.miniWindow)
     }
 
     private fun handleOpenAppActivity(action: Action, context: ActionHandlerContext) {
@@ -91,7 +91,7 @@ object AppLaunchActionHandler : ActionHandler {
                     packageName = data.packageName,
                     className = data.activityClassName
                 ) { _, pkg ->
-                    suspendEnablePackageViaBridge(context.requestEnableFrozenPackage, pkg)
+                    suspendEnablePackageViaBridge(context.requestEnableDisabledPackage, pkg)
                 }
             }
         }
@@ -117,7 +117,7 @@ object AppLaunchActionHandler : ActionHandler {
         return if (success) ActionExecutionResult.Success else ActionExecutionResult.Failed("Launch URL failed")
     }
 
-    private fun launchAppWithFrozenSupport(
+    private fun launchAppWithDisabledSupport(
         context: ActionHandlerContext,
         appInfo: hunoia.luno.quicklaunch.model.AppInfo,
         miniWindow: Boolean
@@ -136,7 +136,7 @@ object AppLaunchActionHandler : ActionHandler {
                     miniWindowHeightFraction = context.advancedSettings.miniWindowHeightFraction,
                     miniWindowOverrideBounds = true,
                 ) { _, pkg ->
-                    suspendEnablePackageViaBridge(context.requestEnableFrozenPackage, pkg)
+                    suspendEnablePackageViaBridge(context.requestEnableDisabledPackage, pkg)
                 }
             } else {
                 AppLaunchBypass.launchWithAutoUnfreeze(
@@ -145,17 +145,17 @@ object AppLaunchActionHandler : ActionHandler {
                     className = appInfo.className,
                     miniWindow = miniWindow,
                 ) { _, pkg ->
-                    suspendEnablePackageViaBridge(context.requestEnableFrozenPackage, pkg)
+                    suspendEnablePackageViaBridge(context.requestEnableDisabledPackage, pkg)
                 }
             }
         }
     }
 
     private suspend fun suspendEnablePackageViaBridge(
-        requestEnableFrozenPackage: (String, (Boolean) -> Unit) -> Unit,
+        requestEnableDisabledPackage: (String, (Boolean) -> Unit) -> Unit,
         packageName: String
     ): Boolean = kotlinx.coroutines.suspendCancellableCoroutine { cont ->
-        requestEnableFrozenPackage(packageName) { success ->
+        requestEnableDisabledPackage(packageName) { success ->
             cont.resume(success)
         }
     }

@@ -188,12 +188,12 @@ internal suspend fun updateAppInfosBody(
     val appInfos = withContext(Dispatchers.IO) {
         QuickLaunchFacade.queryApps(AppContext.get())
     }
-    val frozenApps = DisabledAppQuery.queryDisabledApplications(AppContext.get())
+    val disabledApps = DisabledAppQuery.queryDisabledApplicationsOnIo(AppContext.get())
     val normalPackageNames = appInfos.map { it.packageName }.toSet()
-    val filteredFrozenApps = frozenApps.filter { it.packageName !in normalPackageNames }
+    val filteredDisabledApps = disabledApps.filter { it.packageName !in normalPackageNames }
     val mergedApps = mutableListOf<AppInfo>()
     mergedApps.addAll(appInfos)
-    mergedApps.addAll(filteredFrozenApps)
+    mergedApps.addAll(filteredDisabledApps)
     if (getUiState().selectSingle) {
         updateUiState {
             it.copy(apps = mergedApps)

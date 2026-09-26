@@ -1,12 +1,22 @@
 package hunoia.luno.quicklaunch
 
 import android.app.Activity
+import android.content.ComponentName
 import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
+import android.text.TextUtils
 import android.util.Log
+import android.widget.Toast
 import hunoia.luno.BuildConfig
+import hunoia.luno.R
+import hunoia.luno.service.SideGestureService
 
 class QuickAppLauncherActivity : Activity() {
+
+    private companion object {
+        const val EXPECTED_ACTION = "hunoia.luno.action.QUICK_APP_LAUNCHER"
+    }
 
     private var activityCreateTime: Long = 0L
 
@@ -14,19 +24,29 @@ class QuickAppLauncherActivity : Activity() {
         super.onCreate(savedInstanceState)
         activityCreateTime = System.currentTimeMillis()
         val intent = intent
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "activity: onCreate taskId=$taskId isTaskRoot=$isTaskRoot action=${intent?.action} flags=${intent?.flags} data=${intent?.dataString} categories=${intent?.categories} extras=${intent?.extras?.keySet()}")
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "activity: onCreate callingPackage=$callingPackage referrer=$referrer source=externalActivity")
 
-        QuickLaunchFacade.showOverlay()
+        if (intent?.action == EXPECTED_ACTION && BuildConfig.DEBUG) Log.d(
+            "LunoLauncher",
+            "activity: onCreate taskId=$taskId isTaskRoot=$isTaskRoot action=${intent.action} flags=${intent.flags}"
+        )
+
+        tryShowOverlay(intent?.action)
 
         if (BuildConfig.DEBUG) Log.d("LunoLauncher", "activity: calling finish() reason=immediateAfterShow")
         finish()
-        overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, android.R.anim.fade_in, android.R.anim.fade_out)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "activity: onNewIntent taskId=$taskId isTaskRoot=$isTaskRoot action=${intent.action} flags=${intent.flags} data=${intent.dataString}")
+        if (BuildConfig.DEBUG) Log.d(
+            "LunoLauncher",
+            "activity: onNewIntent taskId=$taskId isTaskRoot=$isTaskRoot action=${intent.action} flags=${intent.flags}"
+        )
+
+        tryShowOverlay(intent.action)
+
+        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "activity: calling finish() reason=afterNewIntent")
+        finish()
     }
 
     override fun onResume() {
@@ -48,6 +68,33 @@ class QuickAppLauncherActivity : Activity() {
     override fun finish() {
         if (BuildConfig.DEBUG) Log.d("LunoLauncher", "activity: finish called taskId=$taskId")
         super.finish()
-        overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, android.R.anim.fade_in, android.R.anim.fade_out)
+    }
+
+    private fun tryShowOverlay(action: String?): Boolean {
+        if (action != EXPECTED_ACTION) {
+            if (BuildConfig.DEBUG) Log.d("LunoLauncher", "activity: rejected action=$action")
+            return false
+        }
+        if (!isAccessibilityServiceEnabled()) {
+            if (BuildConfig.DEBUG) Log.d("LunoLauncher", "activity: accessibility service not enabled")
+            Toast.makeText(this, R.string.quick_launcher_requires_accessibility, Toast.LENGTH_SHORT).show()
+            return false
+        }
+        QuickLaunchFacade.showOverlay()
+        return true
+    }
+
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        val enabledServices = Settings.Secure.getString(
+            contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        val service = ComponentName(packageName, SideGestureService::class.java.name)
+        val splitter = TextUtils.SimpleStringSplitter(':')
+        splitter.setString(enabledServices)
+        while (splitter.hasNext()) {
+            if (ComponentName.unflattenFromString(splitter.next()) == service) return true
+        }
+        return false
     }
 }

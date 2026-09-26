@@ -22,9 +22,9 @@ object AppLaunchBypass {
         unfreezePackage: suspend (context: Context, packageName: String) -> Boolean = { _, _ -> true }
     ): Boolean {
         if (DisabledAppQuery.isDisabled(context, packageName)) {
-            val unfrozen = unfreezePackage(context, packageName)
-            if (!unfrozen) {
-                showToast(R.string.enable_frozen_app_failed)
+            val undisabled = unfreezePackage(context, packageName)
+            if (!undisabled) {
+                showToast(R.string.enable_disabled_app_failed)
                 return false
             }
             DisabledAppQuery.markEnabled(packageName)
@@ -46,9 +46,9 @@ object AppLaunchBypass {
         unfreezePackage: suspend (context: Context, packageName: String) -> Boolean = { _, _ -> true }
     ): Boolean {
         if (DisabledAppQuery.isDisabled(context, packageName)) {
-            val unfrozen = unfreezePackage(context, packageName)
-            if (!unfrozen) {
-                showToast(R.string.enable_frozen_app_failed)
+            val undisabled = unfreezePackage(context, packageName)
+            if (!undisabled) {
+                showToast(R.string.enable_disabled_app_failed)
                 return false
             }
             DisabledAppQuery.markEnabled(packageName)

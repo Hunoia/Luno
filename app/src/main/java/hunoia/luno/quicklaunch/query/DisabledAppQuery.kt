@@ -107,9 +107,8 @@ object DisabledAppQuery {
         return result
     }
 
-    suspend fun queryDisabledApplicationsOnIo(context: Context): List<AppInfo> {
-        return queryDisabledApplications(context)
-    }
+    suspend fun queryDisabledApplicationsOnIo(context: Context): List<AppInfo> =
+        withContext(Dispatchers.IO) { queryDisabledApplications(context) }
 
     fun queryQuickAppLauncherApps(context: Context): QuickAppLauncherAppList {
         val disabledApps = queryDisabledApplications(context)

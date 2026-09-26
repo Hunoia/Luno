@@ -7,6 +7,7 @@ import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,11 +22,12 @@ class SettingsStore(
     val state: StateFlow<SettingsState> = _state.asStateFlow()
 
     private var started = false
+    private var job: Job? = null
 
     fun start() {
         if (started) return
         started = true
-        scope.launch(Dispatchers.Main.immediate) {
+        job = scope.launch(Dispatchers.Main.immediate) {
             val runtimeSettings = combine(
                 ConfigProvider.gestureButtons,
                 ConfigProvider.advancedSettings,
@@ -55,6 +57,12 @@ class SettingsStore(
                 )
             }.collectLatest { _state.value = it }
         }
+    }
+
+    fun stop() {
+        job?.cancel()
+        job = null
+        started = false
     }
 
     fun snapshot(): SettingsState = _state.value

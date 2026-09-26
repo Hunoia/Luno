@@ -59,6 +59,9 @@ object ShizukuManager {
 
     private val binderDeadListener = Shizuku.OnBinderDeadListener {
         updateStatus()
+        permissionResult?.complete(false)
+        permissionResult = null
+        autoPermissionRequested = false
     }
 
     private val permissionResultListener =

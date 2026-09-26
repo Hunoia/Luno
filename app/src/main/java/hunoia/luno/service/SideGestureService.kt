@@ -12,6 +12,7 @@ import hunoia.luno.runtime.overlay.QuickAppLauncherOverlay
 import hunoia.luno.runtime.overlay.QuickAppLauncherOverlayHost
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
 import hunoia.luno.runtime.overlay.RuntimePanelOverlayHost
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
@@ -61,6 +62,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost, QuickAp
 
     override fun onSetOverlay() {
         current = this
+        if (::gestureCoordinator.isInitialized) gestureCoordinator.onDestroy()
         gestureCoordinator = GestureCoordinator(this)
         gestureCoordinator.onSetOverlay()
     }
@@ -87,13 +89,14 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost, QuickAp
         quickAppLauncherOverlay.closeImmediately()
         runtimePanelOverlay.close()
         QuickLaunchFacade.showOverlay = {}
+        coroutineScope.cancel()
     }
 
     override fun nowInLauncher(): Boolean {
         return QuickLaunchFacade.isLauncherPackage(this, getCurrentPackageName())
     }
 
-    override fun requestEnableFrozenPackage(packageName: String, onResult: (Boolean) -> Unit) {
+    override fun requestEnableDisabledPackage(packageName: String, onResult: (Boolean) -> Unit) {
         disabledPackageEnabler.request(packageName, onResult)
     }
 

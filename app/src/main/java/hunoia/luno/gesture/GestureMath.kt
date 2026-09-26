@@ -3,7 +3,6 @@ package hunoia.luno.gesture
 import androidx.compose.ui.geometry.Offset
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureDirection
-import kotlin.math.hypot
 
 fun calcDirection(
     button: GestureButton,
@@ -29,32 +28,6 @@ fun GestureDirection.mirrorHorizontal(): GestureDirection {
         GestureDirection.DownLeft -> GestureDirection.DownRight
     }
 }
-
-fun canDistanceTriggered(
-    button: GestureButton,
-    origin: Offset,
-    finger: Offset,
-    triggerDirection: GestureDirection,
-    isLongSlide: Boolean,
-    stickySlideValue: Float,
-    judgeAction: Boolean = true,
-    configButton: GestureButton = button,
-): Boolean {
-    val distance = hypot(finger.x - origin.x, finger.y - origin.y)
-    val threshold = if (isLongSlide) configButton.longSlideTriggerDistance else configButton.slideTriggerDistance
-    val canTrigger = distance >= threshold
-    if (!judgeAction) return canTrigger
-    val actionList = if (isLongSlide) {
-        configButton.longSlideActions.actionsBy(triggerDirection)
-    } else {
-        configButton.slideActions.actionsBy(triggerDirection)
-    }
-    return canTrigger && actionList.isEmptyOrNone().not()
-}
-
-fun getStickySlideValue(button: GestureButton, stickySlideValue: Float, isX: Boolean): Float = stickySlideValue
-
-fun stickySlideValue(): Float = 0f
 
 fun triggerRotationOffset(triggerDirection: GestureDirection): Float {
     return when (triggerDirection) {

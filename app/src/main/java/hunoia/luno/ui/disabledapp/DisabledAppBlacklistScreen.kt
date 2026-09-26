@@ -1,4 +1,4 @@
-package hunoia.luno.ui.freeze
+package hunoia.luno.ui.disabledapp
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -59,9 +59,9 @@ import hunoia.luno.ui.theme.*
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun FrozenAppBlacklistContent(
+fun DisabledAppBlacklistContent(
     onDismiss: () -> Unit,
-    vm: FrozenAppBlacklistVM = viewModel()
+    vm: DisabledAppBlacklistVM = viewModel()
 ) {
     UDFComponent(
         component = vm.udfComponent,

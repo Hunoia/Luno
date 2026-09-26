@@ -18,6 +18,6 @@ interface GestureHost : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryO
     val runtimePanelOverlay: RuntimePanelOverlay
 
     fun nowInLauncher(): Boolean
-    fun requestEnableFrozenPackage(packageName: String, onResult: (Boolean) -> Unit)
+    fun requestEnableDisabledPackage(packageName: String, onResult: (Boolean) -> Unit)
     fun getCurrentPackageName(): String
 }

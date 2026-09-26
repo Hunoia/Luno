@@ -64,8 +64,8 @@ class ActionDispatcher(
             showLongToast = { showToastLongUtil(it) },
             currentPackageName = { host.getCurrentPackageName() },
             nowInLauncher = { host.nowInLauncher() },
-            requestEnableFrozenPackage = { packageName, onResult ->
-                host.requestEnableFrozenPackage(packageName, onResult)
+            requestEnableDisabledPackage = { packageName, onResult ->
+                host.requestEnableDisabledPackage(packageName, onResult)
             },
             toggleQuickAppLauncher = onToggleQuickAppLauncher,
             showVolumeScrub = onShowVolumeScrub,

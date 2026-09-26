@@ -20,8 +20,10 @@ object PackageChangeReceiver {
     }
 
     fun register(context: Context, onPackageChanged: () -> Unit) {
-        listeners.add(onPackageChanged)
-        if (registered) return
+        if (registered) {
+            listeners.add(onPackageChanged)
+            return
+        }
         registered = true
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)
@@ -30,7 +32,8 @@ object PackageChangeReceiver {
             addAction(Intent.ACTION_PACKAGE_REPLACED)
             addDataScheme("package")
         }
-        context.registerReceiver(receiver, filter)
+        listeners.add(onPackageChanged)
+        context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
     }
 
     fun unregister(context: Context, onPackageChanged: () -> Unit) {

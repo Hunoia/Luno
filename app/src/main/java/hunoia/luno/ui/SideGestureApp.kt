@@ -46,7 +46,7 @@ import hunoia.luno.ui.settings.gesture.subgesture.SubGestureSettingsScreen
 import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.ui.navigation.LocalNavController
 import hunoia.luno.ui.home.HomeScreen
-import hunoia.luno.ui.freeze.FrozenAppBlacklistContent
+import hunoia.luno.ui.disabledapp.DisabledAppBlacklistContent
 import kotlin.reflect.KType
 
 
@@ -126,7 +126,7 @@ fun SideGestureApp() {
                     )
                 }
                 myComposable<AppBlacklist> {
-                    FrozenAppBlacklistContent(
+                    DisabledAppBlacklistContent(
                         onDismiss = { navController.popBackStack() }
                     )
                 }

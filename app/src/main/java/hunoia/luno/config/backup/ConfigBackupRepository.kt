@@ -42,14 +42,22 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
     }
 
     suspend fun restoreAll(backup: Backup) = coroutineScope {
-        launch { backup.initialSettings?.let { v -> stores._initialSettings.updateData { v } } }
-        launch { backup.advancedSettings?.let { v -> stores._advancedSettings.updateData { v } } }
-        launch { backup.gestureSettings?.let { v -> stores._gestureSettings.updateData { v } } }
-        launch { backup.actionSettings?.let { v -> stores._actionSettings.updateData { v } } }
-        launch { backup.gestureButtons?.let { v -> stores._gestureButtons.updateData { v } } }
-        launch { backup.quickAppLauncherSettings?.let { v -> stores._quickAppLauncherSettings.updateData { v } } }
-        launch { backup.subGestureSettings?.let { v -> stores._subGestureSettings.updateData { v } } }
-        launch { backup.actionLibrarySettings?.let { v -> stores._actionLibrarySettings.updateData { v } } }
+        launch { backup.initialSettings?.let { v -> writeSection("initialSettings") { stores._initialSettings.updateData { v } } } }
+        launch { backup.advancedSettings?.let { v -> writeSection("advancedSettings") { stores._advancedSettings.updateData { v } } } }
+        launch { backup.gestureSettings?.let { v -> writeSection("gestureSettings") { stores._gestureSettings.updateData { v } } } }
+        launch { backup.actionSettings?.let { v -> writeSection("actionSettings") { stores._actionSettings.updateData { v } } } }
+        launch { backup.gestureButtons?.let { v -> writeSection("gestureButtons") { stores._gestureButtons.updateData { v } } } }
+        launch { backup.quickAppLauncherSettings?.let { v -> writeSection("quickAppLauncherSettings") { stores._quickAppLauncherSettings.updateData { v } } } }
+        launch { backup.subGestureSettings?.let { v -> writeSection("subGestureSettings") { stores._subGestureSettings.updateData { v } } } }
+        launch { backup.actionLibrarySettings?.let { v -> writeSection("actionLibrarySettings") { stores._actionLibrarySettings.updateData { v } } } }
+    }
+
+    private suspend fun writeSection(section: String, block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (e: Exception) {
+            throw IllegalStateException("restore failed: $section write failed: ${e::class.simpleName} ${e.message}", e)
+        }
     }
 
     suspend fun resetAll() = coroutineScope {

@@ -18,7 +18,7 @@ data class ActionHandlerContext(
     val showLongToast: (String) -> Unit,
     val currentPackageName: () -> String? = { null },
     val nowInLauncher: () -> Boolean = { false },
-    val requestEnableFrozenPackage: (String, (Boolean) -> Unit) -> Unit = { _, onResult -> onResult(false) },
+    val requestEnableDisabledPackage: (String, (Boolean) -> Unit) -> Unit = { _, onResult -> onResult(false) },
     val toggleQuickAppLauncher: () -> Unit = {},
     val showVolumeScrub: () -> Boolean = { false },
     val toggleKeepScreenOn: () -> Unit = {},

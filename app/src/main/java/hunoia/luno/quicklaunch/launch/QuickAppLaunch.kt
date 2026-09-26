@@ -14,26 +14,26 @@ object QuickAppLaunch {
         context: Context,
         coroutineScope: CoroutineScope,
         app: AppInfo,
-        isFrozen: Boolean,
+        isDisabled: Boolean,
         miniWindow: Boolean,
         debugPrefix: String?,
-        requestEnableFrozenPackage: (String, (Boolean) -> Unit) -> Unit,
+        requestEnableDisabledPackage: (String, (Boolean) -> Unit) -> Unit,
         log: (String) -> Unit,
         onLaunch: (AppInfo, Boolean) -> Boolean,
         onLaunched: () -> Unit
     ) {
-        if (!isFrozen) {
+        if (!isDisabled) {
             if (onLaunch(app, miniWindow)) onLaunched()
             return
         }
 
-        val frozenStart = System.currentTimeMillis()
-        logFrozenStart(context, app, debugPrefix)
-        requestEnableFrozenPackage(app.packageName) { success ->
-            logEnableEnd(app, debugPrefix, success, frozenStart)
+        val disabledStart = System.currentTimeMillis()
+        logDisabledStart(context, app, debugPrefix)
+        requestEnableDisabledPackage(app.packageName) { success ->
+            logEnableEnd(app, debugPrefix, success, disabledStart)
             if (!success) {
-                logEnableFailed(app, debugPrefix, frozenStart)
-                return@requestEnableFrozenPackage
+                logEnableFailed(app, debugPrefix, disabledStart)
+                return@requestEnableDisabledPackage
             }
 
             log("enable_package: request launch pkg=${app.packageName} miniWindow=$miniWindow")
@@ -44,7 +44,7 @@ object QuickAppLaunch {
                     AppQuery.findLauncherActivity(context, app.packageName)
                 }
                 if (found == null) {
-                    logResolveNotFound(app, debugPrefix, resolveStart, frozenStart)
+                    logResolveNotFound(app, debugPrefix, resolveStart, disabledStart)
                     log("enable_package: launcher activity not found pkg=${app.packageName}")
                     return@launchBlock
                 }
@@ -53,34 +53,34 @@ object QuickAppLaunch {
                 log("enable_package: launcher found pkg=${found.packageName} cls=${found.className}")
                 val launchStart = System.currentTimeMillis()
                 val result = onLaunch(found, miniWindow)
-                logLaunchResult(app, debugPrefix, result, launchStart, frozenStart)
+                logLaunchResult(app, debugPrefix, result, launchStart, disabledStart)
                 log("enable_package: launch after enable result=$result pkg=${app.packageName}")
                 if (result) onLaunched()
             }
         }
     }
 
-    private fun logFrozenStart(context: Context, app: AppInfo, debugPrefix: String?) {
+    private fun logDisabledStart(context: Context, app: AppInfo, debugPrefix: String?) {
         if (debugPrefix == null || !BuildConfig.DEBUG) return
         val beforeState = runCatching {
             context.packageManager.getApplicationEnabledSetting(app.packageName)
         }.getOrDefault(-1)
-        android.util.Log.d("LauncherPerf", "$debugPrefix: frozen start pkg=${app.packageName} beforeEnable=$beforeState")
+        android.util.Log.d("LauncherPerf", "$debugPrefix: disabled start pkg=${app.packageName} beforeEnable=$beforeState")
     }
 
-    private fun logEnableEnd(app: AppInfo, debugPrefix: String?, success: Boolean, frozenStart: Long) {
+    private fun logEnableEnd(app: AppInfo, debugPrefix: String?, success: Boolean, disabledStart: Long) {
         if (debugPrefix == null || !BuildConfig.DEBUG) return
         android.util.Log.d(
             "LauncherPerf",
-            "$debugPrefix: enable_end pkg=${app.packageName} success=$success elapsed=${System.currentTimeMillis() - frozenStart}ms"
+            "$debugPrefix: enable_end pkg=${app.packageName} success=$success elapsed=${System.currentTimeMillis() - disabledStart}ms"
         )
     }
 
-    private fun logEnableFailed(app: AppInfo, debugPrefix: String?, frozenStart: Long) {
+    private fun logEnableFailed(app: AppInfo, debugPrefix: String?, disabledStart: Long) {
         if (debugPrefix == null || !BuildConfig.DEBUG) return
         android.util.Log.d(
             "LauncherPerf",
-            "$debugPrefix: enable_failed pkg=${app.packageName} total=${System.currentTimeMillis() - frozenStart}ms"
+            "$debugPrefix: enable_failed pkg=${app.packageName} total=${System.currentTimeMillis() - disabledStart}ms"
         )
     }
 
@@ -97,19 +97,19 @@ object QuickAppLaunch {
         )
     }
 
-    private fun logResolveNotFound(app: AppInfo, debugPrefix: String?, resolveStart: Long, frozenStart: Long) {
+    private fun logResolveNotFound(app: AppInfo, debugPrefix: String?, resolveStart: Long, disabledStart: Long) {
         if (debugPrefix == null || !BuildConfig.DEBUG) return
         android.util.Log.d(
             "LauncherPerf",
-            "$debugPrefix: resolve_intent not_found pkg=${app.packageName} elapsed=${System.currentTimeMillis() - resolveStart}ms total=${System.currentTimeMillis() - frozenStart}ms"
+            "$debugPrefix: resolve_intent not_found pkg=${app.packageName} elapsed=${System.currentTimeMillis() - resolveStart}ms total=${System.currentTimeMillis() - disabledStart}ms"
         )
     }
 
-    private fun logLaunchResult(app: AppInfo, debugPrefix: String?, result: Boolean, launchStart: Long, frozenStart: Long) {
+    private fun logLaunchResult(app: AppInfo, debugPrefix: String?, result: Boolean, launchStart: Long, disabledStart: Long) {
         if (debugPrefix == null || !BuildConfig.DEBUG) return
         android.util.Log.d(
             "LauncherPerf",
-            "$debugPrefix: startActivity pkg=${app.packageName} result=$result elapsed=${System.currentTimeMillis() - launchStart}ms total=${System.currentTimeMillis() - frozenStart}ms"
+            "$debugPrefix: startActivity pkg=${app.packageName} result=$result elapsed=${System.currentTimeMillis() - launchStart}ms total=${System.currentTimeMillis() - disabledStart}ms"
         )
     }
 }

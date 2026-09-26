@@ -187,11 +187,6 @@ class SubGestureSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeVM<S
             }
         }
     }
-
-    private object App {
-        lateinit var context: android.content.Context
-        fun init(ctx: android.content.Context) { context = ctx }
-    }
 }
 
 private fun GestureDirection.mirrorHorizontal(): GestureDirection = when (this) {

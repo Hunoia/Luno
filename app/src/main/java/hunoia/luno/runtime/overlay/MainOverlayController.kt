@@ -27,15 +27,16 @@ class MainOverlayController(
             setViewTreeSavedStateRegistryOwner(host)
             setContent { content() }
         }
-        wm.addView(view, lp)
-        composeView = view
+        if (wm.safeAddView(view, lp)) {
+            composeView = view
+        }
     }
 
     fun updateLayout() {
         val view = composeView ?: return
         val wm = ContextCompat.getSystemService(host.context, WindowManager::class.java)!!
         val lp = WindowLayoutFactory.mainOverlayLayoutParams()
-        val currentLp = view.layoutParams as WindowManager.LayoutParams
+        val currentLp = view.layoutParams as? WindowManager.LayoutParams ?: return
         currentLp.width = lp.width
         currentLp.height = lp.height
         try { wm.updateViewLayout(view, currentLp) } catch (_: Exception) { }

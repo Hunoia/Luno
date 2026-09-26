@@ -1,4 +1,4 @@
-package hunoia.luno.ui.freeze
+package hunoia.luno.ui.disabledapp
 
 import androidx.lifecycle.viewModelScope
 import com.aaron.compose.base.BaseComposeVM
@@ -6,8 +6,8 @@ import hunoia.luno.core.AppContext
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.query.DisabledAppQuery
-import hunoia.luno.ui.freeze.FrozenAppBlacklistVM.UiEvent
-import hunoia.luno.ui.freeze.FrozenAppBlacklistVM.UiState
+import hunoia.luno.ui.disabledapp.DisabledAppBlacklistVM.UiEvent
+import hunoia.luno.ui.disabledapp.DisabledAppBlacklistVM.UiState
 import hunoia.luno.config.ConfigProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.combine
@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 
-class FrozenAppBlacklistVM : BaseComposeVM<UiState, UiEvent>() {
+class DisabledAppBlacklistVM : BaseComposeVM<UiState, UiEvent>() {
 
     override val initialState: UiState = UiState()
 
@@ -71,16 +71,14 @@ class FrozenAppBlacklistVM : BaseComposeVM<UiState, UiEvent>() {
                     emptyList()
                 }
             }
-            val frozenApps = withContext(Dispatchers.IO) {
-                DisabledAppQuery.queryDisabledApplicationsOnIo(AppContext.get())
-            }
+            val disabledApps = DisabledAppQuery.queryDisabledApplicationsOnIo(AppContext.get())
             val normalPackageNames = appInfos.map { it.packageName }.toSet()
-            val filteredFrozenApps = frozenApps.filter {
+            val filteredDisabledApps = disabledApps.filter {
                 it.packageName !in normalPackageNames && it.packageName != AppContext.get().packageName
             }
             val mergedApps = mutableListOf<AppInfo>()
             mergedApps.addAll(appInfos)
-            mergedApps.addAll(filteredFrozenApps)
+            mergedApps.addAll(filteredDisabledApps)
             arrangeAppInfos(mergedApps)
         }
     }

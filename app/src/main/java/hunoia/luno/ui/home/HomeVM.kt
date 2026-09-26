@@ -36,7 +36,8 @@ class HomeVM : HomeVMBase() {
 
     fun backup(context: Context, saveTo: Uri) {
         viewModelScope.launchWithLoading(
-            Dispatchers.IO + CoroutineExceptionHandler { _, _ ->
+            Dispatchers.IO + CoroutineExceptionHandler { _, e ->
+                android.util.Log.e("LunoLauncher", "backup failed", e)
                 toast(R.string.backup_failed)
             },
             cancelable = false
@@ -61,7 +62,8 @@ class HomeVM : HomeVMBase() {
 
     fun restore(context: Context, restoreFrom: Uri) {
         viewModelScope.launchWithLoading(
-            Dispatchers.IO + CoroutineExceptionHandler { _, _ ->
+            Dispatchers.IO + CoroutineExceptionHandler { _, e ->
+                android.util.Log.e("LunoLauncher", "restore failed", e)
                 toast(R.string.restore_failed)
             },
             cancelable = false

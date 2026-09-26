@@ -85,10 +85,12 @@ fun ActionLibraryScreen(
     var editing by remember { mutableStateOf<ActionLibraryEntry?>(null) }
     var deleting by remember { mutableStateOf<ActionLibraryEntry?>(null) }
     var deletingSelected by remember { mutableStateOf(false) }
-    val filtered = uiState.entries
-        .filter { selectedType == null || it.type == selectedType }
-        .filter { it.matchesQuery(query) }
-        .sortedWith(actionLibraryComparator(sortMode, uiState.referenceCounts))
+    val filtered = remember(uiState.entries, uiState.referenceCounts, selectedType, query, sortMode) {
+        uiState.entries
+            .filter { selectedType == null || it.type == selectedType }
+            .filter { it.matchesQuery(query) }
+            .sortedWith(actionLibraryComparator(sortMode, uiState.referenceCounts))
+    }
     val selectedEntries = uiState.entries.filter { it.id in selectedIds }
     Scaffold(
         topBar = { TopBar(onBack = onBack, title = stringResource(R.string.action_library)) },

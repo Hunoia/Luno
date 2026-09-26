@@ -24,7 +24,7 @@ class TransientOverlayController(
                 true
             }
         }
-        wm.addView(view, lp)
+        if (!wm.safeAddView(view, lp)) return
         actionPanelOverlayView = view
     }
 
@@ -47,7 +47,7 @@ class TransientOverlayController(
                 true
             }
         }
-        wm.addView(view, lp)
+        if (!wm.safeAddView(view, lp)) return
         subGestureOverlayView = view
     }
 

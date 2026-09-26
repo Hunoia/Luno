@@ -14,6 +14,7 @@ import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.database.ContentObserver
+import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.provider.Settings
@@ -95,7 +96,7 @@ class DaemonService : Service() {
                 restoreIfNeeded(serviceComponentName, serviceId, current)
             }
         }
-        registerReceiver(screenReceiver, IntentFilter(Intent.ACTION_SCREEN_ON))
+        registerReceiver(screenReceiver, IntentFilter(Intent.ACTION_SCREEN_ON), Context.RECEIVER_NOT_EXPORTED)
 
         restoreIfNeeded(serviceComponentName, serviceId, selfWroteValue)
 
@@ -103,6 +104,10 @@ class DaemonService : Service() {
     }
 
     private fun restoreIfNeeded(serviceComponentName: ComponentName, serviceId: String, current: String) {
+        if (!hasWriteSecureSettings()) {
+            android.util.Log.w("LunoLauncher", "restoreIfNeeded skipped: WRITE_SECURE_SETTINGS revoked")
+            return
+        }
         val accessibilityEnabled = runCatching {
             Settings.Secure.getInt(contentResolver, Settings.Secure.ACCESSIBILITY_ENABLED) == 1
         }.getOrDefault(false)
@@ -170,7 +175,19 @@ class DaemonService : Service() {
             .setOngoing(true)
             .build()
 
-        startForeground(NOTIFICATION_ID, notification)
+        startAsForeground(notification)
+    }
+
+    private fun startAsForeground(notification: Notification) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
     }
 
     private fun updateNotification(title: String, content: String) {

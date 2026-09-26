@@ -32,7 +32,8 @@ class BroadcastObserver(
                 addAction(Intent.ACTION_SCREEN_OFF)
                 addAction(Intent.ACTION_USER_PRESENT)
                 addAction(Intent.ACTION_WALLPAPER_CHANGED)
-            }
+            },
+            Context.RECEIVER_NOT_EXPORTED
         )
         registered = true
     }

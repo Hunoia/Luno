@@ -27,7 +27,7 @@ class QuickAppLauncherState(
     private val context: Context,
     private val coroutineScope: CoroutineScope,
     initialSettings: QuickAppLauncherSettings,
-    private val requestEnableFrozenPackage: (String, (Boolean) -> Unit) -> Unit,
+    private val requestEnableDisabledPackage: (String, (Boolean) -> Unit) -> Unit,
     private val onCloseAnimatedRaw: () -> Unit,
     private val onLaunch: (AppInfo, Boolean) -> Boolean,
     private val onRegisterCloseAnimated: ((() -> Unit) -> Unit)?,
@@ -111,15 +111,15 @@ class QuickAppLauncherState(
         }
     }
 
-    fun launchApp(app: AppInfo, isFrozen: Boolean, miniWindow: Boolean, debugPrefix: String?) {
+    fun launchApp(app: AppInfo, isDisabled: Boolean, miniWindow: Boolean, debugPrefix: String?) {
         QuickLaunchFacade.launchApp(
             context = context,
             coroutineScope = coroutineScope,
             app = app,
-            isFrozen = isFrozen,
+            isDisabled = isDisabled,
             miniWindow = miniWindow,
             debugPrefix = debugPrefix,
-            requestEnableFrozenPackage = requestEnableFrozenPackage,
+            requestEnableDisabledPackage = requestEnableDisabledPackage,
             log = { message -> android.util.Log.d("LunoLauncher", message) },
             onLaunch = onLaunch,
             onLaunched = closeAnimated

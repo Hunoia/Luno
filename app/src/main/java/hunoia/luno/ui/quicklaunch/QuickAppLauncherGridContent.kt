@@ -125,12 +125,12 @@ internal fun CandidateAppRows(
                 ) {
                     columnApps.forEach { app ->
                         key(app.key()) {
-                            val isFrozen = app.packageName in disabledPkgs
+                            val isDisabled = app.packageName in disabledPkgs
                             AppItem(
                                 app = app,
                                 iconHeight = iconHeight,
-                                onClick = { onClick(app, isFrozen) },
-                                onLongPress = { onLongPress(app, isFrozen) }
+                                onClick = { onClick(app, isDisabled) },
+                                onLongPress = { onLongPress(app, isDisabled) }
                             )
                         }
                     }
@@ -197,11 +197,11 @@ internal fun AppGrid(
                 item { Box(modifier = Modifier.height(88.dp).fillMaxWidth()) }
             }
             items(apps, key = { it.key() }, contentType = { "app" }) { app ->
-                val isFrozen = app.packageName in disabledPkgs
+                val isDisabled = app.packageName in disabledPkgs
                 AppItem(
                     app = app,
-                    onClick = { onClick(app, isFrozen) },
-                    onLongPress = { onLongPress(app, isFrozen) }
+                    onClick = { onClick(app, isDisabled) },
+                    onLongPress = { onLongPress(app, isDisabled) }
                 )
             }
         }

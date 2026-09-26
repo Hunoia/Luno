@@ -25,10 +25,10 @@ class ButtonWindowController(
         host.removeWindows(_buttonViews)
         _buttonViews.clear()
         for (button in buttons) {
-            _buttonViews.add(attachGestureButton(GestureButtonWindowTarget(button, button)))
+            attachGestureButton(GestureButtonWindowTarget(button, button))?.let { _buttonViews.add(it) }
             button.mirroredButton()?.let { mirrored ->
                 if (mirrored.bounds != button.bounds) {
-                    _buttonViews.add(attachGestureButton(GestureButtonWindowTarget(button, mirrored)))
+                    attachGestureButton(GestureButtonWindowTarget(button, mirrored))?.let { _buttonViews.add(it) }
                 }
             }
         }
@@ -37,7 +37,7 @@ class ButtonWindowController(
     fun updateVisibility(policy: ButtonVisibilityPolicy) {
         for (view in _buttonViews) {
             val target = view.tag as? GestureButtonWindowTarget ?: continue
-            val lp = view.layoutParams as WindowManager.LayoutParams
+            val lp = view.layoutParams as? WindowManager.LayoutParams ?: continue
             WindowLayoutFactory.updateGestureButton(lp, target.windowButton)
             lp.flags = if (policy.shouldShow(target.sourceButton)) {
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
@@ -59,18 +59,19 @@ class ButtonWindowController(
         _buttonViews.clear()
     }
 
-    private fun attachGestureButton(target: GestureButtonWindowTarget): View {
+    private fun attachGestureButton(target: GestureButtonWindowTarget): View? {
         val lp = WindowLayoutFactory.gestureButtonLayoutParams(target.sourceButton.enabled).apply {
             WindowLayoutFactory.updateGestureButton(this, target.windowButton)
         }
-        return View(host).apply {
+        val view = View(host).apply {
             tag = target
             setOnTouchListener { v, event ->
                 MotionEventDispatcher.dispatch(event)
                 if (event.action == MotionEvent.ACTION_UP) v.performClick()
                 false
             }
-            wm.addView(this, lp)
         }
+        if (!wm.safeAddView(view, lp)) return null
+        return view
     }
 }

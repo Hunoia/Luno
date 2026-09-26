@@ -1,6 +1,7 @@
 package hunoia.luno.action.api
 
 import hunoia.luno.bridge.window.windowManager
+import hunoia.luno.runtime.overlay.safeAddView
 
 import android.content.Context
 import android.graphics.PixelFormat
@@ -31,7 +32,7 @@ class VolumeScrubOverlay(
     fun show(onDismiss: () -> Unit): Boolean {
         if (overlayView != null) return false
 
-        overlayView = View(context).apply {
+        val view = View(context).apply {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
 
             setOnTouchListener { _, event ->
@@ -90,7 +91,8 @@ class VolumeScrubOverlay(
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         )
-        wm.addView(overlayView, params)
+        if (!wm.safeAddView(view, params)) return false
+        overlayView = view
         return true
     }
 

@@ -72,7 +72,10 @@ class RuntimePanelOverlay(private val host: RuntimePanelOverlayHost) {
             }
         }
 
-        wm.addView(composeView, lp)
+        if (!wm.safeAddView(composeView, lp)) {
+            isShowing = false
+            return
+        }
         overlayView = composeView
     }
 

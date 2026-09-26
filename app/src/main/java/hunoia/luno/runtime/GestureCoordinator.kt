@@ -27,7 +27,6 @@ import hunoia.luno.runtime.volume.VolumeScrubRuntime
 import hunoia.luno.bridge.feedback.showToast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.collectLatest
@@ -52,6 +51,7 @@ class GestureCoordinator(
     )
     val overlayCoordinator = OverlayCoordinator(host)
     private var refreshJob: Job? = null
+    private val scopeJobs = mutableListOf<Job>()
 
     private val broadcastObserver = BroadcastObserver(
         context = host.context,
@@ -153,7 +153,7 @@ class GestureCoordinator(
 
         overlayCoordinator.replaceMainOverlay { renderMainOverlay() }
 
-        host.coroutineScope.launch {
+        scopeJobs += host.coroutineScope.launch {
             runtimeSettingsStore.state
                 .distinctUntilChangedBy { it.gestureButtons }
                 .collectLatest { state ->
@@ -163,7 +163,7 @@ class GestureCoordinator(
                 }
         }
 
-        host.coroutineScope.launch(Dispatchers.IO) {
+        scopeJobs += host.coroutineScope.launch(Dispatchers.IO) {
             QuickLaunchFacade.queryApps(host.context)
         }
     }
@@ -191,6 +191,9 @@ class GestureCoordinator(
         if (!started) return
         started = false
         if (BuildConfig.DEBUG) Log.d("LunoLauncher", "GestureCoordinator destroy")
+        runtimeSettingsStore.stop()
+        scopeJobs.forEach { it.cancel() }
+        scopeJobs.clear()
         overlayCoordinator.release()
         broadcastObserver.unregister()
         volumeScrubRuntime.onDestroy()
@@ -200,7 +203,6 @@ class GestureCoordinator(
             WallpaperManager.getInstance(host.context).removeOnColorsChangedListener(listener)
             wallpaperColorsListener = null
         }
-        host.coroutineScope.cancel()
     }
 
     private fun refreshGestureButtons(delayMs: Long = 100L) {

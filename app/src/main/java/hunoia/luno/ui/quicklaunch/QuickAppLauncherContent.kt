@@ -52,7 +52,7 @@ import kotlinx.coroutines.flow.collectLatest
 @Composable
 internal fun QuickAppLauncherContent(
     initialSettings: QuickAppLauncherSettings,
-    requestEnableFrozenPackage: (String, (Boolean) -> Unit) -> Unit,
+    requestEnableDisabledPackage: (String, (Boolean) -> Unit) -> Unit,
     onCloseAnimated: () -> Unit,
     onUpdateLayout: ((QuickAppLauncherSettings) -> Unit)? = null,
     onLaunch: (AppInfo, Boolean) -> Boolean,
@@ -66,7 +66,7 @@ internal fun QuickAppLauncherContent(
             context = context,
             coroutineScope = coroutineScope,
             initialSettings = initialSettings,
-            requestEnableFrozenPackage = requestEnableFrozenPackage,
+            requestEnableDisabledPackage = requestEnableDisabledPackage,
             onCloseAnimatedRaw = onCloseAnimated,
             onLaunch = onLaunch,
             onRegisterCloseAnimated = onRegisterCloseAnimated,
@@ -197,11 +197,11 @@ internal fun QuickAppLauncherContent(
                                                     disabledPkgs = state.appListState.disabledPkgs,
                                                     candidateHeight = candidateHeight,
                                                     rows = candidateRows,
-                                                    onClick = { app, isFrozen ->
-                                                        state.launchApp(app, isFrozen, state.launcherSettings.tapOpensMiniWindow, null)
+                                                    onClick = { app, isDisabled ->
+                                                        state.launchApp(app, isDisabled, state.launcherSettings.tapOpensMiniWindow, null)
                                                     },
-                                                    onLongPress = { app, isFrozen ->
-                                                        state.launchApp(app, isFrozen, !state.launcherSettings.tapOpensMiniWindow, "longPress")
+                                                    onLongPress = { app, isDisabled ->
+                                                        state.launchApp(app, isDisabled, !state.launcherSettings.tapOpensMiniWindow, "longPress")
                                                     },
                                                     onPageMatchClick = { page ->
                                                         currentPage = page
@@ -242,11 +242,11 @@ internal fun QuickAppLauncherContent(
                                                     gridHeight = contentHeight,
                                                     gridColumns = state.launcherSettings.gridColumns,
                                                     onExpandKeyboard = { state.expandKeyboard() },
-                                                    onClick = { app, isFrozen ->
-                                                        state.launchApp(app, isFrozen, state.launcherSettings.tapOpensMiniWindow, null)
+                                                    onClick = { app, isDisabled ->
+                                                        state.launchApp(app, isDisabled, state.launcherSettings.tapOpensMiniWindow, null)
                                                     },
-                                                    onLongPress = { app, isFrozen ->
-                                                        state.launchApp(app, isFrozen, !state.launcherSettings.tapOpensMiniWindow, "longPress_grid")
+                                                    onLongPress = { app, isDisabled ->
+                                                        state.launchApp(app, isDisabled, !state.launcherSettings.tapOpensMiniWindow, "longPress_grid")
                                                     },
                                                     onPageMatchClick = { page ->
                                                         currentPage = page

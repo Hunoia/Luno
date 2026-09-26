@@ -78,6 +78,7 @@
     <string name="keep_alive">保活</string>
     <string name="keep_alive_hint">无障碍服务被关闭时自动恢复</string>
     <string name="keep_alive_need_permission">保活需要授予「修改系统设置」权限，请先在 Shizuku 中授权或通过 ADB 执行：adb shell pm grant hunoia.luno android.permission.WRITE_SECURE_SETTINGS</string>
+    <string name="quick_launcher_requires_accessibility">需要无障碍服务才能打开应用面板，请先在设置中开启</string>
     <string name="excluded_count">已排除 %1$d 个应用</string>
     <string name="previous_app_excluded_count">已排除 %1$d 个上个应用候选</string>
     <string name="mini_window_position_short">小窗</string>
@@ -188,7 +189,7 @@
     <string name="delete_gesture_button_warning_desc">将删除触钮，是否继续？</string>
     <string name="rename">重命名</string>
     <string name="launch_mini_window_failed">无法启动应用小窗。</string>
-    <string name="enable_frozen_app_failed">启用冻结应用失败。</string>
+    <string name="enable_disabled_app_failed">启用禁用应用失败。</string>
     <string name="launch_shortcut_info_failed">无法启动%1$s快捷方式。</string>
     <string name="launch_assist_failed">无法启动系统助手，请检查您是否已安装。</string>
     <string name="flashlight_failed">无法使用手电筒，请检查设备是否支持。</string>

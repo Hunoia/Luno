@@ -39,6 +39,7 @@ inline fun <reified T> Context.dataStore(fileName: String, defValue: T): DataSto
                 output.write(string.encodeToByteArray())
             } catch (e: Exception) {
                 Log.e("DataStore", "write $fileName failed: ${e::class.simpleName} ${e.message}")
+                throw e
             }
         }
     }
