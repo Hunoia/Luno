@@ -29,7 +29,6 @@ class ActionDispatcher(
     private val keepScreenOnController: KeepScreenOnController,
     private val settingsSnapshot: () -> SettingsSnapshot,
     private val onToggleQuickAppLauncher: () -> Unit,
-    private val onShowPointer: (Boolean?) -> Boolean,
     private val onShowVolumeScrub: () -> Boolean,
     private val onHideGestureButton: (GestureButton?, Long) -> Unit,
 ) {
@@ -60,7 +59,7 @@ class ActionDispatcher(
             scope = scope,
             actionSettings = snap.actionSettings.effectiveFor(sourceOverride),
             advancedSettings = snap.advancedSettings.effectiveFor(sourceOverride),
-            gestureSettings = snap.gestureSettings.effectiveFor(sourceOverride),
+            gestureSettings = snap.gestureSettings,
             showToast = { showToastUtil(it) },
             showLongToast = { showToastLongUtil(it) },
             currentPackageName = { host.getCurrentPackageName() },
@@ -69,7 +68,6 @@ class ActionDispatcher(
                 host.requestEnableFrozenPackage(packageName, onResult)
             },
             toggleQuickAppLauncher = onToggleQuickAppLauncher,
-            showPointer = onShowPointer,
             showVolumeScrub = onShowVolumeScrub,
             hideGestureButton = { delayMs ->
                 if (sourceButton != null) {

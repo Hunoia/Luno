@@ -46,18 +46,6 @@ fun GestureOverlayView(
                 onAction = { action, sourceButton, sourceOverride ->
                     callbacks.onAction(action, sourceButton, sourceOverride)
                 },
-                onPointerStart = { settings ->
-                    callbacks.onPointerStart(settings)
-                },
-                onPointerShow = { settings ->
-                    callbacks.onPointerShow(settings)
-                },
-                onPointerEnd = {
-                    callbacks.onPointerEnd()
-                },
-                onPointerActionAtPosition = { x, y, keepActive ->
-                    callbacks.onPointerActionAtPosition(x, y, keepActive)
-                },
                 actionSettings = state.actionSettings,
                 advancedSettings = state.advancedSettings,
                 gestureSettings = state.gestureSettings,

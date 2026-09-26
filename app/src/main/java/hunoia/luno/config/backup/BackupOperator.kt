@@ -1,7 +1,6 @@
 package hunoia.luno.config.backup
 
 import android.content.Context
-import android.content.pm.PackageManager
 import android.net.Uri
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.Backup
@@ -124,7 +123,7 @@ object BackupOperator {
                 for (file in extracted) {
                     when (file.name) {
                         ZIP_BACKUP -> {
-                            restoreBackupFromBytes(context, file.readBytes())
+                            restoreBackupFromBytes(file.readBytes())
                             restored = true
                         }
                         ZIP_IMAGES -> {
@@ -152,24 +151,14 @@ object BackupOperator {
         return Base64.getEncoder().encode(json.toByteArray())
     }
 
-    private suspend fun restoreBackupFromBytes(context: Context, bytes: ByteArray) {
+    private suspend fun restoreBackupFromBytes(bytes: ByteArray) {
         val backup = decodeBackup(bytes) ?: throw IllegalStateException("restore failed: backup decode failed")
         if (backup.isEmpty()) {
             throw IllegalStateException("restore failed: backup contains no settings")
         }
-        val installedPackages = queryInstalledPackageNames(context)
-        val sanitizedFrozenSettings = sanitizeFrozenAppSettings(
-            backup.frozenAppSettings,
-            installedPackages
-        )
-        val modifiedBackup = if (sanitizedFrozenSettings != null) {
-            backup.copy(frozenAppSettings = sanitizedFrozenSettings)
-        } else {
-            backup
-        }
-        ConfigProvider.restoreAll(modifiedBackup)
+        ConfigProvider.restoreAll(backup)
         val verified = ConfigProvider.snapshotAll()
-        if (verified.initialSettings != modifiedBackup.initialSettings) {
+        if (verified.initialSettings != backup.initialSettings) {
             throw IllegalStateException("restore failed: initialSettings mismatch after restoreAll")
         }
     }
@@ -185,28 +174,8 @@ object BackupOperator {
         return initialSettings == null && advancedSettings == null &&
             gestureSettings == null && actionSettings == null &&
             gestureButtons == null &&
-            quickAppLauncherSettings == null && frozenAppSettings == null &&
+            quickAppLauncherSettings == null &&
             subGestureSettings == null && actionLibrarySettings == null
-    }
-
-    private fun sanitizeFrozenAppSettings(
-        settings: hunoia.luno.config.model.FrozenAppSettings?,
-        installedPackages: Set<String>
-    ): hunoia.luno.config.model.FrozenAppSettings? {
-        settings ?: return null
-        val oneKey = settings.oneKeyPackageNames
-            .filterTo(mutableSetOf()) { it in installedPackages }
-        return settings.copy(oneKeyPackageNames = oneKey)
-    }
-
-    private fun queryInstalledPackageNames(context: Context): Set<String> {
-        val pm = context.packageManager
-        return try {
-            val apps = pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))
-            apps.map { it.packageName }.filter { it.isNotBlank() }.toSet()
-        } catch (_: Exception) {
-            emptySet()
-        }
     }
 
     private fun readZipEntries(bytes: ByteArray): Map<String, ByteArray> {

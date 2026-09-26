@@ -80,7 +80,7 @@ internal fun PageMatchIcon(
 internal fun CandidateAppRows(
     pageMatches: List<Pair<String, Page>>,
     chunkedApps: List<List<AppInfo>>,
-    frozenPkgs: Set<String>,
+    disabledPkgs: Set<String>,
     candidateHeight: Dp,
     rows: Int = 1,
     onClick: (AppInfo, Boolean) -> Unit,
@@ -125,7 +125,7 @@ internal fun CandidateAppRows(
                 ) {
                     columnApps.forEach { app ->
                         key(app.key()) {
-                            val isFrozen = app.packageName in frozenPkgs
+                            val isFrozen = app.packageName in disabledPkgs
                             AppItem(
                                 app = app,
                                 iconHeight = iconHeight,
@@ -144,7 +144,7 @@ internal fun CandidateAppRows(
 internal fun AppGrid(
     pageMatches: List<Pair<String, Page>>,
     apps: List<AppInfo>,
-    frozenPkgs: Set<String>,
+    disabledPkgs: Set<String>,
     gridState: LazyGridState,
     gridAtTop: Boolean,
     keyboardExpanded: Boolean,
@@ -197,7 +197,7 @@ internal fun AppGrid(
                 item { Box(modifier = Modifier.height(88.dp).fillMaxWidth()) }
             }
             items(apps, key = { it.key() }, contentType = { "app" }) { app ->
-                val isFrozen = app.packageName in frozenPkgs
+                val isFrozen = app.packageName in disabledPkgs
                 AppItem(
                     app = app,
                     onClick = { onClick(app, isFrozen) },

@@ -6,7 +6,6 @@ import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.ActionLibrarySettings
 import hunoia.luno.config.model.Backup
-import hunoia.luno.config.model.FrozenAppSettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.InitialSettings
@@ -26,7 +25,6 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         val actionDeferred = async { stores._actionSettings.data.first() }
         val buttonsDeferred = async { stores._gestureButtons.data.first() }
         val qlaDeferred = async { stores._quickAppLauncherSettings.data.first() }
-        val frozenDeferred = async { stores._frozenAppSettings.data.first() }
         val subGestureDeferred = async { stores._subGestureSettings.data.first() }
         val actionLibraryDeferred = async { stores._actionLibrarySettings.data.first() }
         Backup(
@@ -36,7 +34,6 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
             actionSettings = actionDeferred.await(),
             gestureButtons = buttonsDeferred.await(),
             quickAppLauncherSettings = qlaDeferred.await(),
-            frozenAppSettings = frozenDeferred.await(),
             subGestureSettings = subGestureDeferred.await(),
             actionLibrarySettings = actionLibraryDeferred.await(),
             timestamp = System.currentTimeMillis(),
@@ -51,7 +48,6 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { backup.actionSettings?.let { v -> stores._actionSettings.updateData { v } } }
         launch { backup.gestureButtons?.let { v -> stores._gestureButtons.updateData { v } } }
         launch { backup.quickAppLauncherSettings?.let { v -> stores._quickAppLauncherSettings.updateData { v } } }
-        launch { backup.frozenAppSettings?.let { v -> stores._frozenAppSettings.updateData { v } } }
         launch { backup.subGestureSettings?.let { v -> stores._subGestureSettings.updateData { v } } }
         launch { backup.actionLibrarySettings?.let { v -> stores._actionLibrarySettings.updateData { v } } }
     }
@@ -63,7 +59,6 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { stores._actionSettings.updateData { ActionSettings() } }
         launch { stores._gestureButtons.updateData { GestureButton.Defaults } }
         launch { stores._quickAppLauncherSettings.updateData { QuickAppLauncherSettings() } }
-        launch { stores._frozenAppSettings.updateData { FrozenAppSettings() } }
         launch { stores._subGestureSettings.updateData { SubGestureSettings() } }
         launch { stores._actionLibrarySettings.updateData { ActionLibrarySettings() } }
     }

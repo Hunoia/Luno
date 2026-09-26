@@ -12,8 +12,6 @@ import hunoia.luno.BuildConfig
 import hunoia.luno.config.model.Action
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureButtonActionSettingsOverride
-import hunoia.luno.pointer.PointerFacade
-import hunoia.luno.pointer.PointerRuntime
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.action.ActionDispatcher
 import hunoia.luno.runtime.action.KeepScreenOnController
@@ -110,21 +108,11 @@ class GestureCoordinator(
             )
         },
         onToggleQuickAppLauncher = { host.quickAppLauncherOverlay.toggle() },
-        onShowPointer = { continuousModeOverride ->
-            pointerRuntime.show(continuousModeOverride)
-        },
         onShowVolumeScrub = { volumeScrubRuntime.show() },
         onHideGestureButton = { button, delayMs ->
             if (button != null) buttonHideRuntime.hideTemporarily(button, delayMs)
         },
     )
-
-    private val pointerRuntime = PointerRuntime(
-        host = host,
-        scope = host.coroutineScope,
-        gestureSettingsProvider = { runtimeSettingsStore.snapshot().gestureSettings },
-        onStateChanged = { refreshGestureButtons(delayMs = 0L) },
-    ).also { PointerFacade.runtimeProvider = { it } }
 
     private val volumeScrubRuntime = VolumeScrubRuntime(
         context = host.context,
@@ -148,22 +136,6 @@ class GestureCoordinator(
 
         override fun onAction(action: Action, sourceButton: GestureButton?, sourceOverride: GestureButtonActionSettingsOverride?) {
             actionDispatcher.onAction(action, sourceButton, sourceOverride)
-        }
-
-        override fun onPointerStart(settings: hunoia.luno.config.model.GestureSettings.Pointer): Boolean {
-            return pointerRuntime.beginBridge(settings)
-        }
-
-        override fun onPointerShow(settings: hunoia.luno.config.model.GestureSettings.Pointer): Boolean {
-            return pointerRuntime.showBridge(settings)
-        }
-
-        override fun onPointerEnd() {
-            pointerRuntime.end()
-        }
-
-        override fun onPointerActionAtPosition(x: Int, y: Int, keepActive: Boolean) {
-            pointerRuntime.performBridgeActionAt(x, y, keepActive)
         }
     }
 
@@ -221,7 +193,6 @@ class GestureCoordinator(
         if (BuildConfig.DEBUG) Log.d("LunoLauncher", "GestureCoordinator destroy")
         overlayCoordinator.release()
         broadcastObserver.unregister()
-        pointerRuntime.onDestroy()
         volumeScrubRuntime.onDestroy()
         previousAppTracker.onRelease()
         keepScreenOnController.onRelease()
@@ -229,7 +200,6 @@ class GestureCoordinator(
             WallpaperManager.getInstance(host.context).removeOnColorsChangedListener(listener)
             wallpaperColorsListener = null
         }
-        PointerFacade.runtimeProvider = null
         host.coroutineScope.cancel()
     }
 

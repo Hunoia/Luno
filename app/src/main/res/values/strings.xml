@@ -80,24 +80,12 @@
     <string name="keep_alive_need_permission">保活需要授予「修改系统设置」权限，请先在 Shizuku 中授权或通过 ADB 执行：adb shell pm grant hunoia.luno android.permission.WRITE_SECURE_SETTINGS</string>
     <string name="excluded_count">已排除 %1$d 个应用</string>
     <string name="previous_app_excluded_count">已排除 %1$d 个上个应用候选</string>
-    <string name="frozen_app_manage_short">冻结</string>
     <string name="mini_window_position_short">小窗</string>
     <string name="landscape">横屏模式</string>
-    <string name="frozen_app_manage">冻结管理</string>
-    <string name="frozen_app_manage_hint">管理已冻结和解冻的应用</string>
-    <string name="frozen_app_count_info">已选：%1$d｜已冻结：%2$d</string>
     <string name="one_key_list">一键名单</string>
     <string name="other_apps">其他应用</string>
     <string name="refresh">刷新</string>
     <string name="refresh_theme_colors">刷新配色</string>
-    <string name="frozen_success">已冻结</string>
-    <string name="unfrozen_success">已解冻</string>
-    <string name="frozen_state_unchanged">状态未变化</string>
-    <string name="frozen_one_key_freeze">一键冻结</string>
-    <string name="frozen_one_key_unfreeze">一键解冻</string>
-    <string name="frozen_one_key_select_frozen">全选已冻结</string>
-    <string name="bulk_frozen_count">已冻结：%1$d</string>
-    <string name="bulk_unfrozen_count">已解冻：%1$d</string>
     <string name="clear_quick_app_stats">清除最近/频率记录</string>
     <string name="clear_quick_app_stats_confirm">确认清除最近使用和启动次数记录？</string>
     <string name="clear_quick_app_stats_done">已清除</string>
@@ -260,14 +248,6 @@
     <string name="action_category_launch">启动</string>
     <string name="action_category_tool">工具</string>
 
-    <!-- Virtual mouse plain labels (for MyTextSlider text param) -->
-    <string name="pointer_continuous_timeout_plain">连续模式超时</string>
-    <string name="pointer_sensitivity_x_plain">X 灵敏度</string>
-    <string name="pointer_sensitivity_y_plain">Y 灵敏度</string>
-    <string name="pointer_acceleration_plain">加速曲线</string>
-    <string name="pointer_cursor_size_plain">光标大小</string>
-    <string name="pointer_cursor_alpha_plain">光标透明度</string>
-
     <!-- Quick app launcher labels -->
     <string name="quick_app_launcher_panel_height">竖直位置</string>
     <string name="quick_app_launcher_content_height">高度</string>
@@ -290,8 +270,6 @@
 
     <!-- Toasts -->
     <string name="operation_failed">操作失败</string>
-    <string name="bulk_freeze_failed">批量冻结失败</string>
-    <string name="bulk_unfreeze_failed">批量解冻失败</string>
 
     <!-- Data model defaults -->
     <string name="sub_gesture_default_name">子手势 %1$d</string>
@@ -323,7 +301,6 @@
     <string name="action_keep_screen_on">屏幕常亮</string>
     <string name="action_back_to_top">快速回顶部</string>
     <string name="action_click_current_position">模拟点击当前位置</string>
-    <string name="action_pointer">指针</string>
     <string name="action_shell_command">执行 Shell 命令</string>
     <string name="action_open_activity">打开 Activity</string>
     <string name="action_open_url">打开链接</string>
@@ -339,7 +316,6 @@
     <string name="action_desc_open_activity">启动指定 Activity</string>
     <string name="action_desc_open_url">打开网页或链接</string>
     <string name="action_desc_quick_launcher">打开底部应用搜索抽屉</string>
-    <string name="action_desc_pointer">滑动控制光标，松手点击</string>
     <string name="action_volume_scrub">滑动调节音量</string>
     <string name="action_sub_gesture">子手势</string>
     <string name="action_desc_sub_gesture">滑动触发子手势</string>
@@ -411,16 +387,6 @@
     <string name="strength">强度</string>
     <string name="tap">单击</string>
     <string name="double_tap">双击</string>
-    <string name="pointer">指针</string>
-    <string name="pointer_hint">灵敏度·拖尾·连续模式·长按延迟</string>
-    <string name="pointer_continuous_mode">连续模式</string>
-    <string name="pointer_continuous_mode_hint">点击后保持鼠标模式，滑回屏幕边缘退出</string>
-    <string name="pointer_continuous_timeout">连续模式超时：%1$d秒</string>
-    <string name="pointer_sensitivity_x">X 灵敏度：%1$.1fx</string>
-    <string name="pointer_sensitivity_y">Y 灵敏度：%1$.1fx</string>
-    <string name="pointer_acceleration">加速曲线：%1$.1f</string>
-    <string name="pointer_cursor_size">光标大小：%1$d dp</string>
-    <string name="pointer_cursor_alpha">光标透明度：%1$d%%</string>
     <string name="snap_back_style">回缩动画风格</string>
     <string name="snap_back_spring">弹簧</string>
     <string name="snap_back_ease_out">平滑</string>
@@ -439,7 +405,6 @@
     <string name="limit_max_intercept_length">限制最大拦截长度</string>
     <string name="limit_max_intercept_length_hint">跟随系统接口限制为200dp</string>
     <string name="action_random_name">生成随机名称</string>
-    <string name="action_one_key_freeze_apps">一键冻结应用</string>
     <string name="action_generate_password_copy">生成密码并复制</string>
     <string name="action_open_password_generator">打开密码生成器</string>
     <string name="random_name_generate_failed">生成失败</string>
@@ -505,9 +470,6 @@
     <string name="collapse">收起</string>
     <string name="expand">展开</string>
     <string name="manage_exclude">管理排除</string>
-    <string name="pointer_settings">指针设置</string>
-    <string name="freeze_action">冻结</string>
-    <string name="unfreeze_action">解冻</string>
     <string name="custom_position_size">自定义位置与大小</string>
     <string name="system_mini_window_bounds">由系统决定小窗边界</string>
     <string name="position_size">位置大小</string>

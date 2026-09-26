@@ -1,7 +1,6 @@
 package hunoia.luno.ui.home
 
 import hunoia.luno.config.model.GestureButton
-import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.shizuku.ShizukuStatus
 
@@ -30,10 +29,7 @@ data class UiState(
     val gestureTab: GestureTab = GestureTab.TouchButton,
     val gestureBottomSheetVisible: Boolean = false,
     val moreMenuVisible: Boolean = false,
-    val pointer: GestureSettings.Pointer = GestureSettings.Pointer(),
     val excludedAppCount: Int = 0,
-    val frozenAppCount: Int = 0,
-    val selectedFrozenAppCount: Int = 0,
     val isKeepAliveEnabled: Boolean = false,
     val shizukuStatus: ShizukuStatus = ShizukuStatus(
         installed = false,

@@ -27,7 +27,6 @@ class HomeVM : HomeVMBase() {
 
     init {
         loadData()
-        loadFrozenCount()
         observeShizukuStatus()
         viewModelScope.launch {
             ShizukuManager.autoRequestPermissionIfNeeded()
@@ -70,7 +69,6 @@ class HomeVM : HomeVMBase() {
             BackupService.restore(context, restoreFrom) { toast(it) }
             updatePermissionState()
             refreshShizukuStatus()
-            loadFrozenCount()
         }
     }
 

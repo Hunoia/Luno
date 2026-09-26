@@ -2,12 +2,15 @@ package hunoia.luno.runtime
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
-import hunoia.luno.pointer.PointerOverlayHost
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ViewModelStoreOwner
+import androidx.savedstate.SavedStateRegistryOwner
 import hunoia.luno.runtime.overlay.QuickAppLauncherOverlay
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
 import kotlinx.coroutines.CoroutineScope
 
-interface GestureHost : PointerOverlayHost {
+interface GestureHost : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
+    val context: Context
     val accessibilityService: AccessibilityService
     val coroutineScope: CoroutineScope
 

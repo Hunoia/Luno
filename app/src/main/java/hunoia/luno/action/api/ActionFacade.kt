@@ -33,10 +33,8 @@ object ActionFacade {
     const val OPEN_URL = ActionIds.OPEN_URL
     const val QUICK_APP_LAUNCHER = ActionIds.QUICK_APP_LAUNCHER
     const val RANDOM_NAME = ActionIds.RANDOM_NAME
-    const val ONE_KEY_FREEZE_APPS = ActionIds.ONE_KEY_FREEZE_APPS
     const val GENERATE_PASSWORD_COPY = ActionIds.GENERATE_PASSWORD_COPY
     const val CLICK_CURRENT_POSITION = ActionIds.CLICK_CURRENT_POSITION
-    const val POINTER = ActionIds.POINTER
     const val VOLUME_SCRUB = ActionIds.VOLUME_SCRUB
     const val EXECUTE_SHELL_COMMAND = ActionIds.EXECUTE_SHELL_COMMAND
     const val SUB_GESTURE = ActionIds.SUB_GESTURE

@@ -21,7 +21,6 @@ data class GestureButtonActionSettingsOverride(
     val hideGestureButton: ActionSettings.HideGestureButton? = null,
     val volumeScrub: ActionSettings.VolumeScrub? = null,
     val miniWindow: MiniWindowSettings? = null,
-    val pointerContinuousMode: Boolean? = null,
 )
 
 fun ActionSettings.effectiveFor(override: GestureButtonActionSettingsOverride?): ActionSettings {
@@ -53,9 +52,4 @@ fun AdvancedSettings.withMiniWindowSettings(settings: MiniWindowSettings): Advan
 fun AdvancedSettings.effectiveFor(override: GestureButtonActionSettingsOverride?): AdvancedSettings {
     val miniWindow = override?.miniWindow ?: return this
     return withMiniWindowSettings(miniWindow)
-}
-
-fun GestureSettings.effectiveFor(override: GestureButtonActionSettingsOverride?): GestureSettings {
-    val continuousMode = override?.pointerContinuousMode ?: return this
-    return copy(pointer = pointer.copy(continuousMode = continuousMode))
 }

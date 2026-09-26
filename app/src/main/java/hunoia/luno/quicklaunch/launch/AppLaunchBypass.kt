@@ -1,11 +1,12 @@
-package hunoia.luno.freeze.api
+package hunoia.luno.quicklaunch.launch
 
 import android.content.Context
 import hunoia.luno.R
 import hunoia.luno.quicklaunch.QuickLaunchFacade
+import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import hunoia.luno.bridge.feedback.showToast
 
-object FreezeLaunch {
+object AppLaunchBypass {
 
     suspend fun launchWithAutoUnfreeze(
         context: Context,
@@ -20,13 +21,13 @@ object FreezeLaunch {
         miniWindowOverrideBounds: Boolean = false,
         unfreezePackage: suspend (context: Context, packageName: String) -> Boolean = { _, _ -> true }
     ): Boolean {
-        if (FreezeState.isFrozen(context, packageName)) {
+        if (DisabledAppQuery.isDisabled(context, packageName)) {
             val unfrozen = unfreezePackage(context, packageName)
             if (!unfrozen) {
                 showToast(R.string.enable_frozen_app_failed)
                 return false
             }
-            FreezeState.markUnfrozen(packageName)
+            DisabledAppQuery.markEnabled(packageName)
             QuickLaunchFacade.invalidateLauncherCache()
         }
         return QuickLaunchFacade.launchAppDirect(
@@ -44,13 +45,13 @@ object FreezeLaunch {
         className: String,
         unfreezePackage: suspend (context: Context, packageName: String) -> Boolean = { _, _ -> true }
     ): Boolean {
-        if (FreezeState.isFrozen(context, packageName)) {
+        if (DisabledAppQuery.isDisabled(context, packageName)) {
             val unfrozen = unfreezePackage(context, packageName)
             if (!unfrozen) {
                 showToast(R.string.enable_frozen_app_failed)
                 return false
             }
-            FreezeState.markUnfrozen(packageName)
+            DisabledAppQuery.markEnabled(packageName)
             QuickLaunchFacade.invalidateLauncherCache()
         }
         return QuickLaunchFacade.launchAppActivityDirect(context, packageName, className)

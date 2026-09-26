@@ -6,7 +6,6 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.VolumeDown
 import androidx.compose.material.icons.automirrored.filled.VolumeMute
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Assistant
@@ -17,7 +16,6 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.FlashlightOn
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Mouse
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
 import hunoia.luno.action.definition.PlayPause
@@ -87,8 +85,6 @@ object ActionCatalog {
             R.string.action_back_to_top, Icons.Default.VerticalAlignTop),
         ActionDefinition(ActionIds.CLICK_CURRENT_POSITION, ActionCategory.NAVIGATION, ActionConfigKind.NONE,
             R.string.action_click_current_position, Icons.Default.TouchApp),
-        ActionDefinition(ActionIds.POINTER, ActionCategory.TOOL, ActionConfigKind.NONE,
-            R.string.action_pointer, Icons.Default.Mouse),
         ActionDefinition(ActionIds.OPEN_APP_ACTIVITY, ActionCategory.TOOL, ActionConfigKind.OPEN_APP_OR_URL,
             R.string.action_open_activity, Icons.Default.Settings),
         ActionDefinition(ActionIds.OPEN_URL, ActionCategory.TOOL, ActionConfigKind.OPEN_APP_OR_URL,
@@ -97,8 +93,6 @@ object ActionCatalog {
             R.string.action_quick_app_panel, Icons.Default.Apps),
         ActionDefinition(ActionIds.RANDOM_NAME, ActionCategory.TOOL, ActionConfigKind.NONE,
             R.string.action_random_name, Icons.Default.AutoAwesome),
-        ActionDefinition(ActionIds.ONE_KEY_FREEZE_APPS, ActionCategory.TOOL, ActionConfigKind.NONE,
-            R.string.action_one_key_freeze_apps, Icons.Default.AcUnit),
         ActionDefinition(ActionIds.GENERATE_PASSWORD_COPY, ActionCategory.TOOL, ActionConfigKind.NONE,
             R.string.action_generate_password_copy, Icons.Default.ContentCopy),
         ActionDefinition(ActionIds.HIDE_GESTURE_BUTTON, ActionCategory.SYSTEM, ActionConfigKind.NONE,

@@ -5,7 +5,7 @@ import com.aaron.compose.base.BaseComposeVM
 import hunoia.luno.core.AppContext
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
-import hunoia.luno.freeze.FreezeFacade
+import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import hunoia.luno.ui.freeze.FrozenAppBlacklistVM.UiEvent
 import hunoia.luno.ui.freeze.FrozenAppBlacklistVM.UiState
 import hunoia.luno.config.ConfigProvider
@@ -72,7 +72,7 @@ class FrozenAppBlacklistVM : BaseComposeVM<UiState, UiEvent>() {
                 }
             }
             val frozenApps = withContext(Dispatchers.IO) {
-                FreezeFacade.queryFrozenAppsOnIo(AppContext.get())
+                DisabledAppQuery.queryDisabledApplicationsOnIo(AppContext.get())
             }
             val normalPackageNames = appInfos.map { it.packageName }.toSet()
             val filteredFrozenApps = frozenApps.filter {

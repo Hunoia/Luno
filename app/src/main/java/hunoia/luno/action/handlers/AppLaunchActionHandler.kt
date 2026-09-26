@@ -9,7 +9,7 @@ import hunoia.luno.action.api.ActionHandlerContext
 import hunoia.luno.action.api.ActionFacade
 import hunoia.luno.config.model.Action
 import hunoia.luno.config.model.OpenAppOrUrlData
-import hunoia.luno.freeze.FreezeFacade
+import hunoia.luno.quicklaunch.launch.AppLaunchBypass
 import hunoia.luno.action.api.appInfo
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.bridge.queryIntentActivitiesCompat
@@ -86,7 +86,7 @@ object AppLaunchActionHandler : ActionHandler {
         }
         if (data != null && data.packageName.isNotBlank() && data.activityClassName.isNotBlank()) {
             context.scope.launch {
-                FreezeFacade.launchActivityWithAutoUnfreeze(
+                AppLaunchBypass.launchActivityWithAutoUnfreeze(
                     context = context.appContext,
                     packageName = data.packageName,
                     className = data.activityClassName
@@ -124,7 +124,7 @@ object AppLaunchActionHandler : ActionHandler {
     ) {
         context.scope.launch {
             if (context.advancedSettings.miniWindowOverrideBounds) {
-                FreezeFacade.launchWithAutoUnfreeze(
+                AppLaunchBypass.launchWithAutoUnfreeze(
                     context = context.appContext,
                     packageName = appInfo.packageName,
                     className = appInfo.className,
@@ -139,7 +139,7 @@ object AppLaunchActionHandler : ActionHandler {
                     suspendEnablePackageViaBridge(context.requestEnableFrozenPackage, pkg)
                 }
             } else {
-                FreezeFacade.launchWithAutoUnfreeze(
+                AppLaunchBypass.launchWithAutoUnfreeze(
                     context = context.appContext,
                     packageName = appInfo.packageName,
                     className = appInfo.className,

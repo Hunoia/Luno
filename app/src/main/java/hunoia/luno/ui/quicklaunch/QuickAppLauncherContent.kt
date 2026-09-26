@@ -194,7 +194,7 @@ internal fun QuickAppLauncherContent(
                                                 CandidateAppRows(
                                                     pageMatches = pageMatches,
                                                     chunkedApps = chunkedApps,
-                                                    frozenPkgs = state.appListState.frozenPkgs,
+                                                    disabledPkgs = state.appListState.disabledPkgs,
                                                     candidateHeight = candidateHeight,
                                                     rows = candidateRows,
                                                     onClick = { app, isFrozen ->
@@ -235,7 +235,7 @@ internal fun QuickAppLauncherContent(
                                                 AppGrid(
                                                     pageMatches = pageMatches,
                                                     apps = state.filteredApps,
-                                                    frozenPkgs = state.appListState.frozenPkgs,
+                                                    disabledPkgs = state.appListState.disabledPkgs,
                                                     gridState = gridState,
                                                     gridAtTop = gridAtTop,
                                                     keyboardExpanded = state.keyboardExpanded,

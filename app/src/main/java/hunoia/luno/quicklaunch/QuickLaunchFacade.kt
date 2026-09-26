@@ -145,21 +145,13 @@ object QuickLaunchFacade {
         )
     }
 
-    fun queryCombinedQuickAppList(context: Context, frozenApps: List<AppInfo>): QuickAppLauncherAppList {
-        val frozenPkgSet = frozenApps.map { it.packageName }.toSet()
+    fun queryCombinedQuickAppList(context: Context, disabledApps: List<AppInfo>): QuickAppLauncherAppList {
+        val disabledPkgSet = disabledApps.map { it.packageName }.toSet()
         val launcherApps = AppQuery.queryLauncherActivities(context = context, allowRepeatPackage = false)
         val normalPkgNames = launcherApps.map { it.packageName }.toSet()
         return QuickAppLauncherAppList(
-            apps = launcherApps + frozenApps.filter { it.packageName !in normalPkgNames },
-            frozenPkgs = frozenPkgSet
-        )
-    }
-
-    fun queryAppListWithFrozenMark(context: Context, frozenPkgs: Set<String>): QuickAppLauncherAppList {
-        val launcherApps = AppQuery.queryLauncherActivities(context = context, allowRepeatPackage = false)
-        return QuickAppLauncherAppList(
-            apps = launcherApps,
-            frozenPkgs = frozenPkgs
+            apps = launcherApps + disabledApps.filter { it.packageName !in normalPkgNames },
+            disabledPkgs = disabledPkgSet
         )
     }
 

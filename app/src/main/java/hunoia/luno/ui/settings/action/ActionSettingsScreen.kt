@@ -21,7 +21,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Swipe
-import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -50,7 +49,6 @@ import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureButtonActionSettingsOverride
-import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.SubGestureSettings
@@ -73,7 +71,6 @@ fun ActionSettingsScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val actionSettings by ConfigProvider.actionSettings.collectAsStateWithLifecycle(initialValue = ActionSettings())
     val advancedSettings by ConfigProvider.advancedSettings.collectAsStateWithLifecycle(initialValue = AdvancedSettings())
-    val gestureSettings by ConfigProvider.gestureSettings.collectAsStateWithLifecycle(initialValue = GestureSettings())
     val buttons by ConfigProvider.gestureButtons.collectAsStateWithLifecycle(initialValue = emptyList())
     val subGestureSettings by ConfigProvider.subGestureSettings.collectAsStateWithLifecycle(initialValue = SubGestureSettings())
 
@@ -120,18 +117,6 @@ fun ActionSettingsScreen(onBack: () -> Unit) {
                 )
             }
 
-            ExpressiveCard(
-                icon = Icons.Default.TouchApp,
-                title = stringResource(R.string.pointer_continuous_mode),
-                subtitle = stringResource(R.string.pointer_continuous_mode_hint),
-                onClick = {},
-            ) {
-                PointerContinuousModeControls(
-                    enabled = gestureSettings.pointer.continuousMode,
-                    onChange = { next -> scope.launch { ConfigProvider.updateGestureSettings { it.copy(pointer = it.pointer.copy(continuousMode = next)) } } },
-                )
-            }
-
             buttons.sortedBy { it.id }.forEachIndexed { index, button ->
                 OverrideCard(
                     label = button.name.ifBlank { stringResource(R.string.gesture_button_name, index + 1) },
@@ -146,7 +131,6 @@ fun ActionSettingsScreen(onBack: () -> Unit) {
                     },
                     globalActionSettings = actionSettings,
                     globalMiniWindow = advancedSettings.miniWindowSettings(),
-                    globalPointerContinuousMode = gestureSettings.pointer.continuousMode,
                 )
             }
 
@@ -166,7 +150,6 @@ fun ActionSettingsScreen(onBack: () -> Unit) {
                     },
                     globalActionSettings = actionSettings,
                     globalMiniWindow = advancedSettings.miniWindowSettings(),
-                    globalPointerContinuousMode = gestureSettings.pointer.continuousMode,
                 )
             }
         }
@@ -181,7 +164,6 @@ private fun OverrideCard(
     onUpdateOverride: (GestureButtonActionSettingsOverride) -> Unit,
     globalActionSettings: ActionSettings,
     globalMiniWindow: MiniWindowSettings,
-    globalPointerContinuousMode: Boolean,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val dotColor = if (color == android.graphics.Color.TRANSPARENT) {
@@ -275,20 +257,6 @@ private fun OverrideCard(
                         MiniWindowControls(
                             settings = actionSettingsOverride.miniWindow ?: globalMiniWindow,
                             onChange = { next -> onUpdateOverride(actionSettingsOverride.copy(miniWindow = next)) },
-                        )
-                    }
-                    OverrideSection(
-                        title = stringResource(R.string.pointer_continuous_mode),
-                        enabled = actionSettingsOverride.pointerContinuousMode != null,
-                        onEnabledChange = { enabled ->
-                            onUpdateOverride(actionSettingsOverride.copy(
-                                pointerContinuousMode = if (enabled) globalPointerContinuousMode else null
-                            ))
-                        },
-                    ) {
-                        PointerContinuousModeControls(
-                            enabled = actionSettingsOverride.pointerContinuousMode ?: globalPointerContinuousMode,
-                            onChange = { next -> onUpdateOverride(actionSettingsOverride.copy(pointerContinuousMode = next)) },
                         )
                     }
                 }
@@ -405,15 +373,4 @@ private fun MiniWindowControls(
         valueDisplay = "${(heightFraction * 100).roundToInt()}%",
         valueRange = 0.2f..1.5f,
     )
-}
-
-@Composable
-private fun PointerContinuousModeControls(enabled: Boolean, onChange: (Boolean) -> Unit) {
-    ExpressiveSwitchItem(
-        title = stringResource(R.string.pointer_continuous_mode),
-        subtitle = stringResource(R.string.pointer_continuous_mode_hint),
-        checked = enabled,
-        onCheckedChange = onChange,
-    )
-    Spacer(Modifier.height(12.dp))
 }

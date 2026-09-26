@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
@@ -47,47 +46,12 @@ fun HomeExcludeCard(onClick: () -> Unit) {
 }
 
 @Composable
-fun HomePointerCard(onClick: () -> Unit) {
-    CompactSettingsRow(
-        title = stringResource(id = R.string.pointer),
-        icon = Icons.Default.TouchApp,
-        onClick = onClick,
-    )
-}
-
-@Composable
 fun HomeActionSettingsCard(onClick: () -> Unit) {
     CompactSettingsRow(
         title = stringResource(id = R.string.action_settings),
         icon = Icons.Default.Tune,
         onClick = onClick,
     )
-}
-
-@Composable
-fun HomeFrozenCard(
-    uiState: UiState,
-    onClick: () -> Unit,
-    onFreezeClick: () -> Unit,
-    onUnfreezeClick: () -> Unit,
-) {
-    ExpressiveCard(
-        title = stringResource(id = R.string.frozen_app_manage_short) + " (${uiState.selectedFrozenAppCount}/${uiState.frozenAppCount})",
-        subtitle = "",
-        icon = Icons.Default.AcUnit,
-        onClick = onClick,
-        accent = MaterialTheme.colorScheme.tertiaryContainer,
-        onAccent = MaterialTheme.colorScheme.onTertiaryContainer,
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            FilledTonalButton(onClick = onFreezeClick, modifier = Modifier.weight(1f)) {
-                Text(stringResource(id = R.string.freeze_action))
-            }
-            FilledTonalButton(onClick = onUnfreezeClick, modifier = Modifier.weight(1f)) {
-                Text(stringResource(id = R.string.unfreeze_action))
-            }
-        }
-    }
 }
 
 @Composable

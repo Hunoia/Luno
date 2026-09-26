@@ -4,8 +4,7 @@ import android.content.res.Configuration
 import android.view.accessibility.AccessibilityEvent
 import com.aaron.composeaccessibility.ComponentAccessibilityService
 import hunoia.luno.config.model.AdvancedSettings
-import hunoia.luno.freeze.FrozenPackageEnabler
-import hunoia.luno.pointer.PointerOverlayHost
+import hunoia.luno.quicklaunch.launch.DisabledPackageEnabler
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.GestureCoordinator
 import hunoia.luno.runtime.GestureHost
@@ -17,7 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 
-class SideGestureService : ComponentAccessibilityService(), GestureHost, QuickAppLauncherOverlayHost, RuntimePanelOverlayHost, PointerOverlayHost {
+class SideGestureService : ComponentAccessibilityService(), GestureHost, QuickAppLauncherOverlayHost, RuntimePanelOverlayHost {
 
     companion object {
         private var currentRef: java.lang.ref.WeakReference<SideGestureService>? = null
@@ -31,8 +30,8 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost, QuickAp
     override val coroutineScope = MainScope()
 
     private lateinit var gestureCoordinator: GestureCoordinator
-    private val frozenPackageEnabler by lazy {
-        FrozenPackageEnabler(
+    private val disabledPackageEnabler by lazy {
+        DisabledPackageEnabler(
             context = this,
             scopeProvider = { coroutineScope },
             log = { message -> android.util.Log.d("LunoLauncher", message) }
@@ -83,7 +82,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost, QuickAp
     override fun onDestroy() {
         super.onDestroy()
         if (current === this) currentRef = null
-        frozenPackageEnabler.release()
+        disabledPackageEnabler.release()
         if (::gestureCoordinator.isInitialized) gestureCoordinator.onDestroy()
         quickAppLauncherOverlay.closeImmediately()
         runtimePanelOverlay.close()
@@ -95,7 +94,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost, QuickAp
     }
 
     override fun requestEnableFrozenPackage(packageName: String, onResult: (Boolean) -> Unit) {
-        frozenPackageEnabler.request(packageName, onResult)
+        disabledPackageEnabler.request(packageName, onResult)
     }
 
     override fun getCurrentPackageName(): String {

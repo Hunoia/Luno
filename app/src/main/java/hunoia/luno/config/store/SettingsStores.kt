@@ -4,7 +4,6 @@ import androidx.datastore.core.DataStore
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.ActionLibrarySettings
 import hunoia.luno.config.model.AdvancedSettings
-import hunoia.luno.config.model.FrozenAppSettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.InitialSettings
@@ -20,7 +19,6 @@ class SettingsStores(
     internal val _actionSettings: DataStore<ActionSettings>,
     internal val _gestureButtons: DataStore<List<GestureButton>>,
     internal val _quickAppLauncherSettings: DataStore<QuickAppLauncherSettings>,
-    internal val _frozenAppSettings: DataStore<FrozenAppSettings>,
     internal val _subGestureSettings: DataStore<SubGestureSettings>,
     internal val _actionLibrarySettings: DataStore<ActionLibrarySettings>,
 ) {
@@ -30,7 +28,6 @@ class SettingsStores(
     val actionSettings: Flow<ActionSettings> = _actionSettings.data
     val gestureButtons: Flow<List<GestureButton>> = _gestureButtons.data
     val quickAppLauncherSettings: Flow<QuickAppLauncherSettings> = _quickAppLauncherSettings.data
-    val frozenAppSettings: Flow<FrozenAppSettings> = _frozenAppSettings.data
     val subGestureSettings: Flow<SubGestureSettings> = _subGestureSettings.data
     val actionLibrarySettings: Flow<ActionLibrarySettings> = _actionLibrarySettings.data
 
@@ -44,7 +41,6 @@ class SettingsStores(
                 _actionSettings = ctx.dataStore(DataStoreFiles.ACTION_SETTINGS, ActionSettings()),
                 _gestureButtons = ctx.dataStore(DataStoreFiles.GESTURE_BUTTONS, GestureButton.Defaults),
                 _quickAppLauncherSettings = ctx.dataStore(DataStoreFiles.QUICK_APP_LAUNCHER, QuickAppLauncherSettings()),
-                _frozenAppSettings = ctx.dataStore(DataStoreFiles.FROZEN_APP_SETTINGS, FrozenAppSettings()),
                 _subGestureSettings = ctx.dataStore(DataStoreFiles.SUB_GESTURE_SETTINGS, SubGestureSettings()),
                 _actionLibrarySettings = ctx.dataStore(DataStoreFiles.ACTION_LIBRARY_SETTINGS, ActionLibrarySettings()),
             )

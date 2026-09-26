@@ -12,9 +12,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -265,16 +263,6 @@ object ShizukuManager {
         forceStopAppUnchecked(packageName)
     }
 
-    suspend fun disablePackage(packageName: String): PackageResult = withContext(Dispatchers.IO) {
-        if (!isBinderAlive()) {
-            return@withContext PackageResult(false, packageName, "Shizuku binder unavailable")
-        }
-        if (!hasPermission()) {
-            return@withContext PackageResult(false, packageName, "Shizuku permission denied")
-        }
-        disablePackageUnchecked(packageName)
-    }
-
     suspend fun enablePackage(packageName: String): PackageResult = withContext(Dispatchers.IO) {
         if (!isBinderAlive()) {
             return@withContext PackageResult(false, packageName, "Shizuku binder unavailable")
@@ -283,39 +271,6 @@ object ShizukuManager {
             return@withContext PackageResult(false, packageName, "Shizuku permission denied")
         }
         enablePackageUnchecked(packageName)
-    }
-
-    suspend fun executeBatch(
-        packageNames: List<String>,
-        disable: Boolean
-    ): BatchFrozenResult {
-        val requestedCount = packageNames.size
-        if (packageNames.isEmpty()) return BatchFrozenResult(0, 0, 0, 0, false)
-
-        pmProxy
-        amProxy
-        setEnabledSetting
-
-        return coroutineScope {
-            val deferreds = packageNames.map { pkg ->
-                async(Dispatchers.IO) {
-                    if (disable) disablePackageUnchecked(pkg) else enablePackageUnchecked(pkg)
-                }
-            }
-            var successCount = 0
-            var failedCount = 0
-            deferreds.forEach {
-                val r = it.await()
-                if (r.success) successCount++ else failedCount++
-            }
-            BatchFrozenResult(
-                requestedCount = requestedCount,
-                attemptedCount = packageNames.size,
-                successCount = successCount,
-                failedCount = failedCount,
-                fallbackTriggered = false
-            )
-        }
     }
 
     // --- Internal (unchecked, no IO wrapper) ---
@@ -330,21 +285,6 @@ object ShizukuManager {
             }
             true
         }.getOrElse { false }
-    }
-
-    private fun disablePackageUnchecked(packageName: String): PackageResult {
-        forceStopAppUnchecked(packageName)
-        return runCatching {
-            val state = PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER
-            if (setEnabledSetting.parameterCount == 5) {
-                setEnabledSetting.invoke(pmProxy, packageName, state, 0, userId, callerPackage)
-            } else {
-                setEnabledSetting.invoke(pmProxy, packageName, state, 0, userId)
-            }
-            PackageResult(true, packageName)
-        }.getOrElse { t ->
-            PackageResult(false, packageName, t.message ?: t.javaClass.simpleName)
-        }
     }
 
     private fun enablePackageUnchecked(packageName: String): PackageResult {

@@ -5,7 +5,6 @@ import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.ActionLibrarySettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.Backup
-import hunoia.luno.config.model.FrozenAppSettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.InitialSettings
@@ -31,7 +30,6 @@ object ConfigProvider {
     val actionSettings: Flow<ActionSettings> = stores.actionSettings
     val gestureButtons: Flow<List<GestureButton>> = stores.gestureButtons
     val quickAppLauncherSettings: Flow<QuickAppLauncherSettings> = stores.quickAppLauncherSettings
-    val frozenAppSettings: Flow<FrozenAppSettings> = stores.frozenAppSettings
     val subGestureSettings: Flow<SubGestureSettings> = stores.subGestureSettings
     val actionLibrarySettings: Flow<ActionLibrarySettings> = stores.actionLibrarySettings
 
@@ -41,7 +39,6 @@ object ConfigProvider {
     suspend fun getActionSettings(): ActionSettings = settingsRepository.getActionSettings()
     suspend fun getGestureButtons(): List<GestureButton> = settingsRepository.getGestureButtons()
     suspend fun getQuickAppLauncherSettings(): QuickAppLauncherSettings = settingsRepository.getQuickAppLauncherSettings()
-    suspend fun getFrozenAppSettings(): FrozenAppSettings = settingsRepository.getFrozenAppSettings()
     suspend fun getSubGestureSettings(): SubGestureSettings = settingsRepository.getSubGestureSettings()
     suspend fun getActionLibrarySettings(): ActionLibrarySettings = settingsRepository.getActionLibrarySettings()
 
@@ -62,9 +59,6 @@ object ConfigProvider {
     }
     suspend fun updateQuickAppLauncherSettings(transform: suspend (QuickAppLauncherSettings) -> QuickAppLauncherSettings) {
         settingsRepository.updateQuickAppLauncherSettings(transform)
-    }
-    suspend fun updateFrozenAppSettings(transform: suspend (FrozenAppSettings) -> FrozenAppSettings) {
-        settingsRepository.updateFrozenAppSettings(transform)
     }
     suspend fun updateSubGestureSettings(transform: suspend (SubGestureSettings) -> SubGestureSettings) {
         settingsRepository.updateSubGestureSettings(transform)

@@ -36,7 +36,6 @@ import hunoia.luno.ui.component.panel.rememberActionPanelState
 import hunoia.luno.gesture.GestureState
 import hunoia.luno.gesture.SubGestureState
 import hunoia.luno.gesture.VolumeScrubState
-import hunoia.luno.pointer.rememberPointerHandle
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -53,10 +52,6 @@ fun SideGestureContainer(
     actionSettings: ActionSettings = ActionSettings(),
     advancedSettings: AdvancedSettings = AdvancedSettings(),
     gestureSettings: GestureSettings = GestureSettings(),
-    onPointerStart: (GestureSettings.Pointer) -> Boolean = { false },
-    onPointerShow: (GestureSettings.Pointer) -> Boolean = { false },
-    onPointerEnd: () -> Unit = {},
-    onPointerActionAtPosition: (Int, Int, Boolean) -> Unit = { _, _, _ -> },
     subGestureSettings: SubGestureSettings = SubGestureSettings(),
     onSubGestureModeChanged: (Boolean, Offset, Int) -> Unit = { _, _, _ -> },
     onActionPanelOverlayChanged: (Boolean) -> Unit = {},
@@ -68,17 +63,6 @@ fun SideGestureContainer(
     val sideGestureState = rememberGestureState(buttons, advancedSettings, gestureSettings)
     val actionPanelState = rememberActionPanelState()
     var actionPanelSourceOverride by remember { mutableStateOf<GestureButtonActionSettingsOverride?>(null) }
-    var actionPanelPointerUsesRuntimeOverlay by remember { mutableStateOf(false) }
-    var pointerStartedFromSubGesture by remember { mutableStateOf(false) }
-    val pointerHandle = rememberPointerHandle(
-        gestureSettings = gestureSettings,
-        onPointerStart = onPointerStart,
-        shouldPreservePointerCancel = {
-            pointerStartedFromSubGesture
-        },
-        onPointerActionAtPosition = onPointerActionAtPosition,
-        onPointerEnd = onPointerEnd,
-    )
     val subGestureState = remember(subGestureSettings, coroutineScope) {
         SubGestureState(coroutineScope, subGestureSettings, curOnSubGestureModeChanged)
     }
@@ -95,14 +79,6 @@ fun SideGestureContainer(
     fun effectiveActionSettings(override: GestureButtonActionSettingsOverride?): ActionSettings = actionSettings.effectiveFor(override)
 
     fun effectiveActionSettings(button: GestureButton?): ActionSettings = effectiveActionSettings(button?.actionSettingsOverride)
-
-    fun effectivePointerSettings(override: GestureButtonActionSettingsOverride?): GestureSettings.Pointer {
-        return gestureSettings.effectiveFor(override).pointer
-    }
-
-    fun effectivePointerSettings(button: GestureButton?): GestureSettings.Pointer {
-        return effectivePointerSettings(button?.actionSettingsOverride)
-    }
 
     fun handleResolvedAction(
         action: Action,
@@ -126,9 +102,7 @@ fun SideGestureContainer(
         panelStyle: ActionPanelStyle = actionPanelStyle,
         panelColor: Int = sourceButton?.color ?: android.graphics.Color.TRANSPARENT,
         onPanelStarted: () -> Unit = {},
-        onPointerStarted: (Boolean) -> Unit = {},
         needsPanelOverlay: Boolean = false,
-        pointerUsesRuntimeOverlay: Boolean = false,
         onDirectComplete: (enteredSubGesture: Boolean) -> Unit = {},
     ) {
         val meaningfulActions = actions.filter { it != Action.NONE }
@@ -137,7 +111,6 @@ fun SideGestureContainer(
             actionPanelState.onDragStart(touchPosition)
             actionPanelState.ready(direction, meaningfulActions, panelStyle, panelColor)
             actionPanelSourceOverride = sourceOverride
-            actionPanelPointerUsesRuntimeOverlay = pointerUsesRuntimeOverlay
             onPanelStarted()
             return
         }
@@ -145,7 +118,6 @@ fun SideGestureContainer(
         val fromSubGesture = subGestureState.subGestureDepth > 0
         val shouldDelayDirectSubGestureAction = fromSubGesture &&
             action.value != ActionFacade.SUB_GESTURE &&
-            action.value != ActionFacade.POINTER &&
             action.value != ActionFacade.VOLUME_SCRUB &&
             action.value != ActionFacade.NONE
         if (shouldDelayDirectSubGestureAction) {
@@ -160,16 +132,6 @@ fun SideGestureContainer(
         val enteredSubGesture = when (action.value) {
             ActionFacade.VOLUME_SCRUB -> {
                 volumeScrubState.activate(effectiveActionSettings(sourceOverride))
-                false
-            }
-            ActionFacade.POINTER -> {
-                val pointerSettings = effectivePointerSettings(sourceOverride)
-                val started = if (pointerUsesRuntimeOverlay) {
-                    onPointerShow(pointerSettings)
-                } else {
-                    pointerHandle.start(pointerSettings, touchPosition)
-                }
-                onPointerStarted(started)
                 false
             }
             ActionFacade.NONE -> false
@@ -202,17 +164,13 @@ fun SideGestureContainer(
             panelStyle = panelStyle,
             panelColor = panelColor,
             needsPanelOverlay = needsOverlay,
-            pointerUsesRuntimeOverlay = !resolvedActions.triggerType.isHoldType,
             onPanelStarted = {
                 sideGestureState.cancel()
-            },
-            onPointerStarted = { started ->
-                pointerStartedFromSubGesture = started && resolvedActions.triggerType.isHoldType
             },
         ) { enteredSubGesture ->
             sideGestureState.cancel()
             if (!enteredSubGesture && subGestureState.subGestureDepth > 0) {
-                subGestureState.clear(notifyService = pointerStartedFromSubGesture.not())
+                subGestureState.clear(notifyService = true)
             }
         }
     }
@@ -229,7 +187,6 @@ fun SideGestureContainer(
                 actionPanelStyle
             },
             panelColor = resolvedActions.button.color,
-            pointerUsesRuntimeOverlay = !resolvedActions.triggerType.isHoldType,
             onPanelStarted = {
                 if (resolvedActions.triggerType == GestureTriggerType.LongPress ||
                     resolvedActions.triggerType == GestureTriggerType.SlideHold ||
@@ -273,10 +230,6 @@ fun SideGestureContainer(
                 }
                 return@onDrag
             }
-            if (pointerHandle.isActive) {
-                if (!pointerHandle.onDrag(dragAmount)) return@onDrag
-                return@onDrag
-            }
             if (volumeScrubState.isActive) {
                 volumeScrubState.onDrag(dragAmount)
                 return@onDrag
@@ -306,22 +259,6 @@ fun SideGestureContainer(
                 }
                 return@onDragEnd
             }
-            if (pointerStartedFromSubGesture && !pointerHandle.isActive) {
-                pointerStartedFromSubGesture = false
-                exitSubGestureOverlay()
-                return@onDragEnd
-            }
-            if (pointerHandle.isActive) {
-                val fromSubGesture = pointerStartedFromSubGesture
-                pointerHandle.onDragEnd()
-                if (fromSubGesture) {
-                    pointerStartedFromSubGesture = false
-                    exitSubGestureOverlay()
-                } else {
-                    exitSubGestureOverlay()
-                }
-                return@onDragEnd
-            }
             if (volumeScrubState.isActive) {
                 volumeScrubState.onDragEnd()
                 return@onDragEnd
@@ -330,9 +267,7 @@ fun SideGestureContainer(
                 val touchPosition = actionPanelState.finger
                 val hitAction = actionPanelState.hitTestAction(touchPosition)
                 val sourceOverride = actionPanelSourceOverride
-                val pointerUsesRuntimeOverlay = actionPanelPointerUsesRuntimeOverlay
                 actionPanelSourceOverride = null
-                actionPanelPointerUsesRuntimeOverlay = false
                 actionPanelState.cancel()
                 onActionPanelOverlayChanged(false)
                 val fromSubGesturePanel = subGestureState.subGestureDepth > 0
@@ -343,15 +278,6 @@ fun SideGestureContainer(
                     val actionToRun: () -> Unit = {
                         when (hitAction.value) {
                             ActionFacade.VOLUME_SCRUB -> volumeScrubState.activate(effectiveActionSettings(sourceOverride))
-                            ActionFacade.POINTER -> {
-                                val pointerSettings = effectivePointerSettings(sourceOverride)
-                                val started = if (pointerUsesRuntimeOverlay) {
-                                    onPointerShow(pointerSettings)
-                                } else {
-                                    pointerHandle.start(pointerSettings, touchPosition)
-                                }
-                                if (fromSubGesturePanel && started && !pointerUsesRuntimeOverlay) pointerStartedFromSubGesture = true
-                            }
                             else -> handleResolvedAction(hitAction, sideGestureState.button, touchPosition, sourceOverride)
                         }
                     }
@@ -382,7 +308,6 @@ fun SideGestureContainer(
                             },
                             panelColor = resolvedActions.button.color,
                             needsPanelOverlay = true,
-                            pointerUsesRuntimeOverlay = true,
                         )
                     } else {
                         handleGestureResolvedActions(resolvedActions)
@@ -395,13 +320,6 @@ fun SideGestureContainer(
                 subGestureState.onDragCancel()
                 return@onDragCancel
             }
-            if (pointerHandle.isActive) {
-                if (pointerStartedFromSubGesture) return@onDragCancel
-                pointerStartedFromSubGesture = false
-                exitSubGestureOverlay()
-                pointerHandle.onDragCancel()
-                return@onDragCancel
-            }
             if (volumeScrubState.isActive) {
                 volumeScrubState.onDragCancel()
                 return@onDragCancel
@@ -410,7 +328,6 @@ fun SideGestureContainer(
                 actionPanelState.onDragCancel()
                 onActionPanelOverlayChanged(false)
                 actionPanelSourceOverride = null
-                actionPanelPointerUsesRuntimeOverlay = false
                 if (subGestureState.subGestureDepth > 0) subGestureState.clear(notifyService = true)
             }
             sideGestureState.onDragCancel()

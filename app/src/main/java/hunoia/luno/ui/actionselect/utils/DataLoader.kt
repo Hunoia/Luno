@@ -11,7 +11,7 @@ import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.core.AppContext
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.core.Paths
-import hunoia.luno.freeze.FreezeFacade
+import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
@@ -188,7 +188,7 @@ internal suspend fun updateAppInfosBody(
     val appInfos = withContext(Dispatchers.IO) {
         QuickLaunchFacade.queryApps(AppContext.get())
     }
-    val frozenApps = FreezeFacade.queryFrozenApps(AppContext.get())
+    val frozenApps = DisabledAppQuery.queryDisabledApplications(AppContext.get())
     val normalPackageNames = appInfos.map { it.packageName }.toSet()
     val filteredFrozenApps = frozenApps.filter { it.packageName !in normalPackageNames }
     val mergedApps = mutableListOf<AppInfo>()

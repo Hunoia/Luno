@@ -8,7 +8,7 @@ import androidx.compose.runtime.setValue
 import com.github.promeg.pinyinhelper.Pinyin
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.QuickAppLauncherSettings
-import hunoia.luno.freeze.FreezeFacade
+import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.query.AppSearch.key
 import hunoia.luno.quicklaunch.query.AppSearch.sortApps
@@ -64,7 +64,7 @@ class QuickAppLauncherState(
     private fun loadApps() {
         coroutineScope.launch {
             val state = withContext(Dispatchers.IO) {
-                FreezeFacade.queryQuickAppLauncherApps(context)
+                DisabledAppQuery.queryQuickAppLauncherApps(context)
             }
             appListState = state
             prewarmIcons()

@@ -22,16 +22,6 @@ object AdvancedSettingsDefaults {
 object GestureSettingsDefaults {
 
     const val SubGestureTimeoutMs = 5000L
-    const val PointerSensitivityX = 1.6f
-    const val PointerSensitivityY = 1.6f
-    const val PointerAcceleration = 0.8f
-    const val PointerInitialYRatio = 0.35f
-    const val PointerEdgeCancelThresholdDp = 24
-    const val PointerContinuousMode = false
-    const val PointerContinuousModeTimeoutMs = 5000L
-    const val PointerCursorSizeDp = 28
-    const val PointerCursorAlpha = 0.9f
-    const val PointerMovementDeadZoneDp = 3
 }
 
 object InitialSettingsDefaults {

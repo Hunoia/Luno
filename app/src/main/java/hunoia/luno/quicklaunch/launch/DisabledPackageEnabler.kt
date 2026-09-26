@@ -1,4 +1,4 @@
-package hunoia.luno.freeze
+package hunoia.luno.quicklaunch.launch
 
 import android.content.Context
 import hunoia.luno.shizuku.ShizukuManager
@@ -7,7 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class FrozenPackageEnabler(
+class DisabledPackageEnabler(
     private val context: Context,
     private val scopeProvider: () -> CoroutineScope,
     private val log: (String) -> Unit

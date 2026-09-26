@@ -4,7 +4,6 @@ import hunoia.luno.config.store.SettingsStores
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.ActionLibrarySettings
-import hunoia.luno.config.model.FrozenAppSettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.InitialSettings
@@ -42,11 +41,6 @@ internal class SettingsRepository(private val stores: SettingsStores) {
     suspend fun getQuickAppLauncherSettings(): QuickAppLauncherSettings = stores._quickAppLauncherSettings.data.first()
     suspend fun updateQuickAppLauncherSettings(transform: suspend (QuickAppLauncherSettings) -> QuickAppLauncherSettings) {
         stores._quickAppLauncherSettings.updateData(transform)
-    }
-
-    suspend fun getFrozenAppSettings(): FrozenAppSettings = stores._frozenAppSettings.data.first()
-    suspend fun updateFrozenAppSettings(transform: suspend (FrozenAppSettings) -> FrozenAppSettings) {
-        stores._frozenAppSettings.updateData(transform)
     }
 
     suspend fun getSubGestureSettings(): SubGestureSettings = stores._subGestureSettings.data.first()
