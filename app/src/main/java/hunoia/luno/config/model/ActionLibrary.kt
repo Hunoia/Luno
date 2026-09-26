@@ -7,12 +7,41 @@ import java.util.UUID
 
 @Serializable
 @Keep
-enum class ActionLibraryType { Shell, Url, Activity }
+enum class ActionLibraryType { Shell, Url, Activity, SystemTemplate, SystemApi }
+
+@Serializable
+@Keep
+enum class ParamType { STRING, INT, BOOLEAN, SELECT }
 
 @Serializable
 @Keep
 data class ActionLibraryRefData(
     val entryId: String
+)
+
+@Serializable
+@Keep
+data class SystemTemplateData(
+    val templateId: String,
+    val params: Map<String, String> = emptyMap()
+)
+
+@Serializable
+@Keep
+data class SystemApiData(
+    val category: String,
+    val command: String,
+    val params: List<ApiParamConfig> = emptyList()
+)
+
+@Serializable
+@Keep
+data class ApiParamConfig(
+    val key: String,
+    val label: String,
+    val type: ParamType,
+    val defaultValue: String,
+    val options: List<String> = emptyList()
 )
 
 @Serializable
@@ -24,6 +53,8 @@ data class ActionLibraryEntry(
     val createdAt: Long = System.currentTimeMillis(),
     val shellCommand: ShellCommandData = ShellCommandData(),
     val openAppOrUrl: OpenAppOrUrlData = OpenAppOrUrlData(),
+    val systemTemplate: SystemTemplateData = SystemTemplateData(""),
+    val systemApi: SystemApiData = SystemApiData("", ""),
 ) {
     companion object {
         fun create(type: ActionLibraryType, name: String = ""): ActionLibraryEntry {
@@ -35,6 +66,8 @@ data class ActionLibraryEntry(
                     ActionLibraryType.Activity -> OpenAppOrUrlData(type = OpenAppOrUrlData.TYPE_ACTIVITY)
                     ActionLibraryType.Url -> OpenAppOrUrlData(type = OpenAppOrUrlData.TYPE_URL)
                     ActionLibraryType.Shell -> OpenAppOrUrlData()
+                    ActionLibraryType.SystemTemplate -> OpenAppOrUrlData()
+                    ActionLibraryType.SystemApi -> OpenAppOrUrlData()
                 }
             )
         }

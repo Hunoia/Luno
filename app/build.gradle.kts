@@ -10,6 +10,7 @@ plugins {
 android {
     namespace = "hunoia.luno"
     compileSdk = 36
+    buildToolsVersion = "37.0.0"
 
     defaultConfig {
         applicationId = "hunoia.luno"

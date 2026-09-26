@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -435,6 +436,26 @@ private fun ActionLibraryEditDialog(entry: ActionLibraryEntry, onDismiss: () -> 
                         draftEntry = draftEntry.copy(name = name.ifBlank { entry.name }, openAppOrUrl = JsonSerializer.decodeFromString<OpenAppOrUrlData>(data))
                         },
                     )
+                    ActionLibraryType.SystemTemplate -> {
+                        Text(
+                            text = stringResource(R.string.system_function),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        SystemTemplatePickerInline(
+                            entry = draftEntry,
+                            onConfirm = { updated ->
+                                draftEntry = updated.copy(name = name.ifBlank { entry.name })
+                            },
+                        )
+                    }
+                    ActionLibraryType.SystemApi -> {
+                        SystemApiConfigInline(
+                            entry = draftEntry,
+                            onConfirm = { updated ->
+                                draftEntry = updated.copy(name = name.ifBlank { entry.name })
+                            },
+                        )
+                    }
                 }
                 }
                 Row(
@@ -456,12 +477,16 @@ private val ActionLibraryType.titleRes: Int get() = when (this) {
     ActionLibraryType.Shell -> R.string.action_library_shell
     ActionLibraryType.Url -> R.string.action_library_url
     ActionLibraryType.Activity -> R.string.action_library_activity
+    ActionLibraryType.SystemTemplate -> R.string.action_library_system_function
+    ActionLibraryType.SystemApi -> R.string.action_library_custom_system_api
 }
 
 private val ActionLibraryType.icon: ImageVector get() = when (this) {
     ActionLibraryType.Shell -> Icons.Default.Terminal
     ActionLibraryType.Url -> Icons.AutoMirrored.Filled.OpenInNew
     ActionLibraryType.Activity -> Icons.Default.Settings
+    ActionLibraryType.SystemTemplate -> Icons.Default.Build
+    ActionLibraryType.SystemApi -> Icons.Default.Terminal
 }
 
 @Composable
@@ -480,12 +505,16 @@ private fun ActionLibraryEntry.summary(): String = when (type) {
         .filter { it.isNotBlank() }
         .joinToString("/")
         .ifBlank { stringResource(R.string.action_library_activity_empty) }
+    ActionLibraryType.SystemTemplate -> systemTemplate.templateId.ifBlank { "Template" }
+    ActionLibraryType.SystemApi -> systemApi.command.lineSequence().firstOrNull().orEmpty().ifBlank { "API" }
 }
 
 private fun ActionLibraryEntry.toConfigAction(): Action = when (type) {
     ActionLibraryType.Shell -> Action(data = JsonSerializer.encodeToString(shellCommand))
     ActionLibraryType.Url,
     ActionLibraryType.Activity -> Action(data = JsonSerializer.encodeToString(openAppOrUrl))
+    ActionLibraryType.SystemTemplate -> Action(data = JsonSerializer.encodeToString(systemTemplate))
+    ActionLibraryType.SystemApi -> Action(data = JsonSerializer.encodeToString(systemApi))
 }
 
 private fun defaultName(type: ActionLibraryType, entries: List<ActionLibraryEntry>): String {
@@ -494,6 +523,8 @@ private fun defaultName(type: ActionLibraryType, entries: List<ActionLibraryEntr
         ActionLibraryType.Shell -> R.string.action_library_default_shell
         ActionLibraryType.Url -> R.string.action_library_default_url
         ActionLibraryType.Activity -> R.string.action_library_default_activity
+        ActionLibraryType.SystemTemplate -> R.string.action_library_default_system_function
+        ActionLibraryType.SystemApi -> R.string.action_library_default_custom_api
     }
     return hunoia.luno.core.AppContext.get().getString(res, count)
 }

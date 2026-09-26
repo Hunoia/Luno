@@ -331,4 +331,6 @@ private val ActionLibraryType.titleRes: Int get() = when (this) {
     ActionLibraryType.Shell -> R.string.action_library_shell
     ActionLibraryType.Url -> R.string.action_library_url
     ActionLibraryType.Activity -> R.string.action_library_activity
+    ActionLibraryType.SystemTemplate -> R.string.action_library_system_function
+    ActionLibraryType.SystemApi -> R.string.action_library_custom_system_api
 }

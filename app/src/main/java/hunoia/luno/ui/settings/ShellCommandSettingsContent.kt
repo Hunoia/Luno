@@ -2,8 +2,11 @@ package hunoia.luno.ui.settings
 
 import hunoia.luno.ui.theme.*
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -13,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -41,6 +45,35 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+private data class CommandSuggestion(
+    val label: String,
+    val command: String,
+)
+
+private val commonCommands = listOf(
+    CommandSuggestion("音量增加", "cmd media_session volume --show --adj raise"),
+    CommandSuggestion("音量减小", "cmd media_session volume --show --adj lower"),
+    CommandSuggestion("亮度增加", "input keyevent 221"),
+    CommandSuggestion("亮度减小", "input keyevent 220"),
+    CommandSuggestion("播放/暂停", "cmd media_session dispatch play-pause"),
+    CommandSuggestion("下一首", "cmd media_session dispatch next"),
+    CommandSuggestion("上一首", "cmd media_session dispatch previous"),
+    CommandSuggestion("回到桌面", "input keyevent 3"),
+    CommandSuggestion("返回键", "input keyevent 4"),
+    CommandSuggestion("最近任务", "input keyevent 187"),
+    CommandSuggestion("开启WiFi", "cmd wifi set-wifi-enabled enabled"),
+    CommandSuggestion("关闭WiFi", "cmd wifi set-wifi-enabled disabled"),
+    CommandSuggestion("开启蓝牙", "cmd bluetooth_manager enable"),
+    CommandSuggestion("关闭蓝牙", "cmd bluetooth_manager disable"),
+    CommandSuggestion("开启勿扰", "cmd notification set_dnd on"),
+    CommandSuggestion("关闭勿扰", "cmd notification set_dnd off"),
+    CommandSuggestion("电源菜单", "input keyevent --longpress 26"),
+    CommandSuggestion("息屏", "input keyevent 223"),
+    CommandSuggestion("唤醒屏幕", "input keyevent 224"),
+    CommandSuggestion("设置亮度", "settings put system screen_brightness 128"),
+)
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ShellCommandSettingsContent(
     action: Action,
@@ -57,6 +90,7 @@ fun ShellCommandSettingsContent(
     var showToast by remember(action.data) { mutableStateOf(existingData?.showToast ?: true) }
     var testing by remember { mutableStateOf(false) }
     var testOutput by remember { mutableStateOf("") }
+    var showSuggestions by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -81,6 +115,30 @@ fun ShellCommandSettingsContent(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+
+        TextButton(onClick = { showSuggestions = !showSuggestions }) {
+            Text(if (showSuggestions) stringResource(R.string.collapse) else stringResource(R.string.expand) + " 常用命令")
+        }
+
+        if (showSuggestions) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                commonCommands.forEach { suggestion ->
+                    FilterChip(
+                        selected = command.trim() == suggestion.command,
+                        onClick = {
+                            command = suggestion.command
+                            onDataChange?.invoke(JsonSerializer.encodeToString(ShellCommandData(command.trim(), showToast)))
+                        },
+                        label = { Text(suggestion.label, style = MaterialTheme.typography.labelSmall) },
+                    )
+                }
+            }
+        }
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,

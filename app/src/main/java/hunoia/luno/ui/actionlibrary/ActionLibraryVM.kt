@@ -116,4 +116,6 @@ fun ActionLibraryType.sortIndex(): Int = when (this) {
     ActionLibraryType.Shell -> 0
     ActionLibraryType.Url -> 1
     ActionLibraryType.Activity -> 2
+    ActionLibraryType.SystemTemplate -> 3
+    ActionLibraryType.SystemApi -> 4
 }

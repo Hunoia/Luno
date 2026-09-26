@@ -153,6 +153,8 @@ internal fun ActionLibraryEntry.toReferenceAction(): Action {
         ActionLibraryType.Shell -> ActionFacade.EXECUTE_SHELL_COMMAND
         ActionLibraryType.Url -> ActionFacade.OPEN_URL
         ActionLibraryType.Activity -> ActionFacade.OPEN_APP_ACTIVITY
+        ActionLibraryType.SystemTemplate -> ActionFacade.EXECUTE_SHELL_COMMAND
+        ActionLibraryType.SystemApi -> ActionFacade.EXECUTE_SHELL_COMMAND
     }
     return Action(value = value, data = JsonSerializer.encodeToString(ActionLibraryRefData(id)))
 }

@@ -1,11 +1,13 @@
 package hunoia.luno.action
 
 import hunoia.luno.action.api.ActionFacade
+import hunoia.luno.action.template.SystemFunctionTemplates
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.Action
 import hunoia.luno.config.model.ActionLibraryEntry
 import hunoia.luno.config.model.ActionLibraryRefData
 import hunoia.luno.config.model.ActionLibraryType
+import hunoia.luno.config.model.ShellCommandData
 import hunoia.luno.core.JsonSerializer
 
 internal object ActionLibraryResolver {
@@ -36,11 +38,25 @@ internal object ActionLibraryResolver {
             ActionLibraryType.Shell -> ActionFacade.EXECUTE_SHELL_COMMAND
             ActionLibraryType.Url -> ActionFacade.OPEN_URL
             ActionLibraryType.Activity -> ActionFacade.OPEN_APP_ACTIVITY
+            ActionLibraryType.SystemTemplate -> ActionFacade.EXECUTE_SHELL_COMMAND
+            ActionLibraryType.SystemApi -> ActionFacade.EXECUTE_SHELL_COMMAND
         }
         val data = when (entry.type) {
             ActionLibraryType.Shell -> JsonSerializer.encodeToString(entry.shellCommand)
             ActionLibraryType.Url,
             ActionLibraryType.Activity -> JsonSerializer.encodeToString(entry.openAppOrUrl)
+            ActionLibraryType.SystemTemplate -> {
+                val template = SystemFunctionTemplates.getById(entry.systemTemplate.templateId)
+                val command = if (template != null) {
+                    SystemFunctionTemplates.generateCommand(template, entry.systemTemplate.params)
+                } else {
+                    entry.systemTemplate.templateId
+                }
+                JsonSerializer.encodeToString(ShellCommandData(command))
+            }
+            ActionLibraryType.SystemApi -> {
+                JsonSerializer.encodeToString(ShellCommandData(entry.systemApi.command))
+            }
         }
         return action.copy(value = value, data = data)
     }

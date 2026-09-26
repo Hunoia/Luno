@@ -7,6 +7,9 @@ app/mapping.txt
 # IDE
 .idea/
 
+# Nix / direnv
+.direnv/
+
 # Signing & Config
 local.properties
 *.jks
