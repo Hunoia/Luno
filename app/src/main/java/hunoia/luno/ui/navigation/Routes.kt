@@ -28,10 +28,6 @@ data object Home
 
 @Keep
 @Serializable
-data object ActionLibrary
-
-@Keep
-@Serializable
 data object ActionSettings
 
 @Keep

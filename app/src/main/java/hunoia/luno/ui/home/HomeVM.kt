@@ -102,69 +102,16 @@ class HomeVM : HomeVMBase() {
 
     fun collapseAll() {
         updateUiState {
-            it.copy(
-                isSubGestureListExpanded = false,
-                isGestureButtonListExpanded = false,
-                gestureBottomSheetVisible = false,
-                moreMenuVisible = false,
-            ).withRuntimeStatus()
+            it.copy(moreMenuVisible = false).withRuntimeStatus()
         }
-    }
-
-    fun showGestureBottomSheet() {
-        updateUiState { it.copy(gestureBottomSheetVisible = true) }
-    }
-
-    fun showGestureBottomSheet(tab: GestureTab) {
-        updateUiState {
-            it.copy(
-                gestureTab = tab,
-                gestureBottomSheetVisible = true,
-                moreMenuVisible = false,
-            )
-        }
-    }
-
-    fun selectGestureTab(tab: GestureTab) {
-        updateUiState { it.copy(gestureTab = tab).withRuntimeStatus() }
-    }
-
-    fun toggleGestureBottomSheet(tab: GestureTab) {
-        updateUiState {
-            if (it.gestureBottomSheetVisible && it.gestureTab == tab) {
-                it.copy(gestureBottomSheetVisible = false)
-            } else {
-                it.copy(
-                    gestureTab = tab,
-                    gestureBottomSheetVisible = true,
-                    moreMenuVisible = false,
-                )
-            }
-        }
-    }
-
-    fun hideGestureBottomSheet() {
-        updateUiState { it.copy(gestureBottomSheetVisible = false) }
     }
 
     fun showMoreMenu() {
-        updateUiState { it.copy(moreMenuVisible = true, gestureBottomSheetVisible = false) }
+        updateUiState { it.copy(moreMenuVisible = true) }
     }
 
     fun hideMoreMenu() {
         updateUiState { it.copy(moreMenuVisible = false) }
-    }
-
-    fun expandSubGestureList(expanded: Boolean, scrollOffset: Int = Int.MAX_VALUE) {
-        updateUiState {
-            it.copy(
-                isSubGestureListExpanded = expanded,
-                isGestureButtonListExpanded = it.isGestureButtonListExpanded && !expanded
-            ).withRuntimeStatus()
-        }
-        if (expanded && scrollOffset != Int.MAX_VALUE) {
-            sendUiEvent(UiEvent.ScrollToEvent(scrollOffset))
-        }
     }
 
     fun addGestureButton() {
@@ -182,18 +129,6 @@ class HomeVM : HomeVMBase() {
             }
             delay(50)
             sendUiEvent(UiEvent.ScrollToBottom)
-        }
-    }
-
-    fun expandGestureButtonList(expanded: Boolean, scrollOffset: Int = Int.MAX_VALUE) {
-        updateUiState {
-            it.copy(
-                isGestureButtonListExpanded = expanded,
-                isSubGestureListExpanded = it.isSubGestureListExpanded && !expanded
-            ).withRuntimeStatus()
-        }
-        if (expanded && scrollOffset != Int.MAX_VALUE) {
-            sendUiEvent(UiEvent.ScrollToEvent(scrollOffset))
         }
     }
 

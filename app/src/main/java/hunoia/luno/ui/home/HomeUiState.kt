@@ -16,7 +16,6 @@ sealed interface RenameTarget {
 
 sealed interface UiEvent {
     data object ScrollToBottom : UiEvent
-    data class ScrollToEvent(val offsetY: Int) : UiEvent
 }
 
 data class UiState(
@@ -24,10 +23,6 @@ data class UiState(
     val subGestures: List<SubGesture> = emptyList(),
     val isGestureSwitchEnabled: Boolean = false,
     val isAccessibilityEnabled: Boolean = false,
-    val isSubGestureListExpanded: Boolean = false,
-    val isGestureButtonListExpanded: Boolean = false,
-    val gestureTab: GestureTab = GestureTab.TouchButton,
-    val gestureBottomSheetVisible: Boolean = false,
     val moreMenuVisible: Boolean = false,
     val excludedAppCount: Int = 0,
     val isKeepAliveEnabled: Boolean = false,

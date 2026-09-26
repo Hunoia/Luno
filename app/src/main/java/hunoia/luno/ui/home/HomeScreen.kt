@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
@@ -33,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -76,7 +78,14 @@ fun HomeScreen(
     vm: HomeVM = viewModel()
 ) {
     val scrollState = rememberScrollState()
+    val libraryListState = rememberLazyListState()
     var mainTab by rememberSaveable { mutableStateOf(MainTab.Home) }
+    var expandedGestureSection by rememberSaveable(
+        stateSaver = Saver(
+            save = { it?.name ?: "" },
+            restore = { name -> if (name.isEmpty()) null else GesturePanelSection.valueOf(name) },
+        )
+    ) { mutableStateOf<GesturePanelSection?>(GesturePanelSection.TouchButton) }
     var showResetConfirm by remember { mutableStateOf(false) }
     var showRestoreConfirm by remember { mutableStateOf(false) }
     var pendingRestoreUri by remember { mutableStateOf<Uri?>(null) }
@@ -96,12 +105,6 @@ fun HomeScreen(
                 is UiEvent.ScrollToBottom -> {
                     scrollState.animateScrollTo(
                         value = scrollState.maxValue,
-                        animationSpec = ExpressiveMotion.slowSpatialSpec()
-                    )
-                }
-                is UiEvent.ScrollToEvent -> {
-                    scrollState.animateScrollTo(
-                        value = event.offsetY,
                         animationSpec = ExpressiveMotion.slowSpatialSpec()
                     )
                 }
@@ -195,26 +198,31 @@ fun HomeScreen(
                 )
             }
 
+            val libraryScrollPx = if (libraryListState.firstVisibleItemIndex == 0) {
+                libraryListState.firstVisibleItemScrollOffset
+            } else {
+                160
+            }
             val topBarAlpha by animateFloatAsState(
-                targetValue = (scrollState.value / 160f).coerceIn(0f, 1f),
+                targetValue = (when (mainTab) {
+                    MainTab.Home -> scrollState.value
+                    MainTab.ActionLibrary -> libraryScrollPx
+                } / 160f).coerceIn(0f, 1f),
                 animationSpec = tween(durationMillis = 240),
                 label = "topBarGradientAlpha",
             )
 
             Scaffold(
                 topBar = {
-                    if (mainTab != MainTab.ActionLibrary) {
-                        TopBar(
-                            title = when (mainTab) {
-                                MainTab.Home -> stringResource(id = R.string.home_title)
-                                MainTab.Gesture -> stringResource(id = R.string.gesture_settings)
-                                MainTab.ActionLibrary -> stringResource(id = R.string.action_library)
-                            },
-                            showBackIcon = false,
-                            actions = {},
-                            gradientAlpha = topBarAlpha,
-                        )
-                    }
+                    TopBar(
+                        title = when (mainTab) {
+                            MainTab.Home -> stringResource(id = R.string.home_title)
+                            MainTab.ActionLibrary -> stringResource(id = R.string.action_library)
+                        },
+                        showBackIcon = false,
+                        actions = {},
+                        gradientAlpha = topBarAlpha,
+                    )
                 }
             ) { padding ->
                 Column(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -241,38 +249,38 @@ fun HomeScreen(
                                     HomeActionSettingsCard(onClick = onNavToActionSettings)
                                     Spacer(Modifier.height(8.dp))
                                     HomeExcludeCard(onClick = onNavToAppBlacklist)
+                                    Spacer(Modifier.height(8.dp))
+                                    GesturePanel(
+                                        gestureButtons = uiState.gestureButtons,
+                                        subGestures = uiState.subGestures,
+                                        expandedSection = expandedGestureSection,
+                                        onExpandedSectionChange = { expandedGestureSection = it },
+                                        onGestureButtonClick = onNavToGestureButtonSettings,
+                                        onSubGestureClick = onNavToSubGestureEditor,
+                                        onGestureCheckedChange = { button, enabled -> vm.onGestureButtonEnabledChange(button, enabled) },
+                                        onSubCheckedChange = { gesture, enabled -> vm.onSubGestureEnabledChange(gesture, enabled) },
+                                        onAddGesture = { vm.addGestureButton() },
+                                        onAddSub = {
+                                            val id = java.util.UUID.randomUUID().toString()
+                                            vm.addSubGesture(id)
+                                        },
+                                        onMarkColorClick = { target ->
+                                            colorPickerTarget = target
+                                            colorPickerColor = when (target) {
+                                                is GestureButton -> Color(target.color)
+                                                is SubGesture -> Color(target.color)
+                                                else -> Color.Transparent
+                                            }
+                                        },
+                                        onGestureButtonRename = { button ->
+                                            vm.showRenameDialog(RenameTarget.GestureButton(button = button))
+                                        },
+                                        onSubGestureRename = { gesture ->
+                                            vm.showRenameDialog(RenameTarget.SubGesture(gesture = gesture))
+                                        },
+                                    )
                                 }
                             }
-                        }
-
-                        MainTab.Gesture -> {
-                            GesturePanel(
-                                gestureButtons = uiState.gestureButtons,
-                                subGestures = uiState.subGestures,
-                                onGestureButtonClick = onNavToGestureButtonSettings,
-                                onSubGestureClick = onNavToSubGestureEditor,
-                                onGestureCheckedChange = { button, enabled -> vm.onGestureButtonEnabledChange(button, enabled) },
-                                onSubCheckedChange = { gesture, enabled -> vm.onSubGestureEnabledChange(gesture, enabled) },
-                                onAddGesture = { vm.addGestureButton() },
-                                onAddSub = {
-                                    val id = java.util.UUID.randomUUID().toString()
-                                    vm.addSubGesture(id)
-                                },
-                                onMarkColorClick = { target ->
-                                    colorPickerTarget = target
-                                    colorPickerColor = when (target) {
-                                        is GestureButton -> Color(target.color)
-                                        is SubGesture -> Color(target.color)
-                                        else -> Color.Transparent
-                                    }
-                                },
-                                onGestureButtonRename = { button ->
-                                    vm.showRenameDialog(RenameTarget.GestureButton(button = button))
-                                },
-                                onSubGestureRename = { gesture ->
-                                    vm.showRenameDialog(RenameTarget.SubGesture(gesture = gesture))
-                                },
-                            )
                         }
 
                         MainTab.ActionLibrary -> {
@@ -281,7 +289,7 @@ fun HomeScreen(
                                     .weight(1f)
                                     .padding(bottom = 88.dp)
                             ) {
-                                ActionLibraryScreen(onBack = { mainTab = MainTab.Home })
+                                ActionLibraryScreen(listState = libraryListState)
                             }
                         }
                     }

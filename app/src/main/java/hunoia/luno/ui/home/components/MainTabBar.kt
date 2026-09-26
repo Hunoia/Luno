@@ -14,7 +14,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -28,7 +27,6 @@ import hunoia.luno.ui.theme.ExpressiveMotion
 
 enum class MainTab(val label: String, val icon: ImageVector) {
     Home("主页", Icons.Default.Home),
-    Gesture("手势", Icons.Default.Tune),
     ActionLibrary("动作库", Icons.AutoMirrored.Filled.LibraryBooks),
 }
 

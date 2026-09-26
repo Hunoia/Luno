@@ -1,14 +1,24 @@
 package hunoia.luno.ui.actionlibrary
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -26,14 +36,11 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -46,6 +53,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,16 +70,16 @@ import hunoia.luno.config.model.ShellCommandData
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.EmptyState
-import hunoia.luno.ui.component.TopBar
+import hunoia.luno.ui.theme.CardShape
+import hunoia.luno.ui.theme.MinItemHeight
 import hunoia.luno.ui.settings.ActivitySettingsContent
 import hunoia.luno.ui.settings.ShellCommandSettingsContent
 import hunoia.luno.ui.settings.UrlSettingsContent
-import androidx.compose.material3.HorizontalDivider
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ActionLibraryScreen(
-    onBack: () -> Unit,
+    listState: LazyListState = rememberLazyListState(),
     vm: ActionLibraryVM = viewModel(),
 ) {
     val uiState by vm.uiState.collectAsState()
@@ -91,90 +99,108 @@ fun ActionLibraryScreen(
             .filter { it.matchesQuery(query) }
             .sortedWith(actionLibraryComparator(sortMode, uiState.referenceCounts))
     }
-    val selectedEntries = uiState.entries.filter { it.id in selectedIds }
-    Scaffold(
-        topBar = { TopBar(onBack = onBack, title = stringResource(R.string.action_library)) },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { menuExpanded = true }) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                    ActionLibraryType.entries.forEach { type ->
-                        DropdownMenuItem(
-                            text = { Text(stringResource(type.titleRes)) },
-                            onClick = {
-                                menuExpanded = false
-                                editing = ActionLibraryEntry.create(type, defaultName(type, uiState.entries))
-                            },
-                        )
+    val grouped = remember(filtered) { filtered.groupBy { it.type } }
+    val selectedEntries = remember(uiState.entries, selectedIds) {
+        uiState.entries.filter { it.id in selectedIds }
+    }
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            AppSearchBar(
+                query = query,
+                onQueryChange = { query = it },
+                placeholder = stringResource(R.string.search_hint_all),
+                modifier = Modifier.padding(start = 12.dp, top = 12.dp, end = 12.dp, bottom = 8.dp),
+            )
+            ActionLibraryControls(
+                selectedType = selectedType,
+                onSelectedTypeChange = { selectedType = it },
+                sortMode = sortMode,
+                onSortModeChange = { sortMode = it },
+                sortMenuExpanded = sortMenuExpanded,
+                onSortMenuExpandedChange = { sortMenuExpanded = it },
+                selectionMode = selectionMode,
+                selectedCount = selectedIds.size,
+                totalCount = filtered.size,
+                onSelectionModeChange = { enabled ->
+                    selectionMode = enabled
+                    if (!enabled) selectedIds = emptySet()
+                },
+                onSelectAll = { selectedIds = filtered.map { it.id }.toSet() },
+                onDeleteSelected = { deletingSelected = selectedIds.isNotEmpty() },
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+            )
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                state = listState,
+                contentPadding = PaddingValues(bottom = 88.dp),
+            ) {
+                if (filtered.isEmpty()) {
+                    item { EmptyState(stringResource(R.string.action_library_empty)) }
+                } else {
+                    grouped.forEach { (type, entries) ->
+                        stickyHeader(key = "header_${type.name}") {
+                            Text(
+                                text = stringResource(type.titleRes),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                            )
+                        }
+                        items(entries, key = { it.id }) { entry ->
+                            ActionLibraryItem(
+                                entry = entry,
+                                referenceCount = uiState.referenceCounts[entry.id] ?: 0,
+                                selectionMode = selectionMode,
+                                selected = entry.id in selectedIds,
+                                onClick = {
+                                    if (selectionMode) {
+                                        selectedIds = selectedIds.toggle(entry.id)
+                                    } else {
+                                        editing = entry
+                                    }
+                                },
+                                onSelectedChange = { selected ->
+                                    selectedIds = if (selected) selectedIds + entry.id else selectedIds - entry.id
+                                },
+                                onEdit = { editing = entry },
+                                onDuplicate = { vm.duplicate(entry, defaultName(entry.type, uiState.entries)) },
+                                onDelete = { deleting = entry },
+                            )
+                        }
                     }
                 }
             }
         }
-    ) { padding ->
-        LazyColumn(contentPadding = PaddingValues(bottom = 24.dp), modifier = Modifier.padding(padding)) {
-            item {
-                AppSearchBar(
-                    query = query,
-                    onQueryChange = { query = it },
-                    placeholder = stringResource(R.string.action_library_search_hint),
-                    modifier = Modifier.padding(horizontal = 12.dp * 2, vertical = 8.dp),
-                )
-            }
-            item {
-                ActionLibraryControls(
-                    selectedType = selectedType,
-                    onSelectedTypeChange = { selectedType = it },
-                    sortMode = sortMode,
-                    onSortModeChange = { sortMode = it },
-                    sortMenuExpanded = sortMenuExpanded,
-                    onSortMenuExpandedChange = { sortMenuExpanded = it },
-                    selectionMode = selectionMode,
-                    selectedCount = selectedIds.size,
-                    totalCount = filtered.size,
-                    onSelectionModeChange = { enabled ->
-                        selectionMode = enabled
-                        if (!enabled) selectedIds = emptySet()
-                    },
-                    onSelectAll = { selectedIds = filtered.map { it.id }.toSet() },
-                    onDeleteSelected = { deletingSelected = selectedIds.isNotEmpty() },
-                    modifier = Modifier.padding(horizontal = 12.dp * 2, vertical = 4.dp),
-                )
-            }
-            if (filtered.isEmpty()) {
-                item { EmptyState(stringResource(R.string.action_library_empty)) }
-            } else {
-                filtered.groupBy { it.type }.forEach { (type, entries) ->
-                    item(key = "header_${type.name}") {
-                        Text(
-                            text = stringResource(type.titleRes),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp * 2, vertical = 8.dp),
-                        )
-                    }
-                    items(entries, key = { it.id }) { entry ->
-                        ActionLibraryItem(
-                            entry = entry,
-                            referenceCount = uiState.referenceCounts[entry.id] ?: 0,
-                            selectionMode = selectionMode,
-                            selected = entry.id in selectedIds,
-                            onClick = {
-                                if (selectionMode) {
-                                    selectedIds = selectedIds.toggle(entry.id)
-                                } else {
-                                    editing = entry
-                                }
-                            },
-                            onSelectedChange = { selected ->
-                                selectedIds = if (selected) selectedIds + entry.id else selectedIds - entry.id
-                            },
-                            onEdit = { editing = entry },
-                            onDuplicate = { vm.duplicate(entry, defaultName(entry.type, uiState.entries)) },
-                            onDelete = { deleting = entry },
-                        )
-                    }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+                .size(52.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                .clickable { menuExpanded = true },
+            contentAlignment = Alignment.Center,
+        ) {
+            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                ActionLibraryType.entries.forEach { type ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(type.titleRes)) },
+                        onClick = {
+                            menuExpanded = false
+                            editing = ActionLibraryEntry.create(type, defaultName(type, uiState.entries))
+                        },
+                    )
                 }
             }
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = stringResource(R.string.action_library_add),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
     editing?.let { entry ->
@@ -236,7 +262,9 @@ private fun ActionLibraryControls(
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -309,11 +337,18 @@ private fun ActionLibraryItem(
     var menuExpanded by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
-        shape = MaterialTheme.shapes.medium,
+        shape = CardShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
     ) {
-        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = MinItemHeight)
+                .padding(horizontal = 12.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             if (selectionMode) {
                 Checkbox(checked = selected, onCheckedChange = onSelectedChange)
             }

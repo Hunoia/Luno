@@ -31,13 +31,11 @@ import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.navigation.GestureButtonSettings
 
 import hunoia.luno.ui.navigation.Home
-import hunoia.luno.ui.navigation.ActionLibrary
 import hunoia.luno.ui.navigation.ActionSettings
 import hunoia.luno.ui.navigation.SubGestureEditor
 import hunoia.luno.ui.navigation.AppBlacklist
 
 import hunoia.luno.ui.actionselect.ActionSelectContent
-import hunoia.luno.ui.actionlibrary.ActionLibraryScreen
 import hunoia.luno.ui.settings.action.ActionSettingsScreen
 
 import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsScreen
@@ -107,11 +105,6 @@ fun SideGestureApp() {
                     ActionSelectContent(
                         onDismiss = { navController.popBackStack() },
                         actionSelect = it.toRoute()
-                    )
-                }
-                myComposable<ActionLibrary> {
-                    ActionLibraryScreen(
-                        onBack = { navController.popBackStack() }
                     )
                 }
                 myComposable<ActionSettings> {
