@@ -20,7 +20,7 @@
         includeEmulator = false;
         includeSystemImages = false;
         includeSources = false;
-        platformVersions = [ "36" ];
+        platformVersions = [ "36" "37" ];
         abiVersions = [ "arm64-v8a" ];
       };
     in

@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "hunoia.luno"
-    compileSdk = 36
+    compileSdk = 37
     buildToolsVersion = "37.0.0"
 
     defaultConfig {
@@ -120,7 +120,19 @@ configurations.all {
 }
 
 dependencies {
-    implementation(platform(libs.compose.bom))
+    implementation(libs.androidx.compose.runtime)
+    implementation(libs.androidx.compose.runtime.saveable)
+    implementation(libs.androidx.compose.animation)
+    implementation(libs.androidx.compose.animation.core)
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.foundation.layout)
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.geometry)
+    implementation(libs.androidx.compose.ui.graphics)
+    implementation(libs.androidx.compose.ui.text)
+    implementation(libs.androidx.compose.ui.unit)
+    implementation(libs.androidx.compose.ui.util)
+    implementation(libs.androidx.compose.material.ripple)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.com.aaronzzx.fastcompose.compose)
@@ -129,6 +141,8 @@ dependencies {
     implementation(libs.jetbrains.kotlin.serialization)
     implementation(libs.androidx.datastore)
     implementation(libs.material3)
+    implementation(libs.miuix.shader)
+    implementation(libs.miuix.blur)
     // color-picker removed; replaced with in-app HsvRectPicker
     implementation(libs.material.icons.extended)
     implementation(libs.tinypinyin)

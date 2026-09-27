@@ -23,7 +23,6 @@ data class UiState(
     val subGestures: List<SubGesture> = emptyList(),
     val isGestureSwitchEnabled: Boolean = false,
     val isAccessibilityEnabled: Boolean = false,
-    val moreMenuVisible: Boolean = false,
     val isKeepAliveEnabled: Boolean = false,
     val shizukuStatus: ShizukuStatus = ShizukuStatus(
         installed = false,

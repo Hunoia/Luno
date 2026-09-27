@@ -2,6 +2,7 @@ package hunoia.luno.ui.component.input
 import hunoia.luno.ui.theme.*
 
 import androidx.compose.foundation.interaction.DragInteraction
+import androidx.compose.foundation.interaction.Interaction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Arrangement
@@ -11,17 +12,16 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RangeSlider
+import androidx.compose.material3.RangeSliderState
 import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -127,9 +127,7 @@ fun MyTextSlider(
         sliderValueHint = sliderValueHint,
     ) {
         MySlider(
-            modifier = Modifier
-                .padding(horizontal = 12.dp)
-                .height(SliderTrackHeight),
+            modifier = Modifier.padding(horizontal = 12.dp),
             enabled = enabled,
             value = value,
             onValueChange = onValueChange,
@@ -157,9 +155,7 @@ fun MyTextRangeSlider(
         sliderValueHint = sliderValueHint,
     ) {
         MyRangeSlider(
-            modifier = Modifier
-                .padding(horizontal = 12.dp - 6.dp)
-                .height(SliderTrackHeight),
+            modifier = Modifier.padding(horizontal = 12.dp - 6.dp),
             enabled = enabled,
             value = value,
             onValueChange = onValueChange,
@@ -181,12 +177,18 @@ fun MySlider(
     steps: Int? = null,
 ) {
     val coercedValue = value.coerceIn(valueRange.start, valueRange.endInclusive)
-    val colorScheme = MaterialTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
-    val colors = SliderDefaults.colors(thumbColor = colorScheme.tertiary)
+    val stepCount = steps ?: 0
+    val sliderState = remember(stepCount, valueRange) {
+        SliderState(value = coercedValue, steps = stepCount, trackRange = valueRange)
+    }
     var isDragging by remember { mutableStateOf(false) }
     val safeOnValueChange by rememberUpdatedState(onValueChange)
     val safeOnValueChangeFinished by rememberUpdatedState(onValueChangeFinished)
+
+    LaunchedEffect(coercedValue) {
+        if (!sliderState.isDragging) sliderState.value = coercedValue
+    }
 
     LaunchedEffect(interactionSource) {
         interactionSource.interactions.collect { interaction ->
@@ -204,42 +206,12 @@ fun MySlider(
     }
 
     Slider(
+        state = sliderState,
+        onValueChange = { if (isDragging) safeOnValueChange(it) },
         modifier = modifier,
         enabled = enabled,
-        value = coercedValue,
-        onValueChange = { if (isDragging) safeOnValueChange(it) },
-        onValueChangeFinished = { },
+        onValueChangeFinished = {},
         interactionSource = interactionSource,
-        colors = colors,
-        valueRange = valueRange,
-        steps = steps ?: 0,
-        thumb = {
-            SliderDefaults.Thumb(
-                modifier = Modifier
-                    .requiredSize(20.dp)
-                    .drawWithContent {
-                        drawContent()
-                        if (enabled) {
-                            drawCircle(
-                                color = colorScheme.onPrimary,
-                                radius = 7.dp.toPx()
-                            )
-                        }
-                    },
-                interactionSource = interactionSource,
-                colors = colors,
-                enabled = enabled
-            )
-        },
-        track = { sliderState ->
-            SliderDefaults.Track(
-                modifier = Modifier.height(8.dp),
-                colors = colors,
-                enabled = enabled,
-                sliderState = sliderState,
-                thumbTrackGapSize = 0.dp
-            )
-        }
     )
 }
 
@@ -255,52 +227,47 @@ fun MyRangeSlider(
 ) {
     val coercedValue = value.start.coerceIn(valueRange.start, valueRange.endInclusive)..
         value.endInclusive.coerceIn(valueRange.start, valueRange.endInclusive)
-    val colorScheme = MaterialTheme.colorScheme
     val startInteractionSource = remember { MutableInteractionSource() }
     val endInteractionSource = remember { MutableInteractionSource() }
-    val colors = SliderDefaults.colors(thumbColor = colorScheme.primary)
-    val thumb: @Composable (MutableInteractionSource) -> Unit = { interactionSource ->
-        SliderDefaults.Thumb(
-            modifier = Modifier
-                .requiredSize(20.dp)
-                .drawWithContent {
-                    drawContent()
-                    if (enabled) {
-                        drawCircle(
-                            color = colorScheme.onPrimary,
-                            radius = 7.dp.toPx()
-                        )
-                    }
-                },
-            interactionSource = interactionSource,
-            colors = colors,
-            enabled = enabled
+    val rangeState = remember(valueRange) {
+        RangeSliderState(
+            startValue = coercedValue.start,
+            endValue = coercedValue.endInclusive,
+            trackRange = valueRange
         )
     }
+    var isDragging by remember { mutableStateOf(false) }
+    val handleDragInteraction: (Interaction) -> Unit = { interaction ->
+        when (interaction) {
+            is DragInteraction.Start -> isDragging = true
+            is DragInteraction.Stop,
+            is PressInteraction.Release,
+            is PressInteraction.Cancel -> isDragging = false
+        }
+    }
+
+    LaunchedEffect(coercedValue) {
+        if (!isDragging) {
+            rangeState.startValue = coercedValue.start
+            rangeState.endValue = coercedValue.endInclusive
+        }
+    }
+
+    LaunchedEffect(startInteractionSource) {
+        startInteractionSource.interactions.collect(handleDragInteraction)
+    }
+
+    LaunchedEffect(endInteractionSource) {
+        endInteractionSource.interactions.collect(handleDragInteraction)
+    }
+
     RangeSlider(
+        state = rangeState,
+        onValueChange = onValueChange,
         modifier = modifier,
         enabled = enabled,
-        value = coercedValue,
-        onValueChange = onValueChange,
         onValueChangeFinished = onValueChangeFinished,
-        startInteractionSource = startInteractionSource,
-        endInteractionSource = endInteractionSource,
-        colors = colors,
-        valueRange = valueRange,
-        startThumb = {
-            thumb(startInteractionSource)
-        },
-        endThumb = {
-            thumb(endInteractionSource)
-        },
-        track = { sliderState ->
-            SliderDefaults.Track(
-                modifier = Modifier.height(8.dp),
-                colors = colors,
-                enabled = enabled,
-                rangeSliderState = sliderState,
-                thumbTrackGapSize = 0.dp
-            )
-        }
+        startThumbInteractionSource = startInteractionSource,
+        endThumbInteractionSource = endInteractionSource,
     )
 }

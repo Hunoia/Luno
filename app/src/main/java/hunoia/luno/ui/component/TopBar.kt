@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -18,7 +17,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import hunoia.luno.ui.theme.TopBarPaddingExtra
@@ -33,24 +31,11 @@ fun TopBar(
     showBackIcon: Boolean = true,
     onTitleClick: (() -> Unit)? = null,
     titleStyle: TextStyle = MaterialTheme.typography.headlineMedium,
-    containerColor: Color = Color.Transparent,
-    gradientAlpha: Float = 0f,
     postfixTitle: (@Composable () -> Unit)? = null,
     titleContent: (@Composable () -> Unit)? = null,
 ) {
-    val overlayAlpha = gradientAlpha.coerceIn(0f, 1f)
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        containerColor.copy(alpha = overlayAlpha),
-                        containerColor.copy(alpha = overlayAlpha * 0.45f),
-                        Color.Transparent,
-                    )
-                )
-            ),
+        modifier = modifier.fillMaxWidth(),
     ) {
         TopAppBar(
             modifier = Modifier.fillMaxWidth(),

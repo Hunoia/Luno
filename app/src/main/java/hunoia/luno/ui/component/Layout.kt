@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.aaron.compose.ktx.onClick
 
@@ -39,13 +40,15 @@ fun MyColumn(
     scrollState: ScrollState = rememberScrollState(),
     verticalArrangement: Arrangement.Vertical = Arrangement.Top,
     horizontalAlignment: Alignment.Horizontal = Alignment.Start,
+    contentPadding: Dp = 12.dp,
+    bottomPadding: Dp = 24.dp,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(
         modifier = modifier
             .verticalScroll(scrollState)
-            .padding(12.dp)
-            .padding(bottom = 24.dp),
+            .padding(contentPadding)
+            .padding(bottom = bottomPadding),
         verticalArrangement = verticalArrangement,
         horizontalAlignment = horizontalAlignment,
         content = content

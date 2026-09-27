@@ -45,6 +45,13 @@ val DialogShape = RoundedCornerShape(DialogCorner)
 val SheetTopShape = RoundedCornerShape(topStart = SheetCorner, topEnd = SheetCorner)
 val IconBoxShape = RoundedCornerShape(ShapeSmall)
 
+// Segmented list tokens
+val ContainerRadius = 16.dp
+val ConnectionRadius = 5.dp
+val SegmentedGap = 1.dp
+val PageGutter = 16.dp
+val BottomBarSpace = 88.dp
+
 // Animation durations (ms)
 const val AnimRipple = 300L
 const val AnimNormal = 150L

@@ -102,16 +102,8 @@ class HomeVM : HomeVMBase() {
 
     fun collapseAll() {
         updateUiState {
-            it.copy(moreMenuVisible = false).withRuntimeStatus()
+            it.withRuntimeStatus()
         }
-    }
-
-    fun showMoreMenu() {
-        updateUiState { it.copy(moreMenuVisible = true) }
-    }
-
-    fun hideMoreMenu() {
-        updateUiState { it.copy(moreMenuVisible = false) }
     }
 
     fun addGestureButton() {

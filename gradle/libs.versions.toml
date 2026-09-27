@@ -6,7 +6,10 @@ lifecycleRuntimeKtx = "2.10.0"
 fastCompose = "4fbfa644df7ff67da3ddc9ec47726ddcf0142813"
 kotlinSerialization = "1.11.0"
 dataStore = "1.2.1"
-compose-bom = "2026.05.01"
+composeTrain = "1.13.0-alpha01"
+material3 = "1.5.0-alpha29"
+materialIcons = "1.7.8"
+miuix = "0.9.4"
 tinypinyin = "2.0.3.RELEASE"
 freereflection = "3.2.2"
 shizuku = "13.1.5"
@@ -20,9 +23,27 @@ com-aaronzzx-fastcompose-compose = { group = "com.github.aaronzzx.fastcompose", 
 com-aaronzzx-fastcompose-compose-accessibility = { group = "com.github.aaronzzx.fastcompose", name = "composeaccessibility", version.ref = "fastCompose" }
 jetbrains-kotlin-serialization = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinSerialization" }
 androidx-datastore = { group = "androidx.datastore", name = "datastore", version.ref = "dataStore" }
-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "compose-bom" }
-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
-material3 = { group = "androidx.compose.material3", name = "material3" }
+
+androidx-compose-runtime = { group = "androidx.compose.runtime", name = "runtime", version.ref = "composeTrain" }
+androidx-compose-runtime-saveable = { group = "androidx.compose.runtime", name = "runtime-saveable", version.ref = "composeTrain" }
+androidx-compose-animation = { group = "androidx.compose.animation", name = "animation", version.ref = "composeTrain" }
+androidx-compose-animation-core = { group = "androidx.compose.animation", name = "animation-core", version.ref = "composeTrain" }
+androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "composeTrain" }
+androidx-compose-foundation-layout = { group = "androidx.compose.foundation", name = "foundation-layout", version.ref = "composeTrain" }
+androidx-compose-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "composeTrain" }
+androidx-compose-ui-geometry = { group = "androidx.compose.ui", name = "ui-geometry", version.ref = "composeTrain" }
+androidx-compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics", version.ref = "composeTrain" }
+androidx-compose-ui-text = { group = "androidx.compose.ui", name = "ui-text", version.ref = "composeTrain" }
+androidx-compose-ui-unit = { group = "androidx.compose.ui", name = "ui-unit", version.ref = "composeTrain" }
+androidx-compose-ui-util = { group = "androidx.compose.ui", name = "ui-util", version.ref = "composeTrain" }
+androidx-compose-material-ripple = { group = "androidx.compose.material", name = "material-ripple", version.ref = "composeTrain" }
+
+material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "materialIcons" }
+material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
+
+miuix-shader = { group = "top.yukonga.miuix.kmp", name = "miuix-shader-android", version.ref = "miuix" }
+miuix-blur = { group = "top.yukonga.miuix.kmp", name = "miuix-blur-android", version.ref = "miuix" }
+
 tinypinyin = { group = "io.github.biezhi", name = "TinyPinyin", version.ref = "tinypinyin" }
 com-tiann-freereflection = { group = "com.github.tiann", name = "FreeReflection", version.ref = "freereflection" }
 rikka-shizuku-api = { group = "dev.rikka.shizuku", name = "api", version.ref = "shizuku" }
