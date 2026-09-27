@@ -5,11 +5,10 @@ import androidx.lifecycle.viewModelScope
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.Action
 import hunoia.luno.config.model.ActionLibraryEntry
-import hunoia.luno.config.model.ActionLibraryRefData
 import hunoia.luno.config.model.ActionLibraryType
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.SubGesture
-import hunoia.luno.core.JsonSerializer
+import hunoia.luno.config.model.actionLibraryRefId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -58,7 +57,7 @@ class ActionLibraryVM : ViewModel() {
 
     fun removeAll(entries: List<ActionLibraryEntry>) {
         viewModelScope.launch {
-            entries.forEach { entry -> ConfigProvider.removeActionLibraryEntry(entry.id) }
+            ConfigProvider.removeAllActionLibraryEntries(entries.mapTo(mutableSetOf()) { it.id })
         }
     }
 
@@ -75,6 +74,9 @@ fun ActionLibraryEntry.matchesQuery(query: String): Boolean {
         openAppOrUrl.url.contains(q, ignoreCase = true) ||
         openAppOrUrl.packageName.contains(q, ignoreCase = true) ||
         openAppOrUrl.activityClassName.contains(q, ignoreCase = true) ||
+        systemTemplate.templateId.contains(q, ignoreCase = true) ||
+        systemApi.command.contains(q, ignoreCase = true) ||
+        systemApi.category.contains(q, ignoreCase = true) ||
         openAppOrUrl.queryParameters.any { parameter ->
             parameter.name.contains(q, ignoreCase = true) ||
                 parameter.value.contains(q, ignoreCase = true)
@@ -87,8 +89,8 @@ private fun countReferences(
 ): Map<String, Int> {
     val counts = mutableMapOf<String, Int>()
     fun add(action: Action?) {
-        val ref = action?.actionLibraryRef() ?: return
-        counts[ref.entryId] = (counts[ref.entryId] ?: 0) + 1
+        val entryId = action?.actionLibraryRefId() ?: return
+        counts[entryId] = (counts[entryId] ?: 0) + 1
     }
     buttons.forEach { button ->
         button.slideActions.actions.values.flatten().forEach { add(it); add(it.longPressAction) }
@@ -106,10 +108,6 @@ private fun countReferences(
         gesture.longSlideHoldActions.actions.values.flatten().forEach { add(it); add(it.longPressAction) }
     }
     return counts
-}
-
-private fun Action.actionLibraryRef(): ActionLibraryRefData? {
-    return runCatching { JsonSerializer.decodeFromString<ActionLibraryRefData>(data) }.getOrNull()
 }
 
 fun ActionLibraryType.sortIndex(): Int = when (this) {

@@ -15,7 +15,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDeepLink
 import androidx.navigation.NavGraphBuilder
@@ -36,7 +38,10 @@ import hunoia.luno.ui.navigation.SubGestureEditor
 import hunoia.luno.ui.navigation.Condition
 import hunoia.luno.ui.navigation.ConditionEdit
 
+import hunoia.luno.ui.navigation.ActionLibraryEdit
+
 import hunoia.luno.ui.actionselect.ActionSelectContent
+import hunoia.luno.ui.actionlibrary.ActionLibraryEditScreen
 import hunoia.luno.ui.condition.ConditionEditScreen
 import hunoia.luno.ui.condition.ConditionSettingsScreen
 import hunoia.luno.ui.settings.action.ActionSettingsScreen
@@ -44,7 +49,10 @@ import hunoia.luno.ui.settings.action.ActionSettingsScreen
 import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsScreen
 
 import hunoia.luno.ui.settings.gesture.subgesture.SubGestureSettingsScreen
+import hunoia.luno.config.ConfigProvider
+import hunoia.luno.config.model.ActionLibrarySettings
 import hunoia.luno.ui.theme.SideGestureTheme
+import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalNavController
 import hunoia.luno.ui.home.HomeScreen
 import kotlin.reflect.KType
@@ -56,8 +64,11 @@ fun SideGestureApp() {
     SideGestureTheme {
         val navController = rememberNavController()
         val durationMs = ANIMATION_DURATION_MS
+        val actionLibrarySettings by ConfigProvider.actionLibrarySettings
+            .collectAsStateWithLifecycle(initialValue = ActionLibrarySettings())
         CompositionLocalProvider(
-            LocalNavController provides navController
+            LocalNavController provides navController,
+            LocalActionLibraryEntries provides actionLibrarySettings.entries
         ) {
             Surface(modifier = Modifier.fillMaxSize()) {
                 NavHost(
@@ -94,6 +105,9 @@ fun SideGestureApp() {
                         },
                         onNavToActionSettings = {
                             navController.navigate(ActionSettings)
+                        },
+                        onNavToActionLibraryEdit = { route ->
+                            navController.navigate(route)
                         }
                     )
                 }
@@ -130,6 +144,13 @@ fun SideGestureApp() {
                     ConditionEditScreen(
                         onBack = { navController.popBackStack() },
                         ruleId = it.toRoute<ConditionEdit>().ruleId,
+                    )
+                }
+                myComposable<ActionLibraryEdit> {
+                    ActionLibraryEditScreen(
+                        onBack = { navController.popBackStack() },
+                        entryId = it.toRoute<ActionLibraryEdit>().entryId,
+                        type = it.toRoute<ActionLibraryEdit>().type,
                     )
                 }
             }

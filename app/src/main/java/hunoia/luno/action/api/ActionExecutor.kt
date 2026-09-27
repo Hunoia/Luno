@@ -4,7 +4,7 @@ import hunoia.luno.config.model.Action
 
 class ActionExecutor(
     handlers: List<ActionHandler>,
-    private val resolveAction: suspend (Action) -> Action? = { it },
+    private val resolveAction: suspend (Action, ActionHandlerContext) -> Action? = { action, _ -> action },
 ) {
     private val handlerMap: Map<String, ActionHandler> = handlers
         .flatMap { handler -> handler.supportedActions.map { it to handler } }
@@ -24,7 +24,7 @@ class ActionExecutor(
     fun isRegistered(actionId: String): Boolean = actionId in handlerMap
 
     suspend fun execute(action: Action, context: ActionHandlerContext): ActionExecutionResult {
-        val executable = resolveAction(action) ?: return ActionExecutionResult.Ignored
+        val executable = resolveAction(action, context) ?: return ActionExecutionResult.Ignored
         val handler = handlerMap[executable.value] ?: return ActionExecutionResult.Ignored
         return runCatching {
             handler.handle(executable, context)

@@ -1,63 +1,39 @@
 package hunoia.luno.action
 
-import hunoia.luno.action.api.ActionFacade
 import hunoia.luno.action.template.SystemFunctionTemplates
-import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.Action
 import hunoia.luno.config.model.ActionLibraryEntry
-import hunoia.luno.config.model.ActionLibraryRefData
-import hunoia.luno.config.model.ActionLibraryType
+import hunoia.luno.config.model.ActionLibraryPayload
 import hunoia.luno.config.model.ShellCommandData
+import hunoia.luno.config.model.actionLibraryRefId
+import hunoia.luno.config.model.actionValue
 import hunoia.luno.core.JsonSerializer
 
 internal object ActionLibraryResolver {
 
-    suspend fun resolve(action: Action): Action? =
-        resolveReference(action, ConfigProvider.getActionLibrarySettings().entries)
-
-    fun parseReference(action: Action): ActionLibraryRefData? {
-        if (action.value != ActionFacade.EXECUTE_SHELL_COMMAND &&
-            action.value != ActionFacade.OPEN_URL &&
-            action.value != ActionFacade.OPEN_APP_ACTIVITY
-        ) {
-            return null
-        }
-        return runCatching {
-            JsonSerializer.decodeFromString<ActionLibraryRefData>(action.data)
-        }.getOrNull()
-    }
+    fun resolve(action: Action, entries: List<ActionLibraryEntry>): Action? =
+        resolveReference(action, entries)
 
     fun resolveReference(
         action: Action,
         entries: List<ActionLibraryEntry>,
     ): Action? {
-        val ref = parseReference(action) ?: return action
-        if (ref.entryId.isBlank()) return action
-        val entry = entries.firstOrNull { it.id == ref.entryId } ?: return null
-        val value = when (entry.type) {
-            ActionLibraryType.Shell -> ActionFacade.EXECUTE_SHELL_COMMAND
-            ActionLibraryType.Url -> ActionFacade.OPEN_URL
-            ActionLibraryType.Activity -> ActionFacade.OPEN_APP_ACTIVITY
-            ActionLibraryType.SystemTemplate -> ActionFacade.EXECUTE_SHELL_COMMAND
-            ActionLibraryType.SystemApi -> ActionFacade.EXECUTE_SHELL_COMMAND
-        }
-        val data = when (entry.type) {
-            ActionLibraryType.Shell -> JsonSerializer.encodeToString(entry.shellCommand)
-            ActionLibraryType.Url,
-            ActionLibraryType.Activity -> JsonSerializer.encodeToString(entry.openAppOrUrl)
-            ActionLibraryType.SystemTemplate -> {
-                val template = SystemFunctionTemplates.getById(entry.systemTemplate.templateId)
-                val command = if (template != null) {
-                    SystemFunctionTemplates.generateCommand(template, entry.systemTemplate.params)
-                } else {
-                    entry.systemTemplate.templateId
-                }
-                JsonSerializer.encodeToString(ShellCommandData(command))
+        val entryId = action.actionLibraryRefId() ?: return action
+        val entry = entries.firstOrNull { it.id == entryId } ?: return null
+        val data = when (val payload = entry.payload) {
+            is ActionLibraryPayload.Shell -> JsonSerializer.encodeToString(payload.data)
+            is ActionLibraryPayload.Url -> JsonSerializer.encodeToString(payload.data)
+            is ActionLibraryPayload.Activity -> JsonSerializer.encodeToString(payload.data)
+            is ActionLibraryPayload.SystemTemplate -> {
+                val template = SystemFunctionTemplates.getById(payload.data.templateId) ?: return null
+                JsonSerializer.encodeToString(
+                    ShellCommandData(SystemFunctionTemplates.generateCommand(template, payload.data.params))
+                )
             }
-            ActionLibraryType.SystemApi -> {
-                JsonSerializer.encodeToString(ShellCommandData(entry.systemApi.command))
-            }
+            is ActionLibraryPayload.SystemApi -> JsonSerializer.encodeToString(
+                ShellCommandData(payload.data.command, payload.data.showToast)
+            )
         }
-        return action.copy(value = value, data = data)
+        return action.copy(value = entry.type.actionValue(), data = data)
     }
 }

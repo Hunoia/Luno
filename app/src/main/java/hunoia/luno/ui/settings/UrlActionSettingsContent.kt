@@ -38,6 +38,7 @@ fun UrlSettingsContent(
     onConfirm: (String) -> Unit,
     showConfirmButton: Boolean = true,
     onDataChange: ((String) -> Unit)? = null,
+    modifier: Modifier = Modifier.padding(horizontal = 16.dp),
 ) {
     val existingData = remember(action.data) {
         runCatching { JsonSerializer.decodeFromString<OpenAppOrUrlData>(action.data) }.getOrNull()
@@ -47,9 +48,8 @@ fun UrlSettingsContent(
     var queryParameters by remember(action.data) { mutableStateOf(existingData?.queryParameters ?: emptyList()) }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+        modifier = modifier
+            .fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         OutlinedTextField(

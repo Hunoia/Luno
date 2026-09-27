@@ -7,13 +7,14 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Point
 import android.graphics.Rect
-import android.net.Uri
 import android.view.WindowManager
 import hunoia.luno.R
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.config.model.OpenAppOrUrlData
 import hunoia.luno.bridge.feedback.showToast
+import hunoia.luno.bridge.intent.buildViewIntent
+import hunoia.luno.bridge.intent.hasViewActivity
 import hunoia.luno.bridge.intent.normalizeOpenAppOrUrl
 import kotlin.math.roundToInt
 
@@ -144,9 +145,9 @@ object Launcher {
                 showToast(context.getString(R.string.invalid_url))
                 return false
             }
-            val intent = openUrlIntent(normalizedUrl)
-            if (intent.resolveActivity(context.packageManager) == null) {
-                showToast(context.getString(R.string.launch_failed))
+            val intent = buildViewIntent(normalizedUrl)
+            if (!context.packageManager.hasViewActivity(intent)) {
+                showToast(context.getString(R.string.launch_no_handler))
                 return false
             }
             if (data.miniWindow) {
@@ -172,17 +173,6 @@ object Launcher {
     internal fun buildOpenUrl(data: OpenAppOrUrlData): String? {
         val normalizedUrl = normalizeOpenAppOrUrl(data.url) ?: return null
         return OpenUrlBuilder.build(normalizedUrl, data)
-    }
-
-    private fun openUrlIntent(normalizedUrl: String): Intent {
-        return when {
-            normalizedUrl.startsWith("intent:") -> Intent.parseUri(normalizedUrl, Intent.URI_INTENT_SCHEME)
-            normalizedUrl.startsWith("android-app:") -> Intent.parseUri(normalizedUrl, Intent.URI_ANDROID_APP_SCHEME)
-            else -> Intent(Intent.ACTION_VIEW, Uri.parse(normalizedUrl))
-        }.apply {
-            addCategory(Intent.CATEGORY_BROWSABLE)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
     }
 
     fun launchAppInPopup(

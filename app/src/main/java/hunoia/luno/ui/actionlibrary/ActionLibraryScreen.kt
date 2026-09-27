@@ -25,12 +25,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
@@ -40,7 +41,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -58,18 +58,15 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import hunoia.luno.R
-import hunoia.luno.config.model.Action
+import hunoia.luno.core.AppContext
 import hunoia.luno.config.model.ActionLibraryEntry
 import hunoia.luno.config.model.ActionLibraryType
-import hunoia.luno.config.model.OpenAppOrUrlData
-import hunoia.luno.config.model.ShellCommandData
-import hunoia.luno.core.JsonSerializer
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.EmptyState
+import hunoia.luno.ui.navigation.ActionLibraryEdit
+import hunoia.luno.ui.navigation.NEW_ACTION_LIBRARY_ENTRY_ID
 import hunoia.luno.ui.theme.CardShape
 import hunoia.luno.ui.theme.MinItemHeight
 import hunoia.luno.ui.settings.ActivitySettingsContent
@@ -81,6 +78,7 @@ import hunoia.luno.ui.settings.UrlSettingsContent
 fun ActionLibraryScreen(
     listState: LazyListState = rememberLazyListState(),
     vm: ActionLibraryVM = viewModel(),
+    onNavToEdit: (ActionLibraryEdit) -> Unit = {},
 ) {
     val uiState by vm.uiState.collectAsState()
     var query by rememberSaveable { mutableStateOf("") }
@@ -90,7 +88,6 @@ fun ActionLibraryScreen(
     var selectionMode by rememberSaveable { mutableStateOf(false) }
     var selectedIds by rememberSaveable { mutableStateOf(emptySet<String>()) }
     var menuExpanded by remember { mutableStateOf(false) }
-    var editing by remember { mutableStateOf<ActionLibraryEntry?>(null) }
     var deleting by remember { mutableStateOf<ActionLibraryEntry?>(null) }
     var deletingSelected by remember { mutableStateOf(false) }
     val filtered = remember(uiState.entries, uiState.referenceCounts, selectedType, query, sortMode) {
@@ -159,14 +156,14 @@ fun ActionLibraryScreen(
                                     if (selectionMode) {
                                         selectedIds = selectedIds.toggle(entry.id)
                                     } else {
-                                        editing = entry
+                                        onNavToEdit(ActionLibraryEdit(entry.id, entry.type))
                                     }
                                 },
                                 onSelectedChange = { selected ->
                                     selectedIds = if (selected) selectedIds + entry.id else selectedIds - entry.id
                                 },
-                                onEdit = { editing = entry },
-                                onDuplicate = { vm.duplicate(entry, defaultName(entry.type, uiState.entries)) },
+                                onEdit = { onNavToEdit(ActionLibraryEdit(entry.id, entry.type)) },
+                                onDuplicate = { vm.duplicate(entry, defaultActionLibraryName(entry.type, uiState.entries)) },
                                 onDelete = { deleting = entry },
                             )
                         }
@@ -191,7 +188,7 @@ fun ActionLibraryScreen(
                         text = { Text(stringResource(type.titleRes)) },
                         onClick = {
                             menuExpanded = false
-                            editing = ActionLibraryEntry.create(type, defaultName(type, uiState.entries))
+                            onNavToEdit(ActionLibraryEdit(NEW_ACTION_LIBRARY_ENTRY_ID, type))
                         },
                     )
                 }
@@ -202,13 +199,6 @@ fun ActionLibraryScreen(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-    }
-    editing?.let { entry ->
-        ActionLibraryEditDialog(
-            entry = entry,
-            onDismiss = { editing = null },
-            onSave = { vm.save(it); editing = null },
-        )
     }
     deleting?.let { entry ->
         val count = uiState.referenceCounts[entry.id] ?: 0
@@ -409,108 +399,7 @@ private fun actionLibraryComparator(
 
 private fun Set<String>.toggle(id: String): Set<String> = if (id in this) this - id else this + id
 
-@Composable
-private fun ActionLibraryEditDialog(entry: ActionLibraryEntry, onDismiss: () -> Unit, onSave: (ActionLibraryEntry) -> Unit) {
-    var name by remember(entry.id) { mutableStateOf(entry.name) }
-    var draftEntry by remember(entry.id) { mutableStateOf(entry) }
-    val action = remember(entry) { entry.toConfigAction() }
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Surface(
-            shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.surface,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-                .heightIn(max = 720.dp),
-        ) {
-            Column(
-                modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text(stringResource(R.string.action_library_edit), style = MaterialTheme.typography.titleLarge)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f, fill = false)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = {
-                        name = it
-                        draftEntry = draftEntry.copy(name = it)
-                    },
-                    label = { Text(stringResource(R.string.action_library_entry_name)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                when (entry.type) {
-                    ActionLibraryType.Shell -> ShellCommandSettingsContent(
-                        action = action,
-                        onConfirm = {},
-                        showConfirmButton = false,
-                        onDataChange = { data ->
-                        val shell = JsonSerializer.decodeFromString<ShellCommandData>(data)
-                        draftEntry = draftEntry.copy(name = name.ifBlank { entry.name }, shellCommand = shell)
-                        },
-                    )
-                    ActionLibraryType.Url -> UrlSettingsContent(
-                        action = action,
-                        onConfirm = {},
-                        showConfirmButton = false,
-                        onDataChange = { data ->
-                        draftEntry = draftEntry.copy(name = name.ifBlank { entry.name }, openAppOrUrl = JsonSerializer.decodeFromString<OpenAppOrUrlData>(data))
-                        },
-                    )
-                    ActionLibraryType.Activity -> ActivitySettingsContent(
-                        action = action,
-                        onConfirm = {},
-                        onDataChange = { data ->
-                        draftEntry = draftEntry.copy(name = name.ifBlank { entry.name }, openAppOrUrl = JsonSerializer.decodeFromString<OpenAppOrUrlData>(data))
-                        },
-                    )
-                    ActionLibraryType.SystemTemplate -> {
-                        Text(
-                            text = stringResource(R.string.system_function),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        SystemTemplatePickerInline(
-                            entry = draftEntry,
-                            onConfirm = { updated ->
-                                draftEntry = updated.copy(name = name.ifBlank { entry.name })
-                            },
-                        )
-                    }
-                    ActionLibraryType.SystemApi -> {
-                        SystemApiConfigInline(
-                            entry = draftEntry,
-                            onConfirm = { updated ->
-                                draftEntry = updated.copy(name = name.ifBlank { entry.name })
-                            },
-                        )
-                    }
-                }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
-                    TextButton(onClick = { onSave(draftEntry.copy(name = name.ifBlank { entry.name })) }) {
-                        Text(stringResource(R.string.save))
-                    }
-                }
-            }
-        }
-    }
-}
-
-private val ActionLibraryType.titleRes: Int get() = when (this) {
+internal val ActionLibraryType.titleRes: Int get() = when (this) {
     ActionLibraryType.Shell -> R.string.action_library_shell
     ActionLibraryType.Url -> R.string.action_library_url
     ActionLibraryType.Activity -> R.string.action_library_activity
@@ -521,9 +410,9 @@ private val ActionLibraryType.titleRes: Int get() = when (this) {
 private val ActionLibraryType.icon: ImageVector get() = when (this) {
     ActionLibraryType.Shell -> Icons.Default.Terminal
     ActionLibraryType.Url -> Icons.AutoMirrored.Filled.OpenInNew
-    ActionLibraryType.Activity -> Icons.Default.Settings
+    ActionLibraryType.Activity -> Icons.Default.Android
     ActionLibraryType.SystemTemplate -> Icons.Default.Build
-    ActionLibraryType.SystemApi -> Icons.Default.Terminal
+    ActionLibraryType.SystemApi -> Icons.Default.Code
 }
 
 @Composable
@@ -543,18 +432,13 @@ private fun ActionLibraryEntry.summary(): String = when (type) {
         .joinToString("/")
         .ifBlank { stringResource(R.string.action_library_activity_empty) }
     ActionLibraryType.SystemTemplate -> systemTemplate.templateId.ifBlank { "Template" }
-    ActionLibraryType.SystemApi -> systemApi.command.lineSequence().firstOrNull().orEmpty().ifBlank { "API" }
+    ActionLibraryType.SystemApi -> listOf(
+        systemApi.command.lineSequence().firstOrNull().orEmpty().ifBlank { "API" },
+        stringResource(if (systemApi.showToast) R.string.action_library_shell_toast_on else R.string.action_library_shell_toast_off),
+    ).joinToString(" · ")
 }
 
-private fun ActionLibraryEntry.toConfigAction(): Action = when (type) {
-    ActionLibraryType.Shell -> Action(data = JsonSerializer.encodeToString(shellCommand))
-    ActionLibraryType.Url,
-    ActionLibraryType.Activity -> Action(data = JsonSerializer.encodeToString(openAppOrUrl))
-    ActionLibraryType.SystemTemplate -> Action(data = JsonSerializer.encodeToString(systemTemplate))
-    ActionLibraryType.SystemApi -> Action(data = JsonSerializer.encodeToString(systemApi))
-}
-
-private fun defaultName(type: ActionLibraryType, entries: List<ActionLibraryEntry>): String {
+internal fun defaultActionLibraryName(type: ActionLibraryType, entries: List<ActionLibraryEntry>): String {
     val count = entries.count { it.type == type } + 1
     val res = when (type) {
         ActionLibraryType.Shell -> R.string.action_library_default_shell
@@ -563,5 +447,5 @@ private fun defaultName(type: ActionLibraryType, entries: List<ActionLibraryEntr
         ActionLibraryType.SystemTemplate -> R.string.action_library_default_system_function
         ActionLibraryType.SystemApi -> R.string.action_library_default_custom_api
     }
-    return hunoia.luno.core.AppContext.get().getString(res, count)
+    return AppContext.get().getString(res, count)
 }

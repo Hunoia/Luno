@@ -51,6 +51,7 @@ fun ActivitySettingsContent(
     action: hunoia.luno.config.model.Action,
     onConfirm: (String) -> Unit,
     onDataChange: ((String) -> Unit)? = null,
+    modifier: Modifier = Modifier.padding(horizontal = 16.dp),
 ) {
     val context = LocalContext.current
     val launcherApps = remember(context) { QuickLaunchFacade.queryLauncherAppOptions(context) }
@@ -89,9 +90,8 @@ fun ActivitySettingsContent(
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+        modifier = modifier
+            .fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         if (selectedApp == null) {

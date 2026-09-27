@@ -1,6 +1,7 @@
 package hunoia.luno.runtime.settings
 
 import hunoia.luno.config.ConfigProvider
+import hunoia.luno.config.model.ActionLibrarySettings
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GestureButton
@@ -46,7 +47,8 @@ class SettingsStore(
                 runtimeSettings,
                 ConfigProvider.initialSettings,
                 ConfigProvider.subGestureSettings,
-            ) { runtime, initialSettings, subGestureSettings ->
+                ConfigProvider.actionLibrarySettings,
+            ) { runtime, initialSettings, subGestureSettings, actionLibrarySettings ->
                 SettingsState(
                     gestureButtons = runtime.gestureButtons,
                     advancedSettings = runtime.advancedSettings,
@@ -54,6 +56,7 @@ class SettingsStore(
                     actionSettings = runtime.actionSettings,
                     initialSettings = initialSettings,
                     subGestureSettings = subGestureSettings,
+                    actionLibrarySettings = actionLibrarySettings,
                 )
             }.collectLatest { _state.value = it }
         }

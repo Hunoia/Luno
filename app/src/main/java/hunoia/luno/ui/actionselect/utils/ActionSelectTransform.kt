@@ -9,7 +9,7 @@ import hunoia.luno.action.payload.SubGestureActionData
 import hunoia.luno.config.model.Action
 import hunoia.luno.config.model.ActionLibraryEntry
 import hunoia.luno.config.model.ActionLibraryRefData
-import hunoia.luno.config.model.ActionLibraryType
+import hunoia.luno.config.model.actionValue
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
@@ -148,16 +148,8 @@ internal fun Any.toAction(): Action {
     }
 }
 
-internal fun ActionLibraryEntry.toReferenceAction(): Action {
-    val value = when (type) {
-        ActionLibraryType.Shell -> ActionFacade.EXECUTE_SHELL_COMMAND
-        ActionLibraryType.Url -> ActionFacade.OPEN_URL
-        ActionLibraryType.Activity -> ActionFacade.OPEN_APP_ACTIVITY
-        ActionLibraryType.SystemTemplate -> ActionFacade.EXECUTE_SHELL_COMMAND
-        ActionLibraryType.SystemApi -> ActionFacade.EXECUTE_SHELL_COMMAND
-    }
-    return Action(value = value, data = JsonSerializer.encodeToString(ActionLibraryRefData(id)))
-}
+internal fun ActionLibraryEntry.toReferenceAction(): Action =
+    Action(value = type.actionValue(), data = JsonSerializer.encodeToString(ActionLibraryRefData(id)))
 
 internal fun Action.sameAction(other: Action): Boolean {
     return value == other.value && data == other.data

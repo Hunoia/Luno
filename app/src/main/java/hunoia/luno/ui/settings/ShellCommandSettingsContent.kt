@@ -80,6 +80,7 @@ fun ShellCommandSettingsContent(
     onConfirm: (String) -> Unit,
     showConfirmButton: Boolean = true,
     onDataChange: ((String) -> Unit)? = null,
+    modifier: Modifier = Modifier.padding(horizontal = 16.dp),
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -93,9 +94,8 @@ fun ShellCommandSettingsContent(
     var showSuggestions by remember { mutableStateOf(false) }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+        modifier = modifier
+            .fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         OutlinedTextField(
@@ -158,22 +158,7 @@ fun ShellCommandSettingsContent(
             )
         }
         if (testOutput.isNotBlank()) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surfaceVariant
-            ) {
-                Text(
-                    text = testOutput,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 180.dp)
-                        .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            TestOutputBox(testOutput)
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -230,5 +215,25 @@ fun ShellCommandSettingsContent(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun TestOutputBox(text: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 180.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

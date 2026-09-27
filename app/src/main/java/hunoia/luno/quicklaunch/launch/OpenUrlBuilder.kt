@@ -7,6 +7,9 @@ import java.nio.charset.StandardCharsets
 
 internal object OpenUrlBuilder {
     fun build(rawUrl: String, data: OpenAppOrUrlData): String {
+        if (rawUrl.startsWith("intent:") || rawUrl.startsWith("android-app:")) {
+            return rawUrl
+        }
         val additions = buildList {
             if (data.miniWindow) {
                 add(OpenUrlQueryParameter(name = "miniWindow", value = "true"))

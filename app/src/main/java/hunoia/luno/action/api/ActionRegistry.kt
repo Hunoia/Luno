@@ -7,7 +7,9 @@ import hunoia.luno.config.model.Action
 object ActionRegistry {
     private val executor = ActionExecutor(
         handlers = allHandlers,
-        resolveAction = { ActionLibraryResolver.resolve(it) }
+        resolveAction = { action, context ->
+            ActionLibraryResolver.resolve(action, context.actionLibrarySettings.entries)
+        }
     )
 
     fun isRegistered(actionId: String): Boolean = executor.isRegistered(actionId)

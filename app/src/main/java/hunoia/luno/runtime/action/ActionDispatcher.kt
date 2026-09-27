@@ -8,6 +8,7 @@ import hunoia.luno.action.api.ActionHandlerContext
 import hunoia.luno.action.api.ActionFacade
 import hunoia.luno.action.api.ActionRegistry
 import hunoia.luno.config.model.Action
+import hunoia.luno.config.model.ActionLibrarySettings
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GestureButton
@@ -60,6 +61,7 @@ class ActionDispatcher(
             actionSettings = snap.actionSettings.effectiveFor(sourceOverride),
             advancedSettings = snap.advancedSettings.effectiveFor(sourceOverride),
             gestureSettings = snap.gestureSettings,
+            actionLibrarySettings = snap.actionLibrarySettings,
             showToast = { showToastUtil(it) },
             showLongToast = { showToastLongUtil(it) },
             currentPackageName = { host.getCurrentPackageName() },
@@ -87,4 +89,5 @@ data class SettingsSnapshot(
     val actionSettings: ActionSettings,
     val advancedSettings: AdvancedSettings,
     val gestureSettings: GestureSettings,
+    val actionLibrarySettings: ActionLibrarySettings,
 )

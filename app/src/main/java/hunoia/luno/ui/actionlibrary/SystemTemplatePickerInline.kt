@@ -62,10 +62,10 @@ fun SystemTemplatePickerInline(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
-                            val updated = entry.copy(
-                                systemTemplate = SystemTemplateData(template.id)
+                            val params = if (selectedTemplateId != template.id) emptyMap() else entry.systemTemplate.params
+                            onConfirm(
+                                entry.updateSystemTemplate(SystemTemplateData(template.id, params))
                             )
-                            onConfirm(updated)
                         }
                         .padding(vertical = 8.dp, horizontal = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,

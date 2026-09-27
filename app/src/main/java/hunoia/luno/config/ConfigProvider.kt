@@ -81,6 +81,10 @@ object ConfigProvider {
         actionLibraryRepository.removeActionLibraryEntry(entryId)
     }
 
+    suspend fun removeAllActionLibraryEntries(entryIds: Set<String>) {
+        actionLibraryRepository.removeAllActionLibraryEntries(entryIds)
+    }
+
     suspend fun snapshotAll(): Backup = configBackupRepository.snapshotAll()
     suspend fun restoreAll(backup: Backup) = configBackupRepository.restoreAll(backup)
     suspend fun resetAll() = configBackupRepository.resetAll()

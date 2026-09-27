@@ -17,6 +17,7 @@ import hunoia.luno.action.api.ActionFacade
 import hunoia.luno.config.model.DirectionActions
 import hunoia.luno.config.model.actionLibraryRefId
 import hunoia.luno.quicklaunch.model.icon
+import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 
 fun Context.actionText(
     action: Action,
@@ -79,17 +80,18 @@ fun DirectionActions.actionTextCompose(): String =
 
 @Composable
 fun List<Action>.actionTextCompose(emptyIfNone: Boolean = false): String {
+    val entries = LocalActionLibraryEntries.current
     if (size <= 1) {
         val value = firstOrNull() ?: Action.NONE
-        return actionText(value, emptyIfNone)
+        return actionText(value, emptyIfNone, entries)
     }
-    return remember(this, emptyIfNone) {
+    return remember(this, emptyIfNone, entries) {
         this
             .filter {
                 it.value.isNotEmpty() && it.value != ActionFacade.NONE
             }
             .joinToString(separator = ",") {
-                AppContext.get().actionText(it, emptyIfNone)
+                AppContext.get().actionText(it, emptyIfNone, entries)
             }
     }
 }

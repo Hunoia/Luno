@@ -2,6 +2,7 @@ package hunoia.luno.action.api
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
+import hunoia.luno.config.model.ActionLibrarySettings
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GestureSettings
@@ -14,6 +15,7 @@ data class ActionHandlerContext(
     val actionSettings: ActionSettings,
     val advancedSettings: AdvancedSettings,
     val gestureSettings: GestureSettings,
+    val actionLibrarySettings: ActionLibrarySettings,
     val showToast: (String) -> Unit,
     val showLongToast: (String) -> Unit,
     val currentPackageName: () -> String? = { null },

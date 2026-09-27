@@ -63,6 +63,8 @@ import hunoia.luno.ui.component.color.ColorPickerBottomSheet
 import hunoia.luno.ui.component.color.ColorSelection
 import hunoia.luno.ui.actionlibrary.ActionLibraryScreen
 import hunoia.luno.ui.theme.ExpressiveMotion
+
+import hunoia.luno.ui.navigation.ActionLibraryEdit
 import hunoia.luno.ui.theme.resolveColor
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreHoriz
@@ -75,6 +77,7 @@ fun HomeScreen(
     onNavToSubGestureEditor: (String) -> Unit,
     onNavToCondition: () -> Unit = {},
     onNavToActionSettings: () -> Unit = {},
+    onNavToActionLibraryEdit: (ActionLibraryEdit) -> Unit = {},
     vm: HomeVM = viewModel()
 ) {
     val scrollState = rememberScrollState()
@@ -289,7 +292,7 @@ fun HomeScreen(
                                     .weight(1f)
                                     .padding(bottom = 88.dp)
                             ) {
-                                ActionLibraryScreen(listState = libraryListState)
+                                ActionLibraryScreen(listState = libraryListState, onNavToEdit = onNavToActionLibraryEdit)
                             }
                         }
                     }

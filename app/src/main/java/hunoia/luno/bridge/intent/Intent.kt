@@ -1,8 +1,10 @@
 package hunoia.luno.bridge.intent
 
 import hunoia.luno.bridge.feedback.showToast
+import hunoia.luno.bridge.queryIntentActivitiesCompat
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
 import android.content.ActivityNotFoundException
@@ -46,24 +48,9 @@ fun Context.launchUrl(url: String): Boolean {
             showToast(R.string.invalid_url)
             return false
         }
-        if (normalizedUrl.startsWith("intent:")) {
-            val intent = Intent.parseUri(normalizedUrl, Intent.URI_INTENT_SCHEME).apply {
-                addCategory(Intent.CATEGORY_BROWSABLE)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            if (intent.resolveActivity(packageManager) == null) {
-                showToast(R.string.launch_failed)
-                return false
-            }
-            startActivity(intent)
-            return true
-        }
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(normalizedUrl)).apply {
-            addCategory(Intent.CATEGORY_BROWSABLE)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        if (intent.resolveActivity(packageManager) == null) {
-            showToast(R.string.launch_failed)
+        val intent = buildViewIntent(normalizedUrl)
+        if (!packageManager.hasViewActivity(intent)) {
+            showToast(R.string.launch_no_handler)
             return false
         }
         startActivity(intent)
@@ -72,6 +59,27 @@ fun Context.launchUrl(url: String): Boolean {
         showToast(R.string.launch_failed)
         false
     }
+}
+
+fun buildViewIntent(normalizedUrl: String): Intent {
+    val intent = when {
+        normalizedUrl.startsWith("intent:") -> Intent.parseUri(normalizedUrl, Intent.URI_INTENT_SCHEME)
+        normalizedUrl.startsWith("android-app:") -> Intent.parseUri(normalizedUrl, Intent.URI_ANDROID_APP_SCHEME)
+        else -> Intent(Intent.ACTION_VIEW, Uri.parse(normalizedUrl))
+    }
+    if (intent.action.isNullOrEmpty()) {
+        intent.action = Intent.ACTION_VIEW
+    }
+    val scheme = intent.data?.scheme
+    if ((scheme == "http" || scheme == "https") && !intent.hasCategory(Intent.CATEGORY_BROWSABLE)) {
+        intent.addCategory(Intent.CATEGORY_BROWSABLE)
+    }
+    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    return intent
+}
+
+fun PackageManager.hasViewActivity(intent: Intent): Boolean {
+    return queryIntentActivitiesCompat(intent, PackageManager.MATCH_ALL).isNotEmpty()
 }
 
 fun normalizeOpenAppOrUrl(raw: String): String? {

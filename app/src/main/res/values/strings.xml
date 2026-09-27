@@ -334,6 +334,8 @@
     <string name="search_clear_cd">清除</string>
     <string name="test">测试</string>
     <string name="testing">测试中...</string>
+    <string name="test_success">执行成功</string>
+    <string name="test_failed">执行失败</string>
     <string name="shell_command_label">Shell 命令</string>
     <string name="shell_command_placeholder">pm list packages</string>
     <string name="shell_command_hint">填写设备本机 shell 命令，不要包含 adb 或 adb shell。</string>
@@ -350,6 +352,7 @@
     <string name="open_url_delete_parameter">删除参数</string>
     <string name="invalid_url">链接格式不正确</string>
     <string name="launch_failed">启动失败</string>
+    <string name="launch_no_handler">没有可处理该链接的应用</string>
     <string name="color_outline">颜色轮廓</string>
     <string name="shape_size">形状大小</string>
     <string name="icon">图标</string>
@@ -419,11 +422,9 @@
     <string name="follow_global_action_setting">跟随全局</string>
     <string name="restore_follow_global">恢复跟随全局</string>
     <string name="action_library">动作库</string>
-    <string name="action_library_hint">统一管理 Shell、链接和 Activity 动作</string>
-    <string name="manage_action_library">管理动作库</string>
     <string name="action_library_empty">暂无动作库条目</string>
-    <string name="action_library_select">选择动作库条目</string>
     <string name="action_library_entry_name">条目名称</string>
+    <string name="action_library_type_prefix">类型：%1$s</string>
     <string name="action_library_add">新增动作库条目</string>
     <string name="action_library_edit">编辑动作库条目</string>
     <string name="action_library_missing">动作库条目已移除</string>
@@ -525,6 +526,7 @@
     <string name="action_library_custom_system_api">自定义API</string>
     <string name="action_library_default_system_function">系统功能 %1$d</string>
     <string name="action_library_default_custom_api">自定义API %1$d</string>
+    <string name="action_library_template_params">模板参数</string>
 
     <!-- Display condition rules -->
     <string name="condition_settings">显示条件</string>
