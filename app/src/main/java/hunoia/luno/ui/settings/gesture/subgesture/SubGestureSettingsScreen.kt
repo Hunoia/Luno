@@ -79,7 +79,6 @@ import hunoia.luno.ui.settings.gesture.button.LongSlideActionRows
 import hunoia.luno.ui.settings.gesture.button.GestureSlideTriggerDistanceContent
 import hunoia.luno.ui.settings.gesture.button.SlideActionRows
 import hunoia.luno.ui.settings.gesture.button.VibrationEffectSelector
-import hunoia.luno.ui.settings.gesture.button.directionActionSummary
 import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleConfigContent
 import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleSelectContent
 
@@ -234,12 +233,12 @@ fun SubGestureSettingsScreen(
                 ExpandableGestureActionCard(
                     icon = Icons.Default.Swipe,
                     title = stringResource(id = R.string.slide_action),
-                    summary = gesture.slideActions.directionActionSummary(),
                     expanded = expandedActionGroup == GestureActionGroup.Slide,
                     onExpandedChange = { setExpandedGroup(GestureActionGroup.Slide, it) },
                 ) {
                     SlideActionRows(
                         styleGestureButton = styleGestureButton,
+                        hiddenDirections = gesture.angle.zeroWidthDirections(),
                         actionsText = { direction -> gesture.slideActionsFor(direction).actionTextCompose() },
                         onDirectionClick = { direction ->
                             onNavToActionSelect(
@@ -257,12 +256,12 @@ fun SubGestureSettingsScreen(
                 ExpandableGestureActionCard(
                     icon = Icons.Default.Swipe,
                     title = stringResource(id = R.string.slide_hold_action),
-                    summary = gesture.slideHoldActions.directionActionSummary(),
                     expanded = expandedActionGroup == GestureActionGroup.SlideHold,
                     onExpandedChange = { setExpandedGroup(GestureActionGroup.SlideHold, it) },
                 ) {
                     SlideActionRows(
                         styleGestureButton = styleGestureButton,
+                        hiddenDirections = gesture.angle.zeroWidthDirections(),
                         actionsText = { direction -> gesture.slideHoldActionsFor(direction).actionTextCompose() },
                         onDirectionClick = { direction ->
                             onNavToActionSelect(
@@ -280,12 +279,12 @@ fun SubGestureSettingsScreen(
                 ExpandableGestureActionCard(
                     icon = Icons.Default.Gesture,
                     title = stringResource(id = R.string.long_slide_action),
-                    summary = gesture.longSlideActions.directionActionSummary(),
                     expanded = expandedActionGroup == GestureActionGroup.LongSlide,
                     onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlide, it) },
                 ) {
                     LongSlideActionRows(
                         styleGestureButton = styleGestureButton,
+                        hiddenDirections = gesture.angle.zeroWidthDirections(),
                         actionsText = { direction -> gesture.longSlideActionsFor(direction).actionTextCompose() },
                         currentStyle = { direction -> GestureFacade.styleBy(gesture.longSlideActionPanelStyles, direction) },
                         onDirectionClick = { direction ->
@@ -305,12 +304,12 @@ fun SubGestureSettingsScreen(
                 ExpandableGestureActionCard(
                     icon = Icons.Default.Gesture,
                     title = stringResource(id = R.string.long_slide_hold_action),
-                    summary = gesture.longSlideHoldActions.directionActionSummary(),
                     expanded = expandedActionGroup == GestureActionGroup.LongSlideHold,
                     onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlideHold, it) },
                 ) {
                     LongSlideActionRows(
                         styleGestureButton = styleGestureButton,
+                        hiddenDirections = gesture.angle.zeroWidthDirections(),
                         actionsText = { direction -> gesture.longSlideHoldActionsFor(direction).actionTextCompose() },
                         currentStyle = { direction -> GestureFacade.styleBy(gesture.longSlideActionPanelStyles, direction) },
                         onDirectionClick = { direction ->

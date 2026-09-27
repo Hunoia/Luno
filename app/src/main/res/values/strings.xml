@@ -87,8 +87,6 @@
     <string name="slide_action">短距离滑动</string>
     <string name="slide_hold_action">短滑停留</string>
     <string name="slide_hold_subtitle">达到短滑距离后继续按住触发</string>
-    <string name="action_group_summary_empty">未设置，点击展开配置</string>
-    <string name="action_group_summary_more">已设置 %2$d 项 · %1$s</string>
     <string name="gesture_angles">手势角度</string>
     <string name="gesture_button_angles_hint">调整此触钮各滑动方向的判定范围</string>
     <string name="gesture_button_vibration">振动</string>

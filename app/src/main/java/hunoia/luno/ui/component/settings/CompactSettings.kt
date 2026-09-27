@@ -4,19 +4,22 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -24,6 +27,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -171,40 +175,82 @@ fun CompactSettingsSwitchRow(
 @Composable
 fun CompactExpandableSettingsGroup(
     title: String,
-    summary: String,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
+    summary: String = "",
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    CompactSettingsGroup(title = "", modifier = modifier) {
-        val rotation by animateFloatAsState(
-            targetValue = if (expanded) 0f else -90f,
-            label = "CompactSettingsGroupArrowRotation",
-        )
-        CompactSettingsRow(
-            title = title,
-            subtitle = summary,
-            icon = icon,
-            onClick = { onExpandedChange(!expanded) },
-            trailing = {
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 0f else -90f,
+        label = "CompactSettingsGroupArrowRotation",
+    )
+    val headerInteractionSource = remember { MutableInteractionSource() }
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = CardShape,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = MinItemHeightNoSecondary)
+                    .clickable(
+                        interactionSource = headerInteractionSource,
+                        indication = null,
+                    ) { onExpandedChange(!expanded) },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                if (icon != null) {
+                    Surface(
+                        modifier = Modifier.size(32.dp),
+                        shape = IconBoxShape,
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                modifier = Modifier.size(16.dp),
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                        }
+                    }
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(text = title, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                    if (summary.isNotEmpty()) {
+                        Text(
+                            text = summary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
                 Icon(
                     modifier = Modifier.graphicsLayer { rotationZ = rotation },
                     imageVector = Icons.Default.ArrowDropDown,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            },
-        )
-        AnimatedVisibility(
-            visible = expanded,
-            enter = expandVertically(),
-            exit = shrinkVertically(),
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                content()
+            }
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically(),
+                exit = shrinkVertically(),
+            ) {
+                Column {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    content()
+                }
             }
         }
     }

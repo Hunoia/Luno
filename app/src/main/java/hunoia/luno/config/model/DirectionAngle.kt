@@ -12,6 +12,17 @@ internal object DirectionAngleDefaults {
     )
 }
 
+internal val DirectionSectorDirections: List<GestureDirection> = listOf(
+    GestureDirection.UpRight,
+    GestureDirection.Up,
+    GestureDirection.UpLeft,
+    GestureDirection.Left,
+    GestureDirection.DownLeft,
+    GestureDirection.Down,
+    GestureDirection.DownRight,
+    GestureDirection.Right,
+)
+
 internal fun validateDirectionAngleBoundaries(boundaries: List<Float>) {
     require(boundaries.size == 8)
     require(boundaries.all { it >= 0f && it < 1f })
@@ -25,7 +36,10 @@ internal fun <T> directionOf(boundaries: List<Float>, directions: List<T>, offse
         val inSector = if (start <= end) norm >= start && norm < end else norm >= start || norm < end
         if (inSector) return directions[i]
     }
-    val nearest = boundaries.indices.minByOrNull { i ->
+    val candidates = boundaries.indices
+        .filter { !isZeroWidthSector(boundaries, it) }
+        .ifEmpty { boundaries.indices.toList() }
+    val nearest = candidates.minByOrNull { i ->
         var d = norm - boundaries[i]
         if (d < 0f) d += 1f
         d
@@ -45,6 +59,12 @@ internal fun sectorWidth(boundaries: List<Float>, index: Int): Float {
     val end = boundaries[(index + 1) % 8]
     return if (end >= start) (end - start) * 360f else (end + 1f - start) * 360f
 }
+
+internal fun isZeroWidthSector(boundaries: List<Float>, index: Int): Boolean =
+    sectorWidth(boundaries, index) == 0f
+
+internal fun List<Float>.zeroWidthDirections(): Set<GestureDirection> =
+    indices.filter { isZeroWidthSector(this, it) }.map { DirectionSectorDirections[it] }.toSet()
 
 internal fun copyDirectionAngleBoundary(boundaries: List<Float>, index: Int, newBoundary: Float): List<Float> {
     val boundary = ((newBoundary % 1f) + 1f) % 1f

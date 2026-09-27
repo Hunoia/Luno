@@ -15,7 +15,7 @@ import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureDirection
-import hunoia.luno.ui.component.ExpressiveRow
+import hunoia.luno.ui.component.ExpressiveRowContent
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -32,7 +32,7 @@ fun MySideGestureSettings(
     val onAccent = if (isLongSlide) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onPrimaryContainer
     val label = text ?: direction.label()
     val rotation = direction.rotation()
-    ExpressiveRow(
+    ExpressiveRowContent(
         onClick = onClick,
         text = label,
         secondaryText = if (secondaryText.isNotEmpty()) secondaryText else stringResource(id = R.string.action_none),

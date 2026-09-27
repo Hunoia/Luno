@@ -1,5 +1,7 @@
 package hunoia.luno.ui.component
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -16,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -48,64 +51,90 @@ fun ExpressiveRow(
         shape = CardShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
+        ExpressiveRowContent(
+            onClick = onClick,
+            text = text,
+            enabled = enabled,
+            secondaryText = secondaryText,
+            secondaryTextColor = secondaryTextColor,
+            icon = icon,
+            trailing = trailing,
+        )
+    }
+}
+
+@Composable
+fun ExpressiveRowContent(
+    onClick: () -> Unit,
+    text: String,
+    enabled: Boolean = true,
+    secondaryText: String = "",
+    secondaryTextColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    icon: @Composable (() -> Unit)? = null,
+    trailing: @Composable (() -> Unit)? = null,
+) {
+    val quietInteractionSource = remember { MutableInteractionSource() }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .let {
+                val minHeight = if (secondaryText.isEmpty()) {
+                    MinItemHeightNoSecondary
+                } else {
+                    MinItemHeight
+                }
+                it.heightIn(min = minHeight)
+            }
+            .clickable(
+                interactionSource = quietInteractionSource,
+                indication = null,
+            ) { if (enabled) onClick() }
+            .padding(
+                horizontal = 12.dp,
+                vertical = 12.dp,
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .let {
-                    val minHeight = if (secondaryText.isEmpty()) {
-                        MinItemHeightNoSecondary
-                    } else {
-                        MinItemHeight
-                    }
-                    it.heightIn(min = minHeight)
-                }
-                .padding(
-                    horizontal = 12.dp,
-                    vertical = 12.dp,
-                ),
+                .weight(1f)
+                .height(IntrinsicSize.Max),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Row(
+            icon?.invoke()
+            Column(
                 modifier = Modifier
                     .weight(1f)
-                    .height(IntrinsicSize.Max),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    .width(IntrinsicSize.Max),
+                verticalArrangement = Arrangement.spacedBy(MainSecondaryTextPadding),
             ) {
-                icon?.invoke()
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .width(IntrinsicSize.Max),
-                    verticalArrangement = Arrangement.spacedBy(MainSecondaryTextPadding),
-                ) {
+                Text(
+                    modifier = Modifier.width(IntrinsicSize.Max),
+                    text = text,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                )
+                if (secondaryText.isNotEmpty()) {
                     Text(
                         modifier = Modifier.width(IntrinsicSize.Max),
-                        text = text,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
+                        text = secondaryText,
+                        color = secondaryTextColor,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                     )
-                    if (secondaryText.isNotEmpty()) {
-                        Text(
-                            modifier = Modifier.width(IntrinsicSize.Max),
-                            text = secondaryText,
-                            color = secondaryTextColor,
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
                 }
             }
-            if (trailing != null) {
-                trailing()
-            } else if (enabled) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = text,
-                )
-            }
+        }
+        if (trailing != null) {
+            trailing()
+        } else if (enabled) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = text,
+            )
         }
     }
 }

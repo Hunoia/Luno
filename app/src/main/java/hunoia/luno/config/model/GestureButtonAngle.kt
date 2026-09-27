@@ -17,17 +17,10 @@ data class GestureButtonAngle(
 
     fun sectorWidth(index: Int): Float = sectorWidth(boundaries, index)
 
+    fun zeroWidthDirections(): Set<GestureDirection> = boundaries.zeroWidthDirections()
+
     companion object {
-        val SECTOR_DIRECTIONS = listOf(
-            GestureDirection.UpRight,
-            GestureDirection.Up,
-            GestureDirection.UpLeft,
-            GestureDirection.Left,
-            GestureDirection.DownLeft,
-            GestureDirection.Down,
-            GestureDirection.DownRight,
-            GestureDirection.Right,
-        )
+        val SECTOR_DIRECTIONS: List<GestureDirection> = DirectionSectorDirections
     }
 }
 
