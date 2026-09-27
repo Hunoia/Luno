@@ -24,7 +24,6 @@ data class UiState(
     val isGestureSwitchEnabled: Boolean = false,
     val isAccessibilityEnabled: Boolean = false,
     val moreMenuVisible: Boolean = false,
-    val excludedAppCount: Int = 0,
     val isKeepAliveEnabled: Boolean = false,
     val shizukuStatus: ShizukuStatus = ShizukuStatus(
         installed = false,

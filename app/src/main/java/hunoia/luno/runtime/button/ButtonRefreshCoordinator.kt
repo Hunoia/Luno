@@ -16,7 +16,7 @@ class ButtonRefreshCoordinator(
         val runtimeState = buildRuntimeState()
         val policy = ButtonVisibilityPolicy(
             initialSettings = settings.initialSettings,
-            advancedSettings = settings.advancedSettings,
+            rules = settings.advancedSettings.conditionRules,
             runtimeState = runtimeState,
         )
         buttonWindowController.updateVisibility(policy)

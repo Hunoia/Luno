@@ -211,16 +211,6 @@ fun GestureButtonSettingsScreen(
                             onVibrationClick = { showVibrationSettings = true },
                             onTriggerDistanceClick = { showTriggerDistanceSettings = true },
                         )
-
-                        GestureButtonBehaviorCard(
-                            gestureButton = gestureButton,
-                            vm = vm,
-                        )
-
-                        GestureButtonDisplayCard(
-                            gestureButton = gestureButton,
-                            vm = vm,
-                        )
                     }
                 }
             }

@@ -18,6 +18,8 @@ import hunoia.luno.runtime.action.KeepScreenOnController
 import hunoia.luno.runtime.action.PreviousAppTracker
 import hunoia.luno.runtime.button.ButtonHideRuntime
 import hunoia.luno.runtime.button.ButtonRefreshCoordinator
+import hunoia.luno.runtime.condition.BatteryTracker
+import hunoia.luno.runtime.condition.TimeConditionTicker
 import hunoia.luno.runtime.environment.BroadcastObserver
 import hunoia.luno.runtime.environment.EnvironmentTracker
 import hunoia.luno.runtime.overlay.GestureOverlayCallbacks
@@ -74,11 +76,26 @@ class GestureCoordinator(
         onStateChanged = { refreshGestureButtons() },
     )
 
+    private val batteryTracker = BatteryTracker(
+        context = host.context,
+        onChanged = { refreshGestureButtons() },
+    )
+
+    private val timeConditionTicker = TimeConditionTicker(
+        scope = host.coroutineScope,
+        rulesProvider = { runtimeSettingsStore.snapshot().advancedSettings.conditionRules },
+        onTimeSignatureChanged = { refreshGestureButtons(delayMs = 0L) },
+    )
+
     private val buttonRefreshCoordinator = ButtonRefreshCoordinator(
         runtimeSettingsStore = runtimeSettingsStore,
         buttonWindowController = overlayCoordinator.buttonWindowController,
         buildRuntimeState = {
-            environmentTracker.buildRuntimeState(buttonHideRuntime.getSnapshot())
+            environmentTracker.buildRuntimeState(
+                hiddenGestureButtons = buttonHideRuntime.getSnapshot(),
+                isCharging = batteryTracker.isCharging,
+                batteryLevel = batteryTracker.batteryLevel,
+            )
         },
     )
 
@@ -145,6 +162,7 @@ class GestureCoordinator(
         if (BuildConfig.DEBUG) Log.d("LunoLauncher", "GestureCoordinator start")
         runtimeSettingsStore.start()
         broadcastObserver.register()
+        batteryTracker.register()
         val listener = WallpaperManager.OnColorsChangedListener { _, _ ->
             hunoia.luno.core.Events.post(hunoia.luno.bridge.WallpaperChangedEvent())
         }
@@ -165,6 +183,20 @@ class GestureCoordinator(
 
         scopeJobs += host.coroutineScope.launch(Dispatchers.IO) {
             QuickLaunchFacade.queryApps(host.context)
+        }
+
+        scopeJobs += host.coroutineScope.launch {
+            var firstRuleEmission = true
+            runtimeSettingsStore.state
+                .distinctUntilChangedBy { it.advancedSettings.conditionRules }
+                .collect { state ->
+                    timeConditionTicker.sync(state.advancedSettings.conditionRules)
+                    if (firstRuleEmission) {
+                        firstRuleEmission = false
+                    } else {
+                        refreshGestureButtons(delayMs = 0L)
+                    }
+                }
         }
     }
 
@@ -192,6 +224,8 @@ class GestureCoordinator(
         started = false
         if (BuildConfig.DEBUG) Log.d("LunoLauncher", "GestureCoordinator destroy")
         runtimeSettingsStore.stop()
+        timeConditionTicker.stop()
+        batteryTracker.unregister()
         scopeJobs.forEach { it.cancel() }
         scopeJobs.clear()
         overlayCoordinator.release()

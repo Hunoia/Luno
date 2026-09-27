@@ -26,10 +26,13 @@
 
 
 # Keep serialization entry points while allowing model obfuscation/shrinking.
+-keepattributes *Annotation*, InnerClasses
+-dontnote kotlinx.serialization.**
 -keepclassmembers class **$$serializer { *; }
--keepclassmembers class * {
+-keepclasseswithmembers class * {
     kotlinx.serialization.KSerializer serializer(...);
 }
+-keep class hunoia.luno.config.model.** { *; }
 
 # 有了verbose这句话，混淆后就会生成映射文件
 # 包含有类名->混淆后类名的映射关系

@@ -9,6 +9,8 @@ data class GestureRuntimeState(
     val isInLauncher: Boolean,
     val isKeyboardInputActive: Boolean,
     val hiddenGestureButtons: Map<String, Long>,
-    val isMouseMode: Boolean,
+    val isCharging: Boolean = false,
+    val batteryLevel: Int = -1,
+    val minuteOfDay: Int = 0,
     val nowMs: Long = SystemClock.uptimeMillis(),
 )

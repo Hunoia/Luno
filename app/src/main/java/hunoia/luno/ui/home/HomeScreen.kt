@@ -73,7 +73,7 @@ import kotlin.math.roundToInt
 fun HomeScreen(
     onNavToGestureButtonSettings: (GestureButton) -> Unit,
     onNavToSubGestureEditor: (String) -> Unit,
-    onNavToAppBlacklist: () -> Unit = {},
+    onNavToCondition: () -> Unit = {},
     onNavToActionSettings: () -> Unit = {},
     vm: HomeVM = viewModel()
 ) {
@@ -248,7 +248,7 @@ fun HomeScreen(
                                 Column {
                                     HomeActionSettingsCard(onClick = onNavToActionSettings)
                                     Spacer(Modifier.height(8.dp))
-                                    HomeExcludeCard(onClick = onNavToAppBlacklist)
+                                    HomeConditionCard(onClick = onNavToCondition)
                                     Spacer(Modifier.height(8.dp))
                                     GesturePanel(
                                         gestureButtons = uiState.gestureButtons,

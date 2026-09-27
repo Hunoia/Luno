@@ -5,7 +5,6 @@ import hunoia.luno.config.defaults.AdvancedSettingsDefaults.ActionPanelStyles
 import hunoia.luno.config.defaults.AdvancedSettingsDefaults.ClipApps
 import hunoia.luno.config.defaults.AdvancedSettingsDefaults.ClipShortcuts
 
-import hunoia.luno.config.defaults.AdvancedSettingsDefaults.ExcludeApps
 import hunoia.luno.config.defaults.AdvancedSettingsDefaults.MiniWindowHorizontalBias
 import hunoia.luno.config.defaults.AdvancedSettingsDefaults.MiniWindowVerticalBias
 import hunoia.luno.config.defaults.AdvancedSettingsDefaults.MiniWindowVerticalOffsetFraction
@@ -18,7 +17,6 @@ import kotlinx.serialization.Serializable
 @Serializable
 @Keep
 data class AdvancedSettings(
-    val excludeApps: List<String> = ExcludeApps,
     val actionPanelStyles: ActionPanelStyles = ActionPanelStyles,
     val miniWindowHorizontalBias: Float = MiniWindowHorizontalBias,
     val miniWindowVerticalBias: Float = MiniWindowVerticalBias,
@@ -28,5 +26,6 @@ data class AdvancedSettings(
     val miniWindowOverrideBounds: Boolean = MiniWindowOverrideBounds,
     val keepAliveEnabled: Boolean = KeepAliveEnabled,
     val clipApps: Map<String, Float> = ClipApps,
-    val clipShortcuts: Map<String, Float> = ClipShortcuts
+    val clipShortcuts: Map<String, Float> = ClipShortcuts,
+    val conditionRules: List<VisibilityRule> = emptyList(),
 )

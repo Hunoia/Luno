@@ -173,12 +173,6 @@ class GestureButtonSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeV
         saveSettings()
     }
 
-    fun onFitSoftKeyboardChange(value: Boolean) = updateButton { copy(fitSoftKeyboard = value) }
-    fun onPreciseSlideTypeChange(value: Boolean) = updateButton { copy(isPreciseSlideType = value) }
-    fun onHideLandscapeChange(value: Boolean) = updateButton { copy(hideLandscape = value) }
-    fun onHideScreenLockChange(value: Boolean) = updateButton { copy(hideScreenLock = value) }
-    fun onHideHomeScreenChange(value: Boolean) = updateButton { copy(hideHomeScreen = value) }
-
     fun onSlideVibrateChange(value: Boolean) = updateButton { copy(slideVibrate = value) }
     fun onLongSlideVibrateChange(value: Boolean) = updateButton { copy(longSlideVibrate = value) }
     fun onTapVibrateChange(value: Boolean) = updateButton { copy(tapVibrate = value) }

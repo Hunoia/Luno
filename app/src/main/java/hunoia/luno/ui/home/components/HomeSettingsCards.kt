@@ -19,8 +19,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.TouchApp
@@ -37,10 +37,10 @@ import androidx.compose.ui.res.stringResource
 import kotlin.math.roundToInt
 
 @Composable
-fun HomeExcludeCard(onClick: () -> Unit) {
+fun HomeConditionCard(onClick: () -> Unit) {
     CompactSettingsRow(
-        title = stringResource(id = R.string.exclude_app_short),
-        icon = Icons.Default.Block,
+        title = stringResource(id = R.string.condition_home),
+        icon = Icons.Default.FilterAlt,
         onClick = onClick,
     )
 }

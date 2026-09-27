@@ -4,6 +4,7 @@ import android.content.res.Configuration
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import hunoia.luno.runtime.GestureRuntimeState
+import hunoia.luno.runtime.condition.nowMinuteOfDay
 
 class EnvironmentTracker(
     private val getCurrentPackageName: () -> String,
@@ -17,7 +18,6 @@ class EnvironmentTracker(
     var isKeyboardInputActive = false
     var currentPackageName: String = ""
         private set
-    var isMouseMode = false
 
     fun onOrientationChanged(newOrientation: Int) {
         orientation = newOrientation
@@ -38,6 +38,8 @@ class EnvironmentTracker(
 
     fun buildRuntimeState(
         hiddenGestureButtons: Map<String, Long>,
+        isCharging: Boolean = false,
+        batteryLevel: Int = -1,
     ): GestureRuntimeState {
         return GestureRuntimeState(
             currentPackageName = getCurrentPackageName(),
@@ -46,7 +48,9 @@ class EnvironmentTracker(
             isInLauncher = nowInLauncher(),
             isKeyboardInputActive = isKeyboardInputActive,
             hiddenGestureButtons = hiddenGestureButtons,
-            isMouseMode = isMouseMode,
+            isCharging = isCharging,
+            batteryLevel = batteryLevel,
+            minuteOfDay = nowMinuteOfDay(),
         )
     }
 

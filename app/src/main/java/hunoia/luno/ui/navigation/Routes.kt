@@ -38,4 +38,12 @@ data class SubGestureEditor(
 
 @Keep
 @Serializable
-data object AppBlacklist
+data object Condition
+
+@Keep
+@Serializable
+data class ConditionEdit(
+    val ruleId: String,
+)
+
+const val NEW_CONDITION_RULE_ID = "new"

@@ -6,7 +6,6 @@ import hunoia.luno.config.model.ActionPanelStyles
 
 object AdvancedSettingsDefaults {
 
-    val ExcludeApps = emptyList<String>()
     val ActionPanelStyles = ActionPanelStyles()
     const val MiniWindowHorizontalBias = 0f
     const val MiniWindowVerticalBias = 0f

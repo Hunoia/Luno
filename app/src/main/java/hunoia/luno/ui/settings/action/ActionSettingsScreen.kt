@@ -20,11 +20,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Crop
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Swipe
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -56,6 +58,7 @@ import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.config.model.withMiniWindowSettings
 import hunoia.luno.ui.component.ExpressiveCard
 import hunoia.luno.ui.component.ExpressiveSwitchItem
+import hunoia.luno.ui.component.AppPickerSheet
 import hunoia.luno.ui.component.MyColumn
 import hunoia.luno.ui.component.TopBar
 import hunoia.luno.ui.component.input.MyTextSlider
@@ -117,6 +120,17 @@ fun ActionSettingsScreen(onBack: () -> Unit) {
                 )
             }
 
+            PreviousAppExcludeCard(
+                excludedPackageNames = actionSettings.previousApp.packageNames,
+                onConfirm = { picked ->
+                    scope.launch {
+                        ConfigProvider.updateActionSettings {
+                            it.copy(previousApp = it.previousApp.copy(packageNames = picked))
+                        }
+                    }
+                },
+            )
+
             buttons.sortedBy { it.id }.forEachIndexed { index, button ->
                 OverrideCard(
                     label = button.name.ifBlank { stringResource(R.string.gesture_button_name, index + 1) },
@@ -153,6 +167,50 @@ fun ActionSettingsScreen(onBack: () -> Unit) {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun PreviousAppExcludeCard(
+    excludedPackageNames: List<String>,
+    onConfirm: (List<String>) -> Unit,
+) {
+    var showPicker by remember { mutableStateOf(false) }
+
+    ExpressiveCard(
+        icon = Icons.Default.SkipPrevious,
+        title = stringResource(R.string.previous_app_exclude_apps),
+        subtitle = if (excludedPackageNames.isEmpty()) {
+            stringResource(R.string.previous_app_exclude_empty)
+        } else {
+            stringResource(R.string.condition_app_summary, excludedPackageNames.size)
+        },
+        onClick = {},
+    ) {
+        if (excludedPackageNames.isNotEmpty()) {
+            Text(
+                text = excludedPackageNames.joinToString(", "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+        FilledTonalButton(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { showPicker = true },
+        ) {
+            Text(stringResource(R.string.condition_app_select_title))
+        }
+    }
+
+    if (showPicker) {
+        AppPickerSheet(
+            onDismissRequest = { showPicker = false },
+            selectedPackageNames = excludedPackageNames,
+            onConfirm = onConfirm,
+        )
     }
 }
 

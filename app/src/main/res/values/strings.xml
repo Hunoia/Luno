@@ -22,7 +22,6 @@
     <string name="add_gesture_button">添加触钮</string>
     <string name="reset_default_settings_warning">恢复默认设置</string>
     <string name="reset_default_settings_warning_desc">将重置为初始默认设置并彻底删除所有数据。</string>
-    <string name="reset_exclude_apps_warning_desc">将重置为初始默认设置并彻底删除旧黑名单数据。</string>
     <string name="reset_icon_settings">将重置为初始图标设置</string>
     <string name="backup_restore">备份/恢复</string>
     <string name="backup">备份</string>
@@ -38,9 +37,6 @@
     <string name="gesture_behavior">触钮行为</string>
     <string name="display">显示</string>
     <string name="display_hint">动画风格·配色·深色模式·小窗位置</string>
-    <string name="exclude_app">应用黑名单</string>
-    <string name="exclude_app_hint">选择不识别手势的应用</string>
-    <string name="gesture_exclude_apps">手势排除</string>
     <string name="previous_app_exclude_apps">上个应用排除</string>
     <string name="animation_style">动画风格</string>
     <string name="animation_style_hint">手势动画样式和颜色</string>
@@ -60,8 +56,6 @@
     <string name="layout">布局</string>
     <string name="arc_length">弧长</string>
     <string name="spacing">间距</string>
-    <string name="fit_soft_keyboard">输入时隐藏触钮</string>
-    <string name="fit_soft_keyboard_hint">输入框获得焦点时隐藏所有触钮，避免遮挡输入区域</string>
     <string name="action_panel_launch_app">手势动作启动应用方式</string>
     <string name="action_panel_launch_app_hint">调换手势动作中启动应用的短按与长按方式：默认短按小窗、长按全屏</string>
     <string name="quick_launcher_launch_app">启动器应用项启动方式</string>
@@ -74,13 +68,10 @@
     <string name="mini_window_vertical_offset">小窗垂直位置补偿</string>
     <string name="hide_gesture_button">隐藏触钮</string>
     <string name="animation_style_short">动画</string>
-    <string name="exclude_app_short">排除</string>
     <string name="keep_alive">保活</string>
     <string name="keep_alive_hint">无障碍服务被关闭时自动恢复</string>
     <string name="keep_alive_need_permission">保活需要授予「修改系统设置」权限，请先在 Shizuku 中授权或通过 ADB 执行：adb shell pm grant hunoia.luno android.permission.WRITE_SECURE_SETTINGS</string>
     <string name="quick_launcher_requires_accessibility">需要无障碍服务才能打开应用面板，请先在设置中开启</string>
-    <string name="excluded_count">已排除 %1$d 个应用</string>
-    <string name="previous_app_excluded_count">已排除 %1$d 个上个应用候选</string>
     <string name="mini_window_position_short">小窗</string>
     <string name="landscape">横屏模式</string>
     <string name="one_key_list">一键名单</string>
@@ -181,7 +172,6 @@
     <string name="goto_enable_settings">去开启</string>
     <string name="tab_apps">应用</string>
     <string name="tab_shortcuts">快捷</string>
-    <string name="tab_selected">已选</string>
     <string name="tab_unselected">未选</string>
     <string name="create_shortcut">创建快捷方式</string>
     <string name="launch_shortcut">启动快捷方式</string>
@@ -380,8 +370,6 @@
     <string name="typing_package_name_and_click_done">输入包名，回车加入</string>
     <string name="long_press">长按</string>
     <string name="long_press_trigger_delay_ms">长按触发延迟</string>
-    <string name="precise_slide_type">滑动防误触</string>
-    <string name="precise_slide_type_hint">避免取消手势时误触上滑下滑</string>
     <string name="tap_action">单击</string>
     <string name="tap_and_long_press_action">单击/长按</string>
     <string name="hide_gesture_button_delay_ms">隐藏触钮时长</string>
@@ -471,7 +459,6 @@
     <!-- Home screen -->
     <string name="collapse">收起</string>
     <string name="expand">展开</string>
-    <string name="manage_exclude">管理排除</string>
     <string name="custom_position_size">自定义位置与大小</string>
     <string name="system_mini_window_bounds">由系统决定小窗边界</string>
     <string name="position_size">位置大小</string>
@@ -491,10 +478,6 @@
     <string name="physical_params_subtitle">角度、震动、触发距离与尺寸</string>
     <string name="physical_params_subtitle_compact">角度、震动与触发距离</string>
     <string name="physical_params">物理参数</string>
-    <string name="behavior_adaptation">行为适配</string>
-    <string name="keyboard_slide_mode">键盘与滑动模式</string>
-    <string name="display_scenes">显示场景</string>
-    <string name="display_scenes_subtitle">横屏、锁屏与桌面隐藏</string>
     <string name="direction_actions_subtitle">8 个方向触发动作配置</string>
 
     <!-- System function templates -->
@@ -544,4 +527,51 @@
     <string name="action_library_custom_system_api">自定义API</string>
     <string name="action_library_default_system_function">系统功能 %1$d</string>
     <string name="action_library_default_custom_api">自定义API %1$d</string>
+
+    <!-- Display condition rules -->
+    <string name="condition_settings">显示条件</string>
+    <string name="condition_home">条件</string>
+    <string name="condition_new">新增</string>
+    <string name="condition_empty">还没有规则</string>
+    <string name="condition_edit">编辑条件</string>
+    <string name="condition_name_hint">备注（可选）</string>
+    <string name="effect_show">打开</string>
+    <string name="effect_hide">关闭</string>
+    <string name="scope_all">所有触钮</string>
+    <string name="scope_except">除指定</string>
+    <string name="scope_only">仅指定</string>
+    <string name="logic_all">且</string>
+    <string name="logic_any">或</string>
+    <string name="logic_not">非</string>
+    <string name="condition_foreground_app">前台应用</string>
+    <string name="condition_screen">界面</string>
+    <string name="condition_portrait">竖屏</string>
+    <string name="condition_keyboard_input">键盘输入</string>
+    <string name="condition_battery">充电 / 电量</string>
+    <string name="condition_charging">充电中</string>
+    <string name="condition_battery_level">电量区间</string>
+    <string name="condition_time_range">时间段</string>
+    <string name="condition_logic_group">组合条件</string>
+    <string name="condition_add">添加条件</string>
+    <string name="condition_time_start">开始时间</string>
+    <string name="condition_time_end">结束时间</string>
+    <string name="condition_next_day">次日</string>
+    <string name="condition_apps_empty">未选择应用</string>
+    <string name="condition_app_select_title">选择应用</string>
+    <string name="loading">加载中…</string>
+    <string name="condition_scope">作用触钮</string>
+    <string name="condition_effect">触钮行为</string>
+    <string name="condition_enabled">启用</string>
+    <string name="condition_needs_leaf">至少添加一个条件</string>
+    <string name="condition_app_summary">%1$d 个应用</string>
+    <string name="condition_app_in">前台应用 ∈ %1$s</string>
+    <string name="scope_only_count">仅 %1$d 个触钮</string>
+    <string name="scope_except_count">除 %1$d 个触钮外</string>
+    <string name="condition_battery_summary">电量 %1$d%%–%2$d%%</string>
+    <string name="condition_time_summary">%1$s–%2$s</string>
+    <string name="rule_move_up">上移</string>
+    <string name="rule_move_down">下移</string>
+    <string name="rule_edit">编辑</string>
+    <string name="previous_app_exclude_hint">「上一个应用」动作不包含这些应用</string>
+    <string name="previous_app_exclude_empty">未排除任何应用</string>
 </resources>

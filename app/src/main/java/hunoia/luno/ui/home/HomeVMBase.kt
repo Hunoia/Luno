@@ -124,7 +124,6 @@ abstract class HomeVMBase : BaseComposeVM<UiState, UiEvent>() {
                     isGestureSwitchEnabled = gesture.initialSettings.gestureEnabled,
                     gestureButtons = gesture.gestureButtons.sortedBy { it.id },
                     subGestures = gesture.subGestureSettings.subGestures,
-                    excludedAppCount = runtime.advancedSettings.excludeApps.size,
                     isKeepAliveEnabled = runtime.advancedSettings.keepAliveEnabled,
                 ).withRuntimeStatus()
             }.collectLatest { state ->
