@@ -1,8 +1,9 @@
 package hunoia.luno.ui.home
 
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.twotone.FilterAlt
@@ -14,9 +15,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -70,9 +74,8 @@ fun SegmentedSettingsRow(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     ListItem(
-        onClick = onClick,
-        modifier = modifier,
-        content = { Text(text = title, maxLines = 1) },
+        modifier = modifier.clickable(onClick = onClick).clip(shape),
+        headlineContent = { Text(text = title, maxLines = 1) },
         leadingContent = {
             Icon(
                 modifier = Modifier.size(24.dp),
@@ -81,21 +84,12 @@ fun SegmentedSettingsRow(
             )
         },
         trailingContent = trailingContent,
-        shapes = ListItemDefaults.shapes(
-            shape = shape,
-            selectedShape = shape,
-            pressedShape = RoundedCornerShape(ContainerRadius),
-            focusedShape = shape,
-            hoveredShape = shape,
-            draggedShape = shape,
-        ),
         colors = ListItemDefaults.colors(
             containerColor = colorScheme.surfaceBright,
-            contentColor = colorScheme.onSurface,
-            leadingContentColor = colorScheme.onSurfaceVariant,
-            trailingContentColor = colorScheme.onSurfaceVariant,
+            headlineColor = colorScheme.onSurface,
+            leadingIconColor = colorScheme.onSurfaceVariant,
+            trailingIconColor = colorScheme.onSurfaceVariant,
         ),
-        contentPadding = PaddingValues(16.dp, 12.dp, 16.dp, 12.dp),
     )
 }
 
@@ -129,4 +123,34 @@ fun DataTransferGroup(
             onClick = onResetClick,
         )
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SegmentedSwitchRow(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    shape: Shape,
+    leadingContent: @Composable () -> Unit,
+    onClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    ListItem(
+        modifier = modifier.clickable(onClick = onClick ?: { onCheckedChange(!checked) }).clip(shape),
+        headlineContent = { Text(text = title, maxLines = 1) },
+        leadingContent = leadingContent,
+        trailingContent = {
+            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                Switch(checked = checked, onCheckedChange = onCheckedChange)
+            }
+        },
+        colors = ListItemDefaults.colors(
+            containerColor = colorScheme.surfaceBright,
+            headlineColor = colorScheme.onSurface,
+            leadingIconColor = colorScheme.onSurfaceVariant,
+            trailingIconColor = colorScheme.onSurfaceVariant,
+        ),
+    )
 }

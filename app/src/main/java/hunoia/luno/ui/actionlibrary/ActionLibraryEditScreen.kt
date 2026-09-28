@@ -1,6 +1,7 @@
 package hunoia.luno.ui.actionlibrary
 
 import android.content.Context
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -81,22 +83,23 @@ internal fun ActionLibraryEntry.toConfigAction(): Action = when (type) {
 @Composable
 fun ActionLibraryEditScreen(
     entryId: String,
-    type: ActionLibraryType,
+    type: ActionLibraryType?,
     onBack: () -> Unit,
     vm: ActionLibraryVM = viewModel(),
 ) {
     val libraryState by vm.uiState.collectAsState()
     val isNew = entryId == NEW_ACTION_LIBRARY_ENTRY_ID
     var draft by remember { mutableStateOf<ActionLibraryEntry?>(null) }
+    var selectedType by remember { mutableStateOf(type ?: ActionLibraryType.Shell) }
     var testing by remember { mutableStateOf(false) }
     var testOutput by remember { mutableStateOf("") }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(libraryState.entries) {
+    LaunchedEffect(libraryState.entries, selectedType) {
         if (draft == null) {
             draft = libraryState.entries.firstOrNull { it.id == entryId }
-                ?: ActionLibraryEntry.create(type, defaultActionLibraryName(type, libraryState.entries))
+                ?: ActionLibraryEntry.create(selectedType, defaultActionLibraryName(selectedType, libraryState.entries))
         }
     }
 
@@ -170,7 +173,7 @@ fun ActionLibraryEditScreen(
                         onClick = {
                             vm.save(entry.copy(name = entry.name.ifBlank {
                                 defaultActionLibraryName(
-                                    entry.type,
+                                    selectedType,
                                     libraryState.entries.filter { it.id != entry.id },
                                 )
                             }))
@@ -191,11 +194,29 @@ fun ActionLibraryEditScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = stringResource(R.string.action_library_type_prefix, stringResource(entry.type.titleRes)),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (isNew && type == null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ActionLibraryType.entries.forEach { t ->
+                        FilterChip(
+                            selected = selectedType == t,
+                            onClick = {
+                                selectedType = t
+                                draft = ActionLibraryEntry.create(t, defaultActionLibraryName(t, libraryState.entries))
+                            },
+                            label = { Text(stringResource(t.titleRes)) },
+                        )
+                    }
+                }
+            } else {
+                Text(
+                    text = stringResource(R.string.action_library_type_prefix, stringResource(entry.type.titleRes)),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             OutlinedTextField(
                 value = entry.name,
                 onValueChange = { draft = entry.copy(name = it) },

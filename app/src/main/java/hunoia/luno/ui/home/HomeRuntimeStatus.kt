@@ -19,7 +19,6 @@ enum class HomePrimaryIssue {
     None,
     AccessibilityDisabled,
     GestureDisabled,
-    ShizukuNotInstalled,
     ShizukuNotRunning,
     ShizukuNotAuthorized,
     KeepAliveDisabled,
@@ -35,7 +34,6 @@ enum class HomeRuntimeAction {
 }
 
 enum class HomeShizukuUiStatus {
-    NotInstalled,
     NotRunning,
     NotAuthorized,
     Authorized,
@@ -68,7 +66,6 @@ object HomeRuntimeStatusMapper {
         val primaryIssue = when {
             !isAccessibilityEnabled -> HomePrimaryIssue.AccessibilityDisabled
             !isGestureSwitchEnabled -> HomePrimaryIssue.GestureDisabled
-            shizukuUiStatus == HomeShizukuUiStatus.NotInstalled -> HomePrimaryIssue.ShizukuNotInstalled
             shizukuUiStatus == HomeShizukuUiStatus.NotRunning -> HomePrimaryIssue.ShizukuNotRunning
             shizukuUiStatus == HomeShizukuUiStatus.NotAuthorized -> HomePrimaryIssue.ShizukuNotAuthorized
             !isKeepAliveEnabled -> HomePrimaryIssue.KeepAliveDisabled
@@ -78,7 +75,6 @@ object HomeRuntimeStatusMapper {
             HomePrimaryIssue.None -> HomeRuntimeStatusLevel.Running
             HomePrimaryIssue.AccessibilityDisabled,
             HomePrimaryIssue.GestureDisabled -> HomeRuntimeStatusLevel.Unavailable
-            HomePrimaryIssue.ShizukuNotInstalled,
             HomePrimaryIssue.ShizukuNotRunning,
             HomePrimaryIssue.ShizukuNotAuthorized,
             HomePrimaryIssue.KeepAliveDisabled -> HomeRuntimeStatusLevel.NeedsAttention
@@ -88,7 +84,6 @@ object HomeRuntimeStatusMapper {
             HomePrimaryIssue.AccessibilityDisabled -> HomeRuntimeAction.OpenAccessibility
             HomePrimaryIssue.GestureDisabled -> HomeRuntimeAction.EnableGesture
             HomePrimaryIssue.ShizukuNotAuthorized -> HomeRuntimeAction.RequestShizukuPermission
-            HomePrimaryIssue.ShizukuNotInstalled,
             HomePrimaryIssue.ShizukuNotRunning -> HomeRuntimeAction.RefreshStatus
             HomePrimaryIssue.KeepAliveDisabled -> HomeRuntimeAction.EnableKeepAlive
         }
@@ -117,9 +112,8 @@ object HomeRuntimeStatusMapper {
     }
 
     fun ShizukuStatus.toUiStatus(): HomeShizukuUiStatus = when {
-        !installed -> HomeShizukuUiStatus.NotInstalled
-        !binderAlive -> HomeShizukuUiStatus.NotRunning
-        !permissionGranted -> HomeShizukuUiStatus.NotAuthorized
-        else -> HomeShizukuUiStatus.Authorized
+        binderAlive && permissionGranted -> HomeShizukuUiStatus.Authorized
+        binderAlive && !permissionGranted -> HomeShizukuUiStatus.NotAuthorized
+        else -> HomeShizukuUiStatus.NotRunning
     }
 }

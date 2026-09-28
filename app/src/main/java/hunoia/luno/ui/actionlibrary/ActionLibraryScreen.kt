@@ -1,84 +1,66 @@
 package hunoia.luno.ui.actionlibrary
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import hunoia.luno.R
-import hunoia.luno.core.AppContext
 import hunoia.luno.config.model.ActionLibraryEntry
 import hunoia.luno.config.model.ActionLibraryType
+import hunoia.luno.core.AppContext
 import hunoia.luno.ui.component.AppSearchBar
-import hunoia.luno.ui.component.segmentedShape
 import hunoia.luno.ui.component.EmptyState
+import hunoia.luno.ui.component.segmentedShape
 import hunoia.luno.ui.navigation.ActionLibraryEdit
-import hunoia.luno.ui.navigation.NEW_ACTION_LIBRARY_ENTRY_ID
-import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SegmentedGap
-import hunoia.luno.ui.settings.ActivitySettingsContent
-import hunoia.luno.ui.settings.ShellCommandSettingsContent
-import hunoia.luno.ui.settings.UrlSettingsContent
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ActionLibraryScreen(
     listState: LazyListState = rememberLazyListState(),
@@ -88,24 +70,16 @@ fun ActionLibraryScreen(
 ) {
     val uiState by vm.uiState.collectAsState()
     var query by rememberSaveable { mutableStateOf("") }
-    var selectedType by rememberSaveable { mutableStateOf<ActionLibraryType?>(null) }
-    var sortMode by rememberSaveable { mutableStateOf(ActionLibrarySortMode.CreatedAt) }
-    var sortMenuExpanded by remember { mutableStateOf(false) }
-    var selectionMode by rememberSaveable { mutableStateOf(false) }
-    var selectedIds by rememberSaveable { mutableStateOf(emptySet<String>()) }
-    var menuExpanded by remember { mutableStateOf(false) }
-    var deleting by remember { mutableStateOf<ActionLibraryEntry?>(null) }
-    var deletingSelected by remember { mutableStateOf(false) }
-    val filtered = remember(uiState.entries, uiState.referenceCounts, selectedType, query, sortMode) {
+    var pendingDeleteEntry by remember { mutableStateOf<ActionLibraryEntry?>(null) }
+    var resetCounter by remember { mutableStateOf(0) }
+
+    val filtered = remember(uiState.entries, uiState.referenceCounts, query) {
         uiState.entries
-            .filter { selectedType == null || it.type == selectedType }
             .filter { it.matchesQuery(query) }
-            .sortedWith(actionLibraryComparator(sortMode, uiState.referenceCounts))
+            .sortedWith(compareBy<ActionLibraryEntry> { it.type.sortIndex() }.thenBy { it.createdAt })
     }
     val grouped = remember(filtered) { filtered.groupBy { it.type } }
-    val selectedEntries = remember(uiState.entries, selectedIds) {
-        uiState.entries.filter { it.id in selectedIds }
-    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().padding(contentPadding)) {
             AppSearchBar(
@@ -113,24 +87,6 @@ fun ActionLibraryScreen(
                 onQueryChange = { query = it },
                 placeholder = stringResource(R.string.search_hint_all),
                 modifier = Modifier.padding(start = 12.dp, top = 12.dp, end = 12.dp, bottom = 8.dp),
-            )
-            ActionLibraryControls(
-                selectedType = selectedType,
-                onSelectedTypeChange = { selectedType = it },
-                sortMode = sortMode,
-                onSortModeChange = { sortMode = it },
-                sortMenuExpanded = sortMenuExpanded,
-                onSortMenuExpandedChange = { sortMenuExpanded = it },
-                selectionMode = selectionMode,
-                selectedCount = selectedIds.size,
-                totalCount = filtered.size,
-                onSelectionModeChange = { enabled ->
-                    selectionMode = enabled
-                    if (!enabled) selectedIds = emptySet()
-                },
-                onSelectAll = { selectedIds = filtered.map { it.id }.toSet() },
-                onDeleteSelected = { deletingSelected = selectedIds.isNotEmpty() },
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
             )
             LazyColumn(
                 modifier = Modifier.weight(1f),
@@ -148,31 +104,23 @@ fun ActionLibraryScreen(
                                 style = MaterialTheme.typography.titleSmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier
+                                    .animateItem()
                                     .fillMaxWidth()
                                     .background(MaterialTheme.colorScheme.surfaceContainer)
                                     .padding(start = 16.dp, top = 8.dp, bottom = 16.dp),
                             )
                         }
                         itemsIndexed(entries, key = { _, entry -> entry.id }) { index, entry ->
-                            ActionLibraryItem(
+                            ActionLibrarySwipeRow(
+                                modifier = Modifier.animateItem(),
                                 shape = segmentedShape(index, entries.size),
                                 entry = entry,
                                 referenceCount = uiState.referenceCounts[entry.id] ?: 0,
-                                selectionMode = selectionMode,
-                                selected = entry.id in selectedIds,
-                                onClick = {
-                                    if (selectionMode) {
-                                        selectedIds = selectedIds.toggle(entry.id)
-                                    } else {
-                                        onNavToEdit(ActionLibraryEdit(entry.id, entry.type))
-                                    }
+                                onNavToEdit = {
+                                    onNavToEdit(ActionLibraryEdit(entry.id, entry.type))
                                 },
-                                onSelectedChange = { selected ->
-                                    selectedIds = if (selected) selectedIds + entry.id else selectedIds - entry.id
-                                },
-                                onEdit = { onNavToEdit(ActionLibraryEdit(entry.id, entry.type)) },
-                                onDuplicate = { vm.duplicate(entry, defaultActionLibraryName(entry.type, uiState.entries)) },
-                                onDelete = { deleting = entry },
+                                onDismiss = { pendingDeleteEntry = entry },
+                                resetKey = resetCounter,
                             )
                         }
                     }
@@ -180,143 +128,99 @@ fun ActionLibraryScreen(
             }
         }
 
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
-                .size(52.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                .clickable { menuExpanded = true },
-            contentAlignment = Alignment.Center,
-        ) {
-            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                ActionLibraryType.entries.forEach { type ->
-                    DropdownMenuItem(
-                        text = { Text(stringResource(type.titleRes)) },
+        pendingDeleteEntry?.let { entry ->
+            val refCount = uiState.referenceCounts[entry.id] ?: 0
+            AlertDialog(
+                onDismissRequest = {
+                    pendingDeleteEntry = null
+                    resetCounter++
+                },
+                title = { Text(stringResource(R.string.action_library_delete_title)) },
+                text = {
+                    Text(stringResource(
+                        if (refCount > 0) R.string.action_library_delete_desc
+                        else R.string.action_library_delete_unused_desc,
+                        refCount,
+                    ))
+                },
+                confirmButton = {
+                    TextButton(
                         onClick = {
-                            menuExpanded = false
-                            onNavToEdit(ActionLibraryEdit(NEW_ACTION_LIBRARY_ENTRY_ID, type))
+                            vm.remove(entry)
+                            pendingDeleteEntry = null
                         },
-                    )
-                }
-            }
-            Icon(
-                imageVector = Icons.Default.Add,
-                contentDescription = stringResource(R.string.action_library_add),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ) {
+                        Text(stringResource(R.string.confirm))
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            pendingDeleteEntry = null
+                            resetCounter++
+                        },
+                    ) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                },
             )
         }
-    }
-    deleting?.let { entry ->
-        val count = uiState.referenceCounts[entry.id] ?: 0
-        AlertDialog(
-            onDismissRequest = { deleting = null },
-            title = { Text(stringResource(R.string.action_library_delete_title)) },
-            text = {
-                Text(
-                    if (count == 0) stringResource(R.string.action_library_delete_unused_desc)
-                    else stringResource(R.string.action_library_delete_desc, count)
-                )
-            },
-            confirmButton = { TextButton(onClick = { vm.remove(entry); deleting = null }) { Text(stringResource(R.string.delete)) } },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.cancel)) } },
-        )
-    }
-    if (deletingSelected) {
-        val referenceCount = selectedEntries.sumOf { uiState.referenceCounts[it.id] ?: 0 }
-        AlertDialog(
-            onDismissRequest = { deletingSelected = false },
-            title = { Text(stringResource(R.string.action_library_delete_selected_title)) },
-            text = { Text(stringResource(R.string.action_library_delete_selected_desc, selectedEntries.size, referenceCount)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    vm.removeAll(selectedEntries)
-                    selectedIds = emptySet()
-                    selectionMode = false
-                    deletingSelected = false
-                }) { Text(stringResource(R.string.delete)) }
-            },
-            dismissButton = { TextButton(onClick = { deletingSelected = false }) { Text(stringResource(R.string.cancel)) } },
-        )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ActionLibraryControls(
-    selectedType: ActionLibraryType?,
-    onSelectedTypeChange: (ActionLibraryType?) -> Unit,
-    sortMode: ActionLibrarySortMode,
-    onSortModeChange: (ActionLibrarySortMode) -> Unit,
-    sortMenuExpanded: Boolean,
-    onSortMenuExpandedChange: (Boolean) -> Unit,
-    selectionMode: Boolean,
-    selectedCount: Int,
-    totalCount: Int,
-    onSelectionModeChange: (Boolean) -> Unit,
-    onSelectAll: () -> Unit,
-    onDeleteSelected: () -> Unit,
+private fun ActionLibrarySwipeRow(
     modifier: Modifier = Modifier,
+    shape: Shape,
+    entry: ActionLibraryEntry,
+    referenceCount: Int,
+    onNavToEdit: () -> Unit,
+    onDismiss: () -> Unit,
+    resetKey: Int = 0,
 ) {
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            FilterChip(
-                selected = selectedType == null,
-                onClick = { onSelectedTypeChange(null) },
-                label = { Text(stringResource(R.string.all_categories)) },
-            )
-            ActionLibraryType.entries.forEach { type ->
-                FilterChip(
-                    selected = selectedType == type,
-                    onClick = { onSelectedTypeChange(type) },
-                    label = { Text(stringResource(type.titleRes)) },
+    key(entry.id, resetKey) {
+        val state = rememberSwipeToDismissBoxState(
+            confirmValueChange = { true },
+        )
+
+        SwipeToDismissBox(
+            modifier = modifier.clip(shape),
+            state = state,
+            enableDismissFromEndToStart = true,
+            enableDismissFromStartToEnd = false,
+            gesturesEnabled = true,
+            onDismiss = { _ -> onDismiss() },
+            backgroundContent = {
+                val progress = state.progress
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            if (progress > 0f) MaterialTheme.colorScheme.errorContainer
+                            else MaterialTheme.colorScheme.surface,
+                        ),
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = stringResource(R.string.delete),
+                        modifier = Modifier
+                            .padding(end = 24.dp)
+                            .graphicsLayer { alpha = progress.coerceIn(0f, 1f) },
+                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                }
+            },
+            content = {
+                ActionLibraryItem(
+                    shape = shape,
+                    entry = entry,
+                    referenceCount = referenceCount,
+                    onClick = onNavToEdit,
                 )
-            }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            TextButton(onClick = { onSortMenuExpandedChange(true) }) {
-                Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null)
-                Text(stringResource(sortMode.titleRes))
-                DropdownMenu(expanded = sortMenuExpanded, onDismissRequest = { onSortMenuExpandedChange(false) }) {
-                    ActionLibrarySortMode.entries.forEach { mode ->
-                        DropdownMenuItem(
-                            text = { Text(stringResource(mode.titleRes)) },
-                            onClick = {
-                                onSortModeChange(mode)
-                                onSortMenuExpandedChange(false)
-                            },
-                        )
-                    }
-                }
-            }
-            TextButton(onClick = { onSelectionModeChange(!selectionMode) }) {
-                Text(stringResource(if (selectionMode) R.string.cancel else R.string.action_library_batch_select))
-            }
-            if (selectionMode) {
-                Text(
-                    text = stringResource(R.string.action_library_selected_count, selectedCount),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(enabled = totalCount > 0, onClick = onSelectAll) {
-                    Text(stringResource(R.string.action_library_select_all))
-                }
-                TextButton(enabled = selectedCount > 0, onClick = onDeleteSelected) {
-                    Text(stringResource(R.string.delete))
-                }
-            }
-        }
+            },
+        )
     }
 }
 
@@ -326,115 +230,41 @@ private fun ActionLibraryItem(
     shape: Shape,
     entry: ActionLibraryEntry,
     referenceCount: Int,
-    selectionMode: Boolean,
-    selected: Boolean,
     onClick: () -> Unit,
-    onSelectedChange: (Boolean) -> Unit,
-    onEdit: () -> Unit,
-    onDuplicate: () -> Unit,
-    onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    var menuExpanded by remember { mutableStateOf(false) }
     val colorScheme = MaterialTheme.colorScheme
-    val colors = if (selected) {
-        ListItemDefaults.colors(
-            containerColor = colorScheme.primaryContainer,
-            contentColor = colorScheme.onPrimaryContainer,
-            leadingContentColor = colorScheme.onPrimaryContainer,
-            trailingContentColor = colorScheme.onPrimaryContainer,
-        )
-    } else {
-        ListItemDefaults.colors(
-            containerColor = colorScheme.surfaceBright,
-            contentColor = colorScheme.onSurface,
-            leadingContentColor = colorScheme.onSurfaceVariant,
-            trailingContentColor = colorScheme.onSurfaceVariant,
-        )
-    }
     ListItem(
-        onClick = onClick,
-        content = {
-            Column(modifier = Modifier.fillMaxWidth()) {
+        modifier = modifier.clickable(onClick = onClick).clip(shape),
+        headlineContent = {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
                 Text(entry.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(entry.summary(), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         },
         leadingContent = {
-            if (selectionMode) {
-                Checkbox(checked = selected, onCheckedChange = onSelectedChange)
-            } else {
-                Icon(
-                    entry.type.icon,
-                    contentDescription = null,
-                    tint = colorScheme.primary,
-                    modifier = Modifier.size(24.dp),
-                )
-            }
+            Icon(
+                entry.type.icon,
+                contentDescription = null,
+                tint = colorScheme.primary,
+                modifier = Modifier.size(24.dp),
+            )
         },
         trailingContent = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = stringResource(R.string.action_library_reference_count, referenceCount),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = colors.contentColor,
-                )
-                if (!selectionMode) {
-                    IconButton(onClick = { menuExpanded = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more))
-                        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.action_library_menu_edit)) },
-                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                                onClick = { menuExpanded = false; onEdit() },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.action_library_menu_duplicate)) },
-                                leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
-                                onClick = { menuExpanded = false; onDuplicate() },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.delete)) },
-                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
-                                onClick = { menuExpanded = false; onDelete() },
-                            )
-                        }
-                    }
-                }
-            }
+            Text(
+                text = stringResource(R.string.action_library_reference_count, referenceCount),
+                style = MaterialTheme.typography.labelSmall,
+                color = colorScheme.onSurfaceVariant,
+            )
         },
-        shapes = ListItemDefaults.shapes(
-            shape = shape,
-            selectedShape = shape,
-            pressedShape = RoundedCornerShape(ContainerRadius),
-            focusedShape = shape,
-            hoveredShape = shape,
-            draggedShape = shape,
+        colors = ListItemDefaults.colors(
+            containerColor = colorScheme.surfaceBright,
+            headlineColor = colorScheme.onSurface,
+            leadingIconColor = colorScheme.onSurfaceVariant,
+            trailingIconColor = colorScheme.onSurfaceVariant,
         ),
-        colors = colors,
-        contentPadding = PaddingValues(16.dp, 12.dp, 16.dp, 12.dp),
     )
 }
-
-private enum class ActionLibrarySortMode(val titleRes: Int) {
-    CreatedAt(R.string.action_library_sort_created),
-    Name(R.string.action_library_sort_name),
-    ReferenceCount(R.string.action_library_sort_reference),
-}
-
-private fun actionLibraryComparator(
-    sortMode: ActionLibrarySortMode,
-    referenceCounts: Map<String, Int>,
-): Comparator<ActionLibraryEntry> {
-    val inner = when (sortMode) {
-        ActionLibrarySortMode.CreatedAt -> compareBy<ActionLibraryEntry> { it.createdAt }
-        ActionLibrarySortMode.Name -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.name }
-        ActionLibrarySortMode.ReferenceCount -> compareByDescending<ActionLibraryEntry> { referenceCounts[it.id] ?: 0 }
-            .thenBy(String.CASE_INSENSITIVE_ORDER) { it.name }
-    }
-    return compareBy<ActionLibraryEntry> { it.type.sortIndex() }.then(inner)
-}
-
-private fun Set<String>.toggle(id: String): Set<String> = if (id in this) this - id else this + id
 
 internal val ActionLibraryType.titleRes: Int get() = when (this) {
     ActionLibraryType.Shell -> R.string.action_library_shell

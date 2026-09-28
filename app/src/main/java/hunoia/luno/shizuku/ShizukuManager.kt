@@ -29,7 +29,6 @@ import rikka.shizuku.SystemServiceHelper
 object ShizukuManager {
 
     private const val RequestCode = 41051
-    private const val ShizukuPackageName = "moe.shizuku.privileged.api"
 
     private val autoPermissionMutex = Mutex()
     private val permissionMutex = Mutex()
@@ -40,8 +39,6 @@ object ShizukuManager {
 
     @Volatile
     private var autoPermissionRequested = false
-
-    private var installedShizuku: Boolean? = null
 
     @Volatile
     private var scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -139,7 +136,6 @@ object ShizukuManager {
     fun currentStatus(): ShizukuStatus = statusMutableStateFlow.value
 
     fun updateStatus() {
-        installedShizuku = null
         statusMutableStateFlow.value = snapshot()
     }
 
@@ -324,23 +320,11 @@ object ShizukuManager {
     }
 
     private fun snapshot(): ShizukuStatus {
-        val context = runCatching { AppContext.get() }.getOrNull()
-        if (context == null) {
-            return ShizukuStatus(
-                installed = false, binderAlive = false,
-                permissionGranted = false, uid = null
-            )
-        }
         val binderAlive = isBinderAlive()
         val permissionGranted = binderAlive && hasPermission()
         val uid = if (binderAlive) runCatching { Shizuku.getUid() }.getOrNull() else null
-        val installed = installedShizuku ?: runCatching {
-            context.packageManager.getPackageInfo(ShizukuPackageName, 0)
-            true
-        }.getOrDefault(false).also { installedShizuku = it }
 
         return ShizukuStatus(
-            installed = installed,
             binderAlive = binderAlive,
             permissionGranted = permissionGranted,
             uid = uid
@@ -358,8 +342,7 @@ object ShizukuManager {
     }
 
     private fun shouldAutoRequest(status: ShizukuStatus): Boolean {
-        return status.installed &&
-            status.binderAlive &&
+        return status.binderAlive &&
             !status.permissionGranted &&
             !autoPermissionRequested
     }

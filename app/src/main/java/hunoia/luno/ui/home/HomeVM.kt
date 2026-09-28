@@ -28,6 +28,7 @@ class HomeVM : HomeVMBase() {
     init {
         loadData()
         observeShizukuStatus()
+        refreshShizukuStatus()
         viewModelScope.launch {
             ShizukuManager.autoRequestPermissionIfNeeded()
             ShizukuManager.ensureWriteSecureSettings()
@@ -119,8 +120,6 @@ class HomeVM : HomeVMBase() {
             ConfigProvider.updateGestureButtons {
                 it + GestureButton.create(name = name)
             }
-            delay(50)
-            sendUiEvent(UiEvent.ScrollToBottom)
         }
     }
 

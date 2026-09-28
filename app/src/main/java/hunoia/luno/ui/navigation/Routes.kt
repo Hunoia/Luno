@@ -51,7 +51,7 @@ data class ConditionEdit(
 @Serializable
 data class ActionLibraryEdit(
     val entryId: String,
-    val type: ActionLibraryType = ActionLibraryType.Shell,
+    val type: ActionLibraryType? = null,
 )
 
 const val NEW_CONDITION_RULE_ID = "new"

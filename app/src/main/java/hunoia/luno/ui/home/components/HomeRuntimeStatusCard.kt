@@ -11,7 +11,6 @@ import androidx.compose.material.icons.twotone.TaskAlt
 import androidx.compose.material.icons.twotone.Warning
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -24,7 +23,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun HomeRuntimeStatusCard(
     runtimeStatus: HomeRuntimeStatus,
@@ -78,11 +76,11 @@ fun HomeRuntimeStatusCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = stringResource(titleRes),
-                    style = MaterialTheme.typography.titleMediumEmphasized,
+                    style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
                     text = stringResource(descRes),
-                    style = MaterialTheme.typography.bodyMediumEmphasized,
+                    style = MaterialTheme.typography.bodyMedium,
                 )
             }
             Switch(
@@ -98,7 +96,6 @@ private val HomePrimaryIssue.descRes: Int?
     get() = when (this) {
         HomePrimaryIssue.AccessibilityDisabled -> R.string.home_status_accessibility_desc
         HomePrimaryIssue.GestureDisabled -> R.string.home_status_gesture_desc
-        HomePrimaryIssue.ShizukuNotInstalled -> R.string.home_status_shizuku_not_installed_desc
         HomePrimaryIssue.ShizukuNotRunning -> R.string.home_status_shizuku_not_running_desc
         HomePrimaryIssue.ShizukuNotAuthorized -> R.string.home_status_shizuku_not_authorized_desc
         HomePrimaryIssue.KeepAliveDisabled -> R.string.home_status_keep_alive_desc

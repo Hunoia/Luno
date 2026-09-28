@@ -2,7 +2,6 @@ package hunoia.luno.ui.component.input
 import hunoia.luno.ui.theme.*
 
 import androidx.compose.foundation.interaction.DragInteraction
-import androidx.compose.foundation.interaction.Interaction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Arrangement
@@ -19,9 +18,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RangeSlider
-import androidx.compose.material3.RangeSliderState
 import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -179,39 +176,37 @@ fun MySlider(
     val coercedValue = value.coerceIn(valueRange.start, valueRange.endInclusive)
     val interactionSource = remember { MutableInteractionSource() }
     val stepCount = steps ?: 0
-    val sliderState = remember(stepCount, valueRange) {
-        SliderState(value = coercedValue, steps = stepCount, trackRange = valueRange)
-    }
+    var localValue by remember { mutableStateOf(coercedValue) }
     var isDragging by remember { mutableStateOf(false) }
     val safeOnValueChange by rememberUpdatedState(onValueChange)
     val safeOnValueChangeFinished by rememberUpdatedState(onValueChangeFinished)
 
     LaunchedEffect(coercedValue) {
-        if (!sliderState.isDragging) sliderState.value = coercedValue
+        if (!isDragging) localValue = coercedValue
     }
 
     LaunchedEffect(interactionSource) {
         interactionSource.interactions.collect { interaction ->
             when (interaction) {
                 is DragInteraction.Start -> isDragging = true
-                is DragInteraction.Stop -> {
-                    if (isDragging) safeOnValueChangeFinished?.invoke()
-                    isDragging = false
-                }
-                is PressInteraction.Release, is PressInteraction.Cancel -> {
-                    isDragging = false
-                }
+                is DragInteraction.Stop -> isDragging = false
+                is PressInteraction.Release, is PressInteraction.Cancel -> isDragging = false
             }
         }
     }
 
     Slider(
-        state = sliderState,
-        onValueChange = { if (isDragging) safeOnValueChange(it) },
+        value = localValue,
+        onValueChange = { value ->
+            localValue = value
+            if (isDragging) safeOnValueChange(value)
+        },
         modifier = modifier,
         enabled = enabled,
-        onValueChangeFinished = {},
+        onValueChangeFinished = safeOnValueChangeFinished,
         interactionSource = interactionSource,
+        valueRange = valueRange,
+        steps = stepCount,
     )
 }
 
@@ -227,47 +222,21 @@ fun MyRangeSlider(
 ) {
     val coercedValue = value.start.coerceIn(valueRange.start, valueRange.endInclusive)..
         value.endInclusive.coerceIn(valueRange.start, valueRange.endInclusive)
-    val startInteractionSource = remember { MutableInteractionSource() }
-    val endInteractionSource = remember { MutableInteractionSource() }
-    val rangeState = remember(valueRange) {
-        RangeSliderState(
-            startValue = coercedValue.start,
-            endValue = coercedValue.endInclusive,
-            trackRange = valueRange
-        )
-    }
-    var isDragging by remember { mutableStateOf(false) }
-    val handleDragInteraction: (Interaction) -> Unit = { interaction ->
-        when (interaction) {
-            is DragInteraction.Start -> isDragging = true
-            is DragInteraction.Stop,
-            is PressInteraction.Release,
-            is PressInteraction.Cancel -> isDragging = false
-        }
-    }
+    var localValue by remember { mutableStateOf(coercedValue) }
 
     LaunchedEffect(coercedValue) {
-        if (!isDragging) {
-            rangeState.startValue = coercedValue.start
-            rangeState.endValue = coercedValue.endInclusive
-        }
-    }
-
-    LaunchedEffect(startInteractionSource) {
-        startInteractionSource.interactions.collect(handleDragInteraction)
-    }
-
-    LaunchedEffect(endInteractionSource) {
-        endInteractionSource.interactions.collect(handleDragInteraction)
+        localValue = coercedValue
     }
 
     RangeSlider(
-        state = rangeState,
-        onValueChange = onValueChange,
+        value = localValue,
+        onValueChange = { value ->
+            localValue = value
+            onValueChange(value)
+        },
         modifier = modifier,
         enabled = enabled,
         onValueChangeFinished = onValueChangeFinished,
-        startThumbInteractionSource = startInteractionSource,
-        endThumbInteractionSource = endInteractionSource,
+        valueRange = valueRange,
     )
 }

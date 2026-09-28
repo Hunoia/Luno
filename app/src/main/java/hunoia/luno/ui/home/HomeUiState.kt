@@ -25,7 +25,6 @@ data class UiState(
     val isAccessibilityEnabled: Boolean = false,
     val isKeepAliveEnabled: Boolean = false,
     val shizukuStatus: ShizukuStatus = ShizukuStatus(
-        installed = false,
         binderAlive = false,
         permissionGranted = false,
         uid = null,
@@ -35,7 +34,6 @@ data class UiState(
             isGestureSwitchEnabled = false,
         isKeepAliveEnabled = false,
         shizukuStatus = ShizukuStatus(
-            installed = false,
             binderAlive = false,
             permissionGranted = false,
             uid = null,
