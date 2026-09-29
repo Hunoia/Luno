@@ -56,7 +56,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import hunoia.luno.action.api.ActionFacade
 import hunoia.luno.config.model.Action
-import hunoia.luno.config.model.ActionLibrarySettings
+import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.config.model.ActionPanelStyle
 import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.action.api.appInfo
@@ -89,7 +89,7 @@ fun ActionPanel(
         var parentSize by remember { mutableStateOf(Size.Zero) }
         val resolvedStyle = actionPanelState.actionPanelStyle ?: actionPanelStyle
         val itemSizePx = (resolvedStyle as? ArcStyle)?.itemSize?.toFloat() ?: 48.dp.toPx()
-        val actionLibrarySettings by ConfigProvider.actionLibrarySettings.collectAsStateWithLifecycle(initialValue = ActionLibrarySettings())
+        val actionLibrarySettings by ConfigProvider.newActionLibrarySettings.collectAsStateWithLifecycle(initialValue = NewActionLibrarySettings())
         LaunchedEffect(parentSize, itemSizePx) {
             actionPanelState.setLayoutInfo(parentSize, itemSizePx)
         }

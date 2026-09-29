@@ -8,5 +8,13 @@ enum class ActionCategory {
     WINDOW,
     LAUNCHER,
     SUB_GESTURE,
-    TOOL
+    TOOL,
+    APP,
+    INTENT,
+    ACCESSIBILITY,
+    PACKAGE,
+    SETTINGS,
+    SYSTEMCMD,
+    SHELL,
+    INTERNAL
 }

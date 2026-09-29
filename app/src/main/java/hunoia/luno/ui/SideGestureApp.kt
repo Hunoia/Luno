@@ -52,7 +52,7 @@ import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsScreen
 
 import hunoia.luno.ui.settings.gesture.subgesture.SubGestureSettingsScreen
 import hunoia.luno.config.ConfigProvider
-import hunoia.luno.config.model.ActionLibrarySettings
+import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalNavController
@@ -66,8 +66,8 @@ fun SideGestureApp() {
     SideGestureTheme {
         val navController = rememberNavController()
         val durationMs = ANIMATION_DURATION_MS
-        val actionLibrarySettings by ConfigProvider.actionLibrarySettings
-            .collectAsStateWithLifecycle(initialValue = ActionLibrarySettings())
+        val actionLibrarySettings by ConfigProvider.newActionLibrarySettings
+            .collectAsStateWithLifecycle(initialValue = NewActionLibrarySettings())
         CompositionLocalProvider(
             LocalNavController provides navController,
             LocalActionLibraryEntries provides actionLibrarySettings.entries

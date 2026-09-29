@@ -10,19 +10,21 @@ import androidx.compose.ui.res.stringResource
 import hunoia.luno.core.AppContext
 import hunoia.luno.R
 import hunoia.luno.config.model.Action
-import hunoia.luno.config.model.ActionLibraryEntry
+import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.action.api.appInfo
 import hunoia.luno.action.api.shortcutInfo
 import hunoia.luno.action.api.ActionFacade
+import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.config.model.DirectionActions
 import hunoia.luno.config.model.actionLibraryRefId
+import hunoia.luno.config.model.newActionData
 import hunoia.luno.quicklaunch.model.icon
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 
 fun Context.actionText(
     action: Action,
     emptyIfNone: Boolean = true,
-    actionLibraryEntries: List<ActionLibraryEntry> = emptyList()
+    actionLibraryEntries: List<NewActionLibraryEntry> = emptyList()
 ): String {
     val refId = action.actionLibraryRefId()
     if (refId != null) {
@@ -30,6 +32,9 @@ fun Context.actionText(
         if (actionLibraryEntries.isNotEmpty()) {
             return getString(R.string.action_library_missing)
         }
+    }
+    action.newActionData()?.let { stored ->
+        return ActionDefinitions.byTypeId(stored.typeId)?.name ?: ""
     }
     return when (action.value) {
         ActionFacade.EXTRA_LAUNCH_APP -> action.appInfo?.label ?: ""
@@ -45,7 +50,7 @@ fun Context.actionText(
 fun actionText(
     action: Action,
     emptyIfNone: Boolean = true,
-    actionLibraryEntries: List<ActionLibraryEntry> = emptyList()
+    actionLibraryEntries: List<NewActionLibraryEntry> = emptyList()
 ): String {
     val refId = action.actionLibraryRefId()
     if (refId != null) {
@@ -53,6 +58,9 @@ fun actionText(
         if (actionLibraryEntries.isNotEmpty()) {
             return stringResource(R.string.action_library_missing)
         }
+    }
+    action.newActionData()?.let { stored ->
+        return ActionDefinitions.byTypeId(stored.typeId)?.name ?: ""
     }
     return when (action.value) {
         ActionFacade.EXTRA_LAUNCH_APP -> action.appInfo?.label ?: ""
@@ -65,10 +73,15 @@ fun actionText(
 }
 
 @Composable
-fun actionIcon(action: Action): Any? = when (action.value) {
-    ActionFacade.EXTRA_LAUNCH_APP -> action.appInfo?.icon ?: Icons.Default.Android
-    ActionFacade.EXTRA_LAUNCH_SHORTCUT -> action.shortcutInfo?.icon ?: Icons.Default.Android
-    else -> ActionFacade.byId(action.value)?.icon
+fun actionIcon(action: Action): Any? {
+    action.newActionData()?.let { stored ->
+        return ActionDefinitions.byTypeId(stored.typeId)?.icon
+    }
+    return when (action.value) {
+        ActionFacade.EXTRA_LAUNCH_APP -> action.appInfo?.icon ?: Icons.Default.Android
+        ActionFacade.EXTRA_LAUNCH_SHORTCUT -> action.shortcutInfo?.icon ?: Icons.Default.Android
+        else -> ActionFacade.byId(action.value)?.icon
+    }
 }
 
 @Composable

@@ -5,7 +5,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.basicMarquee
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,11 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -40,9 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.imageLoader
-import com.aaron.compose.ktx.clipToBackground
 import hunoia.luno.R
-import hunoia.luno.action.api.ActionFacade
 import hunoia.luno.config.defaults.SettingsUiDefaults
 import hunoia.luno.config.model.Action
 import hunoia.luno.ui.component.actionIcon
@@ -58,12 +51,8 @@ fun ActionItem(
     selectSingle: Boolean,
     snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    showSettings: Boolean = false,
-    onSettingsClick: (() -> Unit)? = null
+    enabled: Boolean = true
 ) {
-    val def = ActionFacade.byId(action.value)
-    val settingHintText = def?.let { actionSettingHintResMap[it.configKind]?.let { res -> stringResource(res) } }
     val backgroundColor by animateColorAsState(
         targetValue = if (selected) MaterialTheme.colorScheme.primaryContainer
             else MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -136,31 +125,6 @@ fun ActionItem(
                         overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.titleMedium,
                     )
-                    if (showSettings) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .combinedClickable(
-                                    enabled = enabled,
-                                    onClick = { onSettingsClick?.invoke() },
-                                    onLongClick = if (settingHintText != null) {
-                                        { hunoia.luno.bridge.feedback.showToast(settingHintText) }
-                                    } else null
-                                )
-                                .clipToBackground(
-                                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                                    shape = CircleShape
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                modifier = Modifier.size(20.dp),
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
                 }
             }
             if (!selectSingle) {

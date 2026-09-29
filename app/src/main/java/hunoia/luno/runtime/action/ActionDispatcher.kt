@@ -7,13 +7,13 @@ import hunoia.luno.action.api.ActionFacade
 import hunoia.luno.action.dispatcher.NewActionDispatcher
 import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.config.model.Action
-import hunoia.luno.config.model.ActionLibrarySettings
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureButtonActionSettingsOverride
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.actionLibraryRefId
+import hunoia.luno.config.model.newActionData
 import hunoia.luno.runtime.GestureHost
 import kotlinx.coroutines.CoroutineScope
 
@@ -37,7 +37,6 @@ class ActionDispatcher(
                 actionSettings = settingsSnapshot().actionSettings,
                 advancedSettings = settingsSnapshot().advancedSettings,
                 gestureSettings = settingsSnapshot().gestureSettings,
-                actionLibrarySettings = settingsSnapshot().actionLibrarySettings,
             )
         },
         onToggleQuickAppLauncher = onToggleQuickAppLauncher,
@@ -53,6 +52,12 @@ class ActionDispatcher(
         if (BuildConfig.DEBUG) Log.d("LunoLauncher", "dispatch action id=${action.value}")
 
         val touchPosition = action.extra.toTouchPair()
+
+        action.newActionData()?.let { stored ->
+            if (BuildConfig.DEBUG) Log.d("LunoLauncher", "new action typeId=${stored.typeId}")
+            newDispatcher.dispatch(stored, sourceButton, sourceOverride, touchPosition)
+            return
+        }
 
         val entryId = action.actionLibraryRefId()
         if (entryId != null) {
@@ -91,6 +96,5 @@ data class SettingsSnapshot(
     val actionSettings: ActionSettings,
     val advancedSettings: AdvancedSettings,
     val gestureSettings: GestureSettings,
-    val actionLibrarySettings: ActionLibrarySettings,
     val newActionLibrarySettings: NewActionLibrarySettings = NewActionLibrarySettings(),
 )

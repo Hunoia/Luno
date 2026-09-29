@@ -39,6 +39,7 @@ import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.OptimizedBottomSheet
 import hunoia.luno.ui.component.TopBar
 import hunoia.luno.ui.component.EmptyState
+import hunoia.luno.ui.component.displayNameRes
 import hunoia.luno.core.AppContext
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -215,7 +216,7 @@ private fun TypeSelectorField(
             color = MaterialTheme.colorScheme.primary,
         )
         Text(
-            text = definition.category,
+            text = stringResource(definition.category.displayNameRes),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

@@ -2,41 +2,25 @@ package hunoia.luno.ui.actionlibrary
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import hunoia.luno.action.dispatcher.LegacyActionMapper
 import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.action.model.NewActionLibrarySettings
-import hunoia.luno.action.model.StoredAction
 import hunoia.luno.config.ConfigProvider
-import hunoia.luno.config.model.ActionLibraryEntry
-import hunoia.luno.config.model.ActionLibraryPayload
-import hunoia.luno.config.model.ActionLibrarySettings
-import hunoia.luno.config.model.ActionLibraryType
+import hunoia.luno.config.cleanActions
+import hunoia.luno.config.model.Action
 import hunoia.luno.config.model.GestureButton
-import hunoia.luno.config.model.OpenAppOrUrlData
-import hunoia.luno.config.model.ShellCommandData
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.actionLibraryRefId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonPrimitive
 
 class NewActionLibraryVM : ViewModel() {
     private val _uiState = MutableStateFlow(NewLibraryUiState())
     val uiState: StateFlow<NewLibraryUiState> = _uiState
-    private var migrationChecked = false
 
     init {
         viewModelScope.launch {
-            if (!migrationChecked) {
-                migrationChecked = true
-                migrateIfNeeded(ConfigProvider.getNewActionLibrarySettings())
-            }
             combine(
                 ConfigProvider.newActionLibrarySettings,
                 ConfigProvider.gestureButtons,
@@ -51,102 +35,22 @@ class NewActionLibraryVM : ViewModel() {
     }
 
     fun remove(entry: NewActionLibraryEntry) {
-        viewModelScope.launch {
-            ConfigProvider.updateNewActionLibrarySettings { settings ->
-                settings.copy(entries = settings.entries.filter { it.id != entry.id })
-            }
-            ConfigProvider.removeActionLibraryEntry(entry.id)
-        }
-    }
-
-    private suspend fun migrateIfNeeded(newSettings: NewActionLibrarySettings) {
-        if (newSettings.entries.isNotEmpty()) return
-        val oldSettings = ConfigProvider.getActionLibrarySettings()
-        if (oldSettings.entries.isEmpty()) return
-        val migrated = oldSettings.entries.map { legacyToNewEntry(it) }
-        ConfigProvider.updateNewActionLibrarySettings { it.copy(entries = migrated) }
-    }
-
-    companion object {
-        suspend fun syncLegacyEntry(entry: NewActionLibraryEntry) {
-            val legacyEntry = newEntryToLegacy(entry)
-            ConfigProvider.updateActionLibrarySettings { settings ->
-                val index = settings.entries.indexOfFirst { it.id == entry.id }
-                val entries = settings.entries.toMutableList()
-                if (index >= 0) entries[index] = legacyEntry else entries.add(legacyEntry)
-                settings.copy(entries = entries)
-            }
-        }
-
-        suspend fun removeLegacyEntry(entryId: String) {
-            ConfigProvider.removeActionLibraryEntry(entryId)
-        }
-
-        fun legacyToNewEntry(legacy: ActionLibraryEntry): NewActionLibraryEntry {
-            val stored = legacyToStored(legacy)
-            return NewActionLibraryEntry(
-                id = legacy.id,
-                name = legacy.name,
-                typeId = stored.typeId,
-                params = stored.params,
-                createdAt = legacy.createdAt,
-            )
-        }
-
-        private fun legacyToStored(legacy: ActionLibraryEntry): StoredAction {
-            return when (legacy.type) {
-                ActionLibraryType.Shell -> {
-                    val data = legacy.shellCommand
-                    LegacyActionMapper.mapShellCommand(data.command, data.showToast)
-                        ?: StoredAction.of("shell.custom")
-                }
-                ActionLibraryType.Url -> {
-                    val p = legacy.payload as? ActionLibraryPayload.Url
-                        ?: return StoredAction.of("intent.openUrl")
-                    LegacyActionMapper.mapUrlData(p.data) ?: StoredAction.of("intent.openUrl")
-                }
-                ActionLibraryType.Activity -> {
-                    val p = legacy.payload as? ActionLibraryPayload.Activity
-                        ?: return StoredAction.of("app.openActivity")
-                    StoredAction.of(
-                        "app.openActivity",
-                        "packageName" to p.data.packageName,
-                        "activityClassName" to p.data.activityClassName,
-                        "miniWindow" to p.data.miniWindow.toString(),
-                    )
-                }
-            }
-        }
+        viewModelScope.launch { removeNewLibraryEntry(entry.id) }
     }
 }
 
-suspend fun newEntryToLegacy(newEntry: NewActionLibraryEntry): ActionLibraryEntry {
-    val params = newEntry.params
-    val payload = when (newEntry.typeId) {
-        "shell.custom" -> ActionLibraryPayload.Shell(ShellCommandData(
-            command = params["command"]?.jsonPrimitive?.contentOrNull ?: "",
-            showToast = params["showToast"]?.jsonPrimitive?.booleanOrNull ?: false,
-        ))
-        "intent.openUrl" -> ActionLibraryPayload.Url(OpenAppOrUrlData(
-            type = OpenAppOrUrlData.TYPE_URL,
-            url = params["url"]?.jsonPrimitive?.contentOrNull ?: "",
-        ))
-        "app.openActivity", "app.launch" -> ActionLibraryPayload.Activity(OpenAppOrUrlData(
-            type = OpenAppOrUrlData.TYPE_ACTIVITY,
-            packageName = params["packageName"]?.jsonPrimitive?.contentOrNull ?: "",
-            activityClassName = params["activityClassName"]?.jsonPrimitive?.contentOrNull ?: "",
-            miniWindow = params["miniWindow"]?.jsonPrimitive?.booleanOrNull ?: false,
-        ))
-        else -> ActionLibraryPayload.Shell(ShellCommandData(
-            command = "#${newEntry.typeId}",
-        ))
+suspend fun removeNewLibraryEntry(entryId: String) {
+    ConfigProvider.updateGestureButtons { buttons ->
+        buttons.map { button -> button.cleanActions { it.actionLibraryRefId() == entryId } }
     }
-    return ActionLibraryEntry(
-        id = newEntry.id,
-        name = newEntry.name,
-        payload = payload,
-        createdAt = newEntry.createdAt,
-    )
+    ConfigProvider.updateSubGestureSettings { settings ->
+        settings.copy(subGestures = settings.subGestures.map { subGesture ->
+            subGesture.cleanActions { it.actionLibraryRefId() == entryId }
+        })
+    }
+    ConfigProvider.updateNewActionLibrarySettings { settings ->
+        settings.copy(entries = settings.entries.filterNot { it.id == entryId })
+    }
 }
 
 data class NewLibraryUiState(
@@ -159,7 +63,7 @@ private fun countReferences(
     subGestures: List<SubGesture>,
 ): Map<String, Int> {
     val counts = mutableMapOf<String, Int>()
-    fun add(action: hunoia.luno.config.model.Action?) {
+    fun add(action: Action?) {
         val entryId = action?.actionLibraryRefId() ?: return
         counts[entryId] = (counts[entryId] ?: 0) + 1
     }

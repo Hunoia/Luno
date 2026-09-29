@@ -61,7 +61,6 @@ import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.ui.navigation.ActionSelect
-import hunoia.luno.ui.settings.ActionSettingsDialogContent
 import hunoia.luno.bridge.feedback.showToast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -103,14 +102,6 @@ fun ActionSelectContent(
             }
         }
     ) { uiState ->
-        if (uiState.actionSettingsDialog.show) {
-            ActionSettingsDialogContent(
-                onDismissRequest = { vm.showDialog(false) },
-                action = uiState.actionSettingsDialog.action,
-                onActionDataChanged = { vm.select(uiState.actionSettingsDialog.action.copy(data = it), true) }
-            )
-        }
-
         val snackbarHostState = remember { SnackbarHostState() }
         val coroutineScope = rememberCoroutineScope()
 
@@ -191,7 +182,6 @@ fun ActionSelectContent(
                             onClearLongPress = { index -> vm.clearLongPressAction(index) },
                             onCancelLongPress = { vm.cancelSetLongPressAction() },
                             onMoveSelected = { from, to -> vm.moveSelectedAction(from, to) },
-                            onSettingsClick = { action -> vm.showDialog(true, action) },
                             onSelectApp = { appInfo, selected -> vm.select(appInfo, selected) },
                             onSelectShortcut = { shortcutInfo, selected -> vm.select(shortcutInfo, selected) },
                             onAppLongClick = { appInfo -> vm.toggleMiniWindow(appInfo) },

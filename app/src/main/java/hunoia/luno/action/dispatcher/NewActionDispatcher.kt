@@ -12,7 +12,6 @@ import hunoia.luno.action.execution.*
 import hunoia.luno.action.executor.*
 import hunoia.luno.action.model.*
 import hunoia.luno.bridge.isAccessibilitySettingsOn
-import hunoia.luno.config.model.ActionLibrarySettings as LegacyActionLibrarySettings
 import hunoia.luno.config.model.ActionSettings as LegacyActionSettings
 import hunoia.luno.config.model.AdvancedSettings as LegacyAdvancedSettings
 import hunoia.luno.config.model.GestureButton as LegacyGestureButton
@@ -151,5 +150,4 @@ data class SettingsSnapshot(
     val actionSettings: LegacyActionSettings,
     val advancedSettings: LegacyAdvancedSettings,
     val gestureSettings: LegacyGestureSettings,
-    val actionLibrarySettings: LegacyActionLibrarySettings,
 )

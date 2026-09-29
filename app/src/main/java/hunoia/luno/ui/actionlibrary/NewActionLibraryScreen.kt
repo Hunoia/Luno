@@ -49,8 +49,10 @@ import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.action.definition.ActionCategory
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.EmptyState
+import hunoia.luno.ui.component.displayNameRes
 import hunoia.luno.ui.component.segmentedShape
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SegmentedGap
@@ -70,9 +72,9 @@ fun NewActionLibraryScreen(
     val filtered = remember(uiState.entries, uiState.referenceCounts, query) {
         uiState.entries
             .filter { it.matchesQuery(query) }
-            .sortedBy { ActionDefinitions.byTypeId(it.typeId)?.category ?: "Z" }
+            .sortedBy { ActionDefinitions.categoryOrder(ActionDefinitions.byTypeId(it.typeId)?.category ?: ActionCategory.INTERNAL) }
     }
-    val grouped = remember(filtered) { filtered.groupBy { ActionDefinitions.byTypeId(it.typeId)?.category ?: "Other" } }
+    val grouped = remember(filtered) { filtered.groupBy { ActionDefinitions.byTypeId(it.typeId)?.category ?: ActionCategory.INTERNAL } }
 
     androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().padding(contentPadding)) {
@@ -94,7 +96,7 @@ fun NewActionLibraryScreen(
                     grouped.forEach { (category, entries) ->
                         stickyHeader(key = "header_${category}") {
                             Text(
-                                text = category,
+                                text = stringResource(category.displayNameRes),
                                 style = MaterialTheme.typography.titleSmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier

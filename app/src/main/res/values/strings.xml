@@ -224,6 +224,14 @@
     <string name="action_category_window">窗口</string>
     <string name="action_category_launch">启动</string>
     <string name="action_category_tool">工具</string>
+    <string name="action_category_app">应用操作</string>
+    <string name="action_category_intent">Intent</string>
+    <string name="action_category_accessibility">无障碍</string>
+    <string name="action_category_package">包管理</string>
+    <string name="action_category_settings">设置项</string>
+    <string name="action_category_system_cmd">系统命令</string>
+    <string name="action_category_shell">Shell</string>
+    <string name="action_category_internal">内部</string>
 
     <!-- Quick app launcher labels -->
     <string name="quick_app_launcher_panel_height">竖直位置</string>
@@ -301,8 +309,6 @@
     <string name="action_permission_hint_flashlight">需要设备相机/手电筒能力</string>
     <string name="action_permission_hint_screenshot">需要系统截图能力或无障碍支持</string>
     <string name="action_permission_hint_power_button">需要无障碍服务支持</string>
-    <string name="action_setting_hint_open_activity">选择目标 Activity</string>
-    <string name="action_setting_hint_shell_command">输入 adb shell 后面的命令，例如 pm list packages</string>
     <string name="search_app_hint">搜索应用</string>
     <string name="search_activity_hint">搜索活动</string>
     <string name="no_matching_results">无匹配结果</string>
@@ -319,26 +325,8 @@
     <string name="search_hint_all">搜索</string>
 
     <string name="search_clear_cd">清除</string>
-    <string name="test">测试</string>
-    <string name="testing">测试中...</string>
     <string name="test_success">执行成功</string>
     <string name="test_failed">执行失败</string>
-    <string name="shell_command_label">Shell 命令</string>
-    <string name="shell_command_placeholder">pm list packages</string>
-    <string name="shell_command_hint">填写设备本机 shell 命令，不要包含 adb 或 adb shell。</string>
-    <string name="shell_command_show_toast">动作执行后显示 Toast</string>
-    <string name="shell_command_mode_raw">原始命令</string>
-    <string name="shell_command_mode_template">系统功能</string>
-    <string name="shell_command_no_output">（无输出）</string>
-    <string name="shell_command_test_output">退出码：%1$d\n耗时：%2$dms\n\n%3$s</string>
-    <string name="shell_command_test_error_output">错误：%1$s\n退出码：%2$d\n耗时：%3$dms\n\n%4$s</string>
-    <string name="url_link">链接 / Deep Link</string>
-    <string name="open_url_mini_window">小窗打开</string>
-    <string name="open_url_custom_parameters">自定义参数</string>
-    <string name="open_url_parameter_name">参数名</string>
-    <string name="open_url_parameter_value">参数值</string>
-    <string name="open_url_add_parameter">添加参数</string>
-    <string name="open_url_delete_parameter">删除参数</string>
     <string name="invalid_url">链接格式不正确</string>
     <string name="launch_failed">启动失败</string>
     <string name="launch_no_handler">没有可处理该链接的应用</string>
@@ -430,10 +418,6 @@
     <string name="action_library_shell_toast_on">显示 Toast</string>
     <string name="action_library_shell_toast_off">不显示 Toast</string>
     <string name="action_library_url_parameter_count">参数 %1$d 个</string>
-    <string name="action_library_activity_empty">未选择 Activity</string>
-    <string name="action_library_shell">Shell</string>
-    <string name="action_library_url">链接</string>
-    <string name="action_library_activity">活动</string>
     <string name="action_library_default_shell">Shell %1$d</string>
     <string name="action_library_default_url">链接 %1$d</string>
     <string name="action_library_default_activity">活动 %1$d</string>
@@ -522,7 +506,6 @@
     <string name="action_library_custom_system_api">自定义API</string>
     <string name="action_library_default_system_function">系统功能 %1$d</string>
     <string name="action_library_default_custom_api">自定义API %1$d</string>
-    <string name="action_library_template_params">模板参数</string>
 
     <!-- Display condition rules -->
     <string name="condition_settings">显示条件</string>

@@ -1,6 +1,10 @@
 package hunoia.luno.action.definitions
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Android
+import androidx.compose.ui.graphics.vector.ImageVector
 import hunoia.luno.action.model.Capability
+import hunoia.luno.action.definition.ActionCategory
 import hunoia.luno.action.model.Action
 import kotlin.reflect.KClass
 
@@ -81,8 +85,11 @@ data class ActionDefinition(
     val actionType: KClass<out Action>,
     val typeId: String,
     val name: String,
-    val category: String,
+    val category: ActionCategory,
     val capability: Capability,
     val parameters: List<ParameterDefinition> = emptyList(),
     val isInternal: Boolean = false,
+    val icon: ImageVector = Icons.Default.Android,
+    /** 内部动作同时存在的旧 action id，用于保持既有运行时特判 */
+    val legacyId: String? = null,
 )

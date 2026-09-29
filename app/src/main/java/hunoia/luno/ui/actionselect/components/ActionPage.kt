@@ -29,11 +29,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
-import hunoia.luno.action.api.ActionFacade
 import hunoia.luno.action.definition.ActionCategory
+import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.config.model.Action
-import hunoia.luno.config.model.ActionLibraryEntry
-import hunoia.luno.config.model.ActionLibraryType
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
@@ -41,22 +39,19 @@ import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.ui.actionselect.UiState.SelectedRecord
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.EmptyState
+import hunoia.luno.ui.actionlibrary.matchesQuery
 import hunoia.luno.ui.component.displayNameRes
-import hunoia.luno.config.model.matchesQuery
-import hunoia.luno.config.model.sortIndex
 import hunoia.luno.ui.theme.*
 
 private const val TYPE_ACTION_LIBRARY = "action_library"
 private const val TYPE_APP = "app"
 private const val TYPE_SHORTCUT = "shortcut"
-private const val TYPE_SUB_GESTURE = "sub_gesture"
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun ActionPage(
-    onSettingsClick: (Action) -> Unit,
     onSelect: (Action, Boolean) -> Unit,
-    onSelectLibraryEntry: (ActionLibraryEntry, Boolean) -> Unit = { _, _ -> },
+    onSelectLibraryEntry: (NewActionLibraryEntry, Boolean) -> Unit = { _, _ -> },
     onSelectLongPress: (Any) -> Unit = {},
     onSelectApp: (AppInfo, Boolean) -> Unit,
     onSelectShortcut: (LauncherInfo.ShortcutInfo, Boolean) -> Unit,
@@ -69,7 +64,7 @@ internal fun ActionPage(
     modifier: Modifier = Modifier,
     subGestures: List<SubGesture> = emptyList(),
     actions: List<Action>,
-    actionLibraryEntries: List<ActionLibraryEntry> = emptyList(),
+    actionLibraryEntries: List<NewActionLibraryEntry> = emptyList(),
     appInfos: List<AppInfo>,
     createShortcuts: List<LauncherInfo>,
     launchShortcuts: List<LauncherInfo>,
@@ -85,13 +80,13 @@ internal fun ActionPage(
     var selectedType by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val selectingLongPress = longPressTargetIndex != null
-    val categoryChips = remember {
+    val categoryChips = remember(actions) {
         buildList<Pair<Any?, String>> {
             add(null to context.getString(R.string.all_categories))
-            add(ActionCategory.NAVIGATION to context.getString(ActionCategory.NAVIGATION.displayNameRes))
-            add(ActionCategory.SYSTEM to context.getString(ActionCategory.SYSTEM.displayNameRes))
-            add(ActionCategory.TOOL to context.getString(ActionCategory.TOOL.displayNameRes))
-            add(ActionCategory.SUB_GESTURE to context.getString(ActionCategory.SUB_GESTURE.displayNameRes))
+            actions
+                .map { actionCategory(it) }
+                .distinct()
+                .forEach { category -> add(category to context.getString(category.displayNameRes)) }
             add(TYPE_ACTION_LIBRARY to context.getString(R.string.action_library))
             add(TYPE_APP to context.getString(R.string.tab_apps))
             add(TYPE_SHORTCUT to context.getString(R.string.tab_shortcuts))
@@ -102,7 +97,7 @@ internal fun ActionPage(
             var result = actions
             if (selectedCategory != null) {
                 result = result.filter { action ->
-                    val cat = ActionFacade.byId(action.value)?.category ?: ActionCategory.TOOL
+                    val cat = actionCategory(action)
                     cat == selectedCategory
                 }
             }
@@ -115,12 +110,9 @@ internal fun ActionPage(
         else if (selectedType == TYPE_ACTION_LIBRARY) emptyList()
         else {
             var result = actions
-            if (selectedType == TYPE_SUB_GESTURE) {
-                result = result.filter { it.value == ActionFacade.SUB_GESTURE }
-            }
             if (selectedCategory != null) {
                 result = result.filter { action ->
-                    val cat = ActionFacade.byId(action.value)?.category ?: ActionCategory.TOOL
+                    val cat = actionCategory(action)
                     cat == selectedCategory
                 }
             }
@@ -130,7 +122,7 @@ internal fun ActionPage(
     val grouped = remember(filteredActions) {
         val map = LinkedHashMap<ActionCategory, MutableList<Action>>()
         filteredActions.forEach { action ->
-            val category = ActionFacade.byId(action.value)?.category ?: ActionCategory.TOOL
+            val category = actionCategory(action)
             map.getOrPut(category) { mutableListOf() }.add(action)
         }
         map
@@ -139,7 +131,7 @@ internal fun ActionPage(
         if (selectedType == TYPE_ACTION_LIBRARY || query.isNotBlank()) {
             actionLibraryEntries.filter { if (query.isNotBlank()) it.matchesQuery(query) else true }
         } else emptyList()
-    }.sortedWith(compareBy<ActionLibraryEntry> { it.type.sortIndex() }.thenBy { it.createdAt })
+    }.sortedBy { it.createdAt }
     val filteredApps = remember(appInfos, query, selectedType) {
         if (selectedType == TYPE_APP || query.isNotBlank()) {
             appInfos.filter {
@@ -254,39 +246,33 @@ internal fun ActionPage(
                             onSelect = { selected ->
                                 if (selectingLongPress) onSelectLongPress(item) else onSelect(item, selected)
                             },
-                            showSettings = ActionFacade.hasConfig(item.value),
-                            onSettingsClick = {
-                                onSettingsClick(item)
-                            }
                         )
                     }
                 }
             }
             if (filteredLibraryEntries.isNotEmpty()) {
-                filteredLibraryEntries.groupBy { it.type }.forEach { (type, entries) ->
-                    stickyHeader(key = "lib_${type.name}") {
-                        Text(
-                            text = stringResource(type.titleRes),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp * 2, vertical = 8.dp)
-                        )
-                    }
-                    items(items = entries, key = { "lib_${it.id}" }) { entry ->
-                        val action = entry.toReferenceAction()
-                        ActionItem(
-                            modifier = Modifier.animateItem(),
-                            action = action,
-                            actionLabel = entry.name,
-                            selected = selectedRecord.isSelected(action),
-                            selectSingle = selectingLongPress,
-                            enabled = selectingLongPress || canActionEnabled(selectedRecord, action, maxSelectCount),
-                            snackbarHostState = snackbarHostState,
-                            onSelect = { selected ->
-                                if (selectingLongPress) onSelectLongPress(entry) else onSelectLibraryEntry(entry, selected)
-                            },
-                        )
-                    }
+                stickyHeader(key = "lib_all") {
+                    Text(
+                        text = stringResource(R.string.action_library),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp * 2, vertical = 8.dp)
+                    )
+                }
+                items(items = filteredLibraryEntries, key = { "lib_${it.id}" }) { entry ->
+                    val action = entry.toReferenceAction()
+                    ActionItem(
+                        modifier = Modifier.animateItem(),
+                        action = action,
+                        actionLabel = entry.name,
+                        selected = selectedRecord.isSelected(action),
+                        selectSingle = selectingLongPress,
+                        enabled = selectingLongPress || canActionEnabled(selectedRecord, action, maxSelectCount),
+                        snackbarHostState = snackbarHostState,
+                        onSelect = { selected ->
+                            if (selectingLongPress) onSelectLongPress(entry) else onSelectLibraryEntry(entry, selected)
+                        },
+                    )
                 }
             }
             if (filteredApps.isNotEmpty()) {
@@ -334,10 +320,4 @@ internal fun ActionPage(
             }
         }
     }
-}
-
-private val ActionLibraryType.titleRes: Int get() = when (this) {
-    ActionLibraryType.Shell -> R.string.action_library_shell
-    ActionLibraryType.Url -> R.string.action_library_url
-    ActionLibraryType.Activity -> R.string.action_library_activity
 }

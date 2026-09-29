@@ -122,7 +122,6 @@ class GestureCoordinator(
                 actionSettings = s.actionSettings,
                 advancedSettings = s.advancedSettings,
                 gestureSettings = s.gestureSettings,
-                actionLibrarySettings = s.actionLibrarySettings,
                 newActionLibrarySettings = s.newActionLibrarySettings,
             )
         },

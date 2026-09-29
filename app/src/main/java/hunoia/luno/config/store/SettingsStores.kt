@@ -3,7 +3,6 @@ package hunoia.luno.config.store
 import androidx.datastore.core.DataStore
 import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.config.model.ActionSettings
-import hunoia.luno.config.model.ActionLibrarySettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
@@ -21,7 +20,6 @@ class SettingsStores(
     internal val _gestureButtons: DataStore<List<GestureButton>>,
     internal val _quickAppLauncherSettings: DataStore<QuickAppLauncherSettings>,
     internal val _subGestureSettings: DataStore<SubGestureSettings>,
-    internal val _actionLibrarySettings: DataStore<ActionLibrarySettings>,
     internal val _newActionLibrarySettings: DataStore<NewActionLibrarySettings>,
 ) {
     val initialSettings: Flow<InitialSettings> = _initialSettings.data
@@ -31,7 +29,6 @@ class SettingsStores(
     val gestureButtons: Flow<List<GestureButton>> = _gestureButtons.data
     val quickAppLauncherSettings: Flow<QuickAppLauncherSettings> = _quickAppLauncherSettings.data
     val subGestureSettings: Flow<SubGestureSettings> = _subGestureSettings.data
-    val actionLibrarySettings: Flow<ActionLibrarySettings> = _actionLibrarySettings.data
     val newActionLibrarySettings: Flow<NewActionLibrarySettings> = _newActionLibrarySettings.data
 
     companion object {
@@ -45,7 +42,6 @@ class SettingsStores(
                 _gestureButtons = ctx.dataStore(DataStoreFiles.GESTURE_BUTTONS, GestureButton.Defaults),
                 _quickAppLauncherSettings = ctx.dataStore(DataStoreFiles.QUICK_APP_LAUNCHER, QuickAppLauncherSettings()),
                 _subGestureSettings = ctx.dataStore(DataStoreFiles.SUB_GESTURE_SETTINGS, SubGestureSettings()),
-                _actionLibrarySettings = ctx.dataStore(DataStoreFiles.ACTION_LIBRARY_SETTINGS, ActionLibrarySettings()),
                 _newActionLibrarySettings = ctx.dataStore(DataStoreFiles.NEW_ACTION_LIBRARY_SETTINGS, NewActionLibrarySettings()),
             )
         }

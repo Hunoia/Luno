@@ -112,7 +112,6 @@ class NewActionLibraryEditVM : ViewModel() {
                     }
                     settings.copy(entries = updatedEntries)
                 }
-                NewActionLibraryVM.syncLegacyEntry(newEntry)
             }
         }
     }
@@ -122,10 +121,7 @@ class NewActionLibraryEditVM : ViewModel() {
         if (draft.isNew || draft.id == null) return
         viewModelScope.launch {
             withContext(NonCancellable) {
-                ConfigProvider.updateNewActionLibrarySettings { settings ->
-                    settings.copy(entries = settings.entries.filter { it.id != draft.id })
-                }
-                NewActionLibraryVM.removeLegacyEntry(draft.id)
+                removeNewLibraryEntry(draft.id)
             }
         }
     }

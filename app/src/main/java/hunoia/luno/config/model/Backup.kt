@@ -15,7 +15,6 @@ data class Backup(
     val gestureButtons: List<GestureButton>? = null,
     val quickAppLauncherSettings: QuickAppLauncherSettings? = null,
     val subGestureSettings: SubGestureSettings? = null,
-    val actionLibrarySettings: ActionLibrarySettings? = null,
     val newActionLibrarySettings: NewActionLibrarySettings? = null,
     val timestamp: Long? = null,
     val version: String? = null

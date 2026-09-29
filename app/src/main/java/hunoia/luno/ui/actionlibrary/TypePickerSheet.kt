@@ -20,6 +20,8 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ActionDefinitions
+import hunoia.luno.ui.component.displayNameRes
+import hunoia.luno.action.definition.ActionCategory
 import hunoia.luno.ui.component.OptimizedBottomSheet
 
 @Composable
@@ -47,7 +49,7 @@ fun TypePickerSheet(
                 byCategory.forEach { (category, categoryDefs) ->
                     item(key = "cat_$category") {
                         Text(
-                            text = category,
+                            text = stringResource(category.displayNameRes),
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(top = 12.dp, bottom = 4.dp, start = 4.dp),

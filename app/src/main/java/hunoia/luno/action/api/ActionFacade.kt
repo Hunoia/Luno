@@ -41,11 +41,5 @@ object ActionFacade {
     const val EXTRA_LAUNCH_APP = ActionIds.EXTRA_LAUNCH_APP
     const val EXTRA_LAUNCH_SHORTCUT = ActionIds.EXTRA_LAUNCH_SHORTCUT
 
-    fun byAction(action: Action): ActionDefinition? = ActionCatalog.byAction(action)
-
     fun byId(actionId: String): ActionDefinition? = ActionCatalog.byId(actionId)
-
-    fun hasConfig(actionId: String): Boolean = ActionCatalog.hasConfig(actionId)
-
-    val definitions: List<ActionDefinition> get() = ActionCatalog.definitions
 }

@@ -7,7 +7,6 @@ import hunoia.luno.config.model.Action
 data class ActionDefinition(
     val actionId: String,
     val category: ActionCategory,
-    val configKind: ActionConfigKind,
     @StringRes val titleResId: Int,
     val icon: ImageVector,
     val isDisplayed: Boolean = true
