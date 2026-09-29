@@ -16,26 +16,26 @@ class InternalExecutors : ActionExecutor {
 
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
         return when (action) {
-            is Action.None -> ActionResult.Success
-            is Action.SubGesture -> ActionResult.Success
+            is Action.None -> ActionResult.Success()
+            is Action.SubGesture -> ActionResult.Success()
             is Action.HideGestureButton -> {
-                context.hideGestureButton(0L)
-                ActionResult.Success
+                context.hideGestureButton(context.actionSettings.hideGestureButton.delayMs)
+                ActionResult.Success()
             }
             is Action.QuickAppLauncher -> {
                 context.toggleQuickAppLauncher()
-                ActionResult.Success
+                ActionResult.Success()
             }
             is Action.VolumeScrub -> {
-                if (context.showVolumeScrub()) ActionResult.Success else ActionResult.Failed(ActionFailure.ExecutionFailed)
+                if (context.showVolumeScrub()) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.KeepScreenOn -> {
                 context.toggleKeepScreenOn()
-                ActionResult.Success
+                ActionResult.Success()
             }
             is Action.PreviousApp -> {
                 context.previousApp()
-                ActionResult.Success
+                ActionResult.Success()
             }
             else -> ActionResult.Failed(ActionFailure.Unsupported)
         }

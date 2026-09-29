@@ -1,6 +1,7 @@
 package hunoia.luno.ui.actionlibrary
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +15,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,6 +25,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import hunoia.luno.action.definitions.EnumOption
 import hunoia.luno.action.definitions.ParameterDefinition
+import hunoia.luno.core.AppContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,15 +78,16 @@ fun ParameterEditor(
             val selectedValue = currentParams[definition.key] ?: (definition.defaultValue ?: "")
             val selectedOption = definition.options.find { it.value == selectedValue }
             var expanded by remember { mutableStateOf(false) }
+            val interactionSource = remember { MutableInteractionSource() }
+            rememberTapHandler(interactionSource, Unit) { expanded = !expanded }
             OutlinedTextField(
                 value = selectedOption?.label ?: "",
                 onValueChange = {},
                 readOnly = true,
                 label = { Text(definition.label) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                modifier = modifier
-                    .fillMaxWidth()
-                    .clickable { expanded = !expanded },
+                interactionSource = interactionSource,
+                modifier = modifier.fillMaxWidth(),
                 isError = required && selectedValue.isBlank(),
             )
             DropdownMenu(
@@ -102,26 +108,41 @@ fun ParameterEditor(
         }
         is ParameterDefinition.AppSelector -> {
             val selected = currentParams[definition.key] ?: ""
+            var appLabel by remember(selected) { mutableStateOf<String?>(null) }
+            LaunchedEffect(selected) {
+                appLabel = if (selected.isBlank()) null else resolveAppLabel(selected)
+            }
+            val display = when {
+                selected.isBlank() -> ""
+                appLabel != null && appLabel != selected -> "$appLabel ($selected)"
+                else -> selected
+            }
+            val interactionSource = remember { MutableInteractionSource() }
+            rememberTapHandler(interactionSource, Unit) { onPickApp(definition.key) }
             OutlinedTextField(
-                value = selected,
+                value = display,
                 onValueChange = {},
                 readOnly = true,
                 label = { Text(definition.label) },
-                modifier = modifier.fillMaxWidth().clickable { onPickApp(definition.key) },
+                interactionSource = interactionSource,
+                modifier = modifier.fillMaxWidth(),
                 isError = required && selected.isBlank(),
             )
         }
         is ParameterDefinition.ActivitySelector -> {
             val selected = currentParams["activityClassName"] ?: ""
+            val pkg = currentParams["packageName"] ?: ""
+            val interactionSource = remember { MutableInteractionSource() }
+            rememberTapHandler(interactionSource, pkg) {
+                if (pkg.isNotBlank()) onPickActivity(pkg, definition.key)
+            }
             OutlinedTextField(
                 value = selected,
                 onValueChange = {},
                 readOnly = true,
                 label = { Text(definition.label) },
-                modifier = modifier.fillMaxWidth().clickable {
-                    val pkg = currentParams["packageName"] ?: ""
-                    if (pkg.isNotBlank()) onPickActivity(pkg, definition.key)
-                },
+                interactionSource = interactionSource,
+                modifier = modifier.fillMaxWidth(),
                 isError = required && selected.isBlank(),
             )
         }
@@ -147,4 +168,29 @@ fun ParameterEditor(
             )
         }
     }
+}
+
+/**
+ * OutlinedTextField consumes its own taps internally, so [Modifier.clickable] applied to it never
+ * fires. The field instead emits [PressInteraction.Release] on its [MutableInteractionSource]
+ * whenever it is tapped, which we observe here.
+ */
+@Composable
+private fun rememberTapHandler(
+    interactionSource: MutableInteractionSource,
+    keys: Any,
+    onRelease: () -> Unit,
+) {
+    LaunchedEffect(interactionSource, keys) {
+        interactionSource.interactions.collect { interaction ->
+            if (interaction is PressInteraction.Release) onRelease()
+        }
+    }
+}
+
+private suspend fun resolveAppLabel(packageName: String): String? = withContext(Dispatchers.IO) {
+    runCatching {
+        val pm = AppContext.get().packageManager
+        pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
+    }.getOrNull()
 }

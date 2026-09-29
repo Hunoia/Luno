@@ -15,11 +15,11 @@ class SystemCmdExecutors(private val shellController: ShellController) : ActionE
         return when (action) {
             is Action.Reboot -> {
                 val result = shellController.runCommand("reboot")
-                if (result.success) ActionResult.Success else ActionResult.Failed(ActionFailure.ExecutionFailed)
+                if (result.success) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.Shutdown -> {
                 val result = shellController.runCommand("shutdown -p")
-                if (result.success) ActionResult.Success else ActionResult.Failed(ActionFailure.ExecutionFailed)
+                if (result.success) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             else -> ActionResult.Failed(ActionFailure.Unsupported)
         }

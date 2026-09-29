@@ -14,8 +14,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.ui.component.OptimizedBottomSheet
@@ -33,7 +35,7 @@ fun TypePickerSheet(
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             Text(
-                text = "选择动作类型",
+                text = stringResource(R.string.action_type_picker_title),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(bottom = 12.dp),
             )
@@ -66,7 +68,7 @@ fun TypePickerSheet(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                         onClick = onDismiss,
                     ) {
-                        Text("取消")
+                        Text(stringResource(R.string.cancel))
                     }
                 }
             }
@@ -92,14 +94,14 @@ private fun TypePickerItem(
             )
             if (definition.parameters.isNotEmpty()) {
                 Text(
-                    text = "${definition.parameters.size} 个参数",
+                    text = stringResource(R.string.action_param_count, definition.parameters.size),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             if (definition.capability != hunoia.luno.action.model.Capability.None) {
                 Text(
-                    text = "需要 ${definition.capability.name}",
+                    text = stringResource(R.string.action_requires_capability, definition.capability.name),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error,
                 )

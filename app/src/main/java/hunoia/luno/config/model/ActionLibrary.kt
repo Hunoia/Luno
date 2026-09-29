@@ -198,6 +198,27 @@ internal fun ActionLibraryEntry.isPayloadValid(): Boolean = when (payload) {
 
 internal fun ActionLibraryEntry.resolvedShellCommand(): String? = shellCommand.command.trim().takeIf { it.isNotBlank() }
 
+internal fun ActionLibraryEntry.matchesQuery(query: String): Boolean {
+    if (query.isBlank()) return true
+    val q = query.trim()
+    return name.contains(q, ignoreCase = true) ||
+        shellCommand.command.contains(q, ignoreCase = true) ||
+        openAppOrUrl.url.contains(q, ignoreCase = true) ||
+        openAppOrUrl.packageName.contains(q, ignoreCase = true) ||
+        openAppOrUrl.activityClassName.contains(q, ignoreCase = true) ||
+        shellCommand.template?.templateId?.contains(q, ignoreCase = true) == true ||
+        openAppOrUrl.queryParameters.any { parameter ->
+            parameter.name.contains(q, ignoreCase = true) ||
+                parameter.value.contains(q, ignoreCase = true)
+        }
+}
+
+internal fun ActionLibraryType.sortIndex(): Int = when (this) {
+    ActionLibraryType.Shell -> 0
+    ActionLibraryType.Url -> 1
+    ActionLibraryType.Activity -> 2
+}
+
 internal fun Action.actionLibraryRefId(): String? {
     if (value != ActionFacade.EXECUTE_SHELL_COMMAND &&
         value != ActionFacade.OPEN_URL &&

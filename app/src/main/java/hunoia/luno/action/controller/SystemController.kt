@@ -17,7 +17,7 @@ class SystemController(private val context: Context) {
             return@withContext ActionResult.Failed(ActionFailure.PermissionDenied)
         }
         if (FlashlightController.toggle(context)) {
-            ActionResult.Success
+            ActionResult.Success()
         } else {
             ActionResult.Failed(ActionFailure.ExecutionFailed)
         }

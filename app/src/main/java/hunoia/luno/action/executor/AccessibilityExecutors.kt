@@ -23,25 +23,29 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
         return when (action) {
             is Action.Back -> {
                 controller.back()
-                ActionResult.Success
+                ActionResult.Success()
             }
             is Action.Home -> {
                 controller.home()
-                ActionResult.Success
+                ActionResult.Success()
             }
             is Action.Recents -> {
                 controller.recents()
-                ActionResult.Success
+                ActionResult.Success()
             }
             is Action.Tap -> {
+                val (x, y) = context.touchPosition ?: return ActionResult.Failed(ActionFailure.InvalidParameter)
                 context.hideGestureButton(250L)
                 delay(80)
-                ActionResult.Success
+                if (controller.click(x, y)) ActionResult.Success()
+                else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.LongPress -> {
+                val (x, y) = context.touchPosition ?: return ActionResult.Failed(ActionFailure.InvalidParameter)
                 context.hideGestureButton(250L)
                 delay(80)
-                ActionResult.Success
+                if (controller.longPress(x, y)) ActionResult.Success()
+                else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.Swipe -> {
                 when (action.direction) {
@@ -51,38 +55,38 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
                     hunoia.luno.action.model.SwipeDirection.RIGHT -> controller.swipeRight()
                     hunoia.luno.action.model.SwipeDirection.TO_TOP -> controller.scrollToTop()
                 }
-                ActionResult.Success
+                ActionResult.Success()
             }
             is Action.InputText -> {
                 controller.inputText(action.text)
-                ActionResult.Success
+                ActionResult.Success()
             }
             is Action.Screenshot -> {
                 context.scope.launch {
                     delay(200)
                     controller.takeScreenshot()
                 }
-                ActionResult.Success
+                ActionResult.Success()
             }
             is Action.SplitScreen -> {
                 controller.toggleSplitScreen()
-                ActionResult.Success
+                ActionResult.Success()
             }
             is Action.PowerButton -> {
                 controller.powerDialog()
-                ActionResult.Success
+                ActionResult.Success()
             }
             is Action.NotificationPanel -> {
                 controller.notificationPanel()
-                ActionResult.Success
+                ActionResult.Success()
             }
             is Action.QuickPanel -> {
                 controller.quickPanel()
-                ActionResult.Success
+                ActionResult.Success()
             }
             is Action.LockScreen -> {
                 controller.lockScreen()
-                ActionResult.Success
+                ActionResult.Success()
             }
             else -> ActionResult.Failed(ActionFailure.Unsupported)
         }

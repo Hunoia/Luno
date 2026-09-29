@@ -22,7 +22,11 @@ sealed interface Action {
     val typeId: String
 
     // App
-    data class LaunchApp(val packageName: String, val miniWindow: Boolean = false) : Action {
+    data class LaunchApp(
+        val packageName: String,
+        val miniWindow: Boolean = false,
+        val className: String = "",
+    ) : Action {
         override val typeId: String = "app.launch"
     }
     data class OpenActivity(
@@ -34,6 +38,12 @@ sealed interface Action {
     }
     data class AppDetails(val packageName: String) : Action {
         override val typeId: String = "app.details"
+    }
+    data object Popup : Action {
+        override val typeId: String = "app.popup"
+    }
+    data class LaunchShortcut(val data: String) : Action {
+        override val typeId: String = "app.launchShortcut"
     }
 
     // Intent
@@ -65,8 +75,7 @@ sealed interface Action {
     }
     data class Clipboard(
         val operation: ClipboardOperation,
-        val length: Int = 8,
-        val charset: String = "all",
+        val length: Int? = null,
     ) : Action {
         override val typeId: String = "system.clipboard"
     }

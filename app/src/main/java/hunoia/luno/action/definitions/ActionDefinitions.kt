@@ -1,7 +1,6 @@
 package hunoia.luno.action.definitions
 
 import hunoia.luno.action.model.*
-import kotlin.reflect.KClass
 
 object ActionDefinitions {
 
@@ -13,6 +12,7 @@ object ActionDefinitions {
             listOf(
                 ParameterDefinition.AppSelector("packageName", "应用"),
                 ParameterDefinition.Bool("miniWindow", "小窗模式", "false"),
+                ParameterDefinition.Text("className", "Activity 类名", required = false),
             ),
         ))
         add(ActionDefinition(
@@ -28,6 +28,16 @@ object ActionDefinitions {
             Action.AppDetails::class, "app.details", "应用详情", "App",
             Capability.None,
             listOf(ParameterDefinition.AppSelector("packageName", "应用")),
+        ))
+        add(ActionDefinition(
+            Action.Popup::class, "app.popup", "弹出当前应用", "App",
+            Capability.None,
+        ))
+        add(ActionDefinition(
+            Action.LaunchShortcut::class, "app.launchShortcut", "启动快捷方式", "App",
+            Capability.None,
+            listOf(ParameterDefinition.Text("data", "快捷方式数据", required = false)),
+            isInternal = true,
         ))
 
         // Intent
@@ -109,8 +119,7 @@ object ActionDefinitions {
                     EnumOption("RANDOM_NAME", "随机名称"),
                     EnumOption("GENERATE_PASSWORD", "生成密码"),
                 ), defaultValue = "RANDOM_NAME"),
-                ParameterDefinition.Number("length", "长度", required = false, defaultValue = "8", min = 4, max = 64),
-                ParameterDefinition.Text("charset", "字符集", required = false, defaultValue = "all"),
+                ParameterDefinition.Number("length", "长度", required = false, min = 4, max = 64),
             ),
         ))
         add(ActionDefinition(
@@ -229,10 +238,8 @@ object ActionDefinitions {
     }
 
     private val byTypeId: Map<String, ActionDefinition> = definitions.associateBy { it.typeId }
-    private val byClass: Map<KClass<out Action>, ActionDefinition> = definitions.associateBy { it.actionType }
 
     fun byTypeId(typeId: String): ActionDefinition? = byTypeId[typeId]
-    fun byClass(actionClass: KClass<out Action>): ActionDefinition? = byClass[actionClass]
 
     fun userDefinitions(): List<ActionDefinition> = definitions.filterNot { it.isInternal }
     fun internalDefinitions(): List<ActionDefinition> = definitions.filter { it.isInternal }

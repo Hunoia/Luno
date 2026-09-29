@@ -23,7 +23,7 @@ class PackageController(private val context: Context) {
     private suspend fun runShell(command: String):ActionResult = withContext(Dispatchers.IO) {
         val result = ShizukuFacade.runShellCommand(context, command)
         if (result.success) {
-            ActionResult.Success
+            ActionResult.Success()
         } else {
             ActionResult.Failed(ActionFailure.ExecutionFailed)
         }

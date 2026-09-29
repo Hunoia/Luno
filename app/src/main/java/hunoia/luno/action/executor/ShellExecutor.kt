@@ -17,15 +17,16 @@ class ShellExecutor(private val shellController: ShellController) : ActionExecut
                 val command = action.command.trim()
                 if (command.isBlank()) return ActionResult.Failed(ActionFailure.InvalidParameter)
                 val result = shellController.runCommand(command)
-                if (action.showToast) {
-                    val message = if (result.success) {
+                val message = if (action.showToast) {
+                    if (result.success) {
                         result.output.ifBlank { "No output" }
                     } else {
                         result.error ?: result.output.ifBlank { "Unknown error" }
                     }.take(500)
-                    context.showToast(message)
+                } else {
+                    null
                 }
-                if (result.success) ActionResult.Success else ActionResult.Failed(ActionFailure.ExecutionFailed)
+                if (result.success) ActionResult.Success(message) else ActionResult.Failed(ActionFailure.ExecutionFailed, message)
             }
             else -> ActionResult.Failed(ActionFailure.Unsupported)
         }

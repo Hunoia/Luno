@@ -1,6 +1,7 @@
 package hunoia.luno.config.model
 
 import androidx.annotation.Keep
+import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.config.model.GestureButton
 import kotlinx.serialization.Serializable
 
@@ -15,6 +16,7 @@ data class Backup(
     val quickAppLauncherSettings: QuickAppLauncherSettings? = null,
     val subGestureSettings: SubGestureSettings? = null,
     val actionLibrarySettings: ActionLibrarySettings? = null,
+    val newActionLibrarySettings: NewActionLibrarySettings? = null,
     val timestamp: Long? = null,
     val version: String? = null
 )

@@ -21,6 +21,7 @@ object ActionMapper {
             "app.launch" -> Action.LaunchApp(
                 p.str("packageName"),
                 p.bool("miniWindow"),
+                p.str("className"),
             )
             "app.openActivity" -> Action.OpenActivity(
                 p.str("packageName"),
@@ -28,6 +29,8 @@ object ActionMapper {
                 p.bool("miniWindow"),
             )
             "app.details" -> Action.AppDetails(p.str("packageName"))
+            "app.popup" -> Action.Popup
+            "app.launchShortcut" -> Action.LaunchShortcut(p.str("data"))
             "intent.openUrl" -> Action.OpenUrl(
                 p.str("url"),
                 p["queryParameters"]?.jsonArray?.map { e ->
@@ -47,8 +50,7 @@ object ActionMapper {
             "system.vibrate" -> Action.Vibrate(p.str("pattern", "0,500"))
             "system.clipboard" -> Action.Clipboard(
                 ClipboardOperation.valueOf(p.str("operation")),
-                p.intOr("length", 8),
-                p.str("charset", "all"),
+                p.intOrNull("length"),
             )
             "system.media" -> Action.Media(MediaCommand.valueOf(p.str("command")))
             "system.flashlight" -> Action.Flashlight
@@ -102,6 +104,7 @@ object ActionMapper {
                 is Action.LaunchApp -> {
                     put("packageName", action.packageName)
                     put("miniWindow", action.miniWindow.toString())
+                    if (action.className.isNotBlank()) put("className", action.className)
                 }
                 is Action.OpenActivity -> {
                     put("packageName", action.packageName)
@@ -109,6 +112,8 @@ object ActionMapper {
                     put("miniWindow", action.miniWindow.toString())
                 }
                 is Action.AppDetails -> put("packageName", action.packageName)
+                is Action.Popup -> {}
+                is Action.LaunchShortcut -> put("data", action.data)
                 is Action.OpenUrl -> {
                     put("url", action.url)
                     if (action.queryParameters.isNotEmpty()) {
@@ -144,8 +149,7 @@ object ActionMapper {
                 is Action.Vibrate -> put("pattern", action.pattern)
                 is Action.Clipboard -> {
                     put("operation", action.operation.name)
-                    put("length", action.length.toString())
-                    put("charset", action.charset)
+                    action.length?.let { put("length", it.toString()) }
                 }
                 is Action.Media -> put("command", action.command.name)
                 is Action.Flashlight -> {}
@@ -200,6 +204,6 @@ object ActionMapper {
     private fun JsonObject.bool(key: String, default: Boolean = false): Boolean =
         this[key]?.jsonPrimitive?.contentOrNull?.toBoolean() ?: default
 
-    private fun JsonObject.intOr(key: String, default: Int): Int =
-        this[key]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: default
+    private fun JsonObject.intOrNull(key: String): Int? =
+        this[key]?.jsonPrimitive?.contentOrNull?.toIntOrNull()
 }

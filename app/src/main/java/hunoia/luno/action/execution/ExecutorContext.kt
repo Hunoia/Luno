@@ -25,4 +25,5 @@ data class ExecutorContext(
     val hideGestureButton: (Long) -> Unit = {},
     val showVersionTooLowToast: (Int) -> Unit = {},
     val previousApp: suspend () -> Unit = {},
+    val touchPosition: Pair<Int, Int>? = null,
 )

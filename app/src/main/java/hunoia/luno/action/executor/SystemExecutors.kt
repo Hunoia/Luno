@@ -1,14 +1,18 @@
 package hunoia.luno.action.executor
 
+import hunoia.luno.R
+import hunoia.luno.action.api.PasswordGenerator
 import hunoia.luno.action.controller.AudioController
 import hunoia.luno.action.controller.ClipboardController
-import hunoia.luno.action.controller.SystemController
 import hunoia.luno.action.controller.VibrateController
 import hunoia.luno.action.execution.ActionExecutor
 import hunoia.luno.action.execution.ExecutorContext
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionFailure
 import hunoia.luno.action.model.ActionResult
+import hunoia.luno.action.model.ClipboardOperation
+import hunoia.luno.bridge.FlashlightController
+import hunoia.luno.bridge.intent.gotoAppDetailSettings
 import android.content.Intent
 import android.provider.Settings
 import hunoia.luno.action.model.SettingsPage
@@ -16,7 +20,6 @@ import hunoia.luno.action.model.SettingsPage
 class SystemExecutors(
     private val audioController: AudioController,
     private val clipboardController: ClipboardController,
-    private val systemController: SystemController,
     private val vibrateController: VibrateController,
 ) : ActionExecutor {
 
@@ -29,23 +32,81 @@ class SystemExecutors(
         return when (action) {
             is Action.OpenSettings -> {
                 val ok = openSettingsPage(context, action.page)
-                if (ok) ActionResult.Success else ActionResult.Failed(ActionFailure.ExecutionFailed)
+                if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.Volume -> {
                 audioController.adjustVolume(action.stream, action.direction)
-                ActionResult.Success
+                ActionResult.Success()
             }
             is Action.Vibrate -> {
                 vibrateController.vibrateWithPattern(action.pattern)
-                ActionResult.Success
+                ActionResult.Success()
             }
-            is Action.Clipboard -> clipboardController.copyClipboard(action)
+            is Action.Clipboard -> executeClipboard(action, context)
             is Action.Media -> {
                 audioController.mediaCommand(action.command)
-                ActionResult.Success
+                ActionResult.Success()
             }
-            is Action.Flashlight -> systemController.toggleFlashlight()
+            is Action.Flashlight -> executeFlashlight(context)
             else -> ActionResult.Failed(ActionFailure.Unsupported)
+        }
+    }
+
+    private suspend fun executeClipboard(action: Action.Clipboard, context: ExecutorContext): ActionResult {
+        val appContext = context.appContext
+        return when (action.operation) {
+            ClipboardOperation.RANDOM_NAME -> {
+                val name = clipboardController.generateRandomName()
+                when {
+                    name == null -> ActionResult.Failed(
+                        ActionFailure.ExecutionFailed,
+                        appContext.getString(R.string.random_name_generate_failed),
+                    )
+                    clipboardController.copyText(name) -> ActionResult.Success(name)
+                    else -> ActionResult.Failed(
+                        ActionFailure.ExecutionFailed,
+                        appContext.getString(R.string.random_name_copy_failed),
+                    )
+                }
+            }
+            ClipboardOperation.GENERATE_PASSWORD -> {
+                val config = context.actionSettings.passwordGenerator
+                val password = runCatching {
+                    PasswordGenerator.generate(config.copy(length = action.length ?: config.length))
+                }.getOrNull()
+                if (password == null) {
+                    ActionResult.Failed(
+                        ActionFailure.ExecutionFailed,
+                        appContext.getString(R.string.password_generate_failed),
+                    )
+                } else {
+                    val copied = clipboardController.copyText(password, "Generated Password")
+                    if (copied) {
+                        ActionResult.Success(appContext.getString(R.string.password_copied))
+                    } else {
+                        ActionResult.Failed(
+                            ActionFailure.ExecutionFailed,
+                            appContext.getString(R.string.password_copy_failed),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun executeFlashlight(context: ExecutorContext): ActionResult {
+        val appContext = context.appContext
+        if (!FlashlightController.isSupported(appContext)) {
+            return ActionResult.Failed(ActionFailure.ExecutionFailed, appContext.getString(R.string.flashlight_failed))
+        }
+        if (!FlashlightController.hasPermission(appContext)) {
+            appContext.gotoAppDetailSettings()
+            return ActionResult.Failed(ActionFailure.PermissionDenied, appContext.getString(R.string.grant_camera_permission))
+        }
+        return if (FlashlightController.toggle(appContext)) {
+            ActionResult.Success()
+        } else {
+            ActionResult.Failed(ActionFailure.ExecutionFailed, appContext.getString(R.string.flashlight_failed))
         }
     }
 

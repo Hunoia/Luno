@@ -8,7 +8,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -48,6 +53,7 @@ fun NewActionLibraryEditScreen(
     var showTypePicker by remember { mutableStateOf(false) }
     var showAppPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
     var showActivityPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     LaunchedEffect(entryId, typeId) {
         vm.load(entryId, typeId)
@@ -62,6 +68,14 @@ fun NewActionLibraryEditScreen(
                 onBack = onBack,
                 title = stringResource(if (draft.isNew) R.string.action_library_add else R.string.action_library_edit),
                 actions = {
+                    if (!draft.isNew) {
+                        IconButton(onClick = { showDeleteConfirm = true }) {
+                            Icon(
+                                imageVector = Icons.Outlined.Delete,
+                                contentDescription = stringResource(R.string.delete),
+                            )
+                        }
+                    }
                     TextButton(
                         enabled = draft.isValid,
                         onClick = {
@@ -97,7 +111,7 @@ fun NewActionLibraryEditScreen(
             )
 
             Text(
-                text = "${definition.category} · ${definition.parameters.size} 个参数",
+                text = stringResource(R.string.action_type_meta_format, definition.category, definition.parameters.size),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -112,6 +126,30 @@ fun NewActionLibraryEditScreen(
                 )
             }
         }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text(stringResource(R.string.action_library_delete_title)) },
+            text = { Text(stringResource(R.string.action_editor_delete_desc)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        vm.delete()
+                        showDeleteConfirm = false
+                        onBack()
+                    },
+                ) {
+                    Text(stringResource(R.string.delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
     }
 
     if (showTypePicker) {
@@ -167,7 +205,7 @@ private fun TypeSelectorField(
             .padding(vertical = 12.dp, horizontal = 16.dp),
     ) {
         Text(
-            text = "动作类型",
+            text = stringResource(R.string.action_type_label),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -213,14 +251,14 @@ private fun ActivityPickerSheet(
     OptimizedBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             Text(
-                text = "选择 Activity",
+                text = stringResource(R.string.select_activity_title),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(bottom = 12.dp),
             )
             AppSearchBar(
                 query = query,
                 onQueryChange = { query = it },
-                placeholder = "搜索 Activity...",
+                placeholder = stringResource(R.string.search_activity_hint),
             )
             Column(
                 modifier = Modifier
@@ -229,7 +267,7 @@ private fun ActivityPickerSheet(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 if (filtered.isEmpty()) {
-                    EmptyState(message = "未找到匹配项")
+                    EmptyState(message = stringResource(R.string.no_matching_results))
                 } else {
                     filtered.forEach { activity ->
                         Row(

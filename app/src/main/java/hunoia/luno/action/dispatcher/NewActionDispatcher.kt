@@ -3,6 +3,7 @@ package hunoia.luno.action.dispatcher
 import android.content.Context
 import android.util.Log
 import hunoia.luno.BuildConfig
+import hunoia.luno.R
 import hunoia.luno.action.capability.AccessibilityCapabilityChecker
 import hunoia.luno.action.capability.CompositeCapabilityChecker
 import hunoia.luno.action.capability.ShizukuCapabilityChecker
@@ -57,7 +58,6 @@ class NewActionDispatcher(
             SystemExecutors(
                 AudioController(host.context.applicationContext),
                 ClipboardController(host.context.applicationContext),
-                SystemController(host.context.applicationContext),
                 VibrateController(host.context.applicationContext),
             ),
             AccessibilityExecutors(AccessibilityController(host.accessibilityService)),
@@ -76,42 +76,48 @@ class NewActionDispatcher(
         stored: StoredAction,
         sourceButton: LegacyGestureButton?,
         sourceOverride: LegacyGestureButtonActionSettingsOverride? = null,
+        touchPosition: Pair<Int, Int>? = null,
     ) {
         if (BuildConfig.DEBUG) Log.d("LunoLauncher", "dispatch storedAction typeId=${stored.typeId}")
         scope.launch(Dispatchers.Main.immediate) {
-            val ctx = buildContext(sourceButton, sourceOverride)
+            val ctx = buildContext(sourceButton, sourceOverride, touchPosition)
             val result = resolver.resolveFromLibrary(stored, ctx)
             if (BuildConfig.DEBUG) Log.d("LunoLauncher", "result=$result")
             when (result) {
-                is ActionResult.Failed -> {
-                    val msg = when (result.reason) {
-                        ActionFailure.AppNotFound -> "应用未找到"
-                        ActionFailure.ActivityNotFound -> "Activity 未找到"
-                        ActionFailure.InvalidParameter -> "参数无效"
-                        ActionFailure.ExecutionFailed -> "执行失败"
-                        ActionFailure.PermissionDenied -> "权限不足"
-                        ActionFailure.Timeout -> "执行超时"
-                        ActionFailure.Unsupported -> "不支持的动作类型"
-                    }
-                    ctx.showToast(msg)
-                }
-                is ActionResult.RequiresCapability -> {
-                    val msg = when (result.capability) {
-                        Capability.Accessibility -> "需要无障碍服务"
-                        Capability.Shizuku -> "需要 Shizuku 权限"
-                        Capability.Root -> "需要 Root 权限"
-                        Capability.None -> "执行失败"
-                    }
-                    ctx.showToast(msg)
-                }
-                ActionResult.Success -> {}
+                is ActionResult.Failed -> ctx.showToast(result.message ?: failureText(appContext, result.reason))
+                is ActionResult.RequiresCapability -> ctx.showToast(capabilityText(appContext, result.capability))
+                is ActionResult.Success -> result.message?.let { msg -> ctx.showToast(msg) }
             }
         }
     }
 
+    private val appContext: Context get() = host.context.applicationContext
+
+    private fun failureText(context: Context, reason: ActionFailure): String = context.getString(
+        when (reason) {
+            ActionFailure.AppNotFound -> R.string.toast_app_not_found
+            ActionFailure.ActivityNotFound -> R.string.toast_activity_not_found
+            ActionFailure.InvalidParameter -> R.string.toast_invalid_parameter
+            ActionFailure.ExecutionFailed -> R.string.toast_execution_failed
+            ActionFailure.PermissionDenied -> R.string.toast_permission_denied
+            ActionFailure.Timeout -> R.string.toast_execution_timeout
+            ActionFailure.Unsupported -> R.string.toast_unsupported_action
+        }
+    )
+
+    private fun capabilityText(context: Context, capability: Capability): String = context.getString(
+        when (capability) {
+            Capability.Accessibility -> R.string.toast_accessibility_required
+            Capability.Shizuku -> R.string.toast_shizuku_required
+            Capability.Root -> R.string.toast_root_required
+            Capability.None -> R.string.toast_execution_failed
+        }
+    )
+
     private fun buildContext(
         sourceButton: LegacyGestureButton?,
         sourceOverride: LegacyGestureButtonActionSettingsOverride? = null,
+        touchPosition: Pair<Int, Int>? = null,
     ): ExecutorContext {
         val snap = settingsSnapshot()
         val context: Context = host.context.applicationContext
@@ -136,6 +142,7 @@ class NewActionDispatcher(
             toggleKeepScreenOn = { keepScreenOnController.toggle() },
             showVersionTooLowToast = { resId -> showVersionTooLowToastUtil(context, resId) },
             previousApp = { previousAppTracker.previousApp() },
+            touchPosition = touchPosition,
         )
     }
 }

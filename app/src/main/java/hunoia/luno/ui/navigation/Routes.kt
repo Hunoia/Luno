@@ -3,7 +3,6 @@ package hunoia.luno.ui.navigation
 import androidx.annotation.Keep
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
-import hunoia.luno.config.model.ActionLibraryType
 import kotlinx.serialization.Serializable
 
 
@@ -45,13 +44,6 @@ data object Condition
 @Serializable
 data class ConditionEdit(
     val ruleId: String,
-)
-
-@Keep
-@Serializable
-data class ActionLibraryEdit(
-    val entryId: String,
-    val type: ActionLibraryType? = null,
 )
 
 @Keep

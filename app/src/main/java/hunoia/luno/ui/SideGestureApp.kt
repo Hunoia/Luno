@@ -38,12 +38,10 @@ import hunoia.luno.ui.navigation.SubGestureEditor
 import hunoia.luno.ui.navigation.Condition
 import hunoia.luno.ui.navigation.ConditionEdit
 
-import hunoia.luno.ui.navigation.ActionLibraryEdit
 import hunoia.luno.ui.navigation.NewActionLibrary
 import hunoia.luno.ui.navigation.NewActionLibraryEdit
 
 import hunoia.luno.ui.actionselect.ActionSelectContent
-import hunoia.luno.ui.actionlibrary.ActionLibraryEditScreen
 import hunoia.luno.ui.actionlibrary.NewActionLibraryEditScreen
 import hunoia.luno.ui.actionlibrary.NewActionLibraryScreen
 import hunoia.luno.ui.condition.ConditionEditScreen
@@ -148,13 +146,6 @@ fun SideGestureApp() {
                     ConditionEditScreen(
                         onBack = { navController.popBackStack() },
                         ruleId = it.toRoute<ConditionEdit>().ruleId,
-                    )
-                }
-                myComposable<ActionLibraryEdit> {
-                    ActionLibraryEditScreen(
-                        onBack = { navController.popBackStack() },
-                        entryId = it.toRoute<ActionLibraryEdit>().entryId,
-                        type = it.toRoute<ActionLibraryEdit>().type,
                     )
                 }
                 myComposable<NewActionLibrary> {

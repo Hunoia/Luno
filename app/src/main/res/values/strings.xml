@@ -437,6 +437,16 @@
     <string name="action_library_default_shell">Shell %1$d</string>
     <string name="action_library_default_url">链接 %1$d</string>
     <string name="action_library_default_activity">活动 %1$d</string>
+
+    <!-- New action editor -->
+    <string name="action_type_label">动作类型</string>
+    <string name="action_type_picker_title">选择动作类型</string>
+    <string name="action_type_meta_format">%1$s · %2$d 个参数</string>
+    <string name="action_param_count">%1$d 个参数</string>
+    <string name="action_requires_capability">需要 %1$s</string>
+    <string name="action_editor_delete_desc">删除后会清理引用该动作的配置，且不可恢复。是否继续？</string>
+    <string name="select_activity_title">选择 Activity</string>
+
     <string name="mirror_sub_gesture">建立镜像子手势</string>
     <string name="mirror_sub_gesture_desc">将当前子手势方向做镜像复制（左↔右、左上↔右上、左下↔右下）。</string>
 
@@ -560,4 +570,14 @@
     <string name="rule_edit">编辑</string>
     <string name="previous_app_exclude_hint">「上一个应用」动作不包含这些应用</string>
     <string name="previous_app_exclude_empty">未排除任何应用</string>
+    <string name="toast_app_not_found">应用未找到</string>
+    <string name="toast_activity_not_found">Activity 未找到</string>
+    <string name="toast_invalid_parameter">参数无效</string>
+    <string name="toast_execution_failed">执行失败</string>
+    <string name="toast_permission_denied">权限不足</string>
+    <string name="toast_execution_timeout">执行超时</string>
+    <string name="toast_unsupported_action">不支持的动作类型</string>
+    <string name="toast_accessibility_required">需要无障碍服务</string>
+    <string name="toast_shizuku_required">需要 Shizuku 权限</string>
+    <string name="toast_root_required">需要 Root 权限</string>
 </resources>

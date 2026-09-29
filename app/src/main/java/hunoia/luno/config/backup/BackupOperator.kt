@@ -207,6 +207,7 @@ object BackupOperator {
             backup.quickAppLauncherSettings?.let { if (verified.quickAppLauncherSettings != it) add("quickAppLauncherSettings") }
             backup.subGestureSettings?.let { if (verified.subGestureSettings != it) add("subGestureSettings") }
             backup.actionLibrarySettings?.let { if (verified.actionLibrarySettings != it) add("actionLibrarySettings") }
+            backup.newActionLibrarySettings?.let { if (verified.newActionLibrarySettings != it) add("newActionLibrarySettings") }
         }
         if (mismatched.isNotEmpty()) {
             throw IllegalStateException("restore failed: mismatch after restoreAll: ${mismatched.joinToString()}")
@@ -225,7 +226,8 @@ object BackupOperator {
             gestureSettings == null && actionSettings == null &&
             gestureButtons == null &&
             quickAppLauncherSettings == null &&
-            subGestureSettings == null && actionLibrarySettings == null
+            subGestureSettings == null && actionLibrarySettings == null &&
+            newActionLibrarySettings == null
     }
 
     private fun scanZipEntries(zipFile: File): Pair<ByteArray?, Boolean> {

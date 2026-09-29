@@ -1,13 +1,6 @@
 package hunoia.luno.action.controller
 
 import android.content.Context
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.os.PersistableBundle
-import hunoia.luno.action.model.ClipboardOperation
-import hunoia.luno.action.model.ActionFailure
-import hunoia.luno.action.model.ActionResult
-import hunoia.luno.action.model.Action
 import hunoia.luno.bridge.copySensitiveText
 
 class ClipboardController(private val context: Context) {
@@ -16,17 +9,7 @@ class ClipboardController(private val context: Context) {
         return copySensitiveText(context, label, text)
     }
 
-    fun copyClipboard(action: Action.Clipboard): ActionResult {
-        val text = when (action.operation) {
-            ClipboardOperation.RANDOM_NAME -> generateRandomName()
-            ClipboardOperation.GENERATE_PASSWORD -> generatePassword(action.length)
-        }
-        if (text == null) return ActionResult.Failed(ActionFailure.ExecutionFailed)
-        val copied = copyText(text)
-        return if (copied) ActionResult.Success else ActionResult.Failed(ActionFailure.ExecutionFailed)
-    }
-
-    private fun generateRandomName(): String? {
+    fun generateRandomName(): String? {
         val blockedNames = setOf("test", "null", "admin", "root", "system", "user")
         val regexThreeVowels = Regex("[aeiou]{3}")
         val regexThreeConsonants = Regex("[bcdfghjklmnpqrstvwxz]{3}")
@@ -68,19 +51,5 @@ class ClipboardController(private val context: Context) {
             }
         }
         return null
-    }
-
-    private fun generatePassword(length: Int): String? {
-        return try {
-            val charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*"
-            val random = java.security.SecureRandom()
-            val sb = StringBuilder(length)
-            for (i in 0 until length) {
-                sb.append(charset[random.nextInt(charset.length)])
-            }
-            sb.toString()
-        } catch (e: Exception) {
-            null
-        }
     }
 }

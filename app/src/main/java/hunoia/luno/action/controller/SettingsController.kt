@@ -18,7 +18,7 @@ class SettingsController(private val context: Context) {
             if (value.equals("null", ignoreCase = true)) {
                 ActionResult.Failed(ActionFailure.InvalidParameter)
             } else {
-                ActionResult.Success
+                ActionResult.Success()
             }
         } else {
             ActionResult.Failed(ActionFailure.ExecutionFailed)
@@ -29,7 +29,7 @@ class SettingsController(private val context: Context) {
         val command = "settings put ${namespace.toShellName()} $key '$value'"
         val result = ShizukuFacade.runShellCommand(context, command)
         return if (result.success) {
-            ActionResult.Success
+            ActionResult.Success()
         } else {
             ActionResult.Failed(ActionFailure.ExecutionFailed)
         }

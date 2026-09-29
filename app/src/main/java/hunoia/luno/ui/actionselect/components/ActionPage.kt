@@ -42,8 +42,8 @@ import hunoia.luno.ui.actionselect.UiState.SelectedRecord
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.EmptyState
 import hunoia.luno.ui.component.displayNameRes
-import hunoia.luno.ui.actionlibrary.matchesQuery
-import hunoia.luno.ui.actionlibrary.sortIndex
+import hunoia.luno.config.model.matchesQuery
+import hunoia.luno.config.model.sortIndex
 import hunoia.luno.ui.theme.*
 
 private const val TYPE_ACTION_LIBRARY = "action_library"

@@ -20,14 +20,6 @@ data class NewActionLibraryEntry(
         fun create(typeId: String, name: String = ""): NewActionLibraryEntry {
             return NewActionLibraryEntry(typeId = typeId, name = name)
         }
-
-        fun duplicate(entry: NewActionLibraryEntry, name: String): NewActionLibraryEntry {
-            return entry.copy(
-                id = UUID.randomUUID().toString(),
-                name = name,
-                createdAt = System.currentTimeMillis(),
-            )
-        }
     }
 }
 
