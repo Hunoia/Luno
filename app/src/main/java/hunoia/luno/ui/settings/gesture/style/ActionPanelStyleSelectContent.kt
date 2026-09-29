@@ -2,7 +2,6 @@ package hunoia.luno.ui.settings.gesture.style
 import hunoia.luno.ui.theme.*
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -14,7 +13,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
@@ -29,25 +27,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.util.fastForEachIndexed
 import com.aaron.compose.ktx.clipToBorder
 import com.aaron.compose.ktx.onSingleClick
 import hunoia.luno.R
-import hunoia.luno.config.model.ActionPanelStylesDefaults
 import hunoia.luno.config.model.ActionPanelStyles
 import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.ui.theme.MinItemHeightNoSecondary
 import hunoia.luno.ui.component.MyColumn
 import hunoia.luno.ui.component.input.MyTextSlider
 import kotlin.math.roundToInt
-import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 

@@ -21,7 +21,6 @@ class ActionDispatcher(
     private val host: GestureHost,
     private val scope: CoroutineScope,
     private val previousAppTracker: PreviousAppTracker,
-    private val keepScreenOnController: KeepScreenOnController,
     private val settingsSnapshot: () -> SettingsSnapshot,
     private val onToggleQuickAppLauncher: () -> Unit,
     private val onShowVolumeScrub: () -> Boolean,
@@ -31,7 +30,6 @@ class ActionDispatcher(
         host = host,
         scope = scope,
         previousAppTracker = previousAppTracker,
-        keepScreenOnController = keepScreenOnController,
         settingsSnapshot = {
             hunoia.luno.action.dispatcher.SettingsSnapshot(
                 actionSettings = settingsSnapshot().actionSettings,

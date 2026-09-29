@@ -1,6 +1,5 @@
 package hunoia.luno.action.api
 
-import hunoia.luno.config.model.Action
 import hunoia.luno.action.definition.ActionCatalog
 import hunoia.luno.action.definition.ActionDefinition
 
@@ -27,7 +26,6 @@ object ActionFacade {
     const val SCREENSHOT = ActionIds.SCREENSHOT
     const val POWER_BUTTON = ActionIds.POWER_BUTTON
     const val HIDE_GESTURE_BUTTON = ActionIds.HIDE_GESTURE_BUTTON
-    const val KEEP_SCREEN_ON = ActionIds.KEEP_SCREEN_ON
     const val BACK_TO_TOP = ActionIds.BACK_TO_TOP
     const val OPEN_APP_ACTIVITY = ActionIds.OPEN_APP_ACTIVITY
     const val OPEN_URL = ActionIds.OPEN_URL

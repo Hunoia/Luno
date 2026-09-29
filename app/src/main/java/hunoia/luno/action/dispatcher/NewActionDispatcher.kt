@@ -19,7 +19,6 @@ import hunoia.luno.config.model.GestureButtonActionSettingsOverride as LegacyGes
 import hunoia.luno.config.model.GestureSettings as LegacyGestureSettings
 import hunoia.luno.config.model.effectiveFor
 import hunoia.luno.runtime.GestureHost
-import hunoia.luno.runtime.action.KeepScreenOnController
 import hunoia.luno.runtime.action.PreviousAppTracker
 import hunoia.luno.service.SideGestureService
 import hunoia.luno.bridge.feedback.showToast as showToastUtil
@@ -33,7 +32,6 @@ class NewActionDispatcher(
     private val host: GestureHost,
     private val scope: CoroutineScope,
     private val previousAppTracker: PreviousAppTracker,
-    private val keepScreenOnController: KeepScreenOnController,
     private val settingsSnapshot: () -> SettingsSnapshot,
     private val onToggleQuickAppLauncher: () -> Unit,
     private val onShowVolumeScrub: () -> Boolean,
@@ -138,7 +136,6 @@ class NewActionDispatcher(
             hideGestureButton = { delayMs ->
                 if (sourceButton != null) onHideGestureButton(sourceButton, delayMs)
             },
-            toggleKeepScreenOn = { keepScreenOnController.toggle() },
             showVersionTooLowToast = { resId -> showVersionTooLowToastUtil(context, resId) },
             previousApp = { previousAppTracker.previousApp() },
             touchPosition = touchPosition,

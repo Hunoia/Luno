@@ -1,6 +1,5 @@
 package hunoia.luno.ui.actionselect
 
-import android.content.Context
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
@@ -56,7 +55,6 @@ internal fun ActionPage(
     onSelectApp: (AppInfo, Boolean) -> Unit,
     onSelectShortcut: (LauncherInfo.ShortcutInfo, Boolean) -> Unit,
     onSetLongPress: (Int) -> Unit = {},
-    onClearLongPress: (Int) -> Unit = {},
     onCancelLongPress: () -> Unit = {},
     onMoveSelected: (Int, Int) -> Unit = { _, _ -> },
     onAppLongClick: (AppInfo) -> Unit,

@@ -14,7 +14,6 @@ import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureButtonActionSettingsOverride
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.action.ActionDispatcher
-import hunoia.luno.runtime.action.KeepScreenOnController
 import hunoia.luno.runtime.action.PreviousAppTracker
 import hunoia.luno.runtime.button.ButtonHideRuntime
 import hunoia.luno.runtime.button.ButtonRefreshCoordinator
@@ -26,7 +25,6 @@ import hunoia.luno.runtime.overlay.GestureOverlayCallbacks
 import hunoia.luno.runtime.overlay.OverlayCoordinator
 import hunoia.luno.runtime.settings.SettingsStore
 import hunoia.luno.runtime.volume.VolumeScrubRuntime
-import hunoia.luno.bridge.feedback.showToast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -106,16 +104,10 @@ class GestureCoordinator(
         excludePackageNames = { runtimeSettingsStore.snapshot().actionSettings.previousApp.packageNames },
     )
 
-    private val keepScreenOnController = KeepScreenOnController(
-        context = host.context,
-        showToast = { showToast(it) },
-    )
-
     private val actionDispatcher = ActionDispatcher(
         host = host,
         scope = host.coroutineScope,
         previousAppTracker = previousAppTracker,
-        keepScreenOnController = keepScreenOnController,
         settingsSnapshot = {
             val s = runtimeSettingsStore.snapshot()
             hunoia.luno.runtime.action.SettingsSnapshot(
@@ -233,7 +225,6 @@ class GestureCoordinator(
         broadcastObserver.unregister()
         volumeScrubRuntime.onDestroy()
         previousAppTracker.onRelease()
-        keepScreenOnController.onRelease()
         wallpaperColorsListener?.let { listener ->
             WallpaperManager.getInstance(host.context).removeOnColorsChangedListener(listener)
             wallpaperColorsListener = null

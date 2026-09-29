@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Intent
 import android.content.Intent.ShortcutIconResource
 import android.graphics.Bitmap
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -13,7 +12,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -55,7 +53,6 @@ import com.aaron.compose.component.UDFComponent
 import com.aaron.compose.component.UiBaseEvent
 import hunoia.luno.R
 import hunoia.luno.config.model.Action
-import hunoia.luno.ui.component.OptimizedBottomSheet
 import hunoia.luno.ui.component.TopBar
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
@@ -65,7 +62,6 @@ import hunoia.luno.bridge.feedback.showToast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import android.os.Build
 import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.theme.*
 
@@ -179,7 +175,6 @@ fun ActionSelectContent(
                             onSelectLibraryEntry = { entry, selected -> vm.select(entry, selected) },
                             onSelectLongPress = { obj -> vm.selectLongPressAction(obj) },
                             onSetLongPress = { index -> vm.startSetLongPressAction(index) },
-                            onClearLongPress = { index -> vm.clearLongPressAction(index) },
                             onCancelLongPress = { vm.cancelSetLongPressAction() },
                             onMoveSelected = { from, to -> vm.moveSelectedAction(from, to) },
                             onSelectApp = { appInfo, selected -> vm.select(appInfo, selected) },

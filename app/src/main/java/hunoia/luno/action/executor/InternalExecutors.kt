@@ -11,7 +11,7 @@ class InternalExecutors : ActionExecutor {
     override val supportedTypes: Set<String> = setOf(
         "internal.none", "internal.subGesture", "internal.hideGestureButton",
         "internal.quickAppLauncher", "internal.volumeScrub",
-        "internal.keepScreenOn", "internal.previousApp"
+        "internal.previousApp"
     )
 
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
@@ -28,10 +28,6 @@ class InternalExecutors : ActionExecutor {
             }
             is Action.VolumeScrub -> {
                 if (context.showVolumeScrub()) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
-            }
-            is Action.KeepScreenOn -> {
-                context.toggleKeepScreenOn()
-                ActionResult.Success()
             }
             is Action.PreviousApp -> {
                 context.previousApp()

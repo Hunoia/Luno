@@ -49,10 +49,8 @@ import hunoia.luno.R
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
-import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureButtonActionSettingsOverride
 import hunoia.luno.config.model.MiniWindowSettings
-import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.config.model.withMiniWindowSettings

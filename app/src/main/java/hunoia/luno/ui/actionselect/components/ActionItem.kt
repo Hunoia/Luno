@@ -8,9 +8,7 @@ import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -20,7 +18,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -30,12 +27,10 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.imageLoader
-import hunoia.luno.R
 import hunoia.luno.config.defaults.SettingsUiDefaults
 import hunoia.luno.config.model.Action
 import hunoia.luno.ui.component.actionIcon
@@ -135,41 +130,6 @@ fun ActionItem(
                     onCheckedChange = onSelect
                 )
             }
-        }
-    }
-}
-
-@Composable
-fun SelectedBar(
-    selectedItems: List<Any>,
-    maxSelectCount: Int,
-    showMaxSelectCount: Boolean,
-    itemLabel: (Any) -> String,
-    onRemoveItem: (Any) -> Unit,
-    onClearAll: () -> Unit,
-) {
-    if (selectedItems.isEmpty()) return
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp * 2, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = if (showMaxSelectCount) {
-                stringResource(R.string.selected_count, selectedItems.size, maxSelectCount)
-            } else {
-                stringResource(R.string.selected_count_no_limit, selectedItems.size)
-            },
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Spacer(Modifier.weight(1f))
-        TextButton(
-            onClick = onClearAll,
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-        ) {
-            Text(stringResource(R.string.clear_all))
         }
     }
 }

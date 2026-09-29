@@ -49,8 +49,8 @@ android {
                     storePassword = keystorePassword
                     keyAlias = storeAlias
                     keyPassword = keyPasswordValue
-                    enableV1Signing = true
-                    enableV2Signing = true
+                    enableV1Signing = false
+                    enableV2Signing = false
                     enableV3Signing = true
                     enableV4Signing = false
                 }

@@ -50,9 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.config.ConfigProvider
-import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.Condition
-import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.RuleEffect
 import hunoia.luno.config.model.RuleScope
 import hunoia.luno.config.model.ScreenType
@@ -227,7 +225,7 @@ private fun ConditionNodeEditor(
     modifier: Modifier = Modifier,
 ) {
     val isNot = node is Condition.Not
-    val inner: Condition = if (isNot) (node as Condition.Not).inner else node
+    val inner: Condition = if (isNot) node.inner else node
 
     fun wrap(x: Condition): Condition = if (isNot) Condition.Not(x) else x
 

@@ -185,9 +185,6 @@ sealed interface Action {
     data object VolumeScrub : Action {
         override val typeId: String = "internal.volumeScrub"
     }
-    data object KeepScreenOn : Action {
-        override val typeId: String = "internal.keepScreenOn"
-    }
     data object PreviousApp : Action {
         override val typeId: String = "internal.previousApp"
     }

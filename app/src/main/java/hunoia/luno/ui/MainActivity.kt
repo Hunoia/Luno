@@ -2,8 +2,6 @@ package hunoia.luno.ui
 
 import android.app.ActivityManager
 import android.content.Context
-import android.content.res.Configuration
-import android.content.res.Resources
 import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity

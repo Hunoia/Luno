@@ -5,7 +5,6 @@ import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.config.model.Action as LegacyAction
 import hunoia.luno.config.model.OpenAppOrUrlData
-import hunoia.luno.config.model.OpenUrlQueryParameter
 import hunoia.luno.config.model.ShellCommandData
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.quicklaunch.model.AppInfo
@@ -38,7 +37,6 @@ object LegacyActionMapper {
         ActionFacade.SCREENSHOT -> StoredAction.of("accessibility.screenshot")
         ActionFacade.POWER_BUTTON -> StoredAction.of("accessibility.powerButton")
         ActionFacade.HIDE_GESTURE_BUTTON -> StoredAction.of("internal.hideGestureButton")
-        ActionFacade.KEEP_SCREEN_ON -> StoredAction.of("internal.keepScreenOn")
         ActionFacade.BACK_TO_TOP -> StoredAction.of("accessibility.swipe", "direction" to "TO_TOP")
         ActionFacade.OPEN_APP_ACTIVITY -> openActivity(action.data)
         ActionFacade.OPEN_URL -> decodeData(action.data)?.let { openUrl(it) }

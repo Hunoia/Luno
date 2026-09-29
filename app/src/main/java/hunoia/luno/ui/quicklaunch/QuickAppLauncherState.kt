@@ -10,7 +10,6 @@ import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import hunoia.luno.quicklaunch.model.AppInfo
-import hunoia.luno.quicklaunch.query.AppSearch.key
 import hunoia.luno.quicklaunch.query.AppSearch.sortApps
 import hunoia.luno.quicklaunch.query.QuickAppLauncherAppList
 import hunoia.luno.quicklaunch.QuickLaunchFacade

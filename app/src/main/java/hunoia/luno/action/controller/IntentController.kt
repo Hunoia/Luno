@@ -1,11 +1,8 @@
 package hunoia.luno.action.controller
 
 import android.content.Context
-import hunoia.luno.action.model.Action
-import hunoia.luno.action.model.SettingsNamespace
 import hunoia.luno.bridge.intent.launchAssist
 import hunoia.luno.quicklaunch.launch.AppLaunchBypass
-import hunoia.luno.quicklaunch.QuickLaunchFacade
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

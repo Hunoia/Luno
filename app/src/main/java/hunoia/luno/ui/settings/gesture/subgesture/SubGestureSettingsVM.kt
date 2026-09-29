@@ -1,6 +1,5 @@
 package hunoia.luno.ui.settings.gesture.subgesture
 
-import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
@@ -19,7 +18,6 @@ import hunoia.luno.ui.navigation.SubGestureEditor
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.SubGestureAngle
-import hunoia.luno.config.model.SubGestureSettings
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 

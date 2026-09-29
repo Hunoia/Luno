@@ -4,8 +4,6 @@ import android.content.Context
 import android.os.VibrationEffect
 import android.os.VibratorManager
 import hunoia.luno.bridge.vibration.vibrate
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 class VibrateController(private val context: Context) {
 

@@ -5,12 +5,10 @@ import hunoia.luno.bridge.window.overlayLayoutParams
 import hunoia.luno.bridge.window.windowManager
 import android.content.Context
 import android.graphics.Color
-import android.os.Build
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.widget.FrameLayout
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.LifecycleOwner

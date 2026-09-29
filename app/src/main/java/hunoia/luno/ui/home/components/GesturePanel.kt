@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -42,7 +41,6 @@ import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.ui.component.buttonTextCompose
 import hunoia.luno.ui.component.segmentedShape
-import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.MarkColorSize
 import hunoia.luno.ui.theme.SegmentedGap
 

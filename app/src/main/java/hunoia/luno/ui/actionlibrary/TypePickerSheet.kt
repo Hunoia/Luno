@@ -21,7 +21,6 @@ import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.ui.component.displayNameRes
-import hunoia.luno.action.definition.ActionCategory
 import hunoia.luno.ui.component.OptimizedBottomSheet
 
 @Composable

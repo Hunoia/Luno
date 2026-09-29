@@ -8,7 +8,7 @@ sealed interface RestorePrecheckResult {
     data class Failed(val reason: RestorePrecheckFailure) : RestorePrecheckResult
 }
 
-enum class RestorePrecheckFailure(@StringRes val stringRes: Int) {
+enum class RestorePrecheckFailure(@param:StringRes val stringRes: Int) {
     CannotReadFile(R.string.restore_precheck_cannot_read_file),
     InvalidFormat(R.string.restore_precheck_invalid_format),
     EmptyBackup(R.string.restore_precheck_empty_backup),

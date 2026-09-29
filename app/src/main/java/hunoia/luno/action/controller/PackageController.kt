@@ -1,7 +1,6 @@
 package hunoia.luno.action.controller
 
 import android.content.Context
-import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionFailure
 import hunoia.luno.action.model.ActionResult
 import hunoia.luno.shizuku.ShizukuFacade

@@ -1,16 +1,12 @@
 package hunoia.luno.ui.actionselect
 
-import android.graphics.Bitmap
 import hunoia.luno.action.api.appInfo
 import hunoia.luno.action.api.shortcutInfo
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.Action
-import hunoia.luno.config.model.DirectionActions
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.core.AppContext
-import hunoia.luno.core.JsonSerializer
-import hunoia.luno.core.Paths
 import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
@@ -248,7 +244,7 @@ internal suspend fun loadDataBody(
     val subGesture = subGestures.find { it.id == actionSelect.subGestureId }
     onUpdateState { state ->
         state.copy(
-            maxSelectCount = LONG_SLIDE_SOFT_MAX_SELECT_COUNT,
+            maxSelectCount = MAX_SELECT_COUNT,
             subGestures = subGestures,
             excludedSubGestureId = actionSelect.subGestureId,
             actionLibraryEntries = actionLibraryEntries,

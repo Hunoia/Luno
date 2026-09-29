@@ -3,7 +3,6 @@ package hunoia.luno.ui.actionlibrary
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import hunoia.luno.action.model.NewActionLibraryEntry
-import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.cleanActions
 import hunoia.luno.config.model.Action

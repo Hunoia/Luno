@@ -1,9 +1,7 @@
 package hunoia.luno.bridge
 
 import android.accessibilityservice.AccessibilityService
-import android.Manifest
 import android.content.Context
-import android.content.pm.PackageManager
 import hunoia.luno.bridge.accessibility.AccessibilitySettings
 
 @Suppress("UNCHECKED_CAST")

@@ -2,12 +2,9 @@ package hunoia.luno.ui.settings.gesture.button
 import hunoia.luno.ui.theme.*
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Straighten
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Vibration
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,7 +14,6 @@ import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxGestureButtonArea
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinGestureButtonLength
-import hunoia.luno.config.defaults.SettingsUiDefaults.GestureButtonColorAlpha
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.ui.component.input.MyTextSlider
 import hunoia.luno.ui.component.settings.CompactSettingsGroup

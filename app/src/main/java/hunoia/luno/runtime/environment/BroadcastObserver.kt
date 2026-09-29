@@ -4,8 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import hunoia.luno.core.Events
-import hunoia.luno.bridge.WallpaperChangedEvent
 
 class BroadcastObserver(
     private val context: Context,
@@ -19,7 +17,6 @@ class BroadcastObserver(
             when (intent?.action) {
                 Intent.ACTION_SCREEN_OFF -> onScreenOff()
                 Intent.ACTION_USER_PRESENT -> onUserPresent()
-                Intent.ACTION_WALLPAPER_CHANGED -> Events.post(WallpaperChangedEvent())
             }
         }
     }
@@ -31,7 +28,6 @@ class BroadcastObserver(
             IntentFilter().apply {
                 addAction(Intent.ACTION_SCREEN_OFF)
                 addAction(Intent.ACTION_USER_PRESENT)
-                addAction(Intent.ACTION_WALLPAPER_CHANGED)
             },
             Context.RECEIVER_NOT_EXPORTED
         )

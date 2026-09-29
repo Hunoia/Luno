@@ -75,10 +75,6 @@ class ActionSelectVM(
         updateUiState { it.copy(longPressTargetIndex = null) }
     }
 
-    fun clearLongPressAction(index: Int) {
-        updateUiState { updateSelectedActionTransform(it, index) { it.copy(longPressAction = null) } }
-    }
-
     fun selectLongPressAction(obj: Any) {
         val index = uiState.longPressTargetIndex ?: return
         val longPressAction = obj.toAction()

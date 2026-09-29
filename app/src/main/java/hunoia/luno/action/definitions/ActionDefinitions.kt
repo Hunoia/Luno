@@ -4,10 +4,11 @@ import androidx.compose.material.icons.Icons
 import hunoia.luno.action.api.ActionIds
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.Shortcut
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Assistant
-import androidx.compose.material.icons.filled.BrightnessHigh
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
@@ -31,7 +32,6 @@ import androidx.compose.material.icons.filled.SettingsInputComponent
 import androidx.compose.material.icons.filled.SettingsInputComposite
 import hunoia.luno.action.definition.PlayPause
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Shortcut
 import androidx.compose.material.icons.filled.Splitscreen
 import androidx.compose.material.icons.filled.StopCircle
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -41,11 +41,9 @@ import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.VerticalAlignTop
 import androidx.compose.material.icons.filled.ViewCarousel
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.Window
 import androidx.compose.material.icons.filled.Widgets
-import androidx.compose.ui.graphics.vector.ImageVector
 import hunoia.luno.action.definition.ActionCategory
 import hunoia.luno.action.model.*
 
@@ -89,7 +87,7 @@ object ActionDefinitions {
             Capability.None,
             listOf(ParameterDefinition.Text("data", "快捷方式数据", required = false)),
             isInternal = true,
-            icon = Icons.Default.Shortcut,
+            icon = Icons.AutoMirrored.Default.Shortcut,
         ))
 
         // Intent
@@ -163,7 +161,7 @@ object ActionDefinitions {
                     EnumOption("DOWN", "减小"),
                 ), defaultValue = "UP"),
             ),
-            icon = Icons.Default.VolumeUp,
+            icon = Icons.AutoMirrored.Default.VolumeUp,
         ))
         add(ActionDefinition(
             Action.Vibrate::class, "system.vibrate", "振动", ActionCategory.SYSTEM,
@@ -329,9 +327,6 @@ object ActionDefinitions {
         add(ActionDefinition(Action.VolumeScrub::class, "internal.volumeScrub", "滑动调音量", ActionCategory.INTERNAL, Capability.None, isInternal = true,
             legacyId = ActionIds.VOLUME_SCRUB,
             icon = Icons.Default.Widgets))
-        add(ActionDefinition(Action.KeepScreenOn::class, "internal.keepScreenOn", "屏幕常亮", ActionCategory.INTERNAL, Capability.None, isInternal = true,
-            legacyId = ActionIds.KEEP_SCREEN_ON,
-            icon = Icons.Default.BrightnessHigh))
         add(ActionDefinition(Action.PreviousApp::class, "internal.previousApp", "上一个应用", ActionCategory.INTERNAL, Capability.None, isInternal = true,
             legacyId = ActionIds.PREVIOUS_APP,
             icon = Icons.Default.SwapHoriz))
@@ -361,7 +356,6 @@ object ActionDefinitions {
         userDefinitions().map { it.category }.distinct().withIndex().associate { (i, c) -> c to i }
 
     fun userDefinitions(): List<ActionDefinition> = definitions.filterNot { it.isInternal }
-    fun internalDefinitions(): List<ActionDefinition> = definitions.filter { it.isInternal }
 
     fun categoryOrder(category: ActionCategory): Int = categoryOrder[category] ?: Int.MAX_VALUE
     fun byCategory(): Map<ActionCategory, List<ActionDefinition>> = userDefinitions().groupBy { it.category }

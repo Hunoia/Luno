@@ -1,7 +1,6 @@
 package hunoia.luno.action.controller
 
 import android.content.Context
-import android.content.Intent
 import android.media.AudioManager
 import hunoia.luno.action.model.AudioStream
 import hunoia.luno.action.model.MediaCommand

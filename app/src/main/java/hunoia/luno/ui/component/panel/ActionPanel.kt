@@ -24,9 +24,7 @@ import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -60,7 +58,6 @@ import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.config.model.ActionPanelStyle
 import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.action.api.appInfo
-import hunoia.luno.action.api.shortcutInfo
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.gesture.GestureFacade

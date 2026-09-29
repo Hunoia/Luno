@@ -1,6 +1,5 @@
 package hunoia.luno.runtime.overlay
 
-import android.os.SystemClock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -13,7 +12,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.bridge.WallpaperChangedEvent
 import hunoia.luno.runtime.settings.SettingsState
 import hunoia.luno.ui.component.container.SideGestureContainer
-import hunoia.luno.core.Events
 import hunoia.luno.core.Events.SubscribeEvent
 import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.flow.StateFlow

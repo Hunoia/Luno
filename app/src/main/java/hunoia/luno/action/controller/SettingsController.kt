@@ -5,8 +5,6 @@ import hunoia.luno.action.model.ActionFailure
 import hunoia.luno.action.model.ActionResult
 import hunoia.luno.action.model.SettingsNamespace
 import hunoia.luno.shizuku.ShizukuFacade
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 class SettingsController(private val context: Context) {
 

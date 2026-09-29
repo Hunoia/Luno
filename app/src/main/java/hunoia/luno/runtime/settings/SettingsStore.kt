@@ -1,6 +1,5 @@
 package hunoia.luno.runtime.settings
 
-import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings

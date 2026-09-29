@@ -8,7 +8,6 @@ import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.definition.ActionCategory
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.api.appInfo
-import hunoia.luno.action.api.shortcutInfo
 import hunoia.luno.action.payload.SubGestureActionData
 import hunoia.luno.config.model.Action
 import hunoia.luno.action.model.NewActionLibraryEntry
@@ -79,8 +78,7 @@ internal fun actionCategory(action: Action): ActionCategory {
     }
     return ActionFacade.byId(action.value)?.category ?: ActionCategory.SYSTEM
 }
-internal const val MAX_SELECT_COUNT = 5
-internal const val LONG_SLIDE_SOFT_MAX_SELECT_COUNT = 50
+internal const val MAX_SELECT_COUNT = 50
 
 internal fun canActionEnabled(
     selectedRecord: SelectedRecord,
@@ -141,7 +139,6 @@ internal fun createTitle(actionSelect: ActionSelect): String {
         GestureTriggerType.SlideHold -> context.getString(R.string.slide_hold_action)
         GestureTriggerType.LongSlide -> context.getString(R.string.long1)
         GestureTriggerType.LongSlideHold -> context.getString(R.string.long_slide_hold_action)
-        else -> ""
     }
     return "$str1($str2)"
 }

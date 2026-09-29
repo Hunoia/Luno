@@ -1,10 +1,7 @@
 package hunoia.luno.action.model
 
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.boolean
-import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.int
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -92,7 +89,6 @@ object ActionMapper {
             "internal.hideGestureButton" -> Action.HideGestureButton
             "internal.quickAppLauncher" -> Action.QuickAppLauncher
             "internal.volumeScrub" -> Action.VolumeScrub
-            "internal.keepScreenOn" -> Action.KeepScreenOn
             "internal.previousApp" -> Action.PreviousApp
             else -> Action.None
         }
@@ -191,7 +187,6 @@ object ActionMapper {
                 is Action.HideGestureButton -> {}
                 is Action.QuickAppLauncher -> {}
                 is Action.VolumeScrub -> {}
-                is Action.KeepScreenOn -> {}
                 is Action.PreviousApp -> {}
             }
         }

@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -25,7 +24,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 import com.aaron.compose.ktx.clipToBackground
-import hunoia.luno.ui.theme.ShapeLarge
 import hunoia.luno.bridge.feedback.ToastData
 import hunoia.luno.bridge.feedback.channel
 import kotlinx.coroutines.withTimeoutOrNull
