@@ -12,7 +12,6 @@ import hunoia.luno.quicklaunch.model.qualifiedNameWithIntents
 
 data class UiState(
     val title: String = "",
-    val selectSingle: Boolean = false,
     val actions: List<Action> = emptyList(),
     val apps: List<AppInfo> = emptyList(),
     val createShortcuts: List<LauncherInfo> = emptyList(),

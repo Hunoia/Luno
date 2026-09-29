@@ -2,6 +2,7 @@ package hunoia.luno.config.model
 
 import androidx.annotation.Keep
 import hunoia.luno.action.api.ActionFacade
+import hunoia.luno.action.template.SystemFunctionTemplates
 import hunoia.luno.core.JsonSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -9,7 +10,7 @@ import java.util.UUID
 
 @Serializable
 @Keep
-enum class ActionLibraryType { Shell, Url, Activity, SystemTemplate, SystemApi }
+enum class ActionLibraryType { Shell, Url, Activity }
 
 @Serializable
 @Keep
@@ -23,17 +24,9 @@ data class ActionLibraryRefData(
 
 @Serializable
 @Keep
-data class SystemTemplateData(
+data class ShellTemplateData(
     val templateId: String,
     val params: Map<String, String> = emptyMap()
-)
-
-@Serializable
-@Keep
-data class SystemApiData(
-    val category: String,
-    val command: String,
-    val showToast: Boolean = true,
 )
 
 @Serializable
@@ -49,25 +42,39 @@ sealed interface ActionLibraryPayload {
     @Serializable @Keep @SerialName("activity")
     data class Activity(val data: OpenAppOrUrlData = OpenAppOrUrlData(type = OpenAppOrUrlData.TYPE_ACTIVITY)) : ActionLibraryPayload
 
+    // Legacy types kept for backward-compatible deserialization of old data
     @Serializable @Keep @SerialName("systemTemplate")
-    data class SystemTemplate(val data: SystemTemplateData = SystemTemplateData("")) : ActionLibraryPayload
+    data class SystemTemplate(val data: LegacySystemTemplateData = LegacySystemTemplateData("")) : ActionLibraryPayload
 
     @Serializable @Keep @SerialName("systemApi")
-    data class SystemApi(val data: SystemApiData = SystemApiData("", "")) : ActionLibraryPayload
+    data class SystemApi(val data: LegacySystemApiData = LegacySystemApiData("", "")) : ActionLibraryPayload
 }
+
+@Serializable
+@Keep
+data class LegacySystemTemplateData(
+    val templateId: String,
+    val params: Map<String, String> = emptyMap()
+)
+
+@Serializable
+@Keep
+data class LegacySystemApiData(
+    val category: String,
+    val command: String,
+    val showToast: Boolean = true,
+)
 
 val ActionLibraryPayload.type: ActionLibraryType get() = when (this) {
     is ActionLibraryPayload.Shell -> ActionLibraryType.Shell
     is ActionLibraryPayload.Url -> ActionLibraryType.Url
     is ActionLibraryPayload.Activity -> ActionLibraryType.Activity
-    is ActionLibraryPayload.SystemTemplate -> ActionLibraryType.SystemTemplate
-    is ActionLibraryPayload.SystemApi -> ActionLibraryType.SystemApi
+    is ActionLibraryPayload.SystemTemplate -> ActionLibraryType.Shell
+    is ActionLibraryPayload.SystemApi -> ActionLibraryType.Shell
 }
 
 internal fun ActionLibraryType.actionValue(): String = when (this) {
-    ActionLibraryType.Shell,
-    ActionLibraryType.SystemTemplate,
-    ActionLibraryType.SystemApi -> ActionFacade.EXECUTE_SHELL_COMMAND
+    ActionLibraryType.Shell -> ActionFacade.EXECUTE_SHELL_COMMAND
     ActionLibraryType.Url -> ActionFacade.OPEN_URL
     ActionLibraryType.Activity -> ActionFacade.OPEN_APP_ACTIVITY
 }
@@ -82,7 +89,17 @@ data class ActionLibraryEntry(
 ) {
     val type: ActionLibraryType get() = payload.type
 
-    val shellCommand: ShellCommandData get() = (payload as? ActionLibraryPayload.Shell)?.data ?: ShellCommandData()
+    val shellCommand: ShellCommandData get() = when (val p = payload) {
+        is ActionLibraryPayload.Shell -> p.data
+        is ActionLibraryPayload.SystemTemplate -> {
+            val template = SystemFunctionTemplates.getById(p.data.templateId)
+            val cmd = if (template != null) SystemFunctionTemplates.generateCommand(template, p.data.params) else ""
+            ShellCommandData(cmd, showToast = true, template = ShellTemplateData(p.data.templateId, p.data.params))
+        }
+        is ActionLibraryPayload.SystemApi -> ShellCommandData(p.data.command, p.data.showToast)
+        else -> ShellCommandData()
+    }
+
     val openAppOrUrl: OpenAppOrUrlData get() {
         val p = payload
         return when (p) {
@@ -91,11 +108,16 @@ data class ActionLibraryEntry(
             else -> OpenAppOrUrlData()
         }
     }
-    val systemTemplate: SystemTemplateData get() = (payload as? ActionLibraryPayload.SystemTemplate)?.data ?: SystemTemplateData("")
-    val systemApi: SystemApiData get() = (payload as? ActionLibraryPayload.SystemApi)?.data ?: SystemApiData("", "")
 
-    fun updateShellCommand(data: ShellCommandData): ActionLibraryEntry =
-        copy(payload = (payload as? ActionLibraryPayload.Shell)?.copy(data = data) ?: payload)
+    fun updateShellCommand(data: ShellCommandData): ActionLibraryEntry {
+        val p = payload
+        return when (p) {
+            is ActionLibraryPayload.Shell -> copy(payload = p.copy(data = data))
+            is ActionLibraryPayload.SystemTemplate -> copy(payload = ActionLibraryPayload.Shell(data))
+            is ActionLibraryPayload.SystemApi -> copy(payload = ActionLibraryPayload.Shell(data))
+            else -> copy(payload = ActionLibraryPayload.Shell(data))
+        }
+    }
 
     fun updateOpenAppOrUrl(data: OpenAppOrUrlData): ActionLibraryEntry {
         val p = payload
@@ -106,20 +128,12 @@ data class ActionLibraryEntry(
         }
     }
 
-    fun updateSystemTemplate(data: SystemTemplateData): ActionLibraryEntry =
-        copy(payload = (payload as? ActionLibraryPayload.SystemTemplate)?.copy(data = data) ?: payload)
-
-    fun updateSystemApi(data: SystemApiData): ActionLibraryEntry =
-        copy(payload = (payload as? ActionLibraryPayload.SystemApi)?.copy(data = data) ?: payload)
-
     companion object {
         fun create(type: ActionLibraryType, name: String = ""): ActionLibraryEntry {
             val payload = when (type) {
                 ActionLibraryType.Shell -> ActionLibraryPayload.Shell(ShellCommandData())
                 ActionLibraryType.Url -> ActionLibraryPayload.Url(OpenAppOrUrlData(type = OpenAppOrUrlData.TYPE_URL))
                 ActionLibraryType.Activity -> ActionLibraryPayload.Activity(OpenAppOrUrlData(type = OpenAppOrUrlData.TYPE_ACTIVITY))
-                ActionLibraryType.SystemTemplate -> ActionLibraryPayload.SystemTemplate(SystemTemplateData(""))
-                ActionLibraryType.SystemApi -> ActionLibraryPayload.SystemApi(SystemApiData("", ""))
             }
             return ActionLibraryEntry(
                 id = UUID.randomUUID().toString(),
@@ -142,7 +156,47 @@ data class ActionLibraryEntry(
 @Keep
 data class ActionLibrarySettings(
     val entries: List<ActionLibraryEntry> = emptyList()
-)
+) {
+    fun hasLegacyPayloads(): Boolean = entries.any {
+        it.payload is ActionLibraryPayload.SystemTemplate || it.payload is ActionLibraryPayload.SystemApi
+    }
+
+    fun migrate(): ActionLibrarySettings {
+        val migrated = entries.map { entry ->
+            when (val p = entry.payload) {
+                is ActionLibraryPayload.Shell,
+                is ActionLibraryPayload.Url,
+                is ActionLibraryPayload.Activity -> entry
+                is ActionLibraryPayload.SystemTemplate -> {
+                    val template = SystemFunctionTemplates.getById(p.data.templateId)
+                    val cmd = if (template != null) SystemFunctionTemplates.generateCommand(template, p.data.params) else ""
+                    entry.copy(payload = ActionLibraryPayload.Shell(
+                        ShellCommandData(cmd, showToast = true, template = ShellTemplateData(p.data.templateId, p.data.params))
+                    ))
+                }
+                is ActionLibraryPayload.SystemApi -> {
+                    entry.copy(payload = ActionLibraryPayload.Shell(
+                        ShellCommandData(p.data.command, p.data.showToast)
+                    ))
+                }
+            }
+        }
+        return copy(entries = migrated)
+    }
+}
+
+internal fun ActionLibraryEntry.isPayloadValid(): Boolean = when (payload) {
+    is ActionLibraryPayload.Shell -> payload.data.command.isNotBlank()
+    is ActionLibraryPayload.Url -> payload.data.url.isNotBlank()
+    is ActionLibraryPayload.Activity -> payload.data.packageName.isNotBlank() && payload.data.activityClassName.isNotBlank()
+    is ActionLibraryPayload.SystemTemplate -> {
+        val template = SystemFunctionTemplates.getById(payload.data.templateId)
+        template != null && SystemFunctionTemplates.generateCommand(template, payload.data.params).isNotBlank()
+    }
+    is ActionLibraryPayload.SystemApi -> payload.data.command.isNotBlank()
+}
+
+internal fun ActionLibraryEntry.resolvedShellCommand(): String? = shellCommand.command.trim().takeIf { it.isNotBlank() }
 
 internal fun Action.actionLibraryRefId(): String? {
     if (value != ActionFacade.EXECUTE_SHELL_COMMAND &&

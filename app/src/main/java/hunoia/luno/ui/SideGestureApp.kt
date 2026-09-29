@@ -39,9 +39,13 @@ import hunoia.luno.ui.navigation.Condition
 import hunoia.luno.ui.navigation.ConditionEdit
 
 import hunoia.luno.ui.navigation.ActionLibraryEdit
+import hunoia.luno.ui.navigation.NewActionLibrary
+import hunoia.luno.ui.navigation.NewActionLibraryEdit
 
 import hunoia.luno.ui.actionselect.ActionSelectContent
 import hunoia.luno.ui.actionlibrary.ActionLibraryEditScreen
+import hunoia.luno.ui.actionlibrary.NewActionLibraryEditScreen
+import hunoia.luno.ui.actionlibrary.NewActionLibraryScreen
 import hunoia.luno.ui.condition.ConditionEditScreen
 import hunoia.luno.ui.condition.ConditionSettingsScreen
 import hunoia.luno.ui.settings.action.ActionSettingsScreen
@@ -106,8 +110,8 @@ fun SideGestureApp() {
                         onNavToActionSettings = {
                             navController.navigate(ActionSettings)
                         },
-                        onNavToActionLibraryEdit = { route ->
-                            navController.navigate(route)
+                        onNavToActionLibraryEdit = { entryId, typeId ->
+                            navController.navigate(NewActionLibraryEdit(entryId, typeId))
                         }
                     )
                 }
@@ -151,6 +155,20 @@ fun SideGestureApp() {
                         onBack = { navController.popBackStack() },
                         entryId = it.toRoute<ActionLibraryEdit>().entryId,
                         type = it.toRoute<ActionLibraryEdit>().type,
+                    )
+                }
+                myComposable<NewActionLibrary> {
+                    NewActionLibraryScreen(
+                        onNavToEdit = { entryId, typeId ->
+                            navController.navigate(NewActionLibraryEdit(entryId, typeId))
+                        }
+                    )
+                }
+                myComposable<NewActionLibraryEdit> {
+                    NewActionLibraryEditScreen(
+                        onBack = { navController.popBackStack() },
+                        entryId = it.toRoute<NewActionLibraryEdit>().entryId,
+                        typeId = it.toRoute<NewActionLibraryEdit>().typeId,
                     )
                 }
             }

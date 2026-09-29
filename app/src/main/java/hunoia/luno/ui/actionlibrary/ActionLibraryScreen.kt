@@ -51,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import hunoia.luno.R
+import hunoia.luno.action.template.SystemFunctionTemplates
 import hunoia.luno.config.model.ActionLibraryEntry
 import hunoia.luno.config.model.ActionLibraryType
 import hunoia.luno.core.AppContext
@@ -270,24 +271,26 @@ internal val ActionLibraryType.titleRes: Int get() = when (this) {
     ActionLibraryType.Shell -> R.string.action_library_shell
     ActionLibraryType.Url -> R.string.action_library_url
     ActionLibraryType.Activity -> R.string.action_library_activity
-    ActionLibraryType.SystemTemplate -> R.string.action_library_system_function
-    ActionLibraryType.SystemApi -> R.string.action_library_custom_system_api
 }
 
 private val ActionLibraryType.icon: ImageVector get() = when (this) {
     ActionLibraryType.Shell -> Icons.Default.Terminal
     ActionLibraryType.Url -> Icons.AutoMirrored.Filled.OpenInNew
     ActionLibraryType.Activity -> Icons.Default.Android
-    ActionLibraryType.SystemTemplate -> Icons.Default.Build
-    ActionLibraryType.SystemApi -> Icons.Default.Code
 }
 
 @Composable
 private fun ActionLibraryEntry.summary(): String = when (type) {
-    ActionLibraryType.Shell -> listOf(
-        shellCommand.command.lineSequence().firstOrNull().orEmpty().ifBlank { "Shell" },
-        stringResource(if (shellCommand.showToast) R.string.action_library_shell_toast_on else R.string.action_library_shell_toast_off),
-    ).joinToString(" · ")
+    ActionLibraryType.Shell -> buildList {
+        val tmpl = shellCommand.template
+        if (tmpl != null) {
+            val tpl = SystemFunctionTemplates.getById(tmpl.templateId)
+            add(if (tpl != null) stringResource(tpl.nameResId) else tmpl.templateId)
+        } else {
+            add(shellCommand.command.lineSequence().firstOrNull().orEmpty().ifBlank { "Shell" })
+        }
+        add(stringResource(if (shellCommand.showToast) R.string.action_library_shell_toast_on else R.string.action_library_shell_toast_off))
+    }.joinToString(" · ")
     ActionLibraryType.Url -> buildList {
         add(openAppOrUrl.url.ifBlank { "URL" })
         if (openAppOrUrl.miniWindow) add(stringResource(R.string.open_url_mini_window))
@@ -298,11 +301,6 @@ private fun ActionLibraryEntry.summary(): String = when (type) {
         .filter { it.isNotBlank() }
         .joinToString("/")
         .ifBlank { stringResource(R.string.action_library_activity_empty) }
-    ActionLibraryType.SystemTemplate -> systemTemplate.templateId.ifBlank { "Template" }
-    ActionLibraryType.SystemApi -> listOf(
-        systemApi.command.lineSequence().firstOrNull().orEmpty().ifBlank { "API" },
-        stringResource(if (systemApi.showToast) R.string.action_library_shell_toast_on else R.string.action_library_shell_toast_off),
-    ).joinToString(" · ")
 }
 
 internal fun defaultActionLibraryName(type: ActionLibraryType, entries: List<ActionLibraryEntry>): String {
@@ -311,8 +309,6 @@ internal fun defaultActionLibraryName(type: ActionLibraryType, entries: List<Act
         ActionLibraryType.Shell -> R.string.action_library_default_shell
         ActionLibraryType.Url -> R.string.action_library_default_url
         ActionLibraryType.Activity -> R.string.action_library_default_activity
-        ActionLibraryType.SystemTemplate -> R.string.action_library_default_system_function
-        ActionLibraryType.SystemApi -> R.string.action_library_default_custom_api
     }
     return AppContext.get().getString(res, count)
 }

@@ -123,6 +123,7 @@ class GestureCoordinator(
                 advancedSettings = s.advancedSettings,
                 gestureSettings = s.gestureSettings,
                 actionLibrarySettings = s.actionLibrarySettings,
+                newActionLibrarySettings = s.newActionLibrarySettings,
             )
         },
         onToggleQuickAppLauncher = { host.quickAppLauncherOverlay.toggle() },

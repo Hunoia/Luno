@@ -137,9 +137,6 @@ fun ActionSelectContent(
                             vm.updateAppInfos()
                             vm.updateShortcutInfos()
                         }
-                        if (uiState.selectedRecord.list.isEmpty()) {
-                            vm.reloadData()
-                        }
                     }
                     val context = LocalContext.current
                     var currentLauncherInfo: LauncherInfo? by remember { mutableStateOf(null) }
@@ -184,9 +181,8 @@ fun ActionSelectContent(
                             launchShortcuts = uiState.launchShortcuts,
                             selectedRecord = uiState.selectedRecord,
                             maxSelectCount = uiState.maxSelectCount,
-                            longPressTargetIndex = uiState.longPressTargetIndex,
-                            selectSingle = uiState.selectSingle,
-                            snackbarHostState = snackbarHostState,
+                             longPressTargetIndex = uiState.longPressTargetIndex,
+                             snackbarHostState = snackbarHostState,
                             permissionState = permissionState,
                             onSelect = { action, selected -> vm.select(action, selected) },
                             onSelectLibraryEntry = { entry, selected -> vm.select(entry, selected) },
@@ -209,7 +205,7 @@ fun ActionSelectContent(
                     }
 
                     AnimatedVisibility(
-                        visible = !uiState.selectSingle && uiState.selectedRecord.size > 0 && isExpanded,
+                        visible = uiState.selectedRecord.size > 0 && isExpanded,
                         enter = expandVertically(animationSpec = tween(AnimMedium.toInt())) +
                                 fadeIn(animationSpec = tween(AnimMedium.toInt())),
                         exit = shrinkVertically(animationSpec = tween(AnimMedium.toInt())) +
@@ -243,12 +239,15 @@ fun ActionSelectContent(
                         )
                     }
 
-                    if (!uiState.selectSingle && uiState.selectedRecord.size > 0) {
+                    if (uiState.selectedRecord.size > 0) {
+                        val inLongPressMode = uiState.longPressTargetIndex != null
                         SelectedBottomBar(
                             count = uiState.selectedRecord.size,
                             expanded = isExpanded,
-                            onToggleExpand = { isExpanded = !isExpanded },
-                            onDone = { vm.done() },
+                            inLongPressMode = inLongPressMode,
+                            onToggleExpand = { if (!inLongPressMode) isExpanded = !isExpanded },
+                            onDone = { if (!inLongPressMode) vm.done() },
+                            onCancel = { vm.cancelSetLongPressAction() },
                         )
                     }
                 }
@@ -263,8 +262,10 @@ fun ActionSelectContent(
 private fun SelectedBottomBar(
     count: Int,
     expanded: Boolean,
+    inLongPressMode: Boolean,
     onToggleExpand: () -> Unit,
     onDone: () -> Unit,
+    onCancel: () -> Unit,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -277,22 +278,34 @@ private fun SelectedBottomBar(
                 .padding(horizontal = 12.dp * 2, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = stringResource(R.string.selected_count_no_limit, count),
-                style = MaterialTheme.typography.titleSmall,
-            )
-            Spacer(Modifier.weight(1f))
-            TextButton(onClick = onToggleExpand) {
-                Text(if (expanded) stringResource(R.string.collapse) else stringResource(R.string.expand))
-                Icon(
-                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
+            if (inLongPressMode) {
+                Text(
+                    text = stringResource(R.string.choose_long_press_action_hint),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f),
                 )
-            }
-            Spacer(Modifier.width(4.dp))
-            FilledTonalButton(onClick = onDone) {
-                Text(stringResource(R.string.done))
+                TextButton(onClick = onCancel) {
+                    Text(stringResource(R.string.cancel))
+                }
+            } else {
+                Text(
+                    text = stringResource(R.string.selected_count_no_limit, count),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = onToggleExpand) {
+                    Text(if (expanded) stringResource(R.string.collapse) else stringResource(R.string.expand))
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                Spacer(Modifier.width(4.dp))
+                FilledTonalButton(onClick = onDone) {
+                    Text(stringResource(R.string.done))
+                }
             }
         }
     }

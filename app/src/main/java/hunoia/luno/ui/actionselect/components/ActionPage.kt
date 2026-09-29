@@ -19,13 +19,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -47,6 +45,11 @@ import hunoia.luno.ui.component.displayNameRes
 import hunoia.luno.ui.actionlibrary.matchesQuery
 import hunoia.luno.ui.actionlibrary.sortIndex
 import hunoia.luno.ui.theme.*
+
+private const val TYPE_ACTION_LIBRARY = "action_library"
+private const val TYPE_APP = "app"
+private const val TYPE_SHORTCUT = "shortcut"
+private const val TYPE_SUB_GESTURE = "sub_gesture"
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -72,7 +75,6 @@ internal fun ActionPage(
     launchShortcuts: List<LauncherInfo>,
     selectedRecord: SelectedRecord,
     longPressTargetIndex: Int?,
-    selectSingle: Boolean,
     snackbarHostState: SnackbarHostState,
     permissionState: hunoia.luno.ui.permission.PermissionState,
     contentPadding: PaddingValues = PaddingValues(),
@@ -83,22 +85,19 @@ internal fun ActionPage(
     var selectedType by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val selectingLongPress = longPressTargetIndex != null
-    val categoryChips = remember(selectSingle) {
-        buildList {
+    val categoryChips = remember {
+        buildList<Pair<Any?, String>> {
             add(null to context.getString(R.string.all_categories))
             add(ActionCategory.NAVIGATION to context.getString(ActionCategory.NAVIGATION.displayNameRes))
             add(ActionCategory.SYSTEM to context.getString(ActionCategory.SYSTEM.displayNameRes))
             add(ActionCategory.TOOL to context.getString(ActionCategory.TOOL.displayNameRes))
             add(ActionCategory.SUB_GESTURE to context.getString(ActionCategory.SUB_GESTURE.displayNameRes))
-            add("action_library" to context.getString(R.string.action_library))
-            add("app" to context.getString(R.string.tab_apps))
-            add("shortcut" to context.getString(R.string.tab_shortcuts))
+            add(TYPE_ACTION_LIBRARY to context.getString(R.string.action_library))
+            add(TYPE_APP to context.getString(R.string.tab_apps))
+            add(TYPE_SHORTCUT to context.getString(R.string.tab_shortcuts))
         }
     }
-    LaunchedEffect(selectSingle) {
-        if (selectSingle) selectedType = null
-    }
-    val filteredActions = remember(actions, query, selectedCategory, selectedType, selectingLongPress) {
+    val filteredActions = remember(actions, query, selectedCategory, selectedType) {
         if (query.isNotBlank()) {
             var result = actions
             if (selectedCategory != null) {
@@ -111,12 +110,12 @@ internal fun ActionPage(
                 context.actionTextWithSubGesture(it, subGestures, actionLibraryEntries, emptyIfNone = false)
                     .contains(query, ignoreCase = true)
             }
-            if (selectedType == "action_library") emptyList() else result
-        } else if (selectedType == "app" || selectedType == "shortcut") emptyList()
-        else if (selectedType == "action_library") emptyList()
+            if (selectedType == TYPE_ACTION_LIBRARY) emptyList() else result
+        } else if (selectedType == TYPE_APP || selectedType == TYPE_SHORTCUT) emptyList()
+        else if (selectedType == TYPE_ACTION_LIBRARY) emptyList()
         else {
             var result = actions
-            if (selectedType == "sub_gesture") {
+            if (selectedType == TYPE_SUB_GESTURE) {
                 result = result.filter { it.value == ActionFacade.SUB_GESTURE }
             }
             if (selectedCategory != null) {
@@ -136,26 +135,36 @@ internal fun ActionPage(
         }
         map
     }
-    val selectedItems = selectedRecord.list
     val filteredLibraryEntries = remember(actionLibraryEntries, query, selectedType) {
-        if (query.isNotBlank()) actionLibraryEntries.filter { it.matchesQuery(query) }
-        else if (selectedType != "action_library") emptyList()
-        else actionLibraryEntries
+        if (selectedType == TYPE_ACTION_LIBRARY || query.isNotBlank()) {
+            actionLibraryEntries.filter { if (query.isNotBlank()) it.matchesQuery(query) else true }
+        } else emptyList()
     }.sortedWith(compareBy<ActionLibraryEntry> { it.type.sortIndex() }.thenBy { it.createdAt })
     val filteredApps = remember(appInfos, query, selectedType) {
-        if (query.isNotBlank()) appInfos.filter { it.label.contains(query, ignoreCase = true) || it.packageName.contains(query, ignoreCase = true) }
-        else if (selectedType != "app") emptyList()
-        else appInfos
+        if (selectedType == TYPE_APP || query.isNotBlank()) {
+            appInfos.filter {
+                if (query.isBlank()) true
+                else it.label.contains(query, ignoreCase = true) || it.packageName.contains(query, ignoreCase = true)
+            }
+        } else emptyList()
     }
     val filteredCreateShortcuts = remember(createShortcuts, query, selectedType) {
-        if (query.isNotBlank()) createShortcuts.filter { it.label.contains(query, ignoreCase = true) || it.shortcuts.any { s -> s.label.contains(query, ignoreCase = true) } }
-        else if (selectedType != "shortcut") emptyList()
-        else createShortcuts
+        if (selectedType == TYPE_SHORTCUT || query.isNotBlank()) {
+            createShortcuts.filter {
+                if (query.isBlank()) true
+                else it.label.contains(query, ignoreCase = true) ||
+                    it.shortcuts.any { s -> s.label.contains(query, ignoreCase = true) }
+            }
+        } else emptyList()
     }
     val filteredLaunchShortcuts = remember(launchShortcuts, query, selectedType) {
-        if (query.isNotBlank()) launchShortcuts.filter { it.label.contains(query, ignoreCase = true) || it.shortcuts.any { s -> s.label.contains(query, ignoreCase = true) } }
-        else if (selectedType != "shortcut") emptyList()
-        else launchShortcuts
+        if (selectedType == TYPE_SHORTCUT || query.isNotBlank()) {
+            launchShortcuts.filter {
+                if (query.isBlank()) true
+                else it.label.contains(query, ignoreCase = true) ||
+                    it.shortcuts.any { s -> s.label.contains(query, ignoreCase = true) }
+            }
+        } else emptyList()
     }
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
@@ -180,7 +189,7 @@ internal fun ActionPage(
                     val isSelected = when (chipKey) {
                         null -> selectedType == null && selectedCategory == null
                         is String -> chipKey == selectedType
-                        is ActionCategory? -> chipKey == selectedCategory
+                        is ActionCategory -> chipKey == selectedCategory
                         else -> false
                     }
                     FilterChip(
@@ -192,7 +201,7 @@ internal fun ActionPage(
                                     selectedType = if (isSelected) null else chipKey
                                     if (selectedType != null) selectedCategory = null
                                 }
-                                is ActionCategory? -> {
+                                is ActionCategory -> {
                                     selectedCategory = if (isSelected) null else chipKey
                                     if (selectedCategory != null) selectedType = null
                                 }
@@ -213,7 +222,7 @@ internal fun ActionPage(
             }
         }
         val hasAnyContent = grouped.isNotEmpty() || filteredApps.isNotEmpty() || filteredLibraryEntries.isNotEmpty() || filteredCreateShortcuts.isNotEmpty() || filteredLaunchShortcuts.isNotEmpty()
-        if ((query.isNotEmpty() || selectedCategory != null || selectedType != null) && !hasAnyContent) {
+        if ((query.isNotEmpty() || selectedType != null || selectedCategory != null) && !hasAnyContent) {
             item {
                 EmptyState(message = stringResource(R.string.no_matching_results))
             }
@@ -239,7 +248,7 @@ internal fun ActionPage(
                             action = item,
                             actionLabel = context.actionTextWithSubGesture(item, subGestures, actionLibraryEntries, emptyIfNone = false),
                             selected = selectedRecord.isSelected(item),
-                            selectSingle = selectSingle || selectingLongPress,
+                            selectSingle = selectingLongPress,
                             enabled = selectingLongPress || canActionEnabled(selectedRecord, item, maxSelectCount),
                             snackbarHostState = snackbarHostState,
                             onSelect = { selected ->
@@ -270,7 +279,7 @@ internal fun ActionPage(
                             action = action,
                             actionLabel = entry.name,
                             selected = selectedRecord.isSelected(action),
-                            selectSingle = selectSingle || selectingLongPress,
+                            selectSingle = selectingLongPress,
                             enabled = selectingLongPress || canActionEnabled(selectedRecord, action, maxSelectCount),
                             snackbarHostState = snackbarHostState,
                             onSelect = { selected ->
@@ -282,7 +291,7 @@ internal fun ActionPage(
             }
             if (filteredApps.isNotEmpty()) {
                 items(items = filteredApps, key = { "app_${it.qualifiedName}" }) { item ->
-                    AppItem(appInfo = item, selected = selectedRecord.isSelected(item), selectSingle = selectSingle || selectingLongPress,
+                    AppItem(appInfo = item, selected = selectedRecord.isSelected(item), selectSingle = selectingLongPress,
                         enabled = selectingLongPress || canAppInfoEnabled(selectedRecord, item, maxSelectCount),
                         onSelect = { selected ->
                             if (selectingLongPress) onSelectLongPress(item) else onSelectApp(item, selected)
@@ -297,7 +306,7 @@ internal fun ActionPage(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp * 2, vertical = 8.dp))
                 }
                 items(items = filteredCreateShortcuts, key = { "cs_${it.qualifiedName}" }) { item ->
-                    LauncherInfoItem(launcherInfo = item, selectSingle = selectSingle || selectingLongPress,
+                    LauncherInfoItem(launcherInfo = item, selectSingle = selectingLongPress,
                         canLauncherInfoEnabled = { selectingLongPress || canLauncherInfoEnabled(selectedRecord, it, maxSelectCount) },
                         canShortcutInfoEnabled = { selectingLongPress || canShortcutInfoEnabled(selectedRecord, it, maxSelectCount) },
                         isShortcutInfoSelected = { selectedRecord.isSelected(it) },
@@ -313,7 +322,7 @@ internal fun ActionPage(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp * 2, vertical = 8.dp))
                 }
                 items(items = filteredLaunchShortcuts, key = { "ls_${it.qualifiedName}" }) { item ->
-                    LauncherInfoItem(launcherInfo = item, selectSingle = selectSingle || selectingLongPress,
+                    LauncherInfoItem(launcherInfo = item, selectSingle = selectingLongPress,
                         canLauncherInfoEnabled = { selectingLongPress || canLauncherInfoEnabled(selectedRecord, it, maxSelectCount) },
                         canShortcutInfoEnabled = { selectingLongPress || canShortcutInfoEnabled(selectedRecord, it, maxSelectCount) },
                         isShortcutInfoSelected = { selectedRecord.isSelected(it) },
@@ -331,6 +340,4 @@ private val ActionLibraryType.titleRes: Int get() = when (this) {
     ActionLibraryType.Shell -> R.string.action_library_shell
     ActionLibraryType.Url -> R.string.action_library_url
     ActionLibraryType.Activity -> R.string.action_library_activity
-    ActionLibraryType.SystemTemplate -> R.string.action_library_system_function
-    ActionLibraryType.SystemApi -> R.string.action_library_custom_system_api
 }

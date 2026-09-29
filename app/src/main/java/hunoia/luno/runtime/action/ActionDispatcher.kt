@@ -7,6 +7,8 @@ import hunoia.luno.BuildConfig
 import hunoia.luno.action.api.ActionHandlerContext
 import hunoia.luno.action.api.ActionFacade
 import hunoia.luno.action.api.ActionRegistry
+import hunoia.luno.action.dispatcher.NewActionDispatcher
+import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.config.model.Action
 import hunoia.luno.config.model.ActionLibrarySettings
 import hunoia.luno.config.model.ActionSettings
@@ -15,6 +17,7 @@ import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureButtonActionSettingsOverride
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.effectiveFor
+import hunoia.luno.config.model.actionLibraryRefId
 import hunoia.luno.bridge.feedback.showToast as showToastUtil
 import hunoia.luno.bridge.feedback.showToastLong as showToastLongUtil
 import hunoia.luno.bridge.feedback.showVersionTooLowToast as showVersionTooLowToastUtil
@@ -33,12 +36,41 @@ class ActionDispatcher(
     private val onShowVolumeScrub: () -> Boolean,
     private val onHideGestureButton: (GestureButton?, Long) -> Unit,
 ) {
+    private val newDispatcher = NewActionDispatcher(
+        host = host,
+        scope = scope,
+        previousAppTracker = previousAppTracker,
+        keepScreenOnController = keepScreenOnController,
+        settingsSnapshot = {
+            hunoia.luno.action.dispatcher.SettingsSnapshot(
+                actionSettings = settingsSnapshot().actionSettings,
+                advancedSettings = settingsSnapshot().advancedSettings,
+                gestureSettings = settingsSnapshot().gestureSettings,
+                actionLibrarySettings = settingsSnapshot().actionLibrarySettings,
+            )
+        },
+        onToggleQuickAppLauncher = onToggleQuickAppLauncher,
+        onShowVolumeScrub = onShowVolumeScrub,
+        onHideGestureButton = onHideGestureButton,
+    )
+
     fun onAction(
         action: Action,
         sourceButton: GestureButton?,
         sourceOverride: GestureButtonActionSettingsOverride? = sourceButton?.actionSettingsOverride,
     ) {
         if (BuildConfig.DEBUG) Log.d("LunoLauncher", "dispatch action id=${action.value}")
+
+        val entryId = action.actionLibraryRefId()
+        if (entryId != null) {
+            val newSettings = settingsSnapshot().newActionLibrarySettings
+            val newEntry = newSettings.entries.find { it.id == entryId }
+            if (newEntry != null) {
+                newDispatcher.dispatch(newEntry.storedAction, sourceButton, sourceOverride)
+                return
+            }
+        }
+
         if (action.value == ActionFacade.BACK) {
             host.accessibilityService.performGlobalAction(GLOBAL_ACTION_BACK)
             return
@@ -90,4 +122,5 @@ data class SettingsSnapshot(
     val advancedSettings: AdvancedSettings,
     val gestureSettings: GestureSettings,
     val actionLibrarySettings: ActionLibrarySettings,
+    val newActionLibrarySettings: NewActionLibrarySettings = NewActionLibrarySettings(),
 )

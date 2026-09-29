@@ -16,8 +16,7 @@ class ActionSelectVM(
 ) : BaseComposeVM<UiState, UiEvent>() {
 
     override val initialState: UiState = UiState(
-        title = createTitle(actionSelect),
-        selectSingle = false
+        title = createTitle(actionSelect)
     )
 
     fun showDialog(show: Boolean, action: Action = Action.NONE) {
@@ -28,7 +27,7 @@ class ActionSelectVM(
         loadData()
     }
 
-    fun reloadData() {
+    fun loadData() {
         viewModelScope.launch {
             loadDataBody(
                 actionSelect = actionSelect,
@@ -133,16 +132,6 @@ class ActionSelectVM(
                 getUiState = { uiState },
                 updateUiState = { transform -> updateUiState(transform) }
             )
-        }
-    }
-
-    private fun loadData() {
-        viewModelScope.launch {
-            loadDataBody(
-                actionSelect = actionSelect,
-                onUpdateState = { transform -> updateUiState(transform) }
-            )
-            assembleData()
         }
     }
 

@@ -8,4 +8,5 @@ import kotlinx.serialization.Serializable
 data class ShellCommandData(
     val command: String = "",
     val showToast: Boolean = true,
+    val template: ShellTemplateData? = null,
 )

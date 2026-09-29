@@ -23,29 +23,31 @@ import java.io.FileOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+internal fun List<Action>.shortcutIconPaths(): List<String> {
+    return flatMap { action ->
+        listOfNotNull(
+            action.shortcutInfo?.iconPath,
+            action.longPressAction?.shortcutInfo?.iconPath
+        )
+    }.filter { it.isNotEmpty() }
+}
+
+internal fun tryDeleteShortcutIcons(old: List<Action>, new: List<Action>) {
+    val newPaths = new.shortcutIconPaths().toSet()
+    old.forEach { action ->
+        listOfNotNull(action.shortcutInfo, action.longPressAction?.shortcutInfo).forEach { shortcutInfo ->
+            if (shortcutInfo.iconPath.isNullOrEmpty()) return@forEach
+            if (shortcutInfo.iconPath in newPaths) return@forEach
+            File(shortcutInfo.iconPath).delete()
+        }
+    }
+}
+
 internal suspend fun saveSettingsAction(
     actionSelect: ActionSelect,
     getUiState: () -> UiState,
     updateUiState: ((UiState) -> UiState) -> Unit
 ) {
-    fun List<Action>.shortcutIconPaths(): List<String> {
-        return flatMap { action ->
-            listOfNotNull(
-                action.shortcutInfo?.iconPath,
-                action.longPressAction?.shortcutInfo?.iconPath
-            )
-        }.filter { it.isNotEmpty() }
-    }
-    fun tryDeleteShortcutIcons(old: List<Action>, new: List<Action>) {
-        val newPaths = new.shortcutIconPaths().toSet()
-        old.forEach { action ->
-            listOfNotNull(action.shortcutInfo, action.longPressAction?.shortcutInfo).forEach { shortcutInfo ->
-                if (shortcutInfo.iconPath.isNullOrEmpty()) return@forEach
-                if (shortcutInfo.iconPath in newPaths) return@forEach
-                File(shortcutInfo.iconPath).delete()
-            }
-        }
-    }
     val selectedRecord = getUiState().selectedRecord
     val selectedList = selectedRecord.list.filterIsInstance<Action>()
     val newActions = selectedList
@@ -97,15 +99,6 @@ internal suspend fun updateShortcutInfosBody(
     }
     val launchLauncherInfos = withContext(Dispatchers.IO) {
         QuickLaunchFacade.queryShortcuts(AppContext.get())
-    }
-    if (getUiState().selectSingle) {
-        updateUiState {
-            it.copy(
-                createShortcuts = createLauncherInfos,
-                launchShortcuts = launchLauncherInfos
-            )
-        }
-        return
     }
     val selectedRecord = withContext(Dispatchers.Default) {
         getUiState().selectedRecord.let { selectedRecord ->
@@ -194,12 +187,6 @@ internal suspend fun updateAppInfosBody(
     val mergedApps = mutableListOf<AppInfo>()
     mergedApps.addAll(appInfos)
     mergedApps.addAll(filteredDisabledApps)
-    if (getUiState().selectSingle) {
-        updateUiState {
-            it.copy(apps = mergedApps)
-        }
-        return
-    }
     val selectedRecord = withContext(Dispatchers.Default) {
         getUiState().selectedRecord.let { selectedRecord ->
             val uninstalledList = mutableListOf<AppInfo>()
@@ -261,7 +248,6 @@ internal suspend fun loadDataBody(
     val subGesture = subGestures.find { it.id == actionSelect.subGestureId }
     onUpdateState { state ->
         state.copy(
-            selectSingle = false,
             maxSelectCount = LONG_SLIDE_SOFT_MAX_SELECT_COUNT,
             subGestures = subGestures,
             excludedSubGestureId = actionSelect.subGestureId,

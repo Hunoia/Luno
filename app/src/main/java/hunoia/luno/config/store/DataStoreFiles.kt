@@ -10,4 +10,5 @@ object DataStoreFiles {
     const val SUB_GESTURE_SETTINGS = "ii"
     const val GESTURE_BUTTONS = "jj"
     const val ACTION_LIBRARY_SETTINGS = "kk"
+    const val NEW_ACTION_LIBRARY_SETTINGS = "ll"
 }

@@ -20,6 +20,8 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -39,6 +41,7 @@ import hunoia.luno.R
 import hunoia.luno.config.model.ShellCommandData
 import hunoia.luno.bridge.feedback.showToast
 import hunoia.luno.config.model.Action
+import hunoia.luno.config.model.ShellTemplateData
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.shizuku.ShizukuFacade
 import kotlinx.coroutines.Dispatchers
@@ -81,6 +84,8 @@ fun ShellCommandSettingsContent(
     showConfirmButton: Boolean = true,
     onDataChange: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier.padding(horizontal = 16.dp),
+    showTestButton: Boolean = true,
+    showTemplateMode: Boolean = false,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -89,52 +94,96 @@ fun ShellCommandSettingsContent(
     }
     var command by remember(action.data) { mutableStateOf(existingData?.command.orEmpty()) }
     var showToast by remember(action.data) { mutableStateOf(existingData?.showToast ?: true) }
+    var template by remember(action.data) { mutableStateOf(existingData?.template) }
     var testing by remember { mutableStateOf(false) }
     var testOutput by remember { mutableStateOf("") }
     var showSuggestions by remember { mutableStateOf(false) }
+
+    val isTemplateMode = template != null
+
+    fun emitChange() {
+        onDataChange?.invoke(JsonSerializer.encodeToString(ShellCommandData(command.trim(), showToast, template)))
+    }
 
     Column(
         modifier = modifier
             .fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        OutlinedTextField(
-            modifier = Modifier.fillMaxWidth(),
-            value = command,
-            onValueChange = {
-                command = it.take(2000)
-                onDataChange?.invoke(JsonSerializer.encodeToString(ShellCommandData(command.trim(), showToast)))
-            },
-            label = { Text(stringResource(R.string.shell_command_label)) },
-            placeholder = { Text(stringResource(R.string.shell_command_placeholder)) },
-            minLines = 3,
-            maxLines = 6,
-        )
-        Text(
-            text = stringResource(R.string.shell_command_hint),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        TextButton(onClick = { showSuggestions = !showSuggestions }) {
-            Text(if (showSuggestions) stringResource(R.string.collapse) else stringResource(R.string.expand) + " 常用命令")
+        if (showTemplateMode) {
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                SegmentedButton(
+                    selected = !isTemplateMode,
+                    onClick = {
+                        if (isTemplateMode) {
+                            template = null
+                            emitChange()
+                        }
+                    },
+                    shape = RoundedCornerShape(8.dp, 0.dp, 0.dp, 8.dp),
+                ) { Text(stringResource(R.string.shell_command_mode_raw)) }
+                SegmentedButton(
+                    selected = isTemplateMode,
+                    onClick = {
+                        if (!isTemplateMode) {
+                            template = ShellTemplateData("")
+                            emitChange()
+                        }
+                    },
+                    shape = RoundedCornerShape(0.dp, 8.dp, 8.dp, 0.dp),
+                ) { Text(stringResource(R.string.shell_command_mode_template)) }
+            }
         }
 
-        if (showSuggestions) {
-            FlowRow(
+        if (isTemplateMode) {
+            ShellTemplateEditor(
+                template = template ?: ShellTemplateData(""),
+                generatedCommand = command,
+                onTemplateChange = { newTemplate, newCommand ->
+                    template = newTemplate
+                    command = newCommand
+                    emitChange()
+                },
+            )
+        } else {
+            OutlinedTextField(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                commonCommands.forEach { suggestion ->
-                    FilterChip(
-                        selected = command.trim() == suggestion.command,
-                        onClick = {
-                            command = suggestion.command
-                            onDataChange?.invoke(JsonSerializer.encodeToString(ShellCommandData(command.trim(), showToast)))
-                        },
-                        label = { Text(suggestion.label, style = MaterialTheme.typography.labelSmall) },
-                    )
+                value = command,
+                onValueChange = {
+                    command = it.take(2000)
+                    emitChange()
+                },
+                label = { Text(stringResource(R.string.shell_command_label)) },
+                placeholder = { Text(stringResource(R.string.shell_command_placeholder)) },
+                minLines = 3,
+                maxLines = 6,
+            )
+            Text(
+                text = stringResource(R.string.shell_command_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            TextButton(onClick = { showSuggestions = !showSuggestions }) {
+                Text(if (showSuggestions) stringResource(R.string.collapse) else stringResource(R.string.expand) + " 常用命令")
+            }
+
+            if (showSuggestions) {
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    commonCommands.forEach { suggestion ->
+                        FilterChip(
+                            selected = command.trim() == suggestion.command,
+                            onClick = {
+                                command = suggestion.command
+                                emitChange()
+                            },
+                            label = { Text(suggestion.label, style = MaterialTheme.typography.labelSmall) },
+                        )
+                    }
                 }
             }
         }
@@ -153,11 +202,11 @@ fun ShellCommandSettingsContent(
                 checked = showToast,
                 onCheckedChange = {
                     showToast = it
-                    onDataChange?.invoke(JsonSerializer.encodeToString(ShellCommandData(command.trim(), showToast)))
+                    emitChange()
                 }
             )
         }
-        if (testOutput.isNotBlank()) {
+        if (showTestButton && testOutput.isNotBlank()) {
             TestOutputBox(testOutput)
         }
         Row(
@@ -165,49 +214,51 @@ fun ShellCommandSettingsContent(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(
-                enabled = command.isNotBlank() && !testing,
-                onClick = {
-                    val testCommand = command.trim()
-                    testing = true
-                    testOutput = context.getString(R.string.testing)
-                    scope.launch {
-                        val result = withContext(Dispatchers.IO) {
-                            ShizukuFacade.runShellCommand(context.applicationContext, testCommand)
-                        }
-                        testing = false
-                        val output = result.output.ifBlank { context.getString(R.string.shell_command_no_output) }
-                        testOutput = if (result.success) {
-                            context.getString(
-                                R.string.shell_command_test_output,
-                                result.exitCode,
-                                result.elapsedMs,
-                                output
-                            )
-                        } else {
-                            context.getString(
-                                R.string.shell_command_test_error_output,
-                                result.error ?: "unknown error",
-                                result.exitCode,
-                                result.elapsedMs,
-                                output
-                            )
-                        }
-                        if (result.success) {
-                            showToast(result.output.ifBlank { context.getString(R.string.shell_command_no_output) }.take(500))
-                        } else {
-                            showToast((result.error ?: result.output.ifBlank { "unknown error" }).take(500))
+            if (showTestButton) {
+                TextButton(
+                    enabled = command.isNotBlank() && !testing,
+                    onClick = {
+                        val testCommand = command.trim()
+                        testing = true
+                        testOutput = context.getString(R.string.testing)
+                        scope.launch {
+                            val result = withContext(Dispatchers.IO) {
+                                ShizukuFacade.runShellCommand(context.applicationContext, testCommand)
+                            }
+                            testing = false
+                            val output = result.output.ifBlank { context.getString(R.string.shell_command_no_output) }
+                            testOutput = if (result.success) {
+                                context.getString(
+                                    R.string.shell_command_test_output,
+                                    result.exitCode,
+                                    result.elapsedMs,
+                                    output
+                                )
+                            } else {
+                                context.getString(
+                                    R.string.shell_command_test_error_output,
+                                    result.error ?: "unknown error",
+                                    result.exitCode,
+                                    result.elapsedMs,
+                                    output
+                                )
+                            }
+                            if (result.success) {
+                                showToast(result.output.ifBlank { context.getString(R.string.shell_command_no_output) }.take(500))
+                            } else {
+                                showToast((result.error ?: result.output.ifBlank { "unknown error" }).take(500))
+                            }
                         }
                     }
+                ) {
+                    Text(stringResource(if (testing) R.string.testing else R.string.test))
                 }
-            ) {
-                Text(stringResource(if (testing) R.string.testing else R.string.test))
             }
             if (showConfirmButton) {
                 TextButton(
                     enabled = command.isNotBlank(),
                     onClick = {
-                        onConfirm(JsonSerializer.encodeToString(ShellCommandData(command.trim(), showToast)))
+                        onConfirm(JsonSerializer.encodeToString(ShellCommandData(command.trim(), showToast, template)))
                     }
                 ) {
                     Icon(imageVector = Icons.Default.Check, contentDescription = null)

@@ -177,7 +177,7 @@ internal fun assembleDataTransform(state: UiState): UiState {
                     )
                 }
         }
-    val allWithoutNone = allActions.apply { removeAt(0) }
+    val allWithoutNone = allActions.filterNot { it.value == ActionFacade.NONE }
     val list1 = mutableListOf<Action>()
     val list2 = mutableListOf<Action>()
     allWithoutNone.forEach { action ->

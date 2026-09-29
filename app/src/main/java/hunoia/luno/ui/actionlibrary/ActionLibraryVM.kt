@@ -74,9 +74,7 @@ fun ActionLibraryEntry.matchesQuery(query: String): Boolean {
         openAppOrUrl.url.contains(q, ignoreCase = true) ||
         openAppOrUrl.packageName.contains(q, ignoreCase = true) ||
         openAppOrUrl.activityClassName.contains(q, ignoreCase = true) ||
-        systemTemplate.templateId.contains(q, ignoreCase = true) ||
-        systemApi.command.contains(q, ignoreCase = true) ||
-        systemApi.category.contains(q, ignoreCase = true) ||
+        shellCommand.template?.templateId?.contains(q, ignoreCase = true) == true ||
         openAppOrUrl.queryParameters.any { parameter ->
             parameter.name.contains(q, ignoreCase = true) ||
                 parameter.value.contains(q, ignoreCase = true)
@@ -114,6 +112,4 @@ fun ActionLibraryType.sortIndex(): Int = when (this) {
     ActionLibraryType.Shell -> 0
     ActionLibraryType.Url -> 1
     ActionLibraryType.Activity -> 2
-    ActionLibraryType.SystemTemplate -> 3
-    ActionLibraryType.SystemApi -> 4
 }

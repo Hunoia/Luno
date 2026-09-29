@@ -1,5 +1,6 @@
 package hunoia.luno.config
 
+import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.config.backup.ConfigBackupRepository
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.ActionLibrarySettings
@@ -32,6 +33,7 @@ object ConfigProvider {
     val quickAppLauncherSettings: Flow<QuickAppLauncherSettings> = stores.quickAppLauncherSettings
     val subGestureSettings: Flow<SubGestureSettings> = stores.subGestureSettings
     val actionLibrarySettings: Flow<ActionLibrarySettings> = stores.actionLibrarySettings
+    val newActionLibrarySettings: Flow<NewActionLibrarySettings> = stores.newActionLibrarySettings
 
     suspend fun getInitialSettings(): InitialSettings = settingsRepository.getInitialSettings()
     suspend fun getAdvancedSettings(): AdvancedSettings = settingsRepository.getAdvancedSettings()
@@ -41,6 +43,7 @@ object ConfigProvider {
     suspend fun getQuickAppLauncherSettings(): QuickAppLauncherSettings = settingsRepository.getQuickAppLauncherSettings()
     suspend fun getSubGestureSettings(): SubGestureSettings = settingsRepository.getSubGestureSettings()
     suspend fun getActionLibrarySettings(): ActionLibrarySettings = settingsRepository.getActionLibrarySettings()
+    suspend fun getNewActionLibrarySettings(): NewActionLibrarySettings = settingsRepository.getNewActionLibrarySettings()
 
     suspend fun updateInitialSettings(transform: suspend (InitialSettings) -> InitialSettings) {
         settingsRepository.updateInitialSettings(transform)
@@ -65,6 +68,9 @@ object ConfigProvider {
     }
     suspend fun updateActionLibrarySettings(transform: suspend (ActionLibrarySettings) -> ActionLibrarySettings) {
         settingsRepository.updateActionLibrarySettings(transform)
+    }
+    suspend fun updateNewActionLibrarySettings(transform: suspend (NewActionLibrarySettings) -> NewActionLibrarySettings) {
+        settingsRepository.updateNewActionLibrarySettings(transform)
     }
 
     suspend fun updateQuickAppLauncherLayout(layout: QuickAppLauncherSettings) {

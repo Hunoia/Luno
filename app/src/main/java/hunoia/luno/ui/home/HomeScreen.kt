@@ -72,12 +72,11 @@ import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.ThemeColorKey
 import hunoia.luno.ui.component.color.ColorPickerBottomSheet
 import hunoia.luno.ui.component.color.ColorSelection
-import hunoia.luno.ui.actionlibrary.ActionLibraryScreen
+import hunoia.luno.ui.actionlibrary.NewActionLibraryScreen
 import hunoia.luno.ui.component.FloatingBottomBar
 import hunoia.luno.ui.component.FloatingBottomBarDefaults
 import hunoia.luno.ui.component.FloatingBottomBarMode
 import hunoia.luno.ui.theme.PageGutter
-import hunoia.luno.ui.navigation.ActionLibraryEdit
 import hunoia.luno.ui.navigation.NEW_ACTION_LIBRARY_ENTRY_ID
 import hunoia.luno.ui.theme.resolveColor
 import androidx.compose.material.icons.Icons
@@ -130,7 +129,7 @@ fun HomeScreen(
     onNavToSubGestureEditor: (String) -> Unit,
     onNavToCondition: () -> Unit = {},
     onNavToActionSettings: () -> Unit = {},
-    onNavToActionLibraryEdit: (ActionLibraryEdit) -> Unit = {},
+    onNavToActionLibraryEdit: (String, String?) -> Unit = { _, _ -> },
     vm: HomeVM = viewModel()
 ) {
     val homeListState = rememberLazyListState()
@@ -395,7 +394,7 @@ fun HomeScreen(
                             }
                         }
 
-                        MainTab.ActionLibrary -> ActionLibraryScreen(
+                        MainTab.ActionLibrary -> NewActionLibraryScreen(
                             listState = libraryListState,
                             onNavToEdit = onNavToActionLibraryEdit,
                             contentPadding = paddingValues,
@@ -466,7 +465,7 @@ fun HomeScreen(
                                         }
                                         .padding(horizontal = 20.dp)
                                         .clickable {
-                                            onNavToActionLibraryEdit(ActionLibraryEdit(NEW_ACTION_LIBRARY_ENTRY_ID))
+                                            onNavToActionLibraryEdit(NEW_ACTION_LIBRARY_ENTRY_ID, null)
                                         },
                                     contentAlignment = Alignment.Center,
                                 ) {

@@ -27,8 +27,7 @@ fun RenameDialog(
     onConfirm: (RenameTarget, String) -> Unit,
 ) {
     target ?: return
-    val initialName = target.name
-    var text by remember(target) { mutableStateOf(initialName) }
+    var text by remember(target) { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(100)

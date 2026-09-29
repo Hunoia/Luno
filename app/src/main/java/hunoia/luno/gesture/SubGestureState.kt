@@ -49,7 +49,6 @@ class SubGestureState(
     private var timeoutJob by mutableStateOf<Job?>(null)
     private var slideHoldFirstTriggerMs = 0L
     private var longSlideHoldFirstTriggerMs = 0L
-    private var slideVibrationFlags = false
     private var directTriggered = false
 
     val isActive: Boolean get() = activeSubGesture != null
@@ -68,7 +67,6 @@ class SubGestureState(
         subGestureAccum = Offset.Zero
         slideHoldFirstTriggerMs = 0L
         longSlideHoldFirstTriggerMs = 0L
-        slideVibrationFlags = false
         directTriggered = false
         subGestureDepth += 1
         scheduleTimeout()
@@ -83,7 +81,6 @@ class SubGestureState(
         subGestureAccum = Offset.Zero
         slideHoldFirstTriggerMs = 0L
         longSlideHoldFirstTriggerMs = 0L
-        slideVibrationFlags = false
         directTriggered = false
         restartTimeout()
         return true
@@ -125,10 +122,6 @@ class SubGestureState(
         } else {
             slideHoldFirstTriggerMs = 0L
         }
-        if (sg.vibrateImmediately && !slideVibrationFlags && canReachSlide) {
-            slideVibrationFlags = true
-            sg.tryVibrateForSlide()
-        }
         return null
     }
 
@@ -164,7 +157,6 @@ class SubGestureState(
         finger = Offset.Unspecified
         slideHoldFirstTriggerMs = 0L
         longSlideHoldFirstTriggerMs = 0L
-        slideVibrationFlags = false
         directTriggered = false
         subGestureDepth = 0
         timeoutJob?.cancel()
@@ -211,12 +203,12 @@ class SubGestureState(
         finger = Offset.Unspecified
         slideHoldFirstTriggerMs = 0L
         longSlideHoldFirstTriggerMs = 0L
-        if (triggerType == GestureTriggerType.LongSlide || triggerType == GestureTriggerType.LongSlideHold) {
-            subGesture.tryVibrateForLongSlide()
-        } else if (!slideVibrationFlags) {
-            subGesture.tryVibrateForSlide()
+        when (triggerType) {
+            GestureTriggerType.SlideHold -> subGesture.tryVibrateForSlideHold()
+            GestureTriggerType.LongSlideHold -> subGesture.tryVibrateForLongSlideHold()
+            GestureTriggerType.LongSlide -> subGesture.tryVibrateForLongSlide()
+            else -> subGesture.tryVibrateForSlide()
         }
-        slideVibrationFlags = false
         directTriggered = false
         onModeChanged(false, Offset.Unspecified, 0)
         return SubGestureResolvedActions(subGesture, direction, actions, triggerType, touchPosition)

@@ -5,8 +5,6 @@ import androidx.annotation.RequiresPermission
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.SubGesture
-import hunoia.luno.bridge.vibration.DEFAULT_VIBRATION_EFFECT
-import hunoia.luno.bridge.vibration.DEFAULT_VIBRATION_MS
 import hunoia.luno.bridge.vibration.appContext
 import hunoia.luno.bridge.vibration.vibrate
 
@@ -14,7 +12,7 @@ import hunoia.luno.bridge.vibration.vibrate
 fun GestureButton.tryVibrateForSlide() {
     val ctx = appContext ?: return
     if (slideVibrate) {
-        vibrate(ctx, vibrationEffect, customVibrationMs)
+        vibrate(ctx)
     }
 }
 
@@ -22,7 +20,7 @@ fun GestureButton.tryVibrateForSlide() {
 fun GestureButton.tryVibrateForLongSlide() {
     val ctx = appContext ?: return
     if (longSlideVibrate) {
-        vibrate(ctx, vibrationEffect, customVibrationMs)
+        vibrate(ctx)
     }
 }
 
@@ -30,7 +28,7 @@ fun GestureButton.tryVibrateForLongSlide() {
 fun GestureButton.tryVibrateForTap() {
     val ctx = appContext ?: return
     if (tapVibrate) {
-        vibrate(ctx, vibrationEffect, customVibrationMs)
+        vibrate(ctx)
     }
 }
 
@@ -38,7 +36,23 @@ fun GestureButton.tryVibrateForTap() {
 fun GestureButton.tryVibrateForLongPress() {
     val ctx = appContext ?: return
     if (longPressVibrate) {
-        vibrate(ctx, vibrationEffect, customVibrationMs)
+        vibrate(ctx)
+    }
+}
+
+@RequiresPermission(VIBRATE)
+fun GestureButton.tryVibrateForSlideHold() {
+    val ctx = appContext ?: return
+    if (slideHoldVibrate) {
+        vibrate(ctx)
+    }
+}
+
+@RequiresPermission(VIBRATE)
+fun GestureButton.tryVibrateForLongSlideHold() {
+    val ctx = appContext ?: return
+    if (longSlideHoldVibrate) {
+        vibrate(ctx)
     }
 }
 
@@ -46,7 +60,7 @@ fun GestureButton.tryVibrateForLongPress() {
 fun SubGesture.tryVibrateForSlide() {
     val ctx = appContext ?: return
     if (slideVibrate) {
-        vibrate(ctx, vibrationEffect, customVibrationMs)
+        vibrate(ctx)
     }
 }
 
@@ -54,7 +68,23 @@ fun SubGesture.tryVibrateForSlide() {
 fun SubGesture.tryVibrateForLongSlide() {
     val ctx = appContext ?: return
     if (longSlideVibrate) {
-        vibrate(ctx, vibrationEffect, customVibrationMs)
+        vibrate(ctx)
+    }
+}
+
+@RequiresPermission(VIBRATE)
+fun SubGesture.tryVibrateForSlideHold() {
+    val ctx = appContext ?: return
+    if (slideHoldVibrate) {
+        vibrate(ctx)
+    }
+}
+
+@RequiresPermission(VIBRATE)
+fun SubGesture.tryVibrateForLongSlideHold() {
+    val ctx = appContext ?: return
+    if (longSlideHoldVibrate) {
+        vibrate(ctx)
     }
 }
 
@@ -62,6 +92,6 @@ fun SubGesture.tryVibrateForLongSlide() {
 fun vibrateForActionPanel(gestureSettings: GestureSettings) {
     val ctx = appContext ?: return
     if (gestureSettings.actionPanelVibrate) {
-        vibrate(ctx, DEFAULT_VIBRATION_EFFECT, DEFAULT_VIBRATION_MS)
+        vibrate(ctx)
     }
 }

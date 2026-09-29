@@ -265,16 +265,15 @@ fun SideGestureContainer(
             }
             if (actionPanelState.visible) {
                 val touchPosition = actionPanelState.finger
-                val hitAction = actionPanelState.hitTestAction(touchPosition)
+                val hitAction = actionPanelState.done()
                 val sourceOverride = actionPanelSourceOverride
                 actionPanelSourceOverride = null
-                actionPanelState.cancel()
                 onActionPanelOverlayChanged(false)
                 val fromSubGesturePanel = subGestureState.subGestureDepth > 0
                 if (fromSubGesturePanel) {
                     subGestureState.clear(notifyService = true)
                 }
-                if (hitAction != null && hitAction != Action.NONE) {
+                if (hitAction != Action.NONE) {
                     val actionToRun: () -> Unit = {
                         when (hitAction.value) {
                             ActionFacade.VOLUME_SCRUB -> volumeScrubState.activate(effectiveActionSettings(sourceOverride))

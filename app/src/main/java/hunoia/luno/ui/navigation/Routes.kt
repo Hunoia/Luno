@@ -54,6 +54,17 @@ data class ActionLibraryEdit(
     val type: ActionLibraryType? = null,
 )
 
+@Keep
+@Serializable
+data class NewActionLibraryEdit(
+    val entryId: String,
+    val typeId: String? = null,
+)
+
+@Keep
+@Serializable
+data object NewActionLibrary
+
 const val NEW_CONDITION_RULE_ID = "new"
 
 const val NEW_ACTION_LIBRARY_ENTRY_ID = "new"
