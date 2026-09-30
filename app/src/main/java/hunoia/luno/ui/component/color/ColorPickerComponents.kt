@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -19,6 +18,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import hunoia.luno.ui.theme.LargeShape
 
 @Composable
 fun TabChip(
@@ -51,7 +51,7 @@ fun HsvRectPicker(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(1f)
-            .clip(MaterialTheme.shapes.large)
+            .clip(LargeShape)
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { offset ->

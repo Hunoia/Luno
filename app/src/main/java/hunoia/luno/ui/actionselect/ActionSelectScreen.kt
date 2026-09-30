@@ -7,6 +7,14 @@ import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -20,6 +28,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
@@ -30,7 +40,6 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -66,8 +75,6 @@ import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.theme.*
 
 
-
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActionSelectContent(
@@ -98,20 +105,28 @@ fun ActionSelectContent(
             }
         }
     ) { uiState ->
-        val snackbarHostState = remember { SnackbarHostState() }
         val coroutineScope = rememberCoroutineScope()
 
         Box(modifier = Modifier.fillMaxSize()) {
-            Scaffold(topBar = {
-                TopBar(
-                    onBack = onDismiss,
-                    title = uiState.title,
-                )
-            }) { padding ->
+            val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+            val topBarBackdrop = liquidGlassBackdrop()
+            Scaffold(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                contentWindowInsets = WindowInsets(),
+                topBar = {
+                    TopBar(
+                        onBack = onDismiss,
+                        title = uiState.title,
+                        scrollBehavior = scrollBehavior,
+                        backdrop = topBarBackdrop,
+                    )
+                }
+            ) { padding ->
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
+                        .then(Modifier.layerBackdrop(topBarBackdrop))
                 ) {
                     val permissionState = rememberGetInstalledAppsPermissionState { granted ->
                         if (granted) {
@@ -159,7 +174,7 @@ fun ActionSelectContent(
                     Box(modifier = Modifier.weight(1f)) {
                         ActionPage(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(bottom = 24.dp),
+                            contentPadding = PaddingValues(bottom = ContentBottom),
                             actions = uiState.actions,
                             actionLibraryEntries = uiState.actionLibraryEntries,
                             subGestures = uiState.subGestures,
@@ -169,7 +184,6 @@ fun ActionSelectContent(
                             selectedRecord = uiState.selectedRecord,
                             maxSelectCount = uiState.maxSelectCount,
                              longPressTargetIndex = uiState.longPressTargetIndex,
-                             snackbarHostState = snackbarHostState,
                             permissionState = permissionState,
                             onSelect = { action, selected -> vm.select(action, selected) },
                             onSelectLibraryEntry = { entry, selected -> vm.select(entry, selected) },
@@ -252,15 +266,22 @@ private fun SelectedBottomBar(
     onDone: () -> Unit,
     onCancel: () -> Unit,
 ) {
+    val backdrop = liquidGlassBackdrop()
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        tonalElevation = 8.dp,
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
+            .padding(start = PageGutter, end = PageGutter, bottom = BottomBarPadding)
+            .clip(RoundedCornerShape(BottomBarCapsuleRadius))
+            .liquidGlassBlur(backdrop),
+        color = glassSurfaceColor(),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp * 2, vertical = 8.dp),
+                .height(BottomBarHeight)
+                .layerBackdrop(backdrop)
+                .padding(horizontal = PageGutter),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (inLongPressMode) {
@@ -287,7 +308,7 @@ private fun SelectedBottomBar(
                         modifier = Modifier.size(20.dp),
                     )
                 }
-                Spacer(Modifier.width(4.dp))
+                Spacer(Modifier.width(ShapeExtraSmall))
                 FilledTonalButton(onClick = onDone) {
                     Text(stringResource(R.string.done))
                 }

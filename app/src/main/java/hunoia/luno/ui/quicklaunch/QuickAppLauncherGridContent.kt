@@ -38,6 +38,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import hunoia.luno.ui.theme.MediumShape
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.query.AppSearch.key
 
@@ -57,7 +58,7 @@ internal fun PageMatchIcon(
         Box(
             modifier = Modifier
                 .let { if (iconHeight != null) it.height(iconHeight).fillMaxWidth() else it.fillMaxWidth().aspectRatio(1f) }
-                .clip(MaterialTheme.shapes.medium)
+                .clip(MediumShape)
                 .background(MaterialTheme.colorScheme.tertiaryContainer),
             contentAlignment = Alignment.Center
         ) {

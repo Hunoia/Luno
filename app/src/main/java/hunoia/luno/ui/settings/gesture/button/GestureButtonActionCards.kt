@@ -1,35 +1,48 @@
 package hunoia.luno.ui.settings.gesture.button
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Adjust
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Swipe
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.config.model.ActionPanelStyles
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.gesture.GestureFacade
-import hunoia.luno.ui.component.ExpressiveRowContent
+import hunoia.luno.ui.component.SegmentedSettingsRow
 import hunoia.luno.ui.component.actionTextCompose
-import hunoia.luno.ui.component.settings.CompactExpandableSettingsGroup
+import hunoia.luno.ui.component.segmentedShape
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.settings.gesture.style.MySideGestureSettings
 import hunoia.luno.ui.settings.gesture.style.StyleTrailingButton
-import hunoia.luno.ui.theme.CardShape
+import hunoia.luno.ui.theme.ConnectionRadius
+import hunoia.luno.ui.theme.ContainerRadius
+import hunoia.luno.ui.theme.RowIconSize
+import hunoia.luno.ui.theme.SegmentedGap
 
 val actionCardDirections = listOf(
     GestureDirection.Left,
@@ -56,15 +69,58 @@ fun ExpandableGestureActionCard(
     title: String,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
-    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
 ) {
-    CompactExpandableSettingsGroup(
-        icon = icon,
-        title = title,
-        expanded = expanded,
-        onExpandedChange = onExpandedChange,
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        label = "GestureActionCardArrowRotation",
+    )
+    val headerBottomRadius by animateDpAsState(
+        targetValue = if (expanded) ConnectionRadius else ContainerRadius,
+        label = "GestureActionCardHeaderBottomRadius",
+    )
+    val headerShape = RoundedCornerShape(
+        topStart = ContainerRadius,
+        topEnd = ContainerRadius,
+        bottomStart = headerBottomRadius,
+        bottomEnd = headerBottomRadius,
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(ContainerRadius)),
+        verticalArrangement = Arrangement.spacedBy(SegmentedGap),
     ) {
-        content()
+        SegmentedSettingsRow(
+            title = title,
+            icon = icon,
+            onClick = { onExpandedChange(!expanded) },
+            shape = headerShape,
+            trailingContent = {
+                Icon(
+                    modifier = Modifier
+                        .size(RowIconSize)
+                        .graphicsLayer { rotationZ = rotation },
+                    imageVector = Icons.Default.ExpandMore,
+                    contentDescription = null,
+                )
+            },
+        )
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut(),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(segmentedShape(1, 2)),
+                verticalArrangement = Arrangement.spacedBy(SegmentedGap),
+            ) {
+                content()
+            }
+        }
     }
 }
 
@@ -82,7 +138,6 @@ fun GestureButtonSlideActionsCard(
         onExpandedChange = onExpandedChange,
     ) {
         SlideActionRows(
-            styleGestureButton = gestureButton,
             hiddenDirections = gestureButton.angle.zeroWidthDirections(),
             actionsText = { direction -> gestureButton.slideActions.actionsBy(direction).actionTextCompose() },
             onDirectionClick = { direction ->
@@ -113,7 +168,6 @@ fun GestureButtonLongSlideActionsCard(
         onExpandedChange = onExpandedChange,
     ) {
         LongSlideActionRows(
-            styleGestureButton = gestureButton,
             hiddenDirections = gestureButton.angle.zeroWidthDirections(),
             actionsText = { direction -> gestureButton.longSlideActions.actionsBy(direction).actionTextCompose() },
             currentStyle = { direction -> GestureFacade.styleBy(gestureButton.longSlideActionPanelStyles, direction) },
@@ -134,45 +188,38 @@ fun GestureButtonLongSlideActionsCard(
 @Composable
 private fun <T> RowGroup(
     items: List<T>,
-    item: @Composable (T) -> Unit,
+    item: @Composable (Int, T) -> Unit,
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth().clip(CardShape),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(SegmentedGap),
     ) {
-        items.forEach { value ->
-            Surface(
-                shape = RoundedCornerShape(0.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            ) {
-                item(value)
-            }
+        items.forEachIndexed { index, value ->
+            item(index, value)
         }
     }
 }
 
 @Composable
 fun SlideActionRows(
-    styleGestureButton: GestureButton,
     actionsText: @Composable (GestureDirection) -> String,
     onDirectionClick: (GestureDirection) -> Unit,
     hiddenDirections: Set<GestureDirection> = emptySet(),
 ) {
     val directions = actionCardDirections.filterNot { it in hiddenDirections }
-    RowGroup(items = directions) { direction ->
+    RowGroup(items = directions) { index, direction ->
         MySideGestureSettings(
             onClick = { onDirectionClick(direction) },
-            gestureButton = styleGestureButton,
             direction = direction,
             isLongSlide = false,
             secondaryText = actionsText(direction),
+            shape = segmentedShape(index, directions.size),
         )
     }
 }
 
 @Composable
 fun LongSlideActionRows(
-    styleGestureButton: GestureButton,
     actionsText: @Composable (GestureDirection) -> String,
     currentStyle: (GestureDirection) -> ActionPanelStyles,
     onDirectionClick: (GestureDirection) -> Unit,
@@ -180,13 +227,13 @@ fun LongSlideActionRows(
     hiddenDirections: Set<GestureDirection> = emptySet(),
 ) {
     val directions = actionCardDirections.filterNot { it in hiddenDirections }
-    RowGroup(items = directions) { direction ->
+    RowGroup(items = directions) { index, direction ->
         MySideGestureSettings(
             onClick = { onDirectionClick(direction) },
-            gestureButton = styleGestureButton,
             direction = direction,
             isLongSlide = true,
             secondaryText = actionsText(direction),
+            shape = segmentedShape(index, directions.size),
             trailing = {
                 StyleTrailingButton(
                     currentStyle = currentStyle(direction),
@@ -204,20 +251,19 @@ fun GestureButtonTapActionsCard(
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
 ) {
+    val tapActions = listOf(
+        Triple(R.string.tap_action, GestureTriggerType.Tap, gestureButton.tapActions),
+        Triple(R.string.double_tap_action, GestureTriggerType.DoubleTap, gestureButton.doubleTapActions),
+        Triple(R.string.long_press, GestureTriggerType.LongPress, gestureButton.longPressActions),
+    )
     ExpandableGestureActionCard(
         icon = Icons.Default.Adjust,
         title = stringResource(id = R.string.tap_and_long_press_action),
         expanded = expanded,
         onExpandedChange = onExpandedChange,
     ) {
-        RowGroup(
-            items = listOf(
-                Triple(R.string.tap_action, GestureTriggerType.Tap, gestureButton.tapActions),
-                Triple(R.string.double_tap_action, GestureTriggerType.DoubleTap, gestureButton.doubleTapActions),
-                Triple(R.string.long_press, GestureTriggerType.LongPress, gestureButton.longPressActions),
-            ),
-        ) { (labelRes, triggerType, actions) ->
-            ExpressiveRowContent(
+        RowGroup(items = tapActions) { index, (labelRes, triggerType, actions) ->
+            SegmentedSettingsRow(
                 onClick = {
                     onNavToActionSelect(
                         ActionSelect(
@@ -227,10 +273,18 @@ fun GestureButtonTapActionsCard(
                         )
                     )
                 },
-                text = stringResource(id = labelRes),
-                secondaryText = actions.actionTextCompose(),
+                title = stringResource(id = labelRes),
+                subtitle = actions.actionTextCompose(),
                 secondaryTextColor = MaterialTheme.colorScheme.primary,
-                icon = { Icon(Icons.Default.Adjust, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                shape = segmentedShape(index, tapActions.size),
+                leadingContent = {
+                    Icon(
+                        modifier = Modifier.size(RowIconSize),
+                        imageVector = Icons.Default.Adjust,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                },
             )
         }
     }
@@ -250,7 +304,6 @@ fun GestureButtonSlideHoldActionsCard(
         onExpandedChange = onExpandedChange,
     ) {
         SlideActionRows(
-            styleGestureButton = gestureButton,
             hiddenDirections = gestureButton.angle.zeroWidthDirections(),
             actionsText = { direction -> gestureButton.slideHoldActions.actionsBy(direction).actionTextCompose() },
             onDirectionClick = { direction ->
@@ -281,7 +334,6 @@ fun GestureButtonLongSlideHoldActionsCard(
         onExpandedChange = onExpandedChange,
     ) {
         LongSlideActionRows(
-            styleGestureButton = gestureButton,
             hiddenDirections = gestureButton.angle.zeroWidthDirections(),
             actionsText = { direction -> gestureButton.longSlideHoldActions.actionsBy(direction).actionTextCompose() },
             currentStyle = { direction -> GestureFacade.styleBy(gestureButton.longSlideActionPanelStyles, direction) },

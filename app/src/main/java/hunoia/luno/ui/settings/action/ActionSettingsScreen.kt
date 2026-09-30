@@ -1,30 +1,30 @@
 package hunoia.luno.ui.settings.action
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import hunoia.luno.ui.theme.ConnectionRadius
+import hunoia.luno.ui.theme.ContainerRadius
+import hunoia.luno.ui.theme.SegmentedGap
+import hunoia.luno.ui.theme.ListSpacing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Swipe
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -32,17 +32,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
@@ -54,17 +55,22 @@ import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.config.model.withMiniWindowSettings
-import hunoia.luno.ui.component.ExpressiveCard
-import hunoia.luno.ui.component.ExpressiveSwitchItem
 import hunoia.luno.ui.component.AppPickerSheet
 import hunoia.luno.ui.component.MyColumn
+import hunoia.luno.ui.component.SegmentedGroup
+import hunoia.luno.ui.component.SegmentedSettingsRow
+import hunoia.luno.ui.component.SegmentedSwitchRow
+import hunoia.luno.ui.component.segmentedShape
 import hunoia.luno.ui.component.TopBar
 import hunoia.luno.ui.component.input.MyTextSlider
-import hunoia.luno.ui.theme.CardShape
 import hunoia.luno.ui.theme.MarkColorSize
+import hunoia.luno.ui.theme.RowIconSize
+import hunoia.luno.ui.theme.liquidGlassBackdrop
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,59 +81,68 @@ fun ActionSettingsScreen(onBack: () -> Unit) {
     val buttons by ConfigProvider.gestureButtons.collectAsStateWithLifecycle(initialValue = emptyList())
     val subGestureSettings by ConfigProvider.subGestureSettings.collectAsStateWithLifecycle(initialValue = SubGestureSettings())
 
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val backdrop = liquidGlassBackdrop()
     Scaffold(
-        topBar = { TopBar(onBack = onBack, title = stringResource(R.string.action_settings)) }
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        contentWindowInsets = WindowInsets(),
+        topBar = { TopBar(onBack = onBack, title = stringResource(R.string.action_settings), scrollBehavior = scrollBehavior, backdrop = backdrop) }
     ) { padding ->
         MyColumn(
-            modifier = Modifier.padding(padding),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier
+                .padding(padding)
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
+                .then(Modifier.layerBackdrop(backdrop)),
+            verticalArrangement = Arrangement.spacedBy(ListSpacing),
         ) {
-            ExpressiveCard(
-                icon = Icons.Default.Visibility,
-                title = stringResource(R.string.hide_gesture_button),
-                subtitle = stringResource(R.string.hide_gesture_button_delay_ms),
-                onClick = {},
-            ) {
+            SegmentedGroup(contentSpacing = SegmentedGap) {
+                SegmentedSettingsRow(
+                    icon = Icons.Default.Visibility,
+                    title = stringResource(R.string.hide_gesture_button),
+                    subtitle = stringResource(R.string.hide_gesture_button_delay_ms),
+                )
                 HideGestureButtonControls(
                     settings = actionSettings.hideGestureButton,
                     onChange = { next -> scope.launch { ConfigProvider.updateActionSettings { it.copy(hideGestureButton = next) } } },
                 )
             }
 
-            ExpressiveCard(
-                icon = Icons.Default.Swipe,
-                title = stringResource(R.string.horizontal_volume_scrub),
-                subtitle = stringResource(R.string.horizontal_volume_scrub_hint),
-                onClick = {},
-            ) {
+            SegmentedGroup(contentSpacing = SegmentedGap) {
+                SegmentedSettingsRow(
+                    icon = Icons.Default.Swipe,
+                    title = stringResource(R.string.horizontal_volume_scrub),
+                    subtitle = stringResource(R.string.horizontal_volume_scrub_hint),
+                )
                 VolumeScrubControls(
                     settings = actionSettings.volumeScrub,
                     onChange = { next -> scope.launch { ConfigProvider.updateActionSettings { it.copy(volumeScrub = next) } } },
                 )
             }
 
-            ExpressiveCard(
-                icon = Icons.Default.Crop,
-                title = stringResource(R.string.mini_window_position_short),
-                subtitle = stringResource(R.string.mini_window_position_hint),
-                onClick = {},
-            ) {
+            SegmentedGroup(contentSpacing = SegmentedGap) {
+                SegmentedSettingsRow(
+                    icon = Icons.Default.Crop,
+                    title = stringResource(R.string.mini_window_position_short),
+                    subtitle = stringResource(R.string.mini_window_position_hint),
+                )
                 MiniWindowControls(
                     settings = advancedSettings.miniWindowSettings(),
                     onChange = { next -> scope.launch { ConfigProvider.updateAdvancedSettings { it.withMiniWindowSettings(next) } } },
                 )
             }
 
-            PreviousAppExcludeCard(
-                excludedPackageNames = actionSettings.previousApp.packageNames,
-                onConfirm = { picked ->
-                    scope.launch {
-                        ConfigProvider.updateActionSettings {
-                            it.copy(previousApp = it.previousApp.copy(packageNames = picked))
+            SegmentedGroup(contentSpacing = SegmentedGap) {
+                PreviousAppExcludeCard(
+                    excludedPackageNames = actionSettings.previousApp.packageNames,
+                    onConfirm = { picked ->
+                        scope.launch {
+                            ConfigProvider.updateActionSettings {
+                                it.copy(previousApp = it.previousApp.copy(packageNames = picked))
+                            }
                         }
-                    }
-                },
-            )
+                    },
+                )
+            }
 
             buttons.sortedBy { it.id }.forEachIndexed { index, button ->
                 OverrideCard(
@@ -175,7 +190,7 @@ private fun PreviousAppExcludeCard(
 ) {
     var showPicker by remember { mutableStateOf(false) }
 
-    ExpressiveCard(
+    SegmentedSettingsRow(
         icon = Icons.Default.SkipPrevious,
         title = stringResource(R.string.previous_app_exclude_apps),
         subtitle = if (excludedPackageNames.isEmpty()) {
@@ -183,7 +198,10 @@ private fun PreviousAppExcludeCard(
         } else {
             stringResource(R.string.condition_app_summary, excludedPackageNames.size)
         },
-        onClick = {},
+    )
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(SegmentedGap),
     ) {
         if (excludedPackageNames.isNotEmpty()) {
             Text(
@@ -193,7 +211,6 @@ private fun PreviousAppExcludeCard(
                 maxLines = 2,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(8.dp))
         }
         FilledTonalButton(
             modifier = Modifier.fillMaxWidth(),
@@ -227,52 +244,58 @@ private fun OverrideCard(
     } else {
         Color(color)
     }
-    val arrowRotation by animateFloatAsState(
+    val rotation by animateFloatAsState(
         targetValue = if (expanded) 0f else -90f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "arrow",
+        label = "OverrideCardArrowRotation",
     )
-    Card(
-        onClick = { expanded = !expanded },
-        shape = CardShape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+    val headerBottomRadius by animateDpAsState(
+        targetValue = if (expanded) ConnectionRadius else ContainerRadius,
+        label = "OverrideCardHeaderBottomRadius",
+    )
+    val headerShape = RoundedCornerShape(
+        topStart = ContainerRadius,
+        topEnd = ContainerRadius,
+        bottomStart = headerBottomRadius,
+        bottomEnd = headerBottomRadius,
+    )
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(ContainerRadius)),
     ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
+        SegmentedSettingsRow(
+            title = label,
+            onClick = { expanded = !expanded },
+            shape = headerShape,
+            leadingContent = {
                 Box(
                     modifier = Modifier
                         .size(MarkColorSize)
                         .clip(CircleShape)
                         .background(dotColor.copy(alpha = 0.7f)),
                 )
-                Text(
-                    modifier = Modifier.weight(1f),
-                    text = label,
-                    style = MaterialTheme.typography.titleMedium,
-                )
+            },
+            trailingContent = {
                 Icon(
-                    modifier = Modifier.graphicsLayer { rotationZ = arrowRotation },
+                    modifier = Modifier
+                        .size(RowIconSize)
+                        .graphicsLayer { rotationZ = rotation },
                     imageVector = Icons.Default.ArrowDropDown,
                     contentDescription = null,
                 )
-            }
-            AnimatedVisibility(
-                visible = expanded,
-                enter = expandVertically(),
-                exit = shrinkVertically(),
+            },
+        )
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically(),
+            exit = shrinkVertically(),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(segmentedShape(1, 2)),
+                verticalArrangement = Arrangement.spacedBy(SegmentedGap),
             ) {
-                Column(
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp)
-                        .padding(bottom = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
                     OverrideSection(
                         title = stringResource(R.string.action_hide_gesture_button),
                         enabled = actionSettingsOverride.hideGestureButton != null,
@@ -319,7 +342,6 @@ private fun OverrideCard(
             }
         }
     }
-}
 
 @Composable
 private fun OverrideSection(
@@ -328,12 +350,13 @@ private fun OverrideSection(
     onEnabledChange: (Boolean) -> Unit,
     content: @Composable () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        ExpressiveSwitchItem(
+    Column(verticalArrangement = Arrangement.spacedBy(SegmentedGap)) {
+        SegmentedSwitchRow(
             title = title,
             subtitle = if (enabled) stringResource(R.string.custom_action_setting) else stringResource(R.string.follow_global_action_setting),
             checked = enabled,
             onCheckedChange = onEnabledChange,
+            shape = if (enabled) segmentedShape(0, 2) else segmentedShape(0, 1),
         )
         if (enabled) {
             content()
@@ -365,7 +388,7 @@ private fun VolumeScrubControls(
     settings: ActionSettings.VolumeScrub,
     onChange: (ActionSettings.VolumeScrub) -> Unit,
 ) {
-    ExpressiveSwitchItem(
+    SegmentedSwitchRow(
         title = stringResource(R.string.horizontal_volume_scrub),
         subtitle = stringResource(R.string.horizontal_volume_scrub_hint),
         checked = settings.horizontalEnabled,
@@ -391,7 +414,7 @@ private fun MiniWindowControls(
     var verticalBias by remember(settings.verticalBias) { mutableStateOf(settings.verticalBias) }
     var widthFraction by remember(settings.widthFraction) { mutableStateOf(settings.widthFraction) }
     var heightFraction by remember(settings.heightFraction) { mutableStateOf(settings.heightFraction) }
-    ExpressiveSwitchItem(
+    SegmentedSwitchRow(
         title = stringResource(R.string.custom_position_size),
         subtitle = stringResource(R.string.mini_window_position_hint),
         checked = settings.overrideBounds,

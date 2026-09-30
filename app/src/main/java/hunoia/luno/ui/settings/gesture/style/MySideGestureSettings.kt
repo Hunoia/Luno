@@ -1,60 +1,51 @@
 package hunoia.luno.ui.settings.gesture.style
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
-import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureDirection
-import hunoia.luno.ui.component.ExpressiveRowContent
-import androidx.compose.ui.unit.dp
+import hunoia.luno.ui.component.SegmentedSettingsRow
+import hunoia.luno.ui.theme.ContainerRadius
+import hunoia.luno.ui.theme.RowIconSize
+
 
 @Composable
 fun MySideGestureSettings(
     onClick: () -> Unit,
-    gestureButton: GestureButton,
     direction: GestureDirection,
     isLongSlide: Boolean,
     secondaryText: String,
     text: String? = null,
-    trailing: (@Composable () -> Unit)? = null
+    trailing: (@Composable () -> Unit)? = null,
+    shape: Shape = RoundedCornerShape(ContainerRadius),
 ) {
-    val accent = if (isLongSlide) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.primaryContainer
-    val onAccent = if (isLongSlide) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onPrimaryContainer
     val label = text ?: direction.label()
     val rotation = direction.rotation()
-    ExpressiveRowContent(
+    SegmentedSettingsRow(
         onClick = onClick,
-        text = label,
-        secondaryText = if (secondaryText.isNotEmpty()) secondaryText else stringResource(id = R.string.action_none),
+        title = label,
+        subtitle = if (secondaryText.isNotEmpty()) secondaryText else stringResource(id = R.string.action_none),
         secondaryTextColor = MaterialTheme.colorScheme.primary,
-        trailing = trailing,
-        icon = {
-            Surface(
-                modifier = Modifier.size(32.dp),
-                shape = MaterialTheme.shapes.medium,
-                color = accent,
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        modifier = Modifier
-                            .graphicsLayer { rotationZ = rotation }
-                            .size(20.dp),
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = null,
-                        tint = onAccent,
-                    )
-                }
-            }
+        trailingContent = trailing,
+        shape = shape,
+        leadingContent = {
+            Icon(
+                modifier = Modifier
+                    .graphicsLayer { rotationZ = rotation }
+                    .size(RowIconSize),
+                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         },
     )
 }

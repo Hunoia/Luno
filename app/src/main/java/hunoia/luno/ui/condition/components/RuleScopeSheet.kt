@@ -23,11 +23,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
+import hunoia.luno.ui.theme.ListSpacing
+import hunoia.luno.ui.theme.SheetTopShape
+import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.R
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.RuleScope
-import hunoia.luno.ui.component.ExpressiveSwitchItem
+import hunoia.luno.ui.component.SegmentedSwitchRow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,14 +54,15 @@ fun RuleScopeSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = SheetTopShape,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = PageGutter)
+                .padding(bottom = PageGutter),
+            verticalArrangement = Arrangement.spacedBy(ListSpacing),
         ) {
             Text(
                 text = stringResource(R.string.condition_scope),
@@ -93,7 +96,7 @@ fun RuleScopeSheet(
                 }
                 RuleScope.EXCEPT, RuleScope.ONLY -> {
                     buttons.sortedBy { it.id }.forEachIndexed { index, button ->
-                        ExpressiveSwitchItem(
+                        SegmentedSwitchRow(
                             title = button.name.ifBlank {
                                 stringResource(R.string.gesture_button_name, index + 1)
                             },
@@ -109,7 +112,7 @@ fun RuleScopeSheet(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(ListSpacing),
             ) {
                 FilledTonalButton(
                     modifier = Modifier.weight(1f),

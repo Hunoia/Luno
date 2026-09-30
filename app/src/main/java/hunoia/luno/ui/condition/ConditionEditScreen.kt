@@ -10,6 +10,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import hunoia.luno.ui.theme.ListSpacing
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -46,7 +50,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.config.ConfigProvider
@@ -58,14 +61,17 @@ import hunoia.luno.config.model.VisibilityRule
 import hunoia.luno.runtime.condition.formatTimeOfDay
 import hunoia.luno.runtime.condition.hasLeaf
 import hunoia.luno.ui.component.AppPickerSheet
-import hunoia.luno.ui.component.ExpressiveCard
-import hunoia.luno.ui.component.ExpressiveSwitchItem
+import hunoia.luno.ui.component.SegmentedSwitchRow
 import hunoia.luno.ui.component.MyColumn
 import hunoia.luno.ui.component.TopBar
 import hunoia.luno.ui.condition.components.RuleScopeSheet
 import hunoia.luno.ui.navigation.NEW_CONDITION_RULE_ID
-import hunoia.luno.ui.theme.CardShape
-import hunoia.luno.ui.component.settings.CompactSettingsRow
+import hunoia.luno.ui.theme.CardInnerSpacing
+import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.theme.ShapeExtraSmall
+import hunoia.luno.ui.theme.liquidGlassBackdrop
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import hunoia.luno.ui.component.SegmentedSettingsRow
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -112,7 +118,11 @@ fun ConditionEditScreen(
         }
     }
 
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val backdrop = liquidGlassBackdrop()
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        contentWindowInsets = WindowInsets(),
         topBar = {
             TopBar(
                 onBack = onBack,
@@ -122,12 +132,17 @@ fun ConditionEditScreen(
                         Text(stringResource(R.string.save))
                     }
                 },
+                scrollBehavior = scrollBehavior,
+                backdrop = backdrop,
             )
         },
     ) { padding ->
         MyColumn(
-            modifier = Modifier.padding(padding),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier
+                .padding(padding)
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
+                .then(Modifier.layerBackdrop(backdrop)),
+            verticalArrangement = Arrangement.spacedBy(ListSpacing),
         ) {
             OutlinedTextField(
                 value = rule.name,
@@ -137,47 +152,48 @@ fun ConditionEditScreen(
                 singleLine = true,
             )
 
-            ExpressiveSwitchItem(
+            SegmentedSwitchRow(
                 title = stringResource(R.string.condition_enabled),
                 checked = rule.enabled,
                 onCheckedChange = { draft = rule.copy(enabled = it) },
             )
 
-            ExpressiveCard(
+            SegmentedSettingsRow(
                 title = stringResource(R.string.condition_effect),
                 subtitle = stringResource(
                     if (rule.effect == RuleEffect.SHOW) R.string.effect_show else R.string.effect_hide,
                 ),
-                onClick = {},
-            ) {
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    SegmentedButton(
-                        selected = rule.effect == RuleEffect.SHOW,
-                        onClick = { draft = rule.copy(effect = RuleEffect.SHOW) },
-                        shape = SegmentedButtonDefaults.itemShape(count = 2, index = 0),
-                    ) {
-                        Text(stringResource(R.string.effect_show))
-                    }
-                    SegmentedButton(
-                        selected = rule.effect == RuleEffect.HIDE,
-                        onClick = { draft = rule.copy(effect = RuleEffect.HIDE) },
-                        shape = SegmentedButtonDefaults.itemShape(count = 2, index = 1),
-                    ) {
-                        Text(stringResource(R.string.effect_hide))
-                    }
+            )
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                SegmentedButton(
+                    selected = rule.effect == RuleEffect.SHOW,
+                    onClick = { draft = rule.copy(effect = RuleEffect.SHOW) },
+                    shape = SegmentedButtonDefaults.itemShape(count = 2, index = 0),
+                ) {
+                    Text(stringResource(R.string.effect_show))
+                }
+                SegmentedButton(
+                    selected = rule.effect == RuleEffect.HIDE,
+                    onClick = { draft = rule.copy(effect = RuleEffect.HIDE) },
+                    shape = SegmentedButtonDefaults.itemShape(count = 2, index = 1),
+                ) {
+                    Text(stringResource(R.string.effect_hide))
                 }
             }
 
-            CompactSettingsRow(
+            SegmentedSettingsRow(
                 title = stringResource(R.string.condition_scope),
                 subtitle = scopeSubtitle(rule),
                 onClick = { showScopeSheet = true },
             )
 
-            ExpressiveCard(
+            SegmentedSettingsRow(
                 title = stringResource(R.string.condition_home),
                 subtitle = conditionSummary(rule.condition),
-                onClick = {},
+            )
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(ListSpacing),
             ) {
                 ConditionNodeEditor(
                     node = rule.condition,
@@ -231,12 +247,12 @@ private fun ConditionNodeEditor(
 
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
         ) {
             var menuExpanded by remember { mutableStateOf(false) }
             OutlinedButton(onClick = { menuExpanded = true }) {
@@ -321,7 +337,7 @@ private fun ConditionNodeEditor(
             }
 
             is Condition.Screen -> FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
             ) {
                 ScreenType.entries.forEach { type ->
                     FilterChip(
@@ -352,12 +368,8 @@ private fun GroupEditor(
     items: List<Condition>,
     onUpdate: (List<Condition>) -> Unit,
 ) {
-    items.forEachIndexed { index, child ->
-        androidx.compose.material3.Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = CardShape,
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-        ) {
+    Column(verticalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
+        items.forEachIndexed { index, child ->
             ConditionNodeEditor(
                 node = child,
                 onChange = { newChild ->
@@ -366,19 +378,17 @@ private fun GroupEditor(
                 onDelete = {
                     onUpdate(items.toMutableList().also { it.removeAt(index) })
                 },
-                modifier = Modifier.padding(8.dp),
+                modifier = Modifier.padding(start = PageGutter),
             )
         }
-    }
-    TextButton(
-        onClick = { onUpdate(items + Condition.Screen(ScreenType.LOCK_SCREEN)) },
-    ) {
-        Icon(
-            imageVector = Icons.Default.Add,
-            contentDescription = null,
-            modifier = Modifier.padding(end = 4.dp),
-        )
-        Text(stringResource(R.string.condition_add))
+        TextButton(onClick = { onUpdate(items + Condition.Screen(ScreenType.LOCK_SCREEN)) }) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = null,
+                modifier = Modifier.padding(end = ShapeExtraSmall),
+            )
+            Text(stringResource(R.string.condition_add))
+        }
     }
 }
 
@@ -388,7 +398,7 @@ private fun BatteryEditor(
     battery: Condition.Battery,
     onChange: (Condition.Battery) -> Unit,
 ) {
-    ExpressiveSwitchItem(
+    SegmentedSwitchRow(
         title = stringResource(R.string.condition_charging),
         checked = battery.charging == true,
         onCheckedChange = { on ->
@@ -396,7 +406,7 @@ private fun BatteryEditor(
         },
     )
     val rangeActive = battery.levelMin != null || battery.levelMax != null
-    ExpressiveSwitchItem(
+    SegmentedSwitchRow(
         title = stringResource(R.string.condition_battery_level),
         checked = rangeActive,
         onCheckedChange = { on ->
@@ -453,7 +463,7 @@ private fun TimeRangeEditor(
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
     ) {
         OutlinedButton(onClick = { picking = 0 }) {
             Text(formatTimeOfDay(timeRange.startMinute))

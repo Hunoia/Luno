@@ -1,34 +1,39 @@
 package hunoia.luno.ui.actionselect
-import hunoia.luno.ui.theme.*
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Checkbox
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.fastForEachIndexed
 import coil.compose.AsyncImage
 import coil.imageLoader
 import com.aaron.compose.ktx.onClick
 import hunoia.luno.config.defaults.SettingsUiDefaults
 import hunoia.luno.quicklaunch.model.icon
 import hunoia.luno.quicklaunch.model.LauncherInfo
-import hunoia.luno.ui.theme.MinInteractiveSize
-import hunoia.luno.ui.theme.SubMinInteractiveSize
-import hunoia.luno.ui.theme.TopBarPaddingExtra
-import androidx.compose.ui.util.fastForEach
+import hunoia.luno.ui.component.SelectableListItem
+import hunoia.luno.ui.component.segmentedShape
+import hunoia.luno.ui.theme.RowIconSize
+import hunoia.luno.ui.theme.SegmentedGap
+import hunoia.luno.ui.theme.ShapeSmall
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun LauncherInfoItem(
     canLauncherInfoEnabled: (LauncherInfo) -> Boolean,
@@ -38,110 +43,66 @@ internal fun LauncherInfoItem(
     onSelect: (LauncherInfo.ShortcutInfo, Boolean) -> Unit,
     launcherInfo: LauncherInfo,
     selectSingle: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
-    Surface(
-        modifier = modifier
-            .alpha(if (canLauncherInfoEnabled(launcherInfo)) 1f else SettingsUiDefaults.DisabledAlpha)
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        shape = CardShape,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onClick(enabled = canLauncherInfoEnabled(launcherInfo)) { onClick() }
-                    .padding(vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val context = LocalContext.current
+    val colorScheme = MaterialTheme.colorScheme
+    val launcherEnabled = canLauncherInfoEnabled(launcherInfo)
+    val total = 1 + launcherInfo.shortcuts.size
+    val interactionSource = remember { MutableInteractionSource() }
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(SegmentedGap)) {
+        ListItem(
+            modifier = Modifier
+                .alpha(if (launcherEnabled) 1f else SettingsUiDefaults.DisabledAlpha)
+                .then(
+                    if (launcherEnabled) Modifier.clickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                        onClick = onClick,
+                    ) else Modifier,
+                )
+                .clip(segmentedShape(0, total)),
+            headlineContent = {
+                Text(
+                    text = launcherInfo.label,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            },
+            supportingContent = {
+                Text(
+                    text = launcherInfo.packageName,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            },
+            leadingContent = {
                 AsyncImage(
-                    modifier = Modifier
-                        .padding(start = 12.dp)
-                        .size(MinInteractiveSize),
+                    modifier = Modifier.size(RowIconSize).clip(RoundedCornerShape(ShapeSmall)),
                     model = launcherInfo.icon,
                     contentDescription = null,
-                    imageLoader = context.imageLoader,
+                    imageLoader = LocalContext.current.imageLoader,
+                    contentScale = ContentScale.Crop,
                 )
-                Column(
-                    modifier = Modifier
-                        .padding(start = 8.dp, end = 16.dp)
-                        .weight(1f)
-                ) {
-                    Text(
-                        modifier = Modifier.fillMaxWidth(),
-                        text = launcherInfo.label,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        modifier = Modifier.fillMaxWidth(),
-                        text = launcherInfo.packageName,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                }
-            }
-
-            Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
-                launcherInfo.shortcuts.fastForEach { shortcutInfo ->
-                    key(shortcutInfo) {
-                        val selected = isShortcutInfoSelected(shortcutInfo)
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 4.dp),
-                            onClick = { onSelect(shortcutInfo, !selected) },
-                            enabled = canShortcutInfoEnabled(shortcutInfo),
-                            shape = IconBoxShape,
-                            color = if (selected) MaterialTheme.colorScheme.primaryContainer
-                                    else MaterialTheme.colorScheme.surfaceContainer,
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                val context = LocalContext.current
-                                AsyncImage(
-                                    modifier = Modifier
-                                        .padding(start = 12.dp)
-                                        .size(SubMinInteractiveSize),
-                                    model = shortcutInfo.icon,
-                                    contentDescription = null,
-                                    imageLoader = context.imageLoader
-                                )
-                                Column(
-                                    modifier = Modifier
-                                        .padding(start = 8.dp, end = 16.dp)
-                                        .weight(1f)
-                                ) {
-                                    Text(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        text = shortcutInfo.label,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                    )
-                                }
-                                if (!selectSingle) {
-                                    Checkbox(
-                                        modifier = Modifier.padding(end = TopBarPaddingExtra),
-                                        enabled = canShortcutInfoEnabled(shortcutInfo),
-                                        checked = selected,
-                                        onCheckedChange = { newSelected ->
-                                            onSelect(shortcutInfo, newSelected)
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+            },
+            colors = ListItemDefaults.colors(
+                containerColor = colorScheme.surfaceBright,
+                headlineColor = colorScheme.onSurface,
+                leadingIconColor = colorScheme.onSurfaceVariant,
+                supportingColor = colorScheme.onSurfaceVariant,
+            ),
+        )
+        launcherInfo.shortcuts.fastForEachIndexed { index, shortcutInfo ->
+            key(shortcutInfo) {
+                SelectableListItem(
+                    title = shortcutInfo.label,
+                    selected = isShortcutInfoSelected(shortcutInfo),
+                    onSelect = { onSelect(shortcutInfo, it) },
+                    enabled = canShortcutInfoEnabled(shortcutInfo),
+                    iconModel = shortcutInfo.icon,
+                    showCheckbox = !selectSingle,
+                    shape = segmentedShape(index + 1, total),
+                    verticalGap = SegmentedGap,
+                )
             }
         }
     }

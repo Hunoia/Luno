@@ -90,6 +90,7 @@ import top.yukonga.miuix.kmp.blur.highlight.LightSource
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.sensor.rememberDeviceTilt
+import top.yukonga.miuix.kmp.shader.isRenderEffectSupported
 
 private val LocalFloatingBottomBarContentColor = staticCompositionLocalOf { Color.Unspecified }
 private val LocalFloatingBottomBarTabScale = staticCompositionLocalOf { { 1f } }
@@ -198,9 +199,10 @@ fun <T> FloatingBottomBar(
 ) {
     val isInDark = isSystemInDarkTheme()
     val pillShape = remember { CircleShape }
+    val renderEffectSupported = isRenderEffectSupported()
     val isLiquidGlassMode =
-        mode == FloatingBottomBarMode.LiquidGlass || mode == FloatingBottomBarMode.LiquidGlassBlur
-    val isBlurMode = mode == FloatingBottomBarMode.Blur
+        renderEffectSupported && (mode == FloatingBottomBarMode.LiquidGlass || mode == FloatingBottomBarMode.LiquidGlassBlur)
+    val isBlurMode = renderEffectSupported && mode == FloatingBottomBarMode.Blur
     val containerColor =
         if (isLiquidGlassMode) {
             colors.containerColor.copy(alpha = if (mode == FloatingBottomBarMode.LiquidGlassBlur) 0.5f else 0.4f)

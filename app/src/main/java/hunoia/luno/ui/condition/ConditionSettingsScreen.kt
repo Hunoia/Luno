@@ -2,31 +2,30 @@ package hunoia.luno.ui.condition
 
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import hunoia.luno.ui.theme.ListSpacing
+import hunoia.luno.ui.theme.liquidGlassBackdrop
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.config.ConfigProvider
@@ -38,13 +37,16 @@ import hunoia.luno.config.model.ScreenType
 import hunoia.luno.config.model.VisibilityRule
 import hunoia.luno.runtime.condition.formatTimeOfDay
 import hunoia.luno.ui.component.EmptyState
-import hunoia.luno.ui.component.ExpressiveSwitchItem
+import hunoia.luno.ui.component.SegmentedGroup
+import hunoia.luno.ui.component.SegmentedSettingsRow
+import hunoia.luno.ui.component.SegmentedSwitchRow
 import hunoia.luno.ui.component.MyColumn
 import hunoia.luno.ui.component.TopBar
+import hunoia.luno.ui.component.segmentedShape
 import hunoia.luno.ui.navigation.NEW_CONDITION_RULE_ID
-import hunoia.luno.ui.theme.CardShape
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
+@OptIn(ExperimentalMaterial3Api::class)
 
 @Composable
 fun ConditionSettingsScreen(
@@ -66,7 +68,11 @@ fun ConditionSettingsScreen(
         }
     }
 
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val backdrop = liquidGlassBackdrop()
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        contentWindowInsets = WindowInsets(),
         topBar = {
             TopBar(
                 onBack = onBack,
@@ -79,12 +85,17 @@ fun ConditionSettingsScreen(
                         )
                     }
                 },
+                scrollBehavior = scrollBehavior,
+                backdrop = backdrop,
             )
         },
     ) { padding ->
         MyColumn(
-            modifier = Modifier.padding(padding),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier
+                .padding(padding)
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
+                .then(Modifier.layerBackdrop(backdrop)),
+            verticalArrangement = Arrangement.spacedBy(ListSpacing),
         ) {
             if (rules.isEmpty()) {
                 EmptyState(message = stringResource(R.string.condition_empty))
@@ -128,74 +139,65 @@ private fun RuleCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = CardShape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+    val effectLabel = stringResource(
+        if (rule.effect == RuleEffect.SHOW) R.string.effect_show else R.string.effect_hide,
+    )
+    val scopeLabel = when (rule.scope) {
+        RuleScope.ALL -> stringResource(R.string.scope_all)
+        RuleScope.EXCEPT -> stringResource(R.string.scope_except_count, rule.buttonIds.size)
+        RuleScope.ONLY -> stringResource(R.string.scope_only_count, rule.buttonIds.size)
+    }
+    SegmentedGroup(
+        title = conditionSummary(rule.condition),
+        subtitle = "$effectLabel · $scopeLabel",
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = conditionSummary(rule.condition),
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 2,
-            )
-            Spacer(Modifier.height(4.dp))
-            val effectLabel = stringResource(
-                if (rule.effect == RuleEffect.SHOW) R.string.effect_show else R.string.effect_hide,
-            )
-            val scopeLabel = when (rule.scope) {
-                RuleScope.ALL -> stringResource(R.string.scope_all)
-                RuleScope.EXCEPT -> stringResource(R.string.scope_except_count, rule.buttonIds.size)
-                RuleScope.ONLY -> stringResource(R.string.scope_only_count, rule.buttonIds.size)
-            }
-            Text(
-                text = "$effectLabel · $scopeLabel",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(8.dp))
-            ExpressiveSwitchItem(
-                title = stringResource(R.string.condition_enabled),
-                checked = rule.enabled,
-                onCheckedChange = onEnabledChange,
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.End,
-            ) {
-                IconButton(
-                    enabled = index > 0,
-                    onClick = onMoveUp,
+        SegmentedSwitchRow(
+            title = stringResource(R.string.condition_enabled),
+            checked = rule.enabled,
+            onCheckedChange = onEnabledChange,
+            shape = segmentedShape(0, 2),
+        )
+        SegmentedSettingsRow(
+            title = "",
+            trailingContent = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.End,
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowUp,
-                        contentDescription = stringResource(R.string.rule_move_up),
-                    )
+                    IconButton(
+                        enabled = index > 0,
+                        onClick = onMoveUp,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowUp,
+                            contentDescription = stringResource(R.string.rule_move_up),
+                        )
+                    }
+                    IconButton(
+                        enabled = index < total - 1,
+                        onClick = onMoveDown,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = stringResource(R.string.rule_move_down),
+                        )
+                    }
+                    IconButton(onClick = onEdit) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = stringResource(R.string.rule_edit),
+                        )
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = stringResource(R.string.delete),
+                        )
+                    }
                 }
-                IconButton(
-                    enabled = index < total - 1,
-                    onClick = onMoveDown,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
-                        contentDescription = stringResource(R.string.rule_move_down),
-                    )
-                }
-                IconButton(onClick = onEdit) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = stringResource(R.string.rule_edit),
-                    )
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = stringResource(R.string.delete),
-                    )
-                }
-            }
-        }
+            },
+            shape = segmentedShape(1, 2),
+        )
     }
 }
 

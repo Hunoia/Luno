@@ -37,6 +37,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import hunoia.luno.ui.theme.ExtraLargeShape
+import hunoia.luno.ui.theme.ListItemVerticalPadding
+import hunoia.luno.ui.theme.ListSpacing
+import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.R
 import hunoia.luno.config.model.GestureButtonAngle
 import hunoia.luno.config.model.GestureDirection
@@ -121,7 +125,7 @@ private fun DirectionAngleContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .padding(horizontal = PageGutter, vertical = ListItemVerticalPadding)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -145,12 +149,12 @@ private fun DirectionAngleContent(
                 .height(320.dp)
                 .background(
                     color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.55f),
-                    shape = MaterialTheme.shapes.extraLarge
+                    shape = ExtraLargeShape
                 )
                 .border(
                     width = 1.dp,
                     color = MaterialTheme.colorScheme.outlineVariant,
-                    shape = MaterialTheme.shapes.extraLarge
+                    shape = ExtraLargeShape
                 )
                 .padding(horizontal = 24.dp, vertical = 16.dp)
         ) {
@@ -191,7 +195,7 @@ private fun DirectionAngleContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(ListSpacing)
         ) {
             OutlinedButton(
                 modifier = Modifier.weight(1f),

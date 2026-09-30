@@ -2,11 +2,12 @@ package hunoia.luno.ui.settings.gesture.subgesture
 import hunoia.luno.ui.theme.*
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Box
@@ -15,12 +16,12 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ContentCopy
@@ -33,13 +34,9 @@ import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -47,11 +44,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -77,13 +70,13 @@ import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.component.MyAlertDialog
 import hunoia.luno.ui.component.MyColumn
 import hunoia.luno.ui.component.OptimizedBottomSheet
+import hunoia.luno.ui.component.TopBar
 import hunoia.luno.ui.component.input.MyTextSlider
 import hunoia.luno.ui.component.SegmentedGroup
 import hunoia.luno.ui.component.segmentedShape
-import hunoia.luno.ui.component.settings.CompactSettingsSwitchRow
-import hunoia.luno.ui.home.SegmentedSettingsRow
+import hunoia.luno.ui.component.SegmentedSettingsRow
+import hunoia.luno.ui.component.SegmentedSwitchRow
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.Alignment
 import hunoia.luno.ui.settings.gesture.subgesture.SubGestureSettingsUiEvent
 import hunoia.luno.ui.settings.gesture.subgesture.SubGestureSettingsUiState
@@ -93,11 +86,8 @@ import hunoia.luno.ui.settings.gesture.button.GestureSlideTriggerDistanceContent
 import hunoia.luno.ui.settings.gesture.style.StyleTrailingButton
 import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleConfigContent
 import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleSelectContent
-import top.yukonga.miuix.kmp.blur.blur
-import top.yukonga.miuix.kmp.blur.drawBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
-import top.yukonga.miuix.kmp.shader.isRenderEffectSupported
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,7 +102,7 @@ fun SubGestureSettingsScreen(
     var showStyleSelectFor by remember { mutableStateOf<GestureDirection?>(null) }
     var showStyleConfigFor by remember { mutableStateOf<GestureDirection?>(null) }
     var expandedActionGroup by remember { mutableStateOf<GestureActionGroup?>(null) }
-    val isBlurSupported = isRenderEffectSupported()
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val surfaceColor = MaterialTheme.colorScheme.surfaceContainer
     val backdrop = rememberLayerBackdrop {
         drawRect(surfaceColor)
@@ -214,52 +204,11 @@ fun SubGestureSettingsScreen(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
             contentWindowInsets = WindowInsets(),
             topBar = {
-                TopAppBar(
-                    modifier = Modifier.then(
-                        if (isBlurSupported) Modifier.drawBackdrop(
-                            backdrop = backdrop,
-                            shape = { RectangleShape },
-                            effects = { blur(25.dp.toPx(), 25.dp.toPx()) },
-                            onDrawSurface = {
-                                drawRect(
-                                    brush = Brush.verticalGradient(
-                                        colors = listOf(
-                                            Color.White,
-                                            Color.White.copy(alpha = 0f),
-                                        ),
-                                        startY = 0f,
-                                        endY = size.height,
-                                    ),
-                                    blendMode = BlendMode.DstIn,
-                                )
-                            },
-                        ) else Modifier,
-                    ),
-                    title = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = uiState.subGesture.name.ifEmpty { stringResource(id = R.string.sub_gesture) },
-                                modifier = Modifier.padding(start = 12.dp),
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .padding(start = 8.dp)
-                                    .size(MarkColorSize)
-                                    .background(
-                                        color = Color(gesture.color).copy(alpha = GestureButtonColorAlpha),
-                                        shape = CircleShape
-                                    )
-                            )
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = null,
-                            )
-                        }
-                    },
+                TopBar(
+                    title = uiState.subGesture.name.ifEmpty { stringResource(id = R.string.sub_gesture) },
+                    onBack = onBack,
+                    scrollBehavior = scrollBehavior,
+                    backdrop = backdrop,
                     actions = {
                         IconButton(onClick = { vm.showMirrorCopyDialog(true) }) {
                             Icon(
@@ -274,9 +223,17 @@ fun SubGestureSettingsScreen(
                             )
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = if (isBlurSupported) Color.Transparent else MaterialTheme.colorScheme.surfaceContainer,
-                    ),
+                    postfixTitle = {
+                        Box(
+                            modifier = Modifier
+                                .padding(start = 8.dp)
+                                .size(MarkColorSize)
+                                .background(
+                                    color = Color(gesture.color).copy(alpha = GestureButtonColorAlpha),
+                                    shape = CircleShape
+                                )
+                            )
+                    },
                 )
             }
         ) { paddingValues ->
@@ -302,140 +259,132 @@ fun SubGestureSettingsScreen(
                         start = PageGutter,
                         top = paddingValues.calculateTopPadding(),
                         end = PageGutter,
-                        bottom = 24.dp,
+                        bottom = ContentBottom,
                     ),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(ListSpacing),
                 ) {
                     item {
-                        SubGestureActionSection(
-                            title = stringResource(id = R.string.slide_action),
-                            icon = Icons.Default.Swipe,
-                            expanded = expandedActionGroup == GestureActionGroup.Slide,
-                            onExpandedChange = { setExpandedGroup(GestureActionGroup.Slide, it) },
+                        SegmentedGroup(
+                            title = stringResource(id = R.string.trigger_actions),
+                            subtitle = stringResource(id = R.string.trigger_actions_subtitle),
+                            contentSpacing = SegmentedGap,
                         ) {
-                            val directions = actionCardDirections.filterNot { it in gesture.angle.zeroWidthDirections() }
-                            directions.forEachIndexed { index, direction ->
-                                SubGestureActionRow(
-                                    title = direction.label(),
-                                    icon = Icons.AutoMirrored.Filled.ArrowForward,
-                                    onClick = {
-                                        onNavToActionSelect(
-                                            ActionSelect(
-                                                gestureButtonId = "",
-                                                direction = direction,
-                                                triggerType = GestureTriggerType.Slide,
-                                                subGestureId = gesture.id,
+                            SubGestureActionSection(
+                                title = stringResource(id = R.string.slide_action),
+                                icon = Icons.Default.Swipe,
+                                expanded = expandedActionGroup == GestureActionGroup.Slide,
+                                onExpandedChange = { setExpandedGroup(GestureActionGroup.Slide, it) },
+                            ) {
+                                val directions = actionCardDirections.filterNot { it in gesture.angle.zeroWidthDirections() }
+                                directions.forEachIndexed { index, direction ->
+                                    SubGestureActionRow(
+                                        title = direction.label(),
+                                        icon = Icons.AutoMirrored.Filled.ArrowForward,
+                                        onClick = {
+                                            onNavToActionSelect(
+                                                ActionSelect(
+                                                    gestureButtonId = "",
+                                                    direction = direction,
+                                                    triggerType = GestureTriggerType.Slide,
+                                                    subGestureId = gesture.id,
+                                                )
                                             )
-                                        )
-                                    },
-                                    secondaryText = gesture.slideActionsFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
-                                    shape = segmentedShape(index, directions.size),
-                                )
+                                        },
+                                        secondaryText = gesture.slideActionsFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
+                                        shape = segmentedShape(index, directions.size),
+                                    )
+                                }
                             }
-                        }
-                    }
-
-                    item {
-                        SubGestureActionSection(
-                            title = stringResource(id = R.string.slide_hold_action),
-                            icon = Icons.Default.Swipe,
-                            expanded = expandedActionGroup == GestureActionGroup.SlideHold,
-                            onExpandedChange = { setExpandedGroup(GestureActionGroup.SlideHold, it) },
-                        ) {
-                            val directions = actionCardDirections.filterNot { it in gesture.angle.zeroWidthDirections() }
-                            directions.forEachIndexed { index, direction ->
-                                SubGestureActionRow(
-                                    title = direction.label(),
-                                    icon = Icons.AutoMirrored.Filled.ArrowForward,
-                                    onClick = {
-                                        onNavToActionSelect(
-                                            ActionSelect(
-                                                gestureButtonId = "",
-                                                direction = direction,
-                                                triggerType = GestureTriggerType.SlideHold,
-                                                subGestureId = gesture.id,
+                            SubGestureActionSection(
+                                title = stringResource(id = R.string.slide_hold_action),
+                                icon = Icons.Default.Swipe,
+                                expanded = expandedActionGroup == GestureActionGroup.SlideHold,
+                                onExpandedChange = { setExpandedGroup(GestureActionGroup.SlideHold, it) },
+                            ) {
+                                val directions = actionCardDirections.filterNot { it in gesture.angle.zeroWidthDirections() }
+                                directions.forEachIndexed { index, direction ->
+                                    SubGestureActionRow(
+                                        title = direction.label(),
+                                        icon = Icons.AutoMirrored.Filled.ArrowForward,
+                                        onClick = {
+                                            onNavToActionSelect(
+                                                ActionSelect(
+                                                    gestureButtonId = "",
+                                                    direction = direction,
+                                                    triggerType = GestureTriggerType.SlideHold,
+                                                    subGestureId = gesture.id,
+                                                )
                                             )
-                                        )
-                                    },
-                                    secondaryText = gesture.slideHoldActionsFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
-                                    shape = segmentedShape(index, directions.size),
-                                )
+                                        },
+                                        secondaryText = gesture.slideHoldActionsFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
+                                        shape = segmentedShape(index, directions.size),
+                                    )
+                                }
                             }
-                        }
-                    }
-
-                    item {
-                        SubGestureActionSection(
-                            title = stringResource(id = R.string.long_slide_action),
-                            icon = Icons.Default.Gesture,
-                            expanded = expandedActionGroup == GestureActionGroup.LongSlide,
-                            onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlide, it) },
-                        ) {
-                            val directions = actionCardDirections.filterNot { it in gesture.angle.zeroWidthDirections() }
-                            directions.forEachIndexed { index, direction ->
-                                SubGestureActionRow(
-                                    title = direction.label(),
-                                    icon = Icons.AutoMirrored.Filled.ArrowForward,
-                                    onClick = {
-                                        onNavToActionSelect(
-                                            ActionSelect(
-                                                gestureButtonId = "",
-                                                direction = direction,
-                                                triggerType = GestureTriggerType.LongSlide,
-                                                subGestureId = gesture.id,
+                            SubGestureActionSection(
+                                title = stringResource(id = R.string.long_slide_action),
+                                icon = Icons.Default.Gesture,
+                                expanded = expandedActionGroup == GestureActionGroup.LongSlide,
+                                onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlide, it) },
+                            ) {
+                                val directions = actionCardDirections.filterNot { it in gesture.angle.zeroWidthDirections() }
+                                directions.forEachIndexed { index, direction ->
+                                    SubGestureActionRow(
+                                        title = direction.label(),
+                                        icon = Icons.AutoMirrored.Filled.ArrowForward,
+                                        onClick = {
+                                            onNavToActionSelect(
+                                                ActionSelect(
+                                                    gestureButtonId = "",
+                                                    direction = direction,
+                                                    triggerType = GestureTriggerType.LongSlide,
+                                                    subGestureId = gesture.id,
+                                                )
                                             )
-                                        )
-                                    },
-                                    secondaryText = gesture.longSlideActionsFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
-                                    shape = segmentedShape(index, directions.size),
-                                    trailing = {
-                                        StyleTrailingButton(
-                                            currentStyle = GestureFacade.styleBy(gesture.longSlideActionPanelStyles, direction),
-                                            onClick = { showStyleSelectFor = direction }
-                                        )
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    item {
-                        SubGestureActionSection(
-                            title = stringResource(id = R.string.long_slide_hold_action),
-                            icon = Icons.Default.Gesture,
-                            expanded = expandedActionGroup == GestureActionGroup.LongSlideHold,
-                            onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlideHold, it) },
-                        ) {
-                            val directions = actionCardDirections.filterNot { it in gesture.angle.zeroWidthDirections() }
-                            directions.forEachIndexed { index, direction ->
-                                SubGestureActionRow(
-                                    title = direction.label(),
-                                    icon = Icons.AutoMirrored.Filled.ArrowForward,
-                                    onClick = {
-                                        onNavToActionSelect(
-                                            ActionSelect(
-                                                gestureButtonId = "",
-                                                direction = direction,
-                                                triggerType = GestureTriggerType.LongSlideHold,
-                                                subGestureId = gesture.id,
+                                        },
+                                        secondaryText = gesture.longSlideActionsFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
+                                        shape = segmentedShape(index, directions.size),
+                                        trailing = {
+                                            StyleTrailingButton(
+                                                currentStyle = GestureFacade.styleBy(gesture.longSlideActionPanelStyles, direction),
+                                                onClick = { showStyleSelectFor = direction }
                                             )
-                                        )
-                                    },
-                                    secondaryText = gesture.longSlideHoldActionsFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
-                                    shape = segmentedShape(index, directions.size),
-                                    trailing = {
-                                        StyleTrailingButton(
-                                            currentStyle = GestureFacade.styleBy(gesture.longSlideActionPanelStyles, direction),
-                                            onClick = { showStyleSelectFor = direction }
-                                        )
-                                    }
-                                )
+                                        }
+                                    )
+                                }
                             }
-                        }
-                    }
-
-                    item {
-                        SegmentedGroup(title = stringResource(id = R.string.parameters)) {
+                            SubGestureActionSection(
+                                title = stringResource(id = R.string.long_slide_hold_action),
+                                icon = Icons.Default.Gesture,
+                                expanded = expandedActionGroup == GestureActionGroup.LongSlideHold,
+                                onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlideHold, it) },
+                            ) {
+                                val directions = actionCardDirections.filterNot { it in gesture.angle.zeroWidthDirections() }
+                                directions.forEachIndexed { index, direction ->
+                                    SubGestureActionRow(
+                                        title = direction.label(),
+                                        icon = Icons.AutoMirrored.Filled.ArrowForward,
+                                        onClick = {
+                                            onNavToActionSelect(
+                                                ActionSelect(
+                                                    gestureButtonId = "",
+                                                    direction = direction,
+                                                    triggerType = GestureTriggerType.LongSlideHold,
+                                                    subGestureId = gesture.id,
+                                                )
+                                            )
+                                        },
+                                        secondaryText = gesture.longSlideHoldActionsFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
+                                        shape = segmentedShape(index, directions.size),
+                                        trailing = {
+                                            StyleTrailingButton(
+                                                currentStyle = GestureFacade.styleBy(gesture.longSlideActionPanelStyles, direction),
+                                                onClick = { showStyleSelectFor = direction }
+                                            )
+                                        }
+                                    )
+                                }
+                            }
                             SegmentedSettingsRow(
                                 title = stringResource(id = R.string.sub_gesture_angles),
                                 icon = Icons.Default.Straighten,
@@ -474,27 +423,39 @@ private fun SubGestureActionSection(
         targetValue = if (expanded) 0f else -90f,
         label = "SubGestureSectionArrowRotation",
     )
+    val headerBottomRadius by animateDpAsState(
+        targetValue = if (expanded) ConnectionRadius else ContainerRadius,
+        label = "SubGestureSectionHeaderBottomRadius",
+    )
+    val headerShape = RoundedCornerShape(
+        topStart = ContainerRadius,
+        topEnd = ContainerRadius,
+        bottomStart = headerBottomRadius,
+        bottomEnd = headerBottomRadius,
+    )
     val colorScheme = MaterialTheme.colorScheme
 
-    Column(verticalArrangement = Arrangement.spacedBy(SegmentedGap)) {
-        ListItem(
-            modifier = Modifier.clickable(onClick = { onExpandedChange(!expanded) }).clip(segmentedShape(0, 1)),
-            headlineContent = { Text(text = title, maxLines = 1) },
-            leadingContent = {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(ContainerRadius)),
+        verticalArrangement = Arrangement.spacedBy(SegmentedGap),
+    ) {
+        SegmentedSettingsRow(
+            title = title,
+            icon = icon,
+            onClick = { onExpandedChange(!expanded) },
+            shape = headerShape,
+            trailingContent = {
                 Icon(
+                    modifier = Modifier
+                        .size(RowIconSize)
+                        .graphicsLayer { rotationZ = rotation },
                     imageVector = Icons.Filled.ArrowDropDown,
                     contentDescription = null,
-                    modifier = Modifier
-                        .size(24.dp)
-                        .graphicsLayer { rotationZ = rotation },
                     tint = colorScheme.onSurfaceVariant,
                 )
             },
-            colors = ListItemDefaults.colors(
-                containerColor = colorScheme.surfaceBright,
-                headlineColor = colorScheme.onSurface,
-                leadingIconColor = colorScheme.onSurfaceVariant,
-            ),
         )
 
         AnimatedVisibility(
@@ -502,7 +463,10 @@ private fun SubGestureActionSection(
             enter = expandVertically(),
             exit = shrinkVertically(),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(SegmentedGap)) {
+            Column(
+                modifier = Modifier.clip(segmentedShape(1, 2)),
+                verticalArrangement = Arrangement.spacedBy(SegmentedGap),
+            ) {
                 content()
             }
         }
@@ -520,10 +484,12 @@ private fun SubGestureActionRow(
     modifier: Modifier = Modifier,
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    ListItem(
-        modifier = modifier.clickable(onClick = onClick).clip(shape),
-        headlineContent = { Text(text = title, maxLines = 1) },
-        supportingContent = { Text(text = secondaryText) },
+    SegmentedSettingsRow(
+        title = title,
+        icon = icon,
+        onClick = onClick,
+        shape = shape,
+        subtitle = secondaryText,
         leadingContent = {
             Surface(
                 modifier = Modifier.size(32.dp),
@@ -541,12 +507,6 @@ private fun SubGestureActionRow(
             }
         },
         trailingContent = trailing,
-        colors = ListItemDefaults.colors(
-            containerColor = colorScheme.surfaceBright,
-            headlineColor = colorScheme.onSurface,
-            supportingColor = colorScheme.onSurfaceVariant,
-            leadingIconColor = colorScheme.onSurfaceVariant,
-        ),
     )
 }
 
@@ -567,23 +527,23 @@ private fun SubGestureVibrationContent(
     gesture: SubGesture,
     vm: SubGestureSettingsVM
 ) {
-    MyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        CompactSettingsSwitchRow(
+    MyColumn(verticalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
+        SegmentedSwitchRow(
             onCheckedChange = { vm.onSubSlideVibrateChange(it) },
             checked = gesture.slideVibrate,
             title = stringResource(R.string.vibration_slide),
         )
-        CompactSettingsSwitchRow(
+        SegmentedSwitchRow(
             onCheckedChange = { vm.onSubLongSlideVibrateChange(it) },
             checked = gesture.longSlideVibrate,
             title = stringResource(R.string.vibration_long_slide),
         )
-        CompactSettingsSwitchRow(
+        SegmentedSwitchRow(
             onCheckedChange = { vm.onSubSlideHoldVibrateChange(it) },
             checked = gesture.slideHoldVibrate,
             title = stringResource(R.string.vibration_slide_hold),
         )
-        CompactSettingsSwitchRow(
+        SegmentedSwitchRow(
             onCheckedChange = { vm.onSubLongSlideHoldVibrateChange(it) },
             checked = gesture.longSlideHoldVibrate,
             title = stringResource(R.string.vibration_long_slide_hold),

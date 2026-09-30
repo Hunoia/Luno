@@ -1,4 +1,6 @@
 package hunoia.luno.ui.settings.gesture.button
+import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.theme.CardInnerSpacing
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
@@ -151,7 +153,7 @@ fun GestureSlideTriggerDistanceContent(
 @Composable
 private fun SliderGroupLabel(text: String) {
     Text(
-        modifier = Modifier.padding(horizontal = 12.dp),
+        modifier = Modifier.padding(horizontal = PageGutter),
         text = text,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         style = MaterialTheme.typography.labelMedium,
@@ -166,7 +168,7 @@ private fun DistanceTextSlider(
     text: String,
     valueRangeDp: ClosedFloatingPointRange<Float>,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
         MyTextSlider(
             value = valueDp,
             onValueChange = onValueDpChange,
@@ -188,7 +190,7 @@ private fun DistanceRelationshipPreview(
     val colorScheme = MaterialTheme.colorScheme
     Canvas(
         modifier = Modifier
-            .padding(horizontal = 12.dp)
+            .padding(horizontal = PageGutter)
             .fillMaxWidth()
             .height(8.dp)
     ) {
@@ -227,7 +229,7 @@ private fun DistancePreviewBar(
     val colorScheme = MaterialTheme.colorScheme
     Canvas(
         modifier = Modifier
-            .padding(horizontal = 12.dp)
+            .padding(horizontal = PageGutter)
             .fillMaxWidth()
             .height(8.dp)
     ) {

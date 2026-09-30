@@ -9,8 +9,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.twotone.Info
 import androidx.compose.material.icons.twotone.TaskAlt
 import androidx.compose.material.icons.twotone.Warning
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
+import hunoia.luno.ui.theme.PageGutter
 
 @Composable
 fun HomeRuntimeStatusCard(
@@ -53,17 +54,19 @@ fun HomeRuntimeStatusCard(
     }
     val descRes = runtimeStatus.primaryIssue.descRes ?: R.string.home_status_running_desc
 
-    ElevatedCard(
+    Card(
         modifier = modifier.fillMaxWidth(),
+        shape = hunoia.luno.ui.theme.LargeShape,
         colors = CardDefaults.cardColors(
             containerColor = containerColor,
             contentColor = contentColor,
         ),
+        elevation = CardDefaults.cardElevation(0.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(PageGutter),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
@@ -71,7 +74,7 @@ fun HomeRuntimeStatusCard(
                 contentDescription = null,
                 modifier = Modifier
                     .size(28.dp)
-                    .padding(end = 12.dp),
+                    .padding(end = PageGutter),
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -84,7 +87,7 @@ fun HomeRuntimeStatusCard(
                 )
             }
             Switch(
-                modifier = Modifier.padding(start = 16.dp),
+                modifier = Modifier.padding(start = PageGutter),
                 checked = isGestureSwitchEnabled,
                 onCheckedChange = onGestureSwitchEnabledChange,
             )

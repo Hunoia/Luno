@@ -3,19 +3,20 @@ package hunoia.luno.ui.actionselect
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
+import hunoia.luno.ui.theme.PageGutter
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -40,7 +41,9 @@ import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.EmptyState
 import hunoia.luno.ui.actionlibrary.matchesQuery
 import hunoia.luno.ui.component.displayNameRes
+import hunoia.luno.ui.component.segmentedShape
 import hunoia.luno.ui.theme.*
+import hunoia.luno.ui.theme.ListItemVerticalPadding
 
 private const val TYPE_ACTION_LIBRARY = "action_library"
 private const val TYPE_APP = "app"
@@ -68,7 +71,6 @@ internal fun ActionPage(
     launchShortcuts: List<LauncherInfo>,
     selectedRecord: SelectedRecord,
     longPressTargetIndex: Int?,
-    snackbarHostState: SnackbarHostState,
     permissionState: hunoia.luno.ui.permission.PermissionState,
     contentPadding: PaddingValues = PaddingValues(),
     maxSelectCount: Int = MAX_SELECT_COUNT
@@ -158,13 +160,14 @@ internal fun ActionPage(
     }
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
-        contentPadding = contentPadding
+        contentPadding = contentPadding,
+        verticalArrangement = Arrangement.spacedBy(SegmentedGap),
     ) {
         item(key = "search") {
             AppSearchBar(
                 query = query,
                 onQueryChange = { query = it },
-                modifier = Modifier.padding(horizontal = 12.dp * 2, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = PageGutter, vertical = 8.dp),
                 placeholder = stringResource(R.string.search_hint_all),
             )
         }
@@ -172,8 +175,8 @@ internal fun ActionPage(
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp * 2, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = PageGutter, vertical = ListItemVerticalPadding),
+                horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing)
             ) {
                 items(categoryChips) { (chipKey, label) ->
                     val isSelected = when (chipKey) {
@@ -222,17 +225,17 @@ internal fun ActionPage(
                     stickyHeader(key = "cat_${category.name}") {
                         Text(
                             text = stringResource(id = category.displayNameRes),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 12.dp * 2, vertical = 8.dp)
+                                .padding(start = PageGutter, top = 8.dp, bottom = 16.dp)
                         )
                     }
-                    items(
+                    itemsIndexed(
                         items = categoryActions,
-                        key = { "${it.value}:${it.data}" }
-                    ) { item ->
+                        key = { _, it -> "${it.value}:${it.data}" }
+                    ) { index, item ->
                         ActionItem(
                             modifier = Modifier.animateItem(),
                             action = item,
@@ -240,10 +243,10 @@ internal fun ActionPage(
                             selected = selectedRecord.isSelected(item),
                             selectSingle = selectingLongPress,
                             enabled = selectingLongPress || canActionEnabled(selectedRecord, item, maxSelectCount),
-                            snackbarHostState = snackbarHostState,
                             onSelect = { selected ->
                                 if (selectingLongPress) onSelectLongPress(item) else onSelect(item, selected)
                             },
+                            shape = segmentedShape(index, categoryActions.size),
                         )
                     }
                 }
@@ -252,12 +255,12 @@ internal fun ActionPage(
                 stickyHeader(key = "lib_all") {
                     Text(
                         text = stringResource(R.string.action_library),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp * 2, vertical = 8.dp)
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth().padding(start = PageGutter, top = 8.dp, bottom = 16.dp)
                     )
                 }
-                items(items = filteredLibraryEntries, key = { "lib_${it.id}" }) { entry ->
+                itemsIndexed(items = filteredLibraryEntries, key = { _, it -> "lib_${it.id}" }) { index, entry ->
                     val action = entry.toReferenceAction()
                     ActionItem(
                         modifier = Modifier.animateItem(),
@@ -266,28 +269,37 @@ internal fun ActionPage(
                         selected = selectedRecord.isSelected(action),
                         selectSingle = selectingLongPress,
                         enabled = selectingLongPress || canActionEnabled(selectedRecord, action, maxSelectCount),
-                        snackbarHostState = snackbarHostState,
                         onSelect = { selected ->
                             if (selectingLongPress) onSelectLongPress(entry) else onSelectLibraryEntry(entry, selected)
                         },
+                        shape = segmentedShape(index, filteredLibraryEntries.size),
                     )
                 }
             }
             if (filteredApps.isNotEmpty()) {
-                items(items = filteredApps, key = { "app_${it.qualifiedName}" }) { item ->
+                stickyHeader(key = "apps") {
+                    Text(
+                        text = stringResource(R.string.tab_apps),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth().padding(start = PageGutter, top = 8.dp, bottom = 16.dp)
+                    )
+                }
+                itemsIndexed(items = filteredApps, key = { _, it -> "app_${it.qualifiedName}" }) { index, item ->
                     AppItem(appInfo = item, selected = selectedRecord.isSelected(item), selectSingle = selectingLongPress,
                         enabled = selectingLongPress || canAppInfoEnabled(selectedRecord, item, maxSelectCount),
                         onSelect = { selected ->
                             if (selectingLongPress) onSelectLongPress(item) else onSelectApp(item, selected)
                         },
                         onLongClick = { onAppLongClick(item) },
-                        modifier = Modifier.animateItem())
+                        modifier = Modifier.animateItem(),
+                        shape = segmentedShape(index, filteredApps.size))
                 }
             }
             if (filteredCreateShortcuts.isNotEmpty()) {
                 stickyHeader(key = "create_shortcuts") {
-                    Text(stringResource(R.string.create_shortcut), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp * 2, vertical = 8.dp))
+                    Text(stringResource(R.string.create_shortcut), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth().padding(start = PageGutter, top = 8.dp, bottom = 16.dp))
                 }
                 items(items = filteredCreateShortcuts, key = { "cs_${it.qualifiedName}" }) { item ->
                     LauncherInfoItem(launcherInfo = item, selectSingle = selectingLongPress,
@@ -302,8 +314,8 @@ internal fun ActionPage(
             }
             if (filteredLaunchShortcuts.isNotEmpty()) {
                 stickyHeader(key = "launch_shortcuts") {
-                    Text(stringResource(R.string.launch_shortcut), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp * 2, vertical = 8.dp))
+                    Text(stringResource(R.string.launch_shortcut), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth().padding(start = PageGutter, top = 8.dp, bottom = 16.dp))
                 }
                 items(items = filteredLaunchShortcuts, key = { "ls_${it.qualifiedName}" }) { item ->
                     LauncherInfoItem(launcherInfo = item, selectSingle = selectingLongPress,

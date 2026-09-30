@@ -4,28 +4,39 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 
 // Component sizes
-val TopBarPaddingExtra = 8.dp
 val HomeWideBreakpoint = 600.dp
-val DividerHeight = 24.dp
-val MainSecondaryTextPadding = 6.dp
 val MarkColorSize = 20.dp
-val MinItemHeight = 70.dp
 val MinItemHeightNoSecondary = 50.dp
 val MinInteractiveSize = 48.dp
 val SubMinInteractiveSize = 36.dp
 val MinIconSize = 24.dp
+val RowIconSize = MinIconSize
+val BadgeIconSize = 16.dp
 val DialogHexTextWidth = 120.dp
 val LongPressHintStartPadding = 34.dp
 val CloseIconSize = 18.dp
+val TopBarPaddingExtra = 8.dp
+val TopBarTitlePadding = 12.dp
+val TrailingPadding = 8.dp
+
+// Layout spacing
+val PageGutter = 16.dp
+val ListSpacing = 16.dp
+val ListItemVerticalPadding = 12.dp
+val CardInnerSpacing = 8.dp
+val SliderInnerPadding = 12.dp
+val ContentBottom = 24.dp
+val FloatingContentBottom = 120.dp
 
 // Gesture / interaction thresholds
 val MiniWindowWidth = 200.dp
 
 // Shape primitives
 val ShapeExtraSmall = 4.dp
+val TileInnerPadding = ShapeExtraSmall
 val ShapeSmall = 8.dp
 val ShapeMedium = 12.dp
-val ShapeLarge = 20.dp
+val ShapeLarge = 16.dp
 val ShapeExtraLarge = 28.dp
 
 // Semantic shape tokens
@@ -40,17 +51,25 @@ val ToastCorner = ShapeMedium
 val SliderCorner = ShapeExtraSmall
 
 // Shape instances
+val ExtraSmallShape = RoundedCornerShape(ShapeExtraSmall)
+val SmallShape = RoundedCornerShape(ShapeSmall)
+val MediumShape = RoundedCornerShape(ShapeMedium)
+val LargeShape = RoundedCornerShape(ShapeLarge)
+val ExtraLargeShape = RoundedCornerShape(ShapeExtraLarge)
 val CardShape = RoundedCornerShape(CardCorner)
 val DialogShape = RoundedCornerShape(DialogCorner)
 val SheetTopShape = RoundedCornerShape(topStart = SheetCorner, topEnd = SheetCorner)
-val IconBoxShape = RoundedCornerShape(ShapeSmall)
+
+// Bottom bar
+val BottomBarPadding = 12.dp
+val BottomBarHeight = 56.dp
+val BottomBarCapsuleRadius = SheetCorner
+val BottomBarIconSize = 26.dp
 
 // Segmented list tokens
-val ContainerRadius = 16.dp
+val ContainerRadius = ShapeLarge
 val ConnectionRadius = 5.dp
 val SegmentedGap = 1.dp
-val PageGutter = 16.dp
-val BottomBarSpace = 88.dp
 
 // Animation durations (ms)
 const val AnimRipple = 300L

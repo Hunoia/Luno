@@ -53,9 +53,6 @@ data class NewActionLibraryEdit(
     val typeId: String? = null,
 )
 
-@Keep
-@Serializable
-data object NewActionLibrary
 
 const val NEW_CONDITION_RULE_ID = "new"
 

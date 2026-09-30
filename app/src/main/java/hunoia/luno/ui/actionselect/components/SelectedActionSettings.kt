@@ -52,6 +52,8 @@ import hunoia.luno.config.model.Action
 import hunoia.luno.ui.component.actionIcon
 import hunoia.luno.ui.theme.*
 import kotlin.math.roundToInt
+import hunoia.luno.ui.theme.RowIconSize
+
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -72,16 +74,16 @@ fun SelectedActionSettings(
     var tileWidth by remember { mutableStateOf(0f) }
     var tileHeight by remember { mutableStateOf(0f) }
     val density = LocalDensity.current
-    val spacingPx = with(density) { 8.dp.toPx() }
+    val spacingPx = with(density) { CardInnerSpacing.toPx() }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 8.dp)
+            .padding(bottom = CardInnerSpacing)
             .animateContentSize(animationSpec = tween(AnimNormal.toInt())),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp * 2),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = PageGutter),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (longPressTargetIndex == null) {
@@ -119,10 +121,10 @@ fun SelectedActionSettings(
             columns = GridCells.Fixed(4),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp * 2)
+                .padding(horizontal = PageGutter)
                 .heightIn(max = 184.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+            verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
         ) {
             items(
                 count = selectedItems.size,
@@ -263,11 +265,11 @@ private fun SelectedTile(
         color = bgColor,
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(4.dp),
+            modifier = Modifier.fillMaxWidth().padding(TileInnerPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.size(RowIconSize), contentAlignment = Alignment.Center) {
                 when (icon) {
                     is ImageVector -> Image(
                         imageVector = icon,
@@ -285,7 +287,7 @@ private fun SelectedTile(
                     )
                 }
             }
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(ShapeExtraSmall))
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,

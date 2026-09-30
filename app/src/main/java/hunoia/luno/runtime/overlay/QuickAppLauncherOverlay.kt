@@ -10,8 +10,6 @@ import android.view.View
 import android.view.WindowManager
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.ComposeView
 import hunoia.luno.quicklaunch.model.AppInfo
@@ -65,7 +63,7 @@ class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
         }
     }
 
-    fun close() {
+    private fun close() {
         if (overlayView == null) {
             val cancelled = cancelPendingShow()
             if (BuildConfig.DEBUG) Log.d("LunoLauncher", "close: no overlay (cancelledPendingShow=$cancelled)")

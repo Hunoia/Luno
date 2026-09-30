@@ -1,7 +1,6 @@
 package hunoia.luno.ui.actionlibrary
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -19,8 +18,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.Text
@@ -40,7 +37,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import hunoia.luno.R
@@ -53,6 +49,12 @@ import hunoia.luno.ui.component.displayNameRes
 import hunoia.luno.ui.component.segmentedShape
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SegmentedGap
+import hunoia.luno.ui.theme.RowIconSize
+import hunoia.luno.ui.theme.FloatingContentBottom
+import hunoia.luno.ui.component.SegmentedSettingsRow
+
+
+
 
 @Composable
 fun NewActionLibraryScreen(
@@ -84,7 +86,7 @@ fun NewActionLibraryScreen(
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 state = listState,
-                contentPadding = PaddingValues(start = PageGutter, end = PageGutter, bottom = 120.dp),
+                contentPadding = PaddingValues(start = PageGutter, end = PageGutter, bottom = FloatingContentBottom),
                 verticalArrangement = Arrangement.spacedBy(SegmentedGap),
             ) {
                 if (filtered.isEmpty()) {
@@ -99,8 +101,7 @@ fun NewActionLibraryScreen(
                                 modifier = Modifier
                                     .animateItem()
                                     .fillMaxWidth()
-                                    .background(MaterialTheme.colorScheme.surfaceContainer)
-                                    .padding(start = 16.dp, top = 8.dp, bottom = 16.dp),
+                                    .padding(start = PageGutter, top = 8.dp, bottom = 16.dp),
                             )
                         }
                         itemsIndexed(entries, key = { _, entry -> entry.id }) { index, entry ->
@@ -215,7 +216,6 @@ private fun ActionLibrarySwipeRow(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ActionLibraryItem(
     shape: Shape,
@@ -224,37 +224,27 @@ private fun ActionLibraryItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colorScheme = MaterialTheme.colorScheme
     val def = ActionDefinitions.byTypeId(entry.typeId)
-    ListItem(
-        modifier = modifier.clickable(onClick = onClick).clip(shape),
-        headlineContent = {
-            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-                Text(entry.name.ifBlank { def?.name ?: entry.typeId }, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(def?.name ?: entry.typeId, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        },
+    SegmentedSettingsRow(
+        modifier = modifier,
+        title = entry.name.ifBlank { def?.name ?: entry.typeId },
+        subtitle = def?.name ?: entry.typeId,
+        shape = shape,
+        onClick = onClick,
         leadingContent = {
             Icon(
                 Icons.Default.Build,
                 contentDescription = null,
-                tint = colorScheme.primary,
-                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(RowIconSize),
             )
         },
         trailingContent = {
             Text(
                 text = stringResource(R.string.action_library_reference_count, referenceCount),
                 style = MaterialTheme.typography.labelSmall,
-                color = colorScheme.onSurfaceVariant,
             )
         },
-        colors = ListItemDefaults.colors(
-            containerColor = colorScheme.surfaceBright,
-            headlineColor = colorScheme.onSurface,
-            leadingIconColor = colorScheme.onSurfaceVariant,
-            trailingIconColor = colorScheme.onSurfaceVariant,
-        ),
     )
 }
 

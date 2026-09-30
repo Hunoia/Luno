@@ -12,16 +12,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,10 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
@@ -56,14 +51,12 @@ import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleSelectContent
 import hunoia.luno.ui.settings.gesture.subgesture.GestureButtonAngleContent
 import hunoia.luno.ui.theme.MarkColorSize
 import hunoia.luno.ui.component.MyAlertDialog
+import hunoia.luno.ui.component.SegmentedGroup
+
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.ui.Alignment
-import top.yukonga.miuix.kmp.blur.blur
-import top.yukonga.miuix.kmp.blur.drawBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
-import top.yukonga.miuix.kmp.shader.isRenderEffectSupported
+import hunoia.luno.ui.component.TopBar
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -79,13 +72,13 @@ fun GestureButtonSettingsScreen(
     var showStyleSelectFor by remember { mutableStateOf<GestureDirection?>(null) }
     var showStyleConfigFor by remember { mutableStateOf<GestureDirection?>(null) }
     var expandedActionGroup by remember { mutableStateOf<GestureActionGroup?>(null) }
-    val isBlurSupported = isRenderEffectSupported()
     val surfaceColor = MaterialTheme.colorScheme.surfaceContainer
     val backdrop = rememberLayerBackdrop {
         drawRect(surfaceColor)
         drawContent()
     }
     val listState = rememberLazyListState()
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     UDFComponent<GestureButtonSettingsUiState, GestureButtonSettingsUiEvent>(component = vm.udfComponent, onEvent = { }) { uiState ->
         if (uiState.showDeleteWarningDialog) {
             MyAlertDialog(
@@ -101,56 +94,24 @@ fun GestureButtonSettingsScreen(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
                 contentWindowInsets = WindowInsets(),
                 topBar = {
-                    TopAppBar(
-                        modifier = Modifier.then(
-                            if (isBlurSupported) Modifier.drawBackdrop(
-                                backdrop = backdrop,
-                                shape = { RectangleShape },
-                                effects = { blur(25.dp.toPx(), 25.dp.toPx()) },
-                                onDrawSurface = {
-                                    drawRect(
-                                        brush = Brush.verticalGradient(
-                                            colors = listOf(
-                                                Color.White,
-                                                Color.White.copy(alpha = 0f),
-                                            ),
-                                            startY = 0f,
-                                            endY = size.height,
-                                        ),
-                                        blendMode = BlendMode.DstIn,
-                                    )
-                                },
-                            ) else Modifier,
-                        ),
-                        title = {
-                            val title = uiState.gestureButton?.name?.ifEmpty { stringResource(id = R.string.gesture_button) }
-                                ?: stringResource(id = R.string.gesture_button)
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = title,
-                                    modifier = Modifier.padding(start = 12.dp),
-                                )
-                                if (uiState.gestureButton != null) {
-                                    Box(
-                                        modifier = Modifier
-                                            .padding(start = 8.dp)
-                                            .size(MarkColorSize)
-                                            .background(
-                                                color = when (uiState.gestureButton.color == android.graphics.Color.TRANSPARENT) {
-                                                    true -> MaterialTheme.colorScheme.primary.copy(alpha = GestureButtonColorAlpha)
-                                                    else -> Color(uiState.gestureButton.color).copy(alpha = GestureButtonColorAlpha)
-                                                },
-                                                shape = CircleShape
-                                            )
-                                    )
-                                }
-                            }
-                        },
-                        navigationIcon = {
-                            IconButton(onClick = onBack) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = null,
+                    TopBar(
+                        title = uiState.gestureButton?.name?.ifEmpty { stringResource(id = R.string.gesture_button) }
+                            ?: stringResource(id = R.string.gesture_button),
+                        onBack = onBack,
+                        backdrop = backdrop,
+                        postfixTitle = {
+                            if (uiState.gestureButton != null) {
+                                Box(
+                                    modifier = Modifier
+                                        .padding(start = 8.dp)
+                                        .size(MarkColorSize)
+                                        .background(
+                                            color = when (uiState.gestureButton.color == android.graphics.Color.TRANSPARENT) {
+                                                true -> MaterialTheme.colorScheme.primary.copy(alpha = GestureButtonColorAlpha)
+                                                else -> Color(uiState.gestureButton.color).copy(alpha = GestureButtonColorAlpha)
+                                            },
+                                            shape = CircleShape
+                                        )
                                 )
                             }
                         },
@@ -164,9 +125,7 @@ fun GestureButtonSettingsScreen(
                                 }
                             }
                         },
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = if (isBlurSupported) Color.Transparent else MaterialTheme.colorScheme.surfaceContainer,
-                        ),
+                        scrollBehavior = scrollBehavior,
                     )
                 }
             ) { paddingValues ->
@@ -176,15 +135,17 @@ fun GestureButtonSettingsScreen(
                         .then(Modifier.layerBackdrop(backdrop)),
                 ) {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .nestedScroll(scrollBehavior.nestedScrollConnection),
                         state = listState,
                         contentPadding = PaddingValues(
                             start = PageGutter,
                             top = paddingValues.calculateTopPadding(),
                             end = PageGutter,
-                            bottom = 24.dp,
+                            bottom = ContentBottom,
                         ),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(ListSpacing),
                     ) {
                         val gestureButton = uiState.gestureButton
                         if (gestureButton != null) {
@@ -192,46 +153,44 @@ fun GestureButtonSettingsScreen(
                                 expandedActionGroup = if (expanded) group else null
                             }
                             item {
-                                GestureButtonTapActionsCard(
-                                    gestureButton = gestureButton,
-                                    onNavToActionSelect = onNavToActionSelect,
-                                    expanded = expandedActionGroup == GestureActionGroup.Tap,
-                                    onExpandedChange = { setExpandedGroup(GestureActionGroup.Tap, it) },
-                                )
-                            }
-                            item {
-                                GestureButtonSlideActionsCard(
-                                    gestureButton = gestureButton,
-                                    onNavToActionSelect = onNavToActionSelect,
-                                    expanded = expandedActionGroup == GestureActionGroup.Slide,
-                                    onExpandedChange = { setExpandedGroup(GestureActionGroup.Slide, it) },
-                                )
-                            }
-                            item {
-                                GestureButtonSlideHoldActionsCard(
-                                    gestureButton = gestureButton,
-                                    onNavToActionSelect = onNavToActionSelect,
-                                    expanded = expandedActionGroup == GestureActionGroup.SlideHold,
-                                    onExpandedChange = { setExpandedGroup(GestureActionGroup.SlideHold, it) },
-                                )
-                            }
-                            item {
-                                GestureButtonLongSlideActionsCard(
-                                    gestureButton = gestureButton,
-                                    onNavToActionSelect = onNavToActionSelect,
-                                    onStyleSelect = { showStyleSelectFor = it },
-                                    expanded = expandedActionGroup == GestureActionGroup.LongSlide,
-                                    onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlide, it) },
-                                )
-                            }
-                            item {
-                                GestureButtonLongSlideHoldActionsCard(
-                                    gestureButton = gestureButton,
-                                    onNavToActionSelect = onNavToActionSelect,
-                                    onStyleSelect = { showStyleSelectFor = it },
-                                    expanded = expandedActionGroup == GestureActionGroup.LongSlideHold,
-                                    onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlideHold, it) },
-                                )
+                                SegmentedGroup(
+                                    title = stringResource(id = R.string.trigger_actions),
+                                    subtitle = stringResource(id = R.string.trigger_actions_subtitle),
+                                    contentSpacing = SegmentedGap,
+                                ) {
+                                    GestureButtonTapActionsCard(
+                                        gestureButton = gestureButton,
+                                        onNavToActionSelect = onNavToActionSelect,
+                                        expanded = expandedActionGroup == GestureActionGroup.Tap,
+                                        onExpandedChange = { setExpandedGroup(GestureActionGroup.Tap, it) },
+                                    )
+                                    GestureButtonSlideActionsCard(
+                                        gestureButton = gestureButton,
+                                        onNavToActionSelect = onNavToActionSelect,
+                                        expanded = expandedActionGroup == GestureActionGroup.Slide,
+                                        onExpandedChange = { setExpandedGroup(GestureActionGroup.Slide, it) },
+                                    )
+                                    GestureButtonSlideHoldActionsCard(
+                                        gestureButton = gestureButton,
+                                        onNavToActionSelect = onNavToActionSelect,
+                                        expanded = expandedActionGroup == GestureActionGroup.SlideHold,
+                                        onExpandedChange = { setExpandedGroup(GestureActionGroup.SlideHold, it) },
+                                    )
+                                    GestureButtonLongSlideActionsCard(
+                                        gestureButton = gestureButton,
+                                        onNavToActionSelect = onNavToActionSelect,
+                                        onStyleSelect = { showStyleSelectFor = it },
+                                        expanded = expandedActionGroup == GestureActionGroup.LongSlide,
+                                        onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlide, it) },
+                                    )
+                                    GestureButtonLongSlideHoldActionsCard(
+                                        gestureButton = gestureButton,
+                                        onNavToActionSelect = onNavToActionSelect,
+                                        onStyleSelect = { showStyleSelectFor = it },
+                                        expanded = expandedActionGroup == GestureActionGroup.LongSlideHold,
+                                        onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlideHold, it) },
+                                    )
+                                }
                             }
                             item {
                                 GestureButtonPhysicalParamsCard(

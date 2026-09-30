@@ -1,11 +1,18 @@
 package hunoia.luno.ui.actionlibrary
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import hunoia.luno.ui.theme.ListSpacing
+import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.theme.ListItemVerticalPadding
+import hunoia.luno.ui.theme.CardInnerSpacing
+import hunoia.luno.ui.theme.liquidGlassBackdrop
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -28,7 +35,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionDefinition
@@ -40,6 +46,9 @@ import hunoia.luno.ui.component.OptimizedBottomSheet
 import hunoia.luno.ui.component.TopBar
 import hunoia.luno.ui.component.EmptyState
 import hunoia.luno.ui.component.displayNameRes
+import hunoia.luno.ui.component.SelectableListItem
+import hunoia.luno.ui.component.SegmentedSettingsRow
+
 import hunoia.luno.core.AppContext
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -63,7 +72,11 @@ fun NewActionLibraryEditScreen(
     val draft = state.draft ?: return
     val definition = draft.definition ?: return
 
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val backdrop = liquidGlassBackdrop()
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        contentWindowInsets = WindowInsets(),
         topBar = {
             TopBar(
                 onBack = onBack,
@@ -87,6 +100,8 @@ fun NewActionLibraryEditScreen(
                         Text(stringResource(R.string.save))
                     }
                 },
+                scrollBehavior = scrollBehavior,
+                backdrop = backdrop,
             )
         },
     ) { scaffoldPadding ->
@@ -94,9 +109,11 @@ fun NewActionLibraryEditScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(scaffoldPadding)
-                .padding(horizontal = 12.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = PageGutter)
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
+                .verticalScroll(rememberScrollState())
+                .then(Modifier.layerBackdrop(backdrop)),
+            verticalArrangement = Arrangement.spacedBy(ListSpacing),
         ) {
             TypeSelectorField(
                 definition = definition,
@@ -199,28 +216,11 @@ private fun TypeSelectorField(
     definition: ActionDefinition,
     onClick: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp, horizontal = 16.dp),
-    ) {
-        Text(
-            text = stringResource(R.string.action_type_label),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = definition.name,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = stringResource(definition.category.displayNameRes),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+    SegmentedSettingsRow(
+        title = definition.name,
+        subtitle = stringResource(definition.category.displayNameRes),
+        onClick = onClick,
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -250,49 +250,33 @@ private fun ActivityPickerSheet(
     }
 
     OptimizedBottomSheet(onDismissRequest = onDismiss) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Column(modifier = Modifier.padding(vertical = CardInnerSpacing)) {
             Text(
                 text = stringResource(R.string.select_activity_title),
                 style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(bottom = 12.dp),
+                modifier = Modifier
+                    .padding(horizontal = PageGutter)
+                    .padding(bottom = ListItemVerticalPadding),
             )
             AppSearchBar(
                 query = query,
                 onQueryChange = { query = it },
                 placeholder = stringResource(R.string.search_activity_hint),
-            )
-            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                if (filtered.isEmpty()) {
-                    EmptyState(message = stringResource(R.string.no_matching_results))
-                } else {
-                    filtered.forEach { activity ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onSelect(activity.className) }
-                                .padding(vertical = 8.dp),
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = QuickLaunchFacade.formatActivityOptionText(activity, packageName),
-                                    maxLines = 1,
-                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                )
-                                Text(
-                                    text = activity.className,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                )
-                            }
-                        }
-                    }
+                    .padding(horizontal = PageGutter)
+                    .padding(bottom = CardInnerSpacing),
+            )
+            if (filtered.isEmpty()) {
+                EmptyState(message = stringResource(R.string.no_matching_results))
+            } else {
+                filtered.forEach { activity ->
+                    SelectableListItem(
+                        title = QuickLaunchFacade.formatActivityOptionText(activity, packageName),
+                        subtitle = activity.className,
+                        selected = activity.className == selectedActivity,
+                        onSelect = { onSelect(activity.className) },
+                        showCheckbox = true,
+                    )
                 }
             }
         }

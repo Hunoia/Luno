@@ -276,7 +276,8 @@
     <!-- Gesture settings subtitles -->
     <string name="physical_params_subtitle">角度、震动、触发距离与尺寸</string>
     <string name="physical_params">物理参数</string>
-    <string name="parameters">参数</string>
+    <string name="trigger_actions">触发动作</string>
+    <string name="trigger_actions_subtitle">单击、双击、长按与滑动的触发动作</string>
 
     <!-- System function templates -->
 
