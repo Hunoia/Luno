@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.PageGutter
 
@@ -22,11 +23,13 @@ fun MyColumn(
     horizontalAlignment: Alignment.Horizontal = Alignment.Start,
     contentPadding: Dp = PageGutter,
     bottomPadding: Dp = ContentBottom,
+    topPadding: Dp = 0.dp,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(
         modifier = modifier
             .verticalScroll(scrollState)
+            .padding(top = topPadding)
             .padding(contentPadding)
             .padding(bottom = bottomPadding),
         verticalArrangement = verticalArrangement,

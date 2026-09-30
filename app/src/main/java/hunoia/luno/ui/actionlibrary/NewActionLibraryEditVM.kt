@@ -153,6 +153,6 @@ private fun Map<String, String>.toJsonObject(): JsonObject {
 
 private fun JsonObject.toParamMap(): Map<String, String> {
     return this.mapValues { (_, value) ->
-        value.jsonPrimitive.contentOrNull ?: ""
+        value.jsonPrimitive.contentOrNull ?: value.toString()
     }
 }

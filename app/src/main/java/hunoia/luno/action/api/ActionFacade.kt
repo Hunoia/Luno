@@ -1,7 +1,7 @@
 package hunoia.luno.action.api
 
 import hunoia.luno.action.definition.ActionCatalog
-import hunoia.luno.action.definition.ActionDefinition
+import hunoia.luno.action.definition.ActionCatalogEntry
 
 object ActionFacade {
 
@@ -39,5 +39,5 @@ object ActionFacade {
     const val EXTRA_LAUNCH_APP = ActionIds.EXTRA_LAUNCH_APP
     const val EXTRA_LAUNCH_SHORTCUT = ActionIds.EXTRA_LAUNCH_SHORTCUT
 
-    fun byId(actionId: String): ActionDefinition? = ActionCatalog.byId(actionId)
+    fun byId(actionId: String): ActionCatalogEntry? = ActionCatalog.byId(actionId)
 }

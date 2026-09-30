@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import hunoia.luno.ui.theme.ConnectionRadius
@@ -84,15 +85,17 @@ fun ActionSettingsScreen(onBack: () -> Unit) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val backdrop = liquidGlassBackdrop()
     Scaffold(
+        modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         contentWindowInsets = WindowInsets(),
         topBar = { TopBar(onBack = onBack, title = stringResource(R.string.action_settings), scrollBehavior = scrollBehavior, backdrop = backdrop) }
     ) { padding ->
         MyColumn(
             modifier = Modifier
-                .padding(padding)
-                .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .then(Modifier.layerBackdrop(backdrop)),
+                .fillMaxSize()
+                .layerBackdrop(backdrop)
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
+            topPadding = padding.calculateTopPadding(),
             verticalArrangement = Arrangement.spacedBy(ListSpacing),
         ) {
             SegmentedGroup(contentSpacing = SegmentedGap) {

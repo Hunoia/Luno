@@ -31,7 +31,6 @@
     <string name="slide_action">短距离滑动</string>
     <string name="slide_hold_action">短滑停留</string>
     <string name="gesture_angles">手势角度</string>
-    <string name="gesture_button_angles_hint">调整此触钮各滑动方向的判定范围</string>
     <string name="gesture_button_vibration">振动</string>
     <string name="gesture_button_trigger_distance">触发距离</string>
     <string name="vibration_slide">滑动时振动</string>
@@ -56,7 +55,6 @@
     <string name="action_panel_spread_spacing">展开间距</string>
     <string name="compact">紧凑</string>
     <string name="loose">宽松</string>
-    <string name="vibration_hint">识别或触发手势时振动</string>
     <string name="vibration_tap">单击振动</string>
     <string name="vibration_long_press">长按振动</string>
     <string name="vibration_slide_hold">短滑停留时振动</string>
@@ -107,7 +105,6 @@
     <string name="gesture_button_x">触钮横向位置</string>
     <string name="gesture_button_y">触钮纵向位置</string>
     <string name="gesture_button_mirror">镜像触钮</string>
-    <string name="gesture_button_mirror_hint">在另一侧生成镜像触发区域</string>
     <string name="enable_mini_window">已标记为小窗启动</string>
     <string name="disable_mini_window">已取消小窗启动</string>
 
@@ -273,11 +270,9 @@
     <string name="height">高度</string>
     <string name="tap_mini_window">短按小窗</string>
 
-    <!-- Gesture settings subtitles -->
-    <string name="physical_params_subtitle">角度、震动、触发距离与尺寸</string>
+    <!-- Gesture settings groups -->
     <string name="physical_params">物理参数</string>
     <string name="trigger_actions">触发动作</string>
-    <string name="trigger_actions_subtitle">单击、双击、长按与滑动的触发动作</string>
 
     <!-- System function templates -->
 
@@ -326,14 +321,10 @@
     <string name="rule_move_down">下移</string>
     <string name="rule_edit">编辑</string>
     <string name="previous_app_exclude_empty">未排除任何应用</string>
-    <string name="toast_app_not_found">应用未找到</string>
-    <string name="toast_activity_not_found">Activity 未找到</string>
     <string name="toast_invalid_parameter">参数无效</string>
     <string name="toast_execution_failed">执行失败</string>
     <string name="toast_permission_denied">权限不足</string>
-    <string name="toast_execution_timeout">执行超时</string>
     <string name="toast_unsupported_action">不支持的动作类型</string>
     <string name="toast_accessibility_required">需要无障碍服务</string>
     <string name="toast_shizuku_required">需要 Shizuku 权限</string>
-    <string name="toast_root_required">需要 Root 权限</string>
 </resources>

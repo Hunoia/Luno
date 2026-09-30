@@ -111,6 +111,7 @@ fun ActionSelectContent(
             val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
             val topBarBackdrop = liquidGlassBackdrop()
             Scaffold(
+                modifier = Modifier.fillMaxSize(),
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
                 contentWindowInsets = WindowInsets(),
                 topBar = {
@@ -125,8 +126,7 @@ fun ActionSelectContent(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding)
-                        .then(Modifier.layerBackdrop(topBarBackdrop))
+                        .layerBackdrop(topBarBackdrop)
                 ) {
                     val permissionState = rememberGetInstalledAppsPermissionState { granted ->
                         if (granted) {
@@ -174,7 +174,8 @@ fun ActionSelectContent(
                     Box(modifier = Modifier.weight(1f)) {
                         ActionPage(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(bottom = ContentBottom),
+                            nestedScroll = scrollBehavior.nestedScrollConnection,
+                            contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = ContentBottom),
                             actions = uiState.actions,
                             actionLibraryEntries = uiState.actionLibraryEntries,
                             subGestures = uiState.subGestures,

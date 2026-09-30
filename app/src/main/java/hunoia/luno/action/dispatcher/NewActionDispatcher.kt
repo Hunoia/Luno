@@ -92,12 +92,9 @@ class NewActionDispatcher(
 
     private fun failureText(context: Context, reason: ActionFailure): String = context.getString(
         when (reason) {
-            ActionFailure.AppNotFound -> R.string.toast_app_not_found
-            ActionFailure.ActivityNotFound -> R.string.toast_activity_not_found
             ActionFailure.InvalidParameter -> R.string.toast_invalid_parameter
             ActionFailure.ExecutionFailed -> R.string.toast_execution_failed
             ActionFailure.PermissionDenied -> R.string.toast_permission_denied
-            ActionFailure.Timeout -> R.string.toast_execution_timeout
             ActionFailure.Unsupported -> R.string.toast_unsupported_action
         }
     )
@@ -106,7 +103,6 @@ class NewActionDispatcher(
         when (capability) {
             Capability.Accessibility -> R.string.toast_accessibility_required
             Capability.Shizuku -> R.string.toast_shizuku_required
-            Capability.Root -> R.string.toast_root_required
             Capability.None -> R.string.toast_execution_failed
         }
     )

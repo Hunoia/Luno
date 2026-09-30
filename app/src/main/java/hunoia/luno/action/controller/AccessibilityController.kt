@@ -80,15 +80,13 @@ class AccessibilityController(private val service: AccessibilityService) {
     }
 
     fun inputText(text: String): Boolean {
-        service.rootInActiveWindow?.let { root ->
-            val bundle = android.os.Bundle().apply {
-                putCharSequence("android.view.accessibility.EXTRA_TEXT", text)
-            }
-            root.performAction(
-                android.view.accessibility.AccessibilityNodeInfo.ACTION_SET_TEXT,
-                bundle
-            )
+        val root = service.rootInActiveWindow ?: return false
+        val bundle = android.os.Bundle().apply {
+            putCharSequence("android.view.accessibility.EXTRA_TEXT", text)
         }
-        return true
+        return root.performAction(
+            android.view.accessibility.AccessibilityNodeInfo.ACTION_SET_TEXT,
+            bundle
+        )
     }
 }

@@ -2,6 +2,7 @@ package hunoia.luno.ui.actionlibrary
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
@@ -75,6 +76,7 @@ fun NewActionLibraryEditScreen(
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val backdrop = liquidGlassBackdrop()
     Scaffold(
+        modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         contentWindowInsets = WindowInsets(),
         topBar = {
@@ -107,12 +109,12 @@ fun NewActionLibraryEditScreen(
     ) { scaffoldPadding ->
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(scaffoldPadding)
-                .padding(horizontal = PageGutter)
+                .fillMaxSize()
+                .layerBackdrop(backdrop)
                 .nestedScroll(scrollBehavior.nestedScrollConnection)
                 .verticalScroll(rememberScrollState())
-                .then(Modifier.layerBackdrop(backdrop)),
+                .padding(scaffoldPadding)
+                .padding(horizontal = PageGutter),
             verticalArrangement = Arrangement.spacedBy(ListSpacing),
         ) {
             TypeSelectorField(
@@ -129,7 +131,11 @@ fun NewActionLibraryEditScreen(
             )
 
             Text(
-                text = stringResource(R.string.action_type_meta_format, definition.category, definition.parameters.size),
+                text = stringResource(
+                    R.string.action_type_meta_format,
+                    stringResource(definition.category.displayNameRes),
+                    definition.parameters.size,
+                ),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

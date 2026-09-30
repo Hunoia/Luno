@@ -5,7 +5,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.config.model.Action
 
-data class ActionDefinition(
+data class ActionCatalogEntry(
     val actionId: String,
     val category: ActionCategory,
     @param:StringRes val titleResId: Int,

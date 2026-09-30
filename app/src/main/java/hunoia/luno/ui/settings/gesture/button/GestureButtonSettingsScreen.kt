@@ -155,7 +155,6 @@ fun GestureButtonSettingsScreen(
                             item {
                                 SegmentedGroup(
                                     title = stringResource(id = R.string.trigger_actions),
-                                    subtitle = stringResource(id = R.string.trigger_actions_subtitle),
                                     contentSpacing = SegmentedGap,
                                 ) {
                                     GestureButtonTapActionsCard(

@@ -32,20 +32,17 @@ fun GestureButtonPhysicalParamsCard(
 ) {
     SegmentedGroup(
         title = stringResource(id = R.string.physical_params),
-        subtitle = stringResource(id = R.string.physical_params_subtitle),
         contentSpacing = SegmentedGap,
     ) {
         SegmentedSettingsRow(
             onClick = onAngleClick,
             title = stringResource(id = R.string.gesture_angles),
-            subtitle = stringResource(id = R.string.gesture_button_angles_hint),
             icon = Icons.Default.Straighten,
             shape = segmentedShape(0, 8),
         )
         SegmentedSettingsRow(
             onClick = onVibrationClick,
             title = stringResource(id = R.string.gesture_button_vibration),
-            subtitle = stringResource(id = R.string.vibration_hint),
             icon = Icons.Default.Vibration,
             shape = segmentedShape(1, 8),
         )
@@ -133,7 +130,6 @@ fun GestureButtonPhysicalParamsCard(
             onCheckedChange = { vm.onGestureButtonMirrorHorizontalChange(it) },
             checked = mirrorHorizontal,
             title = stringResource(id = R.string.gesture_button_mirror),
-            subtitle = stringResource(id = R.string.gesture_button_mirror_hint),
             shape = segmentedShape(7, 8),
         )
     }

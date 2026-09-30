@@ -155,6 +155,8 @@ object ActionDefinitions {
                     EnumOption("RING", "铃声"),
                     EnumOption("NOTIFICATION", "通知"),
                     EnumOption("ALARM", "闹钟"),
+                    EnumOption("VOICE", "通话"),
+                    EnumOption("SYSTEM", "系统"),
                 ), defaultValue = "MUSIC"),
                 ParameterDefinition.Enum("direction", "方向", listOf(
                     EnumOption("UP", "增大"),

@@ -21,46 +21,32 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
 
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
         return when (action) {
-            is Action.Back -> {
-                controller.back()
-                ActionResult.Success()
-            }
-            is Action.Home -> {
-                controller.home()
-                ActionResult.Success()
-            }
-            is Action.Recents -> {
-                controller.recents()
-                ActionResult.Success()
-            }
+            is Action.Back -> executionResult(controller.back())
+            is Action.Home -> executionResult(controller.home())
+            is Action.Recents -> executionResult(controller.recents())
             is Action.Tap -> {
                 val (x, y) = context.touchPosition ?: return ActionResult.Failed(ActionFailure.InvalidParameter)
                 context.hideGestureButton(250L)
                 delay(80)
-                if (controller.click(x, y)) ActionResult.Success()
-                else ActionResult.Failed(ActionFailure.ExecutionFailed)
+                executionResult(controller.click(x, y))
             }
             is Action.LongPress -> {
                 val (x, y) = context.touchPosition ?: return ActionResult.Failed(ActionFailure.InvalidParameter)
                 context.hideGestureButton(250L)
                 delay(80)
-                if (controller.longPress(x, y)) ActionResult.Success()
-                else ActionResult.Failed(ActionFailure.ExecutionFailed)
+                executionResult(controller.longPress(x, y))
             }
             is Action.Swipe -> {
-                when (action.direction) {
+                val performed = when (action.direction) {
                     hunoia.luno.action.model.SwipeDirection.UP -> controller.swipeUp()
                     hunoia.luno.action.model.SwipeDirection.DOWN -> controller.swipeDown()
                     hunoia.luno.action.model.SwipeDirection.LEFT -> controller.swipeLeft()
                     hunoia.luno.action.model.SwipeDirection.RIGHT -> controller.swipeRight()
                     hunoia.luno.action.model.SwipeDirection.TO_TOP -> controller.scrollToTop()
                 }
-                ActionResult.Success()
+                executionResult(performed)
             }
-            is Action.InputText -> {
-                controller.inputText(action.text)
-                ActionResult.Success()
-            }
+            is Action.InputText -> executionResult(controller.inputText(action.text))
             is Action.Screenshot -> {
                 context.scope.launch {
                     delay(200)
@@ -68,27 +54,15 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
                 }
                 ActionResult.Success()
             }
-            is Action.SplitScreen -> {
-                controller.toggleSplitScreen()
-                ActionResult.Success()
-            }
-            is Action.PowerButton -> {
-                controller.powerDialog()
-                ActionResult.Success()
-            }
-            is Action.NotificationPanel -> {
-                controller.notificationPanel()
-                ActionResult.Success()
-            }
-            is Action.QuickPanel -> {
-                controller.quickPanel()
-                ActionResult.Success()
-            }
-            is Action.LockScreen -> {
-                controller.lockScreen()
-                ActionResult.Success()
-            }
+            is Action.SplitScreen -> executionResult(controller.toggleSplitScreen())
+            is Action.PowerButton -> executionResult(controller.powerDialog())
+            is Action.NotificationPanel -> executionResult(controller.notificationPanel())
+            is Action.QuickPanel -> executionResult(controller.quickPanel())
+            is Action.LockScreen -> executionResult(controller.lockScreen())
             else -> ActionResult.Failed(ActionFailure.Unsupported)
         }
     }
+
+    private fun executionResult(performed: Boolean): ActionResult =
+        if (performed) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
 }

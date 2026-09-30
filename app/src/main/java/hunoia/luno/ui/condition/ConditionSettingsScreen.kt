@@ -3,6 +3,7 @@ package hunoia.luno.ui.condition
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.TopAppBarDefaults
@@ -71,6 +72,7 @@ fun ConditionSettingsScreen(
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val backdrop = liquidGlassBackdrop()
     Scaffold(
+        modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         contentWindowInsets = WindowInsets(),
         topBar = {
@@ -92,9 +94,10 @@ fun ConditionSettingsScreen(
     ) { padding ->
         MyColumn(
             modifier = Modifier
-                .padding(padding)
-                .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .then(Modifier.layerBackdrop(backdrop)),
+                .fillMaxSize()
+                .layerBackdrop(backdrop)
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
+            topPadding = padding.calculateTopPadding(),
             verticalArrangement = Arrangement.spacedBy(ListSpacing),
         ) {
             if (rules.isEmpty()) {

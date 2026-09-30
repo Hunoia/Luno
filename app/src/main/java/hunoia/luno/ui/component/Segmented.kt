@@ -29,6 +29,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import hunoia.luno.config.defaults.SettingsUiDefaults
@@ -107,7 +108,14 @@ fun SegmentedSettingsRow(
             .clip(shape),
         headlineContent = { Text(text = title, maxLines = 1) },
         supportingContent = subtitle.takeIf { it.isNotEmpty() }?.let { s ->
-            { Text(text = s, style = MaterialTheme.typography.bodySmall) }
+            {
+                Text(
+                    text = s,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         },
         leadingContent = leadingContent ?: icon?.let { iv ->
             {
@@ -154,7 +162,14 @@ fun SegmentedSwitchRow(
             .clip(shape),
         headlineContent = { Text(text = title, maxLines = 1) },
         supportingContent = subtitle.takeIf { it.isNotEmpty() }?.let { s ->
-            { Text(text = s, style = MaterialTheme.typography.bodySmall) }
+            {
+                Text(
+                    text = s,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         },
         leadingContent = leadingContent ?: icon?.let { iv ->
             {

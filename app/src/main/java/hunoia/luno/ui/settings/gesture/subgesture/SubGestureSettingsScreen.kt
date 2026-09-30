@@ -8,6 +8,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Box
@@ -253,7 +254,7 @@ fun SubGestureSettingsScreen(
                     expandedActionGroup = if (expanded) group else null
                 }
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
                     state = listState,
                     contentPadding = PaddingValues(
                         start = PageGutter,
@@ -266,7 +267,6 @@ fun SubGestureSettingsScreen(
                     item {
                         SegmentedGroup(
                             title = stringResource(id = R.string.trigger_actions),
-                            subtitle = stringResource(id = R.string.trigger_actions_subtitle),
                             contentSpacing = SegmentedGap,
                         ) {
                             SubGestureActionSection(
@@ -385,6 +385,13 @@ fun SubGestureSettingsScreen(
                                     )
                                 }
                             }
+                        }
+                    }
+                    item {
+                        SegmentedGroup(
+                            title = stringResource(id = R.string.physical_params),
+                            contentSpacing = SegmentedGap,
+                        ) {
                             SegmentedSettingsRow(
                                 title = stringResource(id = R.string.sub_gesture_angles),
                                 icon = Icons.Default.Straighten,

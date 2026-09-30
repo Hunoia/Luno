@@ -12,6 +12,9 @@ data class ShellResult(
     val exitCode: Int,
 )
 
+internal fun shellQuote(arg: String): String =
+    "'" + arg.replace("'", "'\\''") + "'"
+
 class ShellController(private val context: Context) {
 
     suspend fun runCommand(command: String): ShellResult = withContext(Dispatchers.IO) {
