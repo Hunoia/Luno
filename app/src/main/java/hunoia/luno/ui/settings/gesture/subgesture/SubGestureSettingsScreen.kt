@@ -37,7 +37,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -71,6 +70,7 @@ import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.component.MyAlertDialog
 import hunoia.luno.ui.component.MyColumn
 import hunoia.luno.ui.component.OptimizedBottomSheet
+import hunoia.luno.ui.component.RowIconBadge
 import hunoia.luno.ui.component.TopBar
 import hunoia.luno.ui.component.input.MyTextSlider
 import hunoia.luno.ui.component.SegmentedGroup
@@ -78,7 +78,6 @@ import hunoia.luno.ui.component.segmentedShape
 import hunoia.luno.ui.component.SegmentedSettingsRow
 import hunoia.luno.ui.component.SegmentedSwitchRow
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.ui.Alignment
 import hunoia.luno.ui.settings.gesture.subgesture.SubGestureSettingsUiEvent
 import hunoia.luno.ui.settings.gesture.subgesture.SubGestureSettingsUiState
 import hunoia.luno.ui.settings.gesture.button.GestureActionGroup
@@ -490,29 +489,13 @@ private fun SubGestureActionRow(
     trailing: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    val colorScheme = MaterialTheme.colorScheme
     SegmentedSettingsRow(
         title = title,
         icon = icon,
         onClick = onClick,
         shape = shape,
         subtitle = secondaryText,
-        leadingContent = {
-            Surface(
-                modifier = Modifier.size(32.dp),
-                shape = RoundedCornerShape(ContainerRadius),
-                color = colorScheme.primaryContainer,
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        modifier = Modifier.size(20.dp),
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = colorScheme.onPrimaryContainer,
-                    )
-                }
-            }
-        },
+        leadingContent = { RowIconBadge(icon) },
         trailingContent = trailing,
     )
 }

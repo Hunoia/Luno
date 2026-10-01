@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.action.definition.ActionCategory
 import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.action.model.matchesQuery
 import hunoia.luno.config.model.Action
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.quicklaunch.model.AppInfo
@@ -41,7 +42,6 @@ import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.ui.actionselect.UiState.SelectedRecord
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.EmptyState
-import hunoia.luno.ui.actionlibrary.matchesQuery
 import hunoia.luno.ui.component.displayNameRes
 import hunoia.luno.ui.component.segmentedShape
 import hunoia.luno.ui.theme.*
@@ -79,47 +79,26 @@ internal fun ActionPage(
     maxSelectCount: Int = MAX_SELECT_COUNT
 ) {
     var query by rememberSaveable { mutableStateOf("") }
-    var selectedCategory by rememberSaveable { mutableStateOf<ActionCategory?>(null) }
     var selectedType by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val selectingLongPress = longPressTargetIndex != null
-    val categoryChips = remember(actions) {
-        buildList<Pair<Any?, String>> {
-            add(null to context.getString(R.string.all_categories))
-            actions
-                .map { actionCategory(it) }
-                .distinct()
-                .forEach { category -> add(category to context.getString(category.displayNameRes)) }
-            add(TYPE_ACTION_LIBRARY to context.getString(R.string.action_library))
-            add(TYPE_APP to context.getString(R.string.tab_apps))
-            add(TYPE_SHORTCUT to context.getString(R.string.tab_shortcuts))
-        }
+    val typeChips = remember(context) {
+        listOf(
+            null to context.getString(R.string.all_categories),
+            TYPE_ACTION_LIBRARY to context.getString(R.string.action_library),
+            TYPE_APP to context.getString(R.string.tab_apps),
+            TYPE_SHORTCUT to context.getString(R.string.tab_shortcuts),
+        )
     }
-    val filteredActions = remember(actions, query, selectedCategory, selectedType) {
-        if (query.isNotBlank()) {
-            var result = actions
-            if (selectedCategory != null) {
-                result = result.filter { action ->
-                    val cat = actionCategory(action)
-                    cat == selectedCategory
-                }
-            }
-            result = result.filter {
+    val filteredActions = remember(actions, query, selectedType, subGestures, actionLibraryEntries) {
+        when {
+            selectedType != null && query.isBlank() -> emptyList()
+            selectedType == TYPE_ACTION_LIBRARY -> emptyList()
+            query.isBlank() -> actions
+            else -> actions.filter {
                 context.actionTextWithSubGesture(it, subGestures, actionLibraryEntries, emptyIfNone = false)
                     .contains(query, ignoreCase = true)
             }
-            if (selectedType == TYPE_ACTION_LIBRARY) emptyList() else result
-        } else if (selectedType == TYPE_APP || selectedType == TYPE_SHORTCUT) emptyList()
-        else if (selectedType == TYPE_ACTION_LIBRARY) emptyList()
-        else {
-            var result = actions
-            if (selectedCategory != null) {
-                result = result.filter { action ->
-                    val cat = actionCategory(action)
-                    cat == selectedCategory
-                }
-            }
-            result
         }
     }
     val grouped = remember(filteredActions) {
@@ -175,34 +154,19 @@ internal fun ActionPage(
                 placeholder = stringResource(R.string.search_hint_all),
             )
         }
-        item(key = "category_chips") {
+        item(key = "type_chips") {
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = PageGutter, vertical = ListItemVerticalPadding),
                 horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing)
             ) {
-                items(categoryChips) { (chipKey, label) ->
-                    val isSelected = when (chipKey) {
-                        null -> selectedType == null && selectedCategory == null
-                        is String -> chipKey == selectedType
-                        is ActionCategory -> chipKey == selectedCategory
-                        else -> false
-                    }
+                items(typeChips) { (chipKey, label) ->
+                    val isSelected = if (chipKey == null) selectedType == null else chipKey == selectedType
                     FilterChip(
                         selected = isSelected,
                         onClick = {
-                            when (chipKey) {
-                                null -> { selectedType = null; selectedCategory = null }
-                                is String -> {
-                                    selectedType = if (isSelected) null else chipKey
-                                    if (selectedType != null) selectedCategory = null
-                                }
-                                is ActionCategory -> {
-                                    selectedCategory = if (isSelected) null else chipKey
-                                    if (selectedCategory != null) selectedType = null
-                                }
-                            }
+                            selectedType = if (isSelected) null else chipKey
                         },
                         label = { Text(label) },
                         leadingIcon = if (isSelected) {
@@ -219,7 +183,7 @@ internal fun ActionPage(
             }
         }
         val hasAnyContent = grouped.isNotEmpty() || filteredApps.isNotEmpty() || filteredLibraryEntries.isNotEmpty() || filteredCreateShortcuts.isNotEmpty() || filteredLaunchShortcuts.isNotEmpty()
-        if ((query.isNotEmpty() || selectedType != null || selectedCategory != null) && !hasAnyContent) {
+        if ((query.isNotEmpty() || selectedType != null) && !hasAnyContent) {
             item {
                 EmptyState(message = stringResource(R.string.no_matching_results))
             }

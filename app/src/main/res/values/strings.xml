@@ -132,9 +132,7 @@
     <string name="direction_down_right">右下</string>
 
     <!-- Action categories -->
-    <string name="action_category_navigation">导航</string>
     <string name="action_category_system">系统</string>
-    <string name="action_category_tool">工具</string>
     <string name="action_category_app">应用操作</string>
     <string name="action_category_intent">Intent</string>
     <string name="action_category_accessibility">无障碍</string>
@@ -247,13 +245,17 @@
     <string name="action_library_delete_desc">当前有 %1$d 处引用。删除后会清理这些引用，是否继续？</string>
     <string name="action_library_delete_unused_desc">当前没有任何引用。删除后不可恢复，是否继续？</string>
     <string name="action_library_reference_count">引用 %1$d</string>
+    <string name="action_library_entry_not_found">未找到该动作库条目，可能已被删除</string>
+    <string name="action_library_discard_title">放弃未保存的修改？</string>
+    <string name="action_library_discard_desc">返回后本次修改将丢失。</string>
 
     <!-- New action editor -->
     <string name="action_type_label">动作类型</string>
     <string name="action_type_picker_title">选择动作类型</string>
-    <string name="action_type_meta_format">%1$s · %2$d 个参数</string>
     <string name="action_param_count">%1$d 个参数</string>
     <string name="action_requires_capability">需要 %1$s</string>
+    <string name="action_capability_accessibility">无障碍</string>
+    <string name="action_capability_shizuku">Shizuku</string>
     <string name="action_editor_delete_desc">删除后会清理引用该动作的配置，且不可恢复。是否继续？</string>
     <string name="select_activity_title">选择 Activity</string>
 

@@ -1,6 +1,10 @@
 package hunoia.luno.action.model
 
+import hunoia.luno.config.defaults.ActionSettingsDefaults.HideGestureButtonDelayMs
+import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubHorizontalEnabled
+import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubStepThresholdDp
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
@@ -86,10 +90,21 @@ object ActionMapper {
             )
             "internal.none" -> Action.None
             "internal.subGesture" -> Action.SubGesture
-            "internal.hideGestureButton" -> Action.HideGestureButton
+            "internal.hideGestureButton" -> Action.HideGestureButton(
+                p.long("delayMs", HideGestureButtonDelayMs),
+            )
             "internal.quickAppLauncher" -> Action.QuickAppLauncher
-            "internal.volumeScrub" -> Action.VolumeScrub
-            "internal.previousApp" -> Action.PreviousApp
+            "internal.volumeScrub" -> Action.VolumeScrub(
+                horizontalEnabled = p.bool(
+                    "horizontalEnabled",
+                    VolumeScrubHorizontalEnabled,
+                ),
+                stepThresholdDp = p.int(
+                    "stepThresholdDp",
+                    VolumeScrubStepThresholdDp,
+                ),
+            )
+            "internal.previousApp" -> Action.PreviousApp(p.arrayOfStr("excludePackageNames"))
             else -> Action.None
         }
     }
@@ -184,10 +199,19 @@ object ActionMapper {
                 }
                 is Action.None -> {}
                 is Action.SubGesture -> {}
-                is Action.HideGestureButton -> {}
-                is Action.QuickAppLauncher -> {}
-                is Action.VolumeScrub -> {}
-                is Action.PreviousApp -> {}
+            is Action.HideGestureButton -> put("delayMs", action.delayMs.toString())
+            is Action.QuickAppLauncher -> {}
+            is Action.VolumeScrub -> {
+                put("horizontalEnabled", action.horizontalEnabled.toString())
+                put("stepThresholdDp", action.stepThresholdDp.toString())
+            }
+            is Action.PreviousApp -> {
+                if (action.excludePackageNames.isNotEmpty()) {
+                    put("excludePackageNames", buildJsonArray {
+                        action.excludePackageNames.forEach { add(it) }
+                    })
+                }
+            }
             }
         }
         return StoredAction(action.typeId, params)
@@ -201,4 +225,13 @@ object ActionMapper {
 
     private fun JsonObject.intOrNull(key: String): Int? =
         this[key]?.jsonPrimitive?.contentOrNull?.toIntOrNull()
+
+    private fun JsonObject.int(key: String, default: Int): Int =
+        intOrNull(key) ?: default
+
+    private fun JsonObject.long(key: String, default: Long): Long =
+        this[key]?.jsonPrimitive?.contentOrNull?.toLongOrNull() ?: default
+
+    private fun JsonObject.arrayOfStr(key: String): List<String> =
+        this[key]?.jsonArray?.mapNotNull { it.jsonPrimitive?.contentOrNull } ?: emptyList()
 }

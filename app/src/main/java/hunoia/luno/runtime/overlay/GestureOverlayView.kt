@@ -44,7 +44,6 @@ fun GestureOverlayView(
                 onAction = { action, sourceButton, sourceOverride ->
                     callbacks.onAction(action, sourceButton, sourceOverride)
                 },
-                actionSettings = state.actionSettings,
                 advancedSettings = state.advancedSettings,
                 gestureSettings = state.gestureSettings,
                 subGestureSettings = state.subGestureSettings,

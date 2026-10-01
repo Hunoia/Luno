@@ -1,21 +1,17 @@
 package hunoia.luno.ui.settings.gesture.style
 
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
 import hunoia.luno.config.model.GestureDirection
+import hunoia.luno.ui.component.RowIconBadge
 import hunoia.luno.ui.component.SegmentedSettingsRow
 import hunoia.luno.ui.theme.ContainerRadius
-import hunoia.luno.ui.theme.RowIconSize
 
 
 @Composable
@@ -38,13 +34,9 @@ fun MySideGestureSettings(
         trailingContent = trailing,
         shape = shape,
         leadingContent = {
-            Icon(
-                modifier = Modifier
-                    .graphicsLayer { rotationZ = rotation }
-                    .size(RowIconSize),
-                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            RowIconBadge(
+                icon = Icons.AutoMirrored.Filled.ArrowForward,
+                rotation = rotation,
             )
         },
     )

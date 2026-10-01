@@ -101,7 +101,6 @@ class GestureCoordinator(
         packageManager = host.context.packageManager,
         startActivity = { host.context.startActivity(it) },
         rootInActiveWindowPackageName = { host.accessibilityService.rootInActiveWindow?.packageName?.toString() },
-        excludePackageNames = { runtimeSettingsStore.snapshot().actionSettings.previousApp.packageNames },
     )
 
     private val actionDispatcher = ActionDispatcher(
@@ -118,7 +117,7 @@ class GestureCoordinator(
             )
         },
         onToggleQuickAppLauncher = { host.quickAppLauncherOverlay.toggle() },
-        onShowVolumeScrub = { volumeScrubRuntime.show() },
+        onShowVolumeScrub = { config -> volumeScrubRuntime.show(config) },
         onHideGestureButton = { button, delayMs ->
             if (button != null) buttonHideRuntime.hideTemporarily(button, delayMs)
         },
@@ -126,7 +125,6 @@ class GestureCoordinator(
 
     private val volumeScrubRuntime = VolumeScrubRuntime(
         context = host.context,
-        actionSettingsProvider = { runtimeSettingsStore.snapshot().actionSettings },
         onStateChanged = { refreshGestureButtons() },
     )
 

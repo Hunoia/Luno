@@ -5,6 +5,7 @@ import hunoia.luno.action.execution.ExecutorContext
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionFailure
 import hunoia.luno.action.model.ActionResult
+import hunoia.luno.config.model.VolumeScrubConfig
 
 class InternalExecutors : ActionExecutor {
 
@@ -19,7 +20,7 @@ class InternalExecutors : ActionExecutor {
             is Action.None -> ActionResult.Success()
             is Action.SubGesture -> ActionResult.Success()
             is Action.HideGestureButton -> {
-                context.hideGestureButton(context.actionSettings.hideGestureButton.delayMs)
+                context.hideGestureButton(action.delayMs)
                 ActionResult.Success()
             }
             is Action.QuickAppLauncher -> {
@@ -27,10 +28,11 @@ class InternalExecutors : ActionExecutor {
                 ActionResult.Success()
             }
             is Action.VolumeScrub -> {
-                if (context.showVolumeScrub()) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
+                val config = VolumeScrubConfig(action.horizontalEnabled, action.stepThresholdDp)
+                if (context.showVolumeScrub(config)) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.PreviousApp -> {
-                context.previousApp()
+                context.previousApp(action.excludePackageNames)
                 ActionResult.Success()
             }
             else -> ActionResult.Failed(ActionFailure.Unsupported)

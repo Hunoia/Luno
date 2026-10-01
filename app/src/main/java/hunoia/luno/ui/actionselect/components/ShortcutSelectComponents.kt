@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -20,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEachIndexed
 import coil.compose.AsyncImage
 import coil.imageLoader
@@ -29,6 +31,7 @@ import hunoia.luno.quicklaunch.model.icon
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.ui.component.SelectableListItem
 import hunoia.luno.ui.component.segmentedShape
+import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SegmentedGap
 import hunoia.luno.ui.theme.ShapeSmall
@@ -53,6 +56,7 @@ internal fun LauncherInfoItem(
         ListItem(
             modifier = Modifier
                 .alpha(if (launcherEnabled) 1f else SettingsUiDefaults.DisabledAlpha)
+                .padding(horizontal = PageGutter)
                 .then(
                     if (launcherEnabled) Modifier.clickable(
                         interactionSource = interactionSource,
@@ -101,7 +105,7 @@ internal fun LauncherInfoItem(
                     iconModel = shortcutInfo.icon,
                     showCheckbox = !selectSingle,
                     shape = segmentedShape(index + 1, total),
-                    verticalGap = SegmentedGap,
+                    verticalGap = 0.dp,
                 )
             }
         }

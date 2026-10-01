@@ -33,6 +33,7 @@ import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.gesture.GestureFacade
+import hunoia.luno.ui.component.RowIconBadge
 import hunoia.luno.ui.component.SegmentedSettingsRow
 import hunoia.luno.ui.component.actionTextCompose
 import hunoia.luno.ui.component.segmentedShape
@@ -278,12 +279,7 @@ fun GestureButtonTapActionsCard(
                 secondaryTextColor = MaterialTheme.colorScheme.primary,
                 shape = segmentedShape(index, tapActions.size),
                 leadingContent = {
-                    Icon(
-                        modifier = Modifier.size(RowIconSize),
-                        imageVector = Icons.Default.Adjust,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
+                    RowIconBadge(icon = Icons.Default.Adjust)
                 },
             )
         }

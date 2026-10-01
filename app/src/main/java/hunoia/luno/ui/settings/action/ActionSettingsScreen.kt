@@ -23,11 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Crop
-import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.filled.Swipe
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -56,7 +52,6 @@ import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.config.model.withMiniWindowSettings
-import hunoia.luno.ui.component.AppPickerSheet
 import hunoia.luno.ui.component.MyColumn
 import hunoia.luno.ui.component.SegmentedGroup
 import hunoia.luno.ui.component.SegmentedSettingsRow
@@ -70,7 +65,6 @@ import hunoia.luno.ui.theme.liquidGlassBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 
 import kotlinx.coroutines.launch
-import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -100,30 +94,6 @@ fun ActionSettingsScreen(onBack: () -> Unit) {
         ) {
             SegmentedGroup(contentSpacing = SegmentedGap) {
                 SegmentedSettingsRow(
-                    icon = Icons.Default.Visibility,
-                    title = stringResource(R.string.hide_gesture_button),
-                    subtitle = stringResource(R.string.hide_gesture_button_delay_ms),
-                )
-                HideGestureButtonControls(
-                    settings = actionSettings.hideGestureButton,
-                    onChange = { next -> scope.launch { ConfigProvider.updateActionSettings { it.copy(hideGestureButton = next) } } },
-                )
-            }
-
-            SegmentedGroup(contentSpacing = SegmentedGap) {
-                SegmentedSettingsRow(
-                    icon = Icons.Default.Swipe,
-                    title = stringResource(R.string.horizontal_volume_scrub),
-                    subtitle = stringResource(R.string.horizontal_volume_scrub_hint),
-                )
-                VolumeScrubControls(
-                    settings = actionSettings.volumeScrub,
-                    onChange = { next -> scope.launch { ConfigProvider.updateActionSettings { it.copy(volumeScrub = next) } } },
-                )
-            }
-
-            SegmentedGroup(contentSpacing = SegmentedGap) {
-                SegmentedSettingsRow(
                     icon = Icons.Default.Crop,
                     title = stringResource(R.string.mini_window_position_short),
                     subtitle = stringResource(R.string.mini_window_position_hint),
@@ -131,19 +101,6 @@ fun ActionSettingsScreen(onBack: () -> Unit) {
                 MiniWindowControls(
                     settings = advancedSettings.miniWindowSettings(),
                     onChange = { next -> scope.launch { ConfigProvider.updateAdvancedSettings { it.withMiniWindowSettings(next) } } },
-                )
-            }
-
-            SegmentedGroup(contentSpacing = SegmentedGap) {
-                PreviousAppExcludeCard(
-                    excludedPackageNames = actionSettings.previousApp.packageNames,
-                    onConfirm = { picked ->
-                        scope.launch {
-                            ConfigProvider.updateActionSettings {
-                                it.copy(previousApp = it.previousApp.copy(packageNames = picked))
-                            }
-                        }
-                    },
                 )
             }
 
@@ -159,7 +116,6 @@ fun ActionSettingsScreen(onBack: () -> Unit) {
                             }
                         }
                     },
-                    globalActionSettings = actionSettings,
                     globalMiniWindow = advancedSettings.miniWindowSettings(),
                 )
             }
@@ -178,57 +134,10 @@ fun ActionSettingsScreen(onBack: () -> Unit) {
                             }
                         }
                     },
-                    globalActionSettings = actionSettings,
                     globalMiniWindow = advancedSettings.miniWindowSettings(),
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun PreviousAppExcludeCard(
-    excludedPackageNames: List<String>,
-    onConfirm: (List<String>) -> Unit,
-) {
-    var showPicker by remember { mutableStateOf(false) }
-
-    SegmentedSettingsRow(
-        icon = Icons.Default.SkipPrevious,
-        title = stringResource(R.string.previous_app_exclude_apps),
-        subtitle = if (excludedPackageNames.isEmpty()) {
-            stringResource(R.string.previous_app_exclude_empty)
-        } else {
-            stringResource(R.string.condition_app_summary, excludedPackageNames.size)
-        },
-    )
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(SegmentedGap),
-    ) {
-        if (excludedPackageNames.isNotEmpty()) {
-            Text(
-                text = excludedPackageNames.joinToString(", "),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-            )
-        }
-        FilledTonalButton(
-            modifier = Modifier.fillMaxWidth(),
-            onClick = { showPicker = true },
-        ) {
-            Text(stringResource(R.string.condition_app_select_title))
-        }
-    }
-
-    if (showPicker) {
-        AppPickerSheet(
-            onDismissRequest = { showPicker = false },
-            selectedPackageNames = excludedPackageNames,
-            onConfirm = onConfirm,
-        )
     }
 }
 
@@ -238,7 +147,6 @@ private fun OverrideCard(
     color: Int,
     actionSettingsOverride: GestureButtonActionSettingsOverride,
     onUpdateOverride: (GestureButtonActionSettingsOverride) -> Unit,
-    globalActionSettings: ActionSettings,
     globalMiniWindow: MiniWindowSettings,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -300,34 +208,6 @@ private fun OverrideCard(
                 verticalArrangement = Arrangement.spacedBy(SegmentedGap),
             ) {
                     OverrideSection(
-                        title = stringResource(R.string.action_hide_gesture_button),
-                        enabled = actionSettingsOverride.hideGestureButton != null,
-                        onEnabledChange = { enabled ->
-                            onUpdateOverride(actionSettingsOverride.copy(
-                                hideGestureButton = if (enabled) globalActionSettings.hideGestureButton else null
-                            ))
-                        },
-                    ) {
-                        HideGestureButtonControls(
-                            settings = actionSettingsOverride.hideGestureButton ?: globalActionSettings.hideGestureButton,
-                            onChange = { next -> onUpdateOverride(actionSettingsOverride.copy(hideGestureButton = next)) },
-                        )
-                    }
-                    OverrideSection(
-                        title = stringResource(R.string.action_volume_scrub),
-                        enabled = actionSettingsOverride.volumeScrub != null,
-                        onEnabledChange = { enabled ->
-                            onUpdateOverride(actionSettingsOverride.copy(
-                                volumeScrub = if (enabled) globalActionSettings.volumeScrub else null
-                            ))
-                        },
-                    ) {
-                        VolumeScrubControls(
-                            settings = actionSettingsOverride.volumeScrub ?: globalActionSettings.volumeScrub,
-                            onChange = { next -> onUpdateOverride(actionSettingsOverride.copy(volumeScrub = next)) },
-                        )
-                    }
-                    OverrideSection(
                         title = stringResource(R.string.mini_window_position_short),
                         enabled = actionSettingsOverride.miniWindow != null,
                         onEnabledChange = { enabled ->
@@ -359,7 +239,7 @@ private fun OverrideSection(
             subtitle = if (enabled) stringResource(R.string.custom_action_setting) else stringResource(R.string.follow_global_action_setting),
             checked = enabled,
             onCheckedChange = onEnabledChange,
-            shape = if (enabled) segmentedShape(0, 2) else segmentedShape(0, 1),
+            shape = segmentedShape(0, 1),
         )
         if (enabled) {
             content()
@@ -368,44 +248,6 @@ private fun OverrideSection(
             }
         }
     }
-}
-
-@Composable
-private fun HideGestureButtonControls(
-    settings: ActionSettings.HideGestureButton,
-    onChange: (ActionSettings.HideGestureButton) -> Unit,
-) {
-    var localDelay by remember(settings.delayMs) { mutableStateOf(settings.delayMs.toFloat()) }
-    MyTextSlider(
-        value = localDelay,
-        onValueChange = { localDelay = it },
-        onValueChangeFinished = { onChange(settings.copy(delayMs = localDelay.toLong())) },
-        text = stringResource(R.string.hide_gesture_button_delay_ms),
-        valueDisplay = stringResource(R.string.current_value_ms, localDelay.toLong()),
-        valueRange = 0f..3000f,
-    )
-}
-
-@Composable
-private fun VolumeScrubControls(
-    settings: ActionSettings.VolumeScrub,
-    onChange: (ActionSettings.VolumeScrub) -> Unit,
-) {
-    SegmentedSwitchRow(
-        title = stringResource(R.string.horizontal_volume_scrub),
-        subtitle = stringResource(R.string.horizontal_volume_scrub_hint),
-        checked = settings.horizontalEnabled,
-        onCheckedChange = { onChange(settings.copy(horizontalEnabled = it)) },
-    )
-    var localStep by remember(settings.stepThresholdDp) { mutableStateOf(settings.stepThresholdDp.toFloat()) }
-    MyTextSlider(
-        value = localStep,
-        onValueChange = { localStep = it },
-        onValueChangeFinished = { onChange(settings.copy(stepThresholdDp = localStep.roundToInt())) },
-        text = stringResource(R.string.volume_scrub_sensitivity),
-        valueDisplay = "${localStep.roundToInt()}dp",
-        valueRange = 4f..64f,
-    )
 }
 
 @Composable

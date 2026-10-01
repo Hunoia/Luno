@@ -54,10 +54,19 @@ sealed interface ParameterDefinition {
         override val defaultValue: String? = null
     }
 
+    data class AppSelectorMulti(
+        override val key: String,
+        override val label: String,
+        override val required: Boolean = false,
+    ) : ParameterDefinition {
+        override val defaultValue: String? = null
+    }
+
     data class ActivitySelector(
         override val key: String,
         override val label: String,
         override val required: Boolean = true,
+        val packageKey: String = "packageName",
     ) : ParameterDefinition {
         override val defaultValue: String? = null
     }
@@ -88,7 +97,6 @@ data class ActionDefinition(
     val category: ActionCategory,
     val capability: Capability,
     val parameters: List<ParameterDefinition> = emptyList(),
-    val isInternal: Boolean = false,
     val icon: ImageVector = Icons.Default.Android,
     /** 内部动作同时存在的旧 action id，用于保持既有运行时特判 */
     val legacyId: String? = null,

@@ -18,18 +18,8 @@ data class MiniWindowSettings(
 @Serializable
 @Keep
 data class GestureButtonActionSettingsOverride(
-    val hideGestureButton: ActionSettings.HideGestureButton? = null,
-    val volumeScrub: ActionSettings.VolumeScrub? = null,
     val miniWindow: MiniWindowSettings? = null,
 )
-
-fun ActionSettings.effectiveFor(override: GestureButtonActionSettingsOverride?): ActionSettings {
-    override ?: return this
-    return copy(
-        hideGestureButton = override.hideGestureButton ?: hideGestureButton,
-        volumeScrub = override.volumeScrub ?: volumeScrub,
-    )
-}
 
 fun AdvancedSettings.miniWindowSettings(): MiniWindowSettings = MiniWindowSettings(
     horizontalBias = miniWindowHorizontalBias,

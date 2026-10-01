@@ -86,7 +86,6 @@ object ActionDefinitions {
             Action.LaunchShortcut::class, "app.launchShortcut", "启动快捷方式", ActionCategory.APP,
             Capability.None,
             listOf(ParameterDefinition.Text("data", "快捷方式数据", required = false)),
-            isInternal = true,
             icon = Icons.AutoMirrored.Default.Shortcut,
         ))
 
@@ -314,22 +313,49 @@ object ActionDefinitions {
         ))
 
         // Internal
-        add(ActionDefinition(Action.None::class, "internal.none", "无", ActionCategory.INTERNAL, Capability.None, isInternal = true,
+        add(ActionDefinition(Action.None::class, "internal.none", "无", ActionCategory.INTERNAL, Capability.None,
             legacyId = ActionIds.NONE,
             icon = Icons.Default.Block))
-        add(ActionDefinition(Action.SubGesture::class, "internal.subGesture", "子手势", ActionCategory.INTERNAL, Capability.None, isInternal = true,
+        add(ActionDefinition(Action.SubGesture::class, "internal.subGesture", "子手势", ActionCategory.INTERNAL, Capability.None,
             legacyId = ActionIds.SUB_GESTURE,
             icon = Icons.Default.Gesture))
-        add(ActionDefinition(Action.HideGestureButton::class, "internal.hideGestureButton", "隐藏触钮", ActionCategory.INTERNAL, Capability.None, isInternal = true,
+        add(ActionDefinition(Action.HideGestureButton::class, "internal.hideGestureButton", "隐藏触钮", ActionCategory.INTERNAL, Capability.None,
+            parameters = listOf(ParameterDefinition.Number(
+                key = "delayMs",
+                label = "隐藏触钮时长",
+                required = false,
+                defaultValue = "1000",
+                min = 0,
+                max = 3000,
+            )),
             legacyId = ActionIds.HIDE_GESTURE_BUTTON,
             icon = Icons.Default.VisibilityOff))
-        add(ActionDefinition(Action.QuickAppLauncher::class, "internal.quickAppLauncher", "快速启动面板", ActionCategory.INTERNAL, Capability.None, isInternal = true,
+        add(ActionDefinition(Action.QuickAppLauncher::class, "internal.quickAppLauncher", "快速启动面板", ActionCategory.INTERNAL, Capability.None,
             legacyId = ActionIds.QUICK_APP_LAUNCHER,
             icon = Icons.Default.Apps))
-        add(ActionDefinition(Action.VolumeScrub::class, "internal.volumeScrub", "滑动调音量", ActionCategory.INTERNAL, Capability.None, isInternal = true,
+        add(ActionDefinition(Action.VolumeScrub::class, "internal.volumeScrub", "滑动调音量", ActionCategory.INTERNAL, Capability.None,
+            parameters = listOf(
+                ParameterDefinition.Bool(
+                    key = "horizontalEnabled",
+                    label = "水平音量调节",
+                    defaultValue = "true",
+                ),
+                ParameterDefinition.Number(
+                    key = "stepThresholdDp",
+                    label = "灵敏度",
+                    required = false,
+                    defaultValue = "14",
+                    min = 4,
+                    max = 64,
+                ),
+            ),
             legacyId = ActionIds.VOLUME_SCRUB,
             icon = Icons.Default.Widgets))
-        add(ActionDefinition(Action.PreviousApp::class, "internal.previousApp", "上一个应用", ActionCategory.INTERNAL, Capability.None, isInternal = true,
+        add(ActionDefinition(Action.PreviousApp::class, "internal.previousApp", "上一个应用", ActionCategory.INTERNAL, Capability.None,
+            parameters = listOf(ParameterDefinition.AppSelectorMulti(
+                key = "excludePackageNames",
+                label = "上个应用排除",
+            )),
             legacyId = ActionIds.PREVIOUS_APP,
             icon = Icons.Default.SwapHoriz))
     }
@@ -338,27 +364,26 @@ object ActionDefinitions {
 
     fun byTypeId(typeId: String): ActionDefinition? = byTypeId[typeId]
 
-    private val pickerExcluded: Set<String> = setOf(
+    /** 不可在动作库中新建的类型：占位型，或必须引用具体实体的类型 */
+    private val libraryExcluded: Set<String> = setOf(
         "internal.none",
         "internal.subGesture",
-        "app.launch",
         "app.launchShortcut",
     )
+
+    private val pickerExcluded: Set<String> = libraryExcluded + setOf(
+        "app.launch",
+        "accessibility.tap",
+        "accessibility.longPress",
+    )
+
+    fun libraryDefinitions(): List<ActionDefinition> = definitions.filterNot { it.typeId in libraryExcluded }
 
     fun pickerDefinitions(): List<ActionDefinition> =
         definitions.filter { it.typeId !in pickerExcluded && it.parameters.none { p -> p.required } }
 
-    private val pickerCategoryOrder: Map<ActionCategory, Int> =
-        pickerDefinitions().map { it.category }.distinct().withIndex().associate { (i, c) -> c to i }
-
-    fun pickerCategoryOrder(category: ActionCategory): Int =
-        pickerCategoryOrder[category] ?: Int.MAX_VALUE
-
     private val categoryOrder: Map<ActionCategory, Int> =
-        userDefinitions().map { it.category }.distinct().withIndex().associate { (i, c) -> c to i }
-
-    fun userDefinitions(): List<ActionDefinition> = definitions.filterNot { it.isInternal }
+        libraryDefinitions().map { it.category }.distinct().withIndex().associate { (i, c) -> c to i }
 
     fun categoryOrder(category: ActionCategory): Int = categoryOrder[category] ?: Int.MAX_VALUE
-    fun byCategory(): Map<ActionCategory, List<ActionDefinition>> = userDefinitions().groupBy { it.category }
 }

@@ -62,24 +62,26 @@ private fun countReferences(
     subGestures: List<SubGesture>,
 ): Map<String, Int> {
     val counts = mutableMapOf<String, Int>()
-    fun add(action: Action?) {
+    fun count(action: Action?) {
         val entryId = action?.actionLibraryRefId() ?: return
         counts[entryId] = (counts[entryId] ?: 0) + 1
     }
-    buttons.forEach { button ->
-        button.slideActions.actions.values.flatten().forEach { add(it); add(it.longPressAction) }
-        button.slideHoldActions.actions.values.flatten().forEach { add(it); add(it.longPressAction) }
-        button.longSlideActions.actions.values.flatten().forEach { add(it); add(it.longPressAction) }
-        button.longSlideHoldActions.actions.values.flatten().forEach { add(it); add(it.longPressAction) }
-        button.tapActions.forEach { add(it); add(it.longPressAction) }
-        button.doubleTapActions.forEach { add(it); add(it.longPressAction) }
-        button.longPressActions.forEach { add(it); add(it.longPressAction) }
-    }
-    subGestures.forEach { gesture ->
-        gesture.slideActions.actions.values.flatten().forEach { add(it); add(it.longPressAction) }
-        gesture.slideHoldActions.actions.values.flatten().forEach { add(it); add(it.longPressAction) }
-        gesture.longSlideActions.actions.values.flatten().forEach { add(it); add(it.longPressAction) }
-        gesture.longSlideHoldActions.actions.values.flatten().forEach { add(it); add(it.longPressAction) }
+    (buttons.flatMap { it.actionList() } + subGestures.flatMap { it.actionList() }).forEach { action ->
+        count(action)
+        count(action.longPressAction)
     }
     return counts
 }
+
+private fun GestureButton.actionList(): List<Action> =
+    slideActions.actions.values.flatten() +
+        slideHoldActions.actions.values.flatten() +
+        longSlideActions.actions.values.flatten() +
+        longSlideHoldActions.actions.values.flatten() +
+        tapActions + doubleTapActions + longPressActions
+
+private fun SubGesture.actionList(): List<Action> =
+    slideActions.actions.values.flatten() +
+        slideHoldActions.actions.values.flatten() +
+        longSlideActions.actions.values.flatten() +
+        longSlideHoldActions.actions.values.flatten()

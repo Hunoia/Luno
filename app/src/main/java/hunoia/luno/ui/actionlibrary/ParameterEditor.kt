@@ -3,6 +3,7 @@ package hunoia.luno.ui.actionlibrary
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuDefaults
@@ -16,67 +17,77 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.core.AppContext
 import hunoia.luno.ui.component.SegmentedSwitchRow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ParameterEditor(
     definition: ParameterDefinition,
-    currentParams: Map<String, String>,
+    currentParams: Map<String, JsonElement>,
     onParamChange: (String, String) -> Unit,
     onPickApp: (String) -> Unit = {},
+    onPickApps: (String) -> Unit = {},
     onPickActivity: (String, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     val required = definition.required
     when (definition) {
         is ParameterDefinition.Text -> {
+            val value = currentParams[definition.key]?.scalarText() ?: (definition.defaultValue ?: "")
             OutlinedTextField(
-                value = currentParams[definition.key] ?: (definition.defaultValue ?: ""),
+                value = value,
                 onValueChange = { onParamChange(definition.key, it) },
                 label = { Text(definition.label) },
                 singleLine = true,
                 modifier = modifier.fillMaxWidth(),
-                isError = required && (currentParams[definition.key] ?: "").isBlank(),
+                isError = required && value.isBlank(),
             )
         }
         is ParameterDefinition.Number -> {
+            val value = currentParams[definition.key]?.scalarText() ?: (definition.defaultValue ?: "")
             OutlinedTextField(
-                value = currentParams[definition.key] ?: (definition.defaultValue ?: ""),
+                value = value,
                 onValueChange = { onParamChange(definition.key, it) },
                 label = { Text(definition.label) },
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = modifier.fillMaxWidth(),
-                isError = required && (currentParams[definition.key] ?: "").isBlank(),
+                isError = (required && value.isBlank()) || !inRange(value, definition),
             )
         }
         is ParameterDefinition.Bool -> {
             SegmentedSwitchRow(
                 title = definition.label,
-                checked = currentParams[definition.key]?.toBoolean() ?: definition.defaultValue.toBoolean(),
+                checked = currentParams[definition.key]?.scalarText()?.toBoolean()
+                    ?: definition.defaultValue.toBoolean(),
                 onCheckedChange = { onParamChange(definition.key, it.toString()) },
-                modifier = modifier,
+                modifier = modifier.fillMaxWidth(),
             )
         }
         is ParameterDefinition.Enum -> {
-            val selectedValue = currentParams[definition.key] ?: (definition.defaultValue ?: "")
+            val selectedValue = currentParams[definition.key]?.scalarText() ?: (definition.defaultValue ?: "")
             val selectedOption = definition.options.find { it.value == selectedValue }
             var expanded by remember { mutableStateOf(false) }
             val interactionSource = remember { MutableInteractionSource() }
             rememberTapHandler(interactionSource, Unit) { expanded = !expanded }
             OutlinedTextField(
-                value = selectedOption?.label ?: "",
+                value = selectedOption?.label ?: selectedValue,
                 onValueChange = {},
                 readOnly = true,
                 label = { Text(definition.label) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 interactionSource = interactionSource,
                 modifier = modifier.fillMaxWidth(),
-                isError = required && selectedValue.isBlank(),
+                isError = required && selectedOption == null,
             )
             DropdownMenu(
                 expanded = expanded,
@@ -95,7 +106,7 @@ fun ParameterEditor(
             }
         }
         is ParameterDefinition.AppSelector -> {
-            val selected = currentParams[definition.key] ?: ""
+            val selected = currentParams[definition.key]?.scalarText() ?: ""
             var appLabel by remember(selected) { mutableStateOf<String?>(null) }
             LaunchedEffect(selected) {
                 appLabel = if (selected.isBlank()) null else resolveAppLabel(selected)
@@ -117,12 +128,27 @@ fun ParameterEditor(
                 isError = required && selected.isBlank(),
             )
         }
-        is ParameterDefinition.ActivitySelector -> {
-            val selected = currentParams["activityClassName"] ?: ""
-            val pkg = currentParams["packageName"] ?: ""
+        is ParameterDefinition.AppSelectorMulti -> {
+            val selected = currentParams[definition.key]?.jsonArray?.mapNotNull {
+                it.jsonPrimitive?.contentOrNull
+            } ?: emptyList()
             val interactionSource = remember { MutableInteractionSource() }
-            rememberTapHandler(interactionSource, pkg) {
-                if (pkg.isNotBlank()) onPickActivity(pkg, definition.key)
+            rememberTapHandler(interactionSource, selected) { onPickApps(definition.key) }
+            OutlinedTextField(
+                value = if (selected.isEmpty()) "" else selected.joinToString(", "),
+                onValueChange = {},
+                readOnly = true,
+                label = { Text(definition.label) },
+                interactionSource = interactionSource,
+                modifier = modifier.fillMaxWidth(),
+            )
+        }
+        is ParameterDefinition.ActivitySelector -> {
+            val selected = currentParams[definition.key]?.scalarText() ?: ""
+            val packageName = currentParams[definition.packageKey]?.scalarText() ?: ""
+            val interactionSource = remember { MutableInteractionSource() }
+            rememberTapHandler(interactionSource, packageName) {
+                if (packageName.isNotBlank()) onPickActivity(packageName, definition.key)
             }
             OutlinedTextField(
                 value = selected,
@@ -131,31 +157,40 @@ fun ParameterEditor(
                 label = { Text(definition.label) },
                 interactionSource = interactionSource,
                 modifier = modifier.fillMaxWidth(),
+                enabled = packageName.isNotBlank(),
                 isError = required && selected.isBlank(),
             )
         }
         is ParameterDefinition.Path -> {
+            val value = currentParams[definition.key]?.scalarText() ?: (definition.defaultValue ?: "")
             OutlinedTextField(
-                value = currentParams[definition.key] ?: (definition.defaultValue ?: ""),
+                value = value,
                 onValueChange = { onParamChange(definition.key, it) },
                 label = { Text(definition.label) },
                 singleLine = true,
                 modifier = modifier.fillMaxWidth(),
-                isError = required && (currentParams[definition.key] ?: "").isBlank(),
+                isError = required && value.isBlank(),
             )
         }
         is ParameterDefinition.TextLarge -> {
+            val value = currentParams[definition.key]?.scalarText() ?: (definition.defaultValue ?: "")
             OutlinedTextField(
-                value = currentParams[definition.key] ?: (definition.defaultValue ?: ""),
+                value = value,
                 onValueChange = { onParamChange(definition.key, it) },
                 label = { Text(definition.label) },
                 minLines = 3,
                 maxLines = 10,
                 modifier = modifier.fillMaxWidth(),
-                isError = required && (currentParams[definition.key] ?: "").isBlank(),
+                isError = required && value.isBlank(),
             )
         }
     }
+}
+
+private fun inRange(value: String, definition: ParameterDefinition.Number): Boolean {
+    val number = value.toIntOrNull() ?: return false
+    return (definition.min == null || number >= definition.min) &&
+        (definition.max == null || number <= definition.max)
 }
 
 /**

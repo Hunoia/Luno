@@ -32,6 +32,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -41,6 +42,7 @@ import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.quicklaunch.QuickLaunchFacade
+import hunoia.luno.quicklaunch.query.ActivityOption
 import hunoia.luno.ui.component.AppPickerSheet
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.OptimizedBottomSheet
@@ -49,8 +51,12 @@ import hunoia.luno.ui.component.EmptyState
 import hunoia.luno.ui.component.displayNameRes
 import hunoia.luno.ui.component.SelectableListItem
 import hunoia.luno.ui.component.SegmentedSettingsRow
-
 import hunoia.luno.core.AppContext
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,14 +70,19 @@ fun NewActionLibraryEditScreen(
     var showTypePicker by remember { mutableStateOf(false) }
     var showAppPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
     var showActivityPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
+    var showAppMultiPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showDiscardConfirm by remember { mutableStateOf(false) }
 
     LaunchedEffect(entryId, typeId) {
         vm.load(entryId, typeId)
     }
 
-    val draft = state.draft ?: return
-    val definition = draft.definition ?: return
+    val draft = state.draft
+    val definition = draft?.definition
+    val guardedBack: () -> Unit = {
+        if (state.isDirty) showDiscardConfirm = true else onBack()
+    }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val backdrop = liquidGlassBackdrop()
@@ -81,10 +92,12 @@ fun NewActionLibraryEditScreen(
         contentWindowInsets = WindowInsets(),
         topBar = {
             TopBar(
-                onBack = onBack,
-                title = stringResource(if (draft.isNew) R.string.action_library_add else R.string.action_library_edit),
+                onBack = guardedBack,
+                title = stringResource(
+                    if (draft?.id == null) R.string.action_library_add else R.string.action_library_edit,
+                ),
                 actions = {
-                    if (!draft.isNew) {
+                    if (draft?.id != null) {
                         IconButton(onClick = { showDeleteConfirm = true }) {
                             Icon(
                                 imageVector = Icons.Outlined.Delete,
@@ -93,11 +106,8 @@ fun NewActionLibraryEditScreen(
                         }
                     }
                     TextButton(
-                        enabled = draft.isValid,
-                        onClick = {
-                            vm.save()
-                            onBack()
-                        },
+                        enabled = draft?.isValid == true && !state.isSaving,
+                        onClick = { vm.save(onSaved = onBack) },
                     ) {
                         Text(stringResource(R.string.save))
                     }
@@ -117,37 +127,43 @@ fun NewActionLibraryEditScreen(
                 .padding(horizontal = PageGutter),
             verticalArrangement = Arrangement.spacedBy(ListSpacing),
         ) {
-            TypeSelectorField(
-                definition = definition,
-                onClick = { showTypePicker = true },
-            )
+            when {
+                state.notFound -> EmptyState(stringResource(R.string.action_library_entry_not_found))
+                draft == null || definition == null -> EmptyState(stringResource(R.string.action_library_empty))
+                else -> {
+                    TypeSelectorField(
+                        definition = definition,
+                        onClick = { showTypePicker = true },
+                    )
 
-            OutlinedTextField(
-                value = draft.name,
-                onValueChange = { vm.updateName(it) },
-                label = { Text(stringResource(R.string.action_library_entry_name)) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+                    OutlinedTextField(
+                        value = draft.name,
+                        onValueChange = { vm.updateName(it) },
+                        label = { Text(stringResource(R.string.action_library_entry_name)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        isError = draft.name.isBlank(),
+                    )
 
-            Text(
-                text = stringResource(
-                    R.string.action_type_meta_format,
-                    stringResource(definition.category.displayNameRes),
-                    definition.parameters.size,
-                ),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+                    if (definition.parameters.isNotEmpty()) {
+                        Text(
+                            text = stringResource(R.string.action_param_count, definition.parameters.size),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
 
-            definition.parameters.forEach { paramDef ->
-                ParameterEditor(
-                    definition = paramDef,
-                    currentParams = draft.params,
-                    onParamChange = vm::updateParam,
-                    onPickApp = { showAppPicker = paramDef },
-                    onPickActivity = { _, _ -> showActivityPicker = paramDef },
-                )
+                    definition.parameters.forEach { paramDef ->
+                        ParameterEditor(
+                            definition = paramDef,
+                            currentParams = draft.params,
+                            onParamChange = vm::updateParam,
+                            onPickApp = { showAppPicker = paramDef },
+                            onPickApps = { showAppMultiPicker = paramDef },
+                            onPickActivity = { _, _ -> showActivityPicker = paramDef },
+                        )
+                    }
+                }
             }
         }
     }
@@ -176,6 +192,24 @@ fun NewActionLibraryEditScreen(
         )
     }
 
+    if (showDiscardConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDiscardConfirm = false },
+            title = { Text(stringResource(R.string.action_library_discard_title)) },
+            text = { Text(stringResource(R.string.action_library_discard_desc)) },
+            confirmButton = {
+                TextButton(onClick = { showDiscardConfirm = false; onBack() }) {
+                    Text(stringResource(R.string.confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDiscardConfirm = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+
     if (showTypePicker) {
         TypePickerSheet(
             onDismiss = { showTypePicker = false },
@@ -189,31 +223,46 @@ fun NewActionLibraryEditScreen(
     showAppPicker?.let { paramDef ->
         AppPickerSheet(
             onDismissRequest = { showAppPicker = null },
-            selectedPackageNames = listOfNotNull(draft.params[paramDef.key]?.takeIf { it.isNotBlank() }),
+            selectedPackageNames = listOfNotNull(
+                draft?.params?.get(paramDef.key)?.scalarText()?.takeIf(String::isNotBlank),
+            ),
             onConfirm = { selected ->
-                if (selected.isNotEmpty()) {
-                    vm.updateParam(paramDef.key, selected.first())
-                }
+                val current = draft?.params?.get(paramDef.key)?.scalarText()
+                val picked = selected.lastOrNull { it != current }
+                vm.updateParam(
+                    paramDef.key,
+                    picked ?: if (selected.isEmpty()) "" else current.orEmpty(),
+                )
                 showAppPicker = null
             },
         )
     }
 
+    showAppMultiPicker?.let { paramDef ->
+        val multiSelected = draft?.params?.get(paramDef.key)?.jsonArray?.mapNotNull {
+            it.jsonPrimitive?.contentOrNull
+        } ?: emptyList()
+        AppPickerSheet(
+            onDismissRequest = { showAppMultiPicker = null },
+            selectedPackageNames = multiSelected,
+            onConfirm = { selected ->
+                vm.updateParamMulti(paramDef.key, selected)
+                showAppMultiPicker = null
+            },
+        )
+    }
+
     showActivityPicker?.let { paramDef ->
-        val packageName = draft.params["packageName"] ?: ""
-        if (packageName.isBlank()) {
-            showActivityPicker = null
-        } else {
-            ActivityPickerSheet(
-                packageName = packageName,
-                selectedActivity = draft.params["activityClassName"] ?: "",
-                onDismiss = { showActivityPicker = null },
-                onSelect = { className ->
-                    vm.updateParam("activityClassName", className)
-                    showActivityPicker = null
-                },
-            )
-        }
+        val activityDef = paramDef as? ParameterDefinition.ActivitySelector ?: return@let
+        ActivityPickerSheet(
+            packageName = draft?.params?.get(activityDef.packageKey)?.scalarText() ?: "",
+            selectedActivity = draft?.params?.get(activityDef.key)?.scalarText() ?: "",
+            onDismiss = { showActivityPicker = null },
+            onSelect = { className ->
+                vm.updateParam(activityDef.key, className)
+                showActivityPicker = null
+            },
+        )
     }
 }
 
@@ -237,15 +286,22 @@ private fun ActivityPickerSheet(
     onDismiss: () -> Unit,
     onSelect: (String) -> Unit,
 ) {
-    val context = AppContext.get()
-    val activities = remember(packageName) {
-        QuickLaunchFacade.queryActivityOptions(
-            context = context,
-            packageName = packageName,
-            selectedActivityClassName = "",
-            launcherClassName = QuickLaunchFacade.queryLauncherAppOptions(context)
-                .firstOrNull { it.packageName == packageName }?.launcherClassName ?: ""
-        )
+    LaunchedEffect(packageName) {
+        if (packageName.isBlank()) onDismiss()
+    }
+
+    val activities by produceState<List<ActivityOption>>(emptyList(), packageName) {
+        if (packageName.isBlank()) return@produceState
+        withContext(Dispatchers.IO) {
+            val context = AppContext.get()
+            QuickLaunchFacade.queryActivityOptions(
+                context = context,
+                packageName = packageName,
+                selectedActivityClassName = "",
+                launcherClassName = QuickLaunchFacade.queryLauncherAppOptions(context)
+                    .firstOrNull { it.packageName == packageName }?.launcherClassName ?: ""
+            )
+        }
     }
 
     var query by remember { mutableStateOf("") }

@@ -24,6 +24,7 @@ import hunoia.luno.service.SideGestureService
 import hunoia.luno.bridge.feedback.showToast as showToastUtil
 import hunoia.luno.bridge.feedback.showToastLong as showToastLongUtil
 import hunoia.luno.bridge.feedback.showVersionTooLowToast as showVersionTooLowToastUtil
+import hunoia.luno.config.model.VolumeScrubConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -34,7 +35,7 @@ class NewActionDispatcher(
     private val previousAppTracker: PreviousAppTracker,
     private val settingsSnapshot: () -> SettingsSnapshot,
     private val onToggleQuickAppLauncher: () -> Unit,
-    private val onShowVolumeScrub: () -> Boolean,
+    private val onShowVolumeScrub: (VolumeScrubConfig) -> Boolean,
     private val onHideGestureButton: (LegacyGestureButton?, Long) -> Unit,
 ) {
     private val capabilityChecker = CompositeCapabilityChecker(
@@ -118,7 +119,7 @@ class NewActionDispatcher(
             accessibilityService = host.accessibilityService,
             appContext = context,
             scope = scope,
-            actionSettings = snap.actionSettings.effectiveFor(sourceOverride),
+            actionSettings = snap.actionSettings,
             advancedSettings = snap.advancedSettings.effectiveFor(sourceOverride),
             showToast = { showToastUtil(it) },
             showLongToast = { showToastLongUtil(it) },
@@ -133,7 +134,7 @@ class NewActionDispatcher(
                 if (sourceButton != null) onHideGestureButton(sourceButton, delayMs)
             },
             showVersionTooLowToast = { resId -> showVersionTooLowToastUtil(context, resId) },
-            previousApp = { previousAppTracker.previousApp() },
+            previousApp = { excludes -> previousAppTracker.previousApp(excludes) },
             touchPosition = touchPosition,
         )
     }

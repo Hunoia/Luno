@@ -2,8 +2,10 @@ package hunoia.luno.ui.actionlibrary
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -13,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
@@ -42,6 +45,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.action.model.matchesQuery
 import hunoia.luno.action.definition.ActionCategory
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.EmptyState
@@ -52,8 +56,6 @@ import hunoia.luno.ui.theme.SegmentedGap
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.component.SegmentedSettingsRow
-
-
 
 
 @Composable
@@ -68,14 +70,14 @@ fun NewActionLibraryScreen(
     var pendingDeleteEntry by remember { mutableStateOf<NewActionLibraryEntry?>(null) }
     var resetCounter by remember { mutableStateOf(0) }
 
-    val filtered = remember(uiState.entries, uiState.referenceCounts, query) {
+    val filtered = remember(uiState.entries, query) {
         uiState.entries
             .filter { it.matchesQuery(query) }
             .sortedBy { ActionDefinitions.categoryOrder(ActionDefinitions.byTypeId(it.typeId)?.category ?: ActionCategory.INTERNAL) }
     }
     val grouped = remember(filtered) { filtered.groupBy { ActionDefinitions.byTypeId(it.typeId)?.category ?: ActionCategory.INTERNAL } }
 
-    androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().padding(contentPadding)) {
             AppSearchBar(
                 query = query,
@@ -185,7 +187,7 @@ private fun ActionLibrarySwipeRow(
             onDismiss = { _ -> onDismiss() },
             backgroundContent = {
                 val progress = state.progress
-                androidx.compose.foundation.layout.Box(
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(
@@ -228,30 +230,22 @@ private fun ActionLibraryItem(
     SegmentedSettingsRow(
         modifier = modifier,
         title = entry.name.ifBlank { def?.name ?: entry.typeId },
-        subtitle = def?.name ?: entry.typeId,
+        subtitle = if (entry.name.isBlank()) "" else (def?.name ?: entry.typeId),
+        icon = def?.icon ?: Icons.Default.Build,
         shape = shape,
         onClick = onClick,
-        leadingContent = {
-            Icon(
-                Icons.Default.Build,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(RowIconSize),
-            )
-        },
         trailingContent = {
-            Text(
-                text = stringResource(R.string.action_library_reference_count, referenceCount),
-                style = MaterialTheme.typography.labelSmall,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.action_library_reference_count, referenceCount),
+                    style = MaterialTheme.typography.labelSmall,
+                )
+                Icon(
+                    modifier = Modifier.size(RowIconSize).padding(start = 4.dp),
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                )
+            }
         },
     )
-}
-
-fun NewActionLibraryEntry.matchesQuery(query: String): Boolean {
-    if (query.isBlank()) return true
-    val q = query.trim()
-    return name.contains(q, ignoreCase = true) ||
-        typeId.contains(q, ignoreCase = true) ||
-        params.values.any { it.toString().contains(q, ignoreCase = true) }
 }

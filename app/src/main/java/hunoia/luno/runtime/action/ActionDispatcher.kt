@@ -12,6 +12,7 @@ import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureButtonActionSettingsOverride
 import hunoia.luno.config.model.GestureSettings
+import hunoia.luno.config.model.VolumeScrubConfig
 import hunoia.luno.config.model.actionLibraryRefId
 import hunoia.luno.config.model.newActionData
 import hunoia.luno.runtime.GestureHost
@@ -23,7 +24,7 @@ class ActionDispatcher(
     private val previousAppTracker: PreviousAppTracker,
     private val settingsSnapshot: () -> SettingsSnapshot,
     private val onToggleQuickAppLauncher: () -> Unit,
-    private val onShowVolumeScrub: () -> Boolean,
+    private val onShowVolumeScrub: (VolumeScrubConfig) -> Boolean,
     private val onHideGestureButton: (GestureButton?, Long) -> Unit,
 ) {
     private val newDispatcher = NewActionDispatcher(

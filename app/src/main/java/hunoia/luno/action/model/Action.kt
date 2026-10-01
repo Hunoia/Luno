@@ -1,5 +1,9 @@
 package hunoia.luno.action.model
 
+import hunoia.luno.config.defaults.ActionSettingsDefaults.HideGestureButtonDelayMs
+import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubHorizontalEnabled
+import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubStepThresholdDp
+
 data class QueryParam(val name: String, val value: String, val enabled: Boolean = true)
 
 enum class SettingsPage {
@@ -176,16 +180,23 @@ sealed interface Action {
     data object SubGesture : Action {
         override val typeId: String = "internal.subGesture"
     }
-    data object HideGestureButton : Action {
+    data class HideGestureButton(
+        val delayMs: Long = HideGestureButtonDelayMs,
+    ) : Action {
         override val typeId: String = "internal.hideGestureButton"
     }
     data object QuickAppLauncher : Action {
         override val typeId: String = "internal.quickAppLauncher"
     }
-    data object VolumeScrub : Action {
+    data class VolumeScrub(
+        val horizontalEnabled: Boolean = VolumeScrubHorizontalEnabled,
+        val stepThresholdDp: Int = VolumeScrubStepThresholdDp,
+    ) : Action {
         override val typeId: String = "internal.volumeScrub"
     }
-    data object PreviousApp : Action {
+    data class PreviousApp(
+        val excludePackageNames: List<String> = emptyList(),
+    ) : Action {
         override val typeId: String = "internal.previousApp"
     }
 }

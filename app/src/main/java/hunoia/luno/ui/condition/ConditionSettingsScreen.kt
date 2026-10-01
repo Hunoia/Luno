@@ -150,15 +150,17 @@ private fun RuleCard(
         RuleScope.EXCEPT -> stringResource(R.string.scope_except_count, rule.buttonIds.size)
         RuleScope.ONLY -> stringResource(R.string.scope_only_count, rule.buttonIds.size)
     }
-    SegmentedGroup(
-        title = conditionSummary(rule.condition),
-        subtitle = "$effectLabel · $scopeLabel",
-    ) {
+    SegmentedGroup {
+        SegmentedSettingsRow(
+            title = conditionSummary(rule.condition),
+            subtitle = "$effectLabel · $scopeLabel",
+            shape = segmentedShape(0, 3),
+        )
         SegmentedSwitchRow(
             title = stringResource(R.string.condition_enabled),
             checked = rule.enabled,
             onCheckedChange = onEnabledChange,
-            shape = segmentedShape(0, 2),
+            shape = segmentedShape(1, 3),
         )
         SegmentedSettingsRow(
             title = "",
@@ -199,7 +201,7 @@ private fun RuleCard(
                     }
                 }
             },
-            shape = segmentedShape(1, 2),
+            shape = segmentedShape(2, 3),
         )
     }
 }

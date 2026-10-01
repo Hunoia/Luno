@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
+import hunoia.luno.config.model.VolumeScrubConfig
 import kotlinx.coroutines.CoroutineScope
 
 data class ExecutorContext(
@@ -18,9 +19,9 @@ data class ExecutorContext(
     val nowInLauncher: () -> Boolean = { false },
     val requestEnableDisabledPackage: (String, (Boolean) -> Unit) -> Unit = { _, onResult -> onResult(false) },
     val toggleQuickAppLauncher: () -> Unit = {},
-    val showVolumeScrub: () -> Boolean = { false },
+    val showVolumeScrub: (VolumeScrubConfig) -> Boolean = { false },
     val hideGestureButton: (Long) -> Unit = {},
     val showVersionTooLowToast: (Int) -> Unit = {},
-    val previousApp: suspend () -> Unit = {},
+    val previousApp: suspend (List<String>) -> Unit = {},
     val touchPosition: Pair<Int, Int>? = null,
 )

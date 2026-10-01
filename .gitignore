@@ -6,6 +6,7 @@ app/mapping.txt
 
 # IDE
 .idea/
+.opencode/
 
 # Nix / direnv
 .direnv/

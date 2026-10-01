@@ -71,6 +71,10 @@ val ContainerRadius = ShapeLarge
 val ConnectionRadius = 5.dp
 val SegmentedGap = 1.dp
 
+// Row icon badge
+val RowIconBadgeSize = 32.dp
+val RowIconBadgeIconSize = 20.dp
+
 // Animation durations (ms)
 const val AnimRipple = 300L
 const val AnimNormal = 150L
