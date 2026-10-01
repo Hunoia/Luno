@@ -27,6 +27,7 @@ val CardInnerSpacing = 8.dp
 val SliderInnerPadding = 12.dp
 val ContentBottom = 24.dp
 val FloatingContentBottom = 120.dp
+val SheetListMaxHeight = 420.dp
 
 // Gesture / interaction thresholds
 val MiniWindowWidth = 200.dp

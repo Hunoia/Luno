@@ -62,6 +62,14 @@ sealed interface ParameterDefinition {
         override val defaultValue: String? = null
     }
 
+    data class MiniWindow(
+        override val key: String,
+        override val label: String,
+        override val required: Boolean = false,
+    ) : ParameterDefinition {
+        override val defaultValue: String? = null
+    }
+
     data class ActivitySelector(
         override val key: String,
         override val label: String,

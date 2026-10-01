@@ -1,32 +1,42 @@
 package hunoia.luno.ui.actionlibrary
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
-import hunoia.luno.ui.theme.ListItemVerticalPadding
 import hunoia.luno.ui.theme.CardInnerSpacing
+import hunoia.luno.ui.theme.LargeShape
+import hunoia.luno.ui.theme.SegmentedGap
+import hunoia.luno.ui.theme.SheetListMaxHeight
+import hunoia.luno.ui.theme.SheetTopShape
 import hunoia.luno.ui.theme.liquidGlassBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -37,20 +47,26 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ParameterDefinition
+import hunoia.luno.config.model.MiniWindowSettings
+import hunoia.luno.config.model.toMiniWindowSettings
+import hunoia.luno.ui.component.MiniWindowControls
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.query.ActivityOption
 import hunoia.luno.ui.component.AppPickerSheet
 import hunoia.luno.ui.component.AppSearchBar
-import hunoia.luno.ui.component.OptimizedBottomSheet
 import hunoia.luno.ui.component.TopBar
 import hunoia.luno.ui.component.EmptyState
-import hunoia.luno.ui.component.displayNameRes
+import hunoia.luno.ui.component.MyColumn
+import hunoia.luno.ui.component.SegmentedGroup
 import hunoia.luno.ui.component.SelectableListItem
 import hunoia.luno.ui.component.SegmentedSettingsRow
+import hunoia.luno.ui.component.displayNameRes
+import hunoia.luno.ui.component.segmentedShape
 import hunoia.luno.core.AppContext
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.contentOrNull
@@ -71,6 +87,7 @@ fun NewActionLibraryEditScreen(
     var showAppPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
     var showActivityPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
     var showAppMultiPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
+    var showMiniWindowPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showDiscardConfirm by remember { mutableStateOf(false) }
 
@@ -117,14 +134,13 @@ fun NewActionLibraryEditScreen(
             )
         },
     ) { scaffoldPadding ->
-        Column(
+        MyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .layerBackdrop(backdrop)
                 .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .verticalScroll(rememberScrollState())
-                .padding(scaffoldPadding)
-                .padding(horizontal = PageGutter),
+                .animateContentSize(),
+            topPadding = scaffoldPadding.calculateTopPadding(),
             verticalArrangement = Arrangement.spacedBy(ListSpacing),
         ) {
             when {
@@ -140,28 +156,53 @@ fun NewActionLibraryEditScreen(
                         value = draft.name,
                         onValueChange = { vm.updateName(it) },
                         label = { Text(stringResource(R.string.action_library_entry_name)) },
+                        placeholder = { Text(stringResource(R.string.action_library_entry_name_hint)) },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
                         isError = draft.name.isBlank(),
+                        shape = LargeShape,
+                        supportingText = {
+                            if (draft.name.isBlank()) {
+                                Text(stringResource(R.string.action_library_entry_name_required))
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
                     )
 
                     if (definition.parameters.isNotEmpty()) {
-                        Text(
-                            text = stringResource(R.string.action_param_count, definition.parameters.size),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                        val cardParams = definition.parameters.filter { it.isCardRowType }
+                        val fieldParams = definition.parameters.filter { !it.isCardRowType }
 
-                    definition.parameters.forEach { paramDef ->
-                        ParameterEditor(
-                            definition = paramDef,
-                            currentParams = draft.params,
-                            onParamChange = vm::updateParam,
-                            onPickApp = { showAppPicker = paramDef },
-                            onPickApps = { showAppMultiPicker = paramDef },
-                            onPickActivity = { _, _ -> showActivityPicker = paramDef },
-                        )
+                        if (cardParams.isNotEmpty()) {
+                            SegmentedGroup(
+                                title = stringResource(R.string.action_param_label),
+                                subtitle = stringResource(R.string.action_param_count, definition.parameters.size),
+                            ) {
+                                cardParams.forEachIndexed { i, paramDef ->
+                                    ParameterEditor(
+                                        definition = paramDef,
+                                        currentParams = draft.params,
+                                        onParamChange = vm::updateParam,
+                                        onPickApp = { showAppPicker = paramDef },
+                                        onPickApps = { showAppMultiPicker = paramDef },
+                                        onPickMiniWindow = { showMiniWindowPicker = paramDef },
+                                        onPickActivity = { _, _ -> showActivityPicker = paramDef },
+                                        shape = segmentedShape(i, cardParams.size),
+                                    )
+                                }
+                            }
+                        }
+
+                        fieldParams.forEach { paramDef ->
+                            ParameterEditor(
+                                definition = paramDef,
+                                currentParams = draft.params,
+                                onParamChange = vm::updateParam,
+                                onPickApp = { showAppPicker = paramDef },
+                                onPickApps = { showAppMultiPicker = paramDef },
+                                onPickMiniWindow = { showMiniWindowPicker = paramDef },
+                                onPickActivity = { _, _ -> showActivityPicker = paramDef },
+                            )
+                        }
                     }
                 }
             }
@@ -252,6 +293,58 @@ fun NewActionLibraryEditScreen(
         )
     }
 
+    showMiniWindowPicker?.let { paramDef ->
+        val initial = draft?.params?.get(paramDef.key)?.toMiniWindowSettings() ?: MiniWindowSettings()
+        var localSettings by remember(paramDef.key) { mutableStateOf(initial) }
+        ModalBottomSheet(
+            onDismissRequest = { showMiniWindowPicker = null },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            shape = SheetTopShape,
+        ) {
+            Column(modifier = Modifier.fillMaxWidth().padding(bottom = PageGutter)) {
+                Text(
+                    text = stringResource(R.string.mini_window_position_short),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(horizontal = PageGutter, vertical = CardInnerSpacing),
+                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = PageGutter),
+                    verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+                ) {
+                    MiniWindowControls(
+                        settings = localSettings,
+                        onChange = { localSettings = it },
+                    )
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = PageGutter, vertical = CardInnerSpacing),
+                    horizontalArrangement = Arrangement.spacedBy(ListSpacing),
+                ) {
+                    TextButton(
+                        modifier = Modifier.weight(1f),
+                        onClick = { showMiniWindowPicker = null },
+                    ) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                    FilledTonalButton(
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            vm.updateParamMiniWindow(paramDef.key, localSettings)
+                            showMiniWindowPicker = null
+                        },
+                    ) {
+                        Text(stringResource(R.string.confirm))
+                    }
+                }
+            }
+        }
+    }
+
     showActivityPicker?.let { paramDef ->
         val activityDef = paramDef as? ParameterDefinition.ActivitySelector ?: return@let
         ActivityPickerSheet(
@@ -291,8 +384,11 @@ private fun ActivityPickerSheet(
     }
 
     val activities by produceState<List<ActivityOption>>(emptyList(), packageName) {
-        if (packageName.isBlank()) return@produceState
-        withContext(Dispatchers.IO) {
+        if (packageName.isBlank()) {
+            value = emptyList()
+            return@produceState
+        }
+        value = withContext(Dispatchers.IO) {
             val context = AppContext.get()
             QuickLaunchFacade.queryActivityOptions(
                 context = context,
@@ -311,34 +407,49 @@ private fun ActivityPickerSheet(
             QuickLaunchFacade.formatActivityOptionText(it, packageName).contains(query, ignoreCase = true)
     }
 
-    OptimizedBottomSheet(onDismissRequest = onDismiss) {
-        Column(modifier = Modifier.padding(vertical = CardInnerSpacing)) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = SheetTopShape,
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = PageGutter)) {
             Text(
                 text = stringResource(R.string.select_activity_title),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier
-                    .padding(horizontal = PageGutter)
-                    .padding(bottom = ListItemVerticalPadding),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(horizontal = PageGutter, vertical = CardInnerSpacing),
             )
             AppSearchBar(
                 query = query,
                 onQueryChange = { query = it },
                 placeholder = stringResource(R.string.search_activity_hint),
                 modifier = Modifier
-                    .padding(horizontal = PageGutter)
-                    .padding(bottom = CardInnerSpacing),
+                    .fillMaxWidth()
+                    .padding(horizontal = PageGutter, vertical = CardInnerSpacing),
             )
             if (filtered.isEmpty()) {
                 EmptyState(message = stringResource(R.string.no_matching_results))
             } else {
-                filtered.forEach { activity ->
-                    SelectableListItem(
-                        title = QuickLaunchFacade.formatActivityOptionText(activity, packageName),
-                        subtitle = activity.className,
-                        selected = activity.className == selectedActivity,
-                        onSelect = { onSelect(activity.className) },
-                        showCheckbox = true,
-                    )
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = SheetListMaxHeight)
+                        .padding(top = CardInnerSpacing),
+                    contentPadding = PaddingValues(start = PageGutter, end = PageGutter, bottom = CardInnerSpacing),
+                    verticalArrangement = Arrangement.spacedBy(SegmentedGap),
+                ) {
+                    itemsIndexed(filtered) { index, activity ->
+                        SelectableListItem(
+                            title = QuickLaunchFacade.formatActivityOptionText(activity, packageName),
+                            subtitle = activity.className,
+                            selected = activity.className == selectedActivity,
+                            onSelect = { onSelect(activity.className) },
+                            showCheckbox = true,
+                            shape = segmentedShape(index, filtered.size),
+                            verticalGap = 0.dp,
+                            horizontalGap = 0.dp,
+                        )
+                    }
                 }
             }
         }

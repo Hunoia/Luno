@@ -15,7 +15,6 @@ object AppLaunchBypass {
         miniWindow: Boolean = false,
         miniWindowHorizontalBias: Float = 0f,
         miniWindowVerticalBias: Float = 0f,
-        miniWindowVerticalOffsetFraction: Float = 0f,
         miniWindowWidthFraction: Float = 0.46f,
         miniWindowHeightFraction: Float = 0.74f,
         miniWindowOverrideBounds: Boolean = false,
@@ -33,7 +32,6 @@ object AppLaunchBypass {
         return QuickLaunchFacade.launchAppDirect(
             context, packageName, className, miniWindow,
             miniWindowHorizontalBias, miniWindowVerticalBias,
-            miniWindowVerticalOffsetFraction,
             miniWindowWidthFraction, miniWindowHeightFraction,
             miniWindowOverrideBounds,
         )

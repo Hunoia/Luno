@@ -7,7 +7,6 @@ import hunoia.luno.config.defaults.AdvancedSettingsDefaults.ClipShortcuts
 
 import hunoia.luno.config.defaults.AdvancedSettingsDefaults.MiniWindowHorizontalBias
 import hunoia.luno.config.defaults.AdvancedSettingsDefaults.MiniWindowVerticalBias
-import hunoia.luno.config.defaults.AdvancedSettingsDefaults.MiniWindowVerticalOffsetFraction
 import hunoia.luno.config.defaults.AdvancedSettingsDefaults.MiniWindowWidthFraction
 import hunoia.luno.config.defaults.AdvancedSettingsDefaults.MiniWindowHeightFraction
 import hunoia.luno.config.defaults.AdvancedSettingsDefaults.KeepAliveEnabled
@@ -20,7 +19,6 @@ data class AdvancedSettings(
     val actionPanelStyles: ActionPanelStyles = ActionPanelStyles,
     val miniWindowHorizontalBias: Float = MiniWindowHorizontalBias,
     val miniWindowVerticalBias: Float = MiniWindowVerticalBias,
-    val miniWindowVerticalOffsetFraction: Float = MiniWindowVerticalOffsetFraction,
     val miniWindowWidthFraction: Float = MiniWindowWidthFraction,
     val miniWindowHeightFraction: Float = MiniWindowHeightFraction,
     val miniWindowOverrideBounds: Boolean = MiniWindowOverrideBounds,

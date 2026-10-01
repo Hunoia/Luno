@@ -238,6 +238,8 @@
     <string name="action_library">动作库</string>
     <string name="action_library_empty">暂无动作库条目</string>
     <string name="action_library_entry_name">条目名称</string>
+    <string name="action_library_entry_name_hint">请输入名称</string>
+    <string name="action_library_entry_name_required">必填项不能为空</string>
     <string name="action_library_add">新增动作库条目</string>
     <string name="action_library_edit">编辑动作库条目</string>
     <string name="action_library_missing">动作库条目已移除</string>
@@ -253,6 +255,9 @@
     <string name="action_type_label">动作类型</string>
     <string name="action_type_picker_title">选择动作类型</string>
     <string name="action_param_count">%1$d 个参数</string>
+    <string name="action_param_label">参数</string>
+    <string name="action_param_unselected">未选择</string>
+    <string name="action_param_multi_selected">已选 %1$d 个</string>
     <string name="action_requires_capability">需要 %1$s</string>
     <string name="action_capability_accessibility">无障碍</string>
     <string name="action_capability_shizuku">Shizuku</string>

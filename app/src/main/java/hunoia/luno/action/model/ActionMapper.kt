@@ -3,7 +3,11 @@ package hunoia.luno.action.model
 import hunoia.luno.config.defaults.ActionSettingsDefaults.HideGestureButtonDelayMs
 import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubHorizontalEnabled
 import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubStepThresholdDp
+import hunoia.luno.config.model.MiniWindowSettings
+import hunoia.luno.config.model.toMiniWindowSettings
+import hunoia.luno.config.model.toJsonObject
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
@@ -23,14 +27,16 @@ object ActionMapper {
                 p.str("packageName"),
                 p.bool("miniWindow"),
                 p.str("className"),
+                p.miniWindowSettings(),
             )
             "app.openActivity" -> Action.OpenActivity(
                 p.str("packageName"),
                 p.str("activityClassName"),
                 p.bool("miniWindow"),
+                p.miniWindowSettings(),
             )
             "app.details" -> Action.AppDetails(p.str("packageName"))
-            "app.popup" -> Action.Popup
+            "app.popup" -> Action.Popup(p.miniWindowSettings())
             "app.launchShortcut" -> Action.LaunchShortcut(p.str("data"))
             "intent.openUrl" -> Action.OpenUrl(
                 p.str("url"),
@@ -38,6 +44,7 @@ object ActionMapper {
                     val o = e.jsonObject
                     QueryParam(o.str("name"), o.str("value"), o.bool("enabled", true))
                 } ?: emptyList(),
+                p.miniWindowSettings(),
             )
             "intent.shareText" -> Action.ShareText(p.str("text"), p.str("mimeType", "text/plain"))
             "intent.shareFile" -> Action.ShareFile(p.str("filePath"), p.str("mimeType"))
@@ -116,14 +123,16 @@ object ActionMapper {
                     put("packageName", action.packageName)
                     put("miniWindow", action.miniWindow.toString())
                     if (action.className.isNotBlank()) put("className", action.className)
+                    putMiniWindowSettings(action.miniWindowSettings)
                 }
                 is Action.OpenActivity -> {
                     put("packageName", action.packageName)
                     put("activityClassName", action.activityClassName)
                     put("miniWindow", action.miniWindow.toString())
+                    putMiniWindowSettings(action.miniWindowSettings)
                 }
                 is Action.AppDetails -> put("packageName", action.packageName)
-                is Action.Popup -> {}
+                is Action.Popup -> putMiniWindowSettings(action.miniWindowSettings)
                 is Action.LaunchShortcut -> put("data", action.data)
                 is Action.OpenUrl -> {
                     put("url", action.url)
@@ -138,6 +147,7 @@ object ActionMapper {
                             }
                         })
                     }
+                    putMiniWindowSettings(action.miniWindowSettings)
                 }
                 is Action.ShareText -> {
                     put("text", action.text)
@@ -215,6 +225,13 @@ object ActionMapper {
             }
         }
         return StoredAction(action.typeId, params)
+    }
+
+    private fun JsonObject.miniWindowSettings(): MiniWindowSettings? =
+        this["miniWindowSettings"]?.toMiniWindowSettings()
+
+    private fun JsonObjectBuilder.putMiniWindowSettings(settings: MiniWindowSettings?) {
+        settings?.let { put("miniWindowSettings", it.toJsonObject()) }
     }
 
     private fun JsonObject.str(key: String, default: String = ""): String =

@@ -3,6 +3,7 @@ package hunoia.luno.action.model
 import hunoia.luno.config.defaults.ActionSettingsDefaults.HideGestureButtonDelayMs
 import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubHorizontalEnabled
 import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubStepThresholdDp
+import hunoia.luno.config.model.MiniWindowSettings
 
 data class QueryParam(val name: String, val value: String, val enabled: Boolean = true)
 
@@ -30,6 +31,7 @@ sealed interface Action {
         val packageName: String,
         val miniWindow: Boolean = false,
         val className: String = "",
+        val miniWindowSettings: MiniWindowSettings? = null,
     ) : Action {
         override val typeId: String = "app.launch"
     }
@@ -37,13 +39,14 @@ sealed interface Action {
         val packageName: String,
         val activityClassName: String,
         val miniWindow: Boolean = false,
+        val miniWindowSettings: MiniWindowSettings? = null,
     ) : Action {
         override val typeId: String = "app.openActivity"
     }
     data class AppDetails(val packageName: String) : Action {
         override val typeId: String = "app.details"
     }
-    data object Popup : Action {
+    data class Popup(val miniWindowSettings: MiniWindowSettings? = null) : Action {
         override val typeId: String = "app.popup"
     }
     data class LaunchShortcut(val data: String) : Action {
@@ -51,7 +54,11 @@ sealed interface Action {
     }
 
     // Intent
-    data class OpenUrl(val url: String, val queryParameters: List<QueryParam> = emptyList()) : Action {
+    data class OpenUrl(
+        val url: String,
+        val queryParameters: List<QueryParam> = emptyList(),
+        val miniWindowSettings: MiniWindowSettings? = null,
+    ) : Action {
         override val typeId: String = "intent.openUrl"
     }
     data class ShareText(val text: String, val mimeType: String = "text/plain") : Action {

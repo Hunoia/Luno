@@ -57,7 +57,8 @@ object ActionDefinitions {
             listOf(
                 ParameterDefinition.AppSelector("packageName", "应用"),
                 ParameterDefinition.Bool("miniWindow", "小窗模式", "false"),
-                ParameterDefinition.Text("className", "Activity 类名", required = false),
+                ParameterDefinition.ActivitySelector("className", "Activity", required = false, packageKey = "packageName"),
+                ParameterDefinition.MiniWindow("miniWindowSettings", "小窗"),
             ),
             icon = Icons.Default.Android,
         ))
@@ -68,6 +69,7 @@ object ActionDefinitions {
                 ParameterDefinition.AppSelector("packageName", "应用"),
                 ParameterDefinition.ActivitySelector("activityClassName", "Activity"),
                 ParameterDefinition.Bool("miniWindow", "小窗模式", "false"),
+                ParameterDefinition.MiniWindow("miniWindowSettings", "小窗"),
             ),
             icon = Icons.AutoMirrored.Filled.OpenInNew,
         ))
@@ -80,6 +82,7 @@ object ActionDefinitions {
         add(ActionDefinition(
             Action.Popup::class, "app.popup", "弹出当前应用", ActionCategory.APP,
             Capability.None,
+            parameters = listOf(ParameterDefinition.MiniWindow("miniWindowSettings", "小窗")),
             icon = Icons.Default.Window,
         ))
         add(ActionDefinition(
@@ -93,7 +96,10 @@ object ActionDefinitions {
         add(ActionDefinition(
             Action.OpenUrl::class, "intent.openUrl", "打开链接", ActionCategory.INTENT,
             Capability.None,
-            listOf(ParameterDefinition.Text("url", "URL")),
+            listOf(
+                ParameterDefinition.Text("url", "URL"),
+                ParameterDefinition.MiniWindow("miniWindowSettings", "小窗"),
+            ),
             icon = Icons.AutoMirrored.Filled.OpenInNew,
         ))
         add(ActionDefinition(

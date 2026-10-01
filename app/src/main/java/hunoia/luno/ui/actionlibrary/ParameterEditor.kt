@@ -1,13 +1,16 @@
 package hunoia.luno.ui.actionlibrary
 
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,16 +20,34 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import hunoia.luno.R
 import hunoia.luno.action.definitions.ParameterDefinition
+import hunoia.luno.config.model.MiniWindowSettings
+import hunoia.luno.config.model.toMiniWindowSettings
 import hunoia.luno.core.AppContext
+import hunoia.luno.ui.component.SegmentedSettingsRow
 import hunoia.luno.ui.component.SegmentedSwitchRow
+import hunoia.luno.ui.theme.ContainerRadius
+import hunoia.luno.ui.theme.LargeShape
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import kotlin.math.roundToInt
+
+val ParameterDefinition.isCardRowType: Boolean
+    get() = this is ParameterDefinition.Bool ||
+        this is ParameterDefinition.Enum ||
+        this is ParameterDefinition.AppSelector ||
+        this is ParameterDefinition.AppSelectorMulti ||
+        this is ParameterDefinition.MiniWindow ||
+        this is ParameterDefinition.ActivitySelector
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,10 +57,15 @@ fun ParameterEditor(
     onParamChange: (String, String) -> Unit,
     onPickApp: (String) -> Unit = {},
     onPickApps: (String) -> Unit = {},
+    onPickMiniWindow: (String) -> Unit = {},
     onPickActivity: (String, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
+    shape: Shape = RoundedCornerShape(ContainerRadius),
 ) {
     val required = definition.required
+    val errorColor = MaterialTheme.colorScheme.error
+    val hintColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val unselected = stringResource(R.string.action_param_unselected)
     when (definition) {
         is ParameterDefinition.Text -> {
             val value = currentParams[definition.key]?.scalarText() ?: (definition.defaultValue ?: "")
@@ -50,6 +76,7 @@ fun ParameterEditor(
                 singleLine = true,
                 modifier = modifier.fillMaxWidth(),
                 isError = required && value.isBlank(),
+                shape = LargeShape,
             )
         }
         is ParameterDefinition.Number -> {
@@ -62,6 +89,7 @@ fun ParameterEditor(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = modifier.fillMaxWidth(),
                 isError = (required && value.isBlank()) || !inRange(value, definition),
+                shape = LargeShape,
             )
         }
         is ParameterDefinition.Bool -> {
@@ -70,6 +98,7 @@ fun ParameterEditor(
                 checked = currentParams[definition.key]?.scalarText()?.toBoolean()
                     ?: definition.defaultValue.toBoolean(),
                 onCheckedChange = { onParamChange(definition.key, it.toString()) },
+                shape = shape,
                 modifier = modifier.fillMaxWidth(),
             )
         }
@@ -77,31 +106,41 @@ fun ParameterEditor(
             val selectedValue = currentParams[definition.key]?.scalarText() ?: (definition.defaultValue ?: "")
             val selectedOption = definition.options.find { it.value == selectedValue }
             var expanded by remember { mutableStateOf(false) }
-            val interactionSource = remember { MutableInteractionSource() }
-            rememberTapHandler(interactionSource, Unit) { expanded = !expanded }
-            OutlinedTextField(
-                value = selectedOption?.label ?: selectedValue,
-                onValueChange = {},
-                readOnly = true,
-                label = { Text(definition.label) },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                interactionSource = interactionSource,
-                modifier = modifier.fillMaxWidth(),
-                isError = required && selectedOption == null,
-            )
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                definition.options.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option.label) },
-                        onClick = {
-                            onParamChange(definition.key, option.value)
-                            expanded = false
-                        },
-                    )
+            val missing = required && selectedOption == null
+            Box {
+                SegmentedSettingsRow(
+                    title = definition.label,
+                    subtitle = selectedOption?.label ?: selectedValue.ifBlank { unselected },
+                    onClick = { expanded = !expanded },
+                    shape = shape,
+                    modifier = modifier.fillMaxWidth(),
+                    secondaryTextColor = if (missing) errorColor else hintColor,
+                )
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = LargeShape,
+                    tonalElevation = 3.dp,
+                ) {
+                    definition.options.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option.label) },
+                            trailingIcon = {
+                                if (option.value == selectedValue) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                            },
+                            onClick = {
+                                onParamChange(definition.key, option.value)
+                                expanded = false
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -112,53 +151,63 @@ fun ParameterEditor(
                 appLabel = if (selected.isBlank()) null else resolveAppLabel(selected)
             }
             val display = when {
-                selected.isBlank() -> ""
+                selected.isBlank() -> unselected
                 appLabel != null && appLabel != selected -> "$appLabel ($selected)"
                 else -> selected
             }
-            val interactionSource = remember { MutableInteractionSource() }
-            rememberTapHandler(interactionSource, Unit) { onPickApp(definition.key) }
-            OutlinedTextField(
-                value = display,
-                onValueChange = {},
-                readOnly = true,
-                label = { Text(definition.label) },
-                interactionSource = interactionSource,
+            val missing = required && selected.isBlank()
+            SegmentedSettingsRow(
+                title = definition.label,
+                subtitle = display,
+                onClick = { onPickApp(definition.key) },
+                shape = shape,
                 modifier = modifier.fillMaxWidth(),
-                isError = required && selected.isBlank(),
+                secondaryTextColor = if (missing) errorColor else hintColor,
             )
         }
         is ParameterDefinition.AppSelectorMulti -> {
             val selected = currentParams[definition.key]?.jsonArray?.mapNotNull {
                 it.jsonPrimitive?.contentOrNull
             } ?: emptyList()
-            val interactionSource = remember { MutableInteractionSource() }
-            rememberTapHandler(interactionSource, selected) { onPickApps(definition.key) }
-            OutlinedTextField(
-                value = if (selected.isEmpty()) "" else selected.joinToString(", "),
-                onValueChange = {},
-                readOnly = true,
-                label = { Text(definition.label) },
-                interactionSource = interactionSource,
+            val multiLabel = stringResource(R.string.action_param_multi_selected, selected.size)
+            val display = if (selected.isEmpty()) unselected else multiLabel
+            SegmentedSettingsRow(
+                title = definition.label,
+                subtitle = display,
+                onClick = { onPickApps(definition.key) },
+                shape = shape,
+                modifier = modifier.fillMaxWidth(),
+            )
+        }
+        is ParameterDefinition.MiniWindow -> {
+            val settings = currentParams[definition.key]?.toMiniWindowSettings() ?: MiniWindowSettings()
+            val display = if (settings.overrideBounds) {
+                "${settings.widthFraction.times(100).roundToInt()}% × ${settings.heightFraction.times(100).roundToInt()}%"
+            } else {
+                stringResource(R.string.mini_window_position_hint)
+            }
+            SegmentedSettingsRow(
+                title = definition.label,
+                subtitle = display,
+                onClick = { onPickMiniWindow(definition.key) },
+                shape = shape,
                 modifier = modifier.fillMaxWidth(),
             )
         }
         is ParameterDefinition.ActivitySelector -> {
             val selected = currentParams[definition.key]?.scalarText() ?: ""
             val packageName = currentParams[definition.packageKey]?.scalarText() ?: ""
-            val interactionSource = remember { MutableInteractionSource() }
-            rememberTapHandler(interactionSource, packageName) {
-                if (packageName.isNotBlank()) onPickActivity(packageName, definition.key)
-            }
-            OutlinedTextField(
-                value = selected,
-                onValueChange = {},
-                readOnly = true,
-                label = { Text(definition.label) },
-                interactionSource = interactionSource,
+            val enabled = packageName.isNotBlank()
+            val display = selected.ifBlank { unselected }
+            val missing = required && selected.isBlank()
+            SegmentedSettingsRow(
+                title = definition.label,
+                subtitle = display,
+                onClick = { if (enabled) onPickActivity(packageName, definition.key) },
+                shape = shape,
                 modifier = modifier.fillMaxWidth(),
-                enabled = packageName.isNotBlank(),
-                isError = required && selected.isBlank(),
+                enabled = enabled,
+                secondaryTextColor = if (missing && enabled) errorColor else hintColor,
             )
         }
         is ParameterDefinition.Path -> {
@@ -170,6 +219,7 @@ fun ParameterEditor(
                 singleLine = true,
                 modifier = modifier.fillMaxWidth(),
                 isError = required && value.isBlank(),
+                shape = LargeShape,
             )
         }
         is ParameterDefinition.TextLarge -> {
@@ -182,6 +232,7 @@ fun ParameterEditor(
                 maxLines = 10,
                 modifier = modifier.fillMaxWidth(),
                 isError = required && value.isBlank(),
+                shape = LargeShape,
             )
         }
     }
@@ -191,24 +242,6 @@ private fun inRange(value: String, definition: ParameterDefinition.Number): Bool
     val number = value.toIntOrNull() ?: return false
     return (definition.min == null || number >= definition.min) &&
         (definition.max == null || number <= definition.max)
-}
-
-/**
- * OutlinedTextField consumes its own taps internally, so [Modifier.clickable] applied to it never
- * fires. The field instead emits [PressInteraction.Release] on its [MutableInteractionSource]
- * whenever it is tapped, which we observe here.
- */
-@Composable
-private fun rememberTapHandler(
-    interactionSource: MutableInteractionSource,
-    keys: Any,
-    onRelease: () -> Unit,
-) {
-    LaunchedEffect(interactionSource, keys) {
-        interactionSource.interactions.collect { interaction ->
-            if (interaction is PressInteraction.Release) onRelease()
-        }
-    }
 }
 
 private suspend fun resolveAppLabel(packageName: String): String? = withContext(Dispatchers.IO) {

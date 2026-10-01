@@ -63,6 +63,7 @@ fun SelectableListItem(
     onLongClick: (() -> Unit)? = null,
     marquee: Boolean = false,
     verticalGap: Dp = ListItemVerticalPadding,
+    horizontalGap: Dp = PageGutter,
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
@@ -89,7 +90,7 @@ fun SelectableListItem(
     ListItem(
         modifier = modifier
             .alpha(if (enabled) 1f else SettingsUiDefaults.DisabledAlpha)
-            .padding(horizontal = PageGutter, vertical = verticalGap)
+            .padding(horizontal = horizontalGap, vertical = verticalGap)
             .then(
                 if (onLongClick != null) {
                     Modifier.combinedClickable(

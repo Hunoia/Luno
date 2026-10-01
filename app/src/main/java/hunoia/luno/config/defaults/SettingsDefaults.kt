@@ -9,7 +9,6 @@ object AdvancedSettingsDefaults {
     val ActionPanelStyles = ActionPanelStyles()
     const val MiniWindowHorizontalBias = 0f
     const val MiniWindowVerticalBias = 0f
-    const val MiniWindowVerticalOffsetFraction = 0f
     const val MiniWindowWidthFraction = 0.85f
     const val MiniWindowHeightFraction = 0.72f
     const val MiniWindowOverrideBounds = false

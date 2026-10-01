@@ -7,6 +7,8 @@ import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.config.ConfigProvider
+import hunoia.luno.config.model.MiniWindowSettings
+import hunoia.luno.config.model.toJsonObject
 import hunoia.luno.ui.navigation.NEW_ACTION_LIBRARY_ENTRY_ID
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -98,6 +100,16 @@ class NewActionLibraryEditVM : ViewModel() {
             state.copy(
                 draft = state.draft?.copy(
                     params = state.draft.params + (key to JsonArray(values.map { JsonPrimitive(it) })),
+                ),
+            )
+        }
+    }
+
+    fun updateParamMiniWindow(key: String, value: MiniWindowSettings) {
+        _uiState.update { state ->
+            state.copy(
+                draft = state.draft?.copy(
+                    params = state.draft.params + (key to value.toJsonObject()),
                 ),
             )
         }

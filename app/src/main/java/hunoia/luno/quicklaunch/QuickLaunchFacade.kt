@@ -105,7 +105,6 @@ object QuickLaunchFacade {
         miniWindow: Boolean = false,
         miniWindowHorizontalBias: Float = 0f,
         miniWindowVerticalBias: Float = 0f,
-        miniWindowVerticalOffsetFraction: Float = 0f,
         miniWindowWidthFraction: Float = 0.46f,
         miniWindowHeightFraction: Float = 0.74f,
         miniWindowOverrideBounds: Boolean = false,
@@ -113,7 +112,6 @@ object QuickLaunchFacade {
         return Launcher.launchApp(
             context, packageName, className, miniWindow,
             miniWindowHorizontalBias, miniWindowVerticalBias,
-            miniWindowVerticalOffsetFraction,
             miniWindowWidthFraction, miniWindowHeightFraction,
             overrideBounds = miniWindowOverrideBounds,
         )
@@ -128,7 +126,6 @@ object QuickLaunchFacade {
         data: OpenAppOrUrlData,
         miniWindowHorizontalBias: Float = 0f,
         miniWindowVerticalBias: Float = 0f,
-        miniWindowVerticalOffsetFraction: Float = 0f,
         miniWindowWidthFraction: Float = 0.46f,
         miniWindowHeightFraction: Float = 0.74f,
         miniWindowOverrideBounds: Boolean = false,
@@ -138,7 +135,6 @@ object QuickLaunchFacade {
             data = data,
             miniWindowHorizontalBias = miniWindowHorizontalBias,
             miniWindowVerticalBias = miniWindowVerticalBias,
-            miniWindowVerticalOffsetFraction = miniWindowVerticalOffsetFraction,
             miniWindowWidthFraction = miniWindowWidthFraction,
             miniWindowHeightFraction = miniWindowHeightFraction,
             miniWindowOverrideBounds = miniWindowOverrideBounds,
@@ -161,14 +157,13 @@ object QuickLaunchFacade {
         className: String,
         horizontalBias: Float = 0.5f,
         verticalBias: Float = 1.0f,
-        verticalOffsetFraction: Float = 1.0f,
         widthFraction: Float = 0.5f,
         heightFraction: Float = 0.5f,
         overrideBounds: Boolean = false,
     ) {
         Launcher.launchAppInPopup(
             context, packageName, className,
-            horizontalBias, verticalBias, verticalOffsetFraction,
+            horizontalBias, verticalBias,
             widthFraction, heightFraction, overrideBounds,
         )
     }

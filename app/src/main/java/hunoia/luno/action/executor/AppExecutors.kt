@@ -9,6 +9,8 @@ import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionFailure
 import hunoia.luno.action.model.ActionResult
 import hunoia.luno.bridge.queryIntentActivitiesCompat
+import hunoia.luno.config.model.AdvancedSettings
+import hunoia.luno.config.model.effectiveForAction
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.launch.AppLaunchBypass
@@ -25,7 +27,7 @@ class AppExecutors(private val intentController: IntentController) : ActionExecu
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
         return when (action) {
             is Action.LaunchApp -> {
-                val adv = context.advancedSettings
+                val adv = context.advancedSettings.effectiveForAction(action)
                 val ok = AppLaunchBypass.launchWithAutoUnfreeze(
                     context = context.appContext,
                     packageName = action.packageName,
@@ -33,7 +35,6 @@ class AppExecutors(private val intentController: IntentController) : ActionExecu
                     miniWindow = action.miniWindow,
                     miniWindowHorizontalBias = adv.miniWindowHorizontalBias,
                     miniWindowVerticalBias = adv.miniWindowVerticalBias,
-                    miniWindowVerticalOffsetFraction = adv.miniWindowVerticalOffsetFraction,
                     miniWindowWidthFraction = adv.miniWindowWidthFraction,
                     miniWindowHeightFraction = adv.miniWindowHeightFraction,
                     miniWindowOverrideBounds = adv.miniWindowOverrideBounds,
@@ -42,10 +43,17 @@ class AppExecutors(private val intentController: IntentController) : ActionExecu
                 if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.OpenActivity -> {
-                val ok = AppLaunchBypass.launchActivityWithAutoUnfreeze(
+                val adv = context.advancedSettings.effectiveForAction(action)
+                val ok = AppLaunchBypass.launchWithAutoUnfreeze(
                     context = context.appContext,
                     packageName = action.packageName,
                     className = action.activityClassName,
+                    miniWindow = action.miniWindow,
+                    miniWindowHorizontalBias = adv.miniWindowHorizontalBias,
+                    miniWindowVerticalBias = adv.miniWindowVerticalBias,
+                    miniWindowWidthFraction = adv.miniWindowWidthFraction,
+                    miniWindowHeightFraction = adv.miniWindowHeightFraction,
+                    miniWindowOverrideBounds = adv.miniWindowOverrideBounds,
                     unfreezePackage = { _, pkg -> enablePackage(context, pkg) },
                 )
                 if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
@@ -55,7 +63,7 @@ class AppExecutors(private val intentController: IntentController) : ActionExecu
                 if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.Popup -> {
-                popupScreen(context)
+                popupScreen(context, context.advancedSettings.effectiveForAction(action))
                 ActionResult.Success()
             }
             is Action.LaunchShortcut -> {
@@ -73,7 +81,7 @@ class AppExecutors(private val intentController: IntentController) : ActionExecu
         }
     }
 
-    private fun popupScreen(context: ExecutorContext) {
+    private fun popupScreen(context: ExecutorContext, adv: AdvancedSettings) {
         val pkgName = context.accessibilityService
             .rootInActiveWindow?.packageName?.toString()
             ?: context.currentPackageName()
@@ -90,13 +98,11 @@ class AppExecutors(private val intentController: IntentController) : ActionExecu
             .firstOrNull()
         val className = resolveInfo?.activityInfo?.name
         if (!className.isNullOrEmpty()) {
-            val adv = context.advancedSettings
             if (adv.miniWindowOverrideBounds) {
                 QuickLaunchFacade.launchAppInPopup(
                     context.appContext, pkgName, className,
                     adv.miniWindowHorizontalBias,
                     adv.miniWindowVerticalBias,
-                    adv.miniWindowVerticalOffsetFraction,
                     adv.miniWindowWidthFraction,
                     adv.miniWindowHeightFraction,
                     overrideBounds = true,

@@ -197,7 +197,6 @@ class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
                                     host.context, appInfo, miniWindow,
                                     advancedSettings.miniWindowHorizontalBias,
                                     advancedSettings.miniWindowVerticalBias,
-                                    advancedSettings.miniWindowVerticalOffsetFraction,
                                     advancedSettings.miniWindowWidthFraction,
                                     advancedSettings.miniWindowHeightFraction,
                                     overrideBounds = true,

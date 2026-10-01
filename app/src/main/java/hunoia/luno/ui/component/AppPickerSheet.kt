@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -44,6 +44,9 @@ import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.CardInnerSpacing
+import hunoia.luno.ui.theme.SegmentedGap
+import hunoia.luno.ui.theme.SheetListMaxHeight
+import hunoia.luno.ui.component.segmentedShape
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -155,7 +158,7 @@ fun AppPickerSheet(
                     onQueryChange = { searchQuery = it },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = PageGutter),
+                        .padding(horizontal = PageGutter, vertical = CardInnerSpacing),
                     placeholder = stringResource(R.string.search_app_hint),
                 )
 
@@ -163,7 +166,7 @@ fun AppPickerSheet(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 360.dp)
+                            .heightIn(max = SheetListMaxHeight)
                             .padding(vertical = 48.dp),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -176,14 +179,15 @@ fun AppPickerSheet(
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 420.dp)
+                            .heightIn(max = SheetListMaxHeight)
                             .padding(top = CardInnerSpacing),
-                        contentPadding = PaddingValues(bottom = CardInnerSpacing),
+                        contentPadding = PaddingValues(start = PageGutter, end = PageGutter, bottom = CardInnerSpacing),
+                        verticalArrangement = Arrangement.spacedBy(SegmentedGap),
                     ) {
                         if (filteredApps.isEmpty()) {
                             item { EmptyState(message = stringResource(R.string.no_matching_results)) }
                         } else {
-                            items(filteredApps, key = { it.qualifiedName }) { item ->
+                            itemsIndexed(filteredApps, key = { _, item -> item.qualifiedName }) { index, item ->
                                 SelectableListItem(
                                     title = item.label,
                                     subtitle = item.packageName,
@@ -197,6 +201,9 @@ fun AppPickerSheet(
                                         }
                                     },
                                     showCheckbox = true,
+                                    shape = segmentedShape(index, filteredApps.size),
+                                    verticalGap = 0.dp,
+                                    horizontalGap = 0.dp,
                                 )
                             }
                         }
@@ -209,7 +216,7 @@ fun AppPickerSheet(
                         .padding(horizontal = PageGutter, vertical = CardInnerSpacing),
                     horizontalArrangement = Arrangement.spacedBy(ListSpacing),
                 ) {
-                    FilledTonalButton(
+                    TextButton(
                         modifier = Modifier.weight(1f),
                         onClick = onDismissRequest,
                     ) {
