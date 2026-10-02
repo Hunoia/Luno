@@ -2,10 +2,15 @@ package hunoia.luno.ui.actionselect
 
 import hunoia.luno.action.api.appInfo
 import hunoia.luno.action.api.shortcutInfo
+import hunoia.luno.action.definitions.ActionDefinitions
+import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.Action
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureTriggerType
+import hunoia.luno.config.model.RuleEffectType
+import hunoia.luno.config.model.VALUE_LIBRARY_REF
+import hunoia.luno.config.model.actionLibraryRefId
 import hunoia.luno.core.AppContext
 import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import hunoia.luno.quicklaunch.QuickLaunchFacade
@@ -44,8 +49,11 @@ internal suspend fun saveSettingsAction(
     updateUiState: ((UiState) -> UiState) -> Unit
 ) {
     val selectedRecord = getUiState().selectedRecord
-    val selectedList = selectedRecord.list.filterIsInstance<Action>()
-    val newActions = selectedList
+    val newActions = selectedRecord.list.filterIsInstance<Action>()
+    if (actionSelect.automationRuleId.isNotBlank()) {
+        saveAutomationEffect(actionSelect, newActions)
+        return
+    }
     if (actionSelect.subGestureId.isNotBlank()) {
         ConfigProvider.updateSubGestureSettings { settings ->
             settings.copy(
@@ -82,6 +90,35 @@ internal suspend fun saveSettingsAction(
             set(index, button)
         }
     }
+}
+
+private suspend fun saveAutomationEffect(actionSelect: ActionSelect, newActions: List<Action>) {
+    val entries = ConfigProvider.getNewActionLibrarySettings().entries
+    val current = loadAutomationActions(actionSelect, entries) ?: emptyList()
+    tryDeleteShortcutIcons(current, newActions)
+    val selected = newActions.firstOrNull()
+    ConfigProvider.updateAutomationRules { rules ->
+        rules.map { rule ->
+            if (rule.id != actionSelect.automationRuleId) return@map rule
+            rule.copy(effect = rule.effect.copy(
+                action = selected?.takeIf { it.value != VALUE_LIBRARY_REF },
+                entryId = selected?.actionLibraryRefId() ?: "",
+            ))
+        }
+    }
+}
+
+private suspend fun loadAutomationActions(
+    actionSelect: ActionSelect,
+    actionLibraryEntries: List<NewActionLibraryEntry>
+): List<Action>? {
+    val rules = ConfigProvider.getAutomationRules()
+    val rule = rules.find { it.id == actionSelect.automationRuleId } ?: return null
+    if (rule.effect.type != RuleEffectType.RUN_ACTION) return null
+    rule.effect.action?.let { return listOf(it.copy(extra = null)) }
+    if (rule.effect.entryId.isBlank()) return null
+    val entry = actionLibraryEntries.find { it.id == rule.effect.entryId } ?: return null
+    return listOf(entry.toReferenceAction())
 }
 
 internal suspend fun updateShortcutInfosBody(
@@ -237,19 +274,21 @@ internal suspend fun loadDataBody(
     val gestureSettings = ConfigProvider.getGestureSettings()
     val subGestures = ConfigProvider.getSubGestureSettings().subGestures
     val actionLibraryEntries = ConfigProvider.getNewActionLibrarySettings().entries
-    val button = buttons.find {
-        it.id == actionSelect.gestureButtonId
-    }
-    val subGesture = subGestures.find { it.id == actionSelect.subGestureId }
+    val isAutomation = actionSelect.automationRuleId.isNotBlank()
+    val excludedTypeIds = if (isAutomation) ActionDefinitions.automationExcludedTypeIds() else emptySet()
+    val button = if (isAutomation) null else buttons.find { it.id == actionSelect.gestureButtonId }
+    val subGesture = if (isAutomation) null else subGestures.find { it.id == actionSelect.subGestureId }
     onUpdateState { state ->
         state.copy(
-            maxSelectCount = MAX_SELECT_COUNT,
+            maxSelectCount = if (isAutomation) 1 else MAX_SELECT_COUNT,
             subGestures = subGestures,
             excludedSubGestureId = actionSelect.subGestureId,
-            actionLibraryEntries = actionLibraryEntries,
+            actionLibraryEntries = actionLibraryEntries.filter { it.typeId !in excludedTypeIds },
+            excludedTypeIds = excludedTypeIds,
         )
     }
     val actions = when {
+        isAutomation -> loadAutomationActions(actionSelect, actionLibraryEntries)
         subGesture != null -> subGesture.actionsFor(actionSelect.triggerType, actionSelect.direction)
         button != null -> button.actionsFor(actionSelect.triggerType, actionSelect.direction)
         else -> null

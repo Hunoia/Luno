@@ -1,5 +1,6 @@
 package hunoia.luno.ui.automation
 
+import android.content.Context
 import android.os.SystemClock
 import android.util.Log
 import androidx.compose.foundation.layout.Box
@@ -56,10 +57,12 @@ import hunoia.luno.config.model.RuleEffectType
 import hunoia.luno.config.model.RuleScope
 import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.runtime.condition.hasLeaf
+import hunoia.luno.ui.actionselect.selectedItemLabel
 import hunoia.luno.ui.automation.components.RuleScopeSheet
 import hunoia.luno.ui.component.MyColumn
 import hunoia.luno.ui.component.SegmentedSettingsRow
 import hunoia.luno.ui.component.TopBar
+import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.navigation.NEW_AUTOMATION_RULE_ID
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.LargeShape
@@ -74,6 +77,7 @@ import top.yukonga.miuix.kmp.blur.layerBackdrop
 fun AutomationEditScreen(
     onBack: () -> Unit,
     ruleId: String,
+    onNavToActionSelect: (ActionSelect) -> Unit,
 ) {
     val loadedRules by ConfigProvider.automationRules
         .collectAsStateWithLifecycle(initialValue = null)
@@ -85,7 +89,6 @@ fun AutomationEditScreen(
     val scope = rememberCoroutineScope()
     var draft by remember { mutableStateOf<AutomationRule?>(null) }
     var showScopeSheet by remember { mutableStateOf(false) }
-    var showEntrySheet by remember { mutableStateOf(false) }
     var showTypePicker by remember { mutableStateOf(false) }
 
     LaunchedEffect(ruleId, loadedRules) {
@@ -98,8 +101,36 @@ fun AutomationEditScreen(
         )
     }
 
+    LaunchedEffect(loadedRules) {
+        val current = draft ?: return@LaunchedEffect
+        val rules = loadedRules ?: return@LaunchedEffect
+        val stored = rules.find { it.id == current.id } ?: return@LaunchedEffect
+        if (stored.effect.action != current.effect.action ||
+            stored.effect.entryId != current.effect.entryId
+        ) {
+            draft = current.copy(effect = current.effect.copy(
+                action = stored.effect.action,
+                entryId = stored.effect.entryId,
+            ))
+        }
+    }
+
     val rule = draft ?: return
+    val context = LocalContext.current
     val cooldownText = remember(rule.id) { mutableStateOf(rule.cooldownMs.toString()) }
+
+    fun onPickAction() {
+        scope.launch {
+            ConfigProvider.updateAutomationRules { rules ->
+                if (rules.any { r -> r.id == rule.id }) {
+                    rules.map { r -> if (r.id == rule.id) rule else r }
+                } else {
+                    rules + rule
+                }
+            }
+            onNavToActionSelect(ActionSelect(automationRuleId = rule.id))
+        }
+    }
 
     fun save() {
         val effective = rule.copy(cooldownMs = parseCooldown(cooldownText.value))
@@ -121,7 +152,7 @@ fun AutomationEditScreen(
 
     val cooldownInvalid = isInvalidCooldown(cooldownText.value)
     val saveEnabled = rule.condition.hasLeaf() &&
-        (rule.effect.type != RuleEffectType.RUN_ACTION || rule.effect.entryId.isNotBlank()) &&
+        (rule.effect.type != RuleEffectType.RUN_ACTION || rule.effect.hasAction) &&
         !cooldownInvalid
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -191,11 +222,11 @@ fun AutomationEditScreen(
 
             if (rule.effect.type == RuleEffectType.RUN_ACTION) {
                 SegmentedSettingsRow(
-                    title = stringResource(R.string.automation_entry),
-                    subtitle = entryName(library, rule.effect.entryId),
-                    onClick = { showEntrySheet = true },
+                    title = stringResource(R.string.automation_pick_action),
+                    subtitle = effectActionLabel(context, library, rule.effect),
+                    onClick = { onPickAction() },
                 )
-                if (rule.effect.entryId.isBlank()) {
+                if (!rule.effect.hasAction) {
                     Text(
                         text = stringResource(R.string.automation_entry_required),
                         style = MaterialTheme.typography.bodySmall,
@@ -231,18 +262,6 @@ fun AutomationEditScreen(
             onConfirm = { newScope, ids ->
                 draft = rule.copy(effect = rule.effect.copy(scope = newScope, buttonIds = ids))
                 showScopeSheet = false
-            },
-        )
-    }
-
-    if (showEntrySheet) {
-        EntryPickerSheet(
-            entries = library?.entries ?: emptyList(),
-            selectedEntryId = rule.effect.entryId,
-            onDismissRequest = { showEntrySheet = false },
-            onPick = { entryId ->
-                draft = rule.copy(effect = rule.effect.copy(entryId = entryId))
-                showEntrySheet = false
             },
         )
     }
@@ -411,6 +430,19 @@ fun scopeSubtitle(scope: RuleScope, buttonIds: List<String>): String = when (sco
     RuleScope.ALL -> stringResource(R.string.scope_all)
     RuleScope.EXCEPT -> stringResource(R.string.scope_except_count, buttonIds.size)
     RuleScope.ONLY -> stringResource(R.string.scope_only_count, buttonIds.size)
+}
+
+@Composable
+private fun effectActionLabel(
+    context: Context,
+    library: NewActionLibrarySettings?,
+    effect: RuleEffect,
+): String {
+    val action = effect.action
+    if (action != null) {
+        return context.selectedItemLabel(action, emptyList(), library?.entries ?: emptyList())
+    }
+    return entryName(library, effect.entryId)
 }
 
 @Composable

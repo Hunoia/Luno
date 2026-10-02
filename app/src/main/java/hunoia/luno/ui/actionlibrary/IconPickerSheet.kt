@@ -19,9 +19,11 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -58,6 +60,10 @@ fun IconPickerSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var query by remember { mutableStateOf("") }
+    val isCustomText = currentKey != null && IconPalette.byKey(currentKey) == null
+    var customText by remember(currentKey) {
+        mutableStateOf(if (isCustomText) currentKey.orEmpty() else "")
+    }
 
     val filteredGroups = remember(query) {
         if (query.isBlank()) {
@@ -90,6 +96,30 @@ fun IconPickerSheet(
                     .fillMaxWidth()
                     .padding(horizontal = PageGutter, vertical = CardInnerSpacing),
             )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = PageGutter, end = PageGutter, bottom = CardInnerSpacing),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+            ) {
+                OutlinedTextField(
+                    value = customText,
+                    onValueChange = { customText = it },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    placeholder = { Text(stringResource(R.string.action_library_icon_custom)) },
+                    shape = SmallShape,
+                )
+                FilledTonalButton(
+                    onClick = {
+                        val t = customText.trim()
+                        if (t.isNotEmpty()) onPick(t)
+                    },
+                ) {
+                    Text(stringResource(R.string.action_library_icon_use))
+                }
+            }
 
             if (!hasIconResult && query.isNotBlank()) {
                 EmptyState(message = stringResource(R.string.no_matching_results))

@@ -29,12 +29,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.annotation.StringRes
 import hunoia.luno.config.defaults.SettingsUiDefaults
 import hunoia.luno.ui.theme.ConnectionRadius
 import hunoia.luno.ui.theme.ContainerRadius
+import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SegmentedGap
@@ -50,6 +53,17 @@ fun segmentedShape(index: Int, count: Int): RoundedCornerShape {
         topEnd = top,
         bottomStart = bottom,
         bottomEnd = bottom,
+    )
+}
+
+/** 底部面板内的分组标题，LazyColumn 的 item 与下方内容左对齐。 */
+@Composable
+fun SheetGroupHeader(@StringRes titleRes: Int) {
+    Text(
+        text = stringResource(titleRes),
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = ListSpacing, bottom = SegmentedGap),
     )
 }
 

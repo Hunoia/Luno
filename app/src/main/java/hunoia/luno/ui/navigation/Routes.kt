@@ -10,10 +10,11 @@ import kotlinx.serialization.Serializable
 @Keep
 @Serializable
 data class ActionSelect(
-    val gestureButtonId: String,
-    val direction: GestureDirection,
+    val gestureButtonId: String = "",
+    val direction: GestureDirection = GestureDirection.Right,
     val triggerType: GestureTriggerType = GestureTriggerType.Slide,
     val subGestureId: String = "",
+    val automationRuleId: String = "",
 )
 
 @Serializable

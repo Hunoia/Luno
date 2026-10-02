@@ -144,6 +144,7 @@ fun SideGestureApp() {
                     AutomationEditScreen(
                         onBack = { navController.popBackStack() },
                         ruleId = it.toRoute<AutomationEdit>().ruleId,
+                        onNavToActionSelect = { navController.navigate(it) },
                     )
                 }
                 myComposable<NewActionLibraryEdit> {

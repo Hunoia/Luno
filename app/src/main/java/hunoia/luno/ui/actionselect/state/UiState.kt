@@ -22,6 +22,7 @@ data class UiState(
     val subGestures: List<SubGesture> = emptyList(),
     val excludedSubGestureId: String = "",
     val actionLibraryEntries: List<NewActionLibraryEntry> = emptyList(),
+    val excludedTypeIds: Set<String> = emptySet(),
 ) {
     data class SelectedRecord(val list: List<Any> = emptyList()) {
 
@@ -31,39 +32,33 @@ data class UiState(
             return this.copy(list = actions.toList())
         }
 
-        fun selectAction(action: Action, selected: Boolean): SelectedRecord {
-            val newList = list.toMutableList().apply {
-                if (selected) {
-                    add(action)
-                } else {
-                    removeAll { it is Action && it.sameAction(action) }
-                }
-            }
-            return this.copy(list = newList)
+        private fun pick(action: Action, maxSelectCount: Int): List<Any> {
+            return if (maxSelectCount <= 1) listOf(action) else list + action
         }
 
-        fun selectAppInfo(app: AppInfo, selected: Boolean): SelectedRecord {
-            val newList = list.toMutableList().apply {
-                if (selected) {
-                    add(app.toAction())
-                } else {
-                    removeAll { (it as? Action)?.appInfo?.qualifiedName == app.qualifiedName }
-                }
+        fun selectAction(action: Action, selected: Boolean, maxSelectCount: Int): SelectedRecord {
+            if (!selected) {
+                return this.copy(list = list.filterNot { it is Action && it.sameAction(action) })
             }
-            return this.copy(list = newList)
+            return this.copy(list = pick(action, maxSelectCount))
         }
 
-        fun selectShortcutInfo(shortcut: LauncherInfo.ShortcutInfo, selected: Boolean): SelectedRecord {
-            val newList = list.toMutableList().apply {
-                if (selected) {
-                    add(shortcut.toAction())
-                } else {
-                    removeAll {
-                        (it as? Action)?.shortcutInfo?.qualifiedNameWithIntents == shortcut.qualifiedNameWithIntents
-                    }
-                }
+        fun selectAppInfo(app: AppInfo, selected: Boolean, maxSelectCount: Int): SelectedRecord {
+            val action = app.toAction()
+            if (!selected) {
+                return this.copy(list = list.filterNot { (it as? Action)?.appInfo?.qualifiedName == app.qualifiedName })
             }
-            return this.copy(list = newList)
+            return this.copy(list = pick(action, maxSelectCount))
+        }
+
+        fun selectShortcutInfo(shortcut: LauncherInfo.ShortcutInfo, selected: Boolean, maxSelectCount: Int): SelectedRecord {
+            val action = shortcut.toAction()
+            if (!selected) {
+                return this.copy(list = list.filterNot {
+                    (it as? Action)?.shortcutInfo?.qualifiedNameWithIntents == shortcut.qualifiedNameWithIntents
+                })
+            }
+            return this.copy(list = pick(action, maxSelectCount))
         }
 
         fun removeAllAppInfos(list: List<AppInfo>): SelectedRecord {

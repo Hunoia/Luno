@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import hunoia.luno.config.model.Action
 import hunoia.luno.ui.component.SelectableListItem
+import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.actionIcon
 import hunoia.luno.ui.theme.ContainerRadius
 
@@ -32,7 +33,8 @@ fun ActionItem(
         modifier = modifier,
         enabled = enabled,
         icon = icon as? ImageVector,
-        iconModel = icon?.takeIf { it !is ImageVector },
+        textIcon = icon as? TextIcon,
+        iconModel = icon?.takeIf { it !is ImageVector && it !is TextIcon },
         showCheckbox = !selectSingle,
         marquee = true,
         shape = shape,

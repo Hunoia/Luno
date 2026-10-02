@@ -72,15 +72,18 @@ class EnvironmentTracker(
         airplaneMode: Boolean = false,
         isRingerSilent: Boolean = false,
         volumePercent: Map<AudioStream, Int> = emptyMap(),
+        consumePulses: Boolean = true,
     ): GestureRuntimeState {
-        val appChangedTo = pendingAppChangedTo
-        val screenEvent = pendingScreenEvent
-        val chargingChangedTo = pendingChargingChangedTo
-        val volumeChanged = pendingVolumeChange
-        pendingAppChangedTo = null
-        pendingScreenEvent = null
-        pendingChargingChangedTo = null
-        pendingVolumeChange = null
+        val appChangedTo = if (consumePulses) pendingAppChangedTo else null
+        val screenEvent = if (consumePulses) pendingScreenEvent else null
+        val chargingChangedTo = if (consumePulses) pendingChargingChangedTo else null
+        val volumeChanged = if (consumePulses) pendingVolumeChange else null
+        if (consumePulses) {
+            pendingAppChangedTo = null
+            pendingScreenEvent = null
+            pendingChargingChangedTo = null
+            pendingVolumeChange = null
+        }
         return GestureRuntimeState(
             currentPackageName = getCurrentPackageName(),
             isNowInLockScreenPage = isNowInLockScreenPage,

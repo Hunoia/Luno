@@ -82,6 +82,7 @@ internal fun ActionPage(
     var selectedType by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val selectingLongPress = longPressTargetIndex != null
+    val selectSingleMode = selectingLongPress || maxSelectCount <= 1
     val typeChips = remember(context) {
         listOf(
             null to context.getString(R.string.all_categories),
@@ -209,7 +210,7 @@ internal fun ActionPage(
                             action = item,
                             actionLabel = context.actionTextWithSubGesture(item, subGestures, actionLibraryEntries, emptyIfNone = false),
                             selected = selectedRecord.isSelected(item),
-                            selectSingle = selectingLongPress,
+                            selectSingle = selectSingleMode,
                             enabled = selectingLongPress || canActionEnabled(selectedRecord, item, maxSelectCount),
                             onSelect = { selected ->
                                 if (selectingLongPress) onSelectLongPress(item) else onSelect(item, selected)
@@ -235,7 +236,7 @@ internal fun ActionPage(
                         action = action,
                         actionLabel = entry.name,
                         selected = selectedRecord.isSelected(action),
-                        selectSingle = selectingLongPress,
+                        selectSingle = selectSingleMode,
                         enabled = selectingLongPress || canActionEnabled(selectedRecord, action, maxSelectCount),
                         onSelect = { selected ->
                             if (selectingLongPress) onSelectLongPress(entry) else onSelectLibraryEntry(entry, selected)
@@ -254,7 +255,7 @@ internal fun ActionPage(
                     )
                 }
                 itemsIndexed(items = filteredApps, key = { _, it -> "app_${it.qualifiedName}" }) { index, item ->
-                    AppItem(appInfo = item, selected = selectedRecord.isSelected(item), selectSingle = selectingLongPress,
+                    AppItem(appInfo = item, selected = selectedRecord.isSelected(item), selectSingle = selectSingleMode,
                         enabled = selectingLongPress || canAppInfoEnabled(selectedRecord, item, maxSelectCount),
                         onSelect = { selected ->
                             if (selectingLongPress) onSelectLongPress(item) else onSelectApp(item, selected)
@@ -270,7 +271,7 @@ internal fun ActionPage(
                         modifier = Modifier.fillMaxWidth().padding(start = PageGutter, top = 8.dp, bottom = 16.dp))
                 }
                 items(items = filteredCreateShortcuts, key = { "cs_${it.qualifiedName}" }) { item ->
-                    LauncherInfoItem(launcherInfo = item, selectSingle = selectingLongPress,
+                    LauncherInfoItem(launcherInfo = item, selectSingle = selectSingleMode,
                         canLauncherInfoEnabled = { selectingLongPress || canLauncherInfoEnabled(selectedRecord, it, maxSelectCount) },
                         canShortcutInfoEnabled = { selectingLongPress || canShortcutInfoEnabled(selectedRecord, it, maxSelectCount) },
                         isShortcutInfoSelected = { selectedRecord.isSelected(it) },
@@ -286,7 +287,7 @@ internal fun ActionPage(
                         modifier = Modifier.fillMaxWidth().padding(start = PageGutter, top = 8.dp, bottom = 16.dp))
                 }
                 items(items = filteredLaunchShortcuts, key = { "ls_${it.qualifiedName}" }) { item ->
-                    LauncherInfoItem(launcherInfo = item, selectSingle = selectingLongPress,
+                    LauncherInfoItem(launcherInfo = item, selectSingle = selectSingleMode,
                         canLauncherInfoEnabled = { selectingLongPress || canLauncherInfoEnabled(selectedRecord, it, maxSelectCount) },
                         canShortcutInfoEnabled = { selectingLongPress || canShortcutInfoEnabled(selectedRecord, it, maxSelectCount) },
                         isShortcutInfoSelected = { selectedRecord.isSelected(it) },

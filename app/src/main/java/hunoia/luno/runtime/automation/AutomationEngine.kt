@@ -1,13 +1,14 @@
 package hunoia.luno.runtime.automation
 
 import hunoia.luno.config.model.AutomationRule
+import hunoia.luno.config.model.RuleEffect
 import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.config.model.RuleEffectType
 import hunoia.luno.runtime.condition.ConditionContext
 import hunoia.luno.runtime.condition.matches
 
 class AutomationEngine(
-    private val onRunEntry: (String) -> Unit,
+    private val onRunEffect: (RuleEffect, ConditionContext) -> Unit,
 ) {
     private val prevMatches = mutableMapOf<String, Boolean>()
     private val lastFiredAt = mutableMapOf<String, Long>()
@@ -29,12 +30,11 @@ class AutomationEngine(
 
             if (rule.effect.type != RuleEffectType.RUN_ACTION) continue
             if (!hit || prev) continue
-            val entryId = rule.effect.entryId
-            if (entryId.isBlank()) continue
+            if (!rule.effect.hasAction) continue
             val last = lastFiredAt[rule.id]
             if (last != null && ctx.nowMs - last < rule.cooldownMs) continue
             lastFiredAt[rule.id] = ctx.nowMs
-            onRunEntry(entryId)
+            onRunEffect(rule.effect, ctx)
         }
         cleanup(rules)
     }

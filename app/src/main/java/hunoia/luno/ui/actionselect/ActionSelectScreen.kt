@@ -81,7 +81,7 @@ fun ActionSelectContent(
     onDismiss: () -> Unit,
     actionSelect: ActionSelect,
     vm: ActionSelectVM = viewModel(
-        key = "action_select_${actionSelect.gestureButtonId}_${actionSelect.direction}_${actionSelect.triggerType}_${actionSelect.subGestureId}",
+        key = "action_select_${actionSelect.gestureButtonId}_${actionSelect.direction}_${actionSelect.triggerType}_${actionSelect.subGestureId}_${actionSelect.automationRuleId}",
         factory = object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 @Suppress("UNCHECKED_CAST")
@@ -163,7 +163,7 @@ fun ActionSelectContent(
                                 vm.addNewShortcut(launcherInfo, shortcutInfo)
                                 if (uiState.longPressTargetIndex != null) {
                                     vm.selectLongPressAction(shortcutInfo)
-                                } else if (uiState.selectedRecord.size < uiState.maxSelectCount) {
+                                } else if (uiState.selectedRecord.size < uiState.maxSelectCount || uiState.maxSelectCount <= 1) {
                                     vm.select(shortcutInfo, true)
                                 }
                             }

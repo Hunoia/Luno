@@ -91,7 +91,10 @@ data class RuleEffect(
     val scope: RuleScope = RuleScope.ALL,
     val buttonIds: List<String> = emptyList(),
     val entryId: String = "",
+    val action: Action? = null,
 ) {
+    val hasAction: Boolean get() = action != null || entryId.isNotBlank()
+
     fun covers(buttonId: String): Boolean = when (scope) {
         RuleScope.ALL -> true
         RuleScope.EXCEPT -> buttonId !in buttonIds

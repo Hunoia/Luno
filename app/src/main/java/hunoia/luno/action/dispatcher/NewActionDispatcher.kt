@@ -20,6 +20,8 @@ import hunoia.luno.config.model.GestureSettings as LegacyGestureSettings
 import hunoia.luno.config.model.effectiveFor
 import hunoia.luno.runtime.GestureHost
 import hunoia.luno.runtime.action.PreviousAppTracker
+import hunoia.luno.runtime.condition.ConditionContext
+import hunoia.luno.runtime.template.RuntimeVariables
 import hunoia.luno.service.SideGestureService
 import hunoia.luno.bridge.feedback.showToast as showToastUtil
 import hunoia.luno.bridge.feedback.showToastLong as showToastLongUtil
@@ -75,10 +77,11 @@ class NewActionDispatcher(
         sourceButton: LegacyGestureButton?,
         sourceOverride: LegacyGestureButtonActionSettingsOverride? = null,
         touchPosition: Pair<Int, Int>? = null,
+        templateContext: () -> ConditionContext? = { null },
     ) {
         if (BuildConfig.DEBUG) Log.i("LunoLauncher", "dispatch storedAction typeId=${stored.typeId}")
         scope.launch(Dispatchers.Main.immediate) {
-            val ctx = buildContext(sourceButton, sourceOverride, touchPosition)
+            val ctx = buildContext(sourceButton, sourceOverride, touchPosition, templateContext)
             val result = resolver.resolveFromLibrary(stored, ctx)
             if (BuildConfig.DEBUG) Log.i("LunoLauncher", "result=$result")
             when (result) {
@@ -112,6 +115,7 @@ class NewActionDispatcher(
         sourceButton: LegacyGestureButton?,
         sourceOverride: LegacyGestureButtonActionSettingsOverride? = null,
         touchPosition: Pair<Int, Int>? = null,
+        templateContext: () -> ConditionContext? = { null },
     ): ExecutorContext {
         val snap = settingsSnapshot()
         val context: Context = host.context.applicationContext
@@ -136,6 +140,10 @@ class NewActionDispatcher(
             showVersionTooLowToast = { resId -> showVersionTooLowToastUtil(context, resId) },
             previousApp = { excludes -> previousAppTracker.previousApp(excludes) },
             touchPosition = touchPosition,
+            templateValues = { used ->
+                val runtime = templateContext()
+                if (runtime == null) emptyMap() else RuntimeVariables.resolve(used, runtime, context)
+            },
         )
     }
 }

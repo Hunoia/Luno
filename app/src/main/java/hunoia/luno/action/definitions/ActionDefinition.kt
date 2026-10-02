@@ -19,6 +19,7 @@ sealed interface ParameterDefinition {
         override val label: String,
         override val required: Boolean = true,
         override val defaultValue: String? = null,
+        val allowTemplates: Boolean = true,
     ) : ParameterDefinition
 
     data class Number(
@@ -91,12 +92,24 @@ sealed interface ParameterDefinition {
         override val key: String,
         override val label: String,
         override val required: Boolean = true,
+        val allowTemplates: Boolean = true,
     ) : ParameterDefinition {
         override val defaultValue: String? = null
     }
 }
 
 data class EnumOption(val value: String, val label: String)
+
+/** 该定义中明确禁止模板展开的文本参数 key（编辑器不提供插入入口，运行时也不替换）。 */
+fun ActionDefinition.excludedTemplateKeys(): Set<String> = parameters
+    .mapNotNull { definition ->
+        when (definition) {
+            is ParameterDefinition.Text -> definition.key.takeIf { !definition.allowTemplates }
+            is ParameterDefinition.TextLarge -> definition.key.takeIf { !definition.allowTemplates }
+            else -> null
+        }
+    }
+    .toSet()
 
 data class ActionDefinition(
     val actionType: KClass<out Action>,

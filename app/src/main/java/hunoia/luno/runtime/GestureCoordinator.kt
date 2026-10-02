@@ -131,6 +131,7 @@ class GestureCoordinator(
                 newActionLibrarySettings = s.newActionLibrarySettings,
             )
         },
+        runtimeState = { buildRuntimeState(consumePulses = false) },
         onToggleQuickAppLauncher = { host.quickAppLauncherOverlay.toggle() },
         onShowVolumeScrub = { config -> volumeScrubRuntime.show(config) },
         onHideGestureButton = { button, delayMs ->
@@ -139,7 +140,7 @@ class GestureCoordinator(
     )
 
     private val automationEngine = AutomationEngine(
-        onRunEntry = { entryId -> actionDispatcher.runActionEntry(entryId) },
+        onRunEffect = { effect, ctx -> actionDispatcher.runEffect(effect, ctx) },
     )
 
     private val buttonRefreshCoordinator = ButtonRefreshCoordinator(
@@ -265,7 +266,7 @@ class GestureCoordinator(
         }
     }
 
-    private fun buildRuntimeState(): GestureRuntimeState =
+    private fun buildRuntimeState(consumePulses: Boolean = true): GestureRuntimeState =
         environmentTracker.buildRuntimeState(
             hiddenGestureButtons = buttonHideRuntime.getSnapshot(),
             isCharging = batteryTracker.isCharging,
@@ -277,6 +278,7 @@ class GestureCoordinator(
             airplaneMode = conditionSources.airplaneMode,
             isRingerSilent = audioVolumeTracker.isRingerSilent,
             volumePercent = audioVolumeTracker.volumePercent,
+            consumePulses = consumePulses,
         )
 
     private fun volumePollNeeded(rules: List<hunoia.luno.config.model.AutomationRule>? = null): Boolean {

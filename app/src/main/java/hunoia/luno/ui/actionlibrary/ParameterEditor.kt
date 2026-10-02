@@ -69,14 +69,14 @@ fun ParameterEditor(
     when (definition) {
         is ParameterDefinition.Text -> {
             val value = currentParams[definition.key]?.scalarText() ?: (definition.defaultValue ?: "")
-            OutlinedTextField(
+            TemplateTextField(
                 value = value,
                 onValueChange = { onParamChange(definition.key, it) },
-                label = { Text(definition.label) },
-                singleLine = true,
-                modifier = modifier.fillMaxWidth(),
+                label = definition.label,
                 isError = required && value.isBlank(),
-                shape = LargeShape,
+                singleLine = true,
+                allowTemplates = definition.allowTemplates,
+                modifier = modifier.fillMaxWidth(),
             )
         }
         is ParameterDefinition.Number -> {
@@ -224,15 +224,14 @@ fun ParameterEditor(
         }
         is ParameterDefinition.TextLarge -> {
             val value = currentParams[definition.key]?.scalarText() ?: (definition.defaultValue ?: "")
-            OutlinedTextField(
+            TemplateTextField(
                 value = value,
                 onValueChange = { onParamChange(definition.key, it) },
-                label = { Text(definition.label) },
-                minLines = 3,
-                maxLines = 10,
-                modifier = modifier.fillMaxWidth(),
+                label = definition.label,
                 isError = required && value.isBlank(),
-                shape = LargeShape,
+                singleLine = false,
+                allowTemplates = definition.allowTemplates,
+                modifier = modifier.fillMaxWidth(),
             )
         }
     }

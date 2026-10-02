@@ -73,6 +73,24 @@ fun actionText(
     }
 }
 
+/**
+ * 文字/表情图标：动作库条目 [NewActionLibraryEntry.iconKey] 非 palette key 时，
+ * 把原始字符串当作文字/表情渲染，与 App/快捷方式的 String(Coil 模型) 区分开。
+ */
+data class TextIcon(val text: String)
+
+/**
+ * 解析动作库条目的展示图标：自定义文字/表情 > palette 图标 > 类型默认图标。
+ */
+fun NewActionLibraryEntry.resolvedIcon(): Any? {
+    iconKey?.let { key ->
+        val vector = IconPalette.byKey(key)
+        if (vector != null) return vector
+        if (key.isNotBlank()) return TextIcon(key)
+    }
+    return ActionDefinitions.byTypeId(typeId)?.icon
+}
+
 @Composable
 fun actionIcon(action: Action): Any? {
     action.newActionData()?.let { stored ->
@@ -80,10 +98,7 @@ fun actionIcon(action: Action): Any? {
     }
     action.actionLibraryRefId()?.let { refId ->
         val entries = LocalActionLibraryEntries.current
-        return entries.firstOrNull { it.id == refId }?.let { entry ->
-            entry.iconKey?.let { IconPalette.byKey(it) }
-                ?: ActionDefinitions.byTypeId(entry.typeId)?.icon
-        }
+        return entries.firstOrNull { it.id == refId }?.resolvedIcon()
     }
     return when (action.value) {
         ActionFacade.EXTRA_LAUNCH_APP -> action.appInfo?.icon ?: Icons.Default.Android

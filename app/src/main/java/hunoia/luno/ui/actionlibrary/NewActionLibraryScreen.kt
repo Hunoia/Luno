@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -50,7 +51,9 @@ import hunoia.luno.action.model.matchesQuery
 import hunoia.luno.action.definition.ActionCategory
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.EmptyState
+import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.displayNameRes
+import hunoia.luno.ui.component.resolvedIcon
 import hunoia.luno.ui.component.segmentedShape
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SegmentedGap
@@ -246,23 +249,33 @@ private fun ActionLibraryItem(
     modifier: Modifier = Modifier,
 ) {
     val def = ActionDefinitions.byTypeId(entry.typeId)
-    val icon = entry.iconKey?.let { IconPalette.byKey(it) } ?: def?.icon ?: Icons.Default.Build
+    val icon = entry.resolvedIcon() ?: Icons.Default.Build
     SegmentedSettingsRow(
         modifier = modifier,
         title = entry.name.ifBlank { def?.name ?: entry.typeId },
         subtitle = if (entry.name.isBlank()) "" else (def?.name ?: entry.typeId),
         leadingContent = {
-            Icon(
-                modifier = Modifier
-                    .size(RowIconSize)
-                    .clickable(
-                        indication = null,
-                        interactionSource = null,
-                        onClick = onIconClick,
-                    ),
-                imageVector = icon,
-                contentDescription = null,
-            )
+            val clickMod = Modifier
+                .size(RowIconSize)
+                .clickable(
+                    indication = null,
+                    interactionSource = null,
+                    onClick = onIconClick,
+                )
+            when (icon) {
+                is TextIcon -> Box(modifier = clickMod, contentAlignment = Alignment.Center) {
+                    Text(
+                        text = icon.text,
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1,
+                    )
+                }
+                else -> Icon(
+                    modifier = clickMod,
+                    imageVector = icon as ImageVector,
+                    contentDescription = null,
+                )
+            }
         },
         shape = shape,
         onClick = onClick,

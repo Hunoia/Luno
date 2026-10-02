@@ -118,6 +118,9 @@ internal fun canShortcutInfoEnabled(
 
 internal fun createTitle(actionSelect: ActionSelect): String {
     val context = AppContext.get()
+    if (actionSelect.automationRuleId.isNotBlank()) {
+        return context.getString(R.string.automation_pick_action)
+    }
     when (actionSelect.triggerType) {
         GestureTriggerType.Tap -> return context.getString(R.string.tap_action)
         GestureTriggerType.DoubleTap -> return context.getString(R.string.double_tap_action)
@@ -172,7 +175,7 @@ internal fun Action.sameAction(other: Action): Boolean {
 }
 
 internal fun assembleDataTransform(state: UiState): UiState {
-    val allActions = ActionDefinitions.pickerDefinitions()
+    val allActions = ActionDefinitions.pickerDefinitions(state.excludedTypeIds)
         .map { def -> def.toReferenceAction() }
         .toMutableList()
         .apply {
@@ -197,17 +200,17 @@ internal fun assembleDataTransform(state: UiState): UiState {
 }
 
 internal fun selectActionTransform(state: UiState, action: Action, selected: Boolean): UiState {
-    val record = state.selectedRecord.selectAction(action, selected)
+    val record = state.selectedRecord.selectAction(action, selected, state.maxSelectCount)
     return state.copy(selectedRecord = record)
 }
 
 internal fun selectAppInfoTransform(state: UiState, appInfo: AppInfo, selected: Boolean): UiState {
-    val record = state.selectedRecord.selectAppInfo(appInfo, selected)
+    val record = state.selectedRecord.selectAppInfo(appInfo, selected, state.maxSelectCount)
     return state.copy(selectedRecord = record)
 }
 
 internal fun selectShortcutInfoTransform(state: UiState, shortcut: LauncherInfo.ShortcutInfo, selected: Boolean): UiState {
-    val record = state.selectedRecord.selectShortcutInfo(shortcut, selected)
+    val record = state.selectedRecord.selectShortcutInfo(shortcut, selected, state.maxSelectCount)
     return state.copy(selectedRecord = record)
 }
 

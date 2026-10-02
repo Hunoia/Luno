@@ -106,7 +106,7 @@ object ActionDefinitions {
             Capability.None,
             listOf(
                 ParameterDefinition.Text("text", "文本"),
-                ParameterDefinition.Text("mimeType", "MIME 类型", required = false, defaultValue = "text/plain"),
+                ParameterDefinition.Text("mimeType", "MIME 类型", required = false, defaultValue = "text/plain", allowTemplates = false),
             ),
             icon = Icons.Default.Share,
         ))
@@ -159,7 +159,7 @@ object ActionDefinitions {
         add(ActionDefinition(
             Action.Vibrate::class, "system.vibrate", "振动", ActionCategory.SYSTEM,
             Capability.None,
-            listOf(ParameterDefinition.Text("pattern", "振动模式", required = false, defaultValue = "0,500")),
+            listOf(ParameterDefinition.Text("pattern", "振动模式", required = false, defaultValue = "0,500", allowTemplates = false)),
             icon = Icons.Default.Vibration,
         ))
         add(ActionDefinition(
@@ -380,8 +380,8 @@ object ActionDefinitions {
 
     fun automationExcludedTypeIds(): Set<String> = automationExcluded
 
-    fun pickerDefinitions(): List<ActionDefinition> =
-        definitions.filter { it.typeId !in pickerExcluded && it.parameters.none { p -> p.required } }
+    fun pickerDefinitions(excluded: Set<String> = pickerExcluded): List<ActionDefinition> =
+        definitions.filter { it.typeId !in excluded && it.parameters.none { p -> p.required } }
 
     private val categoryOrder: Map<ActionCategory, Int> =
         libraryDefinitions().map { it.category }.distinct().withIndex().associate { (i, c) -> c to i }
