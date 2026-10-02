@@ -28,7 +28,9 @@ import hunoia.luno.runtime.environment.BroadcastObserver
 import hunoia.luno.runtime.environment.ConditionSources
 import hunoia.luno.runtime.environment.EnvironmentTracker
 import hunoia.luno.runtime.overlay.GestureOverlayCallbacks
-import hunoia.luno.runtime.overlay.OverlayCoordinator
+import hunoia.luno.runtime.overlay.ButtonWindowController
+import hunoia.luno.runtime.overlay.MainOverlayController
+import hunoia.luno.runtime.overlay.TransientOverlayController
 import hunoia.luno.runtime.settings.SettingsStore
 import hunoia.luno.runtime.volume.VolumeScrubRuntime
 import kotlinx.coroutines.Dispatchers
@@ -55,7 +57,9 @@ class GestureCoordinator(
             refreshGestureButtons()
         },
     )
-    val overlayCoordinator = OverlayCoordinator(host)
+    val mainOverlayController = MainOverlayController(host)
+    val buttonWindowController = ButtonWindowController(host.context)
+    val transientOverlayController = TransientOverlayController(host.context)
     private var refreshJob: Job? = null
     private val scopeJobs = mutableListOf<Job>()
 
@@ -145,7 +149,7 @@ class GestureCoordinator(
 
     private val buttonRefreshCoordinator = ButtonRefreshCoordinator(
         runtimeSettingsStore = runtimeSettingsStore,
-        buttonWindowController = overlayCoordinator.buttonWindowController,
+        buttonWindowController = buttonWindowController,
     )
 
     private val automationRuntime = AutomationRuntime(
@@ -165,13 +169,13 @@ class GestureCoordinator(
 
     private val callbacks: GestureOverlayCallbacks = object : GestureOverlayCallbacks {
         override fun onSubGestureModeChanged(inSubGesture: Boolean, center: Offset, radiusPx: Int) {
-            if (inSubGesture) overlayCoordinator.attachSubGestureOverlay(center, radiusPx)
-            else overlayCoordinator.detachSubGestureOverlay()
+            if (inSubGesture) transientOverlayController.attachSubGestureOverlay(center, radiusPx)
+            else transientOverlayController.detachSubGestureOverlay()
         }
 
         override fun onActionPanelOverlayChanged(show: Boolean) {
-            if (show) overlayCoordinator.attachActionPanelOverlay()
-            else overlayCoordinator.detachActionPanelOverlay()
+            if (show) transientOverlayController.attachActionPanelOverlay()
+            else transientOverlayController.detachActionPanelOverlay()
         }
 
         override fun onAction(action: Action, sourceButton: GestureButton?, sourceOverride: GestureButtonActionSettingsOverride?) {
@@ -194,14 +198,14 @@ class GestureCoordinator(
         wallpaperColorsListener = listener
         WallpaperManager.getInstance(host.context).addOnColorsChangedListener(listener, Handler(Looper.getMainLooper()))
 
-        overlayCoordinator.replaceMainOverlay { renderMainOverlay() }
+        mainOverlayController.replaceContent { renderMainOverlay() }
 
         scopeJobs += host.coroutineScope.launch {
             runtimeSettingsStore.state
                 .distinctUntilChangedBy { it.gestureButtons }
                 .collectLatest { state ->
                     if (BuildConfig.DEBUG) Log.i("LunoLauncher", "gesture buttons changed: count=${state.gestureButtons.size}")
-                    overlayCoordinator.replaceGestureButtons(state.gestureButtons)
+                    buttonWindowController.replaceGestureButtons(state.gestureButtons)
                     refreshGestureButtons(delayMs = 0L)
                 }
         }
@@ -240,7 +244,7 @@ class GestureCoordinator(
         if (oldOrientation != newConfig.orientation) {
             if (BuildConfig.DEBUG) Log.i("LunoLauncher", "orientation=${newConfig.orientation}")
             environmentTracker.onOrientationChanged(newConfig.orientation)
-            overlayCoordinator.updateMainLayout()
+            mainOverlayController.updateLayout()
             refreshGestureButtons()
         }
     }
@@ -256,7 +260,10 @@ class GestureCoordinator(
         conditionSources.stop()
         scopeJobs.forEach { it.cancel() }
         scopeJobs.clear()
-        overlayCoordinator.release()
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "GestureCoordinator release")
+        mainOverlayController.release()
+        buttonWindowController.release()
+        transientOverlayController.detachAll()
         broadcastObserver.unregister()
         volumeScrubRuntime.onDestroy()
         previousAppTracker.onRelease()

@@ -36,14 +36,7 @@ class ActionDispatcher(
         host = host,
         scope = scope,
         previousAppTracker = previousAppTracker,
-        settingsSnapshot = {
-            val s = settingsSnapshot()
-            hunoia.luno.action.dispatcher.SettingsSnapshot(
-                actionSettings = s.actionSettings,
-                advancedSettings = s.advancedSettings,
-                gestureSettings = s.gestureSettings,
-            )
-        },
+        settingsSnapshot = settingsSnapshot,
         onToggleQuickAppLauncher = onToggleQuickAppLauncher,
         onShowVolumeScrub = onShowVolumeScrub,
         onHideGestureButton = onHideGestureButton,

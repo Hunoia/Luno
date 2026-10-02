@@ -3,7 +3,6 @@ package hunoia.luno.runtime.overlay
 import hunoia.luno.bridge.window.applyOverlayViewTreeOwners
 import hunoia.luno.bridge.window.overlayLayoutParams
 import hunoia.luno.bridge.window.windowManager
-import android.content.Context
 import android.graphics.Color
 import android.view.Gravity
 import android.view.MotionEvent
@@ -11,15 +10,9 @@ import android.view.View
 import android.view.WindowManager
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.ComposeView
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.ViewModelStoreOwner
-import androidx.savedstate.SavedStateRegistryOwner
 import hunoia.luno.bridge.DensityProvider
+import hunoia.luno.runtime.GestureHost
 import hunoia.luno.ui.theme.AnimOverlayFade
-
-interface RuntimePanelOverlayHost : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
-    val context: Context
-}
 
 class RuntimePanelScope internal constructor(
     val close: () -> Unit,
@@ -28,7 +21,7 @@ class RuntimePanelScope internal constructor(
     val onRegisterCloseAnimated: ((() -> Unit) -> Unit)?,
 )
 
-class RuntimePanelOverlay(private val host: RuntimePanelOverlayHost) {
+class RuntimePanelOverlay(private val host: GestureHost) {
     private var overlayView: View? = null
     private var isShowing = false
     private var isHiding = false

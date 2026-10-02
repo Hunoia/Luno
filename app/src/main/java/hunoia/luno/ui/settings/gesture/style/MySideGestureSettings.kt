@@ -12,6 +12,7 @@ import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.ui.component.RowIconBadge
 import hunoia.luno.ui.component.SegmentedSettingsRow
 import hunoia.luno.ui.theme.ContainerRadius
+import hunoia.luno.ui.component.slideToLabel
 
 
 @Composable
@@ -24,7 +25,7 @@ fun MySideGestureSettings(
     trailing: (@Composable () -> Unit)? = null,
     shape: Shape = RoundedCornerShape(ContainerRadius),
 ) {
-    val label = text ?: direction.label()
+    val label = text ?: direction.slideToLabel()
     val rotation = direction.rotation()
     SegmentedSettingsRow(
         onClick = onClick,
@@ -43,17 +44,6 @@ fun MySideGestureSettings(
 }
 
 @Composable
-private fun GestureDirection.label(): String = when (this) {
-    GestureDirection.Left -> stringResource(R.string.slide_to_left)
-    GestureDirection.UpLeft -> stringResource(R.string.slide_to_top_left)
-    GestureDirection.Up -> stringResource(R.string.slide_to_top)
-    GestureDirection.UpRight -> stringResource(R.string.slide_to_top_right)
-    GestureDirection.Right -> stringResource(R.string.slide_to_right)
-    GestureDirection.DownRight -> stringResource(R.string.slide_to_bottom_right)
-    GestureDirection.Down -> stringResource(R.string.slide_to_bottom)
-    GestureDirection.DownLeft -> stringResource(R.string.slide_to_bottom_left)
-}
-
 private fun GestureDirection.rotation(): Float = when (this) {
     GestureDirection.Right -> 0f
     GestureDirection.DownRight -> 45f

@@ -50,6 +50,7 @@ import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.BadgeIconSize
+import hunoia.luno.ui.component.gestureButtonMarkColor
 
 
 
@@ -92,10 +93,7 @@ fun GesturePanel(
         ) {
             gestureButtons.fastForEachIndexed { index, button ->
                 key(button.id) {
-                    val markColor = when (button.color == android.graphics.Color.TRANSPARENT) {
-                        true -> MaterialTheme.colorScheme.primary.copy(alpha = GestureButtonColorAlpha)
-                        else -> Color(button.color).copy(alpha = GestureButtonColorAlpha)
-                    }
+                    val markColor = gestureButtonMarkColor(button.color, GestureButtonColorAlpha)
                     SegmentedSwitchRow(
                         title = button.buttonTextCompose(),
                         checked = button.enabled,

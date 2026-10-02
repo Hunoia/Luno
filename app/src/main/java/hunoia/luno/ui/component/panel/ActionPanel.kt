@@ -62,13 +62,14 @@ import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.action.api.appInfo
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.GestureSettings
-import hunoia.luno.gesture.GestureFacade
 import hunoia.luno.ui.theme.AnimNormal
 import hunoia.luno.ui.theme.AnimPanelResize
 import hunoia.luno.ui.theme.MiniWindowDefaultHeight
 import hunoia.luno.ui.theme.MiniWindowWidth
 import hunoia.luno.ui.theme.CardShape
 import kotlinx.coroutines.flow.filter
+import hunoia.luno.gesture.vibrateForActionPanel
+import hunoia.luno.ui.component.gestureButtonMarkColor
 
 
 
@@ -225,7 +226,7 @@ internal fun AnimatedVisibilityScope.ActionPanelSelectableItem(
                     if (!actionPanelState.isSelected(action)) {
                         isHovered = true
                         actionPanelState.select(index, action)
-                        gestureSettings?.let { GestureFacade.vibrateForActionPanel(it) }
+                        gestureSettings?.let { vibrateForActionPanel(it) }
                     }
                 } else if (actionPanelState.isSelected(action)) {
                     isHovered = false
@@ -289,6 +290,4 @@ internal fun ActionPanelIcon(action: Action, iconSize: Dp, bitmapIconSize: Dp = 
 internal fun actionPanelItemColor(accentColor: Color): Color = accentColor
 
 @Composable
-internal fun actionPanelAccentColor(buttonColor: Int): Color {
-    return if (buttonColor == android.graphics.Color.TRANSPARENT) MaterialTheme.colorScheme.primary else Color(buttonColor)
-}
+internal fun actionPanelAccentColor(buttonColor: Int): Color = gestureButtonMarkColor(buttonColor)

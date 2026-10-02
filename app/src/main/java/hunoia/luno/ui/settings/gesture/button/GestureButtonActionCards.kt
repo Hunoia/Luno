@@ -32,7 +32,6 @@ import hunoia.luno.config.model.ActionPanelStyles
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
-import hunoia.luno.gesture.GestureFacade
 import hunoia.luno.ui.component.RowIconBadge
 import hunoia.luno.ui.component.SegmentedSettingsRow
 import hunoia.luno.ui.component.actionTextCompose
@@ -171,7 +170,7 @@ fun GestureButtonLongSlideActionsCard(
         LongSlideActionRows(
             hiddenDirections = gestureButton.angle.zeroWidthDirections(),
             actionsText = { direction -> gestureButton.longSlideActions.actionsBy(direction).actionTextCompose() },
-            currentStyle = { direction -> GestureFacade.styleBy(gestureButton.longSlideActionPanelStyles, direction) },
+            currentStyle = { direction -> gestureButton.longSlideActionPanelStyles.styleBy(direction) },
             onDirectionClick = { direction ->
                 onNavToActionSelect(
                     ActionSelect(
@@ -332,7 +331,7 @@ fun GestureButtonLongSlideHoldActionsCard(
         LongSlideActionRows(
             hiddenDirections = gestureButton.angle.zeroWidthDirections(),
             actionsText = { direction -> gestureButton.longSlideHoldActions.actionsBy(direction).actionTextCompose() },
-            currentStyle = { direction -> GestureFacade.styleBy(gestureButton.longSlideActionPanelStyles, direction) },
+            currentStyle = { direction -> gestureButton.longSlideActionPanelStyles.styleBy(direction) },
             onDirectionClick = { direction ->
                 onNavToActionSelect(
                     ActionSelect(

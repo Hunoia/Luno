@@ -9,15 +9,13 @@ import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.GestureCoordinator
 import hunoia.luno.runtime.GestureHost
 import hunoia.luno.runtime.overlay.QuickAppLauncherOverlay
-import hunoia.luno.runtime.overlay.QuickAppLauncherOverlayHost
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
-import hunoia.luno.runtime.overlay.RuntimePanelOverlayHost
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 
-class SideGestureService : ComponentAccessibilityService(), GestureHost, QuickAppLauncherOverlayHost, RuntimePanelOverlayHost {
+class SideGestureService : ComponentAccessibilityService(), GestureHost {
 
     companion object {
         private var currentRef: java.lang.ref.WeakReference<SideGestureService>? = null

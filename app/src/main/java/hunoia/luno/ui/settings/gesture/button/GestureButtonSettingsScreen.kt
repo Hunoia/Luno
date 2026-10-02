@@ -27,13 +27,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
-import androidx.core.graphics.blue
-import androidx.core.graphics.green
-import androidx.core.graphics.red
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aaron.compose.component.UDFComponent
 import hunoia.luno.R
@@ -44,7 +40,6 @@ import hunoia.luno.ui.component.OptimizedBottomSheet
 import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsUiEvent
 import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsUiState
 import hunoia.luno.config.model.GestureDirection
-import hunoia.luno.gesture.GestureFacade
 import hunoia.luno.gesture.mirroredButton
 import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleConfigContent
 import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleSelectContent
@@ -57,6 +52,8 @@ import androidx.compose.foundation.layout.Arrangement
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import hunoia.luno.ui.component.TopBar
+import hunoia.luno.gesture.bounds
+import hunoia.luno.ui.component.gestureButtonMarkColor
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -106,10 +103,7 @@ fun GestureButtonSettingsScreen(
                                         .padding(start = 8.dp)
                                         .size(MarkColorSize)
                                         .background(
-                                            color = when (uiState.gestureButton.color == android.graphics.Color.TRANSPARENT) {
-                                                true -> MaterialTheme.colorScheme.primary.copy(alpha = GestureButtonColorAlpha)
-                                                else -> Color(uiState.gestureButton.color).copy(alpha = GestureButtonColorAlpha)
-                                            },
+                                            color = gestureButtonMarkColor(uiState.gestureButton.color, GestureButtonColorAlpha),
                                             shape = CircleShape
                                         )
                                 )
@@ -213,15 +207,8 @@ fun GestureButtonSettingsScreen(
                     .drawBehind {
                         uiState.gestureButtons.fastForEach { button ->
                             fun drawTarget(targetButton: GestureButton) {
-                                val bounds = GestureFacade.bounds(targetButton)
-                                val color = when (targetButton.color == android.graphics.Color.TRANSPARENT) {
-                                    true -> colorScheme.primary
-                                    else -> Color(
-                                        red = targetButton.color.red,
-                                        green = targetButton.color.green,
-                                        blue = targetButton.color.blue
-                                    )
-                                }
+                                val bounds = targetButton.bounds()
+                                val color = gestureButtonMarkColor(targetButton.color, colorScheme.primary)
                                 val highlight = uiState.isGestureButtonAdjusting &&
                                         button.id == uiState.gestureButton?.id
                                 drawRect(
@@ -284,7 +271,7 @@ fun GestureButtonSettingsScreen(
 
         showStyleSelectFor?.let { direction ->
             val gestureButton = uiState.gestureButton ?: return@let
-            val currentStyle = GestureFacade.styleBy(gestureButton.longSlideActionPanelStyles, direction)
+            val currentStyle = gestureButton.longSlideActionPanelStyles.styleBy(direction)
             OptimizedBottomSheet(
                 onDismissRequest = { showStyleSelectFor = null }
             ) {
@@ -303,7 +290,7 @@ fun GestureButtonSettingsScreen(
 
         showStyleConfigFor?.let { direction ->
             val gestureButton = uiState.gestureButton ?: return@let
-            val currentStyle = GestureFacade.styleBy(gestureButton.longSlideActionPanelStyles, direction)
+            val currentStyle = gestureButton.longSlideActionPanelStyles.styleBy(direction)
             OptimizedBottomSheet(
                 onDismissRequest = { showStyleConfigFor = null }
             ) {

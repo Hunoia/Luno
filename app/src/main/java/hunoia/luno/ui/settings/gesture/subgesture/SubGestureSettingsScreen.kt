@@ -63,7 +63,6 @@ import hunoia.luno.config.defaults.SettingsUiDefaults.MinSubGestureTriggerDistan
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.SubGesture
-import hunoia.luno.gesture.GestureFacade
 import hunoia.luno.ui.component.actionTextCompose
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.component.MyAlertDialog
@@ -87,6 +86,7 @@ import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleConfigContent
 import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleSelectContent
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import hunoia.luno.ui.component.slideToLabel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -167,7 +167,7 @@ fun SubGestureSettingsScreen(
         }
 
         showStyleSelectFor?.let { direction ->
-            val currentStyle = GestureFacade.styleBy(gesture.longSlideActionPanelStyles, direction)
+            val currentStyle = gesture.longSlideActionPanelStyles.styleBy(direction)
             OptimizedBottomSheet(
                 onDismissRequest = { showStyleSelectFor = null }
             ) {
@@ -185,7 +185,7 @@ fun SubGestureSettingsScreen(
         }
 
         showStyleConfigFor?.let { direction ->
-            val currentStyle = GestureFacade.styleBy(gesture.longSlideActionPanelStyles, direction)
+            val currentStyle = gesture.longSlideActionPanelStyles.styleBy(direction)
             OptimizedBottomSheet(
                 onDismissRequest = { showStyleConfigFor = null }
             ) {
@@ -269,7 +269,7 @@ fun SubGestureSettingsScreen(
                                 val directions = actionCardDirections.filterNot { it in gesture.angle.zeroWidthDirections() }
                                 directions.forEachIndexed { index, direction ->
                                     SubGestureActionRow(
-                                        title = direction.label(),
+                                        title = direction.slideToLabel(),
                                         icon = Icons.AutoMirrored.Filled.ArrowForward,
                                         onClick = {
                                             onNavToActionSelect(
@@ -295,7 +295,7 @@ fun SubGestureSettingsScreen(
                                 val directions = actionCardDirections.filterNot { it in gesture.angle.zeroWidthDirections() }
                                 directions.forEachIndexed { index, direction ->
                                     SubGestureActionRow(
-                                        title = direction.label(),
+                                        title = direction.slideToLabel(),
                                         icon = Icons.AutoMirrored.Filled.ArrowForward,
                                         onClick = {
                                             onNavToActionSelect(
@@ -321,7 +321,7 @@ fun SubGestureSettingsScreen(
                                 val directions = actionCardDirections.filterNot { it in gesture.angle.zeroWidthDirections() }
                                 directions.forEachIndexed { index, direction ->
                                     SubGestureActionRow(
-                                        title = direction.label(),
+                                        title = direction.slideToLabel(),
                                         icon = Icons.AutoMirrored.Filled.ArrowForward,
                                         onClick = {
                                             onNavToActionSelect(
@@ -337,7 +337,7 @@ fun SubGestureSettingsScreen(
                                         shape = segmentedShape(index, directions.size),
                                         trailing = {
                                             StyleTrailingButton(
-                                                currentStyle = GestureFacade.styleBy(gesture.longSlideActionPanelStyles, direction),
+                                                currentStyle = gesture.longSlideActionPanelStyles.styleBy(direction),
                                                 onClick = { showStyleSelectFor = direction }
                                             )
                                         }
@@ -353,7 +353,7 @@ fun SubGestureSettingsScreen(
                                 val directions = actionCardDirections.filterNot { it in gesture.angle.zeroWidthDirections() }
                                 directions.forEachIndexed { index, direction ->
                                     SubGestureActionRow(
-                                        title = direction.label(),
+                                        title = direction.slideToLabel(),
                                         icon = Icons.AutoMirrored.Filled.ArrowForward,
                                         onClick = {
                                             onNavToActionSelect(
@@ -369,7 +369,7 @@ fun SubGestureSettingsScreen(
                                         shape = segmentedShape(index, directions.size),
                                         trailing = {
                                             StyleTrailingButton(
-                                                currentStyle = GestureFacade.styleBy(gesture.longSlideActionPanelStyles, direction),
+                                                currentStyle = gesture.longSlideActionPanelStyles.styleBy(direction),
                                                 onClick = { showStyleSelectFor = direction }
                                             )
                                         }
@@ -490,18 +490,6 @@ private fun SubGestureActionRow(
         leadingContent = { RowIconBadge(icon) },
         trailingContent = trailing,
     )
-}
-
-@Composable
-private fun GestureDirection.label(): String = when (this) {
-    GestureDirection.Left -> stringResource(R.string.slide_to_left)
-    GestureDirection.UpLeft -> stringResource(R.string.slide_to_top_left)
-    GestureDirection.Up -> stringResource(R.string.slide_to_top)
-    GestureDirection.UpRight -> stringResource(R.string.slide_to_top_right)
-    GestureDirection.Right -> stringResource(R.string.slide_to_right)
-    GestureDirection.DownRight -> stringResource(R.string.slide_to_bottom_right)
-    GestureDirection.Down -> stringResource(R.string.slide_to_bottom)
-    GestureDirection.DownLeft -> stringResource(R.string.slide_to_bottom_left)
 }
 
 @Composable

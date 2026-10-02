@@ -11,10 +11,7 @@ import hunoia.luno.core.AppContext
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 object AppQuery {
 
@@ -26,18 +23,9 @@ object AppQuery {
     private fun ensureReceiver() {
         if (receiverRegistered) return
         receiverRegistered = true
+        // 只作废缓存，不预热重扫（理由同 DisabledAppQuery）
         PackageChangeReceiver.register(AppContext.get()) {
             launcherCache.clear()
-            AppContext.applicationScope?.launch {
-                withContext(Dispatchers.IO) {
-                    try {
-                        queryLauncherActivities(AppContext.get(), false)
-                    } catch (_: Exception) {
-                        // PackageManager may be busy during package change processing;
-                        // cache will be rebuilt on next query request
-                    }
-                }
-            }
         }
     }
 

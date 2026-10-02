@@ -20,15 +20,7 @@ object AppLaunchBypass {
         miniWindowOverrideBounds: Boolean = false,
         unfreezePackage: suspend (context: Context, packageName: String) -> Boolean = { _, _ -> true }
     ): Boolean {
-        if (DisabledAppQuery.isDisabled(context, packageName)) {
-            val undisabled = unfreezePackage(context, packageName)
-            if (!undisabled) {
-                showToast(R.string.enable_disabled_app_failed)
-                return false
-            }
-            DisabledAppQuery.markEnabled(packageName)
-            QuickLaunchFacade.invalidateLauncherCache()
-        }
+        if (!ensureEnabled(context, packageName, unfreezePackage)) return false
         return QuickLaunchFacade.launchAppDirect(
             context, packageName, className, miniWindow,
             miniWindowHorizontalBias, miniWindowVerticalBias,
@@ -43,15 +35,23 @@ object AppLaunchBypass {
         className: String,
         unfreezePackage: suspend (context: Context, packageName: String) -> Boolean = { _, _ -> true }
     ): Boolean {
-        if (DisabledAppQuery.isDisabled(context, packageName)) {
-            val undisabled = unfreezePackage(context, packageName)
-            if (!undisabled) {
-                showToast(R.string.enable_disabled_app_failed)
-                return false
-            }
-            DisabledAppQuery.markEnabled(packageName)
-            QuickLaunchFacade.invalidateLauncherCache()
-        }
+        if (!ensureEnabled(context, packageName, unfreezePackage)) return false
         return QuickLaunchFacade.launchAppActivityDirect(context, packageName, className)
+    }
+
+    /** 应用被禁用时先解冻再启动；解冻失败弹提示并返回 false */
+    private suspend fun ensureEnabled(
+        context: Context,
+        packageName: String,
+        unfreezePackage: suspend (context: Context, packageName: String) -> Boolean,
+    ): Boolean {
+        if (!DisabledAppQuery.isDisabled(context, packageName)) return true
+        if (!unfreezePackage(context, packageName)) {
+            showToast(R.string.enable_disabled_app_failed)
+            return false
+        }
+        DisabledAppQuery.markEnabled(packageName)
+        QuickLaunchFacade.invalidateLauncherCache()
+        return true
     }
 }

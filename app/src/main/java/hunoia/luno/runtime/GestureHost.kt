@@ -13,6 +13,7 @@ interface GestureHost : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryO
     val context: Context
     val accessibilityService: AccessibilityService
     val coroutineScope: CoroutineScope
+    val advancedSettings: hunoia.luno.config.model.AdvancedSettings?
 
     val quickAppLauncherOverlay: QuickAppLauncherOverlay
     val runtimePanelOverlay: RuntimePanelOverlay

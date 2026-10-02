@@ -28,7 +28,6 @@ import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.config.model.VolumeScrubConfig
 import hunoia.luno.gesture.DragGestureHandler
 import hunoia.luno.gesture.GestureResolvedActions
-import hunoia.luno.gesture.GestureFacade
 import hunoia.luno.ui.component.panel.ActionPanel
 import hunoia.luno.ui.component.panel.rememberActionPanelState
 import hunoia.luno.gesture.GestureState
@@ -142,7 +141,7 @@ fun SideGestureContainer(
             ?: sideGestureState.finger.takeIf { it.x.isFinite() && it.y.isFinite() }
             ?: Offset.Zero
         val panelStyle = if (resolvedActions.triggerType == GestureTriggerType.LongSlide || resolvedActions.triggerType == GestureTriggerType.LongSlideHold) {
-            GestureFacade.styleBy(resolvedActions.subGesture.longSlideActionPanelStyles, resolvedActions.direction).value
+            resolvedActions.subGesture.longSlideActionPanelStyles.styleBy(resolvedActions.direction).value
         } else {
             actionPanelStyle
         }
@@ -175,7 +174,7 @@ fun SideGestureContainer(
             touchPosition = resolvedActions.touchPosition,
             sourceButton = resolvedActions.button,
             panelStyle = if (resolvedActions.triggerType == GestureTriggerType.LongSlide || resolvedActions.triggerType == GestureTriggerType.LongSlideHold) {
-                GestureFacade.styleBy(resolvedActions.button.longSlideActionPanelStyles, resolvedActions.actionDirection).value
+                resolvedActions.button.longSlideActionPanelStyles.styleBy(resolvedActions.actionDirection).value
             } else {
                 actionPanelStyle
             },
@@ -294,7 +293,7 @@ fun SideGestureContainer(
                             touchPosition = resolvedActions.touchPosition,
                             sourceButton = resolvedActions.button,
                             panelStyle = if (resolvedActions.triggerType.isLongSlideType) {
-                                GestureFacade.styleBy(resolvedActions.button.longSlideActionPanelStyles, resolvedActions.actionDirection).value
+                                resolvedActions.button.longSlideActionPanelStyles.styleBy(resolvedActions.actionDirection).value
                             } else {
                                 actionPanelStyle
                             },

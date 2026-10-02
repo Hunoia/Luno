@@ -16,7 +16,6 @@ import hunoia.luno.config.model.NewActionData
 import hunoia.luno.config.model.VALUE_LIBRARY_REF
 import hunoia.luno.config.model.VALUE_NEW_ACTION
 import hunoia.luno.config.model.SubGesture
-import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.actionLibraryRefId
 import hunoia.luno.config.model.newActionData
@@ -29,6 +28,7 @@ import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.quicklaunch.model.qualifiedName
+import hunoia.luno.ui.component.slideToRes
 
 fun Context.selectedItemLabel(item: Any, subGestures: List<SubGesture>): String {
     return selectedItemLabel(item, subGestures, emptyList())
@@ -127,16 +127,7 @@ internal fun createTitle(actionSelect: ActionSelect): String {
         GestureTriggerType.LongPress -> return context.getString(R.string.long_press)
         else -> Unit
     }
-    val str1 = when (actionSelect.direction) {
-        GestureDirection.Left -> context.getString(R.string.slide_to_left)
-        GestureDirection.UpLeft -> context.getString(R.string.slide_to_top_left)
-        GestureDirection.Up -> context.getString(R.string.slide_to_top)
-        GestureDirection.UpRight -> context.getString(R.string.slide_to_top_right)
-        GestureDirection.Right -> context.getString(R.string.slide_to_right)
-        GestureDirection.DownRight -> context.getString(R.string.slide_to_bottom_right)
-        GestureDirection.Down -> context.getString(R.string.slide_to_bottom)
-        GestureDirection.DownLeft -> context.getString(R.string.slide_to_bottom_left)
-    }
+    val str1 = context.getString(actionSelect.direction.slideToRes)
     val str2 = when (actionSelect.triggerType) {
         GestureTriggerType.Slide -> context.getString(R.string.short1)
         GestureTriggerType.SlideHold -> context.getString(R.string.slide_hold_action)

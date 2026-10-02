@@ -197,29 +197,20 @@ private object MiniWindow {
         widthFraction: Float,
         heightFraction: Float,
         overrideBounds: Boolean,
-    ): Boolean {
-        return try {
-            val intent = Intent().apply {
-                setComponent(component)
-                setAction(Intent.ACTION_MAIN)
-                addCategory(Intent.CATEGORY_LAUNCHER)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            val realSize = getRealScreenSize(context)
-            val activityOptions = makeActivityOptions(
-                horizontalBias, verticalBias,
-                widthFraction, heightFraction,
-                realSize.x, realSize.y,
-                overrideBounds = overrideBounds,
-            )
-            context.startActivity(intent, activityOptions.toBundle())
-            true
-        } catch (e: Exception) {
-            Log.e("LunoLauncher", "startActivity in mini window failed", e)
-            showToast(context.getString(R.string.launch_mini_window_failed))
-            false
-        }
-    }
+    ): Boolean = startActivity(
+        context = context,
+        intent = Intent().apply {
+            setComponent(component)
+            setAction(Intent.ACTION_MAIN)
+            addCategory(Intent.CATEGORY_LAUNCHER)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        },
+        horizontalBias = horizontalBias,
+        verticalBias = verticalBias,
+        widthFraction = widthFraction,
+        heightFraction = heightFraction,
+        overrideBounds = overrideBounds,
+    )
 
     fun startActivity(
         context: Context,

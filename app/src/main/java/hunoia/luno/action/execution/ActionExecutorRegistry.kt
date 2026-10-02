@@ -5,12 +5,11 @@ import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionResult
 import hunoia.luno.action.model.ActionFailure
 import hunoia.luno.action.model.Capability
-import hunoia.luno.action.capability.CapabilityChecker
 import hunoia.luno.action.definitions.ActionDefinitions
 
 class ActionExecutorRegistry(
     private val executors: List<ActionExecutor>,
-    private val capabilityChecker: CapabilityChecker? = null,
+    private val isCapabilityAvailable: (Capability) -> Boolean = { true },
 ) {
     private val executorMap: Map<String, ActionExecutor> = executors
         .flatMap { e -> e.supportedTypes.map { it to e } }
@@ -30,7 +29,7 @@ class ActionExecutorRegistry(
     suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
         val executor = executorMap[action.typeId] ?: return ActionResult.Failed(ActionFailure.Unsupported)
         val capability = ActionDefinitions.byTypeId(action.typeId)?.capability ?: Capability.None
-        if (capability != Capability.None && capabilityChecker?.isAvailable(capability) == false) {
+        if (capability != Capability.None && !isCapabilityAvailable(capability)) {
             return ActionResult.RequiresCapability(capability)
         }
         return runCatching {

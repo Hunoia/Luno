@@ -4,6 +4,7 @@ import hunoia.luno.config.defaults.ActionSettingsDefaults.HideGestureButtonDelay
 import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubHorizontalEnabled
 import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubStepThresholdDp
 import hunoia.luno.config.model.MiniWindowSettings
+import android.media.AudioManager
 
 data class QueryParam(val name: String, val value: String, val enabled: Boolean = true)
 
@@ -12,6 +13,16 @@ enum class SettingsPage {
 }
 
 enum class AudioStream { MUSIC, RING, NOTIFICATION, ALARM, VOICE, SYSTEM }
+
+/** 动作层与运行时层共用，避免 AudioController / AudioVolumeTracker 各写一份 */
+fun AudioStream.toStreamType(): Int = when (this) {
+    AudioStream.MUSIC -> AudioManager.STREAM_MUSIC
+    AudioStream.RING -> AudioManager.STREAM_RING
+    AudioStream.NOTIFICATION -> AudioManager.STREAM_NOTIFICATION
+    AudioStream.ALARM -> AudioManager.STREAM_ALARM
+    AudioStream.VOICE -> AudioManager.STREAM_VOICE_CALL
+    AudioStream.SYSTEM -> AudioManager.STREAM_SYSTEM
+}
 
 enum class VolumeDirection { UP, DOWN }
 

@@ -9,7 +9,6 @@ import hunoia.luno.bridge.PackageChangeReceiver
 import java.util.Collections
 import java.util.LinkedHashMap
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 object DisabledAppQuery {
@@ -25,14 +24,12 @@ object DisabledAppQuery {
     private fun ensureReceiver() {
         if (receiverRegistered) return
         receiverRegistered = true
+        // 只作废缓存，不预热重扫：缓存已清空，下次真实查询自然会重建。
+        // 预热会在每次包变更事件上白跑一遍 getInstalledApplications + 每包两次 Binder
+        // （约 200~400 次），而且没有 in-flight 去重，可能和用户的真实查询并发扫两遍。
         PackageChangeReceiver.register(AppContext.get()) {
             disabledCache = null
             disabledResultCache.clear()
-            AppContext.applicationScope?.launch {
-                withContext(Dispatchers.IO) {
-                    queryDisabledApplications(AppContext.get())
-                }
-            }
         }
     }
 
@@ -62,7 +59,7 @@ object DisabledAppQuery {
         val pm = context.packageManager
         val allApps = try {
             pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             return emptyList()
         }
 
@@ -85,7 +82,7 @@ object DisabledAppQuery {
 
             val label = try {
                 app.loadLabel(pm).toString()
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 pkgName
             }
 

@@ -20,14 +20,10 @@ import hunoia.luno.config.ConfigProvider
 import hunoia.luno.bridge.DensityProvider
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.AdvancedSettings
+import hunoia.luno.runtime.GestureHost
 import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.ui.quicklaunch.QuickAppLauncherContent
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.ViewModelStoreOwner
-import androidx.savedstate.SavedStateRegistryOwner
-import android.content.Context
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -36,15 +32,7 @@ import kotlin.math.roundToInt
 import kotlin.math.max
 import hunoia.luno.ui.theme.AnimOverlayFade
 
-interface QuickAppLauncherOverlayHost : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
-    val context: Context
-    val coroutineScope: CoroutineScope
-    val advancedSettings: AdvancedSettings?
-
-    fun requestEnableDisabledPackage(packageName: String, onResult: (Boolean) -> Unit)
-}
-
-class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
+class QuickAppLauncherOverlay(private val host: GestureHost) {
     @Volatile private var overlayView: View? = null
     private var overlayParams: WindowManager.LayoutParams? = null
     @Volatile private var isShowing = false

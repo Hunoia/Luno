@@ -12,14 +12,13 @@ import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.config.repository.QuickLauncherRepository
-import hunoia.luno.config.repository.SettingsRepository
 import hunoia.luno.config.store.SettingsStores
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 
 object ConfigProvider {
 
     private val stores by lazy { SettingsStores.create() }
-    private val settingsRepository by lazy { SettingsRepository(stores) }
     private val quickLauncherRepository by lazy { QuickLauncherRepository(stores) }
     private val configBackupRepository by lazy { ConfigBackupRepository(stores) }
 
@@ -33,43 +32,43 @@ object ConfigProvider {
     val newActionLibrarySettings: Flow<NewActionLibrarySettings> = stores.newActionLibrarySettings
     val automationRules: Flow<List<AutomationRule>> = stores.automationRules
 
-    suspend fun getInitialSettings(): InitialSettings = settingsRepository.getInitialSettings()
-    suspend fun getAdvancedSettings(): AdvancedSettings = settingsRepository.getAdvancedSettings()
-    suspend fun getGestureSettings(): GestureSettings = settingsRepository.getGestureSettings()
-    suspend fun getActionSettings(): ActionSettings = settingsRepository.getActionSettings()
-    suspend fun getGestureButtons(): List<GestureButton> = settingsRepository.getGestureButtons()
-    suspend fun getQuickAppLauncherSettings(): QuickAppLauncherSettings = settingsRepository.getQuickAppLauncherSettings()
-    suspend fun getSubGestureSettings(): SubGestureSettings = settingsRepository.getSubGestureSettings()
-    suspend fun getNewActionLibrarySettings(): NewActionLibrarySettings = settingsRepository.getNewActionLibrarySettings()
-    suspend fun getAutomationRules(): List<AutomationRule> = settingsRepository.getAutomationRules()
+    suspend fun getInitialSettings(): InitialSettings = stores._initialSettings.data.first()
+    suspend fun getAdvancedSettings(): AdvancedSettings = stores._advancedSettings.data.first()
+    suspend fun getGestureSettings(): GestureSettings = stores._gestureSettings.data.first()
+    suspend fun getActionSettings(): ActionSettings = stores._actionSettings.data.first()
+    suspend fun getGestureButtons(): List<GestureButton> = stores._gestureButtons.data.first()
+    suspend fun getQuickAppLauncherSettings(): QuickAppLauncherSettings = stores._quickAppLauncherSettings.data.first()
+    suspend fun getSubGestureSettings(): SubGestureSettings = stores._subGestureSettings.data.first()
+    suspend fun getNewActionLibrarySettings(): NewActionLibrarySettings = stores._newActionLibrarySettings.data.first()
+    suspend fun getAutomationRules(): List<AutomationRule> = stores._automationRules.data.first()
 
     suspend fun updateInitialSettings(transform: suspend (InitialSettings) -> InitialSettings) {
-        settingsRepository.updateInitialSettings(transform)
+        stores._initialSettings.updateData(transform)
     }
     suspend fun updateAdvancedSettings(transform: suspend (AdvancedSettings) -> AdvancedSettings) {
-        settingsRepository.updateAdvancedSettings(transform)
+        stores._advancedSettings.updateData(transform)
     }
     suspend fun updateGestureSettings(transform: suspend (GestureSettings) -> GestureSettings) {
-        settingsRepository.updateGestureSettings(transform)
+        stores._gestureSettings.updateData(transform)
     }
     suspend fun updateActionSettings(transform: suspend (ActionSettings) -> ActionSettings) {
-        settingsRepository.updateActionSettings(transform)
+        stores._actionSettings.updateData(transform)
     }
     suspend fun updateGestureButtons(transform: suspend (List<GestureButton>) -> List<GestureButton>) {
-        settingsRepository.updateGestureButtons(transform)
+        stores._gestureButtons.updateData(transform)
     }
     suspend fun updateQuickAppLauncherSettings(transform: suspend (QuickAppLauncherSettings) -> QuickAppLauncherSettings) {
-        settingsRepository.updateQuickAppLauncherSettings(transform)
+        stores._quickAppLauncherSettings.updateData(transform)
     }
     suspend fun updateSubGestureSettings(transform: suspend (SubGestureSettings) -> SubGestureSettings) {
-        settingsRepository.updateSubGestureSettings(transform)
+        stores._subGestureSettings.updateData(transform)
     }
     suspend fun updateNewActionLibrarySettings(transform: suspend (NewActionLibrarySettings) -> NewActionLibrarySettings) {
-        settingsRepository.updateNewActionLibrarySettings(transform)
+        stores._newActionLibrarySettings.updateData(transform)
     }
 
     suspend fun updateAutomationRules(transform: suspend (List<AutomationRule>) -> List<AutomationRule>) {
-        settingsRepository.updateAutomationRules(transform)
+        stores._automationRules.updateData(transform)
     }
 
     suspend fun updateQuickAppLauncherLayout(layout: QuickAppLauncherSettings) {

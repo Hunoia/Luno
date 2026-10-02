@@ -38,7 +38,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
@@ -65,6 +64,7 @@ import hunoia.luno.ui.theme.liquidGlassBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 
 import kotlinx.coroutines.launch
+import hunoia.luno.ui.component.gestureButtonMarkColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -149,11 +149,7 @@ private fun OverrideCard(
     globalMiniWindow: MiniWindowSettings,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val dotColor = if (color == android.graphics.Color.TRANSPARENT) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        Color(color)
-    }
+    val dotColor = gestureButtonMarkColor(color)
     val rotation by animateFloatAsState(
         targetValue = if (expanded) 0f else -90f,
         label = "OverrideCardArrowRotation",

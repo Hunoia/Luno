@@ -53,6 +53,7 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import hunoia.luno.config.model.sectorWidth
 
 @Composable
 fun SubGestureAngleContent(
@@ -368,10 +369,4 @@ private fun selectDragTarget(
     } else {
         candidates.minBy { boundaries[it] }
     }
-}
-
-private fun sectorWidth(boundaries: List<Float>, index: Int): Float {
-    val start = boundaries[index]
-    val end = boundaries[(index + 1) % 8]
-    return if (end >= start) (end - start) * 360f else (end + 1f - start) * 360f
 }

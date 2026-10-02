@@ -10,6 +10,7 @@ import android.os.Looper
 import hunoia.luno.action.model.AudioStream
 import hunoia.luno.action.model.VolumeDirection
 import hunoia.luno.runtime.VolumeChange
+import hunoia.luno.action.model.toStreamType
 
 /**
  * 提供音量与铃声电平值；仅在有音量/铃声相关规则时才轮询，并产生音量变化脉冲。
@@ -101,15 +102,6 @@ class AudioVolumeTracker(
 
     private fun refreshRingerMode() {
         runCatching { isRingerSilent = audioManager.ringerMode == AudioManager.RINGER_MODE_SILENT }
-    }
-
-    private fun AudioStream.toStreamType(): Int = when (this) {
-        AudioStream.MUSIC -> AudioManager.STREAM_MUSIC
-        AudioStream.RING -> AudioManager.STREAM_RING
-        AudioStream.NOTIFICATION -> AudioManager.STREAM_NOTIFICATION
-        AudioStream.ALARM -> AudioManager.STREAM_ALARM
-        AudioStream.VOICE -> AudioManager.STREAM_VOICE_CALL
-        AudioStream.SYSTEM -> AudioManager.STREAM_SYSTEM
     }
 
     companion object {

@@ -100,25 +100,26 @@ fun SegmentedGroup(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SegmentedSettingsRow(
+private fun SegmentedRowBase(
     title: String,
-    icon: ImageVector? = null,
-    onClick: (() -> Unit)? = null,
-    modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(ContainerRadius),
-    trailingContent: (@Composable () -> Unit)? = null,
-    subtitle: String = "",
-    secondaryTextColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-    leadingContent: (@Composable () -> Unit)? = null,
-    enabled: Boolean = true,
+    icon: ImageVector?,
+    onClick: (() -> Unit)?,
+    modifier: Modifier,
+    shape: Shape,
+    trailing: (@Composable () -> Unit)?,
+    subtitle: String,
+    secondaryTextColor: Color,
+    leadingContent: (@Composable () -> Unit)?,
+    enabled: Boolean,
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val rowClick: (() -> Unit)? = if (enabled) onClick else null
     val interactionSource = remember { MutableInteractionSource() }
     ListItem(
         modifier = modifier
             .alpha(if (enabled) 1f else SettingsUiDefaults.DisabledAlpha)
-            .then(rowClick?.let { click -> Modifier.clickable(interactionSource = interactionSource, indication = null, onClick = click) } ?: Modifier)
+            .then(onClick?.takeIf { enabled }?.let { click ->
+                Modifier.clickable(interactionSource = interactionSource, indication = null, onClick = click)
+            } ?: Modifier)
             .clip(shape),
         headlineContent = { Text(text = title, maxLines = 1) },
         supportingContent = subtitle.takeIf { it.isNotEmpty() }?.let { s ->
@@ -140,7 +141,7 @@ fun SegmentedSettingsRow(
                 )
             }
         },
-        trailingContent = trailingContent ?: chevron.takeIf { rowClick != null },
+        trailingContent = trailing,
         colors = ListItemDefaults.colors(
             containerColor = colorScheme.surfaceBright,
             headlineColor = colorScheme.onSurface,
@@ -148,6 +149,35 @@ fun SegmentedSettingsRow(
             trailingIconColor = colorScheme.onSurfaceVariant,
             supportingColor = secondaryTextColor,
         ),
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SegmentedSettingsRow(
+    title: String,
+    icon: ImageVector? = null,
+    onClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+    shape: Shape = RoundedCornerShape(ContainerRadius),
+    trailingContent: (@Composable () -> Unit)? = null,
+    subtitle: String = "",
+    secondaryTextColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    leadingContent: (@Composable () -> Unit)? = null,
+    enabled: Boolean = true,
+) {
+    SegmentedRowBase(
+        title = title,
+        icon = icon,
+        onClick = onClick,
+        modifier = modifier,
+        shape = shape,
+        trailing = trailingContent?.let { { it() } }
+            ?: chevron.takeIf { enabled && onClick != null },
+        subtitle = subtitle,
+        secondaryTextColor = secondaryTextColor,
+        leadingContent = leadingContent,
+        enabled = enabled,
     )
 }
 
@@ -166,35 +196,13 @@ fun SegmentedSwitchRow(
     icon: ImageVector? = null,
     enabled: Boolean = true,
 ) {
-    val colorScheme = MaterialTheme.colorScheme
-    val rowClick: (() -> Unit)? = if (enabled) onClick ?: { onCheckedChange(!checked) } else null
-    val interactionSource = remember { MutableInteractionSource() }
-    ListItem(
-        modifier = modifier
-            .alpha(if (enabled) 1f else SettingsUiDefaults.DisabledAlpha)
-            .then(rowClick?.let { click -> Modifier.clickable(interactionSource = interactionSource, indication = null, onClick = click) } ?: Modifier)
-            .clip(shape),
-        headlineContent = { Text(text = title, maxLines = 1) },
-        supportingContent = subtitle.takeIf { it.isNotEmpty() }?.let { s ->
-            {
-                Text(
-                    text = s,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        },
-        leadingContent = leadingContent ?: icon?.let { iv ->
-            {
-                Icon(
-                    modifier = Modifier.size(RowIconSize),
-                    imageVector = iv,
-                    contentDescription = null,
-                )
-            }
-        },
-        trailingContent = {
+    SegmentedRowBase(
+        title = title,
+        icon = icon,
+        onClick = onClick ?: { onCheckedChange(!checked) },
+        modifier = modifier,
+        shape = shape,
+        trailing = {
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
                 Switch(
                     enabled = enabled,
@@ -203,13 +211,10 @@ fun SegmentedSwitchRow(
                 )
             }
         },
-        colors = ListItemDefaults.colors(
-            containerColor = colorScheme.surfaceBright,
-            headlineColor = colorScheme.onSurface,
-            leadingIconColor = colorScheme.onSurfaceVariant,
-            trailingIconColor = colorScheme.onSurfaceVariant,
-            supportingColor = secondaryTextColor,
-        ),
+        subtitle = subtitle,
+        secondaryTextColor = secondaryTextColor,
+        leadingContent = leadingContent,
+        enabled = enabled,
     )
 }
 

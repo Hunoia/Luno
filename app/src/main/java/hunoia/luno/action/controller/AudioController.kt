@@ -10,6 +10,7 @@ import hunoia.luno.bridge.toggleMute
 import hunoia.luno.bridge.volumeDown
 import hunoia.luno.bridge.volumeUp
 import android.view.KeyEvent
+import hunoia.luno.action.model.toStreamType
 
 class AudioController(private val context: Context) {
 
@@ -31,14 +32,5 @@ class AudioController(private val context: Context) {
             MediaCommand.PREVIOUS -> context.dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PREVIOUS)
             MediaCommand.MUTE -> toggleMute()
         }
-    }
-
-    private fun AudioStream.toStreamType(): Int = when (this) {
-        AudioStream.MUSIC -> AudioManager.STREAM_MUSIC
-        AudioStream.RING -> AudioManager.STREAM_RING
-        AudioStream.NOTIFICATION -> AudioManager.STREAM_NOTIFICATION
-        AudioStream.ALARM -> AudioManager.STREAM_ALARM
-        AudioStream.VOICE -> AudioManager.STREAM_VOICE_CALL
-        AudioStream.SYSTEM -> AudioManager.STREAM_SYSTEM
     }
 }

@@ -4,29 +4,25 @@ import android.content.Context
 import android.util.Log
 import hunoia.luno.BuildConfig
 import hunoia.luno.R
-import hunoia.luno.action.capability.AccessibilityCapabilityChecker
-import hunoia.luno.action.capability.CompositeCapabilityChecker
-import hunoia.luno.action.capability.ShizukuCapabilityChecker
 import hunoia.luno.action.controller.*
 import hunoia.luno.action.execution.*
 import hunoia.luno.action.executor.*
 import hunoia.luno.action.model.*
 import hunoia.luno.bridge.isAccessibilitySettingsOn
-import hunoia.luno.config.model.ActionSettings as LegacyActionSettings
-import hunoia.luno.config.model.AdvancedSettings as LegacyAdvancedSettings
-import hunoia.luno.config.model.GestureButton as LegacyGestureButton
-import hunoia.luno.config.model.GestureButtonActionSettingsOverride as LegacyGestureButtonActionSettingsOverride
-import hunoia.luno.config.model.GestureSettings as LegacyGestureSettings
+import hunoia.luno.config.model.GestureButton
+import hunoia.luno.config.model.GestureButtonActionSettingsOverride
 import hunoia.luno.config.model.effectiveFor
 import hunoia.luno.runtime.GestureHost
+import hunoia.luno.shizuku.ShizukuFacade
 import hunoia.luno.runtime.action.PreviousAppTracker
+import hunoia.luno.config.model.VolumeScrubConfig
+import hunoia.luno.runtime.action.SettingsSnapshot
 import hunoia.luno.runtime.condition.ConditionContext
 import hunoia.luno.runtime.template.RuntimeVariables
 import hunoia.luno.service.SideGestureService
 import hunoia.luno.bridge.feedback.showToast as showToastUtil
 import hunoia.luno.bridge.feedback.showToastLong as showToastLongUtil
 import hunoia.luno.bridge.feedback.showVersionTooLowToast as showVersionTooLowToastUtil
-import hunoia.luno.config.model.VolumeScrubConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -38,18 +34,25 @@ class NewActionDispatcher(
     private val settingsSnapshot: () -> SettingsSnapshot,
     private val onToggleQuickAppLauncher: () -> Unit,
     private val onShowVolumeScrub: (VolumeScrubConfig) -> Boolean,
-    private val onHideGestureButton: (LegacyGestureButton?, Long) -> Unit,
+    private val onHideGestureButton: (GestureButton?, Long) -> Unit,
 ) {
-    private val capabilityChecker = CompositeCapabilityChecker(
-        listOf(
-            ShizukuCapabilityChecker(),
-            AccessibilityCapabilityChecker {
-                val appContext = host.context.applicationContext
-                appContext.isAccessibilitySettingsOn(SideGestureService::class.java) ||
+    /**
+     * 每个 capability 由唯一对应的检查负责。
+     *
+     * 之前这里用 CompositeCapabilityChecker(List).any { it.isAvailable(cap) }，而每个
+     * checker 对不归自己管的 capability 都返回 true，于是 any 恒为 true，闸门从未触发，
+     * ActionResult.RequiresCapability 成了死路径 —— Shizuku 未授权时会一路走到 executor
+     * 里失败，只弹通用的「执行失败」而不是指明缺哪个能力。
+     */
+    private val isCapabilityAvailable: (Capability) -> Boolean = { capability ->
+        when (capability) {
+            Capability.None -> true
+            Capability.Shizuku -> ShizukuFacade.isReady()
+            Capability.Accessibility ->
+                host.context.applicationContext.isAccessibilitySettingsOn(SideGestureService::class.java) ||
                     SideGestureService.current != null
-            },
-        )
-    )
+        }
+    }
 
     private val registry: ActionExecutorRegistry = ActionExecutorRegistry(
         executors = listOf(
@@ -67,15 +70,15 @@ class NewActionDispatcher(
             ShellExecutor(ShellController()),
             InternalExecutors(),
         ),
-        capabilityChecker = capabilityChecker,
+        isCapabilityAvailable = isCapabilityAvailable,
     )
 
     private val resolver = ActionResolver(registry)
 
     fun dispatch(
         stored: StoredAction,
-        sourceButton: LegacyGestureButton?,
-        sourceOverride: LegacyGestureButtonActionSettingsOverride? = null,
+        sourceButton: GestureButton?,
+        sourceOverride: GestureButtonActionSettingsOverride? = null,
         touchPosition: Pair<Int, Int>? = null,
         templateContext: () -> ConditionContext? = { null },
     ) {
@@ -112,8 +115,8 @@ class NewActionDispatcher(
     )
 
     private fun buildContext(
-        sourceButton: LegacyGestureButton?,
-        sourceOverride: LegacyGestureButtonActionSettingsOverride? = null,
+        sourceButton: GestureButton?,
+        sourceOverride: GestureButtonActionSettingsOverride? = null,
         touchPosition: Pair<Int, Int>? = null,
         templateContext: () -> ConditionContext? = { null },
     ): ExecutorContext {
@@ -147,9 +150,3 @@ class NewActionDispatcher(
         )
     }
 }
-
-data class SettingsSnapshot(
-    val actionSettings: LegacyActionSettings,
-    val advancedSettings: LegacyAdvancedSettings,
-    val gestureSettings: LegacyGestureSettings,
-)
