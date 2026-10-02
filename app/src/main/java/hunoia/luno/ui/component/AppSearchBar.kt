@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import hunoia.luno.ui.theme.ExtraLargeShape
 import hunoia.luno.R
 
 @Composable
@@ -38,7 +39,7 @@ fun AppSearchBar(
                 }
             }
         },
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = ExtraLargeShape,
         colors = OutlinedTextFieldDefaults.colors(
             unfocusedBorderColor = Color.Transparent,
             focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,

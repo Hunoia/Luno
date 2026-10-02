@@ -7,7 +7,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import hunoia.luno.action.api.ActionFacade
 import hunoia.luno.bridge.DensityProvider
-import hunoia.luno.bridge.vibration.VibrationEffects
 import kotlinx.serialization.Serializable
 import kotlin.random.Random
 
@@ -48,8 +47,8 @@ object GestureButtonDefaults {
     const val LongSlideVibrate = true
     const val TapVibrate = true
     const val LongPressVibrate = true
-    const val VibrateImmediately = false
-    const val CustomVibrationMs = 50L
+    const val SlideHoldVibrate = true
+    const val LongSlideHoldVibrate = true
     val Defaults = listOf(GestureButton(id = ID_DEFAULT))
 }
 
@@ -76,9 +75,8 @@ data class GestureButton(
     val longSlideVibrate: Boolean = GestureButtonDefaults.LongSlideVibrate,
     val tapVibrate: Boolean = GestureButtonDefaults.TapVibrate,
     val longPressVibrate: Boolean = GestureButtonDefaults.LongPressVibrate,
-    val vibrateImmediately: Boolean = GestureButtonDefaults.VibrateImmediately,
-    val vibrationEffect: VibrationEffects = VibrationEffects.Click,
-    val customVibrationMs: Long = GestureButtonDefaults.CustomVibrationMs,
+    val slideHoldVibrate: Boolean = GestureButtonDefaults.SlideHoldVibrate,
+    val longSlideHoldVibrate: Boolean = GestureButtonDefaults.LongSlideHoldVibrate,
     val slideTriggerDistance: Int = GestureButtonDefaults.SlideTriggerDistance,
     val longSlideTriggerDistance: Int = GestureButtonDefaults.LongSlideTriggerDistance,
     val longPressTriggerDelayMs: Long = GestureButtonDefaults.LongPressTriggerDelayMs,

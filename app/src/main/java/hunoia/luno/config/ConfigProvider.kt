@@ -1,16 +1,16 @@
 package hunoia.luno.config
 
+import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.config.backup.ConfigBackupRepository
 import hunoia.luno.config.model.ActionSettings
-import hunoia.luno.config.model.ActionLibrarySettings
 import hunoia.luno.config.model.AdvancedSettings
+import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.Backup
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.SubGestureSettings
-import hunoia.luno.config.repository.ActionLibraryRepository
 import hunoia.luno.config.repository.QuickLauncherRepository
 import hunoia.luno.config.repository.SettingsRepository
 import hunoia.luno.config.store.SettingsStores
@@ -21,7 +21,6 @@ object ConfigProvider {
     private val stores by lazy { SettingsStores.create() }
     private val settingsRepository by lazy { SettingsRepository(stores) }
     private val quickLauncherRepository by lazy { QuickLauncherRepository(stores) }
-    private val actionLibraryRepository by lazy { ActionLibraryRepository(stores) }
     private val configBackupRepository by lazy { ConfigBackupRepository(stores) }
 
     val initialSettings: Flow<InitialSettings> = stores.initialSettings
@@ -31,7 +30,8 @@ object ConfigProvider {
     val gestureButtons: Flow<List<GestureButton>> = stores.gestureButtons
     val quickAppLauncherSettings: Flow<QuickAppLauncherSettings> = stores.quickAppLauncherSettings
     val subGestureSettings: Flow<SubGestureSettings> = stores.subGestureSettings
-    val actionLibrarySettings: Flow<ActionLibrarySettings> = stores.actionLibrarySettings
+    val newActionLibrarySettings: Flow<NewActionLibrarySettings> = stores.newActionLibrarySettings
+    val automationRules: Flow<List<AutomationRule>> = stores.automationRules
 
     suspend fun getInitialSettings(): InitialSettings = settingsRepository.getInitialSettings()
     suspend fun getAdvancedSettings(): AdvancedSettings = settingsRepository.getAdvancedSettings()
@@ -40,7 +40,8 @@ object ConfigProvider {
     suspend fun getGestureButtons(): List<GestureButton> = settingsRepository.getGestureButtons()
     suspend fun getQuickAppLauncherSettings(): QuickAppLauncherSettings = settingsRepository.getQuickAppLauncherSettings()
     suspend fun getSubGestureSettings(): SubGestureSettings = settingsRepository.getSubGestureSettings()
-    suspend fun getActionLibrarySettings(): ActionLibrarySettings = settingsRepository.getActionLibrarySettings()
+    suspend fun getNewActionLibrarySettings(): NewActionLibrarySettings = settingsRepository.getNewActionLibrarySettings()
+    suspend fun getAutomationRules(): List<AutomationRule> = settingsRepository.getAutomationRules()
 
     suspend fun updateInitialSettings(transform: suspend (InitialSettings) -> InitialSettings) {
         settingsRepository.updateInitialSettings(transform)
@@ -63,8 +64,12 @@ object ConfigProvider {
     suspend fun updateSubGestureSettings(transform: suspend (SubGestureSettings) -> SubGestureSettings) {
         settingsRepository.updateSubGestureSettings(transform)
     }
-    suspend fun updateActionLibrarySettings(transform: suspend (ActionLibrarySettings) -> ActionLibrarySettings) {
-        settingsRepository.updateActionLibrarySettings(transform)
+    suspend fun updateNewActionLibrarySettings(transform: suspend (NewActionLibrarySettings) -> NewActionLibrarySettings) {
+        settingsRepository.updateNewActionLibrarySettings(transform)
+    }
+
+    suspend fun updateAutomationRules(transform: suspend (List<AutomationRule>) -> List<AutomationRule>) {
+        settingsRepository.updateAutomationRules(transform)
     }
 
     suspend fun updateQuickAppLauncherLayout(layout: QuickAppLauncherSettings) {
@@ -75,14 +80,6 @@ object ConfigProvider {
     }
     suspend fun recordQuickAppLaunch(appKey: String) {
         quickLauncherRepository.recordQuickAppLaunch(appKey)
-    }
-
-    suspend fun removeActionLibraryEntry(entryId: String) {
-        actionLibraryRepository.removeActionLibraryEntry(entryId)
-    }
-
-    suspend fun removeAllActionLibraryEntries(entryIds: Set<String>) {
-        actionLibraryRepository.removeAllActionLibraryEntries(entryIds)
     }
 
     suspend fun snapshotAll(): Backup = configBackupRepository.snapshotAll()

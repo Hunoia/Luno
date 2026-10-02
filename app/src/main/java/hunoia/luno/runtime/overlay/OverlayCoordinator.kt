@@ -51,7 +51,7 @@ class OverlayCoordinator(
     }
 
     fun release() {
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "OverlayCoordinator release")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "OverlayCoordinator release")
         mainOverlayController.release()
         buttonWindowController.release()
         transientOverlayController.detachAll()

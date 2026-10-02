@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -16,7 +15,6 @@ import androidx.compose.ui.platform.LocalContext
 import hunoia.luno.action.api.ActionFacade
 import hunoia.luno.config.model.Action
 import hunoia.luno.config.model.ActionPanelStyle
-import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.config.model.GestureSettings
@@ -27,7 +25,7 @@ import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.isHoldType
 import hunoia.luno.config.model.isLongSlideType
 import hunoia.luno.config.model.SubGestureSettings
-import hunoia.luno.config.model.effectiveFor
+import hunoia.luno.config.model.VolumeScrubConfig
 import hunoia.luno.gesture.DragGestureHandler
 import hunoia.luno.gesture.GestureResolvedActions
 import hunoia.luno.gesture.GestureFacade
@@ -49,7 +47,6 @@ fun SideGestureContainer(
     modifier: Modifier = Modifier,
     imePadding: Int = 0,
     actionPanelStyle: ActionPanelStyle = ArcStyle(),
-    actionSettings: ActionSettings = ActionSettings(),
     advancedSettings: AdvancedSettings = AdvancedSettings(),
     gestureSettings: GestureSettings = GestureSettings(),
     subGestureSettings: SubGestureSettings = SubGestureSettings(),
@@ -75,10 +72,6 @@ fun SideGestureContainer(
     fun exitSubGestureOverlay() {
         curOnSubGestureModeChanged(false, Offset.Unspecified, 0)
     }
-
-    fun effectiveActionSettings(override: GestureButtonActionSettingsOverride?): ActionSettings = actionSettings.effectiveFor(override)
-
-    fun effectiveActionSettings(button: GestureButton?): ActionSettings = effectiveActionSettings(button?.actionSettingsOverride)
 
     fun handleResolvedAction(
         action: Action,
@@ -131,7 +124,7 @@ fun SideGestureContainer(
         }
         val enteredSubGesture = when (action.value) {
             ActionFacade.VOLUME_SCRUB -> {
-                volumeScrubState.activate(effectiveActionSettings(sourceOverride))
+                volumeScrubState.activate(VolumeScrubConfig())
                 false
             }
             ActionFacade.NONE -> false
@@ -265,19 +258,18 @@ fun SideGestureContainer(
             }
             if (actionPanelState.visible) {
                 val touchPosition = actionPanelState.finger
-                val hitAction = actionPanelState.hitTestAction(touchPosition)
+                val hitAction = actionPanelState.done()
                 val sourceOverride = actionPanelSourceOverride
                 actionPanelSourceOverride = null
-                actionPanelState.cancel()
                 onActionPanelOverlayChanged(false)
                 val fromSubGesturePanel = subGestureState.subGestureDepth > 0
                 if (fromSubGesturePanel) {
                     subGestureState.clear(notifyService = true)
                 }
-                if (hitAction != null && hitAction != Action.NONE) {
+                if (hitAction != Action.NONE) {
                     val actionToRun: () -> Unit = {
                         when (hitAction.value) {
-                            ActionFacade.VOLUME_SCRUB -> volumeScrubState.activate(effectiveActionSettings(sourceOverride))
+                            ActionFacade.VOLUME_SCRUB -> volumeScrubState.activate(VolumeScrubConfig())
                             else -> handleResolvedAction(hitAction, sideGestureState.button, touchPosition, sourceOverride)
                         }
                     }

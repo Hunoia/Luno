@@ -1,0 +1,108 @@
+package hunoia.luno.ui.actionlibrary
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.config.ConfigProvider
+import hunoia.luno.config.cleanActions
+import hunoia.luno.config.model.Action
+import hunoia.luno.config.model.GestureButton
+import hunoia.luno.config.model.SubGesture
+import hunoia.luno.config.model.actionLibraryRefId
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
+
+class NewActionLibraryVM : ViewModel() {
+    private val _uiState = MutableStateFlow(NewLibraryUiState())
+    val uiState: StateFlow<NewLibraryUiState> = _uiState
+
+    init {
+        viewModelScope.launch {
+            combine(
+                ConfigProvider.newActionLibrarySettings,
+                ConfigProvider.gestureButtons,
+                ConfigProvider.subGestureSettings,
+            ) { newSettings, buttons, subGestures ->
+                NewLibraryUiState(
+                    entries = newSettings.entries,
+                    referenceCounts = countReferences(buttons, subGestures.subGestures),
+                )
+            }.collect { _uiState.value = it }
+        }
+    }
+
+    fun remove(entry: NewActionLibraryEntry) {
+        viewModelScope.launch { removeNewLibraryEntry(entry.id) }
+    }
+
+    fun updateIcon(entryId: String, iconKey: String?) {
+        viewModelScope.launch {
+            ConfigProvider.updateNewActionLibrarySettings { settings ->
+                settings.copy(
+                    entries = settings.entries.map { entry ->
+                        if (entry.id == entryId) entry.copy(iconKey = iconKey) else entry
+                    },
+                )
+            }
+        }
+    }
+}
+
+suspend fun removeNewLibraryEntry(entryId: String) {
+    ConfigProvider.updateGestureButtons { buttons ->
+        buttons.map { button -> button.cleanActions { it.actionLibraryRefId() == entryId } }
+    }
+    ConfigProvider.updateSubGestureSettings { settings ->
+        settings.copy(subGestures = settings.subGestures.map { subGesture ->
+            subGesture.cleanActions { it.actionLibraryRefId() == entryId }
+        })
+    }
+    ConfigProvider.updateAutomationRules { rules ->
+        rules.map { rule ->
+            if (rule.effect.entryId == entryId) {
+                rule.copy(enabled = false, effect = rule.effect.copy(entryId = ""))
+            } else {
+                rule
+            }
+        }
+    }
+    ConfigProvider.updateNewActionLibrarySettings { settings ->
+        settings.copy(entries = settings.entries.filterNot { it.id == entryId })
+    }
+}
+
+data class NewLibraryUiState(
+    val entries: List<NewActionLibraryEntry> = emptyList(),
+    val referenceCounts: Map<String, Int> = emptyMap(),
+)
+
+private fun countReferences(
+    buttons: List<GestureButton>,
+    subGestures: List<SubGesture>,
+): Map<String, Int> {
+    val counts = mutableMapOf<String, Int>()
+    fun count(action: Action?) {
+        val entryId = action?.actionLibraryRefId() ?: return
+        counts[entryId] = (counts[entryId] ?: 0) + 1
+    }
+    (buttons.flatMap { it.actionList() } + subGestures.flatMap { it.actionList() }).forEach { action ->
+        count(action)
+        count(action.longPressAction)
+    }
+    return counts
+}
+
+private fun GestureButton.actionList(): List<Action> =
+    slideActions.actions.values.flatten() +
+        slideHoldActions.actions.values.flatten() +
+        longSlideActions.actions.values.flatten() +
+        longSlideHoldActions.actions.values.flatten() +
+        tapActions + doubleTapActions + longPressActions
+
+private fun SubGesture.actionList(): List<Action> =
+    slideActions.actions.values.flatten() +
+        slideHoldActions.actions.values.flatten() +
+        longSlideActions.actions.values.flatten() +
+        longSlideHoldActions.actions.values.flatten()

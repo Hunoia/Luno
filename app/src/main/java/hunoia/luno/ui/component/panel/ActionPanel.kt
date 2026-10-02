@@ -24,9 +24,7 @@ import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,11 +54,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import hunoia.luno.action.api.ActionFacade
 import hunoia.luno.config.model.Action
-import hunoia.luno.config.model.ActionLibrarySettings
+import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.config.model.ActionPanelStyle
 import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.action.api.appInfo
-import hunoia.luno.action.api.shortcutInfo
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.gesture.GestureFacade
@@ -89,7 +86,7 @@ fun ActionPanel(
         var parentSize by remember { mutableStateOf(Size.Zero) }
         val resolvedStyle = actionPanelState.actionPanelStyle ?: actionPanelStyle
         val itemSizePx = (resolvedStyle as? ArcStyle)?.itemSize?.toFloat() ?: 48.dp.toPx()
-        val actionLibrarySettings by ConfigProvider.actionLibrarySettings.collectAsStateWithLifecycle(initialValue = ActionLibrarySettings())
+        val actionLibrarySettings by ConfigProvider.newActionLibrarySettings.collectAsStateWithLifecycle(initialValue = NewActionLibrarySettings())
         LaunchedEffect(parentSize, itemSizePx) {
             actionPanelState.setLayoutInfo(parentSize, itemSizePx)
         }

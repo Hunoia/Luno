@@ -4,14 +4,15 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import hunoia.luno.ui.component.SegmentedSwitchRow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -26,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -33,7 +35,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEachIndexed
 import com.aaron.compose.ktx.onSingleClick
 import hunoia.luno.R
@@ -42,9 +43,15 @@ import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.ui.component.buttonTextCompose
 import hunoia.luno.ui.component.segmentedShape
-import hunoia.luno.ui.theme.ContainerRadius
+
 import hunoia.luno.ui.theme.MarkColorSize
 import hunoia.luno.ui.theme.SegmentedGap
+import hunoia.luno.ui.theme.CardInnerSpacing
+import hunoia.luno.ui.theme.ListSpacing
+import hunoia.luno.ui.theme.RowIconSize
+import hunoia.luno.ui.theme.BadgeIconSize
+
+
 
 enum class GesturePanelSection {
     TouchButton,
@@ -69,7 +76,7 @@ fun GesturePanel(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(ListSpacing),
     ) {
         GestureSection(
             title = stringResource(id = R.string.gesture_button),
@@ -96,7 +103,7 @@ fun GesturePanel(
                         onClick = { onGestureButtonClick(button) },
                         shape = segmentedShape(index + 1, gestureButtons.size + 1),
                         leadingContent = {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
                                 RenameIcon(onClick = { onGestureButtonRename(button) })
                                 Box(
                                     modifier = Modifier
@@ -136,7 +143,7 @@ fun GesturePanel(
                         onClick = { onSubGestureClick(gesture.id) },
                         shape = segmentedShape(index + 1, subGestures.size + 1),
                         leadingContent = {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
                                 RenameIcon(onClick = { onSubGestureRename(gesture) })
                                 Box(
                                     modifier = Modifier
@@ -177,17 +184,22 @@ private fun GestureSection(
     val colorScheme = MaterialTheme.colorScheme
     val totalItems = if (expanded) itemCount + 1 else 1
     val titleShape = segmentedShape(0, totalItems)
+    val interactionSource = remember { MutableInteractionSource() }
 
     Column(verticalArrangement = Arrangement.spacedBy(SegmentedGap)) {
         ListItem(
-            modifier = Modifier.clickable(onClick = { onExpandedChange(!expanded) }).clip(titleShape),
+            modifier = Modifier.clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = { onExpandedChange(!expanded) },
+            ).clip(titleShape),
             headlineContent = { Text(text = title, maxLines = 1) },
             leadingContent = {
                 Icon(
                     imageVector = Icons.Filled.ArrowDropDown,
                     contentDescription = null,
                     modifier = Modifier
-                        .size(24.dp)
+                        .size(RowIconSize)
                         .graphicsLayer { rotationZ = rotation },
                     tint = colorScheme.onSurfaceVariant,
                 )
@@ -236,14 +248,14 @@ private fun SmallIconAction(
 ) {
     Box(
         modifier = Modifier
-            .size(24.dp)
+            .size(RowIconSize)
             .onSingleClick { onClick() },
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = imageVector,
             contentDescription = contentDescription,
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(BadgeIconSize),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }

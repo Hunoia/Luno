@@ -9,14 +9,12 @@ import hunoia.luno.runtime.settings.SettingsStore
 class ButtonRefreshCoordinator(
     private val runtimeSettingsStore: SettingsStore,
     private val buttonWindowController: ButtonWindowController,
-    private val buildRuntimeState: () -> GestureRuntimeState,
 ) {
-    fun refresh() {
+    fun refresh(runtimeState: GestureRuntimeState) {
         val settings = runtimeSettingsStore.snapshot()
-        val runtimeState = buildRuntimeState()
         val policy = ButtonVisibilityPolicy(
             initialSettings = settings.initialSettings,
-            rules = settings.advancedSettings.conditionRules,
+            rules = settings.automationRules,
             runtimeState = runtimeState,
         )
         buttonWindowController.updateVisibility(policy)
@@ -25,7 +23,7 @@ class ButtonRefreshCoordinator(
                 val target = view.tag as? hunoia.luno.runtime.overlay.GestureButtonWindowTarget ?: return@count false
                 policy.shouldShow(target.sourceButton)
             }
-            Log.d("LunoLauncher", "button refresh: visible=$visibleCount total=${buttonWindowController.buttonViews.size}")
+            Log.i("LunoLauncher", "button refresh: visible=$visibleCount total=${buttonWindowController.buttonViews.size}")
         }
     }
 }

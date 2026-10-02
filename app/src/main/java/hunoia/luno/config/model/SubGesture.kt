@@ -4,7 +4,6 @@ import android.graphics.Color
 import androidx.annotation.Keep
 import hunoia.luno.bridge.DensityProvider
 import hunoia.luno.config.defaults.GestureSettingsDefaults.SubGestureTimeoutMs
-import hunoia.luno.bridge.vibration.VibrationEffects
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -22,9 +21,8 @@ data class SubGesture(
     val color: Int = Color.TRANSPARENT,
     val slideVibrate: Boolean = true,
     val longSlideVibrate: Boolean = true,
-    val vibrateImmediately: Boolean = false,
-    val vibrationEffect: VibrationEffects = VibrationEffects.Click,
-    val customVibrationMs: Long = 50L,
+    val slideHoldVibrate: Boolean = true,
+    val longSlideHoldVibrate: Boolean = true,
     val actionSettingsOverride: GestureButtonActionSettingsOverride = GestureButtonActionSettingsOverride(),
     val timeoutMs: Long = SubGestureTimeoutMs,
     val triggerDistance: Int = DensityProvider.dp2px(30f),

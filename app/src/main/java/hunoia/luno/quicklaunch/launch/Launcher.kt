@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Point
 import android.graphics.Rect
+import android.util.Log
 import android.view.WindowManager
 import hunoia.luno.R
 import hunoia.luno.quicklaunch.model.AppInfo
@@ -27,7 +28,6 @@ object Launcher {
         miniWindow: Boolean,
         miniWindowHorizontalBias: Float = DefaultMiniWindowHorizontalBias,
         miniWindowVerticalBias: Float = DefaultMiniWindowVerticalBias,
-        miniWindowVerticalOffsetFraction: Float = DefaultMiniWindowVerticalOffsetFraction,
         miniWindowWidthFraction: Float = DefaultMiniWindowWidthFraction,
         miniWindowHeightFraction: Float = DefaultMiniWindowHeightFraction,
         overrideBounds: Boolean = false,
@@ -36,7 +36,6 @@ object Launcher {
             return launchAppInPopup(
                 context, packageName, className,
                 miniWindowHorizontalBias, miniWindowVerticalBias,
-                miniWindowVerticalOffsetFraction,
                 miniWindowWidthFraction, miniWindowHeightFraction,
                 overrideBounds = overrideBounds,
             )
@@ -53,7 +52,8 @@ object Launcher {
             }
             context.startActivity(intent)
             true
-        } catch (ignored: Exception) {
+        } catch (e: Exception) {
+            Log.e("LunoLauncher", "launchApp failed", e)
             false
         }
     }
@@ -68,7 +68,8 @@ object Launcher {
             if (context.packageManager.resolveActivity(intent, 0) == null) return false
             context.startActivity(intent)
             true
-        } catch (ignored: Exception) {
+        } catch (e: Exception) {
+            Log.e("LunoLauncher", "launchAppActivity failed", e)
             false
         }
     }
@@ -79,7 +80,6 @@ object Launcher {
         miniWindow: Boolean,
         miniWindowHorizontalBias: Float = DefaultMiniWindowHorizontalBias,
         miniWindowVerticalBias: Float = DefaultMiniWindowVerticalBias,
-        miniWindowVerticalOffsetFraction: Float = DefaultMiniWindowVerticalOffsetFraction,
         miniWindowWidthFraction: Float = DefaultMiniWindowWidthFraction,
         miniWindowHeightFraction: Float = DefaultMiniWindowHeightFraction,
         overrideBounds: Boolean = false,
@@ -87,7 +87,6 @@ object Launcher {
         return launchApp(
             context, appInfo.packageName, appInfo.className, miniWindow,
             miniWindowHorizontalBias, miniWindowVerticalBias,
-            miniWindowVerticalOffsetFraction,
             miniWindowWidthFraction, miniWindowHeightFraction,
             overrideBounds = overrideBounds,
         )
@@ -102,7 +101,8 @@ object Launcher {
             }.toTypedArray()
             context.startActivities(intents)
             true
-        } catch (ignored: Exception) {
+        } catch (e: Exception) {
+            Log.e("LunoLauncher", "launchShortcutInfo failed", e)
             showToast(context.getString(R.string.launch_shortcut_info_failed, shortcutInfo.label))
             false
         }
@@ -135,7 +135,6 @@ object Launcher {
         data: OpenAppOrUrlData,
         miniWindowHorizontalBias: Float = DefaultMiniWindowHorizontalBias,
         miniWindowVerticalBias: Float = DefaultMiniWindowVerticalBias,
-        miniWindowVerticalOffsetFraction: Float = DefaultMiniWindowVerticalOffsetFraction,
         miniWindowWidthFraction: Float = DefaultMiniWindowWidthFraction,
         miniWindowHeightFraction: Float = DefaultMiniWindowHeightFraction,
         miniWindowOverrideBounds: Boolean = false,
@@ -156,7 +155,6 @@ object Launcher {
                     intent = intent,
                     horizontalBias = miniWindowHorizontalBias,
                     verticalBias = miniWindowVerticalBias,
-                    verticalOffsetFraction = miniWindowVerticalOffsetFraction,
                     widthFraction = miniWindowWidthFraction,
                     heightFraction = miniWindowHeightFraction,
                     overrideBounds = miniWindowOverrideBounds,
@@ -165,6 +163,7 @@ object Launcher {
             context.startActivity(intent)
             true
         } catch (e: Exception) {
+            Log.e("LunoLauncher", "launchUrl failed", e)
             showToast(context.getString(R.string.launch_failed))
             false
         }
@@ -181,7 +180,6 @@ object Launcher {
         className: String,
         horizontalBias: Float = DefaultMiniWindowHorizontalBias,
         verticalBias: Float = DefaultMiniWindowVerticalBias,
-        verticalOffsetFraction: Float = DefaultMiniWindowVerticalOffsetFraction,
         widthFraction: Float = DefaultMiniWindowWidthFraction,
         heightFraction: Float = DefaultMiniWindowHeightFraction,
         overrideBounds: Boolean = false,
@@ -189,7 +187,7 @@ object Launcher {
         return MiniWindow.startActivity(
             context,
             ComponentName.createRelative(packageName, className),
-            horizontalBias, verticalBias, verticalOffsetFraction,
+            horizontalBias, verticalBias,
             widthFraction, heightFraction,
             overrideBounds = overrideBounds,
         )
@@ -202,7 +200,6 @@ object Launcher {
 
 private const val DefaultMiniWindowHorizontalBias = 0f
 private const val DefaultMiniWindowVerticalBias = 0f
-private const val DefaultMiniWindowVerticalOffsetFraction = 0f
 private const val DefaultMiniWindowWidthFraction = 0.46f
 private const val DefaultMiniWindowHeightFraction = 0.74f
 
@@ -219,7 +216,6 @@ private object MiniWindow {
         component: ComponentName,
         horizontalBias: Float,
         verticalBias: Float,
-        verticalOffsetFraction: Float,
         widthFraction: Float,
         heightFraction: Float,
         overrideBounds: Boolean,
@@ -233,14 +229,15 @@ private object MiniWindow {
             }
             val realSize = getRealScreenSize(context)
             val activityOptions = makeActivityOptions(
-                horizontalBias, verticalBias, verticalOffsetFraction,
+                horizontalBias, verticalBias,
                 widthFraction, heightFraction,
                 realSize.x, realSize.y,
                 overrideBounds = overrideBounds,
             )
             context.startActivity(intent, activityOptions.toBundle())
             true
-        } catch (ignored: Exception) {
+        } catch (e: Exception) {
+            Log.e("LunoLauncher", "startActivity in mini window failed", e)
             showToast(context.getString(R.string.launch_mini_window_failed))
             false
         }
@@ -251,7 +248,6 @@ private object MiniWindow {
         intent: Intent,
         horizontalBias: Float,
         verticalBias: Float,
-        verticalOffsetFraction: Float,
         widthFraction: Float,
         heightFraction: Float,
         overrideBounds: Boolean,
@@ -259,14 +255,15 @@ private object MiniWindow {
         return try {
             val realSize = getRealScreenSize(context)
             val activityOptions = makeActivityOptions(
-                horizontalBias, verticalBias, verticalOffsetFraction,
+                horizontalBias, verticalBias,
                 widthFraction, heightFraction,
                 realSize.x, realSize.y,
                 overrideBounds = overrideBounds,
             )
             context.startActivity(intent, activityOptions.toBundle())
             true
-        } catch (ignored: Exception) {
+        } catch (e: Exception) {
+            Log.e("LunoLauncher", "startActivity in mini window failed", e)
             showToast(context.getString(R.string.launch_mini_window_failed))
             false
         }
@@ -275,7 +272,6 @@ private object MiniWindow {
     private fun makeActivityOptions(
         horizontalBias: Float,
         verticalBias: Float,
-        verticalOffsetFraction: Float,
         widthFraction: Float,
         heightFraction: Float,
         realSw: Int,

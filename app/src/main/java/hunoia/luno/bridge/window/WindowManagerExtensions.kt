@@ -2,7 +2,6 @@ package hunoia.luno.bridge.window
 
 import android.content.Context
 import android.graphics.PixelFormat
-import android.view.View
 import android.view.WindowManager
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.content.ContextCompat

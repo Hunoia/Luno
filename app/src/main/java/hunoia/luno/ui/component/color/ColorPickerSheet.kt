@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,7 +25,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Done
@@ -62,10 +60,20 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import hunoia.luno.ui.theme.ListSpacing
+import hunoia.luno.ui.theme.SheetTopShape
+import hunoia.luno.ui.theme.ExtraSmallShape
+import hunoia.luno.ui.theme.LargeShape
+import hunoia.luno.ui.theme.CloseIconSize
 import hunoia.luno.R
 import hunoia.luno.config.model.ThemeColorKey
 import hunoia.luno.ui.theme.displayNameRes
 import hunoia.luno.ui.theme.resolveColor
+import hunoia.luno.ui.theme.ListItemVerticalPadding
+import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.theme.SubMinInteractiveSize
+import hunoia.luno.ui.theme.MinInteractiveSize
+import hunoia.luno.ui.theme.CardInnerSpacing
 
 
 sealed class ColorSelection {
@@ -124,28 +132,28 @@ fun ColorPickerBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = SheetTopShape,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(bottom = 12.dp),
+                .padding(bottom = ListItemVerticalPadding),
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(PageGutter),
+                verticalArrangement = Arrangement.spacedBy(ListSpacing),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(ListSpacing),
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(48.dp)
+                            .size(MinInteractiveSize)
                             .clip(CircleShape)
                             .background(
                                 color = previewColor,
@@ -160,11 +168,11 @@ fun ColorPickerBottomSheet(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(MaterialTheme.shapes.large)
+                            .clip(LargeShape)
                             .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                     ) {
                         Text(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                            modifier = Modifier.padding(horizontal = PageGutter, vertical = ListItemVerticalPadding),
                             text = "#$hexColor",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -193,11 +201,11 @@ fun ColorPickerBottomSheet(
                         1 -> {
                             val chunked = ThemeColorKey.entries
                                 .chunked(3)
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Column(verticalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
                                 chunked.forEach { row ->
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
                                     ) {
                                         row.forEach { themeKey ->
                                             val color = themeKey.resolveColor()
@@ -205,18 +213,18 @@ fun ColorPickerBottomSheet(
                                             Column(
                                                 modifier = Modifier
                                                     .weight(1f)
-                                                    .clip(MaterialTheme.shapes.large)
+                                                    .clip(LargeShape)
                                                     .background(
                                                         color = if (isSelected) MaterialTheme.colorScheme.primaryContainer
                                                         else MaterialTheme.colorScheme.surface,
                                                     )
                                                     .clickable { selectedThemeKey = themeKey }
-                                                    .padding(vertical = 8.dp),
+                                                    .padding(vertical = CardInnerSpacing),
                                                 horizontalAlignment = Alignment.CenterHorizontally,
                                             ) {
                                                 Box(
                                                     modifier = Modifier
-                                                        .size(36.dp)
+                                                        .size(SubMinInteractiveSize)
                                                         .then(
                                                             if (isSelected) Modifier.border(
                                                                 width = 2.dp,
@@ -260,14 +268,14 @@ fun ColorPickerBottomSheet(
                 val hueBarHeight = with(density) { 24.dp }
 
                 Column(
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = ListItemVerticalPadding),
+                    verticalArrangement = Arrangement.spacedBy(ListSpacing),
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(hueBarHeight)
-                            .clip(MaterialTheme.shapes.extraSmall)
+                            .clip(ExtraSmallShape)
                             .pointerInput(Unit) {
                                 detectDragGestures(
                                     onDragStart = { offset ->
@@ -309,7 +317,7 @@ fun ColorPickerBottomSheet(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(32.dp)
-                            .clip(MaterialTheme.shapes.large)
+                            .clip(LargeShape)
                             .background(
                                 brush = Brush.horizontalGradient(
                                     colors = listOf(Color.Transparent, hsvColor),
@@ -336,15 +344,15 @@ fun ColorPickerBottomSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .animateContentSize(),
-                shape = MaterialTheme.shapes.extraLarge,
+                shape = SheetTopShape,
                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(horizontal = PageGutter, vertical = ListItemVerticalPadding),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(ListSpacing),
                 ) {
                     TabChip(
                         selected = selectedTab == 0,
@@ -373,12 +381,11 @@ fun ColorPickerBottomSheet(
                             }
                             onDismissRequest()
                         },
-                        shape = MaterialTheme.shapes.extraLarge,
                     ) {
                         Icon(
                             imageVector = Icons.Default.Done,
                             contentDescription = null,
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(CloseIconSize),
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(text = stringResource(id = R.string.confirm))

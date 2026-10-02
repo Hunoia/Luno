@@ -16,8 +16,8 @@ android {
         applicationId = "hunoia.luno"
         minSdk = 33
         targetSdk = 36
-        versionCode = 10603
-        versionName = "1.6.3"
+        versionCode = 10604
+        versionName = "1.6.4"
 
         ndk {
             abiFilters += listOf("arm64-v8a")
@@ -49,8 +49,8 @@ android {
                     storePassword = keystorePassword
                     keyAlias = storeAlias
                     keyPassword = keyPasswordValue
-                    enableV1Signing = true
-                    enableV2Signing = true
+                    enableV1Signing = false
+                    enableV2Signing = false
                     enableV3Signing = true
                     enableV4Signing = false
                 }

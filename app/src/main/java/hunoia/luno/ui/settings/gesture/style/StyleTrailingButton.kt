@@ -1,7 +1,6 @@
 package hunoia.luno.ui.settings.gesture.style
 
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -9,6 +8,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import hunoia.luno.ui.theme.SmallShape
+import hunoia.luno.ui.theme.ListItemVerticalPadding
 import hunoia.luno.R
 import hunoia.luno.config.model.ActionPanelStyles
 
@@ -19,12 +20,12 @@ fun StyleTrailingButton(
 ) {
     Surface(
         onClick = onClick,
-        shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.surfaceVariant
+        shape = SmallShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Text(
             text = actionPanelStyleText(currentStyle),
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = ListItemVerticalPadding),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

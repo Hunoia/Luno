@@ -43,7 +43,7 @@ class MainOverlayController(
     }
 
     fun release() {
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "MainOverlayController release")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "MainOverlayController release")
         composeView?.let { host.context.removeWindow(it) }
         composeView = null
     }

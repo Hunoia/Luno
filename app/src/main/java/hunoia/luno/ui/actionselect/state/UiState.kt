@@ -3,7 +3,7 @@ package hunoia.luno.ui.actionselect
 import hunoia.luno.action.api.appInfo
 import hunoia.luno.action.api.shortcutInfo
 import hunoia.luno.config.model.Action
-import hunoia.luno.config.model.ActionLibraryEntry
+import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
@@ -12,7 +12,6 @@ import hunoia.luno.quicklaunch.model.qualifiedNameWithIntents
 
 data class UiState(
     val title: String = "",
-    val selectSingle: Boolean = false,
     val actions: List<Action> = emptyList(),
     val apps: List<AppInfo> = emptyList(),
     val createShortcuts: List<LauncherInfo> = emptyList(),
@@ -20,10 +19,9 @@ data class UiState(
     val maxSelectCount: Int = MAX_SELECT_COUNT,
     val selectedRecord: SelectedRecord = SelectedRecord(),
     val longPressTargetIndex: Int? = null,
-    val actionSettingsDialog: ActionSettingsDialogValue = ActionSettingsDialogValue(false, Action.NONE),
     val subGestures: List<SubGesture> = emptyList(),
     val excludedSubGestureId: String = "",
-    val actionLibraryEntries: List<ActionLibraryEntry> = emptyList(),
+    val actionLibraryEntries: List<NewActionLibraryEntry> = emptyList(),
 ) {
     data class SelectedRecord(val list: List<Any> = emptyList()) {
 
@@ -106,10 +104,6 @@ data class UiState(
         }
     }
 
-    data class ActionSettingsDialogValue(
-        val show: Boolean,
-        val action: Action
-    )
 }
 
 sealed interface UiEvent

@@ -1,5 +1,10 @@
 package hunoia.luno.ui.component.input
-import hunoia.luno.ui.theme.*
+import hunoia.luno.ui.theme.CardInnerSpacing
+import hunoia.luno.ui.theme.LargeShape
+import hunoia.luno.ui.theme.ListItemVerticalPadding
+import hunoia.luno.ui.theme.SliderTextMaxWidth
+import hunoia.luno.ui.theme.MinItemHeightNoSecondary
+import hunoia.luno.ui.theme.SliderInnerPadding
 
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -30,34 +35,33 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.unit.dp
-import hunoia.luno.ui.theme.MinItemHeightNoSecondary
+import androidx.compose.ui.graphics.Shape
 
 
 @Composable
 private fun SliderSurface(
     text: String,
     modifier: Modifier = Modifier,
+    shape: Shape = LargeShape,
     valueDisplay: String? = null,
     sliderValueHint: Pair<String, String>? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = shape,
+        color = MaterialTheme.colorScheme.surfaceBright,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = MinItemHeightNoSecondary)
-                .padding(vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(vertical = ListItemVerticalPadding),
+            verticalArrangement = Arrangement.spacedBy(CardInnerSpacing)
         ) {
             Row(
                 modifier = Modifier
-                    .padding(horizontal = 12.dp)
+                    .padding(horizontal = SliderInnerPadding)
                     .fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -68,7 +72,7 @@ private fun SliderSurface(
                     maxLines = 1
                 )
                 if (valueDisplay != null) {
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(CardInnerSpacing))
                     Text(
                         text = valueDisplay,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -80,7 +84,7 @@ private fun SliderSurface(
             if (sliderValueHint != null) {
                 Box(
                     modifier = Modifier
-                        .padding(horizontal = 12.dp)
+                        .padding(horizontal = SliderInnerPadding)
                         .fillMaxWidth()
                 ) {
                     Text(
@@ -110,6 +114,7 @@ fun MyTextSlider(
     onValueChange: (Float) -> Unit,
     text: String,
     modifier: Modifier = Modifier,
+    shape: Shape = LargeShape,
     enabled: Boolean = true,
     sliderValueHint: Pair<String, String>? = null,
     valueDisplay: String? = null,
@@ -119,12 +124,13 @@ fun MyTextSlider(
 ) {
     SliderSurface(
         modifier = modifier,
+        shape = shape,
         text = text,
         valueDisplay = valueDisplay,
         sliderValueHint = sliderValueHint,
     ) {
         MySlider(
-            modifier = Modifier.padding(horizontal = 12.dp),
+            modifier = Modifier.padding(horizontal = SliderInnerPadding),
             enabled = enabled,
             value = value,
             onValueChange = onValueChange,
@@ -135,32 +141,6 @@ fun MyTextSlider(
     }
 }
 
-@Composable
-fun MyTextRangeSlider(
-    value: ClosedFloatingPointRange<Float>,
-    onValueChange: (ClosedFloatingPointRange<Float>) -> Unit,
-    text: String,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    sliderValueHint: Pair<String, String>? = null,
-    onValueChangeFinished: (() -> Unit)? = null,
-    valueRange: ClosedFloatingPointRange<Float> = 0f..1f
-) {
-    SliderSurface(
-        modifier = modifier,
-        text = text,
-        sliderValueHint = sliderValueHint,
-    ) {
-        MyRangeSlider(
-            modifier = Modifier.padding(horizontal = 12.dp - 6.dp),
-            enabled = enabled,
-            value = value,
-            onValueChange = onValueChange,
-            onValueChangeFinished = onValueChangeFinished,
-            valueRange = valueRange
-        )
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

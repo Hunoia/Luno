@@ -1,20 +1,19 @@
 package hunoia.luno.runtime.action
 
 import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import android.view.accessibility.AccessibilityEvent
-import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
+private const val PREVIOUS_APP_HISTORY_MAX = 16
 
 class PreviousAppTracker(
     private val packageManager: android.content.pm.PackageManager,
     private val startActivity: (Intent) -> Unit,
     private val rootInActiveWindowPackageName: () -> String?,
-    private val excludePackageNames: () -> List<String>,
 ) {
-    private var prevPackageName: String? = null
+    private val history = ArrayDeque<String>()
     private var currPackageName: String? = null
     private val launchablePackageCache = object : LinkedHashMap<String, Boolean>(256, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>?): Boolean = size > 256
@@ -30,42 +29,40 @@ class PreviousAppTracker(
                 val className = event.className?.toString()
 
                 isActivity(packageName, className)
-                val prevAppExcludePkgNames = excludePackageNames()
-                if (packageName !in prevAppExcludePkgNames &&
+                if (packageName != null &&
                     hasLaunchIntent(packageName) &&
                     currPackageName != packageName
                 ) {
-                    prevPackageName = currPackageName
+                    history.remove(packageName)
+                    history.addLast(packageName)
+                    while (history.size > PREVIOUS_APP_HISTORY_MAX) history.removeFirst()
                     currPackageName = packageName
-                    if (prevPackageName == null) {
-                        prevPackageName = currPackageName
-                    }
                 }
             }
             else -> Unit
         }
     }
 
-    suspend fun previousApp(): Boolean {
-        val prevPkgName = prevPackageName
-        val curPkgName = currPackageName
-        if (prevPkgName.isNullOrEmpty() || curPkgName.isNullOrEmpty()) {
+    suspend fun previousApp(excludePackageNames: List<String>): Boolean {
+        val current = currPackageName
+        if (current == null || history.isEmpty()) return false
+
+        val excludes = excludePackageNames.toSet()
+        val target = history.dropLast(1).lastOrNull { it !in excludes }
+        if (target == null) {
+            if (currPackageNameError()) return queryLaunchIntentAndStart(current)
             return false
         }
-        if (currPackageNameError()) {
-            queryLaunchIntentAndStart(curPkgName)
-            return true
-        }
-        if (prevPkgName == curPkgName) return false
-        if (queryLaunchIntentAndStart(prevPkgName)) {
-            prevPackageName = curPkgName
-            currPackageName = prevPkgName
-            return true
-        }
-        return false
+        if (!queryLaunchIntentAndStart(target)) return false
+        history.remove(target)
+        history.addLast(target)
+        currPackageName = target
+        return true
     }
 
     fun onRelease() {
+        history.clear()
+        currPackageName = null
         launchablePackageCache.clear()
         activityExistsCache.clear()
     }

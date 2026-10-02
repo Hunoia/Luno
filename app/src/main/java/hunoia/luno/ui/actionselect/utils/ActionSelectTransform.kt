@@ -3,17 +3,23 @@ package hunoia.luno.ui.actionselect
 import android.content.Context
 import hunoia.luno.R
 import hunoia.luno.action.api.ActionFacade
+import hunoia.luno.action.definitions.ActionDefinition
+import hunoia.luno.action.definitions.ActionDefinitions
+import hunoia.luno.action.definition.ActionCategory
+import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.api.appInfo
-import hunoia.luno.action.api.shortcutInfo
 import hunoia.luno.action.payload.SubGestureActionData
 import hunoia.luno.config.model.Action
-import hunoia.luno.config.model.ActionLibraryEntry
+import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.config.model.ActionLibraryRefData
-import hunoia.luno.config.model.actionValue
+import hunoia.luno.config.model.NewActionData
+import hunoia.luno.config.model.VALUE_LIBRARY_REF
+import hunoia.luno.config.model.VALUE_NEW_ACTION
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.actionLibraryRefId
+import hunoia.luno.config.model.newActionData
 import hunoia.luno.core.AppContext
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.ui.actionselect.UiState
@@ -31,7 +37,7 @@ fun Context.selectedItemLabel(item: Any, subGestures: List<SubGesture>): String 
 fun Context.selectedItemLabel(
     item: Any,
     subGestures: List<SubGesture>,
-    actionLibraryEntries: List<ActionLibraryEntry>
+    actionLibraryEntries: List<NewActionLibraryEntry>
 ): String {
     return when (item) {
         is Action -> actionTextWithSubGesture(item, subGestures, actionLibraryEntries, emptyIfNone = false)
@@ -50,7 +56,7 @@ fun Context.actionTextWithSubGesture(
 fun Context.actionTextWithSubGesture(
     action: Action,
     subGestures: List<SubGesture>,
-    actionLibraryEntries: List<ActionLibraryEntry>,
+    actionLibraryEntries: List<NewActionLibraryEntry>,
     emptyIfNone: Boolean
 ): String {
     action.actionLibraryRefId()?.let { id ->
@@ -65,8 +71,14 @@ fun Context.actionTextWithSubGesture(
     return subGestures.firstOrNull { it.id == data.id }?.name ?: getString(R.string.action_sub_gesture)
 }
 
-internal const val MAX_SELECT_COUNT = 5
-internal const val LONG_SLIDE_SOFT_MAX_SELECT_COUNT = 50
+/** 解析 Action 的展示分类：内联新动作走定义表，其余走旧目录 */
+internal fun actionCategory(action: Action): ActionCategory {
+    action.newActionData()?.let { stored ->
+        return ActionDefinitions.byTypeId(stored.typeId)?.category ?: ActionCategory.SYSTEM
+    }
+    return ActionFacade.byId(action.value)?.category ?: ActionCategory.SYSTEM
+}
+internal const val MAX_SELECT_COUNT = 50
 
 internal fun canActionEnabled(
     selectedRecord: SelectedRecord,
@@ -127,7 +139,6 @@ internal fun createTitle(actionSelect: ActionSelect): String {
         GestureTriggerType.SlideHold -> context.getString(R.string.slide_hold_action)
         GestureTriggerType.LongSlide -> context.getString(R.string.long1)
         GestureTriggerType.LongSlideHold -> context.getString(R.string.long_slide_hold_action)
-        else -> ""
     }
     return "$str1($str2)"
 }
@@ -135,7 +146,7 @@ internal fun createTitle(actionSelect: ActionSelect): String {
 internal fun Any.toAction(): Action {
     return when (this) {
         is Action -> this.copy(extra = null)
-        is ActionLibraryEntry -> this.toReferenceAction()
+        is NewActionLibraryEntry -> this.toReferenceAction()
         is AppInfo -> Action(
             value = ActionFacade.EXTRA_LAUNCH_APP,
             data = JsonSerializer.encodeToString(this)
@@ -148,22 +159,21 @@ internal fun Any.toAction(): Action {
     }
 }
 
-internal fun ActionLibraryEntry.toReferenceAction(): Action =
-    Action(value = type.actionValue(), data = JsonSerializer.encodeToString(ActionLibraryRefData(id)))
+internal fun NewActionLibraryEntry.toReferenceAction(): Action =
+    Action(value = VALUE_LIBRARY_REF, data = JsonSerializer.encodeToString(ActionLibraryRefData(id)))
+
+/** 定义表 -> 可勾选的 Action：内部动作沿用旧 id，其余落为内联新动作 */
+internal fun ActionDefinition.toReferenceAction(): Action =
+    legacyId?.let { Action(value = it) }
+        ?: Action(value = VALUE_NEW_ACTION, data = JsonSerializer.encodeToString(NewActionData(StoredAction(typeId))))
 
 internal fun Action.sameAction(other: Action): Boolean {
     return value == other.value && data == other.data
 }
 
 internal fun assembleDataTransform(state: UiState): UiState {
-    val allActions = ActionFacade.definitions
-        .filter { def -> def.isDisplayed }
-        .filterNot { def ->
-            def.actionId == ActionFacade.OPEN_APP_ACTIVITY ||
-                def.actionId == ActionFacade.OPEN_URL ||
-                def.actionId == ActionFacade.EXECUTE_SHELL_COMMAND
-        }
-        .map { def -> def.toAction() }
+    val allActions = ActionDefinitions.pickerDefinitions()
+        .map { def -> def.toReferenceAction() }
         .toMutableList()
         .apply {
             state.subGestures
@@ -177,15 +187,10 @@ internal fun assembleDataTransform(state: UiState): UiState {
                     )
                 }
         }
-    val allWithoutNone = allActions.apply { removeAt(0) }
     val list1 = mutableListOf<Action>()
     val list2 = mutableListOf<Action>()
-    allWithoutNone.forEach { action ->
-        if (state.selectedRecord.isSelected(action) || action == Action.NONE) {
-            list1.add(action)
-        } else {
-            list2.add(action)
-        }
+    allActions.forEach { action ->
+        if (state.selectedRecord.isSelected(action)) list1.add(action) else list2.add(action)
     }
     val finalList = list1 + list2
     return state.copy(actions = finalList)

@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.R
 import hunoia.luno.action.TriggerType
 import hunoia.luno.config.model.Action
@@ -94,7 +95,7 @@ internal fun SelectedActionPill(
             )
             Spacer(Modifier.width(8.dp))
             Surface(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(ContainerRadius),
                 color = if (longPress) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f) else accentColor.copy(alpha = 0.18f),
             ) {
                 Text(

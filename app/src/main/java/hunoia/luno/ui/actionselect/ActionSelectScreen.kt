@@ -4,16 +4,22 @@ import android.app.Activity
 import android.content.Intent
 import android.content.Intent.ShortcutIconResource
 import android.graphics.Bitmap
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -22,6 +28,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
@@ -32,7 +40,6 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -55,22 +62,17 @@ import com.aaron.compose.component.UDFComponent
 import com.aaron.compose.component.UiBaseEvent
 import hunoia.luno.R
 import hunoia.luno.config.model.Action
-import hunoia.luno.ui.component.OptimizedBottomSheet
 import hunoia.luno.ui.component.TopBar
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.ui.navigation.ActionSelect
-import hunoia.luno.ui.settings.ActionSettingsDialogContent
 import hunoia.luno.bridge.feedback.showToast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import android.os.Build
 import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.theme.*
-
-
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -103,28 +105,28 @@ fun ActionSelectContent(
             }
         }
     ) { uiState ->
-        if (uiState.actionSettingsDialog.show) {
-            ActionSettingsDialogContent(
-                onDismissRequest = { vm.showDialog(false) },
-                action = uiState.actionSettingsDialog.action,
-                onActionDataChanged = { vm.select(uiState.actionSettingsDialog.action.copy(data = it), true) }
-            )
-        }
-
-        val snackbarHostState = remember { SnackbarHostState() }
         val coroutineScope = rememberCoroutineScope()
 
         Box(modifier = Modifier.fillMaxSize()) {
-            Scaffold(topBar = {
-                TopBar(
-                    onBack = onDismiss,
-                    title = uiState.title,
-                )
-            }) { padding ->
+            val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+            val topBarBackdrop = liquidGlassBackdrop()
+            Scaffold(
+                modifier = Modifier.fillMaxSize(),
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                contentWindowInsets = WindowInsets(),
+                topBar = {
+                    TopBar(
+                        onBack = onDismiss,
+                        title = uiState.title,
+                        scrollBehavior = scrollBehavior,
+                        backdrop = topBarBackdrop,
+                    )
+                }
+            ) { padding ->
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding)
+                        .layerBackdrop(topBarBackdrop)
                 ) {
                     val permissionState = rememberGetInstalledAppsPermissionState { granted ->
                         if (granted) {
@@ -136,9 +138,6 @@ fun ActionSelectContent(
                         if (permissionState.isGranted) {
                             vm.updateAppInfos()
                             vm.updateShortcutInfos()
-                        }
-                        if (uiState.selectedRecord.list.isEmpty()) {
-                            vm.reloadData()
                         }
                     }
                     val context = LocalContext.current
@@ -175,7 +174,8 @@ fun ActionSelectContent(
                     Box(modifier = Modifier.weight(1f)) {
                         ActionPage(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(bottom = 24.dp),
+                            nestedScroll = scrollBehavior.nestedScrollConnection,
+                            contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = ContentBottom),
                             actions = uiState.actions,
                             actionLibraryEntries = uiState.actionLibraryEntries,
                             subGestures = uiState.subGestures,
@@ -184,18 +184,14 @@ fun ActionSelectContent(
                             launchShortcuts = uiState.launchShortcuts,
                             selectedRecord = uiState.selectedRecord,
                             maxSelectCount = uiState.maxSelectCount,
-                            longPressTargetIndex = uiState.longPressTargetIndex,
-                            selectSingle = uiState.selectSingle,
-                            snackbarHostState = snackbarHostState,
+                             longPressTargetIndex = uiState.longPressTargetIndex,
                             permissionState = permissionState,
                             onSelect = { action, selected -> vm.select(action, selected) },
                             onSelectLibraryEntry = { entry, selected -> vm.select(entry, selected) },
                             onSelectLongPress = { obj -> vm.selectLongPressAction(obj) },
                             onSetLongPress = { index -> vm.startSetLongPressAction(index) },
-                            onClearLongPress = { index -> vm.clearLongPressAction(index) },
                             onCancelLongPress = { vm.cancelSetLongPressAction() },
                             onMoveSelected = { from, to -> vm.moveSelectedAction(from, to) },
-                            onSettingsClick = { action -> vm.showDialog(true, action) },
                             onSelectApp = { appInfo, selected -> vm.select(appInfo, selected) },
                             onSelectShortcut = { shortcutInfo, selected -> vm.select(shortcutInfo, selected) },
                             onAppLongClick = { appInfo -> vm.toggleMiniWindow(appInfo) },
@@ -209,7 +205,7 @@ fun ActionSelectContent(
                     }
 
                     AnimatedVisibility(
-                        visible = !uiState.selectSingle && uiState.selectedRecord.size > 0 && isExpanded,
+                        visible = uiState.selectedRecord.size > 0 && isExpanded,
                         enter = expandVertically(animationSpec = tween(AnimMedium.toInt())) +
                                 fadeIn(animationSpec = tween(AnimMedium.toInt())),
                         exit = shrinkVertically(animationSpec = tween(AnimMedium.toInt())) +
@@ -243,12 +239,15 @@ fun ActionSelectContent(
                         )
                     }
 
-                    if (!uiState.selectSingle && uiState.selectedRecord.size > 0) {
+                    if (uiState.selectedRecord.size > 0) {
+                        val inLongPressMode = uiState.longPressTargetIndex != null
                         SelectedBottomBar(
                             count = uiState.selectedRecord.size,
                             expanded = isExpanded,
-                            onToggleExpand = { isExpanded = !isExpanded },
-                            onDone = { vm.done() },
+                            inLongPressMode = inLongPressMode,
+                            onToggleExpand = { if (!inLongPressMode) isExpanded = !isExpanded },
+                            onDone = { if (!inLongPressMode) vm.done() },
+                            onCancel = { vm.cancelSetLongPressAction() },
                         )
                     }
                 }
@@ -263,36 +262,57 @@ fun ActionSelectContent(
 private fun SelectedBottomBar(
     count: Int,
     expanded: Boolean,
+    inLongPressMode: Boolean,
     onToggleExpand: () -> Unit,
     onDone: () -> Unit,
+    onCancel: () -> Unit,
 ) {
+    val backdrop = liquidGlassBackdrop()
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        tonalElevation = 8.dp,
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
+            .padding(start = PageGutter, end = PageGutter, bottom = BottomBarPadding)
+            .clip(RoundedCornerShape(BottomBarCapsuleRadius))
+            .liquidGlassBlur(backdrop),
+        color = glassSurfaceColor(),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp * 2, vertical = 8.dp),
+                .height(BottomBarHeight)
+                .layerBackdrop(backdrop)
+                .padding(horizontal = PageGutter),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = stringResource(R.string.selected_count_no_limit, count),
-                style = MaterialTheme.typography.titleSmall,
-            )
-            Spacer(Modifier.weight(1f))
-            TextButton(onClick = onToggleExpand) {
-                Text(if (expanded) stringResource(R.string.collapse) else stringResource(R.string.expand))
-                Icon(
-                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
+            if (inLongPressMode) {
+                Text(
+                    text = stringResource(R.string.choose_long_press_action_hint),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f),
                 )
-            }
-            Spacer(Modifier.width(4.dp))
-            FilledTonalButton(onClick = onDone) {
-                Text(stringResource(R.string.done))
+                TextButton(onClick = onCancel) {
+                    Text(stringResource(R.string.cancel))
+                }
+            } else {
+                Text(
+                    text = stringResource(R.string.selected_count_no_limit, count),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = onToggleExpand) {
+                    Text(if (expanded) stringResource(R.string.collapse) else stringResource(R.string.expand))
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                Spacer(Modifier.width(ShapeExtraSmall))
+                FilledTonalButton(onClick = onDone) {
+                    Text(stringResource(R.string.done))
+                }
             }
         }
     }

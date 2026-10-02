@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Tune
@@ -48,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
+import hunoia.luno.ui.theme.MediumShape
 import hunoia.luno.R
 import coil.compose.AsyncImage
 import hunoia.luno.quicklaunch.QuickLaunchFacade
@@ -86,7 +86,7 @@ internal fun KeyboardRow(
                             scaleX = scale
                             scaleY = scale
                         }
-                        .clip(MaterialTheme.shapes.medium)
+                        .clip(MediumShape)
                         .combinedClickable(
                             interactionSource = interactionSource,
                             onClick = {
@@ -175,7 +175,7 @@ internal fun AppItem(app: AppInfo, iconHeight: Dp? = null, onClick: () -> Unit, 
             Modifier.height(iconHeight).fillMaxWidth()
         } else {
             Modifier.fillMaxWidth().aspectRatio(1f)
-        }.clip(MaterialTheme.shapes.medium)
+        }.clip(MediumShape)
         val icon = rememberAppIconAsync(context, app.packageName)
         if (icon != null) {
             AsyncImage(

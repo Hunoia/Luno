@@ -6,7 +6,6 @@ import android.view.View
 import android.view.WindowManager
 import androidx.core.content.ContextCompat
 import hunoia.luno.BuildConfig
-import hunoia.luno.bridge.window.removeWindow
 import hunoia.luno.bridge.window.removeWindows
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.gesture.input.MotionEventDispatcher
@@ -21,7 +20,7 @@ class ButtonWindowController(
     val buttonViews: List<View> get() = _buttonViews.toList()
 
     fun replaceGestureButtons(buttons: Collection<GestureButton>) {
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "replace buttons: count=${buttons.size}")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "replace buttons: count=${buttons.size}")
         host.removeWindows(_buttonViews)
         _buttonViews.clear()
         for (button in buttons) {
@@ -54,7 +53,7 @@ class ButtonWindowController(
     }
 
     fun release() {
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "ButtonWindowController release: count=${_buttonViews.size}")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "ButtonWindowController release: count=${_buttonViews.size}")
         host.removeWindows(_buttonViews)
         _buttonViews.clear()
     }

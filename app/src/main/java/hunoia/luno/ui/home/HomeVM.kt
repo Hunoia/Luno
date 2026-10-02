@@ -3,7 +3,6 @@ package hunoia.luno.ui.home
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.viewModelScope
-import hunoia.luno.bridge.feedback.showToast
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.SubGestureCleaner
 import hunoia.luno.config.backup.RestorePrecheckResult

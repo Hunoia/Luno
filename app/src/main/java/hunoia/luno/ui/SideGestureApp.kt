@@ -35,22 +35,22 @@ import hunoia.luno.ui.navigation.GestureButtonSettings
 import hunoia.luno.ui.navigation.Home
 import hunoia.luno.ui.navigation.ActionSettings
 import hunoia.luno.ui.navigation.SubGestureEditor
-import hunoia.luno.ui.navigation.Condition
-import hunoia.luno.ui.navigation.ConditionEdit
+import hunoia.luno.ui.navigation.Automation
+import hunoia.luno.ui.navigation.AutomationEdit
 
-import hunoia.luno.ui.navigation.ActionLibraryEdit
+import hunoia.luno.ui.navigation.NewActionLibraryEdit
 
 import hunoia.luno.ui.actionselect.ActionSelectContent
-import hunoia.luno.ui.actionlibrary.ActionLibraryEditScreen
-import hunoia.luno.ui.condition.ConditionEditScreen
-import hunoia.luno.ui.condition.ConditionSettingsScreen
+import hunoia.luno.ui.actionlibrary.NewActionLibraryEditScreen
+import hunoia.luno.ui.automation.AutomationEditScreen
+import hunoia.luno.ui.automation.AutomationSettingsScreen
 import hunoia.luno.ui.settings.action.ActionSettingsScreen
 
 import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsScreen
 
 import hunoia.luno.ui.settings.gesture.subgesture.SubGestureSettingsScreen
 import hunoia.luno.config.ConfigProvider
-import hunoia.luno.config.model.ActionLibrarySettings
+import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalNavController
@@ -64,8 +64,8 @@ fun SideGestureApp() {
     SideGestureTheme {
         val navController = rememberNavController()
         val durationMs = ANIMATION_DURATION_MS
-        val actionLibrarySettings by ConfigProvider.actionLibrarySettings
-            .collectAsStateWithLifecycle(initialValue = ActionLibrarySettings())
+        val actionLibrarySettings by ConfigProvider.newActionLibrarySettings
+            .collectAsStateWithLifecycle(initialValue = NewActionLibrarySettings())
         CompositionLocalProvider(
             LocalNavController provides navController,
             LocalActionLibraryEntries provides actionLibrarySettings.entries
@@ -101,13 +101,13 @@ fun SideGestureApp() {
                             navController.navigate(SubGestureEditor(subGestureId))
                         },
                         onNavToCondition = {
-                            navController.navigate(Condition)
+                            navController.navigate(Automation)
                         },
                         onNavToActionSettings = {
                             navController.navigate(ActionSettings)
                         },
-                        onNavToActionLibraryEdit = { route ->
-                            navController.navigate(route)
+                        onNavToActionLibraryEdit = { entryId, typeId ->
+                            navController.navigate(NewActionLibraryEdit(entryId, typeId))
                         }
                     )
                 }
@@ -134,23 +134,23 @@ fun SideGestureApp() {
                         onNavToActionSelect = { navController.navigate(it) }
                     )
                 }
-                myComposable<Condition> {
-                    ConditionSettingsScreen(
+                myComposable<Automation> {
+                    AutomationSettingsScreen(
                         onBack = { navController.popBackStack() },
-                        onNavToEdit = { ruleId -> navController.navigate(ConditionEdit(ruleId)) },
+                        onNavToEdit = { ruleId -> navController.navigate(AutomationEdit(ruleId)) },
                     )
                 }
-                myComposable<ConditionEdit> {
-                    ConditionEditScreen(
+                myComposable<AutomationEdit> {
+                    AutomationEditScreen(
                         onBack = { navController.popBackStack() },
-                        ruleId = it.toRoute<ConditionEdit>().ruleId,
+                        ruleId = it.toRoute<AutomationEdit>().ruleId,
                     )
                 }
-                myComposable<ActionLibraryEdit> {
-                    ActionLibraryEditScreen(
+                myComposable<NewActionLibraryEdit> {
+                    NewActionLibraryEditScreen(
                         onBack = { navController.popBackStack() },
-                        entryId = it.toRoute<ActionLibraryEdit>().entryId,
-                        type = it.toRoute<ActionLibraryEdit>().type,
+                        entryId = it.toRoute<NewActionLibraryEdit>().entryId,
+                        typeId = it.toRoute<NewActionLibraryEdit>().typeId,
                     )
                 }
             }
@@ -193,7 +193,7 @@ private inline fun <reified T : Any> NavGraphBuilder.myComposable(
         popExitTransition = popExitTransition,
         sizeTransform = sizeTransform
     ) { navBackStackEntry ->
-        Surface(color = MaterialTheme.colorScheme.surface) {
+        Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
             content(navBackStackEntry)
         }
     }

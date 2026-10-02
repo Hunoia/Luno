@@ -14,19 +14,23 @@ import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureButtonActionSettingsOverride
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.action.ActionDispatcher
-import hunoia.luno.runtime.action.KeepScreenOnController
+import hunoia.luno.config.model.ScreenEventType
 import hunoia.luno.runtime.action.PreviousAppTracker
+import hunoia.luno.runtime.condition.AudioVolumeTracker
+import hunoia.luno.runtime.condition.hasVolumeCondition
+import hunoia.luno.runtime.automation.AutomationEngine
+import hunoia.luno.runtime.automation.AutomationRuntime
 import hunoia.luno.runtime.button.ButtonHideRuntime
 import hunoia.luno.runtime.button.ButtonRefreshCoordinator
 import hunoia.luno.runtime.condition.BatteryTracker
 import hunoia.luno.runtime.condition.TimeConditionTicker
 import hunoia.luno.runtime.environment.BroadcastObserver
+import hunoia.luno.runtime.environment.ConditionSources
 import hunoia.luno.runtime.environment.EnvironmentTracker
 import hunoia.luno.runtime.overlay.GestureOverlayCallbacks
 import hunoia.luno.runtime.overlay.OverlayCoordinator
 import hunoia.luno.runtime.settings.SettingsStore
 import hunoia.luno.runtime.volume.VolumeScrubRuntime
-import hunoia.luno.bridge.feedback.showToast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -47,7 +51,7 @@ class GestureCoordinator(
             )
         },
         onKeyboardStateChanged = { active ->
-            if (BuildConfig.DEBUG) Log.d("LunoLauncher", "keyboard active=$active")
+            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "keyboard active=$active")
             refreshGestureButtons()
         },
     )
@@ -58,17 +62,35 @@ class GestureCoordinator(
     private val broadcastObserver = BroadcastObserver(
         context = host.context,
         onScreenOff = {
-            if (BuildConfig.DEBUG) Log.d("LunoLauncher", "screen off")
+            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "screen off")
             environmentTracker.isNowInLockScreenPage = true
             host.quickAppLauncherOverlay.closeImmediately()
             host.runtimePanelOverlay.closeImmediately()
             refreshGestureButtons()
         },
+        onScreenOn = {
+            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "screen on")
+            environmentTracker.onScreenEvent(ScreenEventType.SCREEN_ON)
+            refreshGestureButtons()
+        },
         onUserPresent = {
-            if (BuildConfig.DEBUG) Log.d("LunoLauncher", "user present")
+            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "user present")
             environmentTracker.isNowInLockScreenPage = false
             refreshGestureButtons()
         }
+    )
+
+    private val conditionSources = ConditionSources(
+        context = host.context,
+        onStateChanged = { refreshGestureButtons() },
+    )
+
+    private val audioVolumeTracker = AudioVolumeTracker(
+        context = host.context,
+        onVolumeChanged = { change ->
+            environmentTracker.onVolumeChanged(change)
+            refreshGestureButtons()
+        },
     )
 
     private val buttonHideRuntime = ButtonHideRuntime(
@@ -78,63 +100,62 @@ class GestureCoordinator(
 
     private val batteryTracker = BatteryTracker(
         context = host.context,
-        onChanged = { refreshGestureButtons() },
+        onChanged = { charging ->
+            environmentTracker.onChargingChanged(charging)
+            refreshGestureButtons()
+        },
     )
 
     private val timeConditionTicker = TimeConditionTicker(
         scope = host.coroutineScope,
-        rulesProvider = { runtimeSettingsStore.snapshot().advancedSettings.conditionRules },
+        rulesProvider = { runtimeSettingsStore.snapshot().automationRules },
         onTimeSignatureChanged = { refreshGestureButtons(delayMs = 0L) },
-    )
-
-    private val buttonRefreshCoordinator = ButtonRefreshCoordinator(
-        runtimeSettingsStore = runtimeSettingsStore,
-        buttonWindowController = overlayCoordinator.buttonWindowController,
-        buildRuntimeState = {
-            environmentTracker.buildRuntimeState(
-                hiddenGestureButtons = buttonHideRuntime.getSnapshot(),
-                isCharging = batteryTracker.isCharging,
-                batteryLevel = batteryTracker.batteryLevel,
-            )
-        },
     )
 
     private val previousAppTracker = PreviousAppTracker(
         packageManager = host.context.packageManager,
         startActivity = { host.context.startActivity(it) },
         rootInActiveWindowPackageName = { host.accessibilityService.rootInActiveWindow?.packageName?.toString() },
-        excludePackageNames = { runtimeSettingsStore.snapshot().actionSettings.previousApp.packageNames },
-    )
-
-    private val keepScreenOnController = KeepScreenOnController(
-        context = host.context,
-        showToast = { showToast(it) },
     )
 
     private val actionDispatcher = ActionDispatcher(
         host = host,
         scope = host.coroutineScope,
         previousAppTracker = previousAppTracker,
-        keepScreenOnController = keepScreenOnController,
         settingsSnapshot = {
             val s = runtimeSettingsStore.snapshot()
             hunoia.luno.runtime.action.SettingsSnapshot(
                 actionSettings = s.actionSettings,
                 advancedSettings = s.advancedSettings,
                 gestureSettings = s.gestureSettings,
-                actionLibrarySettings = s.actionLibrarySettings,
+                newActionLibrarySettings = s.newActionLibrarySettings,
             )
         },
         onToggleQuickAppLauncher = { host.quickAppLauncherOverlay.toggle() },
-        onShowVolumeScrub = { volumeScrubRuntime.show() },
+        onShowVolumeScrub = { config -> volumeScrubRuntime.show(config) },
         onHideGestureButton = { button, delayMs ->
             if (button != null) buttonHideRuntime.hideTemporarily(button, delayMs)
         },
     )
 
+    private val automationEngine = AutomationEngine(
+        onRunEntry = { entryId -> actionDispatcher.runActionEntry(entryId) },
+    )
+
+    private val buttonRefreshCoordinator = ButtonRefreshCoordinator(
+        runtimeSettingsStore = runtimeSettingsStore,
+        buttonWindowController = overlayCoordinator.buttonWindowController,
+    )
+
+    private val automationRuntime = AutomationRuntime(
+        runtimeSettingsStore = runtimeSettingsStore,
+        buildRuntimeState = ::buildRuntimeState,
+        automationEngine = automationEngine,
+        onVisibilityRefresh = { state -> buttonRefreshCoordinator.refresh(state) },
+    )
+
     private val volumeScrubRuntime = VolumeScrubRuntime(
         context = host.context,
-        actionSettingsProvider = { runtimeSettingsStore.snapshot().actionSettings },
         onStateChanged = { refreshGestureButtons() },
     )
 
@@ -160,10 +181,12 @@ class GestureCoordinator(
     fun onSetOverlay() {
         if (started) return
         started = true
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "GestureCoordinator start")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "GestureCoordinator start")
         runtimeSettingsStore.start()
         broadcastObserver.register()
         batteryTracker.register()
+        audioVolumeTracker.sync(volumePollNeeded())
+        conditionSources.start()
         val listener = WallpaperManager.OnColorsChangedListener { _, _ ->
             hunoia.luno.core.Events.post(hunoia.luno.bridge.WallpaperChangedEvent())
         }
@@ -176,7 +199,7 @@ class GestureCoordinator(
             runtimeSettingsStore.state
                 .distinctUntilChangedBy { it.gestureButtons }
                 .collectLatest { state ->
-                    if (BuildConfig.DEBUG) Log.d("LunoLauncher", "gesture buttons changed: count=${state.gestureButtons.size}")
+                    if (BuildConfig.DEBUG) Log.i("LunoLauncher", "gesture buttons changed: count=${state.gestureButtons.size}")
                     overlayCoordinator.replaceGestureButtons(state.gestureButtons)
                     refreshGestureButtons(delayMs = 0L)
                 }
@@ -189,9 +212,10 @@ class GestureCoordinator(
         scopeJobs += host.coroutineScope.launch {
             var firstRuleEmission = true
             runtimeSettingsStore.state
-                .distinctUntilChangedBy { it.advancedSettings.conditionRules }
+                .distinctUntilChangedBy { it.automationRules }
                 .collect { state ->
-                    timeConditionTicker.sync(state.advancedSettings.conditionRules)
+                    timeConditionTicker.sync(state.automationRules)
+                    audioVolumeTracker.sync(volumePollNeeded(state.automationRules))
                     if (firstRuleEmission) {
                         firstRuleEmission = false
                     } else {
@@ -205,7 +229,7 @@ class GestureCoordinator(
         previousAppTracker.onAccessibilityEvent(event)
         environmentTracker.onAccessibilityEvent(event)
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            if (BuildConfig.DEBUG) Log.d("LunoLauncher", "window changed: pkg=${event.packageName}")
+            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "window changed: pkg=${event.packageName}")
             refreshGestureButtons()
         }
     }
@@ -213,7 +237,7 @@ class GestureCoordinator(
     fun onConfigurationChanged(newConfig: Configuration) {
         val oldOrientation = environmentTracker.orientation
         if (oldOrientation != newConfig.orientation) {
-            if (BuildConfig.DEBUG) Log.d("LunoLauncher", "orientation=${newConfig.orientation}")
+            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "orientation=${newConfig.orientation}")
             environmentTracker.onOrientationChanged(newConfig.orientation)
             overlayCoordinator.updateMainLayout()
             refreshGestureButtons()
@@ -223,28 +247,48 @@ class GestureCoordinator(
     fun onDestroy() {
         if (!started) return
         started = false
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "GestureCoordinator destroy")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "GestureCoordinator destroy")
         runtimeSettingsStore.stop()
         timeConditionTicker.stop()
         batteryTracker.unregister()
+        audioVolumeTracker.unregister()
+        conditionSources.stop()
         scopeJobs.forEach { it.cancel() }
         scopeJobs.clear()
         overlayCoordinator.release()
         broadcastObserver.unregister()
         volumeScrubRuntime.onDestroy()
         previousAppTracker.onRelease()
-        keepScreenOnController.onRelease()
         wallpaperColorsListener?.let { listener ->
             WallpaperManager.getInstance(host.context).removeOnColorsChangedListener(listener)
             wallpaperColorsListener = null
         }
     }
 
+    private fun buildRuntimeState(): GestureRuntimeState =
+        environmentTracker.buildRuntimeState(
+            hiddenGestureButtons = buttonHideRuntime.getSnapshot(),
+            isCharging = batteryTracker.isCharging,
+            batteryLevel = batteryTracker.batteryLevel,
+            networkType = conditionSources.networkType,
+            headphonesConnected = conditionSources.headphonesConnected,
+            bluetoothAdapterOn = conditionSources.bluetoothAdapterOn,
+            bluetoothAudioConnected = conditionSources.bluetoothAudioConnected,
+            airplaneMode = conditionSources.airplaneMode,
+            isRingerSilent = audioVolumeTracker.isRingerSilent,
+            volumePercent = audioVolumeTracker.volumePercent,
+        )
+
+    private fun volumePollNeeded(rules: List<hunoia.luno.config.model.AutomationRule>? = null): Boolean {
+        val list = rules ?: runtimeSettingsStore.snapshot().automationRules
+        return list.any { rule -> rule.condition.hasVolumeCondition() }
+    }
+
     private fun refreshGestureButtons(delayMs: Long = 100L) {
         refreshJob?.cancel()
         refreshJob = host.coroutineScope.launch {
             if (delayMs > 0L) delay(delayMs)
-            buttonRefreshCoordinator.refresh()
+            automationRuntime.evaluate()
         }
     }
 

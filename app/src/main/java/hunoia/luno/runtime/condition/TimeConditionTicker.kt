@@ -1,6 +1,6 @@
 package hunoia.luno.runtime.condition
 
-import hunoia.luno.config.model.VisibilityRule
+import hunoia.luno.config.model.AutomationRule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -9,12 +9,12 @@ import kotlinx.coroutines.launch
 
 class TimeConditionTicker(
     private val scope: CoroutineScope,
-    private val rulesProvider: () -> List<VisibilityRule>,
+    private val rulesProvider: () -> List<AutomationRule>,
     private val onTimeSignatureChanged: () -> Unit,
 ) {
     private var job: Job? = null
 
-    fun sync(rules: List<VisibilityRule>) {
+    fun sync(rules: List<AutomationRule>) {
         if (rules.any { it.condition.hasTimeRange() }) {
             if (job?.isActive != true) start()
         } else {

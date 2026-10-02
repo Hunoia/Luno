@@ -1,13 +1,9 @@
 package hunoia.luno.ui.settings.gesture.button
-import hunoia.luno.ui.theme.*
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Straighten
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Vibration
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,12 +13,13 @@ import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxGestureButtonArea
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinGestureButtonLength
-import hunoia.luno.config.defaults.SettingsUiDefaults.GestureButtonColorAlpha
 import hunoia.luno.config.model.GestureButton
+import hunoia.luno.ui.component.SegmentedGroup
+import hunoia.luno.ui.component.SegmentedSettingsRow
+import hunoia.luno.ui.component.SegmentedSwitchRow
 import hunoia.luno.ui.component.input.MyTextSlider
-import hunoia.luno.ui.component.settings.CompactSettingsGroup
-import hunoia.luno.ui.component.settings.CompactSettingsRow
-import hunoia.luno.ui.component.settings.CompactSettingsSwitchRow
+import hunoia.luno.ui.component.segmentedShape
+import hunoia.luno.ui.theme.SegmentedGap
 
 @Composable
 fun GestureButtonPhysicalParamsCard(
@@ -33,26 +30,27 @@ fun GestureButtonPhysicalParamsCard(
     onVibrationClick: () -> Unit,
     onTriggerDistanceClick: () -> Unit,
 ) {
-    CompactSettingsGroup(
+    SegmentedGroup(
         title = stringResource(id = R.string.physical_params),
-        subtitle = stringResource(id = R.string.physical_params_subtitle),
+        contentSpacing = SegmentedGap,
     ) {
-        CompactSettingsRow(
+        SegmentedSettingsRow(
             onClick = onAngleClick,
             title = stringResource(id = R.string.gesture_angles),
-            subtitle = stringResource(id = R.string.gesture_button_angles_hint),
             icon = Icons.Default.Straighten,
+            shape = segmentedShape(0, 8),
         )
-        CompactSettingsRow(
+        SegmentedSettingsRow(
             onClick = onVibrationClick,
             title = stringResource(id = R.string.gesture_button_vibration),
-            subtitle = stringResource(id = R.string.vibration_hint),
             icon = Icons.Default.Vibration,
+            shape = segmentedShape(1, 8),
         )
-        CompactSettingsRow(
+        SegmentedSettingsRow(
             onClick = onTriggerDistanceClick,
             title = stringResource(id = R.string.gesture_button_trigger_distance),
             icon = Icons.Default.Settings,
+            shape = segmentedShape(2, 8),
         )
         val maxWidth = minOf(
             (1f - gestureButton.bounds.x).coerceAtLeast(MinGestureButtonLength),
@@ -83,7 +81,8 @@ fun GestureButtonPhysicalParamsCard(
             },
             text = stringResource(id = R.string.gesture_button_x),
             valueDisplay = "${(displayedX * 100).toInt()}%",
-            valueRange = 0f..maxX
+            valueRange = 0f..maxX,
+            shape = segmentedShape(3, 8),
         )
         MyTextSlider(
             value = displayedY,
@@ -96,7 +95,8 @@ fun GestureButtonPhysicalParamsCard(
             },
             text = stringResource(id = R.string.gesture_button_y),
             valueDisplay = "${(displayedY * 100).toInt()}%",
-            valueRange = 0f..maxY
+            valueRange = 0f..maxY,
+            shape = segmentedShape(4, 8),
         )
         MyTextSlider(
             value = displayedWidth,
@@ -109,7 +109,8 @@ fun GestureButtonPhysicalParamsCard(
             },
             text = stringResource(id = R.string.gesture_button_width),
             valueDisplay = "${(displayedWidth * 100).toInt()}%",
-            valueRange = MinGestureButtonLength..maxWidth
+            valueRange = MinGestureButtonLength..maxWidth,
+            shape = segmentedShape(5, 8),
         )
         MyTextSlider(
             value = displayedHeight,
@@ -122,13 +123,14 @@ fun GestureButtonPhysicalParamsCard(
             },
             text = stringResource(id = R.string.gesture_button_height),
             valueDisplay = "${(displayedHeight * 100).toInt()}%",
-            valueRange = MinGestureButtonLength..maxHeight
+            valueRange = MinGestureButtonLength..maxHeight,
+            shape = segmentedShape(6, 8),
         )
-        CompactSettingsSwitchRow(
+        SegmentedSwitchRow(
             onCheckedChange = { vm.onGestureButtonMirrorHorizontalChange(it) },
             checked = mirrorHorizontal,
             title = stringResource(id = R.string.gesture_button_mirror),
-            subtitle = stringResource(id = R.string.gesture_button_mirror_hint),
+            shape = segmentedShape(7, 8),
         )
     }
 }

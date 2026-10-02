@@ -1,7 +1,7 @@
 package hunoia.luno.runtime.overlay
 
-import android.os.SystemClock
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -13,7 +13,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.bridge.WallpaperChangedEvent
 import hunoia.luno.runtime.settings.SettingsState
 import hunoia.luno.ui.component.container.SideGestureContainer
-import hunoia.luno.core.Events
+import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.core.Events.SubscribeEvent
 import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.flow.StateFlow
@@ -33,24 +33,25 @@ fun GestureOverlayView(
     val state by settingsState.collectAsStateWithLifecycle()
 
     SideGestureTheme(wallpaperChangeTrigger = themeKey) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            SideGestureContainer(
-                modifier = Modifier.matchParentSize(),
-                buttons = state.gestureButtons,
-                onSubGestureModeChanged = { inSubGesture, center, radiusPx ->
-                    callbacks.onSubGestureModeChanged(inSubGesture, center, radiusPx)
-                },
-                onActionPanelOverlayChanged = { show ->
-                    callbacks.onActionPanelOverlayChanged(show)
-                },
-                onAction = { action, sourceButton, sourceOverride ->
-                    callbacks.onAction(action, sourceButton, sourceOverride)
-                },
-                actionSettings = state.actionSettings,
-                advancedSettings = state.advancedSettings,
-                gestureSettings = state.gestureSettings,
-                subGestureSettings = state.subGestureSettings,
-            )
+        CompositionLocalProvider(LocalActionLibraryEntries provides state.newActionLibrarySettings.entries) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                SideGestureContainer(
+                    modifier = Modifier.matchParentSize(),
+                    buttons = state.gestureButtons,
+                    onSubGestureModeChanged = { inSubGesture, center, radiusPx ->
+                        callbacks.onSubGestureModeChanged(inSubGesture, center, radiusPx)
+                    },
+                    onActionPanelOverlayChanged = { show ->
+                        callbacks.onActionPanelOverlayChanged(show)
+                    },
+                    onAction = { action, sourceButton, sourceOverride ->
+                        callbacks.onAction(action, sourceButton, sourceOverride)
+                    },
+                    advancedSettings = state.advancedSettings,
+                    gestureSettings = state.gestureSettings,
+                    subGestureSettings = state.subGestureSettings,
+                )
+            }
         }
     }
 }

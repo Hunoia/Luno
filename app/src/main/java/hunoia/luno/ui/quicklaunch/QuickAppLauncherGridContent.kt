@@ -2,7 +2,6 @@ package hunoia.luno.ui.quicklaunch
 import hunoia.luno.ui.theme.*
 
 import android.view.HapticFeedbackConstants
-import android.view.View
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -24,7 +23,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
@@ -40,6 +38,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import hunoia.luno.ui.theme.MediumShape
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.query.AppSearch.key
 
@@ -59,7 +58,7 @@ internal fun PageMatchIcon(
         Box(
             modifier = Modifier
                 .let { if (iconHeight != null) it.height(iconHeight).fillMaxWidth() else it.fillMaxWidth().aspectRatio(1f) }
-                .clip(MaterialTheme.shapes.medium)
+                .clip(MediumShape)
                 .background(MaterialTheme.colorScheme.tertiaryContainer),
             contentAlignment = Alignment.Center
         ) {

@@ -18,7 +18,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -27,7 +26,6 @@ import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.util.fastForEachIndexed
 import com.aaron.compose.ktx.toDp
 import com.aaron.compose.ktx.toPx
-import hunoia.luno.config.model.Action
 import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.config.model.GestureSettings
 

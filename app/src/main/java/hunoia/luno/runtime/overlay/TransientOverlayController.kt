@@ -1,6 +1,5 @@
 package hunoia.luno.runtime.overlay
 
-import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import androidx.compose.ui.geometry.Offset

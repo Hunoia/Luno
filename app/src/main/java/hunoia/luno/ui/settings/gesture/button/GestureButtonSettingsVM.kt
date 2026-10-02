@@ -16,7 +16,6 @@ import hunoia.luno.config.model.GestureButtonAngle
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.ui.navigation.GestureButtonSettings
 import hunoia.luno.config.model.ActionPanelStyles
-import hunoia.luno.bridge.vibration.VibrationEffects
 
 import hunoia.luno.config.ConfigProvider
 import kotlinx.coroutines.Job
@@ -177,9 +176,8 @@ class GestureButtonSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeV
     fun onLongSlideVibrateChange(value: Boolean) = updateButton { copy(longSlideVibrate = value) }
     fun onTapVibrateChange(value: Boolean) = updateButton { copy(tapVibrate = value) }
     fun onLongPressVibrateChange(value: Boolean) = updateButton { copy(longPressVibrate = value) }
-    fun onVibrateImmediatelyChange(value: Boolean) = updateButton { copy(vibrateImmediately = value) }
-    fun onVibrationEffectChange(value: VibrationEffects) = updateButton { copy(vibrationEffect = value) }
-    fun onCustomVibrationMsChange(value: Float) = updateButton { copy(customVibrationMs = value.toLong()) }
+    fun onSlideHoldVibrateChange(value: Boolean) = updateButton { copy(slideHoldVibrate = value) }
+    fun onLongSlideHoldVibrateChange(value: Boolean) = updateButton { copy(longSlideHoldVibrate = value) }
     fun onSlideTriggerDistanceChange(value: Float) = updateButton {
         val maxSlide = (longSlideTriggerDistance - MinGestureSlideDistanceGap)
             .coerceIn(MinSlideTriggerDistance, MaxSlideTriggerDistance)

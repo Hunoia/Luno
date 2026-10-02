@@ -32,7 +32,7 @@ class QuickAppLauncherActivity : Activity() {
 
         tryShowOverlay(intent?.action)
 
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "activity: calling finish() reason=immediateAfterShow")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "activity: calling finish() reason=immediateAfterShow")
         finish()
     }
 
@@ -45,38 +45,38 @@ class QuickAppLauncherActivity : Activity() {
 
         tryShowOverlay(intent.action)
 
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "activity: calling finish() reason=afterNewIntent")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "activity: calling finish() reason=afterNewIntent")
         finish()
     }
 
     override fun onResume() {
         super.onResume()
         val elapsed = if (activityCreateTime > 0) System.currentTimeMillis() - activityCreateTime else -1L
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "activity: onResume taskId=$taskId isTaskRoot=$isTaskRoot elapsedSinceCreate=${elapsed}ms")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "activity: onResume taskId=$taskId isTaskRoot=$isTaskRoot elapsedSinceCreate=${elapsed}ms")
     }
 
     override fun onPause() {
         super.onPause()
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "activity: onPause taskId=$taskId")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "activity: onPause taskId=$taskId")
     }
 
     override fun onDestroy() {
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "activity: onDestroy taskId=$taskId")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "activity: onDestroy taskId=$taskId")
         super.onDestroy()
     }
 
     override fun finish() {
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "activity: finish called taskId=$taskId")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "activity: finish called taskId=$taskId")
         super.finish()
     }
 
     private fun tryShowOverlay(action: String?): Boolean {
         if (action != EXPECTED_ACTION) {
-            if (BuildConfig.DEBUG) Log.d("LunoLauncher", "activity: rejected action=$action")
+            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "activity: rejected action=$action")
             return false
         }
         if (!isAccessibilityServiceEnabled()) {
-            if (BuildConfig.DEBUG) Log.d("LunoLauncher", "activity: accessibility service not enabled")
+            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "activity: accessibility service not enabled")
             Toast.makeText(this, R.string.quick_launcher_requires_accessibility, Toast.LENGTH_SHORT).show()
             return false
         }

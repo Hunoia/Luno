@@ -1,8 +1,7 @@
 package hunoia.luno.ui.settings.gesture.style
-import hunoia.luno.ui.theme.*
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -13,9 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -29,26 +25,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.util.fastForEachIndexed
 import com.aaron.compose.ktx.clipToBorder
 import com.aaron.compose.ktx.onSingleClick
 import hunoia.luno.R
-import hunoia.luno.config.model.ActionPanelStylesDefaults
 import hunoia.luno.config.model.ActionPanelStyles
 import hunoia.luno.config.model.ArcStyle
-import hunoia.luno.ui.theme.MinItemHeightNoSecondary
 import hunoia.luno.ui.component.MyColumn
 import hunoia.luno.ui.component.input.MyTextSlider
-import kotlin.math.roundToInt
-import kotlin.math.PI
+import hunoia.luno.ui.theme.LargeShape
+import hunoia.luno.ui.theme.ListItemVerticalPadding
+import hunoia.luno.ui.theme.ListSpacing
+import hunoia.luno.ui.theme.MediumShape
+import hunoia.luno.ui.theme.MinItemHeightNoSecondary
+import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.theme.SmallShape
+
 import kotlin.math.cos
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 @Composable
@@ -59,7 +57,7 @@ fun ActionPanelStyleSelectContent(
 ) {
     val type = ActionPanelStyles.TYPE_ARC
     Column {
-        MyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        MyColumn(verticalArrangement = Arrangement.spacedBy(ListSpacing)) {
             ActionPanelStyleCard(
                 nameRes = R.string.action_panel_style_arc,
                 descRes = R.string.action_panel_style_arc_hint,
@@ -81,7 +79,7 @@ fun ActionPanelStyleConfigContent(
     var itemSizeDp by remember(style.itemSize) { mutableFloatStateOf(with(density) { style.itemSize.toDp().value }) }
     var spreadSpacing by remember(style.spreadSpacing) { mutableFloatStateOf(style.spreadSpacing) }
 
-    MyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    MyColumn(verticalArrangement = Arrangement.spacedBy(ListSpacing)) {
         Text(
             text = stringResource(R.string.action_panel_style_arc),
             style = MaterialTheme.typography.titleMedium,
@@ -120,16 +118,16 @@ private fun ActionPanelStyleCard(
     hasSettings: Boolean,
     onSettingsClick: () -> Unit
 ) {
-    val shape = MaterialTheme.shapes.large
+    val shape = LargeShape
     val borderColor = if (selected) {
         MaterialTheme.colorScheme.primary
     } else {
         MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
     }
     val containerColor = if (selected) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+        MaterialTheme.colorScheme.primaryContainer
     } else {
-        MaterialTheme.colorScheme.surfaceContainer
+        MaterialTheme.colorScheme.surfaceBright
     }
     Surface(
         modifier = Modifier
@@ -143,11 +141,11 @@ private fun ActionPanelStyleCard(
                 .fillMaxWidth()
                 .heightIn(min = MinItemHeightNoSecondary + 28.dp)
                 .padding(
-                    horizontal = 12.dp,
-                    vertical = 12.dp
+                    horizontal = PageGutter,
+                    vertical = ListItemVerticalPadding
                 ),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(PageGutter)
         ) {
             Box(modifier = Modifier.size(80.dp)) {
                 ArcStylePreview(modifier = Modifier.fillMaxSize())
@@ -206,7 +204,7 @@ internal fun PreviewStage(
 ) {
     Surface(
         modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
+        shape = MediumShape,
         color = MaterialTheme.colorScheme.surfaceContainerLowest
     ) {
         Box(
@@ -216,7 +214,7 @@ internal fun PreviewStage(
                 .clipToBorder(
                     width = 1.dp,
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.9f),
-                    shape = MaterialTheme.shapes.small
+                    shape = SmallShape
                 )
                 .clipToBounds(),
             content = content

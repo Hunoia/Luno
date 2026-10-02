@@ -84,7 +84,6 @@ class GestureState(
     var onResolved: (GestureResolvedActions) -> Unit = {}
 
     private var isMirrorTouchTarget = false
-    private var slideVibrationFlags = false
     private var longPressCheckJob: Job? = null
     private var pendingDoubleTapJob: Job? = null
     private var pendingTapResult: GestureResolvedActions? = null
@@ -117,7 +116,6 @@ class GestureState(
             return
         }
 
-        slideVibrationFlags = false
         if (previousPendingTap?.button?.id == b.id) {
             pendingTapResult = null
         } else {
@@ -180,16 +178,12 @@ class GestureState(
         if (decision is GestureDecision.Trigger && decision.triggerType.isHoldType) {
             val actions = actionsFor(b, decision)
             if (actions.hasMeaningfulActions()) {
-                directTriggeredVibration(decision.triggerType, b)
+                when (decision.triggerType) {
+                    GestureTriggerType.SlideHold -> b.tryVibrateForSlideHold()
+                    GestureTriggerType.LongSlideHold -> b.tryVibrateForLongSlideHold()
+                    else -> {}
+                }
                 return resolved(b, decision.actionDirection, decision.triggerType, actions)
-            }
-        }
-
-        if (b.vibrateImmediately) {
-            val canTriggerSlide = distance >= config.thresholds.slideTriggerDistance
-            if (canTriggerSlide && !slideVibrationFlags) {
-                slideVibrationFlags = true
-                b.tryVibrateForSlide()
             }
         }
 
@@ -212,14 +206,11 @@ class GestureState(
             }
             is GestureDecision.Trigger -> {
                 val actions = actionsFor(b, decision)
-                if (decision.triggerType == GestureTriggerType.DoubleTap) {
-                    b.tryVibrateForTap()
-                } else if (decision.triggerType == GestureTriggerType.Tap) {
-                    if (!slideVibrationFlags) b.tryVibrateForTap()
-                } else if (decision.triggerType == GestureTriggerType.LongSlide) {
-                    b.tryVibrateForLongSlide()
-                } else if (decision.triggerType == GestureTriggerType.Slide) {
-                    if (!slideVibrationFlags) b.tryVibrateForSlide()
+                when (decision.triggerType) {
+                    GestureTriggerType.DoubleTap, GestureTriggerType.Tap -> b.tryVibrateForTap()
+                    GestureTriggerType.LongSlide -> b.tryVibrateForLongSlide()
+                    GestureTriggerType.Slide -> b.tryVibrateForSlide()
+                    else -> {}
                 }
                 val result = resolved(b, decision.actionDirection, decision.triggerType, actions)
                 reset()
@@ -298,7 +289,6 @@ class GestureState(
         effectiveButton = null
         isMirrorTouchTarget = false
         animState = AnimState()
-        slideVibrationFlags = false
         triggerDirection = GestureDirection.Right
         actionDirection = GestureDirection.Right
     }
@@ -351,16 +341,6 @@ class GestureState(
             GestureTriggerType.SlideHold -> button.slideHoldActions.actionsBy(decision.actionDirection)
             GestureTriggerType.LongSlide -> button.longSlideActions.actionsBy(decision.actionDirection)
             GestureTriggerType.LongSlideHold -> button.longSlideHoldActions.actionsBy(decision.actionDirection)
-        }
-    }
-
-    private fun directTriggeredVibration(triggerType: GestureTriggerType, button: GestureButton) {
-        when (triggerType) {
-            GestureTriggerType.SlideHold -> {
-                if (!slideVibrationFlags) button.tryVibrateForSlide()
-            }
-            GestureTriggerType.LongSlideHold -> button.tryVibrateForLongSlide()
-            else -> {}
         }
     }
 

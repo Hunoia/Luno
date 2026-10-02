@@ -22,7 +22,6 @@ object ActionIds {
     const val SCREENSHOT = "24"
     const val POWER_BUTTON = "29"
     const val HIDE_GESTURE_BUTTON = "40"
-    const val KEEP_SCREEN_ON = "46"
     const val BACK_TO_TOP = "47"
     const val OPEN_APP_ACTIVITY = "49"
     const val OPEN_URL = "60"

@@ -18,7 +18,9 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.foundation.ScrollState
+import hunoia.luno.ui.theme.SheetTopShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 
 sealed class OptimizedScrollState {
     data object None : OptimizedScrollState()
@@ -58,6 +60,8 @@ fun OptimizedBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = SheetTopShape,
         dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
         BottomSheetNestedContent(scrollState = scrollState) {

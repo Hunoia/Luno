@@ -6,7 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import hunoia.luno.bridge.volumeDown
 import hunoia.luno.bridge.volumeUp
-import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.config.model.VolumeScrubConfig
 
 class VolumeScrubState(
     private val context: Context,
@@ -19,12 +19,12 @@ class VolumeScrubState(
     var accumulatorX by mutableStateOf(0f)
         private set
 
-    private var actionSettings: ActionSettings = ActionSettings()
+    private var config: VolumeScrubConfig = VolumeScrubConfig()
     private val stepThreshold: Float
-        get() = context.resources.displayMetrics.density * actionSettings.volumeScrub.stepThresholdDp
+        get() = context.resources.displayMetrics.density * config.stepThresholdDp
 
-    fun activate(settings: ActionSettings) {
-        actionSettings = settings
+    fun activate(config: VolumeScrubConfig) {
+        this.config = config
         isActive = true
         accumulator = 0f
         accumulatorX = 0f
@@ -41,7 +41,7 @@ class VolumeScrubState(
             context.volumeUp()
             accumulator += stepThreshold
         }
-        if (actionSettings.volumeScrub.horizontalEnabled) {
+        if (config.horizontalEnabled) {
             accumulatorX += dragAmount.x
             while (accumulatorX >= stepThreshold) {
                 context.volumeUp()

@@ -1,14 +1,10 @@
 package hunoia.luno
 
-import android.annotation.SuppressLint
-import android.app.ActivityManager
 import android.app.Application
 import android.content.Context
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.memory.MemoryCache
-import android.os.Build
-import android.os.Process
 import com.aaron.compose.component.UDFComponentDefaults
 import hunoia.luno.ui.UDFComponentDefaultsImpl
 import hunoia.luno.core.AppContext

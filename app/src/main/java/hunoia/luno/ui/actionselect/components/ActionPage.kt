@@ -1,41 +1,40 @@
 package hunoia.luno.ui.actionselect
 
-import android.content.Context
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
+import hunoia.luno.ui.theme.PageGutter
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
-import hunoia.luno.action.api.ActionFacade
 import hunoia.luno.action.definition.ActionCategory
+import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.action.model.matchesQuery
 import hunoia.luno.config.model.Action
-import hunoia.luno.config.model.ActionLibraryEntry
-import hunoia.luno.config.model.ActionLibraryType
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
@@ -44,159 +43,130 @@ import hunoia.luno.ui.actionselect.UiState.SelectedRecord
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.EmptyState
 import hunoia.luno.ui.component.displayNameRes
-import hunoia.luno.ui.actionlibrary.matchesQuery
-import hunoia.luno.ui.actionlibrary.sortIndex
+import hunoia.luno.ui.component.segmentedShape
 import hunoia.luno.ui.theme.*
+import hunoia.luno.ui.theme.ListItemVerticalPadding
+
+private const val TYPE_ACTION_LIBRARY = "action_library"
+private const val TYPE_APP = "app"
+private const val TYPE_SHORTCUT = "shortcut"
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun ActionPage(
-    onSettingsClick: (Action) -> Unit,
     onSelect: (Action, Boolean) -> Unit,
-    onSelectLibraryEntry: (ActionLibraryEntry, Boolean) -> Unit = { _, _ -> },
+    onSelectLibraryEntry: (NewActionLibraryEntry, Boolean) -> Unit = { _, _ -> },
     onSelectLongPress: (Any) -> Unit = {},
     onSelectApp: (AppInfo, Boolean) -> Unit,
     onSelectShortcut: (LauncherInfo.ShortcutInfo, Boolean) -> Unit,
     onSetLongPress: (Int) -> Unit = {},
-    onClearLongPress: (Int) -> Unit = {},
     onCancelLongPress: () -> Unit = {},
     onMoveSelected: (Int, Int) -> Unit = { _, _ -> },
     onAppLongClick: (AppInfo) -> Unit,
     onShortcutClick: (LauncherInfo) -> Unit = {},
     modifier: Modifier = Modifier,
+    nestedScroll: NestedScrollConnection? = null,
     subGestures: List<SubGesture> = emptyList(),
     actions: List<Action>,
-    actionLibraryEntries: List<ActionLibraryEntry> = emptyList(),
+    actionLibraryEntries: List<NewActionLibraryEntry> = emptyList(),
     appInfos: List<AppInfo>,
     createShortcuts: List<LauncherInfo>,
     launchShortcuts: List<LauncherInfo>,
     selectedRecord: SelectedRecord,
     longPressTargetIndex: Int?,
-    selectSingle: Boolean,
-    snackbarHostState: SnackbarHostState,
     permissionState: hunoia.luno.ui.permission.PermissionState,
     contentPadding: PaddingValues = PaddingValues(),
     maxSelectCount: Int = MAX_SELECT_COUNT
 ) {
     var query by rememberSaveable { mutableStateOf("") }
-    var selectedCategory by rememberSaveable { mutableStateOf<ActionCategory?>(null) }
     var selectedType by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val selectingLongPress = longPressTargetIndex != null
-    val categoryChips = remember(selectSingle) {
-        buildList {
-            add(null to context.getString(R.string.all_categories))
-            add(ActionCategory.NAVIGATION to context.getString(ActionCategory.NAVIGATION.displayNameRes))
-            add(ActionCategory.SYSTEM to context.getString(ActionCategory.SYSTEM.displayNameRes))
-            add(ActionCategory.TOOL to context.getString(ActionCategory.TOOL.displayNameRes))
-            add(ActionCategory.SUB_GESTURE to context.getString(ActionCategory.SUB_GESTURE.displayNameRes))
-            add("action_library" to context.getString(R.string.action_library))
-            add("app" to context.getString(R.string.tab_apps))
-            add("shortcut" to context.getString(R.string.tab_shortcuts))
-        }
+    val typeChips = remember(context) {
+        listOf(
+            null to context.getString(R.string.all_categories),
+            TYPE_ACTION_LIBRARY to context.getString(R.string.action_library),
+            TYPE_APP to context.getString(R.string.tab_apps),
+            TYPE_SHORTCUT to context.getString(R.string.tab_shortcuts),
+        )
     }
-    LaunchedEffect(selectSingle) {
-        if (selectSingle) selectedType = null
-    }
-    val filteredActions = remember(actions, query, selectedCategory, selectedType, selectingLongPress) {
-        if (query.isNotBlank()) {
-            var result = actions
-            if (selectedCategory != null) {
-                result = result.filter { action ->
-                    val cat = ActionFacade.byId(action.value)?.category ?: ActionCategory.TOOL
-                    cat == selectedCategory
-                }
-            }
-            result = result.filter {
+    val filteredActions = remember(actions, query, selectedType, subGestures, actionLibraryEntries) {
+        when {
+            selectedType != null && query.isBlank() -> emptyList()
+            selectedType == TYPE_ACTION_LIBRARY -> emptyList()
+            query.isBlank() -> actions
+            else -> actions.filter {
                 context.actionTextWithSubGesture(it, subGestures, actionLibraryEntries, emptyIfNone = false)
                     .contains(query, ignoreCase = true)
             }
-            if (selectedType == "action_library") emptyList() else result
-        } else if (selectedType == "app" || selectedType == "shortcut") emptyList()
-        else if (selectedType == "action_library") emptyList()
-        else {
-            var result = actions
-            if (selectedType == "sub_gesture") {
-                result = result.filter { it.value == ActionFacade.SUB_GESTURE }
-            }
-            if (selectedCategory != null) {
-                result = result.filter { action ->
-                    val cat = ActionFacade.byId(action.value)?.category ?: ActionCategory.TOOL
-                    cat == selectedCategory
-                }
-            }
-            result
         }
     }
     val grouped = remember(filteredActions) {
         val map = LinkedHashMap<ActionCategory, MutableList<Action>>()
         filteredActions.forEach { action ->
-            val category = ActionFacade.byId(action.value)?.category ?: ActionCategory.TOOL
+            val category = actionCategory(action)
             map.getOrPut(category) { mutableListOf() }.add(action)
         }
         map
     }
-    val selectedItems = selectedRecord.list
     val filteredLibraryEntries = remember(actionLibraryEntries, query, selectedType) {
-        if (query.isNotBlank()) actionLibraryEntries.filter { it.matchesQuery(query) }
-        else if (selectedType != "action_library") emptyList()
-        else actionLibraryEntries
-    }.sortedWith(compareBy<ActionLibraryEntry> { it.type.sortIndex() }.thenBy { it.createdAt })
+        if (selectedType == TYPE_ACTION_LIBRARY || query.isNotBlank()) {
+            actionLibraryEntries.filter { if (query.isNotBlank()) it.matchesQuery(query) else true }
+        } else emptyList()
+    }.sortedBy { it.createdAt }
     val filteredApps = remember(appInfos, query, selectedType) {
-        if (query.isNotBlank()) appInfos.filter { it.label.contains(query, ignoreCase = true) || it.packageName.contains(query, ignoreCase = true) }
-        else if (selectedType != "app") emptyList()
-        else appInfos
+        if (selectedType == TYPE_APP || query.isNotBlank()) {
+            appInfos.filter {
+                if (query.isBlank()) true
+                else it.label.contains(query, ignoreCase = true) || it.packageName.contains(query, ignoreCase = true)
+            }
+        } else emptyList()
     }
     val filteredCreateShortcuts = remember(createShortcuts, query, selectedType) {
-        if (query.isNotBlank()) createShortcuts.filter { it.label.contains(query, ignoreCase = true) || it.shortcuts.any { s -> s.label.contains(query, ignoreCase = true) } }
-        else if (selectedType != "shortcut") emptyList()
-        else createShortcuts
+        if (selectedType == TYPE_SHORTCUT || query.isNotBlank()) {
+            createShortcuts.filter {
+                if (query.isBlank()) true
+                else it.label.contains(query, ignoreCase = true) ||
+                    it.shortcuts.any { s -> s.label.contains(query, ignoreCase = true) }
+            }
+        } else emptyList()
     }
     val filteredLaunchShortcuts = remember(launchShortcuts, query, selectedType) {
-        if (query.isNotBlank()) launchShortcuts.filter { it.label.contains(query, ignoreCase = true) || it.shortcuts.any { s -> s.label.contains(query, ignoreCase = true) } }
-        else if (selectedType != "shortcut") emptyList()
-        else launchShortcuts
+        if (selectedType == TYPE_SHORTCUT || query.isNotBlank()) {
+            launchShortcuts.filter {
+                if (query.isBlank()) true
+                else it.label.contains(query, ignoreCase = true) ||
+                    it.shortcuts.any { s -> s.label.contains(query, ignoreCase = true) }
+            }
+        } else emptyList()
     }
     LazyColumn(
-        modifier = modifier.fillMaxWidth(),
-        contentPadding = contentPadding
+        modifier = (nestedScroll?.let { modifier.nestedScroll(it) } ?: modifier)
+            .fillMaxWidth(),
+        contentPadding = contentPadding,
+        verticalArrangement = Arrangement.spacedBy(SegmentedGap),
     ) {
         item(key = "search") {
             AppSearchBar(
                 query = query,
                 onQueryChange = { query = it },
-                modifier = Modifier.padding(horizontal = 12.dp * 2, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = PageGutter, vertical = 8.dp),
                 placeholder = stringResource(R.string.search_hint_all),
             )
         }
-        item(key = "category_chips") {
+        item(key = "type_chips") {
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp * 2, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = PageGutter, vertical = ListItemVerticalPadding),
+                horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing)
             ) {
-                items(categoryChips) { (chipKey, label) ->
-                    val isSelected = when (chipKey) {
-                        null -> selectedType == null && selectedCategory == null
-                        is String -> chipKey == selectedType
-                        is ActionCategory? -> chipKey == selectedCategory
-                        else -> false
-                    }
+                items(typeChips) { (chipKey, label) ->
+                    val isSelected = if (chipKey == null) selectedType == null else chipKey == selectedType
                     FilterChip(
                         selected = isSelected,
                         onClick = {
-                            when (chipKey) {
-                                null -> { selectedType = null; selectedCategory = null }
-                                is String -> {
-                                    selectedType = if (isSelected) null else chipKey
-                                    if (selectedType != null) selectedCategory = null
-                                }
-                                is ActionCategory? -> {
-                                    selectedCategory = if (isSelected) null else chipKey
-                                    if (selectedCategory != null) selectedType = null
-                                }
-                            }
+                            selectedType = if (isSelected) null else chipKey
                         },
                         label = { Text(label) },
                         leadingIcon = if (isSelected) {
@@ -213,7 +183,7 @@ internal fun ActionPage(
             }
         }
         val hasAnyContent = grouped.isNotEmpty() || filteredApps.isNotEmpty() || filteredLibraryEntries.isNotEmpty() || filteredCreateShortcuts.isNotEmpty() || filteredLaunchShortcuts.isNotEmpty()
-        if ((query.isNotEmpty() || selectedCategory != null || selectedType != null) && !hasAnyContent) {
+        if ((query.isNotEmpty() || selectedType != null) && !hasAnyContent) {
             item {
                 EmptyState(message = stringResource(R.string.no_matching_results))
             }
@@ -223,81 +193,84 @@ internal fun ActionPage(
                     stickyHeader(key = "cat_${category.name}") {
                         Text(
                             text = stringResource(id = category.displayNameRes),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 12.dp * 2, vertical = 8.dp)
+                                .padding(start = PageGutter, top = 8.dp, bottom = 16.dp)
                         )
                     }
-                    items(
+                    itemsIndexed(
                         items = categoryActions,
-                        key = { "${it.value}:${it.data}" }
-                    ) { item ->
+                        key = { _, it -> "${it.value}:${it.data}" }
+                    ) { index, item ->
                         ActionItem(
                             modifier = Modifier.animateItem(),
                             action = item,
                             actionLabel = context.actionTextWithSubGesture(item, subGestures, actionLibraryEntries, emptyIfNone = false),
                             selected = selectedRecord.isSelected(item),
-                            selectSingle = selectSingle || selectingLongPress,
+                            selectSingle = selectingLongPress,
                             enabled = selectingLongPress || canActionEnabled(selectedRecord, item, maxSelectCount),
-                            snackbarHostState = snackbarHostState,
                             onSelect = { selected ->
                                 if (selectingLongPress) onSelectLongPress(item) else onSelect(item, selected)
                             },
-                            showSettings = ActionFacade.hasConfig(item.value),
-                            onSettingsClick = {
-                                onSettingsClick(item)
-                            }
+                            shape = segmentedShape(index, categoryActions.size),
                         )
                     }
                 }
             }
             if (filteredLibraryEntries.isNotEmpty()) {
-                filteredLibraryEntries.groupBy { it.type }.forEach { (type, entries) ->
-                    stickyHeader(key = "lib_${type.name}") {
-                        Text(
-                            text = stringResource(type.titleRes),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp * 2, vertical = 8.dp)
-                        )
-                    }
-                    items(items = entries, key = { "lib_${it.id}" }) { entry ->
-                        val action = entry.toReferenceAction()
-                        ActionItem(
-                            modifier = Modifier.animateItem(),
-                            action = action,
-                            actionLabel = entry.name,
-                            selected = selectedRecord.isSelected(action),
-                            selectSingle = selectSingle || selectingLongPress,
-                            enabled = selectingLongPress || canActionEnabled(selectedRecord, action, maxSelectCount),
-                            snackbarHostState = snackbarHostState,
-                            onSelect = { selected ->
-                                if (selectingLongPress) onSelectLongPress(entry) else onSelectLibraryEntry(entry, selected)
-                            },
-                        )
-                    }
+                stickyHeader(key = "lib_all") {
+                    Text(
+                        text = stringResource(R.string.action_library),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth().padding(start = PageGutter, top = 8.dp, bottom = 16.dp)
+                    )
+                }
+                itemsIndexed(items = filteredLibraryEntries, key = { _, it -> "lib_${it.id}" }) { index, entry ->
+                    val action = entry.toReferenceAction()
+                    ActionItem(
+                        modifier = Modifier.animateItem(),
+                        action = action,
+                        actionLabel = entry.name,
+                        selected = selectedRecord.isSelected(action),
+                        selectSingle = selectingLongPress,
+                        enabled = selectingLongPress || canActionEnabled(selectedRecord, action, maxSelectCount),
+                        onSelect = { selected ->
+                            if (selectingLongPress) onSelectLongPress(entry) else onSelectLibraryEntry(entry, selected)
+                        },
+                        shape = segmentedShape(index, filteredLibraryEntries.size),
+                    )
                 }
             }
             if (filteredApps.isNotEmpty()) {
-                items(items = filteredApps, key = { "app_${it.qualifiedName}" }) { item ->
-                    AppItem(appInfo = item, selected = selectedRecord.isSelected(item), selectSingle = selectSingle || selectingLongPress,
+                stickyHeader(key = "apps") {
+                    Text(
+                        text = stringResource(R.string.tab_apps),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth().padding(start = PageGutter, top = 8.dp, bottom = 16.dp)
+                    )
+                }
+                itemsIndexed(items = filteredApps, key = { _, it -> "app_${it.qualifiedName}" }) { index, item ->
+                    AppItem(appInfo = item, selected = selectedRecord.isSelected(item), selectSingle = selectingLongPress,
                         enabled = selectingLongPress || canAppInfoEnabled(selectedRecord, item, maxSelectCount),
                         onSelect = { selected ->
                             if (selectingLongPress) onSelectLongPress(item) else onSelectApp(item, selected)
                         },
                         onLongClick = { onAppLongClick(item) },
-                        modifier = Modifier.animateItem())
+                        modifier = Modifier.animateItem(),
+                        shape = segmentedShape(index, filteredApps.size))
                 }
             }
             if (filteredCreateShortcuts.isNotEmpty()) {
                 stickyHeader(key = "create_shortcuts") {
-                    Text(stringResource(R.string.create_shortcut), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp * 2, vertical = 8.dp))
+                    Text(stringResource(R.string.create_shortcut), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth().padding(start = PageGutter, top = 8.dp, bottom = 16.dp))
                 }
                 items(items = filteredCreateShortcuts, key = { "cs_${it.qualifiedName}" }) { item ->
-                    LauncherInfoItem(launcherInfo = item, selectSingle = selectSingle || selectingLongPress,
+                    LauncherInfoItem(launcherInfo = item, selectSingle = selectingLongPress,
                         canLauncherInfoEnabled = { selectingLongPress || canLauncherInfoEnabled(selectedRecord, it, maxSelectCount) },
                         canShortcutInfoEnabled = { selectingLongPress || canShortcutInfoEnabled(selectedRecord, it, maxSelectCount) },
                         isShortcutInfoSelected = { selectedRecord.isSelected(it) },
@@ -309,11 +282,11 @@ internal fun ActionPage(
             }
             if (filteredLaunchShortcuts.isNotEmpty()) {
                 stickyHeader(key = "launch_shortcuts") {
-                    Text(stringResource(R.string.launch_shortcut), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp * 2, vertical = 8.dp))
+                    Text(stringResource(R.string.launch_shortcut), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth().padding(start = PageGutter, top = 8.dp, bottom = 16.dp))
                 }
                 items(items = filteredLaunchShortcuts, key = { "ls_${it.qualifiedName}" }) { item ->
-                    LauncherInfoItem(launcherInfo = item, selectSingle = selectSingle || selectingLongPress,
+                    LauncherInfoItem(launcherInfo = item, selectSingle = selectingLongPress,
                         canLauncherInfoEnabled = { selectingLongPress || canLauncherInfoEnabled(selectedRecord, it, maxSelectCount) },
                         canShortcutInfoEnabled = { selectingLongPress || canShortcutInfoEnabled(selectedRecord, it, maxSelectCount) },
                         isShortcutInfoSelected = { selectedRecord.isSelected(it) },
@@ -325,12 +298,4 @@ internal fun ActionPage(
             }
         }
     }
-}
-
-private val ActionLibraryType.titleRes: Int get() = when (this) {
-    ActionLibraryType.Shell -> R.string.action_library_shell
-    ActionLibraryType.Url -> R.string.action_library_url
-    ActionLibraryType.Activity -> R.string.action_library_activity
-    ActionLibraryType.SystemTemplate -> R.string.action_library_system_function
-    ActionLibraryType.SystemApi -> R.string.action_library_custom_system_api
 }

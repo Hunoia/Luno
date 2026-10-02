@@ -2,21 +2,20 @@ package hunoia.luno.runtime.volume
 
 import android.content.Context
 import hunoia.luno.action.api.VolumeScrubOverlay
-import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.config.model.VolumeScrubConfig
 
 class VolumeScrubRuntime(
     private val context: Context,
-    private val actionSettingsProvider: () -> ActionSettings?,
     private val onStateChanged: () -> Unit,
 ) {
     private var overlay: VolumeScrubOverlay? = null
     var isActive: Boolean = false
         private set
 
-    fun show(): Boolean {
+    fun show(config: VolumeScrubConfig = VolumeScrubConfig()): Boolean {
         if (!begin()) return false
-        val scrubSettings = actionSettingsProvider()?.volumeScrub ?: ActionSettings.VolumeScrub()
-        val o = VolumeScrubOverlay(context, scrubSettings.horizontalEnabled, scrubSettings.stepThresholdDp).also { overlay = it }
+        val o = VolumeScrubOverlay(context, config.horizontalEnabled, config.stepThresholdDp)
+            .also { overlay = it }
         o.show(onDismiss = { end() })
         return true
     }

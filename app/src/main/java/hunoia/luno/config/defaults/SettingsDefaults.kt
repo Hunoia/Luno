@@ -9,7 +9,6 @@ object AdvancedSettingsDefaults {
     val ActionPanelStyles = ActionPanelStyles()
     const val MiniWindowHorizontalBias = 0f
     const val MiniWindowVerticalBias = 0f
-    const val MiniWindowVerticalOffsetFraction = 0f
     const val MiniWindowWidthFraction = 0.85f
     const val MiniWindowHeightFraction = 0.72f
     const val MiniWindowOverrideBounds = false
@@ -39,6 +38,6 @@ object ActionSettingsDefaults {
     const val PasswordDigitsEnabled = true
     const val PasswordSymbolsEnabled = true
     const val HideGestureButtonDelayMs = 1000L
-    const val VolumeScrubStepThresholdDp = 18
-    const val VolumeScrubHorizontalEnabled = false
+    const val VolumeScrubStepThresholdDp = 14
+    const val VolumeScrubHorizontalEnabled = true
 }

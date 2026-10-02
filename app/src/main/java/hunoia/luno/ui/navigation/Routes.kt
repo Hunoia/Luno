@@ -3,7 +3,6 @@ package hunoia.luno.ui.navigation
 import androidx.annotation.Keep
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
-import hunoia.luno.config.model.ActionLibraryType
 import kotlinx.serialization.Serializable
 
 
@@ -39,21 +38,22 @@ data class SubGestureEditor(
 
 @Keep
 @Serializable
-data object Condition
+data object Automation
 
 @Keep
 @Serializable
-data class ConditionEdit(
+data class AutomationEdit(
     val ruleId: String,
 )
 
 @Keep
 @Serializable
-data class ActionLibraryEdit(
+data class NewActionLibraryEdit(
     val entryId: String,
-    val type: ActionLibraryType? = null,
+    val typeId: String? = null,
 )
 
-const val NEW_CONDITION_RULE_ID = "new"
+
+const val NEW_AUTOMATION_RULE_ID = "new"
 
 const val NEW_ACTION_LIBRARY_ENTRY_ID = "new"

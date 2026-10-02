@@ -4,7 +4,7 @@ import androidx.lifecycle.viewModelScope
 import com.aaron.compose.base.BaseComposeVM
 import hunoia.luno.R
 import hunoia.luno.config.model.Action
-import hunoia.luno.config.model.ActionLibraryEntry
+import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.quicklaunch.model.qualifiedName
@@ -16,19 +16,14 @@ class ActionSelectVM(
 ) : BaseComposeVM<UiState, UiEvent>() {
 
     override val initialState: UiState = UiState(
-        title = createTitle(actionSelect),
-        selectSingle = false
+        title = createTitle(actionSelect)
     )
-
-    fun showDialog(show: Boolean, action: Action = Action.NONE) {
-        updateUiState { it.copy(actionSettingsDialog = it.actionSettingsDialog.copy(show = show, action = action)) }
-    }
 
     init {
         loadData()
     }
 
-    fun reloadData() {
+    fun loadData() {
         viewModelScope.launch {
             loadDataBody(
                 actionSelect = actionSelect,
@@ -65,7 +60,7 @@ class ActionSelectVM(
             updateUiState { selectShortcutInfoTransform(it, obj, selected) }
         } else if (obj is Action) {
             updateUiState { selectActionTransform(it, obj, selected) }
-        } else if (obj is ActionLibraryEntry) {
+        } else if (obj is NewActionLibraryEntry) {
             val action = obj.toReferenceAction()
             updateUiState { selectActionTransform(it, action, selected) }
         }
@@ -78,10 +73,6 @@ class ActionSelectVM(
 
     fun cancelSetLongPressAction() {
         updateUiState { it.copy(longPressTargetIndex = null) }
-    }
-
-    fun clearLongPressAction(index: Int) {
-        updateUiState { updateSelectedActionTransform(it, index) { it.copy(longPressAction = null) } }
     }
 
     fun selectLongPressAction(obj: Any) {
@@ -133,16 +124,6 @@ class ActionSelectVM(
                 getUiState = { uiState },
                 updateUiState = { transform -> updateUiState(transform) }
             )
-        }
-    }
-
-    private fun loadData() {
-        viewModelScope.launch {
-            loadDataBody(
-                actionSelect = actionSelect,
-                onUpdateState = { transform -> updateUiState(transform) }
-            )
-            assembleData()
         }
     }
 

@@ -1,6 +1,5 @@
 package hunoia.luno.ui.settings.gesture.subgesture
 
-import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
@@ -19,8 +18,6 @@ import hunoia.luno.ui.navigation.SubGestureEditor
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.SubGestureAngle
-import hunoia.luno.config.model.SubGestureSettings
-import hunoia.luno.bridge.vibration.VibrationEffects
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -149,9 +146,8 @@ class SubGestureSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeVM<S
 
     fun onSubSlideVibrateChange(value: Boolean) = updateSubGesture { copy(slideVibrate = value) }
     fun onSubLongSlideVibrateChange(value: Boolean) = updateSubGesture { copy(longSlideVibrate = value) }
-    fun onSubVibrateImmediatelyChange(value: Boolean) = updateSubGesture { copy(vibrateImmediately = value) }
-    fun onSubVibrationEffectChange(value: VibrationEffects) = updateSubGesture { copy(vibrationEffect = value) }
-    fun onSubCustomVibrationMsChange(value: Float) = updateSubGesture { copy(customVibrationMs = value.toLong()) }
+    fun onSubSlideHoldVibrateChange(value: Boolean) = updateSubGesture { copy(slideHoldVibrate = value) }
+    fun onSubLongSlideHoldVibrateChange(value: Boolean) = updateSubGesture { copy(longSlideHoldVibrate = value) }
     fun onSubTriggerDistanceChange(value: Float) = updateSubGesture {
         val maxSlide = (longSlideTriggerDistance - MinGestureSlideDistanceGap)
             .coerceIn(MinSubGestureTriggerDistance, MaxSubGestureTriggerDistance)

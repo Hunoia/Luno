@@ -3,75 +3,19 @@ package hunoia.luno.runtime.overlay
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.view.Gravity
-import android.view.HapticFeedbackConstants
 import android.util.Log
 import android.view.MotionEvent
 import hunoia.luno.BuildConfig
 import android.view.View
 import android.view.WindowManager
-import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.collectAsState
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.DpOffset
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.LocalDensity
-import hunoia.luno.R
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.launch.Launcher
 import hunoia.luno.bridge.window.applyOverlayViewTreeOwners
 import hunoia.luno.bridge.window.windowManager
-import hunoia.luno.quicklaunch.query.AppSearch.key
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.bridge.DensityProvider
 import hunoia.luno.config.model.QuickAppLauncherSettings
@@ -85,23 +29,12 @@ import android.content.Context
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.take
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 import kotlin.math.max
-import androidx.compose.animation.core.animateFloatAsState
 import hunoia.luno.ui.theme.AnimOverlayFade
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.togetherWith
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 
 interface QuickAppLauncherOverlayHost : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
     val context: Context
@@ -122,7 +55,7 @@ class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
     var onAppLaunchRequested: ((AppInfo) -> Unit)? = null
 
     fun toggle() {
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher","toggle: overlayView=${overlayView != null}")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher","toggle: overlayView=${overlayView != null}")
         if (overlayView != null) {
             close()
         } else {
@@ -130,20 +63,20 @@ class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
         }
     }
 
-    fun close() {
+    private fun close() {
         if (overlayView == null) {
             val cancelled = cancelPendingShow()
-            if (BuildConfig.DEBUG) Log.d("LunoLauncher", "close: no overlay (cancelledPendingShow=$cancelled)")
+            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "close: no overlay (cancelledPendingShow=$cancelled)")
             return
         }
         if (isHiding) {
-            if (BuildConfig.DEBUG) Log.d("LunoLauncher", "close: skipped (already hiding)")
+            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "close: skipped (already hiding)")
             return
         }
         val reason = "explicit close"
         isHiding = true
         lastCloseMs = System.currentTimeMillis()
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher","close: reason=$reason hasAnimation=${triggerCloseAnimated != null}")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher","close: reason=$reason hasAnimation=${triggerCloseAnimated != null}")
         if (triggerCloseAnimated != null) {
             triggerCloseAnimated?.invoke()
         } else {
@@ -159,7 +92,7 @@ class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
         isShowing = false
         isHiding = true
         lastCloseMs = System.currentTimeMillis()
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "closeImmediately: removing overlay")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "closeImmediately: removing overlay")
         removeOverlayView()
     }
 
@@ -181,7 +114,7 @@ class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
     }
 
     private fun removeOverlayView() {
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher","removeOverlayView: removing overlay")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher","removeOverlayView: removing overlay")
         overlayView?.let {
             it.animate().cancel()
             it.alpha = 1f
@@ -197,7 +130,7 @@ class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
     fun show() {
         val now = System.currentTimeMillis()
         val interval = if (lastCloseMs > 0) now - lastCloseMs else -1L
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher","show: isShowing=$isShowing isHiding=$isHiding overlayView=${overlayView != null} intervalSinceLastClose=${interval}ms")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher","show: isShowing=$isShowing isHiding=$isHiding overlayView=${overlayView != null} intervalSinceLastClose=${interval}ms")
         if (isShowing || isHiding || overlayView != null) return
         isShowing = true
 
@@ -251,20 +184,19 @@ class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
                             isShowing = false
                             isHiding = true
                             lastCloseMs = System.currentTimeMillis()
-                            if (BuildConfig.DEBUG) Log.d("LunoLauncher","closeAnimated: triggered")
+                            if (BuildConfig.DEBUG) Log.i("LunoLauncher","closeAnimated: triggered")
                             removeOverlayView()
                         },
                         onUpdateLayout = { settings -> updateLayout(settings) },
                         onLaunch = { appInfo, miniWindow ->
                             val now = System.currentTimeMillis()
                             val interval = if (lastCloseMs > 0) now - lastCloseMs else -1L
-                            if (BuildConfig.DEBUG) Log.d("LunoLauncher","appClick: ${appInfo.label} pkg=${appInfo.packageName} miniWindow=$miniWindow intervalSinceClose=${interval}ms")
+                            if (BuildConfig.DEBUG) Log.i("LunoLauncher","appClick: ${appInfo.label} pkg=${appInfo.packageName} miniWindow=$miniWindow intervalSinceClose=${interval}ms")
                             val success = if (advancedSettings.miniWindowOverrideBounds) {
                                 Launcher.launchAppInfo(
                                     host.context, appInfo, miniWindow,
                                     advancedSettings.miniWindowHorizontalBias,
                                     advancedSettings.miniWindowVerticalBias,
-                                    advancedSettings.miniWindowVerticalOffsetFraction,
                                     advancedSettings.miniWindowWidthFraction,
                                     advancedSettings.miniWindowHeightFraction,
                                     overrideBounds = true,
@@ -274,7 +206,7 @@ class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
                                     host.context, appInfo, miniWindow,
                                 )
                             }
-                            if (BuildConfig.DEBUG) Log.d("LunoLauncher","appClick: ${appInfo.label} launchResult=$success")
+                            if (BuildConfig.DEBUG) Log.i("LunoLauncher","appClick: ${appInfo.label} launchResult=$success")
                             if (success) onAppLaunchRequested?.invoke(appInfo)
                             success
                         },
@@ -341,12 +273,12 @@ private fun createDismissOnOutsideTouch(
     logTag: String,
 ): View.OnTouchListener = View.OnTouchListener { v, event ->
     if (event.action == MotionEvent.ACTION_OUTSIDE) {
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "$logTag: ACTION_OUTSIDE at (${event.rawX.toInt()}, ${event.rawY.toInt()}) → close")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "$logTag: ACTION_OUTSIDE at (${event.rawX.toInt()}, ${event.rawY.toInt()}) → close")
         onOutsideTouch()
         v.performClick()
         true
     } else {
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "$logTag: action=${event.action} at (${event.rawX.toInt()}, ${event.rawY.toInt()})")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "$logTag: action=${event.action} at (${event.rawX.toInt()}, ${event.rawY.toInt()})")
         false
     }
 }

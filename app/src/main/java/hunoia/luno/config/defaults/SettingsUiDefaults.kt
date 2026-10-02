@@ -2,11 +2,7 @@
 
 package hunoia.luno.config.defaults
 
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.res.stringResource
 import hunoia.luno.bridge.DensityProvider
-import hunoia.luno.R
-import hunoia.luno.bridge.vibration.VibrationEffects
 
 object SettingsUiDefaults {
 
@@ -50,15 +46,5 @@ object SettingsUiDefaults {
     const val MaxSpacing = 2.0f
     val MinItemSize = DensityProvider.dp2px(24f)
     val MaxItemSize = DensityProvider.dp2px(72f)
-
-    @Composable
-    fun getPredefinedVibrationEffectText(effect: VibrationEffects): String {
-        return when (effect) {
-            VibrationEffects.None -> stringResource(id = R.string.custom)
-            VibrationEffects.Tick -> stringResource(id = R.string.vibration_tick)
-            VibrationEffects.Click -> stringResource(id = R.string.vibration_click)
-            VibrationEffects.HeavyClick -> stringResource(id = R.string.vibration_heavy_click)
-        }
-    }
 
 }
