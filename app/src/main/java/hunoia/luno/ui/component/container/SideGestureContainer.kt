@@ -2,6 +2,7 @@ package hunoia.luno.ui.component.container
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +40,13 @@ import kotlinx.coroutines.launch
 
 private const val SUB_GESTURE_DIRECT_ACTION_DELAY_MS = 50L
 
+/**
+ * ActionPanel 收起主 overlay 前的等待时间,用来盖住它的淡出动画
+ * (`ActionPanel` 里是 `fadeOut(spring(stiffness = Spring.StiffnessMedium))`)。
+ * 不等的话窗口会在面板还在淡出的那几百毫秒里缩成 1x1,内容位置会跳。
+ */
+private const val ACTION_PANEL_FADE_OUT_MS = 400L
+
 @Composable
 fun SideGestureContainer(
     onAction: (Action, GestureButton?, GestureButtonActionSettingsOverride?) -> Unit,
@@ -51,10 +59,12 @@ fun SideGestureContainer(
     subGestureSettings: SubGestureSettings = SubGestureSettings(),
     onSubGestureModeChanged: (Boolean, Offset, Int) -> Unit = { _, _, _ -> },
     onActionPanelOverlayChanged: (Boolean) -> Unit = {},
+    onActionPanelVisibilityChanged: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
     val curOnAction by rememberUpdatedState(newValue = onAction)
     val curOnSubGestureModeChanged by rememberUpdatedState(newValue = onSubGestureModeChanged)
+    val curOnPanelVisibilityChanged by rememberUpdatedState(newValue = onActionPanelVisibilityChanged)
     val coroutineScope = rememberCoroutineScope()
     val sideGestureState = rememberGestureState(buttons, advancedSettings, gestureSettings)
     val actionPanelState = rememberActionPanelState()
@@ -65,6 +75,15 @@ fun SideGestureContainer(
     val volumeScrubState = remember(context) {
         VolumeScrubState(context) { active ->
             curOnSubGestureModeChanged(active, Offset.Unspecified, 0)
+        }
+    }
+
+    // 收起方向只在这里处理:放大的调用点必须早于 visible=true,见 runGestureActions。
+    // LaunchedEffect 以 visible 为 key,面板在这段等待里重新打开会自动取消这次收缩。
+    LaunchedEffect(actionPanelState.visible) {
+        if (!actionPanelState.visible) {
+            delay(ACTION_PANEL_FADE_OUT_MS)
+            curOnPanelVisibilityChanged(false)
         }
     }
 
@@ -100,6 +119,9 @@ fun SideGestureContainer(
         val meaningfulActions = actions.filter { it != Action.NONE }
         if (meaningfulActions.size > 1) {
             if (needsPanelOverlay) onActionPanelOverlayChanged(true)
+            // 必须在 onDragStart(它把 visible 置 true)之前把主 overlay 撑回全屏,
+            // 否则 ActionPanel 的头几帧会按收起时的尺寸定位。
+            curOnPanelVisibilityChanged(true)
             actionPanelState.onDragStart(touchPosition)
             actionPanelState.ready(direction, meaningfulActions, panelStyle, panelColor)
             actionPanelSourceOverride = sourceOverride

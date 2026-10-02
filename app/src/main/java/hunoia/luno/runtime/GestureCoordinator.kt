@@ -178,6 +178,11 @@ class GestureCoordinator(
             else transientOverlayController.detachActionPanelOverlay()
         }
 
+        override fun onActionPanelVisibilityChanged(visible: Boolean) {
+            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "action panel visible=$visible")
+            mainOverlayController.setPanelVisible(visible)
+        }
+
         override fun onAction(action: Action, sourceButton: GestureButton?, sourceOverride: GestureButtonActionSettingsOverride?) {
             actionDispatcher.onAction(action, sourceButton, sourceOverride)
         }

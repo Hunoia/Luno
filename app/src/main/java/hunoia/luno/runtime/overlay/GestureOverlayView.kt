@@ -44,6 +44,9 @@ fun GestureOverlayView(
                     onActionPanelOverlayChanged = { show ->
                         callbacks.onActionPanelOverlayChanged(show)
                     },
+                    onActionPanelVisibilityChanged = { visible ->
+                        callbacks.onActionPanelVisibilityChanged(visible)
+                    },
                     onAction = { action, sourceButton, sourceOverride ->
                         callbacks.onAction(action, sourceButton, sourceOverride)
                     },
