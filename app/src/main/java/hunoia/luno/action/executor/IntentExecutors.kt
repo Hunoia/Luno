@@ -10,6 +10,7 @@ import hunoia.luno.config.model.effectiveForAction
 import hunoia.luno.config.model.OpenAppOrUrlData
 import hunoia.luno.config.model.OpenUrlQueryParameter
 import hunoia.luno.quicklaunch.QuickLaunchFacade
+import hunoia.luno.config.model.miniWindowSettings
 
 class IntentExecutors(private val intentController: IntentController) : ActionExecutor {
 
@@ -32,11 +33,7 @@ class IntentExecutors(private val intentController: IntentController) : ActionEx
                 val ok = QuickLaunchFacade.launchUrlDirect(
                     context = context.appContext,
                     data = data,
-                    miniWindowHorizontalBias = adv.miniWindowHorizontalBias,
-                    miniWindowVerticalBias = adv.miniWindowVerticalBias,
-                    miniWindowWidthFraction = adv.miniWindowWidthFraction,
-                    miniWindowHeightFraction = adv.miniWindowHeightFraction,
-                    miniWindowOverrideBounds = adv.miniWindowOverrideBounds,
+                    miniWindowSettings = adv.miniWindowSettings(),
                 )
                 if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }

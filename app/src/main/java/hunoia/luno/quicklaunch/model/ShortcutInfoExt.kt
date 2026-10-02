@@ -35,7 +35,8 @@ fun LauncherInfo.getIcon(context: Context): Drawable? {
         } else {
             pkgManager.getApplicationIcon(packageName)
         }
-    } catch (ignored: Exception) {
+    } catch (_: Exception) {
+        // 取不到图标是常态（应用被卸载/跨用户/权限限制），降级为 null 而非视为异常
         null
     }
 }

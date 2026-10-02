@@ -1,5 +1,6 @@
 package hunoia.luno.bridge.window
 
+import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import androidx.compose.ui.unit.IntSize
@@ -10,11 +11,12 @@ val rootSize: IntSize
     get() = IntSize(DensityProvider.screenWidthPx, DensityProvider.screenHeightPx)
 
 fun android.content.Context.removeWindow(view: View) {
-    val wm = ContextCompat.getSystemService(this, WindowManager::class.java)!!
-    try {
-        wm.removeViewImmediate(view)
-    } catch (ignored: Exception) {
-    }
+    val wm = ContextCompat.getSystemService(this, WindowManager::class.java) ?: return
+    // 窗口可能已被系统移除（服务销毁竞态），记日志而不是静默吞掉
+    runCatching { wm.removeViewImmediate(view) }
+        .onFailure { error ->
+            Log.w("LunoLauncher", "removeWindow failed: ${error::class.simpleName} ${error.message}")
+        }
 }
 
 fun android.content.Context.removeWindows(views: Collection<View>) {

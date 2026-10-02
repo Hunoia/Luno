@@ -17,6 +17,7 @@ import hunoia.luno.quicklaunch.launch.AppLaunchBypass
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
+import hunoia.luno.config.model.miniWindowSettings
 
 class AppExecutors(private val intentController: IntentController) : ActionExecutor {
 
@@ -33,11 +34,7 @@ class AppExecutors(private val intentController: IntentController) : ActionExecu
                     packageName = action.packageName,
                     className = action.className,
                     miniWindow = action.miniWindow,
-                    miniWindowHorizontalBias = adv.miniWindowHorizontalBias,
-                    miniWindowVerticalBias = adv.miniWindowVerticalBias,
-                    miniWindowWidthFraction = adv.miniWindowWidthFraction,
-                    miniWindowHeightFraction = adv.miniWindowHeightFraction,
-                    miniWindowOverrideBounds = adv.miniWindowOverrideBounds,
+                    miniWindowSettings = adv.miniWindowSettings(),
                     unfreezePackage = { _, pkg -> enablePackage(context, pkg) },
                 )
                 if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
@@ -49,11 +46,7 @@ class AppExecutors(private val intentController: IntentController) : ActionExecu
                     packageName = action.packageName,
                     className = action.activityClassName,
                     miniWindow = action.miniWindow,
-                    miniWindowHorizontalBias = adv.miniWindowHorizontalBias,
-                    miniWindowVerticalBias = adv.miniWindowVerticalBias,
-                    miniWindowWidthFraction = adv.miniWindowWidthFraction,
-                    miniWindowHeightFraction = adv.miniWindowHeightFraction,
-                    miniWindowOverrideBounds = adv.miniWindowOverrideBounds,
+                    miniWindowSettings = adv.miniWindowSettings(),
                     unfreezePackage = { _, pkg -> enablePackage(context, pkg) },
                 )
                 if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
@@ -95,18 +88,11 @@ class AppExecutors(private val intentController: IntentController) : ActionExecu
             .firstOrNull()
         val className = resolveInfo?.activityInfo?.name
         if (!className.isNullOrEmpty()) {
-            if (adv.miniWindowOverrideBounds) {
-                QuickLaunchFacade.launchAppInPopup(
-                    context.appContext, pkgName, className,
-                    adv.miniWindowHorizontalBias,
-                    adv.miniWindowVerticalBias,
-                    adv.miniWindowWidthFraction,
-                    adv.miniWindowHeightFraction,
-                    overrideBounds = true,
-                )
-            } else {
-                QuickLaunchFacade.launchAppInPopup(context.appContext, pkgName, className)
-            }
+            // overrideBounds 与其余小窗参数必须来自同一份设置，不能只改开关
+            QuickLaunchFacade.launchAppInPopup(
+                context.appContext, pkgName, className,
+                adv.miniWindowSettings(),
+            )
         }
     }
 

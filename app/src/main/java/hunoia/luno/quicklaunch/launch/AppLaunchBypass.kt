@@ -2,6 +2,7 @@ package hunoia.luno.quicklaunch.launch
 
 import android.content.Context
 import hunoia.luno.R
+import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import hunoia.luno.bridge.feedback.showToast
@@ -13,20 +14,11 @@ object AppLaunchBypass {
         packageName: String,
         className: String,
         miniWindow: Boolean = false,
-        miniWindowHorizontalBias: Float = 0f,
-        miniWindowVerticalBias: Float = 0f,
-        miniWindowWidthFraction: Float = 0.46f,
-        miniWindowHeightFraction: Float = 0.74f,
-        miniWindowOverrideBounds: Boolean = false,
+        miniWindowSettings: MiniWindowSettings = MiniWindowSettings(),
         unfreezePackage: suspend (context: Context, packageName: String) -> Boolean = { _, _ -> true }
     ): Boolean {
         if (!ensureEnabled(context, packageName, unfreezePackage)) return false
-        return QuickLaunchFacade.launchAppDirect(
-            context, packageName, className, miniWindow,
-            miniWindowHorizontalBias, miniWindowVerticalBias,
-            miniWindowWidthFraction, miniWindowHeightFraction,
-            miniWindowOverrideBounds,
-        )
+        return QuickLaunchFacade.launchAppDirect(context, packageName, className, miniWindow, miniWindowSettings)
     }
 
     suspend fun launchActivityWithAutoUnfreeze(

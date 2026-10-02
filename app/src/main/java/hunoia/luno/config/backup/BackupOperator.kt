@@ -19,6 +19,50 @@ object BackupOperator {
     private const val ZIP_BACKUP = "backup"
     private const val ZIP_IMAGES = "images"
 
+    /**
+     * 单个 zip entry 解压后的字节上限。
+     *
+     * zip entry 的 size 字段可以伪造，所以不能信任 `entry.size`；必须边读边计数。
+     * 备份文件来自用户选中的 URI，恶意构造的 zip bomb 会让无上限的 readBytes/copyTo 直接 OOM。
+     */
+    private const val MAX_ENTRY_BYTES = 32L * 1024 * 1024
+
+    private class EntryTooLargeException(val entryName: String) :
+        Exception("zip entry too large: $entryName")
+
+    /** 有上限地读完一个 entry；超过 [MAX_ENTRY_BYTES] 立即抛 [EntryTooLargeException] */
+    private fun ZipInputStream.readEntryLimited(name: String): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        val buf = ByteArray(16 * 1024)
+        var total = 0L
+        while (true) {
+            val n = read(buf)
+            if (n < 0) break
+            total += n
+            if (total > MAX_ENTRY_BYTES) throw EntryTooLargeException(name)
+            out.write(buf, 0, n)
+        }
+        return out.toByteArray()
+    }
+
+    /** 有上限地把一个 entry 流到文件；超过 [MAX_ENTRY_BYTES] 立即中止并删除半成品 */
+    private fun ZipInputStream.copyEntryLimited(name: String, out: FileOutputStream) {
+        val buf = ByteArray(16 * 1024)
+        var total = 0L
+        try {
+            while (true) {
+                val n = read(buf)
+                if (n < 0) break
+                total += n
+                if (total > MAX_ENTRY_BYTES) throw EntryTooLargeException(name)
+                out.write(buf, 0, n)
+            }
+        } catch (e: EntryTooLargeException) {
+            runCatching { out.close() }
+            throw e
+        }
+    }
+
     private val backupDir get() = "${Paths.AppCache}/backup"
     private val restoreDir get() = "${Paths.AppCache}/restore"
 
@@ -101,7 +145,11 @@ object BackupOperator {
             return RestorePrecheckResult.Failed(RestorePrecheckFailure.CannotReadFile)
         }
         val (backupBytes, hasImages) = runCatching { scanZipEntries(zipFile) }
-            .getOrElse { return RestorePrecheckResult.Failed(RestorePrecheckFailure.InvalidFormat) }
+            .getOrElse { e ->
+                // zip bomb 会在这里被 MAX_ENTRY_BYTES 挡下；记一笔具体原因便于排查
+                android.util.Log.w("LunoLauncher", "precheckRestore: ${e::class.simpleName}: ${e.message}")
+                return RestorePrecheckResult.Failed(RestorePrecheckFailure.InvalidFormat)
+            }
         if (backupBytes == null) {
             return RestorePrecheckResult.Failed(RestorePrecheckFailure.InvalidFormat)
         }
@@ -141,7 +189,9 @@ object BackupOperator {
             for (file in extracted) {
                 when (file.name) {
                     ZIP_BACKUP -> {
-                        restoreBackupFromBytes(file.readBytes())
+                        restoreBackupFromBytes(file.readBytes().also {
+                            if (it.size > MAX_ENTRY_BYTES) throw EntryTooLargeException(file.name)
+                        })
                         restored = true
                     }
                     ZIP_IMAGES -> {
@@ -239,7 +289,7 @@ object BackupOperator {
             while (entry != null) {
                 if (!entry.isDirectory) {
                     when (entry.name) {
-                        ZIP_BACKUP -> if (backupBytes == null) backupBytes = zis.readBytes()
+                        ZIP_BACKUP -> if (backupBytes == null) backupBytes = zis.readEntryLimited(entry.name)
                         ZIP_IMAGES -> hasImages = true
                     }
                 }
@@ -263,7 +313,12 @@ object BackupOperator {
                 }
                 if (!entry.isDirectory) {
                     target.parentFile?.mkdirs()
-                    FileOutputStream(target).use { fos -> zis.copyTo(fos) }
+                    try {
+                        FileOutputStream(target).use { fos -> zis.copyEntryLimited(entry.name, fos) }
+                    } catch (_: EntryTooLargeException) {
+                        target.delete()
+                        throw EntryTooLargeException(entry.name)
+                    }
                 }
                 extracted.add(target)
                 entry = zis.nextEntry

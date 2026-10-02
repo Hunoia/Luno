@@ -199,7 +199,7 @@ fun ActionSelectContent(
                                 try {
                                     currentLauncherInfo = launcherInfo
                                     shortcutLauncher.launch(Intent().apply { setClassName(launcherInfo.packageName, launcherInfo.className) })
-                                } catch (ignored: Exception) { currentLauncherInfo = null }
+                                } catch (_: Exception) { currentLauncherInfo = null }
                             }
                         )
                     }

@@ -10,6 +10,7 @@ import hunoia.luno.quicklaunch.query.ShortcutQuery
 import hunoia.luno.quicklaunch.query.LauncherIconQuery
 import hunoia.luno.quicklaunch.launch.Launcher
 import hunoia.luno.quicklaunch.launch.QuickAppLaunch
+import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.quicklaunch.icon.IconResizeCache
 import hunoia.luno.quicklaunch.query.ActivityOption
 import hunoia.luno.quicklaunch.query.LauncherAppOption
@@ -41,7 +42,7 @@ object QuickLaunchFacade {
         IconResizeCache.iconCache[packageName]
 
     fun cacheIcon(packageName: String, icon: Drawable) {
-        IconResizeCache.iconCache[packageName] = icon
+        IconResizeCache.iconCache.put(packageName, icon)
     }
 
     fun queryLauncherAppOptions(context: Context): List<LauncherAppOption> =
@@ -91,18 +92,9 @@ object QuickLaunchFacade {
         packageName: String,
         className: String,
         miniWindow: Boolean = false,
-        miniWindowHorizontalBias: Float = 0f,
-        miniWindowVerticalBias: Float = 0f,
-        miniWindowWidthFraction: Float = 0.46f,
-        miniWindowHeightFraction: Float = 0.74f,
-        miniWindowOverrideBounds: Boolean = false,
+        miniWindowSettings: MiniWindowSettings = MiniWindowSettings(),
     ): Boolean {
-        return Launcher.launchApp(
-            context, packageName, className, miniWindow,
-            miniWindowHorizontalBias, miniWindowVerticalBias,
-            miniWindowWidthFraction, miniWindowHeightFraction,
-            overrideBounds = miniWindowOverrideBounds,
-        )
+        return Launcher.launchApp(context, packageName, className, miniWindow, miniWindowSettings)
     }
 
     fun launchAppActivityDirect(context: Context, packageName: String, className: String): Boolean {
@@ -112,21 +104,9 @@ object QuickLaunchFacade {
     fun launchUrlDirect(
         context: Context,
         data: OpenAppOrUrlData,
-        miniWindowHorizontalBias: Float = 0f,
-        miniWindowVerticalBias: Float = 0f,
-        miniWindowWidthFraction: Float = 0.46f,
-        miniWindowHeightFraction: Float = 0.74f,
-        miniWindowOverrideBounds: Boolean = false,
+        miniWindowSettings: MiniWindowSettings = MiniWindowSettings(),
     ): Boolean {
-        return Launcher.launchUrl(
-            context = context,
-            data = data,
-            miniWindowHorizontalBias = miniWindowHorizontalBias,
-            miniWindowVerticalBias = miniWindowVerticalBias,
-            miniWindowWidthFraction = miniWindowWidthFraction,
-            miniWindowHeightFraction = miniWindowHeightFraction,
-            miniWindowOverrideBounds = miniWindowOverrideBounds,
-        )
+        return Launcher.launchUrl(context = context, data = data, miniWindowSettings = miniWindowSettings)
     }
 
     fun queryCombinedQuickAppList(context: Context, disabledApps: List<AppInfo>): QuickAppLauncherAppList {
@@ -143,17 +123,9 @@ object QuickLaunchFacade {
         context: Context,
         packageName: String,
         className: String,
-        horizontalBias: Float = 0.5f,
-        verticalBias: Float = 1.0f,
-        widthFraction: Float = 0.5f,
-        heightFraction: Float = 0.5f,
-        overrideBounds: Boolean = false,
+        miniWindowSettings: MiniWindowSettings = MiniWindowSettings(),
     ) {
-        Launcher.launchAppInPopup(
-            context, packageName, className,
-            horizontalBias, verticalBias,
-            widthFraction, heightFraction, overrideBounds,
-        )
+        Launcher.launchAppInPopup(context, packageName, className, miniWindowSettings)
     }
 
     fun launchShortcutInfo(context: Context, shortcutInfo: LauncherInfo.ShortcutInfo) {

@@ -21,11 +21,13 @@ inline fun <reified T> Context.dataStore(fileName: String, defValue: T): DataSto
             return try {
                 val string = bytes.decodeToString()
                 if (string.isBlank()) {
-                    Log.i("DataStore", "read $fileName: blank, using default")
+                    Log.d("DataStore", "read $fileName: blank, using default")
                     return defaultValue
                 }
                 val result = JsonSerializer.decodeFromString<T>(string)
-                Log.i("DataStore", "read $fileName: success size=${bytes.size}")
+                // :service 常驻进程持有 9 个 DataStore，每次读都打 INFO + 拼字符串，
+                // logcat 落盘是实打实的 IO，用 Log.d 让 logcat 按级别过滤掉。
+                Log.d("DataStore", "read $fileName: success size=${bytes.size}")
                 result
             } catch (e: Exception) {
                 Log.e("DataStore", "read $fileName failed: ${e::class.simpleName} ${e.message} size=${bytes.size}")

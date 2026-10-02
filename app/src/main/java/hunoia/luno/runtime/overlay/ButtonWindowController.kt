@@ -53,7 +53,7 @@ class ButtonWindowController(
                     WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
             }
             // 只有真正变化才发跨进程 updateViewLayout，避免每次窗口事件都让 WMS 重新 layout
-            if (lp.snapshot() != before) wm.updateViewLayout(view, lp)
+            if (lp.snapshot() != before) wm.safeUpdateViewLayout(view, lp)
         }
     }
 
@@ -83,7 +83,7 @@ class ButtonWindowController(
                 if (lp != null && tag.windowButton.bounds != target.windowButton.bounds) {
                     val before = lp.snapshot()
                     WindowLayoutFactory.updateGestureButton(lp, target.windowButton)
-                    if (lp.snapshot() != before) wm.updateViewLayout(view, lp)
+                    if (lp.snapshot() != before) wm.safeUpdateViewLayout(view, lp)
                 }
             }
         }

@@ -37,7 +37,7 @@ class TransientOverlayController(
         val wm = ContextCompat.getSystemService(host, WindowManager::class.java)!!
         val lp = WindowLayoutFactory.subGestureLayoutParams(center, radiusPx)
         subGestureOverlayView?.let { view ->
-            try { wm.updateViewLayout(view, lp) } catch (_: Exception) { }
+            wm.safeUpdateViewLayout(view, lp)
             return
         }
         val view = View(host).apply {

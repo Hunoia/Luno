@@ -76,7 +76,8 @@ class PreviousAppTracker(
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(intent)
             true
-        } catch (ignored: Exception) {
+        } catch (_: Exception) {
+            // 目标应用可能已被卸载，切换失败是预期结果
             false
         }
     }

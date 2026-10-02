@@ -31,6 +31,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 import kotlin.math.max
 import hunoia.luno.ui.theme.AnimOverlayFade
+import hunoia.luno.config.model.miniWindowSettings
 
 class QuickAppLauncherOverlay(private val host: GestureHost) {
     @Volatile private var overlayView: View? = null
@@ -180,20 +181,12 @@ class QuickAppLauncherOverlay(private val host: GestureHost) {
                             val now = System.currentTimeMillis()
                             val interval = if (lastCloseMs > 0) now - lastCloseMs else -1L
                             if (BuildConfig.DEBUG) Log.i("LunoLauncher","appClick: ${appInfo.label} pkg=${appInfo.packageName} miniWindow=$miniWindow intervalSinceClose=${interval}ms")
-                            val success = if (advancedSettings.miniWindowOverrideBounds) {
-                                Launcher.launchAppInfo(
-                                    host.context, appInfo, miniWindow,
-                                    advancedSettings.miniWindowHorizontalBias,
-                                    advancedSettings.miniWindowVerticalBias,
-                                    advancedSettings.miniWindowWidthFraction,
-                                    advancedSettings.miniWindowHeightFraction,
-                                    overrideBounds = true,
-                                )
-                            } else {
-                                Launcher.launchAppInfo(
-                                    host.context, appInfo, miniWindow,
-                                )
-                            }
+                            val success = Launcher.launchAppInfo(
+                                context = host.context,
+                                appInfo = appInfo,
+                                miniWindow = miniWindow,
+                                miniWindowSettings = advancedSettings.miniWindowSettings(),
+                            )
                             if (BuildConfig.DEBUG) Log.i("LunoLauncher","appClick: ${appInfo.label} launchResult=$success")
                             if (success) onAppLaunchRequested?.invoke(appInfo)
                             success

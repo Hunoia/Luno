@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import moe.shizuku.server.IShizukuService
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import rikka.shizuku.Shizuku
@@ -208,51 +209,63 @@ object ShizukuManager {
         runCatching {
             val svc = IShizukuService.Stub.asInterface(Shizuku.getBinder())
             val proc = svc.newProcess(arrayOf(if (isRoot) "su" else "sh"), null, null)
-            ParcelFileDescriptor.AutoCloseOutputStream(proc.outputStream).use { out ->
-                out.write((command + "\nexit\n").toByteArray())
-                out.flush()
-            }
-            val stdoutResult = StringBuilder()
-            val stderrResult = StringBuilder()
-            val maxChars = 4096
-            val stdoutJob = launch {
-                runCatching {
-                    ParcelFileDescriptor.AutoCloseInputStream(proc.inputStream).use { input ->
-                        input.bufferedReader().use { reader ->
-                            var line = reader.readLine()
-                            while (line != null && stdoutResult.length <= maxChars) {
-                                if (stdoutResult.isNotEmpty()) stdoutResult.append('\n')
-                                stdoutResult.append(line)
-                                line = reader.readLine()
-                            }
-                        }
-                    }
+            try {
+                ParcelFileDescriptor.AutoCloseOutputStream(proc.outputStream).use { out ->
+                    out.write((command + "\nexit\n").toByteArray())
+                    out.flush()
                 }
-            }
-            val stderrJob = launch {
-                runCatching {
-                    ParcelFileDescriptor.AutoCloseInputStream(proc.errorStream).use { input ->
-                        input.bufferedReader().use { reader ->
-                            var line = reader.readLine()
-                            while (line != null && stderrResult.length <= maxChars) {
-                                if (stderrResult.isNotEmpty()) stderrResult.append('\n')
-                                stderrResult.append(line)
-                                line = reader.readLine()
-                            }
-                        }
-                    }
+                val stdoutResult = StringBuilder()
+                val stderrResult = StringBuilder()
+                val maxChars = 4096
+                // 必须把管道一直读到 EOF，哪怕已经超上限。半途停止读取会让子进程的
+                // write() 永久阻塞在满管道上，进而 proc.waitFor() 永不返回 —— 输出超过
+                // 管道缓冲（~64KB）的命令（如 dumpsys）会直接把这条协程和 IO 线程挂死。
+                val stdoutJob = launch { drain(proc.inputStream, stdoutResult, maxChars) }
+                val stderrJob = launch { drain(proc.errorStream, stderrResult, maxChars) }
+
+                val exitCode = withTimeoutOrNull(SHELL_TIMEOUT_MS) {
+                    val code = proc.waitFor()
+                    stdoutJob.join()
+                    stderrJob.join()
+                    code
+                } ?: run {
+                    proc.destroy()
+                    stdoutJob.cancel()
+                    stderrJob.cancel()
+                    return@runCatching ShellResult(
+                        -1, "", "", false, "shell command timed out after ${SHELL_TIMEOUT_MS}ms",
+                    )
                 }
+                val stdout = stdoutResult.toString()
+                val stderr = stderrResult.toString()
+                ShellResult(exitCode, stdout.ifBlank { stderr }, stderr, false, "")
+            } finally {
+                runCatching { proc.destroy() }
             }
-            val exitCode = proc.waitFor()
-            stdoutJob.join()
-            stderrJob.join()
-            proc.destroy()
-            val stdout = stdoutResult.toString().take(maxChars)
-            val stderr = stderrResult.toString().take(maxChars)
-            val output = stdout.ifBlank { stderr }
-            ShellResult(exitCode, output, stderr, false, "")
         }.getOrElse { t ->
             ShellResult(-1, "", "", false, t.message ?: t.javaClass.simpleName)
+        }
+    }
+
+    /** 读到 EOF 为止；只保留前 [maxChars] 个字符，但不会提前停止读取 */
+    private fun CoroutineScope.drain(
+        fd: ParcelFileDescriptor,
+        sink: StringBuilder,
+        maxChars: Int,
+    ) {
+        runCatching {
+            ParcelFileDescriptor.AutoCloseInputStream(fd).use { input ->
+                input.bufferedReader().use { reader ->
+                    var line = reader.readLine()
+                    while (line != null) {
+                        if (sink.length <= maxChars) {
+                            if (sink.isNotEmpty()) sink.append('\n')
+                            sink.append(line)
+                        }
+                        line = reader.readLine()
+                    }
+                }
+            }
         }
     }
 
@@ -342,4 +355,7 @@ object ShizukuManager {
             !status.permissionGranted &&
             !autoPermissionRequested
     }
+
+    /** shell 命令最长等待时间。超时后强制 destroy 进程并放弃结果，避免 IO 线程被永久占住。 */
+    private const val SHELL_TIMEOUT_MS = 30_000L
 }

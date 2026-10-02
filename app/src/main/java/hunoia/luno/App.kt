@@ -26,10 +26,14 @@ class App : Application(), ImageLoaderFactory {
 
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
-            .crossfade(600)
+            // 原来 600ms：图标网格一次加载几十张，每张都产生一段 GPU 交叉淡入，
+            // 弹键盘/切页时叠加起来既掉帧又耗电。150ms 足够掩盖解码但成本低得多。
+            .crossfade(150)
             .memoryCache {
                 MemoryCache.Builder(this)
-                    .maxSizePercent(0.25)
+                    // 默认是 0.2；这里图标本身还有 IconResizeCache 那层，
+                    // 没必要让 Coil 再吃掉四分之一堆内存。
+                    .maxSizePercent(0.10)
                     .build()
             }
             .build()

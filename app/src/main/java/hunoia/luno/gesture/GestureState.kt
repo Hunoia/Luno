@@ -53,6 +53,13 @@ class GestureState(
     var isCanceled: Boolean by mutableStateOf(false)
         private set
 
+    /**
+     * 只在 onDragStart 构建一次。原先 onDragStart/onDrag/onDragEnd 各建一遍，
+     * 而 onDrag 是每个 ACTION_MOVE 都会走到的 —— 每帧一个 GestureConfig + 一个
+     * GestureThresholds + 一个闭包，而内容在整个手势会话里并不会变。
+     */
+    private var sessionConfig: GestureConfig? = null
+
     var button: GestureButton? by mutableStateOf(null)
         private set
     var effectiveButton: GestureButton? by mutableStateOf(null)
@@ -97,6 +104,7 @@ class GestureState(
 
         val b = button ?: run {
             effectiveButton = null
+            sessionConfig = null
             recognizer.clearPendingDoubleTap()
             return
         }
@@ -108,7 +116,7 @@ class GestureState(
             pendingDoubleTapJob = null
         }
 
-        val config = buildRecognizerConfig(b)
+        val config = buildRecognizerConfig(b).also { sessionConfig = it }
         recognizer.onDown(timeProvider(), offset, config)
 
         if (config.hasLongPressActions) {
@@ -138,9 +146,9 @@ class GestureState(
     fun onDrag(dragAmount: Offset): GestureResolvedActions? {
         finger += dragAmount
 
+        val config = sessionConfig ?: return null
         val b = button ?: return null
 
-        val config = buildRecognizerConfig(b)
         val decision = recognizer.onMove(timeProvider(), dragAmount, config)
 
         triggerDirection = recognizer.triggerDirection
@@ -174,9 +182,9 @@ class GestureState(
         longPressCheckJob?.cancel()
         longPressCheckJob = null
 
+        val config = sessionConfig ?: return null
         val b = button ?: return null
 
-        val config = buildRecognizerConfig(b)
         val decision = recognizer.onUp(timeProvider(), config)
 
         when (decision) {
@@ -260,6 +268,7 @@ class GestureState(
         finger = Offset.Unspecified
         button = null
         effectiveButton = null
+        sessionConfig = null
         isMirrorTouchTarget = false
         triggerDirection = GestureDirection.Right
         actionDirection = GestureDirection.Right

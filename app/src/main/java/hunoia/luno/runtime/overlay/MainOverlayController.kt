@@ -39,7 +39,7 @@ class MainOverlayController(
         val currentLp = view.layoutParams as? WindowManager.LayoutParams ?: return
         currentLp.width = lp.width
         currentLp.height = lp.height
-        try { wm.updateViewLayout(view, currentLp) } catch (_: Exception) { }
+        wm.safeUpdateViewLayout(view, currentLp)
     }
 
     fun release() {
