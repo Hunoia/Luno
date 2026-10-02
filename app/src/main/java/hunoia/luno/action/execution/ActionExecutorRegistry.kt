@@ -1,7 +1,6 @@
 package hunoia.luno.action.execution
 
 import android.util.Log
-import hunoia.luno.BuildConfig
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionResult
 import hunoia.luno.action.model.ActionFailure
@@ -37,8 +36,8 @@ class ActionExecutorRegistry(
         return runCatching {
             executor.execute(action, context)
         }.getOrElse { e ->
-            if (BuildConfig.DEBUG) Log.w("LunoLauncher", "execute failed typeId=${action.typeId}", e)
-            ActionResult.Failed(ActionFailure.ExecutionFailed)
+            Log.w("LunoLauncher", "execute failed typeId=${action.typeId}", e)
+            ActionResult.Failed(ActionFailure.ExecutionFailed, e.message ?: e.javaClass.name)
         }
     }
 }

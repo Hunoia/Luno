@@ -15,6 +15,7 @@ data class NewActionLibraryEntry(
     val typeId: String,
     val params: JsonObject = JsonObject(emptyMap()),
     val createdAt: Long = System.currentTimeMillis(),
+    val iconKey: String? = null,
 ) {
     val storedAction: StoredAction get() = StoredAction(typeId, params)
 

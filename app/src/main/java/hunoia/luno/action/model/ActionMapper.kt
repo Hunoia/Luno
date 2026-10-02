@@ -47,8 +47,7 @@ object ActionMapper {
                 p.miniWindowSettings(),
             )
             "intent.shareText" -> Action.ShareText(p.str("text"), p.str("mimeType", "text/plain"))
-            "intent.shareFile" -> Action.ShareFile(p.str("filePath"), p.str("mimeType"))
-            "intent.openFile" -> Action.OpenFile(p.str("filePath"), p.str("mimeType"))
+            "intent.shareFile" -> Action.ShareFile
             "intent.assist" -> Action.Assist
             "system.openSettings" -> Action.OpenSettings(SettingsPage.valueOf(p.str("page")))
             "system.volume" -> Action.Volume(
@@ -153,14 +152,7 @@ object ActionMapper {
                     put("text", action.text)
                     put("mimeType", action.mimeType)
                 }
-                is Action.ShareFile -> {
-                    put("filePath", action.filePath)
-                    put("mimeType", action.mimeType)
-                }
-                is Action.OpenFile -> {
-                    put("filePath", action.filePath)
-                    put("mimeType", action.mimeType)
-                }
+                is Action.ShareFile -> {}
                 is Action.Assist -> {}
                 is Action.OpenSettings -> put("page", action.page.name)
                 is Action.Volume -> {

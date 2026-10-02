@@ -4,6 +4,7 @@ import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.config.backup.ConfigBackupRepository
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
+import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.Backup
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
@@ -30,6 +31,7 @@ object ConfigProvider {
     val quickAppLauncherSettings: Flow<QuickAppLauncherSettings> = stores.quickAppLauncherSettings
     val subGestureSettings: Flow<SubGestureSettings> = stores.subGestureSettings
     val newActionLibrarySettings: Flow<NewActionLibrarySettings> = stores.newActionLibrarySettings
+    val automationRules: Flow<List<AutomationRule>> = stores.automationRules
 
     suspend fun getInitialSettings(): InitialSettings = settingsRepository.getInitialSettings()
     suspend fun getAdvancedSettings(): AdvancedSettings = settingsRepository.getAdvancedSettings()
@@ -39,6 +41,7 @@ object ConfigProvider {
     suspend fun getQuickAppLauncherSettings(): QuickAppLauncherSettings = settingsRepository.getQuickAppLauncherSettings()
     suspend fun getSubGestureSettings(): SubGestureSettings = settingsRepository.getSubGestureSettings()
     suspend fun getNewActionLibrarySettings(): NewActionLibrarySettings = settingsRepository.getNewActionLibrarySettings()
+    suspend fun getAutomationRules(): List<AutomationRule> = settingsRepository.getAutomationRules()
 
     suspend fun updateInitialSettings(transform: suspend (InitialSettings) -> InitialSettings) {
         settingsRepository.updateInitialSettings(transform)
@@ -63,6 +66,10 @@ object ConfigProvider {
     }
     suspend fun updateNewActionLibrarySettings(transform: suspend (NewActionLibrarySettings) -> NewActionLibrarySettings) {
         settingsRepository.updateNewActionLibrarySettings(transform)
+    }
+
+    suspend fun updateAutomationRules(transform: suspend (List<AutomationRule>) -> List<AutomationRule>) {
+        settingsRepository.updateAutomationRules(transform)
     }
 
     suspend fun updateQuickAppLauncherLayout(layout: QuickAppLauncherSettings) {

@@ -1,16 +1,16 @@
 package hunoia.luno.runtime.button
 
+import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.InitialSettings
-import hunoia.luno.config.model.RuleEffect
-import hunoia.luno.config.model.VisibilityRule
+import hunoia.luno.config.model.RuleEffectType
 import hunoia.luno.runtime.GestureRuntimeState
 import hunoia.luno.runtime.condition.matches
 import hunoia.luno.runtime.condition.toConditionContext
 
 class ButtonVisibilityPolicy(
     private val initialSettings: InitialSettings,
-    private val rules: List<VisibilityRule>,
+    private val rules: List<AutomationRule>,
     private val runtimeState: GestureRuntimeState,
 ) {
     fun shouldShow(button: GestureButton): Boolean {
@@ -22,9 +22,11 @@ class ButtonVisibilityPolicy(
         var result = true
         for (rule in rules) {
             if (!rule.enabled) continue
-            if (!rule.covers(button.id)) continue
-            if (rule.condition.matches(ctx)) {
-                result = rule.effect == RuleEffect.SHOW
+            val type = rule.effect.type
+            if (type != RuleEffectType.HIDE_BUTTONS && type != RuleEffectType.SHOW_BUTTONS) continue
+            if (!rule.effect.covers(button.id)) continue
+            if (rule.matches(ctx)) {
+                result = type == RuleEffectType.SHOW_BUTTONS
             }
         }
         return result

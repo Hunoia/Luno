@@ -47,6 +47,7 @@ class NewActionLibraryEditVM : ViewModel() {
                         name = entry.name,
                         params = entry.params,
                         createdAt = entry.createdAt,
+                        iconKey = entry.iconKey,
                     )
                 }
         }
@@ -84,6 +85,7 @@ class NewActionLibraryEditVM : ViewModel() {
                     typeId = typeId,
                     name = if (keepName) draft.name else definition.name,
                     params = defaultParams(definition),
+                    iconKey = draft.iconKey,
                 ),
             )
         }
@@ -129,6 +131,7 @@ class NewActionLibraryEditVM : ViewModel() {
             typeId = draft.typeId,
             params = draft.params.toJsonObject(),
             createdAt = draft.createdAt,
+            iconKey = draft.iconKey,
         )
         viewModelScope.launch {
             withContext(NonCancellable) {
@@ -169,7 +172,8 @@ data class NewEditState(
             val base = baseline ?: return false
             return current.typeId != base.typeId ||
                 current.name != base.name ||
-                current.params != base.params
+                current.params != base.params ||
+                current.iconKey != base.iconKey
         }
 }
 
@@ -179,6 +183,7 @@ data class NewEditDraft(
     val name: String = "",
     val params: Map<String, JsonElement> = emptyMap(),
     val createdAt: Long = System.currentTimeMillis(),
+    val iconKey: String? = null,
 ) {
     val definition: ActionDefinition? get() = ActionDefinitions.byTypeId(typeId)
 

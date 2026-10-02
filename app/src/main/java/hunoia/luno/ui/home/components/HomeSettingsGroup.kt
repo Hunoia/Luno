@@ -31,7 +31,7 @@ fun HomeSettingsGroup(
             onClick = onActionSettingsClick,
         )
         SegmentedSettingsRow(
-            title = stringResource(R.string.condition_home),
+            title = stringResource(R.string.automation_home),
             icon = Icons.TwoTone.FilterAlt,
             shape = segmentedShape(1, 2),
             onClick = onConditionClick,

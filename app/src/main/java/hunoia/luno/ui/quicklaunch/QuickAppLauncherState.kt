@@ -119,7 +119,7 @@ class QuickAppLauncherState(
             miniWindow = miniWindow,
             debugPrefix = debugPrefix,
             requestEnableDisabledPackage = requestEnableDisabledPackage,
-            log = { message -> android.util.Log.d("LunoLauncher", message) },
+            log = { message -> android.util.Log.i("LunoLauncher", message) },
             onLaunch = onLaunch,
             onLaunched = closeAnimated
         )

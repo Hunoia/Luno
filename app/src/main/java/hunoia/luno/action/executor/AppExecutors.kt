@@ -58,10 +58,7 @@ class AppExecutors(private val intentController: IntentController) : ActionExecu
                 )
                 if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
-            is Action.AppDetails -> {
-                val ok = intentController.openAppDetails(action.packageName)
-                if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
-            }
+            is Action.AppDetails -> intentController.openAppDetails(action.packageName)
             is Action.Popup -> {
                 popupScreen(context, context.advancedSettings.effectiveForAction(action))
                 ActionResult.Success()

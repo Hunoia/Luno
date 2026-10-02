@@ -14,7 +14,6 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FlashlightOn
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Home
@@ -114,20 +113,7 @@ object ActionDefinitions {
         add(ActionDefinition(
             Action.ShareFile::class, "intent.shareFile", "分享文件", ActionCategory.INTENT,
             Capability.None,
-            listOf(
-                ParameterDefinition.Path("filePath", "文件路径"),
-                ParameterDefinition.Text("mimeType", "MIME 类型", required = false),
-            ),
             icon = Icons.Default.Upload,
-        ))
-        add(ActionDefinition(
-            Action.OpenFile::class, "intent.openFile", "打开文件", ActionCategory.INTENT,
-            Capability.None,
-            listOf(
-                ParameterDefinition.Path("filePath", "文件路径"),
-                ParameterDefinition.Text("mimeType", "MIME 类型", required = false),
-            ),
-            icon = Icons.Default.Description,
         ))
         add(ActionDefinition(
             Action.Assist::class, "intent.assist", "系统助手", ActionCategory.INTENT,
@@ -383,7 +369,16 @@ object ActionDefinitions {
         "accessibility.longPress",
     )
 
+    /** 不可作为自动化规则动作的类型：依赖运行时触点，或在自动化上下文中空跑 */
+    val automationExcluded: Set<String> = libraryExcluded + setOf(
+        "accessibility.tap",
+        "accessibility.longPress",
+        "internal.hideGestureButton",
+    )
+
     fun libraryDefinitions(): List<ActionDefinition> = definitions.filterNot { it.typeId in libraryExcluded }
+
+    fun automationExcludedTypeIds(): Set<String> = automationExcluded
 
     fun pickerDefinitions(): List<ActionDefinition> =
         definitions.filter { it.typeId !in pickerExcluded && it.parameters.none { p -> p.required } }

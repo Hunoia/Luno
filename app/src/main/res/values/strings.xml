@@ -250,6 +250,8 @@
     <string name="action_library_entry_not_found">未找到该动作库条目，可能已被删除</string>
     <string name="action_library_discard_title">放弃未保存的修改？</string>
     <string name="action_library_discard_desc">返回后本次修改将丢失。</string>
+    <string name="action_library_icon_pick">更换图标</string>
+    <string name="action_library_icon_default">默认</string>
 
     <!-- New action editor -->
     <string name="action_type_label">动作类型</string>
@@ -334,4 +336,64 @@
     <string name="toast_unsupported_action">不支持的动作类型</string>
     <string name="toast_accessibility_required">需要无障碍服务</string>
     <string name="toast_shizuku_required">需要 Shizuku 权限</string>
+
+    <!-- 自动化规则 -->
+    <string name="automation_settings">自动化规则</string>
+    <string name="automation_home">自动化规则</string>
+    <string name="automation_new">新建规则</string>
+    <string name="automation_empty">暂无自动化规则</string>
+    <string name="automation_edit">编辑规则</string>
+    <string name="automation_name_hint">规则名称</string>
+    <string name="automation_condition">触发条件</string>
+    <string name="automation_entry">动作条目</string>
+    <string name="automation_pick_entry">选择动作条目</string>
+    <string name="automation_entry_empty">未选择动作条目</string>
+    <string name="automation_entry_required">请选择要执行的动作条目</string>
+    <string name="automation_cooldown">冷却时间</string>
+    <string name="automation_cooldown_hint">单位秒，0 表示不限制</string>
+    <string name="automation_cooldown_invalid">请输入 0-3600 之间的秒数</string>
+    <string name="automation_condition_empty">未配置条件</string>
+    <string name="condition_level_group">当前状态</string>
+    <string name="condition_event_group">变化事件</string>
+    <string name="automation_effect_run_action">执行动作</string>
+
+    <!-- 条件类型 -->
+    <string name="condition_screen_event">屏幕开关</string>
+    <string name="screen_event_on">亮屏</string>
+    <string name="screen_event_off">灭屏</string>
+    <string name="condition_app_changed">应用切换</string>
+    <string name="condition_charging_changed">充电变化</string>
+    <string name="charging_started">开始充电</string>
+    <string name="charging_stopped">停止充电</string>
+    <string name="condition_battery_range">电量区间</string>
+    <string name="condition_volume_range">音量区间</string>
+    <string name="condition_volume_changed">音量变化</string>
+    <string name="condition_ringer_silent">静音/响铃</string>
+    <string name="condition_network_type">网络类型</string>
+    <string name="condition_headphones">耳机</string>
+    <string name="condition_bluetooth">蓝牙</string>
+    <string name="condition_airplane_mode">飞行模式</string>
+    <string name="condition_unlimited">不限</string>
+    <string name="state_on">开启</string>
+    <string name="state_off">关闭</string>
+    <string name="headphones_plugged">已插入</string>
+    <string name="headphones_unplugged">未插入</string>
+    <string name="bluetooth_adapter">蓝牙开关</string>
+    <string name="bluetooth_audio">蓝牙音频</string>
+    <string name="condition_silent">静音</string>
+    <string name="condition_ringing">响铃</string>
+    <string name="volume_stream">音频流</string>
+    <string name="volume_direction">音量方向</string>
+    <string name="volume_up">音量增大</string>
+    <string name="volume_down">音量减小</string>
+    <string name="audio_stream_music">音乐</string>
+    <string name="audio_stream_ring">铃声</string>
+    <string name="audio_stream_notification">通知</string>
+    <string name="audio_stream_alarm">闹钟</string>
+    <string name="audio_stream_voice">通话</string>
+    <string name="audio_stream_system">系统</string>
+    <string name="network_wifi">Wi-Fi</string>
+    <string name="network_mobile">移动网络</string>
+    <string name="network_none">无网络</string>
+    <string name="network_other">其他网络</string>
 </resources>

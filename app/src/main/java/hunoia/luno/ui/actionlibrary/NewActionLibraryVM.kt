@@ -36,6 +36,18 @@ class NewActionLibraryVM : ViewModel() {
     fun remove(entry: NewActionLibraryEntry) {
         viewModelScope.launch { removeNewLibraryEntry(entry.id) }
     }
+
+    fun updateIcon(entryId: String, iconKey: String?) {
+        viewModelScope.launch {
+            ConfigProvider.updateNewActionLibrarySettings { settings ->
+                settings.copy(
+                    entries = settings.entries.map { entry ->
+                        if (entry.id == entryId) entry.copy(iconKey = iconKey) else entry
+                    },
+                )
+            }
+        }
+    }
 }
 
 suspend fun removeNewLibraryEntry(entryId: String) {
@@ -46,6 +58,15 @@ suspend fun removeNewLibraryEntry(entryId: String) {
         settings.copy(subGestures = settings.subGestures.map { subGesture ->
             subGesture.cleanActions { it.actionLibraryRefId() == entryId }
         })
+    }
+    ConfigProvider.updateAutomationRules { rules ->
+        rules.map { rule ->
+            if (rule.effect.entryId == entryId) {
+                rule.copy(enabled = false, effect = rule.effect.copy(entryId = ""))
+            } else {
+                rule
+            }
+        }
     }
     ConfigProvider.updateNewActionLibrarySettings { settings ->
         settings.copy(entries = settings.entries.filterNot { it.id == entryId })

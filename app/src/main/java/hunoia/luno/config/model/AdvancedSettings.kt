@@ -25,5 +25,4 @@ data class AdvancedSettings(
     val keepAliveEnabled: Boolean = KeepAliveEnabled,
     val clipApps: Map<String, Float> = ClipApps,
     val clipShortcuts: Map<String, Float> = ClipShortcuts,
-    val conditionRules: List<VisibilityRule> = emptyList(),
 )

@@ -49,24 +49,19 @@ class ActionDispatcher(
         sourceButton: GestureButton?,
         sourceOverride: GestureButtonActionSettingsOverride? = sourceButton?.actionSettingsOverride,
     ) {
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "dispatch action id=${action.value}")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "dispatch action id=${action.value}")
 
         val touchPosition = action.extra.toTouchPair()
 
         action.newActionData()?.let { stored ->
-            if (BuildConfig.DEBUG) Log.d("LunoLauncher", "new action typeId=${stored.typeId}")
+            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "new action typeId=${stored.typeId}")
             newDispatcher.dispatch(stored, sourceButton, sourceOverride, touchPosition)
             return
         }
 
         val entryId = action.actionLibraryRefId()
-        if (entryId != null) {
-            val newSettings = settingsSnapshot().newActionLibrarySettings
-            val newEntry = newSettings.entries.find { it.id == entryId }
-            if (newEntry != null) {
-                newDispatcher.dispatch(newEntry.storedAction, sourceButton, sourceOverride, touchPosition)
-                return
-            }
+        if (entryId != null && dispatchEntry(entryId, sourceButton, sourceOverride, touchPosition)) {
+            return
         }
 
         if (action.value == ActionFacade.BACK) {
@@ -76,12 +71,32 @@ class ActionDispatcher(
 
         val mapped = hunoia.luno.action.dispatcher.LegacyActionMapper.map(action)
         if (mapped != null) {
-            if (BuildConfig.DEBUG) Log.d("LunoLauncher", "legacy mapped typeId=${mapped.typeId}")
+            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "legacy mapped typeId=${mapped.typeId}")
             newDispatcher.dispatch(mapped, sourceButton, sourceOverride, touchPosition)
             return
         }
 
         if (BuildConfig.DEBUG) Log.w("LunoLauncher", "no executor for legacy action id=${action.value}")
+    }
+
+    private fun dispatchEntry(
+        entryId: String,
+        sourceButton: GestureButton?,
+        sourceOverride: GestureButtonActionSettingsOverride?,
+        touchPosition: Pair<Int, Int>?,
+    ): Boolean {
+        val entry = settingsSnapshot().newActionLibrarySettings.entries.find { it.id == entryId }
+        if (entry == null) {
+            if (BuildConfig.DEBUG) Log.w("LunoLauncher", "entry not found id=$entryId")
+            return false
+        }
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "dispatch entry id=$entryId typeId=${entry.storedAction.typeId}")
+        newDispatcher.dispatch(entry.storedAction, sourceButton, sourceOverride, touchPosition)
+        return true
+    }
+
+    fun runActionEntry(entryId: String) {
+        dispatchEntry(entryId, null, null, null)
     }
 
     private fun Any?.toTouchPair(): Pair<Int, Int>? {

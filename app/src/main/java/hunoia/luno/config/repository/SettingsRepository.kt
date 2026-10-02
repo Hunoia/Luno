@@ -4,6 +4,7 @@ import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.config.store.SettingsStores
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.InitialSettings
@@ -51,5 +52,10 @@ internal class SettingsRepository(private val stores: SettingsStores) {
     suspend fun getNewActionLibrarySettings(): NewActionLibrarySettings = stores._newActionLibrarySettings.data.first()
     suspend fun updateNewActionLibrarySettings(transform: suspend (NewActionLibrarySettings) -> NewActionLibrarySettings) {
         stores._newActionLibrarySettings.updateData(transform)
+    }
+
+    suspend fun getAutomationRules(): List<AutomationRule> = stores._automationRules.data.first()
+    suspend fun updateAutomationRules(transform: suspend (List<AutomationRule>) -> List<AutomationRule>) {
+        stores._automationRules.updateData(transform)
     }
 }

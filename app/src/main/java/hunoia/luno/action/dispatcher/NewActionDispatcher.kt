@@ -76,11 +76,11 @@ class NewActionDispatcher(
         sourceOverride: LegacyGestureButtonActionSettingsOverride? = null,
         touchPosition: Pair<Int, Int>? = null,
     ) {
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "dispatch storedAction typeId=${stored.typeId}")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "dispatch storedAction typeId=${stored.typeId}")
         scope.launch(Dispatchers.Main.immediate) {
             val ctx = buildContext(sourceButton, sourceOverride, touchPosition)
             val result = resolver.resolveFromLibrary(stored, ctx)
-            if (BuildConfig.DEBUG) Log.d("LunoLauncher", "result=$result")
+            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "result=$result")
             when (result) {
                 is ActionResult.Failed -> ctx.showToast(result.message ?: failureText(appContext, result.reason))
                 is ActionResult.RequiresCapability -> ctx.showToast(capabilityText(appContext, result.capability))

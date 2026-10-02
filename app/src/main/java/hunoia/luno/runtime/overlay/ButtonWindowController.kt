@@ -20,7 +20,7 @@ class ButtonWindowController(
     val buttonViews: List<View> get() = _buttonViews.toList()
 
     fun replaceGestureButtons(buttons: Collection<GestureButton>) {
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "replace buttons: count=${buttons.size}")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "replace buttons: count=${buttons.size}")
         host.removeWindows(_buttonViews)
         _buttonViews.clear()
         for (button in buttons) {
@@ -53,7 +53,7 @@ class ButtonWindowController(
     }
 
     fun release() {
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "ButtonWindowController release: count=${_buttonViews.size}")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "ButtonWindowController release: count=${_buttonViews.size}")
         host.removeWindows(_buttonViews)
         _buttonViews.clear()
     }

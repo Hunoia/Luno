@@ -19,6 +19,7 @@ import hunoia.luno.config.model.DirectionActions
 import hunoia.luno.config.model.actionLibraryRefId
 import hunoia.luno.config.model.newActionData
 import hunoia.luno.quicklaunch.model.icon
+import hunoia.luno.ui.actionlibrary.IconPalette
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 
 fun Context.actionText(
@@ -76,6 +77,13 @@ fun actionText(
 fun actionIcon(action: Action): Any? {
     action.newActionData()?.let { stored ->
         return ActionDefinitions.byTypeId(stored.typeId)?.icon
+    }
+    action.actionLibraryRefId()?.let { refId ->
+        val entries = LocalActionLibraryEntries.current
+        return entries.firstOrNull { it.id == refId }?.let { entry ->
+            entry.iconKey?.let { IconPalette.byKey(it) }
+                ?: ActionDefinitions.byTypeId(entry.typeId)?.icon
+        }
     }
     return when (action.value) {
         ActionFacade.EXTRA_LAUNCH_APP -> action.appInfo?.icon ?: Icons.Default.Android

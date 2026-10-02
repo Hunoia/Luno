@@ -64,11 +64,8 @@ sealed interface Action {
     data class ShareText(val text: String, val mimeType: String = "text/plain") : Action {
         override val typeId: String = "intent.shareText"
     }
-    data class ShareFile(val filePath: String, val mimeType: String = "") : Action {
+    data object ShareFile : Action {
         override val typeId: String = "intent.shareFile"
-    }
-    data class OpenFile(val filePath: String, val mimeType: String = "") : Action {
-        override val typeId: String = "intent.openFile"
     }
     data object Assist : Action {
         override val typeId: String = "intent.assist"

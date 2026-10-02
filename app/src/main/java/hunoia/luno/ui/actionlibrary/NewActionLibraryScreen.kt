@@ -1,6 +1,7 @@
 package hunoia.luno.ui.actionlibrary
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -68,6 +69,7 @@ fun NewActionLibraryScreen(
     val uiState by vm.uiState.collectAsState()
     var query by rememberSaveable { mutableStateOf("") }
     var pendingDeleteEntry by remember { mutableStateOf<NewActionLibraryEntry?>(null) }
+    var iconPickerEntry by remember { mutableStateOf<NewActionLibraryEntry?>(null) }
     var resetCounter by remember { mutableStateOf(0) }
 
     val filtered = remember(uiState.entries, query) {
@@ -115,6 +117,7 @@ fun NewActionLibraryScreen(
                                 onNavToEdit = {
                                     onNavToEdit(entry.id, null)
                                 },
+                                onIconClick = { iconPickerEntry = entry },
                                 onDismiss = { pendingDeleteEntry = entry },
                                 resetKey = resetCounter,
                             )
@@ -161,6 +164,19 @@ fun NewActionLibraryScreen(
                 },
             )
         }
+
+        iconPickerEntry?.let { entry ->
+            val def = ActionDefinitions.byTypeId(entry.typeId)
+            IconPickerSheet(
+                onDismiss = { iconPickerEntry = null },
+                onPick = { iconKey ->
+                    vm.updateIcon(entry.id, iconKey)
+                    iconPickerEntry = null
+                },
+                currentKey = entry.iconKey,
+                defaultIcon = def?.icon ?: Icons.Default.Build,
+            )
+        }
     }
 }
 
@@ -172,6 +188,7 @@ private fun ActionLibrarySwipeRow(
     entry: NewActionLibraryEntry,
     referenceCount: Int,
     onNavToEdit: () -> Unit,
+    onIconClick: () -> Unit,
     onDismiss: () -> Unit,
     resetKey: Int = 0,
 ) {
@@ -212,6 +229,7 @@ private fun ActionLibrarySwipeRow(
                     entry = entry,
                     referenceCount = referenceCount,
                     onClick = onNavToEdit,
+                    onIconClick = onIconClick,
                 )
             },
         )
@@ -224,14 +242,28 @@ private fun ActionLibraryItem(
     entry: NewActionLibraryEntry,
     referenceCount: Int,
     onClick: () -> Unit,
+    onIconClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val def = ActionDefinitions.byTypeId(entry.typeId)
+    val icon = entry.iconKey?.let { IconPalette.byKey(it) } ?: def?.icon ?: Icons.Default.Build
     SegmentedSettingsRow(
         modifier = modifier,
         title = entry.name.ifBlank { def?.name ?: entry.typeId },
         subtitle = if (entry.name.isBlank()) "" else (def?.name ?: entry.typeId),
-        icon = def?.icon ?: Icons.Default.Build,
+        leadingContent = {
+            Icon(
+                modifier = Modifier
+                    .size(RowIconSize)
+                    .clickable(
+                        indication = null,
+                        interactionSource = null,
+                        onClick = onIconClick,
+                    ),
+                imageVector = icon,
+                contentDescription = null,
+            )
+        },
         shape = shape,
         onClick = onClick,
         trailingContent = {

@@ -38,11 +38,11 @@ data class SubGestureEditor(
 
 @Keep
 @Serializable
-data object Condition
+data object Automation
 
 @Keep
 @Serializable
-data class ConditionEdit(
+data class AutomationEdit(
     val ruleId: String,
 )
 
@@ -54,6 +54,6 @@ data class NewActionLibraryEdit(
 )
 
 
-const val NEW_CONDITION_RULE_ID = "new"
+const val NEW_AUTOMATION_RULE_ID = "new"
 
 const val NEW_ACTION_LIBRARY_ENTRY_ID = "new"

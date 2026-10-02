@@ -8,7 +8,7 @@ import android.os.BatteryManager
 
 class BatteryTracker(
     private val context: Context,
-    private val onChanged: () -> Unit,
+    private val onChanged: (Boolean) -> Unit,
 ) {
     var isCharging: Boolean = false
         private set
@@ -49,7 +49,7 @@ class BatteryTracker(
         if (charging == isCharging && level == batteryLevel) return
         isCharging = charging
         batteryLevel = level
-        onChanged()
+        onChanged(charging)
     }
 
     private fun Intent.batteryLevel(): Int {

@@ -1,4 +1,4 @@
-package hunoia.luno.ui.condition.components
+package hunoia.luno.ui.automation.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column

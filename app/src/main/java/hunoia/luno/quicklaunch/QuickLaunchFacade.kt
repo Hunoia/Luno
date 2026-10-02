@@ -88,7 +88,7 @@ object QuickLaunchFacade {
             miniWindow = miniWindow,
             debugPrefix = debugPrefix,
             requestEnableDisabledPackage = requestEnableDisabledPackage ?: { _, callback -> callback(true) },
-            log = log ?: { message -> android.util.Log.d("LunoLauncher", message); Unit },
+            log = log ?: { message -> android.util.Log.i("LunoLauncher", message); Unit },
             onLaunch = onLaunch ?: { _, _ -> true },
             onLaunched = onLaunched ?: {}
         )

@@ -35,15 +35,15 @@ import hunoia.luno.ui.navigation.GestureButtonSettings
 import hunoia.luno.ui.navigation.Home
 import hunoia.luno.ui.navigation.ActionSettings
 import hunoia.luno.ui.navigation.SubGestureEditor
-import hunoia.luno.ui.navigation.Condition
-import hunoia.luno.ui.navigation.ConditionEdit
+import hunoia.luno.ui.navigation.Automation
+import hunoia.luno.ui.navigation.AutomationEdit
 
 import hunoia.luno.ui.navigation.NewActionLibraryEdit
 
 import hunoia.luno.ui.actionselect.ActionSelectContent
 import hunoia.luno.ui.actionlibrary.NewActionLibraryEditScreen
-import hunoia.luno.ui.condition.ConditionEditScreen
-import hunoia.luno.ui.condition.ConditionSettingsScreen
+import hunoia.luno.ui.automation.AutomationEditScreen
+import hunoia.luno.ui.automation.AutomationSettingsScreen
 import hunoia.luno.ui.settings.action.ActionSettingsScreen
 
 import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsScreen
@@ -101,7 +101,7 @@ fun SideGestureApp() {
                             navController.navigate(SubGestureEditor(subGestureId))
                         },
                         onNavToCondition = {
-                            navController.navigate(Condition)
+                            navController.navigate(Automation)
                         },
                         onNavToActionSettings = {
                             navController.navigate(ActionSettings)
@@ -134,16 +134,16 @@ fun SideGestureApp() {
                         onNavToActionSelect = { navController.navigate(it) }
                     )
                 }
-                myComposable<Condition> {
-                    ConditionSettingsScreen(
+                myComposable<Automation> {
+                    AutomationSettingsScreen(
                         onBack = { navController.popBackStack() },
-                        onNavToEdit = { ruleId -> navController.navigate(ConditionEdit(ruleId)) },
+                        onNavToEdit = { ruleId -> navController.navigate(AutomationEdit(ruleId)) },
                     )
                 }
-                myComposable<ConditionEdit> {
-                    ConditionEditScreen(
+                myComposable<AutomationEdit> {
+                    AutomationEditScreen(
                         onBack = { navController.popBackStack() },
-                        ruleId = it.toRoute<ConditionEdit>().ruleId,
+                        ruleId = it.toRoute<AutomationEdit>().ruleId,
                     )
                 }
                 myComposable<NewActionLibraryEdit> {

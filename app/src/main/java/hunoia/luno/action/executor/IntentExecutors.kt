@@ -14,7 +14,7 @@ import hunoia.luno.quicklaunch.QuickLaunchFacade
 class IntentExecutors(private val intentController: IntentController) : ActionExecutor {
 
     override val supportedTypes: Set<String> = setOf(
-        "intent.openUrl", "intent.shareText", "intent.shareFile", "intent.openFile", "intent.assist"
+        "intent.openUrl", "intent.shareText", "intent.shareFile", "intent.assist"
     )
 
     override suspend fun execute(action: Action, context: ExecutorContext):ActionResult {
@@ -40,22 +40,9 @@ class IntentExecutors(private val intentController: IntentController) : ActionEx
                 )
                 if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
-            is Action.ShareText -> {
-                val ok = intentController.shareText(action.text, action.mimeType)
-                if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
-            }
-            is Action.ShareFile -> {
-                val ok = intentController.shareFile(action.filePath, action.mimeType)
-                if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
-            }
-            is Action.OpenFile -> {
-                val ok = intentController.openFile(action.filePath, action.mimeType)
-                if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
-            }
-            is Action.Assist -> {
-                val ok = intentController.launchAssist()
-                if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
-            }
+            is Action.ShareText -> intentController.shareText(action.text, action.mimeType)
+            is Action.ShareFile -> intentController.shareFile()
+            is Action.Assist -> intentController.launchAssist()
             else -> ActionResult.Failed(ActionFailure.Unsupported)
         }
     }

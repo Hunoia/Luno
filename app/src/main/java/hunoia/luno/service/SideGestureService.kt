@@ -35,7 +35,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost, QuickAp
         DisabledPackageEnabler(
             context = this,
             scopeProvider = { coroutineScope },
-            log = { message -> android.util.Log.d("LunoLauncher", message) }
+            log = { message -> android.util.Log.i("LunoLauncher", message) }
         )
     }
 

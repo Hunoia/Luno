@@ -55,7 +55,7 @@ class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
     var onAppLaunchRequested: ((AppInfo) -> Unit)? = null
 
     fun toggle() {
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher","toggle: overlayView=${overlayView != null}")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher","toggle: overlayView=${overlayView != null}")
         if (overlayView != null) {
             close()
         } else {
@@ -66,17 +66,17 @@ class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
     private fun close() {
         if (overlayView == null) {
             val cancelled = cancelPendingShow()
-            if (BuildConfig.DEBUG) Log.d("LunoLauncher", "close: no overlay (cancelledPendingShow=$cancelled)")
+            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "close: no overlay (cancelledPendingShow=$cancelled)")
             return
         }
         if (isHiding) {
-            if (BuildConfig.DEBUG) Log.d("LunoLauncher", "close: skipped (already hiding)")
+            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "close: skipped (already hiding)")
             return
         }
         val reason = "explicit close"
         isHiding = true
         lastCloseMs = System.currentTimeMillis()
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher","close: reason=$reason hasAnimation=${triggerCloseAnimated != null}")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher","close: reason=$reason hasAnimation=${triggerCloseAnimated != null}")
         if (triggerCloseAnimated != null) {
             triggerCloseAnimated?.invoke()
         } else {
@@ -92,7 +92,7 @@ class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
         isShowing = false
         isHiding = true
         lastCloseMs = System.currentTimeMillis()
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "closeImmediately: removing overlay")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "closeImmediately: removing overlay")
         removeOverlayView()
     }
 
@@ -114,7 +114,7 @@ class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
     }
 
     private fun removeOverlayView() {
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher","removeOverlayView: removing overlay")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher","removeOverlayView: removing overlay")
         overlayView?.let {
             it.animate().cancel()
             it.alpha = 1f
@@ -130,7 +130,7 @@ class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
     fun show() {
         val now = System.currentTimeMillis()
         val interval = if (lastCloseMs > 0) now - lastCloseMs else -1L
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher","show: isShowing=$isShowing isHiding=$isHiding overlayView=${overlayView != null} intervalSinceLastClose=${interval}ms")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher","show: isShowing=$isShowing isHiding=$isHiding overlayView=${overlayView != null} intervalSinceLastClose=${interval}ms")
         if (isShowing || isHiding || overlayView != null) return
         isShowing = true
 
@@ -184,14 +184,14 @@ class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
                             isShowing = false
                             isHiding = true
                             lastCloseMs = System.currentTimeMillis()
-                            if (BuildConfig.DEBUG) Log.d("LunoLauncher","closeAnimated: triggered")
+                            if (BuildConfig.DEBUG) Log.i("LunoLauncher","closeAnimated: triggered")
                             removeOverlayView()
                         },
                         onUpdateLayout = { settings -> updateLayout(settings) },
                         onLaunch = { appInfo, miniWindow ->
                             val now = System.currentTimeMillis()
                             val interval = if (lastCloseMs > 0) now - lastCloseMs else -1L
-                            if (BuildConfig.DEBUG) Log.d("LunoLauncher","appClick: ${appInfo.label} pkg=${appInfo.packageName} miniWindow=$miniWindow intervalSinceClose=${interval}ms")
+                            if (BuildConfig.DEBUG) Log.i("LunoLauncher","appClick: ${appInfo.label} pkg=${appInfo.packageName} miniWindow=$miniWindow intervalSinceClose=${interval}ms")
                             val success = if (advancedSettings.miniWindowOverrideBounds) {
                                 Launcher.launchAppInfo(
                                     host.context, appInfo, miniWindow,
@@ -206,7 +206,7 @@ class QuickAppLauncherOverlay(private val host: QuickAppLauncherOverlayHost) {
                                     host.context, appInfo, miniWindow,
                                 )
                             }
-                            if (BuildConfig.DEBUG) Log.d("LunoLauncher","appClick: ${appInfo.label} launchResult=$success")
+                            if (BuildConfig.DEBUG) Log.i("LunoLauncher","appClick: ${appInfo.label} launchResult=$success")
                             if (success) onAppLaunchRequested?.invoke(appInfo)
                             success
                         },
@@ -273,12 +273,12 @@ private fun createDismissOnOutsideTouch(
     logTag: String,
 ): View.OnTouchListener = View.OnTouchListener { v, event ->
     if (event.action == MotionEvent.ACTION_OUTSIDE) {
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "$logTag: ACTION_OUTSIDE at (${event.rawX.toInt()}, ${event.rawY.toInt()}) → close")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "$logTag: ACTION_OUTSIDE at (${event.rawX.toInt()}, ${event.rawY.toInt()}) → close")
         onOutsideTouch()
         v.performClick()
         true
     } else {
-        if (BuildConfig.DEBUG) Log.d("LunoLauncher", "$logTag: action=${event.action} at (${event.rawX.toInt()}, ${event.rawY.toInt()})")
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "$logTag: action=${event.action} at (${event.rawX.toInt()}, ${event.rawY.toInt()})")
         false
     }
 }
