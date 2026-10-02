@@ -38,9 +38,28 @@ data class ConditionContext(
     val volumeChanged: VolumeChange?,
 )
 
+/**
+ * 每条求值路径一个 Calendar,避免 Calendar.getInstance() 每次做时区与 locale 查找。
+ * ThreadLocal 而不是单个共享实例:AutomationEngine.evaluate() 从 Main 和 IO 两条路径进来,
+ * 共享的可变 Calendar 会竞争。
+ */
+private val minuteOfDayCalendar = ThreadLocal.withInitial { Calendar.getInstance() }
+
+// @Volatile: 两个线程同时跨过整分时最多各算一次并写入同样的值,不需要加锁。
+@Volatile private var cachedMinuteOfDay = -1
+@Volatile private var cachedAtSecond = -1L
+
 fun nowMinuteOfDay(): Int {
-    val calendar = Calendar.getInstance()
-    return calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+    // 跨过整分才重读日历字段。系统时区被用户改动后最多 60s 内自行纠正,
+    // 条件求值本来就只精确到分钟,不需要更激进的失效。
+    val nowSecond = System.currentTimeMillis() / 1000L
+    if (cachedMinuteOfDay >= 0 && nowSecond - cachedAtSecond < 60L) return cachedMinuteOfDay
+    val calendar = minuteOfDayCalendar.get()
+    calendar.timeInMillis = System.currentTimeMillis()
+    val minute = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+    cachedMinuteOfDay = minute
+    cachedAtSecond = nowSecond
+    return minute
 }
 
 fun formatTimeOfDay(minute: Int): String = "%02d:%02d".format(minute / 60, minute % 60)

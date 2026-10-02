@@ -32,7 +32,9 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -78,6 +80,7 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.Backdrop
@@ -127,27 +130,80 @@ private const val LIGHT_REF_X = 0.5f
 private const val LIGHT_REF_Y = 0.7f
 private const val GRAVITY_DIR_THRESHOLD_SQ = 0.01f
 
+/**
+ * 采样重力向量的采样间隔。传感器本身仍以 SENSOR_DELAY_FASTEST 在跑(那是三方库注册的,
+ * 改不了),但没必要把它的每次采样都传到 Compose 层。
+ */
+private const val GRAVITY_POLL_MS = 33L
+
+/**
+ * 两个单位向量点积 ≥ 该值即视为同一方向。cos(1.8°) ≈ 0.99939 —— 高光方向差 1.8° 肉眼
+ * 不可辨,所以在这个范围内复用上一次的 [GravityDir],让 Compose 看不到变化。
+ */
+private const val GRAVITY_SAME_DIR_DOT = 0.9995f
+
+/**
+ * 归一化后的重力方向。用引用相等做 remember 的 key:只有方向真的变了才会产生新对象,
+ * 从而让下游的 `innerShadow { }` 保持同一个 lambda 引用。
+ */
+private class GravityDir(val x: Float, val y: Float) {
+    fun isSameDirectionAs(other: GravityDir): Boolean =
+        x * other.x + y * other.y >= GRAVITY_SAME_DIR_DOT
+}
+
+/**
+ * 带死区的重力方向,整个 bar 只订阅一次。
+ *
+ * miuix-blur 的 `rememberDeviceTilt()` 以 `SENSOR_DELAY_FASTEST`（约 1000Hz）注册加速度计,
+ * listener 里对每个采样都 `$tilt.setValue(new DeviceTilt(...))` —— 那个 float 参数只是
+ * EMA 低通滤波,平滑了数值但没有减少发送次数,也没有 `distinctUntilChanged`。
+ *
+ * 之前直接 `by rememberDeviceTilt()` 并把 tilt 当 remember 的 key,于是静止时每个采样都会:
+ *   重组 → 新 Highlight → 新 BloomStroke → `innerShadow { }` 新的 lambda 引用
+ *   → `InnerShadowElement.equals` 按引用比较返回 false → `invalidateDraw()`
+ * 也就是启动器首页(bar 唯一的使用方)常驻时,这个带 blur 与离屏层的胶囊被每秒上千次重绘。
+ * 而且当时为 indicator 和 pill 各调了一次 `rememberDeviceTilt()`,等于两条独立订阅。
+ *
+ * 现在:33ms 轮询一次、方向变化超过 1.8° 才写入 state。绝大多数采样 Compose 完全看不见,
+ * 也就不会走到重绘。传感器硬件仍在跑,那部分省不掉。
+ */
+@Composable
+private fun rememberStableGravityDirection(): State<GravityDir> {
+    val tilt = rememberDeviceTilt()
+    val dir = remember { mutableStateOf(GravityDir(0f, -1f)) }
+    LaunchedEffect(tilt) {
+        while (true) {
+            val gx = tilt.value.gravityX
+            val gy = tilt.value.gravityY
+            val magSq = gx * gx + gy * gy
+            val next = if (magSq > GRAVITY_DIR_THRESHOLD_SQ) {
+                val invMag = 1f / sqrt(magSq)
+                GravityDir(gx * invMag, gy * invMag)
+            } else {
+                GravityDir(0f, -1f)
+            }
+            if (!next.isSameDirectionAs(dir.value)) dir.value = next
+            delay(GRAVITY_POLL_MS)
+        }
+    }
+    return dir
+}
+
 /** Tracks gravity for a `dualPeak` highlight's primary light, with an extra UV-clockwise offset on top. */
 @Composable
-private fun rememberGravityRotatedHighlight(base: Highlight, extraDegrees: Float = 0f): Highlight {
+private fun rememberGravityRotatedHighlight(
+    base: Highlight,
+    gravity: GravityDir,
+    extraDegrees: Float = 0f,
+): Highlight {
     val baseStyle = base.style as BloomStroke
-    val tilt by rememberDeviceTilt()
-    val rotatedPrimary = remember(tilt, baseStyle.primaryLight, extraDegrees) {
+    val rotatedPrimary = remember(gravity, baseStyle.primaryLight, extraDegrees) {
         val basePrimary = baseStyle.primaryLight
-        val gx = tilt.gravityX
-        val gy = tilt.gravityY
-        val gMagSq = gx * gx + gy * gy
-        val (lx0, ly0) = if (gMagSq > GRAVITY_DIR_THRESHOLD_SQ) {
-            val invMag = 1f / sqrt(gMagSq)
-            (gx * invMag) to (gy * invMag)
-        } else {
-            0f to -1f
-        }
         val rad = extraDegrees * PI / 180.0
         val c = cos(rad).toFloat()
         val s = sin(rad).toFloat()
-        val lx = c * lx0 - s * ly0
-        val ly = s * lx0 + c * ly0
+        val lx = c * gravity.x - s * gravity.y
+        val ly = s * gravity.x + c * gravity.y
         basePrimary.copy(
             position = LightPosition(
                 x = LIGHT_REF_X + lx,
@@ -309,8 +365,9 @@ fun <T> FloatingBottomBar(
         }
     }
 
-    val baseHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, extraDegrees = -45f)
-    val pillHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, extraDegrees = 90f)
+    val gravityDir by rememberStableGravityDirection()
+    val baseHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, gravityDir, extraDegrees = -45f)
+    val pillHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, gravityDir, extraDegrees = 90f)
     val combinedBackdrop = rememberCombinedBackdrop(backdrop, tabsBackdrop)
 
     val tabsContent: @Composable RowScope.() -> Unit = {
