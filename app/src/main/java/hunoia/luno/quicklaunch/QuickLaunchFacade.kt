@@ -28,9 +28,6 @@ object QuickLaunchFacade {
     fun queryShortcutActivities(context: Context, allowRepeatPackage: Boolean = true): List<LauncherInfo> =
         AppQuery.queryCreateShortcutActivities(context, allowRepeatPackage)
 
-    suspend fun findApp(context: Context, packageName: String): AppInfo? =
-        AppQuery.findLauncherActivity(context, packageName)
-
     fun queryShortcuts(context: Context): List<LauncherInfo> =
         ShortcutQuery.getAllAppsWithShortcut(context)
 
@@ -46,13 +43,6 @@ object QuickLaunchFacade {
     fun cacheIcon(packageName: String, icon: Drawable) {
         IconResizeCache.iconCache[packageName] = icon
     }
-
-    fun clearIconCache() {
-        IconResizeCache.iconCache.clear()
-    }
-
-    fun getIconCacheSnapshot(): Map<String, Drawable> =
-        IconResizeCache.iconCache.toMap()
 
     fun queryLauncherAppOptions(context: Context): List<LauncherAppOption> =
         OpenAppOrUrlQuery.queryLauncherApps(context)
@@ -74,7 +64,6 @@ object QuickLaunchFacade {
         app: AppInfo,
         isDisabled: Boolean = false,
         miniWindow: Boolean = false,
-        debugPrefix: String? = null,
         requestEnableDisabledPackage: ((String, (Boolean) -> Unit) -> Unit)? = null,
         log: ((String) -> Unit)? = null,
         onLaunch: ((AppInfo, Boolean) -> Boolean)? = null,
@@ -86,7 +75,6 @@ object QuickLaunchFacade {
             app = app,
             isDisabled = isDisabled,
             miniWindow = miniWindow,
-            debugPrefix = debugPrefix,
             requestEnableDisabledPackage = requestEnableDisabledPackage ?: { _, callback -> callback(true) },
             log = log ?: { message -> android.util.Log.i("LunoLauncher", message); Unit },
             onLaunch = onLaunch ?: { _, _ -> true },

@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
@@ -35,22 +36,23 @@ internal fun ActionPanelBackdrop(
     accentColor: Color,
     modifier: Modifier = Modifier,
 ) {
-    Canvas(modifier = modifier) {
-        if (parentSize.isEmpty() || !actionPanelState.origin.isSpecified) return@Canvas
-        val origin = actionPanelOrigin(parentSize, actionPanelState.origin, itemSizePx)
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(
-                    accentColor.copy(alpha = 0.52f),
-                    accentColor.copy(alpha = 0.28f),
-                    Color.Transparent,
-                ),
-                center = origin,
-                radius = itemSizePx * 5.8f,
+    if (parentSize.isEmpty() || !actionPanelState.origin.isSpecified) return
+    val origin = actionPanelOrigin(parentSize, actionPanelState.origin, itemSizePx)
+    val radius = itemSizePx * 5.8f
+    // Brush 必须在 draw lambda 外构造：放在里面会随手指移动每帧新建 list + 3 个 Color
+    val brush = remember(accentColor, origin, radius) {
+        Brush.radialGradient(
+            colors = listOf(
+                accentColor.copy(alpha = 0.52f),
+                accentColor.copy(alpha = 0.28f),
+                Color.Transparent,
             ),
-            radius = itemSizePx * 5.8f,
             center = origin,
+            radius = radius,
         )
+    }
+    Canvas(modifier = modifier) {
+        drawCircle(brush = brush, radius = radius, center = origin)
     }
 }
 

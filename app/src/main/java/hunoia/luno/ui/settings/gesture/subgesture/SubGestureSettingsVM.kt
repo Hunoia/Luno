@@ -118,19 +118,6 @@ class SubGestureSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeVM<S
         }
     }
 
-    fun updateColor(color: Int) {
-        viewModelScope.launch {
-            ConfigProvider.updateSubGestureSettings { settings ->
-                settings.copy(
-                    subGestures = settings.subGestures.map { gesture ->
-                        if (gesture.id == subGestureEditor.subGestureId) gesture.copy(color = color)
-                        else gesture
-                    }
-                )
-            }
-        }
-    }
-
     private fun updateSubGesture(fieldUpdate: SubGesture.() -> SubGesture) {
         viewModelScope.launch {
             ConfigProvider.updateSubGestureSettings { settings ->
@@ -144,25 +131,51 @@ class SubGestureSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeVM<S
         }
     }
 
+    /** 滑块拖动期间只改内存，避免每帧写 DataStore 触发跨进程 overlay 重装。 */
+    private fun updateSubGestureLive(fieldUpdate: SubGesture.() -> SubGesture) {
+        updateUiState { state ->
+            val gesture = state.subGesture ?: return@updateUiState state
+            state.copy(
+                subGesture = gesture.fieldUpdate(),
+                allSubGestures = state.allSubGestures?.map {
+                    if (it.id == gesture.id) gesture.fieldUpdate() else it
+                },
+            )
+        }
+    }
+
+    fun persistSubGesture() {
+        val gesture = uiState.subGesture ?: return
+        viewModelScope.launch {
+            ConfigProvider.updateSubGestureSettings { settings ->
+                settings.copy(
+                    subGestures = settings.subGestures.map {
+                        if (it.id == gesture.id) gesture else it
+                    }
+                )
+            }
+        }
+    }
+
     fun onSubSlideVibrateChange(value: Boolean) = updateSubGesture { copy(slideVibrate = value) }
     fun onSubLongSlideVibrateChange(value: Boolean) = updateSubGesture { copy(longSlideVibrate = value) }
     fun onSubSlideHoldVibrateChange(value: Boolean) = updateSubGesture { copy(slideHoldVibrate = value) }
     fun onSubLongSlideHoldVibrateChange(value: Boolean) = updateSubGesture { copy(longSlideHoldVibrate = value) }
-    fun onSubTriggerDistanceChange(value: Float) = updateSubGesture {
+    fun onSubTriggerDistanceChange(value: Float) = updateSubGestureLive {
         val maxSlide = (longSlideTriggerDistance - MinGestureSlideDistanceGap)
             .coerceIn(MinSubGestureTriggerDistance, MaxSubGestureTriggerDistance)
         val slide = value.toInt().coerceIn(MinSubGestureTriggerDistance, maxSlide)
         copy(triggerDistance = slide)
     }
-    fun onSubLongSlideTriggerDistanceChange(value: Float) = updateSubGesture {
+    fun onSubLongSlideTriggerDistanceChange(value: Float) = updateSubGestureLive {
         val minLongSlide = (triggerDistance + MinGestureSlideDistanceGap)
             .coerceIn(MinSubGestureLongSlideTriggerDistance, MaxSubGestureLongSlideTriggerDistance)
         val longSlide = value.toInt().coerceIn(minLongSlide, MaxSubGestureLongSlideTriggerDistance)
         copy(longSlideTriggerDistance = longSlide)
     }
-    fun onSubSlideHoldTriggerDelayMsChange(value: Float) = updateSubGesture { copy(slideHoldTriggerDelayMs = value.toLong()) }
-    fun onSubLongSlideHoldTriggerDelayMsChange(value: Float) = updateSubGesture { copy(longSlideHoldTriggerDelayMs = value.toLong()) }
-    fun onSubTimeoutMsChange(value: Float) = updateSubGesture { copy(timeoutMs = value.toLong()) }
+    fun onSubSlideHoldTriggerDelayMsChange(value: Float) = updateSubGestureLive { copy(slideHoldTriggerDelayMs = value.toLong()) }
+    fun onSubLongSlideHoldTriggerDelayMsChange(value: Float) = updateSubGestureLive { copy(longSlideHoldTriggerDelayMs = value.toLong()) }
+    fun onSubTimeoutMsChange(value: Float) = updateSubGestureLive { copy(timeoutMs = value.toLong()) }
 
     fun updateLongSlideActionPanelStyle(direction: GestureDirection, style: ActionPanelStyles) {
         updateSubGesture {

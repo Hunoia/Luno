@@ -12,8 +12,6 @@ object FlashlightController {
 
     private var isOn = false
 
-    fun isFlashlightOn(): Boolean = isOn
-
     fun isSupported(context: Context): Boolean {
         return try {
             val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager

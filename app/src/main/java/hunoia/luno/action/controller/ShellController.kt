@@ -1,9 +1,6 @@
 package hunoia.luno.action.controller
 
-import android.content.Context
 import hunoia.luno.shizuku.ShizukuFacade
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 data class ShellResult(
     val success: Boolean,
@@ -15,11 +12,11 @@ data class ShellResult(
 internal fun shellQuote(arg: String): String =
     "'" + arg.replace("'", "'\\''") + "'"
 
-class ShellController(private val context: Context) {
+class ShellController {
 
-    suspend fun runCommand(command: String): ShellResult = withContext(Dispatchers.IO) {
-        val result = ShizukuFacade.runShellCommand(context, command)
-        ShellResult(
+    suspend fun runCommand(command: String): ShellResult {
+        val result = ShizukuFacade.runShellCommand(command)
+        return ShellResult(
             success = result.success,
             output = result.output,
             error = result.error,

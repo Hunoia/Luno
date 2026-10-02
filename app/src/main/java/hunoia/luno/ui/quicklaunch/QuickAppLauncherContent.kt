@@ -199,10 +199,10 @@ internal fun QuickAppLauncherContent(
                                                     candidateHeight = candidateHeight,
                                                     rows = candidateRows,
                                                     onClick = { app, isDisabled ->
-                                                        state.launchApp(app, isDisabled, state.launcherSettings.tapOpensMiniWindow, null)
+                                                        state.launchApp(app, isDisabled, state.launcherSettings.tapOpensMiniWindow)
                                                     },
                                                     onLongPress = { app, isDisabled ->
-                                                        state.launchApp(app, isDisabled, !state.launcherSettings.tapOpensMiniWindow, "longPress")
+                                                        state.launchApp(app, isDisabled, !state.launcherSettings.tapOpensMiniWindow)
                                                     },
                                                     onPageMatchClick = { page ->
                                                         currentPage = page
@@ -244,10 +244,10 @@ internal fun QuickAppLauncherContent(
                                                     gridColumns = state.launcherSettings.gridColumns,
                                                     onExpandKeyboard = { state.expandKeyboard() },
                                                     onClick = { app, isDisabled ->
-                                                        state.launchApp(app, isDisabled, state.launcherSettings.tapOpensMiniWindow, null)
+                                                        state.launchApp(app, isDisabled, state.launcherSettings.tapOpensMiniWindow)
                                                     },
                                                     onLongPress = { app, isDisabled ->
-                                                        state.launchApp(app, isDisabled, !state.launcherSettings.tapOpensMiniWindow, "longPress_grid")
+                                                        state.launchApp(app, isDisabled, !state.launcherSettings.tapOpensMiniWindow)
                                                     },
                                                     onPageMatchClick = { page ->
                                                         currentPage = page

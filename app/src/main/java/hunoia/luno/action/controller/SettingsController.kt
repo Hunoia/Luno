@@ -1,16 +1,15 @@
 package hunoia.luno.action.controller
 
-import android.content.Context
 import hunoia.luno.action.model.ActionFailure
 import hunoia.luno.action.model.ActionResult
 import hunoia.luno.action.model.SettingsNamespace
 import hunoia.luno.shizuku.ShizukuFacade
 
-class SettingsController(private val context: Context) {
+class SettingsController {
 
     suspend fun get(namespace: SettingsNamespace, key: String): ActionResult {
         val command = "settings get ${namespace.toShellName()} ${shellQuote(key)}"
-        val result = ShizukuFacade.runShellCommand(context, command)
+        val result = ShizukuFacade.runShellCommand(command)
         return if (result.success) {
             val value = result.output.trim()
             if (value.equals("null", ignoreCase = true)) {
@@ -25,7 +24,7 @@ class SettingsController(private val context: Context) {
 
     suspend fun put(namespace: SettingsNamespace, key: String, value: String): ActionResult {
         val command = "settings put ${namespace.toShellName()} ${shellQuote(key)} ${shellQuote(value)}"
-        val result = ShizukuFacade.runShellCommand(context, command)
+        val result = ShizukuFacade.runShellCommand(command)
         return if (result.success) {
             ActionResult.Success()
         } else {

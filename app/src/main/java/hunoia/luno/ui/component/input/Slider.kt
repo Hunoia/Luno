@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -187,36 +186,5 @@ fun MySlider(
         interactionSource = interactionSource,
         valueRange = valueRange,
         steps = stepCount,
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun MyRangeSlider(
-    value: ClosedFloatingPointRange<Float>,
-    onValueChange: (ClosedFloatingPointRange<Float>) -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    onValueChangeFinished: (() -> Unit)? = null,
-    valueRange: ClosedFloatingPointRange<Float> = 0f..1f
-) {
-    val coercedValue = value.start.coerceIn(valueRange.start, valueRange.endInclusive)..
-        value.endInclusive.coerceIn(valueRange.start, valueRange.endInclusive)
-    var localValue by remember { mutableStateOf(coercedValue) }
-
-    LaunchedEffect(coercedValue) {
-        localValue = coercedValue
-    }
-
-    RangeSlider(
-        value = localValue,
-        onValueChange = { value ->
-            localValue = value
-            onValueChange(value)
-        },
-        modifier = modifier,
-        enabled = enabled,
-        onValueChangeFinished = onValueChangeFinished,
-        valueRange = valueRange,
     )
 }

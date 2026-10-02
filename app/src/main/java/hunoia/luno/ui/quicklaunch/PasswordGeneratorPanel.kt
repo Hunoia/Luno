@@ -114,11 +114,10 @@ fun PasswordGeneratorPanel(
                         }
                     )
 
+                    // 熵计算是 O(n³)，滑块拖动时每帧重组都会跑，必须 remember
+                    val entropyBits = remember(password) { PasswordGenerator.estimatedEntropyBits(password) }
                     Text(
-                        text = context.getString(
-                            R.string.password_entropy_bits,
-                            PasswordGenerator.estimatedEntropyBits(password)
-                        ),
+                        text = context.getString(R.string.password_entropy_bits, entropyBits),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                     )

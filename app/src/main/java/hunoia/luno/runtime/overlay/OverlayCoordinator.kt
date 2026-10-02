@@ -5,7 +5,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
 import hunoia.luno.BuildConfig
 import hunoia.luno.runtime.GestureHost
-import hunoia.luno.runtime.button.ButtonVisibilityPolicy
 
 class OverlayCoordinator(
     private val host: GestureHost,
@@ -26,10 +25,6 @@ class OverlayCoordinator(
         buttonWindowController.replaceGestureButtons(buttons)
     }
 
-    fun updateButtonVisibility(policy: ButtonVisibilityPolicy) {
-        buttonWindowController.updateVisibility(policy)
-    }
-
     fun attachActionPanelOverlay() {
         transientOverlayController.attachActionPanelOverlay()
     }
@@ -44,10 +39,6 @@ class OverlayCoordinator(
 
     fun detachSubGestureOverlay() {
         transientOverlayController.detachSubGestureOverlay()
-    }
-
-    fun detachTransientOverlays() {
-        transientOverlayController.detachAll()
     }
 
     fun release() {

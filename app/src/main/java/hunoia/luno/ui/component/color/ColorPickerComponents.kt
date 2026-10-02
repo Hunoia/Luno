@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -68,20 +69,13 @@ fun HsvRectPicker(
                 )
             }
     ) {
+        // Brush 必须在 draw lambda 外构造：拖动选色时每帧都会重绘
+        val whiteToHueBrush = remember(hue) {
+            Brush.horizontalGradient(0f to Color.White, 1f to Color.hsv(hue, 1f, 1f))
+        }
         Canvas(Modifier.fillMaxSize()) {
-            val hueColor = Color.hsv(hue, 1f, 1f)
-            drawRect(
-                Brush.horizontalGradient(
-                    0f to Color.White,
-                    1f to hueColor,
-                ),
-            )
-            drawRect(
-                Brush.verticalGradient(
-                    0f to Color.Transparent,
-                    1f to Color.Black,
-                ),
-            )
+            drawRect(whiteToHueBrush)
+            drawRect(shadeBrush)
 
             val thumbX = saturation * size.width
             val thumbY = (1f - value) * size.height
@@ -95,3 +89,6 @@ fun HsvRectPicker(
         }
     }
 }
+
+/** 明度遮罩渐变是静态的，不要放进 Canvas 的 draw lambda */
+private val shadeBrush = Brush.verticalGradient(0f to Color.Transparent, 1f to Color.Black)

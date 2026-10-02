@@ -1,6 +1,5 @@
 package hunoia.luno.config.backup
 
-import hunoia.luno.BuildConfig
 import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.config.store.SettingsStores
 import hunoia.luno.config.model.ActionSettings
@@ -39,8 +38,6 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
             subGestureSettings = subGestureDeferred.await(),
             newActionLibrarySettings = newActionLibraryDeferred.await(),
             automationRules = automationRulesDeferred.await(),
-            timestamp = System.currentTimeMillis(),
-            version = BuildConfig.VERSION_NAME,
         )
     }
 

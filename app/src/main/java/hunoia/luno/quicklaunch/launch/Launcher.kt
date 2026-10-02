@@ -4,7 +4,6 @@ import android.app.ActivityOptions
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Point
 import android.graphics.Rect
 import android.util.Log
@@ -108,24 +107,6 @@ object Launcher {
         }
     }
 
-    fun launchOpenAppOrUrl(context: Context, data: OpenAppOrUrlData): Boolean {
-        return when (data.type) {
-            OpenAppOrUrlData.TYPE_ACTIVITY -> {
-                if (data.packageName.isBlank() || data.activityClassName.isBlank()) {
-                    showToast(context.getString(R.string.launch_failed))
-                    false
-                } else {
-                    launchAppActivity(context, data.packageName, data.activityClassName)
-                }
-            }
-            OpenAppOrUrlData.TYPE_URL -> launchUrl(context, data)
-            else -> {
-                showToast(context.getString(R.string.launch_failed))
-                false
-            }
-        }
-    }
-
     fun launchUrl(context: Context, url: String): Boolean {
         return launchUrl(context, OpenAppOrUrlData(type = OpenAppOrUrlData.TYPE_URL, url = url))
     }
@@ -193,9 +174,6 @@ object Launcher {
         )
     }
 
-    fun isMiniWindowSupported(context: Context): Boolean {
-        return context.packageManager.hasSystemFeature(PackageManager.FEATURE_FREEFORM_WINDOW_MANAGEMENT)
-    }
 }
 
 private const val DefaultMiniWindowHorizontalBias = 0f

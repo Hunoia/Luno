@@ -1,16 +1,16 @@
 package hunoia.luno.shizuku
 
-import android.content.Context
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 object ShizukuFacade {
 
     fun isReady(): Boolean = ShizukuManager.currentStatus().isReady
 
-    fun runShellCommand(context: Context, command: String): ShellCommandResult {
+    suspend fun runShellCommand(command: String): ShellCommandResult = withContext(Dispatchers.IO) {
         val startMs = System.currentTimeMillis()
-        val result = runBlocking { ShizukuManager.executeShell(command) }
-        return ShellCommandResult(
+        val result = ShizukuManager.executeShell(command)
+        ShellCommandResult(
             success = result.isSuccess,
             exitCode = result.exitCode,
             output = result.stdout,

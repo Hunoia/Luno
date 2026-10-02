@@ -60,7 +60,6 @@ import hunoia.luno.config.defaults.SettingsUiDefaults.MaxSubGestureTriggerDistan
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinSubGestureLongSlideTriggerDistance
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinSubGestureTimeoutMs
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinSubGestureTriggerDistance
-import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.SubGesture
@@ -242,13 +241,6 @@ fun SubGestureSettingsScreen(
                     .fillMaxSize()
                     .then(Modifier.layerBackdrop(backdrop)),
             ) {
-                val styleGestureButton = remember(gesture.id, gesture.color, gesture.longSlideActionPanelStyles) {
-                    GestureButton(
-                        id = gesture.id,
-                        color = gesture.color,
-                        longSlideActionPanelStyles = gesture.longSlideActionPanelStyles,
-                    )
-                }
                 fun setExpandedGroup(group: GestureActionGroup, expanded: Boolean) {
                     expandedActionGroup = if (expanded) group else null
                 }
@@ -558,10 +550,12 @@ private fun SubGestureTriggerDistanceContent(
             onSlideHoldTriggerDelayMsChange = vm::onSubSlideHoldTriggerDelayMsChange,
             longSlideHoldTriggerDelayMs = gesture.longSlideHoldTriggerDelayMs,
             onLongSlideHoldTriggerDelayMsChange = vm::onSubLongSlideHoldTriggerDelayMsChange,
+            onValueChangeFinished = vm::persistSubGesture,
         )
         MyTextSlider(
             value = gesture.timeoutMs.toFloat(),
             onValueChange = { vm.onSubTimeoutMsChange(it) },
+            onValueChangeFinished = { vm.persistSubGesture() },
             text = stringResource(R.string.sub_gesture_timeout_label),
             valueDisplay = stringResource(R.string.sub_gesture_timeout_value, gesture.timeoutMs / 1000),
             valueRange = MinSubGestureTimeoutMs.toFloat()..MaxSubGestureTimeoutMs.toFloat()

@@ -6,15 +6,11 @@ import hunoia.luno.bridge.DensityProvider
 
 object SettingsUiDefaults {
 
-    val MinGestureButtonWidth = DensityProvider.dp2px(1f)
-    val MaxGestureButtonWidth = DensityProvider.dp2px(60f)
     val MinSlideTriggerDistance = DensityProvider.dp2px(16f)
     val MaxSlideTriggerDistance = DensityProvider.dp2px(80f)
     val MinLongSlideTriggerDistance = DensityProvider.dp2px(48f)
     val MaxLongSlideTriggerDistance = DensityProvider.dp2px(240f)
     val MinGestureSlideDistanceGap = DensityProvider.dp2px(16f)
-    const val MinGestureButtonPosition = 0f
-    const val MaxGestureButtonPosition = 1f
     const val MinGestureButtonLength = 0.01f
     const val MaxGestureButtonArea = 0.20f
     const val MinHoldTriggerDelayMs = 0L
@@ -31,20 +27,4 @@ object SettingsUiDefaults {
     val MaxSubGestureLongSlideTriggerDistance = DensityProvider.dp2px(240f)
     const val GestureButtonColorAlpha = 0.36f
     val DisabledAlpha: Float get() = GestureButtonColorAlpha
-    const val DimAlpha = 0.5f
-
-    val MinGridColumns = 2
-    val MaxGridColumns = 8
-    val MinGridRows = 1
-    val MaxGridRows = 6
-    val MinGridCornerRadius = DensityProvider.dp2px(4f)
-    val MaxGridCornerRadius = DensityProvider.dp2px(40f)
-
-    const val MinArcLength = 30
-    const val MaxArcLength = 270
-    const val MinSpacing = 0.8f
-    const val MaxSpacing = 2.0f
-    val MinItemSize = DensityProvider.dp2px(24f)
-    val MaxItemSize = DensityProvider.dp2px(72f)
-
 }

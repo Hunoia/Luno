@@ -5,8 +5,6 @@ import androidx.compose.material.icons.filled.Android
 import androidx.compose.ui.graphics.vector.ImageVector
 import hunoia.luno.action.model.Capability
 import hunoia.luno.action.definition.ActionCategory
-import hunoia.luno.action.model.Action
-import kotlin.reflect.KClass
 
 sealed interface ParameterDefinition {
     val key: String
@@ -112,7 +110,6 @@ fun ActionDefinition.excludedTemplateKeys(): Set<String> = parameters
     .toSet()
 
 data class ActionDefinition(
-    val actionType: KClass<out Action>,
     val typeId: String,
     val name: String,
     val category: ActionCategory,

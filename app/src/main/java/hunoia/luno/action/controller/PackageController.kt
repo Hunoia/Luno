@@ -1,13 +1,10 @@
 package hunoia.luno.action.controller
 
-import android.content.Context
 import hunoia.luno.action.model.ActionFailure
 import hunoia.luno.action.model.ActionResult
 import hunoia.luno.shizuku.ShizukuFacade
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
-class PackageController(private val context: Context) {
+class PackageController {
 
     suspend fun enable(packageName: String): ActionResult =
         runShell("cmd package set-enabled ${shellQuote(packageName)} enabled")
@@ -24,9 +21,9 @@ class PackageController(private val context: Context) {
     suspend fun uninstall(packageName: String): ActionResult =
         runShell("pm uninstall ${shellQuote(packageName)}")
 
-    private suspend fun runShell(command: String):ActionResult = withContext(Dispatchers.IO) {
-        val result = ShizukuFacade.runShellCommand(context, command)
-        if (result.success) {
+    private suspend fun runShell(command: String): ActionResult {
+        val result = ShizukuFacade.runShellCommand(command)
+        return if (result.success) {
             ActionResult.Success()
         } else {
             ActionResult.Failed(ActionFailure.ExecutionFailed)

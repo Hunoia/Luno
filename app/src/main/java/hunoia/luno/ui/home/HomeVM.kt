@@ -145,10 +145,6 @@ class HomeVM : HomeVMBase() {
         }
     }
 
-    fun onAppGestureEnabledChange(enabled: Boolean) {
-        onGestureSwitchChange(enabled) {}
-    }
-
     fun onGestureSwitchChange(enabled: Boolean, onAccessibilityNeeded: () -> Unit) {
         if (!enabled) {
             updateUiState {

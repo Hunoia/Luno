@@ -82,14 +82,6 @@ class ActionSelectVM(
         updateUiState { it.copy(longPressTargetIndex = null) }
     }
 
-    fun updateActionData(action: Action, data: String) {
-        val index = uiState.selectedRecord.list.indexOfFirst { obj -> obj is Action && obj.sameAction(action) }
-        if (index == -1) return
-        val current = uiState.selectedRecord.list[index] as Action
-        if (current.data == data) return
-        updateUiState { updateActionDataTransform(it, action, data) }
-    }
-
     fun moveSelectedAction(fromIndex: Int, toIndex: Int) {
         updateUiState { moveSelectedActionTransform(it, fromIndex, toIndex) }
     }

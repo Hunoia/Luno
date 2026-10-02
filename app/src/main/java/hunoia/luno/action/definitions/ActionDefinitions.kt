@@ -51,7 +51,7 @@ object ActionDefinitions {
     val definitions: List<ActionDefinition> = buildList {
         // App
         add(ActionDefinition(
-            Action.LaunchApp::class, "app.launch", "启动应用", ActionCategory.APP,
+            "app.launch", "启动应用", ActionCategory.APP,
             Capability.None,
             listOf(
                 ParameterDefinition.AppSelector("packageName", "应用"),
@@ -62,7 +62,7 @@ object ActionDefinitions {
             icon = Icons.Default.Android,
         ))
         add(ActionDefinition(
-            Action.OpenActivity::class, "app.openActivity", "打开 Activity", ActionCategory.APP,
+            "app.openActivity", "打开 Activity", ActionCategory.APP,
             Capability.None,
             listOf(
                 ParameterDefinition.AppSelector("packageName", "应用"),
@@ -73,19 +73,19 @@ object ActionDefinitions {
             icon = Icons.AutoMirrored.Filled.OpenInNew,
         ))
         add(ActionDefinition(
-            Action.AppDetails::class, "app.details", "应用详情", ActionCategory.APP,
+            "app.details", "应用详情", ActionCategory.APP,
             Capability.None,
             listOf(ParameterDefinition.AppSelector("packageName", "应用")),
             icon = Icons.Default.Info,
         ))
         add(ActionDefinition(
-            Action.Popup::class, "app.popup", "弹出当前应用", ActionCategory.APP,
+            "app.popup", "弹出当前应用", ActionCategory.APP,
             Capability.None,
             parameters = listOf(ParameterDefinition.MiniWindow("miniWindowSettings", "小窗")),
             icon = Icons.Default.Window,
         ))
         add(ActionDefinition(
-            Action.LaunchShortcut::class, "app.launchShortcut", "启动快捷方式", ActionCategory.APP,
+            "app.launchShortcut", "启动快捷方式", ActionCategory.APP,
             Capability.None,
             listOf(ParameterDefinition.Text("data", "快捷方式数据", required = false)),
             icon = Icons.AutoMirrored.Default.Shortcut,
@@ -93,7 +93,7 @@ object ActionDefinitions {
 
         // Intent
         add(ActionDefinition(
-            Action.OpenUrl::class, "intent.openUrl", "打开链接", ActionCategory.INTENT,
+            "intent.openUrl", "打开链接", ActionCategory.INTENT,
             Capability.None,
             listOf(
                 ParameterDefinition.Text("url", "URL"),
@@ -102,7 +102,7 @@ object ActionDefinitions {
             icon = Icons.AutoMirrored.Filled.OpenInNew,
         ))
         add(ActionDefinition(
-            Action.ShareText::class, "intent.shareText", "分享文本", ActionCategory.INTENT,
+            "intent.shareText", "分享文本", ActionCategory.INTENT,
             Capability.None,
             listOf(
                 ParameterDefinition.Text("text", "文本"),
@@ -111,19 +111,19 @@ object ActionDefinitions {
             icon = Icons.Default.Share,
         ))
         add(ActionDefinition(
-            Action.ShareFile::class, "intent.shareFile", "分享文件", ActionCategory.INTENT,
+            "intent.shareFile", "分享文件", ActionCategory.INTENT,
             Capability.None,
             icon = Icons.Default.Upload,
         ))
         add(ActionDefinition(
-            Action.Assist::class, "intent.assist", "系统助手", ActionCategory.INTENT,
+            "intent.assist", "系统助手", ActionCategory.INTENT,
             Capability.None,
             icon = Icons.Default.Assistant,
         ))
 
         // System
         add(ActionDefinition(
-            Action.OpenSettings::class, "system.openSettings", "打开设置页", ActionCategory.SYSTEM,
+            "system.openSettings", "打开设置页", ActionCategory.SYSTEM,
             Capability.None,
             listOf(ParameterDefinition.Enum("page", "设置页", listOf(
                 EnumOption("WIFI", "Wi-Fi"),
@@ -138,7 +138,7 @@ object ActionDefinitions {
             icon = Icons.Default.Settings,
         ))
         add(ActionDefinition(
-            Action.Volume::class, "system.volume", "音量控制", ActionCategory.SYSTEM,
+            "system.volume", "音量控制", ActionCategory.SYSTEM,
             Capability.None,
             listOf(
                 ParameterDefinition.Enum("stream", "音频流", listOf(
@@ -157,13 +157,13 @@ object ActionDefinitions {
             icon = Icons.AutoMirrored.Default.VolumeUp,
         ))
         add(ActionDefinition(
-            Action.Vibrate::class, "system.vibrate", "振动", ActionCategory.SYSTEM,
+            "system.vibrate", "振动", ActionCategory.SYSTEM,
             Capability.None,
             listOf(ParameterDefinition.Text("pattern", "振动模式", required = false, defaultValue = "0,500", allowTemplates = false)),
             icon = Icons.Default.Vibration,
         ))
         add(ActionDefinition(
-            Action.Clipboard::class, "system.clipboard", "剪贴板", ActionCategory.SYSTEM,
+            "system.clipboard", "剪贴板", ActionCategory.SYSTEM,
             Capability.None,
             listOf(
                 ParameterDefinition.Enum("operation", "操作", listOf(
@@ -175,7 +175,7 @@ object ActionDefinitions {
             icon = Icons.Default.ContentCopy,
         ))
         add(ActionDefinition(
-            Action.Media::class, "system.media", "媒体控制", ActionCategory.SYSTEM,
+            "system.media", "媒体控制", ActionCategory.SYSTEM,
             Capability.None,
             listOf(ParameterDefinition.Enum("command", "命令", listOf(
                 EnumOption("PLAY_PAUSE", "播放/暂停"),
@@ -186,24 +186,24 @@ object ActionDefinitions {
             icon = Icons.Default.PlayPause,
         ))
         add(ActionDefinition(
-            Action.Flashlight::class, "system.flashlight", "手电筒", ActionCategory.SYSTEM,
+            "system.flashlight", "手电筒", ActionCategory.SYSTEM,
             Capability.None,
             icon = Icons.Default.FlashlightOn,
         ))
 
         // Accessibility
-        add(ActionDefinition(Action.Back::class, "accessibility.back", "返回", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+        add(ActionDefinition("accessibility.back", "返回", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
             icon = Icons.AutoMirrored.Filled.ArrowBack))
-        add(ActionDefinition(Action.Home::class, "accessibility.home", "主页", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+        add(ActionDefinition("accessibility.home", "主页", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
             icon = Icons.Default.Home))
-        add(ActionDefinition(Action.Recents::class, "accessibility.recents", "最近任务", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+        add(ActionDefinition("accessibility.recents", "最近任务", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
             icon = Icons.Default.ViewCarousel))
-        add(ActionDefinition(Action.Tap::class, "accessibility.tap", "点击", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+        add(ActionDefinition("accessibility.tap", "点击", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
             icon = Icons.Default.TouchApp))
-        add(ActionDefinition(Action.LongPress::class, "accessibility.longPress", "长按", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+        add(ActionDefinition("accessibility.longPress", "长按", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
             icon = Icons.Default.Gesture))
         add(ActionDefinition(
-            Action.Swipe::class, "accessibility.swipe", "滑动", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+            "accessibility.swipe", "滑动", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
             listOf(ParameterDefinition.Enum("direction", "方向", listOf(
                 EnumOption("UP", "向上"),
                 EnumOption("DOWN", "向下"),
@@ -214,53 +214,53 @@ object ActionDefinitions {
             icon = Icons.Default.VerticalAlignTop,
         ))
         add(ActionDefinition(
-            Action.InputText::class, "accessibility.inputText", "输入文本", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+            "accessibility.inputText", "输入文本", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
             listOf(ParameterDefinition.TextLarge("text", "文本")),
             icon = Icons.Default.TouchApp,
         ))
-        add(ActionDefinition(Action.Screenshot::class, "accessibility.screenshot", "截屏", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+        add(ActionDefinition("accessibility.screenshot", "截屏", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
             icon = Icons.Default.Screenshot))
-        add(ActionDefinition(Action.SplitScreen::class, "accessibility.splitScreen", "分屏", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+        add(ActionDefinition("accessibility.splitScreen", "分屏", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
             icon = Icons.Default.Splitscreen))
-        add(ActionDefinition(Action.PowerButton::class, "accessibility.powerButton", "电源菜单", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+        add(ActionDefinition("accessibility.powerButton", "电源菜单", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
             icon = Icons.Default.PowerSettingsNew))
-        add(ActionDefinition(Action.NotificationPanel::class, "accessibility.notificationPanel", "通知面板", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+        add(ActionDefinition("accessibility.notificationPanel", "通知面板", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
             icon = Icons.Default.Notifications))
-        add(ActionDefinition(Action.QuickPanel::class, "accessibility.quickPanel", "快捷面板", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+        add(ActionDefinition("accessibility.quickPanel", "快捷面板", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
             icon = Icons.Default.Dashboard))
-        add(ActionDefinition(Action.LockScreen::class, "accessibility.lockScreen", "锁屏", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+        add(ActionDefinition("accessibility.lockScreen", "锁屏", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
             icon = Icons.Default.ScreenLockPortrait))
 
         // Package
         add(ActionDefinition(
-            Action.PackageEnable::class, "package.enable", "启用应用", ActionCategory.PACKAGE,
+            "package.enable", "启用应用", ActionCategory.PACKAGE,
             Capability.Shizuku, listOf(ParameterDefinition.AppSelector("packageName", "应用")),
             icon = Icons.Default.PlayCircle,
         ))
         add(ActionDefinition(
-            Action.PackageDisable::class, "package.disable", "禁用应用", ActionCategory.PACKAGE,
+            "package.disable", "禁用应用", ActionCategory.PACKAGE,
             Capability.Shizuku, listOf(ParameterDefinition.AppSelector("packageName", "应用")),
             icon = Icons.Default.PauseCircle,
         ))
         add(ActionDefinition(
-            Action.PackageForceStop::class, "package.forceStop", "强制停止", ActionCategory.PACKAGE,
+            "package.forceStop", "强制停止", ActionCategory.PACKAGE,
             Capability.Shizuku, listOf(ParameterDefinition.AppSelector("packageName", "应用")),
             icon = Icons.Default.StopCircle,
         ))
         add(ActionDefinition(
-            Action.PackageClearData::class, "package.clearData", "清除数据", ActionCategory.PACKAGE,
+            "package.clearData", "清除数据", ActionCategory.PACKAGE,
             Capability.Shizuku, listOf(ParameterDefinition.AppSelector("packageName", "应用")),
             icon = Icons.Default.Delete,
         ))
         add(ActionDefinition(
-            Action.PackageUninstall::class, "package.uninstall", "卸载应用", ActionCategory.PACKAGE,
+            "package.uninstall", "卸载应用", ActionCategory.PACKAGE,
             Capability.Shizuku, listOf(ParameterDefinition.AppSelector("packageName", "应用")),
             icon = Icons.Default.DeleteForever,
         ))
 
         // Settings
         add(ActionDefinition(
-            Action.SettingsGet::class, "settings.get", "读取设置", ActionCategory.SETTINGS,
+            "settings.get", "读取设置", ActionCategory.SETTINGS,
             Capability.Shizuku,
             listOf(
                 ParameterDefinition.Enum("namespace", "命名空间", listOf(
@@ -273,7 +273,7 @@ object ActionDefinitions {
             icon = Icons.Default.SettingsInputComponent,
         ))
         add(ActionDefinition(
-            Action.SettingsPut::class, "settings.put", "写入设置", ActionCategory.SETTINGS,
+            "settings.put", "写入设置", ActionCategory.SETTINGS,
             Capability.Shizuku,
             listOf(
                 ParameterDefinition.Enum("namespace", "命名空间", listOf(
@@ -288,14 +288,14 @@ object ActionDefinitions {
         ))
 
         // SystemCmd
-        add(ActionDefinition(Action.Reboot::class, "systemCmd.reboot", "重启", ActionCategory.SYSTEMCMD, Capability.Shizuku,
+        add(ActionDefinition("systemCmd.reboot", "重启", ActionCategory.SYSTEMCMD, Capability.Shizuku,
             icon = Icons.Default.Refresh))
-        add(ActionDefinition(Action.Shutdown::class, "systemCmd.shutdown", "关机", ActionCategory.SYSTEMCMD, Capability.Shizuku,
+        add(ActionDefinition("systemCmd.shutdown", "关机", ActionCategory.SYSTEMCMD, Capability.Shizuku,
             icon = Icons.Default.PowerOff))
 
         // Shell
         add(ActionDefinition(
-            Action.CustomCommand::class, "shell.custom", "自定义命令", ActionCategory.SHELL,
+            "shell.custom", "自定义命令", ActionCategory.SHELL,
             Capability.Shizuku,
             listOf(
                 ParameterDefinition.TextLarge("command", "Shell 命令"),
@@ -305,13 +305,13 @@ object ActionDefinitions {
         ))
 
         // Internal
-        add(ActionDefinition(Action.None::class, "internal.none", "无", ActionCategory.INTERNAL, Capability.None,
+        add(ActionDefinition("internal.none", "无", ActionCategory.INTERNAL, Capability.None,
             legacyId = ActionIds.NONE,
             icon = Icons.Default.Block))
-        add(ActionDefinition(Action.SubGesture::class, "internal.subGesture", "子手势", ActionCategory.INTERNAL, Capability.None,
+        add(ActionDefinition("internal.subGesture", "子手势", ActionCategory.INTERNAL, Capability.None,
             legacyId = ActionIds.SUB_GESTURE,
             icon = Icons.Default.Gesture))
-        add(ActionDefinition(Action.HideGestureButton::class, "internal.hideGestureButton", "隐藏触钮", ActionCategory.INTERNAL, Capability.None,
+        add(ActionDefinition("internal.hideGestureButton", "隐藏触钮", ActionCategory.INTERNAL, Capability.None,
             parameters = listOf(ParameterDefinition.Number(
                 key = "delayMs",
                 label = "隐藏触钮时长",
@@ -322,10 +322,10 @@ object ActionDefinitions {
             )),
             legacyId = ActionIds.HIDE_GESTURE_BUTTON,
             icon = Icons.Default.VisibilityOff))
-        add(ActionDefinition(Action.QuickAppLauncher::class, "internal.quickAppLauncher", "快速启动面板", ActionCategory.INTERNAL, Capability.None,
+        add(ActionDefinition("internal.quickAppLauncher", "快速启动面板", ActionCategory.INTERNAL, Capability.None,
             legacyId = ActionIds.QUICK_APP_LAUNCHER,
             icon = Icons.Default.Apps))
-        add(ActionDefinition(Action.VolumeScrub::class, "internal.volumeScrub", "滑动调音量", ActionCategory.INTERNAL, Capability.None,
+        add(ActionDefinition("internal.volumeScrub", "滑动调音量", ActionCategory.INTERNAL, Capability.None,
             parameters = listOf(
                 ParameterDefinition.Bool(
                     key = "horizontalEnabled",
@@ -343,7 +343,7 @@ object ActionDefinitions {
             ),
             legacyId = ActionIds.VOLUME_SCRUB,
             icon = Icons.Default.Widgets))
-        add(ActionDefinition(Action.PreviousApp::class, "internal.previousApp", "上一个应用", ActionCategory.INTERNAL, Capability.None,
+        add(ActionDefinition("internal.previousApp", "上一个应用", ActionCategory.INTERNAL, Capability.None,
             parameters = listOf(ParameterDefinition.AppSelectorMulti(
                 key = "excludePackageNames",
                 label = "上个应用排除",

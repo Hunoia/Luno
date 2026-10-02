@@ -289,17 +289,7 @@ fun ColorPickerBottomSheet(
                             },
                     ) {
                         Canvas(Modifier.fillMaxSize()) {
-                            drawRect(
-                                Brush.horizontalGradient(
-                                    0.00f to Color.Red,
-                                    0.17f to Color.Yellow,
-                                    0.33f to Color.Green,
-                                    0.50f to Color.Cyan,
-                                    0.67f to Color.Blue,
-                                    0.83f to Color.Magenta,
-                                    1.00f to Color.Red,
-                                ),
-                            )
+                            drawRect(HueBarBrush)
 
                             val thumbX = (hue / 360f) * size.width
                             val thumbY = size.height / 2f
@@ -319,9 +309,9 @@ fun ColorPickerBottomSheet(
                             .height(32.dp)
                             .clip(LargeShape)
                             .background(
-                                brush = Brush.horizontalGradient(
-                                    colors = listOf(Color.Transparent, hsvColor),
-                                )
+                                brush = remember(hsvColor) {
+                                    Brush.horizontalGradient(colors = listOf(Color.Transparent, hsvColor))
+                                }
                             ),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -396,3 +386,13 @@ fun ColorPickerBottomSheet(
     }
 }
 
+/** 色相条渐变是完全静态的，不要放进 Canvas 的 draw lambda —— 拖动时会每帧重建 */
+private val HueBarBrush = Brush.horizontalGradient(
+    0.00f to Color.Red,
+    0.17f to Color.Yellow,
+    0.33f to Color.Green,
+    0.50f to Color.Cyan,
+    0.67f to Color.Blue,
+    0.83f to Color.Magenta,
+    1.00f to Color.Red,
+)

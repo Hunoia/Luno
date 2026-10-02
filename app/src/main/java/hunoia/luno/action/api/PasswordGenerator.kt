@@ -48,15 +48,6 @@ object PasswordGenerator {
         return chars.joinToString(separator = "")
     }
 
-    fun generatedEntropyBits(config: ActionSettings.PasswordGenerator): Int {
-        val normalized = normalize(config)
-        val poolSizes = enabledPools(normalized).map { it.length }
-        if (poolSizes.isEmpty()) return 0
-        val legalPasswordSpaceBits = constrainedEntropyBits(normalized.length, poolSizes)
-        val generationProcessBits = generationProcessEntropyBits(normalized.length, poolSizes)
-        return min(legalPasswordSpaceBits, generationProcessBits).roundToInt()
-    }
-
     fun estimatedEntropyBits(text: String): Int {
         if (text.isEmpty()) return 0
         val dp = DoubleArray(text.length + 1) { Double.POSITIVE_INFINITY }

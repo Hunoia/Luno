@@ -2,6 +2,7 @@ package hunoia.luno.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
@@ -36,20 +37,21 @@ fun Modifier.liquidGlassBlur(
 ): Modifier {
     if (backdrop == null || !isRenderEffectSupported()) return this
     val radius = with(LocalDensity.current) { blurRadius.toPx() }
+    val fadeColors = remember { listOf(Color.White, Color.White.copy(alpha = 0f)) }
     return then(
         Modifier.drawBackdrop(
             backdrop = backdrop,
             shape = { shape },
             effects = { blur(radius, radius) },
             onDrawSurface = {
-                drawRect(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(Color.White, Color.White.copy(alpha = 0f)),
-                        startY = 0f,
-                        endY = size.height,
-                    ),
-                    blendMode = BlendMode.DstIn,
+                // Brush 提到 lambda 外：verticalGradient 的 endY 只需 size.height，
+                // 在 draw scope 内构造会随每次绘制新建 list + Color
+                val fadeBrush = Brush.verticalGradient(
+                    colors = fadeColors,
+                    startY = 0f,
+                    endY = size.height,
                 )
+                drawRect(brush = fadeBrush, blendMode = BlendMode.DstIn)
             },
         )
     )

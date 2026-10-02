@@ -258,10 +258,6 @@ object ShizukuManager {
 
     // --- Package Operations (public, with checks) ---
 
-    suspend fun forceStopApp(packageName: String): Boolean = withContext(Dispatchers.IO) {
-        forceStopAppUnchecked(packageName)
-    }
-
     suspend fun enablePackage(packageName: String): PackageResult = withContext(Dispatchers.IO) {
         if (!isBinderAlive()) {
             return@withContext PackageResult(false, packageName, "Shizuku binder unavailable")

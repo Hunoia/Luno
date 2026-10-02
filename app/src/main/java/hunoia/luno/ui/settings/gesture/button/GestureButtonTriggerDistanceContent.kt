@@ -56,6 +56,7 @@ fun GestureButtonTriggerDistanceContent(
         longSlideHoldTriggerDelayMs = button.longSlideHoldTriggerDelayMs,
         onLongSlideHoldTriggerDelayMsChange = vm::onLongSlideHoldTriggerDelayMsChange,
         scrollState = scrollState,
+        onValueChangeFinished = vm::saveSettings,
     )
 }
 
@@ -76,6 +77,7 @@ fun GestureSlideTriggerDistanceContent(
     longSlideHoldTriggerDelayMs: Long,
     onLongSlideHoldTriggerDelayMsChange: (Float) -> Unit,
     scrollState: androidx.compose.foundation.ScrollState? = null,
+    onValueChangeFinished: (() -> Unit)? = null,
 ) {
     val slideTriggerDistanceDp = slideTriggerDistance.pxToDp()
     val slideTriggerDistanceRangeDp = slideTriggerDistanceRange.toDpRange()
@@ -94,12 +96,14 @@ fun GestureSlideTriggerDistanceContent(
         DistanceTextSlider(
             valueDp = slideTriggerDistanceDp,
             onValueDpChange = { onSlideTriggerDistanceChange(it.dpToPx()) },
+            onValueChangeFinished = onValueChangeFinished,
             text = stringResource(R.string.trigger_slide_distance),
             valueRangeDp = dynamicSlideRangeDp,
         )
         DistanceTextSlider(
             valueDp = longSlideTriggerDistanceDp,
             onValueDpChange = { onLongSlideTriggerDistanceChange(it.dpToPx()) },
+            onValueChangeFinished = onValueChangeFinished,
             text = stringResource(R.string.trigger_long_slide_distance),
             valueRangeDp = dynamicLongSlideRangeDp,
         )
@@ -114,6 +118,7 @@ fun GestureSlideTriggerDistanceContent(
             MyTextSlider(
                 value = longPressTriggerDelayMs.toFloat(),
                 onValueChange = onLongPressTriggerDelayMsChange,
+                onValueChangeFinished = { onValueChangeFinished?.invoke() },
                 text = stringResource(R.string.trigger_long_press_delay),
                 valueDisplay = "${longPressTriggerDelayMs}ms",
                 valueRange = MinLongPressTriggerDelayMs.toFloat()..MaxLongPressTriggerDelayMs.toFloat(),
@@ -123,6 +128,7 @@ fun GestureSlideTriggerDistanceContent(
             MyTextSlider(
                 value = doubleTapTriggerDelayMs.toFloat(),
                 onValueChange = onDoubleTapTriggerDelayMsChange,
+                onValueChangeFinished = { onValueChangeFinished?.invoke() },
                 text = stringResource(R.string.trigger_double_tap_delay),
                 valueDisplay = "${doubleTapTriggerDelayMs}ms",
                 valueRange = MinDoubleTapTriggerDelayMs.toFloat()..MaxDoubleTapTriggerDelayMs.toFloat(),
@@ -131,6 +137,7 @@ fun GestureSlideTriggerDistanceContent(
         MyTextSlider(
             value = slideHoldTriggerDelayMs.toFloat(),
             onValueChange = onSlideHoldTriggerDelayMsChange,
+            onValueChangeFinished = { onValueChangeFinished?.invoke() },
             text = stringResource(R.string.trigger_slide_hold_delay),
             valueDisplay = "${slideHoldTriggerDelayMs}ms",
             valueRange = MinHoldTriggerDelayMs.toFloat()..MaxHoldTriggerDelayMs.toFloat(),
@@ -138,6 +145,7 @@ fun GestureSlideTriggerDistanceContent(
         MyTextSlider(
             value = longSlideHoldTriggerDelayMs.toFloat(),
             onValueChange = onLongSlideHoldTriggerDelayMsChange,
+            onValueChangeFinished = { onValueChangeFinished?.invoke() },
             text = stringResource(R.string.trigger_long_slide_hold_delay),
             valueDisplay = "${longSlideHoldTriggerDelayMs}ms",
             valueRange = MinHoldTriggerDelayMs.toFloat()..MaxHoldTriggerDelayMs.toFloat(),
@@ -165,6 +173,7 @@ private fun SliderGroupLabel(text: String) {
 private fun DistanceTextSlider(
     valueDp: Float,
     onValueDpChange: (Float) -> Unit,
+    onValueChangeFinished: (() -> Unit)?,
     text: String,
     valueRangeDp: ClosedFloatingPointRange<Float>,
 ) {
@@ -172,6 +181,7 @@ private fun DistanceTextSlider(
         MyTextSlider(
             value = valueDp,
             onValueChange = onValueDpChange,
+            onValueChangeFinished = { onValueChangeFinished?.invoke() },
             text = text,
             valueDisplay = "${valueDp.roundToInt()}dp",
             valueRange = valueRangeDp,

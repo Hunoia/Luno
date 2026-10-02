@@ -5,9 +5,6 @@
     <string name="accessibility_description">辅助服务用于模拟返回、主页、等按键操作，实现侧滑手势的各种自定义操控，不会收集任何数据。</string>
     <string name="delete">删除</string>
     <string name="save">保存</string>
-    <string name="horizontal_volume_scrub">水平音量调节</string>
-    <string name="horizontal_volume_scrub_hint">左右滑动也可调节音量</string>
-    <string name="volume_scrub_sensitivity">灵敏度</string>
     <string name="add_gesture_button">添加触钮</string>
     <string name="reset_default_settings_warning">恢复默认设置</string>
     <string name="reset_default_settings_warning_desc">将重置为初始默认设置并彻底删除所有数据。</string>
@@ -17,7 +14,6 @@
     <string name="backup_failed">备份失败</string>
     <string name="restore_success">恢复成功</string>
     <string name="restore_failed">恢复失败</string>
-    <string name="previous_app_exclude_apps">上个应用排除</string>
     <string name="width">宽度</string>
     <string name="mini_window_position_hint">调整小窗打开的位置</string>
     <string name="hide_gesture_button">隐藏触钮</string>
@@ -157,15 +153,11 @@
     <string name="sub_gesture_timeout_label">子手势超时</string>
     <string name="sub_gesture_timeout_value">%1$d秒</string>
 
-    <!-- Dialogs -->
 
-    <!-- Toasts -->
 
     <!-- Data model defaults -->
     <string name="sub_gesture_default_name">子手势 %1$d</string>
     <string name="mirror_sub_gesture_name">镜像·%1$s</string>
-
-    <!-- Section titles -->
 
     <string name="action_none">无</string>
     <string name="action_back">返回键</string>
@@ -212,8 +204,6 @@
     <string name="long_press">长按</string>
     <string name="tap_action">单击</string>
     <string name="tap_and_long_press_action">单击/长按</string>
-    <string name="hide_gesture_button_delay_ms">隐藏触钮时长</string>
-    <string name="current_value_ms">当前：%1$d ms</string>
     <string name="tap">单击</string>
     <string name="action_random_name">生成随机名称</string>
     <string name="action_generate_password_copy">生成密码并复制</string>
@@ -256,8 +246,6 @@
     <string name="action_library_icon_use">使用</string>
 
     <!-- New action editor -->
-    <string name="action_type_label">动作类型</string>
-    <string name="action_type_picker_title">选择动作类型</string>
     <string name="action_param_count">%1$d 个参数</string>
     <string name="action_param_label">参数</string>
     <string name="action_param_unselected">未选择</string>
@@ -292,15 +280,9 @@
     <string name="physical_params">物理参数</string>
     <string name="trigger_actions">触发动作</string>
 
-    <!-- System function templates -->
 
     <!-- Display condition rules -->
-    <string name="condition_settings">显示条件</string>
-    <string name="condition_home">条件</string>
-    <string name="condition_new">新增</string>
     <string name="condition_empty">还没有规则</string>
-    <string name="condition_edit">编辑条件</string>
-    <string name="condition_name_hint">备注（可选）</string>
     <string name="effect_show">打开</string>
     <string name="effect_hide">关闭</string>
     <string name="scope_all">所有触钮</string>
@@ -315,7 +297,6 @@
     <string name="condition_keyboard_input">键盘输入</string>
     <string name="condition_battery">充电 / 电量</string>
     <string name="condition_charging">充电中</string>
-    <string name="condition_battery_level">电量区间</string>
     <string name="condition_time_range">时间段</string>
     <string name="condition_logic_group">组合条件</string>
     <string name="condition_add">添加条件</string>
@@ -327,18 +308,12 @@
     <string name="loading">加载中…</string>
     <string name="condition_scope">作用触钮</string>
     <string name="condition_effect">触钮行为</string>
-    <string name="condition_enabled">启用</string>
-    <string name="condition_needs_leaf">至少添加一个条件</string>
-    <string name="condition_app_summary">%1$d 个应用</string>
     <string name="condition_app_in">前台应用 ∈ %1$s</string>
     <string name="scope_only_count">仅 %1$d 个触钮</string>
     <string name="scope_except_count">除 %1$d 个触钮外</string>
-    <string name="condition_battery_summary">电量 %1$d%%–%2$d%%</string>
-    <string name="condition_time_summary">%1$s–%2$s</string>
     <string name="rule_move_up">上移</string>
     <string name="rule_move_down">下移</string>
     <string name="rule_edit">编辑</string>
-    <string name="previous_app_exclude_empty">未排除任何应用</string>
     <string name="toast_invalid_parameter">参数无效</string>
     <string name="toast_execution_failed">执行失败</string>
     <string name="toast_permission_denied">权限不足</string>
@@ -355,7 +330,6 @@
     <string name="automation_name_hint">规则名称</string>
     <string name="automation_condition">触发条件</string>
     <string name="automation_entry">动作条目</string>
-    <string name="automation_pick_entry">选择动作条目</string>
     <string name="automation_pick_action">选择动作</string>
     <string name="automation_entry_empty">未选择动作条目</string>
     <string name="automation_entry_required">请选择要执行的动作条目</string>
@@ -393,7 +367,6 @@
     <string name="condition_silent">静音</string>
     <string name="condition_ringing">响铃</string>
     <string name="volume_stream">音频流</string>
-    <string name="volume_direction">音量方向</string>
     <string name="volume_up">音量增大</string>
     <string name="volume_down">音量减小</string>
     <string name="audio_stream_music">音乐</string>

@@ -9,29 +9,13 @@ import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.SubGestureSettings
-import hunoia.luno.bridge.feedback.showToast
-import hunoia.luno.keepalive.KeepAliveUseCase
 import hunoia.luno.permission.PermissionStateUseCase
 import hunoia.luno.shizuku.ShizukuManager
-import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 abstract class HomeVMBase : BaseComposeVM<UiState, UiEvent>() {
-
-    fun onKeepAliveChange(enabled: Boolean) {
-        viewModelScope.launch {
-            val changed = KeepAliveUseCase.setEnabled(
-                context = AppContext.get(),
-                enabled = enabled,
-                onPermissionRequired = { showToast(it) },
-            )
-            if (changed) {
-                updateUiState { it.copy(isKeepAliveEnabled = enabled).withRuntimeStatus() }
-            }
-        }
-    }
 
     fun updatePermissionState() {
         viewModelScope.launch {
@@ -49,17 +33,6 @@ abstract class HomeVMBase : BaseComposeVM<UiState, UiEvent>() {
     fun refreshShizukuStatus() {
         ShizukuManager.updateStatus()
         updateUiState { it.copy(shizukuStatus = ShizukuManager.currentStatus()).withRuntimeStatus() }
-    }
-
-    fun requestShizukuPermission() {
-        viewModelScope.launch(
-            CoroutineExceptionHandler { _, _ ->
-                refreshShizukuStatus()
-            }
-        ) {
-            ShizukuManager.requestPermission()
-            refreshShizukuStatus()
-        }
     }
 
     fun reset() {

@@ -39,8 +39,6 @@ class App : Application(), ImageLoaderFactory {
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
         val applicationScope: CoroutineScope get() = AppContext.applicationScope ?: scope
-
-        fun getContext(): Context = AppContext.get()
     }
 
     private var isProviderProcess = true

@@ -1,7 +1,6 @@
 package hunoia.luno.quicklaunch.query
 
 import android.content.Context
-import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import hunoia.luno.core.AppContext
 import hunoia.luno.quicklaunch.QuickLaunchFacade
@@ -35,13 +34,6 @@ object DisabledAppQuery {
                 }
             }
         }
-    }
-
-    fun isCacheReady(): Boolean = disabledCache != null
-
-    fun invalidateCache() {
-        disabledCache = null
-        disabledResultCache.clear()
     }
 
     fun isDisabled(context: Context, packageName: String): Boolean {
@@ -115,10 +107,4 @@ object DisabledAppQuery {
         return QuickLaunchFacade.queryCombinedQuickAppList(context, disabledApps)
     }
 
-    fun isSystemApp(ai: ApplicationInfo?): Boolean {
-        if (ai == null) return false
-        val flags = ai.flags
-        return (flags and ApplicationInfo.FLAG_SYSTEM) != 0 ||
-            (flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
-    }
 }

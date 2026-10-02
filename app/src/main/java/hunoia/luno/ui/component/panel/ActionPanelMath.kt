@@ -9,7 +9,6 @@ import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
-import kotlin.math.sqrt
 
 internal fun actionPanelOrigin(
     parentSize: Size,
@@ -22,20 +21,6 @@ internal fun actionPanelOrigin(
         x = origin.x.coerceSafely(safePadding, parentSize.width - safePadding),
         y = origin.y.coerceSafely(safePadding, parentSize.height - safePadding),
     )
-}
-
-internal fun GestureDirection.unitVector(): Offset {
-    val diagonal = 1f / sqrt(2f)
-    return when (this) {
-        GestureDirection.Left -> Offset(-1f, 0f)
-        GestureDirection.UpLeft -> Offset(-diagonal, -diagonal)
-        GestureDirection.Up -> Offset(0f, -1f)
-        GestureDirection.UpRight -> Offset(diagonal, -diagonal)
-        GestureDirection.Right -> Offset(1f, 0f)
-        GestureDirection.DownRight -> Offset(diagonal, diagonal)
-        GestureDirection.Down -> Offset(0f, 1f)
-        GestureDirection.DownLeft -> Offset(-diagonal, diagonal)
-    }
 }
 
 internal fun Offset.coerceInside(parentSize: Size, itemSizePx: Float): Offset {

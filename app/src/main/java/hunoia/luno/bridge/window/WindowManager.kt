@@ -2,15 +2,12 @@ package hunoia.luno.bridge.window
 
 import android.view.View
 import android.view.WindowManager
+import androidx.compose.ui.unit.IntSize
 import androidx.core.content.ContextCompat
+import hunoia.luno.bridge.DensityProvider
 
-fun android.content.Context.updateLayout(view: View, lp: WindowManager.LayoutParams) {
-    try {
-        val wm = ContextCompat.getSystemService(this, WindowManager::class.java)!!
-        wm.updateViewLayout(view, lp)
-    } catch (ignored: Exception) {
-    }
-}
+val rootSize: IntSize
+    get() = IntSize(DensityProvider.screenWidthPx, DensityProvider.screenHeightPx)
 
 fun android.content.Context.removeWindow(view: View) {
     val wm = ContextCompat.getSystemService(this, WindowManager::class.java)!!

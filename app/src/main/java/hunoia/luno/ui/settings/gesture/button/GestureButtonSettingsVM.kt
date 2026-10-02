@@ -158,7 +158,7 @@ class GestureButtonSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeV
 
     fun updateGestureButtonAngle(angle: GestureButtonAngle) = updateButton { copy(angle = angle) }
 
-    private fun updateButton(fieldUpdate: GestureButton.() -> GestureButton) {
+    private fun updateButtonLive(fieldUpdate: GestureButton.() -> GestureButton) {
         updateUiState {
             val l = it.gestureButtons.toMutableList().also { list ->
                 list.forEachIndexed { index, b ->
@@ -169,6 +169,10 @@ class GestureButtonSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeV
             }
             it.copy(gestureButtons = l)
         }
+    }
+
+    private fun updateButton(fieldUpdate: GestureButton.() -> GestureButton) {
+        updateButtonLive(fieldUpdate)
         saveSettings()
     }
 
@@ -178,22 +182,22 @@ class GestureButtonSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeV
     fun onLongPressVibrateChange(value: Boolean) = updateButton { copy(longPressVibrate = value) }
     fun onSlideHoldVibrateChange(value: Boolean) = updateButton { copy(slideHoldVibrate = value) }
     fun onLongSlideHoldVibrateChange(value: Boolean) = updateButton { copy(longSlideHoldVibrate = value) }
-    fun onSlideTriggerDistanceChange(value: Float) = updateButton {
+    fun onSlideTriggerDistanceChange(value: Float) = updateButtonLive {
         val maxSlide = (longSlideTriggerDistance - MinGestureSlideDistanceGap)
             .coerceIn(MinSlideTriggerDistance, MaxSlideTriggerDistance)
         val slide = value.toInt().coerceIn(MinSlideTriggerDistance, maxSlide)
         copy(slideTriggerDistance = slide)
     }
-    fun onLongSlideTriggerDistanceChange(value: Float) = updateButton {
+    fun onLongSlideTriggerDistanceChange(value: Float) = updateButtonLive {
         val minLongSlide = (slideTriggerDistance + MinGestureSlideDistanceGap)
             .coerceIn(MinLongSlideTriggerDistance, MaxLongSlideTriggerDistance)
         val longSlide = value.toInt().coerceIn(minLongSlide, MaxLongSlideTriggerDistance)
         copy(longSlideTriggerDistance = longSlide)
     }
-    fun onLongPressTriggerDelayMsChange(value: Float) = updateButton { copy(longPressTriggerDelayMs = value.toLong()) }
-    fun onDoubleTapTriggerDelayMsChange(value: Float) = updateButton { copy(doubleTapTriggerDelayMs = value.toLong()) }
-    fun onSlideHoldTriggerDelayMsChange(value: Float) = updateButton { copy(slideHoldTriggerDelayMs = value.toLong()) }
-    fun onLongSlideHoldTriggerDelayMsChange(value: Float) = updateButton { copy(longSlideHoldTriggerDelayMs = value.toLong()) }
+    fun onLongPressTriggerDelayMsChange(value: Float) = updateButtonLive { copy(longPressTriggerDelayMs = value.toLong()) }
+    fun onDoubleTapTriggerDelayMsChange(value: Float) = updateButtonLive { copy(doubleTapTriggerDelayMs = value.toLong()) }
+    fun onSlideHoldTriggerDelayMsChange(value: Float) = updateButtonLive { copy(slideHoldTriggerDelayMs = value.toLong()) }
+    fun onLongSlideHoldTriggerDelayMsChange(value: Float) = updateButtonLive { copy(longSlideHoldTriggerDelayMs = value.toLong()) }
 
     fun onGestureButtonMirrorHorizontalChange(value: Boolean) {
         updateUiState {

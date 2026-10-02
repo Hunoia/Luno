@@ -23,13 +23,6 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
         return File(crashFilePath)
     }
 
-    fun getCrashList(): List<String> {
-        val file = getCrashFile() ?: return emptyList()
-        val text = file.readText()
-        if (text.isNullOrEmpty()) return emptyList()
-        return text.split(SEPARATOR).map { it.trimIndent() }.filter { it.isNotEmpty() }
-    }
-
     override fun uncaughtException(t: Thread, e: Throwable) {
         saveErrorInfo(e)
         defaultHandler?.uncaughtException(t, e)

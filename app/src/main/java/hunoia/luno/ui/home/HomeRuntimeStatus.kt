@@ -24,15 +24,6 @@ enum class HomePrimaryIssue {
     KeepAliveDisabled,
 }
 
-enum class HomeRuntimeAction {
-    None,
-    OpenAccessibility,
-    EnableGesture,
-    RequestShizukuPermission,
-    RefreshStatus,
-    EnableKeepAlive,
-}
-
 enum class HomeShizukuUiStatus {
     NotRunning,
     NotAuthorized,
@@ -50,8 +41,6 @@ data class HomeRuntimeStatus(
     val primaryIssue: HomePrimaryIssue,
     val shizuku: HomeShizukuUiStatus,
     val items: List<HomeStatusItem>,
-    val primaryAction: HomeRuntimeAction,
-    val secondaryAction: HomeRuntimeAction = HomeRuntimeAction.None,
 )
 
 object HomeRuntimeStatusMapper {
@@ -79,19 +68,6 @@ object HomeRuntimeStatusMapper {
             HomePrimaryIssue.ShizukuNotAuthorized,
             HomePrimaryIssue.KeepAliveDisabled -> HomeRuntimeStatusLevel.NeedsAttention
         }
-        val primaryAction = when (primaryIssue) {
-            HomePrimaryIssue.None -> HomeRuntimeAction.None
-            HomePrimaryIssue.AccessibilityDisabled -> HomeRuntimeAction.OpenAccessibility
-            HomePrimaryIssue.GestureDisabled -> HomeRuntimeAction.EnableGesture
-            HomePrimaryIssue.ShizukuNotAuthorized -> HomeRuntimeAction.RequestShizukuPermission
-            HomePrimaryIssue.ShizukuNotRunning -> HomeRuntimeAction.RefreshStatus
-            HomePrimaryIssue.KeepAliveDisabled -> HomeRuntimeAction.EnableKeepAlive
-        }
-        val secondaryAction = if (primaryIssue == HomePrimaryIssue.None) {
-            HomeRuntimeAction.None
-        } else {
-            HomeRuntimeAction.RefreshStatus
-        }
         return HomeRuntimeStatus(
             level = level,
             primaryIssue = primaryIssue,
@@ -106,8 +82,6 @@ object HomeRuntimeStatusMapper {
                     shizuku = shizukuUiStatus,
                 ),
             ),
-            primaryAction = primaryAction,
-            secondaryAction = secondaryAction,
         )
     }
 

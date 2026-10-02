@@ -60,10 +60,6 @@ fun GestureButton.bounds(imePadding: Int = 0): Rect {
 val GestureButton.fraction: Float get() = bounds.height
 val GestureButton.isVertical: Boolean get() = bounds.height >= bounds.width
 
-fun <T> GestureButton.whenVertical(vertical: T, horizontal: T): T = if (isVertical) vertical else horizontal
-
-fun GestureButton.whenVerticalFloat(vertical: () -> Float, horizontal: () -> Float): Float = if (isVertical) vertical() else horizontal()
-
 fun GestureButton.mirroredButton(): GestureButton? {
     if (!mirrorHorizontal) return null
     return copy(bounds = bounds.copy(x = 1f - bounds.x - bounds.width), mirrorHorizontal = false)

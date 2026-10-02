@@ -67,20 +67,6 @@ class GestureState(
     var finger = Offset.Unspecified
         private set
 
-    data class AnimState(
-        val originX: Float = Float.NaN,
-        val originY: Float = Float.NaN,
-        val fingerX: Float = Float.NaN,
-        val fingerY: Float = Float.NaN,
-    )
-
-    private var animState by mutableStateOf(AnimState())
-
-    val originXAnimVal: Float get() = animState.originX
-    val originYAnimVal: Float get() = animState.originY
-    val fingerXAnimVal: Float get() = animState.fingerX
-    val fingerYAnimVal: Float get() = animState.fingerY
-
     var onResolved: (GestureResolvedActions) -> Unit = {}
 
     private var isMirrorTouchTarget = false
@@ -111,7 +97,6 @@ class GestureState(
 
         val b = button ?: run {
             effectiveButton = null
-            animState = AnimState()
             recognizer.clearPendingDoubleTap()
             return
         }
@@ -148,8 +133,6 @@ class GestureState(
                 }
             }
         }
-
-        animState = AnimState(originX = offset.x, originY = offset.y, fingerX = offset.x, fingerY = offset.y)
     }
 
     fun onDrag(dragAmount: Offset): GestureResolvedActions? {
@@ -171,9 +154,6 @@ class GestureState(
             pendingDoubleTapJob?.cancel()
             pendingDoubleTapJob = null
         }
-
-        val prev = animState
-        animState = prev.copy(fingerX = prev.fingerX + dragAmount.x, fingerY = prev.fingerY + dragAmount.y)
 
         if (decision is GestureDecision.Trigger && decision.triggerType.isHoldType) {
             val actions = actionsFor(b, decision)
@@ -253,13 +233,6 @@ class GestureState(
         reset()
     }
 
-    fun cancelPendingTap() {
-        recognizer.clearPendingDoubleTap()
-        pendingDoubleTapJob?.cancel()
-        pendingDoubleTapJob = null
-        pendingTapResult = null
-    }
-
     private fun reset() {
         longPressCheckJob?.cancel()
         longPressCheckJob = null
@@ -288,7 +261,6 @@ class GestureState(
         button = null
         effectiveButton = null
         isMirrorTouchTarget = false
-        animState = AnimState()
         triggerDirection = GestureDirection.Right
         actionDirection = GestureDirection.Right
     }

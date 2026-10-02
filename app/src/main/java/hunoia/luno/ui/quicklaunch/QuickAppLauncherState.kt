@@ -110,14 +110,13 @@ class QuickAppLauncherState(
         }
     }
 
-    fun launchApp(app: AppInfo, isDisabled: Boolean, miniWindow: Boolean, debugPrefix: String?) {
+    fun launchApp(app: AppInfo, isDisabled: Boolean, miniWindow: Boolean) {
         QuickLaunchFacade.launchApp(
             context = context,
             coroutineScope = coroutineScope,
             app = app,
             isDisabled = isDisabled,
             miniWindow = miniWindow,
-            debugPrefix = debugPrefix,
             requestEnableDisabledPackage = requestEnableDisabledPackage,
             log = { message -> android.util.Log.i("LunoLauncher", message) },
             onLaunch = onLaunch,
