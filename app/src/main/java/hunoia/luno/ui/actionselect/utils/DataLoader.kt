@@ -275,16 +275,29 @@ internal suspend fun loadDataBody(
     val subGestures = ConfigProvider.getSubGestureSettings().subGestures
     val actionLibraryEntries = ConfigProvider.getNewActionLibrarySettings().entries
     val isAutomation = actionSelect.automationRuleId.isNotBlank()
-    val excludedTypeIds = if (isAutomation) ActionDefinitions.automationExcludedTypeIds() else emptySet()
+
+    // 两个排除集必须分开,它们管的不是同一件事:
+    // - pickerExcluded 决定「有哪些动作类型可以被选」,必须恒非空。传空集合会让
+    //   `typeId !in excluded` 恒真,整张定义表都变成可选行。
+    // - libraryExcluded 只过滤动作库里已保存的条目。触钮路径保持不额外过滤,否则
+    //   pickerExcluded 多排掉的 app.launch / accessibility.tap / accessibility.longPress
+    //   是允许存进动作库的类型,会把用户已保存的条目从列表里藏掉。
+    val pickerExcluded = if (isAutomation) {
+        ActionDefinitions.automationExcludedTypeIds()
+    } else {
+        ActionDefinitions.pickerExcludedTypeIds()
+    }
+    val libraryExcluded = if (isAutomation) ActionDefinitions.automationExcludedTypeIds() else emptySet()
     val button = if (isAutomation) null else buttons.find { it.id == actionSelect.gestureButtonId }
     val subGesture = if (isAutomation) null else subGestures.find { it.id == actionSelect.subGestureId }
     onUpdateState { state ->
         state.copy(
             maxSelectCount = if (isAutomation) 1 else MAX_SELECT_COUNT,
+            isAutomation = isAutomation,
             subGestures = subGestures,
             excludedSubGestureId = actionSelect.subGestureId,
-            actionLibraryEntries = actionLibraryEntries.filter { it.typeId !in excludedTypeIds },
-            excludedTypeIds = excludedTypeIds,
+            actionLibraryEntries = actionLibraryEntries.filter { it.typeId !in libraryExcluded },
+            excludedTypeIds = pickerExcluded,
         )
     }
     val actions = when {

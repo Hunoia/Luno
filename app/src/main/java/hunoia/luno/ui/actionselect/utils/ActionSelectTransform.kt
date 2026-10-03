@@ -170,6 +170,9 @@ internal fun assembleDataTransform(state: UiState): UiState {
         .map { def -> def.toReferenceAction() }
         .toMutableList()
         .apply {
+            // 自动化规则里绑子手势是无效的:`SubGestureState.tryEnterSubGesture` 需要一个
+            // 真实的 touchPosition,自动化上下文里没有,decode 失败后静默 return false。
+            if (state.isAutomation) return@apply
             state.subGestures
                 .filter { gesture -> gesture.enabled && gesture.id != state.excludedSubGestureId }
                 .forEach { gesture ->

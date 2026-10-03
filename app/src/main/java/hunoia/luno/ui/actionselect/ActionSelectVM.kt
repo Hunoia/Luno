@@ -3,12 +3,14 @@ package hunoia.luno.ui.actionselect
 import androidx.lifecycle.viewModelScope
 import com.aaron.compose.base.BaseComposeVM
 import hunoia.luno.R
+import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.Action
 import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.ui.navigation.ActionSelect
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class ActionSelectVM(
@@ -21,6 +23,7 @@ class ActionSelectVM(
 
     init {
         loadData()
+        observeSubGestures()
     }
 
     fun loadData() {
@@ -30,6 +33,31 @@ class ActionSelectVM(
                 onUpdateState = { transform -> updateUiState(transform) }
             )
             assembleData()
+        }
+    }
+
+    /**
+     * `loadDataBody` 里的子手势是一次性快照(`getSubGestureSettings()` 走 `.data.first()`),
+     * 所以选择页开着的时候在主页改子手势的启用状态或名字,这页不会更新。这里补一条响应式的。
+     *
+     * 只关心选择页真正用到的部分(启用状态 + id + 名字),并且只在这部分真的变了时才重算,
+     * 避免子手势其它字段的改动导致整份动作列表重建。
+     */
+    private fun observeSubGestures() {
+        if (actionSelect.automationRuleId.isNotBlank()) return
+        viewModelScope.launch {
+            ConfigProvider.subGestureSettings.collectLatest { settings ->
+                val excludedId = uiState.excludedSubGestureId
+                val visible = settings.subGestures
+                    .filter { it.enabled && it.id != excludedId }
+                    .map { it.id to it.name }
+                val current = uiState.subGestures
+                    .filter { it.enabled && it.id != excludedId }
+                    .map { it.id to it.name }
+                if (visible == current) return@collectLatest
+                updateUiState { state -> state.copy(subGestures = settings.subGestures) }
+                assembleData()
+            }
         }
     }
 

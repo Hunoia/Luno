@@ -21,7 +21,15 @@ data class UiState(
     val longPressTargetIndex: Int? = null,
     val subGestures: List<SubGesture> = emptyList(),
     val excludedSubGestureId: String = "",
+
+    /**
+     * 本页是自动化规则的动作选择(而不是触钮/子手势的)。
+     * 子手势动作需要一根真实手指才能进入,绑到自动化规则上会静默无效,所以要区别对待。
+     */
+    val isAutomation: Boolean = false,
     val actionLibraryEntries: List<NewActionLibraryEntry> = emptyList(),
+
+    /** 传给 `ActionDefinitions.pickerDefinitions()` 的排除集。恒非空 —— 空集合会让过滤失效。 */
     val excludedTypeIds: Set<String> = emptySet(),
 ) {
     data class SelectedRecord(val list: List<Any> = emptyList()) {

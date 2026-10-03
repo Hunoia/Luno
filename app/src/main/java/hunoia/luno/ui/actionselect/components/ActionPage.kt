@@ -32,6 +32,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.action.definition.ActionCategory
+import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.action.model.matchesQuery
 import hunoia.luno.config.model.Action
@@ -103,12 +104,18 @@ internal fun ActionPage(
         }
     }
     val grouped = remember(filteredActions) {
-        val map = LinkedHashMap<ActionCategory, MutableList<Action>>()
+        val buckets = LinkedHashMap<ActionCategory, MutableList<Action>>()
         filteredActions.forEach { action ->
-            val category = actionCategory(action)
-            map.getOrPut(category) { mutableListOf() }.add(action)
+            buckets.getOrPut(actionCategory(action)) { mutableListOf() }.add(action)
         }
-        map
+        // 按定义表的声明顺序排分组。原先直接用 LinkedHashMap 的插入序,而
+        // assembleDataTransform 会把已选中的动作搬到列表最前面 —— 于是选中一个「无障碍」动作,
+        // 整个无障碍分组就跳到最上面。无选中项时插入序本来就等于声明序,所以这里只在有选中时生效。
+        LinkedHashMap<ActionCategory, MutableList<Action>>(buckets.size).apply {
+            buckets.keys.sortedBy { ActionDefinitions.categoryOrder(it) }.forEach { category ->
+                this[category] = buckets.getValue(category)
+            }
+        }
     }
     val filteredLibraryEntries = remember(actionLibraryEntries, query, selectedType) {
         if (selectedType == TYPE_ACTION_LIBRARY || query.isNotBlank()) {

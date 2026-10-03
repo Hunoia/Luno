@@ -380,6 +380,16 @@ object ActionDefinitions {
 
     fun automationExcludedTypeIds(): Set<String> = automationExcluded
 
+    /**
+     * 触钮/子手势动作选择页要排除的类型。
+     *
+     * 必须由调用方显式取用,而不是依赖 [pickerDefinitions] 的默认参数 —— 默认参数在
+     * 收到空集合时会被静默替换掉,而 `typeId !in emptySet()` 恒为真,于是整个
+     * [definitions] 表(去掉带必填参数的)都会变成可选行,包括「启动快捷方式」
+     * (选完必然 InvalidParameter)和 `internal.subGesture` (解不出 data,永不触发)。
+     */
+    fun pickerExcludedTypeIds(): Set<String> = pickerExcluded
+
     fun pickerDefinitions(excluded: Set<String> = pickerExcluded): List<ActionDefinition> =
         definitions.filter { it.typeId !in excluded && it.parameters.none { p -> p.required } }
 
