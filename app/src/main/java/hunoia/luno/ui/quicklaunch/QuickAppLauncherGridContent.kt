@@ -1,8 +1,6 @@
 package hunoia.luno.ui.quicklaunch
 import hunoia.luno.ui.theme.*
 
-import android.view.HapticFeedbackConstants
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -20,7 +18,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -33,15 +30,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-import hunoia.luno.ui.theme.MediumShape
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.query.AppSearch.key
 
+/**
+ * 设置 / 密码页入口。压平后与普通应用图标同构：不再有圆角底色方块，
+ * 靠图标本身（齿轮 / 锁）区分，矢量图标也不需要 clip。
+ */
 @Composable
 internal fun PageMatchIcon(
     name: String,
@@ -51,15 +48,13 @@ internal fun PageMatchIcon(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(4.dp)
+            .padding(AppItemPadding)
             .clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
             modifier = Modifier
-                .let { if (iconHeight != null) it.height(iconHeight).fillMaxWidth() else it.fillMaxWidth().aspectRatio(1f) }
-                .clip(MediumShape)
-                .background(MaterialTheme.colorScheme.tertiaryContainer),
+                .let { if (iconHeight != null) it.height(iconHeight).fillMaxWidth() else it.fillMaxWidth().aspectRatio(1f) },
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -68,8 +63,8 @@ internal fun PageMatchIcon(
                     else -> Icons.Default.Settings
                 },
                 contentDescription = name,
-                tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                modifier = Modifier.width(28.dp).height(28.dp)
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.width(PageMatchIconSize).height(PageMatchIconSize)
             )
         }
     }
@@ -87,7 +82,7 @@ internal fun CandidateAppRows(
     onLongPress: (AppInfo, Boolean) -> Unit,
     onPageMatchClick: (Page) -> Unit,
 ) {
-    val iconHeight = (candidateHeight - 2.dp * (rows - 1)) / rows - 4.dp * 2
+    val iconHeight = (candidateHeight - CandidateRowSpacing * (rows - 1)) / rows - AppItemPadding * 2
     val rowState = rememberLazyListState()
     LaunchedEffect(apps, rows) {
         rowState.animateScrollToItem(0)
@@ -99,14 +94,14 @@ internal fun CandidateAppRows(
     ) {
         LazyRow(
             state = rowState,
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            horizontalArrangement = Arrangement.spacedBy(CandidateRowSpacing),
             modifier = Modifier.fillMaxSize()
         ) {
             if (pageMatches.isNotEmpty()) {
                 item {
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                        modifier = Modifier.width(64.dp)
+                        verticalArrangement = Arrangement.spacedBy(CandidateRowSpacing),
+                        modifier = Modifier.width(CandidateColumnWidth)
                     ) {
                         pageMatches.forEach { (name, page) ->
                             PageMatchIcon(
@@ -124,8 +119,8 @@ internal fun CandidateAppRows(
                 val end = minOf(start + rows, apps.size)
                 val columnApps = apps.subList(start, end)
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier.width(64.dp)
+                    verticalArrangement = Arrangement.spacedBy(CandidateRowSpacing),
+                    modifier = Modifier.width(CandidateColumnWidth)
                 ) {
                     columnApps.forEach { app ->
                         key(app.key()) {
@@ -161,8 +156,6 @@ internal fun AppGrid(
     onLongPress: (AppInfo, Boolean) -> Unit,
     onPageMatchClick: (Page) -> Unit,
 ) {
-    val view = LocalView.current
-
     Box(
         modifier = Modifier
             .height(gridHeight)
@@ -175,7 +168,7 @@ internal fun AppGrid(
                         if (gridAtTop && dragAmount > 0f) {
                             change.consume()
                             totalDrag += dragAmount
-                            if (totalDrag > 32f) onExpandKeyboard()
+                            if (totalDrag > DragThresholdPx) onExpandKeyboard()
                         }
                     }
                 )
@@ -184,9 +177,9 @@ internal fun AppGrid(
         LazyVerticalGrid(
             state = gridState,
             columns = GridCells.Fixed(gridColumns),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            contentPadding = PaddingValues(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(GridCellSpacing),
+            horizontalArrangement = Arrangement.spacedBy(GridCellSpacing),
+            contentPadding = PaddingValues(bottom = ContentBottom),
             modifier = Modifier.fillMaxSize()
         ) {
             if (pageMatches.isNotEmpty()) {
@@ -200,7 +193,7 @@ internal fun AppGrid(
                 }
             }
             if (apps.isEmpty()) {
-                item { Box(modifier = Modifier.height(88.dp).fillMaxWidth()) }
+                item { Box(modifier = Modifier.height(EmptyStateHeight).fillMaxWidth()) }
             }
             items(apps, key = { it.key() }, contentType = { "app" }) { app ->
                 val isDisabled = app.packageName in disabledPkgs
@@ -213,40 +206,11 @@ internal fun AppGrid(
             }
         }
 
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .pointerInput(keyboardExpanded) {
-                    var totalDrag = 0f
-                    detectVerticalDragGestures(
-                        onDragStart = { totalDrag = 0f },
-                        onVerticalDrag = { change, dragAmount ->
-                            change.consume()
-                            totalDrag += dragAmount
-                            if (!keyboardExpanded && totalDrag > 32f) onExpandKeyboard()
-                        }
-                    )
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .padding(vertical = 6.dp)
-                    .clickable {
-                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                        onExpandKeyboard()
-                    }
-            ) {
-                Box(
-                    modifier = Modifier
-                        .width(44.dp)
-                        .height(5.dp)
-                            .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
-                )
-            }
-        }
+        Pill(
+            onClick = { onExpandKeyboard() },
+            onDragUp = { onExpandKeyboard() },
+            dragEnabled = !keyboardExpanded,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
     }
 }

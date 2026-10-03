@@ -120,7 +120,7 @@ fun GestureSlideTriggerDistanceContent(
                 onValueChange = onLongPressTriggerDelayMsChange,
                 onValueChangeFinished = { onValueChangeFinished?.invoke() },
                 text = stringResource(R.string.trigger_long_press_delay),
-                valueDisplay = "${longPressTriggerDelayMs}ms",
+                valueDisplay = { "${it.toLong()}ms" },
                 valueRange = MinLongPressTriggerDelayMs.toFloat()..MaxLongPressTriggerDelayMs.toFloat(),
             )
         }
@@ -130,7 +130,7 @@ fun GestureSlideTriggerDistanceContent(
                 onValueChange = onDoubleTapTriggerDelayMsChange,
                 onValueChangeFinished = { onValueChangeFinished?.invoke() },
                 text = stringResource(R.string.trigger_double_tap_delay),
-                valueDisplay = "${doubleTapTriggerDelayMs}ms",
+                valueDisplay = { "${it.toLong()}ms" },
                 valueRange = MinDoubleTapTriggerDelayMs.toFloat()..MaxDoubleTapTriggerDelayMs.toFloat(),
             )
         }
@@ -139,7 +139,7 @@ fun GestureSlideTriggerDistanceContent(
             onValueChange = onSlideHoldTriggerDelayMsChange,
             onValueChangeFinished = { onValueChangeFinished?.invoke() },
             text = stringResource(R.string.trigger_slide_hold_delay),
-            valueDisplay = "${slideHoldTriggerDelayMs}ms",
+            valueDisplay = { "${it.toLong()}ms" },
             valueRange = MinHoldTriggerDelayMs.toFloat()..MaxHoldTriggerDelayMs.toFloat(),
         )
         MyTextSlider(
@@ -147,7 +147,7 @@ fun GestureSlideTriggerDistanceContent(
             onValueChange = onLongSlideHoldTriggerDelayMsChange,
             onValueChangeFinished = { onValueChangeFinished?.invoke() },
             text = stringResource(R.string.trigger_long_slide_hold_delay),
-            valueDisplay = "${longSlideHoldTriggerDelayMs}ms",
+            valueDisplay = { "${it.toLong()}ms" },
             valueRange = MinHoldTriggerDelayMs.toFloat()..MaxHoldTriggerDelayMs.toFloat(),
         )
     }
@@ -183,7 +183,7 @@ private fun DistanceTextSlider(
             onValueChange = onValueDpChange,
             onValueChangeFinished = { onValueChangeFinished?.invoke() },
             text = text,
-            valueDisplay = "${valueDp.roundToInt()}dp",
+            valueDisplay = { "${it.roundToInt()}dp" },
             valueRange = valueRangeDp,
             sliderValueHint = valueRangeDp.hintText(),
         )

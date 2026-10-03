@@ -545,7 +545,7 @@ private fun SubGestureTriggerDistanceContent(
             onValueChange = { vm.onSubTimeoutMsChange(it) },
             onValueChangeFinished = { vm.persistSubGesture() },
             text = stringResource(R.string.sub_gesture_timeout_label),
-            valueDisplay = stringResource(R.string.sub_gesture_timeout_value, gesture.timeoutMs / 1000),
+            valueDisplay = { stringResource(R.string.sub_gesture_timeout_value, it.toLong() / 1000) },
             valueRange = MinSubGestureTimeoutMs.toFloat()..MaxSubGestureTimeoutMs.toFloat()
         )
     }

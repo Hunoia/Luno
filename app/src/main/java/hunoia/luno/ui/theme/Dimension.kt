@@ -62,6 +62,45 @@ val SegmentedGap = 1.dp
 val RowIconBadgeSize = 32.dp
 val RowIconBadgeIconSize = 20.dp
 
+// Quick launcher panel
+// 面板底色只用 colorScheme.surfaceContainerHigh 一层，图标与按键都不再自带底色方块，
+// 所以这里的间距 token 同时是图标尺寸算式的输入，改动必须连带看 Content.kt 的 iconSizePx。
+val PanelPaddingHorizontal = 12.dp
+val PanelPaddingVertical = 10.dp
+
+// 候选项是决策区，列宽有意固定而不跟网格一起自适应：面板拉宽时它保持大图标。
+val CandidateColumnWidth = 64.dp
+val CandidateRowSpacing = 2.dp
+
+// 单行候选项的高度上下界。AdjustPanel 用它们界定面板高度滑块的行程，
+// Content.kt 用下界兜底 —— 两边必须同源，见 requiredContentHeight。
+val CandidateMinHeight = 40.dp
+val CandidateMaxHeight = 96.dp
+
+// 网格 cell 与 AppItem/PageMatchIcon 的内边距
+val GridCellSpacing = 4.dp
+val AppItemPadding = 4.dp
+
+// 键盘：行间距与键间距共用一个值
+val KeyboardGap = 6.dp
+val KeyboardRowCount = 3
+
+val PageMatchIconSize = 28.dp
+val EmptyStateHeight = 88.dp
+
+// 底部药丸：网格底部展开键盘，设置页 / 密码页底部返回应用页，共用一个组件
+val PillWidth = 44.dp
+val PillHeight = 5.dp
+val PillPaddingVertical = 6.dp
+val PillAlpha = 0.35f
+
+// 按压缩放反馈
+val PressScaleApp = 0.92f
+val PressScaleKey = 0.93f
+
+// 面板内上拖手势阈值（网格顶部展开键盘、页面底部返回应用页共用）
+val DragThresholdPx = 32f
+
 // Animation durations (ms)
 const val AnimNormal = 150L
 const val AnimMedium = 200L

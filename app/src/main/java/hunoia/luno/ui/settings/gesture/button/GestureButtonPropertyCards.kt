@@ -80,7 +80,7 @@ fun GestureButtonPhysicalParamsCard(
                 vm.onGestureButtonAdjustFinish()
             },
             text = stringResource(id = R.string.gesture_button_x),
-            valueDisplay = "${(displayedX * 100).toInt()}%",
+            valueDisplay = { "${(it * 100).toInt()}%" },
             valueRange = 0f..maxX,
             shape = segmentedShape(3, 8),
         )
@@ -94,7 +94,7 @@ fun GestureButtonPhysicalParamsCard(
                 vm.onGestureButtonAdjustFinish()
             },
             text = stringResource(id = R.string.gesture_button_y),
-            valueDisplay = "${(displayedY * 100).toInt()}%",
+            valueDisplay = { "${(it * 100).toInt()}%" },
             valueRange = 0f..maxY,
             shape = segmentedShape(4, 8),
         )
@@ -108,7 +108,7 @@ fun GestureButtonPhysicalParamsCard(
                 vm.onGestureButtonAdjustFinish()
             },
             text = stringResource(id = R.string.gesture_button_width),
-            valueDisplay = "${(displayedWidth * 100).toInt()}%",
+            valueDisplay = { "${(it * 100).toInt()}%" },
             valueRange = MinGestureButtonLength..maxWidth,
             shape = segmentedShape(5, 8),
         )
@@ -122,7 +122,7 @@ fun GestureButtonPhysicalParamsCard(
                 vm.onGestureButtonAdjustFinish()
             },
             text = stringResource(id = R.string.gesture_button_height),
-            valueDisplay = "${(displayedHeight * 100).toInt()}%",
+            valueDisplay = { "${(it * 100).toInt()}%" },
             valueRange = MinGestureButtonLength..maxHeight,
             shape = segmentedShape(6, 8),
         )

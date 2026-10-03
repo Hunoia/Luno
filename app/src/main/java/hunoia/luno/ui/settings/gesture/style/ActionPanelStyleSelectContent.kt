@@ -92,7 +92,7 @@ fun ActionPanelStyleConfigContent(
                 onStyleChanged(ActionPanelStyles.arc(style.copy(itemSize = with(density) { itemSizeDp.dp.roundToPx() })))
             },
             text = stringResource(R.string.action_panel_item_size),
-            valueDisplay = "${itemSizeDp.roundToInt()}dp",
+            valueDisplay = { "${it.roundToInt()}dp" },
             sliderValueHint = "40dp" to "64dp",
             valueRange = 40f..64f,
         )
@@ -103,7 +103,7 @@ fun ActionPanelStyleConfigContent(
                 onStyleChanged(ActionPanelStyles.arc(style.copy(spreadSpacing = spreadSpacing)))
             },
             text = stringResource(R.string.action_panel_spread_spacing),
-            valueDisplay = "${(spreadSpacing * 100).roundToInt()}%",
+            valueDisplay = { "${(it * 100).roundToInt()}%" },
             sliderValueHint = stringResource(R.string.compact) to stringResource(R.string.loose),
             valueRange = 0.85f..1.35f,
         )

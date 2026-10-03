@@ -31,7 +31,7 @@ fun MiniWindowControls(
         onValueChange = { horizontalBias = it.coerceIn(-1f, 1f) },
         onValueChangeFinished = { onChange(settings.copy(horizontalBias = horizontalBias)) },
         text = stringResource(R.string.horizontal_offset),
-        valueDisplay = "${(horizontalBias * 100).roundToInt()}%",
+        valueDisplay = { "${(it * 100).roundToInt()}%" },
         valueRange = -1f..1f,
     )
     MyTextSlider(
@@ -39,7 +39,7 @@ fun MiniWindowControls(
         onValueChange = { verticalBias = it.coerceIn(-1f, 1f) },
         onValueChangeFinished = { onChange(settings.copy(verticalBias = verticalBias)) },
         text = stringResource(R.string.vertical_offset),
-        valueDisplay = "${(verticalBias * 100).roundToInt()}%",
+        valueDisplay = { "${(it * 100).roundToInt()}%" },
         valueRange = -1f..1f,
     )
     MyTextSlider(
@@ -47,7 +47,7 @@ fun MiniWindowControls(
         onValueChange = { widthFraction = it.coerceIn(0.2f, 1.5f) },
         onValueChangeFinished = { onChange(settings.copy(widthFraction = widthFraction)) },
         text = stringResource(R.string.width),
-        valueDisplay = "${(widthFraction * 100).roundToInt()}%",
+        valueDisplay = { "${(it * 100).roundToInt()}%" },
         valueRange = 0.2f..1.5f,
     )
     MyTextSlider(
@@ -55,7 +55,7 @@ fun MiniWindowControls(
         onValueChange = { heightFraction = it.coerceIn(0.2f, 1.5f) },
         onValueChangeFinished = { onChange(settings.copy(heightFraction = heightFraction)) },
         text = stringResource(R.string.height),
-        valueDisplay = "${(heightFraction * 100).roundToInt()}%",
+        valueDisplay = { "${(it * 100).roundToInt()}%" },
         valueRange = 0.2f..1.5f,
     )
 }

@@ -43,14 +43,29 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import hunoia.luno.ui.theme.ExtraLargeShape
 
 import hunoia.luno.bridge.DensityProvider
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.config.model.QuickAppLauncherSettings
-import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.collectLatest
+
+/**
+ * 面板展开后所需的内容高度：键盘三行 + 键盘行间距 + 候选项 + 间距 + 卡片上下内边距。
+ *
+ * [QuickAppLauncherAdjustPanel] 用它界定面板高度滑块的行程，这里用它在下界兜底。
+ * 两边必须同源 —— 之前是各写一份字面量（面板里那份是 `kd * 3 + 6.dp * 2 + 40.dp * rows + 6.dp + 10.dp * 2`），
+ * 改一边另一边静默失配，表现是面板能拖到把候选项或键盘裁掉的高度。
+ */
+internal fun requiredContentHeight(
+    keyHeight: Dp,
+    candidateRows: Int,
+    candidateRowHeight: Dp,
+): Dp = keyHeight * KeyboardRowCount + KeyboardGap * 2 +
+    candidateRowHeight * candidateRows + KeyboardGap + PanelPaddingVertical * 2
 
 /**
  * 常驻入口。ComposeView 只创建一次，本组合随它一直活着，所以 `remember` 出来的
@@ -156,7 +171,7 @@ private fun QuickAppLauncherContent(
             private fun updatePull(delta: Float) {
                 if (!state.keyboardExpanded && gridAtTop && delta > 0f) {
                     totalPull += delta
-                    if (totalPull > 32f) {
+                    if (totalPull > DragThresholdPx) {
                         state.expandKeyboard()
                         totalPull = 0f
                     }
@@ -199,8 +214,8 @@ private fun QuickAppLauncherContent(
                             onVerticalDrag = { change, dragAmount ->
                                 change.consume()
                                 totalDrag += dragAmount
-                                if (state.keyboardExpanded && totalDrag < -32f) state.toggleKeyboard()
-                                if (!state.keyboardExpanded && gridAtTop && totalDrag > 32f) state.expandKeyboard()
+                                if (state.keyboardExpanded && totalDrag < -DragThresholdPx) state.toggleKeyboard()
+                                if (!state.keyboardExpanded && gridAtTop && totalDrag > DragThresholdPx) state.expandKeyboard()
                             }
                         )
                     }
@@ -210,26 +225,31 @@ private fun QuickAppLauncherContent(
                     shape = ExtraLargeShape,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
                 ) {
-                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                    Column(modifier = Modifier.padding(horizontal = PanelPaddingHorizontal, vertical = PanelPaddingVertical)) {
                         val contentHeightFraction = state.launcherSettings.contentHeightFraction
                         val candidateRows = state.launcherSettings.candidateRows.coerceIn(1, 3)
                         val density = LocalDensity.current
                         val screenHeightPx = DensityProvider.screenHeightPx
                         val panelHeightDp = with(density) { (screenHeightPx * contentHeightFraction).toDp() }
                         val keyHeight = state.launcherSettings.keyHeightDp.dp
-                        val keyboardHeight = keyHeight * 3 + 6.dp * 2
-                        val minCandidateHeight = 40.dp * candidateRows
-                        val contentDp = (panelHeightDp - 10.dp * 2).coerceAtLeast(keyboardHeight + 6.dp + minCandidateHeight)
-                        val candidateHeight = contentDp - keyboardHeight - 6.dp
+                        val keyboardHeight = keyHeight * KeyboardRowCount + KeyboardGap * 2
+                        val minContentHeight = requiredContentHeight(keyHeight, candidateRows, CandidateMinHeight)
+                        val contentDp = (panelHeightDp - PanelPaddingVertical * 2)
+                            .coerceAtLeast(minContentHeight)
+                        val candidateHeight = contentDp - keyboardHeight - KeyboardGap
                         val contentHeight = contentDp
                         val iconGridCols = state.launcherSettings.gridColumns.coerceIn(3, 5)
                         val iconSizePx = with(density) {
-                            // 候选项：列宽固定 64dp（见 CandidateAppRows），减去 AppItem 的 4dp×2 内边距 = 56dp。
+                            // 候选项：列宽固定 CandidateColumnWidth，减去 AppItem 的 AppItemPadding×2。
                             // iconHeight 往往远大于它 —— AppItem 是 height(iconHeight).fillMaxWidth()
                             // 配 ContentScale.Fit，图标实际只渲染 min(宽, 高) 见方，所以按宽算而不是按框高算。
-                            val candidateDp = minOf(56.dp, candidateHeight / candidateRows - 8.dp)
-                            // 网格格子：(面板宽 - 卡片横向内边距 12dp×2 - 列间距 4dp×(列数-1)) / 列数 - 8dp
-                            val gridCellDp = (panelWidthDp - 24.dp - 4.dp * (iconGridCols - 1)) / iconGridCols - 8.dp
+                            val candidateDp = minOf(
+                                CandidateColumnWidth - AppItemPadding * 2,
+                                candidateHeight / candidateRows - AppItemPadding * 2
+                            )
+                            // 网格格子：(面板宽 - 卡片横向内边距 - 列间距) / 列数 - AppItem 内边距×2
+                            val gridCellDp = (panelWidthDp - PanelPaddingHorizontal * 2
+                                - GridCellSpacing * (iconGridCols - 1)) / iconGridCols - AppItemPadding * 2
                             maxOf(candidateDp, gridCellDp).roundToPx().coerceAtLeast(1)
                         }
                         // 预热当前查询命中列表的前几个。放在 LaunchedEffect 而不是 token 的写点上，
@@ -240,7 +260,7 @@ private fun QuickAppLauncherContent(
                         AnimatedContent(
                             targetState = currentPage,
                             transitionSpec = {
-                                fadeIn(animationSpec = tween(200)) togetherWith fadeOut(animationSpec = tween(150))
+                                fadeIn(animationSpec = tween(AnimMedium.toInt())) togetherWith fadeOut(animationSpec = tween(AnimNormal.toInt()))
                             },
                             label = "pageSwitch"
                         ) { page ->
@@ -249,7 +269,7 @@ private fun QuickAppLauncherContent(
                                     AnimatedContent(
                                         targetState = state.keyboardExpanded,
                                         transitionSpec = {
-                                            fadeIn(animationSpec = tween(200)) togetherWith fadeOut(animationSpec = tween(150)) using SizeTransform(clip = false)
+                                            fadeIn(animationSpec = tween(AnimMedium.toInt())) togetherWith fadeOut(animationSpec = tween(AnimNormal.toInt())) using SizeTransform(clip = false)
                                         },
                                         label = "keyboardExpand"
                                     ) { expanded ->
@@ -273,22 +293,41 @@ private fun QuickAppLauncherContent(
                                                         state.clearTokens()
                                                     }
                                                 )
-                                                Spacer(modifier = Modifier.height(6.dp))
+                                                Spacer(modifier = Modifier.height(KeyboardGap))
                                                 KeyboardRow(
                                                     view,
-                                                    listOf("QW" to "qw", "ER" to "er", "TY" to "ty", "UI" to "ui", "OP" to "op"),
+                                                    listOf(
+                                                        KeyboardKey.Letter("QW", "qw", longPressDigit = "1"),
+                                                        KeyboardKey.Letter("ER", "er", longPressDigit = "2"),
+                                                        KeyboardKey.Letter("TY", "ty", longPressDigit = "3"),
+                                                        KeyboardKey.Letter("UI", "ui", longPressDigit = "4"),
+                                                        KeyboardKey.Letter("OP", "op", longPressDigit = "5"),
+                                                    ),
                                                     keyHeight = keyHeight
                                                 ) { token -> state.addToken(token) }
-                                                Spacer(modifier = Modifier.height(6.dp))
+                                                Spacer(modifier = Modifier.height(KeyboardGap))
                                                 KeyboardRow(
                                                     view,
-                                                    listOf("AS" to "as", "DF" to "df", "GH" to "gh", "JK" to "jk", "L" to "l"),
+                                                    listOf(
+                                                        KeyboardKey.Letter("AS", "as", longPressDigit = "6"),
+                                                        KeyboardKey.Letter("DF", "df", longPressDigit = "7"),
+                                                        KeyboardKey.Letter("GH", "gh", longPressDigit = "8"),
+                                                        KeyboardKey.Letter("JK", "jk", longPressDigit = "9"),
+                                                        KeyboardKey.Letter("L", "l", longPressDigit = "0"),
+                                                    ),
                                                     keyHeight = keyHeight
                                                 ) { token -> state.addToken(token) }
-                                                Spacer(modifier = Modifier.height(6.dp))
+                                                Spacer(modifier = Modifier.height(KeyboardGap))
                                                 KeyboardRow(
                                                     view,
-                                                    listOf("调整" to null, "ZX" to "zx", "CV" to "cv", "BN" to "bn", "M" to "m", "删除" to null),
+                                                    listOf(
+                                                        KeyboardKey.Adjust,
+                                                        KeyboardKey.Letter("ZX", "zx"),
+                                                        KeyboardKey.Letter("CV", "cv"),
+                                                        KeyboardKey.Letter("BN", "bn"),
+                                                        KeyboardKey.Letter("M", "m"),
+                                                        KeyboardKey.Delete,
+                                                    ),
                                                     onDelete = { state.deleteToken() },
                                                     onClear = { state.clearTokens() },
                                                     onAdjust = { currentPage = Page.Settings },

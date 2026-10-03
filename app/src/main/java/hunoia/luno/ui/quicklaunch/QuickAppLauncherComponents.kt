@@ -5,7 +5,9 @@ import android.view.HapticFeedbackConstants
 import android.view.View
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -19,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Tune
@@ -33,12 +36,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
@@ -48,11 +52,39 @@ import coil.compose.AsyncImage
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
 
+/**
+ * 键盘按键。用类型区分功能键而不是比较中文字符串——`label` 只用于显示，
+ * 逻辑分支全部走类型，改文案不会再悄悄改掉行为。
+ *
+ * [longPressDigit] 是长按时送出的数字 token。隐藏功能：界面上没有任何提示，
+ * 但它一直存在，见 [KeyboardKey.Letter]。
+ */
+internal sealed interface KeyboardKey {
+    val label: String
+    val longPressDigit: String?
+
+    data class Letter(
+        override val label: String,
+        val token: String,
+        override val longPressDigit: String? = null,
+    ) : KeyboardKey
+
+    object Adjust : KeyboardKey {
+        override val label: String = "调整"
+        override val longPressDigit: String? = null
+    }
+
+    object Delete : KeyboardKey {
+        override val label: String = "删除"
+        override val longPressDigit: String? = null
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun KeyboardRow(
     view: View,
-    keys: List<Pair<String, String?>>,
+    keys: List<KeyboardKey>,
     keyHeight: Dp,
     onDelete: (() -> Unit)? = null,
     onClear: (() -> Unit)? = null,
@@ -60,17 +92,16 @@ internal fun KeyboardRow(
     onToken: (String) -> Unit,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        val cellWidth = (maxWidth - 6.dp * (keys.size - 1)) / keys.size
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-            keys.forEach { (label, token) ->
+        val cellWidth = (maxWidth - KeyboardGap * (keys.size - 1)) / keys.size
+        Row(horizontalArrangement = Arrangement.spacedBy(KeyboardGap), modifier = Modifier.fillMaxWidth()) {
+            keys.forEach { key ->
                 val interactionSource = remember { MutableInteractionSource() }
                 val isPressed by interactionSource.collectIsPressedAsState()
                 val scale by animateFloatAsState(
-                    if (isPressed) 0.93f else 1f,
+                    if (isPressed) PressScaleKey else 1f,
                     animationSpec = spring(stiffness = Spring.StiffnessHigh),
                     label = "keyScale"
                 )
-                val isFunction = label == "删除" || label == "调整"
                 Surface(
                     modifier = Modifier
                         .width(cellWidth)
@@ -84,39 +115,31 @@ internal fun KeyboardRow(
                             interactionSource = interactionSource,
                             onClick = {
                                 view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                when (label) {
-                                    "删除" -> onDelete?.invoke()
-                                    "调整" -> onAdjust?.invoke()
-                                    else -> token?.let(onToken)
+                                when (key) {
+                                    is KeyboardKey.Adjust -> onAdjust?.invoke()
+                                    is KeyboardKey.Delete -> onDelete?.invoke()
+                                    is KeyboardKey.Letter -> onToken(key.token)
                                 }
                             },
                             onLongClick = {
                                 view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                when (label) {
-                                    "QW" -> onToken("1")
-                                    "ER" -> onToken("2")
-                                    "TY" -> onToken("3")
-                                    "UI" -> onToken("4")
-                                    "OP" -> onToken("5")
-                                    "AS" -> onToken("6")
-                                    "DF" -> onToken("7")
-                                    "GH" -> onToken("8")
-                                    "JK" -> onToken("9")
-                                    "L" -> onToken("0")
-                                    "删除" -> onClear?.invoke()
+                                when (key) {
+                                    is KeyboardKey.Delete -> onClear?.invoke()
+                                    is KeyboardKey.Adjust -> Unit
+                                    is KeyboardKey.Letter -> key.longPressDigit?.let(onToken)
                                 }
                             }
                         ),
-                    color = if (isFunction) MaterialTheme.colorScheme.tertiaryContainer
-                    else MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = if (isFunction) MaterialTheme.colorScheme.onTertiaryContainer
-                    else MaterialTheme.colorScheme.onSecondaryContainer,
+                    // 功能键与字母键共用一层底色，不再用 tertiary/secondary 二分：
+                    // 靠图标（Tune / DeleteOutline）和末行首末位置区分。
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                 ) {
                     Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                        when (label) {
-                            "调整" -> Icon(Icons.Outlined.Tune, contentDescription = stringResource(R.string.quick_app_launcher_adjust))
-                            "删除" -> Icon(Icons.Outlined.DeleteOutline, contentDescription = stringResource(R.string.quick_app_launcher_delete_input))
-                            else -> Text(label, fontWeight = FontWeight.SemiBold)
+                        when (key) {
+                            is KeyboardKey.Adjust -> Icon(Icons.Outlined.Tune, contentDescription = stringResource(R.string.quick_app_launcher_adjust))
+                            is KeyboardKey.Delete -> Icon(Icons.Outlined.DeleteOutline, contentDescription = stringResource(R.string.quick_app_launcher_delete_input))
+                            is KeyboardKey.Letter -> Text(key.label, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -125,6 +148,16 @@ internal fun KeyboardRow(
     }
 }
 
+/**
+ * 单个应用项：只有图标，**刻意没有文字标签**。
+ *
+ * 面板靠拼音首字母 + 图标识别，加标签会把候选行仅 ~92dp 的高度切给文字、挤掉图标，
+ * 也和搜索排序的「图标即语义」取向冲突。别因为别的列表都有文字就顺手加一个。
+ *
+ * 同样**刻意不给「已禁用」加视觉区分**：禁用是罕见配置，为它加灰度或删除线会在
+ * 常态下多出一层噪音。[AppInfo] 的禁用状态只影响点击行为（见调用方 onClick 的
+ * `isDisabled` 参数），不改外观。
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun AppItem(
@@ -138,7 +171,7 @@ internal fun AppItem(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        if (isPressed) 0.92f else 1f,
+        if (isPressed) PressScaleApp else 1f,
         animationSpec = spring(stiffness = Spring.StiffnessHigh),
         label = "appScale"
     )
@@ -154,7 +187,7 @@ internal fun AppItem(
                 onClick = { onClick() },
                 onLongClick = { onLongPress() }
             )
-            .padding(4.dp),
+            .padding(AppItemPadding),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         val iconMod = if (iconHeight != null) {
@@ -165,19 +198,71 @@ internal fun AppItem(
         val request = remember(app.packageName, iconSizePx) {
             QuickLaunchFacade.appIconRequest(context, app.packageName, iconSizePx)
         }
+        // 图标压在面板底色上，不再叠一层占位底色（面板底是唯一的一层底色）。
+        // Box 留着是因为图标异步到位时尺寸不能变——用 matchParentSize 而不是 if/else，
+        // 这样图标晚到也不会让布局跳一帧。
         Box(modifier = iconMod) {
-            // 图标未就绪时占位。改用叠加而不是 if/else 分支，避免图标到位时
-            // 布局从"只有底色"跳到"底色+图标"造成一帧跳动。
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(MaterialTheme.colorScheme.surfaceContainer)
-            )
             AsyncImage(
                 model = request,
                 contentDescription = app.label,
                 modifier = Modifier.matchParentSize(),
                 contentScale = ContentScale.Fit
+            )
+        }
+    }
+}
+
+/**
+ * 面板底部的药丸：点击触发 [onClick]，上拖超过 [DragThresholdPx] 触发 [onDragUp]。
+ *
+ * 原本在网格底部、设置页底部、密码页底部各抄了一份近乎逐字相同的实现，外观保持原样，
+ * 这里只收掉重复。调用方要挂在 `Box` 里并自己 `align(Alignment.BottomCenter)`。
+ *
+ * [dragEnabled] 对应网格那处「键盘已展开就不再响应上拖」的判断；[hapticOnClick] 对应
+ * 原先只有网格那处有点击震动、另两处没有的差异——都是原样保留，不是新行为。
+ */
+@Composable
+internal fun Pill(
+    onClick: () -> Unit,
+    onDragUp: () -> Unit,
+    modifier: Modifier = Modifier,
+    dragEnabled: Boolean = true,
+    hapticOnClick: Boolean = true,
+) {
+    val view = LocalView.current
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .pointerInput(dragEnabled) {
+                var drag = 0f
+                detectVerticalDragGestures(
+                    onDragStart = { drag = 0f },
+                    onVerticalDrag = { change, amount ->
+                        change.consume()
+                        drag += amount
+                        if (dragEnabled && drag > DragThresholdPx) onDragUp()
+                    }
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .padding(vertical = PillPaddingVertical)
+                .clickable {
+                    if (hapticOnClick) {
+                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                    }
+                    onClick()
+                }
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(PillWidth)
+                    .height(PillHeight)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = PillAlpha))
             )
         }
     }

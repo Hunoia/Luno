@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -116,16 +117,21 @@ fun MyTextSlider(
     shape: Shape = LargeShape,
     enabled: Boolean = true,
     sliderValueHint: Pair<String, String>? = null,
-    valueDisplay: String? = null,
+    valueDisplay: (@Composable (Float) -> String)? = null,
     onValueChangeFinished: (() -> Unit)? = null,
     valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
     steps: Int? = null,
 ) {
+    // 拖动中的实时值。外部传进来的 value 在 onValueChangeFinished 之前不会变（落盘在松手时），
+    // 标签若读它就会冻住、松手才跳。所以这里挂的是 MySlider 自己的 localValue ——
+    // 真正跟手的那一份，也是 steps 量化 / range 钳制之后滑块实际显示的那一份。
+    var liveValue by remember { mutableFloatStateOf(value) }
+
     SliderSurface(
         modifier = modifier,
         shape = shape,
         text = text,
-        valueDisplay = valueDisplay,
+        valueDisplay = valueDisplay?.invoke(liveValue),
         sliderValueHint = sliderValueHint,
     ) {
         MySlider(
@@ -133,6 +139,7 @@ fun MyTextSlider(
             enabled = enabled,
             value = value,
             onValueChange = onValueChange,
+            onLiveValueChange = { liveValue = it },
             onValueChangeFinished = onValueChangeFinished,
             valueRange = valueRange,
             steps = steps,
@@ -151,6 +158,7 @@ fun MySlider(
     onValueChangeFinished: (() -> Unit)? = null,
     valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
     steps: Int? = null,
+    onLiveValueChange: ((Float) -> Unit)? = null,
 ) {
     val coercedValue = value.coerceIn(valueRange.start, valueRange.endInclusive)
     val interactionSource = remember { MutableInteractionSource() }
@@ -159,9 +167,13 @@ fun MySlider(
     var isDragging by remember { mutableStateOf(false) }
     val safeOnValueChange by rememberUpdatedState(onValueChange)
     val safeOnValueChangeFinished by rememberUpdatedState(onValueChangeFinished)
+    val safeOnLiveValueChange by rememberUpdatedState(onLiveValueChange)
 
     LaunchedEffect(coercedValue) {
-        if (!isDragging) localValue = coercedValue
+        if (!isDragging) {
+            localValue = coercedValue
+            safeOnLiveValueChange?.invoke(coercedValue)
+        }
     }
 
     LaunchedEffect(interactionSource) {
@@ -178,6 +190,7 @@ fun MySlider(
         value = localValue,
         onValueChange = { value ->
             localValue = value
+            safeOnLiveValueChange?.invoke(value)
             safeOnValueChange(value)
         },
         modifier = modifier,
