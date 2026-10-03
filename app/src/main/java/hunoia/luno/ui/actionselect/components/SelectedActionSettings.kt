@@ -51,6 +51,7 @@ import hunoia.luno.R
 import hunoia.luno.config.model.Action
 import hunoia.luno.ui.component.actionIcon
 import hunoia.luno.ui.component.TextIcon
+import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.theme.*
 import kotlin.math.roundToInt
 import hunoia.luno.ui.theme.RowIconSize
@@ -280,11 +281,9 @@ private fun SelectedTile(
                             else MaterialTheme.colorScheme.onSurface
                         ),
                     )
-                    is TextIcon -> Text(
+                    is TextIcon -> TextIconGlyph(
                         text = icon.text,
-                        style = MaterialTheme.typography.titleLarge,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                        size = RowIconSize,
                         color = if (isLongPressTarget) MaterialTheme.colorScheme.onPrimaryContainer
                                 else MaterialTheme.colorScheme.onSurface,
                     )

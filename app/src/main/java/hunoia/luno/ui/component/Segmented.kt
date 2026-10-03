@@ -59,8 +59,13 @@ fun segmentedShape(index: Int, count: Int): RoundedCornerShape {
 /** 底部面板内的分组标题，LazyColumn 的 item 与下方内容左对齐。 */
 @Composable
 fun SheetGroupHeader(@StringRes titleRes: Int) {
+    SheetGroupHeader(stringResource(titleRes))
+}
+
+@Composable
+fun SheetGroupHeader(title: String) {
     Text(
-        text = stringResource(titleRes),
+        text = title,
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(top = ListSpacing, bottom = SegmentedGap),

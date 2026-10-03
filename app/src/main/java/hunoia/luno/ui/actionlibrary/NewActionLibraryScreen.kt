@@ -52,6 +52,7 @@ import hunoia.luno.action.definition.ActionCategory
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.EmptyState
 import hunoia.luno.ui.component.TextIcon
+import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.component.displayNameRes
 import hunoia.luno.ui.component.resolvedIcon
 import hunoia.luno.ui.component.segmentedShape
@@ -263,13 +264,11 @@ private fun ActionLibraryItem(
                     onClick = onIconClick,
                 )
             when (icon) {
-                is TextIcon -> Box(modifier = clickMod, contentAlignment = Alignment.Center) {
-                    Text(
-                        text = icon.text,
-                        style = MaterialTheme.typography.titleLarge,
-                        maxLines = 1,
-                    )
-                }
+                is TextIcon -> TextIconGlyph(
+                    text = icon.text,
+                    size = RowIconSize,
+                    modifier = clickMod,
+                )
                 else -> Icon(
                     modifier = clickMod,
                     imageVector = icon as ImageVector,

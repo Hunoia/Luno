@@ -166,11 +166,4 @@ object IconPalette {
     private val byKeyMap: Map<String, ImageVector> = all.associate { it.key to it.vector }
 
     fun byKey(key: String?): ImageVector? = key?.let { byKeyMap[it] }
-
-    fun matchesQuery(icon: PaletteIcon, query: String): Boolean {
-        if (query.isBlank()) return true
-        val needle = query.trim()
-        return icon.label.contains(needle, ignoreCase = true) ||
-            icon.key.contains(needle, ignoreCase = true)
-    }
 }

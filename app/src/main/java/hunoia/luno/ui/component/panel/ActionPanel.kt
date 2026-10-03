@@ -12,6 +12,7 @@ import androidx.compose.animation.core.tween
 import hunoia.luno.ui.component.actionText
 import hunoia.luno.ui.component.actionIcon
 import hunoia.luno.ui.component.TextIcon
+import hunoia.luno.ui.component.TextIconGlyph
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -26,7 +27,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -265,17 +265,11 @@ internal fun ActionPanelIcon(action: Action, iconSize: Dp, bitmapIconSize: Dp = 
             contentDescription = null,
             colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary)
         )
-        is TextIcon -> Box(
-            modifier = Modifier.size(iconSize),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = actionIcon.text,
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onPrimary,
-                maxLines = 1,
-            )
-        }
+        is TextIcon -> TextIconGlyph(
+            text = actionIcon.text,
+            size = iconSize,
+            color = MaterialTheme.colorScheme.onPrimary,
+        )
         else -> AsyncImage(
             modifier = Modifier
                 .size(bitmapIconSize),

@@ -240,7 +240,6 @@
     <string name="action_library_entry_not_found">未找到该动作库条目，可能已被删除</string>
     <string name="action_library_discard_title">放弃未保存的修改？</string>
     <string name="action_library_discard_desc">返回后本次修改将丢失。</string>
-    <string name="action_library_icon_pick">更换图标</string>
     <string name="action_library_icon_default">默认</string>
     <string name="action_library_icon_custom">文字或表情</string>
     <string name="action_library_icon_use">使用</string>
