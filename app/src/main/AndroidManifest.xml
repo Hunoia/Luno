@@ -7,7 +7,6 @@
         android:required="false" />
 
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
@@ -60,6 +59,18 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".quicklaunch.QuickSearchActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:process=":service"
+            android:showWhenLocked="true"
+            android:taskAffinity="hunoia.luno.quicksearch"
+            android:theme="@style/Theme.SideGesture.Transparent"
+            android:windowSoftInputMode="adjustResize" />
 
         <activity
             android:name=".action.controller.ShareFilePickActivity"

@@ -42,26 +42,6 @@ fun Context.gotoAccessibilitySettings() {
     }
 }
 
-/**
- * 跳“显示在其他应用上层”授权页（悬浮窗权限）。
- * 从 Service 上下文调用，因此必须带 NEW_TASK；部分 ROM 无独立授权页时回退到系统设置。
- */
-fun Context.gotoOverlayPermissionSettings() {
-    val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
-        data = Uri.parse("package:$packageName")
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-    try {
-        startActivity(intent)
-    } catch (ignored: ActivityNotFoundException) {
-        startActivity(
-            Intent(Settings.ACTION_SETTINGS).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            },
-        )
-    }
-}
-
 fun Context.launchUrl(url: String): Boolean {
     return try {
         val normalizedUrl = normalizeOpenAppOrUrl(url) ?: run {

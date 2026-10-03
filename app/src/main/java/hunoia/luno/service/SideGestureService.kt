@@ -10,7 +10,6 @@ import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.GestureCoordinator
 import hunoia.luno.runtime.GestureHost
 import hunoia.luno.runtime.overlay.QuickAppLauncherOverlay
-import hunoia.luno.runtime.overlay.QuickSearchOverlay
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
@@ -53,9 +52,6 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     }
     override val runtimePanelOverlay by lazy {
         RuntimePanelOverlay(this)
-    }
-    override val quickSearchOverlay by lazy {
-        QuickSearchOverlay(this)
     }
 
     override val advancedSettings: AdvancedSettings?
@@ -101,7 +97,6 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         // GestureCoordinator 时不会重建它，不显式销毁 ComposeView 就跟着 service 泄漏。
         quickAppLauncherOverlay.release()
         runtimePanelOverlay.close()
-        quickSearchOverlay.release()
         QuickLaunchFacade.showOverlay = {}
         coroutineScope.cancel()
     }

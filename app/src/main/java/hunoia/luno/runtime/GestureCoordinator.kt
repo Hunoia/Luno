@@ -141,7 +141,7 @@ class GestureCoordinator(
         },
         runtimeState = { buildRuntimeState(consumePulses = false) },
         onToggleQuickAppLauncher = { host.quickAppLauncherOverlay.toggle() },
-        onShowQuickSearch = { host.quickSearchOverlay.show() },
+        onShowQuickSearch = { hunoia.luno.quicklaunch.QuickSearchActivity.start(host.context) },
         onShowVolumeScrub = { config -> volumeScrubRuntime.show(config) },
         onHideGestureButton = { button, delayMs ->
             if (button != null) buttonHideRuntime.hideTemporarily(button, delayMs)

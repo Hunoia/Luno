@@ -7,7 +7,6 @@ import androidx.lifecycle.ViewModelStoreOwner
 import androidx.savedstate.SavedStateRegistryOwner
 import hunoia.luno.config.model.Action
 import hunoia.luno.runtime.overlay.QuickAppLauncherOverlay
-import hunoia.luno.runtime.overlay.QuickSearchOverlay
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
 import kotlinx.coroutines.CoroutineScope
 
@@ -18,7 +17,6 @@ interface GestureHost : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryO
     val advancedSettings: hunoia.luno.config.model.AdvancedSettings?
 
     val quickAppLauncherOverlay: QuickAppLauncherOverlay
-    val quickSearchOverlay: QuickSearchOverlay
     val runtimePanelOverlay: RuntimePanelOverlay
 
     fun nowInLauncher(): Boolean

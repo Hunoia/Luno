@@ -1,12 +1,14 @@
-package hunoia.luno.runtime.overlay
+package hunoia.luno.quicklaunch
 
+import android.content.Context
+import android.content.Intent
 import android.graphics.Color
-import android.graphics.PixelFormat
-import android.provider.Settings
+import android.os.Bundle
 import android.util.Log
-import android.view.Gravity
-import android.view.View
-import android.view.WindowManager
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -33,7 +36,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -42,27 +44,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color as ComposeColor
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.lifecycleScope
 import hunoia.luno.BuildConfig
 import hunoia.luno.R
-import hunoia.luno.bridge.feedback.showToastDelay
-import hunoia.luno.bridge.intent.gotoOverlayPermissionSettings
-import hunoia.luno.bridge.window.applyOverlayViewTreeOwners
-import hunoia.luno.bridge.window.windowManager
-import hunoia.luno.config.ConfigProvider
-import hunoia.luno.quicklaunch.QuickLaunchFacade
+import hunoia.luno.bridge.feedback.showToast
 import hunoia.luno.quicklaunch.query.QuickSearchIndex
 import hunoia.luno.quicklaunch.query.QuickSearchResult
 import hunoia.luno.quicklaunch.query.toConfigAction
-import hunoia.luno.runtime.GestureHost
+import hunoia.luno.service.SideGestureService
 import hunoia.luno.ui.component.SelectableListItem
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.segmentedShape
@@ -72,137 +68,92 @@ import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-class QuickSearchOverlay(private val host: GestureHost) {
+/**
+ * 全屏透明搜索面板（Activity 版）。
+ *
+ * 之前是 Service 里 addView 的裸悬浮窗：无 decor、无 insets，内容直接画到透明状态栏
+ * 背后 + 全屏 blur，在部分 ROM 上把状态栏图标糊到看不见。改透明 Activity 后状态栏、
+ * 通知弹窗、键盘 insets 全部交还系统（对照 gesture_evo 的 QuickSearchActivity 实现）。
+ *
+ * 约定：singleTask + noHistory，重复触发走 onNewIntent（内容保留，不重置）。
+ */
+class QuickSearchActivity : ComponentActivity() {
 
-    @Volatile private var overlayView: View? = null
-    @Volatile private var shown = false
-    // state 化：常驻 ComposeView 在重开时必须重组，否则 remember/LaunchedEffect 收不到新 session
-    private var sessionId by mutableIntStateOf(0)
-    private val index by lazy { QuickSearchIndex(host.context) }
+    private val index by lazy { QuickSearchIndex(applicationContext) }
 
-    fun show() {
-        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "QuickSearchOverlay show")
-        if (shown) return
-        // 悬浮窗层级（APPLICATION_OVERLAY）在状态栏下层，但需要用户授予
-        // SYSTEM_ALERT_WINDOW。未授权时 addView 会抛 BadTokenException，
-        // 这里提前拦截：toast 提示 2s 后跳系统授权页。
-        if (!Settings.canDrawOverlays(host.context)) {
-            if (BuildConfig.DEBUG) Log.w("LunoLauncher", "QuickSearchOverlay show blocked: overlay permission missing")
-            showToastDelay(R.string.quick_search_requires_overlay) {
-                host.context.gotoOverlayPermissionSettings()
-            }
-            return
-        }
-        shown = true
-        sessionId++
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
+        )
+        super.onCreate(savedInstanceState)
+        // 全屏背景模糊：Activity 在状态栏下层（BASE_APPLICATION），blur 只糊窗口背后的层，
+        // 状态栏不受影响（悬浮窗时代整窗 blur 糊掉状态栏是因为窗口在它上层，已成历史）。
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+        window.attributes.blurBehindRadius = 80
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "QuickSearchActivity onCreate taskId=$taskId")
         // 数据准备放后台：首次输入不再卡主线程，且每次打开都刷新应用/快捷方式。
-        host.coroutineScope.launch(Dispatchers.IO) {
+        lifecycleScope.launch(Dispatchers.IO) {
             index.ensureLoaded()
             index.refreshApps()
         }
-        val wm = host.context.windowManager()
-        if (overlayView == null) {
-            val view = createComposeView()
-            val lp = createLayoutParams()
-            if (!wm.safeAddView(view, lp)) {
-                shown = false
-                return
-            }
-            overlayView = view
-        } else {
-            expandWindow()
-        }
-    }
-
-    fun close() {
-        if (!shown) return
-        shown = false
-        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "QuickSearchOverlay close")
-        collapseWindow()
-    }
-
-    fun release() {
-        shown = false
-        val view = overlayView
-        if (view != null) {
-            host.context.windowManager().safeRemoveViewImmediate(view)
-        }
-        overlayView = null
-    }
-
-    private fun expandWindow() {
-        val view = overlayView ?: return
-        val lp = createLayoutParams()
-        host.context.windowManager().safeUpdateViewLayout(view, lp)
-    }
-
-    private fun collapseWindow() {
-        val view = overlayView ?: return
-        val lp = WindowManager.LayoutParams().apply {
-            type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            format = PixelFormat.RGBA_8888
-            flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-            width = 1
-            height = 1
-            gravity = Gravity.START or Gravity.TOP
-        }
-        host.context.windowManager().safeUpdateViewLayout(view, lp)
-    }
-
-    private fun createLayoutParams() = WindowManager.LayoutParams().apply {
-        // 悬浮窗层级：在应用之上、状态栏/锁屏之下。需要 SYSTEM_ALERT_WINDOW 权限，
-        // 未授权由 show() 守卫拦截（见上），不会走到 addView。
-        type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        format = PixelFormat.RGBA_8888
-        width = WindowManager.LayoutParams.MATCH_PARENT
-        height = WindowManager.LayoutParams.MATCH_PARENT
-        flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-            WindowManager.LayoutParams.FLAG_BLUR_BEHIND
-        // 系统级背景模糊半径（px）。不支持的设备静默忽略，半透明底色即为降级外观。
-        blurBehindRadius = 80
-        softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
-        gravity = Gravity.START or Gravity.TOP
-    }
-
-    private fun createComposeView(): View =
-        androidx.compose.ui.platform.ComposeView(host.context).apply {
-            setBackgroundColor(Color.TRANSPARENT)
-            applyOverlayViewTreeOwners(host)
-            setContent {
-                SideGestureTheme {
-                    QuickSearchContent(
-                        sessionId = sessionId,
-                        index = index,
-                        onClose = { close() },
-                        onResult = { result ->
-                            host.dispatchAction(result.toConfigAction())
-                            close()
-                        },
-                    )
-                }
+        setContent {
+            SideGestureTheme {
+                QuickSearchContent(
+                    index = index,
+                    onClose = { finish() },
+                    onResult = { result ->
+                        SideGestureService.current?.dispatchAction(result.toConfigAction())
+                        finish()
+                    },
+                )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // singleTask 重复触发：面板已在前台，保留当前内容，不做任何事。
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "QuickSearchActivity onNewIntent taskId=$taskId")
+    }
+
+    companion object {
+        /**
+         * 从手势/Service 上下文启动搜索面板。
+         *
+         * BAL（后台启动限制）：无障碍服务不在豁免名单，但应用有常驻可见窗口（手势触钮）
+         * 时 BAL_ALLOW_VISIBLE_WINDOW 放行——悬浮触钮点开 Activity 是标准路径。
+         * 真机若被拦：logcat 会有 "Background activity start ... blocked"，届时再处理。
+         */
+        fun start(context: Context) {
+            val intent = Intent(context, QuickSearchActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            val ok = runCatching { context.startActivity(intent) }.isSuccess
+            if (!ok) {
+                Log.w("LunoLauncher", "QuickSearchActivity start failed")
+                showToast(R.string.quick_search_start_failed)
+            }
+        }
+    }
 }
 
 @Composable
 private fun QuickSearchContent(
-    sessionId: Int,
     index: QuickSearchIndex,
     onClose: () -> Unit,
     onResult: (QuickSearchResult) -> Unit,
 ) {
-    val libraryFlow = remember { ConfigProvider.newActionLibrarySettings }
+    val libraryFlow = remember { hunoia.luno.config.ConfigProvider.newActionLibrarySettings }
     val libraryState by libraryFlow.collectAsState(initial = hunoia.luno.action.model.NewActionLibrarySettings())
     val entries = libraryState.entries
-    val launcherFlow = remember { ConfigProvider.quickAppLauncherSettings }
+    val launcherFlow = remember { hunoia.luno.config.ConfigProvider.quickAppLauncherSettings }
     val launcherSettings by launcherFlow.collectAsState(initial = hunoia.luno.config.model.QuickAppLauncherSettings())
-    val searchSettingsFlow = remember { ConfigProvider.quickSearchSettings }
+    val searchSettingsFlow = remember { hunoia.luno.config.ConfigProvider.quickSearchSettings }
     val searchSettings by searchSettingsFlow.collectAsState(initial = hunoia.luno.config.model.QuickSearchSettings())
 
     var query by remember { mutableStateOf(TextFieldValue("")) }
-    val results = remember(query.text, entries, launcherSettings, searchSettings, sessionId) {
+    val results = remember(query.text, entries, launcherSettings, searchSettings) {
         if (query.text.isBlank()) {
             emptyList()
         } else {
@@ -212,9 +163,7 @@ private fun QuickSearchContent(
 
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
-    LaunchedEffect(sessionId) {
-        // 重开保留上次内容并全选，打字即替换
-        query = query.copy(selection = TextRange(0, query.text.length))
+    LaunchedEffect(Unit) {
         focusRequester.requestFocus()
         keyboard?.show()
     }
@@ -228,7 +177,9 @@ private fun QuickSearchContent(
                 onClick = onClose,
             ),
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        // statusBarsPadding：内容从状态栏下方开始，不垫在透明状态栏图标后面
+        //（白卡压白图标会导致图标看不清，跟 blur 无关，必须避让）。
+        Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
             if (results.isNotEmpty()) {
                 LazyColumn(
                     modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = PageGutter),
@@ -276,8 +227,7 @@ private fun QuickSearchContent(
                 singleLine = true,
                 shape = CircleShape,
                 colors = OutlinedTextFieldDefaults.colors(
-                    // 半透明底色：支持 blur-behind 的设备透出底层模糊，
-                    // 不支持的设备直接呈现为半透明（降级外观）。
+                    // 半透明底色：透出窗口背后的系统模糊，不支持的设备直接呈现半透明。
                     focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f),
                     unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f),
                     focusedBorderColor = ComposeColor.Transparent,
@@ -335,8 +285,7 @@ private fun ResultRow(result: QuickSearchResult, shape: androidx.compose.ui.grap
         textIcon = textIcon(result),
         verticalGap = 0.dp,
         horizontalGap = 0.dp,
-        // 半透明底色：支持 blur-behind 的设备透出底层模糊，
-        // 不支持的设备直接呈现为半透明（降级外观）。
+        // 半透明底色：透出窗口背后的系统模糊，不支持的设备直接呈现半透明。
         containerColor = colorScheme.surfaceBright.copy(alpha = 0.5f),
         selectedContainerColor = colorScheme.primaryContainer.copy(alpha = 0.5f),
     )
@@ -364,8 +313,8 @@ private fun iconModel(result: QuickSearchResult, context: android.content.Contex
 }
 
 @Composable
-private fun textIcon(result: QuickSearchResult): hunoia.luno.ui.component.TextIcon? = when (result) {
-    is QuickSearchResult.LibraryEntry -> result.icon as? hunoia.luno.ui.component.TextIcon
-    is QuickSearchResult.ActionDef -> result.icon as? hunoia.luno.ui.component.TextIcon
+private fun textIcon(result: QuickSearchResult): TextIcon? = when (result) {
+    is QuickSearchResult.LibraryEntry -> result.icon as? TextIcon
+    is QuickSearchResult.ActionDef -> result.icon as? TextIcon
     else -> null
 }
