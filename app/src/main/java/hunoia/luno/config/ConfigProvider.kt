@@ -11,6 +11,7 @@ import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.QuickAppSnapshot
+import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.config.repository.QuickLauncherRepository
 import hunoia.luno.config.store.SettingsStores
@@ -32,6 +33,7 @@ object ConfigProvider {
     val subGestureSettings: Flow<SubGestureSettings> = stores.subGestureSettings
     val newActionLibrarySettings: Flow<NewActionLibrarySettings> = stores.newActionLibrarySettings
     val automationRules: Flow<List<AutomationRule>> = stores.automationRules
+    val quickSearchSettings: Flow<QuickSearchSettings> = stores.quickSearchSettings
 
     suspend fun getInitialSettings(): InitialSettings = stores._initialSettings.data.first()
     suspend fun getAdvancedSettings(): AdvancedSettings = stores._advancedSettings.data.first()
@@ -42,6 +44,7 @@ object ConfigProvider {
     suspend fun getSubGestureSettings(): SubGestureSettings = stores._subGestureSettings.data.first()
     suspend fun getNewActionLibrarySettings(): NewActionLibrarySettings = stores._newActionLibrarySettings.data.first()
     suspend fun getAutomationRules(): List<AutomationRule> = stores._automationRules.data.first()
+    suspend fun getQuickSearchSettings(): QuickSearchSettings = stores._quickSearchSettings.data.first()
 
     suspend fun updateInitialSettings(transform: suspend (InitialSettings) -> InitialSettings) {
         stores._initialSettings.updateData(transform)
@@ -70,6 +73,10 @@ object ConfigProvider {
 
     suspend fun updateAutomationRules(transform: suspend (List<AutomationRule>) -> List<AutomationRule>) {
         stores._automationRules.updateData(transform)
+    }
+
+    suspend fun updateQuickSearchSettings(transform: suspend (QuickSearchSettings) -> QuickSearchSettings) {
+        stores._quickSearchSettings.updateData(transform)
     }
 
     suspend fun updateQuickAppLauncherLayout(layout: QuickAppLauncherSettings) {

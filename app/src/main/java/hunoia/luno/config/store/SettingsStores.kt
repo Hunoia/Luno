@@ -10,6 +10,7 @@ import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.QuickAppSnapshot
+import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.core.AppContext
 import kotlinx.coroutines.flow.Flow
@@ -26,6 +27,7 @@ class SettingsStores(
     internal val _newActionLibrarySettings: DataStore<NewActionLibrarySettings>,
     internal val _automationRules: DataStore<List<AutomationRule>>,
     internal val _quickAppSnapshot: DataStore<QuickAppSnapshot>,
+    internal val _quickSearchSettings: DataStore<QuickSearchSettings>,
 ) {
     val initialSettings: Flow<InitialSettings> = _initialSettings.data
     val advancedSettings: Flow<AdvancedSettings> = _advancedSettings.data
@@ -36,6 +38,7 @@ class SettingsStores(
     val subGestureSettings: Flow<SubGestureSettings> = _subGestureSettings.data
     val newActionLibrarySettings: Flow<NewActionLibrarySettings> = _newActionLibrarySettings.data
     val automationRules: Flow<List<AutomationRule>> = _automationRules.data
+    val quickSearchSettings: Flow<QuickSearchSettings> = _quickSearchSettings.data
 
     /** 只读不订阅：面板首开同步取一次就够，不需要一条常驻的 flow。 */
     suspend fun readQuickAppSnapshot(): QuickAppSnapshot = _quickAppSnapshot.data.first()
@@ -54,6 +57,7 @@ class SettingsStores(
                 _newActionLibrarySettings = ctx.dataStore(DataStoreFiles.NEW_ACTION_LIBRARY_SETTINGS, NewActionLibrarySettings()),
                 _automationRules = ctx.dataStore(DataStoreFiles.AUTOMATION_RULES, AutomationRule.Defaults),
                 _quickAppSnapshot = ctx.dataStore(DataStoreFiles.QUICK_APP_SNAPSHOT, QuickAppSnapshot()),
+                _quickSearchSettings = ctx.dataStore(DataStoreFiles.QUICK_SEARCH_SETTINGS, QuickSearchSettings()),
             )
         }
     }

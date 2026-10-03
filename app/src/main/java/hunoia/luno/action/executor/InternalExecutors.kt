@@ -11,7 +11,7 @@ class InternalExecutors : ActionExecutor {
 
     override val supportedTypes: Set<String> = setOf(
         "internal.none", "internal.subGesture", "internal.hideGestureButton",
-        "internal.quickAppLauncher", "internal.volumeScrub",
+        "internal.quickAppLauncher", "internal.quickSearch", "internal.volumeScrub",
         "internal.previousApp"
     )
 
@@ -25,6 +25,10 @@ class InternalExecutors : ActionExecutor {
             }
             is Action.QuickAppLauncher -> {
                 context.toggleQuickAppLauncher()
+                ActionResult.Success()
+            }
+            is Action.QuickSearch -> {
+                context.showQuickSearch()
                 ActionResult.Success()
             }
             is Action.VolumeScrub -> {

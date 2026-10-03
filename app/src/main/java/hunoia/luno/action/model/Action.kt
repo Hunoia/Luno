@@ -203,6 +203,9 @@ sealed interface Action {
     data object QuickAppLauncher : Action {
         override val typeId: String = "internal.quickAppLauncher"
     }
+    data object QuickSearch : Action {
+        override val typeId: String = "internal.quickSearch"
+    }
     data class VolumeScrub(
         val horizontalEnabled: Boolean = VolumeScrubHorizontalEnabled,
         val stepThresholdDp: Int = VolumeScrubStepThresholdDp,

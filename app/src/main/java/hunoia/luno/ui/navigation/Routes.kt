@@ -33,6 +33,10 @@ data object ActionSettings
 
 @Keep
 @Serializable
+data object SearchEngineSettings
+
+@Keep
+@Serializable
 data class SubGestureEditor(
     val subGestureId: String
 )

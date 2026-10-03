@@ -19,6 +19,7 @@
     <string name="hide_gesture_button">隐藏触钮</string>
     <string name="keep_alive_need_permission">保活需要授予「修改系统设置」权限，请先在 Shizuku 中授权或通过 ADB 执行：adb shell pm grant hunoia.luno android.permission.WRITE_SECURE_SETTINGS</string>
     <string name="quick_launcher_requires_accessibility">需要无障碍服务才能打开应用面板，请先在设置中开启</string>
+    <string name="quick_search_requires_overlay">需要“显示在其他应用上层”权限才能打开搜索面板，请先在设置中开启</string>
     <string name="mini_window_position_short">小窗</string>
     <string name="landscape">横屏模式</string>
     <string name="refresh">刷新</string>
@@ -378,4 +379,23 @@
     <string name="network_mobile">移动网络</string>
     <string name="network_none">无网络</string>
     <string name="network_other">其他网络</string>
+
+    <!-- Quick search -->
+    <string name="quick_search_group_actions">动作</string>
+    <string name="quick_search_group_library">动作库</string>
+    <string name="quick_search_group_apps">应用</string>
+    <string name="quick_search_group_shortcuts">快捷方式</string>
+    <string name="quick_search_group_settings">设置</string>
+    <string name="quick_search_group_web">网页</string>
+    <string name="quick_search_app_disabled">已停用</string>
+    <string name="quick_search_engine_search">用 %1$s 搜索</string>
+
+    <!-- Search engines -->
+    <string name="search_engine_settings">搜索引擎</string>
+    <string name="search_engine_add">添加搜索引擎</string>
+    <string name="search_engine_edit">编辑搜索引擎</string>
+    <string name="search_engine_name">名称</string>
+    <string name="search_engine_url">网址模板</string>
+    <string name="search_engine_url_error">模板必须包含 %s</string>
+    <string name="search_engine_delete_title">删除搜索引擎？</string>
 </resources>

@@ -29,6 +29,7 @@ class ActionDispatcher(
     private val settingsSnapshot: () -> SettingsSnapshot,
     private val runtimeState: () -> GestureRuntimeState,
     private val onToggleQuickAppLauncher: () -> Unit,
+    private val onShowQuickSearch: () -> Unit,
     private val onShowVolumeScrub: (VolumeScrubConfig) -> Boolean,
     private val onHideGestureButton: (GestureButton?, Long) -> Unit,
 ) {
@@ -38,6 +39,7 @@ class ActionDispatcher(
         previousAppTracker = previousAppTracker,
         settingsSnapshot = settingsSnapshot,
         onToggleQuickAppLauncher = onToggleQuickAppLauncher,
+        onShowQuickSearch = onShowQuickSearch,
         onShowVolumeScrub = onShowVolumeScrub,
         onHideGestureButton = onHideGestureButton,
     )
@@ -106,6 +108,11 @@ class ActionDispatcher(
         }
         if (effect.entryId.isBlank()) return
         dispatchEntry(effect.entryId, null, null, null, automationContext)
+    }
+
+    /** 供 overlay 等场景直接执行一个已构造好的动作。 */
+    fun dispatchAction(action: Action) {
+        onAction(action, null, null)
     }
 
     /** 手势直接触发：用不消费脉冲的稳态快照供模板取值。 */

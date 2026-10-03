@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Crop
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -48,7 +49,9 @@ import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GestureButtonActionSettingsOverride
 import hunoia.luno.config.model.MiniWindowSettings
+import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SubGestureSettings
+import hunoia.luno.config.model.defaultEngine
 import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.config.model.withMiniWindowSettings
 import hunoia.luno.ui.component.MiniWindowControls
@@ -68,12 +71,16 @@ import hunoia.luno.ui.component.gestureButtonMarkColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ActionSettingsScreen(onBack: () -> Unit) {
+fun ActionSettingsScreen(
+    onBack: () -> Unit,
+    onNavToSearchEngines: () -> Unit = {},
+) {
     val scope = rememberCoroutineScope()
     val actionSettings by ConfigProvider.actionSettings.collectAsStateWithLifecycle(initialValue = ActionSettings())
     val advancedSettings by ConfigProvider.advancedSettings.collectAsStateWithLifecycle(initialValue = AdvancedSettings())
     val buttons by ConfigProvider.gestureButtons.collectAsStateWithLifecycle(initialValue = emptyList())
     val subGestureSettings by ConfigProvider.subGestureSettings.collectAsStateWithLifecycle(initialValue = SubGestureSettings())
+    val quickSearchSettings by ConfigProvider.quickSearchSettings.collectAsStateWithLifecycle(initialValue = QuickSearchSettings())
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val backdrop = liquidGlassBackdrop()
@@ -91,6 +98,15 @@ fun ActionSettingsScreen(onBack: () -> Unit) {
             topPadding = padding.calculateTopPadding(),
             verticalArrangement = Arrangement.spacedBy(ListSpacing),
         ) {
+            SegmentedGroup(contentSpacing = SegmentedGap) {
+                SegmentedSettingsRow(
+                    icon = Icons.Default.Search,
+                    title = stringResource(R.string.search_engine_settings),
+                    subtitle = quickSearchSettings.defaultEngine().name,
+                    onClick = onNavToSearchEngines,
+                )
+            }
+
             SegmentedGroup(contentSpacing = SegmentedGap) {
                 SegmentedSettingsRow(
                     icon = Icons.Default.Crop,

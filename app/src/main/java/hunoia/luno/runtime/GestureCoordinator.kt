@@ -141,6 +141,7 @@ class GestureCoordinator(
         },
         runtimeState = { buildRuntimeState(consumePulses = false) },
         onToggleQuickAppLauncher = { host.quickAppLauncherOverlay.toggle() },
+        onShowQuickSearch = { host.quickSearchOverlay.show() },
         onShowVolumeScrub = { config -> volumeScrubRuntime.show(config) },
         onHideGestureButton = { button, delayMs ->
             if (button != null) buttonHideRuntime.hideTemporarily(button, delayMs)
@@ -190,6 +191,11 @@ class GestureCoordinator(
         override fun onAction(action: Action, sourceButton: GestureButton?, sourceOverride: GestureButtonActionSettingsOverride?) {
             actionDispatcher.onAction(action, sourceButton, sourceOverride)
         }
+    }
+
+    /** 供 overlay 等场景直接执行一个已构造好的动作。 */
+    fun dispatchAction(action: Action) {
+        actionDispatcher.dispatchAction(action)
     }
 
     fun onSetOverlay() {

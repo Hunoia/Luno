@@ -14,4 +14,6 @@ object DataStoreFiles {
 
     /** 快速启动器应用列表快照。可从系统重建，刻意不进备份。 */
     const val QUICK_APP_SNAPSHOT = "nn"
+
+    const val QUICK_SEARCH_SETTINGS = "oo"
 }

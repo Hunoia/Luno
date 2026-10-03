@@ -28,7 +28,7 @@ object AppSearch {
     private const val DEGRADED = 0
     private const val ANCHOR = 1
 
-    private fun compileTokenMasks(tokens: List<String>): LongArray {
+    internal fun compileTokenMasks(tokens: List<String>): LongArray {
         val masks = LongArray(tokens.size)
         for (i in tokens.indices) {
             var mask = 0L
@@ -87,7 +87,7 @@ object AppSearch {
         return if (allMatched) DEGRADED else NO_MATCH
     }
 
-    private fun matchTier(index: AppSearchIndex, tokens: List<String>, masks: LongArray): Int {
+    internal fun matchTier(index: AppSearchIndex, tokens: List<String>, masks: LongArray): Int {
         if (tokens.isEmpty()) return 0
 
         if (masks.any { it == -1L }) {
@@ -166,6 +166,12 @@ object AppSearch {
     }
 
     fun AppInfo.key() = "$packageName/$className"
+
+    /** 对任意文本做与 sortApps 相同的 tier 评定，供快速搜索复用。 */
+    internal fun matchTextTier(text: String, tokens: List<String>): Int {
+        if (tokens.isEmpty()) return 0
+        return matchTier(buildIndex(text), tokens, compileTokenMasks(tokens))
+    }
 }
 
 /**

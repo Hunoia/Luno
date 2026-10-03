@@ -33,6 +33,7 @@ class NewActionDispatcher(
     private val previousAppTracker: PreviousAppTracker,
     private val settingsSnapshot: () -> SettingsSnapshot,
     private val onToggleQuickAppLauncher: () -> Unit,
+    private val onShowQuickSearch: () -> Unit,
     private val onShowVolumeScrub: (VolumeScrubConfig) -> Boolean,
     private val onHideGestureButton: (GestureButton?, Long) -> Unit,
 ) {
@@ -136,6 +137,7 @@ class NewActionDispatcher(
                 host.requestEnableDisabledPackage(packageName, onResult)
             },
             toggleQuickAppLauncher = onToggleQuickAppLauncher,
+            showQuickSearch = onShowQuickSearch,
             showVolumeScrub = onShowVolumeScrub,
             hideGestureButton = { delayMs ->
                 if (sourceButton != null) onHideGestureButton(sourceButton, delayMs)

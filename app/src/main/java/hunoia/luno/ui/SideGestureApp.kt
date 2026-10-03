@@ -34,6 +34,7 @@ import hunoia.luno.ui.navigation.GestureButtonSettings
 
 import hunoia.luno.ui.navigation.Home
 import hunoia.luno.ui.navigation.ActionSettings
+import hunoia.luno.ui.navigation.SearchEngineSettings
 import hunoia.luno.ui.navigation.SubGestureEditor
 import hunoia.luno.ui.navigation.Automation
 import hunoia.luno.ui.navigation.AutomationEdit
@@ -45,6 +46,7 @@ import hunoia.luno.ui.actionlibrary.NewActionLibraryEditScreen
 import hunoia.luno.ui.automation.AutomationEditScreen
 import hunoia.luno.ui.automation.AutomationSettingsScreen
 import hunoia.luno.ui.settings.action.ActionSettingsScreen
+import hunoia.luno.ui.settings.search.SearchEngineSettingsScreen
 
 import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsScreen
 
@@ -125,7 +127,13 @@ fun SideGestureApp() {
                 }
                 myComposable<ActionSettings> {
                     ActionSettingsScreen(
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.popBackStack() },
+                        onNavToSearchEngines = { navController.navigate(SearchEngineSettings) },
+                    )
+                }
+                myComposable<SearchEngineSettings> {
+                    SearchEngineSettingsScreen(
+                        onBack = { navController.popBackStack() },
                     )
                 }
                 myComposable<SubGestureEditor> {

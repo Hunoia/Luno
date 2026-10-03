@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -65,11 +66,17 @@ fun SelectableListItem(
     marquee: Boolean = false,
     verticalGap: Dp = ListItemVerticalPadding,
     horizontalGap: Dp = PageGutter,
+    containerColor: Color? = null,
+    selectedContainerColor: Color? = null,
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
     val background by animateColorAsState(
-        targetValue = if (selected) colorScheme.primaryContainer else colorScheme.surfaceBright,
+        targetValue = if (selected) {
+            selectedContainerColor ?: colorScheme.primaryContainer
+        } else {
+            containerColor ?: colorScheme.surfaceBright
+        },
         animationSpec = tween(AnimNormal.toInt()),
         label = "selectableListItemBackground",
     )

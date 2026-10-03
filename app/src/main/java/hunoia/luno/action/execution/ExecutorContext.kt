@@ -19,6 +19,7 @@ data class ExecutorContext(
     val nowInLauncher: () -> Boolean = { false },
     val requestEnableDisabledPackage: (String, (Boolean) -> Unit) -> Unit = { _, onResult -> onResult(false) },
     val toggleQuickAppLauncher: () -> Unit = {},
+    val showQuickSearch: () -> Unit = {},
     val showVolumeScrub: (VolumeScrubConfig) -> Boolean = { false },
     val hideGestureButton: (Long) -> Unit = {},
     val showVersionTooLowToast: (Int) -> Unit = {},

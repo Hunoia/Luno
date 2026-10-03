@@ -95,6 +95,7 @@ object ActionMapper {
                 p.long("delayMs", HideGestureButtonDelayMs),
             )
             "internal.quickAppLauncher" -> Action.QuickAppLauncher
+            "internal.quickSearch" -> Action.QuickSearch
             "internal.volumeScrub" -> Action.VolumeScrub(
                 horizontalEnabled = p.bool(
                     "horizontalEnabled",
