@@ -36,8 +36,6 @@ object OpenAppOrUrlQuery {
         return result.sortedWith(compareBy<LauncherAppOption> { it.label }.thenBy { it.packageName })
     }
 
-    fun loadApplicationIcon(context: Context, packageName: String) = LauncherIconQuery.loadApplicationIcon(context, packageName)
-
     fun queryActivityOptions(
         context: Context,
         packageName: String,

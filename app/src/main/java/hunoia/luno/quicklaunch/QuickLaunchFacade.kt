@@ -1,7 +1,7 @@
 package hunoia.luno.quicklaunch
 
 import android.content.Context
-import android.graphics.drawable.Drawable
+import coil.request.ImageRequest
 import hunoia.luno.config.model.OpenAppOrUrlData
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
@@ -11,7 +11,7 @@ import hunoia.luno.quicklaunch.query.LauncherIconQuery
 import hunoia.luno.quicklaunch.launch.Launcher
 import hunoia.luno.quicklaunch.launch.QuickAppLaunch
 import hunoia.luno.config.model.MiniWindowSettings
-import hunoia.luno.quicklaunch.icon.IconResizeCache
+import hunoia.luno.quicklaunch.icon.AppIconModel
 import hunoia.luno.quicklaunch.query.ActivityOption
 import hunoia.luno.quicklaunch.query.LauncherAppOption
 import hunoia.luno.quicklaunch.query.LauncherEnvironment
@@ -32,18 +32,20 @@ object QuickLaunchFacade {
     fun queryShortcuts(context: Context): List<LauncherInfo> =
         ShortcutQuery.getAllAppsWithShortcut(context)
 
-    fun loadIcon(context: Context, packageName: String): Drawable? =
-        LauncherIconQuery.loadApplicationIcon(context, packageName)
-
     fun resolveShortcutIconResourceId(context: Context, iconResource: android.content.Intent.ShortcutIconResource): Int =
         LauncherIconQuery.resolveShortcutIconResourceId(context, iconResource)
 
-    fun getCachedIcon(packageName: String): Drawable? =
-        IconResizeCache.iconCache[packageName]
-
-    fun cacheIcon(packageName: String, icon: Drawable) {
-        IconResizeCache.iconCache.put(packageName, icon)
-    }
+    /**
+     * 面板图标的 Coil 请求。
+     *
+     * 图标不再自己缓存：`AppIconFetcher` 会把原生 Drawable 缩到 [sizePx] 后交给
+     * Coil，缓存键由 `AppIconKeyer` + 请求 size 共同决定。
+     */
+    fun appIconRequest(context: Context, packageName: String, sizePx: Int): ImageRequest =
+        ImageRequest.Builder(context)
+            .data(AppIconModel(packageName, sizePx))
+            .size(sizePx, sizePx)
+            .build()
 
     fun queryLauncherAppOptions(context: Context): List<LauncherAppOption> =
         OpenAppOrUrlQuery.queryLauncherApps(context)

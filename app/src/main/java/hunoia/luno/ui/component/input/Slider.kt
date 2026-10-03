@@ -178,7 +178,7 @@ fun MySlider(
         value = localValue,
         onValueChange = { value ->
             localValue = value
-            if (isDragging) safeOnValueChange(value)
+            safeOnValueChange(value)
         },
         modifier = modifier,
         enabled = enabled,

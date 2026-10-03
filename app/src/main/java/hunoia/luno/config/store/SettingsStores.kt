@@ -9,9 +9,11 @@ import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.QuickAppLauncherSettings
+import hunoia.luno.config.model.QuickAppSnapshot
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.core.AppContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 
 class SettingsStores(
     internal val _initialSettings: DataStore<InitialSettings>,
@@ -23,6 +25,7 @@ class SettingsStores(
     internal val _subGestureSettings: DataStore<SubGestureSettings>,
     internal val _newActionLibrarySettings: DataStore<NewActionLibrarySettings>,
     internal val _automationRules: DataStore<List<AutomationRule>>,
+    internal val _quickAppSnapshot: DataStore<QuickAppSnapshot>,
 ) {
     val initialSettings: Flow<InitialSettings> = _initialSettings.data
     val advancedSettings: Flow<AdvancedSettings> = _advancedSettings.data
@@ -33,6 +36,9 @@ class SettingsStores(
     val subGestureSettings: Flow<SubGestureSettings> = _subGestureSettings.data
     val newActionLibrarySettings: Flow<NewActionLibrarySettings> = _newActionLibrarySettings.data
     val automationRules: Flow<List<AutomationRule>> = _automationRules.data
+
+    /** 只读不订阅：面板首开同步取一次就够，不需要一条常驻的 flow。 */
+    suspend fun readQuickAppSnapshot(): QuickAppSnapshot = _quickAppSnapshot.data.first()
 
     companion object {
         fun create(): SettingsStores {
@@ -47,6 +53,7 @@ class SettingsStores(
                 _subGestureSettings = ctx.dataStore(DataStoreFiles.SUB_GESTURE_SETTINGS, SubGestureSettings()),
                 _newActionLibrarySettings = ctx.dataStore(DataStoreFiles.NEW_ACTION_LIBRARY_SETTINGS, NewActionLibrarySettings()),
                 _automationRules = ctx.dataStore(DataStoreFiles.AUTOMATION_RULES, AutomationRule.Defaults),
+                _quickAppSnapshot = ctx.dataStore(DataStoreFiles.QUICK_APP_SNAPSHOT, QuickAppSnapshot()),
             )
         }
     }

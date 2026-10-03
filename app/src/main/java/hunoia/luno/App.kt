@@ -14,6 +14,9 @@ import hunoia.luno.core.Events
 import hunoia.luno.bridge.isMainThread
 import hunoia.luno.bridge.feedback.initToastScope
 import hunoia.luno.bridge.vibration.initVibrationContext
+import hunoia.luno.quicklaunch.icon.AppIconFetcherFactory
+import hunoia.luno.quicklaunch.icon.AppIconKeyer
+import hunoia.luno.quicklaunch.icon.AppIconModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -29,10 +32,16 @@ class App : Application(), ImageLoaderFactory {
             // 原来 600ms：图标网格一次加载几十张，每张都产生一段 GPU 交叉淡入，
             // 弹键盘/切页时叠加起来既掉帧又耗电。150ms 足够掩盖解码但成本低得多。
             .crossfade(150)
+            // 快速启动器的应用图标交给 Coil 自己缓存（见 AppIconFetcher）：
+            // 原生尺寸的 Drawable 不再另有一层常驻缓存。
+            .components {
+                add(AppIconFetcherFactory(), AppIconModel::class.java)
+                add(AppIconKeyer, AppIconModel::class.java)
+            }
             .memoryCache {
                 MemoryCache.Builder(this)
-                    // 默认是 0.2；这里图标本身还有 IconResizeCache 那层，
-                    // 没必要让 Coil 再吃掉四分之一堆内存。
+                    // 原来是 0.2，因为图标另有一层 IconResizeCache 常驻原生尺寸。
+                    // 那层已删除，但数值先不动，等 meminfo 实测后再调。
                     .maxSizePercent(0.10)
                     .build()
             }

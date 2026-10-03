@@ -12,7 +12,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalConfiguration
@@ -31,9 +34,13 @@ internal fun QuickAppLauncherAdjustPanel(
 ) {
     val settings by ConfigProvider.quickAppLauncherSettings.collectAsState(initial = QuickAppLauncherSettings())
     val coroutineScope = rememberCoroutineScope()
-    fun updateLayout(next: QuickAppLauncherSettings) {
+    var pending by remember(settings) { mutableStateOf(settings) }
+    fun preview(next: QuickAppLauncherSettings) {
+        pending = next
         onSettingsChanged(next)
-        coroutineScope.launch { ConfigProvider.updateQuickAppLauncherLayout(next) }
+    }
+    fun commit() {
+        coroutineScope.launch { ConfigProvider.updateQuickAppLauncherLayout(pending) }
     }
 
     val screenH = LocalConfiguration.current.screenHeightDp
@@ -46,49 +53,56 @@ internal fun QuickAppLauncherAdjustPanel(
     Column(modifier = Modifier.fillMaxWidth()) {
         MyTextSlider(
             value = settings.contentHeightFraction,
-            onValueChange = { updateLayout(settings.copy(contentHeightFraction = it)) },
+            onValueChange = { preview(pending.copy(contentHeightFraction = it)) },
+            onValueChangeFinished = { commit() },
             text = stringResource(R.string.quick_app_launcher_content_height),
             valueDisplay = "${(settings.contentHeightFraction * 100).roundToInt()}%",
             valueRange = heightMin..heightMax,
         )
         MyTextSlider(
             value = settings.panelWidthFraction,
-            onValueChange = { updateLayout(settings.copy(panelWidthFraction = it)) },
+            onValueChange = { preview(pending.copy(panelWidthFraction = it)) },
+            onValueChangeFinished = { commit() },
             text = stringResource(R.string.quick_app_launcher_panel_width),
             valueDisplay = "${(settings.panelWidthFraction * 100).roundToInt()}%",
             valueRange = 0.65f..1.0f,
         )
         MyTextSlider(
             value = settings.panelHeightFraction,
-            onValueChange = { updateLayout(settings.copy(panelHeightFraction = it)) },
+            onValueChange = { preview(pending.copy(panelHeightFraction = it)) },
+            onValueChangeFinished = { commit() },
             text = stringResource(R.string.quick_app_launcher_panel_height),
             valueDisplay = "${(settings.panelHeightFraction * 100).roundToInt()}%",
             valueRange = 0.05f..0.9f,
         )
         MyTextSlider(
             value = settings.panelHorizontalBias,
-            onValueChange = { updateLayout(settings.copy(panelHorizontalBias = it)) },
+            onValueChange = { preview(pending.copy(panelHorizontalBias = it)) },
+            onValueChangeFinished = { commit() },
             text = stringResource(R.string.quick_app_launcher_horizontal_bias),
             valueDisplay = "${(settings.panelHorizontalBias * 100).roundToInt()}%",
             valueRange = 0.0f..1.0f,
         )
         MyTextSlider(
             value = settings.candidateRows.toFloat(),
-            onValueChange = { updateLayout(settings.copy(candidateRows = it.roundToInt().coerceIn(1, 3))) },
+            onValueChange = { preview(pending.copy(candidateRows = it.roundToInt().coerceIn(1, 3))) },
+            onValueChangeFinished = { commit() },
             text = stringResource(R.string.quick_app_launcher_candidate_rows),
             valueDisplay = settings.candidateRows.toString(),
             valueRange = 1f..3f,
         )
         MyTextSlider(
             value = settings.gridColumns.toFloat(),
-            onValueChange = { updateLayout(settings.copy(gridColumns = it.roundToInt().coerceIn(3, 5))) },
+            onValueChange = { preview(pending.copy(gridColumns = it.roundToInt().coerceIn(3, 5))) },
+            onValueChangeFinished = { commit() },
             text = stringResource(R.string.quick_app_launcher_grid_columns),
             valueDisplay = settings.gridColumns.toString(),
             valueRange = 3f..5f,
         )
         MyTextSlider(
             value = settings.keyHeightDp.toFloat(),
-            onValueChange = { updateLayout(settings.copy(keyHeightDp = it.roundToInt().coerceIn(36, 80))) },
+            onValueChange = { preview(pending.copy(keyHeightDp = it.roundToInt().coerceIn(36, 80))) },
+            onValueChangeFinished = { commit() },
             text = stringResource(R.string.quick_app_launcher_key_height),
             valueDisplay = "${settings.keyHeightDp}dp",
             valueRange = 36f..80f,

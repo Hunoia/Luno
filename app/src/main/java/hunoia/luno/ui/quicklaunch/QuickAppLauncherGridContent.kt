@@ -78,9 +78,10 @@ internal fun PageMatchIcon(
 @Composable
 internal fun CandidateAppRows(
     pageMatches: List<Pair<String, Page>>,
-    chunkedApps: List<List<AppInfo>>,
+    apps: List<AppInfo>,
     disabledPkgs: Set<String>,
     candidateHeight: Dp,
+    iconSizePx: Int,
     rows: Int = 1,
     onClick: (AppInfo, Boolean) -> Unit,
     onLongPress: (AppInfo, Boolean) -> Unit,
@@ -88,7 +89,7 @@ internal fun CandidateAppRows(
 ) {
     val iconHeight = (candidateHeight - 2.dp * (rows - 1)) / rows - 4.dp * 2
     val rowState = rememberLazyListState()
-    LaunchedEffect(chunkedApps) {
+    LaunchedEffect(apps, rows) {
         rowState.animateScrollToItem(0)
     }
     Box(
@@ -117,7 +118,11 @@ internal fun CandidateAppRows(
                     }
                 }
             }
-            items(chunkedApps, key = { chunk -> chunk.firstOrNull()?.key() ?: "empty" }) { columnApps ->
+            val columns = (apps.size + rows - 1) / rows
+            items(columns, key = { i -> apps.getOrNull(i * rows)?.key() ?: "empty" }) { i ->
+                val start = i * rows
+                val end = minOf(start + rows, apps.size)
+                val columnApps = apps.subList(start, end)
                 Column(
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                     modifier = Modifier.width(64.dp)
@@ -127,6 +132,7 @@ internal fun CandidateAppRows(
                             val isDisabled = app.packageName in disabledPkgs
                             AppItem(
                                 app = app,
+                                iconSizePx = iconSizePx,
                                 iconHeight = iconHeight,
                                 onClick = { onClick(app, isDisabled) },
                                 onLongPress = { onLongPress(app, isDisabled) }
@@ -148,6 +154,7 @@ internal fun AppGrid(
     gridAtTop: Boolean,
     keyboardExpanded: Boolean,
     gridHeight: Dp,
+    iconSizePx: Int,
     gridColumns: Int = 4,
     onExpandKeyboard: () -> Unit,
     onClick: (AppInfo, Boolean) -> Unit,
@@ -199,6 +206,7 @@ internal fun AppGrid(
                 val isDisabled = app.packageName in disabledPkgs
                 AppItem(
                     app = app,
+                    iconSizePx = iconSizePx,
                     onClick = { onClick(app, isDisabled) },
                     onLongPress = { onLongPress(app, isDisabled) }
                 )

@@ -10,6 +10,7 @@ import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.QuickAppLauncherSettings
+import hunoia.luno.config.model.QuickAppSnapshot
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.config.repository.QuickLauncherRepository
 import hunoia.luno.config.store.SettingsStores
@@ -79,6 +80,14 @@ object ConfigProvider {
     }
     suspend fun recordQuickAppLaunch(appKey: String) {
         quickLauncherRepository.recordQuickAppLaunch(appKey)
+    }
+
+    /** 面板首开同步读一次快照。 */
+    suspend fun getQuickAppSnapshot(): QuickAppSnapshot = stores.readQuickAppSnapshot()
+
+    /** 预热链扫完列表后回写快照。只写派生的列表数据，不含任何用户配置。 */
+    suspend fun writeQuickAppSnapshot(snapshot: QuickAppSnapshot) {
+        stores._quickAppSnapshot.updateData { snapshot }
     }
 
     suspend fun snapshotAll(): Backup = configBackupRepository.snapshotAll()

@@ -12,7 +12,11 @@ import hunoia.luno.BuildConfig
 import hunoia.luno.config.model.Action
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureButtonActionSettingsOverride
-import hunoia.luno.quicklaunch.QuickLaunchFacade
+import hunoia.luno.config.ConfigProvider
+import hunoia.luno.config.model.QuickAppSnapshot
+import hunoia.luno.quicklaunch.query.AppSearch
+import hunoia.luno.quicklaunch.query.DisabledAppQuery
+import java.util.Locale
 import hunoia.luno.runtime.action.ActionDispatcher
 import hunoia.luno.config.model.ScreenEventType
 import hunoia.luno.runtime.action.PreviousAppTracker
@@ -216,7 +220,17 @@ class GestureCoordinator(
         }
 
         scopeJobs += host.coroutineScope.launch(Dispatchers.IO) {
-            QuickLaunchFacade.queryApps(host.context)
+            // 用面板真正展示的那份查询（allowRepeatPackage=false，且含禁用应用），
+            // 而不是 queryApps —— 后者列表不同，预热出来的索引对不上。
+            val list = DisabledAppQuery.queryQuickAppLauncherApps(host.context)
+            ConfigProvider.writeQuickAppSnapshot(
+                QuickAppSnapshot(
+                    apps = list.apps,
+                    disabledPkgs = list.disabledPkgs,
+                    labelLocale = Locale.getDefault().toLanguageTag(),
+                )
+            )
+            AppSearch.warmIndexes(list.apps)
         }
 
         scopeJobs += host.coroutineScope.launch {

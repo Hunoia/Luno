@@ -1,8 +1,6 @@
 package hunoia.luno.ui.quicklaunch
 import hunoia.luno.ui.theme.*
 
-import android.content.Context
-import android.graphics.drawable.Drawable
 import android.view.HapticFeedbackConstants
 import android.view.View
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -29,11 +27,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,8 +47,6 @@ import hunoia.luno.R
 import coil.compose.AsyncImage
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -132,22 +125,15 @@ internal fun KeyboardRow(
     }
 }
 
-@Composable
-internal fun rememberAppIconAsync(context: Context, packageName: String): Drawable? {
-    var icon: Drawable? by remember(packageName) { mutableStateOf(QuickLaunchFacade.getCachedIcon(packageName)) }
-    if (icon == null) {
-        LaunchedEffect(packageName) {
-            icon = withContext(Dispatchers.IO) {
-                QuickLaunchFacade.loadIcon(context, packageName)
-            }?.also { QuickLaunchFacade.cacheIcon(packageName, it) }
-        }
-    }
-    return icon
-}
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun AppItem(app: AppInfo, iconHeight: Dp? = null, onClick: () -> Unit, onLongPress: () -> Unit) {
+internal fun AppItem(
+    app: AppInfo,
+    iconSizePx: Int,
+    iconHeight: Dp? = null,
+    onClick: () -> Unit,
+    onLongPress: () -> Unit,
+) {
     val context = LocalContext.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -176,17 +162,22 @@ internal fun AppItem(app: AppInfo, iconHeight: Dp? = null, onClick: () -> Unit, 
         } else {
             Modifier.fillMaxWidth().aspectRatio(1f)
         }.clip(MediumShape)
-        val icon = rememberAppIconAsync(context, app.packageName)
-        if (icon != null) {
-            AsyncImage(
-                model = icon,
-                contentDescription = app.label,
-                modifier = iconMod,
-                contentScale = ContentScale.Fit
-            )
-        } else {
+        val request = remember(app.packageName, iconSizePx) {
+            QuickLaunchFacade.appIconRequest(context, app.packageName, iconSizePx)
+        }
+        Box(modifier = iconMod) {
+            // 图标未就绪时占位。改用叠加而不是 if/else 分支，避免图标到位时
+            // 布局从"只有底色"跳到"底色+图标"造成一帧跳动。
             Box(
-                modifier = iconMod.background(MaterialTheme.colorScheme.surfaceContainer)
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(MaterialTheme.colorScheme.surfaceContainer)
+            )
+            AsyncImage(
+                model = request,
+                contentDescription = app.label,
+                modifier = Modifier.matchParentSize(),
+                contentScale = ContentScale.Fit
             )
         }
     }

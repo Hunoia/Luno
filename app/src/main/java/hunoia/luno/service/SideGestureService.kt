@@ -75,6 +75,10 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        // 注意：这里**不**释放常驻面板窗口。manifest 没声明 android:configChanges，
+        // 无障碍服务不一定收得到这个回调（实测旋转后进程 PID 不变、回调未确认送达），
+        // 靠它做旋转重建不可靠。旋转后的尺寸修正在 UI 层做 ——
+        // QuickAppLauncherRoot 监听 LocalConfiguration 的 orientation 变化后重算窗口与图标尺寸。
         if (!::gestureCoordinator.isInitialized) return
         gestureCoordinator.onConfigurationChanged(newConfig)
     }
@@ -84,7 +88,9 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         if (current === this) currentRef = null
         disabledPackageEnabler.release()
         if (::gestureCoordinator.isInitialized) gestureCoordinator.onDestroy()
-        quickAppLauncherOverlay.closeImmediately()
+        // release 而不是 closeImmediately：overlay 是 by lazy 的，onSetOverlay 重建
+        // GestureCoordinator 时不会重建它，不显式销毁 ComposeView 就跟着 service 泄漏。
+        quickAppLauncherOverlay.release()
         runtimePanelOverlay.close()
         QuickLaunchFacade.showOverlay = {}
         coroutineScope.cancel()
