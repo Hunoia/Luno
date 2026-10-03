@@ -1,5 +1,6 @@
 package hunoia.luno.runtime.overlay
 
+import android.graphics.Rect
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
@@ -41,7 +42,7 @@ class ButtonWindowController(
             val lp = view.layoutParams as? WindowManager.LayoutParams ?: continue
             val show = policy.shouldShow(target.sourceButton)
             val before = lp.snapshot()
-            WindowLayoutFactory.updateGestureButton(lp, target.windowButton)
+            applyBounds(view, lp, target.windowButton)
             lp.flags = if (show) {
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
@@ -53,7 +54,7 @@ class ButtonWindowController(
                     WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
             }
             // 只有真正变化才发跨进程 updateViewLayout，避免每次窗口事件都让 WMS 重新 layout
-            if (lp.snapshot() != before) wm.safeUpdateViewLayout(view, lp)
+            if (!lp.snapshot().contentEquals(before)) wm.safeUpdateViewLayout(view, lp)
         }
     }
 
@@ -82,8 +83,8 @@ class ButtonWindowController(
                 val lp = view.layoutParams as? WindowManager.LayoutParams
                 if (lp != null && tag.windowButton.bounds != target.windowButton.bounds) {
                     val before = lp.snapshot()
-                    WindowLayoutFactory.updateGestureButton(lp, target.windowButton)
-                    if (lp.snapshot() != before) wm.safeUpdateViewLayout(view, lp)
+                    applyBounds(view, lp, target.windowButton)
+                    if (!lp.snapshot().contentEquals(before)) wm.safeUpdateViewLayout(view, lp)
                 }
             }
         }
@@ -95,19 +96,42 @@ class ButtonWindowController(
     }
 
     private fun attachGestureButton(target: GestureButtonWindowTarget): View? {
-        val lp = WindowLayoutFactory.gestureButtonLayoutParams(target.sourceButton.enabled).apply {
-            WindowLayoutFactory.updateGestureButton(this, target.windowButton)
-        }
+        val lp = WindowLayoutFactory.gestureButtonLayoutParams(target.sourceButton.enabled)
         val view = View(host).apply {
             tag = target
             setOnTouchListener { v, event ->
+                if (BuildConfig.DEBUG && event.actionMasked == MotionEvent.ACTION_DOWN) {
+                    Log.i(
+                        "LunoLauncher",
+                        "gesture down: mirror=${target.mirrored} raw=(${event.rawX},${event.rawY}) " +
+                            "win=[${lp.x},${lp.y}][${lp.x + lp.width},${lp.y + lp.height}]",
+                    )
+                }
                 MotionEventDispatcher.dispatch(event)
                 if (event.action == MotionEvent.ACTION_UP) v.performClick()
                 false
             }
         }
+        applyBounds(view, lp, target.windowButton)
         if (!wm.safeAddView(view, lp)) return null
         return view
+    }
+
+    /**
+     * 窗口矩形与手势排除区必须同步更新。
+     *
+     * 排除区用视图局部坐标填满整条带(视图铺满窗口),绝对坐标 = 窗口位置 + 局部坐标。
+     * 不声明的话条带与系统返回手势区是同一片像素且没有任何仲裁,SystemUI 会在 ACTION_DOWN
+     * 就启动返回手势。
+     *
+     * addView 之前设置,ViewRootImpl 在首次 performTraversals 时收集上报;之后的变更靠紧随
+     * 其后的 updateViewLayout(内部 setLayout 会 scheduleTraversals)重新收集,故调用点必须
+     * 保证后面紧跟一次 safeUpdateViewLayout。
+     */
+    private fun applyBounds(view: View, lp: WindowManager.LayoutParams, button: GestureButton) {
+        WindowLayoutFactory.updateGestureButton(lp, button)
+        val rects = listOf(Rect(0, 0, lp.width, lp.height))
+        if (view.systemGestureExclusionRects != rects) view.systemGestureExclusionRects = rects
     }
 }
 
