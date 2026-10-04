@@ -514,6 +514,24 @@ public class QuickSearchCheck {
             check("bench 完成", true);
         }
 
+        // ======== 规模 bench（文件量级）：5000 文件名 + 500 条×300 字正文，只打印不设线 ========
+        // 镜像无 houbb（真机 houbb 成本另算），这里只看匹配循环随规模的伸缩 + 分配。
+        List<TestApp> big = new ArrayList<>();
+        for (int i = 0; i < 5000; i++) {
+            String s = "IMG_202401" + (i % 30) + "_" + i + ".jpg";
+            big.add(new TestApp(s, s, s, s, 0, 0));
+        }
+        StringBuilder bodySb = new StringBuilder();
+        for (int i = 0; i < 300; i++) bodySb.append((char) ('a' + (i % 26)));
+        String bodyStr = bodySb.toString();
+        for (int i = 0; i < 500; i++) big.add(new TestApp(bodyStr, bodyStr, bodyStr, bodyStr, 0, 0));
+        for (int i = 0; i < 5; i++) sortApps(big, nowSort, tokens("h", "y"));
+        long t0 = System.nanoTime();
+        int reps = 20;
+        for (int i = 0; i < reps; i++) sortApps(big, nowSort, tokens("h", "y"));
+        long ms = (System.nanoTime() - t0) / 1000000;
+        System.out.printf("  scale  N=%d 双 token: %d ms/%d次 (%.1f ms/次)%n", big.size(), ms, reps, ms * 1.0 / reps);
+
         System.out.println(failures == 0 ? "\nALL PASS" : "\n" + failures + " FAILED");
         if (failures > 0) System.exit(1);
     }

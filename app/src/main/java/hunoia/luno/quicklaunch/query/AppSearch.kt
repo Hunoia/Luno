@@ -43,11 +43,10 @@ object AppSearch {
         val labelLen: Int,
     )
 
-    private val pinyinIndexCache: MutableMap<String, AppSearchIndex> = Collections.synchronizedMap(
-        object : LinkedHashMap<String, AppSearchIndex>(1024, 0.75f, true) {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, AppSearchIndex>?): Boolean = size > 1024
-        }
-    )
+    // 索引常驻（总量被各源 cap 封顶，最坏几 MB）：LRU 在候选超 cap 时每击键全失效，
+    // 打字只查不建，houbb 调用只发生在 IO 线程的预热期。
+    private val pinyinIndexCache: MutableMap<String, AppSearchIndex> =
+        Collections.synchronizedMap(HashMap(16384))
 
     private const val NO_MATCH = -1
     private const val DEGRADED = 0
@@ -237,17 +236,26 @@ object AppSearch {
     }
 
     fun warmIndexes(apps: List<AppInfo>) {
-        for (app in apps) buildIndex(app.label)
+        for (app in apps) {
+            buildIndex(app.label)
+            // 包名也参与匹配（副标题本来就显示包名）：ascii 串虽无 houbb 成本，
+            // 预热后打字期连字符串拼接都不再发生。
+            buildIndex(app.packageName)
+        }
     }
 
     internal fun buildIndex(text: String): AppSearchIndex {
         val key = text.lowercase()
         pinyinIndexCache[key]?.let { return it }
+        // 长文本只索引前 200 字、不建多音变体（短信正文类）：200 字之后的中段命中出局，
+        // 代价可接受（连续块语义下 offset 大的本来也沉底）；短文本路径原样。
+        val short = key.length <= 200
+        val work = if (short) key else key.substring(0, 200)
         // 每字读音：库给多音全集（首个为基准串，其余进变体）。
         val readings = ArrayList<List<String>>()
         val basePinyin = StringBuilder()
         val initials = StringBuilder()
-        text.forEach { ch ->
+        work.forEach { ch ->
             if (ch.isLetterOrDigit()) {
                 val r = readingsOf(ch)
                 readings.add(r)
@@ -256,21 +264,25 @@ object AppSearch {
             }
         }
         // 变体：每次只换一个多音字（防组合爆炸，cap 8），如 音乐→[yinle, yinyue]。
+        // 长文本跳过：变体是短标题多音字的活，正文里建了也排不上。
         val alts = ArrayList<String>()
-        for (i in readings.indices) {
-            val r = readings[i]
-            if (r.size < 2 || alts.size >= 8) continue
-            for (alt in r.subList(1, r.size)) {
-                if (alts.size >= 8) break
-                val sb = StringBuilder()
-                for (j in readings.indices) sb.append(if (j == i) alt else readings[j][0])
-                val s = sb.toString()
-                if (s !in alts) alts.add(s)
+        if (short) {
+            for (i in readings.indices) {
+                val r = readings[i]
+                if (r.size < 2 || alts.size >= 8) continue
+                for (alt in r.subList(1, r.size)) {
+                    if (alts.size >= 8) break
+                    val sb = StringBuilder()
+                    for (j in readings.indices) sb.append(if (j == i) alt else readings[j][0])
+                    val s = sb.toString()
+                    if (s !in alts) alts.add(s)
+                }
             }
         }
         val base = basePinyin.toString()
         val result = AppSearchIndex(
-            raw = key,
+            // raw 取 work（被索引的前 200 字）：非 ASCII 回落走它，截断语义一致。
+            raw = work,
             pinyin = base,
             initials = initials.toString(),
             pinyinFolded = foldPinyin(base),

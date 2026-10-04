@@ -74,6 +74,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.mapLatest
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
@@ -596,6 +598,20 @@ class QuickSearchActivity : ComponentActivity() {
     }
 }
 
+/** 搜索输入快照：snapshotFlow 跟踪块内读到的 State，值变化即重搜。 */
+private data class SearchSnapshot(
+    val text: String,
+    val entries: List<hunoia.luno.action.model.NewActionLibraryEntry>,
+    val launcher: hunoia.luno.config.model.QuickAppLauncherSettings,
+    val search: hunoia.luno.config.model.QuickSearchSettings,
+    val contactsTick: Int,
+    val mediaTick: Int,
+    val calendarTick: Int,
+    val smsTick: Int,
+    val callsTick: Int,
+    val torchOn: Boolean,
+)
+
 @Composable
 private fun QuickSearchContent(
     index: QuickSearchIndex,
@@ -696,17 +712,29 @@ private fun QuickSearchContent(
             callsTick++
         }
     }
-    // 手电状态是 Activity 翻的，参数透进来供 results/开关行副标题用。
-    val results = remember(
-        query.text, entries, launcherSettings, searchSettings,
+    // 搜索搬出主线程：query 照常即时更新（字先上屏），结果流式回来；
+    // mapLatest 自动取消过期搜索，快打不堆积。空串短路不进搜索。
+    // snapshotFlow 跟踪块内读到的全部 State（query/设置/tick），值变化即重搜。
+    val searchFlow = remember(
+        entries, launcherSettings, searchSettings,
         contactsTick, mediaTick, calendarTick, smsTick, callsTick, torchOn,
     ) {
-        if (query.text.isBlank()) {
-            emptyList()
-        } else {
-            index.search(query.text, entries, launcherSettings, searchSettings, torchOn)
+        snapshotFlow {
+            SearchSnapshot(
+                query.text, entries, launcherSettings, searchSettings,
+                contactsTick, mediaTick, calendarTick, smsTick, callsTick, torchOn,
+            )
+        }.mapLatest { s ->
+            if (s.text.isBlank()) {
+                emptyList()
+            } else {
+                withContext(Dispatchers.Default) {
+                    index.search(s.text, s.entries, s.launcher, s.search, s.torchOn)
+                }
+            }
         }
     }
+    val results by searchFlow.collectAsState(initial = emptyList())
     // 历史行共用：长按删单条（搜索态/空态同一语义）。
     val deleteHistory: (String) -> Unit = { h ->
         scope.launch {

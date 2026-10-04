@@ -109,7 +109,13 @@ android {
             excludes += "/META-INF/**/NOTICE*"
             excludes += "/cncity_fulllist.txt"
             excludes += "/okhttp3/internal/publicsuffix/*"
-
+            // houbb 拼音裁剪：App 只用 PinyinHelper.toPinyinList(char, NORMAL) 单字查询，
+            // 实测仅读 pinyin_dict_char.txt（+ 空的 _define 占位）。短语/分词词典在单字
+            // 路径上永不加载（JVM 对照验证：裁剪前后 16 字读音含多音字完全一致）。
+            // 注意：pinyin_dict_char_define.txt 虽为空但会被 getCharMap() 主动读取，必须保留。
+            excludes += "/pinyin_dict_phrase.txt"
+            excludes += "/nlp/word_freq_dict.txt"
+            excludes += "/nlp/chinese_ts_char.txt"
         }
     }
 }

@@ -216,6 +216,10 @@ class QuickSearchIndex(private val context: Context) {
             }
         }
         contacts = list.distinctBy { it.name to it.number }
+        for (c in contacts) {
+            AppSearch.buildIndex(c.name)
+            AppSearch.buildIndex(c.number)
+        }
     }
 
     /** 联系人是否已就绪（权限 + 加载完成）：search 只查内存，不在主线程碰库。 */
@@ -271,6 +275,10 @@ class QuickSearchIndex(private val context: Context) {
                 }
             }
             tracks = list.distinctBy { it.title to it.artist }
+            for (t in tracks) {
+                AppSearch.buildIndex(t.title)
+                AppSearch.buildIndex(t.artist)
+            }
         }
         if ((imageOk || videoOk) && !galleryTried) {
             galleryTried = true
@@ -309,6 +317,7 @@ class QuickSearchIndex(private val context: Context) {
                 }
             }
             mediaFiles = list.distinctBy { it.uri }
+            for (f in mediaFiles) AppSearch.buildIndex(f.name)
         }
         if (hasAllFilesAccess() && !docsTried) {
             docsTried = true
@@ -343,6 +352,7 @@ class QuickSearchIndex(private val context: Context) {
                 }
             }
             docs = list.distinctBy { it.uri }
+            for (d in docs) AppSearch.buildIndex(d.name)
         }
     }
 
@@ -407,6 +417,10 @@ class QuickSearchIndex(private val context: Context) {
             }
         }
         events = list.distinctBy { it.eventId to it.timeText }
+        for (e in events) {
+            AppSearch.buildIndex(e.title_)
+            AppSearch.buildIndex(e.location)
+        }
     }
 
     /** 收件箱 500 条：必须在后台线程调。 */
@@ -442,6 +456,10 @@ class QuickSearchIndex(private val context: Context) {
             }
         }
         smsList = list
+        for (m in smsList) {
+            AppSearch.buildIndex(m.address)
+            AppSearch.buildIndex(m.body)
+        }
     }
 
     /** 通话记录 200 条：必须在后台线程调。 */
@@ -487,6 +505,10 @@ class QuickSearchIndex(private val context: Context) {
             }
         }
         callList = list
+        for (c in callList) {
+            AppSearch.buildIndex(c.name)
+            AppSearch.buildIndex(c.number)
+        }
     }
 
     private fun formatTime(millis: Long): String = runCatching {
