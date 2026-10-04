@@ -2,6 +2,10 @@ package hunoia.luno.action.api
 
 import hunoia.luno.action.definition.ActionCatalog
 import hunoia.luno.action.definition.ActionCatalogEntry
+import hunoia.luno.config.model.Action
+import hunoia.luno.core.JsonSerializer
+import hunoia.luno.quicklaunch.model.AppInfo
+import hunoia.luno.quicklaunch.model.LauncherInfo
 
 object ActionFacade {
 
@@ -40,4 +44,54 @@ object ActionFacade {
     const val EXTRA_LAUNCH_SHORTCUT = ActionIds.EXTRA_LAUNCH_SHORTCUT
 
     fun byId(actionId: String): ActionCatalogEntry? = ActionCatalog.byId(actionId)
+}
+
+object ActionIds {
+    const val NONE = "0"
+    const val BACK = "1"
+    const val HOME = "2"
+    const val RECENT = "3"
+    const val VOLUME_UP = "6"
+    const val VOLUME_DOWN = "7"
+    const val MUTE = "8"
+    const val PLAY_PAUSE_SONG = "9"
+    const val LAST_SONG = "10"
+    const val NEXT_SONG = "11"
+    const val PREVIOUS_APP = "12"
+    const val OPEN_NOTIFICATION_PANEL = "15"
+    const val OPEN_QUICK_PANEL = "16"
+    const val LOCK_SCREEN = "17"
+    const val FLASHLIGHT = "19"
+    const val SPLIT_SCREEN = "20"
+    const val POPUP_SCREEN = "21"
+    const val ASSIST_APP = "22"
+    const val SCREENSHOT = "24"
+    const val POWER_BUTTON = "29"
+    const val HIDE_GESTURE_BUTTON = "40"
+    const val BACK_TO_TOP = "47"
+    const val OPEN_APP_ACTIVITY = "49"
+    const val OPEN_URL = "60"
+    const val QUICK_APP_LAUNCHER = "50"
+    const val RANDOM_NAME = "51"
+    const val GENERATE_PASSWORD_COPY = "53"
+    const val CLICK_CURRENT_POSITION = "55"
+    const val VOLUME_SCRUB = "57"
+    const val EXECUTE_SHELL_COMMAND = "58"
+    const val SUB_GESTURE = "59"
+    const val EXTRA_LAUNCH_APP = "101"
+    const val EXTRA_LAUNCH_SHORTCUT = "102"
+}
+
+val Action.appInfo: AppInfo? get() {
+    if (value == ActionFacade.EXTRA_LAUNCH_APP) {
+        return JsonSerializer.decodeFromString<AppInfo>(data)
+    }
+    return null
+}
+
+val Action.shortcutInfo: LauncherInfo.ShortcutInfo? get() {
+    if (value == ActionFacade.EXTRA_LAUNCH_SHORTCUT) {
+        return JsonSerializer.decodeFromString<LauncherInfo.ShortcutInfo>(data)
+    }
+    return null
 }

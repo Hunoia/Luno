@@ -218,3 +218,25 @@ sealed interface Action {
         override val typeId: String = "internal.previousApp"
     }
 }
+
+/** 动作所需能力（无障碍/Shizuku），执行前由 [hunoia.luno.action.execution.ActionExecutorRegistry] 校验。 */
+enum class Capability {
+    None,
+    Accessibility,
+    Shizuku
+}
+
+/** 动作执行结果。 */
+sealed interface ActionResult {
+    data class Success(val message: String? = null) : ActionResult
+    data class Failed(val reason: ActionFailure, val message: String? = null) : ActionResult
+    data class RequiresCapability(val capability: Capability) : ActionResult
+}
+
+/** 动作失败原因。 */
+enum class ActionFailure {
+    InvalidParameter,
+    ExecutionFailed,
+    PermissionDenied,
+    Unsupported
+}

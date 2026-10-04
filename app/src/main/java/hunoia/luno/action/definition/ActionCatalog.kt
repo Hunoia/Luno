@@ -1,7 +1,35 @@
 package hunoia.luno.action.definition
 
+import androidx.annotation.StringRes
+import androidx.compose.ui.graphics.vector.ImageVector
 import hunoia.luno.R
 import hunoia.luno.action.api.ActionIds
+import hunoia.luno.action.definitions.ActionDefinitions
+import hunoia.luno.config.model.Action
+
+enum class ActionCategory {
+    SYSTEM,
+    APP,
+    INTENT,
+    ACCESSIBILITY,
+    PACKAGE,
+    SETTINGS,
+    SYSTEMCMD,
+    SHELL,
+    INTERNAL
+}
+
+data class ActionCatalogEntry(
+    val actionId: String,
+    @param:StringRes val titleResId: Int,
+    val typeId: String,
+) {
+    val category: ActionCategory
+        get() = ActionDefinitions.byTypeId(typeId)?.category ?: ActionCategory.INTERNAL
+
+    val icon: ImageVector? get() = ActionDefinitions.byTypeId(typeId)?.icon
+    fun toAction(): Action = Action(actionId)
+}
 
 object ActionCatalog {
 

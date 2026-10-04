@@ -1,18 +1,65 @@
 package hunoia.luno.action.execution
 
+import android.accessibilityservice.AccessibilityService
+import android.content.Context
 import android.util.Log
 import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.action.definitions.excludedTemplateKeys
+import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionFailure
 import hunoia.luno.action.model.ActionMapper
 import hunoia.luno.action.model.ActionResult
+import hunoia.luno.action.model.Capability
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.template.ParamTemplates
+import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.config.model.AdvancedSettings
+import hunoia.luno.config.model.VolumeScrubConfig
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+
+interface ActionExecutor {
+    val supportedTypes: Set<String>
+    suspend fun execute(action: Action, context: ExecutorContext): ActionResult
+}
+
+class ActionExecutorRegistry(
+    private val executors: List<ActionExecutor>,
+    private val isCapabilityAvailable: (Capability) -> Boolean = { true },
+) {
+    private val executorMap: Map<String, ActionExecutor> = executors
+        .flatMap { e -> e.supportedTypes.map { it to e } }
+        .toMap()
+
+    init {
+        val seen = mutableSetOf<String>()
+        for (executor in executors) {
+            for (typeId in executor.supportedTypes) {
+                check(seen.add(typeId)) {
+                    "Duplicate typeId: $typeId registered by ${executor::class.simpleName}"
+                }
+            }
+        }
+    }
+
+    suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
+        val executor = executorMap[action.typeId] ?: return ActionResult.Failed(ActionFailure.Unsupported)
+        val capability = ActionDefinitions.byTypeId(action.typeId)?.capability ?: Capability.None
+        if (capability != Capability.None && !isCapabilityAvailable(capability)) {
+            return ActionResult.RequiresCapability(capability)
+        }
+        return runCatching {
+            executor.execute(action, context)
+        }.getOrElse { e ->
+            Log.w("LunoLauncher", "execute failed typeId=${action.typeId}", e)
+            ActionResult.Failed(ActionFailure.ExecutionFailed, e.message ?: e.javaClass.name)
+        }
+    }
+}
 
 class ActionResolver(
     private val registry: ActionExecutorRegistry,
@@ -72,3 +119,25 @@ class ActionResolver(
 
     private data class ResolvedParams(val params: JsonObject, val substituted: Boolean)
 }
+
+data class ExecutorContext(
+    val accessibilityService: AccessibilityService,
+    val appContext: Context,
+    val scope: CoroutineScope,
+    val actionSettings: ActionSettings = ActionSettings(),
+    val advancedSettings: AdvancedSettings = AdvancedSettings(),
+    val showToast: (String) -> Unit = {},
+    val showLongToast: (String) -> Unit = {},
+    val currentPackageName: () -> String? = { null },
+    val nowInLauncher: () -> Boolean = { false },
+    val requestEnableDisabledPackage: (String, (Boolean) -> Unit) -> Unit = { _, onResult -> onResult(false) },
+    val toggleQuickAppLauncher: () -> Unit = {},
+    val showQuickSearch: () -> Unit = {},
+    val showVolumeScrub: (VolumeScrubConfig) -> Boolean = { false },
+    val hideGestureButton: (Long) -> Unit = {},
+    val showVersionTooLowToast: (Int) -> Unit = {},
+    val previousApp: suspend (List<String>) -> Unit = {},
+    val touchPosition: Pair<Int, Int>? = null,
+    /** 参数模板取值器：入参是本次解析实际用到的 token 集合，返回对应运行时值。 */
+    val templateValues: suspend (Set<String>) -> Map<String, String> = { emptyMap() },
+)
