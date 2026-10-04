@@ -2,8 +2,26 @@ package hunoia.luno.quicklaunch.query
 
 import android.content.Context
 import android.content.Intent
+import android.content.Intent.ShortcutIconResource
 import android.content.pm.PackageManager
 import hunoia.luno.bridge.queryIntentActivitiesCompat
+import hunoia.luno.quicklaunch.model.AppInfo
+
+data class QuickAppLauncherAppList(
+    val apps: List<AppInfo>,
+    val disabledPkgs: Set<String>
+)
+
+object LauncherIconQuery {
+
+    fun resolveShortcutIconResourceId(context: Context, iconResource: ShortcutIconResource): Int {
+        return runCatching {
+            val resources = context.packageManager.getResourcesForApplication(iconResource.packageName)
+            @Suppress("DiscouragedApi")
+            resources.getIdentifier(iconResource.resourceName, null, null)
+        }.getOrDefault(0)
+    }
+}
 
 object LauncherEnvironment {
     fun isLauncherPackage(context: Context, packageName: String): Boolean {

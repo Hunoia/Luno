@@ -1,0 +1,63 @@
+package hunoia.luno.runtime.overlay
+
+import android.util.Log
+import android.view.View
+import android.view.WindowManager
+import androidx.compose.ui.geometry.Offset
+import hunoia.luno.config.model.Action
+import hunoia.luno.config.model.GestureButton
+import hunoia.luno.config.model.GestureButtonActionSettingsOverride
+
+/**
+ * 一个手势按钮窗口的标识。
+ *
+ * [mirrored] 区分同一按钮的主窗口与镜像窗口 —— 镜像窗口的 [windowButton] 与主窗口
+ * 字段完全相同（`mirroredButton()` 会把 `mirrorHorizontal` 置回 false），只能靠这个显式标记区分。
+ * 窗口身份由 (sourceButton.id, mirrored) 决定，bounds 属于可更新内容而非身份的一部分。
+ */
+internal data class GestureButtonWindowTarget(
+    val sourceButton: GestureButton,
+    val windowButton: GestureButton,
+    val mirrored: Boolean = false,
+)
+
+interface GestureOverlayCallbacks {
+    fun onSubGestureModeChanged(inSubGesture: Boolean, center: Offset, radiusPx: Int)
+    fun onActionPanelOverlayChanged(show: Boolean)
+
+    /**
+     * ActionPanel 是否正在显示。用于把主 overlay 在隐藏时收成 1x1,
+     * 避免常驻一块什么都不画的全屏 RGBA_8888 buffer。与 [onActionPanelOverlayChanged] 是两件事:
+     * 后者管的是面板需要交互时那个临时的可触摸空窗口。
+     */
+    fun onActionPanelVisibilityChanged(visible: Boolean)
+
+    fun onAction(action: Action, sourceButton: GestureButton?, sourceOverride: GestureButtonActionSettingsOverride?)
+}
+
+internal fun WindowManager.safeAddView(view: View?, params: WindowManager.LayoutParams): Boolean {
+    val target = view ?: return false
+    return runCatching { addView(target, params) }
+        .onFailure { error ->
+            Log.e("LunoLauncher", "overlay addView failed: ${error::class.simpleName} ${error.message}")
+        }
+        .isSuccess
+}
+
+/**
+ * updateViewLayout 在窗口已被系统移除（服务销毁竞态、权限被撤销）时会抛
+ * BadTokenException / IllegalArgumentException。这属于预期内的竞态，记日志而不是静默吞掉。
+ */
+internal fun WindowManager.safeUpdateViewLayout(view: View, params: WindowManager.LayoutParams) {
+    runCatching { updateViewLayout(view, params) }
+        .onFailure { error ->
+            Log.w("LunoLauncher", "overlay updateViewLayout failed: ${error::class.simpleName} ${error.message}")
+        }
+}
+
+internal fun WindowManager.safeRemoveViewImmediate(view: View) {
+    runCatching { removeViewImmediate(view) }
+        .onFailure { error ->
+            Log.w("LunoLauncher", "overlay removeViewImmediate failed: ${error::class.simpleName} ${error.message}")
+        }
+}

@@ -61,3 +61,14 @@ data class LongSlideActionPanelStyles(
         return copy(styles = styles + (direction to style))
     }
 }
+
+/** 颜色来源：自定义色值或跟随主题色。 */
+enum class ColorSource { Custom, Theme }
+
+/** 可跟随的主题色键。 */
+enum class ThemeColorKey {
+    Primary, PrimaryContainer, Secondary, SecondaryContainer,
+    Tertiary, TertiaryContainer, Surface, SurfaceVariant,
+    OnSurface, OnSurfaceVariant, Outline, OutlineVariant,
+    SurfaceContainerLow, SurfaceContainer, SurfaceContainerHigh,
+}

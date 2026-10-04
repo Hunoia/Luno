@@ -5,8 +5,10 @@ import android.os.SystemClock
 import androidx.annotation.Keep
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import hunoia.luno.R
 import hunoia.luno.action.api.ActionFacade
 import hunoia.luno.bridge.DensityProvider
+import hunoia.luno.core.AppContext
 import kotlinx.serialization.Serializable
 import kotlin.random.Random
 
@@ -103,4 +105,10 @@ data class GestureButton(
     val isDefault: Boolean = id == ID_DEFAULT
 
     override fun compareTo(other: GestureButton): Int = id.compareTo(other.id)
+}
+
+/** 按钮显示名：有名字用名字，否则取主题字符串（与 UI 侧 buttonTextCompose 同约定）。 */
+internal fun GestureButton.resolveDisplayName(): String {
+    if (name.isNotEmpty()) return name
+    return AppContext.get().getString(R.string.gesture_button)
 }

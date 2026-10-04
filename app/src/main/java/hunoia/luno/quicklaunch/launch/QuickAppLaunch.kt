@@ -1,8 +1,17 @@
 package hunoia.luno.quicklaunch.launch
 
 import android.content.Context
+import hunoia.luno.R
+import hunoia.luno.bridge.feedback.showToast
+import hunoia.luno.config.model.MiniWindowSettings
+import hunoia.luno.config.model.OpenAppOrUrlData
+import hunoia.luno.config.model.OpenUrlQueryParameter
+import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.query.AppQuery
+import hunoia.luno.quicklaunch.query.DisabledAppQuery
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -45,4 +54,77 @@ object QuickAppLaunch {
             }
         }
     }
+}
+
+object AppLaunchBypass {
+
+    suspend fun launchWithAutoUnfreeze(
+        context: Context,
+        packageName: String,
+        className: String,
+        miniWindow: Boolean = false,
+        miniWindowSettings: MiniWindowSettings = MiniWindowSettings(),
+        unfreezePackage: suspend (context: Context, packageName: String) -> Boolean = { _, _ -> true }
+    ): Boolean {
+        if (!ensureEnabled(context, packageName, unfreezePackage)) return false
+        return QuickLaunchFacade.launchAppDirect(context, packageName, className, miniWindow, miniWindowSettings)
+    }
+
+    suspend fun launchActivityWithAutoUnfreeze(
+        context: Context,
+        packageName: String,
+        className: String,
+        unfreezePackage: suspend (context: Context, packageName: String) -> Boolean = { _, _ -> true }
+    ): Boolean {
+        if (!ensureEnabled(context, packageName, unfreezePackage)) return false
+        return QuickLaunchFacade.launchAppActivityDirect(context, packageName, className)
+    }
+
+    /** 应用被禁用时先解冻再启动；解冻失败弹提示并返回 false */
+    private suspend fun ensureEnabled(
+        context: Context,
+        packageName: String,
+        unfreezePackage: suspend (context: Context, packageName: String) -> Boolean,
+    ): Boolean {
+        if (!DisabledAppQuery.isDisabled(context, packageName)) return true
+        if (!unfreezePackage(context, packageName)) {
+            showToast(R.string.enable_disabled_app_failed)
+            return false
+        }
+        DisabledAppQuery.markEnabled(packageName)
+        QuickLaunchFacade.invalidateLauncherCache()
+        return true
+    }
+}
+
+internal object OpenUrlBuilder {
+    fun build(rawUrl: String, data: OpenAppOrUrlData): String {
+        if (rawUrl.startsWith("intent:") || rawUrl.startsWith("android-app:")) {
+            return rawUrl
+        }
+        val additions = buildList {
+            if (data.miniWindow) {
+                add(OpenUrlQueryParameter(name = "miniWindow", value = "true"))
+            }
+            data.queryParameters
+                .filter { it.enabled && it.name.isNotBlank() }
+                .forEach { add(it) }
+        }
+        if (additions.isEmpty()) return rawUrl
+
+        val fragmentIndex = rawUrl.indexOf('#')
+        val base = if (fragmentIndex >= 0) rawUrl.substring(0, fragmentIndex) else rawUrl
+        val suffix = if (fragmentIndex >= 0) rawUrl.substring(fragmentIndex) else ""
+        val separator = when {
+            base.endsWith("?") || base.endsWith("&") -> ""
+            base.contains("?") -> "&"
+            else -> "?"
+        }
+        return base + separator + additions.joinToString("&") { parameter ->
+            "${parameter.name.encodeQueryComponent()}=${parameter.value.encodeQueryComponent()}"
+        } + suffix
+    }
+
+    private fun String.encodeQueryComponent(): String =
+        URLEncoder.encode(this, StandardCharsets.UTF_8.name()).replace("+", "%20")
 }

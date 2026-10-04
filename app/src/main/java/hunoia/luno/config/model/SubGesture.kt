@@ -57,3 +57,10 @@ data class SubGesture(
     fun withLongSlideHoldActions(direction: GestureDirection, newActions: List<Action>): SubGesture =
         copy(longSlideHoldActions = longSlideHoldActions.withActions(direction, newActions))
 }
+
+/** 子手势集合（SubGesture 的容器，与 SubGesture 同生命周期）。 */
+@Serializable
+@Keep
+data class SubGestureSettings(
+    val subGestures: List<SubGesture> = emptyList()
+)
