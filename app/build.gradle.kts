@@ -108,7 +108,6 @@ android {
             excludes += "/META-INF/**/LICENSE*"
             excludes += "/META-INF/**/NOTICE*"
             excludes += "/cncity_fulllist.txt"
-            excludes += "/tinypinyin/**"
             excludes += "/okhttp3/internal/publicsuffix/*"
 
         }
@@ -145,7 +144,7 @@ dependencies {
     implementation(libs.miuix.blur)
     // color-picker removed; replaced with in-app HsvRectPicker
     implementation(libs.material.icons.extended)
-    implementation(libs.tinypinyin)
+    implementation(libs.houbb.pinyin)
     implementation(libs.rikka.shizuku.api)
     implementation(libs.rikka.shizuku.provider)
     implementation(libs.hiddenapibypass)

@@ -36,12 +36,26 @@ import hunoia.luno.R
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.BuiltinSearchEngineIds
 import hunoia.luno.config.model.BuiltinSearchEngines
+import hunoia.luno.config.model.DefaultSourceTriggers
 import hunoia.luno.config.model.QuickSearchSettings
+import hunoia.luno.config.model.SRC_ACTION
+import hunoia.luno.config.model.SRC_APP
+import hunoia.luno.config.model.SRC_CALL
+import hunoia.luno.config.model.SRC_CALENDAR
+import hunoia.luno.config.model.SRC_CONTACT
+import hunoia.luno.config.model.SRC_FILE
+import hunoia.luno.config.model.SRC_MUSIC
+import hunoia.luno.config.model.SRC_SETTINGS
+import hunoia.luno.config.model.SRC_SHORTCUT
+import hunoia.luno.config.model.SRC_SMS
+import hunoia.luno.config.model.SRC_TOGGLE
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.effectiveEngines
+import hunoia.luno.config.model.effectiveTrigger
 import hunoia.luno.ui.component.MyColumn
 import hunoia.luno.ui.component.SegmentedGroup
 import hunoia.luno.ui.component.SegmentedSettingsRow
+import hunoia.luno.ui.component.SegmentedSwitchRow
 import hunoia.luno.ui.component.TopBar
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.SegmentedGap
@@ -57,6 +71,8 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
     var showAdd by remember { mutableStateOf(false) }
     var editTarget by remember { mutableStateOf<SearchEngine?>(null) }
     var deleteTarget by remember { mutableStateOf<SearchEngine?>(null) }
+    // 来源标识编辑目标（源 key）：行点开 dialog，开关照常切换，两不耽误。
+    var triggerTarget by remember { mutableStateOf<String?>(null) }
     val engines = settings.effectiveEngines()
 
     fun setDefault(id: String) {
@@ -113,15 +129,125 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                     onClick = { showAdd = true },
                 )
             }
+            // 内容源：P1 剪贴板，P2 联系人，P3 音乐/文件，日历/开关/短信/通话记录。
+            // 剪贴板历史、最近文件复用剪贴板/文件开关，不另加。
+            SegmentedGroup(contentSpacing = SegmentedGap) {
+                SegmentedSwitchRow(
+                    title = stringResource(R.string.quick_search_clipboard),
+                    checked = settings.searchClipboard,
+                    onCheckedChange = { v ->
+                        scope.launch {
+                            ConfigProvider.updateQuickSearchSettings { it.copy(searchClipboard = v) }
+                        }
+                    },
+                )
+                SegmentedSwitchRow(
+                    title = stringResource(R.string.quick_search_contacts),
+                    checked = settings.searchContacts,
+                    subtitle = settings.effectiveTrigger(SRC_CONTACT)
+                        .ifBlank { stringResource(R.string.quick_search_trigger_closed) },
+                    onClick = { triggerTarget = SRC_CONTACT },
+                    onCheckedChange = { v ->
+                        scope.launch {
+                            ConfigProvider.updateQuickSearchSettings { it.copy(searchContacts = v) }
+                        }
+                    },
+                )
+                SegmentedSwitchRow(
+                    title = stringResource(R.string.quick_search_music),
+                    checked = settings.searchMusic,
+                    subtitle = settings.effectiveTrigger(SRC_MUSIC)
+                        .ifBlank { stringResource(R.string.quick_search_trigger_closed) },
+                    onClick = { triggerTarget = SRC_MUSIC },
+                    onCheckedChange = { v ->
+                        scope.launch {
+                            ConfigProvider.updateQuickSearchSettings { it.copy(searchMusic = v) }
+                        }
+                    },
+                )
+                SegmentedSwitchRow(
+                    title = stringResource(R.string.quick_search_files),
+                    checked = settings.searchFiles,
+                    subtitle = settings.effectiveTrigger(SRC_FILE)
+                        .ifBlank { stringResource(R.string.quick_search_trigger_closed) },
+                    onClick = { triggerTarget = SRC_FILE },
+                    onCheckedChange = { v ->
+                        scope.launch {
+                            ConfigProvider.updateQuickSearchSettings { it.copy(searchFiles = v) }
+                        }
+                    },
+                )
+                SegmentedSwitchRow(
+                    title = stringResource(R.string.quick_search_calendar),
+                    checked = settings.searchCalendar,
+                    subtitle = settings.effectiveTrigger(SRC_CALENDAR)
+                        .ifBlank { stringResource(R.string.quick_search_trigger_closed) },
+                    onClick = { triggerTarget = SRC_CALENDAR },
+                    onCheckedChange = { v ->
+                        scope.launch {
+                            ConfigProvider.updateQuickSearchSettings { it.copy(searchCalendar = v) }
+                        }
+                    },
+                )
+                SegmentedSwitchRow(
+                    title = stringResource(R.string.quick_search_toggles),
+                    checked = settings.searchToggles,
+                    subtitle = settings.effectiveTrigger(SRC_TOGGLE)
+                        .ifBlank { stringResource(R.string.quick_search_trigger_closed) },
+                    onClick = { triggerTarget = SRC_TOGGLE },
+                    onCheckedChange = { v ->
+                        scope.launch {
+                            ConfigProvider.updateQuickSearchSettings { it.copy(searchToggles = v) }
+                        }
+                    },
+                )
+                SegmentedSwitchRow(
+                    title = stringResource(R.string.quick_search_sms),
+                    checked = settings.searchSms,
+                    subtitle = settings.effectiveTrigger(SRC_SMS)
+                        .ifBlank { stringResource(R.string.quick_search_trigger_closed) },
+                    onClick = { triggerTarget = SRC_SMS },
+                    onCheckedChange = { v ->
+                        scope.launch {
+                            ConfigProvider.updateQuickSearchSettings { it.copy(searchSms = v) }
+                        }
+                    },
+                )
+                SegmentedSwitchRow(
+                    title = stringResource(R.string.quick_search_calls),
+                    checked = settings.searchCalls,
+                    subtitle = settings.effectiveTrigger(SRC_CALL)
+                        .ifBlank { stringResource(R.string.quick_search_trigger_closed) },
+                    onClick = { triggerTarget = SRC_CALL },
+                    onCheckedChange = { v ->
+                        scope.launch {
+                            ConfigProvider.updateQuickSearchSettings { it.copy(searchCalls = v) }
+                        }
+                    },
+                )
+            }
+            // 无开关的来源（应用/快捷方式/动作/设置页常开）：只改标识，副标题显示当前值。
+            SegmentedGroup(contentSpacing = SegmentedGap) {
+                for (key in listOf(SRC_APP, SRC_SHORTCUT, SRC_ACTION, SRC_SETTINGS)) {
+                    val trigger = settings.effectiveTrigger(key)
+                    SegmentedSettingsRow(
+                        title = sourceTitle(key),
+                        subtitle = trigger.ifBlank { stringResource(R.string.quick_search_trigger_closed) },
+                        onClick = { triggerTarget = key },
+                    )
+                }
+            }
         }
     }
 
     if (showAdd || editTarget != null) {
         EngineEditDialog(
             initial = editTarget,
+            // 引擎标识也要跟来源标识判重（防把引擎改成 sms 这类）。
             existingTriggers = settings.effectiveEngines()
                 .filter { it.id != editTarget?.id }
-                .map { it.trigger },
+                .map { it.trigger } +
+                DefaultSourceTriggers.keys.map { settings.effectiveTrigger(it) },
             onDismiss = { showAdd = false; editTarget = null },
             onSave = { name, template, trigger ->
                 scope.launch {
@@ -147,6 +273,27 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                 }
                 showAdd = false
                 editTarget = null
+            },
+        )
+    }
+
+    triggerTarget?.let { key ->
+        SourceTriggerDialog(
+            title = sourceTitle(key),
+            current = settings.effectiveTrigger(key),
+            // 跟引擎标识 + 其他来源标识判重（自己除外）。
+            existingTriggers = settings.effectiveEngines().map { it.trigger } +
+                DefaultSourceTriggers.keys
+                    .filter { it != key }
+                    .map { settings.effectiveTrigger(it) },
+            onDismiss = { triggerTarget = null },
+            onSave = { v ->
+                scope.launch {
+                    ConfigProvider.updateQuickSearchSettings { current ->
+                        current.copy(sourceTriggers = current.sourceTriggers + (key to v))
+                    }
+                }
+                triggerTarget = null
             },
         )
     }
@@ -254,7 +401,7 @@ private fun EngineEditDialog(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     label = { Text(stringResource(R.string.search_engine_trigger)) },
-                    placeholder = { Text("bing") },
+                    placeholder = { Text("bb") },
                     isError = triggerError != null,
                     supportingText = {
                         Text(text = triggerError?.let { stringResource(it) } ?: "")
@@ -266,6 +413,78 @@ private fun EngineEditDialog(
             TextButton(
                 enabled = valid,
                 onClick = { onSave(name.trim(), template.trim(), triggerClean) },
+            ) {
+                Text(stringResource(R.string.confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        },
+    )
+}
+
+/** 来源 key → 显示名：复用已有文案，无开关的四个用分组名。面板提示列表共用。 */
+@Composable
+internal fun sourceTitle(key: String): String = when (key) {
+    SRC_APP -> stringResource(R.string.quick_search_group_apps)
+    SRC_SHORTCUT -> stringResource(R.string.quick_search_group_shortcuts)
+    SRC_ACTION -> stringResource(R.string.quick_search_group_actions)
+    SRC_SETTINGS -> stringResource(R.string.quick_search_group_settings)
+    SRC_CONTACT -> stringResource(R.string.quick_search_contacts)
+    SRC_MUSIC -> stringResource(R.string.quick_search_music)
+    SRC_FILE -> stringResource(R.string.quick_search_files)
+    SRC_CALENDAR -> stringResource(R.string.quick_search_calendar)
+    SRC_SMS -> stringResource(R.string.quick_search_sms)
+    SRC_CALL -> stringResource(R.string.quick_search_calls)
+    SRC_TOGGLE -> stringResource(R.string.quick_search_toggles)
+    else -> key
+}
+
+/**
+ * 来源标识编辑：单输入框，判重规则跟引擎 dialog 同款（空=关闭该源标识，
+ * 不能含空白、不能撞引擎/其他来源）。确认键只在合法时可用，不用 toast。
+ */
+@Composable
+private fun SourceTriggerDialog(
+    title: String,
+    current: String,
+    existingTriggers: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    var trigger by remember(current) { mutableStateOf(current) }
+    val triggerClean = trigger.trim().lowercase()
+    val triggerError: Int? = when {
+        triggerClean.any { it.isWhitespace() } -> R.string.search_engine_trigger_space
+        triggerClean.isNotEmpty() && existingTriggers.any { it.equals(triggerClean, ignoreCase = true) } ->
+            R.string.search_engine_trigger_duplicate
+        else -> null
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = trigger,
+                onValueChange = { trigger = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text(stringResource(R.string.search_engine_trigger)) },
+                isError = triggerError != null,
+                supportingText = {
+                    Text(
+                        text = triggerError?.let { stringResource(it) }
+                            ?: stringResource(R.string.quick_search_trigger_off),
+                    )
+                },
+            )
+        },
+        confirmButton = {
+            TextButton(
+                enabled = triggerError == null,
+                onClick = { onSave(triggerClean) },
             ) {
                 Text(stringResource(R.string.confirm))
             }

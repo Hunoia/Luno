@@ -22,6 +22,22 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_PROFILE_CONNECT" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" tools:ignore="ProtectedPermissions" />
+    <!-- P2 快速搜索联系人：运行时申请，拒绝则该来源无行 -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- P3 音乐/图片/视频：运行时一次申请（部分授权也认，有啥搜啥） -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <!-- P3 文档（pdf/zip 等非媒体）：granular 权限覆盖不到，只能走特殊权限，
+        设置页手动开，拒绝则文档来源无行 -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <!-- 快速搜索新源：日历/短信/通话记录都是运行时申请，拒绝则该来源无行 -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.READ_SMS" />
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <!-- 快捷开关读状态用（普通权限，安装即有）：WiFi 状态 -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
 
     <application
         android:name=".App"

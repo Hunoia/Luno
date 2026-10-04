@@ -6,13 +6,18 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
 data class PermissionState(
     val isGranted: Boolean,
@@ -20,39 +25,54 @@ data class PermissionState(
     val launchPermissionRequest: () -> Unit
 )
 
+/**
+ * 通用单权限状态：结果回调 + onResume 重查（从系统设置页授权回来时刷新）。
+ * P2 联系人、P3 音乐/文件共用。
+ */
 @Composable
-fun rememberGetInstalledAppsPermissionState(
+fun rememberPermissionState(
+    permission: String,
     onPermissionResult: (Boolean) -> Unit = {}
 ): PermissionState {
     val context = LocalContext.current
-    var isGranted by remember {
-        mutableStateOf(
-            !context.supportsPermission() ||
-            ContextCompat.checkSelfPermission(context, PERMISSION_GET_INSTALLED_APPS) ==
-            PackageManager.PERMISSION_GRANTED
-        )
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var tick by remember { mutableIntStateOf(0) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) tick++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     var deniedForever by remember { mutableStateOf(false) }
 
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        isGranted = granted
+        tick++
         if (!granted) {
             deniedForever = context is Activity &&
-                !ActivityCompat.shouldShowRequestPermissionRationale(
-                    context, PERMISSION_GET_INSTALLED_APPS
-                )
+                !ActivityCompat.shouldShowRequestPermissionRationale(context, permission)
         }
         onPermissionResult(granted)
     }
 
+    val isGranted = remember(tick) {
+        !context.supportsPermission() ||
+            ContextCompat.checkSelfPermission(context, permission) ==
+            PackageManager.PERMISSION_GRANTED
+    }
     return PermissionState(
         isGranted = isGranted,
-        deniedForever = deniedForever,
-        launchPermissionRequest = { launcher.launch(PERMISSION_GET_INSTALLED_APPS) }
+        deniedForever = deniedForever && !isGranted,
+        launchPermissionRequest = { launcher.launch(permission) }
     )
 }
+
+@Composable
+fun rememberGetInstalledAppsPermissionState(
+    onPermissionResult: (Boolean) -> Unit = {}
+): PermissionState = rememberPermissionState(PERMISSION_GET_INSTALLED_APPS, onPermissionResult)
 
 private fun Context.supportsPermission(): Boolean {
     return try {
