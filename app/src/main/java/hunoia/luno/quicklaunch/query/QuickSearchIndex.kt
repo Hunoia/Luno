@@ -16,6 +16,7 @@ import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.VALUE_LIBRARY_REF
 import hunoia.luno.config.model.VALUE_NEW_ACTION
 import hunoia.luno.config.model.defaultEngine
+import hunoia.luno.config.model.effectiveEngines
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
@@ -124,13 +125,12 @@ class QuickSearchIndex(private val context: Context) {
     private fun tierOf(text: String, tokens: List<String>): Int =
         AppSearch.matchTextTier(text, tokens)
 
-    /** 与 AppSearch.sortApps 同款的使用频率分（7 天衰减），key 与记录侧一致。 */
+    /** 与 AppSearch.sortApps 同款的使用频率分（对数压制 + 3 天半衰），key 与记录侧一致。 */
     private fun usageScore(key: String, settings: QuickAppLauncherSettings, now: Long): Double {
         val count = settings.launchCount[key] ?: 0L
         val recent = settings.recentLaunchTime[key] ?: 0L
         if (count <= 0L || recent <= 0L) return 0.0
-        val ageDays = (now - recent) / 86400000.0
-        return count / (1.0 + ageDays / 7.0)
+        return AppSearch.decayedUsage(count, (now - recent) / 86400000.0)
     }
 
     fun search(
@@ -150,8 +150,7 @@ class QuickSearchIndex(private val context: Context) {
             val pkg = key.substringBefore('/')
             val recent = launcherSettings.recentLaunchTime[key] ?: 0L
             if (count <= 0L || recent <= 0L) continue
-            val ageDays = (now - recent) / 86400000.0
-            val score = count / (1.0 + ageDays / 7.0)
+            val score = AppSearch.decayedUsage(count, (now - recent) / 86400000.0)
             if (score > (pkgScore[pkg] ?: 0.0)) pkgScore[pkg] = score
         }
 
@@ -203,23 +202,62 @@ class QuickSearchIndex(private val context: Context) {
 
         val sorted = results.sortedWith(
             compareByDescending<Triple<QuickSearchResult, Int, Double>> { it.second }
+                // 同 tier 内精确意图（动作/设置页）在前，应用靠使用分个性化在后。
+                // 动作类 usage 恒 0，否则永远被用过的应用压住，Check 会打中下面的
+                // 应用而不是视觉更靠前的动作。
+                .thenBy { typeRank(it.first) }
                 .thenByDescending { it.third }
                 .thenBy { it.first.title.length }
                 .thenBy { it.first.title },
         ).map { it.first }
 
-        // 搜索引擎兜底排最后：只有非 URL 关键词才有，用设置里的默认引擎。
+        // 搜索引擎兜底排最后：只有非 URL 关键词才有。标识直达优先（如 bing 新闻），
+        // 否则用设置里的默认引擎。
         val engine = if (urlResult == null) {
-            val default = searchSettings.defaultEngine()
-            QuickSearchResult.EngineSearch(
-                query.trim(),
-                context.getString(R.string.quick_search_engine_search, default.name),
-                default.urlTemplate,
-            )
+            directedEngine(query.trim(), searchSettings) ?: run {
+                val default = searchSettings.defaultEngine()
+                QuickSearchResult.EngineSearch(
+                    query.trim(),
+                    context.getString(R.string.quick_search_engine_search, default.name),
+                    default.urlTemplate,
+                )
+            }
         } else {
             null
         }
         return if (engine != null) sorted + engine else sorted
+    }
+
+    /**
+     * 标识直达：“标识 + 空格 + 内容”（如 bing 新闻）用标识对应的引擎。
+     * 大小写不敏感；无空格分隔、标识未知、有名无实（内容空）都返回 null 走默认兜底。
+     */
+    private fun directedEngine(query: String, settings: QuickSearchSettings): QuickSearchResult.EngineSearch? {
+        val rest = query.substringAfter(' ', "")
+        if (rest.isBlank()) return null
+        val head = query.substringBefore(' ')
+        val target = settings.effectiveEngines()
+            .firstOrNull { it.trigger.isNotBlank() && it.trigger.equals(head, ignoreCase = true) }
+            ?: return null
+        return QuickSearchResult.EngineSearch(
+            rest.trim(),
+            context.getString(R.string.quick_search_engine_search, target.name),
+            target.urlTemplate,
+        )
+    }
+
+    /**
+     * 同 tier 内的类型权重：小数字排前（列表首 = 视觉底部 = Check 目标）。
+     * EngineSearch 实际不参与排序（追加在最后），分支只为 when 穷尽。
+     */
+    private fun typeRank(result: QuickSearchResult): Int = when (result) {
+        is QuickSearchResult.Url -> 0
+        is QuickSearchResult.ActionDef -> 1
+        is QuickSearchResult.LibraryEntry -> 1
+        is QuickSearchResult.Settings -> 1
+        is QuickSearchResult.App -> 2
+        is QuickSearchResult.Shortcut -> 2
+        is QuickSearchResult.EngineSearch -> 3
     }
 
     private fun urlResult(query: String): QuickSearchResult.Url? {

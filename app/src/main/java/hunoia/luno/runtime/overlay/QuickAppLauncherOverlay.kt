@@ -4,7 +4,6 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.view.Gravity
 import android.util.Log
-import android.view.MotionEvent
 import hunoia.luno.BuildConfig
 import android.view.View
 import android.view.WindowManager
@@ -14,7 +13,6 @@ import hunoia.luno.quicklaunch.launch.Launcher
 import hunoia.luno.bridge.window.applyOverlayViewTreeOwners
 import hunoia.luno.bridge.window.windowManager
 import hunoia.luno.config.ConfigProvider
-import hunoia.luno.bridge.DensityProvider
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.runtime.GestureHost
@@ -26,8 +24,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.roundToInt
-import kotlin.math.max
 import hunoia.luno.config.model.miniWindowSettings
 
 /**
@@ -55,6 +51,8 @@ class QuickAppLauncherOverlay(private val host: GestureHost) {
     private var triggerCloseAnimated: (() -> Unit)? = null
     private var lastCloseMs: Long = 0L
     @Volatile private var pendingJob: Job? = null
+    private var layoutGateListener: View.OnLayoutChangeListener? = null
+    private var layoutGateFallback: Runnable? = null
 
     /** 常驻组合持有的 state。窗口尺寸调整后由它把面板点亮。 */
     @Volatile private var residentState: QuickAppLauncherState? = null
@@ -70,6 +68,8 @@ class QuickAppLauncherOverlay(private val host: GestureHost) {
     }
 
     private fun close() {
+        // 门控等待中被关闭：摘掉 listener/兜底，否则之后触发会把面板重新点亮。
+        clearLayoutGate()
         if (!panelShown) {
             cancelPendingShow()
             return
@@ -100,6 +100,7 @@ class QuickAppLauncherOverlay(private val host: GestureHost) {
      */
     fun closeImmediately() {
         cancelPendingShow()
+        clearLayoutGate()
         if (overlayView == null) return
         if (BuildConfig.DEBUG) Log.i("LunoLauncher", "closeImmediately: collapsing")
         residentState?.setPanelShown(false)
@@ -115,6 +116,7 @@ class QuickAppLauncherOverlay(private val host: GestureHost) {
      */
     fun release() {
         cancelPendingShow()
+        clearLayoutGate()
         val view = overlayView
         if (view != null) {
             if (BuildConfig.DEBUG) Log.i("LunoLauncher", "release: removing overlay")
@@ -159,9 +161,11 @@ class QuickAppLauncherOverlay(private val host: GestureHost) {
     private fun expandWindow() {
         val view = overlayView ?: return
         val lp = overlayParams ?: return
-        val settings = residentState?.launcherSettings ?: return
         lp.flags = lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-        lp.applyPanelLayout(settings)
+        // 全屏 scrim：面板外的点击落在内容层 scrim 上被消费（只关面板不传透），
+        // 面板几何已搬进 Compose（Root 内按 fractions 定位），窗口只管全屏/1×1 两种尺寸。
+        lp.width = WindowManager.LayoutParams.MATCH_PARENT
+        lp.height = WindowManager.LayoutParams.MATCH_PARENT
         host.context.windowManager().safeUpdateViewLayout(view, lp)
     }
 
@@ -174,6 +178,40 @@ class QuickAppLauncherOverlay(private val host: GestureHost) {
         state.setPanelShown(true)
     }
 
+    /**
+     * 等 expand 的全屏 relayout 落定再点亮，避免淡入首帧画在 1×1 窗口里。
+     * 窗口若本来就已是全屏（listener 永不触发）靠 300ms 兜底，revealPanel 幂等。
+     */
+    private fun awaitLayoutThenReveal() {
+        val view = overlayView ?: return
+        clearLayoutGate()
+        if (view.width > WindowLayoutFactory.COMPACT_SIZE && view.height > WindowLayoutFactory.COMPACT_SIZE) {
+            revealPanel()
+            return
+        }
+        val listener = View.OnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+            if (v.width > WindowLayoutFactory.COMPACT_SIZE && v.height > WindowLayoutFactory.COMPACT_SIZE) {
+                clearLayoutGate()
+                revealPanel()
+            }
+        }
+        layoutGateListener = listener
+        view.addOnLayoutChangeListener(listener)
+        val fallback = Runnable {
+            clearLayoutGate()
+            revealPanel()
+        }
+        layoutGateFallback = fallback
+        view.postDelayed(fallback, 300L)
+    }
+
+    private fun clearLayoutGate() {
+        layoutGateListener?.let { overlayView?.removeOnLayoutChangeListener(it) }
+        layoutGateListener = null
+        layoutGateFallback?.let { overlayView?.removeCallbacks(it) }
+        layoutGateFallback = null
+    }
+
     fun show() {
         val now = System.currentTimeMillis()
         val interval = if (lastCloseMs > 0) now - lastCloseMs else -1L
@@ -182,10 +220,13 @@ class QuickAppLauncherOverlay(private val host: GestureHost) {
         isShowing = true
 
         if (overlayView != null) {
-            // 常驻路径：窗口与组合都在，只放大 + 点亮。顺序不能反。
+            // 常驻路径：先放大，再等窗口真正落到全屏才点亮。expand 是跨进程异步的，
+            // 直接 reveal 会让淡入前几帧画在 1×1 窗口里（面板按 fractions 定位在
+            // 窗口之外，全被裁掉），等 WMS 切完 traversal 整块面板在淡入中途突然
+            // 出现 = 跳动。门控 + 超时兜底（revealPanel 幂等，重复调无害）。
             isShowing = false
             expandWindow()
-            revealPanel()
+            awaitLayoutThenReveal()
             return
         }
 
@@ -209,14 +250,10 @@ class QuickAppLauncherOverlay(private val host: GestureHost) {
 
     private fun showOverlayView(initialSettings: QuickAppLauncherSettings) {
         val wm = host.context.windowManager()
-        val lp = createLayoutParams(initialSettings)
+        val lp = createLayoutParams()
         val composeView = ComposeView(host.context).apply {
             setBackgroundColor(Color.TRANSPARENT)
             applyOverlayViewTreeOwners(host)
-
-            setOnTouchListener(createDismissOnOutsideTouch(onOutsideTouch = {
-                close()
-            }, logTag = "touch"))
 
             setContent {
                 val advancedSettings = host.advancedSettings ?: AdvancedSettings()
@@ -225,7 +262,7 @@ class QuickAppLauncherOverlay(private val host: GestureHost) {
                         initialSettings = initialSettings,
                         requestEnableDisabledPackage = host::requestEnableDisabledPackage,
                         onCloseAnimated = { onPanelHidden() },
-                        onUpdateLayout = { settings -> updateLayout(settings) },
+                        onClose = { close() },
                         onLaunch = { appInfo, miniWindow ->
                             val nowTs = System.currentTimeMillis()
                             val gap = if (lastCloseMs > 0) nowTs - lastCloseMs else -1L
@@ -272,57 +309,16 @@ class QuickAppLauncherOverlay(private val host: GestureHost) {
         }
     }
 
-    private fun createLayoutParams(settings: QuickAppLauncherSettings) = WindowManager.LayoutParams().apply {
+    private fun createLayoutParams() = WindowManager.LayoutParams().apply {
         type = WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
         format = PixelFormat.RGBA_8888
-        height = WindowManager.LayoutParams.WRAP_CONTENT
+        // 全屏：面板外的点击由内容层 scrim 消费（关面板、不传透下层），替代 NOT_TOUCH_MODAL + ACTION_OUTSIDE。
+        width = WindowManager.LayoutParams.MATCH_PARENT
+        height = WindowManager.LayoutParams.MATCH_PARENT
         flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
         @Suppress("DEPRECATION")
         gravity = Gravity.START or Gravity.TOP
-        applyPanelLayout(settings)
-    }
-
-    private fun WindowManager.LayoutParams.applyPanelLayout(settings: QuickAppLauncherSettings) {
-        val screenWidth = DensityProvider.screenWidthPx
-        val screenHeight = DensityProvider.screenHeightPx
-        val panelWidth = (screenWidth * settings.panelWidthFraction.coerceIn(0.65f, 1f)).roundToInt().coerceIn(1, screenWidth)
-        val estimatedHeight = estimatePanelHeightPx(settings).coerceAtMost(screenHeight)
-        width = panelWidth
-        x = ((screenWidth - panelWidth) * settings.panelHorizontalBias.coerceIn(0f, 1f)).roundToInt().coerceIn(0, screenWidth - panelWidth)
-        val maxY = max(0, screenHeight - estimatedHeight)
-        y = (screenHeight * (1f - settings.panelHeightFraction.coerceIn(0.05f, 0.95f))).roundToInt()
-            .coerceIn(0, maxY)
-        height = estimatedHeight
-    }
-
-    private fun estimatePanelHeightPx(settings: QuickAppLauncherSettings): Int {
-        return (DensityProvider.screenHeightPx * settings.contentHeightFraction.coerceIn(0.35f, 0.85f)).roundToInt()
-    }
-
-    /** 调整面板拖动时的实时改窗口尺寸。只在面板可见时才会被调到。 */
-    private fun updateLayout(settings: QuickAppLauncherSettings) {
-        val view = overlayView ?: return
-        val lp = overlayParams ?: return
-        lp.applyPanelLayout(settings)
-        host.context.windowManager().safeUpdateViewLayout(view, lp)
-    }
-}
-
-private fun createDismissOnOutsideTouch(
-    onOutsideTouch: () -> Unit,
-    logTag: String,
-): View.OnTouchListener = View.OnTouchListener { v, event ->
-    if (event.action == MotionEvent.ACTION_OUTSIDE) {
-        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "$logTag: ACTION_OUTSIDE at (${event.rawX.toInt()}, ${event.rawY.toInt()}) → close")
-        onOutsideTouch()
-        v.performClick()
-        true
-    } else {
-        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "$logTag: action=${event.action} at (${event.rawX.toInt()}, ${event.rawY.toInt()})")
-        false
     }
 }

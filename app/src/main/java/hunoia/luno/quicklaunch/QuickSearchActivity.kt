@@ -49,6 +49,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
@@ -203,6 +207,11 @@ private fun QuickSearchContent(
                 Spacer(Modifier.weight(1f))
             }
 
+            // 回车确认 = 右侧 Check：跳过兜底（除非只剩兜底），打最佳真实结果。
+            val confirmFirst: () -> Unit = {
+                (results.firstOrNull { it !is QuickSearchResult.EngineSearch }
+                    ?: results.firstOrNull())?.let(onResult)
+            }
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
@@ -215,7 +224,8 @@ private fun QuickSearchContent(
                 trailingIcon = {
                     if (query.text.isNotBlank()) {
                         androidx.compose.material3.IconButton(
-                            onClick = { results.firstOrNull()?.let(onResult) },
+                            // 注意列表是反转的：firstOrNull 是视觉底部（离胶囊最近），与显示顺序相反。
+                            onClick = confirmFirst,
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Check,
@@ -226,6 +236,12 @@ private fun QuickSearchContent(
                 },
                 singleLine = true,
                 shape = CircleShape,
+                // 默认英文键盘 + 回车即确认（否则回车只是收键盘）。
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Ascii,
+                    imeAction = ImeAction.Search,
+                ),
+                keyboardActions = KeyboardActions(onSearch = { confirmFirst() }),
                 colors = OutlinedTextFieldDefaults.colors(
                     // 半透明底色：透出窗口背后的系统模糊，不支持的设备直接呈现半透明。
                     focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f),

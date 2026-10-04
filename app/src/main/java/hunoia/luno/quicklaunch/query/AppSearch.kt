@@ -5,6 +5,8 @@ import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import java.util.Collections
 import java.util.LinkedHashMap
+import kotlin.math.ln
+import kotlin.math.pow
 
 object AppSearch {
 
@@ -27,6 +29,13 @@ object AppSearch {
     private const val NO_MATCH = -1
     private const val DEGRADED = 0
     private const val ANCHOR = 1
+
+    /**
+     * 使用频率分：对数压制次数（老人不无限累积）× 指数衰减（3 天半衰，新欢说了算）。
+     * 三处调用（sortApps / QuickSearchIndex / 快捷方式包聚合）必须同公式。
+     */
+    internal fun decayedUsage(count: Long, ageDays: Double): Double =
+        ln(1.0 + count) * 0.5.pow(ageDays / 3.0)
 
     internal fun compileTokenMasks(tokens: List<String>): LongArray {
         val masks = LongArray(tokens.size)
@@ -125,8 +134,7 @@ object AppSearch {
             val launchCount = settings.launchCount[key] ?: 0L
             val recentTime = settings.recentLaunchTime[key] ?: 0L
             val usageScore = if (launchCount > 0 && recentTime > 0) {
-                val ageDays = (now - recentTime) / 86400000.0
-                launchCount / (1.0 + ageDays / 7.0)
+                decayedUsage(launchCount, (now - recentTime) / 86400000.0)
             } else 0.0
 
             entries.add(SearchEntry(app, tier, usageScore, index.raw, app.label.length))

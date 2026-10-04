@@ -85,7 +85,7 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                     val locked = engine.id in BuiltinSearchEngineIds
                     SegmentedSettingsRow(
                         title = engine.name,
-                        subtitle = engine.urlTemplate,
+                        subtitle = if (engine.trigger.isNotBlank()) "${engine.trigger} · ${engine.urlTemplate}" else engine.urlTemplate,
                         onClick = { setDefault(engine.id) },
                         trailingContent = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -119,20 +119,27 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
     if (showAdd || editTarget != null) {
         EngineEditDialog(
             initial = editTarget,
+            existingTriggers = settings.effectiveEngines()
+                .filter { it.id != editTarget?.id }
+                .map { it.trigger },
             onDismiss = { showAdd = false; editTarget = null },
-            onSave = { name, template ->
+            onSave = { name, template, trigger ->
                 scope.launch {
                     ConfigProvider.updateQuickSearchSettings { current ->
                         val target = editTarget
                         if (target == null) {
                             current.copy(
                                 customEngines = current.customEngines +
-                                    SearchEngine(name = name, urlTemplate = template),
+                                    SearchEngine(name = name, urlTemplate = template, trigger = trigger),
                             )
                         } else {
                             current.copy(
                                 customEngines = current.customEngines.map {
-                                    if (it.id == target.id) it.copy(name = name, urlTemplate = template) else it
+                                    if (it.id == target.id) {
+                                        it.copy(name = name, urlTemplate = template, trigger = trigger)
+                                    } else {
+                                        it
+                                    }
                                 },
                             )
                         }
@@ -182,12 +189,24 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
 @Composable
 private fun EngineEditDialog(
     initial: SearchEngine?,
+    existingTriggers: List<String>,
     onDismiss: () -> Unit,
-    onSave: (name: String, template: String) -> Unit,
+    onSave: (name: String, template: String, trigger: String) -> Unit,
 ) {
     var name by remember(initial) { mutableStateOf(initial?.name.orEmpty()) }
     var template by remember(initial) { mutableStateOf(initial?.urlTemplate.orEmpty()) }
-    val valid = name.isNotBlank() && template.contains("%s")
+    var trigger by remember(initial) { mutableStateOf(initial?.trigger.orEmpty()) }
+    val templateError = template.isNotEmpty() && !template.contains("%s")
+    // 标识：空 = 不启用直达；否则不能含空白、不能与其它引擎重复（大小写不敏感）。
+    val triggerClean = trigger.trim()
+    val triggerError: Int? = when {
+        triggerClean.any { it.isWhitespace() } -> R.string.search_engine_trigger_space
+        triggerClean.isNotEmpty() && existingTriggers.any { it.equals(triggerClean, ignoreCase = true) } ->
+            R.string.search_engine_trigger_duplicate
+        else -> null
+    }
+    val templateValid = name.isNotBlank() && template.contains("%s")
+    val valid = templateValid && triggerError == null
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -214,12 +233,31 @@ private fun EngineEditDialog(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     label = { Text(stringResource(R.string.search_engine_url)) },
-                    placeholder = { Text("https://www.bing.com/search?q=%s") },
-                    isError = template.isNotEmpty() && !template.contains("%s"),
+                    placeholder = {
+                        Text(
+                            "https://www.bing.com/search?q=%s",
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        )
+                    },
+                    isError = templateError,
+                    // supportingText 常驻占位：无错时空字符串，避免错误出现/消失时弹窗高度跳动。
                     supportingText = {
-                        if (template.isNotEmpty() && !template.contains("%s")) {
-                            Text(stringResource(R.string.search_engine_url_error))
-                        }
+                        Text(
+                            text = if (templateError) stringResource(R.string.search_engine_url_error) else "",
+                        )
+                    },
+                )
+                OutlinedTextField(
+                    value = trigger,
+                    onValueChange = { trigger = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.search_engine_trigger)) },
+                    placeholder = { Text("bing") },
+                    isError = triggerError != null,
+                    supportingText = {
+                        Text(text = triggerError?.let { stringResource(it) } ?: "")
                     },
                 )
             }
@@ -227,7 +265,7 @@ private fun EngineEditDialog(
         confirmButton = {
             TextButton(
                 enabled = valid,
-                onClick = { onSave(name.trim(), template.trim()) },
+                onClick = { onSave(name.trim(), template.trim(), triggerClean) },
             ) {
                 Text(stringResource(R.string.confirm))
             }

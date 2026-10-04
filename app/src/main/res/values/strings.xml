@@ -397,5 +397,8 @@
     <string name="search_engine_name">名称</string>
     <string name="search_engine_url">网址模板</string>
     <string name="search_engine_url_error">模板必须包含 %s</string>
+    <string name="search_engine_trigger">标识</string>
+    <string name="search_engine_trigger_space">标识不能包含空格</string>
+    <string name="search_engine_trigger_duplicate">标识已被使用</string>
     <string name="search_engine_delete_title">删除搜索引擎？</string>
 </resources>

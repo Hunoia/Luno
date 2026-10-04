@@ -54,6 +54,17 @@ class QuickAppLauncherState(
         private set
     var launcherSettings by mutableStateOf(initialSettings)
         private set
+    /**
+     * 调整面板拖拽中的实时预览：窗口全屏化后不再有窗口级缩放，拖拽预览走重组。
+     * 为 null 时用已落盘的 [launcherSettings]；落盘值到达（commit 后 flow 下发）即清掉，
+     * 避免覆盖已持久化的值。拖拽中 flow 无下发，所以预览不会被冲掉。
+     */
+    var previewSettings by mutableStateOf<hunoia.luno.config.model.QuickAppLauncherSettings?>(null)
+        private set
+
+    fun setPreviewLayout(settings: hunoia.luno.config.model.QuickAppLauncherSettings) {
+        previewSettings = settings
+    }
     var keyboardExpanded by mutableStateOf(true)
     var panelVisible by mutableStateOf(false)
     var closing by mutableStateOf(false)
@@ -77,7 +88,10 @@ class QuickAppLauncherState(
 
     init {
         coroutineScope.launch {
-            ConfigProvider.quickAppLauncherSettings.collectLatest { launcherSettings = it }
+            ConfigProvider.quickAppLauncherSettings.collectLatest {
+                launcherSettings = it
+                previewSettings = null
+            }
         }
         onPackageChanged = {
             coroutineScope.launch {

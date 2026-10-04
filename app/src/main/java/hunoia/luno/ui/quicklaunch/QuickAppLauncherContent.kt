@@ -2,22 +2,23 @@ package hunoia.luno.ui.quicklaunch
 import hunoia.luno.ui.theme.*
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.Card
@@ -34,7 +35,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -44,6 +44,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import hunoia.luno.ui.theme.ExtraLargeShape
@@ -79,7 +80,7 @@ internal fun QuickAppLauncherRoot(
     initialSettings: QuickAppLauncherSettings,
     requestEnableDisabledPackage: (String, (Boolean) -> Unit) -> Unit,
     onCloseAnimated: () -> Unit,
-    onUpdateLayout: ((QuickAppLauncherSettings) -> Unit)? = null,
+    onClose: () -> Unit,
     onLaunch: (AppInfo, Boolean) -> Boolean,
     onRegisterCloseAnimated: ((() -> Unit) -> Unit)? = null,
     onStateReady: (QuickAppLauncherState) -> Unit = {},
@@ -97,13 +98,47 @@ internal fun QuickAppLauncherRoot(
             onRegisterCloseAnimated = onRegisterCloseAnimated,
         ).also { onStateReady(it) }
     }
-    if (state.panelVisible) {
-        QuickAppLauncherContent(
-            state = state,
-            onUpdateLayout = onUpdateLayout,
-        )
-    } else {
-        Box(Modifier.size(1.dp))
+    // 进退场淡入淡出走 AnimatedVisibility：Content 每次打开都是全新进入组合，
+    // animateFloatAsState 在首次组合时初值即目标值、动画会被跳过（重开瞬现的根因）。
+    AnimatedVisibility(
+        visible = state.panelVisible,
+        enter = fadeIn(animationSpec = tween(durationMillis = AnimOverlayFade.toInt())),
+        exit = fadeOut(animationSpec = tween(durationMillis = AnimOverlayFade.toInt())),
+    ) {
+        // 全屏 scrim：面板外的点击落在这里被消费（只关面板，不传透下层应用），
+        // 替代之前的 ACTION_OUTSIDE 机制（通知和传透同时发生，传透拦不住）。
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClose,
+                ),
+        ) {
+            // 面板几何以前在窗口 params 里（applyPanelLayout），窗口全屏化后搬进 Compose。
+            // 换算与原来逐项一致：同 fractions、同钳制。
+            val configuration = LocalConfiguration.current
+            val density = LocalDensity.current
+            val layout = state.previewSettings ?: state.launcherSettings
+            val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx().roundToInt() }
+            val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx().roundToInt() }
+            val panelWidthPx = (screenWidthPx * layout.panelWidthFraction.coerceIn(0.65f, 1f)).roundToInt().coerceIn(1, screenWidthPx)
+            val xPx = ((screenWidthPx - panelWidthPx) * layout.panelHorizontalBias.coerceIn(0f, 1f)).roundToInt().coerceIn(0, screenWidthPx - panelWidthPx)
+            val estimatedHeightPx = (screenHeightPx * layout.contentHeightFraction.coerceIn(0.35f, 0.85f)).roundToInt().coerceAtMost(screenHeightPx)
+            val maxYPx = kotlin.math.max(0, screenHeightPx - estimatedHeightPx)
+            val yPx = (screenHeightPx * (1f - layout.panelHeightFraction.coerceIn(0.05f, 0.95f))).roundToInt().coerceIn(0, maxYPx)
+            Box(
+                modifier = Modifier
+                    .offset { IntOffset(xPx, yPx) }
+                    .width(with(density) { panelWidthPx.toDp() }),
+            ) {
+                QuickAppLauncherContent(
+                    state = state,
+                    onUpdateLayout = { state.setPreviewLayout(it) },
+                )
+            }
+        }
     }
 
     // 组合被销毁（旋转 / 服务销毁走 release）时解注册广播回调。
@@ -116,19 +151,6 @@ internal fun QuickAppLauncherRoot(
     val localeTag = LocalConfiguration.current.locales[0].toLanguageTag()
     LaunchedEffect(localeTag) {
         state.reloadAppsIfLocaleChanged()
-    }
-
-    // 旋转后重算窗口几何。
-    //
-    // 放在这里而不是靠 service 的 onConfigurationChanged：manifest 没声明
-    // android:configChanges，无障碍服务收不到那个回调（实测旋转后进程存活、
-    // 回调未送达），靠它做旋转修正不可靠。组合一定能看到 LocalConfiguration 变化。
-    //
-    // 首次组合也会触发一次 updateLayout，幂等无害 —— 不过是按同一份 settings
-    // 重算一遍同样的宽高。
-    val orientation = LocalConfiguration.current.orientation
-    LaunchedEffect(orientation) {
-        onUpdateLayout?.invoke(state.launcherSettings)
     }
 }
 
@@ -144,8 +166,6 @@ private fun QuickAppLauncherContent(
     val orientation = configuration.orientation
     val screenWidthPx = remember(orientation) { with(density) { configuration.screenWidthDp.dp.toPx().roundToInt() } }
     val panelWidthDp = with(density) { (screenWidthPx * state.launcherSettings.panelWidthFraction).toDp() }
-    val panelAlpha by animateFloatAsState(if (state.panelVisible) 1f else 0f, animationSpec = spring(stiffness = Spring.StiffnessMedium), label = "panelAlpha")
-    val panelShiftY by animateFloatAsState(if (state.panelVisible) 0f else 18f, animationSpec = spring(stiffness = Spring.StiffnessMedium), label = "panelShiftY")
     var gridAtTop by remember { mutableStateOf(true) }
     val gridState = rememberLazyGridState()
     var currentPage by remember { mutableStateOf(Page.App) }
@@ -195,10 +215,6 @@ private fun QuickAppLauncherContent(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .graphicsLayer {
-                    alpha = panelAlpha
-                    translationY = panelShiftY
-                }
         ) {
             Column(
                 modifier = Modifier
