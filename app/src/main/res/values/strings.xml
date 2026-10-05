@@ -14,6 +14,7 @@
     <string name="backup_failed">备份失败</string>
     <string name="restore_success">恢复成功</string>
     <string name="restore_failed">恢复失败</string>
+    <string name="dispatch_service_not_ready">手势服务未就绪，动作未执行</string>
     <string name="width">宽度</string>
     <string name="mini_window_position_hint">调整小窗打开的位置</string>
     <string name="hide_gesture_button">隐藏触钮</string>

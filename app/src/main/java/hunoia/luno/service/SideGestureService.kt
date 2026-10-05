@@ -48,6 +48,9 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         if (::gestureCoordinator.isInitialized) gestureCoordinator.dispatchAction(action)
     }
 
+    /** 分发链就绪：coordinator 已初始化。供 DispatchService 跨进程查询。 */
+    fun isDispatchReady(): Boolean = ::gestureCoordinator.isInitialized
+
     override fun onSetOverlay() {
         current = this
         if (::gestureCoordinator.isInitialized) gestureCoordinator.onDestroy()

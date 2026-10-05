@@ -95,6 +95,7 @@ android {
         compose = true
         buildConfig = true
         resValues = true
+        aidl = true
     }
     androidResources {
         localeFilters += listOf("en", "zh-rCN", "zh-rTW")

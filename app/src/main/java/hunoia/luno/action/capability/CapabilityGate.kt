@@ -14,7 +14,10 @@ import hunoia.luno.service.SideGestureService
  */
 class CapabilityGate(
     private val appContext: Context,
-    private val isServiceAlive: () -> Boolean = { SideGestureService.current != null },
+    private val isServiceAlive: () -> Boolean = {
+        hunoia.luno.service.DispatchClient.isReady() ||
+            SideGestureService.current != null
+    },
 ) {
     fun isAvailable(capability: Capability): Boolean = when (capability) {
         Capability.None -> true

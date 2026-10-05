@@ -114,6 +114,11 @@
         </service>
 
         <service
+            android:name=".service.DispatchService"
+            android:exported="false"
+            android:process=":service" />
+
+        <service
             android:name=".runtime.automation.AutomationNotificationListener"
             android:exported="true"
             android:label="@string/app_name"

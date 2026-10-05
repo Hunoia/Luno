@@ -24,7 +24,7 @@ import hunoia.luno.quicklaunch.query.QuickSearchResult
 import hunoia.luno.quicklaunch.query.longPressAction
 import hunoia.luno.quicklaunch.query.resolvedUrl
 import hunoia.luno.quicklaunch.query.toConfigAction
-import hunoia.luno.service.SideGestureService
+import hunoia.luno.service.DispatchClient
 import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -192,14 +192,21 @@ class QuickSearchActivity : ComponentActivity() {
                             } else if (result is QuickSearchResult.App && result.isDisabled) {
                                 // 小清理：已停用应用点选不再走启动（行为未定义），进详情页让用户手动启用。
                                 recordQuery(confirmedQuery)
-                                SideGestureService.current?.dispatchAction(
-                                    result.longPressAction()
-                                        ?: result.toConfigAction(),
-                                )
-                                requestClose()
+                                if (DispatchClient.dispatch(
+                                        result.longPressAction()
+                                            ?: result.toConfigAction(),
+                                    )
+                                ) {
+                                    requestClose()
+                                } else {
+                                    showToast(R.string.dispatch_service_not_ready)
+                                }
                             } else {
-                                SideGestureService.current?.dispatchAction(result.toConfigAction())
-                                requestClose()
+                                if (DispatchClient.dispatch(result.toConfigAction())) {
+                                    requestClose()
+                                } else {
+                                    showToast(R.string.dispatch_service_not_ready)
+                                }
                             }
                         }
                     },
@@ -249,8 +256,11 @@ class QuickSearchActivity : ComponentActivity() {
                             // 长按：应用类进详情页，网址/引擎行复制链接，其余无语义。
                             val detail = result.longPressAction()
                             if (detail != null) {
-                                SideGestureService.current?.dispatchAction(detail)
-                                requestClose()
+                                if (DispatchClient.dispatch(detail)) {
+                                    requestClose()
+                                } else {
+                                    showToast(R.string.dispatch_service_not_ready)
+                                }
                             } else {
                                 when (result) {
                                     is QuickSearchResult.Url -> {

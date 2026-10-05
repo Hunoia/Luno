@@ -77,6 +77,9 @@ class App : Application(), ImageLoaderFactory {
 
         UDFComponentDefaults.set(UDFComponentDefaultsImpl())
 
+        // 两进程都连分发 Binder：主进程靠它转发，:service 靠它自查就绪。
+        hunoia.luno.service.DispatchClient.bind(applicationContext)
+
         Thread.setDefaultUncaughtExceptionHandler(CrashHandler)
     }
 

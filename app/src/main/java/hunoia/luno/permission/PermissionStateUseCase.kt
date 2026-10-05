@@ -4,6 +4,7 @@ import android.content.Context
 import hunoia.luno.bridge.hasWriteSecureSettingsPermission
 import hunoia.luno.bridge.isAccessibilitySettingsOn
 import hunoia.luno.config.ConfigProvider
+import hunoia.luno.service.DispatchClient
 import hunoia.luno.service.SideGestureService
 
 data class HomePermissionState(
@@ -18,7 +19,7 @@ object PermissionStateUseCase {
         val appContext = context.applicationContext
         val gestureEnabledSetting = ConfigProvider.getInitialSettings().gestureEnabled
         val accessibilityEnabled = appContext.isAccessibilitySettingsOn(SideGestureService::class.java) ||
-            SideGestureService.current != null
+            DispatchClient.isReady()
         val hasWriteSecureSettings = appContext.hasWriteSecureSettingsPermission()
         val keepAliveEnabledSetting = ConfigProvider.getAdvancedSettings().keepAliveEnabled
         return HomePermissionState(
