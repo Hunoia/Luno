@@ -21,8 +21,6 @@ import kotlinx.coroutines.CoroutineScope
 
 object QuickLaunchFacade {
 
-    var showOverlay: () -> Unit = {}
-
     fun queryApps(context: Context, allowRepeatPackage: Boolean = true): List<AppInfo> =
         AppQuery.queryLauncherActivities(context, allowRepeatPackage)
 

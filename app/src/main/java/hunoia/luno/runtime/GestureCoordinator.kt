@@ -76,7 +76,6 @@ class GestureCoordinator(
         onScreenOff = {
             if (BuildConfig.DEBUG) Log.i("LunoLauncher", "screen off")
             environmentTracker.isNowInLockScreenPage = true
-            host.quickAppLauncherOverlay.closeImmediately()
             host.runtimePanelOverlay.closeImmediately()
             refreshGestureButtons()
         },
@@ -153,7 +152,7 @@ class GestureCoordinator(
             )
         },
         runtimeState = { buildRuntimeState(consumePulses = false) },
-        onToggleQuickAppLauncher = { host.quickAppLauncherOverlay.toggle() },
+        onToggleQuickAppLauncher = { hunoia.luno.quicklaunch.QuickAppLauncherActivity.start(host.context) },
         onShowQuickSearch = { hunoia.luno.quicklaunch.QuickSearchActivity.start(host.context) },
         onShowVolumeScrub = { config -> volumeScrubRuntime.show(config) },
         onHideGestureButton = { button, delayMs ->

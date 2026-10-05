@@ -19,6 +19,7 @@
     <string name="hide_gesture_button">隐藏触钮</string>
     <string name="keep_alive_need_permission">保活需要授予「修改系统设置」权限，请先在 Shizuku 中授权或通过 ADB 执行：adb shell pm grant hunoia.luno android.permission.WRITE_SECURE_SETTINGS</string>
     <string name="quick_launcher_requires_accessibility">需要无障碍服务才能打开应用面板，请先在设置中开启</string>
+    <string name="quick_launcher_start_failed">启动面板打开失败</string>
     <string name="quick_search_start_failed">搜索面板打开失败</string>
     <string name="quick_search_copied">已复制</string>
     <string name="quick_search_clipboard">剪贴板</string>

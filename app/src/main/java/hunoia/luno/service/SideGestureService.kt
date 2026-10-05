@@ -9,12 +9,9 @@ import hunoia.luno.quicklaunch.launch.DisabledPackageEnabler
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.GestureCoordinator
 import hunoia.luno.runtime.GestureHost
-import hunoia.luno.runtime.overlay.QuickAppLauncherOverlay
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.launch
 
 class SideGestureService : ComponentAccessibilityService(), GestureHost {
 
@@ -38,18 +35,6 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         )
     }
 
-    override val quickAppLauncherOverlay by lazy {
-        QuickAppLauncherOverlay(this).apply {
-            onAppLaunchRequested = { app ->
-                coroutineScope.launch(Dispatchers.IO) {
-                    recordQuickAppLaunchIfSuccess(true, "${app.packageName}/${app.className}") {
-                        hunoia.luno.config.ConfigProvider.recordQuickAppLaunch(it)
-                    }
-                }
-            }
-            QuickLaunchFacade.showOverlay = { show() }
-        }
-    }
     override val runtimePanelOverlay by lazy {
         RuntimePanelOverlay(this)
     }
@@ -93,11 +78,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         if (current === this) currentRef = null
         disabledPackageEnabler.release()
         if (::gestureCoordinator.isInitialized) gestureCoordinator.onDestroy()
-        // release 而不是 closeImmediately：overlay 是 by lazy 的，onSetOverlay 重建
-        // GestureCoordinator 时不会重建它，不显式销毁 ComposeView 就跟着 service 泄漏。
-        quickAppLauncherOverlay.release()
         runtimePanelOverlay.close()
-        QuickLaunchFacade.showOverlay = {}
         coroutineScope.cancel()
     }
 
@@ -111,15 +92,5 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
 
     override fun getCurrentPackageName(): String {
         return rootInActiveWindow?.packageName?.toString() ?: ""
-    }
-}
-
-internal suspend fun recordQuickAppLaunchIfSuccess(
-    success: Boolean,
-    appKey: String,
-    record: suspend (String) -> Unit,
-) {
-    if (success) {
-        record(appKey)
     }
 }

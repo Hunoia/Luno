@@ -64,12 +64,13 @@
             android:name=".quicklaunch.QuickAppLauncherActivity"
             android:excludeFromRecents="true"
             android:exported="true"
-            android:finishOnTaskLaunch="true"
-            android:launchMode="singleTop"
+            android:launchMode="singleTask"
             android:noHistory="true"
             android:process=":service"
+            android:showWhenLocked="true"
             android:taskAffinity="hunoia.luno.quicklauncher"
-            android:theme="@style/Theme.SideGesture.Transparent">
+            android:theme="@style/Theme.SideGesture.Transparent"
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="hunoia.luno.action.QUICK_APP_LAUNCHER" />
                 <category android:name="android.intent.category.DEFAULT" />
