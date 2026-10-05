@@ -6,10 +6,13 @@ import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.Backup
+import hunoia.luno.config.model.BackupDomain
+import hunoia.luno.config.model.BackupVersions
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.QuickAppLauncherSettings
+import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SubGestureSettings
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -28,7 +31,14 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         val subGestureDeferred = async { stores._subGestureSettings.data.first() }
         val newActionLibraryDeferred = async { stores._newActionLibrarySettings.data.first() }
         val automationRulesDeferred = async { stores._automationRules.data.first() }
+        val quickSearchDeferred = async { stores._quickSearchSettings.data.first() }
         Backup(
+            backupFormatVersion = BackupVersions.FORMAT,
+            gestureSchemaVersion = BackupVersions.GESTURE,
+            tuneSchemaVersion = BackupVersions.TUNE,
+            actionSchemaVersion = BackupVersions.ACTION,
+            automationSchemaVersion = BackupVersions.AUTOMATION,
+            searchSchemaVersion = BackupVersions.SEARCH,
             initialSettings = initialDeferred.await(),
             advancedSettings = advancedDeferred.await(),
             gestureSettings = gestureDeferred.await(),
@@ -38,6 +48,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
             subGestureSettings = subGestureDeferred.await(),
             newActionLibrarySettings = newActionLibraryDeferred.await(),
             automationRules = automationRulesDeferred.await(),
+            quickSearchSettings = quickSearchDeferred.await(),
         )
     }
 
@@ -51,7 +62,48 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { backup.subGestureSettings?.let { v -> writeSection("subGestureSettings") { stores._subGestureSettings.updateData { v } } } }
         launch { backup.newActionLibrarySettings?.let { v -> writeSection("newActionLibrarySettings") { stores._newActionLibrarySettings.updateData { v } } } }
         launch { backup.automationRules?.let { v -> writeSection("automationRules") { stores._automationRules.updateData { v } } } }
+        launch { backup.quickSearchSettings?.let { v -> writeSection("quickSearchSettings") { stores._quickSearchSettings.updateData { v } } } }
     }
+
+    /** 单域快照：只含该域的段与版本，其余为 null。 */
+    suspend fun snapshotDomain(domain: BackupDomain): Backup {
+        val full = snapshotAll()
+        return when (domain) {
+            BackupDomain.GESTURE -> Backup(
+                backupFormatVersion = full.backupFormatVersion,
+                gestureSchemaVersion = full.gestureSchemaVersion,
+                initialSettings = full.initialSettings,
+                gestureSettings = full.gestureSettings,
+                gestureButtons = full.gestureButtons,
+                subGestureSettings = full.subGestureSettings,
+            )
+            BackupDomain.TUNE -> Backup(
+                backupFormatVersion = full.backupFormatVersion,
+                tuneSchemaVersion = full.tuneSchemaVersion,
+                advancedSettings = full.advancedSettings,
+            )
+            BackupDomain.ACTION -> Backup(
+                backupFormatVersion = full.backupFormatVersion,
+                actionSchemaVersion = full.actionSchemaVersion,
+                actionSettings = full.actionSettings,
+                newActionLibrarySettings = full.newActionLibrarySettings,
+            )
+            BackupDomain.AUTOMATION -> Backup(
+                backupFormatVersion = full.backupFormatVersion,
+                automationSchemaVersion = full.automationSchemaVersion,
+                automationRules = full.automationRules,
+            )
+            BackupDomain.SEARCH -> Backup(
+                backupFormatVersion = full.backupFormatVersion,
+                searchSchemaVersion = full.searchSchemaVersion,
+                quickAppLauncherSettings = full.quickAppLauncherSettings,
+                quickSearchSettings = full.quickSearchSettings,
+            )
+        }
+    }
+
+    /** 单域恢复：只写非 null 段。 */
+    suspend fun restoreDomain(backup: Backup) = restoreAll(backup)
 
     private suspend fun writeSection(section: String, block: suspend () -> Unit) {
         try {
@@ -71,5 +123,6 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { stores._subGestureSettings.updateData { SubGestureSettings() } }
         launch { stores._newActionLibrarySettings.updateData { NewActionLibrarySettings() } }
         launch { stores._automationRules.updateData { AutomationRule.Defaults } }
+        launch { stores._quickSearchSettings.updateData { QuickSearchSettings() } }
     }
 }

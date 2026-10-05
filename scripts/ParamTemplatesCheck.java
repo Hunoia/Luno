@@ -33,7 +33,7 @@ public class ParamTemplatesCheck {
         return new Object[]{text.substring(nameStart, end), dollar, end};
     }
 
-    // 对应 ParamTemplates.collectTokens(text, out)
+    // 对应 ParamTemplates.collectTokens(text, out)（含表达式操作数名提取）
     static LinkedHashSet<String> collectTokens(String text) {
         LinkedHashSet<String> out = new LinkedHashSet<>();
         if (text.indexOf('$') < 0) return out;
@@ -41,14 +41,20 @@ public class ParamTemplatesCheck {
         while (i < text.length()) {
             if (text.charAt(i) != '$') { i++; continue; }
             Object[] hit = tokenAt(text, i);
-            if (hit == null) { i++; continue; }
+            if (hit == null) {
+                Object[] expr = expressionAt(text, i);
+                if (expr == null) { i++; continue; }
+                collectExpressionTokens((String[]) expr[0], out);
+                i = (Integer) expr[1] + 1;
+                continue;
+            }
             out.add((String) hit[0]);
             i = (Integer) hit[2] + 1;
         }
         return out;
     }
 
-    // 对应 ParamTemplates.resolve
+    // 对应 ParamTemplates.resolve（含表达式求值分支）
     static String resolve(String text, Map<String, String> values) {
         if (values.isEmpty() || text.indexOf('$') < 0) return text;
         StringBuilder builder = null;
@@ -57,7 +63,19 @@ public class ParamTemplatesCheck {
         while (i < text.length()) {
             if (text.charAt(i) != '$') { i++; continue; }
             Object[] hit = tokenAt(text, i);
-            if (hit == null) { i++; continue; }
+            if (hit == null) {
+                Object[] expr = expressionAt(text, i);
+                if (expr == null) { i++; continue; }
+                String replacement = evaluate((String[]) expr[0], values);
+                if (replacement == null) { i++; continue; }
+                int rangeFirst = i;
+                int rangeLast = (Integer) expr[1];
+                if (builder == null) builder = new StringBuilder(text.length() + 16);
+                builder.append(text, copied, rangeFirst).append(replacement);
+                copied = rangeLast + 1;
+                i = rangeLast + 1;
+                continue;
+            }
             String name = (String) hit[0];
             int rangeFirst = (Integer) hit[1];
             int rangeLast = (Integer) hit[2];
@@ -71,6 +89,126 @@ public class ParamTemplatesCheck {
         if (builder == null) return text;
         builder.append(text, copied, text.length());
         return builder.toString();
+    }
+
+    // ---- 表达式（对应 ParamTemplates.expressionAt/evaluate/ExprParser） ----
+    // 返回 {String[]{kind,left,op,right}, rangeLast}，kind: N=变量名 L=字面量；失败返回 null
+    static Object[] expressionAt(String text, int dollar) {
+        if (dollar + 1 >= text.length() || text.charAt(dollar + 1) != '{') return null;
+        int end = dollar + 2;
+        while (end < text.length() && text.charAt(end) != '}') end++;
+        if (end >= text.length()) return null;
+        String[] expr = parseExpression(text.substring(dollar + 2, end));
+        if (expr == null) return null;
+        return new Object[]{expr, end};
+    }
+
+    static void collectExpressionTokens(String[] expr, LinkedHashSet<String> out) {
+        if (expr[0].equals("N")) out.add(expr[1]);
+        if (expr[3] != null && expr[2].equals("N")) out.add(expr[3]);
+    }
+
+    static String evaluate(String[] expr, Map<String, String> values) {
+        String left = resolveOperand(expr[0], expr[1], values);
+        if (left == null) return null;
+        if (expr[4] == null) return left;
+        String right = resolveOperand(expr[2], expr[3], values);
+        if (right == null) return null;
+        String op = expr[4];
+        Double ln = toDoubleOrNull(left);
+        Double rn = toDoubleOrNull(right);
+        if (ln != null && rn != null) {
+            switch (op) {
+                case "==": return Boolean.toString(ln.equals(rn));
+                case "!=": return Boolean.toString(!ln.equals(rn));
+                case ">": return Boolean.toString(ln > rn);
+                case "<": return Boolean.toString(ln < rn);
+                case ">=": return Boolean.toString(ln >= rn);
+                case "<=": return Boolean.toString(ln <= rn);
+                default: return null;
+            }
+        }
+        switch (op) {
+            case "==": return Boolean.toString(left.equals(right));
+            case "!=": return Boolean.toString(!left.equals(right));
+            default: return null;
+        }
+    }
+
+    static String resolveOperand(String kind, String text, Map<String, String> values) {
+        if (kind.equals("N")) return values.get(text);
+        return text;
+    }
+
+    static Double toDoubleOrNull(String s) {
+        try {
+            return Double.parseDouble(s);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    static String[] parseExpression(String body) {
+        int[] pos = {0};
+        skipSpaces(body, pos);
+        String[] left = parseOperand(body, pos);
+        if (left == null) return null;
+        skipSpaces(body, pos);
+        if (pos[0] >= body.length()) return new String[]{left[0], left[1], null, null, null};
+        String op = parseOp(body, pos);
+        if (op == null) return null;
+        skipSpaces(body, pos);
+        String[] right = parseOperand(body, pos);
+        if (right == null) return null;
+        skipSpaces(body, pos);
+        if (pos[0] != body.length()) return null;
+        return new String[]{left[0], left[1], right[0], right[1], op};
+    }
+
+    static String[] parseOperand(String body, int[] pos) {
+        if (pos[0] >= body.length()) return null;
+        char c = body.charAt(pos[0]);
+        if (c == '\'') {
+            int end = body.indexOf('\'', pos[0] + 1);
+            if (end < 0) return null;
+            String lit = body.substring(pos[0] + 1, end);
+            pos[0] = end + 1;
+            return new String[]{"L", lit};
+        }
+        if (isNameStart(c)) {
+            int start = pos[0]++;
+            while (pos[0] < body.length() && isNamePart(body.charAt(pos[0]))) pos[0]++;
+            return new String[]{"N", body.substring(start, pos[0])};
+        }
+        if (c == '-' || Character.isDigit(c)) {
+            int start = pos[0]++;
+            boolean dot = false;
+            while (pos[0] < body.length()) {
+                char d = body.charAt(pos[0]);
+                if (Character.isDigit(d)) pos[0]++;
+                else if (d == '.' && !dot) { dot = true; pos[0]++; }
+                else break;
+            }
+            String num = body.substring(start, pos[0]);
+            if (num.equals("-") || num.equals(".") || num.equals("-.")) return null;
+            return new String[]{"L", num};
+        }
+        return null;
+    }
+
+    static String parseOp(String body, int[] pos) {
+        String[] ops = {"==", "!=", ">=", "<=", ">", "<"};
+        for (String op : ops) {
+            if (body.startsWith(op, pos[0])) {
+                pos[0] += op.length();
+                return op;
+            }
+        }
+        return null;
+    }
+
+    static void skipSpaces(String body, int[] pos) {
+        while (pos[0] < body.length() && Character.isWhitespace(body.charAt(pos[0]))) pos[0]++;
     }
 
     static int failures = 0;
@@ -119,6 +257,17 @@ public class ParamTemplatesCheck {
 
         check("tokenize 集合", "[pkg, battery, nope]",
                 collectTokens("x${pkg}y${battery}${nope}").toString());
+        check("比较数字真", "true", resolve("${battery>20}", v));
+        check("比较数字假", "false", resolve("${battery>90}", v));
+        check("比较相等字符串", "true", resolve("${pkg=='com.x'}", v));
+        check("无引号右值按变量查找不到保留", "${pkg==com.x}", resolve("${pkg==com.x}", v));
+        check("比较单引号", "true", resolve("${pkg=='com.x'}", v));
+        check("比较空格容忍", "true", resolve("${battery >= 76 }", v));
+        check("比较未知变量保留", "${nope>1}", resolve("${nope>1}", v));
+        check("比较非数字大小保留", "${pkg>20}", resolve("${pkg>20}", v));
+        check("比较语法非法保留", "${battery>>20}", resolve("${battery>>20}", v));
+        check("表达式tokenize", "[battery]", collectTokens("x${battery>20}y").toString());
+        check("旧用例不受影响", "com.x", resolve("${pkg}", v));
         check("tokenize 无 token", "[]", collectTokens("plain text").toString());
         check("tokenize 去重", "[pkg]", collectTokens("${pkg}${pkg}").toString());
         check("tokenize 只认合法 token", "[pkg]",

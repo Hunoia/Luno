@@ -13,6 +13,12 @@ import kotlinx.serialization.json.JsonPrimitive
  *
  * 语法 `${` + `[A-Za-z_][A-Za-z0-9_.]*` + `}`，手写单趟扫描而不用正则：
  * Android 的 java.util.regex 底层是 ICU，不接受 `\{` 这类转义写法。
+ *
+ * 表达式（白名单三类之二：比较；拼接即原文混合本身；时间日期走变量）：
+ * `${lhs OP rhs}`，OP 为 `==` `!=` `>=` `<=` `>` `<` 之一，结果为 `true`/`false`。
+ * 操作数为变量名、数字字面量或单引号字符串。两边都解析为数字则数值比较，
+ * 否则 `==`/`!=` 走字符串相等，大小比较走不通则原样保留。
+ * 求值失败（未知变量、语法非法）一律原样保留原文。
  */
 object ParamTemplates {
 
@@ -34,7 +40,21 @@ object ParamTemplates {
             }
             val hit = tokenAt(text, i)
             if (hit == null) {
-                i++
+                val expr = expressionAt(text, i)
+                if (expr == null) {
+                    i++
+                    continue
+                }
+                val replacement = evaluate(expr.first, values)
+                if (replacement == null) {
+                    i++
+                    continue
+                }
+                val range = expr.second
+                val sb = builder ?: StringBuilder(text.length + 16).also { builder = it }
+                sb.append(text, copied, range.first).append(replacement)
+                copied = range.last + 1
+                i = range.last + 1
                 continue
             }
             val name = hit.first
@@ -73,7 +93,13 @@ object ParamTemplates {
             }
             val hit = tokenAt(text, i)
             if (hit == null) {
-                i++
+                val expr = expressionAt(text, i)
+                if (expr == null) {
+                    i++
+                    continue
+                }
+                collectExpressionTokens(expr.first, out)
+                i = expr.second.last + 1
                 continue
             }
             out += hit.first
@@ -104,4 +130,134 @@ object ParamTemplates {
     private fun isNameStart(c: Char): Boolean = c == '_' || c in 'a'..'z' || c in 'A'..'Z'
 
     private fun isNamePart(c: Char): Boolean = isNameStart(c) || c == '.' || c in '0'..'9'
+
+    /**
+     * 表达式扫描：`${` 后找第一个 `}`（不嵌套），body 交给 [parseExpression]。
+     * 解析失败返回 null，调用方按普通字符推进，不吞输入。
+     */
+    private fun expressionAt(text: String, dollar: Int): Pair<Expr, IntRange>? {
+        if (text.getOrNull(dollar + 1) != '{') return null
+        var end = dollar + 2
+        while (end < text.length && text[end] != '}') end++
+        if (end >= text.length) return null
+        val body = text.substring(dollar + 2, end)
+        val expr = parseExpression(body) ?: return null
+        return expr to (dollar..end)
+    }
+
+    private fun collectExpressionTokens(expr: Expr, out: MutableSet<String>) {
+        (expr.left as? Operand.Name)?.let { out += it.name }
+        (expr.right as? Operand.Name)?.let { out += it.name }
+    }
+
+    /** 求值失败（未知变量、语法非法）返回 null，调用方原样保留原文。 */
+    private fun evaluate(expr: Expr, values: Map<String, String>): String? {
+        val left = expr.left.resolve(values) ?: return null
+        val right = expr.right?.resolve(values) ?: return left
+        val op = expr.op ?: return left
+        val leftNum = left.toDoubleOrNull()
+        val rightNum = right.toDoubleOrNull()
+        return if (leftNum != null && rightNum != null) {
+            when (op) {
+                "==" -> (leftNum == rightNum)
+                "!=" -> (leftNum != rightNum)
+                ">" -> (leftNum > rightNum)
+                "<" -> (leftNum < rightNum)
+                ">=" -> (leftNum >= rightNum)
+                "<=" -> (leftNum <= rightNum)
+                else -> return null
+            }.toString()
+        } else {
+            when (op) {
+                "==" -> (left == right)
+                "!=" -> (left != right)
+                else -> return null
+            }.toString()
+        }
+    }
+
+    private sealed interface Operand {
+        data class Name(val name: String) : Operand
+        data class Literal(val text: String) : Operand
+
+        fun resolve(values: Map<String, String>): String? = when (this) {
+            is Name -> values[name]
+            is Literal -> text
+        }
+    }
+
+    private data class Expr(val left: Operand, val op: String?, val right: Operand?)
+
+    private fun parseExpression(body: String): Expr? {
+        val parser = ExprParser(body)
+        return parser.parse()
+    }
+
+    /** 单比较表达式手写解析：operand (op operand)?，空白容忍，无正则。 */
+    private class ExprParser(private val text: String) {
+        private var pos = 0
+
+        fun parse(): Expr? {
+            skipSpaces()
+            val left = parseOperand() ?: return null
+            skipSpaces()
+            if (pos >= text.length) return Expr(left, null, null)
+            val op = parseOp() ?: return null
+            skipSpaces()
+            val right = parseOperand() ?: return null
+            skipSpaces()
+            if (pos != text.length) return null
+            return Expr(left, op, right)
+        }
+
+        private fun parseOperand(): Operand? {
+            if (pos >= text.length) return null
+            val c = text[pos]
+            if (c == '\'') {
+                val end = text.indexOf('\'', pos + 1)
+                if (end < 0) return null
+                val literal = text.substring(pos + 1, end)
+                pos = end + 1
+                return Operand.Literal(literal)
+            }
+            if (isNameStart(c)) {
+                val start = pos++
+                while (pos < text.length && isNamePart(text[pos])) pos++
+                return Operand.Name(text.substring(start, pos))
+            }
+            if (c == '-' || c.isDigit()) {
+                val start = pos++
+                var dot = false
+                while (pos < text.length) {
+                    val d = text[pos]
+                    if (d.isDigit()) {
+                        pos++
+                    } else if (d == '.' && !dot) {
+                        dot = true
+                        pos++
+                    } else {
+                        break
+                    }
+                }
+                val num = text.substring(start, pos)
+                if (num == "-" || num == "." || num == "-.") return null
+                return Operand.Literal(num)
+            }
+            return null
+        }
+
+        private fun parseOp(): String? {
+            for (op in arrayOf("==", "!=", ">=", "<=", ">", "<")) {
+                if (text.startsWith(op, pos)) {
+                    pos += op.length
+                    return op
+                }
+            }
+            return null
+        }
+
+        private fun skipSpaces() {
+            while (pos < text.length && text[pos].isWhitespace()) pos++
+        }
+    }
 }

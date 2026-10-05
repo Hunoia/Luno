@@ -1,21 +1,35 @@
 package hunoia.luno.config.store
 
+/**
+ * DataStore 文件名：语义化命名，按五组域划分。
+ * 改某域模型只升对应 Schema 版本（见 BackupVersions），不改文件名。
+ */
 object DataStoreFiles {
 
-    const val INITIAL_SETTINGS = "aa"
-    const val ADVANCED_SETTINGS = "bb"
-    const val GESTURE_SETTINGS = "cc"
-    const val ACTION_SETTINGS = "ff"
-    const val QUICK_APP_LAUNCHER = "gg"
-    const val SUB_GESTURE_SETTINGS = "ii"
-    const val GESTURE_BUTTONS = "jj"
-    const val NEW_ACTION_LIBRARY_SETTINGS = "ll"
-    const val AUTOMATION_RULES = "mm"
+    // 手势配置组
+    const val INITIAL_SETTINGS = "initial_settings"
+    const val GESTURE_BUTTONS = "gesture_buttons"
+    const val SUB_GESTURE_SETTINGS = "sub_gesture_settings"
+
+    // 调参组
+    const val ADVANCED_SETTINGS = "advanced_settings"
+    const val GESTURE_SETTINGS = "gesture_settings"
+
+    // 动作库组
+    const val ACTION_SETTINGS = "action_settings"
+    const val NEW_ACTION_LIBRARY_SETTINGS = "new_action_library"
+
+    // 自动化组
+    const val AUTOMATION_RULES = "automation_rules"
+
+    // 搜索启动组
+    const val QUICK_APP_LAUNCHER = "quick_app_launcher"
+    const val QUICK_SEARCH_SETTINGS = "quick_search_settings"
+
+    // 瞬态：不进备份
     /** 自动化执行历史：调试用，可丢，刻意不进备份。 */
-    const val AUTOMATION_LOG = "pp"
-
+    const val AUTOMATION_LOG = "automation_log"
     /** 快速启动器应用列表快照。可从系统重建，刻意不进备份。 */
-    const val QUICK_APP_SNAPSHOT = "nn"
-
-    const val QUICK_SEARCH_SETTINGS = "oo"
+    const val QUICK_APP_SNAPSHOT = "quick_app_snapshot"
 }
+

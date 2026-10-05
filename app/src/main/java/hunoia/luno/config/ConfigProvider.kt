@@ -6,6 +6,7 @@ import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.Backup
+import hunoia.luno.config.model.BackupDomain
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.InitialSettings
@@ -110,4 +111,6 @@ object ConfigProvider {
     suspend fun snapshotAll(): Backup = configBackupRepository.snapshotAll()
     suspend fun restoreAll(backup: Backup) = configBackupRepository.restoreAll(backup)
     suspend fun resetAll() = configBackupRepository.resetAll()
+    suspend fun snapshotDomain(domain: BackupDomain): Backup = configBackupRepository.snapshotDomain(domain)
+    suspend fun restoreDomain(backup: Backup) = configBackupRepository.restoreDomain(backup)
 }

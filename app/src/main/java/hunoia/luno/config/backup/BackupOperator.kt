@@ -27,6 +27,12 @@ object BackupOperator {
      */
     private const val MAX_ENTRY_BYTES = 32L * 1024 * 1024
 
+    /**
+     * 导出文件整体上限（整机/单域统一）：8MB，超限拒绝并提示。
+     * 与 [MAX_ENTRY_BYTES] 分工不同：后者防 zip bomb，前者防正常备份无限膨胀。
+     */
+    private const val MAX_EXPORT_BYTES = 8L * 1024 * 1024
+
     private class EntryTooLargeException(val entryName: String) :
         Exception("zip entry too large: $entryName")
 
@@ -235,6 +241,79 @@ object BackupOperator {
         previous.deleteRecursively()
     }
 
+    /**
+     * 单域导出：zip 里只有一个 `backup` 条目（无 images），内容为该域快照。
+     * 恢复走 [importDomain]，只写非 null 段。
+     */
+    suspend fun exportDomain(
+        context: Context,
+        domain: hunoia.luno.config.model.BackupDomain,
+        saveTo: Uri,
+    ) {
+        val dir = File(backupDir).also { it.mkdirs() }
+        try {
+            val itemBytes = run {
+                val backup = ConfigProvider.snapshotDomain(domain)
+                val json = JsonSerializer.encodeToString(backup)
+                Base64.getEncoder().encode(json.toByteArray())
+            }
+            val zipFile = File(dir, "domain.zip").also {
+                it.delete()
+                it.createNewFile()
+            }
+            ZipOutputStream(FileOutputStream(zipFile)).use { zos ->
+                zos.putNextEntry(ZipEntry(ZIP_BACKUP))
+                itemBytes.inputStream().use { it.copyTo(zos) }
+                zos.closeEntry()
+            }
+            if (zipFile.length() > MAX_EXPORT_BYTES) {
+                throw IllegalStateException(
+                    "export failed: domain $domain exceeds 8MB (${zipFile.length()} bytes)"
+                )
+            }
+            val outputStream = context.contentResolver.openOutputStream(saveTo)
+                ?: throw IllegalStateException("Failed to open output stream for export")
+            outputStream.use { os ->
+                zipFile.inputStream().use { it.copyTo(os) }
+                os.flush()
+            }
+        } finally {
+            File(backupDir).deleteRecursively()
+        }
+    }
+
+    /** 单域恢复：只写快照里非 null 的段，其余不动。 */
+    suspend fun importDomain(context: Context, restoreFrom: Uri) {
+        val restoreDirFile = File(restoreDir).also { it.mkdirs() }
+        try {
+            val restoreFile = File(restoreDirFile, "domain.zip").also {
+                it.delete()
+                it.createNewFile()
+            }
+            val inputStream = context.contentResolver.openInputStream(restoreFrom)
+                ?: throw IllegalStateException("Failed to open input stream for import")
+            inputStream.use { stream ->
+                restoreFile.outputStream().use { out -> stream.copyTo(out) }
+            }
+            if (restoreFile.length() > MAX_EXPORT_BYTES) {
+                throw IllegalStateException("import failed: file exceeds 8MB (${restoreFile.length()} bytes)")
+            }
+            val extracted = unzipFile(restoreFile, restoreDirFile)
+            val item = extracted.firstOrNull { it.isFile && it.name == ZIP_BACKUP }
+                ?: throw IllegalStateException("import failed: no backup entry found in zip")
+            val bytes = item.readBytes().also {
+                if (it.size > MAX_ENTRY_BYTES) throw EntryTooLargeException(item.name)
+            }
+            val backup = decodeBackup(bytes) ?: throw IllegalStateException("import failed: backup decode failed")
+            if (backup.isEmpty()) {
+                throw IllegalStateException("import failed: backup contains no settings")
+            }
+            ConfigProvider.restoreDomain(backup)
+        } finally {
+            File(restoreDir).deleteRecursively()
+        }
+    }
+
     private suspend fun getBackupItemBytes(): ByteArray {
         val backup = ConfigProvider.snapshotAll()
         val json = JsonSerializer.encodeToString(backup)
@@ -258,6 +337,7 @@ object BackupOperator {
             backup.subGestureSettings?.let { if (verified.subGestureSettings != it) add("subGestureSettings") }
             backup.newActionLibrarySettings?.let { if (verified.newActionLibrarySettings != it) add("newActionLibrarySettings") }
             backup.automationRules?.let { if (verified.automationRules != it) add("automationRules") }
+            backup.quickSearchSettings?.let { if (verified.quickSearchSettings != it) add("quickSearchSettings") }
         }
         if (mismatched.isNotEmpty()) {
             throw IllegalStateException("restore failed: mismatch after restoreAll: ${mismatched.joinToString()}")
@@ -278,7 +358,8 @@ object BackupOperator {
             quickAppLauncherSettings == null &&
             subGestureSettings == null &&
             newActionLibrarySettings == null &&
-            automationRules == null
+            automationRules == null &&
+            quickSearchSettings == null
     }
 
     private fun scanZipEntries(zipFile: File): Pair<ByteArray?, Boolean> {
