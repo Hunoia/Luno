@@ -18,7 +18,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
-import hunoia.luno.bridge.DensityProvider
+import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxLongPressTriggerDelayMs
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxDoubleTapTriggerDelayMs
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxHoldTriggerDelayMs

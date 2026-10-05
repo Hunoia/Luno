@@ -3,7 +3,7 @@ package hunoia.luno.gesture
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import hunoia.luno.bridge.window.rootSize
+import hunoia.luno.bridge.ui.rootSize
 import hunoia.luno.config.model.GestureButton
 
 data class GestureTouchTarget(

@@ -10,8 +10,8 @@ import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.resolveDisplayName
 import hunoia.luno.core.AppContext
 import hunoia.luno.R
-import hunoia.luno.keepalive.KeepAliveUseCase
-import hunoia.luno.permission.PermissionStateUseCase
+import hunoia.luno.domain.system.KeepAliveUseCase
+import hunoia.luno.domain.system.PermissionStateUseCase
 import hunoia.luno.shizuku.ShizukuManager
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.delay

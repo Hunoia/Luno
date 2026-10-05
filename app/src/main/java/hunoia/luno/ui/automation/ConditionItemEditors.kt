@@ -40,7 +40,7 @@ import hunoia.luno.config.model.NetworkType
 import hunoia.luno.config.model.ScreenEventType
 import hunoia.luno.config.model.ScreenType
 import hunoia.luno.domain.automation.formatTimeOfDay
-import hunoia.luno.ui.component.AppPickerSheet
+import hunoia.luno.ui.component.sheets.AppPickerSheet
 import hunoia.luno.ui.component.SegmentedSwitchRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.Alignment

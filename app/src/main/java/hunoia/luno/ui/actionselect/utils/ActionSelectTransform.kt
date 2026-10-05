@@ -4,7 +4,7 @@ import android.content.Context
 import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ActionDefinitions
-import hunoia.luno.action.definition.ActionCategory
+import hunoia.luno.action.definitions.ActionCategory
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.launchQualifiedName
 import hunoia.luno.action.model.withLaunchMiniWindow

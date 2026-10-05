@@ -2,7 +2,7 @@ package hunoia.luno.config.model
 
 import android.graphics.Color
 import androidx.annotation.Keep
-import hunoia.luno.bridge.DensityProvider
+import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.config.defaults.GestureSettingsDefaults.SubGestureTimeoutMs
 import hunoia.luno.action.model.StoredAction
 import kotlinx.serialization.Serializable

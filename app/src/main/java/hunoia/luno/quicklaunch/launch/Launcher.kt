@@ -13,10 +13,10 @@ import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.config.model.OpenAppOrUrlData
-import hunoia.luno.bridge.feedback.showToast
-import hunoia.luno.bridge.intent.buildViewIntent
-import hunoia.luno.bridge.intent.hasViewActivity
-import hunoia.luno.bridge.intent.normalizeOpenAppOrUrl
+import hunoia.luno.bridge.ui.showToast
+import hunoia.luno.bridge.system.buildViewIntent
+import hunoia.luno.bridge.system.hasViewActivity
+import hunoia.luno.bridge.system.normalizeOpenAppOrUrl
 import kotlin.math.roundToInt
 
 object Launcher {

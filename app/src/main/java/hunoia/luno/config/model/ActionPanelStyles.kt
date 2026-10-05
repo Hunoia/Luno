@@ -1,7 +1,7 @@
 package hunoia.luno.config.model
 
 import androidx.annotation.Keep
-import hunoia.luno.bridge.DensityProvider
+import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.core.JsonSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient

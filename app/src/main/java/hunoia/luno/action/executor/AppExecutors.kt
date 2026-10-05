@@ -8,7 +8,7 @@ import hunoia.luno.action.execution.ExecutorContext
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionFailure
 import hunoia.luno.action.model.ActionResult
-import hunoia.luno.bridge.queryIntentActivitiesCompat
+import hunoia.luno.bridge.system.queryIntentActivitiesCompat
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.effectiveForAction
 import hunoia.luno.core.JsonSerializer

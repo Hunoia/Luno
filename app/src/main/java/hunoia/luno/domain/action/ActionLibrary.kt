@@ -3,11 +3,11 @@ package hunoia.luno.domain.action
 import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.action.model.libraryEntryId
 import hunoia.luno.config.ConfigProvider
-import hunoia.luno.config.cleanActions
+import hunoia.luno.config.repository.cleanActions
 import kotlinx.coroutines.flow.Flow
 
 /** 模板变量：picker 展示用，经 domain 转调，ui 不得直引 runtime。 */
-typealias TemplateVariable = hunoia.luno.runtime.template.TemplateVariable
+typealias TemplateVariable = hunoia.luno.action.template.TemplateVariable
 
 /** 动作库域门面（ui 层唯一入口）。 */
 object ActionLibrary {
@@ -21,7 +21,7 @@ object ActionLibrary {
 
     /** picker 用的全部模板变量。 */
     val templateVariables: List<TemplateVariable>
-        get() = hunoia.luno.runtime.template.RuntimeVariables.all
+        get() = hunoia.luno.action.template.RuntimeVariables.all
 
     /**
      * 删除库条目：按钮/子手势里指向该条目的动作清掉，

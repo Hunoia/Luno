@@ -29,7 +29,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SettingsInputComponent
 import androidx.compose.material.icons.filled.SettingsInputComposite
-import hunoia.luno.action.definition.PlayPause
+import hunoia.luno.action.definitions.PlayPause
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Splitscreen
 import androidx.compose.material.icons.filled.StopCircle
@@ -44,7 +44,7 @@ import androidx.compose.material.icons.filled.ViewCarousel
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.Window
 import androidx.compose.material.icons.filled.Widgets
-import hunoia.luno.action.definition.ActionCategory
+import hunoia.luno.action.definitions.ActionCategory
 import hunoia.luno.action.model.*
 
 object ActionDefinitions {

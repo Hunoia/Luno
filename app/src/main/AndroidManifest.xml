@@ -90,7 +90,7 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
-            android:name=".action.controller.ShareFilePickActivity"
+            android:name=".ui.share.ShareFilePickActivity"
             android:excludeFromRecents="true"
             android:exported="false"
             android:finishOnTaskLaunch="true"

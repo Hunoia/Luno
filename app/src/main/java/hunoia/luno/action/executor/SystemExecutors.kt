@@ -11,8 +11,8 @@ import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionFailure
 import hunoia.luno.action.model.ActionResult
 import hunoia.luno.action.model.ClipboardOperation
-import hunoia.luno.bridge.FlashlightController
-import hunoia.luno.bridge.intent.gotoAppDetailSettings
+import hunoia.luno.bridge.system.FlashlightController
+import hunoia.luno.bridge.system.gotoAppDetailSettings
 import android.content.Intent
 import android.provider.Settings
 import hunoia.luno.action.model.SettingsPage

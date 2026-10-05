@@ -12,12 +12,12 @@ import hunoia.luno.action.model.MediaCommand
 import hunoia.luno.action.model.SettingsNamespace
 import hunoia.luno.action.model.VolumeDirection
 import hunoia.luno.action.model.toStreamType
-import hunoia.luno.bridge.copySensitiveText
-import hunoia.luno.bridge.dispatchMediaKeyEvent
-import hunoia.luno.bridge.toggleMute
+import hunoia.luno.bridge.system.copySensitiveText
+import hunoia.luno.bridge.system.dispatchMediaKeyEvent
+import hunoia.luno.bridge.system.toggleMute
 import hunoia.luno.bridge.vibration.vibrate
-import hunoia.luno.bridge.volumeDown
-import hunoia.luno.bridge.volumeUp
+import hunoia.luno.bridge.system.volumeDown
+import hunoia.luno.bridge.system.volumeUp
 import hunoia.luno.shizuku.ShizukuFacade
 
 class AudioController(private val context: Context) {

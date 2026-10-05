@@ -10,8 +10,8 @@ import android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_QUICK_SET
 import android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS
 import android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT
 import android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_TOGGLE_SPLIT_SCREEN
-import hunoia.luno.bridge.DensityProvider
-import hunoia.luno.bridge.accessibility.Accessibility
+import hunoia.luno.bridge.ui.DensityProvider
+import hunoia.luno.bridge.system.Accessibility
 
 class AccessibilityController(private val service: AccessibilityService) {
 

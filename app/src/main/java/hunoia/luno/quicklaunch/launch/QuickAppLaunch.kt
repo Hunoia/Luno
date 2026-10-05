@@ -2,7 +2,7 @@ package hunoia.luno.quicklaunch.launch
 
 import android.content.Context
 import hunoia.luno.R
-import hunoia.luno.bridge.feedback.showToast
+import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.config.model.OpenAppOrUrlData
 import hunoia.luno.config.model.OpenUrlQueryParameter

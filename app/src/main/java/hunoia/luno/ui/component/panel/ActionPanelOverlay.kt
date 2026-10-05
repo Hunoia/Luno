@@ -25,7 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.R
-import hunoia.luno.action.TriggerType
+import hunoia.luno.action.model.TriggerType
 import hunoia.luno.action.model.StoredAction
 
 @Composable

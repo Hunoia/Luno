@@ -15,14 +15,14 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
 import hunoia.luno.BuildConfig
 import hunoia.luno.R
-import hunoia.luno.bridge.feedback.showToast
+import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.quicklaunch.launch.DisabledPackageEnabler
 import hunoia.luno.quicklaunch.launch.Launcher
-import hunoia.luno.ui.quicklaunch.QuickAppLauncherRoot
+import hunoia.luno.quicklaunch.panel.QuickAppLauncherRoot
 import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

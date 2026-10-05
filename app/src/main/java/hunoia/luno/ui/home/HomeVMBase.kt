@@ -11,7 +11,7 @@ import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.SubGestureSettings
-import hunoia.luno.permission.PermissionStateUseCase
+import hunoia.luno.domain.system.PermissionStateUseCase
 import hunoia.luno.shizuku.ShizukuManager
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine

@@ -65,9 +65,9 @@ import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.ui.component.actionTextCompose
 import hunoia.luno.ui.navigation.ActionSelect
-import hunoia.luno.ui.component.MyAlertDialog
+import hunoia.luno.ui.component.sheets.MyAlertDialog
 import hunoia.luno.ui.component.MyColumn
-import hunoia.luno.ui.component.OptimizedBottomSheet
+import hunoia.luno.ui.component.sheets.OptimizedBottomSheet
 import hunoia.luno.ui.component.RowIconBadge
 import hunoia.luno.ui.component.TopBar
 import hunoia.luno.ui.component.input.MyTextSlider

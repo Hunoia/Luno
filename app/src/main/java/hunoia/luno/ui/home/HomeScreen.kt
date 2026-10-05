@@ -60,12 +60,12 @@ import hunoia.luno.ui.theme.BottomBarCapsuleRadius
 import hunoia.luno.ui.theme.BottomBarIconSize
 import hunoia.luno.ui.theme.BottomBarPadding
 import hunoia.luno.ui.theme.FloatingContentBottom
-import hunoia.luno.bridge.intent.gotoAccessibilitySettings
+import hunoia.luno.bridge.system.gotoAccessibilitySettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.ThemeColorKey
-import hunoia.luno.ui.component.color.ColorPickerBottomSheet
-import hunoia.luno.ui.component.color.ColorSelection
+import hunoia.luno.ui.component.sheets.ColorPickerBottomSheet
+import hunoia.luno.ui.component.sheets.ColorSelection
 import hunoia.luno.ui.actionlibrary.NewActionLibraryScreen
 import hunoia.luno.ui.component.FloatingBottomBar
 import hunoia.luno.ui.component.FloatingBottomBarDefaults

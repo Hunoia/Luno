@@ -8,11 +8,11 @@ import coil.memory.MemoryCache
 import com.aaron.compose.component.UDFComponentDefaults
 import hunoia.luno.ui.UDFComponentDefaultsImpl
 import hunoia.luno.core.AppContext
-import hunoia.luno.bridge.DensityProvider
+import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.core.CrashHandler
 import hunoia.luno.core.Events
-import hunoia.luno.bridge.isMainThread
-import hunoia.luno.bridge.feedback.initToastScope
+import hunoia.luno.bridge.ui.isMainThread
+import hunoia.luno.bridge.ui.initToastScope
 import hunoia.luno.bridge.vibration.initVibrationContext
 import hunoia.luno.quicklaunch.icon.AppIconFetcherFactory
 import hunoia.luno.quicklaunch.icon.AppIconKeyer

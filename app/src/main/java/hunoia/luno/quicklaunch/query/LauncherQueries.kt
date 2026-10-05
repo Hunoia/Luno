@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.Intent.ShortcutIconResource
 import android.content.pm.PackageManager
-import hunoia.luno.bridge.queryIntentActivitiesCompat
+import hunoia.luno.bridge.system.queryIntentActivitiesCompat
 import hunoia.luno.quicklaunch.model.AppInfo
 
 data class QuickAppLauncherAppList(

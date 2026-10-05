@@ -14,7 +14,7 @@ import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.drawable.updateBounds
 import androidx.core.graphics.scale
-import hunoia.luno.bridge.DensityProvider
+import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import kotlin.math.min
 

@@ -9,7 +9,7 @@ import hunoia.luno.BuildConfig
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import hunoia.luno.bridge.window.removeWindow
+import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.runtime.GestureHost
 
 class MainOverlayController(

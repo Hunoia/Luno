@@ -3,7 +3,7 @@ package hunoia.luno.quicklaunch.query
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import hunoia.luno.bridge.queryIntentActivitiesCompat
+import hunoia.luno.bridge.system.queryIntentActivitiesCompat
 
 data class LauncherAppOption(
     val packageName: String,

@@ -7,10 +7,10 @@ import android.view.View
 import android.view.WindowManager
 import androidx.core.content.ContextCompat
 import hunoia.luno.BuildConfig
-import hunoia.luno.bridge.window.removeWindow
-import hunoia.luno.bridge.window.removeWindows
+import hunoia.luno.bridge.ui.removeWindow
+import hunoia.luno.bridge.ui.removeWindows
 import hunoia.luno.config.model.GestureButton
-import hunoia.luno.gesture.input.MotionEventDispatcher
+import hunoia.luno.gesture.MotionEventDispatcher
 import hunoia.luno.runtime.button.ButtonVisibilityPolicy
 import hunoia.luno.gesture.mirroredButton
 

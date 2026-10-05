@@ -11,7 +11,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import hunoia.luno.BuildConfig
 import hunoia.luno.R
-import hunoia.luno.bridge.feedback.showToast
+import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.MAX_RECENT_QUERIES
 import hunoia.luno.config.model.MIN_HISTORY_CHARS
 import hunoia.luno.quicklaunch.query.QuickSearchResult

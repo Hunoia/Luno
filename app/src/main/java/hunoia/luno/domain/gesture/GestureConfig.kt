@@ -2,7 +2,7 @@ package hunoia.luno.domain.gesture
 
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.config.ConfigProvider
-import hunoia.luno.config.SubGestureCleaner
+import hunoia.luno.config.repository.SubGestureCleaner
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.SubGestureSettings

@@ -10,9 +10,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.bridge.WallpaperChangedEvent
+import hunoia.luno.core.WallpaperChangedEvent
 import hunoia.luno.runtime.settings.SettingsState
-import hunoia.luno.ui.component.container.SideGestureContainer
+import hunoia.luno.ui.component.SideGestureContainer
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.core.Events.SubscribeEvent
 import hunoia.luno.ui.theme.SideGestureTheme

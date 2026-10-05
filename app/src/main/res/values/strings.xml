@@ -17,9 +17,7 @@
     <string name="dispatch_service_not_ready">手势服务未就绪，动作未执行</string>
     <string name="width">宽度</string>
     <string name="mini_window_position_hint">调整小窗打开的位置</string>
-    <string name="hide_gesture_button">隐藏触钮</string>
     <string name="keep_alive_need_permission">保活需要授予「修改系统设置」权限，请先在 Shizuku 中授权或通过 ADB 执行：adb shell pm grant hunoia.luno android.permission.WRITE_SECURE_SETTINGS</string>
-    <string name="quick_launcher_requires_accessibility">需要无障碍服务才能打开应用面板，请先在设置中开启</string>
     <string name="quick_launcher_start_failed">启动面板打开失败</string>
     <string name="quick_search_start_failed">搜索面板打开失败</string>
     <string name="quick_search_copied">已复制</string>
@@ -185,33 +183,6 @@
     <string name="mirror_sub_gesture_name">镜像·%1$s</string>
 
     <string name="action_none">无</string>
-    <string name="action_back">返回键</string>
-    <string name="action_home">主页键</string>
-    <string name="action_recent">最近任务键</string>
-    <string name="action_volume_up">音量增加</string>
-    <string name="action_volume_down">音量减小</string>
-    <string name="action_mute">静音开关</string>
-    <string name="action_play_pause_song">播放/暂停</string>
-    <string name="action_last_song">上一首</string>
-    <string name="action_next_song">下一首</string>
-    <string name="action_previous_app">上一个应用程序</string>
-    <string name="action_open_notification_panel">打开通知面板</string>
-    <string name="action_open_quick_panel">打开快捷面板</string>
-    <string name="action_lock_screen">锁屏</string>
-    <string name="action_flashlight">手电筒</string>
-    <string name="action_popup_screen">应用小窗</string>
-    <string name="action_assist_app">系统助手</string>
-    <string name="action_screenshot">截屏</string>
-    <string name="action_power_button">电源键菜单</string>
-    <string name="action_hide_gesture_button">隐藏触钮</string>
-    <string name="action_back_to_top">快速回顶部</string>
-    <string name="action_click_current_position">模拟点击当前位置</string>
-    <string name="action_shell_command">执行 Shell 命令</string>
-    <string name="action_open_activity">打开 Activity</string>
-    <string name="action_open_url">打开链接</string>
-    <string name="action_quick_app_panel">快速启动面板</string>
-    <string name="action_split_screen">应用分屏</string>
-    <string name="action_volume_scrub">滑动调节音量</string>
     <string name="action_sub_gesture">子手势</string>
     <string name="search_app_hint">搜索应用</string>
     <string name="search_activity_hint">搜索活动</string>
@@ -230,8 +201,6 @@
     <string name="tap_action">单击</string>
     <string name="tap_and_long_press_action">单击/长按</string>
     <string name="tap">单击</string>
-    <string name="action_random_name">生成随机名称</string>
-    <string name="action_generate_password_copy">生成密码并复制</string>
     <string name="random_name_generate_failed">生成失败</string>
     <string name="random_name_copy_failed">复制失败</string>
     <string name="password_copied">密码已复制</string>
@@ -306,12 +275,6 @@
 
 
     <!-- Display condition rules -->
-    <string name="condition_empty">还没有规则</string>
-    <string name="effect_show">打开</string>
-    <string name="effect_hide">关闭</string>
-    <string name="scope_all">所有触钮</string>
-    <string name="scope_except">除指定</string>
-    <string name="scope_only">仅指定</string>
     <string name="logic_all">且</string>
     <string name="logic_any">或</string>
     <string name="logic_not">非</string>
@@ -319,7 +282,6 @@
     <string name="condition_screen">界面</string>
     <string name="condition_portrait">竖屏</string>
     <string name="condition_keyboard_input">键盘输入</string>
-    <string name="condition_battery">充电 / 电量</string>
     <string name="condition_charging">充电中</string>
     <string name="condition_time_range">时间段</string>
     <string name="condition_logic_group">组合条件</string>
@@ -331,10 +293,7 @@
     <string name="condition_app_select_title">选择应用</string>
     <string name="loading">加载中…</string>
     <string name="condition_scope">作用触钮</string>
-    <string name="condition_effect">触钮行为</string>
     <string name="condition_app_in">前台应用 ∈ %1$s</string>
-    <string name="scope_only_count">仅 %1$d 个触钮</string>
-    <string name="scope_except_count">除 %1$d 个触钮外</string>
     <string name="rule_move_up">上移</string>
     <string name="rule_move_down">下移</string>
     <string name="rule_edit">编辑</string>
@@ -353,17 +312,11 @@
     <string name="automation_edit">编辑规则</string>
     <string name="automation_name_hint">规则名称</string>
     <string name="automation_condition">触发条件</string>
-    <string name="automation_entry">动作条目</string>
     <string name="automation_pick_action">选择动作</string>
     <string name="automation_entry_empty">未选择动作条目</string>
-    <string name="automation_entry_required">请选择要执行的动作条目</string>
-    <string name="automation_cooldown">冷却时间</string>
-    <string name="automation_cooldown_hint">单位秒，0 表示不限制</string>
-    <string name="automation_cooldown_invalid">请输入 0-3600 之间的秒数</string>
     <string name="automation_condition_empty">未配置条件</string>
     <string name="condition_level_group">当前状态</string>
     <string name="condition_event_group">变化事件</string>
-    <string name="automation_effect_run_action">执行动作</string>
 
     <!-- 条件类型 -->
     <string name="condition_screen_event">屏幕开关</string>
@@ -400,7 +353,6 @@
     <string name="condition_bluetooth_changed">蓝牙连接变化</string>
     <string name="condition_headphones_changed">耳机插拔</string>
     <string name="condition_scheduled_time">定时时刻</string>
-    <string name="condition_notify_apps">监听应用（空=全部）</string>
     <string name="condition_notify_keyword">标题/正文关键字（空=不限）</string>
     <string name="condition_connected">已连接</string>
     <string name="condition_disconnected">已断开</string>
@@ -463,7 +415,6 @@
     <string name="notify_permission_title">通知访问权限</string>
     <string name="notify_permission_granted">已授予，可监听通知到达</string>
     <string name="notify_permission_missing">未授予，通知条件不会触发</string>
-    <string name="notify_permission_open">去开启</string>
     <string name="notify_permission_privacy">仅读取包名/标题/正文做关键字匹配，原文不入库</string>
     <string name="audio_stream_music">音乐</string>
     <string name="audio_stream_ring">铃声</string>
@@ -478,11 +429,9 @@
 
     <!-- Quick search -->
     <string name="quick_search_group_actions">动作</string>
-    <string name="quick_search_group_library">动作库</string>
     <string name="quick_search_group_apps">应用</string>
     <string name="quick_search_group_shortcuts">快捷方式</string>
     <string name="quick_search_group_settings">设置</string>
-    <string name="quick_search_group_web">网页</string>
     <string name="quick_search_app_disabled">已停用</string>
     <string name="quick_search_engine_search">用 %1$s 搜索</string>
 

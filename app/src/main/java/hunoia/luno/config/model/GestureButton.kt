@@ -8,7 +8,7 @@ import androidx.compose.ui.graphics.toArgb
 import hunoia.luno.R
 import hunoia.luno.action.dispatcher.MigratingStoredActionSerializer
 import hunoia.luno.action.model.StoredAction
-import hunoia.luno.bridge.DensityProvider
+import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.core.AppContext
 import kotlinx.serialization.Serializable
 import kotlin.random.Random

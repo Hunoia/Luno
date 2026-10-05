@@ -2,7 +2,7 @@
 
 package hunoia.luno.config.defaults
 
-import hunoia.luno.bridge.DensityProvider
+import hunoia.luno.bridge.ui.DensityProvider
 
 object SettingsUiDefaults {
 

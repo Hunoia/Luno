@@ -9,7 +9,7 @@ import android.net.Uri
 import android.util.Log
 import hunoia.luno.BuildConfig
 import hunoia.luno.quicklaunch.model.LauncherInfo
-import hunoia.luno.bridge.queryIntentActivitiesCompat
+import hunoia.luno.bridge.system.queryIntentActivitiesCompat
 import org.xmlpull.v1.XmlPullParser
 import java.util.UUID
 

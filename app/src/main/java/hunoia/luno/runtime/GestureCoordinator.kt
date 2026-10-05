@@ -22,7 +22,7 @@ import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import java.util.Locale
 import hunoia.luno.action.dispatcher.NewActionDispatcher
 import hunoia.luno.config.model.ScreenEventType
-import hunoia.luno.runtime.action.PreviousAppTracker
+import hunoia.luno.runtime.environment.PreviousAppTracker
 import hunoia.luno.runtime.condition.AudioVolumeTracker
 import hunoia.luno.runtime.condition.hasVolumeCondition
 import hunoia.luno.runtime.automation.AutomationEngine
@@ -331,7 +331,7 @@ class GestureCoordinator(
             refreshGestureButtons(automationKeys = setOf(AutomationEventKey.NOTIFICATION))
         }
         val listener = WallpaperManager.OnColorsChangedListener { _, _ ->
-            hunoia.luno.core.Events.post(hunoia.luno.bridge.WallpaperChangedEvent())
+            hunoia.luno.core.Events.post(hunoia.luno.core.WallpaperChangedEvent())
         }
         wallpaperColorsListener = listener
         WallpaperManager.getInstance(host.context).addOnColorsChangedListener(listener, Handler(Looper.getMainLooper()))

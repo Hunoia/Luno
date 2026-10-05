@@ -5,7 +5,7 @@ import androidx.lifecycle.Lifecycle
 import com.aaron.compose.component.UDFComponent
 import com.aaron.compose.component.UDFComponentDefaults
 import com.aaron.compose.component.UiBaseEvent
-import hunoia.luno.bridge.feedback.showToast
+import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.ui.navigation.LocalNavController
 
 

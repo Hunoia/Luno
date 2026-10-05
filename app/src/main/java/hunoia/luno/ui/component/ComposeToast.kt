@@ -26,8 +26,8 @@ import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.PageGutter
 
 import com.aaron.compose.ktx.clipToBackground
-import hunoia.luno.bridge.feedback.ToastData
-import hunoia.luno.bridge.feedback.channel
+import hunoia.luno.bridge.ui.ToastData
+import hunoia.luno.bridge.ui.channel
 import kotlinx.coroutines.withTimeoutOrNull
 
 @Composable

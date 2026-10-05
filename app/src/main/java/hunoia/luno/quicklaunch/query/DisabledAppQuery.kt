@@ -5,7 +5,7 @@ import android.content.pm.PackageManager
 import hunoia.luno.core.AppContext
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
-import hunoia.luno.bridge.PackageChangeReceiver
+import hunoia.luno.bridge.system.PackageChangeReceiver
 import java.util.Collections
 import java.util.LinkedHashMap
 import kotlinx.coroutines.Dispatchers

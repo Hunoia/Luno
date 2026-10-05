@@ -4,8 +4,8 @@ import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import hunoia.luno.bridge.volumeDown
-import hunoia.luno.bridge.volumeUp
+import hunoia.luno.bridge.system.volumeDown
+import hunoia.luno.bridge.system.volumeUp
 import hunoia.luno.config.model.VolumeScrubConfig
 
 class VolumeScrubState(

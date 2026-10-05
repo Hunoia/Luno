@@ -6,7 +6,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import hunoia.luno.BuildConfig
-import hunoia.luno.bridge.accessibility.AccessibilitySettings
+import hunoia.luno.bridge.system.AccessibilitySettings
 import hunoia.luno.core.AppContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope

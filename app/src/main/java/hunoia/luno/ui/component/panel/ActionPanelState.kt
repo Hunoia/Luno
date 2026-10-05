@@ -1,6 +1,6 @@
 package hunoia.luno.ui.component.panel
 
-import hunoia.luno.ui.component.container.LongSlideState
+import hunoia.luno.ui.component.LongSlideState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -9,7 +9,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import hunoia.luno.action.TriggerType
+import hunoia.luno.action.model.TriggerType
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.longPressVariant
 import hunoia.luno.action.model.withoutVariantKey

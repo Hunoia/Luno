@@ -6,7 +6,7 @@ import android.view.Gravity
 import android.view.WindowManager
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntSize
-import hunoia.luno.bridge.DensityProvider
+import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.config.model.GestureButton
 import kotlin.math.roundToInt
 

@@ -2,7 +2,7 @@ package hunoia.luno.action.capability
 
 import android.content.Context
 import hunoia.luno.action.model.Capability
-import hunoia.luno.bridge.isAccessibilitySettingsOn
+import hunoia.luno.bridge.system.isAccessibilitySettingsOn
 import hunoia.luno.service.SideGestureService
 
 /**

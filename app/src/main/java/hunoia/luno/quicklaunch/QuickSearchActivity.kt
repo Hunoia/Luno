@@ -17,8 +17,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.lifecycleScope
 import hunoia.luno.BuildConfig
 import hunoia.luno.R
-import hunoia.luno.bridge.feedback.showToast
+import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.MAX_CLIP_HISTORY
+import hunoia.luno.quicklaunch.panel.QuickSearchContent
 import hunoia.luno.quicklaunch.query.QuickSearchIndex
 import hunoia.luno.quicklaunch.query.QuickSearchResult
 import hunoia.luno.quicklaunch.query.longPressAction

@@ -4,8 +4,8 @@ import android.view.View
 import android.view.WindowManager
 import androidx.compose.ui.geometry.Offset
 import androidx.core.content.ContextCompat
-import hunoia.luno.bridge.window.removeWindow
-import hunoia.luno.gesture.input.MotionEventDispatcher
+import hunoia.luno.bridge.ui.removeWindow
+import hunoia.luno.gesture.MotionEventDispatcher
 
 class TransientOverlayController(
     private val host: android.content.Context,

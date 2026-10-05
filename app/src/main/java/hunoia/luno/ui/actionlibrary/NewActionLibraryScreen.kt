@@ -48,7 +48,7 @@ import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.action.model.matchesQuery
-import hunoia.luno.action.definition.ActionCategory
+import hunoia.luno.action.definitions.ActionCategory
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.EmptyState
 import hunoia.luno.ui.component.TextIcon

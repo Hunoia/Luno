@@ -66,7 +66,7 @@ import androidx.compose.material.icons.filled.Web
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.ui.graphics.vector.ImageVector
-import hunoia.luno.action.definition.PlayPause
+import hunoia.luno.action.definitions.PlayPause
 
 data class PaletteIcon(
     val key: String,

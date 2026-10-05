@@ -9,9 +9,9 @@ import hunoia.luno.action.controller.*
 import hunoia.luno.action.execution.*
 import hunoia.luno.action.executor.*
 import hunoia.luno.action.model.*
-import hunoia.luno.bridge.feedback.showToast as showToastUtil
-import hunoia.luno.bridge.feedback.showToastLong as showToastLongUtil
-import hunoia.luno.bridge.feedback.showVersionTooLowToast as showVersionTooLowToastUtil
+import hunoia.luno.bridge.ui.showToast as showToastUtil
+import hunoia.luno.bridge.ui.showToastLong as showToastLongUtil
+import hunoia.luno.bridge.ui.showVersionTooLowToast as showVersionTooLowToastUtil
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GestureButton
@@ -20,9 +20,9 @@ import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.VolumeScrubConfig
 import hunoia.luno.config.model.effectiveFor
 import hunoia.luno.runtime.GestureHost
-import hunoia.luno.runtime.action.PreviousAppTracker
+import hunoia.luno.runtime.environment.PreviousAppTracker
 import hunoia.luno.runtime.condition.ConditionContext
-import hunoia.luno.runtime.template.RuntimeVariables
+import hunoia.luno.action.template.RuntimeVariables
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

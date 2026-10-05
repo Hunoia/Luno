@@ -36,7 +36,7 @@ import hunoia.luno.R
 import hunoia.luno.config.defaults.SettingsUiDefaults.GestureButtonColorAlpha
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.config.model.GestureButton
-import hunoia.luno.ui.component.OptimizedBottomSheet
+import hunoia.luno.ui.component.sheets.OptimizedBottomSheet
 import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsUiEvent
 import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsUiState
 import hunoia.luno.config.model.GestureDirection
@@ -45,7 +45,7 @@ import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleConfigContent
 import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleSelectContent
 import hunoia.luno.ui.settings.gesture.subgesture.GestureButtonAngleContent
 import hunoia.luno.ui.theme.MarkColorSize
-import hunoia.luno.ui.component.MyAlertDialog
+import hunoia.luno.ui.component.sheets.MyAlertDialog
 import hunoia.luno.ui.component.SegmentedGroup
 
 import androidx.compose.foundation.layout.Arrangement

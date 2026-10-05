@@ -126,7 +126,7 @@ object LegacyActionMapper {
 
     private fun subGesture(data: String): StoredAction? {
         val id = runCatching {
-            JsonSerializer.decodeFromString<hunoia.luno.action.payload.SubGestureActionData>(data).id
+            JsonSerializer.decodeFromString<hunoia.luno.action.model.SubGestureActionData>(data).id
         }.getOrNull().orEmpty()
         return if (id.isBlank()) {
             StoredAction.of("internal.subGesture")

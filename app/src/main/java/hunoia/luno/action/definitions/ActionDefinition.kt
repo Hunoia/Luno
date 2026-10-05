@@ -4,7 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.ui.graphics.vector.ImageVector
 import hunoia.luno.action.model.Capability
-import hunoia.luno.action.definition.ActionCategory
+import hunoia.luno.action.definitions.ActionCategory
 
 sealed interface ParameterDefinition {
     val key: String

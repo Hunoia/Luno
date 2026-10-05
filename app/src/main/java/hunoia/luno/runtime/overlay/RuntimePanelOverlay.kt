@@ -1,8 +1,8 @@
 package hunoia.luno.runtime.overlay
 
-import hunoia.luno.bridge.window.applyOverlayViewTreeOwners
-import hunoia.luno.bridge.window.overlayLayoutParams
-import hunoia.luno.bridge.window.windowManager
+import hunoia.luno.bridge.ui.applyOverlayViewTreeOwners
+import hunoia.luno.bridge.ui.overlayLayoutParams
+import hunoia.luno.bridge.ui.windowManager
 import android.graphics.Color
 import android.view.Gravity
 import android.view.MotionEvent
@@ -10,7 +10,7 @@ import android.view.View
 import android.view.WindowManager
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.ComposeView
-import hunoia.luno.bridge.DensityProvider
+import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.runtime.GestureHost
 import hunoia.luno.ui.theme.AnimOverlayFade
 
