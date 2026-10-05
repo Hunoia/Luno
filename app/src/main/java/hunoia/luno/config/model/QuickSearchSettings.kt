@@ -41,8 +41,10 @@ data class QuickSearchSettings(
     val searchSms: Boolean = true,
     /** 通话记录：姓名/号码匹配，点拨号、长按短信；需 READ_CALL_LOG。 */
     val searchCalls: Boolean = true,
-    /** 剪贴板历史（去重 cap 10）：空输入时多行展示，点即回填；总开关复用 searchClipboard。 */
+    /** 剪贴板历史（去重 cap 50）：空输入时多行展示，点回填、长按写回；总开关复用 searchClipboard。 */
     val clipHistory: List<String> = emptyList(),
+    /** 固定剪贴（无上限，存全文）：空页标识页最贴胶囊、搜索态固定源内置顶；和 clipHistory 互不交叉。 */
+    val pinnedClips: List<String> = emptyList(),
     /**
      * 来源标识自定义（源 key → 标识，如 "sms" → "duanxin"）：缺 key 用内置默认，
      * 空串 = 关闭该源标识（只走全源搜）。跟引擎标识同规则，保存时判重。
@@ -56,7 +58,7 @@ const val BLANK_RECENT_LIMIT = 3
 /** 历史只记 trim 后长度达标的：短词（指令缩写/单字）不进历史，展示侧同样过滤。 */
 const val MIN_HISTORY_CHARS = 6
 /** 剪贴板历史上限（聚焦读到新文本才记，去重）。 */
-const val MAX_CLIP_HISTORY = 10
+const val MAX_CLIP_HISTORY = 50
 
 /** 内置引擎：代码常量，可设默认、不可删改；trigger 预置同样不可改（短缩写：bb/gg/ddg）。 */
 val BuiltinSearchEngines: List<SearchEngine> = listOf(
@@ -83,6 +85,7 @@ const val SRC_CALENDAR = "cal"
 const val SRC_SMS = "sms"
 const val SRC_CALL = "call"
 const val SRC_TOGGLE = "sw"
+const val SRC_CLIP = "clp"
 
 /** 来源内置默认标识：全英文短缩写（用户嫌中英混排，要求统一）。 */
 val DefaultSourceTriggers: Map<String, String> = mapOf(
@@ -97,6 +100,7 @@ val DefaultSourceTriggers: Map<String, String> = mapOf(
     SRC_SMS to "sms",
     SRC_CALL to "call",
     SRC_TOGGLE to "sw",
+    SRC_CLIP to "clp",
 )
 
 /** 生效标识：自定义优先，缺 key 用默认，空串表示关闭（调用方跳过空串）。 */

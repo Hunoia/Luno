@@ -41,6 +41,7 @@ import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SRC_ACTION
 import hunoia.luno.config.model.SRC_APP
 import hunoia.luno.config.model.SRC_CALL
+import hunoia.luno.config.model.SRC_CLIP
 import hunoia.luno.config.model.SRC_CALENDAR
 import hunoia.luno.config.model.SRC_CONTACT
 import hunoia.luno.config.model.SRC_FILE
@@ -135,6 +136,9 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                 SegmentedSwitchRow(
                     title = stringResource(R.string.quick_search_clipboard),
                     checked = settings.searchClipboard,
+                    subtitle = settings.effectiveTrigger(SRC_CLIP)
+                        .ifBlank { stringResource(R.string.quick_search_trigger_closed) },
+                    onClick = { triggerTarget = SRC_CLIP },
                     onCheckedChange = { v ->
                         scope.launch {
                             ConfigProvider.updateQuickSearchSettings { it.copy(searchClipboard = v) }
@@ -439,6 +443,7 @@ internal fun sourceTitle(key: String): String = when (key) {
     SRC_SMS -> stringResource(R.string.quick_search_sms)
     SRC_CALL -> stringResource(R.string.quick_search_calls)
     SRC_TOGGLE -> stringResource(R.string.quick_search_toggles)
+    SRC_CLIP -> stringResource(R.string.quick_search_clipboard)
     else -> key
 }
 

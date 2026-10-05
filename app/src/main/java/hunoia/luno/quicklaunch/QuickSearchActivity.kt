@@ -49,10 +49,15 @@ class QuickSearchActivity : ComponentActivity() {
     private val clipState = mutableStateOf<String?>(null)
     /** 上次已记入剪贴板历史的文本：内存去重，焦点反复进出不重复写 DataStore。 */
     private var lastClipRecorded: String? = null
+    /** 锁屏态：锁屏时空页/搜索都不展剪贴内容（KeyguardManager 实时读，随焦点一起更新）。 */
+    private val lockedState = mutableStateOf(false)
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (BuildConfig.DEBUG) Log.i("LunoQuickSearch", "focus=$hasFocus")
+        lockedState.value = runCatching {
+            getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true
+        }.getOrDefault(false)
         if (!hasFocus) return
         // singleTask 复用：requestClose 里摘的 blur 在这里补回，
         // 否则 200ms 内重开的面板没糊。新鲜 onCreate 走默认值，不受影响。
@@ -64,12 +69,15 @@ class QuickSearchActivity : ComponentActivity() {
         }.getOrNull().also {
             if (BuildConfig.DEBUG) Log.i("LunoQuickSearch", "clipLen=${it?.length}")
         }
-        // 剪贴板历史：读到新文本才记（去重 cap 10），空态多行展示。
+        // 剪贴板历史：读到新文本才记（去重 cap 50），空态多行展示。
+        // 已固定的不进历史（不占 50 名额；固定和历史互不交叉）。
         val clip = clipState.value
         if (clip != null && clip != lastClipRecorded) {
             lastClipRecorded = clip
             lifecycleScope.launch {
                 runCatching {
+                    val pinned = hunoia.luno.config.ConfigProvider.getQuickSearchSettings().pinnedClips
+                    if (clip in pinned) return@runCatching
                     hunoia.luno.config.ConfigProvider.updateQuickSearchSettings {
                         it.copy(
                             clipHistory = (listOf(clip) + it.clipHistory)
@@ -132,6 +140,7 @@ class QuickSearchActivity : ComponentActivity() {
                     clipboardText = clipState.value,
                     torchOn = torchState.value,
                     closing = closingState.value,
+                    locked = lockedState.value,
                     onClose = { requestClose() },
                     onExitFinished = { finishAfterExit() },
                     onResult = { result, confirmedQuery ->
@@ -231,6 +240,10 @@ class QuickSearchActivity : ComponentActivity() {
                         } else if (result is QuickSearchResult.CallLogEntry) {
                             // 通话长按：给对方发短信。
                             if (result.number.isNotBlank()) openSmsThread(result.number)
+                            requestClose()
+                        } else if (result is QuickSearchResult.ClipEntry) {
+                            // 剪贴长按：写回系统剪贴板（已复制 toast），和日历/短信长按复制同套路。
+                            copyText(result.text)
                             requestClose()
                         } else {
                             // 长按：应用类进详情页，网址/引擎行复制链接，其余无语义。

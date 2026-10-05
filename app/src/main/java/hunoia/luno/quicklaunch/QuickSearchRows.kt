@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.DoNotDisturbOn
 import androidx.compose.material.icons.filled.FlashlightOn
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shortcut
 import androidx.compose.material.icons.filled.Image
@@ -23,8 +24,11 @@ import androidx.compose.material.icons.filled.WifiTethering
 import androidx.compose.ui.graphics.asImageBitmap
 import hunoia.luno.quicklaunch.icon.SearchIconCache
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.graphics.graphicsLayer
@@ -67,8 +71,16 @@ internal fun Modifier.listFade(
         )
     }
 
-/** 剪贴板行：标题=剪贴内容（单行省略），无副标题（跟历史行只差图标）；点即回填，无长按语义。 */@Composable
-internal fun ClipboardRow(text: String, shape: androidx.compose.ui.graphics.Shape, onClick: () -> Unit) {
+/** 剪贴板行：标题=剪贴内容（单行省略），无副标题；点回填、长按写回系统剪贴板；
+ *  行尾图钉按钮点固定/取消（固定态=primary 色，非固定=淡色）。 */@Composable
+internal fun ClipboardRow(
+    text: String,
+    shape: androidx.compose.ui.graphics.Shape,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit = {},
+    pinned: Boolean = false,
+    onTogglePin: () -> Unit = {},
+) {
     SelectableListItem(
         title = text,
         subtitle = "",
@@ -80,6 +92,21 @@ internal fun ClipboardRow(text: String, shape: androidx.compose.ui.graphics.Shap
         horizontalGap = 0.dp,
         containerColor = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.65f),
         selectedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f),
+        onLongClick = onLongClick,
+        trailingContent = {
+            IconButton(
+                onClick = onTogglePin,
+                modifier = Modifier.size(32.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PushPin,
+                    contentDescription = null,
+                    tint = if (pinned) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        },
     )
 }
 @Composable
@@ -166,6 +193,7 @@ internal fun iconVector(result: QuickSearchResult): ImageVector? = when (result)
     is QuickSearchResult.CalendarEvent -> Icons.Default.DateRange
     is QuickSearchResult.SmsMsg -> Icons.AutoMirrored.Filled.Message
     is QuickSearchResult.CallLogEntry -> Icons.Default.Call
+    is QuickSearchResult.ClipEntry -> Icons.Default.ContentPaste
     is QuickSearchResult.PhoneToggle -> when (result.kind) {
         QuickSearchResult.ToggleKind.WIFI -> Icons.Default.Wifi
         QuickSearchResult.ToggleKind.BLUETOOTH -> Icons.Default.Bluetooth

@@ -31,8 +31,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shortcut
@@ -85,10 +87,12 @@ import hunoia.luno.BuildConfig
 import hunoia.luno.R
 import hunoia.luno.config.model.BLANK_RECENT_LIMIT
 import hunoia.luno.config.model.MIN_HISTORY_CHARS
+import hunoia.luno.config.model.MAX_CLIP_HISTORY
 import hunoia.luno.config.model.SRC_ACTION
 import hunoia.luno.config.model.SRC_APP
 import hunoia.luno.config.model.SRC_CALENDAR
 import hunoia.luno.config.model.SRC_CALL
+import hunoia.luno.config.model.SRC_CLIP
 import hunoia.luno.config.model.SRC_CONTACT
 import hunoia.luno.config.model.SRC_FILE
 import hunoia.luno.config.model.SRC_MUSIC
@@ -139,6 +143,7 @@ internal fun QuickSearchContent(
     clipboardText: String?,
     torchOn: Boolean,
     closing: Boolean,
+    locked: Boolean,
     onClose: () -> Unit,
     onExitFinished: () -> Unit,
     onResult: (QuickSearchResult, String) -> Unit,
@@ -289,6 +294,29 @@ internal fun QuickSearchContent(
             }
         }
     }
+    // 固定切换：pin 时从历史摘除（不占 50 名额），unpin 写回历史头部；固定无上限存全文。
+    val togglePin: (String) -> Unit = { clip ->
+        scope.launch {
+            runCatching {
+                hunoia.luno.config.ConfigProvider.updateQuickSearchSettings {
+                    if (clip in it.pinnedClips) {
+                        it.copy(
+                            pinnedClips = it.pinnedClips.filterNot { c -> c == clip },
+                            clipHistory = (listOf(clip) + it.clipHistory)
+                                .distinct()
+                                .take(MAX_CLIP_HISTORY),
+                        )
+                    } else {
+                        it.copy(
+                            pinnedClips = listOf(clip) + it.pinnedClips.filterNot { c -> c == clip },
+                            clipHistory = it.clipHistory.filterNot { c -> c == clip },
+                        )
+                    }
+                }
+            }
+        }
+    }
+    val pinnedSet = remember(searchSettings.pinnedClips) { searchSettings.pinnedClips.toSet() }
 
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -361,7 +389,9 @@ internal fun QuickSearchContent(
             // 在途（packet.text != query.text）时不挂半成品——首字无旧数据就继续显示空态，
             // 到达后一次切完整搜索列表（和空→提示同性质，原子出现不闪）。
             // 有旧数据时继续显示旧列表，到达即整批换。
-            if (query.text.isNotBlank() && results.isNotEmpty()) {
+            // 锁屏时结果里的剪贴行全部滤掉（展示隐藏，引擎侧不动）。
+            val displayResults = if (locked) results.filterNot { it is QuickSearchResult.ClipEntry } else results
+            if (query.text.isNotBlank() && displayResults.isNotEmpty()) {
                 // 搜索态：匹配的历史全部参展（点即回填，贴胶囊），结果排其上。
                 // 标识指令（bb 新闻 / sms 138）下历史不参展：纯目标结果。
                 val q = query.text.trim()
@@ -373,7 +403,7 @@ internal fun QuickSearchContent(
                             !it.equals(q, ignoreCase = true) && it.contains(q, ignoreCase = true)
                     }
                 }
-                val total = matches.size + results.size
+                val total = matches.size + displayResults.size
                 // 反转列表内容超高时会把首项顶出可视区之下：受控滚动，内容一变钉回
                 // 第 0 项（最贴胶囊那行）。API 级保证可见，不依赖布局锚定行为。
                 val searchListState = rememberLazyListState()
@@ -395,15 +425,26 @@ internal fun QuickSearchContent(
                             onLongClick = { deleteHistory(h) },
                         )
                     }
-                    itemsIndexed(results, key = { idx, item -> "${item::class.simpleName}-$idx-${item.title}" }) { index, item ->
+                    itemsIndexed(displayResults, key = { idx, item -> "${item::class.simpleName}-$idx-${item.title}" }) { index, item ->
                         val pos = matches.size + index
-                        ResultRow(
-                            result = item,
-                            // 反转后视觉上下颠倒，shape 索引镜像后圆角仍落在组外端
-                            shape = segmentedShape(total - 1 - pos, total),
-                            onClick = { safeResult(item, query.text.trim()) },
-                            onLongClick = { safeLongPress(item) },
-                        )
+                        val shape = segmentedShape(total - 1 - pos, total)
+                        if (item is QuickSearchResult.ClipEntry) {
+                            ClipboardRow(
+                                text = item.text,
+                                shape = shape,
+                                onClick = { query = TextFieldValue(item.text, TextRange(item.text.length)) },
+                                onLongClick = { safeLongPress(item) },
+                                pinned = item.text in pinnedSet,
+                                onTogglePin = { togglePin(item.text) },
+                            )
+                        } else {
+                            ResultRow(
+                                result = item,
+                                shape = shape,
+                                onClick = { safeResult(item, query.text.trim()) },
+                                onLongClick = { safeLongPress(item) },
+                            )
+                        }
                     }
                 }
             } else if (query.text.isEmpty() || (!settled && query.text.isNotBlank())) {
@@ -413,17 +454,22 @@ internal fun QuickSearchContent(
                 val history = searchSettings.recentQueries
                     .filter { it.trim().length >= MIN_HISTORY_CHARS }
                     .take(BLANK_RECENT_LIMIT)
-                val clips = if (searchSettings.searchClipboard) {
-                    // 当前剪贴优先（焦点刚读到的），后面跟历史去重。
-                    (listOfNotNull(clipboardText) + searchSettings.clipHistory).distinct()
+                val clips = if (searchSettings.searchClipboard && !locked) {
+                    // 当前剪贴优先（焦点刚读到的），后面跟历史去重，空页只展 3 条。
+                    (listOfNotNull(clipboardText) + searchSettings.clipHistory).distinct().take(3)
                 } else {
                     emptyList()
                 }
+                // 锁屏占位：剪贴内容不展，只留一行提示。
+                val showClipPlaceholder = searchSettings.searchClipboard && locked
+                val clipPlaceholderCount = if (showClipPlaceholder) 1 else 0
                 val used = remember(launcherSettings) { index.topUsed(launcherSettings) }
                 val recent = remember(mediaTick, searchSettings.searchFiles) {
                     if (searchSettings.searchFiles) index.recentFiles() else emptyList()
                 }
                 val clipCount = clips.size
+                // 锁屏占位占 clips 段的首位：后续 pos 统一按槽位（clips+占位）偏移。
+                val clipSlotCount = clipCount + clipPlaceholderCount
                 // 联系人未授权：顶部给一行授权入口（点申请，永久拒绝跳设置页）。
                 val showGrant = searchSettings.searchContacts && !contactsPerm.isGranted
                 val grantCount = if (showGrant) 1 else 0
@@ -440,11 +486,11 @@ internal fun QuickSearchContent(
                 val calendarGrantCount = if (showCalendarGrant) 1 else 0
                 val smsGrantCount = if (showSmsGrant) 1 else 0
                 val callsGrantCount = if (showCallsGrant) 1 else 0
-                if (history.isNotEmpty() || clips.isNotEmpty() || used.isNotEmpty() || recent.isNotEmpty() ||
+                if (history.isNotEmpty() || clips.isNotEmpty() || showClipPlaceholder || used.isNotEmpty() || recent.isNotEmpty() ||
                     showGrant || showMediaGrant || showFilesGrant ||
                     showCalendarGrant || showSmsGrant || showCallsGrant
                 ) {
-                    val total = history.size + clipCount + used.size + recent.size +
+                    val total = history.size + clipCount + clipPlaceholderCount + used.size + recent.size +
                         grantCount + mediaGrantCount + filesGrantCount +
                         calendarGrantCount + smsGrantCount + callsGrantCount
                     val blankListState = rememberLazyListState()
@@ -457,6 +503,17 @@ internal fun QuickSearchContent(
                         reverseLayout = true,
                     ) {
                         // 剪贴板历史最贴胶囊（首条=当前剪贴），其次搜索历史，最后常用/最近文件。
+                        // 锁屏时 clips 为空，占位行顶在同一槽位。
+                        if (showClipPlaceholder) {
+                            item(key = "c-locked") {
+                                HistoryRow(
+                                    text = stringResource(R.string.quick_search_clipboard_locked),
+                                    shape = segmentedShape(total - 1, total),
+                                    icon = Icons.Default.Lock,
+                                    onClick = {},
+                                )
+                            }
+                        }
                         items(clips, key = { "c-$it" }) { clipText ->
                             val pos = clips.indexOf(clipText)
                             ClipboardRow(
@@ -465,10 +522,13 @@ internal fun QuickSearchContent(
                                 onClick = {
                                     query = TextFieldValue(clipText, TextRange(clipText.length))
                                 },
+                                onLongClick = { safeLongPress(QuickSearchResult.ClipEntry(clipText)) },
+                                pinned = clipText in pinnedSet,
+                                onTogglePin = { togglePin(clipText) },
                             )
                         }
                         items(history, key = { "h-$it" }) { h ->
-                            val pos = clipCount + history.indexOf(h)
+                            val pos = clipSlotCount + history.indexOf(h)
                             HistoryRow(
                                 text = h,
                                 shape = segmentedShape(total - 1 - pos, total),
@@ -479,7 +539,7 @@ internal fun QuickSearchContent(
                             )
                         }
                         itemsIndexed(used, key = { idx, app -> "u-$idx-${app.appInfo.packageName}" }) { idx, app ->
-                            val pos = clipCount + history.size + idx
+                            val pos = clipSlotCount + history.size + idx
                             ResultRow(
                                 result = app,
                                 shape = segmentedShape(total - 1 - pos, total),
@@ -489,7 +549,7 @@ internal fun QuickSearchContent(
                         }
                         // 最近文件（图库 + 文档按修改时间，不搜只展，点开/长按分享走 ResultRow）。
                         itemsIndexed(recent, key = { idx, item -> "r-$idx-${item.title}" }) { idx, item ->
-                            val pos = clipCount + history.size + used.size + idx
+                            val pos = clipSlotCount + history.size + used.size + idx
                             ResultRow(
                                 result = item,
                                 shape = segmentedShape(total - 1 - pos, total),
@@ -499,7 +559,7 @@ internal fun QuickSearchContent(
                         }
                         if (showGrant) {
                             item(key = "grant-contacts") {
-                                val pos = history.size + clipCount + used.size + recent.size
+                                val pos = history.size + clipSlotCount + used.size + recent.size
                                 HistoryRow(
                                     text = stringResource(R.string.quick_search_grant_contacts),
                                     shape = segmentedShape(total - 1 - pos, total),
@@ -513,7 +573,7 @@ internal fun QuickSearchContent(
                         }
                         if (showMediaGrant) {
                             item(key = "grant-media") {
-                                val pos = history.size + clipCount + used.size + recent.size + grantCount
+                                val pos = history.size + clipSlotCount + used.size + recent.size + grantCount
                                 HistoryRow(
                                     text = stringResource(R.string.quick_search_grant_media),
                                     shape = segmentedShape(total - 1 - pos, total),
@@ -536,7 +596,7 @@ internal fun QuickSearchContent(
                         }
                         if (showFilesGrant) {
                             item(key = "grant-files") {
-                                val pos = history.size + clipCount + used.size + recent.size + grantCount + mediaGrantCount
+                                val pos = history.size + clipSlotCount + used.size + recent.size + grantCount + mediaGrantCount
                                 HistoryRow(
                                     text = stringResource(R.string.quick_search_grant_files),
                                     shape = segmentedShape(total - 1 - pos, total),
@@ -556,7 +616,7 @@ internal fun QuickSearchContent(
                         }
                         if (showCalendarGrant) {
                             item(key = "grant-calendar") {
-                                val pos = history.size + clipCount + used.size + recent.size +
+                                val pos = history.size + clipSlotCount + used.size + recent.size +
                                     grantCount + mediaGrantCount + filesGrantCount
                                 HistoryRow(
                                     text = stringResource(R.string.quick_search_grant_calendar),
@@ -571,7 +631,7 @@ internal fun QuickSearchContent(
                         }
                         if (showSmsGrant) {
                             item(key = "grant-sms") {
-                                val pos = history.size + clipCount + used.size + recent.size +
+                                val pos = history.size + clipSlotCount + used.size + recent.size +
                                     grantCount + mediaGrantCount + filesGrantCount + calendarGrantCount
                                 HistoryRow(
                                     text = stringResource(R.string.quick_search_grant_sms),
@@ -586,7 +646,7 @@ internal fun QuickSearchContent(
                         }
                         if (showCallsGrant) {
                             item(key = "grant-calls") {
-                                val pos = history.size + clipCount + used.size + recent.size +
+                                val pos = history.size + clipSlotCount + used.size + recent.size +
                                     grantCount + mediaGrantCount + filesGrantCount +
                                     calendarGrantCount + smsGrantCount
                                 HistoryRow(
@@ -620,6 +680,7 @@ internal fun QuickSearchContent(
                         SRC_SMS to Icons.AutoMirrored.Filled.Message,
                         SRC_CALL to Icons.Default.Call,
                         SRC_TOGGLE to Icons.Default.Tune,
+                        SRC_CLIP to Icons.Default.ContentPaste,
                     ).mapNotNull { (key, icon) ->
                         val t = searchSettings.effectiveTrigger(key)
                         if (t.isBlank()) null else Triple(key, t, icon)

@@ -128,6 +128,7 @@ fun QuickSearchResult.toConfigAction(): Action = when (this) {
     is QuickSearchResult.CalendarEvent -> error("CalendarEvent is handled by QuickSearchActivity")
     is QuickSearchResult.SmsMsg -> error("SmsMsg is handled by QuickSearchActivity")
     is QuickSearchResult.CallLogEntry -> error("CallLogEntry is handled by QuickSearchActivity")
+    is QuickSearchResult.ClipEntry -> error("ClipEntry is handled by QuickSearchActivity")
 }
 
 /** 引擎行拼出的最终链接：长按复制与 toConfigAction 共用。 */

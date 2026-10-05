@@ -22,6 +22,7 @@
     <string name="quick_search_start_failed">搜索面板打开失败</string>
     <string name="quick_search_copied">已复制</string>
     <string name="quick_search_clipboard">剪贴板</string>
+    <string name="quick_search_clipboard_locked">已锁定，解锁后显示剪贴板</string>
     <string name="quick_search_contacts">联系人</string>
     <string name="quick_search_grant_contacts">授予联系人权限</string>
     <string name="quick_search_music">音乐</string>

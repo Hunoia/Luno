@@ -10,6 +10,7 @@ import hunoia.luno.config.model.SRC_ACTION
 import hunoia.luno.config.model.SRC_APP
 import hunoia.luno.config.model.SRC_CALENDAR
 import hunoia.luno.config.model.SRC_CALL
+import hunoia.luno.config.model.SRC_CLIP
 import hunoia.luno.config.model.SRC_CONTACT
 import hunoia.luno.config.model.SRC_FILE
 import hunoia.luno.config.model.SRC_MUSIC
@@ -97,6 +98,9 @@ fun QuickSearchIndex.search(
         results.addAll(matchSms(tokens, foldedTokens, searchSettings))
         // 通话记录：姓名/号码；只查内存。
         results.addAll(matchCalls(tokens, foldedTokens, searchSettings))
+        // 剪贴记录：只看前 64 字（长文本逐字拼音每敲一字算一次，截断控成本）；
+        // 池=clipHistory（聚焦读到的新文本已记入），命中上限 10 条。
+        results.addAll(matchClips(tokens, foldedTokens, searchSettings))
         results.addAll(matchSettingsPages(tokens, foldedTokens))
 
         val urlResult = urlResult(query)
@@ -343,6 +347,39 @@ private fun QuickSearchIndex.matchCalls(
         return out
     }
 
+private fun QuickSearchIndex.matchClips(
+        tokens: List<String>,
+        foldedTokens: List<String>,
+        searchSettings: QuickSearchSettings,
+    ): List<RankedHit> {
+        val out = mutableListOf<RankedHit>()
+        if (!searchSettings.searchClipboard) return out
+        if (searchSettings.pinnedClips.isEmpty() && searchSettings.clipHistory.isEmpty()) return out
+        val hits = mutableListOf<RankedHit>()
+        // 固定源内置顶：usage=1.0 > 历史的 0.0，同 tier/offset 下固定排前。
+        for (clip in searchSettings.pinnedClips) {
+            if (clip.isBlank()) continue
+            val head = if (clip.length > 64) clip.take(64) else clip
+            val m = tierOf(head, tokens, foldedTokens)
+            if (m.tier >= 0) hits.add(RankedHit(QuickSearchResult.ClipEntry(clip), m.tier, m.span, m.offset, 1.0))
+        }
+        for (clip in searchSettings.clipHistory) {
+            if (clip.isBlank()) continue
+            val head = if (clip.length > 64) clip.take(64) else clip
+            val m = tierOf(head, tokens, foldedTokens)
+            if (m.tier >= 0) hits.add(RankedHit(QuickSearchResult.ClipEntry(clip), m.tier, m.span, m.offset, 0.0))
+        }
+        if (hits.isEmpty()) return out
+        hits.sortWith(
+            compareByDescending<RankedHit> { it.tier }
+                .thenBy { it.offset }
+                .thenByDescending { it.usage }
+                .thenBy { it.result.title.length }
+                .thenBy { it.result.title },
+        )
+        return hits.take(10)
+    }
+
 private fun QuickSearchIndex.matchSettingsPages(
         tokens: List<String>,
         foldedTokens: List<String>,
@@ -425,6 +462,7 @@ private fun QuickSearchIndex.sourceEnabled(source: String, settings: QuickSearch
         SRC_SMS -> settings.searchSms
         SRC_CALL -> settings.searchCalls
         SRC_TOGGLE -> settings.searchToggles
+        SRC_CLIP -> settings.searchClipboard
         SRC_APP, SRC_SHORTCUT, SRC_ACTION, SRC_SETTINGS -> true
         else -> false
     }
@@ -454,6 +492,7 @@ private fun QuickSearchIndex.searchInSource(
             SRC_SMS -> matchSms(tokens, folded, searchSettings)
             SRC_CALL -> matchCalls(tokens, folded, searchSettings)
             SRC_TOGGLE -> matchToggles(tokens, folded, searchSettings)
+            SRC_CLIP -> matchClips(tokens, folded, searchSettings)
             else -> emptyList()
         }
         // 开关关了但标识还在（极少）：匹配函数内已 gate，空结果直接回（不回落全源，
@@ -488,6 +527,14 @@ private fun QuickSearchIndex.bareSource(
             SRC_SMS -> if (smsReady() && smsList.isNotEmpty()) smsList.take(BARE_LIST_LIMIT) else return null
             SRC_CALL -> if (callsReady() && callList.isNotEmpty()) callList.take(BARE_LIST_LIMIT) else return null
             SRC_TOGGLE -> toggleRows()
+            SRC_CLIP -> {
+                // 标识页：固定全列打头，历史去重补到上限。
+                val pinned = searchSettings.pinnedClips.map { QuickSearchResult.ClipEntry(it) }
+                val rest = searchSettings.clipHistory.filter { it !in searchSettings.pinnedClips }
+                    .take((BARE_LIST_LIMIT - pinned.size).coerceAtLeast(0))
+                    .map { QuickSearchResult.ClipEntry(it) }
+                pinned + rest
+            }
             else -> return null
         }
         return out.takeIf { it.isNotEmpty() }

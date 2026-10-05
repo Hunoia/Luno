@@ -255,6 +255,52 @@ public class QuickSearchCheck {
         return result;
     }
 
+    // ======== 转写：matchClips（剪贴记录匹配，mirror Kotlin matchClips）========
+    // 池=pinned（usage 1.0）+history（usage 0.0），固定源内置顶；上限 10 条；排序同 sortTriples。
+
+    static List<String> matchClips(List<String> clips, List<String> tokens, List<String> foldedTokens) {
+        return matchClips(Collections.<String>emptyList(), clips, tokens, foldedTokens);
+    }
+
+    static List<String> matchClips(List<String> pinned, List<String> clips, List<String> tokens, List<String> foldedTokens) {
+        List<String> pool = new ArrayList<>(pinned);
+        pool.addAll(clips);
+        List<Double> usage = new ArrayList<>();
+        for (int i = 0; i < pinned.size(); i++) usage.add(1.0);
+        for (int i = 0; i < clips.size(); i++) usage.add(0.0);
+        long[] masks = compileTokenMasks(tokens);
+        List<int[]> hits = new ArrayList<>(); // {poolIdx, tier, offset}
+        for (int i = 0; i < pool.size(); i++) {
+            String full = pool.get(i);
+            if (full.isEmpty()) continue;
+            String head = full.length() > 64 ? full.substring(0, 64) : full;
+            int[] m = matchTierFull(head, head, head, Collections.<String>emptyList(), tokens, masks);
+            int tier = m[0];
+            int offset = m[2];
+            if (tier < 0 && !foldedTokens.isEmpty()) {
+                int[] f = matchTierFuzzyFull(foldPinyin(head), Collections.<String>emptyList(), foldedTokens);
+                tier = f[0]; offset = f[2];
+            }
+            if (tier >= 0) hits.add(new int[]{i, tier, offset});
+        }
+        hits.sort((a, b) -> {
+            int c = Integer.compare(b[1], a[1]); // tier desc
+            if (c != 0) return c;
+            c = Integer.compare(a[2], b[2]); // offset asc
+            if (c != 0) return c;
+            c = Double.compare(usage.get(b[0]), usage.get(a[0])); // usage desc：固定在前
+            if (c != 0) return c;
+            int la = pool.get(a[0]).length();
+            int lb = pool.get(b[0]).length();
+            c = Integer.compare(la, lb); // length asc
+            if (c != 0) return c;
+            return pool.get(a[0]).compareTo(pool.get(b[0])); // title asc
+        });
+        List<String> out = new ArrayList<>();
+        for (int i = 0; i < Math.min(10, hits.size()); i++) out.add(pool.get(hits.get(i)[0]));
+        return out;
+    }
+
     // ======== 测试基础设施 ========
 
     static int failures = 0;
@@ -487,6 +533,35 @@ public class QuickSearchCheck {
         List<TestApp> gapResult = sortApps(Arrays.asList(hongshao, huiyiConf), nowSort, tokens("h", "y"));
         check("排序 hy: 红烧鱼出局，只剩会议", 1, gapResult.size());
         check("排序 hy: 剩的是会议", "xx会议", gapResult.get(0).label);
+
+        // ======== 剪贴记录匹配（mirror Kotlin matchClips）========
+        // he vs hello world → tier 1（0 位块），命中
+        List<String> heClips = matchClips(
+                Arrays.asList("hello world"),
+                tokens("h", "e"), foldedTokens("he"));
+        check("clip he -> hello world", 1, heClips.size());
+        check("clip he 内容", "hello world", heClips.get(0));
+        // head64 截断：y 只出现在第 64+ 位 → head64 里没有 → 不命中
+        StringBuilder xs64 = new StringBuilder();
+        for (int i = 0; i < 64; i++) xs64.append('x');
+        String yAt64Plus = xs64.toString() + "yyyyyy";
+        check("clip head64: y 在 64+ 位 -> 不命中", 0,
+                matchClips(Arrays.asList(yAt64Plus), tokens("y"), foldedTokens("y")).size());
+        // head64 内有 y → 命中
+        String yAtHead = "yyyyyy" + xs64.toString();
+        check("clip head64: y 在 0 位 -> 命中", 1,
+                matchClips(Arrays.asList(yAtHead), tokens("y"), foldedTokens("y")).size());
+        // 上限 10：15 条全命中只回 10
+        List<String> fifteen = new ArrayList<>();
+        for (int i = 0; i < 15; i++) fifteen.add("hello" + i);
+        check("clip cap 10: 15 条 -> 10", 10,
+                matchClips(fifteen, tokens("h", "e"), foldedTokens("he")).size());
+        // 固定源内置顶：同 tier/offset 下固定排前
+        List<String> pinFirst = matchClips(
+                Arrays.asList("hello pinned"),
+                Arrays.asList("hello world", "hello there"),
+                tokens("h", "e"), foldedTokens("he"));
+        check("clip 固定源内置顶", "hello pinned", pinFirst.get(0));
 
         // ======== micro-bench: N=300 单 token 分配量 ========
 

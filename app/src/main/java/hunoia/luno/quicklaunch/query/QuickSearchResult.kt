@@ -94,4 +94,9 @@ sealed interface QuickSearchResult {
         override val title: String get() = name.ifBlank { number }
         override val subtitle: String get() = listOf(number, typeText, dateText).filter { it.isNotEmpty() }.joinToString(" · ")
     }
+    /** 剪贴记录：标题=剪贴内容（单行省略），副标题空；点回填搜索框、长按写回系统剪贴板，Activity 直调。 */
+    data class ClipEntry(val text: String) : QuickSearchResult {
+        override val title: String get() = text
+        override val subtitle: String get() = ""
+    }
 }
