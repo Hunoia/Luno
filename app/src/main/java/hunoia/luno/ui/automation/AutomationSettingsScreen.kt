@@ -20,6 +20,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -43,6 +44,9 @@ import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.liquidGlassBackdrop
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.layerBackdrop
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,7 +56,10 @@ fun AutomationSettingsScreen(
 ) {
     val rules by ConfigProvider.automationRules
         .collectAsStateWithLifecycle(initialValue = emptyList())
+    val events by ConfigProvider.automationLog
+        .collectAsStateWithLifecycle(initialValue = emptyList())
     val scope = rememberCoroutineScope()
+    val timeFormat = rememberTimeFormat()
 
     fun submit(next: List<AutomationRule>) {
         scope.launch {
@@ -104,6 +111,13 @@ fun AutomationSettingsScreen(
                     rule = rule,
                     index = index,
                     total = rules.size,
+                    lastRunText = events.lastOrNull { it.ruleId == rule.id }?.let { event ->
+                        context.getString(
+                            R.string.history_last_run,
+                            timeFormat.format(Date(event.timeMs)),
+                            historySubtitle(event),
+                        )
+                    },
                     onEnabledChange = { enabled ->
                         submit(rules.map { if (it.id == rule.id) it.copy(enabled = enabled) else it })
                     },
@@ -136,6 +150,7 @@ private fun RuleCard(
     rule: AutomationRule,
     index: Int,
     total: Int,
+    lastRunText: String?,
     onEnabledChange: (Boolean) -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
@@ -149,10 +164,12 @@ private fun RuleCard(
         RuleScope.EXCEPT -> context.getString(R.string.scope_except_count, rule.effect.buttonIds.size)
         RuleScope.ONLY -> context.getString(R.string.scope_only_count, rule.effect.buttonIds.size)
     }
+    val subtitle = "${conditionSummary(context, rule.condition)} · $effectLabel · $scopeLabel" +
+        (lastRunText?.let { " · $it" } ?: "")
     SegmentedGroup {
         SegmentedSwitchRow(
             title = rule.name.ifBlank { conditionSummary(context, rule.condition) },
-            subtitle = "${conditionSummary(context, rule.condition)} · $effectLabel · $scopeLabel",
+            subtitle = subtitle,
             checked = rule.enabled,
             onCheckedChange = onEnabledChange,
             shape = segmentedShape(0, 2),
@@ -205,4 +222,11 @@ fun effectLabelRes(type: RuleEffectType): Int = when (type) {
     RuleEffectType.SHOW_BUTTONS -> R.string.effect_show
     RuleEffectType.HIDE_BUTTONS -> R.string.effect_hide
     RuleEffectType.RUN_ACTION -> R.string.automation_effect_run_action
+}
+
+@Composable
+private fun rememberTimeFormat(): SimpleDateFormat {
+    return remember {
+        SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
+    }
 }

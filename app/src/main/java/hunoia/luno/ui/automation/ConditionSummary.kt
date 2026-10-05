@@ -79,6 +79,32 @@ fun itemSummary(context: Context, item: ConditionItem): String {
 
         ConditionType.BLUETOOTH -> bluetoothSummary(context, item)
 
+        ConditionType.NOTIFICATION_POSTED -> {
+            val apps = if (item.notifyPackages.isEmpty()) {
+                context.getString(R.string.condition_apps_empty)
+            } else {
+                item.notifyPackages.take(2).joinToString(", ")
+            }
+            if (item.notifyKeyword.isBlank()) apps
+            else "$apps · ${item.notifyKeyword}"
+        }
+
+        ConditionType.BLUETOOTH_CHANGED,
+        ConditionType.HEADPHONES_CHANGED -> context.getString(
+            when (item.connectionDirection) {
+                null -> R.string.condition_unlimited
+                hunoia.luno.config.model.ConnectionDirection.CONNECTED -> R.string.condition_connected
+                hunoia.luno.config.model.ConnectionDirection.DISCONNECTED -> R.string.condition_disconnected
+            },
+        )
+
+        ConditionType.SCHEDULED_TIME -> {
+            val times = item.scheduledMinutes.sorted()
+                .take(3).joinToString(", ") { formatTimeOfDay(it) }
+            if (item.scheduledWeekdays.isEmpty()) times
+            else "$times · ${context.getString(R.string.condition_scheduled_weekdays)}"
+        }
+
         ConditionType.AIRPLANE_MODE -> context.getString(
             if (item.airplaneMode == true) R.string.state_on else R.string.state_off,
         )

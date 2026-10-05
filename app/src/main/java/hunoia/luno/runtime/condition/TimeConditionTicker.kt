@@ -6,16 +6,19 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.util.Calendar
 
 class TimeConditionTicker(
     private val scope: CoroutineScope,
     private val rulesProvider: () -> List<AutomationRule>,
     private val onTimeSignatureChanged: () -> Unit,
+    /** 定时命中：调用方先置 scheduledTimeHit 脉冲（幂等），再照常求值消费。 */
+    private val markScheduledHit: () -> Unit = {},
 ) {
     private var job: Job? = null
 
     fun sync(rules: List<AutomationRule>) {
-        if (rules.any { it.condition.hasTimeRange() }) {
+        if (rules.any { it.condition.hasTimeRange() || it.condition.hasScheduledTime() }) {
             if (job?.isActive != true) start()
         } else {
             stop()
@@ -34,13 +37,28 @@ class TimeConditionTicker(
                 delay(millisUntilNextMinuteBoundary())
                 if (!isActive) break
                 val rules = rulesProvider()
+                val minute = nowMinuteOfDay()
+                // 定时触发：分钟级精度，Doze 下可能推迟（doc §3.2 已声明）。
+                if (rules.any { it.condition.hasScheduledTime() }) {
+                    val weekday = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
+                    val due = rules
+                        .flatMap { rule -> rule.condition.scheduledItems() }
+                        .any { item ->
+                            minute in item.scheduledMinutes &&
+                                (item.scheduledWeekdays.isEmpty() || weekday in item.scheduledWeekdays)
+                        }
+                    if (due) {
+                        markScheduledHit()
+                        onTimeSignatureChanged()
+                    }
+                }
                 if (rules.none { it.condition.hasTimeRange() }) {
                     lastSignature = null
                     continue
                 }
                 val signature = rules
                     .flatMap { rule -> rule.condition.timeRanges() }
-                    .map { it.matchesMinute(nowMinuteOfDay()) }
+                    .map { it.matchesMinute(minute) }
                 if (lastSignature != null && signature != lastSignature) {
                     onTimeSignatureChanged()
                 }

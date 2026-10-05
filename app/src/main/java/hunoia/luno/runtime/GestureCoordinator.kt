@@ -23,7 +23,11 @@ import hunoia.luno.runtime.action.PreviousAppTracker
 import hunoia.luno.runtime.condition.AudioVolumeTracker
 import hunoia.luno.runtime.condition.hasVolumeCondition
 import hunoia.luno.runtime.automation.AutomationEngine
+import hunoia.luno.runtime.automation.AutomationEvent
+import hunoia.luno.runtime.automation.AutomationPulseHub
 import hunoia.luno.runtime.automation.AutomationRuntime
+import hunoia.luno.runtime.automation.ExecutionReason
+import hunoia.luno.runtime.automation.SequenceExecutor
 import hunoia.luno.runtime.button.ButtonHideRuntime
 import hunoia.luno.runtime.button.ButtonRefreshCoordinator
 import hunoia.luno.runtime.condition.BatteryTracker
@@ -91,6 +95,14 @@ class GestureCoordinator(
     private val conditionSources = ConditionSources(
         context = host.context,
         onStateChanged = { refreshGestureButtons() },
+        onBluetoothPulse = { direction ->
+            environmentTracker.onBluetoothChanged(direction)
+            refreshGestureButtons()
+        },
+        onHeadphonesPulse = { direction ->
+            environmentTracker.onHeadphonesChanged(direction)
+            refreshGestureButtons()
+        },
     )
 
     private val audioVolumeTracker = AudioVolumeTracker(
@@ -118,6 +130,7 @@ class GestureCoordinator(
         scope = host.coroutineScope,
         rulesProvider = { runtimeSettingsStore.snapshot().automationRules },
         onTimeSignatureChanged = { refreshGestureButtons(delayMs = 0L) },
+        markScheduledHit = { environmentTracker.onScheduledTimeHit() },
     )
 
     private val previousAppTracker = PreviousAppTracker(
@@ -148,8 +161,35 @@ class GestureCoordinator(
         },
     )
 
+    private val sequenceExecutor = SequenceExecutor(
+        runSingleAction = { action, entryId, ctx ->
+            actionDispatcher.runStepAction(action, entryId, ctx)
+        },
+    )
+
     private val automationEngine = AutomationEngine(
-        onRunEffect = { effect, ctx -> actionDispatcher.runEffect(effect, ctx) },
+        // 每条规则独立协程跑步骤：一家的 delay 不堵别家（冲突全跑）。
+        onFireRule = { rule, ctx ->
+            host.coroutineScope.launch {
+                val records = sequenceExecutor.runSteps(rule.effect.effectiveSteps(), ctx)
+                val reason = records.firstOrNull { !it.ok }?.let {
+                    ExecutionReason.INTERRUPTED_PREFIX + it.index
+                } ?: ExecutionReason.OK
+                ConfigProvider.appendAutomationEvent(
+                    AutomationEvent(
+                        ruleId = rule.id,
+                        ruleName = rule.name,
+                        timeMs = ctx.nowMs,
+                        fired = true,
+                        reason = reason,
+                        steps = records,
+                    )
+                )
+            }
+        },
+        onEvent = { event ->
+            host.coroutineScope.launch { ConfigProvider.appendAutomationEvent(event) }
+        },
     )
 
     private val buttonRefreshCoordinator = ButtonRefreshCoordinator(
@@ -207,6 +247,11 @@ class GestureCoordinator(
         batteryTracker.register()
         audioVolumeTracker.sync(volumePollNeeded())
         conditionSources.start()
+        // 通知脉冲：同 :service 进程静态直连；destroy 时置空，避免野回调。
+        AutomationPulseHub.onNotification = { pulse ->
+            environmentTracker.onNotificationPosted(pulse)
+            refreshGestureButtons()
+        }
         val listener = WallpaperManager.OnColorsChangedListener { _, _ ->
             hunoia.luno.core.Events.post(hunoia.luno.bridge.WallpaperChangedEvent())
         }
@@ -278,6 +323,7 @@ class GestureCoordinator(
         if (!started) return
         started = false
         if (BuildConfig.DEBUG) Log.i("LunoLauncher", "GestureCoordinator destroy")
+        AutomationPulseHub.onNotification = null
         runtimeSettingsStore.stop()
         timeConditionTicker.stop()
         batteryTracker.unregister()

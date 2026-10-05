@@ -11,6 +11,8 @@ object DataStoreFiles {
     const val GESTURE_BUTTONS = "jj"
     const val NEW_ACTION_LIBRARY_SETTINGS = "ll"
     const val AUTOMATION_RULES = "mm"
+    /** 自动化执行历史：调试用，可丢，刻意不进备份。 */
+    const val AUTOMATION_LOG = "pp"
 
     /** 快速启动器应用列表快照。可从系统重建，刻意不进备份。 */
     const val QUICK_APP_SNAPSHOT = "nn"

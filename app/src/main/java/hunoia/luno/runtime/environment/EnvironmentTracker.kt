@@ -4,10 +4,12 @@ import android.content.res.Configuration
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import hunoia.luno.action.model.AudioStream
+import hunoia.luno.config.model.ConnectionDirection
 import hunoia.luno.config.model.NetworkType
 import hunoia.luno.config.model.ScreenEventType
 import hunoia.luno.runtime.GestureRuntimeState
 import hunoia.luno.runtime.VolumeChange
+import hunoia.luno.runtime.condition.NotificationPulse
 import hunoia.luno.runtime.condition.nowMinuteOfDay
 
 class EnvironmentTracker(
@@ -28,6 +30,11 @@ class EnvironmentTracker(
     private var pendingScreenEvent: ScreenEventType? = null
     private var pendingChargingChangedTo: Boolean? = null
     private var pendingVolumeChange: VolumeChange? = null
+    // v2 新增脉冲（P2 事件源接入）
+    private var pendingNotification: NotificationPulse? = null
+    private var pendingBluetoothChanged: ConnectionDirection? = null
+    private var pendingHeadphonesChanged: ConnectionDirection? = null
+    private var pendingScheduledTimeHit: Boolean = false
 
     private var lastFocusQueryMs = 0L
     private var lastFocusQueryResult = false
@@ -59,6 +66,22 @@ class EnvironmentTracker(
         pendingVolumeChange = change
     }
 
+    fun onNotificationPosted(pulse: NotificationPulse) {
+        pendingNotification = pulse
+    }
+
+    fun onBluetoothChanged(direction: ConnectionDirection) {
+        pendingBluetoothChanged = direction
+    }
+
+    fun onHeadphonesChanged(direction: ConnectionDirection) {
+        pendingHeadphonesChanged = direction
+    }
+
+    fun onScheduledTimeHit() {
+        pendingScheduledTimeHit = true
+    }
+
     fun updateKeyboardActive(active: Boolean) {
         if (isKeyboardInputActive == active) return
         isKeyboardInputActive = active
@@ -82,11 +105,19 @@ class EnvironmentTracker(
         val screenEvent = if (consumePulses) pendingScreenEvent else null
         val chargingChangedTo = if (consumePulses) pendingChargingChangedTo else null
         val volumeChanged = if (consumePulses) pendingVolumeChange else null
+        val notificationPosted = if (consumePulses) pendingNotification else null
+        val bluetoothChanged = if (consumePulses) pendingBluetoothChanged else null
+        val headphonesChanged = if (consumePulses) pendingHeadphonesChanged else null
+        val scheduledTimeHit = consumePulses && pendingScheduledTimeHit
         if (consumePulses) {
             pendingAppChangedTo = null
             pendingScreenEvent = null
             pendingChargingChangedTo = null
             pendingVolumeChange = null
+            pendingNotification = null
+            pendingBluetoothChanged = null
+            pendingHeadphonesChanged = null
+            pendingScheduledTimeHit = false
         }
         return GestureRuntimeState(
             currentPackageName = getCurrentPackageName(),
@@ -109,6 +140,10 @@ class EnvironmentTracker(
             screenEvent = screenEvent,
             chargingChangedTo = chargingChangedTo,
             volumeChanged = volumeChanged,
+            notificationPosted = notificationPosted,
+            bluetoothChanged = bluetoothChanged,
+            headphonesChanged = headphonesChanged,
+            scheduledTimeHit = scheduledTimeHit,
         )
     }
 

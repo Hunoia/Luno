@@ -33,6 +33,7 @@ object ConfigProvider {
     val subGestureSettings: Flow<SubGestureSettings> = stores.subGestureSettings
     val newActionLibrarySettings: Flow<NewActionLibrarySettings> = stores.newActionLibrarySettings
     val automationRules: Flow<List<AutomationRule>> = stores.automationRules
+    val automationLog: Flow<List<hunoia.luno.runtime.automation.AutomationEvent>> = stores.automationLog
     val quickSearchSettings: Flow<QuickSearchSettings> = stores.quickSearchSettings
 
     suspend fun getInitialSettings(): InitialSettings = stores._initialSettings.data.first()
@@ -73,6 +74,15 @@ object ConfigProvider {
 
     suspend fun updateAutomationRules(transform: suspend (List<AutomationRule>) -> List<AutomationRule>) {
         stores._automationRules.updateData(transform)
+    }
+
+    /** 执行历史追加：全局环形 100，写盘失败吞掉（调试数据不影响规则执行）。 */
+    suspend fun appendAutomationEvent(event: hunoia.luno.runtime.automation.AutomationEvent) {
+        runCatching {
+            stores._automationLog.updateData { old ->
+                (old + event).takeLast(hunoia.luno.runtime.automation.ExecutionLog.MAX_EVENTS)
+            }
+        }
     }
 
     suspend fun updateQuickSearchSettings(transform: suspend (QuickSearchSettings) -> QuickSearchSettings) {

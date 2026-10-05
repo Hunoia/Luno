@@ -110,6 +110,20 @@ class ActionDispatcher(
         dispatchEntry(effect.entryId, null, null, null, automationContext)
     }
 
+    /**
+     * v2 单步骤执行：entry 缺失返回 false；异常抛给调用方（SequenceExecutor 捕获即中断）。
+     * 动作内部执行结果不追踪（dispatcher 内部已吞，只保证派发动作本身）。
+     */
+    fun runStepAction(action: Action?, entryId: String, ctx: ConditionContext): Boolean {
+        val automationContext: () -> ConditionContext? = { ctx }
+        if (action != null) {
+            onAction(action, null, null, automationContext)
+            return true
+        }
+        if (entryId.isBlank()) return false
+        return dispatchEntry(entryId, null, null, null, automationContext)
+    }
+
     /** 供 overlay 等场景直接执行一个已构造好的动作。 */
     fun dispatchAction(action: Action) {
         onAction(action, null, null)

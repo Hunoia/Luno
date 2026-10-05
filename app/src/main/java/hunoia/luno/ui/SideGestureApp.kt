@@ -38,12 +38,14 @@ import hunoia.luno.ui.navigation.SearchEngineSettings
 import hunoia.luno.ui.navigation.SubGestureEditor
 import hunoia.luno.ui.navigation.Automation
 import hunoia.luno.ui.navigation.AutomationEdit
+import hunoia.luno.ui.navigation.AutomationHistory
 
 import hunoia.luno.ui.navigation.NewActionLibraryEdit
 
 import hunoia.luno.ui.actionselect.ActionSelectContent
 import hunoia.luno.ui.actionlibrary.NewActionLibraryEditScreen
 import hunoia.luno.ui.automation.AutomationEditScreen
+import hunoia.luno.ui.automation.AutomationHistoryScreen
 import hunoia.luno.ui.automation.AutomationSettingsScreen
 import hunoia.luno.ui.settings.action.ActionSettingsScreen
 import hunoia.luno.ui.settings.search.SearchEngineSettingsScreen
@@ -153,6 +155,13 @@ fun SideGestureApp() {
                         onBack = { navController.popBackStack() },
                         ruleId = it.toRoute<AutomationEdit>().ruleId,
                         onNavToActionSelect = { navController.navigate(it) },
+                        onNavToHistory = { ruleId -> navController.navigate(AutomationHistory(ruleId)) },
+                    )
+                }
+                myComposable<AutomationHistory> {
+                    AutomationHistoryScreen(
+                        onBack = { navController.popBackStack() },
+                        ruleId = it.toRoute<AutomationHistory>().ruleId,
                     )
                 }
                 myComposable<NewActionLibraryEdit> {

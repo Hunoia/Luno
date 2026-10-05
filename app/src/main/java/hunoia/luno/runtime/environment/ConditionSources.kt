@@ -19,12 +19,16 @@ import android.net.NetworkCapabilities
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import hunoia.luno.config.model.ConnectionDirection
 import hunoia.luno.config.model.NetworkType
 
 /** 自动化条件所需的系统电平状态：网络 / 耳机 / 蓝牙 / 飞行模式 */
 class ConditionSources(
     private val context: Context,
     private val onStateChanged: () -> Unit = {},
+    /** 连接方向脉冲：只发真实翻转，启动时的首次读取不算（init 守卫）。 */
+    private val onBluetoothPulse: (ConnectionDirection) -> Unit = {},
+    private val onHeadphonesPulse: (ConnectionDirection) -> Unit = {},
 ) {
     var networkType: NetworkType = NetworkType.NONE
         private set
@@ -42,6 +46,10 @@ class ConditionSources(
         private set
 
     private var started = false
+
+    /** 首次读取完成前不发脉冲：避免启动瞬间把"本来就连着"当成一次连接事件。 */
+    private var headphonesInitDone = false
+    private var bluetoothAudioInitDone = false
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -148,6 +156,8 @@ class ConditionSources(
     fun stop() {
         if (!started) return
         started = false
+        headphonesInitDone = false
+        bluetoothAudioInitDone = false
         runCatching {
             (context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager)
                 .unregisterNetworkCallback(networkCallback!!)
@@ -165,8 +175,14 @@ class ConditionSources(
         }.getOrNull() ?: return
         if (connected != headphonesConnected) {
             headphonesConnected = connected
+            if (headphonesInitDone) {
+                onHeadphonesPulse(
+                    if (connected) ConnectionDirection.CONNECTED else ConnectionDirection.DISCONNECTED
+                )
+            }
             onStateChanged()
         }
+        headphonesInitDone = true
     }
 
     private fun readBluetoothAdapter() {
@@ -195,8 +211,14 @@ class ConditionSources(
         }.getOrNull() ?: false
         if (connected != bluetoothAudioConnected) {
             bluetoothAudioConnected = connected
+            if (bluetoothAudioInitDone) {
+                onBluetoothPulse(
+                    if (connected) ConnectionDirection.CONNECTED else ConnectionDirection.DISCONNECTED
+                )
+            }
             onStateChanged()
         }
+        bluetoothAudioInitDone = true
     }
 
     private fun readAirplaneMode() {

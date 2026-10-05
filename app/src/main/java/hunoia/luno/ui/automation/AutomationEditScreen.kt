@@ -52,9 +52,15 @@ import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.BooleanMode
 import hunoia.luno.config.model.ConditionItem
+import hunoia.luno.config.model.ConditionType
+import hunoia.luno.config.model.FireMode
 import hunoia.luno.config.model.RuleEffect
 import hunoia.luno.config.model.RuleEffectType
 import hunoia.luno.config.model.RuleScope
+import hunoia.luno.config.model.RuleStep
+import hunoia.luno.config.model.RuleStepKind
+import hunoia.luno.config.model.ThrottleKind
+import hunoia.luno.config.model.ThrottlePolicy
 import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.runtime.condition.hasLeaf
 import hunoia.luno.ui.actionselect.selectedItemLabel
@@ -78,6 +84,7 @@ fun AutomationEditScreen(
     onBack: () -> Unit,
     ruleId: String,
     onNavToActionSelect: (ActionSelect) -> Unit,
+    onNavToHistory: (String) -> Unit,
 ) {
     val loadedRules by ConfigProvider.automationRules
         .collectAsStateWithLifecycle(initialValue = null)
@@ -89,37 +96,48 @@ fun AutomationEditScreen(
     val scope = rememberCoroutineScope()
     var draft by remember { mutableStateOf<AutomationRule?>(null) }
     var showScopeSheet by remember { mutableStateOf(false) }
-    var showTypePicker by remember { mutableStateOf(false) }
 
     LaunchedEffect(ruleId, loadedRules) {
         if (draft != null) return@LaunchedEffect
         val rules = loadedRules ?: return@LaunchedEffect
-        draft = rules.find { it.id == ruleId } ?: AutomationRule(
-            id = if (ruleId == NEW_AUTOMATION_RULE_ID) SystemClock.uptimeMillis().toString() else ruleId,
-            condition = WhenGroup(),
-            effect = RuleEffect(type = RuleEffectType.HIDE_BUTTONS),
-        )
+        val stored = rules.find { it.id == ruleId }
+        draft = if (stored != null) {
+            // 编辑态物化：legacy action/entryId→steps、cooldownMs→throttle，存档即迁移。
+            stored.copy(
+                effect = stored.effect.copy(steps = stored.effect.effectiveSteps()),
+                throttle = stored.effectiveThrottle(),
+                cooldownMs = 0L,
+            )
+        } else {
+            AutomationRule(
+                id = if (ruleId == NEW_AUTOMATION_RULE_ID) SystemClock.uptimeMillis().toString() else ruleId,
+                condition = WhenGroup(),
+                effect = RuleEffect(type = RuleEffectType.HIDE_BUTTONS),
+            )
+        }
     }
 
     LaunchedEffect(loadedRules) {
         val current = draft ?: return@LaunchedEffect
         val rules = loadedRules ?: return@LaunchedEffect
         val stored = rules.find { it.id == current.id } ?: return@LaunchedEffect
+        // 动作选择页回填（整条规则级或某步骤级）写回 store 后，同步进 draft。
         if (stored.effect.action != current.effect.action ||
-            stored.effect.entryId != current.effect.entryId
+            stored.effect.entryId != current.effect.entryId ||
+            stored.effect.steps != current.effect.steps
         ) {
             draft = current.copy(effect = current.effect.copy(
                 action = stored.effect.action,
                 entryId = stored.effect.entryId,
+                steps = stored.effect.steps,
             ))
         }
     }
 
     val rule = draft ?: return
     val context = LocalContext.current
-    val cooldownText = remember(rule.id) { mutableStateOf(rule.cooldownMs.toString()) }
 
-    fun onPickAction() {
+    fun onPickAction(stepPath: String) {
         scope.launch {
             ConfigProvider.updateAutomationRules { rules ->
                 if (rules.any { r -> r.id == rule.id }) {
@@ -128,19 +146,21 @@ fun AutomationEditScreen(
                     rules + rule
                 }
             }
-            onNavToActionSelect(ActionSelect(automationRuleId = rule.id))
+            onNavToActionSelect(ActionSelect(
+                automationRuleId = rule.id,
+                automationStepPath = stepPath,
+            ))
         }
     }
 
     fun save() {
-        val effective = rule.copy(cooldownMs = parseCooldown(cooldownText.value))
         scope.launch {
             try {
                 ConfigProvider.updateAutomationRules { rules ->
-                    if (rules.any { it.id == effective.id }) {
-                        rules.map { if (it.id == effective.id) effective else it }
+                    if (rules.any { it.id == rule.id }) {
+                        rules.map { if (it.id == rule.id) rule else it }
                     } else {
-                        rules + effective
+                        rules + rule
                     }
                 }
                 onBack()
@@ -150,10 +170,11 @@ fun AutomationEditScreen(
         }
     }
 
-    val cooldownInvalid = isInvalidCooldown(cooldownText.value)
+    val throttleInvalid = isInvalidThrottle(rule.throttle)
+    val stepsEmpty = rule.effect.type == RuleEffectType.RUN_ACTION && rule.effect.steps.isEmpty()
     val saveEnabled = rule.condition.hasLeaf() &&
-        (rule.effect.type != RuleEffectType.RUN_ACTION || rule.effect.hasAction) &&
-        !cooldownInvalid
+        (rule.effect.type != RuleEffectType.RUN_ACTION || !stepsEmpty) &&
+        !throttleInvalid
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val backdrop = liquidGlassBackdrop()
@@ -196,7 +217,6 @@ fun AutomationEditScreen(
             ConditionGroupEditor(
                 group = rule.condition,
                 onChange = { draft = rule.copy(condition = it) },
-                onAdd = { showTypePicker = true },
             )
             if (!rule.condition.hasLeaf()) {
                 Text(
@@ -222,32 +242,52 @@ fun AutomationEditScreen(
 
             if (rule.effect.type == RuleEffectType.RUN_ACTION) {
                 SegmentedSettingsRow(
-                    title = stringResource(R.string.automation_pick_action),
-                    subtitle = effectActionLabel(context, library, rule.effect),
-                    onClick = { onPickAction() },
+                    title = stringResource(R.string.automation_fire_on),
+                    subtitle = fireModeLabel(rule.fireOn),
                 )
-                if (!rule.effect.hasAction) {
+                FireModeSelector(rule.fireOn) { draft = rule.copy(fireOn = it) }
+
+                SegmentedSettingsRow(
+                    title = stringResource(R.string.automation_steps),
+                    subtitle = stringResource(R.string.automation_steps),
+                )
+                StepsEditor(
+                    steps = rule.effect.steps,
+                    onChange = { draft = rule.copy(effect = rule.effect.copy(steps = it)) },
+                    onPickAction = { onPickAction(it) },
+                    library = library,
+                )
+                if (stepsEmpty) {
                     Text(
-                        text = stringResource(R.string.automation_entry_required),
+                        text = stringResource(R.string.automation_steps_empty),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
-                OutlinedTextField(
-                    value = cooldownText.value,
-                    onValueChange = { cooldownText.value = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.automation_cooldown)) },
-                    placeholder = { Text(stringResource(R.string.automation_cooldown_hint)) },
-                    singleLine = true,
-                    isError = cooldownInvalid,
-                    supportingText = {
-                        if (cooldownInvalid) {
-                            Text(stringResource(R.string.automation_cooldown_invalid))
-                        }
-                    },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = LargeShape,
+
+                SegmentedSettingsRow(
+                    title = stringResource(R.string.automation_throttle),
+                    subtitle = throttleSummary(rule.throttle),
+                )
+                ThrottleEditor(
+                    throttle = rule.throttle,
+                    onChange = { draft = rule.copy(throttle = it) },
+                )
+                if (throttleInvalid) {
+                    Text(
+                        text = stringResource(R.string.throttle_invalid),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+
+                if (conditionUsesNotification(rule.condition)) {
+                    NotificationPermissionRow()
+                }
+
+                SegmentedSettingsRow(
+                    title = stringResource(R.string.automation_history),
+                    onClick = { onNavToHistory(rule.id) },
                 )
             }
         }
@@ -265,19 +305,162 @@ fun AutomationEditScreen(
             },
         )
     }
+}
 
-    if (showTypePicker) {
-        ConditionTypePickerSheet(
-            onDismissRequest = { showTypePicker = false },
-            onPick = { type ->
-                draft = rule.copy(
-                    condition = rule.condition.copy(
-                        items = rule.condition.items + defaultConditionOf(type),
-                    ),
-                )
-                showTypePicker = false
-            },
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StepsEditor(
+    steps: List<RuleStep>,
+    onChange: (List<RuleStep>) -> Unit,
+    onPickAction: (String) -> Unit,
+    library: NewActionLibrarySettings?,
+    pathPrefix: String = "",
+    depth: Int = 0,
+) {
+    val context = LocalContext.current
+    Column(verticalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
+        steps.forEachIndexed { index, step ->
+            Column(verticalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+                ) {
+                    SegmentedSettingsRow(
+                        title = when (step.kind) {
+                            RuleStepKind.DELAY -> stringResource(R.string.step_delay)
+                            RuleStepKind.IF -> stringResource(R.string.step_if)
+                            else -> stringResource(R.string.step_action)
+                        },
+                        subtitle = stepSummary(context, library, step),
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = {
+                        onChange(steps.toMutableList().also { it.removeAt(index) })
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = stringResource(R.string.delete),
+                        )
+                    }
+                }
+                when (step.kind) {
+                    RuleStepKind.ACTION -> SegmentedSettingsRow(
+                        title = stringResource(R.string.automation_pick_action),
+                        subtitle = effectActionLabel(
+                            context, library,
+                            RuleEffect(
+                                type = RuleEffectType.RUN_ACTION,
+                                action = step.action,
+                                entryId = step.entryId,
+                            ),
+                        ),
+                        onClick = { onPickAction("$pathPrefix$index") },
+                    )
+                    RuleStepKind.DELAY -> {
+                        var text by remember(step.delayMs) {
+                            mutableStateOf((step.delayMs / 1000).toString())
+                        }
+                        OutlinedTextField(
+                            value = text,
+                            onValueChange = {
+                                text = it
+                                it.toLongOrNull()?.let { s ->
+                                    val ms = (s * 1000).coerceIn(0L, 60_000L)
+                                    onChange(steps.toMutableList().also { list ->
+                                        list[index] = step.copy(delayMs = ms)
+                                    })
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text(stringResource(R.string.step_delay_seconds)) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            shape = LargeShape,
+                        )
+                    }
+                    RuleStepKind.IF -> {
+                        ConditionGroupEditor(
+                            group = step.condition,
+                            onChange = { g ->
+                                onChange(steps.toMutableList().also { list ->
+                                    list[index] = step.copy(condition = g)
+                                })
+                            },
+                            depth = depth + 1,
+                        )
+                        Text(
+                            text = stringResource(R.string.step_if_then),
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                        StepsEditor(
+                            steps = step.thenSteps,
+                            onChange = { branch ->
+                                onChange(steps.toMutableList().also { list ->
+                                    list[index] = step.copy(thenSteps = branch)
+                                })
+                            },
+                            onPickAction = onPickAction,
+                            library = library,
+                            pathPrefix = "$pathPrefix$index.then.",
+                            depth = depth + 1,
+                        )
+                        Text(
+                            text = stringResource(R.string.step_if_else),
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                        StepsEditor(
+                            steps = step.elseSteps,
+                            onChange = { branch ->
+                                onChange(steps.toMutableList().also { list ->
+                                    list[index] = step.copy(elseSteps = branch)
+                                })
+                            },
+                            onPickAction = onPickAction,
+                            library = library,
+                            pathPrefix = "$pathPrefix$index.else.",
+                            depth = depth + 1,
+                        )
+                    }
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
+            TextButton(onClick = {
+                onChange(steps + RuleStep(kind = RuleStepKind.ACTION))
+            }) {
+                Text(stringResource(R.string.step_add_action))
+            }
+            TextButton(onClick = {
+                onChange(steps + RuleStep(kind = RuleStepKind.DELAY, delayMs = 1000L))
+            }) {
+                Text(stringResource(R.string.step_add_delay))
+            }
+            // UI 只开两层分支嵌套（引擎上限 5 层），编辑器不做迷宫。
+            if (depth < 2) {
+                TextButton(onClick = {
+                    onChange(steps + RuleStep(kind = RuleStepKind.IF))
+                }) {
+                    Text(stringResource(R.string.step_add_if))
+                }
+            }
+        }
+    }
+}
+
+private fun stepSummary(
+    context: Context,
+    library: NewActionLibrarySettings?,
+    step: RuleStep,
+): String = when (step.kind) {
+    RuleStepKind.DELAY -> context.getString(R.string.step_delay_summary, step.delayMs / 1000)
+    RuleStepKind.IF -> conditionSummary(context, step.condition)
+    else -> {
+        val label = context.selectedItemLabel(
+            step.action ?: hunoia.luno.config.model.Action.NONE,
+            emptyList(), library?.entries ?: emptyList(),
         )
+        label.ifBlank { context.getString(R.string.step_empty_action) }
     }
 }
 
@@ -286,12 +469,24 @@ fun AutomationEditScreen(
 private fun ConditionGroupEditor(
     group: WhenGroup,
     onChange: (WhenGroup) -> Unit,
-    onAdd: () -> Unit,
+    depth: Int = 0,
+    onDeleteSelf: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
+    var showPicker by remember { mutableStateOf(false) }
     SegmentedSettingsRow(
         title = stringResource(R.string.automation_condition),
         subtitle = conditionSummary(context, group),
+        trailingContent = onDeleteSelf?.let { del ->
+            {
+                IconButton(onClick = del) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = stringResource(R.string.delete),
+                    )
+                }
+            }
+        },
     )
     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
         SegmentedButton(
@@ -311,28 +506,71 @@ private fun ConditionGroupEditor(
     }
     Column(verticalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
         group.items.forEachIndexed { index, item ->
-            ConditionItemBlock(
-                item = item,
-                onChange = { new ->
-                    val items = group.items.toMutableList()
-                    items[index] = new
-                    onChange(group.copy(items = items))
-                },
-                onDelete = {
-                    val items = group.items.toMutableList()
-                    items.removeAt(index)
-                    onChange(group.copy(items = items))
-                },
-            )
+            if (item.type == ConditionType.GROUP) {
+                // 嵌套组：UI 只开两层（引擎不限），再深的存量照跑、编辑器折叠为摘要。
+                if (depth < 2) {
+                    ConditionGroupEditor(
+                        group = item.group ?: WhenGroup(),
+                        onChange = { g ->
+                            val items = group.items.toMutableList()
+                            items[index] = item.copy(group = g)
+                            onChange(group.copy(items = items))
+                        },
+                        depth = depth + 1,
+                        onDeleteSelf = {
+                            val items = group.items.toMutableList()
+                            items.removeAt(index)
+                            onChange(group.copy(items = items))
+                        },
+                    )
+                } else {
+                    SegmentedSettingsRow(
+                        title = conditionTypeLabel(context, item.type),
+                        subtitle = itemSummary(context, item),
+                    )
+                }
+            } else {
+                ConditionItemBlock(
+                    item = item,
+                    onChange = { new ->
+                        val items = group.items.toMutableList()
+                        items[index] = new
+                        onChange(group.copy(items = items))
+                    },
+                    onDelete = {
+                        val items = group.items.toMutableList()
+                        items.removeAt(index)
+                        onChange(group.copy(items = items))
+                    },
+                )
+            }
         }
-        TextButton(onClick = onAdd) {
-            Icon(
-                imageVector = Icons.Default.Add,
-                contentDescription = null,
-                modifier = Modifier.padding(end = ShapeExtraSmall),
-            )
-            Text(stringResource(R.string.condition_add))
+        Row(horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
+            TextButton(onClick = { showPicker = true }) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    modifier = Modifier.padding(end = ShapeExtraSmall),
+                )
+                Text(stringResource(R.string.condition_add))
+            }
+            if (depth < 2) {
+                TextButton(onClick = {
+                    onChange(group.copy(items = group.items + defaultConditionOf(ConditionType.GROUP)))
+                }) {
+                    Text(stringResource(R.string.condition_logic_group))
+                }
+            }
         }
+    }
+    if (showPicker) {
+        ConditionTypePickerSheet(
+            onDismissRequest = { showPicker = false },
+            onPick = { type ->
+                onChange(group.copy(items = group.items + defaultConditionOf(type)))
+                showPicker = false
+            },
+        )
     }
 }
 
@@ -451,10 +689,137 @@ private fun entryName(library: NewActionLibrarySettings?, entryId: String): Stri
     return library?.entries?.find { it.id == entryId }?.name?.ifBlank { entryId } ?: entryId
 }
 
-private fun isInvalidCooldown(text: String): Boolean {
-    val value = text.trim().toLongOrNull() ?: return true
-    return value < 0 || value > 3600
+@Composable
+private fun fireModeLabel(mode: FireMode): String = stringResource(
+    when (mode) {
+        FireMode.ENTER -> R.string.fire_enter
+        FireMode.EXIT -> R.string.fire_exit
+        FireMode.BOTH -> R.string.fire_both
+    },
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FireModeSelector(selected: FireMode, onChange: (FireMode) -> Unit) {
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        FireMode.entries.forEachIndexed { index, mode ->
+            SegmentedButton(
+                selected = selected == mode,
+                onClick = { onChange(mode) },
+                shape = SegmentedButtonDefaults.itemShape(count = FireMode.entries.size, index = index),
+            ) {
+                Text(fireModeLabel(mode), maxLines = 1)
+            }
+        }
+    }
 }
 
-private fun parseCooldown(text: String): Long =
-    text.trim().toLongOrNull()?.coerceIn(0, 3600) ?: 0L
+@Composable
+private fun throttleSummary(throttle: ThrottlePolicy): String = when (throttle.kind) {
+    ThrottleKind.COOLDOWN -> "${stringResource(R.string.throttle_cooldown)} ${throttle.cooldownMs / 1000}s"
+    ThrottleKind.WINDOW -> "${stringResource(R.string.throttle_window)} ${throttle.maxCount}/${throttle.windowMs / 1000}s"
+    else -> stringResource(R.string.throttle_off)
+}
+
+private fun isInvalidThrottle(throttle: ThrottlePolicy): Boolean = when (throttle.kind) {
+    ThrottleKind.COOLDOWN -> throttle.cooldownMs < 0
+    ThrottleKind.WINDOW -> throttle.maxCount < 1 || throttle.windowMs < 1000L
+    else -> false
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ThrottleEditor(throttle: ThrottlePolicy, onChange: (ThrottlePolicy) -> Unit) {
+    var cooldownText by remember(throttle.cooldownMs) { mutableStateOf((throttle.cooldownMs / 1000).toString()) }
+    var countText by remember(throttle.maxCount) { mutableStateOf(throttle.maxCount.toString()) }
+    var windowText by remember(throttle.windowMs) { mutableStateOf((throttle.windowMs / 1000).toString()) }
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        val kinds = listOf(ThrottleKind.OFF, ThrottleKind.COOLDOWN, ThrottleKind.WINDOW)
+        val labels = listOf(
+            stringResource(R.string.throttle_off),
+            stringResource(R.string.throttle_cooldown),
+            stringResource(R.string.throttle_window),
+        )
+        kinds.forEachIndexed { index, kind ->
+            SegmentedButton(
+                selected = throttle.kind == kind,
+                onClick = { onChange(throttle.copy(kind = kind)) },
+                shape = SegmentedButtonDefaults.itemShape(count = kinds.size, index = index),
+            ) {
+                Text(labels[index], maxLines = 1)
+            }
+        }
+    }
+    when (throttle.kind) {
+        ThrottleKind.COOLDOWN -> OutlinedTextField(
+            value = cooldownText,
+            onValueChange = {
+                cooldownText = it
+                it.toLongOrNull()?.let { s -> onChange(throttle.copy(cooldownMs = s * 1000)) }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(R.string.throttle_cooldown_hint)) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            shape = LargeShape,
+        )
+        ThrottleKind.WINDOW -> {
+            OutlinedTextField(
+                value = countText,
+                onValueChange = {
+                    countText = it
+                    it.toIntOrNull()?.let { n -> onChange(throttle.copy(maxCount = n)) }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.throttle_window_count)) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                shape = LargeShape,
+            )
+            OutlinedTextField(
+                value = windowText,
+                onValueChange = {
+                    windowText = it
+                    it.toLongOrNull()?.let { s -> onChange(throttle.copy(windowMs = s * 1000)) }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.throttle_window_seconds)) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                shape = LargeShape,
+            )
+        }
+        else -> Unit
+    }
+}
+
+private fun conditionUsesNotification(group: WhenGroup): Boolean = group.items.any { item ->
+    when (item.type) {
+        ConditionType.NOTIFICATION_POSTED -> true
+        ConditionType.GROUP -> item.group?.let { conditionUsesNotification(it) } == true
+        else -> false
+    }
+}
+
+@Composable
+private fun NotificationPermissionRow() {
+    val context = LocalContext.current
+    val granted = remember {
+        hunoia.luno.runtime.automation.AutomationNotificationListener.isAccessGranted(context)
+    }
+    SegmentedSettingsRow(
+        title = stringResource(R.string.notify_permission_title),
+        subtitle = stringResource(
+            if (granted) R.string.notify_permission_granted
+            else R.string.notify_permission_missing,
+        ) + " · " + stringResource(R.string.notify_permission_privacy),
+        onClick = {
+            if (!granted) {
+                context.startActivity(
+                    android.content.Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            }
+        },
+    )
+}

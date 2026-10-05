@@ -100,10 +100,16 @@ private suspend fun saveAutomationEffect(actionSelect: ActionSelect, newActions:
     ConfigProvider.updateAutomationRules { rules ->
         rules.map { rule ->
             if (rule.id != actionSelect.automationRuleId) return@map rule
-            rule.copy(effect = rule.effect.copy(
-                action = selected?.takeIf { it.value != VALUE_LIBRARY_REF },
-                entryId = selected?.actionLibraryRefId() ?: "",
-            ))
+            val action = selected?.takeIf { it.value != VALUE_LIBRARY_REF }
+            val entryId = selected?.actionLibraryRefId() ?: ""
+            val path = actionSelect.automationStepPath
+            if (path.isBlank()) {
+                rule.copy(effect = rule.effect.copy(action = action, entryId = entryId))
+            } else {
+                rule.copy(effect = rule.effect.withStepAt(path) { step ->
+                    step.copy(kind = hunoia.luno.config.model.RuleStepKind.ACTION, action = action, entryId = entryId)
+                })
+            }
         }
     }
 }
@@ -115,6 +121,14 @@ private suspend fun loadAutomationActions(
     val rules = ConfigProvider.getAutomationRules()
     val rule = rules.find { it.id == actionSelect.automationRuleId } ?: return null
     if (rule.effect.type != RuleEffectType.RUN_ACTION) return null
+    val path = actionSelect.automationStepPath
+    if (path.isNotBlank()) {
+        val step = rule.effect.stepAt(path) ?: return null
+        step.action?.let { return listOf(it.copy(extra = null)) }
+        if (step.entryId.isBlank()) return null
+        val entry = actionLibraryEntries.find { it.id == step.entryId } ?: return null
+        return listOf(entry.toReferenceAction())
+    }
     rule.effect.action?.let { return listOf(it.copy(extra = null)) }
     if (rule.effect.entryId.isBlank()) return null
     val entry = actionLibraryEntries.find { it.id == rule.effect.entryId } ?: return null

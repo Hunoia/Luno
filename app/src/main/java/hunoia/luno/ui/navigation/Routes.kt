@@ -15,6 +15,8 @@ data class ActionSelect(
     val triggerType: GestureTriggerType = GestureTriggerType.Slide,
     val subGestureId: String = "",
     val automationRuleId: String = "",
+    /** 自动化步骤路径（"0" / "2.then.0"），空=整条规则级 legacy。 */
+    val automationStepPath: String = "",
 )
 
 @Serializable
@@ -48,6 +50,12 @@ data object Automation
 @Keep
 @Serializable
 data class AutomationEdit(
+    val ruleId: String,
+)
+
+@Keep
+@Serializable
+data class AutomationHistory(
     val ruleId: String,
 )
 

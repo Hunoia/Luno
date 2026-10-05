@@ -11,6 +11,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -33,6 +34,8 @@ import hunoia.luno.action.model.AudioStream
 import hunoia.luno.action.model.VolumeDirection
 import hunoia.luno.config.model.ConditionItem
 import hunoia.luno.config.model.ConditionType
+import hunoia.luno.config.model.ConnectionDirection
+import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.config.model.NetworkType
 import hunoia.luno.config.model.ScreenEventType
 import hunoia.luno.config.model.ScreenType
@@ -71,6 +74,10 @@ val EVENT_CONDITION_TYPES: List<ConditionTypeSpec> = listOf(
     ConditionTypeSpec(ConditionType.SCREEN_EVENT, R.string.condition_screen_event, true),
     ConditionTypeSpec(ConditionType.CHARGING_CHANGED, R.string.condition_charging_changed, true),
     ConditionTypeSpec(ConditionType.VOLUME_CHANGED, R.string.condition_volume_changed, true),
+    ConditionTypeSpec(ConditionType.NOTIFICATION_POSTED, R.string.condition_notification_posted, true),
+    ConditionTypeSpec(ConditionType.BLUETOOTH_CHANGED, R.string.condition_bluetooth_changed, true),
+    ConditionTypeSpec(ConditionType.HEADPHONES_CHANGED, R.string.condition_headphones_changed, true),
+    ConditionTypeSpec(ConditionType.SCHEDULED_TIME, R.string.condition_scheduled_time, true),
 )
 
 val CONDITION_TYPES: List<ConditionTypeSpec> = LEVEL_CONDITION_TYPES + EVENT_CONDITION_TYPES
@@ -88,6 +95,11 @@ fun defaultConditionOf(type: String): ConditionItem = when (type) {
     ConditionType.HEADPHONES -> ConditionItem(type, plugged = true)
     ConditionType.BLUETOOTH -> ConditionItem(type, expectedBluetoothAdapterOn = true)
     ConditionType.AIRPLANE_MODE -> ConditionItem(type, airplaneMode = true)
+    ConditionType.NOTIFICATION_POSTED -> ConditionItem(type)
+    ConditionType.BLUETOOTH_CHANGED -> ConditionItem(type, connectionDirection = ConnectionDirection.CONNECTED)
+    ConditionType.HEADPHONES_CHANGED -> ConditionItem(type, connectionDirection = ConnectionDirection.CONNECTED)
+    ConditionType.SCHEDULED_TIME -> ConditionItem(type, scheduledMinutes = listOf(8 * 60))
+    ConditionType.GROUP -> ConditionItem(type, group = WhenGroup())
     else -> ConditionItem(type)
 }
 
@@ -297,6 +309,48 @@ fun ConditionItemFields(item: ConditionItem, onChange: (ConditionItem) -> Unit) 
                 onChange = { lo, hi -> onChange(item.copy(startMinute = lo, endMinute = hi)) },
             )
 
+            ConditionType.NOTIFICATION_POSTED -> {
+                AppConditionField(
+                    packageNames = item.notifyPackages,
+                    onChange = { onChange(item.copy(notifyPackages = it)) },
+                )
+                OutlinedTextField(
+                    value = item.notifyKeyword,
+                    onValueChange = { onChange(item.copy(notifyKeyword = it)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.condition_notify_keyword)) },
+                    singleLine = true,
+                    shape = hunoia.luno.ui.theme.LargeShape,
+                )
+            }
+
+            ConditionType.BLUETOOTH_CHANGED,
+            ConditionType.HEADPHONES_CHANGED -> TriStateLabelRow(
+                labels = listOf(
+                    stringResource(R.string.condition_unlimited),
+                    stringResource(R.string.condition_connected),
+                    stringResource(R.string.condition_disconnected),
+                ),
+                selectedIndex = when (item.connectionDirection) {
+                    null -> 0
+                    ConnectionDirection.CONNECTED -> 1
+                    ConnectionDirection.DISCONNECTED -> 2
+                },
+                onChange = { i ->
+                    onChange(item.copy(connectionDirection = when (i) {
+                        0 -> null
+                        1 -> ConnectionDirection.CONNECTED
+                        else -> ConnectionDirection.DISCONNECTED
+                    }))
+                },
+            )
+
+            ConditionType.SCHEDULED_TIME -> ScheduledTimeField(
+                minutes = item.scheduledMinutes,
+                weekdays = item.scheduledWeekdays,
+                onChange = { m, w -> onChange(item.copy(scheduledMinutes = m, scheduledWeekdays = w)) },
+            )
+
             else -> Unit
         }
     }
@@ -440,6 +494,67 @@ private fun TimeRangeField(
         )
 
         else -> Unit
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun ScheduledTimeField(
+    minutes: List<Int>,
+    weekdays: Set<Int>,
+    onChange: (List<Int>, Set<Int>) -> Unit,
+) {
+    var picking by remember { mutableStateOf(false) }
+    Text(
+        stringResource(R.string.condition_scheduled_times),
+        style = MaterialTheme.typography.labelMedium,
+    )
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(PageGutter)) {
+        minutes.sorted().forEach { minute ->
+            FilterChip(
+                selected = true,
+                onClick = { onChange(minutes.filterNot { it == minute }, weekdays) },
+                label = { Text(formatTimeOfDay(minute)) },
+            )
+        }
+        OutlinedButton(onClick = { picking = true }) {
+            Text(stringResource(R.string.condition_scheduled_add))
+        }
+    }
+    Text(
+        stringResource(R.string.condition_scheduled_weekdays),
+        style = MaterialTheme.typography.labelMedium,
+    )
+    // 周一起，映射 Calendar 常量（MONDAY=2..SUNDAY=1）。
+    val order = listOf(
+        java.util.Calendar.MONDAY to R.string.weekday_mon,
+        java.util.Calendar.TUESDAY to R.string.weekday_tue,
+        java.util.Calendar.WEDNESDAY to R.string.weekday_wed,
+        java.util.Calendar.THURSDAY to R.string.weekday_thu,
+        java.util.Calendar.FRIDAY to R.string.weekday_fri,
+        java.util.Calendar.SATURDAY to R.string.weekday_sat,
+        java.util.Calendar.SUNDAY to R.string.weekday_sun,
+    )
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(PageGutter)) {
+        order.forEach { (day, labelRes) ->
+            FilterChip(
+                selected = day in weekdays,
+                onClick = {
+                    onChange(minutes, if (day in weekdays) weekdays - day else weekdays + day)
+                },
+                label = { Text(stringResource(labelRes)) },
+            )
+        }
+    }
+    if (picking) {
+        TimePickerDialog(
+            title = stringResource(R.string.condition_scheduled_add),
+            initialMinute = 8 * 60,
+            onDismiss = { picking = false },
+            onConfirm = {
+                if (it !in minutes) onChange(minutes + it, weekdays)
+            },
+        )
     }
 }
 

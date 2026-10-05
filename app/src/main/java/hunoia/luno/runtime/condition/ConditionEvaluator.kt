@@ -5,6 +5,7 @@ import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.BooleanMode
 import hunoia.luno.config.model.ConditionItem
 import hunoia.luno.config.model.ConditionType
+import hunoia.luno.config.model.ConnectionDirection
 import hunoia.luno.config.model.NetworkType
 import hunoia.luno.config.model.ScreenEventType
 import hunoia.luno.config.model.ScreenType
@@ -36,6 +37,19 @@ data class ConditionContext(
     val screenEvent: ScreenEventType?,
     val chargingChangedTo: Boolean?,
     val volumeChanged: VolumeChange?,
+
+    // v2 新增脉冲（事件源在 P2 接入；null=无脉冲）
+    val notificationPosted: NotificationPulse? = null,
+    val bluetoothChanged: ConnectionDirection? = null,
+    val headphonesChanged: ConnectionDirection? = null,
+    val scheduledTimeHit: Boolean = false,
+)
+
+/** 通知脉冲：包名+标题+正文（匹配后原文即丢，历史默认不同原文）。 */
+data class NotificationPulse(
+    val packageName: String,
+    val title: String,
+    val text: String,
 )
 
 /**
@@ -97,6 +111,10 @@ fun GestureRuntimeState.toConditionContext(): ConditionContext = ConditionContex
     screenEvent = screenEvent,
     chargingChangedTo = chargingChangedTo,
     volumeChanged = volumeChanged,
+    notificationPosted = notificationPosted,
+    bluetoothChanged = bluetoothChanged,
+    headphonesChanged = headphonesChanged,
+    scheduledTimeHit = scheduledTimeHit,
 )
 
 fun AutomationRule.matches(ctx: ConditionContext): Boolean = condition.matches(ctx)
@@ -124,10 +142,35 @@ fun ConditionItem.matches(ctx: ConditionContext): Boolean {
         type == ConditionType.SCREEN_EVENT -> ctx.screenEvent == screenEvent
         type == ConditionType.CHARGING_CHANGED -> ctx.chargingChangedTo != null && ctx.chargingChangedTo == charging
         type == ConditionType.VOLUME_CHANGED -> volumeChangedMatches(ctx)
+        type == ConditionType.NOTIFICATION_POSTED -> notificationMatches(ctx)
+        type == ConditionType.BLUETOOTH_CHANGED -> connectionMatches(ctx.bluetoothChanged)
+        type == ConditionType.HEADPHONES_CHANGED -> connectionMatches(ctx.headphonesChanged)
+        type == ConditionType.SCHEDULED_TIME -> ctx.scheduledTimeHit && scheduledTimeMatches(ctx)
         type == ConditionType.GROUP -> group?.matches(ctx) == true
         else -> false
     }
     return if (negated) !raw else raw
+}
+
+private fun ConditionItem.connectionMatches(pulse: ConnectionDirection?): Boolean {
+    if (pulse == null) return false
+    return connectionDirection == null || connectionDirection == pulse
+}
+
+private fun ConditionItem.notificationMatches(ctx: ConditionContext): Boolean {
+    val pulse = ctx.notificationPosted ?: return false
+    if (notifyPackages.isNotEmpty() && pulse.packageName !in notifyPackages) return false
+    if (notifyKeyword.isNotBlank() &&
+        !pulse.title.contains(notifyKeyword, ignoreCase = true) &&
+        !pulse.text.contains(notifyKeyword, ignoreCase = true)
+    ) return false
+    return true
+}
+
+private fun ConditionItem.scheduledTimeMatches(ctx: ConditionContext): Boolean {
+    // 星期由 P2 ticker 保证（只在星期命中的那天发脉冲），此处只校验分钟。
+    if (scheduledMinutes.isEmpty()) return false
+    return ctx.minuteOfDay in scheduledMinutes
 }
 
 private fun ConditionItem.screenStateMatches(ctx: ConditionContext): Boolean = when (screenType) {
@@ -179,6 +222,17 @@ fun WhenGroup.hasVolumeCondition(): Boolean = items.any { item ->
         else -> false
     }
 }
+
+/** 定时触发项（递归进 GROUP；星期由 ticker 保证，此处只收分钟表）。 */
+fun WhenGroup.scheduledItems(): List<ConditionItem> = items.flatMap { item ->
+    when (item.type) {
+        ConditionType.SCHEDULED_TIME -> listOf(item)
+        ConditionType.GROUP -> item.group?.scheduledItems() ?: emptyList()
+        else -> emptyList()
+    }
+}
+
+fun WhenGroup.hasScheduledTime(): Boolean = scheduledItems().isNotEmpty()
 
 fun WhenGroup.hasLeaf(): Boolean = items.any { item ->
     if (item.type == ConditionType.GROUP) item.group?.hasLeaf() == true else true

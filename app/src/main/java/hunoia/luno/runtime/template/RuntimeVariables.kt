@@ -44,6 +44,10 @@ object RuntimeVariables {
     const val TRIGGER_SCREEN = "trigger.screen"
     const val TRIGGER_CHARGING = "trigger.charging"
     const val TRIGGER_VOLUME = "trigger.volume"
+    const val TRIGGER_NOTIFICATION_PACKAGE = "trigger.notification.package"
+    const val TRIGGER_NOTIFICATION_TITLE = "trigger.notification.title"
+    const val TRIGGER_NOTIFICATION_TEXT = "trigger.notification.text"
+    const val CLIPBOARD = "clipboard"
 
     private const val VOLUME_PREFIX = "volume."
 
@@ -76,6 +80,10 @@ object RuntimeVariables {
         TemplateVariable(TRIGGER_SCREEN, "触发时的亮灭屏事件", "SCREEN_ON", triggerOnly = true),
         TemplateVariable(TRIGGER_CHARGING, "触发时的充电状态", "true", triggerOnly = true),
         TemplateVariable(TRIGGER_VOLUME, "触发时的音量变化", "music_UP", triggerOnly = true),
+        TemplateVariable(TRIGGER_NOTIFICATION_PACKAGE, "触发通知的包名", "com.tencent.mm", triggerOnly = true),
+        TemplateVariable(TRIGGER_NOTIFICATION_TITLE, "触发通知的标题", "张三", triggerOnly = true),
+        TemplateVariable(TRIGGER_NOTIFICATION_TEXT, "触发通知的正文", "在吗", triggerOnly = true),
+        TemplateVariable(CLIPBOARD, "当前剪贴板文本", "剪贴内容"),
     )
 
     fun volumeToken(stream: AudioStream): String = VOLUME_PREFIX + stream.name.lowercase()
@@ -112,6 +120,10 @@ object RuntimeVariables {
                 TRIGGER_SCREEN -> ctx.screenEvent?.name.orEmpty()
                 TRIGGER_CHARGING -> ctx.chargingChangedTo?.toString().orEmpty()
                 TRIGGER_VOLUME -> ctx.volumeChanged?.let { "${it.stream.name}_${it.direction.name}" }.orEmpty()
+                TRIGGER_NOTIFICATION_PACKAGE -> ctx.notificationPosted?.packageName.orEmpty()
+                TRIGGER_NOTIFICATION_TITLE -> ctx.notificationPosted?.title.orEmpty()
+                TRIGGER_NOTIFICATION_TEXT -> ctx.notificationPosted?.text.orEmpty()
+                CLIPBOARD -> readClipboard(appContext)
                 else -> {
                     if (!token.startsWith(VOLUME_PREFIX)) continue
                     audioStream(token)?.let { ctx.volumePercent[it]?.toString().orEmpty() } ?: continue
@@ -125,6 +137,19 @@ object RuntimeVariables {
     private fun audioStream(token: String): AudioStream? {
         val name = token.removePrefix(VOLUME_PREFIX).uppercase()
         return AudioStream.entries.firstOrNull { it.name == name }
+    }
+
+    /**
+     * 剪贴板文本：后台无焦点时系统返回 null（Android 10+ 限制），此时给空串。
+     * resolve 本来就是 suspend，可在 IO 线程读，失败一律吞掉给空串。
+     */
+    private fun readClipboard(appContext: Context): String {
+        return runCatching {
+            val cm = appContext.getSystemService(android.content.ClipboardManager::class.java)
+                ?: return ""
+            if (!cm.hasPrimaryClip()) return ""
+            cm.primaryClip?.getItemAt(0)?.coerceToText(appContext)?.toString().orEmpty()
+        }.getOrDefault("")
     }
 
     private fun today(): String {

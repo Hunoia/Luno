@@ -32,6 +32,11 @@ data class GestureRuntimeState(
     val screenEvent: ScreenEventType? = null,
     val chargingChangedTo: Boolean? = null,
     val volumeChanged: VolumeChange? = null,
+    // v2 新增脉冲（P2 事件源接入；默认 null=无脉冲）
+    val notificationPosted: hunoia.luno.runtime.condition.NotificationPulse? = null,
+    val bluetoothChanged: hunoia.luno.config.model.ConnectionDirection? = null,
+    val headphonesChanged: hunoia.luno.config.model.ConnectionDirection? = null,
+    val scheduledTimeHit: Boolean = false,
 )
 
 data class VolumeChange(
