@@ -3,7 +3,6 @@ package hunoia.luno.ui.automation
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,21 +15,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -62,18 +62,23 @@ import hunoia.luno.config.model.RuleStepKind
 import hunoia.luno.config.model.ThrottleKind
 import hunoia.luno.config.model.ThrottlePolicy
 import hunoia.luno.config.model.WhenGroup
+import hunoia.luno.config.model.conditionAt
+import hunoia.luno.config.model.withConditionAt
 import hunoia.luno.runtime.condition.hasLeaf
 import hunoia.luno.ui.actionselect.selectedItemLabel
 import hunoia.luno.ui.automation.components.RuleScopeSheet
 import hunoia.luno.ui.component.MyColumn
 import hunoia.luno.ui.component.SegmentedSettingsRow
+import hunoia.luno.ui.component.SegmentedSwitchRow
 import hunoia.luno.ui.component.TopBar
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.navigation.NEW_AUTOMATION_RULE_ID
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.ListSpacing
+import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.ShapeExtraSmall
+import hunoia.luno.ui.theme.SheetTopShape
 import hunoia.luno.ui.theme.liquidGlassBackdrop
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.layerBackdrop
@@ -96,6 +101,11 @@ fun AutomationEditScreen(
     val scope = rememberCoroutineScope()
     var draft by remember { mutableStateOf<AutomationRule?>(null) }
     var showScopeSheet by remember { mutableStateOf(false) }
+    var conditionSheetPath by remember { mutableStateOf<List<Int>?>(null) }
+    var stepSheetPath by remember { mutableStateOf<String?>(null) }
+    var stepTypePickerFor by remember { mutableStateOf<String?>(null) }
+    var showFireSheet by remember { mutableStateOf(false) }
+    var showThrottleSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(ruleId, loadedRules) {
         if (draft != null) return@LaunchedEffect
@@ -217,6 +227,7 @@ fun AutomationEditScreen(
             ConditionGroupEditor(
                 group = rule.condition,
                 onChange = { draft = rule.copy(condition = it) },
+                onEditItem = { conditionSheetPath = it },
             )
             if (!rule.condition.hasLeaf()) {
                 Text(
@@ -244,8 +255,8 @@ fun AutomationEditScreen(
                 SegmentedSettingsRow(
                     title = stringResource(R.string.automation_fire_on),
                     subtitle = fireModeLabel(rule.fireOn),
+                    onClick = { showFireSheet = true },
                 )
-                FireModeSelector(rule.fireOn) { draft = rule.copy(fireOn = it) }
 
                 SegmentedSettingsRow(
                     title = stringResource(R.string.automation_steps),
@@ -255,6 +266,8 @@ fun AutomationEditScreen(
                     steps = rule.effect.steps,
                     onChange = { draft = rule.copy(effect = rule.effect.copy(steps = it)) },
                     onPickAction = { onPickAction(it) },
+                    onEditStep = { stepSheetPath = it },
+                    onAddStep = { stepTypePickerFor = it },
                     library = library,
                 )
                 if (stepsEmpty) {
@@ -268,10 +281,7 @@ fun AutomationEditScreen(
                 SegmentedSettingsRow(
                     title = stringResource(R.string.automation_throttle),
                     subtitle = throttleSummary(rule.throttle),
-                )
-                ThrottleEditor(
-                    throttle = rule.throttle,
-                    onChange = { draft = rule.copy(throttle = it) },
+                    onClick = { showThrottleSheet = true },
                 )
                 if (throttleInvalid) {
                     Text(
@@ -305,6 +315,84 @@ fun AutomationEditScreen(
             },
         )
     }
+
+    // 条件参数 sheet：ConditionItemFields 原样搬入，行上只剩删除。
+    conditionSheetPath?.let { path ->
+        val item = rule.condition.conditionAt(path)
+        if (item == null) {
+            conditionSheetPath = null
+        } else {
+            ConditionSheet(
+                item = item,
+                onDismiss = { conditionSheetPath = null },
+                onChange = { new ->
+                    draft = rule.copy(condition = rule.condition.withConditionAt(path) { new })
+                },
+            )
+        }
+    }
+
+    // 步骤 sheet：按 kind 显示动作选择 / 秒数 / 分支条件。
+    stepSheetPath?.let { path ->
+        val step = rule.effect.stepAt(path)
+        if (step == null) {
+            stepSheetPath = null
+        } else {
+            StepSheet(
+                step = step,
+                library = library,
+                onDismiss = { stepSheetPath = null },
+                onChange = { new ->
+                    draft = rule.copy(effect = rule.effect.withStepAt(path) { new })
+                },
+                onPickAction = {
+                    stepSheetPath = null
+                    onPickAction(path)
+                },
+            )
+        }
+    }
+
+    // 添加步骤：三选一，选完直接进对应 sheet（动作则跳选择页）。
+    stepTypePickerFor?.let { prefix ->
+        StepTypeSheet(
+            onDismiss = { stepTypePickerFor = null },
+            onPick = { kind ->
+                val created = when (kind) {
+                    RuleStepKind.DELAY -> RuleStep(kind = kind, delayMs = 1000L)
+                    else -> RuleStep(kind = kind)
+                }
+                val newPath = appendStep(rule.effect, prefix, created)
+                if (newPath != null) {
+                    draft = rule.copy(effect = newPath.second)
+                    stepTypePickerFor = null
+                    if (kind == RuleStepKind.ACTION) onPickAction(newPath.first)
+                    else stepSheetPath = newPath.first
+                } else {
+                    stepTypePickerFor = null
+                }
+            },
+        )
+    }
+
+    if (showFireSheet) {
+        FireModeSheet(
+            selected = rule.fireOn,
+            onDismiss = { showFireSheet = false },
+            onPick = {
+                draft = rule.copy(fireOn = it)
+                showFireSheet = false
+            },
+        )
+    }
+
+    if (showThrottleSheet) {
+        ThrottleSheet(
+            throttle = rule.throttle,
+            onDismiss = { showThrottleSheet = false },
+            onChange = { draft = rule.copy(throttle = it) },
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -313,139 +401,165 @@ private fun StepsEditor(
     steps: List<RuleStep>,
     onChange: (List<RuleStep>) -> Unit,
     onPickAction: (String) -> Unit,
+    onEditStep: (String) -> Unit,
+    onAddStep: (String) -> Unit,
     library: NewActionLibrarySettings?,
     pathPrefix: String = "",
+    numberPrefix: String = "",
     depth: Int = 0,
 ) {
-    val context = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
         steps.forEachIndexed { index, step ->
-            Column(verticalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
-                ) {
-                    SegmentedSettingsRow(
-                        title = when (step.kind) {
-                            RuleStepKind.DELAY -> stringResource(R.string.step_delay)
-                            RuleStepKind.IF -> stringResource(R.string.step_if)
-                            else -> stringResource(R.string.step_action)
+            val number = "$numberPrefix${index + 1}"
+            StepRow(
+                number = number,
+                step = step,
+                library = library,
+                onEdit = { onEditStep("$pathPrefix$index") },
+                onDelete = {
+                    onChange(steps.toMutableList().also { it.removeAt(index) })
+                },
+                onMoveUp = if (index > 0) ({
+                    onChange(steps.toMutableList().also {
+                        val tmp = it[index - 1]
+                        it[index - 1] = it[index]
+                        it[index] = tmp
+                    })
+                }) else null,
+                onMoveDown = if (index < steps.size - 1) ({
+                    onChange(steps.toMutableList().also {
+                        val tmp = it[index + 1]
+                        it[index + 1] = it[index]
+                        it[index] = tmp
+                    })
+                }) else null,
+            )
+            if (step.kind == RuleStepKind.IF) {
+                // 分支：子列表缩进平铺，各自带添加按钮。
+                Column(modifier = Modifier.padding(start = 16.dp)) {
+                    Text(
+                        text = stringResource(R.string.step_if_then),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                    StepsEditor(
+                        steps = step.thenSteps,
+                        onChange = { branch ->
+                            onChange(steps.toMutableList().also { list ->
+                                list[index] = step.copy(thenSteps = branch)
+                            })
                         },
-                        subtitle = stepSummary(context, library, step),
-                        modifier = Modifier.weight(1f),
+                        onPickAction = onPickAction,
+                        onEditStep = onEditStep,
+                        onAddStep = onAddStep,
+                        library = library,
+                        pathPrefix = "$pathPrefix$index.then.",
+                        numberPrefix = "$number.",
+                        depth = depth + 1,
                     )
-                    IconButton(onClick = {
-                        onChange(steps.toMutableList().also { it.removeAt(index) })
-                    }) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = stringResource(R.string.delete),
-                        )
-                    }
-                }
-                when (step.kind) {
-                    RuleStepKind.ACTION -> SegmentedSettingsRow(
-                        title = stringResource(R.string.automation_pick_action),
-                        subtitle = effectActionLabel(
-                            context, library,
-                            RuleEffect(
-                                type = RuleEffectType.RUN_ACTION,
-                                action = step.action,
-                                entryId = step.entryId,
-                            ),
-                        ),
-                        onClick = { onPickAction("$pathPrefix$index") },
+                    Text(
+                        text = stringResource(R.string.step_if_else),
+                        style = MaterialTheme.typography.labelMedium,
                     )
-                    RuleStepKind.DELAY -> {
-                        var text by remember(step.delayMs) {
-                            mutableStateOf((step.delayMs / 1000).toString())
-                        }
-                        OutlinedTextField(
-                            value = text,
-                            onValueChange = {
-                                text = it
-                                it.toLongOrNull()?.let { s ->
-                                    val ms = (s * 1000).coerceIn(0L, 60_000L)
-                                    onChange(steps.toMutableList().also { list ->
-                                        list[index] = step.copy(delayMs = ms)
-                                    })
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text(stringResource(R.string.step_delay_seconds)) },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            shape = LargeShape,
-                        )
-                    }
-                    RuleStepKind.IF -> {
-                        ConditionGroupEditor(
-                            group = step.condition,
-                            onChange = { g ->
-                                onChange(steps.toMutableList().also { list ->
-                                    list[index] = step.copy(condition = g)
-                                })
-                            },
-                            depth = depth + 1,
-                        )
-                        Text(
-                            text = stringResource(R.string.step_if_then),
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                        StepsEditor(
-                            steps = step.thenSteps,
-                            onChange = { branch ->
-                                onChange(steps.toMutableList().also { list ->
-                                    list[index] = step.copy(thenSteps = branch)
-                                })
-                            },
-                            onPickAction = onPickAction,
-                            library = library,
-                            pathPrefix = "$pathPrefix$index.then.",
-                            depth = depth + 1,
-                        )
-                        Text(
-                            text = stringResource(R.string.step_if_else),
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                        StepsEditor(
-                            steps = step.elseSteps,
-                            onChange = { branch ->
-                                onChange(steps.toMutableList().also { list ->
-                                    list[index] = step.copy(elseSteps = branch)
-                                })
-                            },
-                            onPickAction = onPickAction,
-                            library = library,
-                            pathPrefix = "$pathPrefix$index.else.",
-                            depth = depth + 1,
-                        )
-                    }
+                    StepsEditor(
+                        steps = step.elseSteps,
+                        onChange = { branch ->
+                            onChange(steps.toMutableList().also { list ->
+                                list[index] = step.copy(elseSteps = branch)
+                            })
+                        },
+                        onPickAction = onPickAction,
+                        onEditStep = onEditStep,
+                        onAddStep = onAddStep,
+                        library = library,
+                        pathPrefix = "$pathPrefix$index.else.",
+                        numberPrefix = "$number.",
+                        depth = depth + 1,
+                    )
                 }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
-            TextButton(onClick = {
-                onChange(steps + RuleStep(kind = RuleStepKind.ACTION))
-            }) {
-                Text(stringResource(R.string.step_add_action))
-            }
-            TextButton(onClick = {
-                onChange(steps + RuleStep(kind = RuleStepKind.DELAY, delayMs = 1000L))
-            }) {
-                Text(stringResource(R.string.step_add_delay))
-            }
-            // UI 只开两层分支嵌套（引擎上限 5 层），编辑器不做迷宫。
-            if (depth < 2) {
-                TextButton(onClick = {
-                    onChange(steps + RuleStep(kind = RuleStepKind.IF))
-                }) {
-                    Text(stringResource(R.string.step_add_if))
-                }
-            }
+        TextButton(onClick = { onAddStep(pathPrefix) }) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = null,
+                modifier = Modifier.padding(end = ShapeExtraSmall),
+            )
+            Text(stringResource(R.string.automation_add_step))
         }
     }
+}
+
+/** 步骤一行：编号 + 摘要 + 上下箭头 + 删除；点行进 sheet。 */
+@Composable
+private fun StepRow(
+    number: String,
+    step: RuleStep,
+    library: NewActionLibrarySettings?,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onMoveUp: (() -> Unit)?,
+    onMoveDown: (() -> Unit)?,
+) {
+    val context = LocalContext.current
+    SegmentedSettingsRow(
+        title = "$number · " + when (step.kind) {
+            RuleStepKind.DELAY -> stringResource(R.string.step_delay)
+            RuleStepKind.IF -> stringResource(R.string.step_if)
+            else -> stringResource(R.string.step_action)
+        },
+        subtitle = stepSummary(context, library, step),
+        onClick = onEdit,
+        trailingContent = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(enabled = onMoveUp != null, onClick = { onMoveUp?.invoke() }) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowUp,
+                        contentDescription = null,
+                    )
+                }
+                IconButton(enabled = onMoveDown != null, onClick = { onMoveDown?.invoke() }) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                    )
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = stringResource(R.string.delete),
+                    )
+                }
+            }
+        },
+    )
+}
+
+/**
+ * 向 prefix 指向的列表追加步骤，返回（新步骤路径，更新后的 effect）。
+ * prefix：""=顶层，"2.then." / "2.then.0.else."=分支。非法返回 null。
+ */
+private fun appendStep(
+    effect: RuleEffect,
+    prefix: String,
+    created: RuleStep,
+): Pair<String, RuleEffect>? {
+    if (prefix.isEmpty()) {
+        val path = "${effect.steps.size}"
+        return path to effect.copy(steps = effect.steps + created)
+    }
+    val tokens = prefix.split(".").filter { it.isNotEmpty() }
+    if (tokens.size < 2) return null
+    val branch = tokens.last()
+    if (branch != "then" && branch != "else") return null
+    val parentPath = tokens.dropLast(1).joinToString(".")
+    val parent = effect.stepAt(parentPath) ?: return null
+    if (parent.kind != RuleStepKind.IF) return null
+    val childIndex = if (branch == "then") parent.thenSteps.size else parent.elseSteps.size
+    val updated = effect.withStepAt(parentPath) { step ->
+        if (branch == "then") step.copy(thenSteps = step.thenSteps + created)
+        else step.copy(elseSteps = step.elseSteps + created)
+    }
+    return "$parentPath.$branch.$childIndex" to updated
 }
 
 private fun stepSummary(
@@ -454,7 +568,8 @@ private fun stepSummary(
     step: RuleStep,
 ): String = when (step.kind) {
     RuleStepKind.DELAY -> context.getString(R.string.step_delay_summary, step.delayMs / 1000)
-    RuleStepKind.IF -> conditionSummary(context, step.condition)
+    RuleStepKind.IF -> conditionSummary(context, step.condition) + " · " +
+        context.getString(R.string.step_if_counts, step.thenSteps.size, step.elseSteps.size)
     else -> {
         val label = context.selectedItemLabel(
             step.action ?: hunoia.luno.config.model.Action.NONE,
@@ -469,43 +584,50 @@ private fun stepSummary(
 private fun ConditionGroupEditor(
     group: WhenGroup,
     onChange: (WhenGroup) -> Unit,
+    onEditItem: (List<Int>) -> Unit,
+    basePath: List<Int> = emptyList(),
     depth: Int = 0,
     onDeleteSelf: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     var showPicker by remember { mutableStateOf(false) }
+    // 组头一行：摘要 + 且/或小开关 + 删除（顶层组无删除）。
     SegmentedSettingsRow(
         title = stringResource(R.string.automation_condition),
-        subtitle = conditionSummary(context, group),
-        trailingContent = onDeleteSelf?.let { del ->
-            {
-                IconButton(onClick = del) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = stringResource(R.string.delete),
-                    )
+        subtitle = if (group.items.isEmpty()) {
+            stringResource(R.string.automation_condition_empty)
+        } else {
+            "${stringResource(if (group.mode == BooleanMode.AND) R.string.logic_all else R.string.logic_any)} · " +
+                stringResource(R.string.condition_group_count, group.items.size)
+        },
+        trailingContent = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = {
+                    onChange(group.copy(
+                        mode = if (group.mode == BooleanMode.AND) BooleanMode.OR else BooleanMode.AND,
+                    ))
+                }) {
+                    Text(stringResource(
+                        if (group.mode == BooleanMode.AND) R.string.logic_all else R.string.logic_any,
+                    ))
+                }
+                onDeleteSelf?.let { del ->
+                    IconButton(onClick = del) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = stringResource(R.string.delete),
+                        )
+                    }
                 }
             }
         },
     )
-    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-        SegmentedButton(
-            selected = group.mode == BooleanMode.AND,
-            onClick = { onChange(group.copy(mode = BooleanMode.AND)) },
-            shape = SegmentedButtonDefaults.itemShape(count = 2, index = 0),
-        ) {
-            Text(stringResource(R.string.logic_all))
-        }
-        SegmentedButton(
-            selected = group.mode == BooleanMode.OR,
-            onClick = { onChange(group.copy(mode = BooleanMode.OR)) },
-            shape = SegmentedButtonDefaults.itemShape(count = 2, index = 1),
-        ) {
-            Text(stringResource(R.string.logic_any))
-        }
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
+    Column(
+        modifier = if (depth > 0) Modifier.padding(start = 16.dp) else Modifier,
+        verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+    ) {
         group.items.forEachIndexed { index, item ->
+            val path = basePath + index
             if (item.type == ConditionType.GROUP) {
                 // 嵌套组：UI 只开两层（引擎不限），再深的存量照跑、编辑器折叠为摘要。
                 if (depth < 2) {
@@ -516,6 +638,8 @@ private fun ConditionGroupEditor(
                             items[index] = item.copy(group = g)
                             onChange(group.copy(items = items))
                         },
+                        onEditItem = onEditItem,
+                        basePath = path,
                         depth = depth + 1,
                         onDeleteSelf = {
                             val items = group.items.toMutableList()
@@ -530,13 +654,9 @@ private fun ConditionGroupEditor(
                     )
                 }
             } else {
-                ConditionItemBlock(
+                ConditionRow(
                     item = item,
-                    onChange = { new ->
-                        val items = group.items.toMutableList()
-                        items[index] = new
-                        onChange(group.copy(items = items))
-                    },
+                    onEdit = { onEditItem(path) },
                     onDelete = {
                         val items = group.items.toMutableList()
                         items.removeAt(index)
@@ -574,83 +694,288 @@ private fun ConditionGroupEditor(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** 条件一行：类型 + 摘要 + 删除；点行进 sheet 配参数。 */
 @Composable
-private fun ConditionItemBlock(
+private fun ConditionRow(
     item: ConditionItem,
-    onChange: (ConditionItem) -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
-        ) {
-            var menuExpanded by remember { mutableStateOf(false) }
-            Box(modifier = Modifier.weight(1f)) {
-                SegmentedSettingsRow(
-                    title = conditionTypeLabel(context, item.type),
-                    subtitle = itemSummary(context, item),
-                    onClick = { menuExpanded = !menuExpanded },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                DropdownMenu(
-                    expanded = menuExpanded,
-                    onDismissRequest = { menuExpanded = false },
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    shape = LargeShape,
-                    tonalElevation = 3.dp,
-                ) {
-                    CONDITION_TYPES.forEach { spec ->
-                        DropdownMenuItem(
-                            text = { Text(stringResource(spec.labelRes)) },
-                            trailingIcon = {
-                                if (spec.type == item.type) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                    )
-                                }
-                            },
-                            onClick = {
-                                onChange(defaultConditionOf(spec.type).copy(negated = item.negated))
-                                menuExpanded = false
-                            },
-                        )
-                    }
-                }
-            }
-            Text(
-                text = stringResource(R.string.logic_not),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Switch(
-                checked = item.negated,
-                onCheckedChange = { onChange(item.copy(negated = it)) },
-            )
+    SegmentedSettingsRow(
+        title = conditionTypeLabel(context, item.type),
+        subtitle = itemSummary(context, item),
+        onClick = onEdit,
+        trailingContent = {
             IconButton(onClick = onDelete) {
                 Icon(
                     imageVector = Icons.Default.Delete,
                     contentDescription = stringResource(R.string.delete),
                 )
             }
+        },
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ConditionSheet(
+    item: ConditionItem,
+    onDismiss: () -> Unit,
+    onChange: (ConditionItem) -> Unit,
+) {
+    val context = LocalContext.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = SheetTopShape,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(bottom = PageGutter),
+            verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+        ) {
+            Text(
+                text = conditionTypeLabel(context, item.type),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = PageGutter),
+            )
+            Column(
+                modifier = Modifier.padding(horizontal = PageGutter),
+                verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+            ) {
+                SegmentedSwitchRow(
+                    title = stringResource(R.string.logic_not),
+                    checked = item.negated,
+                    onCheckedChange = { onChange(item.copy(negated = it)) },
+                )
+                ConditionItemFields(item, onChange)
+                TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.confirm))
+                }
+            }
         }
-        ConditionItemFields(item, onChange)
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EffectSelector(selected: RuleEffectType, onChange: (RuleEffectType) -> Unit) {
-    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+private fun StepSheet(
+    step: RuleStep,
+    library: NewActionLibrarySettings?,
+    onDismiss: () -> Unit,
+    onChange: (RuleStep) -> Unit,
+    onPickAction: () -> Unit,
+) {
+    val context = LocalContext.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = SheetTopShape,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(bottom = PageGutter),
+            verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+        ) {
+            Text(
+                text = when (step.kind) {
+                    RuleStepKind.DELAY -> stringResource(R.string.step_delay)
+                    RuleStepKind.IF -> stringResource(R.string.step_if)
+                    else -> stringResource(R.string.step_action)
+                },
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = PageGutter),
+            )
+            Column(
+                modifier = Modifier.padding(horizontal = PageGutter),
+                verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+            ) {
+                when (step.kind) {
+                    RuleStepKind.ACTION -> SegmentedSettingsRow(
+                        title = stringResource(R.string.automation_pick_action),
+                        subtitle = effectActionLabel(
+                            context, library,
+                            RuleEffect(
+                                type = RuleEffectType.RUN_ACTION,
+                                action = step.action,
+                                entryId = step.entryId,
+                            ),
+                        ),
+                        onClick = onPickAction,
+                    )
+                    RuleStepKind.DELAY -> {
+                        var text by remember(step.delayMs) {
+                            mutableStateOf((step.delayMs / 1000).toString())
+                        }
+                        OutlinedTextField(
+                            value = text,
+                            onValueChange = {
+                                text = it
+                                it.toLongOrNull()?.let { s ->
+                                    onChange(step.copy(delayMs = (s * 1000).coerceIn(0L, 60_000L)))
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text(stringResource(R.string.step_delay_seconds)) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            shape = LargeShape,
+                        )
+                    }
+                    RuleStepKind.IF -> {
+                        var nestedPath by remember { mutableStateOf<List<Int>?>(null) }
+                        ConditionGroupEditor(
+                            group = step.condition,
+                            onChange = { onChange(step.copy(condition = it)) },
+                            onEditItem = { nestedPath = it },
+                        )
+                        nestedPath?.let { path ->
+                            val nested = step.condition.conditionAt(path)
+                            if (nested == null) {
+                                nestedPath = null
+                            } else {
+                                ConditionSheet(
+                                    item = nested,
+                                    onDismiss = { nestedPath = null },
+                                    onChange = { new ->
+                                        onChange(step.copy(
+                                            condition = step.condition.withConditionAt(path) { new },
+                                        ))
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+                TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.confirm))
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StepTypeSheet(
+    onDismiss: () -> Unit,
+    onPick: (String) -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = SheetTopShape,
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = PageGutter)) {
+            Text(
+                text = stringResource(R.string.step_pick_type),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = PageGutter),
+            )
+            listOf(
+                RuleStepKind.ACTION to R.string.step_add_action,
+                RuleStepKind.DELAY to R.string.step_add_delay,
+                RuleStepKind.IF to R.string.step_add_if,
+            ).forEach { (kind, labelRes) ->
+                SegmentedSettingsRow(
+                    title = stringResource(labelRes),
+                    onClick = { onPick(kind) },
+                    modifier = Modifier.padding(horizontal = PageGutter),
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FireModeSheet(
+    selected: FireMode,
+    onDismiss: () -> Unit,
+    onPick: (FireMode) -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = SheetTopShape,
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = PageGutter)) {
+            Text(
+                text = stringResource(R.string.automation_fire_on),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = PageGutter),
+            )
+            FireMode.entries.forEach { mode ->
+                SegmentedSettingsRow(
+                    title = fireModeLabel(mode),
+                    trailingContent = {
+                        if (mode == selected) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    },
+                    onClick = { onPick(mode) },
+                    modifier = Modifier.padding(horizontal = PageGutter),
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ThrottleSheet(
+    throttle: ThrottlePolicy,
+    onDismiss: () -> Unit,
+    onChange: (ThrottlePolicy) -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = SheetTopShape,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(bottom = PageGutter),
+            verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+        ) {
+            Text(
+                text = stringResource(R.string.automation_throttle),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = PageGutter),
+            )
+            Column(
+                modifier = Modifier.padding(horizontal = PageGutter),
+                verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+            ) {
+                ThrottleEditor(throttle = throttle, onChange = onChange)
+                TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.confirm))
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EffectSelector(selected: RuleEffectType, onChange: (RuleEffectType) -> Unit) {    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
         RuleEffectType.entries.forEachIndexed { index, type ->
             SegmentedButton(
                 selected = selected == type,
@@ -697,22 +1022,6 @@ private fun fireModeLabel(mode: FireMode): String = stringResource(
         FireMode.BOTH -> R.string.fire_both
     },
 )
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun FireModeSelector(selected: FireMode, onChange: (FireMode) -> Unit) {
-    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-        FireMode.entries.forEachIndexed { index, mode ->
-            SegmentedButton(
-                selected = selected == mode,
-                onClick = { onChange(mode) },
-                shape = SegmentedButtonDefaults.itemShape(count = FireMode.entries.size, index = index),
-            ) {
-                Text(fireModeLabel(mode), maxLines = 1)
-            }
-        }
-    }
-}
 
 @Composable
 private fun throttleSummary(throttle: ThrottlePolicy): String = when (throttle.kind) {

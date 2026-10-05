@@ -164,7 +164,10 @@ private fun RuleCard(
         RuleScope.EXCEPT -> context.getString(R.string.scope_except_count, rule.effect.buttonIds.size)
         RuleScope.ONLY -> context.getString(R.string.scope_only_count, rule.effect.buttonIds.size)
     }
-    val subtitle = "${conditionSummary(context, rule.condition)} · $effectLabel · $scopeLabel" +
+    val stepsLabel = if (rule.effect.type == RuleEffectType.RUN_ACTION) {
+        " · ${rule.effect.effectiveSteps().size}步"
+    } else ""
+    val subtitle = "${conditionSummary(context, rule.condition)} · $effectLabel · $scopeLabel$stepsLabel" +
         (lastRunText?.let { " · $it" } ?: "")
     SegmentedGroup {
         SegmentedSwitchRow(

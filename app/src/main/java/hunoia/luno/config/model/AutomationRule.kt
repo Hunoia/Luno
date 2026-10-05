@@ -172,9 +172,31 @@ private fun stepAtTokens(tokens: List<String>, steps: List<RuleStep>): RuleStep?
     }
     return stepAtTokens(tokens.drop(2), branch)
 }
+/**
+ * 条件路径：顶层下标 / 逐级进组，如 [1]、[1, 0]。编辑器 sheet 定位用，非法返回 null/原样。
+ */
+fun WhenGroup.conditionAt(path: List<Int>): ConditionItem? {
+    if (path.isEmpty()) return null
+    val item = items.getOrNull(path[0]) ?: return null
+    if (path.size == 1) return item
+    if (item.type != ConditionType.GROUP) return null
+    return item.group?.conditionAt(path.drop(1))
+}
 
-private fun withStepAtTokens(
-    tokens: List<String>,
+fun WhenGroup.withConditionAt(path: List<Int>, transform: (ConditionItem) -> ConditionItem): WhenGroup {
+    if (path.isEmpty()) return this
+    val index = path[0]
+    if (index !in items.indices) return this
+    val item = items[index]
+    if (path.size == 1) {
+        return copy(items = items.toMutableList().also { it[index] = transform(item) })
+    }
+    if (item.type != ConditionType.GROUP) return this
+    val nested = item.group?.withConditionAt(path.drop(1), transform) ?: return this
+    return copy(items = items.toMutableList().also { it[index] = item.copy(group = nested) })
+}
+
+private fun withStepAtTokens(    tokens: List<String>,
     steps: List<RuleStep>,
     transform: (RuleStep) -> RuleStep,
 ): List<RuleStep> {

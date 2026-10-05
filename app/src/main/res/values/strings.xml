@@ -423,6 +423,10 @@
     <string name="throttle_invalid">请输入有效数字</string>
     <string name="automation_steps">执行步骤</string>
     <string name="automation_steps_empty">至少添加一个步骤</string>
+    <string name="automation_add_step">添加步骤</string>
+    <string name="step_pick_type">选择步骤类型</string>
+    <string name="step_if_counts">满足 %1$d 步 · 不满足 %2$d 步</string>
+    <string name="condition_group_count">%1$d 项</string>
     <string name="step_action">动作</string>
     <string name="step_delay">延时</string>
     <string name="step_if">条件分支</string>
