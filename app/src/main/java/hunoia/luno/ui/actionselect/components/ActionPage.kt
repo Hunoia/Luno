@@ -35,7 +35,7 @@ import hunoia.luno.action.definition.ActionCategory
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.action.model.matchesQuery
-import hunoia.luno.config.model.Action
+import hunoia.luno.action.model.StoredAction
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
@@ -55,7 +55,7 @@ private const val TYPE_SHORTCUT = "shortcut"
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun ActionPage(
-    onSelect: (Action, Boolean) -> Unit,
+    onSelect: (StoredAction, Boolean) -> Unit,
     onSelectLibraryEntry: (NewActionLibraryEntry, Boolean) -> Unit = { _, _ -> },
     onSelectLongPress: (Any) -> Unit = {},
     onSelectApp: (AppInfo, Boolean) -> Unit,
@@ -68,7 +68,7 @@ internal fun ActionPage(
     modifier: Modifier = Modifier,
     nestedScroll: NestedScrollConnection? = null,
     subGestures: List<SubGesture> = emptyList(),
-    actions: List<Action>,
+    actions: List<StoredAction>,
     actionLibraryEntries: List<NewActionLibraryEntry> = emptyList(),
     appInfos: List<AppInfo>,
     createShortcuts: List<LauncherInfo>,
@@ -104,14 +104,14 @@ internal fun ActionPage(
         }
     }
     val grouped = remember(filteredActions) {
-        val buckets = LinkedHashMap<ActionCategory, MutableList<Action>>()
+        val buckets = LinkedHashMap<ActionCategory, MutableList<StoredAction>>()
         filteredActions.forEach { action ->
             buckets.getOrPut(actionCategory(action)) { mutableListOf() }.add(action)
         }
         // 按定义表的声明顺序排分组。原先直接用 LinkedHashMap 的插入序,而
         // assembleDataTransform 会把已选中的动作搬到列表最前面 —— 于是选中一个「无障碍」动作,
         // 整个无障碍分组就跳到最上面。无选中项时插入序本来就等于声明序,所以这里只在有选中时生效。
-        LinkedHashMap<ActionCategory, MutableList<Action>>(buckets.size).apply {
+        LinkedHashMap<ActionCategory, MutableList<StoredAction>>(buckets.size).apply {
             buckets.keys.sortedBy { ActionDefinitions.categoryOrder(it) }.forEach { category ->
                 this[category] = buckets.getValue(category)
             }
@@ -210,7 +210,7 @@ internal fun ActionPage(
                     }
                     itemsIndexed(
                         items = categoryActions,
-                        key = { _, it -> "${it.value}:${it.data}" }
+                        key = { _, it -> "${it.typeId}:${it.params}" }
                     ) { index, item ->
                         ActionItem(
                             modifier = Modifier.animateItem(),
@@ -237,7 +237,7 @@ internal fun ActionPage(
                     )
                 }
                 itemsIndexed(items = filteredLibraryEntries, key = { _, it -> "lib_${it.id}" }) { index, entry ->
-                    val action = entry.toReferenceAction()
+                    val action = entry.toStoredAction()
                     ActionItem(
                         modifier = Modifier.animateItem(),
                         action = action,

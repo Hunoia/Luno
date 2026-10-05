@@ -6,7 +6,8 @@ import androidx.annotation.Keep
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import hunoia.luno.R
-import hunoia.luno.action.api.ActionFacade
+import hunoia.luno.action.dispatcher.MigratingStoredActionSerializer
+import hunoia.luno.action.model.StoredAction
 import hunoia.luno.bridge.DensityProvider
 import hunoia.luno.core.AppContext
 import kotlinx.serialization.Serializable
@@ -28,7 +29,7 @@ object GestureButtonDefaults {
     const val Enabled = true
     val Bounds = GestureButtonBounds()
     val SlideActions = DirectionActions(
-        mapOf(GestureDirection.Right to Action.toList(ActionFacade.BACK))
+        mapOf(GestureDirection.Right to listOf(StoredAction.of("accessibility.back")))
     )
     val LongSlideActions = DirectionActions()
     val SlideHoldActions = DirectionActions()
@@ -68,9 +69,12 @@ data class GestureButton(
     val longSlideActionPanelStyles: LongSlideActionPanelStyles = GestureButtonDefaults.LongSlideActionPanelStyles,
     val angle: GestureButtonAngle = GestureButtonAngle(),
     val actionSettingsOverride: GestureButtonActionSettingsOverride = GestureButtonActionSettingsOverride(),
-    val tapActions: List<Action> = GestureButtonDefaults.TapActions,
-    val doubleTapActions: List<Action> = GestureButtonDefaults.DoubleTapActions,
-    val longPressActions: List<Action> = GestureButtonDefaults.LongPressActions,
+    val tapActions: List<@Serializable(MigratingStoredActionSerializer::class) StoredAction> =
+        GestureButtonDefaults.TapActions,
+    val doubleTapActions: List<@Serializable(MigratingStoredActionSerializer::class) StoredAction> =
+        GestureButtonDefaults.DoubleTapActions,
+    val longPressActions: List<@Serializable(MigratingStoredActionSerializer::class) StoredAction> =
+        GestureButtonDefaults.LongPressActions,
     val color: Int = GestureButtonDefaults.Color,
     val mirrorHorizontal: Boolean = GestureButtonDefaults.MirrorHorizontal,
     val slideVibrate: Boolean = GestureButtonDefaults.SlideVibrate,

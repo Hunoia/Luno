@@ -6,7 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
-import hunoia.luno.config.model.Action
+import hunoia.luno.action.model.StoredAction
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureDirection
@@ -23,7 +23,7 @@ data class GestureResolvedActions(
     val button: GestureButton,
     val direction: GestureDirection,
     val actionDirection: GestureDirection,
-    val actions: List<Action>,
+    val actions: List<StoredAction>,
     val triggerType: GestureTriggerType,
     val touchPosition: Offset,
 )
@@ -278,7 +278,7 @@ class GestureState(
         button: GestureButton,
         actionDirection: GestureDirection,
         triggerType: GestureTriggerType,
-        actions: List<Action>,
+        actions: List<StoredAction>,
     ): GestureResolvedActions {
         return GestureResolvedActions(
             button = button,
@@ -308,12 +308,12 @@ class GestureState(
                     GestureTriggerType.LongSlideHold -> button.longSlideHoldActions.actionsBy(direction)
                     else -> emptyList()
                 }
-                actions.any { it != Action.NONE }
+                actions.any { it.typeId != "internal.none" }
             },
         )
     }
 
-    private fun actionsFor(button: GestureButton, decision: GestureDecision.Trigger): List<Action> {
+    private fun actionsFor(button: GestureButton, decision: GestureDecision.Trigger): List<StoredAction> {
         return when (decision.triggerType) {
             GestureTriggerType.Tap -> button.tapActions
             GestureTriggerType.DoubleTap -> button.doubleTapActions
@@ -325,5 +325,5 @@ class GestureState(
         }
     }
 
-    private fun List<Action>.hasMeaningfulActions(): Boolean = any { it != Action.NONE }
+    private fun List<StoredAction>.hasMeaningfulActions(): Boolean = any { it.typeId != "internal.none" }
 }

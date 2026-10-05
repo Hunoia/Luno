@@ -1,7 +1,6 @@
 package hunoia.luno.action.definitions
 
 import androidx.compose.material.icons.Icons
-import hunoia.luno.action.api.ActionIds
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.Shortcut
@@ -308,10 +307,8 @@ object ActionDefinitions {
 
         // Internal
         add(ActionDefinition("internal.none", "无", ActionCategory.INTERNAL, Capability.None,
-            legacyId = ActionIds.NONE,
             icon = Icons.Default.Block))
         add(ActionDefinition("internal.subGesture", "子手势", ActionCategory.INTERNAL, Capability.None,
-            legacyId = ActionIds.SUB_GESTURE,
             icon = Icons.Default.Gesture))
         add(ActionDefinition("internal.hideGestureButton", "隐藏触钮", ActionCategory.INTERNAL, Capability.None,
             parameters = listOf(ParameterDefinition.Number(
@@ -322,7 +319,6 @@ object ActionDefinitions {
                 min = 0,
                 max = 3000,
             )),
-            legacyId = ActionIds.HIDE_GESTURE_BUTTON,
             icon = Icons.Default.VisibilityOff))
         add(ActionDefinition("internal.buttonsVisibility", "触钮显隐", ActionCategory.INTERNAL, Capability.None,
             parameters = listOf(
@@ -352,7 +348,6 @@ object ActionDefinitions {
             ),
             icon = Icons.Default.Visibility))
         add(ActionDefinition("internal.quickAppLauncher", "快速启动面板", ActionCategory.INTERNAL, Capability.None,
-            legacyId = ActionIds.QUICK_APP_LAUNCHER,
             icon = Icons.Default.Apps))
         add(ActionDefinition("internal.quickSearch", "快速搜索", ActionCategory.INTERNAL, Capability.None,
             icon = Icons.Default.Search))
@@ -372,14 +367,12 @@ object ActionDefinitions {
                     max = 64,
                 ),
             ),
-            legacyId = ActionIds.VOLUME_SCRUB,
             icon = Icons.Default.Widgets))
         add(ActionDefinition("internal.previousApp", "上一个应用", ActionCategory.INTERNAL, Capability.None,
             parameters = listOf(ParameterDefinition.AppSelectorMulti(
                 key = "excludePackageNames",
                 label = "上个应用排除",
             )),
-            legacyId = ActionIds.PREVIOUS_APP,
             icon = Icons.Default.SwapHoriz))
     }
 

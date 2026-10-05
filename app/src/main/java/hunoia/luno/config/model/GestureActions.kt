@@ -1,22 +1,26 @@
 package hunoia.luno.config.model
 
 import androidx.annotation.Keep
+import hunoia.luno.action.dispatcher.MigratingStoredActionSerializer
+import hunoia.luno.action.model.StoredAction
 import hunoia.luno.config.defaults.InitialSettingsDefaults.GestureEnabled
 import kotlinx.serialization.Serializable
 
 object GestureActionsDefaults {
-    const val ActionValue = "0"
-    val ActionNone = Action(value = ActionValue, data = "")
+    val ActionNone = StoredAction.of("internal.none")
 }
 
 @Serializable
 @Keep
 data class DirectionActions(
-    val actions: Map<GestureDirection, List<Action>> = emptyMap()
+    val actions: Map<
+        GestureDirection,
+        List<@Serializable(MigratingStoredActionSerializer::class) StoredAction>,
+        > = emptyMap()
 ) {
-    fun actionsBy(direction: GestureDirection): List<Action> = actions[direction].orEmpty()
+    fun actionsBy(direction: GestureDirection): List<StoredAction> = actions[direction].orEmpty()
 
-    fun withActions(direction: GestureDirection, newActions: List<Action>): DirectionActions {
+    fun withActions(direction: GestureDirection, newActions: List<StoredAction>): DirectionActions {
         return copy(actions = actions + (direction to newActions))
     }
 }

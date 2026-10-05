@@ -4,7 +4,7 @@ import android.content.res.Configuration
 import android.view.accessibility.AccessibilityEvent
 import com.aaron.composeaccessibility.ComponentAccessibilityService
 import hunoia.luno.config.model.AdvancedSettings
-import hunoia.luno.config.model.Action
+import hunoia.luno.action.model.StoredAction
 import hunoia.luno.quicklaunch.launch.DisabledPackageEnabler
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.GestureCoordinator
@@ -44,7 +44,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             gestureCoordinator.runtimeSettingsStore.snapshot().advancedSettings
         else null
 
-    override fun dispatchAction(action: Action) {
+    override fun dispatchAction(action: StoredAction) {
         if (::gestureCoordinator.isInitialized) gestureCoordinator.dispatchAction(action)
     }
 

@@ -1,6 +1,6 @@
 package hunoia.luno.runtime.automation
 
-import hunoia.luno.config.model.Action
+import hunoia.luno.action.model.StoredAction
 import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.model.RuleStepKind
 import hunoia.luno.runtime.condition.ConditionContext
@@ -22,7 +22,7 @@ object SequenceGuards {
  * 每条规则独立协程跑一份，一条的 delay 不阻塞其他规则。
  */
 class SequenceExecutor(
-    private val runSingleAction: (action: Action?, entryId: String, ctx: ConditionContext) -> Boolean,
+    private val runSingleAction: (action: StoredAction?, entryId: String, ctx: ConditionContext) -> Boolean,
 ) {
     suspend fun runSteps(steps: List<RuleStep>, ctx: ConditionContext): List<StepRecord> {
         val runner = Runner(ctx)

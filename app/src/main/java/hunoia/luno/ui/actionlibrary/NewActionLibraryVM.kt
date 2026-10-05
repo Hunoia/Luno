@@ -5,10 +5,11 @@ import androidx.lifecycle.viewModelScope
 import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.cleanActions
-import hunoia.luno.config.model.Action
+import hunoia.luno.action.model.StoredAction
+import hunoia.luno.action.model.libraryEntryId
+import hunoia.luno.action.model.longPressVariant
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.SubGesture
-import hunoia.luno.config.model.actionLibraryRefId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -52,11 +53,11 @@ class NewActionLibraryVM : ViewModel() {
 
 suspend fun removeNewLibraryEntry(entryId: String) {
     ConfigProvider.updateGestureButtons { buttons ->
-        buttons.map { button -> button.cleanActions { it.actionLibraryRefId() == entryId } }
+        buttons.map { button -> button.cleanActions { it.libraryEntryId() == entryId } }
     }
     ConfigProvider.updateSubGestureSettings { settings ->
         settings.copy(subGestures = settings.subGestures.map { subGesture ->
-            subGesture.cleanActions { it.actionLibraryRefId() == entryId }
+            subGesture.cleanActions { it.libraryEntryId() == entryId }
         })
     }
     ConfigProvider.updateAutomationRules { rules ->
@@ -83,25 +84,25 @@ private fun countReferences(
     subGestures: List<SubGesture>,
 ): Map<String, Int> {
     val counts = mutableMapOf<String, Int>()
-    fun count(action: Action?) {
-        val entryId = action?.actionLibraryRefId() ?: return
+    fun count(action: StoredAction?) {
+        val entryId = action?.libraryEntryId() ?: return
         counts[entryId] = (counts[entryId] ?: 0) + 1
     }
     (buttons.flatMap { it.actionList() } + subGestures.flatMap { it.actionList() }).forEach { action ->
         count(action)
-        count(action.longPressAction)
+        count(action.longPressVariant())
     }
     return counts
 }
 
-private fun GestureButton.actionList(): List<Action> =
+private fun GestureButton.actionList(): List<StoredAction> =
     slideActions.actions.values.flatten() +
         slideHoldActions.actions.values.flatten() +
         longSlideActions.actions.values.flatten() +
         longSlideHoldActions.actions.values.flatten() +
         tapActions + doubleTapActions + longPressActions
 
-private fun SubGesture.actionList(): List<Action> =
+private fun SubGesture.actionList(): List<StoredAction> =
     slideActions.actions.values.flatten() +
         slideHoldActions.actions.values.flatten() +
         longSlideActions.actions.values.flatten() +

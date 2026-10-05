@@ -4,6 +4,7 @@ import android.graphics.Color
 import androidx.annotation.Keep
 import hunoia.luno.bridge.DensityProvider
 import hunoia.luno.config.defaults.GestureSettingsDefaults.SubGestureTimeoutMs
+import hunoia.luno.action.model.StoredAction
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -37,24 +38,24 @@ data class SubGesture(
         get() = (effectiveLongSlideTriggerDistance + DensityProvider.dp2px(24f))
             .coerceAtMost(DensityProvider.dp2px(220f))
 
-    fun slideActionsFor(direction: GestureDirection): List<Action> = slideActions.actionsBy(direction)
+    fun slideActionsFor(direction: GestureDirection): List<StoredAction> = slideActions.actionsBy(direction)
 
-    fun slideHoldActionsFor(direction: GestureDirection): List<Action> = slideHoldActions.actionsBy(direction)
+    fun slideHoldActionsFor(direction: GestureDirection): List<StoredAction> = slideHoldActions.actionsBy(direction)
 
-    fun longSlideActionsFor(direction: GestureDirection): List<Action> = longSlideActions.actionsBy(direction)
+    fun longSlideActionsFor(direction: GestureDirection): List<StoredAction> = longSlideActions.actionsBy(direction)
 
-    fun longSlideHoldActionsFor(direction: GestureDirection): List<Action> = longSlideHoldActions.actionsBy(direction)
+    fun longSlideHoldActionsFor(direction: GestureDirection): List<StoredAction> = longSlideHoldActions.actionsBy(direction)
 
-    fun withSlideActions(direction: GestureDirection, newActions: List<Action>): SubGesture =
+    fun withSlideActions(direction: GestureDirection, newActions: List<StoredAction>): SubGesture =
         copy(slideActions = slideActions.withActions(direction, newActions))
 
-    fun withSlideHoldActions(direction: GestureDirection, newActions: List<Action>): SubGesture =
+    fun withSlideHoldActions(direction: GestureDirection, newActions: List<StoredAction>): SubGesture =
         copy(slideHoldActions = slideHoldActions.withActions(direction, newActions))
 
-    fun withLongSlideActions(direction: GestureDirection, newActions: List<Action>): SubGesture =
+    fun withLongSlideActions(direction: GestureDirection, newActions: List<StoredAction>): SubGesture =
         copy(longSlideActions = longSlideActions.withActions(direction, newActions))
 
-    fun withLongSlideHoldActions(direction: GestureDirection, newActions: List<Action>): SubGesture =
+    fun withLongSlideHoldActions(direction: GestureDirection, newActions: List<StoredAction>): SubGesture =
         copy(longSlideHoldActions = longSlideHoldActions.withActions(direction, newActions))
 }
 

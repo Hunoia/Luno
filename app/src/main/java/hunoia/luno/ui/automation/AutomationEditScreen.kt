@@ -56,10 +56,6 @@ import hunoia.luno.config.model.BooleanMode
 import hunoia.luno.config.model.ConditionItem
 import hunoia.luno.config.model.ConditionType
 import hunoia.luno.config.model.FireMode
-import hunoia.luno.config.model.NewActionData
-import hunoia.luno.config.model.VALUE_NEW_ACTION
-import hunoia.luno.config.model.newActionData
-import hunoia.luno.core.JsonSerializer
 import hunoia.luno.config.model.RuleEffect
 import hunoia.luno.config.model.RuleEffectType
 import hunoia.luno.config.model.RulePriority
@@ -570,7 +566,7 @@ private fun stepButtonsVisibility(
     step: RuleStep,
 ): ButtonsToggle? {
     if (step.kind != RuleStepKind.ACTION) return null
-    val stored = step.action?.newActionData()
+    val stored = step.action
         ?: library?.entries?.find { it.id == step.entryId }?.storedAction
     if (stored?.typeId != "internal.buttonsVisibility") return null
     val visible = stored.params["visible"]
@@ -592,10 +588,6 @@ private fun buildShowPairRule(
             (hide?.stored?.params ?: emptyMap()) + ("visible" to JsonPrimitive(true)),
         ),
     )
-    val showAction = hunoia.luno.config.model.Action(
-        value = VALUE_NEW_ACTION,
-        data = JsonSerializer.encodeToString(NewActionData(showStored)),
-    )
     val baseName = parent.name.ifBlank { conditionSummary(context, parent.condition) }
     return AutomationRule(
         id = "${parent.id}:show",
@@ -603,7 +595,7 @@ private fun buildShowPairRule(
         condition = parent.condition,
         effect = RuleEffect(
             type = RuleEffectType.RUN_ACTION,
-            steps = listOf(RuleStep(kind = RuleStepKind.ACTION, action = showAction)),
+            steps = listOf(RuleStep(kind = RuleStepKind.ACTION, action = showStored)),
         ),
         fireOn = FireMode.EXIT,
     )
@@ -618,10 +610,9 @@ private fun stepSummary(
     RuleStepKind.IF -> conditionSummary(context, step.condition) + " · " +
         context.getString(R.string.step_if_counts, step.thenSteps.size, step.elseSteps.size)
     else -> {
-        val label = context.selectedItemLabel(
-            step.action ?: hunoia.luno.config.model.Action.NONE,
-            emptyList(), library?.entries ?: emptyList(),
-        )
+        val label = step.action?.let {
+            context.selectedItemLabel(it, emptyList(), library?.entries ?: emptyList())
+        }.orEmpty()
         label.ifBlank { context.getString(R.string.step_empty_action) }
     }
 }

@@ -61,7 +61,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aaron.compose.component.UDFComponent
 import com.aaron.compose.component.UiBaseEvent
 import hunoia.luno.R
-import hunoia.luno.config.model.Action
+import hunoia.luno.action.model.StoredAction
 import hunoia.luno.ui.component.TopBar
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
@@ -222,7 +222,7 @@ fun ActionSelectContent(
                             onMoveSelected = { from, to -> vm.moveSelectedAction(from, to) },
                             onRemoveItem = { item ->
                                 when (item) {
-                                    is Action -> vm.select(item, false)
+                                    is StoredAction -> vm.select(item, false)
                                     is AppInfo -> vm.select(item, false)
                                     is LauncherInfo.ShortcutInfo -> vm.select(item, false)
                                 }
@@ -230,7 +230,7 @@ fun ActionSelectContent(
                             onClearAll = {
                                 uiState.selectedRecord.list.toList().forEach { item ->
                                     when (item) {
-                                        is Action -> vm.select(item, false)
+                                        is StoredAction -> vm.select(item, false)
                                         is AppInfo -> vm.select(item, false)
                                         is LauncherInfo.ShortcutInfo -> vm.select(item, false)
                                     }

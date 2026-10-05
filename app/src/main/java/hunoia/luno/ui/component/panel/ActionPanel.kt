@@ -54,12 +54,11 @@ import com.aaron.compose.ktx.clipToBackground
 import com.aaron.compose.ktx.toPx
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-import hunoia.luno.action.api.ActionFacade
-import hunoia.luno.config.model.Action
+import hunoia.luno.action.model.StoredAction
+import hunoia.luno.action.model.launchMiniWindow
 import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.config.model.ActionPanelStyle
 import hunoia.luno.config.model.ArcStyle
-import hunoia.luno.action.api.appInfo
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.ui.theme.AnimNormal
@@ -116,7 +115,7 @@ fun ActionPanel(
                     .align(Alignment.Center)
                     .displayCutoutPadding()
                     .padding(12.dp),
-                visible = selectedAction.value == ActionFacade.EXTRA_LAUNCH_APP,
+                visible = selectedAction.typeId == "app.launch",
                 enter = enter,
                 exit = ExitTransition.None
             ) {
@@ -124,7 +123,7 @@ fun ActionPanel(
                     Box(
                         modifier = Modifier
                             .let { thisModifier ->
-                                val miniWindow = selectedAction.appInfo?.miniWindow ?: false
+                                val miniWindow = selectedAction.launchMiniWindow()
                                 val boxMaxWidth = maxWidth
                                 val boxMaxHeight = maxHeight
                                 val spec = tween<Dp>(AnimPanelResize.toInt())
@@ -202,7 +201,7 @@ fun ActionPanel(
 internal fun AnimatedVisibilityScope.ActionPanelSelectableItem(
     actionPanelState: ActionPanelState,
     index: Int,
-    action: Action,
+    action: StoredAction,
     targetAnimOffset: Offset,
     panelOrigin: Offset,
     itemSizePx: Float,
@@ -214,7 +213,7 @@ internal fun AnimatedVisibilityScope.ActionPanelSelectableItem(
     val transition = transition
     var isHovered by remember { mutableStateOf(false) }
     val selected = actionPanelState.isSelected(action)
-    val hasSelection = actionPanelState.selectedAction != Action.NONE
+    val hasSelection = actionPanelState.selectedAction.typeId != "internal.none"
     val accentColor = actionPanelAccentColor(actionPanelState.buttonColor)
     val scale by animateFloatAsState(if (selected || isHovered) 1.18f else 1f, spring(stiffness = Spring.StiffnessHigh), label = "actionScale")
     val itemAlpha by animateFloatAsState(if (!hasSelection || selected) 1f else 0.72f, tween(AnimNormal.toInt()), label = "actionAlpha")
@@ -230,7 +229,7 @@ internal fun AnimatedVisibilityScope.ActionPanelSelectableItem(
                     }
                 } else if (actionPanelState.isSelected(action)) {
                     isHovered = false
-                    actionPanelState.select(index, Action.NONE)
+                    actionPanelState.select(index, StoredAction.of("internal.none"))
                 }
             }
     }
@@ -256,7 +255,7 @@ internal fun AnimatedVisibilityScope.ActionPanelSelectableItem(
 }
 
 @Composable
-internal fun ActionPanelIcon(action: Action, iconSize: Dp, bitmapIconSize: Dp = iconSize) {
+internal fun ActionPanelIcon(action: StoredAction, iconSize: Dp, bitmapIconSize: Dp = iconSize) {
     val actionIcon = actionIcon(action = action)
     when (actionIcon) {
         is ImageVector -> Image(

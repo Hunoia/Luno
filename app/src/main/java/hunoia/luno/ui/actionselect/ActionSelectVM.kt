@@ -4,8 +4,9 @@ import androidx.lifecycle.viewModelScope
 import com.aaron.compose.base.BaseComposeVM
 import hunoia.luno.R
 import hunoia.luno.config.ConfigProvider
-import hunoia.luno.config.model.Action
 import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.action.model.StoredAction
+import hunoia.luno.action.model.withLongPressVariant
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.quicklaunch.model.qualifiedName
@@ -86,10 +87,10 @@ class ActionSelectVM(
             updateUiState { selectAppInfoTransform(it, obj, selected) }
         } else if (obj is LauncherInfo.ShortcutInfo) {
             updateUiState { selectShortcutInfoTransform(it, obj, selected) }
-        } else if (obj is Action) {
+        } else if (obj is StoredAction) {
             updateUiState { selectActionTransform(it, obj, selected) }
         } else if (obj is NewActionLibraryEntry) {
-            val action = obj.toReferenceAction()
+            val action = obj.toStoredAction()
             updateUiState { selectActionTransform(it, action, selected) }
         }
     }
@@ -105,8 +106,8 @@ class ActionSelectVM(
 
     fun selectLongPressAction(obj: Any) {
         val index = uiState.longPressTargetIndex ?: return
-        val longPressAction = obj.toAction()
-        updateUiState { updateSelectedActionTransform(it, index) { it.copy(longPressAction = longPressAction) } }
+        val longPressAction = obj.toStoredAction()
+        updateUiState { updateSelectedActionTransform(it, index) { it.withLongPressVariant(longPressAction) } }
         updateUiState { it.copy(longPressTargetIndex = null) }
     }
 

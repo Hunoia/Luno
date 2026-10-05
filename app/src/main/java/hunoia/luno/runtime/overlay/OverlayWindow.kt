@@ -4,7 +4,6 @@ import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import androidx.compose.ui.geometry.Offset
-import hunoia.luno.config.model.Action
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureButtonActionSettingsOverride
 
@@ -32,7 +31,12 @@ interface GestureOverlayCallbacks {
      */
     fun onActionPanelVisibilityChanged(visible: Boolean)
 
-    fun onAction(action: Action, sourceButton: GestureButton?, sourceOverride: GestureButtonActionSettingsOverride?)
+    fun onAction(
+        action: hunoia.luno.action.model.StoredAction,
+        sourceButton: GestureButton?,
+        sourceOverride: GestureButtonActionSettingsOverride?,
+        touchPosition: androidx.compose.ui.geometry.Offset,
+    )
 }
 
 internal fun WindowManager.safeAddView(view: View?, params: WindowManager.LayoutParams): Boolean {

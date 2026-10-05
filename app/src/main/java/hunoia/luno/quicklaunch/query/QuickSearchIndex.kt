@@ -1,14 +1,8 @@
 package hunoia.luno.quicklaunch.query
 
 import android.content.Context
-import hunoia.luno.action.api.ActionFacade
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.model.StoredAction
-import hunoia.luno.config.model.Action
-import hunoia.luno.config.model.ActionLibraryRefData
-import hunoia.luno.config.model.NewActionData
-import hunoia.luno.config.model.VALUE_LIBRARY_REF
-import hunoia.luno.config.model.VALUE_NEW_ACTION
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
@@ -81,41 +75,24 @@ class QuickSearchIndex(internal val context: Context) {
 }
 
 /** 把搜索结果转回可执行的 [Action]。 */
-fun QuickSearchResult.toConfigAction(): Action = when (this) {
-    is QuickSearchResult.ActionDef -> Action(
-        value = VALUE_NEW_ACTION,
-        data = JsonSerializer.encodeToString(NewActionData(stored)),
+fun QuickSearchResult.toConfigAction(): StoredAction = when (this) {
+    is QuickSearchResult.ActionDef -> stored
+    is QuickSearchResult.LibraryEntry -> StoredAction.of("internal.libraryRef", "entryId" to entry.id)
+    is QuickSearchResult.App -> StoredAction.of(
+        "app.launch",
+        "packageName" to appInfo.packageName,
+        "className" to appInfo.className,
+        "miniWindow" to appInfo.miniWindow.toString(),
     )
-    is QuickSearchResult.LibraryEntry -> Action(
-        value = VALUE_LIBRARY_REF,
-        data = JsonSerializer.encodeToString(ActionLibraryRefData(entry.id)),
+    is QuickSearchResult.Shortcut -> StoredAction.of(
+        "app.launchShortcut",
+        "data" to JsonSerializer.encodeToString(shortcut),
     )
-    is QuickSearchResult.App -> Action(
-        value = ActionFacade.EXTRA_LAUNCH_APP,
-        data = JsonSerializer.encodeToString(appInfo),
-    )
-    is QuickSearchResult.Shortcut -> Action(
-        value = ActionFacade.EXTRA_LAUNCH_SHORTCUT,
-        data = JsonSerializer.encodeToString(shortcut),
-    )
-    is QuickSearchResult.Settings -> Action(
-        value = VALUE_NEW_ACTION,
-        data = JsonSerializer.encodeToString(NewActionData(StoredAction.of("system.openSettings", "page" to page.name))),
-    )
-    is QuickSearchResult.Url -> Action(
-        value = VALUE_NEW_ACTION,
-        data = JsonSerializer.encodeToString(NewActionData(StoredAction.of("intent.openUrl", "url" to url))),
-    )
-    is QuickSearchResult.EngineSearch -> Action(
-        value = VALUE_NEW_ACTION,
-        data = JsonSerializer.encodeToString(
-            NewActionData(
-                StoredAction.of(
-                    "intent.openUrl",
-                    "url" to resolvedUrl(),
-                ),
-            ),
-        ),
+    is QuickSearchResult.Settings -> StoredAction.of("system.openSettings", "page" to page.name)
+    is QuickSearchResult.Url -> StoredAction.of("intent.openUrl", "url" to url)
+    is QuickSearchResult.EngineSearch -> StoredAction.of(
+        "intent.openUrl",
+        "url" to resolvedUrl(),
     )
     // Calc/联系人/媒体/日历/开关/短信/通话 由 Activity 直调 intent/剪贴板，
     // 正常走不到这里（when 穷尽要求必须有分支）。
@@ -139,18 +116,8 @@ fun QuickSearchResult.EngineSearch.resolvedUrl(): String =
  * 搜索行长按：应用/快捷方式进应用详情（app.details，ActionMapper 现成认 packageName）；
  * 网址/引擎走复制（调用方直调剪贴板）；其余返回 null 表示无长按语义。
  */
-fun QuickSearchResult.longPressAction(): Action? = when (this) {
-    is QuickSearchResult.App -> Action(
-        value = VALUE_NEW_ACTION,
-        data = JsonSerializer.encodeToString(
-            NewActionData(StoredAction.of("app.details", "packageName" to appInfo.packageName)),
-        ),
-    )
-    is QuickSearchResult.Shortcut -> Action(
-        value = VALUE_NEW_ACTION,
-        data = JsonSerializer.encodeToString(
-            NewActionData(StoredAction.of("app.details", "packageName" to shortcut.packageName)),
-        ),
-    )
+fun QuickSearchResult.longPressAction(): StoredAction? = when (this) {
+    is QuickSearchResult.App -> StoredAction.of("app.details", "packageName" to appInfo.packageName)
+    is QuickSearchResult.Shortcut -> StoredAction.of("app.details", "packageName" to shortcut.packageName)
     else -> null
 }

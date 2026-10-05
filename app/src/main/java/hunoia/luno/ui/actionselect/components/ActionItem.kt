@@ -7,7 +7,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import hunoia.luno.config.model.Action
+import hunoia.luno.action.model.StoredAction
 import hunoia.luno.ui.component.SelectableListItem
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.actionIcon
@@ -17,7 +17,7 @@ import hunoia.luno.ui.theme.ContainerRadius
 fun ActionItem(
     onSelect: (Boolean) -> Unit,
     selected: Boolean,
-    action: Action,
+    action: StoredAction,
     actionLabel: String,
     selectSingle: Boolean,
     modifier: Modifier = Modifier,

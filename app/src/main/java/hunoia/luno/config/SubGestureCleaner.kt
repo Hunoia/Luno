@@ -1,14 +1,17 @@
 package hunoia.luno.config
 
-import hunoia.luno.action.api.ActionFacade
-import hunoia.luno.config.model.Action
-import kotlinx.serialization.json.Json
+import hunoia.luno.action.model.StoredAction
+import hunoia.luno.config.model.DirectionActions
+import hunoia.luno.config.model.GestureButton
+import hunoia.luno.config.model.SubGesture
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 object SubGestureCleaner {
 
     suspend fun cleanSubGestureReferences(
         deletedId: String,
-        shouldRemove: (Action) -> Boolean,
+        shouldRemove: (StoredAction) -> Boolean,
     ) {
         ConfigProvider.updateGestureButtons { buttons ->
             buttons.map { it.cleanActions(shouldRemove) }
@@ -20,16 +23,39 @@ object SubGestureCleaner {
         }
     }
 
-    fun isSubGestureAction(action: Action): Boolean =
-        action.value == ActionFacade.SUB_GESTURE
+    fun isSubGestureAction(action: StoredAction): Boolean =
+        action.typeId == "internal.subGesture"
 
-    fun matchesDeletedSubGesture(action: Action, deletedId: String): Boolean {
+    fun matchesDeletedSubGesture(action: StoredAction, deletedId: String): Boolean {
         if (!isSubGestureAction(action)) return false
-        return try {
-            val data = Json.decodeFromString<hunoia.luno.action.payload.SubGestureActionData>(action.data)
-            data.id == deletedId
-        } catch (_: Exception) {
-            false
-        }
+        val id = (action.params["id"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+        return id == deletedId
     }
 }
+
+fun GestureButton.cleanActions(
+    shouldRemove: (StoredAction) -> Boolean,
+): GestureButton = copy(
+    slideActions = slideActions.cleanActions(shouldRemove),
+    slideHoldActions = slideHoldActions.cleanActions(shouldRemove),
+    longSlideActions = longSlideActions.cleanActions(shouldRemove),
+    longSlideHoldActions = longSlideHoldActions.cleanActions(shouldRemove),
+    tapActions = tapActions.cleanList(shouldRemove),
+    doubleTapActions = doubleTapActions.cleanList(shouldRemove),
+    longPressActions = longPressActions.cleanList(shouldRemove),
+)
+
+fun SubGesture.cleanActions(
+    shouldRemove: (StoredAction) -> Boolean,
+): SubGesture = copy(
+    slideActions = slideActions.cleanActions(shouldRemove),
+    slideHoldActions = slideHoldActions.cleanActions(shouldRemove),
+    longSlideActions = longSlideActions.cleanActions(shouldRemove),
+    longSlideHoldActions = longSlideHoldActions.cleanActions(shouldRemove),
+)
+
+fun DirectionActions.cleanActions(shouldRemove: (StoredAction) -> Boolean): DirectionActions =
+    copy(actions = actions.mapValues { (_, list) -> list.cleanList(shouldRemove) })
+
+fun List<StoredAction>.cleanList(shouldRemove: (StoredAction) -> Boolean): List<StoredAction> =
+    filterNot(shouldRemove)

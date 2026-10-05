@@ -1,7 +1,9 @@
 package hunoia.luno.config.model
 
 import androidx.annotation.Keep
+import hunoia.luno.action.dispatcher.MigratingStoredActionSerializer
 import hunoia.luno.action.model.AudioStream
+import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.VolumeDirection
 import kotlinx.serialization.Serializable
 
@@ -132,7 +134,8 @@ data class WhenGroup(
 data class RuleEffect(
     val type: RuleEffectType,
     val entryId: String = "",
-    val action: Action? = null,
+    @Serializable(MigratingStoredActionSerializer::class)
+    val action: StoredAction? = null,
     /** v2 步骤：非空时优先于 action/entryId（老数据迁移见 effectiveSteps）。 */
     val steps: List<RuleStep> = emptyList(),
 ) {
@@ -228,7 +231,8 @@ private fun withStepAtTokens(    tokens: List<String>,
 @Keep
 data class RuleStep(
     val kind: String = RuleStepKind.ACTION,
-    val action: Action? = null,
+    @Serializable(MigratingStoredActionSerializer::class)
+    val action: StoredAction? = null,
     val entryId: String = "",
     val delayMs: Long = 0L,
     val condition: WhenGroup = WhenGroup(),

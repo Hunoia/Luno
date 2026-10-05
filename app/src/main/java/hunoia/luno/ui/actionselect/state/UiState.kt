@@ -1,8 +1,8 @@
 package hunoia.luno.ui.actionselect
 
-import hunoia.luno.action.api.appInfo
-import hunoia.luno.action.api.shortcutInfo
-import hunoia.luno.config.model.Action
+import hunoia.luno.action.model.StoredAction
+import hunoia.luno.action.model.launchQualifiedName
+import hunoia.luno.action.model.shortcutQualifiedName
 import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.quicklaunch.model.AppInfo
@@ -12,7 +12,7 @@ import hunoia.luno.quicklaunch.model.qualifiedNameWithIntents
 
 data class UiState(
     val title: String = "",
-    val actions: List<Action> = emptyList(),
+    val actions: List<StoredAction> = emptyList(),
     val apps: List<AppInfo> = emptyList(),
     val createShortcuts: List<LauncherInfo> = emptyList(),
     val launchShortcuts: List<LauncherInfo> = emptyList(),
@@ -36,34 +36,34 @@ data class UiState(
 
         val size: Int get() = list.size
 
-        fun selectAll(actions: List<Action>): SelectedRecord {
+        fun selectAll(actions: List<StoredAction>): SelectedRecord {
             return this.copy(list = actions.toList())
         }
 
-        private fun pick(action: Action, maxSelectCount: Int): List<Any> {
+        private fun pick(action: StoredAction, maxSelectCount: Int): List<Any> {
             return if (maxSelectCount <= 1) listOf(action) else list + action
         }
 
-        fun selectAction(action: Action, selected: Boolean, maxSelectCount: Int): SelectedRecord {
+        fun selectAction(action: StoredAction, selected: Boolean, maxSelectCount: Int): SelectedRecord {
             if (!selected) {
-                return this.copy(list = list.filterNot { it is Action && it.sameAction(action) })
+                return this.copy(list = list.filterNot { it is StoredAction && it == action })
             }
             return this.copy(list = pick(action, maxSelectCount))
         }
 
         fun selectAppInfo(app: AppInfo, selected: Boolean, maxSelectCount: Int): SelectedRecord {
-            val action = app.toAction()
+            val action = app.toStoredAction()
             if (!selected) {
-                return this.copy(list = list.filterNot { (it as? Action)?.appInfo?.qualifiedName == app.qualifiedName })
+                return this.copy(list = list.filterNot { (it as? StoredAction)?.launchQualifiedName() == app.qualifiedName })
             }
             return this.copy(list = pick(action, maxSelectCount))
         }
 
         fun selectShortcutInfo(shortcut: LauncherInfo.ShortcutInfo, selected: Boolean, maxSelectCount: Int): SelectedRecord {
-            val action = shortcut.toAction()
+            val action = shortcut.toStoredAction()
             if (!selected) {
                 return this.copy(list = list.filterNot {
-                    (it as? Action)?.shortcutInfo?.qualifiedNameWithIntents == shortcut.qualifiedNameWithIntents
+                    (it as? StoredAction)?.shortcutQualifiedName() == shortcut.qualifiedNameWithIntents
                 })
             }
             return this.copy(list = pick(action, maxSelectCount))
@@ -72,8 +72,8 @@ data class UiState(
         fun removeAllAppInfos(list: List<AppInfo>): SelectedRecord {
             val newList = this.list.toMutableList().apply {
                 removeAll {
-                    val appInfo = (it as? Action)?.appInfo ?: return@removeAll false
-                    list.any { selected -> appInfo.qualifiedName == selected.qualifiedName }
+                    val qualifiedName = (it as? StoredAction)?.launchQualifiedName() ?: return@removeAll false
+                    list.any { selected -> qualifiedName == selected.qualifiedName }
                 }
             }
             return this.copy(list = newList)
@@ -82,9 +82,9 @@ data class UiState(
         fun removeAllShortcutInfos(list: List<LauncherInfo.ShortcutInfo>): SelectedRecord {
             val newList = this.list.toMutableList().apply {
                 removeAll {
-                    val shortcutInfo = (it as? Action)?.shortcutInfo ?: return@removeAll false
+                    val qualifiedName = (it as? StoredAction)?.shortcutQualifiedName() ?: return@removeAll false
                     list.any { selected ->
-                        shortcutInfo.qualifiedNameWithIntents == selected.qualifiedNameWithIntents
+                        qualifiedName == selected.qualifiedNameWithIntents
                     }
                 }
             }
@@ -94,14 +94,14 @@ data class UiState(
         fun isSelected(obj: Any): Boolean {
             if (obj is AppInfo) {
                 return list.find {
-                    (it as? Action)?.appInfo?.qualifiedName == obj.qualifiedName
+                    (it as? StoredAction)?.launchQualifiedName() == obj.qualifiedName
                 } != null
             } else if (obj is LauncherInfo.ShortcutInfo) {
                 return list.find {
-                    (it as? Action)?.shortcutInfo?.qualifiedNameWithIntents == obj.qualifiedNameWithIntents
+                    (it as? StoredAction)?.shortcutQualifiedName() == obj.qualifiedNameWithIntents
                 } != null
-            } else if (obj is Action) {
-                return list.find { it is Action && it.sameAction(obj) } != null
+            } else if (obj is StoredAction) {
+                return list.find { it is StoredAction && it == obj } != null
             }
             return obj in list
         }

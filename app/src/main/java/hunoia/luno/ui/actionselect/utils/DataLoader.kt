@@ -1,41 +1,49 @@
 package hunoia.luno.ui.actionselect
 
-import hunoia.luno.action.api.appInfo
-import hunoia.luno.action.api.shortcutInfo
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.action.model.StoredAction
+import hunoia.luno.action.model.launchAppRef
+import hunoia.luno.action.model.longPressVariant
+import hunoia.luno.action.model.withoutVariantKey
 import hunoia.luno.config.ConfigProvider
-import hunoia.luno.config.model.Action
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.RuleEffectType
-import hunoia.luno.config.model.VALUE_LIBRARY_REF
-import hunoia.luno.config.model.actionLibraryRefId
 import hunoia.luno.core.AppContext
+import hunoia.luno.core.JsonSerializer
+import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
-import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.quicklaunch.model.qualifiedNameWithIntents
 import hunoia.luno.ui.navigation.ActionSelect
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
-internal fun List<Action>.shortcutIconPaths(): List<String> {
+internal fun StoredAction.shortcutInfo(): LauncherInfo.ShortcutInfo? {
+    if (typeId != "app.launchShortcut") return null
+    val data = (params["data"] as? JsonPrimitive)?.contentOrNull ?: return null
+    return runCatching { JsonSerializer.decodeFromString<LauncherInfo.ShortcutInfo>(data) }.getOrNull()
+}
+
+internal fun List<StoredAction>.shortcutIconPaths(): List<String> {
     return flatMap { action ->
         listOfNotNull(
-            action.shortcutInfo?.iconPath,
-            action.longPressAction?.shortcutInfo?.iconPath
+            action.shortcutInfo()?.iconPath,
+            action.longPressVariant()?.shortcutInfo()?.iconPath
         )
     }.filter { it.isNotEmpty() }
 }
 
-internal fun tryDeleteShortcutIcons(old: List<Action>, new: List<Action>) {
+internal fun tryDeleteShortcutIcons(old: List<StoredAction>, new: List<StoredAction>) {
     val newPaths = new.shortcutIconPaths().toSet()
     old.forEach { action ->
-        listOfNotNull(action.shortcutInfo, action.longPressAction?.shortcutInfo).forEach { shortcutInfo ->
+        listOfNotNull(action.shortcutInfo(), action.longPressVariant()?.shortcutInfo()).forEach { shortcutInfo ->
             if (shortcutInfo.iconPath.isNullOrEmpty()) return@forEach
             if (shortcutInfo.iconPath in newPaths) return@forEach
             File(shortcutInfo.iconPath).delete()
@@ -49,7 +57,7 @@ internal suspend fun saveSettingsAction(
     updateUiState: ((UiState) -> UiState) -> Unit
 ) {
     val selectedRecord = getUiState().selectedRecord
-    val newActions = selectedRecord.list.filterIsInstance<Action>()
+    val newActions = selectedRecord.list.filterIsInstance<StoredAction>()
     if (actionSelect.automationRuleId.isNotBlank()) {
         saveAutomationEffect(actionSelect, newActions)
         return
@@ -92,7 +100,7 @@ internal suspend fun saveSettingsAction(
     }
 }
 
-private suspend fun saveAutomationEffect(actionSelect: ActionSelect, newActions: List<Action>) {
+private suspend fun saveAutomationEffect(actionSelect: ActionSelect, newActions: List<StoredAction>) {
     val entries = ConfigProvider.getNewActionLibrarySettings().entries
     val current = loadAutomationActions(actionSelect, entries) ?: emptyList()
     tryDeleteShortcutIcons(current, newActions)
@@ -100,8 +108,11 @@ private suspend fun saveAutomationEffect(actionSelect: ActionSelect, newActions:
     ConfigProvider.updateAutomationRules { rules ->
         rules.map { rule ->
             if (rule.id != actionSelect.automationRuleId) return@map rule
-            val action = selected?.takeIf { it.value != VALUE_LIBRARY_REF }
-            val entryId = selected?.actionLibraryRefId() ?: ""
+            val action = selected?.takeIf { it.typeId != "internal.libraryRef" }?.withoutVariantKey()
+            val entryId = selected
+                ?.takeIf { it.typeId == "internal.libraryRef" }
+                ?.let { (it.params["entryId"] as? JsonPrimitive)?.contentOrNull.orEmpty() }
+                .orEmpty()
             val path = actionSelect.automationStepPath
             if (path.isBlank()) {
                 rule.copy(effect = rule.effect.copy(action = action, entryId = entryId))
@@ -123,22 +134,22 @@ private suspend fun saveAutomationEffect(actionSelect: ActionSelect, newActions:
 private suspend fun loadAutomationActions(
     actionSelect: ActionSelect,
     actionLibraryEntries: List<NewActionLibraryEntry>
-): List<Action>? {
+): List<StoredAction>? {
     val rules = ConfigProvider.getAutomationRules()
     val rule = rules.find { it.id == actionSelect.automationRuleId } ?: return null
     if (rule.effect.type != RuleEffectType.RUN_ACTION) return null
     val path = actionSelect.automationStepPath
     if (path.isNotBlank()) {
         val step = rule.effect.stepAt(path) ?: return null
-        step.action?.let { return listOf(it.copy(extra = null)) }
+        step.action?.let { return listOf(it) }
         if (step.entryId.isBlank()) return null
         val entry = actionLibraryEntries.find { it.id == step.entryId } ?: return null
-        return listOf(entry.toReferenceAction())
+        return listOf(StoredAction.of("internal.libraryRef", "entryId" to entry.id))
     }
-    rule.effect.action?.let { return listOf(it.copy(extra = null)) }
+    rule.effect.action?.let { return listOf(it) }
     if (rule.effect.entryId.isBlank()) return null
     val entry = actionLibraryEntries.find { it.id == rule.effect.entryId } ?: return null
-    return listOf(entry.toReferenceAction())
+    return listOf(StoredAction.of("internal.libraryRef", "entryId" to entry.id))
 }
 
 internal suspend fun updateShortcutInfosBody(
@@ -157,7 +168,7 @@ internal suspend fun updateShortcutInfosBody(
             val uninstalledList = mutableListOf<LauncherInfo.ShortcutInfo>()
             selectedRecord
                 .list
-                .mapNotNull { (it as? Action)?.shortcutInfo }
+                .mapNotNull { (it as? StoredAction)?.shortcutInfo() }
                 .forEach { selected ->
                     val uninstalled = !createLauncherInfos.any { launcher ->
                         launcher.qualifiedName == selected.qualifiedName
@@ -176,7 +187,7 @@ internal suspend fun updateShortcutInfosBody(
     val finalCreateList = withContext(Dispatchers.Default) {
         val list1 = mutableListOf<LauncherInfo>()
         val list2 = mutableListOf<LauncherInfo>()
-        val selectedShortcutInfos = selectedRecord.list.mapNotNull { (it as? Action)?.shortcutInfo }
+        val selectedShortcutInfos = selectedRecord.list.mapNotNull { (it as? StoredAction)?.shortcutInfo() }
         createLauncherInfos.forEach { launcherInfo ->
             val cache = selectedShortcutInfos.find { info ->
                 info.packageName == launcherInfo.packageName
@@ -192,7 +203,7 @@ internal suspend fun updateShortcutInfosBody(
     val finalLaunchList = withContext(Dispatchers.Default) {
         val list1 = mutableListOf<LauncherInfo>()
         val list2 = mutableListOf<LauncherInfo>()
-        val selectedShortcutInfos = selectedRecord.list.mapNotNull { (it as? Action)?.shortcutInfo }
+        val selectedShortcutInfos = selectedRecord.list.mapNotNull { (it as? StoredAction)?.shortcutInfo() }
         launchLauncherInfos.forEach { launcherInfo ->
             val cache = selectedShortcutInfos.find { info ->
                 info.packageName == launcherInfo.packageName
@@ -215,7 +226,7 @@ internal suspend fun updateShortcutInfosBody(
     getUiState()
         .selectedRecord
         .list
-        .mapNotNull { (it as? Action)?.shortcutInfo }
+        .mapNotNull { (it as? StoredAction)?.shortcutInfo() }
         .forEach { shortcut ->
             val launcherInfo = createLauncherInfos.find {
                 it.qualifiedName == shortcut.qualifiedName
@@ -244,7 +255,7 @@ internal suspend fun updateAppInfosBody(
             val uninstalledList = mutableListOf<AppInfo>()
             selectedRecord
                 .list
-                .mapNotNull { (it as? Action)?.appInfo }
+                .mapNotNull { (it as? StoredAction)?.launchAppRef() }
                 .forEach { selectedApp ->
                     val uninstalled = !mergedApps.any { app ->
                         selectedApp.qualifiedName == app.qualifiedName
@@ -259,7 +270,7 @@ internal suspend fun updateAppInfosBody(
     val finalList = withContext(Dispatchers.Default) {
         val list1 = mutableListOf<AppInfo>()
         val list2 = mutableListOf<AppInfo>()
-        val selectedAppInfos = selectedRecord.list.mapNotNull { (it as? Action)?.appInfo }
+        val selectedAppInfos = selectedRecord.list.mapNotNull { (it as? StoredAction)?.launchAppRef() }
         mergedApps.forEach { appInfo ->
             val cache = selectedAppInfos.find { app ->
                 app.qualifiedName == appInfo.qualifiedName
@@ -334,7 +345,7 @@ internal suspend fun loadDataBody(
     }
 }
 
-private fun GestureButton.actionsFor(triggerType: GestureTriggerType, direction: hunoia.luno.config.model.GestureDirection): List<Action> {
+private fun GestureButton.actionsFor(triggerType: GestureTriggerType, direction: hunoia.luno.config.model.GestureDirection): List<StoredAction> {
     return when (triggerType) {
         GestureTriggerType.Tap -> tapActions
         GestureTriggerType.DoubleTap -> doubleTapActions
@@ -349,7 +360,7 @@ private fun GestureButton.actionsFor(triggerType: GestureTriggerType, direction:
 private fun GestureButton.withActions(
     triggerType: GestureTriggerType,
     direction: hunoia.luno.config.model.GestureDirection,
-    newActions: List<Action>
+    newActions: List<StoredAction>
 ): GestureButton {
     return when (triggerType) {
         GestureTriggerType.Tap -> copy(tapActions = newActions)
@@ -365,7 +376,7 @@ private fun GestureButton.withActions(
 private fun hunoia.luno.config.model.SubGesture.actionsFor(
     triggerType: GestureTriggerType,
     direction: hunoia.luno.config.model.GestureDirection
-): List<Action> {
+): List<StoredAction> {
     return when (triggerType) {
         GestureTriggerType.Slide -> slideActionsFor(direction)
         GestureTriggerType.SlideHold -> slideHoldActionsFor(direction)
@@ -378,7 +389,7 @@ private fun hunoia.luno.config.model.SubGesture.actionsFor(
 private fun hunoia.luno.config.model.SubGesture.withActions(
     triggerType: GestureTriggerType,
     direction: hunoia.luno.config.model.GestureDirection,
-    newActions: List<Action>
+    newActions: List<StoredAction>
 ): hunoia.luno.config.model.SubGesture {
     return when (triggerType) {
         GestureTriggerType.Slide -> withSlideActions(direction, newActions)

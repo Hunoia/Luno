@@ -1,11 +1,5 @@
 package hunoia.luno.action.api
 
-import hunoia.luno.action.definition.ActionCatalog
-import hunoia.luno.action.definition.ActionCatalogEntry
-import hunoia.luno.config.model.Action
-import hunoia.luno.core.JsonSerializer
-import hunoia.luno.quicklaunch.model.AppInfo
-import hunoia.luno.quicklaunch.model.LauncherInfo
 
 object ActionFacade {
 
@@ -42,8 +36,6 @@ object ActionFacade {
     const val SUB_GESTURE = ActionIds.SUB_GESTURE
     const val EXTRA_LAUNCH_APP = ActionIds.EXTRA_LAUNCH_APP
     const val EXTRA_LAUNCH_SHORTCUT = ActionIds.EXTRA_LAUNCH_SHORTCUT
-
-    fun byId(actionId: String): ActionCatalogEntry? = ActionCatalog.byId(actionId)
 }
 
 object ActionIds {
@@ -80,18 +72,4 @@ object ActionIds {
     const val SUB_GESTURE = "59"
     const val EXTRA_LAUNCH_APP = "101"
     const val EXTRA_LAUNCH_SHORTCUT = "102"
-}
-
-val Action.appInfo: AppInfo? get() {
-    if (value == ActionFacade.EXTRA_LAUNCH_APP) {
-        return JsonSerializer.decodeFromString<AppInfo>(data)
-    }
-    return null
-}
-
-val Action.shortcutInfo: LauncherInfo.ShortcutInfo? get() {
-    if (value == ActionFacade.EXTRA_LAUNCH_SHORTCUT) {
-        return JsonSerializer.decodeFromString<LauncherInfo.ShortcutInfo>(data)
-    }
-    return null
 }

@@ -3,7 +3,6 @@ package hunoia.luno.action.dispatcher
 import hunoia.luno.action.api.ActionFacade
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.model.StoredAction
-import hunoia.luno.config.model.Action as LegacyAction
 import hunoia.luno.config.model.OpenAppOrUrlData
 import hunoia.luno.config.model.ShellCommandData
 import hunoia.luno.core.JsonSerializer
@@ -15,7 +14,8 @@ import kotlinx.serialization.json.put
 
 object LegacyActionMapper {
 
-    fun map(action: LegacyAction): StoredAction? = when (action.value) {
+    /** 读取期迁移：legacy 存储形态 {value, data} → StoredAction，失败返回 null。 */
+    fun mapRaw(value: String, data: String): StoredAction? = when (value) {
         ActionFacade.NONE -> StoredAction.of("internal.none")
         ActionFacade.BACK -> StoredAction.of("accessibility.back")
         ActionFacade.HOME -> StoredAction.of("accessibility.home")
@@ -38,17 +38,17 @@ object LegacyActionMapper {
         ActionFacade.POWER_BUTTON -> StoredAction.of("accessibility.powerButton")
         ActionFacade.HIDE_GESTURE_BUTTON -> StoredAction.of("internal.hideGestureButton")
         ActionFacade.BACK_TO_TOP -> StoredAction.of("accessibility.swipe", "direction" to "TO_TOP")
-        ActionFacade.OPEN_APP_ACTIVITY -> openActivity(action.data)
-        ActionFacade.OPEN_URL -> decodeData(action.data)?.let { openUrl(it) }
+        ActionFacade.OPEN_APP_ACTIVITY -> openActivity(data)
+        ActionFacade.OPEN_URL -> decodeData(data)?.let { openUrl(it) }
         ActionFacade.QUICK_APP_LAUNCHER -> StoredAction.of("internal.quickAppLauncher")
         ActionFacade.RANDOM_NAME -> StoredAction.of("system.clipboard", "operation" to "RANDOM_NAME")
         ActionFacade.GENERATE_PASSWORD_COPY -> StoredAction.of("system.clipboard", "operation" to "GENERATE_PASSWORD")
         ActionFacade.CLICK_CURRENT_POSITION -> StoredAction.of("accessibility.tap")
         ActionFacade.VOLUME_SCRUB -> StoredAction.of("internal.volumeScrub")
-        ActionFacade.EXECUTE_SHELL_COMMAND -> shellCommand(action.data)
-        ActionFacade.SUB_GESTURE -> StoredAction.of("internal.subGesture")
-        ActionFacade.EXTRA_LAUNCH_APP -> launchApp(action.data)
-        ActionFacade.EXTRA_LAUNCH_SHORTCUT -> StoredAction.of("app.launchShortcut", "data" to action.data)
+        ActionFacade.EXECUTE_SHELL_COMMAND -> shellCommand(data)
+        ActionFacade.SUB_GESTURE -> subGesture(data)
+        ActionFacade.EXTRA_LAUNCH_APP -> launchApp(data)
+        ActionFacade.EXTRA_LAUNCH_SHORTCUT -> StoredAction.of("app.launchShortcut", "data" to data)
         else -> null
     }
 
@@ -122,6 +122,17 @@ object LegacyActionMapper {
     private fun shellCommand(data: String): StoredAction? {
         val d = runCatching { JsonSerializer.decodeFromString<ShellCommandData>(data) }.getOrNull() ?: return null
         return mapShellCommand(d.command, d.showToast)
+    }
+
+    private fun subGesture(data: String): StoredAction? {
+        val id = runCatching {
+            JsonSerializer.decodeFromString<hunoia.luno.action.payload.SubGestureActionData>(data).id
+        }.getOrNull().orEmpty()
+        return if (id.isBlank()) {
+            StoredAction.of("internal.subGesture")
+        } else {
+            StoredAction.of("internal.subGesture", "id" to id)
+        }
     }
 
     private fun decodeData(data: String): OpenAppOrUrlData? {

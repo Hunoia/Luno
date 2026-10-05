@@ -13,8 +13,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
-import hunoia.luno.action.api.ActionFacade
-import hunoia.luno.config.model.Action
+import hunoia.luno.action.model.StoredAction
+import hunoia.luno.action.model.volumeScrubConfigOrDefault
 import hunoia.luno.config.model.ActionPanelStyle
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.ArcStyle
@@ -26,7 +26,6 @@ import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.isHoldType
 import hunoia.luno.config.model.isLongSlideType
 import hunoia.luno.config.model.SubGestureSettings
-import hunoia.luno.config.model.VolumeScrubConfig
 import hunoia.luno.gesture.DragGestureHandler
 import hunoia.luno.gesture.GestureResolvedActions
 import hunoia.luno.ui.component.panel.ActionPanel
@@ -34,7 +33,6 @@ import hunoia.luno.ui.component.panel.rememberActionPanelState
 import hunoia.luno.gesture.GestureState
 import hunoia.luno.gesture.SubGestureState
 import hunoia.luno.gesture.VolumeScrubState
-import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -49,7 +47,7 @@ private const val ACTION_PANEL_FADE_OUT_MS = 400L
 
 @Composable
 fun SideGestureContainer(
-    onAction: (Action, GestureButton?, GestureButtonActionSettingsOverride?) -> Unit,
+    onAction: (StoredAction, GestureButton?, GestureButtonActionSettingsOverride?, Offset) -> Unit,
     buttons: List<GestureButton>,
     modifier: Modifier = Modifier,
     imePadding: Int = 0,
@@ -92,20 +90,18 @@ fun SideGestureContainer(
     }
 
     fun handleResolvedAction(
-        action: Action,
+        action: StoredAction,
         sourceButton: GestureButton?,
         touchPosition: Offset,
         sourceOverride: GestureButtonActionSettingsOverride? = sourceButton?.actionSettingsOverride,
     ): Boolean {
         if (subGestureState.tryEnterSubGesture(action, touchPosition)) return true
-        val resolvedAction = if (!touchPosition.x.isFinite() || !touchPosition.y.isFinite()) action
-        else Action(value = action.value, data = action.data, extra = listOf(touchPosition.x.roundToInt(), touchPosition.y.roundToInt()), longPressAction = action.longPressAction)
-        curOnAction(resolvedAction, sourceButton, sourceOverride)
+        curOnAction(action, sourceButton, sourceOverride, touchPosition)
         return false
     }
 
     fun runGestureActions(
-        actions: List<Action>,
+        actions: List<StoredAction>,
         direction: GestureDirection,
         touchPosition: Offset,
         sourceButton: GestureButton?,
@@ -116,7 +112,7 @@ fun SideGestureContainer(
         needsPanelOverlay: Boolean = false,
         onDirectComplete: (enteredSubGesture: Boolean) -> Unit = {},
     ) {
-        val meaningfulActions = actions.filter { it != Action.NONE }
+        val meaningfulActions = actions.filter { it.typeId != "internal.none" }
         if (meaningfulActions.size > 1) {
             if (needsPanelOverlay) onActionPanelOverlayChanged(true)
             // 必须在 onDragStart(它把 visible 置 true)之前把主 overlay 撑回全屏,
@@ -128,12 +124,12 @@ fun SideGestureContainer(
             onPanelStarted()
             return
         }
-        val action = meaningfulActions.firstOrNull() ?: Action.NONE
+        val action = meaningfulActions.firstOrNull() ?: StoredAction.of("internal.none")
         val fromSubGesture = subGestureState.subGestureDepth > 0
         val shouldDelayDirectSubGestureAction = fromSubGesture &&
-            action.value != ActionFacade.SUB_GESTURE &&
-            action.value != ActionFacade.VOLUME_SCRUB &&
-            action.value != ActionFacade.NONE
+            action.typeId != "internal.subGesture" &&
+            action.typeId != "internal.volumeScrub" &&
+            action.typeId != "internal.none"
         if (shouldDelayDirectSubGestureAction) {
             subGestureState.clear(notifyService = true)
             coroutineScope.launch {
@@ -143,12 +139,12 @@ fun SideGestureContainer(
             onDirectComplete(false)
             return
         }
-        val enteredSubGesture = when (action.value) {
-            ActionFacade.VOLUME_SCRUB -> {
-                volumeScrubState.activate(VolumeScrubConfig())
+        val enteredSubGesture = when (action.typeId) {
+            "internal.volumeScrub" -> {
+                volumeScrubState.activate(action.volumeScrubConfigOrDefault())
                 false
             }
-            ActionFacade.NONE -> false
+            "internal.none" -> false
             else -> handleResolvedAction(action, sourceButton, touchPosition, sourceOverride)
         }
         onDirectComplete(enteredSubGesture)
@@ -167,7 +163,7 @@ fun SideGestureContainer(
         } else {
             actionPanelStyle
         }
-        val meaningfulCount = resolvedActions.actions.count { it != Action.NONE }
+        val meaningfulCount = resolvedActions.actions.count { it.typeId != "internal.none" }
         val needsOverlay = meaningfulCount > 1 && !resolvedActions.triggerType.isHoldType
         runGestureActions(
             actions = resolvedActions.actions,
@@ -287,10 +283,10 @@ fun SideGestureContainer(
                 if (fromSubGesturePanel) {
                     subGestureState.clear(notifyService = true)
                 }
-                if (hitAction != Action.NONE) {
+                if (hitAction.typeId != "internal.none") {
                     val actionToRun: () -> Unit = {
-                        when (hitAction.value) {
-                            ActionFacade.VOLUME_SCRUB -> volumeScrubState.activate(VolumeScrubConfig())
+                        when (hitAction.typeId) {
+                            "internal.volumeScrub" -> volumeScrubState.activate(hitAction.volumeScrubConfigOrDefault())
                             else -> handleResolvedAction(hitAction, sideGestureState.button, touchPosition, sourceOverride)
                         }
                     }
@@ -307,7 +303,7 @@ fun SideGestureContainer(
             }
             if (!sideGestureState.isCanceled) {
                 sideGestureState.onDragEnd()?.let { resolvedActions ->
-                    val meaningfulActions = resolvedActions.actions.filter { it != Action.NONE }
+                    val meaningfulActions = resolvedActions.actions.filter { it.typeId != "internal.none" }
                     if (meaningfulActions.size > 1 && !resolvedActions.triggerType.isHoldType) {
                         runGestureActions(
                             actions = resolvedActions.actions,

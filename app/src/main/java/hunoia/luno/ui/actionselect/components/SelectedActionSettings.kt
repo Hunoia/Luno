@@ -48,7 +48,8 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.imageLoader
 import hunoia.luno.R
-import hunoia.luno.config.model.Action
+import hunoia.luno.action.model.StoredAction
+import hunoia.luno.action.model.longPressVariant
 import hunoia.luno.ui.component.actionIcon
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.TextIconGlyph
@@ -139,7 +140,7 @@ fun SelectedActionSettings(
                     modifier = if (isDragged) Modifier else Modifier.animateItem(),
                     item = item,
                     label = itemLabel(item),
-                    longPressLabel = (item as? Action)?.longPressAction?.let { itemLabel(it) },
+                    longPressLabel = (item as? StoredAction)?.longPressVariant()?.let { itemLabel(it) },
                     isLongPressTarget = longPressTargetIndex == globalIndex,
                     isDragged = isDragged,
                     dragOffset = if (isDragged) dragOffset else Offset.Zero,
@@ -213,7 +214,7 @@ private fun SelectedTile(
     onRemove: () -> Unit,
 ) {
     val context = LocalContext.current
-    val action = item as? Action
+    val action = item as? StoredAction
     val icon = action?.let { actionIcon(it) }
 
     val currentOnLongPress by rememberUpdatedState(onLongPress)
@@ -321,6 +322,6 @@ private fun SelectedTile(
 }
 
 private fun Any.toStableKey(): String = when (this) {
-    is Action -> "${value}:${data}"
+    is StoredAction -> "${typeId}:${params}"
     else -> toString()
 }

@@ -4,8 +4,6 @@ import android.content.Context
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Android
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,69 +22,65 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import hunoia.luno.core.AppContext
 import hunoia.luno.R
-import hunoia.luno.config.model.Action
+import hunoia.luno.action.model.StoredAction
+import hunoia.luno.action.model.launchPackageName
 import hunoia.luno.action.model.NewActionLibraryEntry
-import hunoia.luno.action.api.appInfo
-import hunoia.luno.action.api.shortcutInfo
-import hunoia.luno.action.api.ActionFacade
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.config.model.DirectionActions
-import hunoia.luno.config.model.actionLibraryRefId
-import hunoia.luno.config.model.newActionData
 import hunoia.luno.quicklaunch.model.icon
 import hunoia.luno.ui.actionlibrary.IconPalette
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import kotlin.math.min
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 fun Context.actionText(
-    action: Action,
+    action: StoredAction,
+    entryId: String? = null,
     emptyIfNone: Boolean = true,
     actionLibraryEntries: List<NewActionLibraryEntry> = emptyList()
 ): String {
-    val refId = action.actionLibraryRefId()
-    if (refId != null) {
-        actionLibraryEntries.firstOrNull { it.id == refId }?.name?.takeIf { it.isNotBlank() }?.let { return it }
+    if (entryId != null) {
+        actionLibraryEntries.firstOrNull { it.id == entryId }?.name?.takeIf { it.isNotBlank() }?.let { return it }
         if (actionLibraryEntries.isNotEmpty()) {
             return getString(R.string.action_library_missing)
         }
     }
-    action.newActionData()?.let { stored ->
-        return ActionDefinitions.byTypeId(stored.typeId)?.name ?: ""
+    if (action.typeId == "app.launch") {
+        return appLabel(action) ?: ""
     }
-    return when (action.value) {
-        ActionFacade.EXTRA_LAUNCH_APP -> action.appInfo?.label ?: ""
-        ActionFacade.EXTRA_LAUNCH_SHORTCUT -> action.shortcutInfo?.label ?: ""
-        else -> {
-            val def = ActionFacade.byId(action.value)
-            if (def != null) getString(def.titleResId) else if (emptyIfNone) "" else getString(R.string.action_none)
-        }
-    }
+    return ActionDefinitions.byTypeId(action.typeId)?.name
+        ?: if (emptyIfNone) "" else getString(R.string.action_none)
+}
+
+/** app.launch 显示名：读已安装应用 label，读不到落包名。 */
+private fun Context.appLabel(action: StoredAction): String? {
+    val packageName = action.launchPackageName() ?: return null
+    return runCatching {
+        packageManager.getApplicationLabel(packageManager.getApplicationInfo(packageName, 0)).toString()
+    }.getOrNull() ?: packageName
 }
 
 @Composable
 fun actionText(
-    action: Action,
+    action: StoredAction,
+    entryId: String? = null,
     emptyIfNone: Boolean = true,
     actionLibraryEntries: List<NewActionLibraryEntry> = emptyList()
 ): String {
-    val refId = action.actionLibraryRefId()
-    if (refId != null) {
-        actionLibraryEntries.firstOrNull { it.id == refId }?.name?.takeIf { it.isNotBlank() }?.let { return it }
+    if (entryId != null) {
+        actionLibraryEntries.firstOrNull { it.id == entryId }?.name?.takeIf { it.isNotBlank() }?.let { return it }
         if (actionLibraryEntries.isNotEmpty()) {
             return stringResource(R.string.action_library_missing)
         }
     }
-    action.newActionData()?.let { stored ->
-        return ActionDefinitions.byTypeId(stored.typeId)?.name ?: ""
+    if (action.typeId == "app.launch") {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val packageName = action.launchPackageName()
+        return remember(action, packageName) { context.appLabel(action) ?: "" }
     }
-    return when (action.value) {
-        ActionFacade.EXTRA_LAUNCH_APP -> action.appInfo?.label ?: ""
-        ActionFacade.EXTRA_LAUNCH_SHORTCUT -> action.shortcutInfo?.label ?: ""
-        else -> {
-            val def = ActionFacade.byId(action.value)
-            if (def != null) stringResource(def.titleResId) else if (emptyIfNone) "" else stringResource(R.string.action_none)
-        }
-    }
+    return ActionDefinitions.byTypeId(action.typeId)?.name
+        ?: if (emptyIfNone) "" else stringResource(R.string.action_none)
 }
 
 /**
@@ -149,19 +143,24 @@ fun NewActionLibraryEntry.resolvedIcon(): Any? {
 }
 
 @Composable
-fun actionIcon(action: Action): Any? {
-    action.newActionData()?.let { stored ->
-        return ActionDefinitions.byTypeId(stored.typeId)?.icon
+fun actionIcon(action: StoredAction): Any? {
+    if (action.typeId == "app.launch") {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val packageName = action.launchPackageName()
+        val className = (action.params["className"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull.orEmpty()
+        return remember(action) {
+            runCatching {
+                if (className.isNotEmpty()) {
+                    context.packageManager.getActivityIcon(
+                        android.content.ComponentName.createRelative(packageName!!, className)
+                    )
+                } else {
+                    context.packageManager.getApplicationIcon(packageName!!)
+                }
+            }.getOrNull()
+        }
     }
-    action.actionLibraryRefId()?.let { refId ->
-        val entries = LocalActionLibraryEntries.current
-        return entries.firstOrNull { it.id == refId }?.resolvedIcon()
-    }
-    return when (action.value) {
-        ActionFacade.EXTRA_LAUNCH_APP -> action.appInfo?.icon ?: Icons.Default.Android
-        ActionFacade.EXTRA_LAUNCH_SHORTCUT -> action.shortcutInfo?.icon ?: Icons.Default.Android
-        else -> ActionFacade.byId(action.value)?.icon
-    }
+    return ActionDefinitions.byTypeId(action.typeId)?.icon
 }
 
 @Composable
@@ -172,19 +171,19 @@ fun DirectionActions.actionTextCompose(): String =
         .joinToString(separator = ",")
 
 @Composable
-fun List<Action>.actionTextCompose(emptyIfNone: Boolean = false): String {
+fun List<StoredAction>.actionTextCompose(emptyIfNone: Boolean = false): String {
     val entries = LocalActionLibraryEntries.current
     if (size <= 1) {
-        val value = firstOrNull() ?: Action.NONE
-        return actionText(value, emptyIfNone, entries)
+        val value = firstOrNull() ?: StoredAction.of("internal.none")
+        return actionText(value, emptyIfNone = emptyIfNone, actionLibraryEntries = entries)
     }
     return remember(this, emptyIfNone, entries) {
         this
             .filter {
-                it.value.isNotEmpty() && it.value != ActionFacade.NONE
+                it.typeId.isNotEmpty() && it.typeId != "internal.none"
             }
             .joinToString(separator = ",") {
-                AppContext.get().actionText(it, emptyIfNone, entries)
+                AppContext.get().actionText(it, emptyIfNone = emptyIfNone, actionLibraryEntries = entries)
             }
     }
 }

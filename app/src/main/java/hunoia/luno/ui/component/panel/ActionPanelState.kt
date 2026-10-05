@@ -10,7 +10,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import hunoia.luno.action.TriggerType
-import hunoia.luno.config.model.Action
+import hunoia.luno.action.model.StoredAction
+import hunoia.luno.action.model.longPressVariant
+import hunoia.luno.action.model.withoutVariantKey
 import hunoia.luno.config.model.ActionPanelStyle
 import hunoia.luno.config.model.GestureDirection
 import kotlinx.coroutines.CoroutineScope
@@ -30,7 +32,7 @@ class ActionPanelState(private val coroutineScope: CoroutineScope) : LongSlideSt
 
     var visible: Boolean by mutableStateOf(false)
         private set
-    var actions: List<Action> by mutableStateOf(emptyList())
+    var actions: List<StoredAction> by mutableStateOf(emptyList())
         private set
     var direction: GestureDirection by mutableStateOf(GestureDirection.Right)
         private set
@@ -44,11 +46,12 @@ class ActionPanelState(private val coroutineScope: CoroutineScope) : LongSlideSt
         private set
     var selectedIndex: Int by mutableStateOf(-1)
         private set
-    private var selectedBaseAction: Action by mutableStateOf(Action.NONE)
-    val selectedAction: Action
+    private var selectedBaseAction: StoredAction by mutableStateOf(StoredAction.of("internal.none"))
+    val selectedAction: StoredAction
         get() = when (triggerType) {
-            TriggerType.Press -> selectedBaseAction
-            TriggerType.LongPress -> selectedBaseAction.longPressAction ?: selectedBaseAction
+            TriggerType.Press -> selectedBaseAction.withoutVariantKey()
+            TriggerType.LongPress -> selectedBaseAction.longPressVariant()?.withoutVariantKey()
+                ?: selectedBaseAction.withoutVariantKey()
         }
     var triggerType: TriggerType by mutableStateOf(TriggerType.Press)
         private set
@@ -59,7 +62,7 @@ class ActionPanelState(private val coroutineScope: CoroutineScope) : LongSlideSt
         visible = true
     }
 
-    fun ready(direction: GestureDirection, actions: List<Action>, actionPanelStyle: ActionPanelStyle, buttonColor: Int) {
+    fun ready(direction: GestureDirection, actions: List<StoredAction>, actionPanelStyle: ActionPanelStyle, buttonColor: Int) {
         this.direction = direction
         this.actions = actions
         this.actionPanelStyle = actionPanelStyle
@@ -79,19 +82,18 @@ class ActionPanelState(private val coroutineScope: CoroutineScope) : LongSlideSt
         finger = offset
     }
 
-    fun done(): Action {
+    fun done(): StoredAction {
         val action = selectedAction
-        val triggerType = triggerType
         reset()
-        return action.copy(extra = triggerType)
+        return action
     }
 
-    fun isSelected(action: Action): Boolean {
+    fun isSelected(action: StoredAction): Boolean {
         return selectedBaseAction == action
     }
 
-    fun select(index: Int, action: Action) {
-        selectedIndex = if (action == Action.NONE) -1 else index
+    fun select(index: Int, action: StoredAction) {
+        selectedIndex = if (action.typeId == "internal.none") -1 else index
         selectedBaseAction = action
 
         delayTriggerTypeChangedJob?.cancel()
@@ -107,7 +109,7 @@ class ActionPanelState(private val coroutineScope: CoroutineScope) : LongSlideSt
         actionPanelStyle = null
         buttonColor = android.graphics.Color.TRANSPARENT
         selectedIndex = -1
-        selectedBaseAction = Action.NONE
+        selectedBaseAction = StoredAction.of("internal.none")
         origin = Offset.Unspecified
         finger = Offset.Unspecified
         delayTriggerTypeChangedJob?.cancel()

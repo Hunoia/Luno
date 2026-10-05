@@ -47,8 +47,8 @@ fun GestureOverlayView(
                     onActionPanelVisibilityChanged = { visible ->
                         callbacks.onActionPanelVisibilityChanged(visible)
                     },
-                    onAction = { action, sourceButton, sourceOverride ->
-                        callbacks.onAction(action, sourceButton, sourceOverride)
+                    onAction = { action, sourceButton, sourceOverride, touchPosition ->
+                        callbacks.onAction(action, sourceButton, sourceOverride, touchPosition)
                     },
                     advancedSettings = state.advancedSettings,
                     gestureSettings = state.gestureSettings,

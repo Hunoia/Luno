@@ -6,14 +6,13 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
-import hunoia.luno.action.api.ActionFacade
-import hunoia.luno.action.payload.SubGestureActionData
-import hunoia.luno.config.model.Action
+import hunoia.luno.action.model.StoredAction
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.SubGestureSettings
-import hunoia.luno.core.JsonSerializer
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -24,7 +23,7 @@ private const val MAX_SUB_GESTURE_DEPTH = 3
 data class SubGestureResolvedActions(
     val subGesture: SubGesture,
     val direction: GestureDirection,
-    val actions: List<Action>,
+    val actions: List<StoredAction>,
     val triggerType: GestureTriggerType,
     val touchPosition: Offset,
 )
@@ -53,11 +52,10 @@ class SubGestureState(
 
     val isActive: Boolean get() = activeSubGesture != null
 
-    fun tryEnterSubGesture(action: Action, touchPosition: Offset): Boolean {
-        if (action.value != ActionFacade.SUB_GESTURE) return false
-        val id = try {
-            JsonSerializer.decodeFromString<SubGestureActionData>(action.data).id
-        } catch (_: Exception) { return false }
+    fun tryEnterSubGesture(action: StoredAction, touchPosition: Offset): Boolean {
+        if (action.typeId != "internal.subGesture") return false
+        val id = (action.params["id"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull
+            ?: return false
         val target = subGestureSettings.subGestures.firstOrNull { it.id == id && it.enabled }
             ?: return false
         if (subGestureDepth >= MAX_SUB_GESTURE_DEPTH) return false
@@ -220,5 +218,5 @@ class SubGestureState(
         return if (offset.hasFiniteCoordinates()) offset else Offset.Unspecified
     }
 
-    private fun List<Action>.hasMeaningfulActions(): Boolean = any { it != Action.NONE }
+    private fun List<StoredAction>.hasMeaningfulActions(): Boolean = any { it.typeId != "internal.none" }
 }

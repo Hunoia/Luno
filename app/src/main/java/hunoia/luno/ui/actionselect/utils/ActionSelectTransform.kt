@@ -2,23 +2,17 @@ package hunoia.luno.ui.actionselect
 
 import android.content.Context
 import hunoia.luno.R
-import hunoia.luno.action.api.ActionFacade
 import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.definition.ActionCategory
 import hunoia.luno.action.model.StoredAction
-import hunoia.luno.action.api.appInfo
-import hunoia.luno.action.payload.SubGestureActionData
-import hunoia.luno.config.model.Action
+import hunoia.luno.action.model.launchQualifiedName
+import hunoia.luno.action.model.withLaunchMiniWindow
 import hunoia.luno.action.model.NewActionLibraryEntry
-import hunoia.luno.config.model.ActionLibraryRefData
-import hunoia.luno.config.model.NewActionData
-import hunoia.luno.config.model.VALUE_LIBRARY_REF
-import hunoia.luno.config.model.VALUE_NEW_ACTION
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.GestureTriggerType
-import hunoia.luno.config.model.actionLibraryRefId
-import hunoia.luno.config.model.newActionData
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import hunoia.luno.core.AppContext
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.ui.actionselect.UiState
@@ -40,7 +34,7 @@ fun Context.selectedItemLabel(
     actionLibraryEntries: List<NewActionLibraryEntry>
 ): String {
     return when (item) {
-        is Action -> actionTextWithSubGesture(item, subGestures, actionLibraryEntries, emptyIfNone = false)
+        is StoredAction -> actionTextWithSubGesture(item, subGestures, actionLibraryEntries, emptyIfNone = false)
         is AppInfo -> item.label
         is LauncherInfo.ShortcutInfo -> item.label
         else -> ""
@@ -48,41 +42,39 @@ fun Context.selectedItemLabel(
 }
 
 fun Context.actionTextWithSubGesture(
-    action: Action,
+    action: StoredAction,
     subGestures: List<SubGesture>,
     emptyIfNone: Boolean
 ): String = actionTextWithSubGesture(action, subGestures, emptyList(), emptyIfNone)
 
 fun Context.actionTextWithSubGesture(
-    action: Action,
+    action: StoredAction,
     subGestures: List<SubGesture>,
     actionLibraryEntries: List<NewActionLibraryEntry>,
     emptyIfNone: Boolean
 ): String {
-    action.actionLibraryRefId()?.let { id ->
-        return actionLibraryEntries.firstOrNull { it.id == id }?.name ?: getString(R.string.action_library_missing)
+    if (action.typeId == "internal.libraryRef") {
+        val id = (action.params["entryId"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+        return actionLibraryEntries.firstOrNull { it.id == id }?.name
+            ?: getString(R.string.action_library_missing)
     }
-    if (action.value != ActionFacade.SUB_GESTURE) {
-        return actionText(action, emptyIfNone)
+    if (action.typeId != "internal.subGesture") {
+        return actionText(action, emptyIfNone = emptyIfNone)
     }
-    val data = runCatching {
-        JsonSerializer.decodeFromString<SubGestureActionData>(action.data)
-    }.getOrNull() ?: return getString(R.string.action_sub_gesture)
-    return subGestures.firstOrNull { it.id == data.id }?.name ?: getString(R.string.action_sub_gesture)
+    val id = (action.params["id"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+    return subGestures.firstOrNull { it.id == id }?.name
+        ?: getString(R.string.action_sub_gesture)
 }
 
-/** 解析 Action 的展示分类：内联新动作走定义表，其余走旧目录 */
-internal fun actionCategory(action: Action): ActionCategory {
-    action.newActionData()?.let { stored ->
-        return ActionDefinitions.byTypeId(stored.typeId)?.category ?: ActionCategory.SYSTEM
-    }
-    return ActionFacade.byId(action.value)?.category ?: ActionCategory.SYSTEM
+/** 解析 StoredAction 的展示分类：走定义表，未知落 SYSTEM。 */
+internal fun actionCategory(action: StoredAction): ActionCategory {
+    return ActionDefinitions.byTypeId(action.typeId)?.category ?: ActionCategory.SYSTEM
 }
 internal const val MAX_SELECT_COUNT = 50
 
 internal fun canActionEnabled(
     selectedRecord: SelectedRecord,
-    item: Action,
+    item: StoredAction,
     maxSelectCount: Int
 ): Boolean {
     if (maxSelectCount <= 1) return true
@@ -137,55 +129,44 @@ internal fun createTitle(actionSelect: ActionSelect): String {
     return "$str1($str2)"
 }
 
-internal fun Any.toAction(): Action {
+internal fun Any.toStoredAction(): StoredAction {
     return when (this) {
-        is Action -> this.copy(extra = null)
-        is NewActionLibraryEntry -> this.toReferenceAction()
-        is AppInfo -> Action(
-            value = ActionFacade.EXTRA_LAUNCH_APP,
-            data = JsonSerializer.encodeToString(this)
+        is StoredAction -> this
+        is NewActionLibraryEntry -> StoredAction.of("internal.libraryRef", "entryId" to id)
+        is AppInfo -> StoredAction.of(
+            "app.launch",
+            "packageName" to packageName,
+            "className" to className,
+            "miniWindow" to miniWindow.toString(),
         )
-        is LauncherInfo.ShortcutInfo -> Action(
-            value = ActionFacade.EXTRA_LAUNCH_SHORTCUT,
-            data = JsonSerializer.encodeToString(this)
+        is LauncherInfo.ShortcutInfo -> StoredAction.of(
+            "app.launchShortcut",
+            "data" to JsonSerializer.encodeToString(this),
         )
         else -> error("Unsupported selected action type: ${this::class.java.name}")
     }
 }
 
-internal fun NewActionLibraryEntry.toReferenceAction(): Action =
-    Action(value = VALUE_LIBRARY_REF, data = JsonSerializer.encodeToString(ActionLibraryRefData(id)))
-
-/** 定义表 -> 可勾选的 Action：内部动作沿用旧 id，其余落为内联新动作 */
-internal fun ActionDefinition.toReferenceAction(): Action =
-    legacyId?.let { Action(value = it) }
-        ?: Action(value = VALUE_NEW_ACTION, data = JsonSerializer.encodeToString(NewActionData(StoredAction(typeId))))
-
-internal fun Action.sameAction(other: Action): Boolean {
-    return value == other.value && data == other.data
-}
+/** 定义表 -> 可勾选的 StoredAction（内联新动作，不再经 legacy id）。 */
+internal fun ActionDefinition.toStoredAction(): StoredAction =
+    StoredAction(typeId)
 
 internal fun assembleDataTransform(state: UiState): UiState {
     val allActions = ActionDefinitions.pickerDefinitions(state.excludedTypeIds)
-        .map { def -> def.toReferenceAction() }
+        .map { def -> def.toStoredAction() }
         .toMutableList()
         .apply {
             // 自动化规则里绑子手势是无效的:`SubGestureState.tryEnterSubGesture` 需要一个
-            // 真实的 touchPosition,自动化上下文里没有,decode 失败后静默 return false。
+            // 真实的手势完成脉冲,自动化上下文里没有,命中后静默 return false。
             if (state.isAutomation) return@apply
             state.subGestures
                 .filter { gesture -> gesture.enabled && gesture.id != state.excludedSubGestureId }
                 .forEach { gesture ->
-                    add(
-                        Action(
-                            value = ActionFacade.SUB_GESTURE,
-                            data = JsonSerializer.encodeToString(SubGestureActionData(id = gesture.id))
-                        )
-                    )
+                    add(StoredAction.of("internal.subGesture", "id" to gesture.id))
                 }
         }
-    val list1 = mutableListOf<Action>()
-    val list2 = mutableListOf<Action>()
+    val list1 = mutableListOf<StoredAction>()
+    val list2 = mutableListOf<StoredAction>()
     allActions.forEach { action ->
         if (state.selectedRecord.isSelected(action)) list1.add(action) else list2.add(action)
     }
@@ -193,7 +174,7 @@ internal fun assembleDataTransform(state: UiState): UiState {
     return state.copy(actions = finalList)
 }
 
-internal fun selectActionTransform(state: UiState, action: Action, selected: Boolean): UiState {
+internal fun selectActionTransform(state: UiState, action: StoredAction, selected: Boolean): UiState {
     val record = state.selectedRecord.selectAction(action, selected, state.maxSelectCount)
     return state.copy(selectedRecord = record)
 }
@@ -208,9 +189,9 @@ internal fun selectShortcutInfoTransform(state: UiState, shortcut: LauncherInfo.
     return state.copy(selectedRecord = record)
 }
 
-internal fun updateSelectedActionTransform(state: UiState, index: Int, transform: (Action) -> Action): UiState {
+internal fun updateSelectedActionTransform(state: UiState, index: Int, transform: (StoredAction) -> StoredAction): UiState {
     val list = state.selectedRecord.list.toMutableList()
-    val current = list.getOrNull(index) as? Action ?: return state
+    val current = list.getOrNull(index) as? StoredAction ?: return state
     list[index] = transform(current)
     return state.copy(selectedRecord = state.selectedRecord.copy(list = list))
 }
@@ -223,30 +204,17 @@ internal fun toggleMiniWindowTransform(state: UiState, appInfo: AppInfo, switchT
             } else app
         },
         selectedRecord = state.selectedRecord.copy(
-            list = state.selectedRecord.list.filterIsInstance<Action>().toMutableList().let { list ->
+            list = state.selectedRecord.list.filterIsInstance<StoredAction>().toMutableList().let { list ->
                 val index = list.indexOfFirst { action ->
-                    action.appInfo?.qualifiedName == appInfo.qualifiedName
+                    action.launchQualifiedName() == appInfo.qualifiedName
                 }
                 if (index != -1) {
-                    val current = list[index]
-                    val currentAppInfo = current.appInfo ?: appInfo
-                    val newAppInfo = currentAppInfo.copy(miniWindow = switchToMiniWindow)
-                    list[index] = current.copy(data = JsonSerializer.encodeToString(newAppInfo))
+                    list[index] = list[index].withLaunchMiniWindow(switchToMiniWindow)
                 }
                 list
             }
         )
     )
-}
-
-internal fun updateActionDataTransform(state: UiState, action: Action, data: String): UiState {
-    val newList = state.selectedRecord.list.toMutableList()
-    val index = newList.indexOfFirst { obj -> obj is Action && obj.sameAction(action) }
-    if (index == -1) return state
-    val current = newList[index] as Action
-    if (current.data == data) return state
-    newList[index] = current.copy(data = data)
-    return state.copy(selectedRecord = state.selectedRecord.copy(list = newList))
 }
 
 internal fun moveSelectedActionTransform(state: UiState, fromIndex: Int, toIndex: Int): UiState {

@@ -9,7 +9,10 @@ import android.view.accessibility.AccessibilityEvent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
 import hunoia.luno.BuildConfig
-import hunoia.luno.config.model.Action
+import hunoia.luno.action.model.StoredAction
+import hunoia.luno.action.model.withoutVariantKey
+import hunoia.luno.runtime.condition.toConditionContext
+import kotlin.math.roundToInt
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureButtonActionSettingsOverride
 import hunoia.luno.config.ConfigProvider
@@ -153,7 +156,6 @@ class GestureCoordinator(
                 newActionLibrarySettings = s.newActionLibrarySettings,
             )
         },
-        runtimeState = { buildRuntimeState(consumePulses = false) },
         onToggleQuickAppLauncher = { hunoia.luno.quicklaunch.QuickAppLauncherActivity.start(host.context) },
         onShowQuickSearch = { hunoia.luno.quicklaunch.QuickSearchActivity.start(host.context) },
         onShowVolumeScrub = { config -> volumeScrubRuntime.show(config) },
@@ -251,17 +253,32 @@ class GestureCoordinator(
             mainOverlayController.setPanelVisible(visible)
         }
 
-        override fun onAction(action: Action, sourceButton: GestureButton?, sourceOverride: GestureButtonActionSettingsOverride?) {
+        override fun onAction(
+            action: hunoia.luno.action.model.StoredAction,
+            sourceButton: GestureButton?,
+            sourceOverride: GestureButtonActionSettingsOverride?,
+            touchPosition: Offset,
+        ) {
             // 手势触发动作与手势事件进总线是两条独立路径：前者立即执行，后者供自动化规则订阅。
             environmentTracker.onGesturePerformed(sourceButton?.id ?: "")
-            actionDispatcher.onAction(action, sourceButton, sourceOverride)
+            val touch = if (touchPosition.x.isFinite() && touchPosition.y.isFinite()) {
+                touchPosition.x.roundToInt() to touchPosition.y.roundToInt()
+            } else {
+                null
+            }
+            actionDispatcher.dispatch(
+                action.withoutVariantKey(),
+                sourceButton,
+                sourceOverride,
+                touch,
+            ) { buildRuntimeState(consumePulses = false).toConditionContext() }
             refreshGestureButtons(delayMs = 0L, automationKeys = setOf(AutomationEventKey.GESTURE))
         }
     }
 
     /** 供 overlay 等场景直接执行一个已构造好的动作。 */
-    fun dispatchAction(action: Action) {
-        actionDispatcher.dispatchAction(action)
+    fun dispatchAction(action: hunoia.luno.action.model.StoredAction) {
+        actionDispatcher.dispatch(action.withoutVariantKey(), null)
     }
 
     fun onSetOverlay() {

@@ -5,7 +5,7 @@ import android.content.Context
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.savedstate.SavedStateRegistryOwner
-import hunoia.luno.config.model.Action
+import hunoia.luno.action.model.StoredAction
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
 import kotlinx.coroutines.CoroutineScope
 
@@ -22,5 +22,5 @@ interface GestureHost : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryO
     fun getCurrentPackageName(): String
 
     /** 供 overlay 等场景直接执行一个已构造好的动作。 */
-    fun dispatchAction(action: Action)
+    fun dispatchAction(action: StoredAction)
 }

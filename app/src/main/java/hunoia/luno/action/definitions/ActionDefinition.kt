@@ -126,5 +126,4 @@ data class ActionDefinition(
     val parameters: List<ParameterDefinition> = emptyList(),
     val icon: ImageVector = Icons.Default.Android,
     /** 内部动作同时存在的旧 action id，用于保持既有运行时特判 */
-    val legacyId: String? = null,
 )

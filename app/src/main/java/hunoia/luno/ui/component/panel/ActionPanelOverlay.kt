@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.R
 import hunoia.luno.action.TriggerType
-import hunoia.luno.config.model.Action
+import hunoia.luno.action.model.StoredAction
 
 @Composable
 internal fun ActionPanelBackdrop(
@@ -58,7 +58,7 @@ internal fun ActionPanelBackdrop(
 
 @Composable
 internal fun SelectedActionPill(
-    action: Action,
+    action: StoredAction,
     label: String,
     triggerType: TriggerType,
     accentColor: Color,
