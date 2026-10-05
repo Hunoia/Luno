@@ -50,7 +50,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.action.model.StoredAction
-import hunoia.luno.config.ConfigProvider
+import hunoia.luno.domain.action.ActionLibrary
+import hunoia.luno.domain.automation.AutomationCenter
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.BooleanMode
 import hunoia.luno.config.model.ConditionItem
@@ -66,7 +67,6 @@ import hunoia.luno.config.model.ThrottlePolicy
 import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.config.model.conditionAt
 import hunoia.luno.config.model.withConditionAt
-import hunoia.luno.runtime.condition.hasLeaf
 import hunoia.luno.ui.actionselect.selectedItemLabel
 import hunoia.luno.ui.component.MyColumn
 import hunoia.luno.ui.component.SegmentedSettingsRow
@@ -96,9 +96,9 @@ fun AutomationEditScreen(
     onNavToActionSelect: (ActionSelect) -> Unit,
     onNavToHistory: (String) -> Unit,
 ) {
-    val loadedRules by ConfigProvider.automationRules
+    val loadedRules by AutomationCenter.rules
         .collectAsStateWithLifecycle(initialValue = null)
-    val library by ConfigProvider.newActionLibrarySettings
+    val library by ActionLibrary.settings
         .collectAsStateWithLifecycle(initialValue = null)
 
     val scope = rememberCoroutineScope()
@@ -157,7 +157,7 @@ fun AutomationEditScreen(
      */
     fun onPickAction(ruleToPersist: AutomationRule, stepPath: String) {
         scope.launch {
-            ConfigProvider.updateAutomationRules { rules ->
+            AutomationCenter.updateRules { rules ->
                 if (rules.any { r -> r.id == ruleToPersist.id }) {
                     rules.map { r -> if (r.id == ruleToPersist.id) ruleToPersist else r }
                 } else {
@@ -174,7 +174,7 @@ fun AutomationEditScreen(
     fun save() {
         scope.launch {
             try {
-                ConfigProvider.updateAutomationRules { rules ->
+                AutomationCenter.updateRules { rules ->
                     if (rules.any { it.id == rule.id }) {
                         rules.map { if (it.id == rule.id) rule else it }
                     } else {
@@ -190,7 +190,7 @@ fun AutomationEditScreen(
 
     val throttleInvalid = isInvalidThrottle(rule.throttle)
     val stepsEmpty = rule.effect.steps.isEmpty()
-    val saveEnabled = rule.condition.hasLeaf() && !stepsEmpty && !throttleInvalid
+    val saveEnabled = AutomationCenter.hasLeafOf(rule.condition) && !stepsEmpty && !throttleInvalid
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val backdrop = liquidGlassBackdrop()
@@ -235,7 +235,7 @@ fun AutomationEditScreen(
                 onChange = { draft = rule.copy(condition = it) },
                 onEditItem = { conditionSheetPath = it },
             )
-            if (!rule.condition.hasLeaf()) {
+            if (!AutomationCenter.hasLeafOf(rule.condition)) {
                 Text(
                     text = stringResource(R.string.automation_condition_empty),
                     style = MaterialTheme.typography.bodySmall,
@@ -849,7 +849,7 @@ private fun StepSheet(
                         if (stepButtonsVisibility(library, step)?.hide == true) {
                             OutlinedButton(onClick = {
                                 scope.launch {
-                                    ConfigProvider.updateAutomationRules { rules ->
+                                    AutomationCenter.updateRules { rules ->
                                         if (rules.any { it.id == "${rule.id}:show" }) rules
                                         else rules + buildShowPairRule(context, rule, library, step)
                                     }
@@ -1203,7 +1203,7 @@ private fun conditionUsesNotification(group: WhenGroup): Boolean = group.items.a
 private fun NotificationPermissionRow() {
     val context = LocalContext.current
     val granted = remember {
-        hunoia.luno.runtime.automation.AutomationNotificationListener.isAccessGranted(context)
+        AutomationCenter.isNotificationAccessGranted(context)
     }
     SegmentedSettingsRow(
         title = stringResource(R.string.notify_permission_title),

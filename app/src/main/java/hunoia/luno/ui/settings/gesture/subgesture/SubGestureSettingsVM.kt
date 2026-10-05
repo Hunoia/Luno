@@ -10,12 +10,11 @@ import hunoia.luno.config.defaults.SettingsUiDefaults.MaxSubGestureTriggerDistan
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinGestureSlideDistanceGap
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinSubGestureLongSlideTriggerDistance
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinSubGestureTriggerDistance
-import hunoia.luno.config.SubGestureCleaner
 import hunoia.luno.core.AppContext
 import hunoia.luno.config.model.ActionPanelStyles
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.ui.navigation.SubGestureEditor
-import hunoia.luno.config.ConfigProvider
+import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.SubGestureAngle
 import kotlinx.coroutines.flow.collectLatest
@@ -79,7 +78,7 @@ class SubGestureSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeVM<S
                     }
                 ),
             )
-            ConfigProvider.updateSubGestureSettings { settings ->
+            GestureConfig.updateSubGestures { settings ->
                 settings.copy(subGestures = settings.subGestures + mirrored)
             }
         }
@@ -87,7 +86,7 @@ class SubGestureSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeVM<S
 
     fun deleteSubGesture() {
         viewModelScope.launch {
-            ConfigProvider.updateSubGestureSettings { settings ->
+            GestureConfig.updateSubGestures { settings ->
                 settings.copy(
                     subGestures = settings.subGestures.filter { it.id != subGestureEditor.subGestureId }
                 )
@@ -99,15 +98,15 @@ class SubGestureSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeVM<S
     }
 
     private suspend fun cleanReferences(deletedId: String) {
-        SubGestureCleaner.cleanSubGestureReferences(
+        GestureConfig.cleanSubGestureReferences(
             deletedId = deletedId,
-            shouldRemove = { SubGestureCleaner.matchesDeletedSubGesture(it, deletedId) }
+            shouldRemove = { GestureConfig.matchesDeletedSubGesture(it, deletedId) }
         )
     }
 
     fun updateAngle(angle: SubGestureAngle) {
         viewModelScope.launch {
-            ConfigProvider.updateSubGestureSettings { settings ->
+            GestureConfig.updateSubGestures { settings ->
                 settings.copy(
                     subGestures = settings.subGestures.map { gesture ->
                         if (gesture.id == subGestureEditor.subGestureId) gesture.copy(angle = angle)
@@ -120,7 +119,7 @@ class SubGestureSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeVM<S
 
     private fun updateSubGesture(fieldUpdate: SubGesture.() -> SubGesture) {
         viewModelScope.launch {
-            ConfigProvider.updateSubGestureSettings { settings ->
+            GestureConfig.updateSubGestures { settings ->
                 settings.copy(
                     subGestures = settings.subGestures.map { gesture ->
                         if (gesture.id == subGestureEditor.subGestureId) gesture.fieldUpdate()
@@ -147,7 +146,7 @@ class SubGestureSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeVM<S
     fun persistSubGesture() {
         val gesture = uiState.subGesture ?: return
         viewModelScope.launch {
-            ConfigProvider.updateSubGestureSettings { settings ->
+            GestureConfig.updateSubGestures { settings ->
                 settings.copy(
                     subGestures = settings.subGestures.map {
                         if (it.id == gesture.id) gesture else it
@@ -185,7 +184,7 @@ class SubGestureSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeVM<S
 
     private fun loadData() {
         viewModelScope.launch {
-            ConfigProvider.subGestureSettings.collectLatest { settings ->
+            GestureConfig.subGestures.collectLatest { settings ->
                 val gesture = settings.subGestures.find { it.id == subGestureEditor.subGestureId }
                 updateUiState {
                     it.copy(

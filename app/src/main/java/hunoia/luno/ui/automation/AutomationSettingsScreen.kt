@@ -28,7 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
-import hunoia.luno.config.ConfigProvider
+import hunoia.luno.domain.automation.AutomationCenter
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.ui.component.EmptyState
 import hunoia.luno.ui.component.MyColumn
@@ -52,9 +52,9 @@ fun AutomationSettingsScreen(
     onBack: () -> Unit,
     onNavToEdit: (String) -> Unit,
 ) {
-    val rules by ConfigProvider.automationRules
+    val rules by AutomationCenter.rules
         .collectAsStateWithLifecycle(initialValue = emptyList())
-    val events by ConfigProvider.automationLog
+    val events by AutomationCenter.log
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val scope = rememberCoroutineScope()
     val timeFormat = rememberTimeFormat()
@@ -62,7 +62,7 @@ fun AutomationSettingsScreen(
     fun submit(next: List<AutomationRule>) {
         scope.launch {
             try {
-                ConfigProvider.updateAutomationRules { next }
+                AutomationCenter.updateRules { next }
             } catch (e: Exception) {
                 Log.e("AutomationSettings", "submit failed", e)
             }

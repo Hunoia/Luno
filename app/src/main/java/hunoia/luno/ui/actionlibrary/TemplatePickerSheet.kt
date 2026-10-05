@@ -17,7 +17,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.action.template.TemplateSnippets
-import hunoia.luno.runtime.template.RuntimeVariables
+import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.ui.component.SheetGroupHeader
 import hunoia.luno.ui.component.SelectableListItem
 import hunoia.luno.ui.component.segmentedShape
@@ -33,7 +33,7 @@ fun TemplatePickerSheet(
     onDismiss: () -> Unit,
     onPick: (String) -> Unit,
 ) {
-    val variables = RuntimeVariables.all
+    val variables = ActionLibrary.templateVariables
     val snippets = TemplateSnippets.settingsKeys
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 

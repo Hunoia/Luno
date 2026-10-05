@@ -17,7 +17,7 @@ import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.ui.navigation.GestureButtonSettings
 import hunoia.luno.config.model.ActionPanelStyles
 
-import hunoia.luno.config.ConfigProvider
+import hunoia.luno.domain.gesture.GestureConfig
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -56,7 +56,7 @@ class GestureButtonSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeV
     fun deleteGestureButton() {
         viewModelScope.launch {
             loadDataJob?.cancel()
-            ConfigProvider.updateGestureButtons {
+            GestureConfig.updateButtons {
                 it.toMutableList().apply {
                     removeAll { item ->
                         item.id == uiState.gestureButton?.id
@@ -219,7 +219,7 @@ class GestureButtonSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeV
     fun saveSettings() {
         viewModelScope.launch {
             launch {
-                ConfigProvider.updateGestureButtons { uiState.gestureButtons }
+                GestureConfig.updateButtons { uiState.gestureButtons }
             }
         }
     }
@@ -240,8 +240,8 @@ class GestureButtonSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeV
         val gestureButtonSettings = gestureButtonSettings
         loadDataJob = viewModelScope.launch {
             launch {
-                ConfigProvider
-                    .gestureButtons
+                GestureConfig
+                    .buttons
                     .collectLatest { items ->
                         val button = items.find { it.id == gestureButtonSettings.buttonId }
                         updateUiState {

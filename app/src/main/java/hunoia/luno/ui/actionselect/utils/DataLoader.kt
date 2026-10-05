@@ -6,7 +6,10 @@ import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.launchAppRef
 import hunoia.luno.action.model.longPressVariant
 import hunoia.luno.action.model.withoutVariantKey
-import hunoia.luno.config.ConfigProvider
+import hunoia.luno.domain.action.ActionLibrary
+import hunoia.luno.domain.automation.AutomationCenter
+import hunoia.luno.domain.gesture.GestureConfig
+import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.RuleEffectType
@@ -63,7 +66,7 @@ internal suspend fun saveSettingsAction(
         return
     }
     if (actionSelect.subGestureId.isNotBlank()) {
-        ConfigProvider.updateSubGestureSettings { settings ->
+        GestureConfig.updateSubGestures { settings ->
             settings.copy(
                 subGestures = settings.subGestures.map { gesture ->
                     if (gesture.id != actionSelect.subGestureId) return@map gesture
@@ -75,7 +78,7 @@ internal suspend fun saveSettingsAction(
         }
         return
     }
-    val buttonsUpdater = ConfigProvider::updateGestureButtons
+    val buttonsUpdater = GestureConfig::updateButtons
     buttonsUpdater { list ->
         val mutableList = list.toMutableList()
         var button: GestureButton? = null
@@ -101,11 +104,11 @@ internal suspend fun saveSettingsAction(
 }
 
 private suspend fun saveAutomationEffect(actionSelect: ActionSelect, newActions: List<StoredAction>) {
-    val entries = ConfigProvider.getNewActionLibrarySettings().entries
+    val entries = ActionLibrary.getSettings().entries
     val current = loadAutomationActions(actionSelect, entries) ?: emptyList()
     tryDeleteShortcutIcons(current, newActions)
     val selected = newActions.firstOrNull()
-    ConfigProvider.updateAutomationRules { rules ->
+    AutomationCenter.updateRules { rules ->
         rules.map { rule ->
             if (rule.id != actionSelect.automationRuleId) return@map rule
             val action = selected?.takeIf { it.typeId != "internal.libraryRef" }?.withoutVariantKey()
@@ -135,7 +138,7 @@ private suspend fun loadAutomationActions(
     actionSelect: ActionSelect,
     actionLibraryEntries: List<NewActionLibraryEntry>
 ): List<StoredAction>? {
-    val rules = ConfigProvider.getAutomationRules()
+    val rules = AutomationCenter.getRules()
     val rule = rules.find { it.id == actionSelect.automationRuleId } ?: return null
     if (rule.effect.type != RuleEffectType.RUN_ACTION) return null
     val path = actionSelect.automationStepPath
@@ -301,10 +304,10 @@ internal suspend fun loadDataBody(
     actionSelect: ActionSelect,
     onUpdateState: (update: (UiState) -> UiState) -> Unit
 ) {
-    val buttons = ConfigProvider.getGestureButtons()
-    val gestureSettings = ConfigProvider.getGestureSettings()
-    val subGestures = ConfigProvider.getSubGestureSettings().subGestures
-    val actionLibraryEntries = ConfigProvider.getNewActionLibrarySettings().entries
+    val buttons = GestureConfig.getButtons()
+    val gestureSettings = TuneConfig.getGesture()
+    val subGestures = GestureConfig.getSubGestures().subGestures
+    val actionLibraryEntries = ActionLibrary.getSettings().entries
     val isAutomation = actionSelect.automationRuleId.isNotBlank()
 
     // 两个排除集必须分开,它们管的不是同一件事:

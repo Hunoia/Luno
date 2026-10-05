@@ -17,11 +17,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
-import hunoia.luno.config.ConfigProvider
-import hunoia.luno.runtime.automation.AutomationEvent
-import hunoia.luno.runtime.automation.ExecutionLog
-import hunoia.luno.runtime.automation.ExecutionReason
-import hunoia.luno.runtime.automation.SkipReason
+import hunoia.luno.domain.automation.AutomationCenter
+import hunoia.luno.domain.automation.AutomationEvent
+
+
+
 import hunoia.luno.ui.component.EmptyState
 import hunoia.luno.ui.component.MyColumn
 import hunoia.luno.ui.component.SegmentedGroup
@@ -40,13 +40,13 @@ fun AutomationHistoryScreen(
     onBack: () -> Unit,
     ruleId: String,
 ) {
-    val events by ConfigProvider.automationLog
+    val events by AutomationCenter.log
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val context = LocalContext.current
     val timeFormat = remember { SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault()) }
     val ruleEvents = remember(events, ruleId) {
         events.filter { it.ruleId == ruleId }
-            .takeLast(ExecutionLog.MAX_PER_RULE_QUERY)
+            .takeLast(AutomationCenter.maxEventsPerRuleQuery)
             .reversed()
     }
 
@@ -95,20 +95,20 @@ fun historySubtitle(event: AutomationEvent): String {
     if (!event.fired) {
         return stringResource(
             when (event.reason) {
-                SkipReason.NO_STEPS.code -> R.string.history_no_steps
-                SkipReason.THROTTLED_COOLDOWN.code -> R.string.history_throttled_cooldown
-                SkipReason.THROTTLED_WINDOW.code -> R.string.history_throttled_window
-                SkipReason.OUTPRIORITIZED.code -> R.string.history_outprioritized
-                SkipReason.RULE_BUSY.code -> R.string.history_rule_busy
+                AutomationCenter.skipNoSteps.code -> R.string.history_no_steps
+                AutomationCenter.skipThrottledCooldown.code -> R.string.history_throttled_cooldown
+                AutomationCenter.skipThrottledWindow.code -> R.string.history_throttled_window
+                AutomationCenter.skipOutprioritized.code -> R.string.history_outprioritized
+                AutomationCenter.skipRuleBusy.code -> R.string.history_rule_busy
                 else -> R.string.history_no_steps
             },
         )
     }
-    if (event.reason == ExecutionReason.OK) return stringResource(R.string.history_ok)
-    if (event.reason.startsWith(ExecutionReason.INTERRUPTED_PREFIX)) {
+    if (AutomationCenter.isOkReason(event.reason)) return stringResource(R.string.history_ok)
+    if (AutomationCenter.isInterruptedReason(event.reason)) {
         return stringResource(
             R.string.history_interrupted,
-            event.reason.removePrefix(ExecutionReason.INTERRUPTED_PREFIX),
+            AutomationCenter.stripInterruptedPrefix(event.reason),
         )
     }
     return event.reason

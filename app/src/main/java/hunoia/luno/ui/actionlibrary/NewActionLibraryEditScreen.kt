@@ -51,7 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
-import hunoia.luno.config.ConfigProvider
+import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.config.model.MiniWindowSettings
@@ -300,7 +300,7 @@ fun NewActionLibraryEditScreen(
     }
 
     showButtonPicker?.let { paramDef ->
-        val buttons by ConfigProvider.gestureButtons
+        val buttons by GestureConfig.buttons
             .collectAsStateWithLifecycle(initialValue = emptyList())
         val selectedIds = draft?.params?.get(paramDef.key)?.jsonArray?.mapNotNull {
             it.jsonPrimitive?.contentOrNull

@@ -44,7 +44,7 @@ import hunoia.luno.R
 import hunoia.luno.action.api.PasswordGenerator
 import hunoia.luno.config.defaults.ActionSettingsDefaults.PasswordMaxLength
 import hunoia.luno.config.defaults.ActionSettingsDefaults.PasswordMinLength
-import hunoia.luno.config.ConfigProvider
+import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.bridge.feedback.showToast
 import kotlinx.coroutines.launch
@@ -72,18 +72,18 @@ fun PasswordGeneratorPanel(
 
     fun saveConfig(nextConfig: ActionSettings.PasswordGenerator) {
         scope.launch {
-            ConfigProvider.updateActionSettings { it.copy(passwordGenerator = nextConfig) }
+            TuneConfig.updateAction { it.copy(passwordGenerator = nextConfig) }
         }
     }
 
     LaunchedEffect(Unit) {
-        val saved = ConfigProvider.getActionSettings().passwordGenerator
+        val saved = TuneConfig.getAction().passwordGenerator
         val normalized = PasswordGenerator.normalize(saved)
         config = normalized
         password = PasswordGenerator.generate(normalized)
         loaded = true
         if (normalized != saved) {
-            ConfigProvider.updateActionSettings { it.copy(passwordGenerator = normalized) }
+            TuneConfig.updateAction { it.copy(passwordGenerator = normalized) }
         }
     }
 

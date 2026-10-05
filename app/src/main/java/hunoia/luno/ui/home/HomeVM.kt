@@ -3,8 +3,7 @@ package hunoia.luno.ui.home
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.viewModelScope
-import hunoia.luno.config.ConfigProvider
-import hunoia.luno.config.SubGestureCleaner
+import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.config.backup.RestorePrecheckResult
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.SubGesture
@@ -76,7 +75,7 @@ class HomeVM : HomeVMBase() {
 
     fun addSubGesture(id: String) {
         viewModelScope.launch {
-            ConfigProvider.updateSubGestureSettings { settings ->
+            GestureConfig.updateSubGestures { settings ->
                 val newGesture = SubGesture(
                     id = id,
                     name = AppContext.get().getString(R.string.sub_gesture_default_name, settings.subGestures.size + 1),
@@ -116,7 +115,7 @@ class HomeVM : HomeVMBase() {
                 parseNumberSuffix(button.name.ifEmpty { button.resolveDisplayName() })
             } ?: 0
             val name = AppContext.get().getString(R.string.gesture_button_name, maxNum + 1)
-            ConfigProvider.updateGestureButtons {
+            GestureConfig.updateButtons {
                 it + GestureButton.create(name = name)
             }
         }
@@ -124,7 +123,7 @@ class HomeVM : HomeVMBase() {
 
     fun updateGestureButtonColor(button: GestureButton, color: Int) {
         viewModelScope.launch {
-            ConfigProvider.updateGestureButtons { buttons ->
+            GestureConfig.updateButtons { buttons ->
                 buttons.map {
                     if (it.id == button.id) it.copy(color = color)
                     else it
@@ -135,7 +134,7 @@ class HomeVM : HomeVMBase() {
 
     fun updateSubGestureColor(gesture: SubGesture, color: Int) {
         viewModelScope.launch {
-            ConfigProvider.updateSubGestureSettings { settings ->
+            GestureConfig.updateSubGestures { settings ->
                 settings.copy(
                     subGestures = settings.subGestures.map {
                         if (it.id == gesture.id) it.copy(color = color) else it
@@ -183,7 +182,7 @@ class HomeVM : HomeVMBase() {
 
     fun deleteSubGesture(gesture: SubGesture) {
         viewModelScope.launch {
-            ConfigProvider.updateSubGestureSettings { settings ->
+            GestureConfig.updateSubGestures { settings ->
                 val cleanedGestureList = settings.subGestures.filter { it.id != gesture.id }
                 settings.copy(subGestures = cleanedGestureList)
             }
@@ -209,7 +208,7 @@ class HomeVM : HomeVMBase() {
             when (target) {
                 is RenameTarget.GestureButton -> {
                     val button = target.button
-                    ConfigProvider.updateGestureButtons { buttons ->
+                    GestureConfig.updateButtons { buttons ->
                         buttons.map {
                             if (it.id == button.id) it.copy(name = newName)
                             else it
@@ -217,7 +216,7 @@ class HomeVM : HomeVMBase() {
                     }
                 }
                 is RenameTarget.SubGesture -> {
-                    ConfigProvider.updateSubGestureSettings { settings ->
+                    GestureConfig.updateSubGestures { settings ->
                         settings.copy(
                             subGestures = settings.subGestures.map {
                                 if (it.id == target.gesture.id) it.copy(name = newName) else it
@@ -237,8 +236,8 @@ internal fun parseNumberSuffix(text: String): Int {
 }
 
 internal suspend fun cleanSubGestureReferences(deletedId: String) {
-    SubGestureCleaner.cleanSubGestureReferences(
+    GestureConfig.cleanSubGestureReferences(
         deletedId = deletedId,
-        shouldRemove = { SubGestureCleaner.isSubGestureAction(it) }
+        shouldRemove = { GestureConfig.isSubGestureAction(it) }
     )
 }

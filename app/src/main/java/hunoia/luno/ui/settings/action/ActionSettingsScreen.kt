@@ -44,7 +44,9 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
-import hunoia.luno.config.ConfigProvider
+import hunoia.luno.domain.gesture.GestureConfig
+import hunoia.luno.domain.search.SearchCenter
+import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GestureButtonActionSettingsOverride
@@ -76,11 +78,11 @@ fun ActionSettingsScreen(
     onNavToSearchEngines: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
-    val actionSettings by ConfigProvider.actionSettings.collectAsStateWithLifecycle(initialValue = ActionSettings())
-    val advancedSettings by ConfigProvider.advancedSettings.collectAsStateWithLifecycle(initialValue = AdvancedSettings())
-    val buttons by ConfigProvider.gestureButtons.collectAsStateWithLifecycle(initialValue = emptyList())
-    val subGestureSettings by ConfigProvider.subGestureSettings.collectAsStateWithLifecycle(initialValue = SubGestureSettings())
-    val quickSearchSettings by ConfigProvider.quickSearchSettings.collectAsStateWithLifecycle(initialValue = QuickSearchSettings())
+    val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = ActionSettings())
+    val advancedSettings by TuneConfig.advanced.collectAsStateWithLifecycle(initialValue = AdvancedSettings())
+    val buttons by GestureConfig.buttons.collectAsStateWithLifecycle(initialValue = emptyList())
+    val subGestureSettings by GestureConfig.subGestures.collectAsStateWithLifecycle(initialValue = SubGestureSettings())
+    val quickSearchSettings by SearchCenter.search.collectAsStateWithLifecycle(initialValue = QuickSearchSettings())
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val backdrop = liquidGlassBackdrop()
@@ -115,7 +117,7 @@ fun ActionSettingsScreen(
                 )
                 MiniWindowControls(
                     settings = advancedSettings.miniWindowSettings(),
-                    onChange = { next -> scope.launch { ConfigProvider.updateAdvancedSettings { it.withMiniWindowSettings(next) } } },
+                    onChange = { next -> scope.launch { TuneConfig.updateAdvanced { it.withMiniWindowSettings(next) } } },
                 )
             }
 
@@ -126,7 +128,7 @@ fun ActionSettingsScreen(
                     actionSettingsOverride = button.actionSettingsOverride,
                     onUpdateOverride = { updated ->
                         scope.launch {
-                            ConfigProvider.updateGestureButtons { list ->
+                            GestureConfig.updateButtons { list ->
                                 list.map { if (it.id == button.id) it.copy(actionSettingsOverride = updated) else it }
                             }
                         }
@@ -142,7 +144,7 @@ fun ActionSettingsScreen(
                     actionSettingsOverride = subGesture.actionSettingsOverride,
                     onUpdateOverride = { updated ->
                         scope.launch {
-                            ConfigProvider.updateSubGestureSettings { settings ->
+                            GestureConfig.updateSubGestures { settings ->
                                 settings.copy(
                                     subGestures = settings.subGestures.map { if (it.id == subGesture.id) it.copy(actionSettingsOverride = updated) else it }
                                 )

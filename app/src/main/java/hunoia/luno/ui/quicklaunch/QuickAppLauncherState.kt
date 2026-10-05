@@ -7,7 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import coil.imageLoader
 import hunoia.luno.bridge.PackageChangeReceiver
-import hunoia.luno.config.ConfigProvider
+import hunoia.luno.domain.search.SearchCenter
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import hunoia.luno.quicklaunch.model.AppInfo
@@ -89,7 +89,7 @@ class QuickAppLauncherState(
 
     init {
         coroutineScope.launch {
-            ConfigProvider.quickAppLauncherSettings.collectLatest {
+            SearchCenter.launcher.collectLatest {
                 launcherSettings = it
                 previewSettings = null
             }
@@ -125,7 +125,7 @@ class QuickAppLauncherState(
     private fun loadApps() {
         coroutineScope.launch {
             val locale = currentLocaleTag()
-            val snapshot = withContext(Dispatchers.IO) { ConfigProvider.getQuickAppSnapshot() }
+            val snapshot = withContext(Dispatchers.IO) { SearchCenter.getSnapshot() }
             if (snapshot.apps.isNotEmpty() && snapshot.labelLocale == locale) {
                 appListState = QuickAppLauncherAppList(snapshot.apps, snapshot.disabledPkgs)
             }

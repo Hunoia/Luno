@@ -3,7 +3,9 @@ package hunoia.luno.ui.home
 import androidx.lifecycle.viewModelScope
 import com.aaron.compose.base.BaseComposeVM
 import hunoia.luno.core.AppContext
-import hunoia.luno.config.ConfigProvider
+import hunoia.luno.domain.backup.BackupCenter
+import hunoia.luno.domain.gesture.GestureConfig
+import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
@@ -37,7 +39,7 @@ abstract class HomeVMBase : BaseComposeVM<UiState, UiEvent>() {
 
     fun reset() {
         viewModelScope.launch {
-            ConfigProvider.resetAll()
+            BackupCenter.resetAll()
         }
     }
 
@@ -52,10 +54,10 @@ abstract class HomeVMBase : BaseComposeVM<UiState, UiEvent>() {
     protected fun saveSettings() {
         viewModelScope.launch {
             launch {
-                ConfigProvider.updateGestureButtons { uiState.gestureButtons }
+                GestureConfig.updateButtons { uiState.gestureButtons }
             }
             launch {
-                ConfigProvider.updateSubGestureSettings {
+                GestureConfig.updateSubGestures {
                     SubGestureSettings(subGestures = uiState.subGestures)
                 }
             }
@@ -64,7 +66,7 @@ abstract class HomeVMBase : BaseComposeVM<UiState, UiEvent>() {
 
     protected fun saveGestureSwitchEnabled(enabled: Boolean) {
         viewModelScope.launch {
-            ConfigProvider.updateInitialSettings {
+            GestureConfig.updateInitial {
                 it.copy(gestureEnabled = enabled)
             }
         }
@@ -73,9 +75,9 @@ abstract class HomeVMBase : BaseComposeVM<UiState, UiEvent>() {
     protected fun loadData() {
         viewModelScope.launch {
             val gestureData = combine(
-                ConfigProvider.initialSettings,
-                ConfigProvider.gestureButtons,
-                ConfigProvider.subGestureSettings,
+                GestureConfig.initial,
+                GestureConfig.buttons,
+                GestureConfig.subGestures,
             ) { initial, buttons, subGestureSettings ->
                 HomeGestureData(
                     initialSettings = initial,
@@ -84,8 +86,8 @@ abstract class HomeVMBase : BaseComposeVM<UiState, UiEvent>() {
                 )
             }
             val runtimeData = combine(
-                ConfigProvider.gestureSettings,
-                ConfigProvider.advancedSettings,
+                TuneConfig.gesture,
+                TuneConfig.advanced,
             ) { gestureSettings, advancedSettings ->
                 HomeRuntimeData(
                     gestureSettings = gestureSettings,

@@ -3,7 +3,7 @@ package hunoia.luno.ui.actionselect
 import androidx.lifecycle.viewModelScope
 import com.aaron.compose.base.BaseComposeVM
 import hunoia.luno.R
-import hunoia.luno.config.ConfigProvider
+import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.withLongPressVariant
@@ -47,7 +47,7 @@ class ActionSelectVM(
     private fun observeSubGestures() {
         if (actionSelect.automationRuleId.isNotBlank()) return
         viewModelScope.launch {
-            ConfigProvider.subGestureSettings.collectLatest { settings ->
+            GestureConfig.subGestures.collectLatest { settings ->
                 val excludedId = uiState.excludedSubGestureId
                 val visible = settings.subGestures
                     .filter { it.enabled && it.id != excludedId }

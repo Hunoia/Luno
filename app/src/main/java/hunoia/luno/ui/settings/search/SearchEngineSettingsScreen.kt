@@ -33,7 +33,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
-import hunoia.luno.config.ConfigProvider
+import hunoia.luno.domain.search.SearchCenter
 import hunoia.luno.config.model.BuiltinSearchEngineIds
 import hunoia.luno.config.model.BuiltinSearchEngines
 import hunoia.luno.config.model.DefaultSourceTriggers
@@ -68,7 +68,7 @@ import top.yukonga.miuix.kmp.blur.layerBackdrop
 @Composable
 fun SearchEngineSettingsScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val settings by ConfigProvider.quickSearchSettings.collectAsStateWithLifecycle(initialValue = QuickSearchSettings())
+    val settings by SearchCenter.search.collectAsStateWithLifecycle(initialValue = QuickSearchSettings())
     var showAdd by remember { mutableStateOf(false) }
     var editTarget by remember { mutableStateOf<SearchEngine?>(null) }
     var deleteTarget by remember { mutableStateOf<SearchEngine?>(null) }
@@ -77,7 +77,7 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
     val engines = settings.effectiveEngines()
 
     fun setDefault(id: String) {
-        scope.launch { ConfigProvider.updateQuickSearchSettings { it.copy(defaultEngineId = id) } }
+        scope.launch { SearchCenter.updateSearch { it.copy(defaultEngineId = id) } }
     }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -141,7 +141,7 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                     onClick = { triggerTarget = SRC_CLIP },
                     onCheckedChange = { v ->
                         scope.launch {
-                            ConfigProvider.updateQuickSearchSettings { it.copy(searchClipboard = v) }
+                            SearchCenter.updateSearch { it.copy(searchClipboard = v) }
                         }
                     },
                 )
@@ -153,7 +153,7 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                     onClick = { triggerTarget = SRC_CONTACT },
                     onCheckedChange = { v ->
                         scope.launch {
-                            ConfigProvider.updateQuickSearchSettings { it.copy(searchContacts = v) }
+                            SearchCenter.updateSearch { it.copy(searchContacts = v) }
                         }
                     },
                 )
@@ -165,7 +165,7 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                     onClick = { triggerTarget = SRC_MUSIC },
                     onCheckedChange = { v ->
                         scope.launch {
-                            ConfigProvider.updateQuickSearchSettings { it.copy(searchMusic = v) }
+                            SearchCenter.updateSearch { it.copy(searchMusic = v) }
                         }
                     },
                 )
@@ -177,7 +177,7 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                     onClick = { triggerTarget = SRC_FILE },
                     onCheckedChange = { v ->
                         scope.launch {
-                            ConfigProvider.updateQuickSearchSettings { it.copy(searchFiles = v) }
+                            SearchCenter.updateSearch { it.copy(searchFiles = v) }
                         }
                     },
                 )
@@ -189,7 +189,7 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                     onClick = { triggerTarget = SRC_CALENDAR },
                     onCheckedChange = { v ->
                         scope.launch {
-                            ConfigProvider.updateQuickSearchSettings { it.copy(searchCalendar = v) }
+                            SearchCenter.updateSearch { it.copy(searchCalendar = v) }
                         }
                     },
                 )
@@ -201,7 +201,7 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                     onClick = { triggerTarget = SRC_TOGGLE },
                     onCheckedChange = { v ->
                         scope.launch {
-                            ConfigProvider.updateQuickSearchSettings { it.copy(searchToggles = v) }
+                            SearchCenter.updateSearch { it.copy(searchToggles = v) }
                         }
                     },
                 )
@@ -213,7 +213,7 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                     onClick = { triggerTarget = SRC_SMS },
                     onCheckedChange = { v ->
                         scope.launch {
-                            ConfigProvider.updateQuickSearchSettings { it.copy(searchSms = v) }
+                            SearchCenter.updateSearch { it.copy(searchSms = v) }
                         }
                     },
                 )
@@ -225,7 +225,7 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                     onClick = { triggerTarget = SRC_CALL },
                     onCheckedChange = { v ->
                         scope.launch {
-                            ConfigProvider.updateQuickSearchSettings { it.copy(searchCalls = v) }
+                            SearchCenter.updateSearch { it.copy(searchCalls = v) }
                         }
                     },
                 )
@@ -255,7 +255,7 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
             onDismiss = { showAdd = false; editTarget = null },
             onSave = { name, template, trigger ->
                 scope.launch {
-                    ConfigProvider.updateQuickSearchSettings { current ->
+                    SearchCenter.updateSearch { current ->
                         val target = editTarget
                         if (target == null) {
                             current.copy(
@@ -293,7 +293,7 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
             onDismiss = { triggerTarget = null },
             onSave = { v ->
                 scope.launch {
-                    ConfigProvider.updateQuickSearchSettings { current ->
+                    SearchCenter.updateSearch { current ->
                         current.copy(sourceTriggers = current.sourceTriggers + (key to v))
                     }
                 }
@@ -311,7 +311,7 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                 TextButton(
                     onClick = {
                         scope.launch {
-                            ConfigProvider.updateQuickSearchSettings { current ->
+                            SearchCenter.updateSearch { current ->
                                 current.copy(
                                     customEngines = current.customEngines.filterNot { it.id == target.id },
                                     defaultEngineId = if (current.defaultEngineId == target.id) {

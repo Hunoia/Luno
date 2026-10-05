@@ -23,7 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.config.model.QuickAppLauncherSettings
-import hunoia.luno.config.ConfigProvider
+import hunoia.luno.domain.search.SearchCenter
 import hunoia.luno.ui.component.input.MyTextSlider
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -32,7 +32,7 @@ import kotlin.math.roundToInt
 internal fun QuickAppLauncherAdjustPanel(
     onSettingsChanged: (QuickAppLauncherSettings) -> Unit,
 ) {
-    val settings by ConfigProvider.quickAppLauncherSettings.collectAsState(initial = QuickAppLauncherSettings())
+    val settings by SearchCenter.launcher.collectAsState(initial = QuickAppLauncherSettings())
     val coroutineScope = rememberCoroutineScope()
     var pending by remember(settings) { mutableStateOf(settings) }
     fun preview(next: QuickAppLauncherSettings) {
@@ -40,7 +40,7 @@ internal fun QuickAppLauncherAdjustPanel(
         onSettingsChanged(next)
     }
     fun commit() {
-        coroutineScope.launch { ConfigProvider.updateQuickAppLauncherLayout(pending) }
+        coroutineScope.launch { SearchCenter.updateLauncherLayout(pending) }
     }
 
     val screenH = LocalConfiguration.current.screenHeightDp
@@ -125,7 +125,7 @@ internal fun QuickAppLauncherAdjustPanel(
                 checked = settings.tapOpensMiniWindow,
                 onCheckedChange = { checked ->
                     coroutineScope.launch {
-                        ConfigProvider.updateQuickAppLauncherSettings {
+                        SearchCenter.updateLauncher {
                             it.copy(tapOpensMiniWindow = checked)
                         }
                     }

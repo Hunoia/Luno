@@ -59,7 +59,7 @@ import hunoia.luno.action.model.launchMiniWindow
 import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.config.model.ActionPanelStyle
 import hunoia.luno.config.model.ArcStyle
-import hunoia.luno.config.ConfigProvider
+import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.ui.theme.AnimNormal
 import hunoia.luno.ui.theme.AnimPanelResize
@@ -88,7 +88,7 @@ fun ActionPanel(
         var parentSize by remember { mutableStateOf(Size.Zero) }
         val resolvedStyle = actionPanelState.actionPanelStyle ?: actionPanelStyle
         val itemSizePx = (resolvedStyle as? ArcStyle)?.itemSize?.toFloat() ?: 48.dp.toPx()
-        val actionLibrarySettings by ConfigProvider.newActionLibrarySettings.collectAsStateWithLifecycle(initialValue = NewActionLibrarySettings())
+        val actionLibrarySettings by ActionLibrary.settings.collectAsStateWithLifecycle(initialValue = NewActionLibrarySettings())
         LaunchedEffect(parentSize, itemSizePx) {
             actionPanelState.setLayoutInfo(parentSize, itemSizePx)
         }

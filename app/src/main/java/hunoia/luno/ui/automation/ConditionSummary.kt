@@ -10,7 +10,7 @@ import hunoia.luno.config.model.NetworkType
 import hunoia.luno.config.model.ScreenEventType
 import hunoia.luno.config.model.ScreenType
 import hunoia.luno.config.model.WhenGroup
-import hunoia.luno.runtime.condition.formatTimeOfDay
+import hunoia.luno.domain.automation.formatTimeOfDay
 
 fun conditionSummary(context: Context, group: WhenGroup): String {
     if (group.items.isEmpty()) return context.getString(R.string.automation_condition_empty)

@@ -3,8 +3,9 @@ package hunoia.luno.ui.actionlibrary
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import hunoia.luno.action.model.NewActionLibraryEntry
-import hunoia.luno.config.ConfigProvider
-import hunoia.luno.config.cleanActions
+import hunoia.luno.domain.action.ActionLibrary
+import hunoia.luno.domain.automation.AutomationCenter
+import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.libraryEntryId
 import hunoia.luno.action.model.longPressVariant
@@ -22,9 +23,9 @@ class NewActionLibraryVM : ViewModel() {
     init {
         viewModelScope.launch {
             combine(
-                ConfigProvider.newActionLibrarySettings,
-                ConfigProvider.gestureButtons,
-                ConfigProvider.subGestureSettings,
+                ActionLibrary.settings,
+                GestureConfig.buttons,
+                GestureConfig.subGestures,
             ) { newSettings, buttons, subGestures ->
                 NewLibraryUiState(
                     entries = newSettings.entries,
@@ -35,12 +36,12 @@ class NewActionLibraryVM : ViewModel() {
     }
 
     fun remove(entry: NewActionLibraryEntry) {
-        viewModelScope.launch { removeNewLibraryEntry(entry.id) }
+        viewModelScope.launch { ActionLibrary.removeEntry(entry.id) }
     }
 
     fun updateIcon(entryId: String, iconKey: String?) {
         viewModelScope.launch {
-            ConfigProvider.updateNewActionLibrarySettings { settings ->
+            ActionLibrary.updateSettings { settings ->
                 settings.copy(
                     entries = settings.entries.map { entry ->
                         if (entry.id == entryId) entry.copy(iconKey = iconKey) else entry
@@ -48,29 +49,6 @@ class NewActionLibraryVM : ViewModel() {
                 )
             }
         }
-    }
-}
-
-suspend fun removeNewLibraryEntry(entryId: String) {
-    ConfigProvider.updateGestureButtons { buttons ->
-        buttons.map { button -> button.cleanActions { it.libraryEntryId() == entryId } }
-    }
-    ConfigProvider.updateSubGestureSettings { settings ->
-        settings.copy(subGestures = settings.subGestures.map { subGesture ->
-            subGesture.cleanActions { it.libraryEntryId() == entryId }
-        })
-    }
-    ConfigProvider.updateAutomationRules { rules ->
-        rules.map { rule ->
-            if (rule.effect.entryId == entryId) {
-                rule.copy(enabled = false, effect = rule.effect.copy(entryId = ""))
-            } else {
-                rule
-            }
-        }
-    }
-    ConfigProvider.updateNewActionLibrarySettings { settings ->
-        settings.copy(entries = settings.entries.filterNot { it.id == entryId })
     }
 }
 

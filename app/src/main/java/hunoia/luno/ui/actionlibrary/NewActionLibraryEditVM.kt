@@ -6,7 +6,7 @@ import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.action.model.NewActionLibraryEntry
-import hunoia.luno.config.ConfigProvider
+import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.config.model.toJsonObject
 import hunoia.luno.ui.navigation.NEW_ACTION_LIBRARY_ENTRY_ID
@@ -38,7 +38,7 @@ class NewActionLibraryEditVM : ViewModel() {
         val draft = if (isNewEntry) {
             buildNewDraft(typeId)
         } else {
-            ConfigProvider.getNewActionLibrarySettings().entries
+            ActionLibrary.getSettings().entries
                 .find { it.id == entryId }
                 ?.let { entry ->
                     NewEditDraft(
@@ -136,7 +136,7 @@ class NewActionLibraryEditVM : ViewModel() {
         viewModelScope.launch {
             withContext(NonCancellable) {
                 try {
-                    ConfigProvider.updateNewActionLibrarySettings { settings ->
+                    ActionLibrary.updateSettings { settings ->
                         val updatedEntries = if (draft.id == null) {
                             settings.entries + newEntry
                         } else {
@@ -155,7 +155,7 @@ class NewActionLibraryEditVM : ViewModel() {
     fun delete() {
         val id = _uiState.value.draft?.id ?: return
         viewModelScope.launch {
-            withContext(NonCancellable) { removeNewLibraryEntry(id) }
+            withContext(NonCancellable) { ActionLibrary.removeEntry(id) }
         }
     }
 }
