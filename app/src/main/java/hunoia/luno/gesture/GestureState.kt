@@ -167,13 +167,9 @@ class GestureState(
         }
 
         if (decision is GestureDecision.Trigger && decision.triggerType.isHoldType) {
-            val actions = actionsFor(b, decision)
+            val (actions, actualType) = actionsFor(b, decision)
             if (actions.hasMeaningfulActions()) {
-                when (decision.triggerType) {
-                    GestureTriggerType.SlideHold -> b.tryVibrateForSlideHold()
-                    GestureTriggerType.LongSlideHold -> b.tryVibrateForLongSlideHold()
-                    else -> {}
-                }
+                vibrateFor(b, actualType)
                 return resolved(b, decision.actionDirection, decision.triggerType, actions, decision)
             }
         }
@@ -196,23 +192,19 @@ class GestureState(
                 return null
             }
             is GestureDecision.Trigger -> {
-                val actions = actionsFor(b, decision)
-                when (decision.triggerType) {
-                    GestureTriggerType.DoubleTap, GestureTriggerType.Tap -> b.tryVibrateForTap()
-                    GestureTriggerType.LongSlide -> b.tryVibrateForLongSlide()
-                    GestureTriggerType.Slide -> b.tryVibrateForSlide()
-                    else -> {}
-                }
+                val (actions, actualType) = actionsFor(b, decision)
+                vibrateFor(b, actualType)
                 val result = resolved(b, decision.actionDirection, decision.triggerType, actions, decision)
                 reset()
                 return result
             }
             is GestureDecision.PendingDoubleTap -> {
+                val (tapActions, _) = actionsFor(b, decision.tapDecision)
                 val tapResult = resolved(
                     b,
                     decision.tapDecision.actionDirection,
                     decision.tapDecision.triggerType,
-                    actionsFor(b, decision.tapDecision),
+                    tapActions,
                     decision.tapDecision,
                 )
                 pendingTapResult = tapResult
@@ -307,27 +299,79 @@ class GestureState(
             hasDoubleTapActions = button.doubleTapActions.hasMeaningfulActions(),
             hasLongPressActions = button.longPressActions.hasMeaningfulActions(),
             hasActionInDirection = { type, direction ->
-                val actions = when (type) {
-                    GestureTriggerType.Slide -> button.slideActions.actionsBy(direction)
-                    GestureTriggerType.SlideHold -> button.slideHoldActions.actionsBy(direction)
-                    GestureTriggerType.LongSlide -> button.longSlideActions.actionsBy(direction)
-                    GestureTriggerType.LongSlideHold -> button.longSlideHoldActions.actionsBy(direction)
-                    else -> emptyList()
+                // 回退资格与触发一致：非按住只看滑动俩，按住看四取一（同方向）。
+                val types = if (type.isHoldType) {
+                    listOf(
+                        GestureTriggerType.Slide,
+                        GestureTriggerType.LongSlide,
+                        GestureTriggerType.SlideHold,
+                        GestureTriggerType.LongSlideHold,
+                    )
+                } else {
+                    listOf(GestureTriggerType.Slide, GestureTriggerType.LongSlide)
                 }
-                actions.any { it.typeId != "internal.none" }
+                types.any { t -> actionsByType(button, t, direction).hasMeaningfulActions() }
             },
         )
     }
 
-    private fun actionsFor(button: GestureButton, decision: GestureDecision.Trigger): List<StoredAction> {
-        return when (decision.triggerType) {
+    /**
+     * 同方向回退：非按住只在滑动俩之间（Slide↔LongSlide），按住先 hold 后滑动。
+     * 返回（动作，实际类型）：震动与面板按实际类型走，不按 decision 类型。
+     */
+    private fun fallbackOrder(primary: GestureTriggerType): List<GestureTriggerType> = when (primary) {
+        GestureTriggerType.Slide -> listOf(GestureTriggerType.Slide, GestureTriggerType.LongSlide)
+        GestureTriggerType.LongSlide -> listOf(GestureTriggerType.LongSlide, GestureTriggerType.Slide)
+        GestureTriggerType.SlideHold -> listOf(
+            GestureTriggerType.SlideHold,
+            GestureTriggerType.LongSlideHold,
+            GestureTriggerType.Slide,
+            GestureTriggerType.LongSlide,
+        )
+        GestureTriggerType.LongSlideHold -> listOf(
+            GestureTriggerType.LongSlideHold,
+            GestureTriggerType.SlideHold,
+            GestureTriggerType.Slide,
+            GestureTriggerType.LongSlide,
+        )
+        else -> listOf(primary)
+    }
+
+    private fun actionsFor(
+        button: GestureButton,
+        decision: GestureDecision.Trigger,
+    ): Pair<List<StoredAction>, GestureTriggerType> {
+        for (type in fallbackOrder(decision.triggerType)) {
+            val actions = actionsByType(button, type, decision.actionDirection)
+            if (actions.hasMeaningfulActions()) return actions to type
+        }
+        return emptyList<StoredAction>() to decision.triggerType
+    }
+
+    private fun actionsByType(
+        button: GestureButton,
+        type: GestureTriggerType,
+        direction: GestureDirection,
+    ): List<StoredAction> {
+        return when (type) {
             GestureTriggerType.Tap -> button.tapActions
             GestureTriggerType.DoubleTap -> button.doubleTapActions
             GestureTriggerType.LongPress -> button.longPressActions
-            GestureTriggerType.Slide -> button.slideActions.actionsBy(decision.actionDirection)
-            GestureTriggerType.SlideHold -> button.slideHoldActions.actionsBy(decision.actionDirection)
-            GestureTriggerType.LongSlide -> button.longSlideActions.actionsBy(decision.actionDirection)
-            GestureTriggerType.LongSlideHold -> button.longSlideHoldActions.actionsBy(decision.actionDirection)
+            GestureTriggerType.Slide -> button.slideActions.actionsBy(direction)
+            GestureTriggerType.SlideHold -> button.slideHoldActions.actionsBy(direction)
+            GestureTriggerType.LongSlide -> button.longSlideActions.actionsBy(direction)
+            GestureTriggerType.LongSlideHold -> button.longSlideHoldActions.actionsBy(direction)
+        }
+    }
+
+    private fun vibrateFor(button: GestureButton, type: GestureTriggerType) {
+        when (type) {
+            GestureTriggerType.DoubleTap, GestureTriggerType.Tap -> button.tryVibrateForTap()
+            GestureTriggerType.LongPress -> button.tryVibrateForLongPress()
+            GestureTriggerType.Slide -> button.tryVibrateForSlide()
+            GestureTriggerType.SlideHold -> button.tryVibrateForSlideHold()
+            GestureTriggerType.LongSlide -> button.tryVibrateForLongSlide()
+            GestureTriggerType.LongSlideHold -> button.tryVibrateForLongSlideHold()
         }
     }
 

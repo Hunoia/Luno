@@ -83,10 +83,6 @@ val GestureDirection.displayNameRes: Int
         GestureDirection.Down -> R.string.bottom
         GestureDirection.Left -> R.string.left
         GestureDirection.Right -> R.string.right
-        GestureDirection.UpLeft -> R.string.direction_up_left
-        GestureDirection.UpRight -> R.string.direction_up_right
-        GestureDirection.DownLeft -> R.string.direction_down_left
-        GestureDirection.DownRight -> R.string.direction_down_right
     }
 
 /** 「向左滑」这类方向文案，3 处 UI 各写了一遍，收到这里 */
@@ -94,13 +90,9 @@ val GestureDirection.displayNameRes: Int
 val GestureDirection.slideToRes: Int
     get() = when (this) {
         GestureDirection.Left -> R.string.slide_to_left
-        GestureDirection.UpLeft -> R.string.slide_to_top_left
         GestureDirection.Up -> R.string.slide_to_top
-        GestureDirection.UpRight -> R.string.slide_to_top_right
         GestureDirection.Right -> R.string.slide_to_right
-        GestureDirection.DownRight -> R.string.slide_to_bottom_right
         GestureDirection.Down -> R.string.slide_to_bottom
-        GestureDirection.DownLeft -> R.string.slide_to_bottom_left
     }
 
 @Composable

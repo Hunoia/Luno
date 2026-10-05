@@ -46,13 +46,9 @@ import hunoia.luno.ui.theme.SegmentedGap
 
 val actionCardDirections = listOf(
     GestureDirection.Left,
-    GestureDirection.UpLeft,
     GestureDirection.Up,
-    GestureDirection.UpRight,
     GestureDirection.Right,
-    GestureDirection.DownRight,
     GestureDirection.Down,
-    GestureDirection.DownLeft,
 )
 
 enum class GestureActionGroup {

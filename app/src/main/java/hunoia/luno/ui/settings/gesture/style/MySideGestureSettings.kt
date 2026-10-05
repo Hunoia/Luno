@@ -46,11 +46,7 @@ fun MySideGestureSettings(
 @Composable
 private fun GestureDirection.rotation(): Float = when (this) {
     GestureDirection.Right -> 0f
-    GestureDirection.DownRight -> 45f
     GestureDirection.Down -> 90f
-    GestureDirection.DownLeft -> 135f
     GestureDirection.Left -> 180f
-    GestureDirection.UpLeft -> -135f
     GestureDirection.Up -> -90f
-    GestureDirection.UpRight -> -45f
 }

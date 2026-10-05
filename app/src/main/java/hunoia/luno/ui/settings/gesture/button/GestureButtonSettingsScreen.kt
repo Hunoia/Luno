@@ -68,7 +68,6 @@ fun GestureButtonSettingsScreen(
     var showGestureAngles by remember { mutableStateOf(false) }
     var showStyleSelectFor by remember { mutableStateOf<GestureDirection?>(null) }
     var showStyleConfigFor by remember { mutableStateOf<GestureDirection?>(null) }
-    var expandedActionGroup by remember { mutableStateOf<GestureActionGroup?>(null) }
     val surfaceColor = MaterialTheme.colorScheme.surfaceContainer
     val backdrop = rememberLayerBackdrop {
         drawRect(surfaceColor)
@@ -144,7 +143,7 @@ fun GestureButtonSettingsScreen(
                         val gestureButton = uiState.gestureButton
                         if (gestureButton != null) {
                             fun setExpandedGroup(group: GestureActionGroup, expanded: Boolean) {
-                                expandedActionGroup = if (expanded) group else null
+                                vm.setExpandedActionGroup(if (expanded) group else null)
                             }
                             item {
                                 SegmentedGroup(
@@ -154,33 +153,33 @@ fun GestureButtonSettingsScreen(
                                     GestureButtonTapActionsCard(
                                         gestureButton = gestureButton,
                                         onNavToActionSelect = onNavToActionSelect,
-                                        expanded = expandedActionGroup == GestureActionGroup.Tap,
+                                        expanded = uiState.expandedActionGroup == GestureActionGroup.Tap,
                                         onExpandedChange = { setExpandedGroup(GestureActionGroup.Tap, it) },
                                     )
                                     GestureButtonSlideActionsCard(
                                         gestureButton = gestureButton,
                                         onNavToActionSelect = onNavToActionSelect,
-                                        expanded = expandedActionGroup == GestureActionGroup.Slide,
+                                        expanded = uiState.expandedActionGroup == GestureActionGroup.Slide,
                                         onExpandedChange = { setExpandedGroup(GestureActionGroup.Slide, it) },
                                     )
                                     GestureButtonSlideHoldActionsCard(
                                         gestureButton = gestureButton,
                                         onNavToActionSelect = onNavToActionSelect,
-                                        expanded = expandedActionGroup == GestureActionGroup.SlideHold,
+                                        expanded = uiState.expandedActionGroup == GestureActionGroup.SlideHold,
                                         onExpandedChange = { setExpandedGroup(GestureActionGroup.SlideHold, it) },
                                     )
                                     GestureButtonLongSlideActionsCard(
                                         gestureButton = gestureButton,
                                         onNavToActionSelect = onNavToActionSelect,
                                         onStyleSelect = { showStyleSelectFor = it },
-                                        expanded = expandedActionGroup == GestureActionGroup.LongSlide,
+                                        expanded = uiState.expandedActionGroup == GestureActionGroup.LongSlide,
                                         onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlide, it) },
                                     )
                                     GestureButtonLongSlideHoldActionsCard(
                                         gestureButton = gestureButton,
                                         onNavToActionSelect = onNavToActionSelect,
                                         onStyleSelect = { showStyleSelectFor = it },
-                                        expanded = expandedActionGroup == GestureActionGroup.LongSlideHold,
+                                        expanded = uiState.expandedActionGroup == GestureActionGroup.LongSlideHold,
                                         onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlideHold, it) },
                                     )
                                 }

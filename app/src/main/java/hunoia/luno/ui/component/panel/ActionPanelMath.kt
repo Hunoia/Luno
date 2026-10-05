@@ -184,13 +184,9 @@ internal fun actionPanelDisplayIndex(sector: ActionPanelSector, actionCount: Int
 
 private fun GestureDirection.angleDegrees(): Float = when (this) {
     GestureDirection.Right -> 0f
-    GestureDirection.DownRight -> 45f
     GestureDirection.Down -> 90f
-    GestureDirection.DownLeft -> 135f
     GestureDirection.Left -> 180f
-    GestureDirection.UpLeft -> 225f
     GestureDirection.Up -> 270f
-    GestureDirection.UpRight -> 315f
 }
 
 internal fun actionPanelHitContains(

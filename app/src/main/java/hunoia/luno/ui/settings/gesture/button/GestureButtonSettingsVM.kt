@@ -29,6 +29,8 @@ data class GestureButtonSettingsUiState(
     val mirrorHorizontal: Boolean = true,
     val showDeleteWarningDialog: Boolean = false,
     val isGestureButtonAdjusting: Boolean = false,
+    /** 触发动作列表展开态：放 VM，动作选择页返回重组合不丢。 */
+    val expandedActionGroup: GestureActionGroup? = null,
 ) {
     val gestureButton: GestureButton? = gestureButtons.find { it.id == gestureButtonSettings.buttonId }
 }
@@ -50,6 +52,12 @@ class GestureButtonSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeV
     fun showDeleteWarningDialog(show: Boolean) {
         updateUiState {
             it.copy(showDeleteWarningDialog = show)
+        }
+    }
+
+    fun setExpandedActionGroup(group: GestureActionGroup?) {
+        updateUiState {
+            it.copy(expandedActionGroup = group)
         }
     }
 

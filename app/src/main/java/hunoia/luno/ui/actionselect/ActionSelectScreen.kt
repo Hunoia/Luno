@@ -239,7 +239,7 @@ fun ActionSelectContent(
                         )
                     }
 
-                    if (uiState.selectedRecord.size > 0) {
+                    if (uiState.selectedRecord.size > 0 || uiState.selectionDirty) {
                         val inLongPressMode = uiState.longPressTargetIndex != null
                         SelectedBottomBar(
                             count = uiState.selectedRecord.size,

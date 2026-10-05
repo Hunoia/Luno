@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.aaron.compose.base.BaseComposeVM
 import hunoia.luno.R
+import hunoia.luno.ui.settings.gesture.button.GestureActionGroup
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxSubGestureLongSlideTriggerDistance
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxSubGestureTriggerDistance
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinGestureSlideDistanceGap
@@ -25,6 +26,8 @@ data class SubGestureSettingsUiState(
     val allSubGestures: List<SubGesture>? = null,
     val showDeleteWarningDialog: Boolean = false,
     val showMirrorCopyDialog: Boolean = false,
+    /** 触发动作列表展开态：放 VM，动作选择页返回重组合不丢。 */
+    val expandedActionGroup: GestureActionGroup? = null,
 )
 
 sealed interface SubGestureSettingsUiEvent
@@ -45,6 +48,10 @@ class SubGestureSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeVM<S
 
     fun showMirrorCopyDialog(show: Boolean) {
         updateUiState { it.copy(showMirrorCopyDialog = show) }
+    }
+
+    fun setExpandedActionGroup(group: GestureActionGroup?) {
+        updateUiState { it.copy(expandedActionGroup = group) }
     }
 
     fun createMirroredCopy() {
@@ -74,7 +81,9 @@ class SubGestureSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeVM<S
                 ),
                 angle = original.angle.copy(
                     boundaries = original.angle.boundaries.let { b ->
-                        listOf(3, 2, 1, 0, 7, 6, 5, 4).map { i -> ((0.5f - b[i]) + 1f) % 1f }
+                        // 四向扇区顺序 [Up,Left,Down,Right]：镜像后新起点取对侧旧起点
+                        // [Up<-Left, Left<-Up, Down<-Right, Right<-Down]
+                        listOf(1, 0, 3, 2).map { i -> ((0.5f - b[i]) + 1f) % 1f }
                     }
                 ),
             )
@@ -200,10 +209,6 @@ class SubGestureSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeVM<S
 private fun GestureDirection.mirrorHorizontal(): GestureDirection = when (this) {
     GestureDirection.Left -> GestureDirection.Right
     GestureDirection.Right -> GestureDirection.Left
-    GestureDirection.UpLeft -> GestureDirection.UpRight
-    GestureDirection.UpRight -> GestureDirection.UpLeft
-    GestureDirection.DownLeft -> GestureDirection.DownRight
-    GestureDirection.DownRight -> GestureDirection.DownLeft
     GestureDirection.Up -> GestureDirection.Up
     GestureDirection.Down -> GestureDirection.Down
 }

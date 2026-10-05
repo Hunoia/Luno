@@ -63,13 +63,9 @@ fun SubGestureAngleContent(
     color: Color = MaterialTheme.colorScheme.primary
 ) {
     val names = listOf(
-        stringResource(id = GestureDirection.UpRight.displayNameRes),
         stringResource(id = GestureDirection.Up.displayNameRes),
-        stringResource(id = GestureDirection.UpLeft.displayNameRes),
         stringResource(id = GestureDirection.Left.displayNameRes),
-        stringResource(id = GestureDirection.DownLeft.displayNameRes),
         stringResource(id = GestureDirection.Down.displayNameRes),
-        stringResource(id = GestureDirection.DownRight.displayNameRes),
         stringResource(id = GestureDirection.Right.displayNameRes)
     )
     DirectionAngleContent(
@@ -91,13 +87,9 @@ fun GestureButtonAngleContent(
     color: Color = MaterialTheme.colorScheme.primary
 ) {
     val names = listOf(
-        stringResource(R.string.direction_up_right),
         stringResource(R.string.top),
-        stringResource(R.string.direction_up_left),
         stringResource(R.string.left),
-        stringResource(R.string.direction_down_left),
         stringResource(R.string.bottom),
-        stringResource(R.string.direction_down_right),
         stringResource(R.string.right),
     )
     DirectionAngleContent(
@@ -351,8 +343,8 @@ private fun selectDragTarget(
     if (candidates.size == 1) return candidates.first()
 
     val inRange = candidates.filter { i ->
-        val prev = boundaries[(i + 7) % 8]
-        val next = boundaries[(i + 1) % 8]
+        val prev = boundaries[(i + boundaries.size - 1) % boundaries.size]
+        val next = boundaries[(i + 1) % boundaries.size]
         if (prev < next) newP in prev..next
         else newP >= prev || newP <= next
     }

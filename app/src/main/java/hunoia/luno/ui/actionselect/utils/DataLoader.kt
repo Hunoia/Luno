@@ -60,7 +60,11 @@ internal suspend fun saveSettingsAction(
     updateUiState: ((UiState) -> UiState) -> Unit
 ) {
     val selectedRecord = getUiState().selectedRecord
-    val newActions = selectedRecord.list.filterIsInstance<StoredAction>()
+    val picked = selectedRecord.list.filterIsInstance<StoredAction>()
+    // 选中含有效动作时清掉空占位（旧 [none] + 新选不再多出一个空）；全空则保持空落盘。
+    val newActions =
+        if (picked.any { it.typeId != "internal.none" }) picked.filter { it.typeId != "internal.none" }
+        else picked
     if (actionSelect.automationRuleId.isNotBlank()) {
         saveAutomationEffect(actionSelect, newActions)
         return

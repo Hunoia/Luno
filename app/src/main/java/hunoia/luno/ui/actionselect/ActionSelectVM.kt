@@ -79,6 +79,7 @@ class ActionSelectVM(
     }
 
     fun select(obj: Any, selected: Boolean) {
+        updateUiState { it.copy(selectionDirty = true) }
         if (uiState.longPressTargetIndex != null && selected) {
             selectLongPressAction(obj)
             return

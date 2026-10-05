@@ -6,33 +6,30 @@ import kotlin.math.abs
 import kotlin.math.atan2
 
 internal object DirectionAngleDefaults {
+    /** 四向扇区起点（归一化角度）：Right[-45°,45°)，Up[45°,135°)，Left[135°,225°)，Down[225°,315°）。 */
     val Boundaries = listOf(
-        0.0625f, 0.1875f, 0.3125f, 0.4375f,
-        0.5625f, 0.6875f, 0.8125f, 0.9375f,
+        0.125f, 0.375f, 0.625f, 0.875f,
     )
 }
 
 internal val DirectionSectorDirections: List<GestureDirection> = listOf(
-    GestureDirection.UpRight,
     GestureDirection.Up,
-    GestureDirection.UpLeft,
     GestureDirection.Left,
-    GestureDirection.DownLeft,
     GestureDirection.Down,
-    GestureDirection.DownRight,
     GestureDirection.Right,
 )
 
 internal fun validateDirectionAngleBoundaries(boundaries: List<Float>) {
-    require(boundaries.size == 8)
+    require(boundaries.size == DirectionSectorDirections.size)
     require(boundaries.all { it >= 0f && it < 1f })
 }
 
 internal fun <T> directionOf(boundaries: List<Float>, directions: List<T>, offset: Offset): T {
     val norm = normalizedAngle(offset)
+    val n = boundaries.size
     for (i in boundaries.indices) {
         val start = boundaries[i]
-        val end = boundaries[(i + 1) % 8]
+        val end = boundaries[(i + 1) % n]
         val inSector = if (start <= end) norm >= start && norm < end else norm >= start || norm < end
         if (inSector) return directions[i]
     }
@@ -56,7 +53,7 @@ internal fun normalizedAngle(offset: Offset): Float {
 
 internal fun sectorWidth(boundaries: List<Float>, index: Int): Float {
     val start = boundaries[index]
-    val end = boundaries[(index + 1) % 8]
+    val end = boundaries[(index + 1) % boundaries.size]
     return if (end >= start) (end - start) * 360f else (end + 1f - start) * 360f
 }
 
@@ -68,8 +65,9 @@ internal fun List<Float>.zeroWidthDirections(): Set<GestureDirection> =
 
 internal fun copyDirectionAngleBoundary(boundaries: List<Float>, index: Int, newBoundary: Float): List<Float> {
     val boundary = ((newBoundary % 1f) + 1f) % 1f
-    val previous = boundaries[(index + 7) % 8]
-    val next = boundaries[(index + 1) % 8]
+    val n = boundaries.size
+    val previous = boundaries[(index + n - 1) % n]
+    val next = boundaries[(index + 1) % n]
     val distToPrevious = minOf(abs(boundary - previous), abs(boundary + 1f - previous), abs(boundary - 1f - previous))
     val distToNext = minOf(abs(boundary - next), abs(boundary + 1f - next), abs(boundary - 1f - next))
     val inRange = if (previous < next) boundary in previous..next else boundary >= previous || boundary <= next

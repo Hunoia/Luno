@@ -19,6 +19,8 @@ data class UiState(
     val maxSelectCount: Int = MAX_SELECT_COUNT,
     val selectedRecord: SelectedRecord = SelectedRecord(),
     val longPressTargetIndex: Int? = null,
+    /** 用户动过选择（选/去选/清空）：空列表也可落盘，用于把动作设为空。 */
+    val selectionDirty: Boolean = false,
     val subGestures: List<SubGesture> = emptyList(),
     val excludedSubGestureId: String = "",
 

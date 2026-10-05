@@ -112,11 +112,7 @@
     <string name="os_version_too_low_placeholder">系统版本不支持：%1$s</string>
 
     <string name="slide_to_right">向右滑动</string>
-    <string name="slide_to_top_right">向右上滑动</string>
-    <string name="slide_to_bottom_right">向右下滑动</string>
     <string name="slide_to_left">向左滑动</string>
-    <string name="slide_to_top_left">向左上滑动</string>
-    <string name="slide_to_bottom_left">向左下滑动</string>
     <string name="slide_to_top">向上滑动</string>
     <string name="slide_to_bottom">向下滑动</string>
     <string name="gesture_button_width">触钮宽度</string>
@@ -145,10 +141,6 @@
     <string name="theme_color_surface_container_high">高层表面</string>
 
     <!-- Directions (diagonal + center) -->
-    <string name="direction_up_left">左上</string>
-    <string name="direction_up_right">右上</string>
-    <string name="direction_down_left">左下</string>
-    <string name="direction_down_right">右下</string>
 
     <!-- Action categories -->
     <string name="action_category_system">系统</string>
