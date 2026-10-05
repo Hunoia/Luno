@@ -10,6 +10,8 @@ import hunoia.luno.action.execution.ExecutorContext
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionFailure
 import hunoia.luno.action.model.ActionResult
+import hunoia.luno.action.model.ButtonTarget
+import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.OpenAppOrUrlData
 import hunoia.luno.config.model.OpenUrlQueryParameter
 import hunoia.luno.config.model.VolumeScrubConfig
@@ -114,6 +116,7 @@ class InternalExecutors : ActionExecutor {
 
     override val supportedTypes: Set<String> = setOf(
         "internal.none", "internal.subGesture", "internal.hideGestureButton",
+        "internal.buttonsVisibility",
         "internal.quickAppLauncher", "internal.quickSearch", "internal.volumeScrub",
         "internal.previousApp"
     )
@@ -126,6 +129,7 @@ class InternalExecutors : ActionExecutor {
                 context.hideGestureButton(action.delayMs)
                 ActionResult.Success()
             }
+            is Action.ButtonsVisibility -> executeButtonsVisibility(action)
             is Action.QuickAppLauncher -> {
                 context.toggleQuickAppLauncher()
                 ActionResult.Success()
@@ -144,6 +148,28 @@ class InternalExecutors : ActionExecutor {
             }
             else -> ActionResult.Failed(ActionFailure.Unsupported)
         }
+    }
+
+    /**
+     * 触钮显隐：直接改按钮 enabled 存量（DataStore 更新自带顺序，后写覆盖先写，
+     * 即规则列表顺序=优先级）。失败吞掉报 Failed，不抛。
+     */
+    private suspend fun executeButtonsVisibility(action: Action.ButtonsVisibility): ActionResult {
+        val ok = runCatching {
+            ConfigProvider.updateGestureButtons { list ->
+                val ids = when (action.target) {
+                    ButtonTarget.ALL -> list.map { it.id }.toSet()
+                    ButtonTarget.EXCEPT -> list.map { it.id }
+                        .filterNot { it in action.buttonIds }.toSet()
+                    ButtonTarget.ONLY -> action.buttonIds.toSet()
+                }
+                list.map { button ->
+                    if (button.id in ids) button.copy(enabled = action.visible) else button
+                }
+            }
+            true
+        }.getOrDefault(false)
+        return if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
     }
 }
 

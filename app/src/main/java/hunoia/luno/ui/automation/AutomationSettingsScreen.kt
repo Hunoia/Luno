@@ -30,8 +30,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.AutomationRule
-import hunoia.luno.config.model.RuleEffectType
-import hunoia.luno.config.model.RuleScope
 import hunoia.luno.ui.component.EmptyState
 import hunoia.luno.ui.component.MyColumn
 import hunoia.luno.ui.component.SegmentedGroup
@@ -158,16 +156,7 @@ private fun RuleCard(
     onDelete: () -> Unit,
 ) {
     val context = LocalContext.current
-    val effectLabel = context.getString(effectLabelRes(rule.effect.type))
-    val scopeLabel = when (rule.effect.scope) {
-        RuleScope.ALL -> context.getString(R.string.scope_all)
-        RuleScope.EXCEPT -> context.getString(R.string.scope_except_count, rule.effect.buttonIds.size)
-        RuleScope.ONLY -> context.getString(R.string.scope_only_count, rule.effect.buttonIds.size)
-    }
-    val stepsLabel = if (rule.effect.type == RuleEffectType.RUN_ACTION) {
-        " · ${rule.effect.effectiveSteps().size}步"
-    } else ""
-    val subtitle = "${conditionSummary(context, rule.condition)} · $effectLabel · $scopeLabel$stepsLabel" +
+    val subtitle = "${conditionSummary(context, rule.condition)} · ${rule.effect.effectiveSteps().size}步" +
         (lastRunText?.let { " · $it" } ?: "")
     SegmentedGroup {
         SegmentedSwitchRow(
@@ -219,12 +208,6 @@ private fun RuleCard(
             shape = segmentedShape(1, 2),
         )
     }
-}
-
-fun effectLabelRes(type: RuleEffectType): Int = when (type) {
-    RuleEffectType.SHOW_BUTTONS -> R.string.effect_show
-    RuleEffectType.HIDE_BUTTONS -> R.string.effect_hide
-    RuleEffectType.RUN_ACTION -> R.string.automation_effect_run_action
 }
 
 @Composable

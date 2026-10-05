@@ -439,6 +439,8 @@
     <string name="step_if_else">不满足时执行</string>
     <string name="step_empty_action">未选择动作</string>
     <string name="automation_history">执行历史</string>
+    <string name="automation_pair_show">生成配对恢复规则</string>
+    <string name="automation_pair_show_name">%1$s ·显</string>
     <string name="automation_history_empty">暂无执行记录</string>
     <string name="history_ok">成功</string>
     <string name="history_no_steps">无步骤，跳过</string>

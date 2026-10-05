@@ -89,6 +89,17 @@ public class AutomationCheck {
         return weekdays.isEmpty() || weekdays.contains(weekday);
     }
 
+    // ======== 转写：触钮显隐 target 解析（mirror InternalExecutors）========
+    static List<String> resolveButtons(String target, List<String> all, List<String> selected) {
+        if ("EXCEPT".equals(target)) {
+            List<String> out = new ArrayList<>(all);
+            out.removeAll(selected);
+            return out;
+        }
+        if ("ONLY".equals(target)) return new ArrayList<>(selected);
+        return new ArrayList<>(all);
+    }
+
     // ======== 转写：步骤路径（mirror RuleEffect.stepAt）========
     // 树形 steps 简化为：List<Object>，Action 步=String，IF 步=List<List<String>>[then, else]。
     @SuppressWarnings("unchecked")
@@ -200,6 +211,14 @@ public class AutomationCheck {
         check("路径 越界null", null, stepAt(demoSteps, "5"));
         check("路径 非法token null", null, stepAt(demoSteps, "1.foo.0"));
         check("路径 空null", null, stepAt(demoSteps, ""));
+        // 触钮显隐 target
+        List<String> allButtons = Arrays.asList("a", "b", "c");
+        check("target ALL", Arrays.asList("a", "b", "c"),
+                resolveButtons("ALL", allButtons, Arrays.asList("b")));
+        check("target EXCEPT", Arrays.asList("a", "c"),
+                resolveButtons("EXCEPT", allButtons, Arrays.asList("b")));
+        check("target ONLY", Arrays.asList("b"),
+                resolveButtons("ONLY", allButtons, Arrays.asList("b")));
 
         if (failures > 0) {
             System.out.println("FAILED: " + failures);

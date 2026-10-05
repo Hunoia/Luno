@@ -9,17 +9,23 @@ import kotlinx.serialization.Serializable
 @Keep
 enum class BooleanMode { AND, OR }
 
+/**
+ * 规则生效类型：v2 只剩 RUN_ACTION。HIDE/SHOW_BUTTONS 已删除（触钮显隐改为
+ * internal.buttonsVisibility 动作，直接改按钮 enabled 存量）。
+ * 两个旧值保留只为解析兼容——mm 存量若含旧规则，删枚举值会导致整文件 decode 失败
+ * 回落空列表（丢全部规则）；保留则旧规则能解析、引擎天然跳过（见 AutomationEngine）。
+ */
 @Serializable
 @Keep
-enum class RuleEffectType { HIDE_BUTTONS, SHOW_BUTTONS, RUN_ACTION }
+enum class RuleEffectType {
+    HIDE_BUTTONS,
+    SHOW_BUTTONS,
+    RUN_ACTION,
+}
 
 @Serializable
 @Keep
 enum class FireMode { ENTER, EXIT, BOTH }
-
-@Serializable
-@Keep
-enum class RuleScope { ALL, EXCEPT, ONLY }
 
 @Serializable
 @Keep
@@ -122,20 +128,12 @@ data class WhenGroup(
 @Keep
 data class RuleEffect(
     val type: RuleEffectType,
-    val scope: RuleScope = RuleScope.ALL,
-    val buttonIds: List<String> = emptyList(),
     val entryId: String = "",
     val action: Action? = null,
     /** v2 步骤：非空时优先于 action/entryId（老数据迁移见 effectiveSteps）。 */
     val steps: List<RuleStep> = emptyList(),
 ) {
     val hasAction: Boolean get() = effectiveSteps().any { it.isEffectiveAction }
-
-    fun covers(buttonId: String): Boolean = when (scope) {
-        RuleScope.ALL -> true
-        RuleScope.EXCEPT -> buttonId !in buttonIds
-        RuleScope.ONLY -> buttonId in buttonIds
-    }
 
     /** 老数据：action/entryId 包成单 ActionStep；新数据直接用 steps。 */
     fun effectiveSteps(): List<RuleStep> {

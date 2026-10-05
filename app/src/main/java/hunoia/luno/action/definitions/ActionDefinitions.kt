@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.VerticalAlignTop
 import androidx.compose.material.icons.filled.ViewCarousel
@@ -323,6 +324,33 @@ object ActionDefinitions {
             )),
             legacyId = ActionIds.HIDE_GESTURE_BUTTON,
             icon = Icons.Default.VisibilityOff))
+        add(ActionDefinition("internal.buttonsVisibility", "触钮显隐", ActionCategory.INTERNAL, Capability.None,
+            parameters = listOf(
+                ParameterDefinition.Enum(
+                    key = "visible",
+                    label = "显隐",
+                    options = listOf(
+                        EnumOption("true", "显示"),
+                        EnumOption("false", "隐藏"),
+                    ),
+                    defaultValue = "true",
+                ),
+                ParameterDefinition.Enum(
+                    key = "target",
+                    label = "作用范围",
+                    options = listOf(
+                        EnumOption("ALL", "全部触钮"),
+                        EnumOption("EXCEPT", "除选中外"),
+                        EnumOption("ONLY", "仅选中"),
+                    ),
+                    defaultValue = "ALL",
+                ),
+                ParameterDefinition.ButtonSelectorMulti(
+                    key = "buttonIds",
+                    label = "触钮",
+                ),
+            ),
+            icon = Icons.Default.Visibility))
         add(ActionDefinition("internal.quickAppLauncher", "快速启动面板", ActionCategory.INTERNAL, Capability.None,
             legacyId = ActionIds.QUICK_APP_LAUNCHER,
             icon = Icons.Default.Apps))

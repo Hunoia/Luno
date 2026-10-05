@@ -3,13 +3,9 @@ package hunoia.luno.runtime.button
 import android.os.SystemClock
 import android.util.Log
 import hunoia.luno.BuildConfig
-import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.InitialSettings
-import hunoia.luno.config.model.RuleEffectType
 import hunoia.luno.runtime.GestureRuntimeState
-import hunoia.luno.runtime.condition.matches
-import hunoia.luno.runtime.condition.toConditionContext
 import hunoia.luno.runtime.overlay.ButtonWindowController
 import hunoia.luno.runtime.settings.SettingsStore
 import kotlinx.coroutines.CoroutineScope
@@ -46,7 +42,6 @@ class ButtonRefreshCoordinator(
         val settings = runtimeSettingsStore.snapshot()
         val policy = ButtonVisibilityPolicy(
             initialSettings = settings.initialSettings,
-            rules = settings.automationRules,
             runtimeState = runtimeState,
         )
         buttonWindowController.updateVisibility(policy)
@@ -62,25 +57,14 @@ class ButtonRefreshCoordinator(
 
 class ButtonVisibilityPolicy(
     private val initialSettings: InitialSettings,
-    private val rules: List<AutomationRule>,
     private val runtimeState: GestureRuntimeState,
 ) {
     fun shouldShow(button: GestureButton): Boolean {
         if (!initialSettings.gestureEnabled) return false
         if ((runtimeState.hiddenGestureButtons[button.id] ?: 0L) > runtimeState.nowMs) return false
         if (!button.enabled) return false
-
-        val ctx = runtimeState.toConditionContext()
-        var result = true
-        for (rule in rules) {
-            if (!rule.enabled) continue
-            val type = rule.effect.type
-            if (type != RuleEffectType.HIDE_BUTTONS && type != RuleEffectType.SHOW_BUTTONS) continue
-            if (!rule.effect.covers(button.id)) continue
-            if (rule.matches(ctx)) {
-                result = type == RuleEffectType.SHOW_BUTTONS
-            }
-        }
-        return result
+        // v2：触钮显隐由 internal.buttonsVisibility 动作直接改 button.enabled 存量，
+        // 旧 HIDE/SHOW_BUTTONS 规则分支已删除（规则列表顺序=后写覆盖=优先级）。
+        return true
     }
 }

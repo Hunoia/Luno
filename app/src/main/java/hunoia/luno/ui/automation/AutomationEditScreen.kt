@@ -22,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -48,15 +49,19 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.action.model.NewActionLibrarySettings
+import hunoia.luno.action.model.StoredAction
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.BooleanMode
 import hunoia.luno.config.model.ConditionItem
 import hunoia.luno.config.model.ConditionType
 import hunoia.luno.config.model.FireMode
+import hunoia.luno.config.model.NewActionData
+import hunoia.luno.config.model.VALUE_NEW_ACTION
+import hunoia.luno.config.model.newActionData
+import hunoia.luno.core.JsonSerializer
 import hunoia.luno.config.model.RuleEffect
 import hunoia.luno.config.model.RuleEffectType
-import hunoia.luno.config.model.RuleScope
 import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.model.RuleStepKind
 import hunoia.luno.config.model.ThrottleKind
@@ -66,7 +71,6 @@ import hunoia.luno.config.model.conditionAt
 import hunoia.luno.config.model.withConditionAt
 import hunoia.luno.runtime.condition.hasLeaf
 import hunoia.luno.ui.actionselect.selectedItemLabel
-import hunoia.luno.ui.automation.components.RuleScopeSheet
 import hunoia.luno.ui.component.MyColumn
 import hunoia.luno.ui.component.SegmentedSettingsRow
 import hunoia.luno.ui.component.SegmentedSwitchRow
@@ -81,6 +85,10 @@ import hunoia.luno.ui.theme.ShapeExtraSmall
 import hunoia.luno.ui.theme.SheetTopShape
 import hunoia.luno.ui.theme.liquidGlassBackdrop
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -93,14 +101,11 @@ fun AutomationEditScreen(
 ) {
     val loadedRules by ConfigProvider.automationRules
         .collectAsStateWithLifecycle(initialValue = null)
-    val buttons by ConfigProvider.gestureButtons
-        .collectAsStateWithLifecycle(initialValue = emptyList())
     val library by ConfigProvider.newActionLibrarySettings
         .collectAsStateWithLifecycle(initialValue = null)
 
     val scope = rememberCoroutineScope()
     var draft by remember { mutableStateOf<AutomationRule?>(null) }
-    var showScopeSheet by remember { mutableStateOf(false) }
     var conditionSheetPath by remember { mutableStateOf<List<Int>?>(null) }
     var stepSheetPath by remember { mutableStateOf<String?>(null) }
     var stepTypePickerFor by remember { mutableStateOf<String?>(null) }
@@ -122,7 +127,7 @@ fun AutomationEditScreen(
             AutomationRule(
                 id = if (ruleId == NEW_AUTOMATION_RULE_ID) SystemClock.uptimeMillis().toString() else ruleId,
                 condition = WhenGroup(),
-                effect = RuleEffect(type = RuleEffectType.HIDE_BUTTONS),
+                effect = RuleEffect(type = RuleEffectType.RUN_ACTION),
             )
         }
     }
@@ -181,10 +186,8 @@ fun AutomationEditScreen(
     }
 
     val throttleInvalid = isInvalidThrottle(rule.throttle)
-    val stepsEmpty = rule.effect.type == RuleEffectType.RUN_ACTION && rule.effect.steps.isEmpty()
-    val saveEnabled = rule.condition.hasLeaf() &&
-        (rule.effect.type != RuleEffectType.RUN_ACTION || !stepsEmpty) &&
-        !throttleInvalid
+    val stepsEmpty = rule.effect.steps.isEmpty()
+    val saveEnabled = rule.condition.hasLeaf() && !stepsEmpty && !throttleInvalid
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val backdrop = liquidGlassBackdrop()
@@ -238,82 +241,54 @@ fun AutomationEditScreen(
             }
 
             SegmentedSettingsRow(
-                title = stringResource(R.string.condition_effect),
-                subtitle = stringResource(effectLabelRes(rule.effect.type)),
+                title = stringResource(R.string.automation_fire_on),
+                subtitle = fireModeLabel(rule.fireOn),
+                onClick = { showFireSheet = true },
             )
-            EffectSelector(rule.effect.type) { draft = rule.copy(effect = rule.effect.copy(type = it)) }
 
-            if (rule.effect.type != RuleEffectType.RUN_ACTION) {
-                SegmentedSettingsRow(
-                    title = stringResource(R.string.condition_scope),
-                    subtitle = scopeSubtitle(rule.effect.scope, rule.effect.buttonIds),
-                    onClick = { showScopeSheet = true },
+            SegmentedSettingsRow(
+                title = stringResource(R.string.automation_steps),
+                subtitle = stringResource(R.string.automation_steps),
+            )
+            StepsEditor(
+                steps = rule.effect.steps,
+                onChange = { draft = rule.copy(effect = rule.effect.copy(steps = it)) },
+                onPickAction = { onPickAction(it) },
+                onEditStep = { stepSheetPath = it },
+                onAddStep = { stepTypePickerFor = it },
+                library = library,
+                rule = rule,
+            )
+            if (stepsEmpty) {
+                Text(
+                    text = stringResource(R.string.automation_steps_empty),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
                 )
             }
 
-            if (rule.effect.type == RuleEffectType.RUN_ACTION) {
-                SegmentedSettingsRow(
-                    title = stringResource(R.string.automation_fire_on),
-                    subtitle = fireModeLabel(rule.fireOn),
-                    onClick = { showFireSheet = true },
-                )
-
-                SegmentedSettingsRow(
-                    title = stringResource(R.string.automation_steps),
-                    subtitle = stringResource(R.string.automation_steps),
-                )
-                StepsEditor(
-                    steps = rule.effect.steps,
-                    onChange = { draft = rule.copy(effect = rule.effect.copy(steps = it)) },
-                    onPickAction = { onPickAction(it) },
-                    onEditStep = { stepSheetPath = it },
-                    onAddStep = { stepTypePickerFor = it },
-                    library = library,
-                )
-                if (stepsEmpty) {
-                    Text(
-                        text = stringResource(R.string.automation_steps_empty),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-
-                SegmentedSettingsRow(
-                    title = stringResource(R.string.automation_throttle),
-                    subtitle = throttleSummary(rule.throttle),
-                    onClick = { showThrottleSheet = true },
-                )
-                if (throttleInvalid) {
-                    Text(
-                        text = stringResource(R.string.throttle_invalid),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-
-                if (conditionUsesNotification(rule.condition)) {
-                    NotificationPermissionRow()
-                }
-
-                SegmentedSettingsRow(
-                    title = stringResource(R.string.automation_history),
-                    onClick = { onNavToHistory(rule.id) },
+            SegmentedSettingsRow(
+                title = stringResource(R.string.automation_throttle),
+                subtitle = throttleSummary(rule.throttle),
+                onClick = { showThrottleSheet = true },
+            )
+            if (throttleInvalid) {
+                Text(
+                    text = stringResource(R.string.throttle_invalid),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
                 )
             }
+
+            if (conditionUsesNotification(rule.condition)) {
+                NotificationPermissionRow()
+            }
+
+            SegmentedSettingsRow(
+                title = stringResource(R.string.automation_history),
+                onClick = { onNavToHistory(rule.id) },
+            )
         }
-    }
-
-    if (showScopeSheet) {
-        RuleScopeSheet(
-            buttons = buttons,
-            scope = rule.effect.scope,
-            buttonIds = rule.effect.buttonIds,
-            onDismissRequest = { showScopeSheet = false },
-            onConfirm = { newScope, ids ->
-                draft = rule.copy(effect = rule.effect.copy(scope = newScope, buttonIds = ids))
-                showScopeSheet = false
-            },
-        )
     }
 
     // 条件参数 sheet：ConditionItemFields 原样搬入，行上只剩删除。
@@ -341,6 +316,7 @@ fun AutomationEditScreen(
             StepSheet(
                 step = step,
                 library = library,
+                rule = rule,
                 onDismiss = { stepSheetPath = null },
                 onChange = { new ->
                     draft = rule.copy(effect = rule.effect.withStepAt(path) { new })
@@ -404,6 +380,7 @@ private fun StepsEditor(
     onEditStep: (String) -> Unit,
     onAddStep: (String) -> Unit,
     library: NewActionLibrarySettings?,
+    rule: AutomationRule,
     pathPrefix: String = "",
     numberPrefix: String = "",
     depth: Int = 0,
@@ -452,6 +429,7 @@ private fun StepsEditor(
                         onEditStep = onEditStep,
                         onAddStep = onAddStep,
                         library = library,
+                        rule = rule,
                         pathPrefix = "$pathPrefix$index.then.",
                         numberPrefix = "$number.",
                         depth = depth + 1,
@@ -471,6 +449,7 @@ private fun StepsEditor(
                         onEditStep = onEditStep,
                         onAddStep = onAddStep,
                         library = library,
+                        rule = rule,
                         pathPrefix = "$pathPrefix$index.else.",
                         numberPrefix = "$number.",
                         depth = depth + 1,
@@ -560,6 +539,53 @@ private fun appendStep(
         else step.copy(elseSteps = step.elseSteps + created)
     }
     return "$parentPath.$branch.$childIndex" to updated
+}
+
+private data class ButtonsToggle(val stored: StoredAction, val hide: Boolean)
+
+/** 步骤是否为触钮显隐动作（内联或库引用），是则带出 stored 供配对恢复用。 */
+private fun stepButtonsVisibility(
+    library: NewActionLibrarySettings?,
+    step: RuleStep,
+): ButtonsToggle? {
+    if (step.kind != RuleStepKind.ACTION) return null
+    val stored = step.action?.newActionData()
+        ?: library?.entries?.find { it.id == step.entryId }?.storedAction
+    if (stored?.typeId != "internal.buttonsVisibility") return null
+    val visible = stored.params["visible"]
+        ?.jsonPrimitive?.contentOrNull?.toBoolean() ?: true
+    return ButtonsToggle(stored, hide = !visible)
+}
+
+/** 配对恢复规则：同条件/fireOn EXIT/显示步骤，平铺两条（id 后缀 :show）。 */
+private fun buildShowPairRule(
+    context: Context,
+    parent: AutomationRule,
+    library: NewActionLibrarySettings?,
+    hideStep: RuleStep,
+): AutomationRule {
+    val hide = stepButtonsVisibility(library, hideStep)
+    val showStored = StoredAction(
+        typeId = "internal.buttonsVisibility",
+        params = JsonObject(
+            (hide?.stored?.params ?: emptyMap()) + ("visible" to JsonPrimitive(true)),
+        ),
+    )
+    val showAction = hunoia.luno.config.model.Action(
+        value = VALUE_NEW_ACTION,
+        data = JsonSerializer.encodeToString(NewActionData(showStored)),
+    )
+    val baseName = parent.name.ifBlank { conditionSummary(context, parent.condition) }
+    return AutomationRule(
+        id = "${parent.id}:show",
+        name = context.getString(R.string.automation_pair_show_name, baseName),
+        condition = parent.condition,
+        effect = RuleEffect(
+            type = RuleEffectType.RUN_ACTION,
+            steps = listOf(RuleStep(kind = RuleStepKind.ACTION, action = showAction)),
+        ),
+        fireOn = FireMode.EXIT,
+    )
 }
 
 private fun stepSummary(
@@ -765,11 +791,13 @@ private fun ConditionSheet(
 private fun StepSheet(
     step: RuleStep,
     library: NewActionLibrarySettings?,
+    rule: AutomationRule,
     onDismiss: () -> Unit,
     onChange: (RuleStep) -> Unit,
     onPickAction: () -> Unit,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -796,18 +824,34 @@ private fun StepSheet(
                 verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
             ) {
                 when (step.kind) {
-                    RuleStepKind.ACTION -> SegmentedSettingsRow(
-                        title = stringResource(R.string.automation_pick_action),
-                        subtitle = effectActionLabel(
-                            context, library,
-                            RuleEffect(
-                                type = RuleEffectType.RUN_ACTION,
-                                action = step.action,
-                                entryId = step.entryId,
+                    RuleStepKind.ACTION -> {
+                        SegmentedSettingsRow(
+                            title = stringResource(R.string.automation_pick_action),
+                            subtitle = effectActionLabel(
+                                context, library,
+                                RuleEffect(
+                                    type = RuleEffectType.RUN_ACTION,
+                                    action = step.action,
+                                    entryId = step.entryId,
+                                ),
                             ),
-                        ),
-                        onClick = onPickAction,
-                    )
+                            onClick = onPickAction,
+                        )
+                        // 隐藏步骤：一键生成配对恢复规则（同条件/fireOn EXIT/显示，平铺两条）。
+                        if (stepButtonsVisibility(library, step)?.hide == true) {
+                            OutlinedButton(onClick = {
+                                scope.launch {
+                                    ConfigProvider.updateAutomationRules { rules ->
+                                        if (rules.any { it.id == "${rule.id}:show" }) rules
+                                        else rules + buildShowPairRule(context, rule, library, step)
+                                    }
+                                }
+                                onDismiss()
+                            }) {
+                                Text(stringResource(R.string.automation_pair_show))
+                            }
+                        }
+                    }
                     RuleStepKind.DELAY -> {
                         var text by remember(step.delayMs) {
                             mutableStateOf((step.delayMs / 1000).toString())
@@ -971,28 +1015,6 @@ private fun ThrottleSheet(
             }
         }
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun EffectSelector(selected: RuleEffectType, onChange: (RuleEffectType) -> Unit) {    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-        RuleEffectType.entries.forEachIndexed { index, type ->
-            SegmentedButton(
-                selected = selected == type,
-                onClick = { onChange(type) },
-                shape = SegmentedButtonDefaults.itemShape(count = RuleEffectType.entries.size, index = index),
-            ) {
-                Text(stringResource(effectLabelRes(type)), maxLines = 1)
-            }
-        }
-    }
-}
-
-@Composable
-fun scopeSubtitle(scope: RuleScope, buttonIds: List<String>): String = when (scope) {
-    RuleScope.ALL -> stringResource(R.string.scope_all)
-    RuleScope.EXCEPT -> stringResource(R.string.scope_except_count, buttonIds.size)
-    RuleScope.ONLY -> stringResource(R.string.scope_only_count, buttonIds.size)
 }
 
 @Composable

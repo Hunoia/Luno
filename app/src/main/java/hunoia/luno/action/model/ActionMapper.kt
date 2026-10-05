@@ -94,6 +94,11 @@ object ActionMapper {
             "internal.hideGestureButton" -> Action.HideGestureButton(
                 p.long("delayMs", HideGestureButtonDelayMs),
             )
+            "internal.buttonsVisibility" -> Action.ButtonsVisibility(
+                p.bool("visible", true),
+                runCatching { ButtonTarget.valueOf(p.str("target", "ALL")) }.getOrDefault(ButtonTarget.ALL),
+                p.arrayOfStr("buttonIds"),
+            )
             "internal.quickAppLauncher" -> Action.QuickAppLauncher
             "internal.quickSearch" -> Action.QuickSearch
             "internal.volumeScrub" -> Action.VolumeScrub(

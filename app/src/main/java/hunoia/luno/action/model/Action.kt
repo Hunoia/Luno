@@ -12,6 +12,9 @@ enum class SettingsPage {
     WIFI, BLUETOOTH, DISPLAY, BATTERY, APPS, NETWORK, ACCESSIBILITY, MAIN
 }
 
+/** 触钮显隐作用范围（沿用自动化旧 RuleScope 语义）。 */
+enum class ButtonTarget { ALL, EXCEPT, ONLY }
+
 enum class AudioStream { MUSIC, RING, NOTIFICATION, ALARM, VOICE, SYSTEM }
 
 /** 动作层与运行时层共用，避免 AudioController / AudioVolumeTracker 各写一份 */
@@ -199,6 +202,17 @@ sealed interface Action {
         val delayMs: Long = HideGestureButtonDelayMs,
     ) : Action {
         override val typeId: String = "internal.hideGestureButton"
+    }
+    /**
+     * 触钮显隐（替代自动化旧 HIDE/SHOW_BUTTONS 策略）：直接改按钮 enabled 存量，
+     * 后求值/后执行的覆盖先生效（规则列表顺序即优先级）。
+     */
+    data class ButtonsVisibility(
+        val visible: Boolean = true,
+        val target: ButtonTarget = ButtonTarget.ALL,
+        val buttonIds: List<String> = emptyList(),
+    ) : Action {
+        override val typeId: String = "internal.buttonsVisibility"
     }
     data object QuickAppLauncher : Action {
         override val typeId: String = "internal.quickAppLauncher"

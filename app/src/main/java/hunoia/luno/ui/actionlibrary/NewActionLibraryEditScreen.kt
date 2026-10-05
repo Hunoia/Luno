@@ -49,7 +49,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
+import hunoia.luno.config.ConfigProvider
 import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.config.model.MiniWindowSettings
@@ -58,6 +60,7 @@ import hunoia.luno.ui.component.MiniWindowControls
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.query.ActivityOption
 import hunoia.luno.ui.component.AppPickerSheet
+import hunoia.luno.ui.component.ButtonPickerSheet
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.TopBar
 import hunoia.luno.ui.component.EmptyState
@@ -87,6 +90,7 @@ fun NewActionLibraryEditScreen(
     var showAppPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
     var showActivityPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
     var showAppMultiPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
+    var showButtonPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
     var showMiniWindowPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showDiscardConfirm by remember { mutableStateOf(false) }
@@ -184,6 +188,7 @@ fun NewActionLibraryEditScreen(
                                         onParamChange = vm::updateParam,
                                         onPickApp = { showAppPicker = paramDef },
                                         onPickApps = { showAppMultiPicker = paramDef },
+                                        onPickButtons = { showButtonPicker = paramDef },
                                         onPickMiniWindow = { showMiniWindowPicker = paramDef },
                                         onPickActivity = { _, _ -> showActivityPicker = paramDef },
                                         shape = segmentedShape(i, cardParams.size),
@@ -199,6 +204,7 @@ fun NewActionLibraryEditScreen(
                                 onParamChange = vm::updateParam,
                                 onPickApp = { showAppPicker = paramDef },
                                 onPickApps = { showAppMultiPicker = paramDef },
+                                onPickButtons = { showButtonPicker = paramDef },
                                 onPickMiniWindow = { showMiniWindowPicker = paramDef },
                                 onPickActivity = { _, _ -> showActivityPicker = paramDef },
                             )
@@ -289,6 +295,22 @@ fun NewActionLibraryEditScreen(
             onConfirm = { selected ->
                 vm.updateParamMulti(paramDef.key, selected)
                 showAppMultiPicker = null
+            },
+        )
+    }
+
+    showButtonPicker?.let { paramDef ->
+        val buttons by ConfigProvider.gestureButtons
+            .collectAsStateWithLifecycle(initialValue = emptyList())
+        val selectedIds = draft?.params?.get(paramDef.key)?.jsonArray?.mapNotNull {
+            it.jsonPrimitive?.contentOrNull
+        } ?: emptyList()
+        ButtonPickerSheet(
+            onDismissRequest = { showButtonPicker = null },
+            buttons = buttons,
+            selectedIds = selectedIds,
+            onConfirm = { selected ->
+                vm.updateParamMulti(paramDef.key, selected)
             },
         )
     }
