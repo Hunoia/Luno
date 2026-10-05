@@ -1,6 +1,8 @@
 package hunoia.luno.runtime.automation
 
 import hunoia.luno.config.model.AutomationRule
+import hunoia.luno.config.model.ConditionItem
+import hunoia.luno.config.model.ConditionType
 import hunoia.luno.config.model.FireMode
 import hunoia.luno.config.model.RuleEffectType
 import hunoia.luno.config.model.ThrottleKind
@@ -66,10 +68,14 @@ class AutomationEngine(
             prevMatches[rule.id] = hit
 
             if (rule.effect.type != RuleEffectType.RUN_ACTION) continue
+            // 脉冲命中即边沿：脉冲读一次即消费，prev 机制对它恒卡死
+            //（默认 true + 跳过不更新 → 首评及之后永无 ENTER 边沿）。
+            // 非否定脉冲叶命中即视为边沿，只影响 ENTER/BOTH 的进入侧。
+            val pulseEdge = rule.fireOn != FireMode.EXIT && hasPresentPulse(rule.condition, ctx)
             val edge = when (rule.fireOn) {
-                FireMode.ENTER -> hit && !prev
+                FireMode.ENTER -> hit && (!prev || pulseEdge)
                 FireMode.EXIT -> !hit && prev
-                FireMode.BOTH -> hit != prev
+                FireMode.BOTH -> hit != prev || (hit && pulseEdge)
             }
             if (edge) candidates.add(rule)
         }
@@ -161,4 +167,34 @@ class AutomationEngine(
         cooldownLastFiredAt.keys.retainAll(ids)
         windowHits.keys.retainAll(ids)
     }
+}
+
+/** 脉冲条件类型：快照携带即命中，读一次即消费。 */
+private val PULSE_TYPES = setOf(
+    ConditionType.APP_CHANGED_TO,
+    ConditionType.SCREEN_EVENT,
+    ConditionType.CHARGING_CHANGED,
+    ConditionType.VOLUME_CHANGED,
+    ConditionType.NOTIFICATION_POSTED,
+    ConditionType.BLUETOOTH_CHANGED,
+    ConditionType.HEADPHONES_CHANGED,
+    ConditionType.SCHEDULED_TIME,
+    ConditionType.GESTURE_PERFORMED,
+)
+
+/**
+ * 条件树里是否有命中的非否定脉冲叶（raw 语义，未取反）。
+ * NOT 组整体取反，脉冲在里面命中不代表事件发生，保守返回 false。
+ * raw 求值复用 matches()（copy 去否定），不复制各脉冲的过滤逻辑。
+ */
+private fun hasPresentPulse(group: WhenGroup, ctx: ConditionContext): Boolean {
+    if (group.mode == hunoia.luno.config.model.BooleanMode.NOT) return false
+    return group.items.any { item -> item.hasPresentPulse(ctx) }
+}
+
+private fun ConditionItem.hasPresentPulse(ctx: ConditionContext): Boolean {
+    if (negated) return false
+    if (type == ConditionType.GROUP) return group?.let { hasPresentPulse(it, ctx) } == true
+    if (type !in PULSE_TYPES) return false
+    return copy(negated = false).matches(ctx)
 }

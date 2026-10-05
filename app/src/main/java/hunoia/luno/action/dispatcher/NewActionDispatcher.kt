@@ -88,15 +88,31 @@ class NewActionDispatcher(
         sourceOverride: GestureButtonActionSettingsOverride? = null,
         touchPosition: Pair<Int, Int>? = null,
         templateContext: () -> ConditionContext? = { null },
+        /** 手势触发类型（手势链路传入）；overlay 直调用默认 null。 */
+        gestureTrigger: hunoia.luno.config.model.GestureTriggerType? = null,
+        /** 是否源自手势链路：只有它为 true，分发落定事件才会驱动 GESTURE 域评估。 */
+        fromGesture: Boolean = false,
     ) {
         if (BuildConfig.DEBUG) Log.i("LunoLauncher", "dispatch storedAction typeId=${stored.typeId}")
         scope.launch(Dispatchers.Main.immediate) {
+            fun postDispatch(typeId: String, ok: Boolean) {
+                hunoia.luno.core.Events.post(
+                    GestureDispatchEvent(
+                        typeId = typeId,
+                        buttonId = sourceButton?.id,
+                        trigger = gestureTrigger,
+                        fromGesture = fromGesture,
+                        ok = ok,
+                    )
+                )
+            }
             // 动作库引用就地解析为条目动作（单轨：引用本身也是 StoredAction）。
             val effective = if (stored.typeId == "internal.libraryRef") {
                 val entryId = (stored.params["entryId"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull.orEmpty()
                 val entry = settingsSnapshot().newActionLibrarySettings.entries.find { it.id == entryId }
                 if (entry == null) {
                     if (BuildConfig.DEBUG) Log.w("LunoLauncher", "library entry not found id=$entryId")
+                    postDispatch(stored.typeId, ok = false)
                     return@launch
                 }
                 entry.storedAction
@@ -108,6 +124,7 @@ class NewActionDispatcher(
             // 在分发层校验，不进 Executor。
             if (touchPosition == null && (effective.typeId == "accessibility.tap" || effective.typeId == "accessibility.longPress")) {
                 ctx.showToast(failureText(appContext, ActionFailure.InvalidParameter))
+                postDispatch(effective.typeId, ok = false)
                 return@launch
             }
             val result = resolver.resolveFromLibrary(effective, ctx)
@@ -117,6 +134,7 @@ class NewActionDispatcher(
                 is ActionResult.RequiresCapability -> ctx.showToast(capabilityText(appContext, result.capability))
                 is ActionResult.Success -> result.message?.let { msg -> ctx.showToast(msg) }
             }
+            postDispatch(effective.typeId, ok = result is ActionResult.Success)
         }
     }
 

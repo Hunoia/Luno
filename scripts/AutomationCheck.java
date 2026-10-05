@@ -22,13 +22,17 @@ public class AutomationCheck {
     }
 
     // ======== 转写：边沿（mirror AutomationEngine.evaluate）========
-    static boolean edge(String fireOn, boolean hit, boolean prev) {
+    static boolean edge(String fireOn, boolean hit, boolean prev, boolean pulseEdge) {
         switch (fireOn) {
-            case "ENTER": return hit && !prev;
+            case "ENTER": return hit && (!prev || pulseEdge);
             case "EXIT": return !hit && prev;
-            case "BOTH": return hit != prev;
+            case "BOTH": return hit != prev || (hit && pulseEdge);
             default: return false;
         }
+    }
+
+    static boolean edge(String fireOn, boolean hit, boolean prev) {
+        return edge(fireOn, hit, prev, false);
     }
 
     // ======== 转写：节流（mirror throttleBlockReason/markFired）========
@@ -143,6 +147,13 @@ public class AutomationCheck {
         check("BOTH 上升沿触发", true, edge("BOTH", true, false));
         check("BOTH 下降沿触发", true, edge("BOTH", false, true));
         check("BOTH 保持不触发", false, edge("BOTH", true, true));
+        // 边沿：脉冲命中即边沿（只影响 ENTER/BOTH 进入侧）
+        check("ENTER 脉冲首评触发", true, edge("ENTER", true, true, true));
+        check("ENTER 脉冲未命中不触发", false, edge("ENTER", false, true, true));
+        check("ENTER 无脉冲保持不触发", false, edge("ENTER", true, true, false));
+        check("EXIT 脉冲不影响", false, edge("EXIT", true, true, true));
+        check("BOTH 脉冲进入侧触发", true, edge("BOTH", true, true, true));
+        check("BOTH 脉冲未命中不触发", false, edge("BOTH", false, false, true));
 
         // 节流：cooldown
         check("cooldown 窗内拦", "throttled_cooldown",

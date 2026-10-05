@@ -27,6 +27,7 @@ import hunoia.luno.config.model.isHoldType
 import hunoia.luno.config.model.isLongSlideType
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.gesture.DragGestureHandler
+import hunoia.luno.gesture.GestureDecision
 import hunoia.luno.gesture.GestureResolvedActions
 import hunoia.luno.ui.component.panel.ActionPanel
 import hunoia.luno.ui.component.panel.rememberActionPanelState
@@ -47,7 +48,7 @@ private const val ACTION_PANEL_FADE_OUT_MS = 400L
 
 @Composable
 fun SideGestureContainer(
-    onAction: (StoredAction, GestureButton?, GestureButtonActionSettingsOverride?, Offset) -> Unit,
+    onAction: (StoredAction, GestureButton?, GestureButtonActionSettingsOverride?, Offset, GestureDecision.Trigger?) -> Unit,
     buttons: List<GestureButton>,
     modifier: Modifier = Modifier,
     imePadding: Int = 0,
@@ -94,9 +95,10 @@ fun SideGestureContainer(
         sourceButton: GestureButton?,
         touchPosition: Offset,
         sourceOverride: GestureButtonActionSettingsOverride? = sourceButton?.actionSettingsOverride,
+        decision: GestureDecision.Trigger? = null,
     ): Boolean {
         if (subGestureState.tryEnterSubGesture(action, touchPosition)) return true
-        curOnAction(action, sourceButton, sourceOverride, touchPosition)
+        curOnAction(action, sourceButton, sourceOverride, touchPosition, decision)
         return false
     }
 
@@ -110,6 +112,7 @@ fun SideGestureContainer(
         panelColor: Int = sourceButton?.color ?: android.graphics.Color.TRANSPARENT,
         onPanelStarted: () -> Unit = {},
         needsPanelOverlay: Boolean = false,
+        decision: GestureDecision.Trigger? = null,
         onDirectComplete: (enteredSubGesture: Boolean) -> Unit = {},
     ) {
         val meaningfulActions = actions.filter { it.typeId != "internal.none" }
@@ -134,7 +137,7 @@ fun SideGestureContainer(
             subGestureState.clear(notifyService = true)
             coroutineScope.launch {
                 delay(SUB_GESTURE_DIRECT_ACTION_DELAY_MS)
-                handleResolvedAction(action, sourceButton, touchPosition, sourceOverride)
+                handleResolvedAction(action, sourceButton, touchPosition, sourceOverride, decision)
             }
             onDirectComplete(false)
             return
@@ -145,7 +148,7 @@ fun SideGestureContainer(
                 false
             }
             "internal.none" -> false
-            else -> handleResolvedAction(action, sourceButton, touchPosition, sourceOverride)
+            else -> handleResolvedAction(action, sourceButton, touchPosition, sourceOverride, decision)
         }
         onDirectComplete(enteredSubGesture)
     }
@@ -171,6 +174,7 @@ fun SideGestureContainer(
             touchPosition = touchPosition,
             sourceButton = sideGestureState.button,
             sourceOverride = sourceOverride,
+            decision = resolvedActions.decision,
             panelStyle = panelStyle,
             panelColor = panelColor,
             needsPanelOverlay = needsOverlay,
@@ -191,6 +195,7 @@ fun SideGestureContainer(
             direction = resolvedActions.actionDirection,
             touchPosition = resolvedActions.touchPosition,
             sourceButton = resolvedActions.button,
+            decision = resolvedActions.decision,
             panelStyle = if (resolvedActions.triggerType == GestureTriggerType.LongSlide || resolvedActions.triggerType == GestureTriggerType.LongSlideHold) {
                 resolvedActions.button.longSlideActionPanelStyles.styleBy(resolvedActions.actionDirection).value
             } else {
@@ -310,6 +315,7 @@ fun SideGestureContainer(
                             direction = resolvedActions.actionDirection,
                             touchPosition = resolvedActions.touchPosition,
                             sourceButton = resolvedActions.button,
+                            decision = resolvedActions.decision,
                             panelStyle = if (resolvedActions.triggerType.isLongSlideType) {
                                 resolvedActions.button.longSlideActionPanelStyles.styleBy(resolvedActions.actionDirection).value
                             } else {

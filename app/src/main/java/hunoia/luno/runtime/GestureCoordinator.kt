@@ -258,22 +258,46 @@ class GestureCoordinator(
             sourceButton: GestureButton?,
             sourceOverride: GestureButtonActionSettingsOverride?,
             touchPosition: Offset,
+            decision: hunoia.luno.gesture.GestureDecision.Trigger?,
         ) {
-            // 手势触发动作与手势事件进总线是两条独立路径：前者立即执行，后者供自动化规则订阅。
-            environmentTracker.onGesturePerformed(sourceButton?.id ?: "")
-            val touch = if (touchPosition.x.isFinite() && touchPosition.y.isFinite()) {
-                touchPosition.x.roundToInt() to touchPosition.y.roundToInt()
-            } else {
-                null
-            }
-            actionDispatcher.dispatch(
-                action.withoutVariantKey(),
-                sourceButton,
-                sourceOverride,
-                touch,
-            ) { buildRuntimeState(consumePulses = false).toConditionContext() }
-            refreshGestureButtons(delayMs = 0L, automationKeys = setOf(AutomationEventKey.GESTURE))
+            onGestureDecision(decision, action, sourceButton, sourceOverride, touchPosition)
         }
+    }
+
+    /**
+     * 手势决策唯一入口：Decision 到此不再被截留。
+     * 今天恒放行（记录 + 立即分发）；后续仲裁/改写只改这里。
+     */
+    private fun onGestureDecision(
+        decision: hunoia.luno.gesture.GestureDecision.Trigger?,
+        action: hunoia.luno.action.model.StoredAction,
+        sourceButton: GestureButton?,
+        sourceOverride: GestureButtonActionSettingsOverride?,
+        touchPosition: Offset,
+    ) {
+        if (BuildConfig.DEBUG) {
+            Log.i(
+                "LunoLauncher",
+                "gesture decision trigger=${decision?.triggerType} dir=${decision?.actionDirection} " +
+                    "button=${sourceButton?.id} action=${action.typeId}",
+            )
+        }
+        // 手势触发动作与手势事件进总线是两条独立路径：前者立即执行，后者供自动化规则订阅。
+        environmentTracker.onGesturePerformed(sourceButton?.id ?: "")
+        val touch = if (touchPosition.x.isFinite() && touchPosition.y.isFinite()) {
+            touchPosition.x.roundToInt() to touchPosition.y.roundToInt()
+        } else {
+            null
+        }
+        actionDispatcher.dispatch(
+            action.withoutVariantKey(),
+            sourceButton,
+            sourceOverride,
+            touch,
+            { buildRuntimeState(consumePulses = false).toConditionContext() },
+            gestureTrigger = decision?.triggerType,
+            fromGesture = true,
+        )
     }
 
     /** 供 overlay 等场景直接执行一个已构造好的动作。 */
@@ -281,10 +305,21 @@ class GestureCoordinator(
         actionDispatcher.dispatch(action.withoutVariantKey(), null)
     }
 
+    /** 分发落定订阅：手势链路的分发完成后驱动 GESTURE 域评估（替代入口直调）。 */
+    private val gestureDispatchSubscriber: (hunoia.luno.action.dispatcher.GestureDispatchEvent) -> Unit = { event ->
+        if (event.fromGesture) {
+            refreshGestureButtons(delayMs = 0L, automationKeys = setOf(AutomationEventKey.GESTURE))
+        }
+    }
+
     fun onSetOverlay() {
         if (started) return
         started = true
         if (BuildConfig.DEBUG) Log.i("LunoLauncher", "GestureCoordinator start")
+        hunoia.luno.core.Events.subscribe(
+            hunoia.luno.action.dispatcher.GestureDispatchEvent::class,
+            gestureDispatchSubscriber,
+        )
         runtimeSettingsStore.start()
         broadcastObserver.register()
         batteryTracker.register()
@@ -366,6 +401,10 @@ class GestureCoordinator(
         if (!started) return
         started = false
         if (BuildConfig.DEBUG) Log.i("LunoLauncher", "GestureCoordinator destroy")
+        hunoia.luno.core.Events.unsubscribe(
+            hunoia.luno.action.dispatcher.GestureDispatchEvent::class,
+            gestureDispatchSubscriber,
+        )
         AutomationPulseHub.onNotification = null
         runtimeSettingsStore.stop()
         timeConditionTicker.stop()

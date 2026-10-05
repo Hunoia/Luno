@@ -36,6 +36,8 @@ interface GestureOverlayCallbacks {
         sourceButton: GestureButton?,
         sourceOverride: GestureButtonActionSettingsOverride?,
         touchPosition: androidx.compose.ui.geometry.Offset,
+        /** 触发这次动作的识别结果；面板点选等非直接触发为 null。 */
+        decision: hunoia.luno.gesture.GestureDecision.Trigger?,
     )
 }
 

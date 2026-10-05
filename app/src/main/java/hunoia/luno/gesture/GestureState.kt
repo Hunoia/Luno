@@ -26,6 +26,8 @@ data class GestureResolvedActions(
     val actions: List<StoredAction>,
     val triggerType: GestureTriggerType,
     val touchPosition: Offset,
+    /** 触发这次解析的原始识别结果：透传给 Coordinator 做仲裁/记录，不再就地截留。 */
+    val decision: GestureDecision.Trigger,
 )
 
 class GestureState(
@@ -136,6 +138,7 @@ class GestureState(
                             actions = b.longPressActions,
                             triggerType = GestureTriggerType.LongPress,
                             touchPosition = finger,
+                            decision = decision,
                         )
                     )
                 }
@@ -171,7 +174,7 @@ class GestureState(
                     GestureTriggerType.LongSlideHold -> b.tryVibrateForLongSlideHold()
                     else -> {}
                 }
-                return resolved(b, decision.actionDirection, decision.triggerType, actions)
+                return resolved(b, decision.actionDirection, decision.triggerType, actions, decision)
             }
         }
 
@@ -200,7 +203,7 @@ class GestureState(
                     GestureTriggerType.Slide -> b.tryVibrateForSlide()
                     else -> {}
                 }
-                val result = resolved(b, decision.actionDirection, decision.triggerType, actions)
+                val result = resolved(b, decision.actionDirection, decision.triggerType, actions, decision)
                 reset()
                 return result
             }
@@ -210,6 +213,7 @@ class GestureState(
                     decision.tapDecision.actionDirection,
                     decision.tapDecision.triggerType,
                     actionsFor(b, decision.tapDecision),
+                    decision.tapDecision,
                 )
                 pendingTapResult = tapResult
                 pendingDoubleTapJob = coroutineScope.launch {
@@ -279,6 +283,7 @@ class GestureState(
         actionDirection: GestureDirection,
         triggerType: GestureTriggerType,
         actions: List<StoredAction>,
+        decision: GestureDecision.Trigger,
     ): GestureResolvedActions {
         return GestureResolvedActions(
             button = button,
@@ -287,6 +292,7 @@ class GestureState(
             actions = actions,
             triggerType = triggerType,
             touchPosition = finger,
+            decision = decision,
         )
     }
 

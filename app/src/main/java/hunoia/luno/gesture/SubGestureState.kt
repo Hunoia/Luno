@@ -26,6 +26,8 @@ data class SubGestureResolvedActions(
     val actions: List<StoredAction>,
     val triggerType: GestureTriggerType,
     val touchPosition: Offset,
+    /** 合成的识别结果（子手势无独立识别机，方向即动作方向）。 */
+    val decision: GestureDecision.Trigger,
 )
 
 class SubGestureState(
@@ -209,7 +211,14 @@ class SubGestureState(
         }
         directTriggered = false
         onModeChanged(false, Offset.Unspecified, 0)
-        return SubGestureResolvedActions(subGesture, direction, actions, triggerType, touchPosition)
+        return SubGestureResolvedActions(
+        subGesture,
+        direction,
+        actions,
+        triggerType,
+        touchPosition,
+        GestureDecision.Trigger(triggerType, direction, direction),
+    )
     }
 
     private fun Offset.hasFiniteCoordinates(): Boolean = x.isFinite() && y.isFinite()
