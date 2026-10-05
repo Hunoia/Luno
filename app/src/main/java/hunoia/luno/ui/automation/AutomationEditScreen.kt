@@ -152,17 +152,21 @@ fun AutomationEditScreen(
     val rule = draft ?: return
     val context = LocalContext.current
 
-    fun onPickAction(stepPath: String) {
+    /**
+     * 跳动作选择页：必须显式传入要持久化的规则——调用方刚改完 draft 时重组还没发生，
+     * 直接读闭包里的 rule 会拿到旧快照（新步骤丢了，选择页回填 path 失效还照样 toast 成功）。
+     */
+    fun onPickAction(ruleToPersist: AutomationRule, stepPath: String) {
         scope.launch {
             ConfigProvider.updateAutomationRules { rules ->
-                if (rules.any { r -> r.id == rule.id }) {
-                    rules.map { r -> if (r.id == rule.id) rule else r }
+                if (rules.any { r -> r.id == ruleToPersist.id }) {
+                    rules.map { r -> if (r.id == ruleToPersist.id) ruleToPersist else r }
                 } else {
-                    rules + rule
+                    rules + ruleToPersist
                 }
             }
             onNavToActionSelect(ActionSelect(
-                automationRuleId = rule.id,
+                automationRuleId = ruleToPersist.id,
                 automationStepPath = stepPath,
             ))
         }
@@ -253,7 +257,6 @@ fun AutomationEditScreen(
             StepsEditor(
                 steps = rule.effect.steps,
                 onChange = { draft = rule.copy(effect = rule.effect.copy(steps = it)) },
-                onPickAction = { onPickAction(it) },
                 onEditStep = { stepSheetPath = it },
                 onAddStep = { stepTypePickerFor = it },
                 library = library,
@@ -323,7 +326,7 @@ fun AutomationEditScreen(
                 },
                 onPickAction = {
                     stepSheetPath = null
-                    onPickAction(path)
+                    onPickAction(rule, path)
                 },
             )
         }
@@ -340,9 +343,10 @@ fun AutomationEditScreen(
                 }
                 val newPath = appendStep(rule.effect, prefix, created)
                 if (newPath != null) {
-                    draft = rule.copy(effect = newPath.second)
+                    val updated = rule.copy(effect = newPath.second)
+                    draft = updated
                     stepTypePickerFor = null
-                    if (kind == RuleStepKind.ACTION) onPickAction(newPath.first)
+                    if (kind == RuleStepKind.ACTION) onPickAction(updated, newPath.first)
                     else stepSheetPath = newPath.first
                 } else {
                     stepTypePickerFor = null
@@ -376,7 +380,6 @@ fun AutomationEditScreen(
 private fun StepsEditor(
     steps: List<RuleStep>,
     onChange: (List<RuleStep>) -> Unit,
-    onPickAction: (String) -> Unit,
     onEditStep: (String) -> Unit,
     onAddStep: (String) -> Unit,
     library: NewActionLibrarySettings?,
@@ -425,7 +428,6 @@ private fun StepsEditor(
                                 list[index] = step.copy(thenSteps = branch)
                             })
                         },
-                        onPickAction = onPickAction,
                         onEditStep = onEditStep,
                         onAddStep = onAddStep,
                         library = library,
@@ -445,7 +447,6 @@ private fun StepsEditor(
                                 list[index] = step.copy(elseSteps = branch)
                             })
                         },
-                        onPickAction = onPickAction,
                         onEditStep = onEditStep,
                         onAddStep = onAddStep,
                         library = library,

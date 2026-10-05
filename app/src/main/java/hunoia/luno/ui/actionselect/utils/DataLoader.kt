@@ -106,6 +106,12 @@ private suspend fun saveAutomationEffect(actionSelect: ActionSelect, newActions:
             if (path.isBlank()) {
                 rule.copy(effect = rule.effect.copy(action = action, entryId = entryId))
             } else {
+                if (rule.effect.stepAt(path) == null) {
+                    android.util.Log.w(
+                        "ActionSelect",
+                        "automation step path missing, rule=${rule.id} path=$path (persist race?)",
+                    )
+                }
                 rule.copy(effect = rule.effect.withStepAt(path) { step ->
                     step.copy(kind = hunoia.luno.config.model.RuleStepKind.ACTION, action = action, entryId = entryId)
                 })
