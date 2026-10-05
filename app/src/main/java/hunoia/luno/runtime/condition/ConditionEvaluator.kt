@@ -43,6 +43,8 @@ data class ConditionContext(
     val bluetoothChanged: ConnectionDirection? = null,
     val headphonesChanged: ConnectionDirection? = null,
     val scheduledTimeHit: Boolean = false,
+    /** 手势脉冲：本轮命中的按钮 id，无则 null。 */
+    val gesturePerformedId: String? = null,
 )
 
 /** 通知脉冲：包名+标题+正文（匹配后原文即丢，历史默认不同原文）。 */
@@ -115,14 +117,18 @@ fun GestureRuntimeState.toConditionContext(): ConditionContext = ConditionContex
     bluetoothChanged = bluetoothChanged,
     headphonesChanged = headphonesChanged,
     scheduledTimeHit = scheduledTimeHit,
+    gesturePerformedId = gesturePerformedId,
 )
 
 fun AutomationRule.matches(ctx: ConditionContext): Boolean = condition.matches(ctx)
 
 fun WhenGroup.matches(ctx: ConditionContext): Boolean {
     if (items.isEmpty()) return false
-    return if (mode == BooleanMode.AND) items.all { it.matches(ctx) }
-    else items.any { it.matches(ctx) }
+    return when (mode) {
+        BooleanMode.AND -> items.all { it.matches(ctx) }
+        BooleanMode.OR -> items.any { it.matches(ctx) }
+        BooleanMode.NOT -> items.none { it.matches(ctx) }
+    }
 }
 
 fun ConditionItem.matches(ctx: ConditionContext): Boolean {
@@ -146,6 +152,8 @@ fun ConditionItem.matches(ctx: ConditionContext): Boolean {
         type == ConditionType.BLUETOOTH_CHANGED -> connectionMatches(ctx.bluetoothChanged)
         type == ConditionType.HEADPHONES_CHANGED -> connectionMatches(ctx.headphonesChanged)
         type == ConditionType.SCHEDULED_TIME -> ctx.scheduledTimeHit && scheduledTimeMatches(ctx)
+        type == ConditionType.GESTURE_PERFORMED -> ctx.gesturePerformedId != null &&
+            (gestureButtonIds.isEmpty() || ctx.gesturePerformedId in gestureButtonIds)
         type == ConditionType.GROUP -> group?.matches(ctx) == true
         else -> false
     }

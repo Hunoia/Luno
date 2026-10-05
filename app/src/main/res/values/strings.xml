@@ -393,6 +393,9 @@
     <string name="volume_up">音量增大</string>
     <string name="volume_down">音量减小</string>
     <string name="condition_notification_posted">通知到达</string>
+    <string name="condition_gesture_performed">手势完成</string>
+    <string name="condition_gesture_any">任意手势</string>
+    <string name="condition_gesture_clear">不限手势</string>
     <string name="condition_bluetooth_changed">蓝牙连接变化</string>
     <string name="condition_headphones_changed">耳机插拔</string>
     <string name="condition_scheduled_time">定时时刻</string>
@@ -414,6 +417,11 @@
     <string name="fire_enter">进入时</string>
     <string name="fire_exit">退出时</string>
     <string name="fire_both">进入和退出</string>
+    <string name="automation_priority">优先级</string>
+    <string name="priority_high">高</string>
+    <string name="priority_medium">中</string>
+    <string name="priority_low">低</string>
+    <string name="logic_none">非（都不满足）</string>
     <string name="automation_throttle">触发频率</string>
     <string name="throttle_off">不限</string>
     <string name="throttle_cooldown">冷却</string>
@@ -447,6 +455,8 @@
     <string name="history_no_steps">无步骤，跳过</string>
     <string name="history_throttled_cooldown">冷却中，跳过</string>
     <string name="history_throttled_window">窗口超限，跳过</string>
+    <string name="history_outprioritized">被更高优先级规则取代，跳过</string>
+    <string name="history_rule_busy">规则运行中，跳过</string>
     <string name="history_interrupted">中断于步骤 %1$s</string>
     <string name="history_last_run">上次 %1$s · %2$s</string>
     <string name="notify_permission_title">通知访问权限</string>

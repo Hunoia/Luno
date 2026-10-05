@@ -14,10 +14,11 @@ class AutomationRuntime(
     private val automationEngine: AutomationEngine,
     private val onVisibilityRefresh: (GestureRuntimeState) -> Unit,
 ) {
-    fun evaluate() {
+    /** @param eventKeys 本轮刷新的事件域（空集 = 通用刷新，只评估含状态叶子的规则）。 */
+    fun evaluate(eventKeys: Set<String> = emptySet()) {
         val settings = runtimeSettingsStore.snapshot()
         val runtimeState = buildRuntimeState()
-        automationEngine.evaluate(settings.automationRules, runtimeState.toConditionContext())
+        automationEngine.evaluate(settings.automationRules, runtimeState.toConditionContext(), eventKeys)
         onVisibilityRefresh(runtimeState)
     }
 }

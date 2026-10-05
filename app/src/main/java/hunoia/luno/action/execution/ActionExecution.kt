@@ -74,8 +74,9 @@ class ActionResolver(
             .getOrNull()
         val params = resolved?.params ?: stored.params
 
-        // 只有本次真的展开过模板才校验空值，不改变无模板动作原有的失败语义。
-        if (resolved?.substituted == true && hasBlankRequiredText(definition, params)) {
+        // 必填文本参数为空直接判参数无效（模板展开与否一致处理）。
+        // Executor 不做参数校验，只执行。
+        if (hasBlankRequiredText(definition, params)) {
             return ActionResult.Failed(ActionFailure.InvalidParameter)
         }
         return registry.execute(ActionMapper.fromStored(StoredAction(stored.typeId, params)), context)

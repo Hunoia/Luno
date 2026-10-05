@@ -14,8 +14,11 @@ import hunoia.luno.runtime.condition.formatTimeOfDay
 
 fun conditionSummary(context: Context, group: WhenGroup): String {
     if (group.items.isEmpty()) return context.getString(R.string.automation_condition_empty)
-    val sep = if (group.mode == BooleanMode.AND) context.getString(R.string.logic_all)
-    else context.getString(R.string.logic_any)
+    val sep = when (group.mode) {
+        BooleanMode.AND -> context.getString(R.string.logic_all)
+        BooleanMode.OR -> context.getString(R.string.logic_any)
+        BooleanMode.NOT -> context.getString(R.string.logic_none)
+    }
     return group.items.joinToString(" $sep ") { itemSummary(context, it) }
 }
 
@@ -87,6 +90,14 @@ fun itemSummary(context: Context, item: ConditionItem): String {
             }
             if (item.notifyKeyword.isBlank()) apps
             else "$apps · ${item.notifyKeyword}"
+        }
+
+        ConditionType.GESTURE_PERFORMED -> {
+            if (item.gestureButtonIds.isEmpty()) {
+                context.getString(R.string.condition_gesture_any)
+            } else {
+                item.gestureButtonIds.take(2).joinToString(", ")
+            }
         }
 
         ConditionType.BLUETOOTH_CHANGED,

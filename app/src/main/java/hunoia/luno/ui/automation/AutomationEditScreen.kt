@@ -62,6 +62,7 @@ import hunoia.luno.config.model.newActionData
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.config.model.RuleEffect
 import hunoia.luno.config.model.RuleEffectType
+import hunoia.luno.config.model.RulePriority
 import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.model.RuleStepKind
 import hunoia.luno.config.model.ThrottleKind
@@ -110,6 +111,7 @@ fun AutomationEditScreen(
     var stepSheetPath by remember { mutableStateOf<String?>(null) }
     var stepTypePickerFor by remember { mutableStateOf<String?>(null) }
     var showFireSheet by remember { mutableStateOf(false) }
+    var showPrioritySheet by remember { mutableStateOf(false) }
     var showThrottleSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(ruleId, loadedRules) {
@@ -128,6 +130,7 @@ fun AutomationEditScreen(
                 id = if (ruleId == NEW_AUTOMATION_RULE_ID) SystemClock.uptimeMillis().toString() else ruleId,
                 condition = WhenGroup(),
                 effect = RuleEffect(type = RuleEffectType.RUN_ACTION),
+                createdAtMs = System.currentTimeMillis(),
             )
         }
     }
@@ -251,6 +254,12 @@ fun AutomationEditScreen(
             )
 
             SegmentedSettingsRow(
+                title = stringResource(R.string.automation_priority),
+                subtitle = stringResource(priorityLabel(rule.priority)),
+                onClick = { showPrioritySheet = true },
+            )
+
+            SegmentedSettingsRow(
                 title = stringResource(R.string.automation_steps),
                 subtitle = stringResource(R.string.automation_steps),
             )
@@ -362,6 +371,17 @@ fun AutomationEditScreen(
             onPick = {
                 draft = rule.copy(fireOn = it)
                 showFireSheet = false
+            },
+        )
+    }
+
+    if (showPrioritySheet) {
+        PrioritySheet(
+            selected = rule.priority,
+            onDismiss = { showPrioritySheet = false },
+            onPick = {
+                draft = rule.copy(priority = it)
+                showPrioritySheet = false
             },
         )
     }
@@ -624,19 +644,15 @@ private fun ConditionGroupEditor(
         subtitle = if (group.items.isEmpty()) {
             stringResource(R.string.automation_condition_empty)
         } else {
-            "${stringResource(if (group.mode == BooleanMode.AND) R.string.logic_all else R.string.logic_any)} · " +
+            "${stringResource(groupModeLabel(group.mode))} · " +
                 stringResource(R.string.condition_group_count, group.items.size)
         },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = {
-                    onChange(group.copy(
-                        mode = if (group.mode == BooleanMode.AND) BooleanMode.OR else BooleanMode.AND,
-                    ))
+                    onChange(group.copy(mode = nextGroupMode(group.mode)))
                 }) {
-                    Text(stringResource(
-                        if (group.mode == BooleanMode.AND) R.string.logic_all else R.string.logic_any,
-                    ))
+                    Text(stringResource(groupModeLabel(group.mode)))
                 }
                 onDeleteSelf?.let { del ->
                     IconButton(onClick = del) {
@@ -983,6 +999,47 @@ private fun FireModeSheet(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+private fun PrioritySheet(
+    selected: Int,
+    onDismiss: () -> Unit,
+    onPick: (Int) -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = SheetTopShape,
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = PageGutter)) {
+            Text(
+                text = stringResource(R.string.automation_priority),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = PageGutter),
+            )
+            listOf(RulePriority.HIGH, RulePriority.MEDIUM, RulePriority.LOW).forEach { priority ->
+                SegmentedSettingsRow(
+                    title = stringResource(priorityLabel(priority)),
+                    trailingContent = {
+                        if (priority == selected) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    },
+                    onClick = { onPick(priority) },
+                    modifier = Modifier.padding(horizontal = PageGutter),
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun ThrottleSheet(
     throttle: ThrottlePolicy,
     onDismiss: () -> Unit,
@@ -1035,6 +1092,24 @@ private fun effectActionLabel(
 private fun entryName(library: NewActionLibrarySettings?, entryId: String): String {
     if (entryId.isBlank()) return stringResource(R.string.automation_entry_empty)
     return library?.entries?.find { it.id == entryId }?.name?.ifBlank { entryId } ?: entryId
+}
+
+private fun groupModeLabel(mode: BooleanMode): Int = when (mode) {
+    BooleanMode.AND -> R.string.logic_all
+    BooleanMode.OR -> R.string.logic_any
+    BooleanMode.NOT -> R.string.logic_none
+}
+
+private fun nextGroupMode(mode: BooleanMode): BooleanMode = when (mode) {
+    BooleanMode.AND -> BooleanMode.OR
+    BooleanMode.OR -> BooleanMode.NOT
+    BooleanMode.NOT -> BooleanMode.AND
+}
+
+private fun priorityLabel(priority: Int): Int = when (priority) {
+    RulePriority.HIGH -> R.string.priority_high
+    RulePriority.LOW -> R.string.priority_low
+    else -> R.string.priority_medium
 }
 
 @Composable

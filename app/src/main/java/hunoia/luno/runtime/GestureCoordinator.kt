@@ -17,17 +17,19 @@ import hunoia.luno.config.model.QuickAppSnapshot
 import hunoia.luno.quicklaunch.query.AppSearch
 import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import java.util.Locale
-import hunoia.luno.runtime.action.ActionDispatcher
+import hunoia.luno.action.dispatcher.NewActionDispatcher
 import hunoia.luno.config.model.ScreenEventType
 import hunoia.luno.runtime.action.PreviousAppTracker
 import hunoia.luno.runtime.condition.AudioVolumeTracker
 import hunoia.luno.runtime.condition.hasVolumeCondition
 import hunoia.luno.runtime.automation.AutomationEngine
 import hunoia.luno.runtime.automation.AutomationEvent
+import hunoia.luno.runtime.automation.AutomationEventKey
 import hunoia.luno.runtime.automation.AutomationPulseHub
 import hunoia.luno.runtime.automation.AutomationRuntime
 import hunoia.luno.runtime.automation.ExecutionReason
 import hunoia.luno.runtime.automation.SequenceExecutor
+import hunoia.luno.runtime.automation.SkipReason
 import hunoia.luno.runtime.button.ButtonHideRuntime
 import hunoia.luno.runtime.button.ButtonRefreshCoordinator
 import hunoia.luno.runtime.condition.BatteryTracker
@@ -77,12 +79,12 @@ class GestureCoordinator(
             if (BuildConfig.DEBUG) Log.i("LunoLauncher", "screen off")
             environmentTracker.isNowInLockScreenPage = true
             host.runtimePanelOverlay.closeImmediately()
-            refreshGestureButtons()
+            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.SCREEN))
         },
         onScreenOn = {
             if (BuildConfig.DEBUG) Log.i("LunoLauncher", "screen on")
             environmentTracker.onScreenEvent(ScreenEventType.SCREEN_ON)
-            refreshGestureButtons()
+            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.SCREEN))
         },
         onUserPresent = {
             if (BuildConfig.DEBUG) Log.i("LunoLauncher", "user present")
@@ -96,11 +98,11 @@ class GestureCoordinator(
         onStateChanged = { refreshGestureButtons() },
         onBluetoothPulse = { direction ->
             environmentTracker.onBluetoothChanged(direction)
-            refreshGestureButtons()
+            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.BLUETOOTH))
         },
         onHeadphonesPulse = { direction ->
             environmentTracker.onHeadphonesChanged(direction)
-            refreshGestureButtons()
+            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.HEADPHONES))
         },
     )
 
@@ -108,7 +110,7 @@ class GestureCoordinator(
         context = host.context,
         onVolumeChanged = { change ->
             environmentTracker.onVolumeChanged(change)
-            refreshGestureButtons()
+            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.VOLUME))
         },
     )
 
@@ -121,14 +123,14 @@ class GestureCoordinator(
         context = host.context,
         onChanged = { charging ->
             environmentTracker.onChargingChanged(charging)
-            refreshGestureButtons()
+            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.CHARGING))
         },
     )
 
     private val timeConditionTicker = TimeConditionTicker(
         scope = host.coroutineScope,
         rulesProvider = { runtimeSettingsStore.snapshot().automationRules },
-        onTimeSignatureChanged = { refreshGestureButtons(delayMs = 0L) },
+        onTimeSignatureChanged = { refreshGestureButtons(delayMs = 0L, automationKeys = setOf(AutomationEventKey.TIME)) },
         markScheduledHit = { environmentTracker.onScheduledTimeHit() },
     )
 
@@ -138,13 +140,13 @@ class GestureCoordinator(
         rootInActiveWindowPackageName = { host.accessibilityService.rootInActiveWindow?.packageName?.toString() },
     )
 
-    private val actionDispatcher = ActionDispatcher(
+    private val actionDispatcher = NewActionDispatcher(
         host = host,
         scope = host.coroutineScope,
         previousAppTracker = previousAppTracker,
         settingsSnapshot = {
             val s = runtimeSettingsStore.snapshot()
-            hunoia.luno.runtime.action.SettingsSnapshot(
+            hunoia.luno.action.dispatcher.SettingsSnapshot(
                 actionSettings = s.actionSettings,
                 advancedSettings = s.advancedSettings,
                 gestureSettings = s.gestureSettings,
@@ -160,6 +162,9 @@ class GestureCoordinator(
         },
     )
 
+    /** 同规则单飞：在跑的规则 id 集合（跨规则并行不受影响）。 */
+    private val runningRules = mutableSetOf<String>()
+
     private val sequenceExecutor = SequenceExecutor(
         runSingleAction = { action, entryId, ctx ->
             actionDispatcher.runStepAction(action, entryId, ctx)
@@ -167,23 +172,42 @@ class GestureCoordinator(
     )
 
     private val automationEngine = AutomationEngine(
-        // 每条规则独立协程跑步骤：一家的 delay 不堵别家（冲突全跑）。
+        // 跨规则并行、同规则单飞：同一规则已有实例在跑时，新触发记 skip（RULE_BUSY）。
         onFireRule = { rule, ctx ->
-            host.coroutineScope.launch {
-                val records = sequenceExecutor.runSteps(rule.effect.effectiveSteps(), ctx)
-                val reason = records.firstOrNull { !it.ok }?.let {
-                    ExecutionReason.INTERRUPTED_PREFIX + it.index
-                } ?: ExecutionReason.OK
-                ConfigProvider.appendAutomationEvent(
-                    AutomationEvent(
-                        ruleId = rule.id,
-                        ruleName = rule.name,
-                        timeMs = ctx.nowMs,
-                        fired = true,
-                        reason = reason,
-                        steps = records,
+            val admitted = synchronized(runningRules) { runningRules.add(rule.id) }
+            if (!admitted) {
+                host.coroutineScope.launch {
+                    ConfigProvider.appendAutomationEvent(
+                        AutomationEvent(
+                            ruleId = rule.id,
+                            ruleName = rule.name,
+                            timeMs = ctx.nowMs,
+                            fired = false,
+                            reason = SkipReason.RULE_BUSY.code,
+                        )
                     )
-                )
+                }
+            } else {
+                host.coroutineScope.launch {
+                    try {
+                        val records = sequenceExecutor.runSteps(rule.effect.effectiveSteps(), ctx)
+                        val reason = records.firstOrNull { !it.ok }?.let {
+                            ExecutionReason.INTERRUPTED_PREFIX + it.index
+                        } ?: ExecutionReason.OK
+                        ConfigProvider.appendAutomationEvent(
+                            AutomationEvent(
+                                ruleId = rule.id,
+                                ruleName = rule.name,
+                                timeMs = ctx.nowMs,
+                                fired = true,
+                                reason = reason,
+                                steps = records,
+                            )
+                        )
+                    } finally {
+                        synchronized(runningRules) { runningRules.remove(rule.id) }
+                    }
+                }
             }
         },
         onEvent = { event ->
@@ -228,7 +252,10 @@ class GestureCoordinator(
         }
 
         override fun onAction(action: Action, sourceButton: GestureButton?, sourceOverride: GestureButtonActionSettingsOverride?) {
+            // 手势触发动作与手势事件进总线是两条独立路径：前者立即执行，后者供自动化规则订阅。
+            environmentTracker.onGesturePerformed(sourceButton?.id ?: "")
             actionDispatcher.onAction(action, sourceButton, sourceOverride)
+            refreshGestureButtons(delayMs = 0L, automationKeys = setOf(AutomationEventKey.GESTURE))
         }
     }
 
@@ -249,7 +276,7 @@ class GestureCoordinator(
         // 通知脉冲：同 :service 进程静态直连；destroy 时置空，避免野回调。
         AutomationPulseHub.onNotification = { pulse ->
             environmentTracker.onNotificationPosted(pulse)
-            refreshGestureButtons()
+            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.NOTIFICATION))
         }
         val listener = WallpaperManager.OnColorsChangedListener { _, _ ->
             hunoia.luno.core.Events.post(hunoia.luno.bridge.WallpaperChangedEvent())
@@ -304,7 +331,7 @@ class GestureCoordinator(
         environmentTracker.onAccessibilityEvent(event)
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             if (BuildConfig.DEBUG) Log.i("LunoLauncher", "window changed: pkg=${event.packageName}")
-            refreshGestureButtons()
+            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.APP))
         }
     }
 
@@ -363,11 +390,11 @@ class GestureCoordinator(
         return list.any { rule -> rule.condition.hasVolumeCondition() }
     }
 
-    private fun refreshGestureButtons(delayMs: Long = 100L) {
+    private fun refreshGestureButtons(delayMs: Long = 100L, automationKeys: Set<String> = emptySet()) {
         refreshJob?.cancel()
         refreshJob = host.coroutineScope.launch {
             if (delayMs > 0L) delay(delayMs)
-            automationRuntime.evaluate()
+            automationRuntime.evaluate(automationKeys)
         }
     }
 

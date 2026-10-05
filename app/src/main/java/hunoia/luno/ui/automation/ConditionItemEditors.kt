@@ -78,6 +78,7 @@ val EVENT_CONDITION_TYPES: List<ConditionTypeSpec> = listOf(
     ConditionTypeSpec(ConditionType.BLUETOOTH_CHANGED, R.string.condition_bluetooth_changed, true),
     ConditionTypeSpec(ConditionType.HEADPHONES_CHANGED, R.string.condition_headphones_changed, true),
     ConditionTypeSpec(ConditionType.SCHEDULED_TIME, R.string.condition_scheduled_time, true),
+    ConditionTypeSpec(ConditionType.GESTURE_PERFORMED, R.string.condition_gesture_performed, true),
 )
 
 val CONDITION_TYPES: List<ConditionTypeSpec> = LEVEL_CONDITION_TYPES + EVENT_CONDITION_TYPES
@@ -99,6 +100,7 @@ fun defaultConditionOf(type: String): ConditionItem = when (type) {
     ConditionType.BLUETOOTH_CHANGED -> ConditionItem(type, connectionDirection = ConnectionDirection.CONNECTED)
     ConditionType.HEADPHONES_CHANGED -> ConditionItem(type, connectionDirection = ConnectionDirection.CONNECTED)
     ConditionType.SCHEDULED_TIME -> ConditionItem(type, scheduledMinutes = listOf(8 * 60))
+    ConditionType.GESTURE_PERFORMED -> ConditionItem(type)
     ConditionType.GROUP -> ConditionItem(type, group = WhenGroup())
     else -> ConditionItem(type)
 }
@@ -322,6 +324,22 @@ fun ConditionItemFields(item: ConditionItem, onChange: (ConditionItem) -> Unit) 
                     singleLine = true,
                     shape = hunoia.luno.ui.theme.LargeShape,
                 )
+            }
+
+            ConditionType.GESTURE_PERFORMED -> {
+                Text(
+                    text = if (item.gestureButtonIds.isEmpty()) {
+                        stringResource(R.string.condition_gesture_any)
+                    } else {
+                        item.gestureButtonIds.joinToString(", ")
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                if (item.gestureButtonIds.isNotEmpty()) {
+                    TextButton(onClick = { onChange(item.copy(gestureButtonIds = emptyList())) }) {
+                        Text(stringResource(R.string.condition_gesture_clear))
+                    }
+                }
             }
 
             ConditionType.BLUETOOTH_CHANGED,

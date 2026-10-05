@@ -21,6 +21,7 @@ import hunoia.luno.config.ConfigProvider
 import hunoia.luno.runtime.automation.AutomationEvent
 import hunoia.luno.runtime.automation.ExecutionLog
 import hunoia.luno.runtime.automation.ExecutionReason
+import hunoia.luno.runtime.automation.SkipReason
 import hunoia.luno.ui.component.EmptyState
 import hunoia.luno.ui.component.MyColumn
 import hunoia.luno.ui.component.SegmentedGroup
@@ -94,9 +95,11 @@ fun historySubtitle(event: AutomationEvent): String {
     if (!event.fired) {
         return stringResource(
             when (event.reason) {
-                ExecutionReason.NO_STEPS -> R.string.history_no_steps
-                ExecutionReason.THROTTLED_COOLDOWN -> R.string.history_throttled_cooldown
-                ExecutionReason.THROTTLED_WINDOW -> R.string.history_throttled_window
+                SkipReason.NO_STEPS.code -> R.string.history_no_steps
+                SkipReason.THROTTLED_COOLDOWN.code -> R.string.history_throttled_cooldown
+                SkipReason.THROTTLED_WINDOW.code -> R.string.history_throttled_window
+                SkipReason.OUTPRIORITIZED.code -> R.string.history_outprioritized
+                SkipReason.RULE_BUSY.code -> R.string.history_rule_busy
                 else -> R.string.history_no_steps
             },
         )

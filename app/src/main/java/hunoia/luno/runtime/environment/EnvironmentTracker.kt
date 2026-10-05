@@ -35,6 +35,7 @@ class EnvironmentTracker(
     private var pendingBluetoothChanged: ConnectionDirection? = null
     private var pendingHeadphonesChanged: ConnectionDirection? = null
     private var pendingScheduledTimeHit: Boolean = false
+    private var pendingGesturePerformedId: String? = null
 
     private var lastFocusQueryMs = 0L
     private var lastFocusQueryResult = false
@@ -82,6 +83,10 @@ class EnvironmentTracker(
         pendingScheduledTimeHit = true
     }
 
+    fun onGesturePerformed(buttonId: String) {
+        pendingGesturePerformedId = buttonId
+    }
+
     fun updateKeyboardActive(active: Boolean) {
         if (isKeyboardInputActive == active) return
         isKeyboardInputActive = active
@@ -109,6 +114,7 @@ class EnvironmentTracker(
         val bluetoothChanged = if (consumePulses) pendingBluetoothChanged else null
         val headphonesChanged = if (consumePulses) pendingHeadphonesChanged else null
         val scheduledTimeHit = consumePulses && pendingScheduledTimeHit
+        val gesturePerformedId = if (consumePulses) pendingGesturePerformedId else null
         if (consumePulses) {
             pendingAppChangedTo = null
             pendingScreenEvent = null
@@ -118,6 +124,7 @@ class EnvironmentTracker(
             pendingBluetoothChanged = null
             pendingHeadphonesChanged = null
             pendingScheduledTimeHit = false
+            pendingGesturePerformedId = null
         }
         return GestureRuntimeState(
             currentPackageName = getCurrentPackageName(),
@@ -144,6 +151,7 @@ class EnvironmentTracker(
             bluetoothChanged = bluetoothChanged,
             headphonesChanged = headphonesChanged,
             scheduledTimeHit = scheduledTimeHit,
+            gesturePerformedId = gesturePerformedId,
         )
     }
 

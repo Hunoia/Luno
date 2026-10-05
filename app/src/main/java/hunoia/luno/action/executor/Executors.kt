@@ -37,13 +37,15 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
             is Action.Home -> executionResult(controller.home())
             is Action.Recents -> executionResult(controller.recents())
             is Action.Tap -> {
-                val (x, y) = context.touchPosition ?: return ActionResult.Failed(ActionFailure.InvalidParameter)
+                val (x, y) = context.touchPosition
+                    ?: return ActionResult.Failed(ActionFailure.ExecutionFailed)
                 context.hideGestureButton(250L)
                 delay(80)
                 executionResult(controller.click(x, y))
             }
             is Action.LongPress -> {
-                val (x, y) = context.touchPosition ?: return ActionResult.Failed(ActionFailure.InvalidParameter)
+                val (x, y) = context.touchPosition
+                    ?: return ActionResult.Failed(ActionFailure.ExecutionFailed)
                 context.hideGestureButton(250L)
                 delay(80)
                 executionResult(controller.longPress(x, y))
@@ -88,7 +90,6 @@ class IntentExecutors(private val intentController: IntentController) : ActionEx
     override suspend fun execute(action: Action, context: ExecutorContext):ActionResult {
         return when (action) {
             is Action.OpenUrl -> {
-                if (action.url.isBlank()) return ActionResult.Failed(ActionFailure.InvalidParameter)
                 val adv = context.advancedSettings.effectiveForAction(action)
                 val data = OpenAppOrUrlData(
                     type = OpenAppOrUrlData.TYPE_URL,
@@ -213,7 +214,6 @@ class ShellExecutor(private val shellController: ShellController) : ActionExecut
         return when (action) {
             is Action.CustomCommand -> {
                 val command = action.command.trim()
-                if (command.isBlank()) return ActionResult.Failed(ActionFailure.InvalidParameter)
                 val result = shellController.runCommand(command)
                 val message = if (action.showToast) {
                     if (result.success) {

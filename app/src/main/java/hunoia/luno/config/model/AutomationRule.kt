@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 @Keep
-enum class BooleanMode { AND, OR }
+enum class BooleanMode { AND, OR, NOT }
 
 /**
  * 规则生效类型：v2 只剩 RUN_ACTION。HIDE/SHOW_BUTTONS 已删除（触钮显隐改为
@@ -61,6 +61,7 @@ object ConditionType {
     const val BLUETOOTH_CHANGED = "bluetoothChanged"
     const val HEADPHONES_CHANGED = "headphonesChanged"
     const val SCHEDULED_TIME = "scheduledTime"
+    const val GESTURE_PERFORMED = "gesturePerformed"
 
     const val GROUP = "group"
 }
@@ -115,6 +116,8 @@ data class ConditionItem(
     val connectionDirection: ConnectionDirection? = null,
     val scheduledMinutes: List<Int> = emptyList(),
     val scheduledWeekdays: Set<Int> = emptySet(),
+    /** 手势触发：为空表示任意手势，否则只匹配这些按钮 id。 */
+    val gestureButtonIds: List<String> = emptyList(),
 )
 
 @Serializable
@@ -246,6 +249,13 @@ data class ThrottlePolicy(
     val windowMs: Long = 60_000L,
 )
 
+/** 规则优先级三档（内部映射数字，见 RulePriority）。 */
+object RulePriority {
+    const val HIGH = 100
+    const val MEDIUM = 50
+    const val LOW = 0
+}
+
 @Serializable
 @Keep
 data class AutomationRule(
@@ -258,6 +268,10 @@ data class AutomationRule(
     val cooldownMs: Long = 0,
     val throttle: ThrottlePolicy = ThrottlePolicy(),
     val fireOn: FireMode = FireMode.ENTER,
+    /** 优先级三档（HIGH/MEDIUM/LOW）；同档按用户顺序，创建时间只做兜底。 */
+    val priority: Int = RulePriority.MEDIUM,
+    /** 创建时间戳（同优先级 tie-break；存量 0 保持原列表顺序）。 */
+    val createdAtMs: Long = 0L,
 ) {
     companion object {
         val Defaults: List<AutomationRule> = emptyList()

@@ -10,7 +10,9 @@ import hunoia.luno.runtime.condition.ConditionContext
 import hunoia.luno.runtime.condition.matches
 
 /**
- * v2 自动化引擎：整树边沿（fireOn）+ 节流策略 + 执行历史。
+ * v2 自动化引擎：整树边沿（fireOn）+ 优先级仲裁 + 节流策略 + 执行历史。
+ * 仲裁顺序固定：Event → Condition → Priority Arbitration → Throttle → Execution。
+ * 选中的规则即使被节流也不降级到低优先级规则；落选的边沿命中记跳过。
  * 未命中（hit=false）不记历史，只记边沿后的事，避免每次状态刷新刷屏。
  * 触发后只负责判定与节流记账，步骤执行由调用方（Coordinator 独立协程）跑完再补 fired 事件。
  */
@@ -31,12 +33,27 @@ class AutomationEngine(
     private val cooldownLastFiredAt = mutableMapOf<String, Long>()
     private val windowHits = mutableMapOf<String, ArrayDeque<Long>>()
 
+    /** 订阅索引：规则变更时重建，事件到达直接查表（只评估相关规则）。 */
+    private val subscriptionIndex = SubscriptionIndex()
+
     /** 上次 cleanup 过的 rules 引用,用于跳过没变的情况 */
     private var cleanedRules: List<AutomationRule>? = null
 
-    fun evaluate(rules: List<AutomationRule>, ctx: ConditionContext) {
+    /**
+     * @param eventKeys 本轮刷新的事件域。空集 = 通用刷新，只评估含状态叶子的规则；
+     * 快照里实际携带的脉冲键会自动并入（防抖合并导致一次刷新带多个脉冲时不丢）。
+     */
+    fun evaluate(rules: List<AutomationRule>, ctx: ConditionContext, eventKeys: Set<String> = emptySet()) {
+        subscriptionIndex.refreshIfNeeded(rules)
+        val effectiveKeys = eventKeys + pulseKeysIn(ctx)
+        val allowedIds = subscriptionIndex.ruleIdsForKeys(effectiveKeys)
+        // 第一遍：只求值订阅命中的规则。被跳过的规则保持旧 prev：
+        // 它的输入只会在自己订阅的域刷新时变化，那时必被评估；跨域刷新时输入不变，
+        // prev 不更新也不影响正确性，只是不提前刷新——边沿不误触发。
+        val candidates = ArrayList<AutomationRule>(rules.size)
         for (rule in rules) {
             if (!rule.enabled) continue
+            if (rule.id !in allowedIds) continue
             val hit = rule.matches(ctx)
             val known = lastCondition[rule.id]
             // 条件被改过就把 prev 当作 hit,等价于「条件一变就重新评估边沿」
@@ -54,41 +71,59 @@ class AutomationEngine(
                 FireMode.EXIT -> !hit && prev
                 FireMode.BOTH -> hit != prev
             }
-            if (!edge) continue
-
-            val steps = rule.effect.effectiveSteps()
-            if (steps.isEmpty()) {
-                onEvent(
-                    AutomationEvent(
-                        ruleId = rule.id, ruleName = rule.name, timeMs = ctx.nowMs,
-                        fired = false, reason = ExecutionReason.NO_STEPS,
-                    )
-                )
-                continue
-            }
-            val throttle = rule.effectiveThrottle()
-            val blockReason = throttleBlockReason(rule.id, throttle, ctx.nowMs)
-            if (blockReason != null) {
-                onEvent(
-                    AutomationEvent(
-                        ruleId = rule.id, ruleName = rule.name, timeMs = ctx.nowMs,
-                        fired = false, reason = blockReason,
-                    )
-                )
-                continue
-            }
-            markFired(rule.id, throttle, ctx.nowMs)
-            onFireRule(rule, ctx)
+            if (edge) candidates.add(rule)
         }
+        if (candidates.isEmpty()) {
+            cleanup(rules)
+            return
+        }
+        // 仲裁：优先级降序；sort 稳定，同级保持用户列表顺序。
+        // createdAtMs 只做导入/合并等列表顺序不可信时的兜底元数据，不参与本次比较。
+        val ordered = candidates.sortedByDescending { it.priority }
+        val winner = ordered.first()
+        for (rule in ordered) {
+            if (rule.id == winner.id) continue
+            onEvent(
+                AutomationEvent(
+                    ruleId = rule.id, ruleName = rule.name, timeMs = ctx.nowMs,
+                    fired = false, reason = SkipReason.OUTPRIORITIZED.code,
+                )
+            )
+        }
+        val steps = winner.effect.effectiveSteps()
+        if (steps.isEmpty()) {
+            onEvent(
+                AutomationEvent(
+                    ruleId = winner.id, ruleName = winner.name, timeMs = ctx.nowMs,
+                    fired = false, reason = SkipReason.NO_STEPS.code,
+                )
+            )
+            cleanup(rules)
+            return
+        }
+        val throttle = winner.effectiveThrottle()
+        val blockReason = throttleBlockReason(winner.id, throttle, ctx.nowMs)
+        if (blockReason != null) {
+            onEvent(
+                AutomationEvent(
+                    ruleId = winner.id, ruleName = winner.name, timeMs = ctx.nowMs,
+                    fired = false, reason = blockReason.code,
+                )
+            )
+            cleanup(rules)
+            return
+        }
+        markFired(winner.id, throttle, ctx.nowMs)
+        onFireRule(winner, ctx)
         cleanup(rules)
     }
 
-    private fun throttleBlockReason(ruleId: String, throttle: ThrottlePolicy, nowMs: Long): String? {
+    private fun throttleBlockReason(ruleId: String, throttle: ThrottlePolicy, nowMs: Long): SkipReason? {
         return when (throttle.kind) {
             ThrottleKind.COOLDOWN -> {
                 val last = cooldownLastFiredAt[ruleId]
                 if (last != null && nowMs - last < throttle.cooldownMs) {
-                    ExecutionReason.THROTTLED_COOLDOWN
+                    SkipReason.THROTTLED_COOLDOWN
                 } else {
                     null
                 }
@@ -98,7 +133,7 @@ class AutomationEngine(
                 val maxCount = throttle.maxCount.coerceAtLeast(1)
                 val queue = windowHits.getOrPut(ruleId) { ArrayDeque() }
                 while (queue.isNotEmpty() && nowMs - queue.first() >= windowMs) queue.removeFirst()
-                if (queue.size >= maxCount) ExecutionReason.THROTTLED_WINDOW else null
+                if (queue.size >= maxCount) SkipReason.THROTTLED_WINDOW else null
             }
             else -> null
         }

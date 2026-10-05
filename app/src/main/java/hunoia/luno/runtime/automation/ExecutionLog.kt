@@ -9,12 +9,18 @@ object ExecutionLog {
     const val MAX_PER_RULE_QUERY = 20
 }
 
-/** 跳过/结果原因码（UI 映射到 strings.xml，Check 镜像断言用同一套）。 */
+/** 跳过原因枚举（线值保持与旧字符串一致，历史兼容）。 */
+enum class SkipReason(val code: String) {
+    NO_STEPS("no_steps"),
+    THROTTLED_COOLDOWN("throttled_cooldown"),
+    THROTTLED_WINDOW("throttled_window"),
+    OUTPRIORITIZED("outprioritized"),
+    RULE_BUSY("rule_busy"),
+}
+
+/** 执行结果原因码（UI 映射到 strings.xml，Check 镜像断言用同一套）。 */
 object ExecutionReason {
     const val OK = "ok"
-    const val NO_STEPS = "no_steps"
-    const val THROTTLED_COOLDOWN = "throttled_cooldown"
-    const val THROTTLED_WINDOW = "throttled_window"
     const val INTERRUPTED_PREFIX = "interrupted:"
 }
 
