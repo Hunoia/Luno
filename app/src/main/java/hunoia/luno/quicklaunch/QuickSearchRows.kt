@@ -20,6 +20,8 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.WifiTethering
+import androidx.compose.ui.graphics.asImageBitmap
+import hunoia.luno.quicklaunch.icon.SearchIconCache
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -114,6 +116,8 @@ internal fun ResultRow(
 ) {
     val context = LocalContext.current
     val colorScheme = MaterialTheme.colorScheme
+    // 与 flow 预热同源的边长：读缓存必须同 key（包名@边长），否则命中不了。
+    val sizePx = with(LocalDensity.current) { 24.dp.toPx().toInt() }
     val subtitle = if (result is QuickSearchResult.App && result.isDisabled) {
         result.subtitle + " · " + stringResource(R.string.quick_search_app_disabled)
     } else {
@@ -126,6 +130,14 @@ internal fun ResultRow(
         onSelect = { onClick() },
         shape = shape,        iconModel = iconModel(result, context),
         icon = iconVector(result),
+        // 同步图标优先（flow 发射前已 resolve，首帧即有图，无 AsyncImage 空隙）；
+        // 缺席（新装应用）才走 AsyncImage 兜底。
+        iconBitmap = when (result) {
+            is QuickSearchResult.App -> SearchIconCache.get(result.appInfo.packageName, sizePx)
+            is QuickSearchResult.Shortcut -> result.shortcut.iconBitmap?.asImageBitmap()
+                ?: SearchIconCache.get(result.shortcut.packageName, sizePx)
+            else -> null
+        },
         textIcon = textIcon(result),
         verticalGap = 0.dp,
         horizontalGap = 0.dp,

@@ -180,7 +180,17 @@ class QuickAppLauncherOverlay(private val host: GestureHost) {
 
     /**
      * 等 expand 的全屏 relayout 落定再点亮，避免淡入首帧画在 1×1 窗口里。
-     * 窗口若本来就已是全屏（listener 永不触发）靠 300ms 兜底，revealPanel 幂等。
+     * 窗口若本来就已是全屏（listener 永不触发）直接点亮，没有 resize 就没有 race。
+     *
+     * 注意只看本地 layout 不够：expand 先改本地 lp 再发 IPC，紧接着的
+     * traversal 量出来就是全屏，但 Surface 的放大晚 1~3 帧。回调里直接点亮，
+     * 淡入前几帧画在 1×1 里、中途弹开 = 进场缩放位移。
+     *
+     * 注意 OnLayoutChangeListener 只在 bounds 变化时触发：expand 后的第一次
+     * traversal（1×1→全屏）触发一次，之后尺寸不变不再触发——所以不能等两拍
+     * （实测等两拍每次都跌进 300ms 兜底，打开慢 300ms）。一拍即 post，
+     * post 再排空一帧给 Surface，残余 pop 落在 alpha≈0。代价约一帧，无感知。
+     * 300ms 兜底保留（revealPanel 幂等，重复调无害）。
      */
     private fun awaitLayoutThenReveal() {
         val view = overlayView ?: return
@@ -189,10 +199,22 @@ class QuickAppLauncherOverlay(private val host: GestureHost) {
             revealPanel()
             return
         }
-        val listener = View.OnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+        var stablePasses = 0
+        lateinit var listener: View.OnLayoutChangeListener
+        listener = View.OnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
             if (v.width > WindowLayoutFactory.COMPACT_SIZE && v.height > WindowLayoutFactory.COMPACT_SIZE) {
-                clearLayoutGate()
-                revealPanel()
+                if (stablePasses == 0) {
+                    v.post {
+                        // close() 会先清门控：门控已清说明用户关了，不再点亮。
+                        if (layoutGateListener === listener) {
+                            clearLayoutGate()
+                            revealPanel()
+                        }
+                    }
+                }
+                stablePasses++
+            } else {
+                stablePasses = 0
             }
         }
         layoutGateListener = listener

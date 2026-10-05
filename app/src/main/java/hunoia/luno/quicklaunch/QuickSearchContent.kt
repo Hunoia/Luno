@@ -65,6 +65,8 @@ import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import hunoia.luno.quicklaunch.icon.SearchIconCache
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.text.KeyboardActions
@@ -82,6 +84,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import hunoia.luno.BuildConfig
 import hunoia.luno.R
 import hunoia.luno.config.model.BLANK_RECENT_LIMIT
+import hunoia.luno.config.model.MIN_HISTORY_CHARS
 import hunoia.luno.config.model.SRC_ACTION
 import hunoia.luno.config.model.SRC_APP
 import hunoia.luno.config.model.SRC_CALENDAR
@@ -230,12 +233,16 @@ internal fun QuickSearchContent(
             callsTick++
         }
     }
+    // 行图标边长（展示与 flow 预热同源）：flow 里 resolve 进同步缓存，
+    // composition 只做同步读，首帧即有图。
+    val iconPx = with(LocalDensity.current) { 24.dp.toPx().toInt() }
+    val appCtx = LocalContext.current.applicationContext
     // 搜索搬出主线程：query 照常即时更新（字先上屏），结果流式回来；
     // mapLatest 自动取消过期搜索，快打不堆积。空串短路不进搜索。
     // snapshotFlow 跟踪块内读到的全部 State（query/设置/tick），值变化即重搜。
     val searchFlow = remember(
         entries, launcherSettings, searchSettings,
-        contactsTick, mediaTick, calendarTick, smsTick, callsTick, torchOn,
+        contactsTick, mediaTick, calendarTick, smsTick, callsTick, torchOn, appCtx, iconPx,
     ) {
         snapshotFlow {
             SearchSnapshot(
@@ -244,15 +251,34 @@ internal fun QuickSearchContent(
             )
         }.mapLatest { s ->
             if (s.text.isBlank()) {
-                emptyList()
+                s.text to emptyList<QuickSearchResult>()
             } else {
                 withContext(Dispatchers.Default) {
-                    index.search(s.text, s.entries, s.launcher, s.search, s.torchOn)
+                    val out = index.search(s.text, s.entries, s.launcher, s.search, s.torchOn).also { res ->
+                        // 发射前把 App/快捷方式行的图标 resolve 进同步缓存：
+                        // UI 线程读到即画，无异步空隙，结果原子到达。已缓存的零开销，
+                        // 只有新包才解码（自带 bitmap 的快捷方式跳过）。
+                        val pkgs = HashSet<String>()
+                        for (r in res) {
+                            when (r) {
+                                is QuickSearchResult.App -> pkgs.add(r.appInfo.packageName)
+                                is QuickSearchResult.Shortcut ->
+                                    if (r.shortcut.iconBitmap == null) pkgs.add(r.shortcut.packageName)
+                                else -> {}
+                            }
+                        }
+                        SearchIconCache.ensureAll(appCtx, pkgs, iconPx)
+                    }
+                    s.text to out
                 }
             }
         }
     }
-    val results by searchFlow.collectAsState(initial = emptyList())
+    // 原子包：结果永远带着它对应的 query。到达前 results 留旧值（后续字），
+    // 首字无旧值则由分支继续显示空态——搜索分支只挂完整数据，不挂半成品。
+    val packet by searchFlow.collectAsState(initial = "" to emptyList<QuickSearchResult>())
+    val results = packet.second
+    val settled = packet.first == query.text
     // 历史行共用：长按删单条（搜索态/空态同一语义）。
     val deleteHistory: (String) -> Unit = { h ->
         scope.launch {
@@ -331,7 +357,11 @@ internal fun QuickSearchContent(
         // statusBarsPadding：内容从状态栏下方开始，不垫在透明状态栏图标后面
         //（白卡压白图标会导致图标看不清，跟 blur 无关，必须避让）。
         Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
-            if (results.isNotEmpty()) {
+            // 分支按“数据完整”进：flow 发射 (queryText, results) 原子包，
+            // 在途（packet.text != query.text）时不挂半成品——首字无旧数据就继续显示空态，
+            // 到达后一次切完整搜索列表（和空→提示同性质，原子出现不闪）。
+            // 有旧数据时继续显示旧列表，到达即整批换。
+            if (query.text.isNotBlank() && results.isNotEmpty()) {
                 // 搜索态：匹配的历史全部参展（点即回填，贴胶囊），结果排其上。
                 // 标识指令（bb 新闻 / sms 138）下历史不参展：纯目标结果。
                 val q = query.text.trim()
@@ -339,7 +369,8 @@ internal fun QuickSearchContent(
                     emptyList()
                 } else {
                     searchSettings.recentQueries.filter {
-                        it.isNotBlank() && !it.equals(q, ignoreCase = true) && it.contains(q, ignoreCase = true)
+                        it.isNotBlank() && it.trim().length >= MIN_HISTORY_CHARS &&
+                            !it.equals(q, ignoreCase = true) && it.contains(q, ignoreCase = true)
                     }
                 }
                 val total = matches.size + results.size
@@ -375,10 +406,13 @@ internal fun QuickSearchContent(
                         )
                     }
                 }
-            } else if (query.text.isEmpty()) {
+            } else if (query.text.isEmpty() || (!settled && query.text.isNotBlank())) {
+                // 空串，或首字在途（有字、无旧数据、结果没到）：继续显示空态。
                 // 空输入：剪贴板历史最贴胶囊，其次搜索历史（最近 3），常用、最近文件在上。
                 // 剪贴板由 Activity.onWindowFocusChanged 喂进来（首开 composition 早于焦点）。
-                val history = searchSettings.recentQueries.take(BLANK_RECENT_LIMIT)
+                val history = searchSettings.recentQueries
+                    .filter { it.trim().length >= MIN_HISTORY_CHARS }
+                    .take(BLANK_RECENT_LIMIT)
                 val clips = if (searchSettings.searchClipboard) {
                     // 当前剪贴优先（焦点刚读到的），后面跟历史去重。
                     (listOfNotNull(clipboardText) + searchSettings.clipHistory).distinct()

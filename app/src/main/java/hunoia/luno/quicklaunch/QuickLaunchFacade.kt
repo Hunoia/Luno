@@ -45,6 +45,11 @@ object QuickLaunchFacade {
         ImageRequest.Builder(context)
             .data(AppIconModel(packageName, sizePx))
             .size(sizePx, sizePx)
+            // 搜索行禁用全局 150ms crossfade：结果列表每次挂载十几行，
+            // 每行淡入 stagger 起来就是闪（提示行/空态行全是同步矢量所以不闪）。
+            // 图标靠搜索 flow 发射前 resolve 进 SearchIconCache，到时直接呈现，
+            // 无需淡入掩盖解码。
+            .crossfade(false)
             .build()
 
     fun queryLauncherAppOptions(context: Context): List<LauncherAppOption> =

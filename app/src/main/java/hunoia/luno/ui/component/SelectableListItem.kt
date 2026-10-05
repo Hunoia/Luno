@@ -28,6 +28,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,6 +59,9 @@ fun SelectableListItem(
     enabled: Boolean = true,
     icon: ImageVector? = null,
     iconModel: Any? = null,
+    // 同步位图（搜索行经 SearchIconCache 预热）：有它直接画，无 AsyncImage 的异步空隙；
+    // 缺席才走 iconModel 兜底。其它调用方不传，行为不变。
+    iconBitmap: ImageBitmap? = null,
     textIcon: TextIcon? = null,
     leadingContent: (@Composable () -> Unit)? = null,
     leadingIndent: Dp = 0.dp,
@@ -142,6 +147,16 @@ fun SelectableListItem(
                         imageVector = iv,
                         contentDescription = null,
                         tint = iconTint,
+                    )
+                }
+            }
+            ?: iconBitmap?.let { bm ->
+                {
+                    Image(
+                        bitmap = bm,
+                        modifier = Modifier.size(RowIconSize).clip(SmallShape),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
                     )
                 }
             }

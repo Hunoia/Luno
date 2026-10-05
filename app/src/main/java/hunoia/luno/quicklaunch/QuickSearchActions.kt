@@ -13,6 +13,7 @@ import hunoia.luno.BuildConfig
 import hunoia.luno.R
 import hunoia.luno.bridge.feedback.showToast
 import hunoia.luno.config.model.MAX_RECENT_QUERIES
+import hunoia.luno.config.model.MIN_HISTORY_CHARS
 import hunoia.luno.quicklaunch.query.QuickSearchResult
 import kotlinx.coroutines.launch
 
@@ -24,15 +25,16 @@ internal fun QuickSearchActivity.copyText(text: String) {
         showToast(R.string.quick_search_copied)
     }
 
-    /** 确认搜索记历史：去重 cap 上限，供各结果分支共用。 */
+    /** 确认搜索记历史：只记 6 字以上的，去重 cap 上限，顺手清掉已存短串，供各结果分支共用。 */
 internal fun QuickSearchActivity.recordQuery(text: String) {
-        if (text.isBlank()) return
+        if (text.isBlank() || text.trim().length < MIN_HISTORY_CHARS) return
         lifecycleScope.launch {
             runCatching {
                 hunoia.luno.config.ConfigProvider.updateQuickSearchSettings {
                     it.copy(
                         recentQueries = (listOf(text) + it.recentQueries)
                             .distinct()
+                            .filter { q -> q.trim().length >= MIN_HISTORY_CHARS }
                             .take(MAX_RECENT_QUERIES),
                     )
                 }

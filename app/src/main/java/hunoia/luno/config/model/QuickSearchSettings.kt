@@ -53,6 +53,8 @@ data class QuickSearchSettings(
 /** 历史缓存上限；空输入只展最近 [BLANK_RECENT_LIMIT] 条，搜索时匹配的全部参展。 */
 const val MAX_RECENT_QUERIES = 50
 const val BLANK_RECENT_LIMIT = 3
+/** 历史只记 trim 后长度达标的：短词（指令缩写/单字）不进历史，展示侧同样过滤。 */
+const val MIN_HISTORY_CHARS = 6
 /** 剪贴板历史上限（聚焦读到新文本才记，去重）。 */
 const val MAX_CLIP_HISTORY = 10
 
