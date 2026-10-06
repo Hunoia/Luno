@@ -55,6 +55,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -82,7 +83,6 @@ import hunoia.luno.config.model.withConditionAt
 import hunoia.luno.ui.actionselect.selectedItemLabel
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.navigation.NEW_AUTOMATION_RULE_ID
-import hunoia.luno.ui.theme.BottomBarHeight
 import hunoia.luno.ui.theme.BottomBarPadding
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ContainerRadius
@@ -1246,10 +1246,6 @@ private fun ThrottleEditor(throttle: ThrottlePolicy, onThrottleChange: (Throttle
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         shape = LargeShape,
     )
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
-    ) {
         OutlinedTextField(
             value = countText,
             onValueChange = {
@@ -1257,7 +1253,7 @@ private fun ThrottleEditor(throttle: ThrottlePolicy, onThrottleChange: (Throttle
                 if (it.isBlank()) submit(maxCount = 0)
                 else it.toIntOrNull()?.let { n -> submit(maxCount = n) }
             },
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.fillMaxWidth(),
             label = { Text(stringResource(R.string.throttle_window_count)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -1270,13 +1266,12 @@ private fun ThrottleEditor(throttle: ThrottlePolicy, onThrottleChange: (Throttle
                 if (it.isBlank()) submit(windowMs = 0L)
                 else it.toLongOrNull()?.let { s -> submit(windowMs = s * 1000) }
             },
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.fillMaxWidth(),
             label = { Text(stringResource(R.string.throttle_window_seconds)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             shape = LargeShape,
         )
-    }
 }
 private fun conditionUsesNotification(group: WhenGroup): Boolean = group.items.any { item ->
     when (item.type) {
@@ -1324,12 +1319,9 @@ private fun BoxScope.SavePill(
             .windowInsetsPadding(WindowInsets.navigationBars)
             .clip(CircleShape)
             .appHazeEffect(hazeState, containerColor)
-            .background(
-                color = containerColor,
-                shape = CircleShape,
-            )
             .clickable(onClick = onClick, role = Role.Button)
-            .size(BottomBarHeight),
+            // 对标底栏 + 号键 64 正圆。
+            .size(64.dp),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
