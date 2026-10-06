@@ -10,6 +10,7 @@ import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.automation.AutomationCenter
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.RuleEffectType
@@ -21,6 +22,7 @@ import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.quicklaunch.model.qualifiedNameWithIntents
+import hunoia.luno.ui.automation.AutomationDraftHolder
 import hunoia.luno.ui.navigation.ActionSelect
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -112,28 +114,31 @@ private suspend fun saveAutomationEffect(actionSelect: ActionSelect, newActions:
     val current = loadAutomationActions(actionSelect, entries) ?: emptyList()
     tryDeleteShortcutIcons(current, newActions)
     val selected = newActions.firstOrNull()
+    val action = selected?.takeIf { it.typeId != "internal.libraryRef" }?.withoutVariantKey()
+    val entryId = selected
+        ?.takeIf { it.typeId == "internal.libraryRef" }
+        ?.let { (it.params["entryId"] as? JsonPrimitive)?.contentOrNull.orEmpty() }
+        .orEmpty()
+    val path = actionSelect.automationStepPath
+    fun applyTo(rule: AutomationRule): AutomationRule {
+        if (path.isBlank()) {
+            return rule.copy(effect = rule.effect.copy(action = action, entryId = entryId))
+        }
+        if (rule.effect.stepAt(path) == null) {
+            android.util.Log.w(
+                "ActionSelect",
+                "automation step path missing, rule=${rule.id} path=$path",
+            )
+        }
+        return rule.copy(effect = rule.effect.withStepAt(path) { step ->
+            step.copy(kind = hunoia.luno.config.model.RuleStepKind.ACTION, action = action, entryId = entryId)
+        })
+    }
+    // 草稿优先：编辑页跳转时只暂存内存，未保存前不写库。
+    if (AutomationDraftHolder.transform(actionSelect.automationRuleId, ::applyTo)) return
     AutomationCenter.updateRules { rules ->
         rules.map { rule ->
-            if (rule.id != actionSelect.automationRuleId) return@map rule
-            val action = selected?.takeIf { it.typeId != "internal.libraryRef" }?.withoutVariantKey()
-            val entryId = selected
-                ?.takeIf { it.typeId == "internal.libraryRef" }
-                ?.let { (it.params["entryId"] as? JsonPrimitive)?.contentOrNull.orEmpty() }
-                .orEmpty()
-            val path = actionSelect.automationStepPath
-            if (path.isBlank()) {
-                rule.copy(effect = rule.effect.copy(action = action, entryId = entryId))
-            } else {
-                if (rule.effect.stepAt(path) == null) {
-                    android.util.Log.w(
-                        "ActionSelect",
-                        "automation step path missing, rule=${rule.id} path=$path (persist race?)",
-                    )
-                }
-                rule.copy(effect = rule.effect.withStepAt(path) { step ->
-                    step.copy(kind = hunoia.luno.config.model.RuleStepKind.ACTION, action = action, entryId = entryId)
-                })
-            }
+            if (rule.id != actionSelect.automationRuleId) rule else applyTo(rule)
         }
     }
 }
@@ -143,7 +148,8 @@ private suspend fun loadAutomationActions(
     actionLibraryEntries: List<NewActionLibraryEntry>
 ): List<StoredAction>? {
     val rules = AutomationCenter.getRules()
-    val rule = rules.find { it.id == actionSelect.automationRuleId } ?: return null
+    val rule = AutomationDraftHolder.take(actionSelect.automationRuleId)
+        ?: rules.find { it.id == actionSelect.automationRuleId } ?: return null
     if (rule.effect.type != RuleEffectType.RUN_ACTION) return null
     val path = actionSelect.automationStepPath
     if (path.isNotBlank()) {

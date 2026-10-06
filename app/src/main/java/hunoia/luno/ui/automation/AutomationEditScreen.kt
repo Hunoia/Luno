@@ -10,15 +10,18 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
@@ -30,16 +33,15 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +55,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.action.model.NewActionLibrarySettings
@@ -77,13 +82,13 @@ import hunoia.luno.config.model.withConditionAt
 import hunoia.luno.ui.actionselect.selectedItemLabel
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.navigation.NEW_AUTOMATION_RULE_ID
+import hunoia.luno.ui.theme.BottomBarHeight
 import hunoia.luno.ui.theme.BottomBarPadding
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.ElevationSmall
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.LargeShape
-import hunoia.luno.ui.theme.ListItemVerticalPadding
 import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.liquidGlassBlur
@@ -124,6 +129,11 @@ fun AutomationEditScreen(
     var stepSheetPath by remember { mutableStateOf<String?>(null) }
     var stepTypePickerFor by remember { mutableStateOf<String?>(null) }
     var showBlockedDialog by remember { mutableStateOf(false) }
+    var showDiscardDialog by remember { mutableStateOf(false) }
+    // IF 步骤条件编辑（屏幕层 sheet，不嵌套）：目标步骤路径 + 叶路径 + 待选类型落点。
+    var ifConditionStepPath by remember { mutableStateOf<String?>(null) }
+    var ifNestedPath by remember { mutableStateOf<List<Int>?>(null) }
+    var ifPickerTarget by remember { mutableStateOf<Pair<String, List<Int>>?>(null) }
     /** 用户编辑统一入口：写草稿并标脏（store 回填与初始物化不走这里）。 */
     fun update(next: AutomationRule) {
         draft = next
@@ -149,42 +159,39 @@ fun AutomationEditScreen(
             )
         }
     }
-    LaunchedEffect(loadedRules) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var resumeTick by remember { mutableStateOf(0) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) resumeTick++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(resumeTick) {
+        if (resumeTick == 0) return@LaunchedEffect
         val current = draft ?: return@LaunchedEffect
-        val rules = loadedRules ?: return@LaunchedEffect
-        val stored = rules.find { it.id == current.id } ?: return@LaunchedEffect
-        // 动作选择页回填（整条规则级或某步骤级）写回 store 后，同步进 draft。
-        if (stored.effect.action != current.effect.action ||
-            stored.effect.entryId != current.effect.entryId ||
-            stored.effect.steps != current.effect.steps
-        ) {
-            draft = current.copy(effect = current.effect.copy(
-                action = stored.effect.action,
-                entryId = stored.effect.entryId,
-                steps = stored.effect.steps,
-            ))
+        // 动作选择页回填（整条规则级或某步骤级）只写内存暂存，取回并入 draft。
+        AutomationDraftHolder.take(current.id)?.let { staged ->
+            if (staged.effect != current.effect) {
+                draft = current.copy(effect = staged.effect)
+            }
         }
     }
     val rule = draft ?: return
     val context = LocalContext.current
     /**
-     * 跳动作选择页：必须显式传入要持久化的规则——调用方刚改完 draft 时重组还没发生，
-     * 直接读闭包里的 rule 会拿到旧快照（新步骤丢了，选择页回填 path 失效还照样 toast 成功）。
+     * 跳动作选择页：草稿只暂存内存（[AutomationDraftHolder]），不写库——
+     * 未保存的半成品不进列表、不进引擎；选择页读写都经 holder 回写暂存。
+     * 必须显式传入要暂存的规则：调用方刚改完 draft 时重组还没发生，
+     * 直接读闭包里的 rule 会拿到旧快照。
      */
     fun onPickAction(ruleToPersist: AutomationRule, stepPath: String) {
-        scope.launch {
-            AutomationCenter.updateRules { rules ->
-                if (rules.any { r -> r.id == ruleToPersist.id }) {
-                    rules.map { r -> if (r.id == ruleToPersist.id) ruleToPersist else r }
-                } else {
-                    rules + ruleToPersist
-                }
-            }
-            onNavToActionSelect(ActionSelect(
-                automationRuleId = ruleToPersist.id,
-                automationStepPath = stepPath,
-            ))
-        }
+        AutomationDraftHolder.stage(ruleToPersist)
+        onNavToActionSelect(ActionSelect(
+            automationRuleId = ruleToPersist.id,
+            automationStepPath = stepPath,
+        ))
     }
     fun save() {
         scope.launch {
@@ -196,6 +203,7 @@ fun AutomationEditScreen(
                         rules + rule
                     }
                 }
+                AutomationDraftHolder.remove(rule.id)
                 dirty = false
                 onBack()
             } catch (e: Exception) {
@@ -210,9 +218,16 @@ fun AutomationEditScreen(
     fun trySave() {
         if (canSave) save() else showBlockedDialog = true
     }
+    fun tryBack() {
+        if (dirty) showDiscardDialog = true
+        else {
+            AutomationDraftHolder.remove(rule.id)
+            onBack()
+        }
+    }
     LunoScreen(
         title = stringResource(R.string.automation_edit),
-        onBack = onBack,
+        onBack = { tryBack() },
         actions = {
             LunoIconButton(
                 icon = Icons.Default.History,
@@ -242,14 +257,32 @@ fun AutomationEditScreen(
                     onConfirm = { showBlockedDialog = false },
                 )
             }
+            if (showDiscardDialog) {
+                ConfirmDialog(
+                    title = stringResource(R.string.automation_discard_title),
+                    text = stringResource(R.string.automation_discard_text),
+                    confirmLabel = stringResource(R.string.automation_discard),
+                    onDismissRequest = { showDiscardDialog = false },
+                    onConfirm = {
+                        showDiscardDialog = false
+                        AutomationDraftHolder.remove(rule.id)
+                        onBack()
+                    },
+                )
+            }
         },
         sheets = {
             conditionSheetPath?.let { path ->
-                rule.condition.conditionAt(path)?.let { item ->
+                val item = rule.condition.conditionAt(path)
+                Log.d("AutomationEdit", "DBG conditionSheet path=$path resolved=${item != null} type=${item?.type}")
+                item?.let {
                     ConditionSheet(
-                        item = item,
+                        item = it,
                         onDismissRequest = { conditionSheetPath = null },
-                        onConditionChange = { update(rule.copy(condition = rule.condition.withConditionAt(path) { it })) },
+                        onConditionChange = { changed ->
+                            Log.d("AutomationEdit", "DBG onConditionChange path=$path type=${changed.type}")
+                            update(rule.copy(condition = rule.condition.withConditionAt(path) { changed }))
+                        },
                         onDelete = {
                             update(rule.copy(condition = removeConditionAt(rule.condition, path)))
                             conditionSheetPath = null
@@ -270,18 +303,84 @@ fun AutomationEditScreen(
                             update(rule.copy(effect = removeStepAt(rule.effect, path)))
                             stepSheetPath = null
                         },
+                        onEditIfCondition = {
+                            stepSheetPath = null
+                            ifConditionStepPath = path
+                        },
                     )
                 }
+            }
+            ifConditionStepPath?.let { stepPath ->
+                rule.effect.stepAt(stepPath)?.let { step ->
+                    if (step.kind == RuleStepKind.IF) {
+                        IfConditionSheet(
+                            condition = step.condition,
+                            onConditionChange = { newCond ->
+                                update(rule.copy(effect = rule.effect.withStepAt(stepPath) {
+                                    it.copy(condition = newCond)
+                                }))
+                            },
+                            onDismissRequest = {
+                                ifConditionStepPath = null
+                                ifNestedPath = null
+                                ifPickerTarget = null
+                            },
+                            onEditItem = { ifNestedPath = it },
+                            onOpenPicker = { groupPath -> ifPickerTarget = stepPath to groupPath },
+                        )
+                    }
+                }
+            }
+            ifNestedPath?.let { nested ->
+                ifConditionStepPath?.let { stepPath ->
+                    rule.effect.stepAt(stepPath)?.let { step ->
+                        step.condition.conditionAt(nested)?.let { item ->
+                            ConditionSheet(
+                                item = item,
+                                onDismissRequest = { ifNestedPath = null },
+                                onConditionChange = { new ->
+                                    update(rule.copy(effect = rule.effect.withStepAt(stepPath) {
+                                        it.copy(condition = it.condition.withConditionAt(nested) { new })
+                                    }))
+                                },
+                                onDelete = {
+                                    update(rule.copy(effect = rule.effect.withStepAt(stepPath) {
+                                        it.copy(condition = removeConditionAt(it.condition, nested))
+                                    }))
+                                    ifNestedPath = null
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+            ifPickerTarget?.let { (stepPath, groupPath) ->
+                ConditionTypePickerSheet(
+                    onDismissRequest = { ifPickerTarget = null },
+                    onPick = { type ->
+                        update(rule.copy(effect = rule.effect.withStepAt(stepPath) {
+                            it.copy(condition = appendConditionAt(it.condition, groupPath, defaultConditionOf(type)))
+                        }))
+                        ifPickerTarget = null
+                    },
+                )
             }
             stepTypePickerFor?.let { prefix ->
                 StepTypeSheet(
                     onDismissRequest = { stepTypePickerFor = null },
                     onPick = { kind ->
-                        appendStep(rule.effect, prefix, RuleStep(kind = kind))?.let { (newPath, newEffect) ->
-                            update(rule.copy(effect = newEffect))
-                            stepSheetPath = newPath
-                        }
+                        val appended = appendStep(rule.effect, prefix, RuleStep(kind = kind))
                         stepTypePickerFor = null
+                        appended?.let { (newPath, newEffect) ->
+                            val newRule = rule.copy(effect = newEffect)
+                            update(newRule)
+                            if (kind == RuleStepKind.ACTION) {
+                                // 动作直达选择页，不经过中间步骤 sheet。
+                                onPickAction(newRule, newPath)
+                            } else {
+                                stepSheetPath = newPath
+                            }
+                        }
                     },
                 )
             }
@@ -499,6 +598,19 @@ private fun StepRow(
     )
 }
 /**
+ * 按路径向条件组追加条件：path 为组下标链，空=顶层。非法路径原样返回。
+ */
+private fun appendConditionAt(group: WhenGroup, path: List<Int>, item: ConditionItem): WhenGroup {
+    if (path.isEmpty()) return group.copy(items = group.items + item)
+    val head = path.first()
+    if (head !in group.items.indices) return group
+    val target = group.items[head]
+    val sub = target.group ?: return group
+    val items = group.items.toMutableList()
+    items[head] = target.copy(group = appendConditionAt(sub, path.drop(1), item))
+    return group.copy(items = items)
+}
+/**
  * 按路径删除条件：path 为条件组内下标链。非法路径原样返回。
  */
 private fun removeConditionAt(group: WhenGroup, path: List<Int>): WhenGroup {
@@ -632,6 +744,9 @@ private fun ConditionGroupEditor(
     onDeleteSelf: (() -> Unit)? = null,
     fireMode: FireMode? = null,
     onFireChange: ((FireMode) -> Unit)? = null,
+    groupLabel: String? = null,
+    // 类型选择器外置（sheet 内嵌编辑器时用）：传 null 走内部 picker，传 host 走外部。
+    pickerHost: ((List<Int>) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     var showPicker by remember { mutableStateOf(false) }
@@ -647,7 +762,7 @@ private fun ConditionGroupEditor(
             },
         ) {
             LunoSettingsRow(
-                title = "",
+                title = groupLabel.orEmpty(),
                 leading = if (fireMode != null && onFireChange != null) {
                     {
                         Box {
@@ -725,6 +840,7 @@ private fun ConditionGroupEditor(
                             onEditItem = onEditItem,
                             basePath = path,
                             depth = depth + 1,
+                            groupLabel = context.getString(R.string.condition_group_number, index + 1),
                             onDeleteSelf = {
                                 val items = group.items.toMutableList()
                                 items.removeAt(index)
@@ -744,26 +860,63 @@ private fun ConditionGroupEditor(
                 TimelineNode(badge = { TimelineBadge((index + 1).toString()) }) {
                     ConditionRow(
                         item = item,
-                        onEdit = { onEditItem(path) },
+                        onEdit = {
+                            Log.d("AutomationEdit", "DBG condition row tap path=$path")
+                            onEditItem(path)
+                        },
                     )
                 }
             }
         }
         Row(
-            modifier = timelineIndent(),
-            horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+            modifier = timelineIndent()
+                .fillMaxWidth()
+                .heightIn(min = MinInteractiveSize)
+                .clip(RoundedCornerShape(ContainerRadius))
+                .background(MaterialTheme.colorScheme.surfaceBright),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AddRow(
-                onClick = { showPicker = true },
-                modifier = Modifier.weight(1f),
-                contentDescription = stringResource(R.string.condition_add),
-            )
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clickable(
+                        onClick = {
+                            if (pickerHost != null) pickerHost(basePath)
+                            else showPicker = true
+                        },
+                        role = Role.Button,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = stringResource(R.string.condition_add),
+                )
+            }
             if (depth < 2) {
-                TextButton(onClick = {
-                    onGroupChange(group.copy(items = group.items + defaultConditionOf(ConditionType.GROUP)))
-                }) {
-                    Text(stringResource(R.string.condition_logic_group))
+                VerticalDivider(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .padding(vertical = CardInnerSpacing),
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable(
+                            onClick = {
+                                onGroupChange(group.copy(items = group.items + defaultConditionOf(ConditionType.GROUP)))
+                            },
+                            role = Role.Button,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccountTree,
+                        contentDescription = stringResource(R.string.condition_logic_group),
+                    )
                 }
             }
         }
@@ -847,6 +1000,7 @@ private fun StepSheet(
     onStepChange: (RuleStep) -> Unit,
     onPickAction: () -> Unit,
     onDelete: () -> Unit,
+    onEditIfCondition: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -917,34 +1071,11 @@ private fun StepSheet(
                         )
                     }
                     RuleStepKind.IF -> {
-                        var nestedPath by remember { mutableStateOf<List<Int>?>(null) }
-                        ConditionGroupEditor(
-                            group = step.condition,
-                            onGroupChange = { onStepChange(step.copy(condition = it)) },
-                            onEditItem = { nestedPath = it },
+                        LunoSettingsRow(
+                            title = stringResource(R.string.step_if),
+                            subtitle = conditionSummary(context, step.condition),
+                            onClick = onEditIfCondition,
                         )
-                        nestedPath?.let { path ->
-                            val nested = step.condition.conditionAt(path)
-                            if (nested == null) {
-                                nestedPath = null
-                            } else {
-                                ConditionSheet(
-                                    item = nested,
-                                    onDismissRequest = { nestedPath = null },
-                                    onConditionChange = { new ->
-                                        onStepChange(step.copy(
-                                            condition = step.condition.withConditionAt(path) { new },
-                                        ))
-                                    },
-                                    onDelete = {
-                                        onStepChange(step.copy(
-                                            condition = removeConditionAt(step.condition, path),
-                                        ))
-                                        nestedPath = null
-                                    },
-                                )
-                            }
-                        }
                     }
                 }
                 Row(
@@ -961,6 +1092,44 @@ private fun StepSheet(
                     TextButton(onClick = onDismissRequest) {
                         Text(stringResource(R.string.confirm))
                     }
+                }
+            }
+        }
+    }
+}
+/**
+ * IF 步骤的条件编辑（屏幕层 sheet）。
+ * 不复用步骤 sheet 内嵌——弹层不支持嵌套，编辑/添加/删除全部走屏幕层通道。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun IfConditionSheet(
+    condition: WhenGroup,
+    onConditionChange: (WhenGroup) -> Unit,
+    onDismissRequest: () -> Unit,
+    onEditItem: (List<Int>) -> Unit,
+    onOpenPicker: (List<Int>) -> Unit,
+) {
+    LunoSheet(
+        onDismissRequest = onDismissRequest,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(bottom = PageGutter),
+            verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+        ) {
+            SheetHeader(title = stringResource(R.string.step_if))
+            Column(
+                modifier = Modifier.padding(horizontal = PageGutter),
+                verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+            ) {
+                ConditionGroupEditor(
+                    group = condition,
+                    onGroupChange = onConditionChange,
+                    onEditItem = onEditItem,
+                    pickerHost = onOpenPicker,
+                )
+                TextButton(onClick = onDismissRequest, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.confirm))
                 }
             }
         }
@@ -1042,7 +1211,14 @@ private fun ThrottleEditor(throttle: ThrottlePolicy, onThrottleChange: (Throttle
     var cooldownText by remember(throttle.cooldownMs) { mutableStateOf((throttle.cooldownMs / 1000).toString()) }
     var countText by remember(throttle.maxCount) { mutableStateOf(throttle.maxCount.toString()) }
     var windowText by remember(throttle.windowMs) { mutableStateOf((throttle.windowMs / 1000).toString()) }
-    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = MinInteractiveSize)
+            .clip(RoundedCornerShape(ContainerRadius))
+            .background(MaterialTheme.colorScheme.surfaceBright),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         val kinds = listOf(ThrottleKind.OFF, ThrottleKind.COOLDOWN, ThrottleKind.WINDOW)
         val labels = listOf(
             stringResource(R.string.throttle_off),
@@ -1050,13 +1226,30 @@ private fun ThrottleEditor(throttle: ThrottlePolicy, onThrottleChange: (Throttle
             stringResource(R.string.throttle_window),
         )
         kinds.forEachIndexed { index, kind ->
-            SegmentedButton(
-                selected = throttle.kind == kind,
-                onClick = { onThrottleChange(throttle.copy(kind = kind)) },
-                shape = SegmentedButtonDefaults.itemShape(count = kinds.size, index = index),
-                icon = {},
+            if (index > 0) {
+                VerticalDivider(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .padding(vertical = CardInnerSpacing),
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clickable(
+                        onClick = { onThrottleChange(throttle.copy(kind = kind)) },
+                        role = Role.Button,
+                    ),
+                contentAlignment = Alignment.Center,
             ) {
-                Text(labels[index], maxLines = 1)
+                Text(
+                    labels[index],
+                    maxLines = 1,
+                    color = if (throttle.kind == kind) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
@@ -1150,7 +1343,7 @@ private fun BoxScope.SavePill(
                 shape = CircleShape,
             )
             .clickable(onClick = onClick, role = Role.Button)
-            .padding(ListItemVerticalPadding),
+            .size(BottomBarHeight),
         contentAlignment = Alignment.Center,
     ) {
         Icon(

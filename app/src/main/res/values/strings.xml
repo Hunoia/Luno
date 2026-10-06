@@ -282,6 +282,7 @@
     <string name="condition_charging">充电中</string>
     <string name="condition_time_range">时间段</string>
     <string name="condition_logic_group">组合条件</string>
+    <string name="condition_group_number">组合%1$d</string>
     <string name="condition_add">添加条件</string>
     <string name="condition_time_start">开始时间</string>
     <string name="condition_time_end">结束时间</string>
@@ -309,6 +310,9 @@
     <string name="automation_edit">编辑规则</string>
     <string name="automation_name">规则名称</string>
     <string name="automation_cannot_save">暂不能保存</string>
+    <string name="automation_discard_title">放弃修改？</string>
+    <string name="automation_discard_text">返回将丢失未保存的改动</string>
+    <string name="automation_discard">放弃</string>
     <string name="automation_name_hint">规则名称</string>
     <string name="automation_condition">触发条件</string>
     <string name="automation_pick_action">选择动作</string>
