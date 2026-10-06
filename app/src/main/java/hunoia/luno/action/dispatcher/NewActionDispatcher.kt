@@ -20,6 +20,8 @@ import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.VolumeScrubConfig
 import hunoia.luno.config.model.effectiveFor
 import hunoia.luno.runtime.GestureHost
+import hunoia.luno.runtime.GestureRuntimeState
+import hunoia.luno.runtime.condition.toConditionContext
 import hunoia.luno.runtime.environment.PreviousAppTracker
 import hunoia.luno.runtime.condition.ConditionContext
 import hunoia.luno.action.template.RuntimeVariables
@@ -38,6 +40,11 @@ class NewActionDispatcher(
     private val scope: CoroutineScope,
     private val previousAppTracker: PreviousAppTracker,
     private val settingsSnapshot: () -> SettingsSnapshot,
+    /**
+     * 模板变量取值用的运行时快照。不消费脉冲（手势直接触发与 overlay 直派发都要用稳态值，
+     * 消费脉冲会抢掉自动化评估该看到的那一次边沿）。
+     */
+    private val runtimeState: () -> GestureRuntimeState,
     private val onToggleQuickAppLauncher: () -> Unit,
     private val onShowQuickSearch: () -> Unit,
     private val onShowVolumeScrub: (VolumeScrubConfig) -> Boolean,
@@ -87,7 +94,7 @@ class NewActionDispatcher(
         sourceButton: GestureButton?,
         sourceOverride: GestureButtonActionSettingsOverride? = null,
         touchPosition: Pair<Int, Int>? = null,
-        templateContext: () -> ConditionContext? = { null },
+        templateContext: () -> ConditionContext? = { runtimeState().toConditionContext() },
         /** 手势触发类型（手势链路传入）；overlay 直调用默认 null。 */
         gestureTrigger: hunoia.luno.config.model.GestureTriggerType? = null,
         /** 是否源自手势链路：只有它为 true，分发落定事件才会驱动 GESTURE 域评估。 */

@@ -21,7 +21,7 @@ data class SearchEngine(
 @Serializable
 @Keep
 data class QuickSearchSettings(
-    val defaultEngineId: String = BuiltinSearchEngines.first().id,
+    val defaultEngineId: String = "duckduckgo",
     val customEngines: List<SearchEngine> = emptyList(),
     /** 最近确认的搜索词（去重 cap 50）：空输入时展示，点即回填。 */
     val recentQueries: List<String> = emptyList(),

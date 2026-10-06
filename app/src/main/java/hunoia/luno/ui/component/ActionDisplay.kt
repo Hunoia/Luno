@@ -22,13 +22,17 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import hunoia.luno.core.AppContext
 import hunoia.luno.R
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Android
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.launchPackageName
+import hunoia.luno.action.model.libraryEntryId
 import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.config.model.DirectionActions
 import hunoia.luno.quicklaunch.model.icon
 import hunoia.luno.ui.actionlibrary.IconPalette
+import hunoia.luno.ui.actionselect.shortcutInfo
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import kotlin.math.min
 import kotlinx.serialization.json.JsonPrimitive
@@ -36,18 +40,20 @@ import kotlinx.serialization.json.contentOrNull
 
 fun Context.actionText(
     action: StoredAction,
-    entryId: String? = null,
     emptyIfNone: Boolean = true,
     actionLibraryEntries: List<NewActionLibraryEntry> = emptyList()
 ): String {
-    if (entryId != null) {
-        actionLibraryEntries.firstOrNull { it.id == entryId }?.name?.takeIf { it.isNotBlank() }?.let { return it }
+    action.libraryEntryId()?.let { refId ->
+        actionLibraryEntries.firstOrNull { it.id == refId }?.name?.takeIf { it.isNotBlank() }?.let { return it }
         if (actionLibraryEntries.isNotEmpty()) {
             return getString(R.string.action_library_missing)
         }
     }
     if (action.typeId == "app.launch") {
         return appLabel(action) ?: ""
+    }
+    if (action.typeId == "app.launchShortcut") {
+        return action.shortcutInfo()?.label ?: ""
     }
     return ActionDefinitions.byTypeId(action.typeId)?.name
         ?: if (emptyIfNone) "" else getString(R.string.action_none)
@@ -64,12 +70,11 @@ private fun Context.appLabel(action: StoredAction): String? {
 @Composable
 fun actionText(
     action: StoredAction,
-    entryId: String? = null,
     emptyIfNone: Boolean = true,
     actionLibraryEntries: List<NewActionLibraryEntry> = emptyList()
 ): String {
-    if (entryId != null) {
-        actionLibraryEntries.firstOrNull { it.id == entryId }?.name?.takeIf { it.isNotBlank() }?.let { return it }
+    action.libraryEntryId()?.let { refId ->
+        actionLibraryEntries.firstOrNull { it.id == refId }?.name?.takeIf { it.isNotBlank() }?.let { return it }
         if (actionLibraryEntries.isNotEmpty()) {
             return stringResource(R.string.action_library_missing)
         }
@@ -78,6 +83,9 @@ fun actionText(
         val context = androidx.compose.ui.platform.LocalContext.current
         val packageName = action.launchPackageName()
         return remember(action, packageName) { context.appLabel(action) ?: "" }
+    }
+    if (action.typeId == "app.launchShortcut") {
+        return action.shortcutInfo()?.label ?: ""
     }
     return ActionDefinitions.byTypeId(action.typeId)?.name
         ?: if (emptyIfNone) "" else stringResource(R.string.action_none)
@@ -144,6 +152,11 @@ fun NewActionLibraryEntry.resolvedIcon(): Any? {
 
 @Composable
 fun actionIcon(action: StoredAction): Any? {
+    // 动作库引用：条目自定义文字/表情 > palette 图标 > 条目类型默认图标。
+    // internal.libraryRef 在定义表里没有条目，不能落到 byTypeId。
+    action.libraryEntryId()?.let { refId ->
+        return LocalActionLibraryEntries.current.firstOrNull { it.id == refId }?.resolvedIcon()
+    }
     if (action.typeId == "app.launch") {
         val context = androidx.compose.ui.platform.LocalContext.current
         val packageName = action.launchPackageName()
@@ -158,7 +171,10 @@ fun actionIcon(action: StoredAction): Any? {
                     context.packageManager.getApplicationIcon(packageName!!)
                 }
             }.getOrNull()
-        }
+        } ?: Icons.Default.Android
+    }
+    if (action.typeId == "app.launchShortcut") {
+        return action.shortcutInfo()?.icon
     }
     return ActionDefinitions.byTypeId(action.typeId)?.icon
 }

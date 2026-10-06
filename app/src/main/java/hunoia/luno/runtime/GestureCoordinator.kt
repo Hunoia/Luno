@@ -147,6 +147,7 @@ class GestureCoordinator(
         host = host,
         scope = host.coroutineScope,
         previousAppTracker = previousAppTracker,
+        runtimeState = { buildRuntimeState(consumePulses = false) },
         settingsSnapshot = {
             val s = runtimeSettingsStore.snapshot()
             hunoia.luno.action.dispatcher.SettingsSnapshot(

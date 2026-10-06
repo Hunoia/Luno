@@ -6,6 +6,7 @@ import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.action.model.StoredAction
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.config.model.toJsonObject
@@ -198,3 +199,7 @@ data class NewEditDraft(
 
 private fun Map<String, JsonElement>.toJsonObject(): JsonObject =
     buildJsonObject { for ((key, value) in this@toJsonObject) put(key, value) }
+
+/** 测试按钮用：把当前草稿拼成可分发动作（不改草稿状态）。 */
+internal fun NewEditDraft.toStoredAction(): StoredAction =
+    StoredAction(typeId, params.toJsonObject())

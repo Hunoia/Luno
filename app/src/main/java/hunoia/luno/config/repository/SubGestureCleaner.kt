@@ -1,6 +1,8 @@
 package hunoia.luno.config.repository
 
 import hunoia.luno.action.model.StoredAction
+import hunoia.luno.action.model.longPressVariant
+import hunoia.luno.action.model.withLongPressVariant
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.DirectionActions
 import hunoia.luno.config.model.GestureButton
@@ -58,5 +60,16 @@ fun SubGesture.cleanActions(
 fun DirectionActions.cleanActions(shouldRemove: (StoredAction) -> Boolean): DirectionActions =
     copy(actions = actions.mapValues { (_, list) -> list.cleanList(shouldRemove) })
 
+/**
+ * 过滤本体，顺手清掉面板长按变体里的失效引用。
+ *
+ * 变体（__longPress）是嵌在 params 里的独立 StoredAction，只滤本体会留下悬空引用：
+ * 删条目后短按正常、长按静默无反应（分发器只记 DEBUG 日志）。
+ */
 fun List<StoredAction>.cleanList(shouldRemove: (StoredAction) -> Boolean): List<StoredAction> =
-    filterNot(shouldRemove)
+    mapNotNull { action ->
+        if (shouldRemove(action)) return@mapNotNull null
+        val variant = action.longPressVariant() ?: return@mapNotNull action
+        val kept = variant.takeUnless(shouldRemove) ?: return@mapNotNull action
+        action.withLongPressVariant(kept)
+    }

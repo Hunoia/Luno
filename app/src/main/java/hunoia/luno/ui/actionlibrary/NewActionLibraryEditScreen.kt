@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
+import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ParameterDefinition
@@ -71,11 +72,18 @@ import hunoia.luno.ui.component.SegmentedSettingsRow
 import hunoia.luno.ui.component.displayNameRes
 import hunoia.luno.ui.component.segmentedShape
 import hunoia.luno.core.AppContext
+import hunoia.luno.service.DispatchClient
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
+/**
+ * 依赖真实触点的动作：分发时必须带触点坐标，独立试执行必然报参数无效，
+ * 所以这两种类型下测试按钮置灰（见 accessibility.tap / longPress 的分发前置校验）。
+ */
+private val TOUCH_ONLY_TYPES = setOf("accessibility.tap", "accessibility.longPress")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -208,6 +216,34 @@ fun NewActionLibraryEditScreen(
                                 onPickMiniWindow = { showMiniWindowPicker = paramDef },
                                 onPickActivity = { _, _ -> showActivityPicker = paramDef },
                             )
+                        }
+                    }
+
+                    // 测试/保存并排：测试只要求参数有效，不写盘；保存沿用顶部同一入口。
+                    val testable = draft.typeId !in TOUCH_ONLY_TYPES
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(ListSpacing),
+                    ) {
+                        TextButton(
+                            modifier = Modifier.weight(1f),
+                            enabled = draft.isValid && testable && !state.isSaving,
+                            onClick = {
+                                if (DispatchClient.dispatch(draft.toStoredAction())) {
+                                    showToast(R.string.action_library_test_sent)
+                                } else {
+                                    showToast(R.string.dispatch_service_not_ready)
+                                }
+                            },
+                        ) {
+                            Text(stringResource(R.string.action_library_test))
+                        }
+                        FilledTonalButton(
+                            modifier = Modifier.weight(1f),
+                            enabled = draft.isValid && !state.isSaving,
+                            onClick = { vm.save(onSaved = onBack) },
+                        ) {
+                            Text(stringResource(R.string.save))
                         }
                     }
                 }

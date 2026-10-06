@@ -209,7 +209,8 @@ private fun QuickSearchIndex.matchShortcuts(
     ): List<RankedHit> {
         val out = mutableListOf<RankedHit>()
         for (sc in shortcuts) {
-            val m = tierOf(sc.label, tokens, foldedTokens)
+            // 包名也参与匹配：与 matchApps 同构，行副标题显示包名，搜 com.tencent 应有结果。
+            val m = bestOf(tierOf(sc.label, tokens, foldedTokens), tierOf(sc.packageName, tokens, foldedTokens))
             if (m.tier >= 0) {
                 out.add(RankedHit(QuickSearchResult.Shortcut(sc), m.tier, m.span, m.offset, pkgScore[sc.packageName] ?: 0.0))
             }

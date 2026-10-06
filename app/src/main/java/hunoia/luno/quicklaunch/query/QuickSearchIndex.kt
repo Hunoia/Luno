@@ -68,6 +68,7 @@ class QuickSearchIndex(internal val context: Context) {
         disabledPkgs = combined.disabledPkgs
         shortcuts = QuickLaunchFacade.queryShortcuts(context).flatMap { it.shortcuts }
         AppSearch.warmIndexes(apps)
+        AppSearch.warmShortcutIndexes(shortcuts)
         // 图标不在这里预热：flow 在发射结果前按需 resolve（SearchIconCache），
         // 只解码露出的行；全量 enqueue 又慢又跟首搜 race。
         appsLoaded = true

@@ -15,6 +15,8 @@
     <string name="restore_success">恢复成功</string>
     <string name="restore_failed">恢复失败</string>
     <string name="dispatch_service_not_ready">手势服务未就绪，动作未执行</string>
+    <string name="action_library_test">测试</string>
+    <string name="action_library_test_sent">已执行（结果见屏幕提示）</string>
     <string name="width">宽度</string>
     <string name="mini_window_position_hint">调整小窗打开的位置</string>
     <string name="keep_alive_need_permission">保活需要授予「修改系统设置」权限，请先在 Shizuku 中授权或通过 ADB 执行：adb shell pm grant hunoia.luno android.permission.WRITE_SECURE_SETTINGS</string>

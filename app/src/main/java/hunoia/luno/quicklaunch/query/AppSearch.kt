@@ -3,6 +3,7 @@ package hunoia.luno.quicklaunch.query
 import com.github.houbb.pinyin.constant.enums.PinyinStyleEnum
 import com.github.houbb.pinyin.util.PinyinHelper
 import hunoia.luno.quicklaunch.model.AppInfo
+import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import java.util.Collections
 import java.util.LinkedHashMap
@@ -238,9 +239,17 @@ object AppSearch {
     fun warmIndexes(apps: List<AppInfo>) {
         for (app in apps) {
             buildIndex(app.label)
-            // 包名也参与匹配（副标题本来就显示包名）：ascii 串虽无 houbb 成本，
+            // 包名也参与匹配（副标题本来就显示包名）：ascii 串虽无拼音成本，
             // 预热后打字期连字符串拼接都不再发生。
             buildIndex(app.packageName)
+        }
+    }
+
+    /** 快捷方式同样按 label + 包名匹配（见 matchShortcuts），索引一并预热。 */
+    fun warmShortcutIndexes(shortcuts: List<LauncherInfo.ShortcutInfo>) {
+        for (sc in shortcuts) {
+            buildIndex(sc.label)
+            buildIndex(sc.packageName)
         }
     }
 

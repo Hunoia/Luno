@@ -4,12 +4,12 @@ package hunoia.luno.config.defaults
 
 object AdvancedSettingsDefaults {
 
-    const val MiniWindowHorizontalBias = 0f
-    const val MiniWindowVerticalBias = 0f
-    const val MiniWindowWidthFraction = 0.85f
-    const val MiniWindowHeightFraction = 0.72f
+    const val MiniWindowHorizontalBias = 0.13586f
+    const val MiniWindowVerticalBias = 0.25574f
+    const val MiniWindowWidthFraction = 1.0f
+    const val MiniWindowHeightFraction = 0.69935f
     const val MiniWindowOverrideBounds = false
-    const val KeepAliveEnabled = false
+    const val KeepAliveEnabled = true
 }
 
 object GestureSettingsDefaults {

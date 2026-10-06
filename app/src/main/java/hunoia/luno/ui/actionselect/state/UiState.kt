@@ -1,6 +1,7 @@
 package hunoia.luno.ui.actionselect
 
 import hunoia.luno.action.model.StoredAction
+import hunoia.luno.action.model.withoutVariantKey
 import hunoia.luno.action.model.launchQualifiedName
 import hunoia.luno.action.model.shortcutQualifiedName
 import hunoia.luno.action.model.NewActionLibraryEntry
@@ -9,6 +10,15 @@ import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.quicklaunch.model.qualifiedNameWithIntents
+
+/**
+ * 动作同一性：比 typeId + params，但忽略面板长按变体键。
+ *
+ * 变体（__longPress）是挂在已选动作上的附加项，不参与"这个动作选没选"的判断；
+ * 早期用结构相等时，给动作设过长按变体后 picker 会把它显示成未勾选，点一下变成追加副本。
+ */
+fun StoredAction.sameAction(other: StoredAction): Boolean =
+    typeId == other.typeId && withoutVariantKey().params == other.withoutVariantKey().params
 
 data class UiState(
     val title: String = "",
@@ -48,7 +58,7 @@ data class UiState(
 
         fun selectAction(action: StoredAction, selected: Boolean, maxSelectCount: Int): SelectedRecord {
             if (!selected) {
-                return this.copy(list = list.filterNot { it is StoredAction && it == action })
+                return this.copy(list = list.filterNot { it is StoredAction && it.sameAction(action) })
             }
             return this.copy(list = pick(action, maxSelectCount))
         }
@@ -103,7 +113,7 @@ data class UiState(
                     (it as? StoredAction)?.shortcutQualifiedName() == obj.qualifiedNameWithIntents
                 } != null
             } else if (obj is StoredAction) {
-                return list.find { it is StoredAction && it == obj } != null
+                return list.find { it is StoredAction && it.sameAction(obj) } != null
             }
             return obj in list
         }

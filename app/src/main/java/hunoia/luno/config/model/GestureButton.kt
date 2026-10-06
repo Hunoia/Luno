@@ -27,17 +27,25 @@ data class GestureButtonBounds(
 object GestureButtonDefaults {
     const val ID_DEFAULT = "1"
     const val Enabled = true
-    val Bounds = GestureButtonBounds()
+    val Bounds = GestureButtonBounds(y = 0.50529f, height = 0.30311f)
     val SlideActions = DirectionActions(
-        mapOf(GestureDirection.Right to listOf(StoredAction.of("accessibility.back")))
+        mapOf(
+            GestureDirection.Right to listOf(StoredAction.of("accessibility.back")),
+            GestureDirection.Up to listOf(StoredAction.of("accessibility.recents")),
+            GestureDirection.Down to listOf(StoredAction.of("accessibility.notificationPanel")),
+        )
     )
     val LongSlideActions = DirectionActions()
-    val SlideHoldActions = DirectionActions()
-    val LongSlideHoldActions = DirectionActions()
+    val SlideHoldActions = DirectionActions(
+        mapOf(GestureDirection.Right to listOf(StoredAction.of("internal.quickAppLauncher")))
+    )
+    val LongSlideHoldActions = DirectionActions(
+        mapOf(GestureDirection.Right to listOf(StoredAction.of("internal.quickSearch")))
+    )
     val LongSlideActionPanelStyles = LongSlideActionPanelStyles()
-    val TapActions = listOf(GestureActionsDefaults.ActionNone)
-    val DoubleTapActions = listOf(GestureActionsDefaults.ActionNone)
-    val LongPressActions = listOf(GestureActionsDefaults.ActionNone)
+    val TapActions = listOf(StoredAction.of("internal.hideGestureButton"))
+    val DoubleTapActions = emptyList<StoredAction>()
+    val LongPressActions = listOf(StoredAction.of("intent.assist"))
     const val Color = android.graphics.Color.TRANSPARENT
     const val MirrorHorizontal = true
     val SlideTriggerDistance = DensityProvider.dp2px(30f)
@@ -46,12 +54,12 @@ object GestureButtonDefaults {
     const val DoubleTapTriggerDelayMs = 300L
     const val SlideHoldTriggerDelayMs = 120L
     const val LongSlideHoldTriggerDelayMs = 120L
-    const val SlideVibrate = true
-    const val LongSlideVibrate = true
-    const val TapVibrate = true
-    const val LongPressVibrate = true
-    const val SlideHoldVibrate = true
-    const val LongSlideHoldVibrate = true
+    const val SlideVibrate = false
+    const val LongSlideVibrate = false
+    const val TapVibrate = false
+    const val LongPressVibrate = false
+    const val SlideHoldVibrate = false
+    const val LongSlideHoldVibrate = false
     val Defaults = listOf(GestureButton(id = ID_DEFAULT))
 }
 
