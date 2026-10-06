@@ -18,11 +18,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.dp
 import hunoia.luno.ui.theme.LargeShape
+import hunoia.luno.ui.theme.CanvasStrokeWidth
+import hunoia.luno.ui.theme.CanvasThumbRadius
 
 @Composable
-fun TabChip(
+internal fun TabChip(
     selected: Boolean,
     text: String,
     onClick: () -> Unit,
@@ -37,7 +38,7 @@ fun TabChip(
 }
 
 @Composable
-fun HsvRectPicker(
+internal fun HsvRectPicker(
     hue: Float,
     saturation: Float,
     value: Float,
@@ -45,8 +46,8 @@ fun HsvRectPicker(
     modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
-    val thumbRadius = with(density) { 10.dp.toPx() }
-    val thumbStroke = with(density) { 2.dp.toPx() }
+    val thumbRadius = with(density) { CanvasThumbRadius.toPx() }
+    val thumbStroke = with(density) { CanvasStrokeWidth.toPx() }
 
     Box(
         modifier = modifier

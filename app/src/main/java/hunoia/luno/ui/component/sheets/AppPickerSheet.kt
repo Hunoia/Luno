@@ -1,14 +1,11 @@
 package hunoia.luno.ui.component.sheets
-
 import hunoia.luno.ui.component.AppSearchBar
-import hunoia.luno.ui.component.EmptyState
-import hunoia.luno.ui.component.SelectableListItem
-
+import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.feedback.LoadingState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import hunoia.luno.ui.theme.SheetTopShape
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -19,13 +16,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.R
 import hunoia.luno.core.AppContext
@@ -50,11 +42,14 @@ import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.SegmentedGap
 import hunoia.luno.ui.theme.SheetListMaxHeight
-import hunoia.luno.ui.component.segmentedShape
+import hunoia.luno.ui.theme.EmptyStatePaddingVertical
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
+import hunoia.luno.ui.component.row.LunoSelectableRow
+import hunoia.luno.ui.component.row.segmentedShape
+import hunoia.luno.ui.component.sheet.LunoSheet
+import hunoia.luno.ui.component.feedback.LunoIconButton
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppPickerSheet(
@@ -62,18 +57,15 @@ fun AppPickerSheet(
     selectedPackageNames: List<String>,
     onConfirm: (List<String>) -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     var apps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
     var selected by remember { mutableStateOf(selectedPackageNames.toSet()) }
     var searchQuery by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
     var loaded by remember { mutableStateOf(false) }
-
     val permissionState = rememberGetInstalledAppsPermissionState { granted ->
         if (granted) loaded = false
     }
-
     suspend fun loadApps() {
         loading = true
         apps = withContext(Dispatchers.IO) {
@@ -94,7 +86,6 @@ fun AppPickerSheet(
         }
         loading = false
     }
-
     LaunchedEffect(permissionState.isGranted, loaded) {
         if (!permissionState.isGranted) {
             permissionState.launchPermissionRequest()
@@ -103,7 +94,6 @@ fun AppPickerSheet(
             loaded = true
         }
     }
-
     val filteredApps = remember(searchQuery, apps) {
         if (searchQuery.isBlank()) apps
         else apps.filter {
@@ -111,12 +101,8 @@ fun AppPickerSheet(
                 it.packageName.contains(searchQuery, ignoreCase = true)
         }
     }
-
-    ModalBottomSheet(
+    LunoSheet(
         onDismissRequest = onDismissRequest,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        shape = SheetTopShape,
     ) {
         Column(
             modifier = Modifier
@@ -136,20 +122,18 @@ fun AppPickerSheet(
                     style = MaterialTheme.typography.titleLarge,
                 )
                 if (permissionState.isGranted) {
-                    IconButton(onClick = { scope.launch { loadApps() } }) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = stringResource(R.string.refresh),
-                        )
-                    }
+                    LunoIconButton(
+                        icon = Icons.Default.Refresh,
+                        contentDescription = stringResource(R.string.refresh),
+                        onClick = { scope.launch { loadApps() } },
+                    )
                 }
             }
-
             if (!permissionState.isGranted) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 32.dp),
+                        .padding(vertical = EmptyStatePaddingVertical),
                     contentAlignment = Alignment.Center,
                 ) {
                     TextButton(onClick = { permissionState.launchPermissionRequest() }) {
@@ -165,20 +149,8 @@ fun AppPickerSheet(
                         .padding(horizontal = PageGutter, vertical = CardInnerSpacing),
                     placeholder = stringResource(R.string.search_app_hint),
                 )
-
                 if (loading) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = SheetListMaxHeight)
-                            .padding(vertical = 48.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = stringResource(R.string.loading),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    LoadingState(message = stringResource(R.string.loading))
                 } else {
                     LazyColumn(
                         modifier = Modifier
@@ -192,12 +164,12 @@ fun AppPickerSheet(
                             item { EmptyState(message = stringResource(R.string.no_matching_results)) }
                         } else {
                             itemsIndexed(filteredApps, key = { _, item -> item.qualifiedName }) { index, item ->
-                                SelectableListItem(
+                                LunoSelectableRow(
                                     title = item.label,
                                     subtitle = item.packageName,
                                     iconModel = item.icon,
                                     selected = item.packageName in selected,
-                                    onSelect = { isSelected ->
+                                    onSelectedChange = { isSelected ->
                                         selected = if (isSelected) {
                                             selected + item.packageName
                                         } else {
@@ -206,14 +178,11 @@ fun AppPickerSheet(
                                     },
                                     showCheckbox = true,
                                     shape = segmentedShape(index, filteredApps.size),
-                                    verticalGap = 0.dp,
-                                    horizontalGap = 0.dp,
                                 )
                             }
                         }
                     }
                 }
-
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

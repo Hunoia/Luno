@@ -44,7 +44,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.imageLoader
 import hunoia.luno.R
@@ -134,7 +133,7 @@ fun SelectedActionSettings(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = PageGutter)
-                .heightIn(max = 184.dp),
+                .heightIn(max = SettingsListMaxHeight),
             horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
             verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
         ) {
@@ -273,7 +272,7 @@ private fun SelectedTile(
                     )
                 }
             },
-        shape = CardShape,
+        shape = LargeShape,
         color = bgColor,
     ) {
         Column(
@@ -316,7 +315,7 @@ private fun SelectedTile(
                         else MaterialTheme.colorScheme.onSurface,
             )
             if (longPressLabel != null && !isLongPressTarget) {
-                Spacer(Modifier.height(1.dp))
+                Spacer(Modifier.height(DividerThickness))
                 Text(
                     text = longPressLabel,
                     style = MaterialTheme.typography.labelSmall,

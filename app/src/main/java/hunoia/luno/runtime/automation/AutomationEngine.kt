@@ -184,11 +184,9 @@ private val PULSE_TYPES = setOf(
 
 /**
  * 条件树里是否有命中的非否定脉冲叶（raw 语义，未取反）。
- * NOT 组整体取反，脉冲在里面命中不代表事件发生，保守返回 false。
  * raw 求值复用 matches()（copy 去否定），不复制各脉冲的过滤逻辑。
  */
 private fun hasPresentPulse(group: WhenGroup, ctx: ConditionContext): Boolean {
-    if (group.mode == hunoia.luno.config.model.BooleanMode.NOT) return false
     return group.items.any { item -> item.hasPresentPulse(ctx) }
 }
 

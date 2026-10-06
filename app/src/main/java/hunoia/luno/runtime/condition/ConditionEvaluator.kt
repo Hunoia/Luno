@@ -127,7 +127,6 @@ fun WhenGroup.matches(ctx: ConditionContext): Boolean {
     return when (mode) {
         BooleanMode.AND -> items.all { it.matches(ctx) }
         BooleanMode.OR -> items.any { it.matches(ctx) }
-        BooleanMode.NOT -> items.none { it.matches(ctx) }
     }
 }
 

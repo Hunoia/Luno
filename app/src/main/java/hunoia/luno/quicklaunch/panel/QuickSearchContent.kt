@@ -1,5 +1,4 @@
 package hunoia.luno.quicklaunch.panel
-
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -116,13 +115,12 @@ import hunoia.luno.quicklaunch.query.topUsed
 import hunoia.luno.ui.permission.rememberPermissionState
 import hunoia.luno.ui.settings.search.sourceTitle
 import hunoia.luno.ui.component.TextIcon
-import hunoia.luno.ui.component.segmentedShape
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SegmentedGap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
+import hunoia.luno.ui.component.row.segmentedShape
 /** 搜索输入快照：snapshotFlow 跟踪块内读到的 State，值变化即重搜。 */
 private data class SearchSnapshot(
     val text: String,
@@ -136,7 +134,6 @@ private data class SearchSnapshot(
     val callsTick: Int,
     val torchOn: Boolean,
 )
-
 @Composable
 internal fun QuickSearchContent(
     index: QuickSearchIndex,
@@ -157,7 +154,6 @@ internal fun QuickSearchContent(
     val launcherSettings by launcherFlow.collectAsState(initial = hunoia.luno.config.model.QuickAppLauncherSettings())
     val searchSettingsFlow = remember { hunoia.luno.config.ConfigProvider.quickSearchSettings }
     val searchSettings by searchSettingsFlow.collectAsState(initial = hunoia.luno.config.model.QuickSearchSettings())
-
     var query by remember { mutableStateOf(TextFieldValue("")) }
     val scope = rememberCoroutineScope()
     // 联系人权限 + 后台加载：授权后 IO 线程一次性进内存，打字只查内存；
@@ -317,7 +313,6 @@ internal fun QuickSearchContent(
         }
     }
     val pinnedSet = remember(searchSettings.pinnedClips) { searchSettings.pinnedClips.toSet() }
-
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) {
@@ -363,7 +358,6 @@ internal fun QuickSearchContent(
     // 退场中吞掉行点击：requestClose 幂等但 dispatch 不是，守一层。
     val safeResult: (QuickSearchResult, String) -> Unit = { r, q -> if (!closing) onResult(r, q) }
     val safeLongPress: (QuickSearchResult) -> Unit = { if (!closing) onLongPress(it) }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -731,7 +725,6 @@ internal fun QuickSearchContent(
             } else {
                 Spacer(Modifier.weight(1f))
             }
-
             // 回车确认 = 右侧 Check：打列表首位。引擎兜底 tier -1 垫底，
             // 只有它是唯一行时才会被确认（不再需要跳过特例）。
             // 计算器排表头，天然成为确认目标。

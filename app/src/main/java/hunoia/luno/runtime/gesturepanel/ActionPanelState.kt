@@ -1,6 +1,5 @@
-package hunoia.luno.ui.component.panel
+package hunoia.luno.runtime.gesturepanel
 
-import hunoia.luno.ui.component.LongSlideState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf

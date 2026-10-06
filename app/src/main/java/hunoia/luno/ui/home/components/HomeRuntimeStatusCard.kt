@@ -23,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.theme.PageMatchIconSize
 
 @Composable
 fun HomeRuntimeStatusCard(
@@ -73,7 +74,7 @@ fun HomeRuntimeStatusCard(
                 imageVector = icon,
                 contentDescription = null,
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(PageMatchIconSize)
                     .padding(end = PageGutter),
             )
             Column(modifier = Modifier.weight(1f)) {

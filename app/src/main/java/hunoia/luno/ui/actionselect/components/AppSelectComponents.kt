@@ -1,5 +1,4 @@
 package hunoia.luno.ui.actionselect
-
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
@@ -13,16 +12,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
+import hunoia.luno.R
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.icon
-import hunoia.luno.ui.component.SelectableListItem
 import hunoia.luno.ui.theme.BadgeIconSize
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ContainerRadius
-
+import hunoia.luno.ui.component.row.LunoSelectableRow
 @Composable
 internal fun AppItem(
     onLongClick: () -> Unit,
@@ -33,11 +31,10 @@ internal fun AppItem(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     shape: Shape = RoundedCornerShape(ContainerRadius),
-    verticalGap: Dp = 0.dp,
 ) {
-    SelectableListItem(
+    LunoSelectableRow(
         selected = selected,
-        onSelect = onSelect,
+        onSelectedChange = onSelect,
         modifier = modifier,
         enabled = enabled,
         iconModel = appInfo.icon,
@@ -45,8 +42,7 @@ internal fun AppItem(
         showCheckbox = !selectSingle,
         onLongClick = onLongClick,
         shape = shape,
-        verticalGap = verticalGap,
-        headlineContent = {
+        headline = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
@@ -55,7 +51,7 @@ internal fun AppItem(
                     Icon(
                         modifier = Modifier.size(BadgeIconSize),
                         imageVector = Icons.Default.Window,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.mini_window_position_short),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }

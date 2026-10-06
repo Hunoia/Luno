@@ -1,9 +1,7 @@
 package hunoia.luno.ui.actionselect
-
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
-import hunoia.luno.ui.theme.PageGutter
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -16,7 +14,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,7 +26,6 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionCategory
 import hunoia.luno.action.definitions.ActionDefinitions
@@ -42,16 +38,16 @@ import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.ui.actionselect.UiState.SelectedRecord
 import hunoia.luno.ui.component.AppSearchBar
-import hunoia.luno.ui.component.EmptyState
+import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.displayNameRes
-import hunoia.luno.ui.component.segmentedShape
 import hunoia.luno.ui.theme.*
 import hunoia.luno.ui.theme.ListItemVerticalPadding
-
+import hunoia.luno.ui.component.row.segmentedShape
+import hunoia.luno.ui.component.SheetGroupHeader
+import hunoia.luno.ui.theme.CardInnerSpacing
 private const val TYPE_ACTION_LIBRARY = "action_library"
 private const val TYPE_APP = "app"
 private const val TYPE_SHORTCUT = "shortcut"
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun ActionPage(
@@ -158,7 +154,8 @@ internal fun ActionPage(
             AppSearchBar(
                 query = query,
                 onQueryChange = { query = it },
-                modifier = Modifier.padding(horizontal = PageGutter, vertical = 8.dp),
+                // 左右由列表 contentPadding 提供（行组件统一贴边）
+                modifier = Modifier.padding(vertical = CardInnerSpacing),
                 placeholder = stringResource(R.string.search_hint_all),
             )
         }
@@ -166,7 +163,7 @@ internal fun ActionPage(
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = PageGutter, vertical = ListItemVerticalPadding),
+                    .padding(vertical = ListItemVerticalPadding),  // 左右由列表 contentPadding 提供
                 horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing)
             ) {
                 items(typeChips) { (chipKey, label) ->
@@ -199,14 +196,7 @@ internal fun ActionPage(
             if (grouped.isNotEmpty()) {
                 grouped.forEach { (category, categoryActions) ->
                     stickyHeader(key = "cat_${category.name}") {
-                        Text(
-                            text = stringResource(id = category.displayNameRes),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = PageGutter, top = 8.dp, bottom = 16.dp)
-                        )
+                        SheetGroupHeader(stringResource(id = category.displayNameRes))
                     }
                     itemsIndexed(
                         items = categoryActions,
@@ -229,12 +219,7 @@ internal fun ActionPage(
             }
             if (filteredLibraryEntries.isNotEmpty()) {
                 stickyHeader(key = "lib_all") {
-                    Text(
-                        text = stringResource(R.string.action_library),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.fillMaxWidth().padding(start = PageGutter, top = 8.dp, bottom = 16.dp)
-                    )
+                    SheetGroupHeader(stringResource(R.string.action_library))
                 }
                 itemsIndexed(items = filteredLibraryEntries, key = { _, it -> "lib_${it.id}" }) { index, entry ->
                     val action = entry.toStoredAction()
@@ -254,12 +239,7 @@ internal fun ActionPage(
             }
             if (filteredApps.isNotEmpty()) {
                 stickyHeader(key = "apps") {
-                    Text(
-                        text = stringResource(R.string.tab_apps),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.fillMaxWidth().padding(start = PageGutter, top = 8.dp, bottom = 16.dp)
-                    )
+                    SheetGroupHeader(stringResource(R.string.tab_apps))
                 }
                 itemsIndexed(items = filteredApps, key = { _, it -> "app_${it.qualifiedName}" }) { index, item ->
                     AppItem(appInfo = item, selected = selectedRecord.isSelected(item), selectSingle = selectSingleMode,
@@ -274,8 +254,7 @@ internal fun ActionPage(
             }
             if (filteredCreateShortcuts.isNotEmpty()) {
                 stickyHeader(key = "create_shortcuts") {
-                    Text(stringResource(R.string.create_shortcut), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.fillMaxWidth().padding(start = PageGutter, top = 8.dp, bottom = 16.dp))
+                    SheetGroupHeader(stringResource(R.string.create_shortcut))
                 }
                 items(items = filteredCreateShortcuts, key = { "cs_${it.qualifiedName}" }) { item ->
                     LauncherInfoItem(launcherInfo = item, selectSingle = selectSingleMode,
@@ -290,8 +269,7 @@ internal fun ActionPage(
             }
             if (filteredLaunchShortcuts.isNotEmpty()) {
                 stickyHeader(key = "launch_shortcuts") {
-                    Text(stringResource(R.string.launch_shortcut), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.fillMaxWidth().padding(start = PageGutter, top = 8.dp, bottom = 16.dp))
+                    SheetGroupHeader(stringResource(R.string.launch_shortcut))
                 }
                 items(items = filteredLaunchShortcuts, key = { "ls_${it.qualifiedName}" }) { item ->
                     LauncherInfoItem(launcherInfo = item, selectSingle = selectSingleMode,

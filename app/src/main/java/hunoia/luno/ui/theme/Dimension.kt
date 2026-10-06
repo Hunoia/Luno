@@ -45,7 +45,6 @@ val MediumShape = RoundedCornerShape(ShapeMedium)
 val LargeShape = RoundedCornerShape(ShapeLarge)
 val ExtraLargeShape = RoundedCornerShape(ShapeExtraLarge)
 val SheetTopShape = RoundedCornerShape(topStart = ShapeExtraLarge, topEnd = ShapeExtraLarge)
-val CardShape = RoundedCornerShape(ShapeLarge)
 
 // Bottom bar
 val BottomBarPadding = 12.dp
@@ -113,6 +112,51 @@ const val AnimNavTransition = 400
 
 // Component sizes
 val MiniWindowDefaultHeight = 267.dp
-val SliderTextMaxWidth = 999.dp
 
 val IconEmptyAlpha = 0.4f
+
+// Feedback illustrations
+val EmptyStateIconSize = 64.dp
+val EmptyStatePaddingVertical = 32.dp
+val FeedbackPaddingLarge = 48.dp
+val ToastMaxWidth = 300.dp
+
+// Wide content gutter（toast / 空态 / 选择器 sheet 的横向留白）
+val LargeGutter = 24.dp
+
+// Settings lists
+val SettingsListMaxHeight = 184.dp
+
+// Elevation
+val ElevationSmall = 3.dp
+
+// Hairline divider（1.dp 在此处是"线宽"语义，不是间距别名）
+val DividerThickness = 1.dp
+
+// Search field inset
+val SearchBarPadding = 12.dp
+
+// Color picker canvas geometry
+val CanvasThumbRadius = 10.dp
+val CanvasStrokeWidth = 2.dp
+val HueBarHeight = 24.dp
+val HueBarTouchHeight = 32.dp
+
+// Trigger-distance canvas geometry
+val DistanceTrackHeight = 8.dp
+val DistanceStrokeWidth = 4.dp
+
+// Liquid-glass render params（渲染参数，不是间距；模糊半径复用 Backdrop.kt 的 GlassBlurRadius）
+val GlassRefractionHeight = 24.dp
+val GlassRefractionAmount = 24.dp
+val GlassInnerBlurRadius = 2.dp
+val GlassInnerShadowRadius = 4.dp
+val GlassOutlineWidth = 1.dp
+
+// Inner-shadow radius 默认值（InnerShadow.kt 与调用点同源）
+val InnerShadowDefaultRadius = 24.dp
+
+// Timeline（条件树 / 步骤流共用的时间线语言）
+val TimelineRailX = 13.dp
+val TimelineRailWidth = 2.dp
+val TimelineBadgeSize = 26.dp

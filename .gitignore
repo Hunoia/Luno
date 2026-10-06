@@ -20,5 +20,10 @@ keystore.properties
 signing.properties
 google-services.json
 
-# Docs (local only)
+# Docs & agent notes (local only)
 docs/
+AGENTS.md
+
+# Python helper caches
+__pycache__/
+*.pyc

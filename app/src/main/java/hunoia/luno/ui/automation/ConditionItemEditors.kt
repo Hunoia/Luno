@@ -1,11 +1,9 @@
 package hunoia.luno.ui.automation
-
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalButton
@@ -41,20 +39,19 @@ import hunoia.luno.config.model.ScreenEventType
 import hunoia.luno.config.model.ScreenType
 import hunoia.luno.domain.automation.formatTimeOfDay
 import hunoia.luno.ui.component.sheets.AppPickerSheet
-import hunoia.luno.ui.component.SegmentedSwitchRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.style.TextOverflow
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.PageGutter
 import kotlin.math.roundToInt
-
+import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.ui.component.sheet.CustomDialog
 data class ConditionTypeSpec(
     val type: String,
     val labelRes: Int,
     val event: Boolean,
 )
-
 val LEVEL_CONDITION_TYPES: List<ConditionTypeSpec> = listOf(
     ConditionTypeSpec(ConditionType.FOREGROUND_APP, R.string.condition_foreground_app, false),
     ConditionTypeSpec(ConditionType.SCREEN_STATE, R.string.condition_screen, false),
@@ -68,7 +65,6 @@ val LEVEL_CONDITION_TYPES: List<ConditionTypeSpec> = listOf(
     ConditionTypeSpec(ConditionType.BLUETOOTH, R.string.condition_bluetooth, false),
     ConditionTypeSpec(ConditionType.AIRPLANE_MODE, R.string.condition_airplane_mode, false),
 )
-
 val EVENT_CONDITION_TYPES: List<ConditionTypeSpec> = listOf(
     ConditionTypeSpec(ConditionType.APP_CHANGED_TO, R.string.condition_app_changed, true),
     ConditionTypeSpec(ConditionType.SCREEN_EVENT, R.string.condition_screen_event, true),
@@ -80,9 +76,7 @@ val EVENT_CONDITION_TYPES: List<ConditionTypeSpec> = listOf(
     ConditionTypeSpec(ConditionType.SCHEDULED_TIME, R.string.condition_scheduled_time, true),
     ConditionTypeSpec(ConditionType.GESTURE_PERFORMED, R.string.condition_gesture_performed, true),
 )
-
 val CONDITION_TYPES: List<ConditionTypeSpec> = LEVEL_CONDITION_TYPES + EVENT_CONDITION_TYPES
-
 fun defaultConditionOf(type: String): ConditionItem = when (type) {
     ConditionType.SCREEN_STATE -> ConditionItem(type, screenType = ScreenType.LOCK_SCREEN)
     ConditionType.SCREEN_EVENT -> ConditionItem(type, screenEvent = ScreenEventType.SCREEN_ON)
@@ -104,13 +98,11 @@ fun defaultConditionOf(type: String): ConditionItem = when (type) {
     ConditionType.GROUP -> ConditionItem(type, group = WhenGroup())
     else -> ConditionItem(type)
 }
-
 fun conditionTypeLabel(context: Context, type: String): String = context.getString(
     CONDITION_TYPES.find { it.type == type }?.labelRes
         ?: if (type == ConditionType.GROUP) R.string.condition_logic_group
         else R.string.condition_logic_group,
 )
-
 fun screenTypeLabel(context: Context, type: ScreenType): String = context.getString(
     when (type) {
         ScreenType.LOCK_SCREEN -> R.string.lock_screen
@@ -120,10 +112,8 @@ fun screenTypeLabel(context: Context, type: ScreenType): String = context.getStr
         ScreenType.KEYBOARD_INPUT -> R.string.condition_keyboard_input
     },
 )
-
 private fun screenTypeOptions(context: Context): List<String> =
     ScreenType.entries.map { screenTypeLabel(context, it) }
-
 internal fun audioStreamLabel(context: Context, stream: AudioStream): String = context.getString(
     when (stream) {
         AudioStream.MUSIC -> R.string.audio_stream_music
@@ -134,7 +124,6 @@ internal fun audioStreamLabel(context: Context, stream: AudioStream): String = c
         AudioStream.SYSTEM -> R.string.audio_stream_system
     },
 )
-
 internal fun networkTypeLabel(context: Context, type: NetworkType): String = context.getString(
     when (type) {
         NetworkType.WIFI -> R.string.network_wifi
@@ -143,62 +132,56 @@ internal fun networkTypeLabel(context: Context, type: NetworkType): String = con
         NetworkType.OTHER -> R.string.network_other
     },
 )
-
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ConditionItemFields(item: ConditionItem, onChange: (ConditionItem) -> Unit) {
+fun ConditionItemFields(item: ConditionItem, onConditionChange: (ConditionItem) -> Unit) {
     val context = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
         when (item.type) {
             ConditionType.FOREGROUND_APP,
             ConditionType.APP_CHANGED_TO -> AppConditionField(
                 packageNames = item.packageNames,
-                onChange = { onChange(item.copy(packageNames = it)) },
+                onPackagesChange = { onConditionChange(item.copy(packageNames = it)) },
             )
-
             ConditionType.SCREEN_STATE -> FilterChipRow(
                 options = screenTypeOptions(context),
                 selectedIndex = ScreenType.entries.indexOf(item.screenType ?: ScreenType.LOCK_SCREEN),
-                onChange = { i -> onChange(item.copy(screenType = ScreenType.entries.getOrNull(i))) },
+                onIntChange = { i -> onConditionChange(item.copy(screenType = ScreenType.entries.getOrNull(i))) },
             )
-
             ConditionType.SCREEN_EVENT -> TriStateLabelRow(
                 labels = listOf(
                     stringResource(R.string.screen_event_on),
                     stringResource(R.string.screen_event_off),
                 ),
                 selectedIndex = if (item.screenEvent == ScreenEventType.SCREEN_ON) 0 else 1,
-                onChange = { i ->
-                    onChange(item.copy(screenEvent = if (i == 0) ScreenEventType.SCREEN_ON else ScreenEventType.SCREEN_OFF))
+                onIntChange = { i ->
+                    onConditionChange(item.copy(screenEvent = if (i == 0) ScreenEventType.SCREEN_ON else ScreenEventType.SCREEN_OFF))
                 },
             )
-
             ConditionType.BATTERY_RANGE -> PercentRangeField(
                 min = item.batteryLevelMin,
                 max = item.batteryLevelMax,
-                onChange = { lo, hi -> onChange(item.copy(batteryLevelMin = lo, batteryLevelMax = hi)) },
+                onRangeChange = { lo, hi -> onConditionChange(item.copy(batteryLevelMin = lo, batteryLevelMax = hi)) },
             )
-
             ConditionType.VOLUME_RANGE -> {
                 Text(stringResource(R.string.volume_stream), style = MaterialTheme.typography.labelMedium)
                 FilterChipRow(
                     options = AudioStream.entries.map { audioStreamLabel(context, it) },
                     selectedIndex = AudioStream.entries.indexOf(item.audioStream ?: AudioStream.MUSIC),
-                    onChange = { i -> onChange(item.copy(audioStream = AudioStream.entries.getOrNull(i))) },
+                    onIntChange = { i -> onConditionChange(item.copy(audioStream = AudioStream.entries.getOrNull(i))) },
                 )
                 PercentRangeField(
                     min = item.volumeMin,
                     max = item.volumeMax,
-                    onChange = { lo, hi -> onChange(item.copy(volumeMin = lo, volumeMax = hi)) },
+                    onRangeChange = { lo, hi -> onConditionChange(item.copy(volumeMin = lo, volumeMax = hi)) },
                 )
             }
-
             ConditionType.VOLUME_CHANGED -> {
                 Text(stringResource(R.string.volume_stream), style = MaterialTheme.typography.labelMedium)
                 FilterChipRow(
                     options = AudioStream.entries.map { audioStreamLabel(context, it) },
                     selectedIndex = AudioStream.entries.indexOf(item.audioStream ?: AudioStream.MUSIC),
-                    onChange = { i -> onChange(item.copy(audioStream = AudioStream.entries.getOrNull(i))) },
+                    onIntChange = { i -> onConditionChange(item.copy(audioStream = AudioStream.entries.getOrNull(i))) },
                 )
                 TriStateLabelRow(
                     labels = listOf(
@@ -212,8 +195,8 @@ fun ConditionItemFields(item: ConditionItem, onChange: (ConditionItem) -> Unit) 
                         VolumeDirection.DOWN -> 2
                         else -> 0
                     },
-                    onChange = { i ->
-                        onChange(item.copy(volumeDirection = when (i) {
+                    onIntChange = { i ->
+                        onConditionChange(item.copy(volumeDirection = when (i) {
                             0 -> null
                             1 -> VolumeDirection.UP
                             else -> VolumeDirection.DOWN
@@ -221,46 +204,40 @@ fun ConditionItemFields(item: ConditionItem, onChange: (ConditionItem) -> Unit) 
                     },
                 )
             }
-
-            ConditionType.CHARGING -> SegmentedSwitchRow(
+            ConditionType.CHARGING -> LunoSwitchRow(
                 title = stringResource(R.string.condition_charging),
                 checked = item.charging == true,
-                onCheckedChange = { onChange(item.copy(charging = it)) },
+                onCheckedChange = { onConditionChange(item.copy(charging = it)) },
             )
-
             ConditionType.CHARGING_CHANGED -> TriStateLabelRow(
                 labels = listOf(
                     stringResource(R.string.charging_started),
                     stringResource(R.string.charging_stopped),
                 ),
                 selectedIndex = if (item.charging == true) 0 else 1,
-                onChange = { i -> onChange(item.copy(charging = i == 1)) },
+                onIntChange = { i -> onConditionChange(item.copy(charging = i == 1)) },
             )
-
             ConditionType.RINGER_SILENT -> TriStateLabelRow(
                 labels = listOf(
                     stringResource(R.string.condition_silent),
                     stringResource(R.string.condition_ringing),
                 ),
                 selectedIndex = if (item.silent == true) 0 else 1,
-                onChange = { i -> onChange(item.copy(silent = i == 0)) },
+                onIntChange = { i -> onConditionChange(item.copy(silent = i == 0)) },
             )
-
             ConditionType.NETWORK_TYPE -> TriStateLabelRow(
                 labels = NetworkType.entries.map { networkTypeLabel(context, it) },
                 selectedIndex = NetworkType.entries.indexOf(item.networkType ?: NetworkType.WIFI),
-                onChange = { i -> onChange(item.copy(networkType = NetworkType.entries.getOrNull(i))) },
+                onIntChange = { i -> onConditionChange(item.copy(networkType = NetworkType.entries.getOrNull(i))) },
             )
-
             ConditionType.HEADPHONES -> TriStateLabelRow(
                 labels = listOf(
                     stringResource(R.string.headphones_plugged),
                     stringResource(R.string.headphones_unplugged),
                 ),
                 selectedIndex = if (item.plugged == true) 0 else 1,
-                onChange = { i -> onChange(item.copy(plugged = i == 0)) },
+                onIntChange = { i -> onConditionChange(item.copy(plugged = i == 0)) },
             )
-
             ConditionType.BLUETOOTH -> {
                 Text(stringResource(R.string.bluetooth_adapter), style = MaterialTheme.typography.labelMedium)
                 TriStateLabelRow(
@@ -274,8 +251,8 @@ fun ConditionItemFields(item: ConditionItem, onChange: (ConditionItem) -> Unit) 
                         true -> 1
                         false -> 2
                     },
-                    onChange = { i ->
-                        onChange(item.copy(expectedBluetoothAdapterOn = when (i) { 0 -> null; 1 -> true; else -> false }))
+                    onIntChange = { i ->
+                        onConditionChange(item.copy(expectedBluetoothAdapterOn = when (i) { 0 -> null; 1 -> true; else -> false }))
                     },
                 )
                 Text(stringResource(R.string.bluetooth_audio), style = MaterialTheme.typography.labelMedium)
@@ -290,42 +267,38 @@ fun ConditionItemFields(item: ConditionItem, onChange: (ConditionItem) -> Unit) 
                         true -> 1
                         false -> 2
                     },
-                    onChange = { i ->
-                        onChange(item.copy(expectedBluetoothAudioConnected = when (i) { 0 -> null; 1 -> true; else -> false }))
+                    onIntChange = { i ->
+                        onConditionChange(item.copy(expectedBluetoothAudioConnected = when (i) { 0 -> null; 1 -> true; else -> false }))
                     },
                 )
             }
-
             ConditionType.AIRPLANE_MODE -> TriStateLabelRow(
                 labels = listOf(
                     stringResource(R.string.state_on),
                     stringResource(R.string.state_off),
                 ),
                 selectedIndex = if (item.airplaneMode == true) 0 else 1,
-                onChange = { i -> onChange(item.copy(airplaneMode = i == 0)) },
+                onIntChange = { i -> onConditionChange(item.copy(airplaneMode = i == 0)) },
             )
-
             ConditionType.TIME_RANGE -> TimeRangeField(
                 startMinute = item.startMinute ?: 8 * 60,
                 endMinute = item.endMinute ?: 18 * 60,
-                onChange = { lo, hi -> onChange(item.copy(startMinute = lo, endMinute = hi)) },
+                onRangeChange = { lo, hi -> onConditionChange(item.copy(startMinute = lo, endMinute = hi)) },
             )
-
             ConditionType.NOTIFICATION_POSTED -> {
                 AppConditionField(
                     packageNames = item.notifyPackages,
-                    onChange = { onChange(item.copy(notifyPackages = it)) },
+                    onPackagesChange = { onConditionChange(item.copy(notifyPackages = it)) },
                 )
                 OutlinedTextField(
                     value = item.notifyKeyword,
-                    onValueChange = { onChange(item.copy(notifyKeyword = it)) },
+                    onValueChange = { onConditionChange(item.copy(notifyKeyword = it)) },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text(stringResource(R.string.condition_notify_keyword)) },
                     singleLine = true,
                     shape = hunoia.luno.ui.theme.LargeShape,
                 )
             }
-
             ConditionType.GESTURE_PERFORMED -> {
                 Text(
                     text = if (item.gestureButtonIds.isEmpty()) {
@@ -336,12 +309,11 @@ fun ConditionItemFields(item: ConditionItem, onChange: (ConditionItem) -> Unit) 
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 if (item.gestureButtonIds.isNotEmpty()) {
-                    TextButton(onClick = { onChange(item.copy(gestureButtonIds = emptyList())) }) {
+                    TextButton(onClick = { onConditionChange(item.copy(gestureButtonIds = emptyList())) }) {
                         Text(stringResource(R.string.condition_gesture_clear))
                     }
                 }
             }
-
             ConditionType.BLUETOOTH_CHANGED,
             ConditionType.HEADPHONES_CHANGED -> TriStateLabelRow(
                 labels = listOf(
@@ -354,56 +326,52 @@ fun ConditionItemFields(item: ConditionItem, onChange: (ConditionItem) -> Unit) 
                     ConnectionDirection.CONNECTED -> 1
                     ConnectionDirection.DISCONNECTED -> 2
                 },
-                onChange = { i ->
-                    onChange(item.copy(connectionDirection = when (i) {
+                onIntChange = { i ->
+                    onConditionChange(item.copy(connectionDirection = when (i) {
                         0 -> null
                         1 -> ConnectionDirection.CONNECTED
                         else -> ConnectionDirection.DISCONNECTED
                     }))
                 },
             )
-
             ConditionType.SCHEDULED_TIME -> ScheduledTimeField(
                 minutes = item.scheduledMinutes,
                 weekdays = item.scheduledWeekdays,
-                onChange = { m, w -> onChange(item.copy(scheduledMinutes = m, scheduledWeekdays = w)) },
+                onScheduleChange = { m, w -> onConditionChange(item.copy(scheduledMinutes = m, scheduledWeekdays = w)) },
             )
-
             else -> Unit
         }
     }
 }
-
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FilterChipRow(
     options: List<String>,
     selectedIndex: Int,
-    onChange: (Int) -> Unit,
+    onIntChange: (Int) -> Unit,
 ) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(PageGutter)) {
         options.forEachIndexed { index, label ->
             FilterChip(
                 selected = index == selectedIndex,
-                onClick = { onChange(index) },
+                onClick = { onIntChange(index) },
                 label = { Text(label) },
             )
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TriStateLabelRow(
     labels: List<String>,
     selectedIndex: Int,
-    onChange: (Int) -> Unit,
+    onIntChange: (Int) -> Unit,
 ) {
     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
         labels.forEachIndexed { index, label ->
             SegmentedButton(
                 selected = index == selectedIndex,
-                onClick = { onChange(index) },
+                onClick = { onIntChange(index) },
                 shape = SegmentedButtonDefaults.itemShape(count = labels.size, index = index),
             ) {
                 Text(label, maxLines = 1)
@@ -411,13 +379,12 @@ private fun TriStateLabelRow(
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PercentRangeField(
     min: Int?,
     max: Int?,
-    onChange: (Int, Int) -> Unit,
+    onRangeChange: (Int, Int) -> Unit,
 ) {
     var sliderValue by remember(min, max) {
         mutableStateOf((min ?: 0).toFloat()..(max ?: 100).toFloat())
@@ -426,7 +393,7 @@ private fun PercentRangeField(
         value = sliderValue,
         onValueChange = { sliderValue = it },
         onValueChangeFinished = {
-            onChange(
+            onRangeChange(
                 sliderValue.start.roundToInt().coerceIn(0, 100),
                 sliderValue.endInclusive.roundToInt().coerceIn(0, 100),
             )
@@ -439,11 +406,10 @@ private fun PercentRangeField(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }
-
 @Composable
 private fun AppConditionField(
     packageNames: List<String>,
-    onChange: (List<String>) -> Unit,
+    onPackagesChange: (List<String>) -> Unit,
 ) {
     var showPicker by remember { mutableStateOf(false) }
     Text(
@@ -464,16 +430,15 @@ private fun AppConditionField(
         AppPickerSheet(
             onDismissRequest = { showPicker = false },
             selectedPackageNames = packageNames,
-            onConfirm = { onChange(it) },
+            onConfirm = { onPackagesChange(it) },
         )
     }
 }
-
 @Composable
 private fun TimeRangeField(
     startMinute: Int,
     endMinute: Int,
-    onChange: (Int, Int) -> Unit,
+    onRangeChange: (Int, Int) -> Unit,
 ) {
     var picking by remember { mutableStateOf<Int?>(null) }
     val nextDaySuffix = if (startMinute > endMinute) {
@@ -481,7 +446,6 @@ private fun TimeRangeField(
     } else {
         ""
     }
-
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -495,32 +459,28 @@ private fun TimeRangeField(
             Text(formatTimeOfDay(endMinute) + nextDaySuffix)
         }
     }
-
     when (picking) {
         0 -> TimePickerDialog(
             title = stringResource(R.string.condition_time_start),
             initialMinute = startMinute,
-            onDismiss = { picking = null },
-            onConfirm = { onChange(it, endMinute) },
+            onDismissRequest = { picking = null },
+            onConfirm = { onRangeChange(it, endMinute) },
         )
-
         1 -> TimePickerDialog(
             title = stringResource(R.string.condition_time_end),
             initialMinute = endMinute,
-            onDismiss = { picking = null },
-            onConfirm = { onChange(startMinute, it) },
+            onDismissRequest = { picking = null },
+            onConfirm = { onRangeChange(startMinute, it) },
         )
-
         else -> Unit
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun ScheduledTimeField(
     minutes: List<Int>,
     weekdays: Set<Int>,
-    onChange: (List<Int>, Set<Int>) -> Unit,
+    onScheduleChange: (List<Int>, Set<Int>) -> Unit,
 ) {
     var picking by remember { mutableStateOf(false) }
     Text(
@@ -531,7 +491,7 @@ private fun ScheduledTimeField(
         minutes.sorted().forEach { minute ->
             FilterChip(
                 selected = true,
-                onClick = { onChange(minutes.filterNot { it == minute }, weekdays) },
+                onClick = { onScheduleChange(minutes.filterNot { it == minute }, weekdays) },
                 label = { Text(formatTimeOfDay(minute)) },
             )
         }
@@ -558,7 +518,7 @@ private fun ScheduledTimeField(
             FilterChip(
                 selected = day in weekdays,
                 onClick = {
-                    onChange(minutes, if (day in weekdays) weekdays - day else weekdays + day)
+                    onScheduleChange(minutes, if (day in weekdays) weekdays - day else weekdays + day)
                 },
                 label = { Text(stringResource(labelRes)) },
             )
@@ -568,20 +528,19 @@ private fun ScheduledTimeField(
         TimePickerDialog(
             title = stringResource(R.string.condition_scheduled_add),
             initialMinute = 8 * 60,
-            onDismiss = { picking = false },
+            onDismissRequest = { picking = false },
             onConfirm = {
-                if (it !in minutes) onChange(minutes + it, weekdays)
+                if (it !in minutes) onScheduleChange(minutes + it, weekdays)
             },
         )
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TimePickerDialog(
     title: String,
     initialMinute: Int,
-    onDismiss: () -> Unit,
+    onDismissRequest: () -> Unit,
     onConfirm: (Int) -> Unit,
 ) {
     val timeState = rememberTimePickerState(
@@ -589,24 +548,11 @@ private fun TimePickerDialog(
         initialMinute = initialMinute % 60,
         is24Hour = true,
     )
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = { TimePicker(state = timeState) },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onConfirm(timeState.hour * 60 + timeState.minute)
-                    onDismiss()
-                },
-            ) {
-                Text(stringResource(R.string.confirm))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
-            }
-        },
-    )
+    CustomDialog(
+        title = title,
+        onDismissRequest = onDismissRequest,
+        onConfirm = { onConfirm(timeState.hour * 60 + timeState.minute) },
+    ) {
+        TimePicker(state = timeState)
+    }
 }

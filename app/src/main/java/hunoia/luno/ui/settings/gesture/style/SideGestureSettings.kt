@@ -1,5 +1,4 @@
 package hunoia.luno.ui.settings.gesture.style
-
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -10,29 +9,27 @@ import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.ui.component.RowIconBadge
-import hunoia.luno.ui.component.SegmentedSettingsRow
 import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.component.slideToLabel
-
-
+import hunoia.luno.ui.component.row.LunoSettingsRow
 @Composable
-fun MySideGestureSettings(
+fun SideGestureSettings(
     onClick: () -> Unit,
     direction: GestureDirection,
     isLongSlide: Boolean,
-    secondaryText: String,
+    subtitle: String,
     text: String? = null,
     shape: Shape = RoundedCornerShape(ContainerRadius),
 ) {
     val label = text ?: direction.slideToLabel()
     val rotation = direction.rotation()
-    SegmentedSettingsRow(
+    LunoSettingsRow(
         onClick = onClick,
         title = label,
-        subtitle = if (secondaryText.isNotEmpty()) secondaryText else stringResource(id = R.string.action_none),
-        secondaryTextColor = MaterialTheme.colorScheme.primary,
+        subtitle = if (subtitle.isNotEmpty()) subtitle else stringResource(id = R.string.action_none),
+        subtitleColor = MaterialTheme.colorScheme.primary,
         shape = shape,
-        leadingContent = {
+        leading = {
             RowIconBadge(
                 icon = Icons.AutoMirrored.Filled.ArrowForward,
                 rotation = rotation,
@@ -40,7 +37,6 @@ fun MySideGestureSettings(
         },
     )
 }
-
 @Composable
 private fun GestureDirection.rotation(): Float = when (this) {
     GestureDirection.Right -> 0f

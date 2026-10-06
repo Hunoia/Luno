@@ -13,8 +13,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.config.model.ArcStyle
-import hunoia.luno.ui.component.MyColumn
-import hunoia.luno.ui.component.input.MyTextSlider
+import hunoia.luno.ui.component.LunoColumn
+import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.theme.ListSpacing
 import kotlin.math.roundToInt
 
@@ -30,13 +30,13 @@ fun ActionPanelStyleConfigContent(
     var itemGapDp by remember(style.itemGapPx) { mutableFloatStateOf(with(density) { style.itemGapPx.toDp().value }) }
     var spreadSpacing by remember(style.spreadSpacing) { mutableFloatStateOf(style.spreadSpacing) }
 
-    MyColumn(verticalArrangement = Arrangement.spacedBy(ListSpacing)) {
+    LunoColumn(verticalArrangement = Arrangement.spacedBy(ListSpacing)) {
         Text(
             text = stringResource(R.string.action_panel_style_arc),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        MyTextSlider(
+        LunoTextSlider(
             value = itemSizeDp,
             onValueChange = { itemSizeDp = it },
             onValueChangeFinished = {
@@ -47,7 +47,7 @@ fun ActionPanelStyleConfigContent(
             sliderValueHint = "40dp" to "64dp",
             valueRange = 40f..64f,
         )
-        MyTextSlider(
+        LunoTextSlider(
             value = itemGapDp,
             onValueChange = { itemGapDp = it },
             onValueChangeFinished = {
@@ -58,7 +58,7 @@ fun ActionPanelStyleConfigContent(
             sliderValueHint = "0dp" to "24dp",
             valueRange = 0f..24f,
         )
-        MyTextSlider(
+        LunoTextSlider(
             value = spreadSpacing,
             onValueChange = { spreadSpacing = it },
             onValueChangeFinished = {

@@ -12,7 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.core.WallpaperChangedEvent
 import hunoia.luno.runtime.settings.SettingsState
-import hunoia.luno.ui.component.SideGestureContainer
+import hunoia.luno.runtime.gesturepanel.SideGestureContainer
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.core.Events.SubscribeEvent
 import hunoia.luno.ui.theme.SideGestureTheme

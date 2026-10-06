@@ -1,5 +1,4 @@
 package hunoia.luno.ui.settings.gesture.button
-
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -32,23 +31,21 @@ import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.ui.component.RowIconBadge
-import hunoia.luno.ui.component.SegmentedSettingsRow
 import hunoia.luno.ui.component.actionTextCompose
-import hunoia.luno.ui.component.segmentedShape
 import hunoia.luno.ui.navigation.ActionSelect
-import hunoia.luno.ui.settings.gesture.style.MySideGestureSettings
+import hunoia.luno.ui.settings.gesture.style.SideGestureSettings
 import hunoia.luno.ui.theme.ConnectionRadius
 import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SegmentedGap
-
+import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.row.segmentedShape
 val actionCardDirections = listOf(
     GestureDirection.Left,
     GestureDirection.Up,
     GestureDirection.Right,
     GestureDirection.Down,
 )
-
 enum class GestureActionGroup {
     Tap,
     Slide,
@@ -56,7 +53,6 @@ enum class GestureActionGroup {
     LongSlideHold,
     LongSlide,
 }
-
 @Composable
 fun ExpandableGestureActionCard(
     icon: ImageVector,
@@ -79,19 +75,18 @@ fun ExpandableGestureActionCard(
         bottomStart = headerBottomRadius,
         bottomEnd = headerBottomRadius,
     )
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(ContainerRadius)),
         verticalArrangement = Arrangement.spacedBy(SegmentedGap),
     ) {
-        SegmentedSettingsRow(
+        LunoSettingsRow(
             title = title,
             icon = icon,
             onClick = { onExpandedChange(!expanded) },
             shape = headerShape,
-            trailingContent = {
+            trailing = {
                 Icon(
                     modifier = Modifier
                         .size(RowIconSize)
@@ -117,7 +112,6 @@ fun ExpandableGestureActionCard(
         }
     }
 }
-
 @Composable
 fun GestureButtonSlideActionsCard(
     gestureButton: GestureButton,
@@ -146,7 +140,6 @@ fun GestureButtonSlideActionsCard(
         )
     }
 }
-
 @Composable
 fun GestureButtonLongSlideActionsCard(
     gestureButton: GestureButton,
@@ -175,7 +168,6 @@ fun GestureButtonLongSlideActionsCard(
         )
     }
 }
-
 @Composable
 private fun <T> RowGroup(
     items: List<T>,
@@ -190,7 +182,6 @@ private fun <T> RowGroup(
         }
     }
 }
-
 @Composable
 fun SlideActionRows(
     actionsText: @Composable (GestureDirection) -> String,
@@ -199,16 +190,15 @@ fun SlideActionRows(
 ) {
     val directions = actionCardDirections.filterNot { it in hiddenDirections }
     RowGroup(items = directions) { index, direction ->
-        MySideGestureSettings(
+        SideGestureSettings(
             onClick = { onDirectionClick(direction) },
             direction = direction,
             isLongSlide = false,
-            secondaryText = actionsText(direction),
+            subtitle = actionsText(direction),
             shape = segmentedShape(index, directions.size),
         )
     }
 }
-
 @Composable
 fun LongSlideActionRows(
     actionsText: @Composable (GestureDirection) -> String,
@@ -217,16 +207,15 @@ fun LongSlideActionRows(
 ) {
     val directions = actionCardDirections.filterNot { it in hiddenDirections }
     RowGroup(items = directions) { index, direction ->
-        MySideGestureSettings(
+        SideGestureSettings(
             onClick = { onDirectionClick(direction) },
             direction = direction,
             isLongSlide = true,
-            secondaryText = actionsText(direction),
+            subtitle = actionsText(direction),
             shape = segmentedShape(index, directions.size),
         )
     }
 }
-
 @Composable
 fun GestureButtonTapActionsCard(
     gestureButton: GestureButton,
@@ -246,7 +235,7 @@ fun GestureButtonTapActionsCard(
         onExpandedChange = onExpandedChange,
     ) {
         RowGroup(items = tapActions) { index, (labelRes, triggerType, actions) ->
-            SegmentedSettingsRow(
+            LunoSettingsRow(
                 onClick = {
                     onNavToActionSelect(
                         ActionSelect(
@@ -258,16 +247,15 @@ fun GestureButtonTapActionsCard(
                 },
                 title = stringResource(id = labelRes),
                 subtitle = actions.actionTextCompose(),
-                secondaryTextColor = MaterialTheme.colorScheme.primary,
+                subtitleColor = MaterialTheme.colorScheme.primary,
                 shape = segmentedShape(index, tapActions.size),
-                leadingContent = {
+                leading = {
                     RowIconBadge(icon = Icons.Default.Adjust)
                 },
             )
         }
     }
 }
-
 @Composable
 fun GestureButtonSlideHoldActionsCard(
     gestureButton: GestureButton,
@@ -296,7 +284,6 @@ fun GestureButtonSlideHoldActionsCard(
         )
     }
 }
-
 @Composable
 fun GestureButtonLongSlideHoldActionsCard(
     gestureButton: GestureButton,

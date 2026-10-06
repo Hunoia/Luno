@@ -1,59 +1,38 @@
 package hunoia.luno.ui.settings.gesture.button
 import hunoia.luno.ui.theme.*
-
 import androidx.compose.foundation.background
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.util.fastForEach
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aaron.compose.component.UDFComponent
 import hunoia.luno.R
 import hunoia.luno.config.defaults.SettingsUiDefaults.GestureButtonColorAlpha
 import hunoia.luno.ui.navigation.ActionSelect
-import hunoia.luno.config.model.GestureButton
-import hunoia.luno.ui.component.sheets.OptimizedBottomSheet
+import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsUiEvent
 import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsUiState
-import hunoia.luno.config.model.GestureDirection
-import hunoia.luno.gesture.mirroredButton
 import hunoia.luno.ui.settings.gesture.subgesture.GestureButtonAngleContent
 import hunoia.luno.ui.theme.MarkColorSize
-import hunoia.luno.ui.component.sheets.MyAlertDialog
-import hunoia.luno.ui.component.SegmentedGroup
-
-import androidx.compose.foundation.layout.Arrangement
-import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
-import hunoia.luno.ui.component.TopBar
-import hunoia.luno.gesture.bounds
+import hunoia.luno.ui.theme.liquidGlassBackdrop
 import hunoia.luno.ui.component.gestureButtonMarkColor
-
-
+import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.screen.LunoScreenLazy
+import hunoia.luno.ui.component.sheet.ConfirmDialog
+import hunoia.luno.ui.component.feedback.LunoIconButton
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GestureButtonSettingsScreen(
@@ -64,38 +43,29 @@ fun GestureButtonSettingsScreen(
     var showVibrationSettings by remember { mutableStateOf(false) }
     var showTriggerDistanceSettings by remember { mutableStateOf(false) }
     var showGestureAngles by remember { mutableStateOf(false) }
-    val surfaceColor = MaterialTheme.colorScheme.surfaceContainer
-    val backdrop = rememberLayerBackdrop {
-        drawRect(surfaceColor)
-        drawContent()
-    }
+    val backdrop = liquidGlassBackdrop()
     val listState = rememberLazyListState()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     UDFComponent<GestureButtonSettingsUiState, GestureButtonSettingsUiEvent>(component = vm.udfComponent, onEvent = { }) { uiState ->
         if (uiState.showDeleteWarningDialog) {
-            MyAlertDialog(
+            ConfirmDialog(
                 onDismissRequest = { vm.showDeleteWarningDialog(false) },
                 title = stringResource(id = R.string.delete_gesture_button_warning),
                 text = stringResource(id = R.string.delete_gesture_button_warning_desc),
-                onConfirmClick = { vm.deleteGestureButton() }
+                destructive = true,
+                onConfirm = { vm.deleteGestureButton() }
             )
         }
         Box {
-            Scaffold(
-                modifier = Modifier.fillMaxSize(),
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                contentWindowInsets = WindowInsets(),
-                topBar = {
-                    TopBar(
-                        title = uiState.gestureButton?.name?.ifEmpty { stringResource(id = R.string.gesture_button) }
-                            ?: stringResource(id = R.string.gesture_button),
-                        onBack = onBack,
-                        backdrop = backdrop,
-                        postfixTitle = {
+    LunoScreenLazy(
+        title = uiState.gestureButton?.name?.ifEmpty { stringResource(id = R.string.gesture_button) }
+            ?: stringResource(id = R.string.gesture_button),
+        onBack = onBack,
+        postfixTitle = {
                             if (uiState.gestureButton != null) {
                                 Box(
                                     modifier = Modifier
-                                        .padding(start = 8.dp)
+                                        .padding(start = CardInnerSpacing)
                                         .size(MarkColorSize)
                                         .background(
                                             color = gestureButtonMarkColor(uiState.gestureButton.color, GestureButtonColorAlpha),
@@ -104,47 +74,51 @@ fun GestureButtonSettingsScreen(
                                 )
                             }
                         },
-                        actions = {
+        actions = {
                             if (uiState.gestureButton != null && !uiState.gestureButton.isDefault) {
-                                IconButton(onClick = { vm.showDeleteWarningDialog(true) }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = null,
-                                    )
-                                }
+                                LunoIconButton(
+                                    icon = Icons.Default.Delete,
+                                    contentDescription = stringResource(R.string.delete),
+                                    onClick = { vm.showDeleteWarningDialog(true) },
+                                )
                             }
                         },
-                        scrollBehavior = scrollBehavior,
-                    )
-                }
-            ) { paddingValues ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .then(Modifier.layerBackdrop(backdrop)),
-                ) {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .nestedScroll(scrollBehavior.nestedScrollConnection),
-                        state = listState,
-                        contentPadding = PaddingValues(
-                            start = PageGutter,
-                            top = paddingValues.calculateTopPadding(),
-                            end = PageGutter,
-                            bottom = ContentBottom,
-                        ),
-                        verticalArrangement = Arrangement.spacedBy(ListSpacing),
-                    ) {
+        state = listState,
+        sheets = {
+        val sheetButton = uiState.gestureButton
+        if (showVibrationSettings && sheetButton != null) {
+            LunoSheet(onDismissRequest = { showVibrationSettings = false }, showDragHandle = true) {
+                GestureButtonVibrationContent(button = sheetButton, vm = vm)
+            }
+        }
+        if (showGestureAngles && sheetButton != null) {
+            LunoSheet(onDismissRequest = { showGestureAngles = false }, showDragHandle = true) {
+                GestureButtonAngleContent(
+                    angle = sheetButton.angle,
+                    onDismissRequest = { showGestureAngles = false },
+                    onConfirm = {
+                        vm.updateGestureButtonAngle(it)
+                        showGestureAngles = false
+                    },
+                )
+            }
+        }
+        if (showTriggerDistanceSettings && sheetButton != null) {
+            LunoSheet(onDismissRequest = { showTriggerDistanceSettings = false }, showDragHandle = true) {
+                GestureButtonTriggerDistanceContent(button = sheetButton, vm = vm)
+            }
+        }
+        },
+    ) {
+
                         val gestureButton = uiState.gestureButton
                         if (gestureButton != null) {
                             fun setExpandedGroup(group: GestureActionGroup, expanded: Boolean) {
                                 vm.setExpandedActionGroup(if (expanded) group else null)
                             }
                             item {
-                                SegmentedGroup(
+                                LunoGroup(
                                     title = stringResource(id = R.string.trigger_actions),
-                                    contentSpacing = SegmentedGap,
                                 ) {
                                     GestureButtonTapActionsCard(
                                         gestureButton = gestureButton,
@@ -189,79 +163,8 @@ fun GestureButtonSettingsScreen(
                                 )
                             }
                         }
-                    }
-                }
-            }
-
-            val colorScheme = MaterialTheme.colorScheme
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .drawBehind {
-                        uiState.gestureButtons.fastForEach { button ->
-                            fun drawTarget(targetButton: GestureButton) {
-                                val bounds = targetButton.bounds()
-                                val color = gestureButtonMarkColor(targetButton.color, colorScheme.primary)
-                                val highlight = uiState.isGestureButtonAdjusting &&
-                                        button.id == uiState.gestureButton?.id
-                                drawRect(
-                                    color = when (highlight) {
-                                        true -> color
-                                        else -> color.copy(alpha = GestureButtonColorAlpha)
-                                    },
-                                    topLeft = bounds.topLeft,
-                                    size = bounds.size
-                                )
-                            }
-                            drawTarget(button)
-                            if (button.mirrorHorizontal) {
-                                button.mirroredButton()?.let { drawTarget(it) }
-                            }
-                        }
-                    }
-            )
-        }
-
-        if (showVibrationSettings) {
-            val button = uiState.gestureButton ?: return@UDFComponent
-            OptimizedBottomSheet(
-                onDismissRequest = { showVibrationSettings = false }
-            ) {
-                GestureButtonVibrationContent(
-                    button = button,
-                    vm = vm
-                )
-            }
-        }
-
-        if (showGestureAngles) {
-            val button = uiState.gestureButton ?: return@UDFComponent
-            OptimizedBottomSheet(
-                onDismissRequest = { showGestureAngles = false }
-            ) {
-                GestureButtonAngleContent(
-                    angle = button.angle,
-                    onDismiss = { showGestureAngles = false },
-                    onSave = {
-                        vm.updateGestureButtonAngle(it)
-                        showGestureAngles = false
-                    }
-                )
-            }
-        }
-
-        if (showTriggerDistanceSettings) {
-            val button = uiState.gestureButton ?: return@UDFComponent
-            OptimizedBottomSheet(
-                onDismissRequest = { showTriggerDistanceSettings = false }
-            ) {
-                GestureButtonTriggerDistanceContent(
-                    button = button,
-                    vm = vm
-                )
-            }
-        }
-
-
+                    
+    }
+    }
     }
 }

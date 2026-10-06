@@ -1,5 +1,4 @@
 package hunoia.luno.ui.settings.gesture.button
-
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Straighten
@@ -14,13 +13,11 @@ import hunoia.luno.R
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxGestureButtonArea
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinGestureButtonLength
 import hunoia.luno.config.model.GestureButton
-import hunoia.luno.ui.component.SegmentedGroup
-import hunoia.luno.ui.component.SegmentedSettingsRow
-import hunoia.luno.ui.component.SegmentedSwitchRow
-import hunoia.luno.ui.component.input.MyTextSlider
-import hunoia.luno.ui.component.segmentedShape
-import hunoia.luno.ui.theme.SegmentedGap
-
+import hunoia.luno.ui.component.input.LunoTextSlider
+import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.ui.component.row.segmentedShape
 @Composable
 fun GestureButtonPhysicalParamsCard(
     gestureButton: GestureButton,
@@ -30,23 +27,22 @@ fun GestureButtonPhysicalParamsCard(
     onVibrationClick: () -> Unit,
     onTriggerDistanceClick: () -> Unit,
 ) {
-    SegmentedGroup(
+    LunoGroup(
         title = stringResource(id = R.string.physical_params),
-        contentSpacing = SegmentedGap,
     ) {
-        SegmentedSettingsRow(
+        LunoSettingsRow(
             onClick = onAngleClick,
             title = stringResource(id = R.string.gesture_angles),
             icon = Icons.Default.Straighten,
             shape = segmentedShape(0, 8),
         )
-        SegmentedSettingsRow(
+        LunoSettingsRow(
             onClick = onVibrationClick,
             title = stringResource(id = R.string.gesture_button_vibration),
             icon = Icons.Default.Vibration,
             shape = segmentedShape(1, 8),
         )
-        SegmentedSettingsRow(
+        LunoSettingsRow(
             onClick = onTriggerDistanceClick,
             title = stringResource(id = R.string.gesture_button_trigger_distance),
             icon = Icons.Default.Settings,
@@ -70,7 +66,7 @@ fun GestureButtonPhysicalParamsCard(
         val displayedY = localBtnY.coerceIn(0f, maxY)
         val displayedWidth = localBtnWidth.coerceIn(MinGestureButtonLength, maxWidth)
         val displayedHeight = localBtnHeight.coerceIn(MinGestureButtonLength, maxHeight)
-        MyTextSlider(
+        LunoTextSlider(
             value = displayedX,
             onValueChange = {
                 localBtnX = it
@@ -84,7 +80,7 @@ fun GestureButtonPhysicalParamsCard(
             valueRange = 0f..maxX,
             shape = segmentedShape(3, 8),
         )
-        MyTextSlider(
+        LunoTextSlider(
             value = displayedY,
             onValueChange = {
                 localBtnY = it
@@ -98,7 +94,7 @@ fun GestureButtonPhysicalParamsCard(
             valueRange = 0f..maxY,
             shape = segmentedShape(4, 8),
         )
-        MyTextSlider(
+        LunoTextSlider(
             value = displayedWidth,
             onValueChange = {
                 localBtnWidth = it
@@ -112,7 +108,7 @@ fun GestureButtonPhysicalParamsCard(
             valueRange = MinGestureButtonLength..maxWidth,
             shape = segmentedShape(5, 8),
         )
-        MyTextSlider(
+        LunoTextSlider(
             value = displayedHeight,
             onValueChange = {
                 localBtnHeight = it
@@ -126,7 +122,7 @@ fun GestureButtonPhysicalParamsCard(
             valueRange = MinGestureButtonLength..maxHeight,
             shape = segmentedShape(6, 8),
         )
-        SegmentedSwitchRow(
+        LunoSwitchRow(
             onCheckedChange = { vm.onGestureButtonMirrorHorizontalChange(it) },
             checked = mirrorHorizontal,
             title = stringResource(id = R.string.gesture_button_mirror),

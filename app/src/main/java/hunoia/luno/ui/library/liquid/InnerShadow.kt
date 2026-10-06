@@ -30,10 +30,11 @@ import androidx.compose.ui.platform.InspectorInfo
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import hunoia.luno.ui.theme.InnerShadowDefaultRadius
 
 @Immutable
 data class InnerShadow(
-    val radius: Dp = 24.dp,
+    val radius: Dp = InnerShadowDefaultRadius,
     val offset: DpOffset = DpOffset(0.dp, radius),
     val color: Color = Color.Black.copy(alpha = 0.15f),
     val alpha: Float = 1f,

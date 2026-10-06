@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.domain.search.SearchCenter
-import hunoia.luno.ui.component.input.MyTextSlider
+import hunoia.luno.ui.component.input.LunoTextSlider
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -51,7 +51,7 @@ internal fun QuickAppLauncherAdjustPanel(
     val heightMax = (maxPanel / screenH.dp).coerceIn(0.25f, 0.95f)
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        MyTextSlider(
+        LunoTextSlider(
             value = settings.contentHeightFraction,
             onValueChange = { preview(pending.copy(contentHeightFraction = it)) },
             onValueChangeFinished = { commit() },
@@ -59,7 +59,7 @@ internal fun QuickAppLauncherAdjustPanel(
             valueDisplay = { "${(it * 100).roundToInt()}%" },
             valueRange = heightMin..heightMax,
         )
-        MyTextSlider(
+        LunoTextSlider(
             value = settings.panelWidthFraction,
             onValueChange = { preview(pending.copy(panelWidthFraction = it)) },
             onValueChangeFinished = { commit() },
@@ -67,7 +67,7 @@ internal fun QuickAppLauncherAdjustPanel(
             valueDisplay = { "${(it * 100).roundToInt()}%" },
             valueRange = 0.65f..1.0f,
         )
-        MyTextSlider(
+        LunoTextSlider(
             value = settings.panelHeightFraction,
             onValueChange = { preview(pending.copy(panelHeightFraction = it)) },
             onValueChangeFinished = { commit() },
@@ -75,7 +75,7 @@ internal fun QuickAppLauncherAdjustPanel(
             valueDisplay = { "${(it * 100).roundToInt()}%" },
             valueRange = 0.05f..0.9f,
         )
-        MyTextSlider(
+        LunoTextSlider(
             value = settings.panelHorizontalBias,
             onValueChange = { preview(pending.copy(panelHorizontalBias = it)) },
             onValueChangeFinished = { commit() },
@@ -83,7 +83,7 @@ internal fun QuickAppLauncherAdjustPanel(
             valueDisplay = { "${(it * 100).roundToInt()}%" },
             valueRange = 0.0f..1.0f,
         )
-        MyTextSlider(
+        LunoTextSlider(
             value = settings.candidateRows.toFloat(),
             onValueChange = { preview(pending.copy(candidateRows = it.roundToInt().coerceIn(1, 3))) },
             onValueChangeFinished = { commit() },
@@ -91,7 +91,7 @@ internal fun QuickAppLauncherAdjustPanel(
             valueDisplay = { it.roundToInt().toString() },
             valueRange = 1f..3f,
         )
-        MyTextSlider(
+        LunoTextSlider(
             value = settings.gridColumns.toFloat(),
             onValueChange = { preview(pending.copy(gridColumns = it.roundToInt().coerceIn(3, 5))) },
             onValueChangeFinished = { commit() },
@@ -99,7 +99,7 @@ internal fun QuickAppLauncherAdjustPanel(
             valueDisplay = { it.roundToInt().toString() },
             valueRange = 3f..5f,
         )
-        MyTextSlider(
+        LunoTextSlider(
             value = settings.keyHeightDp.toFloat(),
             onValueChange = { preview(pending.copy(keyHeightDp = it.roundToInt().coerceIn(36, 80))) },
             onValueChangeFinished = { commit() },

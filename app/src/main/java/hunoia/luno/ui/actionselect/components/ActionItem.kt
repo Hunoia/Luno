@@ -1,18 +1,14 @@
 package hunoia.luno.ui.actionselect
-
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import hunoia.luno.action.model.StoredAction
-import hunoia.luno.ui.component.SelectableListItem
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.actionIcon
 import hunoia.luno.ui.theme.ContainerRadius
-
+import hunoia.luno.ui.component.row.LunoSelectableRow
 @Composable
 fun ActionItem(
     onSelect: (Boolean) -> Unit,
@@ -23,13 +19,12 @@ fun ActionItem(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     shape: Shape = RoundedCornerShape(ContainerRadius),
-    verticalGap: Dp = 0.dp,
 ) {
     val icon = actionIcon(action)
-    SelectableListItem(
+    LunoSelectableRow(
         title = actionLabel,
         selected = selected,
-        onSelect = onSelect,
+        onSelectedChange = onSelect,
         modifier = modifier,
         enabled = enabled,
         icon = icon as? ImageVector,
@@ -38,6 +33,5 @@ fun ActionItem(
         showCheckbox = !selectSingle,
         marquee = true,
         shape = shape,
-        verticalGap = verticalGap,
     )
 }

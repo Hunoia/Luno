@@ -3,7 +3,6 @@ package hunoia.luno.config.model
 import androidx.annotation.Keep
 import hunoia.luno.bridge.ui.DensityProvider
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.Transient
 
 object ActionPanelStylesDefaults {
 

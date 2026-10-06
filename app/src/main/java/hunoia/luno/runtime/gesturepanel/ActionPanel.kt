@@ -1,4 +1,4 @@
-package hunoia.luno.ui.component.panel
+package hunoia.luno.runtime.gesturepanel
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
@@ -9,10 +9,6 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import hunoia.luno.ui.component.actionText
-import hunoia.luno.ui.component.actionIcon
-import hunoia.luno.ui.component.TextIcon
-import hunoia.luno.ui.component.TextIconGlyph
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -65,10 +61,14 @@ import hunoia.luno.ui.theme.AnimNormal
 import hunoia.luno.ui.theme.AnimPanelResize
 import hunoia.luno.ui.theme.MiniWindowDefaultHeight
 import hunoia.luno.ui.theme.MiniWindowWidth
-import hunoia.luno.ui.theme.CardShape
+import hunoia.luno.ui.theme.LargeShape
 import kotlinx.coroutines.flow.filter
 import hunoia.luno.gesture.vibrateForActionPanel
 import hunoia.luno.ui.component.gestureButtonMarkColor
+import hunoia.luno.ui.component.TextIconGlyph
+import hunoia.luno.ui.component.TextIcon
+import hunoia.luno.ui.component.actionIcon
+import hunoia.luno.ui.component.actionText
 
 
 
@@ -139,7 +139,7 @@ fun ActionPanel(
                             }
                             .background(
                                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                shape = CardShape
+                                shape = LargeShape
                             )
                     )
                 }

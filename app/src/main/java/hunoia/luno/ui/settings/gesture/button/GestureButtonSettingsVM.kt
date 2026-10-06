@@ -13,7 +13,6 @@ import hunoia.luno.config.defaults.SettingsUiDefaults.MinGestureButtonLength
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxGestureButtonArea
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureButtonAngle
-import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.ui.navigation.GestureButtonSettings
 
 import hunoia.luno.domain.gesture.GestureConfig

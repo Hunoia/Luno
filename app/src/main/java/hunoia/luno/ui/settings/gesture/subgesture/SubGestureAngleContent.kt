@@ -58,8 +58,8 @@ import hunoia.luno.config.model.sectorWidth
 @Composable
 fun SubGestureAngleContent(
     angle: SubGestureAngle,
-    onDismiss: () -> Unit,
-    onSave: (SubGestureAngle) -> Unit,
+    onDismissRequest: () -> Unit,
+    onConfirm: (SubGestureAngle) -> Unit,
     color: Color = MaterialTheme.colorScheme.primary
 ) {
     val names = listOf(
@@ -73,8 +73,8 @@ fun SubGestureAngleContent(
         boundaries = angle.boundaries,
         resetBoundaries = SubGestureAngle().boundaries,
         names = names,
-        onDismiss = onDismiss,
-        onSave = { onSave(SubGestureAngle(boundaries = it)) },
+        onDismissRequest = onDismissRequest,
+        onConfirm = { onConfirm(SubGestureAngle(boundaries = it)) },
         color = color,
     )
 }
@@ -82,8 +82,8 @@ fun SubGestureAngleContent(
 @Composable
 fun GestureButtonAngleContent(
     angle: GestureButtonAngle,
-    onDismiss: () -> Unit,
-    onSave: (GestureButtonAngle) -> Unit,
+    onDismissRequest: () -> Unit,
+    onConfirm: (GestureButtonAngle) -> Unit,
     color: Color = MaterialTheme.colorScheme.primary
 ) {
     val names = listOf(
@@ -97,8 +97,8 @@ fun GestureButtonAngleContent(
         boundaries = angle.boundaries,
         resetBoundaries = GestureButtonAngle().boundaries,
         names = names,
-        onDismiss = onDismiss,
-        onSave = { onSave(GestureButtonAngle(boundaries = it)) },
+        onDismissRequest = onDismissRequest,
+        onConfirm = { onConfirm(GestureButtonAngle(boundaries = it)) },
         color = color,
     )
 }
@@ -109,8 +109,8 @@ private fun DirectionAngleContent(
     boundaries: List<Float>,
     resetBoundaries: List<Float>,
     names: List<String>,
-    onDismiss: () -> Unit,
-    onSave: (List<Float>) -> Unit,
+    onDismissRequest: () -> Unit,
+    onConfirm: (List<Float>) -> Unit,
     color: Color = MaterialTheme.colorScheme.primary
 ) {
     var draftBoundaries by remember(boundaries) { mutableStateOf(boundaries) }
@@ -192,13 +192,13 @@ private fun DirectionAngleContent(
         ) {
             OutlinedButton(
                 modifier = Modifier.weight(1f),
-                onClick = onDismiss
+                onClick = onDismissRequest
             ) {
                 Text(text = stringResource(id = R.string.cancel))
             }
             Button(
                 modifier = Modifier.weight(1f),
-                onClick = { onSave(draftBoundaries) }
+                onClick = { onConfirm(draftBoundaries) }
             ) {
                 Text(text = stringResource(id = R.string.confirm))
             }

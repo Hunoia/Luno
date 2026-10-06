@@ -20,6 +20,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.res.stringResource
+import hunoia.luno.R
 import hunoia.luno.ui.theme.TopBarPaddingExtra
 import hunoia.luno.ui.theme.TopBarTitlePadding
 import hunoia.luno.ui.theme.glassSurfaceColor
@@ -67,7 +69,7 @@ fun TopBar(
                     modifier = Modifier.padding(start = TopBarPaddingExtra / 2),
                     onClick = onBack,
                 ) {
-                    Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go Back")
+                    Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.go_back))
                 }
             }
         },

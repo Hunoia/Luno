@@ -1,5 +1,4 @@
 package hunoia.luno.ui.actionlibrary
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,13 +18,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -42,7 +39,6 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionDefinitions
@@ -50,19 +46,23 @@ import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.action.model.matchesQuery
 import hunoia.luno.action.definitions.ActionCategory
 import hunoia.luno.ui.component.AppSearchBar
-import hunoia.luno.ui.component.EmptyState
+import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.component.displayNameRes
 import hunoia.luno.ui.component.resolvedIcon
-import hunoia.luno.ui.component.segmentedShape
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SegmentedGap
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.FloatingContentBottom
-import hunoia.luno.ui.component.SegmentedSettingsRow
-
-
+import hunoia.luno.ui.theme.CardInnerSpacing
+import hunoia.luno.ui.theme.LargeGutter
+import hunoia.luno.ui.theme.ListSpacing
+import hunoia.luno.ui.theme.SearchBarPadding
+import hunoia.luno.ui.theme.TileInnerPadding
+import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.row.segmentedShape
+import hunoia.luno.ui.component.sheet.ConfirmDialog
 @Composable
 fun NewActionLibraryScreen(
     listState: LazyListState = rememberLazyListState(),
@@ -75,21 +75,19 @@ fun NewActionLibraryScreen(
     var pendingDeleteEntry by remember { mutableStateOf<NewActionLibraryEntry?>(null) }
     var iconPickerEntry by remember { mutableStateOf<NewActionLibraryEntry?>(null) }
     var resetCounter by remember { mutableStateOf(0) }
-
     val filtered = remember(uiState.entries, query) {
         uiState.entries
             .filter { it.matchesQuery(query) }
             .sortedBy { ActionDefinitions.categoryOrder(ActionDefinitions.byTypeId(it.typeId)?.category ?: ActionCategory.INTERNAL) }
     }
     val grouped = remember(filtered) { filtered.groupBy { ActionDefinitions.byTypeId(it.typeId)?.category ?: ActionCategory.INTERNAL } }
-
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().padding(contentPadding)) {
             AppSearchBar(
                 query = query,
                 onQueryChange = { query = it },
                 placeholder = stringResource(R.string.search_hint_all),
-                modifier = Modifier.padding(start = 12.dp, top = 12.dp, end = 12.dp, bottom = 8.dp),
+                modifier = Modifier.padding(start = SearchBarPadding, top = SearchBarPadding, end = SearchBarPadding, bottom = CardInnerSpacing),
             )
             LazyColumn(
                 modifier = Modifier.weight(1f),
@@ -109,7 +107,7 @@ fun NewActionLibraryScreen(
                                 modifier = Modifier
                                     .animateItem()
                                     .fillMaxWidth()
-                                    .padding(start = PageGutter, top = 8.dp, bottom = 16.dp),
+                                    .padding(start = PageGutter, top = CardInnerSpacing, bottom = ListSpacing),
                             )
                         }
                         itemsIndexed(entries, key = { _, entry -> entry.id }) { index, entry ->
@@ -122,7 +120,7 @@ fun NewActionLibraryScreen(
                                     onNavToEdit(entry.id, null)
                                 },
                                 onIconClick = { iconPickerEntry = entry },
-                                onDismiss = { pendingDeleteEntry = entry },
+                                onDismissRequest = { pendingDeleteEntry = entry },
                                 resetKey = resetCounter,
                             )
                         }
@@ -130,49 +128,30 @@ fun NewActionLibraryScreen(
                 }
             }
         }
-
         pendingDeleteEntry?.let { entry ->
             val refCount = uiState.referenceCounts[entry.id] ?: 0
-            AlertDialog(
-                onDismissRequest = {
-                    pendingDeleteEntry = null
-                    resetCounter++
-                },
-                title = { Text(stringResource(R.string.action_library_delete_title)) },
-                text = {
-                    Text(stringResource(
+ConfirmDialog(
+                    title = stringResource(R.string.action_library_delete_title),
+                    text = stringResource(
                         if (refCount > 0) R.string.action_library_delete_desc
                         else R.string.action_library_delete_unused_desc,
                         refCount,
-                    ))
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            vm.remove(entry)
-                            pendingDeleteEntry = null
-                        },
-                    ) {
-                        Text(stringResource(R.string.confirm))
-                    }
-                },
-                dismissButton = {
-                    TextButton(
-                        onClick = {
-                            pendingDeleteEntry = null
-                            resetCounter++
-                        },
-                    ) {
-                        Text(stringResource(R.string.cancel))
-                    }
-                },
-            )
+                    ),
+                    destructive = true,
+                    onDismissRequest = {
+                        pendingDeleteEntry = null
+                        resetCounter++
+                    },
+                    onConfirm = {
+                        vm.remove(entry)
+                        pendingDeleteEntry = null
+                    },
+                )
         }
-
         iconPickerEntry?.let { entry ->
             val def = ActionDefinitions.byTypeId(entry.typeId)
             IconPickerSheet(
-                onDismiss = { iconPickerEntry = null },
+                onDismissRequest = { iconPickerEntry = null },
                 onPick = { iconKey ->
                     vm.updateIcon(entry.id, iconKey)
                     iconPickerEntry = null
@@ -183,7 +162,6 @@ fun NewActionLibraryScreen(
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ActionLibrarySwipeRow(
@@ -193,19 +171,18 @@ private fun ActionLibrarySwipeRow(
     referenceCount: Int,
     onNavToEdit: () -> Unit,
     onIconClick: () -> Unit,
-    onDismiss: () -> Unit,
+    onDismissRequest: () -> Unit,
     resetKey: Int = 0,
 ) {
     key(entry.id, resetKey) {
         val state = rememberSwipeToDismissBoxState()
-
         SwipeToDismissBox(
             modifier = modifier.clip(shape),
             state = state,
             enableDismissFromEndToStart = true,
             enableDismissFromStartToEnd = false,
             gesturesEnabled = true,
-            onDismiss = { _ -> onDismiss() },
+            onDismiss = { _ -> onDismissRequest() }, // 框架 API 原名（M3 SwipeToDismissBox 带参回调）
             backgroundContent = {
                 val progress = state.progress
                 Box(
@@ -221,7 +198,7 @@ private fun ActionLibrarySwipeRow(
                         imageVector = Icons.Default.Delete,
                         contentDescription = stringResource(R.string.delete),
                         modifier = Modifier
-                            .padding(end = 24.dp)
+                            .padding(end = LargeGutter)
                             .graphicsLayer { alpha = progress.coerceIn(0f, 1f) },
                         tint = MaterialTheme.colorScheme.onErrorContainer,
                     )
@@ -239,7 +216,6 @@ private fun ActionLibrarySwipeRow(
         )
     }
 }
-
 @Composable
 private fun ActionLibraryItem(
     shape: Shape,
@@ -251,11 +227,11 @@ private fun ActionLibraryItem(
 ) {
     val def = ActionDefinitions.byTypeId(entry.typeId)
     val icon = entry.resolvedIcon() ?: Icons.Default.Build
-    SegmentedSettingsRow(
+    LunoSettingsRow(
         modifier = modifier,
         title = entry.name.ifBlank { def?.name ?: entry.typeId },
         subtitle = if (entry.name.isBlank()) "" else (def?.name ?: entry.typeId),
-        leadingContent = {
+        leading = {
             val clickMod = Modifier
                 .size(RowIconSize)
                 .clickable(
@@ -278,14 +254,14 @@ private fun ActionLibraryItem(
         },
         shape = shape,
         onClick = onClick,
-        trailingContent = {
+        trailing = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = stringResource(R.string.action_library_reference_count, referenceCount),
                     style = MaterialTheme.typography.labelSmall,
                 )
                 Icon(
-                    modifier = Modifier.size(RowIconSize).padding(start = 4.dp),
+                    modifier = Modifier.size(RowIconSize).padding(start = TileInnerPadding),
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = null,
                 )

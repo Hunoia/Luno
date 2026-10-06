@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 @Keep
-enum class BooleanMode { AND, OR, NOT }
+enum class BooleanMode { AND, OR }
 
 /**
  * 规则生效类型：v2 只剩 RUN_ACTION。HIDE/SHOW_BUTTONS 已删除（触钮显隐改为

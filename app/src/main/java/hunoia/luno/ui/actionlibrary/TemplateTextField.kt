@@ -72,7 +72,7 @@ fun TemplateTextField(
 
     if (showPicker) {
         TemplatePickerSheet(
-            onDismiss = { showPicker = false },
+            onDismissRequest = { showPicker = false },
             onPick = { text ->
                 val start = field.selection.min.coerceIn(0, field.text.length)
                 val end = field.selection.max.coerceIn(start, field.text.length)

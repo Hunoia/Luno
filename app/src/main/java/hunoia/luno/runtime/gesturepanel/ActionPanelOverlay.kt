@@ -1,4 +1,4 @@
-package hunoia.luno.ui.component.panel
+package hunoia.luno.runtime.gesturepanel
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box

@@ -16,7 +16,7 @@ import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.PageGutter
 
 @Composable
-fun MyColumn(
+fun LunoColumn(
     modifier: Modifier = Modifier,
     scrollState: ScrollState = rememberScrollState(),
     verticalArrangement: Arrangement.Vertical = Arrangement.Top,

@@ -17,10 +17,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,13 +31,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.ui.component.SheetGroupHeader
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.PageGutter
-import hunoia.luno.ui.theme.SheetTopShape
 import hunoia.luno.ui.theme.SmallShape
+import hunoia.luno.ui.theme.PageMatchIconSize
+import hunoia.luno.ui.theme.TileInnerPadding
+import hunoia.luno.ui.component.sheet.LunoSheet
 
 /**
  * 更换图标面板：无标题、无搜索、无底部按钮，网格撑满剩余高度，
@@ -48,22 +47,18 @@ import hunoia.luno.ui.theme.SmallShape
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun IconPickerSheet(
-    onDismiss: () -> Unit,
+    onDismissRequest: () -> Unit,
     onPick: (String?) -> Unit,
     currentKey: String?,
     defaultIcon: ImageVector,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isCustomText = currentKey != null && IconPalette.byKey(currentKey) == null
     var customText by remember(currentKey) {
         mutableStateOf(if (isCustomText) currentKey.orEmpty() else "")
     }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        shape = SheetTopShape,
+    LunoSheet(
+        onDismissRequest = onDismissRequest,
     ) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(4),
@@ -147,7 +142,7 @@ private fun IconTile(
         Icon(
             imageVector = vector,
             contentDescription = label,
-            modifier = Modifier.size(28.dp),
+            modifier = Modifier.size(PageMatchIconSize),
             tint = if (selected) colorScheme.onPrimaryContainer else colorScheme.onSurfaceVariant,
         )
         Text(
@@ -157,7 +152,7 @@ private fun IconTile(
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
             color = if (selected) colorScheme.onPrimaryContainer else colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp),
+            modifier = Modifier.padding(top = TileInnerPadding),
         )
     }
 }

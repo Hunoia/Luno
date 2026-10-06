@@ -1,30 +1,15 @@
 package hunoia.luno.ui.settings.gesture.subgesture
 import hunoia.luno.ui.theme.*
-
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
+import hunoia.luno.ui.theme.liquidGlassBackdrop
 import androidx.compose.foundation.background
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Gesture
@@ -33,10 +18,6 @@ import androidx.compose.material.icons.filled.Swipe
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -46,10 +27,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aaron.compose.component.UDFComponent
 import hunoia.luno.R
@@ -60,31 +39,29 @@ import hunoia.luno.config.defaults.SettingsUiDefaults.MaxSubGestureTriggerDistan
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinSubGestureLongSlideTriggerDistance
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinSubGestureTimeoutMs
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinSubGestureTriggerDistance
-import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.ui.component.actionTextCompose
 import hunoia.luno.ui.navigation.ActionSelect
-import hunoia.luno.ui.component.sheets.MyAlertDialog
-import hunoia.luno.ui.component.MyColumn
-import hunoia.luno.ui.component.sheets.OptimizedBottomSheet
+import hunoia.luno.ui.component.LunoColumn
+import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.component.RowIconBadge
-import hunoia.luno.ui.component.TopBar
-import hunoia.luno.ui.component.input.MyTextSlider
-import hunoia.luno.ui.component.SegmentedGroup
-import hunoia.luno.ui.component.segmentedShape
-import hunoia.luno.ui.component.SegmentedSettingsRow
-import hunoia.luno.ui.component.SegmentedSwitchRow
+import hunoia.luno.ui.component.input.LunoTextSlider
 import androidx.compose.foundation.layout.Arrangement
 import hunoia.luno.ui.settings.gesture.subgesture.SubGestureSettingsUiEvent
 import hunoia.luno.ui.settings.gesture.subgesture.SubGestureSettingsUiState
 import hunoia.luno.ui.settings.gesture.button.GestureActionGroup
 import hunoia.luno.ui.settings.gesture.button.actionCardDirections
 import hunoia.luno.ui.settings.gesture.button.GestureSlideTriggerDistanceContent
-import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import hunoia.luno.ui.settings.gesture.button.ExpandableGestureActionCard
 import hunoia.luno.ui.component.slideToLabel
-
+import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.ui.component.row.segmentedShape
+import hunoia.luno.ui.component.screen.LunoScreenLazy
+import hunoia.luno.ui.component.sheet.ConfirmDialog
+import hunoia.luno.ui.component.feedback.LunoIconButton
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubGestureSettingsScreen(
@@ -96,40 +73,36 @@ fun SubGestureSettingsScreen(
     var showSubVibrationSettings by remember { mutableStateOf(false) }
     var showSubTriggerDistanceSettings by remember { mutableStateOf(false) }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val surfaceColor = MaterialTheme.colorScheme.surfaceContainer
-    val backdrop = rememberLayerBackdrop {
-        drawRect(surfaceColor)
-        drawContent()
-    }
+    val backdrop = liquidGlassBackdrop()
     val listState = rememberLazyListState()
     UDFComponent<SubGestureSettingsUiState, SubGestureSettingsUiEvent>(component = vm.udfComponent, onEvent = { }) { uiState ->
         if (uiState.showDeleteWarningDialog) {
-            MyAlertDialog(
+            ConfirmDialog(
                 onDismissRequest = { vm.showDeleteWarningDialog(false) },
                 title = stringResource(id = R.string.delete_sub_gesture_warning),
                 text = stringResource(id = R.string.delete_sub_gesture_warning_desc),
-                onConfirmClick = { vm.deleteSubGesture() }
+                destructive = true,
+                onConfirm = { vm.deleteSubGesture() }
             )
         }
         if (uiState.showMirrorCopyDialog) {
-            MyAlertDialog(
+            ConfirmDialog(
                 onDismissRequest = { vm.showMirrorCopyDialog(false) },
                 title = stringResource(id = R.string.mirror_sub_gesture),
                 text = stringResource(id = R.string.mirror_sub_gesture_desc),
-                onConfirmClick = { vm.createMirroredCopy() }
+                onConfirm = { vm.createMirroredCopy() }
             )
         }
-
         val gesture = uiState.subGesture ?: return@UDFComponent
-
         if (showGestureAngles) {
-            OptimizedBottomSheet(
-                onDismissRequest = { showGestureAngles = false }
+            LunoSheet(
+                onDismissRequest = { showGestureAngles = false },
+                showDragHandle = true
             ) {
                 SubGestureAngleContent(
                     angle = gesture.angle,
-                    onDismiss = { showGestureAngles = false },
-                    onSave = { newAngle ->
+                    onDismissRequest = { showGestureAngles = false },
+                    onConfirm = { newAngle ->
                         vm.updateAngle(newAngle)
                         showGestureAngles = false
                     },
@@ -137,10 +110,10 @@ fun SubGestureSettingsScreen(
                 )
             }
         }
-
         if (showSubVibrationSettings) {
-            OptimizedBottomSheet(
-                onDismissRequest = { showSubVibrationSettings = false }
+            LunoSheet(
+                onDismissRequest = { showSubVibrationSettings = false },
+                showDragHandle = true
             ) {
                 SubGestureVibrationContent(
                     gesture = gesture,
@@ -148,10 +121,10 @@ fun SubGestureSettingsScreen(
                 )
             }
         }
-
         if (showSubTriggerDistanceSettings) {
-            OptimizedBottomSheet(
-                onDismissRequest = { showSubTriggerDistanceSettings = false }
+            LunoSheet(
+                onDismissRequest = { showSubTriggerDistanceSettings = false },
+                showDragHandle = true
             ) {
                 SubGestureTriggerDistanceContent(
                     gesture = gesture,
@@ -159,36 +132,13 @@ fun SubGestureSettingsScreen(
                 )
             }
         }
-
-
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            contentWindowInsets = WindowInsets(),
-            topBar = {
-                TopBar(
-                    title = uiState.subGesture.name.ifEmpty { stringResource(id = R.string.sub_gesture) },
-                    onBack = onBack,
-                    scrollBehavior = scrollBehavior,
-                    backdrop = backdrop,
-                    actions = {
-                        IconButton(onClick = { vm.showMirrorCopyDialog(true) }) {
-                            Icon(
-                                imageVector = Icons.Default.ContentCopy,
-                                contentDescription = null,
-                            )
-                        }
-                        IconButton(onClick = { vm.showDeleteWarningDialog(true) }) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = null,
-                            )
-                        }
-                    },
-                    postfixTitle = {
+    LunoScreenLazy(
+        title = uiState.subGesture.name.ifEmpty { stringResource(id = R.string.sub_gesture) },
+        onBack = onBack,
+        postfixTitle = {
                         Box(
                             modifier = Modifier
-                                .padding(start = 8.dp)
+                                .padding(start = CardInnerSpacing)
                                 .size(MarkColorSize)
                                 .background(
                                     color = Color(gesture.color).copy(alpha = GestureButtonColorAlpha),
@@ -196,34 +146,28 @@ fun SubGestureSettingsScreen(
                                 )
                             )
                     },
-                )
-            }
-        ) { paddingValues ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(Modifier.layerBackdrop(backdrop)),
-            ) {
-                fun setExpandedGroup(group: GestureActionGroup, expanded: Boolean) {
-                    vm.setExpandedActionGroup(if (expanded) group else null)
-                }
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
-                    state = listState,
-                    contentPadding = PaddingValues(
-                        start = PageGutter,
-                        top = paddingValues.calculateTopPadding(),
-                        end = PageGutter,
-                        bottom = ContentBottom,
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(ListSpacing),
-                ) {
+        actions = {
+                        LunoIconButton(
+                            icon = Icons.Default.ContentCopy,
+                            contentDescription = stringResource(R.string.mirror_sub_gesture),
+                            onClick = { vm.showMirrorCopyDialog(true) },
+                        )
+                        LunoIconButton(
+                            icon = Icons.Default.Delete,
+                            contentDescription = stringResource(R.string.delete),
+                            onClick = { vm.showDeleteWarningDialog(true) },
+                        )                    },
+        state = listState,
+    ) {
+        fun setExpandedGroup(group: GestureActionGroup, expanded: Boolean) {
+            vm.setExpandedActionGroup(if (expanded) group else null)
+        }
+
                     item {
-                        SegmentedGroup(
+                        LunoGroup(
                             title = stringResource(id = R.string.trigger_actions),
-                            contentSpacing = SegmentedGap,
                         ) {
-                            SubGestureActionSection(
+                            ExpandableGestureActionCard(
                                 title = stringResource(id = R.string.slide_action),
                                 icon = Icons.Default.Swipe,
                                 expanded = uiState.expandedActionGroup == GestureActionGroup.Slide,
@@ -244,12 +188,12 @@ fun SubGestureSettingsScreen(
                                                 )
                                             )
                                         },
-                                        secondaryText = gesture.slideActionsFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
+                                        subtitle = gesture.slideActionsFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
                                         shape = segmentedShape(index, directions.size),
                                     )
                                 }
                             }
-                            SubGestureActionSection(
+                            ExpandableGestureActionCard(
                                 title = stringResource(id = R.string.slide_hold_action),
                                 icon = Icons.Default.Swipe,
                                 expanded = uiState.expandedActionGroup == GestureActionGroup.SlideHold,
@@ -270,12 +214,12 @@ fun SubGestureSettingsScreen(
                                                 )
                                             )
                                         },
-                                        secondaryText = gesture.slideHoldActionsFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
+                                        subtitle = gesture.slideHoldActionsFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
                                         shape = segmentedShape(index, directions.size),
                                     )
                                 }
                             }
-                            SubGestureActionSection(
+                            ExpandableGestureActionCard(
                                 title = stringResource(id = R.string.long_slide_action),
                                 icon = Icons.Default.Gesture,
                                 expanded = uiState.expandedActionGroup == GestureActionGroup.LongSlide,
@@ -296,12 +240,12 @@ fun SubGestureSettingsScreen(
                                                 )
                                             )
                                         },
-                                        secondaryText = gesture.longSlideActionsFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
+                                        subtitle = gesture.longSlideActionsFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
                                         shape = segmentedShape(index, directions.size),
                                     )
                                 }
                             }
-                            SubGestureActionSection(
+                            ExpandableGestureActionCard(
                                 title = stringResource(id = R.string.long_slide_hold_action),
                                 icon = Icons.Default.Gesture,
                                 expanded = uiState.expandedActionGroup == GestureActionGroup.LongSlideHold,
@@ -322,7 +266,7 @@ fun SubGestureSettingsScreen(
                                                 )
                                             )
                                         },
-                                        secondaryText = gesture.longSlideHoldActionsFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
+                                        subtitle = gesture.longSlideHoldActionsFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
                                         shape = segmentedShape(index, directions.size),
                                     )
                                 }
@@ -330,23 +274,22 @@ fun SubGestureSettingsScreen(
                         }
                     }
                     item {
-                        SegmentedGroup(
+                        LunoGroup(
                             title = stringResource(id = R.string.physical_params),
-                            contentSpacing = SegmentedGap,
                         ) {
-                            SegmentedSettingsRow(
+                            LunoSettingsRow(
                                 title = stringResource(id = R.string.sub_gesture_angles),
                                 icon = Icons.Default.Straighten,
                                 shape = segmentedShape(0, 3),
                                 onClick = { showGestureAngles = true },
                             )
-                            SegmentedSettingsRow(
+                            LunoSettingsRow(
                                 title = stringResource(id = R.string.gesture_button_vibration),
                                 icon = Icons.Default.Vibration,
                                 shape = segmentedShape(1, 3),
                                 onClick = { showSubVibrationSettings = true },
                             )
-                            SegmentedSettingsRow(
+                            LunoSettingsRow(
                                 title = stringResource(id = R.string.gesture_button_trigger_distance),
                                 icon = Icons.Default.Tune,
                                 shape = segmentedShape(2, 3),
@@ -354,128 +297,62 @@ fun SubGestureSettingsScreen(
                             )
                         }
                     }
-                }
-            }
-        }
+                
     }
 }
-
-@Composable
-private fun SubGestureActionSection(
-    title: String,
-    icon: ImageVector,
-    expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    val rotation by animateFloatAsState(
-        targetValue = if (expanded) 0f else -90f,
-        label = "SubGestureSectionArrowRotation",
-    )
-    val headerBottomRadius by animateDpAsState(
-        targetValue = if (expanded) ConnectionRadius else ContainerRadius,
-        label = "SubGestureSectionHeaderBottomRadius",
-    )
-    val headerShape = RoundedCornerShape(
-        topStart = ContainerRadius,
-        topEnd = ContainerRadius,
-        bottomStart = headerBottomRadius,
-        bottomEnd = headerBottomRadius,
-    )
-    val colorScheme = MaterialTheme.colorScheme
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(ContainerRadius)),
-        verticalArrangement = Arrangement.spacedBy(SegmentedGap),
-    ) {
-        SegmentedSettingsRow(
-            title = title,
-            icon = icon,
-            onClick = { onExpandedChange(!expanded) },
-            shape = headerShape,
-            trailingContent = {
-                Icon(
-                    modifier = Modifier
-                        .size(RowIconSize)
-                        .graphicsLayer { rotationZ = rotation },
-                    imageVector = Icons.Filled.ArrowDropDown,
-                    contentDescription = null,
-                    tint = colorScheme.onSurfaceVariant,
-                )
-            },
-        )
-
-        AnimatedVisibility(
-            visible = expanded,
-            enter = expandVertically(),
-            exit = shrinkVertically(),
-        ) {
-            Column(
-                modifier = Modifier.clip(segmentedShape(1, 2)),
-                verticalArrangement = Arrangement.spacedBy(SegmentedGap),
-            ) {
-                content()
-            }
-        }
-    }
 }
-
 @Composable
 private fun SubGestureActionRow(
     title: String,
     icon: ImageVector,
     onClick: () -> Unit,
-    secondaryText: String,
+    subtitle: String,
     shape: Shape = RoundedCornerShape(ContainerRadius),
         modifier: Modifier = Modifier,
 ) {
-    SegmentedSettingsRow(
+    LunoSettingsRow(
         title = title,
         icon = icon,
         onClick = onClick,
         shape = shape,
-        subtitle = secondaryText,
-        leadingContent = { RowIconBadge(icon) },
+        subtitle = subtitle,
+        leading = { RowIconBadge(icon) },
     )
 }
-
 @Composable
 private fun SubGestureVibrationContent(
     gesture: SubGesture,
     vm: SubGestureSettingsVM
 ) {
-    MyColumn(verticalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
-        SegmentedSwitchRow(
+    LunoColumn(verticalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
+        LunoSwitchRow(
             onCheckedChange = { vm.onSubSlideVibrateChange(it) },
             checked = gesture.slideVibrate,
             title = stringResource(R.string.vibration_slide),
         )
-        SegmentedSwitchRow(
+        LunoSwitchRow(
             onCheckedChange = { vm.onSubLongSlideVibrateChange(it) },
             checked = gesture.longSlideVibrate,
             title = stringResource(R.string.vibration_long_slide),
         )
-        SegmentedSwitchRow(
+        LunoSwitchRow(
             onCheckedChange = { vm.onSubSlideHoldVibrateChange(it) },
             checked = gesture.slideHoldVibrate,
             title = stringResource(R.string.vibration_slide_hold),
         )
-        SegmentedSwitchRow(
+        LunoSwitchRow(
             onCheckedChange = { vm.onSubLongSlideHoldVibrateChange(it) },
             checked = gesture.longSlideHoldVibrate,
             title = stringResource(R.string.vibration_long_slide_hold),
         )
     }
 }
-
 @Composable
 private fun SubGestureTriggerDistanceContent(
     gesture: SubGesture,
     vm: SubGestureSettingsVM
 ) {
-    MyColumn {
+    LunoColumn {
         GestureSlideTriggerDistanceContent(
             slideTriggerDistance = gesture.triggerDistance,
             onSlideTriggerDistanceChange = vm::onSubTriggerDistanceChange,
@@ -489,7 +366,7 @@ private fun SubGestureTriggerDistanceContent(
             onLongSlideHoldTriggerDelayMsChange = vm::onSubLongSlideHoldTriggerDelayMsChange,
             onValueChangeFinished = vm::persistSubGesture,
         )
-        MyTextSlider(
+        LunoTextSlider(
             value = gesture.timeoutMs.toFloat(),
             onValueChange = { vm.onSubTimeoutMsChange(it) },
             onValueChangeFinished = { vm.persistSubGesture() },

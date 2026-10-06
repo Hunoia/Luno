@@ -1,5 +1,4 @@
 package hunoia.luno.ui.actionlibrary
-
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,16 +22,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.config.model.toMiniWindowSettings
 import hunoia.luno.core.AppContext
-import hunoia.luno.ui.component.SegmentedSettingsRow
-import hunoia.luno.ui.component.SegmentedSwitchRow
 import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.LargeShape
+import hunoia.luno.ui.theme.ElevationSmall
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
@@ -40,7 +37,8 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.math.roundToInt
-
+import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.row.LunoSwitchRow
 val ParameterDefinition.isCardRowType: Boolean
     get() = this is ParameterDefinition.Bool ||
         this is ParameterDefinition.Enum ||
@@ -49,7 +47,6 @@ val ParameterDefinition.isCardRowType: Boolean
         this is ParameterDefinition.ButtonSelectorMulti ||
         this is ParameterDefinition.MiniWindow ||
         this is ParameterDefinition.ActivitySelector
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ParameterEditor(
@@ -95,7 +92,7 @@ fun ParameterEditor(
             )
         }
         is ParameterDefinition.Bool -> {
-            SegmentedSwitchRow(
+            LunoSwitchRow(
                 title = definition.label,
                 checked = currentParams[definition.key]?.scalarText()?.toBoolean()
                     ?: definition.defaultValue.toBoolean(),
@@ -110,20 +107,20 @@ fun ParameterEditor(
             var expanded by remember { mutableStateOf(false) }
             val missing = required && selectedOption == null
             Box {
-                SegmentedSettingsRow(
+                LunoSettingsRow(
                     title = definition.label,
                     subtitle = selectedOption?.label ?: selectedValue.ifBlank { unselected },
                     onClick = { expanded = !expanded },
                     shape = shape,
                     modifier = modifier.fillMaxWidth(),
-                    secondaryTextColor = if (missing) errorColor else hintColor,
+                    subtitleColor = if (missing) errorColor else hintColor,
                 )
                 DropdownMenu(
                     expanded = expanded,
                     onDismissRequest = { expanded = false },
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                     shape = LargeShape,
-                    tonalElevation = 3.dp,
+                    tonalElevation = ElevationSmall,
                 ) {
                     definition.options.forEach { option ->
                         DropdownMenuItem(
@@ -158,13 +155,13 @@ fun ParameterEditor(
                 else -> selected
             }
             val missing = required && selected.isBlank()
-            SegmentedSettingsRow(
+            LunoSettingsRow(
                 title = definition.label,
                 subtitle = display,
                 onClick = { onPickApp(definition.key) },
                 shape = shape,
                 modifier = modifier.fillMaxWidth(),
-                secondaryTextColor = if (missing) errorColor else hintColor,
+                subtitleColor = if (missing) errorColor else hintColor,
             )
         }
         is ParameterDefinition.AppSelectorMulti -> {
@@ -173,7 +170,7 @@ fun ParameterEditor(
             } ?: emptyList()
             val multiLabel = stringResource(R.string.action_param_multi_selected, selected.size)
             val display = if (selected.isEmpty()) unselected else multiLabel
-            SegmentedSettingsRow(
+            LunoSettingsRow(
                 title = definition.label,
                 subtitle = display,
                 onClick = { onPickApps(definition.key) },
@@ -187,7 +184,7 @@ fun ParameterEditor(
             } ?: emptyList()
             val multiLabel = stringResource(R.string.action_param_multi_selected, selected.size)
             val display = if (selected.isEmpty()) unselected else multiLabel
-            SegmentedSettingsRow(
+            LunoSettingsRow(
                 title = definition.label,
                 subtitle = display,
                 onClick = { onPickButtons(definition.key) },
@@ -202,7 +199,7 @@ fun ParameterEditor(
             } else {
                 stringResource(R.string.mini_window_position_hint)
             }
-            SegmentedSettingsRow(
+            LunoSettingsRow(
                 title = definition.label,
                 subtitle = display,
                 onClick = { onPickMiniWindow(definition.key) },
@@ -216,14 +213,14 @@ fun ParameterEditor(
             val enabled = packageName.isNotBlank()
             val display = selected.ifBlank { unselected }
             val missing = required && selected.isBlank()
-            SegmentedSettingsRow(
+            LunoSettingsRow(
                 title = definition.label,
                 subtitle = display,
                 onClick = { if (enabled) onPickActivity(packageName, definition.key) },
                 shape = shape,
                 modifier = modifier.fillMaxWidth(),
                 enabled = enabled,
-                secondaryTextColor = if (missing && enabled) errorColor else hintColor,
+                subtitleColor = if (missing && enabled) errorColor else hintColor,
             )
         }
         is ParameterDefinition.Path -> {
@@ -252,13 +249,11 @@ fun ParameterEditor(
         }
     }
 }
-
 private fun inRange(value: String, definition: ParameterDefinition.Number): Boolean {
     val number = value.toIntOrNull() ?: return false
     return (definition.min == null || number >= definition.min) &&
         (definition.max == null || number <= definition.max)
 }
-
 private suspend fun resolveAppLabel(packageName: String): String? = withContext(Dispatchers.IO) {
     runCatching {
         val pm = AppContext.get().packageManager

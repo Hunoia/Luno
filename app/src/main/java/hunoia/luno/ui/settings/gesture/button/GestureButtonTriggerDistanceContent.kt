@@ -1,6 +1,8 @@
 package hunoia.luno.ui.settings.gesture.button
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.CardInnerSpacing
+import hunoia.luno.ui.theme.DistanceStrokeWidth
+import hunoia.luno.ui.theme.DistanceTrackHeight
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
@@ -31,8 +33,8 @@ import hunoia.luno.config.defaults.SettingsUiDefaults.MinHoldTriggerDelayMs
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinLongSlideTriggerDistance
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinSlideTriggerDistance
 import hunoia.luno.config.model.GestureButton
-import hunoia.luno.ui.component.MyColumn
-import hunoia.luno.ui.component.input.MyTextSlider
+import hunoia.luno.ui.component.LunoColumn
+import hunoia.luno.ui.component.input.LunoTextSlider
 import kotlin.math.roundToInt
 
 @Composable
@@ -115,7 +117,7 @@ fun GestureSlideTriggerDistanceContent(
 
         SliderGroupLabel(text = stringResource(R.string.trigger_distance_delay_group))
         if (longPressTriggerDelayMs != null && onLongPressTriggerDelayMsChange != null) {
-            MyTextSlider(
+            LunoTextSlider(
                 value = longPressTriggerDelayMs.toFloat(),
                 onValueChange = onLongPressTriggerDelayMsChange,
                 onValueChangeFinished = { onValueChangeFinished?.invoke() },
@@ -125,7 +127,7 @@ fun GestureSlideTriggerDistanceContent(
             )
         }
         if (doubleTapTriggerDelayMs != null && onDoubleTapTriggerDelayMsChange != null) {
-            MyTextSlider(
+            LunoTextSlider(
                 value = doubleTapTriggerDelayMs.toFloat(),
                 onValueChange = onDoubleTapTriggerDelayMsChange,
                 onValueChangeFinished = { onValueChangeFinished?.invoke() },
@@ -134,7 +136,7 @@ fun GestureSlideTriggerDistanceContent(
                 valueRange = MinDoubleTapTriggerDelayMs.toFloat()..MaxDoubleTapTriggerDelayMs.toFloat(),
             )
         }
-        MyTextSlider(
+        LunoTextSlider(
             value = slideHoldTriggerDelayMs.toFloat(),
             onValueChange = onSlideHoldTriggerDelayMsChange,
             onValueChangeFinished = { onValueChangeFinished?.invoke() },
@@ -142,7 +144,7 @@ fun GestureSlideTriggerDistanceContent(
             valueDisplay = { "${it.toLong()}ms" },
             valueRange = MinHoldTriggerDelayMs.toFloat()..MaxHoldTriggerDelayMs.toFloat(),
         )
-        MyTextSlider(
+        LunoTextSlider(
             value = longSlideHoldTriggerDelayMs.toFloat(),
             onValueChange = onLongSlideHoldTriggerDelayMsChange,
             onValueChangeFinished = { onValueChangeFinished?.invoke() },
@@ -152,7 +154,7 @@ fun GestureSlideTriggerDistanceContent(
         )
     }
     if (scrollState != null) {
-        MyColumn(scrollState = scrollState) { content() }
+        LunoColumn(scrollState = scrollState) { content() }
     } else {
         content()
     }
@@ -178,7 +180,7 @@ private fun DistanceTextSlider(
     valueRangeDp: ClosedFloatingPointRange<Float>,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
-        MyTextSlider(
+        LunoTextSlider(
             value = valueDp,
             onValueChange = onValueDpChange,
             onValueChangeFinished = { onValueChangeFinished?.invoke() },
@@ -202,10 +204,10 @@ private fun DistanceRelationshipPreview(
         modifier = Modifier
             .padding(horizontal = PageGutter)
             .fillMaxWidth()
-            .height(8.dp)
+            .height(DistanceTrackHeight)
     ) {
         val centerY = size.height / 2f
-        val strokeWidth = 4.dp.toPx()
+        val strokeWidth = DistanceStrokeWidth.toPx()
         val maxPx = maxDistanceDp.dp.toPx().coerceAtLeast(1f)
         fun marker(distanceDp: Float): Float = (distanceDp.dp.toPx() / maxPx * size.width).coerceIn(0f, size.width)
         drawLine(
@@ -241,10 +243,10 @@ private fun DistancePreviewBar(
         modifier = Modifier
             .padding(horizontal = PageGutter)
             .fillMaxWidth()
-            .height(8.dp)
+            .height(DistanceTrackHeight)
     ) {
         val centerY = size.height / 2f
-        val strokeWidth = 4.dp.toPx()
+        val strokeWidth = DistanceStrokeWidth.toPx()
         val previewWidth = valueDp.dp.toPx().coerceIn(0f, size.width)
         drawLine(
             color = colorScheme.tertiary,

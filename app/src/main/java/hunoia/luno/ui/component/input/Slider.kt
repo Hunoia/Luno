@@ -2,7 +2,6 @@ package hunoia.luno.ui.component.input
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.ListItemVerticalPadding
-import hunoia.luno.ui.theme.SliderTextMaxWidth
 import hunoia.luno.ui.theme.MinItemHeightNoSecondary
 import hunoia.luno.ui.theme.SliderInnerPadding
 
@@ -19,7 +18,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -66,7 +64,6 @@ private fun SliderSurface(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    modifier = Modifier.widthIn(max = SliderTextMaxWidth),
                     text = text,
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1
@@ -109,7 +106,7 @@ private fun SliderSurface(
 }
 
 @Composable
-fun MyTextSlider(
+fun LunoTextSlider(
     value: Float,
     onValueChange: (Float) -> Unit,
     text: String,
@@ -123,7 +120,7 @@ fun MyTextSlider(
     steps: Int? = null,
 ) {
     // 拖动中的实时值。外部传进来的 value 在 onValueChangeFinished 之前不会变（落盘在松手时），
-    // 标签若读它就会冻住、松手才跳。所以这里挂的是 MySlider 自己的 localValue ——
+    // 标签若读它就会冻住、松手才跳。所以这里挂的是 LunoSlider 自己的 localValue ——
     // 真正跟手的那一份，也是 steps 量化 / range 钳制之后滑块实际显示的那一份。
     var liveValue by remember { mutableFloatStateOf(value) }
 
@@ -134,7 +131,7 @@ fun MyTextSlider(
         valueDisplay = valueDisplay?.invoke(liveValue),
         sliderValueHint = sliderValueHint,
     ) {
-        MySlider(
+        LunoSlider(
             modifier = Modifier.padding(horizontal = SliderInnerPadding),
             enabled = enabled,
             value = value,
@@ -150,7 +147,7 @@ fun MyTextSlider(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MySlider(
+internal fun LunoSlider(
     value: Float,
     onValueChange: (Float) -> Unit,
     modifier: Modifier = Modifier,

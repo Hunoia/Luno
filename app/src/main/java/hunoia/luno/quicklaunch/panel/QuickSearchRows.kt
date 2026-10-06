@@ -1,7 +1,5 @@
 package hunoia.luno.quicklaunch.panel
-
 import hunoia.luno.quicklaunch.QuickLaunchFacade
-
 import android.content.Context
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Message
@@ -41,9 +39,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.quicklaunch.query.QuickSearchResult
-import hunoia.luno.ui.component.SelectableListItem
 import hunoia.luno.ui.component.TextIcon
-
+import hunoia.luno.ui.component.row.LunoSelectableRow
 /**
  * 列表上下羽化：顶部 28dp / 底部 24dp，溢出截断 melts 进背景。
  * 底部罩的是钉住的首行——贴紧输入框后它 melts 进框，顺滑但首行底部是虚的，
@@ -72,7 +69,6 @@ internal fun Modifier.listFade(
             blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
         )
     }
-
 /** 剪贴板行：标题=剪贴内容（单行省略），无副标题；点回填、长按写回系统剪贴板；
  *  行尾图钉按钮点固定/取消（固定态=primary 色，非固定=淡色）。 */@Composable
 internal fun ClipboardRow(
@@ -83,19 +79,17 @@ internal fun ClipboardRow(
     pinned: Boolean = false,
     onTogglePin: () -> Unit = {},
 ) {
-    SelectableListItem(
+    LunoSelectableRow(
         title = text,
         subtitle = "",
         selected = false,
-        onSelect = { onClick() },
+        onSelectedChange = { onClick() },
         shape = shape,
         icon = Icons.Default.ContentPaste,
-        verticalGap = 0.dp,
-        horizontalGap = 0.dp,
         containerColor = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.65f),
         selectedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f),
         onLongClick = onLongClick,
-        trailingContent = {
+        trailing = {
             IconButton(
                 onClick = onTogglePin,
                 modifier = Modifier.size(32.dp),
@@ -120,22 +114,19 @@ internal fun HistoryRow(
     icon: ImageVector = Icons.Default.Search,
     textIcon: TextIcon? = null,
 ) {
-    SelectableListItem(
+    LunoSelectableRow(
         title = text,
         subtitle = "",
         selected = false,
-        onSelect = { onClick() },
+        onSelectedChange = { onClick() },
         shape = shape,
         icon = icon,
         textIcon = textIcon,
-        verticalGap = 0.dp,
-        horizontalGap = 0.dp,
         containerColor = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.65f),
         selectedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f),
         onLongClick = onLongClick,
     )
 }
-
 @Composable
 internal fun ResultRow(
     result: QuickSearchResult,
@@ -152,11 +143,11 @@ internal fun ResultRow(
     } else {
         result.subtitle
     }
-    SelectableListItem(
+    LunoSelectableRow(
         title = result.title,
         subtitle = subtitle,
         selected = false,
-        onSelect = { onClick() },
+        onSelectedChange = { onClick() },
         shape = shape,        iconModel = iconModel(result, context),
         icon = iconVector(result),
         // 同步图标优先（flow 发射前已 resolve，首帧即有图，无 AsyncImage 空隙）；
@@ -168,15 +159,12 @@ internal fun ResultRow(
             else -> null
         },
         textIcon = textIcon(result),
-        verticalGap = 0.dp,
-        horizontalGap = 0.dp,
         // 半透明底色：透出窗口背后的系统模糊，不支持的设备直接呈现半透明。
         containerColor = colorScheme.surfaceBright.copy(alpha = 0.65f),
         selectedContainerColor = colorScheme.primaryContainer.copy(alpha = 0.65f),
         onLongClick = onLongClick,
     )
 }
-
 @Composable
 internal fun iconVector(result: QuickSearchResult): ImageVector? = when (result) {
     is QuickSearchResult.Url -> Icons.AutoMirrored.Filled.OpenInNew
@@ -205,7 +193,6 @@ internal fun iconVector(result: QuickSearchResult): ImageVector? = when (result)
         QuickSearchResult.ToggleKind.HOTSPOT -> Icons.Default.WifiTethering
     }
 }
-
 @Composable
 internal fun iconModel(result: QuickSearchResult, context: android.content.Context): Any? {
     val sizePx = with(LocalDensity.current) { 24.dp.toPx().toInt() }
@@ -218,7 +205,6 @@ internal fun iconModel(result: QuickSearchResult, context: android.content.Conte
         else -> null
     }
 }
-
 @Composable
 internal fun textIcon(result: QuickSearchResult): TextIcon? = when (result) {
     is QuickSearchResult.LibraryEntry -> result.icon as? TextIcon

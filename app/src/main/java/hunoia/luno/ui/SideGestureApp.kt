@@ -123,7 +123,7 @@ fun SideGestureApp() {
                 }
                 myComposable<ActionSelect> {
                     ActionSelectContent(
-                        onDismiss = { navController.popBackStack() },
+                        onDismissRequest = { navController.popBackStack() },
                         actionSelect = it.toRoute()
                     )
                 }

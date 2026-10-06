@@ -1,25 +1,17 @@
 package hunoia.luno.ui.settings.search
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -28,9 +20,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.domain.search.SearchCenter
@@ -53,17 +43,16 @@ import hunoia.luno.config.model.SRC_TOGGLE
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.effectiveEngines
 import hunoia.luno.config.model.effectiveTrigger
-import hunoia.luno.ui.component.MyColumn
-import hunoia.luno.ui.component.SegmentedGroup
-import hunoia.luno.ui.component.SegmentedSettingsRow
-import hunoia.luno.ui.component.SegmentedSwitchRow
-import hunoia.luno.ui.component.TopBar
-import hunoia.luno.ui.theme.ListSpacing
-import hunoia.luno.ui.theme.SegmentedGap
-import hunoia.luno.ui.theme.liquidGlassBackdrop
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.blur.layerBackdrop
-
+import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.ui.component.screen.LunoScreen
+import hunoia.luno.ui.component.sheet.ConfirmDialog
+import hunoia.luno.ui.component.sheet.TextInputDialog
+import hunoia.luno.ui.component.sheet.CustomDialog
+import hunoia.luno.ui.component.feedback.LunoIconButton
+import hunoia.luno.ui.theme.CardInnerSpacing
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchEngineSettingsScreen(onBack: () -> Unit) {
@@ -75,56 +64,127 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
     // 来源标识编辑目标（源 key）：行点开 dialog，开关照常切换，两不耽误。
     var triggerTarget by remember { mutableStateOf<String?>(null) }
     val engines = settings.effectiveEngines()
-
     fun setDefault(id: String) {
         scope.launch { SearchCenter.updateSearch { it.copy(defaultEngineId = id) } }
     }
-
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val backdrop = liquidGlassBackdrop()
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        contentWindowInsets = WindowInsets(),
-        topBar = { TopBar(onBack = onBack, title = stringResource(R.string.search_engine_settings), scrollBehavior = scrollBehavior, backdrop = backdrop) }
-    ) { padding ->
-        MyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .layerBackdrop(backdrop)
-                .nestedScroll(scrollBehavior.nestedScrollConnection),
-            topPadding = padding.calculateTopPadding(),
-            verticalArrangement = Arrangement.spacedBy(ListSpacing),
-        ) {
-            SegmentedGroup(contentSpacing = SegmentedGap) {
+    LunoScreen(
+        title = stringResource(R.string.search_engine_settings),
+        onBack = onBack,
+        dialogs = {
+        if (showAdd || editTarget != null) {
+            EngineEditDialog(
+                initial = editTarget,
+                // 引擎标识也要跟来源标识判重（防把引擎改成 sms 这类）。
+                existingTriggers = settings.effectiveEngines()
+                    .filter { it.id != editTarget?.id }
+                    .map { it.trigger } +
+                    DefaultSourceTriggers.keys.map { settings.effectiveTrigger(it) },
+                onDismissRequest = { showAdd = false; editTarget = null },
+                onConfirm = { name, template, trigger ->
+                    scope.launch {
+                        SearchCenter.updateSearch { current ->
+                            val target = editTarget
+                            if (target == null) {
+                                current.copy(
+                                    customEngines = current.customEngines +
+                                        SearchEngine(name = name, urlTemplate = template, trigger = trigger),
+                                )
+                            } else {
+                                current.copy(
+                                    customEngines = current.customEngines.map {
+                                        if (it.id == target.id) {
+                                            it.copy(name = name, urlTemplate = template, trigger = trigger)
+                                        } else {
+                                            it
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    showAdd = false
+                    editTarget = null
+                },
+            )
+        }
+        triggerTarget?.let { key ->
+            SourceTriggerDialog(
+                title = sourceTitle(key),
+                current = settings.effectiveTrigger(key),
+                // 跟引擎标识 + 其他来源标识判重（自己除外）。
+                existingTriggers = settings.effectiveEngines().map { it.trigger } +
+                    DefaultSourceTriggers.keys
+                        .filter { it != key }
+                        .map { settings.effectiveTrigger(it) },
+                onDismissRequest = { triggerTarget = null },
+                onConfirm = { v ->
+                    scope.launch {
+                        SearchCenter.updateSearch { current ->
+                            current.copy(sourceTriggers = current.sourceTriggers + (key to v))
+                        }
+                    }
+                    triggerTarget = null
+                },
+            )
+        }
+        deleteTarget?.let { target ->
+            ConfirmDialog(
+                title = stringResource(R.string.search_engine_delete_title),
+                text = target.name,
+                confirmLabel = stringResource(R.string.delete),
+                destructive = true,
+                onDismissRequest = { deleteTarget = null },
+                onConfirm = {
+                    scope.launch {
+                        SearchCenter.updateSearch { current ->
+                            current.copy(
+                                customEngines = current.customEngines.filterNot { it.id == target.id },
+                                defaultEngineId = if (current.defaultEngineId == target.id) {
+                                    BuiltinSearchEngines.first().id
+                                } else {
+                                    current.defaultEngineId
+                                },
+                            )
+                        }
+                    }
+                },
+            )
+        }
+        },
+    ) {
+            LunoGroup {
                 engines.forEach { engine ->
                     val isDefault = engine.id == settings.defaultEngineId
                     val locked = engine.id in BuiltinSearchEngineIds
-                    SegmentedSettingsRow(
+                    LunoSettingsRow(
                         title = engine.name,
                         subtitle = if (engine.trigger.isNotBlank()) "${engine.trigger} · ${engine.urlTemplate}" else engine.urlTemplate,
                         onClick = { setDefault(engine.id) },
-                        trailingContent = {
+                        trailing = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 RadioButton(
                                     selected = isDefault,
                                     onClick = { setDefault(engine.id) },
                                 )
                                 if (!locked) {
-                                    IconButton(onClick = { editTarget = engine }) {
-                                        Icon(Icons.Default.Edit, contentDescription = null)
-                                    }
-                                    IconButton(onClick = { deleteTarget = engine }) {
-                                        Icon(Icons.Default.Delete, contentDescription = null)
-                                    }
+                                    LunoIconButton(
+                                        icon = Icons.Default.Edit,
+                                        contentDescription = stringResource(R.string.edit),
+                                        onClick = { editTarget = engine },
+                                    )
+                                    LunoIconButton(
+                                        icon = Icons.Default.Delete,
+                                        contentDescription = stringResource(R.string.delete),
+                                        onClick = { deleteTarget = engine },
+                                    )
                                 }
                             }
                         },
                     )
                 }
             }
-            SegmentedGroup(contentSpacing = SegmentedGap) {
-                SegmentedSettingsRow(
+            LunoGroup {
+                LunoSettingsRow(
                     icon = Icons.Default.Add,
                     title = stringResource(R.string.search_engine_add),
                     onClick = { showAdd = true },
@@ -132,8 +192,8 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
             }
             // 内容源：P1 剪贴板，P2 联系人，P3 音乐/文件，日历/开关/短信/通话记录。
             // 剪贴板历史、最近文件复用剪贴板/文件开关，不另加。
-            SegmentedGroup(contentSpacing = SegmentedGap) {
-                SegmentedSwitchRow(
+            LunoGroup {
+                LunoSwitchRow(
                     title = stringResource(R.string.quick_search_clipboard),
                     checked = settings.searchClipboard,
                     subtitle = settings.effectiveTrigger(SRC_CLIP)
@@ -145,7 +205,7 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                         }
                     },
                 )
-                SegmentedSwitchRow(
+                LunoSwitchRow(
                     title = stringResource(R.string.quick_search_contacts),
                     checked = settings.searchContacts,
                     subtitle = settings.effectiveTrigger(SRC_CONTACT)
@@ -157,7 +217,7 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                         }
                     },
                 )
-                SegmentedSwitchRow(
+                LunoSwitchRow(
                     title = stringResource(R.string.quick_search_music),
                     checked = settings.searchMusic,
                     subtitle = settings.effectiveTrigger(SRC_MUSIC)
@@ -169,7 +229,7 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                         }
                     },
                 )
-                SegmentedSwitchRow(
+                LunoSwitchRow(
                     title = stringResource(R.string.quick_search_files),
                     checked = settings.searchFiles,
                     subtitle = settings.effectiveTrigger(SRC_FILE)
@@ -181,7 +241,7 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                         }
                     },
                 )
-                SegmentedSwitchRow(
+                LunoSwitchRow(
                     title = stringResource(R.string.quick_search_calendar),
                     checked = settings.searchCalendar,
                     subtitle = settings.effectiveTrigger(SRC_CALENDAR)
@@ -193,7 +253,7 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                         }
                     },
                 )
-                SegmentedSwitchRow(
+                LunoSwitchRow(
                     title = stringResource(R.string.quick_search_toggles),
                     checked = settings.searchToggles,
                     subtitle = settings.effectiveTrigger(SRC_TOGGLE)
@@ -205,7 +265,7 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                         }
                     },
                 )
-                SegmentedSwitchRow(
+                LunoSwitchRow(
                     title = stringResource(R.string.quick_search_sms),
                     checked = settings.searchSms,
                     subtitle = settings.effectiveTrigger(SRC_SMS)
@@ -217,7 +277,7 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                         }
                     },
                 )
-                SegmentedSwitchRow(
+                LunoSwitchRow(
                     title = stringResource(R.string.quick_search_calls),
                     checked = settings.searchCalls,
                     subtitle = settings.effectiveTrigger(SRC_CALL)
@@ -231,10 +291,10 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                 )
             }
             // 无开关的来源（应用/快捷方式/动作/设置页常开）：只改标识，副标题显示当前值。
-            SegmentedGroup(contentSpacing = SegmentedGap) {
+            LunoGroup {
                 for (key in listOf(SRC_APP, SRC_SHORTCUT, SRC_ACTION, SRC_SETTINGS)) {
                     val trigger = settings.effectiveTrigger(key)
-                    SegmentedSettingsRow(
+                    LunoSettingsRow(
                         title = sourceTitle(key),
                         subtitle = trigger.ifBlank { stringResource(R.string.quick_search_trigger_closed) },
                         onClick = { triggerTarget = key },
@@ -242,107 +302,14 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                 }
             }
         }
-    }
-
-    if (showAdd || editTarget != null) {
-        EngineEditDialog(
-            initial = editTarget,
-            // 引擎标识也要跟来源标识判重（防把引擎改成 sms 这类）。
-            existingTriggers = settings.effectiveEngines()
-                .filter { it.id != editTarget?.id }
-                .map { it.trigger } +
-                DefaultSourceTriggers.keys.map { settings.effectiveTrigger(it) },
-            onDismiss = { showAdd = false; editTarget = null },
-            onSave = { name, template, trigger ->
-                scope.launch {
-                    SearchCenter.updateSearch { current ->
-                        val target = editTarget
-                        if (target == null) {
-                            current.copy(
-                                customEngines = current.customEngines +
-                                    SearchEngine(name = name, urlTemplate = template, trigger = trigger),
-                            )
-                        } else {
-                            current.copy(
-                                customEngines = current.customEngines.map {
-                                    if (it.id == target.id) {
-                                        it.copy(name = name, urlTemplate = template, trigger = trigger)
-                                    } else {
-                                        it
-                                    }
-                                },
-                            )
-                        }
-                    }
-                }
-                showAdd = false
-                editTarget = null
-            },
-        )
-    }
-
-    triggerTarget?.let { key ->
-        SourceTriggerDialog(
-            title = sourceTitle(key),
-            current = settings.effectiveTrigger(key),
-            // 跟引擎标识 + 其他来源标识判重（自己除外）。
-            existingTriggers = settings.effectiveEngines().map { it.trigger } +
-                DefaultSourceTriggers.keys
-                    .filter { it != key }
-                    .map { settings.effectiveTrigger(it) },
-            onDismiss = { triggerTarget = null },
-            onSave = { v ->
-                scope.launch {
-                    SearchCenter.updateSearch { current ->
-                        current.copy(sourceTriggers = current.sourceTriggers + (key to v))
-                    }
-                }
-                triggerTarget = null
-            },
-        )
-    }
-
-    deleteTarget?.let { target ->
-        AlertDialog(
-            onDismissRequest = { deleteTarget = null },
-            title = { Text(stringResource(R.string.search_engine_delete_title)) },
-            text = { Text(target.name) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        scope.launch {
-                            SearchCenter.updateSearch { current ->
-                                current.copy(
-                                    customEngines = current.customEngines.filterNot { it.id == target.id },
-                                    defaultEngineId = if (current.defaultEngineId == target.id) {
-                                        BuiltinSearchEngines.first().id
-                                    } else {
-                                        current.defaultEngineId
-                                    },
-                                )
-                            }
-                        }
-                        deleteTarget = null
-                    },
-                ) {
-                    Text(stringResource(R.string.delete))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { deleteTarget = null }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            },
-        )
-    }
 }
 
 @Composable
 private fun EngineEditDialog(
     initial: SearchEngine?,
     existingTriggers: List<String>,
-    onDismiss: () -> Unit,
-    onSave: (name: String, template: String, trigger: String) -> Unit,
+    onDismissRequest: () -> Unit,
+    onConfirm: (name: String, template: String, trigger: String) -> Unit,
 ) {
     var name by remember(initial) { mutableStateOf(initial?.name.orEmpty()) }
     var template by remember(initial) { mutableStateOf(initial?.urlTemplate.orEmpty()) }
@@ -358,77 +325,57 @@ private fun EngineEditDialog(
     }
     val templateValid = name.isNotBlank() && template.contains("%s")
     val valid = templateValid && triggerError == null
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                stringResource(
-                    if (initial == null) R.string.search_engine_add else R.string.search_engine_edit,
-                ),
-            )
-        },
-        text = {
-            androidx.compose.foundation.layout.Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text(stringResource(R.string.search_engine_name)) },
-                )
-                OutlinedTextField(
-                    value = template,
-                    onValueChange = { template = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text(stringResource(R.string.search_engine_url)) },
-                    placeholder = {
-                        Text(
-                            "https://www.bing.com/search?q=%s",
-                            maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                        )
-                    },
-                    isError = templateError,
-                    // supportingText 常驻占位：无错时空字符串，避免错误出现/消失时弹窗高度跳动。
-                    supportingText = {
-                        Text(
-                            text = if (templateError) stringResource(R.string.search_engine_url_error) else "",
-                        )
-                    },
-                )
-                OutlinedTextField(
-                    value = trigger,
-                    onValueChange = { trigger = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text(stringResource(R.string.search_engine_trigger)) },
-                    placeholder = { Text("bb") },
-                    isError = triggerError != null,
-                    supportingText = {
-                        Text(text = triggerError?.let { stringResource(it) } ?: "")
-                    },
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = valid,
-                onClick = { onSave(name.trim(), template.trim(), triggerClean) },
-            ) {
-                Text(stringResource(R.string.confirm))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
-            }
-        },
-    )
+    CustomDialog(
+        title = stringResource(
+            if (initial == null) R.string.search_engine_add else R.string.search_engine_edit,
+        ),
+        onDismissRequest = onDismissRequest,
+        onConfirm = { if (valid) onConfirm(name.trim(), template.trim(), triggerClean) },
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text(stringResource(R.string.search_engine_name)) },
+                    )
+                    OutlinedTextField(
+                        value = template,
+                        onValueChange = { template = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text(stringResource(R.string.search_engine_url)) },
+                        placeholder = {
+                            Text(
+                                "https://www.bing.com/search?q=%s",
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            )
+                        },
+                        isError = templateError,
+                        // supportingText 常驻占位：无错时空字符串，避免错误出现/消失时弹窗高度跳动。
+                        supportingText = {
+                            Text(
+                                text = if (templateError) stringResource(R.string.search_engine_url_error) else "",
+                            )
+                        },
+                    )
+                    OutlinedTextField(
+                        value = trigger,
+                        onValueChange = { trigger = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text(stringResource(R.string.search_engine_trigger)) },
+                        placeholder = { Text("bb") },
+                        isError = triggerError != null,
+                        supportingText = {
+                            Text(text = triggerError?.let { stringResource(it) } ?: "")
+                        },
+                    )
+        }
+    }
 }
-
 /** 来源 key → 显示名：复用已有文案，无开关的四个用分组名。面板提示列表共用。 */
 @Composable
 internal fun sourceTitle(key: String): String = when (key) {
@@ -446,7 +393,6 @@ internal fun sourceTitle(key: String): String = when (key) {
     SRC_CLIP -> stringResource(R.string.quick_search_clipboard)
     else -> key
 }
-
 /**
  * 来源标识编辑：单输入框，判重规则跟引擎 dialog 同款（空=关闭该源标识，
  * 不能含空白、不能撞引擎/其他来源）。确认键只在合法时可用，不用 toast。
@@ -456,8 +402,8 @@ private fun SourceTriggerDialog(
     title: String,
     current: String,
     existingTriggers: List<String>,
-    onDismiss: () -> Unit,
-    onSave: (String) -> Unit,
+    onDismissRequest: () -> Unit,
+    onConfirm: (String) -> Unit,
 ) {
     var trigger by remember(current) { mutableStateOf(current) }
     val triggerClean = trigger.trim().lowercase()
@@ -467,37 +413,15 @@ private fun SourceTriggerDialog(
             R.string.search_engine_trigger_duplicate
         else -> null
     }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            OutlinedTextField(
-                value = trigger,
-                onValueChange = { trigger = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                label = { Text(stringResource(R.string.search_engine_trigger)) },
-                isError = triggerError != null,
-                supportingText = {
-                    Text(
-                        text = triggerError?.let { stringResource(it) }
-                            ?: stringResource(R.string.quick_search_trigger_off),
-                    )
-                },
-            )
-        },
-        confirmButton = {
-            TextButton(
-                enabled = triggerError == null,
-                onClick = { onSave(triggerClean) },
-            ) {
-                Text(stringResource(R.string.confirm))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
-            }
-        },
+    TextInputDialog(
+        title = title,
+        label = stringResource(R.string.search_engine_trigger),
+        initialValue = current,
+        isError = triggerError != null,
+        supportingText = triggerError?.let { stringResource(it) }
+            ?: stringResource(R.string.quick_search_trigger_off),
+        confirmEnabled = triggerError == null,
+        onDismissRequest = onDismissRequest,
+        onConfirm = { onConfirm(it.trim().lowercase()) },
     )
 }

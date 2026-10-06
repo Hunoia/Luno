@@ -1,4 +1,4 @@
-package hunoia.luno.ui.component
+package hunoia.luno.runtime.gesturepanel
 
 import android.view.MotionEvent
 import androidx.compose.runtime.Composable

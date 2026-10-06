@@ -32,12 +32,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -59,7 +57,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.SheetTopShape
 import hunoia.luno.ui.theme.ExtraSmallShape
@@ -74,6 +71,13 @@ import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SubMinInteractiveSize
 import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.CardInnerSpacing
+import hunoia.luno.ui.theme.CanvasStrokeWidth
+import hunoia.luno.ui.theme.CanvasThumbRadius
+import hunoia.luno.ui.theme.HueBarHeight
+import hunoia.luno.ui.theme.HueBarTouchHeight
+import hunoia.luno.ui.theme.LargeGutter
+import hunoia.luno.ui.theme.TileInnerPadding
+import hunoia.luno.ui.component.sheet.LunoSheet
 
 
 sealed class ColorSelection {
@@ -88,7 +92,6 @@ fun ColorPickerBottomSheet(
     onColorSelected: (ColorSelection) -> Unit,
     initialColor: Color = MaterialTheme.colorScheme.primary,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var selectedTab by remember { mutableStateOf(0) }
     var alpha by remember { mutableFloatStateOf(initialColor.alpha) }
     var hue by remember { mutableFloatStateOf(0f) }
@@ -128,11 +131,8 @@ fun ColorPickerBottomSheet(
         else -> resolvedColor
     }
 
-    ModalBottomSheet(
+    LunoSheet(
         onDismissRequest = onDismissRequest,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        shape = SheetTopShape,
     ) {
         Column(
             modifier = Modifier
@@ -160,7 +160,7 @@ fun ColorPickerBottomSheet(
                                 shape = CircleShape,
                             )
                             .border(
-                                width = 2.dp,
+                                width = CanvasStrokeWidth,
                                 color = MaterialTheme.colorScheme.outlineVariant,
                                 shape = CircleShape,
                             ),
@@ -227,7 +227,7 @@ fun ColorPickerBottomSheet(
                                                         .size(SubMinInteractiveSize)
                                                         .then(
                                                             if (isSelected) Modifier.border(
-                                                                width = 2.dp,
+                                                                width = CanvasStrokeWidth,
                                                                 color = MaterialTheme.colorScheme.primary,
                                                                 shape = CircleShape,
                                                             ) else Modifier,
@@ -235,7 +235,7 @@ fun ColorPickerBottomSheet(
                                                         .clip(CircleShape)
                                                         .background(color),
                                                 )
-                                                Spacer(Modifier.height(4.dp))
+                                                Spacer(Modifier.height(TileInnerPadding))
                                                 Text(
                                                     text = stringResource(id = themeKey.displayNameRes),
                                                     style = MaterialTheme.typography.labelSmall,
@@ -263,12 +263,12 @@ fun ColorPickerBottomSheet(
 
             AnimatedVisibility(visible = selectedTab == 0) {
                 val density = LocalDensity.current
-                val thumbRadius = with(density) { 10.dp.toPx() }
-                val thumbStroke = with(density) { 2.dp.toPx() }
-                val hueBarHeight = with(density) { 24.dp }
+                val thumbRadius = with(density) { CanvasThumbRadius.toPx() }
+                val thumbStroke = with(density) { CanvasStrokeWidth.toPx() }
+                val hueBarHeight = with(density) { HueBarHeight }
 
                 Column(
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = ListItemVerticalPadding),
+                    modifier = Modifier.padding(horizontal = LargeGutter, vertical = ListItemVerticalPadding),
                     verticalArrangement = Arrangement.spacedBy(ListSpacing),
                 ) {
                     Box(
@@ -306,7 +306,7 @@ fun ColorPickerBottomSheet(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(32.dp)
+                            .height(HueBarTouchHeight)
                             .clip(LargeShape)
                             .background(
                                 brush = remember(hsvColor) {
@@ -377,7 +377,7 @@ fun ColorPickerBottomSheet(
                             contentDescription = null,
                             modifier = Modifier.size(CloseIconSize),
                         )
-                        Spacer(Modifier.width(4.dp))
+                        Spacer(Modifier.width(TileInnerPadding))
                         Text(text = stringResource(id = R.string.confirm))
                     }
                 }

@@ -1,5 +1,4 @@
 package hunoia.luno.ui.home
-
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.twotone.FilterAlt
 import androidx.compose.material.icons.twotone.RestartAlt
@@ -10,27 +9,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
-import hunoia.luno.ui.component.SegmentedGroup
-import hunoia.luno.ui.component.SegmentedSettingsRow
-import hunoia.luno.ui.component.segmentedShape
-
+import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.row.segmentedShape
 @Composable
 fun HomeSettingsGroup(
     onActionSettingsClick: () -> Unit,
     onConditionClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    SegmentedGroup(
+    LunoGroup(
         title = stringResource(R.string.home_section_settings),
         modifier = modifier,
     ) {
-        SegmentedSettingsRow(
+        LunoSettingsRow(
             title = stringResource(R.string.action_settings),
             icon = Icons.TwoTone.Tune,
             shape = segmentedShape(0, 2),
             onClick = onActionSettingsClick,
         )
-        SegmentedSettingsRow(
+        LunoSettingsRow(
             title = stringResource(R.string.automation_home),
             icon = Icons.TwoTone.FilterAlt,
             shape = segmentedShape(1, 2),
@@ -38,9 +36,6 @@ fun HomeSettingsGroup(
         )
     }
 }
-
-
-
 @Composable
 fun DataTransferGroup(
     onBackupClick: () -> Unit,
@@ -48,23 +43,23 @@ fun DataTransferGroup(
     onResetClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    SegmentedGroup(
+    LunoGroup(
         title = stringResource(R.string.home_section_data),
         modifier = modifier,
     ) {
-        SegmentedSettingsRow(
+        LunoSettingsRow(
             title = stringResource(R.string.backup),
             icon = Icons.TwoTone.Save,
             shape = segmentedShape(0, 3),
             onClick = onBackupClick,
         )
-        SegmentedSettingsRow(
+        LunoSettingsRow(
             title = stringResource(R.string.restore),
             icon = Icons.TwoTone.Restore,
             shape = segmentedShape(1, 3),
             onClick = onRestoreClick,
         )
-        SegmentedSettingsRow(
+        LunoSettingsRow(
             title = stringResource(R.string.reset),
             icon = Icons.TwoTone.RestartAlt,
             shape = segmentedShape(2, 3),
@@ -72,5 +67,3 @@ fun DataTransferGroup(
         )
     }
 }
-
-

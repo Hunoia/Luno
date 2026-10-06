@@ -1,4 +1,4 @@
-package hunoia.luno.ui.component
+package hunoia.luno.runtime.gesturepanel
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
@@ -25,13 +25,12 @@ import hunoia.luno.config.model.GestureButtonActionSettingsOverride
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.isHoldType
-import hunoia.luno.config.model.isLongSlideType
 import hunoia.luno.config.model.isPlainSlideType
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.gesture.GestureDecision
 import hunoia.luno.gesture.GestureResolvedActions
-import hunoia.luno.ui.component.panel.ActionPanel
-import hunoia.luno.ui.component.panel.rememberActionPanelState
+import hunoia.luno.runtime.gesturepanel.ActionPanel
+import hunoia.luno.runtime.gesturepanel.rememberActionPanelState
 import hunoia.luno.gesture.GestureState
 import hunoia.luno.gesture.SubGestureState
 import hunoia.luno.gesture.VolumeScrubState

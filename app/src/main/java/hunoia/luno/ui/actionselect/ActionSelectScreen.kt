@@ -29,7 +29,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
@@ -54,7 +53,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -73,12 +71,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.theme.*
+import hunoia.luno.ui.component.screen.LunoScreenPlain
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActionSelectContent(
-    onDismiss: () -> Unit,
+    onDismissRequest: () -> Unit,
     actionSelect: ActionSelect,
     vm: ActionSelectVM = viewModel(
         key = "action_select_${actionSelect.gestureButtonId}_${actionSelect.direction}_${actionSelect.triggerType}_${actionSelect.subGestureId}_${actionSelect.automationRuleId}",
@@ -98,7 +97,7 @@ fun ActionSelectContent(
         onEvent = { },
         onBaseEvent = { baseEvent ->
             when (baseEvent) {
-                is UiBaseEvent.Finish -> { onDismiss(); true }
+                is UiBaseEvent.Finish -> { onDismissRequest(); true }
                 is UiBaseEvent.ResToast -> { showToast(baseEvent.res); true }
                 is UiBaseEvent.StringToast -> { showToast(baseEvent.text); true }
                 else -> false
@@ -107,27 +106,12 @@ fun ActionSelectContent(
     ) { uiState ->
         val coroutineScope = rememberCoroutineScope()
 
-        Box(modifier = Modifier.fillMaxSize()) {
-            val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-            val topBarBackdrop = liquidGlassBackdrop()
-            Scaffold(
-                modifier = Modifier.fillMaxSize(),
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                contentWindowInsets = WindowInsets(),
-                topBar = {
-                    TopBar(
-                        onBack = onDismiss,
-                        title = uiState.title,
-                        scrollBehavior = scrollBehavior,
-                        backdrop = topBarBackdrop,
-                    )
-                }
-            ) { padding ->
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .layerBackdrop(topBarBackdrop)
-                ) {
+        // 内容是自带 weight(1f) 的嵌套列表，内容容器自拼（Scaffold/TopBar/backdrop 由模板提供）
+        LunoScreenPlain(
+            title = uiState.title,
+            onBack = onDismissRequest,
+        ) { topPadding ->
+            Column(modifier = Modifier.fillMaxSize()) {
                     val permissionState = rememberGetInstalledAppsPermissionState { granted ->
                         if (granted) {
                             vm.updateAppInfos()
@@ -174,8 +158,13 @@ fun ActionSelectContent(
                     Box(modifier = Modifier.weight(1f)) {
                         ActionPage(
                             modifier = Modifier.fillMaxSize(),
-                            nestedScroll = scrollBehavior.nestedScrollConnection,
-                            contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = ContentBottom),
+                            // 行组件统一贴边（docs/ui-spec.md §4），左右 gutter 由列表容器提供
+                            contentPadding = PaddingValues(
+                                start = PageGutter,
+                                end = PageGutter,
+                                top = topPadding,
+                                bottom = ContentBottom,
+                            ),
                             actions = uiState.actions,
                             actionLibraryEntries = uiState.actionLibraryEntries,
                             subGestures = uiState.subGestures,
@@ -204,42 +193,6 @@ fun ActionSelectContent(
                         )
                     }
 
-                    AnimatedVisibility(
-                        visible = uiState.selectedRecord.size > 0 && isExpanded,
-                        enter = expandVertically(animationSpec = tween(AnimMedium.toInt())) +
-                                fadeIn(animationSpec = tween(AnimMedium.toInt())),
-                        exit = shrinkVertically(animationSpec = tween(AnimMedium.toInt())) +
-                               fadeOut(animationSpec = tween(AnimMedium.toInt())),
-                    ) {
-                        SelectedActionSettings(
-                            selectedItems = uiState.selectedRecord.list,
-                            longPressTargetIndex = uiState.longPressTargetIndex,
-                            itemLabel = { context.selectedItemLabel(it, uiState.subGestures, uiState.actionLibraryEntries) },
-                            reorderMode = reorderMode,
-                            onReorderModeToggle = { reorderMode = !reorderMode },
-                            onSetLongPress = { index -> vm.startSetLongPressAction(index) },
-                            onCancelLongPress = { vm.cancelSetLongPressAction() },
-                            longPressVariantEnabled = actionSelect.automationRuleId.isBlank(),
-                            onMoveSelected = { from, to -> vm.moveSelectedAction(from, to) },
-                            onRemoveItem = { item ->
-                                when (item) {
-                                    is StoredAction -> vm.select(item, false)
-                                    is AppInfo -> vm.select(item, false)
-                                    is LauncherInfo.ShortcutInfo -> vm.select(item, false)
-                                }
-                            },
-                            onClearAll = {
-                                uiState.selectedRecord.list.toList().forEach { item ->
-                                    when (item) {
-                                        is StoredAction -> vm.select(item, false)
-                                        is AppInfo -> vm.select(item, false)
-                                        is LauncherInfo.ShortcutInfo -> vm.select(item, false)
-                                    }
-                                }
-                            }
-                        )
-                    }
-
                     if (uiState.selectedRecord.size > 0 || uiState.selectionDirty) {
                         val inLongPressMode = uiState.longPressTargetIndex != null
                         SelectedBottomBar(
@@ -248,14 +201,42 @@ fun ActionSelectContent(
                             inLongPressMode = inLongPressMode,
                             onToggleExpand = { if (!inLongPressMode) isExpanded = !isExpanded },
                             onDone = { if (!inLongPressMode) vm.done() },
-                            onCancel = { vm.cancelSetLongPressAction() },
+                            onDismissRequest = { vm.cancelSetLongPressAction() },
+                            expandedContent = {
+                                SelectedActionSettings(
+                                    selectedItems = uiState.selectedRecord.list,
+                                    longPressTargetIndex = uiState.longPressTargetIndex,
+                                    itemLabel = { context.selectedItemLabel(it, uiState.subGestures, uiState.actionLibraryEntries) },
+                                    reorderMode = reorderMode,
+                                    onReorderModeToggle = { reorderMode = !reorderMode },
+                                    onSetLongPress = { index -> vm.startSetLongPressAction(index) },
+                                    onCancelLongPress = { vm.cancelSetLongPressAction() },
+                                    longPressVariantEnabled = actionSelect.automationRuleId.isBlank(),
+                                    onMoveSelected = { from, to -> vm.moveSelectedAction(from, to) },
+                                    onRemoveItem = { item ->
+                                        when (item) {
+                                            is StoredAction -> vm.select(item, false)
+                                            is AppInfo -> vm.select(item, false)
+                                            is LauncherInfo.ShortcutInfo -> vm.select(item, false)
+                                        }
+                                    },
+                                    onClearAll = {
+                                        uiState.selectedRecord.list.toList().forEach { item ->
+                                            when (item) {
+                                                is StoredAction -> vm.select(item, false)
+                                                is AppInfo -> vm.select(item, false)
+                                                is LauncherInfo.ShortcutInfo -> vm.select(item, false)
+                                            }
+                                        }
+                                    },
+                                )
+                            },
                         )
                     }
                 }
             }
-
         }
-    }
+
 }
 
 
@@ -266,7 +247,8 @@ private fun SelectedBottomBar(
     inLongPressMode: Boolean,
     onToggleExpand: () -> Unit,
     onDone: () -> Unit,
-    onCancel: () -> Unit,
+    onDismissRequest: () -> Unit,
+    expandedContent: @Composable () -> Unit,
 ) {
     val backdrop = liquidGlassBackdrop()
     Surface(
@@ -278,7 +260,17 @@ private fun SelectedBottomBar(
             .liquidGlassBlur(backdrop),
         color = glassSurfaceColor(),
     ) {
-        Row(
+        Column {
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically(animationSpec = tween(AnimMedium.toInt())) +
+                        fadeIn(animationSpec = tween(AnimMedium.toInt())),
+                exit = shrinkVertically(animationSpec = tween(AnimMedium.toInt())) +
+                        fadeOut(animationSpec = tween(AnimMedium.toInt())),
+            ) {
+                expandedContent()
+            }
+            Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(BottomBarHeight)
@@ -293,7 +285,7 @@ private fun SelectedBottomBar(
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.weight(1f),
                 )
-                TextButton(onClick = onCancel) {
+                TextButton(onClick = onDismissRequest) {
                     Text(stringResource(R.string.cancel))
                 }
             } else {
@@ -307,7 +299,7 @@ private fun SelectedBottomBar(
                     Icon(
                         imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                         contentDescription = null,
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(RowIconBadgeIconSize),
                     )
                 }
                 Spacer(Modifier.width(ShapeExtraSmall))
@@ -316,6 +308,7 @@ private fun SelectedBottomBar(
                 }
             }
         }
+    }
     }
 }
 

@@ -21,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.PageGutter
 
@@ -59,19 +58,19 @@ fun ComposeToast(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 12.dp),
+                .padding(horizontal = LargeGutter)
+                .padding(bottom = BottomBarPadding),
             hostState = snackbarHostState
         ) { snackbarData ->
             Text(
                 modifier = Modifier
-                    .widthIn(max = 300.dp)
+                    .widthIn(max = ToastMaxWidth)
                     .clipToBackground(
                         color = MaterialTheme.colorScheme.surfaceContainerHighest,
                         shape = LargeShape
                     )
                     .padding(
-                        vertical = 8.dp,
+                        vertical = CardInnerSpacing,
                         horizontal = PageGutter
                     )
                     .wrapContentSize(),

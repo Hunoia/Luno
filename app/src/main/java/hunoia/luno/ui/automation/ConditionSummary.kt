@@ -17,7 +17,6 @@ fun conditionSummary(context: Context, group: WhenGroup): String {
     val sep = when (group.mode) {
         BooleanMode.AND -> context.getString(R.string.logic_all)
         BooleanMode.OR -> context.getString(R.string.logic_any)
-        BooleanMode.NOT -> context.getString(R.string.logic_none)
     }
     return group.items.joinToString(" $sep ") { itemSummary(context, it) }
 }

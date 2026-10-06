@@ -6,7 +6,6 @@ import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import java.util.Collections
-import java.util.LinkedHashMap
 import kotlin.math.ln
 import kotlin.math.pow
 

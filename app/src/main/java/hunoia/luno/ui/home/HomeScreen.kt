@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
@@ -23,14 +22,9 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -46,10 +40,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
@@ -70,7 +62,6 @@ import hunoia.luno.ui.actionlibrary.NewActionLibraryScreen
 import hunoia.luno.ui.component.FloatingBottomBar
 import hunoia.luno.ui.component.FloatingBottomBarDefaults
 import hunoia.luno.ui.component.FloatingBottomBarMode
-import hunoia.luno.ui.component.TopBar
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.navigation.NEW_ACTION_LIBRARY_ENTRY_ID
 import hunoia.luno.ui.theme.resolveColor
@@ -79,10 +70,15 @@ import androidx.compose.material.icons.automirrored.twotone.LibraryBooks
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.twotone.Home
 import hunoia.luno.ui.theme.ListSpacing
+import hunoia.luno.ui.theme.BottomBarHeight
+import hunoia.luno.ui.theme.GlassBlurRadius
+import hunoia.luno.ui.theme.GlassInnerBlurRadius
+import hunoia.luno.ui.theme.GlassInnerShadowRadius
+import hunoia.luno.ui.theme.GlassOutlineWidth
+import hunoia.luno.ui.theme.GlassRefractionAmount
+import hunoia.luno.ui.theme.GlassRefractionHeight
 import top.yukonga.miuix.kmp.blur.blur
 import top.yukonga.miuix.kmp.blur.drawBackdrop
-import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.highlight.BloomStroke
 import top.yukonga.miuix.kmp.blur.highlight.Highlight
 import top.yukonga.miuix.kmp.blur.highlight.LightPosition
@@ -92,6 +88,8 @@ import hunoia.luno.ui.library.liquid.InnerShadow
 import hunoia.luno.ui.library.liquid.innerShadow
 import hunoia.luno.ui.library.liquid.lens
 import hunoia.luno.ui.library.liquid.vibrancy
+import hunoia.luno.ui.component.sheet.ConfirmDialog
+import hunoia.luno.ui.component.screen.HomeShell
 
 enum class MainTab(val label: String, val icon: ImageVector) {
     Home("主页", Icons.TwoTone.Home),
@@ -99,11 +97,11 @@ enum class MainTab(val label: String, val icon: ImageVector) {
 }
 
 private val capsuleHighlight: Highlight = Highlight(
-    width = 1.dp,
+    width = GlassOutlineWidth,
     alpha = 1f,
     style = BloomStroke(
         color = Color.White.copy(alpha = 0.12f),
-        innerBlurRadius = 2.0.dp,
+        innerBlurRadius = GlassInnerBlurRadius,
         primaryLight = LightSource(
             position = LightPosition(0.5f, -0.3f, -0.05f),
             color = Color.White,
@@ -130,13 +128,7 @@ fun HomeScreen(
 ) {
     val homeListState = rememberLazyListState()
     val libraryListState = rememberLazyListState()
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val isBlurSupported = isRenderEffectSupported()
-    val surfaceColor = MaterialTheme.colorScheme.surfaceContainer
-    val backdrop = rememberLayerBackdrop {
-        drawRect(surfaceColor)
-        drawContent()
-    }
     val navigationWindowInsets = WindowInsets.navigationBars.only(
         WindowInsetsSides.Bottom,
     )
@@ -197,8 +189,13 @@ fun HomeScreen(
             }
         }
 
-        Box(modifier = Modifier.fillMaxSize()) {
-            if (colorPickerTarget != null) {
+        HomeShell(
+            title = when (mainTab) {
+                MainTab.Home -> stringResource(id = R.string.home_title)
+                MainTab.ActionLibrary -> stringResource(id = R.string.action_library)
+            },
+            sheets = {
+                if (colorPickerTarget != null) {
                 val scheme = MaterialTheme.colorScheme
                 val themeColorArgb = remember(scheme) {
                     ThemeColorKey.entries.associateWith { it.resolveColor(scheme).toArgb() }
@@ -226,72 +223,119 @@ fun HomeScreen(
                     },
                     initialColor = colorPickerColor,
                 )
-            }
-
-            if (showRestoreConfirm && pendingRestoreUri != null) {
-                AlertDialog(
-                    onDismissRequest = {
-                        showRestoreConfirm = false
-                        pendingRestoreUri = null
-                    },
-                    title = { Text(stringResource(id = R.string.restore_confirm_title)) },
-                    text = { Text(stringResource(id = R.string.restore_confirm_desc)) },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                val uri = pendingRestoreUri ?: return@TextButton
-                                showRestoreConfirm = false
-                                pendingRestoreUri = null
-                                vm.restore(context, uri)
-                            }
-                        ) {
-                            Text(stringResource(id = R.string.confirm_restore))
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(
-                            onClick = {
-                                showRestoreConfirm = false
-                                pendingRestoreUri = null
-                            }
-                        ) {
-                            Text(stringResource(id = R.string.cancel))
-                        }
-                    },
+                }
+            },
+            dialogs = {
+                RenameDialog(
+                    target = uiState.renameDialogTarget,
+                    onDismissRequest = { vm.hideRenameDialog() },
+                    onConfirm = { target, name -> vm.doRename(target, name) },
                 )
-            }
-
-            Scaffold(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .nestedScroll(scrollBehavior.nestedScrollConnection),
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                contentWindowInsets = WindowInsets(),
-                topBar = {
-                    TopBar(
-                        title = when (mainTab) {
-                            MainTab.Home -> stringResource(id = R.string.home_title)
-                            MainTab.ActionLibrary -> stringResource(id = R.string.action_library)
+                // 组合期捕获：确认时 onDismissRequest 已先清掉 pendingRestoreUri。
+                val restoreUri = pendingRestoreUri
+                if (showRestoreConfirm && restoreUri != null) {
+                    ConfirmDialog(
+                        title = stringResource(R.string.restore_confirm_title),
+                        text = stringResource(R.string.restore_confirm_desc),
+                        confirmLabel = stringResource(R.string.confirm_restore),
+                        onDismissRequest = {
+                            showRestoreConfirm = false
+                            pendingRestoreUri = null
                         },
-                        showBackIcon = false,
-                        scrollBehavior = scrollBehavior,
-                        backdrop = backdrop,
+                        onConfirm = { vm.restore(context, restoreUri) },
                     )
-                },
-            ) { paddingValues ->
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(Modifier.layerBackdrop(backdrop)),
-                    ) {
-                        when (mainTab) {
+                }
+                if (showResetConfirm) {
+                    ConfirmDialog(
+                        title = stringResource(R.string.reset_default_settings_warning),
+                        text = stringResource(R.string.reset_default_settings_warning_desc),
+                        confirmLabel = stringResource(R.string.confirm_reset),
+                        destructive = true,
+                        onDismissRequest = { showResetConfirm = false },
+                        onConfirm = { vm.reset() },
+                    )
+                }
+            },
+            bottomBar = { backdrop ->
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = BottomBarPadding)
+                        .windowInsetsPadding(navigationWindowInsets),
+                    horizontalArrangement = Arrangement.spacedBy(ListSpacing),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                            FloatingBottomBar(
+                                items = MainTab.entries.toList(),
+                                selectedIndex = { mainTab.ordinal },
+                                onSelected = { index -> mainTab = MainTab.entries[index] },
+                                backdrop = backdrop,
+                                mode = FloatingBottomBarMode.LiquidGlassBlur,
+                                colors = FloatingBottomBarDefaults.colors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                    indicatorColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    activeContentColor = MaterialTheme.colorScheme.primary,
+                                ),
+                                iconContent = { tab, _ ->
+                                    Icon(
+                                        imageVector = tab.icon,
+                                        contentDescription = tab.label,
+                                        modifier = Modifier.size(BottomBarIconSize),
+                                    )
+                                },
+                            )
+                            
+                            if (mainTab == MainTab.ActionLibrary) {
+                                Box(
+                                    modifier = Modifier
+                                        .height(BottomBarHeight)
+                                        .clip(RoundedCornerShape(BottomBarCapsuleRadius))
+                                        .then(
+                                            if (isBlurSupported) Modifier.drawBackdrop(
+                                                backdrop = backdrop,
+                                                shape = { RoundedCornerShape(BottomBarCapsuleRadius) },
+                                                effects = {
+                                                    vibrancy()
+                                                    blur(GlassBlurRadius.toPx(), GlassBlurRadius.toPx())
+                                                    lens(
+                                                        refractionHeight = GlassRefractionHeight.toPx(),
+                                                        refractionAmount = GlassRefractionAmount.toPx(),
+                                                    )
+                                                },
+                                                highlight = { capsuleHighlight.copy(alpha = 0.75f) },
+                                            ) else Modifier.background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                                        )
+                                        .innerShadow(shape = RoundedCornerShape(BottomBarCapsuleRadius)) {
+                                            InnerShadow(
+                                                radius = GlassInnerShadowRadius,
+                                                color = Color.Black.copy(alpha = 0.08f),
+                                            )
+                                        }
+                                        .padding(horizontal = PageGutter)
+                                        .clickable {
+                                            onNavToActionLibraryEdit(NEW_ACTION_LIBRARY_ENTRY_ID, null)
+                                        },
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = stringResource(R.string.action_library_add),
+                                        modifier = Modifier.size(BottomBarIconSize),
+                                        tint = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                            }
+                }
+            },
+        ) { topPadding, _ ->
+            when (mainTab) {
                         MainTab.Home -> LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             state = homeListState,
                             contentPadding = PaddingValues(
                                 start = PageGutter,
-                                top = paddingValues.calculateTopPadding(),
+                                top = topPadding,
                                 end = PageGutter,
                                 bottom = FloatingContentBottom,
                             ),
@@ -319,7 +363,7 @@ fun HomeScreen(
                                     gestureButtons = uiState.gestureButtons,
                                     subGestures = uiState.subGestures,
                                     expandedSection = expandedGestureSection,
-                                    onExpandedSectionChange = { expandedGestureSection = it },
+                                    onExpandedChange = { expandedGestureSection = it },
                                     onGestureButtonClick = onNavToGestureButtonSettings,
                                     onSubGestureClick = onNavToSubGestureEditor,
                                     onGestureCheckedChange = { button, enabled -> vm.onGestureButtonEnabledChange(button, enabled) },
@@ -362,119 +406,9 @@ fun HomeScreen(
                         MainTab.ActionLibrary -> NewActionLibraryScreen(
                             listState = libraryListState,
                             onNavToEdit = onNavToActionLibraryEdit,
-                            contentPadding = paddingValues,
+                            contentPadding = PaddingValues(top = topPadding),
                         )
                     }
-                    }
-
-                    // Bottom bar (overlaid — sibling of content, not child)
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth(),
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .padding(bottom = BottomBarPadding)
-                                .windowInsetsPadding(navigationWindowInsets),
-                            horizontalArrangement = Arrangement.spacedBy(ListSpacing),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            FloatingBottomBar(
-                                items = MainTab.entries.toList(),
-                                selectedIndex = { mainTab.ordinal },
-                                onSelected = { index -> mainTab = MainTab.entries[index] },
-                                backdrop = backdrop,
-                                mode = FloatingBottomBarMode.LiquidGlassBlur,
-                                colors = FloatingBottomBarDefaults.colors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                                    indicatorColor = MaterialTheme.colorScheme.primary,
-                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    activeContentColor = MaterialTheme.colorScheme.primary,
-                                ),
-                                iconContent = { tab, _ ->
-                                    Icon(
-                                        imageVector = tab.icon,
-                                        contentDescription = tab.label,
-                                        modifier = Modifier.size(BottomBarIconSize),
-                                    )
-                                },
-                            )
-                            
-                            if (mainTab == MainTab.ActionLibrary) {
-                                Box(
-                                    modifier = Modifier
-                                        .height(56.dp)
-                                        .clip(RoundedCornerShape(BottomBarCapsuleRadius))
-                                        .then(
-                                            if (isBlurSupported) Modifier.drawBackdrop(
-                                                backdrop = backdrop,
-                                                shape = { RoundedCornerShape(BottomBarCapsuleRadius) },
-                                                effects = {
-                                                    vibrancy()
-                                                    blur(25.dp.toPx(), 25.dp.toPx())
-                                                    lens(
-                                                        refractionHeight = 24.dp.toPx(),
-                                                        refractionAmount = 24.dp.toPx(),
-                                                    )
-                                                },
-                                                highlight = { capsuleHighlight.copy(alpha = 0.75f) },
-                                            ) else Modifier.background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                                        )
-                                        .innerShadow(shape = RoundedCornerShape(BottomBarCapsuleRadius)) {
-                                            InnerShadow(
-                                                radius = 4.dp,
-                                                color = Color.Black.copy(alpha = 0.08f),
-                                            )
-                                        }
-                                        .padding(horizontal = PageGutter)
-                                        .clickable {
-                                            onNavToActionLibraryEdit(NEW_ACTION_LIBRARY_ENTRY_ID, null)
-                                        },
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Add,
-                                        contentDescription = stringResource(R.string.action_library_add),
-                                        modifier = Modifier.size(BottomBarIconSize),
-                                        tint = MaterialTheme.colorScheme.primary,
-                                    )
-                                }
-                            }
-                            }
-                        }
-                    }
-
-                    if (showResetConfirm) {
-                        AlertDialog(
-                            onDismissRequest = { showResetConfirm = false },
-                            title = { Text(stringResource(id = R.string.reset_default_settings_warning)) },
-                            text = { Text(stringResource(id = R.string.reset_default_settings_warning_desc)) },
-                            confirmButton = {
-                                TextButton(
-                                    onClick = {
-                                        vm.reset()
-                                        showResetConfirm = false
-                                    }
-                                ) {
-                                    Text(stringResource(id = R.string.confirm_reset))
-                                }
-                            },
-                            dismissButton = {
-                                TextButton(onClick = { showResetConfirm = false }) {
-                                    Text(stringResource(id = R.string.cancel))
-                                }
-                            },
-                        )
-                    }
-                }
-            }
-
-            RenameDialog(
-                target = uiState.renameDialogTarget,
-                onDismissRequest = { vm.hideRenameDialog() },
-                onConfirm = { target, name -> vm.doRename(target, name) },
-            )
         }
+    }
     }
