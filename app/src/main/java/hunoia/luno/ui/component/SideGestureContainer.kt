@@ -15,6 +15,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.volumeScrubConfigOrDefault
+import hunoia.luno.config.model.VolumeScrubConfig
 import hunoia.luno.config.model.ActionPanelStyle
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.ArcStyle
@@ -25,6 +26,7 @@ import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.isHoldType
 import hunoia.luno.config.model.isLongSlideType
+import hunoia.luno.config.model.isPlainSlideType
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.gesture.GestureDecision
 import hunoia.luno.gesture.GestureResolvedActions
@@ -58,11 +60,13 @@ fun SideGestureContainer(
     onSubGestureModeChanged: (Boolean, Offset, Int) -> Unit = { _, _, _ -> },
     onActionPanelOverlayChanged: (Boolean) -> Unit = {},
     onActionPanelVisibilityChanged: (Boolean) -> Unit = {},
+    onVolumeScrubOverlayRequested: (VolumeScrubConfig) -> Unit = {},
 ) {
     val context = LocalContext.current
     val curOnAction by rememberUpdatedState(newValue = onAction)
     val curOnSubGestureModeChanged by rememberUpdatedState(newValue = onSubGestureModeChanged)
     val curOnPanelVisibilityChanged by rememberUpdatedState(newValue = onActionPanelVisibilityChanged)
+    val curOnVolumeScrubOverlayRequested by rememberUpdatedState(newValue = onVolumeScrubOverlayRequested)
     val coroutineScope = rememberCoroutineScope()
     val sideGestureState = rememberGestureState(buttons, advancedSettings, gestureSettings)
     val actionPanelState = rememberActionPanelState()
@@ -74,11 +78,15 @@ fun SideGestureContainer(
     val subGestureState = remember(subGestureSettings, coroutineScope) {
         SubGestureState(coroutineScope, subGestureSettings, curOnSubGestureModeChanged)
     }
-    val volumeScrubState = remember(context) {
-        VolumeScrubState(context) { active ->
-            curOnSubGestureModeChanged(active, Offset.Unspecified, 0)
-        }
-    }
+    val volumeScrubState = remember(context) { VolumeScrubState(context) }
+
+    /**
+     * 当前是否处在一次拖动过程里（DOWN 已来、UP 还没来）。
+     * volumeScrubState 的清理时机就是 UP，所以在 onDragEnd 里激活的状态没有清理点，
+     * 会残留下来吞掉下一次触钮手势（滑动只调音量、不触发动作）。凡是此时激活的，
+     * 一律改由全屏音量窗接管整段刮擦。
+     */
+    var dragInFlight by remember { mutableStateOf(false) }
 
     // 收起方向只在这里处理:放大的调用点必须早于 visible=true,见 runGestureActions。
     // LaunchedEffect 以 visible 为 key,面板在这段等待里重新打开会自动取消这次收缩。
@@ -148,7 +156,17 @@ fun SideGestureContainer(
         }
         val enteredSubGesture = when (action.typeId) {
             "internal.volumeScrub" -> {
-                volumeScrubState.activate(action.volumeScrubConfigOrDefault())
+                val config = action.volumeScrubConfigOrDefault()
+                if (dragInFlight) {
+                    // 滑动途中确认：Compose 状态服务这次手势的剩余部分，UP 时会清。
+                    volumeScrubState.activate(config)
+                    // 短滑/长滑：这次拖动调完松手后，任意位置再拖一次仍能调节。
+                    if (decision?.triggerType?.isPlainSlideType == true) curOnVolumeScrubOverlayRequested(config)
+                } else {
+                    // 这次激活已经不会有 UP 来清状态（例如面板点选、抬手才判定的滑动），
+                    // 交给全屏音量窗接管整段刮擦。
+                    curOnVolumeScrubOverlayRequested(config)
+                }
                 false
             }
             "internal.none" -> false
@@ -227,6 +245,7 @@ fun SideGestureContainer(
 
     DragGestureHandler(
         onDragStart = onDragStart@{ offset, hint ->
+            dragInFlight = true
             if (actionPanelState.visible) {
                 actionPanelState.onSelectStart(offset)
                 return@onDragStart
@@ -272,6 +291,7 @@ fun SideGestureContainer(
             }
         },
         onDragEnd = onDragEnd@{
+            dragInFlight = false
             if (subGestureState.isActive) {
                 val resolvedActions = subGestureState.onDragEnd()
                 if (resolvedActions != null) {
@@ -301,7 +321,10 @@ fun SideGestureContainer(
                 if (hitAction.typeId != "internal.none") {
                     val actionToRun: () -> Unit = {
                         when (hitAction.typeId) {
-                            "internal.volumeScrub" -> volumeScrubState.activate(hitAction.volumeScrubConfigOrDefault())
+                            // 面板点选同样发生在 onDragEnd 内，没有后续 UP 可清理状态，
+                            // 一律交给全屏音量窗（它自己拖一次就关）。
+                            "internal.volumeScrub" ->
+                                curOnVolumeScrubOverlayRequested(hitAction.volumeScrubConfigOrDefault())
                             else -> handleResolvedAction(hitAction, panelSourceButton, touchPosition, sourceOverride)
                         }
                     }
@@ -341,6 +364,7 @@ fun SideGestureContainer(
             }
         },
         onDragCancel = onDragCancel@{
+            dragInFlight = false
             if (subGestureState.isActive) {
                 subGestureState.onDragCancel()
                 return@onDragCancel

@@ -244,6 +244,11 @@ class GestureCoordinator(
             else transientOverlayController.detachSubGestureOverlay()
         }
 
+        override fun onVolumeScrubOverlayRequested(config: hunoia.luno.config.model.VolumeScrubConfig) {
+            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "volume scrub overlay requested")
+            volumeScrubRuntime.show(config)
+        }
+
         override fun onActionPanelOverlayChanged(show: Boolean) {
             if (show) transientOverlayController.attachActionPanelOverlay()
             else transientOverlayController.detachActionPanelOverlay()

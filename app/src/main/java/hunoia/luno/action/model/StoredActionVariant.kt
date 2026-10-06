@@ -55,7 +55,10 @@ fun StoredAction.libraryEntryId(): String? {
 /** internal.volumeScrub 的配置解码（读不到落默认值）。 */
 fun StoredAction.volumeScrubConfigOrDefault(): hunoia.luno.config.model.VolumeScrubConfig {
     if (typeId != "internal.volumeScrub") return hunoia.luno.config.model.VolumeScrubConfig()
-    val horizontal = (params["horizontalEnabled"] as? JsonPrimitive)?.contentOrNull.toBoolean()
+    // 注意不能用 String?.toBoolean()：key 缺失时它返回 false 而不是回退默认值，
+    // 那会让手势路径的"水平音量调节"实际是关的（UI/模型/ActionMapper 都默认 true）。
+    val horizontal = (params["horizontalEnabled"] as? JsonPrimitive)?.contentOrNull?.toBooleanStrictOrNull()
+        ?: hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubHorizontalEnabled
     val step = (params["stepThresholdDp"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
     return hunoia.luno.config.model.VolumeScrubConfig(
         horizontalEnabled = horizontal,

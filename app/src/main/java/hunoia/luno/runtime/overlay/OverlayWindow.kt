@@ -25,6 +25,12 @@ interface GestureOverlayCallbacks {
     fun onActionPanelOverlayChanged(show: Boolean)
 
     /**
+     * 请求挂上全屏音量触摸窗。滑动（非停留）手势触发的滑动调音量用它把调节区扩到全屏：
+     * 触发它的那次拖动结束后，任意位置再拖一次仍能调节。
+     */
+    fun onVolumeScrubOverlayRequested(config: hunoia.luno.config.model.VolumeScrubConfig)
+
+    /**
      * ActionPanel 是否正在显示。用于把主 overlay 在隐藏时收成 1x1,
      * 避免常驻一块什么都不画的全屏 RGBA_8888 buffer。与 [onActionPanelOverlayChanged] 是两件事:
      * 后者管的是面板需要交互时那个临时的可触摸空窗口。

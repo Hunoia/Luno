@@ -47,6 +47,9 @@ fun GestureOverlayView(
                     onActionPanelVisibilityChanged = { visible ->
                         callbacks.onActionPanelVisibilityChanged(visible)
                     },
+                    onVolumeScrubOverlayRequested = { config ->
+                        callbacks.onVolumeScrubOverlayRequested(config)
+                    },
                     onAction = { action, sourceButton, sourceOverride, touchPosition, decision ->
                         callbacks.onAction(action, sourceButton, sourceOverride, touchPosition, decision)
                     },

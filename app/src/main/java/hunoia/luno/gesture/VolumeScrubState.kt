@@ -8,10 +8,7 @@ import hunoia.luno.bridge.system.volumeDown
 import hunoia.luno.bridge.system.volumeUp
 import hunoia.luno.config.model.VolumeScrubConfig
 
-class VolumeScrubState(
-    private val context: Context,
-    private val onModeChanged: (Boolean) -> Unit,
-) {
+class VolumeScrubState(private val context: Context) {
     var isActive by mutableStateOf(false)
         private set
     var accumulator by mutableStateOf(0f)
@@ -57,7 +54,6 @@ class VolumeScrubState(
 
     fun onDragEnd(): Boolean {
         if (!isActive) return false
-        onModeChanged(false)
         isActive = false
         accumulator = 0f
         accumulatorX = 0f
@@ -66,7 +62,6 @@ class VolumeScrubState(
 
     fun onDragCancel(): Boolean {
         if (!isActive) return false
-        onModeChanged(false)
         isActive = false
         accumulator = 0f
         accumulatorX = 0f

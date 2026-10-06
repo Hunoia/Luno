@@ -14,7 +14,7 @@ import hunoia.luno.bridge.system.volumeUp
 class VolumeScrubOverlay(
     private val context: Context,
     private val horizontalEnabled: Boolean = false,
-    private val stepThresholdDp: Int = 18,
+    private val stepThresholdDp: Int = hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubStepThresholdDp,
 ) {
 
     private var overlayView: View? = null
