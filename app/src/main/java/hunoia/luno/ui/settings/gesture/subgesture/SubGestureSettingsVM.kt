@@ -12,7 +12,6 @@ import hunoia.luno.config.defaults.SettingsUiDefaults.MinGestureSlideDistanceGap
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinSubGestureLongSlideTriggerDistance
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinSubGestureTriggerDistance
 import hunoia.luno.core.AppContext
-import hunoia.luno.config.model.ActionPanelStyles
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.ui.navigation.SubGestureEditor
 import hunoia.luno.domain.gesture.GestureConfig
@@ -75,9 +74,6 @@ class SubGestureSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeVM<S
                 ),
                 longSlideHoldActions = original.longSlideHoldActions.copy(
                     actions = original.longSlideHoldActions.actions.mapKeys { (direction, _) -> direction.mirrorHorizontal() }
-                ),
-                longSlideActionPanelStyles = original.longSlideActionPanelStyles.copy(
-                    styles = original.longSlideActionPanelStyles.styles.mapKeys { (direction, _) -> direction.mirrorHorizontal() }
                 ),
                 angle = original.angle.copy(
                     boundaries = original.angle.boundaries.let { b ->
@@ -185,11 +181,6 @@ class SubGestureSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeVM<S
     fun onSubLongSlideHoldTriggerDelayMsChange(value: Float) = updateSubGestureLive { copy(longSlideHoldTriggerDelayMs = value.toLong()) }
     fun onSubTimeoutMsChange(value: Float) = updateSubGestureLive { copy(timeoutMs = value.toLong()) }
 
-    fun updateLongSlideActionPanelStyle(direction: GestureDirection, style: ActionPanelStyles) {
-        updateSubGesture {
-            copy(longSlideActionPanelStyles = longSlideActionPanelStyles.withStyle(direction, style))
-        }
-    }
 
     private fun loadData() {
         viewModelScope.launch {

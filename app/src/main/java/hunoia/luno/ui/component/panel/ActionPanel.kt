@@ -171,6 +171,7 @@ fun ActionPanel(
                     actionCount = actionPanelState.actions.size,
                     itemSizePx = itemSizePx,
                     spreadSpacing = resolvedStyle.spreadSpacing,
+                    itemGapPx = resolvedStyle.itemGapPx.toFloat(),
                 )
                 val pillPosition = actionPanelPillPosition(parentSize, actionBounds, itemSizePx)
                 val accentColor = actionPanelAccentColor(actionPanelState.buttonColor)

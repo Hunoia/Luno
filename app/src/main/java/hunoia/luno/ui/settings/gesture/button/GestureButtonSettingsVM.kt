@@ -15,7 +15,6 @@ import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureButtonAngle
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.ui.navigation.GestureButtonSettings
-import hunoia.luno.config.model.ActionPanelStyles
 
 import hunoia.luno.domain.gesture.GestureConfig
 import kotlinx.coroutines.Job
@@ -149,20 +148,6 @@ class GestureButtonSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeV
         saveSettings()
     }
 
-    fun updateLongSlideActionPanelStyle(direction: GestureDirection, style: ActionPanelStyles) {
-        updateUiState {
-            val l = it.gestureButtons.toMutableList().also { list ->
-                list.forEachIndexed { index, b ->
-                    if (b.id == gestureButtonSettings.buttonId) {
-                        val newStyles = b.longSlideActionPanelStyles.withStyle(direction, style)
-                        list[index] = b.copy(longSlideActionPanelStyles = newStyles)
-                    }
-                }
-            }
-            it.copy(gestureButtons = l)
-        }
-        saveSettings()
-    }
 
     fun updateGestureButtonAngle(angle: GestureButtonAngle) = updateButton { copy(angle = angle) }
 

@@ -28,7 +28,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
-import hunoia.luno.config.model.ActionPanelStyles
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
@@ -38,7 +37,6 @@ import hunoia.luno.ui.component.actionTextCompose
 import hunoia.luno.ui.component.segmentedShape
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.settings.gesture.style.MySideGestureSettings
-import hunoia.luno.ui.settings.gesture.style.StyleTrailingButton
 import hunoia.luno.ui.theme.ConnectionRadius
 import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.RowIconSize
@@ -153,7 +151,6 @@ fun GestureButtonSlideActionsCard(
 fun GestureButtonLongSlideActionsCard(
     gestureButton: GestureButton,
     onNavToActionSelect: (ActionSelect) -> Unit,
-    onStyleSelect: (GestureDirection) -> Unit,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
 ) {
@@ -166,7 +163,6 @@ fun GestureButtonLongSlideActionsCard(
         LongSlideActionRows(
             hiddenDirections = gestureButton.angle.zeroWidthDirections(),
             actionsText = { direction -> gestureButton.longSlideActions.actionsBy(direction).actionTextCompose() },
-            currentStyle = { direction -> gestureButton.longSlideActionPanelStyles.styleBy(direction) },
             onDirectionClick = { direction ->
                 onNavToActionSelect(
                     ActionSelect(
@@ -176,7 +172,6 @@ fun GestureButtonLongSlideActionsCard(
                     )
                 )
             },
-            onStyleSelect = onStyleSelect,
         )
     }
 }
@@ -217,9 +212,7 @@ fun SlideActionRows(
 @Composable
 fun LongSlideActionRows(
     actionsText: @Composable (GestureDirection) -> String,
-    currentStyle: (GestureDirection) -> ActionPanelStyles,
     onDirectionClick: (GestureDirection) -> Unit,
-    onStyleSelect: (GestureDirection) -> Unit,
     hiddenDirections: Set<GestureDirection> = emptySet(),
 ) {
     val directions = actionCardDirections.filterNot { it in hiddenDirections }
@@ -230,12 +223,6 @@ fun LongSlideActionRows(
             isLongSlide = true,
             secondaryText = actionsText(direction),
             shape = segmentedShape(index, directions.size),
-            trailing = {
-                StyleTrailingButton(
-                    currentStyle = currentStyle(direction),
-                    onClick = { onStyleSelect(direction) }
-                )
-            }
         )
     }
 }
@@ -314,7 +301,6 @@ fun GestureButtonSlideHoldActionsCard(
 fun GestureButtonLongSlideHoldActionsCard(
     gestureButton: GestureButton,
     onNavToActionSelect: (ActionSelect) -> Unit,
-    onStyleSelect: (GestureDirection) -> Unit,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
 ) {
@@ -327,7 +313,6 @@ fun GestureButtonLongSlideHoldActionsCard(
         LongSlideActionRows(
             hiddenDirections = gestureButton.angle.zeroWidthDirections(),
             actionsText = { direction -> gestureButton.longSlideHoldActions.actionsBy(direction).actionTextCompose() },
-            currentStyle = { direction -> gestureButton.longSlideActionPanelStyles.styleBy(direction) },
             onDirectionClick = { direction ->
                 onNavToActionSelect(
                     ActionSelect(
@@ -336,10 +321,6 @@ fun GestureButtonLongSlideHoldActionsCard(
                         triggerType = GestureTriggerType.LongSlideHold,
                     )
                 )
-            },
-            onStyleSelect = { direction ->
-                onExpandedChange(true)
-                onStyleSelect(direction)
             },
         )
     }

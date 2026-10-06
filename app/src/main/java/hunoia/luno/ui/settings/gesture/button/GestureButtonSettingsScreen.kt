@@ -41,8 +41,6 @@ import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsUiEvent
 import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsUiState
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.gesture.mirroredButton
-import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleConfigContent
-import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleSelectContent
 import hunoia.luno.ui.settings.gesture.subgesture.GestureButtonAngleContent
 import hunoia.luno.ui.theme.MarkColorSize
 import hunoia.luno.ui.component.sheets.MyAlertDialog
@@ -66,8 +64,6 @@ fun GestureButtonSettingsScreen(
     var showVibrationSettings by remember { mutableStateOf(false) }
     var showTriggerDistanceSettings by remember { mutableStateOf(false) }
     var showGestureAngles by remember { mutableStateOf(false) }
-    var showStyleSelectFor by remember { mutableStateOf<GestureDirection?>(null) }
-    var showStyleConfigFor by remember { mutableStateOf<GestureDirection?>(null) }
     val surfaceColor = MaterialTheme.colorScheme.surfaceContainer
     val backdrop = rememberLayerBackdrop {
         drawRect(surfaceColor)
@@ -171,14 +167,12 @@ fun GestureButtonSettingsScreen(
                                     GestureButtonLongSlideActionsCard(
                                         gestureButton = gestureButton,
                                         onNavToActionSelect = onNavToActionSelect,
-                                        onStyleSelect = { showStyleSelectFor = it },
                                         expanded = uiState.expandedActionGroup == GestureActionGroup.LongSlide,
                                         onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlide, it) },
                                     )
                                     GestureButtonLongSlideHoldActionsCard(
                                         gestureButton = gestureButton,
                                         onNavToActionSelect = onNavToActionSelect,
-                                        onStyleSelect = { showStyleSelectFor = it },
                                         expanded = uiState.expandedActionGroup == GestureActionGroup.LongSlideHold,
                                         onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlideHold, it) },
                                     )
@@ -268,39 +262,6 @@ fun GestureButtonSettingsScreen(
             }
         }
 
-        showStyleSelectFor?.let { direction ->
-            val gestureButton = uiState.gestureButton ?: return@let
-            val currentStyle = gestureButton.longSlideActionPanelStyles.styleBy(direction)
-            OptimizedBottomSheet(
-                onDismissRequest = { showStyleSelectFor = null }
-            ) {
-                ActionPanelStyleSelectContent(
-                    currentStyle = currentStyle,
-                    onStyleSelected = { style ->
-                        vm.updateLongSlideActionPanelStyle(direction, style)
-                    },
-                    onConfigRequest = { _ ->
-                        showStyleSelectFor = null
-                        showStyleConfigFor = direction
-                    }
-                )
-            }
-        }
-
-        showStyleConfigFor?.let { direction ->
-            val gestureButton = uiState.gestureButton ?: return@let
-            val currentStyle = gestureButton.longSlideActionPanelStyles.styleBy(direction)
-            OptimizedBottomSheet(
-                onDismissRequest = { showStyleConfigFor = null }
-            ) {
-                ActionPanelStyleConfigContent(
-                    currentStyle = currentStyle,
-                    onStyleChanged = { style ->
-                        vm.updateLongSlideActionPanelStyle(direction, style)
-                    }
-                )
-            }
-        }
 
     }
 }

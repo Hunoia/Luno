@@ -71,8 +71,9 @@
     <string name="long_slide_action">长距离滑动</string>
     <string name="long_slide_hold_action">长滑停留</string>
     <string name="action_panel_style_arc">弧形</string>
-    <string name="action_panel_style_arc_hint">沿弧线分布排列</string>
+    <string name="action_panel_style">动作面板样式</string>
     <string name="action_panel_item_size">动作图标大小</string>
+    <string name="action_panel_item_gap">图标间距</string>
     <string name="action_panel_spread_spacing">展开间距</string>
     <string name="compact">紧凑</string>
     <string name="loose">宽松</string>

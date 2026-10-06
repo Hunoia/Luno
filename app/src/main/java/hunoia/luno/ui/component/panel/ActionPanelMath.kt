@@ -4,7 +4,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import hunoia.luno.config.model.GestureDirection
-import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
@@ -35,12 +34,24 @@ internal fun Float.coerceSafely(minimumValue: Float, maximumValue: Float): Float
     return if (minimumValue <= maximumValue) coerceIn(minimumValue, maximumValue) else minimumValue
 }
 
-internal fun arcLayerCapacity(radius: Float, itemSizePx: Float, minGapPx: Float, arcLength: Int): Int {
-    val minDistance = itemSizePx + minGapPx
+/**
+ * 半径为 [radius] 的圆上，要让相邻两项的**中心直线距离**为 [centerDistance]，
+ * 所需的角步长（度）。容量计算与实际布局必须共用这个公式，否则"每层能放几个"
+ * 与"实际步长"会不一致，间距一大图标就重叠。
+ */
+internal fun arcStepDegrees(radius: Float, centerDistance: Float): Float {
     val diameter = radius * 2f
-    if (diameter <= minDistance) return 1
-    val minAngle = Math.toDegrees(2.0 * kotlin.math.asin((minDistance / diameter).coerceAtMost(1f).toDouble())).toFloat()
-    return kotlin.math.floor(arcLength.toFloat() / minAngle).toInt().coerceAtLeast(1) + 1
+    if (diameter <= centerDistance || diameter <= 0f) return 180f
+    val ratio = (centerDistance / diameter).coerceIn(0f, 1f)
+    return Math.toDegrees(2.0 * kotlin.math.asin(ratio.toDouble())).toFloat()
+}
+
+/** 半径 [radius] 的弧上，在 [arcLength] 度内按 [centerDistance] 中心距最多能放几个。 */
+internal fun arcLayerCapacity(radius: Float, centerDistance: Float, arcLength: Int): Int {
+    if (radius <= 0f) return 1
+    val step = arcStepDegrees(radius, centerDistance)
+    if (step <= 0f) return 1
+    return kotlin.math.floor(arcLength.toFloat() / step).toInt().coerceAtLeast(1) + 1
 }
 
 internal data class ActionPanelSector(
@@ -81,10 +92,14 @@ internal fun actionPanelItemOffset(
     index: Int,
     itemSizePx: Float,
     spreadSpacing: Float,
+    itemGapPx: Float,
 ): Offset {
     if (parentSize.isEmpty() || actionCount <= 0) return Offset.Zero
     val spacing = spreadSpacing.coerceIn(0.85f, 1.6f)
-    val minGapPx = itemSizePx * 0.24f * spacing
+    val gap = itemGapPx.coerceAtLeast(0f)
+    // 中心距 = 图标直径 + 净间距。角步长由它反推，所以 spreadSpacing（只改半径）
+    // 不再像以前那样和步长互相抵消 —— 净间距完全由 itemGapPx 决定。
+    val centerDistance = itemSizePx + gap
     val baseRadius = itemSizePx * when (actionCount) {
         1 -> 1.55f
         2 -> 1.75f
@@ -93,19 +108,19 @@ internal fun actionPanelItemOffset(
     } * spacing
     val maxItemsPerLayer = arcLayerCapacity(
         radius = baseRadius,
-        itemSizePx = itemSizePx,
-        minGapPx = minGapPx,
+        centerDistance = centerDistance,
         arcLength = sector.sweepDegrees.toInt(),
     )
-    val layerCount = ceil(actionCount / maxItemsPerLayer.toFloat()).toInt().coerceAtLeast(1)
-    val itemsPerLayer = ceil(actionCount / layerCount.toFloat()).toInt().coerceAtLeast(1)
-    val layer = index / itemsPerLayer
-    val indexInLayer = index % itemsPerLayer
-    val firstIndexInLayer = layer * itemsPerLayer
-    val countInLayer = min(itemsPerLayer, actionCount - firstIndexInLayer).coerceAtLeast(1)
-    val radius = baseRadius + itemSizePx * layer * 1.18f * spacing
+    // 按占用来分层：每层先铺满 maxItemsPerLayer（由半径/净间距/扇区弧长决定）再往外扩一层。
+    // 不用 ceil(count/layerCount) 均分 —— 那会让内层没铺满就把外层开出来。
+    val layer = index / maxItemsPerLayer
+    val indexInLayer = index % maxItemsPerLayer
+    val firstIndexInLayer = layer * maxItemsPerLayer
+    val countInLayer = min(maxItemsPerLayer, actionCount - firstIndexInLayer).coerceAtLeast(1)
+    // 层间距与层内角间距用同一个净间距，避免两层贴在一起
+    val radius = baseRadius + layer * centerDistance
     val arcDegrees = sector.sweepDegrees.coerceIn(90f, 180f)
-    val stepDegree = max(24f, 33f / spacing)
+    val stepDegree = arcStepDegrees(radius, centerDistance)
     val sweepDegree = if (countInLayer == 1) 0f else min(arcDegrees, stepDegree * (countInLayer - 1))
     val angleDegree = if (countInLayer == 1) sector.centerDegrees else {
         sector.centerDegrees - sweepDegree / 2f + sweepDegree * indexInLayer / (countInLayer - 1)
@@ -125,6 +140,7 @@ internal fun actionPanelContentBounds(
     actionCount: Int,
     itemSizePx: Float,
     spreadSpacing: Float,
+    itemGapPx: Float,
 ): Rect {
     if (parentSize.isEmpty() || actionCount <= 0) return Rect(origin, Size.Zero)
     val halfItem = itemSizePx * 0.62f
@@ -142,6 +158,7 @@ internal fun actionPanelContentBounds(
             index = displayIndex,
             itemSizePx = itemSizePx,
             spreadSpacing = spreadSpacing,
+            itemGapPx = itemGapPx,
         )
         left = min(left, center.x - halfItem)
         top = min(top, center.y - halfItem)

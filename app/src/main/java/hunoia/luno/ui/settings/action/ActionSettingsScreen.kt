@@ -70,6 +70,12 @@ import top.yukonga.miuix.kmp.blur.layerBackdrop
 
 import kotlinx.coroutines.launch
 import hunoia.luno.ui.component.gestureButtonMarkColor
+import androidx.compose.material.icons.filled.Gesture
+import androidx.compose.ui.platform.LocalDensity
+import hunoia.luno.config.model.ArcStyle
+import hunoia.luno.ui.component.sheets.OptimizedBottomSheet
+import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleConfigContent
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,6 +84,7 @@ fun ActionSettingsScreen(
     onNavToSearchEngines: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
+    var showActionPanelStyle by remember { mutableStateOf(false) }
     val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = ActionSettings())
     val advancedSettings by TuneConfig.advanced.collectAsStateWithLifecycle(initialValue = AdvancedSettings())
     val buttons by GestureConfig.buttons.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -92,6 +99,16 @@ fun ActionSettingsScreen(
         contentWindowInsets = WindowInsets(),
         topBar = { TopBar(onBack = onBack, title = stringResource(R.string.action_settings), scrollBehavior = scrollBehavior, backdrop = backdrop) }
     ) { padding ->
+        if (showActionPanelStyle) {
+            OptimizedBottomSheet(onDismissRequest = { showActionPanelStyle = false }) {
+                ActionPanelStyleConfigContent(
+                    currentStyle = actionSettings.actionPanelStyle,
+                    onStyleChanged = { next ->
+                        scope.launch { TuneConfig.updateAction { it.copy(actionPanelStyle = next) } }
+                    },
+                )
+            }
+        }
         MyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -106,6 +123,15 @@ fun ActionSettingsScreen(
                     title = stringResource(R.string.search_engine_settings),
                     subtitle = quickSearchSettings.defaultEngine().name,
                     onClick = onNavToSearchEngines,
+                )
+            }
+
+            SegmentedGroup(contentSpacing = SegmentedGap) {
+                SegmentedSettingsRow(
+                    icon = Icons.Default.Gesture,
+                    title = stringResource(R.string.action_panel_style),
+                    subtitle = actionPanelStyleSummary(actionSettings.actionPanelStyle),
+                    onClick = { showActionPanelStyle = true },
                 )
             }
 
@@ -156,6 +182,15 @@ fun ActionSettingsScreen(
             }
         }
     }
+}
+
+/** 副标题摘要：图标大小 · 图标间距 · 弧线铺开。 */
+@Composable
+private fun actionPanelStyleSummary(style: ArcStyle): String {
+    val density = LocalDensity.current
+    val itemDp = with(density) { style.itemSize.toDp().value }.roundToInt()
+    val gapDp = with(density) { style.itemGapPx.toDp().value }.roundToInt()
+    return "$itemDp dp · $gapDp dp · ${(style.spreadSpacing * 100).roundToInt()}%"
 }
 
 @Composable

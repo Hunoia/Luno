@@ -42,7 +42,6 @@ object GestureButtonDefaults {
     val LongSlideHoldActions = DirectionActions(
         mapOf(GestureDirection.Right to listOf(StoredAction.of("internal.quickSearch")))
     )
-    val LongSlideActionPanelStyles = LongSlideActionPanelStyles()
     val TapActions = listOf(StoredAction.of("internal.hideGestureButton"))
     val DoubleTapActions = emptyList<StoredAction>()
     val LongPressActions = listOf(StoredAction.of("intent.assist"))
@@ -74,7 +73,6 @@ data class GestureButton(
     val slideHoldActions: DirectionActions = GestureButtonDefaults.SlideHoldActions,
     val longSlideActions: DirectionActions = GestureButtonDefaults.LongSlideActions,
     val longSlideHoldActions: DirectionActions = GestureButtonDefaults.LongSlideHoldActions,
-    val longSlideActionPanelStyles: LongSlideActionPanelStyles = GestureButtonDefaults.LongSlideActionPanelStyles,
     val angle: GestureButtonAngle = GestureButtonAngle(),
     val actionSettingsOverride: GestureButtonActionSettingsOverride = GestureButtonActionSettingsOverride(),
     val tapActions: List<@Serializable(MigratingStoredActionSerializer::class) StoredAction> =

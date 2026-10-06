@@ -22,7 +22,6 @@ fun MySideGestureSettings(
     isLongSlide: Boolean,
     secondaryText: String,
     text: String? = null,
-    trailing: (@Composable () -> Unit)? = null,
     shape: Shape = RoundedCornerShape(ContainerRadius),
 ) {
     val label = text ?: direction.slideToLabel()
@@ -32,7 +31,6 @@ fun MySideGestureSettings(
         title = label,
         subtitle = if (secondaryText.isNotEmpty()) secondaryText else stringResource(id = R.string.action_none),
         secondaryTextColor = MaterialTheme.colorScheme.primary,
-        trailingContent = trailing,
         shape = shape,
         leadingContent = {
             RowIconBadge(

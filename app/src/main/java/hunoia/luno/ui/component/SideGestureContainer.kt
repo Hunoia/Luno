@@ -183,11 +183,6 @@ fun SideGestureContainer(
         val touchPosition = resolvedActions.touchPosition.takeIf { it.x.isFinite() && it.y.isFinite() }
             ?: sideGestureState.finger.takeIf { it.x.isFinite() && it.y.isFinite() }
             ?: Offset.Zero
-        val panelStyle = if (resolvedActions.triggerType == GestureTriggerType.LongSlide || resolvedActions.triggerType == GestureTriggerType.LongSlideHold) {
-            resolvedActions.subGesture.longSlideActionPanelStyles.styleBy(resolvedActions.direction).value
-        } else {
-            actionPanelStyle
-        }
         val meaningfulCount = resolvedActions.actions.count { it.typeId != "internal.none" }
         val needsOverlay = meaningfulCount > 1 && !resolvedActions.triggerType.isHoldType
         runGestureActions(
@@ -197,7 +192,7 @@ fun SideGestureContainer(
             sourceButton = sideGestureState.button,
             sourceOverride = sourceOverride,
             decision = resolvedActions.decision,
-            panelStyle = panelStyle,
+            panelStyle = actionPanelStyle,
             panelColor = panelColor,
             needsPanelOverlay = needsOverlay,
             onPanelStarted = {
@@ -218,11 +213,7 @@ fun SideGestureContainer(
             touchPosition = resolvedActions.touchPosition,
             sourceButton = resolvedActions.button,
             decision = resolvedActions.decision,
-            panelStyle = if (resolvedActions.triggerType == GestureTriggerType.LongSlide || resolvedActions.triggerType == GestureTriggerType.LongSlideHold) {
-                resolvedActions.button.longSlideActionPanelStyles.styleBy(resolvedActions.actionDirection).value
-            } else {
-                actionPanelStyle
-            },
+            panelStyle = actionPanelStyle,
             panelColor = resolvedActions.button.color,
             onPanelStarted = {
                 if (resolvedActions.triggerType == GestureTriggerType.LongPress ||
@@ -349,11 +340,7 @@ fun SideGestureContainer(
                             touchPosition = resolvedActions.touchPosition,
                             sourceButton = resolvedActions.button,
                             decision = resolvedActions.decision,
-                            panelStyle = if (resolvedActions.triggerType.isLongSlideType) {
-                                resolvedActions.button.longSlideActionPanelStyles.styleBy(resolvedActions.actionDirection).value
-                            } else {
-                                actionPanelStyle
-                            },
+                            panelStyle = actionPanelStyle,
                             panelColor = resolvedActions.button.color,
                             needsPanelOverlay = true,
                         )

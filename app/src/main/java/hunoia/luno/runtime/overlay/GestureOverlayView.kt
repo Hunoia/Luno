@@ -55,6 +55,7 @@ fun GestureOverlayView(
                     },
                     advancedSettings = state.advancedSettings,
                     gestureSettings = state.gestureSettings,
+                    actionPanelStyle = state.actionSettings.actionPanelStyle,
                     subGestureSettings = state.subGestureSettings,
                 )
             }

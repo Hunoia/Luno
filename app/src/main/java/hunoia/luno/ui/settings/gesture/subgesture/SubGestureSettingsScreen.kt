@@ -81,9 +81,6 @@ import hunoia.luno.ui.settings.gesture.subgesture.SubGestureSettingsUiState
 import hunoia.luno.ui.settings.gesture.button.GestureActionGroup
 import hunoia.luno.ui.settings.gesture.button.actionCardDirections
 import hunoia.luno.ui.settings.gesture.button.GestureSlideTriggerDistanceContent
-import hunoia.luno.ui.settings.gesture.style.StyleTrailingButton
-import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleConfigContent
-import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleSelectContent
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import hunoia.luno.ui.component.slideToLabel
@@ -98,8 +95,6 @@ fun SubGestureSettingsScreen(
     var showGestureAngles by remember { mutableStateOf(false) }
     var showSubVibrationSettings by remember { mutableStateOf(false) }
     var showSubTriggerDistanceSettings by remember { mutableStateOf(false) }
-    var showStyleSelectFor by remember { mutableStateOf<GestureDirection?>(null) }
-    var showStyleConfigFor by remember { mutableStateOf<GestureDirection?>(null) }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val surfaceColor = MaterialTheme.colorScheme.surfaceContainer
     val backdrop = rememberLayerBackdrop {
@@ -165,37 +160,6 @@ fun SubGestureSettingsScreen(
             }
         }
 
-        showStyleSelectFor?.let { direction ->
-            val currentStyle = gesture.longSlideActionPanelStyles.styleBy(direction)
-            OptimizedBottomSheet(
-                onDismissRequest = { showStyleSelectFor = null }
-            ) {
-                ActionPanelStyleSelectContent(
-                    currentStyle = currentStyle,
-                    onStyleSelected = { style ->
-                        vm.updateLongSlideActionPanelStyle(direction, style)
-                    },
-                    onConfigRequest = { _ ->
-                        showStyleSelectFor = null
-                        showStyleConfigFor = direction
-                    }
-                )
-            }
-        }
-
-        showStyleConfigFor?.let { direction ->
-            val currentStyle = gesture.longSlideActionPanelStyles.styleBy(direction)
-            OptimizedBottomSheet(
-                onDismissRequest = { showStyleConfigFor = null }
-            ) {
-                ActionPanelStyleConfigContent(
-                    currentStyle = currentStyle,
-                    onStyleChanged = { style ->
-                        vm.updateLongSlideActionPanelStyle(direction, style)
-                    }
-                )
-            }
-        }
 
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -334,12 +298,6 @@ fun SubGestureSettingsScreen(
                                         },
                                         secondaryText = gesture.longSlideActionsFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
                                         shape = segmentedShape(index, directions.size),
-                                        trailing = {
-                                            StyleTrailingButton(
-                                                currentStyle = gesture.longSlideActionPanelStyles.styleBy(direction),
-                                                onClick = { showStyleSelectFor = direction }
-                                            )
-                                        }
                                     )
                                 }
                             }
@@ -366,12 +324,6 @@ fun SubGestureSettingsScreen(
                                         },
                                         secondaryText = gesture.longSlideHoldActionsFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
                                         shape = segmentedShape(index, directions.size),
-                                        trailing = {
-                                            StyleTrailingButton(
-                                                currentStyle = gesture.longSlideActionPanelStyles.styleBy(direction),
-                                                onClick = { showStyleSelectFor = direction }
-                                            )
-                                        }
                                     )
                                 }
                             }
@@ -477,8 +429,7 @@ private fun SubGestureActionRow(
     onClick: () -> Unit,
     secondaryText: String,
     shape: Shape = RoundedCornerShape(ContainerRadius),
-    trailing: (@Composable () -> Unit)? = null,
-    modifier: Modifier = Modifier,
+        modifier: Modifier = Modifier,
 ) {
     SegmentedSettingsRow(
         title = title,
@@ -487,7 +438,6 @@ private fun SubGestureActionRow(
         shape = shape,
         subtitle = secondaryText,
         leadingContent = { RowIconBadge(icon) },
-        trailingContent = trailing,
     )
 }
 

@@ -2,65 +2,33 @@ package hunoia.luno.config.model
 
 import androidx.annotation.Keep
 import hunoia.luno.bridge.ui.DensityProvider
-import hunoia.luno.core.JsonSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 
-@Serializable
-@Keep
-data class ActionPanelStyles(
-    val type: Int = ActionPanelStylesDefaults.Type,
-    val json: String = ""
-) {
-    companion object {
-        const val TYPE_ARC = ActionPanelStylesDefaults.TYPE_ARC
-
-        fun arc(): ActionPanelStyles = ActionPanelStyles(TYPE_ARC)
-        fun arc(style: ArcStyle): ActionPanelStyles = ActionPanelStyles(TYPE_ARC, JsonSerializer.encodeToString(style))
-    }
-
-    @Transient
-    val value: ActionPanelStyle = run {
-        val json = json
-        if (json.isEmpty()) return@run ArcStyle()
-        when (type) {
-            TYPE_ARC -> JsonSerializer.decodeFromString<ArcStyle>(json)
-            else -> error("Unknown ActionPanelStyle type: $type")
-        }
-    }
-}
-
 object ActionPanelStylesDefaults {
 
-    const val TYPE_ARC = 1
-
-    const val Type = TYPE_ARC
     val ArcStyleItemSize = DensityProvider.dp2px(48f)
-    const val ArcStyleArcLength = 170
+    val ArcStyleItemGap = DensityProvider.dp2px(6f)
     const val ArcStyleSpreadSpacing = 1.12f
 }
 
 sealed interface ActionPanelStyle
 
+/**
+ * 弧形面板样式。全局一份（见 [hunoia.luno.config.model.ActionSettings.actionPanelStyle]），
+ * 不再按触钮/方向分别存储。
+ *
+ * [itemSize] 与 [itemGapPx] 都是 **px**（与既有 itemSize 同单位，命名带 Px 以免和 dp 混淆）。
+ */
 @Serializable
 @Keep
 data class ArcStyle(
     val itemSize: Int = ActionPanelStylesDefaults.ArcStyleItemSize,
-    val arcLength: Int = ActionPanelStylesDefaults.ArcStyleArcLength,
-    val spreadSpacing: Float = ActionPanelStylesDefaults.ArcStyleSpreadSpacing
+    /** 图标之间的净间距（相邻两个图标边缘之间的空隙）。0 = 完全贴合。 */
+    val itemGapPx: Int = ActionPanelStylesDefaults.ArcStyleItemGap,
+    /** 弧线离原点的远近 / 铺开程度。不影响净间距。 */
+    val spreadSpacing: Float = ActionPanelStylesDefaults.ArcStyleSpreadSpacing,
 ) : ActionPanelStyle
-
-@Serializable
-@Keep
-data class LongSlideActionPanelStyles(
-    val styles: Map<GestureDirection, ActionPanelStyles> = emptyMap()
-) {
-    fun styleBy(direction: GestureDirection): ActionPanelStyles = styles[direction] ?: ActionPanelStyles()
-
-    fun withStyle(direction: GestureDirection, style: ActionPanelStyles): LongSlideActionPanelStyles {
-        return copy(styles = styles + (direction to style))
-    }
-}
 
 /** 颜色来源：自定义色值或跟随主题色。 */
 enum class ColorSource { Custom, Theme }

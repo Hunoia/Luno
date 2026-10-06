@@ -17,7 +17,6 @@ data class SubGesture(
     val slideHoldActions: DirectionActions = DirectionActions(),
     val longSlideActions: DirectionActions = DirectionActions(),
     val longSlideHoldActions: DirectionActions = DirectionActions(),
-    val longSlideActionPanelStyles: LongSlideActionPanelStyles = LongSlideActionPanelStyles(),
     val enabled: Boolean = true,
     val color: Int = Color.TRANSPARENT,
     val slideVibrate: Boolean = true,

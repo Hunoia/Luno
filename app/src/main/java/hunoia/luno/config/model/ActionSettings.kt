@@ -13,7 +13,9 @@ import kotlinx.serialization.Serializable
 @Serializable
 @Keep
 data class ActionSettings(
-    val passwordGenerator: PasswordGenerator = PasswordGenerator()
+    val passwordGenerator: PasswordGenerator = PasswordGenerator(),
+    /** 动作面板样式，全局一份（原先按触钮×方向分别存储，且只有弧形一种）。 */
+    val actionPanelStyle: ArcStyle = ArcStyle(),
 ) {
     @Serializable
     @Keep

@@ -71,7 +71,10 @@ internal fun AnimatedVisibilityScope.ArcActionPanel(
                     val panelOrigin = actionPanelOrigin(parentSize, actionPanelState.origin, itemSizePx)
                     val sector = actionPanelSector(parentSize, panelOrigin, actionPanelState.direction, itemSizePx)
                     val displayIndex = actionPanelDisplayIndex(sector, actionCount, index)
-                    val targetAnimOffset = remember(parentSize, panelOrigin, sector, actionPanelState.actions.size, displayIndex, actionPanelStyle.spreadSpacing) {
+                    val targetAnimOffset = remember(
+                        parentSize, panelOrigin, sector, actionPanelState.actions.size,
+                        displayIndex, actionPanelStyle.spreadSpacing, actionPanelStyle.itemGapPx,
+                    ) {
                         actionPanelItemOffset(
                             parentSize = parentSize,
                             origin = panelOrigin,
@@ -80,6 +83,7 @@ internal fun AnimatedVisibilityScope.ArcActionPanel(
                             index = displayIndex,
                             itemSizePx = itemSizePx,
                             spreadSpacing = actionPanelStyle.spreadSpacing,
+                            itemGapPx = actionPanelStyle.itemGapPx.toFloat(),
                         )
                     }
                     ActionPanelSelectableItem(
