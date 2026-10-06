@@ -8,10 +8,11 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.geometry.Offset
 import hunoia.luno.gesture.MotionEventDispatcher
 import hunoia.luno.gesture.OnMotionEventListener
+import hunoia.luno.gesture.TouchWindowHint
 
 @Composable
 fun DragGestureHandler(
-    onDragStart: (Offset) -> Unit = { },
+    onDragStart: (Offset, TouchWindowHint?) -> Unit = { _, _ -> },
     onDragEnd: () -> Unit = { },
     onDragCancel: () -> Unit = { },
     onDrag: (dragAmount: Offset) -> Unit
@@ -24,14 +25,14 @@ fun DragGestureHandler(
     DisposableEffect(key1 = Unit) {
         var x = -1f
         var y = -1f
-        val l = OnMotionEventListener { event ->
+        val l = OnMotionEventListener { event, source ->
             val rawX = event.rawX
             val rawY = event.rawY
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     x = rawX
                     y = rawY
-                    curOnDragStart(Offset(x, y))
+                    curOnDragStart(Offset(x, y), source)
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val offsetX = rawX - x

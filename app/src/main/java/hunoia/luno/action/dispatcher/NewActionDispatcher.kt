@@ -23,10 +23,12 @@ import hunoia.luno.runtime.GestureHost
 import hunoia.luno.runtime.GestureRuntimeState
 import hunoia.luno.runtime.condition.toConditionContext
 import hunoia.luno.runtime.environment.PreviousAppTracker
+import hunoia.luno.runtime.automation.StepOutcome
 import hunoia.luno.runtime.condition.ConditionContext
 import hunoia.luno.action.template.RuntimeVariables
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -73,15 +75,27 @@ class NewActionDispatcher(
 
     private val resolver = ActionResolver(registry)
 
-    /** v2 单步骤执行：entry 缺失返回 false；异常抛给调用方（SequenceExecutor 捕获即中断）。 */
-    fun runStepAction(action: StoredAction?, entryId: String, ctx: ConditionContext): Boolean {
+    /**
+     * v2 单步骤执行：**等执行落定**才返回，真实成败与异常都交给 SequenceExecutor 记账/中断。
+     * 必须在 Main 上跑（与 dispatch 的 launch 目标一致），否则无障碍调用线程会变。
+     */
+    suspend fun runStepAction(action: StoredAction?, entryId: String, ctx: ConditionContext): StepOutcome {
         val automationContext: () -> ConditionContext? = { ctx }
-        if (action != null) {
-            dispatch(action.withoutVariantKey(), null, null, null, automationContext)
-            return true
+        val target = when {
+            action != null -> action.withoutVariantKey()
+            entryId.isBlank() -> return StepOutcome.EntryMissing
+            else -> {
+                val entry = settingsSnapshot().newActionLibrarySettings.entries.find { it.id == entryId }
+                if (entry == null) {
+                    if (BuildConfig.DEBUG) Log.w("LunoLauncher", "step entry not found id=$entryId")
+                    return StepOutcome.EntryMissing
+                }
+                entry.storedAction.withoutVariantKey()
+            }
         }
-        if (entryId.isBlank()) return false
-        return dispatchEntry(entryId, null, null, null, automationContext)
+        return withContext(Dispatchers.Main.immediate) {
+            dispatchAwait(target, null, null, null, automationContext, null, false)
+        }
     }
 
     /** 供 overlay 等场景直接执行一个已构造好的动作。 */
@@ -102,64 +116,73 @@ class NewActionDispatcher(
     ) {
         if (BuildConfig.DEBUG) Log.i("LunoLauncher", "dispatch storedAction typeId=${stored.typeId}")
         scope.launch(Dispatchers.Main.immediate) {
-            fun postDispatch(typeId: String, ok: Boolean) {
-                hunoia.luno.core.Events.post(
-                    GestureDispatchEvent(
-                        typeId = typeId,
-                        buttonId = sourceButton?.id,
-                        trigger = gestureTrigger,
-                        fromGesture = fromGesture,
-                        ok = ok,
-                    )
-                )
-            }
-            // 动作库引用就地解析为条目动作（单轨：引用本身也是 StoredAction）。
-            val effective = if (stored.typeId == "internal.libraryRef") {
-                val entryId = (stored.params["entryId"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull.orEmpty()
-                val entry = settingsSnapshot().newActionLibrarySettings.entries.find { it.id == entryId }
-                if (entry == null) {
-                    if (BuildConfig.DEBUG) Log.w("LunoLauncher", "library entry not found id=$entryId")
-                    postDispatch(stored.typeId, ok = false)
-                    return@launch
-                }
-                entry.storedAction
-            } else {
-                stored
-            }
-            val ctx = buildContext(sourceButton, sourceOverride, touchPosition, templateContext)
-            // 点按类动作的前置条件：坐标来自手势上下文，不是 StoredAction 参数，
-            // 在分发层校验，不进 Executor。
-            if (touchPosition == null && (effective.typeId == "accessibility.tap" || effective.typeId == "accessibility.longPress")) {
-                ctx.showToast(failureText(appContext, ActionFailure.InvalidParameter))
-                postDispatch(effective.typeId, ok = false)
-                return@launch
-            }
-            val result = resolver.resolveFromLibrary(effective, ctx)
-            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "result=$result")
-            when (result) {
-                is ActionResult.Failed -> ctx.showToast(result.message ?: failureText(appContext, result.reason))
-                is ActionResult.RequiresCapability -> ctx.showToast(capabilityText(appContext, result.capability))
-                is ActionResult.Success -> result.message?.let { msg -> ctx.showToast(msg) }
-            }
-            postDispatch(effective.typeId, ok = result is ActionResult.Success)
+            dispatchAwait(stored, sourceButton, sourceOverride, touchPosition, templateContext, gestureTrigger, fromGesture)
         }
     }
 
-    private fun dispatchEntry(
-        entryId: String,
+    /**
+     * dispatch 的可等待版本：主体与 [dispatch] 完全一致，但等执行落定才返回。
+     * 自动化序列靠它拿到真实成败（否则 delay 只是"等什么都没发生的时间"）。
+     */
+    private suspend fun dispatchAwait(
+        stored: StoredAction,
         sourceButton: GestureButton?,
         sourceOverride: GestureButtonActionSettingsOverride?,
         touchPosition: Pair<Int, Int>?,
         templateContext: () -> ConditionContext?,
-    ): Boolean {
-        val entry = settingsSnapshot().newActionLibrarySettings.entries.find { it.id == entryId }
-        if (entry == null) {
-            if (BuildConfig.DEBUG) Log.w("LunoLauncher", "entry not found id=$entryId")
-            return false
+        gestureTrigger: hunoia.luno.config.model.GestureTriggerType?,
+        fromGesture: Boolean,
+    ): StepOutcome {
+        fun postDispatch(typeId: String, ok: Boolean) {
+            hunoia.luno.core.Events.post(
+                GestureDispatchEvent(
+                    typeId = typeId,
+                    buttonId = sourceButton?.id,
+                    trigger = gestureTrigger,
+                    fromGesture = fromGesture,
+                    ok = ok,
+                )
+            )
         }
-        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "dispatch entry id=$entryId typeId=${entry.storedAction.typeId}")
-        dispatch(entry.storedAction, sourceButton, sourceOverride, touchPosition, templateContext)
-        return true
+        try {
+        // 动作库引用就地解析为条目动作（单轨：引用本身也是 StoredAction）。
+        val effective = if (stored.typeId == "internal.libraryRef") {
+            val entryId = (stored.params["entryId"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull.orEmpty()
+            val entry = settingsSnapshot().newActionLibrarySettings.entries.find { it.id == entryId }
+            if (entry == null) {
+                if (BuildConfig.DEBUG) Log.w("LunoLauncher", "library entry not found id=$entryId")
+                postDispatch(stored.typeId, ok = false)
+                return StepOutcome.EntryMissing
+            }
+            entry.storedAction
+        } else {
+            stored
+        }
+        val ctx = buildContext(sourceButton, sourceOverride, touchPosition, templateContext)
+        // 点按类动作的前置条件：坐标来自手势上下文，不是 StoredAction 参数，
+        // 在分发层校验，不进 Executor。
+        if (touchPosition == null && (effective.typeId == "accessibility.tap" || effective.typeId == "accessibility.longPress")) {
+            ctx.showToast(failureText(appContext, ActionFailure.InvalidParameter))
+            postDispatch(effective.typeId, ok = false)
+            return StepOutcome.Done(ActionResult.Failed(ActionFailure.InvalidParameter, "needs_touch_position"))
+        }
+        val result = resolver.resolveFromLibrary(effective, ctx)
+        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "result=$result")
+        when (result) {
+            is ActionResult.Failed -> ctx.showToast(result.message ?: failureText(appContext, result.reason))
+            is ActionResult.RequiresCapability -> ctx.showToast(capabilityText(appContext, result.capability))
+            is ActionResult.Success -> result.message?.let { msg -> ctx.showToast(msg) }
+        }
+        postDispatch(effective.typeId, ok = result is ActionResult.Success)
+        return StepOutcome.Done(result)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // 兜底：畸形数据/第三方执行器异常都不允许冒到协程外崩掉 App。
+            Log.w("LunoLauncher", "dispatch crashed typeId=${stored.typeId}", e)
+            postDispatch(stored.typeId, ok = false)
+            return StepOutcome.Done(ActionResult.Failed(ActionFailure.ExecutionFailed, e.message))
+        }
     }
 
     private val appContext: Context get() = host.context.applicationContext

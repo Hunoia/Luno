@@ -8,7 +8,7 @@ import hunoia.luno.runtime.condition.NotificationPulse
 
 /**
  * 自动化通知触发源：只取包名/标题/正文做关键字匹配，匹配完原文即丢；
- * 执行历史不存原文（见 docs/automation-v2.md §6）。
+ * 执行历史不存原文。
  * 常驻通知（ongoing）与同 key 重投去重，不发脉冲。
  */
 class AutomationNotificationListener : NotificationListenerService() {

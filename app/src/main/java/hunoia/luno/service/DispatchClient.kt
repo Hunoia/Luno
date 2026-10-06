@@ -16,8 +16,13 @@ import hunoia.luno.core.JsonSerializer
  */
 object DispatchClient {
 
+    /** 未连上时的重试间隔。 */
+    private const val RETRY_INTERVAL_MS = 2_000L
+
     private var stub: IDispatchService? = null
     @Volatile private var bindRequested = false
+    @Volatile private var appCtx: Context? = null
+    private var lastBindRetryMs = 0L
 
     private val conn = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
@@ -29,19 +34,39 @@ object DispatchClient {
         }
     }
 
+    /**
+     * 发起绑定。**只有 bindService 真的成功才记位**：原来无论成败都置 true，
+     * 一次异常就让整个进程生命周期都不再重试，之后永远提示"服务未就绪"。
+     */
     fun bind(appContext: Context) {
+        appCtx = appContext.applicationContext
         if (bindRequested) return
-        bindRequested = true
-        runCatching {
-            val intent = Intent(appContext, DispatchService::class.java)
-            appContext.bindService(intent, conn, Context.BIND_AUTO_CREATE)
-        }
+        val bound = runCatching {
+            appContext.bindService(
+                Intent(appContext, DispatchService::class.java),
+                conn,
+                Context.BIND_AUTO_CREATE,
+            )
+        }.getOrDefault(false)
+        if (bound) bindRequested = true
+    }
+
+    /** 未连上时的轻量重试（限频），避免每次查状态都 bindService。 */
+    private fun retryBindIfNeeded() {
+        if (bindRequested) return
+        val ctx = appCtx ?: return
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - lastBindRetryMs < RETRY_INTERVAL_MS) return
+        lastBindRetryMs = now
+        bind(ctx)
     }
 
     /** 分发链就绪。跨进程走 Binder，同进程 bind 未完成时兜底直查。 */
     fun isReady(): Boolean {
         val viaBinder = runCatching { stub?.isReady() == true }.getOrDefault(false)
-        return viaBinder || SideGestureService.current?.isDispatchReady() == true
+        if (viaBinder || SideGestureService.current?.isDispatchReady() == true) return true
+        retryBindIfNeeded()
+        return false
     }
 
     /** 转交 :service 分发。false = 未送达（未连接或对端未就绪）。 */

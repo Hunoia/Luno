@@ -68,6 +68,8 @@ fun SelectedActionSettings(
     onReorderModeToggle: () -> Unit,
     onSetLongPress: (Int) -> Unit,
     onCancelLongPress: () -> Unit,
+    /** 自动化规则里变体会在保存时被剥掉、且执行层也不认，所以入口整体关掉。 */
+    longPressVariantEnabled: Boolean = true,
     onMoveSelected: (Int, Int) -> Unit,
     onRemoveItem: (Any) -> Unit,
     onClearAll: () -> Unit,
@@ -98,6 +100,13 @@ fun SelectedActionSettings(
                     )
                 }
                 Spacer(Modifier.weight(1f))
+                if (!longPressVariantEnabled) {
+                    Text(
+                        text = stringResource(R.string.long_press_variant_unsupported),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 TextButton(onClick = onClearAll) {
                     Text(stringResource(R.string.clear_all))
                 }
@@ -153,7 +162,7 @@ fun SelectedActionSettings(
                         if (reorderMode) {
                             draggingKey = itemKey
                             dragOffset = Offset.Zero
-                        } else if (longPressTargetIndex == null) {
+                        } else if (longPressTargetIndex == null && longPressVariantEnabled) {
                             onSetLongPress(globalIndex)
                         }
                     },

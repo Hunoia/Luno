@@ -35,8 +35,8 @@ class GestureState(
     private val buttons: List<GestureButton>,
     advancedSettings: AdvancedSettings = AdvancedSettings(),
     gestureSettings: GestureSettings = GestureSettings(),
-    private val touchTargetProvider: (List<GestureButton>, Offset, Int) -> GestureTouchTarget? = { buttons, offset, imePadding ->
-        buttons.findTouchTarget(offset, imePadding)
+    private val touchTargetProvider: (List<GestureButton>, Offset, Int, TouchWindowHint?) -> GestureTouchTarget? = { buttons, offset, imePadding, hint ->
+        buttons.findTouchTarget(offset, imePadding, hint)
     },
     private val thresholdsProvider: (GestureButton) -> GestureThresholds = { button ->
         GestureThresholds(
@@ -46,7 +46,7 @@ class GestureState(
             slideHoldDelayMs = button.slideHoldTriggerDelayMs,
             longSlideHoldDelayMs = button.longSlideHoldTriggerDelayMs,
             slideTriggerDistance = button.slideTriggerDistance.toFloat(),
-            longSlideTriggerDistance = button.longSlideTriggerDistance.toFloat(),
+            longSlideTriggerDistance = button.effectiveLongSlideTriggerDistance.toFloat(),
         )
     },
     private val timeProvider: () -> Long = { SystemClock.uptimeMillis() },
@@ -85,9 +85,9 @@ class GestureState(
 
     private val recognizer = GestureRecognizer()
 
-    fun onDragStart(offset: Offset, imePadding: Int) {
+    fun onDragStart(offset: Offset, imePadding: Int, hint: TouchWindowHint? = null) {
         isCanceled = false
-        val touchTarget = touchTargetProvider(buttons, offset, imePadding)
+        val touchTarget = touchTargetProvider(buttons, offset, imePadding, hint)
         val nextButton = touchTarget?.sourceButton
         val previousPendingTap = pendingTapResult
         if (previousPendingTap != null) {
@@ -170,7 +170,7 @@ class GestureState(
             val (actions, actualType) = actionsFor(b, decision)
             if (actions.hasMeaningfulActions()) {
                 vibrateFor(b, actualType)
-                return resolved(b, decision.actionDirection, decision.triggerType, actions, decision)
+                return resolved(b, decision.actionDirection, actualType, actions, decision)
             }
         }
 
@@ -194,7 +194,9 @@ class GestureState(
             is GestureDecision.Trigger -> {
                 val (actions, actualType) = actionsFor(b, decision)
                 vibrateFor(b, actualType)
-                val result = resolved(b, decision.actionDirection, decision.triggerType, actions, decision)
+                // 传实际回退类型（不是 decision 的名义类型）：面板样式、hold 判定
+                // 都按真正执行的动作类型走。
+                val result = resolved(b, decision.actionDirection, actualType, actions, decision)
                 reset()
                 return result
             }

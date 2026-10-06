@@ -17,7 +17,25 @@ fun List<GestureButton>.find(offset: Offset, imePadding: Int = 0): GestureButton
     return find { it.contains(offset, imePadding) }
 }
 
-fun List<GestureButton>.findTouchTarget(offset: Offset, imePadding: Int = 0): GestureTouchTarget? {
+fun List<GestureButton>.findTouchTarget(
+    offset: Offset,
+    imePadding: Int = 0,
+    hint: TouchWindowHint? = null,
+): GestureTouchTarget? {
+    // 命中测试优先采信 WMS 结果：按钮区域重叠时，几何首个命中与实际收到 DOWN 的窗口
+    // 顺序相反（WMS 取最后添加的窗口），不采信就会把动作派给另一个按钮。
+    if (hint != null) {
+        for (button in this) {
+            if (button.id != hint.buttonId) continue
+            val windowButton = if (hint.mirrored) button.mirroredButton() ?: button else button
+            return GestureTouchTarget(
+                sourceButton = button,
+                effectiveButton = windowButton,
+                bounds = windowButton.bounds(imePadding),
+                isMirror = hint.mirrored,
+            )
+        }
+    }
     for (button in this) {
         if (button.contains(offset, imePadding)) {
             return GestureTouchTarget(

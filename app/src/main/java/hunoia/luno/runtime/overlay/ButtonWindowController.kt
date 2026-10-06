@@ -11,6 +11,7 @@ import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.bridge.ui.removeWindows
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.gesture.MotionEventDispatcher
+import hunoia.luno.gesture.TouchWindowHint
 import hunoia.luno.runtime.button.ButtonVisibilityPolicy
 import hunoia.luno.gesture.mirroredButton
 
@@ -107,7 +108,10 @@ class ButtonWindowController(
                             "win=[${lp.x},${lp.y}][${lp.x + lp.width},${lp.y + lp.height}]",
                     )
                 }
-                MotionEventDispatcher.dispatch(event)
+                MotionEventDispatcher.dispatch(
+                    event,
+                    TouchWindowHint(target.sourceButton.id, target.mirrored),
+                )
                 if (event.action == MotionEvent.ACTION_UP) v.performClick()
                 false
             }

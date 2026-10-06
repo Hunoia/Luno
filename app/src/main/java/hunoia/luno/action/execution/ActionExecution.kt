@@ -10,6 +10,8 @@ import hunoia.luno.action.definitions.excludedTemplateKeys
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionFailure
 import hunoia.luno.action.model.ActionMapper
+import hunoia.luno.action.model.InvalidActionParameterException
+import hunoia.luno.action.model.UnknownActionTypeException
 import hunoia.luno.action.model.ActionResult
 import hunoia.luno.action.model.Capability
 import hunoia.luno.action.model.StoredAction
@@ -55,6 +57,8 @@ class ActionExecutorRegistry(
         return runCatching {
             executor.execute(action, context)
         }.getOrElse { e ->
+            // runCatching 会吞掉 CancellationException，必须放行，否则序列/协程取消失效。
+            if (e is kotlinx.coroutines.CancellationException) throw e
             Log.w("LunoLauncher", "execute failed typeId=${action.typeId}", e)
             ActionResult.Failed(ActionFailure.ExecutionFailed, e.message ?: e.javaClass.name)
         }
@@ -79,7 +83,22 @@ class ActionResolver(
         if (hasBlankRequiredText(definition, params)) {
             return ActionResult.Failed(ActionFailure.InvalidParameter)
         }
-        return registry.execute(ActionMapper.fromStored(StoredAction(stored.typeId, params)), context)
+        // 映射层的受控异常（未知 typeId / 非法枚举参数）必须在这里转成结果：
+        // 直接冒出会让 launch 协程异常、既没有提示还会连带崩进程。
+        return try {
+            registry.execute(ActionMapper.fromStored(StoredAction(stored.typeId, params)), context)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: UnknownActionTypeException) {
+            Log.w("LunoLauncher", "unknown action type ${e.typeId}")
+            ActionResult.Failed(ActionFailure.Unsupported)
+        } catch (e: InvalidActionParameterException) {
+            Log.w("LunoLauncher", "invalid param ${e.key}=${e.raw} typeId=${stored.typeId}")
+            ActionResult.Failed(ActionFailure.InvalidParameter, e.message)
+        } catch (e: Exception) {
+            Log.w("LunoLauncher", "map/execute failed typeId=${stored.typeId}", e)
+            ActionResult.Failed(ActionFailure.ExecutionFailed, e.message ?: e.javaClass.name)
+        }
     }
 
     /** 无 token 时零分配；有 token 时才取值并展开，存储保持原文。 */

@@ -219,6 +219,7 @@ fun ActionSelectContent(
                             onReorderModeToggle = { reorderMode = !reorderMode },
                             onSetLongPress = { index -> vm.startSetLongPressAction(index) },
                             onCancelLongPress = { vm.cancelSetLongPressAction() },
+                            longPressVariantEnabled = actionSelect.automationRuleId.isBlank(),
                             onMoveSelected = { from, to -> vm.moveSelectedAction(from, to) },
                             onRemoveItem = { item ->
                                 when (item) {

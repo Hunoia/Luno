@@ -3,6 +3,7 @@ package hunoia.luno.domain.action
 import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.action.model.libraryEntryId
 import hunoia.luno.config.ConfigProvider
+import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.repository.cleanActions
 import kotlinx.coroutines.flow.Flow
 
@@ -49,12 +50,30 @@ object ActionLibrary {
         }
         ConfigProvider.updateAutomationRules { rules ->
             rules.map { rule ->
-                if (rule.effect.entryId == entryId) {
-                    rule.copy(enabled = false, effect = rule.effect.copy(entryId = ""))
+                val effectCleared = rule.effect.entryId == entryId ||
+                    rule.effect.action?.libraryEntryId() == entryId
+                if (effectCleared) {
+                    rule.copy(enabled = false, effect = rule.effect.copy(entryId = "", action = null))
                 } else {
                     rule
                 }
+            }.map { rule ->
+                // 当前编辑器只写 steps（legacy effect 已被物化成 steps），所以悬空引用
+                // 主要藏在 steps/thenSteps/elseSteps 里，逐级清掉：动作步变成空跳，
+                // 规则其余步骤照跑（多步规则不该因为一条失效就整条失能）。
+                rule.copy(effect = rule.effect.copy(steps = rule.effect.steps.cleanSteps(entryId)))
             }
         }
     }
+}
+
+/** 递归清理步骤树里对已删条目的引用（含 if 分支）。 */
+private fun List<RuleStep>.cleanSteps(entryId: String): List<RuleStep> = map { step ->
+    val actionCleared = step.action?.libraryEntryId() == entryId
+    step.copy(
+        action = if (actionCleared) null else step.action,
+        entryId = if (step.entryId == entryId) "" else step.entryId,
+        thenSteps = step.thenSteps.cleanSteps(entryId),
+        elseSteps = step.elseSteps.cleanSteps(entryId),
+    )
 }

@@ -308,6 +308,8 @@
     <string name="automation_condition">触发条件</string>
     <string name="automation_pick_action">选择动作</string>
     <string name="automation_entry_empty">未选择动作条目</string>
+    <string name="automation_entry_missing">条目已删除（%1$s）</string>
+    <string name="long_press_variant_unsupported">自动化不支持长按变体</string>
     <string name="automation_condition_empty">未配置条件</string>
     <string name="condition_level_group">当前状态</string>
     <string name="condition_event_group">变化事件</string>

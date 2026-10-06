@@ -67,6 +67,10 @@ fun SideGestureContainer(
     val sideGestureState = rememberGestureState(buttons, advancedSettings, gestureSettings)
     val actionPanelState = rememberActionPanelState()
     var actionPanelSourceOverride by remember { mutableStateOf<GestureButtonActionSettingsOverride?>(null) }
+
+    // 面板展开后主手势会话会被 reset() 清空 button，选中时必须用捕获值，
+    // 否则按触钮 id 限定的 gesturePerformed 自动化规则永远不中、面板内 hideGestureButton 空跑。
+    var actionPanelSourceButton by remember { mutableStateOf<GestureButton?>(null) }
     val subGestureState = remember(subGestureSettings, coroutineScope) {
         SubGestureState(coroutineScope, subGestureSettings, curOnSubGestureModeChanged)
     }
@@ -123,6 +127,7 @@ fun SideGestureContainer(
             actionPanelState.onDragStart(touchPosition)
             actionPanelState.ready(direction, meaningfulActions, panelStyle, panelColor)
             actionPanelSourceOverride = sourceOverride
+            actionPanelSourceButton = sourceButton
             onPanelStarted()
             return
         }
@@ -221,7 +226,7 @@ fun SideGestureContainer(
     }
 
     DragGestureHandler(
-        onDragStart = onDragStart@{ offset ->
+        onDragStart = onDragStart@{ offset, hint ->
             if (actionPanelState.visible) {
                 actionPanelState.onSelectStart(offset)
                 return@onDragStart
@@ -230,7 +235,11 @@ fun SideGestureContainer(
                 subGestureState.onDragStart(offset)
                 return@onDragStart
             }
-            sideGestureState.onDragStart(offset, imePadding)
+            // 必须早退：否则这里的 DOWN 会给主手势起长按 job，而后续 MOVE 全被音量分支
+            // 吞掉（isLongPressCanceled 永不置位），抬手时 onDragEnd 又先返回不 cancel，
+            // 于是 job 在 250ms 后凭空触发默认长按动作。
+            if (volumeScrubState.isActive) return@onDragStart
+            sideGestureState.onDragStart(offset, imePadding, hint)
         },
         onDrag = onDrag@{ dragAmount ->
             if (subGestureState.isActive) {
@@ -282,6 +291,8 @@ fun SideGestureContainer(
                 val hitAction = actionPanelState.done()
                 val sourceOverride = actionPanelSourceOverride
                 actionPanelSourceOverride = null
+                val panelSourceButton = actionPanelSourceButton
+                actionPanelSourceButton = null
                 onActionPanelOverlayChanged(false)
                 val fromSubGesturePanel = subGestureState.subGestureDepth > 0
                 if (fromSubGesturePanel) {
@@ -291,7 +302,7 @@ fun SideGestureContainer(
                     val actionToRun: () -> Unit = {
                         when (hitAction.typeId) {
                             "internal.volumeScrub" -> volumeScrubState.activate(hitAction.volumeScrubConfigOrDefault())
-                            else -> handleResolvedAction(hitAction, sideGestureState.button, touchPosition, sourceOverride)
+                            else -> handleResolvedAction(hitAction, panelSourceButton, touchPosition, sourceOverride)
                         }
                     }
                     if (fromSubGesturePanel) {
@@ -342,6 +353,7 @@ fun SideGestureContainer(
                 actionPanelState.onDragCancel()
                 onActionPanelOverlayChanged(false)
                 actionPanelSourceOverride = null
+                actionPanelSourceButton = null
                 if (subGestureState.subGestureDepth > 0) subGestureState.clear(notifyService = true)
             }
             sideGestureState.onDragCancel()

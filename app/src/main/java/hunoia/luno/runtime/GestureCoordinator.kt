@@ -147,7 +147,7 @@ class GestureCoordinator(
         host = host,
         scope = host.coroutineScope,
         previousAppTracker = previousAppTracker,
-        runtimeState = { buildRuntimeState(consumePulses = false) },
+        runtimeState = { buildRuntimeState(peekPulses = true) },
         settingsSnapshot = {
             val s = runtimeSettingsStore.snapshot()
             hunoia.luno.action.dispatcher.SettingsSnapshot(
@@ -295,7 +295,7 @@ class GestureCoordinator(
             sourceButton,
             sourceOverride,
             touch,
-            { buildRuntimeState(consumePulses = false).toConditionContext() },
+            { buildRuntimeState(peekPulses = true).toConditionContext() },
             gestureTrigger = decision?.triggerType,
             fromGesture = true,
         )
@@ -427,7 +427,7 @@ class GestureCoordinator(
         }
     }
 
-    private fun buildRuntimeState(consumePulses: Boolean = true): GestureRuntimeState =
+    private fun buildRuntimeState(consumePulses: Boolean = true, peekPulses: Boolean = false): GestureRuntimeState =
         environmentTracker.buildRuntimeState(
             hiddenGestureButtons = buttonHideRuntime.getSnapshot(),
             isCharging = batteryTracker.isCharging,
@@ -440,6 +440,7 @@ class GestureCoordinator(
             isRingerSilent = audioVolumeTracker.isRingerSilent,
             volumePercent = audioVolumeTracker.volumePercent,
             consumePulses = consumePulses,
+            peekPulses = peekPulses,
         )
 
     private fun volumePollNeeded(rules: List<hunoia.luno.config.model.AutomationRule>? = null): Boolean {

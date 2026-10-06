@@ -105,16 +105,22 @@ class EnvironmentTracker(
         isRingerSilent: Boolean = false,
         volumePercent: Map<AudioStream, Int> = emptyMap(),
         consumePulses: Boolean = true,
+        /**
+         * 只读不消费：把待处理脉冲暴露给取值方（参数模板需要看到 ${trigger.app} 等），
+         * 但 pending 保持原样，消费权仍归自动化 —— 边沿命中语义依赖"谁评估谁消费"。
+         */
+        peekPulses: Boolean = false,
     ): GestureRuntimeState {
-        val appChangedTo = if (consumePulses) pendingAppChangedTo else null
-        val screenEvent = if (consumePulses) pendingScreenEvent else null
-        val chargingChangedTo = if (consumePulses) pendingChargingChangedTo else null
-        val volumeChanged = if (consumePulses) pendingVolumeChange else null
-        val notificationPosted = if (consumePulses) pendingNotification else null
-        val bluetoothChanged = if (consumePulses) pendingBluetoothChanged else null
-        val headphonesChanged = if (consumePulses) pendingHeadphonesChanged else null
-        val scheduledTimeHit = consumePulses && pendingScheduledTimeHit
-        val gesturePerformedId = if (consumePulses) pendingGesturePerformedId else null
+        val expose = consumePulses || peekPulses
+        val appChangedTo = if (expose) pendingAppChangedTo else null
+        val screenEvent = if (expose) pendingScreenEvent else null
+        val chargingChangedTo = if (expose) pendingChargingChangedTo else null
+        val volumeChanged = if (expose) pendingVolumeChange else null
+        val notificationPosted = if (expose) pendingNotification else null
+        val bluetoothChanged = if (expose) pendingBluetoothChanged else null
+        val headphonesChanged = if (expose) pendingHeadphonesChanged else null
+        val scheduledTimeHit = expose && pendingScheduledTimeHit
+        val gesturePerformedId = if (expose) pendingGesturePerformedId else null
         if (consumePulses) {
             pendingAppChangedTo = null
             pendingScreenEvent = null

@@ -1082,7 +1082,9 @@ private fun effectActionLabel(
 @Composable
 private fun entryName(library: NewActionLibrarySettings?, entryId: String): String {
     if (entryId.isBlank()) return stringResource(R.string.automation_entry_empty)
-    return library?.entries?.find { it.id == entryId }?.name?.ifBlank { entryId } ?: entryId
+    val entries = library?.entries
+    val entry = entries?.find { it.id == entryId } ?: return stringResource(R.string.automation_entry_missing, entryId)
+    return entry.name.ifBlank { entryId }
 }
 
 private fun groupModeLabel(mode: BooleanMode): Int = when (mode) {
