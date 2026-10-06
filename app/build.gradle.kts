@@ -147,8 +147,7 @@ dependencies {
     implementation(libs.jetbrains.kotlin.serialization)
     implementation(libs.androidx.datastore)
     implementation(libs.material3)
-    implementation(libs.miuix.shader)
-    implementation(libs.miuix.blur)
+    implementation(libs.haze)
     // color-picker removed; replaced with in-app HsvRectPicker
     implementation(libs.material.icons.extended)
     implementation(libs.houbb.pinyin)

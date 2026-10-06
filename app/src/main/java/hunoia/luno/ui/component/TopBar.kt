@@ -18,15 +18,17 @@ import androidx.compose.material3.TopAppBarDefaults.exitUntilCollapsedScrollBeha
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.res.stringResource
+import dev.chrisbanes.haze.HazeState
 import hunoia.luno.R
 import hunoia.luno.ui.theme.TopBarPaddingExtra
 import hunoia.luno.ui.theme.TopBarTitlePadding
-import hunoia.luno.ui.theme.glassSurfaceColor
-import hunoia.luno.ui.theme.liquidGlassBlur
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import hunoia.luno.ui.theme.appHazeEffect
+import hunoia.luno.ui.theme.hazeSurfaceColor
+import hunoia.luno.ui.theme.topBarMask
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,11 +43,15 @@ fun TopBar(
     postfixTitle: (@Composable () -> Unit)? = null,
     titleContent: (@Composable () -> Unit)? = null,
     scrollBehavior: TopAppBarScrollBehavior = exitUntilCollapsedScrollBehavior(),
-    backdrop: LayerBackdrop? = null,
+    hazeState: HazeState? = null,
 ) {
-    val surfaceColor = glassSurfaceColor()
+    val surfaceColor = hazeSurfaceColor()
     TopAppBar(
-        modifier = modifier.liquidGlassBlur(backdrop),
+        modifier = modifier.appHazeEffect(
+            state = hazeState,
+            background = surfaceColor,
+            mask = topBarMask(),
+        ),
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (titleContent != null) {
@@ -82,9 +88,9 @@ fun TopBar(
         windowInsets = TopAppBarDefaults.windowInsets,
         scrollBehavior = scrollBehavior,
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = surfaceColor,
+            containerColor = Color.Transparent,
             titleContentColor = MaterialTheme.colorScheme.onBackground,
-            scrolledContainerColor = surfaceColor,
+            scrolledContainerColor = Color.Transparent,
         ),
     )
 }

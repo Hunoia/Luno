@@ -4,11 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.contract.ActivityResultContracts.CreateDocument
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -19,7 +15,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,7 +34,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
@@ -48,7 +42,6 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aaron.compose.component.UDFComponent
 import hunoia.luno.R
-import hunoia.luno.ui.theme.BottomBarCapsuleRadius
 import hunoia.luno.ui.theme.BottomBarIconSize
 import hunoia.luno.ui.theme.BottomBarPadding
 import hunoia.luno.ui.theme.FloatingContentBottom
@@ -59,76 +52,40 @@ import hunoia.luno.config.model.ThemeColorKey
 import hunoia.luno.ui.component.sheets.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheets.ColorSelection
 import hunoia.luno.ui.actionlibrary.NewActionLibraryScreen
+import hunoia.luno.ui.automation.AutomationRulesTabContent
 import hunoia.luno.ui.component.FloatingBottomBar
 import hunoia.luno.ui.component.FloatingBottomBarDefaults
-import hunoia.luno.ui.component.FloatingBottomBarMode
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.navigation.NEW_ACTION_LIBRARY_ENTRY_ID
+import hunoia.luno.ui.navigation.NEW_AUTOMATION_RULE_ID
 import hunoia.luno.ui.theme.resolveColor
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.twotone.LibraryBooks
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.twotone.Home
 import hunoia.luno.ui.theme.ListSpacing
-import hunoia.luno.ui.theme.BottomBarHeight
-import hunoia.luno.ui.theme.GlassBlurRadius
-import hunoia.luno.ui.theme.GlassInnerBlurRadius
-import hunoia.luno.ui.theme.GlassInnerShadowRadius
-import hunoia.luno.ui.theme.GlassOutlineWidth
-import hunoia.luno.ui.theme.GlassRefractionAmount
-import hunoia.luno.ui.theme.GlassRefractionHeight
-import top.yukonga.miuix.kmp.blur.blur
-import top.yukonga.miuix.kmp.blur.drawBackdrop
-import top.yukonga.miuix.kmp.blur.highlight.BloomStroke
-import top.yukonga.miuix.kmp.blur.highlight.Highlight
-import top.yukonga.miuix.kmp.blur.highlight.LightPosition
-import top.yukonga.miuix.kmp.blur.highlight.LightSource
-import top.yukonga.miuix.kmp.shader.isRenderEffectSupported
-import hunoia.luno.ui.library.liquid.InnerShadow
-import hunoia.luno.ui.library.liquid.innerShadow
-import hunoia.luno.ui.library.liquid.lens
-import hunoia.luno.ui.library.liquid.vibrancy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.screen.HomeShell
 
 enum class MainTab(val label: String, val icon: ImageVector) {
     Home("主页", Icons.TwoTone.Home),
     ActionLibrary("动作库", Icons.AutoMirrored.TwoTone.LibraryBooks),
+    Automation("自动化", Icons.Filled.AccountTree),
 }
-
-private val capsuleHighlight: Highlight = Highlight(
-    width = GlassOutlineWidth,
-    alpha = 1f,
-    style = BloomStroke(
-        color = Color.White.copy(alpha = 0.12f),
-        innerBlurRadius = GlassInnerBlurRadius,
-        primaryLight = LightSource(
-            position = LightPosition(0.5f, -0.3f, -0.05f),
-            color = Color.White,
-            intensity = 1f,
-        ),
-        secondaryLight = LightSource(
-            position = LightPosition(0.5f, 0.8f, -0.5f),
-            color = Color.White,
-            intensity = 0.4f,
-        ),
-        dualPeak = true,
-    ),
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onNavToGestureButtonSettings: (GestureButton) -> Unit,
     onNavToSubGestureEditor: (String) -> Unit,
-    onNavToCondition: () -> Unit = {},
     onNavToActionSettings: () -> Unit = {},
+    onNavToAutomationEdit: (String) -> Unit = {},
     onNavToActionLibraryEdit: (String, String?) -> Unit = { _, _ -> },
     vm: HomeVM = viewModel()
 ) {
     val homeListState = rememberLazyListState()
     val libraryListState = rememberLazyListState()
-    val isBlurSupported = isRenderEffectSupported()
+    val automationListState = rememberLazyListState()
     val navigationWindowInsets = WindowInsets.navigationBars.only(
         WindowInsetsSides.Bottom,
     )
@@ -193,6 +150,7 @@ fun HomeScreen(
             title = when (mainTab) {
                 MainTab.Home -> stringResource(id = R.string.home_title)
                 MainTab.ActionLibrary -> stringResource(id = R.string.action_library)
+                MainTab.Automation -> stringResource(id = R.string.automation_settings)
             },
             sheets = {
                 if (colorPickerTarget != null) {
@@ -256,76 +214,48 @@ fun HomeScreen(
                     )
                 }
             },
-            bottomBar = { backdrop ->
+            bottomBar = { hazeState ->
                 Row(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = BottomBarPadding)
                         .windowInsetsPadding(navigationWindowInsets),
-                    horizontalArrangement = Arrangement.spacedBy(ListSpacing),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                            FloatingBottomBar(
-                                items = MainTab.entries.toList(),
-                                selectedIndex = { mainTab.ordinal },
-                                onSelected = { index -> mainTab = MainTab.entries[index] },
-                                backdrop = backdrop,
-                                mode = FloatingBottomBarMode.LiquidGlassBlur,
-                                colors = FloatingBottomBarDefaults.colors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                                    indicatorColor = MaterialTheme.colorScheme.primary,
-                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    activeContentColor = MaterialTheme.colorScheme.primary,
-                                ),
-                                iconContent = { tab, _ ->
-                                    Icon(
-                                        imageVector = tab.icon,
-                                        contentDescription = tab.label,
-                                        modifier = Modifier.size(BottomBarIconSize),
-                                    )
-                                },
-                            )
-                            
-                            if (mainTab == MainTab.ActionLibrary) {
-                                Box(
-                                    modifier = Modifier
-                                        .height(BottomBarHeight)
-                                        .clip(RoundedCornerShape(BottomBarCapsuleRadius))
-                                        .then(
-                                            if (isBlurSupported) Modifier.drawBackdrop(
-                                                backdrop = backdrop,
-                                                shape = { RoundedCornerShape(BottomBarCapsuleRadius) },
-                                                effects = {
-                                                    vibrancy()
-                                                    blur(GlassBlurRadius.toPx(), GlassBlurRadius.toPx())
-                                                    lens(
-                                                        refractionHeight = GlassRefractionHeight.toPx(),
-                                                        refractionAmount = GlassRefractionAmount.toPx(),
-                                                    )
-                                                },
-                                                highlight = { capsuleHighlight.copy(alpha = 0.75f) },
-                                            ) else Modifier.background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                                        )
-                                        .innerShadow(shape = RoundedCornerShape(BottomBarCapsuleRadius)) {
-                                            InnerShadow(
-                                                radius = GlassInnerShadowRadius,
-                                                color = Color.Black.copy(alpha = 0.08f),
-                                            )
-                                        }
-                                        .padding(horizontal = PageGutter)
-                                        .clickable {
-                                            onNavToActionLibraryEdit(NEW_ACTION_LIBRARY_ENTRY_ID, null)
-                                        },
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Add,
-                                        contentDescription = stringResource(R.string.action_library_add),
-                                        modifier = Modifier.size(BottomBarIconSize),
-                                        tint = MaterialTheme.colorScheme.primary,
-                                    )
-                                }
+                    val showAdd = mainTab == MainTab.ActionLibrary || mainTab == MainTab.Automation
+                    FloatingBottomBar(
+                        items = MainTab.entries.toList(),
+                        selectedIndex = { mainTab.ordinal },
+                        onSelected = { index -> mainTab = MainTab.entries[index] },
+                        hazeState = hazeState,
+                        colors = FloatingBottomBarDefaults.colors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            indicatorColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            activeContentColor = MaterialTheme.colorScheme.primary,
+                        ),
+                        showAdd = showAdd,
+                        onAddClick = {
+                            if (mainTab == MainTab.Automation) {
+                                onNavToAutomationEdit(NEW_AUTOMATION_RULE_ID)
+                            } else {
+                                onNavToActionLibraryEdit(NEW_ACTION_LIBRARY_ENTRY_ID, null)
                             }
+                        },
+                        addContentDescription = if (mainTab == MainTab.Automation) {
+                            stringResource(R.string.automation_new)
+                        } else {
+                            stringResource(R.string.action_library_add)
+                        },
+                    ) { tab, _ ->
+                        // tint 走底栏提供的 LocalContentColor（选中 primary / 未选中
+                        // onSurfaceVariant），此处不显式传。
+                        Icon(
+                            imageVector = tab.icon,
+                            contentDescription = tab.label,
+                            modifier = Modifier.size(BottomBarIconSize),
+                        )
+                    }
                 }
             },
         ) { topPadding, _ ->
@@ -354,7 +284,6 @@ fun HomeScreen(
                             item(key = "settings_group") {
                                 HomeSettingsGroup(
                                     onActionSettingsClick = onNavToActionSettings,
-                                    onConditionClick = onNavToCondition,
                                 )
                             }
 
@@ -407,6 +336,16 @@ fun HomeScreen(
                             listState = libraryListState,
                             onNavToEdit = onNavToActionLibraryEdit,
                             contentPadding = PaddingValues(top = topPadding),
+                        )
+                        MainTab.Automation -> AutomationRulesTabContent(
+                            listState = automationListState,
+                            onNavToEdit = onNavToAutomationEdit,
+                            contentPadding = PaddingValues(
+                                start = PageGutter,
+                                top = topPadding,
+                                end = PageGutter,
+                                bottom = FloatingContentBottom,
+                            ),
                         )
                     }
         }

@@ -50,7 +50,9 @@ val SheetTopShape = RoundedCornerShape(topStart = ShapeExtraLarge, topEnd = Shap
 val BottomBarPadding = 12.dp
 val BottomBarHeight = 56.dp
 val BottomBarCapsuleRadius = ShapeExtraLarge
-val BottomBarIconSize = 26.dp
+val BottomBarIconSize = 30.dp
+// 主页底栏 Tab 格宽（旧自研底栏 tab 最小宽原数，指示 pill 与其同宽）
+val BottomBarTabWidth = 76.dp
 
 // Segmented list tokens
 val ContainerRadius = ShapeLarge
@@ -146,15 +148,7 @@ val HueBarTouchHeight = 32.dp
 val DistanceTrackHeight = 8.dp
 val DistanceStrokeWidth = 4.dp
 
-// Liquid-glass render params（渲染参数，不是间距；模糊半径复用 Backdrop.kt 的 GlassBlurRadius）
-val GlassRefractionHeight = 24.dp
-val GlassRefractionAmount = 24.dp
-val GlassInnerBlurRadius = 2.dp
-val GlassInnerShadowRadius = 4.dp
-val GlassOutlineWidth = 1.dp
-
-// Inner-shadow radius 默认值（InnerShadow.kt 与调用点同源）
-val InnerShadowDefaultRadius = 24.dp
+// Haze 背后模糊半径见 Backdrop.kt 的 HazeBlurRadius（旧 GlassBlurRadius 同名兼容保留）。
 
 // Timeline（条件树 / 步骤流共用的时间线语言）
 val TimelineRailX = 13.dp

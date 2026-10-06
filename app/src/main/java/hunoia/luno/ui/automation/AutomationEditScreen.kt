@@ -91,8 +91,7 @@ import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.PageGutter
-import hunoia.luno.ui.theme.liquidGlassBlur
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import hunoia.luno.ui.theme.appHazeEffect
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -236,9 +235,9 @@ fun AutomationEditScreen(
             )
         },
         bottomContentPadding = FloatingContentBottom,
-        floatingContent = { backdrop ->
+        floatingContent = { hazeState ->
             SavePill(
-                backdrop = backdrop,
+                hazeState = hazeState,
                 dirty = dirty,
                 onClick = { trySave() },
             )
@@ -1307,23 +1306,26 @@ private fun NotificationPermissionRow() {
             }
         },
     )
-}/** 右下角悬浮保存键：主页底栏同款液态玻璃圆形，有未保存改动时高亮。 */
+}/** 右下角悬浮保存键：M3 圆形 + Haze 背后模糊，有未保存改动时高亮。 */
 @Composable
 private fun BoxScope.SavePill(
-    backdrop: LayerBackdrop?,
+    hazeState: dev.chrisbanes.haze.HazeState?,
     dirty: Boolean,
     onClick: () -> Unit,
 ) {
     val contentColor = if (dirty) MaterialTheme.colorScheme.primary
     else MaterialTheme.colorScheme.onSurfaceVariant
+    val containerColor = if (dirty) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f)
+    else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.65f)
     Box(
         modifier = Modifier
             .align(Alignment.BottomEnd)
             .padding(end = PageGutter, bottom = BottomBarPadding)
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .liquidGlassBlur(backdrop, CircleShape)
+            .clip(CircleShape)
+            .appHazeEffect(hazeState, containerColor)
             .background(
-                color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+                color = containerColor,
                 shape = CircleShape,
             )
             .clickable(onClick = onClick, role = Role.Button)

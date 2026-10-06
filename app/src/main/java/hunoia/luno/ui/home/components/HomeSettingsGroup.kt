@@ -1,6 +1,5 @@
 package hunoia.luno.ui.home
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.twotone.FilterAlt
 import androidx.compose.material.icons.twotone.RestartAlt
 import androidx.compose.material.icons.twotone.Restore
 import androidx.compose.material.icons.twotone.Save
@@ -15,7 +14,6 @@ import hunoia.luno.ui.component.row.segmentedShape
 @Composable
 fun HomeSettingsGroup(
     onActionSettingsClick: () -> Unit,
-    onConditionClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LunoGroup(
@@ -25,14 +23,8 @@ fun HomeSettingsGroup(
         LunoSettingsRow(
             title = stringResource(R.string.action_settings),
             icon = Icons.TwoTone.Tune,
-            shape = segmentedShape(0, 2),
+            shape = segmentedShape(0, 1),
             onClick = onActionSettingsClick,
-        )
-        LunoSettingsRow(
-            title = stringResource(R.string.automation_home),
-            icon = Icons.TwoTone.FilterAlt,
-            shape = segmentedShape(1, 2),
-            onClick = onConditionClick,
         )
     }
 }

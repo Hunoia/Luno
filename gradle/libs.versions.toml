@@ -9,7 +9,7 @@ dataStore = "1.2.1"
 composeTrain = "1.12.1"
 material3 = "1.4.0"
 materialIcons = "1.7.8"
-miuix = "0.9.4"
+haze = "1.7.3"
 houbb-pinyin = "0.4.0"
 freereflection = "3.2.2"
 shizuku = "13.1.5"
@@ -41,8 +41,7 @@ androidx-compose-material-ripple = { group = "androidx.compose.material", name =
 material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "materialIcons" }
 material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 
-miuix-shader = { group = "top.yukonga.miuix.kmp", name = "miuix-shader-android", version.ref = "miuix" }
-miuix-blur = { group = "top.yukonga.miuix.kmp", name = "miuix-blur-android", version.ref = "miuix" }
+haze = { group = "dev.chrisbanes.haze", name = "haze-android", version.ref = "haze" }
 
 houbb-pinyin = { group = "com.github.houbb", name = "pinyin", version.ref = "houbb-pinyin" }
 com-tiann-freereflection = { group = "com.github.tiann", name = "FreeReflection", version.ref = "freereflection" }

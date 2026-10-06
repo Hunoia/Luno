@@ -45,10 +45,6 @@ data class SubGestureEditor(
 
 @Keep
 @Serializable
-data object Automation
-
-@Keep
-@Serializable
 data class AutomationEdit(
     val ruleId: String,
 )

@@ -36,7 +36,6 @@ import hunoia.luno.ui.navigation.Home
 import hunoia.luno.ui.navigation.ActionSettings
 import hunoia.luno.ui.navigation.SearchEngineSettings
 import hunoia.luno.ui.navigation.SubGestureEditor
-import hunoia.luno.ui.navigation.Automation
 import hunoia.luno.ui.navigation.AutomationEdit
 import hunoia.luno.ui.navigation.AutomationHistory
 
@@ -46,7 +45,6 @@ import hunoia.luno.ui.actionselect.ActionSelectContent
 import hunoia.luno.ui.actionlibrary.NewActionLibraryEditScreen
 import hunoia.luno.ui.automation.AutomationEditScreen
 import hunoia.luno.ui.automation.AutomationHistoryScreen
-import hunoia.luno.ui.automation.AutomationSettingsScreen
 import hunoia.luno.ui.settings.action.ActionSettingsScreen
 import hunoia.luno.ui.settings.search.SearchEngineSettingsScreen
 
@@ -104,11 +102,11 @@ fun SideGestureApp() {
                         onNavToSubGestureEditor = { subGestureId ->
                             navController.navigate(SubGestureEditor(subGestureId))
                         },
-                        onNavToCondition = {
-                            navController.navigate(Automation)
-                        },
                         onNavToActionSettings = {
                             navController.navigate(ActionSettings)
+                        },
+                        onNavToAutomationEdit = { ruleId ->
+                            navController.navigate(AutomationEdit(ruleId))
                         },
                         onNavToActionLibraryEdit = { entryId, typeId ->
                             navController.navigate(NewActionLibraryEdit(entryId, typeId))
@@ -142,12 +140,6 @@ fun SideGestureApp() {
                     SubGestureSettingsScreen(
                         onBack = { navController.navigateUp() },
                         onNavToActionSelect = { navController.navigate(it) }
-                    )
-                }
-                myComposable<Automation> {
-                    AutomationSettingsScreen(
-                        onBack = { navController.popBackStack() },
-                        onNavToEdit = { ruleId -> navController.navigate(AutomationEdit(ruleId)) },
                     )
                 }
                 myComposable<AutomationEdit> {

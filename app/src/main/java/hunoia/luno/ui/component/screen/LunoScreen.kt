@@ -19,23 +19,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Dp
+import dev.chrisbanes.haze.HazeState
 import hunoia.luno.ui.component.LunoColumn
 import hunoia.luno.ui.component.TopBar
 import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
-import hunoia.luno.ui.theme.liquidGlassBackdrop
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.layerBackdrop
+import hunoia.luno.ui.theme.appHazeSource
+import hunoia.luno.ui.theme.rememberAppHazeState
 
 /**
  * 屏幕模板（见 docs/ui-spec.md §3）。
  *
- * `Scaffold` / `TopBar` / 液态玻璃 backdrop / `nestedScroll` / 内容容器的组装**全部是模板私有**，
+ * `Scaffold` / `TopBar` / haze 状态 / `nestedScroll` / 内容容器的组装**全部是模板私有**，
  * 界面只提供标题、动作与内容 —— 这样"一个界面一套骨架"从物理上不再可能。
  *
  * 固定不变的部分：容器色 `surfaceContainer`、`contentWindowInsets = WindowInsets()`、
- * `exitUntilCollapsedScrollBehavior`、backdrop 只由 `liquidGlassBackdrop()` 提供、
+ * `exitUntilCollapsedScrollBehavior`、haze 状态只由 `rememberAppHazeState()` 提供、
  * `nestedScroll` 挂在内容容器上、只取 Scaffold 的 top padding。
  *
  * [dialogs] / [sheets] 是弹层宿主，**所有弹层都必须放这里**，位置统一（以前有三种挂法）。
@@ -48,7 +48,7 @@ fun LunoScreen(
     onBack: (() -> Unit)? = null,
     actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
     postfixTitle: (@Composable () -> Unit)? = null,
-    floatingContent: (@Composable BoxScope.(backdrop: LayerBackdrop) -> Unit)? = null,
+    floatingContent: (@Composable BoxScope.(hazeState: HazeState) -> Unit)? = null,
     contentSpacing: Dp = ListSpacing,
     contentPadding: Dp = PageGutter,
     bottomContentPadding: Dp = ContentBottom,
@@ -58,7 +58,7 @@ fun LunoScreen(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val backdrop = liquidGlassBackdrop()
+    val hazeState = rememberAppHazeState()
     Box(modifier = modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -71,14 +71,14 @@ fun LunoScreen(
                     actions = actions,
                     postfixTitle = postfixTitle,
                     scrollBehavior = scrollBehavior,
-                    backdrop = backdrop,
+                    hazeState = hazeState,
                 )
             },
         ) { padding ->
             LunoColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .layerBackdrop(backdrop)
+                    .appHazeSource(hazeState)
                     .nestedScroll(scrollBehavior.nestedScrollConnection)
                     .then(if (animateContent) Modifier.animateContentSize() else Modifier),
                 topPadding = padding.calculateTopPadding(),
@@ -88,7 +88,7 @@ fun LunoScreen(
                 content = { content() },
             )
         }
-        floatingContent?.invoke(this, backdrop)
+        floatingContent?.invoke(this, hazeState)
         dialogs()
         sheets()
     }
@@ -100,7 +100,7 @@ fun LunoScreen(
  * 用于内容本身就是滚动容器、且内部还有 `weight(1f)` 嵌套列表的页面（动作选择页）——
  * [LunoScreen] / [LunoScreenLazy] 的内容容器都带滚动或撑不满，不能套在它们外面。
  *
- * 模板仍然负责 Scaffold / TopBar / backdrop / `nestedScroll`，并把 top padding 作为参数交给
+ * 模板仍然负责 Scaffold / TopBar / haze 状态 / `nestedScroll`，并把 top padding 作为参数交给
  * 调用方，由它决定给列表 `contentPadding` 还是自己留白。
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -118,7 +118,7 @@ fun LunoScreenPlain(
     content: @Composable (topPadding: Dp) -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val backdrop = liquidGlassBackdrop()
+    val hazeState = rememberAppHazeState()
     Box(modifier = modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -132,14 +132,14 @@ fun LunoScreenPlain(
                     showBackIcon = showBackIcon,
                     postfixTitle = postfixTitle,
                     scrollBehavior = scrollBehavior,
-                    backdrop = backdrop,
+                    hazeState = hazeState,
                 )
             },
         ) { padding ->
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .layerBackdrop(backdrop)
+                    .appHazeSource(hazeState)
                     .nestedScroll(scrollBehavior.nestedScrollConnection),
             ) {
                 content(padding.calculateTopPadding())
@@ -173,7 +173,7 @@ fun LunoScreenLazy(
     content: LazyListScope.() -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val backdrop = liquidGlassBackdrop()
+    val hazeState = rememberAppHazeState()
     Box(modifier = modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -186,14 +186,14 @@ fun LunoScreenLazy(
                     actions = actions,
                     postfixTitle = postfixTitle,
                     scrollBehavior = scrollBehavior,
-                    backdrop = backdrop,
+                    hazeState = hazeState,
                 )
             },
         ) { padding ->
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .layerBackdrop(backdrop)
+                    .appHazeSource(hazeState)
                     .nestedScroll(scrollBehavior.nestedScrollConnection),
                 state = state,
                 verticalArrangement = Arrangement.spacedBy(contentSpacing),

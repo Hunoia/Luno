@@ -2,16 +2,19 @@ package hunoia.luno.ui.automation
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,16 +27,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.domain.automation.AutomationCenter
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.RulePriority
 import hunoia.luno.ui.theme.ElevationSmall
+import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.LargeShape
+import hunoia.luno.ui.theme.ListSpacing
+import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LunoIconButton
-import hunoia.luno.ui.navigation.NEW_AUTOMATION_RULE_ID
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -42,13 +48,17 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.screen.LunoScreen
 import androidx.compose.ui.res.stringResource
-@OptIn(ExperimentalMaterial3Api::class)
+
+/**
+ * 规则列表本体（Home 自动化 Tab 用）。数据自给：读 [AutomationCenter]，
+ * 调用方只给滚动 state、padding 与编辑回调。
+ */
 @Composable
-fun AutomationSettingsScreen(
-    onBack: () -> Unit,
+fun AutomationRulesTabContent(
+    listState: LazyListState,
     onNavToEdit: (String) -> Unit,
+    contentPadding: PaddingValues,
 ) {
     val rules by AutomationCenter.rules
         .collectAsStateWithLifecycle(initialValue = emptyList())
@@ -68,42 +78,37 @@ fun AutomationSettingsScreen(
     val context = LocalContext.current
     // 展示按优先级降序（与引擎执行顺序一致），同档保持原相对顺序。
     val ordered = rules.sortedByDescending { it.priority }
-    LunoScreen(
-        title = stringResource(R.string.automation_settings),
-        onBack = onBack,
-        actions = {
-            LunoIconButton(
-                icon = Icons.Default.Add,
-                contentDescription = context.getString(R.string.automation_new),
-                onClick = { onNavToEdit(NEW_AUTOMATION_RULE_ID) },
-            )
-        },
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        state = listState,
+        contentPadding = contentPadding,
+        verticalArrangement = Arrangement.spacedBy(ListSpacing),
     ) {
-
-            if (rules.isEmpty()) {
+        if (rules.isEmpty()) {
+            item(key = "empty") {
                 EmptyState(message = context.getString(R.string.automation_empty))
             }
-            ordered.forEach { rule ->
-                RuleCard(
-                    rule = rule,
-                    lastRunText = events.lastOrNull { it.ruleId == rule.id }?.let { event ->
-                        context.getString(
-                            R.string.history_last_run,
-                            timeFormat.format(Date(event.timeMs)),
-                            historySubtitle(event),
-                        )
-                    },
-                    onEnabledChange = { enabled ->
-                        submit(rules.map { if (it.id == rule.id) it.copy(enabled = enabled) else it })
-                    },
-                    onPriorityChange = { priority ->
-                        submit(rules.map { if (it.id == rule.id) it.copy(priority = priority) else it })
-                    },
-                    onEdit = { onNavToEdit(rule.id) },
-                    onDelete = { submit(rules.filterNot { it.id == rule.id }) },
-                )
-            }
-        
+        }
+        items(ordered, key = { it.id }) { rule ->
+            RuleCard(
+                rule = rule,
+                lastRunText = events.lastOrNull { it.ruleId == rule.id }?.let { event ->
+                    context.getString(
+                        R.string.history_last_run,
+                        timeFormat.format(Date(event.timeMs)),
+                        historySubtitle(event),
+                    )
+                },
+                onEnabledChange = { enabled ->
+                    submit(rules.map { if (it.id == rule.id) it.copy(enabled = enabled) else it })
+                },
+                onPriorityChange = { priority ->
+                    submit(rules.map { if (it.id == rule.id) it.copy(priority = priority) else it })
+                },
+                onEdit = { onNavToEdit(rule.id) },
+                onDelete = { submit(rules.filterNot { it.id == rule.id }) },
+            )
+        }
     }
 }
 @Composable

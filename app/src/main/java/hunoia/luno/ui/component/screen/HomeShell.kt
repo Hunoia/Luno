@@ -15,18 +15,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Dp
+import dev.chrisbanes.haze.HazeState
 import hunoia.luno.ui.component.TopBar
-import hunoia.luno.ui.theme.liquidGlassBackdrop
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.layerBackdrop
+import hunoia.luno.ui.theme.appHazeSource
+import hunoia.luno.ui.theme.rememberAppHazeState
 
 /**
  * 主页外壳（见 docs/ui-spec.md §3）：无返回键的标签页页面，底部悬浮底栏。
  *
  * 与 [LunoScreen] 的差别只有两点：没有返回键、[bottomBar] 悬浮在内容之上。
- * 骨架、backdrop、`nestedScroll` 仍然只在这里拼一次。
+ * 骨架、haze 状态、`nestedScroll` 仍然只在这里拼一次。
  *
- * **backdrop 由外壳创建并同时交给内容层与底栏** —— 底栏的液态玻璃要模糊的是同一层，
+ * **haze 状态由外壳创建并同时交给内容层与底栏** —— 底栏的 blur 要采样的是同一层，
  * 各自建实例会断掉这条链，所以这里把它作为参数传出去，不要在调用方另建。
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,11 +37,11 @@ fun HomeShell(
     actions: @Composable RowScope.() -> Unit = {},
     dialogs: @Composable () -> Unit = {},
     sheets: @Composable () -> Unit = {},
-    bottomBar: @Composable BoxScope.(backdrop: LayerBackdrop) -> Unit = {},
-    content: @Composable BoxScope.(topPadding: Dp, backdrop: LayerBackdrop) -> Unit,
+    bottomBar: @Composable BoxScope.(hazeState: HazeState) -> Unit = {},
+    content: @Composable BoxScope.(topPadding: Dp, hazeState: HazeState) -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val backdrop = liquidGlassBackdrop()
+    val hazeState = rememberAppHazeState()
     Box(modifier = modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier
@@ -56,7 +56,7 @@ fun HomeShell(
                     actions = actions,
                     showBackIcon = false,
                     scrollBehavior = scrollBehavior,
-                    backdrop = backdrop,
+                    hazeState = hazeState,
                 )
             },
         ) { padding ->
@@ -66,17 +66,17 @@ fun HomeShell(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .layerBackdrop(backdrop),
+                        .appHazeSource(hazeState),
                 ) {
-                    content(padding.calculateTopPadding(), backdrop)
+                    content(padding.calculateTopPadding(), hazeState)
                 }
-                // 底栏刻意留在 backdrop 层之外：它自己要从这一层取模糊源，被录进去会自采样。
+                // 底栏是 hazeEffect，不录入自己的采样源。
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth(),
                 ) {
-                    bottomBar(backdrop)
+                    bottomBar(hazeState)
                 }
             }
         }

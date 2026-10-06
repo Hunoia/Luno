@@ -27,7 +27,6 @@ import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsUiEvent
 import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsUiState
 import hunoia.luno.ui.settings.gesture.subgesture.GestureButtonAngleContent
 import hunoia.luno.ui.theme.MarkColorSize
-import hunoia.luno.ui.theme.liquidGlassBackdrop
 import hunoia.luno.ui.component.gestureButtonMarkColor
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.screen.LunoScreenLazy
@@ -43,7 +42,6 @@ fun GestureButtonSettingsScreen(
     var showVibrationSettings by remember { mutableStateOf(false) }
     var showTriggerDistanceSettings by remember { mutableStateOf(false) }
     var showGestureAngles by remember { mutableStateOf(false) }
-    val backdrop = liquidGlassBackdrop()
     val listState = rememberLazyListState()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     UDFComponent<GestureButtonSettingsUiState, GestureButtonSettingsUiEvent>(component = vm.udfComponent, onEvent = { }) { uiState ->

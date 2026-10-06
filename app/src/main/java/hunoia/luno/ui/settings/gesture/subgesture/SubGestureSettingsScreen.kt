@@ -1,6 +1,5 @@
 package hunoia.luno.ui.settings.gesture.subgesture
 import hunoia.luno.ui.theme.*
-import hunoia.luno.ui.theme.liquidGlassBackdrop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Box
@@ -73,7 +72,6 @@ fun SubGestureSettingsScreen(
     var showSubVibrationSettings by remember { mutableStateOf(false) }
     var showSubTriggerDistanceSettings by remember { mutableStateOf(false) }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val backdrop = liquidGlassBackdrop()
     val listState = rememberLazyListState()
     UDFComponent<SubGestureSettingsUiState, SubGestureSettingsUiEvent>(component = vm.udfComponent, onEvent = { }) { uiState ->
         if (uiState.showDeleteWarningDialog) {

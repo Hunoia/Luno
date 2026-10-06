@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
-import top.yukonga.miuix.kmp.blur.layerBackdrop
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -250,15 +249,14 @@ private fun SelectedBottomBar(
     onDismissRequest: () -> Unit,
     expandedContent: @Composable () -> Unit,
 ) {
-    val backdrop = liquidGlassBackdrop()
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
             .padding(start = PageGutter, end = PageGutter, bottom = BottomBarPadding)
-            .clip(RoundedCornerShape(BottomBarCapsuleRadius))
-            .liquidGlassBlur(backdrop),
-        color = glassSurfaceColor(),
+            .clip(RoundedCornerShape(BottomBarCapsuleRadius)),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        tonalElevation = ElevationSmall,
     ) {
         Column {
             AnimatedVisibility(
@@ -274,7 +272,6 @@ private fun SelectedBottomBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(BottomBarHeight)
-                .layerBackdrop(backdrop)
                 .padding(horizontal = PageGutter),
             verticalAlignment = Alignment.CenterVertically,
         ) {
