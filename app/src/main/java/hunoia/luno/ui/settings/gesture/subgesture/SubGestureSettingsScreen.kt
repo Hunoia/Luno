@@ -31,7 +31,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aaron.compose.component.UDFComponent
 import hunoia.luno.R
-import hunoia.luno.config.defaults.SettingsUiDefaults.GestureButtonColorAlpha
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxSubGestureLongSlideTriggerDistance
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxSubGestureTimeoutMs
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxSubGestureTriggerDistance
@@ -41,6 +40,7 @@ import hunoia.luno.config.defaults.SettingsUiDefaults.MinSubGestureTriggerDistan
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.ui.component.actionTextCompose
+import hunoia.luno.ui.component.gestureButtonMarkColor
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.component.LunoColumn
 import hunoia.luno.ui.component.sheet.LunoSheet
@@ -139,7 +139,7 @@ fun SubGestureSettingsScreen(
                                 .padding(start = CardInnerSpacing)
                                 .size(MarkColorSize)
                                 .background(
-                                    color = Color(gesture.color).copy(alpha = GestureButtonColorAlpha),
+                                    color = gestureButtonMarkColor(gesture.color),
                                     shape = CircleShape
                                 )
                             )

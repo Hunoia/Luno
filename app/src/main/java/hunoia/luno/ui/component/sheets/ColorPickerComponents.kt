@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -21,21 +19,6 @@ import androidx.compose.ui.platform.LocalDensity
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.CanvasStrokeWidth
 import hunoia.luno.ui.theme.CanvasThumbRadius
-
-@Composable
-internal fun TabChip(
-    selected: Boolean,
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    FilterChip(
-        selected = selected,
-        onClick = onClick,
-        label = { Text(text) },
-        modifier = modifier,
-    )
-}
 
 @Composable
 internal fun HsvRectPicker(

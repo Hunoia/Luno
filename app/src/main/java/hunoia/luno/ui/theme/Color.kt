@@ -10,6 +10,3 @@ package hunoia.luno.ui.theme
 
 /** 禁用态整体透明度。所有组件的 `enabled = false` 走这一个值。 */
 const val DisabledAlpha: Float = 0.36f
-
-/** 触钮标记（色点）在浅色背景上的补足透明度。 */
-const val GestureButtonColorAlpha: Float = DisabledAlpha

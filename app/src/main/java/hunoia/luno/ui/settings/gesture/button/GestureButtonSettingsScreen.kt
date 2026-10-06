@@ -20,7 +20,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aaron.compose.component.UDFComponent
 import hunoia.luno.R
-import hunoia.luno.config.defaults.SettingsUiDefaults.GestureButtonColorAlpha
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsUiEvent
@@ -66,7 +65,7 @@ fun GestureButtonSettingsScreen(
                                         .padding(start = CardInnerSpacing)
                                         .size(MarkColorSize)
                                         .background(
-                                            color = gestureButtonMarkColor(uiState.gestureButton.color, GestureButtonColorAlpha),
+                                            color = gestureButtonMarkColor(uiState.gestureButton.color),
                                             shape = CircleShape
                                         )
                                 )

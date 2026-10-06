@@ -17,20 +17,20 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Done
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -48,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -55,13 +56,13 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.SheetTopShape
 import hunoia.luno.ui.theme.ExtraSmallShape
 import hunoia.luno.ui.theme.LargeShape
-import hunoia.luno.ui.theme.CloseIconSize
 import hunoia.luno.R
 import hunoia.luno.config.model.ThemeColorKey
 import hunoia.luno.ui.theme.displayNameRes
@@ -137,13 +138,13 @@ fun ColorPickerBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = ListItemVerticalPadding),
+                .verticalScroll(rememberScrollState()),
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(PageGutter),
+                    .padding(PageGutter)
+                    .padding(bottom = ListItemVerticalPadding),
                 verticalArrangement = Arrangement.spacedBy(ListSpacing),
             ) {
                 Row(
@@ -307,32 +308,75 @@ fun ColorPickerBottomSheet(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(HueBarTouchHeight)
-                            .clip(LargeShape)
-                            .background(
-                                brush = remember(hsvColor) {
-                                    Brush.horizontalGradient(colors = listOf(Color.Transparent, hsvColor))
-                                }
-                            ),
+                            .clip(LargeShape),
                         contentAlignment = Alignment.Center,
                     ) {
+                        // 棋盘格打底：透明端落在格子上才看得出透明，不糊在底色上。
+                        Canvas(Modifier.fillMaxSize()) {
+                            val tile = with(density) { (TileInnerPadding * 2).toPx() }
+                            var row = 0
+                            var y = 0f
+                            while (y < size.height) {
+                                var col = row
+                                var x = 0f
+                                while (x < size.width) {
+                                    drawRect(
+                                        color = if (col % 2 == 0) Color.White else CheckerGray,
+                                        topLeft = Offset(x, y),
+                                        size = Size(
+                                            (tile).coerceAtMost(size.width - x),
+                                            (tile).coerceAtMost(size.height - y),
+                                        ),
+                                    )
+                                    x += tile
+                                    col++
+                                }
+                                y += tile
+                                row++
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    brush = remember(hsvColor) {
+                                        Brush.horizontalGradient(colors = listOf(Color.Transparent, hsvColor))
+                                    }
+                                ),
+                        )
                         Slider(
                             modifier = Modifier.fillMaxWidth(),
                             value = alpha,
                             onValueChange = { alpha = it },
                             valueRange = 0f..1f,
                             colors = SliderDefaults.colors(
-                                thumbColor = hsvColor.copy(alpha = alpha),
-                                activeTrackColor = hsvColor.copy(alpha = 1f),
-                                inactiveTrackColor = hsvColor.copy(alpha = 0.2f),
+                                // 轨道全透明：渐变由底下两层画，M3 自绘轨会盖掉棋盘。
+                                activeTrackColor = Color.Transparent,
+                                inactiveTrackColor = Color.Transparent,
                             ),
+                            // 选择器同款圆点：白实心 + 深色细环，alpha 再低也不隐形。
+                            thumb = {
+                                Canvas(
+                                    modifier = Modifier.size(CanvasThumbRadius * 2),
+                                ) {
+                                    drawCircle(Color.White, radius = size.minDimension / 2f)
+                                    drawCircle(
+                                        Color.Black.copy(alpha = 0.3f),
+                                        radius = size.minDimension / 2f - CanvasStrokeWidth.toPx() / 2,
+                                        style = Stroke(CanvasStrokeWidth.toPx()),
+                                    )
+                                }
+                            },
                         )
                     }
                 }
             }
 
+            // 按钮背景延伸到 sheet 底部：底边距 + 手势导航区都在 Surface 内，背景全包。
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.navigationBars)
                     .animateContentSize(),
                 shape = SheetTopShape,
                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -344,24 +388,45 @@ fun ColorPickerBottomSheet(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(ListSpacing),
                 ) {
-                    TabChip(
-                        selected = selectedTab == 0,
-                        text = stringResource(id = R.string.custom),
-                        onClick = { selectedTab = 0 },
-                        modifier = Modifier,
-                    )
-                    TabChip(
-                        selected = selectedTab == 1,
-                        text = "主题色",
-                        onClick = { selectedTab = 1 },
-                        modifier = Modifier,
-                    )
+                    // 无容器底：只有选中半带 primaryContainer 底，与确认键同高。
+                    Row(
+                        modifier = Modifier.heightIn(min = MinInteractiveSize),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+                    ) {
+                        val tabs = listOf(
+                            stringResource(id = R.string.custom) to 0,
+                            "主题色" to 1,
+                        )
+                        tabs.forEach { (label, index) ->
+                            val selected = selectedTab == index
+                            Box(
+                                modifier = Modifier
+                                    .heightIn(min = MinInteractiveSize)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (selected) MaterialTheme.colorScheme.primaryContainer
+                                        else Color.Transparent,
+                                    )
+                                    .clickable(onClick = { selectedTab = index }, role = Role.Button)
+                                    .padding(horizontal = PageGutter),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = label,
+                                    maxLines = 1,
+                                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
                     Spacer(Modifier.weight(1f))
-                    FilledTonalButton(
+                    Button(
                         onClick = {
                             when (selectedTab) {
                                 1 -> {
-                                    val key = selectedThemeKey ?: return@FilledTonalButton
+                                    val key = selectedThemeKey ?: return@Button
                                     onColorSelected(ColorSelection.Theme(key))
                                 }
                                 else -> {
@@ -371,13 +436,8 @@ fun ColorPickerBottomSheet(
                             }
                             onDismissRequest()
                         },
+                        modifier = Modifier.heightIn(min = MinInteractiveSize),
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Done,
-                            contentDescription = null,
-                            modifier = Modifier.size(CloseIconSize),
-                        )
-                        Spacer(Modifier.width(TileInnerPadding))
                         Text(text = stringResource(id = R.string.confirm))
                     }
                 }
@@ -385,6 +445,9 @@ fun ColorPickerBottomSheet(
         }
     }
 }
+
+/** 透明度棋盘格深色格：中性灰，与明暗主题无关，静态复用。 */
+private val CheckerGray = Color(0xFFCCCCCC)
 
 /** 色相条渐变是完全静态的，不要放进 Canvas 的 draw lambda —— 拖动时会每帧重建 */
 private val HueBarBrush = Brush.horizontalGradient(

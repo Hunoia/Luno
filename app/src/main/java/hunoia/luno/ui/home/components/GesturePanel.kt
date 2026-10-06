@@ -23,14 +23,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.util.fastForEachIndexed
 import com.aaron.compose.ktx.onSingleClick
 import hunoia.luno.R
-import hunoia.luno.config.defaults.SettingsUiDefaults.GestureButtonColorAlpha
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.ui.component.buttonTextCompose
@@ -85,7 +83,7 @@ fun GesturePanel(
         ) {
             gestureButtons.fastForEachIndexed { index, button ->
                 key(button.id) {
-                    val markColor = gestureButtonMarkColor(button.color, GestureButtonColorAlpha)
+                    val markColor = gestureButtonMarkColor(button.color)
                     LunoSwitchRow(
                         title = button.buttonTextCompose(),
                         checked = button.enabled,
@@ -148,7 +146,7 @@ fun GesturePanel(
                                     modifier = Modifier
                                         .size(MarkColorSize)
                                         .background(
-                                            color = Color(gesture.color).copy(alpha = GestureButtonColorAlpha),
+                                            color = gestureButtonMarkColor(gesture.color),
                                             shape = CircleShape,
                                         )
                                         .clickable(

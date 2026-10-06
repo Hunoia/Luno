@@ -25,6 +25,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import hunoia.luno.R
+import hunoia.luno.ui.theme.LargeShape
 
 /**
  * 弹窗的唯一实现（见 docs/ui-spec.md §6）。三个变体覆盖全部用途：
@@ -112,6 +113,7 @@ fun TextInputDialog(
                     label = label.takeIf { it.isNotEmpty() }?.let { l -> { Text(l) } },
                     singleLine = true,
                     isError = isError,
+                    shape = LargeShape,
                     modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
                     keyboardOptions = keyboardOptions,
                     keyboardActions = KeyboardActions(onDone = { submit() }),

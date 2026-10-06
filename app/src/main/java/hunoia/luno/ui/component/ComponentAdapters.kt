@@ -23,7 +23,8 @@ fun gestureButtonMarkColor(colorInt: Int, primary: Color, alpha: Float = 1f): Co
     if (colorInt == AndroidColor.TRANSPARENT) {
         primary.copy(alpha = alpha)
     } else {
-        Color(colorInt).copy(alpha = alpha)
+        // 存量 alpha 直用：颜色选择页定的透明度不再被调用方覆盖。
+        Color(colorInt)
     }
 
 @Composable
