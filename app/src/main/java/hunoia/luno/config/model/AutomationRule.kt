@@ -75,11 +75,12 @@ object RuleStepKind {
     const val IF = "if"
 }
 
-/** 节流策略类型：同上扁平。 */
+/** 节流策略类型：同上扁平。BOTH=冷却与窗口同时生效（通用编辑器派生）。 */
 object ThrottleKind {
     const val OFF = "off"
     const val COOLDOWN = "cooldown"
     const val WINDOW = "window"
+    const val BOTH = "both"
 }
 
 /** 通知方向/连接方向：null 表示不限。 */
@@ -243,14 +244,18 @@ data class RuleStep(
         get() = kind == RuleStepKind.ACTION && (action != null || entryId.isNotBlank())
 }
 
-/** 节流策略（替代裸 cooldownMs，老数据迁移见 AutomationRule.effectiveThrottle）。 */
+/**
+ * 节流策略（替代裸 cooldownMs，老数据迁移见 AutomationRule.effectiveThrottle）。
+ * 空即不限：maxCount/windowMs 默认 0（未填）；kind==OFF 是存量总闸，
+ * 引擎只认它关闭，其余一律值驱动（冷却 cooldownMs>0，窗口 count>=1 且 window>=1s）。
+ */
 @Serializable
 @Keep
 data class ThrottlePolicy(
     val kind: String = ThrottleKind.OFF,
     val cooldownMs: Long = 0L,
-    val maxCount: Int = 1,
-    val windowMs: Long = 60_000L,
+    val maxCount: Int = 0,
+    val windowMs: Long = 0L,
 )
 
 /** 规则优先级三档（内部映射数字，见 RulePriority）。 */

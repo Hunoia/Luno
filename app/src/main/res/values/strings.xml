@@ -378,9 +378,6 @@
     <string name="priority_medium">中</string>
     <string name="priority_low">低</string>
     <string name="automation_throttle">触发频率</string>
-    <string name="throttle_off">不限</string>
-    <string name="throttle_cooldown">冷却</string>
-    <string name="throttle_window">窗口计数</string>
     <string name="throttle_cooldown_hint">触发后多少秒内不再触发</string>
     <string name="throttle_window_count">窗口内最多次数</string>
     <string name="throttle_window_seconds">窗口秒数</string>

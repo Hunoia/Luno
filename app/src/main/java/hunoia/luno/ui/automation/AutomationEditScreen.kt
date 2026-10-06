@@ -273,14 +273,11 @@ fun AutomationEditScreen(
         },
         sheets = {
             conditionSheetPath?.let { path ->
-                val item = rule.condition.conditionAt(path)
-                Log.d("AutomationEdit", "DBG conditionSheet path=$path resolved=${item != null} type=${item?.type}")
-                item?.let {
+                rule.condition.conditionAt(path)?.let { item ->
                     ConditionSheet(
-                        item = it,
+                        item = item,
                         onDismissRequest = { conditionSheetPath = null },
                         onConditionChange = { changed ->
-                            Log.d("AutomationEdit", "DBG onConditionChange path=$path type=${changed.type}")
                             update(rule.copy(condition = rule.condition.withConditionAt(path) { changed }))
                         },
                         onDelete = {
@@ -860,10 +857,7 @@ private fun ConditionGroupEditor(
                 TimelineNode(badge = { TimelineBadge((index + 1).toString()) }) {
                     ConditionRow(
                         item = item,
-                        onEdit = {
-                            Log.d("AutomationEdit", "DBG condition row tap path=$path")
-                            onEditItem(path)
-                        },
+                        onEdit = { onEditItem(path) },
                     )
                 }
             }
@@ -1200,99 +1194,89 @@ private fun fireModeLabel(mode: FireMode): String = stringResource(
         FireMode.BOTH -> R.string.fire_both
     },
 )
-private fun isInvalidThrottle(throttle: ThrottlePolicy): Boolean = when (throttle.kind) {
-    ThrottleKind.COOLDOWN -> throttle.cooldownMs < 0
-    ThrottleKind.WINDOW -> throttle.maxCount < 1 || throttle.windowMs < 1000L
-    else -> false
+/** 通用节流校验：负数、半填（次数/秒数只填一边）、窗口不足 1s 判无效。 */
+private fun isInvalidThrottle(throttle: ThrottlePolicy): Boolean {
+    if (throttle.cooldownMs < 0 || throttle.maxCount < 0 || throttle.windowMs < 0) return true
+    val countSet = throttle.maxCount > 0
+    val windowSet = throttle.windowMs > 0
+    if (countSet != windowSet) return true
+    if (windowSet && throttle.windowMs < 1000L) return true
+    return false
+}
+/** 填了即生效：冷却/窗口各看各的值派生 kind（双填 BOTH，全空 OFF）。 */
+private fun deriveThrottleKind(cooldownMs: Long, maxCount: Int, windowMs: Long): String {
+    val cooldownOn = cooldownMs > 0
+    val windowOn = maxCount > 0 && windowMs > 0
+    return when {
+        cooldownOn && windowOn -> ThrottleKind.BOTH
+        cooldownOn -> ThrottleKind.COOLDOWN
+        windowOn -> ThrottleKind.WINDOW
+        else -> ThrottleKind.OFF
+    }
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ThrottleEditor(throttle: ThrottlePolicy, onThrottleChange: (ThrottlePolicy) -> Unit) {
-    var cooldownText by remember(throttle.cooldownMs) { mutableStateOf((throttle.cooldownMs / 1000).toString()) }
-    var countText by remember(throttle.maxCount) { mutableStateOf(throttle.maxCount.toString()) }
-    var windowText by remember(throttle.windowMs) { mutableStateOf((throttle.windowMs / 1000).toString()) }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = MinInteractiveSize)
-            .clip(RoundedCornerShape(ContainerRadius))
-            .background(MaterialTheme.colorScheme.surfaceBright),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        val kinds = listOf(ThrottleKind.OFF, ThrottleKind.COOLDOWN, ThrottleKind.WINDOW)
-        val labels = listOf(
-            stringResource(R.string.throttle_off),
-            stringResource(R.string.throttle_cooldown),
-            stringResource(R.string.throttle_window),
-        )
-        kinds.forEachIndexed { index, kind ->
-            if (index > 0) {
-                VerticalDivider(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .padding(vertical = CardInnerSpacing),
-                    color = MaterialTheme.colorScheme.outlineVariant,
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .clickable(
-                        onClick = { onThrottleChange(throttle.copy(kind = kind)) },
-                        role = Role.Button,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    labels[index],
-                    maxLines = 1,
-                    color = if (throttle.kind == kind) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+    var cooldownText by remember(throttle.cooldownMs) {
+        mutableStateOf(if (throttle.cooldownMs > 0) (throttle.cooldownMs / 1000).toString() else "")
     }
-    when (throttle.kind) {
-        ThrottleKind.COOLDOWN -> OutlinedTextField(
-            value = cooldownText,
+    var countText by remember(throttle.maxCount) {
+        mutableStateOf(if (throttle.maxCount > 0) throttle.maxCount.toString() else "")
+    }
+    var windowText by remember(throttle.windowMs) {
+        mutableStateOf(if (throttle.windowMs > 0) (throttle.windowMs / 1000).toString() else "")
+    }
+    fun submit(cooldownMs: Long = throttle.cooldownMs, maxCount: Int = throttle.maxCount, windowMs: Long = throttle.windowMs) {
+        onThrottleChange(throttle.copy(
+            kind = deriveThrottleKind(cooldownMs, maxCount, windowMs),
+            cooldownMs = cooldownMs,
+            maxCount = maxCount,
+            windowMs = windowMs,
+        ))
+    }
+    OutlinedTextField(
+        value = cooldownText,
+        onValueChange = {
+            cooldownText = it
+            if (it.isBlank()) submit(cooldownMs = 0L)
+            else it.toLongOrNull()?.let { s -> submit(cooldownMs = s * 1000) }
+        },
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(stringResource(R.string.throttle_cooldown_hint)) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        shape = LargeShape,
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+    ) {
+        OutlinedTextField(
+            value = countText,
             onValueChange = {
-                cooldownText = it
-                it.toLongOrNull()?.let { s -> onThrottleChange(throttle.copy(cooldownMs = s * 1000)) }
+                countText = it
+                if (it.isBlank()) submit(maxCount = 0)
+                else it.toIntOrNull()?.let { n -> submit(maxCount = n) }
             },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text(stringResource(R.string.throttle_cooldown_hint)) },
+            modifier = Modifier.weight(1f),
+            label = { Text(stringResource(R.string.throttle_window_count)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             shape = LargeShape,
         )
-        ThrottleKind.WINDOW -> {
-            OutlinedTextField(
-                value = countText,
-                onValueChange = {
-                    countText = it
-                    it.toIntOrNull()?.let { n -> onThrottleChange(throttle.copy(maxCount = n)) }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.throttle_window_count)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                shape = LargeShape,
-            )
-            OutlinedTextField(
-                value = windowText,
-                onValueChange = {
-                    windowText = it
-                    it.toLongOrNull()?.let { s -> onThrottleChange(throttle.copy(windowMs = s * 1000)) }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.throttle_window_seconds)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                shape = LargeShape,
-            )
-        }
-        else -> Unit
+        OutlinedTextField(
+            value = windowText,
+            onValueChange = {
+                windowText = it
+                if (it.isBlank()) submit(windowMs = 0L)
+                else it.toLongOrNull()?.let { s -> submit(windowMs = s * 1000) }
+            },
+            modifier = Modifier.weight(1f),
+            label = { Text(stringResource(R.string.throttle_window_seconds)) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            shape = LargeShape,
+        )
     }
 }
 private fun conditionUsesNotification(group: WhenGroup): Boolean = group.items.any { item ->

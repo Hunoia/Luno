@@ -36,18 +36,17 @@ public class AutomationCheck {
     }
 
     // ======== 转写：节流（mirror throttleBlockReason/markFired）========
+    // 值驱动：off 总闸放行；冷却（cooldownMs>0）与窗口（count>=1 且 window>=1s）
+    // 各算各，先冷后窗。
     static String throttleBlock(String kind, Long lastFired, ArrayDeque<Long> window,
                                 long nowMs, long cooldownMs, int maxCount, long windowMs) {
-        if ("cooldown".equals(kind)) {
+        if ("off".equals(kind)) return null;
+        if (cooldownMs > 0) {
             if (lastFired != null && nowMs - lastFired < cooldownMs) return "throttled_cooldown";
-            return null;
         }
-        if ("window".equals(kind)) {
-            long w = Math.max(1L, windowMs);
-            int max = Math.max(1, maxCount);
-            while (!window.isEmpty() && nowMs - window.peekFirst() >= w) window.removeFirst();
-            if (window.size() >= max) return "throttled_window";
-            return null;
+        if (maxCount >= 1 && windowMs >= 1000L) {
+            while (!window.isEmpty() && nowMs - window.peekFirst() >= windowMs) window.removeFirst();
+            if (window.size() >= maxCount) return "throttled_window";
         }
         return null;
     }
@@ -174,6 +173,20 @@ public class AutomationCheck {
                 throttleBlock("window", null, w3, 70000L, 0L, 3, 60000L));
         check("off 不拦", null,
                 throttleBlock("off", 1000L, new ArrayDeque<Long>(), 1500L, 1000L, 1, 60000L));
+        check("off 存量默认值也不拦", null,
+                throttleBlock("off", null, new ArrayDeque<>(Arrays.asList(1000L)), 70000L, 0L, 1, 60000L));
+        // 双活：冷却命中优先报冷却
+        ArrayDeque<Long> bw = new ArrayDeque<>(Arrays.asList(1000L, 2000L, 3000L));
+        check("both 冷却命中", "throttled_cooldown",
+                throttleBlock("both", 1000L, bw, 1500L, 1000L, 3, 60000L));
+        // 双活：冷却已过但窗口满，报窗口
+        ArrayDeque<Long> bw2 = new ArrayDeque<>(Arrays.asList(1000L, 2000L, 3000L));
+        check("both 窗口满", "throttled_window",
+                throttleBlock("both", 1000L, bw2, 2500L, 1000L, 3, 60000L));
+        // 存量 cooldown 带窗口默认值：窗口满同样拦（接受的行为增量，编辑器如实显示）
+        ArrayDeque<Long> lw = new ArrayDeque<>(Arrays.asList(1000L));
+        check("存量cooldown 窗口满拦", "throttled_window",
+                throttleBlock("cooldown", null, lw, 30000L, 30000L, 1, 60000L));
 
         // 迁移：老 action 包单步 / 新 steps 优先 / throttle 回落
         check("迁移 老action包单步", 1, effectiveSteps(Collections.<String>emptyList(), true).size());

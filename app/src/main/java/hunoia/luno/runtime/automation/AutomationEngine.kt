@@ -124,32 +124,33 @@ class AutomationEngine(
         cleanup(rules)
     }
 
+    /**
+     * 值驱动节流：kind==OFF 是存量总闸直接放行；其余看值——
+     * 冷却（cooldownMs>0）与窗口（count>=1 且 window>=1s）各算各的，先冷后窗。
+     */
     private fun throttleBlockReason(ruleId: String, throttle: ThrottlePolicy, nowMs: Long): SkipReason? {
-        return when (throttle.kind) {
-            ThrottleKind.COOLDOWN -> {
-                val last = cooldownLastFiredAt[ruleId]
-                if (last != null && nowMs - last < throttle.cooldownMs) {
-                    SkipReason.THROTTLED_COOLDOWN
-                } else {
-                    null
-                }
+        if (throttle.kind == ThrottleKind.OFF) return null
+        if (throttle.cooldownMs > 0) {
+            val last = cooldownLastFiredAt[ruleId]
+            if (last != null && nowMs - last < throttle.cooldownMs) {
+                return SkipReason.THROTTLED_COOLDOWN
             }
-            ThrottleKind.WINDOW -> {
-                val windowMs = throttle.windowMs.coerceAtLeast(1L)
-                val maxCount = throttle.maxCount.coerceAtLeast(1)
-                val queue = windowHits.getOrPut(ruleId) { ArrayDeque() }
-                while (queue.isNotEmpty() && nowMs - queue.first() >= windowMs) queue.removeFirst()
-                if (queue.size >= maxCount) SkipReason.THROTTLED_WINDOW else null
-            }
-            else -> null
         }
+        if (throttle.maxCount >= 1 && throttle.windowMs >= 1000L) {
+            val windowMs = throttle.windowMs
+            val maxCount = throttle.maxCount
+            val queue = windowHits.getOrPut(ruleId) { ArrayDeque() }
+            while (queue.isNotEmpty() && nowMs - queue.first() >= windowMs) queue.removeFirst()
+            if (queue.size >= maxCount) return SkipReason.THROTTLED_WINDOW
+        }
+        return null
     }
 
     private fun markFired(ruleId: String, throttle: ThrottlePolicy, nowMs: Long) {
-        if (throttle.kind == ThrottleKind.COOLDOWN) {
+        if (throttle.kind != ThrottleKind.OFF && throttle.cooldownMs > 0) {
             cooldownLastFiredAt[ruleId] = nowMs
         }
-        if (throttle.kind == ThrottleKind.WINDOW) {
+        if (throttle.kind != ThrottleKind.OFF && throttle.maxCount >= 1 && throttle.windowMs >= 1000L) {
             val queue = windowHits.getOrPut(ruleId) { ArrayDeque() }
             queue.addLast(nowMs)
         }
