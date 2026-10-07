@@ -15,10 +15,8 @@ import hunoia.luno.bridge.ui.showVersionTooLowToast as showVersionTooLowToastUti
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GestureButton
-import hunoia.luno.config.model.GestureButtonActionSettingsOverride
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.VolumeScrubConfig
-import hunoia.luno.config.model.effectiveFor
 import hunoia.luno.runtime.GestureHost
 import hunoia.luno.runtime.GestureRuntimeState
 import hunoia.luno.runtime.condition.toConditionContext
@@ -94,7 +92,7 @@ class NewActionDispatcher(
             }
         }
         return withContext(Dispatchers.Main.immediate) {
-            dispatchAwait(target, null, null, null, automationContext, null, false)
+            dispatchAwait(target, null, null, automationContext, null, false)
         }
     }
 
@@ -106,7 +104,6 @@ class NewActionDispatcher(
     fun dispatch(
         stored: StoredAction,
         sourceButton: GestureButton?,
-        sourceOverride: GestureButtonActionSettingsOverride? = null,
         touchPosition: Pair<Int, Int>? = null,
         templateContext: () -> ConditionContext? = { runtimeState().toConditionContext() },
         /** 手势触发类型（手势链路传入）；overlay 直调用默认 null。 */
@@ -116,7 +113,7 @@ class NewActionDispatcher(
     ) {
         if (BuildConfig.DEBUG) Log.i("LunoLauncher", "dispatch storedAction typeId=${stored.typeId}")
         scope.launch(Dispatchers.Main.immediate) {
-            dispatchAwait(stored, sourceButton, sourceOverride, touchPosition, templateContext, gestureTrigger, fromGesture)
+            dispatchAwait(stored, sourceButton, touchPosition, templateContext, gestureTrigger, fromGesture)
         }
     }
 
@@ -127,7 +124,6 @@ class NewActionDispatcher(
     private suspend fun dispatchAwait(
         stored: StoredAction,
         sourceButton: GestureButton?,
-        sourceOverride: GestureButtonActionSettingsOverride?,
         touchPosition: Pair<Int, Int>?,
         templateContext: () -> ConditionContext?,
         gestureTrigger: hunoia.luno.config.model.GestureTriggerType?,
@@ -158,7 +154,7 @@ class NewActionDispatcher(
         } else {
             stored
         }
-        val ctx = buildContext(sourceButton, sourceOverride, touchPosition, templateContext)
+        val ctx = buildContext(sourceButton, touchPosition, templateContext)
         // 点按类动作的前置条件：坐标来自手势上下文，不是 StoredAction 参数，
         // 在分发层校验，不进 Executor。
         if (touchPosition == null && (effective.typeId == "accessibility.tap" || effective.typeId == "accessibility.longPress")) {
@@ -207,7 +203,6 @@ class NewActionDispatcher(
 
     private fun buildContext(
         sourceButton: GestureButton?,
-        sourceOverride: GestureButtonActionSettingsOverride? = null,
         touchPosition: Pair<Int, Int>? = null,
         templateContext: () -> ConditionContext? = { null },
     ): ExecutorContext {
@@ -218,7 +213,7 @@ class NewActionDispatcher(
             appContext = context,
             scope = scope,
             actionSettings = snap.actionSettings,
-            advancedSettings = snap.advancedSettings.effectiveFor(sourceOverride),
+            advancedSettings = snap.advancedSettings,
             showToast = { showToastUtil(it) },
             showLongToast = { showToastLongUtil(it) },
             currentPackageName = { host.getCurrentPackageName() },

@@ -5,7 +5,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
+import android.os.Handler
+import android.os.Looper
 import hunoia.luno.action.model.StoredAction
+import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.core.JsonSerializer
 
 /**
@@ -75,5 +78,35 @@ object DispatchClient {
         return runCatching {
             s.dispatchAction(JsonSerializer.encodeToString(action))
         }.getOrDefault(false)
+    }
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    /**
+     * 请求 :service 的无障碍服务展示小窗调整 overlay。
+     * 结果经跨进程回调发送，[onCommit]/[onDismiss] 回到主线程执行。
+     * false = 未送达（服务未连接或未就绪）。
+     */
+    fun showMiniWindowAdjust(
+        initial: MiniWindowSettings,
+        onCommit: (MiniWindowSettings) -> Unit,
+        onDismiss: () -> Unit,
+    ): Boolean {
+        val s = stub ?: return false
+        val cb = object : IMiniWindowAdjustCallback.Stub() {
+            override fun onCommit(resultJson: String) {
+                val settings = runCatching {
+                    JsonSerializer.decodeFromString<MiniWindowSettings>(resultJson)
+                }.getOrNull() ?: return
+                mainHandler.post { onCommit(settings) }
+            }
+
+            override fun onDismiss() {
+                mainHandler.post { onDismiss() }
+            }
+        }
+        return runCatching {
+            s.showMiniWindowAdjust(JsonSerializer.encodeToString(initial), cb)
+        }.isSuccess
     }
 }

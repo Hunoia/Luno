@@ -88,7 +88,6 @@ class AppExecutors(private val intentController: IntentController) : ActionExecu
             .firstOrNull()
         val className = resolveInfo?.activityInfo?.name
         if (!className.isNullOrEmpty()) {
-            // overrideBounds 与其余小窗参数必须来自同一份设置，不能只改开关
             QuickLaunchFacade.launchAppInPopup(
                 context.appContext, pkgName, className,
                 adv.miniWindowSettings(),

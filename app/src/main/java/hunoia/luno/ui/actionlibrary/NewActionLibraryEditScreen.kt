@@ -41,7 +41,6 @@ import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.config.model.toMiniWindowSettings
-import hunoia.luno.ui.component.MiniWindowControls
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.query.ActivityOption
 import hunoia.luno.ui.component.sheets.AppPickerSheet
@@ -192,49 +191,16 @@ fun NewActionLibraryEditScreen(
                 )
             }
             showMiniWindowPicker?.let { paramDef ->
-                val initial = draft?.params?.get(paramDef.key)?.toMiniWindowSettings() ?: MiniWindowSettings()
-                var localSettings by remember(paramDef.key) { mutableStateOf(initial) }
-                LunoSheet(onDismissRequest = { showMiniWindowPicker = null }) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(bottom = PageGutter)) {
-                        Text(
-                            text = stringResource(R.string.mini_window_position_short),
-                            style = MaterialTheme.typography.titleLarge,
-                            modifier = Modifier.padding(horizontal = PageGutter, vertical = CardInnerSpacing),
-                        )
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = PageGutter),
-                            verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
-                        ) {
-                            MiniWindowControls(
-                                settings = localSettings,
-                                onSettingsChange = { localSettings = it },
-                            )
-                        }
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = PageGutter, vertical = CardInnerSpacing),
-                            horizontalArrangement = Arrangement.spacedBy(ListSpacing),
-                        ) {
-                            TextButton(
-                                modifier = Modifier.weight(1f),
-                                onClick = { showMiniWindowPicker = null },
-                            ) {
-                                Text(stringResource(R.string.cancel))
-                            }
-                            FilledTonalButton(
-                                modifier = Modifier.weight(1f),
-                                onClick = {
-                                    vm.updateParamMiniWindow(paramDef.key, localSettings)
-                                    showMiniWindowPicker = null
-                                },
-                            ) {
-                                Text(stringResource(R.string.confirm))
-                            }
-                        }
-                    }
+                LaunchedEffect(paramDef.key) {
+                    val initial = draft?.params?.get(paramDef.key)?.toMiniWindowSettings() ?: MiniWindowSettings()
+                    DispatchClient.showMiniWindowAdjust(
+                        initial = initial,
+                        onCommit = { result ->
+                            vm.updateParamMiniWindow(paramDef.key, result)
+                            showMiniWindowPicker = null
+                        },
+                        onDismiss = { showMiniWindowPicker = null },
+                    )
                 }
             }
             showActivityPicker?.let { paramDef ->

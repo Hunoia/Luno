@@ -74,7 +74,6 @@ data class GestureButton(
     val longSlideActions: DirectionActions = GestureButtonDefaults.LongSlideActions,
     val longSlideHoldActions: DirectionActions = GestureButtonDefaults.LongSlideHoldActions,
     val angle: GestureButtonAngle = GestureButtonAngle(),
-    val actionSettingsOverride: GestureButtonActionSettingsOverride = GestureButtonActionSettingsOverride(),
     val tapActions: List<@Serializable(MigratingStoredActionSerializer::class) StoredAction> =
         GestureButtonDefaults.TapActions,
     val doubleTapActions: List<@Serializable(MigratingStoredActionSerializer::class) StoredAction> =

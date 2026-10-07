@@ -194,11 +194,7 @@ fun ParameterEditor(
         }
         is ParameterDefinition.MiniWindow -> {
             val settings = currentParams[definition.key]?.toMiniWindowSettings() ?: MiniWindowSettings()
-            val display = if (settings.overrideBounds) {
-                "${settings.widthFraction.times(100).roundToInt()}% × ${settings.heightFraction.times(100).roundToInt()}%"
-            } else {
-                stringResource(R.string.mini_window_position_hint)
-            }
+            val display = "${settings.width.times(100).roundToInt()}% × ${settings.height.times(100).roundToInt()}%"
             LunoSettingsRow(
                 title = definition.label,
                 subtitle = display,

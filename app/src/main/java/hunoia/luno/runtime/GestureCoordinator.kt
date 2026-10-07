@@ -14,7 +14,6 @@ import hunoia.luno.action.model.withoutVariantKey
 import hunoia.luno.runtime.condition.toConditionContext
 import kotlin.math.roundToInt
 import hunoia.luno.config.model.GestureButton
-import hunoia.luno.config.model.GestureButtonActionSettingsOverride
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.QuickAppSnapshot
 import hunoia.luno.quicklaunch.query.AppSearch
@@ -262,11 +261,10 @@ class GestureCoordinator(
         override fun onAction(
             action: hunoia.luno.action.model.StoredAction,
             sourceButton: GestureButton?,
-            sourceOverride: GestureButtonActionSettingsOverride?,
             touchPosition: Offset,
             decision: hunoia.luno.gesture.GestureDecision.Trigger?,
         ) {
-            onGestureDecision(decision, action, sourceButton, sourceOverride, touchPosition)
+            onGestureDecision(decision, action, sourceButton, touchPosition)
         }
     }
 
@@ -278,7 +276,6 @@ class GestureCoordinator(
         decision: hunoia.luno.gesture.GestureDecision.Trigger?,
         action: hunoia.luno.action.model.StoredAction,
         sourceButton: GestureButton?,
-        sourceOverride: GestureButtonActionSettingsOverride?,
         touchPosition: Offset,
     ) {
         if (BuildConfig.DEBUG) {
@@ -298,7 +295,6 @@ class GestureCoordinator(
         actionDispatcher.dispatch(
             action.withoutVariantKey(),
             sourceButton,
-            sourceOverride,
             touch,
             { buildRuntimeState(peekPulses = true).toConditionContext() },
             gestureTrigger = decision?.triggerType,

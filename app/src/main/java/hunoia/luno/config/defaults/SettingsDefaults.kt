@@ -4,11 +4,11 @@ package hunoia.luno.config.defaults
 
 object AdvancedSettingsDefaults {
 
-    const val MiniWindowHorizontalBias = 0.13586f
-    const val MiniWindowVerticalBias = 0.25574f
-    const val MiniWindowWidthFraction = 1.0f
-    const val MiniWindowHeightFraction = 0.69935f
-    const val MiniWindowOverrideBounds = false
+    /** 小窗默认布局：宽=屏宽、高=屏宽/0.625(16:10)、左=15%屏宽、垂直居中(以 0.45 宽高比近似)。 */
+    const val MiniWindowX = 0.15f
+    const val MiniWindowY = 0.14f
+    const val MiniWindowWidth = 1.0f
+    const val MiniWindowHeight = 0.72f
     const val KeepAliveEnabled = true
 }
 

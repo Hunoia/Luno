@@ -1,21 +1,19 @@
 package hunoia.luno.config.model
 
 import androidx.annotation.Keep
-import hunoia.luno.config.defaults.AdvancedSettingsDefaults.MiniWindowHorizontalBias
-import hunoia.luno.config.defaults.AdvancedSettingsDefaults.MiniWindowVerticalBias
-import hunoia.luno.config.defaults.AdvancedSettingsDefaults.MiniWindowWidthFraction
-import hunoia.luno.config.defaults.AdvancedSettingsDefaults.MiniWindowHeightFraction
+import hunoia.luno.config.defaults.AdvancedSettingsDefaults.MiniWindowX
+import hunoia.luno.config.defaults.AdvancedSettingsDefaults.MiniWindowY
+import hunoia.luno.config.defaults.AdvancedSettingsDefaults.MiniWindowWidth
+import hunoia.luno.config.defaults.AdvancedSettingsDefaults.MiniWindowHeight
 import hunoia.luno.config.defaults.AdvancedSettingsDefaults.KeepAliveEnabled
-import hunoia.luno.config.defaults.AdvancedSettingsDefaults.MiniWindowOverrideBounds
 import kotlinx.serialization.Serializable
 
 @Serializable
 @Keep
 data class AdvancedSettings(
-    val miniWindowHorizontalBias: Float = MiniWindowHorizontalBias,
-    val miniWindowVerticalBias: Float = MiniWindowVerticalBias,
-    val miniWindowWidthFraction: Float = MiniWindowWidthFraction,
-    val miniWindowHeightFraction: Float = MiniWindowHeightFraction,
-    val miniWindowOverrideBounds: Boolean = MiniWindowOverrideBounds,
+    val miniWindowX: Float = MiniWindowX,
+    val miniWindowY: Float = MiniWindowY,
+    val miniWindowWidth: Float = MiniWindowWidth,
+    val miniWindowHeight: Float = MiniWindowHeight,
     val keepAliveEnabled: Boolean = KeepAliveEnabled,
 )

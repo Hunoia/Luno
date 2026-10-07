@@ -21,7 +21,6 @@ import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.GestureButton
-import hunoia.luno.config.model.GestureButtonActionSettingsOverride
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.isHoldType
@@ -48,7 +47,7 @@ private const val ACTION_PANEL_FADE_OUT_MS = 400L
 
 @Composable
 fun SideGestureContainer(
-    onAction: (StoredAction, GestureButton?, GestureButtonActionSettingsOverride?, Offset, GestureDecision.Trigger?) -> Unit,
+    onAction: (StoredAction, GestureButton?, Offset, GestureDecision.Trigger?) -> Unit,
     buttons: List<GestureButton>,
     modifier: Modifier = Modifier,
     imePadding: Int = 0,
@@ -69,7 +68,6 @@ fun SideGestureContainer(
     val coroutineScope = rememberCoroutineScope()
     val sideGestureState = rememberGestureState(buttons, advancedSettings, gestureSettings)
     val actionPanelState = rememberActionPanelState()
-    var actionPanelSourceOverride by remember { mutableStateOf<GestureButtonActionSettingsOverride?>(null) }
 
     // 面板展开后主手势会话会被 reset() 清空 button，选中时必须用捕获值，
     // 否则按触钮 id 限定的 gesturePerformed 自动化规则永远不中、面板内 hideGestureButton 空跑。
@@ -104,11 +102,10 @@ fun SideGestureContainer(
         action: StoredAction,
         sourceButton: GestureButton?,
         touchPosition: Offset,
-        sourceOverride: GestureButtonActionSettingsOverride? = sourceButton?.actionSettingsOverride,
         decision: GestureDecision.Trigger? = null,
     ): Boolean {
         if (subGestureState.tryEnterSubGesture(action, touchPosition)) return true
-        curOnAction(action, sourceButton, sourceOverride, touchPosition, decision)
+        curOnAction(action, sourceButton, touchPosition, decision)
         return false
     }
 
@@ -117,7 +114,6 @@ fun SideGestureContainer(
         direction: GestureDirection,
         touchPosition: Offset,
         sourceButton: GestureButton?,
-        sourceOverride: GestureButtonActionSettingsOverride? = sourceButton?.actionSettingsOverride,
         panelStyle: ActionPanelStyle = actionPanelStyle,
         panelColor: Int = sourceButton?.color ?: android.graphics.Color.TRANSPARENT,
         onPanelStarted: () -> Unit = {},
@@ -133,7 +129,6 @@ fun SideGestureContainer(
             curOnPanelVisibilityChanged(true)
             actionPanelState.onDragStart(touchPosition)
             actionPanelState.ready(direction, meaningfulActions, panelStyle, panelColor)
-            actionPanelSourceOverride = sourceOverride
             actionPanelSourceButton = sourceButton
             onPanelStarted()
             return
@@ -148,7 +143,7 @@ fun SideGestureContainer(
             subGestureState.clear(notifyService = true)
             coroutineScope.launch {
                 delay(SUB_GESTURE_DIRECT_ACTION_DELAY_MS)
-                handleResolvedAction(action, sourceButton, touchPosition, sourceOverride, decision)
+                handleResolvedAction(action, sourceButton, touchPosition, decision)
             }
             onDirectComplete(false)
             return
@@ -169,13 +164,12 @@ fun SideGestureContainer(
                 false
             }
             "internal.none" -> false
-            else -> handleResolvedAction(action, sourceButton, touchPosition, sourceOverride, decision)
+            else -> handleResolvedAction(action, sourceButton, touchPosition, decision)
         }
         onDirectComplete(enteredSubGesture)
     }
 
     fun handleSubGestureResolvedActions(resolvedActions: hunoia.luno.gesture.SubGestureResolvedActions) {
-        val sourceOverride = resolvedActions.subGesture.actionSettingsOverride
         val panelColor = resolvedActions.subGesture.color.takeUnless { it == android.graphics.Color.TRANSPARENT }
             ?: sideGestureState.button?.color
             ?: android.graphics.Color.TRANSPARENT
@@ -189,7 +183,6 @@ fun SideGestureContainer(
             direction = resolvedActions.direction,
             touchPosition = touchPosition,
             sourceButton = sideGestureState.button,
-            sourceOverride = sourceOverride,
             decision = resolvedActions.decision,
             panelStyle = actionPanelStyle,
             panelColor = panelColor,
@@ -299,8 +292,6 @@ fun SideGestureContainer(
             if (actionPanelState.visible) {
                 val touchPosition = actionPanelState.finger
                 val hitAction = actionPanelState.done()
-                val sourceOverride = actionPanelSourceOverride
-                actionPanelSourceOverride = null
                 val panelSourceButton = actionPanelSourceButton
                 actionPanelSourceButton = null
                 onActionPanelOverlayChanged(false)
@@ -315,7 +306,7 @@ fun SideGestureContainer(
                             // 一律交给全屏音量窗（它自己拖一次就关）。
                             "internal.volumeScrub" ->
                                 curOnVolumeScrubOverlayRequested(hitAction.volumeScrubConfigOrDefault())
-                            else -> handleResolvedAction(hitAction, panelSourceButton, touchPosition, sourceOverride)
+                            else -> handleResolvedAction(hitAction, panelSourceButton, touchPosition)
                         }
                     }
                     if (fromSubGesturePanel) {
@@ -362,7 +353,6 @@ fun SideGestureContainer(
             if (actionPanelState.visible) {
                 actionPanelState.onDragCancel()
                 onActionPanelOverlayChanged(false)
-                actionPanelSourceOverride = null
                 actionPanelSourceButton = null
                 if (subGestureState.subGestureDepth > 0) subGestureState.clear(notifyService = true)
             }

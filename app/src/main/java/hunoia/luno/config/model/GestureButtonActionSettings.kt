@@ -11,42 +11,32 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
+/**
+ * 小窗位置与大小，以屏幕比例表示（0..1 屏宽/屏高，与触钮 bounds 同坐标系）。
+ * x/y 为左上角偏移；width/height 为相对屏幕的尺寸比例。
+ */
 @Serializable
 @Keep
 data class MiniWindowSettings(
-    val horizontalBias: Float = AdvancedSettingsDefaults.MiniWindowHorizontalBias,
-    val verticalBias: Float = AdvancedSettingsDefaults.MiniWindowVerticalBias,
-    val widthFraction: Float = AdvancedSettingsDefaults.MiniWindowWidthFraction,
-    val heightFraction: Float = AdvancedSettingsDefaults.MiniWindowHeightFraction,
-    val overrideBounds: Boolean = AdvancedSettingsDefaults.MiniWindowOverrideBounds,
-)
-
-@Serializable
-@Keep
-data class GestureButtonActionSettingsOverride(
-    val miniWindow: MiniWindowSettings? = null,
+    val x: Float = AdvancedSettingsDefaults.MiniWindowX,
+    val y: Float = AdvancedSettingsDefaults.MiniWindowY,
+    val width: Float = AdvancedSettingsDefaults.MiniWindowWidth,
+    val height: Float = AdvancedSettingsDefaults.MiniWindowHeight,
 )
 
 fun AdvancedSettings.miniWindowSettings(): MiniWindowSettings = MiniWindowSettings(
-    horizontalBias = miniWindowHorizontalBias,
-    verticalBias = miniWindowVerticalBias,
-    widthFraction = miniWindowWidthFraction,
-    heightFraction = miniWindowHeightFraction,
-    overrideBounds = miniWindowOverrideBounds,
+    x = miniWindowX,
+    y = miniWindowY,
+    width = miniWindowWidth,
+    height = miniWindowHeight,
 )
 
 fun AdvancedSettings.withMiniWindowSettings(settings: MiniWindowSettings): AdvancedSettings = copy(
-    miniWindowHorizontalBias = settings.horizontalBias,
-    miniWindowVerticalBias = settings.verticalBias,
-    miniWindowWidthFraction = settings.widthFraction,
-    miniWindowHeightFraction = settings.heightFraction,
-    miniWindowOverrideBounds = settings.overrideBounds,
+    miniWindowX = settings.x,
+    miniWindowY = settings.y,
+    miniWindowWidth = settings.width,
+    miniWindowHeight = settings.height,
 )
-
-fun AdvancedSettings.effectiveFor(override: GestureButtonActionSettingsOverride?): AdvancedSettings {
-    val miniWindow = override?.miniWindow ?: return this
-    return withMiniWindowSettings(miniWindow)
-}
 
 fun AdvancedSettings.effectiveForAction(action: Action): AdvancedSettings {
     val miniWindow = when (action) {
@@ -60,27 +50,23 @@ fun AdvancedSettings.effectiveForAction(action: Action): AdvancedSettings {
 }
 
 fun MiniWindowSettings.toJsonObject(): JsonObject = buildJsonObject {
-    put("horizontalBias", horizontalBias.toString())
-    put("verticalBias", verticalBias.toString())
-    put("widthFraction", widthFraction.toString())
-    put("heightFraction", heightFraction.toString())
-    put("overrideBounds", overrideBounds.toString())
+    put("x", x.toString())
+    put("y", y.toString())
+    put("width", width.toString())
+    put("height", height.toString())
 }
 
 fun JsonElement?.toMiniWindowSettings(): MiniWindowSettings? {
     val o = this as? JsonObject ?: return null
     val base = MiniWindowSettings()
+    // 旧字段（horizontalBias 等）在读取时忽略，缺失的新字段用默认值（等同丢弃旧 override）。
     return MiniWindowSettings(
-        horizontalBias = o.floatOf("horizontalBias") ?: base.horizontalBias,
-        verticalBias = o.floatOf("verticalBias") ?: base.verticalBias,
-        widthFraction = o.floatOf("widthFraction") ?: base.widthFraction,
-        heightFraction = o.floatOf("heightFraction") ?: base.heightFraction,
-        overrideBounds = o.boolOf("overrideBounds") ?: base.overrideBounds,
+        x = o.floatOf("x") ?: base.x,
+        y = o.floatOf("y") ?: base.y,
+        width = o.floatOf("width") ?: base.width,
+        height = o.floatOf("height") ?: base.height,
     )
 }
 
 private fun JsonObject.floatOf(key: String): Float? =
     this[key]?.jsonPrimitive?.contentOrNull?.toFloatOrNull()
-
-private fun JsonObject.boolOf(key: String): Boolean? =
-    this[key]?.jsonPrimitive?.contentOrNull?.toBoolean()

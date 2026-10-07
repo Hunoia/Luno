@@ -5,7 +5,6 @@ import android.view.View
 import android.view.WindowManager
 import androidx.compose.ui.geometry.Offset
 import hunoia.luno.config.model.GestureButton
-import hunoia.luno.config.model.GestureButtonActionSettingsOverride
 
 /**
  * 一个手势按钮窗口的标识。
@@ -40,7 +39,6 @@ interface GestureOverlayCallbacks {
     fun onAction(
         action: hunoia.luno.action.model.StoredAction,
         sourceButton: GestureButton?,
-        sourceOverride: GestureButtonActionSettingsOverride?,
         touchPosition: androidx.compose.ui.geometry.Offset,
         /** 触发这次动作的识别结果；面板点选等非直接触发为 null。 */
         decision: hunoia.luno.gesture.GestureDecision.Trigger?,

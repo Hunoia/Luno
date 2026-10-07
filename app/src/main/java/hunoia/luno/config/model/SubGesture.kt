@@ -23,7 +23,6 @@ data class SubGesture(
     val longSlideVibrate: Boolean = true,
     val slideHoldVibrate: Boolean = true,
     val longSlideHoldVibrate: Boolean = true,
-    val actionSettingsOverride: GestureButtonActionSettingsOverride = GestureButtonActionSettingsOverride(),
     val timeoutMs: Long = SubGestureTimeoutMs,
     val triggerDistance: Int = DensityProvider.dp2px(30f),
     val longSlideTriggerDistance: Int = DensityProvider.dp2px(96f),

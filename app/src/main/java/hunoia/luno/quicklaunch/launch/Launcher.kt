@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Point
 import android.graphics.Rect
+import android.os.Build
 import android.util.Log
 import android.view.WindowManager
 import hunoia.luno.R
@@ -17,6 +18,7 @@ import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.bridge.system.buildViewIntent
 import hunoia.luno.bridge.system.hasViewActivity
 import hunoia.luno.bridge.system.normalizeOpenAppOrUrl
+import java.util.Locale
 import kotlin.math.roundToInt
 
 object Launcher {
@@ -193,6 +195,15 @@ private object MiniWindow {
         }
     }
 
+    /**
+     * MIUI13+/澎湃 对 freeform 小窗在合成层按 freeformScale(默认 0.7)缩小显示，
+     * 但 WindowManager 帧仍是请求的 bounds。因此要让实际可见窗口等于设定尺寸，
+     * 必须把 bounds 宽度/高度乘以 1/0.7≈1.42 抵消（与 GestureEvo 的 MIUI 补偿一致）。
+     */
+    private val miuiFreeformCompensation: Float by lazy {
+        if (isMiui13Plus()) 1.42f else 1f
+    }
+
     private fun makeActivityOptions(
         settings: MiniWindowSettings,
         realSw: Int,
@@ -201,22 +212,31 @@ private object MiniWindow {
         runCatching {
             opts.javaClass.getMethod("setLaunchWindowingMode", Int::class.javaPrimitiveType).invoke(opts, 5)
         }
-        val winW: Int
-        val winH: Int
-        val left: Int
-        val top: Int
-        if (settings.overrideBounds) {
-            winW = (realSw * settings.widthFraction.coerceIn(0.2f, 1.5f)).roundToInt()
-            winH = (realSh * settings.heightFraction.coerceIn(0.2f, 1.5f)).roundToInt()
-            left = ((realSw - winW) / 2f + realSw * settings.horizontalBias.coerceIn(-1f, 1f)).roundToInt()
-            top = ((realSh - winH) / 2f + realSh * settings.verticalBias.coerceIn(-1f, 1f)).roundToInt()
-        } else {
-            val scaledW = (realSw * 0.7f).roundToInt()
-            winW = realSw
-            winH = (realSw / 0.625f).roundToInt()
-            left = ((realSw - scaledW) / 2f).roundToInt()
-            top = ((realSh - winH) / 2f).roundToInt()
-        }
+        val comp = miuiFreeformCompensation
+        val left = (realSw * settings.x.coerceIn(0f, 1f)).roundToInt()
+        val top = (realSh * settings.y.coerceIn(0f, 1f)).roundToInt()
+        val winW = (realSw * settings.width.coerceIn(0.2f, 1.5f) * comp).roundToInt()
+        val winH = (realSh * settings.height.coerceIn(0.2f, 1.5f) * comp).roundToInt()
         opts.setLaunchBounds(Rect(left, top, left + winW, top + winH))
     }
+
+    private fun isMiui13Plus(): Boolean {
+        val manufacturer = Build.MANUFACTURER.lowercase(Locale.ROOT)
+        val isXiaomi = manufacturer.contains("xiaomi") ||
+            manufacturer.contains("redmi") ||
+            manufacturer.contains("poco")
+        if (!isXiaomi) return false
+        val code = systemProperty("ro.miui.ui.version.code")?.toIntOrNull()
+            ?: systemProperty("ro.miui.ui.version.name")
+                ?.filter { it.isDigit() }
+                ?.toIntOrNull()
+            ?: return false
+        return code >= 13
+    }
+
+    private fun systemProperty(key: String): String? = runCatching {
+        val clazz = Class.forName("android.os.SystemProperties")
+        val get = clazz.getMethod("get", String::class.java)
+        get.invoke(null, key) as? String
+    }.getOrNull()?.takeIf { it.isNotEmpty() }
 }

@@ -2,8 +2,11 @@ package hunoia.luno.service
 
 import android.app.Service
 import android.content.Intent
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import hunoia.luno.action.model.StoredAction
+import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.core.JsonSerializer
 
 /**
@@ -28,6 +31,21 @@ class DispatchService : Service() {
 
         override fun isReady(): Boolean =
             SideGestureService.current?.isDispatchReady() == true
+
+        override fun showMiniWindowAdjust(initialJson: String, cb: IMiniWindowAdjustCallback) {
+            val svc = SideGestureService.current ?: return
+            val initial = runCatching {
+                JsonSerializer.decodeFromString<MiniWindowSettings>(initialJson)
+            }.getOrNull() ?: return
+            // oneway 回调跑在 Binder 线程，ComposeView 需主线程 Looper，必须投递回服务主线程。
+            Handler(Looper.getMainLooper()).post {
+                svc.miniWindowAdjustOverlay.show(
+                    initial = initial,
+                    commit = { s -> runCatching { cb.onCommit(JsonSerializer.encodeToString(s)) } },
+                    onDismiss = { runCatching { cb.onDismiss() } },
+                )
+            }
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder = binder

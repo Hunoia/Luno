@@ -50,8 +50,8 @@ fun GestureOverlayView(
                     onVolumeScrubOverlayRequested = { config ->
                         callbacks.onVolumeScrubOverlayRequested(config)
                     },
-                    onAction = { action, sourceButton, sourceOverride, touchPosition, decision ->
-                        callbacks.onAction(action, sourceButton, sourceOverride, touchPosition, decision)
+                    onAction = { action, sourceButton, touchPosition, decision ->
+                        callbacks.onAction(action, sourceButton, touchPosition, decision)
                     },
                     advancedSettings = state.advancedSettings,
                     gestureSettings = state.gestureSettings,

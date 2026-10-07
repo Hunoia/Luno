@@ -265,6 +265,10 @@
     <string name="vertical_offset">垂直偏移</string>
     <string name="height">高度</string>
     <string name="tap_mini_window">短按小窗</string>
+    <string name="mini_window_position">位置</string>
+    <string name="mini_window_default">默认</string>
+    <string name="mini_window_done">完成</string>
+    <string name="mini_window_adjust_hint">横 %1$d%% · 纵 %2$d%% · 宽 %3$d%% · 高 %4$d%%</string>
 
     <!-- Gesture settings groups -->
     <string name="physical_params">物理参数</string>
