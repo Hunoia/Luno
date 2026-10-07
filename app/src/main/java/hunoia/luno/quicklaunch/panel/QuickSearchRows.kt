@@ -26,8 +26,11 @@ import hunoia.luno.quicklaunch.icon.SearchIconCache
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color as ComposeColor
@@ -36,6 +39,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.quicklaunch.query.QuickSearchResult
@@ -138,14 +142,33 @@ internal fun ResultRow(
     val colorScheme = MaterialTheme.colorScheme
     // 与 flow 预热同源的边长：读缓存必须同 key（包名@边长），否则命中不了。
     val sizePx = with(LocalDensity.current) { 24.dp.toPx().toInt() }
-    val subtitle = if (result is QuickSearchResult.App && result.isDisabled) {
-        result.subtitle + " · " + stringResource(R.string.quick_search_app_disabled)
-    } else {
-        result.subtitle
-    }
+    // 已停用标记：从包名行挪到标题行。标题占权重 1f 承担省略号，后缀固定不压缩；
+    // 后缀字号比标题小（bodySmall，同原副标题），颜色沿用原副标题色（onSurfaceVariant）。
+    val disabledApp = result is QuickSearchResult.App && result.isDisabled
     LunoSelectableRow(
         title = result.title,
-        subtitle = subtitle,
+        subtitle = result.subtitle,
+        headline = if (disabledApp) {
+            {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        modifier = Modifier.weight(1f),
+                        text = result.title,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = " " + stringResource(R.string.quick_search_app_disabled),
+                        maxLines = 1,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        } else {
+            null
+        },
         selected = false,
         onSelectedChange = { onClick() },
         shape = shape,        iconModel = iconModel(result, context),
