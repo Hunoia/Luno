@@ -30,7 +30,7 @@ fun ActionItem(
         icon = icon as? ImageVector,
         textIcon = icon as? TextIcon,
         iconModel = icon?.takeIf { it !is ImageVector && it !is TextIcon },
-        showCheckbox = !selectSingle,
+        singleSelect = selectSingle,
         marquee = true,
         shape = shape,
     )

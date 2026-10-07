@@ -28,15 +28,39 @@ private val GroupSubtitlePadding =
     PaddingValues(start = PageGutter, end = PageGutter, bottom = CardInnerSpacing)
 
 /**
- * 分组内第 index 项的圆角（[count] 项）。
+ * 分组内第 index 项的圆角（[count] 项）：只有组首/组尾两角走 [ContainerRadius]，中间走 [ConnectionRadius]。
  *
- * 现状这个函数被界面手工调用 60 次，还有 2 处直接抄数字、1 处漏掉 —— 圆角因此到处不一致。
- * 现在由 [LunoGroup] 自动分配，界面不应再手工传 shape。
+ * **由调用方传入行组件的 `shape`**，[LunoGroup] 不会自动分配 —— 它的 `content` 是裸
+ * `ColumnScope` 插槽，拿不到子项数量与下标，且子项常是卡/编辑器/`AnimatedVisibility` 而非同质行。
+ * 行列表记得用 `forEachIndexed` 配 `segmentedShape(index, count)`。
  */
 fun segmentedShape(index: Int, count: Int): RoundedCornerShape {
     val isSingle = count <= 1
     val top = if (isSingle || index == 0) ContainerRadius else ConnectionRadius
     val bottom = if (isSingle || index == count - 1) ContainerRadius else ConnectionRadius
+    return RoundedCornerShape(
+        topStart = top,
+        topEnd = top,
+        bottomStart = bottom,
+        bottomEnd = bottom,
+    )
+}
+
+/**
+ * 可选中列表里第 index 项的圆角：按**选中段**而不是位置切角。
+ *
+ * `flags[i]` 为该行是否选中。相邻同状态的行连成一段，段内边用 [ConnectionRadius] 缝合，
+ * 段的两个外边用 [ContainerRadius]。这样非连续选中（如第 1、3 项选中、第 2 项未选）时，
+ * 选中底色不会以方角渗进未选邻居。
+ *
+ * `flags` 为 null 时退化为 [segmentedShape]（导航列表用不到，保留给调用方图省事）。
+ */
+fun selectedSegmentedShape(index: Int, count: Int, flags: List<Boolean>?): RoundedCornerShape {
+    if (flags == null) return segmentedShape(index, count)
+    fun sameAsNeighbor(neighbor: Int): Boolean =
+        neighbor in 0 until count && flags.getOrElse(neighbor) { false } == flags.getOrElse(index) { false }
+    val top = if (index == 0 || !sameAsNeighbor(index - 1)) ContainerRadius else ConnectionRadius
+    val bottom = if (index == count - 1 || !sameAsNeighbor(index + 1)) ContainerRadius else ConnectionRadius
     return RoundedCornerShape(
         topStart = top,
         topEnd = top,

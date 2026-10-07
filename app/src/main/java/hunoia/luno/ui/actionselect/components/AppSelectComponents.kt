@@ -39,7 +39,7 @@ internal fun AppItem(
         enabled = enabled,
         iconModel = appInfo.icon,
         subtitle = appInfo.packageName,
-        showCheckbox = !selectSingle,
+        singleSelect = selectSingle,
         onLongClick = onLongClick,
         shape = shape,
         headline = {

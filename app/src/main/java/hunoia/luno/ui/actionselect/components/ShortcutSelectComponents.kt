@@ -16,6 +16,7 @@ import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.ui.theme.SegmentedGap
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.segmentedShape
+import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.row.LunoSettingsRow
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,6 +34,8 @@ internal fun LauncherInfoItem(
     val launcherEnabled = canLauncherInfoEnabled(launcherInfo)
     val total = 1 + launcherInfo.shortcuts.size
     val interactionSource = remember { MutableInteractionSource() }
+    // launcher 行恒未选，占 flags[0]；否则 shortcut 的 index+1 会与 flags 对位错一行。
+    val flags = listOf(false) + launcherInfo.shortcuts.map { isShortcutInfoSelected(it) }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(SegmentedGap)) {
         LunoSettingsRow(
             title = launcherInfo.label,
@@ -50,8 +53,8 @@ internal fun LauncherInfoItem(
                     onSelectedChange = { onSelect(shortcutInfo, it) },
                     enabled = canShortcutInfoEnabled(shortcutInfo),
                     iconModel = shortcutInfo.icon,
-                    showCheckbox = !selectSingle,
-                    shape = segmentedShape(index + 1, total),
+                    singleSelect = selectSingle,
+                    shape = selectedSegmentedShape(index + 1, total, flags),
                 )
             }
         }

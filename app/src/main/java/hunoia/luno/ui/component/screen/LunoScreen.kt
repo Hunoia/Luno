@@ -100,8 +100,8 @@ fun LunoScreen(
  * 用于内容本身就是滚动容器、且内部还有 `weight(1f)` 嵌套列表的页面（动作选择页）——
  * [LunoScreen] / [LunoScreenLazy] 的内容容器都带滚动或撑不满，不能套在它们外面。
  *
- * 模板仍然负责 Scaffold / TopBar / haze 状态 / `nestedScroll`，并把 top padding 作为参数交给
- * 调用方，由它决定给列表 `contentPadding` 还是自己留白。
+ * 模板仍然负责 Scaffold / TopBar / haze 状态 / `nestedScroll`，并把 top padding 与 [HazeState]
+ * 作为参数交给调用方，由它决定给列表 `contentPadding` 还是自己留白、以及给 in-flow 底栏做 Haze 底。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -115,7 +115,7 @@ fun LunoScreenPlain(
     floatingContent: (@Composable () -> Unit)? = null,
     dialogs: @Composable () -> Unit = {},
     sheets: @Composable () -> Unit = {},
-    content: @Composable (topPadding: Dp) -> Unit,
+    content: @Composable (topPadding: Dp, hazeState: HazeState) -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val hazeState = rememberAppHazeState()
@@ -142,7 +142,7 @@ fun LunoScreenPlain(
                     .appHazeSource(hazeState)
                     .nestedScroll(scrollBehavior.nestedScrollConnection),
             ) {
-                content(padding.calculateTopPadding())
+                content(padding.calculateTopPadding(), hazeState)
             }
         }
         floatingContent?.invoke()

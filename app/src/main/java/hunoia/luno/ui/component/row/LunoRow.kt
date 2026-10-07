@@ -11,12 +11,10 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -51,7 +49,6 @@ import hunoia.luno.ui.theme.DisabledAlpha
 import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SmallShape
-import hunoia.luno.ui.theme.TrailingPadding
 
 /**
  * 列表行的唯一实现（见 docs/ui-spec.md §4）。
@@ -84,6 +81,7 @@ internal fun LunoRowBase(
     onLongClick: (() -> Unit)? = null,
     onSelectedChange: ((Boolean) -> Unit)? = null,
     selected: Boolean = false,
+    selectionRole: Role = Role.Checkbox,
     containerColor: Color? = null,
     selectedContainerColor: Color? = null,
 ) {
@@ -120,7 +118,7 @@ internal fun LunoRowBase(
             interactionSource = interactionSource,
             indication = null,
             enabled = enabled,
-            role = Role.Checkbox,
+            role = selectionRole,
             onClick = { onSelectedChange(!selected) },
         )
         else -> Modifier
@@ -261,27 +259,14 @@ fun LunoSelectableRow(
     textIcon: hunoia.luno.ui.component.TextIcon? = null,
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
-    showCheckbox: Boolean = false,
     onLongClick: (() -> Unit)? = null,
     shape: Shape = RoundedCornerShape(ContainerRadius),
     enabled: Boolean = true,
+    /** true=单选（语义 role 用 RadioButton），false=多选（Checkbox）。 */
+    singleSelect: Boolean = false,
     containerColor: Color? = null,
     selectedContainerColor: Color? = null,
 ) {
-    val checkbox: (@Composable () -> Unit)? = if (showCheckbox) {
-        {
-            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-                Checkbox(
-                    modifier = Modifier.padding(end = TrailingPadding),
-                    enabled = enabled,
-                    checked = selected,
-                    onCheckedChange = onSelectedChange,
-                )
-            }
-        }
-    } else {
-        null
-    }
     LunoRowBase(
         title = title,
         modifier = modifier,
@@ -296,11 +281,12 @@ fun LunoSelectableRow(
         iconModel = iconModel,
         textIcon = textIcon,
         leading = leading,
-        trailing = trailing ?: checkbox,
+        trailing = trailing,
         onClick = onLongClick?.let { { onSelectedChange(!selected) } },
         onLongClick = onLongClick,
         onSelectedChange = onSelectedChange,
         selected = selected,
+        selectionRole = if (singleSelect) Role.RadioButton else Role.Checkbox,
         containerColor = containerColor,
         selectedContainerColor = selectedContainerColor,
     )

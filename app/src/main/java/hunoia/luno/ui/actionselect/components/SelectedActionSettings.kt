@@ -66,7 +66,6 @@ fun SelectedActionSettings(
     reorderMode: Boolean,
     onReorderModeToggle: () -> Unit,
     onSetLongPress: (Int) -> Unit,
-    onCancelLongPress: () -> Unit,
     /** 自动化规则里变体会在保存时被剥掉、且执行层也不认，所以入口整体关掉。 */
     longPressVariantEnabled: Boolean = true,
     onMoveSelected: (Int, Int) -> Unit,
@@ -86,11 +85,12 @@ fun SelectedActionSettings(
             .padding(bottom = CardInnerSpacing)
             .animateContentSize(animationSpec = tween(AnimNormal.toInt())),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = PageGutter),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (longPressTargetIndex == null) {
+        // 长按模式不渲染工具行：提示与取消已在底栏，避免重复。
+        if (longPressTargetIndex == null) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = PageGutter),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 if (reorderMode) {
                     Text(
                         text = stringResource(R.string.reorder),
@@ -114,16 +114,6 @@ fun SelectedActionSettings(
                         if (reorderMode) stringResource(R.string.done_reorder)
                         else stringResource(R.string.reorder)
                     )
-                }
-            } else {
-                Text(
-                    text = stringResource(R.string.choose_long_press_action_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(onClick = onCancelLongPress) {
-                    Text(stringResource(R.string.cancel))
                 }
             }
         }

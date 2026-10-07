@@ -47,7 +47,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import hunoia.luno.ui.component.row.LunoSelectableRow
-import hunoia.luno.ui.component.row.segmentedShape
+import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.component.feedback.LunoIconButton
 @OptIn(ExperimentalMaterial3Api::class)
@@ -152,6 +152,7 @@ fun AppPickerSheet(
                 if (loading) {
                     LoadingState(message = stringResource(R.string.loading))
                 } else {
+                    val selectionFlags = filteredApps.map { it.packageName in selected }
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -176,8 +177,7 @@ fun AppPickerSheet(
                                             selected - item.packageName
                                         }
                                     },
-                                    showCheckbox = true,
-                                    shape = segmentedShape(index, filteredApps.size),
+                                    shape = selectedSegmentedShape(index, filteredApps.size, selectionFlags),
                                 )
                             }
                         }

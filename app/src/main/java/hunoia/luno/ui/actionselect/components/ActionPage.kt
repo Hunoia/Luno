@@ -22,8 +22,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
@@ -42,7 +40,7 @@ import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.displayNameRes
 import hunoia.luno.ui.theme.*
 import hunoia.luno.ui.theme.ListItemVerticalPadding
-import hunoia.luno.ui.component.row.segmentedShape
+import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.SheetGroupHeader
 import hunoia.luno.ui.theme.CardInnerSpacing
 private const val TYPE_ACTION_LIBRARY = "action_library"
@@ -62,7 +60,6 @@ internal fun ActionPage(
     onAppLongClick: (AppInfo) -> Unit,
     onShortcutClick: (LauncherInfo) -> Unit = {},
     modifier: Modifier = Modifier,
-    nestedScroll: NestedScrollConnection? = null,
     subGestures: List<SubGesture> = emptyList(),
     actions: List<StoredAction>,
     actionLibraryEntries: List<NewActionLibraryEntry> = emptyList(),
@@ -76,7 +73,7 @@ internal fun ActionPage(
     maxSelectCount: Int = MAX_SELECT_COUNT
 ) {
     var query by rememberSaveable { mutableStateOf("") }
-    var selectedType by remember { mutableStateOf<String?>(null) }
+    var selectedType by rememberSaveable { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val selectingLongPress = longPressTargetIndex != null
     val selectSingleMode = selectingLongPress || maxSelectCount <= 1
@@ -144,9 +141,10 @@ internal fun ActionPage(
             }
         } else emptyList()
     }
+    val librarySelectionFlags = filteredLibraryEntries.map { selectedRecord.isSelected(it.toStoredAction()) }
+    val appSelectionFlags = filteredApps.map { selectedRecord.isSelected(it) }
     LazyColumn(
-        modifier = (nestedScroll?.let { modifier.nestedScroll(it) } ?: modifier)
-            .fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         contentPadding = contentPadding,
         verticalArrangement = Arrangement.spacedBy(SegmentedGap),
     ) {
@@ -195,6 +193,7 @@ internal fun ActionPage(
         } else {
             if (grouped.isNotEmpty()) {
                 grouped.forEach { (category, categoryActions) ->
+                    val categoryFlags = categoryActions.map { selectedRecord.isSelected(it) }
                     stickyHeader(key = "cat_${category.name}") {
                         SheetGroupHeader(stringResource(id = category.displayNameRes))
                     }
@@ -212,7 +211,7 @@ internal fun ActionPage(
                             onSelect = { selected ->
                                 if (selectingLongPress) onSelectLongPress(item) else onSelect(item, selected)
                             },
-                            shape = segmentedShape(index, categoryActions.size),
+                            shape = selectedSegmentedShape(index, categoryActions.size, categoryFlags),
                         )
                     }
                 }
@@ -233,7 +232,7 @@ internal fun ActionPage(
                         onSelect = { selected ->
                             if (selectingLongPress) onSelectLongPress(entry) else onSelectLibraryEntry(entry, selected)
                         },
-                        shape = segmentedShape(index, filteredLibraryEntries.size),
+                        shape = selectedSegmentedShape(index, filteredLibraryEntries.size, librarySelectionFlags),
                     )
                 }
             }
@@ -249,7 +248,7 @@ internal fun ActionPage(
                         },
                         onLongClick = { onAppLongClick(item) },
                         modifier = Modifier.animateItem(),
-                        shape = segmentedShape(index, filteredApps.size))
+                        shape = selectedSegmentedShape(index, filteredApps.size, appSelectionFlags))
                 }
             }
             if (filteredCreateShortcuts.isNotEmpty()) {

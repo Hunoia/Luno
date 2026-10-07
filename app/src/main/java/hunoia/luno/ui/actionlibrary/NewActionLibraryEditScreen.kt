@@ -60,6 +60,7 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
+import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.sheet.LunoSheet
@@ -405,6 +406,7 @@ private fun ActivityPickerSheet(
             if (filtered.isEmpty()) {
                 EmptyState(message = stringResource(R.string.no_matching_results))
             } else {
+                val selectionFlags = filtered.map { it.className == selectedActivity }
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -419,8 +421,8 @@ private fun ActivityPickerSheet(
                             subtitle = activity.className,
                             selected = activity.className == selectedActivity,
                             onSelectedChange = { onSelect(activity.className) },
-                            showCheckbox = true,
-                            shape = segmentedShape(index, filtered.size),
+                            singleSelect = true,
+                            shape = selectedSegmentedShape(index, filtered.size, selectionFlags),
                         )
                     }
                 }

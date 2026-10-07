@@ -10,7 +10,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,8 +44,11 @@ import hunoia.luno.config.model.effectiveEngines
 import hunoia.luno.config.model.effectiveTrigger
 import kotlinx.coroutines.launch
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.ui.component.row.segmentedShape
+import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.sheet.TextInputDialog
@@ -153,19 +155,19 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
         },
     ) {
             LunoGroup {
-                engines.forEach { engine ->
+                val engineFlags = engines.map { it.id == settings.defaultEngineId }
+                engines.forEachIndexed { index, engine ->
                     val isDefault = engine.id == settings.defaultEngineId
                     val locked = engine.id in BuiltinSearchEngineIds
-                    LunoSettingsRow(
+                    LunoSelectableRow(
                         title = engine.name,
                         subtitle = if (engine.trigger.isNotBlank()) "${engine.trigger} · ${engine.urlTemplate}" else engine.urlTemplate,
-                        onClick = { setDefault(engine.id) },
+                        selected = isDefault,
+                        onSelectedChange = { setDefault(engine.id) },
+                        singleSelect = true,
+                        shape = selectedSegmentedShape(index, engines.size, engineFlags),
                         trailing = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                RadioButton(
-                                    selected = isDefault,
-                                    onClick = { setDefault(engine.id) },
-                                )
                                 if (!locked) {
                                     LunoIconButton(
                                         icon = Icons.Default.Edit,
@@ -292,12 +294,14 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
             }
             // 无开关的来源（应用/快捷方式/动作/设置页常开）：只改标识，副标题显示当前值。
             LunoGroup {
-                for (key in listOf(SRC_APP, SRC_SHORTCUT, SRC_ACTION, SRC_SETTINGS)) {
+                val sourceKeys = listOf(SRC_APP, SRC_SHORTCUT, SRC_ACTION, SRC_SETTINGS)
+                sourceKeys.forEachIndexed { index, key ->
                     val trigger = settings.effectiveTrigger(key)
                     LunoSettingsRow(
                         title = sourceTitle(key),
                         subtitle = trigger.ifBlank { stringResource(R.string.quick_search_trigger_closed) },
                         onClick = { triggerTarget = key },
+                        shape = segmentedShape(index, sourceKeys.size),
                     )
                 }
             }

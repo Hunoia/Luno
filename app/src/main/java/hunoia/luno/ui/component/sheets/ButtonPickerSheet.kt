@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -26,9 +25,8 @@ import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SegmentedGap
 import hunoia.luno.ui.theme.SheetListMaxHeight
-import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoSelectableRow
+import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.component.sheet.SheetFooterActions
 import hunoia.luno.ui.component.sheet.SheetHeader
@@ -69,6 +67,7 @@ fun ButtonPickerSheet(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = PageGutter),
                     placeholder = stringResource(R.string.search_hint_all),
                 )
+                val selectionFlags = filtered.map { (_, b) -> b.id in selected }
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -77,27 +76,24 @@ fun ButtonPickerSheet(
                     contentPadding = PaddingValues(bottom = ContentBottom),
                     verticalArrangement = Arrangement.spacedBy(SegmentedGap),
                 ) {
-                    itemsIndexed(filtered, key = { _, (_, b) -> b.id }) { _, (index, button) ->
+                    itemsIndexed(filtered, key = { _, (_, b) -> b.id }) { position, (index, button) ->
                         val label = button.name.ifBlank {
                             stringResource(R.string.gesture_button_name, index + 1)
                         }
-                        LunoGroup {
-                            LunoSettingsRow(
-                                title = label,
-                                subtitle = button.id,
-                                onClick = {
-                                    selected = if (button.id in selected) selected - button.id
-                                    else selected + button.id
-                                },
-                                leading = {
-                                    Checkbox(
-                                        checked = button.id in selected,
-                                        onCheckedChange = null,
-                                    )
-                                },
-                                shape = segmentedShape(0, 1),
-                            )
-                        }
+                        LunoSelectableRow(
+                            title = label,
+                            subtitle = button.id,
+                            selected = button.id in selected,
+                            onSelectedChange = { checked ->
+                                selected = if (checked) selected + button.id
+                                else selected - button.id
+                            },
+                            shape = selectedSegmentedShape(
+                                position,
+                                filtered.size,
+                                selectionFlags,
+                            ),
+                        )
                     }
                 }
                 SheetFooterActions(
