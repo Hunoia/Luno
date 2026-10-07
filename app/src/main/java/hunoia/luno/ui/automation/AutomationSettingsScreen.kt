@@ -1,22 +1,31 @@
 package hunoia.luno.ui.automation
 import android.util.Log
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -28,26 +37,29 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.domain.automation.AutomationCenter
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.RulePriority
+import hunoia.luno.ui.actionlibrary.IconPalette
+import hunoia.luno.ui.actionlibrary.IconPickerSheet
+import hunoia.luno.ui.component.TextIconGlyph
+import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ElevationSmall
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LunoIconButton
+import hunoia.luno.ui.component.sheet.ConfirmDialog
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.component.row.LunoSwitchRow
-import hunoia.luno.ui.component.row.segmentedShape
 import androidx.compose.ui.res.stringResource
 
 /**
@@ -92,18 +104,18 @@ fun AutomationRulesTabContent(
         items(ordered, key = { it.id }) { rule ->
             RuleCard(
                 rule = rule,
-                lastRunText = events.lastOrNull { it.ruleId == rule.id }?.let { event ->
-                    context.getString(
-                        R.string.history_last_run,
-                        timeFormat.format(Date(event.timeMs)),
-                        historySubtitle(event),
-                    )
-                },
+                lastRunText = events.filter { it.wallTimeMs > 0L }.lastOrNull { event -> event.ruleId == rule.id }?.let { event ->
+                    timeFormat.format(Date(event.wallTimeMs))
+                } ?: context.getString(R.string.rule_never_run),
+                fireCount = events.count { event -> event.ruleId == rule.id && event.fired },
                 onEnabledChange = { enabled ->
                     submit(rules.map { if (it.id == rule.id) it.copy(enabled = enabled) else it })
                 },
                 onPriorityChange = { priority ->
                     submit(rules.map { if (it.id == rule.id) it.copy(priority = priority) else it })
+                },
+                onIconChange = { iconKey ->
+                    submit(rules.map { if (it.id == rule.id) it.copy(iconKey = iconKey) else it })
                 },
                 onEdit = { onNavToEdit(rule.id) },
                 onDelete = { submit(rules.filterNot { it.id == rule.id }) },
@@ -114,27 +126,89 @@ fun AutomationRulesTabContent(
 @Composable
 private fun RuleCard(
     rule: AutomationRule,
-    lastRunText: String?,
+    lastRunText: String,
+    fireCount: Int,
     onEnabledChange: (Boolean) -> Unit,
     onPriorityChange: (Int) -> Unit,
+    onIconChange: (String?) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val context = LocalContext.current
     var priorityExpanded by remember { mutableStateOf(false) }
-    val subtitle = "${conditionSummary(context, rule.condition)} · ${rule.effect.effectiveSteps().size}步" +
-        (lastRunText?.let { " · $it" } ?: "")
-    LunoGroup {
-        LunoSwitchRow(
-            title = rule.name.ifBlank { conditionSummary(context, rule.condition) },
-            subtitle = subtitle,
-            checked = rule.enabled,
-            onCheckedChange = onEnabledChange,
-            shape = segmentedShape(0, 2),
-        )
-        LunoSettingsRow(
-            title = "",
-            leading = {
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showIconPicker by remember { mutableStateOf(false) }
+    Card(
+        onClick = onEdit,
+        modifier = Modifier.fillMaxWidth(),
+        shape = LargeShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceBright,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(PageGutter),
+            verticalArrangement = Arrangement.spacedBy(ListSpacing),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+            ) {
+                // M3e 风格：40dp 圆角底色容器 + 24dp 图标（与动作库图标同尺寸）。
+                val iconMod = Modifier
+                    .size(40.dp)
+                    .background(MaterialTheme.colorScheme.primaryContainer, LargeShape)
+                    .clickable(
+                        indication = null,
+                        interactionSource = null,
+                        onClick = { showIconPicker = true },
+                    )
+                val paletteVector = IconPalette.byKey(rule.iconKey)
+                Box(modifier = iconMod, contentAlignment = Alignment.Center) {
+                    if (paletteVector != null) {
+                        Icon(
+                            imageVector = paletteVector,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(RowIconSize),
+                        )
+                    } else if (!rule.iconKey.isNullOrBlank()) {
+                        TextIconGlyph(
+                            text = rule.iconKey,
+                            size = RowIconSize,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.AccountTree,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(RowIconSize),
+                        )
+                    }
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = rule.name.ifBlank { conditionSummary(context, rule.condition) },
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = lastRunText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = rule.enabled,
+                    onCheckedChange = onEnabledChange,
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
                 Box {
                     TextButton(onClick = { priorityExpanded = !priorityExpanded }) {
                         Text(stringResource(priorityLabel(rule.priority)))
@@ -170,25 +244,42 @@ private fun RuleCard(
                         }
                     }
                 }
+                Text(
+                    text = stringResource(R.string.rule_fire_count, fireCount),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+                LunoIconButton(
+                    icon = Icons.Default.Delete,
+                    contentDescription = stringResource(R.string.delete),
+                    onClick = { showDeleteDialog = true },
+                )
+            }
+        }
+    }
+    if (showIconPicker) {
+        IconPickerSheet(
+            onDismissRequest = { showIconPicker = false },
+            onPick = { iconKey ->
+                onIconChange(iconKey)
+                showIconPicker = false
             },
-            trailing = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    LunoIconButton(
-                        icon = Icons.Default.Edit,
-                        contentDescription = stringResource(R.string.rule_edit),
-                        onClick = onEdit,
-                    )
-                    LunoIconButton(
-                        icon = Icons.Default.Delete,
-                        contentDescription = stringResource(R.string.delete),
-                        onClick = onDelete,
-                    )
-                }
+            currentKey = rule.iconKey,
+            defaultIcon = Icons.Filled.AccountTree,
+        )
+    }
+    if (showDeleteDialog) {
+        ConfirmDialog(
+            title = stringResource(R.string.automation_delete_title),
+            text = rule.name.ifBlank { conditionSummary(context, rule.condition) },
+            destructive = true,
+            confirmLabel = stringResource(R.string.delete),
+            onDismissRequest = { showDeleteDialog = false },
+            onConfirm = {
+                showDeleteDialog = false
+                onDelete()
             },
-            shape = segmentedShape(1, 2),
         )
     }
 }

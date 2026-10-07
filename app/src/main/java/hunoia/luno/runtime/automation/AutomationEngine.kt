@@ -91,7 +91,7 @@ class AutomationEngine(
             if (rule.id == winner.id) continue
             onEvent(
                 AutomationEvent(
-                    ruleId = rule.id, ruleName = rule.name, timeMs = ctx.nowMs,
+                    ruleId = rule.id, ruleName = rule.name, timeMs = ctx.nowMs, wallTimeMs = System.currentTimeMillis(),
                     fired = false, reason = SkipReason.OUTPRIORITIZED.code,
                 )
             )
@@ -100,7 +100,7 @@ class AutomationEngine(
         if (steps.isEmpty()) {
             onEvent(
                 AutomationEvent(
-                    ruleId = winner.id, ruleName = winner.name, timeMs = ctx.nowMs,
+                    ruleId = winner.id, ruleName = winner.name, timeMs = ctx.nowMs, wallTimeMs = System.currentTimeMillis(),
                     fired = false, reason = SkipReason.NO_STEPS.code,
                 )
             )
@@ -112,7 +112,7 @@ class AutomationEngine(
         if (blockReason != null) {
             onEvent(
                 AutomationEvent(
-                    ruleId = winner.id, ruleName = winner.name, timeMs = ctx.nowMs,
+                    ruleId = winner.id, ruleName = winner.name, timeMs = ctx.nowMs, wallTimeMs = System.currentTimeMillis(),
                     fired = false, reason = blockReason.code,
                 )
             )

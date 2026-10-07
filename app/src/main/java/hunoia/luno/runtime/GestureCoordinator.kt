@@ -184,7 +184,7 @@ class GestureCoordinator(
                         AutomationEvent(
                             ruleId = rule.id,
                             ruleName = rule.name,
-                            timeMs = ctx.nowMs,
+                            timeMs = ctx.nowMs, wallTimeMs = System.currentTimeMillis(),
                             fired = false,
                             reason = SkipReason.RULE_BUSY.code,
                         )
@@ -201,7 +201,7 @@ class GestureCoordinator(
                             AutomationEvent(
                                 ruleId = rule.id,
                                 ruleName = rule.name,
-                                timeMs = ctx.nowMs,
+                                timeMs = ctx.nowMs, wallTimeMs = System.currentTimeMillis(),
                                 fired = true,
                                 reason = reason,
                                 steps = records,

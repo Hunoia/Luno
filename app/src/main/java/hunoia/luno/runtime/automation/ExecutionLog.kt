@@ -39,6 +39,8 @@ data class AutomationEvent(
     val ruleId: String,
     val ruleName: String = "",
     val timeMs: Long = 0L,
+    /** 墙钟落盘时间（展示用）。timeMs 是开机时长，只给节流/边沿用；老事件缺该键按 0 解码，展示层丢弃。 */
+    val wallTimeMs: Long = 0L,
     val fired: Boolean,
     /** fired=false 时为跳过原因；true 时为 ok / interrupted:<首个失败步骤>。 */
     val reason: String = "",

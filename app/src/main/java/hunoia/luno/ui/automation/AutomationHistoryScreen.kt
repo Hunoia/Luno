@@ -27,7 +27,8 @@ fun AutomationHistoryScreen(
     val context = LocalContext.current
     val timeFormat = remember { SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault()) }
     val ruleEvents = remember(events, ruleId) {
-        events.filter { it.ruleId == ruleId }
+        // 无墙钟的老事件直接丢弃（timeMs 是开机时长，格式化出来是错的）。
+        events.filter { it.ruleId == ruleId && it.wallTimeMs > 0L }
             .takeLast(AutomationCenter.maxEventsPerRuleQuery)
             .reversed()
     }
@@ -40,7 +41,7 @@ fun AutomationHistoryScreen(
                 EmptyState(message = context.getString(R.string.automation_history_empty))
             }
             ruleEvents.forEach { event ->
-                val time = timeFormat.format(Date(event.timeMs))
+                val time = timeFormat.format(Date(event.wallTimeMs))
                 LunoGroup {
                     LunoSettingsRow(
                         title = time,

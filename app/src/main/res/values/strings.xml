@@ -303,7 +303,7 @@
     <string name="toast_shizuku_required">需要 Shizuku 权限</string>
 
     <!-- 自动化规则 -->
-    <string name="automation_settings">自动化规则</string>
+    <string name="automation_settings">规则</string>
     <string name="automation_home">自动化规则</string>
     <string name="automation_new">新建规则</string>
     <string name="automation_empty">暂无自动化规则</string>
@@ -410,7 +410,9 @@
     <string name="history_outprioritized">被更高优先级规则取代，跳过</string>
     <string name="history_rule_busy">规则运行中，跳过</string>
     <string name="history_interrupted">中断于步骤 %1$s</string>
-    <string name="history_last_run">上次 %1$s · %2$s</string>
+    <string name="rule_never_run">从未触发</string>
+    <string name="rule_fire_count">累计触发%1$d次</string>
+    <string name="automation_delete_title">删除规则</string>
     <string name="notify_permission_title">通知访问权限</string>
     <string name="notify_permission_granted">已授予，可监听通知到达</string>
     <string name="notify_permission_missing">未授予，通知条件不会触发</string>

@@ -271,6 +271,8 @@ data class AutomationRule(
     val id: String,
     val enabled: Boolean = true,
     val name: String = "",
+    /** 规则图标（IconPalette key，可为自定义文字；null=默认图标，老数据缺键解码无碍）。 */
+    val iconKey: String? = null,
     val condition: WhenGroup,
     val effect: RuleEffect,
     /** 老字段：只做迁移源，新寫入走 throttle（见 effectiveThrottle）。 */

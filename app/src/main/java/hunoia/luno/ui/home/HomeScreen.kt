@@ -70,7 +70,7 @@ import hunoia.luno.ui.component.screen.HomeShell
 enum class MainTab(val label: String, val icon: ImageVector) {
     Home("主页", Icons.TwoTone.Home),
     ActionLibrary("动作库", Icons.AutoMirrored.TwoTone.LibraryBooks),
-    Automation("自动化", Icons.Filled.AccountTree),
+    Automation("规则", Icons.Filled.AccountTree),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
