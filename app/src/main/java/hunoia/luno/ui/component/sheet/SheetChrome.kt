@@ -1,10 +1,13 @@
 package hunoia.luno.ui.component.sheet
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -13,8 +16,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
+import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.theme.CardInnerSpacing
+import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.theme.SegmentedGap
+import hunoia.luno.ui.theme.SheetListMaxHeight
 
 /**
  * 弹层标题栏（见 docs/ui-spec.md §6）：左标题 + 右侧可选操作区。
@@ -40,6 +47,36 @@ fun SheetHeader(
             style = MaterialTheme.typography.titleLarge,
         )
         trailing?.invoke()
+    }
+}
+
+/**
+ * Sheet 内「搜索框 + 结果列表」的公共骨架：搜索框 + 限高 [LazyColumn]（统一横向留白、
+ * 底部留白与行间距）。在自己的 Column 里使用，列表内容通过 [content] 提供。
+ */
+@Composable
+fun SheetSearchList(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    placeholder: String = stringResource(R.string.search_hint_all),
+    content: LazyListScope.() -> Unit,
+) {
+    AppSearchBar(
+        query = query,
+        onQueryChange = onQueryChange,
+        modifier = modifier.fillMaxWidth().padding(horizontal = PageGutter),
+        placeholder = placeholder,
+    )
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = SheetListMaxHeight)
+            .padding(horizontal = PageGutter),
+        contentPadding = PaddingValues(bottom = ContentBottom),
+        verticalArrangement = Arrangement.spacedBy(SegmentedGap),
+    ) {
+        content()
     }
 }
 
@@ -73,20 +110,3 @@ fun SheetFooterActions(
     }
 }
 
-/** 行作用域内的底部操作区：调用方在 Row 里排布时用这个。 */
-@Composable
-fun RowScope.SheetFooterActionsRow(
-    onDismissRequest: () -> Unit,
-    onConfirm: () -> Unit,
-    modifier: Modifier = Modifier,
-    confirmLabel: String = stringResource(R.string.confirm),
-    dismissLabel: String = stringResource(R.string.cancel),
-    confirmEnabled: Boolean = true,
-) {
-    TextButton(onClick = onDismissRequest, modifier = modifier) {
-        Text(dismissLabel)
-    }
-    TextButton(onClick = onConfirm, enabled = confirmEnabled) {
-        Text(confirmLabel)
-    }
-}

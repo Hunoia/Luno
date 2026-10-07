@@ -62,7 +62,6 @@ class DampedDragAnimation(
 
     val value: Float get() = valueAnimation.value
     val targetValue: Float get() = valueAnimation.targetValue
-    val pressProgress: Float get() = pressProgressAnimation.value
     val scaleX: Float get() = scaleXAnimation.value
     val scaleY: Float get() = scaleYAnimation.value
     val velocity: Float get() = velocityAnimation.value

@@ -73,6 +73,13 @@ internal fun Modifier.listFade(
             blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
         )
     }
+/** 搜索行半透明底色：透出窗口背后的系统模糊，不支持模糊的设备直接呈现半透明。 */
+@Composable
+private fun searchRowContainer(): ComposeColor =
+    MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.65f)
+@Composable
+private fun searchRowSelectedContainer(): ComposeColor =
+    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
 /** 剪贴板行：标题=剪贴内容（单行省略），无副标题；点回填、长按写回系统剪贴板；
  *  行尾图钉按钮点固定/取消（固定态=primary 色，非固定=淡色）。 */@Composable
 internal fun ClipboardRow(
@@ -90,8 +97,8 @@ internal fun ClipboardRow(
         onSelectedChange = { onClick() },
         shape = shape,
         icon = Icons.Default.ContentPaste,
-        containerColor = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.65f),
-        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f),
+        containerColor = searchRowContainer(),
+        selectedContainerColor = searchRowSelectedContainer(),
         onLongClick = onLongClick,
         trailing = {
             IconButton(
@@ -126,8 +133,8 @@ internal fun HistoryRow(
         shape = shape,
         icon = icon,
         textIcon = textIcon,
-        containerColor = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.65f),
-        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f),
+        containerColor = searchRowContainer(),
+        selectedContainerColor = searchRowSelectedContainer(),
         onLongClick = onLongClick,
     )
 }
@@ -182,9 +189,8 @@ internal fun ResultRow(
             else -> null
         },
         textIcon = textIcon(result),
-        // 半透明底色：透出窗口背后的系统模糊，不支持的设备直接呈现半透明。
-        containerColor = colorScheme.surfaceBright.copy(alpha = 0.65f),
-        selectedContainerColor = colorScheme.primaryContainer.copy(alpha = 0.65f),
+        containerColor = searchRowContainer(),
+        selectedContainerColor = searchRowSelectedContainer(),
         onLongClick = onLongClick,
     )
 }

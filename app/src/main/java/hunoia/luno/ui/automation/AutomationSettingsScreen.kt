@@ -17,12 +17,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -45,10 +43,10 @@ import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.RulePriority
 import hunoia.luno.ui.actionlibrary.IconPalette
 import hunoia.luno.ui.actionlibrary.IconPickerSheet
+import hunoia.luno.ui.component.CheckDropdownMenuItem
 import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ElevationSmall
-import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
@@ -225,17 +223,9 @@ private fun RuleCard(
                         tonalElevation = ElevationSmall,
                     ) {
                         listOf(RulePriority.HIGH, RulePriority.MEDIUM, RulePriority.LOW).forEach { priority ->
-                            DropdownMenuItem(
-                                text = { Text(stringResource(priorityLabel(priority))) },
-                                trailingIcon = {
-                                    if (priority == rule.priority) {
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                        )
-                                    }
-                                },
+                            CheckDropdownMenuItem(
+                                label = stringResource(priorityLabel(priority)),
+                                selected = priority == rule.priority,
                                 onClick = {
                                     onPriorityChange(priority)
                                     priorityExpanded = false

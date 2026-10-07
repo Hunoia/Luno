@@ -67,6 +67,3 @@ fun topBarMask(): Brush {
 fun hazeSurfaceColor(alpha: Float = TopBarHazeAlpha): Color =
     MaterialTheme.colorScheme.surfaceContainer.copy(alpha = alpha)
 
-@Composable
-fun hazeCapsuleColor(alpha: Float = 0.65f): Color =
-    MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = alpha)

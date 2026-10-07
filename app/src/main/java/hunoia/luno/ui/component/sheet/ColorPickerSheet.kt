@@ -1,4 +1,4 @@
-package hunoia.luno.ui.component.sheets
+package hunoia.luno.ui.component.sheet
 
 import android.graphics.Color as AndroidColor
 import androidx.compose.animation.AnimatedContent

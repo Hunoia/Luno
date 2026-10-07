@@ -3,12 +3,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -37,6 +33,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.math.roundToInt
+import hunoia.luno.ui.component.CheckDropdownMenuItem
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 val ParameterDefinition.isCardRowType: Boolean
@@ -123,17 +120,9 @@ fun ParameterEditor(
                     tonalElevation = ElevationSmall,
                 ) {
                     definition.options.forEach { option ->
-                        DropdownMenuItem(
-                            text = { Text(option.label) },
-                            trailingIcon = {
-                                if (option.value == selectedValue) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                    )
-                                }
-                            },
+                        CheckDropdownMenuItem(
+                            label = option.label,
+                            selected = option.value == selectedValue,
                             onClick = {
                                 onParamChange(definition.key, option.value)
                                 expanded = false

@@ -213,9 +213,6 @@
     <string name="home_section_settings">配置</string>
     <string name="home_section_data">数据管理</string>
     <string name="action_settings">动作设置</string>
-    <string name="custom_action_setting">单独配置</string>
-    <string name="follow_global_action_setting">跟随全局</string>
-    <string name="restore_follow_global">恢复跟随全局</string>
     <string name="action_library">动作库</string>
     <string name="action_library_empty">暂无动作库条目</string>
     <string name="action_library_entry_name">条目名称</string>
@@ -259,10 +256,7 @@
     <!-- Home screen -->
     <string name="collapse">收起</string>
     <string name="expand">展开</string>
-    <string name="custom_position_size">自定义位置与大小</string>
     <string name="confirm_reset">确认重置</string>
-    <string name="horizontal_offset">水平偏移</string>
-    <string name="vertical_offset">垂直偏移</string>
     <string name="height">高度</string>
     <string name="tap_mini_window">短按小窗</string>
     <string name="mini_window_position">位置</string>
@@ -298,7 +292,6 @@
     <string name="condition_app_in">前台应用 ∈ %1$s</string>
     <string name="rule_move_up">上移</string>
     <string name="rule_move_down">下移</string>
-    <string name="rule_edit">编辑</string>
     <string name="toast_invalid_parameter">参数无效</string>
     <string name="toast_execution_failed">执行失败</string>
     <string name="toast_permission_denied">权限不足</string>
@@ -308,7 +301,6 @@
 
     <!-- 自动化规则 -->
     <string name="automation_settings">规则</string>
-    <string name="automation_home">自动化规则</string>
     <string name="automation_new">新建规则</string>
     <string name="automation_empty">暂无自动化规则</string>
     <string name="automation_edit">编辑规则</string>

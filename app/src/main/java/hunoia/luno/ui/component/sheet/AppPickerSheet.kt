@@ -1,4 +1,4 @@
-package hunoia.luno.ui.component.sheets
+package hunoia.luno.ui.component.sheet
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LoadingState

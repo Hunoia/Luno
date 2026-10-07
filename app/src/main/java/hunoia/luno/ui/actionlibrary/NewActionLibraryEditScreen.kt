@@ -43,8 +43,8 @@ import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.config.model.toMiniWindowSettings
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.query.ActivityOption
-import hunoia.luno.ui.component.sheets.AppPickerSheet
-import hunoia.luno.ui.component.sheets.ButtonPickerSheet
+import hunoia.luno.ui.component.sheet.AppPickerSheet
+import hunoia.luno.ui.component.sheet.ButtonPickerSheet
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.displayNameRes

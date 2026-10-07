@@ -8,14 +8,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import hunoia.luno.ui.theme.EmptyStatePaddingVertical
-import hunoia.luno.ui.theme.LargeGutter
 import hunoia.luno.ui.theme.ListSpacing
 
 /**
@@ -48,33 +45,3 @@ fun LoadingState(
     }
 }
 
-/** 错误态：文案 + 可选重试。无重试时只展示文案。 */
-@Composable
-fun ErrorState(
-    message: String,
-    modifier: Modifier = Modifier,
-    onRetry: (() -> Unit)? = null,
-    retryLabel: String = "",
-    containerColor: Color? = null,
-) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = EmptyStatePaddingVertical, horizontal = LargeGutter),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodySmall,
-                color = containerColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-            if (onRetry != null && retryLabel.isNotEmpty()) {
-                TextButton(onClick = onRetry, modifier = Modifier.padding(top = ListSpacing)) {
-                    Text(retryLabel)
-                }
-            }
-        }
-    }
-}

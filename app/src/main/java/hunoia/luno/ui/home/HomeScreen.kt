@@ -49,8 +49,8 @@ import hunoia.luno.bridge.system.gotoAccessibilitySettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.ThemeColorKey
-import hunoia.luno.ui.component.sheets.ColorPickerBottomSheet
-import hunoia.luno.ui.component.sheets.ColorSelection
+import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
+import hunoia.luno.ui.component.sheet.ColorSelection
 import hunoia.luno.ui.actionlibrary.NewActionLibraryScreen
 import hunoia.luno.ui.automation.AutomationRulesTabContent
 import hunoia.luno.ui.component.FloatingBottomBar

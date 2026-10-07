@@ -1,4 +1,4 @@
-package hunoia.luno.ui.component.sheets
+package hunoia.luno.ui.component.sheet
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box

@@ -1,11 +1,7 @@
-package hunoia.luno.ui.component.sheets
-import androidx.compose.foundation.layout.Arrangement
+package hunoia.luno.ui.component.sheet
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -19,17 +15,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
 import hunoia.luno.config.model.GestureButton
-import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.theme.CardInnerSpacing
-import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.PageGutter
-import hunoia.luno.ui.theme.SegmentedGap
-import hunoia.luno.ui.theme.SheetListMaxHeight
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.component.sheet.SheetFooterActions
 import hunoia.luno.ui.component.sheet.SheetHeader
+import hunoia.luno.ui.component.sheet.SheetSearchList
 /** 触钮多选表（动作库 ButtonSelectorMulti 参数用）：行点选开关 + 确认回填 id 数组。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,20 +54,10 @@ fun ButtonPickerSheet(
                     modifier = Modifier.padding(horizontal = PageGutter, vertical = CardInnerSpacing),
                 )
             } else {
-                AppSearchBar(
+                val selectionFlags = filtered.map { (_, b) -> b.id in selected }
+                SheetSearchList(
                     query = query,
                     onQueryChange = { query = it },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = PageGutter),
-                    placeholder = stringResource(R.string.search_hint_all),
-                )
-                val selectionFlags = filtered.map { (_, b) -> b.id in selected }
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = SheetListMaxHeight)
-                        .padding(horizontal = PageGutter),
-                    contentPadding = PaddingValues(bottom = ContentBottom),
-                    verticalArrangement = Arrangement.spacedBy(SegmentedGap),
                 ) {
                     itemsIndexed(filtered, key = { _, (_, b) -> b.id }) { position, (index, button) ->
                         val label = button.name.ifBlank {

@@ -10,10 +10,8 @@ val MinInteractiveSize = 48.dp
 val SubMinInteractiveSize = 36.dp
 val RowIconSize = 24.dp
 val BadgeIconSize = 16.dp
-val CloseIconSize = 18.dp
 val TopBarPaddingExtra = 8.dp
 val TopBarTitlePadding = 12.dp
-val TrailingPadding = 8.dp
 
 // Layout spacing
 val PageGutter = 16.dp
@@ -120,7 +118,6 @@ val IconEmptyAlpha = 0.4f
 // Feedback illustrations
 val EmptyStateIconSize = 64.dp
 val EmptyStatePaddingVertical = 32.dp
-val FeedbackPaddingLarge = 48.dp
 val ToastMaxWidth = 300.dp
 
 // Wide content gutter（toast / 空态 / 选择器 sheet 的横向留白）

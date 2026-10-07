@@ -24,14 +24,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.Icon
@@ -62,20 +60,16 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.action.model.NewActionLibrarySettings
-import hunoia.luno.action.model.StoredAction
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.automation.AutomationCenter
 import hunoia.luno.config.model.AutomationRule
-import hunoia.luno.config.model.BooleanMode
 import hunoia.luno.config.model.ConditionItem
 import hunoia.luno.config.model.ConditionType
 import hunoia.luno.config.model.FireMode
 import hunoia.luno.config.model.RuleEffect
 import hunoia.luno.config.model.RuleEffectType
-import hunoia.luno.config.model.RulePriority
 import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.model.RuleStepKind
-import hunoia.luno.config.model.ThrottleKind
 import hunoia.luno.config.model.ThrottlePolicy
 import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.config.model.conditionAt
@@ -93,10 +87,7 @@ import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.appHazeEffect
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonPrimitive
+import hunoia.luno.ui.component.CheckDropdownMenuItem
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.screen.LunoScreen
@@ -593,142 +584,6 @@ private fun StepRow(
         },
     )
 }
-/**
- * 按路径向条件组追加条件：path 为组下标链，空=顶层。非法路径原样返回。
- */
-private fun appendConditionAt(group: WhenGroup, path: List<Int>, item: ConditionItem): WhenGroup {
-    if (path.isEmpty()) return group.copy(items = group.items + item)
-    val head = path.first()
-    if (head !in group.items.indices) return group
-    val target = group.items[head]
-    val sub = target.group ?: return group
-    val items = group.items.toMutableList()
-    items[head] = target.copy(group = appendConditionAt(sub, path.drop(1), item))
-    return group.copy(items = items)
-}
-/**
- * 按路径删除条件：path 为条件组内下标链。非法路径原样返回。
- */
-private fun removeConditionAt(group: WhenGroup, path: List<Int>): WhenGroup {
-    if (path.isEmpty()) return group
-    val head = path.first()
-    if (head !in group.items.indices) return group
-    val items = group.items.toMutableList()
-    if (path.size == 1) {
-        items.removeAt(head)
-        return group.copy(items = items)
-    }
-    val target = items[head]
-    val sub = target.group ?: return group
-    items[head] = target.copy(group = removeConditionAt(sub, path.drop(1)))
-    return group.copy(items = items)
-}
-/**
- * 按路径删除步骤：path 为 appendStep 同款字符串路径（"2" / "2.then.0"）。
- * 非法路径原样返回。
- */
-private fun removeStepAt(effect: RuleEffect, path: String): RuleEffect {
-    val tokens = path.split(".").filter { it.isNotEmpty() }
-    if (tokens.isEmpty()) return effect
-    fun removeFromList(steps: List<RuleStep>, index: Int): List<RuleStep> =
-        steps.toMutableList().also { if (index in it.indices) it.removeAt(index) }
-    if (tokens.size == 1) {
-        val index = tokens[0].toIntOrNull() ?: return effect
-        return effect.copy(steps = removeFromList(effect.steps, index))
-    }
-    val index = tokens.last().toIntOrNull() ?: return effect
-    val branch = tokens[tokens.size - 2]
-    if (branch != "then" && branch != "else") return effect
-    val parentPath = tokens.dropLast(2).joinToString(".")
-    if (parentPath.isEmpty()) return effect
-    return effect.withStepAt(parentPath) { step ->
-        if (step.kind != RuleStepKind.IF) step
-        else if (branch == "then") step.copy(thenSteps = removeFromList(step.thenSteps, index))
-        else step.copy(elseSteps = removeFromList(step.elseSteps, index))
-    }
-}
-/**
- * 向 prefix 指向的列表追加步骤，返回（新步骤路径，更新后的 effect）。
- * prefix：""=顶层，"2.then." / "2.then.0.else."=分支。非法返回 null。
- */
-private fun appendStep(
-    effect: RuleEffect,
-    prefix: String,
-    created: RuleStep,
-): Pair<String, RuleEffect>? {
-    if (prefix.isEmpty()) {
-        val path = "${effect.steps.size}"
-        return path to effect.copy(steps = effect.steps + created)
-    }
-    val tokens = prefix.split(".").filter { it.isNotEmpty() }
-    if (tokens.size < 2) return null
-    val branch = tokens.last()
-    if (branch != "then" && branch != "else") return null
-    val parentPath = tokens.dropLast(1).joinToString(".")
-    val parent = effect.stepAt(parentPath) ?: return null
-    if (parent.kind != RuleStepKind.IF) return null
-    val childIndex = if (branch == "then") parent.thenSteps.size else parent.elseSteps.size
-    val updated = effect.withStepAt(parentPath) { step ->
-        if (branch == "then") step.copy(thenSteps = step.thenSteps + created)
-        else step.copy(elseSteps = step.elseSteps + created)
-    }
-    return "$parentPath.$branch.$childIndex" to updated
-}
-private data class ButtonsToggle(val stored: StoredAction, val hide: Boolean)
-/** 步骤是否为触钮显隐动作（内联或库引用），是则带出 stored 供配对恢复用。 */
-private fun stepButtonsVisibility(
-    library: NewActionLibrarySettings?,
-    step: RuleStep,
-): ButtonsToggle? {
-    if (step.kind != RuleStepKind.ACTION) return null
-    val stored = step.action
-        ?: library?.entries?.find { it.id == step.entryId }?.storedAction
-    if (stored?.typeId != "internal.buttonsVisibility") return null
-    val visible = stored.params["visible"]
-        ?.jsonPrimitive?.contentOrNull?.toBoolean() ?: true
-    return ButtonsToggle(stored, hide = !visible)
-}
-/** 配对恢复规则：同条件/fireOn EXIT/显示步骤，平铺两条（id 后缀 :show）。 */
-private fun buildShowPairRule(
-    context: Context,
-    parent: AutomationRule,
-    library: NewActionLibrarySettings?,
-    hideStep: RuleStep,
-): AutomationRule {
-    val hide = stepButtonsVisibility(library, hideStep)
-    val showStored = StoredAction(
-        typeId = "internal.buttonsVisibility",
-        params = JsonObject(
-            (hide?.stored?.params ?: emptyMap()) + ("visible" to JsonPrimitive(true)),
-        ),
-    )
-    val baseName = parent.name.ifBlank { conditionSummary(context, parent.condition) }
-    return AutomationRule(
-        id = "${parent.id}:show",
-        name = context.getString(R.string.automation_pair_show_name, baseName),
-        condition = parent.condition,
-        effect = RuleEffect(
-            type = RuleEffectType.RUN_ACTION,
-            steps = listOf(RuleStep(kind = RuleStepKind.ACTION, action = showStored)),
-        ),
-        fireOn = FireMode.EXIT,
-    )
-}
-private fun stepSummary(
-    context: Context,
-    library: NewActionLibrarySettings?,
-    step: RuleStep,
-): String = when (step.kind) {
-    RuleStepKind.DELAY -> context.getString(R.string.step_delay_summary, step.delayMs / 1000)
-    RuleStepKind.IF -> conditionSummary(context, step.condition) + " · " +
-        context.getString(R.string.step_if_counts, step.thenSteps.size, step.elseSteps.size)
-    else -> {
-        val label = step.action?.let {
-            context.selectedItemLabel(it, emptyList(), library?.entries ?: emptyList())
-        }.orEmpty()
-        label.ifBlank { context.getString(R.string.step_empty_action) }
-    }
-}
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ConditionGroupEditor(
@@ -777,17 +632,9 @@ private fun ConditionGroupEditor(
                                 tonalElevation = ElevationSmall,
                             ) {
                                 FireMode.entries.forEach { mode ->
-                                    DropdownMenuItem(
-                                        text = { Text(fireModeLabel(mode)) },
-                                        trailingIcon = {
-                                            if (mode == fireMode) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Check,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.primary,
-                                                )
-                                            }
-                                        },
+                                    CheckDropdownMenuItem(
+                                        label = fireModeLabel(mode),
+                                        selected = mode == fireMode,
                                         onClick = {
                                             onFireChange(mode)
                                             fireExpanded = false
@@ -1172,19 +1019,6 @@ private fun entryName(library: NewActionLibrarySettings?, entryId: String): Stri
     val entry = entries?.find { it.id == entryId } ?: return stringResource(R.string.automation_entry_missing, entryId)
     return entry.name.ifBlank { entryId }
 }
-private fun groupModeLabel(mode: BooleanMode): Int = when (mode) {
-    BooleanMode.AND -> R.string.logic_all
-    BooleanMode.OR -> R.string.logic_any
-}
-private fun nextGroupMode(mode: BooleanMode): BooleanMode = when (mode) {
-    BooleanMode.AND -> BooleanMode.OR
-    BooleanMode.OR -> BooleanMode.AND
-}
-internal fun priorityLabel(priority: Int): Int = when (priority) {
-    RulePriority.HIGH -> R.string.priority_high
-    RulePriority.LOW -> R.string.priority_low
-    else -> R.string.priority_medium
-}
 @Composable
 private fun fireModeLabel(mode: FireMode): String = stringResource(
     when (mode) {
@@ -1193,26 +1027,6 @@ private fun fireModeLabel(mode: FireMode): String = stringResource(
         FireMode.BOTH -> R.string.fire_both
     },
 )
-/** 通用节流校验：负数、半填（次数/秒数只填一边）、窗口不足 1s 判无效。 */
-private fun isInvalidThrottle(throttle: ThrottlePolicy): Boolean {
-    if (throttle.cooldownMs < 0 || throttle.maxCount < 0 || throttle.windowMs < 0) return true
-    val countSet = throttle.maxCount > 0
-    val windowSet = throttle.windowMs > 0
-    if (countSet != windowSet) return true
-    if (windowSet && throttle.windowMs < 1000L) return true
-    return false
-}
-/** 填了即生效：冷却/窗口各看各的值派生 kind（双填 BOTH，全空 OFF）。 */
-private fun deriveThrottleKind(cooldownMs: Long, maxCount: Int, windowMs: Long): String {
-    val cooldownOn = cooldownMs > 0
-    val windowOn = maxCount > 0 && windowMs > 0
-    return when {
-        cooldownOn && windowOn -> ThrottleKind.BOTH
-        cooldownOn -> ThrottleKind.COOLDOWN
-        windowOn -> ThrottleKind.WINDOW
-        else -> ThrottleKind.OFF
-    }
-}
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ThrottleEditor(throttle: ThrottlePolicy, onThrottleChange: (ThrottlePolicy) -> Unit) {
@@ -1272,13 +1086,6 @@ private fun ThrottleEditor(throttle: ThrottlePolicy, onThrottleChange: (Throttle
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             shape = LargeShape,
         )
-}
-private fun conditionUsesNotification(group: WhenGroup): Boolean = group.items.any { item ->
-    when (item.type) {
-        ConditionType.NOTIFICATION_POSTED -> true
-        ConditionType.GROUP -> item.group?.let { conditionUsesNotification(it) } == true
-        else -> false
-    }
 }
 @Composable
 private fun NotificationPermissionRow() {
