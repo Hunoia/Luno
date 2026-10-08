@@ -362,6 +362,12 @@
     <string name="condition_bluetooth">蓝牙</string>
     <string name="condition_airplane_mode">飞行模式</string>
     <string name="condition_unlimited">不限</string>
+    <string name="condition_mode_state">状态</string>
+    <string name="condition_mode_change">变化</string>
+    <string name="condition_mode_state_hint">持续成立；由规则的进入/退出决定触发时机</string>
+    <string name="condition_mode_change_hint">事件发生即触发</string>
+    <string name="condition_paired_hint">状态/变化可选</string>
+    <string name="condition_event_only_hint">事件条件：发生即触发，无进入/退出</string>
     <string name="state_on">开启</string>
     <string name="state_off">关闭</string>
     <string name="headphones_plugged">已插入</string>
@@ -379,7 +385,7 @@
     <string name="condition_manual_hint">仅手势与规则调用，不会自动触发</string>
     <string name="condition_manual_group">手动触发</string>
     <string name="condition_gesture_any">任意手势</string>
-    <string name="condition_bluetooth_changed">蓝牙连接变化</string>
+    <string name="condition_bluetooth_changed">蓝牙音频连接变化</string>
     <string name="condition_headphones_changed">耳机插拔</string>
     <string name="condition_scheduled_time">定时时刻</string>
     <string name="condition_notify_keyword">标题/正文关键字（空=不限）</string>

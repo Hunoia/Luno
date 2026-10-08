@@ -79,11 +79,14 @@ class AutomationEngine(
             prevMatches[rule.id] = hit
 
             if (rule.effect.type != RuleEffectType.RUN_ACTION) continue
+            // 纯事件树（无状态叶）没有持续边沿：进入/退出无意义，统一按进入时处理
+            //（编辑页对纯事件树隐藏触发方式；这里防御旧数据与手工构造）。
+            val fireOn = if (hasStateLeaf(rule.condition)) rule.fireOn else FireMode.ENTER
             // 脉冲命中即边沿：脉冲读一次即消费，prev 机制对它恒卡死
             //（首次求值 prev=hit → 非脉冲路径永无进入沿），所以由 pulseEdge 单独放行。
             // 非否定脉冲叶命中即视为边沿，只影响 ENTER/BOTH 的进入侧。
-            val pulseEdge = rule.fireOn != FireMode.EXIT && hasPresentPulse(rule.condition, ctx)
-            val edge = when (rule.fireOn) {
+            val pulseEdge = fireOn != FireMode.EXIT && hasPresentPulse(rule.condition, ctx)
+            val edge = when (fireOn) {
                 FireMode.ENTER -> hit && (!prev || pulseEdge)
                 FireMode.EXIT -> !hit && prev
                 FireMode.BOTH -> hit != prev || (hit && pulseEdge)

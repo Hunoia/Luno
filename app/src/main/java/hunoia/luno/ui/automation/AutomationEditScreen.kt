@@ -192,6 +192,8 @@ fun AutomationEditScreen(
     }
     val rule = draft ?: return
     val context = LocalContext.current
+    /** 条件树含状态叶：决定规则级进入/退出是否可用（纯事件树发生即触发）。 */
+    val conditionHasState = rule.condition.hasStateCondition()
     /**
      * 跳动作选择页：草稿只暂存内存（[AutomationDraftHolder]），不写库——
      * 未保存的半成品不进列表、不进引擎；选择页读写都经 holder 回写暂存。
@@ -208,11 +210,13 @@ fun AutomationEditScreen(
     fun save() {
         scope.launch {
             try {
+                // 纯事件树没有持续边沿，触发方式统一落 ENTER（引擎同样归一化，双保险）。
+                val toSave = if (conditionHasState) rule else rule.copy(fireOn = FireMode.ENTER)
                 AutomationCenter.updateRules { rules ->
-                    if (rules.any { it.id == rule.id }) {
-                        rules.map { if (it.id == rule.id) rule else it }
+                    if (rules.any { it.id == toSave.id }) {
+                        rules.map { if (it.id == toSave.id) toSave else it }
                     } else {
-                        rules + rule
+                        rules + toSave
                     }
                 }
                 AutomationDraftHolder.remove(rule.id)
@@ -423,9 +427,19 @@ fun AutomationEditScreen(
                 group = rule.condition,
                 onGroupChange = { update(rule.copy(condition = it)) },
                 onEditItem = { conditionSheetPath = it },
-                fireMode = rule.fireOn,
-                onFireChange = { update(rule.copy(fireOn = it)) },
+                fireMode = if (conditionHasState) rule.fireOn else null,
+                onFireChange = if (conditionHasState) {
+                    { mode: FireMode -> update(rule.copy(fireOn = mode)) }
+                } else null,
             )
+            // 纯事件条件没有持续边沿：进入/退出无意义，隐藏选择器并说明（空条件组不提示）。
+            if (hasCondition && !conditionHasState) {
+                Text(
+                    stringResource(R.string.condition_event_only_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         LunoGroup(
             title = stringResource(R.string.automation_steps),
@@ -839,6 +853,25 @@ private fun ConditionSheet(
                 modifier = Modifier.padding(horizontal = PageGutter),
                 verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
             ) {
+                // 成对条件（充电/耳机/音乐/手电/勿扰/前台应用）：状态↔变化切换。
+                val isPaired = item.type in PAIRED_CONDITION_TYPES || item.type in PAIRED_STATE_TYPES
+                if (isPaired) {
+                    val isChange = item.type in PAIRED_CONDITION_TYPES.values
+                    ConditionModeToggle(
+                        isChange = isChange,
+                        onModeChange = { toChange ->
+                            onConditionChange(item.switchConditionMode(toChange))
+                        },
+                    )
+                    Text(
+                        stringResource(
+                            if (isChange) R.string.condition_mode_change_hint
+                            else R.string.condition_mode_state_hint,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 // MANUAL 取反恒真（永远触发），不给开关；求值层同样无视取反。
                 if (item.type != ConditionType.MANUAL) {
                     LunoSwitchRow(

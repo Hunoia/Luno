@@ -81,6 +81,13 @@ object AutomationCenter {
     /** 条件组是否有叶子：编辑页保存按钮可用性（转调 runtime 纯函数）。 */
     fun hasLeafOf(group: WhenGroup): Boolean = with(group) { runtimeHasLeaf() }
 
+    /**
+     * 条件组是否含状态叶（非事件、非 MANUAL）：编辑页判定"纯事件树"用
+     *（纯事件树没有持续边沿，隐藏规则级进入/退出），UI 不直引 runtime。
+     */
+    fun hasStateConditionOf(group: WhenGroup): Boolean =
+        hunoia.luno.runtime.automation.hasStateLeaf(group)
+
     /** 通知监听权限是否已授：编辑页通知条件行展示（读系统设置，无副作用）。 */
     fun isNotificationAccessGranted(context: android.content.Context): Boolean =
         hunoia.luno.runtime.automation.AutomationNotificationListener.isAccessGranted(context)

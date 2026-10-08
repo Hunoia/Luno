@@ -127,6 +127,11 @@ public class AutomationCheck {
         return inWindow && (weekdays.isEmpty() || weekdays.contains(dayOfWeek));
     }
 
+    /** 纯事件树触发方式归一化（mirror AutomationEngine：无状态叶时强制 ENTER）。 */
+    static String effectiveFire(String fireOn, boolean hasStateLeaf) {
+        return hasStateLeaf ? fireOn : "ENTER";
+    }
+
     // ======== 转写：触钮显隐 target 解析（mirror InternalExecutors）========
     static List<String> resolveButtons(String target, List<String> all, List<String> selected) {
         if ("EXCEPT".equals(target)) {
@@ -276,6 +281,8 @@ public class AutomationCheck {
                 Collections.<Integer>emptySet(), 7));
         check("时间窗 跨午夜外", false, timeWindowMatches(600, 1380, 60,
                 Collections.<Integer>emptySet(), 7));
+        check("纯事件树归一 ENTER", "ENTER", effectiveFire("BOTH", false));
+        check("混合树保留 BOTH", "BOTH", effectiveFire("BOTH", true));
         // 步骤路径：顶层 / 分支 then / 非法
         List<Object> demoSteps = new ArrayList<Object>(Arrays.<Object>asList(
                 "action-0",

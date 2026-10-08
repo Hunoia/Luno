@@ -41,6 +41,10 @@ fun ConditionTypePickerSheet(
                 itemsIndexed(items = LEVEL_CONDITION_TYPES, key = { _, spec -> "type_${spec.type}" }) { index, spec ->
                     LunoSettingsRow(
                         title = stringResource(spec.labelRes),
+                        // 成对条件（充电/耳机/音乐/手电/勿扰/前台应用）可在编辑 sheet 内切换状态/变化。
+                        subtitle = if (spec.type in PAIRED_CONDITION_TYPES) {
+                            stringResource(R.string.condition_paired_hint)
+                        } else "",
                         onClick = {
                             onPick(spec.type)
                             onDismissRequest()
@@ -51,14 +55,14 @@ fun ConditionTypePickerSheet(
                 item(key = "group_event") {
                     SheetGroupHeader(stringResource(R.string.condition_event_group))
                 }
-                itemsIndexed(items = EVENT_CONDITION_TYPES, key = { _, spec -> "type_${spec.type}" }) { index, spec ->
+                itemsIndexed(items = EVENT_PICKER_TYPES, key = { _, spec -> "type_${spec.type}" }) { index, spec ->
                     LunoSettingsRow(
                         title = stringResource(spec.labelRes),
                         onClick = {
                             onPick(spec.type)
                             onDismissRequest()
                         },
-                        shape = segmentedShape(index, EVENT_CONDITION_TYPES.size),
+                        shape = segmentedShape(index, EVENT_PICKER_TYPES.size),
                     )
                 }
                 if (includeManual) {

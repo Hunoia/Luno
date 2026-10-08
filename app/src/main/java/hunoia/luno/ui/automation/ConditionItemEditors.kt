@@ -93,6 +93,85 @@ val MANUAL_CONDITION_TYPES: List<ConditionTypeSpec> = listOf(
 )
 val CONDITION_TYPES: List<ConditionTypeSpec> =
     LEVEL_CONDITION_TYPES + EVENT_CONDITION_TYPES + MANUAL_CONDITION_TYPES
+
+/**
+ * 状态↔变化成对表（键=状态类型，值=变化类型）：条件编辑 sheet 顶部切换用。
+ * 选择器的"变化事件"组隐藏这些变化条目（由状态条目内切换进入），
+ * 标签查找仍用全量 [CONDITION_TYPES]，旧规则正常显示编辑。
+ * 蓝牙不并：状态是"适配器+音频"两个期望值，变化只有音频连接方向，合会丢字段。
+ */
+val PAIRED_CONDITION_TYPES: Map<String, String> = mapOf(
+    ConditionType.CHARGING to ConditionType.CHARGING_CHANGED,
+    ConditionType.HEADPHONES to ConditionType.HEADPHONES_CHANGED,
+    ConditionType.MUSIC_PLAYING to ConditionType.MUSIC_CHANGED,
+    ConditionType.TORCH_ON to ConditionType.TORCH_CHANGED,
+    ConditionType.DND_ON to ConditionType.DND_CHANGED,
+    ConditionType.FOREGROUND_APP to ConditionType.APP_CHANGED_TO,
+)
+
+/** 变化类型 → 状态类型（反查，切换与 sheet 判定用）。 */
+val PAIRED_STATE_TYPES: Map<String, String> =
+    PAIRED_CONDITION_TYPES.entries.associate { (state, change) -> change to state }
+
+/** 选择页事件列表：成对"变化"条目从这里隐藏；标签查找仍用全量 [CONDITION_TYPES]。 */
+val EVENT_PICKER_TYPES: List<ConditionTypeSpec> =
+    EVENT_CONDITION_TYPES.filterNot { it.type in PAIRED_CONDITION_TYPES.values }
+
+/**
+ * 状态↔变化切换：换 ConditionType 并按对映射字段（变体字段保留，便于来回切）。
+ * 映射口径：值↔方向按"同一语义"对齐（true/正→开始，false/null→停止）；
+ * 变化侧"不限"切回状态时取该域的默认正值（true/已插入/STARTED 对应态）。
+ */
+internal fun ConditionItem.switchConditionMode(toChange: Boolean): ConditionItem {
+    val target = (if (toChange) PAIRED_CONDITION_TYPES else PAIRED_STATE_TYPES)[type]
+        ?: return this
+    return when (target) {
+        ConditionType.CHARGING_CHANGED -> copy(type = target, charging = charging == true)
+        ConditionType.HEADPHONES_CHANGED -> copy(
+            type = target,
+            connectionDirection = if (plugged == true) ConnectionDirection.CONNECTED
+            else ConnectionDirection.DISCONNECTED,
+        )
+        ConditionType.MUSIC_CHANGED -> copy(
+            type = target,
+            playbackDirection = if (musicPlaying == true) PlaybackDirection.STARTED
+            else PlaybackDirection.STOPPED,
+        )
+        ConditionType.TORCH_CHANGED -> copy(type = target, torchChangedTo = torchOn == true)
+        ConditionType.DND_CHANGED -> copy(type = target, dndChangedTo = dndOn == true)
+        ConditionType.APP_CHANGED_TO -> copy(type = target)
+
+        ConditionType.CHARGING -> copy(type = target, charging = charging ?: true)
+        ConditionType.HEADPHONES -> copy(
+            type = target,
+            plugged = connectionDirection != ConnectionDirection.DISCONNECTED,
+        )
+        ConditionType.MUSIC_PLAYING -> copy(
+            type = target,
+            musicPlaying = playbackDirection != PlaybackDirection.STOPPED,
+        )
+        ConditionType.TORCH_ON -> copy(type = target, torchOn = torchChangedTo ?: true)
+        ConditionType.DND_ON -> copy(type = target, dndOn = dndChangedTo ?: true)
+        ConditionType.FOREGROUND_APP -> copy(type = target)
+        else -> copy(type = target)
+    }
+}
+
+/** 状态/变化模式切换行（成对条件专用）。 */
+@Composable
+internal fun ConditionModeToggle(
+    isChange: Boolean,
+    onModeChange: (Boolean) -> Unit,
+) {
+    TriStateLabelRow(
+        labels = listOf(
+            stringResource(R.string.condition_mode_state),
+            stringResource(R.string.condition_mode_change),
+        ),
+        selectedIndex = if (isChange) 1 else 0,
+        onIntChange = { i -> onModeChange(i == 1) },
+    )
+}
 fun defaultConditionOf(type: String): ConditionItem = when (type) {
     ConditionType.SCREEN_STATE -> ConditionItem(type, screenType = ScreenType.LOCK_SCREEN)
     ConditionType.SCREEN_EVENT -> ConditionItem(type, screenEvent = ScreenEventType.SCREEN_ON)

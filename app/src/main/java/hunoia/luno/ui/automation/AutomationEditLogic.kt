@@ -17,6 +17,7 @@ import hunoia.luno.config.model.RuleStepKind
 import hunoia.luno.config.model.ThrottleKind
 import hunoia.luno.config.model.ThrottlePolicy
 import hunoia.luno.config.model.WhenGroup
+import hunoia.luno.domain.automation.AutomationCenter
 import hunoia.luno.ui.actionselect.selectedItemLabel
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -262,3 +263,9 @@ internal fun List<RuleStep>.hasIncompleteStepCondition(): Boolean = any { step -
         (step.condition.items.isEmpty() || step.condition.hasIncompleteCondition())
     self || step.thenSteps.hasIncompleteStepCondition() || step.elseSteps.hasIncompleteStepCondition()
 }
+
+/**
+ * 条件树是否含状态叶（非脉冲、非 MANUAL）：决定规则级"进入/退出"是否可用。
+ * 纯事件树发生即触发、没有持续边沿，编辑器隐藏触发方式（引擎侧同样归一化）。
+ */
+internal fun WhenGroup.hasStateCondition(): Boolean = AutomationCenter.hasStateConditionOf(this)

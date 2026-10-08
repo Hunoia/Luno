@@ -133,7 +133,7 @@ private fun collectKeys(group: WhenGroup, out: MutableSet<String>) {
  * 语义是「本次事件不是这个脉冲」，不是「当前没有这个条件」。纯否定脉冲规则
  * 不会出现在通用刷新里（否则恒真会疯狂触发）。
  */
-private fun hasStateLeaf(group: WhenGroup): Boolean {
+internal fun hasStateLeaf(group: WhenGroup): Boolean {
     for (item in group.items) {
         if (item.type == ConditionType.GROUP) {
             if (item.group?.let(::hasStateLeaf) == true) return true
