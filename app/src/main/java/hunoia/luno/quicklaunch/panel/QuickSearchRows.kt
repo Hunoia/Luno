@@ -80,6 +80,17 @@ private fun searchRowContainer(): ComposeColor =
 @Composable
 private fun searchRowSelectedContainer(): ComposeColor =
     MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
+/**
+ * 行标题预览：取首行 + 上限截断。全文进 StaticLayout 会在主线程量数秒
+ * （剪贴板大段文字直接 ANR 被杀），展示只取头部；长按复制仍用全文。
+ */
+internal fun rowPreview(text: String, limit: Int = 120): String =
+    text.lines().firstOrNull()?.trim()?.take(limit).orEmpty()
+/**
+ * 回填搜索框上限：MB 级全文进 TextField 同样会量死主线程；2000 字足够用
+ * （剪贴匹配只看前 64 字，历史是 contains 匹配，前缀不丢命中）。
+ */
+internal fun backfillText(text: String, limit: Int = 2000): String = text.take(limit)
 /** 剪贴板行：标题=剪贴内容（单行省略），无副标题；点回填、长按写回系统剪贴板；
  *  行尾图钉按钮点固定/取消（固定态=primary 色，非固定=淡色）。 */@Composable
 internal fun ClipboardRow(
@@ -91,7 +102,7 @@ internal fun ClipboardRow(
     onTogglePin: () -> Unit = {},
 ) {
     LunoSelectableRow(
-        title = text,
+        title = rowPreview(text),
         subtitle = "",
         selected = false,
         onSelectedChange = { onClick() },
@@ -126,7 +137,7 @@ internal fun HistoryRow(
     textIcon: TextIcon? = null,
 ) {
     LunoSelectableRow(
-        title = text,
+        title = rowPreview(text),
         subtitle = "",
         selected = false,
         onSelectedChange = { onClick() },

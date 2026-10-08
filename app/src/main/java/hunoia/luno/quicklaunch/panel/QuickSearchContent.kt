@@ -415,7 +415,7 @@ internal fun QuickSearchContent(
                         HistoryRow(
                             text = h,
                             shape = segmentedShape(total - 1 - pos, total),
-                            onClick = { query = TextFieldValue(h, TextRange(h.length)) },
+                            onClick = { query = backfillText(h).let { TextFieldValue(it, TextRange(it.length)) } },
                             onLongClick = { deleteHistory(h) },
                         )
                     }
@@ -426,7 +426,7 @@ internal fun QuickSearchContent(
                             ClipboardRow(
                                 text = item.text,
                                 shape = shape,
-                                onClick = { query = TextFieldValue(item.text, TextRange(item.text.length)) },
+                                onClick = { query = backfillText(item.text).let { TextFieldValue(it, TextRange(it.length)) } },
                                 onLongClick = { safeLongPress(item) },
                                 pinned = item.text in pinnedSet,
                                 onTogglePin = { togglePin(item.text) },
@@ -457,9 +457,17 @@ internal fun QuickSearchContent(
                 // 锁屏占位：剪贴内容不展，只留一行提示。
                 val showClipPlaceholder = searchSettings.searchClipboard && locked
                 val clipPlaceholderCount = if (showClipPlaceholder) 1 else 0
-                val used = remember(launcherSettings) { index.topUsed(launcherSettings) }
-                val recent = remember(mediaTick, searchSettings.searchFiles) {
-                    if (searchSettings.searchFiles) index.recentFiles() else emptyList()
+                // 空态常用/最近文件放 IO 线程：包查询 + MediaStore 在 composition 里同步跑
+                // 会堵主线程（与巨型剪贴同症状的 ANR）。首帧先展剪贴/历史，到达后补齐。
+                var used by remember { mutableStateOf(emptyList<QuickSearchResult.App>()) }
+                LaunchedEffect(launcherSettings) {
+                    used = withContext(Dispatchers.IO) { index.topUsed(launcherSettings) }
+                }
+                var recent by remember { mutableStateOf(emptyList<QuickSearchResult>()) }
+                LaunchedEffect(mediaTick, searchSettings.searchFiles) {
+                    recent =
+                        if (searchSettings.searchFiles) withContext(Dispatchers.IO) { index.recentFiles() }
+                        else emptyList()
                 }
                 val clipCount = clips.size
                 // 锁屏占位占 clips 段的首位：后续 pos 统一按槽位（clips+占位）偏移。
@@ -514,7 +522,7 @@ internal fun QuickSearchContent(
                                 text = clipText,
                                 shape = segmentedShape(total - 1 - pos, total),
                                 onClick = {
-                                    query = TextFieldValue(clipText, TextRange(clipText.length))
+                                    query = backfillText(clipText).let { TextFieldValue(it, TextRange(it.length)) }
                                 },
                                 onLongClick = { safeLongPress(QuickSearchResult.ClipEntry(clipText)) },
                                 pinned = clipText in pinnedSet,
@@ -527,7 +535,7 @@ internal fun QuickSearchContent(
                                 text = h,
                                 shape = segmentedShape(total - 1 - pos, total),
                                 onClick = {
-                                    query = TextFieldValue(h, TextRange(h.length))
+                                    query = backfillText(h).let { TextFieldValue(it, TextRange(it.length)) }
                                 },
                                 onLongClick = { deleteHistory(h) },
                             )
