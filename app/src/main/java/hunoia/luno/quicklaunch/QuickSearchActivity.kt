@@ -19,6 +19,7 @@ import hunoia.luno.BuildConfig
 import hunoia.luno.R
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.MAX_CLIP_HISTORY
+import hunoia.luno.config.model.MAX_CLIP_STORE_CHARS
 import hunoia.luno.quicklaunch.panel.QuickSearchContent
 import hunoia.luno.quicklaunch.query.QuickSearchIndex
 import hunoia.luno.quicklaunch.query.QuickSearchResult
@@ -75,16 +76,22 @@ class QuickSearchActivity : ComponentActivity() {
         val clip = clipState.value
         if (clip != null && clip != lastClipRecorded) {
             lastClipRecorded = clip
-            lifecycleScope.launch {
-                runCatching {
-                    val pinned = hunoia.luno.config.ConfigProvider.getQuickSearchSettings().pinnedClips
-                    if (clip in pinned) return@runCatching
-                    hunoia.luno.config.ConfigProvider.updateQuickSearchSettings {
-                        it.copy(
-                            clipHistory = (listOf(clip) + it.clipHistory)
-                                .distinct()
-                                .take(MAX_CLIP_HISTORY),
-                        )
+            // 超长剪贴（富文本 clip 转出的 MB 级 base64 等）不进历史：匹配只看前 64 字，
+            // 记着纯占 DataStore。固定路径不受限（见 togglePin，保留全文供长按复制）。
+            if (clip.length > MAX_CLIP_STORE_CHARS) {
+                if (BuildConfig.DEBUG) Log.i("LunoQuickSearch", "clipTooLong=${clip.length}")
+            } else {
+                lifecycleScope.launch {
+                    runCatching {
+                        val pinned = hunoia.luno.config.ConfigProvider.getQuickSearchSettings().pinnedClips
+                        if (clip in pinned) return@runCatching
+                        hunoia.luno.config.ConfigProvider.updateQuickSearchSettings {
+                            it.copy(
+                                clipHistory = (listOf(clip) + it.clipHistory)
+                                    .distinct()
+                                    .take(MAX_CLIP_HISTORY),
+                            )
+                        }
                     }
                 }
             }

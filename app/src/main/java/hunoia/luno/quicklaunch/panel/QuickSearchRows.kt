@@ -42,6 +42,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
+import hunoia.luno.config.model.MAX_QUERY_CHARS
 import hunoia.luno.quicklaunch.query.QuickSearchResult
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.row.LunoSelectableRow
@@ -87,10 +88,10 @@ private fun searchRowSelectedContainer(): ComposeColor =
 internal fun rowPreview(text: String, limit: Int = 120): String =
     text.lines().firstOrNull()?.trim()?.take(limit).orEmpty()
 /**
- * 回填搜索框上限：MB 级全文进 TextField 同样会量死主线程；2000 字足够用
- * （剪贴匹配只看前 64 字，历史是 contains 匹配，前缀不丢命中）。
+ * 回填搜索框上限：MB 级全文进 TextField 同样会量死主线程；[MAX_QUERY_CHARS]
+ * 足够用（剪贴匹配只看前 64 字，历史是 contains 匹配，前缀不丢命中）。
  */
-internal fun backfillText(text: String, limit: Int = 2000): String = text.take(limit)
+internal fun backfillText(text: String, limit: Int = MAX_QUERY_CHARS): String = text.take(limit)
 /** 剪贴板行：标题=剪贴内容（单行省略），无副标题；点回填、长按写回系统剪贴板；
  *  行尾图钉按钮点固定/取消（固定态=primary 色，非固定=淡色）。 */@Composable
 internal fun ClipboardRow(

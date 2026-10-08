@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -87,6 +86,7 @@ import hunoia.luno.R
 import hunoia.luno.config.model.BLANK_RECENT_LIMIT
 import hunoia.luno.config.model.MIN_HISTORY_CHARS
 import hunoia.luno.config.model.MAX_CLIP_HISTORY
+import hunoia.luno.config.model.MAX_QUERY_CHARS
 import hunoia.luno.config.model.SRC_ACTION
 import hunoia.luno.config.model.SRC_APP
 import hunoia.luno.config.model.SRC_CALENDAR
@@ -410,8 +410,7 @@ internal fun QuickSearchContent(
                     verticalArrangement = Arrangement.spacedBy(SegmentedGap, Alignment.Bottom),
                     reverseLayout = true,
                 ) {
-                    items(matches, key = { "m-$it" }) { h ->
-                        val pos = matches.indexOf(h)
+                    itemsIndexed(matches, key = { idx, h -> "m-$idx-${h.hashCode()}" }) { pos, h ->
                         HistoryRow(
                             text = h,
                             shape = segmentedShape(total - 1 - pos, total),
@@ -419,7 +418,7 @@ internal fun QuickSearchContent(
                             onLongClick = { deleteHistory(h) },
                         )
                     }
-                    itemsIndexed(displayResults, key = { idx, item -> "${item::class.simpleName}-$idx-${item.title}" }) { index, item ->
+                    itemsIndexed(displayResults, key = { idx, item -> "${item::class.simpleName}-$idx-${item.title.hashCode()}" }) { index, item ->
                         val pos = matches.size + index
                         val shape = segmentedShape(total - 1 - pos, total)
                         if (item is QuickSearchResult.ClipEntry) {
@@ -516,8 +515,7 @@ internal fun QuickSearchContent(
                                 )
                             }
                         }
-                        items(clips, key = { "c-$it" }) { clipText ->
-                            val pos = clips.indexOf(clipText)
+                        itemsIndexed(clips, key = { idx, c -> "c-$idx-${c.hashCode()}" }) { pos, clipText ->
                             ClipboardRow(
                                 text = clipText,
                                 shape = segmentedShape(total - 1 - pos, total),
@@ -529,8 +527,7 @@ internal fun QuickSearchContent(
                                 onTogglePin = { togglePin(clipText) },
                             )
                         }
-                        items(history, key = { "h-$it" }) { h ->
-                            val pos = clipSlotCount + history.indexOf(h)
+                        itemsIndexed(history, key = { idx, h -> "h-$idx-${h.hashCode()}" }) { pos, h ->
                             HistoryRow(
                                 text = h,
                                 shape = segmentedShape(total - 1 - pos, total),
@@ -741,7 +738,7 @@ internal fun QuickSearchContent(
             }
             OutlinedTextField(
                 value = query,
-                onValueChange = { query = it },
+                onValueChange = { if (it.text.length <= MAX_QUERY_CHARS) query = it },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = PageGutter)

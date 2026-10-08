@@ -59,6 +59,17 @@ const val BLANK_RECENT_LIMIT = 3
 const val MIN_HISTORY_CHARS = 6
 /** 剪贴板历史上限（聚焦读到新文本才记，去重）。 */
 const val MAX_CLIP_HISTORY = 50
+/**
+ * 搜索框/历史入库上限：MB 级文本进 TextField 会在主线程量数秒（ANR）。
+ * 输入框超长直接拦，回填截断到此，历史超长丢弃。
+ */
+const val MAX_QUERY_CHARS = 2000
+/**
+ * 剪贴入库上限：富文本 clip（HTML 内嵌 base64 图片）转文本可达 MB 级，
+ * 记历史纯占 DataStore 且无法匹配（匹配只看前 64 字），超长直接跳过；
+ * 固定是用户显式动作，保留全文（长按原样复制语义不断）。
+ */
+const val MAX_CLIP_STORE_CHARS = 100 * 1024
 
 /** 内置引擎：代码常量，可设默认、不可删改；trigger 预置同样不可改（短缩写：bb/gg/ddg）。 */
 val BuiltinSearchEngines: List<SearchEngine> = listOf(

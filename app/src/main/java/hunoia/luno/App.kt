@@ -2,6 +2,7 @@ package hunoia.luno
 
 import android.app.Application
 import android.content.Context
+import android.os.StrictMode
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.memory.MemoryCache
@@ -68,6 +69,7 @@ class App : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        if (BuildConfig.DEBUG) enableStrictMode()
         AppContext.init(applicationContext, scope)
         val appScope = AppContext.applicationScope ?: error("ApplicationScope not initialized")
         Events.initScope(appScope) { isMainThread() }
@@ -81,6 +83,27 @@ class App : Application(), ImageLoaderFactory {
         hunoia.luno.service.DispatchClient.bind(applicationContext)
 
         Thread.setDefaultUncaughtExceptionHandler(CrashHandler)
+    }
+
+    /**
+     * Debug 包主线程看门狗：penaltyLog 不打断执行，只在 logcat 打违规，
+     * 让"主线程 IO / 慢调用"（如 MB 级文本在 UI 线程排版数秒导致 ANR）
+     * 在开发期就暴露，而不是等用户端 ANR 被杀进程才发现。
+     */
+    private fun enableStrictMode() {
+        StrictMode.setThreadPolicy(
+            StrictMode.ThreadPolicy.Builder()
+                .detectAll()
+                .penaltyLog()
+                .build(),
+        )
+        StrictMode.setVmPolicy(
+            StrictMode.VmPolicy.Builder()
+                .detectLeakedSqlLiteObjects()
+                .detectLeakedClosableObjects()
+                .penaltyLog()
+                .build(),
+        )
     }
 
     private fun currentProcessName(context: Context): String? {
