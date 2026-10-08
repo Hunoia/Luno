@@ -65,6 +65,12 @@ object ConditionType {
     const val SCHEDULED_TIME = "scheduledTime"
     const val GESTURE_PERFORMED = "gesturePerformed"
 
+    /**
+     * 手动触发：恒为假，引擎不订阅（无事件域、非状态叶），只供手势/runRule 调用。
+     * 取反无意义（恒真会变成永远触发），编辑器不给取反开关。
+     */
+    const val MANUAL = "manual"
+
     const val GROUP = "group"
 }
 

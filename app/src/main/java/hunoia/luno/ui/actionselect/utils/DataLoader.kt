@@ -3,6 +3,7 @@ package hunoia.luno.ui.actionselect
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.action.model.StoredAction
+import hunoia.luno.action.model.hasPointParams
 import hunoia.luno.action.model.launchAppRef
 import hunoia.luno.action.model.longPressVariant
 import hunoia.luno.action.model.withoutVariantKey
@@ -136,12 +137,11 @@ private suspend fun saveAutomationEffect(actionSelect: ActionSelect, newActions:
         })
     }
     // 草稿优先：编辑页跳转时只暂存内存，未保存前不写库。
-    if (AutomationDraftHolder.transform(actionSelect.automationRuleId, ::applyTo)) return
-    AutomationCenter.updateRules { rules ->
-        rules.map { rule ->
-            if (rule.id != actionSelect.automationRuleId) rule else applyTo(rule)
-        }
-    }
+    // 无暂存时以库中规则为底新建暂存——选择页永不直写库，落盘统一由编辑页保存键负责。
+    val base = AutomationDraftHolder.take(actionSelect.automationRuleId)
+        ?: AutomationCenter.getRules().find { it.id == actionSelect.automationRuleId }
+        ?: return
+    AutomationDraftHolder.stage(applyTo(base))
 }
 
 private suspend fun loadAutomationActions(
@@ -346,7 +346,11 @@ internal suspend fun loadDataBody(
             isAutomation = isAutomation,
             subGestures = subGestures,
             excludedSubGestureId = actionSelect.subGestureId,
-            actionLibraryEntries = actionLibraryEntries.filter { it.typeId !in libraryExcluded },
+            actionLibraryEntries = actionLibraryEntries.filter {
+                // 自动化放行带固定坐标的 tap/longPress 条目（参数优先于触点，见执行器）；
+                // 无坐标条目在无触点的自动化路径必 InvalidParameter，继续藏。
+                it.typeId !in libraryExcluded || it.storedAction.hasPointParams()
+            },
             excludedTypeIds = pickerExcluded,
             rules = rules,
         )

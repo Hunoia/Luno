@@ -119,6 +119,8 @@ fun itemSummary(context: Context, item: ConditionItem): String {
             if (item.airplaneMode == true) R.string.state_on else R.string.state_off,
         )
 
+        ConditionType.MANUAL -> context.getString(R.string.condition_manual)
+
         ConditionType.GROUP -> conditionSummary(context, item.group ?: WhenGroup())
 
         else -> conditionTypeLabel(context, item.type)

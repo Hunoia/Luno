@@ -26,7 +26,8 @@ class AccessibilityController(private val service: AccessibilityService) {
     fun quickPanel(): Boolean = service.performGlobalAction(GLOBAL_ACTION_QUICK_SETTINGS)
 
     fun click(x: Int, y: Int): Boolean = Accessibility.click(service, x, y)
-    fun longPress(x: Int, y: Int): Boolean = Accessibility.longPress(service, x, y)
+    fun longPress(x: Int, y: Int, durationMs: Long = 1000L): Boolean =
+        Accessibility.longPress(service, x, y, durationMs)
     fun doubleTap(x: Int, y: Int): Boolean = Accessibility.doubleTap(service, x, y)
 
     fun scrollToTop(): Boolean = Accessibility.fastVerticalScroll(service, toTop = true)

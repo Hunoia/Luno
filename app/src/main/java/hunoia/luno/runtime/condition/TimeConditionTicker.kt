@@ -18,7 +18,8 @@ class TimeConditionTicker(
     private var job: Job? = null
 
     fun sync(rules: List<AutomationRule>) {
-        if (rules.any { it.condition.hasTimeRange() || it.condition.hasScheduledTime() }) {
+        // 只看启用规则：纯禁用规则不该让分钟 ticker 空转。
+        if (rules.any { it.enabled && (it.condition.hasTimeRange() || it.condition.hasScheduledTime()) }) {
             if (job?.isActive != true) start()
         } else {
             stop()
@@ -36,7 +37,8 @@ class TimeConditionTicker(
             while (isActive) {
                 delay(millisUntilNextMinuteBoundary())
                 if (!isActive) break
-                val rules = rulesProvider()
+                // 禁用规则不参与定时/时间窗签名（与 sync 的启用过滤一致）。
+                val rules = rulesProvider().filter { it.enabled }
                 val minute = nowMinuteOfDay()
                 // 定时触发：分钟级精度，Doze 下可能推迟（doc §3.2 已声明）。
                 if (rules.any { it.condition.hasScheduledTime() }) {

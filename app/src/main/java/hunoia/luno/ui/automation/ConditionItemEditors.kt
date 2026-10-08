@@ -76,7 +76,15 @@ val EVENT_CONDITION_TYPES: List<ConditionTypeSpec> = listOf(
     ConditionTypeSpec(ConditionType.SCHEDULED_TIME, R.string.condition_scheduled_time, true),
     ConditionTypeSpec(ConditionType.GESTURE_PERFORMED, R.string.condition_gesture_performed, true),
 )
-val CONDITION_TYPES: List<ConditionTypeSpec> = LEVEL_CONDITION_TYPES + EVENT_CONDITION_TYPES
+/**
+ * 手动触发：独立分组（既非状态也非事件），只供手势/runRule 调用，引擎不订阅。
+ * 取反无意义，编辑器不给取反开关，求值层也无视取反。
+ */
+val MANUAL_CONDITION_TYPES: List<ConditionTypeSpec> = listOf(
+    ConditionTypeSpec(ConditionType.MANUAL, R.string.condition_manual, false),
+)
+val CONDITION_TYPES: List<ConditionTypeSpec> =
+    LEVEL_CONDITION_TYPES + EVENT_CONDITION_TYPES + MANUAL_CONDITION_TYPES
 fun defaultConditionOf(type: String): ConditionItem = when (type) {
     ConditionType.SCREEN_STATE -> ConditionItem(type, screenType = ScreenType.LOCK_SCREEN)
     ConditionType.SCREEN_EVENT -> ConditionItem(type, screenEvent = ScreenEventType.SCREEN_ON)
@@ -338,6 +346,11 @@ fun ConditionItemFields(item: ConditionItem, onConditionChange: (ConditionItem) 
                 minutes = item.scheduledMinutes,
                 weekdays = item.scheduledWeekdays,
                 onScheduleChange = { m, w -> onConditionChange(item.copy(scheduledMinutes = m, scheduledWeekdays = w)) },
+            )
+            ConditionType.MANUAL -> Text(
+                stringResource(R.string.condition_manual_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             else -> Unit
         }

@@ -59,6 +59,20 @@ fun ConditionTypePickerSheet(
                         shape = segmentedShape(index, EVENT_CONDITION_TYPES.size),
                     )
                 }
+                item(key = "group_manual") {
+                    SheetGroupHeader(stringResource(R.string.condition_manual_group))
+                }
+                itemsIndexed(items = MANUAL_CONDITION_TYPES, key = { _, spec -> "type_${spec.type}" }) { index, spec ->
+                    LunoSettingsRow(
+                        title = stringResource(spec.labelRes),
+                        subtitle = stringResource(R.string.condition_manual_hint),
+                        onClick = {
+                            onPick(spec.type)
+                            onDismissRequest()
+                        },
+                        shape = segmentedShape(index, MANUAL_CONDITION_TYPES.size),
+                    )
+                }
             }
         }
     }

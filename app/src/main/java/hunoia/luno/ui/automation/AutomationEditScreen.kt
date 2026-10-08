@@ -45,6 +45,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,6 +77,7 @@ import hunoia.luno.config.model.ThrottlePolicy
 import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.config.model.conditionAt
 import hunoia.luno.config.model.withConditionAt
+import hunoia.luno.core.JsonSerializer
 import hunoia.luno.ui.actionselect.selectedItemLabel
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.navigation.NEW_AUTOMATION_RULE_ID
@@ -100,6 +104,22 @@ import hunoia.luno.ui.component.timeline.TimelineBadge
 import hunoia.luno.ui.component.timeline.TimelineColumn
 import hunoia.luno.ui.component.timeline.TimelineNode
 import hunoia.luno.ui.component.timeline.timelineIndent
+/**
+ * 编辑草稿跨页面存活：进动作选择页时编辑页会离开组合，普通 remember 的 draft
+ * 回来就没了（新建规则表现为内容被清空）。经 JSON 走 SaveableStateRegistry，
+ * 往返选择页/进程死亡重建都能恢复；同一 ruleId 复用同 key，pop 后自动清理。
+ */
+private val AutomationRuleStateSaver = Saver<MutableState<AutomationRule?>, String>(
+    save = { state -> state.value?.let { JsonSerializer.encodeToString(it) }.orEmpty() },
+    restore = { json ->
+        mutableStateOf(
+            json.takeIf { it.isNotEmpty() }?.let {
+                runCatching { JsonSerializer.decodeFromString<AutomationRule>(it) }.getOrNull()
+            },
+        )
+    },
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AutomationEditScreen(
@@ -113,8 +133,8 @@ fun AutomationEditScreen(
     val library by ActionLibrary.settings
         .collectAsStateWithLifecycle(initialValue = null)
     val scope = rememberCoroutineScope()
-    var draft by remember { mutableStateOf<AutomationRule?>(null) }
-    var dirty by remember(ruleId) { mutableStateOf(ruleId == NEW_AUTOMATION_RULE_ID) }
+    var draft by rememberSaveable(ruleId, saver = AutomationRuleStateSaver) { mutableStateOf<AutomationRule?>(null) }
+    var dirty by rememberSaveable(ruleId) { mutableStateOf(ruleId == NEW_AUTOMATION_RULE_ID) }
     var conditionSheetPath by remember { mutableStateOf<List<Int>?>(null) }
     var stepSheetPath by remember { mutableStateOf<String?>(null) }
     var stepTypePickerFor by remember { mutableStateOf<String?>(null) }
@@ -162,9 +182,11 @@ fun AutomationEditScreen(
         if (resumeTick == 0) return@LaunchedEffect
         val current = draft ?: return@LaunchedEffect
         // 动作选择页回填（整条规则级或某步骤级）只写内存暂存，取回并入 draft。
+        // 回填也是未保存改动：置 dirty，否则直接返回会静默丢弃且不弹丢弃确认。
         AutomationDraftHolder.take(current.id)?.let { staged ->
             if (staged.effect != current.effect) {
                 draft = current.copy(effect = staged.effect)
+                dirty = true
             }
         }
     }
@@ -812,11 +834,14 @@ private fun ConditionSheet(
                 modifier = Modifier.padding(horizontal = PageGutter),
                 verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
             ) {
-                LunoSwitchRow(
-                    title = stringResource(R.string.logic_not),
-                    checked = item.negated,
-                    onCheckedChange = { onConditionChange(item.copy(negated = it)) },
-                )
+                // MANUAL 取反恒真（永远触发），不给开关；求值层同样无视取反。
+                if (item.type != ConditionType.MANUAL) {
+                    LunoSwitchRow(
+                        title = stringResource(R.string.logic_not),
+                        checked = item.negated,
+                        onCheckedChange = { onConditionChange(item.copy(negated = it)) },
+                    )
+                }
                 ConditionItemFields(item, onConditionChange)
                 Row(
                     modifier = Modifier.fillMaxWidth(),

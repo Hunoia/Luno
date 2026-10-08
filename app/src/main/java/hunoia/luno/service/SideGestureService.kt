@@ -10,6 +10,7 @@ import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.GestureCoordinator
 import hunoia.luno.runtime.GestureHost
 import hunoia.luno.runtime.overlay.MiniWindowAdjustOverlay
+import hunoia.luno.runtime.overlay.PointPickOverlay
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.MainScope
@@ -42,6 +43,10 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
 
     override val miniWindowAdjustOverlay by lazy {
         MiniWindowAdjustOverlay(this)
+    }
+
+    override val pointPickOverlay by lazy {
+        PointPickOverlay(this)
     }
 
     override val advancedSettings: AdvancedSettings?

@@ -232,6 +232,10 @@
     <string name="action_library_discard_desc">返回后本次修改将丢失。</string>
     <string name="action_library_icon_default">默认</string>
     <string name="action_library_icon_custom">文字或表情</string>
+    <string name="point_pick">屏幕取点</string>
+    <string name="point_pick_hint">轻点目标位置，确定后回填坐标（仍可手改）</string>
+    <string name="point_pick_point">x=%1$d dp，y=%2$d dp</string>
+    <string name="point_pick_empty">未取点</string>
     <string name="action_library_icon_use">使用</string>
 
     <!-- New action editor -->
@@ -351,6 +355,9 @@
     <string name="volume_down">音量减小</string>
     <string name="condition_notification_posted">通知到达</string>
     <string name="condition_gesture_performed">手势完成</string>
+    <string name="condition_manual">手动触发</string>
+    <string name="condition_manual_hint">仅手势与规则调用，不会自动触发</string>
+    <string name="condition_manual_group">手动触发</string>
     <string name="condition_gesture_any">任意手势</string>
     <string name="condition_gesture_clear">不限手势</string>
     <string name="condition_bluetooth_changed">蓝牙连接变化</string>

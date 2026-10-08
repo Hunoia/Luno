@@ -93,6 +93,8 @@ private fun List<RuleStep>.cleanRunRuleSteps(ruleId: String): List<RuleStep> = m
     val cleared = step.action?.runRuleId() == ruleId
     step.copy(
         action = if (cleared) null else step.action,
+        // 与 ActionLibrary.cleanSteps 对齐：action 清掉时 entryId 一并不留残值。
+        entryId = if (cleared) "" else step.entryId,
         thenSteps = step.thenSteps.cleanRunRuleSteps(ruleId),
         elseSteps = step.elseSteps.cleanRunRuleSteps(ruleId),
     )

@@ -131,6 +131,8 @@ fun WhenGroup.matches(ctx: ConditionContext): Boolean {
 }
 
 fun ConditionItem.matches(ctx: ConditionContext): Boolean {
+    // 手动触发：恒假且无视取反（取反恒真会变成永远触发），只供手势/runRule 调用。
+    if (type == ConditionType.MANUAL) return false
     val raw = when {
         type == ConditionType.FOREGROUND_APP -> ctx.packageName in packageNames
         type == ConditionType.SCREEN_STATE -> screenStateMatches(ctx)

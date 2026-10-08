@@ -26,6 +26,11 @@ class EnvironmentTracker(
     var currentPackageName: String = ""
         private set
 
+    /**
+     * 待处理脉冲：每种类型一个槽位。100ms 防抖窗口内同域多次脉冲只保留最后一个
+     *（同域合并成一次评估，防抖优先的设计取舍）；不同域脉冲各有槽位，键会并集，
+     * 互不覆盖。队列化需配套"N 次脉冲 = N 次评估"，不在当前防抖模型内。
+     */
     private var pendingAppChangedTo: String? = null
     private var pendingScreenEvent: ScreenEventType? = null
     private var pendingChargingChangedTo: Boolean? = null
@@ -58,6 +63,12 @@ class EnvironmentTracker(
     fun onScreenEvent(type: ScreenEventType) {
         pendingScreenEvent = type
     }
+
+    /**
+     * 丢弃全部待处理脉冲（含总闸关闭期间堆积的过期事件）。
+     * 与 buildRuntimeState(consumePulses=true) 的清理共用 [clearPendingPulses]。
+     */
+    fun discardPendingPulses() = clearPendingPulses()
 
     fun onChargingChanged(charging: Boolean) {
         pendingChargingChangedTo = charging
@@ -122,15 +133,7 @@ class EnvironmentTracker(
         val scheduledTimeHit = expose && pendingScheduledTimeHit
         val gesturePerformedId = if (expose) pendingGesturePerformedId else null
         if (consumePulses) {
-            pendingAppChangedTo = null
-            pendingScreenEvent = null
-            pendingChargingChangedTo = null
-            pendingVolumeChange = null
-            pendingNotification = null
-            pendingBluetoothChanged = null
-            pendingHeadphonesChanged = null
-            pendingScheduledTimeHit = false
-            pendingGesturePerformedId = null
+            clearPendingPulses()
         }
         return GestureRuntimeState(
             currentPackageName = getCurrentPackageName(),
@@ -159,6 +162,18 @@ class EnvironmentTracker(
             scheduledTimeHit = scheduledTimeHit,
             gesturePerformedId = gesturePerformedId,
         )
+    }
+
+    private fun clearPendingPulses() {
+        pendingAppChangedTo = null
+        pendingScreenEvent = null
+        pendingChargingChangedTo = null
+        pendingVolumeChange = null
+        pendingNotification = null
+        pendingBluetoothChanged = null
+        pendingHeadphonesChanged = null
+        pendingScheduledTimeHit = false
+        pendingGesturePerformedId = null
     }
 
     private fun updateKeyboardInputState(event: AccessibilityEvent) {

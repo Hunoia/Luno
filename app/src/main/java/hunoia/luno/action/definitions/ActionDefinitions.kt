@@ -200,8 +200,17 @@ object ActionDefinitions {
         add(ActionDefinition("accessibility.recents", "最近任务", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
             icon = Icons.Default.ViewCarousel))
         add(ActionDefinition("accessibility.tap", "点击", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+            listOf(
+                ParameterDefinition.Number("xDp", "横坐标 dp", min = 0),
+                ParameterDefinition.Number("yDp", "纵坐标 dp", min = 0),
+            ),
             icon = Icons.Default.TouchApp))
         add(ActionDefinition("accessibility.longPress", "长按", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+            listOf(
+                ParameterDefinition.Number("xDp", "横坐标 dp", min = 0),
+                ParameterDefinition.Number("yDp", "纵坐标 dp", min = 0),
+                ParameterDefinition.Number("durationMs", "时长毫秒", required = false, defaultValue = "1000", min = 100, max = 10000),
+            ),
             icon = Icons.Default.Gesture))
         add(ActionDefinition(
             "accessibility.swipe", "滑动", ActionCategory.ACCESSIBILITY, Capability.Accessibility,

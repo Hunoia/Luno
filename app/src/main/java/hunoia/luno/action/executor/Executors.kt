@@ -18,6 +18,7 @@ import hunoia.luno.config.model.VolumeScrubConfig
 import hunoia.luno.config.model.effectiveForAction
 import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.quicklaunch.QuickLaunchFacade
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -37,18 +38,19 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
             is Action.Home -> executionResult(controller.home())
             is Action.Recents -> executionResult(controller.recents())
             is Action.Tap -> {
-                val (x, y) = context.touchPosition
-                    ?: return ActionResult.Failed(ActionFailure.ExecutionFailed)
+                // 参数优先（库/规则配好的固定点），否则手势触点，都没有判参数无效。
+                val (x, y) = action.pointPx(context.appContext) ?: context.touchPosition
+                    ?: return ActionResult.Failed(ActionFailure.InvalidParameter)
                 context.hideGestureButton(250L)
                 delay(80)
                 executionResult(controller.click(x, y))
             }
             is Action.LongPress -> {
-                val (x, y) = context.touchPosition
-                    ?: return ActionResult.Failed(ActionFailure.ExecutionFailed)
+                val (x, y) = action.pointPx(context.appContext) ?: context.touchPosition
+                    ?: return ActionResult.Failed(ActionFailure.InvalidParameter)
                 context.hideGestureButton(250L)
                 delay(80)
-                executionResult(controller.longPress(x, y))
+                executionResult(controller.longPress(x, y, action.durationMs))
             }
             is Action.Swipe -> {
                 val performed = when (action.direction) {
@@ -79,6 +81,23 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
 
     private fun executionResult(performed: Boolean): ActionResult =
         if (performed) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
+
+    /**
+     * 参数坐标转屏像素（dp→px，按执行时 density）：参数优先于手势触点；
+     * 任一缺失/为负视为未填，调用方回退触点。负值不合法（编辑器 min=0 拦截，
+     * 这里兜底外部构造的数据）。
+     */
+    private fun Action.Tap.pointPx(context: android.content.Context): Pair<Int, Int>? =
+        pointPx(context, xDp, yDp)
+
+    private fun Action.LongPress.pointPx(context: android.content.Context): Pair<Int, Int>? =
+        pointPx(context, xDp, yDp)
+
+    private fun pointPx(context: android.content.Context, xDp: Int?, yDp: Int?): Pair<Int, Int>? {
+        if (xDp == null || yDp == null || xDp < 0 || yDp < 0) return null
+        val density = context.resources.displayMetrics.density
+        return (xDp * density).roundToInt() to (yDp * density).roundToInt()
+    }
 }
 
 class IntentExecutors(private val intentController: IntentController) : ActionExecutor {

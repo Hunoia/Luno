@@ -118,10 +118,14 @@ sealed interface Action {
     data object Recents : Action {
         override val typeId: String = "accessibility.recents"
     }
-    data object Tap : Action {
+    data class Tap(val xDp: Int? = null, val yDp: Int? = null) : Action {
         override val typeId: String = "accessibility.tap"
     }
-    data object LongPress : Action {
+    data class LongPress(
+        val xDp: Int? = null,
+        val yDp: Int? = null,
+        val durationMs: Long = 1000L,
+    ) : Action {
         override val typeId: String = "accessibility.longPress"
     }
     data class Swipe(val direction: SwipeDirection) : Action {

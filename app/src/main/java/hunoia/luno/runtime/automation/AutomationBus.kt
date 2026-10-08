@@ -28,7 +28,14 @@ fun keysForConditionType(type: String): Set<String> = when (type) {
     ConditionType.FOREGROUND_APP,
     ConditionType.APP_CHANGED_TO -> setOf(AutomationEventKey.APP)
 
-    ConditionType.SCREEN_STATE,
+    /**
+     * 屏幕状态（桌面/锁屏/横竖屏/键盘）：桌面切换伴随前台应用变化走 APP 键，
+     * 锁屏伴随屏幕事件走 SCREEN 键；键盘弹起同时带窗口变化（IME 窗口出现），
+     * APP 键评估天然覆盖。之前这里落 else 空集，纯桌面规则只能靠通用刷新，
+     * 而通用刷新又常被窗口变化的 APP 评估取消掉，导致永不触发。
+     */
+    ConditionType.SCREEN_STATE -> setOf(AutomationEventKey.APP, AutomationEventKey.SCREEN)
+
     ConditionType.SCREEN_EVENT -> setOf(AutomationEventKey.SCREEN)
 
     ConditionType.BATTERY_RANGE,
@@ -104,11 +111,17 @@ private fun collectKeys(group: WhenGroup, out: MutableSet<String>) {
     }
 }
 
+/**
+ * 否定脉冲（如「没有收到通知」）被当作非状态叶：只在对应脉冲事件到达时评估，
+ * 语义是「本次事件不是这个脉冲」，不是「当前没有这个条件」。纯否定脉冲规则
+ * 不会出现在通用刷新里（否则恒真会疯狂触发）。
+ */
 private fun hasStateLeaf(group: WhenGroup): Boolean {
     for (item in group.items) {
         if (item.type == ConditionType.GROUP) {
             if (item.group?.let(::hasStateLeaf) == true) return true
-        } else if (!isPulseConditionType(item.type)) {
+        } else if (item.type != ConditionType.MANUAL && !isPulseConditionType(item.type)) {
+            // MANUAL 不订阅任何事件域：纯 MANUAL 规则永不评估，只能被 runRule 调用。
             return true
         }
     }

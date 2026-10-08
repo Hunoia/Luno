@@ -94,6 +94,11 @@ class ActionSelectVM(
             val action = obj.toStoredAction()
             updateUiState { selectActionTransform(it, action, selected) }
         }
+        // 自动化每步只用首个动作（见 saveAutomationEffect），点选即暂存返回，
+        // 省掉 bottom bar 的完成一步；取消选中不触发。手势路径保持多选+完成不变。
+        if (actionSelect.automationRuleId.isNotBlank() && selected) {
+            saveSettings()
+        }
     }
 
     fun startSetLongPressAction(index: Int) {
@@ -154,6 +159,9 @@ class ActionSelectVM(
     }
 
     private fun saveSettings() {
+        // 自动化只暂存（编辑页保存键统一落盘），这里不提示已保存，避免误导；
+        // 手势/子手势路径保持直写，提示不变。
+        val isAutomation = actionSelect.automationRuleId.isNotBlank()
         viewModelScope.launch {
             saveSettingsAction(
                 actionSelect = actionSelect,
@@ -162,7 +170,7 @@ class ActionSelectVM(
             )
         }.invokeOnCompletion {
             if (it == null) {
-                toast(R.string.save_success)
+                if (!isAutomation) toast(R.string.save_success)
                 finish()
             } else {
                 toast(R.string.save_failure)

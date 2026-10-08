@@ -73,6 +73,12 @@ class GestureCoordinator(
     val buttonWindowController = ButtonWindowController(host.context)
     val transientOverlayController = TransientOverlayController(host.context)
     private var refreshJob: Job? = null
+    /**
+     * 待评估事件键累积：100ms 防抖窗口内多次 refresh 取并集，一次评估。
+     * 否则后到的 keyed 评估会取消先到的通用评估（如键盘弹起的通用刷新被
+     * IME 窗口变化的 APP 评估顶掉），导致只订阅通用域的规则被饿死。
+     */
+    private val pendingAutomationKeys = mutableSetOf<String>()
     private val scopeJobs = mutableListOf<Job>()
 
     private val broadcastObserver = BroadcastObserver(
@@ -80,6 +86,7 @@ class GestureCoordinator(
         onScreenOff = {
             if (BuildConfig.DEBUG) Log.i("LunoLauncher", "screen off")
             environmentTracker.isNowInLockScreenPage = true
+            environmentTracker.onScreenEvent(ScreenEventType.SCREEN_OFF)
             host.runtimePanelOverlay.closeImmediately()
             refreshGestureButtons(automationKeys = setOf(AutomationEventKey.SCREEN))
         },
@@ -228,6 +235,7 @@ class GestureCoordinator(
         buildRuntimeState = ::buildRuntimeState,
         automationEngine = automationEngine,
         onVisibilityRefresh = { state -> buttonRefreshCoordinator.refresh(state) },
+        discardPulses = { environmentTracker.discardPendingPulses() },
     )
 
     private val volumeScrubRuntime = VolumeScrubRuntime(
@@ -447,14 +455,20 @@ class GestureCoordinator(
 
     private fun volumePollNeeded(rules: List<hunoia.luno.config.model.AutomationRule>? = null): Boolean {
         val list = rules ?: runtimeSettingsStore.snapshot().automationRules
-        return list.any { rule -> rule.condition.hasVolumeCondition() }
+        // 只看启用规则：纯禁用规则不该让音量轮询空转。
+        return list.any { rule -> rule.enabled && rule.condition.hasVolumeCondition() }
     }
 
     private fun refreshGestureButtons(delayMs: Long = 100L, automationKeys: Set<String> = emptySet()) {
+        synchronized(pendingAutomationKeys) { pendingAutomationKeys.addAll(automationKeys) }
         refreshJob?.cancel()
         refreshJob = host.coroutineScope.launch {
             if (delayMs > 0L) delay(delayMs)
-            automationRuntime.evaluate(automationKeys)
+            // 空集=通用刷新：累积键为空才走通用分支（evaluate 空集只评估含状态叶子的规则）。
+            val keys = synchronized(pendingAutomationKeys) {
+                pendingAutomationKeys.toSet().also { pendingAutomationKeys.clear() }
+            }
+            automationRuntime.evaluate(keys)
         }
     }
 

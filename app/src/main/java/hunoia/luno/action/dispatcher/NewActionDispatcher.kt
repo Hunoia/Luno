@@ -24,6 +24,7 @@ import hunoia.luno.runtime.condition.toConditionContext
 import hunoia.luno.runtime.environment.PreviousAppTracker
 import hunoia.luno.runtime.automation.StepOutcome
 import hunoia.luno.runtime.automation.SequenceGuards
+import hunoia.luno.runtime.automation.SequenceExecutor
 import hunoia.luno.runtime.condition.ConditionContext
 import hunoia.luno.action.template.RuntimeVariables
 import kotlinx.coroutines.CoroutineScope
@@ -159,9 +160,11 @@ class NewActionDispatcher(
             stored
         }
         val ctx = buildContext(sourceButton, touchPosition, templateContext)
-        // 点按类动作的前置条件：坐标来自手势上下文，不是 StoredAction 参数，
-        // 在分发层校验，不进 Executor。
-        if (touchPosition == null && (effective.typeId == "accessibility.tap" || effective.typeId == "accessibility.longPress")) {
+        // 点按类动作的前置条件：手势触点优先，其次看参数坐标（库/规则配好的固定点），
+        // 两者都没有才判参数无效。注意这里只看 StoredAction 参数，进 Executor 前不再复验。
+        if (touchPosition == null && (effective.typeId == "accessibility.tap" || effective.typeId == "accessibility.longPress") &&
+            !effective.hasPointParams()
+        ) {
             ctx.showToast(failureText(appContext, ActionFailure.InvalidParameter))
             postDispatch(effective.typeId, ok = false)
             return StepOutcome.Done(ActionResult.Failed(ActionFailure.InvalidParameter, "needs_touch_position"))
@@ -245,11 +248,14 @@ class NewActionDispatcher(
 
     /**
      * 规则即动作：只跑目标规则的 effect steps，不经过引擎仲裁
-     *（目标自身的触发条件/节流/优先级全部忽略）。
+     *（目标自身的触发条件/节流/优先级全部忽略，也不占用引擎的"同规则单飞"名额）。
      *
      * 递归深度随协程上下文传递（顶层手势/引擎触发都是新协程，天然从 0 起）；
-     * A→B→A 循环在 [SequenceGuards.MAX_RULE_DEPTH] 截断。失败即整体失败，
-     * 由上层序列记账中断（与普通动作步一致）。
+     * A→B→A 循环在 [SequenceGuards.MAX_RULE_DEPTH] 截断。
+     *
+     * steps 复用 [SequenceExecutor] 执行：delay/if 与步数/超时守卫和引擎路径完全一致
+     *（此前逐 step 直调会把 delay/if 步当成空引用而误报 entry_missing）。
+     * 失败即整体失败，由上层序列记账中断（与普通动作步一致）。
      */
     private suspend fun runRuleSteps(ruleId: String, ctx: ExecutorContext): ActionResult {
         val depth = currentCoroutineContext()[RuleDepth]?.depth ?: 0
@@ -262,22 +268,24 @@ class NewActionDispatcher(
             return ActionResult.Failed(ActionFailure.ExecutionFailed, "rule_disabled:$ruleId")
         }
         val steps = rule.effect.effectiveSteps()
-        if (steps.none { it.isEffectiveAction }) {
+        if (steps.isEmpty()) {
             return ActionResult.Failed(ActionFailure.ExecutionFailed, "rule_no_steps:$ruleId")
         }
         val templateCtx = ctx.templateContext() ?: return ActionResult.Failed(ActionFailure.ExecutionFailed)
         return withContext(RuleDepth(depth + 1)) {
-            for (step in steps) {
-                when (val outcome = runStepAction(step.action, step.entryId, templateCtx)) {
-                    is StepOutcome.EntryMissing ->
-                        return@withContext ActionResult.Failed(ActionFailure.ExecutionFailed, "entry_missing")
-                    is StepOutcome.Done -> {
-                        val result = outcome.result
-                        if (result !is ActionResult.Success) return@withContext result
-                    }
-                }
+            val nested = SequenceExecutor { action, entryId, _ ->
+                runStepAction(action, entryId, templateCtx)
             }
-            ActionResult.Success()
+            val records = nested.runSteps(steps, templateCtx)
+            val failed = records.firstOrNull { !it.ok }
+            if (failed == null) {
+                ActionResult.Success()
+            } else {
+                ActionResult.Failed(
+                    ActionFailure.ExecutionFailed,
+                    "step ${failed.index}: ${failed.message}",
+                )
+            }
         }
     }
 

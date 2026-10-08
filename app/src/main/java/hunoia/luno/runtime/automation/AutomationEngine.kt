@@ -49,6 +49,15 @@ class AutomationEngine(
         subscriptionIndex.refreshIfNeeded(rules)
         val effectiveKeys = eventKeys + pulseKeysIn(ctx)
         val allowedIds = subscriptionIndex.ruleIdsForKeys(effectiveKeys)
+        if (hunoia.luno.BuildConfig.DEBUG && rules.isNotEmpty()) {
+            android.util.Log.i(
+                "LunoLauncher",
+                "eval keys=$effectiveKeys pkg=${ctx.packageName} " +
+                    "rules=" + rules.filter { it.enabled }.joinToString(",") {
+                        "${it.id.takeLast(4)}:${if (it.id in allowedIds) "hit=${it.matches(ctx)}" else "skip"}"
+                    },
+            )
+        }
         // 第一遍：只求值订阅命中的规则。被跳过的规则保持旧 prev：
         // 它的输入只会在自己订阅的域刷新时变化，那时必被评估；跨域刷新时输入不变，
         // prev 不更新也不影响正确性，只是不提前刷新——边沿不误触发。
@@ -58,18 +67,20 @@ class AutomationEngine(
             if (rule.id !in allowedIds) continue
             val hit = rule.matches(ctx)
             val known = lastCondition[rule.id]
-            // 条件被改过就把 prev 当作 hit,等价于「条件一变就重新评估边沿」
-            val prev = if (known != null && known != rule.condition) {
+            // 首次见到（known==null）或条件被改过就把 prev 当作 hit：
+            // 等效于「不产生边沿」，服务启动/新建规则时不会因条件当前为假
+            // 而把 EXIT/BOTH 规则误判成下降沿触发；脉冲边沿不受影响（另有 pulseEdge）。
+            val prev = if (known != rule.condition) {
                 hit
             } else {
-                prevMatches.getOrDefault(rule.id, true)
+                prevMatches.getOrDefault(rule.id, hit)
             }
             lastCondition[rule.id] = rule.condition
             prevMatches[rule.id] = hit
 
             if (rule.effect.type != RuleEffectType.RUN_ACTION) continue
             // 脉冲命中即边沿：脉冲读一次即消费，prev 机制对它恒卡死
-            //（默认 true + 跳过不更新 → 首评及之后永无 ENTER 边沿）。
+            //（首次求值 prev=hit → 非脉冲路径永无进入沿），所以由 pulseEdge 单独放行。
             // 非否定脉冲叶命中即视为边沿，只影响 ENTER/BOTH 的进入侧。
             val pulseEdge = rule.fireOn != FireMode.EXIT && hasPresentPulse(rule.condition, ctx)
             val edge = when (rule.fireOn) {
@@ -170,22 +181,10 @@ class AutomationEngine(
     }
 }
 
-/** 脉冲条件类型：快照携带即命中，读一次即消费。 */
-private val PULSE_TYPES = setOf(
-    ConditionType.APP_CHANGED_TO,
-    ConditionType.SCREEN_EVENT,
-    ConditionType.CHARGING_CHANGED,
-    ConditionType.VOLUME_CHANGED,
-    ConditionType.NOTIFICATION_POSTED,
-    ConditionType.BLUETOOTH_CHANGED,
-    ConditionType.HEADPHONES_CHANGED,
-    ConditionType.SCHEDULED_TIME,
-    ConditionType.GESTURE_PERFORMED,
-)
-
 /**
  * 条件树里是否有命中的非否定脉冲叶（raw 语义，未取反）。
- * raw 求值复用 matches()（copy 去否定），不复制各脉冲的过滤逻辑。
+ * raw 求值复用 matches()（copy 去否定），不复制各脉冲的过滤逻辑；
+ * 脉冲类型判定复用 AutomationBus.isPulseConditionType，避免两处清单漂移。
  */
 private fun hasPresentPulse(group: WhenGroup, ctx: ConditionContext): Boolean {
     return group.items.any { item -> item.hasPresentPulse(ctx) }
@@ -194,6 +193,6 @@ private fun hasPresentPulse(group: WhenGroup, ctx: ConditionContext): Boolean {
 private fun ConditionItem.hasPresentPulse(ctx: ConditionContext): Boolean {
     if (negated) return false
     if (type == ConditionType.GROUP) return group?.let { hasPresentPulse(it, ctx) } == true
-    if (type !in PULSE_TYPES) return false
+    if (!isPulseConditionType(type)) return false
     return copy(negated = false).matches(ctx)
 }

@@ -46,6 +46,18 @@ class DispatchService : Service() {
                 )
             }
         }
+
+        override fun showPointPicker(initialXDp: Int, initialYdp: Int, cb: IPointPickCallback) {
+            val svc = SideGestureService.current ?: return
+            Handler(Looper.getMainLooper()).post {
+                svc.pointPickOverlay.show(
+                    initialXdp = initialXDp.takeIf { it >= 0 },
+                    initialYdp = initialYdp.takeIf { it >= 0 },
+                    commit = { xDp, yDp -> runCatching { cb.onCommit(xDp, yDp) } },
+                    onDismiss = { runCatching { cb.onDismiss() } },
+                )
+            }
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder = binder

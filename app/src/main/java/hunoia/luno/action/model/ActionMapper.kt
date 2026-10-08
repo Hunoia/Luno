@@ -67,8 +67,12 @@ object ActionMapper {
             "accessibility.back" -> Action.Back
             "accessibility.home" -> Action.Home
             "accessibility.recents" -> Action.Recents
-            "accessibility.tap" -> Action.Tap
-            "accessibility.longPress" -> Action.LongPress
+            "accessibility.tap" -> Action.Tap(p.intOrNull("xDp"), p.intOrNull("yDp"))
+            "accessibility.longPress" -> Action.LongPress(
+                p.intOrNull("xDp"),
+                p.intOrNull("yDp"),
+                p.long("durationMs", 1000L),
+            )
             "accessibility.swipe" -> Action.Swipe(p.enumValue("direction"))
             "accessibility.inputText" -> Action.InputText(p.str("text"))
             "accessibility.screenshot" -> Action.Screenshot

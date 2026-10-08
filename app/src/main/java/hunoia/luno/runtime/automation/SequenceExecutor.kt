@@ -1,5 +1,6 @@
 package hunoia.luno.runtime.automation
 
+import hunoia.luno.action.model.RUN_RULE_TYPE_ID
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.model.RuleStepKind
@@ -22,6 +23,14 @@ object SequenceGuards {
      * 该规则从此一直 RULE_BUSY。
      */
     const val MAX_ACTION_MS = 30_000L
+
+    /**
+     * internal.runRule 复合动作步的挂起上限：目标规则自带 delay/if 守卫
+     * （总 delay ≤ MAX_TOTAL_DELAY_MS），30s 的单动作上限会把合法的长延时
+     * 目标规则误判超时。给"delay 总预算 + 单个动作预算"的松弛；
+     * 嵌套链整体被最外层这一步的时限兜住，仍是有限时长。
+     */
+    const val MAX_RULE_STEP_MS = MAX_TOTAL_DELAY_MS + MAX_ACTION_MS
 
     /**
      * 规则嵌套（internal.runRule）深度上限：A→B→A 这类循环在这里截断，
@@ -92,6 +101,8 @@ class SequenceExecutor(
                 interrupted = true
                 return
             }
+            // 用触发时冻结的 ConditionContext 求值：脉冲字段（通知/手势等）在触发瞬间
+            // 之后仍可见，delay 后读到的也是触发时快照，不是实时环境。
             val thenBranch = step.condition.matches(ctx)
             val branch = (if (thenBranch) step.thenSteps else step.elseSteps)
                 .take(SequenceGuards.MAX_STEPS)
@@ -108,7 +119,14 @@ class SequenceExecutor(
                 return
             }
             try {
-                val outcome = withTimeoutOrNull(SequenceGuards.MAX_ACTION_MS) {
+                // runRule 是复合步骤（内部可能含 delay/if，自带守卫），用放宽的时限；
+                // 其余单动作保持 30s 挂起上限。
+                val timeoutMs = if (step.action?.typeId == RUN_RULE_TYPE_ID) {
+                    SequenceGuards.MAX_RULE_STEP_MS
+                } else {
+                    SequenceGuards.MAX_ACTION_MS
+                }
+                val outcome = withTimeoutOrNull(timeoutMs) {
                     runSingleAction(step.action, step.entryId, ctx)
                 }
                 if (outcome == null) {

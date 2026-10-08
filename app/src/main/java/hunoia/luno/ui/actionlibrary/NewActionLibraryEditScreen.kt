@@ -65,10 +65,16 @@ import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.component.feedback.LunoIconButton
 /**
- * 依赖真实触点的动作：分发时必须带触点坐标，独立试执行必然报参数无效，
- * 所以这两种类型下测试按钮置灰（见 accessibility.tap / longPress 的分发前置校验）。
+ * 依赖真实触点的动作：分发时必须带触点坐标；库条目配好固定坐标后可独立试执行，
+ * 无坐标时测试按钮置灰（见 accessibility.tap / longPress 的分发前置校验）。
  */
 private val TOUCH_ONLY_TYPES = setOf("accessibility.tap", "accessibility.longPress")
+
+/** 该定义是否带坐标参数（tap/longPress 的 xDp+yDp）：是则给屏幕取点入口。 */
+private fun hasPointParams(definition: ActionDefinition): Boolean {
+    val keys = definition.parameters.map { it.key }.toSet()
+    return "xDp" in keys && "yDp" in keys
+}
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewActionLibraryEditScreen(
@@ -245,7 +251,7 @@ fun NewActionLibraryEditScreen(
                     if (definition.parameters.isNotEmpty()) {
                         val cardParams = definition.parameters.filter { it.isCardRowType }
                         val fieldParams = definition.parameters.filter { !it.isCardRowType }
-                        if (cardParams.isNotEmpty()) {
+if (cardParams.isNotEmpty()) {
                             LunoGroup(
                                 title = stringResource(R.string.action_param_label),
                                 subtitle = stringResource(R.string.action_param_count, definition.parameters.size),
@@ -266,6 +272,33 @@ fun NewActionLibraryEditScreen(
                             }
                         }
                         fieldParams.forEach { paramDef ->
+                            // 坐标参数（tap/longPress）：首个数字框前插屏幕取点入口，
+                            // 取点经服务侧 overlay，回填后仍可在数字框里手改。
+                            if (paramDef.key == "xDp" && hasPointParams(definition)) {
+                                val curX = draft.params["xDp"]?.scalarText()?.toIntOrNull()
+                                val curY = draft.params["yDp"]?.scalarText()?.toIntOrNull()
+                                LunoSettingsRow(
+                                    title = stringResource(R.string.point_pick),
+                                    subtitle = if (curX != null && curY != null) {
+                                        stringResource(R.string.point_pick_point, curX, curY)
+                                    } else {
+                                        stringResource(R.string.point_pick_empty)
+                                    },
+                                    onClick = {
+                                        val ok = DispatchClient.showPointPicker(
+                                            initialXdp = curX,
+                                            initialYdp = curY,
+                                            onCommit = { xDp, yDp ->
+                                                vm.updateParam("xDp", xDp.toString())
+                                                vm.updateParam("yDp", yDp.toString())
+                                            },
+                                            onDismiss = {},
+                                        )
+                                        if (!ok) showToast(R.string.dispatch_service_not_ready)
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
                             ParameterEditor(
                                 definition = paramDef,
                                 currentParams = draft.params,
@@ -279,7 +312,10 @@ fun NewActionLibraryEditScreen(
                         }
                     }
                     // 测试/保存并排：测试只要求参数有效，不写盘；保存沿用顶部同一入口。
-                    val testable = draft.typeId !in TOUCH_ONLY_TYPES
+                    // 触点类动作配好固定坐标后可独立试执行（参数优先于触点），无坐标仍置灰。
+                    val hasTapPoint = draft.params["xDp"]?.scalarText()?.toIntOrNull() != null &&
+                        draft.params["yDp"]?.scalarText()?.toIntOrNull() != null
+                    val testable = draft.typeId !in TOUCH_ONLY_TYPES || hasTapPoint
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(ListSpacing),

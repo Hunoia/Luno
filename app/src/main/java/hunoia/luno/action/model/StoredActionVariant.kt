@@ -62,6 +62,17 @@ fun StoredAction.runRuleId(): String? {
     return (params[RUN_RULE_PARAM_RULE_ID] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
 }
 
+/**
+ * 点击/长按是否自带参数坐标（xDp+yDp 双全且合法）：是则不依赖手势触点，
+ * 库测试/自动化/搜索/runRule 等无触点路径可直接执行。
+ */
+fun StoredAction.hasPointParams(): Boolean {
+    if (typeId != "accessibility.tap" && typeId != "accessibility.longPress") return false
+    val x = (params["xDp"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
+    val y = (params["yDp"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
+    return x != null && y != null && x >= 0 && y >= 0
+}
+
 /** internal.volumeScrub 的配置解码（读不到落默认值）。 */
 fun StoredAction.volumeScrubConfigOrDefault(): hunoia.luno.config.model.VolumeScrubConfig {
     if (typeId != "internal.volumeScrub") return hunoia.luno.config.model.VolumeScrubConfig()

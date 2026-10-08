@@ -20,14 +20,14 @@ object Accessibility {
         return service.dispatchGesture(builder.build(), null, null)
     }
 
-    fun longPress(service: AccessibilityService?, x: Int, y: Int): Boolean {
+    fun longPress(service: AccessibilityService?, x: Int, y: Int, durationMs: Long = 1000L): Boolean {
         if (service == null) return false
         val point = Point(x, y)
         val builder = GestureDescription.Builder()
         val path = Path().apply {
             moveTo(point.x.toFloat(), point.y.toFloat())
         }
-        builder.addStroke(StrokeDescription(path, 0L, 1000L))
+        builder.addStroke(StrokeDescription(path, 0L, durationMs))
         return service.dispatchGesture(builder.build(), null, null)
     }
 
