@@ -17,19 +17,23 @@ import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.VolumeScrubConfig
+import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.runtime.GestureHost
 import hunoia.luno.runtime.GestureRuntimeState
 import hunoia.luno.runtime.condition.toConditionContext
 import hunoia.luno.runtime.environment.PreviousAppTracker
 import hunoia.luno.runtime.automation.StepOutcome
+import hunoia.luno.runtime.automation.SequenceGuards
 import hunoia.luno.runtime.condition.ConditionContext
 import hunoia.luno.action.template.RuntimeVariables
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import kotlin.coroutines.CoroutineContext
 
 /**
  * 统一分发口（单 Dispatcher）：找定义 → 校验参数 → 查能力闸 → 调执行，同步返回三态。
@@ -230,11 +234,51 @@ class NewActionDispatcher(
             showVersionTooLowToast = { resId -> showVersionTooLowToastUtil(context, resId) },
             previousApp = { excludes -> previousAppTracker.previousApp(excludes) },
             touchPosition = touchPosition,
+            templateContext = templateContext,
             templateValues = { used ->
                 val runtime = templateContext()
                 if (runtime == null) emptyMap() else RuntimeVariables.resolve(used, runtime, context)
             },
+            runRule = { ruleId, ctx -> runRuleSteps(ruleId, ctx) },
         )
+    }
+
+    /**
+     * 规则即动作：只跑目标规则的 effect steps，不经过引擎仲裁
+     *（目标自身的触发条件/节流/优先级全部忽略）。
+     *
+     * 递归深度随协程上下文传递（顶层手势/引擎触发都是新协程，天然从 0 起）；
+     * A→B→A 循环在 [SequenceGuards.MAX_RULE_DEPTH] 截断。失败即整体失败，
+     * 由上层序列记账中断（与普通动作步一致）。
+     */
+    private suspend fun runRuleSteps(ruleId: String, ctx: ExecutorContext): ActionResult {
+        val depth = currentCoroutineContext()[RuleDepth]?.depth ?: 0
+        if (depth >= SequenceGuards.MAX_RULE_DEPTH) {
+            return ActionResult.Failed(ActionFailure.ExecutionFailed, "rule_depth_capped")
+        }
+        val rule = settingsSnapshot().automationRules.find { it.id == ruleId }
+            ?: return ActionResult.Failed(ActionFailure.ExecutionFailed, "rule_missing:$ruleId")
+        if (!rule.enabled) {
+            return ActionResult.Failed(ActionFailure.ExecutionFailed, "rule_disabled:$ruleId")
+        }
+        val steps = rule.effect.effectiveSteps()
+        if (steps.none { it.isEffectiveAction }) {
+            return ActionResult.Failed(ActionFailure.ExecutionFailed, "rule_no_steps:$ruleId")
+        }
+        val templateCtx = ctx.templateContext() ?: return ActionResult.Failed(ActionFailure.ExecutionFailed)
+        return withContext(RuleDepth(depth + 1)) {
+            for (step in steps) {
+                when (val outcome = runStepAction(step.action, step.entryId, templateCtx)) {
+                    is StepOutcome.EntryMissing ->
+                        return@withContext ActionResult.Failed(ActionFailure.ExecutionFailed, "entry_missing")
+                    is StepOutcome.Done -> {
+                        val result = outcome.result
+                        if (result !is ActionResult.Success) return@withContext result
+                    }
+                }
+            }
+            ActionResult.Success()
+        }
     }
 
 }
@@ -244,4 +288,12 @@ data class SettingsSnapshot(
     val advancedSettings: AdvancedSettings,
     val gestureSettings: hunoia.luno.config.model.GestureSettings,
     val newActionLibrarySettings: NewActionLibrarySettings = NewActionLibrarySettings(),
+    /** runRule 目标查找：快照直读，不额外走 DataStore（Main 上安全）。 */
+    val automationRules: List<AutomationRule> = emptyList(),
 )
+
+/** runRule 嵌套深度：随协程上下文传递，顶层触发天然从 0 起。 */
+data class RuleDepth(val depth: Int) : CoroutineContext.Element {
+    companion object Key : CoroutineContext.Key<RuleDepth>
+    override val key: CoroutineContext.Key<*> get() = Key
+}

@@ -9,8 +9,10 @@ import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.launchQualifiedName
 import hunoia.luno.action.model.withLaunchMiniWindow
 import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.GestureTriggerType
+import hunoia.luno.domain.action.ActionCatalog
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import hunoia.luno.core.AppContext
@@ -31,10 +33,11 @@ fun Context.selectedItemLabel(item: Any, subGestures: List<SubGesture>): String 
 fun Context.selectedItemLabel(
     item: Any,
     subGestures: List<SubGesture>,
-    actionLibraryEntries: List<NewActionLibraryEntry>
+    actionLibraryEntries: List<NewActionLibraryEntry>,
+    rules: List<AutomationRule> = emptyList(),
 ): String {
     return when (item) {
-        is StoredAction -> actionTextWithSubGesture(item, subGestures, actionLibraryEntries, emptyIfNone = false)
+        is StoredAction -> actionTextWithSubGesture(item, subGestures, actionLibraryEntries, rules, emptyIfNone = false)
         is AppInfo -> item.label
         is LauncherInfo.ShortcutInfo -> item.label
         else -> ""
@@ -45,18 +48,33 @@ fun Context.actionTextWithSubGesture(
     action: StoredAction,
     subGestures: List<SubGesture>,
     emptyIfNone: Boolean
-): String = actionTextWithSubGesture(action, subGestures, emptyList(), emptyIfNone)
+): String = actionTextWithSubGesture(action, subGestures, emptyList(), emptyList(), emptyIfNone)
 
 fun Context.actionTextWithSubGesture(
     action: StoredAction,
     subGestures: List<SubGesture>,
     actionLibraryEntries: List<NewActionLibraryEntry>,
     emptyIfNone: Boolean
+): String = actionTextWithSubGesture(action, subGestures, actionLibraryEntries, emptyList(), emptyIfNone)
+
+fun Context.actionTextWithSubGesture(
+    action: StoredAction,
+    subGestures: List<SubGesture>,
+    actionLibraryEntries: List<NewActionLibraryEntry>,
+    rules: List<AutomationRule>,
+    emptyIfNone: Boolean
 ): String {
     if (action.typeId == "internal.libraryRef") {
         val id = (action.params["entryId"] as? JsonPrimitive)?.contentOrNull.orEmpty()
         return actionLibraryEntries.firstOrNull { it.id == id }?.name
             ?: getString(R.string.action_library_missing)
+    }
+    // 规则即动作：显示目标规则名；规则列表未加载时落定义名，目标没了落缺失。
+    ActionCatalog.runRuleIdOf(action)?.let { ruleId ->
+        rules.firstOrNull { it.id == ruleId }?.name?.takeIf { it.isNotBlank() }?.let { return it }
+        if (rules.isNotEmpty()) {
+            return getString(R.string.action_rule_missing)
+        }
     }
     if (action.typeId != "internal.subGesture") {
         return actionText(action, emptyIfNone = emptyIfNone)
@@ -152,7 +170,7 @@ internal fun ActionDefinition.toStoredAction(): StoredAction =
     StoredAction(typeId)
 
 internal fun assembleDataTransform(state: UiState): UiState {
-    val allActions = ActionDefinitions.pickerDefinitions(state.excludedTypeIds)
+    val allActions = ActionCatalog.pickerDefinitions(state.excludedTypeIds)
         .map { def -> def.toStoredAction() }
         .toMutableList()
         .apply {

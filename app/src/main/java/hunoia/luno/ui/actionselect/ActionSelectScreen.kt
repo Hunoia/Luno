@@ -168,6 +168,7 @@ fun ActionSelectContent(
                             ),
                             actions = uiState.actions,
                             actionLibraryEntries = uiState.actionLibraryEntries,
+                            rules = uiState.rules,
                             subGestures = uiState.subGestures,
                             appInfos = uiState.apps,
                             createShortcuts = uiState.createShortcuts,
@@ -208,7 +209,7 @@ fun ActionSelectContent(
                                 SelectedActionSettings(
                                     selectedItems = uiState.selectedRecord.list,
                                     longPressTargetIndex = uiState.longPressTargetIndex,
-                                    itemLabel = { context.selectedItemLabel(it, uiState.subGestures, uiState.actionLibraryEntries) },
+                                    itemLabel = { context.selectedItemLabel(it, uiState.subGestures, uiState.actionLibraryEntries, uiState.rules) },
                                     reorderMode = reorderMode,
                                     onReorderModeToggle = { reorderMode = !reorderMode },
                                     onSetLongPress = { index -> vm.startSetLongPressAction(index) },

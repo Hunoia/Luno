@@ -22,6 +22,12 @@ object SequenceGuards {
      * 该规则从此一直 RULE_BUSY。
      */
     const val MAX_ACTION_MS = 30_000L
+
+    /**
+     * 规则嵌套（internal.runRule）深度上限：A→B→A 这类循环在这里截断，
+     * 选择页同时禁自引用。只跑 steps，不经过引擎仲裁。
+     */
+    const val MAX_RULE_DEPTH = 5
 }
 
 /** 单步执行结果：区分"条目没了"与"执行了但失败"。 */

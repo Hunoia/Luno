@@ -374,6 +374,13 @@ object ActionDefinitions {
                 label = "上个应用排除",
             )),
             icon = Icons.Default.SwapHoriz))
+        // 规则即动作：只能引用已存规则（库新建/定义表直选都不开放），ruleId 必填。
+        add(ActionDefinition("internal.runRule", "运行规则", ActionCategory.INTERNAL, Capability.None,
+            parameters = listOf(ParameterDefinition.Text(
+                key = "ruleId",
+                label = "规则",
+            )),
+            icon = Icons.Default.PlayCircle))
     }
 
     private val byTypeId: Map<String, ActionDefinition> = definitions.associateBy { it.typeId }
@@ -384,6 +391,7 @@ object ActionDefinitions {
     private val libraryExcluded: Set<String> = setOf(
         "internal.none",
         "internal.subGesture",
+        "internal.runRule",
         "app.launchShortcut",
     )
 

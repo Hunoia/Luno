@@ -162,13 +162,14 @@ internal fun stepSummary(
     context: Context,
     library: NewActionLibrarySettings?,
     step: RuleStep,
+    rules: List<AutomationRule> = emptyList(),
 ): String = when (step.kind) {
     RuleStepKind.DELAY -> context.getString(R.string.step_delay_summary, step.delayMs / 1000)
     RuleStepKind.IF -> conditionSummary(context, step.condition) + " · " +
         context.getString(R.string.step_if_counts, step.thenSteps.size, step.elseSteps.size)
     else -> {
         val label = step.action?.let {
-            context.selectedItemLabel(it, emptyList(), library?.entries ?: emptyList())
+            context.selectedItemLabel(it, emptyList(), library?.entries ?: emptyList(), rules)
         }.orEmpty()
         label.ifBlank { context.getString(R.string.step_empty_action) }
     }

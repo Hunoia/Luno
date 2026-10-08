@@ -283,6 +283,7 @@ fun AutomationEditScreen(
                         step = step,
                         library = library,
                         rule = rule,
+                        rules = loadedRules ?: emptyList(),
                         onDismissRequest = { stepSheetPath = null },
                         onStepChange = { update(rule.copy(effect = rule.effect.withStepAt(path) { it })) },
                         onPickAction = { onPickAction(rule, path) },
@@ -415,6 +416,7 @@ fun AutomationEditScreen(
                 onAddStep = { stepTypePickerFor = it },
                 library = library,
                 rule = rule,
+                rules = loadedRules ?: emptyList(),
             )
         }
         LunoGroup(
@@ -463,6 +465,7 @@ private fun StepsEditor(
     onAddStep: (String) -> Unit,
     library: NewActionLibrarySettings?,
     rule: AutomationRule,
+    rules: List<AutomationRule> = emptyList(),
     pathPrefix: String = "",
     numberPrefix: String = "",
     depth: Int = 0,
@@ -474,6 +477,7 @@ private fun StepsEditor(
                 StepRow(
                     step = step,
                     library = library,
+                    rules = rules,
                     onEdit = { onEditStep("$pathPrefix$index") },
                     onMoveUp = if (index > 0) ({
                         onStepsChange(steps.toMutableList().also {
@@ -511,6 +515,7 @@ private fun StepsEditor(
                         onAddStep = onAddStep,
                         library = library,
                         rule = rule,
+                        rules = rules,
                         pathPrefix = "$pathPrefix$index.then.",
                         numberPrefix = "$number.",
                         depth = depth + 1,
@@ -534,6 +539,7 @@ private fun StepsEditor(
                         onAddStep = onAddStep,
                         library = library,
                         rule = rule,
+                        rules = rules,
                         pathPrefix = "$pathPrefix$index.else.",
                         numberPrefix = "$number.",
                         depth = depth + 1,
@@ -553,6 +559,7 @@ private fun StepsEditor(
 private fun StepRow(
     step: RuleStep,
     library: NewActionLibrarySettings?,
+    rules: List<AutomationRule> = emptyList(),
     onEdit: () -> Unit,
     onMoveUp: (() -> Unit)?,
     onMoveDown: (() -> Unit)?,
@@ -564,7 +571,7 @@ private fun StepRow(
             RuleStepKind.IF -> stringResource(R.string.step_if)
             else -> stringResource(R.string.step_action)
         },
-        subtitle = stepSummary(context, library, step),
+        subtitle = stepSummary(context, library, step, rules),
         onClick = onEdit,
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -836,6 +843,7 @@ private fun StepSheet(
     step: RuleStep,
     library: NewActionLibrarySettings?,
     rule: AutomationRule,
+    rules: List<AutomationRule> = emptyList(),
     onDismissRequest: () -> Unit,
     onStepChange: (RuleStep) -> Unit,
     onPickAction: () -> Unit,
@@ -873,6 +881,7 @@ private fun StepSheet(
                                     action = step.action,
                                     entryId = step.entryId,
                                 ),
+                                rules,
                             ),
                             onClick = onPickAction,
                         )
@@ -1005,10 +1014,11 @@ private fun effectActionLabel(
     context: Context,
     library: NewActionLibrarySettings?,
     effect: RuleEffect,
+    rules: List<AutomationRule> = emptyList(),
 ): String {
     val action = effect.action
     if (action != null) {
-        return context.selectedItemLabel(action, emptyList(), library?.entries ?: emptyList())
+        return context.selectedItemLabel(action, emptyList(), library?.entries ?: emptyList(), rules)
     }
     return entryName(library, effect.entryId)
 }

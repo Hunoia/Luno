@@ -18,10 +18,10 @@ import hunoia.luno.ui.component.SheetGroupHeader
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionDefinition
-import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.model.Capability
 import hunoia.luno.ui.component.displayNameRes
 import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.domain.action.ActionCatalog
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.component.sheet.SheetSearchList
@@ -31,7 +31,7 @@ fun TypePickerSheet(
     onDismissRequest: () -> Unit,
     onSelectType: (ActionDefinition) -> Unit,
 ) {
-    val byCategory = remember { ActionDefinitions.libraryDefinitions().groupBy { it.category } }
+    val byCategory = remember { ActionCatalog.libraryDefinitions().groupBy { it.category } }
     var query by remember { mutableStateOf("") }
     val filtered = remember(query) {
         if (query.isBlank()) byCategory

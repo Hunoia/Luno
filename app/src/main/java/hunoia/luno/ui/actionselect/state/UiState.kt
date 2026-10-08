@@ -5,6 +5,7 @@ import hunoia.luno.action.model.withoutVariantKey
 import hunoia.luno.action.model.launchQualifiedName
 import hunoia.luno.action.model.shortcutQualifiedName
 import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
@@ -40,6 +41,8 @@ data class UiState(
      */
     val isAutomation: Boolean = false,
     val actionLibraryEntries: List<NewActionLibraryEntry> = emptyList(),
+    /** 选择页“规则”分组数据源：已按 rulesForPicker 过滤（只留启用，自动化模式剔除自身）。 */
+    val rules: List<AutomationRule> = emptyList(),
 
     /** 传给 `ActionDefinitions.pickerDefinitions()` 的排除集。恒非空 —— 空集合会让过滤失效。 */
     val excludedTypeIds: Set<String> = emptySet(),

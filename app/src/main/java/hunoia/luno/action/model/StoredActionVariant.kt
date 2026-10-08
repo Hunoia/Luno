@@ -52,6 +52,16 @@ fun StoredAction.libraryEntryId(): String? {
     return (params["entryId"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
 }
 
+/** 规则即动作的类型与参数 key（定义表注册/映射/引用判断共用，避免字面量漂移）。 */
+const val RUN_RULE_TYPE_ID = "internal.runRule"
+const val RUN_RULE_PARAM_RULE_ID = "ruleId"
+
+/** 规则引用 id（internal.runRule），非引用或空 id 返回 null。 */
+fun StoredAction.runRuleId(): String? {
+    if (typeId != RUN_RULE_TYPE_ID) return null
+    return (params[RUN_RULE_PARAM_RULE_ID] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+}
+
 /** internal.volumeScrub 的配置解码（读不到落默认值）。 */
 fun StoredAction.volumeScrubConfigOrDefault(): hunoia.luno.config.model.VolumeScrubConfig {
     if (typeId != "internal.volumeScrub") return hunoia.luno.config.model.VolumeScrubConfig()

@@ -6,6 +6,7 @@ import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.launchAppRef
 import hunoia.luno.action.model.longPressVariant
 import hunoia.luno.action.model.withoutVariantKey
+import hunoia.luno.domain.action.ActionCatalog
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.automation.AutomationCenter
 import hunoia.luno.domain.gesture.GestureConfig
@@ -319,6 +320,11 @@ internal suspend fun loadDataBody(
     val subGestures = GestureConfig.getSubGestures().subGestures
     val actionLibraryEntries = ActionLibrary.getSettings().entries
     val isAutomation = actionSelect.automationRuleId.isNotBlank()
+    // 规则即动作：选择页专属分组（只留启用；自动化模式剔除正在编辑的自身，禁自引用）。
+    val rules = ActionCatalog.rulesForPicker(
+        AutomationCenter.getRules(),
+        excludeRuleId = if (isAutomation) actionSelect.automationRuleId else "",
+    )
 
     // 两个排除集必须分开,它们管的不是同一件事:
     // - pickerExcluded 决定「有哪些动作类型可以被选」,必须恒非空。传空集合会让
@@ -342,6 +348,7 @@ internal suspend fun loadDataBody(
             excludedSubGestureId = actionSelect.subGestureId,
             actionLibraryEntries = actionLibraryEntries.filter { it.typeId !in libraryExcluded },
             excludedTypeIds = pickerExcluded,
+            rules = rules,
         )
     }
     val actions = when {

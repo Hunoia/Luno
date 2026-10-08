@@ -85,6 +85,15 @@ fun AutomationRulesTabContent(
             }
         }
     }
+    fun delete(ruleId: String) {
+        scope.launch {
+            try {
+                AutomationCenter.removeRule(ruleId)
+            } catch (e: Exception) {
+                Log.e("AutomationSettings", "removeRule failed", e)
+            }
+        }
+    }
     val context = LocalContext.current
     // 展示按优先级降序（与引擎执行顺序一致），同档保持原相对顺序。
     val ordered = rules.sortedByDescending { it.priority }
@@ -116,7 +125,7 @@ fun AutomationRulesTabContent(
                     submit(rules.map { if (it.id == rule.id) it.copy(iconKey = iconKey) else it })
                 },
                 onEdit = { onNavToEdit(rule.id) },
-                onDelete = { submit(rules.filterNot { it.id == rule.id }) },
+                onDelete = { delete(rule.id) },
             )
         }
     }

@@ -221,6 +221,8 @@
     <string name="action_library_add">新增动作库条目</string>
     <string name="action_library_edit">编辑动作库条目</string>
     <string name="action_library_missing">动作库条目已移除</string>
+    <string name="action_rule_missing">规则不存在或已删除</string>
+    <string name="action_rule_group">规则</string>
     <string name="action_library_delete_title">删除动作库条目？</string>
     <string name="action_library_delete_desc">当前有 %1$d 处引用。删除后会清理这些引用，是否继续？</string>
     <string name="action_library_delete_unused_desc">当前没有任何引用。删除后不可恢复，是否继续？</string>

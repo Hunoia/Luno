@@ -30,7 +30,9 @@ import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.action.model.matchesQuery
 import hunoia.luno.action.model.StoredAction
+import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.SubGesture
+import hunoia.luno.domain.action.ActionCatalog
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.quicklaunch.model.qualifiedName
@@ -42,10 +44,12 @@ import hunoia.luno.ui.theme.*
 import hunoia.luno.ui.theme.ListItemVerticalPadding
 import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.SheetGroupHeader
+import hunoia.luno.ui.automation.conditionSummary
 import hunoia.luno.ui.theme.CardInnerSpacing
 private const val TYPE_ACTION_LIBRARY = "action_library"
 private const val TYPE_APP = "app"
 private const val TYPE_SHORTCUT = "shortcut"
+private const val TYPE_RULE = "rule"
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun ActionPage(
@@ -63,6 +67,7 @@ internal fun ActionPage(
     subGestures: List<SubGesture> = emptyList(),
     actions: List<StoredAction>,
     actionLibraryEntries: List<NewActionLibraryEntry> = emptyList(),
+    rules: List<AutomationRule> = emptyList(),
     appInfos: List<AppInfo>,
     createShortcuts: List<LauncherInfo>,
     launchShortcuts: List<LauncherInfo>,
@@ -83,15 +88,17 @@ internal fun ActionPage(
             TYPE_ACTION_LIBRARY to context.getString(R.string.action_library),
             TYPE_APP to context.getString(R.string.tab_apps),
             TYPE_SHORTCUT to context.getString(R.string.tab_shortcuts),
+            TYPE_RULE to context.getString(R.string.action_rule_group),
         )
     }
-    val filteredActions = remember(actions, query, selectedType, subGestures, actionLibraryEntries) {
+    val filteredActions = remember(actions, query, selectedType, subGestures, actionLibraryEntries, rules) {
         when {
             selectedType != null && query.isBlank() -> emptyList()
             selectedType == TYPE_ACTION_LIBRARY -> emptyList()
+            selectedType == TYPE_RULE -> emptyList()
             query.isBlank() -> actions
             else -> actions.filter {
-                context.actionTextWithSubGesture(it, subGestures, actionLibraryEntries, emptyIfNone = false)
+                context.actionTextWithSubGesture(it, subGestures, actionLibraryEntries, rules, emptyIfNone = false)
                     .contains(query, ignoreCase = true)
             }
         }
@@ -115,6 +122,15 @@ internal fun ActionPage(
             actionLibraryEntries.filter { if (query.isNotBlank()) it.matchesQuery(query) else true }
         } else emptyList()
     }.sortedBy { it.createdAt }
+    // 规则即动作：专属分组（定义表直选不开，ruleId 必填，只能引用已存规则）。
+    val filteredRules = remember(rules, query, selectedType) {
+        if (selectedType == TYPE_RULE || query.isNotBlank()) {
+            rules.filter {
+                if (query.isBlank()) true
+                else it.name.contains(query, ignoreCase = true)
+            }
+        } else emptyList()
+    }
     val filteredApps = remember(appInfos, query, selectedType) {
         if (selectedType == TYPE_APP || query.isNotBlank()) {
             appInfos.filter {
@@ -185,7 +201,7 @@ internal fun ActionPage(
                 }
             }
         }
-        val hasAnyContent = grouped.isNotEmpty() || filteredApps.isNotEmpty() || filteredLibraryEntries.isNotEmpty() || filteredCreateShortcuts.isNotEmpty() || filteredLaunchShortcuts.isNotEmpty()
+        val hasAnyContent = grouped.isNotEmpty() || filteredApps.isNotEmpty() || filteredLibraryEntries.isNotEmpty() || filteredCreateShortcuts.isNotEmpty() || filteredLaunchShortcuts.isNotEmpty() || filteredRules.isNotEmpty()
         if ((query.isNotEmpty() || selectedType != null) && !hasAnyContent) {
             item {
                 EmptyState(message = stringResource(R.string.no_matching_results))
@@ -233,6 +249,30 @@ internal fun ActionPage(
                             if (selectingLongPress) onSelectLongPress(entry) else onSelectLibraryEntry(entry, selected)
                         },
                         shape = selectedSegmentedShape(index, filteredLibraryEntries.size, librarySelectionFlags),
+                    )
+                }
+            }
+            if (filteredRules.isNotEmpty()) {
+                val ruleFlags = filteredRules.map {
+                    selectedRecord.isSelected(ActionCatalog.ruleStoredAction(it.id))
+                }
+                stickyHeader(key = "rules_all") {
+                    SheetGroupHeader(stringResource(R.string.action_rule_group))
+                }
+                itemsIndexed(items = filteredRules, key = { _, it -> "rule_${it.id}" }) { index, rule ->
+                    val action = ActionCatalog.ruleStoredAction(rule.id)
+                    ActionItem(
+                        modifier = Modifier.animateItem(),
+                        action = action,
+                        actionLabel = rule.name.ifBlank { context.actionTextWithSubGesture(action, subGestures, actionLibraryEntries, rules, emptyIfNone = false) },
+                        subtitle = conditionSummary(context, rule.condition),
+                        selected = selectedRecord.isSelected(action),
+                        selectSingle = selectSingleMode,
+                        enabled = selectingLongPress || canActionEnabled(selectedRecord, action, maxSelectCount),
+                        onSelect = { selected ->
+                            if (selectingLongPress) onSelectLongPress(action) else onSelect(action, selected)
+                        },
+                        shape = selectedSegmentedShape(index, filteredRules.size, ruleFlags),
                     )
                 }
             }

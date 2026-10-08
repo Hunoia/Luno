@@ -19,10 +19,12 @@ fun ActionItem(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     shape: Shape = RoundedCornerShape(ContainerRadius),
+    subtitle: String = "",
 ) {
     val icon = actionIcon(action)
     LunoSelectableRow(
         title = actionLabel,
+        subtitle = subtitle,
         selected = selected,
         onSelectedChange = onSelect,
         modifier = modifier,

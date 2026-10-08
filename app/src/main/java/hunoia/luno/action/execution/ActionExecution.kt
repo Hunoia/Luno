@@ -19,6 +19,7 @@ import hunoia.luno.action.template.ParamTemplates
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.VolumeScrubConfig
+import hunoia.luno.runtime.condition.ConditionContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -160,4 +161,14 @@ data class ExecutorContext(
     val touchPosition: Pair<Int, Int>? = null,
     /** 参数模板取值器：入参是本次解析实际用到的 token 集合，返回对应运行时值。 */
     val templateValues: suspend (Set<String>) -> Map<String, String> = { emptyMap() },
+    /**
+     * 本次分发的模板上下文提供器：runRule 嵌套执行目标步骤时复用同一上下文
+     *（模板变量取值与 IF 条件求值一致，不重新快照）。
+     */
+    val templateContext: () -> ConditionContext? = { null },
+    /**
+     * 规则即动作回调（分发器注入）：只跑目标规则的 effect steps。
+     * null = 非分发链路构造的上下文，runRule 报 Unsupported。
+     */
+    val runRule: (suspend (ruleId: String, ctx: ExecutorContext) -> ActionResult)? = null,
 )

@@ -120,6 +120,7 @@ object ActionMapper {
                 ),
             )
             "internal.previousApp" -> Action.PreviousApp(p.arrayOfStr("excludePackageNames"))
+            "internal.runRule" -> Action.RunRule(p.str("ruleId"))
             else -> throw UnknownActionTypeException(stored.typeId)
         }
     }

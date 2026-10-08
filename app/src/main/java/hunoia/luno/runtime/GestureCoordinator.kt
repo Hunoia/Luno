@@ -154,6 +154,7 @@ class GestureCoordinator(
                 advancedSettings = s.advancedSettings,
                 gestureSettings = s.gestureSettings,
                 newActionLibrarySettings = s.newActionLibrarySettings,
+                automationRules = s.automationRules,
             )
         },
         onToggleQuickAppLauncher = { hunoia.luno.quicklaunch.QuickAppLauncherActivity.start(host.context) },

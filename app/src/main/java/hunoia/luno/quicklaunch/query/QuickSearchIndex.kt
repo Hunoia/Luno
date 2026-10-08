@@ -1,8 +1,8 @@
 package hunoia.luno.quicklaunch.query
 
 import android.content.Context
-import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.model.StoredAction
+import hunoia.luno.domain.action.ActionCatalog
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
@@ -52,7 +52,7 @@ class QuickSearchIndex(internal val context: Context) {
     fun ensureLoaded() {
         if (defsLoaded) return
         defsLoaded = true
-        actions = ActionDefinitions.pickerDefinitions().map { def ->
+        actions = ActionCatalog.searchDefinitions().map { def ->
             QuickSearchResult.ActionDef(
                 StoredAction(def.typeId),
                 def.name,

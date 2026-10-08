@@ -231,6 +231,13 @@ sealed interface Action {
     ) : Action {
         override val typeId: String = "internal.previousApp"
     }
+    /**
+     * 运行规则（规则即动作）：只跑目标规则的 effect steps，不经过引擎仲裁，
+     * 目标自身的触发条件/节流/优先级全部忽略。嵌套由执行层深度上限兜底。
+     */
+    data class RunRule(val ruleId: String) : Action {
+        override val typeId: String = "internal.runRule"
+    }
 }
 
 /** 动作所需能力（无障碍/Shizuku），执行前由 [hunoia.luno.action.execution.ActionExecutorRegistry] 校验。 */
