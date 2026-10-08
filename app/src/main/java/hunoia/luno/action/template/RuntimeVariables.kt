@@ -2,6 +2,7 @@ package hunoia.luno.action.template
 
 import android.content.Context
 import hunoia.luno.action.model.AudioStream
+import hunoia.luno.config.model.RingerMode
 import hunoia.luno.runtime.condition.ConditionContext
 import hunoia.luno.runtime.condition.formatTimeOfDay
 import kotlinx.coroutines.Dispatchers
@@ -108,7 +109,7 @@ object RuntimeVariables {
                 BATTERY -> ctx.batteryLevel.takeIf { it >= 0 }?.toString().orEmpty()
                 CHARGING -> ctx.isCharging.toString()
                 NETWORK -> ctx.networkType.name
-                SILENT -> ctx.isRingerSilent.toString()
+                SILENT -> (ctx.ringerMode == RingerMode.SILENT).toString()
                 HEADPHONES -> ctx.headphonesConnected.toString()
                 BLUETOOTH -> (ctx.bluetoothAudioConnected ?: ctx.bluetoothAdapterOn).toString()
                 AIRPLANE -> ctx.airplaneMode.toString()

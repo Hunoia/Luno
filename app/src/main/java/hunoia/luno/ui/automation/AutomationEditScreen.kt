@@ -224,9 +224,11 @@ fun AutomationEditScreen(
         }
     }
     val hasCondition = AutomationCenter.hasLeafOf(rule.condition)
+    val conditionIncomplete = rule.condition.hasIncompleteCondition() ||
+        rule.effect.steps.hasIncompleteStepCondition()
     val stepsEmpty = rule.effect.steps.isEmpty()
     val throttleInvalid = isInvalidThrottle(rule.throttle)
-    val canSave = hasCondition && !stepsEmpty && !throttleInvalid
+    val canSave = hasCondition && !conditionIncomplete && !stepsEmpty && !throttleInvalid
     fun trySave() {
         if (canSave) save() else showBlockedDialog = true
     }
@@ -259,6 +261,7 @@ fun AutomationEditScreen(
             if (showBlockedDialog) {
                 val reasons = listOfNotNull(
                     stringResource(R.string.automation_condition_empty).takeIf { !hasCondition },
+                    stringResource(R.string.automation_condition_incomplete).takeIf { conditionIncomplete },
                     stringResource(R.string.automation_steps_empty).takeIf { stepsEmpty },
                     stringResource(R.string.throttle_invalid).takeIf { throttleInvalid },
                 ).joinToString(separator = "\n")
@@ -373,6 +376,8 @@ fun AutomationEditScreen(
                         }))
                         ifPickerTarget = null
                     },
+                    // IF 条件里的 MANUAL 恒假（无手势调用语义），不提供。
+                    includeManual = false,
                 )
             }
             stepTypePickerFor?.let { prefix ->
@@ -412,7 +417,7 @@ fun AutomationEditScreen(
             } else {
                 stringResource(R.string.automation_condition_empty)
             },
-            badgeError = !hasCondition,
+            badgeError = !hasCondition || conditionIncomplete,
         ) {
             ConditionGroupEditor(
                 group = rule.condition,
@@ -450,7 +455,7 @@ fun AutomationEditScreen(
                 throttle = rule.throttle,
                 onThrottleChange = { update(rule.copy(throttle = it)) },
             )
-            if (conditionUsesNotification(rule.condition)) {
+            if (conditionUsesNotification(rule.condition) || rule.effect.usesNotificationCondition()) {
                 NotificationPermissionRow()
             }
         }

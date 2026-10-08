@@ -6,7 +6,10 @@ import hunoia.luno.config.model.BooleanMode
 import hunoia.luno.config.model.ConditionItem
 import hunoia.luno.config.model.ConditionType
 import hunoia.luno.config.model.ConnectionDirection
+import hunoia.luno.config.model.KeyboardEventType
 import hunoia.luno.config.model.NetworkType
+import hunoia.luno.config.model.PlaybackDirection
+import hunoia.luno.config.model.RingerMode
 import hunoia.luno.config.model.ScreenEventType
 import hunoia.luno.config.model.ScreenType
 import hunoia.luno.config.model.WhenGroup
@@ -24,14 +27,18 @@ data class ConditionContext(
     val isCharging: Boolean,
     val batteryLevel: Int,
     val minuteOfDay: Int,
+    val dayOfWeek: Int,
 
     val networkType: NetworkType,
     val headphonesConnected: Boolean,
     val bluetoothAdapterOn: Boolean?,
     val bluetoothAudioConnected: Boolean?,
     val airplaneMode: Boolean,
-    val isRingerSilent: Boolean,
+    val ringerMode: RingerMode,
     val volumePercent: Map<AudioStream, Int>,
+    val isMusicPlaying: Boolean,
+    val isTorchOn: Boolean,
+    val isDndOn: Boolean,
 
     val appChangedTo: String?,
     val screenEvent: ScreenEventType?,
@@ -45,6 +52,11 @@ data class ConditionContext(
     val scheduledTimeHit: Boolean = false,
     /** 手势脉冲：本轮命中的按钮 id，无则 null。 */
     val gesturePerformedId: String? = null,
+    /** v3 脉冲：键盘弹出/收起、音乐启停、手电/勿扰开关变化。 */
+    val keyboardEvent: KeyboardEventType? = null,
+    val musicChanged: PlaybackDirection? = null,
+    val torchChangedTo: Boolean? = null,
+    val dndChangedTo: Boolean? = null,
 )
 
 /** 通知脉冲：包名+标题+正文（匹配后原文即丢，历史默认不同原文）。 */
@@ -63,19 +75,29 @@ private val minuteOfDayCalendar = ThreadLocal.withInitial { Calendar.getInstance
 
 // @Volatile: 两个线程同时跨过整分时最多各算一次并写入同样的值,不需要加锁。
 @Volatile private var cachedMinuteOfDay = -1
+@Volatile private var cachedDayOfWeek = -1
 @Volatile private var cachedAtSecond = -1L
 
-fun nowMinuteOfDay(): Int {
-    // 跨过整分才重读日历字段。系统时区被用户改动后最多 60s 内自行纠正,
-    // 条件求值本来就只精确到分钟,不需要更激进的失效。
+/** 分钟与星期共用一个 60s 缓存：跨整分重读一次日历，时区改动最多 60s 自纠。 */
+private fun refreshCalendarCacheIfNeeded() {
     val nowSecond = System.currentTimeMillis() / 1000L
-    if (cachedMinuteOfDay >= 0 && nowSecond - cachedAtSecond < 60L) return cachedMinuteOfDay
+    if (cachedMinuteOfDay >= 0 && nowSecond - cachedAtSecond < 60L) return
     val calendar = minuteOfDayCalendar.get()
     calendar.timeInMillis = System.currentTimeMillis()
-    val minute = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
-    cachedMinuteOfDay = minute
+    cachedMinuteOfDay = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+    cachedDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
     cachedAtSecond = nowSecond
-    return minute
+}
+
+fun nowMinuteOfDay(): Int {
+    refreshCalendarCacheIfNeeded()
+    return cachedMinuteOfDay
+}
+
+/** Calendar.DAY_OF_WEEK 常量（SUNDAY=1..SATURDAY=7）。 */
+fun nowDayOfWeek(): Int {
+    refreshCalendarCacheIfNeeded()
+    return cachedDayOfWeek
 }
 
 fun formatTimeOfDay(minute: Int): String = "%02d:%02d".format(minute / 60, minute % 60)
@@ -102,13 +124,17 @@ fun GestureRuntimeState.toConditionContext(): ConditionContext = ConditionContex
     isCharging = isCharging,
     batteryLevel = batteryLevel,
     minuteOfDay = minuteOfDay,
+    dayOfWeek = dayOfWeek,
     networkType = networkType,
     headphonesConnected = headphonesConnected,
     bluetoothAdapterOn = bluetoothAdapterOn,
     bluetoothAudioConnected = bluetoothAudioConnected,
     airplaneMode = airplaneMode,
-    isRingerSilent = isRingerSilent,
+    ringerMode = ringerMode,
     volumePercent = volumePercent,
+    isMusicPlaying = isMusicPlaying,
+    isTorchOn = isTorchOn,
+    isDndOn = isDndOn,
     appChangedTo = appChangedTo,
     screenEvent = screenEvent,
     chargingChangedTo = chargingChangedTo,
@@ -118,6 +144,10 @@ fun GestureRuntimeState.toConditionContext(): ConditionContext = ConditionContex
     headphonesChanged = headphonesChanged,
     scheduledTimeHit = scheduledTimeHit,
     gesturePerformedId = gesturePerformedId,
+    keyboardEvent = keyboardEvent,
+    musicChanged = musicChanged,
+    torchChangedTo = torchChangedTo,
+    dndChangedTo = dndChangedTo,
 )
 
 fun AutomationRule.matches(ctx: ConditionContext): Boolean = condition.matches(ctx)
@@ -138,23 +168,31 @@ fun ConditionItem.matches(ctx: ConditionContext): Boolean {
         type == ConditionType.SCREEN_STATE -> screenStateMatches(ctx)
         type == ConditionType.BATTERY_RANGE -> rangeContains(ctx.batteryLevel, batteryLevelMin, batteryLevelMax)
         type == ConditionType.CHARGING -> (charging ?: false) == ctx.isCharging
-        type == ConditionType.TIME_RANGE -> inTimeWindow(ctx.minuteOfDay, startMinute, endMinute)
+        type == ConditionType.TIME_RANGE -> inTimeWindow(ctx.minuteOfDay, startMinute, endMinute) &&
+            (timeWeekdays.isEmpty() || ctx.dayOfWeek in timeWeekdays)
         type == ConditionType.VOLUME_RANGE -> rangeContains(ctx.volumePercent[audioStream], volumeMin, volumeMax)
-        type == ConditionType.RINGER_SILENT -> (silent ?: false) == ctx.isRingerSilent
+        type == ConditionType.RINGER_SILENT -> ringerMatches(ctx)
         type == ConditionType.NETWORK_TYPE -> networkType == ctx.networkType
         type == ConditionType.HEADPHONES -> (plugged ?: false) == ctx.headphonesConnected
         type == ConditionType.BLUETOOTH -> bluetoothMatches(ctx)
         type == ConditionType.AIRPLANE_MODE -> (airplaneMode ?: false) == ctx.airplaneMode
+        type == ConditionType.MUSIC_PLAYING -> (musicPlaying ?: false) == ctx.isMusicPlaying
+        type == ConditionType.TORCH_ON -> (torchOn ?: false) == ctx.isTorchOn
+        type == ConditionType.DND_ON -> (dndOn ?: false) == ctx.isDndOn
         type == ConditionType.APP_CHANGED_TO -> ctx.appChangedTo != null && ctx.appChangedTo in packageNames
         type == ConditionType.SCREEN_EVENT -> ctx.screenEvent == screenEvent
+        type == ConditionType.KEYBOARD_EVENT -> ctx.keyboardEvent != null && ctx.keyboardEvent == keyboardEvent
         type == ConditionType.CHARGING_CHANGED -> ctx.chargingChangedTo != null && ctx.chargingChangedTo == charging
         type == ConditionType.VOLUME_CHANGED -> volumeChangedMatches(ctx)
+        type == ConditionType.MUSIC_CHANGED -> ctx.musicChanged != null &&
+            (playbackDirection == null || playbackDirection == ctx.musicChanged)
+        type == ConditionType.TORCH_CHANGED -> ctx.torchChangedTo != null && torchChangedTo == ctx.torchChangedTo
+        type == ConditionType.DND_CHANGED -> ctx.dndChangedTo != null && dndChangedTo == ctx.dndChangedTo
         type == ConditionType.NOTIFICATION_POSTED -> notificationMatches(ctx)
         type == ConditionType.BLUETOOTH_CHANGED -> connectionMatches(ctx.bluetoothChanged)
         type == ConditionType.HEADPHONES_CHANGED -> connectionMatches(ctx.headphonesChanged)
         type == ConditionType.SCHEDULED_TIME -> ctx.scheduledTimeHit && scheduledTimeMatches(ctx)
-        type == ConditionType.GESTURE_PERFORMED -> ctx.gesturePerformedId != null &&
-            (gestureButtonIds.isEmpty() || ctx.gesturePerformedId in gestureButtonIds)
+        type == ConditionType.GESTURE_PERFORMED -> ctx.gesturePerformedId != null
         type == ConditionType.GROUP -> group?.matches(ctx) == true
         else -> false
     }
@@ -207,13 +245,26 @@ private fun ConditionItem.volumeChangedMatches(ctx: ConditionContext): Boolean {
     return streamOk && dirOk
 }
 
-data class TimeWindow(val startMinute: Int, val endMinute: Int) {
-    fun matchesMinute(minuteOfDay: Int): Boolean = inTimeWindow(minuteOfDay, startMinute, endMinute)
+/** 铃声三态：新字段优先；老数据 silent=null/true/false 回落 NORMAL/SILENT/NORMAL。 */
+private fun ConditionItem.ringerMatches(ctx: ConditionContext): Boolean {
+    val expected = ringerMode ?: if (silent == true) RingerMode.SILENT else RingerMode.NORMAL
+    return expected == ctx.ringerMode
+}
+
+data class TimeWindow(
+    val startMinute: Int,
+    val endMinute: Int,
+    /** Calendar 常量；空=每天。 */
+    val weekdays: Set<Int> = emptySet(),
+) {
+    fun matches(minuteOfDay: Int, dayOfWeek: Int): Boolean =
+        inTimeWindow(minuteOfDay, startMinute, endMinute) &&
+            (weekdays.isEmpty() || dayOfWeek in weekdays)
 }
 
 fun WhenGroup.timeRanges(): List<TimeWindow> = items.flatMap { item ->
     when (item.type) {
-        ConditionType.TIME_RANGE -> listOf(TimeWindow(item.startMinute ?: 0, item.endMinute ?: 0))
+        ConditionType.TIME_RANGE -> listOf(TimeWindow(item.startMinute ?: 0, item.endMinute ?: 0, item.timeWeekdays))
         ConditionType.GROUP -> item.group?.timeRanges() ?: emptyList()
         else -> emptyList()
     }
@@ -228,6 +279,28 @@ fun WhenGroup.hasVolumeCondition(): Boolean = items.any { item ->
         ConditionType.RINGER_SILENT -> true
 
         ConditionType.GROUP -> item.group?.hasVolumeCondition() == true
+        else -> false
+    }
+}
+
+/** 音乐条件：决定播放回调的注册/注销（事件驱动，不注册零开销）。 */
+fun WhenGroup.hasMusicCondition(): Boolean = items.any { item ->
+    when (item.type) {
+        ConditionType.MUSIC_PLAYING,
+        ConditionType.MUSIC_CHANGED -> true
+
+        ConditionType.GROUP -> item.group?.hasMusicCondition() == true
+        else -> false
+    }
+}
+
+/** 手电筒条件：决定 torch 回调的注册/注销。 */
+fun WhenGroup.hasTorchCondition(): Boolean = items.any { item ->
+    when (item.type) {
+        ConditionType.TORCH_ON,
+        ConditionType.TORCH_CHANGED -> true
+
+        ConditionType.GROUP -> item.group?.hasTorchCondition() == true
         else -> false
     }
 }

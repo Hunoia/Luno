@@ -23,6 +23,8 @@ import hunoia.luno.ui.component.sheet.LunoSheet
 fun ConditionTypePickerSheet(
     onDismissRequest: () -> Unit,
     onPick: (String) -> Unit,
+    /** IF 步骤条件不允许 MANUAL（恒假死分支），选择页传 false 隐藏手动分组。 */
+    includeManual: Boolean = true,
 ) {
     LunoSheet(
         onDismissRequest = onDismissRequest,
@@ -59,19 +61,21 @@ fun ConditionTypePickerSheet(
                         shape = segmentedShape(index, EVENT_CONDITION_TYPES.size),
                     )
                 }
-                item(key = "group_manual") {
-                    SheetGroupHeader(stringResource(R.string.condition_manual_group))
-                }
-                itemsIndexed(items = MANUAL_CONDITION_TYPES, key = { _, spec -> "type_${spec.type}" }) { index, spec ->
-                    LunoSettingsRow(
-                        title = stringResource(spec.labelRes),
-                        subtitle = stringResource(R.string.condition_manual_hint),
-                        onClick = {
-                            onPick(spec.type)
-                            onDismissRequest()
-                        },
-                        shape = segmentedShape(index, MANUAL_CONDITION_TYPES.size),
-                    )
+                if (includeManual) {
+                    item(key = "group_manual") {
+                        SheetGroupHeader(stringResource(R.string.condition_manual_group))
+                    }
+                    itemsIndexed(items = MANUAL_CONDITION_TYPES, key = { _, spec -> "type_${spec.type}" }) { index, spec ->
+                        LunoSettingsRow(
+                            title = stringResource(spec.labelRes),
+                            subtitle = stringResource(R.string.condition_manual_hint),
+                            onClick = {
+                                onPick(spec.type)
+                                onDismissRequest()
+                            },
+                            shape = segmentedShape(index, MANUAL_CONDITION_TYPES.size),
+                        )
+                    }
                 }
             }
         }

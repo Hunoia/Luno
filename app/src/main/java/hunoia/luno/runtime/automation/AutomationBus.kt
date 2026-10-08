@@ -14,6 +14,7 @@ import hunoia.luno.runtime.condition.ConditionContext
 object AutomationEventKey {
     const val APP = "app"
     const val SCREEN = "screen"
+    const val KEYBOARD = "keyboard"
     const val CHARGING = "charging"
     const val VOLUME = "volume"
     const val NOTIFICATION = "notification"
@@ -21,6 +22,9 @@ object AutomationEventKey {
     const val HEADPHONES = "headphones"
     const val TIME = "time"
     const val GESTURE = "gesture"
+    const val MUSIC = "music"
+    const val TORCH = "torch"
+    const val DND = "dnd"
 }
 
 /** 条件类型 → 订阅键。状态与脉冲同域归一键；GROUP 自身不订阅。 */
@@ -33,10 +37,22 @@ fun keysForConditionType(type: String): Set<String> = when (type) {
      * 锁屏伴随屏幕事件走 SCREEN 键；键盘弹起同时带窗口变化（IME 窗口出现），
      * APP 键评估天然覆盖。之前这里落 else 空集，纯桌面规则只能靠通用刷新，
      * 而通用刷新又常被窗口变化的 APP 评估取消掉，导致永不触发。
+     * KEYBOARD 并入：键盘翻转走 keyed 刷新时，状态型"键盘输入"规则也要被评估。
      */
-    ConditionType.SCREEN_STATE -> setOf(AutomationEventKey.APP, AutomationEventKey.SCREEN)
+    ConditionType.SCREEN_STATE -> setOf(AutomationEventKey.APP, AutomationEventKey.SCREEN, AutomationEventKey.KEYBOARD)
 
     ConditionType.SCREEN_EVENT -> setOf(AutomationEventKey.SCREEN)
+
+    ConditionType.KEYBOARD_EVENT -> setOf(AutomationEventKey.KEYBOARD)
+
+    ConditionType.MUSIC_PLAYING,
+    ConditionType.MUSIC_CHANGED -> setOf(AutomationEventKey.MUSIC)
+
+    ConditionType.TORCH_ON,
+    ConditionType.TORCH_CHANGED -> setOf(AutomationEventKey.TORCH)
+
+    ConditionType.DND_ON,
+    ConditionType.DND_CHANGED -> setOf(AutomationEventKey.DND)
 
     ConditionType.BATTERY_RANGE,
     ConditionType.CHARGING,
@@ -49,11 +65,11 @@ fun keysForConditionType(type: String): Set<String> = when (type) {
     ConditionType.RINGER_SILENT,
     ConditionType.VOLUME_CHANGED -> setOf(AutomationEventKey.VOLUME)
 
-    ConditionType.NETWORK_TYPE,
-    ConditionType.AIRPLANE_MODE -> setOf(AutomationEventKey.APP)
-
     ConditionType.HEADPHONES,
     ConditionType.HEADPHONES_CHANGED -> setOf(AutomationEventKey.HEADPHONES)
+
+    // NETWORK_TYPE / AIRPLANE_MODE 无专属事件键：来源只在状态回调走通用刷新
+    //（空键 → withState 已覆盖），原先挂 APP 键是多余的全量评估。
 
     ConditionType.BLUETOOTH,
     ConditionType.BLUETOOTH_CHANGED -> setOf(AutomationEventKey.BLUETOOTH)
@@ -75,7 +91,11 @@ fun isPulseConditionType(type: String): Boolean = when (type) {
     ConditionType.BLUETOOTH_CHANGED,
     ConditionType.HEADPHONES_CHANGED,
     ConditionType.SCHEDULED_TIME,
-    ConditionType.GESTURE_PERFORMED -> true
+    ConditionType.GESTURE_PERFORMED,
+    ConditionType.KEYBOARD_EVENT,
+    ConditionType.MUSIC_CHANGED,
+    ConditionType.TORCH_CHANGED,
+    ConditionType.DND_CHANGED -> true
     else -> false
 }
 
@@ -91,13 +111,10 @@ fun pulseKeysIn(ctx: ConditionContext): Set<String> {
     if (ctx.headphonesChanged != null) keys.add(AutomationEventKey.HEADPHONES)
     if (ctx.scheduledTimeHit) keys.add(AutomationEventKey.TIME)
     if (ctx.gesturePerformedId != null) keys.add(AutomationEventKey.GESTURE)
-    return keys
-}
-
-/** 规则订阅的全部键（状态 + 脉冲各域）。 */
-fun subscribedKeys(rule: AutomationRule): Set<String> {
-    val keys = mutableSetOf<String>()
-    collectKeys(rule.condition, keys)
+    if (ctx.keyboardEvent != null) keys.add(AutomationEventKey.KEYBOARD)
+    if (ctx.musicChanged != null) keys.add(AutomationEventKey.MUSIC)
+    if (ctx.torchChangedTo != null) keys.add(AutomationEventKey.TORCH)
+    if (ctx.dndChangedTo != null) keys.add(AutomationEventKey.DND)
     return keys
 }
 

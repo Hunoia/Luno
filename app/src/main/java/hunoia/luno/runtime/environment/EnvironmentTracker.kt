@@ -5,11 +5,15 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import hunoia.luno.action.model.AudioStream
 import hunoia.luno.config.model.ConnectionDirection
+import hunoia.luno.config.model.KeyboardEventType
 import hunoia.luno.config.model.NetworkType
+import hunoia.luno.config.model.PlaybackDirection
+import hunoia.luno.config.model.RingerMode
 import hunoia.luno.config.model.ScreenEventType
 import hunoia.luno.runtime.GestureRuntimeState
 import hunoia.luno.runtime.VolumeChange
 import hunoia.luno.runtime.condition.NotificationPulse
+import hunoia.luno.runtime.condition.nowDayOfWeek
 import hunoia.luno.runtime.condition.nowMinuteOfDay
 
 class EnvironmentTracker(
@@ -41,6 +45,11 @@ class EnvironmentTracker(
     private var pendingHeadphonesChanged: ConnectionDirection? = null
     private var pendingScheduledTimeHit: Boolean = false
     private var pendingGesturePerformedId: String? = null
+    // v3 新增脉冲：键盘弹出/收起、音乐启停、手电/勿扰开关变化
+    private var pendingKeyboardEvent: KeyboardEventType? = null
+    private var pendingMusicChanged: PlaybackDirection? = null
+    private var pendingTorchChangedTo: Boolean? = null
+    private var pendingDndChangedTo: Boolean? = null
 
     private var lastFocusQueryMs = 0L
     private var lastFocusQueryResult = false
@@ -98,9 +107,26 @@ class EnvironmentTracker(
         pendingGesturePerformedId = buttonId
     }
 
+    fun onKeyboardEvent(event: KeyboardEventType) {
+        pendingKeyboardEvent = event
+    }
+
+    fun onMusicChanged(direction: PlaybackDirection) {
+        pendingMusicChanged = direction
+    }
+
+    fun onTorchChanged(on: Boolean) {
+        pendingTorchChangedTo = on
+    }
+
+    fun onDndChanged(on: Boolean) {
+        pendingDndChangedTo = on
+    }
+
     fun updateKeyboardActive(active: Boolean) {
         if (isKeyboardInputActive == active) return
         isKeyboardInputActive = active
+        pendingKeyboardEvent = if (active) KeyboardEventType.SHOWN else KeyboardEventType.HIDDEN
         onKeyboardStateChanged(active)
     }
 
@@ -113,8 +139,11 @@ class EnvironmentTracker(
         bluetoothAdapterOn: Boolean? = null,
         bluetoothAudioConnected: Boolean? = null,
         airplaneMode: Boolean = false,
-        isRingerSilent: Boolean = false,
+        ringerMode: RingerMode = RingerMode.NORMAL,
         volumePercent: Map<AudioStream, Int> = emptyMap(),
+        isMusicPlaying: Boolean = false,
+        isTorchOn: Boolean = false,
+        isDndOn: Boolean = false,
         consumePulses: Boolean = true,
         /**
          * 只读不消费：把待处理脉冲暴露给取值方（参数模板需要看到 ${trigger.app} 等），
@@ -132,6 +161,10 @@ class EnvironmentTracker(
         val headphonesChanged = if (expose) pendingHeadphonesChanged else null
         val scheduledTimeHit = expose && pendingScheduledTimeHit
         val gesturePerformedId = if (expose) pendingGesturePerformedId else null
+        val keyboardEvent = if (expose) pendingKeyboardEvent else null
+        val musicChanged = if (expose) pendingMusicChanged else null
+        val torchChangedTo = if (expose) pendingTorchChangedTo else null
+        val dndChangedTo = if (expose) pendingDndChangedTo else null
         if (consumePulses) {
             clearPendingPulses()
         }
@@ -145,13 +178,17 @@ class EnvironmentTracker(
             isCharging = isCharging,
             batteryLevel = batteryLevel,
             minuteOfDay = nowMinuteOfDay(),
+            dayOfWeek = nowDayOfWeek(),
             networkType = networkType,
             headphonesConnected = headphonesConnected,
             bluetoothAdapterOn = bluetoothAdapterOn,
             bluetoothAudioConnected = bluetoothAudioConnected,
             airplaneMode = airplaneMode,
-            isRingerSilent = isRingerSilent,
+            ringerMode = ringerMode,
             volumePercent = volumePercent,
+            isMusicPlaying = isMusicPlaying,
+            isTorchOn = isTorchOn,
+            isDndOn = isDndOn,
             appChangedTo = appChangedTo,
             screenEvent = screenEvent,
             chargingChangedTo = chargingChangedTo,
@@ -161,6 +198,10 @@ class EnvironmentTracker(
             headphonesChanged = headphonesChanged,
             scheduledTimeHit = scheduledTimeHit,
             gesturePerformedId = gesturePerformedId,
+            keyboardEvent = keyboardEvent,
+            musicChanged = musicChanged,
+            torchChangedTo = torchChangedTo,
+            dndChangedTo = dndChangedTo,
         )
     }
 
@@ -174,6 +215,10 @@ class EnvironmentTracker(
         pendingHeadphonesChanged = null
         pendingScheduledTimeHit = false
         pendingGesturePerformedId = null
+        pendingKeyboardEvent = null
+        pendingMusicChanged = null
+        pendingTorchChangedTo = null
+        pendingDndChangedTo = null
     }
 
     private fun updateKeyboardInputState(event: AccessibilityEvent) {

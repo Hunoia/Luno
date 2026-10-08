@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import hunoia.luno.action.model.AudioStream
 import hunoia.luno.action.model.VolumeDirection
+import hunoia.luno.config.model.RingerMode
 import hunoia.luno.runtime.VolumeChange
 import hunoia.luno.action.model.toStreamType
 
@@ -29,7 +30,7 @@ class AudioVolumeTracker(
     var volumePercent: Map<AudioStream, Int> = emptyMap()
         private set
 
-    var isRingerSilent: Boolean = false
+    var ringerMode: RingerMode = RingerMode.NORMAL
         private set
 
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -101,7 +102,13 @@ class AudioVolumeTracker(
     }
 
     private fun refreshRingerMode() {
-        runCatching { isRingerSilent = audioManager.ringerMode == AudioManager.RINGER_MODE_SILENT }
+        runCatching {
+            ringerMode = when (audioManager.ringerMode) {
+                AudioManager.RINGER_MODE_SILENT -> RingerMode.SILENT
+                AudioManager.RINGER_MODE_VIBRATE -> RingerMode.VIBRATE
+                else -> RingerMode.NORMAL
+            }
+        }
     }
 
     companion object {

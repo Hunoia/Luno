@@ -35,7 +35,21 @@ enum class ScreenType { LOCK_SCREEN, LAUNCHER, LANDSCAPE, PORTRAIT, KEYBOARD_INP
 
 @Serializable
 @Keep
-enum class ScreenEventType { SCREEN_ON, SCREEN_OFF }
+enum class ScreenEventType { SCREEN_ON, SCREEN_OFF, USER_UNLOCK }
+
+@Serializable
+@Keep
+enum class KeyboardEventType { SHOWN, HIDDEN }
+
+/** 音乐播放变化方向（MUSIC_CHANGED 脉冲）。 */
+@Serializable
+@Keep
+enum class PlaybackDirection { STARTED, STOPPED }
+
+/** 铃声模式三态（静音条件；老数据 Boolean silent 按 SILENT/NORMAL 回落）。 */
+@Serializable
+@Keep
+enum class RingerMode { SILENT, VIBRATE, NORMAL }
 
 @Serializable
 @Keep
@@ -64,6 +78,18 @@ object ConditionType {
     const val HEADPHONES_CHANGED = "headphonesChanged"
     const val SCHEDULED_TIME = "scheduledTime"
     const val GESTURE_PERFORMED = "gesturePerformed"
+
+    /** 键盘弹出/收起（脉冲；键盘状态仍由 SCREEN_STATE=KEYBOARD_INPUT 承担）。 */
+    const val KEYBOARD_EVENT = "keyboardEvent"
+    /** 音乐播放（状态）与播放变化（脉冲）。 */
+    const val MUSIC_PLAYING = "musicPlaying"
+    const val MUSIC_CHANGED = "musicChanged"
+    /** 手电筒状态（状态）与开关变化（脉冲）。 */
+    const val TORCH_ON = "torchOn"
+    const val TORCH_CHANGED = "torchChanged"
+    /** 勿扰模式（状态=中断过滤器非 ALL）与开关变化（脉冲）。 */
+    const val DND_ON = "dndOn"
+    const val DND_CHANGED = "dndChanged"
 
     /**
      * 手动触发：恒为假，引擎不订阅（无事件域、非状态叶），只供手势/runRule 调用。
@@ -125,8 +151,25 @@ data class ConditionItem(
     val connectionDirection: ConnectionDirection? = null,
     val scheduledMinutes: List<Int> = emptyList(),
     val scheduledWeekdays: Set<Int> = emptySet(),
-    /** 手势触发：为空表示任意手势，否则只匹配这些按钮 id。 */
-    val gestureButtonIds: List<String> = emptyList(),
+    // v3 新增条件字段（老数据缺键解码无碍，null/空=未配置）
+    /** 键盘弹出/收起事件（脉冲）。 */
+    val keyboardEvent: KeyboardEventType? = null,
+    /** 时间范围限定星期（Calendar 常量；空=每天），与 scheduledWeekdays 同语义。 */
+    val timeWeekdays: Set<Int> = emptySet(),
+    /** 音乐播放状态期望值（null 视为未播放，与充电条件同构）。 */
+    val musicPlaying: Boolean? = null,
+    /** 音乐播放变化方向（null=不限）。 */
+    val playbackDirection: PlaybackDirection? = null,
+    /** 手电筒状态期望值（null 视为关闭）。 */
+    val torchOn: Boolean? = null,
+    /** 手电筒开关变化（null=不限）。 */
+    val torchChangedTo: Boolean? = null,
+    /** 勿扰状态期望值（null 视为未开启）。 */
+    val dndOn: Boolean? = null,
+    /** 勿扰开关变化（null=不限）。 */
+    val dndChangedTo: Boolean? = null,
+    /** 铃声模式（新字段；null 时回落老字段 silent）。 */
+    val ringerMode: RingerMode? = null,
 )
 
 @Serializable

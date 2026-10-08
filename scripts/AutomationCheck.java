@@ -5,7 +5,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * 自动化 v2 语义校验（mirror Kotlin：AutomationEngine 边沿/节流 + effective* 迁移 + 新脉冲匹配）。
+ * 自动化 v2 语义校验（mirror Kotlin：AutomationEngine 边沿/节流 + effective* 迁移 + 新脉冲/新条件匹配）。
  * 跑法：javac -encoding UTF-8 AutomationCheck.java && java -Dfile.encoding=UTF-8 AutomationCheck
  */
 public class AutomationCheck {
@@ -90,6 +90,41 @@ public class AutomationCheck {
                                 int minuteOfDay, int weekday) {
         if (!minutes.contains(minuteOfDay)) return false;
         return weekdays.isEmpty() || weekdays.contains(weekday);
+    }
+
+    // ======== 转写：v3 新条件（mirror ConditionEvaluator / TimeWindow.matches）========
+    /** 键盘弹出/收起（mirror KEYBOARD_EVENT）：脉冲命中且方向一致。 */
+    static boolean keyboardMatches(String expected, String pulse) {
+        return pulse != null && pulse.equals(expected);
+    }
+
+    /** 音乐播放变化（mirror MUSIC_CHANGED）：脉冲命中，期望 null=不限方向。 */
+    static boolean playbackChangedMatches(String expected, String pulse) {
+        if (pulse == null) return false;
+        return expected == null || expected.equals(pulse);
+    }
+
+    /** 手电/勿扰开关变化（mirror TORCH_CHANGED/DND_CHANGED）：期望 null=不限。 */
+    static boolean toggledMatches(Boolean expected, Boolean pulse) {
+        if (pulse == null) return false;
+        return expected == null || expected.equals(pulse);
+    }
+
+    /** 铃声三态（mirror ringerMatches）：新字段优先，老 silent 回落 SILENT/NORMAL。 */
+    static boolean ringerMatches(String ringerMode, Boolean legacySilent, String actual) {
+        String expected = ringerMode != null
+                ? ringerMode
+                : (Boolean.TRUE.equals(legacySilent) ? "SILENT" : "NORMAL");
+        return expected.equals(actual);
+    }
+
+    /** 时间范围+星期（mirror TIME_RANGE 求值 + TimeWindow.matches）。 */
+    static boolean timeWindowMatches(int minute, int start, int end,
+                                     java.util.Set<Integer> weekdays, int dayOfWeek) {
+        boolean inWindow = start <= end
+                ? (minute >= start && minute <= end)
+                : (minute >= start || minute < end);
+        return inWindow && (weekdays.isEmpty() || weekdays.contains(dayOfWeek));
     }
 
     // ======== 转写：触钮显隐 target 解析（mirror InternalExecutors）========
@@ -222,6 +257,25 @@ public class AutomationCheck {
                 Arrays.asList(480), Arrays.asList(2, 3, 4, 5, 6), 480, 1));
         check("定时 空星期=每天", true, scheduledDue(
                 Arrays.asList(480), Collections.<Integer>emptyList(), 480, 7));
+        // v3 新条件：键盘/音乐/手电/勿扰/铃声/时间范围星期
+        check("键盘 弹出命中", true, keyboardMatches("SHOWN", "SHOWN"));
+        check("键盘 无脉冲不命中", false, keyboardMatches("SHOWN", null));
+        check("键盘 方向不匹配", false, keyboardMatches("SHOWN", "HIDDEN"));
+        check("音乐变化 不限方向", true, playbackChangedMatches(null, "STARTED"));
+        check("音乐变化 无脉冲", false, playbackChangedMatches("STARTED", null));
+        check("手电变化 方向不匹配", false, toggledMatches(true, false));
+        check("勿扰变化 不限方向", true, toggledMatches(null, false));
+        check("铃声 新字段优先", false, ringerMatches("VIBRATE", true, "SILENT"));
+        check("铃声 老数据回落静音", true, ringerMatches(null, true, "SILENT"));
+        check("铃声 老数据回落响铃", true, ringerMatches(null, false, "NORMAL"));
+        check("时间窗 工作日命中", true, timeWindowMatches(480, 420, 540,
+                new java.util.HashSet<>(Arrays.asList(2, 3, 4, 5, 6)), 3));
+        check("时间窗 周末不命中", false, timeWindowMatches(480, 420, 540,
+                new java.util.HashSet<>(Arrays.asList(2, 3, 4, 5, 6)), 1));
+        check("时间窗 跨午夜命中", true, timeWindowMatches(30, 1380, 60,
+                Collections.<Integer>emptySet(), 7));
+        check("时间窗 跨午夜外", false, timeWindowMatches(600, 1380, 60,
+                Collections.<Integer>emptySet(), 7));
         // 步骤路径：顶层 / 分支 then / 非法
         List<Object> demoSteps = new ArrayList<Object>(Arrays.<Object>asList(
                 "action-0",

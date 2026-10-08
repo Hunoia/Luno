@@ -47,10 +47,10 @@
     <string name="quick_search_trigger_off">留空则关闭该来源标识</string>
     <string name="quick_search_trigger_closed">标识已关闭</string>
     <string name="mini_window_position_short">小窗</string>
-    <string name="landscape">横屏模式</string>
+    <string name="landscape">横屏</string>
     <string name="refresh">刷新</string>
-    <string name="lock_screen">锁屏界面</string>
-    <string name="launcher">系统桌面</string>
+    <string name="lock_screen">锁屏</string>
+    <string name="launcher">桌面</string>
     <string name="slide_action">短距离滑动</string>
     <string name="slide_hold_action">短滑停留</string>
     <string name="gesture_angles">手势角度</string>
@@ -280,9 +280,9 @@
     <string name="logic_any">或</string>
     <string name="logic_not">非</string>
     <string name="condition_foreground_app">前台应用</string>
-    <string name="condition_screen">界面</string>
+    <string name="condition_screen">屏幕状态</string>
     <string name="condition_portrait">竖屏</string>
-    <string name="condition_keyboard_input">键盘输入</string>
+    <string name="condition_keyboard_input">键盘弹出（使用中）</string>
     <string name="condition_charging">充电中</string>
     <string name="condition_time_range">时间段</string>
     <string name="condition_logic_group">组合条件</string>
@@ -322,13 +322,18 @@
     <string name="automation_entry_missing">条目已删除（%1$s）</string>
     <string name="long_press_variant_unsupported">自动化不支持长按变体</string>
     <string name="automation_condition_empty">未配置条件</string>
+    <string name="automation_condition_incomplete">条件未配置完整</string>
     <string name="condition_level_group">当前状态</string>
     <string name="condition_event_group">变化事件</string>
 
     <!-- 条件类型 -->
-    <string name="condition_screen_event">屏幕开关</string>
+    <string name="condition_screen_event">屏幕/解锁</string>
     <string name="screen_event_on">亮屏</string>
     <string name="screen_event_off">灭屏</string>
+    <string name="screen_event_unlock">解锁</string>
+    <string name="condition_keyboard_event">键盘弹出/收起</string>
+    <string name="keyboard_shown">键盘弹出</string>
+    <string name="keyboard_hidden">键盘收起</string>
     <string name="condition_app_changed">应用切换</string>
     <string name="condition_charging_changed">充电变化</string>
     <string name="charging_started">开始充电</string>
@@ -336,7 +341,22 @@
     <string name="condition_battery_range">电量区间</string>
     <string name="condition_volume_range">音量区间</string>
     <string name="condition_volume_changed">音量变化</string>
-    <string name="condition_ringer_silent">静音/响铃</string>
+    <string name="condition_ringer_silent">静音/振动/响铃</string>
+    <string name="condition_ringer_vibrate">振动</string>
+    <string name="condition_music_playing">音乐播放</string>
+    <string name="condition_music_changed">音乐播放变化</string>
+    <string name="music_is_playing">播放中</string>
+    <string name="music_not_playing">未播放</string>
+    <string name="music_started">开始播放</string>
+    <string name="music_stopped">停止播放</string>
+    <string name="condition_torch_on">手电筒</string>
+    <string name="condition_torch_changed">手电筒开关</string>
+    <string name="torch_is_on">手电筒亮着</string>
+    <string name="torch_is_off">手电筒关闭</string>
+    <string name="condition_dnd_on">勿扰模式</string>
+    <string name="condition_dnd_changed">勿扰模式变化</string>
+    <string name="dnd_is_on">勿扰开启</string>
+    <string name="dnd_is_off">勿扰关闭</string>
     <string name="condition_network_type">网络类型</string>
     <string name="condition_headphones">耳机</string>
     <string name="condition_bluetooth">蓝牙</string>
@@ -359,7 +379,6 @@
     <string name="condition_manual_hint">仅手势与规则调用，不会自动触发</string>
     <string name="condition_manual_group">手动触发</string>
     <string name="condition_gesture_any">任意手势</string>
-    <string name="condition_gesture_clear">不限手势</string>
     <string name="condition_bluetooth_changed">蓝牙连接变化</string>
     <string name="condition_headphones_changed">耳机插拔</string>
     <string name="condition_scheduled_time">定时时刻</string>
@@ -369,6 +388,9 @@
     <string name="condition_scheduled_times">时刻（可多个）</string>
     <string name="condition_scheduled_add">添加时刻</string>
     <string name="condition_scheduled_weekdays">星期（空=每天）</string>
+    <string name="condition_weekdays">星期（不选=每天）</string>
+    <string name="condition_weekdays_workday">工作日</string>
+    <string name="condition_weekdays_weekend">周末</string>
     <string name="weekday_mon">一</string>
     <string name="weekday_tue">二</string>
     <string name="weekday_wed">三</string>

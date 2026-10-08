@@ -35,7 +35,12 @@ import hunoia.luno.runtime.automation.SkipReason
 import hunoia.luno.runtime.button.ButtonHideRuntime
 import hunoia.luno.runtime.button.ButtonRefreshCoordinator
 import hunoia.luno.runtime.condition.BatteryTracker
+import hunoia.luno.runtime.condition.DndTracker
+import hunoia.luno.runtime.condition.MusicPlaybackTracker
 import hunoia.luno.runtime.condition.TimeConditionTicker
+import hunoia.luno.runtime.condition.TorchStateTracker
+import hunoia.luno.runtime.condition.hasMusicCondition
+import hunoia.luno.runtime.condition.hasTorchCondition
 import hunoia.luno.runtime.environment.BroadcastObserver
 import hunoia.luno.runtime.environment.ConditionSources
 import hunoia.luno.runtime.environment.EnvironmentTracker
@@ -66,7 +71,7 @@ class GestureCoordinator(
         },
         onKeyboardStateChanged = { active ->
             if (BuildConfig.DEBUG) Log.i("LunoLauncher", "keyboard active=$active")
-            refreshGestureButtons()
+            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.KEYBOARD))
         },
     )
     val mainOverlayController = MainOverlayController(host)
@@ -93,12 +98,15 @@ class GestureCoordinator(
         onScreenOn = {
             if (BuildConfig.DEBUG) Log.i("LunoLauncher", "screen on")
             environmentTracker.onScreenEvent(ScreenEventType.SCREEN_ON)
+            // 无通知访问权限时，勿扰变化没有监听来源；亮屏时补读一次系统值。
+            dndTracker.refreshFromSystem()
             refreshGestureButtons(automationKeys = setOf(AutomationEventKey.SCREEN))
         },
         onUserPresent = {
             if (BuildConfig.DEBUG) Log.i("LunoLauncher", "user present")
             environmentTracker.isNowInLockScreenPage = false
-            refreshGestureButtons()
+            environmentTracker.onScreenEvent(ScreenEventType.USER_UNLOCK)
+            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.SCREEN))
         }
     )
 
@@ -120,6 +128,30 @@ class GestureCoordinator(
         onVolumeChanged = { change ->
             environmentTracker.onVolumeChanged(change)
             refreshGestureButtons(automationKeys = setOf(AutomationEventKey.VOLUME))
+        },
+    )
+
+    private val musicTracker = MusicPlaybackTracker(
+        context = host.context,
+        onChanged = { direction ->
+            environmentTracker.onMusicChanged(direction)
+            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.MUSIC))
+        },
+    )
+
+    private val torchTracker = TorchStateTracker(
+        context = host.context,
+        onChanged = { on ->
+            environmentTracker.onTorchChanged(on)
+            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.TORCH))
+        },
+    )
+
+    private val dndTracker = DndTracker(
+        context = host.context,
+        onChanged = { on ->
+            environmentTracker.onDndChanged(on)
+            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.DND))
         },
     )
 
@@ -341,6 +373,9 @@ class GestureCoordinator(
             environmentTracker.onNotificationPosted(pulse)
             refreshGestureButtons(automationKeys = setOf(AutomationEventKey.NOTIFICATION))
         }
+        // 勿扰变化：通知监听服务推入（需通知访问权限）；无权限时靠亮屏补读。
+        AutomationPulseHub.onInterruption = { on -> dndTracker.onSystemChanged(on) }
+        dndTracker.refreshFromSystem()
         val listener = WallpaperManager.OnColorsChangedListener { _, _ ->
             hunoia.luno.core.Events.post(hunoia.luno.core.WallpaperChangedEvent())
         }
@@ -380,6 +415,9 @@ class GestureCoordinator(
                 .collect { state ->
                     timeConditionTicker.sync(state.automationRules)
                     audioVolumeTracker.sync(volumePollNeeded(state.automationRules))
+                    musicTracker.sync(musicConditionNeeded(state.automationRules))
+                    torchTracker.sync(torchConditionNeeded(state.automationRules))
+                    dndTracker.refreshFromSystem()
                     if (firstRuleEmission) {
                         firstRuleEmission = false
                     } else {
@@ -417,10 +455,13 @@ class GestureCoordinator(
             gestureDispatchSubscriber,
         )
         AutomationPulseHub.onNotification = null
+        AutomationPulseHub.onInterruption = null
         runtimeSettingsStore.stop()
         timeConditionTicker.stop()
         batteryTracker.unregister()
         audioVolumeTracker.unregister()
+        musicTracker.unregister()
+        torchTracker.unregister()
         conditionSources.stop()
         scopeJobs.forEach { it.cancel() }
         scopeJobs.clear()
@@ -447,8 +488,11 @@ class GestureCoordinator(
             bluetoothAdapterOn = conditionSources.bluetoothAdapterOn,
             bluetoothAudioConnected = conditionSources.bluetoothAudioConnected,
             airplaneMode = conditionSources.airplaneMode,
-            isRingerSilent = audioVolumeTracker.isRingerSilent,
+            ringerMode = audioVolumeTracker.ringerMode,
             volumePercent = audioVolumeTracker.volumePercent,
+            isMusicPlaying = musicTracker.isPlaying,
+            isTorchOn = torchTracker.isOn,
+            isDndOn = dndTracker.isOn,
             consumePulses = consumePulses,
             peekPulses = peekPulses,
         )
@@ -457,6 +501,16 @@ class GestureCoordinator(
         val list = rules ?: runtimeSettingsStore.snapshot().automationRules
         // 只看启用规则：纯禁用规则不该让音量轮询空转。
         return list.any { rule -> rule.enabled && rule.condition.hasVolumeCondition() }
+    }
+
+    private fun musicConditionNeeded(rules: List<hunoia.luno.config.model.AutomationRule>? = null): Boolean {
+        val list = rules ?: runtimeSettingsStore.snapshot().automationRules
+        return list.any { rule -> rule.enabled && rule.condition.hasMusicCondition() }
+    }
+
+    private fun torchConditionNeeded(rules: List<hunoia.luno.config.model.AutomationRule>? = null): Boolean {
+        val list = rules ?: runtimeSettingsStore.snapshot().automationRules
+        return list.any { rule -> rule.enabled && rule.condition.hasTorchCondition() }
     }
 
     private fun refreshGestureButtons(delayMs: Long = 100L, automationKeys: Set<String> = emptySet()) {

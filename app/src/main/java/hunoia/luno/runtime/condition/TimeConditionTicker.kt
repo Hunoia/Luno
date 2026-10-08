@@ -40,9 +40,9 @@ class TimeConditionTicker(
                 // 禁用规则不参与定时/时间窗签名（与 sync 的启用过滤一致）。
                 val rules = rulesProvider().filter { it.enabled }
                 val minute = nowMinuteOfDay()
+                val weekday = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
                 // 定时触发：分钟级精度，Doze 下可能推迟（doc §3.2 已声明）。
                 if (rules.any { it.condition.hasScheduledTime() }) {
-                    val weekday = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
                     val due = rules
                         .flatMap { rule -> rule.condition.scheduledItems() }
                         .any { item ->
@@ -58,9 +58,10 @@ class TimeConditionTicker(
                     lastSignature = null
                     continue
                 }
+                // 签名含星期：跨午夜且窗口跨天时，分钟连续而星期已切换，也要触发刷新。
                 val signature = rules
                     .flatMap { rule -> rule.condition.timeRanges() }
-                    .map { it.matchesMinute(minute) }
+                    .map { it.matches(minute, weekday) }
                 if (lastSignature != null && signature != lastSignature) {
                     onTimeSignatureChanged()
                 }

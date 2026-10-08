@@ -1,6 +1,7 @@
 package hunoia.luno.runtime.automation
 
 import android.app.Notification
+import android.app.NotificationManager
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -42,6 +43,22 @@ class AutomationNotificationListener : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         // 移除不发脉冲：v2 只有"到达"语义。
+    }
+
+    override fun onInterruptionFilterChanged(interruptionFilter: Int) {
+        AutomationPulseHub.onInterruption?.invoke(
+            interruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL
+        )
+    }
+
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        // 连接时补一次基线，避免授权后到首次切换之间状态缺失。
+        val filter = runCatching { currentInterruptionFilter }.getOrNull()
+            ?: NotificationManager.INTERRUPTION_FILTER_ALL
+        AutomationPulseHub.onInterruption?.invoke(
+            filter != NotificationManager.INTERRUPTION_FILTER_ALL
+        )
     }
 
     companion object {

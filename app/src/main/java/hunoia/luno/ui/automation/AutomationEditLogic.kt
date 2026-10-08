@@ -220,3 +220,45 @@ internal fun conditionUsesNotification(group: WhenGroup): Boolean = group.items.
         else -> false
     }
 }
+
+/** 步骤树（含 IF 分支）是否引用通知条件：决定是否展示通知权限提示行。 */
+internal fun RuleEffect.usesNotificationCondition(): Boolean = steps.any { it.usesNotificationCondition() }
+
+private fun RuleStep.usesNotificationCondition(): Boolean =
+    conditionUsesNotification(condition) ||
+        thenSteps.any { it.usesNotificationCondition() } ||
+        elseSteps.any { it.usesNotificationCondition() }
+
+/**
+ * 条件是否未配置完整（求值恒 false / 逻辑恒空转的死配置）：保存闸门与条件组错误徽标用。
+ * 空 GROUP、空 IF 条件一定无效，一并拦截，避免保存出永不触发的规则。
+ */
+internal fun WhenGroup.hasIncompleteCondition(): Boolean = items.any { item ->
+    when (item.type) {
+        ConditionType.FOREGROUND_APP,
+        ConditionType.APP_CHANGED_TO -> item.packageNames.isEmpty()
+
+        ConditionType.SCREEN_STATE -> item.screenType == null
+        ConditionType.SCREEN_EVENT -> item.screenEvent == null
+        ConditionType.TIME_RANGE -> item.startMinute == null || item.endMinute == null
+        ConditionType.VOLUME_RANGE -> item.audioStream == null
+        ConditionType.NETWORK_TYPE -> item.networkType == null
+        ConditionType.CHARGING_CHANGED -> item.charging == null
+        ConditionType.KEYBOARD_EVENT -> item.keyboardEvent == null
+        ConditionType.SCHEDULED_TIME -> item.scheduledMinutes.isEmpty()
+        ConditionType.BLUETOOTH -> item.expectedBluetoothAdapterOn == null &&
+            item.expectedBluetoothAudioConnected == null
+
+        ConditionType.GROUP -> item.group == null || item.group.items.isEmpty() ||
+            item.group.hasIncompleteCondition()
+
+        else -> false
+    }
+}
+
+/** 步骤树里是否有空/未配置完整的 IF 条件（含分支递归）。 */
+internal fun List<RuleStep>.hasIncompleteStepCondition(): Boolean = any { step ->
+    val self = step.kind == RuleStepKind.IF &&
+        (step.condition.items.isEmpty() || step.condition.hasIncompleteCondition())
+    self || step.thenSteps.hasIncompleteStepCondition() || step.elseSteps.hasIncompleteStepCondition()
+}

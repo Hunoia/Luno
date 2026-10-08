@@ -9,4 +9,8 @@ import hunoia.luno.runtime.condition.NotificationPulse
 object AutomationPulseHub {
     @Volatile
     var onNotification: ((NotificationPulse) -> Unit)? = null
+
+    /** 勿扰模式变化（true=开启）；由通知监听服务推入，未授权通知访问时不会被调用。 */
+    @Volatile
+    var onInterruption: ((Boolean) -> Unit)? = null
 }
