@@ -3,12 +3,14 @@ import hunoia.luno.ui.theme.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -16,10 +18,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.util.fastForEach
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aaron.compose.component.UDFComponent
 import hunoia.luno.R
+import hunoia.luno.config.model.GestureButton
+import hunoia.luno.gesture.bounds
+import hunoia.luno.gesture.mirroredButton
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsUiEvent
@@ -81,6 +88,9 @@ fun GestureButtonSettingsScreen(
                             }
                         },
         state = listState,
+        floatingContent = {
+            GestureButtonBoundsOverlay(uiState)
+        },
         sheets = {
         val sheetButton = uiState.gestureButton
         if (showVibrationSettings && sheetButton != null) {
@@ -164,4 +174,42 @@ fun GestureButtonSettingsScreen(
     }
     }
     }
+}
+
+/**
+ * 触钮位置浮层：把当前所有触钮（含镜像）的热区按屏幕比例画在编辑页上，
+ * 调 X/Y/宽/高时随滑动实时更新，正在调的那一个用满色高亮。
+ *
+ * 挂在模板的 `floatingContent`（Scaffold 之后的兄弟节点）上：既画在内容之上，
+ * `drawBehind` 不消费触摸事件，滑杆照常可拖。
+ */
+@Composable
+private fun GestureButtonBoundsOverlay(uiState: GestureButtonSettingsUiState) {
+    val primary = MaterialTheme.colorScheme.primary
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .drawBehind {
+                uiState.gestureButtons.fastForEach { button ->
+                    fun drawTarget(targetButton: GestureButton) {
+                        val bounds = targetButton.bounds()
+                        val color = gestureButtonMarkColor(targetButton.color, primary)
+                        val highlight = uiState.isGestureButtonAdjusting &&
+                                button.id == uiState.gestureButton?.id
+                        drawRect(
+                            color = when (highlight) {
+                                true -> color
+                                else -> color.copy(alpha = DisabledAlpha)
+                            },
+                            topLeft = bounds.topLeft,
+                            size = bounds.size
+                        )
+                    }
+                    drawTarget(button)
+                    if (button.mirrorHorizontal) {
+                        button.mirroredButton()?.let { drawTarget(it) }
+                    }
+                }
+            }
+    )
 }
