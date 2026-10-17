@@ -21,6 +21,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDeepLink
 import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -71,9 +72,8 @@ import kotlin.reflect.KType
 
 
 @Composable
-fun SideGestureApp() {
+fun SideGestureApp(navController: NavHostController = rememberNavController()) {
     SideGestureTheme {
-        val navController = rememberNavController()
         val durationMs = ANIMATION_DURATION_MS
         val actionLibrarySettings by ActionLibrary.settings
             .collectAsStateWithLifecycle(initialValue = NewActionLibrarySettings())
