@@ -114,7 +114,6 @@ fun AutomationRulesTabContent(
                 lastRunText = events.filter { it.wallTimeMs > 0L }.lastOrNull { event -> event.ruleId == rule.id }?.let { event ->
                     timeFormat.format(Date(event.wallTimeMs))
                 } ?: context.getString(R.string.rule_never_run),
-                fireCount = events.count { event -> event.ruleId == rule.id && event.fired },
                 onEnabledChange = { enabled ->
                     submit(rules.map { if (it.id == rule.id) it.copy(enabled = enabled) else it })
                 },
@@ -134,7 +133,6 @@ fun AutomationRulesTabContent(
 private fun RuleCard(
     rule: AutomationRule,
     lastRunText: String,
-    fireCount: Int,
     onEnabledChange: (Boolean) -> Unit,
     onPriorityChange: (Int) -> Unit,
     onIconChange: (String?) -> Unit,
@@ -243,12 +241,6 @@ private fun RuleCard(
                         }
                     }
                 }
-                Text(
-                    text = stringResource(R.string.rule_fire_count, fireCount),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                )
                 LunoIconButton(
                     icon = Icons.Default.Delete,
                     contentDescription = stringResource(R.string.delete),
