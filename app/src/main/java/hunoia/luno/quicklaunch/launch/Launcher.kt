@@ -11,6 +11,7 @@ import android.util.Log
 import android.view.WindowManager
 import hunoia.luno.R
 import hunoia.luno.config.model.MiniWindowSettings
+import hunoia.luno.config.model.WindowBounds
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.config.model.OpenAppOrUrlData
@@ -185,7 +186,13 @@ private object MiniWindow {
     ): Boolean {
         return try {
             val realSize = getRealScreenSize(context)
-            val activityOptions = makeActivityOptions(miniWindowSettings, realSize.x, realSize.y)
+            val activityOptions = makeActivityOptions(
+                settings = miniWindowSettings.forOrientation(
+                    context.resources.configuration.orientation
+                ),
+                realSw = realSize.x,
+                realSh = realSize.y,
+            )
             context.startActivity(intent, activityOptions.toBundle())
             true
         } catch (e: Exception) {
@@ -205,7 +212,7 @@ private object MiniWindow {
     }
 
     private fun makeActivityOptions(
-        settings: MiniWindowSettings,
+        settings: WindowBounds,
         realSw: Int,
         realSh: Int,
     ) = ActivityOptions.makeBasic().also { opts ->

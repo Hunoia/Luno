@@ -1,7 +1,6 @@
 package hunoia.luno.service;
 
 /** 跨进程分发口：主进程经 Binder 转发，分发仍只在 :service 的单 Dispatcher 执行。 */
-import hunoia.luno.service.IMiniWindowAdjustCallback;
 import hunoia.luno.service.IPointPickCallback;
 
 interface IDispatchService {
@@ -9,8 +8,6 @@ interface IDispatchService {
     boolean dispatchAction(String actionJson);
     /** 分发链就绪（无障碍服务存活且 coordinator 已初始化）。 */
     boolean isReady();
-    /** 在主进程打开小窗调整 overlay（窗口由 :service 的无障碍服务展示），结果经回调送回主进程。 */
-    oneway void showMiniWindowAdjust(String initialJson, IMiniWindowAdjustCallback cb);
-    /** 打开屏幕取点 overlay（同上）。initial 为 dp，-1 = 无初值；结果经回调送回主进程。 */
+    /** 打开屏幕取点 overlay（窗口由 :service 的无障碍服务展示），结果经回调送回主进程。 */
     oneway void showPointPicker(int initialXDp, int initialYdp, IPointPickCallback cb);
 }

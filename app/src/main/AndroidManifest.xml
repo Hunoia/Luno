@@ -49,6 +49,7 @@
         android:theme="@style/Theme.SideGesture">
         <activity
             android:name=".ui.MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|density|fontScale|uiMode|layoutDirection|locale"
             android:launchMode="singleTask"
             android:exported="true"
             android:theme="@style/Theme.SideGesture"

@@ -278,6 +278,9 @@
     <string name="confirm_reset">确认重置</string>
     <string name="height">高度</string>
     <string name="tap_mini_window">短按小窗</string>
+    <string name="mini_window_size_summary">%1$d%% × %2$d%%</string>
+    <string name="mini_window_portrait_hint">当前编辑竖屏位置，转动屏幕可编辑横屏</string>
+    <string name="mini_window_landscape_hint">当前编辑横屏位置，转回竖屏可编辑竖屏</string>
     <string name="mini_window_position">位置</string>
     <string name="mini_window_default">默认</string>
     <string name="mini_window_done">完成</string>

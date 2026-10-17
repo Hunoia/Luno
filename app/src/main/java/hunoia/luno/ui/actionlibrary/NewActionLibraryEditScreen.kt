@@ -32,10 +32,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.bridge.ui.showToast
+import hunoia.luno.ui.settings.action.MiniWindowAdjustContent
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ParameterDefinition
@@ -197,15 +200,23 @@ fun NewActionLibraryEditScreen(
                 )
             }
             showMiniWindowPicker?.let { paramDef ->
-                LaunchedEffect(paramDef.key) {
-                    val initial = draft?.params?.get(paramDef.key)?.toMiniWindowSettings() ?: MiniWindowSettings()
-                    DispatchClient.showMiniWindowAdjust(
+                // 全屏对话框而不是另开路由：结果要回填给当前编辑中的动作，
+                // 走路由就得跨 nav entry 传参，这里就地拿到 vm 最直接。
+                val initial = draft?.params?.get(paramDef.key)?.toMiniWindowSettings() ?: MiniWindowSettings()
+                Dialog(
+                    onDismissRequest = { showMiniWindowPicker = null },
+                    properties = DialogProperties(
+                        usePlatformDefaultWidth = false,
+                        decorFitsSystemWindows = false,
+                    ),
+                ) {
+                    MiniWindowAdjustContent(
                         initial = initial,
                         onCommit = { result ->
                             vm.updateParamMiniWindow(paramDef.key, result)
                             showMiniWindowPicker = null
                         },
-                        onDismiss = { showMiniWindowPicker = null },
+                        onCancel = { showMiniWindowPicker = null },
                     )
                 }
             }
@@ -285,6 +296,10 @@ if (cardParams.isNotEmpty()) {
                                         stringResource(R.string.point_pick_empty)
                                     },
                                     onClick = {
+                                        // 取点窗口盖在别的应用上面，只能由 :service 的无障碍服务加
+                                        // （TYPE_ACCESSIBILITY_OVERLAY 只有 AccessibilityService 能
+                                        // addView；改用 TYPE_APPLICATION_OVERLAY 需要引入一个本来
+                                        // 不必有的「显示在其他应用上层」权限）。见 DispatchService。
                                         val ok = DispatchClient.showPointPicker(
                                             initialXdp = curX,
                                             initialYdp = curY,

@@ -37,6 +37,7 @@ import hunoia.luno.ui.navigation.ActionSettings
 import hunoia.luno.ui.navigation.ActionPanelList
 import hunoia.luno.ui.navigation.ActionPanelEdit
 import hunoia.luno.ui.navigation.SearchEngineSettings
+import hunoia.luno.ui.navigation.MiniWindowAdjust
 import hunoia.luno.ui.navigation.SubGestureEditor
 import hunoia.luno.ui.navigation.AutomationEdit
 import hunoia.luno.ui.navigation.AutomationHistory
@@ -48,6 +49,7 @@ import hunoia.luno.ui.actionlibrary.NewActionLibraryEditScreen
 import hunoia.luno.ui.automation.AutomationEditScreen
 import hunoia.luno.ui.automation.AutomationHistoryScreen
 import hunoia.luno.ui.settings.action.ActionSettingsScreen
+import hunoia.luno.ui.settings.action.MiniWindowAdjustScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelEditScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelListScreen
 import hunoia.luno.ui.settings.search.SearchEngineSettingsScreen
@@ -140,7 +142,11 @@ fun SideGestureApp() {
                         onBack = { navController.popBackStack() },
                         onNavToSearchEngines = { navController.navigate(SearchEngineSettings) },
                         onNavToActionPanels = { navController.navigate(ActionPanelList) },
+                        onNavToMiniWindowAdjust = { navController.navigate(MiniWindowAdjust) },
                     )
+                }
+                myComposable<MiniWindowAdjust> {
+                    MiniWindowAdjustScreen(onBack = { navController.popBackStack() })
                 }
                 myComposable<ActionPanelList> {
                     ActionPanelListScreen(

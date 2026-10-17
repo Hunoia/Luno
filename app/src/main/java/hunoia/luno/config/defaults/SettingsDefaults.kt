@@ -4,12 +4,26 @@ package hunoia.luno.config.defaults
 
 object AdvancedSettingsDefaults {
 
-    /** 小窗默认布局：宽=屏宽、高=屏宽/0.625(16:10)、左=15%屏宽、垂直居中(以 0.45 宽高比近似)。 */
-    const val MiniWindowX = 0.15f
-    const val MiniWindowY = 0.14f
-    const val MiniWindowWidth = 1.0f
-    const val MiniWindowHeight = 0.72f
+    /**
+     * 小窗默认布局，竖屏横屏各一套，约 16:10。
+     *
+     * 这组值取代了更早的 0.15/0.14/1.0/0.72（满屏宽）。那组是 `eee82bc` 定的，
+     * 早于 `ced7c5f` 引入的 MIUI 1.42 补偿：MIUI13+/澎湃 按 freeformScale(0.7) 缩放
+     * freeform 窗口，而 WindowManager 帧仍是请求的 bounds，于是
+     * `frame = 屏宽 × width × 1.42` 溢出屏幕 42%（`x` 不参与补偿，位置也没抵消）。
+     * 现在这组取自真机上验过能用的读数（精度 ±0.5%）。
+     */
+    const val MiniWindowX = 0.11f
+    const val MiniWindowY = 0.36f
+    const val MiniWindowWidth = 0.77f
+    const val MiniWindowHeight = 0.54f
     const val KeepAliveEnabled = true
+
+    /** 横屏那套。约 16:10 的竖长小窗，靠左。 */
+    const val MiniWindowLandscapeX = 0.05f
+    const val MiniWindowLandscapeY = 0.11f
+    const val MiniWindowLandscapeWidth = 0.24f
+    const val MiniWindowLandscapeHeight = 0.79f
 }
 
 object GestureSettingsDefaults {

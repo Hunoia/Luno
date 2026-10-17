@@ -15,13 +15,9 @@ import hunoia.luno.R
 import hunoia.luno.domain.search.SearchCenter
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.config.model.ActionSettings
-import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.defaultEngine
-import hunoia.luno.config.model.miniWindowSettings
-import hunoia.luno.config.model.withMiniWindowSettings
 import kotlinx.coroutines.launch
-import hunoia.luno.service.DispatchClient
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.ui.platform.LocalDensity
@@ -38,11 +34,11 @@ fun ActionSettingsScreen(
     onBack: () -> Unit,
     onNavToSearchEngines: () -> Unit = {},
     onNavToActionPanels: () -> Unit = {},
+    onNavToMiniWindowAdjust: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var showActionPanelStyle by remember { mutableStateOf(false) }
     val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = ActionSettings())
-    val advancedSettings by TuneConfig.advanced.collectAsStateWithLifecycle(initialValue = AdvancedSettings())
     val quickSearchSettings by SearchCenter.search.collectAsStateWithLifecycle(initialValue = QuickSearchSettings())
     LunoScreen(
         title = stringResource(R.string.action_settings),
@@ -92,17 +88,7 @@ fun ActionSettingsScreen(
                     icon = Icons.Default.Crop,
                     title = stringResource(R.string.mini_window_position_short),
                     subtitle = stringResource(R.string.mini_window_position_hint),
-                    onClick = {
-                        DispatchClient.showMiniWindowAdjust(
-                            initial = advancedSettings.miniWindowSettings(),
-                            onCommit = { next ->
-                                scope.launch {
-                                    TuneConfig.updateAdvanced { it.withMiniWindowSettings(next) }
-                                }
-                            },
-                            onDismiss = {},
-                        )
-                    },
+                    onClick = { onNavToMiniWindowAdjust() },
                 )
             }
     }

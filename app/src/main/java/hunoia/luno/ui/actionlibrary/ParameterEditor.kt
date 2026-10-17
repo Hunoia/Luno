@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import hunoia.luno.R
@@ -183,7 +184,13 @@ fun ParameterEditor(
         }
         is ParameterDefinition.MiniWindow -> {
             val settings = currentParams[definition.key]?.toMiniWindowSettings() ?: MiniWindowSettings()
-            val display = "${settings.width.times(100).roundToInt()}% × ${settings.height.times(100).roundToInt()}%"
+            // 竖横屏各一套，摘要跟着当前方向走 —— 运行时也是这么选的。
+            val bounds = settings.forOrientation(LocalConfiguration.current.orientation)
+            val display = stringResource(
+                R.string.mini_window_size_summary,
+                bounds.width.times(100).roundToInt(),
+                bounds.height.times(100).roundToInt(),
+            )
             LunoSettingsRow(
                 title = definition.label,
                 subtitle = display,

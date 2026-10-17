@@ -7,7 +7,6 @@ import androidx.lifecycle.ViewModelStoreOwner
 import androidx.savedstate.SavedStateRegistryOwner
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
-import hunoia.luno.runtime.overlay.MiniWindowAdjustOverlay
 import hunoia.luno.runtime.overlay.PointPickOverlay
 import kotlinx.coroutines.CoroutineScope
 
@@ -18,7 +17,6 @@ interface GestureHost : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryO
     val advancedSettings: hunoia.luno.config.model.AdvancedSettings?
 
     val runtimePanelOverlay: RuntimePanelOverlay
-    val miniWindowAdjustOverlay: MiniWindowAdjustOverlay
     val pointPickOverlay: PointPickOverlay
 
     fun nowInLauncher(): Boolean
