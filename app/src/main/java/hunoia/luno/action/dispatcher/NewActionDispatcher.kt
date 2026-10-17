@@ -149,7 +149,8 @@ class NewActionDispatcher(
         }
         val ctx = buildContext(sourceButton, touchPosition, templateContext)
         // 点按类动作的前置条件：手势触点优先，其次看参数坐标（库/规则配好的固定点），
-        // 两者都没有才判参数无效。注意这里只看 StoredAction 参数，进 Executor 前不再复验。
+        // 两者都没有才判参数无效。勾了「使用触发位置坐标」的条目 hasPointParams() 恒 false，
+        // 无触点路径（自动化）在这里被拦。注意这里只看 StoredAction 参数，进 Executor 前不再复验。
         if (touchPosition == null && (effective.typeId == "accessibility.tap" || effective.typeId == "accessibility.longPress") &&
             !effective.hasPointParams()
         ) {

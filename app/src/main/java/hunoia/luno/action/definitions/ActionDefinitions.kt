@@ -33,6 +33,9 @@ import androidx.compose.material.icons.filled.SettingsInputComposite
 import hunoia.luno.action.definitions.PlayPause
 import hunoia.luno.action.model.ACTION_PANEL_PARAM_PANEL_ID
 import hunoia.luno.action.model.ACTION_PANEL_TYPE_ID
+import hunoia.luno.action.model.PARAM_X_DP
+import hunoia.luno.action.model.PARAM_Y_DP
+import hunoia.luno.action.model.USE_TRIGGER_POINT_KEY
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Splitscreen
 import androidx.compose.material.icons.filled.StopCircle
@@ -204,14 +207,23 @@ object ActionDefinitions {
             icon = Icons.Default.ViewCarousel))
         add(ActionDefinition("accessibility.tap", "点击", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
             listOf(
-                ParameterDefinition.Number("xDp", "横坐标 dp", min = 0),
-                ParameterDefinition.Number("yDp", "纵坐标 dp", min = 0),
+                ParameterDefinition.Bool(
+                    key = USE_TRIGGER_POINT_KEY,
+                    label = "使用触发位置坐标",
+                ),
+                // 坐标非必填：勾了上面那个开关就只认手势触点，固定坐标整组隐藏。
+                ParameterDefinition.Number(PARAM_X_DP, "横坐标 dp", required = false, min = 0),
+                ParameterDefinition.Number(PARAM_Y_DP, "纵坐标 dp", required = false, min = 0),
             ),
             icon = Icons.Default.TouchApp))
         add(ActionDefinition("accessibility.longPress", "长按", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
             listOf(
-                ParameterDefinition.Number("xDp", "横坐标 dp", min = 0),
-                ParameterDefinition.Number("yDp", "纵坐标 dp", min = 0),
+                ParameterDefinition.Bool(
+                    key = USE_TRIGGER_POINT_KEY,
+                    label = "使用触发位置坐标",
+                ),
+                ParameterDefinition.Number(PARAM_X_DP, "横坐标 dp", required = false, min = 0),
+                ParameterDefinition.Number(PARAM_Y_DP, "纵坐标 dp", required = false, min = 0),
                 ParameterDefinition.Number("durationMs", "时长毫秒", required = false, defaultValue = "1000", min = 100, max = 10000),
             ),
             icon = Icons.Default.Gesture))

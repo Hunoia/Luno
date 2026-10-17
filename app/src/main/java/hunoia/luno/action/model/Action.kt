@@ -118,13 +118,20 @@ sealed interface Action {
     data object Recents : Action {
         override val typeId: String = "accessibility.recents"
     }
-    data class Tap(val xDp: Int? = null, val yDp: Int? = null) : Action {
+    data class Tap(
+        val xDp: Int? = null,
+        val yDp: Int? = null,
+        /** 用触发位置坐标：忽略上面的固定坐标，点在手指按下的位置（隐藏触钮后即穿透到下层）。 */
+        val useTriggerPoint: Boolean = false,
+    ) : Action {
         override val typeId: String = "accessibility.tap"
     }
     data class LongPress(
         val xDp: Int? = null,
         val yDp: Int? = null,
         val durationMs: Long = 1000L,
+        /** 用触发位置坐标：忽略固定坐标，长按在手指按下的位置。 */
+        val useTriggerPoint: Boolean = false,
     ) : Action {
         override val typeId: String = "accessibility.longPress"
     }

@@ -42,6 +42,11 @@ import hunoia.luno.ui.settings.action.MiniWindowAdjustContent
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ParameterDefinition
+import hunoia.luno.action.definitions.hasPointParams
+import hunoia.luno.action.model.PARAM_X_DP
+import hunoia.luno.action.model.PARAM_Y_DP
+import hunoia.luno.action.model.POINT_PARAM_KEYS
+import hunoia.luno.action.model.USE_TRIGGER_POINT_KEY
 import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.config.model.toMiniWindowSettings
 import hunoia.luno.quicklaunch.QuickLaunchFacade
@@ -69,15 +74,9 @@ import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.component.feedback.LunoIconButton
 /**
  * 依赖真实触点的动作：分发时必须带触点坐标；库条目配好固定坐标后可独立试执行，
- * 无坐标时测试按钮置灰（见 accessibility.tap / longPress 的分发前置校验）。
+ * 无坐标（或勾了「使用触发位置坐标」）时测试按钮置灰。
  */
 private val TOUCH_ONLY_TYPES = setOf("accessibility.tap", "accessibility.longPress")
-
-/** 该定义是否带坐标参数（tap/longPress 的 xDp+yDp）：是则给屏幕取点入口。 */
-private fun hasPointParams(definition: ActionDefinition): Boolean {
-    val keys = definition.parameters.map { it.key }.toSet()
-    return "xDp" in keys && "yDp" in keys
-}
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewActionLibraryEditScreen(
@@ -240,6 +239,8 @@ fun NewActionLibraryEditScreen(
                 state.notFound -> EmptyState(stringResource(R.string.action_library_entry_not_found))
                 draft == null || definition == null -> EmptyState(stringResource(R.string.action_library_empty))
                 else -> {
+                    val useTriggerPoint =
+                        draft.params[USE_TRIGGER_POINT_KEY]?.scalarText()?.toBoolean() == true
                     TypeSelectorField(
                         definition = definition,
                         onClick = { showTypePicker = true },
@@ -283,11 +284,13 @@ if (cardParams.isNotEmpty()) {
                             }
                         }
                         fieldParams.forEach { paramDef ->
+                            // 勾了「使用触发位置坐标」：固定坐标整组（含屏幕取点入口）不显示。
+                            if (useTriggerPoint && paramDef.key in POINT_PARAM_KEYS) return@forEach
                             // 坐标参数（tap/longPress）：首个数字框前插屏幕取点入口，
                             // 取点经服务侧 overlay，回填后仍可在数字框里手改。
-                            if (paramDef.key == "xDp" && hasPointParams(definition)) {
-                                val curX = draft.params["xDp"]?.scalarText()?.toIntOrNull()
-                                val curY = draft.params["yDp"]?.scalarText()?.toIntOrNull()
+                            if (paramDef.key == PARAM_X_DP && definition.hasPointParams()) {
+                                val curX = draft.params[PARAM_X_DP]?.scalarText()?.toIntOrNull()
+                                val curY = draft.params[PARAM_Y_DP]?.scalarText()?.toIntOrNull()
                                 LunoSettingsRow(
                                     title = stringResource(R.string.point_pick),
                                     subtitle = if (curX != null && curY != null) {
@@ -304,8 +307,8 @@ if (cardParams.isNotEmpty()) {
                                             initialXdp = curX,
                                             initialYdp = curY,
                                             onCommit = { xDp, yDp ->
-                                                vm.updateParam("xDp", xDp.toString())
-                                                vm.updateParam("yDp", yDp.toString())
+                                                vm.updateParam(PARAM_X_DP, xDp.toString())
+                                                vm.updateParam(PARAM_Y_DP, yDp.toString())
                                             },
                                             onDismiss = {},
                                         )
@@ -327,10 +330,12 @@ if (cardParams.isNotEmpty()) {
                         }
                     }
                     // 测试/保存并排：测试只要求参数有效，不写盘；保存沿用顶部同一入口。
-                    // 触点类动作配好固定坐标后可独立试执行（参数优先于触点），无坐标仍置灰。
-                    val hasTapPoint = draft.params["xDp"]?.scalarText()?.toIntOrNull() != null &&
-                        draft.params["yDp"]?.scalarText()?.toIntOrNull() != null
-                    val testable = draft.typeId !in TOUCH_ONLY_TYPES || hasTapPoint
+                    // 触点类动作配好固定坐标后可独立试执行（参数优先于触点）；
+                    // 勾了「使用触发位置坐标」就必然没有触点，只能置灰。
+                    val hasTapPoint = draft.params[PARAM_X_DP]?.scalarText()?.toIntOrNull() != null &&
+                        draft.params[PARAM_Y_DP]?.scalarText()?.toIntOrNull() != null
+                    val testable = draft.typeId !in TOUCH_ONLY_TYPES ||
+                        (hasTapPoint && !useTriggerPoint)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(ListSpacing),

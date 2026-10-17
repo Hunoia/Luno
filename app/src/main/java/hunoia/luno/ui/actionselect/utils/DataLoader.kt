@@ -143,7 +143,9 @@ private suspend fun saveActionPanelItem(actionSelect: ActionSelect, picked: Stor
 private suspend fun saveAutomationEffect(actionSelect: ActionSelect, picked: StoredAction?) {
     val current = loadAutomationAction(actionSelect)
     tryDeleteShortcutIcons(current, picked)
-    val action = picked?.takeIf { it.typeId != "internal.libraryRef" }?.withoutVariantKey()
+    // 动作库条目存的就是引用本身（internal.libraryRef），运行时由分发器就地解析成条目动作。
+    // 以前引用另存 RuleStep.entryId、action 只放"真动作"，字段删掉后引用即步骤的 action。
+    val action = picked?.withoutVariantKey()
     val path = actionSelect.automationStepPath
     fun applyTo(rule: AutomationRule): AutomationRule {
         if (rule.effect.stepAt(path) == null) {
@@ -313,7 +315,8 @@ internal suspend fun loadDataBody(
             excludedSubGestureId = actionSelect.subGestureId,
             actionLibraryEntries = actionLibraryEntries.filter {
                 // 自动化放行带固定坐标的 tap/longPress 条目（参数优先于触点，见执行器）；
-                // 无坐标条目在无触点的自动化路径必 InvalidParameter，继续藏。
+                // 无坐标、或勾了「使用触发位置坐标」的条目，在无触点的自动化路径必
+                // InvalidParameter，继续藏（hasPointParams 对两种都返回 false）。
                 it.typeId !in libraryExcluded || it.storedAction.hasPointParams()
             },
             excludedTypeIds = pickerExcluded,

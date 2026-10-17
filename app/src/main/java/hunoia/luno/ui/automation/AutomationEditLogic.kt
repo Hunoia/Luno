@@ -3,12 +3,10 @@ package hunoia.luno.ui.automation
 import android.content.Context
 import hunoia.luno.R
 import hunoia.luno.action.model.NewActionLibrarySettings
-import hunoia.luno.action.model.StoredAction
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.BooleanMode
 import hunoia.luno.config.model.ConditionItem
 import hunoia.luno.config.model.ConditionType
-import hunoia.luno.config.model.FireMode
 import hunoia.luno.config.model.RuleEffect
 import hunoia.luno.config.model.RulePriority
 import hunoia.luno.config.model.RuleStep
@@ -18,10 +16,6 @@ import hunoia.luno.config.model.ThrottlePolicy
 import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.domain.automation.AutomationCenter
 import hunoia.luno.ui.actionselect.selectedItemLabel
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * 自动化规则编辑器的纯逻辑：条件树/步骤树的增删、摘要、枚举文案与节流校验。
@@ -113,44 +107,6 @@ internal fun appendStep(
         else step.copy(elseSteps = step.elseSteps + created)
     }
     return "$parentPath.$branch.$childIndex" to updated
-}
-
-internal data class ButtonsToggle(val stored: StoredAction, val hide: Boolean)
-
-/** 步骤是否为触钮显隐动作（内联或库引用），是则带出 stored 供配对恢复用。 */
-internal fun stepButtonsVisibility(step: RuleStep): ButtonsToggle? {
-    if (step.kind != RuleStepKind.ACTION) return null
-    val stored = step.action
-    if (stored?.typeId != "internal.buttonsVisibility") return null
-    val visible = stored.params["visible"]
-        ?.jsonPrimitive?.contentOrNull?.toBoolean() ?: true
-    return ButtonsToggle(stored, hide = !visible)
-}
-
-/** 配对恢复规则：同条件/fireOn EXIT/显示步骤，平铺两条（id 后缀 :show）。 */
-internal fun buildShowPairRule(
-    context: Context,
-    parent: AutomationRule,
-    library: NewActionLibrarySettings?,
-    hideStep: RuleStep,
-): AutomationRule {
-    val hide = stepButtonsVisibility(hideStep)
-    val showStored = StoredAction(
-        typeId = "internal.buttonsVisibility",
-        params = JsonObject(
-            (hide?.stored?.params ?: emptyMap()) + ("visible" to JsonPrimitive(true)),
-        ),
-    )
-    val baseName = parent.name.ifBlank { conditionSummary(context, parent.condition) }
-    return AutomationRule(
-        id = "${parent.id}:show",
-        name = context.getString(R.string.automation_pair_show_name, baseName),
-        condition = parent.condition,
-        effect = RuleEffect(
-            steps = listOf(RuleStep(kind = RuleStepKind.ACTION, action = showStored)),
-        ),
-        fireOn = FireMode.EXIT,
-    )
 }
 
 internal fun stepSummary(

@@ -21,6 +21,15 @@ import hunoia.luno.quicklaunch.QuickLaunchFacade
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import android.view.Choreographer
+import kotlin.coroutines.resume
+
+/** 注入触点前隐藏触钮的时长：要盖住整段注入（tap 100ms / 长按 durationMs）之后再让触钮回来。 */
+private const val BUTTON_HIDE_MS = 250L
+
+/** 隐藏触钮后等它真正不可触的帧数（WM 事务要等一次 traversal 才落到输入分发）。 */
+private const val BUTTON_HIDE_SETTLE_FRAMES = 2
 
 class AccessibilityExecutors(private val controller: AccessibilityController) : ActionExecutor {
 
@@ -38,18 +47,15 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
             is Action.Home -> executionResult(controller.home())
             is Action.Recents -> executionResult(controller.recents())
             is Action.Tap -> {
-                // 参数优先（库/规则配好的固定点），否则手势触点，都没有判参数无效。
-                val (x, y) = action.pointPx(context.appContext) ?: context.touchPosition
+                val (x, y) = action.targetPoint(context)
                     ?: return ActionResult.Failed(ActionFailure.InvalidParameter)
-                context.hideGestureButton(250L)
-                delay(80)
+                hideButtonAndSettle(context)
                 executionResult(controller.click(x, y))
             }
             is Action.LongPress -> {
-                val (x, y) = action.pointPx(context.appContext) ?: context.touchPosition
+                val (x, y) = action.targetPoint(context)
                     ?: return ActionResult.Failed(ActionFailure.InvalidParameter)
-                context.hideGestureButton(250L)
-                delay(80)
+                hideButtonAndSettle(context)
                 executionResult(controller.longPress(x, y, action.durationMs))
             }
             is Action.Swipe -> {
@@ -83,7 +89,50 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
         if (performed) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
 
     /**
-     * 参数坐标转屏像素（dp→px，按执行时 density）：参数优先于手势触点；
+     * 点击/长按的落点。
+     *
+     * - 勾了「使用触发位置坐标」：只认手势触点，固定坐标整组忽略（隐藏触钮后按下的位置就是落点，
+     *   点击直接穿透到触钮覆盖层下面的界面）。
+     * - 否则参数坐标优先（库/规则配好的固定点），再退手势触点。
+     * 两者都没有判参数无效（分发器前置校验已拦一次，这里兜底直接执行路径）。
+     */
+    private fun Action.Tap.targetPoint(context: ExecutorContext): Pair<Int, Int>? =
+        if (useTriggerPoint) context.touchPosition
+        else pointPx(context.appContext) ?: context.touchPosition
+
+    private fun Action.LongPress.targetPoint(context: ExecutorContext): Pair<Int, Int>? =
+        if (useTriggerPoint) context.touchPosition
+        else pointPx(context.appContext) ?: context.touchPosition
+
+    /**
+     * 隐藏触钮，并等它**真的不可触**之后再注入触点。
+     *
+     * `hideGestureButton` 只给触钮的触摸捕获窗口加 `FLAG_NOT_TOUCHABLE` 并发一笔 WM 事务，
+     * 不是同步生效；不等它落地就注入，点击会被还没失效的捕获窗口吃掉（点在触钮自己身上）。
+     * WMS 从 App 侧观测不到，按帧等待是能做到的最近似：等两帧让事务落到输入分发。
+     * 主 overlay 窗口本身就是 NOT_TOUCHABLE，不会挡住注入的触点。
+     */
+    private suspend fun hideButtonAndSettle(context: ExecutorContext) {
+        context.hideGestureButton(BUTTON_HIDE_MS)
+        awaitFrames(BUTTON_HIDE_SETTLE_FRAMES)
+    }
+
+    /** 等 N 个 vsync（走 Choreographer，分发链路都在 Main 上）。 */
+    private suspend fun awaitFrames(count: Int) = suspendCancellableCoroutine { cont ->
+        val choreographer = Choreographer.getInstance()
+        var remaining = count
+        val callback = object : Choreographer.FrameCallback {
+            override fun doFrame(frameTimeNanos: Long) {
+                remaining--
+                if (remaining > 0) choreographer.postFrameCallback(this) else cont.resume(Unit)
+            }
+        }
+        choreographer.postFrameCallback(callback)
+        cont.invokeOnCancellation { choreographer.removeFrameCallback(callback) }
+    }
+
+    /**
+     * 参数坐标转屏像素（dp→px，按执行时 density）。
      * 任一缺失/为负视为未填，调用方回退触点。负值不合法（编辑器 min=0 拦截，
      * 这里兜底外部构造的数据）。
      */

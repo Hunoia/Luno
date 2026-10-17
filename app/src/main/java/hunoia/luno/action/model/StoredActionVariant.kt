@@ -77,14 +77,38 @@ fun StoredAction.runRuleId(): String? {
     return (params[RUN_RULE_PARAM_RULE_ID] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
 }
 
+/** 点击/长按的坐标参数 key（定义表、分发前置校验、库 UI 共用，避免字面量漂移）。 */
+const val PARAM_X_DP = "xDp"
+const val PARAM_Y_DP = "yDp"
+val POINT_PARAM_KEYS = setOf(PARAM_X_DP, PARAM_Y_DP)
+
+/**
+ * 点击/长按的「使用触发位置坐标」开关：勾上就只认手势触点，固定坐标忽略。
+ * 这是"隐藏触钮 + 单击穿透到覆盖层下面的界面"那条路的开关 —— 点击要落在手指按下的位置。
+ */
+const val USE_TRIGGER_POINT_KEY = "useTriggerPoint"
+
+/** 依赖真实触点的动作类型（tap / longPress）。 */
+val POINT_ACTION_TYPE_IDS = setOf("accessibility.tap", "accessibility.longPress")
+
+/** 点击/长按是否勾了「使用触发位置坐标」，非这两种动作恒 false。 */
+fun StoredAction.usesTriggerPoint(): Boolean {
+    if (typeId !in POINT_ACTION_TYPE_IDS) return false
+    return (params[USE_TRIGGER_POINT_KEY] as? JsonPrimitive)?.contentOrNull?.toBoolean() == true
+}
+
 /**
  * 点击/长按是否自带参数坐标（xDp+yDp 双全且合法）：是则不依赖手势触点，
  * 库测试/自动化/搜索/runRule 等无触点路径可直接执行。
+ *
+ * 勾了「使用触发位置坐标」的一律 false —— 它按定义就依赖触点，无触点路径必须当它不可用
+ * （与分发器前置校验、自动化选择页过滤同一判据）。
  */
 fun StoredAction.hasPointParams(): Boolean {
-    if (typeId != "accessibility.tap" && typeId != "accessibility.longPress") return false
-    val x = (params["xDp"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
-    val y = (params["yDp"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
+    if (typeId !in POINT_ACTION_TYPE_IDS) return false
+    if (usesTriggerPoint()) return false
+    val x = (params[PARAM_X_DP] as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
+    val y = (params[PARAM_Y_DP] as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
     return x != null && y != null && x >= 0 && y >= 0
 }
 

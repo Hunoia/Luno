@@ -107,6 +107,13 @@ sealed interface ParameterDefinition {
 
 data class EnumOption(val value: String, val label: String)
 
+/**
+ * 该定义是否带坐标参数（tap/longPress）：决定参数编辑器是否给屏幕取点入口、
+ * 以及是否适用「使用触发位置坐标」开关（`StoredAction.usesTriggerPoint`）。
+ */
+fun ActionDefinition.hasPointParams(): Boolean =
+    parameters.map { it.key }.containsAll(hunoia.luno.action.model.POINT_PARAM_KEYS)
+
 /** 该定义中明确禁止模板展开的文本参数 key（编辑器不提供插入入口，运行时也不替换）。 */
 fun ActionDefinition.excludedTemplateKeys(): Set<String> = parameters
     .mapNotNull { definition ->

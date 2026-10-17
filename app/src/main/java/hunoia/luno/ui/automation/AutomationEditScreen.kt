@@ -1,5 +1,4 @@
 package hunoia.luno.ui.automation
-import android.content.Context
 import android.os.SystemClock
 import android.util.Log
 import androidx.compose.foundation.background
@@ -26,15 +25,12 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -63,7 +59,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.action.model.NewActionLibrarySettings
-import hunoia.luno.action.model.StoredAction
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.automation.AutomationCenter
 import hunoia.luno.config.model.AutomationRule
@@ -78,7 +73,6 @@ import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.config.model.conditionAt
 import hunoia.luno.config.model.withConditionAt
 import hunoia.luno.core.JsonSerializer
-import hunoia.luno.ui.actionselect.selectedItemLabel
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.navigation.NEW_AUTOMATION_RULE_ID
 import hunoia.luno.ui.theme.BottomBarPadding
@@ -300,12 +294,8 @@ fun AutomationEditScreen(
                 rule.effect.stepAt(path)?.let { step ->
                     StepSheet(
                         step = step,
-                        library = library,
-                        rule = rule,
-                        rules = loadedRules ?: emptyList(),
                         onDismissRequest = { stepSheetPath = null },
                         onStepChange = { update(rule.copy(effect = rule.effect.withStepAt(path) { it })) },
-                        onPickAction = { onPickAction(rule, path) },
                         onDelete = {
                             update(rule.copy(effect = removeStepAt(rule.effect, path)))
                             stepSheetPath = null
@@ -445,8 +435,11 @@ fun AutomationEditScreen(
                 onStepsChange = { update(rule.copy(effect = rule.effect.copy(steps = it))) },
                 onEditStep = { stepSheetPath = it },
                 onAddStep = { stepTypePickerFor = it },
+                onPickAction = { path -> onPickAction(rule, path) },
+                onDeleteStep = { path ->
+                    update(rule.copy(effect = removeStepAt(rule.effect, path)))
+                },
                 library = library,
-                rule = rule,
                 rules = loadedRules ?: emptyList(),
             )
         }
@@ -494,8 +487,9 @@ private fun StepsEditor(
     onStepsChange: (List<RuleStep>) -> Unit,
     onEditStep: (String) -> Unit,
     onAddStep: (String) -> Unit,
+    onPickAction: (String) -> Unit,
+    onDeleteStep: (String) -> Unit,
     library: NewActionLibrarySettings?,
-    rule: AutomationRule,
     rules: List<AutomationRule> = emptyList(),
     pathPrefix: String = "",
     numberPrefix: String = "",
@@ -510,20 +504,8 @@ private fun StepsEditor(
                     library = library,
                     rules = rules,
                     onEdit = { onEditStep("$pathPrefix$index") },
-                    onMoveUp = if (index > 0) ({
-                        onStepsChange(steps.toMutableList().also {
-                            val tmp = it[index - 1]
-                            it[index - 1] = it[index]
-                            it[index] = tmp
-                        })
-                    }) else null,
-                    onMoveDown = if (index < steps.size - 1) ({
-                        onStepsChange(steps.toMutableList().also {
-                            val tmp = it[index + 1]
-                            it[index + 1] = it[index]
-                            it[index] = tmp
-                        })
-                    }) else null,
+                    onPickAction = { onPickAction("$pathPrefix$index") },
+                    onDelete = { onDeleteStep("$pathPrefix$index") },
                 )
             }
             if (step.kind == RuleStepKind.IF) {
@@ -544,8 +526,9 @@ private fun StepsEditor(
                         },
                         onEditStep = onEditStep,
                         onAddStep = onAddStep,
+                        onPickAction = onPickAction,
+                        onDeleteStep = onDeleteStep,
                         library = library,
-                        rule = rule,
                         rules = rules,
                         pathPrefix = "$pathPrefix$index.then.",
                         numberPrefix = "$number.",
@@ -568,8 +551,9 @@ private fun StepsEditor(
                         },
                         onEditStep = onEditStep,
                         onAddStep = onAddStep,
+                        onPickAction = onPickAction,
+                        onDeleteStep = onDeleteStep,
                         library = library,
-                        rule = rule,
                         rules = rules,
                         pathPrefix = "$pathPrefix$index.else.",
                         numberPrefix = "$number.",
@@ -585,17 +569,21 @@ private fun StepsEditor(
         )
     }
 }
-/** 步骤一行：类型 + 摘要 + 上下箭头；点行进 sheet，删除在 sheet 里。 */
+/**
+ * 步骤一行：动作行整行点击直达动作选择页、删除在行内；其余类型点行进各自的 sheet。
+ * 上/下移已移除（排序能力一并放弃），删除只对动作行开放。
+ */
 @Composable
 private fun StepRow(
     step: RuleStep,
     library: NewActionLibrarySettings?,
     rules: List<AutomationRule> = emptyList(),
     onEdit: () -> Unit,
-    onMoveUp: (() -> Unit)?,
-    onMoveDown: (() -> Unit)?,
+    onPickAction: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     val context = LocalContext.current
+    val isAction = step.kind == RuleStepKind.ACTION
     LunoSettingsRow(
         title = when (step.kind) {
             RuleStepKind.DELAY -> stringResource(R.string.step_delay)
@@ -603,22 +591,17 @@ private fun StepRow(
             else -> stringResource(R.string.step_action)
         },
         subtitle = stepSummary(context, library, step, rules),
-        onClick = onEdit,
-        trailing = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        onClick = if (isAction) onPickAction else onEdit,
+        trailing = if (isAction) {
+            {
                 LunoIconButton(
-                    icon = Icons.Default.KeyboardArrowUp,
-                    contentDescription = stringResource(R.string.rule_move_up),
-                    onClick = { onMoveUp?.invoke() },
-                    enabled = onMoveUp != null,
-                )
-                LunoIconButton(
-                    icon = Icons.Default.KeyboardArrowDown,
-                    contentDescription = stringResource(R.string.rule_move_down),
-                    onClick = { onMoveDown?.invoke() },
-                    enabled = onMoveDown != null,
+                    icon = Icons.Default.Delete,
+                    contentDescription = stringResource(R.string.delete),
+                    onClick = onDelete,
                 )
             }
+        } else {
+            null
         },
     )
 }
@@ -890,21 +873,20 @@ private fun ConditionSheet(
         }
     }
 }
+/**
+ * 步骤 sheet：**只有 DELAY / IF 会进来** —— 动作行的整行点击直达动作选择页，
+ * 删除也在行内，不需要中间 sheet。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun StepSheet(
     step: RuleStep,
-    library: NewActionLibrarySettings?,
-    rule: AutomationRule,
-    rules: List<AutomationRule> = emptyList(),
     onDismissRequest: () -> Unit,
     onStepChange: (RuleStep) -> Unit,
-    onPickAction: () -> Unit,
     onDelete: () -> Unit,
     onEditIfCondition: () -> Unit,
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     LunoSheet(
         onDismissRequest = onDismissRequest,
     ) {
@@ -915,8 +897,7 @@ private fun StepSheet(
             SheetHeader(
                 title = when (step.kind) {
                     RuleStepKind.DELAY -> stringResource(R.string.step_delay)
-                    RuleStepKind.IF -> stringResource(R.string.step_if)
-                    else -> stringResource(R.string.step_action)
+                    else -> stringResource(R.string.step_if)
                 },
             )
             Column(
@@ -924,31 +905,6 @@ private fun StepSheet(
                 verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
             ) {
                 when (step.kind) {
-                    RuleStepKind.ACTION -> {
-                        LunoSettingsRow(
-                            title = stringResource(R.string.automation_pick_action),
-                            subtitle = effectActionLabel(
-                                context, library,
-                                step.action,
-                                rules,
-                            ),
-                            onClick = onPickAction,
-                        )
-                        // 隐藏步骤：一键生成配对恢复规则（同条件/fireOn EXIT/显示，平铺两条）。
-                        if (stepButtonsVisibility(step)?.hide == true) {
-                            OutlinedButton(onClick = {
-                                scope.launch {
-                                    AutomationCenter.updateRules { rules ->
-                                        if (rules.any { it.id == "${rule.id}:show" }) rules
-                                        else rules + buildShowPairRule(context, rule, library, step)
-                                    }
-                                }
-                                onDismissRequest()
-                            }) {
-                                Text(stringResource(R.string.automation_pair_show))
-                            }
-                        }
-                    }
                     RuleStepKind.DELAY -> {
                         var text by remember(step.delayMs) {
                             mutableStateOf((step.delayMs / 1000).toString())
@@ -968,7 +924,7 @@ private fun StepSheet(
                             shape = LargeShape,
                         )
                     }
-                    RuleStepKind.IF -> {
+                    else -> {
                         LunoSettingsRow(
                             title = stringResource(R.string.step_if),
                             subtitle = conditionSummary(context, step.condition),
@@ -1057,18 +1013,6 @@ private fun StepTypeSheet(
             }
         }
     }
-}
-@Composable
-private fun effectActionLabel(
-    context: Context,
-    library: NewActionLibrarySettings?,
-    action: StoredAction?,
-    rules: List<AutomationRule> = emptyList(),
-): String {
-    if (action != null) {
-        return context.selectedItemLabel(action, emptyList(), library?.entries ?: emptyList(), rules)
-    }
-    return stringResource(R.string.automation_entry_empty)
 }
 @Composable
 private fun fireModeLabel(mode: FireMode): String = stringResource(
