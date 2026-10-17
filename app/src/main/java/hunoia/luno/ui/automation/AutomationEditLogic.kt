@@ -10,7 +10,6 @@ import hunoia.luno.config.model.ConditionItem
 import hunoia.luno.config.model.ConditionType
 import hunoia.luno.config.model.FireMode
 import hunoia.luno.config.model.RuleEffect
-import hunoia.luno.config.model.RuleEffectType
 import hunoia.luno.config.model.RulePriority
 import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.model.RuleStepKind
@@ -119,13 +118,9 @@ internal fun appendStep(
 internal data class ButtonsToggle(val stored: StoredAction, val hide: Boolean)
 
 /** 步骤是否为触钮显隐动作（内联或库引用），是则带出 stored 供配对恢复用。 */
-internal fun stepButtonsVisibility(
-    library: NewActionLibrarySettings?,
-    step: RuleStep,
-): ButtonsToggle? {
+internal fun stepButtonsVisibility(step: RuleStep): ButtonsToggle? {
     if (step.kind != RuleStepKind.ACTION) return null
     val stored = step.action
-        ?: library?.entries?.find { it.id == step.entryId }?.storedAction
     if (stored?.typeId != "internal.buttonsVisibility") return null
     val visible = stored.params["visible"]
         ?.jsonPrimitive?.contentOrNull?.toBoolean() ?: true
@@ -139,7 +134,7 @@ internal fun buildShowPairRule(
     library: NewActionLibrarySettings?,
     hideStep: RuleStep,
 ): AutomationRule {
-    val hide = stepButtonsVisibility(library, hideStep)
+    val hide = stepButtonsVisibility(hideStep)
     val showStored = StoredAction(
         typeId = "internal.buttonsVisibility",
         params = JsonObject(
@@ -152,7 +147,6 @@ internal fun buildShowPairRule(
         name = context.getString(R.string.automation_pair_show_name, baseName),
         condition = parent.condition,
         effect = RuleEffect(
-            type = RuleEffectType.RUN_ACTION,
             steps = listOf(RuleStep(kind = RuleStepKind.ACTION, action = showStored)),
         ),
         fireOn = FireMode.EXIT,

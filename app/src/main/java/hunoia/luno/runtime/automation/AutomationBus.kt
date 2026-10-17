@@ -172,11 +172,6 @@ class SubscriptionIndex {
         withState = state
     }
 
-    fun ruleIdsFor(eventKey: String?): Set<String>? {
-        if (eventKey == null) return withState
-        return byKey[eventKey] ?: emptySet()
-    }
-
     /** 空键（通用刷新）只评估含状态叶子的规则；给键则评估订阅该键的规则。 */
     fun ruleIdsForKeys(keys: Set<String>): Set<String> {
         if (keys.isEmpty()) return withState

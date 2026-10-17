@@ -88,10 +88,6 @@ data class UiState(
         fun selectShortcutInfo(shortcut: LauncherInfo.ShortcutInfo): SelectedRecord =
             selectOne(shortcut.toStoredAction())
 
-        /** 已卸载的应用/快捷方式若正好是选中项，清空（单值下就是置空）。 */
-        fun clearIf(predicate: (StoredAction) -> Boolean): SelectedRecord =
-            if (action?.let(predicate) == true) SelectedRecord() else this
-
         fun isSelected(obj: Any): Boolean {
             val current = action ?: return obj is StoredAction && obj.typeId == "internal.none"
             return when (obj) {

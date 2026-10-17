@@ -27,19 +27,16 @@ internal fun AppItem(
     onSelect: (Boolean) -> Unit,
     selected: Boolean,
     appInfo: AppInfo,
-    selectSingle: Boolean,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true,
     shape: Shape = RoundedCornerShape(ContainerRadius),
 ) {
     LunoSelectableRow(
         selected = selected,
         onSelectedChange = onSelect,
         modifier = modifier,
-        enabled = enabled,
         iconModel = appInfo.icon,
         subtitle = appInfo.packageName,
-        singleSelect = selectSingle,
+        singleSelect = true,
         onLongClick = onLongClick,
         shape = shape,
         headline = {

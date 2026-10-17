@@ -215,8 +215,6 @@ internal fun ActionPage(
                             action = item,
                             actionLabel = context.actionTextWithSubGesture(item, subGestures, actionLibraryEntries, emptyIfNone = false),
                             selected = selectedRecord.isSelected(item),
-                            selectSingle = true,
-                            enabled = true,
                             onSelect = { onSelect(item) },
                             shape = selectedSegmentedShape(index, categoryActions.size, categoryFlags),
                         )
@@ -234,8 +232,6 @@ internal fun ActionPage(
                         action = action,
                         actionLabel = entry.name,
                         selected = selectedRecord.isSelected(action),
-                        selectSingle = true,
-                        enabled = true,
                         onSelect = { onSelectLibraryEntry(entry) },
                         shape = selectedSegmentedShape(index, filteredLibraryEntries.size, librarySelectionFlags),
                     )
@@ -256,8 +252,6 @@ internal fun ActionPage(
                         actionLabel = rule.name.ifBlank { context.actionTextWithSubGesture(action, subGestures, actionLibraryEntries, rules, emptyIfNone = false) },
                         subtitle = conditionSummary(context, rule.condition),
                         selected = selectedRecord.isSelected(action),
-                        selectSingle = true,
-                        enabled = true,
                         onSelect = { onSelect(action) },
                         shape = selectedSegmentedShape(index, filteredRules.size, ruleFlags),
                     )
@@ -268,8 +262,7 @@ internal fun ActionPage(
                     SheetGroupHeader(stringResource(R.string.tab_apps))
                 }
                 itemsIndexed(items = filteredApps, key = { _, it -> "app_${it.qualifiedName}" }) { index, item ->
-                    AppItem(appInfo = item, selected = selectedRecord.isSelected(item), selectSingle = true,
-                        enabled = true,
+                    AppItem(appInfo = item, selected = selectedRecord.isSelected(item),
                         onSelect = { onSelectApp(item) },
                         onLongClick = { onAppLongClick(item) },
                         modifier = Modifier.animateItem(),
@@ -281,9 +274,7 @@ internal fun ActionPage(
                     SheetGroupHeader(stringResource(R.string.create_shortcut))
                 }
                 items(items = filteredCreateShortcuts, key = { "cs_${it.qualifiedName}" }) { item ->
-                    LauncherInfoItem(launcherInfo = item, selectSingle = true,
-                        canLauncherInfoEnabled = { true },
-                        canShortcutInfoEnabled = { true },
+                    LauncherInfoItem(launcherInfo = item,
                         isShortcutInfoSelected = { selectedRecord.isSelected(it) },
                         onSelect = { s, _ -> onSelectShortcut(s) }, onClick = { onShortcutClick(item) },
                         modifier = Modifier.animateItem())
@@ -294,9 +285,7 @@ internal fun ActionPage(
                     SheetGroupHeader(stringResource(R.string.launch_shortcut))
                 }
                 items(items = filteredLaunchShortcuts, key = { "ls_${it.qualifiedName}" }) { item ->
-                    LauncherInfoItem(launcherInfo = item, selectSingle = true,
-                        canLauncherInfoEnabled = { true },
-                        canShortcutInfoEnabled = { true },
+                    LauncherInfoItem(launcherInfo = item,
                         isShortcutInfoSelected = { selectedRecord.isSelected(it) },
                         onSelect = { s, _ -> onSelectShortcut(s) }, onClick = {},
                         modifier = Modifier.animateItem())

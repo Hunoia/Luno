@@ -1,7 +1,6 @@
 package hunoia.luno.ui.actionselect
 
 import hunoia.luno.action.definitions.ActionDefinitions
-import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.hasPointParams
 import hunoia.luno.action.model.launchAppRef
@@ -16,7 +15,6 @@ import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureTriggerType
-import hunoia.luno.config.model.RuleEffectType
 import hunoia.luno.core.AppContext
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.quicklaunch.model.LauncherInfo
@@ -143,19 +141,11 @@ private suspend fun saveActionPanelItem(actionSelect: ActionSelect, picked: Stor
 }
 
 private suspend fun saveAutomationEffect(actionSelect: ActionSelect, picked: StoredAction?) {
-    val entries = ActionLibrary.getSettings().entries
-    val current = loadAutomationAction(actionSelect, entries)
+    val current = loadAutomationAction(actionSelect)
     tryDeleteShortcutIcons(current, picked)
     val action = picked?.takeIf { it.typeId != "internal.libraryRef" }?.withoutVariantKey()
-    val entryId = picked
-        ?.takeIf { it.typeId == "internal.libraryRef" }
-        ?.let { (it.params["entryId"] as? JsonPrimitive)?.contentOrNull.orEmpty() }
-        .orEmpty()
     val path = actionSelect.automationStepPath
     fun applyTo(rule: AutomationRule): AutomationRule {
-        if (path.isBlank()) {
-            return rule.copy(effect = rule.effect.copy(action = action, entryId = entryId))
-        }
         if (rule.effect.stepAt(path) == null) {
             android.util.Log.w(
                 "ActionSelect",
@@ -163,7 +153,7 @@ private suspend fun saveAutomationEffect(actionSelect: ActionSelect, picked: Sto
             )
         }
         return rule.copy(effect = rule.effect.withStepAt(path) { step ->
-            step.copy(kind = hunoia.luno.config.model.RuleStepKind.ACTION, action = action, entryId = entryId)
+            step.copy(kind = hunoia.luno.config.model.RuleStepKind.ACTION, action = action)
         })
     }
     // 草稿优先：编辑页跳转时只暂存内存，未保存前不写库。
@@ -174,26 +164,11 @@ private suspend fun saveAutomationEffect(actionSelect: ActionSelect, picked: Sto
     AutomationDraftHolder.stage(applyTo(base))
 }
 
-private suspend fun loadAutomationAction(
-    actionSelect: ActionSelect,
-    actionLibraryEntries: List<NewActionLibraryEntry>
-): StoredAction? {
+private suspend fun loadAutomationAction(actionSelect: ActionSelect): StoredAction? {
     val rules = AutomationCenter.getRules()
     val rule = AutomationDraftHolder.take(actionSelect.automationRuleId)
         ?: rules.find { it.id == actionSelect.automationRuleId } ?: return null
-    if (rule.effect.type != RuleEffectType.RUN_ACTION) return null
-    val path = actionSelect.automationStepPath
-    if (path.isNotBlank()) {
-        val step = rule.effect.stepAt(path) ?: return null
-        step.action?.let { return it }
-        if (step.entryId.isBlank()) return null
-        val entry = actionLibraryEntries.find { it.id == step.entryId } ?: return null
-        return StoredAction.of("internal.libraryRef", "entryId" to entry.id)
-    }
-    rule.effect.action?.let { return it }
-    if (rule.effect.entryId.isBlank()) return null
-    val entry = actionLibraryEntries.find { it.id == rule.effect.entryId } ?: return null
-    return StoredAction.of("internal.libraryRef", "entryId" to entry.id)
+    return rule.effect.stepAt(actionSelect.automationStepPath)?.action
 }
 
 internal suspend fun updateShortcutInfosBody(
@@ -355,7 +330,7 @@ internal suspend fun loadDataBody(
             val item = if (index >= 0) panel?.items?.getOrNull(index) else null
             item?.longPressVariant() ?: item
         }
-        isAutomation -> loadAutomationAction(actionSelect, actionLibraryEntries)
+        isAutomation -> loadAutomationAction(actionSelect)
         subGesture != null -> subGesture.actionFor(actionSelect.triggerType, actionSelect.direction)
         button != null -> button.actionFor(actionSelect.triggerType, actionSelect.direction)
         else -> null

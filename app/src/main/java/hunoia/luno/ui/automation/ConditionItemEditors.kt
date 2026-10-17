@@ -368,7 +368,7 @@ fun ConditionItemFields(item: ConditionItem, onConditionChange: (ConditionItem) 
                     stringResource(R.string.condition_ringer_vibrate),
                     stringResource(R.string.condition_ringing),
                 ),
-                selectedIndex = when (item.ringerMode ?: if (item.silent == true) RingerMode.SILENT else RingerMode.NORMAL) {
+                selectedIndex = when (item.ringerMode ?: RingerMode.NORMAL) {
                     RingerMode.SILENT -> 0
                     RingerMode.VIBRATE -> 1
                     RingerMode.NORMAL -> 2
@@ -380,7 +380,6 @@ fun ConditionItemFields(item: ConditionItem, onConditionChange: (ConditionItem) 
                             1 -> RingerMode.VIBRATE
                             else -> RingerMode.NORMAL
                         },
-                        silent = null,
                     ))
                 },
             )

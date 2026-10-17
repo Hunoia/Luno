@@ -15,9 +15,7 @@ fun ActionItem(
     selected: Boolean,
     action: StoredAction,
     actionLabel: String,
-    selectSingle: Boolean,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true,
     shape: Shape = RoundedCornerShape(ContainerRadius),
     subtitle: String = "",
 ) {
@@ -28,11 +26,10 @@ fun ActionItem(
         selected = selected,
         onSelectedChange = onSelect,
         modifier = modifier,
-        enabled = enabled,
         icon = icon as? ImageVector,
         textIcon = icon as? TextIcon,
         iconModel = icon?.takeIf { it !is ImageVector && it !is TextIcon },
-        singleSelect = selectSingle,
+        singleSelect = true,
         marquee = true,
         shape = shape,
     )

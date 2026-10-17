@@ -101,13 +101,7 @@ internal fun QuickSearchActivity.flipTorch() {
 internal fun QuickSearchActivity.handleToggle(kind: QuickSearchResult.ToggleKind) {
         when (kind) {
             QuickSearchResult.ToggleKind.WIFI -> runCatching {
-                startActivity(
-                    if (android.os.Build.VERSION.SDK_INT >= 29) {
-                        Intent(android.provider.Settings.Panel.ACTION_WIFI)
-                    } else {
-                        Intent(android.provider.Settings.ACTION_WIFI_SETTINGS)
-                    },
-                )
+                startActivity(Intent(android.provider.Settings.Panel.ACTION_WIFI))
             }
             QuickSearchResult.ToggleKind.BLUETOOTH -> runCatching {
                 startActivity(Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS))

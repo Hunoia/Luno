@@ -82,22 +82,10 @@ class NewActionDispatcher(
      * v2 单步骤执行：**等执行落定**才返回，真实成败与异常都交给 SequenceExecutor 记账/中断。
      * 必须在 Main 上跑（与 dispatch 的 launch 目标一致），否则无障碍调用线程会变。
      */
-    suspend fun runStepAction(action: StoredAction?, entryId: String, ctx: ConditionContext): StepOutcome {
+    suspend fun runStepAction(action: StoredAction, ctx: ConditionContext): StepOutcome {
         val automationContext: () -> ConditionContext? = { ctx }
-        val target = when {
-            action != null -> action.withoutVariantKey()
-            entryId.isBlank() -> return StepOutcome.EntryMissing
-            else -> {
-                val entry = settingsSnapshot().newActionLibrarySettings.entries.find { it.id == entryId }
-                if (entry == null) {
-                    if (BuildConfig.DEBUG) Log.w("LunoLauncher", "step entry not found id=$entryId")
-                    return StepOutcome.EntryMissing
-                }
-                entry.storedAction.withoutVariantKey()
-            }
-        }
         return withContext(Dispatchers.Main.immediate) {
-            dispatchAwait(target, null, null, automationContext, null, false)
+            dispatchAwait(action.withoutVariantKey(), null, null, automationContext, null, false)
         }
     }
 
@@ -267,14 +255,14 @@ class NewActionDispatcher(
         if (!rule.enabled) {
             return ActionResult.Failed(ActionFailure.ExecutionFailed, "rule_disabled:$ruleId")
         }
-        val steps = rule.effect.effectiveSteps()
+        val steps = rule.effect.steps
         if (steps.isEmpty()) {
             return ActionResult.Failed(ActionFailure.ExecutionFailed, "rule_no_steps:$ruleId")
         }
         val templateCtx = ctx.templateContext() ?: return ActionResult.Failed(ActionFailure.ExecutionFailed)
         return withContext(RuleDepth(depth + 1)) {
-            val nested = SequenceExecutor { action, entryId, _ ->
-                runStepAction(action, entryId, templateCtx)
+            val nested = SequenceExecutor { action, _ ->
+                runStepAction(action, templateCtx)
             }
             val records = nested.runSteps(steps, templateCtx)
             val failed = records.firstOrNull { !it.ok }

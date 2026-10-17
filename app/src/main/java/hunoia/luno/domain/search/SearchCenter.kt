@@ -12,9 +12,6 @@ object SearchCenter {
     val launcher: Flow<QuickAppLauncherSettings> = ConfigProvider.quickAppLauncherSettings
     val search: Flow<QuickSearchSettings> = ConfigProvider.quickSearchSettings
 
-    suspend fun getLauncher(): QuickAppLauncherSettings = ConfigProvider.getQuickAppLauncherSettings()
-    suspend fun getSearch(): QuickSearchSettings = ConfigProvider.getQuickSearchSettings()
-
     suspend fun updateLauncher(transform: suspend (QuickAppLauncherSettings) -> QuickAppLauncherSettings) =
         ConfigProvider.updateQuickAppLauncherSettings(transform)
 
@@ -24,11 +21,5 @@ object SearchCenter {
     suspend fun updateLauncherLayout(layout: QuickAppLauncherSettings) =
         ConfigProvider.updateQuickAppLauncherLayout(layout)
 
-    suspend fun resetLauncherLayout() = ConfigProvider.resetQuickAppLauncherLayout()
-
-    suspend fun recordLaunch(appKey: String) = ConfigProvider.recordQuickAppLaunch(appKey)
-
     suspend fun getSnapshot(): QuickAppSnapshot = ConfigProvider.getQuickAppSnapshot()
-
-    suspend fun writeSnapshot(snapshot: QuickAppSnapshot) = ConfigProvider.writeQuickAppSnapshot(snapshot)
 }

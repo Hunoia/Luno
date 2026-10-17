@@ -208,8 +208,8 @@ class GestureCoordinator(
     private val runningRules = mutableSetOf<String>()
 
     private val sequenceExecutor = SequenceExecutor(
-        runSingleAction = { action, entryId, ctx ->
-            actionDispatcher.runStepAction(action, entryId, ctx)
+        runSingleAction = { action, ctx ->
+            actionDispatcher.runStepAction(action, ctx)
         },
     )
 
@@ -232,7 +232,7 @@ class GestureCoordinator(
             } else {
                 host.coroutineScope.launch {
                     try {
-                        val records = sequenceExecutor.runSteps(rule.effect.effectiveSteps(), ctx)
+                        val records = sequenceExecutor.runSteps(rule.effect.steps, ctx)
                         val reason = records.firstOrNull { !it.ok }?.let {
                             ExecutionReason.INTERRUPTED_PREFIX + it.index
                         } ?: ExecutionReason.OK

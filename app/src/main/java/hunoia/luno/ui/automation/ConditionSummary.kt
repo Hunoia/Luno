@@ -84,7 +84,7 @@ fun itemSummary(context: Context, item: ConditionItem): String {
                 )
 
         ConditionType.RINGER_SILENT -> context.getString(
-            when (item.ringerMode ?: if (item.silent == true) RingerMode.SILENT else RingerMode.NORMAL) {
+            when (item.ringerMode ?: RingerMode.NORMAL) {
                 RingerMode.SILENT -> R.string.condition_silent
                 RingerMode.VIBRATE -> R.string.condition_ringer_vibrate
                 RingerMode.NORMAL -> R.string.condition_ringing

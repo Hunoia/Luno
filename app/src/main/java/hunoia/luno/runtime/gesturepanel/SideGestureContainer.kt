@@ -97,10 +97,6 @@ fun SideGestureContainer(
         }
     }
 
-    fun exitSubGestureOverlay() {
-        curOnSubGestureModeChanged(false, Offset.Unspecified, 0)
-    }
-
     fun handleResolvedAction(
         action: StoredAction,
         sourceButton: GestureButton?,

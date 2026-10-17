@@ -55,13 +55,12 @@ internal fun arcLayerCapacity(radius: Float, centerDistance: Float, arcLength: I
 }
 
 internal data class ActionPanelSector(
-    val startDegrees: Float,
     val sweepDegrees: Float,
     val centerDegrees: Float,
 )
 
 internal fun actionPanelSector(parentSize: Size, origin: Offset, direction: GestureDirection, itemSizePx: Float): ActionPanelSector {
-    if (parentSize.isEmpty()) return ActionPanelSector(direction.angleDegrees() - 90f, 180f, direction.angleDegrees())
+    if (parentSize.isEmpty()) return ActionPanelSector(180f, direction.angleDegrees())
     val edgeThreshold = kotlin.math.max(itemSizePx * 2.2f, 96f)
     val cornerThreshold = kotlin.math.max(itemSizePx * 3.0f, 132f)
     val nearLeftCorner = origin.x <= cornerThreshold
@@ -69,17 +68,17 @@ internal fun actionPanelSector(parentSize: Size, origin: Offset, direction: Gest
     val nearTopCorner = origin.y <= cornerThreshold
     val nearBottomCorner = origin.y >= parentSize.height - cornerThreshold
     return when {
-        nearLeftCorner && nearTopCorner -> ActionPanelSector(0f, 90f, 45f)
-        nearRightCorner && nearTopCorner -> ActionPanelSector(90f, 90f, 135f)
-        nearRightCorner && nearBottomCorner -> ActionPanelSector(180f, 90f, 225f)
-        nearLeftCorner && nearBottomCorner -> ActionPanelSector(270f, 90f, 315f)
-        origin.x <= edgeThreshold -> ActionPanelSector(-90f, 180f, 0f)
-        origin.x >= parentSize.width - edgeThreshold -> ActionPanelSector(90f, 180f, 180f)
-        origin.y <= edgeThreshold -> ActionPanelSector(0f, 180f, 90f)
-        origin.y >= parentSize.height - edgeThreshold -> ActionPanelSector(180f, 180f, 270f)
+        nearLeftCorner && nearTopCorner -> ActionPanelSector(90f, 45f)
+        nearRightCorner && nearTopCorner -> ActionPanelSector(90f, 135f)
+        nearRightCorner && nearBottomCorner -> ActionPanelSector(90f, 225f)
+        nearLeftCorner && nearBottomCorner -> ActionPanelSector(90f, 315f)
+        origin.x <= edgeThreshold -> ActionPanelSector(180f, 0f)
+        origin.x >= parentSize.width - edgeThreshold -> ActionPanelSector(180f, 180f)
+        origin.y <= edgeThreshold -> ActionPanelSector(180f, 90f)
+        origin.y >= parentSize.height - edgeThreshold -> ActionPanelSector(180f, 270f)
         else -> {
             val center = direction.angleDegrees()
-            ActionPanelSector(center - 90f, 180f, center)
+            ActionPanelSector(180f, center)
         }
     }
 }

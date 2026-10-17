@@ -4,7 +4,6 @@ import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.ConditionItem
 import hunoia.luno.config.model.ConditionType
 import hunoia.luno.config.model.FireMode
-import hunoia.luno.config.model.RuleEffectType
 import hunoia.luno.config.model.ThrottleKind
 import hunoia.luno.config.model.ThrottlePolicy
 import hunoia.luno.config.model.WhenGroup
@@ -78,7 +77,6 @@ class AutomationEngine(
             lastCondition[rule.id] = rule.condition
             prevMatches[rule.id] = hit
 
-            if (rule.effect.type != RuleEffectType.RUN_ACTION) continue
             // 纯事件树（无状态叶）没有持续边沿：进入/退出无意义，统一按进入时处理
             //（编辑页对纯事件树隐藏触发方式；这里防御旧数据与手工构造）。
             val fireOn = if (hasStateLeaf(rule.condition)) rule.fireOn else FireMode.ENTER
@@ -110,7 +108,7 @@ class AutomationEngine(
                 )
             )
         }
-        val steps = winner.effect.effectiveSteps()
+        val steps = winner.effect.steps
         if (steps.isEmpty()) {
             onEvent(
                 AutomationEvent(
@@ -121,7 +119,7 @@ class AutomationEngine(
             cleanup(rules)
             return
         }
-        val throttle = winner.effectiveThrottle()
+        val throttle = winner.throttle
         val blockReason = throttleBlockReason(winner.id, throttle, ctx.nowMs)
         if (blockReason != null) {
             onEvent(

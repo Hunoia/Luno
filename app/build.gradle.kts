@@ -73,15 +73,6 @@ android {
             isMinifyEnabled = false
             applicationIdSuffix = ".debug"
         }
-        create("perf") {
-            initWith(getByName("release"))
-            matchingFallbacks += listOf("release")
-            isDebuggable = false
-            signingConfig = signingConfigs.getByName("debug")
-            applicationIdSuffix = ".perf"
-            resValue("string", "app_name", "@string/app_name")
-            resValue("string", "home_title", "@string/app_name")
-        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -138,11 +129,13 @@ dependencies {
     implementation(libs.androidx.compose.ui.text)
     implementation(libs.androidx.compose.ui.unit)
     implementation(libs.androidx.compose.ui.util)
+    // 版本钉住：material3 1.4.0 会把 material-ripple 拖到 1.8.1，显式声明拉到 composeTrain。
     implementation(libs.androidx.compose.material.ripple)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.com.aaronzzx.fastcompose.compose)
     implementation(libs.com.aaronzzx.fastcompose.compose.accessibility)
+    // App.attachBaseContext 里 Reflection.unseal() 解封隐藏 API，Shizuku 反射调用要用。
     implementation(libs.com.tiann.freereflection)
     implementation(libs.jetbrains.kotlin.serialization)
     implementation(libs.androidx.datastore)

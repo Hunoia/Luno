@@ -54,9 +54,6 @@ object ConfigProvider {
     suspend fun updateAdvancedSettings(transform: suspend (AdvancedSettings) -> AdvancedSettings) {
         stores._advancedSettings.updateData(transform)
     }
-    suspend fun updateGestureSettings(transform: suspend (GestureSettings) -> GestureSettings) {
-        stores._gestureSettings.updateData(transform)
-    }
     suspend fun updateActionSettings(transform: suspend (ActionSettings) -> ActionSettings) {
         stores._actionSettings.updateData(transform)
     }
@@ -92,9 +89,6 @@ object ConfigProvider {
 
     suspend fun updateQuickAppLauncherLayout(layout: QuickAppLauncherSettings) {
         quickLauncherRepository.updateQuickAppLauncherLayout(layout)
-    }
-    suspend fun resetQuickAppLauncherLayout() {
-        quickLauncherRepository.resetQuickAppLauncherLayout()
     }
     suspend fun recordQuickAppLaunch(appKey: String) {
         quickLauncherRepository.recordQuickAppLaunch(appKey)

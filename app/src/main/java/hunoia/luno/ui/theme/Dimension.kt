@@ -47,7 +47,6 @@ val SheetTopShape = RoundedCornerShape(topStart = ShapeExtraLarge, topEnd = Shap
 // Bottom bar
 val BottomBarPadding = 12.dp
 val BottomBarHeight = 56.dp
-val BottomBarCapsuleRadius = ShapeExtraLarge
 val BottomBarIconSize = 30.dp
 // 主页底栏 Tab 格宽（旧自研底栏 tab 最小宽原数，指示 pill 与其同宽）
 val BottomBarTabWidth = 76.dp
@@ -123,14 +122,8 @@ val ToastMaxWidth = 300.dp
 // Wide content gutter（toast / 空态 / 选择器 sheet 的横向留白）
 val LargeGutter = 24.dp
 
-// Settings lists
-val SettingsListMaxHeight = 184.dp
-
 // Elevation
 val ElevationSmall = 3.dp
-
-// Hairline divider（1.dp 在此处是"线宽"语义，不是间距别名）
-val DividerThickness = 1.dp
 
 // Search field inset
 val SearchBarPadding = 12.dp

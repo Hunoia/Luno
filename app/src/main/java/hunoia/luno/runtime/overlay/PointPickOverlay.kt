@@ -50,6 +50,14 @@ import kotlin.math.roundToInt
  */
 class PointPickOverlay(private val host: GestureHost) {
 
+    private companion object {
+        /**
+         * 无障碍 overlay 不带这个标志时，触摸会被系统拦掉（Android 12 起）。
+         * `0x300000` 是两个 layout flag 的或，ROM 不接受拆分写法，只能照发。
+         */
+        const val TRUSTED_OVERLAY_FLAG = 0x300000
+    }
+
     private var overlayView: View? = null
     private var onCommit: ((Int, Int) -> Unit)? = null
     private var onDismiss: (() -> Unit)? = null
@@ -71,7 +79,7 @@ class PointPickOverlay(private val host: GestureHost) {
             flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-                trustedOverlayFlag()
+                TRUSTED_OVERLAY_FLAG
             width = WindowManager.LayoutParams.MATCH_PARENT
             height = WindowManager.LayoutParams.MATCH_PARENT
             x = 0
@@ -104,9 +112,6 @@ class PointPickOverlay(private val host: GestureHost) {
         }
         overlayView = composeView
     }
-
-    /** Android 12+ 无障碍 overlay 需要此标志，否则触摸会被系统拦截。 */
-    private fun trustedOverlayFlag(): Int = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) 0x300000 else 0
 
     fun close() {
         val view = overlayView ?: return

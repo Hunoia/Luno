@@ -52,7 +52,7 @@ sealed interface StepOutcome {
  * 每条规则独立协程跑一份，一条的 delay 不阻塞其他规则。
  */
 class SequenceExecutor(
-    private val runSingleAction: suspend (action: StoredAction?, entryId: String, ctx: ConditionContext) -> StepOutcome,
+    private val runSingleAction: suspend (action: StoredAction, ctx: ConditionContext) -> StepOutcome,
 ) {
     suspend fun runSteps(steps: List<RuleStep>, ctx: ConditionContext): List<StepRecord> {
         val runner = Runner(ctx)
@@ -114,20 +114,21 @@ class SequenceExecutor(
         }
 
         suspend fun runAction(step: RuleStep, index: String) {
-            if (!step.isEffectiveAction) {
+            val action = step.action
+            if (step.kind != RuleStepKind.ACTION || action == null) {
                 records += StepRecord(index, RuleStepKind.ACTION, ok = true, message = "empty_skipped")
                 return
             }
             try {
                 // runRule 是复合步骤（内部可能含 delay/if，自带守卫），用放宽的时限；
                 // 其余单动作保持 30s 挂起上限。
-                val timeoutMs = if (step.action?.typeId == RUN_RULE_TYPE_ID) {
+                val timeoutMs = if (action.typeId == RUN_RULE_TYPE_ID) {
                     SequenceGuards.MAX_RULE_STEP_MS
                 } else {
                     SequenceGuards.MAX_ACTION_MS
                 }
                 val outcome = withTimeoutOrNull(timeoutMs) {
-                    runSingleAction(step.action, step.entryId, ctx)
+                    runSingleAction(action, ctx)
                 }
                 if (outcome == null) {
                     records += StepRecord(index, RuleStepKind.ACTION, ok = false, message = "action_timeout")

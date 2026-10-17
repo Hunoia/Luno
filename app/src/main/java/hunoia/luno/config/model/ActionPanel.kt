@@ -1,7 +1,6 @@
 package hunoia.luno.config.model
 
 import androidx.annotation.Keep
-import hunoia.luno.action.dispatcher.MigratingStoredActionSerializer
 import hunoia.luno.action.model.StoredAction
 import kotlinx.serialization.Serializable
 import java.util.UUID
@@ -27,7 +26,7 @@ import java.util.UUID
 data class ActionPanel(
     val id: String = UUID.randomUUID().toString(),
     val name: String = "",
-    val items: List<@Serializable(MigratingStoredActionSerializer::class) StoredAction> = emptyList(),
+    val items: List<StoredAction> = emptyList(),
 ) {
     companion object {
         fun create(name: String = ""): ActionPanel = ActionPanel(name = name)

@@ -6,7 +6,6 @@ import androidx.annotation.Keep
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import hunoia.luno.R
-import hunoia.luno.action.dispatcher.MigratingStoredActionSerializer
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.core.AppContext
@@ -42,9 +41,6 @@ object GestureButtonDefaults {
     val LongSlideHoldActions = DirectionActions(
         mapOf(GestureDirection.Right to StoredAction.of("internal.quickSearch"))
     )
-    val TapActions: StoredAction? = StoredAction.of("internal.hideGestureButton")
-    val DoubleTapActions: StoredAction? = null
-    val LongPressActions: StoredAction? = StoredAction.of("intent.assist")
     const val Color = android.graphics.Color.TRANSPARENT
     const val MirrorHorizontal = true
     val SlideTriggerDistance = DensityProvider.dp2px(30f)
@@ -74,9 +70,9 @@ data class GestureButton(
     val longSlideActions: DirectionActions = GestureButtonDefaults.LongSlideActions,
     val longSlideHoldActions: DirectionActions = GestureButtonDefaults.LongSlideHoldActions,
     val angle: GestureButtonAngle = GestureButtonAngle(),
-    val tapActions: @Serializable(MigratingStoredActionSerializer::class) StoredAction? = null,
-    val doubleTapActions: @Serializable(MigratingStoredActionSerializer::class) StoredAction? = null,
-    val longPressActions: @Serializable(MigratingStoredActionSerializer::class) StoredAction? = null,
+    val tapActions: StoredAction? = null,
+    val doubleTapActions: StoredAction? = null,
+    val longPressActions: StoredAction? = null,
     val color: Int = GestureButtonDefaults.Color,
     val mirrorHorizontal: Boolean = GestureButtonDefaults.MirrorHorizontal,
     val slideVibrate: Boolean = GestureButtonDefaults.SlideVibrate,

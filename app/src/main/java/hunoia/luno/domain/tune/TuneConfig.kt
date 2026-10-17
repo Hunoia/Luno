@@ -13,15 +13,11 @@ object TuneConfig {
     val gesture: Flow<GestureSettings> = ConfigProvider.gestureSettings
     val action: Flow<ActionSettings> = ConfigProvider.actionSettings
 
-    suspend fun getAdvanced(): AdvancedSettings = ConfigProvider.getAdvancedSettings()
     suspend fun getGesture(): GestureSettings = ConfigProvider.getGestureSettings()
     suspend fun getAction(): ActionSettings = ConfigProvider.getActionSettings()
 
     suspend fun updateAdvanced(transform: suspend (AdvancedSettings) -> AdvancedSettings) =
         ConfigProvider.updateAdvancedSettings(transform)
-
-    suspend fun updateGesture(transform: suspend (GestureSettings) -> GestureSettings) =
-        ConfigProvider.updateGestureSettings(transform)
 
     suspend fun updateAction(transform: suspend (ActionSettings) -> ActionSettings) =
         ConfigProvider.updateActionSettings(transform)

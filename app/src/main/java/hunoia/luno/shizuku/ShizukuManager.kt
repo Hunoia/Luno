@@ -2,8 +2,6 @@ package hunoia.luno.shizuku
 
 import android.content.Context
 import android.content.pm.PackageManager
-import android.os.Build
-import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import hunoia.luno.BuildConfig
 import hunoia.luno.bridge.system.AccessibilitySettings
@@ -90,23 +88,13 @@ object ShizukuManager {
     private val pmProxy by lazy {
         val stubClass = Class.forName("android.content.pm.IPackageManager\$Stub")
         val binder = SystemServiceHelper.getSystemService("package")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            HiddenApiBypass.invoke(stubClass, null, "asInterface", ShizukuBinderWrapper(binder))
-        } else {
-            stubClass.getMethod("asInterface", IBinder::class.java)
-                .invoke(null, ShizukuBinderWrapper(binder))
-        }
+        HiddenApiBypass.invoke(stubClass, null, "asInterface", ShizukuBinderWrapper(binder))
     }
 
     private val amProxy by lazy {
         val stubClass = Class.forName("android.app.IActivityManager\$Stub")
         val binder = SystemServiceHelper.getSystemService(Context.ACTIVITY_SERVICE)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            HiddenApiBypass.invoke(stubClass, null, "asInterface", ShizukuBinderWrapper(binder))
-        } else {
-            stubClass.getMethod("asInterface", IBinder::class.java)
-                .invoke(null, ShizukuBinderWrapper(binder))
-        }
+        HiddenApiBypass.invoke(stubClass, null, "asInterface", ShizukuBinderWrapper(binder))
     }
 
     private val userId by lazy {
@@ -285,12 +273,7 @@ object ShizukuManager {
 
     private fun forceStopAppUnchecked(packageName: String): Boolean {
         return runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                HiddenApiBypass.invoke(amProxy::class.java, amProxy, "forceStopPackage", packageName, userId)
-            } else {
-                amProxy::class.java.getMethod("forceStopPackage", String::class.java, Int::class.java)
-                    .invoke(amProxy, packageName, userId)
-            }
+            HiddenApiBypass.invoke(amProxy::class.java, amProxy, "forceStopPackage", packageName, userId)
             true
         }.getOrElse { false }
     }

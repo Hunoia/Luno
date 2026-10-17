@@ -63,6 +63,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.action.model.NewActionLibrarySettings
+import hunoia.luno.action.model.StoredAction
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.automation.AutomationCenter
 import hunoia.luno.config.model.AutomationRule
@@ -70,7 +71,6 @@ import hunoia.luno.config.model.ConditionItem
 import hunoia.luno.config.model.ConditionType
 import hunoia.luno.config.model.FireMode
 import hunoia.luno.config.model.RuleEffect
-import hunoia.luno.config.model.RuleEffectType
 import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.model.RuleStepKind
 import hunoia.luno.config.model.ThrottlePolicy
@@ -152,22 +152,12 @@ fun AutomationEditScreen(
     LaunchedEffect(ruleId, loadedRules) {
         if (draft != null) return@LaunchedEffect
         val rules = loadedRules ?: return@LaunchedEffect
-        val stored = rules.find { it.id == ruleId }
-        draft = if (stored != null) {
-            // 编辑态物化：legacy action/entryId→steps、cooldownMs→throttle，存档即迁移。
-            stored.copy(
-                effect = stored.effect.copy(steps = stored.effect.effectiveSteps()),
-                throttle = stored.effectiveThrottle(),
-                cooldownMs = 0L,
-            )
-        } else {
-            AutomationRule(
-                id = if (ruleId == NEW_AUTOMATION_RULE_ID) SystemClock.uptimeMillis().toString() else ruleId,
-                condition = WhenGroup(),
-                effect = RuleEffect(type = RuleEffectType.RUN_ACTION),
-                createdAtMs = System.currentTimeMillis(),
-            )
-        }
+        draft = rules.find { it.id == ruleId } ?: AutomationRule(
+            id = if (ruleId == NEW_AUTOMATION_RULE_ID) SystemClock.uptimeMillis().toString() else ruleId,
+            condition = WhenGroup(),
+            effect = RuleEffect(),
+            createdAtMs = System.currentTimeMillis(),
+        )
     }
     val lifecycleOwner = LocalLifecycleOwner.current
     var resumeTick by remember { mutableStateOf(0) }
@@ -939,17 +929,13 @@ private fun StepSheet(
                             title = stringResource(R.string.automation_pick_action),
                             subtitle = effectActionLabel(
                                 context, library,
-                                RuleEffect(
-                                    type = RuleEffectType.RUN_ACTION,
-                                    action = step.action,
-                                    entryId = step.entryId,
-                                ),
+                                step.action,
                                 rules,
                             ),
                             onClick = onPickAction,
                         )
                         // 隐藏步骤：一键生成配对恢复规则（同条件/fireOn EXIT/显示，平铺两条）。
-                        if (stepButtonsVisibility(library, step)?.hide == true) {
+                        if (stepButtonsVisibility(step)?.hide == true) {
                             OutlinedButton(onClick = {
                                 scope.launch {
                                     AutomationCenter.updateRules { rules ->
@@ -1076,21 +1062,13 @@ private fun StepTypeSheet(
 private fun effectActionLabel(
     context: Context,
     library: NewActionLibrarySettings?,
-    effect: RuleEffect,
+    action: StoredAction?,
     rules: List<AutomationRule> = emptyList(),
 ): String {
-    val action = effect.action
     if (action != null) {
         return context.selectedItemLabel(action, emptyList(), library?.entries ?: emptyList(), rules)
     }
-    return entryName(library, effect.entryId)
-}
-@Composable
-private fun entryName(library: NewActionLibrarySettings?, entryId: String): String {
-    if (entryId.isBlank()) return stringResource(R.string.automation_entry_empty)
-    val entries = library?.entries
-    val entry = entries?.find { it.id == entryId } ?: return stringResource(R.string.automation_entry_missing, entryId)
-    return entry.name.ifBlank { entryId }
+    return stringResource(R.string.automation_entry_empty)
 }
 @Composable
 private fun fireModeLabel(mode: FireMode): String = stringResource(

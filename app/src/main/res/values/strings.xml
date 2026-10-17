@@ -94,7 +94,6 @@
     <string name="action_panel_items_count">%1$d 项</string>
     <string name="action_panel_item_long_press">长按动作</string>
     <string name="action_panel_item_no_long_press">长按：同短按</string>
-    <string name="action_panel_choose_long_press">正在为「%1$s」设置长按动作，请从下方选择</string>
     <string name="compact">紧凑</string>
     <string name="loose">宽松</string>
     <string name="vibration_tap">单击振动</string>
@@ -104,7 +103,6 @@
     <string name="custom">自定义</string>
     <string name="cancel">取消</string>
     <string name="confirm">确认</string>
-    <string name="done">完成</string>
     <string name="double_tap_action">双击</string>
     <string name="reset">重置</string>
     <string name="save_success">保存成功</string>
@@ -273,8 +271,6 @@
     <string name="mirror_sub_gesture_desc">将当前子手势方向做镜像复制（左↔右、左上↔右上、左下↔右下）。</string>
 
     <!-- Home screen -->
-    <string name="collapse">收起</string>
-    <string name="expand">展开</string>
     <string name="confirm_reset">确认重置</string>
     <string name="height">高度</string>
     <string name="tap_mini_window">短按小窗</string>
@@ -335,7 +331,6 @@
     <string name="automation_condition">触发条件</string>
     <string name="automation_pick_action">选择动作</string>
     <string name="automation_entry_empty">未选择动作条目</string>
-    <string name="automation_entry_missing">条目已删除（%1$s）</string>
     <string name="automation_condition_empty">未配置条件</string>
     <string name="automation_condition_incomplete">条件未配置完整</string>
     <string name="condition_level_group">当前状态</string>

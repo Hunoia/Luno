@@ -26,7 +26,7 @@ object ActionLibrary {
 
     /**
      * 删除库条目：按钮/子手势里指向该条目的动作清掉，
-     * 自动化里引用它的 effect 失能不断规则，最后删条目本身。
+     * 自动化里引用它的步骤动作清空，最后删条目本身。
      */
     suspend fun removeEntry(entryId: String) {
         removeEntryRefs(entryId)
@@ -37,7 +37,7 @@ object ActionLibrary {
 
     /**
      * 删除库条目后的引用清理：按钮/子手势里指向该条目的动作清掉，
-     * 自动化里引用它的 effect 失能不断规则。
+     * 自动化里引用它的步骤动作清空。
      */
     suspend fun removeEntryRefs(entryId: String) {
         ConfigProvider.updateGestureButtons { buttons ->
@@ -49,18 +49,9 @@ object ActionLibrary {
             })
         }
         ConfigProvider.updateAutomationRules { rules ->
+            // 悬空引用藏在 steps/thenSteps/elseSteps 里，逐级清掉：动作步变成空跳，
+            // 规则其余步骤照跑（多步规则不该因为一条失效就整条失能）。
             rules.map { rule ->
-                val effectCleared = rule.effect.entryId == entryId ||
-                    rule.effect.action?.libraryEntryId() == entryId
-                if (effectCleared) {
-                    rule.copy(enabled = false, effect = rule.effect.copy(entryId = "", action = null))
-                } else {
-                    rule
-                }
-            }.map { rule ->
-                // 当前编辑器只写 steps（legacy effect 已被物化成 steps），所以悬空引用
-                // 主要藏在 steps/thenSteps/elseSteps 里，逐级清掉：动作步变成空跳，
-                // 规则其余步骤照跑（多步规则不该因为一条失效就整条失能）。
                 rule.copy(effect = rule.effect.copy(steps = rule.effect.steps.cleanSteps(entryId)))
             }
         }
@@ -72,7 +63,6 @@ private fun List<RuleStep>.cleanSteps(entryId: String): List<RuleStep> = map { s
     val actionCleared = step.action?.libraryEntryId() == entryId
     step.copy(
         action = if (actionCleared) null else step.action,
-        entryId = if (step.entryId == entryId) "" else step.entryId,
         thenSteps = step.thenSteps.cleanSteps(entryId),
         elseSteps = step.elseSteps.cleanSteps(entryId),
     )

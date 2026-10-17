@@ -20,7 +20,6 @@
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <uses-permission android:name="android.permission.BLUETOOTH_PROFILE_CONNECT" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" tools:ignore="ProtectedPermissions" />
     <!-- P2 快速搜索联系人：运行时申请，拒绝则该来源无行 -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
@@ -37,7 +36,6 @@
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <!-- 快捷开关读状态用（普通权限，安装即有）：WiFi 状态 -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
 
     <application
         android:name=".App"

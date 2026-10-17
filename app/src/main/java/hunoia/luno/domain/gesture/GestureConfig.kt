@@ -18,7 +18,6 @@ object GestureConfig {
     val buttons: Flow<List<GestureButton>> = ConfigProvider.gestureButtons
     val subGestures: Flow<SubGestureSettings> = ConfigProvider.subGestureSettings
 
-    suspend fun getInitial(): InitialSettings = ConfigProvider.getInitialSettings()
     suspend fun getButtons(): List<GestureButton> = ConfigProvider.getGestureButtons()
     suspend fun getSubGestures(): SubGestureSettings = ConfigProvider.getSubGestureSettings()
 

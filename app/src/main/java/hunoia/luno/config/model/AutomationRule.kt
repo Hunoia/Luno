@@ -1,7 +1,6 @@
 package hunoia.luno.config.model
 
 import androidx.annotation.Keep
-import hunoia.luno.action.dispatcher.MigratingStoredActionSerializer
 import hunoia.luno.action.model.AudioStream
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.VolumeDirection
@@ -10,20 +9,6 @@ import kotlinx.serialization.Serializable
 @Serializable
 @Keep
 enum class BooleanMode { AND, OR }
-
-/**
- * 规则生效类型：v2 只剩 RUN_ACTION。HIDE/SHOW_BUTTONS 已删除（触钮显隐改为
- * internal.buttonsVisibility 动作，直接改按钮 enabled 存量）。
- * 两个旧值保留只为解析兼容——mm 存量若含旧规则，删枚举值会导致整文件 decode 失败
- * 回落空列表（丢全部规则）；保留则旧规则能解析、引擎天然跳过（见 AutomationEngine）。
- */
-@Serializable
-@Keep
-enum class RuleEffectType {
-    HIDE_BUTTONS,
-    SHOW_BUTTONS,
-    RUN_ACTION,
-}
 
 @Serializable
 @Keep
@@ -46,7 +31,7 @@ enum class KeyboardEventType { SHOWN, HIDDEN }
 @Keep
 enum class PlaybackDirection { STARTED, STOPPED }
 
-/** 铃声模式三态（静音条件；老数据 Boolean silent 按 SILENT/NORMAL 回落）。 */
+/** 铃声模式三态（静音条件）。 */
 @Serializable
 @Keep
 enum class RingerMode { SILENT, VIBRATE, NORMAL }
@@ -137,7 +122,6 @@ data class ConditionItem(
     val volumeMin: Int? = null,
     val volumeMax: Int? = null,
     val volumeDirection: VolumeDirection? = null,
-    val silent: Boolean? = null,
     val networkType: NetworkType? = null,
     val plugged: Boolean? = null,
     // 期望值：null 表示不限，与求值器里的实际值做等值比较
@@ -168,7 +152,7 @@ data class ConditionItem(
     val dndOn: Boolean? = null,
     /** 勿扰开关变化（null=不限）。 */
     val dndChangedTo: Boolean? = null,
-    /** 铃声模式（新字段；null 时回落老字段 silent）。 */
+    /** 铃声模式。 */
     val ringerMode: RingerMode? = null,
 )
 
@@ -182,24 +166,8 @@ data class WhenGroup(
 @Serializable
 @Keep
 data class RuleEffect(
-    val type: RuleEffectType,
-    val entryId: String = "",
-    @Serializable(MigratingStoredActionSerializer::class)
-    val action: StoredAction? = null,
-    /** v2 步骤：非空时优先于 action/entryId（老数据迁移见 effectiveSteps）。 */
     val steps: List<RuleStep> = emptyList(),
 ) {
-    val hasAction: Boolean get() = effectiveSteps().any { it.isEffectiveAction }
-
-    /** 老数据：action/entryId 包成单 ActionStep；新数据直接用 steps。 */
-    fun effectiveSteps(): List<RuleStep> {
-        if (steps.isNotEmpty()) return steps
-        if (action != null || entryId.isNotBlank()) {
-            return listOf(RuleStep(kind = RuleStepKind.ACTION, action = action, entryId = entryId))
-        }
-        return emptyList()
-    }
-
     /**
      * 步骤路径："0" / "2.then.0" / "2.else.1"，编辑器动作选择定位分支内步骤用。
      * 路径非法返回 null / 原样返回（不抛，UI 层容错）。
@@ -281,21 +249,15 @@ private fun withStepAtTokens(    tokens: List<String>,
 @Keep
 data class RuleStep(
     val kind: String = RuleStepKind.ACTION,
-    @Serializable(MigratingStoredActionSerializer::class)
     val action: StoredAction? = null,
-    val entryId: String = "",
     val delayMs: Long = 0L,
     val condition: WhenGroup = WhenGroup(),
     val thenSteps: List<RuleStep> = emptyList(),
     val elseSteps: List<RuleStep> = emptyList(),
-) {
-    val isEffectiveAction: Boolean
-        get() = kind == RuleStepKind.ACTION && (action != null || entryId.isNotBlank())
-}
+)
 
 /**
- * 节流策略（替代裸 cooldownMs，老数据迁移见 AutomationRule.effectiveThrottle）。
- * 空即不限：maxCount/windowMs 默认 0（未填）；kind==OFF 是存量总闸，
+ * 节流策略。空即不限：maxCount/windowMs 默认 0（未填）；kind==OFF 是存量总闸，
  * 引擎只认它关闭，其余一律值驱动（冷却 cooldownMs>0，窗口 count>=1 且 window>=1s）。
  */
 @Serializable
@@ -324,8 +286,6 @@ data class AutomationRule(
     val iconKey: String? = null,
     val condition: WhenGroup,
     val effect: RuleEffect,
-    /** 老字段：只做迁移源，新寫入走 throttle（见 effectiveThrottle）。 */
-    val cooldownMs: Long = 0,
     val throttle: ThrottlePolicy = ThrottlePolicy(),
     val fireOn: FireMode = FireMode.ENTER,
     /** 优先级三档（HIGH/MEDIUM/LOW）；同档按用户顺序，创建时间只做兜底。 */
@@ -335,12 +295,5 @@ data class AutomationRule(
 ) {
     companion object {
         val Defaults: List<AutomationRule> = emptyList()
-    }
-
-    /** 老数据 cooldownMs>0 → Cooldown；新数据以 throttle 为准。 */
-    fun effectiveThrottle(): ThrottlePolicy {
-        if (throttle.kind != ThrottleKind.OFF) return throttle
-        if (cooldownMs > 0) return ThrottlePolicy(kind = ThrottleKind.COOLDOWN, cooldownMs = cooldownMs)
-        return throttle
     }
 }

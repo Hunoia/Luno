@@ -245,9 +245,9 @@ private fun ConditionItem.volumeChangedMatches(ctx: ConditionContext): Boolean {
     return streamOk && dirOk
 }
 
-/** 铃声三态：新字段优先；老数据 silent=null/true/false 回落 NORMAL/SILENT/NORMAL。 */
+/** 铃声三态。 */
 private fun ConditionItem.ringerMatches(ctx: ConditionContext): Boolean {
-    val expected = ringerMode ?: if (silent == true) RingerMode.SILENT else RingerMode.NORMAL
+    val expected = ringerMode ?: RingerMode.NORMAL
     return expected == ctx.ringerMode
 }
 

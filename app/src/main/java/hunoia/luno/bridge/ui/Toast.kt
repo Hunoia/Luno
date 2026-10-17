@@ -7,8 +7,6 @@ import androidx.annotation.StringRes
 import androidx.core.os.postDelayed
 import hunoia.luno.R
 
-private const val DELAYED_MILLIS = 2000L
-
 private val handler = Handler(Looper.getMainLooper())
 
 fun showVersionTooLowToast(context: Context, @StringRes placeholder: Int = 0) {
@@ -17,30 +15,6 @@ fun showVersionTooLowToast(context: Context, @StringRes placeholder: Int = 0) {
     } else {
         val name = context.getString(placeholder)
         showToast(context.getString(R.string.os_version_too_low_placeholder, name))
-    }
-}
-
-fun showToastDelay(text: String, continueBlock: () -> Unit) {
-    showToast(text, DELAYED_MILLIS) {
-        continueBlock()
-    }
-}
-
-fun showToastLongDelay(text: String, continueBlock: () -> Unit) {
-    showToastLong(text, DELAYED_MILLIS) {
-        continueBlock()
-    }
-}
-
-fun showToastDelay(@StringRes resId: Int, continueBlock: () -> Unit) {
-    showToast(resId, DELAYED_MILLIS) {
-        continueBlock()
-    }
-}
-
-fun showToastLongDelay(@StringRes resId: Int, continueBlock: () -> Unit) {
-    showToastLong(resId, DELAYED_MILLIS) {
-        continueBlock()
     }
 }
 

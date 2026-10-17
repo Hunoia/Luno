@@ -64,10 +64,3 @@ internal fun WindowManager.safeUpdateViewLayout(view: View, params: WindowManage
             Log.w("LunoLauncher", "overlay updateViewLayout failed: ${error::class.simpleName} ${error.message}")
         }
 }
-
-internal fun WindowManager.safeRemoveViewImmediate(view: View) {
-    runCatching { removeViewImmediate(view) }
-        .onFailure { error ->
-            Log.w("LunoLauncher", "overlay removeViewImmediate failed: ${error::class.simpleName} ${error.message}")
-        }
-}

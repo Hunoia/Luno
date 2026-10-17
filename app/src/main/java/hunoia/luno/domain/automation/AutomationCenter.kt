@@ -49,14 +49,10 @@ object AutomationCenter {
         }
     }
 
-    suspend fun appendEvent(event: AutomationEvent) = ConfigProvider.appendAutomationEvent(event)
-
     // —— 历史页展示常量（直引 runtime 会违 B1，经此转调） ——
 
     val maxEventsPerRuleQuery: Int
         get() = hunoia.luno.runtime.automation.ExecutionLog.MAX_PER_RULE_QUERY
-
-    fun skipReasonCode(reason: hunoia.luno.runtime.automation.SkipReason): String = reason.code
 
     val skipNoSteps: hunoia.luno.runtime.automation.SkipReason
         get() = hunoia.luno.runtime.automation.SkipReason.NO_STEPS
@@ -100,8 +96,6 @@ private fun List<RuleStep>.cleanRunRuleSteps(ruleId: String): List<RuleStep> = m
     val cleared = step.action?.runRuleId() == ruleId
     step.copy(
         action = if (cleared) null else step.action,
-        // 与 ActionLibrary.cleanSteps 对齐：action 清掉时 entryId 一并不留残值。
-        entryId = if (cleared) "" else step.entryId,
         thenSteps = step.thenSteps.cleanRunRuleSteps(ruleId),
         elseSteps = step.elseSteps.cleanRunRuleSteps(ruleId),
     )

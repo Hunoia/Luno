@@ -9,7 +9,7 @@ import java.time.format.DateTimeFormatter
 
 object CrashHandler : Thread.UncaughtExceptionHandler {
 
-    private const val SEPARATOR = "gulugulu_CRASH_REPORT"
+    private const val ENTRY_SEPARATOR = "luno_CRASH_REPORT"
     private const val CRASH_FILE_NAME = "crashlog"
     private const val MAX_CRASH_ENTRIES = 10
 
@@ -17,11 +17,6 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
 
     private val crashDir = "${Paths.AppCache}/crash"
     private val crashFilePath = "$crashDir/$CRASH_FILE_NAME"
-
-    fun getCrashFile(): File? {
-        if (!File(crashFilePath).exists()) return null
-        return File(crashFilePath)
-    }
 
     override fun uncaughtException(t: Thread, e: Throwable) {
         saveErrorInfo(e)
@@ -38,11 +33,11 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
         val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
         builder.append("Time: $timestamp\n")
         builder.append(errorStackInfo)
-        builder.append("$SEPARATOR\n")
+        builder.append("$ENTRY_SEPARATOR\n")
 
         if (File(crashFilePath).exists()) {
             val existing = File(crashFilePath).readText()
-            val entries = existing.split(SEPARATOR)
+            val entries = existing.split(ENTRY_SEPARATOR)
                 .map { it.trimIndent() }
                 .filter { it.isNotEmpty() }
             val kept = if (entries.size >= MAX_CRASH_ENTRIES) {
@@ -52,7 +47,7 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
             }
             kept.forEach { entry ->
                 builder.append(entry)
-                builder.append("$SEPARATOR\n")
+                builder.append("$ENTRY_SEPARATOR\n")
             }
         }
 

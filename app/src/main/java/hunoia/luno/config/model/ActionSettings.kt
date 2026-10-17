@@ -40,11 +40,3 @@ data class VolumeScrubConfig(
     val horizontalEnabled: Boolean = VolumeScrubHorizontalEnabled,
     val stepThresholdDp: Int = VolumeScrubStepThresholdDp,
 )
-
-/** 自定义 shell 命令动作数据。 */
-@Serializable
-@Keep
-data class ShellCommandData(
-    val command: String = "",
-    val showToast: Boolean = true,
-)

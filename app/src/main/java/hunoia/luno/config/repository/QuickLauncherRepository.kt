@@ -23,20 +23,6 @@ internal class QuickLauncherRepository(private val stores: SettingsStores) {
         }
     }
 
-    suspend fun resetQuickAppLauncherLayout() {
-        stores._quickAppLauncherSettings.updateData { old ->
-            old.copy(
-                panelHeightFraction = QuickAppLauncherSettings().panelHeightFraction,
-                contentHeightFraction = QuickAppLauncherSettings().contentHeightFraction,
-                candidateRows = QuickAppLauncherSettings().candidateRows,
-                panelWidthFraction = QuickAppLauncherSettings().panelWidthFraction,
-                panelHorizontalBias = QuickAppLauncherSettings().panelHorizontalBias,
-                gridColumns = QuickAppLauncherSettings().gridColumns,
-                keyHeightDp = QuickAppLauncherSettings().keyHeightDp,
-            )
-        }
-    }
-
     suspend fun recordQuickAppLaunch(appKey: String) {
         stores._quickAppLauncherSettings.updateData { old ->
             val newTimeMap = old.recentLaunchTime + (appKey to System.currentTimeMillis())

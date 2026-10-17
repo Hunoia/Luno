@@ -107,10 +107,6 @@ class EnvironmentTracker(
         pendingGesturePerformedId = buttonId
     }
 
-    fun onKeyboardEvent(event: KeyboardEventType) {
-        pendingKeyboardEvent = event
-    }
-
     fun onMusicChanged(direction: PlaybackDirection) {
         pendingMusicChanged = direction
     }
