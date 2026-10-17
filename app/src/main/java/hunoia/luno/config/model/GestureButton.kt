@@ -30,21 +30,21 @@ object GestureButtonDefaults {
     val Bounds = GestureButtonBounds(y = 0.50529f, height = 0.30311f)
     val SlideActions = DirectionActions(
         mapOf(
-            GestureDirection.Right to listOf(StoredAction.of("accessibility.back")),
-            GestureDirection.Up to listOf(StoredAction.of("accessibility.recents")),
-            GestureDirection.Down to listOf(StoredAction.of("accessibility.notificationPanel")),
+            GestureDirection.Right to StoredAction.of("accessibility.back"),
+            GestureDirection.Up to StoredAction.of("accessibility.recents"),
+            GestureDirection.Down to StoredAction.of("accessibility.notificationPanel"),
         )
     )
     val LongSlideActions = DirectionActions()
     val SlideHoldActions = DirectionActions(
-        mapOf(GestureDirection.Right to listOf(StoredAction.of("internal.quickAppLauncher")))
+        mapOf(GestureDirection.Right to StoredAction.of("internal.quickAppLauncher"))
     )
     val LongSlideHoldActions = DirectionActions(
-        mapOf(GestureDirection.Right to listOf(StoredAction.of("internal.quickSearch")))
+        mapOf(GestureDirection.Right to StoredAction.of("internal.quickSearch"))
     )
-    val TapActions = listOf(StoredAction.of("internal.hideGestureButton"))
-    val DoubleTapActions = emptyList<StoredAction>()
-    val LongPressActions = listOf(StoredAction.of("intent.assist"))
+    val TapActions: StoredAction? = StoredAction.of("internal.hideGestureButton")
+    val DoubleTapActions: StoredAction? = null
+    val LongPressActions: StoredAction? = StoredAction.of("intent.assist")
     const val Color = android.graphics.Color.TRANSPARENT
     const val MirrorHorizontal = true
     val SlideTriggerDistance = DensityProvider.dp2px(30f)
@@ -74,12 +74,9 @@ data class GestureButton(
     val longSlideActions: DirectionActions = GestureButtonDefaults.LongSlideActions,
     val longSlideHoldActions: DirectionActions = GestureButtonDefaults.LongSlideHoldActions,
     val angle: GestureButtonAngle = GestureButtonAngle(),
-    val tapActions: List<@Serializable(MigratingStoredActionSerializer::class) StoredAction> =
-        GestureButtonDefaults.TapActions,
-    val doubleTapActions: List<@Serializable(MigratingStoredActionSerializer::class) StoredAction> =
-        GestureButtonDefaults.DoubleTapActions,
-    val longPressActions: List<@Serializable(MigratingStoredActionSerializer::class) StoredAction> =
-        GestureButtonDefaults.LongPressActions,
+    val tapActions: @Serializable(MigratingStoredActionSerializer::class) StoredAction? = null,
+    val doubleTapActions: @Serializable(MigratingStoredActionSerializer::class) StoredAction? = null,
+    val longPressActions: @Serializable(MigratingStoredActionSerializer::class) StoredAction? = null,
     val color: Int = GestureButtonDefaults.Color,
     val mirrorHorizontal: Boolean = GestureButtonDefaults.MirrorHorizontal,
     val slideVibrate: Boolean = GestureButtonDefaults.SlideVibrate,

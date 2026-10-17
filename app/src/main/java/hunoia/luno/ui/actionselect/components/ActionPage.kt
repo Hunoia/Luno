@@ -53,14 +53,10 @@ private const val TYPE_RULE = "rule"
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun ActionPage(
-    onSelect: (StoredAction, Boolean) -> Unit,
-    onSelectLibraryEntry: (NewActionLibraryEntry, Boolean) -> Unit = { _, _ -> },
-    onSelectLongPress: (Any) -> Unit = {},
-    onSelectApp: (AppInfo, Boolean) -> Unit,
-    onSelectShortcut: (LauncherInfo.ShortcutInfo, Boolean) -> Unit,
-    onSetLongPress: (Int) -> Unit = {},
-    onCancelLongPress: () -> Unit = {},
-    onMoveSelected: (Int, Int) -> Unit = { _, _ -> },
+    onSelect: (StoredAction) -> Unit,
+    onSelectLibraryEntry: (NewActionLibraryEntry) -> Unit = { },
+    onSelectApp: (AppInfo) -> Unit,
+    onSelectShortcut: (LauncherInfo.ShortcutInfo) -> Unit,
     onAppLongClick: (AppInfo) -> Unit,
     onShortcutClick: (LauncherInfo) -> Unit = {},
     modifier: Modifier = Modifier,
@@ -72,16 +68,13 @@ internal fun ActionPage(
     createShortcuts: List<LauncherInfo>,
     launchShortcuts: List<LauncherInfo>,
     selectedRecord: SelectedRecord,
-    longPressTargetIndex: Int?,
     permissionState: hunoia.luno.ui.permission.PermissionState,
     contentPadding: PaddingValues = PaddingValues(),
-    maxSelectCount: Int = MAX_SELECT_COUNT
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var selectedType by rememberSaveable { mutableStateOf<String?>(null) }
     val context = LocalContext.current
-    val selectingLongPress = longPressTargetIndex != null
-    val selectSingleMode = selectingLongPress || maxSelectCount <= 1
+    // 恒单选（决策 1）：原先的 maxSelectCount / 长按变体模式都不存在了。
     val typeChips = remember(context) {
         listOf(
             null to context.getString(R.string.all_categories),
@@ -222,11 +215,9 @@ internal fun ActionPage(
                             action = item,
                             actionLabel = context.actionTextWithSubGesture(item, subGestures, actionLibraryEntries, emptyIfNone = false),
                             selected = selectedRecord.isSelected(item),
-                            selectSingle = selectSingleMode,
-                            enabled = selectingLongPress || canActionEnabled(selectedRecord, item, maxSelectCount),
-                            onSelect = { selected ->
-                                if (selectingLongPress) onSelectLongPress(item) else onSelect(item, selected)
-                            },
+                            selectSingle = true,
+                            enabled = true,
+                            onSelect = { onSelect(item) },
                             shape = selectedSegmentedShape(index, categoryActions.size, categoryFlags),
                         )
                     }
@@ -243,11 +234,9 @@ internal fun ActionPage(
                         action = action,
                         actionLabel = entry.name,
                         selected = selectedRecord.isSelected(action),
-                        selectSingle = selectSingleMode,
-                        enabled = selectingLongPress || canActionEnabled(selectedRecord, action, maxSelectCount),
-                        onSelect = { selected ->
-                            if (selectingLongPress) onSelectLongPress(entry) else onSelectLibraryEntry(entry, selected)
-                        },
+                        selectSingle = true,
+                        enabled = true,
+                        onSelect = { onSelectLibraryEntry(entry) },
                         shape = selectedSegmentedShape(index, filteredLibraryEntries.size, librarySelectionFlags),
                     )
                 }
@@ -267,11 +256,9 @@ internal fun ActionPage(
                         actionLabel = rule.name.ifBlank { context.actionTextWithSubGesture(action, subGestures, actionLibraryEntries, rules, emptyIfNone = false) },
                         subtitle = conditionSummary(context, rule.condition),
                         selected = selectedRecord.isSelected(action),
-                        selectSingle = selectSingleMode,
-                        enabled = selectingLongPress || canActionEnabled(selectedRecord, action, maxSelectCount),
-                        onSelect = { selected ->
-                            if (selectingLongPress) onSelectLongPress(action) else onSelect(action, selected)
-                        },
+                        selectSingle = true,
+                        enabled = true,
+                        onSelect = { onSelect(action) },
                         shape = selectedSegmentedShape(index, filteredRules.size, ruleFlags),
                     )
                 }
@@ -281,11 +268,9 @@ internal fun ActionPage(
                     SheetGroupHeader(stringResource(R.string.tab_apps))
                 }
                 itemsIndexed(items = filteredApps, key = { _, it -> "app_${it.qualifiedName}" }) { index, item ->
-                    AppItem(appInfo = item, selected = selectedRecord.isSelected(item), selectSingle = selectSingleMode,
-                        enabled = selectingLongPress || canAppInfoEnabled(selectedRecord, item, maxSelectCount),
-                        onSelect = { selected ->
-                            if (selectingLongPress) onSelectLongPress(item) else onSelectApp(item, selected)
-                        },
+                    AppItem(appInfo = item, selected = selectedRecord.isSelected(item), selectSingle = true,
+                        enabled = true,
+                        onSelect = { onSelectApp(item) },
                         onLongClick = { onAppLongClick(item) },
                         modifier = Modifier.animateItem(),
                         shape = selectedSegmentedShape(index, filteredApps.size, appSelectionFlags))
@@ -296,13 +281,11 @@ internal fun ActionPage(
                     SheetGroupHeader(stringResource(R.string.create_shortcut))
                 }
                 items(items = filteredCreateShortcuts, key = { "cs_${it.qualifiedName}" }) { item ->
-                    LauncherInfoItem(launcherInfo = item, selectSingle = selectSingleMode,
-                        canLauncherInfoEnabled = { selectingLongPress || canLauncherInfoEnabled(selectedRecord, it, maxSelectCount) },
-                        canShortcutInfoEnabled = { selectingLongPress || canShortcutInfoEnabled(selectedRecord, it, maxSelectCount) },
+                    LauncherInfoItem(launcherInfo = item, selectSingle = true,
+                        canLauncherInfoEnabled = { true },
+                        canShortcutInfoEnabled = { true },
                         isShortcutInfoSelected = { selectedRecord.isSelected(it) },
-                        onSelect = { s, sel ->
-                            if (selectingLongPress) onSelectLongPress(s) else onSelectShortcut(s, sel)
-                        }, onClick = { onShortcutClick(item) },
+                        onSelect = { s, _ -> onSelectShortcut(s) }, onClick = { onShortcutClick(item) },
                         modifier = Modifier.animateItem())
                 }
             }
@@ -311,13 +294,11 @@ internal fun ActionPage(
                     SheetGroupHeader(stringResource(R.string.launch_shortcut))
                 }
                 items(items = filteredLaunchShortcuts, key = { "ls_${it.qualifiedName}" }) { item ->
-                    LauncherInfoItem(launcherInfo = item, selectSingle = selectSingleMode,
-                        canLauncherInfoEnabled = { selectingLongPress || canLauncherInfoEnabled(selectedRecord, it, maxSelectCount) },
-                        canShortcutInfoEnabled = { selectingLongPress || canShortcutInfoEnabled(selectedRecord, it, maxSelectCount) },
+                    LauncherInfoItem(launcherInfo = item, selectSingle = true,
+                        canLauncherInfoEnabled = { true },
+                        canShortcutInfoEnabled = { true },
                         isShortcutInfoSelected = { selectedRecord.isSelected(it) },
-                        onSelect = { s, sel ->
-                            if (selectingLongPress) onSelectLongPress(s) else onSelectShortcut(s, sel)
-                        }, onClick = {},
+                        onSelect = { s, _ -> onSelectShortcut(s) }, onClick = {},
                         modifier = Modifier.animateItem())
                 }
             }

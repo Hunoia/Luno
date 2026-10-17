@@ -23,6 +23,7 @@ import hunoia.luno.config.model.withMiniWindowSettings
 import kotlinx.coroutines.launch
 import hunoia.luno.service.DispatchClient
 import androidx.compose.material.icons.filled.Gesture
+import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.ui.platform.LocalDensity
 import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.ui.component.sheet.LunoSheet
@@ -36,6 +37,7 @@ import hunoia.luno.ui.component.screen.LunoScreen
 fun ActionSettingsScreen(
     onBack: () -> Unit,
     onNavToSearchEngines: () -> Unit = {},
+    onNavToActionPanels: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var showActionPanelStyle by remember { mutableStateOf(false) }
@@ -67,6 +69,14 @@ fun ActionSettingsScreen(
                     title = stringResource(R.string.search_engine_settings),
                     subtitle = quickSearchSettings.defaultEngine().name,
                     onClick = onNavToSearchEngines,
+                )
+            }
+            LunoGroup {
+                LunoSettingsRow(
+                    icon = Icons.Default.RadioButtonChecked,
+                    title = stringResource(R.string.action_panels),
+                    subtitle = stringResource(R.string.action_panel_items_count, actionSettings.actionPanels.panels.sumOf { it.items.size }),
+                    onClick = onNavToActionPanels,
                 )
             }
             LunoGroup {

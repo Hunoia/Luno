@@ -20,13 +20,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
-import hunoia.luno.core.AppContext
 import hunoia.luno.R
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
 import hunoia.luno.action.model.StoredAction
-import hunoia.luno.action.model.launchPackageName
+import hunoia.luno.action.model.actionPanelId
 import hunoia.luno.action.model.libraryEntryId
+import hunoia.luno.action.model.launchPackageName
 import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.config.model.DirectionActions
@@ -34,6 +34,7 @@ import hunoia.luno.quicklaunch.model.icon
 import hunoia.luno.ui.actionlibrary.IconPalette
 import hunoia.luno.ui.actionselect.shortcutInfo
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
+import hunoia.luno.ui.navigation.LocalActionPanels
 import kotlin.math.min
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -78,6 +79,13 @@ fun actionText(
         if (actionLibraryEntries.isNotEmpty()) {
             return stringResource(R.string.action_library_missing)
         }
+    }
+    // 动作面板：显示具名面板而不是类型名。面板列表走 LocalActionPanels，
+    // 与 LocalActionLibraryEntries 同一条通路（主进程与 :service 运行时都提供了）。
+    action.actionPanelId()?.let { panelId ->
+        LocalActionPanels.current.firstOrNull { it.id == panelId }
+            ?.name?.takeIf { it.isNotBlank() }
+            ?.let { return it }
     }
     if (action.typeId == "app.launch") {
         val context = androidx.compose.ui.platform.LocalContext.current
@@ -186,20 +194,10 @@ fun DirectionActions.actionTextCompose(): String =
         .filter { it.isNotEmpty() }
         .joinToString(separator = ",")
 
+/** 单值展示：空槽落 `internal.none` 的显示名（"无"），与旧的多动作占位行为一致。 */
 @Composable
-fun List<StoredAction>.actionTextCompose(emptyIfNone: Boolean = false): String {
+fun StoredAction?.actionTextCompose(emptyIfNone: Boolean = false): String {
     val entries = LocalActionLibraryEntries.current
-    if (size <= 1) {
-        val value = firstOrNull() ?: StoredAction.of("internal.none")
-        return actionText(value, emptyIfNone = emptyIfNone, actionLibraryEntries = entries)
-    }
-    return remember(this, emptyIfNone, entries) {
-        this
-            .filter {
-                it.typeId.isNotEmpty() && it.typeId != "internal.none"
-            }
-            .joinToString(separator = ",") {
-                AppContext.get().actionText(it, emptyIfNone = emptyIfNone, actionLibraryEntries = entries)
-            }
-    }
+    val value = this ?: StoredAction.of("internal.none")
+    return actionText(value, emptyIfNone = emptyIfNone, actionLibraryEntries = entries)
 }

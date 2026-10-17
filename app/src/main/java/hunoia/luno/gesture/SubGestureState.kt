@@ -23,7 +23,7 @@ private const val MAX_SUB_GESTURE_DEPTH = 3
 data class SubGestureResolvedActions(
     val subGesture: SubGesture,
     val direction: GestureDirection,
-    val actions: List<StoredAction>,
+    val action: StoredAction?,
     val triggerType: GestureTriggerType,
     val touchPosition: Offset,
     /** 合成的识别结果（子手势无独立识别机，方向即动作方向）。 */
@@ -99,8 +99,8 @@ class SubGestureState(
                 longSlideHoldFirstTriggerMs = SystemClock.uptimeMillis()
             } else if (!directTriggered && SystemClock.uptimeMillis() - longSlideHoldFirstTriggerMs >= sg.longSlideHoldTriggerDelayMs) {
                 val direction = sg.angle.directionOf(subGestureAccum)
-                val actions = sg.longSlideHoldActionsFor(direction)
-                if (actions.hasMeaningfulActions()) {
+                val action = sg.longSlideHoldActionFor(direction)
+                if (action.hasMeaningfulAction()) {
                     directTriggered = true
                     return resolve(sg, direction, GestureTriggerType.LongSlideHold)
                 }
@@ -113,8 +113,8 @@ class SubGestureState(
                 slideHoldFirstTriggerMs = SystemClock.uptimeMillis()
             } else if (!directTriggered && SystemClock.uptimeMillis() - slideHoldFirstTriggerMs >= sg.slideHoldTriggerDelayMs) {
                 val direction = sg.angle.directionOf(subGestureAccum)
-                val actions = sg.slideHoldActionsFor(direction)
-                if (actions.hasMeaningfulActions()) {
+                val action = sg.slideHoldActionFor(direction)
+                if (action.hasMeaningfulAction()) {
                     directTriggered = true
                     return resolve(sg, direction, GestureTriggerType.SlideHold)
                 }
@@ -134,9 +134,9 @@ class SubGestureState(
         val sg = activeSubGesture ?: return null
         val distance = kotlin.math.hypot(subGestureAccum.x, subGestureAccum.y)
         val direction = sg.angle.directionOf(subGestureAccum)
-        if (distance >= sg.effectiveLongSlideTriggerDistance && sg.longSlideActionsFor(direction).hasMeaningfulActions()) {
+        if (distance >= sg.effectiveLongSlideTriggerDistance && sg.longSlideActionFor(direction).hasMeaningfulAction()) {
             return resolve(sg, direction, GestureTriggerType.LongSlide)
-        } else if (distance >= sg.triggerDistance && sg.slideActionsFor(direction).hasMeaningfulActions()) {
+        } else if (distance >= sg.triggerDistance && sg.slideActionFor(direction).hasMeaningfulAction()) {
             return resolve(sg, direction, GestureTriggerType.Slide)
         } else {
             subGestureAccum = Offset.Zero
@@ -182,12 +182,12 @@ class SubGestureState(
         direction: GestureDirection,
         triggerType: GestureTriggerType,
     ): SubGestureResolvedActions {
-        val actions = when (triggerType) {
-            GestureTriggerType.Slide -> subGesture.slideActionsFor(direction)
-            GestureTriggerType.SlideHold -> subGesture.slideHoldActionsFor(direction)
-            GestureTriggerType.LongSlide -> subGesture.longSlideActionsFor(direction)
-            GestureTriggerType.LongSlideHold -> subGesture.longSlideHoldActionsFor(direction)
-            else -> emptyList()
+        val action = when (triggerType) {
+            GestureTriggerType.Slide -> subGesture.slideActionFor(direction)
+            GestureTriggerType.SlideHold -> subGesture.slideHoldActionFor(direction)
+            GestureTriggerType.LongSlide -> subGesture.longSlideActionFor(direction)
+            GestureTriggerType.LongSlideHold -> subGesture.longSlideHoldActionFor(direction)
+            else -> null
         }
         lastResolvedActionSubGesture = subGesture
         activeSubGesture = null
@@ -214,7 +214,7 @@ class SubGestureState(
         return SubGestureResolvedActions(
         subGesture,
         direction,
-        actions,
+        action,
         triggerType,
         touchPosition,
         GestureDecision.Trigger(triggerType, direction, direction),
@@ -227,5 +227,6 @@ class SubGestureState(
         return if (offset.hasFiniteCoordinates()) offset else Offset.Unspecified
     }
 
-    private fun List<StoredAction>.hasMeaningfulActions(): Boolean = any { it.typeId != "internal.none" }
+    private fun StoredAction?.hasMeaningfulAction(): Boolean =
+        this != null && typeId != "internal.none"
 }

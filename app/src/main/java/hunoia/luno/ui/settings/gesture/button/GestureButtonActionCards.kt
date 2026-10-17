@@ -127,7 +127,7 @@ fun GestureButtonSlideActionsCard(
     ) {
         SlideActionRows(
             hiddenDirections = gestureButton.angle.zeroWidthDirections(),
-            actionsText = { direction -> gestureButton.slideActions.actionsBy(direction).actionTextCompose() },
+            actionsText = { direction -> gestureButton.slideActions.actionBy(direction).actionTextCompose() },
             onDirectionClick = { direction ->
                 onNavToActionSelect(
                     ActionSelect(
@@ -155,7 +155,7 @@ fun GestureButtonLongSlideActionsCard(
     ) {
         LongSlideActionRows(
             hiddenDirections = gestureButton.angle.zeroWidthDirections(),
-            actionsText = { direction -> gestureButton.longSlideActions.actionsBy(direction).actionTextCompose() },
+            actionsText = { direction -> gestureButton.longSlideActions.actionBy(direction).actionTextCompose() },
             onDirectionClick = { direction ->
                 onNavToActionSelect(
                     ActionSelect(
@@ -271,7 +271,7 @@ fun GestureButtonSlideHoldActionsCard(
     ) {
         SlideActionRows(
             hiddenDirections = gestureButton.angle.zeroWidthDirections(),
-            actionsText = { direction -> gestureButton.slideHoldActions.actionsBy(direction).actionTextCompose() },
+            actionsText = { direction -> gestureButton.slideHoldActions.actionBy(direction).actionTextCompose() },
             onDirectionClick = { direction ->
                 onNavToActionSelect(
                     ActionSelect(
@@ -299,7 +299,7 @@ fun GestureButtonLongSlideHoldActionsCard(
     ) {
         LongSlideActionRows(
             hiddenDirections = gestureButton.angle.zeroWidthDirections(),
-            actionsText = { direction -> gestureButton.longSlideHoldActions.actionsBy(direction).actionTextCompose() },
+            actionsText = { direction -> gestureButton.longSlideHoldActions.actionBy(direction).actionTextCompose() },
             onDirectionClick = { direction ->
                 onNavToActionSelect(
                     ActionSelect(

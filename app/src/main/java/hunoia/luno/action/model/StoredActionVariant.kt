@@ -56,6 +56,21 @@ fun StoredAction.libraryEntryId(): String? {
 const val RUN_RULE_TYPE_ID = "internal.runRule"
 const val RUN_RULE_PARAM_RULE_ID = "ruleId"
 
+/** 动作面板的类型与参数 key（引用全局面板列表里的某个具名面板）。 */
+const val ACTION_PANEL_TYPE_ID = "internal.actionPanel"
+const val ACTION_PANEL_PARAM_PANEL_ID = "panelId"
+
+/**
+ * 动作面板引用 panelId（`internal.actionPanel`），非引用或空 id 返回 null。
+ *
+ * 触点路径由 `SideGestureContainer.runGestureActions` 就地展开成面板项，不会流到
+ * 执行层；这里给搜索/自动化等无面板上下文的地方一个判据。
+ */
+fun StoredAction.actionPanelId(): String? {
+    if (typeId != ACTION_PANEL_TYPE_ID) return null
+    return (params[ACTION_PANEL_PARAM_PANEL_ID] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+}
+
 /** 规则引用 id（internal.runRule），非引用或空 id 返回 null。 */
 fun StoredAction.runRuleId(): String? {
     if (typeId != RUN_RULE_TYPE_ID) return null

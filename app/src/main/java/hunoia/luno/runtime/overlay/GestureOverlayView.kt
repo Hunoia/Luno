@@ -14,6 +14,7 @@ import hunoia.luno.core.WallpaperChangedEvent
 import hunoia.luno.runtime.settings.SettingsState
 import hunoia.luno.runtime.gesturepanel.SideGestureContainer
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
+import hunoia.luno.ui.navigation.LocalActionPanels
 import hunoia.luno.core.Events.SubscribeEvent
 import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.flow.StateFlow
@@ -33,7 +34,10 @@ fun GestureOverlayView(
     val state by settingsState.collectAsStateWithLifecycle()
 
     SideGestureTheme(wallpaperChangeTrigger = themeKey) {
-        CompositionLocalProvider(LocalActionLibraryEntries provides state.newActionLibrarySettings.entries) {
+        CompositionLocalProvider(
+            LocalActionLibraryEntries provides state.newActionLibrarySettings.entries,
+            LocalActionPanels provides state.actionSettings.actionPanels.panels,
+        ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 SideGestureContainer(
                     modifier = Modifier.matchParentSize(),
@@ -56,6 +60,7 @@ fun GestureOverlayView(
                     advancedSettings = state.advancedSettings,
                     gestureSettings = state.gestureSettings,
                     actionPanelStyle = state.actionSettings.actionPanelStyle,
+                    actionPanels = state.actionSettings.actionPanels.panels,
                     subGestureSettings = state.subGestureSettings,
                 )
             }

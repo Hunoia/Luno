@@ -125,6 +125,10 @@ object ActionMapper {
             )
             "internal.previousApp" -> Action.PreviousApp(p.arrayOfStr("excludePackageNames"))
             "internal.runRule" -> Action.RunRule(p.str("ruleId"))
+            // 动作面板由 SideGestureContainer.runGestureActions 就地展开成面板项，正常路径
+            // 不会流到执行层。能走到这里说明面板被删或内容为空 —— 按「无动作」收口，
+            // 而不是抛 UnknownActionTypeException 让手势链路报错。
+            ACTION_PANEL_TYPE_ID -> Action.None
             else -> throw UnknownActionTypeException(stored.typeId)
         }
     }

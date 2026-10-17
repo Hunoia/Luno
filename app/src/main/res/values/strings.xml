@@ -77,6 +77,24 @@
     <string name="action_panel_item_size">动作图标大小</string>
     <string name="action_panel_item_gap">图标间距</string>
     <string name="action_panel_spread_spacing">展开间距</string>
+    <!-- 动作面板（显式动作类型 internal.actionPanel）全局列表与编辑器 -->
+    <string name="action_panels">动作面板</string>
+    <string name="add_action_panel">添加面板</string>
+    <string name="action_panel_name_hint">面板名称</string>
+    <string name="action_panel_items">面板内容</string>
+    <string name="action_panel_add_item">添加面板项</string>
+    <string name="action_panel_empty_hint">还没有面板项。添加后，触钮上选「动作面板」即可触发时弹出。</string>
+    <string name="action_panel_single_item_hint">只有一个面板项时，长按变体需要至少两项才生效。</string>
+    <string name="action_panel_delete_title">删除面板</string>
+    <string name="action_panel_delete_desc">删除面板「%1$s」？引用它的触钮动作将变为「无动作」。</string>
+    <string name="action_panel_unnamed">未命名面板</string>
+    <string name="action_panel_missing">面板已不存在，请返回重新添加</string>
+    <string name="action_panel_item_move_up">上移</string>
+    <string name="action_panel_item_move_down">下移</string>
+    <string name="action_panel_items_count">%1$d 项</string>
+    <string name="action_panel_item_long_press">长按动作</string>
+    <string name="action_panel_item_no_long_press">长按：同短按</string>
+    <string name="action_panel_choose_long_press">正在为「%1$s」设置长按动作，请从下方选择</string>
     <string name="compact">紧凑</string>
     <string name="loose">宽松</string>
     <string name="vibration_tap">单击振动</string>
@@ -88,8 +106,6 @@
     <string name="confirm">确认</string>
     <string name="done">完成</string>
     <string name="double_tap_action">双击</string>
-    <string name="reorder">排序</string>
-    <string name="done_reorder">完成排序</string>
     <string name="reset">重置</string>
     <string name="save_success">保存成功</string>
     <string name="save_failure">保存失败</string>
@@ -184,9 +200,6 @@
     <string name="search_app_hint">搜索应用</string>
     <string name="search_activity_hint">搜索活动</string>
     <string name="no_matching_results">无匹配结果</string>
-    <string name="selected_count_no_limit">已选 %1$d</string>
-    <string name="clear_all">清空</string>
-    <string name="choose_long_press_action_hint">正在设置长按动作，请从下方列表选择</string>
     <string name="all_categories">全部</string>
     <string name="search_hint_all">搜索</string>
 
@@ -320,7 +333,6 @@
     <string name="automation_pick_action">选择动作</string>
     <string name="automation_entry_empty">未选择动作条目</string>
     <string name="automation_entry_missing">条目已删除（%1$s）</string>
-    <string name="long_press_variant_unsupported">自动化不支持长按变体</string>
     <string name="automation_condition_empty">未配置条件</string>
     <string name="automation_condition_incomplete">条件未配置完整</string>
     <string name="condition_level_group">当前状态</string>

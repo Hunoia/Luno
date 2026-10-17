@@ -7,6 +7,7 @@ import hunoia.luno.action.model.hasPointParams
 import hunoia.luno.action.model.launchAppRef
 import hunoia.luno.action.model.longPressVariant
 import hunoia.luno.action.model.withoutVariantKey
+import hunoia.luno.action.model.withLongPressVariant
 import hunoia.luno.domain.action.ActionCatalog
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.automation.AutomationCenter
@@ -47,14 +48,17 @@ internal fun List<StoredAction>.shortcutIconPaths(): List<String> {
     }.filter { it.isNotEmpty() }
 }
 
-internal fun tryDeleteShortcutIcons(old: List<StoredAction>, new: List<StoredAction>) {
-    val newPaths = new.shortcutIconPaths().toSet()
-    old.forEach { action ->
-        listOfNotNull(action.shortcutInfo(), action.longPressVariant()?.shortcutInfo()).forEach { shortcutInfo ->
-            if (shortcutInfo.iconPath.isNullOrEmpty()) return@forEach
-            if (shortcutInfo.iconPath in newPaths) return@forEach
-            File(shortcutInfo.iconPath).delete()
-        }
+internal fun StoredAction.shortcutIconPaths(): List<String> =
+    listOfNotNull(
+        shortcutInfo()?.iconPath,
+        longPressVariant()?.shortcutInfo()?.iconPath
+    ).filter { it.isNotEmpty() }
+
+internal fun tryDeleteShortcutIcons(old: StoredAction?, new: StoredAction?) {
+    val newPaths = listOfNotNull(new).shortcutIconPaths().toSet()
+    listOfNotNull(old).shortcutIconPaths().forEach { path ->
+        if (path in newPaths) return@forEach
+        File(path).delete()
     }
 }
 
@@ -63,14 +67,15 @@ internal suspend fun saveSettingsAction(
     getUiState: () -> UiState,
     updateUiState: ((UiState) -> UiState) -> Unit
 ) {
-    val selectedRecord = getUiState().selectedRecord
-    val picked = selectedRecord.list.filterIsInstance<StoredAction>()
-    // 选中含有效动作时清掉空占位（旧 [none] + 新选不再多出一个空）；全空则保持空落盘。
-    val newActions =
-        if (picked.any { it.typeId != "internal.none" }) picked.filter { it.typeId != "internal.none" }
-        else picked
+    // 单值语义：选择页给的就是最终结果，没有「占位 vs 有效」之分 ——
+    // 选「无动作」传 null（= 删键/存 null），选别的传那一个。
+    val picked = getUiState().selectedRecord.action
+    if (actionSelect.actionPanelId.isNotBlank()) {
+        saveActionPanelItem(actionSelect, picked)
+        return
+    }
     if (actionSelect.automationRuleId.isNotBlank()) {
-        saveAutomationEffect(actionSelect, newActions)
+        saveAutomationEffect(actionSelect, picked)
         return
     }
     if (actionSelect.subGestureId.isNotBlank()) {
@@ -78,9 +83,9 @@ internal suspend fun saveSettingsAction(
             settings.copy(
                 subGestures = settings.subGestures.map { gesture ->
                     if (gesture.id != actionSelect.subGestureId) return@map gesture
-                    val oldActions = gesture.actionsFor(actionSelect.triggerType, actionSelect.direction)
-                    tryDeleteShortcutIcons(oldActions, newActions)
-                    gesture.withActions(actionSelect.triggerType, actionSelect.direction, newActions)
+                    val oldAction = gesture.actionFor(actionSelect.triggerType, actionSelect.direction)
+                    tryDeleteShortcutIcons(oldAction, picked)
+                    gesture.withAction(actionSelect.triggerType, actionSelect.direction, picked)
                 }
             )
         }
@@ -102,22 +107,47 @@ internal suspend fun saveSettingsAction(
         if (button == null) {
             return@buttonsUpdater mutableList
         }
-        val oldActions = button.actionsFor(actionSelect.triggerType, actionSelect.direction)
-        tryDeleteShortcutIcons(oldActions, newActions)
-        button = button.withActions(actionSelect.triggerType, actionSelect.direction, newActions)
+        val oldAction = button.actionFor(actionSelect.triggerType, actionSelect.direction)
+        tryDeleteShortcutIcons(oldAction, picked)
+        button = button.withAction(actionSelect.triggerType, actionSelect.direction, picked)
         mutableList.apply {
             set(index, button)
         }
     }
 }
 
-private suspend fun saveAutomationEffect(actionSelect: ActionSelect, newActions: List<StoredAction>) {
+/**
+ * 面板项落盘：`actionPanelItemIndex < 0` 是新增一项（追加），>=0 是替换该项的长按变体。
+ *
+ * 走的是选择页而不是独立的参数编辑器 —— 面板项本来就是一整个动作，
+ * 复用 `ActionSelect` 的分类/搜索/应用/快捷方式全部分组最省事。
+ */
+private suspend fun saveActionPanelItem(actionSelect: ActionSelect, picked: StoredAction?) {
+    val panelId = actionSelect.actionPanelId
+    val index = actionSelect.actionPanelItemIndex
+    TuneConfig.updateAction { settings ->
+        val panel = settings.actionPanels.panelById(panelId) ?: return@updateAction settings
+        val items = when {
+            // 新增：选了「无动作」等于放弃本次添加，不改面板。
+            picked == null || picked.typeId == "internal.none" -> return@updateAction settings
+            // 改长按变体：变体本身不带变体（防止套娃）。
+            index >= 0 -> panel.items.mapIndexed { i, item ->
+                if (i == index) item.withLongPressVariant(picked.withoutVariantKey()) else item
+            }
+            else -> panel.items + picked
+        }
+        settings.copy(
+            actionPanels = settings.actionPanels.withPanel(panel.copy(items = items))
+        )
+    }
+}
+
+private suspend fun saveAutomationEffect(actionSelect: ActionSelect, picked: StoredAction?) {
     val entries = ActionLibrary.getSettings().entries
-    val current = loadAutomationActions(actionSelect, entries) ?: emptyList()
-    tryDeleteShortcutIcons(current, newActions)
-    val selected = newActions.firstOrNull()
-    val action = selected?.takeIf { it.typeId != "internal.libraryRef" }?.withoutVariantKey()
-    val entryId = selected
+    val current = loadAutomationAction(actionSelect, entries)
+    tryDeleteShortcutIcons(current, picked)
+    val action = picked?.takeIf { it.typeId != "internal.libraryRef" }?.withoutVariantKey()
+    val entryId = picked
         ?.takeIf { it.typeId == "internal.libraryRef" }
         ?.let { (it.params["entryId"] as? JsonPrimitive)?.contentOrNull.orEmpty() }
         .orEmpty()
@@ -144,10 +174,10 @@ private suspend fun saveAutomationEffect(actionSelect: ActionSelect, newActions:
     AutomationDraftHolder.stage(applyTo(base))
 }
 
-private suspend fun loadAutomationActions(
+private suspend fun loadAutomationAction(
     actionSelect: ActionSelect,
     actionLibraryEntries: List<NewActionLibraryEntry>
-): List<StoredAction>? {
+): StoredAction? {
     val rules = AutomationCenter.getRules()
     val rule = AutomationDraftHolder.take(actionSelect.automationRuleId)
         ?: rules.find { it.id == actionSelect.automationRuleId } ?: return null
@@ -155,15 +185,15 @@ private suspend fun loadAutomationActions(
     val path = actionSelect.automationStepPath
     if (path.isNotBlank()) {
         val step = rule.effect.stepAt(path) ?: return null
-        step.action?.let { return listOf(it) }
+        step.action?.let { return it }
         if (step.entryId.isBlank()) return null
         val entry = actionLibraryEntries.find { it.id == step.entryId } ?: return null
-        return listOf(StoredAction.of("internal.libraryRef", "entryId" to entry.id))
+        return StoredAction.of("internal.libraryRef", "entryId" to entry.id)
     }
-    rule.effect.action?.let { return listOf(it) }
+    rule.effect.action?.let { return it }
     if (rule.effect.entryId.isBlank()) return null
     val entry = actionLibraryEntries.find { it.id == rule.effect.entryId } ?: return null
-    return listOf(StoredAction.of("internal.libraryRef", "entryId" to entry.id))
+    return StoredAction.of("internal.libraryRef", "entryId" to entry.id)
 }
 
 internal suspend fun updateShortcutInfosBody(
@@ -178,55 +208,37 @@ internal suspend fun updateShortcutInfosBody(
         QuickLaunchFacade.queryShortcuts(AppContext.get())
     }
     val selectedRecord = withContext(Dispatchers.Default) {
-        getUiState().selectedRecord.let { selectedRecord ->
-            val uninstalledList = mutableListOf<LauncherInfo.ShortcutInfo>()
-            selectedRecord
-                .list
-                .mapNotNull { (it as? StoredAction)?.shortcutInfo() }
-                .forEach { selected ->
-                    val uninstalled = !createLauncherInfos.any { launcher ->
-                        launcher.qualifiedName == selected.qualifiedName
-                    } && !launchLauncherInfos.any { launcher ->
-                        launcher.shortcuts.any { shortcut ->
-                            shortcut.qualifiedNameWithIntents == selected.qualifiedNameWithIntents
+        getUiState().selectedRecord.let { record ->
+            // 单值：选中项若是已卸载的快捷方式，整个槽清空。
+            val selected = record.action?.shortcutInfo()
+            if (selected == null) {
+                record
+            } else {
+                val stillThere = createLauncherInfos.any { it.qualifiedName == selected.qualifiedName } ||
+                        launchLauncherInfos.any { launcher ->
+                            launcher.shortcuts.any { it.qualifiedNameWithIntents == selected.qualifiedNameWithIntents }
                         }
-                    }
-                    if (uninstalled) {
-                        uninstalledList.add(selected)
-                    }
-                }
-            selectedRecord.removeAllShortcutInfos(uninstalledList)
+                if (stillThere) record else UiState.SelectedRecord()
+            }
         }
     }
     val finalCreateList = withContext(Dispatchers.Default) {
         val list1 = mutableListOf<LauncherInfo>()
         val list2 = mutableListOf<LauncherInfo>()
-        val selectedShortcutInfos = selectedRecord.list.mapNotNull { (it as? StoredAction)?.shortcutInfo() }
+        val selectedShortcutInfo = selectedRecord.action?.shortcutInfo()
         createLauncherInfos.forEach { launcherInfo ->
-            val cache = selectedShortcutInfos.find { info ->
-                info.packageName == launcherInfo.packageName
-            }
-            if (cache != null) {
-                list1.add(launcherInfo)
-            } else {
-                list2.add(launcherInfo)
-            }
+            val isSelected = selectedShortcutInfo?.packageName == launcherInfo.packageName
+            if (isSelected) list1.add(launcherInfo) else list2.add(launcherInfo)
         }
         list1 + list2
     }
     val finalLaunchList = withContext(Dispatchers.Default) {
         val list1 = mutableListOf<LauncherInfo>()
         val list2 = mutableListOf<LauncherInfo>()
-        val selectedShortcutInfos = selectedRecord.list.mapNotNull { (it as? StoredAction)?.shortcutInfo() }
+        val selectedShortcutInfos = selectedRecord.action?.shortcutInfo()
         launchLauncherInfos.forEach { launcherInfo ->
-            val cache = selectedShortcutInfos.find { info ->
-                info.packageName == launcherInfo.packageName
-            }
-            if (cache != null) {
-                list1.add(launcherInfo)
-            } else {
-                list2.add(launcherInfo)
-            }
+            val isSelected = selectedShortcutInfos?.packageName == launcherInfo.packageName
+            if (isSelected) list1.add(launcherInfo) else list2.add(launcherInfo)
         }
         list1 + list2
     }
@@ -239,15 +251,11 @@ internal suspend fun updateShortcutInfosBody(
     }
     getUiState()
         .selectedRecord
-        .list
-        .mapNotNull { (it as? StoredAction)?.shortcutInfo() }
-        .forEach { shortcut ->
-            val launcherInfo = createLauncherInfos.find {
-                it.qualifiedName == shortcut.qualifiedName
-            }
-            if (launcherInfo != null) {
-                addNewShortcut(launcherInfo, shortcut)
-            }
+        .action
+        ?.shortcutInfo()
+        ?.let { shortcut ->
+            createLauncherInfos.find { it.qualifiedName == shortcut.qualifiedName }
+                ?.let { addNewShortcut(it, shortcut) }
         }
 }
 
@@ -265,43 +273,24 @@ internal suspend fun updateAppInfosBody(
     mergedApps.addAll(appInfos)
     mergedApps.addAll(filteredDisabledApps)
     val selectedRecord = withContext(Dispatchers.Default) {
-        getUiState().selectedRecord.let { selectedRecord ->
-            val uninstalledList = mutableListOf<AppInfo>()
-            selectedRecord
-                .list
-                .mapNotNull { (it as? StoredAction)?.launchAppRef() }
-                .forEach { selectedApp ->
-                    val uninstalled = !mergedApps.any { app ->
-                        selectedApp.qualifiedName == app.qualifiedName
-                    }
-                    if (uninstalled) {
-                        uninstalledList.add(selectedApp)
-                    }
-                }
-            selectedRecord.removeAllAppInfos(uninstalledList)
+        getUiState().selectedRecord.let { record ->
+            val selectedApp = record.action?.launchAppRef()
+            if (selectedApp == null) {
+                record
+            } else if (mergedApps.any { it.qualifiedName == selectedApp.qualifiedName }) {
+                record
+            } else {
+                UiState.SelectedRecord()   // 已卸载：槽清空
+            }
         }
     }
     val finalList = withContext(Dispatchers.Default) {
-        val list1 = mutableListOf<AppInfo>()
-        val list2 = mutableListOf<AppInfo>()
-        val selectedAppInfos = selectedRecord.list.mapNotNull { (it as? StoredAction)?.launchAppRef() }
-        mergedApps.forEach { appInfo ->
-            val cache = selectedAppInfos.find { app ->
-                app.qualifiedName == appInfo.qualifiedName
-            }
-            if (cache != null) {
-                val appInfo2 = appInfo.copy(
-                    miniWindow = cache.miniWindow
-                )
-                list1.add(appInfo2)
-            } else {
-                list2.add(appInfo)
-            }
+        // 选中的应用置顶（沿用既有排序），单值下最多只有一个。
+        val selectedRef = selectedRecord.action?.launchAppRef()
+        val (selected, rest) = mergedApps.partition { appInfo ->
+            selectedRef != null && selectedRef.qualifiedName == appInfo.qualifiedName
         }
-        val result = mutableListOf<AppInfo>()
-        result.addAll(list1)
-        result.addAll(list2)
-        result
+        selected.map { it.copy(miniWindow = selectedRef?.miniWindow ?: it.miniWindow) } + rest
     }
     updateUiState {
         it.copy(
@@ -319,6 +308,8 @@ internal suspend fun loadDataBody(
     val gestureSettings = TuneConfig.getGesture()
     val subGestures = GestureConfig.getSubGestures().subGestures
     val actionLibraryEntries = ActionLibrary.getSettings().entries
+    // 全局动作面板列表：选择页一行一个具名面板。
+    val actionPanels = TuneConfig.getAction().actionPanels.panels
     val isAutomation = actionSelect.automationRuleId.isNotBlank()
     // 规则即动作：选择页专属分组（只留启用；自动化模式剔除正在编辑的自身，禁自引用）。
     val rules = ActionCatalog.rulesForPicker(
@@ -342,7 +333,6 @@ internal suspend fun loadDataBody(
     val subGesture = if (isAutomation) null else subGestures.find { it.id == actionSelect.subGestureId }
     onUpdateState { state ->
         state.copy(
-            maxSelectCount = if (isAutomation) 1 else MAX_SELECT_COUNT,
             isAutomation = isAutomation,
             subGestures = subGestures,
             excludedSubGestureId = actionSelect.subGestureId,
@@ -353,73 +343,79 @@ internal suspend fun loadDataBody(
             },
             excludedTypeIds = pickerExcluded,
             rules = rules,
+            actionPanels = actionPanels,
+            isPanelItemMode = actionSelect.actionPanelId.isNotBlank(),
         )
     }
-    val actions = when {
-        isAutomation -> loadAutomationActions(actionSelect, actionLibraryEntries)
-        subGesture != null -> subGesture.actionsFor(actionSelect.triggerType, actionSelect.direction)
-        button != null -> button.actionsFor(actionSelect.triggerType, actionSelect.direction)
+    val action = when {
+        // 面板项模式：读回当前面板项（改变体时预选原变体），不碰触钮槽。
+        actionSelect.actionPanelId.isNotBlank() -> {
+            val index = actionSelect.actionPanelItemIndex
+            val panel = actionPanels.firstOrNull { it.id == actionSelect.actionPanelId }
+            val item = if (index >= 0) panel?.items?.getOrNull(index) else null
+            item?.longPressVariant() ?: item
+        }
+        isAutomation -> loadAutomationAction(actionSelect, actionLibraryEntries)
+        subGesture != null -> subGesture.actionFor(actionSelect.triggerType, actionSelect.direction)
+        button != null -> button.actionFor(actionSelect.triggerType, actionSelect.direction)
         else -> null
     }
-    if (actions != null) {
-        onUpdateState { state ->
-            val newSelectedRecord = state.selectedRecord.selectAll(actions)
-            state.copy(selectedRecord = newSelectedRecord)
-        }
+    onUpdateState { state ->
+        state.copy(selectedRecord = state.selectedRecord.selectOne(action))
     }
 }
 
-private fun GestureButton.actionsFor(triggerType: GestureTriggerType, direction: hunoia.luno.config.model.GestureDirection): List<StoredAction> {
+private fun GestureButton.actionFor(triggerType: GestureTriggerType, direction: hunoia.luno.config.model.GestureDirection): StoredAction? {
     return when (triggerType) {
         GestureTriggerType.Tap -> tapActions
         GestureTriggerType.DoubleTap -> doubleTapActions
         GestureTriggerType.LongPress -> longPressActions
-        GestureTriggerType.Slide -> slideActions.actionsBy(direction)
-        GestureTriggerType.SlideHold -> slideHoldActions.actionsBy(direction)
-        GestureTriggerType.LongSlide -> longSlideActions.actionsBy(direction)
-        GestureTriggerType.LongSlideHold -> longSlideHoldActions.actionsBy(direction)
+        GestureTriggerType.Slide -> slideActions.actionBy(direction)
+        GestureTriggerType.SlideHold -> slideHoldActions.actionBy(direction)
+        GestureTriggerType.LongSlide -> longSlideActions.actionBy(direction)
+        GestureTriggerType.LongSlideHold -> longSlideHoldActions.actionBy(direction)
     }
 }
 
-private fun GestureButton.withActions(
+private fun GestureButton.withAction(
     triggerType: GestureTriggerType,
     direction: hunoia.luno.config.model.GestureDirection,
-    newActions: List<StoredAction>
+    action: StoredAction?
 ): GestureButton {
     return when (triggerType) {
-        GestureTriggerType.Tap -> copy(tapActions = newActions)
-        GestureTriggerType.DoubleTap -> copy(doubleTapActions = newActions)
-        GestureTriggerType.LongPress -> copy(longPressActions = newActions)
-        GestureTriggerType.Slide -> copy(slideActions = slideActions.withActions(direction, newActions))
-        GestureTriggerType.SlideHold -> copy(slideHoldActions = slideHoldActions.withActions(direction, newActions))
-        GestureTriggerType.LongSlide -> copy(longSlideActions = longSlideActions.withActions(direction, newActions))
-        GestureTriggerType.LongSlideHold -> copy(longSlideHoldActions = longSlideHoldActions.withActions(direction, newActions))
+        GestureTriggerType.Tap -> copy(tapActions = action)
+        GestureTriggerType.DoubleTap -> copy(doubleTapActions = action)
+        GestureTriggerType.LongPress -> copy(longPressActions = action)
+        GestureTriggerType.Slide -> copy(slideActions = slideActions.withAction(direction, action))
+        GestureTriggerType.SlideHold -> copy(slideHoldActions = slideHoldActions.withAction(direction, action))
+        GestureTriggerType.LongSlide -> copy(longSlideActions = longSlideActions.withAction(direction, action))
+        GestureTriggerType.LongSlideHold -> copy(longSlideHoldActions = longSlideHoldActions.withAction(direction, action))
     }
 }
 
-private fun hunoia.luno.config.model.SubGesture.actionsFor(
+private fun hunoia.luno.config.model.SubGesture.actionFor(
     triggerType: GestureTriggerType,
     direction: hunoia.luno.config.model.GestureDirection
-): List<StoredAction> {
+): StoredAction? {
     return when (triggerType) {
-        GestureTriggerType.Slide -> slideActionsFor(direction)
-        GestureTriggerType.SlideHold -> slideHoldActionsFor(direction)
-        GestureTriggerType.LongSlide -> longSlideActionsFor(direction)
-        GestureTriggerType.LongSlideHold -> longSlideHoldActionsFor(direction)
-        else -> emptyList()
+        GestureTriggerType.Slide -> slideActionFor(direction)
+        GestureTriggerType.SlideHold -> slideHoldActionFor(direction)
+        GestureTriggerType.LongSlide -> longSlideActionFor(direction)
+        GestureTriggerType.LongSlideHold -> longSlideHoldActionFor(direction)
+        else -> null
     }
 }
 
-private fun hunoia.luno.config.model.SubGesture.withActions(
+private fun hunoia.luno.config.model.SubGesture.withAction(
     triggerType: GestureTriggerType,
     direction: hunoia.luno.config.model.GestureDirection,
-    newActions: List<StoredAction>
+    action: StoredAction?
 ): hunoia.luno.config.model.SubGesture {
     return when (triggerType) {
-        GestureTriggerType.Slide -> withSlideActions(direction, newActions)
-        GestureTriggerType.SlideHold -> withSlideHoldActions(direction, newActions)
-        GestureTriggerType.LongSlide -> withLongSlideActions(direction, newActions)
-        GestureTriggerType.LongSlideHold -> withLongSlideHoldActions(direction, newActions)
+        GestureTriggerType.Slide -> withSlideAction(direction, action)
+        GestureTriggerType.SlideHold -> withSlideHoldAction(direction, action)
+        GestureTriggerType.LongSlide -> withLongSlideAction(direction, action)
+        GestureTriggerType.LongSlideHold -> withLongSlideHoldAction(direction, action)
         else -> this
     }
 }

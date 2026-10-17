@@ -6,7 +6,6 @@ import hunoia.luno.R
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.action.model.StoredAction
-import hunoia.luno.action.model.withLongPressVariant
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.quicklaunch.model.qualifiedName
@@ -78,47 +77,20 @@ class ActionSelectVM(
         }
     }
 
-    fun select(obj: Any, selected: Boolean) {
-        updateUiState { it.copy(selectionDirty = true) }
-        if (uiState.longPressTargetIndex != null && selected) {
-            selectLongPressAction(obj)
-            return
+    /**
+     * 点一行 = 选中 + 立即落盘 + 返回。
+     *
+     * 单选后没有「再点一下取消」这个中间态，也没有底栏的完成键可等，
+     * 所以选择即提交。自动化路径原本就是这么做的，这里提为唯一路径。
+     */
+    fun select(obj: Any) {
+        when (obj) {
+            is AppInfo -> updateUiState { selectAppInfoTransform(it, obj) }
+            is LauncherInfo.ShortcutInfo -> updateUiState { selectShortcutInfoTransform(it, obj) }
+            is StoredAction -> updateUiState { selectActionTransform(it, obj) }
+            is NewActionLibraryEntry -> updateUiState { selectActionTransform(it, obj.toStoredAction()) }
         }
-        if (obj is AppInfo) {
-            updateUiState { selectAppInfoTransform(it, obj, selected) }
-        } else if (obj is LauncherInfo.ShortcutInfo) {
-            updateUiState { selectShortcutInfoTransform(it, obj, selected) }
-        } else if (obj is StoredAction) {
-            updateUiState { selectActionTransform(it, obj, selected) }
-        } else if (obj is NewActionLibraryEntry) {
-            val action = obj.toStoredAction()
-            updateUiState { selectActionTransform(it, action, selected) }
-        }
-        // 自动化每步只用首个动作（见 saveAutomationEffect），点选即暂存返回，
-        // 省掉 bottom bar 的完成一步；取消选中不触发。手势路径保持多选+完成不变。
-        if (actionSelect.automationRuleId.isNotBlank() && selected) {
-            saveSettings()
-        }
-    }
-
-    fun startSetLongPressAction(index: Int) {
-        if (index !in uiState.selectedRecord.list.indices) return
-        updateUiState { it.copy(longPressTargetIndex = index) }
-    }
-
-    fun cancelSetLongPressAction() {
-        updateUiState { it.copy(longPressTargetIndex = null) }
-    }
-
-    fun selectLongPressAction(obj: Any) {
-        val index = uiState.longPressTargetIndex ?: return
-        val longPressAction = obj.toStoredAction()
-        updateUiState { updateSelectedActionTransform(it, index) { it.withLongPressVariant(longPressAction) } }
-        updateUiState { it.copy(longPressTargetIndex = null) }
-    }
-
-    fun moveSelectedAction(fromIndex: Int, toIndex: Int) {
-        updateUiState { moveSelectedActionTransform(it, fromIndex, toIndex) }
+        done()
     }
 
     fun toggleMiniWindow(appInfo: AppInfo) {

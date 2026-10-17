@@ -186,7 +186,7 @@ fun SubGestureSettingsScreen(
                                                 )
                                             )
                                         },
-                                        subtitle = gesture.slideActionsFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
+                                        subtitle = gesture.slideActionFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
                                         shape = segmentedShape(index, directions.size),
                                     )
                                 }
@@ -212,7 +212,7 @@ fun SubGestureSettingsScreen(
                                                 )
                                             )
                                         },
-                                        subtitle = gesture.slideHoldActionsFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
+                                        subtitle = gesture.slideHoldActionFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
                                         shape = segmentedShape(index, directions.size),
                                     )
                                 }
@@ -238,7 +238,7 @@ fun SubGestureSettingsScreen(
                                                 )
                                             )
                                         },
-                                        subtitle = gesture.longSlideActionsFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
+                                        subtitle = gesture.longSlideActionFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
                                         shape = segmentedShape(index, directions.size),
                                     )
                                 }
@@ -264,7 +264,7 @@ fun SubGestureSettingsScreen(
                                                 )
                                             )
                                         },
-                                        subtitle = gesture.longSlideHoldActionsFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
+                                        subtitle = gesture.longSlideHoldActionFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
                                         shape = segmentedShape(index, directions.size),
                                     )
                                 }

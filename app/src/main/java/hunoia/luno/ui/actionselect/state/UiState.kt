@@ -27,11 +27,7 @@ data class UiState(
     val apps: List<AppInfo> = emptyList(),
     val createShortcuts: List<LauncherInfo> = emptyList(),
     val launchShortcuts: List<LauncherInfo> = emptyList(),
-    val maxSelectCount: Int = MAX_SELECT_COUNT,
     val selectedRecord: SelectedRecord = SelectedRecord(),
-    val longPressTargetIndex: Int? = null,
-    /** 用户动过选择（选/去选/清空）：空列表也可落盘，用于把动作设为空。 */
-    val selectionDirty: Boolean = false,
     val subGestures: List<SubGesture> = emptyList(),
     val excludedSubGestureId: String = "",
 
@@ -43,85 +39,72 @@ data class UiState(
     val actionLibraryEntries: List<NewActionLibraryEntry> = emptyList(),
     /** 选择页“规则”分组数据源：已按 rulesForPicker 过滤（只留启用，自动化模式剔除自身）。 */
     val rules: List<AutomationRule> = emptyList(),
+    /** 全局动作面板列表，选择页一行一个具名面板。 */
+    val actionPanels: List<hunoia.luno.config.model.ActionPanel> = emptyList(),
+    /**
+     * 本次是去动作面板里挑一个面板项（而不是配触钮/子手势槽）。
+     * 面板项模式下不显示「无动作」与面板自身两行动态行。
+     */
+    val isPanelItemMode: Boolean = false,
 
     /** 传给 `ActionDefinitions.pickerDefinitions()` 的排除集。恒非空 —— 空集合会让过滤失效。 */
     val excludedTypeIds: Set<String> = emptySet(),
 ) {
+    /**
+     * 单选：一个槽至多一个动作。
+     *
+     * 仍是 List<Any> 而不是 StoredAction? —— 应用行/快捷方式行/库条目行传进来的
+     * 三种类型不同，统一由 [toStoredAction] 收敛；对外暴露的 [action] 才是单值。
+     */
     data class SelectedRecord(val list: List<Any> = emptyList()) {
 
         val size: Int get() = list.size
 
-        fun selectAll(actions: List<StoredAction>): SelectedRecord {
-            return this.copy(list = actions.toList())
-        }
+        val isEmpty: Boolean get() = list.isEmpty()
 
-        private fun pick(action: StoredAction, maxSelectCount: Int): List<Any> {
-            return if (maxSelectCount <= 1) listOf(action) else list + action
-        }
-
-        fun selectAction(action: StoredAction, selected: Boolean, maxSelectCount: Int): SelectedRecord {
-            if (!selected) {
-                return this.copy(list = list.filterNot { it is StoredAction && it.sameAction(action) })
+        /**
+         * 当前选中的动作（应用/快捷方式/库条目已收敛成 StoredAction）。
+         *
+         * `internal.none` 归一成 null —— 「无动作」行落盘就是删键/存 null，
+         * 存一条 none 记录会让「空槽」和「显式选了无」在存储上分叉。
+         * 旧数据数组形态解出来的 none 走同一条路。
+         */
+        val action: StoredAction? get() {
+            val value = list.singleOrNull() ?: return null
+            val stored = when (value) {
+                is StoredAction -> value
+                else -> value.toStoredActionOrNull()
             }
-            return this.copy(list = pick(action, maxSelectCount))
+            return stored?.takeIf { it.typeId != "internal.none" }
         }
 
-        fun selectAppInfo(app: AppInfo, selected: Boolean, maxSelectCount: Int): SelectedRecord {
-            val action = app.toStoredAction()
-            if (!selected) {
-                return this.copy(list = list.filterNot { (it as? StoredAction)?.launchQualifiedName() == app.qualifiedName })
-            }
-            return this.copy(list = pick(action, maxSelectCount))
-        }
+        fun selectOne(action: StoredAction?): SelectedRecord =
+            copy(list = listOfNotNull(action))
 
-        fun selectShortcutInfo(shortcut: LauncherInfo.ShortcutInfo, selected: Boolean, maxSelectCount: Int): SelectedRecord {
-            val action = shortcut.toStoredAction()
-            if (!selected) {
-                return this.copy(list = list.filterNot {
-                    (it as? StoredAction)?.shortcutQualifiedName() == shortcut.qualifiedNameWithIntents
-                })
-            }
-            return this.copy(list = pick(action, maxSelectCount))
-        }
+        fun selectAction(action: StoredAction): SelectedRecord = selectOne(action)
 
-        fun removeAllAppInfos(list: List<AppInfo>): SelectedRecord {
-            val newList = this.list.toMutableList().apply {
-                removeAll {
-                    val qualifiedName = (it as? StoredAction)?.launchQualifiedName() ?: return@removeAll false
-                    list.any { selected -> qualifiedName == selected.qualifiedName }
-                }
-            }
-            return this.copy(list = newList)
-        }
+        fun selectAppInfo(app: AppInfo): SelectedRecord = selectOne(app.toStoredAction())
 
-        fun removeAllShortcutInfos(list: List<LauncherInfo.ShortcutInfo>): SelectedRecord {
-            val newList = this.list.toMutableList().apply {
-                removeAll {
-                    val qualifiedName = (it as? StoredAction)?.shortcutQualifiedName() ?: return@removeAll false
-                    list.any { selected ->
-                        qualifiedName == selected.qualifiedNameWithIntents
-                    }
-                }
-            }
-            return this.copy(list = newList)
-        }
+        fun selectShortcutInfo(shortcut: LauncherInfo.ShortcutInfo): SelectedRecord =
+            selectOne(shortcut.toStoredAction())
+
+        /** 已卸载的应用/快捷方式若正好是选中项，清空（单值下就是置空）。 */
+        fun clearIf(predicate: (StoredAction) -> Boolean): SelectedRecord =
+            if (action?.let(predicate) == true) SelectedRecord() else this
 
         fun isSelected(obj: Any): Boolean {
-            if (obj is AppInfo) {
-                return list.find {
-                    (it as? StoredAction)?.launchQualifiedName() == obj.qualifiedName
-                } != null
-            } else if (obj is LauncherInfo.ShortcutInfo) {
-                return list.find {
-                    (it as? StoredAction)?.shortcutQualifiedName() == obj.qualifiedNameWithIntents
-                } != null
-            } else if (obj is StoredAction) {
-                return list.find { it is StoredAction && it.sameAction(obj) } != null
+            val current = action ?: return obj is StoredAction && obj.typeId == "internal.none"
+            return when (obj) {
+                is AppInfo -> current.launchQualifiedName() == obj.qualifiedName
+                is LauncherInfo.ShortcutInfo ->
+                    current.shortcutQualifiedName() == obj.qualifiedNameWithIntents
+                is StoredAction -> current.sameAction(obj)
+                else -> false
             }
-            return obj in list
         }
     }
-
 }
+
+private fun Any.toStoredActionOrNull(): StoredAction? = runCatching { toStoredAction() }.getOrNull()
 
 sealed interface UiEvent

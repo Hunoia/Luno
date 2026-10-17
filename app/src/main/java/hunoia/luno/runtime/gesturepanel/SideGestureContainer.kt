@@ -14,8 +14,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import hunoia.luno.action.model.StoredAction
+import hunoia.luno.action.model.actionPanelId
 import hunoia.luno.action.model.volumeScrubConfigOrDefault
 import hunoia.luno.config.model.VolumeScrubConfig
+import hunoia.luno.config.model.ActionPanel
 import hunoia.luno.config.model.ActionPanelStyle
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.ArcStyle
@@ -23,7 +25,6 @@ import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
-import hunoia.luno.config.model.isHoldType
 import hunoia.luno.config.model.isPlainSlideType
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.gesture.GestureDecision
@@ -55,6 +56,8 @@ fun SideGestureContainer(
     advancedSettings: AdvancedSettings = AdvancedSettings(),
     gestureSettings: GestureSettings = GestureSettings(),
     subGestureSettings: SubGestureSettings = SubGestureSettings(),
+    /** 全局动作面板列表：把 `internal.actionPanel` 展开成面板项。 */
+    actionPanels: List<ActionPanel> = emptyList(),
     onSubGestureModeChanged: (Boolean, Offset, Int) -> Unit = { _, _, _ -> },
     onActionPanelOverlayChanged: (Boolean) -> Unit = {},
     onActionPanelVisibilityChanged: (Boolean) -> Unit = {},
@@ -110,7 +113,7 @@ fun SideGestureContainer(
     }
 
     fun runGestureActions(
-        actions: List<StoredAction>,
+        resolvedAction: StoredAction?,
         direction: GestureDirection,
         touchPosition: Offset,
         sourceButton: GestureButton?,
@@ -121,19 +124,27 @@ fun SideGestureContainer(
         decision: GestureDecision.Trigger? = null,
         onDirectComplete: (enteredSubGesture: Boolean) -> Unit = {},
     ) {
-        val meaningfulActions = actions.filter { it.typeId != "internal.none" }
-        if (meaningfulActions.size > 1) {
-            if (needsPanelOverlay) onActionPanelOverlayChanged(true)
-            // 必须在 onDragStart(它把 visible 置 true)之前把主 overlay 撑回全屏,
-            // 否则 ActionPanel 的头几帧会按收起时的尺寸定位。
-            curOnPanelVisibilityChanged(true)
-            actionPanelState.onDragStart(touchPosition)
-            actionPanelState.ready(direction, meaningfulActions, panelStyle, panelColor)
-            actionPanelSourceButton = sourceButton
-            onPanelStarted()
-            return
+        val action = resolvedAction?.takeIf { it.typeId != "internal.none" }
+            ?: StoredAction.of("internal.none")
+        // 动作面板：显式动作类型，不再是「槽里存了 ≥2 个动作」的副作用。
+        // 保持类触发（按住到阈值）也在 onMove 里 resolve，onResolved 统一接住，
+        // 所以这里不需要区分按住/非按住 —— 阈值到了就弹。
+        val panelId = action.actionPanelId()
+        if (panelId != null) {
+            val items = actionPanels.firstOrNull { it.id == panelId }?.items.orEmpty()
+            if (items.isNotEmpty()) {
+                if (needsPanelOverlay) onActionPanelOverlayChanged(true)
+                // 必须在 onDragStart(它把 visible 置 true)之前把主 overlay 撑回全屏,
+                // 否则 ActionPanel 的头几帧会按收起时的尺寸定位。
+                curOnPanelVisibilityChanged(true)
+                actionPanelState.onDragStart(touchPosition)
+                actionPanelState.ready(direction, items, panelStyle, panelColor)
+                actionPanelSourceButton = sourceButton
+                onPanelStarted()
+                return
+            }
+            // 面板被删或内容为空：按无动作处理，不弹空面板、不崩。
         }
-        val action = meaningfulActions.firstOrNull() ?: StoredAction.of("internal.none")
         val fromSubGesture = subGestureState.subGestureDepth > 0
         val shouldDelayDirectSubGestureAction = fromSubGesture &&
             action.typeId != "internal.subGesture" &&
@@ -176,17 +187,16 @@ fun SideGestureContainer(
         val touchPosition = resolvedActions.touchPosition.takeIf { it.x.isFinite() && it.y.isFinite() }
             ?: sideGestureState.finger.takeIf { it.x.isFinite() && it.y.isFinite() }
             ?: Offset.Zero
-        val meaningfulCount = resolvedActions.actions.count { it.typeId != "internal.none" }
-        val needsOverlay = meaningfulCount > 1 && !resolvedActions.triggerType.isHoldType
+        // 需要把主 overlay 撑全屏的唯一场景就是弹面板，且判定在 runGestureActions 内部
+        // （按动作类型），这里恒 false。
         runGestureActions(
-            actions = resolvedActions.actions,
+            resolvedAction = resolvedActions.action,
             direction = resolvedActions.direction,
             touchPosition = touchPosition,
             sourceButton = sideGestureState.button,
             decision = resolvedActions.decision,
             panelStyle = actionPanelStyle,
             panelColor = panelColor,
-            needsPanelOverlay = needsOverlay,
             onPanelStarted = {
                 sideGestureState.cancel()
             },
@@ -200,7 +210,7 @@ fun SideGestureContainer(
 
     fun handleGestureResolvedActions(resolvedActions: GestureResolvedActions) {
         runGestureActions(
-            actions = resolvedActions.actions,
+            resolvedAction = resolvedActions.action,
             direction = resolvedActions.actionDirection,
             touchPosition = resolvedActions.touchPosition,
             sourceButton = resolvedActions.button,
@@ -321,23 +331,9 @@ fun SideGestureContainer(
                 return@onDragEnd
             }
             if (!sideGestureState.isCanceled) {
-                sideGestureState.onDragEnd()?.let { resolvedActions ->
-                    val meaningfulActions = resolvedActions.actions.filter { it.typeId != "internal.none" }
-                    if (meaningfulActions.size > 1 && !resolvedActions.triggerType.isHoldType) {
-                        runGestureActions(
-                            actions = resolvedActions.actions,
-                            direction = resolvedActions.actionDirection,
-                            touchPosition = resolvedActions.touchPosition,
-                            sourceButton = resolvedActions.button,
-                            decision = resolvedActions.decision,
-                            panelStyle = actionPanelStyle,
-                            panelColor = resolvedActions.button.color,
-                            needsPanelOverlay = true,
-                        )
-                    } else {
-                        handleGestureResolvedActions(resolvedActions)
-                    }
-                }
+                // 单一路径：面板判定在 runGestureActions 内（按动作类型），
+                // 抬手时不再有「长度 > 1」的特殊分支。
+                sideGestureState.onDragEnd()?.let { handleGestureResolvedActions(it) }
             }
         },
         onDragCancel = onDragCancel@{

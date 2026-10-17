@@ -43,9 +43,9 @@ fun GestureButton.cleanActions(
     slideHoldActions = slideHoldActions.cleanActions(shouldRemove),
     longSlideActions = longSlideActions.cleanActions(shouldRemove),
     longSlideHoldActions = longSlideHoldActions.cleanActions(shouldRemove),
-    tapActions = tapActions.cleanList(shouldRemove),
-    doubleTapActions = doubleTapActions.cleanList(shouldRemove),
-    longPressActions = longPressActions.cleanList(shouldRemove),
+    tapActions = tapActions.cleanOne(shouldRemove),
+    doubleTapActions = doubleTapActions.cleanOne(shouldRemove),
+    longPressActions = longPressActions.cleanOne(shouldRemove),
 )
 
 fun SubGesture.cleanActions(
@@ -57,19 +57,26 @@ fun SubGesture.cleanActions(
     longSlideHoldActions = longSlideHoldActions.cleanActions(shouldRemove),
 )
 
+/** 清洗方向表：被清掉的方向直接删键（值类型不可空，见 [DirectionActions.actions]）。 */
 fun DirectionActions.cleanActions(shouldRemove: (StoredAction) -> Boolean): DirectionActions =
-    copy(actions = actions.mapValues { (_, list) -> list.cleanList(shouldRemove) })
+    copy(
+        actions = actions.mapNotNull { (dir, action) ->
+            action.cleanOne(shouldRemove)?.let { dir to it }
+        }.toMap()
+    )
 
 /**
  * 过滤本体，顺手清掉面板长按变体里的失效引用。
  *
  * 变体（__longPress）是嵌在 params 里的独立 StoredAction，只滤本体会留下悬空引用：
  * 删条目后短按正常、长按静默无反应（分发器只记 DEBUG 日志）。
+ *
+ * 单值语义：命中即整个槽置空（返回 null = 删键），不是从列表里挑剩下的。
  */
-fun List<StoredAction>.cleanList(shouldRemove: (StoredAction) -> Boolean): List<StoredAction> =
-    mapNotNull { action ->
-        if (shouldRemove(action)) return@mapNotNull null
-        val variant = action.longPressVariant() ?: return@mapNotNull action
-        val kept = variant.takeUnless(shouldRemove) ?: return@mapNotNull action
-        action.withLongPressVariant(kept)
-    }
+fun StoredAction?.cleanOne(shouldRemove: (StoredAction) -> Boolean): StoredAction? {
+    val action = this ?: return null
+    if (shouldRemove(action)) return null
+    val variant = action.longPressVariant() ?: return action
+    val kept = variant.takeUnless(shouldRemove) ?: return action
+    return action.withLongPressVariant(kept)
+}

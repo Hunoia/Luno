@@ -218,6 +218,7 @@ fun LunoSettingsRow(
     subtitle: String = "",
     subtitleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
     shape: Shape = RoundedCornerShape(ContainerRadius),
@@ -237,6 +238,7 @@ fun LunoSettingsRow(
         leading = leading,
         trailing = trailing ?: chevron.takeIf { enabled && onClick != null },
         onClick = onClick,
+        onLongClick = onLongClick,
     )
 }
 

@@ -34,6 +34,8 @@ import hunoia.luno.ui.navigation.GestureButtonSettings
 
 import hunoia.luno.ui.navigation.Home
 import hunoia.luno.ui.navigation.ActionSettings
+import hunoia.luno.ui.navigation.ActionPanelList
+import hunoia.luno.ui.navigation.ActionPanelEdit
 import hunoia.luno.ui.navigation.SearchEngineSettings
 import hunoia.luno.ui.navigation.SubGestureEditor
 import hunoia.luno.ui.navigation.AutomationEdit
@@ -46,6 +48,8 @@ import hunoia.luno.ui.actionlibrary.NewActionLibraryEditScreen
 import hunoia.luno.ui.automation.AutomationEditScreen
 import hunoia.luno.ui.automation.AutomationHistoryScreen
 import hunoia.luno.ui.settings.action.ActionSettingsScreen
+import hunoia.luno.ui.settings.action.panel.ActionPanelEditScreen
+import hunoia.luno.ui.settings.action.panel.ActionPanelListScreen
 import hunoia.luno.ui.settings.search.SearchEngineSettingsScreen
 
 import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsScreen
@@ -55,8 +59,11 @@ import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
+import hunoia.luno.ui.navigation.LocalActionPanels
 import hunoia.luno.ui.navigation.LocalNavController
 import hunoia.luno.ui.home.HomeScreen
+import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.config.model.ActionSettings as ActionTuning
 import kotlin.reflect.KType
 
 
@@ -68,9 +75,12 @@ fun SideGestureApp() {
         val durationMs = ANIMATION_DURATION_MS
         val actionLibrarySettings by ActionLibrary.settings
             .collectAsStateWithLifecycle(initialValue = NewActionLibrarySettings())
+        val actionSettings by TuneConfig.action
+            .collectAsStateWithLifecycle(initialValue = ActionTuning())
         CompositionLocalProvider(
             LocalNavController provides navController,
-            LocalActionLibraryEntries provides actionLibrarySettings.entries
+            LocalActionLibraryEntries provides actionLibrarySettings.entries,
+            LocalActionPanels provides actionSettings.actionPanels.panels,
         ) {
             Surface(modifier = Modifier.fillMaxSize()) {
                 NavHost(
@@ -129,6 +139,20 @@ fun SideGestureApp() {
                     ActionSettingsScreen(
                         onBack = { navController.popBackStack() },
                         onNavToSearchEngines = { navController.navigate(SearchEngineSettings) },
+                        onNavToActionPanels = { navController.navigate(ActionPanelList) },
+                    )
+                }
+                myComposable<ActionPanelList> {
+                    ActionPanelListScreen(
+                        onBack = { navController.popBackStack() },
+                        onEditPanel = { panelId -> navController.navigate(ActionPanelEdit(panelId)) },
+                    )
+                }
+                myComposable<ActionPanelEdit> {
+                    ActionPanelEditScreen(
+                        panelId = it.toRoute<ActionPanelEdit>().panelId,
+                        onBack = { navController.popBackStack() },
+                        onPickItem = { navController.navigate(it) },
                     )
                 }
                 myComposable<SearchEngineSettings> {

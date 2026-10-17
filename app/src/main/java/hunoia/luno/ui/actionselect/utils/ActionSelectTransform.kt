@@ -6,6 +6,8 @@ import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.definitions.ActionCategory
 import hunoia.luno.action.model.StoredAction
+import hunoia.luno.action.model.ACTION_PANEL_PARAM_PANEL_ID
+import hunoia.luno.action.model.ACTION_PANEL_TYPE_ID
 import hunoia.luno.action.model.launchQualifiedName
 import hunoia.luno.action.model.withLaunchMiniWindow
 import hunoia.luno.action.model.NewActionLibraryEntry
@@ -18,7 +20,6 @@ import kotlinx.serialization.json.contentOrNull
 import hunoia.luno.core.AppContext
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.ui.actionselect.UiState
-import hunoia.luno.ui.actionselect.UiState.SelectedRecord
 import hunoia.luno.ui.component.actionText
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.quicklaunch.model.AppInfo
@@ -69,7 +70,6 @@ fun Context.actionTextWithSubGesture(
         return actionLibraryEntries.firstOrNull { it.id == id }?.name
             ?: getString(R.string.action_library_missing)
     }
-    // 规则即动作：显示目标规则名；规则列表未加载时落定义名，目标没了落缺失。
     ActionCatalog.runRuleIdOf(action)?.let { ruleId ->
         rules.firstOrNull { it.id == ruleId }?.name?.takeIf { it.isNotBlank() }?.let { return it }
         if (rules.isNotEmpty()) {
@@ -88,46 +88,16 @@ fun Context.actionTextWithSubGesture(
 internal fun actionCategory(action: StoredAction): ActionCategory {
     return ActionDefinitions.byTypeId(action.typeId)?.category ?: ActionCategory.SYSTEM
 }
-internal const val MAX_SELECT_COUNT = 50
-
-internal fun canActionEnabled(
-    selectedRecord: SelectedRecord,
-    item: StoredAction,
-    maxSelectCount: Int
-): Boolean {
-    if (maxSelectCount <= 1) return true
-    return !(selectedRecord.size >= maxSelectCount && !selectedRecord.isSelected(item))
-}
-
-internal fun canAppInfoEnabled(
-    selectedRecord: SelectedRecord,
-    item: AppInfo,
-    maxSelectCount: Int
-): Boolean {
-    if (maxSelectCount <= 1) return true
-    return !(selectedRecord.size >= maxSelectCount && !selectedRecord.isSelected(item))
-}
-
-internal fun canLauncherInfoEnabled(
-    selectedRecord: SelectedRecord,
-    item: LauncherInfo,
-    maxSelectCount: Int
-): Boolean {
-    if (maxSelectCount <= 1) return true
-    return !(selectedRecord.size >= maxSelectCount && !item.shortcuts.any { selectedRecord.isSelected(it) })
-}
-
-internal fun canShortcutInfoEnabled(
-    selectedRecord: SelectedRecord,
-    item: LauncherInfo.ShortcutInfo,
-    maxSelectCount: Int
-): Boolean {
-    if (maxSelectCount <= 1) return true
-    return !(selectedRecord.size >= maxSelectCount && !selectedRecord.isSelected(item))
-}
 
 internal fun createTitle(actionSelect: ActionSelect): String {
     val context = AppContext.get()
+    if (actionSelect.actionPanelId.isNotBlank()) {
+        return if (actionSelect.actionPanelItemIndex >= 0) {
+            context.getString(R.string.action_panel_item_long_press)
+        } else {
+            context.getString(R.string.action_panel_add_item)
+        }
+    }
     if (actionSelect.automationRuleId.isNotBlank()) {
         return context.getString(R.string.automation_pick_action)
     }
@@ -174,6 +144,17 @@ internal fun assembleDataTransform(state: UiState): UiState {
         .map { def -> def.toStoredAction() }
         .toMutableList()
         .apply {
+            // 面板项模式：挑的是「面板里放什么」，不放置空入口，也不列面板本身
+            // （面板不能嵌套面板，且在这里列自己毫无意义）。
+            if (state.isPanelItemMode) return@apply
+            // 「无动作」置空入口。internal.none 在 libraryExcluded 内被 pickerDefinitions
+            // 滤掉了（动作库里不该能建「无」），这里**额外合成**一行而不是改定义表 ——
+            // 碰 pickerExcluded 会踩「传空集合让整张定义表变可选行」那条既有约定。
+            add(StoredAction.of("internal.none"))
+            // 动作面板：一行一个具名面板。用户点哪行就把哪个 panelId 存进槽里。
+            state.actionPanels.forEach { panel ->
+                add(StoredAction.of(ACTION_PANEL_TYPE_ID, ACTION_PANEL_PARAM_PANEL_ID to panel.id))
+            }
             // 自动化规则里绑子手势是无效的:`SubGestureState.tryEnterSubGesture` 需要一个
             // 真实的手势完成脉冲,自动化上下文里没有,命中后静默 return false。
             if (state.isAutomation) return@apply
@@ -192,55 +173,26 @@ internal fun assembleDataTransform(state: UiState): UiState {
     return state.copy(actions = finalList)
 }
 
-internal fun selectActionTransform(state: UiState, action: StoredAction, selected: Boolean): UiState {
-    val record = state.selectedRecord.selectAction(action, selected, state.maxSelectCount)
-    return state.copy(selectedRecord = record)
-}
+internal fun selectActionTransform(state: UiState, action: StoredAction): UiState =
+    state.copy(selectedRecord = state.selectedRecord.selectAction(action))
 
-internal fun selectAppInfoTransform(state: UiState, appInfo: AppInfo, selected: Boolean): UiState {
-    val record = state.selectedRecord.selectAppInfo(appInfo, selected, state.maxSelectCount)
-    return state.copy(selectedRecord = record)
-}
+internal fun selectAppInfoTransform(state: UiState, appInfo: AppInfo): UiState =
+    state.copy(selectedRecord = state.selectedRecord.selectAppInfo(appInfo))
 
-internal fun selectShortcutInfoTransform(state: UiState, shortcut: LauncherInfo.ShortcutInfo, selected: Boolean): UiState {
-    val record = state.selectedRecord.selectShortcutInfo(shortcut, selected, state.maxSelectCount)
-    return state.copy(selectedRecord = record)
-}
-
-internal fun updateSelectedActionTransform(state: UiState, index: Int, transform: (StoredAction) -> StoredAction): UiState {
-    val list = state.selectedRecord.list.toMutableList()
-    val current = list.getOrNull(index) as? StoredAction ?: return state
-    list[index] = transform(current)
-    return state.copy(selectedRecord = state.selectedRecord.copy(list = list))
-}
+internal fun selectShortcutInfoTransform(state: UiState, shortcut: LauncherInfo.ShortcutInfo): UiState =
+    state.copy(selectedRecord = state.selectedRecord.selectShortcutInfo(shortcut))
 
 internal fun toggleMiniWindowTransform(state: UiState, appInfo: AppInfo, switchToMiniWindow: Boolean): UiState {
-    return state.copy(
-        apps = state.apps.map { app ->
-            if (app.qualifiedName == appInfo.qualifiedName) {
-                app.copy(miniWindow = switchToMiniWindow)
-            } else app
-        },
-        selectedRecord = state.selectedRecord.copy(
-            list = state.selectedRecord.list.filterIsInstance<StoredAction>().toMutableList().let { list ->
-                val index = list.indexOfFirst { action ->
-                    action.launchQualifiedName() == appInfo.qualifiedName
-                }
-                if (index != -1) {
-                    list[index] = list[index].withLaunchMiniWindow(switchToMiniWindow)
-                }
-                list
-            }
-        )
-    )
-}
-
-internal fun moveSelectedActionTransform(state: UiState, fromIndex: Int, toIndex: Int): UiState {
-    val list = state.selectedRecord.list.toMutableList()
-    if (fromIndex !in list.indices || toIndex !in list.indices) return state
-    if (fromIndex == toIndex || list[fromIndex] == list[toIndex]) return state
-    val item = list.removeAt(fromIndex)
-    val targetIndex = toIndex.coerceIn(0, list.size)
-    list.add(targetIndex, item)
-    return state.copy(selectedRecord = state.selectedRecord.copy(list = list))
+    val apps = state.apps.map { app ->
+        if (app.qualifiedName == appInfo.qualifiedName) {
+            app.copy(miniWindow = switchToMiniWindow)
+        } else app
+    }
+    val current = state.selectedRecord.action
+    val record = if (current?.launchQualifiedName() == appInfo.qualifiedName) {
+        state.selectedRecord.selectOne(current.withLaunchMiniWindow(switchToMiniWindow))
+    } else {
+        state.selectedRecord
+    }
+    return state.copy(apps = apps, selectedRecord = record)
 }

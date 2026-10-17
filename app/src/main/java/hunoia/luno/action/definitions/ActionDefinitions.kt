@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.PauseCircle
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.PowerOff
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ScreenLockPortrait
 import androidx.compose.material.icons.filled.Screenshot
@@ -30,6 +31,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SettingsInputComponent
 import androidx.compose.material.icons.filled.SettingsInputComposite
 import hunoia.luno.action.definitions.PlayPause
+import hunoia.luno.action.model.ACTION_PANEL_PARAM_PANEL_ID
+import hunoia.luno.action.model.ACTION_PANEL_TYPE_ID
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Splitscreen
 import androidx.compose.material.icons.filled.StopCircle
@@ -319,6 +322,18 @@ object ActionDefinitions {
             icon = Icons.Default.Block))
         add(ActionDefinition("internal.subGesture", "子手势", ActionCategory.INTERNAL, Capability.None,
             icon = Icons.Default.Gesture))
+        /**
+         * 动作面板：触发时弹弧形菜单让用户挑一个。`panelId` 必填 —— 既让它天然不出现在
+         * `pickerDefinitions`（面板行由 `assembleDataTransform` 按全局列表动态合成，
+         * 一行一个具名面板），也保证库里存不出一个没有面板内容的空引用。
+         */
+        add(ActionDefinition(ACTION_PANEL_TYPE_ID, "动作面板", ActionCategory.INTERNAL, Capability.None,
+            parameters = listOf(ParameterDefinition.Text(
+                key = ACTION_PANEL_PARAM_PANEL_ID,
+                label = "面板",
+                required = true,
+            )),
+            icon = Icons.Default.RadioButtonChecked))
         add(ActionDefinition("internal.hideGestureButton", "隐藏触钮", ActionCategory.INTERNAL, Capability.None,
             parameters = listOf(ParameterDefinition.Number(
                 key = "delayMs",
@@ -401,6 +416,7 @@ object ActionDefinitions {
         "internal.none",
         "internal.subGesture",
         "internal.runRule",
+        ACTION_PANEL_TYPE_ID,
         "app.launchShortcut",
     )
 

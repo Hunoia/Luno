@@ -73,14 +73,14 @@ private fun countReferences(
 }
 
 private fun GestureButton.actionList(): List<StoredAction> =
-    slideActions.actions.values.flatten() +
-        slideHoldActions.actions.values.flatten() +
-        longSlideActions.actions.values.flatten() +
-        longSlideHoldActions.actions.values.flatten() +
-        tapActions + doubleTapActions + longPressActions
+    slideActions.actions.values +
+        slideHoldActions.actions.values +
+        longSlideActions.actions.values +
+        longSlideHoldActions.actions.values +
+        listOfNotNull(tapActions, doubleTapActions, longPressActions)
 
 private fun SubGesture.actionList(): List<StoredAction> =
-    slideActions.actions.values.flatten() +
-        slideHoldActions.actions.values.flatten() +
-        longSlideActions.actions.values.flatten() +
-        longSlideHoldActions.actions.values.flatten()
+    slideActions.actions.values +
+        slideHoldActions.actions.values +
+        longSlideActions.actions.values +
+        longSlideHoldActions.actions.values
