@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.store.DataStoreFiles
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.runtime.floatball.FloatBallService
@@ -19,10 +20,25 @@ class BootReceiver : BroadcastReceiver() {
             context.startForegroundService(Intent(context, DaemonService::class.java))
         }
         // 悬浮球同样是 specialUse 前台服务，约束完全一致。
-        if (readFloatBallEnabled(context)) {
+        // 总闸优先：总开关关时球不该拉起 —— applyVisibility 会立刻 detach 窗口，
+        // 但前台通知「悬浮球待命」还会常驻。
+        if (readMasterSwitchEnabled(context) && readFloatBallEnabled(context)) {
             FloatBallService.start(context)
         }
     }
+
+    /**
+     * 开机时同步读应用总开关。与球的读法不同：默认值是 true
+     * （[hunoia.luno.config.defaults.InitialSettingsDefaults.GestureEnabled]），
+     * DataStore 缺文件时生效的就是这个默认值，所以读失败按「开」处理。
+     */
+    private fun readMasterSwitchEnabled(context: Context): Boolean = runCatching {
+        val file = File("${context.filesDir.absolutePath}/ds/${DataStoreFiles.INITIAL_SETTINGS}")
+        if (!file.exists()) return@runCatching true
+        val json = file.readText()
+        if (json.isBlank()) return@runCatching true
+        JsonSerializer.decodeFromString<InitialSettings>(json).gestureEnabled
+    }.getOrDefault(true)
 
     /**
      * 开机时同步读球的开关。

@@ -126,7 +126,8 @@ class FloatBallService : Service() {
     }
 
     private fun applyVisibility(config: FloatBallRuntimeConfig) {
-        val enabled = config.action.floatBall.enabled
+        // 总闸优先：应用总开关关时，球自身的开关不再生效。
+        val enabled = config.gestureEnabled && config.action.floatBall.enabled
         val shouldShow = enabled && canDrawOverlays()
         if (!shouldShow) {
             if (ballVisible) {

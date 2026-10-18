@@ -461,6 +461,15 @@ class GestureCoordinator(
                 }
         }
 
+        // 总开关（initialSettings.gestureEnabled）翻转时 gestureButtons/automationRules 都不变，
+        // 上面两个 distinctUntilChangedBy 会把这次变更过滤掉、不触发刷新；单独订阅，
+        // 保证关掉后触钮立即不可触摸、打开后立即恢复。
+        scopeJobs += host.coroutineScope.launch {
+            runtimeSettingsStore.state
+                .distinctUntilChangedBy { it.initialSettings }
+                .collect { refreshGestureButtons(delayMs = 0L) }
+        }
+
         scopeJobs += host.coroutineScope.launch(Dispatchers.IO) {
             // 用面板真正展示的那份查询（allowRepeatPackage=false，且含禁用应用），
             // 而不是 queryApps —— 后者列表不同，预热出来的索引对不上。
