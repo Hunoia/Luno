@@ -18,7 +18,7 @@ import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.actionPanelId
 import hunoia.luno.action.model.volumeScrubConfigOrDefault
 import hunoia.luno.core.Events
-import hunoia.luno.core.BallPanelRevealEvent
+import hunoia.luno.core.BallTapActionEvent
 import hunoia.luno.config.model.VolumeScrubConfig
 import hunoia.luno.config.model.ActionPanel
 import hunoia.luno.config.model.ActionPanelStyle
@@ -76,37 +76,10 @@ fun SideGestureContainer(
     val sideGestureState = rememberGestureState(buttons, advancedSettings, gestureSettings)
     val actionPanelState = rememberActionPanelState()
 
+
     // 面板展开后主手势会话会被 reset() 清空 button，选中时必须用捕获值，
     // 否则按触钮 id 限定的 gesturePerformed 自动化规则永远不中、面板内 hideGestureButton 空跑。
     var actionPanelSourceButton by remember { mutableStateOf<GestureButton?>(null) }
-
-    // 悬浮球点按的动作面板走事件总线进来（见 BallPanelRevealEvent）。
-    // 打开序列与 runGestureActions 的面板分支一致：
-    // 先把主 overlay 撑回全屏再 visible=true，否则面板头几帧按收起尺寸定位。
-    DisposableEffect(Unit) {
-        val subscriber: (BallPanelRevealEvent) -> Unit = { event ->
-            val panelId = event.action.actionPanelId()
-            val items = actionPanels
-                .firstOrNull { it.id == panelId }
-                ?.items
-                .orEmpty()
-            if (items.isNotEmpty()) {
-                val anchor = Offset(event.anchorX.toFloat(), event.anchorY.toFloat())
-                curOnPanelOverlayChanged(true)
-                curOnPanelVisibilityChanged(true)
-                actionPanelState.onDragStart(anchor)
-                actionPanelState.ready(
-                    direction = directionFromAnchor(anchor),
-                    actions = items,
-                    actionPanelStyle = actionPanelStyle,
-                    buttonColor = event.color,
-                )
-                actionPanelSourceButton = null
-            }
-        }
-        Events.subscribe(BallPanelRevealEvent::class, subscriber)
-        onDispose { Events.unsubscribe(BallPanelRevealEvent::class, subscriber) }
-    }
 
     val subGestureState = remember(subGestureSettings, coroutineScope) {
         SubGestureState(coroutineScope, subGestureSettings, curOnSubGestureModeChanged)
@@ -209,6 +182,33 @@ fun SideGestureContainer(
         onDirectComplete(enteredSubGesture)
     }
 
+    /**
+     * 悬浮球点按的动作统一走事件总线进来（见 BallTapActionEvent），全部交给
+     * runGestureActions 分类执行，与触钮完全同链路：
+     * 面板/子手势/音量刮擦/直发都不在这里特判。
+     *
+     * 必须经 rememberUpdatedState 过桥：DisposableEffect(Unit) 的订阅闭包只在
+     * 首次重组创建一次，若直接捕获当帧的局部函数，钉死的是**第一帧**的
+     * SubGestureState/面板列表，后续配置更新被无声丢弃（真机日志：
+     * 运行态 subGestures 一直在，球路径 reject 的 known=[] 恒为空，触钮路径正常）。
+     */
+    val runBallTapActions by rememberUpdatedState<(BallTapActionEvent) -> Unit>(newValue = { event ->
+        val anchor = Offset(event.anchorX.toFloat(), event.anchorY.toFloat())
+        runGestureActions(
+            resolvedAction = event.action,
+            direction = directionFromAnchor(anchor),
+            touchPosition = anchor,
+            sourceButton = null,
+            panelColor = event.color,
+            needsPanelOverlay = true,
+            onPanelStarted = { actionPanelSourceButton = null },
+        )
+    })
+    DisposableEffect(Unit) {
+        val subscriber: (BallTapActionEvent) -> Unit = { runBallTapActions(it) }
+        Events.subscribe(BallTapActionEvent::class, subscriber)
+        onDispose { Events.unsubscribe(BallTapActionEvent::class, subscriber) }
+    }
     fun handleSubGestureResolvedActions(resolvedActions: hunoia.luno.gesture.SubGestureResolvedActions) {
         val panelColor = resolvedActions.subGesture.color.takeUnless { it == android.graphics.Color.TRANSPARENT }
             ?: sideGestureState.button?.color
@@ -440,8 +440,7 @@ abstract class LongSlideState {
  * 外部锚点（悬浮球球心）展开面板的方向：
  * 取「锚点 → 屏幕中心」连线决定面板往屏幕内侧铺。
  */
-private fun directionFromAnchor(anchor: Offset): GestureDirection {
-    val widthPx = hunoia.luno.bridge.ui.DensityProvider.screenWidthPx
+private fun directionFromAnchor(anchor: Offset): GestureDirection {    val widthPx = hunoia.luno.bridge.ui.DensityProvider.screenWidthPx
     val heightPx = hunoia.luno.bridge.ui.DensityProvider.screenHeightPx
     return when {
         anchor.y < heightPx / 3f -> GestureDirection.Down

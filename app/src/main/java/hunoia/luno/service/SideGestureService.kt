@@ -55,12 +55,11 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     }
 
     /**
-     * 悬浮球点按的动作面板：锚点 = 球心。
-     * 面板走既有无障碍 ArcPanel 待选路径（见 GestureCoordinator.openActionPanelAt）。
+     * 悬浮球点按动作统一转发入口：动作分类在容器（见 GestureCoordinator.forwardBallTap）。
      */
-    fun openActionPanelAt(action: StoredAction, anchorX: Int, anchorY: Int, color: Int): Boolean {
+    fun forwardBallTap(action: StoredAction, anchorX: Int, anchorY: Int, color: Int): Boolean {
         if (!::gestureCoordinator.isInitialized) return false
-        gestureCoordinator.openActionPanelAt(action, anchorX, anchorY, color)
+        gestureCoordinator.forwardBallTap(action, anchorX, anchorY, color)
         return true
     }
 

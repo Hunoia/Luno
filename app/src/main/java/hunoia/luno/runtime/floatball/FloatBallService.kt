@@ -15,7 +15,6 @@ import android.os.PowerManager
 import android.util.Log
 import androidx.core.content.getSystemService
 import hunoia.luno.R
-import hunoia.luno.action.model.actionPanelId
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.config.ConfigProvider
@@ -45,8 +44,7 @@ import kotlinx.coroutines.launch
  * ## 动作执行
  *
  * 与 `SideGestureService` 同进程，静态弱引用直连：
- * - 普通动作 → `dispatchAction`；
- * - 动作面板 → `openActionPanelAt`（无障碍 ArcPanel 待选，下一次拖动选择、松手执行）。
+ * - 点按动作 → `forwardBallTap`（面板/子手势/刮擦/直发，容器分类，与触钮同链路）。
  *
  * ## 键盘让位
  *
@@ -73,7 +71,6 @@ class FloatBallService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        Log.i(TAG, "FloatBallService onCreate pid=${android.os.Process.myPid()}")
         ballWindow = FloatBallWindow(this).apply {
             onTap = { onBallTapped() }
             onDragFinished = { x, y -> persistPosition(x, y) }
@@ -82,18 +79,9 @@ class FloatBallService : Service() {
 
         broadcastObserver = BroadcastObserver(
             context = this,
-            onScreenOff = {
-                Log.i(TAG, "screen off -> hide ball")
-                ballWindow.setHidden(true)
-            },
-            onScreenOn = {
-                Log.i(TAG, "screen on -> locked=${isScreenLocked()}")
-                ballWindow.setHidden(isScreenLocked())
-            },
-            onUserPresent = {
-                Log.i(TAG, "user present -> locked=${isScreenLocked()}")
-                ballWindow.setHidden(isScreenLocked())
-            },
+            onScreenOff = { ballWindow.setHidden(true) },
+            onScreenOn = { ballWindow.setHidden(isScreenLocked()) },
+            onUserPresent = { ballWindow.setHidden(isScreenLocked()) },
         ).also { it.register() }
 
         observeSettings()
@@ -103,7 +91,6 @@ class FloatBallService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.i(TAG, "FloatBallService onStartCommand action=${intent?.action} startId=$startId")
         if (intent?.action == ACTION_STOP) {
             stopSelf()
             return START_NOT_STICKY
@@ -140,14 +127,7 @@ class FloatBallService : Service() {
 
     private fun applyVisibility(config: FloatBallRuntimeConfig) {
         val enabled = config.action.floatBall.enabled
-        val gestureEnabled = config.gestureEnabled
-        val overlay = canDrawOverlays()
-        val shouldShow = enabled && overlay
-        Log.i(
-            TAG,
-            "applyVisibility enabled=$enabled gestureEnabled=$gestureEnabled overlay=$overlay " +
-                "visible=$ballVisible -> show=$shouldShow",
-        )
+        val shouldShow = enabled && canDrawOverlays()
         if (!shouldShow) {
             if (ballVisible) {
                 ballVisible = false
@@ -157,7 +137,6 @@ class FloatBallService : Service() {
         }
         if (ballVisible) return
         ballVisible = ballWindow.attach()
-        Log.i(TAG, "ball attach result=$ballVisible")
         if (ballVisible) {
             ballWindow.setHidden(isScreenLocked())
         }
@@ -171,19 +150,15 @@ class FloatBallService : Service() {
             (settings.x * DensityProvider.screenWidthPx).toInt()
         val ballCenterY = DensityProvider.dp2px(settings.sizeDp) / 2 +
             (settings.y * DensityProvider.screenHeightPx).toInt()
-        if (action.actionPanelId() != null) {
-            // 动作面板：走无障碍 ArcPanel 待选（下一次拖动选择、松手执行）。
-            val ok = SideGestureService.current?.openActionPanelAt(
-                action,
-                ballCenterX,
-                ballCenterY,
-                settings.color,
-            ) == true
-            if (!ok) Log.i(TAG, "panel reveal dropped (accessibility not ready)")
-            return
-        }
-        // 同进程静态弱引用，与 DispatchService 同一路径。无障碍没开时静默丢弃。
-        SideGestureService.current?.dispatchAction(action)
+        // 所有球点按动作统一转发（面板/子手势/刮擦/直发，由容器分类，
+        // 与触钮同链路）。无障碍没开时静默丢弃。
+        val ok = SideGestureService.current?.forwardBallTap(
+            action,
+            ballCenterX,
+            ballCenterY,
+            settings.color,
+        ) == true
+        if (!ok) return
     }
 
     // ---- 键盘让位 ----
@@ -264,7 +239,6 @@ class FloatBallService : Service() {
 
         /** 设置开关变更 / 开机自启都走这里。必须是 startForegroundService。 */
         fun start(context: Context) {
-            Log.i(TAG, "FloatBallService.start called from pid=${android.os.Process.myPid()}")
             runCatching {
                 context.startForegroundService(Intent(context, FloatBallService::class.java))
             }.onFailure {
@@ -273,7 +247,6 @@ class FloatBallService : Service() {
         }
 
         fun stop(context: Context) {
-            Log.i(TAG, "FloatBallService.stop called")
             runCatching {
                 context.startService(
                     Intent(context, FloatBallService::class.java).setAction(ACTION_STOP),

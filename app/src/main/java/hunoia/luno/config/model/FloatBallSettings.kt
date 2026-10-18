@@ -54,8 +54,11 @@ object FloatBallDefaults {
     /** 静置 alpha。 */
     const val IdleDimAlpha = 0.4f
 
-    /** 静置缩放。 */
-    const val IdleShrinkScale = 0.85f
+    /**
+     * 静置出屏比例：球径的这部分移到屏幕外（一墨 `ballShrinkRatio` 同物，
+     * 它的真实语义是横向偏移而非等比缩小）。一半出屏。
+     */
+    const val IdleOutRatio = 0.5f
 
     /** 按压缩放。 */
     const val PressScale = 0.9f

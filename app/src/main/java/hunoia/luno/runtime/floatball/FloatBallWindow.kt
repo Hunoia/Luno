@@ -53,7 +53,7 @@ import kotlin.math.roundToInt
  * - 按住即拖（touchSlop 分界，无长按门槛），松手**吸附到最近的左/右边缘**，
  *   球全程完整在屏内；
  * - 按下缩小到 0.9、松手回弹；
- * - 静置超时整体变暗（alpha）并缩小（scale），任意触摸立即恢复；
+ * - 静置超时变暗（alpha 0.4）并向最近边缘**移出一半出屏**，任意触摸立即恢复；
  * - 键盘弹出时上抬让位（[updateIme]，拖动期间不抬，结算后补算）；
  * - 锁屏不可见不可点；解锁恢复。
  *
@@ -167,7 +167,6 @@ class FloatBallWindow(
         posY = settings.y * screenHeightPx
         applyWindowBounds()
         scheduleIdle()
-        Log.i(TAG, "ball addView ok size=${ballPx}px at(${(posX).roundToInt()},${(posY).roundToInt()})")
         // 实测 LP 原点（状态栏高度）：窗口摆出来才知道真实屏幕落点。
         created.post {
             val attached = view ?: return@post
@@ -178,7 +177,6 @@ class FloatBallWindow(
                 lpOriginY = measured
                 applyWindowBounds()
             }
-            Log.i(TAG, "lp origin y=$lpOriginY")
         }
         return true
     }
@@ -207,7 +205,6 @@ class FloatBallWindow(
             lp.alpha = 1f
         }
         wm.safeUpdateViewLayout(current, lp)
-        Log.i(TAG, "setHidden($hidden)")
         if (!hidden) scheduleIdle() else cancelIdle()
     }
 
@@ -221,13 +218,9 @@ class FloatBallWindow(
     fun updateIme(newImeBottomPx: Int) {
         if (newImeBottomPx == imeBottomPx) return
         this.imeBottomPx = newImeBottomPx
-        if (dragging) {
-            Log.i(TAG, "ime=$newImeBottomPx deferred (dragging)")
-            return
-        }
+        if (dragging) return
         imeLiftPx = computeImeLift(newImeBottomPx).toFloat()
         applyWindowBounds()
-        Log.i(TAG, "ime=$newImeBottomPx lift=${(imeLiftPx).roundToInt()}")
     }
 
     private fun computeImeLift(imeBottomPx: Int): Int {
@@ -264,7 +257,6 @@ class FloatBallWindow(
             val targetX = if (posX * 2f + ballPx < screenWidthPx) 0f else maxX
             settleToEdge(targetX)
             onDragFinished?.invoke(targetX / screenWidthPx, posY / screenHeightPx)
-            Log.i(TAG, "drag end at(${(posX).roundToInt()},${(posY).roundToInt()}) -> edge(${targetX.roundToInt()}) lift=${(imeLiftPx).roundToInt()}")
         }
         scheduleIdle()
     }
@@ -314,7 +306,6 @@ class FloatBallWindow(
         val runnable = Runnable {
             idled = true
             applyVisual()
-            Log.i(TAG, "idle dim on")
         }
         idleRunnable = runnable
         handler.postDelayed(runnable, delay)
@@ -341,17 +332,20 @@ class FloatBallWindow(
 
     private fun applyVisual() {
         val target = view ?: return
-        val scale = when {
-            pressed -> FloatBallDefaults.PressScale
-            idled -> FloatBallDefaults.IdleShrinkScale
-            else -> 1f
-        }
+        val scale = if (pressed) FloatBallDefaults.PressScale else 1f
         val alpha = if (idled) FloatBallDefaults.IdleDimAlpha else 1f
+        // 一墨「shrinkAnim」的真语义：静置时球横向**移出一截到屏幕外**，
+        // 方向 = 最近边缘。等比缩小不是一墨行为，已废弃。
+        val shiftPx = if (idled) {
+            val out = FloatBallDefaults.IdleOutRatio
+            if (posX * 2f + ballPx < screenWidthPx) -out else out
+        }           else 0f
         visualAnimator?.cancel()
         visualAnimator = target.animate()
             .scaleX(scale)
             .scaleY(scale)
             .alpha(alpha)
+            .translationX(shiftPx * ballPx)
             .setDuration(if (pressed) 120L else 240L)
             .setInterpolator(DecelerateInterpolator())
     }
@@ -389,7 +383,6 @@ class FloatBallWindow(
             val insets = view?.rootWindowInsets ?: return
             bottomInsetPx = insets.getInsets(WindowInsets.Type.navigationBars()).bottom
         }.onFailure { Log.w(TAG, "insets unavailable: ${it.message}") }
-        Log.i(TAG, "insets bottom=$bottomInsetPx")
     }
 
     /**

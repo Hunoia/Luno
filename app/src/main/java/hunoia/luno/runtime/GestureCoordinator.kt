@@ -57,6 +57,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
+
+/** 冷启动/悬浮窗重建期间容器的面板列表未灌满时，揭示事件的等待重试参数。 */
+private const val BALL_PANEL_REVEAL_MAX_ATTEMPTS = 40
+private val BALL_PANEL_REVEAL_RETRY_MS = 250.milliseconds
 
 class GestureCoordinator(
     private val host: GestureHost,
@@ -350,22 +355,39 @@ class GestureCoordinator(
     }
 
     /**
-     * 以外部锚点（悬浮球球心）打开动作面板待选。
-     * 实现为核心事件广播：SideGestureContainer 订阅后有与侧滑面板同路径的打开序列，
-     * 待选的选中复用 DragGestureHandler 的全局拖动流。
+     * 悬浮球点按动作统一转发：所有动作（含面板/子手势/刮擦）都广播进容器，
+     * 由容器 `runGestureActions` 分类执行（与触钮同链路，见 BallTapActionEvent）。
+     *
+     * 等待就绪的原因：容器里的 `actionPanels` 来自 ConfigProvider 流的首次汇合，
+     * a11y 进程冷启动后头几秒是空的。事件是即发即忘的，砸进去 =
+     * 「面板静默不弹」。面板动作这里等快照列表就绪再广播；
+     * 非面板动作无此依赖，立即转发。
      */
-    fun openActionPanelAt(
+    fun forwardBallTap(
         action: hunoia.luno.action.model.StoredAction,
         anchorX: Int,
         anchorY: Int,
         color: Int,
     ) {
         val panelId = action.actionPanelId()
-            ?: run { dispatchAction(action); return }
-        hunoia.luno.core.Events.post(
-            hunoia.luno.core.BallPanelRevealEvent(action, anchorX, anchorY, color),
-        )
-        Log.i("LunoLauncher", "panel reveal requested panelId=$panelId anchor=($anchorX,$anchorY)")
+        if (panelId == null) {
+            hunoia.luno.core.Events.post(
+                hunoia.luno.core.BallTapActionEvent(action, anchorX, anchorY, color),
+            )
+            return
+        }
+        host.coroutineScope.launch {
+            for (attempt in 1..BALL_PANEL_REVEAL_MAX_ATTEMPTS) {
+                val panels = runtimeSettingsStore.snapshot().actionSettings.actionPanels.panels
+                if (panels.any { it.id == panelId } || attempt == BALL_PANEL_REVEAL_MAX_ATTEMPTS) {
+                    hunoia.luno.core.Events.post(
+                        hunoia.luno.core.BallTapActionEvent(action, anchorX, anchorY, color),
+                    )
+                    return@launch
+                }
+                delay(BALL_PANEL_REVEAL_RETRY_MS)
+            }
+        }
     }
 
     /** 分发落定订阅：手势链路的分发完成后驱动 GESTURE 域评估（替代入口直调）。 */
