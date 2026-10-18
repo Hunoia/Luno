@@ -155,6 +155,7 @@ data class ExecutorContext(
     val toggleQuickAppLauncher: () -> Unit = {},
     val showQuickSearch: () -> Unit = {},
     val showVolumeScrub: (VolumeScrubConfig) -> Boolean = { false },
+    val showPointer: () -> Boolean = { false },
     val hideGestureButton: (Long) -> Unit = {},
     val showVersionTooLowToast: (Int) -> Unit = {},
     val previousApp: suspend (List<String>) -> Unit = {},

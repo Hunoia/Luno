@@ -74,6 +74,19 @@
     <string name="long_slide_hold_action">长滑停留</string>
     <string name="action_panel_style_arc">弧形</string>
     <string name="action_panel_style">动作面板样式</string>
+    <!-- 指针（internal.pointer）：设置行 + 滑杆 -->
+    <string name="pointer">指针</string>
+    <string name="pointer_hint">灵敏度 · 加速曲线 · 光标样式</string>
+    <string name="pointer_sensitivity_x_plain">X 灵敏度</string>
+    <string name="pointer_sensitivity_y_plain">Y 灵敏度</string>
+    <string name="pointer_acceleration_plain">加速曲线</string>
+    <string name="pointer_cursor_size_plain">光标大小</string>
+    <string name="pointer_cursor_alpha_plain">光标透明度</string>
+    <string name="pointer_sensitivity_x">X 灵敏度：%1$.1fx</string>
+    <string name="pointer_sensitivity_y">Y 灵敏度：%1$.1fx</string>
+    <string name="pointer_acceleration">加速曲线：%1$.1f</string>
+    <string name="pointer_cursor_size">光标大小：%1$d dp</string>
+    <string name="pointer_cursor_alpha">光标透明度：%1$d%%</string>
     <string name="action_panel_item_size">动作图标大小</string>
     <string name="action_panel_item_gap">图标间距</string>
     <string name="action_panel_spread_spacing">展开间距</string>

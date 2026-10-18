@@ -187,6 +187,7 @@ class InternalExecutors : ActionExecutor {
         "internal.none", "internal.subGesture", "internal.hideGestureButton",
         "internal.buttonsVisibility",
         "internal.quickAppLauncher", "internal.quickSearch", "internal.volumeScrub",
+        "internal.pointer",
         "internal.previousApp", "internal.runRule"
     )
 
@@ -210,6 +211,11 @@ class InternalExecutors : ActionExecutor {
             is Action.VolumeScrub -> {
                 val config = VolumeScrubConfig(action.horizontalEnabled, action.stepThresholdDp)
                 if (context.showVolumeScrub(config)) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
+            }
+            is Action.Pointer -> {
+                // 已有会话时 begin 拒绝重复开启，按幂等成功收口。
+                context.showPointer()
+                ActionResult.Success()
             }
             is Action.PreviousApp -> {
                 context.previousApp(action.excludePackageNames)

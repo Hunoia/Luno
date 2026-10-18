@@ -8,10 +8,12 @@ import androidx.savedstate.SavedStateRegistryOwner
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
 import hunoia.luno.runtime.overlay.PointPickOverlay
+import hunoia.luno.runtime.pointer.PointerOverlayHost
 import kotlinx.coroutines.CoroutineScope
 
-interface GestureHost : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
-    val context: Context
+/** 指针窗口宿主是 [GestureHost] 的子集（context + 生命周期三件套），直接继承。 */
+interface GestureHost : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner, PointerOverlayHost {
+    override val context: Context
     val accessibilityService: AccessibilityService
     val coroutineScope: CoroutineScope
     val advancedSettings: hunoia.luno.config.model.AdvancedSettings?

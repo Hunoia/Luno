@@ -19,6 +19,9 @@ object TuneConfig {
     suspend fun updateAdvanced(transform: suspend (AdvancedSettings) -> AdvancedSettings) =
         ConfigProvider.updateAdvancedSettings(transform)
 
+    suspend fun updateGesture(transform: suspend (GestureSettings) -> GestureSettings) =
+        ConfigProvider.updateGestureSettings(transform)
+
     suspend fun updateAction(transform: suspend (ActionSettings) -> ActionSettings) =
         ConfigProvider.updateActionSettings(transform)
 }

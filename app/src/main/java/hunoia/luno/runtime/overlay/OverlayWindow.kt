@@ -30,6 +30,15 @@ interface GestureOverlayCallbacks {
     fun onVolumeScrubOverlayRequested(config: hunoia.luno.config.model.VolumeScrubConfig)
 
     /**
+     * 指针桥：按住类触发的面板内光标走 start→end/actionAtPosition（会话登记与落点点击），
+     * 其余入口（滑动/面板点选/悬浮球/动作分发）走 show 挂全屏指针窗口。
+     */
+    fun onPointerStart(settings: hunoia.luno.config.model.GestureSettings.Pointer): Boolean
+    fun onPointerShow(settings: hunoia.luno.config.model.GestureSettings.Pointer): Boolean
+    fun onPointerEnd()
+    fun onPointerActionAtPosition(x: Int, y: Int)
+
+    /**
      * ActionPanel 是否正在显示。用于把主 overlay 在隐藏时收成 1x1,
      * 避免常驻一块什么都不画的全屏 RGBA_8888 buffer。与 [onActionPanelOverlayChanged] 是两件事:
      * 后者管的是面板需要交互时那个临时的可触摸空窗口。

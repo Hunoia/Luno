@@ -2,6 +2,7 @@ package hunoia.luno.config.model
 
 import androidx.annotation.Keep
 import hunoia.luno.action.model.StoredAction
+import hunoia.luno.config.defaults.GestureSettingsDefaults
 import hunoia.luno.config.defaults.InitialSettingsDefaults.GestureEnabled
 import kotlinx.serialization.Serializable
 
@@ -34,4 +35,20 @@ data class InitialSettings(
 @Keep
 data class GestureSettings(
     val actionPanelVibrate: Boolean = true,
-)
+    val pointer: Pointer = Pointer(),
+) {
+    /**
+     * 指针（光标）手感与外观。连续模式已删，只剩这两类：
+     * 移动映射（灵敏度/加速）与绘制（大小/透明度），[initialYRatio] 是初始高度比例。
+     */
+    @Serializable
+    @Keep
+    data class Pointer(
+        val sensitivityX: Float = GestureSettingsDefaults.PointerSensitivityX,
+        val sensitivityY: Float = GestureSettingsDefaults.PointerSensitivityY,
+        val acceleration: Float = GestureSettingsDefaults.PointerAcceleration,
+        val initialYRatio: Float = GestureSettingsDefaults.PointerInitialYRatio,
+        val cursorSizeDp: Int = GestureSettingsDefaults.PointerCursorSizeDp,
+        val cursorAlpha: Float = GestureSettingsDefaults.PointerCursorAlpha,
+    )
+}

@@ -128,6 +128,7 @@ object ActionMapper {
                     VolumeScrubStepThresholdDp,
                 ),
             )
+            "internal.pointer" -> Action.Pointer
             "internal.previousApp" -> Action.PreviousApp(p.arrayOfStr("excludePackageNames"))
             "internal.runRule" -> Action.RunRule(p.str("ruleId"))
             // 动作面板由 SideGestureContainer.runGestureActions 就地展开成面板项，正常路径

@@ -37,6 +37,7 @@ import hunoia.luno.runtime.gesturepanel.rememberActionPanelState
 import hunoia.luno.gesture.GestureState
 import hunoia.luno.gesture.SubGestureState
 import hunoia.luno.gesture.VolumeScrubState
+import hunoia.luno.runtime.pointer.rememberPointerHandle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -65,6 +66,10 @@ fun SideGestureContainer(
     onActionPanelOverlayChanged: (Boolean) -> Unit = {},
     onActionPanelVisibilityChanged: (Boolean) -> Unit = {},
     onVolumeScrubOverlayRequested: (VolumeScrubConfig) -> Unit = {},
+    onPointerStart: (GestureSettings.Pointer) -> Boolean = { false },
+    onPointerShow: (GestureSettings.Pointer) -> Boolean = { false },
+    onPointerEnd: () -> Unit = {},
+    onPointerActionAtPosition: (Int, Int) -> Unit = { _, _ -> },
 ) {
     val context = LocalContext.current
     val curOnAction by rememberUpdatedState(newValue = onAction)
@@ -72,6 +77,10 @@ fun SideGestureContainer(
     val curOnPanelVisibilityChanged by rememberUpdatedState(newValue = onActionPanelVisibilityChanged)
     val curOnPanelOverlayChanged by rememberUpdatedState(newValue = onActionPanelOverlayChanged)
     val curOnVolumeScrubOverlayRequested by rememberUpdatedState(newValue = onVolumeScrubOverlayRequested)
+    val curOnPointerStart by rememberUpdatedState(newValue = onPointerStart)
+    val curOnPointerShow by rememberUpdatedState(newValue = onPointerShow)
+    val curOnPointerEnd by rememberUpdatedState(newValue = onPointerEnd)
+    val curOnPointerActionAtPosition by rememberUpdatedState(newValue = onPointerActionAtPosition)
     val coroutineScope = rememberCoroutineScope()
     val sideGestureState = rememberGestureState(buttons, advancedSettings, gestureSettings)
     val actionPanelState = rememberActionPanelState()
@@ -85,6 +94,20 @@ fun SideGestureContainer(
         SubGestureState(coroutineScope, subGestureSettings, curOnSubGestureModeChanged)
     }
     val volumeScrubState = remember(context) { VolumeScrubState(context) }
+
+    /**
+     * 指针从按住类触发启动时为 true：此时手势会话（可能叠加在子手势上）的收尾
+     * 要等指针松手/取消，见 onDragEnd/onDragCancel 的 pointer 分支。
+     */
+    var pointerStartedFromSubGesture by remember { mutableStateOf(false) }
+    val pointerHandle = rememberPointerHandle(
+        gestureSettings = gestureSettings,
+        // 句柄内部 remember 一次，闭包必须经 cur* 过桥取最新回调（见 runBallTapActions 的说明）。
+        onPointerStart = { settings -> curOnPointerStart(settings) },
+        shouldPreservePointerCancel = { pointerStartedFromSubGesture },
+        onPointerActionAtPosition = { x, y -> curOnPointerActionAtPosition(x, y) },
+        onPointerEnd = { curOnPointerEnd() },
+    )
 
     /**
      * 当前是否处在一次拖动过程里（DOWN 已来、UP 还没来）。
@@ -151,6 +174,7 @@ fun SideGestureContainer(
         val shouldDelayDirectSubGestureAction = fromSubGesture &&
             action.typeId != "internal.subGesture" &&
             action.typeId != "internal.volumeScrub" &&
+            action.typeId != "internal.pointer" &&
             action.typeId != "internal.none"
         if (shouldDelayDirectSubGestureAction) {
             subGestureState.clear(notifyService = true)
@@ -174,6 +198,20 @@ fun SideGestureContainer(
                     // 交给全屏音量窗接管整段刮擦。
                     curOnVolumeScrubOverlayRequested(config)
                 }
+                false
+            }
+            "internal.pointer" -> {
+                // 与 volumeScrub 同构：按住类触发的拖动途中（decision 非空且 dragInFlight）
+                // → 面板内光标接管剩余拖动，松手在光标落点点击；
+                // 其余入口（滑动/面板点选/悬浮球/动作分发）→ 全屏指针窗口。
+                // decision 判空排除悬浮球点按与手势拖动并发的竞态（第二指点球时 dragInFlight 可能为 true）。
+                val holdInFlight = dragInFlight && decision != null
+                val started = if (holdInFlight) {
+                    pointerHandle.start(gestureSettings.pointer, touchPosition)
+                } else {
+                    curOnPointerShow(gestureSettings.pointer)
+                }
+                pointerStartedFromSubGesture = started && holdInFlight
                 false
             }
             "internal.none" -> false
@@ -232,7 +270,9 @@ fun SideGestureContainer(
         ) { enteredSubGesture ->
             sideGestureState.cancel()
             if (!enteredSubGesture && subGestureState.subGestureDepth > 0) {
-                subGestureState.clear(notifyService = true)
+                // 指针从子手势会话里启动时，服务侧的子手势模式要等指针收尾再退
+                //（见 onDragEnd 的 pointer 分支），这里只清本地状态。
+                subGestureState.clear(notifyService = !pointerStartedFromSubGesture)
             }
         }
     }
@@ -294,6 +334,11 @@ fun SideGestureContainer(
                 }
                 return@onDrag
             }
+            if (pointerHandle.isActive) {
+                // 指针会话吞掉整段拖动：光标映射，不参与手势识别。
+                pointerHandle.onDrag(dragAmount)
+                return@onDrag
+            }
             if (volumeScrubState.isActive) {
                 volumeScrubState.onDrag(dragAmount)
                 return@onDrag
@@ -324,6 +369,14 @@ fun SideGestureContainer(
                 }
                 return@onDragEnd
             }
+            if (pointerHandle.isActive) {
+                val fromSubGesture = pointerStartedFromSubGesture
+                pointerStartedFromSubGesture = false
+                // 松手即点击：光标落点经桥回调，runtime 延迟 80ms 派发无障碍点击。
+                pointerHandle.onDragEnd()
+                if (fromSubGesture) subGestureState.clear(notifyService = true)
+                return@onDragEnd
+            }
             if (volumeScrubState.isActive) {
                 volumeScrubState.onDragEnd()
                 return@onDragEnd
@@ -345,6 +398,9 @@ fun SideGestureContainer(
                             // 一律交给全屏音量窗（它自己拖一次就关）。
                             "internal.volumeScrub" ->
                                 curOnVolumeScrubOverlayRequested(hitAction.volumeScrubConfigOrDefault())
+                            // 面板点选指针同理：全屏指针窗接管（拖一次、松手点击、自动关）。
+                            "internal.pointer" ->
+                                curOnPointerShow(gestureSettings.pointer)
                             else -> handleResolvedAction(hitAction, panelSourceButton, touchPosition)
                         }
                     }
@@ -369,6 +425,14 @@ fun SideGestureContainer(
             dragInFlight = false
             if (subGestureState.isActive) {
                 subGestureState.onDragCancel()
+                return@onDragCancel
+            }
+            if (pointerHandle.isActive) {
+                // 从子手势会话里启动的指针：系统级取消（如来电弹窗）时保持会话，
+                // 等指针真正的收尾；普通路径就地取消并退出子手势模式。
+                if (pointerStartedFromSubGesture) return@onDragCancel
+                pointerStartedFromSubGesture = false
+                pointerHandle.onDragCancel()
                 return@onDragCancel
             }
             if (volumeScrubState.isActive) {

@@ -57,6 +57,9 @@ object ConfigProvider {
     suspend fun updateActionSettings(transform: suspend (ActionSettings) -> ActionSettings) {
         stores._actionSettings.updateData(transform)
     }
+    suspend fun updateGestureSettings(transform: suspend (GestureSettings) -> GestureSettings) {
+        stores._gestureSettings.updateData(transform)
+    }
     suspend fun updateGestureButtons(transform: suspend (List<GestureButton>) -> List<GestureButton>) {
         stores._gestureButtons.updateData(transform)
     }

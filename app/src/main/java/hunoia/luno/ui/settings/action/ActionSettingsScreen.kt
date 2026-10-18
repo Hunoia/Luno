@@ -21,9 +21,12 @@ import hunoia.luno.config.model.defaultEngine
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.RadioButtonChecked
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.ui.platform.LocalDensity
 import hunoia.luno.config.model.ArcStyle
+import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.ui.component.sheet.LunoSheet
+import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleConfigContent
 import kotlin.math.roundToInt
 import hunoia.luno.ui.component.row.LunoGroup
@@ -40,7 +43,9 @@ fun ActionSettingsScreen(
 ) {
     val scope = rememberCoroutineScope()
     var showActionPanelStyle by remember { mutableStateOf(false) }
+    var showPointer by remember { mutableStateOf(false) }
     val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = ActionSettings())
+    val gestureSettings by TuneConfig.gesture.collectAsStateWithLifecycle(initialValue = GestureSettings())
     val quickSearchSettings by SearchCenter.search.collectAsStateWithLifecycle(initialValue = QuickSearchSettings())
     LunoScreen(
         title = stringResource(R.string.action_settings),
@@ -56,7 +61,17 @@ fun ActionSettingsScreen(
                         )
                     }
                 }
-                
+        if (showPointer) {
+                    LunoSheet(onDismissRequest = { showPointer = false }, showDragHandle = true) {
+                        PointerControls(
+                            pointer = gestureSettings.pointer,
+                            onCommit = { next ->
+                                scope.launch { TuneConfig.updateGesture { it.copy(pointer = next) } }
+                            },
+                        )
+                    }
+                }
+
 
         },
     ) {
@@ -99,7 +114,69 @@ fun ActionSettingsScreen(
                     onClick = { onNavToMiniWindowAdjust() },
                 )
             }
+            LunoGroup {
+                LunoSettingsRow(
+                    icon = Icons.Default.TouchApp,
+                    title = stringResource(R.string.pointer),
+                    subtitle = stringResource(R.string.pointer_hint),
+                    onClick = { showPointer = true },
+                )
+            }
     }
+}
+
+/** 指针手感/外观滑杆组：拖动改草稿，松手统一落盘。 */
+@Composable
+private fun PointerControls(
+    pointer: GestureSettings.Pointer,
+    onCommit: (GestureSettings.Pointer) -> Unit,
+) {
+    var draft by remember(pointer) { mutableStateOf(pointer) }
+    LunoTextSlider(
+        value = draft.sensitivityX,
+        onValueChange = { draft = draft.copy(sensitivityX = it) },
+        onValueChangeFinished = { onCommit(draft) },
+        text = stringResource(id = R.string.pointer_sensitivity_x_plain),
+        valueDisplay = { stringResource(id = R.string.pointer_sensitivity_x, it) },
+        valueRange = 0.5f..4f,
+    )
+    LunoTextSlider(
+        value = draft.sensitivityY,
+        onValueChange = { draft = draft.copy(sensitivityY = it) },
+        onValueChangeFinished = { onCommit(draft) },
+        text = stringResource(id = R.string.pointer_sensitivity_y_plain),
+        valueDisplay = { stringResource(id = R.string.pointer_sensitivity_y, it) },
+        valueRange = 0.5f..4f,
+    )
+    LunoTextSlider(
+        value = draft.acceleration,
+        onValueChange = { draft = draft.copy(acceleration = it) },
+        onValueChangeFinished = { onCommit(draft) },
+        text = stringResource(id = R.string.pointer_acceleration_plain),
+        valueDisplay = { stringResource(id = R.string.pointer_acceleration, it) },
+        valueRange = 0f..2f,
+    )
+    // 光标大小是 Int：本地浮点过渡，松手取整提交。
+    var localCursorSize by remember(pointer.cursorSizeDp) { mutableStateOf(pointer.cursorSizeDp.toFloat()) }
+    LunoTextSlider(
+        value = localCursorSize,
+        onValueChange = { localCursorSize = it },
+        onValueChangeFinished = {
+            draft = draft.copy(cursorSizeDp = localCursorSize.roundToInt())
+            onCommit(draft)
+        },
+        text = stringResource(id = R.string.pointer_cursor_size_plain),
+        valueDisplay = { stringResource(id = R.string.pointer_cursor_size, it.roundToInt()) },
+        valueRange = 12f..64f,
+    )
+    LunoTextSlider(
+        value = draft.cursorAlpha,
+        onValueChange = { draft = draft.copy(cursorAlpha = it) },
+        onValueChangeFinished = { onCommit(draft) },
+        text = stringResource(id = R.string.pointer_cursor_alpha_plain),
+        valueDisplay = { stringResource(id = R.string.pointer_cursor_alpha, (it * 100).roundToInt()) },
+        valueRange = 0.2f..1f,
+    )
 }
 /** 副标题摘要：图标大小 · 图标间距 · 弧线铺开。 */
 @Composable

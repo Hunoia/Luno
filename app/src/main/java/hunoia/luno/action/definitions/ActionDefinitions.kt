@@ -404,6 +404,8 @@ object ActionDefinitions {
                 ),
             ),
             icon = Icons.Default.Widgets))
+        add(ActionDefinition("internal.pointer", "指针", ActionCategory.INTERNAL, Capability.None,
+            icon = Icons.Default.TouchApp))
         add(ActionDefinition("internal.previousApp", "上一个应用", ActionCategory.INTERNAL, Capability.None,
             parameters = listOf(ParameterDefinition.AppSelectorMulti(
                 key = "excludePackageNames",

@@ -51,6 +51,7 @@ import hunoia.luno.runtime.overlay.MainOverlayController
 import hunoia.luno.runtime.overlay.TransientOverlayController
 import hunoia.luno.runtime.settings.SettingsStore
 import hunoia.luno.runtime.volume.VolumeScrubRuntime
+import hunoia.luno.runtime.pointer.PointerRuntime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -205,6 +206,7 @@ class GestureCoordinator(
         onToggleQuickAppLauncher = { hunoia.luno.quicklaunch.QuickAppLauncherActivity.start(host.context) },
         onShowQuickSearch = { hunoia.luno.quicklaunch.QuickSearchActivity.start(host.context) },
         onShowVolumeScrub = { config -> volumeScrubRuntime.show(config) },
+        onShowPointer = { pointerRuntime.show() },
         onHideGestureButton = { button, delayMs ->
             if (button != null) buttonHideRuntime.hideTemporarily(button, delayMs)
         },
@@ -281,6 +283,13 @@ class GestureCoordinator(
         onStateChanged = { refreshGestureButtons() },
     )
 
+    private val pointerRuntime = PointerRuntime(
+        host = host,
+        scope = host.coroutineScope,
+        gestureSettingsProvider = { runtimeSettingsStore.snapshot().gestureSettings },
+        onStateChanged = { refreshGestureButtons() },
+    )
+
     private var started = false
     private var wallpaperColorsListener: WallpaperManager.OnColorsChangedListener? = null
 
@@ -293,6 +302,22 @@ class GestureCoordinator(
         override fun onVolumeScrubOverlayRequested(config: hunoia.luno.config.model.VolumeScrubConfig) {
             if (BuildConfig.DEBUG) Log.i("LunoLauncher", "volume scrub overlay requested")
             volumeScrubRuntime.show(config)
+        }
+
+        override fun onPointerStart(settings: hunoia.luno.config.model.GestureSettings.Pointer): Boolean {
+            return pointerRuntime.beginBridge(settings)
+        }
+
+        override fun onPointerShow(settings: hunoia.luno.config.model.GestureSettings.Pointer): Boolean {
+            return pointerRuntime.showBridge(settings)
+        }
+
+        override fun onPointerEnd() {
+            pointerRuntime.end()
+        }
+
+        override fun onPointerActionAtPosition(x: Int, y: Int) {
+            pointerRuntime.performBridgeActionAt(x, y)
         }
 
         override fun onActionPanelOverlayChanged(show: Boolean) {
@@ -513,6 +538,7 @@ class GestureCoordinator(
         transientOverlayController.detachAll()
         broadcastObserver.unregister()
         volumeScrubRuntime.onDestroy()
+        pointerRuntime.onDestroy()
         previousAppTracker.onRelease()
         wallpaperColorsListener?.let { listener ->
             WallpaperManager.getInstance(host.context).removeOnColorsChangedListener(listener)

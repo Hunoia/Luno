@@ -237,6 +237,10 @@ sealed interface Action {
     ) : Action {
         override val typeId: String = "internal.volumeScrub"
     }
+    /** 指针：开启光标模式，拖动定位、松手在光标处点击。无参数，设置在 GestureSettings.Pointer。 */
+    data object Pointer : Action {
+        override val typeId: String = "internal.pointer"
+    }
     data class PreviousApp(
         val excludePackageNames: List<String> = emptyList(),
     ) : Action {

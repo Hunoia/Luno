@@ -53,6 +53,7 @@ class NewActionDispatcher(
     private val onToggleQuickAppLauncher: () -> Unit,
     private val onShowQuickSearch: () -> Unit,
     private val onShowVolumeScrub: (VolumeScrubConfig) -> Boolean,
+    private val onShowPointer: () -> Boolean,
     private val onHideGestureButton: (GestureButton?, Long) -> Unit,
 ) {
     private val capabilityGate = CapabilityGate(host.context.applicationContext)
@@ -220,6 +221,7 @@ class NewActionDispatcher(
             toggleQuickAppLauncher = onToggleQuickAppLauncher,
             showQuickSearch = onShowQuickSearch,
             showVolumeScrub = onShowVolumeScrub,
+            showPointer = onShowPointer,
             hideGestureButton = { delayMs ->
                 if (sourceButton != null) onHideGestureButton(sourceButton, delayMs)
             },
