@@ -88,6 +88,22 @@
     <string name="action_panel_delete_title">删除面板</string>
     <string name="action_panel_delete_desc">删除面板「%1$s」？引用它的触钮动作将变为「无动作」。</string>
     <string name="action_panel_unnamed">未命名面板</string>
+
+    <!-- 悬浮球（2038 悬浮球触发方式） -->
+    <string name="float_ball">悬浮球</string>
+    <string name="float_ball_entry_hint">显示与点按/拖动配置</string>
+    <string name="float_ball_enabled">显示悬浮球</string>
+    <string name="float_ball_tap_action">悬浮球单击动作</string>
+    <string name="float_ball_size">球大小</string>
+    <string name="float_ball_color">球颜色</string>
+    <string name="float_ball_idle_dim_delay">静置变暗缩小</string>
+    <string name="float_ball_off">关闭</string>
+    <string name="float_ball_trigger_actions">触发动作</string>
+    <string name="float_ball_appearance">外观</string>
+    <string name="float_ball_permission_required">需要「显示在其他应用上层」权限</string>
+    <string name="float_ball_permission_hint">悬浮球需要该权限才能显示。未授权时球不会出现。</string>
+    <string name="float_ball_grant_permission">去授权</string>
+    <string name="float_ball_tap_unset">未设置</string>
     <string name="action_panel_missing">面板已不存在，请返回重新添加</string>
     <string name="action_panel_item_move_up">上移</string>
     <string name="action_panel_item_move_down">下移</string>

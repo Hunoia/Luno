@@ -2,6 +2,7 @@ package hunoia.luno.runtime.gesturepanel
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -16,6 +17,8 @@ import androidx.compose.ui.platform.LocalContext
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.actionPanelId
 import hunoia.luno.action.model.volumeScrubConfigOrDefault
+import hunoia.luno.core.Events
+import hunoia.luno.core.BallPanelRevealEvent
 import hunoia.luno.config.model.VolumeScrubConfig
 import hunoia.luno.config.model.ActionPanel
 import hunoia.luno.config.model.ActionPanelStyle
@@ -67,6 +70,7 @@ fun SideGestureContainer(
     val curOnAction by rememberUpdatedState(newValue = onAction)
     val curOnSubGestureModeChanged by rememberUpdatedState(newValue = onSubGestureModeChanged)
     val curOnPanelVisibilityChanged by rememberUpdatedState(newValue = onActionPanelVisibilityChanged)
+    val curOnPanelOverlayChanged by rememberUpdatedState(newValue = onActionPanelOverlayChanged)
     val curOnVolumeScrubOverlayRequested by rememberUpdatedState(newValue = onVolumeScrubOverlayRequested)
     val coroutineScope = rememberCoroutineScope()
     val sideGestureState = rememberGestureState(buttons, advancedSettings, gestureSettings)
@@ -75,6 +79,35 @@ fun SideGestureContainer(
     // 面板展开后主手势会话会被 reset() 清空 button，选中时必须用捕获值，
     // 否则按触钮 id 限定的 gesturePerformed 自动化规则永远不中、面板内 hideGestureButton 空跑。
     var actionPanelSourceButton by remember { mutableStateOf<GestureButton?>(null) }
+
+    // 悬浮球点按的动作面板走事件总线进来（见 BallPanelRevealEvent）。
+    // 打开序列与 runGestureActions 的面板分支一致：
+    // 先把主 overlay 撑回全屏再 visible=true，否则面板头几帧按收起尺寸定位。
+    DisposableEffect(Unit) {
+        val subscriber: (BallPanelRevealEvent) -> Unit = { event ->
+            val panelId = event.action.actionPanelId()
+            val items = actionPanels
+                .firstOrNull { it.id == panelId }
+                ?.items
+                .orEmpty()
+            if (items.isNotEmpty()) {
+                val anchor = Offset(event.anchorX.toFloat(), event.anchorY.toFloat())
+                curOnPanelOverlayChanged(true)
+                curOnPanelVisibilityChanged(true)
+                actionPanelState.onDragStart(anchor)
+                actionPanelState.ready(
+                    direction = directionFromAnchor(anchor),
+                    actions = items,
+                    actionPanelStyle = actionPanelStyle,
+                    buttonColor = event.color,
+                )
+                actionPanelSourceButton = null
+            }
+        }
+        Events.subscribe(BallPanelRevealEvent::class, subscriber)
+        onDispose { Events.unsubscribe(BallPanelRevealEvent::class, subscriber) }
+    }
+
     val subGestureState = remember(subGestureSettings, coroutineScope) {
         SubGestureState(coroutineScope, subGestureSettings, curOnSubGestureModeChanged)
     }
@@ -400,5 +433,20 @@ abstract class LongSlideState {
     protected open fun reset() {
         origin = Offset.Unspecified
         finger = Offset.Unspecified
+    }
+}
+
+/**
+ * 外部锚点（悬浮球球心）展开面板的方向：
+ * 取「锚点 → 屏幕中心」连线决定面板往屏幕内侧铺。
+ */
+private fun directionFromAnchor(anchor: Offset): GestureDirection {
+    val widthPx = hunoia.luno.bridge.ui.DensityProvider.screenWidthPx
+    val heightPx = hunoia.luno.bridge.ui.DensityProvider.screenHeightPx
+    return when {
+        anchor.y < heightPx / 3f -> GestureDirection.Down
+        anchor.y > heightPx * 2f / 3f -> GestureDirection.Up
+        anchor.x < widthPx / 2f -> GestureDirection.Right
+        else -> GestureDirection.Left
     }
 }

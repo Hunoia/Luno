@@ -21,6 +21,8 @@ data class ActionSettings(
      * 见 [ActionPanel] 的类注释 —— 挪走会让面板静默失效。
      */
     val actionPanels: ActionPanelSettings = ActionPanelSettings(),
+    /** 悬浮球。同 [ActionPanel]：必须留在本域内，否则运行时读不到。 */
+    val floatBall: FloatBallSettings = FloatBallSettings(),
 ) {
     @Serializable
     @Keep

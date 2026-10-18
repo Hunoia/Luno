@@ -24,7 +24,19 @@ data class ActionSelect(
      * 长按变体本来就是面板专属机制（面板自带 500ms 长按判定），见 ActionPanelState。
      */
     val actionPanelItemIndex: Int = -1,
+    /**
+     * 非空 = 本次在配悬浮球，且改的是这个槽（见 [FloatBallSlot]）。
+     * 与上面那些 id 字段互斥：走它就不会落进触钮/子手势/面板/自动化任何一条分支。
+     */
+    val floatBallSlot: String = "",
 )
+
+/** 悬浮球的动作槽。目前只有「单击」一个（滑动固定读面板引用，长按固定是拖球）。 */
+object FloatBallSlot {
+    const val TAP = "tap"
+
+    fun isValid(slot: String): Boolean = slot == TAP
+}
 
 @Serializable
 @Keep
@@ -61,6 +73,11 @@ data object SearchEngineSettings
 @Keep
 @Serializable
 data object MiniWindowAdjust
+
+/** 悬浮球设置页。 */
+@Keep
+@Serializable
+data object FloatBallEdit
 
 @Keep
 @Serializable

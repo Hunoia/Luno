@@ -1,4 +1,5 @@
 package hunoia.luno.ui.home
+
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.twotone.RestartAlt
 import androidx.compose.material.icons.twotone.Restore
@@ -11,6 +12,7 @@ import hunoia.luno.R
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
+
 @Composable
 fun HomeSettingsGroup(
     onActionSettingsClick: () -> Unit,
@@ -28,6 +30,7 @@ fun HomeSettingsGroup(
         )
     }
 }
+
 @Composable
 fun DataTransferGroup(
     onBackupClick: () -> Unit,

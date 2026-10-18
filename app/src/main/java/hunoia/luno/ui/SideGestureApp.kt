@@ -39,6 +39,8 @@ import hunoia.luno.ui.navigation.ActionPanelList
 import hunoia.luno.ui.navigation.ActionPanelEdit
 import hunoia.luno.ui.navigation.SearchEngineSettings
 import hunoia.luno.ui.navigation.MiniWindowAdjust
+import hunoia.luno.ui.navigation.FloatBallEdit
+import hunoia.luno.ui.settings.floatball.FloatBallEditScreen
 import hunoia.luno.ui.navigation.SubGestureEditor
 import hunoia.luno.ui.navigation.AutomationEdit
 import hunoia.luno.ui.navigation.AutomationHistory
@@ -51,6 +53,7 @@ import hunoia.luno.ui.automation.AutomationEditScreen
 import hunoia.luno.ui.automation.AutomationHistoryScreen
 import hunoia.luno.ui.settings.action.ActionSettingsScreen
 import hunoia.luno.ui.settings.action.MiniWindowAdjustScreen
+import hunoia.luno.ui.settings.floatball.FloatBallEditScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelEditScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelListScreen
 import hunoia.luno.ui.settings.search.SearchEngineSettingsScreen
@@ -122,7 +125,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         },
                         onNavToActionLibraryEdit = { entryId, typeId ->
                             navController.navigate(NewActionLibraryEdit(entryId, typeId))
-                        }
+                        },
                     )
                 }
                 myComposable<GestureButtonSettings> {
@@ -143,10 +146,17 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToSearchEngines = { navController.navigate(SearchEngineSettings) },
                         onNavToActionPanels = { navController.navigate(ActionPanelList) },
                         onNavToMiniWindowAdjust = { navController.navigate(MiniWindowAdjust) },
+                        onNavToFloatBallSettings = { navController.navigate(FloatBallEdit) },
                     )
                 }
                 myComposable<MiniWindowAdjust> {
                     MiniWindowAdjustScreen(onBack = { navController.popBackStack() })
+                }
+                myComposable<FloatBallEdit> {
+                    FloatBallEditScreen(
+                        onBack = { navController.popBackStack() },
+                        onNavToActionSelect = { navController.navigate(it) },
+                    )
                 }
                 myComposable<ActionPanelList> {
                     ActionPanelListScreen(

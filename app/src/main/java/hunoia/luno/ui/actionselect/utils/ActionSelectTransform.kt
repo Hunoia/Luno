@@ -22,6 +22,7 @@ import hunoia.luno.core.JsonSerializer
 import hunoia.luno.ui.actionselect.UiState
 import hunoia.luno.ui.component.actionText
 import hunoia.luno.ui.navigation.ActionSelect
+import hunoia.luno.ui.navigation.FloatBallSlot
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.quicklaunch.model.qualifiedName
@@ -91,6 +92,9 @@ internal fun actionCategory(action: StoredAction): ActionCategory {
 
 internal fun createTitle(actionSelect: ActionSelect): String {
     val context = AppContext.get()
+    if (actionSelect.floatBallSlot == FloatBallSlot.TAP) {
+        return context.getString(R.string.float_ball_tap_action)
+    }
     if (actionSelect.actionPanelId.isNotBlank()) {
         return if (actionSelect.actionPanelItemIndex >= 0) {
             context.getString(R.string.action_panel_item_long_press)

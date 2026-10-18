@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
 import hunoia.luno.BuildConfig
 import hunoia.luno.action.model.StoredAction
+import hunoia.luno.action.model.actionPanelId
 import hunoia.luno.action.model.withoutVariantKey
 import hunoia.luno.runtime.condition.toConditionContext
 import kotlin.math.roundToInt
@@ -346,6 +347,25 @@ class GestureCoordinator(
     /** 供 overlay 等场景直接执行一个已构造好的动作。 */
     fun dispatchAction(action: hunoia.luno.action.model.StoredAction) {
         actionDispatcher.dispatch(action.withoutVariantKey(), null)
+    }
+
+    /**
+     * 以外部锚点（悬浮球球心）打开动作面板待选。
+     * 实现为核心事件广播：SideGestureContainer 订阅后有与侧滑面板同路径的打开序列，
+     * 待选的选中复用 DragGestureHandler 的全局拖动流。
+     */
+    fun openActionPanelAt(
+        action: hunoia.luno.action.model.StoredAction,
+        anchorX: Int,
+        anchorY: Int,
+        color: Int,
+    ) {
+        val panelId = action.actionPanelId()
+            ?: run { dispatchAction(action); return }
+        hunoia.luno.core.Events.post(
+            hunoia.luno.core.BallPanelRevealEvent(action, anchorX, anchorY, color),
+        )
+        Log.i("LunoLauncher", "panel reveal requested panelId=$panelId anchor=($anchorX,$anchorY)")
     }
 
     /** 分发落定订阅：手势链路的分发完成后驱动 GESTURE 域评估（替代入口直调）。 */

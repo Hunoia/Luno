@@ -1,5 +1,6 @@
 package hunoia.luno.ui.settings.action
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Brightness1
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,6 +36,7 @@ fun ActionSettingsScreen(
     onNavToSearchEngines: () -> Unit = {},
     onNavToActionPanels: () -> Unit = {},
     onNavToMiniWindowAdjust: () -> Unit = {},
+    onNavToFloatBallSettings: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var showActionPanelStyle by remember { mutableStateOf(false) }
@@ -73,6 +75,12 @@ fun ActionSettingsScreen(
                     title = stringResource(R.string.action_panels),
                     subtitle = stringResource(R.string.action_panel_items_count, actionSettings.actionPanels.panels.sumOf { it.items.size }),
                     onClick = onNavToActionPanels,
+                )
+                LunoSettingsRow(
+                    icon = Icons.Filled.Brightness1,
+                    title = stringResource(R.string.float_ball),
+                    subtitle = stringResource(R.string.float_ball_entry_hint),
+                    onClick = onNavToFloatBallSettings,
                 )
             }
             LunoGroup {

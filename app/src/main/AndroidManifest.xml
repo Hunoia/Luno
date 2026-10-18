@@ -20,6 +20,10 @@
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!-- 悬浮球窗口（TYPE_APPLICATION_OVERLAY）。按 UID 校验，故无障碍服务自己也能用；
+         但球刻意住在独立的 :service 前台服务里，以便无障碍关闭时仍能显示。
+         需用户在「显示在其他应用上层」手动授权，拒绝则球不显示。 -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" tools:ignore="ProtectedPermissions" />
     <!-- P2 快速搜索联系人：运行时申请，拒绝则该来源无行 -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
@@ -116,6 +120,19 @@
             android:name=".service.DispatchService"
             android:exported="false"
             android:process=":service" />
+
+        <!-- 悬浮球宿主。必须 startForegroundService 拉起（Android 12+ 用 startService
+             拉 FGS 会抛 ForegroundServiceStartNotAllowedException），且要在 5s 内
+             startForeground。与 DaemonService 各自独立通知。 -->
+        <service
+            android:name=".runtime.floatball.FloatBallService"
+            android:exported="false"
+            android:process=":service"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="floating_ball_overlay" />
+        </service>
 
         <service
             android:name=".runtime.automation.AutomationNotificationListener"

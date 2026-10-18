@@ -25,6 +25,7 @@ import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.quicklaunch.model.qualifiedNameWithIntents
 import hunoia.luno.ui.automation.AutomationDraftHolder
 import hunoia.luno.ui.navigation.ActionSelect
+import hunoia.luno.ui.navigation.FloatBallSlot
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -70,6 +71,10 @@ internal suspend fun saveSettingsAction(
     val picked = getUiState().selectedRecord.action
     if (actionSelect.actionPanelId.isNotBlank()) {
         saveActionPanelItem(actionSelect, picked)
+        return
+    }
+    if (actionSelect.floatBallSlot.isNotBlank()) {
+        saveFloatBallSlot(actionSelect.floatBallSlot, picked)
         return
     }
     if (actionSelect.automationRuleId.isNotBlank()) {
@@ -136,6 +141,23 @@ private suspend fun saveActionPanelItem(actionSelect: ActionSelect, picked: Stor
         }
         settings.copy(
             actionPanels = settings.actionPanels.withPanel(panel.copy(items = items))
+        )
+    }
+}
+
+/**
+ * 悬浮球槽位落盘。
+ *
+ * 目前只有单击一个槽，但按槽名分发而不是写死 —— 长按/滑动若后续要开放成
+ * 可配动作（而不是现在的固定语义），这里加一个 case 即可，不必再改选择页。
+ */
+private suspend fun saveFloatBallSlot(slot: String, picked: StoredAction?) {
+    if (!FloatBallSlot.isValid(slot)) return
+    TuneConfig.updateAction { settings ->
+        settings.copy(
+            floatBall = settings.floatBall.copy(
+                tapAction = picked?.takeIf { it.typeId != "internal.none" },
+            ),
         )
     }
 }
@@ -286,7 +308,8 @@ internal suspend fun loadDataBody(
     val subGestures = GestureConfig.getSubGestures().subGestures
     val actionLibraryEntries = ActionLibrary.getSettings().entries
     // 全局动作面板列表：选择页一行一个具名面板。
-    val actionPanels = TuneConfig.getAction().actionPanels.panels
+    val actionSettings = TuneConfig.getAction()
+    val actionPanels = actionSettings.actionPanels.panels
     val isAutomation = actionSelect.automationRuleId.isNotBlank()
     // 规则即动作：选择页专属分组（只留启用；自动化模式剔除正在编辑的自身，禁自引用）。
     val rules = ActionCatalog.rulesForPicker(
@@ -333,6 +356,8 @@ internal suspend fun loadDataBody(
             val item = if (index >= 0) panel?.items?.getOrNull(index) else null
             item?.longPressVariant() ?: item
         }
+        // 悬浮球槽：与触钮路径互斥，先判它，否则会掉进 button/subGesture 的 null 分支。
+        actionSelect.floatBallSlot == FloatBallSlot.TAP -> actionSettings.floatBall.tapAction
         isAutomation -> loadAutomationAction(actionSelect)
         subGesture != null -> subGesture.actionFor(actionSelect.triggerType, actionSelect.direction)
         button != null -> button.actionFor(actionSelect.triggerType, actionSelect.direction)

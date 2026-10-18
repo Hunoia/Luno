@@ -54,6 +54,16 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         if (::gestureCoordinator.isInitialized) gestureCoordinator.dispatchAction(action)
     }
 
+    /**
+     * 悬浮球点按的动作面板：锚点 = 球心。
+     * 面板走既有无障碍 ArcPanel 待选路径（见 GestureCoordinator.openActionPanelAt）。
+     */
+    fun openActionPanelAt(action: StoredAction, anchorX: Int, anchorY: Int, color: Int): Boolean {
+        if (!::gestureCoordinator.isInitialized) return false
+        gestureCoordinator.openActionPanelAt(action, anchorX, anchorY, color)
+        return true
+    }
+
     /** 分发链就绪：coordinator 已初始化。供 DispatchService 跨进程查询。 */
     fun isDispatchReady(): Boolean = ::gestureCoordinator.isInitialized
 
