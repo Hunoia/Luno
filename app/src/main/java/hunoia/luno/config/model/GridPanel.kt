@@ -1,7 +1,6 @@
 package hunoia.luno.config.model
 
 import androidx.annotation.Keep
-import hunoia.luno.action.model.StoredAction
 import kotlinx.serialization.Serializable
 import java.util.UUID
 
@@ -17,32 +16,57 @@ import java.util.UUID
  * [items] 是内联动作而非动作库引用，理由同弧形面板：`__longPress` 长按变体
  * 藏在 `StoredAction.params` 里，面板项逐项带变体零成本。
  *
- * [columnCount] 每面板各自的列数；[aspectRatio] 卡片宽高比（宽/高，每面板各自可调），
- * 卡片宽取屏宽固定比例、高按比例推算，项超出滚动。
+ * [columnCount] × [rowCount] 是固定网格的尺寸，每面板各自可调；项按 [GridPanelItem]
+ * 的 x/y/span 落在网格上，可跨格（摆桌面小部件的前提）。
+ *
+ * 与一墨 PanelPage 的逐面板外观自由度对齐（docs/grid-panel-moting-compare.md §10）：
+ * [cardWidthFraction] 格宽占比、[pageCount] 简版多页、[cardAlpha] 卡片透明度。
+ * （blur/scrim 曾对齐过一轮，真机验证后整体移除 —— 2026-10-19 拍板，字段彻底删除，
+ * `ignoreUnknownKeys` 保证旧 JSON 不炸。）
  */
 @Serializable
 @Keep
 data class GridPanel(
     val id: String = UUID.randomUUID().toString(),
     val name: String = "",
-    val items: List<StoredAction> = emptyList(),
+    /** 固定网格上的项。位置由 [GridPanelItem.x] / [y] / [spanX] / [spanY] 决定。 */
+    val items: List<GridPanelItem> = emptyList(),
     val columnCount: Int = GridPanelDefaults.ColumnCount,
-    /** 卡片宽高比（宽/高）。0.9 ≈ 微竖长卡片。 */
-    val aspectRatio: Float = GridPanelDefaults.AspectRatio,
+    /**
+     * 网格行数。卡片高度 = 行数 × 格高 + 页眉/内边距，所以**高度由此决定**
+     * （原先的宽高比滑块已随之退役 —— 跨格布局下「行数」才是用户真正在意的量）。
+     * 项超出网格不滚，网格本身就是全部内容。
+     */
+    val rowCount: Int = GridPanelDefaults.RowCount,
+    /** 卡片宽,占屏宽的比例。格宽几何随卡宽重推，span 模型不受影响。 */
+    val cardWidthFraction: Float = GridPanelDefaults.CardWidthFraction,
+    /**
+     * 简版多页的页数（不设上限）：项按 [GridPanelItem.pageIndex] 分页，
+     * 页眉点/横滑切换。锚点随面板（第 0 页布局），不随页变化。
+     */
+    val pageCount: Int = 1,
+    /** 卡片本体透明度：半透明透出原背景（原硬编码 0.75 的可调化）。 */
+    val cardAlpha: Float = GridPanelDefaults.CardAlpha,
 ) {
     companion object {
         fun create(name: String = ""): GridPanel = GridPanel(name = name)
     }
 }
 
-/** 网格面板全局默认值（列数/宽高比的 editable 范围见设置页）。 */
+/** 网格面板全局默认值（列数/行数的 editable 范围见设置页）。 */
 object GridPanelDefaults {
     const val ColumnCount = 4
-    const val AspectRatio = 0.9f
+    const val RowCount = 3
     const val MinColumnCount = 2
     const val MaxColumnCount = 6
-    const val MinAspectRatio = 0.5f
-    const val MaxAspectRatio = 1.8f
+    const val MinRowCount = 1
+    const val MaxRowCount = 8
+    const val CardWidthFraction = 0.72f
+    const val MinCardWidthFraction = 0.5f
+    const val MaxCardWidthFraction = 0.9f
+    const val CardAlpha = 0.75f
+    const val MinCardAlpha = 0.3f
+    const val MaxCardAlpha = 1f
 }
 
 /** 全局网格面板列表。 */

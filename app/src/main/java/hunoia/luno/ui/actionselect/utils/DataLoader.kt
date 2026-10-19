@@ -15,8 +15,13 @@ import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureTriggerType
+import hunoia.luno.config.model.GridPanelDefaults
+import hunoia.luno.config.model.GridPanelItem
+import hunoia.luno.config.model.GridPanelItemLayout
 import hunoia.luno.core.AppContext
 import hunoia.luno.core.JsonSerializer
+import hunoia.luno.gridpanel.widget.PanelAppWidgetHost
+import hunoia.luno.gridpanel.widget.WidgetSpan
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import hunoia.luno.quicklaunch.QuickLaunchFacade
@@ -61,29 +66,32 @@ internal fun tryDeleteShortcutIcons(old: StoredAction?, new: StoredAction?) {
     }
 }
 
+/**
+ * 选择页的统一落盘入口。返回 false = 软失败（目前只有网格面板页满一种），
+ * 调用方按「这一页放不下」提示而不是「保存成功」。
+ */
 internal suspend fun saveSettingsAction(
     actionSelect: ActionSelect,
     getUiState: () -> UiState,
     updateUiState: ((UiState) -> UiState) -> Unit
-) {
+): Boolean {
     // 单值语义：选择页给的就是最终结果，没有「占位 vs 有效」之分 ——
     // 选「无动作」传 null（= 删键/存 null），选别的传那一个。
     val picked = getUiState().selectedRecord.action
     if (actionSelect.actionPanelId.isNotBlank()) {
         saveActionPanelItem(actionSelect, picked)
-        return
+        return true
     }
     if (actionSelect.gridPanelId.isNotBlank()) {
-        saveGridPanelItem(actionSelect, picked)
-        return
+        return saveGridPanelItem(actionSelect, picked)
     }
     if (actionSelect.floatBallSlot.isNotBlank()) {
         saveFloatBallSlot(actionSelect.floatBallSlot, picked)
-        return
+        return true
     }
     if (actionSelect.automationRuleId.isNotBlank()) {
         saveAutomationEffect(actionSelect, picked)
-        return
+        return true
     }
     if (actionSelect.subGestureId.isNotBlank()) {
         GestureConfig.updateSubGestures { settings ->
@@ -96,7 +104,7 @@ internal suspend fun saveSettingsAction(
                 }
             )
         }
-        return
+        return true
     }
     val buttonsUpdater = GestureConfig::updateButtons
     buttonsUpdater { list ->
@@ -121,6 +129,7 @@ internal suspend fun saveSettingsAction(
             set(index, button)
         }
     }
+    return true
 }
 
 /**
@@ -150,30 +159,123 @@ private suspend fun saveActionPanelItem(actionSelect: ActionSelect, picked: Stor
 }
 
 /**
- * 网格面板项落盘（docs/grid-panel.md）：
- * `gridPanelItemIndex < 0` 新增追加；`>=0 && gridPanelReplaceItem` 换掉整项（丢旧变体）；
- * `>=0 && !gridPanelReplaceItem` 设该项的长按变体（变体本身不带变体，防套娃）。
+ * 网格面板项落盘：新增一项，落到 [ActionSelect.gridPanelPageIndex] 指定页里
+ * 顺延首个空位（只在本页内扫，跨页不占位）。面板项只进不出 —— 想换动作就删了
+ * 重加，没有「替换已有项」分支，也没有长按变体。
+ *
+ * 页满返回 false，由调用方明确提示。静默丢弃 + 照报「保存成功」就是真机上
+ * 「添加没反应」的元凶，动作项和小部件项都不能再犯。
  */
-private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: StoredAction?) {
-    val panelId = actionSelect.gridPanelId
-    val index = actionSelect.gridPanelItemIndex
+private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: StoredAction?): Boolean {
+    // 选了「无动作」等于放弃本次操作，不改面板，也不当失败提示。
+    if (picked == null || picked.typeId == "internal.none") return true
+    var saved = false
     TuneConfig.updateAction { settings ->
-        val panel = settings.actionGridPanels.panelById(panelId) ?: return@updateAction settings
-        val items = when {
-            // 选了「无动作」等于放弃本次操作，不改面板。
-            picked == null || picked.typeId == "internal.none" -> return@updateAction settings
-            actionSelect.gridPanelReplaceItem && index >= 0 -> panel.items.mapIndexed { i, item ->
-                if (i == index) picked.withoutVariantKey() else item
-            }
-            index >= 0 -> panel.items.mapIndexed { i, item ->
-                if (i == index) item.withLongPressVariant(picked.withoutVariantKey()) else item
-            }
-            else -> panel.items + picked
-        }
+        val panel = settings.actionGridPanels.panelById(actionSelect.gridPanelId)
+            ?: return@updateAction settings
+        val columns = panel.columnCount.coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
+        val rows = panel.rowCount.coerceIn(GridPanelDefaults.MinRowCount, GridPanelDefaults.MaxRowCount)
+        val pageIndex = actionSelect.gridPanelPageIndex.coerceIn(0, (panel.pageCount - 1).coerceAtLeast(0))
+        val free = GridPanelItemLayout.firstFreeSlot(
+            items = panel.items.filter { it.pageIndex == pageIndex },
+            columns = columns,
+            rows = rows,
+            spanX = 1,
+            spanY = 1,
+        ) ?: return@updateAction settings
+        saved = true
         settings.copy(
-            actionGridPanels = settings.actionGridPanels.withPanel(panel.copy(items = items))
+            actionGridPanels = settings.actionGridPanels.withPanel(
+                panel.copy(
+                    items = panel.items + GridPanelItem(
+                        x = free.x,
+                        y = free.y,
+                        pageIndex = pageIndex,
+                        kind = GridPanelItem.Kind.Action(listOf(picked.withoutVariantKey())),
+                    ),
+                ),
+            ),
         )
     }
+    return saved
+}
+
+/**
+ * 网格面板的第三方小部件落盘（docs/grid-panel.md）。
+ *
+ * 落点：先按 provider 算出的 span 在**加项那一页**扫首个放得下的空位；放不下就
+ * **自动降格**（面积从大到小逐档收缩，一墨选择器的占格数badge也是给用户预期用的）
+ * —— 都塞不下才返回 false，由调用方 Toast 并回收 id（**不再静默丢弃**：真机上
+ * 表现是「添加没反应」，其实是在偷偷失败）。
+ *
+ * 返回 true = 落盘成功（含降格）；false = 页满放弃，调用方必须回收 appWidgetId。
+ */
+internal suspend fun saveGridPanelWidget(
+    actionSelect: ActionSelect,
+    provider: String,
+    appWidgetId: Int,
+    spanX: Int,
+    spanY: Int,
+): Boolean {
+    var placed: Boolean = false
+    TuneConfig.updateAction { settings ->
+        val panel = settings.actionGridPanels.panelById(actionSelect.gridPanelId)
+            ?: return@updateAction settings
+        val columns = panel.columnCount
+            .coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
+        val rows = panel.rowCount
+            .coerceIn(GridPanelDefaults.MinRowCount, GridPanelDefaults.MaxRowCount)
+        val pageIndex = actionSelect.gridPanelPageIndex
+            .coerceIn(0, (panel.pageCount - 1).coerceAtLeast(0))
+        val pageItems = panel.items.filter { it.pageIndex == pageIndex }
+        // 降格序列与拖拽的重排思路分开：加项只填空（firstFreeSlot），放不下自动降档
+        // 占更小的空位 —— 重排是编辑态拖拽的语义，加项不该惊动已有项。
+        val candidates = buildList {
+            for (h in spanY downTo 1) {
+                for (w in spanX downTo 1) {
+                    add(WidgetSpan(w, h))
+                }
+            }
+        }.sortedByDescending { it.spanX * it.spanY }
+            .distinct()
+        for (span in candidates) {
+            val cell = GridPanelItemLayout.firstFreeSlot(
+                items = pageItems,
+                columns = columns,
+                rows = rows,
+                spanX = span.spanX,
+                spanY = span.spanY,
+            ) ?: continue
+            placed = true
+            // 命中即返回新 settings —— 这里写的必须是 copy 的结果本身，
+            // 曾经把 copy 结果丢弃、return 了原 settings，落盘形同没写。
+            return@updateAction settings.copy(
+                actionGridPanels = settings.actionGridPanels.withPanel(
+                    panel.copy(
+                        items = panel.items + GridPanelItem(
+                            x = cell.x,
+                            y = cell.y,
+                            spanX = span.spanX,
+                            spanY = span.spanY,
+                            pageIndex = pageIndex,
+                            kind = GridPanelItem.Kind.AppWidget(
+                                appWidgetId = appWidgetId,
+                                provider = provider,
+                                // 冻结 provider 声明的最小 span：resize 时不再查
+                                // AppWidgetManager（手势回调里做跨进程 IPC 会掉帧，
+                                // 且 provider 被卸载后查不到会退化成 1×1）。
+                                minSpanX = span.spanX,
+                                minSpanY = span.spanY,
+                            ),
+                        ),
+                    ),
+                ),
+            )
+        }
+        settings
+    }
+    if (!placed) PanelAppWidgetHost.get().release(appWidgetId)
+    return placed
 }
 
 /**
@@ -389,13 +491,8 @@ internal suspend fun loadDataBody(
             val item = if (index >= 0) panel?.items?.getOrNull(index) else null
             item?.longPressVariant() ?: item
         }
-        // 网格面板项模式：同上面板项语义（换动作时预选原主动作，改变体时预选原变体）。
-        actionSelect.gridPanelId.isNotBlank() -> {
-            val index = actionSelect.gridPanelItemIndex
-            val panel = gridPanels.firstOrNull { it.id == actionSelect.gridPanelId }
-            val item = if (index >= 0) panel?.items?.getOrNull(index) else null
-            if (actionSelect.gridPanelReplaceItem) item else item?.longPressVariant() ?: item
-        }
+        // 网格面板只进不出：进选择页只会是加项，没有可预选的旧动作。
+        actionSelect.gridPanelId.isNotBlank() -> null
         // 悬浮球槽：与触钮路径互斥，先判它，否则会掉进 button/subGesture 的 null 分支。
         actionSelect.floatBallSlot == FloatBallSlot.TAP -> actionSettings.floatBall.tapAction
         isAutomation -> loadAutomationAction(actionSelect)

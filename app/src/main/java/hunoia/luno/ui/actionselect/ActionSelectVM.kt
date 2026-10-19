@@ -88,9 +88,37 @@ class ActionSelectVM(
             is AppInfo -> updateUiState { selectAppInfoTransform(it, obj) }
             is LauncherInfo.ShortcutInfo -> updateUiState { selectShortcutInfoTransform(it, obj) }
             is StoredAction -> updateUiState { selectActionTransform(it, obj) }
+
             is NewActionLibraryEntry -> updateUiState { selectActionTransform(it, obj.toStoredAction()) }
         }
         done()
+    }
+
+    /**
+     * 小部件选定 → 落盘 → 收页。
+     *
+     * 绑定与配置在组合侧发起（要 Activity 回结果），落盘才回到这里。落盘层会
+     * 自动降格找空位；页满时返回 false —— 若仍报「保存成功」就是真机上那个
+     * 「添加没反应」的元凶（静默失败 + 假成功提示），现在分别提示并回收 id。
+     */
+    fun commitWidget(provider: String, appWidgetId: Int, spanX: Int, spanY: Int) {
+        var placed = false
+        viewModelScope.launch {
+            placed = saveGridPanelWidget(
+                actionSelect = actionSelect,
+                provider = provider,
+                appWidgetId = appWidgetId,
+                spanX = spanX,
+                spanY = spanY,
+            )
+        }.invokeOnCompletion { error ->
+            when {
+                error == null && placed -> toast(R.string.save_success)
+                error == null -> toast(R.string.grid_panel_page_full)
+                else -> toast(R.string.save_failure)
+            }
+            finish()
+        }
     }
 
     fun toggleMiniWindow(appInfo: AppInfo) {
@@ -134,19 +162,21 @@ class ActionSelectVM(
         // 自动化只暂存（编辑页保存键统一落盘），这里不提示已保存，避免误导；
         // 手势/子手势路径保持直写，提示不变。
         val isAutomation = actionSelect.automationRuleId.isNotBlank()
+        var saved = true
         viewModelScope.launch {
-            saveSettingsAction(
+            saved = saveSettingsAction(
                 actionSelect = actionSelect,
                 getUiState = { uiState },
-                updateUiState = { transform -> updateUiState(transform) }
+                updateUiState = { transform -> updateUiState(transform) },
             )
         }.invokeOnCompletion {
-            if (it == null) {
-                if (!isAutomation) toast(R.string.save_success)
-                finish()
-            } else {
-                toast(R.string.save_failure)
+            when {
+                it != null -> toast(R.string.save_failure)
+                // 软失败（目前只有网格面板页满）：提示放不下，而不是假报保存成功。
+                !saved -> toast(R.string.grid_panel_page_full)
+                !isAutomation -> toast(R.string.save_success)
             }
+            if (it == null) finish()
         }
     }
 }

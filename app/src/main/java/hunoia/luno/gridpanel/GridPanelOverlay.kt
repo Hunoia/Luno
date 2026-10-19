@@ -36,6 +36,7 @@ import hunoia.luno.core.AppContext
 import hunoia.luno.core.Events
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.domain.action.ActionLibrary
+import kotlinx.coroutines.launch
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.runtime.overlay.safeUpdateViewLayout
@@ -301,6 +302,7 @@ object GridPanelOverlay {
                             Log.e(TAG, "grid overlay start action select failed, restore panel")
                             restoreVisibility()
                         }
+                        true
                     },
                     onClose = { (closeAnimated ?: { closeImmediate() }).invoke() },
                     onCloseAnimated = { closeImmediate() },

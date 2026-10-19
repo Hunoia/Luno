@@ -123,13 +123,8 @@ internal fun createTitle(actionSelect: ActionSelect): String {
         }
     }
     if (actionSelect.gridPanelId.isNotBlank()) {
-        return when {
-            actionSelect.gridPanelItemIndex >= 0 && actionSelect.gridPanelReplaceItem ->
-                context.getString(R.string.grid_panel_replace_item)
-            actionSelect.gridPanelItemIndex >= 0 ->
-                context.getString(R.string.action_panel_item_long_press)
-            else -> context.getString(R.string.grid_panel_add_item)
-        }
+        // 面板项只进不出（想换动作就删了重加），进这页只会是加项。
+        return context.getString(R.string.grid_panel_add_item)
     }
     if (actionSelect.automationRuleId.isNotBlank()) {
         return context.getString(R.string.automation_pick_action)
@@ -179,6 +174,8 @@ internal fun assembleDataTransform(state: UiState): UiState {
         .apply {
             // 面板项模式：挑的是「面板里放什么」，不放置空入口，也不列面板本身
             // （面板不能嵌套面板，且在这里列自己毫无意义）。
+            // 小部件不走这里 —— 它不是动作，入口是选择页顶部那颗「小部件」chip，
+            // 不能落盘也不该占一行列表项。
             if (state.isPanelItemMode) return@apply
             // 「无动作」置空入口。internal.none 在 libraryExcluded 内被 pickerDefinitions
             // 滤掉了（动作库里不该能建「无」），这里**额外合成**一行而不是改定义表 ——

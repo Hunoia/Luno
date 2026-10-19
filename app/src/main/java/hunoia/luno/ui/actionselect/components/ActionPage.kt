@@ -1,6 +1,7 @@
 package hunoia.luno.ui.actionselect
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
+import android.appwidget.AppWidgetProviderInfo
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -24,12 +25,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionCategory
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.action.model.matchesQuery
 import hunoia.luno.action.model.StoredAction
+import hunoia.luno.gridpanel.widget.WidgetProviderGroup
+import hunoia.luno.gridpanel.widget.WidgetSpan
+import hunoia.luno.gridpanel.widget.searchBy
 import hunoia.luno.config.model.ActionPanel
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.GridPanel
@@ -52,6 +57,7 @@ private const val TYPE_ACTION_LIBRARY = "action_library"
 private const val TYPE_APP = "app"
 private const val TYPE_SHORTCUT = "shortcut"
 private const val TYPE_RULE = "rule"
+private const val TYPE_WIDGET = "widget"
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun ActionPage(
@@ -74,22 +80,38 @@ internal fun ActionPage(
     selectedRecord: SelectedRecord,
     permissionState: hunoia.luno.ui.permission.PermissionState,
     contentPadding: PaddingValues = PaddingValues(),
+    /**
+     * 桌面小部件。只有在配网格面板时才有意义（别处没有能放它的格子），
+     * true 时列表顶部多一颗「小部件」chip，点了这一屏换成 provider 清单。
+     *
+     * 清单为空（设备上一个带 widget 的应用都没有）时 chip **仍然在** ——
+     * 入口凭空消失会让人以为功能不存在，而空态文案能直接说明原因。
+     */
+    showWidgetChip: Boolean = false,
+    widgetGroups: List<WidgetProviderGroup> = emptyList(),
+    /** provider 声明的尺寸算出的占格数，按面板列/行封顶。 */
+    widgetSpanOf: (AppWidgetProviderInfo) -> WidgetSpan = { WidgetSpan(1, 1) },
+    onSelectWidget: (AppWidgetProviderInfo) -> Unit = { },
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var selectedType by rememberSaveable { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     // 恒单选（决策 1）：原先的 maxSelectCount / 长按变体模式都不存在了。
-    val typeChips = remember(context) {
-        listOf(
-            null to context.getString(R.string.all_categories),
-            TYPE_ACTION_LIBRARY to context.getString(R.string.action_library),
-            TYPE_APP to context.getString(R.string.tab_apps),
-            TYPE_SHORTCUT to context.getString(R.string.tab_shortcuts),
-            TYPE_RULE to context.getString(R.string.action_rule_group),
-        )
+    val typeChips = remember(context, showWidgetChip) {
+        buildList {
+            add(null to context.getString(R.string.all_categories))
+            add(TYPE_ACTION_LIBRARY to context.getString(R.string.action_library))
+            add(TYPE_APP to context.getString(R.string.tab_apps))
+            add(TYPE_SHORTCUT to context.getString(R.string.tab_shortcuts))
+            add(TYPE_RULE to context.getString(R.string.action_rule_group))
+            if (showWidgetChip) add(TYPE_WIDGET to context.getString(R.string.grid_panel_add_widget))
+        }
     }
     val filteredActions = remember(actions, query, selectedType, subGestures, actionLibraryEntries, rules) {
         when {
+            // 小部件这一屏不列动作：小部件不是 StoredAction，混进来只会让
+            // 「选中的到底是哪个类型」变得不可证伪。
+            selectedType == TYPE_WIDGET -> emptyList()
             selectedType != null && query.isBlank() -> emptyList()
             selectedType == TYPE_ACTION_LIBRARY -> emptyList()
             selectedType == TYPE_RULE -> emptyList()
@@ -115,13 +137,13 @@ internal fun ActionPage(
         }
     }
     val filteredLibraryEntries = remember(actionLibraryEntries, query, selectedType) {
-        if (selectedType == TYPE_ACTION_LIBRARY || query.isNotBlank()) {
+        if (selectedType == TYPE_WIDGET) emptyList() else if (selectedType == TYPE_ACTION_LIBRARY || query.isNotBlank()) {
             actionLibraryEntries.filter { if (query.isNotBlank()) it.matchesQuery(query) else true }
         } else emptyList()
     }.sortedBy { it.createdAt }
     // 规则即动作：专属分组（定义表直选不开，ruleId 必填，只能引用已存规则）。
     val filteredRules = remember(rules, query, selectedType) {
-        if (selectedType == TYPE_RULE || query.isNotBlank()) {
+        if (selectedType == TYPE_WIDGET) emptyList() else if (selectedType == TYPE_RULE || query.isNotBlank()) {
             rules.filter {
                 if (query.isBlank()) true
                 else it.name.contains(query, ignoreCase = true)
@@ -129,7 +151,7 @@ internal fun ActionPage(
         } else emptyList()
     }
     val filteredApps = remember(appInfos, query, selectedType) {
-        if (selectedType == TYPE_APP || query.isNotBlank()) {
+        if (selectedType == TYPE_WIDGET) emptyList() else if (selectedType == TYPE_APP || query.isNotBlank()) {
             appInfos.filter {
                 if (query.isBlank()) true
                 else it.label.contains(query, ignoreCase = true) || it.packageName.contains(query, ignoreCase = true)
@@ -137,7 +159,7 @@ internal fun ActionPage(
         } else emptyList()
     }
     val filteredCreateShortcuts = remember(createShortcuts, query, selectedType) {
-        if (selectedType == TYPE_SHORTCUT || query.isNotBlank()) {
+        if (selectedType == TYPE_WIDGET) emptyList() else if (selectedType == TYPE_SHORTCUT || query.isNotBlank()) {
             createShortcuts.filter {
                 if (query.isBlank()) true
                 else it.label.contains(query, ignoreCase = true) ||
@@ -146,7 +168,7 @@ internal fun ActionPage(
         } else emptyList()
     }
     val filteredLaunchShortcuts = remember(launchShortcuts, query, selectedType) {
-        if (selectedType == TYPE_SHORTCUT || query.isNotBlank()) {
+        if (selectedType == TYPE_WIDGET) emptyList() else if (selectedType == TYPE_SHORTCUT || query.isNotBlank()) {
             launchShortcuts.filter {
                 if (query.isBlank()) true
                 else it.label.contains(query, ignoreCase = true) ||
@@ -154,6 +176,10 @@ internal fun ActionPage(
             }
         } else emptyList()
     }
+        val filteredWidgets = remember(widgetGroups, query, selectedType) {
+            if (selectedType != TYPE_WIDGET) emptyList()
+            else widgetGroups.searchBy(query, context.packageManager)
+        }
     val librarySelectionFlags = filteredLibraryEntries.map { selectedRecord.isSelected(it.toStoredAction()) }
     val appSelectionFlags = filteredApps.map { selectedRecord.isSelected(it) }
     LazyColumn(
@@ -198,12 +224,44 @@ internal fun ActionPage(
                 }
             }
         }
-        val hasAnyContent = grouped.isNotEmpty() || filteredApps.isNotEmpty() || filteredLibraryEntries.isNotEmpty() || filteredCreateShortcuts.isNotEmpty() || filteredLaunchShortcuts.isNotEmpty() || filteredRules.isNotEmpty()
+        val hasAnyContent = grouped.isNotEmpty() || filteredApps.isNotEmpty() || filteredLibraryEntries.isNotEmpty() || filteredCreateShortcuts.isNotEmpty() || filteredLaunchShortcuts.isNotEmpty() || filteredRules.isNotEmpty() || filteredWidgets.isNotEmpty()
         if ((query.isNotEmpty() || selectedType != null) && !hasAnyContent) {
             item {
-                EmptyState(message = stringResource(R.string.no_matching_results))
+                EmptyState(
+                    message = stringResource(
+                        if (selectedType == TYPE_WIDGET) R.string.grid_panel_no_widgets
+                        else R.string.no_matching_results
+                    )
+                )
             }
         } else {
+            if (filteredWidgets.isNotEmpty()) {
+                // 一墨 ComponentWidgetPickerOverlay 对齐（§10⑤）：每 app 分区头 +
+                // 区内横向滚动的预览卡，不再纵向铺行。
+                filteredWidgets.forEach { group ->
+                    stickyHeader(key = "widget_${group.appLabel}") {
+                        WidgetGroupHeaderRow(group)
+                    }
+                    item(key = "widget_row_${group.appLabel}") {
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
+                        ) {
+                            items(
+                                items = group.providers,
+                                key = { info -> "widget_${info.provider?.flattenToString()}_${info.widgetCategory}" },
+                            ) { info ->
+                                WidgetPreviewCard(
+                                    info = info,
+                                    span = widgetSpanOf(info),
+                                    onSelect = { onSelectWidget(info) },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
             if (grouped.isNotEmpty()) {
                 grouped.forEach { (category, categoryActions) ->
                     val categoryFlags = categoryActions.map { selectedRecord.isSelected(it) }

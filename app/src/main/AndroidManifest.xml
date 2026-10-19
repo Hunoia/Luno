@@ -41,6 +41,11 @@
     <!-- 快捷开关读状态用（普通权限，安装即有）：WiFi 状态 -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 
+    <!-- 面板内摆第三方桌面小部件：BIND_APPWIDGET 是 signature 级权限，声明本身不授予
+         任何能力，真正放行靠 ACTION_APPWIDGET_BIND 的用户授权对话框（逐 provider）。
+         宿主常驻 :service，宿主 id 固定写死。 -->
+    <uses-permission android:name="android.permission.BIND_APPWIDGET" />
+
     <application
         android:name=".App"
         android:allowBackup="false"

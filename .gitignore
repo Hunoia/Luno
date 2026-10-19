@@ -4,9 +4,16 @@ build/
 .kotlin/
 app/mapping.txt
 
+# JVM crash dumps (hs_err_pid*.log / core dumps) — 偶发崩溃产生，纯垃圾
+hs_err_pid*.log
+hs_err*.log
+replay_pid*.log
+core.*
+
 # IDE
 .idea/
 .opencode/
+.workbuddy/
 
 # Nix / direnv
 .direnv/

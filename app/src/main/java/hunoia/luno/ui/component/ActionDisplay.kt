@@ -202,6 +202,7 @@ fun actionIcon(action: StoredAction): Any? {
     // 图标在这里兜底，否则选择页/球图标对这类动作全空。
     if (action.typeId == GRID_PANEL_TYPE_ID) return Icons.Default.GridView
     if (action.typeId == ACTION_PANEL_TYPE_ID) return Icons.Default.RadioButtonChecked
+    // 「加桌面小部件」入口行（不是动作）：给个能认出用途的图标
     return ActionDefinitions.byTypeId(action.typeId)?.icon
 }
 
