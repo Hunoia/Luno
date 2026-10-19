@@ -17,18 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
-import androidx.lifecycle.ViewModelStore
-import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.setViewTreeLifecycleOwner
-import androidx.lifecycle.setViewTreeViewModelStoreOwner
-import androidx.savedstate.SavedStateRegistry
-import androidx.savedstate.SavedStateRegistryOwner
-import androidx.savedstate.SavedStateRegistryController
-import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.core.ActionSelectClosedEvent
@@ -38,6 +27,7 @@ import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.domain.action.ActionLibrary
 import kotlinx.coroutines.launch
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.runtime.overlay.PanelLifecycleOwner
 import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.runtime.overlay.safeUpdateViewLayout
 import hunoia.luno.service.SideGestureService
@@ -309,45 +299,6 @@ object GridPanelOverlay {
                     onRegisterCloseAnimated = { callback -> closeAnimated = callback },
                 )
             }
-        }
-    }
-
-    /**
-     * 浮窗组合的最小生命周期宿主（球窗同款三件套，但推到 RESUMED 且**不**随
-     * detach 自动销毁 —— 隐藏让位要保留组合，销毁时机由 [GridPanelOverlay] 控制）。
-     */
-    private class PanelLifecycleOwner :
-        LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
-
-        private val registry = LifecycleRegistry(this)
-        override val lifecycle: Lifecycle get() = registry
-
-        private val store = ViewModelStore()
-        override val viewModelStore: ViewModelStore get() = store
-
-        private val savedStateController = SavedStateRegistryController.create(this)
-        override val savedStateRegistry: SavedStateRegistry
-            get() = savedStateController.savedStateRegistry
-
-        /** attach 前调：restore 与推进 CREATED 的顺序约束见 FloatBallLifecycleOwner。 */
-        fun create() {
-            savedStateController.performRestore(null)
-            registry.currentState = Lifecycle.State.CREATED
-        }
-
-        fun resume() {
-            registry.currentState = Lifecycle.State.RESUMED
-        }
-
-        fun destroy() {
-            registry.currentState = Lifecycle.State.DESTROYED
-            store.clear()
-        }
-
-        fun attachTo(view: View) {
-            view.setViewTreeLifecycleOwner(this)
-            view.setViewTreeViewModelStoreOwner(this)
-            view.setViewTreeSavedStateRegistryOwner(this)
         }
     }
 }

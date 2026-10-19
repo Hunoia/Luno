@@ -203,7 +203,7 @@ class GestureCoordinator(
                 automationRules = s.automationRules,
             )
         },
-        onToggleQuickAppLauncher = { hunoia.luno.quicklaunch.QuickAppLauncherActivity.start(host.context) },
+        onToggleQuickAppLauncher = { hunoia.luno.quicklaunch.QuickAppLauncherOverlay.show() },
         onShowQuickSearch = { hunoia.luno.quicklaunch.QuickSearchActivity.start(host.context) },
         onShowGridPanel = { panelId, anchorX, anchorY ->
             hunoia.luno.gridpanel.GridPanelOverlay.show(panelId, anchorX, anchorY)
