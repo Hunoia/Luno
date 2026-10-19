@@ -25,6 +25,14 @@ data class ActionSelect(
      */
     val actionPanelItemIndex: Int = -1,
     /**
+     * 非空 = 本次在配网格面板（docs/grid-panel.md）：
+     * 空索引是加项；`gridPanelItemIndex >= 0` 时按 [gridPanelReplaceItem] 分流——
+     * true 是换掉整项（丢弃旧长按变体），false 是设该项的长按变体。
+     */
+    val gridPanelId: String = "",
+    val gridPanelItemIndex: Int = -1,
+    val gridPanelReplaceItem: Boolean = false,
+    /**
      * 非空 = 本次在配悬浮球，且改的是这个槽（见 [FloatBallSlot]）。
      * 与上面那些 id 字段互斥：走它就不会落进触钮/子手势/面板/自动化任何一条分支。
      */
@@ -59,6 +67,17 @@ data object ActionPanelList
 @Keep
 @Serializable
 data class ActionPanelEdit(
+    val panelId: String,
+)
+
+@Keep
+@Serializable
+data object GridPanelList
+
+/** 网格面板属性编辑（名称/列数/宽高比）；内容（项）在面板内编辑，见 docs/grid-panel.md。 */
+@Keep
+@Serializable
+data class GridPanelEdit(
     val panelId: String,
 )
 

@@ -63,6 +63,14 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         return true
     }
 
+    /**
+     * 网格面板项的点按转发：与球点按走同一条锚点链（BallTapActionEvent → 容器
+     * runGestureActions 分类），子手势/音量刮擦/嵌套弧形面板项因此自动获得正确语义。
+     * 面板浮窗自身没有手势会话（SAW 窗口，宿主是 a11y 服务），绝不能绕过容器直发。
+     */
+    fun forwardPanelTap(action: StoredAction, anchorX: Int, anchorY: Int, color: Int): Boolean =
+        forwardBallTap(action, anchorX, anchorY, color)
+
     /** 分发链就绪：coordinator 已初始化。供 DispatchService 跨进程查询。 */
     fun isDispatchReady(): Boolean = ::gestureCoordinator.isInitialized
 

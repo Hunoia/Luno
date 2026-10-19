@@ -228,6 +228,10 @@ sealed interface Action {
     data object QuickAppLauncher : Action {
         override val typeId: String = "internal.quickAppLauncher"
     }
+    /** 网格面板：触点附近弹出网格快捷中心（panelId 引用全局具名面板，见 GridPanel）。 */
+    data class GridPanel(val panelId: String) : Action {
+        override val typeId: String = "internal.gridPanel"
+    }
     data object QuickSearch : Action {
         override val typeId: String = "internal.quickSearch"
     }

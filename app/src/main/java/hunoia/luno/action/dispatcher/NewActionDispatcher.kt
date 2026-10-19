@@ -52,6 +52,7 @@ class NewActionDispatcher(
     private val runtimeState: () -> GestureRuntimeState,
     private val onToggleQuickAppLauncher: () -> Unit,
     private val onShowQuickSearch: () -> Unit,
+    private val onShowGridPanel: (panelId: String, anchorX: Int, anchorY: Int) -> Unit,
     private val onShowVolumeScrub: (VolumeScrubConfig) -> Boolean,
     private val onShowPointer: () -> Boolean,
     private val onHideGestureButton: (GestureButton?, Long) -> Unit,
@@ -220,6 +221,7 @@ class NewActionDispatcher(
             },
             toggleQuickAppLauncher = onToggleQuickAppLauncher,
             showQuickSearch = onShowQuickSearch,
+            showGridPanel = onShowGridPanel,
             showVolumeScrub = onShowVolumeScrub,
             showPointer = onShowPointer,
             hideGestureButton = { delayMs ->

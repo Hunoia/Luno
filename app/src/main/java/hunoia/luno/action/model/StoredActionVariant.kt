@@ -60,6 +60,10 @@ const val RUN_RULE_PARAM_RULE_ID = "ruleId"
 const val ACTION_PANEL_TYPE_ID = "internal.actionPanel"
 const val ACTION_PANEL_PARAM_PANEL_ID = "panelId"
 
+/** 网格面板的类型与参数 key（引用全局网格面板列表里的某个具名面板）。 */
+const val GRID_PANEL_TYPE_ID = "internal.gridPanel"
+const val GRID_PANEL_PARAM_PANEL_ID = "panelId"
+
 /**
  * 动作面板引用 panelId（`internal.actionPanel`），非引用或空 id 返回 null。
  *
@@ -69,6 +73,12 @@ const val ACTION_PANEL_PARAM_PANEL_ID = "panelId"
 fun StoredAction.actionPanelId(): String? {
     if (typeId != ACTION_PANEL_TYPE_ID) return null
     return (params[ACTION_PANEL_PARAM_PANEL_ID] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+}
+
+/** 网格面板引用 panelId（`internal.gridPanel`），非引用或空 id 返回 null。 */
+fun StoredAction.gridPanelId(): String? {
+    if (typeId != GRID_PANEL_TYPE_ID) return null
+    return (params[GRID_PANEL_PARAM_PANEL_ID] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
 }
 
 /** 规则引用 id（internal.runRule），非引用或空 id 返回 null。 */

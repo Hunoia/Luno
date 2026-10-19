@@ -5,7 +5,9 @@ import hunoia.luno.action.model.withoutVariantKey
 import hunoia.luno.action.model.launchQualifiedName
 import hunoia.luno.action.model.shortcutQualifiedName
 import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.config.model.ActionPanel
 import hunoia.luno.config.model.AutomationRule
+import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
@@ -40,7 +42,9 @@ data class UiState(
     /** 选择页“规则”分组数据源：已按 rulesForPicker 过滤（只留启用，自动化模式剔除自身）。 */
     val rules: List<AutomationRule> = emptyList(),
     /** 全局动作面板列表，选择页一行一个具名面板。 */
-    val actionPanels: List<hunoia.luno.config.model.ActionPanel> = emptyList(),
+    val actionPanels: List<ActionPanel> = emptyList(),
+    /** 全局网格面板列表，选择页一行一个具名面板（与弧形面板动态行同机制）。 */
+    val gridPanels: List<GridPanel> = emptyList(),
     /**
      * 本次是去动作面板里挑一个面板项（而不是配触钮/子手势槽）。
      * 面板项模式下不显示「无动作」与面板自身两行动态行。

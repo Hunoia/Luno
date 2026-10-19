@@ -64,6 +64,15 @@
         </activity>
 
         <activity
+            android:name=".ui.actionselect.ActionSelectHostActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|density|fontScale|uiMode|layoutDirection|locale"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:process=":service"
+            android:theme="@style/Theme.SideGesture.Transparent" />
+
+        <activity
             android:name=".quicklaunch.QuickAppLauncherActivity"
             android:excludeFromRecents="true"
             android:exported="true"

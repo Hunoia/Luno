@@ -8,10 +8,16 @@ import hunoia.luno.action.definitions.ActionCategory
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.ACTION_PANEL_PARAM_PANEL_ID
 import hunoia.luno.action.model.ACTION_PANEL_TYPE_ID
+import hunoia.luno.action.model.GRID_PANEL_PARAM_PANEL_ID
+import hunoia.luno.action.model.GRID_PANEL_TYPE_ID
+import hunoia.luno.action.model.actionPanelId
+import hunoia.luno.action.model.gridPanelId
 import hunoia.luno.action.model.launchQualifiedName
 import hunoia.luno.action.model.withLaunchMiniWindow
 import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.config.model.AutomationRule
+import hunoia.luno.config.model.ActionPanel
+import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.domain.action.ActionCatalog
@@ -46,25 +52,20 @@ fun Context.selectedItemLabel(
     }
 }
 
-fun Context.actionTextWithSubGesture(
-    action: StoredAction,
-    subGestures: List<SubGesture>,
-    emptyIfNone: Boolean
-): String = actionTextWithSubGesture(action, subGestures, emptyList(), emptyList(), emptyIfNone)
-
-fun Context.actionTextWithSubGesture(
-    action: StoredAction,
-    subGestures: List<SubGesture>,
-    actionLibraryEntries: List<NewActionLibraryEntry>,
-    emptyIfNone: Boolean
-): String = actionTextWithSubGesture(action, subGestures, actionLibraryEntries, emptyList(), emptyIfNone)
-
+/**
+ * 动作显示名：库引用 / 规则 / 具名面板 / 子手势各自解析，其余走定义表。
+ *
+ * 面板列表给默认空列表：调用方没配置上下文时面板行落回类型名，与旧行为一致。
+ */
+@Suppress("CyclomaticComplexMethod")
 fun Context.actionTextWithSubGesture(
     action: StoredAction,
     subGestures: List<SubGesture>,
     actionLibraryEntries: List<NewActionLibraryEntry>,
-    rules: List<AutomationRule>,
-    emptyIfNone: Boolean
+    rules: List<AutomationRule> = emptyList(),
+    actionPanels: List<ActionPanel> = emptyList(),
+    gridPanels: List<GridPanel> = emptyList(),
+    emptyIfNone: Boolean,
 ): String {
     if (action.typeId == "internal.libraryRef") {
         val id = (action.params["entryId"] as? JsonPrimitive)?.contentOrNull.orEmpty()
@@ -77,6 +78,20 @@ fun Context.actionTextWithSubGesture(
             return getString(R.string.action_rule_missing)
         }
     }
+    // 面板行显示具名面板而不是类型名（弧形面板此前漏了这条，行标签一直落「无」）；
+    // 面板存在但没起名时给「未命名」，和设置页列表的兜底一致。
+    action.gridPanelId()?.let { panelId ->
+        val panel = gridPanels.firstOrNull { it.id == panelId }
+        if (panel != null) {
+            return panel.name.ifBlank { getString(R.string.grid_panel_unnamed) }
+        }
+    }
+    action.actionPanelId()?.let { panelId ->
+        val panel = actionPanels.firstOrNull { it.id == panelId }
+        if (panel != null) {
+            return panel.name.ifBlank { getString(R.string.action_panel_unnamed) }
+        }
+    }
     if (action.typeId != "internal.subGesture") {
         return actionText(action, emptyIfNone = emptyIfNone)
     }
@@ -87,6 +102,11 @@ fun Context.actionTextWithSubGesture(
 
 /** 解析 StoredAction 的展示分类：走定义表，未知落 SYSTEM。 */
 internal fun actionCategory(action: StoredAction): ActionCategory {
+    // 面板动作不在定义表里（绑定必须落到具体面板），分类手动给内部组，
+    // 否则动态行会掉进 SYSTEM 兜底分组。
+    if (action.typeId == ACTION_PANEL_TYPE_ID || action.typeId == GRID_PANEL_TYPE_ID) {
+        return ActionCategory.INTERNAL
+    }
     return ActionDefinitions.byTypeId(action.typeId)?.category ?: ActionCategory.SYSTEM
 }
 
@@ -100,6 +120,15 @@ internal fun createTitle(actionSelect: ActionSelect): String {
             context.getString(R.string.action_panel_item_long_press)
         } else {
             context.getString(R.string.action_panel_add_item)
+        }
+    }
+    if (actionSelect.gridPanelId.isNotBlank()) {
+        return when {
+            actionSelect.gridPanelItemIndex >= 0 && actionSelect.gridPanelReplaceItem ->
+                context.getString(R.string.grid_panel_replace_item)
+            actionSelect.gridPanelItemIndex >= 0 ->
+                context.getString(R.string.action_panel_item_long_press)
+            else -> context.getString(R.string.grid_panel_add_item)
         }
     }
     if (actionSelect.automationRuleId.isNotBlank()) {
@@ -158,6 +187,10 @@ internal fun assembleDataTransform(state: UiState): UiState {
             // 动作面板：一行一个具名面板。用户点哪行就把哪个 panelId 存进槽里。
             state.actionPanels.forEach { panel ->
                 add(StoredAction.of(ACTION_PANEL_TYPE_ID, ACTION_PANEL_PARAM_PANEL_ID to panel.id))
+            }
+            // 网格面板：同上，一行一个具名网格面板（docs/grid-panel.md）。
+            state.gridPanels.forEach { panel ->
+                add(StoredAction.of(GRID_PANEL_TYPE_ID, GRID_PANEL_PARAM_PANEL_ID to panel.id))
             }
             // 自动化规则里绑子手势是无效的:`SubGestureState.tryEnterSubGesture` 需要一个
             // 真实的手势完成脉冲,自动化上下文里没有,命中后静默 return false。

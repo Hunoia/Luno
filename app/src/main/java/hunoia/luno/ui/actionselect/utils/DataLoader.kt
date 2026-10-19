@@ -73,6 +73,10 @@ internal suspend fun saveSettingsAction(
         saveActionPanelItem(actionSelect, picked)
         return
     }
+    if (actionSelect.gridPanelId.isNotBlank()) {
+        saveGridPanelItem(actionSelect, picked)
+        return
+    }
     if (actionSelect.floatBallSlot.isNotBlank()) {
         saveFloatBallSlot(actionSelect.floatBallSlot, picked)
         return
@@ -141,6 +145,33 @@ private suspend fun saveActionPanelItem(actionSelect: ActionSelect, picked: Stor
         }
         settings.copy(
             actionPanels = settings.actionPanels.withPanel(panel.copy(items = items))
+        )
+    }
+}
+
+/**
+ * 网格面板项落盘（docs/grid-panel.md）：
+ * `gridPanelItemIndex < 0` 新增追加；`>=0 && gridPanelReplaceItem` 换掉整项（丢旧变体）；
+ * `>=0 && !gridPanelReplaceItem` 设该项的长按变体（变体本身不带变体，防套娃）。
+ */
+private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: StoredAction?) {
+    val panelId = actionSelect.gridPanelId
+    val index = actionSelect.gridPanelItemIndex
+    TuneConfig.updateAction { settings ->
+        val panel = settings.actionGridPanels.panelById(panelId) ?: return@updateAction settings
+        val items = when {
+            // 选了「无动作」等于放弃本次操作，不改面板。
+            picked == null || picked.typeId == "internal.none" -> return@updateAction settings
+            actionSelect.gridPanelReplaceItem && index >= 0 -> panel.items.mapIndexed { i, item ->
+                if (i == index) picked.withoutVariantKey() else item
+            }
+            index >= 0 -> panel.items.mapIndexed { i, item ->
+                if (i == index) item.withLongPressVariant(picked.withoutVariantKey()) else item
+            }
+            else -> panel.items + picked
+        }
+        settings.copy(
+            actionGridPanels = settings.actionGridPanels.withPanel(panel.copy(items = items))
         )
     }
 }
@@ -310,6 +341,7 @@ internal suspend fun loadDataBody(
     // 全局动作面板列表：选择页一行一个具名面板。
     val actionSettings = TuneConfig.getAction()
     val actionPanels = actionSettings.actionPanels.panels
+    val gridPanels = actionSettings.actionGridPanels.panels
     val isAutomation = actionSelect.automationRuleId.isNotBlank()
     // 规则即动作：选择页专属分组（只留启用；自动化模式剔除正在编辑的自身，禁自引用）。
     val rules = ActionCatalog.rulesForPicker(
@@ -345,7 +377,8 @@ internal suspend fun loadDataBody(
             excludedTypeIds = pickerExcluded,
             rules = rules,
             actionPanels = actionPanels,
-            isPanelItemMode = actionSelect.actionPanelId.isNotBlank(),
+            gridPanels = gridPanels,
+            isPanelItemMode = actionSelect.actionPanelId.isNotBlank() || actionSelect.gridPanelId.isNotBlank(),
         )
     }
     val action = when {
@@ -355,6 +388,13 @@ internal suspend fun loadDataBody(
             val panel = actionPanels.firstOrNull { it.id == actionSelect.actionPanelId }
             val item = if (index >= 0) panel?.items?.getOrNull(index) else null
             item?.longPressVariant() ?: item
+        }
+        // 网格面板项模式：同上面板项语义（换动作时预选原主动作，改变体时预选原变体）。
+        actionSelect.gridPanelId.isNotBlank() -> {
+            val index = actionSelect.gridPanelItemIndex
+            val panel = gridPanels.firstOrNull { it.id == actionSelect.gridPanelId }
+            val item = if (index >= 0) panel?.items?.getOrNull(index) else null
+            if (actionSelect.gridPanelReplaceItem) item else item?.longPressVariant() ?: item
         }
         // 悬浮球槽：与触钮路径互斥，先判它，否则会掉进 button/subGesture 的 null 分支。
         actionSelect.floatBallSlot == FloatBallSlot.TAP -> actionSettings.floatBall.tapAction

@@ -24,7 +24,10 @@ import hunoia.luno.R
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
 import hunoia.luno.action.model.StoredAction
+import hunoia.luno.action.model.ACTION_PANEL_TYPE_ID
+import hunoia.luno.action.model.GRID_PANEL_TYPE_ID
 import hunoia.luno.action.model.actionPanelId
+import hunoia.luno.action.model.gridPanelId
 import hunoia.luno.action.model.libraryEntryId
 import hunoia.luno.action.model.launchPackageName
 import hunoia.luno.action.model.NewActionLibraryEntry
@@ -35,6 +38,9 @@ import hunoia.luno.ui.actionlibrary.IconPalette
 import hunoia.luno.ui.actionselect.shortcutInfo
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
+import hunoia.luno.ui.navigation.LocalGridPanels
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.RadioButtonChecked
 import kotlin.math.min
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -86,6 +92,14 @@ fun actionText(
         LocalActionPanels.current.firstOrNull { it.id == panelId }
             ?.name?.takeIf { it.isNotBlank() }
             ?.let { return it }
+    }
+    // 网格面板：同上，显示具名网格面板；面板在但没起名给「未命名」，
+    // 和选择页行标签的兜底一致（不在列表里 = 已删，维持原有落空行为）。
+    action.gridPanelId()?.let { panelId ->
+        val panels = LocalGridPanels.current
+        panels.firstOrNull { it.id == panelId }?.let { panel ->
+            return panel.name.ifBlank { stringResource(R.string.grid_panel_unnamed) }
+        }
     }
     if (action.typeId == "app.launch") {
         val context = androidx.compose.ui.platform.LocalContext.current
@@ -184,6 +198,10 @@ fun actionIcon(action: StoredAction): Any? {
     if (action.typeId == "app.launchShortcut") {
         return action.shortcutInfo()?.icon
     }
+    // 面板动作不在定义表里（绑定必须落到具体面板，见 assembleDataTransform 的动态行），
+    // 图标在这里兜底，否则选择页/球图标对这类动作全空。
+    if (action.typeId == GRID_PANEL_TYPE_ID) return Icons.Default.GridView
+    if (action.typeId == ACTION_PANEL_TYPE_ID) return Icons.Default.RadioButtonChecked
     return ActionDefinitions.byTypeId(action.typeId)?.icon
 }
 

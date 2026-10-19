@@ -15,11 +15,16 @@ import android.os.PowerManager
 import android.util.Log
 import androidx.core.content.getSystemService
 import hunoia.luno.R
-import hunoia.luno.bridge.ui.DensityProvider
+import hunoia.luno.action.model.GRID_PANEL_TYPE_ID
+import hunoia.luno.action.model.StoredAction
+import hunoia.luno.action.model.gridPanelId
 import hunoia.luno.bridge.system.canDrawOverlays
+import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.FloatBallSettings
+import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.gridpanel.GridPanelOverlay
 import hunoia.luno.runtime.environment.BroadcastObserver
 import hunoia.luno.service.SideGestureService
 import hunoia.luno.ui.MainActivity
@@ -151,15 +156,32 @@ class FloatBallService : Service() {
             (settings.x * DensityProvider.screenWidthPx).toInt()
         val ballCenterY = DensityProvider.dp2px(settings.sizeDp) / 2 +
             (settings.y * DensityProvider.screenHeightPx).toInt()
-        // 所有球点按动作统一转发（面板/子手势/刮擦/直发，由容器分类，
+        // 网格面板动作**不进容器**：面板浮窗自包含（直读 TuneConfig，不依赖 a11y
+        // 运行态），球侧直发 —— 无障碍没开照样弹，这是「无 a11y 可用」的主路径。
+        // 触钮/子手势绑它的路径仍走容器 executor，同一个 GridPanelOverlay.show 入口。
+        if (action.typeId == GRID_PANEL_TYPE_ID) {
+            showGridPanelDirect(action, ballCenterX, ballCenterY)
+            return
+        }
+        // 其余球点按动作统一转发（子手势/刮擦/直发，由容器分类，
         // 与触钮同链路）。无障碍没开时静默丢弃。
-        val ok = SideGestureService.current?.forwardBallTap(
+        SideGestureService.current?.forwardBallTap(
             action,
             ballCenterX,
             ballCenterY,
             settings.color,
-        ) == true
-        if (!ok) return
+        )
+    }
+
+    /** 球直发网格面板：悬空引用（面板被删）静默收口，空面板照常弹（本体是编辑入口）。 */
+    private fun showGridPanelDirect(action: StoredAction, anchorX: Int, anchorY: Int) {
+        scope.launch {
+            val panelId = action.gridPanelId() ?: return@launch
+            val actionSettings = runCatching { TuneConfig.getAction() }
+                .onFailure { Log.w(TAG, "grid panel direct config read failed: ${it.message}") }
+                .getOrDefault(ActionSettings())
+            GridPanelOverlay.showIfExists(actionSettings, panelId, anchorX, anchorY)
+        }
     }
 
     // ---- 键盘让位 ----

@@ -37,6 +37,8 @@ import hunoia.luno.ui.navigation.Home
 import hunoia.luno.ui.navigation.ActionSettings
 import hunoia.luno.ui.navigation.ActionPanelList
 import hunoia.luno.ui.navigation.ActionPanelEdit
+import hunoia.luno.ui.navigation.GridPanelList
+import hunoia.luno.ui.navigation.GridPanelEdit
 import hunoia.luno.ui.navigation.SearchEngineSettings
 import hunoia.luno.ui.navigation.MiniWindowAdjust
 import hunoia.luno.ui.navigation.FloatBallEdit
@@ -56,6 +58,8 @@ import hunoia.luno.ui.settings.action.MiniWindowAdjustScreen
 import hunoia.luno.ui.settings.floatball.FloatBallEditScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelEditScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelListScreen
+import hunoia.luno.ui.settings.action.gridpanel.GridPanelEditScreen
+import hunoia.luno.ui.settings.action.gridpanel.GridPanelListScreen
 import hunoia.luno.ui.settings.search.SearchEngineSettingsScreen
 
 import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsScreen
@@ -66,6 +70,7 @@ import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
+import hunoia.luno.ui.navigation.LocalGridPanels
 import hunoia.luno.ui.navigation.LocalNavController
 import hunoia.luno.ui.home.HomeScreen
 import hunoia.luno.domain.tune.TuneConfig
@@ -86,6 +91,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
             LocalNavController provides navController,
             LocalActionLibraryEntries provides actionLibrarySettings.entries,
             LocalActionPanels provides actionSettings.actionPanels.panels,
+            LocalGridPanels provides actionSettings.actionGridPanels.panels,
         ) {
             Surface(modifier = Modifier.fillMaxSize()) {
                 NavHost(
@@ -145,6 +151,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onBack = { navController.popBackStack() },
                         onNavToSearchEngines = { navController.navigate(SearchEngineSettings) },
                         onNavToActionPanels = { navController.navigate(ActionPanelList) },
+                        onNavToGridPanels = { navController.navigate(GridPanelList) },
                         onNavToMiniWindowAdjust = { navController.navigate(MiniWindowAdjust) },
                         onNavToFloatBallSettings = { navController.navigate(FloatBallEdit) },
                     )
@@ -169,6 +176,18 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         panelId = it.toRoute<ActionPanelEdit>().panelId,
                         onBack = { navController.popBackStack() },
                         onPickItem = { navController.navigate(it) },
+                    )
+                }
+                myComposable<GridPanelList> {
+                    GridPanelListScreen(
+                        onBack = { navController.popBackStack() },
+                        onEditPanel = { panelId -> navController.navigate(GridPanelEdit(panelId)) },
+                    )
+                }
+                myComposable<GridPanelEdit> {
+                    GridPanelEditScreen(
+                        panelId = it.toRoute<GridPanelEdit>().panelId,
+                        onBack = { navController.popBackStack() },
                     )
                 }
                 myComposable<SearchEngineSettings> {

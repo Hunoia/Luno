@@ -205,6 +205,9 @@ class GestureCoordinator(
         },
         onToggleQuickAppLauncher = { hunoia.luno.quicklaunch.QuickAppLauncherActivity.start(host.context) },
         onShowQuickSearch = { hunoia.luno.quicklaunch.QuickSearchActivity.start(host.context) },
+        onShowGridPanel = { panelId, anchorX, anchorY ->
+            hunoia.luno.gridpanel.GridPanelOverlay.show(panelId, anchorX, anchorY)
+        },
         onShowVolumeScrub = { config -> volumeScrubRuntime.show(config) },
         onShowPointer = { pointerRuntime.show() },
         onHideGestureButton = { button, delayMs ->

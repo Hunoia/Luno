@@ -154,6 +154,8 @@ data class ExecutorContext(
     val requestEnableDisabledPackage: (String, (Boolean) -> Unit) -> Unit = { _, onResult -> onResult(false) },
     val toggleQuickAppLauncher: () -> Unit = {},
     val showQuickSearch: () -> Unit = {},
+    /** 网格面板：锚点为触发触点（无触点路径由执行器退屏幕中心），Activity 侧再夹取屏内。 */
+    val showGridPanel: (panelId: String, anchorX: Int, anchorY: Int) -> Unit = { _, _, _ -> },
     val showVolumeScrub: (VolumeScrubConfig) -> Boolean = { false },
     val showPointer: () -> Boolean = { false },
     val hideGestureButton: (Long) -> Unit = {},

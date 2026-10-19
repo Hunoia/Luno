@@ -186,7 +186,8 @@ class InternalExecutors : ActionExecutor {
     override val supportedTypes: Set<String> = setOf(
         "internal.none", "internal.subGesture", "internal.hideGestureButton",
         "internal.buttonsVisibility",
-        "internal.quickAppLauncher", "internal.quickSearch", "internal.volumeScrub",
+        "internal.quickAppLauncher", "internal.quickSearch", "internal.gridPanel",
+        "internal.volumeScrub",
         "internal.pointer",
         "internal.previousApp", "internal.runRule"
     )
@@ -208,6 +209,7 @@ class InternalExecutors : ActionExecutor {
                 context.showQuickSearch()
                 ActionResult.Success()
             }
+            is Action.GridPanel -> executeGridPanel(action, context)
             is Action.VolumeScrub -> {
                 val config = VolumeScrubConfig(action.horizontalEnabled, action.stepThresholdDp)
                 if (context.showVolumeScrub(config)) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
@@ -227,6 +229,29 @@ class InternalExecutors : ActionExecutor {
             }
             else -> ActionResult.Failed(ActionFailure.Unsupported)
         }
+    }
+
+    /**
+     * 网格面板：悬空引用（面板被删）时按「无动作」静默收口（弧形面板在 ActionMapper
+     * 的兜底同例），不报失败让手势链路弹错误提示。
+     *
+     * **空面板照常弹**：面板本体就是编辑入口（长按空白进编辑态加项），
+     * 拦掉空面板 = 第一项永远加不上。
+     *
+     * 浮窗入口走注入的 `context.showGridPanel`（与手势链同一 seam，不在本层直接摸
+     * 浮窗）；球侧直发那条无容器的路径走 `GridPanelOverlay.showIfExists`，同一份收口语义。
+     */
+    private fun executeGridPanel(action: Action.GridPanel, context: ExecutorContext): ActionResult {
+        if (context.actionSettings.actionGridPanels.panelById(action.panelId) == null) {
+            return ActionResult.Success()
+        }
+        // 无触点路径（自动化/库测试）退屏幕中心；浮窗侧再夹取屏内。
+        val anchor = context.touchPosition ?: run {
+            val dm = context.appContext.resources.displayMetrics
+            dm.widthPixels / 2 to dm.heightPixels / 2
+        }
+        context.showGridPanel(action.panelId, anchor.first, anchor.second)
+        return ActionResult.Success()
     }
 
     /**

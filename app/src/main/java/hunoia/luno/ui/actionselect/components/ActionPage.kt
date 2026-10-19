@@ -30,7 +30,9 @@ import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.action.model.matchesQuery
 import hunoia.luno.action.model.StoredAction
+import hunoia.luno.config.model.ActionPanel
 import hunoia.luno.config.model.AutomationRule
+import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.domain.action.ActionCatalog
 import hunoia.luno.quicklaunch.model.AppInfo
@@ -64,6 +66,8 @@ internal fun ActionPage(
     actions: List<StoredAction>,
     actionLibraryEntries: List<NewActionLibraryEntry> = emptyList(),
     rules: List<AutomationRule> = emptyList(),
+    actionPanels: List<ActionPanel> = emptyList(),
+    gridPanels: List<GridPanel> = emptyList(),
     appInfos: List<AppInfo>,
     createShortcuts: List<LauncherInfo>,
     launchShortcuts: List<LauncherInfo>,
@@ -91,7 +95,7 @@ internal fun ActionPage(
             selectedType == TYPE_RULE -> emptyList()
             query.isBlank() -> actions
             else -> actions.filter {
-                context.actionTextWithSubGesture(it, subGestures, actionLibraryEntries, rules, emptyIfNone = false)
+                context.actionTextWithSubGesture(it, subGestures, actionLibraryEntries, rules, actionPanels, gridPanels, emptyIfNone = false)
                     .contains(query, ignoreCase = true)
             }
         }
@@ -213,7 +217,15 @@ internal fun ActionPage(
                         ActionItem(
                             modifier = Modifier.animateItem(),
                             action = item,
-                            actionLabel = context.actionTextWithSubGesture(item, subGestures, actionLibraryEntries, emptyIfNone = false),
+                            actionLabel = context.actionTextWithSubGesture(
+                                item,
+                                subGestures,
+                                actionLibraryEntries,
+                                rules,
+                                actionPanels,
+                                gridPanels,
+                                emptyIfNone = false,
+                            ),
                             selected = selectedRecord.isSelected(item),
                             onSelect = { onSelect(item) },
                             shape = selectedSegmentedShape(index, categoryActions.size, categoryFlags),
@@ -249,7 +261,7 @@ internal fun ActionPage(
                     ActionItem(
                         modifier = Modifier.animateItem(),
                         action = action,
-                        actionLabel = rule.name.ifBlank { context.actionTextWithSubGesture(action, subGestures, actionLibraryEntries, rules, emptyIfNone = false) },
+                        actionLabel = rule.name.ifBlank { context.actionTextWithSubGesture(action, subGestures, actionLibraryEntries, rules, actionPanels, gridPanels, emptyIfNone = false) },
                         subtitle = conditionSummary(context, rule.condition),
                         selected = selectedRecord.isSelected(action),
                         onSelect = { onSelect(action) },

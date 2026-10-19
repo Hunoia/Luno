@@ -117,6 +117,7 @@ object ActionMapper {
                 p.arrayOfStr("buttonIds"),
             )
             "internal.quickAppLauncher" -> Action.QuickAppLauncher
+            "internal.gridPanel" -> Action.GridPanel(p.str(GRID_PANEL_PARAM_PANEL_ID))
             "internal.quickSearch" -> Action.QuickSearch
             "internal.volumeScrub" -> Action.VolumeScrub(
                 horizontalEnabled = p.bool(
