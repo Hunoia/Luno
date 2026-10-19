@@ -32,6 +32,10 @@ object AppSearch {
         /** 多音字变体（单字单换，防组合爆炸，cap 8）：如 音乐→[yinle, yinyue]。 */
         val altPinyins: List<String> = emptyList(),
         val altPinyinsFolded: List<String> = emptyList(),
+        /** 变体首字母串（单字单换，独立 cap）：如 番茄小说→[bqxs, pqxs, fqxs]。
+         * 首字母串只用各字第一读音构建（茄:jiā,qié → fjxs），换音读法只活在全拼变体里，
+         * 没有 initials 变体则 fq 这类相邻双字母在全拼中隔着韵母永远命不中。 */
+        val altInitials: List<String> = emptyList(),
     )
 
     private data class SearchEntry(
@@ -153,10 +157,16 @@ object AppSearch {
         }
 
         // 代表选取：各字段（initials/pinyin/变体/raw）的连续块按档位+起点取最优。
-        // initials 0 位块独占 tier 2；其余字段 0 位块 tier 1；中段块 tier 0。
+        // initials（基准 + 变体）0 位块独占 tier 2；其余字段 0 位块 tier 1；中段块 tier 0。
         val cands = mutableListOf<TieredMatch>()
         val ini = matchWithMasks(index.initials, masks)
         cands.add(if (ini.tier == ANCHOR) TieredMatch(2, ini.span, ini.offset) else ini)
+        // 变体首字母与基准同档：换音只是库里读音排序问题（茄:jiā,qié），用户意图相同
+        // （fq/fj 都在搜番茄小说），不降档。
+        for (altIni in index.altInitials) {
+            val r = matchWithMasks(altIni, masks)
+            cands.add(if (r.tier == ANCHOR) TieredMatch(2, r.span, r.offset) else r)
+        }
         fun addAnchor(text: String) {
             val r = matchWithMasks(text, masks)
             cands.add(if (r.tier == ANCHOR) TieredMatch(1, r.span, r.offset) else r)
@@ -271,19 +281,30 @@ object AppSearch {
                 initials.append(r[0].first())
             }
         }
-        // 变体：每次只换一个多音字（防组合爆炸，cap 8），如 音乐→[yinle, yinyue]。
+        // 变体：每次只换一个多音字（防组合爆炸），如 音乐→[yinle, yinyue]。
         // 长文本跳过：变体是短标题多音字的活，正文里建了也排不上。
+        // 全拼与 initials 各自独立 cap：首字母串短且去重后极少（番 8 读音首字母只有 f/b/p），
+        // 但共用名额会被多读音字（如 番 的 7 个变体）挤占关键变体，故分开计数。
         val alts = ArrayList<String>()
+        val altInis = LinkedHashSet<String>()
         if (short) {
             for (i in readings.indices) {
                 val r = readings[i]
-                if (r.size < 2 || alts.size >= 8) continue
+                if (r.size < 2) continue
+                val initialsBase = r[0].first()
                 for (alt in r.subList(1, r.size)) {
-                    if (alts.size >= 8) break
-                    val sb = StringBuilder()
-                    for (j in readings.indices) sb.append(if (j == i) alt else readings[j][0])
-                    val s = sb.toString()
-                    if (s !in alts) alts.add(s)
+                    if (alts.size < 8) {
+                        val sb = StringBuilder()
+                        for (j in readings.indices) sb.append(if (j == i) alt else readings[j][0])
+                        val s = sb.toString()
+                        if (s !in alts) alts.add(s)
+                    }
+                    val ini = alt.first()
+                    if (ini != initialsBase && altInis.size < 16) {
+                        val sb = StringBuilder()
+                        for (j in readings.indices) sb.append(if (j == i) ini else readings[j][0].first())
+                        altInis.add(sb.toString())
+                    }
                 }
             }
         }
@@ -296,6 +317,7 @@ object AppSearch {
             pinyinFolded = foldPinyin(base),
             altPinyins = alts,
             altPinyinsFolded = alts.map { foldPinyin(it) },
+            altInitials = altInis.toList(),
         )
         pinyinIndexCache[key] = result
         return result

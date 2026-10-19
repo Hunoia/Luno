@@ -144,6 +144,7 @@ dependencies {
     // color-picker removed; replaced with in-app HsvRectPicker
     implementation(libs.material.icons.extended)
     implementation(libs.houbb.pinyin)
+    testImplementation("junit:junit:4.13.2")
     implementation(libs.rikka.shizuku.api)
     implementation(libs.rikka.shizuku.provider)
     implementation(libs.hiddenapibypass)
