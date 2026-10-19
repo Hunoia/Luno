@@ -88,6 +88,18 @@ private val GridSpacing = 6.dp
 private const val CardSurfaceAlpha = 0.75f
 
 /**
+ * 内容键：跟随内容而非槽位（拖拽换位时 `animateItem` 才有重排动画），
+ * 同内容用「出现序号」消歧。必须与项列表在同一快照里一起写入对应状态。
+ */
+private fun gridItemKeys(items: List<StoredAction>): List<String> {
+    val seen = HashMap<Int, Int>()
+    return items.map { action ->
+        val nth = seen.merge(action.hashCode(), 1, Int::plus) ?: 1
+        "${action.hashCode()}_$nth"
+    }
+}
+
+/**
  * 网格面板（docs/grid-panel.md）：
  * 运行态 —— 点项执行、长按项执行变体（无变体回落主动作，同弧形面板 selectedAction）；
  * 编辑态 —— 长按空白进出、点项弹菜单、点「+」加项、长按拖拽排序。
@@ -147,10 +159,16 @@ fun GridPanelRoot(
     // 直接渲染 panel.items 会在快速拖动时被旧快照回跳。
     // 回流同步只认「与 lastWritten 不同」的变更（自己写出去的回声不覆盖本地）。
     var localItems by remember(panel.id) { mutableStateOf(panel.items) }
+    // 键表与项**在同一个快照里一起写**，不能做成 remember(localItems) 的派生值：
+    // LazyGrid 的间隔表是 derivedStateOf（快照通知阶段就是新的），而 key lambda 走
+    // rememberUpdatedState（要等组合跑完才换）。两者错开一拍时，每加一项就是
+    // 「Index N out of bounds for length N」的 IndexOutOfBoundsException。
+    var localKeys by remember(panel.id) { mutableStateOf(gridItemKeys(panel.items)) }
     var lastWritten by remember(panel.id) { mutableStateOf(panel.items) }
     LaunchedEffect(panel.items) {
         if (panel.items != lastWritten) {
             localItems = panel.items
+            localKeys = gridItemKeys(panel.items)
             lastWritten = panel.items
         }
     }
@@ -191,6 +209,7 @@ fun GridPanelRoot(
 
     fun commitItems(next: List<StoredAction>) {
         localItems = next
+        localKeys = gridItemKeys(next)
         lastWritten = next
         scope.launch {
             TuneConfig.updateAction { settings ->
@@ -310,14 +329,8 @@ fun GridPanelRoot(
                     }
                 } else {
                     // 内容键：跟随内容而非槽位，拖拽换位时 animateItem 才有重排动画；
-                    // 重复项用「出现序号」消歧。
-                    val keys = remember(localItems) {
-                        val seen = HashMap<Int, Int>()
-                        localItems.map { action ->
-                            val n = seen.merge(action.hashCode(), 1, Int::plus) ?: 1
-                            "${action.hashCode()}_$n"
-                        }
-                    }
+                    // 重复项用「出现序号」消歧。键表读的是与 localItems 同步写入的状态，
+                    // 不是组合期缓存（见 localKeys 的注释）。
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(columns),
                         state = gridState,
@@ -328,7 +341,7 @@ fun GridPanelRoot(
                     ) {
                         items(
                             count = localItems.size,
-                            key = { index -> keys[index] },
+                            key = { index -> localKeys[index] },
                         ) { index ->
                             val action = localItems[index]
                             var cellCenter by remember { mutableStateOf(IntOffset.Zero) }

@@ -16,6 +16,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -151,6 +152,13 @@ object GridPanelOverlay {
             setBackgroundColor(Color.TRANSPARENT)
             owner.attachTo(this)
             addOnAttachStateChangeListener(attachListener)
+            // 组合常驻的关键：默认策略是 DisposeOnDetachedFromWindowOrReleasedFromPool，
+            // 窗口一被系统摘掉组合就释放，而重新 addView 时
+            // shouldCreateCompositionOnAttachedToWindow 已被置 false、不会重建 ——
+            // 于是 show() 的「!attached 重新挂原实例」分支只会得到一块空白板。
+            // 改成随 owner 销毁，才对得上 [PanelLifecycleOwner] 「不随 detach 自动销毁」
+            // 的设计（真正关闭时由 [closeImmediate] 调 destroy() 释放）。
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             // 必须显式限定 GridPanelOverlay.：ComposeView 自己有一个 public 的
             // @Composable fun Content()（AbstractComposeView 的抽象成员，内容透传
             // `{ content.value?.invoke(this) }`），而这里在 apply 块里、apply 的接收者
