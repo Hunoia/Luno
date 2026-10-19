@@ -79,9 +79,18 @@ object ConfigProvider {
 
     /** 执行历史追加：全局环形 100，写盘失败吞掉（调试数据不影响规则执行）。 */
     suspend fun appendAutomationEvent(event: hunoia.luno.runtime.automation.AutomationEvent) {
+        appendAutomationEvents(listOf(event))
+    }
+
+    /**
+     * 批量追加：一次 updateData 写入整批。原来「每条事件一次全量重写」在规则竞争时
+     * 会变成 N 次序列化 + N 次写盘，这里是写放大的主要来源。
+     */
+    suspend fun appendAutomationEvents(events: List<hunoia.luno.runtime.automation.AutomationEvent>) {
+        if (events.isEmpty()) return
         runCatching {
             stores._automationLog.updateData { old ->
-                (old + event).takeLast(hunoia.luno.runtime.automation.ExecutionLog.MAX_EVENTS)
+                (old + events).takeLast(hunoia.luno.runtime.automation.ExecutionLog.MAX_EVENTS)
             }
         }
     }
@@ -100,8 +109,15 @@ object ConfigProvider {
     /** 面板首开同步读一次快照。 */
     suspend fun getQuickAppSnapshot(): QuickAppSnapshot = stores.readQuickAppSnapshot()
 
-    /** 预热链扫完列表后回写快照。只写派生的列表数据，不含任何用户配置。 */
+    /**
+     * 预热链扫完列表后回写快照。只写派生的列表数据，不含任何用户配置。
+     *
+     * 内容没变就不写：启动预热每次都重扫一遍包列表，绝大多数时候结果与上次完全一致，
+     * 却是「全量序列化 + 全量写盘」。DataStore 首次读之后数据在内存里，比一次写便宜得多。
+     */
     suspend fun writeQuickAppSnapshot(snapshot: QuickAppSnapshot) {
+        val current = runCatching { stores.readQuickAppSnapshot() }.getOrNull()
+        if (current == snapshot) return
         stores._quickAppSnapshot.updateData { snapshot }
     }
 

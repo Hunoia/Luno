@@ -158,9 +158,11 @@ class ConditionSources(
         started = false
         headphonesInitDone = false
         bluetoothAudioInitDone = false
-        runCatching {
-            (context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager)
-                .unregisterNetworkCallback(networkCallback!!)
+        networkCallback?.let { callback ->
+            runCatching {
+                (context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager)
+                    .unregisterNetworkCallback(callback)
+            }
         }
         networkCallback = null
         runCatching { context.contentResolver.unregisterContentObserver(airplaneObserver) }
@@ -222,9 +224,11 @@ class ConditionSources(
     }
 
     private fun readAirplaneMode() {
-        val enabled = runCatching {
+        // 读失败（极少数 ROM 会抛 SecurityException）时保留旧值，不要把失败当成「关闭」。
+        val raw = runCatching {
             Settings.Global.getInt(context.contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0)
-        }.getOrNull() != null
+        }.getOrNull() ?: return
+        val enabled = raw != 0
         if (enabled != airplaneMode) {
             airplaneMode = enabled
             onStateChanged()

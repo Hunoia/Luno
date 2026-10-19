@@ -38,9 +38,14 @@ object QuickLaunchFacade {
      *
      * 图标不再自己缓存：`AppIconFetcher` 会把原生 Drawable 缩到 [sizePx] 后交给
      * Coil，缓存键由 `AppIconKeyer` + 请求 size 共同决定。
+     *
+     * ImageRequest 本身按 (包名, 边长) 复用：它是普通 class、不重写 equals，
+     * 每次 new 一个都会让 AsyncImage 的 model 参数恒变（Compose 跳过失效）。
      */
-    fun appIconRequest(context: Context, packageName: String, sizePx: Int): ImageRequest =
-        ImageRequest.Builder(context)
+    fun appIconRequest(context: Context, packageName: String, sizePx: Int): ImageRequest {
+        val key = "$packageName@$sizePx"
+        synchronized(iconRequestCache) { iconRequestCache[key] }?.let { return it }
+        val req = ImageRequest.Builder(context)
             .data(AppIconModel(packageName, sizePx))
             .size(sizePx, sizePx)
             // 搜索行禁用全局 150ms crossfade：结果列表每次挂载十几行，
@@ -49,6 +54,17 @@ object QuickLaunchFacade {
             // 无需淡入掩盖解码。
             .crossfade(false)
             .build()
+        synchronized(iconRequestCache) { iconRequestCache[key] = req }
+        return req
+    }
+
+    /** 请求复用上限：一屏结果十几行，128 ≈ 8 屏的余量。 */
+    private const val ICON_REQUEST_CAP = 128
+    private val iconRequestCache = object : LinkedHashMap<String, ImageRequest>(32, 0.75f, true) {
+        override fun removeEldestEntry(
+            eldest: MutableMap.MutableEntry<String, ImageRequest>?,
+        ): Boolean = size > ICON_REQUEST_CAP
+    }
 
     fun queryLauncherAppOptions(context: Context): List<LauncherAppOption> =
         OpenAppOrUrlQuery.queryLauncherApps(context)

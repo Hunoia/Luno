@@ -116,6 +116,19 @@ configurations.all {
     exclude(group = "org.jetbrains.kotlin", module = "kotlin-android-extensions-runtime")
 }
 
+// Compose 编译器度量：默认不产出，只有显式 -PlunoComposeMetrics=true 时才写报告。
+// 用法：./gradlew :app:assembleDebug -PlunoComposeMetrics=true
+// 产物：app/build/compose-metrics/{*-composables.txt, *-classes.txt, *-reports.csv}
+// 读法：composables.txt 里看 ResultRow 是否 restartable skippable、参数里是否还有 unstable。
+composeCompiler {
+    if (providers.gradleProperty("lunoComposeMetrics").orNull == "true") {
+        val out = layout.buildDirectory.dir("compose-metrics")
+        metricsDestination.set(out)
+        reportsDestination.set(out)
+        includeSourceInformation.set(true)
+    }
+}
+
 dependencies {
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.runtime.saveable)

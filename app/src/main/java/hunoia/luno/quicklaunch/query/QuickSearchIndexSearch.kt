@@ -67,7 +67,9 @@ fun QuickSearchIndex.search(
         torchOn: Boolean = false,
     ): List<QuickSearchResult> {
         ensureLoaded()
-        if (!appsLoaded) refreshApps()
+        // 这里不再 refreshApps() 兜底：全量查包几十~几百毫秒，会把首字搜索堵在
+        // Dispatchers.Default 上（此前首字卡顿的元凶之一）。应用索引由 Activity 在 IO
+        // 线程预加载，就绪后 appsLoaded 翻转 → 面板的 appsTick 触发一次补搜。
         this.torchOn = torchOn
         // 标识指令优先（bb 新闻 / sms 138 / 裸 sms）：命中只回目标类，
         // 纯目标结果（无引擎兜底、无计算器、无历史参展）。null = 无指令，走全源。
@@ -250,7 +252,7 @@ private fun QuickSearchIndex.matchTracks(
     ): List<RankedHit> {
         val out = mutableListOf<RankedHit>()
         if (!searchSettings.searchMusic ||
-            !hasMediaPermission(android.Manifest.permission.READ_MEDIA_AUDIO)
+            !mediaPermissionCached(android.Manifest.permission.READ_MEDIA_AUDIO)
         ) {
             return out
         }
@@ -268,8 +270,8 @@ private fun QuickSearchIndex.matchGallery(
     ): List<RankedHit> {
         val out = mutableListOf<RankedHit>()
         if (!searchSettings.searchFiles) return out
-        val galleryOk = hasMediaPermission(android.Manifest.permission.READ_MEDIA_IMAGES) ||
-            hasMediaPermission(android.Manifest.permission.READ_MEDIA_VIDEO)
+        val galleryOk = mediaPermissionCached(android.Manifest.permission.READ_MEDIA_IMAGES) ||
+            mediaPermissionCached(android.Manifest.permission.READ_MEDIA_VIDEO)
         if (!galleryOk) return out
         for (f in mediaFiles) {
             val m = tierOf(f.name, tokens, foldedTokens)
@@ -284,7 +286,7 @@ private fun QuickSearchIndex.matchDocs(
         searchSettings: QuickSearchSettings,
     ): List<RankedHit> {
         val out = mutableListOf<RankedHit>()
-        if (!searchSettings.searchFiles || !hasAllFilesAccess()) return out
+        if (!searchSettings.searchFiles || !permSnapshot.allFiles) return out
         for (d in docs) {
             val m = tierOf(d.name, tokens, foldedTokens)
             if (m.tier >= 0) out.add(RankedHit(d, m.tier, m.span, m.offset, 0.0))
@@ -299,9 +301,18 @@ private fun QuickSearchIndex.matchToggles(
     ): List<RankedHit> {
         val out = mutableListOf<RankedHit>()
         if (!searchSettings.searchToggles) return out
-        for (t in toggleRows()) {
-            val m = bestOf(tierOf(t.title, tokens, foldedTokens), tierOf(t.keywords, tokens, foldedTokens))
-            if (m.tier >= 0) out.add(RankedHit(t, m.tier, m.span, m.offset, 0.0))
+        // 先用静态元数据（标题/关键词）匹配，只有命中的行才去读系统状态。
+        // 以前是先造 6 行（每行一次 binder IPC）再逐行匹配，一条 "w" 就白读 4 次系统服务。
+        for (spec in toggleSpecs()) {
+            val m = bestOf(tierOf(spec.title, tokens, foldedTokens), tierOf(spec.keywords, tokens, foldedTokens))
+            if (m.tier >= 0) {
+                out.add(
+                    RankedHit(
+                        QuickSearchResult.PhoneToggle(spec.kind, spec.title, spec.keywords, toggleSubtitle(spec.kind)),
+                        m.tier, m.span, m.offset, 0.0,
+                    ),
+                )
+            }
         }
         return out
     }
@@ -513,7 +524,7 @@ private fun QuickSearchIndex.bareSource(
             SRC_ACTION -> actions.take(BARE_LIST_LIMIT)
             SRC_SETTINGS -> settingsPages.take(BARE_LIST_LIMIT)
             SRC_CONTACT -> if (contactsReady()) contacts.take(BARE_LIST_LIMIT) else return null
-            SRC_MUSIC -> if (hasMediaPermission(android.Manifest.permission.READ_MEDIA_AUDIO)) {
+            SRC_MUSIC -> if (mediaPermissionCached(android.Manifest.permission.READ_MEDIA_AUDIO)) {
                 tracks.take(BARE_LIST_LIMIT)
             } else {
                 return null

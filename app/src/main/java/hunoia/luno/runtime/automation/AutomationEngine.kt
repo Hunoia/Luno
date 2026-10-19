@@ -19,7 +19,11 @@ import hunoia.luno.runtime.condition.matches
  */
 class AutomationEngine(
     private val onFireRule: (AutomationRule, ConditionContext) -> Unit,
-    private val onEvent: (AutomationEvent) -> Unit,
+    /**
+     * 一轮求值产出的全部跳过事件一次性交付。以前是每条落选规则一次回调，
+     * 调用方每条都起一个协程写一次盘 —— N 条规则竞争就是 N 次全量重写日志。
+     */
+    private val onEvents: (List<AutomationEvent>) -> Unit,
 ) {
     private val prevMatches = mutableMapOf<String, Boolean>()
 
@@ -99,9 +103,11 @@ class AutomationEngine(
         // createdAtMs 只做导入/合并等列表顺序不可信时的兜底元数据，不参与本次比较。
         val ordered = candidates.sortedByDescending { it.priority }
         val winner = ordered.first()
+        // 本轮所有跳过事件先在本地攒起来，最后一次性交付（见 onEvents 注释）。
+        val skipped = ArrayList<AutomationEvent>(ordered.size)
         for (rule in ordered) {
             if (rule.id == winner.id) continue
-            onEvent(
+            skipped.add(
                 AutomationEvent(
                     ruleId = rule.id, ruleName = rule.name, timeMs = ctx.nowMs, wallTimeMs = System.currentTimeMillis(),
                     fired = false, reason = SkipReason.OUTPRIORITIZED.code,
@@ -110,30 +116,38 @@ class AutomationEngine(
         }
         val steps = winner.effect.steps
         if (steps.isEmpty()) {
-            onEvent(
+            skipped.add(
                 AutomationEvent(
                     ruleId = winner.id, ruleName = winner.name, timeMs = ctx.nowMs, wallTimeMs = System.currentTimeMillis(),
                     fired = false, reason = SkipReason.NO_STEPS.code,
                 )
             )
+            dispatch(skipped)
             cleanup(rules)
             return
         }
         val throttle = winner.throttle
         val blockReason = throttleBlockReason(winner.id, throttle, ctx.nowMs)
         if (blockReason != null) {
-            onEvent(
+            skipped.add(
                 AutomationEvent(
                     ruleId = winner.id, ruleName = winner.name, timeMs = ctx.nowMs, wallTimeMs = System.currentTimeMillis(),
                     fired = false, reason = blockReason.code,
                 )
             )
+            dispatch(skipped)
             cleanup(rules)
             return
         }
+        // 跳过记录先落，再触发执行：历史顺序保持「谁被压制」在前。
+        dispatch(skipped)
         markFired(winner.id, throttle, ctx.nowMs)
         onFireRule(winner, ctx)
         cleanup(rules)
+    }
+
+    private fun dispatch(events: List<AutomationEvent>) {
+        if (events.isNotEmpty()) onEvents(events)
     }
 
     /**

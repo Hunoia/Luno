@@ -56,6 +56,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.mapLatest
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -108,9 +110,12 @@ import hunoia.luno.quicklaunch.query.ensureCalls
 import hunoia.luno.quicklaunch.query.ensureContacts
 import hunoia.luno.quicklaunch.query.ensureMedia
 import hunoia.luno.quicklaunch.query.ensureSms
+import hunoia.luno.quicklaunch.query.invalidateToggleState
 import hunoia.luno.quicklaunch.query.isDirective
 import hunoia.luno.quicklaunch.query.recentFiles
+import hunoia.luno.quicklaunch.query.refreshPermissionCache
 import hunoia.luno.quicklaunch.query.search
+import hunoia.luno.quicklaunch.query.stableId
 import hunoia.luno.quicklaunch.query.topUsed
 import hunoia.luno.ui.permission.rememberPermissionState
 import hunoia.luno.ui.settings.search.sourceTitle
@@ -134,6 +139,68 @@ private data class SearchSnapshot(
     val callsTick: Int,
     val torchOn: Boolean,
 )
+
+/**
+ * 影响搜索结果的设置子集（纯值投影）。
+ *
+ * QuickSearchSettings 是整对象 DataStore 值：改面板外观、删一条搜索历史都会 new 一个新实例，
+ * 直接拿它当依赖 ⇒ 每次写设置都全量重搜。所以按字段投影，只在真正影响 search() 的字段变时才换引用。
+ *
+ * recentQueries 有意排除：它只被 UI 用于历史行匹配与空态展示，不进 index.search；
+ * 不排除的话「长按删一条历史」会立刻触发一次全表重搜。
+ */
+private data class SearchInputs(
+    val defaultEngineId: String,
+    val customEngines: List<hunoia.luno.config.model.SearchEngine>,
+    val sourceTriggers: Map<String, String>,
+    val searchClipboard: Boolean,
+    val searchContacts: Boolean,
+    val searchMusic: Boolean,
+    val searchFiles: Boolean,
+    val searchCalendar: Boolean,
+    val searchToggles: Boolean,
+    val searchSms: Boolean,
+    val searchCalls: Boolean,
+    val clipHistory: List<String>,
+    val pinnedClips: List<String>,
+) {
+    /** 反向拼回引擎/匹配层认的完整设置；recentQueries 与 UI 无关字段留默认值。 */
+    fun toSettings() = hunoia.luno.config.model.QuickSearchSettings(
+        defaultEngineId = defaultEngineId,
+        customEngines = customEngines,
+        sourceTriggers = sourceTriggers,
+        searchClipboard = searchClipboard,
+        searchContacts = searchContacts,
+        searchMusic = searchMusic,
+        searchFiles = searchFiles,
+        searchCalendar = searchCalendar,
+        searchToggles = searchToggles,
+        searchSms = searchSms,
+        searchCalls = searchCalls,
+        clipHistory = clipHistory,
+        pinnedClips = pinnedClips,
+    )
+
+    companion object {
+        fun of(s: hunoia.luno.config.model.QuickSearchSettings) = SearchInputs(
+            defaultEngineId = s.defaultEngineId,
+            customEngines = s.customEngines,
+            sourceTriggers = s.sourceTriggers,
+            searchClipboard = s.searchClipboard,
+            searchContacts = s.searchContacts,
+            searchMusic = s.searchMusic,
+            searchFiles = s.searchFiles,
+            searchCalendar = s.searchCalendar,
+            searchToggles = s.searchToggles,
+            searchSms = s.searchSms,
+            searchCalls = s.searchCalls,
+            clipHistory = s.clipHistory,
+            pinnedClips = s.pinnedClips,
+        )
+    }
+}
+
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @Composable
 internal fun QuickSearchContent(
     index: QuickSearchIndex,
@@ -240,22 +307,52 @@ internal fun QuickSearchContent(
     val appCtx = LocalContext.current.applicationContext
     // 搜索搬出主线程：query 照常即时更新（字先上屏），结果流式回来；
     // mapLatest 自动取消过期搜索，快打不堆积。空串短路不进搜索。
-    // snapshotFlow 跟踪块内读到的全部 State（query/设置/tick），值变化即重搜。
+    // 依赖只留「不会每帧变」的东西：query 不进 key（由块内 snapshotFlow 读，打字不重建流），
+    // 设置走 SearchInputs 投影（改外观/删历史不重搜），tick 合成一个 dataVersion。
+    val searchInputs = remember(searchSettings) { SearchInputs.of(searchSettings) }
+    val launchCount = remember(launcherSettings) { launcherSettings.launchCount }
+    val recentLaunchTime = remember(launcherSettings) { launcherSettings.recentLaunchTime }
+    // 引擎/开关匹配只吃这两个（SearchInputs 已含其余），拼回完整设置只为沿用旧签名。
+    val effectiveSearchSettings = remember(searchInputs) { searchInputs.toSettings() }
+    // 启动频率/最近启动变了不必重建流：排序分是搜索时现算的，下一次搜索自然带上新值。
+    // 所以这里把 launcher 只留「搜索侧用得到」的两个 map，引用由 remember 抄平。
+    val effectiveLauncher = remember(launchCount, recentLaunchTime) {
+        hunoia.luno.config.model.QuickAppLauncherSettings(
+            launchCount = launchCount,
+            recentLaunchTime = recentLaunchTime,
+        )
+    }
+    // 应用索引就绪后才补搜一次：Activity 在 IO 线程 refreshApps，先打字时 apps 还是空，
+    // 就绪后靠这里 tick 补一次（替代旧的在搜索线程里阻塞查包兜底）。
+    var appsTick by remember { mutableIntStateOf(0) }
+    // 权限快照刷新的版本号：快照是 @Volatile 普通字段，Compose 看不见它变化，
+    // 靠这个 State 把「已刷新」这件事带进重组。
+    var permCacheTick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(index) {
+        // 每次就绪（含 refreshApps 重刷后）都补一次；初值 false 会被 filter 挡掉。
+        snapshotFlow { index.appsLoaded || index.defsLoaded }.filter { it }.collect { appsTick++ }
+    }
+    // dataVersion：数据源 tick / 索引就绪 —— 任一变化就重建搜索流并重搜一次。
+    // 值本身不进快照（快照里再放一遍等于同一变化算两次）。
+    val dataVersion = contactsTick + mediaTick + calendarTick + smsTick + callsTick + appsTick + permCacheTick
     val searchFlow = remember(
-        entries, launcherSettings, searchSettings,
-        contactsTick, mediaTick, calendarTick, smsTick, callsTick, torchOn, appCtx, iconPx,
+        appCtx, iconPx, searchInputs, effectiveLauncher, effectiveSearchSettings, dataVersion, torchOn,
     ) {
         snapshotFlow {
+            // 块内只读「快照里没装但会影响结果」的两类 State：
+            // query（打字即时触发）、entries（动作库条目参与匹配）；
+            // tick 等已由 remember 的 key 带进闭包，不重复追踪。
             SearchSnapshot(
-                query.text, entries, launcherSettings, searchSettings,
-                contactsTick, mediaTick, calendarTick, smsTick, callsTick, torchOn,
+                query.text, entries, effectiveLauncher, effectiveSearchSettings,
+                0, 0, 0, 0, 0, torchOn,
             )
         }.mapLatest { s ->
-            if (s.text.isBlank()) {
-                s.text to emptyList<QuickSearchResult>()
+            val text = s.text
+            if (text.isBlank()) {
+                text to emptyList<QuickSearchResult>()
             } else {
                 withContext(Dispatchers.Default) {
-                    val out = index.search(s.text, s.entries, s.launcher, s.search, s.torchOn).also { res ->
+                    val out = index.search(text, s.entries, s.launcher, s.search, s.torchOn).also { res ->
                         // 发射前把 App/快捷方式行的图标 resolve 进同步缓存：
                         // UI 线程读到即画，无异步空隙，结果原子到达。已缓存的零开销，
                         // 只有新包才解码（自带 bitmap 的快捷方式跳过）。
@@ -270,7 +367,7 @@ internal fun QuickSearchContent(
                         }
                         SearchIconCache.ensureAll(appCtx, pkgs, iconPx)
                     }
-                    s.text to out
+                    text to out
                 }
             }
         }
@@ -315,6 +412,14 @@ internal fun QuickSearchContent(
     val pinnedSet = remember(searchSettings.pinnedClips) { searchSettings.pinnedClips.toSet() }
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
+    // 权限快照 + 开关状态缓存：面板每次打开都重新读一次真实值（打开期间各 tick 变化也刷）。
+    LaunchedEffect(permTick, contactsPerm.isGranted, calendarPerm.isGranted, smsPerm.isGranted, callsPerm.isGranted) {
+        withContext(Dispatchers.IO) {
+            index.refreshPermissionCache()
+            invalidateToggleState()
+        }
+        permCacheTick++
+    }
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
         keyboard?.show()
@@ -335,6 +440,18 @@ internal fun QuickSearchContent(
         Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).resolveActivity(
             permCtx.packageManager,
         ) != null
+    }
+    // 空态两段数据（常用应用 / 最近文件）：放在条件分支外，面板生命周期内只跑一次。
+    // 以前写在 else-if 分支里，分支一退出就取消，来回切 query 会反复重启 IO。
+    var topUsedApps by remember { mutableStateOf(emptyList<QuickSearchResult.App>()) }
+    LaunchedEffect(effectiveLauncher, appsTick) {
+        topUsedApps = withContext(Dispatchers.IO) { index.topUsed(effectiveLauncher) }
+    }
+    var recentFiles by remember { mutableStateOf(emptyList<QuickSearchResult>()) }
+    LaunchedEffect(mediaTick, searchSettings.searchFiles) {
+        recentFiles =
+            if (searchSettings.searchFiles) withContext(Dispatchers.IO) { index.recentFiles() }
+            else emptyList()
     }
     // 进出场动画状态：进场从 0.92/0 起播到 1，closing 置位后播到 0.95/0。
     val panelScale = remember { Animatable(0.92f) }
@@ -378,7 +495,9 @@ internal fun QuickSearchContent(
     ) {
         // statusBarsPadding：内容从状态栏下方开始，不垫在透明状态栏图标后面
         //（白卡压白图标会导致图标看不清，跟 blur 无关，必须避让）。
-        Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+        // imePadding 放整列而不是输入框：键盘弹起时列表跟着收缩，
+        // 否则列表高度不变、底部行被键盘盖住（反转列表里就是最贴胶囊那几行）。
+        Column(modifier = Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
             // 分支按“数据完整”进：flow 发射 (queryText, results) 原子包，
             // 在途（packet.text != query.text）时不挂半成品——首字无旧数据就继续显示空态，
             // 到达后一次切完整搜索列表（和空→提示同性质，原子出现不闪）。
@@ -400,8 +519,18 @@ internal fun QuickSearchContent(
                 val total = matches.size + displayResults.size
                 // 反转列表内容超高时会把首项顶出可视区之下：受控滚动，内容一变钉回
                 // 第 0 项（最贴胶囊那行）。API 级保证可见，不依赖布局锚定行为。
+                // 触发条件从 total 改成内容签名：以前每次敲字数量一变就滚，用户上滑看结果会被拽回。
                 val searchListState = rememberLazyListState()
-                LaunchedEffect(total) { searchListState.scrollToItem(0) }
+                val contentSig = signatureOf(
+                    displayResults.firstOrNull(), displayResults.lastOrNull(),
+                    total * 31 + matches.size,
+                )
+                LaunchedEffect(contentSig) { searchListState.scrollToItem(0) }
+                // key 只由内容决定（去 idx）：以前带 idx，结果重排时整列 key 失效、全部重建，
+                // 打字时肉眼可见闪。重复项由 stableKeys 补 ~n 保唯一。
+                val resultKeys = remember(displayResults) {
+                    stableKeys(displayResults.map { it.stableId() })
+                }
                 LazyColumn(
                     state = searchListState,
                     modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = PageGutter).listFade(),
@@ -410,7 +539,7 @@ internal fun QuickSearchContent(
                     verticalArrangement = Arrangement.spacedBy(SegmentedGap, Alignment.Bottom),
                     reverseLayout = true,
                 ) {
-                    itemsIndexed(matches, key = { idx, h -> "m-$idx-${h.hashCode()}" }) { pos, h ->
+                    itemsIndexed(matches, key = { _, h -> "m#$h" }) { pos, h ->
                         HistoryRow(
                             text = h,
                             shape = segmentedShape(total - 1 - pos, total),
@@ -418,7 +547,7 @@ internal fun QuickSearchContent(
                             onLongClick = { deleteHistory(h) },
                         )
                     }
-                    itemsIndexed(displayResults, key = { idx, item -> "${item::class.simpleName}-$idx-${item.title.hashCode()}" }) { index, item ->
+                    itemsIndexed(displayResults, key = { idx, _ -> "r#${resultKeys[idx]}" }) { index, item ->
                         val pos = matches.size + index
                         val shape = segmentedShape(total - 1 - pos, total)
                         if (item is QuickSearchResult.ClipEntry) {
@@ -456,18 +585,11 @@ internal fun QuickSearchContent(
                 // 锁屏占位：剪贴内容不展，只留一行提示。
                 val showClipPlaceholder = searchSettings.searchClipboard && locked
                 val clipPlaceholderCount = if (showClipPlaceholder) 1 else 0
-                // 空态常用/最近文件放 IO 线程：包查询 + MediaStore 在 composition 里同步跑
-                // 会堵主线程（与巨型剪贴同症状的 ANR）。首帧先展剪贴/历史，到达后补齐。
-                var used by remember { mutableStateOf(emptyList<QuickSearchResult.App>()) }
-                LaunchedEffect(launcherSettings) {
-                    used = withContext(Dispatchers.IO) { index.topUsed(launcherSettings) }
-                }
-                var recent by remember { mutableStateOf(emptyList<QuickSearchResult>()) }
-                LaunchedEffect(mediaTick, searchSettings.searchFiles) {
-                    recent =
-                        if (searchSettings.searchFiles) withContext(Dispatchers.IO) { index.recentFiles() }
-                        else emptyList()
-                }
+                // 空态常用/最近文件：数据由上方（分支外的 LaunchedEffect）供，这里只读。
+                // 以前这两个 LaunchedEffect 写在分支内，分支一退出就取消，来回切 query
+                // 会反复重启 IO（含 MediaStore 权限复查）；现在面板打开期间只跑一次。
+                val used = topUsedApps
+                val recent = recentFiles
                 val clipCount = clips.size
                 // 锁屏占位占 clips 段的首位：后续 pos 统一按槽位（clips+占位）偏移。
                 val clipSlotCount = clipCount + clipPlaceholderCount
@@ -495,7 +617,17 @@ internal fun QuickSearchContent(
                         grantCount + mediaGrantCount + filesGrantCount +
                         calendarGrantCount + smsGrantCount + callsGrantCount
                     val blankListState = rememberLazyListState()
-                    LaunchedEffect(total) { blankListState.scrollToItem(0) }
+                    // 内容签名同搜索态：数量变不再抢滚动，只有内容身份变才钉回首项。
+                    val blankSig = signatureOf(
+                        listOf(clips.firstOrNull(), history.firstOrNull(), used.firstOrNull(), recent.firstOrNull()),
+                        listOf(clips.lastOrNull(), history.lastOrNull(), used.lastOrNull(), recent.lastOrNull()),
+                        total,
+                    )
+                    LaunchedEffect(blankSig) { blankListState.scrollToItem(0) }
+                    val usedKeys = remember(used) {
+                        stableKeys(used.map { "u#${it.appInfo.packageName}/${it.appInfo.className}" })
+                    }
+                    val recentKeys = remember(recent) { stableKeys(recent.map { "r#" + it.stableId() }) }
                     LazyColumn(
                         state = blankListState,
                         modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = PageGutter).listFade(),
@@ -515,7 +647,7 @@ internal fun QuickSearchContent(
                                 )
                             }
                         }
-                        itemsIndexed(clips, key = { idx, c -> "c-$idx-${c.hashCode()}" }) { pos, clipText ->
+                        itemsIndexed(clips, key = { _, c -> "c#$c" }) { pos, clipText ->
                             ClipboardRow(
                                 text = clipText,
                                 shape = segmentedShape(total - 1 - pos, total),
@@ -527,7 +659,7 @@ internal fun QuickSearchContent(
                                 onTogglePin = { togglePin(clipText) },
                             )
                         }
-                        itemsIndexed(history, key = { idx, h -> "h-$idx-${h.hashCode()}" }) { pos, h ->
+                        itemsIndexed(history, key = { _, h -> "h#$h" }) { pos, h ->
                             HistoryRow(
                                 text = h,
                                 shape = segmentedShape(total - 1 - pos, total),
@@ -537,7 +669,7 @@ internal fun QuickSearchContent(
                                 onLongClick = { deleteHistory(h) },
                             )
                         }
-                        itemsIndexed(used, key = { idx, app -> "u-$idx-${app.appInfo.packageName}" }) { idx, app ->
+                        itemsIndexed(used, key = { idx, _ -> usedKeys[idx] }) { idx, app ->
                             val pos = clipSlotCount + history.size + idx
                             ResultRow(
                                 result = app,
@@ -547,7 +679,7 @@ internal fun QuickSearchContent(
                             )
                         }
                         // 最近文件（图库 + 文档按修改时间，不搜只展，点开/长按分享走 ResultRow）。
-                        itemsIndexed(recent, key = { idx, item -> "r-$idx-${item.title}" }) { idx, item ->
+                        itemsIndexed(recent, key = { idx, _ -> recentKeys[idx] }) { idx, item ->
                             val pos = clipSlotCount + history.size + used.size + idx
                             ResultRow(
                                 result = item,
@@ -736,6 +868,13 @@ internal fun QuickSearchContent(
             val confirmFirst: () -> Unit = {
                 results.firstOrNull()?.let { safeResult(it, query.text.trim()) }
             }
+            // 键盘动作对象 remember 住：每次重组新建 lambda 会让 OutlinedTextField 的
+            // keyboardActions 参数恒变，破坏它的跳过。
+            val keyboardActions = remember(results) {
+                KeyboardActions(onSearch = {
+                    results.firstOrNull()?.let { safeResult(it, query.text.trim()) }
+                })
+            }
             OutlinedTextField(
                 value = query,
                 onValueChange = { if (it.text.length <= MAX_QUERY_CHARS) query = it },
@@ -744,7 +883,6 @@ internal fun QuickSearchContent(
                     .padding(horizontal = PageGutter)
                     // 顶部 0：列表底边直接坐到输入框上沿，中间 0 间隙。
                     .padding(bottom = 8.dp)
-                    .imePadding()
                     .focusRequester(focusRequester),
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 trailingIcon = {
@@ -791,7 +929,7 @@ internal fun QuickSearchContent(
                     keyboardType = KeyboardType.Ascii,
                     imeAction = ImeAction.Search,
                 ),
-                keyboardActions = KeyboardActions(onSearch = { confirmFirst() }),
+                keyboardActions = keyboardActions,
                 colors = OutlinedTextFieldDefaults.colors(
                     // 半透明底色：透出窗口背后的系统模糊，不支持的设备直接呈现半透明。
                     focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f),

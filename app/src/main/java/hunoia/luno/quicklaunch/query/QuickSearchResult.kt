@@ -100,3 +100,36 @@ sealed interface QuickSearchResult {
         override val subtitle: String get() = ""
     }
 }
+
+/**
+ * 列表 item 的稳定身份：只由内容决定，不含出现序号（重复由 stableKeys 补 `~n`）。
+ * 用作 LazyColumn 的 key 基串——带 idx 的 key 会在结果重排时整列失效，全部重建。
+ *
+ * 无独立 id 的类型取「能区分同一实体」的最小字段集，并把类型前缀写进去防跨类型撞 key。
+ */
+internal fun QuickSearchResult.stableId(): String = when (this) {
+    is QuickSearchResult.ActionDef -> "a#${stored.typeId}|${stored.params}"
+    is QuickSearchResult.LibraryEntry -> "l#${entry.id}"
+    // 应用/快捷方式：包名+类名就是唯一标识（AppInfo.qualifiedName）。
+    is QuickSearchResult.App -> "app#${appInfo.packageName}/${appInfo.className}"
+    // 快捷方式没有独立 id（XML 解析时 currentId 就丢了），intents 是唯一能区分
+    // 同包同 activity 多个快捷方式的字段。
+    is QuickSearchResult.Shortcut ->
+        "sc#${shortcut.packageName}/${shortcut.className}|${shortcut.intents.joinToString("\u0001")}"
+    is QuickSearchResult.Settings -> "sp#${page.name}"
+    is QuickSearchResult.Url -> "url#$url"
+    is QuickSearchResult.EngineSearch -> "es#$engineName|$urlTemplate|$query"
+    is QuickSearchResult.Calc -> "calc#${expression}"
+    is QuickSearchResult.Contact -> "ct#${name}\u0001$number"
+    is QuickSearchResult.AudioTrack -> "mu#$uri"
+    is QuickSearchResult.ImageVideo -> "iv#$uri"
+    is QuickSearchResult.DocFile -> "doc#$uri"
+    is QuickSearchResult.PhoneToggle -> "tg#${kind.name}"
+    is QuickSearchResult.CalendarEvent -> "ce#$eventId\u0001$timeText"
+    // 短信没有 id：发件人 + 时间 + 正文哈希。同一秒同发件人同正文的两条消息会撞，
+    // 由 stableKeys 补序号兜底（视觉上但凡是完全等价的两行，错位不可见）。
+    is QuickSearchResult.SmsMsg -> "sms#$address\u0001$dateText\u0001${body.hashCode()}"
+    is QuickSearchResult.CallLogEntry -> "cl#$name\u0001$number\u0001$typeText\u0001$dateText"
+    // 剪贴只取哈希+长度：全文进 key 会让 key 常驻一份大字符串（剪贴可能几十 KB）。
+    is QuickSearchResult.ClipEntry -> "clip#${text.hashCode()}\u0001${text.length}"
+}

@@ -5,10 +5,9 @@
     android:settingsActivity="hunoia.luno.ui.MainActivity"
     android:accessibilityEventTypes="typeWindowStateChanged|typeViewFocused|typeViewTextChanged|typeViewTextSelectionChanged|typeWindowContentChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagDefault|flagRequestFilterKeyEvents"
+    android:accessibilityFlags="flagDefault"
     android:notificationTimeout="100"
     android:canPerformGestures="true"
     android:canTakeScreenshot="true"
     android:canRetrieveWindowContent="true"
-    android:canRequestFilterKeyEvents="true"
     tools:targetApi="30" />

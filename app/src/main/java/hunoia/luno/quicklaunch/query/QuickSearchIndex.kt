@@ -49,29 +49,52 @@ class QuickSearchIndex(internal val context: Context) {
     /** 手电状态是 Activity 翻的（CameraManager 无 getter），存在 index 供开关行副标题用。 */
     @Volatile var torchOn: Boolean = false
 
+    /** 加载互斥：各源"查一次就够"的闸门靠它保证只跑一遍。 */
+    private val loadLock = Any()
+
     fun ensureLoaded() {
         if (defsLoaded) return
-        defsLoaded = true
-        actions = ActionCatalog.searchDefinitions().map { def ->
+        // 先在局部变量里建好，再一次性发布。之前是先置 defsLoaded=true 再赋值，
+        // 并发下另一个线程会看到"已加载但 actions 还是空"，搜应用名直接整表丢失。
+        val builtActions = ActionCatalog.searchDefinitions().map { def ->
             QuickSearchResult.ActionDef(
                 StoredAction(def.typeId),
                 def.name,
                 def.icon,
             )
         }
-        settingsPages = systemSettingsPages()
+        val builtPages = systemSettingsPages()
+        synchronized(loadLock) {
+            if (defsLoaded) return
+            actions = builtActions
+            settingsPages = builtPages
+            defsLoaded = true
+        }
     }
 
     fun refreshApps() {
+        // 已加载就跳过：以前每次调用都全量查包 + 查快捷方式（PackageManager 几百毫秒），
+        // 面板重开一次就白跑一次。需要重刷（装卸应用）由调用方先失效后调。
+        if (appsLoaded) return
         val combined = DisabledAppQuery.queryQuickAppLauncherApps(context)
-        apps = combined.apps
-        disabledPkgs = combined.disabledPkgs
-        shortcuts = QuickLaunchFacade.queryShortcuts(context).flatMap { it.shortcuts }
-        AppSearch.warmIndexes(apps)
-        AppSearch.warmShortcutIndexes(shortcuts)
+        val builtShortcuts = QuickLaunchFacade.queryShortcuts(context).flatMap { it.shortcuts }
+        AppSearch.warmIndexes(combined.apps)
+        AppSearch.warmShortcutIndexes(builtShortcuts)
         // 图标不在这里预热：flow 在发射结果前按需 resolve（SearchIconCache），
         // 只解码露出的行；全量 enqueue 又慢又跟首搜 race。
-        appsLoaded = true
+        synchronized(loadLock) {
+            if (appsLoaded) return
+            apps = combined.apps
+            disabledPkgs = combined.disabledPkgs
+            shortcuts = builtShortcuts
+            appsLoaded = true
+        }
+    }
+
+    /** 强制重刷应用索引（装卸应用后）：清闸门再走 [refreshApps]。 */
+    fun invalidateApps() {
+        synchronized(loadLock) { appsLoaded = false }
+        refreshApps()
     }
 }
 

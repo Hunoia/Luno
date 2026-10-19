@@ -1,6 +1,5 @@
 package hunoia.luno.runtime.environment
 
-import android.content.ComponentName
 import android.content.Intent
 import android.view.accessibility.AccessibilityEvent
 import kotlinx.coroutines.Dispatchers
@@ -18,17 +17,13 @@ class PreviousAppTracker(
     private val launchablePackageCache = object : LinkedHashMap<String, Boolean>(256, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>?): Boolean = size > 256
     }
-    private val activityExistsCache = object : LinkedHashMap<String, Boolean>(512, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>?): Boolean = size > 512
-    }
 
     fun onAccessibilityEvent(event: AccessibilityEvent?) {
         when (event?.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 val packageName = event.packageName?.toString()
-                val className = event.className?.toString()
-
-                isActivity(packageName, className)
+                // 这里原来还有一次 isActivity(pkg, cls)：判断结果被丢弃，只在首次见到某个
+                // Activity 时白付一次 getActivityInfo（跨进程）—— 删掉，历史栈只依赖包名。
                 if (packageName != null &&
                     hasLaunchIntent(packageName) &&
                     currPackageName != packageName
@@ -64,7 +59,6 @@ class PreviousAppTracker(
         history.clear()
         currPackageName = null
         launchablePackageCache.clear()
-        activityExistsCache.clear()
     }
 
     private suspend fun queryLaunchIntentAndStart(packageName: String?): Boolean {
@@ -93,25 +87,5 @@ class PreviousAppTracker(
         val result = packageManager.getLaunchIntentForPackage(key) != null
         launchablePackageCache[key] = result
         return result
-    }
-
-    private fun isActivity(packageName: String?, className: String?): Boolean {
-        packageName ?: return false
-        className ?: return false
-        val key = "$packageName/$className"
-        activityExistsCache[key]?.let { return it }
-        return try {
-            val component = ComponentName(packageName, className)
-            packageManager.getActivityInfo(component, 0)
-            cacheActivityExists(key, true)
-            true
-        } catch (e: Exception) {
-            cacheActivityExists(key, false)
-            false
-        }
-    }
-
-    private fun cacheActivityExists(key: String, value: Boolean) {
-        activityExistsCache[key] = value
     }
 }

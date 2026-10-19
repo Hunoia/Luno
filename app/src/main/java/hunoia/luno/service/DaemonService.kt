@@ -55,9 +55,6 @@ class DaemonService : Service() {
             return START_NOT_STICKY
         }
 
-        contentObserver?.let { contentResolver.unregisterContentObserver(it) }
-        screenReceiver?.let { unregisterReceiver(it) }
-
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         startForegroundNotification(notificationManager)
 
@@ -69,34 +66,43 @@ class DaemonService : Service() {
             Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
         ) ?: ""
 
-        contentObserver = object : ContentObserver(Handler(mainLooper)) {
-            override fun onChange(selfChange: Boolean) {
-                val current = Settings.Secure.getString(
-                    contentResolver,
-                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-                ) ?: ""
-                if (current == selfWroteValue) return
-                restoreIfNeeded(serviceComponentName, serviceId, current)
+        // onStartCommand 可能被反复调用（START_STICKY 重启、外部多次 startService），
+        // 监听器本身跨调用一直有效：已注册就跳过，别每次都「反注册再注册」白付一轮开销。
+        if (contentObserver == null) {
+            contentObserver = object : ContentObserver(Handler(mainLooper)) {
+                override fun onChange(selfChange: Boolean) {
+                    val current = Settings.Secure.getString(
+                        contentResolver,
+                        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+                    ) ?: ""
+                    if (current == selfWroteValue) return
+                    restoreIfNeeded(serviceComponentName, serviceId, current)
+                }
             }
+            val observer = contentObserver ?: error("ContentObserver not initialized")
+            // notifyForDescendants=false：只关心这一个 key，没有子节点需要穿透监听。
+            contentResolver.registerContentObserver(
+                Settings.Secure.getUriFor(Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES),
+                false,
+                observer
+            )
         }
-        val observer = contentObserver ?: error("ContentObserver not initialized")
-        contentResolver.registerContentObserver(
-            Settings.Secure.getUriFor(Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES),
-            true,
-            observer
-        )
 
-        screenReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                val current = Settings.Secure.getString(
-                    contentResolver,
-                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-                ) ?: ""
-                if (current == selfWroteValue) return
-                restoreIfNeeded(serviceComponentName, serviceId, current)
+        if (screenReceiver == null) {
+            screenReceiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    val current = Settings.Secure.getString(
+                        contentResolver,
+                        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+                    ) ?: ""
+                    if (current == selfWroteValue) return
+                    restoreIfNeeded(serviceComponentName, serviceId, current)
+                }
+            }
+            screenReceiver?.let {
+                registerReceiver(it, IntentFilter(Intent.ACTION_SCREEN_ON), Context.RECEIVER_NOT_EXPORTED)
             }
         }
-        registerReceiver(screenReceiver, IntentFilter(Intent.ACTION_SCREEN_ON), Context.RECEIVER_NOT_EXPORTED)
 
         restoreIfNeeded(serviceComponentName, serviceId, selfWroteValue)
 

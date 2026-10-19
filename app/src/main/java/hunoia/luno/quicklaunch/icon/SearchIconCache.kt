@@ -6,7 +6,6 @@ import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import java.util.Collections
 
 /**
  * 搜索行图标的同步缓存：composition 里同步读，首帧即有图。
@@ -18,10 +17,19 @@ import java.util.Collections
  */
 object SearchIconCache {
     // 键 = 包名@边长：density 变化（折叠屏）时同包不同尺寸是两条独立缓存，不串味。
+    // 上限 256（一屏结果约十几行，留够几轮滚动的量）；LRU 淘汰，避免不同 density
+    // 下无限增长。LinkedHashMap 非线程安全，读写统一进锁。
+    private const val CAP = 256
     private val cache: MutableMap<String, ImageBitmap> =
-        Collections.synchronizedMap(HashMap(512))
+        object : LinkedHashMap<String, ImageBitmap>(64, 0.75f, true) {
+            override fun removeEldestEntry(
+                eldest: MutableMap.MutableEntry<String, ImageBitmap>?,
+            ): Boolean = size > CAP
+        }
+    private val lock = Any()
 
-    fun get(packageName: String, sizePx: Int): ImageBitmap? = cache[keyOf(packageName, sizePx)]
+    fun get(packageName: String, sizePx: Int): ImageBitmap? =
+        synchronized(lock) { cache[keyOf(packageName, sizePx)] }
 
     /**
      * 确保这些包的图标在缓存里（阻塞当前线程，只能后台调）。
@@ -32,9 +40,9 @@ object SearchIconCache {
         val appCtx = context.applicationContext ?: context
         for (pkg in packageNames) {
             val key = keyOf(pkg, sizePx)
-            if (!cache.containsKey(key)) {
-                loadSync(appCtx, pkg, sizePx)?.let { cache[key] = it }
-            }
+            val hit = synchronized(lock) { cache.containsKey(key) }
+            if (hit) continue
+            loadSync(appCtx, pkg, sizePx)?.let { bmp -> synchronized(lock) { cache[key] = bmp } }
         }
     }
 

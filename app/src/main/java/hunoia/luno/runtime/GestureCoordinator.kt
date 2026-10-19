@@ -91,6 +91,13 @@ class GestureCoordinator(
      * IME 窗口变化的 APP 评估顶掉），导致只订阅通用域的规则被饿死。
      */
     private val pendingAutomationKeys = mutableSetOf<String>()
+
+    /**
+     * 是否已有一次延迟刷新在等待（与 pendingAutomationKeys 同锁保护）。
+     * 用来把「每次事件重置倒计时」改成「首个事件起算」的节流。
+     */
+    private var refreshPending = false
+
     private val scopeJobs = mutableListOf<Job>()
 
     private val broadcastObserver = BroadcastObserver(
@@ -263,8 +270,9 @@ class GestureCoordinator(
                 }
             }
         },
-        onEvent = { event ->
-            host.coroutineScope.launch { ConfigProvider.appendAutomationEvent(event) }
+        onEvents = { events ->
+            // 一轮求值的跳过事件合成一次写盘（引擎侧已攒批），不再每条起一个协程。
+            host.coroutineScope.launch { ConfigProvider.appendAutomationEvents(events) }
         },
     )
 
@@ -594,12 +602,20 @@ class GestureCoordinator(
     }
 
     private fun refreshGestureButtons(delayMs: Long = 100L, automationKeys: Set<String> = emptySet()) {
-        synchronized(pendingAutomationKeys) { pendingAutomationKeys.addAll(automationKeys) }
+        synchronized(pendingAutomationKeys) {
+            pendingAutomationKeys.addAll(automationKeys)
+            // 已经有一次「正在等待」的延迟刷新：键并进去，不再 cancel 重建。
+            // 之前每个事件都 cancel + 重新 delay(100)，事件间隔短于 100ms 时会把刷新无限
+            // 往后推（快速连续切应用时按钮/规则刷新被饿死）。改成「首个事件起算」的节流。
+            if (delayMs > 0L && refreshPending) return
+            refreshPending = delayMs > 0L
+        }
         refreshJob?.cancel()
         refreshJob = host.coroutineScope.launch {
             if (delayMs > 0L) delay(delayMs)
             // 空集=通用刷新：累积键为空才走通用分支（evaluate 空集只评估含状态叶子的规则）。
             val keys = synchronized(pendingAutomationKeys) {
+                refreshPending = false
                 pendingAutomationKeys.toSet().also { pendingAutomationKeys.clear() }
             }
             automationRuntime.evaluate(keys)

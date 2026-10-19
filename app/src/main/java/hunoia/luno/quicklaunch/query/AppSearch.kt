@@ -5,7 +5,6 @@ import com.github.houbb.pinyin.util.PinyinHelper
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.config.model.QuickAppLauncherSettings
-import java.util.Collections
 import kotlin.math.ln
 import kotlin.math.pow
 
@@ -47,10 +46,35 @@ object AppSearch {
         val labelLen: Int,
     )
 
-    // 索引常驻（总量被各源 cap 封顶，最坏几 MB）：LRU 在候选超 cap 时每击键全失效，
-    // 打字只查不建，houbb 调用只发生在 IO 线程的预热期。
+    // 索引常驻（总量被各源 cap 封顶）：打字只查不建，houbb 调用只发生在 IO 线程的预热期。
+    //
+    // 容量用「条目数」封顶 + LRU 淘汰，而不是无界 HashMap：短信正文/文件名这类长文本
+    // 各占一条，无界会在长会话里累积到几十 MB（之前就是 HashMap(16384) 无上限）。
+    // 上界估算：应用/快捷方式 label+包名 ~800、联系人 ≤4000、音乐 ≤6000、图库 ≤5000、
+    // 文档 ≤5000、日历 ≤1000、短信/通话 ≤1500，峰值约 2.6 万 → 48k 留 2 倍余量。
+    //
+    // 不用 android.util.LruCache：AppSearchTest 是纯 JVM 单测，碰 android.* 会 Stub!。
+    // LinkedHashMap(accessOrder=true) 是标准库，JVM 可直接跑。
+    private const val PINYIN_CACHE_CAP = 48_000
     private val pinyinIndexCache: MutableMap<String, AppSearchIndex> =
-        Collections.synchronizedMap(HashMap(16384))
+        object : LinkedHashMap<String, AppSearchIndex>(4096, 0.75f, true) {
+            override fun removeEldestEntry(
+                eldest: MutableMap.MutableEntry<String, AppSearchIndex>?,
+            ): Boolean = size > PINYIN_CACHE_CAP
+        }
+
+    // LinkedHashMap 非线程安全，accessOrder 的 get 会改结构：读写都进锁（临界区只有 O(1)）。
+    private val pinyinCacheLock = Any()
+
+    private fun cachedIndex(key: String): AppSearchIndex? =
+        synchronized(pinyinCacheLock) { pinyinIndexCache[key] }
+
+    private fun putIndex(key: String, index: AppSearchIndex) {
+        synchronized(pinyinCacheLock) { pinyinIndexCache[key] = index }
+    }
+
+    /** 单测用：当前缓存条数（验证有界性）。 */
+    internal fun cacheSizeForTest(): Int = synchronized(pinyinCacheLock) { pinyinIndexCache.size }
 
     private const val NO_MATCH = -1
     private const val DEGRADED = 0
@@ -263,11 +287,18 @@ object AppSearch {
     }
 
     internal fun buildIndex(text: String): AppSearchIndex {
-        val key = text.lowercase()
-        pinyinIndexCache[key]?.let { return it }
+        // 绝大多数输入已经是小写（label/包名/文件名原样）：先拿原文直查，命中就省掉
+        // 一次 lowercase 分配（之前无条件 lowercase，命中缓存那次白分配一个串）。
+        cachedIndex(text)?.let { return it }
+        val key = if (text.any { it.isUpperCase() }) text.lowercase() else text
+        cachedIndex(key)?.let { return it }
         // 长文本只索引前 200 字、不建多音变体（短信正文类）：200 字之后的中段命中出局，
         // 代价可接受（连续块语义下 offset 大的本来也沉底）；短文本路径原样。
-        val short = key.length <= 200
+        // 缓存 key 也用截断后的串：之前用全长 key，一条 5KB 的短信正文会以 5KB 常驻；
+        // 索引内容本来就只看前 200 字，前 200 字相同的长文本共用一份索引，结果完全一致。
+        val short = text.length <= 200
+        // 长文本先用截断串查一次缓存：索引本来就只看前 200 字，命中直接复用。
+        if (!short) cachedIndex(key.substring(0, 200))?.let { return it }
         val work = if (short) key else key.substring(0, 200)
         // 每字读音：库给多音全集（首个为基准串，其余进变体）。
         val readings = ArrayList<List<String>>()
@@ -319,10 +350,9 @@ object AppSearch {
             altPinyinsFolded = alts.map { foldPinyin(it) },
             altInitials = altInis.toList(),
         )
-        pinyinIndexCache[key] = result
+        putIndex(work, result)
         return result
     }
-
     fun AppInfo.key() = "$packageName/$className"
 
     /** 对任意文本做与 sortApps 相同的 tier 评定，供快速搜索复用。 */

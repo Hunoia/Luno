@@ -50,6 +50,9 @@ import hunoia.luno.ui.component.row.LunoSelectableRow
  * 列表上下羽化：顶部 28dp / 底部 24dp，溢出截断 melts 进背景。
  * 底部罩的是钉住的首行——贴紧输入框后它 melts 进框，顺滑但首行底部是虚的，
  * 这是内容羽化的税。离屏层多一笔绘制，行多时装机看帧率。
+ *
+ * Brush 只在尺寸变化时重建：之前写在 drawWithContent 里每帧 new 一个
+ * LinearGradient（含 FloatArray + ColorStop 列表），滚动时每帧一次分配。
  */
 internal fun Modifier.listFade(
     top: androidx.compose.ui.unit.Dp = 28.dp,
@@ -58,22 +61,58 @@ internal fun Modifier.listFade(
     .graphicsLayer {
         compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
     }
-    .drawWithContent {
+    .then(FadeNodeElement(top, bottom))
+
+/** listFade 的节点化实现：绘制节点持有 brush 缓存，跨帧复用。 */
+private data class FadeNodeElement(
+    val top: androidx.compose.ui.unit.Dp,
+    val bottom: androidx.compose.ui.unit.Dp,
+) : androidx.compose.ui.node.ModifierNodeElement<FadeNode>() {
+    override fun create() = FadeNode(top, bottom)
+    override fun update(node: FadeNode) {
+        node.top = top
+        node.bottom = bottom
+    }
+}
+
+private class FadeNode(
+    var top: androidx.compose.ui.unit.Dp,
+    var bottom: androidx.compose.ui.unit.Dp,
+) : androidx.compose.ui.node.DrawModifierNode, androidx.compose.ui.Modifier.Node() {
+    private var cachedHeight = Float.NaN
+    private var cachedTop = Float.NaN
+    private var cachedBottom = Float.NaN
+    private var cachedBrush: androidx.compose.ui.graphics.Brush? = null
+
+    override fun androidx.compose.ui.graphics.drawscope.ContentDrawScope.draw() {
         drawContent()
         val h = size.height
-        if (h <= 0f) return@drawWithContent
-        val topF = (top.toPx() / h).coerceIn(0f, 0.5f)
-        val bottomF = (bottom.toPx() / h).coerceIn(0f, (1f - topF).coerceAtLeast(0f))
-        drawRect(
-            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+        if (h <= 0f) return
+        val topPx = top.toPx()
+        val bottomPx = bottom.toPx()
+        val brush = cachedBrush?.takeIf {
+            cachedHeight == h && cachedTop == topPx && cachedBottom == bottomPx
+        } ?: run {
+            val topF = (topPx / h).coerceIn(0f, 0.5f)
+            val bottomF = (bottomPx / h).coerceIn(0f, (1f - topF).coerceAtLeast(0f))
+            androidx.compose.ui.graphics.Brush.verticalGradient(
                 0f to ComposeColor.Transparent,
                 topF to ComposeColor.Black,
                 (1f - bottomF) to ComposeColor.Black,
                 1f to ComposeColor.Transparent,
-            ),
+            ).also {
+                cachedBrush = it
+                cachedHeight = h
+                cachedTop = topPx
+                cachedBottom = bottomPx
+            }
+        }
+        drawRect(
+            brush = brush,
             blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
         )
     }
+}
 /** 搜索行半透明底色：透出窗口背后的系统模糊，不支持模糊的设备直接呈现半透明。 */
 @Composable
 private fun searchRowContainer(): ComposeColor =
@@ -164,6 +203,18 @@ internal fun ResultRow(
     // 已停用标记：从包名行挪到标题行。标题占权重 1f 承担省略号，后缀固定不压缩；
     // 后缀字号比标题小（bodySmall，同原副标题），颜色沿用原副标题色（onSurfaceVariant）。
     val disabledApp = result is QuickSearchResult.App && result.isDisabled
+    // 同步图标优先（flow 发射前已 resolve，首帧即有图，无 AsyncImage 空隙）；
+    // 缺席（新装应用）才走 AsyncImage 兜底。
+    // 注意顺序：LunoRowBase 的 leading 是 `iconBitmap ?: iconModel` 短路链，
+    // bitmap 命中时 iconModel 根本不会被渲染。以前两个并列求值，等于每次重组都
+    // 白 new 一个 Coil ImageRequest（并且它是不稳定类型，会把整行拖出跳过）。
+    val iconBitmap = when (result) {
+        is QuickSearchResult.App -> SearchIconCache.get(result.appInfo.packageName, sizePx)
+        is QuickSearchResult.Shortcut -> result.shortcut.iconBitmap?.asImageBitmap()
+            ?: SearchIconCache.get(result.shortcut.packageName, sizePx)
+        else -> null
+    }
+    val iconModel = if (iconBitmap == null) iconModel(result, context) else null
     LunoSelectableRow(
         title = result.title,
         subtitle = result.subtitle,
@@ -190,16 +241,9 @@ internal fun ResultRow(
         },
         selected = false,
         onSelectedChange = { onClick() },
-        shape = shape,        iconModel = iconModel(result, context),
+        shape = shape,        iconModel = iconModel,
         icon = iconVector(result),
-        // 同步图标优先（flow 发射前已 resolve，首帧即有图，无 AsyncImage 空隙）；
-        // 缺席（新装应用）才走 AsyncImage 兜底。
-        iconBitmap = when (result) {
-            is QuickSearchResult.App -> SearchIconCache.get(result.appInfo.packageName, sizePx)
-            is QuickSearchResult.Shortcut -> result.shortcut.iconBitmap?.asImageBitmap()
-                ?: SearchIconCache.get(result.shortcut.packageName, sizePx)
-            else -> null
-        },
+        iconBitmap = iconBitmap,
         textIcon = textIcon(result),
         containerColor = searchRowContainer(),
         selectedContainerColor = searchRowSelectedContainer(),

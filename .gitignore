@@ -3,6 +3,7 @@ build/
 .gradle/
 .kotlin/
 app/mapping.txt
+.Trash-0
 
 # JVM crash dumps (hs_err_pid*.log / core dumps) — 偶发崩溃产生，纯垃圾
 hs_err_pid*.log
@@ -34,3 +35,6 @@ AGENTS.md
 # Python helper caches
 __pycache__/
 *.pyc
+
+# 本机构建临时目录（futimes 受限，tmpdir 需落在项目同一文件系统）
+.luno-tmp/

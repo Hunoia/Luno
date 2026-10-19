@@ -14,17 +14,27 @@ import hunoia.luno.runtime.condition.NotificationPulse
  */
 class AutomationNotificationListener : NotificationListenerService() {
 
-    private var lastKey: String? = null
-    private var lastPostMs: Long = 0L
+    /**
+     * 同 key 重投去重的窗口。以前只记「上一个 key + 时间」，两个应用交替发通知时
+     * 每次 key 都在变，去重直接失效 —— 每条通知都要走一遍脉冲 + 全量规则求值。
+     */
+    private val recentPosts = object : LinkedHashMap<String, Long>(8, 0.75f, true) {
+        override fun removeEldestEntry(
+            eldest: MutableMap.MutableEntry<String, Long>?,
+        ): Boolean = size > RECENT_KEYS
+    }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         val notification = sbn?.notification ?: return
         if ((notification.flags and Notification.FLAG_ONGOING_EVENT) != 0) return
         val key = sbn.key ?: return
-        // 同 key 2s 内重投视为更新去重。
-        if (key == lastKey && sbn.postTime - lastPostMs < 2_000L) return
-        lastKey = key
-        lastPostMs = sbn.postTime
+        // 同 key 在窗口内重投视为更新去重（多 key 各自计时，不再互相冲掉）。
+        val postedAt = sbn.postTime
+        synchronized(recentPosts) {
+            val last = recentPosts[key]
+            if (last != null && postedAt - last in 0L until DEDUPE_WINDOW_MS) return
+            recentPosts[key] = postedAt
+        }
 
         val extras = sbn.notification.extras ?: return
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
@@ -62,6 +72,12 @@ class AutomationNotificationListener : NotificationListenerService() {
     }
 
     companion object {
+        /** 同 key 重投的去重窗口（ms）。 */
+        private const val DEDUPE_WINDOW_MS = 2_000L
+
+        /** 同时跟踪的 key 数上限：够覆盖「几个应用交替推送」的场景，且不会无限增长。 */
+        private const val RECENT_KEYS = 16
+
         /** 用户是否在系统设置里授予了通知访问权限（P3 引导页用同一判断）。 */
         fun isAccessGranted(context: android.content.Context): Boolean {
             val flat = runCatching {
