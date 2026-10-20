@@ -1,18 +1,19 @@
 package hunoia.luno.config.model
 
-import android.graphics.Color as AndroidColor
-import android.os.SystemClock
 import androidx.annotation.Keep
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import hunoia.luno.R
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.core.AppContext
 import kotlinx.serialization.Serializable
+import java.util.UUID
 import kotlin.random.Random
 
-private fun randomColor(): Int = AndroidColor.argb(255, Random.nextInt(256), Random.nextInt(256), Random.nextInt(256))
+private fun randomColor(): Int =
+    (0xFF shl 24) or
+        (Random.nextInt(256) shl 16) or
+        (Random.nextInt(256) shl 8) or
+        Random.nextInt(256)
 
 @Serializable
 @Keep
@@ -41,7 +42,7 @@ object GestureButtonDefaults {
     val LongSlideHoldActions = DirectionActions(
         mapOf(GestureDirection.Right to StoredAction.of("internal.quickSearch"))
     )
-    const val Color = android.graphics.Color.TRANSPARENT
+    const val Color = 0
     const val MirrorHorizontal = true
     val SlideTriggerDistance = DensityProvider.dp2px(30f)
     val LongSlideTriggerDistance = DensityProvider.dp2px(100f)
@@ -104,9 +105,9 @@ data class GestureButton(
         fun create(name: String = ""): GestureButton {
             val colorInt = randomColor()
             return GestureButton(
-                id = SystemClock.uptimeMillis().toString(),
+                id = UUID.randomUUID().toString(),
                 name = name,
-                color = Color(colorInt).toArgb(),
+                color = colorInt,
             )
         }
 

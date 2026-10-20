@@ -7,6 +7,9 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.os.UserManager
+import hunoia.luno.config.model.GridPanelDefaults
+import hunoia.luno.gridpanel.geometry.GridPadding
+import hunoia.luno.gridpanel.geometry.gapFor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.Collator
@@ -65,14 +68,15 @@ private const val CellPaddingDp = 30f
  * 默认 span 按比例缩（见 [widgetSpanFor] 的 cellWidthDp 参数）。
  */
 fun panelCellWidthDp(screenWidthDp: Float, cardWidthFraction: Float, columns: Int): Float {
-    val cardW = screenWidthDp * cardWidthFraction
-    val gap = when {
-        columns <= 3 -> 10f
-        columns <= 4 -> 8f
-        columns <= 5 -> 6f
-        else -> 4f
-    }
-    return (cardW - 2f * 10f - gap * (columns - 1)) / columns.coerceAtLeast(1)
+    // 与 GridMetrics 同源：gap 表、内边距、卡宽夹取都复用，避免选择器预览和
+    // 真实网格因为两套公式而漂移。
+    val cols = columns.coerceAtLeast(1)
+    val gap = gapFor(cols).value
+    val cardW = screenWidthDp * cardWidthFraction.coerceIn(
+        GridPanelDefaults.MinCardWidthFraction,
+        GridPanelDefaults.MaxCardWidthFraction,
+    )
+    return ((cardW - 2f * GridPadding.value - gap * (cols - 1)) / cols).coerceAtLeast(1f)
 }
 
 fun widgetSpanFor(

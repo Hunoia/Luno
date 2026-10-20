@@ -1,6 +1,5 @@
 package hunoia.luno.config.model
 
-import android.content.res.Configuration
 import androidx.annotation.Keep
 import hunoia.luno.action.model.Action
 import hunoia.luno.config.defaults.AdvancedSettingsDefaults
@@ -45,11 +44,11 @@ data class MiniWindowSettings(
     val portrait: WindowBounds = WindowBounds(),
     val landscape: WindowBounds = DefaultLandscapeBounds,
 ) {
-    fun forOrientation(orientation: Int): WindowBounds =
-        if (orientation == Configuration.ORIENTATION_LANDSCAPE) landscape else portrait
+    fun forOrientation(landscape: Boolean): WindowBounds =
+        if (landscape) this.landscape else portrait
 
-    fun withOrientation(orientation: Int, bounds: WindowBounds): MiniWindowSettings =
-        if (orientation == Configuration.ORIENTATION_LANDSCAPE) copy(landscape = bounds)
+    fun withOrientation(landscape: Boolean, bounds: WindowBounds): MiniWindowSettings =
+        if (landscape) copy(landscape = bounds)
         else copy(portrait = bounds)
 }
 

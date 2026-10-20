@@ -29,10 +29,12 @@ object ActionLibrary {
      * 自动化里引用它的步骤动作清空，最后删条目本身。
      */
     suspend fun removeEntry(entryId: String) {
+        val entry = ConfigProvider.getNewActionLibrarySettings().entries.firstOrNull { it.id == entryId }
         removeEntryRefs(entryId)
         updateSettings { settings ->
             settings.copy(entries = settings.entries.filterNot { it.id == entryId })
         }
+        entry?.let { hunoia.luno.action.model.ShortcutIconFiles.deleteFor(listOf(it.storedAction)) }
     }
 
     /**

@@ -30,6 +30,11 @@ object Paths {
         val ctx = AppContext.get()
         "${ctx.getExternalFilesDir(null)?.absolutePath ?: ctx.filesDir.absolutePath}/Pictures"
     }
+
+    /** 快捷方式位图图标（ShortcutInfo.iconPath 指向这里）。 */
+    val ShortcutIcons: String by lazy {
+        "${AppContext.get().filesDir.absolutePath}/shortcut_icons"
+    }
 }
 
 @Keep

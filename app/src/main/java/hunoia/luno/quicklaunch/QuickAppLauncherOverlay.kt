@@ -7,8 +7,10 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
@@ -71,7 +73,7 @@ object QuickAppLauncherOverlay {
     private val wm: WindowManager get() = context.windowManager()
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    private var view: ComposeView? = null
+    private var view: View? = null
     private var attached = false
     private var lifecycleOwner: PanelLifecycleOwner? = null
 
@@ -157,10 +159,27 @@ object QuickAppLauncherOverlay {
 
     private fun attach() {
         val owner = PanelLifecycleOwner().also { it.create() }
-        val created = ComposeView(context).apply {
+        // ComposeView final：用可获焦容器接 BACK，内嵌 ComposeView。
+        val created = object : FrameLayout(context) {
+            init {
+                isFocusable = true
+                isFocusableInTouchMode = true
+            }
+
+            override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+                if (event.keyCode == KeyEvent.KEYCODE_BACK) {
+                    if (event.action == KeyEvent.ACTION_UP) {
+                        (closeAnimated ?: { closeImmediate() }).invoke()
+                    }
+                    return true
+                }
+                return super.dispatchKeyEvent(event)
+            }
+        }
+        owner.attachTo(created)
+        created.addOnAttachStateChangeListener(attachListener)
+        val content = ComposeView(context).apply {
             setBackgroundColor(Color.TRANSPARENT)
-            owner.attachTo(this)
-            addOnAttachStateChangeListener(attachListener)
             // 重挂关键：默认策略窗口一被摘掉组合就释放，而重新 addView 时
             // shouldCreateCompositionOnAttachedToWindow 已被置 false、不会重建 ——
             // 于是 show() 的「!attached 重新挂原实例」分支只会得到一块空白板。
@@ -175,6 +194,13 @@ object QuickAppLauncherOverlay {
             // （GridPanelOverlay 同款教训）。
             setContent { QuickAppLauncherOverlay.Content() }
         }
+        created.addView(
+            content,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            ),
+        )
         if (!wm.safeAddView(created, layoutParamsFor())) {
             Log.e(TAG, "quick launcher overlay addView failed (overlay permission or window rejected)")
             showPlatformToast(R.string.quick_launcher_start_failed)
@@ -189,6 +215,7 @@ object QuickAppLauncherOverlay {
         try {
             view = created
             lifecycleOwner = owner
+            created.requestFocus()
             // 面包屑：后面几行的异常来自组合协程，try 抓不到；看到这行紧接着崩溃
             // 就说明是 resume 之后的异步段（LaunchedEffect / DataStore 收流）。
             Log.i(TAG, "quick launcher overlay attached, resuming owner (composition coroutines start here)")
@@ -245,7 +272,7 @@ object QuickAppLauncherOverlay {
      * 留在屏幕上会挡住底下所有触摸；而 view 已置 null 时没有任何路径能清掉它，
      * 下一次 show 只会再叠一个全屏窗。销毁顺序与 teardownDetached 一致（先移窗再销毁 owner）。
      */
-    private fun rollbackAttach(created: ComposeView, owner: PanelLifecycleOwner) {
+    private fun rollbackAttach(created: View, owner: PanelLifecycleOwner) {
         context.removeWindow(created)
         if (view === created) view = null
         if (lifecycleOwner === owner) lifecycleOwner = null
@@ -274,7 +301,7 @@ object QuickAppLauncherOverlay {
      * lpOriginY 注释）。本窗口用 LAYOUT_IN_SCREEN 期望按屏幕坐标摆，但 ROM 行为
      * 不一 —— attach 后实测窗口顶边，非 0 就把 lp.y 反向修正，兜住坐标系歧义。
      */
-    private fun correctWindowOrigin(created: ComposeView) {
+    private fun correctWindowOrigin(created: View) {
         created.post {
             val current = view ?: return@post
             val location = IntArray(2)
@@ -289,8 +316,7 @@ object QuickAppLauncherOverlay {
     private fun layoutParamsFor() = WindowManager.LayoutParams().apply {
         type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         format = PixelFormat.TRANSLUCENT
-        flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+        flags = WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
             // 对齐原 Activity 清单的 showWhenLocked="true"（球窗无此 flag，无先例，真机验证）。

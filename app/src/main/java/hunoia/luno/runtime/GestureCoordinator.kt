@@ -529,9 +529,16 @@ class GestureCoordinator(
 
     fun onAccessibilityEvent(event: AccessibilityEvent?) {
         previousAppTracker.onAccessibilityEvent(event)
+        val beforePackage = environmentTracker.currentPackageName
         environmentTracker.onAccessibilityEvent(event)
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             if (BuildConfig.DEBUG) Log.i("LunoLauncher", "window changed: pkg=${event.packageName}")
+            val afterPackage = environmentTracker.currentPackageName
+            // 第三方小部件/通知等从网格面板里拉起新应用时，面板是覆盖层不会自动消失；
+            // 以前台包切换为准收口（内置小部件另有直接关闭路径，这里是兜底）。
+            if (afterPackage.isNotEmpty() && afterPackage != beforePackage) {
+                hunoia.luno.gridpanel.GridPanelOverlay.onForegroundPackageChanged(afterPackage)
+            }
             refreshGestureButtons(automationKeys = setOf(AutomationEventKey.APP))
         }
     }

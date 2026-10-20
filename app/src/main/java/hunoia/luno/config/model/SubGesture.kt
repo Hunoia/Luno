@@ -1,6 +1,5 @@
 package hunoia.luno.config.model
 
-import android.graphics.Color
 import androidx.annotation.Keep
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.config.defaults.GestureSettingsDefaults.SubGestureTimeoutMs
@@ -18,7 +17,7 @@ data class SubGesture(
     val longSlideActions: DirectionActions = DirectionActions(),
     val longSlideHoldActions: DirectionActions = DirectionActions(),
     val enabled: Boolean = true,
-    val color: Int = Color.TRANSPARENT,
+    val color: Int = 0,
     val slideVibrate: Boolean = true,
     val longSlideVibrate: Boolean = true,
     val slideHoldVibrate: Boolean = true,

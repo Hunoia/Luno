@@ -341,6 +341,8 @@ class FloatBallService : Service() {
             while (isActive) {
                 delay(IME_POLL_MS)
                 if (!ballVisible) continue
+                // 窗口已收到事件型 IME insets（大多数 ROM）：不再轮询。
+                if (ballWindow.imeInsetsAvailable()) continue
                 val imeBottom = runCatching {
                     windowManager?.currentWindowMetrics
                         ?.windowInsets
@@ -407,8 +409,8 @@ class FloatBallService : Service() {
         private const val NOTIFICATION_ID = 2002
         const val ACTION_STOP = "hunoia.luno.action.STOP_FLOAT_BALL"
 
-        /** IME 底边轮询间隔。 */
-        private const val IME_POLL_MS = 300L
+        /** IME 底边轮询间隔（事件型 insets 的兜底；支持推播的 ROM 由窗口监听即时处理）。 */
+        private const val IME_POLL_MS = 500L
 
         /** 设置开关变更 / 开机自启都走这里。必须是 startForegroundService。 */
         fun start(context: Context) {

@@ -188,7 +188,8 @@ private object MiniWindow {
             val realSize = getRealScreenSize(context)
             val activityOptions = makeActivityOptions(
                 settings = miniWindowSettings.forOrientation(
-                    context.resources.configuration.orientation
+                    context.resources.configuration.orientation ==
+                        android.content.res.Configuration.ORIENTATION_LANDSCAPE
                 ),
                 realSw = realSize.x,
                 realSh = realSize.y,

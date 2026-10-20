@@ -51,6 +51,16 @@ class PanelAppWidgetHost private constructor(
             .onFailure { Log.w(TAG, "deleteAppWidgetId failed id=$appWidgetId: ${it.message}") }
     }
 
+    /**
+     * 回收本宿主下所有不再被配置引用的 id。面板删除 / reset / 恢复备份都是
+     * 整批替换配置，逐项差量容易漏；以「当前配置还引用哪些 id」为准最稳。
+     */
+    fun releaseOrphans(referencedIds: Set<Int>) {
+        getAppWidgetIds().toList().forEach { id ->
+            if (id !in referencedIds) release(id)
+        }
+    }
+
     companion object {
         /** 固定 id：宿主 id 必须在应用安装周期内唯一且稳定（公开给 HostView 基类用）。 */
         internal const val HOST_ID = 9201

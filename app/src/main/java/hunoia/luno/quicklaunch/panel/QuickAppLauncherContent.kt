@@ -120,7 +120,9 @@ internal fun QuickAppLauncherRoot(
             // 换算与原来逐项一致：同 fractions、同钳制。
             val configuration = LocalConfiguration.current
             val density = LocalDensity.current
-            val layout = state.previewSettings ?: state.launcherSettings
+            val landscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            val layout = state.previewSettings?.layout(landscape)
+                ?: state.launcherSettings.layout(landscape)
             val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx().roundToInt() }
             val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx().roundToInt() }
             val panelWidthPx = (screenWidthPx * layout.panelWidthFraction.coerceIn(0.65f, 1f)).roundToInt().coerceIn(1, screenWidthPx)
@@ -165,7 +167,11 @@ private fun QuickAppLauncherContent(
     val configuration = LocalConfiguration.current
     val orientation = configuration.orientation
     val screenWidthPx = remember(orientation) { with(density) { configuration.screenWidthDp.dp.toPx().roundToInt() } }
-    val panelWidthDp = with(density) { (screenWidthPx * state.launcherSettings.panelWidthFraction).toDp() }
+    val panelWidthDp = with(density) {
+        (screenWidthPx * state.launcherSettings.layout(
+            LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE,
+        ).panelWidthFraction).toDp()
+    }
     var gridAtTop by remember { mutableStateOf(true) }
     val gridState = rememberLazyGridState()
     var currentPage by remember { mutableStateOf(Page.App) }
@@ -242,19 +248,22 @@ private fun QuickAppLauncherContent(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
                 ) {
                     Column(modifier = Modifier.padding(horizontal = PanelPaddingHorizontal, vertical = PanelPaddingVertical)) {
-                        val contentHeightFraction = state.launcherSettings.contentHeightFraction
-                        val candidateRows = state.launcherSettings.candidateRows.coerceIn(1, 3)
+                        val landscape = LocalConfiguration.current.orientation ==
+                            android.content.res.Configuration.ORIENTATION_LANDSCAPE
+                        val geo = state.launcherSettings.layout(landscape)
+                        val contentHeightFraction = geo.contentHeightFraction
+                        val candidateRows = geo.candidateRows.coerceIn(1, 3)
                         val density = LocalDensity.current
                         val screenHeightPx = DensityProvider.screenHeightPx
                         val panelHeightDp = with(density) { (screenHeightPx * contentHeightFraction).toDp() }
-                        val keyHeight = state.launcherSettings.keyHeightDp.dp
+                        val keyHeight = geo.keyHeightDp.dp
                         val keyboardHeight = keyHeight * KeyboardRowCount + KeyboardGap * 2
                         val minContentHeight = requiredContentHeight(keyHeight, candidateRows, CandidateMinHeight)
                         val contentDp = (panelHeightDp - PanelPaddingVertical * 2)
                             .coerceAtLeast(minContentHeight)
                         val candidateHeight = contentDp - keyboardHeight - KeyboardGap
                         val contentHeight = contentDp
-                        val iconGridCols = state.launcherSettings.gridColumns.coerceIn(3, 5)
+                        val iconGridCols = geo.gridColumns.coerceIn(3, 5)
                         val iconSizePx = with(density) {
                             // 候选项：列宽固定 CandidateColumnWidth，减去 AppItem 的 AppItemPadding×2。
                             // iconHeight 往往远大于它 —— AppItem 是 height(iconHeight).fillMaxWidth()
@@ -361,7 +370,7 @@ private fun QuickAppLauncherContent(
                                                     keyboardExpanded = state.keyboardExpanded,
                                                     gridHeight = contentHeight,
                                                     iconSizePx = iconSizePx,
-                                                    gridColumns = state.launcherSettings.gridColumns,
+                                                    gridColumns = geo.gridColumns,
                                                     onExpandKeyboard = { state.expandKeyboard() },
                                                     onClick = { app, isDisabled ->
                                                         state.launchApp(app, isDisabled, state.launcherSettings.tapOpensMiniWindow)

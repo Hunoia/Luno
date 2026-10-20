@@ -30,8 +30,8 @@ import hunoia.luno.bridge.system.gotoOverlaySettings
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
+import hunoia.luno.domain.system.FloatBallUseCase
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.runtime.floatball.FloatBallService
 import hunoia.luno.ui.component.actionTextCompose
 import hunoia.luno.ui.component.gestureButtonMarkColor
 import hunoia.luno.ui.component.input.LunoTextSlider
@@ -86,7 +86,7 @@ fun FloatBallEditScreen(
             runCatching {
                 TuneConfig.updateAction { it.copy(floatBall = it.floatBall.copy(enabled = enabled)) }
             }
-            if (enabled) FloatBallService.start(context) else FloatBallService.stop(context)
+            if (enabled) FloatBallUseCase.setEnabled(context, true) else FloatBallUseCase.setEnabled(context, false)
         }
     }
 

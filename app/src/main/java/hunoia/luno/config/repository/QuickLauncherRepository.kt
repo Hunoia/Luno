@@ -2,6 +2,7 @@ package hunoia.luno.config.repository
 
 import hunoia.luno.config.store.SettingsStores
 import hunoia.luno.config.model.QuickAppLauncherSettings
+import hunoia.luno.config.model.QuickLauncherGeometry
 
 internal class QuickLauncherRepository(private val stores: SettingsStores) {
 
@@ -9,17 +10,10 @@ internal class QuickLauncherRepository(private val stores: SettingsStores) {
         private const val MAX_LAUNCH_HISTORY = 500
     }
 
-    suspend fun updateQuickAppLauncherLayout(layout: QuickAppLauncherSettings) {
+    suspend fun updateQuickAppLauncherLayout(layout: QuickLauncherGeometry, landscape: Boolean) {
         stores._quickAppLauncherSettings.updateData { old ->
-            old.copy(
-                panelHeightFraction = layout.panelHeightFraction,
-                contentHeightFraction = layout.contentHeightFraction,
-                candidateRows = layout.candidateRows,
-                panelWidthFraction = layout.panelWidthFraction,
-                panelHorizontalBias = layout.panelHorizontalBias,
-                gridColumns = layout.gridColumns,
-                keyHeightDp = layout.keyHeightDp,
-            )
+            // 只改当前朝向那份几何；启动统计/行为开关不动
+            if (landscape) old.copy(landscape = layout) else old.copy(portrait = layout)
         }
     }
 

@@ -23,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.config.model.QuickAppLauncherSettings
+import hunoia.luno.config.model.QuickLauncherGeometry
 import hunoia.luno.domain.search.SearchCenter
 import hunoia.luno.ui.component.input.LunoTextSlider
 import kotlinx.coroutines.launch
@@ -34,74 +35,77 @@ internal fun QuickAppLauncherAdjustPanel(
 ) {
     val settings by SearchCenter.launcher.collectAsState(initial = QuickAppLauncherSettings())
     val coroutineScope = rememberCoroutineScope()
-    var pending by remember(settings) { mutableStateOf(settings) }
-    fun preview(next: QuickAppLauncherSettings) {
-        pending = next
-        onSettingsChanged(next)
+    // 当前朝向：横屏下调的就是横屏那份几何，实时跟随旋转
+    val landscape = LocalConfiguration.current.orientation ==
+        android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val pending = remember(settings, landscape) { mutableStateOf(settings.layout(landscape)) }
+    fun preview(next: QuickLauncherGeometry) {
+        pending.value = next
+        onSettingsChanged(settings.withLayout(landscape) { next })
     }
     fun commit() {
-        coroutineScope.launch { SearchCenter.updateLauncherLayout(pending) }
+        coroutineScope.launch { SearchCenter.updateLauncherLayout(pending.value, landscape) }
     }
 
     val screenH = LocalConfiguration.current.screenHeightDp
-    val kd = settings.keyHeightDp.dp
-    val minPanel = requiredContentHeight(kd, settings.candidateRows, CandidateMinHeight)
-    val maxPanel = requiredContentHeight(kd, settings.candidateRows, CandidateMaxHeight)
+    val kd = pending.value.keyHeightDp.dp
+    val minPanel = requiredContentHeight(kd, pending.value.candidateRows, CandidateMinHeight)
+    val maxPanel = requiredContentHeight(kd, pending.value.candidateRows, CandidateMaxHeight)
     val heightMin = (minPanel / screenH.dp).coerceIn(0.25f, 0.95f)
     val heightMax = (maxPanel / screenH.dp).coerceIn(0.25f, 0.95f)
 
     Column(modifier = Modifier.fillMaxWidth()) {
         LunoTextSlider(
-            value = settings.contentHeightFraction,
-            onValueChange = { preview(pending.copy(contentHeightFraction = it)) },
+            value = pending.value.contentHeightFraction,
+            onValueChange = { preview(pending.value.copy(contentHeightFraction = it)) },
             onValueChangeFinished = { commit() },
             text = stringResource(R.string.quick_app_launcher_content_height),
             valueDisplay = { "${(it * 100).roundToInt()}%" },
             valueRange = heightMin..heightMax,
         )
         LunoTextSlider(
-            value = settings.panelWidthFraction,
-            onValueChange = { preview(pending.copy(panelWidthFraction = it)) },
+            value = pending.value.panelWidthFraction,
+            onValueChange = { preview(pending.value.copy(panelWidthFraction = it)) },
             onValueChangeFinished = { commit() },
             text = stringResource(R.string.quick_app_launcher_panel_width),
             valueDisplay = { "${(it * 100).roundToInt()}%" },
             valueRange = 0.65f..1.0f,
         )
         LunoTextSlider(
-            value = settings.panelHeightFraction,
-            onValueChange = { preview(pending.copy(panelHeightFraction = it)) },
+            value = pending.value.panelHeightFraction,
+            onValueChange = { preview(pending.value.copy(panelHeightFraction = it)) },
             onValueChangeFinished = { commit() },
             text = stringResource(R.string.quick_app_launcher_panel_height),
             valueDisplay = { "${(it * 100).roundToInt()}%" },
             valueRange = 0.05f..0.9f,
         )
         LunoTextSlider(
-            value = settings.panelHorizontalBias,
-            onValueChange = { preview(pending.copy(panelHorizontalBias = it)) },
+            value = pending.value.panelHorizontalBias,
+            onValueChange = { preview(pending.value.copy(panelHorizontalBias = it)) },
             onValueChangeFinished = { commit() },
             text = stringResource(R.string.quick_app_launcher_horizontal_bias),
             valueDisplay = { "${(it * 100).roundToInt()}%" },
             valueRange = 0.0f..1.0f,
         )
         LunoTextSlider(
-            value = settings.candidateRows.toFloat(),
-            onValueChange = { preview(pending.copy(candidateRows = it.roundToInt().coerceIn(1, 3))) },
+            value = pending.value.candidateRows.toFloat(),
+            onValueChange = { preview(pending.value.copy(candidateRows = it.roundToInt().coerceIn(1, 3))) },
             onValueChangeFinished = { commit() },
             text = stringResource(R.string.quick_app_launcher_candidate_rows),
             valueDisplay = { it.roundToInt().toString() },
             valueRange = 1f..3f,
         )
         LunoTextSlider(
-            value = settings.gridColumns.toFloat(),
-            onValueChange = { preview(pending.copy(gridColumns = it.roundToInt().coerceIn(3, 5))) },
+            value = pending.value.gridColumns.toFloat(),
+            onValueChange = { preview(pending.value.copy(gridColumns = it.roundToInt().coerceIn(3, 5))) },
             onValueChangeFinished = { commit() },
             text = stringResource(R.string.quick_app_launcher_grid_columns),
             valueDisplay = { it.roundToInt().toString() },
             valueRange = 3f..5f,
         )
         LunoTextSlider(
-            value = settings.keyHeightDp.toFloat(),
-            onValueChange = { preview(pending.copy(keyHeightDp = it.roundToInt().coerceIn(36, 80))) },
+            value = pending.value.keyHeightDp.toFloat(),
+            onValueChange = { preview(pending.value.copy(keyHeightDp = it.roundToInt().coerceIn(36, 80))) },
             onValueChangeFinished = { commit() },
             text = stringResource(R.string.quick_app_launcher_key_height),
             valueDisplay = { "${it.roundToInt()}dp" },

@@ -47,8 +47,17 @@ object Events {
     }
 
     internal fun dispatch(event: Any) {
-        subscribers[event::class]?.forEach {
-            it(event)
+        subscribers[event::class]?.forEach { subscriber ->
+            // 隔离订阅者：一个回调抛异常不能饿死后面的订阅者，也不能把异常
+            // 冒泡到广播/协程调用点（服务进程里那是直接崩溃）。
+            runCatching { subscriber(event) }
+                .onFailure { error ->
+                    android.util.Log.e(
+                        "LunoLauncher",
+                        "event subscriber failed: ${event::class.simpleName}",
+                        error,
+                    )
+                }
         }
     }
 

@@ -8,6 +8,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.floor
+import hunoia.luno.config.model.DynamicRowExtra
+import hunoia.luno.config.model.GridPanelDefaults
 
 /** 卡片外边距（贴着屏幕边缘的那一圈）。 */
 val CardMargin = 12.dp
@@ -33,6 +35,36 @@ fun gapFor(columns: Int): Dp = when {
     columns <= 4 -> 8.dp
     columns <= 5 -> 6.dp
     else -> 4.dp
+}
+
+/**
+ * 卡片高度比例 → 可见行数（dp 域共享计算，渲染与落盘层必须同一套公式）。
+ * 格子尺寸由列数和卡宽决定（方格），高度只决定能看到几行。
+ */
+fun gridPanelVisibleRows(
+    screenWdp: Float,
+    screenHdp: Float,
+    columns: Int,
+    cardWidthFraction: Float,
+    cardHeightFraction: Float,
+    pageCount: Int,
+): Int {
+    val gap = gapFor(columns).value
+    val widthFraction = cardWidthFraction.coerceIn(
+        GridPanelDefaults.MinCardWidthFraction,
+        GridPanelDefaults.MaxCardWidthFraction,
+    )
+    val heightFraction = cardHeightFraction.coerceIn(
+        GridPanelDefaults.MinCardHeightFraction,
+        GridPanelDefaults.MaxCardHeightFraction,
+    )
+    val cardW = screenWdp * widthFraction
+    val cellW = (cardW - 2f * GridPadding.value - gap * (columns - 1)) / columns.coerceAtLeast(1)
+    val cellH = cellW
+    val indicator = if (pageCount > 1) IndicatorHeight.value else 0f
+    val visibleH = screenHdp * heightFraction - 2f * GridPadding.value - indicator
+    val stepH = cellH + gap
+    return ((visibleH + gap) / stepH).toInt().coerceAtLeast(1)
 }
 
 /**
@@ -79,12 +111,11 @@ data class GridMetrics(
 @Composable
 fun rememberGridMetrics(
     columns: Int,
-    /** 设置里的行数 = **可见**行数，决定卡片高度。 */
-    rows: Int,
-    /** 网格实际行数（可摆放范围，≥ rows），超出可见区靠滚动 reach。 */
-    gridRows: Int,
-    pageCount: Int,
     cardWidthFraction: Float,
+    cardHeightFraction: Float,
+    pageCount: Int,
+    /** 本页已占用的最大行（bottom）；实际行数 = max(可见行数, 占用) + DynamicRowExtra。 */
+    occupiedRows: Int,
 ): GridMetrics {
     val density = LocalDensity.current
     // 走 LocalConfiguration 而不是 displayMetrics：组合必须订阅配置变化才会在转屏后
@@ -96,13 +127,19 @@ fun rememberGridMetrics(
     val header = 0f // 页眉已删，无预算
     val indicator = if (pageCount > 1) with(density) { IndicatorHeight.toPx() } else 0f
     val gap = with(density) { gapFor(columns).toPx() }
+    val screenWdp = configuration.screenWidthDp.toFloat()
+    val screenHdp = configuration.screenHeightDp.toFloat()
+    val visibleRows = gridPanelVisibleRows(
+        screenWdp, screenHdp, columns, cardWidthFraction, cardHeightFraction, pageCount,
+    )
+    val rows = maxOf(visibleRows, occupiedRows.coerceAtLeast(0)) + DynamicRowExtra
 
     return remember(
         columns,
         rows,
-        gridRows,
         pageCount,
         cardWidthFraction,
+        cardHeightFraction,
         screenW,
         screenH,
         gridPad,
@@ -114,13 +151,13 @@ fun rememberGridMetrics(
         val innerW = cardW - gridPad * 2
         val cellW = (innerW - gap * (columns - 1)) / columns
         val cellH = cellW
-        // 卡片可见高度按**可见**行数算：高度夹到屏的 82%，
+        // 卡片高度由比例决定（夹 92% 屏高），可见行数随高度反推；
         // 实际行数更多时下半区靠 verticalScroll reach。
-        val gridH = cellH * rows + gap * (rows - 1)
-        val cardH = (gridH + header + indicator).coerceAtMost(screenH * 0.82f) + gridPad * 2
+        val cardH = (screenH * cardHeightFraction).coerceAtMost(screenH * 0.92f)
+            .coerceAtLeast(gridPad * 2 + indicator + cellH + gap)
         GridMetrics(
             columns = columns,
-            rows = gridRows,
+            rows = rows,
             screenW = screenW,
             screenH = screenH,
             cellW = cellW,

@@ -185,7 +185,10 @@ fun ParameterEditor(
         is ParameterDefinition.MiniWindow -> {
             val settings = currentParams[definition.key]?.toMiniWindowSettings() ?: MiniWindowSettings()
             // 竖横屏各一套，摘要跟着当前方向走 —— 运行时也是这么选的。
-            val bounds = settings.forOrientation(LocalConfiguration.current.orientation)
+            val bounds = settings.forOrientation(
+                LocalConfiguration.current.orientation ==
+                    android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            )
             val display = stringResource(
                 R.string.mini_window_size_summary,
                 bounds.width.times(100).roundToInt(),

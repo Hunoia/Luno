@@ -62,6 +62,7 @@ fun ActionPanelListScreen(
                 pendingDelete = null
                 scope.launch {
                     TuneConfig.updateAction { it.copy(actionPanels = it.actionPanels.withoutPanel(panel.id)) }
+                    hunoia.luno.domain.gridpanel.PanelResources.cleanup()
                 }
             },
         )

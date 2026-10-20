@@ -7,6 +7,9 @@ import hunoia.luno.core.JsonSerializer
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.net.URLEncoder
 
 /**
@@ -51,6 +54,15 @@ class QuickSearchIndex(internal val context: Context) {
 
     /** 加载互斥：各源"查一次就够"的闸门靠它保证只跑一遍。 */
     private val loadLock = Any()
+    @Volatile private var refreshingApps = false
+    @Volatile private var invalidateRequested = false
+
+    /**
+     * 索引版本：ensureLoaded / refreshApps 发布新数据后自增。
+     * Compose 侧不能直接观察 @Volatile 字段，用 StateFlow 把「数据变了」带进重组。
+     */
+    private val _indexVersion = MutableStateFlow(0)
+    val indexVersion: StateFlow<Int> = _indexVersion.asStateFlow()
 
     fun ensureLoaded() {
         if (defsLoaded) return
@@ -69,6 +81,7 @@ class QuickSearchIndex(internal val context: Context) {
             actions = builtActions
             settingsPages = builtPages
             defsLoaded = true
+            _indexVersion.value++
         }
     }
 
@@ -76,25 +89,49 @@ class QuickSearchIndex(internal val context: Context) {
         // 已加载就跳过：以前每次调用都全量查包 + 查快捷方式（PackageManager 几百毫秒），
         // 面板重开一次就白跑一次。需要重刷（装卸应用）由调用方先失效后调。
         if (appsLoaded) return
-        val combined = DisabledAppQuery.queryQuickAppLauncherApps(context)
-        val builtShortcuts = QuickLaunchFacade.queryShortcuts(context).flatMap { it.shortcuts }
-        AppSearch.warmIndexes(combined.apps)
-        AppSearch.warmShortcutIndexes(builtShortcuts)
-        // 图标不在这里预热：flow 在发射结果前按需 resolve（SearchIconCache），
-        // 只解码露出的行；全量 enqueue 又慢又跟首搜 race。
         synchronized(loadLock) {
-            if (appsLoaded) return
-            apps = combined.apps
-            disabledPkgs = combined.disabledPkgs
-            shortcuts = builtShortcuts
-            appsLoaded = true
+            if (appsLoaded || refreshingApps) return
+            refreshingApps = true
+        }
+        try {
+            val combined = DisabledAppQuery.queryQuickAppLauncherApps(context)
+            val builtShortcuts = QuickLaunchFacade.queryShortcuts(context).flatMap { it.shortcuts }
+            AppSearch.warmIndexes(combined.apps)
+            AppSearch.warmShortcutIndexes(builtShortcuts)
+            // 图标不在这里预热：flow 在发射结果前按需 resolve（SearchIconCache），
+            // 只解码露出的行；全量 enqueue 又慢又跟首搜 race。
+            synchronized(loadLock) {
+                apps = combined.apps
+                disabledPkgs = combined.disabledPkgs
+                shortcuts = builtShortcuts
+                appsLoaded = true
+                _indexVersion.value++
+            }
+        } finally {
+            val rerun = synchronized(loadLock) {
+                refreshingApps = false
+                val rerun = invalidateRequested
+                invalidateRequested = false
+                if (rerun) appsLoaded = false
+                rerun
+            }
+            // 扫描期间又收到装卸应用：本轮数据已过期，立即重扫一次。
+            if (rerun) refreshApps()
         }
     }
 
     /** 强制重刷应用索引（装卸应用后）：清闸门再走 [refreshApps]。 */
     fun invalidateApps() {
-        synchronized(loadLock) { appsLoaded = false }
-        refreshApps()
+        val duringRefresh = synchronized(loadLock) {
+            appsLoaded = false
+            if (refreshingApps) {
+                invalidateRequested = true
+                true
+            } else {
+                false
+            }
+        }
+        if (!duringRefresh) refreshApps()
     }
 }
 

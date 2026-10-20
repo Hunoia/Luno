@@ -2,6 +2,7 @@ package hunoia.luno.domain.search
 
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.QuickAppLauncherSettings
+import hunoia.luno.config.model.QuickLauncherGeometry
 import hunoia.luno.config.model.QuickAppSnapshot
 import hunoia.luno.config.model.QuickSearchSettings
 import kotlinx.coroutines.flow.Flow
@@ -18,8 +19,8 @@ object SearchCenter {
     suspend fun updateSearch(transform: suspend (QuickSearchSettings) -> QuickSearchSettings) =
         ConfigProvider.updateQuickSearchSettings(transform)
 
-    suspend fun updateLauncherLayout(layout: QuickAppLauncherSettings) =
-        ConfigProvider.updateQuickAppLauncherLayout(layout)
+    suspend fun updateLauncherLayout(layout: QuickLauncherGeometry, landscape: Boolean) =
+        ConfigProvider.updateQuickAppLauncherLayout(layout, landscape)
 
     suspend fun getSnapshot(): QuickAppSnapshot = ConfigProvider.getQuickAppSnapshot()
 }

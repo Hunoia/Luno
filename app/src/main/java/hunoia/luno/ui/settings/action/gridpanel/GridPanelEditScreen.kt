@@ -33,7 +33,9 @@ import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.config.model.GridPanelItemLayout
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.gridpanel.geometry.gridPanelVisibleRows
 import hunoia.luno.gridpanel.widget.PanelAppWidgetHost
+import hunoia.luno.config.model.withGeometry
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoGroup
@@ -64,6 +66,9 @@ fun GridPanelEditScreen(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    // 当前朝向：横屏打开改的是横屏设置，竖屏改竖屏，实时跟随旋转
+    fun isLandscape(): Boolean = context.resources.configuration.orientation ==
+        android.content.res.Configuration.ORIENTATION_LANDSCAPE
     var loaded by remember { mutableStateOf(false) }
     var panel by remember(panelId) { mutableStateOf<GridPanel?>(null) }
     LaunchedEffect(panelId) {
@@ -104,10 +109,11 @@ fun GridPanelEditScreen(
             TuneConfig.updateAction { settings ->
                 val latest = settings.actionGridPanels.panelById(panelId) ?: return@updateAction settings
                 val resized = transform(latest)
-                val columns = resized.columnCount
+                // 只改当前朝向那份几何：横屏下改的就是横屏的设置
+                val landscape = isLandscape()
+                val resizedGeo = resized.geometry(landscape)
+                val columns = resizedGeo.columnCount
                     .coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
-                val rows = resized.rowCount
-                    .coerceIn(GridPanelDefaults.MinRowCount, GridPanelDefaults.MaxRowCount)
                 val pages = resized.pageCount.coerceAtLeast(1)
                 val droppedWidgets = mutableListOf<Int>()
                 val droppedNames = mutableListOf<String>()
@@ -118,8 +124,15 @@ fun GridPanelEditScreen(
                 // 实际行数：动态行数（行数不限制后 gridRows 字段已删）——
                 // 起点 = max(可见行数, 现有占用) + DynamicRowExtra，放不下的项再往上撑，无上限。
                 var effectiveRows = maxOf(
-                    rows,
-                    resized.items.maxOf { it.bottom },
+                    gridPanelVisibleRows(
+                        screenWdp = context.resources.configuration.screenWidthDp.toFloat(),
+                        screenHdp = context.resources.configuration.screenHeightDp.toFloat(),
+                        columns = columns,
+                        cardWidthFraction = resizedGeo.cardWidthFraction,
+                        cardHeightFraction = resizedGeo.cardHeightFraction,
+                        pageCount = pages,
+                    ),
+                    resized.items.maxOfOrNull { it.bottom } ?: 0,
                 ) + hunoia.luno.config.model.DynamicRowExtra
                 for (p in 0 until pages) {
                     for (raw in coerced.filter { it.pageIndex == p }) {
@@ -185,20 +198,16 @@ fun GridPanelEditScreen(
                         },
                     )
                 }
+                val newGeo = resizedGeo.copy(columnCount = columns)
                 settings.copy(
                     actionGridPanels = settings.actionGridPanels.withPanel(
-                        resized.copy(
-                            columnCount = columns,
-                            // **rowCount 写回用户设置的可见行数**（不是实际行数！）——
-                            // 曾经把 effectiveRows 写进 rowCount：拖到 4 落盘成 8
-                            //（滑块自己跳值），高度也就再也不变。
-                            rowCount = rows,
-                            pageCount = pages,
-                            items = placed,
-                        ),
+                        (if (landscape) resized.copy(landscape = newGeo) else resized.copy(portrait = newGeo))
+                            .copy(pageCount = pages, items = placed),
                     ),
                 )
             }
+            // 缩列/缩页可能丢弃项：落盘完成后统一回收被丢项的图标/宿主 id。
+            hunoia.luno.domain.gridpanel.PanelResources.cleanup()
         }
     }
 
@@ -228,10 +237,12 @@ fun GridPanelEditScreen(
                 // LunoTextSlider 内部的 liveValue 跟手。
                 var pendingColumns by remember { mutableStateOf<Int?>(null) }
                 LunoTextSlider(
-                    value = current.columnCount.toFloat(),
+                    value = current.geometry(isLandscape()).columnCount.toFloat(),
                     onValueChange = { value -> pendingColumns = value.toInt() },
                     onValueChangeFinished = {
-                        pendingColumns?.let { v -> resizeGrid { it.copy(columnCount = v) } }
+                        pendingColumns?.let { v ->
+                            resizeGrid { it.withGeometry(isLandscape()) { g -> g.copy(columnCount = v) } }
+                        }
                         pendingColumns = null
                     },
                     text = stringResource(R.string.grid_panel_column_count),
@@ -240,22 +251,23 @@ fun GridPanelEditScreen(
                     steps = GridPanelDefaults.MaxColumnCount - GridPanelDefaults.MinColumnCount - 1,
                     shape = segmentedShape(0, 3),
                 )
-                var pendingRows by remember { mutableStateOf<Int?>(null) }
+                var pendingHeight by remember { mutableStateOf<Float?>(null) }
                 LunoTextSlider(
-                    value = current.rowCount.toFloat(),
-                    onValueChange = { value -> pendingRows = value.toInt() },
+                    value = current.geometry(isLandscape()).cardHeightFraction,
+                    onValueChange = { value -> pendingHeight = value },
                     onValueChangeFinished = {
-                        pendingRows?.let { v -> resizeGrid { it.copy(rowCount = v) } }
-                        pendingRows = null
+                        pendingHeight?.let { v ->
+                            update { it.withGeometry(isLandscape()) { g -> g.copy(cardHeightFraction = v) } }
+                        }
+                        pendingHeight = null
                     },
-                    text = stringResource(R.string.grid_panel_row_count),
-                    valueDisplay = { "${it.toInt()}" },
-                    valueRange = GridPanelDefaults.MinRowCount.toFloat()..GridPanelDefaults.MaxRowCount.toFloat(),
-                    steps = GridPanelDefaults.MaxRowCount - GridPanelDefaults.MinRowCount - 1,
+                    text = stringResource(R.string.grid_panel_card_height),
+                    valueDisplay = { "${(it * 100).toInt()}%" },
+                    valueRange = GridPanelDefaults.MinCardHeightFraction..GridPanelDefaults.MaxCardHeightFraction,
+                    steps = 11,
                     shape = segmentedShape(1, 3),
                 )
-                // 实际行数滑杆已删
-                // 实际行数滑杆已删（行数不限制）：剩 列数 / 行数 / 页数 三行。
+                // 行数由卡片高度反推，行数滑杆已删：剩 列数 / 卡片高度 / 卡片宽度 / 页数。
                 // 页数不设上限（§10 拍板）：滑杆必须有 Range，这里用 +/- 步进行。
                 PageStepperRow(
                     pageCount = current.pageCount,
@@ -266,9 +278,16 @@ fun GridPanelEditScreen(
         }
         item {
             LunoGroup {
+                var pendingWidth by remember { mutableStateOf<Float?>(null) }
                 LunoTextSlider(
-                    value = current.cardWidthFraction,
-                    onValueChange = { value -> update { it.copy(cardWidthFraction = value) } },
+                    value = current.geometry(isLandscape()).cardWidthFraction,
+                    onValueChange = { value -> pendingWidth = value },
+                    onValueChangeFinished = {
+                        pendingWidth?.let { v ->
+                            update { it.withGeometry(isLandscape()) { g -> g.copy(cardWidthFraction = v) } }
+                        }
+                        pendingWidth = null
+                    },
                     text = stringResource(R.string.grid_panel_card_width),
                     valueDisplay = { "${(it * 100).toInt()}%" },
                     valueRange = GridPanelDefaults.MinCardWidthFraction..GridPanelDefaults.MaxCardWidthFraction,

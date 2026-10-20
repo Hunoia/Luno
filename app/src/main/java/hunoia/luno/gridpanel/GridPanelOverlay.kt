@@ -7,8 +7,10 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.FrameLayout
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -65,7 +67,7 @@ object GridPanelOverlay {
     private val wm: WindowManager get() = context.windowManager()
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    private var view: ComposeView? = null
+    private var view: View? = null
     private var attached = false
     private var lifecycleOwner: PanelLifecycleOwner? = null
 
@@ -80,6 +82,31 @@ object GridPanelOverlay {
     /** 组合注册的关闭动画执行体。组合常驻期间一直有效，**不得**在 show 里清空
      *  —— LaunchedEffect(Unit) 只注册一次，清了就再没人注册回来。 */
     private var closeAnimated: (() -> Unit)? = null
+
+    /** 组合注册的返回键处理器：返回 true 表示已消费（如退出编辑态）。 */
+    private var backHandler: (() -> Boolean)? = null
+
+    /** 返回键：优先让组合消费（编辑态退编辑），否则播退场动画关闭。 */
+    fun dismissFromBack(): Boolean {
+        if (!shownEventPosted) return false
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { dismissFromBack() }
+            return true
+        }
+        val handled = backHandler?.invoke() == true
+        if (!handled) (closeAnimated ?: { closeImmediate() }).invoke()
+        return true
+    }
+
+    /**
+     * 前台包变化：第三方桌面小部件的点击由 RemoteViews 内部处理，Luno 拿不到
+     * 回调；它拉起新应用后只能靠窗口切换事件收口，否则全屏面板会一直盖在新应用上。
+     */
+    fun onForegroundPackageChanged(packageName: String) {
+        if (!shownEventPosted) return
+        if (packageName.isEmpty() || packageName == context.packageName) return
+        (closeAnimated ?: { closeImmediate() }).invoke()
+    }
 
     private val closedSubscriber: (ActionSelectClosedEvent) -> Unit = {
         // 选择页结束：面板回显（编辑态原样继续 —— 组合里的 editMode/localItems 都在）。
@@ -105,14 +132,22 @@ object GridPanelOverlay {
         anchorXState = anchorX
         anchorYState = anchorY
         val current = view
-        when {
+        val windowReady = when {
             current == null -> attach()
             !attached -> {
                 // 窗口被系统移除（ROM 激进清理）：原实例重新挂，组合未销毁直接复用。
-                if (wm.safeAddView(current, layoutParamsFor())) correctWindowOrigin(current)
+                wm.safeAddView(current, layoutParamsFor()).also { ok ->
+                    if (ok) correctWindowOrigin(current)
+                }
             }
-            else -> restoreVisibility()
+            else -> {
+                restoreVisibility()
+                true
+            }
         }
+        // 挂窗失败（悬浮窗权限被撤 / ROM 拒绝）：不要发 Shown —— 否则 FloatBallService
+        // 的 panelCount 会 +1 而永远等不到配对的 Dismissed，球被 hideOnPanel 永久隐藏。
+        if (!windowReady || view == null) return
         lifecycleOwner?.resume()
         if (!shownEventPosted) {
             shownEventPosted = true
@@ -125,7 +160,8 @@ object GridPanelOverlay {
         val current = view ?: return
         val lp = current.layoutParams as? WindowManager.LayoutParams ?: return
         if (lp.alpha == 0f) return
-        lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
         lp.alpha = 0f
         wm.safeUpdateViewLayout(current, lp)
         postDismissed()
@@ -146,6 +182,7 @@ object GridPanelOverlay {
         lifecycleOwner?.destroy()
         lifecycleOwner = null
         closeAnimated = null
+        backHandler = null
     }
 
     private fun postDismissed() {
@@ -154,12 +191,27 @@ object GridPanelOverlay {
         Events.post(PanelDismissedEvent())
     }
 
-    private fun attach() {
+    private fun attach(): Boolean {
         val owner = PanelLifecycleOwner().also { it.create() }
-        val created = ComposeView(context).apply {
+        // ComposeView 是 final，不能子类化；用可获焦容器接 BACK，内嵌 ComposeView。
+        val created = object : FrameLayout(context) {
+            init {
+                isFocusable = true
+                isFocusableInTouchMode = true
+            }
+
+            override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+                if (event.keyCode == KeyEvent.KEYCODE_BACK) {
+                    if (event.action == KeyEvent.ACTION_UP) dismissFromBack()
+                    return true
+                }
+                return super.dispatchKeyEvent(event)
+            }
+        }
+        owner.attachTo(created)
+        created.addOnAttachStateChangeListener(attachListener)
+        val content = ComposeView(context).apply {
             setBackgroundColor(Color.TRANSPARENT)
-            owner.attachTo(this)
-            addOnAttachStateChangeListener(attachListener)
             // 组合常驻的关键：默认策略是 DisposeOnDetachedFromWindowOrReleasedFromPool，
             // 窗口一被系统摘掉组合就释放，而重新 addView 时
             // shouldCreateCompositionOnAttachedToWindow 已被置 false、不会重建 ——
@@ -174,10 +226,17 @@ object GridPanelOverlay {
             // 变成「透传 → 调回自己」的无限递归，真机表现是打开即 StackOverflowError。
             setContent { GridPanelOverlay.Content() }
         }
+        created.addView(
+            content,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            ),
+        )
         if (!wm.safeAddView(created, layoutParamsFor())) {
             Log.e(TAG, "grid overlay addView failed (overlay permission or window rejected)")
             owner.destroy()
-            return
+            return false
         }
         // addView 之后这段是裸的。owner.resume() 把 owner 推到 RESUMED，组合里的
         // collectAsStateWithLifecycle / LaunchedEffect 正是从这一刻起真正开跑（球窗停在
@@ -187,6 +246,7 @@ object GridPanelOverlay {
         try {
             view = created
             lifecycleOwner = owner
+            created.requestFocus()
             // 面包屑：后面几行的异常来自组合协程，try 抓不到；看到这行紧接着崩溃
             // 就说明是 resume 之后的异步段（LaunchedEffect / DataStore 收流）。
             Log.i(TAG, "grid overlay attached, resuming owner (composition coroutines start here)")
@@ -197,7 +257,9 @@ object GridPanelOverlay {
             // 故意兜 Throwable（含 Error）：此处唯一的目标是不让挂载失败变成进程崩溃。
             Log.e(TAG, "grid overlay attach failed after addView, rolling back", t)
             rollbackAttach(created, owner)
+            return false
         }
+        return true
     }
 
     /**
@@ -206,13 +268,14 @@ object GridPanelOverlay {
      * `view ?: return` 够不着它，没有任何路径能清掉，下一次 show 只会再叠一个全屏窗。
      * 销毁顺序与 [closeImmediate] 一致（先移窗再销毁 owner）。
      */
-    private fun rollbackAttach(created: ComposeView, owner: PanelLifecycleOwner) {
+    private fun rollbackAttach(created: View, owner: PanelLifecycleOwner) {
         Events.unsubscribe(ActionSelectClosedEvent::class, closedSubscriber)
         context.removeWindow(created)
         if (view === created) view = null
         if (lifecycleOwner === owner) lifecycleOwner = null
         attached = false
         closeAnimated = null
+        backHandler = null
         owner.destroy()
     }
 
@@ -220,9 +283,11 @@ object GridPanelOverlay {
         val current = view ?: return
         val lp = current.layoutParams as? WindowManager.LayoutParams ?: return
         if (lp.alpha == 1f && lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE == 0) return
-        lp.flags = lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+        lp.flags = lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv() and
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
         lp.alpha = 1f
         wm.safeUpdateViewLayout(current, lp)
+        current.requestFocus()
     }
 
     /**
@@ -230,7 +295,7 @@ object GridPanelOverlay {
      * lpOriginY 注释）。本窗口用 LAYOUT_IN_SCREEN 期望按屏幕坐标摆，但 ROM 行为
      * 不一 —— attach 后实测窗口顶边，非 0 就把 lp.y 反向修正，兜住坐标系歧义。
      */
-    private fun correctWindowOrigin(created: ComposeView) {
+    private fun correctWindowOrigin(created: View) {
         created.post {
             val current = view ?: return@post
             val location = IntArray(2)
@@ -245,8 +310,7 @@ object GridPanelOverlay {
     private fun layoutParamsFor() = WindowManager.LayoutParams().apply {
         type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         format = PixelFormat.TRANSLUCENT
-        flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+        flags = WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
         layoutInDisplayCutoutMode =
@@ -292,6 +356,8 @@ object GridPanelOverlay {
                 LocalActionLibraryEntries provides library.entries,
                 LocalActionPanels provides settings.actionPanels.panels,
                 LocalGridPanels provides settings.actionGridPanels.panels,
+                // 自绘小部件里启动外部应用后，用同一个退场动画关掉面板。
+                LocalGridPanelClose provides { (closeAnimated ?: { closeImmediate() }).invoke() },
             ) {
                 GridPanelRoot(
                     panel = settings.actionGridPanels.panelById(panelIdState),
@@ -314,6 +380,7 @@ object GridPanelOverlay {
                     onClose = { (closeAnimated ?: { closeImmediate() }).invoke() },
                     onCloseAnimated = { closeImmediate() },
                     onRegisterCloseAnimated = { callback -> closeAnimated = callback },
+                    onRegisterBackHandler = { handler -> backHandler = handler },
                 )
             }
         }

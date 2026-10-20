@@ -41,7 +41,6 @@ import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.gridpanel.core.GridPanelState
 import hunoia.luno.gridpanel.geometry.rememberGridMetrics
 import hunoia.luno.gridpanel.ui.GridItemActions
-import hunoia.luno.gridpanel.widget.PanelAppWidgetHost
 import hunoia.luno.gridpanel.widget.WidgetGoneListener
 import hunoia.luno.gridpanel.widget.addWidgetGoneListener
 import hunoia.luno.gridpanel.widget.removeWidgetGoneListener
@@ -73,6 +72,8 @@ fun GridPanelRoot(
     onClose: () -> Unit,
     onCloseAnimated: () -> Unit,
     onRegisterCloseAnimated: ((() -> Unit) -> Unit)?,
+    /** 注册返回键处理器：组合先行消费（编辑态退编辑），未消费由浮窗关闭。 */
+    onRegisterBackHandler: (((() -> Boolean)) -> Unit)? = null,
 ) {
     val libraryEntries = LocalActionLibraryEntries.current
 
@@ -110,23 +111,36 @@ fun GridPanelRoot(
         return
     }
 
-    val columns = panel.columnCount.coerceIn(
+    // 横竖屏分别取几何：横屏下用的就是横屏那份设置
+    val landscape = LocalConfiguration.current.orientation ==
+        android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val geo = panel.geometry(landscape)
+    val columns = geo.columnCount.coerceIn(
         GridPanelDefaults.MinColumnCount,
         GridPanelDefaults.MaxColumnCount,
     )
-    val rows = panel.rowCount.coerceIn(
-        GridPanelDefaults.MinRowCount,
-        GridPanelDefaults.MaxRowCount,
-    )
     val pageCount = panel.pageCount.coerceAtLeast(1)
-    val cardFraction = panel.cardWidthFraction
+    val cardFraction = geo.cardWidthFraction
         .coerceIn(GridPanelDefaults.MinCardWidthFraction, GridPanelDefaults.MaxCardWidthFraction)
+    val heightFraction = geo.cardHeightFraction
+        .coerceIn(GridPanelDefaults.MinCardHeightFraction, GridPanelDefaults.MaxCardHeightFraction)
     val cardAlpha = panel.cardAlpha.coerceIn(GridPanelDefaults.MinCardAlpha, GridPanelDefaults.MaxCardAlpha)
 
     // 翻页状态：currentPage 随手指实时变（页指示点跟手），settledPage 是落定的页
     //（加项 / 落盘都认它）。页数被改小时 PagerState 自己夹住当前页。
     val pagerState = rememberPagerState(pageCount = { pageCount })
     var editMode by remember(panel.id) { mutableStateOf(false) }
+    // 返回键：编辑态先退编辑（不关面板），非编辑态返回 false 交给浮窗播放退场动画。
+    LaunchedEffect(Unit) {
+        onRegisterBackHandler?.invoke {
+            if (editMode) {
+                editMode = false
+                true
+            } else {
+                false
+            }
+        }
+    }
 
     // 项列表的本地真身：拖拽要连续多次落位，DataStore 回流有延迟，直接渲染
     // panel.items 会在快速拖动时被旧快照回跳。回流同步只认「与 lastWritten
@@ -156,7 +170,7 @@ fun GridPanelRoot(
         }
     }
 
-    fun commitAllItems(next: List<GridPanelItem>) {
+    fun commitAllItems(next: List<GridPanelItem>, cleanupResources: Boolean = false) {
         localItems = next
         lastWritten = next
         scope.launch {
@@ -168,6 +182,7 @@ fun GridPanelRoot(
                     ),
                 )
             }
+            if (cleanupResources) hunoia.luno.domain.gridpanel.PanelResources.cleanup()
         }
     }
 
@@ -185,13 +200,10 @@ fun GridPanelRoot(
             .getOrDefault(0)
     }
 
-    // 行数不限制：实际行数 = max(显示行数，占用行数) + DynamicRowExtra。占用取全部页的最大值
-    // （几何是全页共享的，取 max 保证每页都装得下）；localItems 变化随重组重算。
-    // panel.gridRows 设置值已不参与渲染，只作存量字段保留。
-    val gridRowsEffective = (
-        maxOf(rows, localItems.maxOf { it.bottom }) + DynamicRowExtra
-        ).coerceAtLeast(rows + DynamicRowExtra)
-    val metrics = rememberGridMetrics(columns, rows, gridRowsEffective, pageCount, cardFraction)
+    // 行数不限制：实际行数 = max(可见行数，占用行数) + DynamicRowExtra，可见行数
+    // 由卡片高度比例反推（在 rememberGridMetrics 内统一算）；占用取全部页的最大值。
+    val occupiedRows = localItems.maxOfOrNull { it.bottom } ?: 0
+    val metrics = rememberGridMetrics(columns, cardFraction, heightFraction, pageCount, occupiedRows)
     val metricsState = rememberUpdatedState(metrics)
 
     // provider 被卸载 / 用户在系统里删掉小部件 → 宿主回调 onAppWidgetRemoved。
@@ -290,12 +302,8 @@ fun GridPanelRoot(
                         }
                     },
                     onDelete = { item ->
-                        // 小部件项被删 = 配置里不再引用这个 id，必须回收
-                        //（宿主具名资源，漏收会一直占槽位）。
-                        (item.kind as? GridPanelItem.Kind.AppWidget)?.let {
-                            PanelAppWidgetHost.get().release(it.appWidgetId)
-                        }
-                        commitAllItems(localItems.filterNot { it.id == item.id })
+                        // 删除后由 PanelResources.cleanup() 统一回收 widget id 和图标文件。
+                        commitAllItems(localItems.filterNot { it.id == item.id }, cleanupResources = true)
                     },
                     onDragStart = { item -> state.beginDrag(pageIndex, item) },
                     onDrag = { amount -> state.onDragDelta(amount) },

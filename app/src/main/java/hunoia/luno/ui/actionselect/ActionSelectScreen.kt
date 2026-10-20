@@ -33,12 +33,14 @@ import com.aaron.compose.component.UDFComponent
 import com.aaron.compose.component.UiBaseEvent
 import hunoia.luno.R
 import hunoia.luno.config.model.GridPanelDefaults
+import hunoia.luno.core.Paths
 import hunoia.luno.config.model.DynamicRowExtra
 import hunoia.luno.config.model.effectiveGridRows
 import hunoia.luno.gridpanel.widget.PanelAppWidgetHost
 import hunoia.luno.gridpanel.widget.WidgetProviderGroup
 import hunoia.luno.gridpanel.widget.WidgetSpan
 import hunoia.luno.gridpanel.widget.loadWidgetProviderGroups
+import hunoia.luno.gridpanel.geometry.gridPanelVisibleRows
 import hunoia.luno.gridpanel.widget.panelCellWidthDp
 import hunoia.luno.gridpanel.widget.widgetSpanFor
 import hunoia.luno.quicklaunch.QuickLaunchFacade
@@ -128,7 +130,7 @@ fun ActionSelectContent(
                                 val iconPath = bitmap?.let { bmp ->
                                     withContext(Dispatchers.IO) {
                                         runCatching {
-                                            val dir = File(context.filesDir, "shortcut_icons").apply { mkdirs() }
+                                            val dir = File(Paths.ShortcutIcons).apply { mkdirs() }
                                             val file = File(dir, "cs_${launcherInfo.packageName}_${System.currentTimeMillis()}.png")
                                             file.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
                                             file.absolutePath
@@ -161,13 +163,26 @@ fun ActionSelectContent(
                     val gridPanel = uiState.gridPanels.firstOrNull { it.id == gridPanelId }
                     // 面板还没回流（首帧）用默认网格估 span，只影响选择卡上的角标预览；
                     // 落盘时 saveGridPanelWidget 会按最新面板尺寸重新降格，不吃这里的近似。
-                    val gridColumns = gridPanel?.columnCount ?: GridPanelDefaults.ColumnCount
-                    val gridRows = gridPanel?.effectiveGridRows(actionSelect.gridPanelPageIndex)
-                        ?: (GridPanelDefaults.RowCount + DynamicRowExtra)
+                    val landscape = LocalConfiguration.current.orientation ==
+                        android.content.res.Configuration.ORIENTATION_LANDSCAPE
+                    val gridGeo = gridPanel?.geometry(landscape)
+                    val gridColumns = gridGeo?.columnCount ?: GridPanelDefaults.ColumnCount
+                    val gridVisibleRows = gridPanelVisibleRows(
+                        screenWdp = LocalConfiguration.current.screenWidthDp.toFloat(),
+                        screenHdp = LocalConfiguration.current.screenHeightDp.toFloat(),
+                        columns = gridColumns,
+                        cardWidthFraction = gridGeo?.cardWidthFraction ?: GridPanelDefaults.CardWidthFraction,
+                        cardHeightFraction = gridGeo?.cardHeightFraction ?: GridPanelDefaults.CardHeightFraction,
+                        pageCount = gridPanel?.pageCount ?: 1,
+                    )
+                    val gridRows = gridPanel?.effectiveGridRows(
+                        actionSelect.gridPanelPageIndex,
+                        gridVisibleRows,
+                    ) ?: (gridVisibleRows + DynamicRowExtra)
                     // 默认 span 按面板实际格宽缩（声明值是 launcher 70dp 格的个数，我们格子更小）
                     val panelCellDp = panelCellWidthDp(
                         screenWidthDp = LocalConfiguration.current.screenWidthDp.toFloat(),
-                        cardWidthFraction = gridPanel?.cardWidthFraction ?: GridPanelDefaults.CardWidthFraction,
+                        cardWidthFraction = gridGeo?.cardWidthFraction ?: GridPanelDefaults.CardWidthFraction,
                         columns = gridColumns,
                     )
                     var widgetGroups by remember { mutableStateOf<List<WidgetProviderGroup>>(emptyList()) }

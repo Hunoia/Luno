@@ -96,6 +96,9 @@ class FloatBallWindow(
     /** 最近一次上报的键盘底边（px）。拖动中如收起键盘，拖完结算按此值归零。 */
     private var imeBottomPx = 0
 
+    /** 系统是否真的把 IME insets 推给了这个悬浮窗；为 true 时服务侧可停掉轮询。 */
+    private var imeInsetsAvailable = false
+
     /** 系统栏边界（px）。取不到时为 0，夹取退化为全屏。 */
     private var bottomInsetPx = 0
 
@@ -143,6 +146,7 @@ class FloatBallWindow(
     /** 建窗口。false = 没建起来（未授权 / 系统拒绝）。 */
     fun attach(): Boolean {
         if (view != null) return true
+        imeInsetsAvailable = false
         ballPx = DensityProvider.dp2px(settings.sizeDp)
         val created = ComposeView(context).apply {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
@@ -158,6 +162,17 @@ class FloatBallWindow(
             }
             arbiter.onTouch(event)
         }
+        // 键盘 insets 优先走事件：系统支持时会立即回调（比轮询快）。
+        // 兼容性兜底仍保留服务侧的低频轮询（部分 ROM 不给不可获焦悬浮窗推 IME insets）。
+        created.setOnApplyWindowInsetsListener { v, insets ->
+            val imeBottom = insets.getInsets(WindowInsets.Type.ime()).bottom
+            // 只有真的收到非零 IME inset 才停轮询；部分 ROM 会派发一次空 insets
+            // 但之后不再更新，提前信任会丢掉键盘让位。
+            if (imeBottom > 0) imeInsetsAvailable = true
+            updateIme(imeBottom)
+            v.onApplyWindowInsets(insets)
+        }
+        created.requestApplyInsets()
         val lp = createLayoutParams()
         if (!wm.safeAddView(created, lp)) {
             Log.e(TAG, "ball addView failed (overlay permission or window rejected)")
@@ -322,6 +337,9 @@ class FloatBallWindow(
 
     /** 当前键盘让位量（px）。分身 y 跟随用。 */
     fun currentImeLiftPx(): Float = imeLiftPx
+
+    /** IME insets 已由窗口事件送达；服务侧可跳过轮询。 */
+    fun imeInsetsAvailable(): Boolean = imeInsetsAvailable
 
     /**
      * 交换的淡入淡出：原地淡出 → 传送到目标贴边位 → 淡回。

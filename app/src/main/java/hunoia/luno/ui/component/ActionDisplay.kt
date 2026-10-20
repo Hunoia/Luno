@@ -8,6 +8,8 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -201,11 +203,11 @@ fun actionIcon(action: StoredAction): Any? {
     }
     if (action.typeId == "internal.previousApp") {
         // 图标 = 当前「上一个应用」的应用图标：动态语义配动态图标，一眼看出会切到哪。
-        // 面板每次打开重组时重新取（RecentAppsHub 随 a11y 事件实时更新）。
+        // 必须 collect 而不是读 .value：RecentAppsHub 更新时要触发重组，否则图标
+        // 会停在首次组合那一刻的应用。
         val context = androidx.compose.ui.platform.LocalContext.current
-        val pkg = hunoia.luno.runtime.environment.RecentAppsHub.history.value
-            .dropLast(1)
-            .lastOrNull()
+        val history by hunoia.luno.runtime.environment.RecentAppsHub.history.collectAsState()
+        val pkg = history.dropLast(1).lastOrNull()
         return remember(pkg) {
             pkg?.let {
                 runCatching { context.packageManager.getApplicationIcon(it) }.getOrNull()

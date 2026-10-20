@@ -43,6 +43,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -56,9 +57,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil.compose.AsyncImage
 import coil.imageLoader
 import hunoia.luno.R
+import hunoia.luno.gridpanel.LocalGridPanelClose
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
 import hunoia.luno.runtime.automation.AutomationNotificationListener
@@ -128,7 +133,9 @@ fun MediaControlCell(
     onDesiredRows: (Int) -> Unit = {},
 ) {
     val context = LocalContext.current
-    var granted by remember { mutableStateOf(AutomationNotificationListener.isAccessGranted(context)) }
+    var granted by remember(rememberResumeTick()) {
+        mutableStateOf(AutomationNotificationListener.isAccessGranted(context))
+    }
     var sessions by remember { mutableStateOf<List<Pair<android.media.session.MediaController, SessionUiState>>>(emptyList()) }
 
     // 项高度跟会话数走：每会话两行（上排封面+标题+三键，下排进度），空态保底 2 行。
@@ -186,6 +193,11 @@ fun MediaControlCell(
             fun keyOf(c: android.media.session.MediaController) =
                 "${c.packageName}@${System.identityHashCode(c)}"
             val alive = picked.map { keyOf(it) }.toHashSet()
+            // 会话消失时先注销 callback：entries 被 retainAll 清掉后，onDispose 再也找不到它，
+            // 每换一次播放器就会泄漏一份 callback + SessionUiState。
+            entries.filterKeys { it !in alive }.values.forEach { (controller, state) ->
+                state.callbackRef?.let { controller.unregisterCallback(it) }
+            }
             entries.keys.retainAll(alive)
             for (controller in picked) {
                 val key = keyOf(controller)
@@ -319,6 +331,7 @@ private fun MediaSessionRow(
     modifier: Modifier = Modifier,
 ) {
     var draggingValue by remember { mutableStateOf<Float?>(null) }
+    val closePanel = LocalGridPanelClose.current
     // 播放中每秒推位置（position = state.position + elapsed × speed）。面板关闭
     // 随组合销毁，不留常驻 ticker。
     androidx.compose.runtime.LaunchedEffect(state.playing, state.positionMs, state.durationMs) {
@@ -351,7 +364,7 @@ private fun MediaSessionRow(
                     .width(44.dp)
                     .clip(RoundedCornerShape(ItemCorner * 0.5f))
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-                    .clickable { launchPackage(context, controller.packageName) },
+                    .clickable { if (launchPackage(context, controller.packageName)) closePanel() },
                 contentAlignment = Alignment.Center,
             ) {
                 if (state.artwork != null) {
@@ -441,14 +454,15 @@ private fun MediaSessionRow(
     }
 }
 
-private fun launchPackage(context: Context, packageName: String) {
-    if (packageName.isBlank()) return
-    runCatching {
+private fun launchPackage(context: Context, packageName: String): Boolean {
+    if (packageName.isBlank()) return false
+    return runCatching {
         context.packageManager.getLaunchIntentForPackage(packageName)?.let {
             it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(it)
-        }
-    }
+            true
+        } ?: false
+    }.getOrDefault(false)
 }
 
 /**
@@ -495,9 +509,14 @@ fun VolumeSliderCell(modifier: Modifier = Modifier) {
 
     // 静音切换：记一个恢复档（静音前的音量）。VOLUME_CHANGED 也会刷新它，
     // 避免「外部调到 3 → 静音 → 取消静音变回满格」。
-    var lastNonZero by remember { mutableStateOf(15) }
-    val current = audio?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: 0
-    if (current > 0) lastNonZero = current
+    var lastNonZero by remember {
+        mutableStateOf((audio?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: 15).coerceAtLeast(1))
+    }
+    val current = level
+    // 在 effect 里写 state，而不是在 composition 里直接赋值（后者会多触发一轮重组）。
+    androidx.compose.runtime.LaunchedEffect(current) {
+        if (current > 0) lastNonZero = current
+    }
     val muted = current == 0
 
     Row(
@@ -553,6 +572,22 @@ fun VolumeSliderCell(modifier: Modifier = Modifier) {
     }
 }
 
+/** ON_RESUME 递增的版本号：权限类状态（WRITE_SETTINGS / 通知访问）在用户从设置页
+ *  返回后必须重查，而 remember 不会自己失效。 */
+@Composable
+private fun rememberResumeTick(): Int {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var tick by remember { mutableIntStateOf(0) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) tick++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    return tick
+}
+
 
 /**
  * 亮度滑条：`Settings.System.SCREEN_BRIGHTNESS`（0..255），拖动中若处于自动亮度
@@ -562,7 +597,8 @@ fun VolumeSliderCell(modifier: Modifier = Modifier) {
 @Composable
 fun BrightnessSliderCell(modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val canWrite = remember { Settings.System.canWrite(context) }
+    // 授权页返回后要重查（ON_RESUME 递增 tick）：一次性 remember 会让格子永远卡在「点此授权」。
+    val canWrite = remember(rememberResumeTick()) { Settings.System.canWrite(context) }
     if (!canWrite) {
         Row(
             modifier = modifier
@@ -657,6 +693,7 @@ fun RecentAppsCell(
     spanY: Int = 1,
 ) {
     val context = LocalContext.current
+    val closePanel = LocalGridPanelClose.current
     val history by hunoia.luno.runtime.environment.RecentAppsHub.history.collectAsState()
     // 容量 = 格数；一行一格，多行往下排。
     val capacity = (spanX * spanY).coerceAtLeast(1)
@@ -708,12 +745,14 @@ fun RecentAppsCell(
                             .fillMaxHeight()
                             .clip(RoundedCornerShape(ItemCorner * 0.5f))
                             .clickable {
-                                runCatching {
+                                val launched = runCatching {
                                     context.packageManager.getLaunchIntentForPackage(pkg)?.let {
                                         it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                         context.startActivity(it)
-                                    }
-                                }
+                                        true
+                                    } ?: false
+                                }.getOrDefault(false)
+                                if (launched) closePanel()
                             },
                         contentAlignment = Alignment.Center,
                     ) {

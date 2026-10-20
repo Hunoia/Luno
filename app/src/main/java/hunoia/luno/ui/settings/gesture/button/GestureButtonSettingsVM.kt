@@ -69,6 +69,7 @@ class GestureButtonSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeV
                     }
                 }
             }
+            hunoia.luno.domain.gridpanel.PanelResources.cleanup()
         }.invokeOnCompletion {
             finish()
         }

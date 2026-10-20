@@ -18,6 +18,7 @@ object BackupOperator {
 
     private const val ZIP_BACKUP = "backup"
     private const val ZIP_IMAGES = "images"
+    private const val ZIP_ICONS = "icons"
 
     /**
      * 单个 zip entry 解压后的字节上限。
@@ -33,8 +34,28 @@ object BackupOperator {
      */
     private const val MAX_EXPORT_BYTES = 8L * 1024 * 1024
 
+    /** 导入时外层压缩包上限（防 zip bomb / 误选大文件占满缓存）。 */
+    private const val MAX_IMPORT_BYTES = 64L * 1024 * 1024
+
     private class EntryTooLargeException(val entryName: String) :
         Exception("zip entry too large: $entryName")
+
+    /** 边读边计数地拷贝，超过上限立即中止（不信任任何声明大小）。 */
+    private fun java.io.InputStream.copyToLimited(
+        out: java.io.OutputStream,
+        limit: Long,
+        label: String,
+    ) {
+        val buf = ByteArray(16 * 1024)
+        var total = 0L
+        while (true) {
+            val n = read(buf)
+            if (n < 0) break
+            total += n
+            if (total > limit) throw EntryTooLargeException(label)
+            out.write(buf, 0, n)
+        }
+    }
 
     /** 有上限地读完一个 entry；超过 [MAX_ENTRY_BYTES] 立即抛 [EntryTooLargeException] */
     private fun ZipInputStream.readEntryLimited(name: String): ByteArray {
@@ -74,8 +95,23 @@ object BackupOperator {
 
     private val backupItemFilePath get() = "$backupDir/$ZIP_BACKUP"
     private val zipImagePath get() = "$backupDir/$ZIP_IMAGES"
+    private val zipIconPath get() = "$backupDir/$ZIP_ICONS"
     private val zipFilePath get() = "$backupDir/zip"
     private val restoreFilePath get() = "$restoreDir/restore"
+
+    /** 把一个目录下的平铺文件打成 zip（空目录也生成合法空 zip）。 */
+    private fun zipDirectory(sourceDir: String, target: File) {
+        target.delete()
+        target.createNewFile()
+        val files = File(sourceDir).listFiles()?.filter { it.isFile } ?: emptyList()
+        ZipOutputStream(FileOutputStream(target)).use { zos ->
+            for (file in files) {
+                zos.putNextEntry(ZipEntry(file.name))
+                file.inputStream().use { it.copyTo(zos) }
+                zos.closeEntry()
+            }
+        }
+    }
 
     suspend fun backup(context: Context, saveTo: Uri) {
         try {
@@ -88,29 +124,28 @@ object BackupOperator {
                 it.appendBytes(backupItemBytes)
             }
 
-            val zipImageDirFile = File(zipImagePath).also {
-                it.delete()
-                it.createNewFile()
-            }
-            val imageFiles = File(Paths.Image).listFiles()?.toList() ?: emptyList()
-            ZipOutputStream(FileOutputStream(zipImageDirFile)).use { zos ->
-                for (file in imageFiles) {
-                    zos.putNextEntry(ZipEntry(file.name))
-                    file.inputStream().use { it.copyTo(zos) }
-                    zos.closeEntry()
-                }
-            }
+            // images 保留给旧备份兼容（当前没有功能写入 Pictures）；真正需要备份的
+            // 用户数据是 shortcut_icons —— 快捷方式位图图标。
+            val zipImageDirFile = File(zipImagePath)
+            zipDirectory(Paths.Image, zipImageDirFile)
+            val zipIconDirFile = File(zipIconPath)
+            zipDirectory(Paths.ShortcutIcons, zipIconDirFile)
 
             val zipFile = File(zipFilePath).also {
                 it.delete()
                 it.createNewFile()
             }
             ZipOutputStream(FileOutputStream(zipFile)).use { zos ->
-                for (file in listOf(backupItemFile, zipImageDirFile)) {
+                for (file in listOf(backupItemFile, zipImageDirFile, zipIconDirFile)) {
                     zos.putNextEntry(ZipEntry(file.name))
                     file.inputStream().use { it.copyTo(zos) }
                     zos.closeEntry()
                 }
+            }
+            if (zipFile.length() > MAX_EXPORT_BYTES) {
+                throw IllegalStateException(
+                    "backup failed: exceeds 8MB (${zipFile.length()} bytes)"
+                )
             }
 
             val outputStream = context.contentResolver.openOutputStream(saveTo)
@@ -135,7 +170,7 @@ object BackupOperator {
                 .getOrNull() ?: return RestorePrecheckResult.Failed(RestorePrecheckFailure.CannotReadFile)
             try {
                 inputStream.use { stream ->
-                    tempFile.outputStream().use { out -> stream.copyTo(out) }
+                    tempFile.outputStream().use { out -> stream.copyToLimited(out, MAX_IMPORT_BYTES, "import") }
                 }
             } catch (_: Exception) {
                 return RestorePrecheckResult.Failed(RestorePrecheckFailure.CannotReadFile)
@@ -180,7 +215,7 @@ object BackupOperator {
             val inputStream = context.contentResolver.openInputStream(restoreFrom)
                 ?: throw IllegalStateException("Failed to open input stream for restore")
             inputStream.use { stream ->
-                restoreFile.outputStream().use { out -> stream.copyTo(out) }
+                restoreFile.outputStream().use { out -> stream.copyToLimited(out, MAX_IMPORT_BYTES, "import") }
             }
 
             when (val precheck = precheckRestoreFile(restoreFile)) {
@@ -204,6 +239,7 @@ object BackupOperator {
                         restoreImages(file, restoreDirFile)
                         imagesRestored = true
                     }
+                    ZIP_ICONS -> restoreShortcutIcons(file, replace = true)
                 }
             }
             if (!restored) throw IllegalStateException("restore failed: no backup entry found in zip")
@@ -213,11 +249,42 @@ object BackupOperator {
         }
     }
 
+    /**
+     * 恢复快捷方式图标。全量恢复时整目录替换；单域导入时合并（不动其他域的图标）。
+     */
+    private fun restoreShortcutIcons(iconsZip: File, replace: Boolean) {
+        val staging = File(iconsZip.parentFile, "$ZIP_ICONS-staging").also {
+            it.deleteRecursively()
+            it.mkdirs()
+        }
+        val staged = unzipFile(iconsZip, staging).filter { it.isFile }
+        if (staged.isEmpty()) {
+            staging.deleteRecursively()
+            return
+        }
+        val target = File(Paths.ShortcutIcons).also { it.mkdirs() }
+        if (replace) {
+            target.listFiles()?.forEach { it.delete() }
+        }
+        val stagingRoot = staging.canonicalPath
+        staged.forEach { file ->
+            val relative = file.canonicalPath.removePrefix(stagingRoot).removePrefix(File.separator)
+            if (relative.isEmpty()) return@forEach
+            val dest = File(target, relative)
+            dest.parentFile?.mkdirs()
+            file.copyTo(dest, overwrite = true)
+        }
+        staging.deleteRecursively()
+    }
+
     private fun restoreImages(imagesZip: File, restoreDirFile: File) {
         val staging = File(restoreDirFile, "${ZIP_IMAGES}-staging").also { it.mkdirs() }
         val staged = unzipFile(imagesZip, staging).filter { it.isFile }
         if (staged.isEmpty()) {
-            throw IllegalStateException("restore failed: images entry contains no files")
+            // 当前功能不使用 Pictures；旧备份/新备份里的 images 条目都可能为空。
+            // 空条目不是损坏，直接跳过，否则整次恢复会被误判失败。
+            staging.deleteRecursively()
+            return
         }
 
         val target = File(Paths.Image)
@@ -261,9 +328,14 @@ object BackupOperator {
                 it.delete()
                 it.createNewFile()
             }
+            val iconsZip = File(dir, ZIP_ICONS)
+            zipDirectory(Paths.ShortcutIcons, iconsZip)
             ZipOutputStream(FileOutputStream(zipFile)).use { zos ->
                 zos.putNextEntry(ZipEntry(ZIP_BACKUP))
                 itemBytes.inputStream().use { it.copyTo(zos) }
+                zos.closeEntry()
+                zos.putNextEntry(ZipEntry(ZIP_ICONS))
+                iconsZip.inputStream().use { it.copyTo(zos) }
                 zos.closeEntry()
             }
             if (zipFile.length() > MAX_EXPORT_BYTES) {
@@ -293,7 +365,7 @@ object BackupOperator {
             val inputStream = context.contentResolver.openInputStream(restoreFrom)
                 ?: throw IllegalStateException("Failed to open input stream for import")
             inputStream.use { stream ->
-                restoreFile.outputStream().use { out -> stream.copyTo(out) }
+                restoreFile.outputStream().use { out -> stream.copyToLimited(out, MAX_IMPORT_BYTES, "import") }
             }
             if (restoreFile.length() > MAX_EXPORT_BYTES) {
                 throw IllegalStateException("import failed: file exceeds 8MB (${restoreFile.length()} bytes)")
@@ -301,6 +373,9 @@ object BackupOperator {
             val extracted = unzipFile(restoreFile, restoreDirFile)
             val item = extracted.firstOrNull { it.isFile && it.name == ZIP_BACKUP }
                 ?: throw IllegalStateException("import failed: no backup entry found in zip")
+            // 旧版域备份没有 icons 条目：可选，合并导入，不动其他域的图标。
+            extracted.firstOrNull { it.isFile && it.name == ZIP_ICONS }
+                ?.let { restoreShortcutIcons(it, replace = false) }
             val bytes = item.readBytes().also {
                 if (it.size > MAX_ENTRY_BYTES) throw EntryTooLargeException(item.name)
             }

@@ -12,6 +12,7 @@ import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.QuickAppSnapshot
+import hunoia.luno.config.model.QuickLauncherGeometry
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.config.repository.QuickLauncherRepository
@@ -99,8 +100,8 @@ object ConfigProvider {
         stores._quickSearchSettings.updateData(transform)
     }
 
-    suspend fun updateQuickAppLauncherLayout(layout: QuickAppLauncherSettings) {
-        quickLauncherRepository.updateQuickAppLauncherLayout(layout)
+    suspend fun updateQuickAppLauncherLayout(layout: QuickLauncherGeometry, landscape: Boolean) {
+        quickLauncherRepository.updateQuickAppLauncherLayout(layout, landscape)
     }
     suspend fun recordQuickAppLaunch(appKey: String) {
         quickLauncherRepository.recordQuickAppLaunch(appKey)

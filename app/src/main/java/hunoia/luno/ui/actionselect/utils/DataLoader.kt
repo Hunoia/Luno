@@ -2,6 +2,7 @@ package hunoia.luno.ui.actionselect
 
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.model.StoredAction
+import hunoia.luno.action.model.ShortcutIconFiles
 import hunoia.luno.action.model.hasPointParams
 import hunoia.luno.action.model.launchAppRef
 import hunoia.luno.action.model.longPressVariant
@@ -21,6 +22,7 @@ import hunoia.luno.config.model.GridCell
 import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.config.model.GridPanelItemLayout
 import hunoia.luno.core.AppContext
+import hunoia.luno.gridpanel.geometry.gridPanelVisibleRows
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.gridpanel.widget.PanelAppWidgetHost
 import hunoia.luno.gridpanel.widget.WidgetSpan
@@ -33,7 +35,6 @@ import hunoia.luno.quicklaunch.model.qualifiedNameWithIntents
 import hunoia.luno.ui.automation.AutomationDraftHolder
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.navigation.FloatBallSlot
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonPrimitive
@@ -45,27 +46,16 @@ internal fun StoredAction.shortcutInfo(): LauncherInfo.ShortcutInfo? {
     return runCatching { JsonSerializer.decodeFromString<LauncherInfo.ShortcutInfo>(data) }.getOrNull()
 }
 
-internal fun List<StoredAction>.shortcutIconPaths(): List<String> {
-    return flatMap { action ->
-        listOfNotNull(
-            action.shortcutInfo()?.iconPath,
-            action.longPressVariant()?.shortcutInfo()?.iconPath
-        )
-    }.filter { it.isNotEmpty() }
-}
+internal fun List<StoredAction>.shortcutIconPaths(): List<String> =
+    flatMap { ShortcutIconFiles.iconPathsOf(it) }
 
-internal fun StoredAction.shortcutIconPaths(): List<String> =
-    listOfNotNull(
-        shortcutInfo()?.iconPath,
-        longPressVariant()?.shortcutInfo()?.iconPath
-    ).filter { it.isNotEmpty() }
+internal fun StoredAction.shortcutIconPaths(): List<String> = ShortcutIconFiles.iconPathsOf(this)
 
 internal fun tryDeleteShortcutIcons(old: StoredAction?, new: StoredAction?) {
-    val newPaths = listOfNotNull(new).shortcutIconPaths().toSet()
-    listOfNotNull(old).shortcutIconPaths().forEach { path ->
-        if (path in newPaths) return@forEach
-        File(path).delete()
-    }
+    val newPaths = listOfNotNull(new).flatMap { it.shortcutIconPaths() }.toSet()
+    listOfNotNull(old).flatMap { it.shortcutIconPaths() }
+        .filter { it !in newPaths }
+        .forEach(ShortcutIconFiles::delete)
 }
 
 /**
@@ -175,9 +165,22 @@ private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: Stored
     TuneConfig.updateAction { settings ->
         val panel = settings.actionGridPanels.panelById(actionSelect.gridPanelId)
             ?: return@updateAction settings
-        val columns = panel.columnCount.coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
+        val landscape = AppContext.get().resources.configuration.orientation ==
+            android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val geo = panel.geometry(landscape)
+        val columns = geo.columnCount.coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
         val pageIndex = actionSelect.gridPanelPageIndex.coerceIn(0, (panel.pageCount - 1).coerceAtLeast(0))
-        val rows = panel.effectiveGridRows(pageIndex)
+        val rows = panel.effectiveGridRows(
+            pageIndex,
+            gridPanelVisibleRows(
+                screenWdp = AppContext.get().resources.configuration.screenWidthDp.toFloat(),
+                screenHdp = AppContext.get().resources.configuration.screenHeightDp.toFloat(),
+                columns = columns,
+                cardWidthFraction = geo.cardWidthFraction,
+                cardHeightFraction = geo.cardHeightFraction,
+                pageCount = panel.pageCount,
+            ),
+        )
         val free = GridPanelItemLayout.firstFreeSlot(
             items = panel.items.filter { it.pageIndex == pageIndex },
             columns = columns,
@@ -254,10 +257,23 @@ internal suspend fun saveGridPanelWidget(
             "available=${settings.actionGridPanels.panels.map { it.id to it.name }} select=${actionSelect}")
             return@updateAction settings
         }
-        val columns = panel.columnCount
+        val landscape = AppContext.get().resources.configuration.orientation ==
+            android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val geo = panel.geometry(landscape)
+        val columns = geo.columnCount
             .coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
         val pageIndex = actionSelect.gridPanelPageIndex.coerceIn(0, (panel.pageCount - 1).coerceAtLeast(0))
-        val rows = panel.effectiveGridRows(pageIndex)
+        val rows = panel.effectiveGridRows(
+            pageIndex,
+            gridPanelVisibleRows(
+                screenWdp = AppContext.get().resources.configuration.screenWidthDp.toFloat(),
+                screenHdp = AppContext.get().resources.configuration.screenHeightDp.toFloat(),
+                columns = columns,
+                cardWidthFraction = geo.cardWidthFraction,
+                cardHeightFraction = geo.cardHeightFraction,
+                pageCount = panel.pageCount,
+            ),
+        )
         val pageItems = panel.items.filter { it.pageIndex == pageIndex }
         // 追加优先：原尺寸先试「放到最下面」；实在不行才走降档扫空位兜底。
         bottomSlot(pageItems, columns, rows, spanX, spanY)?.let { cell ->
@@ -354,10 +370,23 @@ internal suspend fun saveGridPanelInternalWidget(
             android.util.Log.w("GridPanelSave", "internal: panel not found id=${actionSelect.gridPanelId}")
             return@updateAction settings
         }
-        val columns = panel.columnCount
+        val landscape = AppContext.get().resources.configuration.orientation ==
+            android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val geo = panel.geometry(landscape)
+        val columns = geo.columnCount
             .coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
         val pageIndex = actionSelect.gridPanelPageIndex.coerceIn(0, (panel.pageCount - 1).coerceAtLeast(0))
-        val rows = panel.effectiveGridRows(pageIndex)
+        val rows = panel.effectiveGridRows(
+            pageIndex,
+            gridPanelVisibleRows(
+                screenWdp = AppContext.get().resources.configuration.screenWidthDp.toFloat(),
+                screenHdp = AppContext.get().resources.configuration.screenHeightDp.toFloat(),
+                columns = columns,
+                cardWidthFraction = geo.cardWidthFraction,
+                cardHeightFraction = geo.cardHeightFraction,
+                pageCount = panel.pageCount,
+            ),
+        )
         val pageItems = panel.items.filter { it.pageIndex == pageIndex }
         // 追加优先：原尺寸先试「放到最下面」。
         bottomSlot(pageItems, columns, rows, def.spanX, def.spanY)?.let { cell ->

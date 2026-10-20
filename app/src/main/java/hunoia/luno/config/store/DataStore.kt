@@ -13,6 +13,7 @@ import java.io.OutputStream
 
 
 inline fun <reified T> Context.dataStore(fileName: String, defValue: T): DataStore<T> {
+    val targetFile = File("${filesDir.absolutePath}/ds/$fileName")
     val serializer = object : Serializer<T> {
         override val defaultValue: T = defValue
 
@@ -29,6 +30,14 @@ inline fun <reified T> Context.dataStore(fileName: String, defValue: T): DataSto
                 result
             } catch (e: Exception) {
                 Log.e("DataStore", "read $fileName failed: ${e::class.simpleName} ${e.message} size=${bytes.size}")
+                // 先留一份不可解析的原文件：直接回默认值的话，下一次任意 updateData 就会把
+                // 默认值整份写回，原数据再无恢复可能。
+                if (bytes.isNotEmpty()) {
+                    runCatching {
+                        targetFile.parentFile?.mkdirs()
+                        File("${targetFile.absolutePath}.corrupt").writeBytes(bytes)
+                    }
+                }
                 defaultValue
             }
         }
@@ -44,6 +53,6 @@ inline fun <reified T> Context.dataStore(fileName: String, defValue: T): DataSto
         }
     }
     return MultiProcessDataStoreFactory.create(serializer) {
-        File("${filesDir.absolutePath}/ds/$fileName")
+        targetFile
     }
 }

@@ -27,6 +27,7 @@ import hunoia.luno.quicklaunch.panel.QuickSearchContent
 import hunoia.luno.quicklaunch.query.QuickSearchIndex
 import hunoia.luno.quicklaunch.query.QuickSearchResult
 import hunoia.luno.quicklaunch.query.longPressAction
+import hunoia.luno.bridge.system.PackageChangeReceiver
 import hunoia.luno.quicklaunch.query.resolvedUrl
 import hunoia.luno.quicklaunch.query.toConfigAction
 import hunoia.luno.service.DispatchClient
@@ -46,6 +47,21 @@ import kotlinx.coroutines.launch
 class QuickSearchActivity : ComponentActivity() {
 
     private val index by lazy { QuickSearchIndex(applicationContext) }
+
+    /** 面板开着时装卸应用：清索引闸门并在 IO 重扫，索引版本变化会触发搜索流重建。 */
+    private val onPackageChanged: () -> Unit = {
+        lifecycleScope.launch(Dispatchers.IO) { index.invalidateApps() }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        PackageChangeReceiver.register(this, onPackageChanged)
+    }
+
+    override fun onStop() {
+        PackageChangeReceiver.unregister(this, onPackageChanged)
+        super.onStop()
+    }
 
     /**
      * 剪贴板状态：窗口拿到焦点后读（取剪贴板要的是窗口焦点，onResume 时焦点
@@ -309,8 +325,10 @@ class QuickSearchActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // singleTask 重复触发：面板已在前台，保留当前内容，不做任何事。
+        // singleTask 重复触发：面板已在前台，保留当前内容；只重扫包列表，避免
+        // 上次打开期间装卸的应用在复用时仍按旧索引搜不到。
         if (BuildConfig.DEBUG) Log.i("LunoLauncher", "QuickSearchActivity onNewIntent taskId=$taskId")
+        lifecycleScope.launch(Dispatchers.IO) { index.invalidateApps() }
     }
 
     override fun onDestroy() {

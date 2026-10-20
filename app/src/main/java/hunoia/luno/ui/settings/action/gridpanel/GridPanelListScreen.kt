@@ -62,6 +62,7 @@ fun GridPanelListScreen(
                 pendingDelete = null
                 scope.launch {
                     TuneConfig.updateAction { it.copy(actionGridPanels = it.actionGridPanels.withoutPanel(panel.id)) }
+                    hunoia.luno.domain.gridpanel.PanelResources.cleanup()
                 }
             },
         )
@@ -104,7 +105,7 @@ fun GridPanelListScreen(
                         title = panel.name.ifBlank { stringResource(R.string.grid_panel_unnamed) },
                         subtitle = stringResource(
                             R.string.grid_panel_summary,
-                            panel.items.size, panel.columnCount,
+                            panel.items.size, panel.geometry(false).columnCount,
                         ),
                         onClick = { onEditPanel(panel.id) },
                         onLongClick = { pendingDelete = panel },

@@ -122,11 +122,11 @@ fun MiniWindowAdjustContent(
     // lambda，那里面拿不到 Density。
     val handleTolerancePx = with(LocalDensity.current) { HANDLE_TOLERANCE.toPx() }
 
-    var pending by remember(initial, orientation) { mutableStateOf(initial.forOrientation(orientation)) }
+    var pending by remember(initial, isLandscape) { mutableStateOf(initial.forOrientation(isLandscape)) }
     var screenPx by remember { mutableStateOf(IntSize.Zero) }
     var dragKind by remember { mutableStateOf(HitKind.None) }
     var grabNorm by remember { mutableStateOf(Offset.Zero) }
-    var startRect by remember { mutableStateOf(initial.forOrientation(orientation)) }
+    var startRect by remember { mutableStateOf(initial.forOrientation(isLandscape)) }
 
     fun rectPx(settings: WindowBounds): Rect {
         val sw = screenPx.width
@@ -236,7 +236,7 @@ fun MiniWindowAdjustContent(
 
     /** 回到出厂默认：取当前方向那套（[MiniWindowSettings] 的默认值本身就是分方向的）。 */
     fun defaultBounds(): WindowBounds =
-        MiniWindowSettings().forOrientation(orientation)
+        MiniWindowSettings().forOrientation(isLandscape)
 
     fun nudge(dx: Float, dy: Float, dw: Float, dh: Float) {
         pending = pending.copy(
@@ -256,7 +256,7 @@ fun MiniWindowAdjustContent(
             // 同时保留「这就是整块屏幕」的感觉。GestureEVO 那层是完全透明的。
             .background(Color.Black.copy(alpha = 0.6f))
             .onSizeChanged { screenPx = IntSize(it.width, it.height) }
-            .pointerInput(screenPx, orientation) {
+            .pointerInput(screenPx, isLandscape) {
                 val w = screenPx.width.coerceAtLeast(1)
                 val h = screenPx.height.coerceAtLeast(1)
                 val tolerancePx = handleTolerancePx
@@ -384,7 +384,7 @@ fun MiniWindowAdjustContent(
                 ) { Text(stringResource(R.string.cancel), color = Color.White) }
                 FilledTonalButton(
                     modifier = Modifier.weight(1f),
-                    onClick = { onCommit(initial.withOrientation(orientation, pending)) },
+                    onClick = { onCommit(initial.withOrientation(isLandscape, pending)) },
                 ) { Text(stringResource(R.string.mini_window_done)) }
             }
         }

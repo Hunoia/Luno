@@ -1,5 +1,6 @@
 package hunoia.luno.config.backup
 
+import android.util.Log
 import hunoia.luno.action.model.NewActionLibrarySettings
 import hunoia.luno.config.store.SettingsStores
 import hunoia.luno.config.model.ActionSettings
@@ -18,6 +19,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 
 internal class ConfigBackupRepository(private val stores: SettingsStores) {
 
@@ -52,7 +55,11 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         )
     }
 
-    suspend fun restoreAll(backup: Backup) = coroutineScope {
+    suspend fun restoreAll(backup: Backup) = withRollback {
+        writeAll(backup)
+    }
+
+    private suspend fun writeAll(backup: Backup) = coroutineScope {
         launch { backup.initialSettings?.let { v -> writeSection("initialSettings") { stores._initialSettings.updateData { v } } } }
         launch { backup.advancedSettings?.let { v -> writeSection("advancedSettings") { stores._advancedSettings.updateData { v } } } }
         launch { backup.gestureSettings?.let { v -> writeSection("gestureSettings") { stores._gestureSettings.updateData { v } } } }
@@ -63,6 +70,23 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { backup.newActionLibrarySettings?.let { v -> writeSection("newActionLibrarySettings") { stores._newActionLibrarySettings.updateData { v } } } }
         launch { backup.automationRules?.let { v -> writeSection("automationRules") { stores._automationRules.updateData { v } } } }
         launch { backup.quickSearchSettings?.let { v -> writeSection("quickSearchSettings") { stores._quickSearchSettings.updateData { v } } } }
+    }
+
+    /**
+     * 恢复是跨 10 个 DataStore 的多写，不存在真正的原子提交。失败时把操作前的
+     * 全量快照写回去，避免用户停在「一半新配置、一半旧配置」的混合状态。
+     */
+    private suspend fun withRollback(block: suspend () -> Unit) {
+        val previous = snapshotAll()
+        try {
+            block()
+        } catch (e: Exception) {
+            withContext(NonCancellable) {
+                runCatching { writeAll(previous) }
+                    .onFailure { Log.e("LunoBackup", "restore rollback failed", it) }
+            }
+            throw e
+        }
     }
 
     /** 单域快照：只含该域的段与版本，其余为 null。 */
@@ -113,7 +137,11 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         }
     }
 
-    suspend fun resetAll() = coroutineScope {
+    suspend fun resetAll() = withRollback {
+        resetStores()
+    }
+
+    private suspend fun resetStores() = coroutineScope {
         launch { stores._initialSettings.updateData { InitialSettings() } }
         launch { stores._advancedSettings.updateData { AdvancedSettings() } }
         launch { stores._gestureSettings.updateData { GestureSettings() } }

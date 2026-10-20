@@ -79,7 +79,7 @@ fun ActionPanelEditScreen(
         return
     }
 
-    fun updateItems(items: List<StoredAction>) {
+    fun updateItems(items: List<StoredAction>, cleanupResources: Boolean = false) {
         scope.launch {
             TuneConfig.updateAction { settings ->
                 val latest = settings.actionPanels.panelById(panelId) ?: return@updateAction settings
@@ -87,6 +87,7 @@ fun ActionPanelEditScreen(
                     actionPanels = settings.actionPanels.withPanel(latest.copy(items = items))
                 )
             }
+            if (cleanupResources) hunoia.luno.domain.gridpanel.PanelResources.cleanup()
         }
     }
 
@@ -177,7 +178,8 @@ fun ActionPanelEditScreen(
                                     IconButton(
                                         onClick = {
                                             updateItems(
-                                                current.items.toMutableList().apply { removeAt(index) }
+                                                current.items.toMutableList().apply { removeAt(index) },
+                                                cleanupResources = true,
                                             )
                                         },
                                     ) {

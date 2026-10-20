@@ -139,6 +139,7 @@
     <string name="grid_panel_row_count">行数</string>
     <string name="grid_panel_page_count">页数</string>
     <string name="grid_panel_card_width">卡片宽度</string>
+    <string name="grid_panel_card_height">卡片高度</string>
     <string name="grid_panel_card_alpha">卡片透明度</string>
     <string name="grid_panel_add_widget">桌面小部件</string>
     <string name="grid_panel_internal_widgets">Luno 内置</string>

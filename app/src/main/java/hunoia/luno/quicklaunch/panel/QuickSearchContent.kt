@@ -322,19 +322,15 @@ internal fun QuickSearchContent(
             recentLaunchTime = recentLaunchTime,
         )
     }
-    // 应用索引就绪后才补搜一次：Activity 在 IO 线程 refreshApps，先打字时 apps 还是空，
-    // 就绪后靠这里 tick 补一次（替代旧的在搜索线程里阻塞查包兜底）。
-    var appsTick by remember { mutableIntStateOf(0) }
+    // 应用索引版本：ensureLoaded / refreshApps 发布新数据后自增（含 onNewIntent 重扫、
+    // 装卸应用失效重刷）。普通 @Volatile 字段 Compose 看不见，必须经 StateFlow 收集。
+    val indexVersion by index.indexVersion.collectAsState()
     // 权限快照刷新的版本号：快照是 @Volatile 普通字段，Compose 看不见它变化，
     // 靠这个 State 把「已刷新」这件事带进重组。
     var permCacheTick by remember { mutableIntStateOf(0) }
-    LaunchedEffect(index) {
-        // 每次就绪（含 refreshApps 重刷后）都补一次；初值 false 会被 filter 挡掉。
-        snapshotFlow { index.appsLoaded || index.defsLoaded }.filter { it }.collect { appsTick++ }
-    }
-    // dataVersion：数据源 tick / 索引就绪 —— 任一变化就重建搜索流并重搜一次。
+    // dataVersion：数据源 tick / 索引版本 —— 任一变化就重建搜索流并重搜一次。
     // 值本身不进快照（快照里再放一遍等于同一变化算两次）。
-    val dataVersion = contactsTick + mediaTick + calendarTick + smsTick + callsTick + appsTick + permCacheTick
+    val dataVersion = contactsTick + mediaTick + calendarTick + smsTick + callsTick + indexVersion + permCacheTick
     val searchFlow = remember(
         appCtx, iconPx, searchInputs, effectiveLauncher, effectiveSearchSettings, dataVersion, torchOn,
     ) {
@@ -444,7 +440,7 @@ internal fun QuickSearchContent(
     // 空态两段数据（常用应用 / 最近文件）：放在条件分支外，面板生命周期内只跑一次。
     // 以前写在 else-if 分支里，分支一退出就取消，来回切 query 会反复重启 IO。
     var topUsedApps by remember { mutableStateOf(emptyList<QuickSearchResult.App>()) }
-    LaunchedEffect(effectiveLauncher, appsTick) {
+    LaunchedEffect(effectiveLauncher, indexVersion) {
         topUsedApps = withContext(Dispatchers.IO) { index.topUsed(effectiveLauncher) }
     }
     var recentFiles by remember { mutableStateOf(emptyList<QuickSearchResult>()) }
