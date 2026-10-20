@@ -13,6 +13,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -86,6 +90,8 @@ class GridItemActions(
      * 只扩不缩等语义由调用方决定；默认空实现 = 部件类型不动态变高。
      */
     val onExpand: (GridPanelItem, rows: Int) -> Unit = { _, _ -> },
+    /** 内置小部件切换背景显示（左上角按钮），落盘 showBackground。 */
+    val onToggleBackground: (GridPanelItem) -> Unit = { _ -> },
 )
 
 /**
@@ -249,15 +255,46 @@ fun GridPanelLayer(
                             }
                         }
 
-                        is GridPanelItem.Kind.Internal -> when (kind.widgetId) {
-                            // 自绘部件自带点击目标，不走 ActionItemCell 那套整格 combinedClickable ——
-                            // 按钮/滑条就是内容本身；编辑态交给层根手势，这里不动。
-                            InternalWidgetIds.MEDIA -> MediaControlCell(
-                                modifier = Modifier.fillMaxSize(),
-                                onDesiredRows = { rows -> actions.onExpand(item, rows) },
-                            )
-                            InternalWidgetIds.VOLUME -> VolumeSliderCell(Modifier.fillMaxSize())
-                            else -> BrokenItemCell(Modifier.fillMaxSize())
+                        is GridPanelItem.Kind.Internal -> {
+                            Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .then(
+                                        if (kind.showBackground) {
+                                            Modifier.background(
+                                                MaterialTheme.colorScheme.surfaceVariant,
+                                                RoundedCornerShape(ItemCorner),
+                                            )
+                                        } else Modifier,
+                                    ),
+                            ) {
+                                when (kind.widgetId) {
+                                    // 自绘部件自带点击目标，不走 ActionItemCell 那套整格 combinedClickable ——
+                                    // 按钮/滑条就是内容本身；编辑态交给层根手势，这里不动。
+                                    InternalWidgetIds.MEDIA -> MediaControlCell(
+                                        modifier = Modifier.fillMaxSize(),
+                                        onDesiredRows = { rows -> actions.onExpand(item, rows) },
+                                    )
+                                    InternalWidgetIds.VOLUME -> VolumeSliderCell(Modifier.fillMaxSize())
+                                    else -> BrokenItemCell(Modifier.fillMaxSize())
+                                }
+                                // 左上角背景开关：编辑态才显示，切换 showBackground（实时落盘）。
+                                if (editMode) {
+                                    IconButton(
+                                        onClick = { actions.onToggleBackground(item) },
+                                        modifier = Modifier
+                                            .align(Alignment.TopStart)
+                                            .size(24.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Layers,
+                                            contentDescription = null,
+                                            tint = gridPanelOnCardColor.copy(alpha = if (kind.showBackground) 0.9f else 0.35f),
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                    }
+                                }
+                            }
                         }
 
                         is GridPanelItem.Kind.AppWidget -> {

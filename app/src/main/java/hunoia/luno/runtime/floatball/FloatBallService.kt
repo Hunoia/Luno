@@ -180,7 +180,7 @@ class FloatBallService : Service() {
      */
     private fun refreshWindows(animateRestore: Boolean) {
         val enabled = settings.enabled && canDrawOverlays() && gestureEnabledSnapshot
-        val panelHidden = settings.hideOnPanel && panelCount > 0
+        val panelHidden = panelCount > 0
         val shouldShow = enabled && !panelHidden
         if (!shouldShow) {
             if (ballVisible) {
@@ -213,14 +213,14 @@ class FloatBallService : Service() {
 
     private val panelShownSubscriber: (PanelShownEvent) -> Unit = {
         panelCount++
-        hiddenByPanel = settings.hideOnPanel && panelCount > 0
+        hiddenByPanel = panelCount > 0
         refreshWindows(animateRestore = false)
     }
 
     private val panelDismissedSubscriber: (PanelDismissedEvent) -> Unit = {
         if (panelCount > 0) panelCount--
-        val recovered = settings.hideOnPanel && panelCount == 0 && hiddenByPanel
-        hiddenByPanel = settings.hideOnPanel && panelCount > 0
+        val recovered = panelCount == 0 && hiddenByPanel
+        hiddenByPanel = panelCount > 0
         refreshWindows(animateRestore = recovered)
     }
 

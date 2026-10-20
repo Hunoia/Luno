@@ -12,6 +12,7 @@ import kotlinx.coroutines.withContext
 import java.text.Collator
 import java.util.Locale
 import kotlin.math.ceil
+import kotlin.math.roundToInt
 
 /**
  * 面板里挑第三方小部件的清单（docs/grid-panel.md）。
@@ -59,16 +60,36 @@ private const val CellPaddingDp = 30f
  * 「它在桌面上占几格」是它的固有属性；我们格子更小（卡片只占 72% 屏宽）时，
  * 结果就是这一项在我们网格里被压缩，而不是变成一个占满整张卡的庞然大物。
  */
+/**
+ * 面板格宽（dp）。声明值是 launcher 标准格（~70dp）的个数，我们格子更小，
+ * 默认 span 按比例缩（见 [widgetSpanFor] 的 cellWidthDp 参数）。
+ */
+fun panelCellWidthDp(screenWidthDp: Float, cardWidthFraction: Float, columns: Int): Float {
+    val cardW = screenWidthDp * cardWidthFraction
+    val gap = when {
+        columns <= 3 -> 10f
+        columns <= 4 -> 8f
+        columns <= 5 -> 6f
+        else -> 4f
+    }
+    return (cardW - 2f * 10f - gap * (columns - 1)) / columns.coerceAtLeast(1)
+}
+
 fun widgetSpanFor(
     info: AppWidgetProviderInfo,
     columns: Int,
     rows: Int,
+    /** 面板实际格宽（dp）；缺省按标准 70dp 算（不缩）。 */
+    cellWidthDp: Float = StandardCellDp,
 ): WidgetSpan {
     val cols = columns.coerceAtLeast(1)
     val rowCount = rows.coerceAtLeast(1)
+    val scale = (cellWidthDp / StandardCellDp).coerceIn(0.5f, 1f)
     return WidgetSpan(
-        spanX = (info.targetCellWidth.takeIf { it > 0 } ?: cellsFor(info.minWidth)).coerceIn(1, cols),
-        spanY = (info.targetCellHeight.takeIf { it > 0 } ?: cellsFor(info.minHeight)).coerceIn(1, rowCount),
+        spanX = ((info.targetCellWidth.takeIf { it > 0 } ?: cellsFor(info.minWidth)) * scale)
+            .roundToInt().coerceIn(1, cols),
+        spanY = ((info.targetCellHeight.takeIf { it > 0 } ?: cellsFor(info.minHeight)) * scale)
+            .roundToInt().coerceIn(1, rowCount),
     )
 }
 

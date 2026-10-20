@@ -200,18 +200,11 @@ fun FloatBallEditScreen(
         item(key = "behavior") {
             LunoGroup(title = stringResource(R.string.float_ball_behavior)) {
                 LunoSwitchRow(
-                    title = stringResource(R.string.float_ball_hide_on_panel),
-                    subtitle = stringResource(R.string.float_ball_hide_on_panel_subtitle),
-                    checked = floatBall.hideOnPanel,
-                    onCheckedChange = { checked -> update { it.copy(hideOnPanel = checked) } },
-                    shape = segmentedShape(0, 2),
-                )
-                LunoSwitchRow(
                     title = stringResource(R.string.float_ball_mirror),
                     subtitle = stringResource(R.string.float_ball_mirror_subtitle),
                     checked = floatBall.mirrorBall,
                     onCheckedChange = { checked -> update { it.copy(mirrorBall = checked) } },
-                    shape = segmentedShape(1, 2),
+                    shape = segmentedShape(0, 1),
                 )
             }
         }

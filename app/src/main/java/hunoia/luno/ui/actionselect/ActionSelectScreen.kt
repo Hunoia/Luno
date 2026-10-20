@@ -39,10 +39,12 @@ import hunoia.luno.gridpanel.widget.PanelAppWidgetHost
 import hunoia.luno.gridpanel.widget.WidgetProviderGroup
 import hunoia.luno.gridpanel.widget.WidgetSpan
 import hunoia.luno.gridpanel.widget.loadWidgetProviderGroups
+import hunoia.luno.gridpanel.widget.panelCellWidthDp
 import hunoia.luno.gridpanel.widget.widgetSpanFor
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.ui.navigation.ActionSelect
+import androidx.compose.ui.platform.LocalConfiguration
 import hunoia.luno.bridge.ui.showToast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -162,6 +164,12 @@ fun ActionSelectContent(
                     val gridColumns = gridPanel?.columnCount ?: GridPanelDefaults.ColumnCount
                     val gridRows = gridPanel?.effectiveGridRows(actionSelect.gridPanelPageIndex)
                         ?: (GridPanelDefaults.RowCount + DynamicRowExtra)
+                    // 默认 span 按面板实际格宽缩（声明值是 launcher 70dp 格的个数，我们格子更小）
+                    val panelCellDp = panelCellWidthDp(
+                        screenWidthDp = LocalConfiguration.current.screenWidthDp.toFloat(),
+                        cardWidthFraction = gridPanel?.cardWidthFraction ?: GridPanelDefaults.CardWidthFraction,
+                        columns = gridColumns,
+                    )
                     var widgetGroups by remember { mutableStateOf<List<WidgetProviderGroup>>(emptyList()) }
                     LaunchedEffect(gridPanelId) {
                         if (gridPanelId.isBlank()) return@LaunchedEffect
@@ -220,7 +228,7 @@ fun ActionSelectContent(
                         val pending = PendingWidget(
                             appWidgetId = appWidgetId,
                             provider = component.flattenToString(),
-                            span = widgetSpanFor(info, gridColumns, gridRows),
+                            span = widgetSpanFor(info, gridColumns, gridRows, panelCellDp),
                         )
                         if (AppWidgetManager.getInstance(context)
                                 .bindAppWidgetIdIfAllowed(appWidgetId, component)
@@ -279,7 +287,7 @@ fun ActionSelectContent(
                             },
                             showWidgetChip = gridPanelId.isNotBlank(),
                             widgetGroups = widgetGroups,
-                            widgetSpanOf = { info -> widgetSpanFor(info, gridColumns, gridRows) },
+                            widgetSpanOf = { info -> widgetSpanFor(info, gridColumns, gridRows, panelCellDp) },
                             onSelectWidget = ::pickWidget,
                             onSelectInternalWidget = { id -> vm.commitInternalWidget(id) },
                         )

@@ -364,6 +364,16 @@ fun GridPanelRoot(
                             }
                         }
                     },
+                    onToggleBackground = { item ->
+                        commitAllItems(
+                            localItems.map {
+                                val k = it.kind as? GridPanelItem.Kind.Internal
+                                if (it.id == item.id && k != null) {
+                                    it.copy(kind = k.copy(showBackground = !k.showBackground))
+                                } else it
+                            },
+                        )
+                    },
                 )
             },
             onSelectPage = { index -> scope.launch { pagerState.animateScrollToPage(index) } },
