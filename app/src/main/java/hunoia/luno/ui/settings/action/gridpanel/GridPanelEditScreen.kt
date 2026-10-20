@@ -115,17 +115,18 @@ fun GridPanelEditScreen(
                 // 页归属先夹一次（页数变小时溢出项进最后一页），再逐页归位：
                 // 各页按原顺序处理，放不下的先在**本页**找空位，无空位才丢。
                 val coerced = resized.items.map { it.copy(pageIndex = it.pageIndex.coerceIn(0, pages - 1)) }
-                // 实际使用的行数：初始取用户设的行数，遇到放不下的项再往上撑
+                // 实际使用的行数：初始取面板**实际网格**行数（设置 ×2，见
+                // effectiveRows），遇到放不下的项再往上撑
                 // （一墨 s09.w 同款思路：`rowCount = max(rowCount, y + spanY)`）。
                 // 早期版本把放不下的项**直接丢掉并回收 AppWidget id** —— 用户只是
                 // 把列数从4 滑到 3，一个占4 列的小部件就凭空消失了，而且没有任何提示。
-                var effectiveRows = rows
+                var effectiveRows = GridPanelDefaults.effectiveRows(rows)
                 for (p in 0 until pages) {
                     for (raw in coerced.filter { it.pageIndex == p }) {
                         // 先夹到网格内，再按比例缩小放不下的项：宁可变小也要留住内容。
                         // 下界1×1 保证不产生退化项（degenerate 项在 planReorder 里行为
                         // 未定义，见 GridPanelItem.normalized 的注释）。
-                        val clamped = raw.normalized(columns, rows)
+                        val clamped = raw.normalized(columns, effectiveRows)
                         val candidate = if (clamped.spanX <= columns && clamped.spanY <= effectiveRows) {
                             clamped
                         } else {
@@ -137,9 +138,11 @@ fun GridPanelEditScreen(
                                 spanX = (clamped.spanX * scale).roundToInt().coerceIn(1, columns),
                                 spanY = (clamped.spanY * scale).roundToInt().coerceIn(1, effectiveRows),
                             )
-                            // 缩小后若纵向仍然撑破本页，抬高网格行数保它（上限 MaxRowCount）
+                            // 缩小后若纵向仍然撑破本页，抬高网格行数保它
+                            //（上限 = 满档设置的网格行数，即 MaxRowCount × 2）
                             if (shrunk.y + shrunk.spanY > effectiveRows &&
-                                shrunk.y + shrunk.spanY <= GridPanelDefaults.MaxRowCount
+                                shrunk.y + shrunk.spanY <=
+                                GridPanelDefaults.effectiveRows(GridPanelDefaults.MaxRowCount)
                             ) {
                                 effectiveRows = shrunk.y + shrunk.spanY
                             }

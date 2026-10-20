@@ -61,6 +61,13 @@ object GridPanelDefaults {
     const val MaxColumnCount = 6
     const val MinRowCount = 1
     const val MaxRowCount = 8
+
+    /**
+     * 面板**实际可摆放/渲染**的行数 = 设置行数的两倍：卡片可见高度仍按设置行数算，
+     * 下半区靠纵向滚动 reach。落位求解、加项占位、项夹取都必须用这个值，
+     * 否则下半区放不了项。
+     */
+    fun effectiveRows(rowCount: Int): Int = (rowCount * 2).coerceAtLeast(MinRowCount)
     const val CardWidthFraction = 0.72f
     const val MinCardWidthFraction = 0.5f
     const val MaxCardWidthFraction = 0.9f

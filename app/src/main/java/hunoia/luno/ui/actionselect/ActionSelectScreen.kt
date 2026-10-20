@@ -138,7 +138,8 @@ fun ActionSelectContent(
                     // 面板还没回流（首帧）用默认网格估 span，只影响选择卡上的角标预览；
                     // 落盘时 saveGridPanelWidget 会按最新面板尺寸重新降格，不吃这里的近似。
                     val gridColumns = gridPanel?.columnCount ?: GridPanelDefaults.ColumnCount
-                    val gridRows = gridPanel?.rowCount ?: GridPanelDefaults.RowCount
+                    val gridRows = gridPanel?.rowCount?.let(GridPanelDefaults::effectiveRows)
+                        ?: GridPanelDefaults.effectiveRows(GridPanelDefaults.RowCount)
                     var widgetGroups by remember { mutableStateOf<List<WidgetProviderGroup>>(emptyList()) }
                     LaunchedEffect(gridPanelId) {
                         if (gridPanelId.isBlank()) return@LaunchedEffect

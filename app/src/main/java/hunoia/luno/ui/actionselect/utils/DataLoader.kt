@@ -174,7 +174,9 @@ private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: Stored
         val panel = settings.actionGridPanels.panelById(actionSelect.gridPanelId)
             ?: return@updateAction settings
         val columns = panel.columnCount.coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
-        val rows = panel.rowCount.coerceIn(GridPanelDefaults.MinRowCount, GridPanelDefaults.MaxRowCount)
+        val rows = GridPanelDefaults.effectiveRows(
+            panel.rowCount.coerceIn(GridPanelDefaults.MinRowCount, GridPanelDefaults.MaxRowCount),
+        )
         val pageIndex = actionSelect.gridPanelPageIndex.coerceIn(0, (panel.pageCount - 1).coerceAtLeast(0))
         val free = GridPanelItemLayout.firstFreeSlot(
             items = panel.items.filter { it.pageIndex == pageIndex },
@@ -223,8 +225,9 @@ internal suspend fun saveGridPanelWidget(
             ?: return@updateAction settings
         val columns = panel.columnCount
             .coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
-        val rows = panel.rowCount
-            .coerceIn(GridPanelDefaults.MinRowCount, GridPanelDefaults.MaxRowCount)
+        val rows = GridPanelDefaults.effectiveRows(
+            panel.rowCount.coerceIn(GridPanelDefaults.MinRowCount, GridPanelDefaults.MaxRowCount),
+        )
         val pageIndex = actionSelect.gridPanelPageIndex
             .coerceIn(0, (panel.pageCount - 1).coerceAtLeast(0))
         val pageItems = panel.items.filter { it.pageIndex == pageIndex }
