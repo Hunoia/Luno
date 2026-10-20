@@ -74,13 +74,13 @@ fun GridItemIcon(model: Any?, iconSize: Dp) {
             imageVector = model,
             contentDescription = null,
             modifier = Modifier.size(iconSize),
-            tint = gridPanelOnCardColor(),
+            tint = gridPanelOnCardColor,
         )
 
         is TextIcon -> TextIconGlyph(
             text = model.text,
             size = iconSize,
-            color = gridPanelOnCardColor(),
+            color = gridPanelOnCardColor,
         )
 
         else -> AsyncImage(

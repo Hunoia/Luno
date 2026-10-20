@@ -33,6 +33,8 @@ import com.aaron.compose.component.UDFComponent
 import com.aaron.compose.component.UiBaseEvent
 import hunoia.luno.R
 import hunoia.luno.config.model.GridPanelDefaults
+import hunoia.luno.config.model.DynamicRowExtra
+import hunoia.luno.config.model.effectiveGridRows
 import hunoia.luno.gridpanel.widget.PanelAppWidgetHost
 import hunoia.luno.gridpanel.widget.WidgetProviderGroup
 import hunoia.luno.gridpanel.widget.WidgetSpan
@@ -158,7 +160,8 @@ fun ActionSelectContent(
                     // 面板还没回流（首帧）用默认网格估 span，只影响选择卡上的角标预览；
                     // 落盘时 saveGridPanelWidget 会按最新面板尺寸重新降格，不吃这里的近似。
                     val gridColumns = gridPanel?.columnCount ?: GridPanelDefaults.ColumnCount
-                    val gridRows = gridPanel?.gridRows ?: GridPanelDefaults.RowCount * 2
+                    val gridRows = gridPanel?.effectiveGridRows(actionSelect.gridPanelPageIndex)
+                        ?: (GridPanelDefaults.RowCount + DynamicRowExtra)
                     var widgetGroups by remember { mutableStateOf<List<WidgetProviderGroup>>(emptyList()) }
                     LaunchedEffect(gridPanelId) {
                         if (gridPanelId.isBlank()) return@LaunchedEffect
@@ -278,6 +281,7 @@ fun ActionSelectContent(
                             widgetGroups = widgetGroups,
                             widgetSpanOf = { info -> widgetSpanFor(info, gridColumns, gridRows) },
                             onSelectWidget = ::pickWidget,
+                            onSelectInternalWidget = { id -> vm.commitInternalWidget(id) },
                         )
                     }
                 }

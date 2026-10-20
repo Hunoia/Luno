@@ -16,6 +16,8 @@ import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.GridPanelDefaults
+import hunoia.luno.config.model.effectiveGridRows
+import hunoia.luno.config.model.GridCell
 import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.config.model.GridPanelItemLayout
 import hunoia.luno.core.AppContext
@@ -174,8 +176,8 @@ private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: Stored
         val panel = settings.actionGridPanels.panelById(actionSelect.gridPanelId)
             ?: return@updateAction settings
         val columns = panel.columnCount.coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
-        val rows = panel.gridRows.coerceIn(GridPanelDefaults.MinRowCount, GridPanelDefaults.MaxGridRows)
         val pageIndex = actionSelect.gridPanelPageIndex.coerceIn(0, (panel.pageCount - 1).coerceAtLeast(0))
+        val rows = panel.effectiveGridRows(pageIndex)
         val free = GridPanelItemLayout.firstFreeSlot(
             items = panel.items.filter { it.pageIndex == pageIndex },
             columns = columns,
@@ -210,23 +212,76 @@ private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: Stored
  *
  * 返回 true = 落盘成功（含降格）；false = 页满放弃，调用方必须回收 appWidgetId。
  */
+/** 网格面板落盘结果：区分「面板不存在」和「真放不下」——两者给用户的提示不同。 */
+/**
+ * 追加语义的落点：新项放到本页已占内容的**正下方**（y = max(bottom)）。
+ * 宽度不满整行时在那一行内从左往右找能容下的 x；被同排项挡住就顺延下一行。
+ * 全都放不下（理论上行数无限，基本只会是 spanX > 列数）返回 null，走降档兜底。
+ */
+private fun bottomSlot(
+    items: List<GridPanelItem>,
+    columns: Int,
+    rows: Int,
+    spanX: Int,
+    spanY: Int,
+): GridCell? {
+    var y = items.maxOfOrNull { it.bottom } ?: 0
+    while (y + spanY <= rows) {
+        for (x in 0..(columns - spanX)) {
+            val clash = items.any {
+                it.x < x + spanX && x < it.right && it.y < y + spanY && y < it.bottom
+            }
+            if (!clash) return GridCell(x, y)
+        }
+        y++
+    }
+    return null
+}
+
+internal enum class GridPanelSaveResult { Saved, PageFull, NoPanel }
+
 internal suspend fun saveGridPanelWidget(
     actionSelect: ActionSelect,
     provider: String,
     appWidgetId: Int,
     spanX: Int,
     spanY: Int,
-): Boolean {
-    var placed: Boolean = false
+): GridPanelSaveResult {
+    var result = GridPanelSaveResult.NoPanel
     TuneConfig.updateAction { settings ->
-        val panel = settings.actionGridPanels.panelById(actionSelect.gridPanelId)
-            ?: return@updateAction settings
+        val panel = settings.actionGridPanels.panelById(actionSelect.gridPanelId) ?: run {
+            android.util.Log.w("GridPanelSave", "widget: panel not found requested=${actionSelect.gridPanelId} " +
+            "available=${settings.actionGridPanels.panels.map { it.id to it.name }} select=${actionSelect}")
+            return@updateAction settings
+        }
         val columns = panel.columnCount
             .coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
-        val rows = panel.gridRows.coerceIn(GridPanelDefaults.MinRowCount, GridPanelDefaults.MaxGridRows)
-        val pageIndex = actionSelect.gridPanelPageIndex
-            .coerceIn(0, (panel.pageCount - 1).coerceAtLeast(0))
+        val pageIndex = actionSelect.gridPanelPageIndex.coerceIn(0, (panel.pageCount - 1).coerceAtLeast(0))
+        val rows = panel.effectiveGridRows(pageIndex)
         val pageItems = panel.items.filter { it.pageIndex == pageIndex }
+        // 追加优先：原尺寸先试「放到最下面」；实在不行才走降档扫空位兜底。
+        bottomSlot(pageItems, columns, rows, spanX, spanY)?.let { cell ->
+            result = GridPanelSaveResult.Saved
+            return@updateAction settings.copy(
+                actionGridPanels = settings.actionGridPanels.withPanel(
+                    panel.copy(
+                        items = panel.items + GridPanelItem(
+                            x = cell.x,
+                            y = cell.y,
+                            spanX = spanX,
+                            spanY = spanY,
+                            pageIndex = pageIndex,
+                            kind = GridPanelItem.Kind.AppWidget(
+                                appWidgetId = appWidgetId,
+                                provider = provider,
+                                minSpanX = spanX,
+                                minSpanY = spanY,
+                            ),
+                        ),
+                    ),
+                ),
+            )
+        }
         // 降格序列与拖拽的重排思路分开：加项只填空（firstFreeSlot），放不下自动降档
         // 占更小的空位 —— 重排是编辑态拖拽的语义，加项不该惊动已有项。
         val candidates = buildList {
@@ -245,7 +300,7 @@ internal suspend fun saveGridPanelWidget(
                 spanX = span.spanX,
                 spanY = span.spanY,
             ) ?: continue
-            placed = true
+            result = GridPanelSaveResult.Saved
             // 命中即返回新 settings —— 这里写的必须是 copy 的结果本身，
             // 曾经把 copy 结果丢弃、return 了原 settings，落盘形同没写。
             return@updateAction settings.copy(
@@ -273,8 +328,89 @@ internal suspend fun saveGridPanelWidget(
         }
         settings
     }
-    if (!placed) PanelAppWidgetHost.get().release(appWidgetId)
-    return placed
+    if (result != GridPanelSaveResult.Saved) {
+        android.util.Log.w("GridPanelSave", "widget not placed: result=$result span=$spanX x $spanY")
+        PanelAppWidgetHost.get().release(appWidgetId)
+    }
+    return result
+}
+
+/**
+ * 内置小部件落盘：同款「只填空 + 放不下降档」序列，无宿主 id 可回收。
+ * 默认 span 4×1（def 声明），列数不够时降格到 3×1 → … → 1×1。
+ */
+internal suspend fun saveGridPanelInternalWidget(
+    actionSelect: ActionSelect,
+    widgetId: String,
+): GridPanelSaveResult {
+    val def = hunoia.luno.gridpanel.internal.InternalWidgetDefs.firstOrNull { it.id == widgetId }
+    if (def == null) {
+        android.util.Log.w("GridPanelSave", "internal widget: unknown id=$widgetId")
+        return GridPanelSaveResult.NoPanel
+    }
+    var result = GridPanelSaveResult.NoPanel
+    TuneConfig.updateAction { settings ->
+        val panel = settings.actionGridPanels.panelById(actionSelect.gridPanelId) ?: run {
+            android.util.Log.w("GridPanelSave", "internal: panel not found id=${actionSelect.gridPanelId}")
+            return@updateAction settings
+        }
+        val columns = panel.columnCount
+            .coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
+        val pageIndex = actionSelect.gridPanelPageIndex.coerceIn(0, (panel.pageCount - 1).coerceAtLeast(0))
+        val rows = panel.effectiveGridRows(pageIndex)
+        val pageItems = panel.items.filter { it.pageIndex == pageIndex }
+        // 追加优先：原尺寸先试「放到最下面」。
+        bottomSlot(pageItems, columns, rows, def.spanX, def.spanY)?.let { cell ->
+            result = GridPanelSaveResult.Saved
+            return@updateAction settings.copy(
+                actionGridPanels = settings.actionGridPanels.withPanel(
+                    panel.copy(
+                        items = panel.items + GridPanelItem(
+                            x = cell.x,
+                            y = cell.y,
+                            spanX = def.spanX,
+                            spanY = def.spanY,
+                            pageIndex = pageIndex,
+                            kind = GridPanelItem.Kind.Internal(widgetId = widgetId),
+                        ),
+                    ),
+                ),
+            )
+        }
+        val candidates = buildList {
+            for (h in def.spanY downTo 1) {
+                for (w in def.spanX downTo 1) {
+                    add(WidgetSpan(w, h))
+                }
+            }
+        }.sortedByDescending { it.spanX * it.spanY }.distinct()
+        for (span in candidates) {
+            val cell = GridPanelItemLayout.firstFreeSlot(
+                items = pageItems,
+                columns = columns,
+                rows = rows,
+                spanX = span.spanX,
+                spanY = span.spanY,
+            ) ?: continue
+            result = GridPanelSaveResult.Saved
+            return@updateAction settings.copy(
+                actionGridPanels = settings.actionGridPanels.withPanel(
+                    panel.copy(
+                        items = panel.items + GridPanelItem(
+                            x = cell.x,
+                            y = cell.y,
+                            spanX = span.spanX,
+                            spanY = span.spanY,
+                            pageIndex = pageIndex,
+                            kind = GridPanelItem.Kind.Internal(widgetId = widgetId),
+                        ),
+                    ),
+                ),
+            )
+        }
+        settings
+    }
+    return result
 }
 
 /**

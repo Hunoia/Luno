@@ -16,7 +16,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -29,6 +36,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import hunoia.luno.R
 import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.gridpanel.core.EdgeAutoScroll
 import hunoia.luno.gridpanel.core.GridPanelState
@@ -37,7 +45,7 @@ import hunoia.luno.gridpanel.geometry.CardMargin
 import hunoia.luno.gridpanel.geometry.GridMetrics
 import hunoia.luno.gridpanel.geometry.GridPadding
 import hunoia.luno.gridpanel.ui.GridItemActions
-import hunoia.luno.gridpanel.ui.GridPanelHeader
+import hunoia.luno.gridpanel.ui.GridPageIndicator
 import hunoia.luno.gridpanel.ui.GridPanelLayer
 import hunoia.luno.gridpanel.ui.gridPanelCardColor
 import kotlinx.coroutines.delay
@@ -48,8 +56,8 @@ import kotlin.math.roundToInt
 /** 拖拽到距可视区上下沿这么多 dp 内开始自动滚动（一墨 nz1 同款）。 */
 private val EdgeScrollBand = 56.dp
 
-/** 自动滚动上限步进（dp/帧，约 540dp/s），实际按越界深度在 25%~100% 间取。 */
-private val EdgeScrollStep = 9.dp
+/** 自动滚动上限步进（dp/帧，约 960dp/s），实际按越界深度在 25%~100% 间取。 */
+private val EdgeScrollStep = 16.dp
 
 /**
  * 卡片容器：几何 → 尺寸 → 位置动画 → HorizontalPager。
@@ -133,19 +141,24 @@ fun GridPanelCard(
                 scaleY = scaleX
             }
             .background(
-                gridPanelCardColor().copy(alpha = cardAlpha),
+                gridPanelCardColor.copy(alpha = cardAlpha),
                 RoundedCornerShape(CardCorner),
             )
             .clip(RoundedCornerShape(CardCorner)),
     ) {
+        // 顶栏已删：日期/时间/编辑中提示/加项按钮全下线。多页指示点保留在顶部
+        //（高度预算 IndicatorHeight 在 metrics 里照旧）；页切换靠点/横滑。
         Column(Modifier.fillMaxSize()) {
-            GridPanelHeader(
-                editMode = editMode,
-                pageCount = pageCount,
-                activePage = pagerState.currentPage,
-                onSelectPage = onSelectPage,
-                onAdd = onAdd,
-            )
+            if (pageCount > 1) {
+                GridPageIndicator(
+                    pageCount = pageCount,
+                    activePage = pagerState.currentPage,
+                    onSelectPage = onSelectPage,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                )
+            }
             Box(
                 Modifier
                     .weight(1f)
@@ -200,6 +213,7 @@ fun GridPanelCard(
                                 baseActionsState.value.onResizeDelta(delta)
                             },
                             onResizeEnd = { baseActionsState.value.onResizeEnd() },
+                            onExpand = { item, rows -> baseActionsState.value.onExpand(item, rows) },
                         )
                     }
                     // pager 会同时组合相邻页：拖拽视觉/落点预览只属于正在拖的那一页，
@@ -237,6 +251,22 @@ fun GridPanelCard(
                         )
                     }
                 }
+            }
+        }
+        // 编辑态加项入口：右下角悬浮按钮（顶栏删除后加项的唯一入口）。
+        if (editMode) {
+            FloatingActionButton(
+                onClick = onAdd,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = stringResource(R.string.grid_panel_add_item),
+                )
             }
         }
     }

@@ -63,6 +63,19 @@ data class GridPanelItem(
             val minSpanX: Int = 1,
             val minSpanY: Int = 1,
         ) : Kind
+
+        /**
+         * Luno 内置小部件（Compose 自绘，不依赖 AppWidgetHost）：
+         * 媒体控制、音量条等。[widgetId] 见 `InternalWidgetIds`。
+         *
+         * 为什么不做成 AppWidget：跨进程宿主、常驻、授权三件套对自家部件
+         * 是纯开销 —— 和页眉时钟同款「不进宿主」的理由。
+         */
+        @Serializable
+        @Keep
+        data class Internal(
+            val widgetId: String,
+        ) : Kind
     }
 
     val right: Int get() = x + spanX
@@ -110,6 +123,7 @@ data class GridPanelItem(
     fun labelOrNull(): String? =
         (kind as? Kind.Action)?.items?.firstOrNull()?.typeId?.takeIf { it.isNotBlank() }
             ?: (kind as? Kind.AppWidget)?.provider?.substringAfterLast('.')?.takeIf { it.isNotBlank() }
+            ?: (kind as? Kind.Internal)?.widgetId?.substringAfterLast('.')?.takeIf { it.isNotBlank() }
 }
 
 /** 网格里放了什么。[AppWidget] 项没有变体概念（点击由 provider 自己处理）。 */

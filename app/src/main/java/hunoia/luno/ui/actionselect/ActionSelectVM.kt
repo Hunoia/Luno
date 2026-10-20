@@ -102,9 +102,9 @@ class ActionSelectVM(
      * 「添加没反应」的元凶（静默失败 + 假成功提示），现在分别提示并回收 id。
      */
     fun commitWidget(provider: String, appWidgetId: Int, spanX: Int, spanY: Int) {
-        var placed = false
+        var result: GridPanelSaveResult? = null
         viewModelScope.launch {
-            placed = saveGridPanelWidget(
+            result = saveGridPanelWidget(
                 actionSelect = actionSelect,
                 provider = provider,
                 appWidgetId = appWidgetId,
@@ -113,7 +113,27 @@ class ActionSelectVM(
             )
         }.invokeOnCompletion { error ->
             when {
-                error == null && placed -> toast(R.string.save_success)
+                error == null && result == GridPanelSaveResult.Saved -> toast(R.string.save_success)
+                error == null && result == GridPanelSaveResult.NoPanel -> toast(R.string.grid_panel_missing)
+                error == null -> toast(R.string.grid_panel_page_full)
+                else -> toast(R.string.save_failure)
+            }
+            finish()
+        }
+    }
+
+    /** 内置小部件选定 → 落盘 → 收页（无宿主/授权流程，直接存条目）。 */
+    fun commitInternalWidget(widgetId: String) {
+        var result: GridPanelSaveResult? = null
+        viewModelScope.launch {
+            result = saveGridPanelInternalWidget(
+                actionSelect = actionSelect,
+                widgetId = widgetId,
+            )
+        }.invokeOnCompletion { error ->
+            when {
+                error == null && result == GridPanelSaveResult.Saved -> toast(R.string.save_success)
+                error == null && result == GridPanelSaveResult.NoPanel -> toast(R.string.grid_panel_missing)
                 error == null -> toast(R.string.grid_panel_page_full)
                 else -> toast(R.string.save_failure)
             }

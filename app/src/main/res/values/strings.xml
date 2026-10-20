@@ -137,11 +137,15 @@
     <string name="grid_panel_delete_title">删除网格面板</string>
     <string name="grid_panel_column_count">列数</string>
     <string name="grid_panel_row_count">行数</string>
-    <string name="grid_panel_grid_rows">实际行数</string>
     <string name="grid_panel_page_count">页数</string>
     <string name="grid_panel_card_width">卡片宽度</string>
     <string name="grid_panel_card_alpha">卡片透明度</string>
     <string name="grid_panel_add_widget">桌面小部件</string>
+    <string name="grid_panel_internal_widgets">Luno 内置</string>
+    <string name="grid_panel_internal_media">媒体控制</string>
+    <string name="grid_panel_internal_volume">音量调节</string>
+    <string name="grid_panel_media_need_permission">授予通知访问权限后可控制媒体播放，点此去授权</string>
+    <string name="grid_panel_media_no_session">没有正在播放的媒体</string>
     <string name="grid_panel_no_widgets">设备上没有可用的小部件</string>
     <string name="grid_panel_widget_pick_failed">无法打开小部件选择器</string>
     <string name="toast_select_page_failed">无法打开动作选择页</string>
@@ -152,6 +156,7 @@
     <string name="grid_panel_item_menu_delete">删除</string>
     <string name="grid_panel_item_resize">调整大小</string>
     <string name="grid_panel_page_full">这一页放不下了，已取消添加</string>
+    <string name="grid_panel_missing">面板不存在，可能已被删除</string>
     <string name="grid_panel_widget_failed">小部件加载失败</string>
     <string name="grid_panel_empty_items">空面板。长按空白处进入编辑添加项。</string>
     <string name="grid_panel_empty_items_edit">这一页还是空的。点右上角「+」添加动作或小部件。</string>

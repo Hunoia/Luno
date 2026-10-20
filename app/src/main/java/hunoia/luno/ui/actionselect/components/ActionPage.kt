@@ -32,6 +32,7 @@ import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.model.NewActionLibraryEntry
 import hunoia.luno.action.model.matchesQuery
 import hunoia.luno.action.model.StoredAction
+import hunoia.luno.gridpanel.internal.InternalWidgetDefs
 import hunoia.luno.gridpanel.widget.WidgetProviderGroup
 import hunoia.luno.gridpanel.widget.WidgetSpan
 import hunoia.luno.gridpanel.widget.searchBy
@@ -92,6 +93,8 @@ internal fun ActionPage(
     /** provider 声明的尺寸算出的占格数，按面板列/行封顶。 */
     widgetSpanOf: (AppWidgetProviderInfo) -> WidgetSpan = { WidgetSpan(1, 1) },
     onSelectWidget: (AppWidgetProviderInfo) -> Unit = { },
+    /** 内置小部件选定（id 见 InternalWidgetIds），直接落盘不经过 Activity 结果。 */
+    onSelectInternalWidget: (String) -> Unit = { },
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var selectedType by rememberSaveable { mutableStateOf<String?>(null) }
@@ -180,6 +183,11 @@ internal fun ActionPage(
             if (selectedType != TYPE_WIDGET) emptyList()
             else widgetGroups.searchBy(query, context.packageManager)
         }
+    // 内置部件跟随小部件 chip 同屏展示；搜索按名字过滤。
+    val filteredInternalWidgets = remember(selectedType, query, context) {
+        if (selectedType != TYPE_WIDGET) emptyList()
+        else InternalWidgetDefs.filter { context.getString(it.labelRes).contains(query, ignoreCase = true) || query.isBlank() }
+    }
     val librarySelectionFlags = filteredLibraryEntries.map { selectedRecord.isSelected(it.toStoredAction()) }
     val appSelectionFlags = filteredApps.map { selectedRecord.isSelected(it) }
     LazyColumn(
@@ -224,7 +232,7 @@ internal fun ActionPage(
                 }
             }
         }
-        val hasAnyContent = grouped.isNotEmpty() || filteredApps.isNotEmpty() || filteredLibraryEntries.isNotEmpty() || filteredCreateShortcuts.isNotEmpty() || filteredLaunchShortcuts.isNotEmpty() || filteredRules.isNotEmpty() || filteredWidgets.isNotEmpty()
+        val hasAnyContent = grouped.isNotEmpty() || filteredApps.isNotEmpty() || filteredLibraryEntries.isNotEmpty() || filteredCreateShortcuts.isNotEmpty() || filteredLaunchShortcuts.isNotEmpty() || filteredRules.isNotEmpty() || filteredWidgets.isNotEmpty() || filteredInternalWidgets.isNotEmpty()
         if ((query.isNotEmpty() || selectedType != null) && !hasAnyContent) {
             item {
                 EmptyState(
@@ -235,6 +243,26 @@ internal fun ActionPage(
                 )
             }
         } else {
+            if (filteredInternalWidgets.isNotEmpty()) {
+                // 内置部件置顶：没有 provider 卡那么多东西，直接一行卡片。
+                stickyHeader(key = "widget_internal") {
+                    SheetGroupHeader(stringResource(R.string.grid_panel_internal_widgets))
+                }
+                item(key = "widget_internal_row") {
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
+                    ) {
+                        items(
+                            items = filteredInternalWidgets,
+                            key = { def -> "internal_${def.id}" },
+                        ) { def ->
+                            InternalWidgetCard(def = def, onSelect = { onSelectInternalWidget(def.id) })
+                        }
+                    }
+                }
+            }
             if (filteredWidgets.isNotEmpty()) {
                 // 一墨 ComponentWidgetPickerOverlay 对齐（§10⑤）：每 app 分区头 +
                 // 区内横向滚动的预览卡，不再纵向铺行。

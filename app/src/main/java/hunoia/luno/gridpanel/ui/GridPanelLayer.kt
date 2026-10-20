@@ -48,6 +48,9 @@ import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.gridpanel.geometry.GridMetrics
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.gesture.gridLayerGestures
+import hunoia.luno.gridpanel.internal.InternalWidgetIds
+import hunoia.luno.gridpanel.internal.MediaControlCell
+import hunoia.luno.gridpanel.internal.VolumeSliderCell
 import hunoia.luno.gridpanel.widget.PanelAppWidgetView
 import hunoia.luno.gridpanel.widget.WidgetLoadState
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
@@ -78,6 +81,11 @@ class GridItemActions(
     val onResizeStart: (GridPanelItem) -> Unit,
     val onResizeDelta: (Offset) -> Unit,
     val onResizeEnd: () -> Unit,
+    /**
+     * 内置小部件请求改变自身纵向 span（媒体控制的会话行数）。
+     * 只扩不缩等语义由调用方决定；默认空实现 = 部件类型不动态变高。
+     */
+    val onExpand: (GridPanelItem, rows: Int) -> Unit = { _, _ -> },
 )
 
 /**
@@ -146,7 +154,7 @@ fun GridPanelLayer(
                         },
                     ),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = gridPanelOnCardColor(),
+                    color = gridPanelOnCardColor,
                     textAlign = TextAlign.Center,
                 )
             }
@@ -202,7 +210,7 @@ fun GridPanelLayer(
                 ) {
                     if (dragging) {
                         DragCrosshair(
-                            color = gridPanelOnCardColor().copy(alpha = 0.25f),
+                            color = gridPanelOnCardColor.copy(alpha = 0.25f),
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
@@ -239,6 +247,17 @@ fun GridPanelLayer(
                                     modifier = Modifier.fillMaxSize().then(contentGesture),
                                 )
                             }
+                        }
+
+                        is GridPanelItem.Kind.Internal -> when (kind.widgetId) {
+                            // 自绘部件自带点击目标，不走 ActionItemCell 那套整格 combinedClickable ——
+                            // 按钮/滑条就是内容本身；编辑态交给层根手势，这里不动。
+                            InternalWidgetIds.MEDIA -> MediaControlCell(
+                                modifier = Modifier.fillMaxSize(),
+                                onDesiredRows = { rows -> actions.onExpand(item, rows) },
+                            )
+                            InternalWidgetIds.VOLUME -> VolumeSliderCell(Modifier.fillMaxSize())
+                            else -> BrokenItemCell(Modifier.fillMaxSize())
                         }
 
                         is GridPanelItem.Kind.AppWidget -> {
@@ -359,8 +378,8 @@ private fun GridBackground(items: List<GridPanelItem>, metrics: GridMetrics) {
             for (gx in n.x until n.right) occupied.add(gy * metrics.columns + gx)
         }
     }
-    val idleColor = gridPanelOnCardColor().copy(alpha = 0.06f)
-    val lineColor = gridPanelOnCardColor().copy(alpha = 0.08f)
+    val idleColor = gridPanelOnCardColor.copy(alpha = 0.06f)
+    val lineColor = gridPanelOnCardColor.copy(alpha = 0.08f)
     val hairline = with(density) { 1.dp.toPx() }
     val corner = with(density) { ItemCorner.toPx() }
     Canvas(

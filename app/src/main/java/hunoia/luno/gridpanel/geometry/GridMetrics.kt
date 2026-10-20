@@ -15,10 +15,7 @@ val CardMargin = 12.dp
 /** 卡片圆角。 */
 val CardCorner = 20.dp
 
-/** 页眉高（单行：日期/时间或编辑中 + 加项按钮）。 */
-val HeaderHeight = 36.dp
-
-/** 多页时页指示点行高（固定预算，计入 cardH）。 */
+/** 页眉已删；多页时的页指示点行高（固定预算，计入 cardH）。 */
 val IndicatorHeight = 12.dp
 
 /** 网格内容相对卡片的内边距（横向在 pager 外层加，纵向计入 cardH）。 */
@@ -48,7 +45,7 @@ fun gapFor(columns: Int): Dp = when {
 @Immutable
 data class GridMetrics(
     val columns: Int,
-    /** 网格**实际**行数（可摆放范围，panel.gridRows，≥ 卡片可见行数）。 */
+    /** 网格**实际**行数（可摆放范围，动态行数，≥ 卡片可见行数）。 */
     val rows: Int,
     val screenW: Float,
     val screenH: Float,
@@ -96,7 +93,7 @@ fun rememberGridMetrics(
     val screenW = with(density) { configuration.screenWidthDp.dp.toPx() }
     val screenH = with(density) { configuration.screenHeightDp.dp.toPx() }
     val gridPad = with(density) { GridPadding.toPx() }
-    val header = with(density) { HeaderHeight.toPx() }
+    val header = 0f // 页眉已删，无预算
     val indicator = if (pageCount > 1) with(density) { IndicatorHeight.toPx() } else 0f
     val gap = with(density) { gapFor(columns).toPx() }
 

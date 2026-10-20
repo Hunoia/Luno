@@ -70,6 +70,23 @@ class GridPanelState(
     /** 松手吸附动画进行中：禁止二次抓手柄（resizingId 仍非空）。 */
     private var resizeSettling = false
 
+    /** 触感节流：同一次拖拽/缩放里目标格连跳时，120ms 内不重复振（连震投诉的保险丝）。 */
+    private var lastHapticAt = 0L
+
+    /** 最近一次位移来自边缘自动滚动：滚动跨格不振动（连续穿行时会一直振）。 */
+    private var fromAutoScroll = false
+
+    /** 上次振动时的 dragVisual：目标格变化但净位移不够（贴着格界抖）不振动。 */
+    private var lastHapticVisual = Offset.Zero
+
+    private fun hapticTick() {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastHapticAt >= 120L) {
+            lastHapticAt = now
+            onHaptic()
+        }
+    }
+
     fun pageItems(page: Int): List<GridPanelItem> = pageItemsProvider(page)
 
     /** 渲染列表：拖拽中返回重解后的布局，平时返回落盘布局。 */
@@ -92,14 +109,22 @@ class GridPanelState(
         val id = draggingId ?: return
         val m = metricsProvider()
         val moving = resolved.firstOrNull { it.id == id } ?: return
+        fromAutoScroll = false
         val raw = dragVisual + action
+        // 钳制必须配合「中心落格」的判定域：中心要能到达目标格的中心才算得出来。
+        // 旧版左/上沿用「左缘贴边」的长度，比中心判定域短了半个项宽 ——
+        // 占 3 格的项往左挪一格需要移 1.5 格，钳制只给 1 格，永远够不着（占 2-4 拖不到 1-3 的根因）。
+        val halfW = m.itemW(moving.spanX.toFloat()) / 2f
+        val halfH = m.itemH(moving.spanY.toFloat()) / 2f
+        val minX = -(originCell.x * m.stepW) - halfW
+        val minY = -(originCell.y * m.stepH) - halfH
         val maxX = (m.contentW - m.itemW(moving.spanX.toFloat()) - originCell.x * m.stepW)
             .coerceAtLeast(0f)
         val maxY = (m.contentH - m.itemH(moving.spanY.toFloat()) - originCell.y * m.stepH)
             .coerceAtLeast(0f)
         dragVisual = Offset(
-            raw.x.coerceIn(-(originCell.x * m.stepW), maxX),
-            raw.y.coerceIn(-(originCell.y * m.stepH), maxY),
+            raw.x.coerceIn(minX, maxX),
+            raw.y.coerceIn(minY, maxY),
         )
         resolveTarget()
     }
@@ -110,6 +135,7 @@ class GridPanelState(
      */
     fun onAutoScroll(consumed: Offset) {
         if (draggingId == null || consumed == Offset.Zero) return
+        fromAutoScroll = true
         dragVisual += consumed
         resolveTarget()
     }
@@ -133,13 +159,35 @@ class GridPanelState(
             targetY = ty,
             columns = m.columns,
             rows = m.rows,
-        ) ?: return
+        )
+        if (plan == null) {
+            // 定位「拖不过去」类问题：目标格、被拖项、其它项快照都打出来。
+            android.util.Log.i(
+                "GridDrag",
+                "plan null: target=($tx,$ty) moving=${moving.spanX}x${moving.spanY} " +
+                    "cols=${m.columns} rows=${m.rows} base=${dragBase.map { "${it.x},${it.y} ${it.spanX}x${it.spanY}" }}",
+            )
+            return
+        }
         val dropped = plan.firstOrNull { it.id == id } ?: return
         resolved = plan
         // hoverCell 记的是**实际落点**（planReorder 会夹目标格），不是指针格：
         // 下一帧同一指针格不会再触发一次触感。
         hoverCell = GridCell(dropped.x, dropped.y)
-        onHaptic()
+        // 双重去抖：①自动滚动跨格不振动；②目标格虽变，但手指净位移不足 0.3 格
+        // （贴着格界 ±1px 抖动，全宽项往右蹭一点就是这种）不振动。
+        if (fromAutoScroll) {
+            fromAutoScroll = false
+            return
+        }
+        if ((dragVisual - lastHapticVisual).getDistance() < m.stepW * 0.3f) return
+        lastHapticVisual = dragVisual
+        android.util.Log.i(
+            "GridDrag",
+            "target ($tx,$ty) -> dropped (${dropped.x},${dropped.y}) " +
+                "span=${moving.spanX}x${moving.spanY} visual=(${dragVisual.x},${dragVisual.y})",
+        )
+        hapticTick()
     }
 
     fun endDrag() {
@@ -203,7 +251,7 @@ class GridPanelState(
         if (before != null && (before.x.roundToInt() != sx.roundToInt() ||
                 before.y.roundToInt() != sy.roundToInt())
         ) {
-            onHaptic()
+            hapticTick()
         }
     }
 

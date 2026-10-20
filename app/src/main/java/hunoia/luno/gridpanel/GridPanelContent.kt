@@ -34,7 +34,9 @@ import hunoia.luno.action.model.withoutVariantKey
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.GridPanelDefaults
+import hunoia.luno.config.model.DynamicRowExtra
 import hunoia.luno.config.model.GridPanelItem
+import hunoia.luno.config.model.GridPanelItemLayout
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.gridpanel.core.GridPanelState
 import hunoia.luno.gridpanel.geometry.rememberGridMetrics
@@ -46,6 +48,7 @@ import hunoia.luno.gridpanel.widget.removeWidgetGoneListener
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 /** 点空白退出编辑后，这段时间内的项点按不执行（防连点误触）。 */
 private const val ExitEditTapGuardMillis = 150L
@@ -182,8 +185,13 @@ fun GridPanelRoot(
             .getOrDefault(0)
     }
 
-    val gridRows = panel.gridRows.coerceIn(rows, GridPanelDefaults.MaxGridRows)
-    val metrics = rememberGridMetrics(columns, rows, gridRows, pageCount, cardFraction)
+    // 行数不限制：实际行数 = max(显示行数，占用行数) + DynamicRowExtra。占用取全部页的最大值
+    // （几何是全页共享的，取 max 保证每页都装得下）；localItems 变化随重组重算。
+    // panel.gridRows 设置值已不参与渲染，只作存量字段保留。
+    val gridRowsEffective = (
+        maxOf(rows, localItems.maxOf { it.bottom }) + DynamicRowExtra
+        ).coerceAtLeast(rows + DynamicRowExtra)
+    val metrics = rememberGridMetrics(columns, rows, gridRowsEffective, pageCount, cardFraction)
     val metricsState = rememberUpdatedState(metrics)
 
     // provider 被卸载 / 用户在系统里删掉小部件 → 宿主回调 onAppWidgetRemoved。
@@ -219,6 +227,9 @@ fun GridPanelRoot(
     }
 
     var suppressItemTapUntil by remember(panel.id) { mutableStateOf(0L) }
+
+    // 内置小部件的延迟收缩任务（媒体控制会话减少）：按项 id 挂起，重入先取消。
+    val pendingShrinks = remember(panel.id) { mutableMapOf<String, kotlinx.coroutines.Job>() }
 
     // 根 Box：点按 + 长按空白进出编辑。
     //
@@ -294,6 +305,65 @@ fun GridPanelRoot(
                     onResizeStart = { item -> state.beginResize(pageIndex, item) },
                     onResizeDelta = { delta -> state.onResizeDelta(delta) },
                     onResizeEnd = { state.endResize() },
+                    onExpand = { item, rows ->
+                        // 媒体控制的会话行数变化：
+                        // - 扩高立即走（新会话出现了，别让内容被压）；
+                        // - 缩高延迟 1s 再走（会话短暂断开/切歌会闪抖），落盘前
+                        //   重新读最新项，避免过期快照写回。
+                        // 扩高后用 planReorder 把被压住的项往下推；缩高只是变矮，
+                        // 下方项保持原位（留出的空位用户可自行拖满）。
+                        val target = rows.coerceAtLeast(2)
+                        pendingShrinks.remove(item.id)?.cancel()
+                        if (target > item.spanY) {
+                            val grown = item.copy(spanY = target)
+                            val base = localItems.map {
+                                if (it.id == item.id) grown else it
+                            }
+                            val m = metricsState.value
+                            val plan = GridPanelItemLayout.planReorder(
+                                items = base,
+                                movingId = item.id,
+                                targetX = grown.x,
+                                targetY = grown.y,
+                                columns = m.columns,
+                                rows = maxOf(m.rows, grown.bottom),
+                            ) ?: base
+                            commitAllItems(plan)
+                        } else if (target < item.spanY) {
+                            val itemId = item.id
+                            pendingShrinks[itemId] = scope.launch {
+                                delay(1_000)
+                                val latest = localItems.firstOrNull { it.id == itemId } ?: return@launch
+                                if (target < latest.spanY) {
+                                    // 自动回推：因扩高被推下去、且与本项横向重叠的项，
+                                    // 逐个（按 y 升序）拉回 delta 行；用 planReorder
+                                    // 求解，拉不动（路径上有别人）就留在原地。
+                                    val delta = latest.spanY - target
+                                    var cur = localItems.map {
+                                        if (it.id == itemId) it.copy(spanY = target) else it
+                                    }
+                                    val m = metricsState.value
+                                    val pulled = cur
+                                        .filter {
+                                            it.id != itemId && it.y >= latest.y + target &&
+                                                it.x < latest.right && it.right > latest.x
+                                        }
+                                        .sortedBy { it.y }
+                                    for (candidate in pulled) {
+                                        cur = GridPanelItemLayout.planReorder(
+                                            items = cur,
+                                            movingId = candidate.id,
+                                            targetX = candidate.x,
+                                            targetY = (candidate.y - delta).coerceAtLeast(0),
+                                            columns = m.columns,
+                                            rows = m.rows,
+                                        ) ?: cur
+                                    }
+                                    commitAllItems(cur)
+                                }
+                            }
+                        }
+                    },
                 )
             },
             onSelectPage = { index -> scope.launch { pagerState.animateScrollToPage(index) } },

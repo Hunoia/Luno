@@ -38,12 +38,6 @@ data class GridPanel(
      * 项超出网格不滚，网格本身就是全部内容。
      */
     val rowCount: Int = GridPanelDefaults.RowCount,
-    /**
-     * 网格**实际**行数（可摆放/渲染范围），独立于可见行数 [rowCount]：卡片高度由
-     * rowCount 决定，gridRows 超出部分靠纵向滚动 reach。加项占位、拖拽求解、
-     * 项夹取都用这个值。下限运行时被夹到 ≥ rowCount。
-     */
-    val gridRows: Int = GridPanelDefaults.RowCount * 2,
     /** 卡片宽,占屏宽的比例。格宽几何随卡宽重推，span 模型不受影响。 */
     val cardWidthFraction: Float = GridPanelDefaults.CardWidthFraction,
     /**
@@ -59,6 +53,20 @@ data class GridPanel(
     }
 }
 
+/**
+ * 行数不限制：实际行数 = max(显示行数，占用行数) + [DynamicRowExtra]（每页独立算）。
+ *
+ * 旧版的 gridRows 设置字段已删除（ignoreUnknownKeys 保证旧 JSON 不炸）：
+ * 渲染、落盘、编辑页重排都用本函数的结果。
+ */
+const val DynamicRowExtra = 5
+
+fun GridPanel.effectiveGridRows(pageIndex: Int): Int {
+    val display = rowCount.coerceIn(GridPanelDefaults.MinRowCount, GridPanelDefaults.MaxRowCount)
+    val occupied = items.filter { it.pageIndex == pageIndex }.maxOf { it.bottom }
+    return maxOf(display, occupied) + DynamicRowExtra
+}
+
 /** 网格面板全局默认值（列数/行数的 editable 范围见设置页）。 */
 object GridPanelDefaults {
     const val ColumnCount = 4
@@ -68,8 +76,6 @@ object GridPanelDefaults {
     const val MinRowCount = 1
     const val MaxRowCount = 8
 
-    /** 网格实际行数（gridRows）的滑杆上限。 */
-    const val MaxGridRows = 20
     const val CardWidthFraction = 0.72f
     const val MinCardWidthFraction = 0.5f
     const val MaxCardWidthFraction = 0.9f
