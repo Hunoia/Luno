@@ -15,8 +15,8 @@ val CardMargin = 12.dp
 /** 卡片圆角。 */
 val CardCorner = 20.dp
 
-/** 页眉高（标题 + 时间）。 */
-val HeaderHeight = 46.dp
+/** 页眉高（单行：日期/时间或编辑中 + 加项按钮）。 */
+val HeaderHeight = 36.dp
 
 /** 多页时页指示点行高（固定预算，计入 cardH）。 */
 val IndicatorHeight = 12.dp
@@ -48,7 +48,7 @@ fun gapFor(columns: Int): Dp = when {
 @Immutable
 data class GridMetrics(
     val columns: Int,
-    /** 网格**总**行数 = 设置行数 × 2（可见高度按 visibleRows，见 rememberGridMetrics）。 */
+    /** 网格**实际**行数（可摆放范围，panel.gridRows，≥ 卡片可见行数）。 */
     val rows: Int,
     val screenW: Float,
     val screenH: Float,
@@ -82,8 +82,10 @@ data class GridMetrics(
 @Composable
 fun rememberGridMetrics(
     columns: Int,
-    /** 设置里的行数 = **可见**行数；网格总行数是它的两倍（下半区滚动 reach）。 */
+    /** 设置里的行数 = **可见**行数，决定卡片高度。 */
     rows: Int,
+    /** 网格实际行数（可摆放范围，≥ rows），超出可见区靠滚动 reach。 */
+    gridRows: Int,
     pageCount: Int,
     cardWidthFraction: Float,
 ): GridMetrics {
@@ -101,6 +103,7 @@ fun rememberGridMetrics(
     return remember(
         columns,
         rows,
+        gridRows,
         pageCount,
         cardWidthFraction,
         screenW,
@@ -114,14 +117,13 @@ fun rememberGridMetrics(
         val innerW = cardW - gridPad * 2
         val cellW = (innerW - gap * (columns - 1)) / columns
         val cellH = cellW
-        val rowsGrid = rows * 2
-        // 卡片可见高度按**设置**行数算（面板实际高度 = n 行，下半区靠滚动 reach）：
-        // 高度夹到屏的 82% 是纵向滚动存在的理由。
+        // 卡片可见高度按**可见**行数算：高度夹到屏的 82%，
+        // 实际行数更多时下半区靠 verticalScroll reach。
         val gridH = cellH * rows + gap * (rows - 1)
         val cardH = (gridH + header + indicator).coerceAtMost(screenH * 0.82f) + gridPad * 2
         GridMetrics(
             columns = columns,
-            rows = rowsGrid,
+            rows = gridRows,
             screenW = screenW,
             screenH = screenH,
             cellW = cellW,

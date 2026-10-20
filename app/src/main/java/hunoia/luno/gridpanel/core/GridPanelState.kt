@@ -118,8 +118,12 @@ class GridPanelState(
         val id = draggingId ?: return
         val m = metricsProvider()
         val moving = resolved.firstOrNull { it.id == id } ?: return
-        val tx = m.cellX(originCell.x * m.stepW + dragVisual.x)
-        val ty = m.cellY(originCell.y * m.stepH + dragVisual.y)
+        // 按项**中心**落格（不是左上角）：中心要拖过半格才换目标，
+        // 拖到格边界附近时不会在相邻格间来回跳（1×1 项尤甚）。
+        val centerX = originCell.x * m.stepW + dragVisual.x + m.itemW(moving.spanX.toFloat()) / 2f
+        val centerY = originCell.y * m.stepH + dragVisual.y + m.itemH(moving.spanY.toFloat()) / 2f
+        val tx = m.cellX(centerX)
+        val ty = m.cellY(centerY)
         if (hoverCell?.x == tx && hoverCell?.y == ty) return
         // 只从 dragBase 求解：输出不再反馈为输入，来回拖不会累积漂移。
         val plan = GridPanelItemLayout.planReorder(

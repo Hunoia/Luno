@@ -42,6 +42,11 @@ class PanelAppWidgetView(context: Context) : FrameLayout(context) {
     private var contentH = 0
     private var clipApplied = false
 
+    /** 部件默认内边距（widget 样式自带）：宿主视图按它反向越界铺开，
+     *  让 provider 的 padding 落在格子外的 gap 上（options 侧同步扣减，
+     *  Launcher3 同款补偿）。 */
+    private var defaultPadding = android.graphics.Rect()
+
     /** 小部件内部滚不动时，把竖直位移中继给面板的 ScrollState（正值 = 向下滚）。 */
     var onVerticalScroll: ((dy: Float) -> Unit)? = null
 
@@ -73,6 +78,10 @@ class PanelAppWidgetView(context: Context) : FrameLayout(context) {
 
     init {
         PanelAppWidgetHost.ensureListening()
+        // 子 View 会按 padding 反向越出框体（见 onLayout），不能被 FrameLayout
+        // 裁掉 —— 越界部分由 Compose 侧的圆角 clip 统一兜底。
+        clipChildren = false
+        clipToPadding = false
     }
 
     fun updateWidget(appWidgetId: Int, provider: String, maxWidthDp: Int, maxHeightDp: Int) {
@@ -104,6 +113,9 @@ class PanelAppWidgetView(context: Context) : FrameLayout(context) {
             return
         }
         setLoadState(WidgetLoadState.Loading)
+        defaultPadding = runCatching {
+            AppWidgetHostView.getDefaultPaddingForWidget(context, info.provider, null)
+        }.getOrDefault(android.graphics.Rect())
         // 必须先下 options 再 createView：provider 收到尺寸更新会重发 RemoteViews，
         // 顺序反了首帧就是按旧尺寸画的那一版。
         applyAppWidgetOptions(appWidgetId, maxWidthDp, maxHeightDp)
@@ -144,8 +156,15 @@ class PanelAppWidgetView(context: Context) : FrameLayout(context) {
             return
         }
         setMeasuredDimension(contentW, contentH)
-        val wSpec = MeasureSpec.makeMeasureSpec(contentW, MeasureSpec.EXACTLY)
-        val hSpec = MeasureSpec.makeMeasureSpec(contentH, MeasureSpec.EXACTLY)
+        // 外扩：子 View 按「格子 + 两侧 padding」量，布局时负偏移越出框体。
+        val wSpec = MeasureSpec.makeMeasureSpec(
+            contentW + defaultPadding.left + defaultPadding.right,
+            MeasureSpec.EXACTLY,
+        )
+        val hSpec = MeasureSpec.makeMeasureSpec(
+            contentH + defaultPadding.top + defaultPadding.bottom,
+            MeasureSpec.EXACTLY,
+        )
         for (i in 0 until childCount) {
             getChildAt(i).measure(wSpec, hSpec)
         }
@@ -154,11 +173,13 @@ class PanelAppWidgetView(context: Context) : FrameLayout(context) {
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
         val cw = r - l
         val ch = b - t
+        val pl = defaultPadding.left
+        val pt = defaultPadding.top
         for (i in 0 until childCount) {
             val child = getChildAt(i)
-            val w = min(child.measuredWidth, contentW)
-            val h = min(child.measuredHeight, contentH)
-            child.layout((cw - w) / 2, (ch - h) / 2, (cw + w) / 2, (ch + h) / 2)
+            val w = min(child.measuredWidth, cw + pl + defaultPadding.right)
+            val h = min(child.measuredHeight, ch + pt + defaultPadding.bottom)
+            child.layout(-pl, -pt, -pl + w, -pt + h)
         }
         if (!clipApplied) {
             clipApplied = true

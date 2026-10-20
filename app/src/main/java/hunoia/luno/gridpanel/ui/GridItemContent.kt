@@ -2,9 +2,7 @@ package hunoia.luno.gridpanel.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,8 +18,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -37,57 +33,54 @@ import hunoia.luno.R
 import androidx.compose.ui.res.stringResource
 
 /**
- * 动作格内容。手势**不在这里**：统一由 [GridPanelLayer] 的 gridItemGestures
- * 挂在整项外壳上，避免「项自身 + 覆盖层」两套长按竞争者。
+ * 动作格内容：**应用图标**（app.launch / 快捷方式等图片型）不铺底色、图标占满
+ * 整格 —— 应用图标自带圆角/形状，垫方块反而难看；**普通动作**（矢量/文字图标）
+ * 保留 surfaceVariant 底色、图标按短边 72% 留边。手势不在这里：统一由层根
+ * gridLayerGestures 接管。
  */
 @Composable
 fun ActionItemCell(
     action: StoredAction,
-    label: String,
     dragging: Boolean,
     modifier: Modifier = Modifier,
+    cellSize: Dp = 60.dp,
 ) {
-    Column(
+    val model = actionIcon(action)
+    val isAppIcon = model != null && model !is ImageVector && model !is TextIcon
+    Box(
         modifier = modifier
             .alpha(if (dragging) 0.9f else 1f)
             .background(
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                color = if (isAppIcon) {
+                    Color.Transparent
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                },
                 shape = RoundedCornerShape(ItemCorner),
-            )
-            .padding(vertical = 10.dp, horizontal = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+            ),
+        contentAlignment = Alignment.Center,
     ) {
-        GridItemIcon(action = action, iconSize = 36.dp)
-        if (label.isNotEmpty()) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-        }
+        GridItemIcon(
+            model = model,
+            iconSize = if (isAppIcon) cellSize else cellSize * 0.72f,
+        )
     }
 }
 
 @Composable
-fun GridItemIcon(action: StoredAction, iconSize: Dp) {
-    val model = actionIcon(action = action)
+fun GridItemIcon(model: Any?, iconSize: Dp) {
     when (model) {
         is ImageVector -> Icon(
             imageVector = model,
             contentDescription = null,
             modifier = Modifier.size(iconSize),
-            tint = MaterialTheme.colorScheme.onSurface,
+            tint = gridPanelOnCardColor(),
         )
 
         is TextIcon -> TextIconGlyph(
             text = model.text,
             size = iconSize,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = gridPanelOnCardColor(),
         )
 
         else -> AsyncImage(

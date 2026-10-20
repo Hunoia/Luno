@@ -50,7 +50,7 @@ import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.gesture.gridLayerGestures
 import hunoia.luno.gridpanel.widget.PanelAppWidgetView
 import hunoia.luno.gridpanel.widget.WidgetLoadState
-import hunoia.luno.ui.component.actionText
+import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
 import kotlin.math.roundToInt
 
 /** 手柄命中区上限；小格按边长比例再缩小，避免盖住半个项。 */
@@ -146,7 +146,7 @@ fun GridPanelLayer(
                         },
                     ),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = gridPanelOnCardColor(),
                     textAlign = TextAlign.Center,
                 )
             }
@@ -202,7 +202,7 @@ fun GridPanelLayer(
                 ) {
                     if (dragging) {
                         DragCrosshair(
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
+                            color = gridPanelOnCardColor().copy(alpha = 0.25f),
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
@@ -230,12 +230,12 @@ fun GridPanelLayer(
                                 }
                                 ActionItemCell(
                                     action = action,
-                                    label = actionText(
-                                        action,
-                                        emptyIfNone = false,
-                                        actionLibraryEntries = libraryEntries,
-                                    ),
                                     dragging = dragging,
+                                    // 图标尺寸由 ActionItemCell 内按「应用图标占满 /
+                                    // 普通动作 72% 留边」区分，这里只传格子短边。
+                                    cellSize = with(density) {
+                                        minOf(itemW, itemH).toDp()
+                                    },
                                     modifier = Modifier.fillMaxSize().then(contentGesture),
                                 )
                             }
@@ -359,8 +359,8 @@ private fun GridBackground(items: List<GridPanelItem>, metrics: GridMetrics) {
             for (gx in n.x until n.right) occupied.add(gy * metrics.columns + gx)
         }
     }
-    val idleColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
-    val lineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+    val idleColor = gridPanelOnCardColor().copy(alpha = 0.06f)
+    val lineColor = gridPanelOnCardColor().copy(alpha = 0.08f)
     val hairline = with(density) { 1.dp.toPx() }
     val corner = with(density) { ItemCorner.toPx() }
     Canvas(

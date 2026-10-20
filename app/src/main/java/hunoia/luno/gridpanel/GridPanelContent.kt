@@ -182,7 +182,8 @@ fun GridPanelRoot(
             .getOrDefault(0)
     }
 
-    val metrics = rememberGridMetrics(columns, rows, pageCount, cardFraction)
+    val gridRows = panel.gridRows.coerceIn(rows, GridPanelDefaults.MaxGridRows)
+    val metrics = rememberGridMetrics(columns, rows, gridRows, pageCount, cardFraction)
     val metricsState = rememberUpdatedState(metrics)
 
     // provider 被卸载 / 用户在系统里删掉小部件 → 宿主回调 onAppWidgetRemoved。
@@ -249,7 +250,6 @@ fun GridPanelRoot(
     ) {
         GridPanelCard(
             panelId = panel.id,
-            panelName = panel.name,
             editMode = editMode,
             pageCount = pageCount,
             pagerState = pagerState,
@@ -297,7 +297,6 @@ fun GridPanelRoot(
                 )
             },
             onSelectPage = { index -> scope.launch { pagerState.animateScrollToPage(index) } },
-            onDoneEdit = { editMode = false },
             onAdd = {
                 // 加项落点交给落盘层决定（首个空位），这里不预选格子。
                 val started = onPickItem(

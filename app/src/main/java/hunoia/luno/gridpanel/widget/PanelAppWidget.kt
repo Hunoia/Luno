@@ -124,20 +124,37 @@ fun applyAppWidgetOptions(appWidgetId: Int, maxWidthDp: Int, maxHeightDp: Int) {
     }
     val maxW = maxWidthDp.coerceAtLeast(1)
     val maxH = maxHeightDp.coerceAtLeast(1)
+    // 部件默认内边距（widget 样式自带，Launcher3 同款补偿）：options 按
+    // 「格子 − 2×padding」下发，宿主视图侧再按「格子 + 2×padding」外扩，
+    // padding 正好落在格子外的 gap 上，内容占满格子、与动作项边缘对齐。
+    val pad = runCatching {
+        android.appwidget.AppWidgetHostView.getDefaultPaddingForWidget(
+            AppContext.get(), info.provider, null,
+        )
+    }.getOrDefault(android.graphics.Rect())
+    val density = AppContext.get().resources.displayMetrics.density
+    val padDpW = ((pad.left + pad.right) / density).toInt()
+    val padDpH = ((pad.top + pad.bottom) / density).toInt()
+    val contentW = (maxW - padDpW).coerceAtLeast(1)
+    val contentH = (maxH - padDpH).coerceAtLeast(1)
     val options = Bundle().apply {
         putInt(
             AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,
-            info.minWidth.coerceAtMost(maxW),
+            info.minWidth.coerceAtMost(contentW),
         )
         putInt(
             AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT,
-            info.minHeight.coerceAtMost(maxH),
+            info.minHeight.coerceAtMost(contentH),
         )
-        putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, maxW)
-        putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, maxH)
-        // 不声明 HOST_CATEGORY（尤其不要 HOME_SCREEN）：部分 provider 会按桌面
-        // widget 的默认内边距布局，在面板里表现为四周多一圈空白。缺省分类下
-        // provider 走最朴素的尺寸协商，正好符合面板格子的预期。
+        putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, contentW)
+        putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, contentH)
+        // 必须声明 HOME_SCREEN 分类：不声明时部分 provider 会按普通 widget 的
+        // 默认内边距布局，在面板里表现为四周多一圈空白、画不满格子。
+        //（历史注释曾写反说「不声明」，实测声明才对。）
+        putInt(
+            AppWidgetManager.OPTION_APPWIDGET_HOST_CATEGORY,
+            AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN,
+        )
     }
     runCatching { manager.updateAppWidgetOptions(appWidgetId, options) }
         .onFailure { Log.w(TAG, "updateAppWidgetOptions failed id=$appWidgetId: ${it.message}") }

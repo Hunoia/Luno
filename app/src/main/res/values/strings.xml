@@ -132,6 +132,7 @@
     <string name="grid_panel_delete_title">删除网格面板</string>
     <string name="grid_panel_column_count">列数</string>
     <string name="grid_panel_row_count">行数</string>
+    <string name="grid_panel_grid_rows">实际行数</string>
     <string name="grid_panel_page_count">页数</string>
     <string name="grid_panel_card_width">卡片宽度</string>
     <string name="grid_panel_card_alpha">卡片透明度</string>
@@ -143,7 +144,6 @@
     <string name="grid_panel_replace_item">换动作</string>
     <string name="grid_panel_edit_mode">编辑中</string>
     <string name="grid_panel_edit_enter">编辑面板</string>
-    <string name="grid_panel_edit_done">完成编辑</string>
     <string name="grid_panel_item_menu_delete">删除</string>
     <string name="grid_panel_item_resize">调整大小</string>
     <string name="grid_panel_page_full">这一页放不下了，已取消添加</string>

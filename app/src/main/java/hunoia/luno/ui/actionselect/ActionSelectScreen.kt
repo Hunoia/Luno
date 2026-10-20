@@ -6,6 +6,8 @@ import android.content.Intent.ShortcutIconResource
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
 import android.graphics.Bitmap
+import android.util.Log
+import java.io.File
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResult
@@ -116,13 +118,31 @@ fun ActionSelectContent(
                                         QuickLaunchFacade.resolveShortcutIconResourceId(context, shortcutIconRes)
                                     }
                                 } else 0
+                                // 创建器返回的**位图图标**必须落盘成文件（iconPath）：
+                                // iconBitmap 是 @Transient 不序列化，只存内存的话
+                                // 重启/回流后 getIcon() 拿不到 → 图标空白。
+                                val iconPath = bitmap?.let { bmp ->
+                                    withContext(Dispatchers.IO) {
+                                        runCatching {
+                                            val dir = File(context.filesDir, "shortcut_icons").apply { mkdirs() }
+                                            val file = File(dir, "cs_${launcherInfo.packageName}_${System.currentTimeMillis()}.png")
+                                            file.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                                            file.absolutePath
+                                        }.getOrNull()
+                                    }
+                                }
+                                Log.d("ActionSelect", "shortcut created: pkg=${launcherInfo.packageName} label=$label " +
+                                    "iconRes=$iconRes iconPath=$iconPath bitmap!=null=${bitmap != null} intent=${intent != null}")
                                 val shortcutInfo = LauncherInfo.ShortcutInfo(
                                     packageName = launcherInfo.packageName, className = launcherInfo.className,
                                     intents = intent?.let { listOf(it) } ?: emptyList(), label = label,
-                                    iconRes = iconRes, iconPath = null, iconBitmap = bitmap
+                                    iconRes = iconRes, iconPath = iconPath, iconBitmap = bitmap
                                 )
                                 vm.addNewShortcut(launcherInfo, shortcutInfo)
                                 vm.select(shortcutInfo)
+                            } else {
+                                Log.w("ActionSelect", "shortcut creator returned resultCode=${result.resultCode} " +
+                                    "data=${result.data?.extras?.keySet()} launcherInfo=${launcherInfo != null}")
                             }
                             currentLauncherInfo = null
                         }
@@ -138,8 +158,7 @@ fun ActionSelectContent(
                     // 面板还没回流（首帧）用默认网格估 span，只影响选择卡上的角标预览；
                     // 落盘时 saveGridPanelWidget 会按最新面板尺寸重新降格，不吃这里的近似。
                     val gridColumns = gridPanel?.columnCount ?: GridPanelDefaults.ColumnCount
-                    val gridRows = gridPanel?.rowCount?.let(GridPanelDefaults::effectiveRows)
-                        ?: GridPanelDefaults.effectiveRows(GridPanelDefaults.RowCount)
+                    val gridRows = gridPanel?.gridRows ?: GridPanelDefaults.RowCount * 2
                     var widgetGroups by remember { mutableStateOf<List<WidgetProviderGroup>>(emptyList()) }
                     LaunchedEffect(gridPanelId) {
                         if (gridPanelId.isBlank()) return@LaunchedEffect
@@ -245,7 +264,14 @@ fun ActionSelectContent(
                             onShortcutClick = { launcherInfo ->
                                 try {
                                     currentLauncherInfo = launcherInfo
-                                    shortcutLauncher.launch(Intent().apply { setClassName(launcherInfo.packageName, launcherInfo.className) })
+                                   // 必须带 ACTION_CREATE_SHORTCUT：创建器是按这个 action
+                                    // 查出来的（AppQuery），裸包名启动会被创建器视为非法
+                                    // 调用，直接 finish 取消（实测 150ms 返回 resultCode=0）。
+                                    shortcutLauncher.launch(
+                                        Intent(Intent.ACTION_CREATE_SHORTCUT).apply {
+                                            setClassName(launcherInfo.packageName, launcherInfo.className)
+                                        },
+                                    )
                                 } catch (_: Exception) { currentLauncherInfo = null }
                             },
                             showWidgetChip = gridPanelId.isNotBlank(),

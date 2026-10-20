@@ -120,7 +120,7 @@ fun GridPanelEditScreen(
                 // （一墨 s09.w 同款思路：`rowCount = max(rowCount, y + spanY)`）。
                 // 早期版本把放不下的项**直接丢掉并回收 AppWidget id** —— 用户只是
                 // 把列数从4 滑到 3，一个占4 列的小部件就凭空消失了，而且没有任何提示。
-                var effectiveRows = GridPanelDefaults.effectiveRows(rows)
+                var effectiveRows = resized.gridRows.coerceIn(rows, GridPanelDefaults.MaxGridRows)
                 for (p in 0 until pages) {
                     for (raw in coerced.filter { it.pageIndex == p }) {
                         // 先夹到网格内，再按比例缩小放不下的项：宁可变小也要留住内容。
@@ -138,11 +138,10 @@ fun GridPanelEditScreen(
                                 spanX = (clamped.spanX * scale).roundToInt().coerceIn(1, columns),
                                 spanY = (clamped.spanY * scale).roundToInt().coerceIn(1, effectiveRows),
                             )
-                            // 缩小后若纵向仍然撑破本页，抬高网格行数保它
-                            //（上限 = 满档设置的网格行数，即 MaxRowCount × 2）
+                            // 缩小后若纵向仍然撑破本页，抬高实际行数保它
+                            //（上限 MaxGridRows）
                             if (shrunk.y + shrunk.spanY > effectiveRows &&
-                                shrunk.y + shrunk.spanY <=
-                                GridPanelDefaults.effectiveRows(GridPanelDefaults.MaxRowCount)
+                                shrunk.y + shrunk.spanY <= GridPanelDefaults.MaxGridRows
                             ) {
                                 effectiveRows = shrunk.y + shrunk.spanY
                             }
@@ -193,7 +192,11 @@ fun GridPanelEditScreen(
                     actionGridPanels = settings.actionGridPanels.withPanel(
                         resized.copy(
                             columnCount = columns,
-                            rowCount = effectiveRows,
+                            // **rowCount 写回用户设置的可见行数**（不是实际行数！）——
+                            // 曾经把 effectiveRows 写进 rowCount：拖到 4 落盘成 8
+                            //（滑块自己跳值），高度也就再也不变。
+                            rowCount = rows,
+                            gridRows = effectiveRows,
                             pageCount = pages,
                             items = placed,
                         ),
@@ -239,7 +242,7 @@ fun GridPanelEditScreen(
                     valueDisplay = { "${it.toInt()}" },
                     valueRange = GridPanelDefaults.MinColumnCount.toFloat()..GridPanelDefaults.MaxColumnCount.toFloat(),
                     steps = GridPanelDefaults.MaxColumnCount - GridPanelDefaults.MinColumnCount - 1,
-                    shape = segmentedShape(0, 3),
+                    shape = segmentedShape(0, 4),
                 )
                 var pendingRows by remember { mutableStateOf<Int?>(null) }
                 LunoTextSlider(
@@ -253,13 +256,32 @@ fun GridPanelEditScreen(
                     valueDisplay = { "${it.toInt()}" },
                     valueRange = GridPanelDefaults.MinRowCount.toFloat()..GridPanelDefaults.MaxRowCount.toFloat(),
                     steps = GridPanelDefaults.MaxRowCount - GridPanelDefaults.MinRowCount - 1,
-                    shape = segmentedShape(1, 3),
+                    shape = segmentedShape(1, 4),
+                )
+                // 实际行数（可摆放范围）独立于可见行数：卡片高度只由行数决定，
+                // 实际行数更大时下半区靠面板内纵向滚动 reach。下限动态 = 当前行数
+                //（m < n 无意义），改小行数时 resizeGrid 会自动把 m 抬上来。
+                var pendingGridRows by remember { mutableStateOf<Int?>(null) }
+                LunoTextSlider(
+                    value = current.gridRows.coerceAtLeast(current.rowCount).toFloat(),
+                    onValueChange = { value -> pendingGridRows = value.toInt() },
+                    onValueChangeFinished = {
+                        pendingGridRows?.let { v ->
+                            resizeGrid { it.copy(gridRows = v.coerceAtLeast(it.rowCount)) }
+                        }
+                        pendingGridRows = null
+                    },
+                    text = stringResource(R.string.grid_panel_grid_rows),
+                    valueDisplay = { "${it.toInt()}" },
+                    valueRange = current.rowCount.toFloat()..GridPanelDefaults.MaxGridRows.toFloat(),
+                    steps = GridPanelDefaults.MaxGridRows - current.rowCount - 1,
+                    shape = segmentedShape(2, 4),
                 )
                 // 页数不设上限（§10 拍板）：滑杆必须有 Range，这里用 +/- 步进行。
                 PageStepperRow(
                     pageCount = current.pageCount,
                     onSelect = { value -> resizeGrid { it.copy(pageCount = value) } },
-                    shape = segmentedShape(2, 3),
+                    shape = segmentedShape(3, 4),
                 )
             }
         }

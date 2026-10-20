@@ -17,7 +17,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -40,6 +39,7 @@ import hunoia.luno.gridpanel.geometry.GridPadding
 import hunoia.luno.gridpanel.ui.GridItemActions
 import hunoia.luno.gridpanel.ui.GridPanelHeader
 import hunoia.luno.gridpanel.ui.GridPanelLayer
+import hunoia.luno.gridpanel.ui.gridPanelCardColor
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -62,7 +62,6 @@ private val EdgeScrollStep = 9.dp
 @Composable
 fun GridPanelCard(
     panelId: String,
-    panelName: String,
     editMode: Boolean,
     pageCount: Int,
     pagerState: PagerState,
@@ -77,7 +76,6 @@ fun GridPanelCard(
     libraryEntries: List<NewActionLibraryEntry>,
     itemActions: (pageIndex: Int) -> GridItemActions,
     onSelectPage: (Int) -> Unit,
-    onDoneEdit: () -> Unit,
     onAdd: () -> Unit,
 ) {
     val density = LocalDensity.current
@@ -135,7 +133,7 @@ fun GridPanelCard(
                 scaleY = scaleX
             }
             .background(
-                MaterialTheme.colorScheme.surface.copy(alpha = cardAlpha),
+                gridPanelCardColor().copy(alpha = cardAlpha),
                 RoundedCornerShape(CardCorner),
             )
             .clip(RoundedCornerShape(CardCorner)),
@@ -143,11 +141,9 @@ fun GridPanelCard(
         Column(Modifier.fillMaxSize()) {
             GridPanelHeader(
                 editMode = editMode,
-                panelName = panelName,
                 pageCount = pageCount,
                 activePage = pagerState.currentPage,
                 onSelectPage = onSelectPage,
-                onDoneEdit = onDoneEdit,
                 onAdd = onAdd,
             )
             Box(
