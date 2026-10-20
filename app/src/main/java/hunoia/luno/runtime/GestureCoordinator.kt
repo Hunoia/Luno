@@ -9,6 +9,9 @@ import android.view.accessibility.AccessibilityEvent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
 import hunoia.luno.BuildConfig
+import hunoia.luno.core.Events
+import hunoia.luno.core.PanelDismissedEvent
+import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.actionPanelId
 import hunoia.luno.action.model.withoutVariantKey
@@ -306,8 +309,13 @@ class GestureCoordinator(
 
     private val callbacks: GestureOverlayCallbacks = object : GestureOverlayCallbacks {
         override fun onSubGestureModeChanged(inSubGesture: Boolean, center: Offset, radiusPx: Int) {
-            if (inSubGesture) transientOverlayController.attachSubGestureOverlay(center, radiusPx)
-            else transientOverlayController.detachSubGestureOverlay()
+            if (inSubGesture) {
+                transientOverlayController.attachSubGestureOverlay(center, radiusPx)
+                Events.post(PanelShownEvent())
+            } else {
+                transientOverlayController.detachSubGestureOverlay()
+                Events.post(PanelDismissedEvent())
+            }
         }
 
         override fun onVolumeScrubOverlayRequested(config: hunoia.luno.config.model.VolumeScrubConfig) {
@@ -332,8 +340,13 @@ class GestureCoordinator(
         }
 
         override fun onActionPanelOverlayChanged(show: Boolean) {
-            if (show) transientOverlayController.attachActionPanelOverlay()
-            else transientOverlayController.detachActionPanelOverlay()
+            if (show) {
+                transientOverlayController.attachActionPanelOverlay()
+                Events.post(PanelShownEvent())
+            } else {
+                transientOverlayController.detachActionPanelOverlay()
+                Events.post(PanelDismissedEvent())
+            }
         }
 
         override fun onActionPanelVisibilityChanged(visible: Boolean) {

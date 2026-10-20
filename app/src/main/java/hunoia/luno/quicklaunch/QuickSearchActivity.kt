@@ -18,6 +18,9 @@ import androidx.lifecycle.lifecycleScope
 import hunoia.luno.BuildConfig
 import hunoia.luno.R
 import hunoia.luno.bridge.ui.showToast
+import hunoia.luno.core.Events
+import hunoia.luno.core.PanelDismissedEvent
+import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.config.model.MAX_CLIP_HISTORY
 import hunoia.luno.config.model.MAX_CLIP_STORE_CHARS
 import hunoia.luno.quicklaunch.panel.QuickSearchContent
@@ -129,6 +132,10 @@ class QuickSearchActivity : ComponentActivity() {
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
         window.attributes.blurBehindRadius = 80
         if (BuildConfig.DEBUG) Log.i("LunoLauncher", "QuickSearchActivity onCreate taskId=$taskId")
+        if (!shownEventPosted) {
+            shownEventPosted = true
+            Events.post(PanelShownEvent())
+        }
         // 数据准备放后台：首次输入不再卡主线程，且每次打开都刷新应用/快捷方式。
         lifecycleScope.launch(Dispatchers.IO) {
             index.ensureLoaded()
@@ -308,8 +315,15 @@ class QuickSearchActivity : ComponentActivity() {
 
     override fun onDestroy() {
         if (BuildConfig.DEBUG) Log.i("LunoQuickSearch", "destroyed=${System.currentTimeMillis()}")
+        if (shownEventPosted) {
+            shownEventPosted = false
+            Events.post(PanelDismissedEvent())
+        }
         super.onDestroy()
     }
+
+    /** Shown/Dismissed 事件配对闩锁（onNewIntent 复用实例时不重复发 Shown）。 */
+    private var shownEventPosted = false
 
     companion object {
         /**

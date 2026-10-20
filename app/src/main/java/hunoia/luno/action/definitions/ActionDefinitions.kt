@@ -7,6 +7,7 @@ import androidx.compose.material.icons.automirrored.filled.Shortcut
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.Assistant
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.ContentCopy
@@ -385,6 +386,18 @@ object ActionDefinitions {
             icon = Icons.Default.Visibility))
         add(ActionDefinition("internal.quickAppLauncher", "快速启动面板", ActionCategory.INTERNAL, Capability.None,
             icon = Icons.Default.Apps))
+        add(ActionDefinition("internal.floatBallVisibility", "悬浮球显隐", ActionCategory.INTERNAL, Capability.None,
+            parameters = listOf(ParameterDefinition.Enum(
+                key = "visible",
+                label = "显隐",
+                options = listOf(
+                    EnumOption("toggle", "切换"),
+                    EnumOption("true", "显示"),
+                    EnumOption("false", "隐藏"),
+                ),
+                defaultValue = "toggle",
+            )),
+            icon = Icons.Default.Adjust))
         add(ActionDefinition("internal.quickSearch", "快速搜索", ActionCategory.INTERNAL, Capability.None,
             icon = Icons.Default.Search))
         add(ActionDefinition("internal.volumeScrub", "滑动调音量", ActionCategory.INTERNAL, Capability.None,

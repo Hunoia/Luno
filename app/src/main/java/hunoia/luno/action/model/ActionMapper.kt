@@ -117,6 +117,13 @@ object ActionMapper {
                 p.arrayOfStr("buttonIds"),
             )
             "internal.quickAppLauncher" -> Action.QuickAppLauncher
+            "internal.floatBallVisibility" -> Action.FloatBallVisibility(
+                when (p.str("visible", "toggle")) {
+                    "true" -> true
+                    "false" -> false
+                    else -> null
+                },
+            )
             "internal.gridPanel" -> Action.GridPanel(p.str(GRID_PANEL_PARAM_PANEL_ID))
             "internal.quickSearch" -> Action.QuickSearch
             "internal.volumeScrub" -> Action.VolumeScrub(

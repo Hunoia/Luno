@@ -23,6 +23,8 @@ import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.core.ActionSelectClosedEvent
 import hunoia.luno.core.AppContext
 import hunoia.luno.core.Events
+import hunoia.luno.core.PanelDismissedEvent
+import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.domain.action.ActionLibrary
 import kotlinx.coroutines.launch
@@ -67,6 +69,9 @@ object GridPanelOverlay {
     private var attached = false
     private var lifecycleOwner: PanelLifecycleOwner? = null
 
+    /** 面板可见时为 true：保证 Shown/Dismissed 事件配对（重复 show 不重复发）。 */
+    private var shownEventPosted = false
+
     // 组合消费的状态：重复 show 原位换面板/锚点（等价 Activity 的 onNewIntent）。
     private var panelIdState by mutableStateOf("")
     private var anchorXState by mutableIntStateOf(0)
@@ -109,6 +114,10 @@ object GridPanelOverlay {
             else -> restoreVisibility()
         }
         lifecycleOwner?.resume()
+        if (!shownEventPosted) {
+            shownEventPosted = true
+            Events.post(PanelShownEvent())
+        }
     }
 
     /** 编辑态让位：窗口隐身但保留（组合与 surface 都在，选择页叠在其上）。 */
@@ -119,6 +128,7 @@ object GridPanelOverlay {
         lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
         lp.alpha = 0f
         wm.safeUpdateViewLayout(current, lp)
+        postDismissed()
     }
 
     /** 组合的 onCloseAnimated 落点：移窗、销毁 owner（组合随之释放）。 */
@@ -128,6 +138,7 @@ object GridPanelOverlay {
             return
         }
         Events.unsubscribe(ActionSelectClosedEvent::class, closedSubscriber)
+        postDismissed()
         val current = view ?: return
         context.removeWindow(current)
         view = null
@@ -135,6 +146,12 @@ object GridPanelOverlay {
         lifecycleOwner?.destroy()
         lifecycleOwner = null
         closeAnimated = null
+    }
+
+    private fun postDismissed() {
+        if (!shownEventPosted) return
+        shownEventPosted = false
+        Events.post(PanelDismissedEvent())
     }
 
     private fun attach() {

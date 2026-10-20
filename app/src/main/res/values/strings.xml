@@ -118,6 +118,11 @@
     <string name="float_ball_permission_hint">悬浮球需要该权限才能显示。未授权时球不会出现。</string>
     <string name="float_ball_grant_permission">去授权</string>
     <string name="float_ball_tap_unset">未设置</string>
+    <string name="float_ball_behavior">行为</string>
+    <string name="float_ball_hide_on_panel">面板时隐藏</string>
+    <string name="float_ball_hide_on_panel_subtitle">打开网格面板/快速搜索等面板时自动隐藏，全部关闭后弹回</string>
+    <string name="float_ball_mirror">对侧分身</string>
+    <string name="float_ball_mirror_subtitle">屏幕对侧显示半圆分身，按下即触发动作并与主球换位</string>
     <string name="action_panel_missing">面板已不存在，请返回重新添加</string>
     <string name="action_panel_item_move_up">上移</string>
     <string name="action_panel_item_move_down">下移</string>

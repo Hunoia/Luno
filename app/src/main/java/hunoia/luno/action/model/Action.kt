@@ -228,6 +228,13 @@ sealed interface Action {
     data object QuickAppLauncher : Action {
         override val typeId: String = "internal.quickAppLauncher"
     }
+    /**
+     * 悬浮球显隐（与 [ButtonsVisibility] 同物：直接改 enabled 存量，
+     * 后求值/后执行的覆盖先生效）。`visible = null` 表示切换。
+     */
+    data class FloatBallVisibility(val visible: Boolean? = null) : Action {
+        override val typeId: String = "internal.floatBallVisibility"
+    }
     /** 网格面板：触点附近弹出网格快捷中心（panelId 引用全局具名面板，见 GridPanel）。 */
     data class GridPanel(val panelId: String) : Action {
         override val typeId: String = "internal.gridPanel"

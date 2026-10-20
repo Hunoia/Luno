@@ -185,7 +185,7 @@ class InternalExecutors : ActionExecutor {
 
     override val supportedTypes: Set<String> = setOf(
         "internal.none", "internal.subGesture", "internal.hideGestureButton",
-        "internal.buttonsVisibility",
+        "internal.buttonsVisibility", "internal.floatBallVisibility",
         "internal.quickAppLauncher", "internal.quickSearch", "internal.gridPanel",
         "internal.volumeScrub",
         "internal.pointer",
@@ -201,6 +201,7 @@ class InternalExecutors : ActionExecutor {
                 ActionResult.Success()
             }
             is Action.ButtonsVisibility -> executeButtonsVisibility(action)
+            is Action.FloatBallVisibility -> executeFloatBallVisibility(action)
             is Action.QuickAppLauncher -> {
                 context.toggleQuickAppLauncher()
                 ActionResult.Success()
@@ -255,7 +256,23 @@ class InternalExecutors : ActionExecutor {
     }
 
     /**
-     * 触钮显隐：直接改按钮 enabled 存量（DataStore 更新自带顺序，后写覆盖先写，
+     * 悬浮球显隐：改 [hunoia.luno.config.model.FloatBallSettings].enabled 存量。
+     * visible=null 为切换；`FloatBallService` 的 settings flow 会自动摘/挂球窗。
+     * 失败吞掉报 Failed，不抛。
+     */
+    private suspend fun executeFloatBallVisibility(action: Action.FloatBallVisibility): ActionResult {
+        val ok = runCatching {
+            ConfigProvider.updateActionSettings { current ->
+                val enabled = action.visible ?: !current.floatBall.enabled
+                current.copy(floatBall = current.floatBall.copy(enabled = enabled))
+            }
+            true
+        }.getOrDefault(false)
+        return if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
+    }
+
+    /**
+     * 触钮显隐：直接改按钮 enabled 存量（DataStore 更新自带顺序，后写覆盖先写,
      * 即规则列表顺序=优先级）。失败吞掉报 Failed，不抛。
      */
     private suspend fun executeButtonsVisibility(action: Action.ButtonsVisibility): ActionResult {

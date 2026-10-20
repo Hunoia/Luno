@@ -23,9 +23,12 @@ import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.FloatBallSettings
+import hunoia.luno.core.Events
+import hunoia.luno.core.PanelDismissedEvent
+import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.gridpanel.GridPanelOverlay
 import hunoia.luno.runtime.environment.BroadcastObserver
+import hunoia.luno.gridpanel.GridPanelOverlay
 import hunoia.luno.service.SideGestureService
 import hunoia.luno.ui.MainActivity
 import kotlinx.coroutines.CoroutineScope
@@ -37,6 +40,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 /**
  * 悬浮球宿主。跑在独立 `:service` 进程，前台通知常驻。
@@ -64,11 +68,21 @@ class FloatBallService : Service() {
 
     private var settings: FloatBallSettings = FloatBallSettings()
 
+    /** 应用手势总闸（combine 出来的 gestureEnabled，总闸关则球与分身都不出）。 */
+    private var gestureEnabledSnapshot = true
+
     private lateinit var ballWindow: FloatBallWindow
+    private lateinit var mirrorWindow: FloatBallMirrorWindow
     private var broadcastObserver: BroadcastObserver? = null
 
     /** 球是否已真正挂上窗口。false = 未授权或被系统拒绝。 */
     private var ballVisible = false
+
+    /** 面板类浮层打开计数（hideOnPanel 开启时 >0 即隐藏球）。 */
+    private var panelCount = 0
+
+    /** 上轮「因面板隐藏」状态：从隐藏恢复时要带回场动画。 */
+    private var hiddenByPanel = false
 
     private val powerManager by lazy { getSystemService<PowerManager>() }
     private val keyguardManager by lazy { getSystemService<KeyguardManager>() }
@@ -80,17 +94,35 @@ class FloatBallService : Service() {
             onTap = { onBallTapped() }
             onDragFinished = { x, y -> persistPosition(x, y) }
         }
+        mirrorWindow = FloatBallMirrorWindow(this).apply {
+            onPressed = { onMirrorPressed() }
+            onTapped = { onMirrorTapped() }
+            onDragDeltas = { dx, dy -> onMirrorDragDeltas(dx, dy) }
+            onDragReleased = { onMirrorDragReleased() }
+        }
         startInForeground()
 
         broadcastObserver = BroadcastObserver(
             context = this,
-            onScreenOff = { ballWindow.setHidden(true) },
-            onScreenOn = { ballWindow.setHidden(isScreenLocked()) },
-            onUserPresent = { ballWindow.setHidden(isScreenLocked()) },
+            onScreenOff = {
+                ballWindow.setHidden(true)
+                mirrorWindow.setHidden(true)
+            },
+            onScreenOn = {
+                val hidden = isScreenLocked()
+                ballWindow.setHidden(hidden)
+                mirrorWindow.setHidden(hidden)
+            },
+            onUserPresent = {
+                val hidden = isScreenLocked()
+                ballWindow.setHidden(hidden)
+                mirrorWindow.setHidden(hidden)
+            },
         ).also { it.register() }
 
         observeSettings()
         observeIme()
+        observePanels()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -108,7 +140,12 @@ class FloatBallService : Service() {
         imeJob?.cancel()
         broadcastObserver?.unregister()
         broadcastObserver = null
+        Events.unsubscribe(PanelShownEvent::class, panelShownSubscriber)
+        Events.unsubscribe(PanelDismissedEvent::class, panelDismissedSubscriber)
+        panelCount = 0
+        hiddenByPanel = false
         ballWindow.detach()
+        mirrorWindow.detach()
         scope.cancel()
         super.onDestroy()
     }
@@ -124,6 +161,7 @@ class FloatBallService : Service() {
             ) { action, initial -> FloatBallRuntimeConfig(action, initial.gestureEnabled) }
                 .collect { config ->
                     settings = config.action.floatBall
+                    gestureEnabledSnapshot = config.gestureEnabled
                     ballWindow.updateSettings(config.action.floatBall)
                     applyVisibility(config)
                 }
@@ -131,46 +169,157 @@ class FloatBallService : Service() {
     }
 
     private fun applyVisibility(config: FloatBallRuntimeConfig) {
-        // 总闸优先：应用总开关关时，球自身的开关不再生效。
-        val enabled = config.gestureEnabled && config.action.floatBall.enabled
-        val shouldShow = enabled && canDrawOverlays()
+        settings = config.action.floatBall
+        mirrorWindow.updateSettings(config.action.floatBall)
+        refreshWindows(animateRestore = false)
+    }
+
+    /**
+     * 统一的窗口挂/摘入口。shouldShow = 总闸 && 球开关 && 悬浮窗权限
+     * && !(hideOnPanel && 面板计数 > 0)。从面板隐藏恢复时带回场动画。
+     */
+    private fun refreshWindows(animateRestore: Boolean) {
+        val enabled = settings.enabled && canDrawOverlays() && gestureEnabledSnapshot
+        val panelHidden = settings.hideOnPanel && panelCount > 0
+        val shouldShow = enabled && !panelHidden
         if (!shouldShow) {
             if (ballVisible) {
                 ballVisible = false
                 ballWindow.detach()
+                mirrorWindow.detach()
             }
             return
         }
-        if (ballVisible) return
-        ballVisible = ballWindow.attach()
-        if (ballVisible) {
-            ballWindow.setHidden(isScreenLocked())
+        if (!ballVisible) {
+            ballVisible = if (animateRestore) ballWindow.attachAnimated() else ballWindow.attach()
+            if (ballVisible) {
+                ballWindow.setHidden(isScreenLocked())
+                if (settings.mirrorBall) mirrorWindow.attach()
+                mirrorWindow.setHidden(isScreenLocked())
+            }
+        } else {
+            // 球已在：只同步分身的有无与位置。
+            if (settings.mirrorBall) {
+                if (!mirrorWindow.attach()) return
+                mirrorWindow.setHidden(isScreenLocked())
+                mirrorWindow.snapToMirror()
+            } else {
+                mirrorWindow.detach()
+            }
         }
+    }
+
+    // ---- 面板联动（hideOnPanel） ----
+
+    private val panelShownSubscriber: (PanelShownEvent) -> Unit = {
+        panelCount++
+        hiddenByPanel = settings.hideOnPanel && panelCount > 0
+        refreshWindows(animateRestore = false)
+    }
+
+    private val panelDismissedSubscriber: (PanelDismissedEvent) -> Unit = {
+        if (panelCount > 0) panelCount--
+        val recovered = settings.hideOnPanel && panelCount == 0 && hiddenByPanel
+        hiddenByPanel = settings.hideOnPanel && panelCount > 0
+        refreshWindows(animateRestore = recovered)
+    }
+
+    private fun observePanels() {
+        Events.subscribe(PanelShownEvent::class, panelShownSubscriber)
+        Events.subscribe(PanelDismissedEvent::class, panelDismissedSubscriber)
     }
 
     // ---- 点按派发 ----
 
     private fun onBallTapped() {
         val action = settings.tapAction ?: return
-        val ballCenterX = DensityProvider.dp2px(settings.sizeDp) / 2 +
-            (settings.x * DensityProvider.screenWidthPx).toInt()
-        val ballCenterY = DensityProvider.dp2px(settings.sizeDp) / 2 +
-            (settings.y * DensityProvider.screenHeightPx).toInt()
+        dispatchTapAction(action, ballCenterX(), ballCenterY())
+    }
+
+    /** 球心屏幕坐标（px）。 */
+    private fun ballCenter(): Pair<Int, Int> {
+        val half = DensityProvider.dp2px(settings.sizeDp) / 2
+        return (half + (settings.x * DensityProvider.screenWidthPx).toInt()) to
+            (half + (settings.y * DensityProvider.screenHeightPx).toInt())
+    }
+
+    private fun ballCenterX(): Int = ballCenter().first
+
+    private fun ballCenterY(): Int = ballCenter().second
+
+    /**
+     * 按锚点派发 tapAction（主球与分身共用）：网格面板直发，其余进容器。
+     */
+    private fun dispatchTapAction(action: StoredAction, anchorX: Int, anchorY: Int) {
         // 网格面板动作**不进容器**：面板浮窗自包含（直读 TuneConfig，不依赖 a11y
         // 运行态），球侧直发 —— 无障碍没开照样弹，这是「无 a11y 可用」的主路径。
         // 触钮/子手势绑它的路径仍走容器 executor，同一个 GridPanelOverlay.show 入口。
         if (action.typeId == GRID_PANEL_TYPE_ID) {
-            showGridPanelDirect(action, ballCenterX, ballCenterY)
+            showGridPanelDirect(action, anchorX, anchorY)
             return
         }
-        // 其余球点按动作统一转发（子手势/刮擦/直发，由容器分类，
-        // 与触钮同链路）。无障碍没开时静默丢弃。
-        SideGestureService.current?.forwardBallTap(
-            action,
-            ballCenterX,
-            ballCenterY,
-            settings.color,
-        )
+        SideGestureService.current?.forwardBallTap(action, anchorX, anchorY, settings.color)
+    }
+
+    // ---- 分身（mirrorBall） ----
+
+    /**
+     * 按下分身：立即交换位置（不触发动作）。锚点记录在按下时的分身球心，
+     * 点击抬手时补派发动作。
+     */
+    private fun onMirrorPressed() {
+        if (!ballVisible) return
+        val sizePx = DensityProvider.dp2px(settings.sizeDp)
+        val (mx, my) = mirrorWindowPosition()
+        pendingMirrorAnchorX = mx + sizePx / 2
+        pendingMirrorAnchorY = my + sizePx / 2
+        // 接力拖待命：抬手若未拖动就是纯点按，无副作用。
+        ballWindow.beginExternalDrag()
+        swapWithMirror(mx, my)
+    }
+
+    /** 点击分身（未超 touchSlop 抬手）：补触发动作（交换已在按下时完成）。 */
+    private fun onMirrorTapped() {
+        if (!ballVisible) return
+        ballWindow.endExternalDrag()
+        val action = settings.tapAction ?: return
+        dispatchTapAction(action, pendingMirrorAnchorX, pendingMirrorAnchorY)
+    }
+
+    /** 分身拖动接力：位移增量转给主球。 */
+    private fun onMirrorDragDeltas(dx: Float, dy: Float) {
+        ballWindow.externalDragBy(dx, dy)
+    }
+
+    /** 分身抬手：主球贴边结算 + 落盘。 */
+    private fun onMirrorDragReleased() {
+        ballWindow.endExternalDrag()
+    }
+
+    private var pendingMirrorAnchorX = 0
+    private var pendingMirrorAnchorY = 0
+    /** 分身窗当前顶边屏幕坐标（px）。 */
+    private fun mirrorWindowPosition(): Pair<Int, Int> {
+        val pos = mirrorWindow.currentPosition()
+        return pos.first.roundToInt() to pos.second.roundToInt()
+    }
+
+    /**
+     * 交换：主球新位置 = 对侧贴边（屏内语义），写回存量；双方交叉淡入淡出。
+     */
+    private fun swapWithMirror(mirrorTopLeftX: Int, mirrorTopLeftY: Int) {
+        val wasIdled = ballWindow.isIdled()
+        val newX = (mirrorTopLeftX.toFloat() / DensityProvider.screenWidthPx)
+            .coerceIn(0f, 1f)
+        val newY = (mirrorTopLeftY.toFloat() / DensityProvider.screenHeightPx)
+            .coerceIn(0f, 1f)
+        persistPosition(newX, newY)
+        settings = settings.copy(x = newX, y = newY)
+        ballWindow.crossFadeSwap(
+            mirrorTopLeftX.toFloat(),
+            mirrorTopLeftY.toFloat(),
+            endIdled = wasIdled,
+        ) { mirrorWindow.crossFadeSwap(settings) }
     }
 
     /** 球直发网格面板：悬空引用（面板被删）静默收口，空面板照常弹（本体是编辑入口）。 */
@@ -199,6 +348,7 @@ class FloatBallService : Service() {
                         ?.bottom
                 }.getOrDefault(0) ?: 0
                 ballWindow.updateIme(imeBottom)
+                mirrorWindow.updateImeLift(ballWindow.currentImeLiftPx())
             }
         }
     }

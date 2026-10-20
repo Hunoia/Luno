@@ -1,6 +1,9 @@
 package hunoia.luno.runtime.volume
 
 import android.content.Context
+import hunoia.luno.core.Events
+import hunoia.luno.core.PanelDismissedEvent
+import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.runtime.volume.VolumeScrubOverlay
 import hunoia.luno.config.model.VolumeScrubConfig
 
@@ -17,6 +20,7 @@ class VolumeScrubRuntime(
         val o = VolumeScrubOverlay(context, config.horizontalEnabled, config.stepThresholdDp)
             .also { overlay = it }
         o.show(onDismiss = { end() })
+        Events.post(PanelShownEvent())
         return true
     }
 
@@ -28,10 +32,12 @@ class VolumeScrubRuntime(
     }
 
     fun end() {
-        if (!isActive && overlay == null) return
+        val wasActive = isActive || overlay != null
+        if (!wasActive) return
         isActive = false
         overlay?.dismiss()
         onStateChanged()
+        if (wasActive) Events.post(PanelDismissedEvent())
     }
 
     fun onDestroy() {

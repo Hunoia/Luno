@@ -26,6 +26,9 @@ import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.core.AppContext
+import hunoia.luno.core.Events
+import hunoia.luno.core.PanelDismissedEvent
+import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.domain.search.SearchCenter
 import hunoia.luno.quicklaunch.launch.DisabledPackageEnabler
 import hunoia.luno.quicklaunch.launch.Launcher
@@ -146,6 +149,10 @@ object QuickAppLauncherOverlay {
                 it.setPanelShown(true)
             }
         }
+        if (!shownEventPosted) {
+            shownEventPosted = true
+            Events.post(PanelShownEvent())
+        }
     }
 
     private fun attach() {
@@ -194,6 +201,15 @@ object QuickAppLauncherOverlay {
         }
     }
 
+    /** 面板可见时为 true：保证 Shown/Dismissed 事件配对。 */
+    private var shownEventPosted = false
+
+    private fun postDismissed() {
+        if (!shownEventPosted) return
+        shownEventPosted = false
+        Events.post(PanelDismissedEvent())
+    }
+
     /**
      * state 退场动画的落点（state.closeAnimated 播完 fadeOut + delay 后调用）：
      * 移窗 + 销毁 owner（组合随之释放 → DisposableEffect → state.dispose() 解注册广播）。
@@ -208,6 +224,7 @@ object QuickAppLauncherOverlay {
         // true（setPanelShown 同时复位 closing 闩锁），此时必须放弃销毁，否则刚重开的
         // 面板被摘掉（Activity 版靠 finish 也有此竞态，overlay 版显式兜住）。
         if (quickState?.panelVisible == true) return
+        postDismissed()
         val current = view ?: return
         context.removeWindow(current)
         teardownDetached()
