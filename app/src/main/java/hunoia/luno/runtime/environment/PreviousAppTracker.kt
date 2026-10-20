@@ -32,6 +32,7 @@ class PreviousAppTracker(
                     history.addLast(packageName)
                     while (history.size > PREVIOUS_APP_HISTORY_MAX) history.removeFirst()
                     currPackageName = packageName
+                    RecentAppsHub.update(history.toList())
                 }
             }
             else -> Unit
@@ -57,6 +58,7 @@ class PreviousAppTracker(
 
     fun onRelease() {
         history.clear()
+        RecentAppsHub.clear()
         currPackageName = null
         launchablePackageCache.clear()
     }

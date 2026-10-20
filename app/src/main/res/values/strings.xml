@@ -144,6 +144,10 @@
     <string name="grid_panel_internal_widgets">Luno 内置</string>
     <string name="grid_panel_internal_media">媒体控制</string>
     <string name="grid_panel_internal_volume">音量调节</string>
+    <string name="grid_panel_internal_brightness">亮度调节</string>
+    <string name="grid_panel_internal_recents">最近应用</string>
+    <string name="grid_panel_brightness_need_permission">授予修改系统设置权限后可调节亮度，点此去授权</string>
+    <string name="grid_panel_recents_empty">暂无最近应用记录</string>
     <string name="grid_panel_media_need_permission">授予通知访问权限后可控制媒体播放，点此去授权</string>
     <string name="grid_panel_media_no_session">没有正在播放的媒体</string>
     <string name="grid_panel_no_widgets">设备上没有可用的小部件</string>

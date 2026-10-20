@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,6 +25,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Android
+import androidx.compose.material.icons.filled.Brightness6
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -37,6 +40,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -73,6 +77,8 @@ private const val TAG = "InternalMedia"
 object InternalWidgetIds {
     const val MEDIA = "internal.media"
     const val VOLUME = "internal.volume"
+    const val BRIGHTNESS = "internal.brightness"
+    const val RECENTS = "internal.recents"
 }
 
 /** 一个内置小部件的选择页条目与落格默认值。 */
@@ -87,6 +93,8 @@ data class InternalWidgetDef(
 val InternalWidgetDefs = listOf(
     InternalWidgetDef(InternalWidgetIds.MEDIA, R.string.grid_panel_internal_media, 4, 2),
     InternalWidgetDef(InternalWidgetIds.VOLUME, R.string.grid_panel_internal_volume, 4, 1),
+    InternalWidgetDef(InternalWidgetIds.BRIGHTNESS, R.string.grid_panel_internal_brightness, 4, 1),
+    InternalWidgetDef(InternalWidgetIds.RECENTS, R.string.grid_panel_internal_recents, 4, 1),
 )
 
 fun internalWidgetDefOf(widgetId: String): InternalWidgetDef? =
@@ -544,3 +552,190 @@ fun VolumeSliderCell(modifier: Modifier = Modifier) {
         )
     }
 }
+
+
+/**
+ * 亮度滑条：`Settings.System.SCREEN_BRIGHTNESS`（0..255），拖动中若处于自动亮度
+ * 先切手动。需要 WRITE_SETTINGS（AppOps）：没授权整格变「点此授权」。
+ * 部分 ROM 只认 float 档，两处都写，失败静默。
+ */
+@Composable
+fun BrightnessSliderCell(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val canWrite = remember { Settings.System.canWrite(context) }
+    if (!canWrite) {
+        Row(
+            modifier = modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(ItemCorner))
+                .clickable {
+                    runCatching {
+                        context.startActivity(
+                            Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS)
+                                .setData(android.net.Uri.parse("package:" + context.packageName))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    }
+                }
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Brightness6,
+                contentDescription = null,
+                tint = gridPanelOnCardColor.copy(alpha = 0.7f),
+                modifier = Modifier.size(22.dp),
+            )
+            Text(
+                text = stringResource(R.string.grid_panel_brightness_need_permission),
+                style = MaterialTheme.typography.bodySmall,
+                color = gridPanelOnCardColor,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        return
+    }
+    val resolver = remember { context.contentResolver }
+    var value by remember {
+        mutableStateOf(
+            runCatching { Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS) }
+                .getOrDefault(128),
+        )
+    }
+    val onCard = gridPanelOnCardColor
+    Row(
+        modifier = modifier
+            .fillMaxSize()
+            .clip(RoundedCornerShape(ItemCorner))
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Default.Brightness6,
+            contentDescription = null,
+            tint = onCard,
+            modifier = Modifier.size(22.dp),
+        )
+        Slider(
+            value = (value.coerceIn(0, 255)) / 255f,
+            onValueChange = { fraction ->
+                val v = (fraction * 255).toInt().coerceIn(0, 255)
+                // 不动 SCREEN_BRIGHTNESS_MODE：自动亮度的开关交给用户/系统，拖动只写值
+                //（自动模式下系统可能覆盖，属预期）。
+                runCatching {
+                    Settings.System.putInt(resolver, Settings.System.SCREEN_BRIGHTNESS, v)
+                    // 部分 ROM（MIUI 等）只认 float 档，双写，失败忽略。
+                    runCatching {
+                        Settings.System.putFloat(resolver, "screen_brightness_float", v / 255f)
+                    }
+                }
+                value = v
+            },
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxSize(),
+        )
+        Text(
+            text = "${(value * 100 / 255).coerceIn(0, 100)}%",
+            style = MaterialTheme.typography.labelSmall,
+            color = onCard.copy(alpha = 0.7f),
+        )
+    }
+}
+
+/**
+ * 最近应用：一排图标（旧 → 新，最多 6 个，不含当前前台），点按直达。
+ * 数据来自 RecentAppsHub（a11y TYPE_WINDOW_STATE_CHANGED 维护，无额外权限）。
+ */
+@Composable
+fun RecentAppsCell(
+    modifier: Modifier = Modifier,
+    spanX: Int = 4,
+    spanY: Int = 1,
+) {
+    val context = LocalContext.current
+    val history by hunoia.luno.runtime.environment.RecentAppsHub.history.collectAsState()
+    // 容量 = 格数；一行一格，多行往下排。
+    val capacity = (spanX * spanY).coerceAtLeast(1)
+    val pkgs = remember(history, capacity) { history.dropLast(1).takeLast(capacity) }
+    val onCard = gridPanelOnCardColor
+    if (pkgs.isEmpty()) {
+        Row(
+            modifier = modifier
+                .fillMaxSize()
+                .alpha(0.45f)
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.grid_panel_recents_empty),
+                style = MaterialTheme.typography.bodySmall,
+                color = onCard,
+            )
+        }
+        return
+    }
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .clip(RoundedCornerShape(ItemCorner))
+            .padding(horizontal = 6.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+    ) {
+        for (row in 0 until spanY) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                for (col in 0 until spanX) {
+                    val index = row * spanX + col
+                    if (index >= pkgs.size) {
+                        Spacer(Modifier.weight(1f))
+                        continue
+                    }
+                    val pkg = pkgs[index]
+                    val icon = remember(pkg) {
+                        runCatching { context.packageManager.getApplicationIcon(pkg) }.getOrNull()
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(ItemCorner * 0.5f))
+                            .clickable {
+                                runCatching {
+                                    context.packageManager.getLaunchIntentForPackage(pkg)?.let {
+                                        it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        context.startActivity(it)
+                                    }
+                                }
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (icon != null) {
+                            AsyncImage(
+                                model = icon,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                imageLoader = context.imageLoader,
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Android,
+                                contentDescription = null,
+                                tint = onCard,
+                                modifier = Modifier.fillMaxSize().padding(6.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+

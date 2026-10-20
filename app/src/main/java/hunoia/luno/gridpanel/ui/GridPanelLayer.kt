@@ -52,7 +52,9 @@ import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.gridpanel.geometry.GridMetrics
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.gesture.gridLayerGestures
+import hunoia.luno.gridpanel.internal.BrightnessSliderCell
 import hunoia.luno.gridpanel.internal.InternalWidgetIds
+import hunoia.luno.gridpanel.internal.RecentAppsCell
 import hunoia.luno.gridpanel.internal.MediaControlCell
 import hunoia.luno.gridpanel.internal.VolumeSliderCell
 import hunoia.luno.gridpanel.widget.PanelAppWidgetView
@@ -276,6 +278,12 @@ fun GridPanelLayer(
                                         onDesiredRows = { rows -> actions.onExpand(item, rows) },
                                     )
                                     InternalWidgetIds.VOLUME -> VolumeSliderCell(Modifier.fillMaxSize())
+                                    InternalWidgetIds.BRIGHTNESS -> BrightnessSliderCell(Modifier.fillMaxSize())
+                                    InternalWidgetIds.RECENTS -> RecentAppsCell(
+                                        modifier = Modifier.fillMaxSize(),
+                                        spanX = item.spanX,
+                                        spanY = item.spanY,
+                                    )
                                     else -> BrokenItemCell(Modifier.fillMaxSize())
                                 }
                                 // 左上角背景开关：编辑态才显示，切换 showBackground（实时落盘）。
