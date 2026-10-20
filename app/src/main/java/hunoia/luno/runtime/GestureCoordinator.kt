@@ -101,6 +101,9 @@ class GestureCoordinator(
      */
     private var refreshPending = false
 
+    /** 最近一次窗口状态事件的 Activity 类名：同包内启动新 Activity 也要能收起网格面板。 */
+    private var lastWindowClassName: String? = null
+
     private val scopeJobs = mutableListOf<Job>()
 
     private val broadcastObserver = BroadcastObserver(
@@ -534,10 +537,19 @@ class GestureCoordinator(
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             if (BuildConfig.DEBUG) Log.i("LunoLauncher", "window changed: pkg=${event.packageName}")
             val afterPackage = environmentTracker.currentPackageName
+            val eventClass = event.className?.toString()
+            val samePackageNewActivity =
+                eventClass != null && lastWindowClassName != null && eventClass != lastWindowClassName
+            lastWindowClassName = eventClass ?: lastWindowClassName
             // 第三方小部件/通知等从网格面板里拉起新应用时，面板是覆盖层不会自动消失；
-            // 以前台包切换为准收口（内置小部件另有直接关闭路径，这里是兜底）。
-            if (afterPackage.isNotEmpty() && afterPackage != beforePackage) {
-                hunoia.luno.gridpanel.GridPanelOverlay.onForegroundPackageChanged(afterPackage)
+            // 以前台窗口切换为准收口（同包内换 Activity 也算，例如小部件拉起自己的主界面）。
+            if (beforePackage.isNotEmpty() && afterPackage.isNotEmpty() &&
+                (afterPackage != beforePackage || samePackageNewActivity)
+            ) {
+                hunoia.luno.gridpanel.GridPanelOverlay.onForegroundPackageChanged(
+                    fromPackage = beforePackage,
+                    toPackage = afterPackage,
+                )
             }
             refreshGestureButtons(automationKeys = setOf(AutomationEventKey.APP))
         }

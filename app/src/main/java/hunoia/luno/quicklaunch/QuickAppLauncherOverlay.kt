@@ -124,7 +124,7 @@ object QuickAppLauncherOverlay {
         }
         ensureAdvancedSettings()
         val current = view
-        when {
+        val windowReady = when {
             // 首开（或销毁重建后）：全新挂载。
             current == null -> attach()
             // 窗口被系统摘除（ROM 激进清理 / 权限撤销）：原实例重挂，组合未销毁直接复用。
@@ -136,11 +136,18 @@ object QuickAppLauncherOverlay {
                     attach()
                 } else {
                     correctWindowOrigin(current)
+                    true
                 }
             }
-            // 已挂载：等同 Activity onNewIntent 的「只开不关」，内容保留，不做任何事。
-            else -> Unit
+            // 已挂载：等同 Activity onNewIntent 的「只开不关」，内容保留，只补一次焦点。
+            else -> {
+                current.requestFocus()
+                true
+            }
         }
+        // 挂窗失败（悬浮窗权限被撤 / ROM 拒绝）：不要发 Shown —— 否则 FloatBallService
+        // 的 panelCount 会 +1 而永远等不到配对的 Dismissed。
+        if (!windowReady || view == null) return
         lifecycleOwner?.resume()
         // 驱动新会话。已可见（panelVisible=true）时不清词 —— 对齐 Activity onNewIntent
         // 保留内容的语义；关闭动画进行中（panelVisible=false）则重开会话并复位 closing 闩锁。
@@ -157,7 +164,7 @@ object QuickAppLauncherOverlay {
         }
     }
 
-    private fun attach() {
+    private fun attach(): Boolean {
         val owner = PanelLifecycleOwner().also { it.create() }
         // ComposeView final：用可获焦容器接 BACK，内嵌 ComposeView。
         val created = object : FrameLayout(context) {
@@ -205,7 +212,7 @@ object QuickAppLauncherOverlay {
             Log.e(TAG, "quick launcher overlay addView failed (overlay permission or window rejected)")
             showPlatformToast(R.string.quick_launcher_start_failed)
             owner.destroy()
-            return
+            return false
         }
         // addView 之后这段是裸的。owner.resume() 把 owner 推到 RESUMED，组合里的
         // collectAsStateWithLifecycle / LaunchedEffect 正是从这一刻起真正开跑（球窗停在
@@ -225,7 +232,9 @@ object QuickAppLauncherOverlay {
             // 故意兜 Throwable（含 Error）：此处唯一的目标是不让挂载失败变成进程崩溃。
             Log.e(TAG, "quick launcher overlay attach failed after addView, rolling back", t)
             rollbackAttach(created, owner)
+            return false
         }
+        return true
     }
 
     /** 面板可见时为 true：保证 Shown/Dismissed 事件配对。 */

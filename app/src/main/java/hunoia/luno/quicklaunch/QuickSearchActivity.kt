@@ -50,7 +50,7 @@ class QuickSearchActivity : ComponentActivity() {
 
     /** 面板开着时装卸应用：清索引闸门并在 IO 重扫，索引版本变化会触发搜索流重建。 */
     private val onPackageChanged: () -> Unit = {
-        lifecycleScope.launch(Dispatchers.IO) { index.invalidateApps() }
+        lifecycleScope.launch(Dispatchers.IO) { runCatching { index.invalidateApps() } }
     }
 
     override fun onStart() {
@@ -155,7 +155,7 @@ class QuickSearchActivity : ComponentActivity() {
         // 数据准备放后台：首次输入不再卡主线程，且每次打开都刷新应用/快捷方式。
         lifecycleScope.launch(Dispatchers.IO) {
             index.ensureLoaded()
-            index.refreshApps()
+            runCatching { index.refreshApps() }
         }
         // 返回键不直接 finish：走退场动画。
         onBackPressedDispatcher.addCallback(
@@ -328,7 +328,7 @@ class QuickSearchActivity : ComponentActivity() {
         // singleTask 重复触发：面板已在前台，保留当前内容；只重扫包列表，避免
         // 上次打开期间装卸的应用在复用时仍按旧索引搜不到。
         if (BuildConfig.DEBUG) Log.i("LunoLauncher", "QuickSearchActivity onNewIntent taskId=$taskId")
-        lifecycleScope.launch(Dispatchers.IO) { index.invalidateApps() }
+        lifecycleScope.launch(Dispatchers.IO) { runCatching { index.invalidateApps() } }
     }
 
     override fun onDestroy() {

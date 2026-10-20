@@ -28,26 +28,33 @@ object PanelResources {
 
     /** 全量扫描当前配置并回收孤儿资源。配置变更落盘后调用。 */
     suspend fun cleanup() {
-        val actionSettings = ConfigProvider.getActionSettings()
-        val buttons = ConfigProvider.getGestureButtons()
-        val subGestures = ConfigProvider.getSubGestureSettings().subGestures
-        val library = ConfigProvider.getNewActionLibrarySettings().entries
-        val rules = ConfigProvider.getAutomationRules()
+        // 清理是“尽力而为”的收尾动作：DataStore 读取/宿主调用失败只记日志，
+        // 不能让删除面板后的清理异常反杀 UI 协程。
+        runCatching {
+            val actionSettings = ConfigProvider.getActionSettings()
+            val buttons = ConfigProvider.getGestureButtons()
+            val subGestures = ConfigProvider.getSubGestureSettings().subGestures
+            val library = ConfigProvider.getNewActionLibrarySettings().entries
+            val rules = ConfigProvider.getAutomationRules()
 
-        val referencedIcons = buildSet {
-            buttons.forEach { addAll(it.storedActions()) }
-            subGestures.forEach { addAll(it.storedActions()) }
-            library.forEach { add(it.storedAction) }
-            rules.forEach { addAll(it.storedActions()) }
-            addAll(actionSettings.storedActions())
-        }.flatMapTo(mutableSetOf()) { ShortcutIconFiles.iconPathsOf(it) }
-        ShortcutIconFiles.deleteUnreferenced(AppContext.get(), referencedIcons)
+            val referencedIcons = buildSet {
+                buttons.forEach { addAll(it.storedActions()) }
+                subGestures.forEach { addAll(it.storedActions()) }
+                library.forEach { add(it.storedAction) }
+                rules.forEach { addAll(it.storedActions()) }
+                addAll(actionSettings.storedActions())
+            }.flatMapTo(mutableSetOf()) { ShortcutIconFiles.iconPathsOf(it) }
+            ShortcutIconFiles.deleteUnreferenced(AppContext.get(), referencedIcons)
 
-        val referencedWidgetIds = actionSettings.referencedAppWidgetIds()
-        PanelAppWidgetHost.get().releaseOrphans(referencedWidgetIds)
+            val referencedWidgetIds = actionSettings.referencedAppWidgetIds()
+            PanelAppWidgetHost.get().releaseOrphans(referencedWidgetIds)
+        }.onFailure { error ->
+            android.util.Log.w("LunoResources", "panel resource cleanup failed", error)
+        }
     }
 
     private fun ActionSettings.storedActions(): List<StoredAction> = buildList {
+        floatBall.tapAction?.let(::add)
         actionPanels.panels.forEach { addAll(it.items) }
         actionGridPanels.panels.forEach { panel ->
             panel.items.forEach { item ->

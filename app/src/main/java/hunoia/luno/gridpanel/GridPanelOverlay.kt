@@ -102,9 +102,12 @@ object GridPanelOverlay {
      * 前台包变化：第三方桌面小部件的点击由 RemoteViews 内部处理，Luno 拿不到
      * 回调；它拉起新应用后只能靠窗口切换事件收口，否则全屏面板会一直盖在新应用上。
      */
-    fun onForegroundPackageChanged(packageName: String) {
+    fun onForegroundPackageChanged(fromPackage: String, toPackage: String) {
         if (!shownEventPosted) return
-        if (packageName.isEmpty() || packageName == context.packageName) return
+        if (toPackage.isEmpty() || toPackage == context.packageName) return
+        // 从本应用 Activity（如动作选择页）返回下层应用时，包名会从 hunoia.luno
+        // 变回去；这是面板刚回显的正常路径，不能当成“小部件拉起应用”而立刻关掉。
+        if (fromPackage == context.packageName) return
         (closeAnimated ?: { closeImmediate() }).invoke()
     }
 
@@ -282,7 +285,10 @@ object GridPanelOverlay {
     private fun restoreVisibility() {
         val current = view ?: return
         val lp = current.layoutParams as? WindowManager.LayoutParams ?: return
-        if (lp.alpha == 1f && lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE == 0) return
+        if (lp.alpha == 1f && lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE == 0) {
+            current.requestFocus()
+            return
+        }
         lp.flags = lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv() and
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
         lp.alpha = 1f

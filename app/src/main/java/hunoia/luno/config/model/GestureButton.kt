@@ -105,7 +105,9 @@ data class GestureButton(
         fun create(name: String = ""): GestureButton {
             val colorInt = randomColor()
             return GestureButton(
-                id = UUID.randomUUID().toString(),
+                // 时间戳前缀保证按 id 排序仍近似创建顺序（UI 会 sortedBy { it.id }），
+                // UUID 后缀避免同一毫秒内创建两个按钮时撞 id。
+                id = "${System.currentTimeMillis()}-${UUID.randomUUID()}",
                 name = name,
                 color = colorInt,
             )
