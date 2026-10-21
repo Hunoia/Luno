@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.lifecycleScope
 import hunoia.luno.BuildConfig
 import hunoia.luno.R
+import hunoia.luno.bridge.system.PackageChangeReceiver
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelDismissedEvent
@@ -24,10 +25,10 @@ import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.config.model.MAX_CLIP_HISTORY
 import hunoia.luno.config.model.MAX_CLIP_STORE_CHARS
 import hunoia.luno.quicklaunch.panel.QuickSearchContent
-import hunoia.luno.quicklaunch.query.QuickSearchIndex
+import hunoia.luno.quicklaunch.query.AppSearch
+import hunoia.luno.quicklaunch.query.QuickSearchIndexProvider
 import hunoia.luno.quicklaunch.query.QuickSearchResult
 import hunoia.luno.quicklaunch.query.longPressAction
-import hunoia.luno.bridge.system.PackageChangeReceiver
 import hunoia.luno.quicklaunch.query.resolvedUrl
 import hunoia.luno.quicklaunch.query.toConfigAction
 import hunoia.luno.service.DispatchClient
@@ -46,9 +47,9 @@ import kotlinx.coroutines.launch
  */
 class QuickSearchActivity : ComponentActivity() {
 
-    private val index by lazy { QuickSearchIndex(applicationContext) }
+    private val index by lazy { QuickSearchIndexProvider.get(applicationContext) }
 
-    /** 面板开着时装卸应用：清索引闸门并在 IO 重扫，索引版本变化会触发搜索流重建。 */
+    /** 面板开着时装卸应用：立即重扫，结果经 indexVersion 触发重搜。 */
     private val onPackageChanged: () -> Unit = {
         lifecycleScope.launch(Dispatchers.IO) { runCatching { index.invalidateApps() } }
     }
@@ -336,6 +337,12 @@ class QuickSearchActivity : ComponentActivity() {
         if (shownEventPosted) {
             shownEventPosted = false
             Events.post(PanelDismissedEvent())
+        }
+        // 索引本身留在进程里复用；拼音索引和联系人/媒体等大表是内存大头，
+        // 关面板后压回小容量，下次打开按需重建。
+        if (isFinishing) {
+            AppSearch.trimPinyinCache()
+            index.trimSessionSources()
         }
         super.onDestroy()
     }

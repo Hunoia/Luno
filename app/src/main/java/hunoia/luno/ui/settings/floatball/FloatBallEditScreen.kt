@@ -13,6 +13,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -69,6 +70,12 @@ fun FloatBallEditScreen(
     val actionSettings by TuneConfig.action
         .collectAsStateWithLifecycle(initialValue = ActionSettings())
     val floatBall = actionSettings.floatBall
+
+    // 滑杆拖动只改本地值，松手才落盘：每帧写 DataStore 会跨进程触发 :service 重组。
+    var localSizeDp by remember(floatBall.sizeDp) { mutableFloatStateOf(floatBall.sizeDp) }
+    var localIdleDelay by remember(floatBall.idleDimDelayMs) {
+        mutableFloatStateOf(floatBall.idleDimDelayMs.toFloat())
+    }
 
     var overlayGranted by remember { mutableStateOf(context.canDrawOverlays()) }
     var showColorPicker by remember { mutableStateOf(false) }
@@ -156,8 +163,9 @@ fun FloatBallEditScreen(
         item(key = "appearance") {
             LunoGroup(title = stringResource(R.string.float_ball_appearance)) {
                 LunoTextSlider(
-                    value = floatBall.sizeDp,
-                    onValueChange = { value -> update { it.copy(sizeDp = value) } },
+                    value = localSizeDp,
+                    onValueChange = { value -> localSizeDp = value },
+                    onValueChangeFinished = { update { it.copy(sizeDp = localSizeDp) } },
                     text = stringResource(R.string.float_ball_size),
                     valueDisplay = { "${it.toInt()} dp" },
                     valueRange = FloatBallDefaults.MinSizeDp..FloatBallDefaults.MaxSizeDp,
@@ -185,9 +193,10 @@ fun FloatBallEditScreen(
         item(key = "idle") {
             LunoGroup {
                 LunoTextSlider(
-                    value = floatBall.idleDimDelayMs.toFloat(),
-                    onValueChange = { value ->
-                        update { it.copy(idleDimDelayMs = value.toLong()) }
+                    value = localIdleDelay,
+                    onValueChange = { value -> localIdleDelay = value },
+                    onValueChangeFinished = {
+                        update { it.copy(idleDimDelayMs = localIdleDelay.toLong()) }
                     },
                     text = stringResource(R.string.float_ball_idle_dim_delay),
                     valueDisplay = { if (it <= 0f) stringResource(R.string.float_ball_off) else "${it.toInt()} ms" },

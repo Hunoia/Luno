@@ -38,6 +38,7 @@ class PanelAppWidgetView(context: Context) : FrameLayout(context) {
     /** 宿主产出的真正视图；换绑/重建时换掉。 */
     private var hostChild: AppWidgetHostView? = null
     private var blankRetry = 0
+    private var blankRetryRunnable: Runnable? = null
     private var contentW = 0
     private var contentH = 0
     private var clipApplied = false
@@ -103,7 +104,16 @@ class PanelAppWidgetView(context: Context) : FrameLayout(context) {
         applyWidget(appWidgetId, provider)
     }
 
+    override fun onDetachedFromWindow() {
+        // 面板关闭/翻页后重试没必要再跑：否则仍会 createView/post 到已离屏的 View。
+        blankRetryRunnable?.let(::removeCallbacks)
+        blankRetryRunnable = null
+        super.onDetachedFromWindow()
+    }
+
     private fun applyWidget(appWidgetId: Int, provider: String) {
+        blankRetryRunnable?.let(::removeCallbacks)
+        blankRetryRunnable = null
         val manager = AppWidgetManager.getInstance(context)
         val info = manager.getAppWidgetInfo(appWidgetId)
         if (info == null) {
@@ -134,9 +144,10 @@ class PanelAppWidgetView(context: Context) : FrameLayout(context) {
         addView(created, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         if (created.childCount == 0 && blankRetry < 2) {
             blankRetry++
-            postDelayed({
+            blankRetryRunnable?.let(::removeCallbacks)
+            blankRetryRunnable = Runnable {
                 if (boundId == appWidgetId) applyWidget(appWidgetId, provider)
-            }, 400L * blankRetry)
+            }.also { postDelayed(it, 400L * blankRetry) }
         } else if (created.childCount > 0) {
             blankRetry = 0
             setLoadState(WidgetLoadState.Ready)

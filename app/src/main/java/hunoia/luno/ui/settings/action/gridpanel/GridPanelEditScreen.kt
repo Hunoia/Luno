@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -34,7 +35,6 @@ import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.config.model.GridPanelItemLayout
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.gridpanel.geometry.gridPanelVisibleRows
-import hunoia.luno.gridpanel.widget.PanelAppWidgetHost
 import hunoia.luno.config.model.withGeometry
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.input.LunoTextSlider
@@ -115,7 +115,6 @@ fun GridPanelEditScreen(
                 val columns = resizedGeo.columnCount
                     .coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
                 val pages = resized.pageCount.coerceAtLeast(1)
-                val droppedWidgets = mutableListOf<Int>()
                 val droppedNames = mutableListOf<String>()
                 val placed = mutableListOf<GridPanelItem>()
                 // 页归属先夹一次（页数变小时溢出项进最后一页），再逐页归位：
@@ -169,20 +168,14 @@ fun GridPanelEditScreen(
                                     placed += candidate.copy(x = slot.x, y = slot.y)
                                 } else {
                                     // 到这一步是真的没有空间了（小部件占多格时常见）。
-                                    // 仍然丢弃 + 回收 id（宿主具名资源不能泄漏），但要让
-                                    // 用户知道为什么 —— 静默删除是最难排查的一类问题。
-                                    val w = candidate.kind as? GridPanelItem.Kind.AppWidget
-                                    if (w != null) droppedWidgets.add(w.appWidgetId)
+                                    // 仍然丢弃，但要让用户知道为什么 —— 静默删除是最难排查的一类问题。
+                                    // 小部件 id 由落盘后的 PanelResources.cleanup() 在 :service 统一回收。
                                     droppedNames += candidate.labelOrNull() ?: ""
                                 }
                             }
                         }
                     }
                 }
-                // updateAction 的 lambda 在落盘线程上执行：回收放同 lambda 末尾，
-                // 保证「落盘成功才丢 id」的顺序（失败则 settings 原样返回，但此时
-                // placed 也已算过 —— 丢 id 与落盘失败同帧发生时，宁多收不少收）。
-                droppedWidgets.forEach { PanelAppWidgetHost.get().release(it) }
                 // 丢弃提示在协程外发：showToast 走 Context，不能在落盘线程里调。
                 if (droppedNames.isNotEmpty()) {
                     val named = droppedNames.filter { it.isNotBlank() }
@@ -294,9 +287,11 @@ fun GridPanelEditScreen(
                     steps = 7,
                     shape = segmentedShape(0, 2),
                 )
+                var localAlpha by remember(current.cardAlpha) { mutableFloatStateOf(current.cardAlpha) }
                 LunoTextSlider(
-                    value = current.cardAlpha,
-                    onValueChange = { value -> update { it.copy(cardAlpha = value) } },
+                    value = localAlpha,
+                    onValueChange = { value -> localAlpha = value },
+                    onValueChangeFinished = { update { it.copy(cardAlpha = localAlpha) } },
                     text = stringResource(R.string.grid_panel_card_alpha),
                     valueDisplay = { "${(it * 100).toInt()}%" },
                     valueRange = GridPanelDefaults.MinCardAlpha..GridPanelDefaults.MaxCardAlpha,

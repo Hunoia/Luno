@@ -1,6 +1,7 @@
 package hunoia.luno.quicklaunch.query
 
 import android.content.Context
+import android.util.Log
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.domain.action.ActionCatalog
 import hunoia.luno.core.JsonSerializer
@@ -64,6 +65,27 @@ class QuickSearchIndex(internal val context: Context) {
     private val _indexVersion = MutableStateFlow(0)
     val indexVersion: StateFlow<Int> = _indexVersion.asStateFlow()
 
+    /**
+     * 关闭搜索面板后释放体积大、且下次可重新扫描的会话数据（联系人/媒体/文件/
+     * 日历/短信/通话）。应用与快捷方式索引保留，避免再次全量查 PackageManager。
+     */
+    fun trimSessionSources() {
+        contacts = emptyList()
+        contactsLoaded = false
+        tracks = emptyList()
+        mediaFiles = emptyList()
+        docs = emptyList()
+        audioTried = false
+        galleryTried = false
+        docsTried = false
+        events = emptyList()
+        smsList = emptyList()
+        callList = emptyList()
+        calendarTried = false
+        smsTried = false
+        callsTried = false
+    }
+
     fun ensureLoaded() {
         if (defsLoaded) return
         // 先在局部变量里建好，再一次性发布。之前是先置 defsLoaded=true 再赋值，
@@ -107,6 +129,10 @@ class QuickSearchIndex(internal val context: Context) {
                 appsLoaded = true
                 _indexVersion.value++
             }
+        } catch (e: Exception) {
+            // PackageManager/快捷方式查询在个别 ROM 上会抛；保留旧数据并留待下次重试，
+            // 不让异常冒泡杀掉 Activity 或 Compose 协程。
+            Log.e("LunoSearch", "refreshApps failed", e)
         } finally {
             val rerun = synchronized(loadLock) {
                 refreshingApps = false
@@ -132,6 +158,18 @@ class QuickSearchIndex(internal val context: Context) {
             }
         }
         if (!duringRefresh) refreshApps()
+    }
+
+    /**
+     * 只标记应用索引过期，不立刻重扫。用于进程级缓存的后台包广播：
+     * 搜索面板没开时装卸应用不应触发 PackageManager 全量扫描（耗电），
+     * 等下次 [refreshApps] 再补。
+     */
+    fun markAppsStale() {
+        synchronized(loadLock) {
+            appsLoaded = false
+            if (refreshingApps) invalidateRequested = true
+        }
     }
 }
 

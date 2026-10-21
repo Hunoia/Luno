@@ -274,6 +274,7 @@ object QuickAppLauncherOverlay {
         attached = false
         closeAnimated = null
         quickState = null
+        disabledPackageEnabler.release()
     }
 
     /**
@@ -288,6 +289,7 @@ object QuickAppLauncherOverlay {
         attached = false
         closeAnimated = null
         quickState = null
+        disabledPackageEnabler.release()
         owner.destroy()
     }
 

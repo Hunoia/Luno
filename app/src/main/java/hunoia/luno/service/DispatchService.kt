@@ -50,6 +50,14 @@ class DispatchService : Service() {
                 )
             }
         }
+
+        override fun releaseOrphanAppWidgets(keepIds: IntArray?) {
+            // AppWidgetHost 的创建/回收只在 :service 做，避免主进程再挂一个同 HOST_ID 的监听。
+            val keep = keepIds?.toSet() ?: emptySet()
+            Handler(Looper.getMainLooper()).post {
+                runCatching { hunoia.luno.gridpanel.widget.PanelAppWidgetHost.get().releaseOrphans(keep) }
+            }
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder = binder

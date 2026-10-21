@@ -14,8 +14,10 @@ class DisabledPackageEnabler(
 ) {
     private val lock = Any()
     private var inFlightPackageName: String? = null
+    private var generation = 0
 
     fun request(packageName: String, onResult: (Boolean) -> Unit) {
+        val startGeneration: Int
         synchronized(lock) {
             if (inFlightPackageName != null) {
                 log("enable_package: in-flight $inFlightPackageName, ignoring $packageName")
@@ -23,6 +25,7 @@ class DisabledPackageEnabler(
                 return
             }
             inFlightPackageName = packageName
+            startGeneration = generation
         }
 
         log("enable_package: requesting $packageName")
@@ -35,20 +38,22 @@ class DisabledPackageEnabler(
             } else {
                 log("enable_package: failed pkg=$packageName error=${result.errorMessage}")
             }
-            clearRequest(packageName)
-            withContext(Dispatchers.Main) {
-                onResult(result.success)
+            val shouldNotify = synchronized(lock) {
+                val current = generation == startGeneration && inFlightPackageName == packageName
+                if (inFlightPackageName == packageName) inFlightPackageName = null
+                current
+            }
+            // 面板已关闭/重开：不要回调已废弃的 composition。
+            if (shouldNotify) {
+                withContext(Dispatchers.Main) { onResult(result.success) }
             }
         }
     }
 
     fun release() {
-        synchronized(lock) { inFlightPackageName = null }
-    }
-
-    private fun clearRequest(packageName: String) {
         synchronized(lock) {
-            if (inFlightPackageName == packageName) inFlightPackageName = null
+            generation++
+            inFlightPackageName = null
         }
     }
 }

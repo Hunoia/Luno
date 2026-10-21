@@ -85,6 +85,15 @@ class App : Application(), ImageLoaderFactory {
         Thread.setDefaultUncaughtExceptionHandler(CrashHandler)
     }
 
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+            // 进程级搜索索引保留，但拼音索引/图标位图是大头；内存吃紧时退回小上限。
+            hunoia.luno.quicklaunch.query.AppSearch.trimPinyinCache(1_000)
+            hunoia.luno.quicklaunch.icon.SearchIconCache.clear()
+        }
+    }
+
     /**
      * Debug 包主线程看门狗：penaltyLog 不打断执行，只在 logcat 打违规，
      * 让"主线程 IO / 慢调用"（如 MB 级文本在 UI 线程排版数秒导致 ANR）

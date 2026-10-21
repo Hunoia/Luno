@@ -10,4 +10,7 @@ interface IDispatchService {
     boolean isReady();
     /** 打开屏幕取点 overlay（窗口由 :service 的无障碍服务展示），结果经回调送回主进程。 */
     oneway void showPointPicker(int initialXDp, int initialYdp, IPointPickCallback cb);
+
+    /** 主进程删除面板后，让 :service 的 AppWidgetHost 回收未引用的 widget id。 */
+    oneway void releaseOrphanAppWidgets(in int[] keepIds);
 }

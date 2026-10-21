@@ -76,6 +76,21 @@ object AppSearch {
     /** 单测用：当前缓存条数（验证有界性）。 */
     internal fun cacheSizeForTest(): Int = synchronized(pinyinCacheLock) { pinyinIndexCache.size }
 
+    /**
+     * 搜索面板关闭后把拼音缓存压回小上限：进程级索引缓存已经保留了应用/联系人等
+     * 原始表，没必要再让 48k 条拼音索引长期占着 Java 堆。下次打字按需重建。
+     */
+    fun trimPinyinCache(maxEntries: Int = 4_000) {
+        synchronized(pinyinCacheLock) {
+            while (pinyinIndexCache.size > maxEntries) {
+                val iterator = pinyinIndexCache.entries.iterator()
+                if (!iterator.hasNext()) break
+                iterator.next()
+                iterator.remove()
+            }
+        }
+    }
+
     private const val NO_MATCH = -1
     private const val DEGRADED = 0
     private const val ANCHOR = 1

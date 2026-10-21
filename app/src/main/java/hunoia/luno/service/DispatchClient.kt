@@ -79,6 +79,18 @@ object DispatchClient {
         }.getOrDefault(false)
     }
 
+    /**
+     * 让 :service 的 AppWidgetHost 回收未引用的 widget id。
+     * false = 未送达（只影响资源回收时机，不影响功能）。
+     */
+    fun releaseOrphanAppWidgets(keepIds: Set<Int>): Boolean {
+        val s = stub ?: run {
+            retryBindIfNeeded()
+            return false
+        }
+        return runCatching { s.releaseOrphanAppWidgets(keepIds.toIntArray()) }.isSuccess
+    }
+
     private val mainHandler = Handler(Looper.getMainLooper())
 
     /**

@@ -31,6 +31,11 @@ object SearchIconCache {
     fun get(packageName: String, sizePx: Int): ImageBitmap? =
         synchronized(lock) { cache[keyOf(packageName, sizePx)] }
 
+    /** 内存吃紧时丢弃图标缓存；下次搜索按需重新解码。 */
+    fun clear() {
+        synchronized(lock) { cache.clear() }
+    }
+
     /**
      * 确保这些包的图标在缓存里（阻塞当前线程，只能后台调）。
      * 已缓存的直接跳过，所以每次搜索的开销≈0，只有新包才解码。
