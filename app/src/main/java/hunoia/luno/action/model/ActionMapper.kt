@@ -137,7 +137,7 @@ object ActionMapper {
                 ),
             )
             "internal.pointer" -> Action.Pointer
-            "internal.previousApp" -> Action.PreviousApp(p.arrayOfStr("excludePackageNames"))
+            "internal.previousApp" -> Action.PreviousApp
             "internal.runRule" -> Action.RunRule(p.str("ruleId"))
             // 动作面板由 SideGestureContainer.runGestureActions 就地展开成面板项，正常路径
             // 不会流到执行层。能走到这里说明面板被删或内容为空 —— 按「无动作」收口，

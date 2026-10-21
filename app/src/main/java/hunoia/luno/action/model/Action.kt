@@ -252,9 +252,8 @@ sealed interface Action {
     data object Pointer : Action {
         override val typeId: String = "internal.pointer"
     }
-    data class PreviousApp(
-        val excludePackageNames: List<String> = emptyList(),
-    ) : Action {
+    /** 上一个应用：切换到最近访问的非黑名单应用，黑名单在动作设置全局配置。 */
+    data object PreviousApp : Action {
         override val typeId: String = "internal.previousApp"
     }
     /**

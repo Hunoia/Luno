@@ -23,10 +23,12 @@ import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.History
 import androidx.compose.ui.platform.LocalDensity
 import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.ui.component.sheet.LunoSheet
+import hunoia.luno.ui.component.sheet.AppPickerSheet
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleConfigContent
 import kotlin.math.roundToInt
@@ -46,6 +48,7 @@ fun ActionSettingsScreen(
     val scope = rememberCoroutineScope()
     var showActionPanelStyle by remember { mutableStateOf(false) }
     var showPointer by remember { mutableStateOf(false) }
+    var showRecentAppsBlocklist by remember { mutableStateOf(false) }
     val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = ActionSettings())
     val gestureSettings by TuneConfig.gesture.collectAsStateWithLifecycle(initialValue = GestureSettings())
     val quickSearchSettings by SearchCenter.search.collectAsStateWithLifecycle(initialValue = QuickSearchSettings())
@@ -72,6 +75,18 @@ fun ActionSettingsScreen(
                             },
                         )
                     }
+                }
+        if (showRecentAppsBlocklist) {
+                    AppPickerSheet(
+                        onDismissRequest = { showRecentAppsBlocklist = false },
+                        selectedPackageNames = actionSettings.recentAppsBlocklist,
+                        onConfirm = { selected ->
+                            scope.launch {
+                                TuneConfig.updateAction { it.copy(recentAppsBlocklist = selected) }
+                            }
+                            showRecentAppsBlocklist = false
+                        },
+                    )
                 }
 
 
@@ -120,6 +135,18 @@ fun ActionSettingsScreen(
                     title = stringResource(R.string.mini_window_position_short),
                     subtitle = stringResource(R.string.mini_window_position_hint),
                     onClick = { onNavToMiniWindowAdjust() },
+                )
+            }
+            LunoGroup {
+                LunoSettingsRow(
+                    icon = Icons.Default.History,
+                    title = stringResource(R.string.recent_apps_blocklist),
+                    subtitle = if (actionSettings.recentAppsBlocklist.isEmpty()) {
+                        stringResource(R.string.recent_apps_blocklist_hint)
+                    } else {
+                        stringResource(R.string.action_param_multi_selected, actionSettings.recentAppsBlocklist.size)
+                    },
+                    onClick = { showRecentAppsBlocklist = true },
                 )
             }
             LunoGroup {

@@ -106,6 +106,8 @@
     <!-- 悬浮球（2038 悬浮球触发方式） -->
     <string name="float_ball">悬浮球</string>
     <string name="float_ball_entry_hint">显示与点按/拖动配置</string>
+    <string name="recent_apps_blocklist">最近应用黑名单</string>
+    <string name="recent_apps_blocklist_hint">最近的内置部件与上一个应用不显示/不切换到这些应用</string>
     <string name="float_ball_enabled">显示悬浮球</string>
     <string name="float_ball_tap_action">悬浮球单击动作</string>
     <string name="float_ball_size">球大小</string>

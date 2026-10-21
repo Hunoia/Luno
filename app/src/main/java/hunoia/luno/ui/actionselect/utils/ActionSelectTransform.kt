@@ -98,14 +98,8 @@ fun Context.actionTextWithSubGesture(
         ?: getString(R.string.action_sub_gesture)
 }
 
-internal fun actionCategory(action: StoredAction): ActionCategory {
-    // 面板动作不在定义表里（绑定必须落到具体面板），分类手动给内部组，
-    // 否则动态行会掉进 SYSTEM 兜底分组。
-    if (action.typeId == ACTION_PANEL_TYPE_ID || action.typeId == GRID_PANEL_TYPE_ID) {
-        return ActionCategory.INTERNAL
-    }
-    return ActionDefinitions.byTypeId(action.typeId)?.category ?: ActionCategory.SYSTEM
-}
+internal fun actionCategory(action: StoredAction): ActionCategory =
+    ActionDefinitions.byTypeId(action.typeId)?.category ?: ActionCategory.SYSTEM
 
 internal fun createTitle(actionSelect: ActionSelect): String {
     val context = AppContext.get()

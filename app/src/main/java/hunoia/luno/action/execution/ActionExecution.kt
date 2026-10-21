@@ -160,7 +160,7 @@ data class ExecutorContext(
     val showPointer: () -> Boolean = { false },
     val hideGestureButton: (Long) -> Unit = {},
     val showVersionTooLowToast: (Int) -> Unit = {},
-    val previousApp: suspend (List<String>) -> Unit = {},
+    val previousApp: suspend () -> Unit = {},
     val touchPosition: Pair<Int, Int>? = null,
     /** 参数模板取值器：入参是本次解析实际用到的 token 集合，返回对应运行时值。 */
     val templateValues: suspend (Set<String>) -> Map<String, String> = { emptyMap() },

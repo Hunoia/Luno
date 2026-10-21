@@ -60,6 +60,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -193,6 +195,14 @@ class GestureCoordinator(
         startActivity = { host.context.startActivity(it) },
         rootInActiveWindowPackageName = { host.accessibilityService.rootInActiveWindow?.packageName?.toString() },
     )
+
+    // 最近应用黑名单变更时立即修剪历史并重算 RecentAppsHub，改设置当下生效。
+    private val recentAppsBlocklistObserver = host.coroutineScope.launch {
+        runtimeSettingsStore.state
+            .map { it.actionSettings.recentAppsBlocklist.toSet() }
+            .distinctUntilChanged()
+            .collect { previousAppTracker.onBlocklistChanged(it) }
+    }
 
     private val actionDispatcher = NewActionDispatcher(
         host = host,

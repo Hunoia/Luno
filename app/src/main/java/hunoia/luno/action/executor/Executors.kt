@@ -210,7 +210,7 @@ class InternalExecutors : ActionExecutor {
                 ActionResult.Success()
             }
             is Action.PreviousApp -> {
-                context.previousApp(action.excludePackageNames)
+                context.previousApp()
                 ActionResult.Success()
             }
             is Action.RunRule -> {

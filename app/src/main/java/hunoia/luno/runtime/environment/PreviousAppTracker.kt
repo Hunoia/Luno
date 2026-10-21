@@ -18,11 +18,27 @@ class PreviousAppTracker(
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>?): Boolean = size > 256
     }
 
+    /** 最近应用黑名单：历史记录源头过滤，最近应用部件与上一个应用动作共用。 */
+    @Volatile
+    private var blocklist: Set<String> = emptySet()
+
+    /**
+     * 黑名单更新：修剪已记录历史并重算 [RecentAppsHub]，改设置当下生效。
+     * 黑名单应用若正是当前前台，保留为 curr（只过滤「可切过去/可展示」的历史）。
+     */
+    fun onBlocklistChanged(next: Set<String>) {
+        blocklist = next
+        if (history.removeAll(next)) {
+            RecentAppsHub.update(history.toList())
+        }
+    }
+
     fun onAccessibilityEvent(event: AccessibilityEvent?) {
         when (event?.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 val packageName = event.packageName?.toString()
                 if (packageName != null &&
+                    packageName !in blocklist &&
                     hasLaunchIntent(packageName) &&
                     currPackageName != packageName
                 ) {
@@ -37,12 +53,14 @@ class PreviousAppTracker(
         }
     }
 
-    suspend fun previousApp(excludePackageNames: List<String>): Boolean {
+    suspend fun previousApp(): Boolean {
         val current = currPackageName
         if (current == null || history.isEmpty()) return false
 
-        val excludes = excludePackageNames.toSet()
-        val target = history.dropLast(1).lastOrNull { it !in excludes }
+        // 历史末尾含当前前台，取目标时要去掉；但黑名单应用作前台时不入历史，
+        // 此时末尾就是真正的「上一个」。
+        val candidates = if (history.lastOrNull() == current) history.dropLast(1) else history.toList()
+        val target = candidates.lastOrNull()
         if (target == null) {
             if (currPackageNameError()) return queryLaunchIntentAndStart(current)
             return false

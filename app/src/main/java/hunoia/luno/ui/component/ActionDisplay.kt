@@ -27,8 +27,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.SwapHoriz
 import hunoia.luno.action.model.StoredAction
-import hunoia.luno.action.model.ACTION_PANEL_TYPE_ID
-import hunoia.luno.action.model.GRID_PANEL_TYPE_ID
 import hunoia.luno.action.model.actionPanelId
 import hunoia.luno.action.model.gridPanelId
 import hunoia.luno.action.model.libraryEntryId
@@ -209,10 +207,6 @@ fun actionIcon(action: StoredAction): Any? {
             } ?: Icons.Default.SwapHoriz
         }
     }
-    // 面板动作不在定义表里（绑定落到具体面板），图标在这里兜底，
-    // 否则选择页/球图标对这类动作全空。
-    if (action.typeId == GRID_PANEL_TYPE_ID) return Icons.Default.GridView
-    if (action.typeId == ACTION_PANEL_TYPE_ID) return Icons.Default.RadioButtonChecked
     return ActionDefinitions.byTypeId(action.typeId)?.icon
 }
 

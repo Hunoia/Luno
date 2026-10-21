@@ -228,7 +228,7 @@ class NewActionDispatcher(
                 if (sourceButton != null) onHideGestureButton(sourceButton, delayMs)
             },
             showVersionTooLowToast = { resId -> showVersionTooLowToastUtil(context, resId) },
-            previousApp = { excludes -> previousAppTracker.previousApp(excludes) },
+            previousApp = { previousAppTracker.previousApp() },
             touchPosition = touchPosition,
             templateContext = templateContext,
             templateValues = { used ->

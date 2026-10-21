@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.FlashlightOn
 import androidx.compose.material.icons.filled.Gesture
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
@@ -346,6 +347,15 @@ object ActionDefinitions {
                 required = true,
             )),
             icon = Icons.Default.RadioButtonChecked))
+        /**
+         * 网格面板：触发时在触点附近弹网格快捷中心。与 [ACTION_PANEL_TYPE_ID] 一样
+         * 必须落到具体面板，但不带 panelId 参数：选择页按全局面板列表动态合成一行
+         * 一个具名面板（见 `assembleDataTransform`），引用由合成行带进去；无参同时
+         * 进不了动作库新建页（`ActionCatalog.libraryDefinitions` 只收有参动作），
+         * 不必占 `libraryExcluded`。
+         */
+        add(ActionDefinition(GRID_PANEL_TYPE_ID, "网格面板", ActionCategory.INTERNAL, Capability.None,
+            icon = Icons.Default.GridView))
         add(ActionDefinition("internal.hideGestureButton", "隐藏触钮", ActionCategory.INTERNAL, Capability.None,
             parameters = listOf(ParameterDefinition.Number(
                 key = "delayMs",
@@ -418,11 +428,9 @@ object ActionDefinitions {
             icon = Icons.Default.Widgets))
         add(ActionDefinition("internal.pointer", "指针", ActionCategory.INTERNAL, Capability.None,
             icon = Icons.Default.TouchApp))
+        // 无参定义：动作库只收有参动作，自动不显示；选择页仍可选。
+        // 排除名单改为全局「最近应用黑名单」（动作设置），历史源头过滤。
         add(ActionDefinition("internal.previousApp", "上一个应用", ActionCategory.INTERNAL, Capability.None,
-            parameters = listOf(ParameterDefinition.AppSelectorMulti(
-                key = "excludePackageNames",
-                label = "上个应用排除",
-            )),
             icon = Icons.Default.SwapHoriz))
         // 规则即动作：只能引用已存规则（库新建/定义表直选都不开放），ruleId 必填。
         add(ActionDefinition("internal.runRule", "运行规则", ActionCategory.INTERNAL, Capability.None,
@@ -446,10 +454,14 @@ object ActionDefinitions {
         "app.launchShortcut",
     )
 
+    // 网格面板同动作面板：定义只为具名合成行提供名称/图标/分类，通用行是空引用
+    // 死行（panelId 只能由合成行带进来），picker / 自动化两边都禁掉。动作库那边
+    // 不占 libraryExcluded —— 无参定义本就被 ActionCatalog.libraryDefinitions 滤掉。
     private val pickerExcluded: Set<String> = libraryExcluded + setOf(
         "app.launch",
         "accessibility.tap",
         "accessibility.longPress",
+        GRID_PANEL_TYPE_ID,
     )
 
     /** 不可作为自动化规则动作的类型：依赖运行时触点，或在自动化上下文中空跑 */
@@ -457,6 +469,7 @@ object ActionDefinitions {
         "accessibility.tap",
         "accessibility.longPress",
         "internal.hideGestureButton",
+        GRID_PANEL_TYPE_ID,
     )
 
     fun libraryDefinitions(): List<ActionDefinition> = definitions.filterNot { it.typeId in libraryExcluded }

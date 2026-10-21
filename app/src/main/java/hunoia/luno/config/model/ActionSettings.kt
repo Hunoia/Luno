@@ -24,6 +24,8 @@ data class ActionSettings(
     val actionGridPanels: GridPanelSettings = GridPanelSettings(),
     /** 悬浮球；同样必须留在本域内，否则运行时读不到。 */
     val floatBall: FloatBallSettings = FloatBallSettings(),
+    /** 最近应用黑名单：历史记录源头过滤，内置部件最近应用与动作上一个应用共用。 */
+    val recentAppsBlocklist: List<String> = emptyList(),
 ) {
     @Serializable
     @Keep
