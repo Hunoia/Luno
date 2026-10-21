@@ -77,24 +77,6 @@ class NewActionLibraryEditVM : ViewModel() {
             .mapNotNull { p -> p.defaultValue?.let { p.key to JsonPrimitive(it) } }
             .toMap()
 
-    fun selectType(typeId: String) {
-        val definition = ActionDefinitions.byTypeId(typeId) ?: return
-        _uiState.update { state ->
-            val draft = state.draft
-                ?: NewEditDraft(typeId = typeId, name = definition.name, params = defaultParams(definition))
-            val oldDefinition = ActionDefinitions.byTypeId(draft.typeId)
-            val keepName = draft.name.isNotBlank() && draft.name != oldDefinition?.name
-            state.copy(
-                draft = draft.copy(
-                    typeId = typeId,
-                    name = if (keepName) draft.name else definition.name,
-                    params = defaultParams(definition),
-                    iconKey = draft.iconKey,
-                ),
-            )
-        }
-    }
-
     fun updateParam(key: String, value: String) {
         _uiState.update { state ->
             state.copy(draft = state.draft?.copy(params = state.draft.params + (key to JsonPrimitive(value))))

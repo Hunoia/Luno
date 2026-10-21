@@ -2,7 +2,6 @@ package hunoia.luno.action.executor
 
 import hunoia.luno.action.controller.AccessibilityController
 import hunoia.luno.action.controller.IntentController
-import hunoia.luno.action.controller.PackageController
 import hunoia.luno.action.controller.SettingsController
 import hunoia.luno.action.controller.ShellController
 import hunoia.luno.action.execution.ActionExecutor
@@ -15,7 +14,6 @@ import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.OpenAppOrUrlData
 import hunoia.luno.config.model.OpenUrlQueryParameter
 import hunoia.luno.config.model.VolumeScrubConfig
-import hunoia.luno.config.model.effectiveForAction
 import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import kotlin.math.roundToInt
@@ -147,7 +145,7 @@ class IntentExecutors(private val intentController: IntentController) : ActionEx
     override suspend fun execute(action: Action, context: ExecutorContext):ActionResult {
         return when (action) {
             is Action.OpenUrl -> {
-                val adv = context.advancedSettings.effectiveForAction(action)
+                val adv = context.advancedSettings
                 val data = OpenAppOrUrlData(
                     type = OpenAppOrUrlData.TYPE_URL,
                     url = action.url,
@@ -201,7 +199,7 @@ class InternalExecutors : ActionExecutor {
             }
             is Action.GridPanel -> executeGridPanel(action, context)
             is Action.VolumeScrub -> {
-                val config = VolumeScrubConfig(action.horizontalEnabled, action.stepThresholdDp)
+                val config = VolumeScrubConfig(action.stepThresholdDp)
                 if (context.showVolumeScrub(config)) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.Pointer -> {
@@ -275,25 +273,6 @@ class InternalExecutors : ActionExecutor {
             true
         }.getOrDefault(false)
         return if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
-    }
-}
-
-class PackageExecutors(private val controller: PackageController) : ActionExecutor {
-
-    override val supportedTypes: Set<String> = setOf(
-        "package.enable", "package.disable", "package.forceStop",
-        "package.clearData", "package.uninstall"
-    )
-
-    override suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
-        return when (action) {
-            is Action.PackageEnable -> controller.enable(action.packageName)
-            is Action.PackageDisable -> controller.disable(action.packageName)
-            is Action.PackageForceStop -> controller.forceStop(action.packageName)
-            is Action.PackageClearData -> controller.clearData(action.packageName)
-            is Action.PackageUninstall -> controller.uninstall(action.packageName)
-            else -> ActionResult.Failed(ActionFailure.Unsupported)
-        }
     }
 }
 

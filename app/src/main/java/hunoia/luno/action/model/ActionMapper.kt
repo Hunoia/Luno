@@ -1,7 +1,6 @@
 package hunoia.luno.action.model
 
 import hunoia.luno.config.defaults.ActionSettingsDefaults.HideGestureButtonDelayMs
-import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubHorizontalEnabled
 import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubStepThresholdDp
 import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.config.model.toMiniWindowSettings
@@ -30,16 +29,9 @@ object ActionMapper {
                 p.str("packageName"),
                 p.bool("miniWindow"),
                 p.str("className"),
-                p.miniWindowSettings(),
-            )
-            "app.openActivity" -> Action.OpenActivity(
-                p.str("packageName"),
-                p.str("activityClassName"),
-                p.bool("miniWindow"),
-                p.miniWindowSettings(),
             )
             "app.details" -> Action.AppDetails(p.str("packageName"))
-            "app.popup" -> Action.Popup(p.miniWindowSettings())
+            "app.popup" -> Action.Popup
             "app.launchShortcut" -> Action.LaunchShortcut(p.str("data"))
             "intent.openUrl" -> Action.OpenUrl(
                 p.str("url"),
@@ -47,22 +39,22 @@ object ActionMapper {
                     val o = e.jsonObject
                     QueryParam(o.str("name"), o.str("value"), o.bool("enabled", true))
                 } ?: emptyList(),
-                p.miniWindowSettings(),
             )
             "intent.shareText" -> Action.ShareText(p.str("text"), p.str("mimeType", "text/plain"))
             "intent.shareFile" -> Action.ShareFile
             "intent.assist" -> Action.Assist
-            "system.openSettings" -> Action.OpenSettings(p.enumValue("page"))
+            "system.openSettings" -> Action.OpenSettings(p.enumValueOr("page", SettingsPage.MAIN))
             "system.volume" -> Action.Volume(
-                p.enumValue("stream"),
-                p.enumValue("direction"),
+                p.enumValueOr("stream", AudioStream.MUSIC),
+                p.enumValueOr("direction", VolumeDirection.UP),
             )
             "system.vibrate" -> Action.Vibrate(p.str("pattern", "0,500"))
-            "system.clipboard" -> Action.Clipboard(
-                p.enumValue("operation"),
-                p.intOrNull("length"),
-            )
-            "system.media" -> Action.Media(p.enumValue("command"))
+            "system.clipboardRandomName" -> Action.ClipboardRandomName
+            "system.clipboardPassword" -> Action.ClipboardGeneratePassword
+            "system.mediaPlayPause" -> Action.MediaPlayPause
+            "system.mediaNext" -> Action.MediaNext
+            "system.mediaPrevious" -> Action.MediaPrevious
+            "system.mediaMute" -> Action.MediaMute
             "system.flashlight" -> Action.Flashlight
             "accessibility.back" -> Action.Back
             "accessibility.home" -> Action.Home
@@ -86,11 +78,6 @@ object ActionMapper {
             "accessibility.notificationPanel" -> Action.NotificationPanel
             "accessibility.quickPanel" -> Action.QuickPanel
             "accessibility.lockScreen" -> Action.LockScreen
-            "package.enable" -> Action.PackageEnable(p.str("packageName"))
-            "package.disable" -> Action.PackageDisable(p.str("packageName"))
-            "package.forceStop" -> Action.PackageForceStop(p.str("packageName"))
-            "package.clearData" -> Action.PackageClearData(p.str("packageName"))
-            "package.uninstall" -> Action.PackageUninstall(p.str("packageName"))
             "settings.get" -> Action.SettingsGet(
                 p.enumValue("namespace"),
                 p.str("key"),
@@ -112,7 +99,7 @@ object ActionMapper {
                 p.long("delayMs", HideGestureButtonDelayMs),
             )
             "internal.buttonsVisibility" -> Action.ButtonsVisibility(
-                p.bool("visible", true),
+                p.bool("visible", false),
                 p.enumValueOr("target", ButtonTarget.ALL),
                 p.arrayOfStr("buttonIds"),
             )
@@ -127,10 +114,6 @@ object ActionMapper {
             "internal.gridPanel" -> Action.GridPanel(p.str(GRID_PANEL_PARAM_PANEL_ID))
             "internal.quickSearch" -> Action.QuickSearch
             "internal.volumeScrub" -> Action.VolumeScrub(
-                horizontalEnabled = p.bool(
-                    "horizontalEnabled",
-                    VolumeScrubHorizontalEnabled,
-                ),
                 stepThresholdDp = p.int(
                     "stepThresholdDp",
                     VolumeScrubStepThresholdDp,
@@ -147,9 +130,6 @@ object ActionMapper {
         }
     }
 
-
-    private fun JsonObject.miniWindowSettings(): MiniWindowSettings? =
-        this["miniWindowSettings"]?.toMiniWindowSettings()
 
     /** 枚举参数解析：缺失/非法值抛受控异常（由执行层转成 InvalidParameter），不再裸 valueOf 崩协程。 */
     private inline fun <reified T : Enum<T>> JsonObject.enumValue(key: String): T {

@@ -12,9 +12,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,6 +48,9 @@ import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.ui.actionselect.UiState.SelectedRecord
+import hunoia.luno.ui.actionselect.components.ActionRowSettingsDialog
+import hunoia.luno.ui.actionselect.components.RowSettingsActionTypeIds
+import hunoia.luno.ui.actionselect.components.rowSettingsSubtitle
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.displayNameRes
@@ -92,9 +98,21 @@ internal fun ActionPage(
     onSelectWidget: (AppWidgetProviderInfo) -> Unit = { },
     /** 内置小部件选定（id 见 InternalWidgetIds），直接落盘不经过 Activity 结果。 */
     onSelectInternalWidget: (String) -> Unit = { },
+    /** 行尾设置弹窗确认：把带参的动作写回列表（及当前选中项），不触发选择/返回。 */
+    onUpdateAction: (old: StoredAction, new: StoredAction) -> Unit = { _, _ -> },
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var selectedType by rememberSaveable { mutableStateOf<String?>(null) }
+    var settingsAction by remember { mutableStateOf<StoredAction?>(null) }
+    settingsAction?.let { editing ->
+        ActionRowSettingsDialog(
+            action = editing,
+            onDismiss = { settingsAction = null },
+            onConfirm = { next ->
+                onUpdateAction(editing, next)
+            },
+        )
+    }
     val context = LocalContext.current
     val typeChips = remember(context, showWidgetChip) {
         buildList {
@@ -308,7 +326,17 @@ internal fun ActionPage(
                             ),
                             selected = selectedRecord.isSelected(item),
                             onSelect = { onSelect(item) },
+                            subtitle = if (item.typeId in RowSettingsActionTypeIds) rowSettingsSubtitle(item) else "",
                             shape = selectedSegmentedShape(index, categoryActions.size, categoryFlags),
+                            trailing = if (item.typeId in RowSettingsActionTypeIds) {{
+                                IconButton(onClick = { settingsAction = item }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Settings,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }} else null,
                         )
                     }
                 }

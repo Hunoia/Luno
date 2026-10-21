@@ -38,16 +38,15 @@ class VolumeScrubState(private val context: Context) {
             context.volumeUp()
             accumulator += stepThreshold
         }
-        if (config.horizontalEnabled) {
-            accumulatorX += dragAmount.x
-            while (accumulatorX >= stepThreshold) {
-                context.volumeUp()
-                accumulatorX -= stepThreshold
-            }
-            while (accumulatorX <= -stepThreshold) {
-                context.volumeDown()
-                accumulatorX += stepThreshold
-            }
+        // 水平调节恒开（原设置项已删）。
+        accumulatorX += dragAmount.x
+        while (accumulatorX >= stepThreshold) {
+            context.volumeUp()
+            accumulatorX -= stepThreshold
+        }
+        while (accumulatorX <= -stepThreshold) {
+            context.volumeDown()
+            accumulatorX += stepThreshold
         }
         return true
     }

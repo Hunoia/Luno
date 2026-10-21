@@ -8,7 +8,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.ListSpacing
+import hunoia.luno.ui.component.FabMenuPopup
+import hunoia.luno.ui.component.FabMenuItem
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.LargeShape
@@ -30,7 +42,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -86,7 +100,6 @@ fun NewActionLibraryEditScreen(
     vm: NewActionLibraryEditVM = viewModel(),
 ) {
     val state by vm.uiState.collectAsState()
-    var showTypePicker by remember { mutableStateOf(false) }
     var showAppPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
     var showActivityPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
     var showAppMultiPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
@@ -102,23 +115,62 @@ fun NewActionLibraryEditScreen(
     val guardedBack: () -> Unit = {
         if (state.isDirty) showDiscardConfirm = true else onBack()
     }
+    // 测试门槛：触点类动作必须已配固定坐标且未勾「使用触发位置坐标」。
+    val testable = draft?.let { d ->
+        val hasTapPoint = d.params[PARAM_X_DP]?.scalarText()?.toIntOrNull() != null &&
+            d.params[PARAM_Y_DP]?.scalarText()?.toIntOrNull() != null
+        val useTriggerPoint = d.params[USE_TRIGGER_POINT_KEY]?.scalarText()?.toBoolean() == true
+        d.typeId !in TOUCH_ONLY_TYPES || (hasTapPoint && !useTriggerPoint)
+    } == true
     LunoScreen(
         title = stringResource(
             if (draft?.id == null) R.string.action_library_add else R.string.action_library_edit,
         ),
         onBack = guardedBack,
+        bottomContentPadding = FloatingContentBottom,
+        floatingContent = { _ ->
+            if (draft != null) {
+                var menuExpanded by remember { mutableStateOf(false) }
+                if (menuExpanded && (draft.isValid || testable)) {
+                    FabMenuPopup(
+                        onDismiss = { menuExpanded = false },
+                        bottomPadding = 88.dp,
+                    ) {
+                        FabMenuItem("保存", Icons.Default.Save, draft.isValid && !state.isSaving) {
+                            menuExpanded = false
+                            vm.save(onSaved = onBack)
+                        }
+                        FabMenuItem("测试", Icons.Default.PlayArrow, draft.isValid && testable && !state.isSaving) {
+                            menuExpanded = false
+                            if (DispatchClient.dispatch(draft.toStoredAction())) {
+                                showToast(R.string.action_library_test_sent)
+                            } else {
+                                showToast(R.string.dispatch_service_not_ready)
+                            }
+                        }
+                    }
+                }
+                FloatingActionButton(
+                    onClick = { menuExpanded = !menuExpanded },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .padding(end = 16.dp, bottom = 16.dp)
+                        .size(64.dp),
+                    shape = FloatingActionButtonDefaults.shape,
+                    containerColor = if (draft.isValid) MaterialTheme.colorScheme.primaryContainer
+                    else MaterialTheme.colorScheme.surfaceContainerHighest,
+                ) {
+                    Icon(imageVector = Icons.Default.Save, contentDescription = stringResource(R.string.save))
+                }
+            }
+        },
         actions = {                     if (draft?.id != null) {
                         LunoIconButton(
                             icon = Icons.Outlined.Delete,
                             contentDescription = stringResource(R.string.delete),
                             onClick = { showDeleteConfirm = true },
                         )
-                    }
-                    TextButton(
-                        enabled = draft?.isValid == true && !state.isSaving,
-                        onClick = { vm.save(onSaved = onBack) },
-                    ) {
-                        Text(stringResource(R.string.save))
                     }
                  },
         dialogs = {
@@ -142,15 +194,6 @@ fun NewActionLibraryEditScreen(
                     text = stringResource(R.string.action_library_discard_desc),
                     onDismissRequest = { showDiscardConfirm = false },
                     onConfirm = { onBack() },
-                )
-            }
-            if (showTypePicker) {
-                TypePickerSheet(
-                    onDismissRequest = { showTypePicker = false },
-                    onSelectType = { def ->
-                        vm.selectType(def.typeId)
-                        showTypePicker = false
-                    },
                 )
             }
             showAppPicker?.let { paramDef ->
@@ -241,10 +284,6 @@ fun NewActionLibraryEditScreen(
                 else -> {
                     val useTriggerPoint =
                         draft.params[USE_TRIGGER_POINT_KEY]?.scalarText()?.toBoolean() == true
-                    TypeSelectorField(
-                        definition = definition,
-                        onClick = { showTypePicker = true },
-                    )
                     OutlinedTextField(
                         value = draft.name,
                         onValueChange = { vm.updateName(it) },
@@ -329,53 +368,10 @@ if (cardParams.isNotEmpty()) {
                             )
                         }
                     }
-                    // 测试/保存并排：测试只要求参数有效，不写盘；保存沿用顶部同一入口。
-                    // 触点类动作配好固定坐标后可独立试执行（参数优先于触点）；
-                    // 勾了「使用触发位置坐标」就必然没有触点，只能置灰。
-                    val hasTapPoint = draft.params[PARAM_X_DP]?.scalarText()?.toIntOrNull() != null &&
-                        draft.params[PARAM_Y_DP]?.scalarText()?.toIntOrNull() != null
-                    val testable = draft.typeId !in TOUCH_ONLY_TYPES ||
-                        (hasTapPoint && !useTriggerPoint)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(ListSpacing),
-                    ) {
-                        TextButton(
-                            modifier = Modifier.weight(1f),
-                            enabled = draft.isValid && testable && !state.isSaving,
-                            onClick = {
-                                if (DispatchClient.dispatch(draft.toStoredAction())) {
-                                    showToast(R.string.action_library_test_sent)
-                                } else {
-                                    showToast(R.string.dispatch_service_not_ready)
-                                }
-                            },
-                        ) {
-                            Text(stringResource(R.string.action_library_test))
-                        }
-                        FilledTonalButton(
-                            modifier = Modifier.weight(1f),
-                            enabled = draft.isValid && !state.isSaving,
-                            onClick = { vm.save(onSaved = onBack) },
-                        ) {
-                            Text(stringResource(R.string.save))
-                        }
-                    }
                 }
             }
         
     }
-}
-@Composable
-private fun TypeSelectorField(
-    definition: ActionDefinition,
-    onClick: () -> Unit,
-) {
-    LunoSettingsRow(
-        title = definition.name,
-        subtitle = stringResource(definition.category.displayNameRes),
-        onClick = onClick,
-    )
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

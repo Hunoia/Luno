@@ -10,7 +10,7 @@ import hunoia.luno.action.execution.ExecutorContext
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionFailure
 import hunoia.luno.action.model.ActionResult
-import hunoia.luno.action.model.ClipboardOperation
+import hunoia.luno.action.model.MediaCommand
 import hunoia.luno.bridge.system.FlashlightController
 import hunoia.luno.bridge.system.gotoAppDetailSettings
 import android.content.Intent
@@ -25,7 +25,9 @@ class SystemExecutors(
 
     override val supportedTypes: Set<String> = setOf(
         "system.openSettings", "system.volume", "system.vibrate",
-        "system.clipboard", "system.media", "system.flashlight"
+        "system.clipboardRandomName", "system.clipboardPassword",
+        "system.mediaPlayPause", "system.mediaNext", "system.mediaPrevious", "system.mediaMute",
+        "system.flashlight"
     )
 
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
@@ -42,9 +44,22 @@ class SystemExecutors(
                 vibrateController.vibrateWithPattern(action.pattern)
                 ActionResult.Success()
             }
-            is Action.Clipboard -> executeClipboard(action, context)
-            is Action.Media -> {
-                audioController.mediaCommand(action.command)
+            is Action.ClipboardRandomName -> executeRandomName(context)
+            is Action.ClipboardGeneratePassword -> executeGeneratePassword(context)
+            is Action.MediaPlayPause -> {
+                audioController.mediaCommand(MediaCommand.PLAY_PAUSE)
+                ActionResult.Success()
+            }
+            is Action.MediaNext -> {
+                audioController.mediaCommand(MediaCommand.NEXT)
+                ActionResult.Success()
+            }
+            is Action.MediaPrevious -> {
+                audioController.mediaCommand(MediaCommand.PREVIOUS)
+                ActionResult.Success()
+            }
+            is Action.MediaMute -> {
+                audioController.mediaCommand(MediaCommand.MUTE)
                 ActionResult.Success()
             }
             is Action.Flashlight -> executeFlashlight(context)
@@ -52,45 +67,42 @@ class SystemExecutors(
         }
     }
 
-    private suspend fun executeClipboard(action: Action.Clipboard, context: ExecutorContext): ActionResult {
+    private suspend fun executeRandomName(context: ExecutorContext): ActionResult {
         val appContext = context.appContext
-        return when (action.operation) {
-            ClipboardOperation.RANDOM_NAME -> {
-                val name = clipboardController.generateRandomName()
-                when {
-                    name == null -> ActionResult.Failed(
-                        ActionFailure.ExecutionFailed,
-                        appContext.getString(R.string.random_name_generate_failed),
-                    )
-                    clipboardController.copyText(name) -> ActionResult.Success(name)
-                    else -> ActionResult.Failed(
-                        ActionFailure.ExecutionFailed,
-                        appContext.getString(R.string.random_name_copy_failed),
-                    )
-                }
-            }
-            ClipboardOperation.GENERATE_PASSWORD -> {
-                val config = context.actionSettings.passwordGenerator
-                val password = runCatching {
-                    PasswordGenerator.generate(config.copy(length = action.length ?: config.length))
-                }.getOrNull()
-                if (password == null) {
-                    ActionResult.Failed(
-                        ActionFailure.ExecutionFailed,
-                        appContext.getString(R.string.password_generate_failed),
-                    )
-                } else {
-                    val copied = clipboardController.copyText(password, "Generated Password")
-                    if (copied) {
-                        ActionResult.Success(appContext.getString(R.string.password_copied))
-                    } else {
-                        ActionResult.Failed(
-                            ActionFailure.ExecutionFailed,
-                            appContext.getString(R.string.password_copy_failed),
-                        )
-                    }
-                }
-            }
+        val name = clipboardController.generateRandomName()
+        return when {
+            name == null -> ActionResult.Failed(
+                ActionFailure.ExecutionFailed,
+                appContext.getString(R.string.random_name_generate_failed),
+            )
+            clipboardController.copyText(name) -> ActionResult.Success(name)
+            else -> ActionResult.Failed(
+                ActionFailure.ExecutionFailed,
+                appContext.getString(R.string.random_name_copy_failed),
+            )
+        }
+    }
+
+    private suspend fun executeGeneratePassword(context: ExecutorContext): ActionResult {
+        val appContext = context.appContext
+        val config = context.actionSettings.passwordGenerator
+        val password = runCatching {
+            PasswordGenerator.generate(config)
+        }.getOrNull()
+        if (password == null) {
+            return ActionResult.Failed(
+                ActionFailure.ExecutionFailed,
+                appContext.getString(R.string.password_generate_failed),
+            )
+        }
+        val copied = clipboardController.copyText(password, "Generated Password")
+        return if (copied) {
+            ActionResult.Success(appContext.getString(R.string.password_copied))
+        } else {
+            ActionResult.Failed(
+                ActionFailure.ExecutionFailed,
+                appContext.getString(R.string.password_copy_failed),
+            )
         }
     }
 

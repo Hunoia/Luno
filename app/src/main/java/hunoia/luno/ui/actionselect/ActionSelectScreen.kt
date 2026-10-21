@@ -279,6 +279,7 @@ fun ActionSelectContent(
                             permissionState = permissionState,
                             // 点一行即存即返回，没有底栏、没有完成键、没有多选中间态。
                             onSelect = { action -> vm.select(action) },
+                            onUpdateAction = { old, new -> vm.updateActionParams(old, new) },
                             onSelectLibraryEntry = { entry -> vm.select(entry) },
                             onSelectApp = { appInfo -> vm.select(appInfo) },
                             onSelectShortcut = { shortcutInfo -> vm.select(shortcutInfo) },

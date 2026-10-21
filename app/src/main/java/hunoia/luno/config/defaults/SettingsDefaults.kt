@@ -49,5 +49,4 @@ object ActionSettingsDefaults {
     const val PasswordSymbolsEnabled = true
     const val HideGestureButtonDelayMs = 1000L
     const val VolumeScrubStepThresholdDp = 14
-    const val VolumeScrubHorizontalEnabled = true
 }

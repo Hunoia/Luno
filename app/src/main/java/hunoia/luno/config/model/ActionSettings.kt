@@ -6,7 +6,6 @@ import hunoia.luno.config.defaults.ActionSettingsDefaults.PasswordDigitsEnabled
 import hunoia.luno.config.defaults.ActionSettingsDefaults.PasswordLowercaseEnabled
 import hunoia.luno.config.defaults.ActionSettingsDefaults.PasswordSymbolsEnabled
 import hunoia.luno.config.defaults.ActionSettingsDefaults.PasswordUppercaseEnabled
-import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubHorizontalEnabled
 import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubStepThresholdDp
 import kotlinx.serialization.Serializable
 
@@ -41,6 +40,5 @@ data class ActionSettings(
 @Serializable
 @Keep
 data class VolumeScrubConfig(
-    val horizontalEnabled: Boolean = VolumeScrubHorizontalEnabled,
     val stepThresholdDp: Int = VolumeScrubStepThresholdDp,
 )

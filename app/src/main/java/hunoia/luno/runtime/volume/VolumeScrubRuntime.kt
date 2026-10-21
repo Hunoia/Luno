@@ -17,7 +17,7 @@ class VolumeScrubRuntime(
 
     fun show(config: VolumeScrubConfig = VolumeScrubConfig()): Boolean {
         if (!begin()) return false
-        val o = VolumeScrubOverlay(context, config.horizontalEnabled, config.stepThresholdDp)
+        val o = VolumeScrubOverlay(context, config.stepThresholdDp)
             .also { overlay = it }
         o.show(onDismiss = { end() })
         Events.post(PanelShownEvent())

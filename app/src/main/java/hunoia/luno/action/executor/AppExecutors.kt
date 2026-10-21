@@ -10,7 +10,6 @@ import hunoia.luno.action.model.ActionFailure
 import hunoia.luno.action.model.ActionResult
 import hunoia.luno.bridge.system.queryIntentActivitiesCompat
 import hunoia.luno.config.model.AdvancedSettings
-import hunoia.luno.config.model.effectiveForAction
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.launch.AppLaunchBypass
@@ -22,13 +21,13 @@ import hunoia.luno.config.model.miniWindowSettings
 class AppExecutors(private val intentController: IntentController) : ActionExecutor {
 
     override val supportedTypes: Set<String> = setOf(
-        "app.launch", "app.openActivity", "app.details", "app.popup", "app.launchShortcut"
+        "app.launch", "app.details", "app.popup", "app.launchShortcut"
     )
 
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
         return when (action) {
             is Action.LaunchApp -> {
-                val adv = context.advancedSettings.effectiveForAction(action)
+                val adv = context.advancedSettings
                 val ok = AppLaunchBypass.launchWithAutoUnfreeze(
                     context = context.appContext,
                     packageName = action.packageName,
@@ -39,21 +38,9 @@ class AppExecutors(private val intentController: IntentController) : ActionExecu
                 )
                 if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
-            is Action.OpenActivity -> {
-                val adv = context.advancedSettings.effectiveForAction(action)
-                val ok = AppLaunchBypass.launchWithAutoUnfreeze(
-                    context = context.appContext,
-                    packageName = action.packageName,
-                    className = action.activityClassName,
-                    miniWindow = action.miniWindow,
-                    miniWindowSettings = adv.miniWindowSettings(),
-                    unfreezePackage = { _, pkg -> enablePackage(context, pkg) },
-                )
-                if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
-            }
             is Action.AppDetails -> intentController.openAppDetails(action.packageName)
             is Action.Popup -> {
-                popupScreen(context, context.advancedSettings.effectiveForAction(action))
+                popupScreen(context, context.advancedSettings)
                 ActionResult.Success()
             }
             is Action.LaunchShortcut -> {

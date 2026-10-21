@@ -1,7 +1,6 @@
 package hunoia.luno.config.model
 
 import androidx.annotation.Keep
-import hunoia.luno.action.model.Action
 import hunoia.luno.config.defaults.AdvancedSettingsDefaults
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -52,17 +51,6 @@ fun AdvancedSettings.miniWindowSettings(): MiniWindowSettings = miniWindow ?: Mi
 
 fun AdvancedSettings.withMiniWindowSettings(settings: MiniWindowSettings): AdvancedSettings =
     copy(miniWindow = settings)
-
-fun AdvancedSettings.effectiveForAction(action: Action): AdvancedSettings {
-    val miniWindow = when (action) {
-        is Action.LaunchApp -> action.miniWindowSettings
-        is Action.OpenActivity -> action.miniWindowSettings
-        is Action.OpenUrl -> action.miniWindowSettings
-        is Action.Popup -> action.miniWindowSettings
-        else -> null
-    }
-    return miniWindow?.let { withMiniWindowSettings(it) } ?: this
-}
 
 fun MiniWindowSettings.toJsonObject(): JsonObject = buildJsonObject {
     put("portrait", portrait.toJsonObject())

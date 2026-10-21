@@ -198,6 +198,19 @@ internal fun assembleDataTransform(state: UiState): UiState {
 internal fun selectActionTransform(state: UiState, action: StoredAction): UiState =
     state.copy(selectedRecord = state.selectedRecord.selectAction(action))
 
+/** 行尾设置弹窗确认：替换列表里的同型行；若它正是当前选中项，同步选中记录。 */
+internal fun updateActionParamsTransform(state: UiState, old: StoredAction, new: StoredAction): UiState {
+    if (old !in state.actions) return state
+    return state.copy(
+        actions = state.actions.map { if (it == old) new else it },
+        selectedRecord = if (state.selectedRecord.isSelected(old)) {
+            state.selectedRecord.selectOne(new)
+        } else {
+            state.selectedRecord
+        },
+    )
+}
+
 internal fun selectAppInfoTransform(state: UiState, appInfo: AppInfo): UiState =
     state.copy(selectedRecord = state.selectedRecord.selectAppInfo(appInfo))
 

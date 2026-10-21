@@ -21,15 +21,6 @@ class IntentController(private val context: Context) {
             )
         }
 
-    suspend fun openActivity(packageName: String, activityClassName: String): Boolean =
-        withContext(Dispatchers.IO) {
-            AppLaunchBypass.launchActivityWithAutoUnfreeze(
-                context = context,
-                packageName = packageName,
-                className = activityClassName,
-            )
-        }
-
     fun openAppDetails(packageName: String): ActionResult {
         return try {
             val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {

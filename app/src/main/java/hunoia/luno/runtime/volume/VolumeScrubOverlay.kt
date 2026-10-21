@@ -13,7 +13,6 @@ import hunoia.luno.bridge.system.volumeUp
 
 class VolumeScrubOverlay(
     private val context: Context,
-    private val horizontalEnabled: Boolean = false,
     private val stepThresholdDp: Int = hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubStepThresholdDp,
 ) {
 
@@ -56,18 +55,17 @@ class VolumeScrubOverlay(
                             context.volumeUp()
                             accumulator += stepThresholdPx
                         }
-                        if (horizontalEnabled) {
-                            val deltaX = event.rawX - lastX
-                            lastX = event.rawX
-                            accumulatorX += deltaX
-                            while (accumulatorX >= stepThresholdPx) {
-                                context.volumeUp()
-                                accumulatorX -= stepThresholdPx
-                            }
-                            while (accumulatorX <= -stepThresholdPx) {
-                                context.volumeDown()
-                                accumulatorX += stepThresholdPx
-                            }
+                        // 水平调节恒开（原设置项已删）。
+                        val deltaX = event.rawX - lastX
+                        lastX = event.rawX
+                        accumulatorX += deltaX
+                        while (accumulatorX >= stepThresholdPx) {
+                            context.volumeUp()
+                            accumulatorX -= stepThresholdPx
+                        }
+                        while (accumulatorX <= -stepThresholdPx) {
+                            context.volumeDown()
+                            accumulatorX += stepThresholdPx
                         }
                         true
                     }

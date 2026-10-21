@@ -18,6 +18,7 @@ fun ActionItem(
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(ContainerRadius),
     subtitle: String = "",
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val icon = actionIcon(action)
     LunoSelectableRow(
@@ -32,5 +33,6 @@ fun ActionItem(
         singleSelect = true,
         marquee = true,
         shape = shape,
+        trailing = trailing,
     )
 }

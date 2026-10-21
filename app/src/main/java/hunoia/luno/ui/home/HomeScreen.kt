@@ -5,6 +5,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.contract.ActivityResultContracts.CreateDocument
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -18,13 +20,16 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -36,6 +41,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
@@ -56,6 +62,12 @@ import hunoia.luno.ui.automation.AutomationRulesTabContent
 import hunoia.luno.ui.component.FloatingBottomBar
 import hunoia.luno.ui.component.FloatingBottomBarDefaults
 import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.component.FabMenuPopup
+import hunoia.luno.ui.component.FabMenuItem
+import androidx.compose.material.icons.filled.Build
+import hunoia.luno.domain.action.ActionCatalog
+import hunoia.luno.action.definitions.ActionCategory
+import hunoia.luno.ui.component.displayNameRes
 import hunoia.luno.ui.navigation.NEW_ACTION_LIBRARY_ENTRY_ID
 import hunoia.luno.ui.navigation.NEW_AUTOMATION_RULE_ID
 import hunoia.luno.ui.theme.resolveColor
@@ -215,6 +227,7 @@ fun HomeScreen(
                 }
             },
             bottomBar = { hazeState ->
+                var showLibraryTypeMenu by remember { mutableStateOf(false) }
                 Row(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -239,7 +252,8 @@ fun HomeScreen(
                             if (mainTab == MainTab.Automation) {
                                 onNavToAutomationEdit(NEW_AUTOMATION_RULE_ID)
                             } else {
-                                onNavToActionLibraryEdit(NEW_ACTION_LIBRARY_ENTRY_ID, null)
+                                // 动作库：+ 弹类型菜单，选完携 typeId 进编辑页。
+                                showLibraryTypeMenu = true
                             }
                         },
                         addContentDescription = if (mainTab == MainTab.Automation) {
@@ -256,6 +270,14 @@ fun HomeScreen(
                         )
                     }
                 }
+                LibraryTypeMenu(
+                    expanded = showLibraryTypeMenu,
+                    onDismiss = { showLibraryTypeMenu = false },
+                    onSelect = { typeId ->
+                        showLibraryTypeMenu = false
+                        onNavToActionLibraryEdit(NEW_ACTION_LIBRARY_ENTRY_ID, typeId)
+                    },
+                )
             },
         ) { topPadding, _ ->
             when (mainTab) {
@@ -350,3 +372,31 @@ fun HomeScreen(
         }
     }
     }
+
+/** 动作库 + 号的类型菜单：分类分组、可滚动；选中携 typeId 进编辑页。 */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.LibraryTypeMenu(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    onSelect: (String) -> Unit,
+) {
+    val grouped = remember(expanded) {
+        ActionCatalog.libraryDefinitions().groupBy { it.category }
+    }
+    if (!expanded) return
+    FabMenuPopup(
+        onDismiss = onDismiss,
+        bottomPadding = 140.dp,
+        maxHeight = 420.dp,
+    ) {
+        grouped.forEach { (_, defs) ->
+            defs.forEach { def ->
+                FabMenuItem(
+                    label = def.name,
+                    icon = def.icon as? ImageVector ?: Icons.Default.Build,
+                    enabled = true,
+                ) { onSelect(def.typeId) }
+            }
+        }
+    }
+}

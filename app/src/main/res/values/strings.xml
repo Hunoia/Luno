@@ -239,7 +239,6 @@
     <string name="action_category_app">应用操作</string>
     <string name="action_category_intent">Intent</string>
     <string name="action_category_accessibility">无障碍</string>
-    <string name="action_category_package">包管理</string>
     <string name="action_category_settings">设置项</string>
     <string name="action_category_system_cmd">系统命令</string>
     <string name="action_category_shell">Shell</string>

@@ -1,7 +1,6 @@
 package hunoia.luno.action.model
 
 import hunoia.luno.config.defaults.ActionSettingsDefaults.HideGestureButtonDelayMs
-import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubHorizontalEnabled
 import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubStepThresholdDp
 import hunoia.luno.config.model.MiniWindowSettings
 import android.media.AudioManager
@@ -11,6 +10,19 @@ data class QueryParam(val name: String, val value: String, val enabled: Boolean 
 enum class SettingsPage {
     WIFI, BLUETOOTH, DISPLAY, BATTERY, APPS, NETWORK, ACCESSIBILITY, MAIN
 }
+
+/** 设置页中文名：快速搜索与选择页弹窗共用。 */
+val SettingsPage.label: String
+    get() = when (this) {
+        SettingsPage.WIFI -> "Wi-Fi"
+        SettingsPage.BLUETOOTH -> "蓝牙"
+        SettingsPage.DISPLAY -> "显示"
+        SettingsPage.BATTERY -> "电池"
+        SettingsPage.APPS -> "应用"
+        SettingsPage.NETWORK -> "网络"
+        SettingsPage.ACCESSIBILITY -> "无障碍"
+        SettingsPage.MAIN -> "主设置"
+    }
 
 /** 触钮显隐作用范围（沿用自动化旧 RuleScope 语义）。 */
 enum class ButtonTarget { ALL, EXCEPT, ONLY }
@@ -29,11 +41,10 @@ fun AudioStream.toStreamType(): Int = when (this) {
 
 enum class VolumeDirection { UP, DOWN }
 
-enum class ClipboardOperation { RANDOM_NAME, GENERATE_PASSWORD }
+enum class SwipeDirection { UP, DOWN, LEFT, RIGHT, TO_TOP }
 
 enum class MediaCommand { PLAY_PAUSE, NEXT, PREVIOUS, MUTE }
 
-enum class SwipeDirection { UP, DOWN, LEFT, RIGHT, TO_TOP }
 
 enum class SettingsNamespace { SYSTEM, GLOBAL, SECURE }
 
@@ -45,22 +56,14 @@ sealed interface Action {
         val packageName: String,
         val miniWindow: Boolean = false,
         val className: String = "",
-        val miniWindowSettings: MiniWindowSettings? = null,
     ) : Action {
         override val typeId: String = "app.launch"
-    }
-    data class OpenActivity(
-        val packageName: String,
-        val activityClassName: String,
-        val miniWindow: Boolean = false,
-        val miniWindowSettings: MiniWindowSettings? = null,
-    ) : Action {
-        override val typeId: String = "app.openActivity"
     }
     data class AppDetails(val packageName: String) : Action {
         override val typeId: String = "app.details"
     }
-    data class Popup(val miniWindowSettings: MiniWindowSettings? = null) : Action {
+    /** 弹出当前应用：小窗尺寸/位置一律用全局小窗设置（动作设置→小窗）。 */
+    data object Popup : Action {
         override val typeId: String = "app.popup"
     }
     data class LaunchShortcut(val data: String) : Action {
@@ -71,7 +74,6 @@ sealed interface Action {
     data class OpenUrl(
         val url: String,
         val queryParameters: List<QueryParam> = emptyList(),
-        val miniWindowSettings: MiniWindowSettings? = null,
     ) : Action {
         override val typeId: String = "intent.openUrl"
     }
@@ -95,14 +97,24 @@ sealed interface Action {
     data class Vibrate(val pattern: String = "0,500") : Action {
         override val typeId: String = "system.vibrate"
     }
-    data class Clipboard(
-        val operation: ClipboardOperation,
-        val length: Int? = null,
-    ) : Action {
-        override val typeId: String = "system.clipboard"
+    /** 剪贴板随机名称；密码长度等全局配置在动作设置的密码生成里。 */
+    data object ClipboardRandomName : Action {
+        override val typeId: String = "system.clipboardRandomName"
     }
-    data class Media(val command: MediaCommand) : Action {
-        override val typeId: String = "system.media"
+    data object ClipboardGeneratePassword : Action {
+        override val typeId: String = "system.clipboardPassword"
+    }
+    data object MediaPlayPause : Action {
+        override val typeId: String = "system.mediaPlayPause"
+    }
+    data object MediaNext : Action {
+        override val typeId: String = "system.mediaNext"
+    }
+    data object MediaPrevious : Action {
+        override val typeId: String = "system.mediaPrevious"
+    }
+    data object MediaMute : Action {
+        override val typeId: String = "system.mediaMute"
     }
     data object Flashlight : Action {
         override val typeId: String = "system.flashlight"
@@ -158,23 +170,6 @@ sealed interface Action {
     }
     data object LockScreen : Action {
         override val typeId: String = "accessibility.lockScreen"
-    }
-
-    // Package
-    data class PackageEnable(val packageName: String) : Action {
-        override val typeId: String = "package.enable"
-    }
-    data class PackageDisable(val packageName: String) : Action {
-        override val typeId: String = "package.disable"
-    }
-    data class PackageForceStop(val packageName: String) : Action {
-        override val typeId: String = "package.forceStop"
-    }
-    data class PackageClearData(val packageName: String) : Action {
-        override val typeId: String = "package.clearData"
-    }
-    data class PackageUninstall(val packageName: String) : Action {
-        override val typeId: String = "package.uninstall"
     }
 
     // Settings
@@ -243,7 +238,6 @@ sealed interface Action {
         override val typeId: String = "internal.quickSearch"
     }
     data class VolumeScrub(
-        val horizontalEnabled: Boolean = VolumeScrubHorizontalEnabled,
         val stepThresholdDp: Int = VolumeScrubStepThresholdDp,
     ) : Action {
         override val typeId: String = "internal.volumeScrub"

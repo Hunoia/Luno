@@ -9,6 +9,7 @@ import hunoia.luno.action.model.StoredAction
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.quicklaunch.model.qualifiedName
+import hunoia.luno.ui.actionselect.updateActionParamsTransform
 import hunoia.luno.ui.navigation.ActionSelect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -75,6 +76,11 @@ class ActionSelectVM(
     }
 
     /** 点一行 = 选中 + 立即落盘 + 返回：没有「再点一下取消」的中间态，也没有完成键可等。 */
+    /** 行尾设置弹窗确认：写回列表参数；若该行正被选中，同步选中记录。 */
+    fun updateActionParams(old: StoredAction, new: StoredAction) {
+        updateUiState { state -> updateActionParamsTransform(state, old, new) }
+    }
+
     fun select(obj: Any) {
         when (obj) {
             is AppInfo -> updateUiState { selectAppInfoTransform(it, obj) }

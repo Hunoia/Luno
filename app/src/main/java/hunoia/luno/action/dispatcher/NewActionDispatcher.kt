@@ -69,7 +69,6 @@ class NewActionDispatcher(
                 VibrateController(host.context.applicationContext),
             ),
             AccessibilityExecutors(AccessibilityController(host.accessibilityService)),
-            PackageExecutors(PackageController()),
             SettingsExecutors(SettingsController()),
             SystemCmdExecutors(ShellController()),
             ShellExecutor(ShellController()),

@@ -37,7 +37,6 @@ val ActionCategory.displayNameRes: Int
         ActionCategory.APP -> R.string.action_category_app
         ActionCategory.INTENT -> R.string.action_category_intent
         ActionCategory.ACCESSIBILITY -> R.string.action_category_accessibility
-        ActionCategory.PACKAGE -> R.string.action_category_package
         ActionCategory.SETTINGS -> R.string.action_category_settings
         ActionCategory.SYSTEMCMD -> R.string.action_category_system_cmd
         ActionCategory.SHELL -> R.string.action_category_shell

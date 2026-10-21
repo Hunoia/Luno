@@ -5,7 +5,6 @@ enum class ActionCategory {
     APP,
     INTENT,
     ACCESSIBILITY,
-    PACKAGE,
     SETTINGS,
     SYSTEMCMD,
     SHELL,

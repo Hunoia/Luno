@@ -4,6 +4,7 @@ import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.action.model.SettingsPage
+import hunoia.luno.action.model.label
 import hunoia.luno.quicklaunch.query.AppSearch.key
 
 fun QuickSearchIndex.hasContactsPermission(): Boolean =
@@ -495,14 +496,6 @@ private fun QuickSearchIndex.formatSize(bytes: Long): String {
     return "${String.format("%.1f", mb / 1024.0)} GB"
     }
 
-    /** 设置页 label 与动作选择页同源：从 system.openSettings 的 Enum options 动态取。 */
-internal fun QuickSearchIndex.systemSettingsPages(): List<QuickSearchResult.Settings> {
-    val def = ActionDefinitions.byTypeId("system.openSettings") ?: return emptyList()
-    val enum = def.parameters.filterIsInstance<ParameterDefinition.Enum>()
-        .firstOrNull { it.key == "page" } ?: return emptyList()
-    return enum.options.mapNotNull { opt ->
-        runCatching { SettingsPage.valueOf(opt.value) }.getOrNull()?.let {
-            QuickSearchResult.Settings(it, opt.label)
-        }
-    }
-    }
+    /** 设置页 label 同源：SettingsPage.label（原 Enum 参数已改为选择页行尾设置）。 */
+internal fun QuickSearchIndex.systemSettingsPages(): List<QuickSearchResult.Settings> =
+    SettingsPage.entries.map { QuickSearchResult.Settings(it, it.label) }

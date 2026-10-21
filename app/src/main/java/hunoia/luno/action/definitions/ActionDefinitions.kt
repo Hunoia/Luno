@@ -11,8 +11,6 @@ import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.Assistant
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.FlashlightOn
 import androidx.compose.material.icons.filled.Gesture
@@ -20,8 +18,8 @@ import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.PauseCircle
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.Password
 import androidx.compose.material.icons.filled.PowerOff
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.RadioButtonChecked
@@ -29,18 +27,15 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ScreenLockPortrait
 import androidx.compose.material.icons.filled.Screenshot
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SettingsInputComponent
 import androidx.compose.material.icons.filled.SettingsInputComposite
-import hunoia.luno.action.definitions.PlayPause
 import hunoia.luno.action.model.ACTION_PANEL_PARAM_PANEL_ID
 import hunoia.luno.action.model.ACTION_PANEL_TYPE_ID
-import hunoia.luno.action.model.PARAM_X_DP
-import hunoia.luno.action.model.PARAM_Y_DP
-import hunoia.luno.action.model.USE_TRIGGER_POINT_KEY
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Splitscreen
-import androidx.compose.material.icons.filled.StopCircle
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.TouchApp
@@ -50,6 +45,7 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.VerticalAlignTop
 import androidx.compose.material.icons.filled.ViewCarousel
 import androidx.compose.material.icons.filled.Vibration
+import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.Window
 import androidx.compose.material.icons.filled.Widgets
 import hunoia.luno.action.definitions.ActionCategory
@@ -66,20 +62,8 @@ object ActionDefinitions {
                 ParameterDefinition.AppSelector("packageName", "应用"),
                 ParameterDefinition.Bool("miniWindow", "小窗模式", "false"),
                 ParameterDefinition.ActivitySelector("className", "Activity", required = false, packageKey = "packageName"),
-                ParameterDefinition.MiniWindow("miniWindowSettings", "小窗"),
             ),
             icon = Icons.Default.Android,
-        ))
-        add(ActionDefinition(
-            "app.openActivity", "打开 Activity", ActionCategory.APP,
-            Capability.None,
-            listOf(
-                ParameterDefinition.AppSelector("packageName", "应用"),
-                ParameterDefinition.ActivitySelector("activityClassName", "Activity"),
-                ParameterDefinition.Bool("miniWindow", "小窗模式", "false"),
-                ParameterDefinition.MiniWindow("miniWindowSettings", "小窗"),
-            ),
-            icon = Icons.AutoMirrored.Filled.OpenInNew,
         ))
         add(ActionDefinition(
             "app.details", "应用详情", ActionCategory.APP,
@@ -87,10 +71,10 @@ object ActionDefinitions {
             listOf(ParameterDefinition.AppSelector("packageName", "应用")),
             icon = Icons.Default.Info,
         ))
+        // 无参定义：动作库自动不显示；小窗尺寸/位置一律用全局小窗设置。
         add(ActionDefinition(
-            "app.popup", "弹出当前应用", ActionCategory.APP,
+            "app.popup", "小窗当前应用", ActionCategory.APP,
             Capability.None,
-            parameters = listOf(ParameterDefinition.MiniWindow("miniWindowSettings", "小窗")),
             icon = Icons.Default.Window,
         ))
         add(ActionDefinition(
@@ -106,7 +90,6 @@ object ActionDefinitions {
             Capability.None,
             listOf(
                 ParameterDefinition.Text("url", "URL"),
-                ParameterDefinition.MiniWindow("miniWindowSettings", "小窗"),
             ),
             icon = Icons.AutoMirrored.Filled.OpenInNew,
         ))
@@ -131,68 +114,52 @@ object ActionDefinitions {
         ))
 
         // System
+        // 参数改在动作选择页行尾设置弹窗里配（openSettings 页面由快速搜索长按共用写入）。
         add(ActionDefinition(
             "system.openSettings", "打开设置页", ActionCategory.SYSTEM,
             Capability.None,
-            listOf(ParameterDefinition.Enum("page", "设置页", listOf(
-                EnumOption("WIFI", "Wi-Fi"),
-                EnumOption("BLUETOOTH", "蓝牙"),
-                EnumOption("DISPLAY", "显示"),
-                EnumOption("BATTERY", "电池"),
-                EnumOption("APPS", "应用"),
-                EnumOption("NETWORK", "网络"),
-                EnumOption("ACCESSIBILITY", "无障碍"),
-                EnumOption("MAIN", "主设置"),
-            ), defaultValue = "MAIN")),
             icon = Icons.Default.Settings,
         ))
         add(ActionDefinition(
             "system.volume", "音量控制", ActionCategory.SYSTEM,
             Capability.None,
-            listOf(
-                ParameterDefinition.Enum("stream", "音频流", listOf(
-                    EnumOption("MUSIC", "媒体"),
-                    EnumOption("RING", "铃声"),
-                    EnumOption("NOTIFICATION", "通知"),
-                    EnumOption("ALARM", "闹钟"),
-                    EnumOption("VOICE", "通话"),
-                    EnumOption("SYSTEM", "系统"),
-                ), defaultValue = "MUSIC"),
-                ParameterDefinition.Enum("direction", "方向", listOf(
-                    EnumOption("UP", "增大"),
-                    EnumOption("DOWN", "减小"),
-                ), defaultValue = "UP"),
-            ),
             icon = Icons.AutoMirrored.Default.VolumeUp,
         ))
         add(ActionDefinition(
             "system.vibrate", "振动", ActionCategory.SYSTEM,
             Capability.None,
-            listOf(ParameterDefinition.Text("pattern", "振动模式", required = false, defaultValue = "0,500", allowTemplates = false)),
             icon = Icons.Default.Vibration,
         ))
+        // 剪贴板/媒体控制拆成无参数动作；密码长度用动作设置里的密码生成配置。
         add(ActionDefinition(
-            "system.clipboard", "剪贴板", ActionCategory.SYSTEM,
+            "system.clipboardRandomName", "剪贴板随机名称", ActionCategory.SYSTEM,
             Capability.None,
-            listOf(
-                ParameterDefinition.Enum("operation", "操作", listOf(
-                    EnumOption("RANDOM_NAME", "随机名称"),
-                    EnumOption("GENERATE_PASSWORD", "生成密码"),
-                ), defaultValue = "RANDOM_NAME"),
-                ParameterDefinition.Number("length", "长度", required = false, min = 4, max = 64),
-            ),
             icon = Icons.Default.ContentCopy,
         ))
         add(ActionDefinition(
-            "system.media", "媒体控制", ActionCategory.SYSTEM,
+            "system.clipboardPassword", "生成密码", ActionCategory.SYSTEM,
             Capability.None,
-            listOf(ParameterDefinition.Enum("command", "命令", listOf(
-                EnumOption("PLAY_PAUSE", "播放/暂停"),
-                EnumOption("NEXT", "下一首"),
-                EnumOption("PREVIOUS", "上一首"),
-                EnumOption("MUTE", "静音"),
-            ), defaultValue = "PLAY_PAUSE")),
+            icon = Icons.Default.Password,
+        ))
+        add(ActionDefinition(
+            "system.mediaPlayPause", "播放/暂停", ActionCategory.SYSTEM,
+            Capability.None,
             icon = Icons.Default.PlayPause,
+        ))
+        add(ActionDefinition(
+            "system.mediaNext", "下一首", ActionCategory.SYSTEM,
+            Capability.None,
+            icon = Icons.Default.SkipNext,
+        ))
+        add(ActionDefinition(
+            "system.mediaPrevious", "上一首", ActionCategory.SYSTEM,
+            Capability.None,
+            icon = Icons.Default.SkipPrevious,
+        ))
+        add(ActionDefinition(
+            "system.mediaMute", "静音", ActionCategory.SYSTEM,
+            Capability.None,
+            icon = Icons.Default.VolumeOff,
         ))
         add(ActionDefinition(
             "system.flashlight", "手电筒", ActionCategory.SYSTEM,
@@ -208,36 +175,11 @@ object ActionDefinitions {
         add(ActionDefinition("accessibility.recents", "最近任务", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
             icon = Icons.Default.ViewCarousel))
         add(ActionDefinition("accessibility.tap", "点击", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
-            listOf(
-                ParameterDefinition.Bool(
-                    key = USE_TRIGGER_POINT_KEY,
-                    label = "使用触发位置坐标",
-                ),
-                // 坐标非必填：勾了上面那个开关就只认手势触点，固定坐标整组隐藏。
-                ParameterDefinition.Number(PARAM_X_DP, "横坐标 dp", required = false, min = 0),
-                ParameterDefinition.Number(PARAM_Y_DP, "纵坐标 dp", required = false, min = 0),
-            ),
             icon = Icons.Default.TouchApp))
         add(ActionDefinition("accessibility.longPress", "长按", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
-            listOf(
-                ParameterDefinition.Bool(
-                    key = USE_TRIGGER_POINT_KEY,
-                    label = "使用触发位置坐标",
-                ),
-                ParameterDefinition.Number(PARAM_X_DP, "横坐标 dp", required = false, min = 0),
-                ParameterDefinition.Number(PARAM_Y_DP, "纵坐标 dp", required = false, min = 0),
-                ParameterDefinition.Number("durationMs", "时长毫秒", required = false, defaultValue = "1000", min = 100, max = 10000),
-            ),
             icon = Icons.Default.Gesture))
         add(ActionDefinition(
             "accessibility.swipe", "滑动", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
-            listOf(ParameterDefinition.Enum("direction", "方向", listOf(
-                EnumOption("UP", "向上"),
-                EnumOption("DOWN", "向下"),
-                EnumOption("LEFT", "向左"),
-                EnumOption("RIGHT", "向右"),
-                EnumOption("TO_TOP", "到顶部"),
-            ), defaultValue = "UP")),
             icon = Icons.Default.VerticalAlignTop,
         ))
         add(ActionDefinition(
@@ -257,33 +199,6 @@ object ActionDefinitions {
             icon = Icons.Default.Dashboard))
         add(ActionDefinition("accessibility.lockScreen", "锁屏", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
             icon = Icons.Default.ScreenLockPortrait))
-
-        // Package
-        add(ActionDefinition(
-            "package.enable", "启用应用", ActionCategory.PACKAGE,
-            Capability.Shizuku, listOf(ParameterDefinition.AppSelector("packageName", "应用")),
-            icon = Icons.Default.PlayCircle,
-        ))
-        add(ActionDefinition(
-            "package.disable", "禁用应用", ActionCategory.PACKAGE,
-            Capability.Shizuku, listOf(ParameterDefinition.AppSelector("packageName", "应用")),
-            icon = Icons.Default.PauseCircle,
-        ))
-        add(ActionDefinition(
-            "package.forceStop", "强制停止", ActionCategory.PACKAGE,
-            Capability.Shizuku, listOf(ParameterDefinition.AppSelector("packageName", "应用")),
-            icon = Icons.Default.StopCircle,
-        ))
-        add(ActionDefinition(
-            "package.clearData", "清除数据", ActionCategory.PACKAGE,
-            Capability.Shizuku, listOf(ParameterDefinition.AppSelector("packageName", "应用")),
-            icon = Icons.Default.Delete,
-        ))
-        add(ActionDefinition(
-            "package.uninstall", "卸载应用", ActionCategory.PACKAGE,
-            Capability.Shizuku, listOf(ParameterDefinition.AppSelector("packageName", "应用")),
-            icon = Icons.Default.DeleteForever,
-        ))
 
         // Settings
         add(ActionDefinition(
@@ -357,74 +272,18 @@ object ActionDefinitions {
         add(ActionDefinition(GRID_PANEL_TYPE_ID, "网格面板", ActionCategory.INTERNAL, Capability.None,
             icon = Icons.Default.GridView))
         add(ActionDefinition("internal.hideGestureButton", "隐藏触钮", ActionCategory.INTERNAL, Capability.None,
-            parameters = listOf(ParameterDefinition.Number(
-                key = "delayMs",
-                label = "隐藏触钮时长",
-                required = false,
-                defaultValue = "1000",
-                min = 0,
-                max = 3000,
-            )),
             icon = Icons.Default.VisibilityOff))
+        // 参数改在动作选择页行尾设置按钮里配（弹窗），不设置落运行时默认值。
         add(ActionDefinition("internal.buttonsVisibility", "触钮显隐", ActionCategory.INTERNAL, Capability.None,
-            parameters = listOf(
-                ParameterDefinition.Enum(
-                    key = "visible",
-                    label = "显隐",
-                    options = listOf(
-                        EnumOption("true", "显示"),
-                        EnumOption("false", "隐藏"),
-                    ),
-                    defaultValue = "true",
-                ),
-                ParameterDefinition.Enum(
-                    key = "target",
-                    label = "作用范围",
-                    options = listOf(
-                        EnumOption("ALL", "全部触钮"),
-                        EnumOption("EXCEPT", "除选中外"),
-                        EnumOption("ONLY", "仅选中"),
-                    ),
-                    defaultValue = "ALL",
-                ),
-                ParameterDefinition.ButtonSelectorMulti(
-                    key = "buttonIds",
-                    label = "触钮",
-                ),
-            ),
             icon = Icons.Default.Visibility))
         add(ActionDefinition("internal.quickAppLauncher", "快速启动面板", ActionCategory.INTERNAL, Capability.None,
             icon = Icons.Default.Apps))
         add(ActionDefinition("internal.floatBallVisibility", "悬浮球显隐", ActionCategory.INTERNAL, Capability.None,
-            parameters = listOf(ParameterDefinition.Enum(
-                key = "visible",
-                label = "显隐",
-                options = listOf(
-                    EnumOption("toggle", "切换"),
-                    EnumOption("true", "显示"),
-                    EnumOption("false", "隐藏"),
-                ),
-                defaultValue = "toggle",
-            )),
             icon = Icons.Default.Adjust))
         add(ActionDefinition("internal.quickSearch", "快速搜索", ActionCategory.INTERNAL, Capability.None,
             icon = Icons.Default.Search))
+        // 水平调节删掉，恒开；灵敏度在动作选择页行尾设置按钮里配。
         add(ActionDefinition("internal.volumeScrub", "滑动调音量", ActionCategory.INTERNAL, Capability.None,
-            parameters = listOf(
-                ParameterDefinition.Bool(
-                    key = "horizontalEnabled",
-                    label = "水平音量调节",
-                    defaultValue = "true",
-                ),
-                ParameterDefinition.Number(
-                    key = "stepThresholdDp",
-                    label = "灵敏度",
-                    required = false,
-                    defaultValue = "14",
-                    min = 4,
-                    max = 64,
-                ),
-            ),
             icon = Icons.Default.Widgets))
         add(ActionDefinition("internal.pointer", "指针", ActionCategory.INTERNAL, Capability.None,
             icon = Icons.Default.TouchApp))
@@ -452,15 +311,10 @@ object ActionDefinitions {
         "internal.runRule",
         ACTION_PANEL_TYPE_ID,
         "app.launchShortcut",
-    )
-
-    // 网格面板同动作面板：定义只为具名合成行提供名称/图标/分类，通用行是空引用
-    // 死行（panelId 只能由合成行带进来），picker / 自动化两边都禁掉。动作库那边
-    // 不占 libraryExcluded —— 无参定义本就被 ActionCatalog.libraryDefinitions 滤掉。
-    private val pickerExcluded: Set<String> = libraryExcluded + setOf(
-        "app.launch",
-        "accessibility.tap",
-        "accessibility.longPress",
+        // 应用详情只服务快速搜索长按入口，不在库/选择页开放新建
+        "app.details",
+        // 网格面板通用空行：panelId 只能由选择页合成的具名行带入，
+        // 库/选择页/自动化全禁（无参本就进不了库，这里为 picker/automation 生效）。
         GRID_PANEL_TYPE_ID,
     )
 
@@ -469,7 +323,6 @@ object ActionDefinitions {
         "accessibility.tap",
         "accessibility.longPress",
         "internal.hideGestureButton",
-        GRID_PANEL_TYPE_ID,
     )
 
     fun libraryDefinitions(): List<ActionDefinition> = definitions.filterNot { it.typeId in libraryExcluded }
@@ -481,9 +334,9 @@ object ActionDefinitions {
      * [pickerDefinitions] 的默认参数：收到空集合时 `typeId !in emptySet()` 恒真，
      * 整张表都会变成可选，包括「启动快捷方式」和 `internal.subGesture`。
      */
-    fun pickerExcludedTypeIds(): Set<String> = pickerExcluded
+    fun pickerExcludedTypeIds(): Set<String> = libraryExcluded
 
-    fun pickerDefinitions(excluded: Set<String> = pickerExcluded): List<ActionDefinition> =
+    fun pickerDefinitions(excluded: Set<String> = libraryExcluded): List<ActionDefinition> =
         definitions.filter { it.typeId !in excluded && it.parameters.none { p -> p.required } }
 
     private val categoryOrder: Map<ActionCategory, Int> =

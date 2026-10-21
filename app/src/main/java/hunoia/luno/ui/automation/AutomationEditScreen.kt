@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,6 +30,8 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -83,6 +86,8 @@ import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.component.FabMenuPopup
+import hunoia.luno.ui.component.FabMenuItem
 import hunoia.luno.ui.theme.appHazeEffect
 import kotlinx.coroutines.launch
 import hunoia.luno.ui.component.CheckDropdownMenuItem
@@ -238,12 +243,40 @@ fun AutomationEditScreen(
             )
         },
         bottomContentPadding = FloatingContentBottom,
-        floatingContent = { hazeState ->
-            SavePill(
-                hazeState = hazeState,
-                dirty = dirty,
-                onClick = { trySave() },
-            )
+        floatingContent = { _ ->
+            // 标准 M3 FAB + 保存菜单：dirty 时主容器色提示未保存；点击走 trySave（无效配置弹拦截框）。
+            var saveMenuExpanded by rememberSaveable { mutableStateOf(false) }
+            if (saveMenuExpanded) {
+                FabMenuPopup(
+                    onDismiss = { saveMenuExpanded = false },
+                    bottomPadding = 88.dp,
+                ) {
+                    FabMenuItem(
+                        label = stringResource(R.string.save),
+                        icon = Icons.Default.Save,
+                        enabled = true,
+                    ) {
+                        saveMenuExpanded = false
+                        trySave()
+                    }
+                }
+            }
+            FloatingActionButton(
+                onClick = { saveMenuExpanded = !saveMenuExpanded },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(end = 16.dp, bottom = 16.dp)
+                    .size(64.dp),
+                shape = FloatingActionButtonDefaults.shape,
+                containerColor = if (dirty) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surfaceContainerHighest,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Save,
+                    contentDescription = stringResource(R.string.save),
+                )
+            }
         },
         dialogs = {
             if (showBlockedDialog) {
@@ -1100,33 +1133,4 @@ private fun NotificationPermissionRow() {
             }
         },
     )
-}
-@Composable
-private fun BoxScope.SavePill(
-    hazeState: dev.chrisbanes.haze.HazeState?,
-    dirty: Boolean,
-    onClick: () -> Unit,
-) {
-    val contentColor = if (dirty) MaterialTheme.colorScheme.primary
-    else MaterialTheme.colorScheme.onSurfaceVariant
-    val containerColor = if (dirty) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f)
-    else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.65f)
-    Box(
-        modifier = Modifier
-            .align(Alignment.BottomEnd)
-            .padding(end = PageGutter, bottom = BottomBarPadding)
-            .windowInsetsPadding(WindowInsets.navigationBars)
-            .clip(CircleShape)
-            .appHazeEffect(hazeState, containerColor)
-            .clickable(onClick = onClick, role = Role.Button)
-            // 对标底栏 + 号键 64 正圆。
-            .size(64.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector = Icons.Default.Save,
-            contentDescription = stringResource(R.string.save),
-            tint = contentColor,
-        )
-    }
 }
