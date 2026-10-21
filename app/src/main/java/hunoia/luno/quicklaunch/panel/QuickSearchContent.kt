@@ -112,7 +112,6 @@ import hunoia.luno.quicklaunch.query.ensureMedia
 import hunoia.luno.quicklaunch.query.ensureSms
 import hunoia.luno.quicklaunch.query.invalidateToggleState
 import hunoia.luno.quicklaunch.query.isDirective
-import hunoia.luno.quicklaunch.query.recentFiles
 import hunoia.luno.quicklaunch.query.refreshPermissionCache
 import hunoia.luno.quicklaunch.query.search
 import hunoia.luno.quicklaunch.query.stableId
@@ -437,17 +436,11 @@ internal fun QuickSearchContent(
             permCtx.packageManager,
         ) != null
     }
-    // 空态两段数据（常用应用 / 最近文件）：放在条件分支外，面板生命周期内只跑一次。
+    // 空态常用应用：放在条件分支外，面板生命周期内只跑一次。
     // 以前写在 else-if 分支里，分支一退出就取消，来回切 query 会反复重启 IO。
     var topUsedApps by remember { mutableStateOf(emptyList<QuickSearchResult.App>()) }
     LaunchedEffect(effectiveLauncher, indexVersion) {
         topUsedApps = withContext(Dispatchers.IO) { index.topUsed(effectiveLauncher) }
-    }
-    var recentFiles by remember { mutableStateOf(emptyList<QuickSearchResult>()) }
-    LaunchedEffect(mediaTick, searchSettings.searchFiles) {
-        recentFiles =
-            if (searchSettings.searchFiles) withContext(Dispatchers.IO) { index.recentFiles() }
-            else emptyList()
     }
     // 进出场动画状态：进场从 0.92/0 起播到 1，closing 置位后播到 0.95/0。
     val panelScale = remember { Animatable(0.92f) }
@@ -581,11 +574,10 @@ internal fun QuickSearchContent(
                 // 锁屏占位：剪贴内容不展，只留一行提示。
                 val showClipPlaceholder = searchSettings.searchClipboard && locked
                 val clipPlaceholderCount = if (showClipPlaceholder) 1 else 0
-                // 空态常用/最近文件：数据由上方（分支外的 LaunchedEffect）供，这里只读。
-                // 以前这两个 LaunchedEffect 写在分支内，分支一退出就取消，来回切 query
-                // 会反复重启 IO（含 MediaStore 权限复查）；现在面板打开期间只跑一次。
+                // 空态常用：数据由上方（分支外的 LaunchedEffect）供，这里只读。
+                // 以前这个 LaunchedEffect 写在分支内，分支一退出就取消，来回切 query
+                // 会反复重启 IO；现在面板打开期间只跑一次。
                 val used = topUsedApps
-                val recent = recentFiles
                 val clipCount = clips.size
                 // 锁屏占位占 clips 段的首位：后续 pos 统一按槽位（clips+占位）偏移。
                 val clipSlotCount = clipCount + clipPlaceholderCount
@@ -605,25 +597,27 @@ internal fun QuickSearchContent(
                 val calendarGrantCount = if (showCalendarGrant) 1 else 0
                 val smsGrantCount = if (showSmsGrant) 1 else 0
                 val callsGrantCount = if (showCallsGrant) 1 else 0
-                if (history.isNotEmpty() || clips.isNotEmpty() || showClipPlaceholder || used.isNotEmpty() || recent.isNotEmpty() ||
+                if (history.isNotEmpty() || clips.isNotEmpty() || showClipPlaceholder || used.isNotEmpty() ||
                     showGrant || showMediaGrant || showFilesGrant ||
                     showCalendarGrant || showSmsGrant || showCallsGrant
                 ) {
-                    val total = history.size + clipCount + clipPlaceholderCount + used.size + recent.size +
+                    // 整列共用一套连续圆角：剪贴板与上方内容之间用 ConnectionRadius 连在一起，
+                    // 只有整列最底/最顶才用 ContainerRadius。
+                    val contentCount = history.size + used.size +
                         grantCount + mediaGrantCount + filesGrantCount +
                         calendarGrantCount + smsGrantCount + callsGrantCount
+                    val total = clipSlotCount + contentCount
                     val blankListState = rememberLazyListState()
                     // 内容签名同搜索态：数量变不再抢滚动，只有内容身份变才钉回首项。
                     val blankSig = signatureOf(
-                        listOf(clips.firstOrNull(), history.firstOrNull(), used.firstOrNull(), recent.firstOrNull()),
-                        listOf(clips.lastOrNull(), history.lastOrNull(), used.lastOrNull(), recent.lastOrNull()),
+                        listOf(clips.firstOrNull(), history.firstOrNull(), used.firstOrNull()),
+                        listOf(clips.lastOrNull(), history.lastOrNull(), used.lastOrNull()),
                         total,
                     )
                     LaunchedEffect(blankSig) { blankListState.scrollToItem(0) }
                     val usedKeys = remember(used) {
                         stableKeys(used.map { "u#${it.appInfo.packageName}/${it.appInfo.className}" })
                     }
-                    val recentKeys = remember(recent) { stableKeys(recent.map { "r#" + it.stableId() }) }
                     LazyColumn(
                         state = blankListState,
                         modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = PageGutter).listFade(),
@@ -631,7 +625,7 @@ internal fun QuickSearchContent(
                         verticalArrangement = Arrangement.spacedBy(SegmentedGap, Alignment.Bottom),
                         reverseLayout = true,
                     ) {
-                        // 剪贴板历史最贴胶囊（首条=当前剪贴），其次搜索历史，最后常用/最近文件。
+                        // 剪贴板历史最贴胶囊（首条=当前剪贴），其次搜索历史，最后常用。
                         // 锁屏时 clips 为空，占位行顶在同一槽位。
                         if (showClipPlaceholder) {
                             item(key = "c-locked") {
@@ -658,7 +652,9 @@ internal fun QuickSearchContent(
                         itemsIndexed(history, key = { _, h -> "h#$h" }) { pos, h ->
                             HistoryRow(
                                 text = h,
-                                shape = segmentedShape(total - 1 - pos, total),
+                                // 历史段上方没有 clip，但下方有：算整列视觉下标时必须带上
+                                // clipSlotCount，否则历史最后一行会误拿整列底部的大圆角。
+                                shape = segmentedShape(total - 1 - clipSlotCount - pos, total),
                                 onClick = {
                                     query = backfillText(h).let { TextFieldValue(it, TextRange(it.length)) }
                                 },
@@ -674,19 +670,9 @@ internal fun QuickSearchContent(
                                 onLongClick = { safeLongPress(app) },
                             )
                         }
-                        // 最近文件（图库 + 文档按修改时间，不搜只展，点开/长按分享走 ResultRow）。
-                        itemsIndexed(recent, key = { idx, _ -> recentKeys[idx] }) { idx, item ->
-                            val pos = clipSlotCount + history.size + used.size + idx
-                            ResultRow(
-                                result = item,
-                                shape = segmentedShape(total - 1 - pos, total),
-                                onClick = { safeResult(item, "") },
-                                onLongClick = { safeLongPress(item) },
-                            )
-                        }
                         if (showGrant) {
                             item(key = "grant-contacts") {
-                                val pos = history.size + clipSlotCount + used.size + recent.size
+                                val pos = clipSlotCount + history.size + used.size
                                 HistoryRow(
                                     text = stringResource(R.string.quick_search_grant_contacts),
                                     shape = segmentedShape(total - 1 - pos, total),
@@ -700,7 +686,7 @@ internal fun QuickSearchContent(
                         }
                         if (showMediaGrant) {
                             item(key = "grant-media") {
-                                val pos = history.size + clipSlotCount + used.size + recent.size + grantCount
+                                val pos = clipSlotCount + history.size + used.size + grantCount
                                 HistoryRow(
                                     text = stringResource(R.string.quick_search_grant_media),
                                     shape = segmentedShape(total - 1 - pos, total),
@@ -723,7 +709,8 @@ internal fun QuickSearchContent(
                         }
                         if (showFilesGrant) {
                             item(key = "grant-files") {
-                                val pos = history.size + clipSlotCount + used.size + recent.size + grantCount + mediaGrantCount
+                                val pos = clipSlotCount + history.size + used.size +
+                                    grantCount + mediaGrantCount
                                 HistoryRow(
                                     text = stringResource(R.string.quick_search_grant_files),
                                     shape = segmentedShape(total - 1 - pos, total),
@@ -743,7 +730,7 @@ internal fun QuickSearchContent(
                         }
                         if (showCalendarGrant) {
                             item(key = "grant-calendar") {
-                                val pos = history.size + clipSlotCount + used.size + recent.size +
+                                val pos = clipSlotCount + history.size + used.size +
                                     grantCount + mediaGrantCount + filesGrantCount
                                 HistoryRow(
                                     text = stringResource(R.string.quick_search_grant_calendar),
@@ -758,7 +745,7 @@ internal fun QuickSearchContent(
                         }
                         if (showSmsGrant) {
                             item(key = "grant-sms") {
-                                val pos = history.size + clipSlotCount + used.size + recent.size +
+                                val pos = clipSlotCount + history.size + used.size +
                                     grantCount + mediaGrantCount + filesGrantCount + calendarGrantCount
                                 HistoryRow(
                                     text = stringResource(R.string.quick_search_grant_sms),
@@ -773,7 +760,7 @@ internal fun QuickSearchContent(
                         }
                         if (showCallsGrant) {
                             item(key = "grant-calls") {
-                                val pos = history.size + clipSlotCount + used.size + recent.size +
+                                val pos = clipSlotCount + history.size + used.size +
                                     grantCount + mediaGrantCount + filesGrantCount +
                                     calendarGrantCount + smsGrantCount
                                 HistoryRow(
