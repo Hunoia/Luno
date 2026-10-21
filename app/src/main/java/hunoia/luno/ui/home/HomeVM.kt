@@ -10,10 +10,13 @@ import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.resolveDisplayName
 import hunoia.luno.core.AppContext
 import hunoia.luno.R
+import hunoia.luno.domain.system.EnableAccessibilityUseCase
 import hunoia.luno.domain.system.KeepAliveUseCase
 import hunoia.luno.domain.system.PermissionStateUseCase
+import hunoia.luno.bridge.system.hasWriteSecureSettingsPermission
 import hunoia.luno.shizuku.ShizukuManager
 import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -22,6 +25,10 @@ import kotlinx.coroutines.withContext
 class HomeVM : HomeVMBase() {
 
     override val initialState: UiState = UiState()
+
+    /** 总开关开启链路中跳无障碍设置后的待重试标记。 */
+    private var pendingEnableByAccessibility = false
+    private var switchJob: Job? = null
 
     init {
         loadData()
@@ -146,25 +153,68 @@ class HomeVM : HomeVMBase() {
 
     fun onGestureSwitchChange(enabled: Boolean, onAccessibilityNeeded: () -> Unit) {
         if (!enabled) {
+            // 手动关闭：清待重试；连带关保活（停 DaemonService），无障碍设置不动。
+            pendingEnableByAccessibility = false
             updateUiState {
                 it.copy(isGestureSwitchEnabled = false).withRuntimeStatus()
             }
             saveGestureSwitchEnabled(false)
+            viewModelScope.launch {
+                runCatching { KeepAliveUseCase.setEnabled(AppContext.get(), false) { _ -> } }
+            }
             return
         }
+        // 乐观弹起；全链路失败再回弹。
+        updateUiState {
+            it.copy(isGestureSwitchEnabled = true).withRuntimeStatus()
+        }
+        switchJob?.cancel()
+        switchJob = viewModelScope.launch {
+            val context = AppContext.get()
+            var wss = context.hasWriteSecureSettingsPermission()
+            if (!wss) {
+                // 先拉起 Shizuku 授权，授权成功顺带 pm grant WRITE_SECURE_SETTINGS。
+                val granted = runCatching { ShizukuManager.requestPermission() }.getOrDefault(false)
+                if (granted) {
+                    runCatching { ShizukuManager.ensureWriteSecureSettings() }
+                    wss = context.hasWriteSecureSettingsPermission()
+                }
+            }
+            if (wss) {
+                runCatching { KeepAliveUseCase.setEnabled(context, true) { _ -> } }
+                val ok = runCatching { EnableAccessibilityUseCase.enable(context) }.getOrDefault(false)
+                if (ok) {
+                    pendingEnableByAccessibility = false
+                    commitGestureSwitch(true)
+                    return@launch
+                }
+            }
+            // Shizuku 不可用/授权失败/写设置失败：保持弹起，跳无障碍设置，待重试。
+            pendingEnableByAccessibility = true
+            withContext(Dispatchers.Main) { onAccessibilityNeeded() }
+        }
+    }
+
+    /** ON_RESUME：待重试时检查无障碍，已开则补完开启；仍关则回弹并提示。 */
+    fun onHomeResumed(onRetryFailed: () -> Unit) {
+        if (!pendingEnableByAccessibility) return
+        pendingEnableByAccessibility = false
         viewModelScope.launch {
-            val permissionState = PermissionStateUseCase.loadHomePermissionState(AppContext.get())
-            if (!permissionState.isAccessibilityEnabled) {
-                withContext(Dispatchers.Main) { onAccessibilityNeeded() }
+            val context = AppContext.get()
+            val state = PermissionStateUseCase.loadHomePermissionState(context)
+            if (!state.isAccessibilityEnabled) {
+                updateUiState { it.copy(isGestureSwitchEnabled = false).withRuntimeStatus() }
+                withContext(Dispatchers.Main) { onRetryFailed() }
                 return@launch
             }
-            runCatching { ShizukuManager.requestPermission() }
-            runCatching { KeepAliveUseCase.setEnabled(AppContext.get(), true) { _ -> } }
-            updateUiState {
-                it.copy(isGestureSwitchEnabled = true).withRuntimeStatus()
-            }
-            saveGestureSwitchEnabled(true)
+            runCatching { KeepAliveUseCase.setEnabled(context, true) { _ -> } }
+            commitGestureSwitch(true)
         }
+    }
+
+    private fun commitGestureSwitch(enabled: Boolean) {
+        updateUiState { it.copy(isGestureSwitchEnabled = enabled).withRuntimeStatus() }
+        saveGestureSwitchEnabled(enabled)
     }
 
     fun onGestureButtonEnabledChange(button: GestureButton, enabled: Boolean) {

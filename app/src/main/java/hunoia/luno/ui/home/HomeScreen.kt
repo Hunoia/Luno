@@ -81,6 +81,7 @@ import hunoia.luno.ui.actionlibrary.NewActionLibraryScreen
 import hunoia.luno.ui.automation.AutomationRulesTabContent
 import hunoia.luno.ui.component.FloatingBottomBar
 import hunoia.luno.ui.component.FloatingBottomBarDefaults
+import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.ui.theme.PageGutter
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Build
@@ -177,6 +178,9 @@ fun HomeScreen(
             lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 vm.updatePermissionState()
                 vm.refreshShizukuStatus()
+                vm.onHomeResumed {
+                    showToast(R.string.gesture_switch_retry_failed)
+                }
             }
         }
 

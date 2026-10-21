@@ -29,6 +29,7 @@ import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleConfigContent
 import kotlin.math.roundToInt
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.screen.LunoScreen
 @OptIn(ExperimentalMaterial3Api::class)
@@ -86,37 +87,37 @@ fun ActionSettingsScreen(
         },
     ) {
 
-            LunoGroup {
+            LunoGroup(title = stringResource(R.string.action_settings_panel_group)) {
                 LunoSettingsRow(
                     icon = Icons.Default.RadioButtonChecked,
                     title = stringResource(R.string.action_panels),
                     subtitle = stringResource(R.string.action_panel_items_count, actionSettings.actionPanels.panels.sumOf { it.items.size }),
+                    shape = segmentedShape(0, 3),
                     onClick = onNavToActionPanels,
                 )
                 LunoSettingsRow(
                     icon = Icons.Default.GridView,
                     title = stringResource(R.string.grid_panels),
                     subtitle = stringResource(R.string.action_panel_items_count, actionSettings.actionGridPanels.panels.sumOf { it.items.size }),
+                    shape = segmentedShape(1, 3),
                     onClick = onNavToGridPanels,
                 )
-            }
-            LunoGroup {
                 LunoSettingsRow(
                     icon = Icons.Default.Gesture,
                     title = stringResource(R.string.action_panel_style),
                     subtitle = actionPanelStyleSummary(actionSettings.actionPanelStyle),
+                    shape = segmentedShape(2, 3),
                     onClick = { showActionPanelStyle = true },
                 )
             }
-            LunoGroup {
+            LunoGroup(title = stringResource(R.string.action_settings_other_group)) {
                 LunoSettingsRow(
                     icon = Icons.Default.Crop,
                     title = stringResource(R.string.mini_window_position_short),
                     subtitle = stringResource(R.string.mini_window_position_hint),
+                    shape = segmentedShape(0, 3),
                     onClick = { onNavToMiniWindowAdjust() },
                 )
-            }
-            LunoGroup {
                 LunoSettingsRow(
                     icon = Icons.Default.History,
                     title = stringResource(R.string.recent_apps_blocklist),
@@ -125,14 +126,14 @@ fun ActionSettingsScreen(
                     } else {
                         stringResource(R.string.action_param_multi_selected, actionSettings.recentAppsBlocklist.size)
                     },
+                    shape = segmentedShape(1, 3),
                     onClick = { showRecentAppsBlocklist = true },
                 )
-            }
-            LunoGroup {
                 LunoSettingsRow(
                     icon = Icons.Default.TouchApp,
                     title = stringResource(R.string.pointer),
                     subtitle = stringResource(R.string.pointer_hint),
+                    shape = segmentedShape(2, 3),
                     onClick = { showPointer = true },
                 )
             }

@@ -169,6 +169,8 @@
     <string name="float_ball_off">关闭</string>
     <string name="float_ball_trigger_actions">触发动作</string>
     <string name="float_ball_appearance">外观</string>
+    <string name="action_settings_panel_group">面板</string>
+    <string name="action_settings_other_group">其他</string>
     <string name="float_ball_permission_required">需要「显示在其他应用上层」权限</string>
     <string name="float_ball_permission_hint">悬浮球需要该权限才能显示。未授权时球不会出现。</string>
     <string name="float_ball_grant_permission">去授权</string>

@@ -157,19 +157,10 @@ fun FloatBallEditScreen(
 
         item(key = "appearance") {
             LunoGroup(title = stringResource(R.string.float_ball_appearance)) {
-                LunoTextSlider(
-                    value = localSizeDp,
-                    onValueChange = { value -> localSizeDp = value },
-                    onValueChangeFinished = { update { it.copy(sizeDp = localSizeDp) } },
-                    text = stringResource(R.string.float_ball_size),
-                    valueDisplay = { "${it.toInt()} dp" },
-                    valueRange = FloatBallDefaults.MinSizeDp..FloatBallDefaults.MaxSizeDp,
-                    shape = segmentedShape(0, 2),
-                )
                 LunoSettingsRow(
                     title = stringResource(R.string.float_ball_color),
                     icon = Icons.Default.Palette,
-                    shape = segmentedShape(1, 2),
+                    shape = segmentedShape(0, 3),
                     leading = {
                         Box(
                             modifier = Modifier
@@ -182,11 +173,15 @@ fun FloatBallEditScreen(
                     },
                     onClick = { showColorPicker = true },
                 )
-            }
-        }
-
-        item(key = "idle") {
-            LunoGroup {
+                LunoTextSlider(
+                    value = localSizeDp,
+                    onValueChange = { value -> localSizeDp = value },
+                    onValueChangeFinished = { update { it.copy(sizeDp = localSizeDp) } },
+                    text = stringResource(R.string.float_ball_size),
+                    valueDisplay = { "${it.toInt()} dp" },
+                    valueRange = FloatBallDefaults.MinSizeDp..FloatBallDefaults.MaxSizeDp,
+                    shape = segmentedShape(1, 3),
+                )
                 LunoTextSlider(
                     value = localIdleDelay,
                     onValueChange = { value -> localIdleDelay = value },
@@ -196,7 +191,7 @@ fun FloatBallEditScreen(
                     text = stringResource(R.string.float_ball_idle_dim_delay),
                     valueDisplay = { if (it <= 0f) stringResource(R.string.float_ball_off) else "${it.toInt()} ms" },
                     valueRange = 0f..8000f,
-                    shape = segmentedShape(0, 1),
+                    shape = segmentedShape(2, 3),
                 )
             }
         }

@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import dev.chrisbanes.haze.HazeState
 import hunoia.luno.R
 import hunoia.luno.ui.theme.TopBarPaddingExtra
@@ -64,6 +65,8 @@ fun TopBar(
                             .let { if (onTitleClick == null) it else it.clickable(onClick = onTitleClick) },
                         text = title,
                         style = titleStyle,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     postfixTitle?.invoke()
                 }
