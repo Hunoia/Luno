@@ -3,17 +3,9 @@
 // 不受 AnimatedVisibility 宽度动画干扰；`+` 圆同根 Row 吃橡皮筋。
 package hunoia.luno.ui.component
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandHorizontally
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
@@ -24,8 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor as M3LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -48,7 +38,6 @@ import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.shadow.Shadow
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -56,10 +45,7 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
@@ -67,9 +53,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.util.fastCoerceIn
 import androidx.compose.ui.util.fastRoundToInt
-import hunoia.luno.R
 import hunoia.luno.ui.animation.DampedDragAnimation
-import hunoia.luno.ui.theme.AnimPanelResize
 import hunoia.luno.ui.theme.BottomBarHeight
 import hunoia.luno.ui.theme.BottomBarIconSize
 import hunoia.luno.ui.theme.BottomBarTabWidth
@@ -111,10 +95,6 @@ fun <T> FloatingBottomBar(
     hazeState: HazeState,
     modifier: Modifier = Modifier,
     colors: FloatingBottomBarColors = FloatingBottomBarDefaults.colors(),
-    showAdd: Boolean = false,
-    onAddClick: () -> Unit = {},
-    addIcon: ImageVector = Icons.Default.Add,
-    addContentDescription: String? = null,
     iconContent: @Composable (item: T, index: Int) -> Unit,
 ) {
     val isInDark = androidx.compose.foundation.isSystemInDarkTheme()
@@ -148,7 +128,6 @@ fun <T> FloatingBottomBar(
     var currentIndex by remember { mutableIntStateOf(selectedIndex()) }
     val selectedIndexUpdated by rememberUpdatedState(selectedIndex)
     val onSelectedUpdated by rememberUpdatedState(onSelected)
-    val onAddClickUpdated by rememberUpdatedState(onAddClick)
 
     // 拖拽修饰符挂 tabs 区：从 `+` 起手的滑动不带 pill，只有点击。
     fun indexAt(positionX: Float): Int {
@@ -311,62 +290,6 @@ fun <T> FloatingBottomBar(
                     .height(BottomBarHeight)
                     .width(BottomBarTabWidth),
             )
-        }
-        // 独立 `+` 圆（64 = 56 内容 + 上下各 4）：Haze 单层底，与栏底座同框架。
-        // 显隐：淡入 + 从贴栏侧展开/收起 + 圆心缩放，250ms。
-        AnimatedVisibility(
-            visible = showAdd,
-            enter = fadeIn(animationSpec = tween(AnimPanelResize.toInt())) +
-                expandHorizontally(
-                    animationSpec = tween(AnimPanelResize.toInt()),
-                    expandFrom = Alignment.Start,
-                ) +
-                scaleIn(
-                    animationSpec = tween(AnimPanelResize.toInt()),
-                    initialScale = 0.8f,
-                ),
-            exit = fadeOut(animationSpec = tween(AnimPanelResize.toInt())) +
-                shrinkHorizontally(
-                    animationSpec = tween(AnimPanelResize.toInt()),
-                    shrinkTowards = Alignment.Start,
-                ) +
-                scaleOut(
-                    animationSpec = tween(AnimPanelResize.toInt()),
-                    targetScale = 0.8f,
-                ),
-        ) {
-            Box(
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .appHazeEffect(hazeState, hazeBackground)
-                    .padding(
-                        horizontal = TileInnerPadding,
-                        vertical = TileInnerPadding,
-                    )
-                    .size(BottomBarHeight),
-                contentAlignment = Alignment.Center,
-            ) {
-                // 无高亮/无 ripple：+ 是弹出菜单入口，点击反馈交给弹出的菜单本身。
-                Box(
-                    modifier = Modifier
-                        .size(BottomBarHeight)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            role = Role.Button,
-                            onClick = { onAddClickUpdated() },
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = addIcon,
-                        contentDescription = addContentDescription
-                            ?: stringResource(R.string.action_library_add),
-                        modifier = Modifier.size(BottomBarIconSize),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
         }
     }
 }

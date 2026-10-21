@@ -1,5 +1,6 @@
 package hunoia.luno.action.model
 
+import hunoia.luno.R
 import hunoia.luno.config.defaults.ActionSettingsDefaults.HideGestureButtonDelayMs
 import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubStepThresholdDp
 import hunoia.luno.config.model.MiniWindowSettings
@@ -11,17 +12,17 @@ enum class SettingsPage {
     WIFI, BLUETOOTH, DISPLAY, BATTERY, APPS, NETWORK, ACCESSIBILITY, MAIN
 }
 
-/** 设置页中文名：快速搜索与选择页弹窗共用。 */
-val SettingsPage.label: String
+/** 设置页名称资源：快速搜索与选择页弹窗共用。 */
+val SettingsPage.labelRes: Int
     get() = when (this) {
-        SettingsPage.WIFI -> "Wi-Fi"
-        SettingsPage.BLUETOOTH -> "蓝牙"
-        SettingsPage.DISPLAY -> "显示"
-        SettingsPage.BATTERY -> "电池"
-        SettingsPage.APPS -> "应用"
-        SettingsPage.NETWORK -> "网络"
-        SettingsPage.ACCESSIBILITY -> "无障碍"
-        SettingsPage.MAIN -> "主设置"
+        SettingsPage.WIFI -> R.string.settings_page_wifi
+        SettingsPage.BLUETOOTH -> R.string.settings_page_bluetooth
+        SettingsPage.DISPLAY -> R.string.settings_page_display
+        SettingsPage.BATTERY -> R.string.settings_page_battery
+        SettingsPage.APPS -> R.string.settings_page_apps
+        SettingsPage.NETWORK -> R.string.settings_page_network
+        SettingsPage.ACCESSIBILITY -> R.string.settings_page_accessibility
+        SettingsPage.MAIN -> R.string.settings_page_main
     }
 
 /** 触钮显隐作用范围（沿用自动化旧 RuleScope 语义）。 */

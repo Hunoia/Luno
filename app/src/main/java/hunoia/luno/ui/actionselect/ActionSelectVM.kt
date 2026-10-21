@@ -75,12 +75,12 @@ class ActionSelectVM(
         }
     }
 
-    /** 点一行 = 选中 + 立即落盘 + 返回：没有「再点一下取消」的中间态，也没有完成键可等。 */
     /** 行尾设置弹窗确认：写回列表参数；若该行正被选中，同步选中记录。 */
     fun updateActionParams(old: StoredAction, new: StoredAction) {
         updateUiState { state -> updateActionParamsTransform(state, old, new) }
     }
 
+    /** 点一行 = 选中 + 立即落盘 + 返回：没有「再点一下取消」的中间态，也没有完成键可等。 */
     fun select(obj: Any) {
         when (obj) {
             is AppInfo -> updateUiState { selectAppInfoTransform(it, obj) }

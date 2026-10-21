@@ -4,7 +4,7 @@ import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.action.model.SettingsPage
-import hunoia.luno.action.model.label
+import hunoia.luno.action.model.labelRes
 import hunoia.luno.quicklaunch.query.AppSearch.key
 
 fun QuickSearchIndex.hasContactsPermission(): Boolean =
@@ -496,6 +496,6 @@ private fun QuickSearchIndex.formatSize(bytes: Long): String {
     return "${String.format("%.1f", mb / 1024.0)} GB"
     }
 
-    /** 设置页 label 同源：SettingsPage.label（原 Enum 参数已改为选择页行尾设置）。 */
+    /** 设置页 label 同源：SettingsPage.labelRes（原 Enum 参数已改为选择页行尾设置）。 */
 internal fun QuickSearchIndex.systemSettingsPages(): List<QuickSearchResult.Settings> =
-    SettingsPage.entries.map { QuickSearchResult.Settings(it, it.label) }
+    SettingsPage.entries.map { QuickSearchResult.Settings(it, context.getString(it.labelRes)) }

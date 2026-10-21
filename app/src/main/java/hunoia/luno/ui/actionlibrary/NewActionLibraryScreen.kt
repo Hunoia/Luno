@@ -17,35 +17,27 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
 import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.model.NewActionLibraryEntry
-import hunoia.luno.action.model.matchesQuery
 import hunoia.luno.action.definitions.ActionCategory
-import hunoia.luno.ui.component.AppSearchBar
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.TextIconGlyph
@@ -54,15 +46,12 @@ import hunoia.luno.ui.component.resolvedIcon
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SegmentedGap
 import hunoia.luno.ui.theme.RowIconSize
-import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.CardInnerSpacing
-import hunoia.luno.ui.theme.LargeGutter
+import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.ListSpacing
-import hunoia.luno.ui.theme.SearchBarPadding
 import hunoia.luno.ui.theme.TileInnerPadding
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.component.sheet.ConfirmDialog
 @Composable
 fun NewActionLibraryScreen(
     listState: LazyListState = rememberLazyListState(),
@@ -71,24 +60,14 @@ fun NewActionLibraryScreen(
     contentPadding: PaddingValues = PaddingValues(),
 ) {
     val uiState by vm.uiState.collectAsState()
-    var query by rememberSaveable { mutableStateOf("") }
-    var pendingDeleteEntry by remember { mutableStateOf<NewActionLibraryEntry?>(null) }
     var iconPickerEntry by remember { mutableStateOf<NewActionLibraryEntry?>(null) }
-    var resetCounter by remember { mutableStateOf(0) }
-    val filtered = remember(uiState.entries, query) {
+    val filtered = remember(uiState.entries) {
         uiState.entries
-            .filter { it.matchesQuery(query) }
             .sortedBy { ActionDefinitions.categoryOrder(ActionDefinitions.byTypeId(it.typeId)?.category ?: ActionCategory.INTERNAL) }
     }
     val grouped = remember(filtered) { filtered.groupBy { ActionDefinitions.byTypeId(it.typeId)?.category ?: ActionCategory.INTERNAL } }
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().padding(contentPadding)) {
-            AppSearchBar(
-                query = query,
-                onQueryChange = { query = it },
-                placeholder = stringResource(R.string.search_hint_all),
-                modifier = Modifier.padding(start = SearchBarPadding, top = SearchBarPadding, end = SearchBarPadding, bottom = CardInnerSpacing),
-            )
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 state = listState,
@@ -111,42 +90,20 @@ fun NewActionLibraryScreen(
                             )
                         }
                         itemsIndexed(entries, key = { _, entry -> entry.id }) { index, entry ->
-                            ActionLibrarySwipeRow(
+                            ActionLibraryItem(
                                 modifier = Modifier.animateItem(),
                                 shape = segmentedShape(index, entries.size),
                                 entry = entry,
                                 referenceCount = uiState.referenceCounts[entry.id] ?: 0,
-                                onNavToEdit = {
+                                onClick = {
                                     onNavToEdit(entry.id, null)
                                 },
                                 onIconClick = { iconPickerEntry = entry },
-                                onDismissRequest = { pendingDeleteEntry = entry },
-                                resetKey = resetCounter,
                             )
                         }
                     }
                 }
             }
-        }
-        pendingDeleteEntry?.let { entry ->
-            val refCount = uiState.referenceCounts[entry.id] ?: 0
-ConfirmDialog(
-                    title = stringResource(R.string.action_library_delete_title),
-                    text = stringResource(
-                        if (refCount > 0) R.string.action_library_delete_desc
-                        else R.string.action_library_delete_unused_desc,
-                        refCount,
-                    ),
-                    destructive = true,
-                    onDismissRequest = {
-                        pendingDeleteEntry = null
-                        resetCounter++
-                    },
-                    onConfirm = {
-                        vm.remove(entry)
-                        pendingDeleteEntry = null
-                    },
-                )
         }
         iconPickerEntry?.let { entry ->
             val def = ActionDefinitions.byTypeId(entry.typeId)
@@ -162,60 +119,6 @@ ConfirmDialog(
         }
     }
 }
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ActionLibrarySwipeRow(
-    modifier: Modifier = Modifier,
-    shape: Shape,
-    entry: NewActionLibraryEntry,
-    referenceCount: Int,
-    onNavToEdit: () -> Unit,
-    onIconClick: () -> Unit,
-    onDismissRequest: () -> Unit,
-    resetKey: Int = 0,
-) {
-    key(entry.id, resetKey) {
-        val state = rememberSwipeToDismissBoxState()
-        SwipeToDismissBox(
-            modifier = modifier.clip(shape),
-            state = state,
-            enableDismissFromEndToStart = true,
-            enableDismissFromStartToEnd = false,
-            gesturesEnabled = true,
-            onDismiss = { _ -> onDismissRequest() }, // 框架 API 原名（M3 SwipeToDismissBox 带参回调）
-            backgroundContent = {
-                val progress = state.progress
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            if (progress > 0f) MaterialTheme.colorScheme.errorContainer
-                            else MaterialTheme.colorScheme.surface,
-                        ),
-                    contentAlignment = Alignment.CenterEnd,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = stringResource(R.string.delete),
-                        modifier = Modifier
-                            .padding(end = LargeGutter)
-                            .graphicsLayer { alpha = progress.coerceIn(0f, 1f) },
-                        tint = MaterialTheme.colorScheme.onErrorContainer,
-                    )
-                }
-            },
-            content = {
-                ActionLibraryItem(
-                    shape = shape,
-                    entry = entry,
-                    referenceCount = referenceCount,
-                    onClick = onNavToEdit,
-                    onIconClick = onIconClick,
-                )
-            },
-        )
-    }
-}
 @Composable
 private fun ActionLibraryItem(
     shape: Shape,
@@ -227,10 +130,22 @@ private fun ActionLibraryItem(
 ) {
     val def = ActionDefinitions.byTypeId(entry.typeId)
     val icon = entry.resolvedIcon() ?: Icons.Default.Build
+    // 副标题 = 已配置的参数值（空值跳过，布尔 false 不喘）；无参数回退类型名。
+    val paramSummary = remember(entry) {
+        entry.params.entries.mapNotNull { (key, value) ->
+            val text = (value as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotBlank)
+            when {
+                text == null -> null
+                text == "false" -> null
+                key == "useTriggerPoint" -> null
+                else -> text
+            }
+        }.joinToString(" · ")
+    }
     LunoSettingsRow(
         modifier = modifier,
         title = entry.name.ifBlank { def?.name ?: entry.typeId },
-        subtitle = if (entry.name.isBlank()) "" else (def?.name ?: entry.typeId),
+        subtitle = paramSummary.ifBlank { (def?.name ?: entry.typeId).takeIf { entry.name.isNotBlank() } ?: "" },
         leading = {
             val clickMod = Modifier
                 .size(RowIconSize)

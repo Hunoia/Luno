@@ -126,6 +126,8 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToActionSettings = {
                             navController.navigate(ActionSettings)
                         },
+                        onNavToSearchEngines = { navController.navigate(SearchEngineSettings) },
+                        onNavToFloatBallSettings = { navController.navigate(FloatBallEdit) },
                         onNavToAutomationEdit = { ruleId ->
                             navController.navigate(AutomationEdit(ruleId))
                         },
@@ -149,11 +151,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 myComposable<ActionSettings> {
                     ActionSettingsScreen(
                         onBack = { navController.popBackStack() },
-                        onNavToSearchEngines = { navController.navigate(SearchEngineSettings) },
                         onNavToActionPanels = { navController.navigate(ActionPanelList) },
                         onNavToGridPanels = { navController.navigate(GridPanelList) },
                         onNavToMiniWindowAdjust = { navController.navigate(MiniWindowAdjust) },
-                        onNavToFloatBallSettings = { navController.navigate(FloatBallEdit) },
                     )
                 }
                 myComposable<MiniWindowAdjust> {

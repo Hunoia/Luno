@@ -3,6 +3,7 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -14,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
@@ -32,12 +32,14 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -139,6 +141,7 @@ fun AutomationEditScreen(
     var stepTypePickerFor by remember { mutableStateOf<String?>(null) }
     var showBlockedDialog by remember { mutableStateOf(false) }
     var showDiscardDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     // IF 步骤条件编辑（屏幕层 sheet，不嵌套）：目标步骤路径 + 叶路径 + 待选类型落点。
     var ifConditionStepPath by remember { mutableStateOf<String?>(null) }
     var ifNestedPath by remember { mutableStateOf<List<Int>?>(null) }
@@ -241,41 +244,33 @@ fun AutomationEditScreen(
                 contentDescription = stringResource(R.string.automation_history),
                 onClick = { onNavToHistory(rule.id) },
             )
+            // 删除从规则列表页移到编辑页右上角：带确认，删后返回。
+            LunoIconButton(
+                icon = Icons.Default.Delete,
+                contentDescription = stringResource(R.string.delete),
+                onClick = { showDeleteConfirm = true },
+            )
         },
         bottomContentPadding = FloatingContentBottom,
         floatingContent = { _ ->
-            // 标准 M3 FAB + 保存菜单：dirty 时主容器色提示未保存；点击走 trySave（无效配置弹拦截框）。
-            var saveMenuExpanded by rememberSaveable { mutableStateOf(false) }
-            if (saveMenuExpanded) {
-                FabMenuPopup(
-                    onDismiss = { saveMenuExpanded = false },
-                    bottomPadding = 88.dp,
+            // 标准 M3 FAB：点击直接保存（无效配置弹拦截框）；dirty 时主容器色提示未保存；无点击高亮。
+            CompositionLocalProvider(LocalRippleConfiguration provides null) {
+                FloatingActionButton(
+                    onClick = { trySave() },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .padding(end = 16.dp, bottom = 16.dp)
+                        .size(64.dp),
+                    shape = FloatingActionButtonDefaults.shape,
+                    containerColor = if (dirty) MaterialTheme.colorScheme.primaryContainer
+                    else MaterialTheme.colorScheme.surfaceContainerHighest,
                 ) {
-                    FabMenuItem(
-                        label = stringResource(R.string.save),
-                        icon = Icons.Default.Save,
-                        enabled = true,
-                    ) {
-                        saveMenuExpanded = false
-                        trySave()
-                    }
+                    Icon(
+                        imageVector = Icons.Default.Save,
+                        contentDescription = stringResource(R.string.save),
+                    )
                 }
-            }
-            FloatingActionButton(
-                onClick = { saveMenuExpanded = !saveMenuExpanded },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(end = 16.dp, bottom = 16.dp)
-                    .size(64.dp),
-                shape = FloatingActionButtonDefaults.shape,
-                containerColor = if (dirty) MaterialTheme.colorScheme.primaryContainer
-                else MaterialTheme.colorScheme.surfaceContainerHighest,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Save,
-                    contentDescription = stringResource(R.string.save),
-                )
             }
         },
         dialogs = {
@@ -291,6 +286,23 @@ fun AutomationEditScreen(
                     text = reasons,
                     onDismissRequest = { showBlockedDialog = false },
                     onConfirm = { showBlockedDialog = false },
+                )
+            }
+            if (showDeleteConfirm) {
+                ConfirmDialog(
+                    title = stringResource(R.string.automation_delete_title),
+                    text = stringResource(R.string.automation_delete_text),
+                    confirmLabel = stringResource(R.string.delete),
+                    destructive = true,
+                    onDismissRequest = { showDeleteConfirm = false },
+                    onConfirm = {
+                        showDeleteConfirm = false
+                        scope.launch {
+                            AutomationCenter.removeRule(rule.id)
+                            AutomationDraftHolder.remove(rule.id)
+                            onBack()
+                        }
+                    },
                 )
             }
             if (showDiscardDialog) {

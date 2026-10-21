@@ -13,7 +13,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -62,20 +65,26 @@ fun FabMenuPopup(
                     onClick = onDismiss,
                 ),
         ) {
-            Surface(
-                shape = MaterialTheme.shapes.extraSmall,
-                color = MaterialTheme.colorScheme.surfaceContainer,
-                shadowElevation = 3.dp,
+            // 导航栏 inset：与 FAB（自身做了 insets padding）同基准对齐，三键导航下不错位。
+            Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 16.dp, bottom = bottomPadding)
-                    .widthIn(min = 168.dp)
-                    .heightIn(max = maxHeight),
+                    .windowInsetsPadding(WindowInsets.navigationBars),
             ) {
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    content = content,
-                )
+                Surface(
+                    shape = MaterialTheme.shapes.extraSmall,
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    shadowElevation = 3.dp,
+                    modifier = Modifier
+                        .padding(end = 16.dp, bottom = bottomPadding)
+                        .widthIn(min = 168.dp)
+                        .heightIn(max = maxHeight),
+                ) {
+                    Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                        content = content,
+                    )
+                }
             }
         }
     }

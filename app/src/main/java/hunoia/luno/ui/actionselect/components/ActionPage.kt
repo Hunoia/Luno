@@ -326,7 +326,7 @@ internal fun ActionPage(
                             ),
                             selected = selectedRecord.isSelected(item),
                             onSelect = { onSelect(item) },
-                            subtitle = if (item.typeId in RowSettingsActionTypeIds) rowSettingsSubtitle(item) else "",
+                            subtitle = if (item.typeId in RowSettingsActionTypeIds) rowSettingsSubtitle(item, context) else "",
                             shape = selectedSegmentedShape(index, categoryActions.size, categoryFlags),
                             trailing = if (item.typeId in RowSettingsActionTypeIds) {{
                                 IconButton(onClick = { settingsAction = item }) {

@@ -10,13 +10,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.ListSpacing
-import hunoia.luno.ui.component.FabMenuPopup
-import hunoia.luno.ui.component.FabMenuItem
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.size
@@ -35,6 +34,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -130,49 +130,54 @@ fun NewActionLibraryEditScreen(
         bottomContentPadding = FloatingContentBottom,
         floatingContent = { _ ->
             if (draft != null) {
-                var menuExpanded by remember { mutableStateOf(false) }
-                if (menuExpanded && (draft.isValid || testable)) {
-                    FabMenuPopup(
-                        onDismiss = { menuExpanded = false },
-                        bottomPadding = 88.dp,
-                    ) {
-                        FabMenuItem("保存", Icons.Default.Save, draft.isValid && !state.isSaving) {
-                            menuExpanded = false
-                            vm.save(onSaved = onBack)
-                        }
-                        FabMenuItem("测试", Icons.Default.PlayArrow, draft.isValid && testable && !state.isSaving) {
-                            menuExpanded = false
-                            if (DispatchClient.dispatch(draft.toStoredAction())) {
-                                showToast(R.string.action_library_test_sent)
+                // 点击直接保存（无效草稿 toast 提示）；无点击高亮（LocalRippleConfiguration 空）。
+                CompositionLocalProvider(LocalRippleConfiguration provides null) {
+                    FloatingActionButton(
+                        onClick = {
+                            if (draft.isValid) {
+                                vm.save(onSaved = onBack)
                             } else {
-                                showToast(R.string.dispatch_service_not_ready)
+                                showToast(R.string.action_library_invalid_hint)
                             }
-                        }
+                        },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .windowInsetsPadding(WindowInsets.navigationBars)
+                            .padding(end = 16.dp, bottom = 16.dp)
+                            .size(64.dp),
+                        shape = FloatingActionButtonDefaults.shape,
+                        containerColor = if (draft.isValid) MaterialTheme.colorScheme.primaryContainer
+                        else MaterialTheme.colorScheme.surfaceContainerHighest,
+                    ) {
+                        Icon(imageVector = Icons.Default.Save, contentDescription = stringResource(R.string.save))
                     }
-                }
-                FloatingActionButton(
-                    onClick = { menuExpanded = !menuExpanded },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .windowInsetsPadding(WindowInsets.navigationBars)
-                        .padding(end = 16.dp, bottom = 16.dp)
-                        .size(64.dp),
-                    shape = FloatingActionButtonDefaults.shape,
-                    containerColor = if (draft.isValid) MaterialTheme.colorScheme.primaryContainer
-                    else MaterialTheme.colorScheme.surfaceContainerHighest,
-                ) {
-                    Icon(imageVector = Icons.Default.Save, contentDescription = stringResource(R.string.save))
                 }
             }
         },
-        actions = {                     if (draft?.id != null) {
-                        LunoIconButton(
-                            icon = Icons.Outlined.Delete,
-                            contentDescription = stringResource(R.string.delete),
-                            onClick = { showDeleteConfirm = true },
-                        )
-                    }
-                 },
+        actions = {
+            if (draft != null) {
+                // 测试放右上角：触点类动作必须已配固定坐标。
+                LunoIconButton(
+                    icon = Icons.Default.PlayArrow,
+                    contentDescription = stringResource(R.string.action_library_test),
+                    enabled = draft.isValid && testable && !state.isSaving,
+                    onClick = {
+                        if (DispatchClient.dispatch(draft.toStoredAction())) {
+                            showToast(R.string.action_library_test_sent)
+                        } else {
+                            showToast(R.string.dispatch_service_not_ready)
+                        }
+                    },
+                )
+            }
+            if (draft?.id != null) {
+                LunoIconButton(
+                    icon = Icons.Outlined.Delete,
+                    contentDescription = stringResource(R.string.delete),
+                    onClick = { showDeleteConfirm = true },
+                )
+            }
+        },
         dialogs = {
             if (showDeleteConfirm) {
                 ConfirmDialog(

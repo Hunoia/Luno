@@ -85,15 +85,6 @@ fun AutomationRulesTabContent(
             }
         }
     }
-    fun delete(ruleId: String) {
-        scope.launch {
-            try {
-                AutomationCenter.removeRule(ruleId)
-            } catch (e: Exception) {
-                Log.e("AutomationSettings", "removeRule failed", e)
-            }
-        }
-    }
     val context = LocalContext.current
     // 展示按优先级降序（与引擎执行顺序一致），同档保持原相对顺序。
     val ordered = rules.sortedByDescending { it.priority }
@@ -124,7 +115,6 @@ fun AutomationRulesTabContent(
                     submit(rules.map { if (it.id == rule.id) it.copy(iconKey = iconKey) else it })
                 },
                 onEdit = { onNavToEdit(rule.id) },
-                onDelete = { delete(rule.id) },
             )
         }
     }
@@ -137,11 +127,9 @@ private fun RuleCard(
     onPriorityChange: (Int) -> Unit,
     onIconChange: (String?) -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit,
 ) {
     val context = LocalContext.current
     var priorityExpanded by remember { mutableStateOf(false) }
-    var showDeleteDialog by remember { mutableStateOf(false) }
     var showIconPicker by remember { mutableStateOf(false) }
     Card(
         onClick = onEdit,
@@ -241,11 +229,6 @@ private fun RuleCard(
                         }
                     }
                 }
-                LunoIconButton(
-                    icon = Icons.Default.Delete,
-                    contentDescription = stringResource(R.string.delete),
-                    onClick = { showDeleteDialog = true },
-                )
             }
         }
     }
@@ -258,19 +241,6 @@ private fun RuleCard(
             },
             currentKey = rule.iconKey,
             defaultIcon = Icons.Filled.AccountTree,
-        )
-    }
-    if (showDeleteDialog) {
-        ConfirmDialog(
-            title = stringResource(R.string.automation_delete_title),
-            text = rule.name.ifBlank { conditionSummary(context, rule.condition) },
-            destructive = true,
-            confirmLabel = stringResource(R.string.delete),
-            onDismissRequest = { showDeleteDialog = false },
-            onConfirm = {
-                showDeleteDialog = false
-                onDelete()
-            },
         )
     }
 }

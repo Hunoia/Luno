@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
@@ -16,8 +17,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import dev.chrisbanes.haze.HazeState
 import hunoia.luno.ui.component.LunoColumn
@@ -53,6 +56,7 @@ fun LunoScreen(
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val hazeState = rememberAppHazeState()
+    ClearFocusWhenImeHidden()
     Box(modifier = modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -110,6 +114,7 @@ fun LunoScreenPlain(
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val hazeState = rememberAppHazeState()
+    ClearFocusWhenImeHidden()
     Box(modifier = modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -164,6 +169,7 @@ fun LunoScreenLazy(
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val hazeState = rememberAppHazeState()
+    ClearFocusWhenImeHidden()
     Box(modifier = modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -199,5 +205,15 @@ fun LunoScreenLazy(
         floatingContent?.invoke()
         dialogs()
         sheets()
+    }
+}
+
+/** 键盘收起后自动取消焦点：输入框不再保持高亮/光标，返回键恢复正常导航。 */
+@Composable
+private fun ClearFocusWhenImeHidden() {
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    LaunchedEffect(imeVisible) {
+        if (!imeVisible) focusManager.clearFocus()
     }
 }

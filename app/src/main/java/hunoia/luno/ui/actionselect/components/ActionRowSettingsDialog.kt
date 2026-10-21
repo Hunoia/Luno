@@ -22,8 +22,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import hunoia.luno.R
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.config.defaults.ActionSettingsDefaults
 import hunoia.luno.domain.gesture.GestureConfig
@@ -31,10 +33,8 @@ import hunoia.luno.service.DispatchClient
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
 /** 参数改在动作选择页行尾「设置」弹窗里配的动作类型。 */
@@ -62,52 +62,80 @@ private fun StoredAction.paramBool(key: String, default: Boolean): Boolean =
 
 private fun StoredAction.paramInt(key: String): Int? = paramStr(key)?.toIntOrNull()
 
+private fun settingsPageLabelRes(page: String): Int = when (page) {
+    "WIFI" -> R.string.settings_page_wifi
+    "BLUETOOTH" -> R.string.settings_page_bluetooth
+    "DISPLAY" -> R.string.settings_page_display
+    "BATTERY" -> R.string.settings_page_battery
+    "APPS" -> R.string.settings_page_apps
+    "NETWORK" -> R.string.settings_page_network
+    "ACCESSIBILITY" -> R.string.settings_page_accessibility
+    else -> R.string.settings_page_main
+}
+
+private fun audioStreamLabelRes(stream: String): Int = when (stream) {
+    "RING" -> R.string.audio_stream_ring
+    "NOTIFICATION" -> R.string.audio_stream_notification
+    "ALARM" -> R.string.audio_stream_alarm
+    "VOICE" -> R.string.audio_stream_voice
+    "SYSTEM" -> R.string.audio_stream_system
+    else -> R.string.audio_stream_music
+}
+
 /**
  * 行副标题：展示当前生效值（未配置时即默认值）。
  * 与 [ActionRowSettingsDialog] 同一套键位与默认值，改其一须同步另一个。
  */
-fun rowSettingsSubtitle(action: StoredAction): String = when (action.typeId) {
+fun rowSettingsSubtitle(action: StoredAction, context: android.content.Context): String = when (action.typeId) {
     "internal.volumeScrub" ->
-        "灵敏度 ${action.paramInt("stepThresholdDp") ?: ActionSettingsDefaults.VolumeScrubStepThresholdDp}dp"
+        "${context.getString(R.string.row_settings_sensitivity)} · " +
+            "${action.paramInt("stepThresholdDp") ?: ActionSettingsDefaults.VolumeScrubStepThresholdDp}dp"
     "internal.hideGestureButton" ->
         "${action.paramStr("delayMs")?.toLongOrNull() ?: ActionSettingsDefaults.HideGestureButtonDelayMs}ms"
     "internal.floatBallVisibility" ->
         when (action.paramStr("visible") ?: "toggle") {
-            "true" -> "显示"; "false" -> "隐藏"; else -> "切换"
+            "true" -> context.getString(R.string.row_settings_show)
+            "false" -> context.getString(R.string.row_settings_hide)
+            else -> context.getString(R.string.row_settings_toggle)
         }
     "internal.buttonsVisibility" -> {
-        val visible = if (action.paramBool("visible", false)) "显示" else "隐藏"
+        val visible = context.getString(
+            if (action.paramBool("visible", false)) R.string.row_settings_show else R.string.row_settings_hide,
+        )
         val target = action.paramStr("target") ?: "ALL"
         val scope = when (target) {
-            "ALL" -> "全部触钮"
-            else -> "${action.paramIds().size} 个触钮"
+            "ALL" -> context.getString(R.string.row_settings_scope_all)
+            else -> "${action.paramIds().size} ${context.getString(R.string.row_settings_buttons)}"
         }
         "$visible · $scope"
     }
-    "system.openSettings" ->
-        when (action.paramStr("page") ?: "MAIN") {
-            "WIFI" -> "Wi-Fi"; "BLUETOOTH" -> "蓝牙"; "DISPLAY" -> "显示"
-            "BATTERY" -> "电池"; "APPS" -> "应用"; "NETWORK" -> "网络"
-            "ACCESSIBILITY" -> "无障碍"; else -> "主设置"
-        }
+    "system.openSettings" -> context.getString(settingsPageLabelRes(action.paramStr("page") ?: "MAIN"))
     "system.volume" -> {
-        val stream = when (action.paramStr("stream") ?: "MUSIC") {
-            "RING" -> "铃声"; "NOTIFICATION" -> "通知"; "ALARM" -> "闹钟"
-            "VOICE" -> "通话"; "SYSTEM" -> "系统"; else -> "媒体"
-        }
-        val direction = if ((action.paramStr("direction") ?: "UP") == "UP") "增大" else "减小"
+        val stream = context.getString(audioStreamLabelRes(action.paramStr("stream") ?: "MUSIC"))
+        val direction = context.getString(
+            if ((action.paramStr("direction") ?: "UP") == "UP") {
+                R.string.row_settings_direction_up
+            } else {
+                R.string.row_settings_direction_down
+            },
+        )
         "$stream · $direction"
     }
     "system.vibrate" -> action.paramStr("pattern") ?: "0,500"
-    "accessibility.tap" -> tapSubtitle(action)
+    "accessibility.tap" -> tapSubtitle(action, context)
     "accessibility.longPress" -> {
         val duration = action.paramStr("durationMs")?.toLongOrNull() ?: 1000L
-        "${tapSubtitle(action)} · ${duration}ms"
+        "${tapSubtitle(action, context)} · ${duration}ms"
     }
-    "accessibility.swipe" ->
+    "accessibility.swipe" -> context.getString(
         when (action.paramStr("direction") ?: "UP") {
-            "DOWN" -> "向下"; "LEFT" -> "向左"; "RIGHT" -> "向右"; "TO_TOP" -> "到顶部"; else -> "向上"
-        }
+            "DOWN" -> R.string.row_settings_swipe_down
+            "LEFT" -> R.string.row_settings_swipe_left
+            "RIGHT" -> R.string.row_settings_swipe_right
+            "TO_TOP" -> R.string.row_settings_swipe_to_top
+            else -> R.string.row_settings_swipe_up
+        },
+    )
     else -> ""
 }
 
@@ -121,34 +149,36 @@ fun ActionRowSettingsDialog(
     onDismiss: () -> Unit,
     onConfirm: (StoredAction) -> Unit,
 ) {
+    val context = LocalContext.current
     // 各类型共用一组草稿状态；确认时只取当前类型关心的字段组包。
-    var step by remember {
+    // 记住 action 作 key：切换编辑目标时草稿随之重置，不残留上一行的值。
+    var step by remember(action) {
         mutableStateOf((action.paramStr("stepThresholdDp")?.toIntOrNull()
             ?: ActionSettingsDefaults.VolumeScrubStepThresholdDp).toFloat())
     }
-    var delayMs by remember {
+    var delayMs by remember(action) {
         mutableStateOf((action.paramStr("delayMs")?.toLongOrNull()
             ?: ActionSettingsDefaults.HideGestureButtonDelayMs).toFloat())
     }
-    var ballVisible by remember { mutableStateOf(action.paramStr("visible") ?: "toggle") }
-    var btnVisible by remember {
+    var ballVisible by remember(action) { mutableStateOf(action.paramStr("visible") ?: "toggle") }
+    var btnVisible by remember(action) {
         mutableStateOf(action.paramStr("visible")?.toBooleanStrictOrNull() ?: false)
     }
-    var target by remember { mutableStateOf(action.paramStr("target") ?: "ALL") }
-    var selectedIds by remember { mutableStateOf(action.paramIds().toSet()) }
-    var settingsPage by remember { mutableStateOf(action.paramStr("page") ?: "MAIN") }
-    var stream by remember { mutableStateOf(action.paramStr("stream") ?: "MUSIC") }
-    var volumeDirection by remember { mutableStateOf(action.paramStr("direction") ?: "UP") }
-    var pattern by remember { mutableStateOf(action.paramStr("pattern") ?: "0,500") }
-    var useTriggerPoint by remember {
+    var target by remember(action) { mutableStateOf(action.paramStr("target") ?: "ALL") }
+    var selectedIds by remember(action) { mutableStateOf(action.paramIds().toSet()) }
+    var settingsPage by remember(action) { mutableStateOf(action.paramStr("page") ?: "MAIN") }
+    var stream by remember(action) { mutableStateOf(action.paramStr("stream") ?: "MUSIC") }
+    var volumeDirection by remember(action) { mutableStateOf(action.paramStr("direction") ?: "UP") }
+    var pattern by remember(action) { mutableStateOf(action.paramStr("pattern") ?: "0,500") }
+    var useTriggerPoint by remember(action) {
         mutableStateOf(action.paramBool("useTriggerPoint", false))
     }
-    var xDp by remember { mutableStateOf((action.paramInt("xDp") ?: 0).toString()) }
-    var yDp by remember { mutableStateOf((action.paramInt("yDp") ?: 0).toString()) }
-    var durationMs by remember {
+    var xDp by remember(action) { mutableStateOf((action.paramInt("xDp") ?: 0).toString()) }
+    var yDp by remember(action) { mutableStateOf((action.paramInt("yDp") ?: 0).toString()) }
+    var durationMs by remember(action) {
         mutableStateOf((action.paramStr("durationMs")?.toLongOrNull() ?: 1000L).toFloat())
     }
-    var swipeDirection by remember { mutableStateOf(action.paramStr("direction") ?: "UP") }
+    var swipeDirection by remember(action) { mutableStateOf(action.paramStr("direction") ?: "UP") }
     val buttons by GestureConfig.buttons.collectAsStateWithLifecycle(initialValue = emptyList())
 
     fun buildParams(action: StoredAction): JsonObject = when (action.typeId) {
@@ -191,7 +221,7 @@ fun ActionRowSettingsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(text = paramDialogTitle(action.typeId)) },
+        title = { Text(text = stringResource(paramDialogTitleRes(action.typeId))) },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -199,31 +229,46 @@ fun ActionRowSettingsDialog(
             ) {
                 when (action.typeId) {
                     "internal.volumeScrub" -> {
-                        LabeledSlider("灵敏度", step, 4f..64f, "${step.toInt()}dp") { step = it }
+                        LabeledSlider(
+                            R.string.row_settings_sensitivity, step, 4f..64f, "${step.toInt()}dp",
+                        ) { step = it }
                     }
                     "internal.hideGestureButton" -> {
-                        LabeledSlider("隐藏触钮时长", delayMs, 0f..3000f, "${delayMs.toInt()}ms") { delayMs = it }
+                        LabeledSlider(
+                            R.string.row_settings_hide_duration, delayMs, 0f..3000f, "${delayMs.toInt()}ms",
+                        ) { delayMs = it }
                     }
                     "internal.floatBallVisibility" -> {
                         LabeledChips(
-                            "显隐",
-                            listOf("toggle" to "切换", "true" to "显示", "false" to "隐藏"),
+                            R.string.row_settings_visibility,
+                            listOf(
+                                "toggle" to R.string.row_settings_toggle,
+                                "true" to R.string.row_settings_show,
+                                "false" to R.string.row_settings_hide,
+                            ),
                             ballVisible,
                         ) { ballVisible = it }
                     }
                     "internal.buttonsVisibility" -> {
                         LabeledChips(
-                            "显隐",
-                            listOf("true" to "显示", "false" to "隐藏"),
+                            R.string.row_settings_visibility,
+                            listOf(
+                                "true" to R.string.row_settings_show,
+                                "false" to R.string.row_settings_hide,
+                            ),
                             if (btnVisible) "true" else "false",
                         ) { btnVisible = it.toBooleanStrict() }
                         LabeledChips(
-                            "作用范围",
-                            listOf("ALL" to "全部触钮", "EXCEPT" to "除选中外", "ONLY" to "仅选中"),
+                            R.string.row_settings_scope,
+                            listOf(
+                                "ALL" to R.string.row_settings_scope_all,
+                                "EXCEPT" to R.string.row_settings_scope_except,
+                                "ONLY" to R.string.row_settings_scope_only,
+                            ),
                             target,
                         ) { target = it }
                         if (target != "ALL") {
-                            Text(text = "触钮", style = MaterialTheme.typography.labelLarge)
+                            Text(text = stringResource(R.string.row_settings_buttons), style = MaterialTheme.typography.labelLarge)
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -253,40 +298,56 @@ fun ActionRowSettingsDialog(
                     }
                     "system.openSettings" -> {
                         LabeledChips(
-                            "设置页",
+                            R.string.row_settings_settings_page,
                             listOf(
-                                "WIFI" to "Wi-Fi", "BLUETOOTH" to "蓝牙", "DISPLAY" to "显示",
-                                "BATTERY" to "电池", "APPS" to "应用", "NETWORK" to "网络",
-                                "ACCESSIBILITY" to "无障碍", "MAIN" to "主设置",
+                                "WIFI" to R.string.settings_page_wifi,
+                                "BLUETOOTH" to R.string.settings_page_bluetooth,
+                                "DISPLAY" to R.string.settings_page_display,
+                                "BATTERY" to R.string.settings_page_battery,
+                                "APPS" to R.string.settings_page_apps,
+                                "NETWORK" to R.string.settings_page_network,
+                                "ACCESSIBILITY" to R.string.settings_page_accessibility,
+                                "MAIN" to R.string.settings_page_main,
                             ),
                             settingsPage,
                         ) { settingsPage = it }
                     }
                     "system.volume" -> {
                         LabeledChips(
-                            "音频流",
+                            R.string.row_settings_stream,
                             listOf(
-                                "MUSIC" to "媒体", "RING" to "铃声", "NOTIFICATION" to "通知",
-                                "ALARM" to "闹钟", "VOICE" to "通话", "SYSTEM" to "系统",
+                                "MUSIC" to R.string.audio_stream_music,
+                                "RING" to R.string.audio_stream_ring,
+                                "NOTIFICATION" to R.string.audio_stream_notification,
+                                "ALARM" to R.string.audio_stream_alarm,
+                                "VOICE" to R.string.audio_stream_voice,
+                                "SYSTEM" to R.string.audio_stream_system,
                             ),
                             stream,
                         ) { stream = it }
-                        LabeledChips("方向", listOf("UP" to "增大", "DOWN" to "减小"), volumeDirection) {
-                            volumeDirection = it
-                        }
+                        LabeledChips(
+                            R.string.row_settings_direction,
+                            listOf(
+                                "UP" to R.string.row_settings_direction_up,
+                                "DOWN" to R.string.row_settings_direction_down,
+                            ),
+                            volumeDirection,
+                        ) { volumeDirection = it }
                     }
                     "system.vibrate" -> {
-                        LabeledTextField("振动模式（毫秒，逗号分隔）", pattern) { pattern = it }
+                        LabeledTextField(R.string.row_settings_pattern_hint, pattern) { pattern = it }
                     }
                     "accessibility.tap", "accessibility.longPress" -> {
                         LabeledChips(
-                            "落点",
-                            listOf("true" to "触发位置", "false" to "固定坐标"),
+                            R.string.row_settings_fall_point,
+                            listOf(
+                                "true" to R.string.row_settings_trigger_point,
+                                "false" to R.string.row_settings_fixed_point,
+                            ),
                             if (useTriggerPoint) "true" else "false",
                         ) { useTriggerPoint = it.toBooleanStrict() }
                         if (!useTriggerPoint) {
                             // 屏幕取点：经 :service 侧 overlay，回填后仍可在坐标框手改。
-                            val context = LocalContext.current
                             var pickHint by remember { mutableStateOf("") }
                             TextButton(onClick = {
                                 val ok = DispatchClient.showPointPicker(
@@ -298,26 +359,31 @@ fun ActionRowSettingsDialog(
                                     },
                                     onDismiss = {},
                                 )
-                                pickHint = if (ok) "" else "取点服务未就绪"
-                            }) { Text("屏幕取点") }
+                                pickHint = if (ok) "" else context.getString(R.string.row_settings_point_picker_failed)
+                            }) { Text(stringResource(R.string.point_pick)) }
                             if (pickHint.isNotEmpty()) {
                                 Text(text = pickHint, style = MaterialTheme.typography.bodySmall)
                             }
-                            LabeledTextField("横坐标 dp", xDp) { xDp = it }
-                            LabeledTextField("纵坐标 dp", yDp) { yDp = it }
+                            LabeledTextField(R.string.row_settings_coord_x, xDp) { xDp = it }
+                            LabeledTextField(R.string.row_settings_coord_y, yDp) { yDp = it }
                         }
                         if (action.typeId == "accessibility.longPress") {
-                            LabeledSlider("时长", durationMs, 100f..10000f, "${durationMs.toInt()}ms") {
+                            LabeledSlider(
+                                R.string.row_settings_duration, durationMs, 100f..10000f, "${durationMs.toInt()}ms",
+                            ) {
                                 durationMs = it
                             }
                         }
                     }
                     "accessibility.swipe" -> {
                         LabeledChips(
-                            "方向",
+                            R.string.row_settings_direction,
                             listOf(
-                                "UP" to "向上", "DOWN" to "向下", "LEFT" to "向左",
-                                "RIGHT" to "向右", "TO_TOP" to "到顶部",
+                                "UP" to R.string.row_settings_swipe_up,
+                                "DOWN" to R.string.row_settings_swipe_down,
+                                "LEFT" to R.string.row_settings_swipe_left,
+                                "RIGHT" to R.string.row_settings_swipe_right,
+                                "TO_TOP" to R.string.row_settings_swipe_to_top,
                             ),
                             swipeDirection,
                         ) { swipeDirection = it }
@@ -329,10 +395,10 @@ fun ActionRowSettingsDialog(
             TextButton(onClick = {
                 onConfirm(action.copy(params = buildParams(action)))
                 onDismiss()
-            }) { Text("确定") }
+            }) { Text(stringResource(R.string.ok)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         },
     )
 }
@@ -348,70 +414,73 @@ private fun tapPointParams(useTriggerPoint: Boolean, xDp: String, yDp: String): 
         }
     }
 
-private fun tapSubtitle(action: StoredAction): String {
+private fun tapSubtitle(action: StoredAction, context: android.content.Context): String {
     val x = action.paramInt("xDp")
     val y = action.paramInt("yDp")
     return if (action.paramBool("useTriggerPoint", false) || x == null || y == null) {
-        "触发位置"
+        context.getString(R.string.row_settings_trigger_point)
     } else {
-        "$x, $y dp"
+        context.getString(R.string.row_settings_coord_dp, x, y)
     }
 }
 
-private fun paramDialogTitle(typeId: String): String = when (typeId) {
-    "internal.volumeScrub" -> "滑动调音量"
-    "internal.hideGestureButton" -> "隐藏触钮"
-    "internal.floatBallVisibility" -> "悬浮球显隐"
-    "internal.buttonsVisibility" -> "触钮显隐"
-    "system.openSettings" -> "打开设置页"
-    "system.volume" -> "音量控制"
-    "system.vibrate" -> "振动"
-    "accessibility.tap" -> "点击"
-    "accessibility.longPress" -> "长按"
-    "accessibility.swipe" -> "滑动"
-    else -> "设置"
+private fun paramDialogTitleRes(typeId: String): Int = when (typeId) {
+    "internal.volumeScrub" -> R.string.row_dialog_volume_scrub
+    "internal.hideGestureButton" -> R.string.row_dialog_hide_gesture_button
+    "internal.floatBallVisibility" -> R.string.row_dialog_float_ball
+    "internal.buttonsVisibility" -> R.string.row_dialog_buttons_visibility
+    "system.openSettings" -> R.string.row_dialog_open_settings
+    "system.volume" -> R.string.row_dialog_volume
+    "system.vibrate" -> R.string.row_dialog_vibrate
+    "accessibility.tap" -> R.string.row_dialog_tap
+    "accessibility.longPress" -> R.string.row_dialog_long_press
+    "accessibility.swipe" -> R.string.row_dialog_swipe
+    else -> R.string.row_settings_settings_page
 }
 
 @Composable
 private fun LabeledSlider(
-    label: String,
+    labelRes: Int,
     value: Float,
     range: ClosedFloatingPointRange<Float>,
     valueText: String,
     onValueChange: (Float) -> Unit,
 ) {
-    Text(text = "$label · $valueText", style = MaterialTheme.typography.labelLarge)
+    Text(
+        text = "${stringResource(labelRes)} · $valueText",
+        style = MaterialTheme.typography.labelLarge,
+    )
     Slider(value = value, onValueChange = onValueChange, valueRange = range)
 }
 
 @Composable
 private fun LabeledChips(
-    label: String,
-    options: List<Pair<String, String>>,
+    labelRes: Int,
+    options: List<Pair<String, Int>>,
     selected: String,
     onSelect: (String) -> Unit,
 ) {
-    Text(text = label, style = MaterialTheme.typography.labelLarge)
+    Text(text = stringResource(labelRes), style = MaterialTheme.typography.labelLarge)
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        options.forEach { (value, text) ->
+        options.forEach { (value, textRes) ->
             FilterChip(
                 selected = selected == value,
                 onClick = { onSelect(value) },
-                label = { Text(text) },
+                label = { Text(stringResource(textRes)) },
             )
         }
     }
 }
 
 @Composable
-private fun LabeledTextField(label: String, value: String, onValueChange: (String) -> Unit) {
+private fun LabeledTextField(labelRes: Int, value: String, onValueChange: (String) -> Unit) {
     androidx.compose.material3.OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label) },
+        label = { Text(stringResource(labelRes)) },
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
     )

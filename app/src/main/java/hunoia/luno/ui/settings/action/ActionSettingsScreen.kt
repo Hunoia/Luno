@@ -1,9 +1,7 @@
 package hunoia.luno.ui.settings.action
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Brightness1
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -14,10 +12,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
-import hunoia.luno.domain.search.SearchCenter
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.config.model.ActionSettings
-import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.defaultEngine
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.Gesture
@@ -39,11 +35,9 @@ import hunoia.luno.ui.component.screen.LunoScreen
 @Composable
 fun ActionSettingsScreen(
     onBack: () -> Unit,
-    onNavToSearchEngines: () -> Unit = {},
     onNavToActionPanels: () -> Unit = {},
     onNavToGridPanels: () -> Unit = {},
     onNavToMiniWindowAdjust: () -> Unit = {},
-    onNavToFloatBallSettings: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var showActionPanelStyle by remember { mutableStateOf(false) }
@@ -51,7 +45,6 @@ fun ActionSettingsScreen(
     var showRecentAppsBlocklist by remember { mutableStateOf(false) }
     val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = ActionSettings())
     val gestureSettings by TuneConfig.gesture.collectAsStateWithLifecycle(initialValue = GestureSettings())
-    val quickSearchSettings by SearchCenter.search.collectAsStateWithLifecycle(initialValue = QuickSearchSettings())
     LunoScreen(
         title = stringResource(R.string.action_settings),
         onBack = onBack,
@@ -95,14 +88,6 @@ fun ActionSettingsScreen(
 
             LunoGroup {
                 LunoSettingsRow(
-                    icon = Icons.Default.Search,
-                    title = stringResource(R.string.search_engine_settings),
-                    subtitle = quickSearchSettings.defaultEngine().name,
-                    onClick = onNavToSearchEngines,
-                )
-            }
-            LunoGroup {
-                LunoSettingsRow(
                     icon = Icons.Default.RadioButtonChecked,
                     title = stringResource(R.string.action_panels),
                     subtitle = stringResource(R.string.action_panel_items_count, actionSettings.actionPanels.panels.sumOf { it.items.size }),
@@ -113,12 +98,6 @@ fun ActionSettingsScreen(
                     title = stringResource(R.string.grid_panels),
                     subtitle = stringResource(R.string.action_panel_items_count, actionSettings.actionGridPanels.panels.sumOf { it.items.size }),
                     onClick = onNavToGridPanels,
-                )
-                LunoSettingsRow(
-                    icon = Icons.Filled.Brightness1,
-                    title = stringResource(R.string.float_ball),
-                    subtitle = stringResource(R.string.float_ball_entry_hint),
-                    onClick = onNavToFloatBallSettings,
                 )
             }
             LunoGroup {

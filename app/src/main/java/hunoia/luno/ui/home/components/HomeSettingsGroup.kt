@@ -1,9 +1,11 @@
 package hunoia.luno.ui.home
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.twotone.RadioButtonChecked
 import androidx.compose.material.icons.twotone.RestartAlt
 import androidx.compose.material.icons.twotone.Restore
 import androidx.compose.material.icons.twotone.Save
+import androidx.compose.material.icons.twotone.Search
 import androidx.compose.material.icons.twotone.Tune
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -16,6 +18,8 @@ import hunoia.luno.ui.component.row.segmentedShape
 @Composable
 fun HomeSettingsGroup(
     onActionSettingsClick: () -> Unit,
+    onSearchEngineClick: () -> Unit,
+    onFloatBallClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LunoGroup(
@@ -25,8 +29,20 @@ fun HomeSettingsGroup(
         LunoSettingsRow(
             title = stringResource(R.string.action_settings),
             icon = Icons.TwoTone.Tune,
-            shape = segmentedShape(0, 1),
+            shape = segmentedShape(0, 3),
             onClick = onActionSettingsClick,
+        )
+        LunoSettingsRow(
+            title = stringResource(R.string.search_engine_settings),
+            icon = Icons.TwoTone.Search,
+            shape = segmentedShape(1, 3),
+            onClick = onSearchEngineClick,
+        )
+        LunoSettingsRow(
+            title = stringResource(R.string.float_ball),
+            icon = Icons.TwoTone.RadioButtonChecked,
+            shape = segmentedShape(2, 3),
+            onClick = onFloatBallClick,
         )
     }
 }
