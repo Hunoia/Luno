@@ -61,6 +61,22 @@ class PanelAppWidgetView(context: Context) : FrameLayout(context) {
     private var relaying = false
     private var velocityTracker: VelocityTracker? = null
 
+    /**
+     * 编辑态屏蔽部件自身的触摸。AppWidgetHostView 是真实 View，tap 会直接透传到
+     * 部件（按钮、点击动作），在内置部件里等价于 enabled=false。拦在 View 层即可：
+     * Compose 层根的拖拽/缩放手势照常收到事件，二者互不影响。
+     */
+    private var touchBlocked = false
+
+    fun setTouchBlocked(blocked: Boolean) {
+        if (touchBlocked == blocked) return
+        touchBlocked = blocked
+        // 解除可能进行中的中继 + 回收 tracker：否则抬手会按 relaying 分支继续走。
+        relaying = false
+        velocityTracker?.recycle()
+        velocityTracker = null
+    }
+
     fun setLoadStateListener(listener: ((WidgetLoadState) -> Unit)?) {
         loadStateListener = listener
     }
@@ -245,6 +261,8 @@ class PanelAppWidgetView(context: Context) : FrameLayout(context) {
      * 会完全失效 —— 那是比「拖不动面板」更糟的回归。
      */
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+        // 编辑态：整条手势自己吃掉，子层（AppWidgetHostView 的按钮/列表）什么都收不到。
+        if (touchBlocked) return true
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 downX = ev.x
@@ -280,6 +298,7 @@ class PanelAppWidgetView(context: Context) : FrameLayout(context) {
     }
 
     override fun onTouchEvent(ev: MotionEvent): Boolean {
+        if (touchBlocked) return true
         if (!relaying) return super.onTouchEvent(ev)
         when (ev.actionMasked) {
             MotionEvent.ACTION_MOVE -> {

@@ -59,8 +59,8 @@ data class GridPanelItem(
         @Keep
         data class Internal(
             val widgetId: String,
-            /** 是否在自绘内容下垫一层底色（左上角按钮可切，默认开）。 */
-            val showBackground: Boolean = true,
+            /** 是否在自绘内容下垫一层底色（左上角按钮可切，默认关）。 */
+            val showBackground: Boolean = false,
         ) : Kind
     }
 

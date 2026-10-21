@@ -17,20 +17,16 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-/** 松手后 span 吸附到整格的动画时长（对齐一墨 rz1 的 400ms）。 */
+/** 松手后 span 吸附到整格的动画时长。 */
 private const val ResizeSettleMillis = 400
 
 /**
  * 网格面板的拖拽 / 缩放状态机。
  *
- * **拖拽的核心约束：每帧从拖起快照重解，输出只用于渲染。**
- * 旧实现把 planReorder 的结果当作下一帧的输入，被推走的项不会回位 —— 来回拖一次，
- * 其它项就永远比原来更远一格（累积漂移），目标格横跳时表现为抖动。这里 dragBase
- * 是 beginDrag 时的落盘快照，resolved 只写不读（除了取被拖项自己的 span）。
- *
- * 坐标约定：
- * - dragVisual 是**网格内容坐标**里相对拖起位置的位移，含自动滚动补偿；
- * - glideFrom 是松手瞬间「视觉位 − 落格基位」的残差，交给渲染层衰减到 0。
+ * 拖拽每帧都从拖起快照 dragBase 重解，resolved 只写不读（除取被拖项自己的
+ * span）：把 planReorder 的结果回灌为输入，被推走的项不回位，来回拖会累积漂移。
+ * dragVisual 是网格内容坐标里相对拖起位置的位移，含自动滚动补偿；
+ * glideFrom 是松手瞬间「视觉位 − 落格基位」的残差，交给渲染层衰减到 0。
  */
 @Stable
 class GridPanelState(
@@ -70,7 +66,7 @@ class GridPanelState(
     /** 松手吸附动画进行中：禁止二次抓手柄（resizingId 仍非空）。 */
     private var resizeSettling = false
 
-    /** 触感节流：同一次拖拽/缩放里目标格连跳时，120ms 内不重复振（连震投诉的保险丝）。 */
+    /** 触感节流：同一次拖拽/缩放里目标格连跳时，120ms 内不重复振。 */
     private var lastHapticAt = 0L
 
     /** 最近一次位移来自边缘自动滚动：滚动跨格不振动（连续穿行时会一直振）。 */
@@ -111,9 +107,8 @@ class GridPanelState(
         val moving = resolved.firstOrNull { it.id == id } ?: return
         fromAutoScroll = false
         val raw = dragVisual + action
-        // 钳制必须配合「中心落格」的判定域：中心要能到达目标格的中心才算得出来。
-        // 旧版左/上沿用「左缘贴边」的长度，比中心判定域短了半个项宽 ——
-        // 占 3 格的项往左挪一格需要移 1.5 格，钳制只给 1 格，永远够不着（占 2-4 拖不到 1-3 的根因）。
+        // 钳制必须配合「中心落格」的判定域：中心要能到达目标格的中心，
+        // 否则占多格的项往左挪一格时永远够不着（占 2-4 拖不到 1-3）。
         val halfW = m.itemW(moving.spanX.toFloat()) / 2f
         val halfH = m.itemH(moving.spanY.toFloat()) / 2f
         val minX = -(originCell.x * m.stepW) - halfW
@@ -161,7 +156,6 @@ class GridPanelState(
             rows = m.rows,
         )
         if (plan == null) {
-            // 定位「拖不过去」类问题：目标格、被拖项、其它项快照都打出来。
             android.util.Log.i(
                 "GridDrag",
                 "plan null: target=($tx,$ty) moving=${moving.spanX}x${moving.spanY} " +
@@ -174,8 +168,7 @@ class GridPanelState(
         // hoverCell 记的是**实际落点**（planReorder 会夹目标格），不是指针格：
         // 下一帧同一指针格不会再触发一次触感。
         hoverCell = GridCell(dropped.x, dropped.y)
-        // 双重去抖：①自动滚动跨格不振动；②目标格虽变，但手指净位移不足 0.3 格
-        // （贴着格界 ±1px 抖动，全宽项往右蹭一点就是这种）不振动。
+        // 双重去抖：①自动滚动跨格不振动；②目标格虽变，但手指净位移不足 0.3 格不振动。
         if (fromAutoScroll) {
             fromAutoScroll = false
             return
@@ -232,8 +225,8 @@ class GridPanelState(
     }
 
     /**
-     * [total] 是手柄从按下到当前的**总位移**（项内坐标）。span 连续跟手，不做碰撞
-     * 判定 —— 一墨同款：只在松手时校验，扩张撞墙先退化成「保宽/保高」候选。
+     * [total] 是手柄从按下到当前的总位移；span 连续跟手、不做碰撞判定，
+     * 只在松手时校验，扩张撞墙先退化成「保宽/保高」候选。
      */
     fun onResizeDelta(total: Offset) {
         if (resizeSettling) return
@@ -241,9 +234,12 @@ class GridPanelState(
         val m = metricsProvider()
         val maxX = (m.columns - item.x).coerceAtLeast(1).toFloat()
         val maxY = (m.rows - item.y).coerceAtLeast(1).toFloat()
-        // 任意大小：下限 1×1（忽略 provider 声明的 minSpan），上限只受网格边界。
-        val sx = (resizeStartSpan.x + total.x / m.stepW).coerceIn(1f, maxX)
-        val sy = (resizeStartSpan.y + total.y / m.stepH).coerceIn(1f, maxY)
+        // 下限：默认 1×1，媒体部件 2×1（一格宽连歌名都放不下）。
+        val minSpan = (item.kind as? hunoia.luno.config.model.GridPanelItem.Kind.Internal)
+            ?.let { hunoia.luno.gridpanel.internal.internalWidgetMinSpan(it.widgetId) }
+            ?: (1 to 1)
+        val sx = (resizeStartSpan.x + total.x / m.stepW).coerceIn(minSpan.first.toFloat(), maxX)
+        val sy = (resizeStartSpan.y + total.y / m.stepH).coerceIn(minSpan.second.toFloat(), maxY)
         val next = Offset(sx, sy)
         val before = resizeSpanF
         resizeSpanF = next
@@ -268,7 +264,11 @@ class GridPanelState(
         val startY = resizeStartSpan.y.roundToInt()
         val maxX = (m.columns - item.x).coerceAtLeast(1)
         val maxY = (m.rows - item.y).coerceAtLeast(1)
-        val rawX = raw.x.roundToInt().coerceIn(1, maxX)
+        val rawX = raw.x.roundToInt().coerceIn(
+            (item.kind as? hunoia.luno.config.model.GridPanelItem.Kind.Internal)
+                ?.let { hunoia.luno.gridpanel.internal.internalWidgetMinSpan(it.widgetId).first } ?: 1,
+            maxX,
+        )
         val rawY = raw.y.roundToInt().coerceIn(1, maxY)
         // 扩张撞墙时按「raw → 保宽 → 保高 → 原尺寸」降级，取第一个合法布局。
         val candidates = listOf(

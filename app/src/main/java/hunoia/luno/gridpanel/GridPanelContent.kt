@@ -32,11 +32,10 @@ import hunoia.luno.R
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.withoutVariantKey
 import hunoia.luno.bridge.ui.showToast
+import hunoia.luno.config.model.DynamicRowExtra
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.GridPanelDefaults
-import hunoia.luno.config.model.DynamicRowExtra
 import hunoia.luno.config.model.GridPanelItem
-import hunoia.luno.config.model.GridPanelItemLayout
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.gridpanel.core.GridPanelState
 import hunoia.luno.gridpanel.geometry.rememberGridMetrics
@@ -47,19 +46,16 @@ import hunoia.luno.gridpanel.widget.removeWidgetGoneListener
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
+
 
 /** 点空白退出编辑后，这段时间内的项点按不执行（防连点误触）。 */
 private const val ExitEditTapGuardMillis = 150L
 
 /**
  * 网格面板：固定网格 + 跨格项 + 简版多页。
- *
- * 运行态 —— 点项执行（无 a11y 时转发失败弹提示不关面板）；长按空白（或长按小部件）
- * 进编辑；编辑态 —— 每项常显删除角标 + 尺寸手柄、点「+」加项、长按项拖拽落位。
- *
- * 本函数只留**生命周期与落盘**：几何在 [rememberGridMetrics]，拖拽/缩放在
- * [GridPanelState]，渲染在 GridPanelCard / GridPanelLayer。对外签名保持不变。
+ * 运行态点项执行、长按空白进编辑；编辑态显示删除角标与尺寸手柄、可拖拽落位。
+ * 本函数只管生命周期与落盘：几何在 [rememberGridMetrics]，拖拽/缩放在
+ * [GridPanelState]，渲染在 GridPanelCard / GridPanelLayer。
  */
 @Composable
 fun GridPanelRoot(
@@ -77,8 +73,8 @@ fun GridPanelRoot(
 ) {
     val libraryEntries = LocalActionLibraryEntries.current
 
-    // 进出场一张 Animatable 管 alpha/scale（球窗结论：显式 Animatable 语义可证伪，
-    // 不依赖服务进程里 animate*AsState 的收敛）。
+    // 进出场用一张 Animatable 管 alpha/scale：语义可证伪，不依赖服务进程里
+    // animate*AsState 的收敛。
     val appearance = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     var closing by remember { mutableStateOf(false) }
@@ -111,7 +107,7 @@ fun GridPanelRoot(
         return
     }
 
-    // 横竖屏分别取几何：横屏下用的就是横屏那份设置
+    // 横竖屏分别取几何。
     val landscape = LocalConfiguration.current.orientation ==
         android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val geo = panel.geometry(landscape)
@@ -130,7 +126,6 @@ fun GridPanelRoot(
     //（加项 / 落盘都认它）。页数被改小时 PagerState 自己夹住当前页。
     val pagerState = rememberPagerState(pageCount = { pageCount })
     var editMode by remember(panel.id) { mutableStateOf(false) }
-    // 返回键：编辑态先退编辑（不关面板），非编辑态返回 false 交给浮窗播放退场动画。
     LaunchedEffect(Unit) {
         onRegisterBackHandler?.invoke {
             if (editMode) {
@@ -240,11 +235,7 @@ fun GridPanelRoot(
 
     var suppressItemTapUntil by remember(panel.id) { mutableStateOf(0L) }
 
-    // 内置小部件的延迟收缩任务（媒体控制会话减少）：按项 id 挂起，重入先取消。
-    val pendingShrinks = remember(panel.id) { mutableMapOf<String, kotlinx.coroutines.Job>() }
-
     // 根 Box：点按 + 长按空白进出编辑。
-    //
     // 长按只收**空白**的事件：项的手势层会在触发时消费同一路事件，
     // detectTapGestures 见 consumed 即取消 —— 消费链天然就是判定域。
     Box(
@@ -255,7 +246,6 @@ fun GridPanelRoot(
                     onTap = {
                         if (editMode) {
                             editMode = false
-                            // 防连点：退出编辑后立刻点项不应执行动作。
                             suppressItemTapUntil =
                                 SystemClock.elapsedRealtime() + ExitEditTapGuardMillis
                         } else {
@@ -313,65 +303,6 @@ fun GridPanelRoot(
                     onResizeStart = { item -> state.beginResize(pageIndex, item) },
                     onResizeDelta = { delta -> state.onResizeDelta(delta) },
                     onResizeEnd = { state.endResize() },
-                    onExpand = { item, rows ->
-                        // 媒体控制的会话行数变化：
-                        // - 扩高立即走（新会话出现了，别让内容被压）；
-                        // - 缩高延迟 1s 再走（会话短暂断开/切歌会闪抖），落盘前
-                        //   重新读最新项，避免过期快照写回。
-                        // 扩高后用 planReorder 把被压住的项往下推；缩高只是变矮，
-                        // 下方项保持原位（留出的空位用户可自行拖满）。
-                        val target = rows.coerceAtLeast(2)
-                        pendingShrinks.remove(item.id)?.cancel()
-                        if (target > item.spanY) {
-                            val grown = item.copy(spanY = target)
-                            val base = localItems.map {
-                                if (it.id == item.id) grown else it
-                            }
-                            val m = metricsState.value
-                            val plan = GridPanelItemLayout.planReorder(
-                                items = base,
-                                movingId = item.id,
-                                targetX = grown.x,
-                                targetY = grown.y,
-                                columns = m.columns,
-                                rows = maxOf(m.rows, grown.bottom),
-                            ) ?: base
-                            commitAllItems(plan)
-                        } else if (target < item.spanY) {
-                            val itemId = item.id
-                            pendingShrinks[itemId] = scope.launch {
-                                delay(1_000)
-                                val latest = localItems.firstOrNull { it.id == itemId } ?: return@launch
-                                if (target < latest.spanY) {
-                                    // 自动回推：因扩高被推下去、且与本项横向重叠的项，
-                                    // 逐个（按 y 升序）拉回 delta 行；用 planReorder
-                                    // 求解，拉不动（路径上有别人）就留在原地。
-                                    val delta = latest.spanY - target
-                                    var cur = localItems.map {
-                                        if (it.id == itemId) it.copy(spanY = target) else it
-                                    }
-                                    val m = metricsState.value
-                                    val pulled = cur
-                                        .filter {
-                                            it.id != itemId && it.y >= latest.y + target &&
-                                                it.x < latest.right && it.right > latest.x
-                                        }
-                                        .sortedBy { it.y }
-                                    for (candidate in pulled) {
-                                        cur = GridPanelItemLayout.planReorder(
-                                            items = cur,
-                                            movingId = candidate.id,
-                                            targetX = candidate.x,
-                                            targetY = (candidate.y - delta).coerceAtLeast(0),
-                                            columns = m.columns,
-                                            rows = m.rows,
-                                        ) ?: cur
-                                    }
-                                    commitAllItems(cur)
-                                }
-                            }
-                        }
-                    },
                     onToggleBackground = { item ->
                         commitAllItems(
                             localItems.map {

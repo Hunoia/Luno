@@ -16,24 +16,24 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
@@ -48,12 +48,13 @@ import hunoia.luno.gridpanel.ui.GridItemActions
 import hunoia.luno.gridpanel.ui.GridPageIndicator
 import hunoia.luno.gridpanel.ui.GridPanelLayer
 import hunoia.luno.gridpanel.ui.gridPanelCardColor
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
-/** 拖拽到距可视区上下沿这么多 dp 内开始自动滚动（一墨 nz1 同款）。 */
+
+/** 拖拽到距可视区上下沿这么多 dp 内开始自动滚动。 */
 private val EdgeScrollBand = 56.dp
 
 /** 自动滚动上限步进（dp/帧，约 960dp/s），实际按越界深度在 25%~100% 间取。 */
@@ -61,10 +62,8 @@ private val EdgeScrollStep = 16.dp
 
 /**
  * 卡片容器：几何 → 尺寸 → 位置动画 → HorizontalPager。
- *
- * 每页的 [ScrollState] **在这里创建并长期持有**（map + getOrPut）：以前在 pager 的
- * page lambda 里 remember，页面被回收后边缘滚动协程握着的可能是废弃实例，
- * 滚动会「滚一下就不动了」。
+ * 每页的 [ScrollState] 在这里创建并长期持有（map + getOrPut）：放进 pager 的
+ * page lambda 里 remember，页面被回收后边缘滚动协程可能握着废弃实例。
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -121,7 +120,6 @@ fun GridPanelCard(
         }
     }
 
-    // 每页 scroll 状态由 Card 持有：翻页回收 page lambda 时不会丢。
     val pageScrolls = remember(panelId) { mutableMapOf<Int, ScrollState>() }
     // 页数被调小后清掉越界页的滚动状态，避免再调大时复用旧滚动位置。
     LaunchedEffect(pageCount, panelId) {
@@ -146,8 +144,7 @@ fun GridPanelCard(
             )
             .clip(RoundedCornerShape(CardCorner)),
     ) {
-        // 顶栏已删：日期/时间/编辑中提示/加项按钮全下线。多页指示点保留在顶部
-        //（高度预算 IndicatorHeight 在 metrics 里照旧）；页切换靠点/横滑。
+        // 多页指示点固定在顶部，高度预算 IndicatorHeight 在 metrics 里；页切换靠点/横滑。
         Column(Modifier.fillMaxSize()) {
             if (pageCount > 1) {
                 GridPageIndicator(
@@ -213,7 +210,6 @@ fun GridPanelCard(
                                 baseActionsState.value.onResizeDelta(delta)
                             },
                             onResizeEnd = { baseActionsState.value.onResizeEnd() },
-                            onExpand = { item, rows -> baseActionsState.value.onExpand(item, rows) },
                             onToggleBackground = { item -> baseActionsState.value.onToggleBackground(item) },
                         )
                     }
@@ -254,13 +250,15 @@ fun GridPanelCard(
                 }
             }
         }
-        // 编辑态加项入口：右下角悬浮按钮（顶栏删除后加项的唯一入口）。
+        // 编辑态加项入口：右下角悬浮按钮。
         if (editMode) {
             FloatingActionButton(
                 onClick = onAdd,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(16.dp),
+                // 加项是全卡唯一主操作，用 primary：内容色是固定浅灰，FAB 再用内容色
+                // 会变成全卡最亮的大白钮；深色方案下 primary 亮、onPrimary 暗，黑卡上看得见。
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
             ) {

@@ -10,10 +10,12 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.floor
 import hunoia.luno.config.model.DynamicRowExtra
 import hunoia.luno.config.model.GridPanelDefaults
+import hunoia.luno.ui.theme.ShapeExtraLarge
 
 val CardMargin = 12.dp
 
-val CardCorner = 20.dp
+/** 面板圆角与快速启动器面板（Card shape = ExtraLargeShape）对齐。 */
+val CardCorner = ShapeExtraLarge
 
 /** 多页时页指示点的行高（固定预算，计入 cardH）。 */
 val IndicatorHeight = 12.dp

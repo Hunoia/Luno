@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -65,17 +66,26 @@ import kotlin.math.roundToInt
 /** 手柄命中区上限；小格按边长比例再缩小，避免盖住半个项。 */
 private val ResizeHandleHit = 32.dp
 
-/** 项的屏幕中心（点按执行时用）。用普通引用而不是 State：滚动时 onGloballyPositioned
- *  每帧都会触发，写 State 会让整个 Layer 每帧重组（滚动卡顿的来源）。 */
+/**
+ * 内置部件的背景底板（左上角 Layers 按钮可切）。
+ * 不贴 surfaceVariant：面板卡面是近黑的，一块不透明的主题色糊上去很跳。
+ * 改成 onCard 低透明度竖向渐变 + 细描边 —— 压出玻璃质感，托得住内容又不抢填充色。
+ */
+private val InternalWidgetBgBrush = Brush.verticalGradient(
+    listOf(
+        gridPanelOnCardColor.copy(alpha = 0.10f),
+        gridPanelOnCardColor.copy(alpha = 0.04f),
+    ),
+)
+private val InternalWidgetBgBorder = gridPanelOnCardColor.copy(alpha = 0.08f)
+
+/** 项的屏幕中心（点按执行时用）。用普通引用而不是 State：滚动时
+ *  onGloballyPositioned 每帧触发，写 State 会让整个 Layer 每帧重组。 */
 private class ItemCenterHolder {
     var value: IntOffset = IntOffset.Zero
 }
 
-/**
- * 项的交互回调集合。参数合并成一个对象，是为了让 [GridPanelLayer] 的签名
- * 从 30+ 收到 12 个 —— 以前每加一种手势就往 GridCanvas 上挂两个参数，
- * 最后一个调用点根本看不出哪个回调对应哪根手指。
- */
+/** 项的交互回调集合：合并成对象，避免 [GridPanelLayer] 参数爆炸。 */
 @Immutable
 class GridItemActions(
     val onTap: (GridPanelItem, IntOffset) -> Unit,
@@ -87,19 +97,11 @@ class GridItemActions(
     val onResizeStart: (GridPanelItem) -> Unit,
     val onResizeDelta: (Offset) -> Unit,
     val onResizeEnd: () -> Unit,
-    /**
-     * 内置小部件请求改变自身纵向 span（媒体控制的会话行数）。
-     * 只扩不缩等语义由调用方决定；默认空实现 = 部件类型不动态变高。
-     */
-    val onExpand: (GridPanelItem, rows: Int) -> Unit = { _, _ -> },
     /** 内置小部件切换背景显示（左上角按钮），落盘 showBackground。 */
     val onToggleBackground: (GridPanelItem) -> Unit = { _ -> },
 )
 
-/**
- * 网格内容层（原 GridCanvas）：空格/网格线、项循环、落位预览、空页提示。
- * 滚动容器在 [GridPanelCard]，这里只负责内容坐标。
- */
+/** 网格内容层：空格/网格线、项循环、落位预览、空页提示；滚动容器在 [GridPanelCard]。 */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun GridPanelLayer(
@@ -124,8 +126,7 @@ fun GridPanelLayer(
     val hitPx = with(density) { ResizeHandleHit.toPx() }
     val contentH = with(density) { metrics.contentH.toDp() }
 
-    // 编辑态手势统一在层根（静止节点）上命中：项在拖拽中自身会移动，把
-    // pointerInput 挂在项内部会让 positionChange() 被节点位移抵掉（半速跟手）。
+    // 编辑态手势统一挂在层根（静止节点），项内部不挂：否则 positionChange() 会被节点自身位移抵掉。
     val layerGestures = if (editMode) {
         Modifier.gridLayerGestures(
             metrics = metrics,
@@ -172,7 +173,7 @@ fun GridPanelLayer(
             // key 必须有：remember/Animatable/AndroidView 是按组合位置记忆的，
             // 没有它，重排换位后各项会拿到别项的动画状态和宿主视图。
             key(raw.id) {
-                // 越界兜底：列数/行数被改小、或数据来自旧版本时，项可能落在网格外。
+                // 越界兜底：列数/行数被改小时，项可能落在网格外。
                 val item = raw.normalized(metrics.columns, metrics.rows)
                 val dragging = item.id == draggingId
                 val resizing = item.id == resizingId
@@ -180,6 +181,10 @@ fun GridPanelLayer(
                 val spanY = if (resizing) resizeSpanF?.y ?: item.spanY.toFloat() else item.spanY.toFloat()
                 val itemW = metrics.itemW(spanX)
                 val itemH = metrics.itemH(spanY)
+                // 内置部件按当前占位判横竖布局，要用 resize 中的实时 span，
+                // 传 item.spanX 的话拖手柄时方向不跟手。AppWidget 的 optionSpan 同理。
+                val liveSpanX = spanX.roundToInt().coerceAtLeast(1)
+                val liveSpanY = spanY.roundToInt().coerceAtLeast(1)
                 val sizeDp = with(density) { itemW.toDp() }
                 val heightDp = with(density) { itemH.toDp() }
 
@@ -228,10 +233,8 @@ fun GridPanelLayer(
                             if (action == null) {
                                 BrokenItemCell(Modifier.fillMaxSize())
                             } else {
-                                // 运行态沿用 combinedClickable（与旧实现一致）：它和
-                                // 外层 verticalScroll / pager 的协作是框架验证过的。
-                                // 编辑态的拖拽/缩放/点按由层根 gridLayerGestures 统一
-                                // 接管，项内不再挂任何手势。
+                                // 运行态用 combinedClickable：它与外层 verticalScroll / pager
+                                // 的协作是框架验证过的；编辑态手势全部由层根接管。
                                 val contentGesture = if (editMode) {
                                     Modifier
                                 } else {
@@ -247,8 +250,7 @@ fun GridPanelLayer(
                                 ActionItemCell(
                                     action = action,
                                     dragging = dragging,
-                                    // 图标尺寸由 ActionItemCell 内按「应用图标占满 /
-                                    // 普通动作 72% 留边」区分，这里只传格子短边。
+                                    // 图标尺寸由 ActionItemCell 按应用图标/普通动作区分，这里只传格子短边。
                                     cellSize = with(density) {
                                         minOf(itemW, itemH).toDp()
                                     },
@@ -263,26 +265,45 @@ fun GridPanelLayer(
                                     .fillMaxSize()
                                     .then(
                                         if (kind.showBackground) {
-                                            Modifier.background(
-                                                MaterialTheme.colorScheme.surfaceVariant,
-                                                RoundedCornerShape(ItemCorner),
-                                            )
+                                            Modifier
+                                                .background(
+                                                    InternalWidgetBgBrush,
+                                                    RoundedCornerShape(ItemCorner),
+                                                )
+                                                .border(
+                                                    1.dp,
+                                                    InternalWidgetBgBorder,
+                                                    RoundedCornerShape(ItemCorner),
+                                                )
                                         } else Modifier,
                                     ),
                             ) {
                                 when (kind.widgetId) {
-                                    // 自绘部件自带点击目标，不走 ActionItemCell 那套整格 combinedClickable ——
-                                    // 按钮/滑条就是内容本身；编辑态交给层根手势，这里不动。
+                                    // 自绘部件自带点击目标，不走整格 combinedClickable；
+                                    // 编辑态 enabled=false，否则拖部件会同时改音量/切歌。
                                     InternalWidgetIds.MEDIA -> MediaControlCell(
                                         modifier = Modifier.fillMaxSize(),
-                                        onDesiredRows = { rows -> actions.onExpand(item, rows) },
+                                        spanX = liveSpanX,
+                                        spanY = liveSpanY,
+                                        enabled = !editMode,
                                     )
-                                    InternalWidgetIds.VOLUME -> VolumeSliderCell(Modifier.fillMaxSize())
-                                    InternalWidgetIds.BRIGHTNESS -> BrightnessSliderCell(Modifier.fillMaxSize())
+                                    InternalWidgetIds.VOLUME -> VolumeSliderCell(
+                                        modifier = Modifier.fillMaxSize(),
+                                        spanX = liveSpanX,
+                                        spanY = liveSpanY,
+                                        enabled = !editMode,
+                                    )
+                                    InternalWidgetIds.BRIGHTNESS -> BrightnessSliderCell(
+                                        modifier = Modifier.fillMaxSize(),
+                                        spanX = liveSpanX,
+                                        spanY = liveSpanY,
+                                        enabled = !editMode,
+                                    )
                                     InternalWidgetIds.RECENTS -> RecentAppsCell(
                                         modifier = Modifier.fillMaxSize(),
                                         spanX = item.spanX,
                                         spanY = item.spanY,
+                                        enabled = !editMode,
                                     )
                                     else -> BrokenItemCell(Modifier.fillMaxSize())
                                 }
@@ -306,13 +327,10 @@ fun GridPanelLayer(
                         }
 
                         is GridPanelItem.Kind.AppWidget -> {
-                            // 用含 gap 的真实像素换算 dp：按 cellDp × span 会漏掉跨格
-                            // gap（3 格少 2×gap ≈ 12dp），provider 按偏小尺寸画会裁内容。
-                            //
-                            // resize 期间 options 按 spanF 的**整数格**实时下发：跨过
-                            // 整格边界才重新 createView（provider 按新尺寸重排，即「实时
-                            // 重排」）；连续跟手的帧只走 Compose 尺寸 → onMeasure 的 View
-                            // 层重排，不重建 provider。松手 commit 后再协商一次。
+                            // 用含 gap 的真实像素换算 dp：按 cellDp × span 会漏掉跨格 gap，
+                            // provider 按偏小尺寸画会裁内容。
+                            // resize 期间 options 按 spanF 的整数格实时下发：跨整格才重建
+                            // provider；连续跟手只走 Compose 尺寸 → onMeasure。
                             val optionSpanX =
                                 (if (resizing) resizeSpanF?.x ?: spanX else spanX)
                                     .roundToInt().coerceAtLeast(1).toFloat()
@@ -334,6 +352,10 @@ fun GridPanelLayer(
                                     hostView.setLoadStateListener(stateListener)
                                     hostView.onVerticalScroll = onWidgetScroll
                                     hostView.onFling = onWidgetFling
+                                    // 编辑态屏蔽部件自身的点按（会透传给 widget 的按钮/
+                                    // 点击动作），与内置部件 enabled=false 等效；拖拽/缩放
+                                    // 仍归层根手势，Compose 侧的指针事件不受拦截影响。
+                                    hostView.setTouchBlocked(editMode)
                                     hostView.updateWidget(
                                         kind.appWidgetId,
                                         kind.provider,
@@ -355,15 +377,13 @@ fun GridPanelLayer(
                     }
 
                     // 编辑态操作角标：删除（右上）+ 尺寸手柄（右下），常显。
-                    // 子层排在最后 —— 子层先拿事件，点角标不会误起整项拖拽。
+                    // 子层排在最后，点角标不会误起整项拖拽。
                     if (editMode) {
                         ItemDeleteBadge(
                             onDelete = { actions.onDelete(item) },
                             modifier = Modifier.align(Alignment.TopEnd),
                         )
-                        // 所有项都带手柄（不再按尺寸门槛隐藏）。
-                        // 小格上把手同步缩小：视觉件 min(20dp, 30% 边长)，
-                        // 命中区在 gridLayerGestures 里取 min(32dp, 40% 边长)。
+                        // 视觉件 min(20dp, 30% 边长)，命中区在 gridLayerGestures 里取 min(32dp, 40% 边长)。
                         ItemResizeHandle(
                             modifier = Modifier.align(Alignment.BottomEnd),
                             handleSize = with(density) {
@@ -395,6 +415,8 @@ fun GridPanelLayer(
                         with(density) { previewH.toDp() },
                     )
                     .zIndex(0.5f)
+                    // 落点预览用 primary（操作反馈该带主题色）；全走固定浅灰的话
+                    // 动态取色在面板里只剩黑白灰。
                     .background(
                         MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
                         RoundedCornerShape(ItemCorner),
@@ -410,8 +432,8 @@ fun GridPanelLayer(
 }
 
 /**
- * 编辑态的空位与网格线。用**一个 Canvas** 而不是每格一个 Box：
- * 6×8 就是 48 个纯装饰节点，而我们只在空格上铺底（被占用的格画了也被盖住）。
+ * 编辑态的空位与网格线。用一个 Canvas 而不是每格一个 Box：6×8 就是 48 个纯装饰
+ * 节点，而且被占用的格画了也被盖住。
  */
 @Composable
 private fun GridBackground(items: List<GridPanelItem>, metrics: GridMetrics) {

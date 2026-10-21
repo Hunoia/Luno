@@ -22,8 +22,6 @@ class PreviousAppTracker(
         when (event?.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 val packageName = event.packageName?.toString()
-                // 这里原来还有一次 isActivity(pkg, cls)：判断结果被丢弃，只在首次见到某个
-                // Activity 时白付一次 getActivityInfo（跨进程）—— 删掉，历史栈只依赖包名。
                 if (packageName != null &&
                     hasLaunchIntent(packageName) &&
                     currPackageName != packageName
