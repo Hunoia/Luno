@@ -186,7 +186,6 @@ private fun PointerControls(
         valueRange = 0.2f..1f,
     )
 }
-/** 副标题摘要：图标大小 · 图标间距 · 弧线铺开。 */
 @Composable
 private fun actionPanelStyleSummary(style: ArcStyle): String {
     val density = LocalDensity.current

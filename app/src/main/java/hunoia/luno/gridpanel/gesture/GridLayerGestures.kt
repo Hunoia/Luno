@@ -25,18 +25,11 @@ private enum class LayerGestureOutcome { TAP, GIVE_UP }
 
 /**
  * 网格层根节点的统一手势（编辑态）：手柄 > 长按拖拽 > 点按。
- *
- * **为什么挂在层根而不是每个项上**：项在拖拽中会随 `offset{}` 逐帧移动，挂在
- * 项节点内部的 pointerInput 的坐标系跟着动 —— positionChange() 报出的位移被
- * 节点自身位移抵掉（收敛在真值一半附近震荡），表现为项半速跟手、一顿一顿，
- * 按同一坐标算的高亮自然也错位。层根在整个拖拽期间静止（滚动/翻页早被 slop
- * 判定让路），位移就是纯粹的屏幕位移，1:1 跟手。
- *
- * 命中测试按下时做一次：此时无拖拽进行，项都在静止位。拖拽/缩放一旦开始就
- * 锁定该项直到抬手，不做逐帧命中。
- *
- * 子层（删除角标）消费的事件在这里表现为 isConsumed → 直接放弃，所以点角标
- * 不会误起整项拖拽。
+ * 必须挂在层根：项在拖拽中随 `offset{}` 逐帧移动，项内 pointerInput 的坐标系
+ * 跟着动，`positionChange()` 会被节点自身位移抵掉（半速跟手、抖动）；层根在
+ * 整个拖拽期间静止，位移即纯屏幕位移，1:1 跟手。
+ * 命中测试只在按下时做一次，拖拽/缩放开始后锁定该项直到抬手。
+ * 子层（删除角标）消费的事件表现为 isConsumed → 放弃，不会误起整项拖拽。
  */
 @Composable
 fun Modifier.gridLayerGestures(
@@ -70,18 +63,15 @@ fun Modifier.gridLayerGestures(
     return pointerInput(Unit) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
-            // **不要 consume down**：吃掉会让外层 verticalScroll / pager 的拖动
-            // 起不来（项铺满网格时整个面板就滑不动了）。
+            // 不要 consume down：否则外层 verticalScroll / pager 的拖动起不来。
             val m = metricsRef.value
             val hit = hitTest(itemsRef.value(), down.position, m) ?: return@awaitEachGesture
             val (item, local) = hit
             val itemW = m.itemW(item.spanX.toFloat())
             val itemH = m.itemH(item.spanY.toFloat())
 
-            // 1) 尺寸手柄：命中即 resize，并且 return —— 不再往下走长按判定。
-            //    （层根坐标系静止，总位移直接可信。）命中区上限按边长 40% 再缩，
-            //    小格（1×1 ≈ 80dp → 32dp）不盖掉半个项。**所有项都有手柄**，
-            //    不再按尺寸门槛隐藏。
+            // 1) 尺寸手柄：命中即 resize 并 return，不再往下走长按判定。
+            //    命中区上限按边长 40% 再缩，小格（1×1 ≈ 80dp → 32dp）不盖掉半个项。
             val handleHit = minOf(hitRef.value, minOf(itemW, itemH) * 0.4f)
             if (inResizeHandleArea(
                     local,
@@ -96,7 +86,7 @@ fun Modifier.gridLayerGestures(
                 return@awaitEachGesture
             }
 
-            // 2) 长按等待：与 combinedClickable 用同一套 ViewConfiguration 超时。
+            // 2) 长按等待：与 combinedClickable 共用 ViewConfiguration 超时。
             var upForTap: PointerInputChange? = null
             val outcome = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
                 var result = LayerGestureOutcome.GIVE_UP
@@ -139,7 +129,6 @@ fun Modifier.gridLayerGestures(
                             return@awaitEachGesture
                         }
                         if (!change.pressed) break
-                        // 层根静止，positionChange() 就是纯屏幕位移。
                         val delta = change.positionChange()
                         // 位置先报：位移为零的帧也要报，边缘滚动才能持续生效。
                         dragPosRef.value(item, change.position.y)

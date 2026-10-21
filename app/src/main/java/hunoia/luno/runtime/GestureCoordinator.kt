@@ -88,17 +88,10 @@ class GestureCoordinator(
     val buttonWindowController = ButtonWindowController(host.context)
     val transientOverlayController = TransientOverlayController(host.context)
     private var refreshJob: Job? = null
-    /**
-     * 待评估事件键累积：100ms 防抖窗口内多次 refresh 取并集，一次评估。
-     * 否则后到的 keyed 评估会取消先到的通用评估（如键盘弹起的通用刷新被
-     * IME 窗口变化的 APP 评估顶掉），导致只订阅通用域的规则被饿死。
-     */
+    /** 待评估事件键累积：100ms 窗口内多次 refresh 取并集一次评估，否则后到的 keyed 评估会顶掉通用评估。 */
     private val pendingAutomationKeys = mutableSetOf<String>()
 
-    /**
-     * 是否已有一次延迟刷新在等待（与 pendingAutomationKeys 同锁保护）。
-     * 用来把「每次事件重置倒计时」改成「首个事件起算」的节流。
-     */
+    /** 是否已有延迟刷新在等待（与 pendingAutomationKeys 同锁保护），用于「首个事件起算」节流。 */
     private var refreshPending = false
 
     /** 最近一次窗口状态事件的 Activity 类名：同包内启动新 Activity 也要能收起网格面板。 */
@@ -238,7 +231,7 @@ class GestureCoordinator(
     )
 
     private val automationEngine = AutomationEngine(
-        // 跨规则并行、同规则单飞：同一规则已有实例在跑时，新触发记 skip（RULE_BUSY）。
+        // 同一规则已有实例在跑时，新触发记 skip（RULE_BUSY）。
         onFireRule = { rule, ctx ->
             val admitted = synchronized(runningRules) { runningRules.add(rule.id) }
             if (!admitted) {
@@ -277,7 +270,7 @@ class GestureCoordinator(
             }
         },
         onEvents = { events ->
-            // 一轮求值的跳过事件合成一次写盘（引擎侧已攒批），不再每条起一个协程。
+            // 一轮求值的跳过事件合成一次写盘（引擎侧已攒批）。
             host.coroutineScope.launch { ConfigProvider.appendAutomationEvents(events) }
         },
     )
@@ -367,10 +360,7 @@ class GestureCoordinator(
         }
     }
 
-    /**
-     * 手势决策唯一入口：Decision 到此不再被截留。
-     * 今天恒放行（记录 + 立即分发）；后续仲裁/改写只改这里。
-     */
+    /** 手势决策唯一入口：记录后立即分发；仲裁/改写只改这里。 */
     private fun onGestureDecision(
         decision: hunoia.luno.gesture.GestureDecision.Trigger?,
         action: hunoia.luno.action.model.StoredAction,
@@ -407,13 +397,9 @@ class GestureCoordinator(
     }
 
     /**
-     * 悬浮球点按动作统一转发：所有动作（含面板/子手势/刮擦）都广播进容器，
-     * 由容器 `runGestureActions` 分类执行（与触钮同链路，见 BallTapActionEvent）。
-     *
-     * 等待就绪的原因：容器里的 `actionPanels` 来自 ConfigProvider 流的首次汇合，
-     * a11y 进程冷启动后头几秒是空的。事件是即发即忘的，砸进去 =
-     * 「面板静默不弹」。面板动作这里等快照列表就绪再广播；
-     * 非面板动作无此依赖，立即转发。
+     * 悬浮球点按动作统一转发：所有动作广播进容器，由容器 `runGestureActions` 分类执行（与触钮同链路）。
+     * 面板动作要等快照列表就绪再广播：a11y 冷启动后头几秒 `actionPanels` 为空，事件即发即忘，
+     * 砸进去 = 面板静默不弹；非面板动作立即转发。
      */
     fun forwardBallTap(
         action: hunoia.luno.action.model.StoredAction,
@@ -442,7 +428,7 @@ class GestureCoordinator(
         }
     }
 
-    /** 分发落定订阅：手势链路的分发完成后驱动 GESTURE 域评估（替代入口直调）。 */
+    /** 分发落定后驱动 GESTURE 域评估。 */
     private val gestureDispatchSubscriber: (hunoia.luno.action.dispatcher.GestureDispatchEvent) -> Unit = { event ->
         if (event.fromGesture) {
             refreshGestureButtons(delayMs = 0L, automationKeys = setOf(AutomationEventKey.GESTURE))
@@ -467,7 +453,7 @@ class GestureCoordinator(
             environmentTracker.onNotificationPosted(pulse)
             refreshGestureButtons(automationKeys = setOf(AutomationEventKey.NOTIFICATION))
         }
-        // 勿扰变化：通知监听服务推入（需通知访问权限）；无权限时靠亮屏补读。
+        // 勿扰变化由通知监听服务推入（需通知访问权限）。
         AutomationPulseHub.onInterruption = { on -> dndTracker.onSystemChanged(on) }
         dndTracker.refreshFromSystem()
         val listener = WallpaperManager.OnColorsChangedListener { _, _ ->
@@ -489,8 +475,7 @@ class GestureCoordinator(
         }
 
         // 总开关（initialSettings.gestureEnabled）翻转时 gestureButtons/automationRules 都不变，
-        // 上面两个 distinctUntilChangedBy 会把这次变更过滤掉、不触发刷新；单独订阅，
-        // 保证关掉后触钮立即不可触摸、打开后立即恢复。
+        // 上面两个 distinctUntilChangedBy 会过滤掉这次变更、不触发刷新；这里单独订阅兜底。
         scopeJobs += host.coroutineScope.launch {
             runtimeSettingsStore.state
                 .distinctUntilChangedBy { it.initialSettings }
@@ -636,9 +621,8 @@ class GestureCoordinator(
     private fun refreshGestureButtons(delayMs: Long = 100L, automationKeys: Set<String> = emptySet()) {
         synchronized(pendingAutomationKeys) {
             pendingAutomationKeys.addAll(automationKeys)
-            // 已经有一次「正在等待」的延迟刷新：键并进去，不再 cancel 重建。
-            // 之前每个事件都 cancel + 重新 delay(100)，事件间隔短于 100ms 时会把刷新无限
-            // 往后推（快速连续切应用时按钮/规则刷新被饿死）。改成「首个事件起算」的节流。
+            // 已有延迟刷新在等待：键并进去，不再 cancel 重建。
+            // 不能用 cancel + delay 去抖：事件间隔 <100ms 时刷新会被无限推迟。
             if (delayMs > 0L && refreshPending) return
             refreshPending = delayMs > 0L
         }

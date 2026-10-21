@@ -53,7 +53,7 @@ internal fun HsvRectPicker(
                 )
             }
     ) {
-        // Brush 必须在 draw lambda 外构造：拖动选色时每帧都会重绘
+        // Brush 在 composable 侧按 hue 缓存：拖动选色每帧重绘，不能在 draw lambda 里重建
         val whiteToHueBrush = remember(hue) {
             Brush.horizontalGradient(0f to Color.White, 1f to Color.hsv(hue, 1f, 1f))
         }

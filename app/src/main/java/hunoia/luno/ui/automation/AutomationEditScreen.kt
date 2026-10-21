@@ -509,7 +509,7 @@ private fun StepsEditor(
                 )
             }
             if (step.kind == RuleStepKind.IF) {
-                // 分支收进内嵌子卡：各自时间线 + 各自添加按钮，不再裸缩进平铺。
+                // 分支收进内嵌子卡：各自时间线 + 各自添加按钮。
                 Text(
                     text = stringResource(R.string.step_if_then),
                     style = MaterialTheme.typography.titleSmall,
@@ -570,8 +570,7 @@ private fun StepsEditor(
     }
 }
 /**
- * 步骤一行：动作行整行点击直达动作选择页、删除在行内；其余类型点行进各自的 sheet。
- * 上/下移已移除（排序能力一并放弃），删除只对动作行开放。
+ * 步骤一行：动作行整行点击直达动作选择页并在行内删除；其余类型点行进各自 sheet。
  */
 @Composable
 private fun StepRow(
@@ -689,7 +688,7 @@ private fun ConditionGroupEditor(
         group.items.forEachIndexed { index, item ->
             val path = basePath + index
             if (item.type == ConditionType.GROUP) {
-                // 嵌套组：UI 只开两层（引擎不限），再深的存量照跑、编辑器折叠为摘要。
+                // 嵌套组：UI 只开两层（引擎不限），更深的折叠为摘要。
                 if (depth < 2) {
                     TimelineNode(
                         badge = { TimelineBadge((item.group?.items?.size ?: 0).toString()) },
@@ -792,7 +791,6 @@ private fun ConditionGroupEditor(
         )
     }
 }
-/** 条件一行：类型 + 摘要；点行进 sheet 配参数，删除在 sheet 里。 */
 @Composable
 private fun ConditionRow(
     item: ConditionItem,
@@ -874,8 +872,7 @@ private fun ConditionSheet(
     }
 }
 /**
- * 步骤 sheet：**只有 DELAY / IF 会进来** —— 动作行的整行点击直达动作选择页，
- * 删除也在行内，不需要中间 sheet。
+ * 步骤 sheet：只有 DELAY / IF 会进来；动作行直达选择页、删除在行内，没有中间 sheet。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -952,8 +949,8 @@ private fun StepSheet(
     }
 }
 /**
- * IF 步骤的条件编辑（屏幕层 sheet）。
- * 不复用步骤 sheet 内嵌——弹层不支持嵌套，编辑/添加/删除全部走屏幕层通道。
+ * IF 步骤的条件编辑（屏幕层 sheet）。不走步骤 sheet 内嵌：弹层不支持嵌套，
+ * 编辑/添加/删除全部走屏幕层通道。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1103,7 +1100,7 @@ private fun NotificationPermissionRow() {
             }
         },
     )
-}/** 右下角悬浮保存键：M3 圆形 + Haze 背后模糊，有未保存改动时高亮。 */
+}
 @Composable
 private fun BoxScope.SavePill(
     hazeState: dev.chrisbanes.haze.HazeState?,

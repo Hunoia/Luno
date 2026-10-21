@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 
 /**
  * 快速启动器布局几何（横竖屏各一份）：横屏下调整的就是横屏这份。
- * 行为开关（tapOpensMiniWindow）与启动统计不分朝向。
+ * 行为开关与启动统计不分朝向。
  */
 @Serializable
 @Keep
@@ -24,17 +24,13 @@ data class QuickLauncherGeometry(
 data class QuickAppLauncherSettings(
     val recentLaunchTime: Map<String, Long> = emptyMap(),
     val launchCount: Map<String, Long> = emptyMap(),
-    /** 竖屏布局几何。 */
     val portrait: QuickLauncherGeometry = QuickLauncherGeometry(),
-    /** 横屏布局几何。 */
     val landscape: QuickLauncherGeometry = QuickLauncherGeometry(),
     val tapOpensMiniWindow: Boolean = false,
 ) {
-    /** 当前朝向的布局几何。 */
     fun layout(landscape: Boolean): QuickLauncherGeometry =
         if (landscape) this.landscape else this.portrait
 
-    /** 按朝向修改几何。 */
     fun withLayout(
         landscape: Boolean,
         transform: (QuickLauncherGeometry) -> QuickLauncherGeometry,

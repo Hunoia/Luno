@@ -29,16 +29,10 @@ import hunoia.luno.ui.theme.appHazeSource
 import hunoia.luno.ui.theme.rememberAppHazeState
 
 /**
- * 屏幕模板（见 docs/ui-spec.md §3）。
- *
- * `Scaffold` / `TopBar` / haze 状态 / `nestedScroll` / 内容容器的组装**全部是模板私有**，
- * 界面只提供标题、动作与内容 —— 这样"一个界面一套骨架"从物理上不再可能。
- *
- * 固定不变的部分：容器色 `surfaceContainer`、`contentWindowInsets = WindowInsets()`、
- * `exitUntilCollapsedScrollBehavior`、haze 状态只由 `rememberAppHazeState()` 提供、
- * `nestedScroll` 挂在内容容器上、只取 Scaffold 的 top padding。
- *
- * [dialogs] / [sheets] 是弹层宿主，**所有弹层都必须放这里**，位置统一（以前有三种挂法）。
+ * 屏幕模板：`Scaffold` / `TopBar` / haze / `nestedScroll` / 内容容器全部私有，
+ * 界面只给标题、动作与内容。固定项：`surfaceContainer`、空 `contentWindowInsets`、
+ * `exitUntilCollapsedScrollBehavior`、haze 只由 `rememberAppHazeState()` 提供、
+ * `nestedScroll` 挂内容容器、只取 Scaffold top padding。[dialogs]/[sheets] 是弹层唯一宿主。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,13 +89,10 @@ fun LunoScreen(
 }
 
 /**
- * 全屏内容模板：骨架与 [LunoScreen] 相同，但**内容容器由调用方自己拼**。
- *
- * 用于内容本身就是滚动容器、且内部还有 `weight(1f)` 嵌套列表的页面（动作选择页）——
- * [LunoScreen] / [LunoScreenLazy] 的内容容器都带滚动或撑不满，不能套在它们外面。
- *
- * 模板仍然负责 Scaffold / TopBar / haze 状态 / `nestedScroll`，并把 top padding 与 [HazeState]
- * 作为参数交给调用方，由它决定给列表 `contentPadding` 还是自己留白、以及给 in-flow 底栏做 Haze 底。
+ * 全屏内容模板：骨架同 [LunoScreen]，但内容容器由调用方自己拼，用于内容本身是
+ * 滚动容器、内部还嵌 `weight(1f)` 列表的页面（动作选择页）——另两个模板的容器
+ * 都带滚动或撑不满。模板负责 Scaffold / TopBar / haze / `nestedScroll`，把 top padding
+ * 与 [HazeState] 交给调用方决定留白与 in-flow 底栏的 Haze 底。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -152,8 +143,7 @@ fun LunoScreenPlain(
 }
 
 /**
- * 列表页模板：骨架与 [LunoScreen] 完全相同，只是内容容器换成 LazyColumn。
- * 两者的差异只有这一个，不允许再各自拼 Scaffold。
+ * 列表页模板：骨架与 [LunoScreen] 完全相同，只把内容容器换成 LazyColumn。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

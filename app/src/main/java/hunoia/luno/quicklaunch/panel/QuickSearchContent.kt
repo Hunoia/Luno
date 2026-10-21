@@ -138,16 +138,7 @@ private data class SearchSnapshot(
     val callsTick: Int,
     val torchOn: Boolean,
 )
-
-/**
- * 影响搜索结果的设置子集（纯值投影）。
- *
- * QuickSearchSettings 是整对象 DataStore 值：改面板外观、删一条搜索历史都会 new 一个新实例，
- * 直接拿它当依赖 ⇒ 每次写设置都全量重搜。所以按字段投影，只在真正影响 search() 的字段变时才换引用。
- *
- * recentQueries 有意排除：它只被 UI 用于历史行匹配与空态展示，不进 index.search；
- * 不排除的话「长按删一条历史」会立刻触发一次全表重搜。
- */
+/** 影响搜索结果的设置子集（纯值投影）：直接拿 QuickSearchSettings 当依赖会让改外观/删历史都触发全量重搜；recentQueries 有意排除。 */
 private data class SearchInputs(
     val defaultEngineId: String,
     val customEngines: List<hunoia.luno.config.model.SearchEngine>,
@@ -304,10 +295,8 @@ internal fun QuickSearchContent(
     // composition 只做同步读，首帧即有图。
     val iconPx = with(LocalDensity.current) { 24.dp.toPx().toInt() }
     val appCtx = LocalContext.current.applicationContext
-    // 搜索搬出主线程：query 照常即时更新（字先上屏），结果流式回来；
-    // mapLatest 自动取消过期搜索，快打不堆积。空串短路不进搜索。
-    // 依赖只留「不会每帧变」的东西：query 不进 key（由块内 snapshotFlow 读，打字不重建流），
-    // 设置走 SearchInputs 投影（改外观/删历史不重搜），tick 合成一个 dataVersion。
+    // 搜索搬出主线程：query 即时更新，结果流式回来；mapLatest 取消过期搜索，空串短路。
+    // 依赖只留不会每帧变的东西：query 不进 key（块内 snapshotFlow 读），设置走 SearchInputs，tick 合成 dataVersion。
     val searchInputs = remember(searchSettings) { SearchInputs.of(searchSettings) }
     val launchCount = remember(launcherSettings) { launcherSettings.launchCount }
     val recentLaunchTime = remember(launcherSettings) { launcherSettings.recentLaunchTime }
@@ -321,22 +310,19 @@ internal fun QuickSearchContent(
             recentLaunchTime = recentLaunchTime,
         )
     }
-    // 应用索引版本：ensureLoaded / refreshApps 发布新数据后自增（含 onNewIntent 重扫、
-    // 装卸应用失效重刷）。普通 @Volatile 字段 Compose 看不见，必须经 StateFlow 收集。
+    // 应用索引版本：普通 @Volatile 字段 Compose 看不见，必须经 StateFlow 收集。
     val indexVersion by index.indexVersion.collectAsState()
-    // 权限快照刷新的版本号：快照是 @Volatile 普通字段，Compose 看不见它变化，
-    // 靠这个 State 把「已刷新」这件事带进重组。
+    // 权限快照刷新的版本号：快照是 @Volatile 普通字段，靠这个 State 把「已刷新」带进重组。
     var permCacheTick by remember { mutableIntStateOf(0) }
-    // dataVersion：数据源 tick / 索引版本 —— 任一变化就重建搜索流并重搜一次。
-    // 值本身不进快照（快照里再放一遍等于同一变化算两次）。
+    // dataVersion：数据源 tick / 索引版本，任一变化就重建搜索流并重搜一次。
+    // 值本身不进快照，否则同一变化会被算两次。
     val dataVersion = contactsTick + mediaTick + calendarTick + smsTick + callsTick + indexVersion + permCacheTick
     val searchFlow = remember(
         appCtx, iconPx, searchInputs, effectiveLauncher, effectiveSearchSettings, dataVersion, torchOn,
     ) {
         snapshotFlow {
-            // 块内只读「快照里没装但会影响结果」的两类 State：
-            // query（打字即时触发）、entries（动作库条目参与匹配）；
-            // tick 等已由 remember 的 key 带进闭包，不重复追踪。
+            // 块内只读快照里没装但会影响结果的 State：query（打字即时触发）、
+            // entries（动作库条目参与匹配）；tick 已由 remember 的 key 带进闭包。
             SearchSnapshot(
                 query.text, entries, effectiveLauncher, effectiveSearchSettings,
                 0, 0, 0, 0, 0, torchOn,
@@ -348,9 +334,8 @@ internal fun QuickSearchContent(
             } else {
                 withContext(Dispatchers.Default) {
                     val out = index.search(text, s.entries, s.launcher, s.search, s.torchOn).also { res ->
-                        // 发射前把 App/快捷方式行的图标 resolve 进同步缓存：
-                        // UI 线程读到即画，无异步空隙，结果原子到达。已缓存的零开销，
-                        // 只有新包才解码（自带 bitmap 的快捷方式跳过）。
+                        // 发射前把 App/快捷方式行的图标 resolve 进同步缓存：UI 线程读到即画，
+                        // 结果原子到达。已缓存的零开销，只有新包才解码（自带 bitmap 的快捷方式跳过）。
                         val pkgs = HashSet<String>()
                         for (r in res) {
                             when (r) {
@@ -367,8 +352,8 @@ internal fun QuickSearchContent(
             }
         }
     }
-    // 原子包：结果永远带着它对应的 query。到达前 results 留旧值（后续字），
-    // 首字无旧值则由分支继续显示空态——搜索分支只挂完整数据，不挂半成品。
+    // 原子包：结果永远带着它对应的 query。到达前 results 留旧值，
+    // 首字无旧值则继续显示空态——搜索分支只挂完整数据，不挂半成品。
     val packet by searchFlow.collectAsState(initial = "" to emptyList<QuickSearchResult>())
     val results = packet.second
     val settled = packet.first == query.text
@@ -436,8 +421,8 @@ internal fun QuickSearchContent(
             permCtx.packageManager,
         ) != null
     }
-    // 空态常用应用：放在条件分支外，面板生命周期内只跑一次。
-    // 以前写在 else-if 分支里，分支一退出就取消，来回切 query 会反复重启 IO。
+    // 空态常用应用：放在条件分支外，面板生命周期内只跑一次 —— 写进分支里的话分支一退出
+    // 就取消，来回切 query 会反复重启 IO。
     var topUsedApps by remember { mutableStateOf(emptyList<QuickSearchResult.App>()) }
     LaunchedEffect(effectiveLauncher, indexVersion) {
         topUsedApps = withContext(Dispatchers.IO) { index.topUsed(effectiveLauncher) }
@@ -450,10 +435,7 @@ internal fun QuickSearchContent(
         launch { panelAlpha.animateTo(1f, tween(300)) }
     }
     LaunchedEffect(closing) {
-        // 退场纯淡出 200ms：缩放的重采样尾段全是糊的（字和图标都糊），删掉只留 alpha。
-        // 键盘跟淡出并行收（之前等 finish 后才收，拖一条 200ms+ 的尾巴）。
-        // 播完（animateTo 返回）才调 onExitFinished 拆窗：提前拆会掐断结尾，
-        // 播完才拆又会晾纯 blur——精确交接点就是播完这一刻。
+        // 退场纯淡出 200ms（缩放重采样尾段是糊的）。播完才调 onExitFinished 拆窗：提前拆会掐断结尾。
         if (closing) {
             keyboard?.hide()
             panelAlpha.animateTo(0f, tween(200))
@@ -482,15 +464,11 @@ internal fun QuickSearchContent(
                 onClick = onClose,
             ),
     ) {
-        // statusBarsPadding：内容从状态栏下方开始，不垫在透明状态栏图标后面
-        //（白卡压白图标会导致图标看不清，跟 blur 无关，必须避让）。
-        // imePadding 放整列而不是输入框：键盘弹起时列表跟着收缩，
-        // 否则列表高度不变、底部行被键盘盖住（反转列表里就是最贴胶囊那几行）。
+        // statusBarsPadding：内容从状态栏下方开始，白卡压白图标会看不清，必须避让。
+        // imePadding 放整列而不是输入框：键盘弹起时列表跟着收缩，否则底部行被键盘盖住。
         Column(modifier = Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
-            // 分支按“数据完整”进：flow 发射 (queryText, results) 原子包，
-            // 在途（packet.text != query.text）时不挂半成品——首字无旧数据就继续显示空态，
-            // 到达后一次切完整搜索列表（和空→提示同性质，原子出现不闪）。
-            // 有旧数据时继续显示旧列表，到达即整批换。
+            // 分支按「数据完整」进：flow 发射 (queryText, results) 原子包，在途时不挂半成品 ——
+            // 首字无旧数据继续显示空态，有旧数据先显示旧列表，到达后整批换。
             // 锁屏时结果里的剪贴行全部滤掉（展示隐藏，引擎侧不动）。
             val displayResults = if (locked) results.filterNot { it is QuickSearchResult.ClipEntry } else results
             if (query.text.isNotBlank() && displayResults.isNotEmpty()) {
@@ -506,16 +484,15 @@ internal fun QuickSearchContent(
                     }
                 }
                 val total = matches.size + displayResults.size
-                // 反转列表内容超高时会把首项顶出可视区之下：受控滚动，内容一变钉回
-                // 第 0 项（最贴胶囊那行）。API 级保证可见，不依赖布局锚定行为。
-                // 触发条件从 total 改成内容签名：以前每次敲字数量一变就滚，用户上滑看结果会被拽回。
+                // 反转列表内容超高时会把首项顶出可视区：受控滚动，内容一变钉回第 0 项。
+                // 触发用内容签名而非 total：按数量滚会拽回用户上滑看的结果。
                 val searchListState = rememberLazyListState()
                 val contentSig = signatureOf(
                     displayResults.firstOrNull(), displayResults.lastOrNull(),
                     total * 31 + matches.size,
                 )
                 LaunchedEffect(contentSig) { searchListState.scrollToItem(0) }
-                // key 只由内容决定（去 idx）：以前带 idx，结果重排时整列 key 失效、全部重建，
+                // key 只由内容决定、不带 idx：带 idx 时重排会让整列 key 失效、全部重建，
                 // 打字时肉眼可见闪。重复项由 stableKeys 补 ~n 保唯一。
                 val resultKeys = remember(displayResults) {
                     stableKeys(displayResults.map { it.stableId() })
@@ -575,8 +552,6 @@ internal fun QuickSearchContent(
                 val showClipPlaceholder = searchSettings.searchClipboard && locked
                 val clipPlaceholderCount = if (showClipPlaceholder) 1 else 0
                 // 空态常用：数据由上方（分支外的 LaunchedEffect）供，这里只读。
-                // 以前这个 LaunchedEffect 写在分支内，分支一退出就取消，来回切 query
-                // 会反复重启 IO；现在面板打开期间只跑一次。
                 val used = topUsedApps
                 val clipCount = clips.size
                 // 锁屏占位占 clips 段的首位：后续 pos 统一按槽位（clips+占位）偏移。
@@ -625,7 +600,7 @@ internal fun QuickSearchContent(
                         verticalArrangement = Arrangement.spacedBy(SegmentedGap, Alignment.Bottom),
                         reverseLayout = true,
                     ) {
-                        // 剪贴板历史最贴胶囊（首条=当前剪贴），其次搜索历史，最后常用。
+                        // 剪贴板历史最贴胶囊（首条=当前剪贴），其次搜索历史，最后常用；
                         // 锁屏时 clips 为空，占位行顶在同一槽位。
                         if (showClipPlaceholder) {
                             item(key = "c-locked") {
@@ -845,9 +820,8 @@ internal fun QuickSearchContent(
             } else {
                 Spacer(Modifier.weight(1f))
             }
-            // 回车确认 = 右侧 Check：打列表首位。引擎兜底 tier -1 垫底，
-            // 只有它是唯一行时才会被确认（不再需要跳过特例）。
-            // 计算器排表头，天然成为确认目标。
+            // 回车确认 = 右侧 Check：打列表首位。引擎兜底 tier -1 垫底，计算器排表头，
+            // 所以直接取 firstOrNull 即为确认目标，无需跳过特例。
             val confirmFirst: () -> Unit = {
                 results.firstOrNull()?.let { safeResult(it, query.text.trim()) }
             }
@@ -864,7 +838,6 @@ internal fun QuickSearchContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = PageGutter)
-                    // 顶部 0：列表底边直接坐到输入框上沿，中间 0 间隙。
                     .padding(bottom = 8.dp)
                     .focusRequester(focusRequester),
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
@@ -905,9 +878,8 @@ internal fun QuickSearchContent(
                 },
                 singleLine = true,
                 shape = CircleShape,
-                // 默认英文键盘 + 回车即确认（否则回车只是收键盘）。
-                // Ascii 会锁死英文切不出中文；Text 则完全交给输入法。
-                // 中间态（默认英文但可切换）API 层面不存在，二选一后定 Ascii。
+                // 默认英文键盘 + 回车即确认（否则回车只是收键盘）。Ascii 会让输入法
+                // 锁死英文、切不出中文，Text 则完全交给输入法；没有中间态，这里选 Ascii。
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Ascii,
                     imeAction = ImeAction.Search,

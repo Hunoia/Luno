@@ -21,19 +21,17 @@
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <!-- 悬浮球窗口（TYPE_APPLICATION_OVERLAY）。按 UID 校验，故无障碍服务自己也能用；
-         但球刻意住在独立的 :service 前台服务里，以便无障碍关闭时仍能显示。
-         需用户在「显示在其他应用上层」手动授权，拒绝则球不显示。 -->
+    <!-- 悬浮球窗口（TYPE_APPLICATION_OVERLAY）。球住在独立 :service 前台服务，
+         无障碍关闭时仍可显示；需用户手动授权，拒绝则不显示。 -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" tools:ignore="ProtectedPermissions" />
-    <!-- P2 快速搜索联系人：运行时申请，拒绝则该来源无行 -->
+    <!-- 快速搜索联系人：运行时申请，拒绝则该来源无行 -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
-    <!-- P3 音乐/图片/视频：运行时一次申请（部分授权也认，有啥搜啥） -->
+    <!-- 音乐/图片/视频：运行时一次申请，部分授权也认 -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-    <!-- P3 文档（pdf/zip 等非媒体）：granular 权限覆盖不到，只能走特殊权限，
-        设置页手动开，拒绝则文档来源无行 -->
+    <!-- 文档（pdf/zip 等）：granular 权限覆盖不到，需在设置页手动授权 -->
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <!-- 快速搜索新源：日历/短信/通话记录都是运行时申请，拒绝则该来源无行 -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
@@ -42,9 +40,8 @@
     <!-- 快捷开关读状态用（普通权限，安装即有）：WiFi 状态 -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 
-    <!-- 面板内摆第三方桌面小部件：BIND_APPWIDGET 是 signature 级权限，声明本身不授予
-         任何能力，真正放行靠 ACTION_APPWIDGET_BIND 的用户授权对话框（逐 provider）。
-         宿主常驻 :service，宿主 id 固定写死。 -->
+    <!-- 第三方桌面小部件：BIND_APPWIDGET 为 signature 级，声明不授予能力，
+         真正放行靠 ACTION_APPWIDGET_BIND 的逐 provider 授权。 -->
     <uses-permission android:name="android.permission.BIND_APPWIDGET" />
 
     <application
@@ -120,9 +117,8 @@
             android:exported="false"
             android:process=":service" />
 
-        <!-- 悬浮球宿主。必须 startForegroundService 拉起（Android 12+ 用 startService
-             拉 FGS 会抛 ForegroundServiceStartNotAllowedException），且要在 5s 内
-             startForeground。与 DaemonService 各自独立通知。 -->
+        <!-- 悬浮球宿主。必须 startForegroundService（Android 12+ 用 startService 会抛
+             ForegroundServiceStartNotAllowedException），并在 5s 内 startForeground。 -->
         <service
             android:name=".runtime.floatball.FloatBallService"
             android:exported="false"

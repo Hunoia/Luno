@@ -54,8 +54,7 @@ fun Context.selectedItemLabel(
 
 /**
  * 动作显示名：库引用 / 规则 / 具名面板 / 子手势各自解析，其余走定义表。
- *
- * 面板列表给默认空列表：调用方没配置上下文时面板行落回类型名，与旧行为一致。
+ * 面板列表给默认空列表：调用方没配置上下文时面板行落回类型名。
  */
 @Suppress("CyclomaticComplexMethod")
 fun Context.actionTextWithSubGesture(
@@ -78,8 +77,7 @@ fun Context.actionTextWithSubGesture(
             return getString(R.string.action_rule_missing)
         }
     }
-    // 面板行显示具名面板而不是类型名（弧形面板此前漏了这条，行标签一直落「无」）；
-    // 面板存在但没起名时给「未命名」，和设置页列表的兜底一致。
+    // 面板行显示具名面板而不是类型名；面板存在但没起名时给「未命名」，与设置页列表兜底一致。
     action.gridPanelId()?.let { panelId ->
         val panel = gridPanels.firstOrNull { it.id == panelId }
         if (panel != null) {
@@ -100,7 +98,6 @@ fun Context.actionTextWithSubGesture(
         ?: getString(R.string.action_sub_gesture)
 }
 
-/** 解析 StoredAction 的展示分类：走定义表，未知落 SYSTEM。 */
 internal fun actionCategory(action: StoredAction): ActionCategory {
     // 面板动作不在定义表里（绑定必须落到具体面板），分类手动给内部组，
     // 否则动态行会掉进 SYSTEM 兜底分组。
@@ -163,7 +160,6 @@ internal fun Any.toStoredAction(): StoredAction {
     }
 }
 
-/** 定义表 -> 可勾选的 StoredAction（内联新动作，不再经 legacy id）。 */
 internal fun ActionDefinition.toStoredAction(): StoredAction =
     StoredAction(typeId)
 
@@ -173,24 +169,22 @@ internal fun assembleDataTransform(state: UiState): UiState {
         .toMutableList()
         .apply {
             // 面板项模式：挑的是「面板里放什么」，不放置空入口，也不列面板本身
-            // （面板不能嵌套面板，且在这里列自己毫无意义）。
-            // 小部件不走这里 —— 它不是动作，入口是选择页顶部那颗「小部件」chip，
-            // 不能落盘也不该占一行列表项。
+            // （面板不能嵌套面板）。小部件不走这里 —— 它不是动作，入口是顶部的
+            // 「小部件」chip，不占列表行。
             if (state.isPanelItemMode) return@apply
-            // 「无动作」置空入口。internal.none 在 libraryExcluded 内被 pickerDefinitions
-            // 滤掉了（动作库里不该能建「无」），这里**额外合成**一行而不是改定义表 ——
-            // 碰 pickerExcluded 会踩「传空集合让整张定义表变可选行」那条既有约定。
+            // 「无动作」置空入口：internal.none 被 libraryExcluded 滤掉（动作库不该建「无」），
+            // 这里额外合成一行而不碰 pickerExcluded —— 空集合会让整张定义表变可选。
             add(StoredAction.of("internal.none"))
-            // 动作面板：一行一个具名面板。用户点哪行就把哪个 panelId 存进槽里。
+            // 动作面板：一行一个具名面板，点哪行就把哪个 panelId 存进槽里。
             state.actionPanels.forEach { panel ->
                 add(StoredAction.of(ACTION_PANEL_TYPE_ID, ACTION_PANEL_PARAM_PANEL_ID to panel.id))
             }
-            // 网格面板：同上，一行一个具名网格面板（docs/grid-panel.md）。
+            // 网格面板：同上，一行一个具名网格面板。
             state.gridPanels.forEach { panel ->
                 add(StoredAction.of(GRID_PANEL_TYPE_ID, GRID_PANEL_PARAM_PANEL_ID to panel.id))
             }
-            // 自动化规则里绑子手势是无效的:`SubGestureState.tryEnterSubGesture` 需要一个
-            // 真实的手势完成脉冲,自动化上下文里没有,命中后静默 return false。
+            // 自动化里绑子手势无效：SubGestureState.tryEnterSubGesture 需要真实手势
+            // 完成脉冲，自动化上下文没有，命中后静默 return false。
             if (state.isAutomation) return@apply
             state.subGestures
                 .filter { gesture -> gesture.enabled && gesture.id != state.excludedSubGestureId }

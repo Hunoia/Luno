@@ -21,13 +21,11 @@ import hunoia.luno.ui.theme.appHazeSource
 import hunoia.luno.ui.theme.rememberAppHazeState
 
 /**
- * 主页外壳（见 docs/ui-spec.md §3）：无返回键的标签页页面，底部悬浮底栏。
+ * 主页外壳：无返回键的标签页页面，[bottomBar] 悬浮在内容之上；骨架、haze 状态、
+ * `nestedScroll` 只在这里拼一次。
  *
- * 与 [LunoScreen] 的差别只有两点：没有返回键、[bottomBar] 悬浮在内容之上。
- * 骨架、haze 状态、`nestedScroll` 仍然只在这里拼一次。
- *
- * **haze 状态由外壳创建并同时交给内容层与底栏** —— 底栏的 blur 要采样的是同一层，
- * 各自建实例会断掉这条链，所以这里把它作为参数传出去，不要在调用方另建。
+ * haze 状态由外壳创建并同时交给内容层与底栏：底栏 blur 采样的必须是同一层，
+ * 各自建实例会断链，调用方不要另建。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

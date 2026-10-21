@@ -92,8 +92,7 @@ fun GesturePanel(
                         shape = segmentedShape(index + 1, gestureButtons.size + 1),
                         leading = {
                             Row(
-                                // 颜色圆(20dp) 与铅笔(24dp) 高度不同，Row 默认 Alignment.Top
-                                // 会让两者错位；显式居中保证同轴。
+                                // Row 默认 Top 对齐，颜色圆(20dp) 与铅笔(24dp) 高度不同会错位，显式居中。
                                 horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
@@ -136,8 +135,7 @@ fun GesturePanel(
                         shape = segmentedShape(index + 1, subGestures.size + 1),
                         leading = {
                             Row(
-                                // 颜色圆(20dp) 与铅笔(24dp) 高度不同，Row 默认 Alignment.Top
-                                // 会让两者错位；显式居中保证同轴。
+                                // 同上：显式居中，避免颜色圆与铅笔错位。
                                 horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
@@ -231,9 +229,8 @@ private fun SmallIconAction(
     contentDescription: String,
     onClick: () -> Unit,
 ) {
-    // 视觉与触控都保持 RowIconSize(24dp)：本行的铅笔与颜色圆间距仅 8dp，
-    // 两个 48dp 目标无法共存（要么撑大行宽把图标挤出对齐轴，要么命中区互相争抢）。
-    // docs/ui-spec.md §4：48dp 强制只适用于独占一行、不与其它可点目标相邻的图标按钮。
+    // 视觉与触控都保持 24dp：本行的铅笔与颜色圆间距仅 8dp，两个 48dp 目标无法共存
+    // （要么撑大行宽把图标挤出对齐轴，要么命中区互相争抢）。
     Box(
         modifier = Modifier
             .size(RowIconSize)

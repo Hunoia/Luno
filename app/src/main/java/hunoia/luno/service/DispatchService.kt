@@ -9,19 +9,11 @@ import hunoia.luno.action.model.StoredAction
 import hunoia.luno.core.JsonSerializer
 
 /**
- * 真 IPC 分发口（跑在 :service 进程）。
- *
- * 之前 QuickSearchActivity 靠 `SideGestureService.current` 静态弱引用直调：
- * 同进程能用，跨进程恒 null，且 service 未活时静默丢弃。现在统一走 Binder，
- * 未就绪返回 false 由调用方提示，不再静默丢。
- *
- * 小窗位置调整曾经也在这里（无障碍服务持有全屏 overlay），已移出：它是纯配置任务，
- * 改成页内界面即可，不需要跨进程也不需要无障碍服务存活。
- *
- * 屏幕取点仍留在这一侧 —— 它必须盖在**别的应用**上面，而能这么做的窗口类型只有
- * `TYPE_ACCESSIBILITY_OVERLAY`（只有 AccessibilityService 能 addView）和
- * `TYPE_APPLICATION_OVERLAY`（需要「显示在其他应用上层」权限）。改用后者需要 Activity
- * 持有窗口，那又要引入一个本来不必有的权限，所以维持现状。见 runtime/overlay/PointPickOverlay.kt。
+ * 真 IPC 分发口（跑在 :service 进程）：跨进程拿不到静态引用，统一走 Binder，
+ * 未就绪返回 false 由调用方提示，不静默丢弃。
+ * 屏幕取点留在此侧：必须盖在别的应用上，而只有 `TYPE_ACCESSIBILITY_OVERLAY`
+ *（仅 AccessibilityService 可 addView）能免「显示在其他应用上层」权限，
+ * 后者还要 Activity 持窗，多引一项权限。
  */
 class DispatchService : Service() {
 

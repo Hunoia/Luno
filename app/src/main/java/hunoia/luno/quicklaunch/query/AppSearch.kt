@@ -9,10 +9,8 @@ import kotlin.math.ln
 import kotlin.math.pow
 
 /**
- * 档位 + 紧密度：tier 定档，offset 定同档先后。
- * 只认连续块：query 的每个 token 依次占一个相邻字符，块可在任意位置（中段保留）；
- * 无块即 NO_MATCH（稀疏子序列不是命中——搜的都是连续词）。
- * 块在 0 位 → 锚定；span 恒 = token 数。
+ * 档位 + 紧密度：tier 定档，offset 定同档先后；只认连续块（token 依次占相邻字符，块可在任意位置）。
+ * 无块即 NO_MATCH（稀疏子序列不是命中）；块在 0 位 → 锚定，span 恒 = token 数。
  */
 internal data class TieredMatch(val tier: Int, val span: Int, val offset: Int) {
     companion object {
@@ -47,14 +45,9 @@ object AppSearch {
     )
 
     // 索引常驻（总量被各源 cap 封顶）：打字只查不建，houbb 调用只发生在 IO 线程的预热期。
-    //
-    // 容量用「条目数」封顶 + LRU 淘汰，而不是无界 HashMap：短信正文/文件名这类长文本
-    // 各占一条，无界会在长会话里累积到几十 MB（之前就是 HashMap(16384) 无上限）。
-    // 上界估算：应用/快捷方式 label+包名 ~800、联系人 ≤4000、音乐 ≤6000、图库 ≤5000、
-    // 文档 ≤5000、日历 ≤1000、短信/通话 ≤1500，峰值约 2.6 万 → 48k 留 2 倍余量。
-    //
-    // 不用 android.util.LruCache：AppSearchTest 是纯 JVM 单测，碰 android.* 会 Stub!。
-    // LinkedHashMap(accessOrder=true) 是标准库，JVM 可直接跑。
+    // 容量按条目数封顶 + LRU 淘汰：短信正文/文件名各占一条，无界会在长会话里累积到几十 MB。
+    // 上界估算峰值约 2.6 万 → 48k 留 2 倍余量；不用 android.util.LruCache（AppSearchTest 是纯 JVM
+    // 单测，碰 android.* 会 Stub!），LinkedHashMap(accessOrder=true) 是标准库，JVM 可直接跑。
     private const val PINYIN_CACHE_CAP = 48_000
     private val pinyinIndexCache: MutableMap<String, AppSearchIndex> =
         object : LinkedHashMap<String, AppSearchIndex>(4096, 0.75f, true) {
@@ -302,15 +295,13 @@ object AppSearch {
     }
 
     internal fun buildIndex(text: String): AppSearchIndex {
-        // 绝大多数输入已经是小写（label/包名/文件名原样）：先拿原文直查，命中就省掉
-        // 一次 lowercase 分配（之前无条件 lowercase，命中缓存那次白分配一个串）。
+        // 绝大多数输入已经是小写：先拿原文直查，命中就省一次 lowercase 分配。
         cachedIndex(text)?.let { return it }
         val key = if (text.any { it.isUpperCase() }) text.lowercase() else text
         cachedIndex(key)?.let { return it }
         // 长文本只索引前 200 字、不建多音变体（短信正文类）：200 字之后的中段命中出局，
-        // 代价可接受（连续块语义下 offset 大的本来也沉底）；短文本路径原样。
-        // 缓存 key 也用截断后的串：之前用全长 key，一条 5KB 的短信正文会以 5KB 常驻；
-        // 索引内容本来就只看前 200 字，前 200 字相同的长文本共用一份索引，结果完全一致。
+        // 代价可接受（连续块语义下 offset 大的本来也沉底）。缓存 key 也用截断串：一条 5KB
+        // 短信正文若用全长 key 会以 5KB 常驻；前 200 字相同的长文本共用一份索引，结果一致。
         val short = text.length <= 200
         // 长文本先用截断串查一次缓存：索引本来就只看前 200 字，命中直接复用。
         if (!short) cachedIndex(key.substring(0, 200))?.let { return it }
@@ -327,10 +318,9 @@ object AppSearch {
                 initials.append(r[0].first())
             }
         }
-        // 变体：每次只换一个多音字（防组合爆炸），如 音乐→[yinle, yinyue]。
-        // 长文本跳过：变体是短标题多音字的活，正文里建了也排不上。
-        // 全拼与 initials 各自独立 cap：首字母串短且去重后极少（番 8 读音首字母只有 f/b/p），
-        // 但共用名额会被多读音字（如 番 的 7 个变体）挤占关键变体，故分开计数。
+        // 变体：每次只换一个多音字（防组合爆炸），如 音乐→[yinle, yinyue]；长文本跳过
+        // （变体是短标题多音字的活，正文里建了也排不上）。全拼与 initials 各自独立 cap：
+        // 共用名额会被多读音字（如 番 的 7 个变体）挤占关键变体，故分开计数。
         val alts = ArrayList<String>()
         val altInis = LinkedHashSet<String>()
         if (short) {
@@ -382,13 +372,10 @@ object AppSearch {
 
 /**
  * token 序列匹配：所有 token 依次出现在 text 的某个窗口内。
- *
- * [emptyMatches] 是这个参数存在的原因 —— 两处调用点的空 token 语义**相反**且都是必需的：
- * - `AppSearch` 侧空查询应匹配全部，true
- * - `pageMatchesTokens` 是三个 `||` 串起来的，空查询若返回 true 则恒真、分页永不前进，false
- *
- * 内层循环刻意不用 `token.lowercase().contains(...)`：那会在每个 (start, i) 组合上分配
- * 一个新 String，比较器被调用 O(n log n) 次、每次每个 token 都要分配一次。
+ * - [emptyMatches] 是必需的：`AppSearch` 侧空查询应匹配全部（true），而 `pageMatchesTokens`
+ *   由三个 `||` 串联，空查询返回 true 会恒真、分页永不前进（false）。
+ * - 内层不用 `token.lowercase().contains(...)`：那会在每个 (start, i) 组合上分配新 String，
+ *   比较器被调用 O(n log n) 次，每次每个 token 都分配一次。
  */
 internal fun matchesTokens(text: String, tokens: List<String>, emptyMatches: Boolean): Boolean {
     if (tokens.isEmpty()) return emptyMatches

@@ -33,10 +33,9 @@ import hunoia.luno.R
 import androidx.compose.ui.res.stringResource
 
 /**
- * 动作格内容：**应用图标**（app.launch / 快捷方式等图片型）不铺底色、图标占满
- * 整格 —— 应用图标自带圆角/形状，垫方块反而难看；**普通动作**（矢量/文字图标）
- * 保留 surfaceVariant 底色、图标按短边 72% 留边。手势不在这里：统一由层根
- * gridLayerGestures 接管。
+ * 动作格内容：应用图标（图片型）不铺底色、占满整格（自带圆角/形状）；
+ * 普通动作保留 surfaceVariant 底、图标按短边 72% 留边。
+ * 手势统一由层根 gridLayerGestures 接管。
  */
 @Composable
 fun ActionItemCell(
@@ -103,10 +102,7 @@ fun BrokenItemCell(modifier: Modifier = Modifier) {
     )
 }
 
-/**
- * 小部件的 Loading / Failed 底衬。Ready 不垫底色 —— provider 自带背景，
- * 垫一层会出现双层底 + 圆角对不齐。
- */
+/** 小部件的 Loading / Failed 底衬；Ready 不垫底色，否则会出现双层底 + 圆角对不齐。 */
 @Composable
 fun WidgetStateOverlay(state: WidgetLoadState, modifier: Modifier = Modifier) {
     if (state == WidgetLoadState.Ready) return
@@ -140,10 +136,7 @@ fun WidgetStateOverlay(state: WidgetLoadState, modifier: Modifier = Modifier) {
     }
 }
 
-/**
- * 拖拽中的中心十字参考线。画在内容之下，不遮内容、也不抢点击
- * （Canvas 不参与命中测试）。
- */
+/** 拖拽中的中心十字参考线；画在内容之下，Canvas 不参与命中测试。 */
 @Composable
 fun DragCrosshair(color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier) {

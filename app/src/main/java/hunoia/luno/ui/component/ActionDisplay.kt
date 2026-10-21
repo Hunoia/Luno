@@ -89,15 +89,14 @@ fun actionText(
             return stringResource(R.string.action_library_missing)
         }
     }
-    // 动作面板：显示具名面板而不是类型名。面板列表走 LocalActionPanels，
-    // 与 LocalActionLibraryEntries 同一条通路（主进程与 :service 运行时都提供了）。
+    // 动作面板显示具名面板而不是类型名；面板列表与动作库同走 Local* 通路
+    // （主进程与 :service 运行时都提供了）。
     action.actionPanelId()?.let { panelId ->
         LocalActionPanels.current.firstOrNull { it.id == panelId }
             ?.name?.takeIf { it.isNotBlank() }
             ?.let { return it }
     }
-    // 网格面板：同上，显示具名网格面板；面板在但没起名给「未命名」，
-    // 和选择页行标签的兜底一致（不在列表里 = 已删，维持原有落空行为）。
+    // 网格面板同上；有面板但没起名给「未命名」，不在列表里则落空（已删）。
     action.gridPanelId()?.let { panelId ->
         val panels = LocalGridPanels.current
         panels.firstOrNull { it.id == panelId }?.let { panel ->
@@ -117,14 +116,14 @@ fun actionText(
 }
 
 /**
- * 文字/表情图标：动作库条目 [NewActionLibraryEntry.iconKey] 非 palette key 时，
- * 把原始字符串当作文字/表情渲染，与 App/快捷方式的 String(Coil 模型) 区分开。
+ * 文字/表情图标：动作库条目的 [NewActionLibraryEntry.iconKey] 非 palette key 时，
+ * 把原始字符串当文字/表情渲染，与 App/快捷方式的 String(Coil 模型) 区分开。
  */
 data class TextIcon(val text: String)
 
 /**
- * 文字/表情图标的统一渲染：在 [size] 见方容器内按需缩小字号，保证不被裁剪且横竖居中。
- * 直接用 titleLarge 的 Text 会因行高超过容器而被切掉一部分，emoji 还会偏上。
+ * 文字/表情图标的统一渲染：在 [size] 见方容器内按需缩小字号，避免裁剪且横竖居中。
+ * 直接用 titleLarge 的 Text 会因行高超出容器被切掉，emoji 还会偏上。
  */
 @Composable
 fun TextIconGlyph(
@@ -163,9 +162,7 @@ fun TextIconGlyph(
     }
 }
 
-/**
- * 解析动作库条目的展示图标：自定义文字/表情 > palette 图标 > 类型默认图标。
- */
+/** 图标优先级：自定义文字/表情 > palette 图标 > 类型默认图标。 */
 fun NewActionLibraryEntry.resolvedIcon(): Any? {
     iconKey?.let { key ->
         val vector = IconPalette.byKey(key)
@@ -177,8 +174,7 @@ fun NewActionLibraryEntry.resolvedIcon(): Any? {
 
 @Composable
 fun actionIcon(action: StoredAction): Any? {
-    // 动作库引用：条目自定义文字/表情 > palette 图标 > 条目类型默认图标。
-    // internal.libraryRef 在定义表里没有条目，不能落到 byTypeId。
+    // internal.libraryRef 在定义表里没有条目，不能落到 byTypeId，只能查动作库。
     action.libraryEntryId()?.let { refId ->
         return LocalActionLibraryEntries.current.firstOrNull { it.id == refId }?.resolvedIcon()
     }
@@ -202,9 +198,8 @@ fun actionIcon(action: StoredAction): Any? {
         return action.shortcutInfo()?.icon
     }
     if (action.typeId == "internal.previousApp") {
-        // 图标 = 当前「上一个应用」的应用图标：动态语义配动态图标，一眼看出会切到哪。
-        // 必须 collect 而不是读 .value：RecentAppsHub 更新时要触发重组，否则图标
-        // 会停在首次组合那一刻的应用。
+        // 图标跟随当前「上一个应用」，一眼看出会切到哪。必须 collect 而不是读 .value：
+        // RecentAppsHub 更新时要触发重组，否则图标停在首次组合那一刻的应用。
         val context = androidx.compose.ui.platform.LocalContext.current
         val history by hunoia.luno.runtime.environment.RecentAppsHub.history.collectAsState()
         val pkg = history.dropLast(1).lastOrNull()
@@ -214,11 +209,10 @@ fun actionIcon(action: StoredAction): Any? {
             } ?: Icons.Default.SwapHoriz
         }
     }
-    // 面板动作不在定义表里（绑定必须落到具体面板，见 assembleDataTransform 的动态行），
-    // 图标在这里兜底，否则选择页/球图标对这类动作全空。
+    // 面板动作不在定义表里（绑定落到具体面板），图标在这里兜底，
+    // 否则选择页/球图标对这类动作全空。
     if (action.typeId == GRID_PANEL_TYPE_ID) return Icons.Default.GridView
     if (action.typeId == ACTION_PANEL_TYPE_ID) return Icons.Default.RadioButtonChecked
-    // 「加桌面小部件」入口行（不是动作）：给个能认出用途的图标
     return ActionDefinitions.byTypeId(action.typeId)?.icon
 }
 
@@ -229,7 +223,7 @@ fun DirectionActions.actionTextCompose(): String =
         .filter { it.isNotEmpty() }
         .joinToString(separator = ",")
 
-/** 单值展示：空槽落 `internal.none` 的显示名（"无"），与旧的多动作占位行为一致。 */
+/** 单值展示：空槽落 `internal.none` 的显示名（「无」）。 */
 @Composable
 fun StoredAction?.actionTextCompose(emptyIfNone: Boolean = false): String {
     val entries = LocalActionLibraryEntries.current

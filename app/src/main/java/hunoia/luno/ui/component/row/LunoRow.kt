@@ -49,14 +49,9 @@ import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SmallShape
 
 /**
- * 列表行的唯一实现（见 docs/ui-spec.md §4）。
- *
- * 三种预设 [LunoSettingsRow] / [LunoSelectableRow] / [LunoSwitchRow] 共用本 base，
- * 内边距统一贴边（由页面 gutter 或 [LunoGroup] 提供）、触控区统一 ≥ [MinInteractiveSize]。
- *
- * @param leading 自定义前置内容；与 icon/iconBitmap/iconModel/textIcon 互斥（自定义优先）。
- * @param icon / iconBitmap / iconModel / textIcon 四种派生图标，是唯一允许的图标入口，
- *        内部统一渲染进前置槽位，避免"每处自己写一个图标包装"。
+ * 列表行的唯一实现，三种预设共用：内边距由页面 gutter 或 [LunoGroup] 提供，
+ * 触控区统一 ≥ [MinInteractiveSize]。`leading` 与 icon/iconBitmap/iconModel/textIcon
+ * 互斥（自定义优先）；四种图标参数是唯一允许的图标入口。
  */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -195,7 +190,6 @@ internal fun LunoRowBase(
     )
 }
 
-/** 跑马灯滚动速度。 */
 private val MarqueeVelocity = 50.dp // 跑马灯速度参数（dp/s），非间距令牌
 
 private val chevron: @Composable () -> Unit = {
@@ -242,7 +236,7 @@ fun LunoSettingsRow(
     )
 }
 
-/** 可选中行：用于选择器、快速搜索结果等（替代原 SelectableListItem）。 */
+/** 可选中行：用于选择器、快速搜索结果等。 */
 @Composable
 fun LunoSelectableRow(
     title: String = "",
@@ -293,10 +287,8 @@ fun LunoSelectableRow(
 }
 
 /**
- * 开关行。
- *
- * [onClick] 与 [onCheckedChange] 可以并存：前者是"整行是导航入口"的语义（此时不给
- * Role.Switch，行与开关是两个焦点）；只给 [onCheckedChange] 时整行即开关。
+ * 开关行。`onClick` 与 `onCheckedChange` 可并存：前者表示整行是导航入口
+ * （此时不给 Role.Switch，行与开关是两个焦点）；只给后者时整行即开关。
  */
 @Composable
 fun LunoSwitchRow(

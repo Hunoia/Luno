@@ -18,12 +18,9 @@ fun Context.hasWriteSecureSettingsPermission(): Boolean {
 }
 
 /**
- * 「显示在其他应用上层」是否已授权。
- *
- * 这是 Luno 首个需要用户手动授权的权限，与无障碍 / WRITE_SECURE_SETTINGS 不同 ——
- * 后两者还能靠 `DaemonService` 自恢复，这个不能。未授权时
- * `WindowManager.addView` 对 `TYPE_APPLICATION_OVERLAY` 会抛 SecurityException
- * （校验按 UID，不是按 Context 类型）。
+ * 「显示在其他应用上层」是否已授权。未授权时 `WindowManager.addView` 对
+ * `TYPE_APPLICATION_OVERLAY` 会抛 SecurityException（按 UID 校验）；不像无障碍/
+ * WRITE_SECURE_SETTINGS 能靠 `DaemonService` 自恢复，必须用户手动授权。
  */
 @SuppressLint("InlinedApi")
 fun Context.canDrawOverlays(): Boolean = Settings.canDrawOverlays(this)

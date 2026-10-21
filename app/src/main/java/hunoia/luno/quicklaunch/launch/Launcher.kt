@@ -204,9 +204,8 @@ private object MiniWindow {
     }
 
     /**
-     * MIUI13+/澎湃 对 freeform 小窗在合成层按 freeformScale(默认 0.7)缩小显示，
-     * 但 WindowManager 帧仍是请求的 bounds。因此要让实际可见窗口等于设定尺寸，
-     * 必须把 bounds 宽度/高度乘以 1/0.7≈1.42 抵消（与 GestureEvo 的 MIUI 补偿一致）。
+     * MIUI13+/澎湃对 freeform 小窗在合成层按 freeformScale(默认 0.7) 缩小显示，但 WindowManager
+     * 帧仍是请求的 bounds。要让实际可见窗口等于设定尺寸，必须把 bounds 宽高乘以 1/0.7≈1.42 抵消。
      */
     private val miuiFreeformCompensation: Float by lazy {
         if (isMiui13Plus()) 1.42f else 1f

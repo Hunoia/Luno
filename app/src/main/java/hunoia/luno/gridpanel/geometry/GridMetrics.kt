@@ -11,24 +11,20 @@ import kotlin.math.floor
 import hunoia.luno.config.model.DynamicRowExtra
 import hunoia.luno.config.model.GridPanelDefaults
 
-/** 卡片外边距（贴着屏幕边缘的那一圈）。 */
 val CardMargin = 12.dp
 
-/** 卡片圆角。 */
 val CardCorner = 20.dp
 
-/** 页眉已删；多页时的页指示点行高（固定预算，计入 cardH）。 */
+/** 多页时页指示点的行高（固定预算，计入 cardH）。 */
 val IndicatorHeight = 12.dp
 
 /** 网格内容相对卡片的内边距（横向在 pager 外层加，纵向计入 cardH）。 */
 val GridPadding = 10.dp
 
-/** 单格与项的圆角。 */
 val ItemCorner = 14.dp
 
 /**
- * 格间距随列数收放。固定间距在两端都不对：2 列时格子很大、6dp 显得松散漂；
- * 6 列时 6dp 又让格子挤成一团（跨格项的内部 padding 会被吃掉）。
+ * 格间距随列数收放：固定间距在两端都不对，2 列时显松散、6 列时挤成一团。
  */
 fun gapFor(columns: Int): Dp = when {
     columns <= 3 -> 10.dp
@@ -38,8 +34,8 @@ fun gapFor(columns: Int): Dp = when {
 }
 
 /**
- * 卡片高度比例 → 可见行数（dp 域共享计算，渲染与落盘层必须同一套公式）。
- * 格子尺寸由列数和卡宽决定（方格），高度只决定能看到几行。
+ * 卡片高度比例 → 可见行数。渲染与落盘层必须共用这一套公式；
+ * 格子是方格（尺寸由列数与卡宽决定），高度只决定能看到几行。
  */
 fun gridPanelVisibleRows(
     screenWdp: Float,
@@ -68,16 +64,14 @@ fun gridPanelVisibleRows(
 }
 
 /**
- * 网格的像素几何。所有派生量都在这里算一次，拖拽/缩放/渲染共用同一套坐标 ——
- * 以前 Root 和 Canvas 各算一遍 step/itemW，改一处忘一处就会差半格。
- *
- * [cellX] / [cellY] 内部**必须 floor**：整数截断对负数是向零取整，往左/往上拖时
+ * 网格的像素几何：所有派生量都在这里算一次，拖拽/缩放/渲染共用同一套坐标。
+ * [cellX] / [cellY] 内部必须 floor：整数截断对负数是向零取整，往左/往上拖时
  * 边界那一格会差一格（-0.5 被截成 0），手感上是一次跳变。
  */
 @Immutable
 data class GridMetrics(
     val columns: Int,
-    /** 网格**实际**行数（可摆放范围，动态行数，≥ 卡片可见行数）。 */
+    /** 网格实际行数（可摆放范围，≥ 卡片可见行数）。 */
     val rows: Int,
     val screenW: Float,
     val screenH: Float,
@@ -102,7 +96,6 @@ data class GridMetrics(
 
     fun itemH(span: Float): Float = cellH * span + gap * (span - 1f)
 
-    /** 内容坐标 x → 列号（floor，见类注释）。 */
     fun cellX(px: Float): Int = floor(px / stepW).toInt()
 
     fun cellY(px: Float): Int = floor(px / stepH).toInt()
@@ -124,7 +117,7 @@ fun rememberGridMetrics(
     val screenW = with(density) { configuration.screenWidthDp.dp.toPx() }
     val screenH = with(density) { configuration.screenHeightDp.dp.toPx() }
     val gridPad = with(density) { GridPadding.toPx() }
-    val header = 0f // 页眉已删，无预算
+    val header = 0f // 无页眉预算
     val indicator = if (pageCount > 1) with(density) { IndicatorHeight.toPx() } else 0f
     val gap = with(density) { gapFor(columns).toPx() }
     val screenWdp = configuration.screenWidthDp.toFloat()

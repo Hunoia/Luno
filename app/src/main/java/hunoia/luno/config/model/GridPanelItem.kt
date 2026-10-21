@@ -6,28 +6,22 @@ import kotlinx.serialization.Serializable
 import java.util.UUID
 
 /**
- * 网格面板里的一项。位置用 [x] / [y] / [spanX] / [spanY] 落在固定网格上
- * （一墨 GridItem 的同款模型）。
- *
- * 为什么不用「按内容顺序的流式列表」：跨格小部件在流式布局里无处安放，
- * 而跨格是摆桌面小部件的前提 —— AppWidget 的尺寸由 provider 自己声明，
- * 宿主只能按格数喂给它。
- *
- * **存量数据不迁移**：[GridPanel.items] 的流式面板直接作废（见 docs/grid-panel.md）。
+ * 网格面板里的一项：位置用 [x] / [y] / [spanX] / [spanY] 落在固定网格上。
+ * 不用流式列表：跨格小部件在流式布局里无处安放，而跨格是摆桌面小部件的前提。
  */
 @Serializable
 @Keep
 data class GridPanelItem(
     val id: String = UUID.randomUUID().toString(),
-    /** 左上角所在列（从 0 起）。 */
+    /** 左上角列（从 0 起）。 */
     val x: Int = 0,
-    /** 左上角所在行（从 0 起）。 */
+    /** 左上角行（从 0 起）。 */
     val y: Int = 0,
     /** 横向占格数。 */
     val spanX: Int = 1,
     /** 纵向占格数。 */
     val spanY: Int = 1,
-    /** 简版多页的所属页（见 [GridPanel.pageCount]）。默认 0 = 单页数据零改写。 */
+    /** 所属页；默认 0，老的单页数据零改写。 */
     val pageIndex: Int = 0,
     val kind: Kind = Kind.Action(emptyList()),
 ) {
@@ -49,27 +43,17 @@ data class GridPanelItem(
             val appWidgetId: Int,
             val provider: String,
             /**
-             * 这一个小部件的**最小可用span**，加项那一刻按 provider 声明的
-             * `targetCellWidth/Height` 算出（见 `widgetSpanFor`）后冻结。
-             *
-             * 为什么必须存下来而不是 resize 时现查：缩到手柄时要拿它做下限，而
-             * 现查要过 `AppWidgetManager`（跨进程 IPC），在手势回调里做会掉帧；
-             * 更糟的是 provider 被卸载后查不到，就只能退化成 1×1 —— 于是用户能把
-             * 小部件缩到 provider 根本画不出来的尺寸，得到一个空白格子。
-             * 冻结值让下限判定不再依赖系统服务的实时状态。
-             *
-             * 默认 1×1：老数据（以及非小部件项）读出来是 1，行为与改动前一致。
+             * 该小部件的最小可用 span，加项时按 provider 的 `targetCellWidth/Height`
+             * 算出并冻结。必须存：resize 下限判定不能跨进程现查，provider 卸载后
+             * 会退化成 1×1；默认 1×1。
              */
             val minSpanX: Int = 1,
             val minSpanY: Int = 1,
         ) : Kind
 
         /**
-         * Luno 内置小部件（Compose 自绘，不依赖 AppWidgetHost）：
-         * 媒体控制、音量条等。[widgetId] 见 `InternalWidgetIds`。
-         *
-         * 为什么不做成 AppWidget：跨进程宿主、常驻、授权三件套对自家部件
-         * 是纯开销 —— 和页眉时钟同款「不进宿主」的理由。
+         * Luno 内置小部件（Compose 自绘，不依赖 AppWidgetHost）：[widgetId] 见 `InternalWidgetIds`。
+         * 不走 AppWidget：跨进程宿主、常驻、授权对自家部件是纯开销。
          */
         @Serializable
         @Keep
@@ -84,23 +68,19 @@ data class GridPanelItem(
     val bottom: Int get() = y + spanY
 
     /**
-     * 缩放手柄能减到的最小 span。小部件项有下限（provider 声明的尺寸），
-     * 动作项没有 —— 1×1 就是最小。
+     * 缩放下限：小部件项取 provider 下限，动作项最小 1×1。
      */
     val minSpanX: Int get() = (kind as? Kind.AppWidget)?.minSpanX?.coerceAtLeast(1) ?: 1
     val minSpanY: Int get() = (kind as? Kind.AppWidget)?.minSpanY?.coerceAtLeast(1) ?: 1
 
     /**
-     * 两项是否矩形相交。[spanX] / [spanY] 在 [normalized] 里已被夹到 ≥1，
-     * 这里不再防 0 —— 防了反而会把「退化项」悄悄挪走，不如让它显式重叠。
+     * 两项是否矩形相交。[spanX] / [spanY] 在 [normalized] 后已 ≥1，这里不防 0：
+     * 防了反而会把退化项悄悄挪走，不如让它显式重叠。
      */
     fun overlaps(other: GridPanelItem): Boolean =
         x < other.right && other.x < right && y < other.bottom && other.y < bottom
 
-    /**
-     * 夹进 [columns] × [rows] 的网格边界内：整体左/上越界就平移回 0，
-     * 右侧/底部溢出则收缩 span（收缩到 0 视为 1，保证每项至少一格）。
-     */
+    /** 夹进 [columns] × [rows]：左/上越界平移回 0，右/下溢出收缩 span（至少 1 格）。 */
     fun normalized(columns: Int, rows: Int): GridPanelItem {
         val cols = columns.coerceAtLeast(1)
         val maxRows = rows.coerceAtLeast(1)
@@ -115,12 +95,8 @@ data class GridPanelItem(
     }
 
     /**
-     * 给「设置页要告诉用户哪些项被丢弃了」用的人类可读名字。取不到返回 null
-     * （调用方自己决定用什么兜底文案），别在这里编一个假名。
-     *
-     * [StoredAction] 只有 `typeId`，没有现成的显示名 —— 真正的文案要走
-     * `actionText(...)` 那套注册表解析，而那需要组合上下文，属于 UI 层职责。
-     * 这里给 typeId 是诚实的（宁可显示内部标识，也不编一个看起来像真的名字）。
+     * 设置页提示「哪些项被丢弃」用的人类可读名字，取不到返回 null（调用方决定兜底文案）。
+     * 只有 typeId：真正的文案要 UI 层走 `actionText(...)` 注册表解析，这里给 typeId 而不编假名。
      */
     fun labelOrNull(): String? =
         (kind as? Kind.Action)?.items?.firstOrNull()?.typeId?.takeIf { it.isNotBlank() }
@@ -128,7 +104,7 @@ data class GridPanelItem(
             ?: (kind as? Kind.Internal)?.widgetId?.substringAfterLast('.')?.takeIf { it.isNotBlank() }
 }
 
-/** 网格里放了什么。[AppWidget] 项没有变体概念（点击由 provider 自己处理）。 */
+/** 首个动作。[AppWidget] 项没有变体概念（点击由 provider 自己处理）。 */
 val GridPanelItem.action: StoredAction?
     get() = (kind as? GridPanelItem.Kind.Action)?.items?.firstOrNull()
 

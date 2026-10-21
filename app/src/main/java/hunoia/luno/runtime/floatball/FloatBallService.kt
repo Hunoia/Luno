@@ -43,22 +43,9 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
- * 悬浮球宿主。跑在独立 `:service` 进程，前台通知常驻。
- *
- * ## 为什么独立进程 áreas
- *
- * 球显示不依赖无障碍开关（无障碍关了只影响动作能否执行），所以不能挂到
- * `SideGestureService` 的窗口上，必须有独立宿主。代价是通知栏两条常驻。
- *
- * ## 动作执行
- *
- * 与 `SideGestureService` 同进程，静态弱引用直连：
- * - 点按动作 → `forwardBallTap`（面板/子手势/刮擦/直发，容器分类，与触钮同链路）。
- *
- * ## 键盘让位
- *
- * 2038 窗口拿不到 insets 推播（不可获焦），与一墨不同，这里用低频轮询
- * `currentWindowMetrics` 的 IME 底边（[IME_POLL_MS]），拖动期间窗口侧自行挂起。
+ * 悬浮球宿主，跑在独立 `:service` 进程（前台通知常驻）：球显示不依赖无障碍开关，
+ * 不能挂到 `SideGestureService` 的窗口上。动作经同进程静态弱引用直连 `forwardBallTap`；
+ * 2038 窗口拿不到 insets 推播，键盘让位靠轮询 IME 底边（[IME_POLL_MS]）。
  */
 class FloatBallService : Service() {
 
@@ -174,10 +161,7 @@ class FloatBallService : Service() {
         refreshWindows(animateRestore = false)
     }
 
-    /**
-     * 统一的窗口挂/摘入口。shouldShow = 总闸 && 球开关 && 悬浮窗权限
-     * && !(hideOnPanel && 面板计数 > 0)。从面板隐藏恢复时带回场动画。
-     */
+    /** 统一的窗口挂/摘入口：shouldShow = 总闸 && 球开关 && 悬浮窗权限 && !(hideOnPanel && 面板计数>0)；从面板隐藏恢复时带回场动画。 */
     private fun refreshWindows(animateRestore: Boolean) {
         val enabled = settings.enabled && canDrawOverlays() && gestureEnabledSnapshot
         val panelHidden = panelCount > 0
@@ -198,7 +182,6 @@ class FloatBallService : Service() {
                 mirrorWindow.setHidden(isScreenLocked())
             }
         } else {
-            // 球已在：只同步分身的有无与位置。
             if (settings.mirrorBall) {
                 if (!mirrorWindow.attach()) return
                 mirrorWindow.setHidden(isScreenLocked())
@@ -247,11 +230,9 @@ class FloatBallService : Service() {
 
     private fun ballCenterY(): Int = ballCenter().second
 
-    /**
-     * 按锚点派发 tapAction（主球与分身共用）：网格面板直发，其余进容器。
-     */
+    /** 按锚点派发 tapAction（主球与分身共用）：网格面板直发，其余进容器。 */
     private fun dispatchTapAction(action: StoredAction, anchorX: Int, anchorY: Int) {
-        // 网格面板动作**不进容器**：面板浮窗自包含（直读 TuneConfig，不依赖 a11y
+        // 网格面板动作不进容器：面板浮窗自包含（直读 TuneConfig，不依赖 a11y
         // 运行态），球侧直发 —— 无障碍没开照样弹，这是「无 a11y 可用」的主路径。
         // 触钮/子手势绑它的路径仍走容器 executor，同一个 GridPanelOverlay.show 入口。
         if (action.typeId == GRID_PANEL_TYPE_ID) {
@@ -263,10 +244,7 @@ class FloatBallService : Service() {
 
     // ---- 分身（mirrorBall） ----
 
-    /**
-     * 按下分身：立即交换位置（不触发动作）。锚点记录在按下时的分身球心，
-     * 点击抬手时补派发动作。
-     */
+    /** 按下分身：立即交换位置（不触发动作），锚点记录在按下时的分身球心，点击抬手时补派发。 */
     private fun onMirrorPressed() {
         if (!ballVisible) return
         val sizePx = DensityProvider.dp2px(settings.sizeDp)
@@ -304,9 +282,7 @@ class FloatBallService : Service() {
         return pos.first.roundToInt() to pos.second.roundToInt()
     }
 
-    /**
-     * 交换：主球新位置 = 对侧贴边（屏内语义），写回存量；双方交叉淡入淡出。
-     */
+    /** 交换：主球新位置 = 对侧贴边（屏内语义），写回存量，双方交叉淡入淡出。 */
     private fun swapWithMirror(mirrorTopLeftX: Int, mirrorTopLeftY: Int) {
         val wasIdled = ballWindow.isIdled()
         val newX = (mirrorTopLeftX.toFloat() / DensityProvider.screenWidthPx)
@@ -433,7 +409,6 @@ class FloatBallService : Service() {
     }
 }
 
-/** 合并出来的运行时配置。 */
 private data class FloatBallRuntimeConfig(
     val action: ActionSettings,
     val gestureEnabled: Boolean,

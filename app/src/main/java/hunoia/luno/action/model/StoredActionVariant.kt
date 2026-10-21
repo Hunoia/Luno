@@ -7,8 +7,8 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 
 /**
- * 面板长按变体：内嵌在 StoredAction params 里的 `__longPress` 键（值为变体 JSON 文本）。
- * 面板读取时剥离，执行层永远看不到该键。
+ * 面板长按变体：内嵌在 StoredAction params 的 `__longPress` 键（变体 JSON 文本）。
+ * 面板读取时剥离，执行层看不到该键。
  */
 const val LONG_PRESS_VARIANT_KEY = "__longPress"
 
@@ -66,9 +66,7 @@ const val GRID_PANEL_PARAM_PANEL_ID = "panelId"
 
 /**
  * 动作面板引用 panelId（`internal.actionPanel`），非引用或空 id 返回 null。
- *
- * 触点路径由 `SideGestureContainer.runGestureActions` 就地展开成面板项，不会流到
- * 执行层；这里给搜索/自动化等无面板上下文的地方一个判据。
+ * 触点路径就地展开成面板项，不会流到执行层；这里给搜索/自动化等无面板上下文的地方一个判据。
  */
 fun StoredAction.actionPanelId(): String? {
     if (typeId != ACTION_PANEL_TYPE_ID) return null
@@ -93,8 +91,8 @@ const val PARAM_Y_DP = "yDp"
 val POINT_PARAM_KEYS = setOf(PARAM_X_DP, PARAM_Y_DP)
 
 /**
- * 点击/长按的「使用触发位置坐标」开关：勾上就只认手势触点，固定坐标忽略。
- * 这是"隐藏触钮 + 单击穿透到覆盖层下面的界面"那条路的开关 —— 点击要落在手指按下的位置。
+ * 点击/长按的「使用触发位置坐标」开关：勾上只认手势触点，固定坐标忽略。
+ * 这是「隐藏触钮 + 单击穿透到覆盖层下面界面」那条路的开关，点击要落在手指按下的位置。
  */
 const val USE_TRIGGER_POINT_KEY = "useTriggerPoint"
 
@@ -109,10 +107,8 @@ fun StoredAction.usesTriggerPoint(): Boolean {
 
 /**
  * 点击/长按是否自带参数坐标（xDp+yDp 双全且合法）：是则不依赖手势触点，
- * 库测试/自动化/搜索/runRule 等无触点路径可直接执行。
- *
- * 勾了「使用触发位置坐标」的一律 false —— 它按定义就依赖触点，无触点路径必须当它不可用
- * （与分发器前置校验、自动化选择页过滤同一判据）。
+ * 无触点路径（库测试/自动化/搜索/runRule）可直接执行。勾了「使用触发位置坐标」
+ * 的一律 false——它按定义依赖触点（与分发器前置校验、自动化选择页过滤同一判据）。
  */
 fun StoredAction.hasPointParams(): Boolean {
     if (typeId !in POINT_ACTION_TYPE_IDS) return false
@@ -136,7 +132,6 @@ fun StoredAction.volumeScrubConfigOrDefault(): hunoia.luno.config.model.VolumeSc
     )
 }
 
-/** app.launch 的包名。 */
 fun StoredAction.launchPackageName(): String? {
     if (typeId != "app.launch") return null
     return (params["packageName"] as? JsonPrimitive)?.contentOrNull

@@ -16,25 +16,23 @@ import dev.chrisbanes.haze.rememberHazeState
 
 val HazeBlurRadius: Dp = 25.dp
 
-/** 模糊半径 token（旧 GlassBlurRadius 调用点同名兼容）。 */
+/** [HazeBlurRadius] 的别名，保留旧调用点。 */
 val GlassBlurRadius: Dp = HazeBlurRadius
 
-/** 顶栏 Haze 底色透明度：旧液态玻璃是透明容器＋采样糊，降低它去“奶白”。 */
+/** 顶栏 Haze 底色透明度；过高会发奶白。 */
 const val TopBarHazeAlpha = 0.5f
 
 /** 屏幕级 Haze 状态：内容层 hazeSource，TopBar/底栏 hazeEffect，共用同一实例。 */
 @Composable
 fun rememberAppHazeState(): HazeState = rememberHazeState()
 
-/** 内容容器：作为模糊源。 */
 fun Modifier.appHazeSource(state: HazeState): Modifier = hazeSource(state)
 
 /**
- * 悬浮胶囊/顶栏的背后模糊（替代液态玻璃）。
- * 无 lens/vibrancy/highlight，只做 blur + 半透明底 + 可选羽化。
+ * 悬浮胶囊/顶栏的背后模糊：只做 blur + 半透明底 + 可选羽化，
+ * 无 lens/vibrancy/highlight。
  *
- * 注意：[progressive] 只羽 blur 强度，[mask] 才羽整个 effect（含底色）。
- * 要还原旧 DstIn“糊＋底一起渐隐”，用 [mask]。
+ * [progressive] 只羽 blur 强度，[mask] 才羽整个 effect（含底色）。
  */
 fun Modifier.appHazeEffect(
     state: HazeState?,
@@ -52,7 +50,7 @@ fun Modifier.appHazeEffect(
     }
 }
 
-/** 底部羽化蒙版：糊＋底一起从顶部全显渐隐到底部透明，还原旧 DstIn 渐隐。 */
+/** 底部羽化蒙版：糊＋底一起从顶部全显渐隐到底部透明。 */
 @Composable
 fun topBarMask(): Brush {
     val fade = remember {

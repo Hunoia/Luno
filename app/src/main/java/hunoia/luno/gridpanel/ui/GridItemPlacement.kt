@@ -9,25 +9,16 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.Offset
 
-/**
- * 让位动画：干脆、约 220ms 落定。旧参数 NoBouncy + MediumLow 偏软，
- * 观感像「先延迟一下再飘过去」。
- */
+/** 让位动画：干脆、约 220ms 落定；参数偏软会显得「先延迟一下再飘过去」。 */
 private val TargetSpring = spring<Offset>(dampingRatio = 0.82f, stiffness = 480f)
 
 /** 松手归格：带一点落定回压。 */
 private val SettleSpring = spring<Offset>(dampingRatio = 0.70f, stiffness = 520f)
 
 /**
- * 每项常驻的位置动画。
- *
- * 旧实现的 Animatable key 里带了 glideStart：一松手就**重建**实例，等于一次
- * 无动画 reset（所以看起来「先跳到别处再飘一下」）。这里 base 只按 itemId
- * 记忆一次，residual 单独承载松手残差并衰减到 0。
- *
- * 关键点：落格动画不能把 base 和 residual 叠加走两遍。松手时（glide != null）
- * base 直接对齐落格，residual 从「视觉位 − 落格基位」衰减 —— 两者相加恒等于
- * 松手瞬间的视觉位，再平滑收敛到格子。
+ * 每项常驻的位置动画。base 只按 itemId 记忆一次，松手残差由 residual 单独
+ * 承载并衰减到 0。落格时 base 直接对齐落格、residual 从「视觉位 − 落格基位」
+ * 衰减，两者相加恒等于松手瞬间的视觉位；不能让 base 和 residual 叠加走两遍。
  */
 @Composable
 fun rememberItemPlacement(

@@ -22,8 +22,7 @@ class AutomationRuntime(
         val enabled = settings.initialSettings.gestureEnabled
         // 总闸：关闭期间丢弃堆积脉冲，规则一律不评估，重开后不会补触发过期事件。
         // 只把规则引擎放进闸门；触钮显隐依赖 gestureEnabled（policy 会因总闸关掉全部按钮），
-        // 必须无条件刷新 —— 之前在这里提前 return，ButtonRefreshCoordinator 收不到刷新，
-        // 总闸关了触钮照样可点。
+        // 必须无条件刷新：提前 return 会让 ButtonRefreshCoordinator 收不到刷新，总闸关了触钮照样可点。
         if (!enabled) discardPulses()
         val runtimeState = buildRuntimeState()
         if (enabled) {

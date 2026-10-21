@@ -47,12 +47,10 @@ import hunoia.luno.quicklaunch.query.QuickSearchResult
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.row.LunoSelectableRow
 /**
- * 列表上下羽化：顶部 28dp / 底部 24dp，溢出截断 melts 进背景。
- * 底部罩的是钉住的首行——贴紧输入框后它 melts 进框，顺滑但首行底部是虚的，
- * 这是内容羽化的税。离屏层多一笔绘制，行多时装机看帧率。
- *
- * Brush 只在尺寸变化时重建：之前写在 drawWithContent 里每帧 new 一个
- * LinearGradient（含 FloatArray + ColorStop 列表），滚动时每帧一次分配。
+ * 列表上下羽化：顶部 28dp / 底部 24dp，溢出截断 melts 进背景。底部罩的是钉住的首行——
+ * 贴紧输入框后它 melts 进框，顺滑但首行底部是虚的，这是内容羽化的税；离屏层多一笔绘制。
+ * Brush 只在尺寸变化时重建：每帧 new 一个 LinearGradient（含 FloatArray + ColorStop 列表）
+ * 会在滚动时持续分配。
  */
 internal fun Modifier.listFade(
     top: androidx.compose.ui.unit.Dp = 28.dp,
@@ -284,7 +282,7 @@ internal fun iconModel(result: QuickSearchResult, context: android.content.Conte
     return when (result) {
         is QuickSearchResult.App ->
             QuickLaunchFacade.appIconRequest(context, result.appInfo.packageName, sizePx)
-        // 快捷方式自带图标优先（行为不变），取不到才回落来源应用图标（之前行首空着）。
+        // 快捷方式自带图标优先，取不到才回落来源应用图标。
         is QuickSearchResult.Shortcut -> result.shortcut.iconBitmap
             ?: QuickLaunchFacade.appIconRequest(context, result.shortcut.packageName, sizePx)
         else -> null

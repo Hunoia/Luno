@@ -34,13 +34,10 @@ object QuickLaunchFacade {
         LauncherIconQuery.resolveShortcutIconResourceId(context, iconResource)
 
     /**
-     * 面板图标的 Coil 请求。
-     *
-     * 图标不再自己缓存：`AppIconFetcher` 会把原生 Drawable 缩到 [sizePx] 后交给
+     * 面板图标的 Coil 请求。图标不自己缓存：`AppIconFetcher` 把原生 Drawable 缩到 [sizePx] 后交给
      * Coil，缓存键由 `AppIconKeyer` + 请求 size 共同决定。
-     *
-     * ImageRequest 本身按 (包名, 边长) 复用：它是普通 class、不重写 equals，
-     * 每次 new 一个都会让 AsyncImage 的 model 参数恒变（Compose 跳过失效）。
+     * ImageRequest 本身按 (包名, 边长) 复用：它是普通 class、不重写 equals，每次 new 一个都会让
+     * AsyncImage 的 model 参数恒变（Compose 跳过失效）。
      */
     fun appIconRequest(context: Context, packageName: String, sizePx: Int): ImageRequest {
         val key = "$packageName@$sizePx"

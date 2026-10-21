@@ -16,15 +16,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * 面板资源生命周期：删除面板 / 单项、reset、恢复备份后，回收不再被引用的
- * AppWidget id 与快捷方式图标文件。
- *
- * 两类资源都不在 DataStore 里，配置删除不会自动带走它们：
- * - AppWidget id 需要在系统宿主上 `deleteAppWidgetId`，否则永久占用槽位；
- * - 快捷方式位图落在 `filesDir/shortcut_icons`，不删就只增不减。
- *
- * 清理采取「以当前配置为准」的孤儿扫描：先收集全量引用，再删其余。比在每个
- * 删除点手写差量可靠 —— 不会因为将来新增删除入口又漏一处。
+ * 面板资源生命周期：删除面板/单项、reset、恢复备份后，回收不再被引用的
+ * AppWidget id 与快捷方式图标文件。两类资源都不在 DataStore 里，配置删除不会带走：
+ * AppWidget id 不 `deleteAppWidgetId` 会永久占槽位，图标文件不删只增不减。
+ * 清理以当前配置为准做孤儿扫描（先收全量引用再删其余），比各删除点写差量可靠。
  */
 object PanelResources {
 

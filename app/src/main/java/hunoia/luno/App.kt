@@ -24,25 +24,20 @@ import kotlinx.coroutines.SupervisorJob
 import me.weishu.reflection.Reflection
 import rikka.shizuku.ShizukuProvider
 
-
-
 class App : Application(), ImageLoaderFactory {
 
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
-            // 原来 600ms：图标网格一次加载几十张，每张都产生一段 GPU 交叉淡入，
-            // 弹键盘/切页时叠加起来既掉帧又耗电。150ms 足够掩盖解码但成本低得多。
+            // 150ms 足够掩盖解码；几十张图标同时淡入时，再长会掉帧。
             .crossfade(150)
-            // 快速启动器的应用图标交给 Coil 自己缓存（见 AppIconFetcher）：
-            // 原生尺寸的 Drawable 不再另有一层常驻缓存。
+            // 应用图标交给 Coil 缓存，不另设常驻 Drawable 缓存。
             .components {
                 add(AppIconFetcherFactory(), AppIconModel::class.java)
                 add(AppIconKeyer, AppIconModel::class.java)
             }
             .memoryCache {
                 MemoryCache.Builder(this)
-                    // 原来是 0.2，因为图标另有一层 IconResizeCache 常驻原生尺寸。
-                    // 那层已删除，但数值先不动，等 meminfo 实测后再调。
+                    // 暂无图标位图常驻缓存，先留 10%，待 meminfo 实测调整。
                     .maxSizePercent(0.10)
                     .build()
             }
@@ -94,11 +89,7 @@ class App : Application(), ImageLoaderFactory {
         }
     }
 
-    /**
-     * Debug 包主线程看门狗：penaltyLog 不打断执行，只在 logcat 打违规，
-     * 让"主线程 IO / 慢调用"（如 MB 级文本在 UI 线程排版数秒导致 ANR）
-     * 在开发期就暴露，而不是等用户端 ANR 被杀进程才发现。
-     */
+    /** Debug 主线程看门狗：penaltyLog 只记日志，用于曝光主线程 IO/慢调用。 */
     private fun enableStrictMode() {
         StrictMode.setThreadPolicy(
             StrictMode.ThreadPolicy.Builder()

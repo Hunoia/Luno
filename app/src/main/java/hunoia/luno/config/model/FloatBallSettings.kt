@@ -8,14 +8,10 @@ import kotlinx.serialization.Serializable
 /**
  * 悬浮球配置。
  *
- * 挂在 [ActionSettings.floatBall] 下不是随手选的：球跑在 `FloatBallService`
- * （`:service` 进程），只能顺着 `ConfigProvider.actionSettings → SettingsStore →
- * SettingsState` 读到。挂到别的域会让运行时静默失效。
- *
- * 坐标是归一化的（0..1），旋转屏幕 / 换分辨率都不用迁移数据。
- *
- * 交互与一墨对齐：**按住即拖**（无长按门槛），松手落位；
- * 点按 = 抬手未超 touchSlop 时执行 [tapAction]。
+ * 挂在 [ActionSettings.floatBall] 下才能顺着 ConfigProvider → SettingsStore →
+ * SettingsState 到达 `:service` 进程的 `FloatBallService`；挂到别的域会静默失效。
+ * 坐标归一化（0..1），转屏 / 换分辨率不用迁移数据。
+ * 按住即拖（无长按门槛），松手落位；点按 = 抬手未超 touchSlop 时执行 [tapAction]。
  */
 @Serializable
 @Keep
@@ -39,10 +35,6 @@ data class FloatBallSettings(
     val idleDimDelayMs: Long = FloatBallDefaults.IdleDimDelayMs,
 )
 
-/**
- * 手感常量取值来自一墨（`ball_idle_alpha` 回落 0.4、按压 scale 0.9、
- * 静置缩放约 0.85、静置延时默认 3s）。
- */
 object FloatBallDefaults {
     const val Enabled = false
     const val X = 0.92f
@@ -55,16 +47,14 @@ object FloatBallDefaults {
     /** 静置延时（ms），0 = 关。 */
     const val IdleDimDelayMs = 3_000L
 
-    /** 静置 alpha。 */
     const val IdleDimAlpha = 0.4f
 
     /**
-     * 静置出屏比例：球径的这部分移到屏幕外（一墨 `ballShrinkRatio` 同物，
-     * 它的真实语义是横向偏移而非等比缩小）。一半出屏。
+     * 静置出屏比例：球径的这部分移到屏幕外（语义是横向偏移而非等比缩小）。
+     * 一半出屏。
      */
     const val IdleOutRatio = 0.5f
 
-    /** 按压缩放。 */
     const val PressScale = 0.9f
 
     /** touchSlop（dp），点按与拖动分界。 */
@@ -73,10 +63,8 @@ object FloatBallDefaults {
     /** 键盘弹出时球与键盘顶边的间距（dp）。 */
     const val ImeMarginDp = 8f
 
-    /** 面板打开时自动隐藏球，默认开。 */
     const val HideOnPanel = true
 
-    /** 对侧描边分身，默认关。 */
     const val MirrorBall = false
 
     /** 分身描边的常驻透明度（半圆姿态，比主球 idle 更暗）。 */

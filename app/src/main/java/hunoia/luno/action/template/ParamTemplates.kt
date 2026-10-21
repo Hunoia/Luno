@@ -7,18 +7,11 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
 /**
- * 动作参数模板：执行前把文本参数里的 `${token}` 换成运行时值。
- * 存储始终保留原文，替换只发生在派发链路上。
- * 未识别的 token 原样保留，避免破坏 shell.custom 这类自带 `${VAR}` 的命令。
- *
- * 语法 `${` + `[A-Za-z_][A-Za-z0-9_.]*` + `}`，手写单趟扫描而不用正则：
- * Android 的 java.util.regex 底层是 ICU，不接受 `\{` 这类转义写法。
- *
- * 表达式（白名单三类之二：比较；拼接即原文混合本身；时间日期走变量）：
- * `${lhs OP rhs}`，OP 为 `==` `!=` `>=` `<=` `>` `<` 之一，结果为 `true`/`false`。
- * 操作数为变量名、数字字面量或单引号字符串。两边都解析为数字则数值比较，
- * 否则 `==`/`!=` 走字符串相等，大小比较走不通则原样保留。
- * 求值失败（未知变量、语法非法）一律原样保留原文。
+ * 动作参数模板：执行前把文本参数里的 `${token}` 换成运行时值，存储保留原文。
+ * 未识别的 token 原样保留（shell.custom 自带 `${VAR}`）；手写扫描不用正则——
+ * Android 的 java.util.regex 底层是 ICU，不接受 `\{` 这类转义。
+ * 表达式 `${lhs OP rhs}` 白名单：OP 为 `==` `!=` `>=` `<=` `>` `<`，操作数为
+ * 变量/数字/单引号字符串；两边都是数字走数值比较，否则只支持 `==`/`!=`，失败原样保留。
  */
 object ParamTemplates {
 
@@ -131,10 +124,7 @@ object ParamTemplates {
 
     private fun isNamePart(c: Char): Boolean = isNameStart(c) || c == '.' || c in '0'..'9'
 
-    /**
-     * 表达式扫描：`${` 后找第一个 `}`（不嵌套），body 交给 [parseExpression]。
-     * 解析失败返回 null，调用方按普通字符推进，不吞输入。
-     */
+    /** 表达式扫描：`${` 后找第一个 `}`（不嵌套），body 交给 [parseExpression]；失败返回 null，不吞输入。 */
     private fun expressionAt(text: String, dollar: Int): Pair<Expr, IntRange>? {
         if (text.getOrNull(dollar + 1) != '{') return null
         var end = dollar + 2

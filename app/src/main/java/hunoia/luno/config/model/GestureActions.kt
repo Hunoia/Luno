@@ -30,7 +30,6 @@ data class InitialSettings(
     val gestureEnabled: Boolean = GestureEnabled,
 )
 
-/** 手势面板行为开关。 */
 @Serializable
 @Keep
 data class GestureSettings(
@@ -38,8 +37,8 @@ data class GestureSettings(
     val pointer: Pointer = Pointer(),
 ) {
     /**
-     * 指针（光标）手感与外观。连续模式已删，只剩这两类：
-     * 移动映射（灵敏度/加速）与绘制（大小/透明度），[initialYRatio] 是初始高度比例。
+     * 指针（光标）手感与外观：移动映射（灵敏度/加速）与绘制（大小/透明度），
+     * [initialYRatio] 是初始高度比例。
      */
     @Serializable
     @Keep

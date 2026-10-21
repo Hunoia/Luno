@@ -32,10 +32,8 @@ import hunoia.luno.ui.theme.RowIconSize
 import kotlinx.coroutines.launch
 
 /**
- * 全局网格面板列表（docs/grid-panel.md）。
- *
- * 行级只管「进入属性编辑」；面板**内容**（项）在面板内长按空白进编辑态，
- * 不在这里做 —— 网格的加项/排序/变体都依赖看见真实卡片。
+ * 全局网格面板列表。
+ * 行级只管进入属性编辑；面板内容是加项/排序/长按变体，都依赖看见真实卡片，故在面板内长按空白进入。
  */
 @Composable
 fun GridPanelListScreen(

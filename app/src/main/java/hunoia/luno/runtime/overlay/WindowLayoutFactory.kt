@@ -16,16 +16,10 @@ internal object WindowLayoutFactory {
         get() = IntSize(DensityProvider.screenWidthPx, DensityProvider.screenHeightPx)
 
     /**
-     * 主 overlay 的 LayoutParams。
-     *
-     * [fullScreen] 为 false 时收成 1x1。这个窗口平时什么都不画 —— 它只带 FLAG_NOT_TOUCHABLE,
-     * 用途是承载 `SideGestureContainer` 里的 `DragGestureHandler`(那才是整条手势链路的入口,
-     * 触摸由每个手势按钮自己的小窗口经 `MotionEventDispatcher` 喂进来),以及显示 ActionPanel。
-     * 而 ActionPanel 包在 `AnimatedVisibility` 里,隐藏时内容根本不进组合。
-     *
-     * 所以全屏尺寸的 RGBA_8888 buffer(1200x2670 ≈ 12.2MB)常驻着画空白。
-     * 面板隐藏时缩到 1x1,组合体不销毁、`DisposableEffect` 继续挂着,手势不受影响,
-     * 而这块 buffer 从常驻变成按需。
+     * 主 overlay 的 LayoutParams。[fullScreen] 为 false 时收成 1x1：这个窗口平时什么都不画，
+     * 只带 FLAG_NOT_TOUCHABLE，用途是承载 SideGestureContainer 的 DragGestureHandler 与 ActionPanel
+     *（面板隐藏时内容不进组合）。全屏 RGBA_8888 buffer（1200x2670 ≈ 12.2MB）常驻画空白，
+     * 面板隐藏时缩到 1x1，组合体不销毁、DisposableEffect 继续挂着，手势不受影响。
      */
     fun mainOverlayLayoutParams(fullScreen: Boolean = true): WindowManager.LayoutParams {
         val size = if (fullScreen) rootSize else IntSize(COMPACT_SIZE, COMPACT_SIZE)

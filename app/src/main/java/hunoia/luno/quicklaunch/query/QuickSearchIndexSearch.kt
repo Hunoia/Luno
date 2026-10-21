@@ -67,9 +67,8 @@ fun QuickSearchIndex.search(
         torchOn: Boolean = false,
     ): List<QuickSearchResult> {
         ensureLoaded()
-        // 这里不再 refreshApps() 兜底：全量查包几十~几百毫秒，会把首字搜索堵在
-        // Dispatchers.Default 上（此前首字卡顿的元凶之一）。应用索引由 Activity 在 IO
-        // 线程预加载，就绪后 appsLoaded 翻转 → 面板的 appsTick 触发一次补搜。
+        // 这里不再 refreshApps() 兜底：全量查包几十~几百毫秒，会把首字搜索堵在 Dispatchers.Default
+        // 上。应用索引由 Activity 在 IO 线程预加载，就绪后 appsLoaded 翻转 → 面板 appsTick 补搜。
         this.torchOn = torchOn
         // 标识指令优先（bb 新闻 / sms 138 / 裸 sms）：命中只回目标类，
         // 纯目标结果（无引擎兜底、无计算器、无历史参展）。null = 无指令，走全源。
@@ -116,8 +115,7 @@ fun QuickSearchIndex.search(
 
         val sorted = sortTriples(results)
 
-        // 计算器排表头（精确意图，回车直达）。
-        // 引擎兜底已由 engineTriple 进管线自然垫底，这里不再二次计算（之前重复算过一次）。
+        // 计算器排表头（精确意图，回车直达）；引擎兜底已由 engineTriple 进管线垫底，不二次计算。
         val calc = calculatorResult(query.trim())
         return if (calc != null) listOf<QuickSearchResult>(calc) + sorted else sorted
     }
@@ -132,7 +130,7 @@ private data class RankedHit(
 )
 
     /** 同一套排序：连续块语义下 tier → offset → 使用分 → 长度 → 字典序。
-     * 类型不再分档（typerank 已删）：不同类型只比匹配度；稀疏子序列不出局外无命中。 */
+     *  不同类型只比匹配度，稀疏子序列不出局外无命中。 */
 private fun QuickSearchIndex.sortTriples(results: List<RankedHit>): List<QuickSearchResult> =
         results.sortedWith(
             compareByDescending<RankedHit> { it.tier }
@@ -301,8 +299,8 @@ private fun QuickSearchIndex.matchToggles(
     ): List<RankedHit> {
         val out = mutableListOf<RankedHit>()
         if (!searchSettings.searchToggles) return out
-        // 先用静态元数据（标题/关键词）匹配，只有命中的行才去读系统状态。
-        // 以前是先造 6 行（每行一次 binder IPC）再逐行匹配，一条 "w" 就白读 4 次系统服务。
+        // 先用静态元数据（标题/关键词）匹配，只有命中的行才去读系统状态：否则一条 "w"
+        // 就白读 4 次系统服务（每行一次 binder IPC）。
         for (spec in toggleSpecs()) {
             val m = bestOf(tierOf(spec.title, tokens, foldedTokens), tierOf(spec.keywords, tokens, foldedTokens))
             if (m.tier >= 0) {
@@ -427,10 +425,8 @@ fun QuickSearchIndex.isDirective(
     }
 
     /**
-     * 标识指令解析（bb 新闻 / sms 138 / 裸 sms）：命中返回纯目标结果，
-     * 无指令返回 null 走全源。大小写不敏感；标识未知、无内容、有名无实（裸）按规则办。
-     *
-     * 三种出口：引擎标识 → 只回引擎行；来源标识+内容 → 只在该源内搜；
+     * 标识指令解析（bb 新闻 / sms 138 / 裸 sms）：命中返回纯目标结果，无指令返回 null 走全源。
+     * 大小写不敏感。三种出口：引擎标识 → 只回引擎行；来源标识+内容 → 只在该源内搜；
      * 裸标识（无空格或内容空）→ 列出该类近项。开关关闭/无数据 → null 回落全源。
      */
 private fun QuickSearchIndex.parseDirective(

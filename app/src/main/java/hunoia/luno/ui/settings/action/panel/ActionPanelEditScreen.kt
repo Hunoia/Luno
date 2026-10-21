@@ -42,10 +42,9 @@ import hunoia.luno.ui.theme.*
 import kotlinx.coroutines.launch
 
 /**
- * 单个动作面板的编辑器：改名 + 面板项增删排序 + **逐项设长按变体**。
- *
- * 挑动作不自己实现一套：复用 `ActionSelect` 路由（`actionPanelId` 模式），
- * 分组/搜索/应用/快捷方式全部现成，见 DataLoader.saveActionPanelItem。
+ * 单个动作面板编辑器：改名 + 面板项增删排序 + 逐项设长按变体。
+ * 挑动作复用 `ActionSelect` 路由（`actionPanelId` 模式），分组/搜索/应用/快捷方式现成；
+ * 落盘见 DataLoader.saveActionPanelItem。
  */
 @Composable
 fun ActionPanelEditScreen(

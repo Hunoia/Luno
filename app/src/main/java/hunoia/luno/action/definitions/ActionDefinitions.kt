@@ -336,9 +336,8 @@ object ActionDefinitions {
         add(ActionDefinition("internal.subGesture", "子手势", ActionCategory.INTERNAL, Capability.None,
             icon = Icons.Default.Gesture))
         /**
-         * 动作面板：触发时弹弧形菜单让用户挑一个。`panelId` 必填 —— 既让它天然不出现在
-         * `pickerDefinitions`（面板行由 `assembleDataTransform` 按全局列表动态合成，
-         * 一行一个具名面板），也保证库里存不出一个没有面板内容的空引用。
+         * 动作面板：触发时弹弧形菜单让用户挑一个。`panelId` 必填——既不出现在
+         * `pickerDefinitions`（面板行按全局列表动态合成），也存不出空引用。
          */
         add(ActionDefinition(ACTION_PANEL_TYPE_ID, "动作面板", ActionCategory.INTERNAL, Capability.None,
             parameters = listOf(ParameterDefinition.Text(
@@ -465,12 +464,9 @@ object ActionDefinitions {
     fun automationExcludedTypeIds(): Set<String> = automationExcluded
 
     /**
-     * 触钮/子手势动作选择页要排除的类型。
-     *
-     * 必须由调用方显式取用,而不是依赖 [pickerDefinitions] 的默认参数 —— 默认参数在
-     * 收到空集合时会被静默替换掉,而 `typeId !in emptySet()` 恒为真,于是整个
-     * [definitions] 表(去掉带必填参数的)都会变成可选行,包括「启动快捷方式」
-     * (选完必然 InvalidParameter)和 `internal.subGesture` (解不出 data,永不触发)。
+     * 触钮/子手势动作选择页要排除的类型。必须由调用方显式取用，不能依赖
+     * [pickerDefinitions] 的默认参数：收到空集合时 `typeId !in emptySet()` 恒真，
+     * 整张表都会变成可选，包括「启动快捷方式」和 `internal.subGesture`。
      */
     fun pickerExcludedTypeIds(): Set<String> = pickerExcluded
 

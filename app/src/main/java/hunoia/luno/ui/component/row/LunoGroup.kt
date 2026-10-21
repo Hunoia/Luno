@@ -28,11 +28,12 @@ private val GroupSubtitlePadding =
     PaddingValues(start = PageGutter, end = PageGutter, bottom = CardInnerSpacing)
 
 /**
- * 分组内第 index 项的圆角（[count] 项）：只有组首/组尾两角走 [ContainerRadius]，中间走 [ConnectionRadius]。
+ * 分组内第 index 项（共 [count] 项）的圆角：组首/组尾走 [ContainerRadius]，
+ * 中间走 [ConnectionRadius]。
  *
- * **由调用方传入行组件的 `shape`**，[LunoGroup] 不会自动分配 —— 它的 `content` 是裸
- * `ColumnScope` 插槽，拿不到子项数量与下标，且子项常是卡/编辑器/`AnimatedVisibility` 而非同质行。
- * 行列表记得用 `forEachIndexed` 配 `segmentedShape(index, count)`。
+ * 必须由调用方传给行组件的 `shape`：[LunoGroup] 的 content 是裸 `ColumnScope`
+ * 插槽，拿不到子项数量与下标，子项还可能是卡/编辑器/`AnimatedVisibility`。
+ * 行列表用 `forEachIndexed` 配 `segmentedShape(index, count)`。
  */
 fun segmentedShape(index: Int, count: Int): RoundedCornerShape {
     val isSingle = count <= 1
@@ -49,11 +50,9 @@ fun segmentedShape(index: Int, count: Int): RoundedCornerShape {
 /**
  * 可选中列表里第 index 项的圆角：按**选中段**而不是位置切角。
  *
- * `flags[i]` 为该行是否选中。相邻同状态的行连成一段，段内边用 [ConnectionRadius] 缝合，
- * 段的两个外边用 [ContainerRadius]。这样非连续选中（如第 1、3 项选中、第 2 项未选）时，
- * 选中底色不会以方角渗进未选邻居。
- *
- * `flags` 为 null 时退化为 [segmentedShape]（导航列表用不到，保留给调用方图省事）。
+ * 相邻同状态的行连成一段，段内边用 [ConnectionRadius] 缝合，段外边用
+ * [ContainerRadius]，避免选中底色以方角渗进未选邻居。
+ * `flags` 为 null 时退化为 [segmentedShape]。
  */
 fun selectedSegmentedShape(index: Int, count: Int, flags: List<Boolean>?): RoundedCornerShape {
     if (flags == null) return segmentedShape(index, count)
@@ -70,13 +69,10 @@ fun selectedSegmentedShape(index: Int, count: Int, flags: List<Boolean>?): Round
 }
 
 /**
- * 分组容器（见 docs/ui-spec.md §5）。
+ * 分组容器。
  *
- * 组间距 [hunoia.luno.ui.theme.ListSpacing]、组内间距 [contentSpacing]（1dp 圆角缝合）。
- * `contentSpacing` 有默认值，**不要显式传默认值**。
- *
- * @param badgeText 组头状态徽标文案（如缺项计数）；null 不显示。
- * @param badgeError 置 true 徽标走 error 色（组内有校验失败）。
+ * 组间距 [ListSpacing]，组内间距 [contentSpacing]（1dp 圆角缝合），默认值即可，
+ * 不要显式传。组头右侧可挂状态徽标，[badgeError] 时走 error 色。
  */
 @Composable
 fun LunoGroup(
@@ -119,11 +115,6 @@ fun LunoGroup(
     }
 }
 
-/**
- * 组头状态徽标：缺项计数 / 错误提示。
- *
- * 错误态走 error 色，常态走 primary 色；只在组头右侧出现。
- */
 @Composable
 fun SectionBadge(
     text: String,

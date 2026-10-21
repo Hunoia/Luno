@@ -19,10 +19,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import hunoia.luno.gridpanel.geometry.IndicatorHeight
 
-/**
- * 多页时的页指示点。原先的顶栏（日期/时间、编辑中提示、加项按钮）已整个删除：
- * 时间在状态栏里有；编辑态的加项入口改在卡片右下角 FAB（GridPanelCard）。
- */
 @Composable
 fun GridPageIndicator(
     pageCount: Int,

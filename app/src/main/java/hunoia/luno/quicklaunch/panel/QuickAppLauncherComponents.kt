@@ -53,11 +53,8 @@ import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
 
 /**
- * 键盘按键。用类型区分功能键而不是比较中文字符串——`label` 只用于显示，
- * 逻辑分支全部走类型，改文案不会再悄悄改掉行为。
- *
- * [longPressDigit] 是长按时送出的数字 token。隐藏功能：界面上没有任何提示，
- * 但它一直存在，见 [KeyboardKey.Letter]。
+ * 键盘按键。用类型区分功能键而不是比较中文字符串——`label` 只用于显示，逻辑分支全走类型，
+ * 改文案不会再悄悄改掉行为。[longPressDigit] 是长按时送出的数字 token，界面上没有提示。
  */
 internal sealed interface KeyboardKey {
     val label: String
@@ -149,14 +146,10 @@ internal fun KeyboardRow(
 }
 
 /**
- * 单个应用项：只有图标，**刻意没有文字标签**。
- *
- * 面板靠拼音首字母 + 图标识别，加标签会把候选行仅 ~92dp 的高度切给文字、挤掉图标，
- * 也和搜索排序的「图标即语义」取向冲突。别因为别的列表都有文字就顺手加一个。
- *
- * 同样**刻意不给「已禁用」加视觉区分**：禁用是罕见配置，为它加灰度或删除线会在
- * 常态下多出一层噪音。[AppInfo] 的禁用状态只影响点击行为（见调用方 onClick 的
- * `isDisabled` 参数），不改外观。
+ * 单个应用项：只有图标，**刻意没有文字标签**——加标签会把候选行仅 ~92dp 的高度切给文字、
+ * 挤掉图标，也和「图标即语义」的搜索排序取向冲突。
+ * 同样**刻意不给「已禁用」加视觉区分**：禁用是罕见配置，为它加灰度或删除线会在常态下多一层
+ * 噪音；[AppInfo] 的禁用状态只影响点击行为，不改外观。
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -213,13 +206,10 @@ internal fun AppItem(
 }
 
 /**
- * 面板底部的药丸：点击触发 [onClick]，上拖超过 [DragThresholdPx] 触发 [onDragUp]。
- *
- * 原本在网格底部、设置页底部、密码页底部各抄了一份近乎逐字相同的实现，外观保持原样，
- * 这里只收掉重复。调用方要挂在 `Box` 里并自己 `align(Alignment.BottomCenter)`。
- *
- * [dragEnabled] 对应网格那处「键盘已展开就不再响应上拖」的判断；[hapticOnClick] 对应
- * 原先只有网格那处有点击震动、另两处没有的差异——都是原样保留，不是新行为。
+ * 面板底部的药丸：点击触发 [onClick]，上拖超过 [DragThresholdPx] 触发 [onDragUp]；调用方要挂在
+ * `Box` 里并自己 `align(Alignment.BottomCenter)`。
+ * [dragEnabled] 对应网格那处「键盘已展开就不再响应上拖」；[hapticOnClick] 对应原先只有网格有
+ * 点击震动、另两处没有的差异——都是原样保留，不是新行为。
  */
 @Composable
 internal fun Pill(

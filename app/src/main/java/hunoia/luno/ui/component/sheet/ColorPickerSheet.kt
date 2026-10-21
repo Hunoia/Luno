@@ -446,10 +446,10 @@ fun ColorPickerBottomSheet(
     }
 }
 
-/** 透明度棋盘格深色格：中性灰，与明暗主题无关，静态复用。 */
+/** 透明度棋盘格深色格：中性灰，与明暗主题无关。 */
 private val CheckerGray = Color(0xFFCCCCCC)
 
-/** 色相条渐变是完全静态的，不要放进 Canvas 的 draw lambda —— 拖动时会每帧重建 */
+/** 色相条渐变是静态的，不要放进 Canvas 的 draw lambda——拖动时会每帧重建 */
 private val HueBarBrush = Brush.horizontalGradient(
     0.00f to Color.Red,
     0.17f to Color.Yellow,

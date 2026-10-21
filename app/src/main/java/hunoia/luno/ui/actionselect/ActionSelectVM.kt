@@ -37,11 +37,8 @@ class ActionSelectVM(
     }
 
     /**
-     * `loadDataBody` 里的子手势是一次性快照(`getSubGestureSettings()` 走 `.data.first()`),
-     * 所以选择页开着的时候在主页改子手势的启用状态或名字,这页不会更新。这里补一条响应式的。
-     *
-     * 只关心选择页真正用到的部分(启用状态 + id + 名字),并且只在这部分真的变了时才重算,
-     * 避免子手势其它字段的改动导致整份动作列表重建。
+     * `loadDataBody` 里的子手势是一次性快照，选择页开着时在主页改启用状态或名字不会更新。
+     * 这里补响应式订阅；只在启用状态 + id + 名字变化时重算，避免重建整份动作列表。
      */
     private fun observeSubGestures() {
         if (actionSelect.automationRuleId.isNotBlank()) return
@@ -77,12 +74,7 @@ class ActionSelectVM(
         }
     }
 
-    /**
-     * 点一行 = 选中 + 立即落盘 + 返回。
-     *
-     * 单选后没有「再点一下取消」这个中间态，也没有底栏的完成键可等，
-     * 所以选择即提交。自动化路径原本就是这么做的，这里提为唯一路径。
-     */
+    /** 点一行 = 选中 + 立即落盘 + 返回：没有「再点一下取消」的中间态，也没有完成键可等。 */
     fun select(obj: Any) {
         when (obj) {
             is AppInfo -> updateUiState { selectAppInfoTransform(it, obj) }
@@ -95,11 +87,8 @@ class ActionSelectVM(
     }
 
     /**
-     * 小部件选定 → 落盘 → 收页。
-     *
-     * 绑定与配置在组合侧发起（要 Activity 回结果），落盘才回到这里。落盘层会
-     * 自动降格找空位；页满时返回 false —— 若仍报「保存成功」就是真机上那个
-     * 「添加没反应」的元凶（静默失败 + 假成功提示），现在分别提示并回收 id。
+     * 小部件选定 → 落盘 → 收页。绑定与配置在组合侧发起（要 Activity 回结果），这里只落盘。
+     * 页满时不能报「保存成功」，否则用户看到的就是「添加没反应」；分别提示并回收 id。
      */
     fun commitWidget(provider: String, appWidgetId: Int, spanX: Int, spanY: Int) {
         var result: GridPanelSaveResult? = null

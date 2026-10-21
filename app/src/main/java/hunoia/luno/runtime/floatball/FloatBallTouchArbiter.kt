@@ -4,15 +4,12 @@ import android.view.MotionEvent
 import hunoia.luno.bridge.ui.DensityProvider
 
 /**
- * 球的触摸仲裁，语义与一墨的球一致（Compose DragGestureDetector 的行为）：
- *
- * - 按下后移动超过 touchSlop → **直接进入拖动**（没有长按门槛，球立即跟手）；
+ * 球的触摸仲裁：
+ * - 按下后移动超过 touchSlop → **直接进入拖动**（无长按门槛，球立即跟手）；
  * - 一直没超 slop 就抬手 → 点按；
  * - 拖动过 → 点按作废。
- *
- * 唯一的实现差异：这里收的是 2038 窗口的原始 MotionEvent 而不是 Compose
- * pointerInput，坐标一律用 `event.rawX/rawY`（屏幕绝对），拖不动窗口时
- * raw 坐标不会被窗口自己的位移污染。
+ * 这里收 2038 窗口的原始 MotionEvent 而非 Compose pointerInput，坐标用 `rawX/rawY`（屏幕绝对），
+ * 拖不动窗口时 raw 坐标不会被窗口自己的位移污染。
  */
 internal class FloatBallTouchArbiter(
     private val onSlideDragged: (dx: Float, dy: Float) -> Unit,

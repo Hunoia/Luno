@@ -176,9 +176,8 @@ internal fun QuickSearchActivity.openCalendarEvent(eventId: Long) {
     }
 
     /**
-     * 退场统一入口：只置 closing 位。finish() 由退场动画播完后亲自交接
-     * （见 content 的 onExitFinished），不设固定 delay——动画和计时是并发的，
-     * 固定 delay 只会在播完后多晾一段纯 blur。
+     * 退场统一入口：只置 closing 位，finish() 由退场动画播完后交接（见 content 的 onExitFinished），
+     * 不设固定 delay——动画和计时并发，固定 delay 只会在播完后多晾一段纯 blur。
      * 返回键也走这里（见 onCreate 的 onBackPressedDispatcher 拦截）。
      */
 
@@ -186,8 +185,7 @@ internal fun QuickSearchActivity.requestClose() {
         if (closingState.value) return
         if (BuildConfig.DEBUG) Log.i("LunoQuickSearch", "closeStart=${System.currentTimeMillis()}")
         closingState.value = true
-        // blur 提前摘（背景立刻清晰，剩下 390ms 晾的是透明窗 + 清晰底，尾巴隐形）。
-        // 穿透触摸试过，关闭已经够快，不需要，加状态位反而多风险，已删。
+        // blur 提前摘（背景立刻清晰，剩下 390ms 晾的是透明窗 + 清晰底，尾巴隐形）；
         // 重开恢复 blur 见 onWindowFocusChanged。
         window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
     }

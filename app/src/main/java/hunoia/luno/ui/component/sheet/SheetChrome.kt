@@ -23,11 +23,6 @@ import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SegmentedGap
 import hunoia.luno.ui.theme.SheetListMaxHeight
 
-/**
- * 弹层标题栏（见 docs/ui-spec.md §6）：左标题 + 右侧可选操作区。
- *
- * 各 sheet 手写的标题 Row（字号/边距各异）收敛到这里。
- */
 @Composable
 fun SheetHeader(
     title: String,
@@ -51,8 +46,8 @@ fun SheetHeader(
 }
 
 /**
- * Sheet 内「搜索框 + 结果列表」的公共骨架：搜索框 + 限高 [LazyColumn]（统一横向留白、
- * 底部留白与行间距）。在自己的 Column 里使用，列表内容通过 [content] 提供。
+ * Sheet 内「搜索框 + 限高列表」的公共骨架（统一横向留白、底部留白与行间距），
+ * 在自己的 Column 里使用，列表内容通过 [content] 提供。
  */
 @Composable
 fun SheetSearchList(
@@ -80,11 +75,6 @@ fun SheetSearchList(
     }
 }
 
-/**
- * 弹层底部操作区（见 docs/ui-spec.md §6）：取消 + 确认。
- *
- * 确认文案可覆盖（删除/重置类语义需要自己的文案）；[confirmEnabled] 为 false 时确认禁用。
- */
 @Composable
 fun SheetFooterActions(
     onDismissRequest: () -> Unit,

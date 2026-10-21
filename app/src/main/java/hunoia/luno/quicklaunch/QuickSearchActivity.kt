@@ -37,12 +37,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
- * 全屏透明搜索面板（Activity 版）。
- *
- * 之前是 Service 里 addView 的裸悬浮窗：无 decor、无 insets，内容直接画到透明状态栏
- * 背后 + 全屏 blur，在部分 ROM 上把状态栏图标糊到看不见。改透明 Activity 后状态栏、
- * 通知弹窗、键盘 insets 全部交还系统（对照 gesture_evo 的 QuickSearchActivity 实现）。
- *
+ * 全屏透明搜索面板：状态栏、通知弹窗、键盘 insets 全部交还系统，
+ * 全屏背景模糊只糊窗口背后，不影响状态栏。
  * 约定：singleTask + noHistory，重复触发走 onNewIntent（内容保留，不重置）。
  */
 class QuickSearchActivity : ComponentActivity() {
@@ -65,8 +61,8 @@ class QuickSearchActivity : ComponentActivity() {
     }
 
     /**
-     * 剪贴板状态：窗口拿到焦点后读（取剪贴板要的是窗口焦点，onResume 时焦点
-     * 通常还没到——之前首开无行就是读早了）。只记长度不记内容。
+     * 剪贴板状态：窗口拿到焦点后读（取剪贴板要窗口焦点，onResume 时焦点通常还没到）。
+     * 只记长度不记内容。
      */
     private val clipState = mutableStateOf<String?>(null)
     /** 上次已记入剪贴板历史的文本：内存去重，焦点反复进出不重复写 DataStore。 */
@@ -145,7 +141,7 @@ class QuickSearchActivity : ComponentActivity() {
         )
         super.onCreate(savedInstanceState)
         // 全屏背景模糊：Activity 在状态栏下层（BASE_APPLICATION），blur 只糊窗口背后的层，
-        // 状态栏不受影响（悬浮窗时代整窗 blur 糊掉状态栏是因为窗口在它上层，已成历史）。
+        // 状态栏不受影响。
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
         window.attributes.blurBehindRadius = 80
         if (BuildConfig.DEBUG) Log.i("LunoLauncher", "QuickSearchActivity onCreate taskId=$taskId")
@@ -353,10 +349,9 @@ class QuickSearchActivity : ComponentActivity() {
     companion object {
         /**
          * 从手势/Service 上下文启动搜索面板。
-         *
          * BAL（后台启动限制）：无障碍服务不在豁免名单，但应用有常驻可见窗口（手势触钮）
          * 时 BAL_ALLOW_VISIBLE_WINDOW 放行——悬浮触钮点开 Activity 是标准路径。
-         * 真机若被拦：logcat 会有 "Background activity start ... blocked"，届时再处理。
+         * 真机若被拦：logcat 会有 "Background activity start ... blocked"。
          */
         fun start(context: Context) {
             val intent = Intent(context, QuickSearchActivity::class.java).apply {

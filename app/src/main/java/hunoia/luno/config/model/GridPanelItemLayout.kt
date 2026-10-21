@@ -1,14 +1,11 @@
 package hunoia.luno.config.model
 
 /**
- * 固定网格的落位求解。纯函数、无组合依赖 —— 拖拽预览和真正落盘都必须走同一条
- * 规则，否则会出现「看着放得下、落下却和别的项重叠」。
+ * 固定网格的落位求解，纯函数：拖拽预览与落盘必须走同一规则，否则会出现
+ * 「看着放得下、落下却重叠」。
  *
- * 规则：**逐帧整页重排**（docs/grid-panel-moting-compare.md §11.3，一墨
- * `resolveReorderFlat`（defpackage/s09.java）的对齐版）：拖拽中每一帧把被拖项钉到
- * 指针格，任何被压住的项按方向优先级被推走、逐对碰撞收敛，**所有项（含被推项）
- * 一起返回新坐标**。推不动（有项出界 / 轮数上限）返回 null，调用方保持上一个
- * 有效目标 —— 手感上就是「靠近谁谁让位」，而不是只换一个格子。
+ * 逐帧整页重排：被拖项钉到指针格，被压住的项按方向优先级推开、逐对碰撞收敛，
+ * 所有项一起返回新坐标。推不动（出界 / 轮数上限）返回 null，调用方保持上一个有效目标。
  */
 object GridPanelItemLayout {
 
@@ -46,22 +43,13 @@ object GridPanelItemLayout {
         }
     }
 
-    /** 推让方向（一墨 s09 的 "UP/DOWN/LEFT/RIGHT" 字符串枚举的同义物）。 */
     private enum class Dir { LEFT, RIGHT, UP, DOWN }
 
     /**
-     * 整页重排求解（拖拽预览与落盘共用，一墨 `resolveReorderFlat` 平面语义」：
-     *
-     * 1. 被拖项（[movingId]）钉到 clamp 后的 `(targetX, targetY)`；
-     * 2. 逐对碰撞检测：一对重叠时决定「推谁」—— 一端已在已推集合则推另一端
-     *    （保证连环推的方向单调），两端同状态则推 **y 更靠下**的那个（一墨同款
-     *    行偏置，整体语义 = 往下/往右侧推 detached 少的）；
-     * 3. 方向优先级 = 远离推点的轴优先（|dy|>=|dx| 时 DOWN/UP 优先），次序
-     *    `[主方向, 次轴正方向, 次轴反方向, 逆主方向]`；每个候选先探位
-     *    （放过去不与别人再撞才接受），全部不可用则**强制往下推一格**兜底；
-     * 4. 任何项出界或超过轮数上限仍不收敛 → null，调用方维持上一个有效目标。
-     *
-     * 返回与 [items] 同序的完整列表（含被拖项与其余项的新坐标），落盘/渲染直接可用。
+     * 整页重排求解（拖拽预览与落盘共用）：被拖项钉到 clamp 后的目标格；逐对碰撞时
+     * 一端已推则推另一端，否则推 y 更靠下的；方向按「远离推点的轴优先」试探，
+     * 全不可用则强制下推一格。任一项出界或超轮数上限仍不收敛 → null，调用方维持
+     * 上一个有效目标。返回与 [items] 同序的完整列表。
      */
     fun planReorder(
         items: List<GridPanelItem>,
@@ -78,9 +66,8 @@ object GridPanelItemLayout {
         val ty = targetY.coerceIn(0, (maxRows - moving.spanY).coerceAtLeast(0))
 
         val ids = items.map { it.id }
-        // 遍历顺序必须确定：收敛靠[pushed] 的「本轮已挪过」语义防震荡，
-        // 顺序一变就是另一套结果（一墨的 DAO 没有 ORDER BY，靠插入顺序，
-        // 那是个隐患 —— 这里显式排成 (y, x)，让级联方向符合直觉且可复现）。
+        // 顺序必须确定：(y, x) 排序让级联方向符合直觉且可复现；
+        // 收敛靠 [pushed] 的「本轮已挪过」语义防震荡，顺序一变就是另一套结果。
         val ordered = items.sortedWith(compareBy({ it.y }, { it.x })).map { it.id }
         val spanW = items.associate { it.id to it.spanX }
         val spanH = items.associate { it.id to it.spanY }
@@ -90,7 +77,6 @@ object GridPanelItemLayout {
         }
         val pushed = mutableSetOf(movingId)
 
-        /** 候选位是否与其它项碰撞（一墨 s09.v() 的语义）。 */
         fun collides(id: String, x: Int, y: Int): Boolean = ids.any { other ->
             other != id && run {
                 val oy = pos[other]!!
@@ -104,7 +90,7 @@ object GridPanelItemLayout {
         var loops = 0
         while (true) {
             loops++
-            if (loops > 100) return null // 一墨上限 200 轮；Luno 网格小，100 裕量足够
+            if (loops > 100) return null // 100 轮上限：网格小，裕量足够（超限判负）
             var changed = false
             for (i in ordered.indices) {
                 val aId = ordered[i]
@@ -118,7 +104,7 @@ object GridPanelItemLayout {
                         pa.second < pb.second + bH && pb.second < pa.second + aH
                     if (!overlaps) continue
 
-                    // 推谁（一墨同款）：一端已推 → 推另一端；都在/都不在 → 推 y 大者。
+                    // 推谁：一端已推 → 推另一端；都在/都不在 → 推 y 大者。
                     val pusher: String
                     val pushee: String
                     when {
@@ -141,7 +127,7 @@ object GridPanelItemLayout {
                         dx = (pe.first + sw / 2.0) - (pp.first + pw / 2.0)
                         dy = (pe.second + sh / 2.0) - (pp.second + ph / 2.0)
                     }
-                    // 方向优先级（一墨 s09 同序）：主轴 = 远离推点；|dy| 占优时行优先。
+                    // 方向优先级：主轴 = 远离推点；|dy| 占优时行优先。
                     val order = when {
                         kotlin.math.abs(dy) >= kotlin.math.abs(dx) && dy >= 0 ->
                             listOf(Dir.DOWN, Dir.RIGHT, Dir.LEFT, Dir.UP)
@@ -155,7 +141,7 @@ object GridPanelItemLayout {
                         val nx: Int
                         val ny: Int
                         when (dir) {
-                            // 一墨：pushee 贴齐 pusher 对侧边缘（非仅一格）
+                            // pushee 贴齐 pusher 对侧边缘（非仅一格）
                             Dir.RIGHT -> { nx = pp.first + pw; ny = pe.second; if (nx + sw > cols) continue }
                             Dir.LEFT -> { nx = pp.first - sw; ny = pe.second; if (nx < 0) continue }
                             Dir.DOWN -> { nx = pe.first; ny = pp.second + ph; if (ny + sh > maxRows) continue }
@@ -170,8 +156,7 @@ object GridPanelItemLayout {
                         }
                     }
                     if (!placed) {
-                        // 强制兜底：往下一格（一墨 fallback push），也不越界就收下；
-                        // 越界就放弃这轮（轮数上限最终会判负整案）。
+                        // 强制兜底：往下推一格，越界就放弃这轮（轮数上限最终会判负整案）。
                         val ny = pp.second + ph
                         if (ny + sh <= maxRows) {
                             pos[pushee] = pe.first to ny
@@ -184,7 +169,7 @@ object GridPanelItemLayout {
             if (!changed) break // 无对可推 = 已收敛
         }
 
-        // 收敛后仍要全部在界内；一墨最后也要做同样的出界核查
+        // 收敛后仍须全部在界内，否则整案判负
         ids.forEach { id ->
             val (x, y) = pos.getValue(id)
             if (x < 0 || x + spanW.getValue(id) > cols || y < 0 || y + spanH.getValue(id) > maxRows) {

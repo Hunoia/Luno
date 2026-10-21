@@ -373,7 +373,7 @@ object BackupOperator {
             val extracted = unzipFile(restoreFile, restoreDirFile)
             val item = extracted.firstOrNull { it.isFile && it.name == ZIP_BACKUP }
                 ?: throw IllegalStateException("import failed: no backup entry found in zip")
-            // 旧版域备份没有 icons 条目：可选，合并导入，不动其他域的图标。
+            // icons 条目可选（旧域备份没有）：合并导入，不动其他域的图标。
             extracted.firstOrNull { it.isFile && it.name == ZIP_ICONS }
                 ?.let { restoreShortcutIcons(it, replace = false) }
             val bytes = item.readBytes().also {

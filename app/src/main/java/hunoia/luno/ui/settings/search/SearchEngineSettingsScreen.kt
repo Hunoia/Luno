@@ -63,7 +63,7 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
     var showAdd by remember { mutableStateOf(false) }
     var editTarget by remember { mutableStateOf<SearchEngine?>(null) }
     var deleteTarget by remember { mutableStateOf<SearchEngine?>(null) }
-    // 来源标识编辑目标（源 key）：行点开 dialog，开关照常切换，两不耽误。
+    // 来源标识编辑目标（源 key）：点行开 dialog，开关仍可独立切换。
     var triggerTarget by remember { mutableStateOf<String?>(null) }
     val engines = settings.effectiveEngines()
     fun setDefault(id: String) {
@@ -192,8 +192,7 @@ fun SearchEngineSettingsScreen(onBack: () -> Unit) {
                     onClick = { showAdd = true },
                 )
             }
-            // 内容源：P1 剪贴板，P2 联系人，P3 音乐/文件，日历/开关/短信/通话记录。
-            // 剪贴板历史、最近文件复用剪贴板/文件开关，不另加。
+            // 内容源：剪贴板历史、最近文件复用剪贴板/文件开关，不另加开关。
             LunoGroup {
                 LunoSwitchRow(
                     title = stringResource(R.string.quick_search_clipboard),
@@ -398,8 +397,7 @@ internal fun sourceTitle(key: String): String = when (key) {
     else -> key
 }
 /**
- * 来源标识编辑：单输入框，判重规则跟引擎 dialog 同款（空=关闭该源标识，
- * 不能含空白、不能撞引擎/其他来源）。确认键只在合法时可用，不用 toast。
+ * 来源标识编辑：空 = 关闭该源；不能含空白，不能撞引擎或其他来源；不合法时确认键禁用。
  */
 @Composable
 private fun SourceTriggerDialog(

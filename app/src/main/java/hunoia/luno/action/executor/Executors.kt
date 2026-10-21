@@ -89,12 +89,8 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
         if (performed) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
 
     /**
-     * 点击/长按的落点。
-     *
-     * - 勾了「使用触发位置坐标」：只认手势触点，固定坐标整组忽略（隐藏触钮后按下的位置就是落点，
-     *   点击直接穿透到触钮覆盖层下面的界面）。
-     * - 否则参数坐标优先（库/规则配好的固定点），再退手势触点。
-     * 两者都没有判参数无效（分发器前置校验已拦一次，这里兜底直接执行路径）。
+     * 点击/长按落点：勾了「使用触发位置坐标」只认手势触点，否则参数坐标优先再退触点。
+     * 两者都没有判参数无效（分发器已前置拦截，这里兜底直接执行路径）。
      */
     private fun Action.Tap.targetPoint(context: ExecutorContext): Pair<Int, Int>? =
         if (useTriggerPoint) context.touchPosition
@@ -105,12 +101,9 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
         else pointPx(context.appContext) ?: context.touchPosition
 
     /**
-     * 隐藏触钮，并等它**真的不可触**之后再注入触点。
-     *
-     * `hideGestureButton` 只给触钮的触摸捕获窗口加 `FLAG_NOT_TOUCHABLE` 并发一笔 WM 事务，
-     * 不是同步生效；不等它落地就注入，点击会被还没失效的捕获窗口吃掉（点在触钮自己身上）。
-     * WMS 从 App 侧观测不到，按帧等待是能做到的最近似：等两帧让事务落到输入分发。
-     * 主 overlay 窗口本身就是 NOT_TOUCHABLE，不会挡住注入的触点。
+     * 先隐藏触钮并等它真的不可触再注入：`hideGestureButton` 只加 `FLAG_NOT_TOUCHABLE`
+     * 并发一笔 WM 事务，不同步生效；不等落地，点击会被触钮自己的捕获窗口吃掉。
+     * WMS 从 App 侧观测不到，按帧等待是最近似做法（主 overlay 本身不挡注入）。
      */
     private suspend fun hideButtonAndSettle(context: ExecutorContext) {
         context.hideGestureButton(BUTTON_HIDE_MS)
@@ -131,11 +124,7 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
         cont.invokeOnCancellation { choreographer.removeFrameCallback(callback) }
     }
 
-    /**
-     * 参数坐标转屏像素（dp→px，按执行时 density）。
-     * 任一缺失/为负视为未填，调用方回退触点。负值不合法（编辑器 min=0 拦截，
-     * 这里兜底外部构造的数据）。
-     */
+    /** 参数坐标转屏像素（dp→px，按执行时 density）；任一缺失/为负视为未填，调用方回退触点。 */
     private fun Action.Tap.pointPx(context: android.content.Context): Pair<Int, Int>? =
         pointPx(context, xDp, yDp)
 
@@ -233,14 +222,9 @@ class InternalExecutors : ActionExecutor {
     }
 
     /**
-     * 网格面板：悬空引用（面板被删）时按「无动作」静默收口（弧形面板在 ActionMapper
-     * 的兜底同例），不报失败让手势链路弹错误提示。
-     *
-     * **空面板照常弹**：面板本体就是编辑入口（长按空白进编辑态加项），
-     * 拦掉空面板 = 第一项永远加不上。
-     *
-     * 浮窗入口走注入的 `context.showGridPanel`（与手势链同一 seam，不在本层直接摸
-     * 浮窗）；球侧直发那条无容器的路径走 `GridPanelOverlay.showIfExists`，同一份收口语义。
+     * 网格面板：面板被删时按「无动作」静默收口，不报失败让手势链路弹错误提示。
+     * 空面板照常弹——面板本体就是编辑入口，拦掉空面板第一项永远加不上。
+     * 浮窗入口走注入的 `context.showGridPanel`，不直接摸浮窗。
      */
     private fun executeGridPanel(action: Action.GridPanel, context: ExecutorContext): ActionResult {
         if (context.actionSettings.actionGridPanels.panelById(action.panelId) == null) {
@@ -272,8 +256,8 @@ class InternalExecutors : ActionExecutor {
     }
 
     /**
-     * 触钮显隐：直接改按钮 enabled 存量（DataStore 更新自带顺序，后写覆盖先写,
-     * 即规则列表顺序=优先级）。失败吞掉报 Failed，不抛。
+     * 触钮显隐：直接改按钮 enabled 存量。DataStore 更新自带顺序，后写覆盖先写，
+     * 即规则列表顺序=优先级。
      */
     private suspend fun executeButtonsVisibility(action: Action.ButtonsVisibility): ActionResult {
         val ok = runCatching {

@@ -11,28 +11,18 @@ import hunoia.luno.runtime.condition.ConditionContext
 import hunoia.luno.runtime.condition.matches
 
 /**
- * v2 自动化引擎：整树边沿（fireOn）+ 优先级仲裁 + 节流策略 + 执行历史。
- * 仲裁顺序固定：Event → Condition → Priority Arbitration → Throttle → Execution。
- * 选中的规则即使被节流也不降级到低优先级规则；落选的边沿命中记跳过。
- * 未命中（hit=false）不记历史，只记边沿后的事，避免每次状态刷新刷屏。
- * 触发后只负责判定与节流记账，步骤执行由调用方（Coordinator 独立协程）跑完再补 fired 事件。
+ * 自动化引擎：整树边沿（fireOn）+ 优先级仲裁 + 节流策略。
+ * 仲裁顺序固定：Event → Condition → Priority Arbitration → Throttle → Execution；
+ * 选中的规则被节流也不降级，落选边沿命中记跳过；未命中不记历史，触发只判定与记账。
  */
 class AutomationEngine(
     private val onFireRule: (AutomationRule, ConditionContext) -> Unit,
-    /**
-     * 一轮求值产出的全部跳过事件一次性交付。以前是每条落选规则一次回调，
-     * 调用方每条都起一个协程写一次盘 —— N 条规则竞争就是 N 次全量重写日志。
-     */
+    /** 一轮求值的全部跳过事件一次性交付（以前每条起协程写盘，N 条规则即 N 次全量重写）。 */
     private val onEvents: (List<AutomationEvent>) -> Unit,
 ) {
     private val prevMatches = mutableMapOf<String, Boolean>()
 
-    /**
-     * 每条规则上次求值时的条件树。存对象本身而不是签名字符串 —— WhenGroup / ConditionItem
-     * 都是 data class,结构相等就是 equals(),不需要像以前那样 toString() 把整棵条件树
-     * 递归拼成字符串(每次求值、每条规则各一次,嵌套分组时字符串还不短)。
-     * 用 equals 比 toString 严格更正确:后者对字段值里恰好含有分隔文本的情况会误判为相同。
-     */
+    /** 每条规则上次求值时的条件树，存对象而非签名字符串：data class 结构相等即 equals，比 toString 更严格。 */
     private val lastCondition = mutableMapOf<String, WhenGroup>()
 
     private val cooldownLastFiredAt = mutableMapOf<String, Long>()
@@ -82,7 +72,7 @@ class AutomationEngine(
             prevMatches[rule.id] = hit
 
             // 纯事件树（无状态叶）没有持续边沿：进入/退出无意义，统一按进入时处理
-            //（编辑页对纯事件树隐藏触发方式；这里防御旧数据与手工构造）。
+            //（编辑页对纯事件树隐藏触发方式；这里防御手工构造的规则）。
             val fireOn = if (hasStateLeaf(rule.condition)) rule.fireOn else FireMode.ENTER
             // 脉冲命中即边沿：脉冲读一次即消费，prev 机制对它恒卡死
             //（首次求值 prev=hit → 非脉冲路径永无进入沿），所以由 pulseEdge 单独放行。
@@ -150,10 +140,7 @@ class AutomationEngine(
         if (events.isNotEmpty()) onEvents(events)
     }
 
-    /**
-     * 值驱动节流：kind==OFF 是存量总闸直接放行；其余看值——
-     * 冷却（cooldownMs>0）与窗口（count>=1 且 window>=1s）各算各的，先冷后窗。
-     */
+    /** 值驱动节流：OFF 直接放行；冷却（cooldownMs>0）与窗口（count>=1 且 window>=1s）先冷后窗。 */
     private fun throttleBlockReason(ruleId: String, throttle: ThrottlePolicy, nowMs: Long): SkipReason? {
         if (throttle.kind == ThrottleKind.OFF) return null
         if (throttle.cooldownMs > 0) {
@@ -198,8 +185,7 @@ class AutomationEngine(
 
 /**
  * 条件树里是否有命中的非否定脉冲叶（raw 语义，未取反）。
- * raw 求值复用 matches()（copy 去否定），不复制各脉冲的过滤逻辑；
- * 脉冲类型判定复用 AutomationBus.isPulseConditionType，避免两处清单漂移。
+ * raw 求值复用 matches()（copy 去否定），脉冲类型判定复用 AutomationBus.isPulseConditionType，避免两处清单漂移。
  */
 private fun hasPresentPulse(group: WhenGroup, ctx: ConditionContext): Boolean {
     return group.items.any { item -> item.hasPresentPulse(ctx) }

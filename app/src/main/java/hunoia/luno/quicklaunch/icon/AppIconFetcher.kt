@@ -14,17 +14,11 @@ import coil.request.Options
 
 /**
  * 按目标像素栅格化应用图标。
- *
- * **只缩不放**：`PackageManager.getApplicationIcon` 返回的原生 Drawable 通常已是
- * 192×192（约 147KB），而全屏面板的网格格子在 density 2.75 上约 253px。若照
- * 格子尺寸盲目放大，单张会涨到 256KB —— 比现状更差。所以目标取
+ * **只缩不放**：`PackageManager.getApplicationIcon` 的原生 Drawable 通常已是 192×192（约 147KB），
+ * 而网格格子在 density 2.75 上约 253px；盲目放大会比现状更差，故目标取
  * `min(渲染边长, 原生固有边长)`，原生够大时直接原样返回。
- *
- * 栅格化沿用 `ShortcutInfoExt` 里已有的 `setBounds` + `Canvas.draw` 做法
- * （`AdaptiveIconDrawable` 不是 `BitmapDrawable`，不能靠 `bitmap` 直接取）。
- *
- * 不做 in-flight 去重：Coil 的 `EngineInterceptor` 已按缓存键维护 in-flight 表，
- * 同键并发请求会自动合并到一次解码。
+ * 栅格化沿用 `setBounds` + `Canvas.draw`（`AdaptiveIconDrawable` 不是 `BitmapDrawable`，
+ * 不能靠 `bitmap` 直接取）。不做 in-flight 去重：Coil 的 `EngineInterceptor` 已按缓存键维护 in-flight 表。
  */
 internal class AppIconFetcher(
     private val context: Context,

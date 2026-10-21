@@ -12,11 +12,9 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Velocity
 
 /**
- * sheet 内容的滚动衔接（[LunoSheet] 内部使用）。
- *
- * 内容自带滚动容器（`rememberScrollState` 的 Column）时，手指在内容上拖会同时触发
- * sheet 的手势 dismissal，两边争抢。传 [OptimizedScrollState.Scroll] 后，内容未滚到
- * 顶时 sheet 不消费滚动，滚到顶才把手势还给 sheet。
+ * sheet 内容的滚动衔接（[LunoSheet] 内部使用）：内容自带滚动容器时，手指在内容上拖
+ * 会同时触发 sheet 的 dismissal。传 [OptimizedScrollState.Scroll] 后，内容未滚到顶时
+ * sheet 不消费滚动，滚到顶才把手势还给 sheet。
  */
 sealed class OptimizedScrollState {
     data object None : OptimizedScrollState()

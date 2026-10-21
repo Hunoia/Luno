@@ -56,10 +56,8 @@ import kotlinx.coroutines.flow.collectLatest
 
 /**
  * 面板展开后所需的内容高度：键盘三行 + 键盘行间距 + 候选项 + 间距 + 卡片上下内边距。
- *
- * [QuickAppLauncherAdjustPanel] 用它界定面板高度滑块的行程，这里用它在下界兜底。
- * 两边必须同源 —— 之前是各写一份字面量（面板里那份是 `kd * 3 + 6.dp * 2 + 40.dp * rows + 6.dp + 10.dp * 2`），
- * 改一边另一边静默失配，表现是面板能拖到把候选项或键盘裁掉的高度。
+ * [QuickAppLauncherAdjustPanel] 用它界定面板高度滑块的行程，这里用它兜底；两边必须同源，
+ * 否则面板能拖到把候选项或键盘裁掉的高度。
  */
 internal fun requiredContentHeight(
     keyHeight: Dp,
@@ -69,11 +67,10 @@ internal fun requiredContentHeight(
     candidateRowHeight * candidateRows + KeyboardGap + PanelPaddingVertical * 2
 
 /**
- * 常驻入口。ComposeView 只创建一次，本组合随它一直活着，所以 `remember` 出来的
- * [QuickAppLauncherState]（已加载的应用列表、已建好的搜索索引、Coil 里的图标）跨会话保留。
- *
+ * 常驻入口。ComposeView 只创建一次，本组合随它一直活着，`remember` 出来的
+ * [QuickAppLauncherState]（已加载的应用列表、搜索索引、Coil 图标）跨会话保留。
  * 收起时只渲染一个 1dp 的盒子：GPU 上那块全屏 RGBA_8888 buffer（1200x2670 ≈ 12.2MB）
- * 随窗口缩到 1x1 就释放了，而 state 还在。首开因此不必重查 PackageManager、不必重建索引。
+ * 随窗口缩到 1x1 就释放了，而 state 还在；首开因此不必重查 PackageManager、不必重建索引。
  */
 @Composable
 internal fun QuickAppLauncherRoot(
@@ -106,7 +103,7 @@ internal fun QuickAppLauncherRoot(
         exit = fadeOut(animationSpec = tween(durationMillis = AnimOverlayFade.toInt())),
     ) {
         // 全屏 scrim：面板外的点击落在这里被消费（只关面板，不传透下层应用），
-        // 替代之前的 ACTION_OUTSIDE 机制（通知和传透同时发生，传透拦不住）。
+        // 全屏 scrim：面板外点击只关面板，不传透下层应用。
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -116,8 +113,7 @@ internal fun QuickAppLauncherRoot(
                     onClick = onClose,
                 ),
         ) {
-            // 面板几何以前在窗口 params 里（applyPanelLayout），窗口全屏化后搬进 Compose。
-            // 换算与原来逐项一致：同 fractions、同钳制。
+            // 面板几何在 Compose 里换算（窗口全屏化后不再走窗口 params）：同 fractions、同钳制。
             val configuration = LocalConfiguration.current
             val density = LocalDensity.current
             val landscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE

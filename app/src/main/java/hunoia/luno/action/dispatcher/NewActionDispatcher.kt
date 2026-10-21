@@ -46,8 +46,8 @@ class NewActionDispatcher(
     private val previousAppTracker: PreviousAppTracker,
     private val settingsSnapshot: () -> SettingsSnapshot,
     /**
-     * 模板变量取值用的运行时快照。不消费脉冲（手势直接触发与 overlay 直派发都要用稳态值，
-     * 消费脉冲会抢掉自动化评估该看到的那一次边沿）。
+     * 模板变量取值用的运行时快照。不消费脉冲：手势直接触发与 overlay 直派发都要用
+     * 稳态值，消费脉冲会抢掉自动化评估该看到的那一次边沿。
      */
     private val runtimeState: () -> GestureRuntimeState,
     private val onToggleQuickAppLauncher: () -> Unit,
@@ -113,8 +113,8 @@ class NewActionDispatcher(
     }
 
     /**
-     * dispatch 的可等待版本：主体与 [dispatch] 完全一致，但等执行落定才返回。
-     * 自动化序列靠它拿到真实成败（否则 delay 只是"等什么都没发生的时间"）。
+     * dispatch 的可等待版本：等执行落定才返回，自动化序列靠它拿到真实成败
+     *（否则 delay 只是「等什么都没发生的时间」）。
      */
     private suspend fun dispatchAwait(
         stored: StoredAction,
@@ -150,9 +150,9 @@ class NewActionDispatcher(
             stored
         }
         val ctx = buildContext(sourceButton, touchPosition, templateContext)
-        // 点按类动作的前置条件：手势触点优先，其次看参数坐标（库/规则配好的固定点），
-        // 两者都没有才判参数无效。勾了「使用触发位置坐标」的条目 hasPointParams() 恒 false，
-        // 无触点路径（自动化）在这里被拦。注意这里只看 StoredAction 参数，进 Executor 前不再复验。
+        // 点按类动作的前置条件：手势触点优先，其次看参数坐标，两者都没有才判参数无效。
+        // 勾了「使用触发位置坐标」的条目 hasPointParams() 恒 false，无触点路径（自动化）在这里被拦。
+        // 只看 StoredAction 参数，进 Executor 前不再复验。
         if (touchPosition == null && (effective.typeId == "accessibility.tap" || effective.typeId == "accessibility.longPress") &&
             !effective.hasPointParams()
         ) {
@@ -240,15 +240,10 @@ class NewActionDispatcher(
     }
 
     /**
-     * 规则即动作：只跑目标规则的 effect steps，不经过引擎仲裁
-     *（目标自身的触发条件/节流/优先级全部忽略，也不占用引擎的"同规则单飞"名额）。
-     *
-     * 递归深度随协程上下文传递（顶层手势/引擎触发都是新协程，天然从 0 起）；
-     * A→B→A 循环在 [SequenceGuards.MAX_RULE_DEPTH] 截断。
-     *
-     * steps 复用 [SequenceExecutor] 执行：delay/if 与步数/超时守卫和引擎路径完全一致
-     *（此前逐 step 直调会把 delay/if 步当成空引用而误报 entry_missing）。
-     * 失败即整体失败，由上层序列记账中断（与普通动作步一致）。
+     * 规则即动作：只跑目标规则的 effect steps，目标自身的触发条件/节流/优先级
+     * 全部忽略，也不占引擎的「同规则单飞」名额。递归深度随协程上下文传递，
+     * A→B→A 循环由 [SequenceGuards.MAX_RULE_DEPTH] 截断。steps 复用
+     * [SequenceExecutor]，delay/if 与步数/超时守卫和引擎路径一致；失败即整体失败。
      */
     private suspend fun runRuleSteps(ruleId: String, ctx: ExecutorContext): ActionResult {
         val depth = currentCoroutineContext()[RuleDepth]?.depth ?: 0

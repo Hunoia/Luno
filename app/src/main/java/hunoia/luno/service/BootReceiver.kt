@@ -27,11 +27,7 @@ class BootReceiver : BroadcastReceiver() {
         }
     }
 
-    /**
-     * 开机时同步读应用总开关。与球的读法不同：默认值是 true
-     * （[hunoia.luno.config.defaults.InitialSettingsDefaults.GestureEnabled]），
-     * DataStore 缺文件时生效的就是这个默认值，所以读失败按「开」处理。
-     */
+    /** 开机同步读总开关：默认 true，DataStore 缺文件时生效的就是它，读失败按「开」处理。 */
     private fun readMasterSwitchEnabled(context: Context): Boolean = runCatching {
         val file = File("${context.filesDir.absolutePath}/ds/${DataStoreFiles.INITIAL_SETTINGS}")
         if (!file.exists()) return@runCatching true
@@ -41,15 +37,9 @@ class BootReceiver : BroadcastReceiver() {
     }.getOrDefault(true)
 
     /**
-     * 开机时同步读球的开关。
-     *
-     * DataStore 只有 suspend 接口，而 `onReceive` 里起协程要么用 `goAsync()` 拖长
-     * 广播窗口、要么直接读文件。这里选直接读：一个小 JSON 文件的阻塞 IO 完全可控，
-     * 比在开机路径上引入异步时序简单得多。
-     *
-     * 文件路径沿用 [DataStoreFiles] 的常量 —— 布局由 `Context.dataStore` 单点定义，
-     * 这里只拼同一个前缀。读失败一律按「不开」处理：开机路径抛异常会连带影响
-     * `DaemonService` 的拉起。
+     * 开机同步读球的开关：`onReceive` 里起协程要么 `goAsync()` 拖长广播窗口，要么
+     * 直接读文件，这里选后者。路径沿用 [DataStoreFiles] 常量（布局由 `Context.dataStore`
+     * 单点定义）。读失败按「不开」处理：开机路径抛异常会连带影响 `DaemonService` 拉起。
      */
     private fun readFloatBallEnabled(context: Context): Boolean = runCatching {
         val file = File("${context.filesDir.absolutePath}/ds/${DataStoreFiles.ACTION_SETTINGS}")

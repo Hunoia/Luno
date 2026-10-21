@@ -215,8 +215,8 @@ sealed interface Action {
         override val typeId: String = "internal.hideGestureButton"
     }
     /**
-     * 触钮显隐（替代自动化旧 HIDE/SHOW_BUTTONS 策略）：直接改按钮 enabled 存量，
-     * 后求值/后执行的覆盖先生效（规则列表顺序即优先级）。
+     * 触钮显隐：直接改按钮 enabled 存量，后求值/后执行的覆盖先生效
+     *（规则列表顺序即优先级）。
      */
     data class ButtonsVisibility(
         val visible: Boolean = true,
@@ -229,8 +229,8 @@ sealed interface Action {
         override val typeId: String = "internal.quickAppLauncher"
     }
     /**
-     * 悬浮球显隐（与 [ButtonsVisibility] 同物：直接改 enabled 存量，
-     * 后求值/后执行的覆盖先生效）。`visible = null` 表示切换。
+     * 悬浮球显隐：直接改 enabled 存量，后求值/后执行的覆盖先生效。
+     * `visible = null` 表示切换。
      */
     data class FloatBallVisibility(val visible: Boolean? = null) : Action {
         override val typeId: String = "internal.floatBallVisibility"
@@ -258,8 +258,8 @@ sealed interface Action {
         override val typeId: String = "internal.previousApp"
     }
     /**
-     * 运行规则（规则即动作）：只跑目标规则的 effect steps，不经过引擎仲裁，
-     * 目标自身的触发条件/节流/优先级全部忽略。嵌套由执行层深度上限兜底。
+     * 运行规则（规则即动作）：只跑目标规则的 effect steps，目标自身的触发条件/
+     * 节流/优先级全部忽略；嵌套由执行层深度上限兜底。
      */
     data class RunRule(val ruleId: String) : Action {
         override val typeId: String = "internal.runRule"
@@ -273,14 +273,12 @@ enum class Capability {
     Shizuku
 }
 
-/** 动作执行结果。 */
 sealed interface ActionResult {
     data class Success(val message: String? = null) : ActionResult
     data class Failed(val reason: ActionFailure, val message: String? = null) : ActionResult
     data class RequiresCapability(val capability: Capability) : ActionResult
 }
 
-/** 动作失败原因。 */
 enum class ActionFailure {
     InvalidParameter,
     ExecutionFailed,

@@ -55,11 +55,7 @@ class GestureState(
     var isCanceled: Boolean by mutableStateOf(false)
         private set
 
-    /**
-     * 只在 onDragStart 构建一次。原先 onDragStart/onDrag/onDragEnd 各建一遍，
-     * 而 onDrag 是每个 ACTION_MOVE 都会走到的 —— 每帧一个 GestureConfig + 一个
-     * GestureThresholds + 一个闭包，而内容在整个手势会话里并不会变。
-     */
+    /** 只在 onDragStart 构建一次：onDrag 每个 ACTION_MOVE 都会走，而内容整个会话不变。 */
     private var sessionConfig: GestureConfig? = null
 
     var button: GestureButton? by mutableStateOf(null)

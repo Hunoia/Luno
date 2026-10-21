@@ -17,25 +17,16 @@ object SequenceGuards {
     const val MAX_DELAY_MS = 60_000L
     const val MAX_TOTAL_DELAY_MS = 300_000L
 
-    /**
-     * 单个动作步的挂起上限。以前动作是 fire-and-forget 所以用不上；现在序列真等结果，
-     * 若某个执行器永不回调（Shizuku enablePackage 挂住）整条序列会永久占着单飞名额，
-     * 该规则从此一直 RULE_BUSY。
-     */
+    /** 单个动作步的挂起上限：执行器永不回调（如 Shizuku enablePackage 挂住）时，序列真等结果会永久占着单飞名额。 */
     const val MAX_ACTION_MS = 30_000L
 
     /**
-     * internal.runRule 复合动作步的挂起上限：目标规则自带 delay/if 守卫
-     * （总 delay ≤ MAX_TOTAL_DELAY_MS），30s 的单动作上限会把合法的长延时
-     * 目标规则误判超时。给"delay 总预算 + 单个动作预算"的松弛；
-     * 嵌套链整体被最外层这一步的时限兜住，仍是有限时长。
+     * internal.runRule 复合动作步的挂起上限：目标规则自带 delay/if 守卫，30s 单动作上限会误判长延时目标规则超时；
+     * 给「delay 总预算 + 单动作预算」的松弛，嵌套链仍被最外层时限兜住。
      */
     const val MAX_RULE_STEP_MS = MAX_TOTAL_DELAY_MS + MAX_ACTION_MS
 
-    /**
-     * 规则嵌套（internal.runRule）深度上限：A→B→A 这类循环在这里截断，
-     * 选择页同时禁自引用。只跑 steps，不经过引擎仲裁。
-     */
+    /** 规则嵌套（internal.runRule）深度上限：A→B→A 循环在此截断（选择页同时禁自引用）；只跑 steps，不经过引擎仲裁。 */
     const val MAX_RULE_DEPTH = 5
 }
 
@@ -46,10 +37,8 @@ sealed interface StepOutcome {
 }
 
 /**
- * 步骤序列执行器：顺序跑 steps，某步失败即中断。
- * 失败 = 动作抛异常 / entry 引用缺失 / 执行结果是 Failed|RequiresCapability / 动作步超时；
- * delay 等的是上一步**真正落定**之后（动作是 await 的）。
- * 每条规则独立协程跑一份，一条的 delay 不阻塞其他规则。
+ * 步骤序列执行器：顺序跑 steps，某步失败即中断（动作异常 / entry 缺失 / Failed|RequiresCapability / 动作超时）。
+ * delay 等上一步真正落定之后；每条规则独立协程跑一份。
  */
 class SequenceExecutor(
     private val runSingleAction: suspend (action: StoredAction, ctx: ConditionContext) -> StepOutcome,

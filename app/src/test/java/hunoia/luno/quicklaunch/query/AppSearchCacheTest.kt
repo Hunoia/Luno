@@ -40,7 +40,7 @@ class AppSearchCacheTest {
 
     @Test
     fun `index content is unchanged for indexed prefix`() {
-        // 回归：截断参与缓存去重后，前 200 字内的匹配行为必须与原来一致。
+        // 截断参与缓存去重后，前 200 字内的匹配行为保持不变。
         val text = "番".repeat(50) + "茄小说"
         val idx = AppSearch.buildIndex(text)
         assertEquals(200.coerceAtMost(text.length), idx.raw.length)

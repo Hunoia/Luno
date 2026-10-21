@@ -3,11 +3,8 @@ package hunoia.luno.action.dispatcher
 import hunoia.luno.config.model.GestureTriggerType
 
 /**
- * 分发完成事件（Dispatcher→EventBus）。
- *
- * 由 [NewActionDispatcher] 在每次分发落定后广播。自动化侧订阅此事件驱动
- * GESTURE 域评估，不再由手势入口同步调用 evaluate：
- * 手势动作立即执行，规则评估跟随分发落定。
+ * 分发完成事件（Dispatcher→EventBus）。自动化侧订阅它驱动 GESTURE 域评估：
+ * 手势动作立即执行，规则评估跟随分发落定，不在手势入口同步调用 evaluate。
  */
 data class GestureDispatchEvent(
     /** 落定动作的 typeId（库引用已就地解析为条目动作）。 */

@@ -81,7 +81,7 @@ object ShizukuManager {
         updateStatus()
     }
 
-    // --- Hidden API proxies ---
+    // ---- Hidden API proxies ----
 
     private val pmClass by lazy { Class.forName("android.content.pm.IPackageManager") }
 
@@ -118,7 +118,7 @@ object ShizukuManager {
         }
     }
 
-    // --- Status ---
+    // ---- Status ----
 
     val statusFlow: StateFlow<ShizukuStatus> = statusMutableStateFlow.asStateFlow()
 
@@ -133,7 +133,7 @@ object ShizukuManager {
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     }
 
-    // --- Permission ---
+    // ---- Permission ----
 
     suspend fun autoRequestPermissionIfNeeded(): Boolean {
         if (!shouldAutoRequest(currentStatus())) return false
@@ -161,7 +161,7 @@ object ShizukuManager {
         }
     }
 
-    // --- Shell Execution ---
+    // ---- Shell Execution ----
 
     private suspend fun grantWriteSecureSettings() = withContext(Dispatchers.IO) {
         runCatching {
@@ -257,7 +257,7 @@ object ShizukuManager {
         }
     }
 
-    // --- Package Operations (public, with checks) ---
+    // ---- Package Operations (public, with checks) ----
 
     suspend fun enablePackage(packageName: String): PackageResult = withContext(Dispatchers.IO) {
         if (!isBinderAlive()) {
@@ -269,7 +269,7 @@ object ShizukuManager {
         enablePackageUnchecked(packageName)
     }
 
-    // --- Internal (unchecked, no IO wrapper) ---
+    // ---- Internal (unchecked, no IO wrapper) ----
 
     private fun forceStopAppUnchecked(packageName: String): Boolean {
         return runCatching {

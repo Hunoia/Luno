@@ -215,7 +215,7 @@
     <string name="enable_mini_window">已标记为小窗启动</string>
     <string name="disable_mini_window">已取消小窗启动</string>
 
-    <!-- Theme colors -->
+    <!-- 主题色 -->
     <string name="theme_color_primary">主要色</string>
     <string name="theme_color_primary_container">主要容器</string>
     <string name="theme_color_secondary">次要色</string>
@@ -232,9 +232,7 @@
     <string name="theme_color_surface_container">中层表面</string>
     <string name="theme_color_surface_container_high">高层表面</string>
 
-    <!-- Directions (diagonal + center) -->
-
-    <!-- Action categories -->
+    <!-- 动作分类 -->
     <string name="action_category_system">系统</string>
     <string name="action_category_app">应用操作</string>
     <string name="action_category_intent">Intent</string>
@@ -245,7 +243,7 @@
     <string name="action_category_shell">Shell</string>
     <string name="action_category_internal">内部</string>
 
-    <!-- Quick app launcher labels -->
+    <!-- 快速启动 -->
     <string name="quick_app_launcher_panel_height">竖直位置</string>
     <string name="quick_app_launcher_content_height">高度</string>
     <string name="quick_app_launcher_panel_width">宽度</string>
@@ -256,13 +254,11 @@
     <string name="quick_app_launcher_grid_columns">搜索列数</string>
     <string name="quick_app_launcher_key_height">按键高度</string>
 
-    <!-- Gesture settings -->
+    <!-- 手势设置 -->
     <string name="sub_gesture_timeout_label">子手势超时</string>
     <string name="sub_gesture_timeout_value">%1$d秒</string>
 
-
-
-    <!-- Data model defaults -->
+    <!-- 数据模型默认值 -->
     <string name="sub_gesture_default_name">子手势 %1$d</string>
     <string name="mirror_sub_gesture_name">镜像·%1$s</string>
 
@@ -322,7 +318,7 @@
     <string name="point_pick_empty">未取点</string>
     <string name="action_library_icon_use">使用</string>
 
-    <!-- New action editor -->
+    <!-- 动作编辑器 -->
     <string name="action_param_count">%1$d 个参数</string>
     <string name="action_param_label">参数</string>
     <string name="action_param_unselected">未选择</string>
@@ -333,7 +329,7 @@
     <string name="action_editor_delete_desc">删除后会清理引用该动作的配置，且不可恢复。是否继续？</string>
     <string name="select_activity_title">选择 Activity</string>
 
-    <!-- Param templates -->
+    <!-- 参数模板 -->
     <string name="action_param_insert_template">插入变量或片段</string>
     <string name="action_template_group_variables">运行时变量</string>
     <string name="action_template_group_settings_key">常用 Key</string>
@@ -343,7 +339,7 @@
     <string name="mirror_sub_gesture">建立镜像子手势</string>
     <string name="mirror_sub_gesture_desc">将当前子手势方向做镜像复制（左↔右、左上↔右上、左下↔右下）。</string>
 
-    <!-- Home screen -->
+    <!-- 主页 -->
     <string name="confirm_reset">确认重置</string>
     <string name="height">高度</string>
     <string name="tap_mini_window">短按小窗</string>
@@ -355,12 +351,11 @@
     <string name="mini_window_done">完成</string>
     <string name="mini_window_adjust_hint">横 %1$d%% · 纵 %2$d%% · 宽 %3$d%% · 高 %4$d%%</string>
 
-    <!-- Gesture settings groups -->
+    <!-- 手势设置分组 -->
     <string name="physical_params">物理参数</string>
     <string name="trigger_actions">触发动作</string>
 
-
-    <!-- Display condition rules -->
+    <!-- 显示条件 -->
     <string name="logic_all">且</string>
     <string name="logic_any">或</string>
     <string name="logic_not">非</string>
@@ -538,7 +533,7 @@
     <string name="network_none">无网络</string>
     <string name="network_other">其他网络</string>
 
-    <!-- Quick search -->
+    <!-- 快速搜索 -->
     <string name="quick_search_group_actions">动作</string>
     <string name="quick_search_group_apps">应用</string>
     <string name="quick_search_group_shortcuts">快捷方式</string>
@@ -546,7 +541,7 @@
     <string name="quick_search_app_disabled">已停用</string>
     <string name="quick_search_engine_search">用 %1$s 搜索</string>
 
-    <!-- Search engines -->
+    <!-- 搜索引擎 -->
     <string name="search_engine_settings">搜索引擎</string>
     <string name="search_engine_add">添加搜索引擎</string>
     <string name="search_engine_edit">编辑搜索引擎</string>

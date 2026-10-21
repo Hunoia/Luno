@@ -92,8 +92,7 @@ data class GestureButton(
 
     /**
      * 远档阈值不得小于近档：否则短滑会落进 LongSlide 分支，而 SlideHold 因
-     * `canTriggerSlide && !canTriggerLong` 恒不成立而永久失联（数据层兜底，
-     * 与 SubGesture.effectiveLongSlideTriggerDistance 一致；UI 侧另有 gap 校验）。
+     * `canTriggerSlide && !canTriggerLong` 恒不成立而永久失联（与 [SubGesture] 一致）。
      */
     val effectiveLongSlideTriggerDistance: Int
         get() = longSlideTriggerDistance.coerceAtLeast(slideTriggerDistance)

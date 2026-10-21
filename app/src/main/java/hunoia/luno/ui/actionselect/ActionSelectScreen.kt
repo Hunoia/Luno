@@ -154,10 +154,9 @@ fun ActionSelectContent(
                         }
                     }
 
-                    // ---- 桌面小部件 ----------------------------------------------------
-                    // 绑定与配置都要 Activity 回结果（ACTION_APPWIDGET_BIND 要用户点授权，
-                    // ACTION_APPWIDGET_CONFIGURE 是 provider 自己的配置页），所以这一段留在
-                    // 组合侧而不是 VM：VM 拿不到 launcher，回来的结果也没地方接。
+                    // ---- 桌面小部件 ----
+                    // 绑定与配置都要 Activity 回结果（BIND 要用户授权，CONFIGURE 是 provider
+                    // 自己的配置页），所以留在组合侧：VM 拿不到 launcher，结果也没处接。
                     // 与选择页同在 :service，和面板共用同一个 PanelAppWidgetHost 实例。
                     val gridPanelId = actionSelect.gridPanelId
                     val gridPanel = uiState.gridPanels.firstOrNull { it.id == gridPanelId }
@@ -193,11 +192,9 @@ fun ActionSelectContent(
                             .getOrDefault(emptyList())
                     }
 
-                    /** 已分配 id、等着某个 Activity 回话的小部件。 */
                     var pendingWidget by remember { mutableStateOf<PendingWidget?>(null) }
 
                     // 绑上之后：provider 声明了 configure 就先跑它的配置页，否则直接落盘。
-                    // 用参数传 launcher，不写成捕获后面声明的 val —— 少一处前向引用。
                     fun afterBound(p: PendingWidget, configureLauncher: ManagedActivityResultLauncher<Intent, ActivityResult>) {
                         val configure = AppWidgetManager.getInstance(context)
                             .getAppWidgetInfo(p.appWidgetId)?.configure
@@ -217,8 +214,7 @@ fun ActionSelectContent(
                     val configureLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { _ ->
                         val p = pendingWidget
                         pendingWidget = null
-                        // 配置页非 OK 也照样落盘（和一墨同款）：用户可能只是按了返回，
-                        // 但 id 已经绑上、provider 也已经在画了，收掉反而留个死格。
+                        // 配置页非 OK 也照样落盘：id 已绑上、provider 也在画，收掉反而留个死格。
                         if (p != null) vm.commitWidget(p.provider, p.appWidgetId, p.span.spanX, p.span.spanY)
                     }
                     val bindLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -263,7 +259,7 @@ fun ActionSelectContent(
                     Box(modifier = Modifier.fillMaxSize()) {
                         ActionPage(
                             modifier = Modifier.fillMaxSize(),
-                            // 行组件统一贴边（docs/ui-spec.md §4），左右 gutter 由列表容器提供
+                            // 行组件统一贴边，左右 gutter 由列表容器提供
                             contentPadding = PaddingValues(
                                 start = PageGutter,
                                 end = PageGutter,

@@ -31,21 +31,18 @@ class EnvironmentTracker(
         private set
 
     /**
-     * 待处理脉冲：每种类型一个槽位。100ms 防抖窗口内同域多次脉冲只保留最后一个
-     *（同域合并成一次评估，防抖优先的设计取舍）；不同域脉冲各有槽位，键会并集，
-     * 互不覆盖。队列化需配套"N 次脉冲 = N 次评估"，不在当前防抖模型内。
+     * 待处理脉冲：每种类型一个槽位。100ms 防抖窗口内同域多次脉冲只保留最后一个（同域合并成一次评估）；
+     * 不同域各有槽位，键会并集，互不覆盖。队列化需配套「N 次脉冲 = N 次评估」，不在当前防抖模型内。
      */
     private var pendingAppChangedTo: String? = null
     private var pendingScreenEvent: ScreenEventType? = null
     private var pendingChargingChangedTo: Boolean? = null
     private var pendingVolumeChange: VolumeChange? = null
-    // v2 新增脉冲（P2 事件源接入）
     private var pendingNotification: NotificationPulse? = null
     private var pendingBluetoothChanged: ConnectionDirection? = null
     private var pendingHeadphonesChanged: ConnectionDirection? = null
     private var pendingScheduledTimeHit: Boolean = false
     private var pendingGesturePerformedId: String? = null
-    // v3 新增脉冲：键盘弹出/收起、音乐启停、手电/勿扰开关变化
     private var pendingKeyboardEvent: KeyboardEventType? = null
     private var pendingMusicChanged: PlaybackDirection? = null
     private var pendingTorchChangedTo: Boolean? = null
@@ -73,10 +70,7 @@ class EnvironmentTracker(
         pendingScreenEvent = type
     }
 
-    /**
-     * 丢弃全部待处理脉冲（含总闸关闭期间堆积的过期事件）。
-     * 与 buildRuntimeState(consumePulses=true) 的清理共用 [clearPendingPulses]。
-     */
+    /** 丢弃全部待处理脉冲（含总闸关闭期间堆积的过期事件），与 buildRuntimeState(consumePulses=true) 共用 clearPendingPulses。 */
     fun discardPendingPulses() = clearPendingPulses()
 
     fun onChargingChanged(charging: Boolean) {
@@ -141,10 +135,7 @@ class EnvironmentTracker(
         isTorchOn: Boolean = false,
         isDndOn: Boolean = false,
         consumePulses: Boolean = true,
-        /**
-         * 只读不消费：把待处理脉冲暴露给取值方（参数模板需要看到 ${trigger.app} 等），
-         * 但 pending 保持原样，消费权仍归自动化 —— 边沿命中语义依赖"谁评估谁消费"。
-         */
+        /** 只读不消费：把待处理脉冲暴露给取值方，但 pending 保持原样，消费权仍归自动化（边沿命中语义依赖「谁评估谁消费」）。 */
         peekPulses: Boolean = false,
     ): GestureRuntimeState {
         val expose = consumePulses || peekPulses
@@ -263,10 +254,7 @@ class EnvironmentTracker(
     }
 
     private companion object {
-        /**
-         * TYPE_WINDOW_CONTENT_CHANGED 上 findFocus 的最小查询间隔。
-         * 150ms 远小于人能感知的键盘状态延迟,而这把每秒几十次 Binder 压到每秒不到 7 次。
-         */
+        /** TYPE_WINDOW_CONTENT_CHANGED 上 findFocus 的最小查询间隔：150ms 远小于可感知延迟，把每秒几十次 Binder 压到每秒不到 7 次。 */
         const val FOCUS_QUERY_THROTTLE_MS = 150L
     }
 }

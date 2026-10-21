@@ -14,14 +14,9 @@ import hunoia.luno.runtime.VolumeChange
 import hunoia.luno.action.model.toStreamType
 
 /**
- * 提供音量与铃声电平值；仅在有音量/铃声相关规则时才轮询，并产生音量变化脉冲。
- *
- * 单次 tick 只对每路音频读一次音量：方向判定与百分比换算共用同一个 index，
- * 且 `getStreamMaxVolume` 缓存起来（它不随音量变化而变）。相比逐路读两次，
- * 每 tick 的 Binder 调用从 18 次降到 6 次。
- *
- * 注：本项目所用 android.jar 未包含 AudioManager.OnVolumeChangedListener（API 23+ 的事件驱动
- * 方案），因此只能保留轮询。若日后 SDK 补齐，可换成 registerVolumeChangeListener 彻底去掉定时器。
+ * 提供音量与铃声电平；仅有相关规则时轮询并产生音量变化脉冲。
+ * 单次 tick 每路只读一次音量（方向判定与百分比共用 index），getStreamMaxVolume 缓存，
+ * 每 tick Binder 调用从 18 次降到 6 次。android.jar 无 OnVolumeChangedListener，只能轮询。
  */
 class AudioVolumeTracker(
     private val context: Context,

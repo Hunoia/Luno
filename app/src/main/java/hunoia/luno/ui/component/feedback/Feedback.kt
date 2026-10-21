@@ -15,12 +15,6 @@ import androidx.compose.ui.text.style.TextAlign
 import hunoia.luno.ui.theme.EmptyStatePaddingVertical
 import hunoia.luno.ui.theme.ListSpacing
 
-/**
- * 反馈组件（见 docs/ui-spec.md §7）：加载 / 错误与空态共用同一种版式
- * （垂直大留白 + 居中内容），调用方只给文案与重试入口。
- */
-
-/** 加载态：居中菊花 + 文案。 */
 @Composable
 fun LoadingState(
     message: String,

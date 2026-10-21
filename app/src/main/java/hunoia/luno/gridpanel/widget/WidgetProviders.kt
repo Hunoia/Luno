@@ -18,53 +18,27 @@ import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 /**
- * 面板里挑第三方小部件的清单（docs/grid-panel.md）。
- *
- * ## 不用系统的 ACTION_APPWIDGET_PICK
- *
- * MIUI HyperOS 上 `com.android.settings/.AppWidgetPickActivity` inflate 它自己的
- * `pick_item` 布局会抛 `UnsupportedOperationException: Failed to resolve attribute
- * … Theme.DeviceDefault.Dialog.Alert.DayNight`，崩的是系统进程，用户侧表现就是
- * 「点添加小部件毫无反应」。自己列，顺带能把预览图和占格数一起显示出来。
+ * 面板的第三方小部件清单。不用系统的 ACTION_APPWIDGET_PICK：MIUI HyperOS 上它的
+ * pick_item 布局会抛 UnsupportedOperationException（崩的是系统进程，用户侧表现
+ * 就是「点添加小部件毫无反应」）；自己列还能显示预览图和占格数。
  */
 
-/** 一个应用下的小部件（选择器按应用分组，参考一墨的分组方式）。 */
+/** 一个应用下的小部件（选择器按应用分组）。 */
 data class WidgetProviderGroup(
     val appLabel: String,
     val providers: List<AppWidgetProviderInfo>,
 )
 
-/** 小部件在面板网格里占几格。 */
 data class WidgetSpan(val spanX: Int, val spanY: Int)
 
-/** 桌面格子边长（dp）。AppWidget 尺寸协商的通用基准，Launcher3 与一墨都用这个值。 */
+/** 桌面格子边长（dp），AppWidget 尺寸协商的通用基准（Launcher3 同款）。 */
 private const val StandardCellDp = 70f
 
-/** 格子四周给内容留的内边距（dp）。Launcher3 的 widget padding 也是这个量级。 */
+/** 算占格数时补的格子内边距（dp），与 Launcher3 的 widget padding 同量级。 */
 private const val CellPaddingDp = 30f
 
 /**
- * 算这个小部件该占几格（一墨 `ComponentWidgetPickerOverlay` 的同一套算法）。
- *
- * 思路：**由 provider 自己声明的尺寸反推占格数**，而不是让用户去拖
- * （一墨全代码库没有 resize，它的 span 就是这么定的、之后不可改）。
- *
- * 分支：
- * - `targetCellWidth/Height`（API 31+，本项目 minSdk 33 必有）是 provider 声明的
- *   **格数**，直接用 —— 这个字段就是按「格」定义的，跨宿主可移植。
- * - 少数 provider 不填，退回 `ceil((minWidth + 30dp) / 70dp)`，再按面板列/行封顶。
- *
- * **和一墨的一处刻意偏差：分母不除 density。**
- * 一墨写的是 `(minWidth / density + 30) / 70`，但 `minWidth` 的单位本来就是 dp
- * （平台就是这么定义的），再除一次 density 等于把尺寸缩小一个密度比 —— 在 3.4x
- * 的机器上一个 2 格小部件会被算成 1 格。除掉这一步后结果才和 provider 的声明吻合。
- *
- * 分母用**标准** 70dp 而不是本面板的实际格宽：provider 是照着桌面格子声明尺寸的，
- * 「它在桌面上占几格」是它的固有属性；我们格子更小（卡片只占 72% 屏宽）时，
- * 结果就是这一项在我们网格里被压缩，而不是变成一个占满整张卡的庞然大物。
- */
-/**
- * 面板格宽（dp）。声明值是 launcher 标准格（~70dp）的个数，我们格子更小，
+ * 面板格宽（dp）。provider 声明的是 launcher 标准格（~70dp）个数，我们格子更小，
  * 默认 span 按比例缩（见 [widgetSpanFor] 的 cellWidthDp 参数）。
  */
 fun panelCellWidthDp(screenWidthDp: Float, cardWidthFraction: Float, columns: Int): Float {
@@ -79,6 +53,11 @@ fun panelCellWidthDp(screenWidthDp: Float, cardWidthFraction: Float, columns: In
     return ((cardW - 2f * GridPadding.value - gap * (cols - 1)) / cols).coerceAtLeast(1f)
 }
 
+/**
+ * 由 provider 声明的尺寸反推占格数：targetCellWidth/Height 直接用，缺失时退回
+ * ceil((minWidth + 30dp) / 70dp)，再按面板列/行封顶。
+ * 分母用标准 70dp 且不除 density：minWidth 本来就是 dp，再除会让 3.4x 机器上 2 格算成 1 格。
+ */
 fun widgetSpanFor(
     info: AppWidgetProviderInfo,
     columns: Int,
@@ -102,12 +81,8 @@ private fun cellsFor(minSizeDp: Int): Int =
 
 /**
  * 读出设备上所有可用的小部件 provider，按应用分组。
- *
- * 走全部用户 profile（`getInstalledProvidersForProfile`）：工作资料里装的小部件在
- * 主用户下**一个都列不出来**，而它是当前用户角色的标准 API。拿不到就退回普通接口。
- *
- * 按 ComponentName 去重 —— 多 profile 遍历会把同一个 provider 收进来好几遍。
- * 分组顺序用中文 Collator，否则「微信」会排到「阿里」后面。
+ * 走全部用户 profile：工作资料里装的小部件在主用户下一个都列不出来，拿不到就退回普通接口。
+ * 按 ComponentName 去重（多 profile 会把同一 provider 收好几遍）；分组用中文 Collator 排序。
  */
 suspend fun loadWidgetProviderGroups(context: Context): List<WidgetProviderGroup> =
     withContext(Dispatchers.IO) {
@@ -135,11 +110,9 @@ suspend fun loadWidgetProviderGroups(context: Context): List<WidgetProviderGroup
             .map { (label, list) -> WidgetProviderGroup(label, list) }
     }
 /**
- * 按关键字过滤分组清单，匹配应用名、小部件名、包名三处（一墨同款）。
- *
- * 放在这里而不是组合里：搜索要在 `remember` 里算，组合里直接调
- * `AppWidgetProviderInfo.loadLabel(PackageManager)` 会把 PackageManager 拖进 UI 层，
- * 而且那是一次跨进程查询（provider 可能是别的应用的）。
+ * 按关键字过滤分组清单，匹配应用名、小部件名、包名三处。
+ * 放在这里而不是组合里：搜索在 `remember` 里算，组合里直接调 `loadLabel` 会把
+ * PackageManager 拖进 UI 层，而且那是一次跨进程查询。
  */
 fun List<WidgetProviderGroup>.searchBy(query: String, packageManager: PackageManager): List<WidgetProviderGroup> {
     if (query.isBlank()) return this
@@ -155,13 +128,13 @@ fun List<WidgetProviderGroup>.searchBy(query: String, packageManager: PackageMan
     }
 }
 
-/** 应用图标（provider 没给预览图时当锚点）。 */
+/** provider 没给预览图时的回落图标。 */
 fun applicationIconOf(info: AppWidgetProviderInfo, packageManager: PackageManager) =
     runCatching { packageManager.getApplicationIcon(info.provider.packageName) }.getOrNull()
 
 /**
- * 预览图（一墨选择器的三级回落第一级）：provider 自带的 previewImage 按当前屏密
- * 解出为 Drawable；没有或解失败返 null，由调用方继续回落应用图标。
+ * 预览图：provider 自带的 previewImage 按当前屏密解出为 Drawable；
+ * 没有或解失败返 null，由调用方继续回落应用图标。
  */
 fun widgetPreviewOf(info: AppWidgetProviderInfo, context: Context): Drawable? =
     runCatching { info.loadPreviewImage(context, 0) }.getOrNull()

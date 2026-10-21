@@ -18,16 +18,11 @@ import androidx.compose.material3.MaterialTheme
 import hunoia.luno.ui.theme.SheetTopShape
 
 /**
- * 底部弹层的唯一实现（见 docs/ui-spec.md §7）。
+ * 底部弹层的唯一实现：`skipPartiallyExpanded`、容器色、顶角与入场动画在此定死，
+ * 调用方只写内容。
  *
- * 全应用弹层此前共用同一套参数（`skipPartiallyExpanded`、`surfaceContainer` 容器、`SheetTopShape`
- * 顶角），差异只在内容，所以这些参数在这里定死：调用方只写内容，避免 16 处各写一遍外观。
- * 入场动画（淡入 + 轻微上滑）也在模板里统一，原先只有 `OptimizedBottomSheet` 有。
- *
- * @param showDragHandle 是否画顶部拖拽条。内容自带标题栏时不需要。
- * @param containerColor 覆盖容器色（仅浮层内嵌场景使用）。
- * @param topShape 覆盖顶角形状。
- * @param scrollState 内容自带滚动容器时传 Scroll，模板负责 sheet 与内容的嵌套滚动衔接。
+ * [containerColor] / [topShape] 供浮层内嵌覆盖；[scrollState] 传 Scroll 时模板负责
+ * 与内容滚动的嵌套衔接；内容自带标题栏时不要 [showDragHandle]。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

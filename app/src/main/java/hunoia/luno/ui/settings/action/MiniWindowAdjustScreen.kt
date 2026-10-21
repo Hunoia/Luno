@@ -77,35 +77,10 @@ private enum class HitKind {
 
 /**
  * 小窗位置/大小的调整界面。
- *
- * ## 完全接管整屏
- *
- * 藏掉状态栏和导航栏，预览铺满整块屏幕，控件悬浮在预览底部 —— 与 GestureEVO 的
- * `FreeFormSettingsActivity` + `ResizableRectangleView` 同一形态：那个 view 是
- * `CoordinatorLayout` 里 `match_parent` + `elevation=10dp` 的兄弟节点，盖在所有设置卡片和
- * Toolbar 之上，配合 `enableFullScreen()` 接管整屏。
- *
- * 因此这里**没有 TopBar**，系统返回键也不可靠（整屏浮层盖着），出口只有预览底部的
- * 【完成】/【取消】。这就是 GestureEVO 把退出按钮画进预览里的原因 —— 它连「取消」都没有，
- * 因为拖动过程中就已经实时落盘了；Luno 保留「先改后存」所以两个按钮都要。
- *
- * ## 坐标 1:1 对应真实屏幕
- *
- * 预览铺满整屏，所以 x/y 比例直接就是运行时的屏幕比例（`Launcher.makeActivityOptions`
- * 里 `realSw * settings.x` 那套），不需要任何缩放映射。
- *
- * ## 越界被 clamp 住
- *
- * 拖拽限制在 0..1 内，与运行时 `makeActivityOptions` 的 `coerceIn(0f, 1f)` 一致。
- * 预览说什么真机就是什么，不会出现「拖出去了但弹回来」。
- *
- * ## 竖屏横屏各一套，跟随系统转屏
- *
- * 编辑的是 [MiniWindowSettings] 里当前 [orientation] 对应的那套。页面**不锁方向**，
- * 系统转屏时本函数重组、切到另一套，未保存的改动随重组丢失（等价于没点【完成】）。
- *
- * 两个入口共用本内容组件：动作设置页的独立路由页，以及动作库里选「小窗」参数时的全屏
- * 对话框。后者要拿到对话框自己的 Window 才能隐藏系统栏，靠 [DialogWindowProvider]。
+ * 整屏接管：隐藏系统栏、无 TopBar，系统返回不可靠，出口只有预览底部的【完成】/【取消】。
+ * 预览铺满整屏，比例与运行时 `makeActivityOptions` 1:1 对应，无需缩放映射；拖拽同样 clamp 到 0..1。
+ * 不锁方向，编辑的是当前 [orientation] 那套；转屏重组会丢弃未保存改动。
+ * 两个入口共用本内容组件：路由页与全屏对话框，后者靠 [DialogWindowProvider] 取自己的 Window。
  */
 @Composable
 fun MiniWindowAdjustContent(
@@ -118,8 +93,7 @@ fun MiniWindowAdjustContent(
 
     val orientation = LocalConfiguration.current.orientation
     val isLandscape = orientation == Configuration.ORIENTATION_LANDSCAPE
-    // 把手命中半径要在 composable 作用域里换算成 px：下面的回调是非 composable 的普通
-    // lambda，那里面拿不到 Density。
+    // 命中半径在这里换算成 px：下面的拖拽回调不是 composable，拿不到 Density。
     val handleTolerancePx = with(LocalDensity.current) { HANDLE_TOLERANCE.toPx() }
 
     var pending by remember(initial, isLandscape) { mutableStateOf(initial.forOrientation(isLandscape)) }
@@ -234,7 +208,7 @@ fun MiniWindowAdjustContent(
         }
     }
 
-    /** 回到出厂默认：取当前方向那套（[MiniWindowSettings] 的默认值本身就是分方向的）。 */
+    /** 出厂默认取当前方向那套（[MiniWindowSettings] 的默认值本身分方向）。 */
     fun defaultBounds(): WindowBounds =
         MiniWindowSettings().forOrientation(isLandscape)
 
@@ -242,8 +216,8 @@ fun MiniWindowAdjustContent(
         pending = pending.copy(
             x = (pending.x + dx).coerceIn(0f, 1f),
             y = (pending.y + dy).coerceIn(0f, 1f),
-            // 上限 1.5 是原有行为：小窗允许比屏幕还宽（不是全屏，是浮窗），与运行时的
-            // coerceIn(0.2f, 1.5f) 对齐。别收紧成 1f，那会让这段区间再也够不到。
+            // 上限 1.5：小窗允许比屏幕还宽，与运行时 coerceIn(0.2f, 1.5f) 对齐；
+            // 收紧成 1f 会让这段区间永远够不到。
             width = (pending.width + dw).coerceAtLeast(MIN_SIZE).coerceAtMost(1.5f),
             height = (pending.height + dh).coerceAtLeast(MIN_SIZE).coerceAtMost(1.5f),
         )
@@ -252,8 +226,7 @@ fun MiniWindowAdjustContent(
     Box(
         modifier = modifier
             .fillMaxSize()
-            // 半透明压暗：底下是设置页（不是有意义的内容），压暗后矩形才跳得出来，
-            // 同时保留「这就是整块屏幕」的感觉。GestureEVO 那层是完全透明的。
+            // 压暗底下的设置页（没有意义的内容），矩形才跳得出来，同时保留「整块屏幕」的感觉。
             .background(Color.Black.copy(alpha = 0.6f))
             .onSizeChanged { screenPx = IntSize(it.width, it.height) }
             .pointerInput(screenPx, isLandscape) {
@@ -392,10 +365,8 @@ fun MiniWindowAdjustContent(
 }
 
 /**
- * 藏掉状态栏与导航栏，离开时恢复。
- *
- * 取 Window 优先用 [DialogWindowProvider]（对话框入口拿的是对话框自己的 Window），
- * 退回 Activity 的 Window。找不到就什么都不做 —— 页面仍然可用，只是没隐藏系统栏。
+ * 藏掉状态栏与导航栏，离开时恢复。取 Window 优先 [DialogWindowProvider]（对话框入口），
+ * 退回 Activity；都找不到就跳过 —— 页面仍可用，只是没隐藏系统栏。
  */
 @Composable
 private fun ImmersiveSystemBars() {
@@ -412,10 +383,8 @@ private fun ImmersiveSystemBars() {
 }
 
 /**
- * 动作设置页 →「小窗」行的独立页面：自己读配置、自己落盘。
- *
- * 不套 LunoScreen：调整态是整屏接管，没有 TopBar，也就没有返回按钮可点 ——
- * 出口是预览底部的【完成】/【取消】，与 GestureEVO 同一形态。
+ * 动作设置页「小窗」行的独立页面：自己读配置、自己落盘。
+ * 整屏接管且无 TopBar，故不套 LunoScreen，出口是预览底部的【完成】/【取消】。
  */
 @Composable
 fun MiniWindowAdjustScreen(

@@ -211,10 +211,8 @@ internal data class PermSnapshot(
 
 /**
  * 权限快照：一次 search 里各源就绪判定共用，避免每源一次 checkSelfPermission（各自一次 IPC）。
- * 由面板在权限/tick 变化时调 [refreshPermissionCache]；未刷新前为全 false（保守：
- * 宁可不参展，也不展示已撤销权限的数据）。
- *
- * 注：Kotlin 的扩展属性没有 backing field，不能挂 @Volatile，故实体放顶层。
+ * 由面板在权限/tick 变化时调 [refreshPermissionCache]；未刷新前为全 false（保守：宁可不参展，
+ * 也不展示已撤销权限的数据）。Kotlin 扩展属性没有 backing field、不能挂 @Volatile，故实体放顶层。
  */
 @Volatile private var permSnapshotHolder: PermSnapshot = PermSnapshot.NONE
 
@@ -412,10 +410,9 @@ private val TOGGLE_SPECS = listOf(
 internal fun QuickSearchIndex.toggleSpecs(): List<ToggleSpec> = TOGGLE_SPECS
 
 /**
- * 开关状态（副标题）缓存：TTL 1s。
- * 之前每次 search 都现读 WiFi/蓝牙/勿扰/定位四条系统服务（4 次 binder），
- * 一敲一个字就一轮。命中缓存后同一会话内连打零 IPC；
- * 面板每次打开会 [invalidateToggleState]（Activity 侧还原真实值，见 Activity）。
+ * 开关状态（副标题）缓存：TTL 1s，命中缓存后同一会话内连打零 IPC；面板每次打开会
+ * [invalidateToggleState]（Activity 侧还原真实值）。不缓存时每敲一字都要读 WiFi/蓝牙/
+ * 勿扰/定位四条系统服务（4 次 binder）。
  */
 private data class ToggleStateCache(
     val values: Map<QuickSearchResult.ToggleKind, String>,

@@ -14,16 +14,15 @@ import kotlinx.serialization.Serializable
 @Keep
 data class ActionSettings(
     val passwordGenerator: PasswordGenerator = PasswordGenerator(),
-    /** 动作面板样式，全局一份（原先按触钮×方向分别存储，且只有弧形一种）。 */
     val actionPanelStyle: ArcStyle = ArcStyle(),
     /**
      * 全局动作面板列表。挂在这里是为了复用既有通路到达 `:service` 运行时，
      * 见 [ActionPanel] 的类注释 —— 挪走会让面板静默失效。
      */
     val actionPanels: ActionPanelSettings = ActionPanelSettings(),
-    /** 全局网格面板列表。同 [ActionPanel]：必须留在本域内，否则运行时读不到。 */
+    /** 全局网格面板列表；同样必须留在本域内，否则运行时读不到。 */
     val actionGridPanels: GridPanelSettings = GridPanelSettings(),
-    /** 悬浮球。同 [ActionPanel]：必须留在本域内，否则运行时读不到。 */
+    /** 悬浮球；同样必须留在本域内，否则运行时读不到。 */
     val floatBall: FloatBallSettings = FloatBallSettings(),
 ) {
     @Serializable
@@ -37,7 +36,6 @@ data class ActionSettings(
     )
 }
 
-/** 音量 scrub 手势配置。 */
 @Serializable
 @Keep
 data class VolumeScrubConfig(

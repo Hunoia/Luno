@@ -7,14 +7,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * 指针会话状态机。
- *
- * 两条进入路径：
- * - [beginBridge]：按住类触发，光标画在面板内（[rememberPointerHandle]），
- *   这里只登记会话，UP 后经 [performBridgeActionAt] 在落点点击。
- * - [showBridge]/[show]：滑动触发/面板点选/悬浮球/动作分发，挂全屏
- *   [PointerOverlay] 接管触摸，UP 后经 [performActionAt] 点击。
- *
+ * 指针会话状态机，两条进入路径：
+ * - [beginBridge]：按住类触发，光标画在面板内（[rememberPointerHandle]），这里只登记会话，
+ *   UP 后经 [performBridgeActionAt] 在落点点击；
+ * - [showBridge]/[show]：滑动/面板点选/悬浮球/动作分发，挂全屏 [PointerOverlay] 接管触摸，
+ *   UP 后经 [performActionAt] 点击。
  * 关窗后延迟 80ms 再点击：等 WindowManager 真正移除窗口，避免点击落在自己的 overlay 上。
  */
 class PointerRuntime(

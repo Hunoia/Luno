@@ -34,8 +34,6 @@ val ShapeMedium = 12.dp
 val ShapeLarge = 16.dp
 val ShapeExtraLarge = 28.dp
 
-// Semantic shape tokens
-
 // Shape instances
 val ExtraSmallShape = RoundedCornerShape(ShapeExtraSmall)
 val SmallShape = RoundedCornerShape(ShapeSmall)
@@ -48,7 +46,7 @@ val SheetTopShape = RoundedCornerShape(topStart = ShapeExtraLarge, topEnd = Shap
 val BottomBarPadding = 12.dp
 val BottomBarHeight = 56.dp
 val BottomBarIconSize = 30.dp
-// 主页底栏 Tab 格宽（旧自研底栏 tab 最小宽原数，指示 pill 与其同宽）
+// 主页底栏 Tab 格宽，指示 pill 同宽
 val BottomBarTabWidth = 76.dp
 
 // Segmented list tokens
@@ -61,17 +59,17 @@ val RowIconBadgeSize = 32.dp
 val RowIconBadgeIconSize = 20.dp
 
 // Quick launcher panel
-// 面板底色只用 colorScheme.surfaceContainerHigh 一层，图标与按键都不再自带底色方块，
-// 所以这里的间距 token 同时是图标尺寸算式的输入，改动必须连带看 Content.kt 的 iconSizePx。
+// 面板底色只用 surfaceContainerHigh 一层，图标与按键都不自带底色方块，
+// 所以这里的间距 token 同时是图标尺寸算式的输入，改动要连带看 QuickAppLauncherContent.kt 的 iconSizePx。
 val PanelPaddingHorizontal = 12.dp
 val PanelPaddingVertical = 10.dp
 
-// 候选项是决策区，列宽有意固定而不跟网格一起自适应：面板拉宽时它保持大图标。
+// 候选项是决策区，列宽有意固定而不跟网格自适应：面板拉宽时保持大图标。
 val CandidateColumnWidth = 64.dp
 val CandidateRowSpacing = 2.dp
 
-// 单行候选项的高度上下界。AdjustPanel 用它们界定面板高度滑块的行程，
-// Content.kt 用下界兜底 —— 两边必须同源，见 requiredContentHeight。
+// 单行候选项的高度上下界。AdjustPanel 用它界定高度滑块行程，
+// QuickAppLauncherContent.kt 用下界兜底 —— 两边必须同源，见 requiredContentHeight。
 val CandidateMinHeight = 40.dp
 val CandidateMaxHeight = 96.dp
 
@@ -107,9 +105,6 @@ const val AnimOverlayFade = AnimMedium
 const val AnimPostHideDelay = 250L
 const val AnimNavTransition = 400
 
-// Gesture / interaction
-
-// Component sizes
 val MiniWindowDefaultHeight = 267.dp
 
 val IconEmptyAlpha = 0.4f
@@ -138,7 +133,7 @@ val HueBarTouchHeight = 32.dp
 val DistanceTrackHeight = 8.dp
 val DistanceStrokeWidth = 4.dp
 
-// Haze 背后模糊半径见 Backdrop.kt 的 HazeBlurRadius（旧 GlassBlurRadius 同名兼容保留）。
+// Haze 背后模糊半径见 Backdrop.kt 的 HazeBlurRadius。
 
 // Timeline（条件树 / 步骤流共用的时间线语言）
 val TimelineRailX = 13.dp

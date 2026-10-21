@@ -29,17 +29,11 @@ import hunoia.luno.ui.navigation.LocalNavController
 import hunoia.luno.ui.theme.SideGestureTheme
 
 /**
- * 动作选择页的独立宿主（`:service` 进程）：给网格面板的加项/换动作/设变体用。
+ * 动作选择页的独立宿主（`:service` 进程），供网格面板的加项/换动作/设变体使用。
  *
- * 面板浮窗住在同一进程，跨进程深链 MainActivity 再导航要动导航栈、选完还要处理
- * 「怎么回面板」；这里直接以透明 Activity 承载同一个 [ActionSelectContent]，
- * 选择即经 DataLoader 落盘（选择页本就没有返回值），finish 即回面板。
- * 先例：`ShareFilePickActivity`。
- *
- * 声明进 `:service`（见 AndroidManifest）而不是主进程：网格面板浮窗也在那边，
- * finish 的回显事件（进程内 Events 总线）直达，回填链路全程单进程。
- *
- * 环境 locals 照抄 SideGestureApp 的提供方 —— ActionDisplay 渲染行名要用。
+ * 与面板浮窗同进程：透明 Activity 承载同一个 [ActionSelectContent]，选择经 DataLoader
+ * 落盘（选择页无返回值），finish 即回面板，回显事件走进程内 Events 总线。
+ * 环境 locals 照抄 SideGestureApp 的提供方：ActionDisplay 渲染行名要用。
  */
 class ActionSelectHostActivity : ComponentActivity() {
 
@@ -55,9 +49,8 @@ class ActionSelectHostActivity : ComponentActivity() {
         applyIntent(intent)
         setContent {
             SideGestureTheme {
-                // UDFComponentDefaults 无条件读 LocalNavController（Finish 默认走
-                // navigateUp）。本宿主自己接了 Finish→finish()，默认分支不可达，
-                // 但读取发生在组合期，必须给一个实例才不崩。
+                // UDFComponentDefaults 组合期无条件读 LocalNavController（Finish 默认
+                // navigateUp）；本宿主自己接了 Finish→finish()，默认分支不可达但不给会崩。
                 val navController = rememberNavController()
                 val actionSettings by TuneConfig.action
                     .collectAsStateWithLifecycle(initialValue = ActionSettings())
@@ -84,8 +77,8 @@ class ActionSelectHostActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // singleTask 重复触发：不 setIntent 的话 getIntent() 仍是旧的，页面会停在上
-        // 一次的面板/索引上（ActionSelectContent 的 VM key 随之换新，无残留状态）。
+        // singleTask 重复触发：不 setIntent 则 getIntent() 仍是旧的，页面会停在上一次
+        // 的面板/索引（VM key 随 ActionSelectContent 换新，无残留状态）。
         setIntent(intent)
         applyIntent(intent)
     }
@@ -93,9 +86,8 @@ class ActionSelectHostActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         // 回显信号：网格面板浮窗此刻隐藏让位中（组合保留），等本事件恢复显示。
-        // 挂 onDestroy 而不是 finish：任务被移除等「没走 finish 的销毁」也要唤醒面板，
-        // 否则窗口会停在 alpha 0。转屏由 manifest 的 configChanges 挡掉，不会走到这。
-        // isFinishing 之外的销毁（配置变更）不发，免得面板盖在重建中的选择页上。
+        // 挂 onDestroy 而非 finish：任务被移除等「没走 finish 的销毁」也要唤醒面板，
+        // 否则窗口停在 alpha 0；配置变更已被 manifest 的 configChanges 挡掉。
         if (isFinishing) Events.post(ActionSelectClosedEvent())
     }
 

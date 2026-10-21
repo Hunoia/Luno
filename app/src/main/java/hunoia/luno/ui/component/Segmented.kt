@@ -10,7 +10,6 @@ import androidx.annotation.StringRes
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.SegmentedGap
 
-/** 底部面板内的分组标题。 */
 @Composable
 fun SheetGroupHeader(@StringRes titleRes: Int) {
     SheetGroupHeader(stringResource(titleRes))

@@ -43,11 +43,7 @@ import kotlinx.coroutines.launch
 
 private const val SUB_GESTURE_DIRECT_ACTION_DELAY_MS = 50L
 
-/**
- * ActionPanel 收起主 overlay 前的等待时间,用来盖住它的淡出动画
- * (`ActionPanel` 里是 `fadeOut(spring(stiffness = Spring.StiffnessMedium))`)。
- * 不等的话窗口会在面板还在淡出的那几百毫秒里缩成 1x1,内容位置会跳。
- */
+/** 面板收起主 overlay 前的等待：盖住 ActionPanel 的淡出动画，不等窗口会先缩成 1x1 导致内容跳位。 */
 private const val ACTION_PANEL_FADE_OUT_MS = 400L
 
 @Composable
@@ -95,10 +91,7 @@ fun SideGestureContainer(
     }
     val volumeScrubState = remember(context) { VolumeScrubState(context) }
 
-    /**
-     * 指针从按住类触发启动时为 true：此时手势会话（可能叠加在子手势上）的收尾
-     * 要等指针松手/取消，见 onDragEnd/onDragCancel 的 pointer 分支。
-     */
+    /** 指针从按住类触发启动时为 true：手势会话收尾要等指针松手/取消（见 onDragEnd 的 pointer 分支）。 */
     var pointerStartedFromSubGesture by remember { mutableStateOf(false) }
     val pointerHandle = rememberPointerHandle(
         gestureSettings = gestureSettings,
@@ -110,10 +103,8 @@ fun SideGestureContainer(
     )
 
     /**
-     * 当前是否处在一次拖动过程里（DOWN 已来、UP 还没来）。
-     * volumeScrubState 的清理时机就是 UP，所以在 onDragEnd 里激活的状态没有清理点，
-     * 会残留下来吞掉下一次触钮手势（滑动只调音量、不触发动作）。凡是此时激活的，
-     * 一律改由全屏音量窗接管整段刮擦。
+     * 是否处在一次拖动中（DOWN 已来、UP 未至）。volumeScrubState 只由 UP 清理，
+     * onDragEnd 里激活的状态没有清理点，会吞掉下一次触钮手势，此时一律改交全屏音量窗。
      */
     var dragInFlight by remember { mutableStateOf(false) }
 
@@ -201,10 +192,8 @@ fun SideGestureContainer(
                 false
             }
             "internal.pointer" -> {
-                // 与 volumeScrub 同构：按住类触发的拖动途中（decision 非空且 dragInFlight）
-                // → 面板内光标接管剩余拖动，松手在光标落点点击；
-                // 其余入口（滑动/面板点选/悬浮球/动作分发）→ 全屏指针窗口。
-                // decision 判空排除悬浮球点按与手势拖动并发的竞态（第二指点球时 dragInFlight 可能为 true）。
+                // 与 volumeScrub 同构：按住类触发的拖动途中（decision 非空且 dragInFlight）走面板内光标接管，
+                // 其余入口走全屏指针窗口；decision 判空排除悬浮球点按与手势拖动并发的竞态。
                 val holdInFlight = dragInFlight && decision != null
                 val started = if (holdInFlight) {
                     pointerHandle.start(gestureSettings.pointer, touchPosition)
@@ -221,14 +210,10 @@ fun SideGestureContainer(
     }
 
     /**
-     * 悬浮球点按的动作统一走事件总线进来（见 BallTapActionEvent），全部交给
-     * runGestureActions 分类执行，与触钮完全同链路：
-     * 面板/子手势/音量刮擦/直发都不在这里特判。
-     *
-     * 必须经 rememberUpdatedState 过桥：DisposableEffect(Unit) 的订阅闭包只在
-     * 首次重组创建一次，若直接捕获当帧的局部函数，钉死的是**第一帧**的
-     * SubGestureState/面板列表，后续配置更新被无声丢弃（真机日志：
-     * 运行态 subGestures 一直在，球路径 reject 的 known=[] 恒为空，触钮路径正常）。
+     * 悬浮球点按动作统一走事件总线进来（见 BallTapActionEvent），全部交给 runGestureActions
+     * 分类执行，与触钮同链路。
+     * 必须经 rememberUpdatedState 过桥：DisposableEffect(Unit) 的订阅闭包只创建一次，
+     * 直接捕获会钉死第一帧的 SubGestureState/面板列表，后续配置更新被无声丢弃。
      */
     val runBallTapActions by rememberUpdatedState<(BallTapActionEvent) -> Unit>(newValue = { event ->
         val anchor = Offset(event.anchorX.toFloat(), event.anchorY.toFloat())
@@ -500,10 +485,7 @@ abstract class LongSlideState {
     }
 }
 
-/**
- * 外部锚点（悬浮球球心）展开面板的方向：
- * 取「锚点 → 屏幕中心」连线决定面板往屏幕内侧铺。
- */
+/** 外部锚点（悬浮球球心）展开面板的方向：取「锚点 → 屏幕中心」连线决定往屏幕内侧铺。 */
 private fun directionFromAnchor(anchor: Offset): GestureDirection {    val widthPx = hunoia.luno.bridge.ui.DensityProvider.screenWidthPx
     val heightPx = hunoia.luno.bridge.ui.DensityProvider.screenHeightPx
     return when {

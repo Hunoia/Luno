@@ -5,11 +5,8 @@ import kotlinx.serialization.json.contentOrNull
 import java.io.File
 
 /**
- * 快捷方式位图图标的落盘与清理。
- *
- * 创建器返回的位图图标必须存成文件（`iconPath` 会被序列化进动作），但这些文件
- * 不属于任何一轮配置写入 —— 只有面板/动作被真正删除时才该删。集中在这里，
- * 避免「DataLoader 删一处、GridPanel 删一处、备份恢复又忘一处」的漏删。
+ * 快捷方式位图图标的落盘与清理。图标必须存文件（`iconPath` 会被序列化进动作），
+ * 但不属于任何一轮配置写入——只有面板/动作真正删除时才该删，集中在此避免漏删。
  */
 object ShortcutIconFiles {
 

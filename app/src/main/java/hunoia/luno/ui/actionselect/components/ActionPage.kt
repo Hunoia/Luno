@@ -82,11 +82,8 @@ internal fun ActionPage(
     permissionState: hunoia.luno.ui.permission.PermissionState,
     contentPadding: PaddingValues = PaddingValues(),
     /**
-     * 桌面小部件。只有在配网格面板时才有意义（别处没有能放它的格子），
-     * true 时列表顶部多一颗「小部件」chip，点了这一屏换成 provider 清单。
-     *
-     * 清单为空（设备上一个带 widget 的应用都没有）时 chip **仍然在** ——
-     * 入口凭空消失会让人以为功能不存在，而空态文案能直接说明原因。
+     * 桌面小部件：只有配网格面板时才有意义；true 时列表顶部多一颗「小部件」chip。
+     * 清单为空时 chip 仍然保留 —— 入口凭空消失会让人以为功能不存在。
      */
     showWidgetChip: Boolean = false,
     widgetGroups: List<WidgetProviderGroup> = emptyList(),
@@ -99,7 +96,6 @@ internal fun ActionPage(
     var query by rememberSaveable { mutableStateOf("") }
     var selectedType by rememberSaveable { mutableStateOf<String?>(null) }
     val context = LocalContext.current
-    // 恒单选（决策 1）：原先的 maxSelectCount / 长按变体模式都不存在了。
     val typeChips = remember(context, showWidgetChip) {
         buildList {
             add(null to context.getString(R.string.all_categories))
@@ -112,8 +108,7 @@ internal fun ActionPage(
     }
     val filteredActions = remember(actions, query, selectedType, subGestures, actionLibraryEntries, rules) {
         when {
-            // 小部件这一屏不列动作：小部件不是 StoredAction，混进来只会让
-            // 「选中的到底是哪个类型」变得不可证伪。
+            // 小部件这一屏不列动作：小部件不是 StoredAction，混进来会让选中类型不可证伪。
             selectedType == TYPE_WIDGET -> emptyList()
             selectedType != null && query.isBlank() -> emptyList()
             selectedType == TYPE_ACTION_LIBRARY -> emptyList()
@@ -264,8 +259,7 @@ internal fun ActionPage(
                 }
             }
             if (filteredWidgets.isNotEmpty()) {
-                // 一墨 ComponentWidgetPickerOverlay 对齐（§10⑤）：每 app 分区头 +
-                // 区内横向滚动的预览卡，不再纵向铺行。
+                // 每 app 分区头 + 区内横向滚动的预览卡。
                 filteredWidgets.forEach { group ->
                     stickyHeader(key = "widget_${group.appLabel}") {
                         WidgetGroupHeaderRow(group)

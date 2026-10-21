@@ -129,13 +129,13 @@ data class ConditionItem(
     val expectedBluetoothAudioConnected: Boolean? = null,
     val airplaneMode: Boolean? = null,
     val group: WhenGroup? = null,
-    // v2 脉冲条件字段（null=不限）
+    // 脉冲条件字段（null=不限）
     val notifyPackages: List<String> = emptyList(),
     val notifyKeyword: String = "",
     val connectionDirection: ConnectionDirection? = null,
     val scheduledMinutes: List<Int> = emptyList(),
     val scheduledWeekdays: Set<Int> = emptySet(),
-    // v3 新增条件字段（老数据缺键解码无碍，null/空=未配置）
+    // 条件字段（null/空=未配置）
     /** 键盘弹出/收起事件（脉冲）。 */
     val keyboardEvent: KeyboardEventType? = null,
     /** 时间范围限定星期（Calendar 常量；空=每天），与 scheduledWeekdays 同语义。 */
@@ -152,7 +152,7 @@ data class ConditionItem(
     val dndOn: Boolean? = null,
     /** 勿扰开关变化（null=不限）。 */
     val dndChangedTo: Boolean? = null,
-    /** 铃声模式。 */
+    /** 铃声模式（null=不限）。 */
     val ringerMode: RingerMode? = null,
 )
 
@@ -195,7 +195,7 @@ private fun stepAtTokens(tokens: List<String>, steps: List<RuleStep>): RuleStep?
     return stepAtTokens(tokens.drop(2), branch)
 }
 /**
- * 条件路径：顶层下标 / 逐级进组，如 [1]、[1, 0]。编辑器 sheet 定位用，非法返回 null/原样。
+ * 条件路径：顶层下标 / 逐级进组，如 [1]、[1, 0]；编辑器 sheet 定位用，非法返回 null/原样。
  */
 fun WhenGroup.conditionAt(path: List<Int>): ConditionItem? {
     if (path.isEmpty()) return null
@@ -242,7 +242,7 @@ private fun withStepAtTokens(    tokens: List<String>,
 }
 
 /**
- * 单个执行步骤。扁平结构（kind 区分），递归只发生在 IF 的 then/else_。
+ * 单个执行步骤。扁平结构（kind 区分），递归只发生在 IF 的 then/else。
  * 守卫上限见 SequenceExecutor（steps 20 / IF 深 5 / 单 delay 60s / 总 delay 5min）。
  */
 @Serializable
@@ -257,7 +257,7 @@ data class RuleStep(
 )
 
 /**
- * 节流策略。空即不限：maxCount/windowMs 默认 0（未填）；kind==OFF 是存量总闸，
+ * 节流策略。空即不限：maxCount/windowMs 默认 0（未填）；kind==OFF 是总闸，
  * 引擎只认它关闭，其余一律值驱动（冷却 cooldownMs>0，窗口 count>=1 且 window>=1s）。
  */
 @Serializable
@@ -269,7 +269,7 @@ data class ThrottlePolicy(
     val windowMs: Long = 0L,
 )
 
-/** 规则优先级三档（内部映射数字，见 RulePriority）。 */
+/** 三档优先级的存储数值（HIGH 100 / MEDIUM 50 / LOW 0）。 */
 object RulePriority {
     const val HIGH = 100
     const val MEDIUM = 50

@@ -119,9 +119,9 @@ fun LunoTextSlider(
     valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
     steps: Int? = null,
 ) {
-    // 拖动中的实时值。外部传进来的 value 在 onValueChangeFinished 之前不会变（落盘在松手时），
-    // 标签若读它就会冻住、松手才跳。所以这里挂的是 LunoSlider 自己的 localValue ——
-    // 真正跟手的那一份，也是 steps 量化 / range 钳制之后滑块实际显示的那一份。
+    // 拖动中的实时值。外部 value 在 onValueChangeFinished 之前不变（松手才落盘），
+    // 标签读它会冻住。这里挂 LunoSlider 自己的 localValue，即 steps 量化 /
+    // range 钳制后滑块实际显示的那一份。
     var liveValue by remember { mutableFloatStateOf(value) }
 
     SliderSurface(

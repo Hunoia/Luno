@@ -57,7 +57,7 @@ data class SubGesture(
         copy(longSlideHoldActions = longSlideHoldActions.withAction(direction, action))
 }
 
-/** 子手势集合（SubGesture 的容器，与 SubGesture 同生命周期）。 */
+/** 子手势集合（SubGesture 的容器）。 */
 @Serializable
 @Keep
 data class SubGestureSettings(

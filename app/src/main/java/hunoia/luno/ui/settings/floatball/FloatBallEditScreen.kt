@@ -50,13 +50,8 @@ import hunoia.luno.ui.theme.resolveColor
 import kotlinx.coroutines.launch
 
 /**
- * 悬浮球设置页（入口在动作设置页）。
- *
- * 首行启用开关兼服务启停：开 = 拉起 `FloatBallService`，关 = stop。
- * 拖动直接改球位，所以没有旧的「位置调整页」；也没有拖动延时 —— 交互改成了
- * 按住即拖（与一墨一致），该项已无意义。
- *
- * 未授权时顶部给一条横幅：球不出现其原因就是它，必须在配置入口喊出来。
+ * 悬浮球设置页。首行开关兼服务启停；拖动直接改球位，无位置调整页、无拖动延时。
+ * 未授权时顶部给横幅：球不出现的原因必须在配置入口喊出来。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -50,7 +50,7 @@ object AutomationCenter {
         }
     }
 
-    // —— 历史页展示常量（直引 runtime 会违 B1，经此转调） ——
+    // ---- 历史页展示常量（直引 runtime 会违 B1，经此转调） ----
 
     val maxEventsPerRuleQuery: Int
         get() = hunoia.luno.runtime.automation.ExecutionLog.MAX_PER_RULE_QUERY
@@ -90,7 +90,7 @@ object AutomationCenter {
         hunoia.luno.runtime.automation.AutomationNotificationListener.isAccessGranted(context)
 }
 
-// —— 纯函数转调（顶层，ui 可直接 import；直引 runtime 会违 B1） ——
+// ---- 纯函数转调（顶层，ui 可直接 import；直引 runtime 会违 B1） ----
 
 /** 递归清理步骤树里对已删规则的 runRule 引用（含 if 分支），被清步骤变空跳。 */
 private fun List<RuleStep>.cleanRunRuleSteps(ruleId: String): List<RuleStep> = map { step ->

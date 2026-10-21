@@ -27,15 +27,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import hunoia.luno.R
 import hunoia.luno.ui.theme.LargeShape
 
-/**
- * 弹窗的唯一实现（见 docs/ui-spec.md §6）。三个变体覆盖全部用途：
- * [ConfirmDialog] 确认/删除/丢弃、[TextInputDialog] 单字段输入、[CustomDialog] 自定义内容。
- *
- * 容器色与弹层统一用 `surface`；confirm 文案可覆盖（原先 `MyAlertDialog` 把"确定/取消"
- * 写死，删除/重置这类语义需要自己的文案）。
- */
-
-/** 确认弹窗。[destructive] 用 error 色标按钮（删除类）。 */
 @Composable
 fun ConfirmDialog(
     title: String,
@@ -70,10 +61,7 @@ fun ConfirmDialog(
     )
 }
 
-/**
- * 单字段输入弹窗（重命名 / 搜索词 / 引擎编辑）。
- * 回车（IME Done）等同确认；[confirmEnabled] 为 false 时确认按钮禁用。
- */
+/** 单字段输入：IME Done 等同确认；[confirmEnabled] 为 false 时确认禁用。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TextInputDialog(
@@ -138,7 +126,6 @@ fun TextInputDialog(
     )
 }
 
-/** 自定义内容弹窗（如时间选择器）。 */
 @Composable
 fun CustomDialog(
     title: String,

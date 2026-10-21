@@ -6,11 +6,8 @@ import hunoia.luno.bridge.system.isAccessibilitySettingsOn
 import hunoia.luno.service.SideGestureService
 
 /**
- * 独立能力闸：每个 capability 由唯一对应的检查负责。
- *
- * 曾用 CompositeCapabilityChecker(List).any { it.isAvailable(cap) }，而每个 checker 对不归
- * 自己管的 capability 都返回 true，于是 any 恒为 true，闸门从未触发，
- * ActionResult.RequiresCapability 成了死路径。改為單一 when，杜絕此類短路。
+ * 每个 capability 由唯一对应的检查负责。不能用多个 checker + `any`：各 checker
+ * 对不归自己管的 capability 返回 true，会让闸门恒放行。
  */
 class CapabilityGate(
     private val appContext: Context,

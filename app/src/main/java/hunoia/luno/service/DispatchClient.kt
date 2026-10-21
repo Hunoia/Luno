@@ -37,8 +37,8 @@ object DispatchClient {
     }
 
     /**
-     * 发起绑定。**只有 bindService 真的成功才记位**：原来无论成败都置 true，
-     * 一次异常就让整个进程生命周期都不再重试，之后永远提示"服务未就绪"。
+     * 发起绑定。只有 bindService 真的成功才记 `bindRequested`：失败也置位会让整个
+     * 进程生命周期都不再重试，之后永远提示「服务未就绪」。
      */
     fun bind(appContext: Context) {
         appCtx = appContext.applicationContext

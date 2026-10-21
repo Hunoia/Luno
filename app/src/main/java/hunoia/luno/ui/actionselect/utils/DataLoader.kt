@@ -67,8 +67,7 @@ internal suspend fun saveSettingsAction(
     getUiState: () -> UiState,
     updateUiState: ((UiState) -> UiState) -> Unit
 ): Boolean {
-    // 单值语义：选择页给的就是最终结果，没有「占位 vs 有效」之分 ——
-    // 选「无动作」传 null（= 删键/存 null），选别的传那一个。
+    // 单值语义：传 null 即「无动作」（删键/存 null），选别的传那一个。
     val picked = getUiState().selectedRecord.action
     if (actionSelect.actionPanelId.isNotBlank()) {
         saveActionPanelItem(actionSelect, picked)
@@ -125,10 +124,7 @@ internal suspend fun saveSettingsAction(
 }
 
 /**
- * 面板项落盘：`actionPanelItemIndex < 0` 是新增一项（追加），>=0 是替换该项的长按变体。
- *
- * 走的是选择页而不是独立的参数编辑器 —— 面板项本来就是一整个动作，
- * 复用 `ActionSelect` 的分类/搜索/应用/快捷方式全部分组最省事。
+ * 面板项落盘：`actionPanelItemIndex < 0` 是新增（追加），>=0 是替换该项的长按变体。
  */
 private suspend fun saveActionPanelItem(actionSelect: ActionSelect, picked: StoredAction?) {
     val panelId = actionSelect.actionPanelId
@@ -151,12 +147,9 @@ private suspend fun saveActionPanelItem(actionSelect: ActionSelect, picked: Stor
 }
 
 /**
- * 网格面板项落盘：新增一项，落到 [ActionSelect.gridPanelPageIndex] 指定页里
- * 顺延首个空位（只在本页内扫，跨页不占位）。面板项只进不出 —— 想换动作就删了
- * 重加，没有「替换已有项」分支，也没有长按变体。
- *
- * 页满返回 false，由调用方明确提示。静默丢弃 + 照报「保存成功」就是真机上
- * 「添加没反应」的元凶，动作项和小部件项都不能再犯。
+ * 网格面板项落盘：新增项落到 [ActionSelect.gridPanelPageIndex] 指定页的首个空位
+ *（只在本页内扫，跨页不占位）。只进不出，无「替换已有项」分支，也无长按变体。
+ * 页满返回 false，由调用方明确提示；静默丢弃还报「保存成功」就是「添加没反应」。
  */
 private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: StoredAction?): Boolean {
     // 选了「无动作」等于放弃本次操作，不改面板，也不当失败提示。
@@ -206,20 +199,8 @@ private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: Stored
 }
 
 /**
- * 网格面板的第三方小部件落盘（docs/grid-panel.md）。
- *
- * 落点：先按 provider 算出的 span 在**加项那一页**扫首个放得下的空位；放不下就
- * **自动降格**（面积从大到小逐档收缩，一墨选择器的占格数badge也是给用户预期用的）
- * —— 都塞不下才返回 false，由调用方 Toast 并回收 id（**不再静默丢弃**：真机上
- * 表现是「添加没反应」，其实是在偷偷失败）。
- *
- * 返回 true = 落盘成功（含降格）；false = 页满放弃，调用方必须回收 appWidgetId。
- */
-/** 网格面板落盘结果：区分「面板不存在」和「真放不下」——两者给用户的提示不同。 */
-/**
- * 追加语义的落点：新项放到本页已占内容的**正下方**（y = max(bottom)）。
- * 宽度不满整行时在那一行内从左往右找能容下的 x；被同排项挡住就顺延下一行。
- * 全都放不下（理论上行数无限，基本只会是 spanX > 列数）返回 null，走降档兜底。
+ * 追加语义的落点：新项放到本页已占内容正下方（y = max(bottom)），宽度不满整行时
+ * 在那一行内从左往右找空位，被同排项挡住则顺延下一行。全放不下返回 null，走降档兜底。
  */
 private fun bottomSlot(
     items: List<GridPanelItem>,
@@ -241,8 +222,13 @@ private fun bottomSlot(
     return null
 }
 
+/** 落盘结果：区分「面板不存在」和「真放不下」，两者给用户的提示不同。 */
 internal enum class GridPanelSaveResult { Saved, PageFull, NoPanel }
 
+/**
+ * 第三方小部件落盘：原尺寸先追加到底部，放不下则面积从大到小逐档降格填空。
+ * 返回 false 时调用方必须 Toast 并回收 appWidgetId。
+ */
 internal suspend fun saveGridPanelWidget(
     actionSelect: ActionSelect,
     provider: String,
@@ -317,8 +303,7 @@ internal suspend fun saveGridPanelWidget(
                 spanY = span.spanY,
             ) ?: continue
             result = GridPanelSaveResult.Saved
-            // 命中即返回新 settings —— 这里写的必须是 copy 的结果本身，
-            // 曾经把 copy 结果丢弃、return 了原 settings，落盘形同没写。
+            // 必须 return copy 的结果本身：return 原 settings 会让落盘形同没写。
             return@updateAction settings.copy(
                 actionGridPanels = settings.actionGridPanels.withPanel(
                     panel.copy(
@@ -331,9 +316,8 @@ internal suspend fun saveGridPanelWidget(
                             kind = GridPanelItem.Kind.AppWidget(
                                 appWidgetId = appWidgetId,
                                 provider = provider,
-                                // 冻结 provider 声明的最小 span：resize 时不再查
-                                // AppWidgetManager（手势回调里做跨进程 IPC 会掉帧，
-                                // 且 provider 被卸载后查不到会退化成 1×1）。
+                                // 冻结 provider 声明的最小 span：resize 时不能查
+                                // AppWidgetManager（跨进程 IPC 掉帧，卸载后只能退化成 1×1）。
                                 minSpanX = span.spanX,
                                 minSpanY = span.spanY,
                             ),
@@ -352,8 +336,8 @@ internal suspend fun saveGridPanelWidget(
 }
 
 /**
- * 内置小部件落盘：同款「只填空 + 放不下降档」序列，无宿主 id 可回收。
- * 默认 span 4×1（def 声明），列数不够时降格到 3×1 → … → 1×1。
+ * 内置小部件落盘：同款「只填空 + 放不下降档」，无宿主 id 可回收。
+ * 默认 span 4×1（def 声明），列数不够时逐档降到 1×1。
  */
 internal suspend fun saveGridPanelInternalWidget(
     actionSelect: ActionSelect,
@@ -442,12 +426,7 @@ internal suspend fun saveGridPanelInternalWidget(
     return result
 }
 
-/**
- * 悬浮球槽位落盘。
- *
- * 目前只有单击一个槽，但按槽名分发而不是写死 —— 长按/滑动若后续要开放成
- * 可配动作（而不是现在的固定语义），这里加一个 case 即可，不必再改选择页。
- */
+/** 悬浮球槽位落盘。按槽名分发而非写死，后续开放长按/滑动槽只加 case。 */
 private suspend fun saveFloatBallSlot(slot: String, picked: StoredAction?) {
     if (!FloatBallSlot.isValid(slot)) return
     TuneConfig.updateAction { settings ->
@@ -463,7 +442,6 @@ private suspend fun saveAutomationEffect(actionSelect: ActionSelect, picked: Sto
     val current = loadAutomationAction(actionSelect)
     tryDeleteShortcutIcons(current, picked)
     // 动作库条目存的就是引用本身（internal.libraryRef），运行时由分发器就地解析成条目动作。
-    // 以前引用另存 RuleStep.entryId、action 只放"真动作"，字段删掉后引用即步骤的 action。
     val action = picked?.withoutVariantKey()
     val path = actionSelect.automationStepPath
     fun applyTo(rule: AutomationRule): AutomationRule {
@@ -615,12 +593,8 @@ internal suspend fun loadDataBody(
         excludeRuleId = if (isAutomation) actionSelect.automationRuleId else "",
     )
 
-    // 两个排除集必须分开,它们管的不是同一件事:
-    // - pickerExcluded 决定「有哪些动作类型可以被选」,必须恒非空。传空集合会让
-    //   `typeId !in excluded` 恒真,整张定义表都变成可选行。
-    // - libraryExcluded 只过滤动作库里已保存的条目。触钮路径保持不额外过滤,否则
-    //   pickerExcluded 多排掉的 app.launch / accessibility.tap / accessibility.longPress
-    //   是允许存进动作库的类型,会把用户已保存的条目从列表里藏掉。
+    // pickerExcluded 决定「有哪些类型可被选」，必须恒非空（空集让整张定义表都可选）；
+    // libraryExcluded 只过滤动作库已存条目；触钮路径不额外过滤，否则已保存的条目会被藏掉。
     val pickerExcluded = if (isAutomation) {
         ActionDefinitions.automationExcludedTypeIds()
     } else {
@@ -635,9 +609,8 @@ internal suspend fun loadDataBody(
             subGestures = subGestures,
             excludedSubGestureId = actionSelect.subGestureId,
             actionLibraryEntries = actionLibraryEntries.filter {
-                // 自动化放行带固定坐标的 tap/longPress 条目（参数优先于触点，见执行器）；
-                // 无坐标、或勾了「使用触发位置坐标」的条目，在无触点的自动化路径必
-                // InvalidParameter，继续藏（hasPointParams 对两种都返回 false）。
+                // 自动化放行带固定坐标的 tap/longPress 条目（参数优先于触点）；
+                // 无坐标的条目在无触点的自动化路径必 InvalidParameter，继续藏。
                 it.typeId !in libraryExcluded || it.storedAction.hasPointParams()
             },
             excludedTypeIds = pickerExcluded,

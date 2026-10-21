@@ -15,9 +15,8 @@ import java.net.URLEncoder
 
 /**
  * 快速搜索索引：懒加载各数据源，按 query 的单字 token 做拼音/首字母/原文 tier 匹配。
- *
- * 加载分两层：[ensureLoaded] 只做无 IO 的定义表；[refreshApps] 查包（含禁用应用）
- * 必须在后台线程调，由 overlay 的 show() 触发，[search] 内保留兜底。
+ * 加载分两层：[ensureLoaded] 只做无 IO 的定义表；[refreshApps] 查包（含禁用应用）必须在后台线程调，
+ * 由 overlay 的 show() 触发，[search] 内保留兜底。
  */
 class QuickSearchIndex(internal val context: Context) {
 
@@ -88,8 +87,8 @@ class QuickSearchIndex(internal val context: Context) {
 
     fun ensureLoaded() {
         if (defsLoaded) return
-        // 先在局部变量里建好，再一次性发布。之前是先置 defsLoaded=true 再赋值，
-        // 并发下另一个线程会看到"已加载但 actions 还是空"，搜应用名直接整表丢失。
+        // 先在局部变量里建好，再一次性发布：并发下不能出现「已加载但 actions 还是空」，
+        // 否则搜应用名直接整表丢失。
         val builtActions = ActionCatalog.searchDefinitions().map { def ->
             QuickSearchResult.ActionDef(
                 StoredAction(def.typeId),
@@ -108,7 +107,7 @@ class QuickSearchIndex(internal val context: Context) {
     }
 
     fun refreshApps() {
-        // 已加载就跳过：以前每次调用都全量查包 + 查快捷方式（PackageManager 几百毫秒），
+        // 已加载就跳过：每次调用都全量查包 + 查快捷方式（PackageManager 几百毫秒），
         // 面板重开一次就白跑一次。需要重刷（装卸应用）由调用方先失效后调。
         if (appsLoaded) return
         synchronized(loadLock) {
@@ -161,9 +160,8 @@ class QuickSearchIndex(internal val context: Context) {
     }
 
     /**
-     * 只标记应用索引过期，不立刻重扫。用于进程级缓存的后台包广播：
-     * 搜索面板没开时装卸应用不应触发 PackageManager 全量扫描（耗电），
-     * 等下次 [refreshApps] 再补。
+     * 只标记应用索引过期，不立刻重扫。用于进程级缓存的后台包广播：面板没开时装卸应用
+     * 不应触发 PackageManager 全量扫描（耗电），等下次 [refreshApps] 再补。
      */
     fun markAppsStale() {
         synchronized(loadLock) {

@@ -49,17 +49,8 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 
 /**
- * 球窗口。交互、参数完全按一墨的球：
- *
- * - 按住即拖（touchSlop 分界，无长按门槛），松手**吸附到最近的左/右边缘**，
- *   球全程完整在屏内；
- * - 按下缩小到 0.9、松手回弹；
- * - 静置超时变暗（alpha 0.4）并向最近边缘**移出一半出屏**，任意触摸立即恢复；
- * - 键盘弹出时上抬让位（[updateIme]，拖动期间不抬，结算后补算）；
- * - 锁屏不可见不可点；解锁恢复。
- *
- * 窗口尺寸 = 球直径，恒定不变；坐标语义是球窗顶边（左上角），
- * 改 [posX]/[posY] 后统一经 [syncWindowPosition] 落到 LP。
+ * 悬浮球窗口：按住即拖，松手吸附最近边缘且球完整在屏内；静置变暗并移出一半，触摸恢复。
+ * 坐标语义是球窗顶边，改 [posX]/[posY] 后统一经 [applyWindowBounds] 落到 LP。
  */
 class FloatBallWindow(
     private val context: android.content.Context,
@@ -76,8 +67,7 @@ class FloatBallWindow(
         onTapped = { onTap?.invoke() },
         onPressChanged = { pressed ->
             this.pressed = pressed
-            // 抬手统一重启静置计时：点按结束时尤其必须 —— 否则计时器
-            // 死于按下，球从此再不变暗（真机首个 bug 现场就是它）。
+            // 抬手统一重启静置计时：点按结束尤其必须 —— 否则计时器停在按下时，球不再变暗。
             if (!pressed) scheduleIdle()
             applyVisual()
         },
@@ -103,10 +93,8 @@ class FloatBallWindow(
     private var bottomInsetPx = 0
 
     /**
-     * LP 坐标系原点在屏幕上的 y。2038 悬浮窗的 LP y 不是屏幕坐标 —— 实测
-     * 原点在**状态栏下沿**（parent frame 顶边），若按「y=0 是屏幕顶」算夹取，
-     * 球在底部会被裁掉状态栏高度的一截。addView 后用 getLocationOnScreen 实测，
-     * 测出前按 0 处理（首帧短暂偏差可接受，实测后立即纠正）。
+     * LP 坐标系原点在屏幕上的 y：2038 悬浮窗以状态栏下沿为原点，按「y=0 是屏幕顶」
+     * 夹取会在屏幕底部裁掉状态栏高度；addView 后 getLocationOnScreen 实测，测出前按 0。
      */
     private var lpOriginY = 0
 
@@ -218,9 +206,7 @@ class FloatBallWindow(
         applyHiddenFlags()
     }
 
-    /**
-     * 临时隐身（拖分身时主球让位）。与 [setHidden] 独立记账，任一为真即隐身。
-     */
+    /** 临时隐身（拖分身时主球让位）。与 [setHidden] 独立记账，任一为真即隐身。 */
     fun setSuppressed(value: Boolean) {
         suppressed = value
         applyHiddenFlags()
@@ -244,10 +230,7 @@ class FloatBallWindow(
         if (!hidden && !suppressed) scheduleIdle() else cancelIdle()
     }
 
-    /**
-     * 挂窗 + 原地淡入弹回（scale 0.85→1，spring 手感 250ms）。
-     * 用于「面板全关后恢复」——面板期间窗体整个被移除，这里补上回场动画。
-     */
+    /** 挂窗并原地淡入弹回（scale 0.85→1，250ms）：面板期间窗体被移除，关闭后补回场动画。 */
     fun attachAnimated(): Boolean {
         if (!attach()) return false
         val target = view ?: return true
@@ -264,13 +247,9 @@ class FloatBallWindow(
         return true
     }
 
-    // ---- 键盘让位（一墨 A() 逻辑） ----
+    // ---- 键盘让位 ----
 
-    /**
-     * 键盘弹出时把球上抬，保证「球底 + 边距」不压到键盘顶边；
-     * 收起归零。拖动期间只记账不改位置 —— 拖完由 [onDragEnded] 统一结算。
-     * 轮询按值去重：值没变直接返回，不刷日志也不空转 binder。
-     */
+    /** 键盘弹出时上抬，保证「球底 + 边距」不压键盘顶边；拖动期间只记账，拖完由 [onDragEnded] 结算。 */
     fun updateIme(newImeBottomPx: Int) {
         if (newImeBottomPx == imeBottomPx) return
         this.imeBottomPx = newImeBottomPx
@@ -283,7 +262,7 @@ class FloatBallWindow(
         if (imeBottomPx <= 0) return 0
         val marginPx = DensityProvider.dp2px(FloatBallDefaults.ImeMarginDp)
         val overflow = (posY).roundToInt() + ballPx + marginPx - (screenHeightPx - imeBottomPx)
-        // 让位只作用于**显示位置**，基准 posY 不动；封顶在「球顶正好到 LP 原点」。
+        // 让位只作用于显示位置，基准 posY 不动；封顶在「球顶正好到 LP 原点」。
         return max(0, overflow).coerceAtMost(max(0, (posY).roundToInt() - lpOriginY))
     }
 
@@ -311,8 +290,7 @@ class FloatBallWindow(
         // 拖动中键盘可能起落过：结算一次让位，再夹取。
         imeLiftPx = computeImeLift(imeBottomPx).toFloat()
         applyWindowBounds()
-        // 一墨实测行为：松手后球**贴到最近边缘**（完整球在屏内，不留缝）。
-        // 吸附走短程缓动 —— 之前瞬移版被反馈「力度太大」。落盘记终点。
+        // 松手后球贴到最近边缘（完整球在屏内，不留缝）；用短程缓动而不是瞬移。落盘记终点。
         if (screenWidthPx > 0 && screenHeightPx > 0) {
             val maxX = max(0, screenWidthPx - ballPx).toFloat()
             val targetX = if (posX * 2f + ballPx < screenWidthPx) 0f else maxX
@@ -342,12 +320,8 @@ class FloatBallWindow(
     fun imeInsetsAvailable(): Boolean = imeInsetsAvailable
 
     /**
-     * 交换的淡入淡出：原地淡出 → 传送到目标贴边位 → 淡回。
-     * [endIdled] 决定落位姿态：true = 变暗半圆（保持交换前主球姿态），
-     * false = 完整球。落点必须是屏内语义（贴边）。
-     *
-     * 若淡出期间分身侧已开始接力拖（[externalDragBy]），落点加上累计位移，
-     * 落位直接进入拖动态（实心跟手）。
+     * 交换的淡入淡出：淡出 → 传送到目标贴边位 → 淡回，[endIdled] 决定落位姿态。
+     * 淡出期间分身已开始接力拖时，落点加上累计位移并直接进入拖动态。
      */
     fun crossFadeSwap(targetX: Float, targetY: Float, endIdled: Boolean, onDone: () -> Unit) {
         val target = view
@@ -404,7 +378,7 @@ class FloatBallWindow(
             .start()
     }
 
-    // ---- 分身接力拖（按下分身交换后，手指继续移动拖主球） ----
+    // ---- 分身接力拖 ----
 
     private var externalDrag = false
     private var crossFading = false
@@ -436,10 +410,7 @@ class FloatBallWindow(
         applyWindowBounds()
     }
 
-    /**
-     * 分身侧抬手：结束接力拖。淡出未结束时由落位逻辑代为结算
-     * （落点含累计位移，拖动态不成立则保持 endIdled 姿态）。
-     */
+    /** 分身侧抬手：结束接力拖；淡出未结束时由落位逻辑代为结算。 */
     fun endExternalDrag() {
         if (!externalDrag) return
         externalDrag = false
@@ -512,20 +483,16 @@ class FloatBallWindow(
 
     // ---- 外观（View 层） ----
 
-    /**
-     * 按压/静置的 alpha、scale 落在 View 层（ViewPropertyAnimator）。不走
-     * Compose：服务进程托管的 ComposeView 里状态推进了、重组却不上屏
-     * （"idle dim on" 连打、画面不动），View 层动画在任意窗口类型下都可靠。
-     */
+    /** 按压/静置的 alpha、scale 走 View 层而非 Compose：服务进程托管的 ComposeView 重组不上屏。 */
     private var visualAnimator: ViewPropertyAnimator? = null
 
     private fun applyVisual() {
         val target = view ?: return
         val scale = if (pressed) FloatBallDefaults.PressScale else 1f
         val alpha = if (idled) FloatBallDefaults.IdleDimAlpha else 1f
-        // 一墨「shrinkAnim」的真语义：静置时球横向**移出一截到屏幕外**，
-        // 方向 = 最近边缘。偏移走 View 平移（部分 ROM 会把越界 LP 夹回屏内，
-        // LP 方案不可靠）：窗口留在贴边位，命中区 = 窗口方形，覆盖可见半圆。
+        // 静置时球横向移出一截到屏幕外，方向 = 最近边缘。偏移走 View 平移：
+        // 部分 ROM 会把越界 LP 夹回屏内，LP 方案不可靠。窗口留在贴边位，
+        // 命中区仍是窗口方形，覆盖可见半圆。
         val shiftPx = if (idled) {
             val out = FloatBallDefaults.IdleOutRatio
             if (posX * 2f + ballPx < screenWidthPx) -out else out
@@ -545,7 +512,7 @@ class FloatBallWindow(
     private fun createLayoutParams() = WindowManager.LayoutParams().apply {
         type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         format = PixelFormat.TRANSLUCENT
-        // 一墨同款：NOT_FOCUSABLE | NOT_TOUCH_MODAL。不加 LAYOUT_NO_LIMITS ——
+        // NOT_FOCUSABLE | NOT_TOUCH_MODAL。不加 LAYOUT_NO_LIMITS ——
         // 球必须完整在屏内，靠正常窗口边界 + 夹取就够。
         flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
@@ -576,10 +543,8 @@ class FloatBallWindow(
     }
 
     /**
-     * 夹取 + 写 LP。坐标分两层：
-     * - `posX`/`posY` 是**屏幕空间**的球顶位置（夹取、持久化都用它）；
-     * - LP y = 屏幕值 − [lpOriginY]（LP 原点在状态栏下沿）。
-     * 键盘让位只进显示值，不碰基准 posY —— 否则键盘起落会把基准永久顶离原地。
+     * 夹取 + 写 LP：`posX`/`posY` 是屏幕空间的球顶位置，LP y = 屏幕值 − [lpOriginY]。
+     * 键盘让位只进显示值，不碰基准 posY，否则键盘起落会把基准永久顶离原地。
      */
     private fun applyWindowBounds() {
         val current = view ?: return
@@ -588,7 +553,7 @@ class FloatBallWindow(
         val maxY = max(lpOriginY, screenHeightPx - ballPx - bottomInsetPx)
         posX = posX.coerceIn(0f, maxX.toFloat())
         posY = posY.coerceIn(lpOriginY.toFloat(), maxY.toFloat())
-        // 显示位置 = 基准 − 让位，但不越过 LP 原点（状态栏下沿）。
+        // 显示位置 = 基准 − 让位，但不越过 LP 原点。
         val displayY = max(lpOriginY.toFloat(), posY - imeLiftPx)
         val nextX = (posX).roundToInt()
         val nextY = (displayY - lpOriginY).roundToInt().coerceAtLeast(0)

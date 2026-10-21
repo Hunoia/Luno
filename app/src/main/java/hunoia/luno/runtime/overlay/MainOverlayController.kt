@@ -42,13 +42,9 @@ class MainOverlayController(
     }
 
     /**
-     * ActionPanel 显隐时调用。
-     *
-     * 放大必须在 `actionPanelState.visible` 翻 true **之前**完成:`ActionPanel` 靠
-     * `onGloballyPositioned` 拿 `parentSize` 来摆弧形菜单项,如果窗口还是 1x1 就让内容进组合,
-     * 淡入动画的头几帧会按 1x1 定位再跳回全屏。调用方(SideGestureContainer)已经按这个顺序排。
-     *
-     * 缩小则由调用方等到淡出动画结束后再发,这里不再自己延迟。
+     * ActionPanel 显隐时调用。放大必须在 visible 翻 true **之前**完成：
+     * ActionPanel 靠 onGloballyPositioned 拿 parentSize 摆菜单项，窗口还是 1x1 时
+     * 头几帧会按 1x1 定位再跳回全屏。缩小由调用方等淡出结束后再发。
      */
     fun setPanelVisible(visible: Boolean) {
         if (panelVisible == visible) return

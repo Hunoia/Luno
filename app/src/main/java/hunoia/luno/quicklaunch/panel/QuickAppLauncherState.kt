@@ -57,8 +57,7 @@ class QuickAppLauncherState(
         private set
     /**
      * 调整面板拖拽中的实时预览：窗口全屏化后不再有窗口级缩放，拖拽预览走重组。
-     * 为 null 时用已落盘的 [launcherSettings]；落盘值到达（commit 后 flow 下发）即清掉，
-     * 避免覆盖已持久化的值。拖拽中 flow 无下发，所以预览不会被冲掉。
+     * 为 null 时用已落盘的 [launcherSettings]；落盘值到达即清掉，避免覆盖已持久化的值。
      */
     var previewSettings by mutableStateOf<hunoia.luno.config.model.QuickAppLauncherSettings?>(null)
         private set
@@ -116,10 +115,8 @@ class QuickAppLauncherState(
     }
 
     /**
-     * 先渲染磁盘快照，再等真实扫描替换。
-     *
-     * 快照让面板首开不必等 PackageManager 全量扫描；扫描是首开延迟的主要来源。
-     * 快照带的 label 是上次进程的运行结果，所以按 [labelLocale] 判新鲜度，
+     * 先渲染磁盘快照，再等真实扫描替换：快照让面板首开不必等 PackageManager 全量扫描，
+     * 扫描是首开延迟的主要来源。快照 label 是上次进程的运行结果，按 [labelLocale] 判新鲜度，
      * 语言对不上就当没有快照。
      */
     private fun loadApps() {
@@ -178,11 +175,8 @@ class QuickAppLauncherState(
     }
 
     /**
-     * 可见性由 overlay 驱动，而不是 content 里的 `LaunchedEffect`。
-     *
-     * 顺序要求：窗口必须**先**从 1×1 放大到面板尺寸，再置 true。反过来的话淡入首帧会
-     * 按 1×1 定位再跳到全尺寸 —— `MainOverlayController.setPanelVisible` 的注释记的就是
-     * 同一个坑（批次 9 的教训）。
+     * 可见性由 overlay 驱动，而不是 content 里的 `LaunchedEffect`：窗口必须先**从 1×1 放大到
+     * 面板尺寸，再置 true；反过来淡入首帧会按 1×1 定位再跳到全尺寸。
      */
     fun setPanelShown(visible: Boolean) {
         if (panelVisible == visible) return
@@ -194,25 +188,19 @@ class QuickAppLauncherState(
     }
 
     /**
-     * 每次唤起新会话前清查询词。
-     *
-     * state 跨会话常驻，不清的话上一次的 tokens 会带进新会话 —— 这是常驻换来的行为变化。
-     * `currentPage` 不在这里清：它活在 content 的 `remember` 里，收起时已随组合一起销毁。
+     * 每次唤起新会话前清查询词：state 跨会话常驻，不清的话上一次的 tokens 会带进新会话。
+     * `currentPage` 不在这里清：它活在 content 的 `remember` 里，收起时已随组合销毁。
      */
     fun resetForNewSession() {
         tokens = emptyList()
     }
 
     /**
-     * 只预热当前查询命中列表的前 [PREWARM_COUNT] 个。
-     *
-     * 原来固定取 `appListState.apps` 的前 25 个 —— 那份列表没排序，和用户眼前看到的
-     * 几乎无关，等于白预热。现在由调用方传入 `filteredApps`（已按档位/频次排好序），
-     * 预热的就是马上要显示的那几个。
-     *
-     * 挂在 `App.applicationScope` 而不是面板 scope：面板收起即销毁，预热会被中途取消。
-     * 并发用 [Semaphore] 限流而不用 `ImageLoader.Builder.fetcherDispatcher` —— 后者是
-     * 全局的，会连带限掉用户滚动时正在加载的可见图标。
+     * 只预热当前查询命中列表的前 [PREWARM_COUNT] 个（由调用方传 `filteredApps`，已排序）：
+     * 固定取 `appListState.apps` 前 N 个与用户眼前的列表几乎无关，等于白预热。
+     * 挂在 `App.applicationScope` 而非面板 scope：面板收起即销毁，预热会被中途取消。
+     * 并发用 [Semaphore] 限流而不用 `ImageLoader.Builder.fetcherDispatcher` —— 后者是全局的，
+     * 会连带限掉用户滚动时正在加载的可见图标。
      */
     fun prewarmIcons(apps: List<AppInfo>, iconSizePx: Int) {
         if (iconSizePx <= 0) return

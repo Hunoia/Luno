@@ -25,12 +25,9 @@ import hunoia.luno.ui.theme.TimelineRailWidth
 import hunoia.luno.ui.theme.TimelineRailX
 
 /**
- * 时间线容器（条件树 / 步骤流共用）。
- *
- * 左侧一条纵贯全列的连接线，线心在 [TimelineRailX]；每个节点行用
- * [TimelineNode] 在左侧占出徽标位（宽 [TimelineBadgeSize]，徽标圆心
- * 正好落在 rail 上）。非节点子项（如分支标签、添加按钮）用
- * [timelineIndent] 与节点内容对齐。
+ * 时间线容器（条件树 / 步骤流共用）：左侧纵贯连接线，线心在 [TimelineRailX]。
+ * 节点行用 [TimelineNode] 占出徽标位（宽 [TimelineBadgeSize]，圆心落在 rail 上）；
+ * 非节点子项（分支标签、添加按钮）用 [timelineIndent] 与节点内容对齐。
  */
 @Composable
 fun TimelineColumn(
@@ -57,11 +54,6 @@ fun TimelineColumn(
     )
 }
 
-/**
- * 时间线节点行：左侧徽标位 + 右侧内容。
- *
- * @param badge 徽标区内容，一般放 [TimelineBadge]，宽固定 [TimelineBadgeSize]。
- */
 @Composable
 fun TimelineNode(
     badge: @Composable () -> Unit,
@@ -93,11 +85,6 @@ fun timelineIndent(): Modifier =
         start = TimelineBadgeSize + CardInnerSpacing,
     )
 
-/**
- * 时间线徽标：编号圆（步骤序号）或短文本（分支标签）。
- *
- * @param error 置 true 走 error 色（校验失败的节点）。
- */
 @Composable
 fun TimelineBadge(
     text: String,

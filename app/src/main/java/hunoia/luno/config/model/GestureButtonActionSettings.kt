@@ -32,12 +32,7 @@ val DefaultLandscapeBounds: WindowBounds = WindowBounds(
     height = AdvancedSettingsDefaults.MiniWindowLandscapeHeight,
 )
 
-/**
- * 小窗位置与大小，**竖屏横屏各存一套**。
- *
- * 同一块屏幕转过来之后，之前调的 x/y 比例几乎必然不合理（竖屏的 y=0.14 在横屏是贴着顶边），
- * 所以按方向分开存，而不是一个值两处用。
- */
+/** 小窗位置与大小，竖屏横屏各存一套：转屏后比例几乎必然不合理，所以按方向分开。 */
 @Serializable
 @Keep
 data class MiniWindowSettings(
@@ -52,7 +47,7 @@ data class MiniWindowSettings(
         else copy(portrait = bounds)
 }
 
-/** 取生效的小窗设置。 */
+/** 生效的小窗设置：未配置时用默认值。 */
 fun AdvancedSettings.miniWindowSettings(): MiniWindowSettings = miniWindow ?: MiniWindowSettings()
 
 fun AdvancedSettings.withMiniWindowSettings(settings: MiniWindowSettings): AdvancedSettings =

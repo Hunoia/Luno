@@ -7,9 +7,8 @@ import hunoia.luno.runtime.condition.ConditionContext
 
 /**
  * 自动化事件总线命名与订阅索引。
- *
- * 事件分两类：状态刷新（StateEvent，快照求值）与一次性脉冲（PulseEvent，
- * 命中即边沿）。每次事件只评估订阅索引命中的规则，不扫描全部。
+ * 事件分两类：状态刷新（StateEvent，快照求值）与一次性脉冲（PulseEvent，命中即边沿）；
+ * 每次只评估订阅索引命中的规则，不扫描全部。
  */
 object AutomationEventKey {
     const val APP = "app"
@@ -33,11 +32,9 @@ fun keysForConditionType(type: String): Set<String> = when (type) {
     ConditionType.APP_CHANGED_TO -> setOf(AutomationEventKey.APP)
 
     /**
-     * 屏幕状态（桌面/锁屏/横竖屏/键盘）：桌面切换伴随前台应用变化走 APP 键，
-     * 锁屏伴随屏幕事件走 SCREEN 键；键盘弹起同时带窗口变化（IME 窗口出现），
-     * APP 键评估天然覆盖。之前这里落 else 空集，纯桌面规则只能靠通用刷新，
-     * 而通用刷新又常被窗口变化的 APP 评估取消掉，导致永不触发。
-     * KEYBOARD 并入：键盘翻转走 keyed 刷新时，状态型"键盘输入"规则也要被评估。
+     * 屏幕状态（桌面/锁屏/横竖屏/键盘）：桌面切换伴随前台应用变化走 APP 键，锁屏伴随屏幕事件走
+     * SCREEN 键，键盘弹起同时带窗口变化由 APP 键覆盖。落 else 空集会让纯桌面规则只能靠通用刷新，
+     * 而通用刷新常被窗口变化的 APP 评估取消，导致永不触发；KEYBOARD 并入使键盘翻转时状态型规则也被评估。
      */
     ConditionType.SCREEN_STATE -> setOf(AutomationEventKey.APP, AutomationEventKey.SCREEN, AutomationEventKey.KEYBOARD)
 
@@ -130,8 +127,7 @@ private fun collectKeys(group: WhenGroup, out: MutableSet<String>) {
 
 /**
  * 否定脉冲（如「没有收到通知」）被当作非状态叶：只在对应脉冲事件到达时评估，
- * 语义是「本次事件不是这个脉冲」，不是「当前没有这个条件」。纯否定脉冲规则
- * 不会出现在通用刷新里（否则恒真会疯狂触发）。
+ * 语义是「本次事件不是这个脉冲」；纯否定脉冲规则不进通用刷新，否则恒真会疯狂触发。
  */
 internal fun hasStateLeaf(group: WhenGroup): Boolean {
     for (item in group.items) {
@@ -145,10 +141,7 @@ internal fun hasStateLeaf(group: WhenGroup): Boolean {
     return false
 }
 
-/**
- * 订阅索引：事件键 → 规则 id。规则变更时重建，事件到达时直接查表。
- * 空键（通用刷新）只评估含状态叶子的规则，纯脉冲规则跳过——无脉冲时它们恒不命中。
- */
+/** 订阅索引：事件键 → 规则 id。规则变更时重建；空键（通用刷新）只评估含状态叶子的规则。 */
 class SubscriptionIndex {
     private var indexedRules: List<AutomationRule>? = null
     private var byKey: Map<String, Set<String>> = emptyMap()

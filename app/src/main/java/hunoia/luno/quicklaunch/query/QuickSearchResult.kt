@@ -7,8 +7,7 @@ import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.action.model.SettingsPage
 
 /**
- * 快速搜索结果：一个可被 [ActionDispatcher] 执行的条目。
- * [toConfigAction] 把结果转回 [Action] 交给 [hunoia.luno.runtime.GestureHost.dispatchAction] 执行。
+ * 快速搜索结果：一个可被 [toConfigAction] 转回 [Action]、交给 dispatcher 执行的条目。
  */
 sealed interface QuickSearchResult {
     val title: String
@@ -102,9 +101,8 @@ sealed interface QuickSearchResult {
 }
 
 /**
- * 列表 item 的稳定身份：只由内容决定，不含出现序号（重复由 stableKeys 补 `~n`）。
+ * 列表 item 的稳定身份：只由内容决定、不含出现序号（重复由 stableKeys 补 `~n`）。
  * 用作 LazyColumn 的 key 基串——带 idx 的 key 会在结果重排时整列失效，全部重建。
- *
  * 无独立 id 的类型取「能区分同一实体」的最小字段集，并把类型前缀写进去防跨类型撞 key。
  */
 internal fun QuickSearchResult.stableId(): String = when (this) {

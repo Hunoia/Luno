@@ -14,16 +14,15 @@ import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.ui.component.actionTextCompose
 
 /**
- * 手势按钮/子手势的标记色约定：`colorInt` 为透明时表示「跟随主题主色」。
+ * 手势按钮/子手势的标记色：`colorInt` 为透明时跟随主题主色。
  *
- * 这个约定散落在 4 个屏幕里各写一遍 `when`，改约定时要同时改 4 处，收到这里。
- * 注意与 `SideGestureContainer` 区分 —— 那里需要的是 null（表示未设置）而不是主题色。
+ * 与 `SideGestureContainer` 区分——那里需要 null（未设置），不是主题色。
  */
 fun gestureButtonMarkColor(colorInt: Int, primary: Color, alpha: Float = 1f): Color =
     if (colorInt == AndroidColor.TRANSPARENT) {
         primary.copy(alpha = alpha)
     } else {
-        // 存量 alpha 直用：颜色选择页定的透明度不再被调用方覆盖。
+        // alpha 直用颜色选择页定的值，不被调用方覆盖。
         Color(colorInt)
     }
 
@@ -86,7 +85,6 @@ val GestureDirection.displayNameRes: Int
         GestureDirection.Right -> R.string.right
     }
 
-/** 「向左滑」这类方向文案，3 处 UI 各写了一遍，收到这里 */
 @get:StringRes
 val GestureDirection.slideToRes: Int
     get() = when (this) {

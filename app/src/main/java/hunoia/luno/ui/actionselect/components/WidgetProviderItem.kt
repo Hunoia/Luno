@@ -38,19 +38,8 @@ import hunoia.luno.gridpanel.widget.widgetPreviewOf
 import hunoia.luno.ui.theme.SmallShape
 
 /**
- * 小部件选择器组件（一墨 `ComponentWidgetPickerOverlay` 的 Luno 版，对齐记录见
- * docs/grid-panel-moting-compare.md §10⑤）：
- * **每 app 一个分区，分区内横向滚动的预览卡**，取代原「chip + 纵向行列表」。
- *
- * 一墨的量化参数照搬：
- * - 分区头 = 24dp 应用图标 + app 名 + 数量 badge；
- * - 预览卡 130×120dp、图高 60dp（无 preview 回落 40dp 应用图标，再无就不画）；
- * - 名称最多 2 行 + `<spanX>x<spanY>` 占格数角标 —— 用户加之前就能看到会占多大；
- * - 卡间距 12dp。
- * 差异一处：一墨的卡片点进多选，这里恒单选（点卡 → 直接进 bind/配置流收页）。
- *
- * 预览图**不能省**：没有预览时一屏几十张全是同一个应用图标，用户分不出哪个是
- * 哪只 widget，只能一只只加进去试（原行列表版吃过这亏，见旧 WidgetProviderItem 注释）。
+ * 小部件选择器：每 app 一个分区，分区内横向滚动预览卡（恒单选）。
+ * 预览图不能省：没有预览时一屏几十张全是同一应用图标，用户分不出哪只是哪个 widget。
  */
 
 /** 分区头：应用图标 + 应用名 + 该应用下的小部件数量。 */

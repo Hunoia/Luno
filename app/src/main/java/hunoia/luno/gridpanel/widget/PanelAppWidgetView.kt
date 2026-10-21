@@ -17,16 +17,10 @@ import kotlin.math.abs
 import kotlin.math.min
 
 /**
- * 承载单个第三方小部件的 View。
- *
- * 为什么是 FrameLayout 包装而不是直接继承 AppWidgetHostView：宿主视图的
- * (context, hostId, appWidgetId) 三参构造是 @hide API —— SDK 编不过。
- * AppWidgetHost.createView 本来就负责构造并挂接 RemoteViews，我们把它 add 进来即可。
- *
- * 这一版重写了 measure/layout（一墨 du5 同款）：
- * - onMeasure 用 EXACTLY 把子 View 钉到内容区，provider 的期望尺寸不再撑出白边；
- * - onLayout 把子 View 居中（子 View 画得比格子小的时候，白边均匀落在两侧）；
- * - 圆角三级 fallback：android.R.id.background → 首个有背景的 child → 自身。
+ * 承载单个第三方小部件的 View。用 FrameLayout 包装而非继承 AppWidgetHostView：
+ * 其 (context, hostId, appWidgetId) 三参构造是 @hide，SDK 编不过。
+ * onMeasure EXACTLY 钉子 View（provider 期望尺寸不撑白边），onLayout 居中；
+ * 圆角三级 fallback：background → 首个有背景的 child → 自身。
  */
 class PanelAppWidgetView(context: Context) : FrameLayout(context) {
 
@@ -206,7 +200,7 @@ class PanelAppWidgetView(context: Context) : FrameLayout(context) {
         }
     }
 
-    // ---- 圆角 ----------------------------------------------------------------
+    // ---- 圆角 ----
 
     /**
      * provider 不同，背景所在层级也不同：有的在 android.R.id.background，有的
@@ -244,7 +238,7 @@ class PanelAppWidgetView(context: Context) : FrameLayout(context) {
         }
     }
 
-    // ---- 触摸中继 ------------------------------------------------------------
+    // ---- 触摸中继 ----
 
     /**
      * 只在「竖直为主 + 子层确实滚不动」时拦截。否则 widget 内部的列表/按钮

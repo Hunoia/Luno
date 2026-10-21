@@ -9,11 +9,9 @@ import androidx.compose.ui.graphics.asImageBitmap
 
 /**
  * 搜索行图标的同步缓存：composition 里同步读，首帧即有图。
- *
- * AsyncImage 配 crossfade(false) 仍有一帧异步空隙（内存命中也要跳一帧），
- * 结果列表每次挂载十几行 App 图标 = 整表闪一次。只有 App 行/快捷方式行走这条路，
- * 其它行全是同步矢量所以不闪。填充只许在后台线程（搜索 flow 发射结果前），
- * composition 只读。
+ * AsyncImage 配 crossfade(false) 仍有一帧异步空隙（内存命中也要跳一帧），结果列表每次挂载
+ * 十几行 App 图标 = 整表闪一次；只有 App 行/快捷方式行走这条路，其它行全是同步矢量。
+ * 填充只许在后台线程（搜索 flow 发射结果前），composition 只读。
  */
 object SearchIconCache {
     // 键 = 包名@边长：density 变化（折叠屏）时同包不同尺寸是两条独立缓存，不串味。

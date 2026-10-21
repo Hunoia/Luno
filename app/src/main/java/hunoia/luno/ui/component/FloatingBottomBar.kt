@@ -1,13 +1,6 @@
-// Adapted from InstallerX Revived (app/src/main/java/com/rosan/installer/ui/library/FloatingBottomBar.kt)
-// and compose-miuix-ui's IosLiquidGlassNavigationBar — structure/interaction only.
-// Backend is Haze (dev.chrisbanes.haze), NOT miuix: no lens/vibrancy/highlight/tilt.
-// icon-only (no labelContent), click + drag-to-switch, sliding pill indicator.
-//
-// 与 installer 的差异（都是有意为之）：
-// - Tab 格固定 76dp（BottomBarTabWidth），不 weight —— pill 宽度/位移纯算术，
-//   不受 AnimatedVisibility 宽度动画干扰；
-// - 指示 pill 显隐靠位移（拖拽值），无选中态显隐动画；
-// - `+` 圆收进同一组件（showAdd），与栏 gap 0 紧贴，橡皮筋整体一起晃。
+// icon-only bottom bar: click + drag-to-switch, sliding pill indicator.
+// Tab 格固定 76dp（BottomBarTabWidth）不 weight —— pill 宽度/位移纯算术，
+// 不受 AnimatedVisibility 宽度动画干扰；`+` 圆同根 Row 吃橡皮筋。
 package hunoia.luno.ui.component
 
 import androidx.compose.animation.AnimatedVisibility
@@ -86,7 +79,6 @@ import kotlin.math.abs
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
-/** State class holding all colors for the bottom bar. */
 @Immutable
 class FloatingBottomBarColors(
     val containerColor: Color,
@@ -95,7 +87,6 @@ class FloatingBottomBarColors(
     val activeContentColor: Color,
 )
 
-/** Defaults object for creating the Colors instance. */
 object FloatingBottomBarDefaults {
     @Composable
     fun colors(
@@ -127,8 +118,8 @@ fun <T> FloatingBottomBar(
 ) {
     val isInDark = androidx.compose.foundation.isSystemInDarkTheme()
     val pillShape = remember { CircleShape }
-    // Haze 单层底：blur + 0.65 底色（对标 installer Blur 模式）。
-    // tint 只放 Haze 一层，组件自身不再画底色，否则双层叠加发白。
+    // Haze 单层底：blur + 0.65 底色。tint 只放 Haze 一层，组件自身不再画底色，
+    // 否则双层叠加发白。
     val hazeBackground = colors.containerColor.copy(alpha = 0.65f)
 
     val density = LocalDensity.current
@@ -301,8 +292,7 @@ fun <T> FloatingBottomBar(
             )
 
             // 滑动指示 pill：跟随拖拽值滑动，按压时放大 + 速度倾斜。
-            // Installer Blur 模式同款：indicator 色 15% 底，无糊。
-            // 注意：橡皮筋位移由根 Row 统一吃，这里只加 pill 自身位移，别重复加。
+            // 橡皮筋位移由根 Row 统一吃，这里只加 pill 自身位移，别重复加。
             Box(
                 modifier = Modifier
                     .padding(horizontal = TileInnerPadding)
@@ -321,8 +311,8 @@ fun <T> FloatingBottomBar(
                     .width(BottomBarTabWidth),
             )
         }
-        // 独立 `+` 圆（64 正圆：56 内容 + 上下各 4）：Haze 单层底，和栏底座同框架。
-        // 显隐：淡入淡出 + 从贴栏侧展开/收起 + 圆心缩放，250ms。
+        // 独立 `+` 圆（64 = 56 内容 + 上下各 4）：Haze 单层底，与栏底座同框架。
+        // 显隐：淡入 + 从贴栏侧展开/收起 + 圆心缩放，250ms。
         AnimatedVisibility(
             visible = showAdd,
             enter = fadeIn(animationSpec = tween(AnimPanelResize.toInt())) +

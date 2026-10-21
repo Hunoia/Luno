@@ -42,22 +42,9 @@ import hunoia.luno.ui.navigation.LocalGridPanels
 import hunoia.luno.ui.theme.SideGestureTheme
 
 /**
- * 网格面板悬浮窗（docs/grid-panel.md）：SAW 浮窗，取代原透明 Activity 载体。
- *
- * 为什么是 `TYPE_APPLICATION_OVERLAY` 而非 `TYPE_ACCESSIBILITY_OVERLAY`：
- * 面板要做到「无障碍没开也能用」（球直发路径，见 FloatBallService.onBallTapped），
- * a11y 型窗口必须有无障碍服务挂载才合法。代价是吃悬浮窗授权 —— 球用户必然已有。
- *
- * 窗口全屏（MATCH_PARENT），卡片在全屏根内自定位 —— 交互语义与 Activity 版逐字节
- * 一致（点空白关、长按空白进编辑都由组合的全屏裁判处理），窗口本身只当画布。
- *
- * 生命周期：组合常驻复用（一墨「重选让位」语义）。编辑态跳选择页时 [hide] 只把
- * 窗口置 alpha 0 + 不可触摸（**不 removeView**），ComposeView 与组合原样保留；
- * 选择页销毁发 [ActionSelectClosedEvent]（双方同在 :service 进程，进程内总线）
- * 回显。真正关闭才 [closeImmediate]：移窗 + 销毁 owner（组合随之释放）。
- *
- * owner 必须推到 RESUMED：GridPanelContent 的 `collectAsStateWithLifecycle` 和
- * LaunchedEffect 动画都要 STARTED 以上 —— 球窗停在 CREATED 是因为球没有这些。
+ * 网格面板悬浮窗（TYPE_APPLICATION_OVERLAY）：面板要「无障碍没开也能用」，a11y 窗口不行；代价是吃悬浮窗授权。
+ * 窗口全屏只当画布；组合常驻复用：跳选择页只置 alpha 0 不可触摸，关闭才移除。
+ * owner 必须推到 RESUMED：collectAsStateWithLifecycle 与 LaunchedEffect 都要 STARTED 以上。
  */
 object GridPanelOverlay {
 
@@ -74,7 +61,7 @@ object GridPanelOverlay {
     /** 面板可见时为 true：保证 Shown/Dismissed 事件配对（重复 show 不重复发）。 */
     private var shownEventPosted = false
 
-    // 组合消费的状态：重复 show 原位换面板/锚点（等价 Activity 的 onNewIntent）。
+    // 组合消费的状态：重复 show 原位换面板/锚点。
     private var panelIdState by mutableStateOf("")
     private var anchorXState by mutableIntStateOf(0)
     private var anchorYState by mutableIntStateOf(0)
@@ -215,18 +202,12 @@ object GridPanelOverlay {
         created.addOnAttachStateChangeListener(attachListener)
         val content = ComposeView(context).apply {
             setBackgroundColor(Color.TRANSPARENT)
-            // 组合常驻的关键：默认策略是 DisposeOnDetachedFromWindowOrReleasedFromPool，
-            // 窗口一被系统摘掉组合就释放，而重新 addView 时
-            // shouldCreateCompositionOnAttachedToWindow 已被置 false、不会重建 ——
-            // 于是 show() 的「!attached 重新挂原实例」分支只会得到一块空白板。
-            // 改成随 owner 销毁，才对得上 [PanelLifecycleOwner] 「不随 detach 自动销毁」
-            // 的设计（真正关闭时由 [closeImmediate] 调 destroy() 释放）。
+            // 组合常驻的关键：默认策略在窗口被摘掉时就释放组合，重新 addView 时
+            // 不会重建，show() 的「!attached 重新挂原实例」分支只会得到空白板。
+            // 随 owner 销毁，才对得上 [PanelLifecycleOwner] 「不随 detach 自动销毁」。
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
-            // 必须显式限定 GridPanelOverlay.：ComposeView 自己有一个 public 的
-            // @Composable fun Content()（AbstractComposeView 的抽象成员，内容透传
-            // `{ content.value?.invoke(this) }`），而这里在 apply 块里、apply 的接收者
-            // 比外层对象更近 —— 裸写 `Content()` 会被解析成 ComposeView.Content()，
-            // 变成「透传 → 调回自己」的无限递归，真机表现是打开即 StackOverflowError。
+            // 必须显式限定 GridPanelOverlay.：apply 块里裸写 `Content()` 会解析成
+            // ComposeView.Content()（透传自身），无限递归，真机表现为打开即 StackOverflow。
             setContent { GridPanelOverlay.Content() }
         }
         created.addView(
@@ -241,11 +222,8 @@ object GridPanelOverlay {
             owner.destroy()
             return false
         }
-        // addView 之后这段是裸的。owner.resume() 把 owner 推到 RESUMED，组合里的
-        // collectAsStateWithLifecycle / LaunchedEffect 正是从这一刻起真正开跑（球窗停在
-        // CREATED 就是为了避开这块，见 FloatBallLifecycleOwner 类注释）；而调用方里
-        // FloatBallService.showGridPanelDirect 在 scope.launch 内也没兜。这里抛出就是
-        // 直接杀 :service 进程，故整段收口 + 回滚。
+        // addView 之后这段是裸的：owner.resume() 后组合的 LaunchedEffect / 收流才真正
+        // 开跑，期间抛出会直接杀 :service 进程，故整段收口 + 回滚。
         try {
             view = created
             lifecycleOwner = owner
@@ -266,9 +244,8 @@ object GridPanelOverlay {
     }
 
     /**
-     * 回滚「已 addView 但没挂完」的浮窗。**必须移窗**：本窗口是全屏可触摸的，
-     * 留在屏幕上会挡住底下所有触摸；而 view 已置 null 时 [closeImmediate] 的
-     * `view ?: return` 够不着它，没有任何路径能清掉，下一次 show 只会再叠一个全屏窗。
+     * 回滚「已 addView 但没挂完」的浮窗。必须移窗：全屏可触摸窗留在屏幕上会挡住
+     * 底下所有触摸，且 view 已置 null 时 [closeImmediate] 够不着它。
      * 销毁顺序与 [closeImmediate] 一致（先移窗再销毁 owner）。
      */
     private fun rollbackAttach(created: View, owner: PanelLifecycleOwner) {
@@ -297,9 +274,8 @@ object GridPanelOverlay {
     }
 
     /**
-     * 2038 悬浮窗的 LP y 原点实测在状态栏下沿（球窗的发现，见 FloatBallWindow
-     * lpOriginY 注释）。本窗口用 LAYOUT_IN_SCREEN 期望按屏幕坐标摆，但 ROM 行为
-     * 不一 —— attach 后实测窗口顶边，非 0 就把 lp.y 反向修正，兜住坐标系歧义。
+     * 2038 悬浮窗的 LP y 原点实测在状态栏下沿。本窗口用 LAYOUT_IN_SCREEN 期望按
+     * 屏幕坐标摆，但 ROM 行为不一：attach 后实测窗口顶边，非 0 就反向修正 lp.y。
      */
     private fun correctWindowOrigin(created: View) {
         created.post {
@@ -341,23 +317,18 @@ object GridPanelOverlay {
     @Composable
     private fun Content() {
         SideGestureTheme {
-            // 配置直读 TuneConfig（跨进程 DataStore 门面），不依赖 a11y 运行态快照
-            // —— 无障碍没开时面板照常渲染，这是无 a11y 可用的另一半。
-            //
-            // initialValue 给 null 而不是空配置：**空 ActionSettings 会让首帧
-            // panelById 落空 → GridPanelRoot 走「面板已删除」分支，而那个分支不吃
-            // appearance 动画，于是全屏 32% 黑遮罩糊一帧再换真面板（真机闪屏）。
-            // null = 还没读到，此刻什么都不渲染 —— 窗口本来就是透明画布，出场观感
-            // 交给 GridPanelRoot 里 appearance 的 0→1 淡入，观感反而是对的。
-            // 动作库同理：空 entries 会让库引用项掉图标/显示裸 typeId。
+            // 配置直读 TuneConfig（跨进程 DataStore 门面），不依赖 a11y 运行态快照。
+            // ---- 无障碍没开时面板照常渲染，这是无 a11y 可用的另一半。 ----
+            // initialValue 必须是 null：空 ActionSettings 会让首帧 panelById 落空，
+            // GridPanelRoot 走「面板已删除」分支且不吃 appearance 动画，会糊一帧
+            // 32% 黑遮罩；null 表示还没读到，此刻不渲染，出场交给 0→1 淡入。
             val actionSettings by TuneConfig.action
                 .collectAsStateWithLifecycle(initialValue = null)
             val librarySettings by ActionLibrary.settings
                 .collectAsStateWithLifecycle(initialValue = null)
             val settings = actionSettings ?: return@SideGestureTheme
             val library = librarySettings ?: return@SideGestureTheme
-            // ActionDisplay 的行名/图标读这几个 local（默认空列表）：不给就会让
-            // 动作库引用项掉图标、嵌套面板项显示裸 typeId。
+            // 动作库为空会让库引用项掉图标、嵌套面板项显示裸 typeId。
             CompositionLocalProvider(
                 LocalActionLibraryEntries provides library.entries,
                 LocalActionPanels provides settings.actionPanels.panels,
@@ -373,9 +344,8 @@ object GridPanelOverlay {
                         SideGestureService.current?.forwardPanelTap(action, x, y, Color.TRANSPARENT) == true
                     },
                     onPickItem = { select ->
-                        // 先让位再起选择页（面板在选择页之上，不让位会盖住新页并被误点）。
-                        // 但**让位不可逆**，所以启动失败必须把面板放回来 —— 否则窗口
-                        // 永远停在 alpha 0，除重新触发没有恢复路径。
+                        // 先让位再起选择页，否则面板会盖住新页并被误点；让位不可逆，
+                        // 启动失败必须把面板放回来，否则窗口永远停在 alpha 0。
                         hide()
                         if (!ActionSelectHostActivity.start(context, select)) {
                             Log.e(TAG, "grid overlay start action select failed, restore panel")

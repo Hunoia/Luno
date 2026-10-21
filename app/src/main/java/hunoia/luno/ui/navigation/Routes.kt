@@ -15,30 +15,24 @@ data class ActionSelect(
     val triggerType: GestureTriggerType = GestureTriggerType.Slide,
     val subGestureId: String = "",
     val automationRuleId: String = "",
-    /** 自动化步骤路径（"0" / "2.then.0"），空=整条规则级 legacy。 */
+    /** 自动化步骤路径（"0" / "2.then.0"）；空 = 规则级。 */
     val automationStepPath: String = "",
     /** 非空 = 本次不配触钮/子手势，而是在这个动作面板里挑一个面板项。 */
     val actionPanelId: String = "",
     /**
      * >=0 = 在改 `actionPanelId` 面板里第 N 项的**长按变体**，否则是新增面板项。
-     * 长按变体本来就是面板专属机制（面板自带 500ms 长按判定），见 ActionPanelState。
+     * 长按变体是面板专属机制：面板自带 500ms 长按判定，见 ActionPanelState。
      */
     val actionPanelItemIndex: Int = -1,
-    /**
-     * 非空 = 本次在配网格面板：加项只进不出，想换动作就删了重加，
-     * 所以没有「改已有项」的分支。
-     */
+    /** 非空 = 配网格面板：加项只进不出，想换动作就删了重加，所以没有「改已有项」的分支。 */
     val gridPanelId: String = "",
-    /** 加项落到的页（简版多页，见 [GridPanel.pageCount]）；单页数据恒 0。 */
+    /** 加项落到的页（见 [GridPanel.pageCount]）；单页数据恒 0。 */
     val gridPanelPageIndex: Int = 0,
-    /**
-     * 非空 = 本次在配悬浮球，且改的是这个槽（见 [FloatBallSlot]）。
-     * 与上面那些 id 字段互斥：走它就不会落进触钮/子手势/面板/自动化任何一条分支。
-     */
+    /** 非空 = 在配悬浮球的这个槽（见 [FloatBallSlot]），与上面各 id 字段互斥。 */
     val floatBallSlot: String = "",
 )
 
-/** 悬浮球的动作槽。目前只有「单击」一个（滑动固定读面板引用，长按固定是拖球）。 */
+/** 悬浮球的动作槽。只有「单击」一个：滑动固定读面板引用，长按固定是拖球。 */
 object FloatBallSlot {
     const val TAP = "tap"
 
@@ -73,7 +67,7 @@ data class ActionPanelEdit(
 @Serializable
 data object GridPanelList
 
-/** 网格面板属性编辑（名称/列数/宽高比）；内容（项）在面板内编辑，见 docs/grid-panel.md。 */
+/** 网格面板属性编辑（名称/列数/宽高比）；项在面板内编辑。 */
 @Keep
 @Serializable
 data class GridPanelEdit(
@@ -85,14 +79,13 @@ data class GridPanelEdit(
 data object SearchEngineSettings
 
 /**
- * 小窗位置/大小调整页。独立页面而非全屏 overlay：这是纯配置任务，不需要看见真实屏幕，
+ * 小窗位置/大小调整页。独立页面而非全屏 overlay：纯配置任务，不需看见真实屏幕，
  * 页内画示意图即可（见 ui/settings/action/MiniWindowAdjustScreen.kt）。
  */
 @Keep
 @Serializable
 data object MiniWindowAdjust
 
-/** 悬浮球设置页。 */
 @Keep
 @Serializable
 data object FloatBallEdit

@@ -7,11 +7,8 @@ import androidx.compose.ui.geometry.Offset
 import hunoia.luno.config.model.GestureButton
 
 /**
- * 一个手势按钮窗口的标识。
- *
- * [mirrored] 区分同一按钮的主窗口与镜像窗口 —— 镜像窗口的 [windowButton] 与主窗口
- * 字段完全相同（`mirroredButton()` 会把 `mirrorHorizontal` 置回 false），只能靠这个显式标记区分。
- * 窗口身份由 (sourceButton.id, mirrored) 决定，bounds 属于可更新内容而非身份的一部分。
+ * 一个手势按钮窗口的标识。[mirrored] 区分同一按钮的主/镜像窗口 —— 镜像窗口的 windowButton
+ * 与主窗口字段完全相同，只能靠这个显式标记区分；窗口身份由 (sourceButton.id, mirrored) 决定。
  */
 internal data class GestureButtonWindowTarget(
     val sourceButton: GestureButton,
@@ -23,25 +20,18 @@ interface GestureOverlayCallbacks {
     fun onSubGestureModeChanged(inSubGesture: Boolean, center: Offset, radiusPx: Int)
     fun onActionPanelOverlayChanged(show: Boolean)
 
-    /**
-     * 请求挂上全屏音量触摸窗。滑动（非停留）手势触发的滑动调音量用它把调节区扩到全屏：
-     * 触发它的那次拖动结束后，任意位置再拖一次仍能调节。
-     */
+    /** 请求挂上全屏音量触摸窗：滑动（非停留）手势触发，把调节区扩到全屏，触发的那次拖动结束后任意位置再拖仍能调节。 */
     fun onVolumeScrubOverlayRequested(config: hunoia.luno.config.model.VolumeScrubConfig)
 
-    /**
-     * 指针桥：按住类触发的面板内光标走 start→end/actionAtPosition（会话登记与落点点击），
-     * 其余入口（滑动/面板点选/悬浮球/动作分发）走 show 挂全屏指针窗口。
-     */
+    /** 指针桥：按住类触发的面板内光标走 start→end/actionAtPosition；其余入口（滑动/面板点选/悬浮球/动作分发）走 show 挂全屏指针窗口。 */
     fun onPointerStart(settings: hunoia.luno.config.model.GestureSettings.Pointer): Boolean
     fun onPointerShow(settings: hunoia.luno.config.model.GestureSettings.Pointer): Boolean
     fun onPointerEnd()
     fun onPointerActionAtPosition(x: Int, y: Int)
 
     /**
-     * ActionPanel 是否正在显示。用于把主 overlay 在隐藏时收成 1x1,
-     * 避免常驻一块什么都不画的全屏 RGBA_8888 buffer。与 [onActionPanelOverlayChanged] 是两件事:
-     * 后者管的是面板需要交互时那个临时的可触摸空窗口。
+     * ActionPanel 是否正在显示：用于把主 overlay 在隐藏时收成 1x1，避免常驻一块什么都不画的全屏 RGBA_8888 buffer。
+     * 与 [onActionPanelOverlayChanged] 是两件事：后者管面板交互时那个临时的可触摸空窗口。
      */
     fun onActionPanelVisibilityChanged(visible: Boolean)
 
@@ -63,10 +53,7 @@ internal fun WindowManager.safeAddView(view: View?, params: WindowManager.Layout
         .isSuccess
 }
 
-/**
- * updateViewLayout 在窗口已被系统移除（服务销毁竞态、权限被撤销）时会抛
- * BadTokenException / IllegalArgumentException。这属于预期内的竞态，记日志而不是静默吞掉。
- */
+/** updateViewLayout 在窗口已被系统移除（服务销毁竞态、权限被撤销）时会抛异常；这是预期竞态，记日志而非静默吞掉。 */
 internal fun WindowManager.safeUpdateViewLayout(view: View, params: WindowManager.LayoutParams) {
     runCatching { updateViewLayout(view, params) }
         .onFailure { error ->

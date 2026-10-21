@@ -65,10 +65,7 @@ class ButtonWindowController(
         _buttonViews.clear()
     }
 
-    /**
-     * 只增删真正变化的窗口。触发距离这类参数变化时按钮列表内容不变，
-     * 走 update 路径即可，不必全部 removeViewImmediate + addView 重建。
-     */
+    /** 只增删真正变化的窗口：触发距离这类参数变化时列表内容不变，走 update 路径，不必全部重建。 */
     private fun syncWindowTargets(targets: List<GestureButtonWindowTarget>) {
         val existing = _buttonViews.mapNotNull { view ->
             (view.tag as? GestureButtonWindowTarget)?.let { it to view }
@@ -122,15 +119,10 @@ class ButtonWindowController(
     }
 
     /**
-     * 窗口矩形与手势排除区必须同步更新。
-     *
-     * 排除区用视图局部坐标填满整条带(视图铺满窗口),绝对坐标 = 窗口位置 + 局部坐标。
-     * 不声明的话条带与系统返回手势区是同一片像素且没有任何仲裁,SystemUI 会在 ACTION_DOWN
-     * 就启动返回手势。
-     *
-     * addView 之前设置,ViewRootImpl 在首次 performTraversals 时收集上报;之后的变更靠紧随
-     * 其后的 updateViewLayout(内部 setLayout 会 scheduleTraversals)重新收集,故调用点必须
-     * 保证后面紧跟一次 safeUpdateViewLayout。
+     * 窗口矩形与手势排除区必须同步更新。排除区用视图局部坐标填满整条带，绝对坐标 = 窗口位置 + 局部坐标；
+     * 不声明的话条带与系统返回手势区是同一片像素且无仲裁，SystemUI 会在 ACTION_DOWN 就启动返回手势。
+     * addView 之前设置（ViewRootImpl 首次 performTraversals 时收集）；之后的变更靠紧随其后的 updateViewLayout
+     * （内部 setLayout 会 scheduleTraversals）重新收集，故调用点必须保证后面紧跟一次 safeUpdateViewLayout。
      */
     private fun applyBounds(view: View, lp: WindowManager.LayoutParams, button: GestureButton) {
         WindowLayoutFactory.updateGestureButton(lp, button)

@@ -34,21 +34,9 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 
 /**
- * 主球的对侧镜像分身：**钉在对侧屏幕边缘的半圆描边**（alpha
- * [FloatBallDefaults.MirrorDimAlpha]），独立 2038 小窗。
- *
- * 半圆的实现是**内容出窗**：窗口贴边完整在屏内（部分 ROM 会把越界 LP 夹回屏内，
- * LP 出屏方案不可靠），圆绘制向屏幕边缘偏移半个球径，超出 surface 的部分被裁掉，
- * 可见的就是半圆。窗口命中区是完整方形，靠内的半格是「空的」但可点 —— 等效于
- * 给半圆一圈宽松的命中余量。
- *
- * 交互：
- * - **按下**：立即交换位置（不触发动作）—— [onPressed]；若手指继续移动，
- *   位移增量经 [onDragDeltas] 接力给主球（拖刚换过来的那颗球），抬手由
- *   [onDragReleased] 收尾（贴边结算 + 落盘）；
- * - **点击**（未超 touchSlop 抬手）：补触发 [onTapped]（Service 派发动作）；
- *
- * y 跟随主球（含键盘让位，由 Service 同步 [updateImeLift]）。
+ * 主球的对侧镜像分身：钉在对侧边缘的半圆描边（alpha [FloatBallDefaults.MirrorDimAlpha]），独立 2038 小窗。
+ * 半圆靠内容出窗裁切，命中区仍是完整方形；按下立即交换（[onPressed]），拖动经 [onDragDeltas]
+ * 接力给主球，抬手由 [onDragReleased] 收尾，点击补触发 [onTapped]；y 跟随主球（[updateImeLift]）。
  */
 class FloatBallMirrorWindow(
     private val context: android.content.Context,
@@ -171,9 +159,7 @@ class FloatBallMirrorWindow(
     /** 当前分身窗顶边屏幕坐标（px）。Service 换位时读取。 */
     fun currentPosition(): Pair<Float, Float> = posX to posY
 
-    /**
-     * 键盘让位同步（Service 从主球读后传入）。
-     */
+    /** 键盘让位同步（Service 从主球读后传入）。 */
     fun updateImeLift(liftPx: Float) {
         if (liftPx == imeLiftPx) return
         imeLiftPx = liftPx
@@ -198,10 +184,7 @@ class FloatBallMirrorWindow(
     /** 主球在左半屏 → 分身贴右缘，反之贴左缘。 */
     private fun mirrorOnRight(): Boolean = mainOnLeft()
 
-    /**
-     * 半圆姿态顶边 x：窗口贴对侧边缘**完整在屏内**（top-left = maxX 或 0），
-     * 半圆靠内容出窗裁切。
-     */
+    /** 半圆姿态顶边 x：窗口贴对侧边缘完整在屏内，半圆靠内容出窗裁切。 */
     private fun pinnedX(): Float =
         if (mirrorOnRight()) max(0, screenWidthPx - ballPx).toFloat() else 0f
 
@@ -256,8 +239,7 @@ class FloatBallMirrorWindow(
 
     /**
      * 交换的淡入淡出：淡出 → 用 [freshSettings] 重算到新对侧 → 淡回常态 alpha。
-     * settings 必须由 Service 显式推入 —— 分身窗自己的副本要等配置流绕一圈才新，
-     * 用它算钉边会钉回旧侧（真机「换位后位置不对」的根因）。
+     * settings 必须由 Service 显式推入，否则分身自己的副本要等配置流绕一圈，会钉回旧侧。
      */
     fun crossFadeSwap(freshSettings: FloatBallSettings? = null, onDone: (() -> Unit)? = null) {
         freshSettings?.let { settings = it }

@@ -14,10 +14,8 @@ object ActionPanelStylesDefaults {
 sealed interface ActionPanelStyle
 
 /**
- * 弧形面板样式。全局一份（见 [hunoia.luno.config.model.ActionSettings.actionPanelStyle]），
- * 不再按触钮/方向分别存储。
- *
- * [itemSize] 与 [itemGapPx] 都是 **px**（与既有 itemSize 同单位，命名带 Px 以免和 dp 混淆）。
+ * 弧形面板样式，全局一份（[ActionSettings.actionPanelStyle]，不按触钮/方向分别存储）。
+ * [itemSize] 与 [itemGapPx] 单位都是 px（命名带 Px 以区分 dp）。
  */
 @Serializable
 @Keep
@@ -29,10 +27,7 @@ data class ArcStyle(
     val spreadSpacing: Float = ActionPanelStylesDefaults.ArcStyleSpreadSpacing,
 ) : ActionPanelStyle
 
-/** 颜色来源：自定义色值或跟随主题色。 */
 enum class ColorSource { Custom, Theme }
-
-/** 可跟随的主题色键。 */
 enum class ThemeColorKey {
     Primary, PrimaryContainer, Secondary, SecondaryContainer,
     Tertiary, TertiaryContainer, Surface, SurfaceVariant,

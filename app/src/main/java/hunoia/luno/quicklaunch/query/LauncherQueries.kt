@@ -27,9 +27,9 @@ object LauncherIconQuery {
 
 object LauncherEnvironment {
     /**
-     * 桌面集合的最长复用时间。包广播能覆盖装/卸桌面，但「切换默认桌面」在部分 ROM 上
-     * 不发包广播，用 TTL 兜住；60s 重新查一次（一次 HOME 查询 + 几个包的 launch intent），
-     * 代价可忽略，而错误答案的窗口有上限。
+     * 桌面集合的最长复用时间。包广播能覆盖装/卸桌面，但「切换默认桌面」在部分 ROM 上不发包广播，
+     * 用 TTL 兜住；60s 重新查一次（一次 HOME 查询 + 几个包的 launch intent）代价可忽略，
+     * 而错误答案的窗口有上限。
      */
     private const val HOME_SET_TTL_MS = 60_000L
 
@@ -98,11 +98,8 @@ object LauncherEnvironment {
     }
 
     /**
-     * 桌面候选 = 响应 HOME、且自身没有启动入口的包（与改造前语义一致：部分 ROM 的桌面
-     * 同时带 launcher 入口，旧实现用 getLaunchIntentForPackage == null 把它们排除掉）。
-     *
-     * 先按包名去重再查 launch intent：一次 HOME 查询里同名包可能有多条 activity，
-     * 旧实现对每条都查一次，是重复 Binder。
+     * 桌面候选 = 响应 HOME、且自身没有启动入口的包。先按包名去重再查 launch intent：
+     * 一次 HOME 查询里同名包可能有多条 activity，逐条查是重复 Binder。
      */
     private fun queryHomePackages(context: Context): Set<String> {
         val pm = context.packageManager

@@ -98,7 +98,7 @@ const val SRC_CALL = "call"
 const val SRC_TOGGLE = "sw"
 const val SRC_CLIP = "clp"
 
-/** 来源内置默认标识：全英文短缩写（用户嫌中英混排，要求统一）。 */
+/** 来源内置默认标识：统一全英文短缩写。 */
 val DefaultSourceTriggers: Map<String, String> = mapOf(
     SRC_APP to "app",
     SRC_SHORTCUT to "sc",

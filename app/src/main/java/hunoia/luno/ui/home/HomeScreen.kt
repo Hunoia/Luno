@@ -248,8 +248,7 @@ fun HomeScreen(
                             stringResource(R.string.action_library_add)
                         },
                     ) { tab, _ ->
-                        // tint 走底栏提供的 LocalContentColor（选中 primary / 未选中
-                        // onSurfaceVariant），此处不显式传。
+                        // tint 用底栏的 LocalContentColor（选中 primary/未选中 onSurfaceVariant），不显式传。
                         Icon(
                             imageVector = tab.icon,
                             contentDescription = tab.label,

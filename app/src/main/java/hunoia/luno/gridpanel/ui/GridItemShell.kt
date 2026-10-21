@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 
 /**
- * 编辑态的删除角标（右上）。是项的子层，排在最后 —— 子层先拿到指针事件，
+ * 编辑态的删除角标（右上）。是项的子层且排在最后：子层先拿到指针事件，
  * 点角标不会误起整项拖拽。
  */
 @Composable
@@ -44,10 +44,8 @@ fun ItemDeleteBadge(onDelete: () -> Unit, modifier: Modifier = Modifier) {
 
 /**
  * 尺寸手柄（右下）：四分之一圆弧，直边贴着项的右边/下边。
- *
- * 纯视觉件，**不挂点击**：命中区由父级的 gridItemGestures 统一判定
- * （手柄 > 长按），避免「子层点击 + 父层拖拽」两套手势抢同一根手指。
- * 视觉 26dp、命中 40dp —— 手感大、存在感小。
+ * 纯视觉件、不挂点击：命中区由父级 gridItemGestures 统一判定（手柄 > 长按），
+ * 避免子层点击与父层拖拽抢同一根手指。视觉 26dp、命中 40dp。
  */
 @Composable
 fun ItemResizeHandle(
@@ -63,8 +61,7 @@ fun ItemResizeHandle(
     ) {
         Canvas(Modifier.fillMaxSize()) {
             val s = minOf(size.width, size.height)
-            // 圆心在盒子**左上**（项内 s×s 处），半径 s：弧从 (s, 0) 到 (0, s)，
-            // 向项的右下角**外**鼓 —— 和圆角边框同向，不再是向内凹的勺形。
+            // 圆心在盒子左上（项内 s×s 处），半径 s：弧向项右下角外鼓，和圆角边框同向。
             drawArc(
                 color = color,
                 startAngle = 0f,

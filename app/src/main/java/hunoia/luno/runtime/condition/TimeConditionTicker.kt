@@ -41,7 +41,7 @@ class TimeConditionTicker(
                 val rules = rulesProvider().filter { it.enabled }
                 val minute = nowMinuteOfDay()
                 val weekday = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
-                // 定时触发：分钟级精度，Doze 下可能推迟（doc §3.2 已声明）。
+                // 定时触发：分钟级精度，Doze 下可能推迟。
                 if (rules.any { it.condition.hasScheduledTime() }) {
                     val due = rules
                         .flatMap { rule -> rule.condition.scheduledItems() }
