@@ -22,8 +22,6 @@ import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SegmentedGap
 
-private val GroupHeaderPadding =
-    PaddingValues(start = PageGutter, top = CardInnerSpacing, bottom = ListSpacing)
 private val GroupSubtitlePadding =
     PaddingValues(start = PageGutter, end = PageGutter, bottom = CardInnerSpacing)
 
@@ -73,6 +71,8 @@ fun selectedSegmentedShape(index: Int, count: Int, flags: List<Boolean>?): Round
  *
  * 组间距 [ListSpacing]，组内间距 [contentSpacing]（1dp 圆角缝合），默认值即可，
  * 不要显式传。组头右侧可挂状态徽标，[badgeError] 时走 error 色。
+ * 标题下第一项不是等高容器（如裸输入框）时，可传小一点的 [titleBottomSpacing]
+ * 让视觉间距与其他组一致。
  */
 @Composable
 fun LunoGroup(
@@ -80,6 +80,7 @@ fun LunoGroup(
     subtitle: String = "",
     modifier: Modifier = Modifier,
     contentSpacing: Dp = SegmentedGap,
+    titleBottomSpacing: Dp = ListSpacing,
     badgeText: String? = null,
     badgeError: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
@@ -87,7 +88,13 @@ fun LunoGroup(
     Column(modifier = modifier.fillMaxWidth()) {
         if (title.isNotEmpty()) {
             Row(
-                modifier = Modifier.padding(GroupHeaderPadding).fillMaxWidth(),
+                modifier = Modifier
+                    .padding(
+                        start = PageGutter,
+                        top = CardInnerSpacing,
+                        bottom = titleBottomSpacing,
+                    )
+                    .fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(

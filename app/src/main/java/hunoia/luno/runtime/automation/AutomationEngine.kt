@@ -12,7 +12,7 @@ import hunoia.luno.runtime.condition.matches
 
 /**
  * 自动化引擎：整树边沿（fireOn）+ 优先级仲裁 + 节流策略。
- * 仲裁顺序固定：Event → Condition → Priority Arbitration → Throttle → Execution；
+ * 仲裁顺序固定：Event → Condition → Constraints → Priority Arbitration → Throttle → Execution；
  * 选中的规则被节流也不降级，落选边沿命中记跳过；未命中不记历史，触发只判定与记账。
  */
 class AutomationEngine(
@@ -55,6 +55,7 @@ class AutomationEngine(
         // 它的输入只会在自己订阅的域刷新时变化，那时必被评估；跨域刷新时输入不变，
         // prev 不更新也不影响正确性，只是不提前刷新——边沿不误触发。
         val candidates = ArrayList<AutomationRule>(rules.size)
+        val constraintSkipped = ArrayList<AutomationEvent>(rules.size)
         for (rule in rules) {
             if (!rule.enabled) continue
             if (rule.id !in allowedIds) continue
@@ -83,9 +84,24 @@ class AutomationEngine(
                 FireMode.EXIT -> !hit && prev
                 FireMode.BOTH -> hit != prev || (hit && pulseEdge)
             }
-            if (edge) candidates.add(rule)
+            if (edge) {
+                // 约束条件是「此刻是否适用」，空组视为不限。不满足的规则不进入仲裁，
+                // 让同一轮里约束满足的低优先级规则有机会接管；也不消耗节流窗口。
+                if (rule.constraints.items.isEmpty() || rule.constraints.matches(ctx)) {
+                    candidates.add(rule)
+                } else {
+                    constraintSkipped.add(
+                        AutomationEvent(
+                            ruleId = rule.id, ruleName = rule.name,
+                            timeMs = ctx.nowMs, wallTimeMs = System.currentTimeMillis(),
+                            fired = false, reason = SkipReason.CONSTRAINT_UNMET.code,
+                        ),
+                    )
+                }
+            }
         }
         if (candidates.isEmpty()) {
+            dispatch(constraintSkipped)
             cleanup(rules)
             return
         }
@@ -94,7 +110,8 @@ class AutomationEngine(
         val ordered = candidates.sortedByDescending { it.priority }
         val winner = ordered.first()
         // 本轮所有跳过事件先在本地攒起来，最后一次性交付（见 onEvents 注释）。
-        val skipped = ArrayList<AutomationEvent>(ordered.size)
+        val skipped = ArrayList<AutomationEvent>(ordered.size + constraintSkipped.size)
+        skipped.addAll(constraintSkipped)
         for (rule in ordered) {
             if (rule.id == winner.id) continue
             skipped.add(
@@ -132,7 +149,7 @@ class AutomationEngine(
         // 跳过记录先落，再触发执行：历史顺序保持「谁被压制」在前。
         dispatch(skipped)
         markFired(winner.id, throttle, ctx.nowMs)
-        onFireRule(winner, ctx)
+        onFireRule(winner, ctx.copy(triggerRuleName = winner.name.ifBlank { null }))
         cleanup(rules)
     }
 

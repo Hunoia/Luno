@@ -78,15 +78,16 @@ fun ParameterEditor(
         }
         is ParameterDefinition.Number -> {
             val value = currentParams[definition.key]?.scalarText() ?: (definition.defaultValue ?: "")
-            OutlinedTextField(
+            // 数字参数也允许模板：整串是 ${...}/表达式时运行时展开，交给 ActionMapper 按字符串解析。
+            val hasTemplate = '$' in value
+            TemplateTextField(
                 value = value,
                 onValueChange = { onParamChange(definition.key, it) },
-                label = { Text(definition.label) },
+                label = definition.label,
+                isError = (required && value.isBlank()) || (!hasTemplate && !inRange(value, definition)),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = modifier.fillMaxWidth(),
-                isError = (required && value.isBlank()) || !inRange(value, definition),
-                shape = LargeShape,
             )
         }
         is ParameterDefinition.Bool -> {

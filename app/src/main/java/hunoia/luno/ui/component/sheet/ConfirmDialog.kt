@@ -14,18 +14,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import hunoia.luno.R
 import hunoia.luno.ui.theme.LargeShape
+import android.view.WindowManager
 
 @Composable
 fun ConfirmDialog(
@@ -75,6 +79,12 @@ fun TextInputDialog(
     supportingText: String = "",
     keyboardOptions: KeyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
 ) {
+    // Dialog 是独立窗口，不吃 adjustResize：手动改成 resize，
+    // 键盘弹起时对话框上移，输入框不会被键盘挡住。
+    val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
+    SideEffect {
+        dialogWindow?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+    }
     // 按 initialValue 复位：同一调用点切换目标（换引擎/换重命名对象）时不能残留上次的输入
     var text by rememberSaveable(initialValue) { mutableStateOf(initialValue) }
     val focusRequester = remember { FocusRequester() }

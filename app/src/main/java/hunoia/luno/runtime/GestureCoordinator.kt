@@ -235,8 +235,11 @@ class GestureCoordinator(
     private val runningRules = mutableSetOf<String>()
 
     private val sequenceExecutor = SequenceExecutor(
-        runSingleAction = { action, ctx ->
-            actionDispatcher.runStepAction(action, ctx)
+        runSingleAction = { action, ctx, variables ->
+            actionDispatcher.runStepAction(action, ctx, variables)
+        },
+        resolveTemplate = { text, ctx, variables ->
+            actionDispatcher.resolveStepTemplate(text, ctx, variables)
         },
     )
 
@@ -385,7 +388,7 @@ class GestureCoordinator(
             )
         }
         // 手势触发动作与手势事件进总线是两条独立路径：前者立即执行，后者供自动化规则订阅。
-        environmentTracker.onGesturePerformed(sourceButton?.id ?: "")
+        environmentTracker.onGesturePerformed(sourceButton?.id ?: "", sourceButton?.name.orEmpty())
         val touch = if (touchPosition.x.isFinite() && touchPosition.y.isFinite()) {
             touchPosition.x.roundToInt() to touchPosition.y.roundToInt()
         } else {

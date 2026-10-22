@@ -63,6 +63,8 @@ object AutomationCenter {
         get() = hunoia.luno.runtime.automation.SkipReason.THROTTLED_WINDOW
     val skipOutprioritized: hunoia.luno.runtime.automation.SkipReason
         get() = hunoia.luno.runtime.automation.SkipReason.OUTPRIORITIZED
+    val skipConstraintUnmet: hunoia.luno.runtime.automation.SkipReason
+        get() = hunoia.luno.runtime.automation.SkipReason.CONSTRAINT_UNMET
     val skipRuleBusy: hunoia.luno.runtime.automation.SkipReason
         get() = hunoia.luno.runtime.automation.SkipReason.RULE_BUSY
 

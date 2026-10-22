@@ -43,6 +43,7 @@ class EnvironmentTracker(
     private var pendingHeadphonesChanged: ConnectionDirection? = null
     private var pendingScheduledTimeHit: Boolean = false
     private var pendingGesturePerformedId: String? = null
+    private var pendingGesturePerformedName: String? = null
     private var pendingKeyboardEvent: KeyboardEventType? = null
     private var pendingMusicChanged: PlaybackDirection? = null
     private var pendingTorchChangedTo: Boolean? = null
@@ -97,8 +98,9 @@ class EnvironmentTracker(
         pendingScheduledTimeHit = true
     }
 
-    fun onGesturePerformed(buttonId: String) {
+    fun onGesturePerformed(buttonId: String, buttonName: String = "") {
         pendingGesturePerformedId = buttonId
+        pendingGesturePerformedName = buttonName.takeIf { it.isNotBlank() }
     }
 
     fun onMusicChanged(direction: PlaybackDirection) {
@@ -148,6 +150,7 @@ class EnvironmentTracker(
         val headphonesChanged = if (expose) pendingHeadphonesChanged else null
         val scheduledTimeHit = expose && pendingScheduledTimeHit
         val gesturePerformedId = if (expose) pendingGesturePerformedId else null
+        val gesturePerformedName = if (expose) pendingGesturePerformedName else null
         val keyboardEvent = if (expose) pendingKeyboardEvent else null
         val musicChanged = if (expose) pendingMusicChanged else null
         val torchChangedTo = if (expose) pendingTorchChangedTo else null
@@ -185,6 +188,7 @@ class EnvironmentTracker(
             headphonesChanged = headphonesChanged,
             scheduledTimeHit = scheduledTimeHit,
             gesturePerformedId = gesturePerformedId,
+            gesturePerformedName = gesturePerformedName,
             keyboardEvent = keyboardEvent,
             musicChanged = musicChanged,
             torchChangedTo = torchChangedTo,
@@ -202,6 +206,7 @@ class EnvironmentTracker(
         pendingHeadphonesChanged = null
         pendingScheduledTimeHit = false
         pendingGesturePerformedId = null
+        pendingGesturePerformedName = null
         pendingKeyboardEvent = null
         pendingMusicChanged = null
         pendingTorchChangedTo = null

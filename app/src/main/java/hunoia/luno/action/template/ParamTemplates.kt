@@ -21,6 +21,12 @@ object ParamTemplates {
         return used
     }
 
+    fun tokensIn(text: String): Set<String> {
+        val used = LinkedHashSet<String>()
+        collectTokens(text, used)
+        return used
+    }
+
     fun resolve(text: String, values: Map<String, String>): String {
         if (values.isEmpty() || '$' !in text) return text
         var builder: StringBuilder? = null

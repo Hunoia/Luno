@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyColumn
@@ -79,6 +80,7 @@ fun LunoScreen(
             LunoColumn(
                 modifier = Modifier
                     .fillMaxSize()
+                    .imePadding()
                     .appHazeSource(hazeState)
                     .nestedScroll(scrollBehavior.nestedScrollConnection)
                     .then(if (animateContent) Modifier.animateContentSize() else Modifier),
@@ -195,6 +197,7 @@ fun LunoScreenLazy(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
+                    .imePadding()
                     .appHazeSource(hazeState)
                     .nestedScroll(scrollBehavior.nestedScrollConnection),
                 state = state,

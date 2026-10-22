@@ -156,10 +156,11 @@ class SubscriptionIndex {
             if (!rule.enabled) continue
             val keys = mutableSetOf<String>()
             collectKeys(rule.condition, keys)
+            collectKeys(rule.constraints, keys)
             for (key in keys) {
                 keyed.getOrPut(key) { mutableSetOf() }.add(rule.id)
             }
-            if (hasStateLeaf(rule.condition)) state.add(rule.id)
+            if (hasStateLeaf(rule.condition) || hasStateLeaf(rule.constraints)) state.add(rule.id)
         }
         byKey = keyed
         withState = state

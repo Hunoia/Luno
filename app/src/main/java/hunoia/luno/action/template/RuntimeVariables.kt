@@ -42,12 +42,16 @@ object RuntimeVariables {
     const val LAUNCHER = "launcher"
     const val KEYBOARD = "keyboard"
     const val TRIGGER_APP = "trigger.app"
+    const val TRIGGER_GESTURE_ID = "trigger.gesture.id"
+    const val TRIGGER_GESTURE_NAME = "trigger.gesture.name"
+    const val TRIGGER_RULE_NAME = "trigger.rule.name"
     const val TRIGGER_SCREEN = "trigger.screen"
     const val TRIGGER_CHARGING = "trigger.charging"
     const val TRIGGER_VOLUME = "trigger.volume"
     const val TRIGGER_NOTIFICATION_PACKAGE = "trigger.notification.package"
     const val TRIGGER_NOTIFICATION_TITLE = "trigger.notification.title"
     const val TRIGGER_NOTIFICATION_TEXT = "trigger.notification.text"
+    const val TRIGGER_NOTIFICATION_APP = "trigger.notification.app"
     const val CLIPBOARD = "clipboard"
 
     private const val VOLUME_PREFIX = "volume."
@@ -78,12 +82,16 @@ object RuntimeVariables {
         TemplateVariable(LAUNCHER, "是否在桌面", "false"),
         TemplateVariable(KEYBOARD, "键盘是否弹出", "false"),
         TemplateVariable(TRIGGER_APP, "触发时切换到的应用", "com.tencent.mm", triggerOnly = true),
+        TemplateVariable(TRIGGER_GESTURE_ID, "触发手势的按钮 id", "1b2c", triggerOnly = true),
+        TemplateVariable(TRIGGER_GESTURE_NAME, "触发手势的按钮名", "右缘", triggerOnly = true),
+        TemplateVariable(TRIGGER_RULE_NAME, "触发规则名", "到家", triggerOnly = true),
         TemplateVariable(TRIGGER_SCREEN, "触发时的亮灭屏事件", "SCREEN_ON", triggerOnly = true),
         TemplateVariable(TRIGGER_CHARGING, "触发时的充电状态", "true", triggerOnly = true),
         TemplateVariable(TRIGGER_VOLUME, "触发时的音量变化", "music_UP", triggerOnly = true),
         TemplateVariable(TRIGGER_NOTIFICATION_PACKAGE, "触发通知的包名", "com.tencent.mm", triggerOnly = true),
         TemplateVariable(TRIGGER_NOTIFICATION_TITLE, "触发通知的标题", "张三", triggerOnly = true),
         TemplateVariable(TRIGGER_NOTIFICATION_TEXT, "触发通知的正文", "在吗", triggerOnly = true),
+        TemplateVariable(TRIGGER_NOTIFICATION_APP, "触发通知的应用名", "微信", triggerOnly = true),
         TemplateVariable(CLIPBOARD, "当前剪贴板文本", "剪贴内容"),
     )
 
@@ -118,12 +126,18 @@ object RuntimeVariables {
                 LAUNCHER -> ctx.isLauncher.toString()
                 KEYBOARD -> ctx.isKeyboardInput.toString()
                 TRIGGER_APP -> ctx.appChangedTo.orEmpty()
+                TRIGGER_GESTURE_ID -> ctx.gesturePerformedId.orEmpty()
+                TRIGGER_GESTURE_NAME -> (ctx.gesturePerformedName ?: ctx.gesturePerformedId).orEmpty()
+                TRIGGER_RULE_NAME -> ctx.triggerRuleName.orEmpty()
                 TRIGGER_SCREEN -> ctx.screenEvent?.name.orEmpty()
                 TRIGGER_CHARGING -> ctx.chargingChangedTo?.toString().orEmpty()
                 TRIGGER_VOLUME -> ctx.volumeChanged?.let { "${it.stream.name}_${it.direction.name}" }.orEmpty()
                 TRIGGER_NOTIFICATION_PACKAGE -> ctx.notificationPosted?.packageName.orEmpty()
                 TRIGGER_NOTIFICATION_TITLE -> ctx.notificationPosted?.title.orEmpty()
                 TRIGGER_NOTIFICATION_TEXT -> ctx.notificationPosted?.text.orEmpty()
+                TRIGGER_NOTIFICATION_APP -> ctx.notificationPosted?.packageName
+                    ?.let { appLabel(appContext, it) }
+                    .orEmpty()
                 CLIPBOARD -> readClipboard(appContext)
                 else -> {
                     if (!token.startsWith(VOLUME_PREFIX)) continue

@@ -15,6 +15,7 @@ enum class SkipReason(val code: String) {
     THROTTLED_COOLDOWN("throttled_cooldown"),
     THROTTLED_WINDOW("throttled_window"),
     OUTPRIORITIZED("outprioritized"),
+    CONSTRAINT_UNMET("constraint_unmet"),
     RULE_BUSY("rule_busy"),
 }
 

@@ -50,8 +50,11 @@ data class ConditionContext(
     val bluetoothChanged: ConnectionDirection? = null,
     val headphonesChanged: ConnectionDirection? = null,
     val scheduledTimeHit: Boolean = false,
-    /** 手势脉冲：本轮命中的按钮 id，无则 null。 */
+    /** 手势脉冲：本轮命中的按钮 id/名称，无则 null。 */
     val gesturePerformedId: String? = null,
+    val gesturePerformedName: String? = null,
+    /** 本轮执行的自动化规则名（引擎触发时写入，模板变量 trigger.rule.name 用）。 */
+    val triggerRuleName: String? = null,
     /** v3 脉冲：键盘弹出/收起、音乐启停、手电/勿扰开关变化。 */
     val keyboardEvent: KeyboardEventType? = null,
     val musicChanged: PlaybackDirection? = null,
@@ -144,6 +147,7 @@ fun GestureRuntimeState.toConditionContext(): ConditionContext = ConditionContex
     headphonesChanged = headphonesChanged,
     scheduledTimeHit = scheduledTimeHit,
     gesturePerformedId = gesturePerformedId,
+    gesturePerformedName = gesturePerformedName,
     keyboardEvent = keyboardEvent,
     musicChanged = musicChanged,
     torchChangedTo = torchChangedTo,

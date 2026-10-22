@@ -26,6 +26,7 @@ import hunoia.luno.runtime.automation.StepOutcome
 import hunoia.luno.runtime.automation.SequenceGuards
 import hunoia.luno.runtime.automation.SequenceExecutor
 import hunoia.luno.runtime.condition.ConditionContext
+import hunoia.luno.action.template.ParamTemplates
 import hunoia.luno.action.template.RuntimeVariables
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -83,11 +84,31 @@ class NewActionDispatcher(
      * v2 单步骤执行：**等执行落定**才返回，真实成败与异常都交给 SequenceExecutor 记账/中断。
      * 必须在 Main 上跑（与 dispatch 的 launch 目标一致），否则无障碍调用线程会变。
      */
-    suspend fun runStepAction(action: StoredAction, ctx: ConditionContext): StepOutcome {
+    suspend fun runStepAction(
+        action: StoredAction,
+        ctx: ConditionContext,
+        variables: Map<String, String> = emptyMap(),
+    ): StepOutcome {
         val automationContext: () -> ConditionContext? = { ctx }
         return withContext(Dispatchers.Main.immediate) {
-            dispatchAwait(action.withoutVariantKey(), null, null, automationContext, null, false)
+            dispatchAwait(action.withoutVariantKey(), null, null, automationContext, null, false, variables)
         }
+    }
+
+    /** 解析 SET_VAR 的值模板：系统/触发变量 + 本次运行已写入的局部变量。 */
+    suspend fun resolveStepTemplate(
+        text: String,
+        ctx: ConditionContext,
+        variables: Map<String, String>,
+    ): String {
+        if (text.isEmpty()) return text
+        val used = ParamTemplates.tokensIn(text)
+        val values = if (used.isEmpty()) {
+            emptyMap()
+        } else {
+            RuntimeVariables.resolve(used, ctx, host.context.applicationContext)
+        }
+        return ParamTemplates.resolve(text, values + variables)
     }
 
     /** 供 overlay 等场景直接执行一个已构造好的动作。 */
@@ -122,6 +143,7 @@ class NewActionDispatcher(
         templateContext: () -> ConditionContext?,
         gestureTrigger: hunoia.luno.config.model.GestureTriggerType?,
         fromGesture: Boolean,
+        localVariables: Map<String, String> = emptyMap(),
     ): StepOutcome {
         fun postDispatch(typeId: String, ok: Boolean) {
             hunoia.luno.core.Events.post(
@@ -148,7 +170,7 @@ class NewActionDispatcher(
         } else {
             stored
         }
-        val ctx = buildContext(sourceButton, touchPosition, templateContext)
+        val ctx = buildContext(sourceButton, touchPosition, templateContext, localVariables)
         // 点按类动作的前置条件：手势触点优先，其次看参数坐标，两者都没有才判参数无效。
         // 勾了「使用触发位置坐标」的条目 hasPointParams() 恒 false，无触点路径（自动化）在这里被拦。
         // 只看 StoredAction 参数，进 Executor 前不再复验。
@@ -202,6 +224,7 @@ class NewActionDispatcher(
         sourceButton: GestureButton?,
         touchPosition: Pair<Int, Int>? = null,
         templateContext: () -> ConditionContext? = { null },
+        localVariables: Map<String, String> = emptyMap(),
     ): ExecutorContext {
         val snap = settingsSnapshot()
         val context: Context = host.context.applicationContext
@@ -232,7 +255,9 @@ class NewActionDispatcher(
             templateContext = templateContext,
             templateValues = { used ->
                 val runtime = templateContext()
-                if (runtime == null) emptyMap() else RuntimeVariables.resolve(used, runtime, context)
+                val system = if (runtime == null) emptyMap() else RuntimeVariables.resolve(used, runtime, context)
+                // 局部变量覆盖同名系统 token，SET_VAR 才能改写模板取值。
+                system + localVariables
             },
             runRule = { ruleId, ctx -> runRuleSteps(ruleId, ctx) },
         )
@@ -260,9 +285,14 @@ class NewActionDispatcher(
         }
         val templateCtx = ctx.templateContext() ?: return ActionResult.Failed(ActionFailure.ExecutionFailed)
         return withContext(RuleDepth(depth + 1)) {
-            val nested = SequenceExecutor { action, _ ->
-                runStepAction(action, templateCtx)
-            }
+            val nested = SequenceExecutor(
+                runSingleAction = { action, _, vars ->
+                    runStepAction(action, templateCtx, vars)
+                },
+                resolveTemplate = { text, _, vars ->
+                    resolveStepTemplate(text, templateCtx, vars)
+                },
+            )
             val records = nested.runSteps(steps, templateCtx)
             val failed = records.firstOrNull { !it.ok }
             if (failed == null) {

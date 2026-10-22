@@ -2,6 +2,7 @@ package hunoia.luno.ui.component.sheet
 
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -33,11 +34,13 @@ internal fun SheetNestedContent(
                 scrollState.state.value <= 0
             }
         }
-        Column(Modifier.nestedScroll(connection)) {
+        // imePadding 放这里而不是 LunoSheet：键盘弹起时整个弹层上移，
+        // 弹层内的输入框不会被键盘挡住（配合内容自身的 verticalScroll 生效）。
+        Column(Modifier.nestedScroll(connection).imePadding()) {
             content()
         }
     } else {
-        Column {
+        Column(Modifier.imePadding()) {
             content()
         }
     }

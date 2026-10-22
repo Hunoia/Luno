@@ -62,6 +62,7 @@ fun historySubtitle(event: AutomationEvent): String {
                 AutomationCenter.skipThrottledCooldown.code -> R.string.history_throttled_cooldown
                 AutomationCenter.skipThrottledWindow.code -> R.string.history_throttled_window
                 AutomationCenter.skipOutprioritized.code -> R.string.history_outprioritized
+                AutomationCenter.skipConstraintUnmet.code -> R.string.history_constraint_unmet
                 AutomationCenter.skipRuleBusy.code -> R.string.history_rule_busy
                 else -> R.string.history_no_steps
             },

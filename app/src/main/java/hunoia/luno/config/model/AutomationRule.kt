@@ -90,6 +90,8 @@ object RuleStepKind {
     const val ACTION = "action"
     const val DELAY = "delay"
     const val IF = "if"
+    /** 规则局部变量：只在本次运行内有效，供后续参数模板 ${var.name} 使用。 */
+    const val SET_VAR = "setVar"
 }
 
 /** 节流策略类型：同上扁平。BOTH=冷却与窗口同时生效（通用编辑器派生）。 */
@@ -254,6 +256,10 @@ data class RuleStep(
     val condition: WhenGroup = WhenGroup(),
     val thenSteps: List<RuleStep> = emptyList(),
     val elseSteps: List<RuleStep> = emptyList(),
+    /** SET_VAR：变量名（不含 var. 前缀）。 */
+    val varName: String = "",
+    /** SET_VAR：值模板，支持 ${...} 与表达式。 */
+    val varTemplate: String = "",
 )
 
 /**
@@ -285,6 +291,8 @@ data class AutomationRule(
     /** 规则图标（IconPalette key，可为自定义文字；null=默认图标，老数据缺键解码无碍）。 */
     val iconKey: String? = null,
     val condition: WhenGroup,
+    /** 约束条件：触发边沿命中后必须同时满足才进入仲裁；空 = 不限制。 */
+    val constraints: WhenGroup = WhenGroup(),
     val effect: RuleEffect,
     val throttle: ThrottlePolicy = ThrottlePolicy(),
     val fireOn: FireMode = FireMode.ENTER,

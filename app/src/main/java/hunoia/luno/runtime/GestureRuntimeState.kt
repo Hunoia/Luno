@@ -44,8 +44,9 @@ data class GestureRuntimeState(
     val bluetoothChanged: hunoia.luno.config.model.ConnectionDirection? = null,
     val headphonesChanged: hunoia.luno.config.model.ConnectionDirection? = null,
     val scheduledTimeHit: Boolean = false,
-    /** 手势脉冲：本轮命中的按钮 id，无则 null。 */
+    /** 手势脉冲：本轮命中的按钮 id/名称，无则 null。 */
     val gesturePerformedId: String? = null,
+    val gesturePerformedName: String? = null,
     /** v3 脉冲：键盘弹出/收起、音乐启停、手电/勿扰开关变化。 */
     val keyboardEvent: KeyboardEventType? = null,
     val musicChanged: PlaybackDirection? = null,

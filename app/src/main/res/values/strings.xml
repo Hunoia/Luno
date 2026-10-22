@@ -568,9 +568,11 @@
     <string name="priority_medium">中</string>
     <string name="priority_low">低</string>
     <string name="automation_throttle">触发频率</string>
-    <string name="throttle_cooldown_hint">触发后多少秒内不再触发</string>
-    <string name="throttle_window_count">窗口内最多次数</string>
-    <string name="throttle_window_seconds">窗口秒数</string>
+    <string name="automation_constraints">约束条件</string>
+    <string name="automation_constraints_none">不限</string>
+    
+    <string name="throttle_window_count">最多（次）</string>
+    <string name="throttle_window_seconds">窗口（秒）</string>
     <string name="throttle_invalid">请输入有效数字</string>
     <string name="automation_steps">执行步骤</string>
     <string name="automation_steps_empty">至少添加一个步骤</string>
@@ -584,6 +586,12 @@
     <string name="step_add_action">添加动作</string>
     <string name="step_add_delay">添加延时</string>
     <string name="step_add_if">添加分支</string>
+    <string name="step_add_set_var">设置变量</string>
+    <string name="step_set_var">设置变量</string>
+    <string name="step_set_var_name">变量名</string>
+    <string name="step_set_var_value">值（支持 ${...} 模板）</string>
+    <string name="step_set_var_summary">%1$s = %2$s</string>
+    <string name="step_set_var_hint">后续动作参数里用 ${var.变量名} 引用；只在本次运行内有效</string>
     <string name="step_delay_seconds">延时秒数（≤60）</string>
     <string name="step_delay_summary">延时 %1$d 秒</string>
     <string name="step_if_then">满足时执行</string>
@@ -596,6 +604,7 @@
     <string name="history_throttled_cooldown">冷却中，跳过</string>
     <string name="history_throttled_window">窗口超限，跳过</string>
     <string name="history_outprioritized">被更高优先级规则取代，跳过</string>
+    <string name="history_constraint_unmet">约束条件不满足，跳过</string>
     <string name="history_rule_busy">规则运行中，跳过</string>
     <string name="history_interrupted">中断于步骤 %1$s</string>
     <string name="rule_never_run">从未触发</string>

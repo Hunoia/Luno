@@ -11,7 +11,6 @@ import hunoia.luno.config.model.RuleEffect
 import hunoia.luno.config.model.RulePriority
 import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.model.RuleStepKind
-import hunoia.luno.config.model.ThrottleKind
 import hunoia.luno.config.model.ThrottlePolicy
 import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.domain.automation.AutomationCenter
@@ -118,6 +117,11 @@ internal fun stepSummary(
     RuleStepKind.DELAY -> context.getString(R.string.step_delay_summary, step.delayMs / 1000)
     RuleStepKind.IF -> conditionSummary(context, step.condition) + " · " +
         context.getString(R.string.step_if_counts, step.thenSteps.size, step.elseSteps.size)
+    RuleStepKind.SET_VAR -> context.getString(
+        R.string.step_set_var_summary,
+        step.varName.ifBlank { context.getString(R.string.step_set_var_name) },
+        step.varTemplate.ifBlank { "-" },
+    )
     else -> {
         val label = step.action?.let {
             context.selectedItemLabel(it, emptyList(), library?.entries ?: emptyList(), rules)
@@ -150,18 +154,6 @@ internal fun isInvalidThrottle(throttle: ThrottlePolicy): Boolean {
     if (countSet != windowSet) return true
     if (windowSet && throttle.windowMs < 1000L) return true
     return false
-}
-
-/** 填了即生效：冷却/窗口各看各的值派生 kind（双填 BOTH，全空 OFF）。 */
-internal fun deriveThrottleKind(cooldownMs: Long, maxCount: Int, windowMs: Long): String {
-    val cooldownOn = cooldownMs > 0
-    val windowOn = maxCount > 0 && windowMs > 0
-    return when {
-        cooldownOn && windowOn -> ThrottleKind.BOTH
-        cooldownOn -> ThrottleKind.COOLDOWN
-        windowOn -> ThrottleKind.WINDOW
-        else -> ThrottleKind.OFF
-    }
 }
 
 internal fun conditionUsesNotification(group: WhenGroup): Boolean = group.items.any { item ->
@@ -208,9 +200,17 @@ internal fun WhenGroup.hasIncompleteCondition(): Boolean = items.any { item ->
 }
 
 /** 步骤树里是否有空/未配置完整的 IF 条件（含分支递归）。 */
+/** 变量名要与模板 token 的命名规则一致（不含 var. 前缀）。 */
+private val VarNamePattern = Regex("^[A-Za-z_][A-Za-z0-9_]*$")
+
+internal fun isValidVarName(name: String): Boolean = VarNamePattern.matches(name.trim())
+
 internal fun List<RuleStep>.hasIncompleteStepCondition(): Boolean = any { step ->
-    val self = step.kind == RuleStepKind.IF &&
-        (step.condition.items.isEmpty() || step.condition.hasIncompleteCondition())
+    val self = when (step.kind) {
+        RuleStepKind.IF -> step.condition.items.isEmpty() || step.condition.hasIncompleteCondition()
+        RuleStepKind.SET_VAR -> !isValidVarName(step.varName)
+        else -> false
+    }
     self || step.thenSteps.hasIncompleteStepCondition() || step.elseSteps.hasIncompleteStepCondition()
 }
 

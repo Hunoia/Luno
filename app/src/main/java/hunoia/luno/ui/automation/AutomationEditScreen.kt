@@ -73,11 +73,13 @@ import hunoia.luno.config.model.FireMode
 import hunoia.luno.config.model.RuleEffect
 import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.model.RuleStepKind
+import hunoia.luno.config.model.ThrottleKind
 import hunoia.luno.config.model.ThrottlePolicy
 import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.config.model.conditionAt
 import hunoia.luno.config.model.withConditionAt
 import hunoia.luno.core.JsonSerializer
+import hunoia.luno.ui.actionlibrary.TemplateTextField
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.navigation.NEW_AUTOMATION_RULE_ID
 import hunoia.luno.ui.theme.BottomBarPadding
@@ -136,6 +138,8 @@ fun AutomationEditScreen(
     var draft by rememberSaveable(ruleId, saver = AutomationRuleStateSaver) { mutableStateOf<AutomationRule?>(null) }
     var dirty by rememberSaveable(ruleId) { mutableStateOf(ruleId == NEW_AUTOMATION_RULE_ID) }
     var conditionSheetPath by remember { mutableStateOf<List<Int>?>(null) }
+    /** 当前条件 sheet 编辑的是触发条件还是约束条件（决定写回哪棵树）。 */
+    var conditionIsConstraint by remember { mutableStateOf(false) }
     var stepSheetPath by remember { mutableStateOf<String?>(null) }
     var stepTypePickerFor by remember { mutableStateOf<String?>(null) }
     var showBlockedDialog by remember { mutableStateOf(false) }
@@ -220,6 +224,7 @@ fun AutomationEditScreen(
     }
     val hasCondition = AutomationCenter.hasLeafOf(rule.condition)
     val conditionIncomplete = rule.condition.hasIncompleteCondition() ||
+        rule.constraints.hasIncompleteCondition() ||
         rule.effect.steps.hasIncompleteStepCondition()
     val stepsEmpty = rule.effect.steps.isEmpty()
     val throttleInvalid = isInvalidThrottle(rule.throttle)
@@ -320,15 +325,30 @@ fun AutomationEditScreen(
         },
         sheets = {
             conditionSheetPath?.let { path ->
-                rule.condition.conditionAt(path)?.let { item ->
+                val inConstraints = conditionIsConstraint
+                val owner = if (inConstraints) rule.constraints else rule.condition
+                owner.conditionAt(path)?.let { item ->
                     ConditionSheet(
                         item = item,
+                        stateOnly = inConstraints,
                         onDismissRequest = { conditionSheetPath = null },
                         onConditionChange = { changed ->
-                            update(rule.copy(condition = rule.condition.withConditionAt(path) { changed }))
+                            update(
+                                if (inConstraints) {
+                                    rule.copy(constraints = rule.constraints.withConditionAt(path) { changed })
+                                } else {
+                                    rule.copy(condition = rule.condition.withConditionAt(path) { changed })
+                                },
+                            )
                         },
                         onDelete = {
-                            update(rule.copy(condition = removeConditionAt(rule.condition, path)))
+                            update(
+                                if (inConstraints) {
+                                    rule.copy(constraints = removeConditionAt(rule.constraints, path))
+                                } else {
+                                    rule.copy(condition = removeConditionAt(rule.condition, path))
+                                },
+                            )
                             conditionSheetPath = null
                         },
                     )
@@ -450,7 +470,10 @@ fun AutomationEditScreen(
             ConditionGroupEditor(
                 group = rule.condition,
                 onGroupChange = { update(rule.copy(condition = it)) },
-                onEditItem = { conditionSheetPath = it },
+                onEditItem = {
+                    conditionIsConstraint = false
+                    conditionSheetPath = it
+                },
                 fireMode = if (conditionHasState) rule.fireOn else null,
                 onFireChange = if (conditionHasState) {
                     { mode: FireMode -> update(rule.copy(fireOn = mode)) }
@@ -488,7 +511,30 @@ fun AutomationEditScreen(
             )
         }
         LunoGroup(
+            title = stringResource(R.string.automation_constraints),
+            badgeText = if (rule.constraints.items.isEmpty()) {
+                stringResource(R.string.automation_constraints_none)
+            } else {
+                stringResource(R.string.condition_group_count, rule.constraints.items.size)
+            },
+            badgeError = rule.constraints.hasIncompleteCondition(),
+        ) {
+            ConditionGroupEditor(
+                group = rule.constraints,
+                onGroupChange = { update(rule.copy(constraints = it)) },
+                onEditItem = {
+                    conditionIsConstraint = true
+                    conditionSheetPath = it
+                },
+                // 约束是「此刻适用性」：只给状态类条件，脉冲条件没有意义。
+                stateOnly = true,
+                emptyIsValid = true,
+            )
+        }
+        LunoGroup(
             title = stringResource(R.string.automation_throttle),
+            // 组内首项是裸输入框，上方没有其他组那种等高容器边，缩小标题下间距使视觉一致。
+            titleBottomSpacing = CardInnerSpacing,
             badgeText = stringResource(R.string.throttle_invalid).takeIf { throttleInvalid },
             badgeError = throttleInvalid,
         ) {
@@ -631,6 +677,7 @@ private fun StepRow(
         title = when (step.kind) {
             RuleStepKind.DELAY -> stringResource(R.string.step_delay)
             RuleStepKind.IF -> stringResource(R.string.step_if)
+            RuleStepKind.SET_VAR -> stringResource(R.string.step_set_var)
             else -> stringResource(R.string.step_action)
         },
         subtitle = stepSummary(context, library, step, rules),
@@ -662,6 +709,10 @@ private fun ConditionGroupEditor(
     groupLabel: String? = null,
     // 类型选择器外置（sheet 内嵌编辑器时用）：传 null 走内部 picker，传 host 走外部。
     pickerHost: ((List<Int>) -> Unit)? = null,
+    /** 约束条件：只允许状态类条件，隐藏脉冲/手动类型与状态↔变化切换。 */
+    stateOnly: Boolean = false,
+    /** 顶层约束组允许为空（= 不限制），空组不标红。 */
+    emptyIsValid: Boolean = false,
 ) {
     val context = LocalContext.current
     var showPicker by remember { mutableStateOf(false) }
@@ -672,7 +723,7 @@ private fun ConditionGroupEditor(
             badge = {
                 TimelineBadge(
                     text = group.items.size.toString(),
-                    error = group.items.isEmpty(),
+                    error = group.items.isEmpty() && !emptyIsValid,
                 )
             },
         ) {
@@ -748,6 +799,7 @@ private fun ConditionGroupEditor(
                             basePath = path,
                             depth = depth + 1,
                             groupLabel = context.getString(R.string.condition_group_number, index + 1),
+                            stateOnly = stateOnly,
                             onDeleteSelf = {
                                 val items = group.items.toMutableList()
                                 items.removeAt(index)
@@ -832,6 +884,8 @@ private fun ConditionGroupEditor(
                 onGroupChange(group.copy(items = group.items + defaultConditionOf(type)))
                 showPicker = false
             },
+            includeManual = !stateOnly,
+            stateOnly = stateOnly,
         )
     }
 }
@@ -854,6 +908,8 @@ private fun ConditionSheet(
     onDismissRequest: () -> Unit,
     onConditionChange: (ConditionItem) -> Unit,
     onDelete: () -> Unit,
+    /** 约束条件只允许状态类，不提供「状态/变化」切换。 */
+    stateOnly: Boolean = false,
 ) {
     val context = LocalContext.current
     LunoSheet(
@@ -869,7 +925,8 @@ private fun ConditionSheet(
                 verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
             ) {
                 // 成对条件（充电/耳机/音乐/手电/勿扰/前台应用）：状态↔变化切换。
-                val isPaired = item.type in PAIRED_CONDITION_TYPES || item.type in PAIRED_STATE_TYPES
+                val isPaired = !stateOnly &&
+                    (item.type in PAIRED_CONDITION_TYPES || item.type in PAIRED_STATE_TYPES)
                 if (isPaired) {
                     val isChange = item.type in PAIRED_CONDITION_TYPES.values
                     ConditionModeToggle(
@@ -938,6 +995,7 @@ private fun StepSheet(
             SheetHeader(
                 title = when (step.kind) {
                     RuleStepKind.DELAY -> stringResource(R.string.step_delay)
+                    RuleStepKind.SET_VAR -> stringResource(R.string.step_set_var)
                     else -> stringResource(R.string.step_if)
                 },
             )
@@ -963,6 +1021,38 @@ private fun StepSheet(
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             shape = LargeShape,
+                        )
+                    }
+                    RuleStepKind.SET_VAR -> {
+                        var name by remember(step.varName) { mutableStateOf(step.varName) }
+                        OutlinedTextField(
+                            value = name,
+                            onValueChange = {
+                                name = it
+                                onStepChange(step.copy(varName = it))
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text(stringResource(R.string.step_set_var_name)) },
+                            singleLine = true,
+                            isError = !isValidVarName(name),
+                            shape = LargeShape,
+                        )
+                        var template by remember(step.varTemplate) { mutableStateOf(step.varTemplate) }
+                        TemplateTextField(
+                            value = template,
+                            onValueChange = {
+                                template = it
+                                onStepChange(step.copy(varTemplate = it))
+                            },
+                            label = stringResource(R.string.step_set_var_value),
+                            isError = false,
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Text(
+                            text = stringResource(R.string.step_set_var_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     else -> {
@@ -1045,6 +1135,7 @@ private fun StepTypeSheet(
                 RuleStepKind.ACTION to R.string.step_add_action,
                 RuleStepKind.DELAY to R.string.step_add_delay,
                 RuleStepKind.IF to R.string.step_add_if,
+                RuleStepKind.SET_VAR to R.string.step_add_set_var,
             ).forEach { (kind, labelRes) ->
                 LunoSettingsRow(
                     title = stringResource(labelRes),
@@ -1066,62 +1157,70 @@ private fun fireModeLabel(mode: FireMode): String = stringResource(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ThrottleEditor(throttle: ThrottlePolicy, onThrottleChange: (ThrottlePolicy) -> Unit) {
-    var cooldownText by remember(throttle.cooldownMs) {
-        mutableStateOf(if (throttle.cooldownMs > 0) (throttle.cooldownMs / 1000).toString() else "")
+    // 旧数据里只填了冷却（cooldownMs）的规则，等价于「窗口内最多 1 次」。
+    val initialCount = when {
+        throttle.maxCount > 0 -> throttle.maxCount
+        throttle.cooldownMs > 0 -> 1
+        else -> 0
     }
-    var countText by remember(throttle.maxCount) {
-        mutableStateOf(if (throttle.maxCount > 0) throttle.maxCount.toString() else "")
+    val initialWindowMs = when {
+        throttle.windowMs > 0 -> throttle.windowMs
+        throttle.cooldownMs > 0 -> throttle.cooldownMs
+        else -> 0L
     }
-    var windowText by remember(throttle.windowMs) {
-        mutableStateOf(if (throttle.windowMs > 0) (throttle.windowMs / 1000).toString() else "")
+    var countText by remember(throttle.maxCount, throttle.cooldownMs) {
+        mutableStateOf(if (initialCount > 0) initialCount.toString() else "")
     }
-    fun submit(cooldownMs: Long = throttle.cooldownMs, maxCount: Int = throttle.maxCount, windowMs: Long = throttle.windowMs) {
-        onThrottleChange(throttle.copy(
-            kind = deriveThrottleKind(cooldownMs, maxCount, windowMs),
-            cooldownMs = cooldownMs,
-            maxCount = maxCount,
-            windowMs = windowMs,
-        ))
+    var windowText by remember(throttle.windowMs, throttle.cooldownMs) {
+        mutableStateOf(if (initialWindowMs > 0) (initialWindowMs / 1000).toString() else "")
     }
-    OutlinedTextField(
-        value = cooldownText,
-        onValueChange = {
-            cooldownText = it
-            if (it.isBlank()) submit(cooldownMs = 0L)
-            else it.toLongOrNull()?.let { s -> submit(cooldownMs = s * 1000) }
-        },
-        modifier = Modifier.fillMaxWidth(),
-        label = { Text(stringResource(R.string.throttle_cooldown_hint)) },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        shape = LargeShape,
-    )
-        OutlinedTextField(
-            value = countText,
-            onValueChange = {
-                countText = it
-                if (it.isBlank()) submit(maxCount = 0)
-                else it.toIntOrNull()?.let { n -> submit(maxCount = n) }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text(stringResource(R.string.throttle_window_count)) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            shape = LargeShape,
+    fun submit(maxCount: Int, windowMs: Long) {
+        val kind = when {
+            maxCount <= 0 || windowMs <= 0 -> ThrottleKind.OFF
+            maxCount == 1 -> ThrottleKind.COOLDOWN
+            else -> ThrottleKind.WINDOW
+        }
+        onThrottleChange(
+            ThrottlePolicy(
+                kind = kind,
+                // 1 次即冷却：运行时继续走 cooldown 分支，语义与窗口一致。
+                cooldownMs = if (maxCount == 1 && windowMs > 0) windowMs else 0L,
+                maxCount = maxCount,
+                windowMs = windowMs,
+            ),
         )
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+    ) {
         OutlinedTextField(
             value = windowText,
             onValueChange = {
                 windowText = it
-                if (it.isBlank()) submit(windowMs = 0L)
-                else it.toLongOrNull()?.let { s -> submit(windowMs = s * 1000) }
+                val count = countText.toIntOrNull() ?: 0
+                submit(count, it.toLongOrNull()?.times(1000) ?: 0L)
             },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.weight(1f),
             label = { Text(stringResource(R.string.throttle_window_seconds)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             shape = LargeShape,
         )
+        OutlinedTextField(
+            value = countText,
+            onValueChange = {
+                countText = it
+                val windowMs = (windowText.toLongOrNull() ?: 0L) * 1000L
+                submit(it.toIntOrNull() ?: 0, windowMs)
+            },
+            modifier = Modifier.weight(1f),
+            label = { Text(stringResource(R.string.throttle_window_count)) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            shape = LargeShape,
+        )
+    }
 }
 @Composable
 private fun NotificationPermissionRow() {

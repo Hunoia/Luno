@@ -25,6 +25,8 @@ fun ConditionTypePickerSheet(
     onPick: (String) -> Unit,
     /** IF 步骤条件不允许 MANUAL（恒假死分支），选择页传 false 隐藏手动分组。 */
     includeManual: Boolean = true,
+    /** 约束条件只列状态类条件：脉冲/变化类型在约束里没有意义。 */
+    stateOnly: Boolean = false,
 ) {
     LunoSheet(
         onDismissRequest = onDismissRequest,
@@ -52,20 +54,22 @@ fun ConditionTypePickerSheet(
                         shape = segmentedShape(index, LEVEL_CONDITION_TYPES.size),
                     )
                 }
-                item(key = "group_event") {
-                    SheetGroupHeader(stringResource(R.string.condition_event_group))
+                if (!stateOnly) {
+                    item(key = "group_event") {
+                        SheetGroupHeader(stringResource(R.string.condition_event_group))
+                    }
+                    itemsIndexed(items = EVENT_PICKER_TYPES, key = { _, spec -> "type_${spec.type}" }) { index, spec ->
+                        LunoSettingsRow(
+                            title = stringResource(spec.labelRes),
+                            onClick = {
+                                onPick(spec.type)
+                                onDismissRequest()
+                            },
+                            shape = segmentedShape(index, EVENT_PICKER_TYPES.size),
+                        )
+                    }
                 }
-                itemsIndexed(items = EVENT_PICKER_TYPES, key = { _, spec -> "type_${spec.type}" }) { index, spec ->
-                    LunoSettingsRow(
-                        title = stringResource(spec.labelRes),
-                        onClick = {
-                            onPick(spec.type)
-                            onDismissRequest()
-                        },
-                        shape = segmentedShape(index, EVENT_PICKER_TYPES.size),
-                    )
-                }
-                if (includeManual) {
+                if (includeManual && !stateOnly) {
                     item(key = "group_manual") {
                         SheetGroupHeader(stringResource(R.string.condition_manual_group))
                     }

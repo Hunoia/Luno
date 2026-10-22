@@ -41,15 +41,24 @@ sealed interface StepOutcome {
  * delay 等上一步真正落定之后；每条规则独立协程跑一份。
  */
 class SequenceExecutor(
-    private val runSingleAction: suspend (action: StoredAction, ctx: ConditionContext) -> StepOutcome,
+    private val runSingleAction: suspend (action: StoredAction, ctx: ConditionContext, variables: Map<String, String>) -> StepOutcome,
+    /** 解析 SET_VAR 的值模板：系统/触发变量 + 本次运行已写入的局部变量。 */
+    private val resolveTemplate: suspend (text: String, ctx: ConditionContext, variables: Map<String, String>) -> String,
 ) {
-    suspend fun runSteps(steps: List<RuleStep>, ctx: ConditionContext): List<StepRecord> {
-        val runner = Runner(ctx)
+    suspend fun runSteps(
+        steps: List<RuleStep>,
+        ctx: ConditionContext,
+        variables: MutableMap<String, String> = mutableMapOf(),
+    ): List<StepRecord> {
+        val runner = Runner(ctx, variables)
         runner.runList(steps.take(SequenceGuards.MAX_STEPS), prefix = "", depth = 0)
         return runner.records
     }
 
-    private inner class Runner(val ctx: ConditionContext) {
+    private inner class Runner(
+        val ctx: ConditionContext,
+        val variables: MutableMap<String, String>,
+    ) {
         val records = mutableListOf<StepRecord>()
         var totalDelayMs = 0L
         var interrupted = false
@@ -61,6 +70,7 @@ class SequenceExecutor(
                 when (step.kind) {
                     RuleStepKind.DELAY -> runDelay(step, index)
                     RuleStepKind.IF -> runIf(step, index, depth)
+                    RuleStepKind.SET_VAR -> runSetVar(step, index)
                     else -> runAction(step, index)
                 }
             }
@@ -82,6 +92,33 @@ class SequenceExecutor(
                 throw e
             }
             records += StepRecord(index, RuleStepKind.DELAY, ok = true, message = "${ms}ms")
+        }
+
+        suspend fun runSetVar(step: RuleStep, index: String) {
+            val name = step.varName.trim()
+            if (name.isEmpty()) {
+                records += StepRecord(index, RuleStepKind.SET_VAR, ok = false, message = "var_name_empty")
+                interrupted = true
+                return
+            }
+            val value = try {
+                resolveTemplate(step.varTemplate, ctx, variables.toMap())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                records += StepRecord(
+                    index, RuleStepKind.SET_VAR, ok = false,
+                    message = (e.message ?: e.javaClass.name).take(120),
+                )
+                interrupted = true
+                return
+            }
+            // 局部变量只在本次运行内有效；写成 var.<name> 与系统变量同形，模板扫描无需特殊分支。
+            variables["var.$name"] = value
+            records += StepRecord(
+                index, RuleStepKind.SET_VAR, ok = true,
+                message = "var.$name=${value.take(80)}",
+            )
         }
 
         suspend fun runIf(step: RuleStep, index: String, depth: Int) {
@@ -117,7 +154,7 @@ class SequenceExecutor(
                     SequenceGuards.MAX_ACTION_MS
                 }
                 val outcome = withTimeoutOrNull(timeoutMs) {
-                    runSingleAction(action, ctx)
+                    runSingleAction(action, ctx, variables.toMap())
                 }
                 if (outcome == null) {
                     records += StepRecord(index, RuleStepKind.ACTION, ok = false, message = "action_timeout")
