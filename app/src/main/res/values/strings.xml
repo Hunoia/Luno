@@ -599,6 +599,8 @@
     <string name="history_rule_busy">规则运行中，跳过</string>
     <string name="history_interrupted">中断于步骤 %1$s</string>
     <string name="rule_never_run">从未触发</string>
+    <string name="rule_disabled">已停用</string>
+    <string name="rule_change_icon">更换图标</string>
     <string name="automation_delete_title">删除规则</string>
     <string name="automation_delete_text">删除后该规则立即停止运行，不可恢复。</string>
     <string name="notify_permission_title">通知访问权限</string>
