@@ -58,6 +58,7 @@ import hunoia.luno.ui.theme.BottomBarHeight
 import hunoia.luno.ui.theme.BottomBarIconSize
 import hunoia.luno.ui.theme.BottomBarTabWidth
 import hunoia.luno.ui.theme.TileInnerPadding
+import hunoia.luno.ui.theme.appGlassOutline
 import hunoia.luno.ui.theme.appHazeEffect
 import dev.chrisbanes.haze.HazeState
 import kotlin.math.abs
@@ -264,6 +265,7 @@ fun <T> FloatingBottomBar(
                     // clip 在 haze 之外：方形糊输出裁成胶囊（只裁绘制，不影响采样）。
                     .clip(pillShape)
                     .appHazeEffect(hazeState, hazeBackground)
+                    .appGlassOutline(pillShape)
                     .then(dampedDragAnimation.modifier)
                     .height(BottomBarHeight + TileInnerPadding * 2)
                     .padding(TileInnerPadding),

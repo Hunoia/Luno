@@ -1,11 +1,13 @@
 package hunoia.luno.ui.theme
 
+import androidx.compose.foundation.border
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeProgressive
@@ -21,6 +23,9 @@ val GlassBlurRadius: Dp = HazeBlurRadius
 
 /** 顶栏 Haze 底色透明度；过高会发奶白。 */
 const val TopBarHazeAlpha = 0.5f
+
+/** 玻璃胶囊描边透明度：只补轮廓，不抢内容。 */
+const val GlassOutlineAlpha = 0.35f
 
 /** 屏幕级 Haze 状态：内容层 hazeSource，TopBar/底栏 hazeEffect，共用同一实例。 */
 @Composable
@@ -49,6 +54,17 @@ fun Modifier.appHazeEffect(
         this.mask = mask
     }
 }
+
+/**
+ * 玻璃胶囊发丝描边：Haze 叠在滚动内容上时边缘容易糊掉，补一圈极淡的轮廓。
+ * 主页底栏与动作选择页底栏共用，保证两颗胶囊观感一致。
+ */
+@Composable
+fun Modifier.appGlassOutline(shape: Shape): Modifier = border(
+    width = 1.dp,
+    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = GlassOutlineAlpha),
+    shape = shape,
+)
 
 /** 底部羽化蒙版：糊＋底一起从顶部全显渐隐到底部透明。 */
 @Composable

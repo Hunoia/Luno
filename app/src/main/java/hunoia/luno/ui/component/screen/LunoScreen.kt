@@ -95,8 +95,12 @@ fun LunoScreen(
 /**
  * 全屏内容模板：骨架同 [LunoScreen]，但内容容器由调用方自己拼，用于内容本身是
  * 滚动容器、内部还嵌 `weight(1f)` 列表的页面（动作选择页）——另两个模板的容器
- * 都带滚动或撑不满。模板负责 Scaffold / TopBar / haze / `nestedScroll`，把 top padding
- * 与 [HazeState] 交给调用方决定留白与 in-flow 底栏的 Haze 底。
+ * 都带滚动或撑不满。模板负责 Scaffold / TopBar / `nestedScroll`，把 top padding
+ * 与 [HazeState] 交给调用方。
+ *
+ * 注意：模板**不**给内容层挂 `appHazeSource`。调用方要把滚动内容自己标成 source，
+ * 悬浮底栏才能作为它的**兄弟**节点画 hazeEffect —— 把 effect 嵌在 source 里会采到
+ * 自己，胶囊底看起来像完全透明（主页 HomeShell 也是同样的兄弟结构）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -135,7 +139,6 @@ fun LunoScreenPlain(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .appHazeSource(hazeState)
                     .nestedScroll(scrollBehavior.nestedScrollConnection),
             ) {
                 content(padding.calculateTopPadding(), hazeState)

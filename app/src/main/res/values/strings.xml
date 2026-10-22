@@ -348,6 +348,7 @@
     <string name="search_hint_all">搜索</string>
 
     <string name="search_clear_cd">清除</string>
+    <string name="search_collapse_cd">收起搜索</string>
     <string name="invalid_url">链接格式不正确</string>
     <string name="launch_failed">启动失败</string>
     <string name="launch_no_handler">没有可处理该链接的应用</string>
@@ -371,6 +372,7 @@
     <string name="home_section_data">数据管理</string>
     <string name="action_settings">动作设置</string>
     <string name="action_library">动作库</string>
+    <string name="action_library_and_rules">库与规则</string>
     <string name="action_library_empty">暂无动作库条目</string>
     <string name="action_library_entry_name">条目名称</string>
     <string name="action_library_entry_name_hint">请输入名称</string>

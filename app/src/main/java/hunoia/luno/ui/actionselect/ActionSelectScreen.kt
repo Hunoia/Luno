@@ -259,12 +259,12 @@ fun ActionSelectContent(
                     Box(modifier = Modifier.fillMaxSize()) {
                         ActionPage(
                             modifier = Modifier.fillMaxSize(),
-                            // 行组件统一贴边，左右 gutter 由列表容器提供
+                            // 行组件统一贴边，左右 gutter 由列表容器提供；
+                            // 底部留白不平：悬浮底栏的高度由 ActionPage 实测后自己补。
                             contentPadding = PaddingValues(
                                 start = PageGutter,
                                 end = PageGutter,
                                 top = topPadding,
-                                bottom = ContentBottom,
                             ),
                             actions = uiState.actions,
                             actionLibraryEntries = uiState.actionLibraryEntries,
@@ -277,7 +277,8 @@ fun ActionSelectContent(
                             launchShortcuts = uiState.launchShortcuts,
                             selectedRecord = uiState.selectedRecord,
                             permissionState = permissionState,
-                            // 点一行即存即返回，没有底栏、没有完成键、没有多选中间态。
+                            hazeState = hazeState,
+                            // 底栏只承载 chip 与搜索；点一行仍即存即返回，没有完成键、没有多选中间态。
                             onSelect = { action -> vm.select(action) },
                             onUpdateAction = { old, new -> vm.updateActionParams(old, new) },
                             onSelectLibraryEntry = { entry -> vm.select(entry) },
