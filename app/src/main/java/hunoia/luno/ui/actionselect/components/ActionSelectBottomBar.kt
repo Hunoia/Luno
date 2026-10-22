@@ -125,12 +125,36 @@ internal fun ActionSelectBottomBar(
     var searchExpanded by rememberSaveable { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
+    val density = LocalDensity.current
+    // 派生状态：键盘升降过程中 IME inset 每帧都在变，只在「可见/不可见」翻转时触发组合，
+    // 不跟着键盘动画逐帧重组整条底栏。
+    val imeInsets = WindowInsets.ime
+    val imeVisible by remember(density, imeInsets) {
+        derivedStateOf { imeInsets.getBottom(density) > 0 }
+    }
+    // 点 × 后：先收键盘，等 IME 真正收起再换内容 + 清 query。
+    // 三件事挤在同一段动画里会互相踩：键盘下滑（逐帧改 inset 与列表底部留白）、
+    // AnimatedContent 换行、清空 query 后列表恢复全量内容，表现为明显卡一下。
+    var collapsePending by remember { mutableStateOf(false) }
 
     // 收起 = 连查询一起清掉：搜索框藏起来后还留着筛选条件，用户看不见也清不掉。
     fun closeSearch() {
-        searchExpanded = false
-        onQueryChange("")
-        keyboard?.hide()
+        if (imeVisible) {
+            collapsePending = true
+            keyboard?.hide()
+        } else {
+            collapsePending = false
+            onQueryChange("")
+            searchExpanded = false
+        }
+    }
+
+    LaunchedEffect(collapsePending, imeVisible) {
+        if (collapsePending && !imeVisible) {
+            collapsePending = false
+            onQueryChange("")
+            searchExpanded = false
+        }
     }
 
     // 系统返回先收搜索框，否则输入到一半会直接退出选择页。

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -26,6 +27,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEachIndexed
 import com.aaron.compose.ktx.onSingleClick
 import hunoia.luno.R
@@ -183,6 +186,9 @@ private fun GestureSection(
                     imageVector = Icons.Filled.Add,
                     contentDescription = addContentDescription,
                     onClick = onAdd,
+                    // 分组头右侧空间充足：放大命中区（原 24dp 太小）与图标，去掉点击高亮
+                    touchSize = 40.dp,
+                    iconSize = 20.dp,
                 )
             },
         )
@@ -228,19 +234,25 @@ private fun SmallIconAction(
     imageVector: ImageVector,
     contentDescription: String,
     onClick: () -> Unit,
+    touchSize: Dp = RowIconSize,
+    iconSize: Dp = BadgeIconSize,
 ) {
-    // 视觉与触控都保持 24dp：本行的铅笔与颜色圆间距仅 8dp，两个 48dp 目标无法共存
-    // （要么撑大行宽把图标挤出对齐轴，要么命中区互相争抢）。
+    // 铅笔与颜色圆间距仅 8dp，两个 48dp 目标无法共存：行内图标保持 24dp，
+    // 分组头右侧的添加按钮由调用方传更大的 touchSize。
+    // 统一关 ripple：行本身已经 indication = null，图标再亮一下会显得脏。
     Box(
         modifier = Modifier
-            .size(RowIconSize)
-            .onSingleClick { onClick() },
+            .size(touchSize)
+            .onSingleClick(enableRipple = false) { onClick() },
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = imageVector,
             contentDescription = contentDescription,
-            modifier = Modifier.size(BadgeIconSize),
+            // 命中区放大后图标仍要与行尾箭头对齐：把多出来的边距补到右侧
+            modifier = Modifier
+                .size(iconSize)
+                .offset(x = (touchSize - RowIconSize) / 2),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }

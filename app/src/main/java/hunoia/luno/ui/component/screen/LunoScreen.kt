@@ -18,6 +18,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
@@ -215,7 +218,13 @@ fun LunoScreenLazy(
 @Composable
 private fun ClearFocusWhenImeHidden() {
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
-    val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    val density = LocalDensity.current
+    val imeInsets = WindowInsets.ime
+    // 派生状态：IME inset 在键盘动画期间逐帧变化，直接读会让整个屏幕逐帧重组，
+    // 只在「可见/不可见」翻转时触发。
+    val imeVisible by remember(density, imeInsets) {
+        derivedStateOf { imeInsets.getBottom(density) > 0 }
+    }
     LaunchedEffect(imeVisible) {
         if (!imeVisible) focusManager.clearFocus()
     }
