@@ -1,11 +1,14 @@
 package hunoia.luno.ui.home
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -123,10 +126,17 @@ fun HomeRuntimeStatusCard(
                     )
                 }
             }
-            // 标题/描述随状态淡入淡出：primaryIssue 在同 level 内变化（如 Shizuku 子状态）也能刷新。
+            // 标题/描述随状态做「向上滚动 + 淡入淡出」：
+            // - contentKey 只取 level/primaryIssue，同文案的状态对象变化不再触发一次淡入淡出；
+            // - clip=false 避免过渡中文字被裁切；单向位移比交叉淡入更稳，不会视觉闪烁。
             AnimatedContent(
                 targetState = runtimeStatus,
-                transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(150)) },
+                contentKey = { status -> status.level to status.primaryIssue },
+                transitionSpec = {
+                    ((fadeIn(tween(220)) + slideInVertically(tween(220)) { height -> height / 3 }) togetherWith
+                        (fadeOut(tween(140)) + slideOutVertically(tween(140)) { height -> -height / 3 }))
+                        .using(SizeTransform(clip = false))
+                },
                 label = "statusText",
                 modifier = Modifier
                     .weight(1f)

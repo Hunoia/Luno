@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,11 +38,13 @@ import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.gridpanel.geometry.gridPanelVisibleRows
 import hunoia.luno.config.model.withGeometry
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.screen.LunoScreenLazy
+import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.PageGutter
@@ -65,6 +68,7 @@ fun GridPanelEditScreen(
         android.content.res.Configuration.ORIENTATION_LANDSCAPE
     var loaded by remember { mutableStateOf(false) }
     var panel by remember(panelId) { mutableStateOf<GridPanel?>(null) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     LaunchedEffect(panelId) {
         TuneConfig.action.collect { settings ->
             panel = settings.actionGridPanels.panelById(panelId)
@@ -198,6 +202,38 @@ fun GridPanelEditScreen(
         title = current.name.ifBlank { stringResource(R.string.grid_panel_unnamed) },
         onBack = onBack,
         state = rememberLazyListState(),
+        actions = {
+            // 删除从列表页移到编辑页右上角：带确认，删后返回。
+            LunoIconButton(
+                icon = Icons.Outlined.Delete,
+                contentDescription = stringResource(R.string.delete),
+                onClick = { showDeleteConfirm = true },
+            )
+        },
+        dialogs = {
+            if (showDeleteConfirm) {
+                ConfirmDialog(
+                    onDismissRequest = { showDeleteConfirm = false },
+                    title = stringResource(R.string.grid_panel_delete_title),
+                    text = stringResource(
+                        R.string.action_panel_delete_desc,
+                        current.name.ifBlank { stringResource(R.string.grid_panel_unnamed) },
+                    ),
+                    confirmLabel = stringResource(R.string.delete),
+                    destructive = true,
+                    onConfirm = {
+                        showDeleteConfirm = false
+                        scope.launch {
+                            TuneConfig.updateAction { settings ->
+                                settings.copy(actionGridPanels = settings.actionGridPanels.withoutPanel(panelId))
+                            }
+                            hunoia.luno.domain.gridpanel.PanelResources.cleanup()
+                            onBack()
+                        }
+                    },
+                )
+            }
+        },
     ) {
         item {
             OutlinedTextField(

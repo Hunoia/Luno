@@ -19,6 +19,13 @@ import kotlinx.coroutines.launch
 
 abstract class HomeVMBase : BaseComposeVM<UiState, UiEvent>() {
 
+    /**
+     * 配置流是否已完成首次同步。首帧之后不再用持久化值覆盖内存中的手势开关，
+     * 否则开启链路里 KeepAlive 等配置写入触发 combine 重发时，会把乐观置为 true
+     * 的开关短暂改回旧的 false（开关闪一下）。
+     */
+    private var hasLoadedGestureSwitch = false
+
     fun updatePermissionState() {
         viewModelScope.launch {
             val state = PermissionStateUseCase.loadHomePermissionState(AppContext.get())
@@ -95,8 +102,14 @@ abstract class HomeVMBase : BaseComposeVM<UiState, UiEvent>() {
                 )
             }
             combine(gestureData, runtimeData) { gesture, runtime ->
+                val switchEnabled = if (hasLoadedGestureSwitch) {
+                    uiState.isGestureSwitchEnabled
+                } else {
+                    gesture.initialSettings.gestureEnabled
+                }
+                hasLoadedGestureSwitch = true
                 uiState.copy(
-                    isGestureSwitchEnabled = gesture.initialSettings.gestureEnabled,
+                    isGestureSwitchEnabled = switchEnabled,
                     gestureButtons = gesture.gestureButtons.sortedBy { it.id },
                     subGestures = gesture.subGestureSettings.subGestures,
                     isKeepAliveEnabled = runtime.advancedSettings.keepAliveEnabled,

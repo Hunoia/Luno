@@ -55,6 +55,10 @@ data object ActionSettings
 
 @Keep
 @Serializable
+data object RecentAppsBlocklist
+
+@Keep
+@Serializable
 data object ActionPanelList
 
 @Keep

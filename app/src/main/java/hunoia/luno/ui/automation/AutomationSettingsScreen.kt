@@ -216,6 +216,7 @@ private fun RuleCard(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                         shape = LargeShape,
                         tonalElevation = ElevationSmall,
+                        shadowElevation = 0.dp,
                     ) {
                         listOf(RulePriority.HIGH, RulePriority.MEDIUM, RulePriority.LOW).forEach { priority ->
                             CheckDropdownMenuItem(

@@ -299,6 +299,14 @@ fun HomeScreen(
                                     },
                                 shape = FloatingActionButtonDefaults.shape,
                                 containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                // 不用 M3 默认 elevation：原生阴影放在带 alpha 的 graphicsLayer
+                                // 里会按矩形光栅化，显隐时 FAB 底部两角会短暂变成直角。
+                                elevation = FloatingActionButtonDefaults.elevation(
+                                    defaultElevation = 0.dp,
+                                    pressedElevation = 0.dp,
+                                    focusedElevation = 0.dp,
+                                    hoveredElevation = 0.dp,
+                                ),
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Add,
@@ -472,6 +480,7 @@ private fun LibraryTypeMenu(
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         shape = LargeShape,
         tonalElevation = ElevationSmall,
+        shadowElevation = 0.dp,
     ) {
         grouped.forEach { def ->
             DropdownMenuItem(

@@ -212,8 +212,18 @@ class HomeVM : HomeVMBase() {
         }
     }
 
+    /**
+     * 提交手势开关状态。开启时同步把无障碍标记为可用：
+     * 无障碍开启走 Settings.Secure 直写，没有可观察的 flow，若不在此时刷新，
+     * 状态卡片会一直停留在「暂不可用」，直到下次 ON_RESUME 重新读取权限状态。
+     */
     private fun commitGestureSwitch(enabled: Boolean) {
-        updateUiState { it.copy(isGestureSwitchEnabled = enabled).withRuntimeStatus() }
+        updateUiState {
+            it.copy(
+                isGestureSwitchEnabled = enabled,
+                isAccessibilityEnabled = if (enabled) true else it.isAccessibilityEnabled,
+            ).withRuntimeStatus()
+        }
         saveGestureSwitchEnabled(enabled)
     }
 

@@ -35,6 +35,7 @@ import hunoia.luno.ui.navigation.GestureButtonSettings
 
 import hunoia.luno.ui.navigation.Home
 import hunoia.luno.ui.navigation.ActionSettings
+import hunoia.luno.ui.navigation.RecentAppsBlocklist
 import hunoia.luno.ui.navigation.ActionPanelList
 import hunoia.luno.ui.navigation.ActionPanelEdit
 import hunoia.luno.ui.navigation.GridPanelList
@@ -54,6 +55,7 @@ import hunoia.luno.ui.actionlibrary.NewActionLibraryEditScreen
 import hunoia.luno.ui.automation.AutomationEditScreen
 import hunoia.luno.ui.automation.AutomationHistoryScreen
 import hunoia.luno.ui.settings.action.ActionSettingsScreen
+import hunoia.luno.ui.settings.action.RecentAppsBlocklistScreen
 import hunoia.luno.ui.settings.action.MiniWindowAdjustScreen
 import hunoia.luno.ui.settings.floatball.FloatBallEditScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelEditScreen
@@ -153,7 +155,13 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onBack = { navController.popBackStack() },
                         onNavToActionPanels = { navController.navigate(ActionPanelList) },
                         onNavToGridPanels = { navController.navigate(GridPanelList) },
+                        onNavToRecentAppsBlocklist = { navController.navigate(RecentAppsBlocklist) },
                         onNavToMiniWindowAdjust = { navController.navigate(MiniWindowAdjust) },
+                    )
+                }
+                myComposable<RecentAppsBlocklist> {
+                    RecentAppsBlocklistScreen(
+                        onBack = { navController.popBackStack() },
                     )
                 }
                 myComposable<MiniWindowAdjust> {

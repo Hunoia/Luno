@@ -78,16 +78,18 @@
     <!-- 指针（internal.pointer）：设置行 + 滑杆 -->
     <string name="pointer">指针</string>
     <string name="pointer_hint">灵敏度 · 加速曲线 · 光标样式</string>
+    <string name="pointer_group_motion">移动手感</string>
+    <string name="pointer_group_cursor">光标外观</string>
     <string name="pointer_sensitivity_x_plain">X 灵敏度</string>
     <string name="pointer_sensitivity_y_plain">Y 灵敏度</string>
     <string name="pointer_acceleration_plain">加速曲线</string>
     <string name="pointer_cursor_size_plain">光标大小</string>
     <string name="pointer_cursor_alpha_plain">光标透明度</string>
-    <string name="pointer_sensitivity_x">X 灵敏度：%1$.1fx</string>
-    <string name="pointer_sensitivity_y">Y 灵敏度：%1$.1fx</string>
-    <string name="pointer_acceleration">加速曲线：%1$.1f</string>
-    <string name="pointer_cursor_size">光标大小：%1$d dp</string>
-    <string name="pointer_cursor_alpha">光标透明度：%1$d%%</string>
+    <string name="pointer_sensitivity_x">%1$.1fx</string>
+    <string name="pointer_sensitivity_y">%1$.1fx</string>
+    <string name="pointer_acceleration">%1$.1f</string>
+    <string name="pointer_cursor_size">%1$d dp</string>
+    <string name="pointer_cursor_alpha">%1$d%%</string>
     <string name="action_panel_item_size">动作图标大小</string>
     <string name="action_panel_item_gap">图标间距</string>
     <string name="action_panel_spread_spacing">展开间距</string>
@@ -99,6 +101,7 @@
     <string name="action_panel_add_item">添加面板项</string>
     <string name="action_panel_empty_hint">还没有面板项。添加后，触钮上选「动作面板」即可触发时弹出。</string>
     <string name="action_panel_single_item_hint">只有一个面板项时，长按变体需要至少两项才生效。</string>
+    <string name="action_panel_item_drag">拖动排序</string>
     <string name="action_panel_delete_title">删除面板</string>
     <string name="action_panel_delete_desc">删除面板「%1$s」？引用它的触钮动作将变为「无动作」。</string>
     <string name="action_panel_unnamed">未命名面板</string>
@@ -184,6 +187,7 @@
     <string name="action_panel_item_move_up">上移</string>
     <string name="action_panel_item_move_down">下移</string>
     <string name="action_panel_items_count">%1$d 项</string>
+    <string name="action_panel_count">%1$d 个面板</string>
     <string name="action_panel_item_long_press">长按动作</string>
     <string name="action_panel_item_no_long_press">长按：同短按</string>
     <string name="grid_panels">网格面板</string>
