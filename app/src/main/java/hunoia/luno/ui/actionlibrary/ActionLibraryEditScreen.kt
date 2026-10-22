@@ -156,9 +156,8 @@ fun ActionLibraryEditScreen(
                     contentDescription = stringResource(R.string.action_library_test),
                     enabled = draft.isValid && testable && !state.isSaving,
                     onClick = {
-                        if (DispatchClient.dispatch(draft.toStoredAction())) {
-                            showToast(R.string.action_library_test_sent)
-                        } else {
+                        // 分发失败才提示；成功不给 toast（动作本身会在屏幕上有反馈，多一个弹窗是噪音）。
+                        if (!DispatchClient.dispatch(draft.toStoredAction())) {
                             showToast(R.string.dispatch_service_not_ready)
                         }
                     },
