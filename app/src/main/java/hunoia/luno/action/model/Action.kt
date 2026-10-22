@@ -53,9 +53,6 @@ enum class SwipeDirection { UP, DOWN, LEFT, RIGHT, TO_TOP }
 
 enum class MediaCommand { PLAY_PAUSE, NEXT, PREVIOUS, MUTE }
 
-
-enum class SettingsNamespace { SYSTEM, GLOBAL, SECURE }
-
 sealed interface Action {
     val typeId: String
 
@@ -109,9 +106,6 @@ sealed interface Action {
     data object ClipboardRandomName : Action {
         override val typeId: String = "system.clipboardRandomName"
     }
-    data object ClipboardGeneratePassword : Action {
-        override val typeId: String = "system.clipboardPassword"
-    }
     data object MediaPlayPause : Action {
         override val typeId: String = "system.mediaPlayPause"
     }
@@ -155,11 +149,19 @@ sealed interface Action {
     ) : Action {
         override val typeId: String = "accessibility.longPress"
     }
+    data class DoubleTap(
+        val xDp: Int? = null,
+        val yDp: Int? = null,
+        /** 用触发位置坐标：忽略固定坐标，双击在手指按下的位置。 */
+        val useTriggerPoint: Boolean = false,
+    ) : Action {
+        override val typeId: String = "accessibility.doubleTap"
+    }
+    data class ScrollFocused(val forward: Boolean) : Action {
+        override val typeId: String = "accessibility.scroll"
+    }
     data class Swipe(val direction: SwipeDirection) : Action {
         override val typeId: String = "accessibility.swipe"
-    }
-    data class InputText(val text: String) : Action {
-        override val typeId: String = "accessibility.inputText"
     }
     data object Screenshot : Action {
         override val typeId: String = "accessibility.screenshot"
@@ -180,26 +182,6 @@ sealed interface Action {
         override val typeId: String = "accessibility.lockScreen"
     }
 
-    // Settings
-    data class SettingsGet(val namespace: SettingsNamespace, val key: String) : Action {
-        override val typeId: String = "settings.get"
-    }
-    data class SettingsPut(
-        val namespace: SettingsNamespace,
-        val key: String,
-        val value: String,
-    ) : Action {
-        override val typeId: String = "settings.put"
-    }
-
-    // SystemCmd
-    data object Reboot : Action {
-        override val typeId: String = "systemCmd.reboot"
-    }
-    data object Shutdown : Action {
-        override val typeId: String = "systemCmd.shutdown"
-    }
-
     // Shell
     data class CustomCommand(val command: String, val showToast: Boolean = false) : Action {
         override val typeId: String = "shell.custom"
@@ -212,19 +194,17 @@ sealed interface Action {
     data object SubGesture : Action {
         override val typeId: String = "internal.subGesture"
     }
-    data class HideGestureButton(
-        val delayMs: Long = HideGestureButtonDelayMs,
-    ) : Action {
-        override val typeId: String = "internal.hideGestureButton"
-    }
     /**
      * 触钮显隐：直接改按钮 enabled 存量，后求值/后执行的覆盖先生效
      *（规则列表顺序即优先级）。
+     * `hideForMs > 0` 为临时隐藏（走 ButtonHideRuntime，到期自动恢复，不碰 enabled 存量），
+     * 原「隐藏触钮」动作合并于此。
      */
     data class ButtonsVisibility(
         val visible: Boolean = true,
         val target: ButtonTarget = ButtonTarget.ALL,
         val buttonIds: List<String> = emptyList(),
+        val hideForMs: Long = 0,
     ) : Action {
         override val typeId: String = "internal.buttonsVisibility"
     }
@@ -233,9 +213,12 @@ sealed interface Action {
     }
     /**
      * 悬浮球显隐：直接改 enabled 存量，后求值/后执行的覆盖先生效。
-     * `visible = null` 表示切换。
+     * `visible = null` 表示切换。`hideForMs > 0` 为临时隐藏（到期自动恢复）。
      */
-    data class FloatBallVisibility(val visible: Boolean? = null) : Action {
+    data class FloatBallVisibility(
+        val visible: Boolean? = null,
+        val hideForMs: Long = 0,
+    ) : Action {
         override val typeId: String = "internal.floatBallVisibility"
     }
     /** 网格面板：触点附近弹出网格快捷中心（panelId 引用全局具名面板，见 GridPanel）。 */

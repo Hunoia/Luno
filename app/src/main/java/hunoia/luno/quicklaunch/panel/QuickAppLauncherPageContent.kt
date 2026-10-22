@@ -10,9 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
-import hunoia.luno.bridge.system.copySensitiveText
 import hunoia.luno.config.model.QuickAppLauncherSettings
-import hunoia.luno.quicklaunch.panel.PasswordGeneratorPanel
 
 @Composable
 internal fun SettingsPageContent(
@@ -40,32 +38,3 @@ internal fun SettingsPageContent(
     }
 }
 
-@Composable
-internal fun PasswordPageContent(
-    contentHeight: Dp,
-    context: Context,
-    onNavigateToApp: () -> Unit,
-) {
-    Column(
-        modifier = Modifier.height(contentHeight)
-    ) {
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-        ) {
-            PasswordGeneratorPanel(
-                onClose = { onNavigateToApp() },
-                onCopyPassword = { password ->
-                    copySensitiveText(context, "Generated Password", password)
-                    true
-                }
-            )
-        }
-        Pill(
-            onClick = { onNavigateToApp() },
-            onDragUp = { onNavigateToApp() },
-            hapticOnClick = false,
-        )
-    }
-}

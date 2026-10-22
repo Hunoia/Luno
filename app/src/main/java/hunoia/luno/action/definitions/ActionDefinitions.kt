@@ -20,18 +20,14 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Password
-import androidx.compose.material.icons.filled.PowerOff
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.RadioButtonChecked
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ScreenLockPortrait
 import androidx.compose.material.icons.filled.Screenshot
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SettingsInputComponent
-import androidx.compose.material.icons.filled.SettingsInputComposite
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Splitscreen
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -96,10 +92,6 @@ object ActionDefinitions {
         add(ActionDefinition(
             "intent.shareText", "分享文本", ActionCategory.LINK_SHARE,
             Capability.None,
-            listOf(
-                ParameterDefinition.Text("text", "文本"),
-                ParameterDefinition.Text("mimeType", "MIME 类型", required = false, defaultValue = "text/plain", allowTemplates = false),
-            ),
             icon = Icons.Default.Share,
         ))
         add(ActionDefinition(
@@ -135,11 +127,6 @@ object ActionDefinitions {
             "system.clipboardRandomName", "剪贴板随机名称", ActionCategory.CLIPBOARD,
             Capability.None,
             icon = Icons.Default.ContentCopy,
-        ))
-        add(ActionDefinition(
-            "system.clipboardPassword", "生成密码", ActionCategory.CLIPBOARD,
-            Capability.None,
-            icon = Icons.Default.Password,
         ))
         add(ActionDefinition(
             "system.mediaPlayPause", "播放/暂停", ActionCategory.MEDIA,
@@ -178,14 +165,13 @@ object ActionDefinitions {
             icon = Icons.Default.TouchApp))
         add(ActionDefinition("accessibility.longPress", "长按", ActionCategory.OPERATION, Capability.Accessibility,
             icon = Icons.Default.Gesture))
+        add(ActionDefinition("accessibility.doubleTap", "双击", ActionCategory.OPERATION, Capability.Accessibility,
+            icon = Icons.Default.TouchApp))
+        add(ActionDefinition("accessibility.scroll", "滚动焦点元素", ActionCategory.OPERATION, Capability.Accessibility,
+            icon = Icons.Default.VerticalAlignTop))
         add(ActionDefinition(
             "accessibility.swipe", "滑动", ActionCategory.OPERATION, Capability.Accessibility,
             icon = Icons.Default.VerticalAlignTop,
-        ))
-        add(ActionDefinition(
-            "accessibility.inputText", "输入文本", ActionCategory.OPERATION, Capability.Accessibility,
-            listOf(ParameterDefinition.TextLarge("text", "文本")),
-            icon = Icons.Default.TouchApp,
         ))
         add(ActionDefinition("accessibility.screenshot", "截屏", ActionCategory.UI, Capability.Accessibility,
             icon = Icons.Default.Screenshot))
@@ -199,41 +185,6 @@ object ActionDefinitions {
             icon = Icons.Default.Dashboard))
         add(ActionDefinition("accessibility.lockScreen", "锁屏", ActionCategory.POWER, Capability.Accessibility,
             icon = Icons.Default.ScreenLockPortrait))
-
-        // Settings
-        add(ActionDefinition(
-            "settings.get", "读取设置", ActionCategory.ADVANCED,
-            Capability.Shizuku,
-            listOf(
-                ParameterDefinition.Enum("namespace", "命名空间", listOf(
-                    EnumOption("SYSTEM", "System"),
-                    EnumOption("GLOBAL", "Global"),
-                    EnumOption("SECURE", "Secure"),
-                ), defaultValue = "SYSTEM"),
-                ParameterDefinition.Text("key", "Key"),
-            ),
-            icon = Icons.Default.SettingsInputComponent,
-        ))
-        add(ActionDefinition(
-            "settings.put", "写入设置", ActionCategory.ADVANCED,
-            Capability.Shizuku,
-            listOf(
-                ParameterDefinition.Enum("namespace", "命名空间", listOf(
-                    EnumOption("SYSTEM", "System"),
-                    EnumOption("GLOBAL", "Global"),
-                    EnumOption("SECURE", "Secure"),
-                ), defaultValue = "SYSTEM"),
-                ParameterDefinition.Text("key", "Key"),
-                ParameterDefinition.Text("value", "Value"),
-            ),
-            icon = Icons.Default.SettingsInputComposite,
-        ))
-
-        // SystemCmd
-        add(ActionDefinition("systemCmd.reboot", "重启", ActionCategory.POWER, Capability.Shizuku,
-            icon = Icons.Default.Refresh))
-        add(ActionDefinition("systemCmd.shutdown", "关机", ActionCategory.POWER, Capability.Shizuku,
-            icon = Icons.Default.PowerOff))
 
         // Shell
         add(ActionDefinition(
@@ -271,9 +222,8 @@ object ActionDefinitions {
          */
         add(ActionDefinition(GRID_PANEL_TYPE_ID, "网格面板", ActionCategory.GRID_PANEL, Capability.None,
             icon = Icons.Default.GridView))
-        add(ActionDefinition("internal.hideGestureButton", "隐藏触钮", ActionCategory.VISIBILITY, Capability.None,
-            icon = Icons.Default.VisibilityOff))
         // 参数改在动作选择页行尾设置按钮里配（弹窗），不设置落运行时默认值。
+        // 原「隐藏触钮」合并进本动作的临时隐藏模式。
         add(ActionDefinition("internal.buttonsVisibility", "触钮显隐", ActionCategory.VISIBILITY, Capability.None,
             icon = Icons.Default.Visibility))
         add(ActionDefinition("internal.quickAppLauncher", "快速启动面板", ActionCategory.ENTRY, Capability.None,
@@ -322,7 +272,6 @@ object ActionDefinitions {
     val automationExcluded: Set<String> = libraryExcluded + setOf(
         "accessibility.tap",
         "accessibility.longPress",
-        "internal.hideGestureButton",
     )
 
     fun libraryDefinitions(): List<ActionDefinition> = definitions.filterNot { it.typeId in libraryExcluded }

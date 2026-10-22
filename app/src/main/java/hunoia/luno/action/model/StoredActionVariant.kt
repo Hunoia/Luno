@@ -96,10 +96,10 @@ val POINT_PARAM_KEYS = setOf(PARAM_X_DP, PARAM_Y_DP)
  */
 const val USE_TRIGGER_POINT_KEY = "useTriggerPoint"
 
-/** 依赖真实触点的动作类型（tap / longPress）。 */
-val POINT_ACTION_TYPE_IDS = setOf("accessibility.tap", "accessibility.longPress")
+/** 依赖真实触点的动作类型（tap / longPress / doubleTap）。 */
+val POINT_ACTION_TYPE_IDS = setOf("accessibility.tap", "accessibility.longPress", "accessibility.doubleTap")
 
-/** 点击/长按是否勾了「使用触发位置坐标」，非这两种动作恒 false。 */
+/** 点击/长按（含双击）是否勾了「使用触发位置坐标」，非这三种动作恒 false。 */
 fun StoredAction.usesTriggerPoint(): Boolean {
     if (typeId !in POINT_ACTION_TYPE_IDS) return false
     return (params[USE_TRIGGER_POINT_KEY] as? JsonPrimitive)?.contentOrNull?.toBoolean() == true

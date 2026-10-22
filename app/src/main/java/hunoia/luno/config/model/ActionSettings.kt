@@ -1,18 +1,12 @@
 package hunoia.luno.config.model
 
 import androidx.annotation.Keep
-import hunoia.luno.config.defaults.ActionSettingsDefaults.PasswordDefaultLength
-import hunoia.luno.config.defaults.ActionSettingsDefaults.PasswordDigitsEnabled
-import hunoia.luno.config.defaults.ActionSettingsDefaults.PasswordLowercaseEnabled
-import hunoia.luno.config.defaults.ActionSettingsDefaults.PasswordSymbolsEnabled
-import hunoia.luno.config.defaults.ActionSettingsDefaults.PasswordUppercaseEnabled
 import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubStepThresholdDp
 import kotlinx.serialization.Serializable
 
 @Serializable
 @Keep
 data class ActionSettings(
-    val passwordGenerator: PasswordGenerator = PasswordGenerator(),
     val actionPanelStyle: ArcStyle = ArcStyle(),
     /**
      * 全局动作面板列表。挂在这里是为了复用既有通路到达 `:service` 运行时，
@@ -25,17 +19,7 @@ data class ActionSettings(
     val floatBall: FloatBallSettings = FloatBallSettings(),
     /** 最近应用黑名单：历史记录源头过滤，内置部件最近应用与动作上一个应用共用。 */
     val recentAppsBlocklist: List<String> = emptyList(),
-) {
-    @Serializable
-    @Keep
-    data class PasswordGenerator(
-        val length: Int = PasswordDefaultLength,
-        val lowercase: Boolean = PasswordLowercaseEnabled,
-        val uppercase: Boolean = PasswordUppercaseEnabled,
-        val digits: Boolean = PasswordDigitsEnabled,
-        val symbols: Boolean = PasswordSymbolsEnabled
-    )
-}
+)
 
 @Serializable
 @Keep

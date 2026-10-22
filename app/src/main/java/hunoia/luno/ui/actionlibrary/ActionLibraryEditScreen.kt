@@ -84,7 +84,7 @@ import hunoia.luno.ui.component.feedback.LunoIconButton
  * 依赖真实触点的动作：分发时必须带触点坐标；库条目配好固定坐标后可独立试执行，
  * 无坐标（或勾了「使用触发位置坐标」）时测试按钮置灰。
  */
-private val TOUCH_ONLY_TYPES = setOf("accessibility.tap", "accessibility.longPress")
+private val TOUCH_ONLY_TYPES = setOf("accessibility.tap", "accessibility.longPress", "accessibility.doubleTap")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActionLibraryEditScreen(

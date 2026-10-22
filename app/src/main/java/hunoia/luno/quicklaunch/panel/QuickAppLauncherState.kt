@@ -238,7 +238,7 @@ class QuickAppLauncherState(
     }
 }
 
-internal enum class Page { App, Settings, Password }
+internal enum class Page { App, Settings }
 
 internal fun pageMatchesTokens(pageName: String, tokens: List<String>): Boolean {
     val index = buildIndex(pageName)

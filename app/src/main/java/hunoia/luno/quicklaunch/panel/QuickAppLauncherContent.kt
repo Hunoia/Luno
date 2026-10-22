@@ -175,7 +175,6 @@ private fun QuickAppLauncherContent(
         if (state.tokens.isEmpty()) emptyList()
         else buildList {
             listOf(
-                "密码" to Page.Password,
                 "设置" to Page.Settings,
             ).forEach { (name, page) ->
                 if (pageMatchesTokens(name, state.tokens)) add(name to page)
@@ -386,11 +385,6 @@ private fun QuickAppLauncherContent(
                                 Page.Settings -> SettingsPageContent(
                                     contentHeight = contentHeight,
                                     onUpdateLayout = onUpdateLayout,
-                                    onNavigateToApp = { currentPage = Page.App; state.keyboardExpanded = true },
-                                )
-                                Page.Password -> PasswordPageContent(
-                                    contentHeight = contentHeight,
-                                    context = context,
                                     onNavigateToApp = { currentPage = Page.App; state.keyboardExpanded = true },
                                 )
                             }

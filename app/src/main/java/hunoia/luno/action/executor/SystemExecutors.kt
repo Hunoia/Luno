@@ -1,7 +1,6 @@
 package hunoia.luno.action.executor
 
 import hunoia.luno.R
-import hunoia.luno.action.api.PasswordGenerator
 import hunoia.luno.action.controller.AudioController
 import hunoia.luno.action.controller.ClipboardController
 import hunoia.luno.action.controller.VibrateController
@@ -25,7 +24,7 @@ class SystemExecutors(
 
     override val supportedTypes: Set<String> = setOf(
         "system.openSettings", "system.volume", "system.vibrate",
-        "system.clipboardRandomName", "system.clipboardPassword",
+        "system.clipboardRandomName",
         "system.mediaPlayPause", "system.mediaNext", "system.mediaPrevious", "system.mediaMute",
         "system.flashlight"
     )
@@ -45,7 +44,6 @@ class SystemExecutors(
                 ActionResult.Success()
             }
             is Action.ClipboardRandomName -> executeRandomName(context)
-            is Action.ClipboardGeneratePassword -> executeGeneratePassword(context)
             is Action.MediaPlayPause -> {
                 audioController.mediaCommand(MediaCommand.PLAY_PAUSE)
                 ActionResult.Success()
@@ -79,29 +77,6 @@ class SystemExecutors(
             else -> ActionResult.Failed(
                 ActionFailure.ExecutionFailed,
                 appContext.getString(R.string.random_name_copy_failed),
-            )
-        }
-    }
-
-    private suspend fun executeGeneratePassword(context: ExecutorContext): ActionResult {
-        val appContext = context.appContext
-        val config = context.actionSettings.passwordGenerator
-        val password = runCatching {
-            PasswordGenerator.generate(config)
-        }.getOrNull()
-        if (password == null) {
-            return ActionResult.Failed(
-                ActionFailure.ExecutionFailed,
-                appContext.getString(R.string.password_generate_failed),
-            )
-        }
-        val copied = clipboardController.copyText(password, "Generated Password")
-        return if (copied) {
-            ActionResult.Success(appContext.getString(R.string.password_copied))
-        } else {
-            ActionResult.Failed(
-                ActionFailure.ExecutionFailed,
-                appContext.getString(R.string.password_copy_failed),
             )
         }
     }

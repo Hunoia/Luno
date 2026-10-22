@@ -70,8 +70,6 @@ class ActionDispatcher(
                 VibrateController(host.context.applicationContext),
             ),
             AccessibilityExecutors(AccessibilityController(host.accessibilityService)),
-            SettingsExecutors(SettingsController()),
-            SystemCmdExecutors(ShellController()),
             ShellExecutor(ShellController()),
             InternalExecutors(),
         ),
@@ -174,7 +172,7 @@ class ActionDispatcher(
             // 点按类动作的前置条件：手势触点优先，其次看参数坐标，两者都没有才判参数无效。
             // 勾了「使用触发位置坐标」的条目 hasPointParams() 恒 false，无触点路径（自动化）在这里被拦。
             // 只看 StoredAction 参数，进 Executor 前不再复验。
-            if (touchPosition == null && (effective.typeId == "accessibility.tap" || effective.typeId == "accessibility.longPress") &&
+            if (touchPosition == null && (effective.typeId == "accessibility.tap" || effective.typeId == "accessibility.longPress" || effective.typeId == "accessibility.doubleTap") &&
                 !effective.hasPointParams()
             ) {
                 ctx.showToast(failureText(appContext, ActionFailure.InvalidParameter))

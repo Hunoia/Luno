@@ -48,7 +48,6 @@ object ActionMapper {
             )
             "system.vibrate" -> Action.Vibrate(p.str("pattern", "0,500"))
             "system.clipboardRandomName" -> Action.ClipboardRandomName
-            "system.clipboardPassword" -> Action.ClipboardGeneratePassword
             "system.mediaPlayPause" -> Action.MediaPlayPause
             "system.mediaNext" -> Action.MediaNext
             "system.mediaPrevious" -> Action.MediaPrevious
@@ -68,38 +67,32 @@ object ActionMapper {
                 p.long("durationMs", 1000L),
                 p.bool(USE_TRIGGER_POINT_KEY),
             )
+            "accessibility.doubleTap" -> Action.DoubleTap(
+                p.intOrNull(PARAM_X_DP),
+                p.intOrNull(PARAM_Y_DP),
+                p.bool(USE_TRIGGER_POINT_KEY),
+            )
+            "accessibility.scroll" -> Action.ScrollFocused(
+                p.str("direction") != "BACKWARD",
+            )
             "accessibility.swipe" -> Action.Swipe(p.enumValue("direction"))
-            "accessibility.inputText" -> Action.InputText(p.str("text"))
             "accessibility.screenshot" -> Action.Screenshot
             "accessibility.splitScreen" -> Action.SplitScreen
             "accessibility.powerButton" -> Action.PowerButton
             "accessibility.notificationPanel" -> Action.NotificationPanel
             "accessibility.quickPanel" -> Action.QuickPanel
             "accessibility.lockScreen" -> Action.LockScreen
-            "settings.get" -> Action.SettingsGet(
-                p.enumValue("namespace"),
-                p.str("key"),
-            )
-            "settings.put" -> Action.SettingsPut(
-                p.enumValue("namespace"),
-                p.str("key"),
-                p.str("value"),
-            )
-            "systemCmd.reboot" -> Action.Reboot
-            "systemCmd.shutdown" -> Action.Shutdown
             "shell.custom" -> Action.CustomCommand(
                 p.str("command"),
                 p.bool("showToast"),
             )
             "internal.none" -> Action.None
             "internal.subGesture" -> Action.SubGesture
-            "internal.hideGestureButton" -> Action.HideGestureButton(
-                p.long("delayMs", HideGestureButtonDelayMs),
-            )
             "internal.buttonsVisibility" -> Action.ButtonsVisibility(
                 p.bool("visible", false),
                 p.enumValueOr("target", ButtonTarget.ALL),
                 p.arrayOfStr("buttonIds"),
+                p.long("hideForMs", 0),
             )
             "internal.quickAppLauncher" -> Action.QuickAppLauncher
             "internal.floatBallVisibility" -> Action.FloatBallVisibility(
@@ -108,6 +101,7 @@ object ActionMapper {
                     "false" -> false
                     else -> null
                 },
+                p.long("hideForMs", 0),
             )
             "internal.gridPanel" -> Action.GridPanel(p.str(GRID_PANEL_PARAM_PANEL_ID))
             "internal.quickSearch" -> Action.QuickSearch

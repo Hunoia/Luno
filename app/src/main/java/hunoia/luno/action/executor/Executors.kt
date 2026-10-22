@@ -2,7 +2,6 @@ package hunoia.luno.action.executor
 
 import hunoia.luno.action.controller.AccessibilityController
 import hunoia.luno.action.controller.IntentController
-import hunoia.luno.action.controller.SettingsController
 import hunoia.luno.action.controller.ShellController
 import hunoia.luno.action.execution.ActionExecutor
 import hunoia.luno.action.execution.ExecutorContext
@@ -33,7 +32,8 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
 
     override val supportedTypes: Set<String> = setOf(
         "accessibility.back", "accessibility.home", "accessibility.recents",
-        "accessibility.tap", "accessibility.longPress", "accessibility.swipe",
+        "accessibility.tap", "accessibility.longPress", "accessibility.doubleTap",
+        "accessibility.scroll", "accessibility.swipe",
         "accessibility.inputText", "accessibility.screenshot", "accessibility.splitScreen",
         "accessibility.powerButton", "accessibility.notificationPanel",
         "accessibility.quickPanel", "accessibility.lockScreen"
@@ -66,7 +66,13 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
                 }
                 executionResult(performed)
             }
-            is Action.InputText -> executionResult(controller.inputText(action.text))
+            is Action.DoubleTap -> {
+                val (x, y) = action.targetPoint(context)
+                    ?: return ActionResult.Failed(ActionFailure.InvalidParameter)
+                hideButtonAndSettle(context)
+                executionResult(controller.doubleTap(x, y))
+            }
+            is Action.ScrollFocused -> executionResult(controller.scrollFocused(action.forward))
             is Action.Screenshot -> {
                 // fire-and-forget：takeScreenshot 的回调是异步且无失败语义，
                 // 这里拿不到真实成败，统一按成功收口（失败静默）。
@@ -100,6 +106,10 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
         if (useTriggerPoint) context.touchPosition
         else pointPx(context.appContext) ?: context.touchPosition
 
+    private fun Action.DoubleTap.targetPoint(context: ExecutorContext): Pair<Int, Int>? =
+        if (useTriggerPoint) context.touchPosition
+        else pointPx(context.appContext) ?: context.touchPosition
+
     /**
      * 先隐藏触钮并等它真的不可触再注入：`hideGestureButton` 只加 `FLAG_NOT_TOUCHABLE`
      * 并发一笔 WM 事务，不同步生效；不等落地，点击会被触钮自己的捕获窗口吃掉。
@@ -129,6 +139,9 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
         pointPx(context, xDp, yDp)
 
     private fun Action.LongPress.pointPx(context: android.content.Context): Pair<Int, Int>? =
+        pointPx(context, xDp, yDp)
+
+    private fun Action.DoubleTap.pointPx(context: android.content.Context): Pair<Int, Int>? =
         pointPx(context, xDp, yDp)
 
     private fun pointPx(context: android.content.Context, xDp: Int?, yDp: Int?): Pair<Int, Int>? {
@@ -173,7 +186,7 @@ class IntentExecutors(private val intentController: IntentController) : ActionEx
 class InternalExecutors : ActionExecutor {
 
     override val supportedTypes: Set<String> = setOf(
-        "internal.none", "internal.subGesture", "internal.hideGestureButton",
+        "internal.none", "internal.subGesture",
         "internal.buttonsVisibility", "internal.floatBallVisibility",
         "internal.quickAppLauncher", "internal.quickSearch", "internal.gridPanel",
         "internal.volumeScrub",
@@ -185,12 +198,8 @@ class InternalExecutors : ActionExecutor {
         return when (action) {
             is Action.None -> ActionResult.Success()
             is Action.SubGesture -> ActionResult.Success()
-            is Action.HideGestureButton -> {
-                context.hideGestureButton(action.delayMs)
-                ActionResult.Success()
-            }
-            is Action.ButtonsVisibility -> executeButtonsVisibility(action)
-            is Action.FloatBallVisibility -> executeFloatBallVisibility(action)
+            is Action.ButtonsVisibility -> executeButtonsVisibility(action, context)
+            is Action.FloatBallVisibility -> executeFloatBallVisibility(action, context)
             is Action.QuickAppLauncher -> {
                 context.toggleQuickAppLauncher()
                 ActionResult.Success()
@@ -244,7 +253,32 @@ class InternalExecutors : ActionExecutor {
      * visible=null 为切换；`FloatBallService` 的 settings flow 会自动摘/挂球窗。
      * 失败吞掉报 Failed，不抛。
      */
-    private suspend fun executeFloatBallVisibility(action: Action.FloatBallVisibility): ActionResult {
+    private suspend fun executeFloatBallVisibility(action: Action.FloatBallVisibility, context: ExecutorContext): ActionResult {
+        // 临时隐藏：先记当前态，关掉后延时恢复；用户期间手动开球则不覆盖。
+        if (action.hideForMs > 0) {
+            val wasEnabled = runCatching {
+                var enabled = false
+                ConfigProvider.updateActionSettings { current ->
+                    enabled = current.floatBall.enabled
+                    current.copy(floatBall = current.floatBall.copy(enabled = false))
+                }
+                enabled
+            }.getOrDefault(false)
+            if (!wasEnabled) return ActionResult.Success()
+            context.scope.launch {
+                delay(action.hideForMs)
+                runCatching {
+                    ConfigProvider.updateActionSettings { current ->
+                        if (!current.floatBall.enabled) {
+                            current.copy(floatBall = current.floatBall.copy(enabled = true))
+                        } else {
+                            current
+                        }
+                    }
+                }
+            }
+            return ActionResult.Success()
+        }
         val ok = runCatching {
             ConfigProvider.updateActionSettings { current ->
                 val enabled = action.visible ?: !current.floatBall.enabled
@@ -256,10 +290,16 @@ class InternalExecutors : ActionExecutor {
     }
 
     /**
-     * 触钮显隐：直接改按钮 enabled 存量。DataStore 更新自带顺序，后写覆盖先写，
+     * 触钮显隐：`hideForMs > 0` 走 [ExecutorContext.hideGestureButton] 临时隐藏
+     *（ButtonHideRuntime 到期自动恢复，不碰 enabled 存量，原「隐藏触钮」动作语义）；
+     * 否则直接改按钮 enabled 存量。DataStore 更新自带顺序，后写覆盖先写，
      * 即规则列表顺序=优先级。
      */
-    private suspend fun executeButtonsVisibility(action: Action.ButtonsVisibility): ActionResult {
+    private suspend fun executeButtonsVisibility(action: Action.ButtonsVisibility, context: ExecutorContext): ActionResult {
+        if (action.hideForMs > 0) {
+            context.hideGestureButton(action.hideForMs)
+            return ActionResult.Success()
+        }
         val ok = runCatching {
             ConfigProvider.updateGestureButtons { list ->
                 val ids = resolveButtonTargetIds(action.target, list.map { it.id }, action.buttonIds)
@@ -270,19 +310,6 @@ class InternalExecutors : ActionExecutor {
             true
         }.getOrDefault(false)
         return if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
-    }
-}
-
-class SettingsExecutors(private val controller: SettingsController) : ActionExecutor {
-
-    override val supportedTypes: Set<String> = setOf("settings.get", "settings.put")
-
-    override suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
-        return when (action) {
-            is Action.SettingsGet -> controller.get(action.namespace, action.key)
-            is Action.SettingsPut -> controller.put(action.namespace, action.key, action.value)
-            else -> ActionResult.Failed(ActionFailure.Unsupported)
-        }
     }
 }
 
@@ -305,25 +332,6 @@ class ShellExecutor(private val shellController: ShellController) : ActionExecut
                     null
                 }
                 if (result.success) ActionResult.Success(message) else ActionResult.Failed(ActionFailure.ExecutionFailed, message)
-            }
-            else -> ActionResult.Failed(ActionFailure.Unsupported)
-        }
-    }
-}
-
-class SystemCmdExecutors(private val shellController: ShellController) : ActionExecutor {
-
-    override val supportedTypes: Set<String> = setOf("systemCmd.reboot", "systemCmd.shutdown")
-
-    override suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
-        return when (action) {
-            is Action.Reboot -> {
-                val result = shellController.runCommand("reboot")
-                if (result.success) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
-            }
-            is Action.Shutdown -> {
-                val result = shellController.runCommand("shutdown -p")
-                if (result.success) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             else -> ActionResult.Failed(ActionFailure.Unsupported)
         }

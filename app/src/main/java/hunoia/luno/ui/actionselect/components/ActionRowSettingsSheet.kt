@@ -51,7 +51,6 @@ import kotlinx.serialization.json.contentOrNull
 /** 参数改在动作选择页行尾「设置」Sheet 里配的动作类型。 */
 val RowSettingsActionTypeIds: Set<String> = setOf(
     "internal.volumeScrub",
-    "internal.hideGestureButton",
     "internal.floatBallVisibility",
     "internal.buttonsVisibility",
     "system.openSettings",
@@ -59,7 +58,10 @@ val RowSettingsActionTypeIds: Set<String> = setOf(
     "system.vibrate",
     "accessibility.tap",
     "accessibility.longPress",
+    "accessibility.doubleTap",
+    "accessibility.scroll",
     "accessibility.swipe",
+    "intent.shareText",
 )
 
 /**
@@ -131,15 +133,20 @@ private fun rowSettingsSubtitle(typeId: String, params: JsonObject, context: Con
     "internal.volumeScrub" ->
         "${context.getString(R.string.row_settings_sensitivity)} · " +
             "${params.int("stepThresholdDp", RowSettingsDefaults.VolumeScrubStepDp)}dp"
-    "internal.hideGestureButton" ->
-        "${params.long("delayMs", RowSettingsDefaults.HideGestureButtonDelayMs)}ms"
     "internal.floatBallVisibility" ->
-        when (params.str("visible", RowSettingsDefaults.FloatBallVisible)) {
+        if ((params.long("hideForMs", 0)) > 0) {
+            context.getString(R.string.row_settings_hide_temporarily) + " · " +
+                params.long("hideForMs", 0) + "ms"
+        } else when (params.str("visible", RowSettingsDefaults.FloatBallVisible)) {
             "true" -> context.getString(R.string.row_settings_show)
             "false" -> context.getString(R.string.row_settings_hide)
             else -> context.getString(R.string.row_settings_toggle)
         }
     "internal.buttonsVisibility" -> {
+        if ((params.long("hideForMs", 0)) > 0) {
+            context.getString(R.string.row_settings_hide_temporarily) + " · " +
+                params.long("hideForMs", 0) + "ms"
+        } else {
         val visible = context.getString(
             if (params.bool("visible", RowSettingsDefaults.ButtonsVisible)) {
                 R.string.row_settings_show
@@ -153,6 +160,7 @@ private fun rowSettingsSubtitle(typeId: String, params: JsonObject, context: Con
             else -> "${params.ids("buttonIds").size} ${context.getString(R.string.row_settings_buttons)}"
         }
         "$visible · $scope"
+        }
     }
     "system.openSettings" ->
         context.getString(settingsPageLabelRes(params.str("page", RowSettingsDefaults.SettingsPage)))
@@ -171,9 +179,15 @@ private fun rowSettingsSubtitle(typeId: String, params: JsonObject, context: Con
     }
     "system.vibrate" -> params.str("pattern", RowSettingsDefaults.VibratePattern)
     "accessibility.tap" -> tapSubtitle(params, context)
+    "accessibility.doubleTap" -> tapSubtitle(params, context)
+    "accessibility.scroll" -> context.getString(
+        if (params.str("direction", "FORWARD") == "BACKWARD") R.string.row_settings_scroll_up
+        else R.string.row_settings_scroll_down
+    )
     "accessibility.longPress" ->
         "${tapSubtitle(params, context)} · " +
             "${params.long("durationMs", RowSettingsDefaults.LongPressDurationMs)}ms"
+    "intent.shareText" -> params.str("text", "")
     "accessibility.swipe" -> context.getString(
         when (params.str("direction", RowSettingsDefaults.SwipeDirection)) {
             "DOWN" -> R.string.row_settings_swipe_down
@@ -224,7 +238,8 @@ fun ActionRowSettingsSheet(
         draft = JsonObject(draft + (key to JsonPrimitive(value)))
     }
 
-    val isTapLike = typeId == "accessibility.tap" || typeId == "accessibility.longPress"
+    val isTapLike = typeId == "accessibility.tap" || typeId == "accessibility.longPress" ||
+        typeId == "accessibility.doubleTap"
     val useTriggerPoint = draft.bool("useTriggerPoint", RowSettingsDefaults.UseTriggerPoint)
     val xText = draft.str("xDp", RowSettingsDefaults.TapXDp.toString())
     val yText = draft.str("yDp", RowSettingsDefaults.TapYDp.toString())
@@ -233,6 +248,7 @@ fun ActionRowSettingsSheet(
     val coordsInvalid = isTapLike && !useTriggerPoint &&
         (xText.toIntOrNull() == null || yText.toIntOrNull() == null)
     val patternInvalid = typeId == "system.vibrate" && !VibratePatternRegex.matches(patternText.trim())
+    val textInvalid = typeId == "intent.shareText" && draft.str("text", "").isBlank()
 
     val canonical = canonicalParams(typeId, draft)
 
@@ -271,36 +287,71 @@ fun ActionRowSettingsSheet(
                             "${step}dp",
                         ) { setInt("stepThresholdDp", it.toInt()) }
                     }
-                    "internal.hideGestureButton" -> {
-                        val delay = draft.long("delayMs", RowSettingsDefaults.HideGestureButtonDelayMs)
-                        LabeledSlider(
-                            R.string.row_settings_hide_duration,
-                            delay.toFloat(),
-                            0f..3000f,
-                            "${delay}ms",
-                        ) { setLong("delayMs", it.toLong()) }
-                    }
                     "internal.floatBallVisibility" -> {
-                        LabeledChips(
-                            R.string.row_settings_visibility,
-                            listOf(
-                                "toggle" to R.string.row_settings_toggle,
-                                "true" to R.string.row_settings_show,
-                                "false" to R.string.row_settings_hide,
-                            ),
-                            draft.str("visible", RowSettingsDefaults.FloatBallVisible),
-                        ) { setStr("visible", it) }
+                        val hideForMs = draft.long("hideForMs", 0)
+                        if (hideForMs > 0) {
+                            LabeledSlider(
+                                R.string.row_settings_hide_duration,
+                                hideForMs.toFloat(),
+                                500f..30000f,
+                                "${hideForMs}ms",
+                            ) { setLong("hideForMs", it.toLong()) }
+                            TextButton(onClick = {
+                                setLong("hideForMs", 0)
+                                setStr("visible", "toggle")
+                            }) {
+                                Text(stringResource(R.string.row_settings_back_to_normal))
+                            }
+                        } else {
+                            LabeledChips(
+                                R.string.row_settings_visibility,
+                                listOf(
+                                    "toggle" to R.string.row_settings_toggle,
+                                    "true" to R.string.row_settings_show,
+                                    "false" to R.string.row_settings_hide,
+                                    "HIDE_FOR" to R.string.row_settings_hide_temporarily,
+                                ),
+                                draft.str("visible", RowSettingsDefaults.FloatBallVisible),
+                            ) {
+                                // 选临时隐藏时预填时长，否则 hideForMs 恒 0、滑杆分支永不出现。
+                                if (it == "HIDE_FOR") {
+                                    setStr("visible", "toggle")
+                                    setLong("hideForMs", 5000L)
+                                } else {
+                                    setStr("visible", it)
+                                }
+                            }
+                        }
                     }
                     "internal.buttonsVisibility" -> {
+                        val hideForMs = draft.long("hideForMs", 0)
+                        if (hideForMs > 0) {
+                            LabeledSlider(
+                                R.string.row_settings_hide_duration,
+                                hideForMs.toFloat(),
+                                500f..30000f,
+                                "${hideForMs}ms",
+                            ) { setLong("hideForMs", it.toLong()) }
+                            TextButton(onClick = { setLong("hideForMs", 0) }) {
+                                Text(stringResource(R.string.row_settings_back_to_normal))
+                            }
+                        } else {
                         val visible = draft.bool("visible", RowSettingsDefaults.ButtonsVisible)
                         LabeledChips(
                             R.string.row_settings_visibility,
                             listOf(
                                 "true" to R.string.row_settings_show,
                                 "false" to R.string.row_settings_hide,
+                                "HIDE_FOR" to R.string.row_settings_hide_temporarily,
                             ),
                             if (visible) "true" else "false",
-                        ) { setBool("visible", it.toBooleanStrict()) }
+                        ) {
+                            if (it == "HIDE_FOR") {
+                                setLong("hideForMs", RowSettingsDefaults.HideGestureButtonDelayMs)
+                            } else {
+                                setBool("visible", it.toBooleanStrict())
+                            }
+                        }
                         val target = draft.str("target", RowSettingsDefaults.ButtonsTarget)
                         LabeledChips(
                             R.string.row_settings_scope,
@@ -345,6 +396,7 @@ fun ActionRowSettingsSheet(
                                     )
                                 }
                             }
+                        }
                         }
                     }
                     "system.openSettings" -> {
@@ -397,7 +449,7 @@ fun ActionRowSettingsSheet(
                             FieldError(stringResource(R.string.row_settings_pattern_invalid))
                         }
                     }
-                    "accessibility.tap", "accessibility.longPress" -> {
+                    "accessibility.tap", "accessibility.longPress", "accessibility.doubleTap" -> {
                         LabeledChips(
                             R.string.row_settings_fall_point,
                             listOf(
@@ -455,6 +507,27 @@ fun ActionRowSettingsSheet(
                             ) { setLong("durationMs", it.toLong()) }
                         }
                     }
+                    "accessibility.scroll" -> {
+                        LabeledChips(
+                            R.string.row_settings_direction,
+                            listOf(
+                                "FORWARD" to R.string.row_settings_scroll_down,
+                                "BACKWARD" to R.string.row_settings_scroll_up,
+                            ),
+                            draft.str("direction", "FORWARD"),
+                        ) { setStr("direction", it) }
+                    }
+                    "intent.shareText" -> {
+                        LabeledTextField(
+                            R.string.row_settings_text_content,
+                            draft.str("text", ""),
+                            { setStr("text", it) },
+                            keyboardType = KeyboardType.Text,
+                        )
+                        if (textInvalid) {
+                            FieldError(stringResource(R.string.row_settings_text_required))
+                        }
+                    }
                     "accessibility.swipe" -> {
                         LabeledChips(
                             R.string.row_settings_direction,
@@ -477,7 +550,7 @@ fun ActionRowSettingsSheet(
                     onDismiss()
                 },
                 confirmLabel = stringResource(R.string.ok),
-                confirmEnabled = !coordsInvalid && !patternInvalid,
+                confirmEnabled = !coordsInvalid && !patternInvalid && !textInvalid,
             )
         }
     }
@@ -491,19 +564,25 @@ private fun canonicalParams(typeId: String, draft: JsonObject): JsonObject = whe
             JsonPrimitive(draft.int("stepThresholdDp", RowSettingsDefaults.VolumeScrubStepDp)),
         )
     }
-    "internal.hideGestureButton" -> buildJsonObject {
-        put("delayMs", JsonPrimitive(draft.long("delayMs", RowSettingsDefaults.HideGestureButtonDelayMs)))
-    }
-    "internal.floatBallVisibility" -> buildJsonObject {
-        put("visible", JsonPrimitive(draft.str("visible", RowSettingsDefaults.FloatBallVisible)))
+    "internal.floatBallVisibility" -> {
+        val hideForMs = draft.long("hideForMs", 0)
+        buildJsonObject {
+            put("visible", JsonPrimitive(draft.str("visible", RowSettingsDefaults.FloatBallVisible)))
+            if (hideForMs > 0) put("hideForMs", JsonPrimitive(hideForMs))
+        }
     }
     "internal.buttonsVisibility" -> {
-        val target = draft.str("target", RowSettingsDefaults.ButtonsTarget)
+        val hideForMs = draft.long("hideForMs", 0)
         buildJsonObject {
             put("visible", JsonPrimitive(draft.bool("visible", RowSettingsDefaults.ButtonsVisible)))
-            put("target", JsonPrimitive(target))
-            if (target != "ALL") {
-                put("buttonIds", buildJsonArray { draft.ids("buttonIds").forEach { add(JsonPrimitive(it)) } })
+            if (hideForMs > 0) {
+                put("hideForMs", JsonPrimitive(hideForMs))
+            } else {
+                val target = draft.str("target", RowSettingsDefaults.ButtonsTarget)
+                put("target", JsonPrimitive(target))
+                if (target != "ALL") {
+                    put("buttonIds", buildJsonArray { draft.ids("buttonIds").forEach { add(JsonPrimitive(it)) } })
+                }
             }
         }
     }
@@ -518,6 +597,14 @@ private fun canonicalParams(typeId: String, draft: JsonObject): JsonObject = whe
         put("pattern", JsonPrimitive(draft.str("pattern", RowSettingsDefaults.VibratePattern)))
     }
     "accessibility.tap" -> tapPointParams(draft)
+    "accessibility.doubleTap" -> tapPointParams(draft)
+    "intent.shareText" -> buildJsonObject {
+        put("text", JsonPrimitive(draft.str("text", "")))
+        put("mimeType", JsonPrimitive("text/plain"))
+    }
+    "accessibility.scroll" -> buildJsonObject {
+        put("direction", JsonPrimitive(draft.str("direction", "FORWARD")))
+    }
     "accessibility.longPress" -> buildJsonObject {
         tapPointParams(draft).forEach { (k, v) -> put(k, v) }
         put("durationMs", JsonPrimitive(draft.long("durationMs", RowSettingsDefaults.LongPressDurationMs)))
@@ -551,7 +638,6 @@ private fun tapSubtitle(params: JsonObject, context: Context): String {
 
 private fun paramSheetTitleRes(typeId: String): Int = when (typeId) {
     "internal.volumeScrub" -> R.string.row_dialog_volume_scrub
-    "internal.hideGestureButton" -> R.string.row_dialog_hide_gesture_button
     "internal.floatBallVisibility" -> R.string.row_dialog_float_ball
     "internal.buttonsVisibility" -> R.string.row_dialog_buttons_visibility
     "system.openSettings" -> R.string.row_dialog_open_settings
@@ -559,6 +645,9 @@ private fun paramSheetTitleRes(typeId: String): Int = when (typeId) {
     "system.vibrate" -> R.string.row_dialog_vibrate
     "accessibility.tap" -> R.string.row_dialog_tap
     "accessibility.longPress" -> R.string.row_dialog_long_press
+    "accessibility.doubleTap" -> R.string.row_dialog_double_tap
+    "accessibility.scroll" -> R.string.row_dialog_scroll
+    "intent.shareText" -> R.string.row_dialog_share_text
     "accessibility.swipe" -> R.string.row_dialog_swipe
     else -> R.string.row_settings_settings_page
 }
