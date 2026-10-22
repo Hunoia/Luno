@@ -16,8 +16,8 @@ android {
         applicationId = "hunoia.luno"
         minSdk = 33
         targetSdk = 36
-        versionCode = 10606
-        versionName = "1.6.6"
+        versionCode = 10607
+        versionName = "1.6.7"
 
         ndk {
             abiFilters += listOf("arm64-v8a")
