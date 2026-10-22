@@ -52,7 +52,7 @@
     <string name="refresh">刷新</string>
     <string name="lock_screen">锁屏</string>
     <string name="launcher">桌面</string>
-    <string name="slide_action">短距离滑动</string>
+    <string name="slide_action">短滑</string>
     <string name="slide_hold_action">短滑停留</string>
     <string name="gesture_angles">手势角度</string>
     <string name="gesture_button_vibration">振动</string>
@@ -62,7 +62,7 @@
     <string name="vibration_group_slide">滑动</string>
     <string name="vibration_group_hold">停留</string>
     <string name="vibration_group_tap">点击</string>
-    <string name="trigger_slide_distance">滑动触发距离</string>
+    <string name="trigger_slide_distance">短滑触发距离</string>
     <string name="trigger_long_slide_distance">长滑触发距离</string>
     <string name="trigger_long_press_delay">长按触发延迟</string>
     <string name="trigger_double_tap_delay">双击等待时间</string>
@@ -70,11 +70,11 @@
     <string name="trigger_long_slide_hold_delay">长滑停留时间</string>
     <string name="trigger_distance_slide_group">滑动距离</string>
     <string name="trigger_distance_delay_group">停留与按压时间</string>
-    <string name="short1">短</string>
-    <string name="long1">长</string>
+    <string name="short1">短滑</string>
+    <string name="long1">长滑</string>
     <string name="top">上</string>
     <string name="bottom">下</string>
-    <string name="long_slide_action">长距离滑动</string>
+    <string name="long_slide_action">长滑</string>
     <string name="long_slide_hold_action">长滑停留</string>
     <string name="action_panel_style_arc">弧形</string>
     <string name="action_panel_style">动作面板样式</string>
@@ -298,13 +298,27 @@
 
     <!-- 动作分类 -->
     <string name="action_category_system">系统</string>
-    <string name="action_category_app">应用操作</string>
+    <string name="action_category_app">应用</string>
     <string name="action_category_intent">Intent</string>
     <string name="action_category_accessibility">无障碍</string>
     <string name="action_category_settings">设置项</string>
     <string name="action_category_system_cmd">系统命令</string>
     <string name="action_category_shell">Shell</string>
     <string name="action_category_internal">内部</string>
+    <string name="action_category_link_share">链接分享</string>
+    <string name="action_category_media">媒体</string>
+    <string name="action_category_clipboard">剪贴板</string>
+    <string name="action_category_navigation">导航</string>
+    <string name="action_category_operation">操作</string>
+    <string name="action_category_ui">界面</string>
+    <string name="action_category_power">电源</string>
+    <string name="action_category_visibility">显隐</string>
+    <string name="action_category_entry">快捷入口</string>
+    <string name="action_category_gesture_tool">手势工具</string>
+    <string name="action_category_advanced">高级</string>
+    <string name="action_category_action_panel">动作面板</string>
+    <string name="action_category_grid_panel">网格面板</string>
+    <string name="action_category_sub_gesture">子手势</string>
 
     <!-- 快速启动 -->
     <string name="quick_app_launcher_panel_height">竖直位置</string>

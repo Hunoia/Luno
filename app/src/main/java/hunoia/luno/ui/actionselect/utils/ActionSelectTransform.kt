@@ -158,6 +158,9 @@ internal fun ActionDefinition.toStoredAction(): StoredAction =
     StoredAction(typeId)
 
 internal fun assembleDataTransform(state: UiState): UiState {
+    // excludedTypeIds 还没由 loadDataBody 填入时不要拼列表：空排除集会把
+    // internal.none / 动态子手势等本应合成或排除的类型一起放进来，导致重复 key。
+    if (state.excludedTypeIds.isEmpty()) return state
     val allActions = ActionCatalog.pickerDefinitions(state.excludedTypeIds)
         .map { def -> def.toStoredAction() }
         .toMutableList()
@@ -168,7 +171,9 @@ internal fun assembleDataTransform(state: UiState): UiState {
             if (state.isPanelItemMode) return@apply
             // 「无动作」置空入口：internal.none 被 libraryExcluded 滤掉（动作库不该建「无」），
             // 这里额外合成一行而不碰 pickerExcluded —— 空集合会让整张定义表变可选。
-            add(StoredAction.of("internal.none"))
+            if (none { it.typeId == "internal.none" }) {
+                add(StoredAction.of("internal.none"))
+            }
             // 动作面板：一行一个具名面板，点哪行就把哪个 panelId 存进槽里。
             state.actionPanels.forEach { panel ->
                 add(StoredAction.of(ACTION_PANEL_TYPE_ID, ACTION_PANEL_PARAM_PANEL_ID to panel.id))

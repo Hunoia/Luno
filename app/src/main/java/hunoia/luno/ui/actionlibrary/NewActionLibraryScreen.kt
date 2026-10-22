@@ -63,9 +63,9 @@ fun NewActionLibraryScreen(
     var iconPickerEntry by remember { mutableStateOf<NewActionLibraryEntry?>(null) }
     val filtered = remember(uiState.entries) {
         uiState.entries
-            .sortedBy { ActionDefinitions.categoryOrder(ActionDefinitions.byTypeId(it.typeId)?.category ?: ActionCategory.INTERNAL) }
+            .sortedBy { ActionDefinitions.categoryOrder(ActionDefinitions.byTypeId(it.typeId)?.category ?: ActionCategory.ADVANCED) }
     }
-    val grouped = remember(filtered) { filtered.groupBy { ActionDefinitions.byTypeId(it.typeId)?.category ?: ActionCategory.INTERNAL } }
+    val grouped = remember(filtered) { filtered.groupBy { ActionDefinitions.byTypeId(it.typeId)?.category ?: ActionCategory.ADVANCED } }
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().padding(contentPadding)) {
             LazyColumn(

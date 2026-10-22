@@ -86,7 +86,7 @@ object ActionDefinitions {
 
         // Intent
         add(ActionDefinition(
-            "intent.openUrl", "打开链接", ActionCategory.INTENT,
+            "intent.openUrl", "打开链接", ActionCategory.LINK_SHARE,
             Capability.None,
             listOf(
                 ParameterDefinition.Text("url", "URL"),
@@ -94,7 +94,7 @@ object ActionDefinitions {
             icon = Icons.AutoMirrored.Filled.OpenInNew,
         ))
         add(ActionDefinition(
-            "intent.shareText", "分享文本", ActionCategory.INTENT,
+            "intent.shareText", "分享文本", ActionCategory.LINK_SHARE,
             Capability.None,
             listOf(
                 ParameterDefinition.Text("text", "文本"),
@@ -103,12 +103,12 @@ object ActionDefinitions {
             icon = Icons.Default.Share,
         ))
         add(ActionDefinition(
-            "intent.shareFile", "分享文件", ActionCategory.INTENT,
+            "intent.shareFile", "分享文件", ActionCategory.LINK_SHARE,
             Capability.None,
             icon = Icons.Default.Upload,
         ))
         add(ActionDefinition(
-            "intent.assist", "系统助手", ActionCategory.INTENT,
+            "intent.assist", "系统助手", ActionCategory.SYSTEM,
             Capability.None,
             icon = Icons.Default.Assistant,
         ))
@@ -132,32 +132,32 @@ object ActionDefinitions {
         ))
         // 剪贴板/媒体控制拆成无参数动作；密码长度用动作设置里的密码生成配置。
         add(ActionDefinition(
-            "system.clipboardRandomName", "剪贴板随机名称", ActionCategory.SYSTEM,
+            "system.clipboardRandomName", "剪贴板随机名称", ActionCategory.CLIPBOARD,
             Capability.None,
             icon = Icons.Default.ContentCopy,
         ))
         add(ActionDefinition(
-            "system.clipboardPassword", "生成密码", ActionCategory.SYSTEM,
+            "system.clipboardPassword", "生成密码", ActionCategory.CLIPBOARD,
             Capability.None,
             icon = Icons.Default.Password,
         ))
         add(ActionDefinition(
-            "system.mediaPlayPause", "播放/暂停", ActionCategory.SYSTEM,
+            "system.mediaPlayPause", "播放/暂停", ActionCategory.MEDIA,
             Capability.None,
             icon = Icons.Default.PlayPause,
         ))
         add(ActionDefinition(
-            "system.mediaNext", "下一首", ActionCategory.SYSTEM,
+            "system.mediaNext", "下一首", ActionCategory.MEDIA,
             Capability.None,
             icon = Icons.Default.SkipNext,
         ))
         add(ActionDefinition(
-            "system.mediaPrevious", "上一首", ActionCategory.SYSTEM,
+            "system.mediaPrevious", "上一首", ActionCategory.MEDIA,
             Capability.None,
             icon = Icons.Default.SkipPrevious,
         ))
         add(ActionDefinition(
-            "system.mediaMute", "静音", ActionCategory.SYSTEM,
+            "system.mediaMute", "静音", ActionCategory.MEDIA,
             Capability.None,
             icon = Icons.Default.VolumeOff,
         ))
@@ -168,41 +168,41 @@ object ActionDefinitions {
         ))
 
         // Accessibility
-        add(ActionDefinition("accessibility.back", "返回", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+        add(ActionDefinition("accessibility.back", "返回", ActionCategory.NAVIGATION, Capability.Accessibility,
             icon = Icons.AutoMirrored.Filled.ArrowBack))
-        add(ActionDefinition("accessibility.home", "主页", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+        add(ActionDefinition("accessibility.home", "主页", ActionCategory.NAVIGATION, Capability.Accessibility,
             icon = Icons.Default.Home))
-        add(ActionDefinition("accessibility.recents", "最近任务", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+        add(ActionDefinition("accessibility.recents", "最近任务", ActionCategory.NAVIGATION, Capability.Accessibility,
             icon = Icons.Default.ViewCarousel))
-        add(ActionDefinition("accessibility.tap", "点击", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+        add(ActionDefinition("accessibility.tap", "点击", ActionCategory.OPERATION, Capability.Accessibility,
             icon = Icons.Default.TouchApp))
-        add(ActionDefinition("accessibility.longPress", "长按", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+        add(ActionDefinition("accessibility.longPress", "长按", ActionCategory.OPERATION, Capability.Accessibility,
             icon = Icons.Default.Gesture))
         add(ActionDefinition(
-            "accessibility.swipe", "滑动", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+            "accessibility.swipe", "滑动", ActionCategory.OPERATION, Capability.Accessibility,
             icon = Icons.Default.VerticalAlignTop,
         ))
         add(ActionDefinition(
-            "accessibility.inputText", "输入文本", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+            "accessibility.inputText", "输入文本", ActionCategory.OPERATION, Capability.Accessibility,
             listOf(ParameterDefinition.TextLarge("text", "文本")),
             icon = Icons.Default.TouchApp,
         ))
-        add(ActionDefinition("accessibility.screenshot", "截屏", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+        add(ActionDefinition("accessibility.screenshot", "截屏", ActionCategory.UI, Capability.Accessibility,
             icon = Icons.Default.Screenshot))
-        add(ActionDefinition("accessibility.splitScreen", "分屏", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+        add(ActionDefinition("accessibility.splitScreen", "分屏", ActionCategory.UI, Capability.Accessibility,
             icon = Icons.Default.Splitscreen))
-        add(ActionDefinition("accessibility.powerButton", "电源菜单", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+        add(ActionDefinition("accessibility.powerButton", "电源菜单", ActionCategory.POWER, Capability.Accessibility,
             icon = Icons.Default.PowerSettingsNew))
-        add(ActionDefinition("accessibility.notificationPanel", "通知面板", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+        add(ActionDefinition("accessibility.notificationPanel", "通知面板", ActionCategory.UI, Capability.Accessibility,
             icon = Icons.Default.Notifications))
-        add(ActionDefinition("accessibility.quickPanel", "快捷面板", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+        add(ActionDefinition("accessibility.quickPanel", "快捷面板", ActionCategory.UI, Capability.Accessibility,
             icon = Icons.Default.Dashboard))
-        add(ActionDefinition("accessibility.lockScreen", "锁屏", ActionCategory.ACCESSIBILITY, Capability.Accessibility,
+        add(ActionDefinition("accessibility.lockScreen", "锁屏", ActionCategory.POWER, Capability.Accessibility,
             icon = Icons.Default.ScreenLockPortrait))
 
         // Settings
         add(ActionDefinition(
-            "settings.get", "读取设置", ActionCategory.SETTINGS,
+            "settings.get", "读取设置", ActionCategory.ADVANCED,
             Capability.Shizuku,
             listOf(
                 ParameterDefinition.Enum("namespace", "命名空间", listOf(
@@ -215,7 +215,7 @@ object ActionDefinitions {
             icon = Icons.Default.SettingsInputComponent,
         ))
         add(ActionDefinition(
-            "settings.put", "写入设置", ActionCategory.SETTINGS,
+            "settings.put", "写入设置", ActionCategory.ADVANCED,
             Capability.Shizuku,
             listOf(
                 ParameterDefinition.Enum("namespace", "命名空间", listOf(
@@ -230,14 +230,14 @@ object ActionDefinitions {
         ))
 
         // SystemCmd
-        add(ActionDefinition("systemCmd.reboot", "重启", ActionCategory.SYSTEMCMD, Capability.Shizuku,
+        add(ActionDefinition("systemCmd.reboot", "重启", ActionCategory.POWER, Capability.Shizuku,
             icon = Icons.Default.Refresh))
-        add(ActionDefinition("systemCmd.shutdown", "关机", ActionCategory.SYSTEMCMD, Capability.Shizuku,
+        add(ActionDefinition("systemCmd.shutdown", "关机", ActionCategory.POWER, Capability.Shizuku,
             icon = Icons.Default.PowerOff))
 
         // Shell
         add(ActionDefinition(
-            "shell.custom", "自定义命令", ActionCategory.SHELL,
+            "shell.custom", "自定义命令", ActionCategory.ADVANCED,
             Capability.Shizuku,
             listOf(
                 ParameterDefinition.TextLarge("command", "Shell 命令"),
@@ -247,15 +247,15 @@ object ActionDefinitions {
         ))
 
         // Internal
-        add(ActionDefinition("internal.none", "无", ActionCategory.INTERNAL, Capability.None,
+        add(ActionDefinition("internal.none", "无", ActionCategory.NONE, Capability.None,
             icon = Icons.Default.Block))
-        add(ActionDefinition("internal.subGesture", "子手势", ActionCategory.INTERNAL, Capability.None,
+        add(ActionDefinition("internal.subGesture", "子手势", ActionCategory.SUB_GESTURE, Capability.None,
             icon = Icons.Default.Gesture))
         /**
          * 动作面板：触发时弹弧形菜单让用户挑一个。`panelId` 必填——既不出现在
          * `pickerDefinitions`（面板行按全局列表动态合成），也存不出空引用。
          */
-        add(ActionDefinition(ACTION_PANEL_TYPE_ID, "动作面板", ActionCategory.INTERNAL, Capability.None,
+        add(ActionDefinition(ACTION_PANEL_TYPE_ID, "动作面板", ActionCategory.ACTION_PANEL, Capability.None,
             parameters = listOf(ParameterDefinition.Text(
                 key = ACTION_PANEL_PARAM_PANEL_ID,
                 label = "面板",
@@ -269,30 +269,30 @@ object ActionDefinitions {
          * 进不了动作库新建页（`ActionCatalog.libraryDefinitions` 只收有参动作），
          * 不必占 `libraryExcluded`。
          */
-        add(ActionDefinition(GRID_PANEL_TYPE_ID, "网格面板", ActionCategory.INTERNAL, Capability.None,
+        add(ActionDefinition(GRID_PANEL_TYPE_ID, "网格面板", ActionCategory.GRID_PANEL, Capability.None,
             icon = Icons.Default.GridView))
-        add(ActionDefinition("internal.hideGestureButton", "隐藏触钮", ActionCategory.INTERNAL, Capability.None,
+        add(ActionDefinition("internal.hideGestureButton", "隐藏触钮", ActionCategory.VISIBILITY, Capability.None,
             icon = Icons.Default.VisibilityOff))
         // 参数改在动作选择页行尾设置按钮里配（弹窗），不设置落运行时默认值。
-        add(ActionDefinition("internal.buttonsVisibility", "触钮显隐", ActionCategory.INTERNAL, Capability.None,
+        add(ActionDefinition("internal.buttonsVisibility", "触钮显隐", ActionCategory.VISIBILITY, Capability.None,
             icon = Icons.Default.Visibility))
-        add(ActionDefinition("internal.quickAppLauncher", "快速启动面板", ActionCategory.INTERNAL, Capability.None,
+        add(ActionDefinition("internal.quickAppLauncher", "快速启动面板", ActionCategory.ENTRY, Capability.None,
             icon = Icons.Default.Apps))
-        add(ActionDefinition("internal.floatBallVisibility", "悬浮球显隐", ActionCategory.INTERNAL, Capability.None,
+        add(ActionDefinition("internal.floatBallVisibility", "悬浮球显隐", ActionCategory.VISIBILITY, Capability.None,
             icon = Icons.Default.Adjust))
-        add(ActionDefinition("internal.quickSearch", "快速搜索", ActionCategory.INTERNAL, Capability.None,
+        add(ActionDefinition("internal.quickSearch", "快速搜索", ActionCategory.ENTRY, Capability.None,
             icon = Icons.Default.Search))
         // 水平调节删掉，恒开；灵敏度在动作选择页行尾设置按钮里配。
-        add(ActionDefinition("internal.volumeScrub", "滑动调音量", ActionCategory.INTERNAL, Capability.None,
+        add(ActionDefinition("internal.volumeScrub", "滑动调音量", ActionCategory.GESTURE_TOOL, Capability.None,
             icon = Icons.Default.Widgets))
-        add(ActionDefinition("internal.pointer", "指针", ActionCategory.INTERNAL, Capability.None,
+        add(ActionDefinition("internal.pointer", "指针", ActionCategory.GESTURE_TOOL, Capability.None,
             icon = Icons.Default.TouchApp))
         // 无参定义：动作库只收有参动作，自动不显示；选择页仍可选。
         // 排除名单改为全局「最近应用黑名单」（动作设置），历史源头过滤。
-        add(ActionDefinition("internal.previousApp", "上一个应用", ActionCategory.INTERNAL, Capability.None,
+        add(ActionDefinition("internal.previousApp", "上一个应用", ActionCategory.APP, Capability.None,
             icon = Icons.Default.SwapHoriz))
         // 规则即动作：只能引用已存规则（库新建/定义表直选都不开放），ruleId 必填。
-        add(ActionDefinition("internal.runRule", "运行规则", ActionCategory.INTERNAL, Capability.None,
+        add(ActionDefinition("internal.runRule", "运行规则", ActionCategory.ADVANCED, Capability.None,
             parameters = listOf(ParameterDefinition.Text(
                 key = "ruleId",
                 label = "规则",
@@ -339,8 +339,26 @@ object ActionDefinitions {
     fun pickerDefinitions(excluded: Set<String> = libraryExcluded): List<ActionDefinition> =
         definitions.filter { it.typeId !in excluded && it.parameters.none { p -> p.required } }
 
-    private val categoryOrder: Map<ActionCategory, Int> =
-        libraryDefinitions().map { it.category }.distinct().withIndex().associate { (i, c) -> c to i }
+    /** 显式分组顺序：与定义表声明顺序解耦，动作库与选择页共用。 */
+    private val categoryOrder: Map<ActionCategory, Int> = listOf(
+        ActionCategory.NONE,
+        ActionCategory.APP,
+        ActionCategory.LINK_SHARE,
+        ActionCategory.SYSTEM,
+        ActionCategory.MEDIA,
+        ActionCategory.CLIPBOARD,
+        ActionCategory.NAVIGATION,
+        ActionCategory.OPERATION,
+        ActionCategory.UI,
+        ActionCategory.POWER,
+        ActionCategory.VISIBILITY,
+        ActionCategory.ENTRY,
+        ActionCategory.GESTURE_TOOL,
+        ActionCategory.ADVANCED,
+        ActionCategory.ACTION_PANEL,
+        ActionCategory.GRID_PANEL,
+        ActionCategory.SUB_GESTURE,
+    ).withIndex().associate { (i, c) -> c to i }
 
     fun categoryOrder(category: ActionCategory): Int = categoryOrder[category] ?: Int.MAX_VALUE
 }

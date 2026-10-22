@@ -33,14 +33,23 @@ fun gestureButtonMarkColor(colorInt: Int, alpha: Float = 1f): Color =
 @get:StringRes
 val ActionCategory.displayNameRes: Int
     get() = when (this) {
-        ActionCategory.SYSTEM -> R.string.action_category_system
+        ActionCategory.NONE -> R.string.action_none
         ActionCategory.APP -> R.string.action_category_app
-        ActionCategory.INTENT -> R.string.action_category_intent
-        ActionCategory.ACCESSIBILITY -> R.string.action_category_accessibility
-        ActionCategory.SETTINGS -> R.string.action_category_settings
-        ActionCategory.SYSTEMCMD -> R.string.action_category_system_cmd
-        ActionCategory.SHELL -> R.string.action_category_shell
-        ActionCategory.INTERNAL -> R.string.action_category_internal
+        ActionCategory.LINK_SHARE -> R.string.action_category_link_share
+        ActionCategory.SYSTEM -> R.string.action_category_system
+        ActionCategory.MEDIA -> R.string.action_category_media
+        ActionCategory.CLIPBOARD -> R.string.action_category_clipboard
+        ActionCategory.NAVIGATION -> R.string.action_category_navigation
+        ActionCategory.OPERATION -> R.string.action_category_operation
+        ActionCategory.UI -> R.string.action_category_ui
+        ActionCategory.POWER -> R.string.action_category_power
+        ActionCategory.VISIBILITY -> R.string.action_category_visibility
+        ActionCategory.ENTRY -> R.string.action_category_entry
+        ActionCategory.GESTURE_TOOL -> R.string.action_category_gesture_tool
+        ActionCategory.ADVANCED -> R.string.action_category_advanced
+        ActionCategory.ACTION_PANEL -> R.string.action_category_action_panel
+        ActionCategory.GRID_PANEL -> R.string.action_category_grid_panel
+        ActionCategory.SUB_GESTURE -> R.string.action_category_sub_gesture
     }
 
 @get:StringRes

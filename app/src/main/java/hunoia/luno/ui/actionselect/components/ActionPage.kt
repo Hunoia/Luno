@@ -305,8 +305,11 @@ internal fun ActionPage(
             if (grouped.isNotEmpty()) {
                 grouped.forEach { (category, categoryActions) ->
                     val categoryFlags = categoryActions.map { selectedRecord.isSelected(it) }
-                    stickyHeader(key = "cat_${category.name}") {
-                        SheetGroupHeader(stringResource(id = category.displayNameRes))
+                    // 「无」单独置顶，不显示组标题。
+                    if (category != ActionCategory.NONE) {
+                        stickyHeader(key = "cat_${category.name}") {
+                            SheetGroupHeader(stringResource(id = category.displayNameRes))
+                        }
                     }
                     itemsIndexed(
                         items = categoryActions,
