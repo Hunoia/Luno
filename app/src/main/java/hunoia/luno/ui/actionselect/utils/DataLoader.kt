@@ -97,28 +97,15 @@ internal suspend fun saveSettingsAction(
         }
         return true
     }
-    val buttonsUpdater = GestureConfig::updateButtons
-    buttonsUpdater { list ->
+    GestureConfig.updateButtons { list ->
         val mutableList = list.toMutableList()
-        var button: GestureButton? = null
-        var index = -1
-        for (i in mutableList.indices) {
-            index = i
-            val b = mutableList[i]
-            if (b.id == actionSelect.gestureButtonId) {
-                button = b
-                break
-            }
-        }
-        if (button == null) {
-            return@buttonsUpdater mutableList
-        }
-        val oldAction = button.actionFor(actionSelect.triggerType, actionSelect.direction)
+        val index = mutableList.indexOfFirst { it.id == actionSelect.gestureButtonId }
+        if (index < 0) return@updateButtons mutableList
+        val oldAction = mutableList[index].actionFor(actionSelect.triggerType, actionSelect.direction)
         tryDeleteShortcutIcons(oldAction, picked)
-        button = button.withAction(actionSelect.triggerType, actionSelect.direction, picked)
-        mutableList.apply {
-            set(index, button)
-        }
+        mutableList[index] = mutableList[index]
+            .withAction(actionSelect.triggerType, actionSelect.direction, picked)
+        mutableList
     }
     return true
 }

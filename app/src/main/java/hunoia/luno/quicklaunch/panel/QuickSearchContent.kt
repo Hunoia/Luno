@@ -84,6 +84,11 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import hunoia.luno.BuildConfig
 import hunoia.luno.R
+import hunoia.luno.config.model.SearchEngine
+import hunoia.luno.config.model.QuickSearchSettings
+import hunoia.luno.config.model.QuickAppLauncherSettings
+import hunoia.luno.action.model.ActionLibrarySettings
+import hunoia.luno.action.model.ActionLibraryEntry
 import hunoia.luno.config.model.BLANK_RECENT_LIMIT
 import hunoia.luno.config.model.MIN_HISTORY_CHARS
 import hunoia.luno.config.model.MAX_CLIP_HISTORY
@@ -127,9 +132,9 @@ import hunoia.luno.ui.component.row.segmentedShape
 /** 搜索输入快照：snapshotFlow 跟踪块内读到的 State，值变化即重搜。 */
 private data class SearchSnapshot(
     val text: String,
-    val entries: List<hunoia.luno.action.model.ActionLibraryEntry>,
-    val launcher: hunoia.luno.config.model.QuickAppLauncherSettings,
-    val search: hunoia.luno.config.model.QuickSearchSettings,
+    val entries: List<ActionLibraryEntry>,
+    val launcher: QuickAppLauncherSettings,
+    val search: QuickSearchSettings,
     val contactsTick: Int,
     val mediaTick: Int,
     val calendarTick: Int,
@@ -140,7 +145,7 @@ private data class SearchSnapshot(
 /** 影响搜索结果的设置子集（纯值投影）：直接拿 QuickSearchSettings 当依赖会让改外观/删历史都触发全量重搜；recentQueries 有意排除。 */
 private data class SearchInputs(
     val defaultEngineId: String,
-    val customEngines: List<hunoia.luno.config.model.SearchEngine>,
+    val customEngines: List<SearchEngine>,
     val sourceTriggers: Map<String, String>,
     val searchClipboard: Boolean,
     val searchContacts: Boolean,
@@ -154,7 +159,7 @@ private data class SearchInputs(
     val pinnedClips: List<String>,
 ) {
     /** 反向拼回引擎/匹配层认的完整设置；recentQueries 与 UI 无关字段留默认值。 */
-    fun toSettings() = hunoia.luno.config.model.QuickSearchSettings(
+    fun toSettings() = QuickSearchSettings(
         defaultEngineId = defaultEngineId,
         customEngines = customEngines,
         sourceTriggers = sourceTriggers,
@@ -171,7 +176,7 @@ private data class SearchInputs(
     )
 
     companion object {
-        fun of(s: hunoia.luno.config.model.QuickSearchSettings) = SearchInputs(
+        fun of(s: QuickSearchSettings) = SearchInputs(
             defaultEngineId = s.defaultEngineId,
             customEngines = s.customEngines,
             sourceTriggers = s.sourceTriggers,
@@ -204,12 +209,12 @@ internal fun QuickSearchContent(
     onOpenAppSettings: () -> Unit,
 ) {
     val libraryFlow = remember { hunoia.luno.config.ConfigProvider.actionLibrarySettings }
-    val libraryState by libraryFlow.collectAsState(initial = hunoia.luno.action.model.ActionLibrarySettings())
+    val libraryState by libraryFlow.collectAsState(initial = ActionLibrarySettings())
     val entries = libraryState.entries
     val launcherFlow = remember { hunoia.luno.config.ConfigProvider.quickAppLauncherSettings }
-    val launcherSettings by launcherFlow.collectAsState(initial = hunoia.luno.config.model.QuickAppLauncherSettings())
+    val launcherSettings by launcherFlow.collectAsState(initial = QuickAppLauncherSettings())
     val searchSettingsFlow = remember { hunoia.luno.config.ConfigProvider.quickSearchSettings }
-    val searchSettings by searchSettingsFlow.collectAsState(initial = hunoia.luno.config.model.QuickSearchSettings())
+    val searchSettings by searchSettingsFlow.collectAsState(initial = QuickSearchSettings())
     var query by remember { mutableStateOf(TextFieldValue("")) }
     val scope = rememberCoroutineScope()
     // 联系人权限 + 后台加载：授权后 IO 线程一次性进内存，打字只查内存；
@@ -304,7 +309,7 @@ internal fun QuickSearchContent(
     // 启动频率/最近启动变了不必重建流：排序分是搜索时现算的，下一次搜索自然带上新值。
     // 所以这里把 launcher 只留「搜索侧用得到」的两个 map，引用由 remember 抄平。
     val effectiveLauncher = remember(launchCount, recentLaunchTime) {
-        hunoia.luno.config.model.QuickAppLauncherSettings(
+        QuickAppLauncherSettings(
             launchCount = launchCount,
             recentLaunchTime = recentLaunchTime,
         )

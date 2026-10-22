@@ -5,8 +5,8 @@ import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import androidx.core.content.ContextCompat
 import hunoia.luno.BuildConfig
+import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.bridge.ui.removeWindows
 import hunoia.luno.config.model.GestureButton
@@ -18,7 +18,7 @@ import hunoia.luno.gesture.mirroredButton
 class ButtonWindowController(
     private val host: android.content.Context,
 ) {
-    private val wm: WindowManager get() = ContextCompat.getSystemService(host, WindowManager::class.java)!!
+    private val wm: WindowManager get() = host.windowManager()
     private val _buttonViews = mutableListOf<View>()
     val buttonViews: List<View> get() = _buttonViews.toList()
 

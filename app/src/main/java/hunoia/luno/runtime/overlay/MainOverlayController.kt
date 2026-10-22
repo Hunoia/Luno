@@ -4,11 +4,11 @@ import android.util.Log
 import android.view.WindowManager
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.ComposeView
-import androidx.core.content.ContextCompat
 import hunoia.luno.BuildConfig
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.runtime.GestureHost
 
@@ -27,7 +27,7 @@ class MainOverlayController(
     private var panelVisible: Boolean = false
 
     fun replaceContent(content: @Composable () -> Unit) {
-        val wm = ContextCompat.getSystemService(host.context, WindowManager::class.java)!!
+        val wm = host.context.windowManager()
         composeView?.let { host.context.removeWindow(it) }
         val lp = WindowLayoutFactory.mainOverlayLayoutParams(fullScreen = panelVisible)
         val view = ComposeView(host.context).apply {
@@ -59,7 +59,7 @@ class MainOverlayController(
     /** 只有尺寸真的变了才发跨进程 updateViewLayout。 */
     private fun applySize() {
         val view = composeView ?: return
-        val wm = ContextCompat.getSystemService(host.context, WindowManager::class.java)!!
+        val wm = host.context.windowManager()
         val currentLp = view.layoutParams as? WindowManager.LayoutParams ?: return
         val desired = WindowLayoutFactory.mainOverlayLayoutParams(fullScreen = panelVisible)
         if (currentLp.width == desired.width && currentLp.height == desired.height) return

@@ -160,14 +160,21 @@ private fun QuickSearchIndex.matchLibrary(
     libraryEntries: List<ActionLibraryEntry>,
     tokens: List<String>,
     foldedTokens: List<String>,
-): List<RankedHit> = matchEach(libraryEntries, tokens, foldedTokens, result = { entry ->
-    val def = ActionDefinitions.byTypeId(entry.typeId)
-    val fallback = def?.name ?: entry.typeId
-    QuickSearchResult.LibraryEntry(entry, fallback, entry.resolvedIcon())
-}) { entry ->
-    val def = ActionDefinitions.byTypeId(entry.typeId)
-    val fallback = def?.name ?: entry.typeId
-    bestOf(tierOf(entry.name, tokens, foldedTokens), tierOf(fallback, tokens, foldedTokens))
+): List<RankedHit> {
+    val out = mutableListOf<RankedHit>()
+    for (entry in libraryEntries) {
+        val fallback = ActionDefinitions.byTypeId(entry.typeId)?.name ?: entry.typeId
+        val m = bestOf(tierOf(entry.name, tokens, foldedTokens), tierOf(fallback, tokens, foldedTokens))
+        if (m.tier >= 0) {
+            out.add(
+                RankedHit(
+                    QuickSearchResult.LibraryEntry(entry, fallback, entry.resolvedIcon()),
+                    m.tier, m.span, m.offset, 0.0,
+                ),
+            )
+        }
+    }
+    return out
 }
 
 private fun QuickSearchIndex.matchApps(
@@ -301,7 +308,10 @@ internal fun QuickSearchIndex.matchClips(
     tokens: List<String>,
     foldedTokens: List<String>,
     searchSettings: QuickSearchSettings,
-): List<RankedHit> = matchClipPool(searchSettings.pinnedClips, searchSettings.clipHistory, tokens, foldedTokens)
+): List<RankedHit> {
+    if (!searchSettings.searchClipboard) return emptyList()
+    return matchClipPool(searchSettings.pinnedClips, searchSettings.clipHistory, tokens, foldedTokens)
+}
 
 /** 剪贴匹配核心：不依赖索引实例（池=固定+历史），供 matchClips 与单测共用。 */
 internal fun matchClipPool(
@@ -318,7 +328,8 @@ internal fun matchClipPool(
     val historyHits = matchEach(history, tokens, foldedTokens, result = { QuickSearchResult.ClipEntry(it) }) { clip ->
         tierOf(clip.take(64), tokens, foldedTokens)
     }
-    val hits = (pinnedHits + historyHits).filter { (it.result as? QuickSearchResult.ClipEntry)?.text?.isNotBlank() != false }
+    // 空白剪贴命不中（空文本 vs 非空 token 必 NO_MATCH），无需额外过滤。
+    val hits = pinnedHits + historyHits
     if (hits.isEmpty()) return emptyList()
     return hits.sortedWith(
         compareByDescending<RankedHit> { it.tier }

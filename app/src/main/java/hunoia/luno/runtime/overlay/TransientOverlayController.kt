@@ -1,9 +1,8 @@
 package hunoia.luno.runtime.overlay
 
 import android.view.View
-import android.view.WindowManager
 import androidx.compose.ui.geometry.Offset
-import androidx.core.content.ContextCompat
+import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.gesture.MotionEventDispatcher
 
@@ -15,7 +14,7 @@ class TransientOverlayController(
 
     fun attachActionPanelOverlay() {
         if (actionPanelOverlayView != null) return
-        val wm = ContextCompat.getSystemService(host, WindowManager::class.java)!!
+        val wm = host.windowManager()
         val lp = WindowLayoutFactory.actionPanelOverlayLayoutParams()
         val view = View(host).apply {
             setOnTouchListener { _, event ->
@@ -34,7 +33,7 @@ class TransientOverlayController(
     }
 
     fun attachSubGestureOverlay(center: Offset, radiusPx: Int) {
-        val wm = ContextCompat.getSystemService(host, WindowManager::class.java)!!
+        val wm = host.windowManager()
         val lp = WindowLayoutFactory.subGestureLayoutParams(center, radiusPx)
         subGestureOverlayView?.let { view ->
             wm.safeUpdateViewLayout(view, lp)

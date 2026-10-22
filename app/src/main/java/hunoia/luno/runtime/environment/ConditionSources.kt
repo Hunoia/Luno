@@ -1,5 +1,6 @@
 package hunoia.luno.runtime.environment
 
+import android.util.Log
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothA2dp
 import android.bluetooth.BluetoothHeadset
@@ -24,6 +25,7 @@ import hunoia.luno.config.model.NetworkType
 
 /** 自动化条件所需的系统电平状态：网络 / 耳机 / 蓝牙 / 飞行模式 */
 class ConditionSources(
+    private val tag: String = "ConditionSources",
     private val context: Context,
     private val onStateChanged: () -> Unit = {},
     /** 连接方向脉冲：只发真实翻转，启动时的首次读取不算（init 守卫）。 */
@@ -174,6 +176,9 @@ class ConditionSources(
         val connected = runCatching {
             audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
                 .any { device -> device.type in HEADPHONE_DEVICE_TYPES }
+        }.onFailure {
+            // 静默失败会让耳机状态永远不刷新（条件源失效），至少留痕。
+            Log.w(tag, "refreshHeadphones failed", it)
         }.getOrNull() ?: return
         if (connected != headphonesConnected) {
             headphonesConnected = connected
