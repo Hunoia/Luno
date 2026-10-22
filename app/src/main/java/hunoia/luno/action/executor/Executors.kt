@@ -68,6 +68,8 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
             }
             is Action.InputText -> executionResult(controller.inputText(action.text))
             is Action.Screenshot -> {
+                // fire-and-forget：takeScreenshot 的回调是异步且无失败语义，
+                // 这里拿不到真实成败，统一按成功收口（失败静默）。
                 context.scope.launch {
                     delay(200)
                     controller.takeScreenshot()
@@ -142,7 +144,7 @@ class IntentExecutors(private val intentController: IntentController) : ActionEx
         "intent.openUrl", "intent.shareText", "intent.shareFile", "intent.assist"
     )
 
-    override suspend fun execute(action: Action, context: ExecutorContext):ActionResult {
+    override suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
         return when (action) {
             is Action.OpenUrl -> {
                 val adv = context.advancedSettings

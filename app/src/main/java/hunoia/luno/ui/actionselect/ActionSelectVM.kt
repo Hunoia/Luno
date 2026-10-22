@@ -9,6 +9,7 @@ import hunoia.luno.action.model.StoredAction
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.quicklaunch.model.qualifiedName
+import hunoia.luno.ui.actionselect.SaveOutcome
 import hunoia.luno.ui.actionselect.updateActionParamsTransform
 import hunoia.luno.ui.navigation.ActionSelect
 import kotlinx.coroutines.flow.collectLatest
@@ -177,9 +178,9 @@ class ActionSelectVM(
         // 自动化只暂存（编辑页保存键统一落盘），这里不提示已保存，避免误导；
         // 手势/子手势路径保持直写，提示不变。
         val isAutomation = actionSelect.automationRuleId.isNotBlank()
-        var saved = true
+        var outcome: SaveOutcome? = null
         viewModelScope.launch {
-            saved = saveSettingsAction(
+            outcome = saveSettingsAction(
                 actionSelect = actionSelect,
                 getUiState = { uiState },
                 updateUiState = { transform -> updateUiState(transform) },
@@ -187,8 +188,13 @@ class ActionSelectVM(
         }.invokeOnCompletion {
             when {
                 it != null -> toast(R.string.save_failure)
-                // 软失败（目前只有网格面板页满）：提示放不下，而不是假报保存成功。
-                !saved -> toast(R.string.grid_panel_page_full)
+                outcome == SaveOutcome.PageFull -> toast(R.string.grid_panel_page_full)
+                outcome == SaveOutcome.TargetMissing ->
+                    if (actionSelect.gridPanelId.isNotBlank()) {
+                        toast(R.string.grid_panel_missing)
+                    } else {
+                        toast(R.string.action_panel_missing)
+                    }
                 !isAutomation -> toast(R.string.save_success)
             }
             if (it == null) finish()

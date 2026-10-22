@@ -58,31 +58,33 @@ internal fun tryDeleteShortcutIcons(old: StoredAction?, new: StoredAction?) {
         .forEach(ShortcutIconFiles::delete)
 }
 
+/** 落盘结果：区分「成功」「页满」「目标消失」，VM 按此给不同提示，不假报已保存。 */
+internal enum class SaveOutcome { Saved, PageFull, TargetMissing }
+
 /**
- * 选择页的统一落盘入口。返回 false = 软失败（目前只有网格面板页满一种），
- * 调用方按「这一页放不下」提示而不是「保存成功」。
+ * 选择页的统一落盘入口。TargetMissing = 目标面板/规则在选择期间被删，
+ * 数据未写入；调用方按目标类型提示，不报「保存成功」。
  */
 internal suspend fun saveSettingsAction(
     actionSelect: ActionSelect,
     getUiState: () -> UiState,
     updateUiState: ((UiState) -> UiState) -> Unit
-): Boolean {
+): SaveOutcome {
     // 单值语义：传 null 即「无动作」（删键/存 null），选别的传那一个。
     val picked = getUiState().selectedRecord.action
     if (actionSelect.actionPanelId.isNotBlank()) {
-        saveActionPanelItem(actionSelect, picked)
-        return true
+        return saveActionPanelItem(actionSelect, picked)
     }
     if (actionSelect.gridPanelId.isNotBlank()) {
         return saveGridPanelItem(actionSelect, picked)
     }
     if (actionSelect.floatBallSlot.isNotBlank()) {
         saveFloatBallSlot(actionSelect.floatBallSlot, picked)
-        return true
+        return SaveOutcome.Saved
     }
     if (actionSelect.automationRuleId.isNotBlank()) {
         saveAutomationEffect(actionSelect, picked)
-        return true
+        return SaveOutcome.Saved
     }
     if (actionSelect.subGestureId.isNotBlank()) {
         GestureConfig.updateSubGestures { settings ->
@@ -95,7 +97,7 @@ internal suspend fun saveSettingsAction(
                 }
             )
         }
-        return true
+        return SaveOutcome.Saved
     }
     GestureConfig.updateButtons { list ->
         val mutableList = list.toMutableList()
@@ -107,17 +109,22 @@ internal suspend fun saveSettingsAction(
             .withAction(actionSelect.triggerType, actionSelect.direction, picked)
         mutableList
     }
-    return true
+    return SaveOutcome.Saved
 }
 
 /**
  * 面板项落盘：`actionPanelItemIndex < 0` 是新增（追加），>=0 是替换该项的长按变体。
+ * 返回 TargetMissing = 面板在选择期间被删（数据未写入），放弃添加不算失败。
  */
-private suspend fun saveActionPanelItem(actionSelect: ActionSelect, picked: StoredAction?) {
+private suspend fun saveActionPanelItem(actionSelect: ActionSelect, picked: StoredAction?): SaveOutcome {
     val panelId = actionSelect.actionPanelId
     val index = actionSelect.actionPanelItemIndex
+    var outcome = SaveOutcome.Saved
     TuneConfig.updateAction { settings ->
-        val panel = settings.actionPanels.panelById(panelId) ?: return@updateAction settings
+        val panel = settings.actionPanels.panelById(panelId) ?: run {
+            outcome = SaveOutcome.TargetMissing
+            return@updateAction settings
+        }
         val items = when {
             // 新增：选了「无动作」等于放弃本次添加，不改面板。
             picked == null || picked.typeId == "internal.none" -> return@updateAction settings
@@ -131,6 +138,7 @@ private suspend fun saveActionPanelItem(actionSelect: ActionSelect, picked: Stor
             actionPanels = settings.actionPanels.withPanel(panel.copy(items = items))
         )
     }
+    return outcome
 }
 
 /**
@@ -138,13 +146,15 @@ private suspend fun saveActionPanelItem(actionSelect: ActionSelect, picked: Stor
  *（只在本页内扫，跨页不占位）。只进不出，无「替换已有项」分支，也无长按变体。
  * 页满返回 false，由调用方明确提示；静默丢弃还报「保存成功」就是「添加没反应」。
  */
-private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: StoredAction?): Boolean {
+private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: StoredAction?): SaveOutcome {
     // 选了「无动作」等于放弃本次操作，不改面板，也不当失败提示。
-    if (picked == null || picked.typeId == "internal.none") return true
-    var saved = false
+    if (picked == null || picked.typeId == "internal.none") return SaveOutcome.Saved
+    var outcome = SaveOutcome.PageFull
     TuneConfig.updateAction { settings ->
-        val panel = settings.actionGridPanels.panelById(actionSelect.gridPanelId)
-            ?: return@updateAction settings
+        val panel = settings.actionGridPanels.panelById(actionSelect.gridPanelId) ?: run {
+            outcome = SaveOutcome.TargetMissing
+            return@updateAction settings
+        }
         val landscape = AppContext.get().resources.configuration.orientation ==
             android.content.res.Configuration.ORIENTATION_LANDSCAPE
         val geo = panel.geometry(landscape)
@@ -168,7 +178,7 @@ private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: Stored
             spanX = 1,
             spanY = 1,
         ) ?: return@updateAction settings
-        saved = true
+        outcome = SaveOutcome.Saved
         settings.copy(
             actionGridPanels = settings.actionGridPanels.withPanel(
                 panel.copy(
@@ -182,7 +192,7 @@ private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: Stored
             ),
         )
     }
-    return saved
+    return outcome
 }
 
 /**
@@ -303,8 +313,9 @@ internal suspend fun saveGridPanelWidget(
                             kind = GridPanelItem.Kind.AppWidget(
                                 appWidgetId = appWidgetId,
                                 provider = provider,
-                                // 冻结 provider 声明的最小 span：resize 时不能查
-                                // AppWidgetManager（跨进程 IPC 掉帧，卸载后只能退化成 1×1）。
+                                // 冻结实际落位的 span（不是 provider 声明的最小值）：
+                                // minSpan 会经 options 传给 provider，必须与真实渲染一致。
+                                // 页满降档低于 provider 声明最小值是本路径的既定权衡。
                                 minSpanX = span.spanX,
                                 minSpanY = span.spanY,
                             ),
@@ -451,9 +462,10 @@ private suspend fun saveAutomationEffect(actionSelect: ActionSelect, picked: Sto
 }
 
 private suspend fun loadAutomationAction(actionSelect: ActionSelect): StoredAction? {
-    val rules = AutomationCenter.getRules()
-    val rule = AutomationDraftHolder.take(actionSelect.automationRuleId)
-        ?: rules.find { it.id == actionSelect.automationRuleId } ?: return null
+    // 草稿命中就不读库（getRules 是一次 DataStore 读）。
+    val draft = AutomationDraftHolder.take(actionSelect.automationRuleId)
+    val rule = draft ?: AutomationCenter.getRules().find { it.id == actionSelect.automationRuleId }
+    ?: return null
     return rule.effect.stepAt(actionSelect.automationStepPath)?.action
 }
 
@@ -510,6 +522,8 @@ internal suspend fun updateShortcutInfosBody(
             selectedRecord = selectedRecord
         )
     }
+    // 补偿：queryShortcutActivities 只返回支持快捷方式创建的应用行（不带 shortcuts），
+    // 已选中的快捷方式行必须单独补进它的 launcher 缓存，否则列表里看不到自己选了啥。
     getUiState()
         .selectedRecord
         .action

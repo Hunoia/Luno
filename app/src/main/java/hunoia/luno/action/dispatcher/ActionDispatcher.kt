@@ -157,39 +157,39 @@ class ActionDispatcher(
             )
         }
         try {
-        // 动作库引用就地解析为条目动作（单轨：引用本身也是 StoredAction）。
-        val effective = if (stored.typeId == "internal.libraryRef") {
-            val entryId = (stored.params["entryId"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull.orEmpty()
-            val entry = settingsSnapshot().actionLibrarySettings.entries.find { it.id == entryId }
-            if (entry == null) {
-                if (BuildConfig.DEBUG) Log.w("LunoLauncher", "library entry not found id=$entryId")
-                postDispatch(stored.typeId, ok = false)
-                return StepOutcome.EntryMissing
+            // 动作库引用就地解析为条目动作（单轨：引用本身也是 StoredAction）。
+            val effective = if (stored.typeId == "internal.libraryRef") {
+                val entryId = (stored.params["entryId"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull.orEmpty()
+                val entry = settingsSnapshot().actionLibrarySettings.entries.find { it.id == entryId }
+                if (entry == null) {
+                    if (BuildConfig.DEBUG) Log.w("LunoLauncher", "library entry not found id=$entryId")
+                    postDispatch(stored.typeId, ok = false)
+                    return StepOutcome.EntryMissing
+                }
+                entry.storedAction
+            } else {
+                stored
             }
-            entry.storedAction
-        } else {
-            stored
-        }
-        val ctx = buildContext(sourceButton, touchPosition, templateContext, localVariables)
-        // 点按类动作的前置条件：手势触点优先，其次看参数坐标，两者都没有才判参数无效。
-        // 勾了「使用触发位置坐标」的条目 hasPointParams() 恒 false，无触点路径（自动化）在这里被拦。
-        // 只看 StoredAction 参数，进 Executor 前不再复验。
-        if (touchPosition == null && (effective.typeId == "accessibility.tap" || effective.typeId == "accessibility.longPress") &&
-            !effective.hasPointParams()
-        ) {
-            ctx.showToast(failureText(appContext, ActionFailure.InvalidParameter))
-            postDispatch(effective.typeId, ok = false)
-            return StepOutcome.Done(ActionResult.Failed(ActionFailure.InvalidParameter, "needs_touch_position"))
-        }
-        val result = resolver.resolveFromLibrary(effective, ctx)
-        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "result=$result")
-        when (result) {
-            is ActionResult.Failed -> ctx.showToast(result.message ?: failureText(appContext, result.reason))
-            is ActionResult.RequiresCapability -> ctx.showToast(capabilityText(appContext, result.capability))
-            is ActionResult.Success -> result.message?.let { msg -> ctx.showToast(msg) }
-        }
-        postDispatch(effective.typeId, ok = result is ActionResult.Success)
-        return StepOutcome.Done(result)
+            val ctx = buildContext(sourceButton, touchPosition, templateContext, localVariables)
+            // 点按类动作的前置条件：手势触点优先，其次看参数坐标，两者都没有才判参数无效。
+            // 勾了「使用触发位置坐标」的条目 hasPointParams() 恒 false，无触点路径（自动化）在这里被拦。
+            // 只看 StoredAction 参数，进 Executor 前不再复验。
+            if (touchPosition == null && (effective.typeId == "accessibility.tap" || effective.typeId == "accessibility.longPress") &&
+                !effective.hasPointParams()
+            ) {
+                ctx.showToast(failureText(appContext, ActionFailure.InvalidParameter))
+                postDispatch(effective.typeId, ok = false)
+                return StepOutcome.Done(ActionResult.Failed(ActionFailure.InvalidParameter, "needs_touch_position"))
+            }
+            val result = resolver.resolveFromLibrary(effective, ctx)
+            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "result=$result")
+            when (result) {
+                is ActionResult.Failed -> ctx.showToast(result.message ?: failureText(appContext, result.reason))
+                is ActionResult.RequiresCapability -> ctx.showToast(capabilityText(appContext, result.capability))
+                is ActionResult.Success -> result.message?.let { msg -> ctx.showToast(msg) }
+            }
+            postDispatch(effective.typeId, ok = result is ActionResult.Success)
+            return StepOutcome.Done(result)
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {

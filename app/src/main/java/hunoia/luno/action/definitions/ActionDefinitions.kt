@@ -32,8 +32,6 @@ import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SettingsInputComponent
 import androidx.compose.material.icons.filled.SettingsInputComposite
-import hunoia.luno.action.model.ACTION_PANEL_PARAM_PANEL_ID
-import hunoia.luno.action.model.ACTION_PANEL_TYPE_ID
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Splitscreen
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -49,6 +47,8 @@ import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.Window
 import androidx.compose.material.icons.filled.Widgets
 import hunoia.luno.action.definitions.ActionCategory
+import hunoia.luno.action.model.ACTION_PANEL_PARAM_PANEL_ID
+import hunoia.luno.action.model.ACTION_PANEL_TYPE_ID
 import hunoia.luno.action.model.*
 
 object ActionDefinitions {
