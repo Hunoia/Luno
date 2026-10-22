@@ -135,7 +135,7 @@ object GridPanelOverlay {
             }
         }
         // 挂窗失败（悬浮窗权限被撤 / ROM 拒绝）：不要发 Shown —— 否则 FloatBallService
-        // 的 panelCount 会 +1 而永远等不到配对的 Dismissed，球被 hideOnPanel 永久隐藏。
+        // 的 panelCount 会 +1 而永远等不到配对的 Dismissed，球被永久隐藏。
         if (!windowReady || view == null) return
         lifecycleOwner?.resume()
         if (!shownEventPosted) {

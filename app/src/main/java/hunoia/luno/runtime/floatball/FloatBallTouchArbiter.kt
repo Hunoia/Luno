@@ -21,7 +21,6 @@ internal class FloatBallTouchArbiter(
     private var startY = 0f
     private var currentX = 0f
     private var currentY = 0f
-    private var reporting = false
     private var dragging = false
 
     private val touchSlopPx: Float by lazy {
@@ -36,7 +35,6 @@ internal class FloatBallTouchArbiter(
                 currentX = startX
                 currentY = startY
                 dragging = false
-                reporting = false
                 onPressChanged(true)
                 return true
             }
@@ -48,7 +46,6 @@ internal class FloatBallTouchArbiter(
                 val dy = currentY - startY
                 if (!dragging && (dx * dx + dy * dy) > touchSlopPx * touchSlopPx) {
                     dragging = true
-                    reporting = true
                 }
                 if (dragging) {
                     // 每帧上报**本帧增量**（窗口侧做累加）。基准不能只在进入拖动时
@@ -65,7 +62,6 @@ internal class FloatBallTouchArbiter(
                 onPressChanged(false)
                 if (dragging) onDragEnded() else onTapped()
                 dragging = false
-                reporting = false
                 return true
             }
 
@@ -73,7 +69,6 @@ internal class FloatBallTouchArbiter(
                 onPressChanged(false)
                 if (dragging) onDragEnded()
                 dragging = false
-                reporting = false
                 return true
             }
 
@@ -85,6 +80,5 @@ internal class FloatBallTouchArbiter(
         onPressChanged(false)
         if (dragging) onDragEnded()
         dragging = false
-        reporting = false
     }
 }

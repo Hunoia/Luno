@@ -206,19 +206,12 @@ class FloatBallWindow(
         applyHiddenFlags()
     }
 
-    /** 临时隐身（拖分身时主球让位）。与 [setHidden] 独立记账，任一为真即隐身。 */
-    fun setSuppressed(value: Boolean) {
-        suppressed = value
-        applyHiddenFlags()
-    }
-
     private var lockHidden = false
-    private var suppressed = false
 
     private fun applyHiddenFlags() {
         val current = view ?: return
         val lp = current.layoutParams as? WindowManager.LayoutParams ?: return
-        val hidden = lockHidden || suppressed
+        val hidden = lockHidden
         if (hidden) {
             lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
             lp.alpha = 0f
@@ -227,7 +220,7 @@ class FloatBallWindow(
             lp.alpha = 1f
         }
         wm.safeUpdateViewLayout(current, lp)
-        if (!hidden && !suppressed) scheduleIdle() else cancelIdle()
+        if (!hidden) scheduleIdle() else cancelIdle()
     }
 
     /** 挂窗并原地淡入弹回（scale 0.85→1，250ms）：面板期间窗体被移除，关闭后补回场动画。 */

@@ -25,8 +25,6 @@ data class FloatBallSettings(
     val color: Int = FloatBallDefaults.Color,
     /** 单击球执行的动作。为 null 表示单击无响应。 */
     val tapAction: StoredAction? = null,
-    /** 面板类浮层（网格面板/快速搜索/快速启动等）打开时自动隐藏球，全关后恢复。 */
-    val hideOnPanel: Boolean = FloatBallDefaults.HideOnPanel,
     /** 屏幕对侧镜像位置显示描边分身：点击触发动作并换位，拖动可搬球。 */
     val mirrorBall: Boolean = FloatBallDefaults.MirrorBall,
     /**
@@ -62,8 +60,6 @@ object FloatBallDefaults {
 
     /** 键盘弹出时球与键盘顶边的间距（dp）。 */
     const val ImeMarginDp = 8f
-
-    const val HideOnPanel = true
 
     const val MirrorBall = false
 

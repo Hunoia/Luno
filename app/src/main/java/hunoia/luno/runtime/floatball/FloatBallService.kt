@@ -65,7 +65,7 @@ class FloatBallService : Service() {
     /** 球是否已真正挂上窗口。false = 未授权或被系统拒绝。 */
     private var ballVisible = false
 
-    /** 面板类浮层打开计数（hideOnPanel 开启时 >0 即隐藏球）。 */
+    /** 面板类浮层打开计数（>0 即隐藏球）。 */
     private var panelCount = 0
 
     /** 上轮「因面板隐藏」状态：从隐藏恢复时要带回场动画。 */
@@ -95,16 +95,8 @@ class FloatBallService : Service() {
                 ballWindow.setHidden(true)
                 mirrorWindow.setHidden(true)
             },
-            onScreenOn = {
-                val hidden = isScreenLocked()
-                ballWindow.setHidden(hidden)
-                mirrorWindow.setHidden(hidden)
-            },
-            onUserPresent = {
-                val hidden = isScreenLocked()
-                ballWindow.setHidden(hidden)
-                mirrorWindow.setHidden(hidden)
-            },
+            onScreenOn = ::applyLockState,
+            onUserPresent = ::applyLockState,
         ).also { it.register() }
 
         observeSettings()
@@ -150,18 +142,13 @@ class FloatBallService : Service() {
                     settings = config.action.floatBall
                     gestureEnabledSnapshot = config.gestureEnabled
                     ballWindow.updateSettings(config.action.floatBall)
-                    applyVisibility(config)
+                    mirrorWindow.updateSettings(config.action.floatBall)
+                    refreshWindows(animateRestore = false)
                 }
         }
     }
 
-    private fun applyVisibility(config: FloatBallRuntimeConfig) {
-        settings = config.action.floatBall
-        mirrorWindow.updateSettings(config.action.floatBall)
-        refreshWindows(animateRestore = false)
-    }
-
-    /** 统一的窗口挂/摘入口：shouldShow = 总闸 && 球开关 && 悬浮窗权限 && !(hideOnPanel && 面板计数>0)；从面板隐藏恢复时带回场动画。 */
+    /** 统一的窗口挂/摘入口：shouldShow = 总闸 && 球开关 && 悬浮窗权限 && 面板计数==0；从面板隐藏恢复时带回场动画。 */
     private fun refreshWindows(animateRestore: Boolean) {
         val enabled = settings.enabled && canDrawOverlays() && gestureEnabledSnapshot
         val panelHidden = panelCount > 0
@@ -192,7 +179,7 @@ class FloatBallService : Service() {
         }
     }
 
-    // ---- 面板联动（hideOnPanel） ----
+    // ---- 面板联动（面板打开即隐藏球） ----
 
     private val panelShownSubscriber: (PanelShownEvent) -> Unit = {
         panelCount++
@@ -324,7 +311,7 @@ class FloatBallService : Service() {
                         ?.windowInsets
                         ?.getInsets(android.view.WindowInsets.Type.ime())
                         ?.bottom
-                }.getOrDefault(0) ?: 0
+                }.getOrNull() ?: 0
                 ballWindow.updateIme(imeBottom)
                 mirrorWindow.updateImeLift(ballWindow.currentImeLiftPx())
             }
@@ -342,6 +329,12 @@ class FloatBallService : Service() {
     }
 
     // ---- 屏幕状态 ----
+
+    private fun applyLockState() {
+        val hidden = isScreenLocked()
+        ballWindow.setHidden(hidden)
+        mirrorWindow.setHidden(hidden)
+    }
 
     private fun isScreenLocked(): Boolean {
         val poweredOff = powerManager?.isInteractive == false
