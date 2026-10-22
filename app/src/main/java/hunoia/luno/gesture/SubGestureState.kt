@@ -203,12 +203,7 @@ class SubGestureState(
         finger = Offset.Unspecified
         slideHoldFirstTriggerMs = 0L
         longSlideHoldFirstTriggerMs = 0L
-        when (triggerType) {
-            GestureTriggerType.SlideHold -> subGesture.tryVibrateForSlideHold()
-            GestureTriggerType.LongSlideHold -> subGesture.tryVibrateForLongSlideHold()
-            GestureTriggerType.LongSlide -> subGesture.tryVibrateForLongSlide()
-            else -> subGesture.tryVibrateForSlide()
-        }
+        subGesture.tryVibrateFor(triggerType)
         directTriggered = false
         onModeChanged(false, Offset.Unspecified, 0)
         return SubGestureResolvedActions(

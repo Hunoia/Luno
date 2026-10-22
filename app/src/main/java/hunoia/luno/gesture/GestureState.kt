@@ -90,9 +90,10 @@ class GestureState(
             pendingDoubleTapJob?.cancel()
             pendingDoubleTapJob = null
             if (nextButton?.id != previousPendingTap.button.id) {
-                settlePendingTap(triggerFallback = true)
+                settlePendingTap()
             }
         }
+
 
         origin = offset
         finger = offset
@@ -109,9 +110,6 @@ class GestureState(
 
         if (previousPendingTap?.button?.id == b.id) {
             pendingTapResult = null
-        } else {
-            pendingDoubleTapJob?.cancel()
-            pendingDoubleTapJob = null
         }
 
         val config = buildRecognizerConfig(b).also { sessionConfig = it }
@@ -125,7 +123,7 @@ class GestureState(
                 if (decision is GestureDecision.Trigger &&
                     decision.triggerType == GestureTriggerType.LongPress
                 ) {
-                    b.tryVibrateForLongPress()
+                    b.tryVibrateFor(GestureTriggerType.LongPress)
                     onResolved(
                         GestureResolvedActions(
                             button = b,
@@ -209,7 +207,7 @@ class GestureState(
                 pendingDoubleTapJob = coroutineScope.launch {
                     delay(config.thresholds.doubleTapDelayMs)
                     recognizer.clearPendingDoubleTap()
-                    if (pendingTapResult == tapResult) settlePendingTap(triggerFallback = true)
+                    if (pendingTapResult == tapResult) settlePendingTap()
                 }
                 resetSession()
                 return null
@@ -245,14 +243,14 @@ class GestureState(
         isCanceled = false
     }
 
-    private fun settlePendingTap(triggerFallback: Boolean) {
+    private fun settlePendingTap() {
         val result = pendingTapResult
         pendingTapResult = null
         pendingDoubleTapJob?.cancel()
         pendingDoubleTapJob = null
         recognizer.clearPendingDoubleTap()
-        if (triggerFallback && result != null && result.action.hasMeaningfulAction()) {
-            result.button.tryVibrateForTap()
+        if (result != null && result.action.hasMeaningfulAction()) {
+            result.button.tryVibrateFor(GestureTriggerType.Tap)
             onResolved(result)
         }
     }
@@ -363,14 +361,7 @@ class GestureState(
     }
 
     private fun vibrateFor(button: GestureButton, type: GestureTriggerType) {
-        when (type) {
-            GestureTriggerType.DoubleTap, GestureTriggerType.Tap -> button.tryVibrateForTap()
-            GestureTriggerType.LongPress -> button.tryVibrateForLongPress()
-            GestureTriggerType.Slide -> button.tryVibrateForSlide()
-            GestureTriggerType.SlideHold -> button.tryVibrateForSlideHold()
-            GestureTriggerType.LongSlide -> button.tryVibrateForLongSlide()
-            GestureTriggerType.LongSlideHold -> button.tryVibrateForLongSlideHold()
-        }
+        button.tryVibrateFor(type)
     }
 
     private fun StoredAction?.hasMeaningfulAction(): Boolean =

@@ -486,7 +486,8 @@ abstract class LongSlideState {
 }
 
 /** 外部锚点（悬浮球球心）展开面板的方向：取「锚点 → 屏幕中心」连线决定往屏幕内侧铺。 */
-private fun directionFromAnchor(anchor: Offset): GestureDirection {    val widthPx = hunoia.luno.bridge.ui.DensityProvider.screenWidthPx
+private fun directionFromAnchor(anchor: Offset): GestureDirection {
+    val widthPx = hunoia.luno.bridge.ui.DensityProvider.screenWidthPx
     val heightPx = hunoia.luno.bridge.ui.DensityProvider.screenHeightPx
     return when {
         anchor.y < heightPx / 3f -> GestureDirection.Down

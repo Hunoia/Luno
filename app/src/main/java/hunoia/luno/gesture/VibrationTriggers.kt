@@ -4,94 +4,39 @@ import android.Manifest.permission.VIBRATE
 import androidx.annotation.RequiresPermission
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
+import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.bridge.vibration.appContext
 import hunoia.luno.bridge.vibration.vibrate
 
-@RequiresPermission(VIBRATE)
-fun GestureButton.tryVibrateForSlide() {
-    val ctx = appContext ?: return
-    if (slideVibrate) {
-        vibrate(ctx)
-    }
+/** 按触发类型取震动开关。 */
+private fun GestureButton.vibrateEnabledFor(type: GestureTriggerType): Boolean = when (type) {
+    GestureTriggerType.Tap, GestureTriggerType.DoubleTap -> tapVibrate
+    GestureTriggerType.LongPress -> longPressVibrate
+    GestureTriggerType.Slide -> slideVibrate
+    GestureTriggerType.SlideHold -> slideHoldVibrate
+    GestureTriggerType.LongSlide -> longSlideVibrate
+    GestureTriggerType.LongSlideHold -> longSlideHoldVibrate
+}
+
+private fun SubGesture.vibrateEnabledFor(type: GestureTriggerType): Boolean = when (type) {
+    GestureTriggerType.SlideHold -> slideHoldVibrate
+    GestureTriggerType.LongSlideHold -> longSlideHoldVibrate
+    GestureTriggerType.LongSlide -> longSlideVibrate
+    else -> slideVibrate
 }
 
 @RequiresPermission(VIBRATE)
-fun GestureButton.tryVibrateForLongSlide() {
-    val ctx = appContext ?: return
-    if (longSlideVibrate) {
-        vibrate(ctx)
-    }
+fun GestureButton.tryVibrateFor(type: GestureTriggerType) {
+    if (vibrateEnabledFor(type)) appContext?.let { vibrate(it) }
 }
 
 @RequiresPermission(VIBRATE)
-fun GestureButton.tryVibrateForTap() {
-    val ctx = appContext ?: return
-    if (tapVibrate) {
-        vibrate(ctx)
-    }
-}
-
-@RequiresPermission(VIBRATE)
-fun GestureButton.tryVibrateForLongPress() {
-    val ctx = appContext ?: return
-    if (longPressVibrate) {
-        vibrate(ctx)
-    }
-}
-
-@RequiresPermission(VIBRATE)
-fun GestureButton.tryVibrateForSlideHold() {
-    val ctx = appContext ?: return
-    if (slideHoldVibrate) {
-        vibrate(ctx)
-    }
-}
-
-@RequiresPermission(VIBRATE)
-fun GestureButton.tryVibrateForLongSlideHold() {
-    val ctx = appContext ?: return
-    if (longSlideHoldVibrate) {
-        vibrate(ctx)
-    }
-}
-
-@RequiresPermission(VIBRATE)
-fun SubGesture.tryVibrateForSlide() {
-    val ctx = appContext ?: return
-    if (slideVibrate) {
-        vibrate(ctx)
-    }
-}
-
-@RequiresPermission(VIBRATE)
-fun SubGesture.tryVibrateForLongSlide() {
-    val ctx = appContext ?: return
-    if (longSlideVibrate) {
-        vibrate(ctx)
-    }
-}
-
-@RequiresPermission(VIBRATE)
-fun SubGesture.tryVibrateForSlideHold() {
-    val ctx = appContext ?: return
-    if (slideHoldVibrate) {
-        vibrate(ctx)
-    }
-}
-
-@RequiresPermission(VIBRATE)
-fun SubGesture.tryVibrateForLongSlideHold() {
-    val ctx = appContext ?: return
-    if (longSlideHoldVibrate) {
-        vibrate(ctx)
-    }
+fun SubGesture.tryVibrateFor(type: GestureTriggerType) {
+    if (vibrateEnabledFor(type)) appContext?.let { vibrate(it) }
 }
 
 @RequiresPermission(VIBRATE)
 fun vibrateForActionPanel(gestureSettings: GestureSettings) {
-    val ctx = appContext ?: return
-    if (gestureSettings.actionPanelVibrate) {
-        vibrate(ctx)
-    }
+    if (gestureSettings.actionPanelVibrate) appContext?.let { vibrate(it) }
 }

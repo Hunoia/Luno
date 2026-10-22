@@ -13,10 +13,6 @@ data class GestureTouchTarget(
     val isMirror: Boolean,
 )
 
-fun List<GestureButton>.find(offset: Offset, imePadding: Int = 0): GestureButton? {
-    return find { it.contains(offset, imePadding) }
-}
-
 fun List<GestureButton>.findTouchTarget(
     offset: Offset,
     imePadding: Int = 0,
@@ -74,8 +70,6 @@ fun GestureButton.bounds(imePadding: Int = 0): Rect {
     )
     return Rect(topLeft, boundsSize)
 }
-
-val GestureButton.fraction: Float get() = bounds.height
 
 fun GestureButton.mirroredButton(): GestureButton? {
     if (!mirrorHorizontal) return null
