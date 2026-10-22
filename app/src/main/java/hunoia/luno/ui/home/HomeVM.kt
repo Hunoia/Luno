@@ -246,7 +246,7 @@ class HomeVM : HomeVMBase() {
                 val cleanedGestureList = settings.subGestures.filter { it.id != gesture.id }
                 settings.copy(subGestures = cleanedGestureList)
             }
-            cleanSubGestureReferences(gesture.id)
+            cleanSubGestureReferences()
             delay(50)
         }
     }
@@ -295,9 +295,8 @@ internal fun parseNumberSuffix(text: String): Int {
     return match?.groupValues?.get(1)?.toIntOrNull() ?: 0
 }
 
-internal suspend fun cleanSubGestureReferences(deletedId: String) {
+internal suspend fun cleanSubGestureReferences() {
     GestureConfig.cleanSubGestureReferences(
-        deletedId = deletedId,
         shouldRemove = { GestureConfig.isSubGestureAction(it) }
     )
 }

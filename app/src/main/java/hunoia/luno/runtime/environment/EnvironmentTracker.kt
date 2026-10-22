@@ -16,6 +16,12 @@ import hunoia.luno.runtime.condition.NotificationPulse
 import hunoia.luno.runtime.condition.nowDayOfWeek
 import hunoia.luno.runtime.condition.nowMinuteOfDay
 
+/**
+ * 环境状态源：前台应用、屏幕事件、充电、音量、键盘等。
+ * Main-thread only：所有写入方（a11y 事件回调、BroadcastReceiver、AudioDeviceCallback handler、
+ * NotificationListener 回调）都发生在主线程，pending 槽位因此无需同步；
+ * 若新增从工作线程写入的调用方，必须先切主线程。
+ */
 class EnvironmentTracker(
     private val getCurrentPackageName: () -> String,
     private val nowInLauncher: () -> Boolean,

@@ -13,4 +13,5 @@ enum class RestorePrecheckFailure(@param:StringRes val stringRes: Int) {
     InvalidFormat(R.string.restore_precheck_invalid_format),
     EmptyBackup(R.string.restore_precheck_empty_backup),
     VerificationFailed(R.string.restore_precheck_verification_failed),
+    UnsupportedVersion(R.string.restore_precheck_unsupported_version),
 }

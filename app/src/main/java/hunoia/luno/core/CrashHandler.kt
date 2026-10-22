@@ -19,7 +19,8 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
     private val crashFilePath = "$crashDir/$CRASH_FILE_NAME"
 
     override fun uncaughtException(t: Thread, e: Throwable) {
-        saveErrorInfo(e)
+        // 崩溃路径里绝不能抛：IO 失败不能阻断 defaultHandler，否则进程死得不明不白。
+        runCatching { saveErrorInfo(e) }
         defaultHandler?.uncaughtException(t, e)
     }
 

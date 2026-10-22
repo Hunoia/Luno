@@ -30,8 +30,10 @@ object FlashlightController {
         try {
             val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
             val cameraId = manager.cameraIdList.firstOrNull() ?: return@withContext false
-            isOn = !isOn
-            manager.setTorchMode(cameraId, isOn)
+            val target = !isOn
+            manager.setTorchMode(cameraId, target)
+            // 仅在 setTorchMode 成功后翻转缓存；失败时保持旧值，否则连续 toggle 会基于错误状态。
+            isOn = target
             true
         } catch (_: Exception) {
             false
@@ -42,8 +44,8 @@ object FlashlightController {
         try {
             val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
             val cameraId = manager.cameraIdList.firstOrNull() ?: return@withContext false
-            isOn = on
             manager.setTorchMode(cameraId, on)
+            isOn = on
             true
         } catch (_: Exception) {
             false

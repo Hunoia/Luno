@@ -13,7 +13,6 @@ import kotlinx.serialization.json.contentOrNull
 object SubGestureCleaner {
 
     suspend fun cleanSubGestureReferences(
-        deletedId: String,
         shouldRemove: (StoredAction) -> Boolean,
     ) {
         ConfigProvider.updateGestureButtons { buttons ->

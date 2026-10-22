@@ -31,7 +31,7 @@ class PointerRuntime(
         return true
     }
 
-    fun beginBridge(settings: GestureSettings.Pointer): Boolean {
+    fun beginBridge(): Boolean {
         // 面板内路径：设置由 PointerHandle 自持，这里只登记会话。
         return begin()
     }

@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.Backup
+import hunoia.luno.config.model.isSupported
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.core.Paths
 import java.io.File
@@ -194,6 +195,10 @@ object BackupOperator {
         if (backup.isEmpty()) {
             return RestorePrecheckResult.Failed(RestorePrecheckFailure.EmptyBackup)
         }
+        // 新版本备份导入旧版 app：unknown keys 会被静默丢弃，必须在此拒绝。
+        if (!backup.isSupported()) {
+            return RestorePrecheckResult.Failed(RestorePrecheckFailure.UnsupportedVersion)
+        }
         return RestorePrecheckResult.Passed
     }
 
@@ -337,6 +342,9 @@ object BackupOperator {
             val backup = decodeBackup(bytes) ?: throw IllegalStateException("import failed: backup decode failed")
             if (backup.isEmpty()) {
                 throw IllegalStateException("import failed: backup contains no settings")
+            }
+            if (!backup.isSupported()) {
+                throw IllegalStateException("import failed: backup from newer app version")
             }
             ConfigProvider.restoreDomain(backup)
         } finally {

@@ -45,3 +45,16 @@ data class Backup(
     val automationRules: List<AutomationRule>? = null,
     val quickSearchSettings: QuickSearchSettings? = null,
 )
+
+/**
+ * 当前 app 能否完整解析此备份：格式版本与各域 schema 版本均不高于本实现。
+ * 拦截「新版本备份导入旧版 app」：配合 ignoreUnknownKeys，未知字段会被静默丢弃，
+ * 必须在 precheck 阶段拒绝，而不是恢复完才发现丢数据。
+ */
+fun Backup.isSupported(): Boolean =
+    backupFormatVersion <= BackupVersions.FORMAT &&
+        gestureSchemaVersion <= BackupVersions.GESTURE &&
+        tuneSchemaVersion <= BackupVersions.TUNE &&
+        actionSchemaVersion <= BackupVersions.ACTION &&
+        automationSchemaVersion <= BackupVersions.AUTOMATION &&
+        searchSchemaVersion <= BackupVersions.SEARCH

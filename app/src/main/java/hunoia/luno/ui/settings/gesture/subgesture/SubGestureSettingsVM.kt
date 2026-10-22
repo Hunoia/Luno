@@ -105,7 +105,6 @@ class SubGestureSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeVM<S
 
     private suspend fun cleanReferences(deletedId: String) {
         GestureConfig.cleanSubGestureReferences(
-            deletedId = deletedId,
             shouldRemove = { GestureConfig.matchesDeletedSubGesture(it, deletedId) }
         )
     }

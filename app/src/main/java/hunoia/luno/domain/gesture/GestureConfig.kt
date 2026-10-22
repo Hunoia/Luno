@@ -32,9 +32,8 @@ object GestureConfig {
 
     /** 删除引用清理：删子手势后清掉按钮/子手势里指向它的动作。 */
     suspend fun cleanSubGestureReferences(
-        deletedId: String,
         shouldRemove: (StoredAction) -> Boolean,
-    ) = SubGestureCleaner.cleanSubGestureReferences(deletedId, shouldRemove)
+    ) = SubGestureCleaner.cleanSubGestureReferences(shouldRemove)
 
     /** 该动作是否引用了已删的子手势（清理谓词）。 */
     fun matchesDeletedSubGesture(action: StoredAction, deletedId: String): Boolean =

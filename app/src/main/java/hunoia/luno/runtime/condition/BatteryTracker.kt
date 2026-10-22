@@ -6,9 +6,17 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 
+/**
+ * 电量与充电状态源。ACTION_BATTERY_CHANGED 是粘性广播，电量每变化约 1% 都会重投递，
+ * 因此无需轮询；接收器注册在主线程（未传 Handler），全部状态写入均在主线程。
+ * 回调参数区分两类变化：
+ * - [chargingChanged]：充电边沿变化。调用方应据此发 charging 脉冲（脉冲携带的是值，
+ *   非 CHARGING_CHANGED 边沿不能发，否则「充电开始/断开时」规则会随电量浮动重复触发）；
+ * - [levelChanged]：仅电量百分比变化。只触发状态重评（BATTERY_RANGE），不发脉冲。
+ */
 class BatteryTracker(
     private val context: Context,
-    private val onChanged: (Boolean) -> Unit,
+    private val onChanged: (chargingChanged: Boolean, levelChanged: Boolean) -> Unit,
 ) {
     var isCharging: Boolean = false
         private set
@@ -46,10 +54,12 @@ class BatteryTracker(
         val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
             status == BatteryManager.BATTERY_STATUS_FULL
         val level = intent.batteryLevel()
-        if (charging == isCharging && level == batteryLevel) return
+        val chargingChanged = charging != isCharging
+        val levelChanged = level != batteryLevel
+        if (!chargingChanged && !levelChanged) return
         isCharging = charging
         batteryLevel = level
-        onChanged(charging)
+        onChanged(chargingChanged, levelChanged)
     }
 
     private fun Intent.batteryLevel(): Int {

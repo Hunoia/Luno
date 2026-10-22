@@ -175,10 +175,11 @@ class GestureCoordinator(
         onStateChanged = { refreshGestureButtons() },
     )
 
-    private val batteryTracker = BatteryTracker(
+    private val batteryTracker: BatteryTracker = BatteryTracker(
         context = host.context,
-        onChanged = { charging ->
-            environmentTracker.onChargingChanged(charging)
+        onChanged = { chargingChanged, _ ->
+            // 仅充电边沿发脉冲；纯电量变化只重评状态条件（见 BatteryTracker 文档）。
+            if (chargingChanged) environmentTracker.onChargingChanged(batteryTracker.isCharging)
             refreshGestureButtons(automationKeys = setOf(AutomationEventKey.CHARGING))
         },
     )
@@ -333,7 +334,7 @@ class GestureCoordinator(
         }
 
         override fun onPointerStart(settings: hunoia.luno.config.model.GestureSettings.Pointer): Boolean {
-            return pointerRuntime.beginBridge(settings)
+            return pointerRuntime.beginBridge()
         }
 
         override fun onPointerShow(settings: hunoia.luno.config.model.GestureSettings.Pointer): Boolean {
