@@ -1,8 +1,4 @@
 package hunoia.luno.ui.settings.gesture.button
-import hunoia.luno.ui.theme.PageGutter
-import hunoia.luno.ui.theme.CardInnerSpacing
-import hunoia.luno.ui.theme.DistanceStrokeWidth
-import hunoia.luno.ui.theme.DistanceTrackHeight
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
@@ -12,29 +8,36 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.bridge.ui.DensityProvider
-import hunoia.luno.config.defaults.SettingsUiDefaults.MaxLongPressTriggerDelayMs
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxDoubleTapTriggerDelayMs
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxHoldTriggerDelayMs
+import hunoia.luno.config.defaults.SettingsUiDefaults.MaxLongPressTriggerDelayMs
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxLongSlideTriggerDistance
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxSlideTriggerDistance
-import hunoia.luno.config.defaults.SettingsUiDefaults.MinGestureSlideDistanceGap
-import hunoia.luno.config.defaults.SettingsUiDefaults.MinLongPressTriggerDelayMs
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinDoubleTapTriggerDelayMs
+import hunoia.luno.config.defaults.SettingsUiDefaults.MinGestureSlideDistanceGap
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinHoldTriggerDelayMs
+import hunoia.luno.config.defaults.SettingsUiDefaults.MinLongPressTriggerDelayMs
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinLongSlideTriggerDistance
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinSlideTriggerDistance
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.ui.component.LunoColumn
 import hunoia.luno.ui.component.input.LunoTextSlider
+import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.segmentedShape
+import hunoia.luno.ui.theme.DistanceStrokeWidth
+import hunoia.luno.ui.theme.DistanceTrackHeight
+import hunoia.luno.ui.theme.ListSpacing
+import hunoia.luno.ui.theme.PageGutter
 import kotlin.math.roundToInt
 
 @Composable
@@ -94,64 +97,79 @@ fun GestureSlideTriggerDistanceContent(
     val dynamicLongSlideRangeDp = dynamicLongSlideMinDp..longSlideTriggerDistanceRangeDp.endInclusive
 
     val content: @Composable () -> Unit = {
-        SliderGroupLabel(text = stringResource(R.string.trigger_distance_slide_group))
-        DistanceTextSlider(
-            valueDp = slideTriggerDistanceDp,
-            onValueDpChange = { onSlideTriggerDistanceChange(it.dpToPx()) },
-            onValueChangeFinished = onValueChangeFinished,
-            text = stringResource(R.string.trigger_slide_distance),
-            valueRangeDp = dynamicSlideRangeDp,
-        )
-        DistanceTextSlider(
-            valueDp = longSlideTriggerDistanceDp,
-            onValueDpChange = { onLongSlideTriggerDistanceChange(it.dpToPx()) },
-            onValueChangeFinished = onValueChangeFinished,
-            text = stringResource(R.string.trigger_long_slide_distance),
-            valueRangeDp = dynamicLongSlideRangeDp,
-        )
-        DistanceRelationshipPreview(
-            slideDistanceDp = slideTriggerDistanceDp,
-            longSlideDistanceDp = longSlideTriggerDistanceDp,
-            maxDistanceDp = longSlideTriggerDistanceRangeDp.endInclusive,
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(ListSpacing)) {
+            LunoGroup(title = stringResource(R.string.trigger_distance_slide_group)) {
+                DistanceTextSlider(
+                    valueDp = slideTriggerDistanceDp,
+                    onValueDpChange = { onSlideTriggerDistanceChange(it.dpToPx()) },
+                    onValueChangeFinished = onValueChangeFinished,
+                    text = stringResource(R.string.trigger_slide_distance),
+                    valueRangeDp = dynamicSlideRangeDp,
+                    shape = segmentedShape(0, 2),
+                )
+                DistanceTextSlider(
+                    valueDp = longSlideTriggerDistanceDp,
+                    onValueDpChange = { onLongSlideTriggerDistanceChange(it.dpToPx()) },
+                    onValueChangeFinished = onValueChangeFinished,
+                    text = stringResource(R.string.trigger_long_slide_distance),
+                    valueRangeDp = dynamicLongSlideRangeDp,
+                    shape = segmentedShape(1, 2),
+                )
+            }
 
-        SliderGroupLabel(text = stringResource(R.string.trigger_distance_delay_group))
-        if (longPressTriggerDelayMs != null && onLongPressTriggerDelayMsChange != null) {
-            LunoTextSlider(
-                value = longPressTriggerDelayMs.toFloat(),
-                onValueChange = onLongPressTriggerDelayMsChange,
-                onValueChangeFinished = { onValueChangeFinished?.invoke() },
-                text = stringResource(R.string.trigger_long_press_delay),
-                valueDisplay = { "${it.toLong()}ms" },
-                valueRange = MinLongPressTriggerDelayMs.toFloat()..MaxLongPressTriggerDelayMs.toFloat(),
+            DistanceRelationshipPreview(
+                slideDistanceDp = slideTriggerDistanceDp,
+                longSlideDistanceDp = longSlideTriggerDistanceDp,
+                maxDistanceDp = longSlideTriggerDistanceRangeDp.endInclusive,
             )
+
+            val delaySliderCount = 2 +
+                (if (longPressTriggerDelayMs != null && onLongPressTriggerDelayMsChange != null) 1 else 0) +
+                (if (doubleTapTriggerDelayMs != null && onDoubleTapTriggerDelayMsChange != null) 1 else 0)
+            var delayIndex = 0
+            LunoGroup(title = stringResource(R.string.trigger_distance_delay_group)) {
+                if (longPressTriggerDelayMs != null && onLongPressTriggerDelayMsChange != null) {
+                    LunoTextSlider(
+                        value = longPressTriggerDelayMs.toFloat(),
+                        onValueChange = onLongPressTriggerDelayMsChange,
+                        onValueChangeFinished = { onValueChangeFinished?.invoke() },
+                        text = stringResource(R.string.trigger_long_press_delay),
+                        valueDisplay = { "${it.toLong()}ms" },
+                        valueRange = MinLongPressTriggerDelayMs.toFloat()..MaxLongPressTriggerDelayMs.toFloat(),
+                        shape = segmentedShape(delayIndex++, delaySliderCount),
+                    )
+                }
+                if (doubleTapTriggerDelayMs != null && onDoubleTapTriggerDelayMsChange != null) {
+                    LunoTextSlider(
+                        value = doubleTapTriggerDelayMs.toFloat(),
+                        onValueChange = onDoubleTapTriggerDelayMsChange,
+                        onValueChangeFinished = { onValueChangeFinished?.invoke() },
+                        text = stringResource(R.string.trigger_double_tap_delay),
+                        valueDisplay = { "${it.toLong()}ms" },
+                        valueRange = MinDoubleTapTriggerDelayMs.toFloat()..MaxDoubleTapTriggerDelayMs.toFloat(),
+                        shape = segmentedShape(delayIndex++, delaySliderCount),
+                    )
+                }
+                LunoTextSlider(
+                    value = slideHoldTriggerDelayMs.toFloat(),
+                    onValueChange = onSlideHoldTriggerDelayMsChange,
+                    onValueChangeFinished = { onValueChangeFinished?.invoke() },
+                    text = stringResource(R.string.trigger_slide_hold_delay),
+                    valueDisplay = { "${it.toLong()}ms" },
+                    valueRange = MinHoldTriggerDelayMs.toFloat()..MaxHoldTriggerDelayMs.toFloat(),
+                    shape = segmentedShape(delayIndex++, delaySliderCount),
+                )
+                LunoTextSlider(
+                    value = longSlideHoldTriggerDelayMs.toFloat(),
+                    onValueChange = onLongSlideHoldTriggerDelayMsChange,
+                    onValueChangeFinished = { onValueChangeFinished?.invoke() },
+                    text = stringResource(R.string.trigger_long_slide_hold_delay),
+                    valueDisplay = { "${it.toLong()}ms" },
+                    valueRange = MinHoldTriggerDelayMs.toFloat()..MaxHoldTriggerDelayMs.toFloat(),
+                    shape = segmentedShape(delayIndex, delaySliderCount),
+                )
+            }
         }
-        if (doubleTapTriggerDelayMs != null && onDoubleTapTriggerDelayMsChange != null) {
-            LunoTextSlider(
-                value = doubleTapTriggerDelayMs.toFloat(),
-                onValueChange = onDoubleTapTriggerDelayMsChange,
-                onValueChangeFinished = { onValueChangeFinished?.invoke() },
-                text = stringResource(R.string.trigger_double_tap_delay),
-                valueDisplay = { "${it.toLong()}ms" },
-                valueRange = MinDoubleTapTriggerDelayMs.toFloat()..MaxDoubleTapTriggerDelayMs.toFloat(),
-            )
-        }
-        LunoTextSlider(
-            value = slideHoldTriggerDelayMs.toFloat(),
-            onValueChange = onSlideHoldTriggerDelayMsChange,
-            onValueChangeFinished = { onValueChangeFinished?.invoke() },
-            text = stringResource(R.string.trigger_slide_hold_delay),
-            valueDisplay = { "${it.toLong()}ms" },
-            valueRange = MinHoldTriggerDelayMs.toFloat()..MaxHoldTriggerDelayMs.toFloat(),
-        )
-        LunoTextSlider(
-            value = longSlideHoldTriggerDelayMs.toFloat(),
-            onValueChange = onLongSlideHoldTriggerDelayMsChange,
-            onValueChangeFinished = { onValueChangeFinished?.invoke() },
-            text = stringResource(R.string.trigger_long_slide_hold_delay),
-            valueDisplay = { "${it.toLong()}ms" },
-            valueRange = MinHoldTriggerDelayMs.toFloat()..MaxHoldTriggerDelayMs.toFloat(),
-        )
     }
     if (scrollState != null) {
         LunoColumn(scrollState = scrollState) { content() }
@@ -161,38 +179,29 @@ fun GestureSlideTriggerDistanceContent(
 }
 
 @Composable
-private fun SliderGroupLabel(text: String) {
-    Text(
-        modifier = Modifier.padding(horizontal = PageGutter),
-        text = text,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        style = MaterialTheme.typography.labelMedium,
-        maxLines = 1,
-    )
-}
-
-@Composable
 private fun DistanceTextSlider(
     valueDp: Float,
     onValueDpChange: (Float) -> Unit,
     onValueChangeFinished: (() -> Unit)?,
     text: String,
     valueRangeDp: ClosedFloatingPointRange<Float>,
+    shape: Shape,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
-        LunoTextSlider(
-            value = valueDp,
-            onValueChange = onValueDpChange,
-            onValueChangeFinished = { onValueChangeFinished?.invoke() },
-            text = text,
-            valueDisplay = { "${it.roundToInt()}dp" },
-            valueRange = valueRangeDp,
-            sliderValueHint = valueRangeDp.hintText(),
-        )
-        DistancePreviewBar(valueDp = valueDp)
-    }
+    LunoTextSlider(
+        value = valueDp,
+        onValueChange = onValueDpChange,
+        onValueChangeFinished = { onValueChangeFinished?.invoke() },
+        text = text,
+        valueDisplay = { "${it.roundToInt()}dp" },
+        valueRange = valueRangeDp,
+        shape = shape,
+    )
 }
 
+/**
+ * 两个距离阈值的关系示意：底色轨道 + 从起点到短滑阈值的 primary 段 +
+ * 短滑到长滑阈值的 tertiary 段，两个阈值各画一个描边圆点。
+ */
 @Composable
 private fun DistanceRelationshipPreview(
     slideDistanceDp: Float,
@@ -209,52 +218,46 @@ private fun DistanceRelationshipPreview(
         val centerY = size.height / 2f
         val strokeWidth = DistanceStrokeWidth.toPx()
         val maxPx = maxDistanceDp.dp.toPx().coerceAtLeast(1f)
-        fun marker(distanceDp: Float): Float = (distanceDp.dp.toPx() / maxPx * size.width).coerceIn(0f, size.width)
+        fun marker(distanceDp: Float): Float =
+            (distanceDp.dp.toPx() / maxPx * size.width).coerceIn(0f, size.width)
+
+        val slideX = marker(slideDistanceDp)
+        val longX = marker(longSlideDistanceDp)
+
         drawLine(
-            color = colorScheme.outlineVariant,
+            color = colorScheme.outlineVariant.copy(alpha = 0.45f),
             start = Offset(0f, centerY),
             end = Offset(size.width, centerY),
             strokeWidth = strokeWidth,
             cap = StrokeCap.Round,
         )
         drawLine(
-            color = colorScheme.primary,
+            brush = Brush.horizontalGradient(
+                listOf(colorScheme.primary.copy(alpha = 0.5f), colorScheme.primary)
+            ),
             start = Offset(0f, centerY),
-            end = Offset(marker(slideDistanceDp), centerY),
+            end = Offset(slideX, centerY),
             strokeWidth = strokeWidth,
             cap = StrokeCap.Round,
         )
         drawLine(
-            color = colorScheme.tertiary,
-            start = Offset(marker(slideDistanceDp), centerY),
-            end = Offset(marker(longSlideDistanceDp), centerY),
+            brush = Brush.horizontalGradient(
+                listOf(colorScheme.tertiary.copy(alpha = 0.5f), colorScheme.tertiary)
+            ),
+            start = Offset(slideX, centerY),
+            end = Offset(longX, centerY),
             strokeWidth = strokeWidth,
             cap = StrokeCap.Round,
         )
-    }
-}
 
-@Composable
-private fun DistancePreviewBar(
-    valueDp: Float,
-) {
-    val colorScheme = MaterialTheme.colorScheme
-    Canvas(
-        modifier = Modifier
-            .padding(horizontal = PageGutter)
-            .fillMaxWidth()
-            .height(DistanceTrackHeight)
-    ) {
-        val centerY = size.height / 2f
-        val strokeWidth = DistanceStrokeWidth.toPx()
-        val previewWidth = valueDp.dp.toPx().coerceIn(0f, size.width)
-        drawLine(
-            color = colorScheme.tertiary,
-            start = Offset(0f, centerY),
-            end = Offset(previewWidth, centerY),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round,
-        )
+        val markerRadius = strokeWidth * 1.35f
+        val ringRadius = markerRadius + strokeWidth * 0.45f
+        fun drawMarker(x: Float, color: androidx.compose.ui.graphics.Color) {
+            drawCircle(color = colorScheme.surface, radius = ringRadius, center = Offset(x, centerY))
+            drawCircle(color = color, radius = markerRadius, center = Offset(x, centerY))
+        }
+        drawMarker(slideX, colorScheme.primary)
+        drawMarker(longX, colorScheme.tertiary)
     }
 }
 
@@ -266,6 +269,3 @@ private fun Float.dpToPx(): Float = this * DensityProvider.density
 
 private fun ClosedFloatingPointRange<Float>.toDpRange(): ClosedFloatingPointRange<Float> =
     start.pxToDp()..endInclusive.pxToDp()
-
-private fun ClosedFloatingPointRange<Float>.hintText(): Pair<String, String> =
-    "${start.roundToInt()}dp" to "${endInclusive.roundToInt()}dp"

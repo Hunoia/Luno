@@ -59,6 +59,9 @@
     <string name="gesture_button_trigger_distance">触发距离</string>
     <string name="vibration_slide">滑动时振动</string>
     <string name="vibration_long_slide">长滑时振动</string>
+    <string name="vibration_group_slide">滑动</string>
+    <string name="vibration_group_hold">停留</string>
+    <string name="vibration_group_tap">点击</string>
     <string name="trigger_slide_distance">滑动触发距离</string>
     <string name="trigger_long_slide_distance">长滑触发距离</string>
     <string name="trigger_long_press_delay">长按触发延迟</string>

@@ -53,6 +53,7 @@ import hunoia.luno.ui.settings.gesture.button.GestureActionGroup
 import hunoia.luno.ui.settings.gesture.button.actionCardDirections
 import hunoia.luno.ui.settings.gesture.button.GestureSlideTriggerDistanceContent
 import hunoia.luno.ui.settings.gesture.button.ExpandableGestureActionCard
+import hunoia.luno.ui.settings.gesture.button.actionContentRowShape
 import hunoia.luno.ui.component.slideToLabel
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -170,6 +171,8 @@ fun SubGestureSettingsScreen(
                                 icon = Icons.Default.Swipe,
                                 expanded = uiState.expandedActionGroup == GestureActionGroup.Slide,
                                 onExpandedChange = { setExpandedGroup(GestureActionGroup.Slide, it) },
+                                index = 0,
+                                count = 4,
                             ) {
                                 val directions = actionCardDirections.filterNot { it in gesture.angle.zeroWidthDirections() }
                                 directions.forEachIndexed { index, direction ->
@@ -187,7 +190,7 @@ fun SubGestureSettingsScreen(
                                             )
                                         },
                                         subtitle = gesture.slideActionFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
-                                        shape = segmentedShape(index, directions.size),
+                                        shape = actionContentRowShape(index, directions.size),
                                     )
                                 }
                             }
@@ -196,6 +199,8 @@ fun SubGestureSettingsScreen(
                                 icon = Icons.Default.Swipe,
                                 expanded = uiState.expandedActionGroup == GestureActionGroup.SlideHold,
                                 onExpandedChange = { setExpandedGroup(GestureActionGroup.SlideHold, it) },
+                                index = 1,
+                                count = 4,
                             ) {
                                 val directions = actionCardDirections.filterNot { it in gesture.angle.zeroWidthDirections() }
                                 directions.forEachIndexed { index, direction ->
@@ -213,7 +218,7 @@ fun SubGestureSettingsScreen(
                                             )
                                         },
                                         subtitle = gesture.slideHoldActionFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
-                                        shape = segmentedShape(index, directions.size),
+                                        shape = actionContentRowShape(index, directions.size),
                                     )
                                 }
                             }
@@ -222,6 +227,8 @@ fun SubGestureSettingsScreen(
                                 icon = Icons.Default.Gesture,
                                 expanded = uiState.expandedActionGroup == GestureActionGroup.LongSlide,
                                 onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlide, it) },
+                                index = 2,
+                                count = 4,
                             ) {
                                 val directions = actionCardDirections.filterNot { it in gesture.angle.zeroWidthDirections() }
                                 directions.forEachIndexed { index, direction ->
@@ -239,7 +246,7 @@ fun SubGestureSettingsScreen(
                                             )
                                         },
                                         subtitle = gesture.longSlideActionFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
-                                        shape = segmentedShape(index, directions.size),
+                                        shape = actionContentRowShape(index, directions.size),
                                     )
                                 }
                             }
@@ -248,6 +255,8 @@ fun SubGestureSettingsScreen(
                                 icon = Icons.Default.Gesture,
                                 expanded = uiState.expandedActionGroup == GestureActionGroup.LongSlideHold,
                                 onExpandedChange = { setExpandedGroup(GestureActionGroup.LongSlideHold, it) },
+                                index = 3,
+                                count = 4,
                             ) {
                                 val directions = actionCardDirections.filterNot { it in gesture.angle.zeroWidthDirections() }
                                 directions.forEachIndexed { index, direction ->
@@ -265,7 +274,7 @@ fun SubGestureSettingsScreen(
                                             )
                                         },
                                         subtitle = gesture.longSlideHoldActionFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
-                                        shape = segmentedShape(index, directions.size),
+                                        shape = actionContentRowShape(index, directions.size),
                                     )
                                 }
                             }
@@ -278,20 +287,31 @@ fun SubGestureSettingsScreen(
                             LunoSettingsRow(
                                 title = stringResource(id = R.string.sub_gesture_angles),
                                 icon = Icons.Default.Straighten,
-                                shape = segmentedShape(0, 3),
+                                shape = segmentedShape(0, 4),
                                 onClick = { showGestureAngles = true },
                             )
                             LunoSettingsRow(
                                 title = stringResource(id = R.string.gesture_button_vibration),
                                 icon = Icons.Default.Vibration,
-                                shape = segmentedShape(1, 3),
+                                shape = segmentedShape(1, 4),
                                 onClick = { showSubVibrationSettings = true },
                             )
                             LunoSettingsRow(
                                 title = stringResource(id = R.string.gesture_button_trigger_distance),
                                 icon = Icons.Default.Tune,
-                                shape = segmentedShape(2, 3),
+                                shape = segmentedShape(2, 4),
                                 onClick = { showSubTriggerDistanceSettings = true },
+                            )
+                            LunoTextSlider(
+                                value = gesture.timeoutMs.toFloat(),
+                                onValueChange = { vm.onSubTimeoutMsChange(it) },
+                                onValueChangeFinished = { vm.persistSubGesture() },
+                                text = stringResource(R.string.sub_gesture_timeout_label),
+                                valueDisplay = {
+                                    stringResource(R.string.sub_gesture_timeout_value, it.toLong() / 1000)
+                                },
+                                valueRange = MinSubGestureTimeoutMs.toFloat()..MaxSubGestureTimeoutMs.toFloat(),
+                                shape = segmentedShape(3, 4),
                             )
                         }
                     }
@@ -322,27 +342,35 @@ private fun SubGestureVibrationContent(
     gesture: SubGesture,
     vm: SubGestureSettingsVM
 ) {
-    LunoColumn(verticalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
-        LunoSwitchRow(
-            onCheckedChange = { vm.onSubSlideVibrateChange(it) },
-            checked = gesture.slideVibrate,
-            title = stringResource(R.string.vibration_slide),
-        )
-        LunoSwitchRow(
-            onCheckedChange = { vm.onSubLongSlideVibrateChange(it) },
-            checked = gesture.longSlideVibrate,
-            title = stringResource(R.string.vibration_long_slide),
-        )
-        LunoSwitchRow(
-            onCheckedChange = { vm.onSubSlideHoldVibrateChange(it) },
-            checked = gesture.slideHoldVibrate,
-            title = stringResource(R.string.vibration_slide_hold),
-        )
-        LunoSwitchRow(
-            onCheckedChange = { vm.onSubLongSlideHoldVibrateChange(it) },
-            checked = gesture.longSlideHoldVibrate,
-            title = stringResource(R.string.vibration_long_slide_hold),
-        )
+    LunoColumn(verticalArrangement = Arrangement.spacedBy(ListSpacing)) {
+        LunoGroup(title = stringResource(R.string.vibration_group_slide)) {
+            LunoSwitchRow(
+                onCheckedChange = { vm.onSubSlideVibrateChange(it) },
+                checked = gesture.slideVibrate,
+                title = stringResource(R.string.vibration_slide),
+                shape = segmentedShape(0, 2),
+            )
+            LunoSwitchRow(
+                onCheckedChange = { vm.onSubLongSlideVibrateChange(it) },
+                checked = gesture.longSlideVibrate,
+                title = stringResource(R.string.vibration_long_slide),
+                shape = segmentedShape(1, 2),
+            )
+        }
+        LunoGroup(title = stringResource(R.string.vibration_group_hold)) {
+            LunoSwitchRow(
+                onCheckedChange = { vm.onSubSlideHoldVibrateChange(it) },
+                checked = gesture.slideHoldVibrate,
+                title = stringResource(R.string.vibration_slide_hold),
+                shape = segmentedShape(0, 2),
+            )
+            LunoSwitchRow(
+                onCheckedChange = { vm.onSubLongSlideHoldVibrateChange(it) },
+                checked = gesture.longSlideHoldVibrate,
+                title = stringResource(R.string.vibration_long_slide_hold),
+                shape = segmentedShape(1, 2),
+            )
+        }
     }
 }
 @Composable
@@ -350,7 +378,7 @@ private fun SubGestureTriggerDistanceContent(
     gesture: SubGesture,
     vm: SubGestureSettingsVM
 ) {
-    LunoColumn {
+    LunoColumn(verticalArrangement = Arrangement.spacedBy(ListSpacing)) {
         GestureSlideTriggerDistanceContent(
             slideTriggerDistance = gesture.triggerDistance,
             onSlideTriggerDistanceChange = vm::onSubTriggerDistanceChange,
@@ -363,14 +391,6 @@ private fun SubGestureTriggerDistanceContent(
             longSlideHoldTriggerDelayMs = gesture.longSlideHoldTriggerDelayMs,
             onLongSlideHoldTriggerDelayMsChange = vm::onSubLongSlideHoldTriggerDelayMsChange,
             onValueChangeFinished = vm::persistSubGesture,
-        )
-        LunoTextSlider(
-            value = gesture.timeoutMs.toFloat(),
-            onValueChange = { vm.onSubTimeoutMsChange(it) },
-            onValueChangeFinished = { vm.persistSubGesture() },
-            text = stringResource(R.string.sub_gesture_timeout_label),
-            valueDisplay = { stringResource(R.string.sub_gesture_timeout_value, it.toLong() / 1000) },
-            valueRange = MinSubGestureTimeoutMs.toFloat()..MaxSubGestureTimeoutMs.toFloat()
         )
     }
 }

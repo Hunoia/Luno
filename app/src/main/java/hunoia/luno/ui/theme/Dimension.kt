@@ -130,7 +130,7 @@ val HueBarHeight = 24.dp
 val HueBarTouchHeight = 32.dp
 
 // Trigger-distance canvas geometry
-val DistanceTrackHeight = 8.dp
+val DistanceTrackHeight = 16.dp
 val DistanceStrokeWidth = 4.dp
 
 // Haze 背后模糊半径见 Backdrop.kt 的 HazeBlurRadius。

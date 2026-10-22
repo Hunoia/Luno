@@ -40,6 +40,17 @@ import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SegmentedGap
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
+
+/** 展开内容内部行的圆角：首行接标题用小圆角，最后一行统一收回大圆角。 */
+fun actionContentRowShape(index: Int, count: Int): RoundedCornerShape {
+    val bottom = if (index == count - 1) ContainerRadius else ConnectionRadius
+    return RoundedCornerShape(
+        topStart = ConnectionRadius,
+        topEnd = ConnectionRadius,
+        bottomStart = bottom,
+        bottomEnd = bottom,
+    )
+}
 val actionCardDirections = listOf(
     GestureDirection.Left,
     GestureDirection.Up,
@@ -59,26 +70,42 @@ fun ExpandableGestureActionCard(
     title: String,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
+    index: Int = 0,
+    count: Int = 1,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val topRadius = if (index == 0 || count <= 1) ContainerRadius else ConnectionRadius
+    val bottomRadius = if (index == count - 1 || count <= 1) ContainerRadius else ConnectionRadius
+    val outerShape = RoundedCornerShape(
+        topStart = topRadius,
+        topEnd = topRadius,
+        bottomStart = bottomRadius,
+        bottomEnd = bottomRadius,
+    )
     val rotation by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
         label = "GestureActionCardArrowRotation",
     )
     val headerBottomRadius by animateDpAsState(
-        targetValue = if (expanded) ConnectionRadius else ContainerRadius,
+        targetValue = if (expanded) ConnectionRadius else bottomRadius,
         label = "GestureActionCardHeaderBottomRadius",
     )
     val headerShape = RoundedCornerShape(
-        topStart = ContainerRadius,
-        topEnd = ContainerRadius,
+        topStart = topRadius,
+        topEnd = topRadius,
         bottomStart = headerBottomRadius,
         bottomEnd = headerBottomRadius,
+    )
+    val contentShape = RoundedCornerShape(
+        topStart = ConnectionRadius,
+        topEnd = ConnectionRadius,
+        bottomStart = ContainerRadius,
+        bottomEnd = ContainerRadius,
     )
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(ContainerRadius)),
+            .clip(outerShape),
         verticalArrangement = Arrangement.spacedBy(SegmentedGap),
     ) {
         LunoSettingsRow(
@@ -104,7 +131,7 @@ fun ExpandableGestureActionCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(segmentedShape(1, 2)),
+                    .clip(contentShape),
                 verticalArrangement = Arrangement.spacedBy(SegmentedGap),
             ) {
                 content()
@@ -124,6 +151,8 @@ fun GestureButtonSlideActionsCard(
         title = stringResource(id = R.string.slide_action),
         expanded = expanded,
         onExpandedChange = onExpandedChange,
+        index = 1,
+        count = 5,
     ) {
         SlideActionRows(
             hiddenDirections = gestureButton.angle.zeroWidthDirections(),
@@ -152,6 +181,8 @@ fun GestureButtonLongSlideActionsCard(
         title = stringResource(id = R.string.long_slide_action),
         expanded = expanded,
         onExpandedChange = onExpandedChange,
+        index = 3,
+        count = 5,
     ) {
         LongSlideActionRows(
             hiddenDirections = gestureButton.angle.zeroWidthDirections(),
@@ -195,7 +226,7 @@ fun SlideActionRows(
             direction = direction,
             isLongSlide = false,
             subtitle = actionsText(direction),
-            shape = segmentedShape(index, directions.size),
+            shape = actionContentRowShape(index, directions.size),
         )
     }
 }
@@ -212,7 +243,7 @@ fun LongSlideActionRows(
             direction = direction,
             isLongSlide = true,
             subtitle = actionsText(direction),
-            shape = segmentedShape(index, directions.size),
+            shape = actionContentRowShape(index, directions.size),
         )
     }
 }
@@ -233,6 +264,8 @@ fun GestureButtonTapActionsCard(
         title = stringResource(id = R.string.tap_and_long_press_action),
         expanded = expanded,
         onExpandedChange = onExpandedChange,
+        index = 0,
+        count = 5,
     ) {
         RowGroup(items = tapActions) { index, (labelRes, triggerType, actions) ->
             LunoSettingsRow(
@@ -248,7 +281,7 @@ fun GestureButtonTapActionsCard(
                 title = stringResource(id = labelRes),
                 subtitle = actions.actionTextCompose(),
                 subtitleColor = MaterialTheme.colorScheme.primary,
-                shape = segmentedShape(index, tapActions.size),
+                shape = actionContentRowShape(index, tapActions.size),
                 leading = {
                     RowIconBadge(icon = Icons.Default.Adjust)
                 },
@@ -268,6 +301,8 @@ fun GestureButtonSlideHoldActionsCard(
         title = stringResource(id = R.string.slide_hold_action),
         expanded = expanded,
         onExpandedChange = onExpandedChange,
+        index = 2,
+        count = 5,
     ) {
         SlideActionRows(
             hiddenDirections = gestureButton.angle.zeroWidthDirections(),
@@ -296,6 +331,8 @@ fun GestureButtonLongSlideHoldActionsCard(
         title = stringResource(id = R.string.long_slide_hold_action),
         expanded = expanded,
         onExpandedChange = onExpandedChange,
+        index = 4,
+        count = 5,
     ) {
         LongSlideActionRows(
             hiddenDirections = gestureButton.angle.zeroWidthDirections(),
