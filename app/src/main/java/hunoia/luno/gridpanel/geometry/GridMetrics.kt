@@ -81,7 +81,6 @@ data class GridMetrics(
     val cellH: Float,
     val gap: Float,
     val gridPad: Float,
-    val header: Float,
     val indicator: Float,
     val cardW: Float,
     val cardH: Float,
@@ -119,7 +118,6 @@ fun rememberGridMetrics(
     val screenW = with(density) { configuration.screenWidthDp.dp.toPx() }
     val screenH = with(density) { configuration.screenHeightDp.dp.toPx() }
     val gridPad = with(density) { GridPadding.toPx() }
-    val header = 0f // 无页眉预算
     val indicator = if (pageCount > 1) with(density) { IndicatorHeight.toPx() } else 0f
     val gap = with(density) { gapFor(columns).toPx() }
     val screenWdp = configuration.screenWidthDp.toFloat()
@@ -138,7 +136,6 @@ fun rememberGridMetrics(
         screenW,
         screenH,
         gridPad,
-        header,
         indicator,
         gap,
     ) {
@@ -159,7 +156,6 @@ fun rememberGridMetrics(
             cellH = cellH,
             gap = gap,
             gridPad = gridPad,
-            header = header,
             indicator = indicator,
             cardW = cardW,
             cardH = cardH,

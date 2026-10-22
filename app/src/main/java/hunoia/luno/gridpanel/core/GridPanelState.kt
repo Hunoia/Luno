@@ -156,11 +156,7 @@ class GridPanelState(
             rows = m.rows,
         )
         if (plan == null) {
-            android.util.Log.i(
-                "GridDrag",
-                "plan null: target=($tx,$ty) moving=${moving.spanX}x${moving.spanY} " +
-                    "cols=${m.columns} rows=${m.rows} base=${dragBase.map { "${it.x},${it.y} ${it.spanX}x${it.spanY}" }}",
-            )
+            // 求解失败（出界/超轮数）：保持上一个有效目标。
             return
         }
         val dropped = plan.firstOrNull { it.id == id } ?: return
@@ -175,11 +171,6 @@ class GridPanelState(
         }
         if ((dragVisual - lastHapticVisual).getDistance() < m.stepW * 0.3f) return
         lastHapticVisual = dragVisual
-        android.util.Log.i(
-            "GridDrag",
-            "target ($tx,$ty) -> dropped (${dropped.x},${dropped.y}) " +
-                "span=${moving.spanX}x${moving.spanY} visual=(${dragVisual.x},${dragVisual.y})",
-        )
         hapticTick()
     }
 

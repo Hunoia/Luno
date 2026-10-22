@@ -1,6 +1,7 @@
 package hunoia.luno.gridpanel
 
 import android.os.SystemClock
+import android.util.Log
 import android.view.HapticFeedbackConstants
 import android.view.WindowInsets
 import androidx.compose.animation.core.Animatable
@@ -44,12 +45,13 @@ import hunoia.luno.gridpanel.widget.WidgetGoneListener
 import hunoia.luno.gridpanel.widget.addWidgetGoneListener
 import hunoia.luno.gridpanel.widget.removeWidgetGoneListener
 import hunoia.luno.ui.navigation.ActionSelect
-import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import kotlinx.coroutines.launch
 
 
 /** 点空白退出编辑后，这段时间内的项点按不执行（防连点误触）。 */
 private const val ExitEditTapGuardMillis = 150L
+
+private const val TAG = "GridPanel"
 
 /**
  * 网格面板：固定网格 + 跨格项 + 简版多页。
@@ -71,8 +73,6 @@ fun GridPanelRoot(
     /** 注册返回键处理器：组合先行消费（编辑态退编辑），未消费由浮窗关闭。 */
     onRegisterBackHandler: (((() -> Boolean)) -> Unit)? = null,
 ) {
-    val libraryEntries = LocalActionLibraryEntries.current
-
     // 进出场用一张 Animatable 管 alpha/scale：语义可证伪，不依赖服务进程里
     // animate*AsState 的收敛。
     val appearance = remember { Animatable(0f) }
@@ -154,14 +154,16 @@ fun GridPanelRoot(
         localItems = rebuilt
         lastWritten = rebuilt
         scope.launch {
-            TuneConfig.updateAction { settings ->
-                val latest = settings.actionGridPanels.panelById(panel.id) ?: return@updateAction settings
-                settings.copy(
-                    actionGridPanels = settings.actionGridPanels.withPanel(
-                        latest.copy(items = rebuilt),
-                    ),
-                )
-            }
+            runCatching {
+                TuneConfig.updateAction { settings ->
+                    val latest = settings.actionGridPanels.panelById(panel.id) ?: return@updateAction settings
+                    settings.copy(
+                        actionGridPanels = settings.actionGridPanels.withPanel(
+                            latest.copy(items = rebuilt),
+                        ),
+                    )
+                }
+            }.onFailure { Log.w(TAG, "grid panel commitPage failed: ${it.message}") }
         }
     }
 
@@ -169,14 +171,16 @@ fun GridPanelRoot(
         localItems = next
         lastWritten = next
         scope.launch {
-            TuneConfig.updateAction { settings ->
-                val latest = settings.actionGridPanels.panelById(panel.id) ?: return@updateAction settings
-                settings.copy(
-                    actionGridPanels = settings.actionGridPanels.withPanel(
-                        latest.copy(items = next),
-                    ),
-                )
-            }
+            runCatching {
+                TuneConfig.updateAction { settings ->
+                    val latest = settings.actionGridPanels.panelById(panel.id) ?: return@updateAction settings
+                    settings.copy(
+                        actionGridPanels = settings.actionGridPanels.withPanel(
+                            latest.copy(items = next),
+                        ),
+                    )
+                }
+            }.onFailure { Log.w(TAG, "grid panel commitAll failed: ${it.message}") }
             if (cleanupResources) hunoia.luno.domain.gridpanel.PanelResources.cleanup()
         }
     }
@@ -274,7 +278,6 @@ fun GridPanelRoot(
             appearance = appearance.value,
             cardAlpha = cardAlpha,
             state = state,
-            libraryEntries = libraryEntries,
             itemActions = { pageIndex ->
                 GridItemActions(
                     onTap = { item, center ->
