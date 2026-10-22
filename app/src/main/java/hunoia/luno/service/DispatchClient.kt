@@ -103,6 +103,7 @@ object DispatchClient {
         initialYdp: Int?,
         onCommit: (Int, Int) -> Unit,
         onDismiss: () -> Unit,
+        onUnavailable: () -> Unit = {},
     ): Boolean {
         val s = stub ?: return false
         val cb = object : IPointPickCallback.Stub() {
@@ -112,6 +113,10 @@ object DispatchClient {
 
             override fun onDismiss() {
                 mainHandler.post { onDismiss() }
+            }
+
+            override fun onUnavailable() {
+                mainHandler.post { onUnavailable() }
             }
         }
         return runCatching {

@@ -32,13 +32,20 @@ class DispatchService : Service() {
             SideGestureService.current?.isDispatchReady() == true
 
         override fun showPointPicker(initialXDp: Int, initialYdp: Int, cb: IPointPickCallback) {
-            val svc = SideGestureService.current ?: return
+            val svc = SideGestureService.current
+            if (svc == null) {
+                // 无障碍服务没跑（常见于只给正式包开了无障碍）：必须回调失败，
+                // 否则调用方只能看到「点击无反应」。
+                runCatching { cb.onUnavailable() }
+                return
+            }
             Handler(Looper.getMainLooper()).post {
                 svc.pointPickOverlay.show(
                     initialXdp = initialXDp.takeIf { it >= 0 },
                     initialYdp = initialYdp.takeIf { it >= 0 },
                     commit = { xDp, yDp -> runCatching { cb.onCommit(xDp, yDp) } },
                     onDismiss = { runCatching { cb.onDismiss() } },
+                    onError = { runCatching { cb.onUnavailable() } },
                 )
             }
         }

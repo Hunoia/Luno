@@ -153,8 +153,11 @@
     <string name="row_settings_coord_x">横坐标 dp</string>
     <string name="row_settings_coord_y">纵坐标 dp</string>
     <string name="row_settings_duration">时长</string>
-    <string name="row_settings_point_picker_failed">取点服务未就绪</string>
+    <string name="row_settings_point_picker_failed">取点不可用：请确认无障碍服务已开启</string>
     <string name="row_settings_coord_dp">%1$d, %2$d dp</string>
+    <string name="row_settings_reset">恢复默认</string>
+    <string name="row_settings_coord_invalid">坐标需要整数</string>
+    <string name="row_settings_pattern_invalid">格式：毫秒值用逗号分隔，如 0,500</string>
     <!-- 行尾设置弹窗标题 -->
     <string name="row_dialog_volume_scrub">滑动调音量</string>
     <string name="row_dialog_hide_gesture_button">隐藏触钮</string>

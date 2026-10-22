@@ -65,7 +65,7 @@ import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.ui.actionselect.UiState.SelectedRecord
-import hunoia.luno.ui.actionselect.components.ActionRowSettingsDialog
+import hunoia.luno.ui.actionselect.components.ActionRowSettingsSheet
 import hunoia.luno.ui.actionselect.components.RowSettingsActionTypeIds
 import hunoia.luno.ui.actionselect.components.rowSettingsSubtitle
 import hunoia.luno.ui.component.feedback.EmptyState
@@ -122,7 +122,7 @@ internal fun ActionPage(
     var selectedType by rememberSaveable { mutableStateOf<String?>(null) }
     var settingsAction by remember { mutableStateOf<StoredAction?>(null) }
     settingsAction?.let { editing ->
-        ActionRowSettingsDialog(
+        ActionRowSettingsSheet(
             action = editing,
             onDismiss = { settingsAction = null },
             onConfirm = { next ->

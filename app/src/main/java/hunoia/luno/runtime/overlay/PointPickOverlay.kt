@@ -68,6 +68,7 @@ class PointPickOverlay(private val host: GestureHost) {
         initialYdp: Int?,
         commit: (Int, Int) -> Unit,
         onDismiss: () -> Unit = {},
+        onError: () -> Unit = {},
     ) {
         if (overlayView != null) return
         onCommit = commit
@@ -108,6 +109,7 @@ class PointPickOverlay(private val host: GestureHost) {
         }
         if (!wm.safeAddView(composeView, lp)) {
             android.util.Log.e("LunoLauncher", "point pick: addView failed type=touch_trusted")
+            onError()
             return
         }
         overlayView = composeView
