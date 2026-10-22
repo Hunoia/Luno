@@ -90,7 +90,6 @@ import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.component.FabMenuPopup
 import hunoia.luno.ui.component.FabMenuItem
-import hunoia.luno.ui.theme.appHazeEffect
 import kotlinx.coroutines.launch
 import hunoia.luno.ui.component.CheckDropdownMenuItem
 import hunoia.luno.ui.component.row.LunoSettingsRow

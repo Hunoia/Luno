@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -98,9 +99,11 @@ internal fun InternalWidgetCard(
     modifier: Modifier = Modifier,
 ) {
     Surface(
+        // heightIn 而不是 height：大字体下「图标 + 两行名称 + 格数」总高会超过 120dp，
+        // 固定高会被 Surface 裁掉底部；卡片跟着文字长高，行内其它卡由 LazyRow 自适应。
         modifier = modifier
             .width(130.dp)
-            .height(120.dp)
+            .heightIn(min = 120.dp)
             .clickable(onClick = onSelect),
         shape = SmallShape,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -155,9 +158,10 @@ internal fun WidgetPreviewCard(
             .getOrDefault(info.provider?.className ?: "")
     }
     Surface(
+        // 同上：预览图 + 两行名称 + 格数在 fontScale 1.4 下已超过 120dp，不能再锁死高度。
         modifier = modifier
             .width(130.dp)
-            .height(120.dp)
+            .heightIn(min = 120.dp)
             .clickable(onClick = onSelect),
         shape = SmallShape,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
