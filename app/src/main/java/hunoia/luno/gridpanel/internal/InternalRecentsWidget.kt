@@ -52,9 +52,17 @@ fun RecentAppsCell(
     val context = LocalContext.current
     val closePanel = LocalGridPanelClose.current
     val history by hunoia.luno.runtime.environment.RecentAppsHub.history.collectAsState()
+    val foreground by hunoia.luno.runtime.environment.RecentAppsHub.foreground.collectAsState()
     // 容量 = 格数；一行一格，多行往下排。
     val capacity = (spanX * spanY).coerceAtLeast(1)
-    val pkgs = remember(history, capacity) { history.dropLast(1).takeLast(capacity) }
+    // 过滤当前前台与本应用自身：前台不算「最近」（当前正在用它），本应用包名理论上
+    // 已在源头过滤，这里再拦一道防御（面板窗口事件时序竞态下避免闪现本应用图标）。
+    val pkgs = remember(history, foreground, capacity) {
+        history.asSequence()
+            .filter { it != foreground && it != context.packageName }
+            .toList()
+            .takeLast(capacity)
+    }
     val onCard = gridPanelOnCardColor
     if (pkgs.isEmpty()) {
         Row(

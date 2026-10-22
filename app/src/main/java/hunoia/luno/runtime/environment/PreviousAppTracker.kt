@@ -11,6 +11,9 @@ class PreviousAppTracker(
     private val packageManager: android.content.pm.PackageManager,
     private val startActivity: (Intent) -> Unit,
     private val rootInActiveWindowPackageName: () -> String?,
+    /** 自身包名：面板/设置等 overlay 窗口的 a11y 事件不入历史（否则部件会闪现本应用图标、
+     * 且 currPackageName 被置成本应用会破坏 previousApp 语义）。 */
+    private val ownPackageName: String,
 ) {
     private val history = ArrayDeque<String>()
     private var currPackageName: String? = null
@@ -37,7 +40,11 @@ class PreviousAppTracker(
         when (event?.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 val packageName = event.packageName?.toString()
+                if (packageName != null && packageName != ownPackageName) {
+                    RecentAppsHub.updateForeground(packageName)
+                }
                 if (packageName != null &&
+                    packageName != ownPackageName &&
                     packageName !in blocklist &&
                     hasLaunchIntent(packageName) &&
                     currPackageName != packageName

@@ -59,6 +59,9 @@ object FloatBallDefaults {
     const val TouchSlopDp = 12f
 
     /** 键盘弹出时球与键盘顶边的间距（dp）。 */
+    /** 键盘让位额外抬升：键盘顶上一般还有应用自己的输入栏/发送按钮，只留 ImeMargin 会挡住它。 */
+    const val ImeExtraLiftDp = 48f
+
     const val ImeMarginDp = 8f
 
     const val MirrorBall = false

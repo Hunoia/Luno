@@ -52,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -271,46 +272,58 @@ fun HomeScreen(
                             .align(Alignment.End)
                             .padding(end = PageGutter, bottom = 12.dp),
                     ) {
-                        CompositionLocalProvider(LocalRippleConfiguration provides null) {
-                            FloatingActionButton(
-                                onClick = {
-                                    // 隐藏态不吃点击。
-                                    if (showAdd) {
-                                        if (mainTab == MainTab.Automation) {
-                                            onNavToAutomationEdit(NEW_AUTOMATION_RULE_ID)
-                                        } else {
-                                            showLibraryTypeMenu = true
+                        // 隐藏时跳过 place：不绘制也不参与命中测试。graphicsLayer alpha=0
+                        // 不影响命中测试，若只隐不卸，透明 FAB 会吃掉下方内容的点击。
+                        // fabProgress 在 place 块里读：退出动画期间保持 place，归零后才真正卸下。
+                        Box(
+                            modifier = Modifier.layout { measurable, constraints ->
+                                val placeable = measurable.measure(constraints)
+                                layout(placeable.width, placeable.height) {
+                                    if (showAdd || fabProgress > 0f) placeable.place(0, 0)
+                                }
+                            },
+                        ) {
+                            CompositionLocalProvider(LocalRippleConfiguration provides null) {
+                                FloatingActionButton(
+                                    onClick = {
+                                        // 隐藏态不吃点击。
+                                        if (showAdd) {
+                                            if (mainTab == MainTab.Automation) {
+                                                onNavToAutomationEdit(NEW_AUTOMATION_RULE_ID)
+                                            } else {
+                                                showLibraryTypeMenu = true
+                                            }
                                         }
-                                    }
-                                },
-                                modifier = Modifier
-                                    .size(64.dp)
-                                    .graphicsLayer {
-                                        val p = fabProgress.fastCoerceIn(0f, 1f)
-                                        alpha = p
-                                        val scale = 0.6f + 0.4f * p
-                                        scaleX = scale
-                                        scaleY = scale
                                     },
-                                shape = FloatingActionButtonDefaults.shape,
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                // 不用 M3 默认 elevation：原生阴影放在带 alpha 的 graphicsLayer
-                                // 里会按矩形光栅化，显隐时 FAB 底部两角会短暂变成直角。
-                                elevation = FloatingActionButtonDefaults.elevation(
-                                    defaultElevation = 0.dp,
-                                    pressedElevation = 0.dp,
-                                    focusedElevation = 0.dp,
-                                    hoveredElevation = 0.dp,
-                                ),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = if (mainTab == MainTab.Automation) {
-                                        stringResource(R.string.automation_new)
-                                    } else {
-                                        stringResource(R.string.action_library_add)
-                                    },
-                                )
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .graphicsLayer {
+                                            val p = fabProgress.fastCoerceIn(0f, 1f)
+                                            alpha = p
+                                            val scale = 0.6f + 0.4f * p
+                                            scaleX = scale
+                                            scaleY = scale
+                                        },
+                                    shape = FloatingActionButtonDefaults.shape,
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    // 不用 M3 默认 elevation：原生阴影放在带 alpha 的 graphicsLayer
+                                    // 里会按矩形光栅化，显隐时 FAB 底部两角会短暂变成直角。
+                                    elevation = FloatingActionButtonDefaults.elevation(
+                                        defaultElevation = 0.dp,
+                                        pressedElevation = 0.dp,
+                                        focusedElevation = 0.dp,
+                                        hoveredElevation = 0.dp,
+                                    ),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = if (mainTab == MainTab.Automation) {
+                                            stringResource(R.string.automation_new)
+                                        } else {
+                                            stringResource(R.string.action_library_add)
+                                        },
+                                    )
+                                }
                             }
                         }
                         LibraryTypeMenu(

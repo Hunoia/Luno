@@ -77,7 +77,9 @@ class FloatBallService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        ballWindow = FloatBallWindow(this).apply {
+        ballWindow = FloatBallWindow(this, onImeLiftChanged = { lift ->
+            mirrorWindow.updateImeLift(lift)
+        }).apply {
             onTap = { onBallTapped() }
             onDragFinished = { x, y -> persistPosition(x, y) }
         }

@@ -195,6 +195,7 @@ class GestureCoordinator(
         packageManager = host.context.packageManager,
         startActivity = { host.context.startActivity(it) },
         rootInActiveWindowPackageName = { host.accessibilityService.rootInActiveWindow?.packageName?.toString() },
+        ownPackageName = host.context.packageName,
     )
 
     // 最近应用黑名单变更时立即修剪历史并重算 RecentAppsHub，改设置当下生效。

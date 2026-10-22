@@ -54,6 +54,8 @@ import kotlin.math.roundToInt
  */
 class FloatBallWindow(
     private val context: android.content.Context,
+    /** 抬升量变化回调（含动画逐帧）：服务侧转发给镜像窗，事件路径下镜像也能跟随。 */
+    private val onImeLiftChanged: (Float) -> Unit = {},
 ) {
     private val wm: WindowManager get() = context.windowManager()
 
@@ -80,8 +82,11 @@ class FloatBallWindow(
     private var posX = 0f
     private var posY = 0f
 
-    /** 键盘抬升量（px）。显示位置 = 基准位 - 抬升量。 */
+    /** 键盘抬升量（px）。显示位置 = 基准位 - 抬升量。*/
     private var imeLiftPx = 0f
+
+    /** 抬升缓动动画：键盘起落平滑跟随，避免瞬跳。*/
+    private var imeAnimator: ValueAnimator? = null
 
     /** 最近一次上报的键盘底边（px）。拖动中如收起键盘，拖完结算按此值归零。 */
     private var imeBottomPx = 0
@@ -188,6 +193,7 @@ class FloatBallWindow(
 
     fun detach() {
         arbiter.cancel()
+        cancelImeAnim()
         settleAnimator?.cancel()
         settleAnimator = null
         moveAnimator?.cancel()
@@ -242,18 +248,56 @@ class FloatBallWindow(
 
     // ---- 键盘让位 ----
 
-    /** 键盘弹出时上抬，保证「球底 + 边距」不压键盘顶边；拖动期间只记账，拖完由 [onDragEnded] 结算。 */
+    /** 键盘弹出时上抬，保证「球底 + 边距 + 额外抬升」不压输入栏；拖动期间只记账，拖完由 [onDragEnded] 结算。*/
     fun updateIme(newImeBottomPx: Int) {
         if (newImeBottomPx == imeBottomPx) return
         this.imeBottomPx = newImeBottomPx
         if (dragging) return
-        imeLiftPx = computeImeLift(newImeBottomPx).toFloat()
-        applyWindowBounds()
+        animateImeLift(computeImeLift(newImeBottomPx).toFloat())
+    }
+
+    /** 抬升缓动：从当前值到目标值，逐帧落窗口 + 通知镜像。目标差值极小直接落定。*/
+    private fun animateImeLift(target: Float) {
+        imeAnimator?.cancel()
+        imeAnimator = null
+        if (kotlin.math.abs(imeLiftPx - target) < 0.5f) {
+            imeLiftPx = target
+            applyWindowBounds()
+            onImeLiftChanged(imeLiftPx)
+            return
+        }
+        imeAnimator = ValueAnimator.ofFloat(imeLiftPx, target).apply {
+            duration = IME_LIFT_ANIM_MS
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { anim ->
+                if (imeAnimator !== anim) return@addUpdateListener
+                imeLiftPx = anim.animatedValue as Float
+                applyWindowBounds()
+                onImeLiftChanged(imeLiftPx)
+            }
+            addListener(object : android.animation.Animator.AnimatorListener {
+                override fun onAnimationEnd(a: android.animation.Animator) {
+                    if (imeAnimator === a) imeAnimator = null
+                }
+                override fun onAnimationStart(a: android.animation.Animator) {}
+                override fun onAnimationCancel(a: android.animation.Animator) {
+                    if (imeAnimator === a) imeAnimator = null
+                }
+                override fun onAnimationRepeat(a: android.animation.Animator) {}
+            })
+            start()
+        }
+    }
+
+    private fun cancelImeAnim() {
+        imeAnimator?.cancel()
+        imeAnimator = null
     }
 
     private fun computeImeLift(imeBottomPx: Int): Int {
         if (imeBottomPx <= 0) return 0
-        val marginPx = DensityProvider.dp2px(FloatBallDefaults.ImeMarginDp)
+        // ImeMargin 防贴键盘顶；ImeExtraLift 再抬高一段 —— 键盘上方通常是应用的输入栏/发送按钮。
+        val marginPx = DensityProvider.dp2px(FloatBallDefaults.ImeMarginDp + FloatBallDefaults.ImeExtraLiftDp)
         val overflow = (posY).roundToInt() + ballPx + marginPx - (screenHeightPx - imeBottomPx)
         // 让位只作用于显示位置，基准 posY 不动；封顶在「球顶正好到 LP 原点」。
         return max(0, overflow).coerceAtMost(max(0, (posY).roundToInt() - lpOriginY))
@@ -265,6 +309,7 @@ class FloatBallWindow(
         if (!dragging) {
             dragging = true
             cancelSettle()
+            cancelImeAnim()
             cancelIdle()
         }
         posX += dx
@@ -610,5 +655,8 @@ class FloatBallWindow(
 
     private companion object {
         const val TAG = "LunoLauncher"
+
+        /** 键盘让位缓动时长：足够平滑，又不拖泥带水。 */
+        const val IME_LIFT_ANIM_MS = 220L
     }
 }

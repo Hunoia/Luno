@@ -9,15 +9,24 @@ import kotlinx.coroutines.flow.StateFlow
  */
 object RecentAppsHub {
     private val _history = MutableStateFlow<List<String>>(emptyList())
+    private val _foreground = MutableStateFlow("")
 
     /** 最近应用包名（旧 → 新，末尾最新，含当前前台）。 */
     val history: StateFlow<List<String>> = _history
+
+    /** 当前前台包名（PreviousAppTracker 维护，未知时为空串）：消费者用它过滤，不猜「末尾=前台」。 */
+    val foreground: StateFlow<String> = _foreground
 
     fun update(history: List<String>) {
         _history.value = history
     }
 
+    fun updateForeground(packageName: String) {
+        _foreground.value = packageName
+    }
+
     fun clear() {
         _history.value = emptyList()
+        _foreground.value = ""
     }
 }
