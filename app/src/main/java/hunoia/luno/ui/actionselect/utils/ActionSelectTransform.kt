@@ -14,7 +14,7 @@ import hunoia.luno.action.model.actionPanelId
 import hunoia.luno.action.model.gridPanelId
 import hunoia.luno.action.model.launchQualifiedName
 import hunoia.luno.action.model.withLaunchMiniWindow
-import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.action.model.ActionLibraryEntry
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.ActionPanel
 import hunoia.luno.config.model.GridPanel
@@ -41,7 +41,7 @@ fun Context.selectedItemLabel(item: Any, subGestures: List<SubGesture>): String 
 fun Context.selectedItemLabel(
     item: Any,
     subGestures: List<SubGesture>,
-    actionLibraryEntries: List<NewActionLibraryEntry>,
+    actionLibraryEntries: List<ActionLibraryEntry>,
     rules: List<AutomationRule> = emptyList(),
 ): String {
     return when (item) {
@@ -60,7 +60,7 @@ fun Context.selectedItemLabel(
 fun Context.actionTextWithSubGesture(
     action: StoredAction,
     subGestures: List<SubGesture>,
-    actionLibraryEntries: List<NewActionLibraryEntry>,
+    actionLibraryEntries: List<ActionLibraryEntry>,
     rules: List<AutomationRule> = emptyList(),
     actionPanels: List<ActionPanel> = emptyList(),
     gridPanels: List<GridPanel> = emptyList(),
@@ -139,7 +139,7 @@ internal fun createTitle(actionSelect: ActionSelect): String {
 internal fun Any.toStoredAction(): StoredAction {
     return when (this) {
         is StoredAction -> this
-        is NewActionLibraryEntry -> StoredAction.of("internal.libraryRef", "entryId" to id)
+        is ActionLibraryEntry -> StoredAction.of("internal.libraryRef", "entryId" to id)
         is AppInfo -> StoredAction.of(
             "app.launch",
             "packageName" to packageName,

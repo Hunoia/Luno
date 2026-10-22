@@ -2,7 +2,7 @@ package hunoia.luno.ui.actionlibrary
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.action.model.ActionLibraryEntry
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.action.model.StoredAction
@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
-class NewActionLibraryVM : ViewModel() {
+class ActionLibraryVM : ViewModel() {
     private val _uiState = MutableStateFlow(NewLibraryUiState())
     val uiState: StateFlow<NewLibraryUiState> = _uiState
 
@@ -34,7 +34,7 @@ class NewActionLibraryVM : ViewModel() {
         }
     }
 
-    fun remove(entry: NewActionLibraryEntry) {
+    fun remove(entry: ActionLibraryEntry) {
         viewModelScope.launch { ActionLibrary.removeEntry(entry.id) }
     }
 
@@ -52,7 +52,7 @@ class NewActionLibraryVM : ViewModel() {
 }
 
 data class NewLibraryUiState(
-    val entries: List<NewActionLibraryEntry> = emptyList(),
+    val entries: List<ActionLibraryEntry> = emptyList(),
     val referenceCounts: Map<String, Int> = emptyMap(),
 )
 

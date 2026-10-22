@@ -32,7 +32,7 @@ import hunoia.luno.config.model.isPlainSlideType
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.gesture.GestureDecision
 import hunoia.luno.gesture.GestureResolvedActions
-import hunoia.luno.runtime.gesturepanel.ActionPanel
+import hunoia.luno.runtime.gesturepanel.ActionPanelMenu
 import hunoia.luno.runtime.gesturepanel.rememberActionPanelState
 import hunoia.luno.gesture.GestureState
 import hunoia.luno.gesture.SubGestureState
@@ -434,7 +434,7 @@ fun SideGestureContainer(
         }
     )
     Box(modifier = modifier) {
-        ActionPanel(
+        ActionPanelMenu(
             actionPanelStyle = actionPanelStyle,
             actionPanelState = actionPanelState,
             modifier = Modifier.matchParentSize(),

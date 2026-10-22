@@ -1,6 +1,6 @@
 package hunoia.luno.domain.action
 
-import hunoia.luno.action.model.NewActionLibrarySettings
+import hunoia.luno.action.model.ActionLibrarySettings
 import hunoia.luno.action.model.libraryEntryId
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.RuleStep
@@ -13,12 +13,12 @@ typealias TemplateVariable = hunoia.luno.action.template.TemplateVariable
 /** 动作库域门面（ui 层唯一入口）。 */
 object ActionLibrary {
 
-    val settings: Flow<NewActionLibrarySettings> = ConfigProvider.newActionLibrarySettings
+    val settings: Flow<ActionLibrarySettings> = ConfigProvider.actionLibrarySettings
 
-    suspend fun getSettings(): NewActionLibrarySettings = ConfigProvider.getNewActionLibrarySettings()
+    suspend fun getSettings(): ActionLibrarySettings = ConfigProvider.getActionLibrarySettings()
 
-    suspend fun updateSettings(transform: suspend (NewActionLibrarySettings) -> NewActionLibrarySettings) =
-        ConfigProvider.updateNewActionLibrarySettings(transform)
+    suspend fun updateSettings(transform: suspend (ActionLibrarySettings) -> ActionLibrarySettings) =
+        ConfigProvider.updateActionLibrarySettings(transform)
 
     /** picker 用的全部模板变量。 */
     val templateVariables: List<TemplateVariable>
@@ -29,7 +29,7 @@ object ActionLibrary {
      * 自动化里引用它的步骤动作清空，最后删条目本身。
      */
     suspend fun removeEntry(entryId: String) {
-        val entry = ConfigProvider.getNewActionLibrarySettings().entries.firstOrNull { it.id == entryId }
+        val entry = ConfigProvider.getActionLibrarySettings().entries.firstOrNull { it.id == entryId }
         removeEntryRefs(entryId)
         updateSettings { settings ->
             settings.copy(entries = settings.entries.filterNot { it.id == entryId })

@@ -1,11 +1,8 @@
 package hunoia.luno.quicklaunch.query
 
 import hunoia.luno.R
-import hunoia.luno.action.definitions.ActionDefinitions
-import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.action.model.SettingsPage
 import hunoia.luno.action.model.labelRes
-import hunoia.luno.quicklaunch.query.AppSearch.key
 
 fun QuickSearchIndex.hasContactsPermission(): Boolean =
     androidx.core.content.ContextCompat.checkSelfPermission(

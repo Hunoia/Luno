@@ -1,6 +1,6 @@
 package hunoia.luno.config
 
-import hunoia.luno.action.model.NewActionLibrarySettings
+import hunoia.luno.action.model.ActionLibrarySettings
 import hunoia.luno.config.backup.ConfigBackupRepository
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
@@ -33,7 +33,7 @@ object ConfigProvider {
     val gestureButtons: Flow<List<GestureButton>> = stores.gestureButtons
     val quickAppLauncherSettings: Flow<QuickAppLauncherSettings> = stores.quickAppLauncherSettings
     val subGestureSettings: Flow<SubGestureSettings> = stores.subGestureSettings
-    val newActionLibrarySettings: Flow<NewActionLibrarySettings> = stores.newActionLibrarySettings
+    val actionLibrarySettings: Flow<ActionLibrarySettings> = stores.actionLibrarySettings
     val automationRules: Flow<List<AutomationRule>> = stores.automationRules
     val automationLog: Flow<List<hunoia.luno.runtime.automation.AutomationEvent>> = stores.automationLog
     val quickSearchSettings: Flow<QuickSearchSettings> = stores.quickSearchSettings
@@ -45,7 +45,7 @@ object ConfigProvider {
     suspend fun getGestureButtons(): List<GestureButton> = stores._gestureButtons.data.first()
     suspend fun getQuickAppLauncherSettings(): QuickAppLauncherSettings = stores._quickAppLauncherSettings.data.first()
     suspend fun getSubGestureSettings(): SubGestureSettings = stores._subGestureSettings.data.first()
-    suspend fun getNewActionLibrarySettings(): NewActionLibrarySettings = stores._newActionLibrarySettings.data.first()
+    suspend fun getActionLibrarySettings(): ActionLibrarySettings = stores._actionLibrarySettings.data.first()
     suspend fun getAutomationRules(): List<AutomationRule> = stores._automationRules.data.first()
     suspend fun getQuickSearchSettings(): QuickSearchSettings = stores._quickSearchSettings.data.first()
 
@@ -70,8 +70,8 @@ object ConfigProvider {
     suspend fun updateSubGestureSettings(transform: suspend (SubGestureSettings) -> SubGestureSettings) {
         stores._subGestureSettings.updateData(transform)
     }
-    suspend fun updateNewActionLibrarySettings(transform: suspend (NewActionLibrarySettings) -> NewActionLibrarySettings) {
-        stores._newActionLibrarySettings.updateData(transform)
+    suspend fun updateActionLibrarySettings(transform: suspend (ActionLibrarySettings) -> ActionLibrarySettings) {
+        stores._actionLibrarySettings.updateData(transform)
     }
 
     suspend fun updateAutomationRules(transform: suspend (List<AutomationRule>) -> List<AutomationRule>) {

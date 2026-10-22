@@ -42,12 +42,11 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import hunoia.luno.R
-import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.action.model.ActionLibraryEntry
 import hunoia.luno.config.model.GridCell
 import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.gridpanel.geometry.GridMetrics
@@ -114,7 +113,7 @@ fun GridPanelLayer(
     glideFrom: Pair<String, Offset>?,
     resizingId: String?,
     resizeSpanF: Offset?,
-    libraryEntries: List<NewActionLibraryEntry>,
+    libraryEntries: List<ActionLibraryEntry>,
     actions: GridItemActions,
     /** 小部件内部滚不动时的竖直位移中继（正值 = 向下滚）。 */
     onWidgetScroll: ((dy: Float) -> Unit)? = null,

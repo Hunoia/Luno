@@ -17,7 +17,7 @@ object DataStoreFiles {
 
     // 动作库组
     const val ACTION_SETTINGS = "action_settings"
-    const val NEW_ACTION_LIBRARY_SETTINGS = "new_action_library"
+    const val ACTION_LIBRARY_SETTINGS = "new_action_library"
 
     // 自动化组
     const val AUTOMATION_RULES = "automation_rules"

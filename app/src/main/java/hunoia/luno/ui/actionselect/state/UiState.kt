@@ -4,7 +4,7 @@ import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.withoutVariantKey
 import hunoia.luno.action.model.launchQualifiedName
 import hunoia.luno.action.model.shortcutQualifiedName
-import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.action.model.ActionLibraryEntry
 import hunoia.luno.config.model.ActionPanel
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.GridPanel
@@ -36,7 +36,7 @@ data class UiState(
      * 绑到自动化规则上会静默无效，所以要区别对待。
      */
     val isAutomation: Boolean = false,
-    val actionLibraryEntries: List<NewActionLibraryEntry> = emptyList(),
+    val actionLibraryEntries: List<ActionLibraryEntry> = emptyList(),
     /** 选择页“规则”分组数据源：已按 rulesForPicker 过滤（只留启用，自动化模式剔除自身）。 */
     val rules: List<AutomationRule> = emptyList(),
     /** 全局动作面板列表，选择页一行一个具名面板。 */

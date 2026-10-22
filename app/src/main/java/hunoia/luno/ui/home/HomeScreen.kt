@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
@@ -69,7 +68,6 @@ import hunoia.luno.ui.theme.BottomBarIconSize
 import hunoia.luno.ui.theme.BottomBarPadding
 import hunoia.luno.ui.theme.ElevationSmall
 import hunoia.luno.ui.theme.LargeShape
-import hunoia.luno.ui.theme.TileInnerPadding
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.bridge.system.gotoAccessibilitySettings
 import hunoia.luno.config.model.GestureButton
@@ -77,19 +75,16 @@ import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.ThemeColorKey
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.ColorSelection
-import hunoia.luno.ui.actionlibrary.NewActionLibraryScreen
+import hunoia.luno.ui.actionlibrary.ActionLibraryScreen
 import hunoia.luno.ui.automation.AutomationRulesTabContent
 import hunoia.luno.ui.component.FloatingBottomBar
 import hunoia.luno.ui.component.FloatingBottomBarDefaults
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.ui.theme.PageGutter
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Build
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.domain.action.ActionCatalog
-import hunoia.luno.action.definitions.ActionCategory
-import hunoia.luno.ui.component.displayNameRes
-import hunoia.luno.ui.navigation.NEW_ACTION_LIBRARY_ENTRY_ID
+import hunoia.luno.ui.navigation.ACTION_LIBRARY_ENTRY_ID
 import hunoia.luno.ui.navigation.NEW_AUTOMATION_RULE_ID
 import hunoia.luno.ui.theme.resolveColor
 import androidx.compose.material.icons.Icons
@@ -323,7 +318,7 @@ fun HomeScreen(
                             onDismiss = { showLibraryTypeMenu = false },
                             onSelect = { typeId ->
                                 showLibraryTypeMenu = false
-                                onNavToActionLibraryEdit(NEW_ACTION_LIBRARY_ENTRY_ID, typeId)
+                                onNavToActionLibraryEdit(ACTION_LIBRARY_ENTRY_ID, typeId)
                             },
                         )
                     }
@@ -442,7 +437,7 @@ fun HomeScreen(
                             }
                         }
 
-                        MainTab.ActionLibrary -> NewActionLibraryScreen(
+                        MainTab.ActionLibrary -> ActionLibraryScreen(
                             listState = libraryListState,
                             onNavToEdit = onNavToActionLibraryEdit,
                             contentPadding = PaddingValues(top = topPadding),

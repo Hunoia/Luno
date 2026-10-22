@@ -41,7 +41,7 @@ import kotlin.coroutines.CoroutineContext
  * 统一分发口（单 Dispatcher）：找定义 → 校验参数 → 查能力闸 → 调执行，同步返回三态。
  * 动作库引用（internal.libraryRef）就地解析。能力检查收归独立 [CapabilityGate]。
  */
-class NewActionDispatcher(
+class ActionDispatcher(
     private val host: GestureHost,
     private val scope: CoroutineScope,
     private val previousAppTracker: PreviousAppTracker,
@@ -160,7 +160,7 @@ class NewActionDispatcher(
         // 动作库引用就地解析为条目动作（单轨：引用本身也是 StoredAction）。
         val effective = if (stored.typeId == "internal.libraryRef") {
             val entryId = (stored.params["entryId"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull.orEmpty()
-            val entry = settingsSnapshot().newActionLibrarySettings.entries.find { it.id == entryId }
+            val entry = settingsSnapshot().actionLibrarySettings.entries.find { it.id == entryId }
             if (entry == null) {
                 if (BuildConfig.DEBUG) Log.w("LunoLauncher", "library entry not found id=$entryId")
                 postDispatch(stored.typeId, ok = false)
@@ -312,7 +312,7 @@ data class SettingsSnapshot(
     val actionSettings: ActionSettings,
     val advancedSettings: AdvancedSettings,
     val gestureSettings: hunoia.luno.config.model.GestureSettings,
-    val newActionLibrarySettings: NewActionLibrarySettings = NewActionLibrarySettings(),
+    val actionLibrarySettings: ActionLibrarySettings = ActionLibrarySettings(),
     /** runRule 目标查找：快照直读，不额外走 DataStore（Main 上安全）。 */
     val automationRules: List<AutomationRule> = emptyList(),
 )

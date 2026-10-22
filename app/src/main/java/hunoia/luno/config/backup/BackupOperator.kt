@@ -410,7 +410,7 @@ object BackupOperator {
             backup.gestureButtons?.let { if (verified.gestureButtons != it) add("gestureButtons") }
             backup.quickAppLauncherSettings?.let { if (verified.quickAppLauncherSettings != it) add("quickAppLauncherSettings") }
             backup.subGestureSettings?.let { if (verified.subGestureSettings != it) add("subGestureSettings") }
-            backup.newActionLibrarySettings?.let { if (verified.newActionLibrarySettings != it) add("newActionLibrarySettings") }
+            backup.actionLibrarySettings?.let { if (verified.actionLibrarySettings != it) add("actionLibrarySettings") }
             backup.automationRules?.let { if (verified.automationRules != it) add("automationRules") }
             backup.quickSearchSettings?.let { if (verified.quickSearchSettings != it) add("quickSearchSettings") }
         }
@@ -432,7 +432,7 @@ object BackupOperator {
             gestureButtons == null &&
             quickAppLauncherSettings == null &&
             subGestureSettings == null &&
-            newActionLibrarySettings == null &&
+            actionLibrarySettings == null &&
             automationRules == null &&
             quickSearchSettings == null
     }

@@ -48,10 +48,10 @@ import hunoia.luno.ui.navigation.SubGestureEditor
 import hunoia.luno.ui.navigation.AutomationEdit
 import hunoia.luno.ui.navigation.AutomationHistory
 
-import hunoia.luno.ui.navigation.NewActionLibraryEdit
+import hunoia.luno.ui.navigation.ActionLibraryEdit
 
 import hunoia.luno.ui.actionselect.ActionSelectContent
-import hunoia.luno.ui.actionlibrary.NewActionLibraryEditScreen
+import hunoia.luno.ui.actionlibrary.ActionLibraryEditScreen
 import hunoia.luno.ui.automation.AutomationEditScreen
 import hunoia.luno.ui.automation.AutomationHistoryScreen
 import hunoia.luno.ui.settings.action.ActionSettingsScreen
@@ -68,7 +68,7 @@ import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsScreen
 
 import hunoia.luno.ui.settings.gesture.subgesture.SubGestureSettingsScreen
 import hunoia.luno.domain.action.ActionLibrary
-import hunoia.luno.action.model.NewActionLibrarySettings
+import hunoia.luno.action.model.ActionLibrarySettings
 import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
@@ -86,7 +86,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
     SideGestureTheme {
         val durationMs = ANIMATION_DURATION_MS
         val actionLibrarySettings by ActionLibrary.settings
-            .collectAsStateWithLifecycle(initialValue = NewActionLibrarySettings())
+            .collectAsStateWithLifecycle(initialValue = ActionLibrarySettings())
         val actionSettings by TuneConfig.action
             .collectAsStateWithLifecycle(initialValue = ActionTuning())
         CompositionLocalProvider(
@@ -134,7 +134,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                             navController.navigate(AutomationEdit(ruleId))
                         },
                         onNavToActionLibraryEdit = { entryId, typeId ->
-                            navController.navigate(NewActionLibraryEdit(entryId, typeId))
+                            navController.navigate(ActionLibraryEdit(entryId, typeId))
                         },
                     )
                 }
@@ -223,11 +223,11 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         ruleId = it.toRoute<AutomationHistory>().ruleId,
                     )
                 }
-                myComposable<NewActionLibraryEdit> {
-                    NewActionLibraryEditScreen(
+                myComposable<ActionLibraryEdit> {
+                    ActionLibraryEditScreen(
                         onBack = { navController.popBackStack() },
-                        entryId = it.toRoute<NewActionLibraryEdit>().entryId,
-                        typeId = it.toRoute<NewActionLibraryEdit>().typeId,
+                        entryId = it.toRoute<ActionLibraryEdit>().entryId,
+                        typeId = it.toRoute<ActionLibraryEdit>().typeId,
                     )
                 }
             }

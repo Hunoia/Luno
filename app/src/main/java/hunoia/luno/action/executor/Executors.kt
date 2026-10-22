@@ -9,7 +9,7 @@ import hunoia.luno.action.execution.ExecutorContext
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionFailure
 import hunoia.luno.action.model.ActionResult
-import hunoia.luno.action.model.ButtonTarget
+import hunoia.luno.action.model.resolveButtonTargetIds
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.OpenAppOrUrlData
 import hunoia.luno.config.model.OpenUrlQueryParameter
@@ -260,12 +260,7 @@ class InternalExecutors : ActionExecutor {
     private suspend fun executeButtonsVisibility(action: Action.ButtonsVisibility): ActionResult {
         val ok = runCatching {
             ConfigProvider.updateGestureButtons { list ->
-                val ids = when (action.target) {
-                    ButtonTarget.ALL -> list.map { it.id }.toSet()
-                    ButtonTarget.EXCEPT -> list.map { it.id }
-                        .filterNot { it in action.buttonIds }.toSet()
-                    ButtonTarget.ONLY -> action.buttonIds.toSet()
-                }
+                val ids = resolveButtonTargetIds(action.target, list.map { it.id }, action.buttonIds)
                 list.map { button ->
                     if (button.id in ids) button.copy(enabled = action.visible) else button
                 }

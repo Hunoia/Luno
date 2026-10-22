@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.graphics.PixelFormat
 import android.util.Log
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator

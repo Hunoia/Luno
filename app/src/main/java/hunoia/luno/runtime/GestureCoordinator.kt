@@ -23,7 +23,7 @@ import hunoia.luno.config.model.QuickAppSnapshot
 import hunoia.luno.quicklaunch.query.AppSearch
 import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import java.util.Locale
-import hunoia.luno.action.dispatcher.NewActionDispatcher
+import hunoia.luno.action.dispatcher.ActionDispatcher
 import hunoia.luno.config.model.ScreenEventType
 import hunoia.luno.runtime.environment.PreviousAppTracker
 import hunoia.luno.runtime.condition.AudioVolumeTracker
@@ -204,7 +204,7 @@ class GestureCoordinator(
             .collect { previousAppTracker.onBlocklistChanged(it) }
     }
 
-    private val actionDispatcher = NewActionDispatcher(
+    private val actionDispatcher = ActionDispatcher(
         host = host,
         scope = host.coroutineScope,
         previousAppTracker = previousAppTracker,
@@ -215,7 +215,7 @@ class GestureCoordinator(
                 actionSettings = s.actionSettings,
                 advancedSettings = s.advancedSettings,
                 gestureSettings = s.gestureSettings,
-                newActionLibrarySettings = s.newActionLibrarySettings,
+                actionLibrarySettings = s.actionLibrarySettings,
                 automationRules = s.automationRules,
             )
         },

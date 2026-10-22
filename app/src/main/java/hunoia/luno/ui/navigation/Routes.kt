@@ -114,7 +114,7 @@ data class AutomationHistory(
 
 @Keep
 @Serializable
-data class NewActionLibraryEdit(
+data class ActionLibraryEdit(
     val entryId: String,
     val typeId: String? = null,
 )
@@ -122,4 +122,4 @@ data class NewActionLibraryEdit(
 
 const val NEW_AUTOMATION_RULE_ID = "new"
 
-const val NEW_ACTION_LIBRARY_ENTRY_ID = "new"
+const val ACTION_LIBRARY_ENTRY_ID = "new"

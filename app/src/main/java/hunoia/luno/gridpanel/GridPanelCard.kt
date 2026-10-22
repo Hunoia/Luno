@@ -37,7 +37,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
-import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.action.model.ActionLibraryEntry
 import hunoia.luno.gridpanel.core.EdgeAutoScroll
 import hunoia.luno.gridpanel.core.GridPanelState
 import hunoia.luno.gridpanel.geometry.CardCorner
@@ -80,7 +80,7 @@ fun GridPanelCard(
     appearance: Float,
     cardAlpha: Float,
     state: GridPanelState,
-    libraryEntries: List<NewActionLibraryEntry>,
+    libraryEntries: List<ActionLibraryEntry>,
     itemActions: (pageIndex: Int) -> GridItemActions,
     onSelectPage: (Int) -> Unit,
     onAdd: () -> Unit,

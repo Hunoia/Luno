@@ -4,7 +4,7 @@ import androidx.lifecycle.viewModelScope
 import com.aaron.compose.base.BaseComposeVM
 import hunoia.luno.R
 import hunoia.luno.domain.gesture.GestureConfig
-import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.action.model.ActionLibraryEntry
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
@@ -87,7 +87,7 @@ class ActionSelectVM(
             is LauncherInfo.ShortcutInfo -> updateUiState { selectShortcutInfoTransform(it, obj) }
             is StoredAction -> updateUiState { selectActionTransform(it, obj) }
 
-            is NewActionLibraryEntry -> updateUiState { selectActionTransform(it, obj.toStoredAction()) }
+            is ActionLibraryEntry -> updateUiState { selectActionTransform(it, obj.toStoredAction()) }
         }
         done()
     }

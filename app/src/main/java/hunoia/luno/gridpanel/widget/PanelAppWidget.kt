@@ -3,7 +3,6 @@ package hunoia.luno.gridpanel.widget
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
-import android.content.ComponentName
 import android.content.Context
 import android.os.Bundle
 import android.util.Log
@@ -142,11 +141,6 @@ fun applyAppWidgetOptions(appWidgetId: Int, maxWidthDp: Int, maxHeightDp: Int) {
     runCatching { manager.updateAppWidgetOptions(appWidgetId, options) }
         .onFailure { Log.w(TAG, "updateAppWidgetOptions failed id=$appWidgetId: ${it.message}") }
 }
-
-fun providerToString(component: ComponentName): String = component.flattenToString()
-
-fun providerFromString(flattened: String): ComponentName? =
-    ComponentName.unflattenFromString(flattened)
 
 private val goneListeners = mutableSetOf<WidgetGoneListener>()
 

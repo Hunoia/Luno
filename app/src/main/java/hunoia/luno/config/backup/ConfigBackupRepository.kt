@@ -1,7 +1,7 @@
 package hunoia.luno.config.backup
 
 import android.util.Log
-import hunoia.luno.action.model.NewActionLibrarySettings
+import hunoia.luno.action.model.ActionLibrarySettings
 import hunoia.luno.config.store.SettingsStores
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
@@ -32,7 +32,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         val buttonsDeferred = async { stores._gestureButtons.data.first() }
         val qlaDeferred = async { stores._quickAppLauncherSettings.data.first() }
         val subGestureDeferred = async { stores._subGestureSettings.data.first() }
-        val newActionLibraryDeferred = async { stores._newActionLibrarySettings.data.first() }
+        val actionLibraryDeferred = async { stores._actionLibrarySettings.data.first() }
         val automationRulesDeferred = async { stores._automationRules.data.first() }
         val quickSearchDeferred = async { stores._quickSearchSettings.data.first() }
         Backup(
@@ -49,7 +49,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
             gestureButtons = buttonsDeferred.await(),
             quickAppLauncherSettings = qlaDeferred.await(),
             subGestureSettings = subGestureDeferred.await(),
-            newActionLibrarySettings = newActionLibraryDeferred.await(),
+            actionLibrarySettings = actionLibraryDeferred.await(),
             automationRules = automationRulesDeferred.await(),
             quickSearchSettings = quickSearchDeferred.await(),
         )
@@ -67,7 +67,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { backup.gestureButtons?.let { v -> writeSection("gestureButtons") { stores._gestureButtons.updateData { v } } } }
         launch { backup.quickAppLauncherSettings?.let { v -> writeSection("quickAppLauncherSettings") { stores._quickAppLauncherSettings.updateData { v } } } }
         launch { backup.subGestureSettings?.let { v -> writeSection("subGestureSettings") { stores._subGestureSettings.updateData { v } } } }
-        launch { backup.newActionLibrarySettings?.let { v -> writeSection("newActionLibrarySettings") { stores._newActionLibrarySettings.updateData { v } } } }
+        launch { backup.actionLibrarySettings?.let { v -> writeSection("newActionLibrarySettings") { stores._actionLibrarySettings.updateData { v } } } }
         launch { backup.automationRules?.let { v -> writeSection("automationRules") { stores._automationRules.updateData { v } } } }
         launch { backup.quickSearchSettings?.let { v -> writeSection("quickSearchSettings") { stores._quickSearchSettings.updateData { v } } } }
     }
@@ -110,7 +110,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
                 backupFormatVersion = full.backupFormatVersion,
                 actionSchemaVersion = full.actionSchemaVersion,
                 actionSettings = full.actionSettings,
-                newActionLibrarySettings = full.newActionLibrarySettings,
+                actionLibrarySettings = full.actionLibrarySettings,
             )
             BackupDomain.AUTOMATION -> Backup(
                 backupFormatVersion = full.backupFormatVersion,
@@ -149,7 +149,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { stores._gestureButtons.updateData { GestureButton.Defaults } }
         launch { stores._quickAppLauncherSettings.updateData { QuickAppLauncherSettings() } }
         launch { stores._subGestureSettings.updateData { SubGestureSettings() } }
-        launch { stores._newActionLibrarySettings.updateData { NewActionLibrarySettings() } }
+        launch { stores._actionLibrarySettings.updateData { ActionLibrarySettings() } }
         launch { stores._automationRules.updateData { AutomationRule.Defaults } }
         launch { stores._quickSearchSettings.updateData { QuickSearchSettings() } }
     }

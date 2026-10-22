@@ -2,7 +2,7 @@ package hunoia.luno.ui.automation
 
 import android.content.Context
 import hunoia.luno.R
-import hunoia.luno.action.model.NewActionLibrarySettings
+import hunoia.luno.action.model.ActionLibrarySettings
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.BooleanMode
 import hunoia.luno.config.model.ConditionItem
@@ -110,7 +110,7 @@ internal fun appendStep(
 
 internal fun stepSummary(
     context: Context,
-    library: NewActionLibrarySettings?,
+    library: ActionLibrarySettings?,
     step: RuleStep,
     rules: List<AutomationRule> = emptyList(),
 ): String = when (step.kind) {

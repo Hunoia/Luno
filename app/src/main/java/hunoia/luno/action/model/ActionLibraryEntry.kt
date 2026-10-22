@@ -9,7 +9,7 @@ import java.util.UUID
 
 @Serializable
 @Keep
-data class NewActionLibraryEntry(
+data class ActionLibraryEntry(
     val id: String = UUID.randomUUID().toString(),
     val name: String = "",
     val typeId: String,
@@ -20,19 +20,19 @@ data class NewActionLibraryEntry(
     val storedAction: StoredAction get() = StoredAction(typeId, params)
 
     companion object {
-        fun create(typeId: String, name: String = ""): NewActionLibraryEntry {
-            return NewActionLibraryEntry(typeId = typeId, name = name)
+        fun create(typeId: String, name: String = ""): ActionLibraryEntry {
+            return ActionLibraryEntry(typeId = typeId, name = name)
         }
     }
 }
 
 @Serializable
 @Keep
-data class NewActionLibrarySettings(
-    val entries: List<NewActionLibraryEntry> = emptyList()
+data class ActionLibrarySettings(
+    val entries: List<ActionLibraryEntry> = emptyList()
 )
 
-fun NewActionLibraryEntry.matchesQuery(query: String): Boolean {
+fun ActionLibraryEntry.matchesQuery(query: String): Boolean {
     if (query.isBlank()) return true
     val needle = query.trim()
     return name.contains(needle, ignoreCase = true) ||

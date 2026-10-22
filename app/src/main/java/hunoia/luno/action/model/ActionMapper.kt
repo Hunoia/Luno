@@ -2,8 +2,6 @@ package hunoia.luno.action.model
 
 import hunoia.luno.config.defaults.ActionSettingsDefaults.HideGestureButtonDelayMs
 import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubStepThresholdDp
-import hunoia.luno.config.model.MiniWindowSettings
-import hunoia.luno.config.model.toMiniWindowSettings
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull

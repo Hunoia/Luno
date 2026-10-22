@@ -14,7 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.rememberNavController
-import hunoia.luno.action.model.NewActionLibrarySettings
+import hunoia.luno.action.model.ActionLibrarySettings
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.core.ActionSelectClosedEvent
 import hunoia.luno.core.Events
@@ -55,7 +55,7 @@ class ActionSelectHostActivity : ComponentActivity() {
                 val actionSettings by TuneConfig.action
                     .collectAsStateWithLifecycle(initialValue = ActionSettings())
                 val actionLibrarySettings by ActionLibrary.settings
-                    .collectAsStateWithLifecycle(initialValue = NewActionLibrarySettings())
+                    .collectAsStateWithLifecycle(initialValue = ActionLibrarySettings())
                 val select = actionSelect
                 CompositionLocalProvider(
                     LocalNavController provides navController,

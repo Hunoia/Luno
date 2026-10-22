@@ -6,14 +6,14 @@ import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.action.definitions.hasPointParams
-import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.action.model.ActionLibraryEntry
 import hunoia.luno.action.model.POINT_PARAM_KEYS
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.USE_TRIGGER_POINT_KEY
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.config.model.toJsonObject
-import hunoia.luno.ui.navigation.NEW_ACTION_LIBRARY_ENTRY_ID
+import hunoia.luno.ui.navigation.ACTION_LIBRARY_ENTRY_ID
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,12 +33,12 @@ internal const val DEFAULT_ACTION_TYPE_ID = "app.launch"
 
 internal fun JsonElement?.scalarText(): String? = (this as? JsonPrimitive)?.contentOrNull
 
-class NewActionLibraryEditVM : ViewModel() {
+class ActionLibraryEditVM : ViewModel() {
     private val _uiState = MutableStateFlow(NewEditState())
     val uiState: StateFlow<NewEditState> = _uiState
 
     suspend fun load(entryId: String, typeId: String?) {
-        val isNewEntry = entryId == NEW_ACTION_LIBRARY_ENTRY_ID
+        val isNewEntry = entryId == ACTION_LIBRARY_ENTRY_ID
         val draft = if (isNewEntry) {
             buildNewDraft(typeId)
         } else {
@@ -111,7 +111,7 @@ class NewActionLibraryEditVM : ViewModel() {
         val draft = _uiState.value.draft ?: return
         if (!draft.isValid) return
         _uiState.update { it.copy(isSaving = true) }
-        val newEntry = NewActionLibraryEntry(
+        val newEntry = ActionLibraryEntry(
             id = draft.id ?: UUID.randomUUID().toString(),
             name = draft.name,
             typeId = draft.typeId,

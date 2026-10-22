@@ -35,7 +35,7 @@ fun GestureOverlayView(
 
     SideGestureTheme(wallpaperChangeTrigger = themeKey) {
         CompositionLocalProvider(
-            LocalActionLibraryEntries provides state.newActionLibrarySettings.entries,
+            LocalActionLibraryEntries provides state.actionLibrarySettings.entries,
             LocalActionPanels provides state.actionSettings.actionPanels.panels,
         ) {
             Box(modifier = Modifier.fillMaxSize()) {

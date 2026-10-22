@@ -1,7 +1,7 @@
 package hunoia.luno.config.store
 
 import androidx.datastore.core.DataStore
-import hunoia.luno.action.model.NewActionLibrarySettings
+import hunoia.luno.action.model.ActionLibrarySettings
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.AutomationRule
@@ -24,7 +24,7 @@ class SettingsStores(
     internal val _gestureButtons: DataStore<List<GestureButton>>,
     internal val _quickAppLauncherSettings: DataStore<QuickAppLauncherSettings>,
     internal val _subGestureSettings: DataStore<SubGestureSettings>,
-    internal val _newActionLibrarySettings: DataStore<NewActionLibrarySettings>,
+    internal val _actionLibrarySettings: DataStore<ActionLibrarySettings>,
     internal val _automationRules: DataStore<List<AutomationRule>>,
     internal val _automationLog: DataStore<List<hunoia.luno.runtime.automation.AutomationEvent>>,
     internal val _quickAppSnapshot: DataStore<QuickAppSnapshot>,
@@ -37,7 +37,7 @@ class SettingsStores(
     val gestureButtons: Flow<List<GestureButton>> = _gestureButtons.data
     val quickAppLauncherSettings: Flow<QuickAppLauncherSettings> = _quickAppLauncherSettings.data
     val subGestureSettings: Flow<SubGestureSettings> = _subGestureSettings.data
-    val newActionLibrarySettings: Flow<NewActionLibrarySettings> = _newActionLibrarySettings.data
+    val actionLibrarySettings: Flow<ActionLibrarySettings> = _actionLibrarySettings.data
     val automationRules: Flow<List<AutomationRule>> = _automationRules.data
     val automationLog: Flow<List<hunoia.luno.runtime.automation.AutomationEvent>> = _automationLog.data
     val quickSearchSettings: Flow<QuickSearchSettings> = _quickSearchSettings.data
@@ -56,7 +56,7 @@ class SettingsStores(
                 _gestureButtons = ctx.dataStore(DataStoreFiles.GESTURE_BUTTONS, GestureButton.Defaults),
                 _quickAppLauncherSettings = ctx.dataStore(DataStoreFiles.QUICK_APP_LAUNCHER, QuickAppLauncherSettings()),
                 _subGestureSettings = ctx.dataStore(DataStoreFiles.SUB_GESTURE_SETTINGS, SubGestureSettings()),
-                _newActionLibrarySettings = ctx.dataStore(DataStoreFiles.NEW_ACTION_LIBRARY_SETTINGS, NewActionLibrarySettings()),
+                _actionLibrarySettings = ctx.dataStore(DataStoreFiles.ACTION_LIBRARY_SETTINGS, ActionLibrarySettings()),
                 _automationRules = ctx.dataStore(DataStoreFiles.AUTOMATION_RULES, AutomationRule.Defaults),
                 _automationLog = ctx.dataStore(DataStoreFiles.AUTOMATION_LOG, emptyList()),
                 _quickAppSnapshot = ctx.dataStore(DataStoreFiles.QUICK_APP_SNAPSHOT, QuickAppSnapshot()),

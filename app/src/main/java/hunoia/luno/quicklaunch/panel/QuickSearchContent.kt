@@ -56,7 +56,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.mapLatest
 import androidx.compose.ui.Alignment
@@ -128,7 +127,7 @@ import hunoia.luno.ui.component.row.segmentedShape
 /** 搜索输入快照：snapshotFlow 跟踪块内读到的 State，值变化即重搜。 */
 private data class SearchSnapshot(
     val text: String,
-    val entries: List<hunoia.luno.action.model.NewActionLibraryEntry>,
+    val entries: List<hunoia.luno.action.model.ActionLibraryEntry>,
     val launcher: hunoia.luno.config.model.QuickAppLauncherSettings,
     val search: hunoia.luno.config.model.QuickSearchSettings,
     val contactsTick: Int,
@@ -204,8 +203,8 @@ internal fun QuickSearchContent(
     onLongPress: (QuickSearchResult) -> Unit,
     onOpenAppSettings: () -> Unit,
 ) {
-    val libraryFlow = remember { hunoia.luno.config.ConfigProvider.newActionLibrarySettings }
-    val libraryState by libraryFlow.collectAsState(initial = hunoia.luno.action.model.NewActionLibrarySettings())
+    val libraryFlow = remember { hunoia.luno.config.ConfigProvider.actionLibrarySettings }
+    val libraryState by libraryFlow.collectAsState(initial = hunoia.luno.action.model.ActionLibrarySettings())
     val entries = libraryState.entries
     val launcherFlow = remember { hunoia.luno.config.ConfigProvider.quickAppLauncherSettings }
     val launcherSettings by launcherFlow.collectAsState(initial = hunoia.luno.config.model.QuickAppLauncherSettings())

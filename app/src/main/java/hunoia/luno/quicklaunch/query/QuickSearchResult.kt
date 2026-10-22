@@ -1,6 +1,6 @@
 package hunoia.luno.quicklaunch.query
 
-import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.action.model.ActionLibraryEntry
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
@@ -18,7 +18,7 @@ sealed interface QuickSearchResult {
         override val subtitle: String get() = ""
     }
     /** 动作库条目引用 */
-    data class LibraryEntry(val entry: NewActionLibraryEntry, val fallbackTitle: String, val icon: Any?) : QuickSearchResult {
+    data class LibraryEntry(val entry: ActionLibraryEntry, val fallbackTitle: String, val icon: Any?) : QuickSearchResult {
         override val title: String get() = entry.name.ifBlank { fallbackTitle }
         override val subtitle: String get() = fallbackTitle
     }

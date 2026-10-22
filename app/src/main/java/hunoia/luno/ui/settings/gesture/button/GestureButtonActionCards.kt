@@ -39,7 +39,6 @@ import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SegmentedGap
 import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.component.row.segmentedShape
 
 /** 展开内容内部行的圆角：首行接标题用小圆角，最后一行统一收回大圆角。 */
 fun actionContentRowShape(index: Int, count: Int): RoundedCornerShape {

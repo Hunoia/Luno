@@ -3,7 +3,6 @@ package hunoia.luno.action.model
 import hunoia.luno.R
 import hunoia.luno.config.defaults.ActionSettingsDefaults.HideGestureButtonDelayMs
 import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubStepThresholdDp
-import hunoia.luno.config.model.MiniWindowSettings
 import android.media.AudioManager
 
 data class QueryParam(val name: String, val value: String, val enabled: Boolean = true)
@@ -27,6 +26,14 @@ val SettingsPage.labelRes: Int
 
 /** 触钮显隐作用范围（沿用自动化旧 RuleScope 语义）。 */
 enum class ButtonTarget { ALL, EXCEPT, ONLY }
+
+/** 触钮显隐 target 解析：纯函数便于单测（与 Executors.ButtonsVisibility 同语义）。 */
+fun resolveButtonTargetIds(target: ButtonTarget, allIds: List<String>, selectedIds: List<String>): Set<String> =
+    when (target) {
+        ButtonTarget.ALL -> allIds.toSet()
+        ButtonTarget.EXCEPT -> allIds.filterNot { it in selectedIds }.toSet()
+        ButtonTarget.ONLY -> selectedIds.toSet()
+    }
 
 enum class AudioStream { MUSIC, RING, NOTIFICATION, ALARM, VOICE, SYSTEM }
 

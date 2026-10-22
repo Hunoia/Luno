@@ -1,7 +1,6 @@
 package hunoia.luno.config.repository
 
 import hunoia.luno.config.store.SettingsStores
-import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.QuickLauncherGeometry
 
 internal class QuickLauncherRepository(private val stores: SettingsStores) {

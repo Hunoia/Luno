@@ -2,7 +2,7 @@ package hunoia.luno.quicklaunch.query
 
 import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionDefinitions
-import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.action.model.ActionLibraryEntry
 import hunoia.luno.config.model.DefaultSourceTriggers
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.QuickSearchSettings
@@ -31,12 +31,14 @@ private const val BARE_LIST_LIMIT = 20
 private fun QuickSearchIndex.tokenize(s: String): List<String> =
         s.lowercase().filter { it.isLetterOrDigit() }.map { it.toString() }
 
-private fun QuickSearchIndex.tierOf(text: String, tokens: List<String>, foldedTokens: List<String>): TieredMatch =
-        AppSearch.matchTextTier(text, tokens, foldedTokens)
+/** 复用 AppSearch 拼音引擎：精确档评定，foldedTokens 非空时补模糊降档。 */
+internal fun tierOf(text: String, tokens: List<String>, foldedTokens: List<String>): TieredMatch =
+    AppSearch.matchTextTier(text, tokens, foldedTokens)
 
     /** 取最优命中（tier 大者胜，再比 offset 小者胜；连续块 span 恒定不参比）。 */
-private fun QuickSearchIndex.bestOf(a: TieredMatch, b: TieredMatch): TieredMatch =
-        maxOf(a, b, compareBy({ it.tier }, { -it.offset }))
+/** 取最优命中（tier 大者胜，再比 offset 小者胜；连续块 span 恒定不参比）。 */
+internal fun bestOf(a: TieredMatch, b: TieredMatch): TieredMatch =
+    maxOf(a, b, compareBy({ it.tier }, { -it.offset }))
 
     /** 空输入时的常用：按衰减使用分取前 N 个（禁用应用一并返回，由调用方标注）。 */
 fun QuickSearchIndex.topUsed(settings: QuickAppLauncherSettings, limit: Int = 8): List<QuickSearchResult.App> {
@@ -61,7 +63,7 @@ private fun QuickSearchIndex.usageScore(key: String, settings: QuickAppLauncherS
 
 fun QuickSearchIndex.search(
         query: String,
-        libraryEntries: List<NewActionLibraryEntry>,
+        libraryEntries: List<ActionLibraryEntry>,
         launcherSettings: QuickAppLauncherSettings = QuickAppLauncherSettings(),
         searchSettings: QuickSearchSettings = QuickSearchSettings(),
         torchOn: Boolean = false,
@@ -121,13 +123,217 @@ fun QuickSearchIndex.search(
     }
 
     /** 排序单元：结果 + 档位 + 紧密度 + 使用分。 */
-private data class RankedHit(
+internal data class RankedHit(
     val result: QuickSearchResult,
     val tier: Int,
     val span: Int,
     val offset: Int,
     val usage: Double,
 )
+
+/**
+ * 全源/定向共用的同构匹配骨架：逐项算命中档位，tier>=0 才收录。
+ * [score] 决定匹配字段（多个字段用 [bestOf]），[usage] 提供使用分（默认 0）。
+ */
+internal inline fun <T> matchEach(
+    items: Iterable<T>,
+    tokens: List<String>,
+    foldedTokens: List<String>,
+    result: (T) -> QuickSearchResult,
+    usage: (T) -> Double = { 0.0 },
+    score: (T) -> TieredMatch,
+): List<RankedHit> {
+    val out = mutableListOf<RankedHit>()
+    for (item in items) {
+        val m = score(item)
+        if (m.tier >= 0) out.add(RankedHit(result(item), m.tier, m.span, m.offset, usage(item)))
+    }
+    return out
+}
+
+private fun QuickSearchIndex.matchActions(
+    tokens: List<String>,
+    foldedTokens: List<String>,
+): List<RankedHit> = matchEach(actions, tokens, foldedTokens, result = { it }) { tierOf(it.title, tokens, foldedTokens) }
+
+private fun QuickSearchIndex.matchLibrary(
+    libraryEntries: List<ActionLibraryEntry>,
+    tokens: List<String>,
+    foldedTokens: List<String>,
+): List<RankedHit> = matchEach(libraryEntries, tokens, foldedTokens, result = { entry ->
+    val def = ActionDefinitions.byTypeId(entry.typeId)
+    val fallback = def?.name ?: entry.typeId
+    QuickSearchResult.LibraryEntry(entry, fallback, entry.resolvedIcon())
+}) { entry ->
+    val def = ActionDefinitions.byTypeId(entry.typeId)
+    val fallback = def?.name ?: entry.typeId
+    bestOf(tierOf(entry.name, tokens, foldedTokens), tierOf(fallback, tokens, foldedTokens))
+}
+
+private fun QuickSearchIndex.matchApps(
+    tokens: List<String>,
+    foldedTokens: List<String>,
+    launcherSettings: QuickAppLauncherSettings,
+    now: Long,
+): List<RankedHit> = matchEach(apps, tokens, foldedTokens, result = { app ->
+    QuickSearchResult.App(app, app.packageName in disabledPkgs)
+}, usage = { usageScore(it.key(), launcherSettings, now) }) { app ->
+    // 包名也参与匹配：行副标题本来就显示包名，搜 com.tencent 应该有结果。
+    bestOf(tierOf(app.label, tokens, foldedTokens), tierOf(app.packageName, tokens, foldedTokens))
+}
+
+private fun QuickSearchIndex.matchShortcuts(
+    tokens: List<String>,
+    foldedTokens: List<String>,
+    pkgScore: Map<String, Double>,
+): List<RankedHit> = matchEach(shortcuts, tokens, foldedTokens, result = { QuickSearchResult.Shortcut(it) }, usage = { pkgScore[it.packageName] ?: 0.0 }) { sc ->
+    // 包名也参与匹配：与 matchApps 同构，行副标题显示包名，搜 com.tencent 应有结果。
+    bestOf(tierOf(sc.label, tokens, foldedTokens), tierOf(sc.packageName, tokens, foldedTokens))
+}
+
+private fun QuickSearchIndex.matchContacts(
+    tokens: List<String>,
+    foldedTokens: List<String>,
+    searchSettings: QuickSearchSettings,
+): List<RankedHit> {
+    if (!searchSettings.searchContacts || !contactsReady()) return emptyList()
+    return matchEach(contacts, tokens, foldedTokens, result = { it }) { c ->
+        bestOf(tierOf(c.name, tokens, foldedTokens), tierOf(c.number, tokens, foldedTokens))
+    }
+}
+
+private fun QuickSearchIndex.matchMedia(
+    tokens: List<String>,
+    foldedTokens: List<String>,
+    searchSettings: QuickSearchSettings,
+): List<RankedHit> {
+    if (!mediaReady()) return emptyList()
+    return matchTracks(tokens, foldedTokens, searchSettings) +
+        matchGallery(tokens, foldedTokens, searchSettings) +
+        matchDocs(tokens, foldedTokens, searchSettings)
+}
+
+private fun QuickSearchIndex.matchTracks(
+    tokens: List<String>,
+    foldedTokens: List<String>,
+    searchSettings: QuickSearchSettings,
+): List<RankedHit> {
+    if (!searchSettings.searchMusic ||
+        !mediaPermissionCached(android.Manifest.permission.READ_MEDIA_AUDIO)
+    ) {
+        return emptyList()
+    }
+    return matchEach(tracks, tokens, foldedTokens, result = { it }) { t ->
+        bestOf(tierOf(t.title, tokens, foldedTokens), tierOf(t.artist, tokens, foldedTokens))
+    }
+}
+
+private fun QuickSearchIndex.matchGallery(
+    tokens: List<String>,
+    foldedTokens: List<String>,
+    searchSettings: QuickSearchSettings,
+): List<RankedHit> {
+    if (!searchSettings.searchFiles) return emptyList()
+    val galleryOk = mediaPermissionCached(android.Manifest.permission.READ_MEDIA_IMAGES) ||
+        mediaPermissionCached(android.Manifest.permission.READ_MEDIA_VIDEO)
+    if (!galleryOk) return emptyList()
+    return matchEach(mediaFiles, tokens, foldedTokens, result = { it }) { tierOf(it.name, tokens, foldedTokens) }
+}
+
+private fun QuickSearchIndex.matchDocs(
+    tokens: List<String>,
+    foldedTokens: List<String>,
+    searchSettings: QuickSearchSettings,
+): List<RankedHit> {
+    if (!searchSettings.searchFiles || !permSnapshot.allFiles) return emptyList()
+    return matchEach(docs, tokens, foldedTokens, result = { it }) { tierOf(it.name, tokens, foldedTokens) }
+}
+
+private fun QuickSearchIndex.matchToggles(
+    tokens: List<String>,
+    foldedTokens: List<String>,
+    searchSettings: QuickSearchSettings,
+): List<RankedHit> {
+    if (!searchSettings.searchToggles) return emptyList()
+    // 先用静态元数据（标题/关键词）匹配，只有命中的行才去读系统状态：否则一条 "w"
+    // 就白读 4 次系统服务（每行一次 binder IPC）。
+    return matchEach(toggleSpecs(), tokens, foldedTokens, result = { spec ->
+        QuickSearchResult.PhoneToggle(spec.kind, spec.title, spec.keywords, toggleSubtitle(spec.kind))
+    }) { spec ->
+        bestOf(tierOf(spec.title, tokens, foldedTokens), tierOf(spec.keywords, tokens, foldedTokens))
+    }
+}
+
+private fun QuickSearchIndex.matchCalendar(
+    tokens: List<String>,
+    foldedTokens: List<String>,
+    searchSettings: QuickSearchSettings,
+): List<RankedHit> {
+    if (!searchSettings.searchCalendar || !calendarReady()) return emptyList()
+    return matchEach(events, tokens, foldedTokens, result = { it }) { e ->
+        bestOf(tierOf(e.title_, tokens, foldedTokens), tierOf(e.location, tokens, foldedTokens))
+    }
+}
+
+private fun QuickSearchIndex.matchSms(
+    tokens: List<String>,
+    foldedTokens: List<String>,
+    searchSettings: QuickSearchSettings,
+): List<RankedHit> {
+    if (!searchSettings.searchSms || !smsReady()) return emptyList()
+    return matchEach(smsList, tokens, foldedTokens, result = { it }) { m ->
+        bestOf(tierOf(m.address, tokens, foldedTokens), tierOf(m.body, tokens, foldedTokens))
+    }
+}
+
+private fun QuickSearchIndex.matchCalls(
+    tokens: List<String>,
+    foldedTokens: List<String>,
+    searchSettings: QuickSearchSettings,
+): List<RankedHit> {
+    if (!searchSettings.searchCalls || !callsReady()) return emptyList()
+    return matchEach(callList, tokens, foldedTokens, result = { it }) { c ->
+        bestOf(tierOf(c.name, tokens, foldedTokens), tierOf(c.number, tokens, foldedTokens))
+    }
+}
+
+internal fun QuickSearchIndex.matchClips(
+    tokens: List<String>,
+    foldedTokens: List<String>,
+    searchSettings: QuickSearchSettings,
+): List<RankedHit> = matchClipPool(searchSettings.pinnedClips, searchSettings.clipHistory, tokens, foldedTokens)
+
+/** 剪贴匹配核心：不依赖索引实例（池=固定+历史），供 matchClips 与单测共用。 */
+internal fun matchClipPool(
+    pinned: List<String>,
+    history: List<String>,
+    tokens: List<String>,
+    foldedTokens: List<String>,
+): List<RankedHit> {
+    if (pinned.isEmpty() && history.isEmpty()) return emptyList()
+    // 固定源内置顶：usage=1.0 > 历史的 0.0，同 tier/offset 下固定排前。
+    val pinnedHits = matchEach(pinned, tokens, foldedTokens, result = { QuickSearchResult.ClipEntry(it) }, usage = { 1.0 }) { clip ->
+        tierOf(clip.take(64), tokens, foldedTokens)
+    }
+    val historyHits = matchEach(history, tokens, foldedTokens, result = { QuickSearchResult.ClipEntry(it) }) { clip ->
+        tierOf(clip.take(64), tokens, foldedTokens)
+    }
+    val hits = (pinnedHits + historyHits).filter { (it.result as? QuickSearchResult.ClipEntry)?.text?.isNotBlank() != false }
+    if (hits.isEmpty()) return emptyList()
+    return hits.sortedWith(
+        compareByDescending<RankedHit> { it.tier }
+            .thenBy { it.offset }
+            .thenByDescending { it.usage }
+            .thenBy { it.result.title.length }
+            .thenBy { it.result.title },
+    ).take(10)
+}
+
+
+private fun QuickSearchIndex.matchSettingsPages(
+    tokens: List<String>,
+    foldedTokens: List<String>,
+): List<RankedHit> = matchEach(settingsPages, tokens, foldedTokens, result = { it }) { tierOf(it.title, tokens, foldedTokens) }
 
     /** 同一套排序：连续块语义下 tier → offset → 使用分 → 长度 → 字典序。
      *  不同类型只比匹配度，稀疏子序列不出局外无命中。 */
@@ -139,268 +345,6 @@ private fun QuickSearchIndex.sortTriples(results: List<RankedHit>): List<QuickSe
                 .thenBy { it.result.title.length }
                 .thenBy { it.result.title },
         ).map { it.result }
-
-private fun QuickSearchIndex.matchActions(
-        tokens: List<String>,
-        foldedTokens: List<String>,
-    ): List<RankedHit> {
-        val out = mutableListOf<RankedHit>()
-        for (a in actions) {
-            val m = tierOf(a.title, tokens, foldedTokens)
-            if (m.tier >= 0) out.add(RankedHit(a, m.tier, m.span, m.offset, 0.0))
-        }
-        return out
-    }
-
-private fun QuickSearchIndex.matchLibrary(
-        libraryEntries: List<NewActionLibraryEntry>,
-        tokens: List<String>,
-        foldedTokens: List<String>,
-    ): List<RankedHit> {
-        val out = mutableListOf<RankedHit>()
-        for (entry in libraryEntries) {
-            val def = ActionDefinitions.byTypeId(entry.typeId)
-            val fallback = def?.name ?: entry.typeId
-            val m = bestOf(tierOf(entry.name, tokens, foldedTokens), tierOf(fallback, tokens, foldedTokens))
-            if (m.tier >= 0) {
-                out.add(
-                    RankedHit(
-                        QuickSearchResult.LibraryEntry(entry, fallback, entry.resolvedIcon()),
-                        m.tier,
-                        m.span,
-                        m.offset,
-                        0.0,
-                    ),
-                )
-            }
-        }
-        return out
-    }
-
-private fun QuickSearchIndex.matchApps(
-        tokens: List<String>,
-        foldedTokens: List<String>,
-        launcherSettings: QuickAppLauncherSettings,
-        now: Long,
-    ): List<RankedHit> {
-        val out = mutableListOf<RankedHit>()
-        for (app in apps) {
-            // 包名也参与匹配：行副标题本来就显示包名，搜 com.tencent 应该有结果。
-            val m = bestOf(tierOf(app.label, tokens, foldedTokens), tierOf(app.packageName, tokens, foldedTokens))
-            if (m.tier >= 0) {
-                out.add(
-                    RankedHit(
-                        QuickSearchResult.App(app, app.packageName in disabledPkgs),
-                        m.tier,
-                        m.span,
-                        m.offset,
-                        usageScore(app.key(), launcherSettings, now),
-                    ),
-                )
-            }
-        }
-        return out
-    }
-
-private fun QuickSearchIndex.matchShortcuts(
-        tokens: List<String>,
-        foldedTokens: List<String>,
-        pkgScore: Map<String, Double>,
-    ): List<RankedHit> {
-        val out = mutableListOf<RankedHit>()
-        for (sc in shortcuts) {
-            // 包名也参与匹配：与 matchApps 同构，行副标题显示包名，搜 com.tencent 应有结果。
-            val m = bestOf(tierOf(sc.label, tokens, foldedTokens), tierOf(sc.packageName, tokens, foldedTokens))
-            if (m.tier >= 0) {
-                out.add(RankedHit(QuickSearchResult.Shortcut(sc), m.tier, m.span, m.offset, pkgScore[sc.packageName] ?: 0.0))
-            }
-        }
-        return out
-    }
-
-private fun QuickSearchIndex.matchContacts(
-        tokens: List<String>,
-        foldedTokens: List<String>,
-        searchSettings: QuickSearchSettings,
-    ): List<RankedHit> {
-        val out = mutableListOf<RankedHit>()
-        if (!searchSettings.searchContacts || !contactsReady()) return out
-        for (c in contacts) {
-            val m = bestOf(tierOf(c.name, tokens, foldedTokens), tierOf(c.number, tokens, foldedTokens))
-            if (m.tier >= 0) out.add(RankedHit(c, m.tier, m.span, m.offset, 0.0))
-        }
-        return out
-    }
-
-private fun QuickSearchIndex.matchMedia(
-        tokens: List<String>,
-        foldedTokens: List<String>,
-        searchSettings: QuickSearchSettings,
-    ): List<RankedHit> {
-        if (!mediaReady()) return emptyList()
-        return matchTracks(tokens, foldedTokens, searchSettings) +
-            matchGallery(tokens, foldedTokens, searchSettings) +
-            matchDocs(tokens, foldedTokens, searchSettings)
-    }
-
-private fun QuickSearchIndex.matchTracks(
-        tokens: List<String>,
-        foldedTokens: List<String>,
-        searchSettings: QuickSearchSettings,
-    ): List<RankedHit> {
-        val out = mutableListOf<RankedHit>()
-        if (!searchSettings.searchMusic ||
-            !mediaPermissionCached(android.Manifest.permission.READ_MEDIA_AUDIO)
-        ) {
-            return out
-        }
-        for (t in tracks) {
-            val m = bestOf(tierOf(t.title, tokens, foldedTokens), tierOf(t.artist, tokens, foldedTokens))
-            if (m.tier >= 0) out.add(RankedHit(t, m.tier, m.span, m.offset, 0.0))
-        }
-        return out
-    }
-
-private fun QuickSearchIndex.matchGallery(
-        tokens: List<String>,
-        foldedTokens: List<String>,
-        searchSettings: QuickSearchSettings,
-    ): List<RankedHit> {
-        val out = mutableListOf<RankedHit>()
-        if (!searchSettings.searchFiles) return out
-        val galleryOk = mediaPermissionCached(android.Manifest.permission.READ_MEDIA_IMAGES) ||
-            mediaPermissionCached(android.Manifest.permission.READ_MEDIA_VIDEO)
-        if (!galleryOk) return out
-        for (f in mediaFiles) {
-            val m = tierOf(f.name, tokens, foldedTokens)
-            if (m.tier >= 0) out.add(RankedHit(f, m.tier, m.span, m.offset, 0.0))
-        }
-        return out
-    }
-
-private fun QuickSearchIndex.matchDocs(
-        tokens: List<String>,
-        foldedTokens: List<String>,
-        searchSettings: QuickSearchSettings,
-    ): List<RankedHit> {
-        val out = mutableListOf<RankedHit>()
-        if (!searchSettings.searchFiles || !permSnapshot.allFiles) return out
-        for (d in docs) {
-            val m = tierOf(d.name, tokens, foldedTokens)
-            if (m.tier >= 0) out.add(RankedHit(d, m.tier, m.span, m.offset, 0.0))
-        }
-        return out
-    }
-
-private fun QuickSearchIndex.matchToggles(
-        tokens: List<String>,
-        foldedTokens: List<String>,
-        searchSettings: QuickSearchSettings,
-    ): List<RankedHit> {
-        val out = mutableListOf<RankedHit>()
-        if (!searchSettings.searchToggles) return out
-        // 先用静态元数据（标题/关键词）匹配，只有命中的行才去读系统状态：否则一条 "w"
-        // 就白读 4 次系统服务（每行一次 binder IPC）。
-        for (spec in toggleSpecs()) {
-            val m = bestOf(tierOf(spec.title, tokens, foldedTokens), tierOf(spec.keywords, tokens, foldedTokens))
-            if (m.tier >= 0) {
-                out.add(
-                    RankedHit(
-                        QuickSearchResult.PhoneToggle(spec.kind, spec.title, spec.keywords, toggleSubtitle(spec.kind)),
-                        m.tier, m.span, m.offset, 0.0,
-                    ),
-                )
-            }
-        }
-        return out
-    }
-
-private fun QuickSearchIndex.matchCalendar(
-        tokens: List<String>,
-        foldedTokens: List<String>,
-        searchSettings: QuickSearchSettings,
-    ): List<RankedHit> {
-        val out = mutableListOf<RankedHit>()
-        if (!searchSettings.searchCalendar || !calendarReady()) return out
-        for (e in events) {
-            val m = bestOf(tierOf(e.title_, tokens, foldedTokens), tierOf(e.location, tokens, foldedTokens))
-            if (m.tier >= 0) out.add(RankedHit(e, m.tier, m.span, m.offset, 0.0))
-        }
-        return out
-    }
-
-private fun QuickSearchIndex.matchSms(
-        tokens: List<String>,
-        foldedTokens: List<String>,
-        searchSettings: QuickSearchSettings,
-    ): List<RankedHit> {
-        val out = mutableListOf<RankedHit>()
-        if (!searchSettings.searchSms || !smsReady()) return out
-        for (m in smsList) {
-            val t = bestOf(tierOf(m.address, tokens, foldedTokens), tierOf(m.body, tokens, foldedTokens))
-            if (t.tier >= 0) out.add(RankedHit(m, t.tier, t.span, t.offset, 0.0))
-        }
-        return out
-    }
-
-private fun QuickSearchIndex.matchCalls(
-        tokens: List<String>,
-        foldedTokens: List<String>,
-        searchSettings: QuickSearchSettings,
-    ): List<RankedHit> {
-        val out = mutableListOf<RankedHit>()
-        if (!searchSettings.searchCalls || !callsReady()) return out
-        for (c in callList) {
-            val m = bestOf(tierOf(c.name, tokens, foldedTokens), tierOf(c.number, tokens, foldedTokens))
-            if (m.tier >= 0) out.add(RankedHit(c, m.tier, m.span, m.offset, 0.0))
-        }
-        return out
-    }
-
-private fun QuickSearchIndex.matchClips(
-        tokens: List<String>,
-        foldedTokens: List<String>,
-        searchSettings: QuickSearchSettings,
-    ): List<RankedHit> {
-        val out = mutableListOf<RankedHit>()
-        if (!searchSettings.searchClipboard) return out
-        if (searchSettings.pinnedClips.isEmpty() && searchSettings.clipHistory.isEmpty()) return out
-        val hits = mutableListOf<RankedHit>()
-        // 固定源内置顶：usage=1.0 > 历史的 0.0，同 tier/offset 下固定排前。
-        for (clip in searchSettings.pinnedClips) {
-            if (clip.isBlank()) continue
-            val head = if (clip.length > 64) clip.take(64) else clip
-            val m = tierOf(head, tokens, foldedTokens)
-            if (m.tier >= 0) hits.add(RankedHit(QuickSearchResult.ClipEntry(clip), m.tier, m.span, m.offset, 1.0))
-        }
-        for (clip in searchSettings.clipHistory) {
-            if (clip.isBlank()) continue
-            val head = if (clip.length > 64) clip.take(64) else clip
-            val m = tierOf(head, tokens, foldedTokens)
-            if (m.tier >= 0) hits.add(RankedHit(QuickSearchResult.ClipEntry(clip), m.tier, m.span, m.offset, 0.0))
-        }
-        if (hits.isEmpty()) return out
-        hits.sortWith(
-            compareByDescending<RankedHit> { it.tier }
-                .thenBy { it.offset }
-                .thenByDescending { it.usage }
-                .thenBy { it.result.title.length }
-                .thenBy { it.result.title },
-        )
-        return hits.take(10)
-    }
-
-private fun QuickSearchIndex.matchSettingsPages(
-        tokens: List<String>,
-        foldedTokens: List<String>,
-    ): List<RankedHit> {
-        val out = mutableListOf<RankedHit>()
-        for (sp in settingsPages) {
-            val m = tierOf(sp.title, tokens, foldedTokens)
-            if (m.tier >= 0) out.add(RankedHit(sp, m.tier, m.span, m.offset, 0.0))
-        }
-        return out
-    }
 
     /** 面板用：该 query 是否命中标识指令（命中则历史匹配不参展，保持纯目标结果）。 */
 fun QuickSearchIndex.isDirective(
@@ -431,7 +375,7 @@ fun QuickSearchIndex.isDirective(
      */
 private fun QuickSearchIndex.parseDirective(
         trimmed: String,
-        libraryEntries: List<NewActionLibraryEntry>,
+        libraryEntries: List<ActionLibraryEntry>,
         launcherSettings: QuickAppLauncherSettings,
         searchSettings: QuickSearchSettings,
     ): List<QuickSearchResult>? {
@@ -479,7 +423,7 @@ private fun QuickSearchIndex.sourceEnabled(source: String, settings: QuickSearch
 private fun QuickSearchIndex.searchInSource(
         source: String,
         rest: String,
-        libraryEntries: List<NewActionLibraryEntry>,
+        libraryEntries: List<ActionLibraryEntry>,
         launcherSettings: QuickAppLauncherSettings,
         searchSettings: QuickSearchSettings,
     ): List<QuickSearchResult> {

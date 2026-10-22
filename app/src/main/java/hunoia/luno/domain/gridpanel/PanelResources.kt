@@ -33,7 +33,7 @@ object PanelResources {
                 val actionSettings = ConfigProvider.getActionSettings()
                 val buttons = ConfigProvider.getGestureButtons()
                 val subGestures = ConfigProvider.getSubGestureSettings().subGestures
-                val library = ConfigProvider.getNewActionLibrarySettings().entries
+                val library = ConfigProvider.getActionLibrarySettings().entries
                 val rules = ConfigProvider.getAutomationRules()
 
                 val referencedIcons = buildSet {

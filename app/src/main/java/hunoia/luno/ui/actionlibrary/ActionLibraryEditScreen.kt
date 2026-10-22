@@ -1,7 +1,6 @@
 package hunoia.luno.ui.actionlibrary
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -9,7 +8,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import hunoia.luno.ui.theme.FloatingContentBottom
-import hunoia.luno.ui.theme.ListSpacing
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.FloatingActionButton
@@ -28,11 +26,9 @@ import hunoia.luno.ui.theme.SheetListMaxHeight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -54,7 +50,6 @@ import hunoia.luno.R
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.ui.settings.action.MiniWindowAdjustContent
 import hunoia.luno.domain.gesture.GestureConfig
-import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.action.definitions.hasPointParams
 import hunoia.luno.action.model.PARAM_X_DP
@@ -69,7 +64,6 @@ import hunoia.luno.ui.component.sheet.AppPickerSheet
 import hunoia.luno.ui.component.sheet.ButtonPickerSheet
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.feedback.EmptyState
-import hunoia.luno.ui.component.displayNameRes
 import hunoia.luno.core.AppContext
 import hunoia.luno.service.DispatchClient
 import kotlinx.serialization.json.jsonArray
@@ -93,11 +87,11 @@ import hunoia.luno.ui.component.feedback.LunoIconButton
 private val TOUCH_ONLY_TYPES = setOf("accessibility.tap", "accessibility.longPress")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NewActionLibraryEditScreen(
+fun ActionLibraryEditScreen(
     entryId: String,
     typeId: String?,
     onBack: () -> Unit,
-    vm: NewActionLibraryEditVM = viewModel(),
+    vm: ActionLibraryEditVM = viewModel(),
 ) {
     val state by vm.uiState.collectAsState()
     var showAppPicker by remember { mutableStateOf<ParameterDefinition?>(null) }

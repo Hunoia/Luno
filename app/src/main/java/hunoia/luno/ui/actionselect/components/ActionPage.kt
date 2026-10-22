@@ -49,7 +49,7 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionCategory
 import hunoia.luno.action.definitions.ActionDefinitions
-import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.action.model.ActionLibraryEntry
 import hunoia.luno.action.model.matchesQuery
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.gridpanel.internal.InternalWidgetDefs
@@ -84,7 +84,7 @@ private const val TYPE_WIDGET = "widget"
 @Composable
 internal fun ActionPage(
     onSelect: (StoredAction) -> Unit,
-    onSelectLibraryEntry: (NewActionLibraryEntry) -> Unit = { },
+    onSelectLibraryEntry: (ActionLibraryEntry) -> Unit = { },
     onSelectApp: (AppInfo) -> Unit,
     onSelectShortcut: (LauncherInfo.ShortcutInfo) -> Unit,
     onAppLongClick: (AppInfo) -> Unit,
@@ -92,7 +92,7 @@ internal fun ActionPage(
     modifier: Modifier = Modifier,
     subGestures: List<SubGesture> = emptyList(),
     actions: List<StoredAction>,
-    actionLibraryEntries: List<NewActionLibraryEntry> = emptyList(),
+    actionLibraryEntries: List<ActionLibraryEntry> = emptyList(),
     rules: List<AutomationRule> = emptyList(),
     actionPanels: List<ActionPanel> = emptyList(),
     gridPanels: List<GridPanel> = emptyList(),

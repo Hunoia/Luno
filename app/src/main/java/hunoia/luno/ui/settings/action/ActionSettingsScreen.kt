@@ -17,7 +17,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.config.model.ActionSettings
-import hunoia.luno.config.model.defaultEngine
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.RadioButtonChecked

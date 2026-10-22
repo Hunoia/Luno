@@ -1,5 +1,4 @@
 package hunoia.luno.ui.actionlibrary
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,7 +33,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
 import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionDefinitions
-import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.action.model.ActionLibraryEntry
 import hunoia.luno.action.definitions.ActionCategory
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -53,14 +52,14 @@ import hunoia.luno.ui.theme.TileInnerPadding
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
 @Composable
-fun NewActionLibraryScreen(
+fun ActionLibraryScreen(
     listState: LazyListState = rememberLazyListState(),
-    vm: NewActionLibraryVM = viewModel(),
+    vm: ActionLibraryVM = viewModel(),
     onNavToEdit: (String, String?) -> Unit = { _, _ -> },
     contentPadding: PaddingValues = PaddingValues(),
 ) {
     val uiState by vm.uiState.collectAsState()
-    var iconPickerEntry by remember { mutableStateOf<NewActionLibraryEntry?>(null) }
+    var iconPickerEntry by remember { mutableStateOf<ActionLibraryEntry?>(null) }
     val filtered = remember(uiState.entries) {
         uiState.entries
             .sortedBy { ActionDefinitions.categoryOrder(ActionDefinitions.byTypeId(it.typeId)?.category ?: ActionCategory.ADVANCED) }
@@ -122,7 +121,7 @@ fun NewActionLibraryScreen(
 @Composable
 private fun ActionLibraryItem(
     shape: Shape,
-    entry: NewActionLibraryEntry,
+    entry: ActionLibraryEntry,
     referenceCount: Int,
     onClick: () -> Unit,
     onIconClick: () -> Unit,

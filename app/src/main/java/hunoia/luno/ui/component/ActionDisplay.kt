@@ -31,7 +31,7 @@ import hunoia.luno.action.model.actionPanelId
 import hunoia.luno.action.model.gridPanelId
 import hunoia.luno.action.model.libraryEntryId
 import hunoia.luno.action.model.launchPackageName
-import hunoia.luno.action.model.NewActionLibraryEntry
+import hunoia.luno.action.model.ActionLibraryEntry
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.config.model.DirectionActions
 import hunoia.luno.quicklaunch.model.icon
@@ -40,8 +40,6 @@ import hunoia.luno.ui.actionselect.shortcutInfo
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
 import hunoia.luno.ui.navigation.LocalGridPanels
-import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.RadioButtonChecked
 import kotlin.math.min
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -49,7 +47,7 @@ import kotlinx.serialization.json.contentOrNull
 fun Context.actionText(
     action: StoredAction,
     emptyIfNone: Boolean = true,
-    actionLibraryEntries: List<NewActionLibraryEntry> = emptyList()
+    actionLibraryEntries: List<ActionLibraryEntry> = emptyList()
 ): String {
     action.libraryEntryId()?.let { refId ->
         actionLibraryEntries.firstOrNull { it.id == refId }?.name?.takeIf { it.isNotBlank() }?.let { return it }
@@ -79,7 +77,7 @@ private fun Context.appLabel(action: StoredAction): String? {
 fun actionText(
     action: StoredAction,
     emptyIfNone: Boolean = true,
-    actionLibraryEntries: List<NewActionLibraryEntry> = emptyList()
+    actionLibraryEntries: List<ActionLibraryEntry> = emptyList()
 ): String {
     action.libraryEntryId()?.let { refId ->
         actionLibraryEntries.firstOrNull { it.id == refId }?.name?.takeIf { it.isNotBlank() }?.let { return it }
@@ -114,7 +112,7 @@ fun actionText(
 }
 
 /**
- * 文字/表情图标：动作库条目的 [NewActionLibraryEntry.iconKey] 非 palette key 时，
+ * 文字/表情图标：动作库条目的 [ActionLibraryEntry.iconKey] 非 palette key 时，
  * 把原始字符串当文字/表情渲染，与 App/快捷方式的 String(Coil 模型) 区分开。
  */
 data class TextIcon(val text: String)
@@ -161,7 +159,7 @@ fun TextIconGlyph(
 }
 
 /** 图标优先级：自定义文字/表情 > palette 图标 > 类型默认图标。 */
-fun NewActionLibraryEntry.resolvedIcon(): Any? {
+fun ActionLibraryEntry.resolvedIcon(): Any? {
     iconKey?.let { key ->
         val vector = IconPalette.byKey(key)
         if (vector != null) return vector

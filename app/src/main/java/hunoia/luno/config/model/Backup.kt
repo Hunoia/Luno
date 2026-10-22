@@ -1,7 +1,7 @@
 package hunoia.luno.config.model
 
 import androidx.annotation.Keep
-import hunoia.luno.action.model.NewActionLibrarySettings
+import hunoia.luno.action.model.ActionLibrarySettings
 import hunoia.luno.config.model.GestureButton
 import kotlinx.serialization.Serializable
 
@@ -41,7 +41,8 @@ data class Backup(
     val gestureButtons: List<GestureButton>? = null,
     val quickAppLauncherSettings: QuickAppLauncherSettings? = null,
     val subGestureSettings: SubGestureSettings? = null,
-    val newActionLibrarySettings: NewActionLibrarySettings? = null,
+    @kotlinx.serialization.SerialName("actionLibrarySettings")
+    val actionLibrarySettings: ActionLibrarySettings? = null,
     val automationRules: List<AutomationRule>? = null,
     val quickSearchSettings: QuickSearchSettings? = null,
 )
