@@ -79,12 +79,11 @@ class DaemonService : Service() {
                     restoreIfNeeded(serviceComponentName, serviceId, current)
                 }
             }
-            val observer = contentObserver ?: error("ContentObserver not initialized")
             // notifyForDescendants=false：只关心这一个 key，没有子节点需要穿透监听。
             contentResolver.registerContentObserver(
                 Settings.Secure.getUriFor(Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES),
                 false,
-                observer
+                contentObserver!!,
             )
         }
 

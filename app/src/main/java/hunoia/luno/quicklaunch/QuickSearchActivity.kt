@@ -19,6 +19,7 @@ import hunoia.luno.BuildConfig
 import hunoia.luno.R
 import hunoia.luno.bridge.system.PackageChangeReceiver
 import hunoia.luno.bridge.ui.showToast
+import hunoia.luno.action.model.StoredAction
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
@@ -172,137 +173,10 @@ class QuickSearchActivity : ComponentActivity() {
                     onClose = { requestClose() },
                     onExitFinished = { finishAfterExit() },
                     onResult = { result, confirmedQuery ->
-                        // 计算器：直接复制结果，不进 dispatcher（toConfigAction 对 Calc 会抛错）。
-                        if (result is QuickSearchResult.Calc) {
-                            copyText(result.value)
-                            requestClose()
-                        } else {
-                            recordQuery(confirmedQuery)
-                            // 联系人：Activity 直调拨号 intent（toConfigAction 对 Contact 会抛错）。
-                            if (result is QuickSearchResult.Contact) {
-                                runCatching {
-                                    startActivity(
-                                        Intent(
-                                            Intent.ACTION_DIAL,
-                                            android.net.Uri.parse("tel:${result.number}"),
-                                        ),
-                                    )
-                                }
-                                finish()
-                            } else if (result is QuickSearchResult.AudioTrack) {
-                                // 音乐：默认播放器直接播，不弹选择器。
-                                viewUri(result.uri, "audio/*")
-                                requestClose()
-                            } else if (result is QuickSearchResult.ImageVideo) {
-                                viewUri(result.uri, result.mime)
-                                requestClose()
-                            } else if (result is QuickSearchResult.DocFile) {
-                                viewUri(result.uri, result.mime)
-                                requestClose()
-                            } else if (result is QuickSearchResult.CalendarEvent) {
-                                recordQuery(confirmedQuery)
-                                openCalendarEvent(result.eventId)
-                                requestClose()
-                            } else if (result is QuickSearchResult.SmsMsg) {
-                                recordQuery(confirmedQuery)
-                                // 短信点：打开跟该号码的会话（正文不动，只看）。
-                                if (result.address.isNotBlank()) openSmsThread(result.address)
-                                requestClose()
-                            } else if (result is QuickSearchResult.CallLogEntry) {
-                                recordQuery(confirmedQuery)
-                                openDial(result.number)
-                                requestClose()
-                            } else if (result is QuickSearchResult.PhoneToggle) {
-                                recordQuery(confirmedQuery)
-                                handleToggle(result.kind)
-                                // 直切类（手电/DND）自己 requestClose，跳设置页的不关面板
-                                //（从设置回来还要继续搜）。
-                            } else if (result is QuickSearchResult.App && result.isDisabled) {
-                                // 小清理：已停用应用点选不再走启动（行为未定义），进详情页让用户手动启用。
-                                recordQuery(confirmedQuery)
-                                if (DispatchClient.dispatch(
-                                        result.longPressAction()
-                                            ?: result.toConfigAction(),
-                                    )
-                                ) {
-                                    requestClose()
-                                } else {
-                                    showToast(R.string.dispatch_service_not_ready)
-                                }
-                            } else {
-                                if (DispatchClient.dispatch(result.toConfigAction())) {
-                                    requestClose()
-                                } else {
-                                    showToast(R.string.dispatch_service_not_ready)
-                                }
-                            }
-                        }
+                        handleResultTap(result, confirmedQuery)
                     },
                     onLongPress = { result ->
-                        // 联系人长按：直调短信 intent。
-                        if (result is QuickSearchResult.Contact) {
-                            runCatching {
-                                startActivity(
-                                    Intent(
-                                        Intent.ACTION_SENDTO,
-                                        android.net.Uri.parse("smsto:${result.number}"),
-                                    ),
-                                )
-                            }
-                            finish()
-                        } else if (result is QuickSearchResult.ImageVideo) {
-                            // 图片/视频/文档/音乐长按：分享文件。
-                            shareUri(result.uri, result.mime)
-                            requestClose()
-                        } else if (result is QuickSearchResult.AudioTrack) {
-                            shareUri(result.uri, "audio/*")
-                            requestClose()
-                        } else if (result is QuickSearchResult.DocFile) {
-                            shareUri(result.uri, result.mime)
-                            requestClose()
-                        } else if (result is QuickSearchResult.CalendarEvent) {
-                            // 日历长按：复制“标题 时间 地点”。
-                            copyText(
-                                listOf(result.title_, result.timeText, result.location)
-                                    .filter { it.isNotEmpty() }
-                                    .joinToString(" "),
-                            )
-                            requestClose()
-                        } else if (result is QuickSearchResult.SmsMsg) {
-                            // 短信长按：复制正文。
-                            copyText(result.body)
-                            requestClose()
-                        } else if (result is QuickSearchResult.CallLogEntry) {
-                            // 通话长按：给对方发短信。
-                            if (result.number.isNotBlank()) openSmsThread(result.number)
-                            requestClose()
-                        } else if (result is QuickSearchResult.ClipEntry) {
-                            // 剪贴长按：写回系统剪贴板（已复制 toast），和日历/短信长按复制同套路。
-                            copyText(result.text)
-                            requestClose()
-                        } else {
-                            // 长按：应用类进详情页，网址/引擎行复制链接，其余无语义。
-                            val detail = result.longPressAction()
-                            if (detail != null) {
-                                if (DispatchClient.dispatch(detail)) {
-                                    requestClose()
-                                } else {
-                                    showToast(R.string.dispatch_service_not_ready)
-                                }
-                            } else {
-                                when (result) {
-                                    is QuickSearchResult.Url -> {
-                                        copyText(result.url)
-                                        requestClose()
-                                    }
-                                    is QuickSearchResult.EngineSearch -> {
-                                        copyText(result.resolvedUrl())
-                                        requestClose()
-                                    }
-                                    else -> Unit
-                                }
-                            }
-                        }
+                        handleResultLongPress(result)
                     },
                     onOpenAppSettings = {
                         // 权限被勾不再询问时跳本应用详情页，手动开。
@@ -317,6 +191,124 @@ class QuickSearchActivity : ComponentActivity() {
                     },
                 )
             }
+        }
+    }
+
+
+    /** 结果点按统一入口：计算器不走 dispatcher，其余先记查询历史再按类型分发。 */
+    private fun handleResultTap(result: QuickSearchResult, confirmedQuery: String) {
+        if (result is QuickSearchResult.Calc) {
+            // 计算器：直接复制结果，不进 dispatcher（toConfigAction 对 Calc 会抛错）；
+            // 算式是临时求值，不进查询历史。
+            copyText(result.value)
+            requestClose()
+            return
+        }
+        // 除计算器外统一记历史（应用使用频率另有 QuickAppLauncherSettings 记账，
+        // 音视频/文档/联系人此前即不记——保持原行为，如需统一在此收口）。
+        recordQuery(confirmedQuery)
+        when (result) {
+            is QuickSearchResult.Contact -> {
+                runCatching {
+                    startActivity(
+                        Intent(Intent.ACTION_DIAL, android.net.Uri.parse("tel:${result.number}")),
+                    )
+                }
+                requestClose()
+            }
+            is QuickSearchResult.AudioTrack -> viewUri(result.uri, "audio/*").also { requestClose() }
+            is QuickSearchResult.ImageVideo -> viewUri(result.uri, result.mime).also { requestClose() }
+            is QuickSearchResult.DocFile -> viewUri(result.uri, result.mime).also { requestClose() }
+            is QuickSearchResult.CalendarEvent -> {
+                openCalendarEvent(result.eventId)
+                requestClose()
+            }
+            is QuickSearchResult.SmsMsg -> {
+                // 短信点：打开跟该号码的会话（正文不动，只看）。
+                if (result.address.isNotBlank()) openSmsThread(result.address)
+                requestClose()
+            }
+            is QuickSearchResult.CallLogEntry -> {
+                openDial(result.number)
+                requestClose()
+            }
+            is QuickSearchResult.PhoneToggle ->
+                // 直切类（手电/DND）自己 requestClose，跳设置页的不关面板（从设置回来还要继续搜）。
+                handleToggle(result.kind)
+            is QuickSearchResult.App if result.isDisabled ->
+                // 已停用应用点选不走启动（行为未定义），进详情页让用户手动启用。
+                dispatchOrToast(result.longPressAction() ?: result.toConfigAction())
+            else -> dispatchOrToast(result.toConfigAction())
+        }
+    }
+
+    /** 结果长按统一入口。 */
+    private fun handleResultLongPress(result: QuickSearchResult) {
+        when (result) {
+            is QuickSearchResult.Contact -> {
+                // 联系人长按：直调短信 intent。
+                runCatching {
+                    startActivity(
+                        Intent(Intent.ACTION_SENDTO, android.net.Uri.parse("smsto:${result.number}")),
+                    )
+                }
+                requestClose()
+            }
+            is QuickSearchResult.ImageVideo -> shareUri(result.uri, result.mime).also { requestClose() }
+            is QuickSearchResult.AudioTrack -> shareUri(result.uri, "audio/*").also { requestClose() }
+            is QuickSearchResult.DocFile -> shareUri(result.uri, result.mime).also { requestClose() }
+            is QuickSearchResult.CalendarEvent -> {
+                // 日历长按：复制“标题 时间 地点”。
+                copyText(
+                    listOf(result.title_, result.timeText, result.location)
+                        .filter { it.isNotEmpty() }
+                        .joinToString(" "),
+                )
+                requestClose()
+            }
+            is QuickSearchResult.SmsMsg -> {
+                // 短信长按：复制正文。
+                copyText(result.body)
+                requestClose()
+            }
+            is QuickSearchResult.CallLogEntry -> {
+                // 通话长按：给对方发短信。
+                if (result.number.isNotBlank()) openSmsThread(result.number)
+                requestClose()
+            }
+            is QuickSearchResult.ClipEntry -> {
+                // 剪贴长按：写回系统剪贴板。
+                copyText(result.text)
+                requestClose()
+            }
+            else -> {
+                // 长按：应用类进详情页，网址/引擎行复制链接，其余无语义。
+                val detail = result.longPressAction()
+                if (detail != null) {
+                    dispatchOrToast(detail)
+                } else {
+                    when (result) {
+                        is QuickSearchResult.Url -> {
+                            copyText(result.url)
+                            requestClose()
+                        }
+                        is QuickSearchResult.EngineSearch -> {
+                            copyText(result.resolvedUrl())
+                            requestClose()
+                        }
+                        else -> Unit
+                    }
+                }
+            }
+        }
+    }
+
+    /** 分发 + 未就绪提示 + 成功关面板：点按与长按的 App/详情页共用。 */
+    private fun dispatchOrToast(action: StoredAction) {
+        if (DispatchClient.dispatch(action)) {
+            requestClose()
+        } else {
+            showToast(R.string.dispatch_service_not_ready)
         }
     }
 

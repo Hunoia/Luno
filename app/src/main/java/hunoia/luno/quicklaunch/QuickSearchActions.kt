@@ -18,185 +18,185 @@ import hunoia.luno.config.model.MIN_HISTORY_CHARS
 import hunoia.luno.quicklaunch.query.QuickSearchResult
 import kotlinx.coroutines.launch
 
-    /** 直拷文本 + 已复制 toast：计算器/网址/引擎长按共用。 */
+/** 直拷文本 + 已复制 toast：计算器/网址/引擎长按共用。 */
 internal fun QuickSearchActivity.copyText(text: String) {
-        getSystemService(ClipboardManager::class.java)?.setPrimaryClip(
-            ClipData.newPlainText("quicksearch", text),
-        )
-        showToast(R.string.quick_search_copied)
-    }
+    getSystemService(ClipboardManager::class.java)?.setPrimaryClip(
+        ClipData.newPlainText("quicksearch", text),
+    )
+    showToast(R.string.quick_search_copied)
+}
 
-    /** 确认搜索记历史：只记 6 字以上、不超 [MAX_QUERY_CHARS] 的，去重 cap 上限，顺手清掉已存短串，供各结果分支共用。 */
+/** 确认搜索记历史：只记 6 字以上、不超 [MAX_QUERY_CHARS] 的，去重 cap 上限，顺手清掉已存短串，供各结果分支共用。 */
 internal fun QuickSearchActivity.recordQuery(text: String) {
-        if (text.isBlank() || text.trim().length < MIN_HISTORY_CHARS) return
+    if (text.isBlank() || text.trim().length < MIN_HISTORY_CHARS) return
         // 超长（粘贴的 MB 级文本）直接丢弃：记进去只会拖慢 DataStore 全文件重写与解析。
-        if (text.length > MAX_QUERY_CHARS) return
-        lifecycleScope.launch {
-            runCatching {
-                hunoia.luno.config.ConfigProvider.updateQuickSearchSettings {
-                    it.copy(
-                        recentQueries = (listOf(text) + it.recentQueries)
-                            .distinct()
-                            .filter { q -> q.trim().length >= MIN_HISTORY_CHARS }
-                            .take(MAX_RECENT_QUERIES),
-                    )
-                }
+    if (text.length > MAX_QUERY_CHARS) return
+    lifecycleScope.launch {
+        runCatching {
+            hunoia.luno.config.ConfigProvider.updateQuickSearchSettings {
+                it.copy(
+                    recentQueries = (listOf(text) + it.recentQueries)
+                        .distinct()
+                        .filter { q -> q.trim().length >= MIN_HISTORY_CHARS }
+                        .take(MAX_RECENT_QUERIES),
+                )
             }
         }
     }
+}
 
-    /** P3：直开 uri（音乐/图片/视频/文档），无 handler 接住 toast。 */
+/** P3：直开 uri（音乐/图片/视频/文档），无 handler 接住 toast。 */
 internal fun QuickSearchActivity.viewUri(uri: String, mime: String) {
-        val ok = runCatching {
-            startActivity(
-                Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(android.net.Uri.parse(uri), mime.ifBlank { "*/*" })
+    val ok = runCatching {
+        startActivity(
+            Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(android.net.Uri.parse(uri), mime.ifBlank { "*/*" })
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            },
+        )
+    }.isSuccess
+    if (!ok) showToast(R.string.quick_search_no_handler)
+}
+
+/** P3：分享文件（图片/视频/文档长按）。 */
+internal fun QuickSearchActivity.shareUri(uri: String, mime: String) {
+    val ok = runCatching {
+        startActivity(
+            Intent.createChooser(
+                Intent(Intent.ACTION_SEND).apply {
+                    type = mime.ifBlank { "*/*" }
+                    putExtra(Intent.EXTRA_STREAM, android.net.Uri.parse(uri))
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 },
-            )
-        }.isSuccess
-        if (!ok) showToast(R.string.quick_search_no_handler)
-    }
-
-    /** P3：分享文件（图片/视频/文档长按）。 */
-internal fun QuickSearchActivity.shareUri(uri: String, mime: String) {
-        val ok = runCatching {
-            startActivity(
-                Intent.createChooser(
-                    Intent(Intent.ACTION_SEND).apply {
-                        type = mime.ifBlank { "*/*" }
-                        putExtra(Intent.EXTRA_STREAM, android.net.Uri.parse(uri))
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    },
-                    null,
-                ),
-            )
-        }.isSuccess
-        if (!ok) showToast(R.string.quick_search_no_handler)
-    }
+                null,
+            ),
+        )
+    }.isSuccess
+    if (!ok) showToast(R.string.quick_search_no_handler)
+}
 
 internal fun QuickSearchActivity.toggleTorch() {
-        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) !=
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            torchPermissionLauncher.launch(android.Manifest.permission.CAMERA)
-            return
-        }
-        flipTorch()
+    if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) !=
+        PackageManager.PERMISSION_GRANTED
+    ) {
+        torchPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+        return
     }
+    flipTorch()
+}
 
 internal fun QuickSearchActivity.flipTorch() {
-        val id = flashCameraId ?: return
-        val next = !torchState.value
-        val ok = runCatching {
-            getSystemService(android.hardware.camera2.CameraManager::class.java)?.setTorchMode(id, next)
-        }.isSuccess
-        if (ok) torchState.value = next
-    }
+    val id = flashCameraId ?: return
+    val next = !torchState.value
+    val ok = runCatching {
+        getSystemService(android.hardware.camera2.CameraManager::class.java)?.setTorchMode(id, next)
+    }.isSuccess
+    if (ok) torchState.value = next
+}
 
-    /**
+/**
      * 快捷开关分发：能直切的切（手电/DND 已授权），不能直切的跳面板或设置页
      * （WiFi/蓝牙/定位/热点/DND 未授权——Android 10+ 起第三方本就切不动，不硬调私有 API）。
      */
 internal fun QuickSearchActivity.handleToggle(kind: QuickSearchResult.ToggleKind) {
-        when (kind) {
-            QuickSearchResult.ToggleKind.WIFI -> runCatching {
-                startActivity(Intent(android.provider.Settings.Panel.ACTION_WIFI))
-            }
-            QuickSearchResult.ToggleKind.BLUETOOTH -> runCatching {
-                startActivity(Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS))
-            }
-            QuickSearchResult.ToggleKind.TORCH -> toggleTorch()
-            QuickSearchResult.ToggleKind.DND -> {
-                val nm = getSystemService(android.app.NotificationManager::class.java)
-                if (nm?.isNotificationPolicyAccessGranted == true) {
-                    runCatching {
-                        nm.setInterruptionFilter(
-                            if (nm.currentInterruptionFilter ==
-                                android.app.NotificationManager.INTERRUPTION_FILTER_NONE
-                            ) {
-                                android.app.NotificationManager.INTERRUPTION_FILTER_ALL
-                            } else {
-                                android.app.NotificationManager.INTERRUPTION_FILTER_NONE
-                            },
-                        )
-                    }
-                    requestClose()
-                } else {
-                    runCatching {
-                        startActivity(
-                            Intent(android.provider.Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS),
-                        )
-                    }
-                }
-            }
-            QuickSearchResult.ToggleKind.LOCATION -> runCatching {
-                startActivity(Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS))
-            }
-            QuickSearchResult.ToggleKind.HOTSPOT -> {
-                val ok = runCatching {
-                    startActivity(Intent("android.settings.TETHER_SETTINGS"))
-                }.isSuccess
-                if (!ok) {
-                    runCatching {
-                        startActivity(Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS))
-                    }
-                }
-            }
+    when (kind) {
+        QuickSearchResult.ToggleKind.WIFI -> runCatching {
+            startActivity(Intent(android.provider.Settings.Panel.ACTION_WIFI))
         }
-    }
-
-    /** 通话记录/联系人点：只跳拨号盘不直拨（CALL_PHONE 太危险，不碰）。 */
-internal fun QuickSearchActivity.openDial(number: String) {
-        runCatching {
-            startActivity(Intent(Intent.ACTION_DIAL, android.net.Uri.parse("tel:$number")))
+        QuickSearchResult.ToggleKind.BLUETOOTH -> runCatching {
+            startActivity(Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS))
         }
-    }
-
-    /** 短信点：打开跟该号码的会话；通话记录长按/联系人长沿用此入口。 */
-internal fun QuickSearchActivity.openSmsThread(address: String) {
-        runCatching {
-            startActivity(Intent(Intent.ACTION_SENDTO, android.net.Uri.parse("smsto:$address")))
-        }
-    }
-
-    /** 日历点：看事件详情（系统日历接）。 */
-internal fun QuickSearchActivity.openCalendarEvent(eventId: Long) {
-        val ok = runCatching {
-            startActivity(
-                Intent(Intent.ACTION_VIEW).apply {
-                    data = android.content.ContentUris.withAppendedId(
-                        android.provider.CalendarContract.Events.CONTENT_URI,
-                        eventId,
+        QuickSearchResult.ToggleKind.TORCH -> toggleTorch()
+        QuickSearchResult.ToggleKind.DND -> {
+            val nm = getSystemService(android.app.NotificationManager::class.java)
+            if (nm?.isNotificationPolicyAccessGranted == true) {
+                runCatching {
+                    nm.setInterruptionFilter(
+                        if (nm.currentInterruptionFilter ==
+                            android.app.NotificationManager.INTERRUPTION_FILTER_NONE
+                        ) {
+                            android.app.NotificationManager.INTERRUPTION_FILTER_ALL
+                        } else {
+                            android.app.NotificationManager.INTERRUPTION_FILTER_NONE
+                        },
                     )
-                },
-            )
-        }.isSuccess
-        if (!ok) showToast(R.string.quick_search_no_handler)
+                }
+                requestClose()
+            } else {
+                runCatching {
+                    startActivity(
+                        Intent(android.provider.Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS),
+                    )
+                }
+            }
+        }
+        QuickSearchResult.ToggleKind.LOCATION -> runCatching {
+            startActivity(Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+        }
+        QuickSearchResult.ToggleKind.HOTSPOT -> {
+            val ok = runCatching {
+                startActivity(Intent("android.settings.TETHER_SETTINGS"))
+            }.isSuccess
+            if (!ok) {
+                runCatching {
+                    startActivity(Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS))
+                }
+            }
+        }
     }
+}
 
-    /**
+/** 通话记录/联系人点：只跳拨号盘不直拨（CALL_PHONE 太危险，不碰）。 */
+internal fun QuickSearchActivity.openDial(number: String) {
+    runCatching {
+        startActivity(Intent(Intent.ACTION_DIAL, android.net.Uri.parse("tel:$number")))
+    }
+}
+
+/** 短信点：打开跟该号码的会话；通话记录长按/联系人长沿用此入口。 */
+internal fun QuickSearchActivity.openSmsThread(address: String) {
+    runCatching {
+        startActivity(Intent(Intent.ACTION_SENDTO, android.net.Uri.parse("smsto:$address")))
+    }
+}
+
+/** 日历点：看事件详情（系统日历接）。 */
+internal fun QuickSearchActivity.openCalendarEvent(eventId: Long) {
+    val ok = runCatching {
+        startActivity(
+            Intent(Intent.ACTION_VIEW).apply {
+                data = android.content.ContentUris.withAppendedId(
+                    android.provider.CalendarContract.Events.CONTENT_URI,
+                    eventId,
+                )
+            },
+        )
+    }.isSuccess
+    if (!ok) showToast(R.string.quick_search_no_handler)
+}
+
+/**
      * 退场统一入口：只置 closing 位，finish() 由退场动画播完后交接（见 content 的 onExitFinished），
      * 不设固定 delay——动画和计时并发，固定 delay 只会在播完后多晾一段纯 blur。
      * 返回键也走这里（见 onCreate 的 onBackPressedDispatcher 拦截）。
      */
 
 internal fun QuickSearchActivity.requestClose() {
-        if (closingState.value) return
-        if (BuildConfig.DEBUG) Log.i("LunoQuickSearch", "closeStart=${System.currentTimeMillis()}")
-        closingState.value = true
+    if (closingState.value) return
+    if (BuildConfig.DEBUG) Log.i("LunoQuickSearch", "closeStart=${System.currentTimeMillis()}")
+    closingState.value = true
         // blur 提前摘（背景立刻清晰，剩下 390ms 晾的是透明窗 + 清晰底，尾巴隐形）；
         // 重开恢复 blur 见 onWindowFocusChanged。
-        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-    }
+    window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+}
 
-    /** 退场动画播完后来调：拆窗 + 压住系统退场动画（0 = 禁用）。 */
+/** 退场动画播完后来调：拆窗 + 压住系统退场动画（0 = 禁用）。 */
 internal fun QuickSearchActivity.finishAfterExit() {
-        finish()
-        if (android.os.Build.VERSION.SDK_INT >= 34) {
-            overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE, 0, 0)
-        } else {
-            @Suppress("DEPRECATION")
-            overridePendingTransition(0, 0)
-        }
+    finish()
+    if (android.os.Build.VERSION.SDK_INT >= 34) {
+        overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE, 0, 0)
+    } else {
+        @Suppress("DEPRECATION")
+        overridePendingTransition(0, 0)
     }
+}

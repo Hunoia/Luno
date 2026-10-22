@@ -6,9 +6,9 @@ import android.content.Intent
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.store.DataStoreFiles
+import hunoia.luno.config.store.dataStoreFile
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.runtime.floatball.FloatBallService
-import java.io.File
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -29,7 +29,7 @@ class BootReceiver : BroadcastReceiver() {
 
     /** 开机同步读总开关：默认 true，DataStore 缺文件时生效的就是它，读失败按「开」处理。 */
     private fun readMasterSwitchEnabled(context: Context): Boolean = runCatching {
-        val file = File("${context.filesDir.absolutePath}/ds/${DataStoreFiles.INITIAL_SETTINGS}")
+        val file = context.dataStoreFile(DataStoreFiles.INITIAL_SETTINGS)
         if (!file.exists()) return@runCatching true
         val json = file.readText()
         if (json.isBlank()) return@runCatching true
@@ -42,7 +42,7 @@ class BootReceiver : BroadcastReceiver() {
      * 单点定义）。读失败按「不开」处理：开机路径抛异常会连带影响 `DaemonService` 拉起。
      */
     private fun readFloatBallEnabled(context: Context): Boolean = runCatching {
-        val file = File("${context.filesDir.absolutePath}/ds/${DataStoreFiles.ACTION_SETTINGS}")
+        val file = context.dataStoreFile(DataStoreFiles.ACTION_SETTINGS)
         if (!file.exists()) return@runCatching false
         val json = file.readText()
         if (json.isBlank()) return@runCatching false

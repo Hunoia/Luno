@@ -129,7 +129,9 @@ internal fun rowPreview(text: String, limit: Int = 120): String =
  */
 internal fun backfillText(text: String, limit: Int = MAX_QUERY_CHARS): String = text.take(limit)
 /** 剪贴板行：标题=剪贴内容（单行省略），无副标题；点回填、长按写回系统剪贴板；
- *  行尾图钉按钮点固定/取消（固定态=primary 色，非固定=淡色）。 */@Composable
+ *  行尾图钉按钮点固定/取消（固定态=primary 色，非固定=淡色）。
+ */
+@Composable
 internal fun ClipboardRow(
     text: String,
     shape: androidx.compose.ui.graphics.Shape,
@@ -211,7 +213,7 @@ internal fun ResultRow(
             ?: SearchIconCache.get(result.shortcut.packageName, sizePx)
         else -> null
     }
-    val iconModel = if (iconBitmap == null) iconModel(result, context) else null
+    val iconModel = if (iconBitmap == null) iconModel(result, context, sizePx) else null
     LunoSelectableRow(
         title = result.title,
         subtitle = result.subtitle,
@@ -238,7 +240,8 @@ internal fun ResultRow(
         },
         selected = false,
         onSelectedChange = { onClick() },
-        shape = shape,        iconModel = iconModel,
+        shape = shape,
+        iconModel = iconModel,
         icon = iconVector(result),
         iconBitmap = iconBitmap,
         textIcon = textIcon(result),
@@ -276,8 +279,7 @@ internal fun iconVector(result: QuickSearchResult): ImageVector? = when (result)
     }
 }
 @Composable
-internal fun iconModel(result: QuickSearchResult, context: android.content.Context): Any? {
-    val sizePx = with(LocalDensity.current) { 24.dp.toPx().toInt() }
+internal fun iconModel(result: QuickSearchResult, context: android.content.Context, sizePx: Int): Any? {
     return when (result) {
         is QuickSearchResult.App ->
             QuickLaunchFacade.appIconRequest(context, result.appInfo.packageName, sizePx)

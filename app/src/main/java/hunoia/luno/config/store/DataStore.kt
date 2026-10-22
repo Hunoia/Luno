@@ -12,8 +12,11 @@ import java.io.OutputStream
 
 
 
+/** DataStore 文件落点：唯一权威路径（BootReceiver 等同步读文件处共用）。 */
+fun Context.dataStoreFile(fileName: String): File = File("${filesDir.absolutePath}/ds/$fileName")
+
 inline fun <reified T> Context.dataStore(fileName: String, defValue: T): DataStore<T> {
-    val targetFile = File("${filesDir.absolutePath}/ds/$fileName")
+    val targetFile = dataStoreFile(fileName)
     val serializer = object : Serializer<T> {
         override val defaultValue: T = defValue
 
