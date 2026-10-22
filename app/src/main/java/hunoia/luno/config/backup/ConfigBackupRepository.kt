@@ -67,7 +67,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { backup.gestureButtons?.let { v -> writeSection("gestureButtons") { stores._gestureButtons.updateData { v } } } }
         launch { backup.quickAppLauncherSettings?.let { v -> writeSection("quickAppLauncherSettings") { stores._quickAppLauncherSettings.updateData { v } } } }
         launch { backup.subGestureSettings?.let { v -> writeSection("subGestureSettings") { stores._subGestureSettings.updateData { v } } } }
-        launch { backup.actionLibrarySettings?.let { v -> writeSection("newActionLibrarySettings") { stores._actionLibrarySettings.updateData { v } } } }
+        launch { backup.actionLibrarySettings?.let { v -> writeSection("actionLibrarySettings") { stores._actionLibrarySettings.updateData { v } } } }
         launch { backup.automationRules?.let { v -> writeSection("automationRules") { stores._automationRules.updateData { v } } } }
         launch { backup.quickSearchSettings?.let { v -> writeSection("quickSearchSettings") { stores._quickSearchSettings.updateData { v } } } }
     }

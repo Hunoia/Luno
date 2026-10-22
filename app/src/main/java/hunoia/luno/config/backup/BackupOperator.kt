@@ -17,7 +17,6 @@ import java.util.zip.ZipOutputStream
 object BackupOperator {
 
     private const val ZIP_BACKUP = "backup"
-    private const val ZIP_IMAGES = "images"
     private const val ZIP_ICONS = "icons"
 
     /**
@@ -94,7 +93,6 @@ object BackupOperator {
     private val restoreDir get() = "${Paths.AppCache}/restore"
 
     private val backupItemFilePath get() = "$backupDir/$ZIP_BACKUP"
-    private val zipImagePath get() = "$backupDir/$ZIP_IMAGES"
     private val zipIconPath get() = "$backupDir/$ZIP_ICONS"
     private val zipFilePath get() = "$backupDir/zip"
     private val restoreFilePath get() = "$restoreDir/restore"
@@ -124,10 +122,7 @@ object BackupOperator {
                 it.appendBytes(backupItemBytes)
             }
 
-            // images 保留给旧备份兼容（当前没有功能写入 Pictures）；真正需要备份的
-            // 用户数据是 shortcut_icons —— 快捷方式位图图标。
-            val zipImageDirFile = File(zipImagePath)
-            zipDirectory(Paths.Image, zipImageDirFile)
+            // 真正需要备份的用户数据是 shortcut_icons —— 快捷方式位图图标。
             val zipIconDirFile = File(zipIconPath)
             zipDirectory(Paths.ShortcutIcons, zipIconDirFile)
 
@@ -136,7 +131,7 @@ object BackupOperator {
                 it.createNewFile()
             }
             ZipOutputStream(FileOutputStream(zipFile)).use { zos ->
-                for (file in listOf(backupItemFile, zipImageDirFile, zipIconDirFile)) {
+                for (file in listOf(backupItemFile, zipIconDirFile)) {
                     zos.putNextEntry(ZipEntry(file.name))
                     file.inputStream().use { it.copyTo(zos) }
                     zos.closeEntry()
@@ -185,16 +180,13 @@ object BackupOperator {
         if (!zipFile.isFile || zipFile.length() == 0L) {
             return RestorePrecheckResult.Failed(RestorePrecheckFailure.CannotReadFile)
         }
-        val (backupBytes, hasImages) = runCatching { scanZipEntries(zipFile) }
+        val backupBytes = runCatching { scanZipEntries(zipFile) }
             .getOrElse { e ->
                 // zip bomb 会在这里被 MAX_ENTRY_BYTES 挡下；记一笔具体原因便于排查
                 android.util.Log.w("LunoLauncher", "precheckRestore: ${e::class.simpleName}: ${e.message}")
                 return RestorePrecheckResult.Failed(RestorePrecheckFailure.InvalidFormat)
             }
         if (backupBytes == null) {
-            return RestorePrecheckResult.Failed(RestorePrecheckFailure.InvalidFormat)
-        }
-        if (!hasImages) {
             return RestorePrecheckResult.Failed(RestorePrecheckFailure.InvalidFormat)
         }
         val backup = decodeBackup(backupBytes)
@@ -226,7 +218,6 @@ object BackupOperator {
 
             val extracted = unzipFile(restoreFile, restoreDirFile)
             var restored = false
-            var imagesRestored = false
             for (file in extracted) {
                 when (file.name) {
                     ZIP_BACKUP -> {
@@ -235,15 +226,10 @@ object BackupOperator {
                         })
                         restored = true
                     }
-                    ZIP_IMAGES -> {
-                        restoreImages(file, restoreDirFile)
-                        imagesRestored = true
-                    }
                     ZIP_ICONS -> restoreShortcutIcons(file, replace = true)
                 }
             }
             if (!restored) throw IllegalStateException("restore failed: no backup entry found in zip")
-            if (!imagesRestored) throw IllegalStateException("restore failed: no images entry found in zip")
         } finally {
             File(restoreDir).deleteRecursively()
         }
@@ -275,37 +261,6 @@ object BackupOperator {
             file.copyTo(dest, overwrite = true)
         }
         staging.deleteRecursively()
-    }
-
-    private fun restoreImages(imagesZip: File, restoreDirFile: File) {
-        val staging = File(restoreDirFile, "${ZIP_IMAGES}-staging").also { it.mkdirs() }
-        val staged = unzipFile(imagesZip, staging).filter { it.isFile }
-        if (staged.isEmpty()) {
-            // 当前功能不使用 Pictures；旧备份/新备份里的 images 条目都可能为空。
-            // 空条目不是损坏，直接跳过，否则整次恢复会被误判失败。
-            staging.deleteRecursively()
-            return
-        }
-
-        val target = File(Paths.Image)
-        val previous = File("${Paths.Image}.old")
-        if (previous.exists()) previous.deleteRecursively()
-
-        if (target.exists() && !target.renameTo(previous)) {
-            target.deleteRecursively()
-        }
-        if (!staging.renameTo(target)) {
-            val stagingRoot = staging.canonicalPath
-            staged.forEach { f ->
-                val relative = f.canonicalPath.removePrefix(stagingRoot).removePrefix(File.separator)
-                if (relative.isEmpty()) return@forEach
-                val dest = File(target, relative)
-                dest.parentFile?.mkdirs()
-                f.copyTo(dest, overwrite = true)
-            }
-            staging.deleteRecursively()
-        }
-        previous.deleteRecursively()
     }
 
     /**
@@ -437,22 +392,20 @@ object BackupOperator {
             quickSearchSettings == null
     }
 
-    private fun scanZipEntries(zipFile: File): Pair<ByteArray?, Boolean> {
+    private fun scanZipEntries(zipFile: File): ByteArray? {
         var backupBytes: ByteArray? = null
-        var hasImages = false
         ZipInputStream(FileInputStream(zipFile)).use { zis ->
             var entry = zis.nextEntry
             while (entry != null) {
                 if (!entry.isDirectory) {
                     when (entry.name) {
                         ZIP_BACKUP -> if (backupBytes == null) backupBytes = zis.readEntryLimited(entry.name)
-                        ZIP_IMAGES -> hasImages = true
                     }
                 }
                 entry = zis.nextEntry
             }
         }
-        return backupBytes to hasImages
+        return backupBytes
     }
 
     private fun unzipFile(zipFile: File, destDir: File): List<File> {

@@ -9,7 +9,7 @@ object ExecutionLog {
     const val MAX_PER_RULE_QUERY = 20
 }
 
-/** 跳过原因枚举（线值保持与旧字符串一致，历史兼容）。 */
+/** 跳过原因枚举（code 为执行历史的持久化线值）。 */
 enum class SkipReason(val code: String) {
     NO_STEPS("no_steps"),
     THROTTLED_COOLDOWN("throttled_cooldown"),

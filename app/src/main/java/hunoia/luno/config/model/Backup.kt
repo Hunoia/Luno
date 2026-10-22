@@ -41,7 +41,6 @@ data class Backup(
     val gestureButtons: List<GestureButton>? = null,
     val quickAppLauncherSettings: QuickAppLauncherSettings? = null,
     val subGestureSettings: SubGestureSettings? = null,
-    @kotlinx.serialization.SerialName("actionLibrarySettings")
     val actionLibrarySettings: ActionLibrarySettings? = null,
     val automationRules: List<AutomationRule>? = null,
     val quickSearchSettings: QuickSearchSettings? = null,
