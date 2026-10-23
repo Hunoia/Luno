@@ -2,6 +2,7 @@ package hunoia.luno.action.template
 
 import android.content.Context
 import hunoia.luno.action.model.AudioStream
+import hunoia.luno.bridge.system.readClipboardText
 import hunoia.luno.config.model.RingerMode
 import hunoia.luno.runtime.condition.ConditionContext
 import hunoia.luno.runtime.condition.formatTimeOfDay
@@ -158,14 +159,8 @@ object RuntimeVariables {
      * 剪贴板文本：后台无焦点时系统返回 null（Android 10+ 限制），此时给空串。
      * resolve 本来就是 suspend，可在 IO 线程读，失败一律吞掉给空串。
      */
-    private fun readClipboard(appContext: Context): String {
-        return runCatching {
-            val cm = appContext.getSystemService(android.content.ClipboardManager::class.java)
-                ?: return ""
-            if (!cm.hasPrimaryClip()) return ""
-            cm.primaryClip?.getItemAt(0)?.coerceToText(appContext)?.toString().orEmpty()
-        }.getOrDefault("")
-    }
+    private fun readClipboard(appContext: Context): String =
+        readClipboardText(appContext).orEmpty()
 
     private fun today(): String {
         val calendar = Calendar.getInstance()

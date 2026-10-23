@@ -2,12 +2,11 @@ package hunoia.luno.quicklaunch.query
 
 import android.content.Context
 import android.content.pm.PackageManager
+import androidx.collection.LruCache
 import hunoia.luno.core.AppContext
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.bridge.system.PackageChangeReceiver
-import java.util.Collections
-import java.util.LinkedHashMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -15,11 +14,7 @@ object DisabledAppQuery {
 
     private var disabledCache: Map<String, AppInfo>? = null
     private var receiverRegistered = false
-    private val disabledResultCache: MutableMap<String, Boolean> = Collections.synchronizedMap(
-        object : LinkedHashMap<String, Boolean>(1024, 0.75f, true) {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>?): Boolean = size > 1024
-        }
-    )
+    private val disabledResultCache = LruCache<String, Boolean>(1024)
 
     private fun ensureReceiver() {
         if (receiverRegistered) return
@@ -29,24 +24,24 @@ object DisabledAppQuery {
         // （约 200~400 次），而且没有 in-flight 去重，可能和用户的真实查询并发扫两遍。
         PackageChangeReceiver.register(AppContext.get()) {
             disabledCache = null
-            disabledResultCache.clear()
+            disabledResultCache.evictAll()
         }
     }
 
     fun isDisabled(context: Context, packageName: String): Boolean {
-        disabledResultCache[packageName]?.let { return it }
+        disabledResultCache.get(packageName)?.let { return it }
         val enabledSetting = runCatching {
             context.packageManager.getApplicationEnabledSetting(packageName)
-        }.getOrNull() ?: return false.also { disabledResultCache[packageName] = false }
+        }.getOrNull() ?: return false.also { disabledResultCache.put(packageName, false) }
         val result = enabledSetting == PackageManager.COMPONENT_ENABLED_STATE_DISABLED ||
             enabledSetting == PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER ||
             enabledSetting == PackageManager.COMPONENT_ENABLED_STATE_DISABLED_UNTIL_USED
-        disabledResultCache[packageName] = result
+        disabledResultCache.put(packageName, result)
         return result
     }
 
     fun markEnabled(packageName: String) {
-        disabledResultCache[packageName] = false
+        disabledResultCache.put(packageName, false)
         disabledCache?.let { cache ->
             disabledCache = cache - packageName
         }

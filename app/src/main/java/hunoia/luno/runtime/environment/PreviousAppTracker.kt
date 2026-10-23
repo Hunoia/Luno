@@ -1,6 +1,7 @@
 package hunoia.luno.runtime.environment
 
 import android.content.Intent
+import androidx.collection.LruCache
 import android.view.accessibility.AccessibilityEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -17,9 +18,7 @@ class PreviousAppTracker(
 ) {
     private val history = ArrayDeque<String>()
     private var currPackageName: String? = null
-    private val launchablePackageCache = object : LinkedHashMap<String, Boolean>(256, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>?): Boolean = size > 256
-    }
+    private val launchablePackageCache = LruCache<String, Boolean>(256)
 
     /** 最近应用黑名单：历史记录源头过滤，最近应用部件与上一个应用动作共用。 */
     @Volatile
@@ -83,7 +82,7 @@ class PreviousAppTracker(
         history.clear()
         RecentAppsHub.clear()
         currPackageName = null
-        launchablePackageCache.clear()
+        launchablePackageCache.evictAll()
     }
 
     private suspend fun queryLaunchIntentAndStart(packageName: String?): Boolean {
@@ -108,9 +107,9 @@ class PreviousAppTracker(
 
     private fun hasLaunchIntent(packageName: String?): Boolean {
         val key = packageName ?: return false
-        launchablePackageCache[key]?.let { return it }
+        launchablePackageCache.get(key)?.let { return it }
         val result = packageManager.getLaunchIntentForPackage(key) != null
-        launchablePackageCache[key] = result
+        launchablePackageCache.put(key, result)
         return result
     }
 }

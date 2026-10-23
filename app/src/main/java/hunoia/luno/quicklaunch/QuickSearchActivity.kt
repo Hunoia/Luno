@@ -1,7 +1,6 @@
 package hunoia.luno.quicklaunch
 
 import android.app.Activity
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -18,6 +17,7 @@ import androidx.lifecycle.lifecycleScope
 import hunoia.luno.BuildConfig
 import hunoia.luno.R
 import hunoia.luno.bridge.system.PackageChangeReceiver
+import hunoia.luno.bridge.system.readClipboardText
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.core.Events
@@ -81,11 +81,10 @@ class QuickSearchActivity : ComponentActivity() {
         // singleTask 复用：requestClose 里摘的 blur 在这里补回，
         // 否则 200ms 内重开的面板没糊。新鲜 onCreate 走默认值，不受影响。
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-        clipState.value = runCatching {
-            getSystemService(ClipboardManager::class.java)
-                ?.primaryClip?.getItemAt(0)?.coerceToText(this)
-                ?.toString()?.trim()?.takeIf { it.isNotEmpty() }
-        }.getOrNull().also {
+        clipState.value = readClipboardText(this)
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            .also {
             if (BuildConfig.DEBUG) Log.i("LunoQuickSearch", "clipLen=${it?.length}")
         }
         // 剪贴板历史：读到新文本才记（去重 cap 50），空态多行展示。

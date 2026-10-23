@@ -1,6 +1,7 @@
 package hunoia.luno.quicklaunch
 
 import android.content.Context
+import androidx.collection.LruCache
 import coil.request.ImageRequest
 import hunoia.luno.config.model.OpenAppOrUrlData
 import hunoia.luno.quicklaunch.model.AppInfo
@@ -41,7 +42,7 @@ object QuickLaunchFacade {
      */
     fun appIconRequest(context: Context, packageName: String, sizePx: Int): ImageRequest {
         val key = "$packageName@$sizePx"
-        synchronized(iconRequestCache) { iconRequestCache[key] }?.let { return it }
+        iconRequestCache.get(key)?.let { return it }
         val req = ImageRequest.Builder(context)
             .data(AppIconModel(packageName, sizePx))
             .size(sizePx, sizePx)
@@ -51,17 +52,13 @@ object QuickLaunchFacade {
             // 无需淡入掩盖解码。
             .crossfade(false)
             .build()
-        synchronized(iconRequestCache) { iconRequestCache[key] = req }
+        iconRequestCache.put(key, req)
         return req
     }
 
     /** 请求复用上限：一屏结果十几行，128 ≈ 8 屏的余量。 */
     private const val ICON_REQUEST_CAP = 128
-    private val iconRequestCache = object : LinkedHashMap<String, ImageRequest>(32, 0.75f, true) {
-        override fun removeEldestEntry(
-            eldest: MutableMap.MutableEntry<String, ImageRequest>?,
-        ): Boolean = size > ICON_REQUEST_CAP
-    }
+    private val iconRequestCache = LruCache<String, ImageRequest>(ICON_REQUEST_CAP)
 
     fun queryLauncherAppOptions(context: Context): List<LauncherAppOption> =
         OpenAppOrUrlQuery.queryLauncherApps(context)

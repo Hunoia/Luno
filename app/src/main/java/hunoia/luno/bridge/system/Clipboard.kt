@@ -33,6 +33,14 @@ fun copyText(
     true
 }.getOrDefault(false)
 
+/** 读当前剪贴板文本；无内容/无权限时返回 null。 */
+fun readClipboardText(context: Context): String? = runCatching {
+    val clipboard = context.getSystemService(ClipboardManager::class.java)
+        ?: return@runCatching null
+    if (!clipboard.hasPrimaryClip()) return@runCatching null
+    clipboard.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString()
+}.getOrNull()
+
 private object ClipDescriptionExtras {
     const val IS_SENSITIVE = "android.content.extra.IS_SENSITIVE"
 }

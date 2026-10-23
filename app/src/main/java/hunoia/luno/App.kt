@@ -53,7 +53,7 @@ class App : Application(), ImageLoaderFactory {
 
     override fun attachBaseContext(base: Context?) {
         super.attachBaseContext(base)
-        isProviderProcess = base?.let { currentProcessName(it) == it.packageName } ?: true
+        isProviderProcess = base?.let { getProcessName() == it.packageName } ?: true
         ShizukuProvider.enableMultiProcessSupport(isProviderProcess)
         if (!isProviderProcess && base != null) {
             ShizukuProvider.requestBinderForNonProviderProcess(base)
@@ -102,9 +102,5 @@ class App : Application(), ImageLoaderFactory {
                 .penaltyLog()
                 .build(),
         )
-    }
-
-    private fun currentProcessName(context: Context): String? {
-        return getProcessName()
     }
 }

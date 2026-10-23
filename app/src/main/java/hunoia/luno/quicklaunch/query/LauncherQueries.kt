@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.Intent.ShortcutIconResource
 import android.content.pm.PackageManager
 import android.os.SystemClock
+import androidx.collection.LruCache
 import hunoia.luno.bridge.system.PackageChangeReceiver
 import hunoia.luno.bridge.system.queryIntentActivitiesCompat
 import hunoia.luno.quicklaunch.model.AppInfo
@@ -38,12 +39,7 @@ object LauncherEnvironment {
 
     private val lock = Any()
 
-    private val packageCache: MutableMap<String, Boolean> =
-        object : LinkedHashMap<String, Boolean>(8, 0.75f, true) {
-            override fun removeEldestEntry(
-                eldest: MutableMap.MutableEntry<String, Boolean>?,
-            ): Boolean = size > PKG_CACHE_CAP
-        }
+    private val packageCache = LruCache<String, Boolean>(PKG_CACHE_CAP)
 
     private var homePackages: Set<String>? = null
     private var homePackagesAtMs = 0L
@@ -53,16 +49,16 @@ object LauncherEnvironment {
 
     fun isLauncherPackage(context: Context, packageName: String): Boolean {
         if (packageName.isBlank()) return false
-        synchronized(lock) { packageCache[packageName] }?.let { return it }
+        packageCache.get(packageName)?.let { return it }
         val inLauncher = packageName in homePackageSet(context)
-        synchronized(lock) { packageCache[packageName] = inLauncher }
+        packageCache.put(packageName, inLauncher)
         return inLauncher
     }
 
     /** 包变化即整表作废：桌面被装/卸/覆盖后，旧答案不能再复用。 */
     private fun invalidate() {
         synchronized(lock) {
-            packageCache.clear()
+            packageCache.evictAll()
             homePackages = null
         }
     }
@@ -92,7 +88,7 @@ object LauncherEnvironment {
             homePackages = computed
             homePackagesAtMs = now
             // 集合本身可能变了（默认桌面切换、桌面被禁用），旧的单包结论一并作废。
-            packageCache.clear()
+            packageCache.evictAll()
         }
         return computed
     }

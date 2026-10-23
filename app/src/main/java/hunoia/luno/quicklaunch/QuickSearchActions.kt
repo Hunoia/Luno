@@ -1,8 +1,7 @@
 package hunoia.luno.quicklaunch
 
 import android.app.Activity
-import android.content.ClipData
-import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.util.Log
@@ -20,9 +19,7 @@ import kotlinx.coroutines.launch
 
 /** 直拷文本 + 已复制 toast：计算器/网址/引擎长按共用。 */
 internal fun QuickSearchActivity.copyText(text: String) {
-    getSystemService(ClipboardManager::class.java)?.setPrimaryClip(
-        ClipData.newPlainText("quicksearch", text),
-    )
+    hunoia.luno.bridge.system.copyText(this, "quicksearch", text)
     showToast(R.string.quick_search_copied)
 }
 

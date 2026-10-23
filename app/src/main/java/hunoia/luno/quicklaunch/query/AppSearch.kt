@@ -2,6 +2,7 @@ package hunoia.luno.quicklaunch.query
 
 import com.github.houbb.pinyin.constant.enums.PinyinStyleEnum
 import com.github.houbb.pinyin.util.PinyinHelper
+import androidx.collection.LruCache
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.config.model.QuickAppLauncherSettings
@@ -46,42 +47,26 @@ object AppSearch {
 
     // 索引常驻（总量被各源 cap 封顶）：打字只查不建，houbb 调用只发生在 IO 线程的预热期。
     // 容量按条目数封顶 + LRU 淘汰：短信正文/文件名各占一条，无界会在长会话里累积到几十 MB。
-    // 上界估算峰值约 2.6 万 → 48k 留 2 倍余量；不用 android.util.LruCache（AppSearchTest 是纯 JVM
-    // 单测，碰 android.* 会 Stub!），LinkedHashMap(accessOrder=true) 是标准库，JVM 可直接跑。
+    // 上界估算峰值约 2.6 万 → 48k 留 2 倍余量；用 androidx.collection.LruCache（纯 JVM 可用，
+    // 内部线程安全），不自己维护 accessOrder 锁。
     private const val PINYIN_CACHE_CAP = 48_000
-    private val pinyinIndexCache: MutableMap<String, AppSearchIndex> =
-        object : LinkedHashMap<String, AppSearchIndex>(4096, 0.75f, true) {
-            override fun removeEldestEntry(
-                eldest: MutableMap.MutableEntry<String, AppSearchIndex>?,
-            ): Boolean = size > PINYIN_CACHE_CAP
-        }
+    private val pinyinIndexCache = LruCache<String, AppSearchIndex>(PINYIN_CACHE_CAP)
 
-    // LinkedHashMap 非线程安全，accessOrder 的 get 会改结构：读写都进锁（临界区只有 O(1)）。
-    private val pinyinCacheLock = Any()
-
-    private fun cachedIndex(key: String): AppSearchIndex? =
-        synchronized(pinyinCacheLock) { pinyinIndexCache[key] }
+    private fun cachedIndex(key: String): AppSearchIndex? = pinyinIndexCache.get(key)
 
     private fun putIndex(key: String, index: AppSearchIndex) {
-        synchronized(pinyinCacheLock) { pinyinIndexCache[key] = index }
+        pinyinIndexCache.put(key, index)
     }
 
     /** 单测用：当前缓存条数（验证有界性）。 */
-    internal fun cacheSizeForTest(): Int = synchronized(pinyinCacheLock) { pinyinIndexCache.size }
+    internal fun cacheSizeForTest(): Int = pinyinIndexCache.size()
 
     /**
      * 搜索面板关闭后把拼音缓存压回小上限：进程级索引缓存已经保留了应用/联系人等
      * 原始表，没必要再让 48k 条拼音索引长期占着 Java 堆。下次打字按需重建。
      */
     fun trimPinyinCache(maxEntries: Int = 4_000) {
-        synchronized(pinyinCacheLock) {
-            while (pinyinIndexCache.size > maxEntries) {
-                val iterator = pinyinIndexCache.entries.iterator()
-                if (!iterator.hasNext()) break
-                iterator.next()
-                iterator.remove()
-            }
-        }
+        pinyinIndexCache.trimToSize(maxEntries)
     }
 
     private const val NO_MATCH = -1

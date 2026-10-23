@@ -156,6 +156,7 @@ dependencies {
     implementation(libs.com.tiann.freereflection)
     implementation(libs.jetbrains.kotlin.serialization)
     implementation(libs.androidx.datastore)
+    implementation(libs.androidx.collection)
     implementation(libs.material3)
     implementation(libs.haze)
     // color-picker removed; replaced with in-app HsvRectPicker
