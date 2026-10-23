@@ -34,7 +34,7 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
         "accessibility.back", "accessibility.home", "accessibility.recents",
         "accessibility.tap", "accessibility.longPress", "accessibility.doubleTap",
         "accessibility.scroll", "accessibility.swipe",
-        "accessibility.inputText", "accessibility.screenshot", "accessibility.splitScreen",
+        "accessibility.screenshot", "accessibility.splitScreen",
         "accessibility.powerButton", "accessibility.notificationPanel",
         "accessibility.quickPanel", "accessibility.lockScreen"
     )
@@ -254,7 +254,8 @@ class InternalExecutors : ActionExecutor {
      * 失败吞掉报 Failed，不抛。
      */
     private suspend fun executeFloatBallVisibility(action: Action.FloatBallVisibility, context: ExecutorContext): ActionResult {
-        // 临时隐藏：先记当前态，关掉后延时恢复；用户期间手动开球则不覆盖。
+        // 临时隐藏：先记当前态，关掉后延时恢复；隐藏期间用户手动调整过球（无论开/关），
+        // 到期恢复分支检测到 enabled 与我们关掉的值不符则直接跳过，不覆盖用户的选择。
         if (action.hideForMs > 0) {
             val wasEnabled = runCatching {
                 var enabled = false
@@ -290,14 +291,14 @@ class InternalExecutors : ActionExecutor {
     }
 
     /**
-     * 触钮显隐：`hideForMs > 0` 走 [ExecutorContext.hideGestureButton] 临时隐藏
-     *（ButtonHideRuntime 到期自动恢复，不碰 enabled 存量，原「隐藏触钮」动作语义）；
-     * 否则直接改按钮 enabled 存量。DataStore 更新自带顺序，后写覆盖先写，
+     * 触钮显隐：`hideForMs > 0` 走 [ExecutorContext.hideGestureButtons] 临时隐藏
+     *（ButtonHideRuntime 到期自动恢复，不碰 enabled 存量，按 target/buttonIds 选作用钮，
+     * 原「隐藏触钮」动作语义）；否则直接改按钮 enabled 存量。DataStore 更新自带顺序，后写覆盖先写，
      * 即规则列表顺序=优先级。
      */
     private suspend fun executeButtonsVisibility(action: Action.ButtonsVisibility, context: ExecutorContext): ActionResult {
         if (action.hideForMs > 0) {
-            context.hideGestureButton(action.hideForMs)
+            context.hideGestureButtons(action.target, action.buttonIds, action.hideForMs)
             return ActionResult.Success()
         }
         val ok = runCatching {

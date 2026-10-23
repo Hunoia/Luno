@@ -1,6 +1,5 @@
 package hunoia.luno.domain.gesture
 
-import hunoia.luno.action.model.StoredAction
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.repository.SubGestureCleaner
 import hunoia.luno.config.model.GestureButton
@@ -31,15 +30,6 @@ object GestureConfig {
         ConfigProvider.updateSubGestureSettings(transform)
 
     /** 删除引用清理：删子手势后清掉按钮/子手势里指向它的动作。 */
-    suspend fun cleanSubGestureReferences(
-        shouldRemove: (StoredAction) -> Boolean,
-    ) = SubGestureCleaner.cleanSubGestureReferences(shouldRemove)
-
-    /** 该动作是否引用了已删的子手势（清理谓词）。 */
-    fun matchesDeletedSubGesture(action: StoredAction, deletedId: String): Boolean =
-        SubGestureCleaner.matchesDeletedSubGesture(action, deletedId)
-
-    /** 该动作是否为子手势引用（清理谓词）。 */
-    fun isSubGestureAction(action: StoredAction): Boolean =
-        SubGestureCleaner.isSubGestureAction(action)
+    suspend fun cleanSubGestureReferences(deletedId: String) =
+        SubGestureCleaner.cleanSubGestureReferences(deletedId)
 }

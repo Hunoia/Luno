@@ -1,21 +1,19 @@
 package hunoia.luno.ui.actionselect.components
 
 import android.content.Context
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -23,7 +21,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -35,12 +32,17 @@ import hunoia.luno.action.model.StoredAction
 import hunoia.luno.config.defaults.ActionSettingsDefaults
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.service.DispatchClient
+import hunoia.luno.ui.component.input.LunoTextSlider
+import hunoia.luno.ui.component.row.LunoSelectableRow
+import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.component.sheet.OptimizedScrollState
 import hunoia.luno.ui.component.sheet.SheetFooterActions
 import hunoia.luno.ui.component.sheet.SheetHeader
 import hunoia.luno.ui.theme.CardInnerSpacing
+import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.theme.SegmentedGap
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -143,23 +145,24 @@ private fun rowSettingsSubtitle(typeId: String, params: JsonObject, context: Con
             else -> context.getString(R.string.row_settings_toggle)
         }
     "internal.buttonsVisibility" -> {
-        if ((params.long("hideForMs", 0)) > 0) {
-            context.getString(R.string.row_settings_hide_temporarily) + " · " +
-                params.long("hideForMs", 0) + "ms"
-        } else {
-        val visible = context.getString(
-            if (params.bool("visible", RowSettingsDefaults.ButtonsVisible)) {
-                R.string.row_settings_show
-            } else {
-                R.string.row_settings_hide
-            },
-        )
+        val hideForMs = params.long("hideForMs", 0)
         val target = params.str("target", RowSettingsDefaults.ButtonsTarget)
         val scope = when (target) {
             "ALL" -> context.getString(R.string.row_settings_scope_all)
             else -> "${params.ids("buttonIds").size} ${context.getString(R.string.row_settings_buttons)}"
         }
-        "$visible · $scope"
+        if (hideForMs > 0) {
+            context.getString(R.string.row_settings_hide_temporarily) + " · " +
+                hideForMs + "ms · " + scope
+        } else {
+            val visible = context.getString(
+                if (params.bool("visible", RowSettingsDefaults.ButtonsVisible)) {
+                    R.string.row_settings_show
+                } else {
+                    R.string.row_settings_hide
+                },
+            )
+            "$visible · $scope"
         }
     }
     "system.openSettings" ->
@@ -206,7 +209,7 @@ private fun rowSettingsSubtitle(typeId: String, params: JsonObject, context: Con
  * - 底部 Sheet 而不是 AlertDialog：大字体 / 多选项时空间够用，也和其他设置页同语言。
  * - 整个内容只有一个 `verticalScroll`：触钮多选不再嵌套滚动。
  * - 字段草稿是一份 `JsonObject`：改哪个键写哪个键，确认时经 [canonicalParams] 规范化；
- *   标题下方实时显示副标题预览，「恢复默认」清空草稿即回默认值。
+ *   选中态由控件自身表达，不再重复展示当前值，「恢复默认」清空草稿即回默认值。
  * - 非法坐标 / 振动 pattern 会禁用保存，不再静默写 0。
  */
 @OptIn(ExperimentalLayoutApi::class)
@@ -280,62 +283,50 @@ fun ActionRowSettingsSheet(
                 when (typeId) {
                     "internal.volumeScrub" -> {
                         val step = draft.int("stepThresholdDp", RowSettingsDefaults.VolumeScrubStepDp)
-                        LabeledSlider(
-                            R.string.row_settings_sensitivity,
-                            step.toFloat(),
-                            4f..64f,
-                            "${step}dp",
-                        ) { setInt("stepThresholdDp", it.toInt()) }
+                        LunoTextSlider(
+                            value = step.toFloat(),
+                            onValueChange = { setInt("stepThresholdDp", it.toInt()) },
+                            text = stringResource(R.string.row_settings_sensitivity),
+                            valueDisplay = { "${it.toInt()}dp" },
+                            valueRange = 4f..64f,
+                        )
                     }
                     "internal.floatBallVisibility" -> {
                         val hideForMs = draft.long("hideForMs", 0)
-                        if (hideForMs > 0) {
-                            LabeledSlider(
-                                R.string.row_settings_hide_duration,
-                                hideForMs.toFloat(),
-                                500f..30000f,
-                                "${hideForMs}ms",
-                            ) { setLong("hideForMs", it.toLong()) }
-                            TextButton(onClick = {
-                                setLong("hideForMs", 0)
+                        LabeledChips(
+                            R.string.row_settings_visibility,
+                            listOf(
+                                "toggle" to R.string.row_settings_toggle,
+                                "true" to R.string.row_settings_show,
+                                "false" to R.string.row_settings_hide,
+                                "HIDE_FOR" to R.string.row_settings_hide_temporarily,
+                            ),
+                            if (hideForMs > 0) "HIDE_FOR"
+                            else draft.str("visible", RowSettingsDefaults.FloatBallVisible),
+                        ) {
+                            // 选临时隐藏时预填时长，否则 hideForMs 恒 0、滑杆分支永不出现。
+                            if (it == "HIDE_FOR") {
                                 setStr("visible", "toggle")
-                            }) {
-                                Text(stringResource(R.string.row_settings_back_to_normal))
-                            }
-                        } else {
-                            LabeledChips(
-                                R.string.row_settings_visibility,
-                                listOf(
-                                    "toggle" to R.string.row_settings_toggle,
-                                    "true" to R.string.row_settings_show,
-                                    "false" to R.string.row_settings_hide,
-                                    "HIDE_FOR" to R.string.row_settings_hide_temporarily,
-                                ),
-                                draft.str("visible", RowSettingsDefaults.FloatBallVisible),
-                            ) {
-                                // 选临时隐藏时预填时长，否则 hideForMs 恒 0、滑杆分支永不出现。
-                                if (it == "HIDE_FOR") {
-                                    setStr("visible", "toggle")
-                                    setLong("hideForMs", 5000L)
-                                } else {
-                                    setStr("visible", it)
+                                if (hideForMs <= 0) {
+                                    setLong("hideForMs", RowSettingsDefaults.HideGestureButtonDelayMs)
                                 }
+                            } else {
+                                setLong("hideForMs", 0)
+                                setStr("visible", it)
                             }
+                        }
+                        if (hideForMs > 0) {
+                            LunoTextSlider(
+                                value = hideForMs.toFloat(),
+                                onValueChange = { setLong("hideForMs", it.toLong()) },
+                                text = stringResource(R.string.row_settings_hide_duration),
+                                valueDisplay = { "${it.toLong()}ms" },
+                                valueRange = 500f..30000f,
+                            )
                         }
                     }
                     "internal.buttonsVisibility" -> {
                         val hideForMs = draft.long("hideForMs", 0)
-                        if (hideForMs > 0) {
-                            LabeledSlider(
-                                R.string.row_settings_hide_duration,
-                                hideForMs.toFloat(),
-                                500f..30000f,
-                                "${hideForMs}ms",
-                            ) { setLong("hideForMs", it.toLong()) }
-                            TextButton(onClick = { setLong("hideForMs", 0) }) {
-                                Text(stringResource(R.string.row_settings_back_to_normal))
-                            }
-                        } else {
                         val visible = draft.bool("visible", RowSettingsDefaults.ButtonsVisible)
                         LabeledChips(
                             R.string.row_settings_visibility,
@@ -344,13 +335,29 @@ fun ActionRowSettingsSheet(
                                 "false" to R.string.row_settings_hide,
                                 "HIDE_FOR" to R.string.row_settings_hide_temporarily,
                             ),
-                            if (visible) "true" else "false",
+                            when {
+                                hideForMs > 0 -> "HIDE_FOR"
+                                visible -> "true"
+                                else -> "false"
+                            },
                         ) {
                             if (it == "HIDE_FOR") {
-                                setLong("hideForMs", RowSettingsDefaults.HideGestureButtonDelayMs)
+                                if (hideForMs <= 0) {
+                                    setLong("hideForMs", RowSettingsDefaults.HideGestureButtonDelayMs)
+                                }
                             } else {
+                                setLong("hideForMs", 0)
                                 setBool("visible", it.toBooleanStrict())
                             }
+                        }
+                        if (hideForMs > 0) {
+                            LunoTextSlider(
+                                value = hideForMs.toFloat(),
+                                onValueChange = { setLong("hideForMs", it.toLong()) },
+                                text = stringResource(R.string.row_settings_hide_duration),
+                                valueDisplay = { "${it.toLong()}ms" },
+                                valueRange = 500f..30000f,
+                            )
                         }
                         val target = draft.str("target", RowSettingsDefaults.ButtonsTarget)
                         LabeledChips(
@@ -370,33 +377,39 @@ fun ActionRowSettingsSheet(
                                 style = MaterialTheme.typography.labelLarge,
                             )
                             // 不再套独立滚动框：整张 Sheet 只有一个滚动容器，避免嵌套滚动抢手势
-                            buttons.forEach { button ->
-                                val checked = button.id in selectedIds
-                                fun toggle() {
-                                    val next = if (checked) selectedIds - button.id else selectedIds + button.id
-                                    draft = JsonObject(
-                                        draft + (
-                                            "buttonIds" to buildJsonArray {
-                                                buttons.forEach { b -> if (b.id in next) add(JsonPrimitive(b.id)) }
+                            val selectionFlags = buttons.map { it.id in selectedIds }
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(SegmentedGap),
+                            ) {
+                                buttons.forEachIndexed { index, button ->
+                                    LunoSelectableRow(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        title = button.name.ifBlank { button.id },
+                                        selected = button.id in selectedIds,
+                                        onSelectedChange = { checked ->
+                                            val next = if (checked) {
+                                                selectedIds + button.id
+                                            } else {
+                                                selectedIds - button.id
                                             }
-                                            ),
-                                    )
-                                }
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { toggle() },
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    // 整行可点，Checkbox 只做展示，避免点 checkbox 时双重切换
-                                    Checkbox(checked = checked, onCheckedChange = null)
-                                    Text(
-                                        text = button.name.ifBlank { button.id },
-                                        style = MaterialTheme.typography.bodyLarge,
+                                            draft = JsonObject(
+                                                draft + (
+                                                    "buttonIds" to buildJsonArray {
+                                                        buttons.forEach { b ->
+                                                            if (b.id in next) add(JsonPrimitive(b.id))
+                                                        }
+                                                    }
+                                                    ),
+                                            )
+                                        },
+                                        shape = selectedSegmentedShape(
+                                            index,
+                                            buttons.size,
+                                            selectionFlags,
+                                        ),
                                     )
                                 }
                             }
-                        }
                         }
                     }
                     "system.openSettings" -> {
@@ -499,12 +512,13 @@ fun ActionRowSettingsSheet(
                         }
                         if (typeId == "accessibility.longPress") {
                             val duration = draft.long("durationMs", RowSettingsDefaults.LongPressDurationMs)
-                            LabeledSlider(
-                                R.string.row_settings_duration,
-                                duration.toFloat(),
-                                100f..10000f,
-                                "${duration}ms",
-                            ) { setLong("durationMs", it.toLong()) }
+                            LunoTextSlider(
+                                value = duration.toFloat(),
+                                onValueChange = { setLong("durationMs", it.toLong()) },
+                                text = stringResource(R.string.row_settings_duration),
+                                valueDisplay = { "${it.toLong()}ms" },
+                                valueRange = 100f..10000f,
+                            )
                         }
                     }
                     "accessibility.scroll" -> {
@@ -573,17 +587,14 @@ private fun canonicalParams(typeId: String, draft: JsonObject): JsonObject = whe
     }
     "internal.buttonsVisibility" -> {
         val hideForMs = draft.long("hideForMs", 0)
+        val target = draft.str("target", RowSettingsDefaults.ButtonsTarget)
         buildJsonObject {
             put("visible", JsonPrimitive(draft.bool("visible", RowSettingsDefaults.ButtonsVisible)))
-            if (hideForMs > 0) {
-                put("hideForMs", JsonPrimitive(hideForMs))
-            } else {
-                val target = draft.str("target", RowSettingsDefaults.ButtonsTarget)
-                put("target", JsonPrimitive(target))
-                if (target != "ALL") {
-                    put("buttonIds", buildJsonArray { draft.ids("buttonIds").forEach { add(JsonPrimitive(it)) } })
-                }
+            put("target", JsonPrimitive(target))
+            if (target != "ALL") {
+                put("buttonIds", buildJsonArray { draft.ids("buttonIds").forEach { add(JsonPrimitive(it)) } })
             }
+            if (hideForMs > 0) put("hideForMs", JsonPrimitive(hideForMs))
         }
     }
     "system.openSettings" -> buildJsonObject {
@@ -661,21 +672,6 @@ private fun FieldError(text: String) {
     )
 }
 
-@Composable
-private fun LabeledSlider(
-    labelRes: Int,
-    value: Float,
-    range: ClosedFloatingPointRange<Float>,
-    valueText: String,
-    onValueChange: (Float) -> Unit,
-) {
-    Text(
-        text = "${stringResource(labelRes)} · $valueText",
-        style = MaterialTheme.typography.labelLarge,
-    )
-    Slider(value = value, onValueChange = onValueChange, valueRange = range)
-}
-
 /** 选项多时用 FlowRow 换行，不再一行塞 8 个 chip 被弹窗裁掉。 */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -695,6 +691,14 @@ private fun LabeledChips(
                 selected = selected == value,
                 onClick = { onSelect(value) },
                 label = { Text(stringResource(textRes)) },
+                shape = LargeShape,
+                colors = FilterChipDefaults.filterChipColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceBright,
+                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
+                border = null,
             )
         }
     }
@@ -708,7 +712,7 @@ private fun LabeledTextField(
     isError: Boolean = false,
     keyboardType: KeyboardType = KeyboardType.Text,
 ) {
-    androidx.compose.material3.OutlinedTextField(
+    OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(stringResource(labelRes)) },
@@ -716,5 +720,6 @@ private fun LabeledTextField(
         isError = isError,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         modifier = Modifier.fillMaxWidth(),
+        shape = LargeShape,
     )
 }

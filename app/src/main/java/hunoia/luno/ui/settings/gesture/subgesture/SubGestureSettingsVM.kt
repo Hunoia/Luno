@@ -104,9 +104,7 @@ class SubGestureSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeVM<S
     }
 
     private suspend fun cleanReferences(deletedId: String) {
-        GestureConfig.cleanSubGestureReferences(
-            shouldRemove = { GestureConfig.matchesDeletedSubGesture(it, deletedId) }
-        )
+        GestureConfig.cleanSubGestureReferences(deletedId)
     }
 
     fun updateAngle(angle: SubGestureAngle) {

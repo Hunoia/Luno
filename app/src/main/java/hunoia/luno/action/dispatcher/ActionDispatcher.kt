@@ -57,6 +57,7 @@ class ActionDispatcher(
     private val onShowVolumeScrub: (VolumeScrubConfig) -> Boolean,
     private val onShowPointer: () -> Boolean,
     private val onHideGestureButton: (GestureButton?, Long) -> Unit,
+    private val onHideGestureButtons: (ButtonTarget, List<String>, Long) -> Unit,
 ) {
     private val capabilityGate = CapabilityGate(host.context.applicationContext)
 
@@ -246,6 +247,9 @@ class ActionDispatcher(
             showPointer = onShowPointer,
             hideGestureButton = { delayMs ->
                 if (sourceButton != null) onHideGestureButton(sourceButton, delayMs)
+            },
+            hideGestureButtons = { target, buttonIds, delayMs ->
+                onHideGestureButtons(target, buttonIds, delayMs)
             },
             showVersionTooLowToast = { resId -> showVersionTooLowToastUtil(context, resId) },
             previousApp = { previousAppTracker.previousApp() },

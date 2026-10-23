@@ -246,7 +246,7 @@ class HomeVM : HomeVMBase() {
                 val cleanedGestureList = settings.subGestures.filter { it.id != gesture.id }
                 settings.copy(subGestures = cleanedGestureList)
             }
-            cleanSubGestureReferences()
+            GestureConfig.cleanSubGestureReferences(gesture.id)
             delay(50)
         }
     }
@@ -293,10 +293,4 @@ class HomeVM : HomeVMBase() {
 internal fun parseNumberSuffix(text: String): Int {
     val match = Regex("""(\d+)$""").find(text)
     return match?.groupValues?.get(1)?.toIntOrNull() ?: 0
-}
-
-internal suspend fun cleanSubGestureReferences() {
-    GestureConfig.cleanSubGestureReferences(
-        shouldRemove = { GestureConfig.isSubGestureAction(it) }
-    )
 }

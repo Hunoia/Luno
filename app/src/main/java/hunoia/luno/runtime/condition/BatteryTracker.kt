@@ -12,11 +12,12 @@ import android.os.BatteryManager
  * 回调参数区分两类变化：
  * - [chargingChanged]：充电边沿变化。调用方应据此发 charging 脉冲（脉冲携带的是值，
  *   非 CHARGING_CHANGED 边沿不能发，否则「充电开始/断开时」规则会随电量浮动重复触发）；
+ * - [charging]：变化后的充电状态值；
  * - [levelChanged]：仅电量百分比变化。只触发状态重评（BATTERY_RANGE），不发脉冲。
  */
 class BatteryTracker(
     private val context: Context,
-    private val onChanged: (chargingChanged: Boolean, levelChanged: Boolean) -> Unit,
+    private val onChanged: (chargingChanged: Boolean, charging: Boolean, levelChanged: Boolean) -> Unit,
 ) {
     var isCharging: Boolean = false
         private set
@@ -59,7 +60,7 @@ class BatteryTracker(
         if (!chargingChanged && !levelChanged) return
         isCharging = charging
         batteryLevel = level
-        onChanged(chargingChanged, levelChanged)
+        onChanged(chargingChanged, charging, levelChanged)
     }
 
     private fun Intent.batteryLevel(): Int {

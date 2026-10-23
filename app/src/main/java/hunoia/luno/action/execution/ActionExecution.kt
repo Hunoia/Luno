@@ -7,6 +7,7 @@ import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.action.definitions.excludedTemplateKeys
+import hunoia.luno.action.model.ButtonTarget
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionFailure
 import hunoia.luno.action.model.ActionMapper
@@ -159,6 +160,8 @@ data class ExecutorContext(
     val showVolumeScrub: (VolumeScrubConfig) -> Boolean = { false },
     val showPointer: () -> Boolean = { false },
     val hideGestureButton: (Long) -> Unit = {},
+    /** 触钮临时隐藏（按 target/buttonIds 选作用钮）：到期自动恢复，不碰 enabled 存量。 */
+    val hideGestureButtons: (ButtonTarget, List<String>, Long) -> Unit = { _, _, _ -> },
     val showVersionTooLowToast: (Int) -> Unit = {},
     val previousApp: suspend () -> Unit = {},
     val touchPosition: Pair<Int, Int>? = null,

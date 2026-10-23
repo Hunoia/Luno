@@ -13,8 +13,9 @@ import kotlinx.serialization.json.contentOrNull
 object SubGestureCleaner {
 
     suspend fun cleanSubGestureReferences(
-        shouldRemove: (StoredAction) -> Boolean,
+        deletedId: String,
     ) {
+        val shouldRemove: (StoredAction) -> Boolean = { matchesDeletedSubGesture(it, deletedId) }
         ConfigProvider.updateGestureButtons { buttons ->
             buttons.map { it.cleanActions(shouldRemove) }
         }
@@ -25,10 +26,10 @@ object SubGestureCleaner {
         }
     }
 
-    fun isSubGestureAction(action: StoredAction): Boolean =
+    private fun isSubGestureAction(action: StoredAction): Boolean =
         action.typeId == "internal.subGesture"
 
-    fun matchesDeletedSubGesture(action: StoredAction, deletedId: String): Boolean {
+    private fun matchesDeletedSubGesture(action: StoredAction, deletedId: String): Boolean {
         if (!isSubGestureAction(action)) return false
         val id = (action.params["id"] as? JsonPrimitive)?.contentOrNull.orEmpty()
         return id == deletedId

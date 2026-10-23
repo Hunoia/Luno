@@ -18,14 +18,17 @@ class ButtonHideRuntime(
 ) {
     private val hiddenButtons = mutableMapOf<String, Long>()
 
-    fun hideTemporarily(button: GestureButton, delayMs: Long) {
-        val key = button.id
-        hiddenButtons[key] = SystemClock.uptimeMillis() + delayMs
+    /** 批量临时隐藏：到期自动恢复；期间重复 hide 会刷新到期时间。 */
+    fun hideTemporarily(buttonIds: Collection<String>, delayMs: Long) {
+        if (buttonIds.isEmpty()) return
+        val deadline = SystemClock.uptimeMillis() + delayMs
+        buttonIds.forEach { hiddenButtons[it] = deadline }
         onStateChanged()
         scope.launch {
             delay(delayMs)
-            if ((hiddenButtons[key] ?: 0L) <= SystemClock.uptimeMillis()) {
-                hiddenButtons.remove(key)
+            val expired = buttonIds.filter { (hiddenButtons[it] ?: 0L) <= SystemClock.uptimeMillis() }
+            if (expired.isNotEmpty()) {
+                expired.forEach(hiddenButtons::remove)
                 onStateChanged()
             }
         }

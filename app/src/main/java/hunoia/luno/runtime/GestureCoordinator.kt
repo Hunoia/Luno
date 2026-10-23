@@ -177,9 +177,9 @@ class GestureCoordinator(
 
     private val batteryTracker: BatteryTracker = BatteryTracker(
         context = host.context,
-        onChanged = { chargingChanged, _ ->
+        onChanged = { chargingChanged, charging, _ ->
             // 仅充电边沿发脉冲；纯电量变化只重评状态条件（见 BatteryTracker 文档）。
-            if (chargingChanged) environmentTracker.onChargingChanged(batteryTracker.isCharging)
+            if (chargingChanged) environmentTracker.onChargingChanged(charging)
             refreshGestureButtons(automationKeys = setOf(AutomationEventKey.CHARGING))
         },
     )
@@ -229,7 +229,14 @@ class GestureCoordinator(
         onShowVolumeScrub = { config -> volumeScrubRuntime.show(config) },
         onShowPointer = { pointerRuntime.show() },
         onHideGestureButton = { button, delayMs ->
-            if (button != null) buttonHideRuntime.hideTemporarily(button, delayMs)
+            if (button != null) buttonHideRuntime.hideTemporarily(listOf(button.id), delayMs)
+        },
+        onHideGestureButtons = { target, buttonIds, delayMs ->
+            val allIds = runtimeSettingsStore.snapshot().gestureButtons.map { it.id }
+            buttonHideRuntime.hideTemporarily(
+                hunoia.luno.action.model.resolveButtonTargetIds(target, allIds, buttonIds),
+                delayMs,
+            )
         },
     )
 

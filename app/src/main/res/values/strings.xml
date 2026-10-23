@@ -175,7 +175,6 @@
     <string name="row_settings_text_content">文本内容</string>
     <string name="row_settings_text_required">文本内容不能为空</string>
     <string name="row_settings_hide_temporarily">临时隐藏</string>
-    <string name="row_settings_back_to_normal">改为常规显隐</string>
     <string name="row_dialog_share_text">分享文本</string>
     <string name="action_library_invalid_hint">草稿无效，先补全参数或坐标</string>
     <string name="float_ball_enabled">显示悬浮球</string>
