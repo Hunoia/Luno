@@ -3,10 +3,10 @@ package hunoia.luno.action.model
 import hunoia.luno.config.defaults.ActionSettingsDefaults.HideGestureButtonDelayMs
 import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubStepThresholdDp
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
@@ -24,19 +24,20 @@ object ActionMapper {
         val p = stored.params
         return when (stored.typeId) {
             "app.launch" -> Action.LaunchApp(
-                p.str("packageName"),
-                p.bool("miniWindow"),
-                p.str("className"),
+                packageName = p.str("packageName"),
+                miniWindow = p.bool("miniWindow"),
+                className = p.str("className"),
+                intentAction = p.str("intentAction"),
+                data = p.str("data"),
+                extras = p.mapOfStr("extras"),
             )
             "app.details" -> Action.AppDetails(p.str("packageName"))
             "app.popup" -> Action.Popup
             "app.launchShortcut" -> Action.LaunchShortcut(p.str("data"))
             "intent.openUrl" -> Action.OpenUrl(
-                p.str("url"),
-                p["queryParameters"]?.jsonArray?.map { e ->
-                    val o = e.jsonObject
-                    QueryParam(o.str("name"), o.str("value"), o.bool("enabled", true))
-                } ?: emptyList(),
+                url = p.str("url"),
+                queryParameters = p.queryParams(),
+                miniWindow = p.bool("miniWindow"),
             )
             "intent.shareText" -> Action.ShareText(p.str("text"), p.str("mimeType", "text/plain"))
             "intent.shareFile" -> Action.ShareFile
@@ -85,6 +86,7 @@ object ActionMapper {
             "shell.custom" -> Action.CustomCommand(
                 p.str("command"),
                 p.bool("showToast"),
+                p.bool("copyOutput"),
             )
             "internal.none" -> Action.None
             "internal.subGesture" -> Action.SubGesture
@@ -151,4 +153,20 @@ object ActionMapper {
 
     private fun JsonObject.arrayOfStr(key: String): List<String> =
         this[key]?.jsonArray?.mapNotNull { it.jsonPrimitive?.contentOrNull } ?: emptyList()
+
+    /** 键值对参数：存成 JSON 对象；空键忽略（编辑器允许留空行）。 */
+    private fun JsonObject.mapOfStr(key: String): Map<String, String> {
+        val obj = this[key] as? JsonObject ?: return emptyMap()
+        return obj.entries.mapNotNull { (k, v) ->
+            if (k.isBlank()) null else k to ((v as? JsonPrimitive)?.contentOrNull.orEmpty())
+        }.toMap()
+    }
+
+    /** Query 参数：存成 JSON 对象 `{key: value}`，空键忽略。 */
+    private fun JsonObject.queryParams(): List<QueryParam> {
+        val obj = this["queryParameters"] as? JsonObject ?: return emptyList()
+        return obj.entries
+            .map { (key, value) -> QueryParam(key, (value as? JsonPrimitive)?.contentOrNull.orEmpty()) }
+            .filter { it.name.isNotBlank() }
+    }
 }

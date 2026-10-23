@@ -111,8 +111,20 @@ object QuickLaunchFacade {
         className: String,
         miniWindow: Boolean = false,
         miniWindowSettings: MiniWindowSettings = MiniWindowSettings(),
+        intentAction: String = "",
+        data: String = "",
+        extras: Map<String, String> = emptyMap(),
     ): Boolean {
-        return Launcher.launchApp(context, packageName, className, miniWindow, miniWindowSettings)
+        return Launcher.launchApp(
+            context = context,
+            packageName = packageName,
+            className = className,
+            miniWindow = miniWindow,
+            miniWindowSettings = miniWindowSettings,
+            intentAction = intentAction,
+            data = data,
+            extras = extras,
+        )
     }
 
     fun launchAppActivityDirect(context: Context, packageName: String, className: String): Boolean {
@@ -142,8 +154,19 @@ object QuickLaunchFacade {
         packageName: String,
         className: String,
         miniWindowSettings: MiniWindowSettings = MiniWindowSettings(),
+        intentAction: String = "",
+        data: String = "",
+        extras: Map<String, String> = emptyMap(),
     ) {
-        Launcher.launchAppInPopup(context, packageName, className, miniWindowSettings)
+        Launcher.launchAppInPopup(
+            context = context,
+            packageName = packageName,
+            className = className,
+            miniWindowSettings = miniWindowSettings,
+            intentAction = intentAction,
+            data = data,
+            extras = extras,
+        )
     }
 
     fun launchShortcutInfo(context: Context, shortcutInfo: LauncherInfo.ShortcutInfo) {

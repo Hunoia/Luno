@@ -58,6 +58,16 @@ object ActionDefinitions {
                 ParameterDefinition.AppSelector("packageName", "应用"),
                 ParameterDefinition.Bool("miniWindow", "小窗模式", "false"),
                 ParameterDefinition.ActivitySelector("className", "Activity", required = false, packageKey = "packageName"),
+                // Intent 覆盖：留空保持默认启动行为，与旧数据/旧交互完全一致。
+                ParameterDefinition.Text(
+                    "intentAction",
+                    "Intent Action",
+                    required = false,
+                    allowTemplates = false,
+                    placeholder = "如 android.intent.action.VIEW",
+                ),
+                ParameterDefinition.Text("data", "Data URI", required = false),
+                ParameterDefinition.KeyValueMap("extras", "Extras"),
             ),
             icon = Icons.Default.Android,
         ))
@@ -86,6 +96,8 @@ object ActionDefinitions {
             Capability.None,
             listOf(
                 ParameterDefinition.Text("url", "URL"),
+                ParameterDefinition.KeyValueMap("queryParameters", "Query 参数"),
+                ParameterDefinition.Bool("miniWindow", "小窗打开", "false"),
             ),
             icon = Icons.AutoMirrored.Filled.OpenInNew,
         ))
@@ -192,6 +204,7 @@ object ActionDefinitions {
             Capability.Shizuku,
             listOf(
                 ParameterDefinition.TextLarge("command", "Shell 命令"),
+                ParameterDefinition.Bool("copyOutput", "复制输出到剪贴板", "false"),
                 ParameterDefinition.Bool("showToast", "显示结果", "false"),
             ),
             icon = Icons.Default.Terminal,

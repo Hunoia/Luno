@@ -64,10 +64,22 @@ object AppLaunchBypass {
         className: String,
         miniWindow: Boolean = false,
         miniWindowSettings: MiniWindowSettings = MiniWindowSettings(),
+        intentAction: String = "",
+        data: String = "",
+        extras: Map<String, String> = emptyMap(),
         unfreezePackage: suspend (context: Context, packageName: String) -> Boolean = { _, _ -> true }
     ): Boolean {
         if (!ensureEnabled(context, packageName, unfreezePackage)) return false
-        return QuickLaunchFacade.launchAppDirect(context, packageName, className, miniWindow, miniWindowSettings)
+        return QuickLaunchFacade.launchAppDirect(
+            context = context,
+            packageName = packageName,
+            className = className,
+            miniWindow = miniWindow,
+            miniWindowSettings = miniWindowSettings,
+            intentAction = intentAction,
+            data = data,
+            extras = extras,
+        )
     }
 
     suspend fun launchActivityWithAutoUnfreeze(

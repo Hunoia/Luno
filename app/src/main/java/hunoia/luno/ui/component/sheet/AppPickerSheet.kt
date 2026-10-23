@@ -56,6 +56,8 @@ fun AppPickerSheet(
     onDismissRequest: () -> Unit,
     selectedPackageNames: List<String>,
     onConfirm: (List<String>) -> Unit,
+    /** 单选场景：点击应用即确认并关闭，不展示底部取消/确认按钮。 */
+    confirmOnSelect: Boolean = false,
 ) {
     val scope = rememberCoroutineScope()
     var apps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
@@ -171,10 +173,15 @@ fun AppPickerSheet(
                                     iconModel = item.icon,
                                     selected = item.packageName in selected,
                                     onSelectedChange = { isSelected ->
-                                        selected = if (isSelected) {
-                                            selected + item.packageName
+                                        if (confirmOnSelect) {
+                                            onConfirm(listOf(item.packageName))
+                                            onDismissRequest()
                                         } else {
-                                            selected - item.packageName
+                                            selected = if (isSelected) {
+                                                selected + item.packageName
+                                            } else {
+                                                selected - item.packageName
+                                            }
                                         }
                                     },
                                     shape = selectedSegmentedShape(index, filteredApps.size, selectionFlags),
@@ -183,26 +190,28 @@ fun AppPickerSheet(
                         }
                     }
                 }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = PageGutter, vertical = CardInnerSpacing),
-                    horizontalArrangement = Arrangement.spacedBy(ListSpacing),
-                ) {
-                    TextButton(
-                        modifier = Modifier.weight(1f),
-                        onClick = onDismissRequest,
+                if (!confirmOnSelect) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = PageGutter, vertical = CardInnerSpacing),
+                        horizontalArrangement = Arrangement.spacedBy(ListSpacing),
                     ) {
-                        Text(stringResource(R.string.cancel))
-                    }
-                    FilledTonalButton(
-                        modifier = Modifier.weight(1f),
-                        onClick = {
-                            onConfirm(selectedPackageNames.filter { it in selected } + selected.filter { it !in selectedPackageNames })
-                            onDismissRequest()
-                        },
-                    ) {
-                        Text(stringResource(R.string.confirm))
+                        TextButton(
+                            modifier = Modifier.weight(1f),
+                            onClick = onDismissRequest,
+                        ) {
+                            Text(stringResource(R.string.cancel))
+                        }
+                        FilledTonalButton(
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                onConfirm(selectedPackageNames.filter { it in selected } + selected.filter { it !in selectedPackageNames })
+                                onDismissRequest()
+                            },
+                        ) {
+                            Text(stringResource(R.string.confirm))
+                        }
                     }
                 }
             }

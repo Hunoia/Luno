@@ -407,6 +407,14 @@
     <string name="action_param_label">参数</string>
     <string name="action_param_unselected">未选择</string>
     <string name="action_param_multi_selected">已选 %1$d 个</string>
+    <string name="action_param_kv_key">键</string>
+    <string name="action_param_kv_value">值</string>
+    <string name="action_param_kv_add">添加一项</string>
+    <string name="action_shell_clipboard_label">Shell 输出</string>
+    <string name="action_shell_result">命令结果</string>
+    <string name="action_shell_running">执行中…</string>
+    <string name="action_shell_no_output">（无输出）</string>
+    <string name="close">关闭</string>
     <string name="action_requires_capability">需要 %1$s</string>
     <string name="action_capability_accessibility">无障碍</string>
     <string name="action_capability_shizuku">Shizuku</string>

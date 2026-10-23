@@ -1,12 +1,15 @@
 package hunoia.luno.ui.actionlibrary
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import hunoia.luno.ui.theme.FloatingContentBottom
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
@@ -24,10 +27,12 @@ import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.SegmentedGap
 import hunoia.luno.ui.theme.SheetListMaxHeight
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -37,11 +42,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -51,6 +58,8 @@ import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.ui.settings.action.MiniWindowAdjustContent
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.action.definitions.ParameterDefinition
+import hunoia.luno.action.controller.ShellController
+import hunoia.luno.action.controller.ShellResult
 import hunoia.luno.action.definitions.hasPointParams
 import hunoia.luno.action.model.PARAM_X_DP
 import hunoia.luno.action.model.PARAM_Y_DP
@@ -66,10 +75,12 @@ import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.core.AppContext
 import hunoia.luno.service.DispatchClient
+import hunoia.luno.shizuku.ShizukuFacade
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSelectableRow
@@ -101,7 +112,12 @@ fun ActionLibraryEditScreen(
     var showMiniWindowPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showDiscardConfirm by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    var shellResult by remember { mutableStateOf<ShellResult?>(null) }
+    var shellRunning by remember { mutableStateOf(false) }
     LaunchedEffect(entryId, typeId) {
+        shellResult = null
+        shellRunning = false
         vm.load(entryId, typeId)
     }
     val draft = state.draft
@@ -146,6 +162,18 @@ fun ActionLibraryEditScreen(
                         Icon(imageVector = Icons.Default.Save, contentDescription = stringResource(R.string.save))
                     }
                 }
+                if (draft.typeId == "shell.custom" && (shellResult != null || shellRunning)) {
+                    ShellResultCard(
+                        loading = shellRunning,
+                        result = shellResult,
+                        onDismiss = { shellResult = null },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .windowInsetsPadding(WindowInsets.navigationBars)
+                            .padding(start = 16.dp, end = 16.dp, bottom = 96.dp)
+                            .fillMaxWidth(),
+                    )
+                }
             }
         },
         actions = {
@@ -154,10 +182,25 @@ fun ActionLibraryEditScreen(
                 LunoIconButton(
                     icon = Icons.Default.PlayArrow,
                     contentDescription = stringResource(R.string.action_library_test),
-                    enabled = draft.isValid && testable && !state.isSaving,
+                    enabled = draft.isValid && testable && !state.isSaving && !shellRunning,
                     onClick = {
-                        // 分发失败才提示；成功不给 toast（动作本身会在屏幕上有反馈，多一个弹窗是噪音）。
-                        if (!DispatchClient.dispatch(draft.toStoredAction())) {
+                        // shell 命令在编辑页直接跑一次，把 stdout/stderr 显示在底部面板，
+                        // 不走分发（分发拿不到结果，只能 toast）。
+                        if (draft.typeId == "shell.custom") {
+                            val command = draft.params["command"]?.scalarText().orEmpty().trim()
+                            when {
+                                command.isBlank() -> showToast(R.string.action_library_invalid_hint)
+                                !ShizukuFacade.isReady() -> showToast(R.string.toast_shizuku_required)
+                                else -> {
+                                    shellRunning = true
+                                    scope.launch {
+                                        shellResult = ShellController().runCommand(command)
+                                        shellRunning = false
+                                    }
+                                }
+                            }
+                        } else if (!DispatchClient.dispatch(draft.toStoredAction())) {
+                            // 分发失败才提示；成功不给 toast（动作本身会在屏幕上有反馈，多一个弹窗是噪音）。
                             showToast(R.string.dispatch_service_not_ready)
                         }
                     },
@@ -200,6 +243,7 @@ fun ActionLibraryEditScreen(
                     selectedPackageNames = listOfNotNull(
                         draft?.params?.get(paramDef.key)?.scalarText()?.takeIf(String::isNotBlank),
                     ),
+                    confirmOnSelect = true,
                     onConfirm = { selected ->
                         val current = draft?.params?.get(paramDef.key)?.scalarText()
                         val picked = selected.lastOrNull { it != current }
@@ -310,6 +354,7 @@ if (cardParams.isNotEmpty()) {
                                         definition = paramDef,
                                         currentParams = draft.params,
                                         onParamChange = vm::updateParam,
+                                        onParamElementChange = vm::updateParamElement,
                                         onPickApp = { showAppPicker = paramDef },
                                         onPickApps = { showAppMultiPicker = paramDef },
                                         onPickButtons = { showButtonPicker = paramDef },
@@ -358,6 +403,7 @@ if (cardParams.isNotEmpty()) {
                                 definition = paramDef,
                                 currentParams = draft.params,
                                 onParamChange = vm::updateParam,
+                                onParamElementChange = vm::updateParamElement,
                                 onPickApp = { showAppPicker = paramDef },
                                 onPickApps = { showAppMultiPicker = paramDef },
                                 onPickButtons = { showButtonPicker = paramDef },
@@ -442,6 +488,67 @@ private fun ActivityPickerSheet(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+/** 自定义命令测试输出：浮在页面底部（FAB 上方），可滚动查看。 */
+@Composable
+private fun ShellResultCard(
+    loading: Boolean,
+    result: ShellResult?,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = LargeShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 3.dp,
+        shadowElevation = 3.dp,
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.action_shell_result),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = when {
+                        loading -> MaterialTheme.colorScheme.onSurfaceVariant
+                        result?.success == true -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.error
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+                LunoIconButton(
+                    icon = Icons.Default.Close,
+                    contentDescription = stringResource(R.string.close),
+                    onClick = onDismiss,
+                )
+            }
+            if (loading) {
+                Text(
+                    text = stringResource(R.string.action_shell_running),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Text(
+                    text = result?.let { res ->
+                        val raw = if (res.success) {
+                            res.output.ifBlank { res.error.orEmpty() }
+                        } else {
+                            res.error ?: res.output
+                        }
+                        raw.takeIf { it.isNotBlank() }
+                    } ?: stringResource(R.string.action_shell_no_output),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 180.dp)
+                        .verticalScroll(rememberScrollState()),
+                )
             }
         }
     }

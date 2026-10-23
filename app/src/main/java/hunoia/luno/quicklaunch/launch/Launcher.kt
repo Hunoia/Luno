@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Point
 import android.graphics.Rect
+import android.net.Uri
 import android.os.Build
 import android.util.Log
 import android.view.WindowManager
@@ -30,31 +31,62 @@ object Launcher {
         className: String,
         miniWindow: Boolean,
         miniWindowSettings: MiniWindowSettings = MiniWindowSettings(),
+        intentAction: String = "",
+        data: String = "",
+        extras: Map<String, String> = emptyMap(),
     ): Boolean {
-        if (miniWindow) {
-            return launchAppInPopup(
-                context = context,
-                packageName = packageName,
-                className = className,
-                miniWindowSettings = miniWindowSettings,
-            )
-        }
         return try {
-            val intent = Intent().apply {
-                setClassName(packageName, className)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val pm = context.packageManager
+            val intent = resolveLaunchIntent(pm, packageName, className, intentAction, data, extras)
+                ?: pm.getLaunchIntentForPackage(packageName)?.also { fallback ->
+                    // 兜底保持系统启动 Intent：自定义 action/data 命不中时不塞进去，
+                    // 否则本来能启动的应用也会失败；extras 不改变解析结果，保留。
+                    extras.forEach { (key, value) -> fallback.putExtra(key, value) }
+                }
+                ?: return false
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (miniWindow) {
+                MiniWindow.startActivity(context, intent, miniWindowSettings)
+            } else {
+                context.startActivity(intent)
+                true
             }
-            if (context.packageManager.resolveActivity(intent, 0) == null) {
-                val fallback = context.packageManager.getLaunchIntentForPackage(packageName) ?: return false
-                context.startActivity(fallback)
-                return true
-            }
-            context.startActivity(intent)
-            true
         } catch (e: Exception) {
             Log.e("LunoLauncher", "launchApp failed", e)
             false
         }
+    }
+
+    /**
+     * 解析顺序：配了 action/data 时先按 package 限定的隐式 Intent 解析——action 可能指向
+     * 专门的入口 Activity（如 `com.follow.clash.action.TOGGLE` → QuickActionActivity），
+     * 强制显式组件会让 action 失效。命不中再退回显式指定的 Activity。
+     * 都没配返回 null，交给系统 launch intent。
+     */
+    private fun resolveLaunchIntent(
+        pm: android.content.pm.PackageManager,
+        packageName: String,
+        className: String,
+        intentAction: String,
+        data: String,
+        extras: Map<String, String>,
+    ): Intent? {
+        val action = intentAction.trim()
+        val uri = data.trim()
+        fun base() = Intent().apply {
+            if (action.isNotEmpty()) setAction(action)
+            if (uri.isNotEmpty()) setData(Uri.parse(uri))
+            extras.forEach { (key, value) -> putExtra(key, value) }
+        }
+        if (action.isNotEmpty() || uri.isNotEmpty()) {
+            val implicit = base().apply { setPackage(packageName) }
+            if (pm.resolveActivity(implicit, 0) != null) return implicit
+        }
+        if (className.isNotBlank()) {
+            val explicit = base().apply { setClassName(packageName, className) }
+            if (pm.resolveActivity(explicit, 0) != null) return explicit
+        }
+        return null
     }
 
     fun launchAppActivity(context: Context, packageName: String, className: String): Boolean {
@@ -145,11 +177,17 @@ object Launcher {
         packageName: String,
         className: String,
         miniWindowSettings: MiniWindowSettings = MiniWindowSettings(),
+        intentAction: String = "",
+        data: String = "",
+        extras: Map<String, String> = emptyMap(),
     ): Boolean {
         return MiniWindow.startActivity(
             context,
             ComponentName.createRelative(packageName, className),
             miniWindowSettings,
+            intentAction = intentAction,
+            data = data,
+            extras = extras,
         )
     }
 
@@ -168,12 +206,21 @@ private object MiniWindow {
         context: Context,
         component: ComponentName,
         miniWindowSettings: MiniWindowSettings,
+        intentAction: String = "",
+        data: String = "",
+        extras: Map<String, String> = emptyMap(),
     ): Boolean = startActivity(
         context = context,
         intent = Intent().apply {
             setComponent(component)
-            setAction(Intent.ACTION_MAIN)
-            addCategory(Intent.CATEGORY_LAUNCHER)
+            if (intentAction.isBlank()) {
+                setAction(Intent.ACTION_MAIN)
+                addCategory(Intent.CATEGORY_LAUNCHER)
+            } else {
+                setAction(intentAction)
+            }
+            if (data.isNotBlank()) setData(Uri.parse(data))
+            extras.forEach { (key, value) -> putExtra(key, value) }
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         },
         miniWindowSettings = miniWindowSettings,

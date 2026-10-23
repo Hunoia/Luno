@@ -61,6 +61,10 @@ sealed interface Action {
         val packageName: String,
         val miniWindow: Boolean = false,
         val className: String = "",
+        /** 空 = 不覆盖，保持系统的默认启动行为。 */
+        val intentAction: String = "",
+        val data: String = "",
+        val extras: Map<String, String> = emptyMap(),
     ) : Action {
         override val typeId: String = "app.launch"
     }
@@ -79,6 +83,7 @@ sealed interface Action {
     data class OpenUrl(
         val url: String,
         val queryParameters: List<QueryParam> = emptyList(),
+        val miniWindow: Boolean = false,
     ) : Action {
         override val typeId: String = "intent.openUrl"
     }
@@ -183,7 +188,11 @@ sealed interface Action {
     }
 
     // Shell
-    data class CustomCommand(val command: String, val showToast: Boolean = false) : Action {
+    data class CustomCommand(
+        val command: String,
+        val showToast: Boolean = false,
+        val copyOutput: Boolean = false,
+    ) : Action {
         override val typeId: String = "shell.custom"
     }
 

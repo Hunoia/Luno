@@ -1,5 +1,6 @@
 package hunoia.luno.action.executor
 
+import hunoia.luno.R
 import hunoia.luno.action.controller.AccessibilityController
 import hunoia.luno.action.controller.IntentController
 import hunoia.luno.action.controller.ShellController
@@ -9,6 +10,7 @@ import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionFailure
 import hunoia.luno.action.model.ActionResult
 import hunoia.luno.action.model.resolveButtonTargetIds
+import hunoia.luno.bridge.system.copyText
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.OpenAppOrUrlData
 import hunoia.luno.config.model.OpenUrlQueryParameter
@@ -164,6 +166,7 @@ class IntentExecutors(private val intentController: IntentController) : ActionEx
                 val data = OpenAppOrUrlData(
                     type = OpenAppOrUrlData.TYPE_URL,
                     url = action.url,
+                    miniWindow = action.miniWindow,
                     queryParameters = action.queryParameters.map {
                         OpenUrlQueryParameter(name = it.name, value = it.value, enabled = it.enabled)
                     },
@@ -323,6 +326,13 @@ class ShellExecutor(private val shellController: ShellController) : ActionExecut
             is Action.CustomCommand -> {
                 val command = action.command.trim()
                 val result = shellController.runCommand(command)
+                if (action.copyOutput && result.output.isNotBlank()) {
+                    copyText(
+                        context.appContext,
+                        context.appContext.getString(R.string.action_shell_clipboard_label),
+                        result.output,
+                    )
+                }
                 val message = if (action.showToast) {
                     if (result.success) {
                         result.output.ifBlank { "No output" }

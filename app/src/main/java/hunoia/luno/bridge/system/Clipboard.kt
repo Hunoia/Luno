@@ -21,6 +21,18 @@ fun copySensitiveText(
     }.getOrDefault(false)
 }
 
+/** 普通剪贴板文本（带预览），用于命令输出等非敏感内容。 */
+fun copyText(
+    context: Context,
+    label: String,
+    text: String,
+): Boolean = runCatching {
+    val clipboard = context.getSystemService(ClipboardManager::class.java)
+        ?: return@runCatching false
+    clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
+    true
+}.getOrDefault(false)
+
 private object ClipDescriptionExtras {
     const val IS_SENSITIVE = "android.content.extra.IS_SENSITIVE"
 }

@@ -35,6 +35,7 @@ import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.model.ActionLibraryEntry
 import hunoia.luno.action.definitions.ActionCategory
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import hunoia.luno.ui.component.feedback.EmptyState
@@ -132,7 +133,15 @@ private fun ActionLibraryItem(
     // 副标题 = 已配置的参数值（空值跳过，布尔 false 不喘）；无参数回退类型名。
     val paramSummary = remember(entry) {
         entry.params.entries.mapNotNull { (key, value) ->
-            val text = (value as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotBlank)
+            val text = when (value) {
+                // 键值对参数（extras / query）只展键名，值随内容变化不适合放行副标题。
+                is JsonObject -> value.keys
+                    .filter { it.isNotBlank() }
+                    .takeIf { it.isNotEmpty() }
+                    ?.joinToString(" · ")
+                is JsonPrimitive -> value.contentOrNull?.takeIf(String::isNotBlank)
+                else -> null
+            }
             when {
                 text == null -> null
                 text == "false" -> null

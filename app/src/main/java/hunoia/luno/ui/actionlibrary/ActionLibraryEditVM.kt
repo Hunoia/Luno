@@ -83,6 +83,13 @@ class ActionLibraryEditVM : ViewModel() {
         }
     }
 
+    /** 结构化参数（键值对等）：直接替换整个 JsonElement。 */
+    fun updateParamElement(key: String, value: JsonElement) {
+        _uiState.update { state ->
+            state.copy(draft = state.draft?.copy(params = state.draft.params + (key to value)))
+        }
+    }
+
     fun updateParamMulti(key: String, values: List<String>) {
         _uiState.update { state ->
             state.copy(

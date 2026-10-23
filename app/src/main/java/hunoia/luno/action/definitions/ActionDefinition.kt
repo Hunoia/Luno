@@ -18,6 +18,8 @@ sealed interface ParameterDefinition {
         override val required: Boolean = true,
         override val defaultValue: String? = null,
         val allowTemplates: Boolean = true,
+        /** 输入框为空时的占位提示（如可选 Action 的常见取值）。 */
+        val placeholder: String? = null,
     ) : ParameterDefinition
 
     data class Number(
@@ -92,6 +94,19 @@ sealed interface ParameterDefinition {
         override val label: String,
         override val required: Boolean = true,
     ) : ParameterDefinition {
+        override val defaultValue: String? = null
+    }
+
+    /**
+     * 键值对参数（Intent extras、URL query）：存成 `JsonObject`，值一律字符串。
+     * 空键的行在运行时读取时忽略，未填时不会写入存储。
+     * 没有“必填”概念：空对象等价于未配置。
+     */
+    data class KeyValueMap(
+        override val key: String,
+        override val label: String,
+    ) : ParameterDefinition {
+        override val required: Boolean = false
         override val defaultValue: String? = null
     }
 

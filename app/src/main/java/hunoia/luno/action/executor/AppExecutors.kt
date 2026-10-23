@@ -34,6 +34,9 @@ class AppExecutors(private val intentController: IntentController) : ActionExecu
                     className = action.className,
                     miniWindow = action.miniWindow,
                     miniWindowSettings = adv.miniWindowSettings(),
+                    intentAction = action.intentAction,
+                    data = action.data,
+                    extras = action.extras,
                     unfreezePackage = { _, pkg -> enablePackage(context, pkg) },
                 )
                 if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)

@@ -36,6 +36,7 @@ fun TemplateTextField(
     shape: Shape = LargeShape,
     allowTemplates: Boolean = true,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    placeholder: String? = null,
 ) {
     var field by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
     var showPicker by remember { mutableStateOf(false) }
@@ -53,6 +54,7 @@ fun TemplateTextField(
             onValueChange(it.text)
         },
         label = { Text(label) },
+        placeholder = placeholder?.let { { Text(it) } },
         singleLine = singleLine,
         minLines = if (singleLine) 1 else 3,
         maxLines = if (singleLine) 1 else 10,
