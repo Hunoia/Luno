@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.view.Gravity
 import android.view.KeyEvent
@@ -72,6 +73,12 @@ object GridPanelOverlay {
     /** 组合注册的返回键处理器：返回 true 表示已消费（如退出编辑态）。 */
     private var backHandler: (() -> Boolean)? = null
 
+    /** 选择页关闭后的抑制窗口截止时刻：返回下层应用的那次包切换事件不能当成
+     *  「小部件拉起应用」而关掉面板。不能以 fromPackage == 本应用判断——包名
+     *  tracker 是粘性的，只要用过一次选择页就停在 hunoia.luno，之后所有小部件
+     *  拉起应用的事件都会被吞掉（表现为部分部件点击后面板不关闭）。 */
+    private var suppressForegroundCloseUntil = 0L
+
     /** 返回键：优先让组合消费（编辑态退编辑），否则播退场动画关闭。 */
     fun dismissFromBack(): Boolean {
         if (!shownEventPosted) return false
@@ -91,14 +98,14 @@ object GridPanelOverlay {
     fun onForegroundPackageChanged(fromPackage: String, toPackage: String) {
         if (!shownEventPosted) return
         if (toPackage.isEmpty() || toPackage == context.packageName) return
-        // 从本应用 Activity（如动作选择页）返回下层应用时，包名会从 hunoia.luno
-        // 变回去；这是面板刚回显的正常路径，不能当成“小部件拉起应用”而立刻关掉。
-        if (fromPackage == context.packageName) return
+        // 选择页刚关闭的短暂窗口内：这是「返回下层应用」的正常路径，不是小部件拉应用。
+        if (SystemClock.elapsedRealtime() < suppressForegroundCloseUntil) return
         (closeAnimated ?: { closeImmediate() }).invoke()
     }
 
     private val closedSubscriber: (ActionSelectClosedEvent) -> Unit = {
         // 选择页结束：面板回显（编辑态原样继续 —— 组合里的 editMode/localItems 都在）。
+        suppressForegroundCloseUntil = SystemClock.elapsedRealtime() + 1_500L
         show(panelIdState, anchorXState, anchorYState)
     }
 

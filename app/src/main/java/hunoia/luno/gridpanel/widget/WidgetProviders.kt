@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.os.UserManager
 import hunoia.luno.config.model.GridPanelDefaults
+import hunoia.luno.core.AppContext
 import hunoia.luno.gridpanel.geometry.GridPadding
 import hunoia.luno.gridpanel.geometry.gapFor
 import kotlinx.coroutines.Dispatchers
@@ -15,7 +16,7 @@ import kotlinx.coroutines.withContext
 import java.text.Collator
 import java.util.Locale
 import kotlin.math.ceil
-import kotlin.math.roundToInt
+import kotlin.math.ceil
 
 /**
  * 面板的第三方小部件清单。不用系统的 ACTION_APPWIDGET_PICK：MIUI HyperOS 上它的
@@ -31,11 +32,8 @@ data class WidgetProviderGroup(
 
 data class WidgetSpan(val spanX: Int, val spanY: Int)
 
-/** 桌面格子边长（dp），AppWidget 尺寸协商的通用基准（Launcher3 同款）。 */
-private const val StandardCellDp = 70f
-
-/** 算占格数时补的格子内边距（dp），与 Launcher3 的 widget padding 同量级。 */
-private const val CellPaddingDp = 30f
+/** MIUI 桌面默认列数：minWidth/minHeight（px）按这个格宽取值。 */
+private const val LauncherColumns = 4
 
 /**
  * 面板格宽（dp）。provider 声明的是 launcher 标准格（~70dp）个数，我们格子更小，
@@ -55,29 +53,34 @@ fun panelCellWidthDp(screenWidthDp: Float, cardWidthFraction: Float, columns: In
 
 /**
  * 由 provider 声明的尺寸反推占格数：targetCellWidth/Height 直接用，缺失时退回
- * ceil((minWidth + 30dp) / 70dp)，再按面板列/行封顶。
- * 分母用标准 70dp 且不除 density：minWidth 本来就是 dp，再除会让 3.4x 机器上 2 格算成 1 格。
+ * min 尺寸换算。注意 MIUI/HyperOS 的 minWidth/minHeight 单位是 **px**，且按
+ * MIUI 桌面默认 4 列的格宽取值（实测：4x2 部件 minW≈1024、2x1≈375、1x1≈171，
+ * 屏宽 1200px → 格宽≈300px，ceil(px/300) 与真实占格全部吻合）；不能按 AOSP
+ * 文档当 dp 除以标准 70dp，否则行数会翻倍（4x2 算成 4x4）。
+ * 选择页标签与落格占格数都要求与桌面真实占格一致，不做面板格宽的比例缩放；
+ * 仅按面板列/行封顶。
  */
 fun widgetSpanFor(
     info: AppWidgetProviderInfo,
     columns: Int,
     rows: Int,
-    /** 面板实际格宽（dp）；缺省按标准 70dp 算（不缩）。 */
-    cellWidthDp: Float = StandardCellDp,
 ): WidgetSpan {
     val cols = columns.coerceAtLeast(1)
     val rowCount = rows.coerceAtLeast(1)
-    val scale = (cellWidthDp / StandardCellDp).coerceIn(0.5f, 1f)
+    val screenPx = AppContext.get().resources.displayMetrics.widthPixels
     return WidgetSpan(
-        spanX = ((info.targetCellWidth.takeIf { it > 0 } ?: cellsFor(info.minWidth)) * scale)
-            .roundToInt().coerceIn(1, cols),
-        spanY = ((info.targetCellHeight.takeIf { it > 0 } ?: cellsFor(info.minHeight)) * scale)
-            .roundToInt().coerceIn(1, rowCount),
+        spanX = (info.targetCellWidth.takeIf { it > 0 } ?: cellsFor(info.minWidth, screenPx))
+            .coerceIn(1, cols),
+        spanY = (info.targetCellHeight.takeIf { it > 0 } ?: cellsFor(info.minHeight, screenPx))
+            .coerceIn(1, rowCount),
     )
 }
 
-private fun cellsFor(minSizeDp: Int): Int =
-    ceil((minSizeDp + CellPaddingDp) / StandardCellDp).toInt().coerceAtLeast(1)
+private fun cellsFor(minSizePx: Int, screenPx: Int): Int {
+    if (minSizePx <= 0) return 1
+    val cellPx = (screenPx.toFloat() / LauncherColumns).coerceAtLeast(1f)
+    return ceil(minSizePx.toFloat() / cellPx).toInt().coerceAtLeast(1)
+}
 
 /**
  * 读出设备上所有可用的小部件 provider，按应用分组。

@@ -40,7 +40,6 @@ import hunoia.luno.gridpanel.widget.WidgetProviderGroup
 import hunoia.luno.gridpanel.widget.WidgetSpan
 import hunoia.luno.gridpanel.widget.loadWidgetProviderGroups
 import hunoia.luno.gridpanel.geometry.gridPanelVisibleRows
-import hunoia.luno.gridpanel.widget.panelCellWidthDp
 import hunoia.luno.gridpanel.widget.widgetSpanFor
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.LauncherInfo
@@ -176,12 +175,6 @@ fun ActionSelectContent(
                         actionSelect.gridPanelPageIndex,
                         gridVisibleRows,
                     ) ?: gridVisibleRows
-                    // 默认 span 按面板实际格宽缩（声明值是 launcher 70dp 格的个数，我们格子更小）
-                    val panelCellDp = panelCellWidthDp(
-                        screenWidthDp = LocalConfiguration.current.screenWidthDp.toFloat(),
-                        cardWidthFraction = gridGeo?.cardWidthFraction ?: GridPanelDefaults.CardWidthFraction,
-                        columns = gridColumns,
-                    )
                     var widgetGroups by remember { mutableStateOf<List<WidgetProviderGroup>>(emptyList()) }
                     LaunchedEffect(gridPanelId) {
                         if (gridPanelId.isBlank()) return@LaunchedEffect
@@ -237,7 +230,7 @@ fun ActionSelectContent(
                         val pending = PendingWidget(
                             appWidgetId = appWidgetId,
                             provider = component.flattenToString(),
-                            span = widgetSpanFor(info, gridColumns, gridRows, panelCellDp),
+                            span = widgetSpanFor(info, gridColumns, gridRows),
                         )
                         if (AppWidgetManager.getInstance(context)
                                 .bindAppWidgetIdIfAllowed(appWidgetId, component)
@@ -298,7 +291,7 @@ fun ActionSelectContent(
                             },
                             showWidgetChip = gridPanelId.isNotBlank(),
                             widgetGroups = widgetGroups,
-                            widgetSpanOf = { info -> widgetSpanFor(info, gridColumns, gridRows, panelCellDp) },
+                            widgetSpanOf = { info -> widgetSpanFor(info, gridColumns, gridRows) },
                             onSelectWidget = ::pickWidget,
                             onSelectInternalWidget = { id -> vm.commitInternalWidget(id) },
                         )

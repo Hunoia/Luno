@@ -1,11 +1,13 @@
 package hunoia.luno.gridpanel.widget
 
 import android.appwidget.AppWidgetHost
+import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
 import android.os.Bundle
 import android.util.Log
+import android.widget.RemoteViews
 import hunoia.luno.core.AppContext
 
 /**
@@ -24,6 +26,13 @@ class PanelAppWidgetHost private constructor(
         Log.i(TAG, "provider changed id=$appWidgetId provider=${newData?.provider}")
     }
 
+    /** 宿主视图统一用 [PanelAppWidgetHostView]：拒绝回落到 initialLayout 占位。 */
+    override fun onCreateView(
+        context: Context,
+        appWidgetId: Int,
+        appWidget: AppWidgetProviderInfo?,
+    ): AppWidgetHostView = PanelAppWidgetHostView(context)
+
     override fun onProvidersChanged() {
         Log.i(TAG, "providers changed bound=${getAppWidgetIds().toList()}")
     }
@@ -36,6 +45,7 @@ class PanelAppWidgetHost private constructor(
     }
 
     fun release(appWidgetId: Int) {
+        PanelAppWidgetHostView.forget(appWidgetId)
         runCatching { deleteAppWidgetId(appWidgetId) }
             .onFailure { Log.w(TAG, "deleteAppWidgetId failed id=$appWidgetId: ${it.message}") }
     }
@@ -80,6 +90,36 @@ internal fun interface WidgetGoneListener {
     fun onGone(appWidgetId: Int)
 }
 
+/**
+ * 拒绝回落到 provider 的 initialLayout：系统在 provider 信息刷新（小部件应用升级、
+ * 宿主重听同步等）时会推 [AppWidgetHostView.onUpdateProviderInfo] → `updateAppWidget(null)`，
+ * 另外每次重建视图时 `setListener` 从服务拉的缓存 views 也可能为 null（点部件拉起
+ * 应用后返回面板即重建）。两种 null 都会让宿主视图 inflate initialLayout —— 多数
+ * 小部件的 initialLayout 是「一行小部件名称」的占位，表现为凭空多出一个标题。
+ * 这里按 id 缓存最近一次非 null 的 RemoteViews（进程级，跨视图重建存活），null 时
+ * 回放缓存；缓存也没有（全新绑定首帧）才放行，加载期占位由 Compose 侧 Overlay 盖住。
+ */
+internal class PanelAppWidgetHostView(context: Context) : AppWidgetHostView(context) {
+    override fun updateAppWidget(views: RemoteViews?) {
+        if (views != null) {
+            lastViewsById[appWidgetId] = views
+            super.updateAppWidget(views)
+            return
+        }
+        val cached = appWidgetId.let { lastViewsById[it] }
+        if (cached != null) super.updateAppWidget(cached) else super.updateAppWidget(null)
+    }
+
+    companion object {
+        private val lastViewsById = java.util.concurrent.ConcurrentHashMap<Int, RemoteViews>()
+
+        /** 小部件 id 被回收（release）：缓存一并清掉，避免复用 id 后串内容。 */
+        fun forget(appWidgetId: Int) {
+            lastViewsById.remove(appWidgetId)
+        }
+    }
+}
+
 internal fun notifyWidgetGone(appWidgetId: Int) {
     goneListeners.toList().forEach { it.onGone(appWidgetId) }
 }
@@ -95,8 +135,11 @@ enum class WidgetLoadState {
 }
 
 /**
- * 把格子尺寸换算成 AppWidget 的 dp 选项：MIN 用 provider 声明值，MAX 是我们能给的尺寸；
- * MIN 必须被 MAX 夹住，span 缩小时 MIN > MAX 是非法区间，provider 只会交白卷。
+ * 把格子尺寸换算成 AppWidget 的 dp 选项：MIN/MAX 都下发格子实际内容尺寸。
+ * provider（尤其统计类部件）普遍按 MIN_WIDTH（竖屏当前宽）决定内容布局：
+ * 若 MIN 用 provider 声明的 minWidth 而格子更窄，内容会按声明宽画、底部行被
+ * 裁出可视区 —— 表现为「刚添加汇总行缺失」「缩小后显示不全」。面板格子是
+ * 固定尺寸，MIN == MAX 即 Launcher3 对固定 span 的语义。
  */
 fun applyAppWidgetOptions(appWidgetId: Int, maxWidthDp: Int, maxHeightDp: Int) {
     val manager = AppWidgetManager.getInstance(AppContext.get())
@@ -121,14 +164,8 @@ fun applyAppWidgetOptions(appWidgetId: Int, maxWidthDp: Int, maxHeightDp: Int) {
     val contentW = (maxW - padDpW).coerceAtLeast(1)
     val contentH = (maxH - padDpH).coerceAtLeast(1)
     val options = Bundle().apply {
-        putInt(
-            AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,
-            info.minWidth.coerceAtMost(contentW),
-        )
-        putInt(
-            AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT,
-            info.minHeight.coerceAtMost(contentH),
-        )
+        putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, contentW)
+        putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, contentH)
         putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, contentW)
         putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, contentH)
         // 必须声明 HOME_SCREEN 分类，否则部分 provider 会按普通 widget 的默认内边距

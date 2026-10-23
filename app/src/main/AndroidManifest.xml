@@ -96,7 +96,8 @@
             android:exported="false"
             android:launchMode="singleTask"
             android:process=":service"
-            android:theme="@style/Theme.SideGesture.Transparent" />
+            android:theme="@style/Theme.SideGesture.Transparent"
+            android:windowSoftInputMode="adjustNothing" />
 
         <activity
             android:name=".quicklaunch.QuickSearchActivity"
