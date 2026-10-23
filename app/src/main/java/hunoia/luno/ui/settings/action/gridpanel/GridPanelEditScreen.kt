@@ -1,18 +1,12 @@
 package hunoia.luno.ui.settings.action.gridpanel
 
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -22,9 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -34,6 +26,7 @@ import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.config.model.GridPanelItemLayout
+import hunoia.luno.config.model.derivedPageCount
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.gridpanel.geometry.gridPanelVisibleRows
 import hunoia.luno.config.model.withGeometry
@@ -52,8 +45,9 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
- * 网格面板属性编辑：名称 / 列数 / 行数 / 页数（不设上限）/ 卡片宽度 / 透明度。项在面板内管理。
- * 列/行/页数走 [resizeGrid]（当场重排、放不下才丢弃）；宽度/透明度是纯外观，逐刻度直写。
+ * 网格面板属性编辑：名称 / 列数 / 卡片宽高 / 透明度 / 离屏边距。项在面板内管理。
+ * 页数是派生值（编辑态滑到末尾虚页落项即建页），不在这里设置。
+ * 列数走 [resizeGrid]（当场重排、放不下才丢弃）；宽度/透明度/边距是纯外观，逐刻度直写。
  * 装载必须显式 collect：拿到 DataStore 真实值前不能判「面板不存在」，首帧空配置会误报。
  */
 @Composable
@@ -111,13 +105,14 @@ fun GridPanelEditScreen(
                 val resizedGeo = resized.geometry(landscape)
                 val columns = resizedGeo.columnCount
                     .coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
-                val pages = resized.pageCount.coerceAtLeast(1)
+                // 页数派生：页数不再是显式设置项，只按现有项的最大页归属重排。
+                val pages = resized.derivedPageCount
                 val droppedNames = mutableListOf<String>()
                 val placed = mutableListOf<GridPanelItem>()
                 // 页归属先夹一次（页数变小则溢出项进最后一页），再逐页按原顺序归位：
                 // 放不下的先在本页找空位，无空位才丢。
                 val coerced = resized.items.map { it.copy(pageIndex = it.pageIndex.coerceIn(0, pages - 1)) }
-                // 实际行数：max(可见行数, 现有占用) + DynamicRowExtra，放不下的项再往上撑，无上限。
+                // 实际行数：max(可见行数, 现有占用)，放不下的项再往上撑，无上限。
                 var effectiveRows = maxOf(
                     gridPanelVisibleRows(
                         screenWdp = context.resources.configuration.screenWidthDp.toFloat(),
@@ -125,10 +120,9 @@ fun GridPanelEditScreen(
                         columns = columns,
                         cardWidthFraction = resizedGeo.cardWidthFraction,
                         cardHeightFraction = resizedGeo.cardHeightFraction,
-                        pageCount = pages,
                     ),
                     resized.items.maxOfOrNull { it.bottom } ?: 0,
-                ) + hunoia.luno.config.model.DynamicRowExtra
+                )
                 for (p in 0 until pages) {
                     for (raw in coerced.filter { it.pageIndex == p }) {
                         // 先夹到网格内，放不下的按比例缩小：宁可变小也要留住内容。下界 1×1
@@ -189,7 +183,7 @@ fun GridPanelEditScreen(
                 settings.copy(
                     actionGridPanels = settings.actionGridPanels.withPanel(
                         (if (landscape) resized.copy(landscape = newGeo) else resized.copy(portrait = newGeo))
-                            .copy(pageCount = pages, items = placed),
+                            .copy(items = placed),
                     ),
                 )
             }
@@ -266,7 +260,7 @@ fun GridPanelEditScreen(
                     valueDisplay = { "${it.toInt()}" },
                     valueRange = GridPanelDefaults.MinColumnCount.toFloat()..GridPanelDefaults.MaxColumnCount.toFloat(),
                     steps = GridPanelDefaults.MaxColumnCount - GridPanelDefaults.MinColumnCount - 1,
-                    shape = segmentedShape(0, 3),
+                    shape = segmentedShape(0, 2),
                 )
                 var pendingHeight by remember { mutableStateOf<Float?>(null) }
                 LunoTextSlider(
@@ -282,13 +276,7 @@ fun GridPanelEditScreen(
                     valueDisplay = { "${(it * 100).toInt()}%" },
                     valueRange = GridPanelDefaults.MinCardHeightFraction..GridPanelDefaults.MaxCardHeightFraction,
                     steps = 11,
-                    shape = segmentedShape(1, 3),
-                )
-                // 页数不设上限，滑杆必须有 Range，故用 +/- 步进。
-                PageStepperRow(
-                    pageCount = current.pageCount,
-                    onSelect = { value -> resizeGrid { it.copy(pageCount = value) } },
-                    shape = segmentedShape(2, 3),
+                    shape = segmentedShape(1, 2),
                 )
             }
         }
@@ -306,9 +294,13 @@ fun GridPanelEditScreen(
                     },
                     text = stringResource(R.string.grid_panel_card_width),
                     valueDisplay = { "${(it * 100).toInt()}%" },
-                    valueRange = GridPanelDefaults.MinCardWidthFraction..GridPanelDefaults.MaxCardWidthFraction,
-                    steps = 7,
-                    shape = segmentedShape(0, 2),
+                    valueRange = if (isLandscape()) {
+                        GridPanelDefaults.MinCardWidthFractionLandscape
+                    } else {
+                        GridPanelDefaults.MinCardWidthFraction
+                    }..GridPanelDefaults.MaxCardWidthFraction,
+                    steps = 11,
+                    shape = segmentedShape(0, 3),
                 )
                 var localAlpha by remember(current.cardAlpha) { mutableFloatStateOf(current.cardAlpha) }
                 LunoTextSlider(
@@ -319,47 +311,25 @@ fun GridPanelEditScreen(
                     valueDisplay = { "${(it * 100).toInt()}%" },
                     valueRange = GridPanelDefaults.MinCardAlpha..GridPanelDefaults.MaxCardAlpha,
                     steps = 13,
-                    shape = segmentedShape(1, 2),
+                    shape = segmentedShape(1, 3),
                 )
-            }
-        }
-    }
-}
-
-/** 页数步进（不设上限、滑杆需要 Range，故不走滑杆）；下限 1 页。 */
-@Composable
-private fun PageStepperRow(
-    pageCount: Int,
-    onSelect: (Int) -> Unit,
-    shape: Shape,
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = shape,
-        color = MaterialTheme.colorScheme.surfaceBright,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(R.string.grid_panel_page_count),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f),
-            )
-            IconButton(onClick = { if (pageCount > 1) onSelect(pageCount - 1) }) {
-                Icon(Icons.Default.Remove, contentDescription = null)
-            }
-            Text(
-                text = "$pageCount",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 12.dp),
-            )
-            IconButton(onClick = { onSelect(pageCount + 1) }) {
-                Icon(Icons.Default.Add, contentDescription = null)
+                // 离屏边距：纯外观（clamp + 圆角联动），逐刻度直写。
+                var pendingMargin by remember { mutableStateOf<Float?>(null) }
+                LunoTextSlider(
+                    value = current.geometry(isLandscape()).screenMarginDp,
+                    onValueChange = { value -> pendingMargin = value },
+                    onValueChangeFinished = {
+                        pendingMargin?.let { v ->
+                            update { it.withGeometry(isLandscape()) { g -> g.copy(screenMarginDp = v) } }
+                        }
+                        pendingMargin = null
+                    },
+                    text = stringResource(R.string.grid_panel_screen_margin),
+                    valueDisplay = { "${it.toInt()}dp" },
+                    valueRange = GridPanelDefaults.MinScreenMarginDp..GridPanelDefaults.MaxScreenMarginDp,
+                    steps = 11,
+                    shape = segmentedShape(2, 3),
+                )
             }
         }
     }

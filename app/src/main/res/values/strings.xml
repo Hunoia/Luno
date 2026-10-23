@@ -211,7 +211,7 @@
     <string name="grid_panel_delete_title">删除网格面板</string>
     <string name="grid_panel_column_count">列数</string>
     <string name="grid_panel_row_count">行数</string>
-    <string name="grid_panel_page_count">页数</string>
+    <string name="grid_panel_screen_margin">离屏边距</string>
     <string name="grid_panel_card_width">卡片宽度</string>
     <string name="grid_panel_card_height">卡片高度</string>
     <string name="grid_panel_card_alpha">卡片透明度</string>

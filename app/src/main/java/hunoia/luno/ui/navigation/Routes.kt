@@ -28,7 +28,7 @@ data class ActionSelect(
     val actionPanelItemIndex: Int = -1,
     /** 非空 = 配网格面板：加项只进不出，想换动作就删了重加，所以没有「改已有项」的分支。 */
     val gridPanelId: String = "",
-    /** 加项落到的页（见 [GridPanel.pageCount]）；单页数据恒 0。 */
+    /** 加项落到的页（派生页数可为最大页 +1，即编辑态虚页，落项即建页）。 */
     val gridPanelPageIndex: Int = 0,
     /** 非空 = 在配悬浮球的这个槽（见 [FloatBallSlot]），与上面各 id 字段互斥。 */
     val floatBallSlot: String = "",

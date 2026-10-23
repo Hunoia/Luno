@@ -34,7 +34,6 @@ import com.aaron.compose.component.UiBaseEvent
 import hunoia.luno.R
 import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.core.Paths
-import hunoia.luno.config.model.DynamicRowExtra
 import hunoia.luno.config.model.effectiveGridRows
 import hunoia.luno.gridpanel.widget.PanelAppWidgetHost
 import hunoia.luno.gridpanel.widget.WidgetProviderGroup
@@ -172,12 +171,11 @@ fun ActionSelectContent(
                         columns = gridColumns,
                         cardWidthFraction = gridGeo?.cardWidthFraction ?: GridPanelDefaults.CardWidthFraction,
                         cardHeightFraction = gridGeo?.cardHeightFraction ?: GridPanelDefaults.CardHeightFraction,
-                        pageCount = gridPanel?.pageCount ?: 1,
                     )
                     val gridRows = gridPanel?.effectiveGridRows(
                         actionSelect.gridPanelPageIndex,
                         gridVisibleRows,
-                    ) ?: (gridVisibleRows + DynamicRowExtra)
+                    ) ?: gridVisibleRows
                     // 默认 span 按面板实际格宽缩（声明值是 launcher 70dp 格的个数，我们格子更小）
                     val panelCellDp = panelCellWidthDp(
                         screenWidthDp = LocalConfiguration.current.screenWidthDp.toFloat(),

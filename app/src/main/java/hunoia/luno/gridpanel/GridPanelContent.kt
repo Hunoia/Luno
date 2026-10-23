@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -27,24 +28,31 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.withoutVariantKey
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.DynamicRowExtra
+import hunoia.luno.config.model.EditRowExtra
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.config.model.GridPanelItem
+import hunoia.luno.config.model.derivedPageCount
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.gridpanel.core.GridPanelState
+import hunoia.luno.gridpanel.geometry.rememberCardCornerPx
 import hunoia.luno.gridpanel.geometry.rememberGridMetrics
 import hunoia.luno.gridpanel.ui.GridItemActions
 import hunoia.luno.gridpanel.widget.WidgetGoneListener
 import hunoia.luno.gridpanel.widget.addWidgetGoneListener
 import hunoia.luno.gridpanel.widget.removeWidgetGoneListener
 import hunoia.luno.ui.navigation.ActionSelect
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 
@@ -115,21 +123,66 @@ fun GridPanelRoot(
         GridPanelDefaults.MinColumnCount,
         GridPanelDefaults.MaxColumnCount,
     )
-    val pageCount = panel.pageCount.coerceAtLeast(1)
+    val pageCount = panel.derivedPageCount
     val cardFraction = geo.cardWidthFraction
-        .coerceIn(GridPanelDefaults.MinCardWidthFraction, GridPanelDefaults.MaxCardWidthFraction)
+        .coerceIn(
+            if (landscape) GridPanelDefaults.MinCardWidthFractionLandscape else GridPanelDefaults.MinCardWidthFraction,
+            GridPanelDefaults.MaxCardWidthFraction,
+        )
     val heightFraction = geo.cardHeightFraction
         .coerceIn(GridPanelDefaults.MinCardHeightFraction, GridPanelDefaults.MaxCardHeightFraction)
     val cardAlpha = panel.cardAlpha.coerceIn(GridPanelDefaults.MinCardAlpha, GridPanelDefaults.MaxCardAlpha)
 
-    // 翻页状态：currentPage 随手指实时变（页指示点跟手），settledPage 是落定的页
-    //（加项 / 落盘都认它）。页数被改小时 PagerState 自己夹住当前页。
-    val pagerState = rememberPagerState(pageCount = { pageCount })
     var editMode by remember(panel.id) { mutableStateOf(false) }
+    // 循环翻页：pager 页数恒为极大值（运行态与编辑态一致，避免页数切换引发
+    // clamp/闪跳）。真实页 = index % 有效页数；编辑态有效页数 +1（末尾虚页：
+    // index ≡ 派生页数 即虚页，落项建页）。loopBase 为页数倍数，初始落在真实第 0 页。
+    val loopBase = remember(panel.id) { 1_000_000 - 1_000_000 % pageCount }
+    val pagerState = rememberPagerState(initialPage = loopBase) { Int.MAX_VALUE }
+    // 循环映射：真实页 = index % mappingPages（编辑态 +1，末尾虚页 ≡ 派生页数）。
+    // mappingPages 滞后于 editMode/pageCount：目标映射生效前先把索引 snap 到新旧映射下
+    // 真实页相同的等价点（n 与 n±1 互素，周期 n(n±1) 内必有解），切换后真实页不漂移。
+    val effectivePages = pageCount + if (editMode) 1 else 0
+    var mappingPages by remember { mutableIntStateOf(pageCount) }
+    LaunchedEffect(pageCount, editMode) {
+        if (effectivePages != mappingPages) {
+            val cur = pagerState.currentPage
+            val real = cur.mod(mappingPages).coerceAtMost(effectivePages - 1) // 退出编辑落在虚页时归末页
+            val period = mappingPages * effectivePages
+            val step = ((cur - real).toDouble() / period).roundToInt()
+            pagerState.scrollToPage((real + period * step).coerceAtLeast(0))
+            mappingPages = effectivePages
+        }
+    }
+    // 就近等价索引：离当前位置最近的、真实页为 real 的 pager 索引，避免跨百万页滚动。
+    fun nearestPageIndexOf(real: Int): Int {
+        val cur = pagerState.currentPage
+        val base = cur - cur.mod(mappingPages) + real
+        return listOf(base - mappingPages, base, base + mappingPages).minBy { abs(it - cur) }
+    }
+    // 退出编辑态：若停在虚页（旧映射下 ≡ pageCount），直接翻 editMode 会闪一帧空白
+    //（editMode 先生效而重锚定下一帧才跑，中间帧仍映射到空虚页）。先 snap 到真实页 =
+    // 末页在新旧映射下的 CRT 等价点（snap 期间编辑 UI 还在、内容已是末页），再把
+    // mappingPages 与 editMode 同帧写回。实页退出内容一致，交给 LaunchedEffect 收尾。
+    fun exitEditMode() {
+        val cur = pagerState.currentPage
+        if (cur.mod(pageCount + 1) != pageCount) {
+            editMode = false
+            return
+        }
+        scope.launch {
+            val real = pageCount - 1
+            val period = (pageCount + 1) * pageCount
+            val step = ((cur - real).toDouble() / period).roundToInt()
+            pagerState.scrollToPage((real + period * step).coerceAtLeast(0))
+            mappingPages = pageCount
+            editMode = false
+        }
+    }
     LaunchedEffect(Unit) {
         onRegisterBackHandler?.invoke {
             if (editMode) {
-                editMode = false
+                exitEditMode()
                 true
             } else {
                 false
@@ -199,10 +252,21 @@ fun GridPanelRoot(
             .getOrDefault(0)
     }
 
-    // 行数不限制：实际行数 = max(可见行数，占用行数) + DynamicRowExtra，可见行数
-    // 由卡片高度比例反推（在 rememberGridMetrics 内统一算）；占用取全部页的最大值。
+    // 行数不设限：实际行数 = max(可见行数，占用行数) + 额外空行。编辑态末尾 +2 行给
+    // 拖拽留落点（避免底部项被加项 FAB 遮挡）；运行态不追加，卡片底边贴齐最后一行。
+    // 可见行数由卡片高度反推（在 rememberGridMetrics 内统一算）；占用取全部页的最大值。
     val occupiedRows = localItems.maxOfOrNull { it.bottom } ?: 0
-    val metrics = rememberGridMetrics(columns, cardFraction, heightFraction, pageCount, occupiedRows)
+    val editExtraRows = if (editMode) EditRowExtra else 0
+    val metrics = rememberGridMetrics(
+        columns, cardFraction, heightFraction,
+        occupiedRows,
+        extraRows = editExtraRows,
+    )
+    val clampedMarginDp = geo.screenMarginDp.coerceIn(
+        GridPanelDefaults.MinScreenMarginDp, GridPanelDefaults.MaxScreenMarginDp,
+    )
+    val screenMarginPx = with(LocalDensity.current) { clampedMarginDp.dp.toPx() }
+    val cornerPx = rememberCardCornerPx(clampedMarginDp)
     val metricsState = rememberUpdatedState(metrics)
 
     // provider 被卸载 / 用户在系统里删掉小部件 → 宿主回调 onAppWidgetRemoved。
@@ -249,7 +313,7 @@ fun GridPanelRoot(
                 detectTapGestures(
                     onTap = {
                         if (editMode) {
-                            editMode = false
+                            exitEditMode()
                             suppressItemTapUntil =
                                 SystemClock.elapsedRealtime() + ExitEditTapGuardMillis
                         } else {
@@ -269,6 +333,10 @@ fun GridPanelRoot(
             panelId = panel.id,
             editMode = editMode,
             pageCount = pageCount,
+            showIndicator = pageCount > 1 || editMode,
+            mappingPages = mappingPages,
+            screenMarginPx = screenMarginPx,
+            cornerPx = cornerPx,
             pagerState = pagerState,
             metrics = metrics,
             anchorX = anchorX,
@@ -318,13 +386,19 @@ fun GridPanelRoot(
                     },
                 )
             },
-            onSelectPage = { index -> scope.launch { pagerState.animateScrollToPage(index) } },
+            onSelectPage = { index ->
+                // 指示点给的是真实页；循环模式下滚到就近等价索引，不做跨段长距离动画。
+                scope.launch { pagerState.animateScrollToPage(nearestPageIndexOf(index)) }
+            },
             onAdd = {
                 // 加项落点交给落盘层决定（首个空位），这里不预选格子。
+                // 循环模式下 settledPage 是 pager 索引，先换算回真实页/虚页。
+                val settled = pagerState.settledPage
+                val realSettled = settled.mod(mappingPages)
                 val started = onPickItem(
                     ActionSelect(
                         gridPanelId = panel.id,
-                        gridPanelPageIndex = pagerState.settledPage,
+                        gridPanelPageIndex = realSettled,
                     ),
                 )
                 if (!started) showToast(R.string.toast_select_page_failed)

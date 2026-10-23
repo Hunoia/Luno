@@ -6,10 +6,12 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -32,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
@@ -39,9 +42,8 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.gridpanel.core.EdgeAutoScroll
 import hunoia.luno.gridpanel.core.GridPanelState
-import hunoia.luno.gridpanel.geometry.CardCorner
-import hunoia.luno.gridpanel.geometry.CardMargin
 import hunoia.luno.gridpanel.geometry.GridMetrics
+import hunoia.luno.gridpanel.geometry.IndicatorHeight
 import hunoia.luno.gridpanel.geometry.GridPadding
 import hunoia.luno.gridpanel.ui.GridItemActions
 import hunoia.luno.gridpanel.ui.GridPageIndicator
@@ -69,7 +71,16 @@ private val EdgeScrollStep = 16.dp
 fun GridPanelCard(
     panelId: String,
     editMode: Boolean,
+    /** 派生页数（不含编辑态虚页）。 */
     pageCount: Int,
+    /** 是否显示页指示点（派生页数 > 1，或编辑态有虚页）。 */
+    showIndicator: Boolean,
+    /** 当前生效的循环映射页数（编辑态 +1，见 Content）：真实页 = pagerIndex % mappingPages。 */
+    mappingPages: Int,
+    /** 卡片离屏边距（px）。 */
+    screenMarginPx: Float,
+    /** 卡片圆角（px）= 屏幕圆角 − 离屏边距。 */
+    cornerPx: Float,
     pagerState: PagerState,
     metrics: GridMetrics,
     anchorX: Int,
@@ -85,11 +96,10 @@ fun GridPanelCard(
 ) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
-    val marginPx = with(density) { CardMargin.toPx() }
+    val marginPx = screenMarginPx
     val gridPadDp = GridPadding
     val bandPx = with(density) { EdgeScrollBand.toPx() }
     val stepPx = with(density) { EdgeScrollStep.toPx() }
-
     val targetPosX = (anchorX - metrics.cardW / 4f).coerceIn(
         marginPx,
         (metrics.screenW - metrics.cardW - marginPx).coerceAtLeast(marginPx),
@@ -124,6 +134,10 @@ fun GridPanelCard(
         pageScrolls.keys.retainAll(0 until pageCount)
     }
 
+    // 循环：pager 页数恒为极大值（见 Content）；真实页 = index % mappingPages，
+    // 编辑态末尾虚页 ≡ 派生页数。单页取模归 0。
+    fun realPage(index: Int): Int = index.mod(mappingPages)
+
     Box(
         Modifier
             .offset { IntOffset(posAnimX.value.roundToInt(), posAnimY.value.roundToInt()) }
@@ -138,32 +152,45 @@ fun GridPanelCard(
             }
             .background(
                 gridPanelCardColor.copy(alpha = cardAlpha),
-                RoundedCornerShape(CardCorner),
+                RoundedCornerShape(cornerPx),
             )
-            .clip(RoundedCornerShape(CardCorner)),
+            .clip(RoundedCornerShape(cornerPx)),
     ) {
         // 多页指示点固定在顶部，高度预算 IndicatorHeight 在 metrics 里；页切换靠点/横滑。
         Column(Modifier.fillMaxSize()) {
-            if (pageCount > 1) {
+            // 顶部预留区恒存在（高度 = IndicatorHeight），单页运行态为空白，
+            // 与底部等高预留对称：进编辑态指示点出现时卡面不跳动。
+            if (showIndicator) {
                 GridPageIndicator(
                     pageCount = pageCount,
-                    activePage = pagerState.currentPage,
+                    activePage = realPage(pagerState.currentPage),
                     onSelectPage = onSelectPage,
-                    modifier = Modifier
+                    virtualLast = editMode,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else {
+                Spacer(
+                    Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp),
+                        .height(IndicatorHeight),
                 )
             }
             Box(
                 Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = gridPadDp),
+                    .padding(horizontal = gridPadDp)
+                    // 底部与顶部预留块等高（IndicatorHeight）：进编辑态卡高不跳变，
+                    // 卡面上下对称。
+                    .padding(bottom = IndicatorHeight),
             ) {
                 HorizontalPager(
                     state = pagerState,
                     modifier = Modifier.fillMaxSize(),
-                ) { pageIndex ->
+                ) { pagerIndex ->
+                    // 循环模式下 pager 索引 ≠ 真实页；滚动状态等按真实页共享，
+                    // 同一页的多个循环副本共用同一个 ScrollState。
+                    val pageIndex = realPage(pagerIndex)
                     val vScroll = remember(pageIndex, panelId) {
                         pageScrolls.getOrPut(pageIndex) { ScrollState(0) }
                     }

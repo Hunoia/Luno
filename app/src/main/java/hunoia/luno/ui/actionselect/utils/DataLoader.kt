@@ -17,6 +17,7 @@ import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.GridPanelDefaults
+import hunoia.luno.config.model.derivedPageCount
 import hunoia.luno.config.model.effectiveGridRows
 import hunoia.luno.config.model.GridCell
 import hunoia.luno.config.model.GridPanelItem
@@ -159,7 +160,7 @@ private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: Stored
             android.content.res.Configuration.ORIENTATION_LANDSCAPE
         val geo = panel.geometry(landscape)
         val columns = geo.columnCount.coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
-        val pageIndex = actionSelect.gridPanelPageIndex.coerceIn(0, (panel.pageCount - 1).coerceAtLeast(0))
+        val pageIndex = actionSelect.gridPanelPageIndex.coerceIn(0, panel.derivedPageCount)
         val rows = panel.effectiveGridRows(
             pageIndex,
             gridPanelVisibleRows(
@@ -168,7 +169,6 @@ private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: Stored
                 columns = columns,
                 cardWidthFraction = geo.cardWidthFraction,
                 cardHeightFraction = geo.cardHeightFraction,
-                pageCount = panel.pageCount,
             ),
         )
         val free = GridPanelItemLayout.firstFreeSlot(
@@ -245,7 +245,7 @@ internal suspend fun saveGridPanelWidget(
         val geo = panel.geometry(landscape)
         val columns = geo.columnCount
             .coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
-        val pageIndex = actionSelect.gridPanelPageIndex.coerceIn(0, (panel.pageCount - 1).coerceAtLeast(0))
+        val pageIndex = actionSelect.gridPanelPageIndex.coerceIn(0, panel.derivedPageCount)
         val rows = panel.effectiveGridRows(
             pageIndex,
             gridPanelVisibleRows(
@@ -254,7 +254,6 @@ internal suspend fun saveGridPanelWidget(
                 columns = columns,
                 cardWidthFraction = geo.cardWidthFraction,
                 cardHeightFraction = geo.cardHeightFraction,
-                pageCount = panel.pageCount,
             ),
         )
         val pageItems = panel.items.filter { it.pageIndex == pageIndex }
@@ -357,7 +356,7 @@ internal suspend fun saveGridPanelInternalWidget(
         val geo = panel.geometry(landscape)
         val columns = geo.columnCount
             .coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
-        val pageIndex = actionSelect.gridPanelPageIndex.coerceIn(0, (panel.pageCount - 1).coerceAtLeast(0))
+        val pageIndex = actionSelect.gridPanelPageIndex.coerceIn(0, panel.derivedPageCount)
         val rows = panel.effectiveGridRows(
             pageIndex,
             gridPanelVisibleRows(
@@ -366,7 +365,6 @@ internal suspend fun saveGridPanelInternalWidget(
                 columns = columns,
                 cardWidthFraction = geo.cardWidthFraction,
                 cardHeightFraction = geo.cardHeightFraction,
-                pageCount = panel.pageCount,
             ),
         )
         val pageItems = panel.items.filter { it.pageIndex == pageIndex }

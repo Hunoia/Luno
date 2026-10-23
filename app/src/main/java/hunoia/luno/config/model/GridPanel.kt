@@ -18,8 +18,6 @@ data class GridPanel(
     val items: List<GridPanelItem> = emptyList(),
     val portrait: GridPanelGeometry = GridPanelGeometry(),
     val landscape: GridPanelGeometry = GridPanelGeometry(),
-    /** 页数（不设上限）：项按 [GridPanelItem.pageIndex] 分页；锚点随面板（第 0 页布局），不随页变化。 */
-    val pageCount: Int = 1,
     /** 卡片本体透明度：0.3–1，半透明透出原背景。 */
     val cardAlpha: Float = GridPanelDefaults.CardAlpha,
 ) {
@@ -40,15 +38,27 @@ data class GridPanelGeometry(
     val columnCount: Int = GridPanelDefaults.ColumnCount,
     val cardWidthFraction: Float = GridPanelDefaults.CardWidthFraction,
     val cardHeightFraction: Float = GridPanelDefaults.CardHeightFraction,
+    /** 卡片离屏幕边缘的最小距离（dp）：影响位置 clamp 与卡片圆角（圆角 = 屏幕圆角 − 此值）。 */
+    val screenMarginDp: Float = GridPanelDefaults.ScreenMarginDp,
 )
 
-/** 行数不设限：实际行数 = max(显示行数，占用行数) + [DynamicRowExtra]（每页独立算）。 */
-const val DynamicRowExtra = 5
+/**
+ * 页数派生：= 最大 [GridPanelItem.pageIndex] + 1（空面板 1 页）。页数不再是显式设置项，
+ * 编辑态滑到虚页落项即建页；尾部无内容页随项删除自动消失。
+ */
+val GridPanel.derivedPageCount: Int
+    get() = (items.maxOfOrNull { it.pageIndex } ?: 0) + 1
 
-fun GridPanel.effectiveGridRows(pageIndex: Int, visibleRows: Int): Int {
+/** 行数不设限：实际行数 = max(显示行数，占用行数) + [extraRows]（编辑态 [EditRowExtra]）。 */
+const val DynamicRowExtra = 0
+
+/** 编辑态在滚动区末尾追加的空行数：给拖拽留落点，避免底部项被加项 FAB 遮挡。 */
+const val EditRowExtra = 2
+
+fun GridPanel.effectiveGridRows(pageIndex: Int, visibleRows: Int, extraRows: Int = DynamicRowExtra): Int {
     val display = visibleRows.coerceAtLeast(1)
     val occupied = items.filter { it.pageIndex == pageIndex }.maxOfOrNull { it.bottom } ?: 0
-    return maxOf(display, occupied) + DynamicRowExtra
+    return maxOf(display, occupied) + extraRows
 }
 
 /** 只改对应朝向那份几何。 */
@@ -66,10 +76,16 @@ object GridPanelDefaults {
 
     const val CardWidthFraction = 0.72f
     const val MinCardWidthFraction = 0.5f
+    /** 横屏下限更小：屏宽大，0.5 已占近半屏。 */
+    const val MinCardWidthFractionLandscape = 0.35f
     const val MaxCardWidthFraction = 0.9f
     const val CardAlpha = 0.75f
     const val MinCardAlpha = 0.3f
     const val MaxCardAlpha = 1f
+
+    const val ScreenMarginDp = 12f
+    const val MinScreenMarginDp = 0f
+    const val MaxScreenMarginDp = 48f
 }
 
 @Serializable
