@@ -2,6 +2,7 @@ package hunoia.luno.ui.settings.action
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -45,6 +46,7 @@ fun ActionSettingsScreen(
     onNavToGridPanels: () -> Unit = {},
     onNavToRecentAppsBlocklist: () -> Unit = {},
     onNavToMiniWindowAdjust: () -> Unit = {},
+    onNavToActionSelect: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var showActionPanelStyle by remember { mutableStateOf(false) }
@@ -108,7 +110,7 @@ fun ActionSettingsScreen(
                     icon = Icons.Default.Crop,
                     title = stringResource(R.string.mini_window_position_short),
                     subtitle = stringResource(R.string.mini_window_position_hint),
-                    shape = segmentedShape(0, 3),
+                    shape = segmentedShape(0, 4),
                     onClick = { onNavToMiniWindowAdjust() },
                 )
                 LunoSettingsRow(
@@ -119,15 +121,22 @@ fun ActionSettingsScreen(
                     } else {
                         stringResource(R.string.action_param_multi_selected, actionSettings.recentAppsBlocklist.size)
                     },
-                    shape = segmentedShape(1, 3),
+                    shape = segmentedShape(1, 4),
                     onClick = onNavToRecentAppsBlocklist,
                 )
                 LunoSettingsRow(
                     icon = Icons.Default.TouchApp,
                     title = stringResource(R.string.pointer),
                     subtitle = stringResource(R.string.pointer_hint),
-                    shape = segmentedShape(2, 3),
+                    shape = segmentedShape(2, 4),
                     onClick = { showPointer = true },
+                )
+                LunoSettingsRow(
+                    icon = Icons.Default.Link,
+                    title = stringResource(R.string.action_deep_links),
+                    subtitle = stringResource(R.string.action_deep_links_hint),
+                    shape = segmentedShape(3, 4),
+                    onClick = onNavToActionSelect,
                 )
             }
     }

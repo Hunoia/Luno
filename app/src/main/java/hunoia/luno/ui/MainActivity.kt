@@ -1,14 +1,19 @@
 package hunoia.luno.ui
 
+import android.Manifest
 import android.app.ActivityManager
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.remember
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import hunoia.luno.ui.SideGestureApp
@@ -23,9 +28,14 @@ class MainActivity : ComponentActivity() {
      */
     private var cachedNavController: NavHostController? = null
 
+    /** 系统 Toast 在 MIUI 上会受「通知」权限限制：未授权时后台 Toast 被系统静默丢弃。 */
+    private val notificationPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         myEnableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        requestNotificationPermissionIfNeeded()
 
         setContent {
             val created = rememberNavController()
@@ -36,6 +46,15 @@ class MainActivity : ComponentActivity() {
 
         val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         am.appTasks.firstOrNull()?.setExcludeFromRecents(true)
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val granted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.POST_NOTIFICATIONS,
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!granted) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 }
 

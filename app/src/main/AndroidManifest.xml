@@ -67,6 +67,28 @@
             </intent-filter>
         </activity>
 
+        <!-- 动作库条目外部调用：luno://action/{entryId} -->
+        <activity
+            android:name=".ui.ActionDeepLinkActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:finishOnTaskLaunch="true"
+            android:launchMode="singleTop"
+            android:noHistory="true"
+            android:taskAffinity="hunoia.luno.deeplink"
+            android:theme="@style/Theme.SideGesture.Transparent">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="action"
+                    android:scheme="luno" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".ui.actionselect.ActionSelectHostActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|density|fontScale|uiMode|layoutDirection|locale"

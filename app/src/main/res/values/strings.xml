@@ -377,6 +377,11 @@
     <string name="home_section_data">数据管理</string>
     <string name="action_settings">动作设置</string>
     <string name="action_library">动作库</string>
+    <string name="action_deep_links">外部调用</string>
+    <string name="action_deep_links_hint">选择动作后复制 Deep Link，可用 adb 或第三方应用调用</string>
+    <string name="action_deep_links_pick_title">选择动作</string>
+    <string name="action_deep_link_copied">Deep Link 已复制</string>
+    <string name="action_deep_link_not_found">动作不存在或已删除</string>
     <string name="action_library_and_rules">库与规则</string>
     <string name="action_library_empty">暂无动作库条目</string>
     <string name="action_library_entry_name">条目名称</string>

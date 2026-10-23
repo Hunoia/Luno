@@ -157,6 +157,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToGridPanels = { navController.navigate(GridPanelList) },
                         onNavToRecentAppsBlocklist = { navController.navigate(RecentAppsBlocklist) },
                         onNavToMiniWindowAdjust = { navController.navigate(MiniWindowAdjust) },
+                        onNavToActionSelect = {
+                            navController.navigate(ActionSelect(copyDeepLink = true))
+                        },
                     )
                 }
                 myComposable<RecentAppsBlocklist> {

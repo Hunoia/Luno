@@ -103,6 +103,9 @@ internal fun actionCategory(action: StoredAction): ActionCategory =
 
 internal fun createTitle(actionSelect: ActionSelect): String {
     val context = AppContext.get()
+    if (actionSelect.copyDeepLink) {
+        return context.getString(R.string.action_deep_links_pick_title)
+    }
     if (actionSelect.floatBallSlot == FloatBallSlot.TAP) {
         return context.getString(R.string.float_ball_tap_action)
     }

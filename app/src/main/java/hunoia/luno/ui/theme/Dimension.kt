@@ -112,9 +112,8 @@ val IconEmptyAlpha = 0.4f
 // Feedback illustrations
 val EmptyStateIconSize = 64.dp
 val EmptyStatePaddingVertical = 32.dp
-val ToastMaxWidth = 300.dp
 
-// Wide content gutter（toast / 空态 / 选择器 sheet 的横向留白）
+// Wide content gutter（空态 / 选择器 sheet 的横向留白）
 val LargeGutter = 24.dp
 
 // Elevation

@@ -3,9 +3,12 @@ package hunoia.luno.ui.actionselect
 import androidx.lifecycle.viewModelScope
 import com.aaron.compose.base.BaseComposeVM
 import hunoia.luno.R
-import hunoia.luno.domain.gesture.GestureConfig
+import hunoia.luno.action.model.ActionDeepLink
 import hunoia.luno.action.model.ActionLibraryEntry
 import hunoia.luno.action.model.StoredAction
+import hunoia.luno.bridge.system.copyText
+import hunoia.luno.core.AppContext
+import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.quicklaunch.model.qualifiedName
@@ -83,6 +86,18 @@ class ActionSelectVM(
 
     /** 点一行 = 选中 + 立即落盘 + 返回：没有「再点一下取消」的中间态，也没有完成键可等。 */
     fun select(obj: Any) {
+        if (actionSelect.copyDeepLink) {
+            val link = if (obj is ActionLibraryEntry) {
+                ActionDeepLink.ofEntry(obj.id)
+            } else {
+                ActionDeepLink.ofAction(obj.toStoredAction())
+            }
+            val context = AppContext.get()
+            copyText(context, context.getString(R.string.action_deep_links), link)
+            toast(R.string.action_deep_link_copied)
+            done()
+            return
+        }
         when (obj) {
             is AppInfo -> updateUiState { selectAppInfoTransform(it, obj) }
             is LauncherInfo.ShortcutInfo -> updateUiState { selectShortcutInfoTransform(it, obj) }
