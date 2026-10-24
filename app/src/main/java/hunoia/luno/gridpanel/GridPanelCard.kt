@@ -60,6 +60,10 @@ private val EdgeScrollBand = 56.dp
 /** 自动滚动上限步进（dp/帧，约 960dp/s），实际按越界深度在 25%~100% 间取。 */
 private val EdgeScrollStep = 16.dp
 
+/** 横向拖到距网格左右边这么 dp 内松手 = 挪到相邻页。比竖向 band 窄：
+ *  横向没有自动滚动，太宽的触发区容易在被拖卡边缘就误触。 */
+private val PageFlipBand = 40.dp
+
 /**
  * 卡片容器：几何 → 尺寸 → 位置动画 → HorizontalPager。
  * 每页的 [ScrollState] 在这里创建并长期持有（map + getOrPut）：放进 pager 的
@@ -102,6 +106,7 @@ fun GridPanelCard(
     val gridPadDp = GridPadding
     val bandPx = with(density) { EdgeScrollBand.toPx() }
     val stepPx = with(density) { EdgeScrollStep.toPx() }
+    val flipBandPx = with(density) { PageFlipBand.toPx() }
     val targetPosX = (anchorX - metrics.cardW / 4f).coerceIn(
         marginPx,
         (metrics.screenW - metrics.cardW - marginPx).coerceAtLeast(marginPx),
@@ -168,6 +173,15 @@ fun GridPanelCard(
                     activePage = realPage(pagerState.currentPage),
                     onSelectPage = onSelectPage,
                     virtualLast = editMode,
+                    // 拖拽贴边：把松手后的目标页画成高亮环（末页往前 = 新建页）。
+                    pendingPage = run {
+                        val active = realPage(pagerState.currentPage)
+                        when (state.dragPageShift) {
+                            1 -> if (active >= pageCount - 1) pageCount else active + 1
+                            -1 -> if (active == 0) (pageCount - 1).coerceAtLeast(0) else active - 1
+                            else -> null
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                 )
             } else {
@@ -206,6 +220,7 @@ fun GridPanelCard(
                         onDispose { edge.stop() }
                     }
                     val pageMetrics = metricsForPage(pageIndex)
+                    val pageMetricsRef = rememberUpdatedState(pageMetrics)
                     LaunchedEffect(editMode, pageIndex) {
                         if (!editMode) edge.stop()
                     }
@@ -228,11 +243,21 @@ fun GridPanelCard(
                                 edge.stop()
                                 baseActionsState.value.onDragEnd()
                             },
-                            onDragPosition = { item, contentY ->
+                            onDragPosition = { item, contentX, contentY ->
                                 // contentY 已是网格内容坐标（层根 = 滚动内容），
                                 // 减去已滚量才是可视区坐标。
                                 edge.update(vScroll, contentY - vScroll.value, pageIndex)
-                                baseActionsState.value.onDragPosition?.invoke(item, contentY)
+                                // 横向贴边：松手把项挪到相邻页（循环模式下首尾互通，
+                                // 末页往前 = 新建一页）。竖向仍归 EdgeAutoScroll。
+                                val contentW = pageMetricsRef.value.contentW
+                                state.onDragPageShift(
+                                    when {
+                                        contentX < flipBandPx -> -1
+                                        contentX > contentW - flipBandPx -> 1
+                                        else -> 0
+                                    },
+                                )
+                                baseActionsState.value.onDragPosition?.invoke(item, contentX, contentY)
                             },
                             onResizeStart = { item ->
                                 baseActionsState.value.onResizeStart(item)

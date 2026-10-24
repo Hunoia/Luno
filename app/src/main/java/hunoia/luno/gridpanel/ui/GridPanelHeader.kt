@@ -27,6 +27,8 @@ fun GridPageIndicator(
     onSelectPage: (Int) -> Unit,
     /** 编辑态末尾的虚页（未建页）：空心加号样式，区别于实体页。 */
     virtualLast: Boolean = false,
+    /** 拖拽贴边时松手会挪到的目标页（可能 = pageCount 表示新建页）：画成高亮环。 */
+    pendingPage: Int? = null,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -43,14 +45,15 @@ fun GridPageIndicator(
             }
             val isVirtual = virtualLast && index == pageCount
             val active = index == activePage
+            val pending = !active && index == pendingPage
             if (isVirtual) {
                 Box(
                     Modifier
                         .size(9.dp)
                         .clip(RoundedCornerShape(50))
                         .border(
-                            width = 1.5.dp,
-                            color = if (active) {
+                            width = if (pending) 2.dp else 1.5.dp,
+                            color = if (active || pending) {
                                 MaterialTheme.colorScheme.primary
                             } else {
                                 MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
@@ -65,10 +68,22 @@ fun GridPageIndicator(
                         .size(7.dp)
                         .clip(RoundedCornerShape(50))
                         .background(
-                            if (active) {
-                                MaterialTheme.colorScheme.primary
+                            when {
+                                active -> MaterialTheme.colorScheme.primary
+                                pending -> MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+                            },
+                        )
+                        // 目标页加一圈描边：落在当前页 / 相邻页的差别一眼能看出来。
+                        .then(
+                            if (pending) {
+                                Modifier.border(
+                                    width = 1.5.dp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    shape = RoundedCornerShape(50),
+                                )
                             } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+                                Modifier
                             },
                         )
                         .clickable { onSelectPage(index) },

@@ -132,6 +132,19 @@ data class GridMetrics(
     fun cellX(px: Float): Int = floor(px / stepW).toInt()
 
     fun cellY(px: Float): Int = floor(px / stepH).toInt()
+
+    /**
+     * 拖拽落格：按「左上格的中心」判定，并夹到合法范围。
+     *
+     * 不用整项中心：多格项的整项中心在左/上边界依赖拖拽位移额外夹取（否则
+     * 落不到第 0 列）；左上格与整数 span 严格对齐，直接夹格就够。也不用左上角：
+     * 左上格中心有半格迟滞，不会贴着格界来回跳。
+     */
+    fun dropCellX(left: Float, span: Int): Int =
+        cellX(left + cellW / 2f).coerceIn(0, (columns - span).coerceAtLeast(0))
+
+    fun dropCellY(top: Float, span: Int): Int =
+        cellY(top + cellH / 2f).coerceIn(0, (rows - span).coerceAtLeast(0))
 }
 
 @Composable

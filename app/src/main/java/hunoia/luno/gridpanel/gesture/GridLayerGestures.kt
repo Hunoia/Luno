@@ -3,6 +3,7 @@ package hunoia.luno.gridpanel.gesture
 import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
@@ -23,6 +24,45 @@ import kotlin.math.roundToInt
 private enum class LayerGestureOutcome { TAP, GIVE_UP }
 
 /**
+ * 编辑态长按阈值：系统的 `longPressTimeoutMillis`（~400ms）拖起不够跟手；
+ * 编辑态本就是明确的「改布局」意图，缩到 300ms，同时不短于无障碍可接受的下限。
+ */
+private const val EditModeLongPressMillis = 300L
+
+/**
+ * 按住反馈：只跟踪「按下命中的是哪一项」，不消费事件、不影响主手势的命中逻辑。
+ * 与 [gridLayerGestures] 并列挂同一节点（各自一个 pointerInput，都会收到事件）：
+ * 主手势专心处理判定域，这里只负责让卡片在长按等待期先浮起来。
+ */
+@Composable
+fun Modifier.gridItemPressFeedback(
+    metrics: GridMetrics,
+    itemsProvider: () -> List<GridPanelItem>,
+    onPressChange: (GridPanelItem?) -> Unit,
+): Modifier {
+    val metricsRef = rememberUpdatedState(metrics)
+    val itemsRef = rememberUpdatedState(itemsProvider)
+    val onPressRef = rememberUpdatedState(onPressChange)
+    return pointerInput(Unit) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            // 子层（删除角标、手柄）已经消费了这一下：那根手指不归「按下反馈」管，
+            // 否则点角标时整项会无意义地浮一下。
+            if (down.isConsumed) return@awaitEachGesture
+            val hit = hitTest(itemsRef.value(), down.position, metricsRef.value)
+                ?: return@awaitEachGesture
+            onPressRef.value(hit.first)
+            try {
+                waitForUpOrCancellation()
+            } finally {
+                // 抬手、滑动、被子层消费、节点被回收都要收回去，不能留一张悬着的卡。
+                onPressRef.value(null)
+            }
+        }
+    }
+}
+
+/**
  * 网格层根节点的统一手势（编辑态）：手柄 > 长按拖拽 > 点按。
  * 必须挂在层根：项在拖拽中随 `offset{}` 逐帧移动，项内 pointerInput 的坐标系
  * 跟着动，`positionChange()` 会被节点自身位移抵掉（半速跟手、抖动）；层根在
@@ -38,8 +78,8 @@ fun Modifier.gridLayerGestures(
     onDragStart: (GridPanelItem) -> Unit,
     onDrag: (Offset) -> Unit,
     onDragEnd: () -> Unit,
-    /** [contentY] = 手指在网格内容坐标里的 y（层根 = 滚动内容，无需再换算）。 */
-    onDragPosition: (GridPanelItem, contentY: Float) -> Unit,
+    /** [contentX]/[contentY] = 手指在网格内容坐标里的位置（层根 = 滚动内容）。 */
+    onDragPosition: (GridPanelItem, contentX: Float, contentY: Float) -> Unit,
     onResizeStart: (GridPanelItem) -> Unit,
     onResizeDelta: (Offset) -> Unit,
     onResizeEnd: () -> Unit,
@@ -79,6 +119,8 @@ fun Modifier.gridLayerGestures(
                 )
             ) {
                 down.consume()
+                // 和长按拖拽的 LONG_PRESS 对坐：抓住手柄也要有一下触感。
+                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                 resizeStartRef.value(item)
                 trackResizeDrag(down) { resizeDeltaRef.value(it) }
                 resizeEndRef.value()
@@ -87,7 +129,9 @@ fun Modifier.gridLayerGestures(
 
             // 2) 长按等待：与 combinedClickable 共用 ViewConfiguration 超时。
             var upForTap: PointerInputChange? = null
-            val outcome = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+            val outcome = withTimeoutOrNull(
+                minOf(viewConfiguration.longPressTimeoutMillis, EditModeLongPressMillis),
+            ) {
                 var result = LayerGestureOutcome.GIVE_UP
                 while (true) {
                     val event = awaitPointerEvent()
@@ -130,7 +174,7 @@ fun Modifier.gridLayerGestures(
                         if (!change.pressed) break
                         val delta = change.positionChange()
                         // 位置先报：位移为零的帧也要报，边缘滚动才能持续生效。
-                        dragPosRef.value(item, change.position.y)
+                        dragPosRef.value(item, change.position.x, change.position.y)
                         if (delta != Offset.Zero) {
                             change.consume()
                             dragRef.value(delta)

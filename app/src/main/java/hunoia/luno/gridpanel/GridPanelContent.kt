@@ -37,9 +37,11 @@ import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.withoutVariantKey
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.EditRowExtra
+import hunoia.luno.config.model.GridCell
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.config.model.GridPanelItem
+import hunoia.luno.config.model.GridPanelItemLayout
 import hunoia.luno.config.model.derivedPageCount
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.gridpanel.core.GridPanelState
@@ -165,16 +167,6 @@ fun GridPanelRoot(
     fun exitEditMode() {
         Log.i(TAG, "exitEditMode: cur=${pagerState.settledPage} mapping=$mappingPages pageCount=$pageCount")
         editMode = false
-    }
-    LaunchedEffect(Unit) {
-        onRegisterBackHandler?.invoke {
-            if (editMode) {
-                exitEditMode()
-                true
-            } else {
-                false
-            }
-        }
     }
 
     if (panel == null) {
@@ -309,6 +301,32 @@ fun GridPanelRoot(
         onDispose { removeWidgetGoneListener(listener) }
     }
 
+    /**
+     * 拖到左右边缘松手：把项挪到相邻页。
+     * 源页保持原布局（拖拽中的重排只是预览，没写盘）；目标页找首个空位，
+     * 满了就落到最底下一行（页高会随之撑开）。向前越过末页 = 新建一页。
+     */
+    fun moveItemToPage(item: GridPanelItem, fromPage: Int, shift: Int) {
+        val toPage = when {
+            shift > 0 && fromPage >= pageCount - 1 -> pageCount
+            shift < 0 && fromPage == 0 -> (pageCount - 1).coerceAtLeast(0)
+            else -> (fromPage + shift).coerceIn(0, pageCount - 1)
+        }
+        if (toPage == fromPage) return
+        val targetItems = localItems.filter { it.pageIndex == toPage }
+        val m = metricsForPage(toPage)
+        val slot = GridPanelItemLayout.firstFreeSlot(
+            items = targetItems,
+            columns = m.columns,
+            rows = m.rows + EditRowExtra,
+            spanX = item.spanX,
+            spanY = item.spanY,
+        ) ?: GridCell(0, targetItems.maxOfOrNull { it.bottom } ?: 0)
+        val moved = item.copy(pageIndex = toPage, x = slot.x, y = slot.y)
+        Log.i(TAG, "moveItemToPage id=${item.id} $fromPage -> $toPage at (${slot.x},${slot.y})")
+        commitAllItems(localItems.filterNot { it.id == item.id } + moved)
+    }
+
     fun execute(action: StoredAction, screenX: Int, screenY: Int) {
         // 执行链要求 a11y 容器。没开无障碍时转发失败：别关面板也别装没事。
         if (!dispatch(action, screenX, screenY)) {
@@ -324,8 +342,23 @@ fun GridPanelRoot(
             pageItemsProvider = { page -> localItems.filter { it.pageIndex == page } },
             onHaptic = { view.performHapticFeedback(HapticFeedbackConstants.TEXT_HANDLE_MOVE) },
             commitPage = { page, items -> commitPageItems(page, items) },
+            moveItemToPage = { item, fromPage, shift -> moveItemToPage(item, fromPage, shift) },
             scope = scope,
         )
+    }
+
+    // 返回键优先级：拖拽中 → 取消拖拽；缩放中 → 取消缩放；编辑态 → 退编辑；否则交给浮窗。
+    // 注册必须放在 state 之后（处理器要能读到当前拖拽/缩放状态），并且以 state 为 key：
+    // 面板切换会重建 state，旧闭包不能留着。
+    LaunchedEffect(state) {
+        onRegisterBackHandler?.invoke {
+            when {
+                state.draggingId != null -> { state.cancelDrag(); true }
+                state.resizingId != null -> { state.cancelResize(); true }
+                editMode -> { exitEditMode(); true }
+                else -> false
+            }
+        }
     }
 
     var suppressItemTapUntil by remember(panel.id) { mutableStateOf(0L) }
@@ -412,6 +445,7 @@ fun GridPanelRoot(
                             },
                         )
                     },
+                    onNudge = { item, dx, dy -> state.nudge(pageIndex, item.id, dx, dy) },
                 )
             },
             onSelectPage = { index ->

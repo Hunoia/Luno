@@ -2,6 +2,7 @@ package hunoia.luno.gridpanel.core
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -13,9 +14,12 @@ import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.config.model.GridPanelItemLayout
 import hunoia.luno.gridpanel.geometry.GridMetrics
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+
+/** 松手后「视觉位 → 落格位」的残差衰减，与渲染层的落定回压同源。 */
+private val GlideSpring = spring<Offset>(dampingRatio = 0.70f, stiffness = 520f)
 
 /** 松手后 span 吸附到整格的动画时长。 */
 private const val ResizeSettleMillis = 400
@@ -35,6 +39,8 @@ class GridPanelState(
     private val pageItemsProvider: (Int) -> List<GridPanelItem>,
     private val onHaptic: () -> Unit,
     private val commitPage: (Int, List<GridPanelItem>) -> Unit,
+    /** 拖到左右边缘松手：把项挪到相邻页（shift = ±1），本页保持原布局。 */
+    private val moveItemToPage: (item: GridPanelItem, fromPage: Int, shift: Int) -> Unit,
     private val scope: CoroutineScope,
 ) {
     var draggingId by mutableStateOf<String?>(null)
@@ -45,6 +51,15 @@ class GridPanelState(
         private set
     var hoverCell by mutableStateOf<GridCell?>(null)
         private set
+
+    /** 拖到左右边缘：-1 / +1 = 松手后挪到相邻页，0 = 不挪。 */
+    var dragPageShift by mutableStateOf(0)
+        private set
+
+    /** 上一次落格用的**夹取后**指针格。与 [hoverCell]（planReorder 的实际落点）
+     *  分开记：项顶到边缘时两者可能持久不等，拿 hoverCell 去比会让每帧都
+     *  重解一遍并连震（右边缘一直振的根因）。 */
+    private var lastTargetCell: GridCell? = null
 
     /** 松手惯性：(itemId, 视觉残差 px)。下次拖起清空。 */
     var glideFrom by mutableStateOf<Pair<String, Offset>?>(null)
@@ -67,18 +82,18 @@ class GridPanelState(
     /** 松手吸附动画进行中：禁止二次抓手柄（resizingId 仍非空）。 */
     private var resizeSettling = false
 
-    /** 触感节流：同一次拖拽/缩放里目标格连跳时，120ms 内不重复振。 */
+    /** 触感节流：目标格连跳时，80ms 内不重复振。 */
     private var lastHapticAt = 0L
 
     /** 最近一次位移来自边缘自动滚动：滚动跨格不振动（连续穿行时会一直振）。 */
     private var fromAutoScroll = false
 
-    /** 上次振动时的 dragVisual：目标格变化但净位移不够（贴着格界抖）不振动。 */
-    private var lastHapticVisual = Offset.Zero
+    /** 松手归格残差动画：开始新拖拽要停掉旧的，否则两组动画会抢 glideFrom。 */
+    private var glideJob: Job? = null
 
     private fun hapticTick() {
         val now = android.os.SystemClock.elapsedRealtime()
-        if (now - lastHapticAt >= 120L) {
+        if (now - lastHapticAt >= 80L) {
             lastHapticAt = now
             onHaptic()
         }
@@ -92,14 +107,21 @@ class GridPanelState(
 
     fun beginDrag(page: Int, item: GridPanelItem) {
         if (resizingId != null) return
+        glideJob?.cancel()
+        glideJob = null
         dragBase = pageItemsProvider(page)
         resolved = dragBase
         originCell = GridCell(item.x, item.y)
         dragVisual = Offset.Zero
         hoverCell = null
         glideFrom = null
+        dragPageShift = 0
+        lastTargetCell = null
         draggingId = item.id
         dragPage = page
+        // 触感状态跟拖拽走：上一轮的值留着会让本轮第一次落格漏振或误振。
+        lastHapticAt = 0L
+        fromAutoScroll = false
     }
 
     fun onDragDelta(action: Offset) {
@@ -108,47 +130,69 @@ class GridPanelState(
         val m = metricsProvider(page)
         val moving = resolved.firstOrNull { it.id == id } ?: return
         fromAutoScroll = false
-        val raw = dragVisual + action
-        // 钳制必须配合「中心落格」的判定域：中心要能到达目标格的中心，
-        // 否则占多格的项往左挪一格时永远够不着（占 2-4 拖不到 1-3）。
-        val halfW = m.itemW(moving.spanX.toFloat()) / 2f
-        val halfH = m.itemH(moving.spanY.toFloat()) / 2f
-        val minX = -(originCell.x * m.stepW) - halfW
-        val minY = -(originCell.y * m.stepH) - halfH
+        dragVisual = clampDragVisual(dragVisual + action, m, moving)
+        resolveTarget()
+    }
+
+    /**
+     * 把拖拽位移夹到「卡整个留在网格内」。
+     * 左右/上下对称：以前左侧用 halfW 允许半个卡探出网格、右侧只到内容边界，
+     * 于是「右边缘会挡住、左边不会」，边缘处落点预览和卡片视觉也错开一格。
+     */
+    private fun clampDragVisual(
+        raw: Offset,
+        m: GridMetrics,
+        moving: GridPanelItem,
+    ): Offset {
+        val minX = -(originCell.x * m.stepW)
+        val minY = -(originCell.y * m.stepH)
         val maxX = (m.contentW - m.itemW(moving.spanX.toFloat()) - originCell.x * m.stepW)
             .coerceAtLeast(0f)
         val maxY = (m.contentH - m.itemH(moving.spanY.toFloat()) - originCell.y * m.stepH)
             .coerceAtLeast(0f)
-        dragVisual = Offset(
+        return Offset(
             raw.x.coerceIn(minX, maxX),
             raw.y.coerceIn(minY, maxY),
         )
-        resolveTarget()
     }
 
     /**
      * 边缘自动滚动消费了多少内容坐标。手指没动、内容滚走了，
      * 卡片要跟着内容一起走（dragVisual 增加），目标格才会随滚动推进。
+     * 同样要过钳制：否则滚到底时卡会被推出内容底边，下次手指一动又弹回来。
      */
     fun onAutoScroll(consumed: Offset) {
-        if (draggingId == null || consumed == Offset.Zero) return
+        val id = draggingId ?: return
+        val page = dragPage ?: return
+        if (consumed == Offset.Zero) return
+        val m = metricsProvider(page)
+        val moving = resolved.firstOrNull { it.id == id } ?: return
         fromAutoScroll = true
-        dragVisual += consumed
+        dragVisual = clampDragVisual(dragVisual + consumed, m, moving)
         resolveTarget()
     }
 
     private fun resolveTarget() {
         val id = draggingId ?: return
         val page = dragPage ?: return
+        // 一进函数就取走并清掉：下面任何早退（同一目标格、求解失败）都不能把这个
+        // flag 留到下一次手指位移，否则那一帧会被误判成自动滚动而跳过触感。
+        val fromScroll = fromAutoScroll
+        fromAutoScroll = false
         val m = metricsProvider(page)
         val moving = resolved.firstOrNull { it.id == id } ?: return
-        // 按项**中心**落格（不是左上角）：中心要拖过半格才换目标，
-        // 拖到格边界附近时不会在相邻格间来回跳（1×1 项尤甚）。
-        val centerX = originCell.x * m.stepW + dragVisual.x + m.itemW(moving.spanX.toFloat()) / 2f
-        val centerY = originCell.y * m.stepH + dragVisual.y + m.itemH(moving.spanY.toFloat()) / 2f
-        val tx = m.cellX(centerX)
-        val ty = m.cellY(centerY)
-        if (hoverCell?.x == tx && hoverCell?.y == ty) return
+        // 用「左上格的中心」落格：格中心判定有半格迟滞，不会贴着格界来回跳；
+        // 同时它和整数 span 严格对齐（整数 span 下 contentW − itemW 恰为 step ×
+        // (cols − span)），多格项拖到最左/最上也能落到第 0 列，不会像整项中心
+        // 那样被夹在第 1 列。
+        val left = originCell.x * m.stepW + dragVisual.x
+        val top = originCell.y * m.stepH + dragVisual.y
+        val tx = m.dropCellX(left, moving.spanX)
+        val ty = m.dropCellY(top, moving.spanY)
+        // 只在指针格真的变了才重解：顶点到边缘后 tx/ty 已夹到上限，
+        // 在这里早退，不会每帧重排 + 连震。
+        if (lastTargetCell?.x == tx && lastTargetCell?.y == ty) return
+        lastTargetCell = GridCell(tx, ty)
         // 只从 dragBase 求解：输出不再反馈为输入，来回拖不会累积漂移。
         val plan = GridPanelItemLayout.planReorder(
             items = dragBase,
@@ -167,45 +211,114 @@ class GridPanelState(
         // hoverCell 记的是**实际落点**（planReorder 会夹目标格），不是指针格：
         // 下一帧同一指针格不会再触发一次触感。
         hoverCell = GridCell(dropped.x, dropped.y)
-        // 双重去抖：①自动滚动跨格不振动；②目标格虽变，但手指净位移不足 0.3 格不振动。
-        if (fromAutoScroll) {
-            fromAutoScroll = false
-            return
-        }
-        if ((dragVisual - lastHapticVisual).getDistance() < m.stepW * 0.3f) return
-        lastHapticVisual = dragVisual
+        // 自动滚动推进的格不算「手拖到的新格」：连续穿行时会一直振。
+        if (fromScroll) return
         hapticTick()
     }
 
     fun endDrag() {
         val id = draggingId
         val page = dragPage
+        val shift = dragPageShift
         if (id != null && page != null) {
-            val m = metricsProvider(page)
-            val target = resolved.firstOrNull { it.id == id }
-            if (target != null) {
-                val visualNow = Offset(
-                    originCell.x * m.stepW + dragVisual.x,
-                    originCell.y * m.stepH + dragVisual.y,
-                )
-                val targetBase = Offset(target.x * m.stepW, target.y * m.stepH)
-                glideFrom = id to (visualNow - targetBase)
-                commitPage(page, resolved)
+            val source = pageItemsProvider(page).firstOrNull { it.id == id }
+            if (shift != 0 && source != null) {
+                // 横向边缘松手：整项挪到相邻页。本页保持**原**布局 —— 拖拽中的
+                // 重排只是预览，没写盘，跟着提交会在源页留下被推开的空洞。
+                moveItemToPage(source, page, shift)
+            } else {
+                val target = resolved.firstOrNull { it.id == id }
+                // 原地松手（拖起又放回同一格）：不写盘、不做残差动画。
+                // 否则每次长按误触都会碰一次 TuneConfig.updateAction。
+                if (target != null && (target.x != originCell.x || target.y != originCell.y)) {
+                    val m = metricsProvider(page)
+                    val visualNow = Offset(
+                        originCell.x * m.stepW + dragVisual.x,
+                        originCell.y * m.stepH + dragVisual.y,
+                    )
+                    val targetBase = Offset(target.x * m.stepW, target.y * m.stepH)
+                    settleGlide(id, visualNow - targetBase)
+                    commitPage(page, resolved)
+                }
             }
         }
+        clearDragState()
+    }
+
+    /** 取消拖拽（返回键）：卡从当前位置滑回拖起格，不写盘。 */
+    fun cancelDrag() {
+        val id = draggingId
+        val page = dragPage
+        if (id != null && page != null) {
+            val m = metricsProvider(page)
+            val origin = Offset(originCell.x * m.stepW, originCell.y * m.stepH)
+            val visualNow = Offset(origin.x + dragVisual.x, origin.y + dragVisual.y)
+            settleGlide(id, visualNow - origin)
+        }
+        clearDragState()
+    }
+
+    private fun clearDragState() {
         draggingId = null
         dragPage = null
         dragVisual = Offset.Zero
         hoverCell = null
         dragBase = emptyList()
         resolved = emptyList()
-        // 残差动画走完后清空 glide：否则后续任何让位都会走「base.snapTo」分支，
-        // 表现为别的项一被推就瞬移。450ms > SettleSpring 的收敛时间。
-        if (id != null) {
-            scope.launch {
-                delay(450L)
-                if (glideFrom?.first == id) glideFrom = null
+        dragPageShift = 0
+        lastTargetCell = null
+    }
+
+    /** 拖到左右边缘时由渲染层上报（-1/0/+1）：进出边缘时给一颗触感。 */
+    fun onDragPageShift(shift: Int) {
+        if (draggingId == null) return
+        val next = shift.coerceIn(-1, 1)
+        if (next == dragPageShift) return
+        dragPageShift = next
+        if (next != 0) hapticTick()
+    }
+
+    /** 无障碍「移动一格」：不走手势，直接按同一套落位规则重排并写盘。 */
+    fun nudge(page: Int, itemId: String, dx: Int, dy: Int) {
+        if (draggingId != null || resizingId != null) return
+        val items = pageItemsProvider(page)
+        val item = items.firstOrNull { it.id == itemId } ?: return
+        val m = metricsProvider(page)
+        val plan = GridPanelItemLayout.planReorder(
+            items = items,
+            movingId = itemId,
+            targetX = item.x + dx,
+            targetY = item.y + dy,
+            columns = m.columns,
+            rows = m.rows,
+        ) ?: return
+        val moved = plan.firstOrNull { it.id == itemId } ?: return
+        // 顶到边界时 plan 会把目标夹回原位：别白写一次盘。
+        if (moved.x == item.x && moved.y == item.y) return
+        commitPage(page, plan)
+        onHaptic()
+    }
+
+    /**
+     * 开始一段松手归格：残差写进普通状态，首帧渲染就是正确位置；
+     * 逐帧衰减到 0 后清空，后续让位才能回到 animateTo 分支。
+     *
+     * 不用渲染层的 Animatable 承载：那需要在 LaunchedEffect 里 snapTo(glide)，
+     * 首帧会先画出旧位置再跳过去（松手闪回原位）。
+     */
+    private fun settleGlide(itemId: String, offset: Offset) {
+        glideJob?.cancel()
+        if (offset.getDistance() < 0.5f) {
+            glideFrom = null
+            return
+        }
+        glideFrom = itemId to offset
+        glideJob = scope.launch {
+            val anim = Animatable(offset, Offset.VectorConverter)
+            anim.animateTo(Offset.Zero, GlideSpring) {
+                if (glideFrom?.first == itemId) glideFrom = itemId to value
             }
+            if (glideFrom?.first == itemId) glideFrom = null
         }
     }
 
@@ -292,6 +405,12 @@ class GridPanelState(
             commitPage(page, next)
             clearResize()
         }
+    }
+
+    /** 取消缩放（返回键）：丢弃连续 span，不写盘。吸附动画进行中不拦。 */
+    fun cancelResize() {
+        if (resizingId == null || resizeSettling) return
+        clearResize()
     }
 
     private fun clearResize() {
