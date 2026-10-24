@@ -25,9 +25,6 @@ data class GridPanelItem(
     val pageIndex: Int = 0,
     val kind: Kind = Kind.Action(emptyList()),
 ) {
-    /** 拖拽与落位判定的稳定身份。 */
-    val cellKey: String get() = id
-
     @Serializable
     @Keep
     sealed interface Kind {

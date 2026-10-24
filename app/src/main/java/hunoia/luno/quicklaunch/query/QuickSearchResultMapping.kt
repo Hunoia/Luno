@@ -43,7 +43,6 @@ import hunoia.luno.config.model.SearchLaunch.Chooser
 import hunoia.luno.config.model.SearchLaunch.Share as SearchLaunchShare
 import hunoia.luno.config.model.SearchLaunch.ShareImage as SearchLaunchShareImage
 import hunoia.luno.config.model.SearchLaunch.Url as SearchLaunchUrl
-import hunoia.luno.config.model.copyUrl
 import hunoia.luno.config.model.fillSearchQuery
 import hunoia.luno.ui.component.TextIcon
 

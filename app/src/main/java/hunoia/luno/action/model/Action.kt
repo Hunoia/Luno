@@ -1,7 +1,6 @@
 package hunoia.luno.action.model
 
 import hunoia.luno.R
-import hunoia.luno.config.defaults.ActionSettingsDefaults.HideGestureButtonDelayMs
 import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubStepThresholdDp
 import android.media.AudioManager
 

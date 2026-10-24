@@ -2,6 +2,7 @@ package hunoia.luno.quicklaunch.query
 
 import hunoia.luno.config.model.SearchLaunch
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -27,7 +28,7 @@ class SearchLaunchActionTest {
         assertEquals("https://example.com/?q=a+b", action.url)
         assertEquals("com.example.browser", action.packageName)
         assertEquals("https://fallback.example/?q=a+b", action.fallbackUrl)
-        assertEquals(false, action.forceChooser)
+        assertFalse(action.forceChooser)
     }
 
     @Test

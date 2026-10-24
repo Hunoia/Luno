@@ -271,13 +271,6 @@ object ShizukuManager {
 
     // ---- Internal (unchecked, no IO wrapper) ----
 
-    private fun forceStopAppUnchecked(packageName: String): Boolean {
-        return runCatching {
-            HiddenApiBypass.invoke(amProxy::class.java, amProxy, "forceStopPackage", packageName, userId)
-            true
-        }.getOrElse { false }
-    }
-
     private fun enablePackageUnchecked(packageName: String): PackageResult {
         return runCatching {
             val state = PackageManager.COMPONENT_ENABLED_STATE_ENABLED

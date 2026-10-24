@@ -21,6 +21,7 @@ import hunoia.luno.runtime.condition.NotificationPulse
 import hunoia.luno.runtime.condition.TimeWindow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -314,5 +315,3 @@ class AutomationSemanticsTest {
         assertEquals(setOf("b"), resolveButtonTargetIds(ButtonTarget.ONLY, all, listOf("b")))
     }
 }
-
-private fun assertTrue(b: Boolean) = org.junit.Assert.assertTrue(b)

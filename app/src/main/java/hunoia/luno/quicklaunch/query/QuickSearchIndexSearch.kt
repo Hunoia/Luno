@@ -19,8 +19,6 @@ import hunoia.luno.config.model.SRC_SMS
 import hunoia.luno.config.model.SRC_TOGGLE
 import hunoia.luno.config.model.primaryEngineOrNull
 import hunoia.luno.config.model.effectiveEngines
-import hunoia.luno.config.model.effectiveLaunch
-import hunoia.luno.config.model.effectiveTrigger
 import hunoia.luno.quicklaunch.query.AppSearch.key
 import hunoia.luno.ui.component.resolvedIcon
 

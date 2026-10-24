@@ -18,9 +18,6 @@ import dev.chrisbanes.haze.rememberHazeState
 
 val HazeBlurRadius: Dp = 25.dp
 
-/** [HazeBlurRadius] 的别名，保留旧调用点。 */
-val GlassBlurRadius: Dp = HazeBlurRadius
-
 /** 顶栏 Haze 底色透明度；过高会发奶白。 */
 const val TopBarHazeAlpha = 0.5f
 

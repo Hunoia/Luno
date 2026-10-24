@@ -44,7 +44,6 @@ object ConfigProvider {
     suspend fun getGestureSettings(): GestureSettings = stores._gestureSettings.data.first()
     suspend fun getActionSettings(): ActionSettings = stores._actionSettings.data.first()
     suspend fun getGestureButtons(): List<GestureButton> = stores._gestureButtons.data.first()
-    suspend fun getQuickAppLauncherSettings(): QuickAppLauncherSettings = stores._quickAppLauncherSettings.data.first()
     suspend fun getSubGestureSettings(): SubGestureSettings = stores._subGestureSettings.data.first()
     suspend fun getActionLibrarySettings(): ActionLibrarySettings = stores._actionLibrarySettings.data.first()
     suspend fun getAutomationRules(): List<AutomationRule> = stores._automationRules.data.first()

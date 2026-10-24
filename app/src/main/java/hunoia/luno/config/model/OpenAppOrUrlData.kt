@@ -8,7 +8,6 @@ import kotlinx.serialization.Serializable
 data class OpenAppOrUrlData(
     val type: Int = TYPE_ACTIVITY,
     val packageName: String = "",
-    val activityClassName: String = "",
     val url: String = "",
     val miniWindow: Boolean = false,
     val queryParameters: List<OpenUrlQueryParameter> = emptyList(),

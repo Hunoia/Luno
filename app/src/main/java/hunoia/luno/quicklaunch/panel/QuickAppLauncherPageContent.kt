@@ -1,7 +1,6 @@
 package hunoia.luno.quicklaunch.panel
 import hunoia.luno.ui.theme.*
 
-import android.content.Context
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.height

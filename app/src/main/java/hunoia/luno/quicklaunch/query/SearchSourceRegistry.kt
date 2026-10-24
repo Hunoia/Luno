@@ -3,7 +3,6 @@ package hunoia.luno.quicklaunch.query
 import androidx.annotation.StringRes
 import hunoia.luno.R
 import hunoia.luno.action.model.ActionLibraryEntry
-import hunoia.luno.config.model.DefaultSourceTriggers
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SRC_ACTION

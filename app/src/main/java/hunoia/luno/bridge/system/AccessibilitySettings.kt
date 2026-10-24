@@ -74,31 +74,6 @@ object AccessibilitySettings {
         )
     }
 
-    fun disable(context: Context, clazz: Class<out AccessibilityService>): Boolean {
-        if (!hasWriteSecureSettings(context)) return false
-
-        val currentValue = Settings.Secure.getString(
-            context.contentResolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        ) ?: return true
-
-        val componentName = serviceComponentName(context, clazz)
-        val parts = TextUtils.SimpleStringSplitter(':').apply { setString(currentValue) }
-        val remaining = mutableListOf<String>()
-        while (parts.hasNext()) {
-            val part = parts.next()
-            if (ComponentName.unflattenFromString(part) != componentName) {
-                remaining.add(part)
-            }
-        }
-        val newValue = remaining.joinToString(":")
-        return Settings.Secure.putString(
-            context.contentResolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
-            newValue
-        )
-    }
-
     fun hasWriteSecureSettings(context: Context): Boolean {
         return context.checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) ==
             android.content.pm.PackageManager.PERMISSION_GRANTED

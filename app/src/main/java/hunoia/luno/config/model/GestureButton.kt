@@ -88,7 +88,7 @@ data class GestureButton(
     val doubleTapTriggerDelayMs: Long = GestureButtonDefaults.DoubleTapTriggerDelayMs,
     val slideHoldTriggerDelayMs: Long = GestureButtonDefaults.SlideHoldTriggerDelayMs,
     val longSlideHoldTriggerDelayMs: Long = GestureButtonDefaults.LongSlideHoldTriggerDelayMs,
-) : Comparable<GestureButton> {
+) {
 
     /**
      * 远档阈值不得小于近档：否则短滑会落进 LongSlide 分支，而 SlideHold 因
@@ -115,8 +115,6 @@ data class GestureButton(
     }
 
     val isDefault: Boolean = id == ID_DEFAULT
-
-    override fun compareTo(other: GestureButton): Int = id.compareTo(other.id)
 }
 
 /** 按钮显示名：有名字用名字，否则取主题字符串（与 UI 侧 buttonTextCompose 同约定）。 */

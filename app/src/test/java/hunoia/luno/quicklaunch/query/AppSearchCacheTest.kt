@@ -7,7 +7,7 @@ import org.junit.Test
 
 /**
  * 拼音索引缓存的边界行为：有界、去重、结果等价。
- * 纯 JVM 跑（缓存用 LinkedHashMap 而非 android.util.LruCache，就是为了这里能直接测）。
+ * 纯 JVM 跑（androidx.collection.LruCache 本身是纯 Java 工件，不依赖 android 运行时）。
  */
 class AppSearchCacheTest {
 

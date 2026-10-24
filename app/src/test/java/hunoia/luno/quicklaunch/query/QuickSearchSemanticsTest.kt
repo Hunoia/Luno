@@ -248,14 +248,22 @@ class QuickSearchSemanticsTest {
             .map { (it.result as QuickSearchResult.ClipEntry).text }
 
     @Test
-    fun `clip matches head64 and caps at 10 with pinned first`() {
+    fun `clip matches query hit`() {
         // he vs hello world → tier 1（0 位块），命中
         val he = matchClips(emptyList(), listOf("hello world"), "he")
         assertEquals(listOf("hello world"), he)
+    }
+
+    @Test
+    fun `clip matches only within first 64 chars`() {
         // head64 截断：y 只出现在第 64+ 位 → 不命中；在 0 位 → 命中
         val xs64 = "x".repeat(64)
         assertTrue(matchClips(emptyList(), listOf(xs64 + "yyyyyy"), "y").isEmpty())
         assertEquals(1, matchClips(emptyList(), listOf("yyyyyy" + xs64), "y").size)
+    }
+
+    @Test
+    fun `clip matches cap at 10 with pinned first`() {
         // 上限 10：15 条全命中只回 10
         val fifteen = (0 until 15).map { "hello$it" }
         assertEquals(10, matchClips(emptyList(), fifteen, "he").size)

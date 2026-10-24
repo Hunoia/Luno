@@ -4,6 +4,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -43,7 +44,7 @@ class ActionMapperTest {
         assertEquals("", action.intentAction)
         assertEquals("", action.data)
         assertTrue(action.extras.isEmpty())
-        assertEquals(false, action.miniWindow)
+        assertFalse(action.miniWindow)
     }
 
     @Test
@@ -62,7 +63,7 @@ class ActionMapperTest {
             ),
         ) as Action.OpenUrl
 
-        assertEquals(true, action.miniWindow)
+        assertTrue(action.miniWindow)
         assertEquals(listOf(QueryParam("q", "luno")), action.queryParameters)
     }
 
@@ -79,8 +80,8 @@ class ActionMapperTest {
         ) as Action.CustomCommand
 
         assertEquals("id", action.command)
-        assertEquals(true, action.copyOutput)
-        assertEquals(false, action.showToast)
+        assertTrue(action.copyOutput)
+        assertFalse(action.showToast)
     }
 
     @Test

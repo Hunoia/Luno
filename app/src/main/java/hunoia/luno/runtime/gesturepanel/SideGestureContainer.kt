@@ -149,7 +149,7 @@ fun SideGestureContainer(
         if (panelId != null) {
             val items = actionPanels.firstOrNull { it.id == panelId }?.items.orEmpty()
             if (items.isNotEmpty()) {
-                if (needsPanelOverlay) onActionPanelOverlayChanged(true)
+                if (needsPanelOverlay) curOnPanelOverlayChanged(true)
                 // 必须在 onDragStart(它把 visible 置 true)之前把主 overlay 撑回全屏,
                 // 否则 ActionPanel 的头几帧会按收起时的尺寸定位。
                 curOnPanelVisibilityChanged(true)
@@ -371,7 +371,7 @@ fun SideGestureContainer(
                 val hitAction = actionPanelState.done()
                 val panelSourceButton = actionPanelSourceButton
                 actionPanelSourceButton = null
-                onActionPanelOverlayChanged(false)
+                curOnPanelOverlayChanged(false)
                 val fromSubGesturePanel = subGestureState.subGestureDepth > 0
                 if (fromSubGesturePanel) {
                     subGestureState.clear(notifyService = true)
@@ -426,7 +426,7 @@ fun SideGestureContainer(
             }
             if (actionPanelState.visible) {
                 actionPanelState.onDragCancel()
-                onActionPanelOverlayChanged(false)
+                curOnPanelOverlayChanged(false)
                 actionPanelSourceButton = null
                 if (subGestureState.subGestureDepth > 0) subGestureState.clear(notifyService = true)
             }

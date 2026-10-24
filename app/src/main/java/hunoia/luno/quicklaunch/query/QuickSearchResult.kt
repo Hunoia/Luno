@@ -3,7 +3,6 @@ package hunoia.luno.quicklaunch.query
 import hunoia.luno.action.model.ActionLibraryEntry
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.config.model.SearchEngine
-import hunoia.luno.config.model.SearchLaunch
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.action.model.SettingsPage

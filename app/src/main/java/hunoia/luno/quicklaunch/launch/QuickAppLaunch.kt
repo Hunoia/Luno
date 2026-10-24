@@ -82,16 +82,6 @@ object AppLaunchBypass {
         )
     }
 
-    suspend fun launchActivityWithAutoUnfreeze(
-        context: Context,
-        packageName: String,
-        className: String,
-        unfreezePackage: suspend (context: Context, packageName: String) -> Boolean = { _, _ -> true }
-    ): Boolean {
-        if (!ensureEnabled(context, packageName, unfreezePackage)) return false
-        return QuickLaunchFacade.launchAppActivityDirect(context, packageName, className)
-    }
-
     /** 应用被禁用时先解冻再启动；解冻失败弹提示并返回 false */
     private suspend fun ensureEnabled(
         context: Context,

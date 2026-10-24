@@ -120,9 +120,6 @@ val LargeGutter = 24.dp
 // Elevation
 val ElevationSmall = 3.dp
 
-// Search field inset
-val SearchBarPadding = 12.dp
-
 // Color picker canvas geometry
 val CanvasThumbRadius = 10.dp
 val CanvasStrokeWidth = 2.dp

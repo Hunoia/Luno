@@ -5,8 +5,6 @@ import android.media.AudioManager
 import android.os.VibrationEffect
 import android.os.VibratorManager
 import android.view.KeyEvent
-import hunoia.luno.action.model.ActionFailure
-import hunoia.luno.action.model.ActionResult
 import hunoia.luno.action.model.AudioStream
 import hunoia.luno.action.model.MediaCommand
 import hunoia.luno.action.model.VolumeDirection
@@ -99,9 +97,6 @@ data class ShellResult(
     val error: String?,
     val exitCode: Int,
 )
-
-internal fun shellQuote(arg: String): String =
-    "'" + arg.replace("'", "'\\''") + "'"
 
 class ShellController {
 

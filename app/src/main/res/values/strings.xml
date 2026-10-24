@@ -75,7 +75,6 @@
     <string name="bottom">下</string>
     <string name="long_slide_action">长滑</string>
     <string name="long_slide_hold_action">长滑停留</string>
-    <string name="action_panel_style_arc">弧形</string>
     <string name="action_panel_style">动作面板样式</string>
     <!-- 指针（internal.pointer）：设置行 + 滑杆 -->
     <string name="pointer">指针</string>
@@ -102,7 +101,6 @@
     <string name="action_panel_items">面板内容</string>
     <string name="action_panel_add_item">添加面板项</string>
     <string name="action_panel_empty_hint">还没有面板项。添加后，触钮上选「动作面板」即可触发时弹出。</string>
-    <string name="action_panel_single_item_hint">只有一个面板项时，长按变体需要至少两项才生效。</string>
     <string name="action_panel_item_drag">拖动排序</string>
     <string name="action_panel_delete_title">删除面板</string>
     <string name="action_panel_delete_desc">删除面板「%1$s」？引用它的触钮动作将变为「无动作」。</string>
@@ -110,7 +108,6 @@
 
     <!-- 悬浮球（2038 悬浮球触发方式） -->
     <string name="float_ball">悬浮球</string>
-    <string name="float_ball_entry_hint">显示与点按/拖动配置</string>
     <string name="recent_apps_blocklist">最近应用黑名单</string>
     <string name="recent_apps_blocklist_hint">最近的内置部件与上一个应用不显示/不切换到这些应用</string>
     <!-- 设置页（动作/快速搜索共用） -->
@@ -159,7 +156,6 @@
     <string name="row_settings_pattern_invalid">格式：毫秒值用逗号分隔，如 0,500</string>
     <!-- 行尾设置弹窗标题 -->
     <string name="row_dialog_volume_scrub">滑动调音量</string>
-    <string name="row_dialog_hide_gesture_button">隐藏触钮</string>
     <string name="row_dialog_float_ball">悬浮球显隐</string>
     <string name="row_dialog_buttons_visibility">触钮显隐</string>
     <string name="row_dialog_open_settings">打开设置页</string>
@@ -189,16 +185,11 @@
     <string name="action_settings_other_group">其他</string>
     <string name="float_ball_permission_required">需要「显示在其他应用上层」权限</string>
     <string name="float_ball_permission_hint">悬浮球需要该权限才能显示。未授权时球不会出现。</string>
-    <string name="float_ball_grant_permission">去授权</string>
     <string name="float_ball_tap_unset">未设置</string>
     <string name="float_ball_behavior">行为</string>
-    <string name="float_ball_hide_on_panel">面板时隐藏</string>
-    <string name="float_ball_hide_on_panel_subtitle">打开网格面板/快速搜索等面板时自动隐藏，全部关闭后弹回</string>
     <string name="float_ball_mirror">对侧分身</string>
     <string name="float_ball_mirror_subtitle">屏幕对侧显示半圆分身，按下即触发动作并与主球换位</string>
     <string name="action_panel_missing">面板已不存在，请返回重新添加</string>
-    <string name="action_panel_item_move_up">上移</string>
-    <string name="action_panel_item_move_down">下移</string>
     <string name="action_panel_items_count">%1$d 项</string>
     <string name="action_panel_count">%1$d 个面板</string>
     <string name="action_panel_item_long_press">长按动作</string>
@@ -210,7 +201,6 @@
     <string name="grid_panel_summary">%1$d 项 · %2$d 列</string>
     <string name="grid_panel_delete_title">删除网格面板</string>
     <string name="grid_panel_column_count">列数</string>
-    <string name="grid_panel_row_count">行数</string>
     <string name="grid_panel_screen_margin">离屏边距</string>
     <string name="grid_panel_card_width">卡片宽度</string>
     <string name="grid_panel_card_height">卡片高度</string>
@@ -229,9 +219,6 @@
     <string name="grid_panel_widget_pick_failed">无法打开小部件选择器</string>
     <string name="toast_select_page_failed">无法打开动作选择页</string>
     <string name="grid_panel_add_item">添加面板项</string>
-    <string name="grid_panel_replace_item">换动作</string>
-    <string name="grid_panel_edit_mode">编辑中</string>
-    <string name="grid_panel_edit_enter">编辑面板</string>
     <string name="grid_panel_item_menu_delete">删除</string>
     <string name="grid_panel_item_resize">调整大小</string>
     <string name="grid_panel_page_full">这一页放不下了，已取消添加</string>
@@ -241,8 +228,6 @@
     <string name="grid_panel_empty_items_edit">这一页还是空的。点右上角「+」添加动作或小部件。</string>
     <string name="grid_panel_items_dropped">网格缩小后放不下，已移除 %1$d 项：%2$s</string>
     <string name="grid_panel_items_dropped_generic">网格缩小后放不下，已移除 %1$d 项</string>
-    <string name="compact">紧凑</string>
-    <string name="loose">宽松</string>
     <string name="vibration_tap">单击振动</string>
     <string name="vibration_long_press">长按振动</string>
     <string name="vibration_slide_hold">短滑停留时振动</string>
@@ -309,12 +294,6 @@
     <!-- 动作分类 -->
     <string name="action_category_system">系统</string>
     <string name="action_category_app">应用</string>
-    <string name="action_category_intent">Intent</string>
-    <string name="action_category_accessibility">无障碍</string>
-    <string name="action_category_settings">设置项</string>
-    <string name="action_category_system_cmd">系统命令</string>
-    <string name="action_category_shell">Shell</string>
-    <string name="action_category_internal">内部</string>
     <string name="action_category_link_share">链接分享</string>
     <string name="action_category_media">媒体</string>
     <string name="action_category_clipboard">剪贴板</string>
@@ -392,8 +371,6 @@
     <string name="action_rule_missing">规则不存在或已删除</string>
     <string name="action_rule_group">规则</string>
     <string name="action_library_delete_title">删除动作库条目？</string>
-    <string name="action_library_delete_desc">当前有 %1$d 处引用。删除后会清理这些引用，是否继续？</string>
-    <string name="action_library_delete_unused_desc">当前没有任何引用。删除后不可恢复，是否继续？</string>
     <string name="action_library_reference_count">引用 %1$d</string>
     <string name="action_library_entry_not_found">未找到该动作库条目，可能已被删除</string>
     <string name="action_library_discard_title">放弃未保存的修改？</string>
@@ -419,7 +396,6 @@
     <string name="action_shell_running">执行中…</string>
     <string name="action_shell_no_output">（无输出）</string>
     <string name="close">关闭</string>
-    <string name="action_requires_capability">需要 %1$s</string>
     <string name="action_capability_accessibility">无障碍</string>
     <string name="action_capability_shizuku">Shizuku</string>
     <string name="action_editor_delete_desc">删除后会清理引用该动作的配置，且不可恢复。是否继续？</string>
