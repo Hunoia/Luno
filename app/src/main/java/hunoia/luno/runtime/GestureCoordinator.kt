@@ -4,8 +4,10 @@ import android.app.WallpaperManager
 import android.content.res.Configuration
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityWindowInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
 import hunoia.luno.BuildConfig
@@ -98,6 +100,17 @@ class GestureCoordinator(
 
     /** 最近一次窗口状态事件的 Activity 类名：同包内启动新 Activity 也要能收起网格面板。 */
     private var lastWindowClassName: String? = null
+
+    /** 当前可交互的应用窗口包：TYPE_WINDOWS_CHANGED 拿它做差集，发现“刚出现的新应用窗口”。 */
+    private var appWindowPackages: Set<String> = emptySet()
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    /** 部件点击后的主动轮询：不再干等可能晚 0.5s 的窗口状态事件。 */
+    private var widgetLaunchPoll: Runnable? = null
+    private var widgetLaunchPackages: Set<String> = emptySet()
+    private var widgetLaunchWindowIds: Set<Int> = emptySet()
+    private var widgetLaunchDeadline = 0L
 
     private val scopeJobs = mutableListOf<Job>()
 
@@ -457,10 +470,69 @@ class GestureCoordinator(
         }
     }
 
+    /**
+     * 部件被点后每 40ms 看一次应用窗口列表：新应用窗口一出现就收口，
+     * 不等 MIUI 那个约 0.5s 后才到的 TYPE_WINDOW_STATE_CHANGED。
+     * 只看应用窗口，音量球/媒体胶囊等系统窗口不是 TYPE_APPLICATION，不会误关。
+     */
+    private fun startWidgetLaunchPoll() {
+        if (!started) return
+        val now = SystemClock.elapsedRealtime()
+        if (widgetLaunchPoll != null) {
+            // 同一次点击可能先 DOWN 后 UP：保留首次基线，只把观察窗口往后延。
+            widgetLaunchDeadline = maxOf(widgetLaunchDeadline, now + 1_200L)
+            return
+        }
+        widgetLaunchPackages = currentAppWindowPackages()
+        // 点击当下的可见窗口 id：新应用哪怕第一个 a11y 事件比 WINDOW_STATE_CHANGED 早，
+        // 只要它带的 windowId 不在这个集合里，就能立刻收口。
+        widgetLaunchWindowIds = currentWindowIds()
+        widgetLaunchDeadline = now + 1_200L
+        val poll = object : Runnable {
+            override fun run() {
+                if (!started) {
+                    stopWidgetLaunchPoll()
+                    return
+                }
+                val current = currentAppWindowPackages()
+                val added = current - widgetLaunchPackages
+                val target = added.firstOrNull {
+                    it != host.context.packageName && !hunoia.luno.gridpanel.isSystemOverlayPackage(it)
+                }
+                if (target != null) {
+                    if (BuildConfig.DEBUG) {
+                        Log.i("LunoLauncher", "widget launch window added: $target (added=$added)")
+                    }
+                    hunoia.luno.gridpanel.GridPanelOverlay.onForegroundPackageChanged(
+                        fromPackage = environmentTracker.currentPackageName.ifEmpty { target },
+                        toPackage = target,
+                    )
+                    stopWidgetLaunchPoll()
+                    return
+                }
+                if (SystemClock.elapsedRealtime() >= widgetLaunchDeadline) {
+                    stopWidgetLaunchPoll()
+                    return
+                }
+                mainHandler.postDelayed(this, 40L)
+            }
+        }
+        widgetLaunchPoll = poll
+        mainHandler.postDelayed(poll, 40L)
+    }
+
+    private fun stopWidgetLaunchPoll() {
+        widgetLaunchPoll?.let { mainHandler.removeCallbacks(it) }
+        widgetLaunchPoll = null
+        widgetLaunchPackages = emptySet()
+        widgetLaunchDeadline = 0L
+    }
+
     fun onSetOverlay() {
         if (started) return
         started = true
         if (BuildConfig.DEBUG) Log.i("LunoLauncher", "GestureCoordinator start")
+        hunoia.luno.gridpanel.widget.PanelAppWidgetHostView.setTapListener { startWidgetLaunchPoll() }
         hunoia.luno.core.Events.subscribe(
             hunoia.luno.action.dispatcher.GestureDispatchEvent::class,
             gestureDispatchSubscriber,
@@ -537,10 +609,74 @@ class GestureCoordinator(
         }
     }
 
+    /** 无障碍窗口列表里的应用窗口包名；需要 flagRetrieveInteractiveWindows，失败时返回空集。 */
+    private fun currentAppWindowPackages(): Set<String> = runCatching {
+        host.accessibilityService.windows.asSequence()
+            .filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+            .mapNotNull { window ->
+                window.root?.packageName?.toString()?.takeIf { it.isNotEmpty() }
+            }
+            .toSet()
+    }.getOrDefault(emptySet())
+
+    private fun currentWindowIds(): Set<Int> = runCatching {
+        host.accessibilityService.windows.asSequence()
+            .map { it.id }
+            .filter { it > 0 }
+            .toSet()
+    }.getOrDefault(emptySet())
+
     fun onAccessibilityEvent(event: AccessibilityEvent?) {
         previousAppTracker.onAccessibilityEvent(event)
         val beforePackage = environmentTracker.currentPackageName
         environmentTracker.onAccessibilityEvent(event)
+        // 新应用先到的往往不是 WINDOW_STATE_CHANGED：只要事件来自一个点击时不可见的
+        // 新窗口，就提前收口。底层应用/面板自身窗口的 id 在基线里，不会误触发。
+        val eventPackage = event?.packageName?.toString().orEmpty()
+        if (event != null && eventPackage.isNotEmpty() &&
+            event.windowId > 0 && widgetLaunchWindowIds.isNotEmpty() &&
+            event.windowId !in widgetLaunchWindowIds &&
+            eventPackage !in widgetLaunchPackages &&
+            eventPackage != host.context.packageName &&
+            !hunoia.luno.gridpanel.isSystemOverlayPackage(eventPackage) &&
+            hunoia.luno.gridpanel.widget.PanelAppWidgetHostView.hasRecentTap()
+        ) {
+            if (BuildConfig.DEBUG) {
+                Log.i(
+                    "LunoLauncher",
+                    "early window event after widget tap: type=${event.eventType} " +
+                        "pkg=$eventPackage window=${event.windowId}",
+                )
+            }
+            hunoia.luno.gridpanel.GridPanelOverlay.onForegroundPackageChanged(
+                fromPackage = beforePackage.ifEmpty { eventPackage },
+                toPackage = eventPackage,
+            )
+        }
+        // 窗口列表变化比 TYPE_WINDOW_STATE_CHANGED 更早：部件点击后新应用窗口一出现就收口，
+        // 不然要等 0.5s 左右的应用窗口状态事件，面板会盖在新应用上“愣一下”。
+        // 只看 TYPE_APPLICATION 窗口，音量球/胶囊等系统窗口天然被排除。
+        if (event?.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
+            val current = currentAppWindowPackages()
+            val added = current - appWindowPackages
+            appWindowPackages = current
+            if (added.isNotEmpty() &&
+                hunoia.luno.gridpanel.widget.PanelAppWidgetHostView.hasRecentTap()
+            ) {
+                val target = added.firstOrNull {
+                    it != host.context.packageName && !hunoia.luno.gridpanel.isSystemOverlayPackage(it)
+                }
+                if (target != null) {
+                    if (BuildConfig.DEBUG) {
+                        Log.i("LunoLauncher", "window added after widget tap: $target (added=$added)")
+                    }
+                    hunoia.luno.gridpanel.GridPanelOverlay.onForegroundPackageChanged(
+                        fromPackage = beforePackage.ifEmpty { target },
+                        toPackage = target,
+                    )
+                }
+            }
+        }
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             if (BuildConfig.DEBUG) Log.i("LunoLauncher", "window changed: pkg=${event.packageName}")
             val afterPackage = environmentTracker.currentPackageName
@@ -558,6 +694,8 @@ class GestureCoordinator(
                     toPackage = afterPackage,
                 )
             }
+            // 窗口状态事件之后同步一次窗口包集合，下个 TYPE_WINDOWS_CHANGED 的差集才干净。
+            appWindowPackages = currentAppWindowPackages()
             refreshGestureButtons(automationKeys = setOf(AutomationEventKey.APP))
         }
     }
@@ -576,6 +714,8 @@ class GestureCoordinator(
         if (!started) return
         started = false
         if (BuildConfig.DEBUG) Log.i("LunoLauncher", "GestureCoordinator destroy")
+        hunoia.luno.gridpanel.widget.PanelAppWidgetHostView.setTapListener(null)
+        stopWidgetLaunchPoll()
         hunoia.luno.core.Events.unsubscribe(
             hunoia.luno.action.dispatcher.GestureDispatchEvent::class,
             gestureDispatchSubscriber,

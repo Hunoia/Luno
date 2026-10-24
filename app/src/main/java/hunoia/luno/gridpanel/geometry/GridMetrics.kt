@@ -14,9 +14,6 @@ import kotlin.math.roundToInt
 import hunoia.luno.config.model.DynamicRowExtra
 import hunoia.luno.config.model.GridPanelDefaults
 
-/** 默认离屏边距；实际值由面板几何 [hunoia.luno.config.model.GridPanelGeometry.screenMarginDp] 决定。 */
-val CardMargin = 12.dp
-
 /** 圆角下限：边距拉满后卡片圆角不能小到变成直角。 */
 val MinCardCorner = 8.dp
 

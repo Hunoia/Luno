@@ -98,14 +98,15 @@ object GridPanelOverlay {
     fun onForegroundPackageChanged(fromPackage: String, toPackage: String) {
         if (!shownEventPosted) return
         if (toPackage.isEmpty() || toPackage == context.packageName) return
-        // 音量回弹球、灵动胶囊等都挂在 systemui 插件包下，永远不是「部件拉起应用」。
-        if (toPackage.contains("systemui", ignoreCase = true)) {
-            Log.i(TAG, "foreground change ignored (systemui target): $fromPackage -> $toPackage")
+        // 音量回弹球、灵动胶囊等都挂在 systemui/媒体系统插件包下，永远不是「部件拉起应用」。
+        if (isSystemOverlayPackage(toPackage)) {
+            Log.i(TAG, "foreground change ignored (system overlay target): $fromPackage -> $toPackage")
             return
         }
-        // 关面板只认「部件刚被点过且目标包匹配」：音量回弹球、灵动胶囊等系统级界面变化
-        // 也会触发前台包变化（媒体胶囊归属正在播放的应用），但那些路径没有部件点击，
-        // 不能关面板。选择页刚关闭的窗口内同理（返回下层应用，无部件点击）。
+        // 关面板只认「部件刚被点过」：目标包等于 provider 包时给 1.5s，
+        // 跨包拉起只给 800ms 短窗口。音量回弹球、灵动胶囊等系统级界面变化
+        // 也会触发前台包变化，但它们通常没有部件点击，或落在短窗口之外。
+        // 选择页刚关闭的窗口内同理（返回下层应用，无部件点击）。
         if (SystemClock.elapsedRealtime() < suppressForegroundCloseUntil) {
             Log.i(TAG, "foreground change suppressed (select page return): $fromPackage -> $toPackage")
             return
@@ -140,6 +141,8 @@ object GridPanelOverlay {
             mainHandler.post { show(panelId, anchorX, anchorY) }
             return
         }
+        // 新一次展示不复用上一轮部件点击留下的拉起候选。
+        if (!shownEventPosted) PanelAppWidgetHostView.clearTapCandidate()
         panelIdState = panelId
         anchorXState = anchorX
         anchorYState = anchorY
@@ -160,6 +163,11 @@ object GridPanelOverlay {
         // 挂窗失败（悬浮窗权限被撤 / ROM 拒绝）：不要发 Shown —— 否则 FloatBallService
         // 的 panelCount 会 +1 而永远等不到配对的 Dismissed，球被永久隐藏。
         if (!windowReady || view == null) return
+        // 第三方部件点击命中 Activity 型 PendingIntent 时，抬手就让面板开始退场，
+        // 不再等 MIUI 延迟数百毫秒的前台窗口事件。
+        PanelAppWidgetHostView.setLaunchCloseListener {
+            (closeAnimated ?: { closeImmediate() }).invoke()
+        }
         lifecycleOwner?.resume()
         if (!shownEventPosted) {
             shownEventPosted = true
@@ -169,6 +177,8 @@ object GridPanelOverlay {
 
     /** 编辑态让位：窗口隐身但保留（组合与 surface 都在，选择页叠在其上）。 */
     private fun hide() {
+        PanelAppWidgetHostView.clearTapCandidate()
+        PanelAppWidgetHostView.setLaunchCloseListener(null)
         val current = view ?: return
         val lp = current.layoutParams as? WindowManager.LayoutParams ?: return
         if (lp.alpha == 0f) return
@@ -185,6 +195,8 @@ object GridPanelOverlay {
             mainHandler.post { closeImmediate() }
             return
         }
+        PanelAppWidgetHostView.clearTapCandidate()
+        PanelAppWidgetHostView.setLaunchCloseListener(null)
         Events.unsubscribe(ActionSelectClosedEvent::class, closedSubscriber)
         postDismissed()
         val current = view ?: return
@@ -384,4 +396,17 @@ object GridPanelOverlay {
             }
         }
     }
+}
+
+/**
+ * 系统级前台包（音量球、灵动胶囊、媒体控制插件等）：它们也会改变前台窗口，
+ * 不是小部件拉起应用，不能因此关面板。
+ */
+internal fun isSystemOverlayPackage(packageName: String): Boolean {
+    val pkg = packageName.lowercase()
+    return pkg.contains("systemui") ||
+        pkg.contains("miui.misound") ||
+        pkg.contains("miui.volume") ||
+        pkg.contains("miui.mediaeditor") ||
+        pkg == "com.android.media"
 }

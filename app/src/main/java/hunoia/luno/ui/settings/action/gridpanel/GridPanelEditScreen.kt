@@ -294,11 +294,13 @@ fun GridPanelEditScreen(
                     },
                     text = stringResource(R.string.grid_panel_card_width),
                     valueDisplay = { "${(it * 100).toInt()}%" },
-                    valueRange = if (isLandscape()) {
-                        GridPanelDefaults.MinCardWidthFractionLandscape
-                    } else {
-                        GridPanelDefaults.MinCardWidthFraction
-                    }..GridPanelDefaults.MaxCardWidthFraction,
+                    valueRange = (
+                        if (isLandscape()) {
+                            GridPanelDefaults.MinCardWidthFractionLandscape
+                        } else {
+                            GridPanelDefaults.MinCardWidthFraction
+                        }
+                    )..GridPanelDefaults.MaxCardWidthFraction,
                     steps = 11,
                     shape = segmentedShape(0, 3),
                 )

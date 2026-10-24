@@ -91,7 +91,9 @@ private fun QsSlider(
                     Modifier.pointerInput(Unit) {
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false)
-                            down.consume()
+                            // 不 consume down：方向未定前父级（纵向 scroll / 横向 pager）
+                            // 也要能参与判定，否则从滑条起手的跨轴滑动会被整段吞掉。
+                            val verticalAxis = isVertical
                             // 相对拖动：按下不跳值。无论落指在轨道哪，都从当前值起按
                             // 「位移 / 轨长」算增量；没过 touchSlop 的纯点按不改值 ——
                             // 想微调时一步跳到点击处太糙。
@@ -99,27 +101,35 @@ private fun QsSlider(
                             // 循环里每帧读它拿到的是拖动中途的最新值，累计位移会被反复叠上去
                             // （f += Δ 每帧执行），轻轻一拖就冲到 0%/100%。
                             val baseValue = startFraction
-                            val startPos = if (isVertical) down.position.y else down.position.x
-                            val trackPx = (if (isVertical) size.height else size.width)
+                            val startPos = if (verticalAxis) down.position.y else down.position.x
+                            val trackPx = (if (verticalAxis) size.height else size.width)
                                 .toFloat().coerceAtLeast(1f)
                             var dragging = false
                             while (true) {
                                 val event = awaitPointerEvent()
                                 val pointer = event.changes.firstOrNull { it.id == down.id } ?: break
                                 if (pointer.changedToUp()) {
-                                    pointer.consume()
+                                    if (dragging) pointer.consume()
                                     break
                                 }
-                                val pos = if (isVertical) pointer.position.y else pointer.position.x
-                                val delta = pos - startPos
+                                val dx = pointer.position.x - down.position.x
+                                val dy = pointer.position.y - down.position.y
                                 if (!dragging) {
-                                    if (abs(delta) < viewConfiguration.touchSlop) continue
+                                    val primary = if (verticalAxis) dy else dx
+                                    val cross = if (verticalAxis) dx else dy
+                                    val slop = viewConfiguration.touchSlop
+                                    if (abs(primary) < slop && abs(cross) < slop) continue
+                                    // 交叉轴先过阈值（横向滑条上的上下滑、竖向滑条上的左右滑）：
+                                    // 不消费，交给父级滚动或翻页。
+                                    if (abs(cross) > abs(primary)) break
                                     dragging = true
                                 }
                                 pointer.consume()
+                                val pos = if (verticalAxis) pointer.position.y else pointer.position.x
+                                val delta = pos - startPos
                                 // 竖向从底部起填：向上滑（delta 为负）才是增大。
                                 val raw = baseValue +
-                                    (if (isVertical) -delta else delta) / trackPx
+                                    (if (verticalAxis) -delta else delta) / trackPx
                                 change(raw.coerceIn(0f, 1f))
                             }
                             if (dragging) finished()

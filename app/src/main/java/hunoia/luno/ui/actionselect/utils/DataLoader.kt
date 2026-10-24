@@ -145,7 +145,6 @@ private suspend fun saveActionPanelItem(actionSelect: ActionSelect, picked: Stor
 /**
  * 网格面板项落盘：新增项落到 [ActionSelect.gridPanelPageIndex] 指定页的首个空位
  *（只在本页内扫，跨页不占位）。只进不出，无「替换已有项」分支，也无长按变体。
- * 页满返回 false，由调用方明确提示；静默丢弃还报「保存成功」就是「添加没反应」。
  */
 private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: StoredAction?): SaveOutcome {
     // 选了「无动作」等于放弃本次操作，不改面板，也不当失败提示。
@@ -199,9 +198,8 @@ private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: Stored
 /**
  * 追加语义的落点：新项放到本页已占内容正下方（y = max(bottom)），宽度不满整行时
  * 在那一行内从左往右找空位，被同排项挡住则顺延下一行。
- * [rows] 是「塞进现有网格空隙」的上限；越界参数用 [extendTo] 传底部追加的
- * 最小需求（占位行数无上限），rows 会被抬到至少装得下 —— 页面行数是派生的，
- * 追加永远能往下撑，不该出现「放不下」。
+ * [rows] 是「塞进现有网格空隙」的上限；页面行数是派生的，追加时会把有效行数
+ * 抬到至少装得下 span，所以底部追加不该出现「放不下」。
  */
 private fun bottomSlot(
     items: List<GridPanelItem>,
@@ -224,7 +222,6 @@ private fun bottomSlot(
     return null
 }
 
-/** 落盘结果：区分「面板不存在」和「真放不下」，两者给用户的提示不同。 */
 /** 行数派生且追加无上限：结果只有「存进去了」和「面板不存在」两种。 */
 internal enum class GridPanelSaveResult { Saved, NoPanel }
 

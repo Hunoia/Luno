@@ -102,7 +102,15 @@ fun GridPanelRoot(
     // ---- 循环翻页状态（必须在 panel == null 分支之前声明：配置重读时 panel 可能
     // 闪一帧 null，状态若声明在其后会被整体丢弃 —— pager 回到初始页、editMode
     // 丢失，表现为「虚拟页加项返回后回到前一页」）。----
-    val pageCount = panel?.derivedPageCount ?: 1
+    // panel 短暂为 null 时沿用上一次有效页数：否则 pageCount 会闪成 1，
+    // 映射效果把 pager 重锚到低位，回来后当前页和循环起点都丢了。
+    var lastKnownPageCount by remember(panelId) {
+        mutableIntStateOf(panel?.derivedPageCount ?: 1)
+    }
+    val pageCount = panel?.derivedPageCount ?: lastKnownPageCount
+    LaunchedEffect(pageCount) {
+        if (panel != null) lastKnownPageCount = pageCount
+    }
     var editMode by remember(panelId) { mutableStateOf(false) }
     // 循环翻页：pager 页数恒为极大值（运行态与编辑态一致，避免页数切换引发
     // clamp/闪跳）。真实页 = index % 有效页数；编辑态有效页数 +1（末尾虚页：
@@ -117,15 +125,18 @@ fun GridPanelRoot(
     // 0，之后再进编辑态右滑（索引减）就滑不动了。单页不滑改用 userScrollEnabled。
     val pagerState = rememberPagerState(initialPage = loopBase) { Int.MAX_VALUE }
     LaunchedEffect(pageCount, editMode) {
+        if (panel == null) return@LaunchedEffect
         if (effectivePages != mappingPages) {
             val cur = pagerState.currentPage
             // 页数一次跳 2+（外部整批替换配置）时新旧模数不互素，等价点可能不存在：
-            // 直接落真实页，不试 CRT。
+            // 直接落真实页，但要落在高位锚点附近 —— 落到 0..n-1 会丢掉循环空间，
+            // 之后再往左滑就停在第一页，指示点也可能算出负索引。
             val jump = kotlin.math.abs(effectivePages - mappingPages)
             val real = cur.mod(mappingPages).coerceAtMost(effectivePages - 1) // 退出编辑落在虚页时归末页
             if (jump > 1) {
+                val anchor = 1_000_000 - 1_000_000 % effectivePages
                 Log.i(TAG, "page mapping jump $mappingPages->$effectivePages, snap to real=$real")
-                pagerState.scrollToPage(real)
+                pagerState.scrollToPage(anchor + real)
             } else {
                 val period = mappingPages * effectivePages
                 val step = ((cur - real).toDouble() / period).roundToInt()
@@ -143,12 +154,14 @@ fun GridPanelRoot(
     fun nearestPageIndexOf(real: Int): Int {
         val cur = pagerState.settledPage
         val base = cur - cur.mod(mappingPages) + real
-        return listOf(base - mappingPages, base, base + mappingPages).minBy { abs(it - cur) }
+        return listOf(base - mappingPages, base, base + mappingPages)
+            .filter { it >= 0 }
+            .minBy { abs(it - cur) }
     }
-    // 退出编辑态：只翻 editMode，映射收缩交给上面的 LaunchedEffect 用真实配置的
-    // 页数算。不能在这里按本地 pageCount 预 snap：刚在虚页落项时配置回流有延迟，
-    // 本地 pageCount 还是旧值，会把「已建的新页」误当虚页 snap 回上一页。
-    // 新页未建时的代价是收缩帧闪一下空虚页，可接受。
+    // 退出编辑态：只翻 editMode，映射收缩交给上面的 LaunchedEffect 按当前 pageCount
+    // 收尾（配置回流前会沿用上次有效页数，避免把新页误判成虚页）。不能在这里按本地
+    // pageCount 预 snap：刚在虚页落项时配置回流有延迟，会把「已建的新页」误 snap 回
+    // 上一页。新页未建时的代价是收缩帧闪一下空虚页，可接受。
     fun exitEditMode() {
         Log.i(TAG, "exitEditMode: cur=${pagerState.settledPage} mapping=$mappingPages pageCount=$pageCount")
         editMode = false

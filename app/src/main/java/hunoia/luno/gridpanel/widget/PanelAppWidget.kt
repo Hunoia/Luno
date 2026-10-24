@@ -4,11 +4,18 @@ import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
+import android.app.PendingIntent
 import android.content.Context
 import android.os.Bundle
 import android.util.Log
+import android.view.MotionEvent
+import android.view.View
+import android.view.ViewConfiguration
+import android.view.ViewGroup
 import android.widget.RemoteViews
+import hunoia.luno.BuildConfig
 import hunoia.luno.core.AppContext
+import kotlin.math.abs
 
 /**
  * 面板内第三方小部件的宿主。宿主 id 必须跨进程稳定，故固定写死。
@@ -103,24 +110,80 @@ internal fun interface WidgetGoneListener {
  * 回放缓存；缓存也没有（全新绑定首帧）才放行，加载期占位由 Compose 侧 Overlay 盖住。
  */
 internal class PanelAppWidgetHostView(context: Context) : AppWidgetHostView(context) {
-    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+    private var downX = 0f
+    private var downY = 0f
+    /** 按下位置命中的子 View 是否是「会拉起应用的点击」：是则抬手后无需等前台事件。 */
+    private var downStartsActivity = false
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         // 记录部件点击：面板的「小部件拉起应用则关闭」只认这个标记，
         // 否则音量球/灵动胶囊等系统级前台包变化也会误关面板。
         // 同时记 provider 包名：目标前台包必须是被点部件自己的应用——
         // 否则「点网易云暂停 → 之后调音量出网易云胶囊」会被误判成拉起应用。
-        if (ev.actionMasked == android.view.MotionEvent.ACTION_DOWN) {
-            lastTapAt = android.os.SystemClock.elapsedRealtime()
-            lastTapPackage = runCatching {
-                AppWidgetManager.getInstance(context)
-                    .getAppWidgetInfo(appWidgetId)?.provider?.packageName
-            }.getOrNull()
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                downX = ev.x
+                downY = ev.y
+                val hit = findHitView(this, ev.x, ev.y)
+                downStartsActivity = clickLaunchesApp(hit)
+                if (BuildConfig.DEBUG) {
+                    Log.i(
+                        TAG,
+                        "widget tap view=${hit?.id} launches=$downStartsActivity " +
+                            "labels=${clickLabels(hit)} targets=${clickTargetsById[appWidgetId]}",
+                    )
+                }
+                markTapCandidate()
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (abs(ev.x - downX) > touchSlop || abs(ev.y - downY) > touchSlop) {
+                    downStartsActivity = false
+                    clearTapCandidate()
+                }
+            }
+            MotionEvent.ACTION_UP -> {
+                // 长按可能超过 1.5s：以抬手时刻重新起算；拖拽（滑部件）不算点击。
+                val cleanTap = abs(ev.x - downX) <= touchSlop && abs(ev.y - downY) <= touchSlop
+                if (cleanTap) {
+                    markTapCandidate()
+                } else {
+                    downStartsActivity = false
+                    clearTapCandidate()
+                }
+                // 先让 RemoteViews 处理点击（PendingIntent 真正发出），再立即关面板：
+                // 不再靠前台包变化猜“是否拉起应用”，点的是启动型 Intent 就直接关。
+                val handled = super.dispatchTouchEvent(ev)
+                if (cleanTap && downStartsActivity) {
+                    launchCloseListener?.invoke()
+                }
+                downStartsActivity = false
+                return handled
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                downStartsActivity = false
+                clearTapCandidate()
+            }
         }
         return super.dispatchTouchEvent(ev)
+    }
+
+    private fun markTapCandidate() {
+        lastTapAt = android.os.SystemClock.elapsedRealtime()
+        lastTapPackage = runCatching {
+            AppWidgetManager.getInstance(context)
+                .getAppWidgetInfo(appWidgetId)?.provider?.packageName
+        }.getOrNull()
+        tapListener?.invoke()
     }
 
     override fun updateAppWidget(views: RemoteViews?) {
         if (views != null) {
             lastViewsById[appWidgetId] = views
+            val targets = parseClickTargets(views)
+            if (clickTargetsById.put(appWidgetId, targets) != targets && BuildConfig.DEBUG) {
+                Log.i(TAG, "click targets widget=$appWidgetId targets=$targets")
+            }
             super.updateAppWidget(views)
             return
         }
@@ -128,10 +191,82 @@ internal class PanelAppWidgetHostView(context: Context) : AppWidgetHostView(cont
         if (cached != null) super.updateAppWidget(cached) else super.updateAppWidget(null)
     }
 
+    /** 最近的可点击 View 是 Activity 点击，且不是播放/暂停这类控制按钮：抬手立即关。 */
+    private fun clickLaunchesApp(hit: View?): Boolean {
+        val targets = clickTargetsById[appWidgetId] ?: return false
+        if (targets.isEmpty()) return false
+        var view: View? = hit
+        while (view != null && view !== this) {
+            val target = targets[view.id]
+            if (target != null) {
+                // 找到最近的可点击父级就停止：外层整卡“打开应用”不能盖过
+                // 内层“暂停/上一首”等控制按钮。
+                if (!target) return false
+                return !hasControlLabel(hit, view.id)
+            }
+            view = view.parent as? View
+        }
+        return false
+    }
+
+    /** 从命中 View 往上看到最近可点击 View：有无播放/暂停/切歌/收藏等控制语义。 */
+    private fun hasControlLabel(hit: View?, stopId: Int): Boolean {
+        var view: View? = hit
+        while (view != null && view !== this) {
+            if (controlWords.any { labelOf(view).contains(it) }) return true
+            if (view.id == stopId) break
+            view = view.parent as? View
+        }
+        return false
+    }
+
+    private fun clickLabels(hit: View?): String {
+        val labels = mutableListOf<String>()
+        var view: View? = hit
+        while (view != null && view !== this && labels.size < 4) {
+            val label = labelOf(view)
+            if (label.isNotEmpty()) labels += "${view.id}:$label"
+            view = view.parent as? View
+        }
+        return labels.toString()
+    }
+
+    private fun labelOf(view: View): String {
+        val desc = view.contentDescription?.toString().orEmpty()
+        val text = (view as? android.widget.TextView)?.text?.toString().orEmpty()
+        return "$desc $text".trim().lowercase()
+    }
+
+    private fun findHitView(root: View, x0: Float, y0: Float): View? {
+        var view: View = root
+        var x = x0
+        var y = y0
+        while (view is ViewGroup) {
+            var hit: View? = null
+            for (i in view.childCount - 1 downTo 0) {
+                val child = view.getChildAt(i)
+                if (child.visibility != View.VISIBLE) continue
+                val cx = x + view.scrollX - child.left
+                val cy = y + view.scrollY - child.top
+                if (cx >= 0f && cy >= 0f && cx < child.width && cy < child.height) {
+                    hit = child
+                    x = cx
+                    y = cy
+                    break
+                }
+            }
+            if (hit == null) break
+            view = hit
+        }
+        return view
+    }
+
     companion object {
         private val lastViewsById = java.util.concurrent.ConcurrentHashMap<Int, RemoteViews>()
+        /** 每个 widget 的可点击 View id → 是否 Activity 型 PendingIntent。 */
+        private val clickTargetsById = java.util.concurrent.ConcurrentHashMap<Int, Map<Int, Boolean>>()
 
-        /** 最近一次部件触摸（DOWN）时刻与被点部件的包名：宿主用它在拉起应用时关面板。 */
+        /** 最近一次部件点击（DOWN/UP）时刻与被点部件的包名：宿主用它在拉起应用时关面板。 */
         @Volatile
         private var lastTapAt = 0L
 
@@ -142,10 +277,43 @@ internal class PanelAppWidgetHostView(context: Context) : AppWidgetHostView(cont
          * [withinMs] 内有部件被点过，且其 provider 包名等于 [targetPackage]：
          * 部件内按钮（如播放/暂停）也会留下点击标记，只有「目标前台包 ==
          * 被点部件的应用」才算拉起应用，别的不关。
+         *
+         * 跨包拉起的小部件（点部件打开浏览器/设置/合作方 App）目标包必然不同；
+         * 用一个更短的 [crossPackageWithinMs] 窗口兜底，避免把之后才出现的
+         * 音量球/媒体胶囊变化也当成拉起应用。
          */
-        fun recentWidgetLaunch(targetPackage: String, withinMs: Long = 1_500L): Boolean =
-            android.os.SystemClock.elapsedRealtime() - lastTapAt < withinMs &&
-                lastTapPackage != null && lastTapPackage == targetPackage
+        fun recentWidgetLaunch(
+            targetPackage: String,
+            withinMs: Long = 1_500L,
+            crossPackageWithinMs: Long = 800L,
+        ): Boolean {
+            val elapsed = android.os.SystemClock.elapsedRealtime() - lastTapAt
+            if (elapsed >= withinMs) return false
+            val providerPackage = lastTapPackage ?: return false
+            return providerPackage == targetPackage || elapsed < crossPackageWithinMs
+        }
+
+        /** 最近 [withinMs] 内是否有干净点击：给窗口列表变化的快速收口用。 */
+        fun hasRecentTap(withinMs: Long = 1_500L): Boolean {
+            val elapsed = android.os.SystemClock.elapsedRealtime() - lastTapAt
+            return lastTapAt > 0L && elapsed in 0 until withinMs
+        }
+
+        /** 部件被点时通知轮询器：不等延迟的 WINDOW_STATE_CHANGED，主动看窗口列表。 */
+        @Volatile
+        private var tapListener: (() -> Unit)? = null
+
+        fun setTapListener(listener: (() -> Unit)?) {
+            tapListener = listener
+        }
+
+        /** 点击命中“拉起应用”的 View 时，由 Overlay 立即关面板。 */
+        @Volatile
+        private var launchCloseListener: (() -> Unit)? = null
+
+        fun setLaunchCloseListener(listener: (() -> Unit)?) {
+            launchCloseListener = listener
+        }
 
         /** 部件之外的触摸（内置滑杆/滑条等）会取消拉起候选。 */
         fun clearTapCandidate() {
@@ -156,13 +324,86 @@ internal class PanelAppWidgetHostView(context: Context) : AppWidgetHostView(cont
         /** 小部件 id 被回收（release）：缓存一并清掉，避免复用 id 后串内容。 */
         fun forget(appWidgetId: Int) {
             lastViewsById.remove(appWidgetId)
+            clickTargetsById.remove(appWidgetId)
         }
 
         /** 只保留 [ids] 的缓存（provider 列表刷新时调用）。 */
         fun retainViews(ids: Set<Int>) {
             lastViewsById.keys.retainAll(ids)
+            clickTargetsById.keys.retainAll(ids)
         }
     }
+}
+
+private val controlWords = listOf(
+    "play", "pause", "next", "prev", "previous", "rewind", "forward",
+    "favorite", "like", "love", "heart", "mute", "volume", "shuffle", "repeat",
+    "share", "comment", "download",
+    "播放", "暂停", "上一", "下一", "收藏", "红心", "喜欢", "音量", "静音",
+    "快进", "快退", "分享", "评论", "下载",
+)
+
+/** 递归读字段（含父类）：RemoteViews 内部 Action 字段不在 SDK，读不到就当不支持。 */
+private fun fieldValue(instance: Any, vararg names: String): Any? {
+    var clazz: Class<*>? = instance.javaClass
+    while (clazz != null) {
+        for (name in names) {
+            val field = runCatching {
+                clazz.getDeclaredField(name).apply { isAccessible = true }
+            }.getOrNull()
+            if (field != null) {
+                return runCatching { field.get(instance) }.getOrNull()
+            }
+        }
+        clazz = clazz.superclass
+    }
+    return null
+}
+
+/**
+ * 从 RemoteViews 动作里找出可点击 View → 是否 Activity 型 PendingIntent。
+ * RemoteViews 的 onClick 由系统内部类持有 PendingIntent，没有公开 API；
+ * 反射失败时返回空 Map，调用方回退到前台包检测。
+ * 同时兼容 collection 的 template + fill-in：fill-in 子项继承模板类型。
+ */
+private fun parseClickTargets(views: RemoteViews): Map<Int, Boolean> {
+    return runCatching {
+        val actions = fieldValue(views, "mActions") as? List<*> ?: return emptyMap()
+        val direct = mutableMapOf<Int, Boolean>()
+        val fillIn = mutableSetOf<Int>()
+        var template: Boolean? = null
+        for (action in actions) {
+            if (action == null) continue
+            val viewId = (fieldValue(action, "viewId", "mViewId") as? Int) ?: continue
+            if (viewId <= 0) continue
+            when (action.javaClass.simpleName) {
+                "SetOnClickPendingIntent" -> {
+                    val pending = fieldValue(action, "pendingIntent") as? PendingIntent
+                    if (pending != null) direct[viewId] = pending.isActivity
+                }
+                "SetOnClickResponse" -> {
+                    val response = fieldValue(action, "mResponse", "response") ?: action
+                    val pending = fieldValue(response, "mPendingIntent", "pendingIntent") as? PendingIntent
+                    if (pending != null) direct[viewId] = pending.isActivity
+                }
+                "SetPendingIntentTemplate" -> {
+                    val pending = fieldValue(
+                        action,
+                        "pendingIntentTemplate",
+                        "mPendingIntent",
+                        "pendingIntent",
+                    ) as? PendingIntent
+                    template = pending?.isActivity
+                }
+                "SetOnClickFillInIntent" -> fillIn += viewId
+            }
+        }
+        val result = direct.toMutableMap()
+        if (template != null) {
+            fillIn.forEach { id -> result[id] = template }
+        }
+        result
+    }.getOrDefault(emptyMap())
 }
 
 internal fun notifyWidgetGone(appWidgetId: Int) {
