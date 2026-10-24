@@ -13,6 +13,8 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Box
@@ -64,6 +66,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -176,6 +180,10 @@ internal fun ActionSelectBottomBar(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            // 悬浮层必须自己吃触摸：gutter、底部留白、inset 这些「看着是底栏、其实没有
+            // pointerInput」的区域原先会穿透到下面的列表行，表现为点搜索框边缘/图标旁边
+            // 偶尔直接选中了后面那一项。消费放在最外层，覆盖整块矩形。
+            .swallowTouches()
             .windowInsetsPadding(bottomInsets)
             .padding(start = PageGutter, end = PageGutter, bottom = BottomBarPadding)
             .onSizeChanged { onHeightChange(it.height) },
@@ -240,8 +248,18 @@ internal fun ActionSelectBottomBar(
                         )
                     }
                 }
-                IconButton(
-                    onClick = { if (searchExpanded) closeSearch() else searchExpanded = true },
+                // 自己画点击区而不是用 IconButton：IconButton 固定 48dp，底栏内高 56dp，
+                // 上下各留 4dp 死区，点在死区上什么都不会发生（以前还会穿透到列表）。
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(BottomBarHeight)
+                        .clip(CircleShape)
+                        .clickable(
+                            role = Role.Button,
+                            onClick = { if (searchExpanded) closeSearch() else searchExpanded = true },
+                        ),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = if (searchExpanded) Icons.Default.Close else Icons.Default.Search,
@@ -256,6 +274,21 @@ internal fun ActionSelectBottomBar(
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * 只吃事件、不做任何事：把落在底栏矩形范围内的触摸从下层兄弟节点手里拿回来。
+ *
+ * 底栏与列表是兄弟节点且悬浮其上，没挂 pointerInput 的空白区域不参与命中测试，
+ * 触摸会漏到下面的列表行（点搜索框边缘偶尔选中后一项）。放在 Main pass 消费：
+ * 子树里的 chip 拖动 / 搜索框 / 图标按钮先处理完，再轮到这里兜底。
+ */
+private fun Modifier.swallowTouches(): Modifier = pointerInput(Unit) {
+    awaitPointerEventScope {
+        while (true) {
+            awaitPointerEvent(PointerEventPass.Main).changes.forEach { it.consume() }
         }
     }
 }
@@ -447,9 +480,17 @@ private fun CapsuleSearchField(
     modifier: Modifier = Modifier,
 ) {
     val textStyle = MaterialTheme.typography.bodyLarge
+    val interactionSource = remember { MutableInteractionSource() }
     Row(
         modifier = modifier
             .fillMaxHeight()
+            // 点输入框左侧放大镜/内边距也要能聚焦：BasicTextField 只覆盖文字那一块，
+            // 其余区域以前点了没反应（现在也被 swallowTouches 挡住，不会穿透）。
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = { runCatching { focusRequester.requestFocus() } },
+            )
             .padding(start = 8.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
