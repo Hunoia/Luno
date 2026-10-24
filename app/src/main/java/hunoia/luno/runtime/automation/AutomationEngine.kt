@@ -9,6 +9,7 @@ import hunoia.luno.config.model.ThrottlePolicy
 import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.runtime.condition.ConditionContext
 import hunoia.luno.runtime.condition.matches
+import hunoia.luno.core.LOG_TAG
 
 /**
  * 自动化引擎：整树边沿（fireOn）+ 优先级仲裁 + 节流策略。
@@ -44,7 +45,7 @@ class AutomationEngine(
         val allowedIds = subscriptionIndex.ruleIdsForKeys(effectiveKeys)
         if (hunoia.luno.BuildConfig.DEBUG && rules.isNotEmpty()) {
             android.util.Log.i(
-                "LunoLauncher",
+                LOG_TAG,
                 "eval keys=$effectiveKeys pkg=${ctx.packageName} " +
                     "rules=" + rules.filter { it.enabled }.joinToString(",") {
                         "${it.id.takeLast(4)}:${if (it.id in allowedIds) "hit=${it.matches(ctx)}" else "skip"}"

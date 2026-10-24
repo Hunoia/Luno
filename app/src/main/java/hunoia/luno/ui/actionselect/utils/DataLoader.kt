@@ -41,6 +41,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import hunoia.luno.action.model.Action
 
 internal fun StoredAction.shortcutInfo(): LauncherInfo.ShortcutInfo? {
     if (typeId != "app.launchShortcut") return null
@@ -129,7 +130,7 @@ private suspend fun saveActionPanelItem(actionSelect: ActionSelect, picked: Stor
         }
         val items = when {
             // 新增：选了「无动作」等于放弃本次添加，不改面板。
-            picked == null || picked.typeId == "internal.none" -> return@updateAction settings
+            picked == null || picked.typeId == Action.NONE_TYPE_ID -> return@updateAction settings
             // 改长按变体：变体本身不带变体（防止套娃）。
             index >= 0 -> panel.items.mapIndexed { i, item ->
                 if (i == index) item.withLongPressVariant(picked.withoutVariantKey()) else item
@@ -149,7 +150,7 @@ private suspend fun saveActionPanelItem(actionSelect: ActionSelect, picked: Stor
  */
 private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: StoredAction?): SaveOutcome {
     // 选了「无动作」等于放弃本次操作，不改面板，也不当失败提示。
-    if (picked == null || picked.typeId == "internal.none") return SaveOutcome.Saved
+    if (picked == null || picked.typeId == Action.NONE_TYPE_ID) return SaveOutcome.Saved
     var outcome = SaveOutcome.PageFull
     TuneConfig.updateAction { settings ->
         val panel = settings.actionGridPanels.panelById(actionSelect.gridPanelId) ?: run {
@@ -416,7 +417,7 @@ private suspend fun saveFloatBallSlot(slot: String, picked: StoredAction?) {
     TuneConfig.updateAction { settings ->
         settings.copy(
             floatBall = settings.floatBall.copy(
-                tapAction = picked?.takeIf { it.typeId != "internal.none" },
+                tapAction = picked?.takeIf { it.typeId != Action.NONE_TYPE_ID },
             ),
         )
     }

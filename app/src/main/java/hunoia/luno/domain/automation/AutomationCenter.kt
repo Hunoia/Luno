@@ -3,8 +3,8 @@ package hunoia.luno.domain.automation
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.WhenGroup
-import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.repository.cleanActions
+import hunoia.luno.config.repository.cleanStepRefs
 import hunoia.luno.action.model.runRuleId
 import hunoia.luno.runtime.condition.hasLeaf as runtimeHasLeaf
 import kotlinx.coroutines.flow.Flow
@@ -45,7 +45,9 @@ object AutomationCenter {
         }
         updateRules { rules ->
             rules.map { rule ->
-                rule.copy(effect = rule.effect.copy(steps = rule.effect.steps.cleanRunRuleSteps(ruleId)))
+                rule.copy(effect = rule.effect.copy(
+                    steps = rule.effect.steps.cleanStepRefs { it.runRuleId() == ruleId },
+                ))
             }
         }
     }
@@ -93,16 +95,6 @@ object AutomationCenter {
 }
 
 // ---- 纯函数转调（顶层，ui 可直接 import；直引 runtime 会违 B1） ----
-
-/** 递归清理步骤树里对已删规则的 runRule 引用（含 if 分支），被清步骤变空跳。 */
-private fun List<RuleStep>.cleanRunRuleSteps(ruleId: String): List<RuleStep> = map { step ->
-    val cleared = step.action?.runRuleId() == ruleId
-    step.copy(
-        action = if (cleared) null else step.action,
-        thenSteps = step.thenSteps.cleanRunRuleSteps(ruleId),
-        elseSteps = step.elseSteps.cleanRunRuleSteps(ruleId),
-    )
-}
 
 /** 分钟数 → "HH:mm"：条件摘要展示。 */
 fun formatTimeOfDay(minute: Int): String = hunoia.luno.runtime.condition.formatTimeOfDay(minute)

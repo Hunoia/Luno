@@ -43,6 +43,7 @@ import hunoia.luno.ui.navigation.LocalGridPanels
 import kotlin.math.min
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import hunoia.luno.action.model.Action
 
 fun Context.actionText(
     action: StoredAction,
@@ -219,6 +220,6 @@ fun DirectionActions.actionTextCompose(): String =
 @Composable
 fun StoredAction?.actionTextCompose(emptyIfNone: Boolean = false): String {
     val entries = LocalActionLibraryEntries.current
-    val value = this ?: StoredAction.of("internal.none")
+    val value = this ?: StoredAction.of(Action.NONE_TYPE_ID)
     return actionText(value, emptyIfNone = emptyIfNone, actionLibraryEntries = entries)
 }

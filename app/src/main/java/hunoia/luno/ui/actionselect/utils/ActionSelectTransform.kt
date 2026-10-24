@@ -33,6 +33,7 @@ import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.ui.component.slideToRes
+import hunoia.luno.action.model.Action
 
 fun Context.selectedItemLabel(item: Any, subGestures: List<SubGesture>): String {
     return selectedItemLabel(item, subGestures, emptyList())
@@ -174,8 +175,8 @@ internal fun assembleDataTransform(state: UiState): UiState {
             if (state.isPanelItemMode) return@apply
             // 「无动作」置空入口：internal.none 被 libraryExcluded 滤掉（动作库不该建「无」），
             // 这里额外合成一行而不碰 pickerExcluded —— 空集合会让整张定义表变可选。
-            if (none { it.typeId == "internal.none" }) {
-                add(StoredAction.of("internal.none"))
+            if (none { it.typeId == Action.NONE_TYPE_ID }) {
+                add(StoredAction.of(Action.NONE_TYPE_ID))
             }
             // 动作面板：一行一个具名面板，点哪行就把哪个 panelId 存进槽里。
             state.actionPanels.forEach { panel ->

@@ -14,6 +14,7 @@ import hunoia.luno.gesture.MotionEventDispatcher
 import hunoia.luno.gesture.TouchWindowHint
 import hunoia.luno.runtime.button.ButtonVisibilityPolicy
 import hunoia.luno.gesture.mirroredButton
+import hunoia.luno.core.LOG_TAG
 
 class ButtonWindowController(
     private val host: android.content.Context,
@@ -23,7 +24,7 @@ class ButtonWindowController(
     val buttonViews: List<View> get() = _buttonViews.toList()
 
     fun replaceGestureButtons(buttons: Collection<GestureButton>) {
-        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "replace buttons: count=${buttons.size}")
+        if (BuildConfig.DEBUG) Log.i(LOG_TAG, "replace buttons: count=${buttons.size}")
         val targets = buttons.flatMap { button ->
             buildList {
                 add(GestureButtonWindowTarget(button, button))
@@ -60,7 +61,7 @@ class ButtonWindowController(
     }
 
     fun release() {
-        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "ButtonWindowController release: count=${_buttonViews.size}")
+        if (BuildConfig.DEBUG) Log.i(LOG_TAG, "ButtonWindowController release: count=${_buttonViews.size}")
         host.removeWindows(_buttonViews)
         _buttonViews.clear()
     }
@@ -100,7 +101,7 @@ class ButtonWindowController(
             setOnTouchListener { v, event ->
                 if (BuildConfig.DEBUG && event.actionMasked == MotionEvent.ACTION_DOWN) {
                     Log.i(
-                        "LunoLauncher",
+                        LOG_TAG,
                         "gesture down: mirror=${target.mirrored} raw=(${event.rawX},${event.rawY}) " +
                             "win=[${lp.x},${lp.y}][${lp.x + lp.width},${lp.y + lp.height}]",
                     )

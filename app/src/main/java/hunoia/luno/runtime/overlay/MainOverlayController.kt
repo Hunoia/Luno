@@ -11,6 +11,7 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.runtime.GestureHost
+import hunoia.luno.core.LOG_TAG
 
 class MainOverlayController(
     private val host: GestureHost,
@@ -71,7 +72,7 @@ class MainOverlayController(
     }
 
     fun release() {
-        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "MainOverlayController release")
+        if (BuildConfig.DEBUG) Log.i(LOG_TAG, "MainOverlayController release")
         composeView?.let { host.context.removeWindow(it) }
         composeView = null
     }

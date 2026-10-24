@@ -42,6 +42,8 @@ import hunoia.luno.ui.component.actionIcon
 import hunoia.luno.ui.component.gestureButtonMarkColor
 import kotlin.math.max
 import kotlin.math.roundToInt
+import hunoia.luno.core.LOG_TAG
+import hunoia.luno.action.model.Action
 
 /**
  * 悬浮球窗口：按住即拖，松手吸附最近边缘且球完整在屏内；静置变暗并移出一半，触摸恢复。
@@ -578,7 +580,7 @@ class FloatBallWindow(
                     .border(2.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
-                val icon = actionIcon(settings.tapAction ?: StoredAction.of("internal.none"))
+                val icon = actionIcon(settings.tapAction ?: StoredAction.of(Action.NONE_TYPE_ID))
                 when (icon) {
                     is ImageVector -> Image(
                         imageVector = icon,
@@ -600,7 +602,7 @@ class FloatBallWindow(
     }
 
     private companion object {
-        const val TAG = "LunoLauncher"
+        const val TAG = LOG_TAG
 
         /** 键盘让位缓动时长：足够平滑，又不拖泥带水。 */
         const val IME_LIFT_ANIM_MS = 220L

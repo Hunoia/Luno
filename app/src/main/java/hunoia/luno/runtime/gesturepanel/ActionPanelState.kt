@@ -18,6 +18,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import hunoia.luno.action.model.Action
 
 @Composable
 fun rememberActionPanelState(): ActionPanelState {
@@ -45,7 +46,7 @@ class ActionPanelState(private val coroutineScope: CoroutineScope) : LongSlideSt
         private set
     var selectedIndex: Int by mutableStateOf(-1)
         private set
-    private var selectedBaseAction: StoredAction by mutableStateOf(StoredAction.of("internal.none"))
+    private var selectedBaseAction: StoredAction by mutableStateOf(StoredAction.of(Action.NONE_TYPE_ID))
     val selectedAction: StoredAction
         get() = when (triggerType) {
             TriggerType.Press -> selectedBaseAction.withoutVariantKey()
@@ -92,7 +93,7 @@ class ActionPanelState(private val coroutineScope: CoroutineScope) : LongSlideSt
     }
 
     fun select(index: Int, action: StoredAction) {
-        selectedIndex = if (action.typeId == "internal.none") -1 else index
+        selectedIndex = if (action.typeId == Action.NONE_TYPE_ID) -1 else index
         selectedBaseAction = action
 
         delayTriggerTypeChangedJob?.cancel()
@@ -108,7 +109,7 @@ class ActionPanelState(private val coroutineScope: CoroutineScope) : LongSlideSt
         actionPanelStyle = null
         buttonColor = android.graphics.Color.TRANSPARENT
         selectedIndex = -1
-        selectedBaseAction = StoredAction.of("internal.none")
+        selectedBaseAction = StoredAction.of(Action.NONE_TYPE_ID)
         origin = Offset.Unspecified
         finger = Offset.Unspecified
         delayTriggerTypeChangedJob?.cancel()

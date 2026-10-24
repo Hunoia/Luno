@@ -1,6 +1,5 @@
 package hunoia.luno.gridpanel.ui
 
-import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -62,6 +61,7 @@ import hunoia.luno.gridpanel.widget.PanelAppWidgetView
 import hunoia.luno.gridpanel.widget.WidgetLoadState
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
 import kotlin.math.roundToInt
+import hunoia.luno.bridge.ui.hapticLongPress
 
 /** 手柄命中区上限；小格按边长比例再缩小，避免盖住半个项。 */
 private val ResizeHandleHit = 32.dp
@@ -240,9 +240,7 @@ fun GridPanelLayer(
                                     Modifier.combinedClickable(
                                         onClick = { actions.onTap(item, itemCenter.value) },
                                         onLongClick = {
-                                            view.performHapticFeedback(
-                                                HapticFeedbackConstants.LONG_PRESS,
-                                            )
+                                            view.hapticLongPress()
                                         },
                                     )
                                 }

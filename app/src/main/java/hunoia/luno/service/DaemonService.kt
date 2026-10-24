@@ -24,6 +24,7 @@ import hunoia.luno.ui.MainActivity
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import hunoia.luno.core.LOG_TAG
 
 class DaemonService : Service() {
 
@@ -110,7 +111,7 @@ class DaemonService : Service() {
 
     private fun restoreIfNeeded(serviceComponentName: ComponentName, serviceId: String, current: String) {
         if (!hasWriteSecureSettings()) {
-            android.util.Log.w("LunoLauncher", "restoreIfNeeded skipped: WRITE_SECURE_SETTINGS revoked")
+            android.util.Log.w(LOG_TAG, "restoreIfNeeded skipped: WRITE_SECURE_SETTINGS revoked")
             return
         }
         val accessibilityEnabled = runCatching {

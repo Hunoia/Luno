@@ -25,6 +25,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import hunoia.luno.core.LOG_TAG
 
 interface ActionExecutor {
     val supportedTypes: Set<String>
@@ -61,7 +62,7 @@ class ActionExecutorRegistry(
         }.getOrElse { e ->
             // runCatching 会吞掉 CancellationException，必须放行，否则序列/协程取消失效。
             if (e is kotlinx.coroutines.CancellationException) throw e
-            Log.w("LunoLauncher", "execute failed typeId=${action.typeId}", e)
+            Log.w(LOG_TAG, "execute failed typeId=${action.typeId}", e)
             ActionResult.Failed(ActionFailure.ExecutionFailed, e.message ?: e.javaClass.name)
         }
     }
@@ -76,7 +77,7 @@ class ActionResolver(
     ): ActionResult {
         val definition = ActionDefinitions.byTypeId(stored.typeId)
         val resolved = runCatching { resolveParams(stored, definition, context) }
-            .onFailure { error -> Log.w("LunoLauncher", "param template resolve failed", error) }
+            .onFailure { error -> Log.w(LOG_TAG, "param template resolve failed", error) }
             .getOrNull()
         val params = resolved?.params ?: stored.params
 
@@ -92,13 +93,13 @@ class ActionResolver(
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: UnknownActionTypeException) {
-            Log.w("LunoLauncher", "unknown action type ${e.typeId}")
+            Log.w(LOG_TAG, "unknown action type ${e.typeId}")
             ActionResult.Failed(ActionFailure.Unsupported)
         } catch (e: InvalidActionParameterException) {
-            Log.w("LunoLauncher", "invalid param ${e.key}=${e.raw} typeId=${stored.typeId}")
+            Log.w(LOG_TAG, "invalid param ${e.key}=${e.raw} typeId=${stored.typeId}")
             ActionResult.Failed(ActionFailure.InvalidParameter, e.message)
         } catch (e: Exception) {
-            Log.w("LunoLauncher", "map/execute failed typeId=${stored.typeId}", e)
+            Log.w(LOG_TAG, "map/execute failed typeId=${stored.typeId}", e)
             ActionResult.Failed(ActionFailure.ExecutionFailed, e.message ?: e.javaClass.name)
         }
     }

@@ -14,6 +14,7 @@ import java.util.Base64
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
+import hunoia.luno.core.LOG_TAG
 
 object BackupOperator {
 
@@ -184,7 +185,7 @@ object BackupOperator {
         val backupBytes = runCatching { scanZipEntries(zipFile) }
             .getOrElse { e ->
                 // zip bomb 会在这里被 MAX_ENTRY_BYTES 挡下；记一笔具体原因便于排查
-                android.util.Log.w("LunoLauncher", "precheckRestore: ${e::class.simpleName}: ${e.message}")
+                android.util.Log.w(LOG_TAG, "precheckRestore: ${e::class.simpleName}: ${e.message}")
                 return RestorePrecheckResult.Failed(RestorePrecheckFailure.InvalidFormat)
             }
         if (backupBytes == null) {

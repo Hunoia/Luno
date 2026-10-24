@@ -22,6 +22,7 @@ import hunoia.luno.bridge.system.hasViewActivity
 import hunoia.luno.bridge.system.normalizeOpenAppOrUrl
 import java.util.Locale
 import kotlin.math.roundToInt
+import hunoia.luno.core.LOG_TAG
 
 object Launcher {
 
@@ -52,7 +53,7 @@ object Launcher {
                 true
             }
         } catch (e: Exception) {
-            Log.e("LunoLauncher", "launchApp failed", e)
+            Log.e(LOG_TAG, "launchApp failed", e)
             false
         }
     }
@@ -100,7 +101,7 @@ object Launcher {
             context.startActivity(intent)
             true
         } catch (e: Exception) {
-            Log.e("LunoLauncher", "launchAppActivity failed", e)
+            Log.e(LOG_TAG, "launchAppActivity failed", e)
             false
         }
     }
@@ -130,7 +131,7 @@ object Launcher {
             context.startActivities(intents)
             true
         } catch (e: Exception) {
-            Log.e("LunoLauncher", "launchShortcutInfo failed", e)
+            Log.e(LOG_TAG, "launchShortcutInfo failed", e)
             showToast(context.getString(R.string.launch_shortcut_info_failed, shortcutInfo.label))
             false
         }
@@ -161,7 +162,7 @@ object Launcher {
             context.startActivity(intent)
             true
         } catch (e: Exception) {
-            Log.e("LunoLauncher", "launchUrl failed", e)
+            Log.e(LOG_TAG, "launchUrl failed", e)
             showToast(context.getString(R.string.launch_failed))
             false
         }
@@ -244,7 +245,7 @@ private object MiniWindow {
             context.startActivity(intent, activityOptions.toBundle())
             true
         } catch (e: Exception) {
-            Log.e("LunoLauncher", "startActivity in mini window failed", e)
+            Log.e(LOG_TAG, "startActivity in mini window failed", e)
             showToast(context.getString(R.string.launch_mini_window_failed))
             false
         }

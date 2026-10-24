@@ -11,6 +11,7 @@ import hunoia.luno.runtime.settings.SettingsStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import hunoia.luno.core.LOG_TAG
 
 class ButtonHideRuntime(
     private val scope: CoroutineScope,
@@ -53,7 +54,7 @@ class ButtonRefreshCoordinator(
                 val target = view.tag as? hunoia.luno.runtime.overlay.GestureButtonWindowTarget ?: return@count false
                 policy.shouldShow(target.sourceButton)
             }
-            Log.i("LunoLauncher", "button refresh: visible=$visibleCount total=${buttonWindowController.buttonViews.size}")
+            Log.i(LOG_TAG, "button refresh: visible=$visibleCount total=${buttonWindowController.buttonViews.size}")
         }
     }
 }

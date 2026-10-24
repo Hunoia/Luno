@@ -35,7 +35,6 @@ import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.icon
 import hunoia.luno.quicklaunch.model.qualifiedName
-import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
@@ -84,20 +83,7 @@ fun RecentAppsBlocklistScreen(
     suspend fun loadApps() {
         loading = true
         apps = withContext(Dispatchers.IO) {
-            try {
-                val context = AppContext.get()
-                val appInfos = QuickLaunchFacade
-                    .queryApps(context)
-                    .filter { it.packageName != context.packageName }
-                val disabledApps = DisabledAppQuery.queryDisabledApplicationsOnIo(context)
-                val normalPackageNames = appInfos.map { it.packageName }.toSet()
-                val filteredDisabledApps = disabledApps.filter {
-                    it.packageName !in normalPackageNames && it.packageName != context.packageName
-                }
-                appInfos + filteredDisabledApps
-            } catch (_: Exception) {
-                emptyList()
-            }
+            QuickLaunchFacade.queryAppsIncludingDisabled(AppContext.get())
         }
         loading = false
     }

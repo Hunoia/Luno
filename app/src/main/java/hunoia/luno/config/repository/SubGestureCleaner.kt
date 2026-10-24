@@ -6,9 +6,19 @@ import hunoia.luno.action.model.withLongPressVariant
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.DirectionActions
 import hunoia.luno.config.model.GestureButton
+import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.model.SubGesture
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+
+/** 递归清理步骤树里命中 [predicate] 的动作（含 if 分支）：被清步骤变空跳，其余照跑。 */
+fun List<RuleStep>.cleanStepRefs(predicate: (StoredAction) -> Boolean): List<RuleStep> = map { step ->
+    step.copy(
+        action = step.action?.takeUnless(predicate),
+        thenSteps = step.thenSteps.cleanStepRefs(predicate),
+        elseSteps = step.elseSteps.cleanStepRefs(predicate),
+    )
+}
 
 object SubGestureCleaner {
 

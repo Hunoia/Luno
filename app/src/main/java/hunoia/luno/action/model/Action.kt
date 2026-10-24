@@ -197,7 +197,7 @@ sealed interface Action {
 
     // Internal
     data object None : Action {
-        override val typeId: String = "internal.none"
+        override val typeId: String = NONE_TYPE_ID
     }
     data object SubGesture : Action {
         override val typeId: String = "internal.subGesture"
@@ -255,6 +255,11 @@ sealed interface Action {
      */
     data class RunRule(val ruleId: String) : Action {
         override val typeId: String = "internal.runRule"
+    }
+
+    companion object {
+        /** 「无动作」的 typeId：判断/构造无动作时的命名常量，散落字面量已全部收口于此。 */
+        const val NONE_TYPE_ID = "internal.none"
     }
 }
 

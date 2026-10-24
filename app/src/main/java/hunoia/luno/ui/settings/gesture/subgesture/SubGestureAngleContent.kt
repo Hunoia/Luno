@@ -49,11 +49,11 @@ import hunoia.luno.config.model.SubGestureAngle
 import hunoia.luno.config.model.copyDirectionAngleBoundary
 import java.lang.Math
 import kotlin.math.PI
-import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import hunoia.luno.config.model.sectorWidth
+import hunoia.luno.config.model.normalizedAngle
 
 @Composable
 fun SubGestureAngleContent(
@@ -318,15 +318,6 @@ private fun SubGestureAngleDial(
         drawCircle(color = color, radius = 7.dp.toPx(), center = myCenter)
         drawCircle(color = Color.White, radius = 3.dp.toPx(), center = myCenter)
     }
-}
-
-private fun normalizedAngle(offset: Offset, center: Offset): Float {
-    val dx = offset.x - center.x
-    val dy = offset.y - center.y
-    val angle = atan2(-dy.toDouble(), dx.toDouble())
-    var norm = (angle / (2 * PI)).toFloat()
-    if (norm < 0f) norm += 1f
-    return norm
 }
 
 private fun normalizedDiff(a: Float, b: Float): Float {

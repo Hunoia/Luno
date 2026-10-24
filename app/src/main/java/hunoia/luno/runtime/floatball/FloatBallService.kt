@@ -41,6 +41,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import hunoia.luno.core.LOG_TAG
 
 /**
  * 悬浮球宿主，跑在独立 `:service` 进程（前台通知常驻）：球显示不依赖无障碍开关，
@@ -375,7 +376,7 @@ class FloatBallService : Service() {
     }
 
     companion object {
-        private const val TAG = "LunoLauncher"
+        private const val TAG = LOG_TAG
         private const val CHANNEL_ID = "float_ball"
         private const val NOTIFICATION_ID = 2002
         const val ACTION_STOP = "hunoia.luno.action.STOP_FLOAT_BALL"

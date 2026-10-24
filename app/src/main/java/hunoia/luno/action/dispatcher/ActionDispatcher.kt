@@ -36,6 +36,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlin.coroutines.CoroutineContext
+import hunoia.luno.core.LOG_TAG
 
 /**
  * 统一分发口（单 Dispatcher）：找定义 → 校验参数 → 查能力闸 → 调执行，同步返回三态。
@@ -125,7 +126,7 @@ class ActionDispatcher(
         /** 是否源自手势链路：只有它为 true，分发落定事件才会驱动 GESTURE 域评估。 */
         fromGesture: Boolean = false,
     ) {
-        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "dispatch storedAction typeId=${stored.typeId}")
+        if (BuildConfig.DEBUG) Log.i(LOG_TAG, "dispatch storedAction typeId=${stored.typeId}")
         scope.launch(Dispatchers.Main.immediate) {
             dispatchAwait(stored, sourceButton, touchPosition, templateContext, gestureTrigger, fromGesture)
         }
@@ -161,7 +162,7 @@ class ActionDispatcher(
                 val entryId = (stored.params["entryId"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull.orEmpty()
                 val entry = settingsSnapshot().actionLibrarySettings.entries.find { it.id == entryId }
                 if (entry == null) {
-                    if (BuildConfig.DEBUG) Log.w("LunoLauncher", "library entry not found id=$entryId")
+                    if (BuildConfig.DEBUG) Log.w(LOG_TAG, "library entry not found id=$entryId")
                     postDispatch(stored.typeId, ok = false)
                     return StepOutcome.EntryMissing
                 }
@@ -181,7 +182,7 @@ class ActionDispatcher(
                 return StepOutcome.Done(ActionResult.Failed(ActionFailure.InvalidParameter, "needs_touch_position"))
             }
             val result = resolver.resolveFromLibrary(effective, ctx)
-            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "result=$result")
+            if (BuildConfig.DEBUG) Log.i(LOG_TAG, "result=$result")
             when (result) {
                 is ActionResult.Failed -> ctx.showToast(result.message ?: failureText(appContext, result.reason))
                 is ActionResult.RequiresCapability -> ctx.showToast(capabilityText(appContext, result.capability))
@@ -193,7 +194,7 @@ class ActionDispatcher(
             throw e
         } catch (e: Exception) {
             // 兜底：畸形数据/第三方执行器异常都不允许冒到协程外崩掉 App。
-            Log.w("LunoLauncher", "dispatch crashed typeId=${stored.typeId}", e)
+            Log.w(LOG_TAG, "dispatch crashed typeId=${stored.typeId}", e)
             postDispatch(stored.typeId, ok = false)
             return StepOutcome.Done(ActionResult.Failed(ActionFailure.ExecutionFailed, e.message))
         }

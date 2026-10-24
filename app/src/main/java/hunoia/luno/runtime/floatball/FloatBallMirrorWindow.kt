@@ -25,6 +25,7 @@ import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.ui.component.gestureButtonMarkColor
 import kotlin.math.max
+import hunoia.luno.core.LOG_TAG
 
 /**
  * 主球的对侧镜像分身：钉在对侧边缘的半圆描边（alpha [FloatBallDefaults.MirrorDimAlpha]），独立 2038 小窗。
@@ -253,6 +254,6 @@ class FloatBallMirrorWindow(
     }
 
     private companion object {
-        const val TAG = "LunoLauncher"
+        const val TAG = LOG_TAG
     }
 }

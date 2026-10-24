@@ -14,6 +14,7 @@ import hunoia.luno.quicklaunch.model.LauncherInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import hunoia.luno.action.model.Action
 
 /**
  * 快速搜索索引：懒加载各数据源，按 query 的单字 token 做拼音/首字母/原文 tier 匹配。
@@ -206,7 +207,7 @@ fun QuickSearchResult.toConfigAction(): StoredAction = when (this) {
             "intent.shareText",
             "text" to launch.textTemplate.fillSearchQuery(query),
         )
-        is SearchLaunch.ShareImage -> StoredAction.of("internal.none")
+        is SearchLaunch.ShareImage -> StoredAction.of(Action.NONE_TYPE_ID)
         is SearchLaunch.Action -> launch.action.fillSearchQuery(query)
     }
     // Calc/联系人/媒体/日历/开关/短信/通话 在 toSearchResult 里转成

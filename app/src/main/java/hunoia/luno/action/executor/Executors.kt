@@ -189,7 +189,7 @@ class IntentExecutors(private val intentController: IntentController) : ActionEx
 class InternalExecutors : ActionExecutor {
 
     override val supportedTypes: Set<String> = setOf(
-        "internal.none", "internal.subGesture",
+        Action.NONE_TYPE_ID, "internal.subGesture",
         "internal.buttonsVisibility", "internal.floatBallVisibility",
         "internal.quickAppLauncher", "internal.quickSearch", "internal.gridPanel",
         "internal.volumeScrub",

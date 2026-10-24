@@ -44,6 +44,7 @@ import hunoia.luno.action.definitions.ActionCategory
 import hunoia.luno.action.model.ACTION_PANEL_PARAM_PANEL_ID
 import hunoia.luno.action.model.ACTION_PANEL_TYPE_ID
 import hunoia.luno.action.model.*
+import hunoia.luno.action.model.Action
 
 object ActionDefinitions {
 
@@ -209,7 +210,7 @@ object ActionDefinitions {
         ))
 
         // Internal
-        add(ActionDefinition("internal.none", "无", ActionCategory.NONE, Capability.None,
+        add(ActionDefinition(Action.NONE_TYPE_ID, "无", ActionCategory.NONE, Capability.None,
             icon = Icons.Default.Block))
         add(ActionDefinition("internal.subGesture", "子手势", ActionCategory.SUB_GESTURE, Capability.None,
             icon = Icons.Default.Gesture))
@@ -267,7 +268,7 @@ object ActionDefinitions {
 
     /** 不可在动作库中新建的类型：占位型，或必须引用具体实体的类型 */
     private val libraryExcluded: Set<String> = setOf(
-        "internal.none",
+        Action.NONE_TYPE_ID,
         "internal.subGesture",
         "internal.runRule",
         ACTION_PANEL_TYPE_ID,

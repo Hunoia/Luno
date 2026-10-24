@@ -3,8 +3,8 @@ package hunoia.luno.domain.action
 import hunoia.luno.action.model.ActionLibrarySettings
 import hunoia.luno.action.model.libraryEntryId
 import hunoia.luno.config.ConfigProvider
-import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.repository.cleanActions
+import hunoia.luno.config.repository.cleanStepRefs
 import kotlinx.coroutines.flow.Flow
 
 /** 模板变量：picker 展示用，经 domain 转调，ui 不得直引 runtime。 */
@@ -54,18 +54,10 @@ object ActionLibrary {
             // 悬空引用藏在 steps/thenSteps/elseSteps 里，逐级清掉：动作步变成空跳，
             // 规则其余步骤照跑（多步规则不该因为一条失效就整条失能）。
             rules.map { rule ->
-                rule.copy(effect = rule.effect.copy(steps = rule.effect.steps.cleanSteps(entryId)))
+                rule.copy(effect = rule.effect.copy(
+                    steps = rule.effect.steps.cleanStepRefs { it.libraryEntryId() == entryId },
+                ))
             }
         }
     }
-}
-
-/** 递归清理步骤树里对已删条目的引用（含 if 分支）。 */
-private fun List<RuleStep>.cleanSteps(entryId: String): List<RuleStep> = map { step ->
-    val actionCleared = step.action?.libraryEntryId() == entryId
-    step.copy(
-        action = if (actionCleared) null else step.action,
-        thenSteps = step.thenSteps.cleanSteps(entryId),
-        elseSteps = step.elseSteps.cleanSteps(entryId),
-    )
 }

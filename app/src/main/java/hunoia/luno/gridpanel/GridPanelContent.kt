@@ -2,7 +2,6 @@ package hunoia.luno.gridpanel
 
 import android.os.SystemClock
 import android.util.Log
-import android.view.HapticFeedbackConstants
 import android.view.WindowInsets
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -54,6 +53,8 @@ import hunoia.luno.ui.navigation.ActionSelect
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
+import hunoia.luno.bridge.ui.hapticLongPress
+import hunoia.luno.bridge.ui.hapticMove
 
 
 /** 点空白退出编辑后，这段时间内的项点按不执行（防连点误触）。 */
@@ -322,7 +323,7 @@ fun GridPanelRoot(
         GridPanelState(
             metricsProvider = { page -> metricsForPage(page) },
             pageItemsProvider = { page -> localItems.filter { it.pageIndex == page } },
-            onHaptic = { view.performHapticFeedback(HapticFeedbackConstants.TEXT_HANDLE_MOVE) },
+            onHaptic = { view.hapticMove() },
             commitPage = { page, items -> commitPageItems(page, items) },
             scope = scope,
         )
@@ -349,7 +350,7 @@ fun GridPanelRoot(
                     },
                     onLongPress = {
                         if (!editMode) {
-                            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                            view.hapticLongPress()
                             editMode = true
                         }
                     },

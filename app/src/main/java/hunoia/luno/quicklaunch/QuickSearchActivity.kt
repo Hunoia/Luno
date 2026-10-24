@@ -33,6 +33,7 @@ import hunoia.luno.service.DispatchClient
 import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import hunoia.luno.core.LOG_TAG
 
 /**
  * 全屏透明搜索面板：状态栏、通知弹窗、键盘 insets 全部交还系统，
@@ -153,7 +154,7 @@ class QuickSearchActivity : ComponentActivity() {
         // 状态栏不受影响。
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
         window.attributes.blurBehindRadius = 80
-        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "QuickSearchActivity onCreate taskId=$taskId")
+        if (BuildConfig.DEBUG) Log.i(LOG_TAG, "QuickSearchActivity onCreate taskId=$taskId")
         if (!shownEventPosted) {
             shownEventPosted = true
             Events.post(PanelShownEvent())
@@ -274,7 +275,7 @@ class QuickSearchActivity : ComponentActivity() {
         super.onNewIntent(intent)
         // singleTask 重复触发：面板已在前台，保留当前内容；只重扫包列表，避免
         // 上次打开期间装卸的应用在复用时仍按旧索引搜不到。
-        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "QuickSearchActivity onNewIntent taskId=$taskId")
+        if (BuildConfig.DEBUG) Log.i(LOG_TAG, "QuickSearchActivity onNewIntent taskId=$taskId")
         lifecycleScope.launch(Dispatchers.IO) { runCatching { index.invalidateApps() } }
     }
 
@@ -309,7 +310,7 @@ class QuickSearchActivity : ComponentActivity() {
             }
             val ok = runCatching { context.startActivity(intent) }.isSuccess
             if (!ok) {
-                Log.w("LunoLauncher", "QuickSearchActivity start failed")
+                Log.w(LOG_TAG, "QuickSearchActivity start failed")
                 showToast(R.string.quick_search_start_failed)
             }
         }

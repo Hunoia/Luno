@@ -66,6 +66,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
+import hunoia.luno.core.LOG_TAG
 
 /** 冷启动/悬浮窗重建期间容器的面板列表未灌满时，揭示事件的等待重试参数。 */
 private const val BALL_PANEL_REVEAL_MAX_ATTEMPTS = 40
@@ -84,7 +85,7 @@ class GestureCoordinator(
             )
         },
         onKeyboardStateChanged = { active ->
-            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "keyboard active=$active")
+            if (BuildConfig.DEBUG) Log.i(LOG_TAG, "keyboard active=$active")
             refreshGestureButtons(automationKeys = setOf(AutomationEventKey.KEYBOARD))
         },
     )
@@ -117,21 +118,21 @@ class GestureCoordinator(
     private val broadcastObserver = BroadcastObserver(
         context = host.context,
         onScreenOff = {
-            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "screen off")
+            if (BuildConfig.DEBUG) Log.i(LOG_TAG, "screen off")
             environmentTracker.isNowInLockScreenPage = true
             environmentTracker.onScreenEvent(ScreenEventType.SCREEN_OFF)
             host.runtimePanelOverlay.closeImmediately()
             refreshGestureButtons(automationKeys = setOf(AutomationEventKey.SCREEN))
         },
         onScreenOn = {
-            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "screen on")
+            if (BuildConfig.DEBUG) Log.i(LOG_TAG, "screen on")
             environmentTracker.onScreenEvent(ScreenEventType.SCREEN_ON)
             // 无通知访问权限时，勿扰变化没有监听来源；亮屏时补读一次系统值。
             dndTracker.refreshFromSystem()
             refreshGestureButtons(automationKeys = setOf(AutomationEventKey.SCREEN))
         },
         onUserPresent = {
-            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "user present")
+            if (BuildConfig.DEBUG) Log.i(LOG_TAG, "user present")
             environmentTracker.isNowInLockScreenPage = false
             environmentTracker.onScreenEvent(ScreenEventType.USER_UNLOCK)
             refreshGestureButtons(automationKeys = setOf(AutomationEventKey.SCREEN))
@@ -352,7 +353,7 @@ class GestureCoordinator(
         }
 
         override fun onVolumeScrubOverlayRequested(config: hunoia.luno.config.model.VolumeScrubConfig) {
-            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "volume scrub overlay requested")
+            if (BuildConfig.DEBUG) Log.i(LOG_TAG, "volume scrub overlay requested")
             volumeScrubRuntime.show(config)
         }
 
@@ -383,7 +384,7 @@ class GestureCoordinator(
         }
 
         override fun onActionPanelVisibilityChanged(visible: Boolean) {
-            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "action panel visible=$visible")
+            if (BuildConfig.DEBUG) Log.i(LOG_TAG, "action panel visible=$visible")
             mainOverlayController.setPanelVisible(visible)
         }
 
@@ -406,7 +407,7 @@ class GestureCoordinator(
     ) {
         if (BuildConfig.DEBUG) {
             Log.i(
-                "LunoLauncher",
+                LOG_TAG,
                 "gesture decision trigger=${decision?.triggerType} dir=${decision?.actionDirection} " +
                     "button=${sourceButton?.id} action=${action.typeId}",
             )
@@ -503,7 +504,7 @@ class GestureCoordinator(
                 }
                 if (target != null) {
                     if (BuildConfig.DEBUG) {
-                        Log.i("LunoLauncher", "widget launch window added: $target (added=$added)")
+                        Log.i(LOG_TAG, "widget launch window added: $target (added=$added)")
                     }
                     hunoia.luno.gridpanel.GridPanelOverlay.onForegroundPackageChanged(
                         fromPackage = environmentTracker.currentPackageName.ifEmpty { target },
@@ -533,7 +534,7 @@ class GestureCoordinator(
     fun onSetOverlay() {
         if (started) return
         started = true
-        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "GestureCoordinator start")
+        if (BuildConfig.DEBUG) Log.i(LOG_TAG, "GestureCoordinator start")
         hunoia.luno.gridpanel.widget.PanelAppWidgetHostView.setTapListener { startWidgetLaunchPoll() }
         hunoia.luno.core.Events.subscribe(
             hunoia.luno.action.dispatcher.GestureDispatchEvent::class,
@@ -564,7 +565,7 @@ class GestureCoordinator(
             runtimeSettingsStore.state
                 .distinctUntilChangedBy { it.gestureButtons }
                 .collectLatest { state ->
-                    if (BuildConfig.DEBUG) Log.i("LunoLauncher", "gesture buttons changed: count=${state.gestureButtons.size}")
+                    if (BuildConfig.DEBUG) Log.i(LOG_TAG, "gesture buttons changed: count=${state.gestureButtons.size}")
                     buttonWindowController.replaceGestureButtons(state.gestureButtons)
                     refreshGestureButtons(delayMs = 0L)
                 }
@@ -645,7 +646,7 @@ class GestureCoordinator(
         ) {
             if (BuildConfig.DEBUG) {
                 Log.i(
-                    "LunoLauncher",
+                    LOG_TAG,
                     "early window event after widget tap: type=${event.eventType} " +
                         "pkg=$eventPackage window=${event.windowId}",
                 )
@@ -670,7 +671,7 @@ class GestureCoordinator(
                 }
                 if (target != null) {
                     if (BuildConfig.DEBUG) {
-                        Log.i("LunoLauncher", "window added after widget tap: $target (added=$added)")
+                        Log.i(LOG_TAG, "window added after widget tap: $target (added=$added)")
                     }
                     hunoia.luno.gridpanel.GridPanelOverlay.onForegroundPackageChanged(
                         fromPackage = beforePackage.ifEmpty { target },
@@ -680,7 +681,7 @@ class GestureCoordinator(
             }
         }
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "window changed: pkg=${event.packageName}")
+            if (BuildConfig.DEBUG) Log.i(LOG_TAG, "window changed: pkg=${event.packageName}")
             val afterPackage = environmentTracker.currentPackageName
             val eventClass = event.className?.toString()
             val samePackageNewActivity =
@@ -705,7 +706,7 @@ class GestureCoordinator(
     fun onConfigurationChanged(newConfig: Configuration) {
         val oldOrientation = environmentTracker.orientation
         if (oldOrientation != newConfig.orientation) {
-            if (BuildConfig.DEBUG) Log.i("LunoLauncher", "orientation=${newConfig.orientation}")
+            if (BuildConfig.DEBUG) Log.i(LOG_TAG, "orientation=${newConfig.orientation}")
             environmentTracker.onOrientationChanged(newConfig.orientation)
             mainOverlayController.updateLayout()
             refreshGestureButtons()
@@ -715,7 +716,7 @@ class GestureCoordinator(
     fun onDestroy() {
         if (!started) return
         started = false
-        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "GestureCoordinator destroy")
+        if (BuildConfig.DEBUG) Log.i(LOG_TAG, "GestureCoordinator destroy")
         hunoia.luno.gridpanel.widget.PanelAppWidgetHostView.setTapListener(null)
         stopWidgetLaunchPoll()
         hunoia.luno.core.Events.unsubscribe(
@@ -733,7 +734,7 @@ class GestureCoordinator(
         conditionSources.stop()
         scopeJobs.forEach { it.cancel() }
         scopeJobs.clear()
-        if (BuildConfig.DEBUG) Log.i("LunoLauncher", "GestureCoordinator release")
+        if (BuildConfig.DEBUG) Log.i(LOG_TAG, "GestureCoordinator release")
         mainOverlayController.release()
         buttonWindowController.release()
         transientOverlayController.detachAll()

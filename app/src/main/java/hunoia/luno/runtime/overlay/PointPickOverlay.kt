@@ -42,6 +42,7 @@ import hunoia.luno.bridge.ui.applyOverlayViewTreeOwners
 import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.runtime.GestureHost
 import kotlin.math.roundToInt
+import hunoia.luno.core.LOG_TAG
 
 /**
  * 屏幕取点 overlay（动作库点击/长按坐标参数用）：全屏透明（不压暗，保证看清目标应用），
@@ -90,7 +91,7 @@ class PointPickOverlay(private val host: GestureHost) {
             gravity = Gravity.LEFT or Gravity.TOP
         }
         if (BuildConfig.DEBUG) {
-            android.util.Log.i("LunoLauncher", "point pick: show initial=($initialXdp,$initialYdp)")
+            android.util.Log.i(LOG_TAG, "point pick: show initial=($initialXdp,$initialYdp)")
         }
         val composeView = ComposeView(host.context).apply {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
@@ -108,7 +109,7 @@ class PointPickOverlay(private val host: GestureHost) {
             }
         }
         if (!wm.safeAddView(composeView, lp)) {
-            android.util.Log.e("LunoLauncher", "point pick: addView failed type=touch_trusted")
+            android.util.Log.e(LOG_TAG, "point pick: addView failed type=touch_trusted")
             onError()
             return
         }

@@ -1,6 +1,5 @@
 package hunoia.luno.gridpanel.gesture
 
-import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.Composable
@@ -18,6 +17,7 @@ import androidx.compose.ui.platform.LocalViewConfiguration
 import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.gridpanel.geometry.GridMetrics
 import kotlin.math.roundToInt
+import hunoia.luno.bridge.ui.hapticLongPress
 
 /** 长按超时前的结局：抬手 = 点按，滑动超 slop / 被子层消费 = 放弃。 */
 private enum class LayerGestureOutcome { TAP, GIVE_UP }
@@ -118,7 +118,7 @@ fun Modifier.gridLayerGestures(
 
                 // null = 超时：长按成立，进入整项拖拽。
                 null -> {
-                    view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    view.hapticLongPress()
                     dragStartRef.value(item)
                     while (true) {
                         val event = awaitPointerEvent()

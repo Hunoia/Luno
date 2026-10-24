@@ -44,8 +44,11 @@ internal fun <T> directionOf(boundaries: List<Float>, directions: List<T>, offse
     return directions[nearest]
 }
 
-internal fun normalizedAngle(offset: Offset): Float {
-    val angle = atan2(-offset.y.toDouble(), offset.x.toDouble())
+internal fun normalizedAngle(offset: Offset): Float = normalizedAngle(offset, Offset.Zero)
+
+/** 归一化角度（[0,1)，0 = 正右、逆时针为正）：[center] 为旋转中心，缺省屏幕原点。 */
+internal fun normalizedAngle(offset: Offset, center: Offset): Float {
+    val angle = atan2(-(offset.y - center.y).toDouble(), (offset.x - center.x).toDouble())
     var norm = (angle / (2 * PI)).toFloat()
     if (norm < 0f) norm += 1f
     return norm

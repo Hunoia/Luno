@@ -86,7 +86,7 @@ object ActionMapper {
                 p.bool("showToast"),
                 p.bool("copyOutput"),
             )
-            "internal.none" -> Action.None
+            Action.NONE_TYPE_ID -> Action.None
             "internal.subGesture" -> Action.SubGesture
             "internal.buttonsVisibility" -> Action.ButtonsVisibility(
                 p.bool("visible", false),

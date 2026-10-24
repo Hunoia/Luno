@@ -7,6 +7,7 @@ import hunoia.luno.config.model.OpenAppOrUrlData
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.quicklaunch.query.AppQuery
+import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import hunoia.luno.quicklaunch.query.ShortcutQuery
 import hunoia.luno.quicklaunch.query.LauncherIconQuery
 import hunoia.luno.quicklaunch.launch.Launcher
@@ -19,11 +20,27 @@ import hunoia.luno.quicklaunch.query.LauncherEnvironment
 import hunoia.luno.quicklaunch.query.OpenAppOrUrlQuery
 import hunoia.luno.quicklaunch.query.QuickAppLauncherAppList
 import kotlinx.coroutines.CoroutineScope
+import hunoia.luno.core.LOG_TAG
 
 object QuickLaunchFacade {
 
     fun queryApps(context: Context, allowRepeatPackage: Boolean = true): List<AppInfo> =
         AppQuery.queryLauncherActivities(context, allowRepeatPackage)
+
+    /**
+     * 应用清单加载（AppPickerSheet 与最近应用黑名单页共用）：正常应用 + 禁用应用
+     * 合并去重、剔除自身；查询失败回退空表。调用方须在 IO 线程。
+     */
+    suspend fun queryAppsIncludingDisabled(context: Context): List<AppInfo> = try {
+        val appInfos = queryApps(context).filter { it.packageName != context.packageName }
+        val disabledApps = DisabledAppQuery.queryDisabledApplicationsOnIo(context)
+        val normalPackageNames = appInfos.map { it.packageName }.toSet()
+        appInfos + disabledApps.filter {
+            it.packageName !in normalPackageNames && it.packageName != context.packageName
+        }
+    } catch (_: Exception) {
+        emptyList()
+    }
 
     fun queryShortcutActivities(context: Context, allowRepeatPackage: Boolean = true): List<LauncherInfo> =
         AppQuery.queryCreateShortcutActivities(context, allowRepeatPackage)
@@ -92,7 +109,7 @@ object QuickLaunchFacade {
             isDisabled = isDisabled,
             miniWindow = miniWindow,
             requestEnableDisabledPackage = requestEnableDisabledPackage ?: { _, callback -> callback(true) },
-            log = log ?: { message -> android.util.Log.i("LunoLauncher", message); Unit },
+            log = log ?: { message -> android.util.Log.i(LOG_TAG, message); Unit },
             onLaunch = onLaunch ?: { _, _ -> true },
             onLaunched = onLaunched ?: {}
         )

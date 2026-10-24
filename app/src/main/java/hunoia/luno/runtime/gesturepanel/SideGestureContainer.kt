@@ -40,6 +40,7 @@ import hunoia.luno.gesture.VolumeScrubState
 import hunoia.luno.runtime.pointer.rememberPointerHandle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import hunoia.luno.action.model.Action
 
 private const val SUB_GESTURE_DIRECT_ACTION_DELAY_MS = 50L
 
@@ -140,8 +141,8 @@ fun SideGestureContainer(
         decision: GestureDecision.Trigger? = null,
         onDirectComplete: (enteredSubGesture: Boolean) -> Unit = {},
     ) {
-        val action = resolvedAction?.takeIf { it.typeId != "internal.none" }
-            ?: StoredAction.of("internal.none")
+        val action = resolvedAction?.takeIf { it.typeId != Action.NONE_TYPE_ID }
+            ?: StoredAction.of(Action.NONE_TYPE_ID)
         // 动作面板：显式动作类型，不再是「槽里存了 ≥2 个动作」的副作用。
         // 保持类触发（按住到阈值）也在 onMove 里 resolve，onResolved 统一接住，
         // 所以这里不需要区分按住/非按住 —— 阈值到了就弹。
@@ -166,7 +167,7 @@ fun SideGestureContainer(
             action.typeId != "internal.subGesture" &&
             action.typeId != "internal.volumeScrub" &&
             action.typeId != "internal.pointer" &&
-            action.typeId != "internal.none"
+            action.typeId != Action.NONE_TYPE_ID
         if (shouldDelayDirectSubGestureAction) {
             subGestureState.clear(notifyService = true)
             coroutineScope.launch {
@@ -203,7 +204,7 @@ fun SideGestureContainer(
                 pointerStartedFromSubGesture = started && holdInFlight
                 false
             }
-            "internal.none" -> false
+            Action.NONE_TYPE_ID -> false
             else -> handleResolvedAction(action, sourceButton, touchPosition, decision)
         }
         onDirectComplete(enteredSubGesture)
@@ -376,7 +377,7 @@ fun SideGestureContainer(
                 if (fromSubGesturePanel) {
                     subGestureState.clear(notifyService = true)
                 }
-                if (hitAction.typeId != "internal.none") {
+                if (hitAction.typeId != Action.NONE_TYPE_ID) {
                     val actionToRun: () -> Unit = {
                         when (hitAction.typeId) {
                             // 面板点选同样发生在 onDragEnd 内，没有后续 UP 可清理状态，

@@ -13,6 +13,7 @@ import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.quicklaunch.model.qualifiedNameWithIntents
+import hunoia.luno.action.model.Action
 
 /**
  * 动作同一性：比 typeId + params，忽略面板长按变体键。变体是挂在已选动作上的附加项，
@@ -72,7 +73,7 @@ data class UiState(
                 is StoredAction -> value
                 else -> value.toStoredActionOrNull()
             }
-            return stored?.takeIf { it.typeId != "internal.none" }
+            return stored?.takeIf { it.typeId != Action.NONE_TYPE_ID }
         }
 
         fun selectOne(action: StoredAction?): SelectedRecord =
@@ -86,7 +87,7 @@ data class UiState(
             selectOne(shortcut.toStoredAction())
 
         fun isSelected(obj: Any): Boolean {
-            val current = action ?: return obj is StoredAction && obj.typeId == "internal.none"
+            val current = action ?: return obj is StoredAction && obj.typeId == Action.NONE_TYPE_ID
             return when (obj) {
                 is AppInfo -> current.launchQualifiedName() == obj.qualifiedName
                 is LauncherInfo.ShortcutInfo ->

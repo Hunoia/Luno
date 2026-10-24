@@ -18,6 +18,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import hunoia.luno.action.model.Action
 
 data class GestureResolvedActions(
     val button: GestureButton,
@@ -365,5 +366,5 @@ class GestureState(
     }
 
     private fun StoredAction?.hasMeaningfulAction(): Boolean =
-        this != null && typeId != "internal.none"
+        this != null && typeId != Action.NONE_TYPE_ID
 }

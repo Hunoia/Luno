@@ -13,6 +13,7 @@ import hunoia.luno.runtime.overlay.RuntimePanelOverlay
 import hunoia.luno.runtime.overlay.PointPickOverlay
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.MainScope
+import hunoia.luno.core.LOG_TAG
 
 class SideGestureService : ComponentAccessibilityService(), GestureHost {
 
@@ -32,7 +33,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         DisabledPackageEnabler(
             context = this,
             scopeProvider = { coroutineScope },
-            log = { message -> android.util.Log.i("LunoLauncher", message) }
+            log = { message -> android.util.Log.i(LOG_TAG, message) }
         )
     }
 

@@ -28,18 +28,19 @@ import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
 import hunoia.luno.ui.navigation.LocalGridPanels
 import hunoia.luno.ui.theme.SideGestureTheme
+import hunoia.luno.core.LOG_TAG
 
 /**
  * 网格面板悬浮窗（TYPE_APPLICATION_OVERLAY）：面板要「无障碍没开也能用」，a11y 窗口不行；代价是吃悬浮窗授权。
  * 窗口生命周期骨架见 [OverlayPanelHost]；这里只留网格面板自己的编排与组合内容。
  */
 object GridPanelOverlay : OverlayPanelHost(
-    logTag = "LunoLauncher",
+    logTag = LOG_TAG,
     logPrefix = "grid overlay",
     showWhenLocked = false,
 ) {
 
-    private const val TAG = "LunoLauncher"
+    private const val TAG = LOG_TAG
 
     // 组合消费的状态：重复 show 原位换面板/锚点。
     private var panelIdState by mutableStateOf("")

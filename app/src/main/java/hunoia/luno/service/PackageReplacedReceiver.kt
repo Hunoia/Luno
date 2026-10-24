@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import hunoia.luno.core.LOG_TAG
 
 /**
  * 应用更新（`adb install -r` / 应用商店更新）后恢复常驻前台服务。
@@ -25,6 +26,6 @@ class PackageReplacedReceiver : BroadcastReceiver() {
     }
 
     private companion object {
-        const val TAG = "LunoLauncher"
+        const val TAG = LOG_TAG
     }
 }

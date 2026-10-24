@@ -27,6 +27,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.util.Locale
+import hunoia.luno.core.LOG_TAG
 
 
 class QuickAppLauncherState(
@@ -228,7 +229,7 @@ class QuickAppLauncherState(
             isDisabled = isDisabled,
             miniWindow = miniWindow,
             requestEnableDisabledPackage = requestEnableDisabledPackage,
-            log = { message -> android.util.Log.i("LunoLauncher", message) },
+            log = { message -> android.util.Log.i(LOG_TAG, message) },
             onLaunch = onLaunch,
             onLaunched = closeAnimated
         )

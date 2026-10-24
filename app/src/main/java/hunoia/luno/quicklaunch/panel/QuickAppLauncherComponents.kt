@@ -1,7 +1,6 @@
 package hunoia.luno.quicklaunch.panel
 import hunoia.luno.ui.theme.*
 
-import android.view.HapticFeedbackConstants
 import android.view.View
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -51,6 +50,7 @@ import hunoia.luno.R
 import coil.compose.AsyncImage
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
+import hunoia.luno.bridge.ui.hapticTap
 
 /**
  * 键盘按键。用类型区分功能键而不是比较中文字符串——`label` 只用于显示，逻辑分支全走类型，
@@ -111,7 +111,7 @@ internal fun KeyboardRow(
                         .combinedClickable(
                             interactionSource = interactionSource,
                             onClick = {
-                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                view.hapticTap()
                                 when (key) {
                                     is KeyboardKey.Adjust -> onAdjust?.invoke()
                                     is KeyboardKey.Delete -> onDelete?.invoke()
@@ -119,7 +119,7 @@ internal fun KeyboardRow(
                                 }
                             },
                             onLongClick = {
-                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                view.hapticTap()
                                 when (key) {
                                     is KeyboardKey.Delete -> onClear?.invoke()
                                     is KeyboardKey.Adjust -> Unit
@@ -242,7 +242,7 @@ internal fun Pill(
                 .padding(vertical = PillPaddingVertical)
                 .clickable {
                     if (hapticOnClick) {
-                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                        view.hapticTap()
                     }
                     onClick()
                 }

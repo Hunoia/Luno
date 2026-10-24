@@ -5,6 +5,7 @@ import android.view.View
 import android.view.WindowManager
 import androidx.compose.ui.geometry.Offset
 import hunoia.luno.config.model.GestureButton
+import hunoia.luno.core.LOG_TAG
 
 /**
  * 一个手势按钮窗口的标识。[mirrored] 区分同一按钮的主/镜像窗口 —— 镜像窗口的 windowButton
@@ -48,7 +49,7 @@ internal fun WindowManager.safeAddView(view: View?, params: WindowManager.Layout
     val target = view ?: return false
     return runCatching { addView(target, params) }
         .onFailure { error ->
-            Log.e("LunoLauncher", "overlay addView failed: ${error::class.simpleName} ${error.message}")
+            Log.e(LOG_TAG, "overlay addView failed: ${error::class.simpleName} ${error.message}")
         }
         .isSuccess
 }
@@ -57,6 +58,6 @@ internal fun WindowManager.safeAddView(view: View?, params: WindowManager.Layout
 internal fun WindowManager.safeUpdateViewLayout(view: View, params: WindowManager.LayoutParams) {
     runCatching { updateViewLayout(view, params) }
         .onFailure { error ->
-            Log.w("LunoLauncher", "overlay updateViewLayout failed: ${error::class.simpleName} ${error.message}")
+            Log.w(LOG_TAG, "overlay updateViewLayout failed: ${error::class.simpleName} ${error.message}")
         }
 }

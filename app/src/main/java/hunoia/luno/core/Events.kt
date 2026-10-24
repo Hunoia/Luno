@@ -53,7 +53,7 @@ object Events {
             runCatching { subscriber(event) }
                 .onFailure { error ->
                     android.util.Log.e(
-                        "LunoLauncher",
+                        LOG_TAG,
                         "event subscriber failed: ${event::class.simpleName}",
                         error,
                     )

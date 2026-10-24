@@ -69,6 +69,7 @@ import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.actionIcon
 import hunoia.luno.ui.component.actionText
+import hunoia.luno.action.model.Action
 
 
 
@@ -214,7 +215,7 @@ internal fun AnimatedVisibilityScope.ActionPanelSelectableItem(
     val transition = transition
     var isHovered by remember { mutableStateOf(false) }
     val selected = actionPanelState.isSelected(action)
-    val hasSelection = actionPanelState.selectedAction.typeId != "internal.none"
+    val hasSelection = actionPanelState.selectedAction.typeId != Action.NONE_TYPE_ID
     val accentColor = actionPanelAccentColor(actionPanelState.buttonColor)
     val scale by animateFloatAsState(if (selected || isHovered) 1.18f else 1f, spring(stiffness = Spring.StiffnessHigh), label = "actionScale")
     val itemAlpha by animateFloatAsState(if (!hasSelection || selected) 1f else 0.72f, tween(AnimNormal.toInt()), label = "actionAlpha")
@@ -230,7 +231,7 @@ internal fun AnimatedVisibilityScope.ActionPanelSelectableItem(
                     }
                 } else if (actionPanelState.isSelected(action)) {
                     isHovered = false
-                    actionPanelState.select(index, StoredAction.of("internal.none"))
+                    actionPanelState.select(index, StoredAction.of(Action.NONE_TYPE_ID))
                 }
             }
     }

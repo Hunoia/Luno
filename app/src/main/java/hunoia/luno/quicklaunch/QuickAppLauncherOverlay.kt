@@ -29,6 +29,7 @@ import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import hunoia.luno.core.LOG_TAG
 
 /**
  * 启动面板悬浮窗：全屏透明画布，面板在全屏根内自定位。
@@ -37,12 +38,12 @@ import kotlinx.coroutines.launch
  * 窗口生命周期骨架见 [OverlayPanelHost]；键盘自绘，保持 FLAG_NOT_FOCUSABLE。
  */
 object QuickAppLauncherOverlay : OverlayPanelHost(
-    logTag = "LunoLauncher",
+    logTag = LOG_TAG,
     logPrefix = "quick launcher overlay",
     showWhenLocked = true,
 ) {
 
-    private const val TAG = "LunoLauncher"
+    private const val TAG = LOG_TAG
 
     // 组合消费的状态：重复 show 原位换锚点（同 GridPanelOverlay）。
     private var anchorXState by mutableIntStateOf(0)

@@ -8,6 +8,7 @@ import hunoia.luno.quicklaunch.launch.AppLaunchBypass
 import hunoia.luno.ui.share.ShareFilePickActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import hunoia.luno.core.LOG_TAG
 
 class IntentController(private val context: Context) {
 
@@ -30,7 +31,7 @@ class IntentController(private val context: Context) {
             context.startActivity(intent)
             ActionResult.Success()
         } catch (e: Exception) {
-            Log.e("LunoLauncher", "openAppDetails failed", e)
+            Log.e(LOG_TAG, "openAppDetails failed", e)
             ActionResult.Failed(ActionFailure.ExecutionFailed, e.message ?: e.javaClass.name)
         }
     }
@@ -45,7 +46,7 @@ class IntentController(private val context: Context) {
             startChooser(share)
             ActionResult.Success()
         } catch (e: Exception) {
-            Log.e("LunoLauncher", "shareText failed", e)
+            Log.e(LOG_TAG, "shareText failed", e)
             ActionResult.Failed(ActionFailure.ExecutionFailed, e.message ?: e.javaClass.name)
         }
     }
@@ -68,7 +69,7 @@ class IntentController(private val context: Context) {
             )
             ActionResult.Success()
         } catch (e: Exception) {
-            Log.e("LunoLauncher", "launchFilePicker failed", e)
+            Log.e(LOG_TAG, "launchFilePicker failed", e)
             ActionResult.Failed(ActionFailure.ExecutionFailed, e.message ?: e.javaClass.name)
         }
     }
@@ -82,7 +83,7 @@ class IntentController(private val context: Context) {
             context.startActivity(intent)
             ActionResult.Success()
         } catch (e: Exception) {
-            Log.e("LunoLauncher", "launchAssist failed", e)
+            Log.e(LOG_TAG, "launchAssist failed", e)
             ActionResult.Failed(ActionFailure.ExecutionFailed, e.message ?: e.javaClass.name)
         }
     }

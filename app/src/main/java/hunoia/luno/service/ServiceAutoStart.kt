@@ -10,6 +10,7 @@ import hunoia.luno.config.store.dataStoreFile
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.runtime.floatball.FloatBallService
 import java.util.concurrent.atomic.AtomicBoolean
+import hunoia.luno.core.LOG_TAG
 
 /**
  * 常驻前台服务「按落盘配置自动拉起」的单一判定入口。
@@ -22,7 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 internal object ServiceAutoStart {
 
-    private const val TAG = "LunoLauncher"
+    private const val TAG = LOG_TAG
 
     /** 保活开关与 [DaemonService] 共用同一份 prefs（见 `KeepAliveUseCase`）。 */
     private const val PREFS_NAME = "daemon"
