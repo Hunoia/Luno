@@ -1,27 +1,10 @@
 package hunoia.luno.quicklaunch.panel
 import hunoia.luno.quicklaunch.QuickLaunchFacade
-import android.content.Context
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Message
-import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.ContentPaste
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.DoNotDisturbOn
-import androidx.compose.material.icons.filled.FlashlightOn
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Shortcut
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Movie
-import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Wifi
-import androidx.compose.material.icons.filled.WifiTethering
-import androidx.compose.ui.graphics.asImageBitmap
 import hunoia.luno.quicklaunch.icon.SearchIconCache
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.IconButton
@@ -42,8 +25,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.config.model.MAX_QUERY_CHARS
-import hunoia.luno.quicklaunch.query.QuickSearchResult
+import hunoia.luno.quicklaunch.query.SearchBadge
+import hunoia.luno.quicklaunch.query.SearchIcon
+import hunoia.luno.quicklaunch.query.SearchResult
 import hunoia.luno.ui.component.TextIcon
+import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.row.LunoSelectableRow
 /**
  * 列表上下羽化：顶部 28dp / 底部 24dp，溢出截断 melts 进背景。底部罩的是钉住的首行——
@@ -190,34 +176,32 @@ internal fun HistoryRow(
 }
 @Composable
 internal fun ResultRow(
-    result: QuickSearchResult,
+    result: SearchResult,
     shape: androidx.compose.ui.graphics.Shape,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    onMore: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
-    val colorScheme = MaterialTheme.colorScheme
-    // 与 flow 预热同源的边长：读缓存必须同 key（包名@边长），否则命中不了。
     val sizePx = with(LocalDensity.current) { 24.dp.toPx().toInt() }
-    // 已停用标记：从包名行挪到标题行。标题占权重 1f 承担省略号，后缀固定不压缩；
-    // 后缀字号比标题小（bodySmall，同原副标题），颜色沿用原副标题色（onSurfaceVariant）。
-    val disabledApp = result is QuickSearchResult.App && result.isDisabled
-    // 同步图标优先（flow 发射前已 resolve，首帧即有图，无 AsyncImage 空隙）；
-    // 缺席（新装应用）才走 AsyncImage 兜底。
-    // 注意顺序：LunoRowBase 的 leading 是 `iconBitmap ?: iconModel` 短路链，
-    // bitmap 命中时 iconModel 根本不会被渲染。以前两个并列求值，等于每次重组都
-    // 白 new 一个 Coil ImageRequest（并且它是不稳定类型，会把整行拖出跳过）。
-    val iconBitmap = when (result) {
-        is QuickSearchResult.App -> SearchIconCache.get(result.appInfo.packageName, sizePx)
-        is QuickSearchResult.Shortcut -> result.shortcut.iconBitmap?.asImageBitmap()
-            ?: SearchIconCache.get(result.shortcut.packageName, sizePx)
+    val icon = result.icon
+    val iconBitmap = when (icon) {
+        is SearchIcon.Bitmap -> icon.image
+        is SearchIcon.AppIcon -> icon.bitmap ?: SearchIconCache.get(icon.packageName, sizePx)
         else -> null
     }
-    val iconModel = if (iconBitmap == null) iconModel(result, context, sizePx) else null
+    val iconModel = when {
+        iconBitmap != null -> null
+        icon is SearchIcon.AppIcon -> QuickLaunchFacade.appIconRequest(context, icon.packageName, sizePx)
+        icon is SearchIcon.Request -> icon.model
+        else -> null
+    }
+    val iconVector = (icon as? SearchIcon.Vector)?.image
+    val textIcon = (icon as? SearchIcon.Text)?.text?.let(::TextIcon)
     LunoSelectableRow(
         title = result.title,
         subtitle = result.subtitle,
-        headline = if (disabledApp) {
+        headline = if (result.badge == SearchBadge.DisabledApp) {
             {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -231,7 +215,7 @@ internal fun ResultRow(
                         text = " " + stringResource(R.string.quick_search_app_disabled),
                         maxLines = 1,
                         style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -242,60 +226,20 @@ internal fun ResultRow(
         onSelectedChange = { onClick() },
         shape = shape,
         iconModel = iconModel,
-        icon = iconVector(result),
+        icon = iconVector,
         iconBitmap = iconBitmap,
-        textIcon = textIcon(result),
+        textIcon = textIcon,
         containerColor = searchRowContainer(),
         selectedContainerColor = searchRowSelectedContainer(),
         onLongClick = onLongClick,
+        trailing = onMore?.let { more ->
+            {
+                LunoIconButton(
+                    icon = Icons.Default.MoreVert,
+                    contentDescription = stringResource(R.string.more),
+                    onClick = more,
+                )
+            }
+        },
     )
-}
-@Composable
-internal fun iconVector(result: QuickSearchResult): ImageVector? = when (result) {
-    is QuickSearchResult.Url -> Icons.AutoMirrored.Filled.OpenInNew
-    is QuickSearchResult.EngineSearch -> null
-    is QuickSearchResult.Calc -> null
-    is QuickSearchResult.Settings -> Icons.Default.Search
-    is QuickSearchResult.ActionDef -> result.icon as? ImageVector
-    is QuickSearchResult.LibraryEntry -> result.icon as? ImageVector
-    is QuickSearchResult.App -> null
-    is QuickSearchResult.Shortcut -> null
-    is QuickSearchResult.Contact -> null
-    is QuickSearchResult.AudioTrack -> Icons.Default.MusicNote
-    is QuickSearchResult.ImageVideo ->
-        if (result.mime.startsWith("video")) Icons.Default.Movie else Icons.Default.Image
-    is QuickSearchResult.DocFile -> Icons.Default.Description
-    is QuickSearchResult.CalendarEvent -> Icons.Default.DateRange
-    is QuickSearchResult.SmsMsg -> Icons.AutoMirrored.Filled.Message
-    is QuickSearchResult.CallLogEntry -> Icons.Default.Call
-    is QuickSearchResult.ClipEntry -> Icons.Default.ContentPaste
-    is QuickSearchResult.PhoneToggle -> when (result.kind) {
-        QuickSearchResult.ToggleKind.WIFI -> Icons.Default.Wifi
-        QuickSearchResult.ToggleKind.BLUETOOTH -> Icons.Default.Bluetooth
-        QuickSearchResult.ToggleKind.TORCH -> Icons.Default.FlashlightOn
-        QuickSearchResult.ToggleKind.DND -> Icons.Default.DoNotDisturbOn
-        QuickSearchResult.ToggleKind.LOCATION -> Icons.Default.LocationOn
-        QuickSearchResult.ToggleKind.HOTSPOT -> Icons.Default.WifiTethering
-    }
-}
-@Composable
-internal fun iconModel(result: QuickSearchResult, context: android.content.Context, sizePx: Int): Any? {
-    return when (result) {
-        is QuickSearchResult.App ->
-            QuickLaunchFacade.appIconRequest(context, result.appInfo.packageName, sizePx)
-        // 快捷方式自带图标优先，取不到才回落来源应用图标。
-        is QuickSearchResult.Shortcut -> result.shortcut.iconBitmap
-            ?: QuickLaunchFacade.appIconRequest(context, result.shortcut.packageName, sizePx)
-        else -> null
-    }
-}
-@Composable
-internal fun textIcon(result: QuickSearchResult): TextIcon? = when (result) {
-    is QuickSearchResult.LibraryEntry -> result.icon as? TextIcon
-    is QuickSearchResult.ActionDef -> result.icon as? TextIcon
-    // 引擎行用首字图标（B/G/D…），计算器行用 =，联系人用姓名首字，替代通用图标。
-    is QuickSearchResult.EngineSearch -> result.engineName.firstOrNull()?.toString()?.let { TextIcon(it) }
-    is QuickSearchResult.Calc -> TextIcon("=")
-    is QuickSearchResult.Contact -> result.name.firstOrNull()?.toString()?.let { TextIcon(it) }
-    else -> null
 }

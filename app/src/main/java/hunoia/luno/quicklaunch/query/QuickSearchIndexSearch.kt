@@ -3,7 +3,6 @@ package hunoia.luno.quicklaunch.query
 import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.model.ActionLibraryEntry
-import hunoia.luno.config.model.DefaultSourceTriggers
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SRC_ACTION
@@ -18,8 +17,9 @@ import hunoia.luno.config.model.SRC_SETTINGS
 import hunoia.luno.config.model.SRC_SHORTCUT
 import hunoia.luno.config.model.SRC_SMS
 import hunoia.luno.config.model.SRC_TOGGLE
-import hunoia.luno.config.model.defaultEngine
+import hunoia.luno.config.model.primaryEngine
 import hunoia.luno.config.model.effectiveEngines
+import hunoia.luno.config.model.effectiveLaunch
 import hunoia.luno.config.model.effectiveTrigger
 import hunoia.luno.quicklaunch.query.AppSearch.key
 import hunoia.luno.ui.component.resolvedIcon
@@ -67,44 +67,37 @@ fun QuickSearchIndex.search(
         launcherSettings: QuickAppLauncherSettings = QuickAppLauncherSettings(),
         searchSettings: QuickSearchSettings = QuickSearchSettings(),
         torchOn: Boolean = false,
-    ): List<QuickSearchResult> {
+    ): SearchOutcome {
         ensureLoaded()
         // 这里不再 refreshApps() 兜底：全量查包几十~几百毫秒，会把首字搜索堵在 Dispatchers.Default
         // 上。应用索引由 Activity 在 IO 线程预加载，就绪后 appsLoaded 翻转 → 面板 appsTick 补搜。
         this.torchOn = torchOn
         // 标识指令优先（bb 新闻 / sms 138 / 裸 sms）：命中只回目标类，
         // 纯目标结果（无引擎兜底、无计算器、无历史参展）。null = 无指令，走全源。
-        parseDirective(query.trim(), libraryEntries, launcherSettings, searchSettings)?.let { return it }
+        parseDirective(query.trim(), libraryEntries, launcherSettings, searchSettings)?.let {
+            return SearchOutcome(it, directive = true)
+        }
         val tokens = tokenize(query)
-        if (tokens.isEmpty()) return emptyList()
+        if (tokens.isEmpty()) return SearchOutcome(emptyList(), directive = false)
         // 模糊音输入：分词前先整体折叠（adjacency 丢了就没法折），降档用。
         val foldedTokens = tokenize(AppSearch.foldPinyin(query))
         val now = System.currentTimeMillis()
-        // 快捷方式按所属包聚合该包的最大分，一次算好供 O(1) 查询。
-        val pkgScore = pkgScores(launcherSettings, now)
 
+        val context = SearchContext(
+            index = this,
+            settings = searchSettings,
+            launcher = launcherSettings,
+            libraryEntries = libraryEntries,
+            tokens = tokens,
+            foldedTokens = foldedTokens,
+            now = now,
+            torchOn = torchOn,
+        )
         val results = mutableListOf<RankedHit>()
-        results.addAll(matchActions(tokens, foldedTokens))
-        results.addAll(matchLibrary(libraryEntries, tokens, foldedTokens))
-        results.addAll(matchApps(tokens, foldedTokens, launcherSettings, now))
-        results.addAll(matchShortcuts(tokens, foldedTokens, pkgScore))
-        // 联系人：姓名拼音免费（matchTextTier 内建），号码数字直匹配；只查内存。
-        results.addAll(matchContacts(tokens, foldedTokens, searchSettings))
-        // P3：音乐搜标题/艺术家，文件搜文件名；只查内存，无 usage；权限每次实时复查
-        // （设置里关掉权限后 stale 缓存不再参展）。
-        results.addAll(matchMedia(tokens, foldedTokens, searchSettings))
-        // 快捷开关：标题 + 关键词一起匹配（如 wifi/蓝牙/手电），设置页同权重。
-        results.addAll(matchToggles(tokens, foldedTokens, searchSettings))
-        // 日历：标题/地点；只查内存。
-        results.addAll(matchCalendar(tokens, foldedTokens, searchSettings))
-        // 短信：发件人/正文；只查内存。
-        results.addAll(matchSms(tokens, foldedTokens, searchSettings))
-        // 通话记录：姓名/号码；只查内存。
-        results.addAll(matchCalls(tokens, foldedTokens, searchSettings))
-        // 剪贴记录：只看前 64 字（长文本逐字拼音每敲一字算一次，截断控成本）；
-        // 池=clipHistory（聚焦读到的新文本已记入），命中上限 10 条。
-        results.addAll(matchClips(tokens, foldedTokens, searchSettings))
-        results.addAll(matchSettingsPages(tokens, foldedTokens))
+        // 来源匹配统一走注册表；新增来源不再改这里。
+        for (source in SearchSourceRegistry.all) {
+            results.addAll(SearchSourceRegistry.match(source.key, context))
+        }
 
         val urlResult = urlResult(query)
         if (urlResult != null) results.add(RankedHit(urlResult, 3, 0, 0, 0.0))
@@ -119,7 +112,8 @@ fun QuickSearchIndex.search(
 
         // 计算器排表头（精确意图，回车直达）；引擎兜底已由 engineTriple 进管线垫底，不二次计算。
         val calc = calculatorResult(query.trim())
-        return if (calc != null) listOf<QuickSearchResult>(calc) + sorted else sorted
+        val finalResults = if (calc != null) listOf<QuickSearchResult>(calc) + sorted else sorted
+        return SearchOutcome(finalResults, directive = false)
     }
 
     /** 排序单元：结果 + 档位 + 紧密度 + 使用分。 */
@@ -151,12 +145,12 @@ internal inline fun <T> matchEach(
     return out
 }
 
-private fun QuickSearchIndex.matchActions(
+internal fun QuickSearchIndex.matchActions(
     tokens: List<String>,
     foldedTokens: List<String>,
 ): List<RankedHit> = matchEach(actions, tokens, foldedTokens, result = { it }) { tierOf(it.title, tokens, foldedTokens) }
 
-private fun QuickSearchIndex.matchLibrary(
+internal fun QuickSearchIndex.matchLibrary(
     libraryEntries: List<ActionLibraryEntry>,
     tokens: List<String>,
     foldedTokens: List<String>,
@@ -177,7 +171,7 @@ private fun QuickSearchIndex.matchLibrary(
     return out
 }
 
-private fun QuickSearchIndex.matchApps(
+internal fun QuickSearchIndex.matchApps(
     tokens: List<String>,
     foldedTokens: List<String>,
     launcherSettings: QuickAppLauncherSettings,
@@ -189,7 +183,7 @@ private fun QuickSearchIndex.matchApps(
     bestOf(tierOf(app.label, tokens, foldedTokens), tierOf(app.packageName, tokens, foldedTokens))
 }
 
-private fun QuickSearchIndex.matchShortcuts(
+internal fun QuickSearchIndex.matchShortcuts(
     tokens: List<String>,
     foldedTokens: List<String>,
     pkgScore: Map<String, Double>,
@@ -198,7 +192,7 @@ private fun QuickSearchIndex.matchShortcuts(
     bestOf(tierOf(sc.label, tokens, foldedTokens), tierOf(sc.packageName, tokens, foldedTokens))
 }
 
-private fun QuickSearchIndex.matchContacts(
+internal fun QuickSearchIndex.matchContacts(
     tokens: List<String>,
     foldedTokens: List<String>,
     searchSettings: QuickSearchSettings,
@@ -209,18 +203,7 @@ private fun QuickSearchIndex.matchContacts(
     }
 }
 
-private fun QuickSearchIndex.matchMedia(
-    tokens: List<String>,
-    foldedTokens: List<String>,
-    searchSettings: QuickSearchSettings,
-): List<RankedHit> {
-    if (!mediaReady()) return emptyList()
-    return matchTracks(tokens, foldedTokens, searchSettings) +
-        matchGallery(tokens, foldedTokens, searchSettings) +
-        matchDocs(tokens, foldedTokens, searchSettings)
-}
-
-private fun QuickSearchIndex.matchTracks(
+internal fun QuickSearchIndex.matchTracks(
     tokens: List<String>,
     foldedTokens: List<String>,
     searchSettings: QuickSearchSettings,
@@ -235,7 +218,7 @@ private fun QuickSearchIndex.matchTracks(
     }
 }
 
-private fun QuickSearchIndex.matchGallery(
+internal fun QuickSearchIndex.matchGallery(
     tokens: List<String>,
     foldedTokens: List<String>,
     searchSettings: QuickSearchSettings,
@@ -247,7 +230,7 @@ private fun QuickSearchIndex.matchGallery(
     return matchEach(mediaFiles, tokens, foldedTokens, result = { it }) { tierOf(it.name, tokens, foldedTokens) }
 }
 
-private fun QuickSearchIndex.matchDocs(
+internal fun QuickSearchIndex.matchDocs(
     tokens: List<String>,
     foldedTokens: List<String>,
     searchSettings: QuickSearchSettings,
@@ -256,7 +239,7 @@ private fun QuickSearchIndex.matchDocs(
     return matchEach(docs, tokens, foldedTokens, result = { it }) { tierOf(it.name, tokens, foldedTokens) }
 }
 
-private fun QuickSearchIndex.matchToggles(
+internal fun QuickSearchIndex.matchToggles(
     tokens: List<String>,
     foldedTokens: List<String>,
     searchSettings: QuickSearchSettings,
@@ -271,7 +254,7 @@ private fun QuickSearchIndex.matchToggles(
     }
 }
 
-private fun QuickSearchIndex.matchCalendar(
+internal fun QuickSearchIndex.matchCalendar(
     tokens: List<String>,
     foldedTokens: List<String>,
     searchSettings: QuickSearchSettings,
@@ -282,7 +265,7 @@ private fun QuickSearchIndex.matchCalendar(
     }
 }
 
-private fun QuickSearchIndex.matchSms(
+internal fun QuickSearchIndex.matchSms(
     tokens: List<String>,
     foldedTokens: List<String>,
     searchSettings: QuickSearchSettings,
@@ -293,7 +276,7 @@ private fun QuickSearchIndex.matchSms(
     }
 }
 
-private fun QuickSearchIndex.matchCalls(
+internal fun QuickSearchIndex.matchCalls(
     tokens: List<String>,
     foldedTokens: List<String>,
     searchSettings: QuickSearchSettings,
@@ -341,7 +324,7 @@ internal fun matchClipPool(
 }
 
 
-private fun QuickSearchIndex.matchSettingsPages(
+internal fun QuickSearchIndex.matchSettingsPages(
     tokens: List<String>,
     foldedTokens: List<String>,
 ): List<RankedHit> = matchEach(settingsPages, tokens, foldedTokens, result = { it }) { tierOf(it.title, tokens, foldedTokens) }
@@ -357,32 +340,11 @@ private fun QuickSearchIndex.sortTriples(results: List<RankedHit>): List<QuickSe
                 .thenBy { it.result.title },
         ).map { it.result }
 
-    /** 面板用：该 query 是否命中标识指令（命中则历史匹配不参展，保持纯目标结果）。 */
-fun QuickSearchIndex.isDirective(
-        query: String,
-        settings: QuickSearchSettings,
-        launcherSettings: QuickAppLauncherSettings = QuickAppLauncherSettings(),
-    ): Boolean {
-        val trimmed = query.trim()
-        if (trimmed.isEmpty()) return false
-        val hasSpace = trimmed.contains(' ')
-        val head = (if (hasSpace) trimmed.substringBefore(' ') else trimmed).lowercase()
-        if (hasSpace && trimmed.substringAfter(' ').isNotBlank()) {
-            if (directedEngine(trimmed, settings) != null) return true
-        }
-        val source = sourceKeyFor(head, settings) ?: return false
-        if (!sourceEnabled(source, settings)) return false
-        // 裸标识无数据会回落全源（parseDirective 同逻辑），此时历史照常参展，前后一致。
-        if (!hasSpace || trimmed.substringAfter(' ').isBlank()) {
-            return bareSource(source, launcherSettings, settings) != null
-        }
-        return true
-    }
-
     /**
      * 标识指令解析（bb 新闻 / sms 138 / 裸 sms）：命中返回纯目标结果，无指令返回 null 走全源。
      * 大小写不敏感。三种出口：引擎标识 → 只回引擎行；来源标识+内容 → 只在该源内搜；
      * 裸标识（无空格或内容空）→ 列出该类近项。开关关闭/无数据 → null 回落全源。
+     * 命中与否由 [search] 以 SearchOutcome.directive 回报，面板不再单独判一次。
      */
 private fun QuickSearchIndex.parseDirective(
         trimmed: String,
@@ -400,35 +362,27 @@ private fun QuickSearchIndex.parseDirective(
             directedEngine(trimmed, searchSettings)?.let { return listOf(it) }
         }
         // 来源标识：开关关了、标识被清空（关闭）都回落全源。
-        val source = sourceKeyFor(headLower, searchSettings) ?: return null
-        if (!sourceEnabled(source, searchSettings)) return null
-        if (rest.isEmpty()) return bareSource(source, launcherSettings, searchSettings)
+        val source = SearchSourceRegistry.byTrigger(headLower, searchSettings)?.key ?: return null
+        if (!SearchSourceRegistry.enabled(source, searchSettings)) return null
+        val context = contextOf(launcherSettings, searchSettings)
+        if (rest.isEmpty()) return SearchSourceRegistry.bare(source, context)
         return searchInSource(source, rest, libraryEntries, launcherSettings, searchSettings)
     }
 
-    /** 标识头 → 来源 key：自定义优先、默认补齐，大小写不敏感，空串=关闭跳过。 */
-private fun QuickSearchIndex.sourceKeyFor(headLower: String, settings: QuickSearchSettings): String? {
-        if (headLower.isEmpty()) return null
-        for ((k, v) in DefaultSourceTriggers) {
-            val t = settings.effectiveTrigger(k).trim().lowercase()
-            if (t.isNotEmpty() && t == headLower) return k
-        }
-        return null
-    }
-
-    /** 来源总开关：应用/快捷方式/动作/设置页无开关，常开。 */
-private fun QuickSearchIndex.sourceEnabled(source: String, settings: QuickSearchSettings): Boolean = when (source) {
-        SRC_CONTACT -> settings.searchContacts
-        SRC_MUSIC -> settings.searchMusic
-        SRC_FILE -> settings.searchFiles
-        SRC_CALENDAR -> settings.searchCalendar
-        SRC_SMS -> settings.searchSms
-        SRC_CALL -> settings.searchCalls
-        SRC_TOGGLE -> settings.searchToggles
-        SRC_CLIP -> settings.searchClipboard
-        SRC_APP, SRC_SHORTCUT, SRC_ACTION, SRC_SETTINGS -> true
-        else -> false
-    }
+    private fun QuickSearchIndex.contextOf(
+        launcherSettings: QuickAppLauncherSettings,
+        searchSettings: QuickSearchSettings,
+        raw: String = "",
+    ): SearchContext = SearchContext(
+        index = this,
+        settings = searchSettings,
+        launcher = launcherSettings,
+        libraryEntries = emptyList(),
+        tokens = tokenize(raw),
+        foldedTokens = tokenize(AppSearch.foldPinyin(raw)),
+        now = System.currentTimeMillis(),
+        torchOn = torchOn,
+    )
 
     /** 定向搜：只在该源内匹配内容，排序与全源同一套。 */
 private fun QuickSearchIndex.searchInSource(
@@ -439,32 +393,20 @@ private fun QuickSearchIndex.searchInSource(
         searchSettings: QuickSearchSettings,
     ): List<QuickSearchResult> {
         val tokens = tokenize(rest)
-        if (tokens.isEmpty()) return bareSource(source, launcherSettings, searchSettings) ?: emptyList()
+        if (tokens.isEmpty()) return SearchSourceRegistry.bare(source, contextOf(launcherSettings, searchSettings)) ?: emptyList()
         val folded = tokenize(AppSearch.foldPinyin(rest))
-        val now = System.currentTimeMillis()
-        val triples = when (source) {
-            SRC_APP -> matchApps(tokens, folded, launcherSettings, now)
-            SRC_SHORTCUT -> matchShortcuts(tokens, folded, pkgScores(launcherSettings, now))
-            SRC_ACTION -> matchActions(tokens, folded)
-            SRC_SETTINGS -> matchSettingsPages(tokens, folded)
-            SRC_CONTACT -> matchContacts(tokens, folded, searchSettings)
-            SRC_MUSIC -> matchTracks(tokens, folded, searchSettings)
-            SRC_FILE -> matchGallery(tokens, folded, searchSettings) +
-                matchDocs(tokens, folded, searchSettings)
-            SRC_CALENDAR -> matchCalendar(tokens, folded, searchSettings)
-            SRC_SMS -> matchSms(tokens, folded, searchSettings)
-            SRC_CALL -> matchCalls(tokens, folded, searchSettings)
-            SRC_TOGGLE -> matchToggles(tokens, folded, searchSettings)
-            SRC_CLIP -> matchClips(tokens, folded, searchSettings)
-            else -> emptyList()
-        }
-        // 开关关了但标识还在（极少）：匹配函数内已 gate，空结果直接回（不回落全源，
+        val context = contextOf(launcherSettings, searchSettings, raw = rest).copy(
+            libraryEntries = libraryEntries,
+            tokens = tokens,
+            foldedTokens = folded,
+        )
+        // 开关关了但标识还在（极少）：注册表已 gate，空结果直接回（不回落全源，
         // 用户明确点了类，结果为空就是空）。
-        return sortTriples(triples)
+        return sortTriples(SearchSourceRegistry.match(source, context))
     }
 
     /** 裸标识：列出该类近项（cap 20，应用走常用 8）。无数据回 null → 全源。 */
-private fun QuickSearchIndex.bareSource(
+internal fun QuickSearchIndex.bareSource(
         source: String,
         launcherSettings: QuickAppLauncherSettings,
         searchSettings: QuickSearchSettings,
@@ -504,7 +446,7 @@ private fun QuickSearchIndex.bareSource(
     }
 
     /** 快捷方式包分聚合：全源与定向共用，抽出来。 */
-private fun QuickSearchIndex.pkgScores(
+internal fun QuickSearchIndex.pkgScores(
         launcherSettings: QuickAppLauncherSettings,
         now: Long,
     ): Map<String, Double> {
@@ -529,13 +471,12 @@ private fun QuickSearchIndex.engineTriple(
     ): RankedHit {
         val directed = directedEngine(query, settings)
         if (directed != null) return RankedHit(directed, -1, 0, 0, 0.0)
-        val default = settings.defaultEngine()
+        val default = settings.primaryEngine()
         return RankedHit(
             QuickSearchResult.EngineSearch(
                 query,
                 context.getString(R.string.quick_search_engine_search, default.name),
-                default.urlTemplate,
-                default.name,
+                default,
             ),
             -1,
             0,
@@ -552,14 +493,15 @@ private fun QuickSearchIndex.directedEngine(query: String, settings: QuickSearch
         val rest = query.substringAfter(' ', "")
         if (rest.isBlank()) return null
         val head = query.substringBefore(' ')
+        // 历史脏数据可能有多条同标识引擎：取最后一条（最新添加），与
+        // withUniqueEngineTriggers() 的保留策略一致，避免旧引擎永远抢先。
         val target = settings.effectiveEngines()
-            .firstOrNull { it.trigger.isNotBlank() && it.trigger.equals(head, ignoreCase = true) }
+            .lastOrNull { it.trigger.isNotBlank() && it.trigger.equals(head, ignoreCase = true) }
             ?: return null
         return QuickSearchResult.EngineSearch(
             rest.trim(),
             context.getString(R.string.quick_search_engine_search, target.name),
-            target.urlTemplate,
-            target.name,
+            target,
         )
     }
 

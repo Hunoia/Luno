@@ -1,138 +1,76 @@
 package hunoia.luno.quicklaunch.panel
 import android.app.Activity
-import android.content.Intent
-import android.content.pm.PackageManager
 import android.util.Log
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Message
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material.icons.filled.Apps
-import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ContentPaste
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Shortcut
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.mapLatest
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import hunoia.luno.quicklaunch.icon.SearchIconCache
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.res.stringResource
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.unit.dp
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import hunoia.luno.BuildConfig
-import hunoia.luno.R
 import hunoia.luno.config.model.SearchEngine
+import hunoia.luno.config.model.SearchLaunch
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.action.model.ActionLibrarySettings
-import hunoia.luno.action.model.ActionLibraryEntry
-import hunoia.luno.config.model.BLANK_RECENT_LIMIT
-import hunoia.luno.config.model.MIN_HISTORY_CHARS
 import hunoia.luno.config.model.MAX_CLIP_HISTORY
-import hunoia.luno.config.model.MAX_QUERY_CHARS
-import hunoia.luno.config.model.SRC_ACTION
-import hunoia.luno.config.model.SRC_APP
-import hunoia.luno.config.model.SRC_CALENDAR
-import hunoia.luno.config.model.SRC_CALL
+import hunoia.luno.config.model.MIN_HISTORY_CHARS
 import hunoia.luno.config.model.SRC_CLIP
-import hunoia.luno.config.model.SRC_CONTACT
-import hunoia.luno.config.model.SRC_FILE
-import hunoia.luno.config.model.SRC_MUSIC
-import hunoia.luno.config.model.SRC_SETTINGS
-import hunoia.luno.config.model.SRC_SHORTCUT
-import hunoia.luno.config.model.SRC_SMS
-import hunoia.luno.config.model.SRC_TOGGLE
 import hunoia.luno.config.model.effectiveEngines
-import hunoia.luno.config.model.effectiveTrigger
+import hunoia.luno.config.model.effectiveLaunch
 import hunoia.luno.quicklaunch.query.QuickSearchIndex
-import hunoia.luno.quicklaunch.query.QuickSearchResult
-import hunoia.luno.quicklaunch.query.ensureCalendar
-import hunoia.luno.quicklaunch.query.ensureCalls
-import hunoia.luno.quicklaunch.query.ensureContacts
-import hunoia.luno.quicklaunch.query.ensureMedia
-import hunoia.luno.quicklaunch.query.ensureSms
-import hunoia.luno.quicklaunch.query.invalidateToggleState
-import hunoia.luno.quicklaunch.query.isDirective
-import hunoia.luno.quicklaunch.query.refreshPermissionCache
-import hunoia.luno.quicklaunch.query.search
-import hunoia.luno.quicklaunch.query.stableId
+import hunoia.luno.quicklaunch.query.SearchAction
+import hunoia.luno.quicklaunch.query.SearchIcon
+import hunoia.luno.quicklaunch.query.SearchResult
+import hunoia.luno.quicklaunch.query.filterHiddenResults
+import hunoia.luno.quicklaunch.query.normalizePinQuery
+import hunoia.luno.quicklaunch.query.searchOutcome
 import hunoia.luno.quicklaunch.query.topUsed
+import hunoia.luno.quicklaunch.query.toSearchAction
+import hunoia.luno.quicklaunch.query.toSearchResult
 import hunoia.luno.ui.permission.rememberPermissionState
-import hunoia.luno.ui.settings.search.sourceTitle
-import hunoia.luno.ui.component.TextIcon
-import hunoia.luno.ui.theme.PageGutter
-import hunoia.luno.ui.theme.SegmentedGap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import hunoia.luno.ui.component.row.segmentedShape
 /** 搜索输入快照：snapshotFlow 跟踪块内读到的 State，值变化即重搜。 */
+/** 搜索流的原子包：结果 + 对应的 query + 是否命中标识指令。 */
+private data class SearchPacket(
+    val text: String,
+    val results: List<SearchResult>,
+    val directive: Boolean,
+)
+
 private data class SearchSnapshot(
     val text: String,
-    val entries: List<ActionLibraryEntry>,
+    val entries: List<hunoia.luno.action.model.ActionLibraryEntry>,
     val launcher: QuickAppLauncherSettings,
     val search: QuickSearchSettings,
     val contactsTick: Int,
@@ -144,7 +82,6 @@ private data class SearchSnapshot(
 )
 /** 影响搜索结果的设置子集（纯值投影）：直接拿 QuickSearchSettings 当依赖会让改外观/删历史都触发全量重搜；recentQueries 有意排除。 */
 private data class SearchInputs(
-    val defaultEngineId: String,
     val customEngines: List<SearchEngine>,
     val sourceTriggers: Map<String, String>,
     val searchClipboard: Boolean,
@@ -155,12 +92,21 @@ private data class SearchInputs(
     val searchToggles: Boolean,
     val searchSms: Boolean,
     val searchCalls: Boolean,
+    val searchApps: Boolean,
+    val searchShortcuts: Boolean,
+    val searchActions: Boolean,
+    val searchSettingsPages: Boolean,
     val clipHistory: List<String>,
     val pinnedClips: List<String>,
+    val engineOrder: List<String>,
+    val hiddenEngineIds: List<String>,
+    val engineLaunchOverrides: Map<String, SearchLaunch>,
+    val hiddenResultKeys: List<String>,
+    val pinnedResults: Map<String, List<String>>,
+    val pinnedQueryOrder: List<String>,
 ) {
     /** 反向拼回引擎/匹配层认的完整设置；recentQueries 与 UI 无关字段留默认值。 */
     fun toSettings() = QuickSearchSettings(
-        defaultEngineId = defaultEngineId,
         customEngines = customEngines,
         sourceTriggers = sourceTriggers,
         searchClipboard = searchClipboard,
@@ -171,13 +117,22 @@ private data class SearchInputs(
         searchToggles = searchToggles,
         searchSms = searchSms,
         searchCalls = searchCalls,
+        searchApps = searchApps,
+        searchShortcuts = searchShortcuts,
+        searchActions = searchActions,
+        searchSettingsPages = searchSettingsPages,
         clipHistory = clipHistory,
         pinnedClips = pinnedClips,
+        engineOrder = engineOrder,
+        hiddenEngineIds = hiddenEngineIds,
+        engineLaunchOverrides = engineLaunchOverrides,
+        hiddenResultKeys = hiddenResultKeys,
+        pinnedResults = pinnedResults,
+        pinnedQueryOrder = pinnedQueryOrder,
     )
 
     companion object {
         fun of(s: QuickSearchSettings) = SearchInputs(
-            defaultEngineId = s.defaultEngineId,
             customEngines = s.customEngines,
             sourceTriggers = s.sourceTriggers,
             searchClipboard = s.searchClipboard,
@@ -188,8 +143,18 @@ private data class SearchInputs(
             searchToggles = s.searchToggles,
             searchSms = s.searchSms,
             searchCalls = s.searchCalls,
+            searchApps = s.searchApps,
+            searchShortcuts = s.searchShortcuts,
+            searchActions = s.searchActions,
+            searchSettingsPages = s.searchSettingsPages,
             clipHistory = s.clipHistory,
             pinnedClips = s.pinnedClips,
+            engineOrder = s.engineOrder,
+            hiddenEngineIds = s.hiddenEngineIds,
+            engineLaunchOverrides = s.engineLaunchOverrides,
+            hiddenResultKeys = s.hiddenResultKeys,
+            pinnedResults = s.pinnedResults,
+            pinnedQueryOrder = s.pinnedQueryOrder,
         )
     }
 }
@@ -204,8 +169,11 @@ internal fun QuickSearchContent(
     locked: Boolean,
     onClose: () -> Unit,
     onExitFinished: () -> Unit,
-    onResult: (QuickSearchResult, String) -> Unit,
-    onLongPress: (QuickSearchResult) -> Unit,
+    onResult: (SearchResult, String) -> Unit,
+    onAction: (SearchAction, String) -> Unit,
+    onTogglePin: (String, String) -> Unit,
+    onHideResult: (String, String) -> Unit,
+    onSaveDraft: (String) -> Unit,
     onOpenAppSettings: () -> Unit,
 ) {
     val libraryFlow = remember { hunoia.luno.config.ConfigProvider.actionLibrarySettings }
@@ -216,89 +184,37 @@ internal fun QuickSearchContent(
     val searchSettingsFlow = remember { hunoia.luno.config.ConfigProvider.quickSearchSettings }
     val searchSettings by searchSettingsFlow.collectAsState(initial = QuickSearchSettings())
     var query by remember { mutableStateOf(TextFieldValue("")) }
+    var actionSheetResult by remember { mutableStateOf<SearchResult?>(null) }
+    var actionSheetQuery by remember { mutableStateOf("") }
+    var enginePickerQuery by remember { mutableStateOf<String?>(null) }
+    var restoredDraft by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    // 联系人权限 + 后台加载：授权后 IO 线程一次性进内存，打字只查内存；
-    // 加载完成 bump tick 触发 results 重算。
-    val contactsPerm = rememberPermissionState(android.Manifest.permission.READ_CONTACTS)
-    var contactsTick by remember { mutableIntStateOf(0) }
-    LaunchedEffect(contactsPerm.isGranted, searchSettings.searchContacts) {
-        if (contactsPerm.isGranted && searchSettings.searchContacts) {
-            withContext(Dispatchers.IO) { index.ensureContacts() }
-            contactsTick++
-        }
-    }
-    // P3 媒体权限：三个一次要（部分授权也认，有啥搜啥）；all-files 不是运行时权限，
-    // 单独查 isExternalStorageManager。resume tick 覆盖从设置页回来不重组的问题。
-    var permTick by remember { mutableIntStateOf(0) }
-    val mediaLifecycle = LocalLifecycleOwner.current
-    DisposableEffect(mediaLifecycle) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) permTick++
-        }
-        mediaLifecycle.lifecycle.addObserver(observer)
-        onDispose { mediaLifecycle.lifecycle.removeObserver(observer) }
-    }
+    // 权限状态 + 媒体授权申请：数据装载效果（QuickSearchDataEffects）与空态授权行共用。
     val permCtx = LocalContext.current
     val act = permCtx as? Activity
-    @Composable
-    fun permGranted(p: String) = remember(permTick) {
-        ContextCompat.checkSelfPermission(permCtx, p) == PackageManager.PERMISSION_GRANTED
-    }
-    val audioGranted = permGranted(android.Manifest.permission.READ_MEDIA_AUDIO)
-    val imagesGranted = permGranted(android.Manifest.permission.READ_MEDIA_IMAGES)
-    val videoGranted = permGranted(android.Manifest.permission.READ_MEDIA_VIDEO)
-    val filesGranted = remember(permTick) { android.os.Environment.isExternalStorageManager() }
-    val mediaLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions(),
-    ) { permTick++ }
-    // 三个全灭且都不再弹系统框 = 永久拒绝，授权行改跳设置页。
-    fun permRationale(p: String) =
-        act?.let { ActivityCompat.shouldShowRequestPermissionRationale(it, p) } ?: false
-    val mediaDeniedForever = !audioGranted && !imagesGranted && !videoGranted &&
-        !permRationale(android.Manifest.permission.READ_MEDIA_AUDIO) &&
-        !permRationale(android.Manifest.permission.READ_MEDIA_IMAGES) &&
-        !permRationale(android.Manifest.permission.READ_MEDIA_VIDEO)
-    var mediaTick by remember { mutableIntStateOf(0) }
-    LaunchedEffect(
-        audioGranted, imagesGranted, videoGranted, filesGranted,
-        searchSettings.searchMusic, searchSettings.searchFiles,
-    ) {
-        if ((searchSettings.searchMusic || searchSettings.searchFiles) &&
-            (audioGranted || imagesGranted || videoGranted || filesGranted)
-        ) {
-            withContext(Dispatchers.IO) { index.ensureMedia() }
-            mediaTick++
-        }
-    }
-    // 日历/短信/通话：单权限 + IO 一次加载 + tick 重算（联系人同款）。
+    val contactsPerm = rememberPermissionState(android.Manifest.permission.READ_CONTACTS)
     val calendarPerm = rememberPermissionState(android.Manifest.permission.READ_CALENDAR)
     val smsPerm = rememberPermissionState(android.Manifest.permission.READ_SMS)
     val callsPerm = rememberPermissionState(android.Manifest.permission.READ_CALL_LOG)
-    var calendarTick by remember { mutableIntStateOf(0) }
-    var smsTick by remember { mutableIntStateOf(0) }
-    var callsTick by remember { mutableIntStateOf(0) }
-    LaunchedEffect(calendarPerm.isGranted, searchSettings.searchCalendar) {
-        if (calendarPerm.isGranted && searchSettings.searchCalendar) {
-            withContext(Dispatchers.IO) { index.ensureCalendar() }
-            calendarTick++
-        }
-    }
-    LaunchedEffect(smsPerm.isGranted, searchSettings.searchSms) {
-        if (smsPerm.isGranted && searchSettings.searchSms) {
-            withContext(Dispatchers.IO) { index.ensureSms() }
-            smsTick++
-        }
-    }
-    LaunchedEffect(callsPerm.isGranted, searchSettings.searchCalls) {
-        if (callsPerm.isGranted && searchSettings.searchCalls) {
-            withContext(Dispatchers.IO) { index.ensureCalls() }
-            callsTick++
-        }
-    }
+    val ticks = remember { QuickSearchDataTicks() }
+    val mediaLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { ticks.permTick++ }
+    val grants = rememberMediaGrants(permCtx, act, ticks.permTick)
+    QuickSearchDataEffects(
+        index = index,
+        settings = searchSettings,
+        ticks = ticks,
+        grants = grants,
+        contactsPerm = contactsPerm,
+        calendarPerm = calendarPerm,
+        smsPerm = smsPerm,
+        callsPerm = callsPerm,
+    )
     // 行图标边长（展示与 flow 预热同源）：flow 里 resolve 进同步缓存，
     // composition 只做同步读，首帧即有图。
     val iconPx = with(LocalDensity.current) { 24.dp.toPx().toInt() }
-    val appCtx = LocalContext.current.applicationContext
+    val appCtx = permCtx.applicationContext
     // 搜索搬出主线程：query 即时更新，结果流式回来；mapLatest 取消过期搜索，空串短路。
     // 依赖只留不会每帧变的东西：query 不进 key（块内 snapshotFlow 读），设置走 SearchInputs，tick 合成 dataVersion。
     val searchInputs = remember(searchSettings) { SearchInputs.of(searchSettings) }
@@ -316,11 +232,10 @@ internal fun QuickSearchContent(
     }
     // 应用索引版本：普通 @Volatile 字段 Compose 看不见，必须经 StateFlow 收集。
     val indexVersion by index.indexVersion.collectAsState()
-    // 权限快照刷新的版本号：快照是 @Volatile 普通字段，靠这个 State 把「已刷新」带进重组。
-    var permCacheTick by remember { mutableIntStateOf(0) }
     // dataVersion：数据源 tick / 索引版本，任一变化就重建搜索流并重搜一次。
     // 值本身不进快照，否则同一变化会被算两次。
-    val dataVersion = contactsTick + mediaTick + calendarTick + smsTick + callsTick + indexVersion + permCacheTick
+    val dataVersion = ticks.contactsTick + ticks.mediaTick + ticks.calendarTick +
+        ticks.smsTick + ticks.callsTick + indexVersion + ticks.permCacheTick
     val searchFlow = remember(
         appCtx, iconPx, searchInputs, effectiveLauncher, effectiveSearchSettings, dataVersion, torchOn,
     ) {
@@ -334,33 +249,30 @@ internal fun QuickSearchContent(
         }.mapLatest { s ->
             val text = s.text
             if (text.isBlank()) {
-                text to emptyList<QuickSearchResult>()
+                SearchPacket(text, emptyList(), directive = false)
             } else {
                 withContext(Dispatchers.Default) {
-                    val out = index.search(text, s.entries, s.launcher, s.search, s.torchOn).also { res ->
-                        // 发射前把 App/快捷方式行的图标 resolve 进同步缓存：UI 线程读到即画，
-                        // 结果原子到达。已缓存的零开销，只有新包才解码（自带 bitmap 的快捷方式跳过）。
-                        val pkgs = HashSet<String>()
-                        for (r in res) {
-                            when (r) {
-                                is QuickSearchResult.App -> pkgs.add(r.appInfo.packageName)
-                                is QuickSearchResult.Shortcut ->
-                                    if (r.shortcut.iconBitmap == null) pkgs.add(r.shortcut.packageName)
-                                else -> {}
-                            }
+                    val outcome = index.searchOutcome(text, s.entries, s.launcher, s.search, s.torchOn)
+                    // 发射前把 App/快捷方式行的图标 resolve 进同步缓存：UI 线程读到即画，
+                    // 结果原子到达。已缓存的零开销，只有新包才解码（自带 bitmap 的快捷方式跳过）。
+                    val pkgs = HashSet<String>()
+                    for (r in outcome.results) {
+                        val icon = r.icon
+                        if (icon is SearchIcon.AppIcon && icon.bitmap == null) {
+                            pkgs.add(icon.packageName)
                         }
-                        SearchIconCache.ensureAll(appCtx, pkgs, iconPx)
                     }
-                    text to out
+                    SearchIconCache.ensureAll(appCtx, pkgs, iconPx)
+                    SearchPacket(text, outcome.results, outcome.directive)
                 }
             }
         }
     }
     // 原子包：结果永远带着它对应的 query。到达前 results 留旧值，
     // 首字无旧值则继续显示空态——搜索分支只挂完整数据，不挂半成品。
-    val packet by searchFlow.collectAsState(initial = "" to emptyList<QuickSearchResult>())
-    val results = packet.second
-    val settled = packet.first == query.text
+    val packet by searchFlow.collectAsState(initial = SearchPacket("", emptyList(), directive = false))
+    val results = packet.results
+    val settled = packet.text == query.text
     // 历史行共用：长按删单条（搜索态/空态同一语义）。
     val deleteHistory: (String) -> Unit = { h ->
         scope.launch {
@@ -394,42 +306,41 @@ internal fun QuickSearchContent(
         }
     }
     val pinnedSet = remember(searchSettings.pinnedClips) { searchSettings.pinnedClips.toSet() }
-    val focusRequester = remember { FocusRequester() }
+    val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
-    // 权限快照 + 开关状态缓存：面板每次打开都重新读一次真实值（打开期间各 tick 变化也刷）。
-    LaunchedEffect(permTick, contactsPerm.isGranted, calendarPerm.isGranted, smsPerm.isGranted, callsPerm.isGranted) {
-        withContext(Dispatchers.IO) {
-            index.refreshPermissionCache()
-            invalidateToggleState()
-        }
-        permCacheTick++
-    }
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
         keyboard?.show()
     }
-    // 语音输入：系统识别器回填 query；没识别器就不显示按钮（不报错）。
-    val voiceLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            result.data?.getStringArrayListExtra(
-                android.speech.RecognizerIntent.EXTRA_RESULTS,
-            )?.firstOrNull()?.trim()?.takeIf { it.isNotEmpty() }?.let { heard ->
-                query = TextFieldValue(heard, TextRange(heard.length))
-            }
+    // 草稿：设置流首次到达后回填一次；空草稿不占用“已恢复”标记，避免默认空设置
+    // 先到、真实草稿后到时被吞掉。
+    LaunchedEffect(searchSettings.lastQuery, searchSettings.restoreLastQuery) {
+        if (!restoredDraft &&
+            searchSettings.restoreLastQuery &&
+            searchSettings.lastQuery.isNotBlank() &&
+            query.text.isBlank()
+        ) {
+            restoredDraft = true
+            val text = backfillText(searchSettings.lastQuery)
+            query = TextFieldValue(text, TextRange(text.length))
         }
     }
-    val voiceAvailable = remember(permCtx) {
-        Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).resolveActivity(
-            permCtx.packageManager,
-        ) != null
+    LaunchedEffect(closing) {
+        if (closing) {
+            actionSheetResult = null
+            enginePickerQuery = null
+            onSaveDraft(query.text)
+        }
     }
     // 空态常用应用：放在条件分支外，面板生命周期内只跑一次 —— 写进分支里的话分支一退出
     // 就取消，来回切 query 会反复重启 IO。
-    var topUsedApps by remember { mutableStateOf(emptyList<QuickSearchResult.App>()) }
-    LaunchedEffect(effectiveLauncher, indexVersion) {
-        topUsedApps = withContext(Dispatchers.IO) { index.topUsed(effectiveLauncher) }
+    var topUsedApps by remember { mutableStateOf(emptyList<SearchResult>()) }
+    LaunchedEffect(effectiveLauncher, indexVersion, searchSettings.hiddenResultKeys) {
+        topUsedApps = withContext(Dispatchers.IO) {
+            index.topUsed(effectiveLauncher)
+                .map { it.toSearchResult() }
+                .filterHiddenResults(searchSettings)
+        }
     }
     // 进出场动画状态：进场从 0.92/0 起播到 1，closing 置位后播到 0.95/0。
     val panelScale = remember { Animatable(0.92f) }
@@ -448,8 +359,14 @@ internal fun QuickSearchContent(
         }
     }
     // 退场中吞掉行点击：requestClose 幂等但 dispatch 不是，守一层。
-    val safeResult: (QuickSearchResult, String) -> Unit = { r, q -> if (!closing) onResult(r, q) }
-    val safeLongPress: (QuickSearchResult) -> Unit = { if (!closing) onLongPress(it) }
+    val safeResult: (SearchResult, String) -> Unit = { r, q -> if (!closing) onResult(r, q) }
+    val safeLongPress: (SearchResult) -> Unit = { result ->
+        if (!closing) {
+            actionSheetResult = result
+            actionSheetQuery = query.text.trim()
+        }
+    }
+    val safeAction: (SearchAction, String) -> Unit = { a, q -> if (!closing) onAction(a, q) }
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -470,16 +387,26 @@ internal fun QuickSearchContent(
     ) {
         // statusBarsPadding：内容从状态栏下方开始，白卡压白图标会看不清，必须避让。
         // imePadding 放整列而不是输入框：键盘弹起时列表跟着收缩，否则底部行被键盘盖住。
-        Column(modifier = Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
+        // Activity 已 enableEdgeToEdge，键盘跟随固定走 Compose 标准 imePadding。
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .imePadding(),
+        ) {
             // 分支按「数据完整」进：flow 发射 (queryText, results) 原子包，在途时不挂半成品 ——
             // 首字无旧数据继续显示空态，有旧数据先显示旧列表，到达后整批换。
             // 锁屏时结果里的剪贴行全部滤掉（展示隐藏，引擎侧不动）。
-            val displayResults = if (locked) results.filterNot { it is QuickSearchResult.ClipEntry } else results
+            val displayResults = remember(results, locked) {
+                results.filterNot { locked && it.source == SRC_CLIP }
+            }
             if (query.text.isNotBlank() && displayResults.isNotEmpty()) {
                 // 搜索态：匹配的历史全部参展（点即回填，贴胶囊），结果排其上。
                 // 标识指令（bb 新闻 / sms 138）下历史不参展：纯目标结果。
                 val q = query.text.trim()
-                val matches = if (index.isDirective(q, searchSettings, launcherSettings)) {
+                // 指令态（bb 新闻 / sms 138）只回目标结果，历史行不参展：
+                // 标志由搜索流回报，面板不再单独判一次（判一次要摸裸标识列表，可能触发全量查包）。
+                val matches = if (packet.directive) {
                     emptyList()
                 } else {
                     searchSettings.recentQueries.filter {
@@ -487,343 +414,58 @@ internal fun QuickSearchContent(
                             !it.equals(q, ignoreCase = true) && it.contains(q, ignoreCase = true)
                     }
                 }
-                val total = matches.size + displayResults.size
-                // 反转列表内容超高时会把首项顶出可视区：受控滚动，内容一变钉回第 0 项。
-                // 触发用内容签名而非 total：按数量滚会拽回用户上滑看的结果。
-                val searchListState = rememberLazyListState()
-                val contentSig = signatureOf(
-                    displayResults.firstOrNull(), displayResults.lastOrNull(),
-                    total * 31 + matches.size,
+                QuickSearchSearchList(
+                    results = displayResults,
+                    matches = matches,
+                    pinnedSet = pinnedSet,
+                    queryText = query.text,
+                    onQueryChange = { query = it },
+                    onResultClick = safeResult,
+                    onLongPress = safeLongPress,
+                    onShowEngines = { enginePickerQuery = it },
+                    onTogglePin = togglePin,
+                    onDeleteHistory = deleteHistory,
+                    modifier = Modifier.weight(1f),
                 )
-                LaunchedEffect(contentSig) { searchListState.scrollToItem(0) }
-                // key 只由内容决定、不带 idx：带 idx 时重排会让整列 key 失效、全部重建，
-                // 打字时肉眼可见闪。重复项由 stableKeys 补 ~n 保唯一。
-                val resultKeys = remember(displayResults) {
-                    stableKeys(displayResults.map { it.stableId() })
-                }
-                LazyColumn(
-                    state = searchListState,
-                    modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = PageGutter).listFade(),
-                    contentPadding = PaddingValues(top = 12.dp, bottom = 12.dp),
-                    // 反转只管顺序不管小内容锚定，显式 Bottom 后单条目也必贴胶囊
-                    verticalArrangement = Arrangement.spacedBy(SegmentedGap, Alignment.Bottom),
-                    reverseLayout = true,
-                ) {
-                    itemsIndexed(matches, key = { _, h -> "m#$h" }) { pos, h ->
-                        HistoryRow(
-                            text = h,
-                            shape = segmentedShape(total - 1 - pos, total),
-                            onClick = { query = backfillText(h).let { TextFieldValue(it, TextRange(it.length)) } },
-                            onLongClick = { deleteHistory(h) },
-                        )
-                    }
-                    itemsIndexed(displayResults, key = { idx, _ -> "r#${resultKeys[idx]}" }) { index, item ->
-                        val pos = matches.size + index
-                        val shape = segmentedShape(total - 1 - pos, total)
-                        if (item is QuickSearchResult.ClipEntry) {
-                            ClipboardRow(
-                                text = item.text,
-                                shape = shape,
-                                onClick = { query = backfillText(item.text).let { TextFieldValue(it, TextRange(it.length)) } },
-                                onLongClick = { safeLongPress(item) },
-                                pinned = item.text in pinnedSet,
-                                onTogglePin = { togglePin(item.text) },
-                            )
-                        } else {
-                            ResultRow(
-                                result = item,
-                                shape = shape,
-                                onClick = { safeResult(item, query.text.trim()) },
-                                onLongClick = { safeLongPress(item) },
-                            )
-                        }
-                    }
-                }
             } else if (query.text.isEmpty() || (!settled && query.text.isNotBlank())) {
                 // 空串，或首字在途（有字、无旧数据、结果没到）：继续显示空态。
-                // 空输入：剪贴板历史最贴胶囊，其次搜索历史（最近 3），常用、最近文件在上。
                 // 剪贴板由 Activity.onWindowFocusChanged 喂进来（首开 composition 早于焦点）。
-                val history = searchSettings.recentQueries
-                    .filter { it.trim().length >= MIN_HISTORY_CHARS }
-                    .take(BLANK_RECENT_LIMIT)
-                val clips = if (searchSettings.searchClipboard && !locked) {
-                    // 当前剪贴优先（焦点刚读到的），后面跟历史去重，空页只展 3 条。
-                    (listOfNotNull(clipboardText) + searchSettings.clipHistory).distinct().take(3)
-                } else {
-                    emptyList()
-                }
-                // 锁屏占位：剪贴内容不展，只留一行提示。
-                val showClipPlaceholder = searchSettings.searchClipboard && locked
-                val clipPlaceholderCount = if (showClipPlaceholder) 1 else 0
-                // 空态常用：数据由上方（分支外的 LaunchedEffect）供，这里只读。
-                val used = topUsedApps
-                val clipCount = clips.size
-                // 锁屏占位占 clips 段的首位：后续 pos 统一按槽位（clips+占位）偏移。
-                val clipSlotCount = clipCount + clipPlaceholderCount
-                // 联系人未授权：顶部给一行授权入口（点申请，永久拒绝跳设置页）。
-                val showGrant = searchSettings.searchContacts && !contactsPerm.isGranted
-                val grantCount = if (showGrant) 1 else 0
-                // P3：媒体缺权限给一行（一次要三个），all-files 没开给一行（跳设置页）。
-                val showMediaGrant = (searchSettings.searchMusic || searchSettings.searchFiles) &&
-                    !(audioGranted && imagesGranted && videoGranted)
-                val showFilesGrant = searchSettings.searchFiles && !filesGranted
-                val mediaGrantCount = if (showMediaGrant) 1 else 0
-                val filesGrantCount = if (showFilesGrant) 1 else 0
-                // 日历/短信/通话：各给一行授权入口（不合并，用户定的）。
-                val showCalendarGrant = searchSettings.searchCalendar && !calendarPerm.isGranted
-                val showSmsGrant = searchSettings.searchSms && !smsPerm.isGranted
-                val showCallsGrant = searchSettings.searchCalls && !callsPerm.isGranted
-                val calendarGrantCount = if (showCalendarGrant) 1 else 0
-                val smsGrantCount = if (showSmsGrant) 1 else 0
-                val callsGrantCount = if (showCallsGrant) 1 else 0
-                if (history.isNotEmpty() || clips.isNotEmpty() || showClipPlaceholder || used.isNotEmpty() ||
-                    showGrant || showMediaGrant || showFilesGrant ||
-                    showCalendarGrant || showSmsGrant || showCallsGrant
-                ) {
-                    // 整列共用一套连续圆角：剪贴板与上方内容之间用 ConnectionRadius 连在一起，
-                    // 只有整列最底/最顶才用 ContainerRadius。
-                    val contentCount = history.size + used.size +
-                        grantCount + mediaGrantCount + filesGrantCount +
-                        calendarGrantCount + smsGrantCount + callsGrantCount
-                    val total = clipSlotCount + contentCount
-                    val blankListState = rememberLazyListState()
-                    // 内容签名同搜索态：数量变不再抢滚动，只有内容身份变才钉回首项。
-                    val blankSig = signatureOf(
-                        listOf(clips.firstOrNull(), history.firstOrNull(), used.firstOrNull()),
-                        listOf(clips.lastOrNull(), history.lastOrNull(), used.lastOrNull()),
-                        total,
-                    )
-                    LaunchedEffect(blankSig) { blankListState.scrollToItem(0) }
-                    val usedKeys = remember(used) {
-                        stableKeys(used.map { "u#${it.appInfo.packageName}/${it.appInfo.className}" })
-                    }
-                    LazyColumn(
-                        state = blankListState,
-                        modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = PageGutter).listFade(),
-                        contentPadding = PaddingValues(top = 12.dp, bottom = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(SegmentedGap, Alignment.Bottom),
-                        reverseLayout = true,
-                    ) {
-                        // 剪贴板历史最贴胶囊（首条=当前剪贴），其次搜索历史，最后常用；
-                        // 锁屏时 clips 为空，占位行顶在同一槽位。
-                        if (showClipPlaceholder) {
-                            item(key = "c-locked") {
-                                HistoryRow(
-                                    text = stringResource(R.string.quick_search_clipboard_locked),
-                                    shape = segmentedShape(total - 1, total),
-                                    icon = Icons.Default.Lock,
-                                    onClick = {},
-                                )
-                            }
-                        }
-                        itemsIndexed(clips, key = { _, c -> "c#$c" }) { pos, clipText ->
-                            ClipboardRow(
-                                text = clipText,
-                                shape = segmentedShape(total - 1 - pos, total),
-                                onClick = {
-                                    query = backfillText(clipText).let { TextFieldValue(it, TextRange(it.length)) }
-                                },
-                                onLongClick = { safeLongPress(QuickSearchResult.ClipEntry(clipText)) },
-                                pinned = clipText in pinnedSet,
-                                onTogglePin = { togglePin(clipText) },
-                            )
-                        }
-                        itemsIndexed(history, key = { _, h -> "h#$h" }) { pos, h ->
-                            HistoryRow(
-                                text = h,
-                                // 历史段上方没有 clip，但下方有：算整列视觉下标时必须带上
-                                // clipSlotCount，否则历史最后一行会误拿整列底部的大圆角。
-                                shape = segmentedShape(total - 1 - clipSlotCount - pos, total),
-                                onClick = {
-                                    query = backfillText(h).let { TextFieldValue(it, TextRange(it.length)) }
-                                },
-                                onLongClick = { deleteHistory(h) },
-                            )
-                        }
-                        itemsIndexed(used, key = { idx, _ -> usedKeys[idx] }) { idx, app ->
-                            val pos = clipSlotCount + history.size + idx
-                            ResultRow(
-                                result = app,
-                                shape = segmentedShape(total - 1 - pos, total),
-                                onClick = { safeResult(app, "") },
-                                onLongClick = { safeLongPress(app) },
-                            )
-                        }
-                        if (showGrant) {
-                            item(key = "grant-contacts") {
-                                val pos = clipSlotCount + history.size + used.size
-                                HistoryRow(
-                                    text = stringResource(R.string.quick_search_grant_contacts),
-                                    shape = segmentedShape(total - 1 - pos, total),
-                                    icon = Icons.Default.Person,
-                                    onClick = {
-                                        if (contactsPerm.deniedForever) onOpenAppSettings()
-                                        else contactsPerm.launchPermissionRequest()
-                                    },
-                                )
-                            }
-                        }
-                        if (showMediaGrant) {
-                            item(key = "grant-media") {
-                                val pos = clipSlotCount + history.size + used.size + grantCount
-                                HistoryRow(
-                                    text = stringResource(R.string.quick_search_grant_media),
-                                    shape = segmentedShape(total - 1 - pos, total),
-                                    icon = Icons.Default.MusicNote,
-                                    onClick = {
-                                        if (mediaDeniedForever) {
-                                            onOpenAppSettings()
-                                        } else {
-                                            mediaLauncher.launch(
-                                                arrayOf(
-                                                    android.Manifest.permission.READ_MEDIA_AUDIO,
-                                                    android.Manifest.permission.READ_MEDIA_IMAGES,
-                                                    android.Manifest.permission.READ_MEDIA_VIDEO,
-                                                ),
-                                            )
-                                        }
-                                    },
-                                )
-                            }
-                        }
-                        if (showFilesGrant) {
-                            item(key = "grant-files") {
-                                val pos = clipSlotCount + history.size + used.size +
-                                    grantCount + mediaGrantCount
-                                HistoryRow(
-                                    text = stringResource(R.string.quick_search_grant_files),
-                                    shape = segmentedShape(total - 1 - pos, total),
-                                    icon = Icons.Default.Description,
-                                    onClick = {
-                                        runCatching {
-                                            permCtx.startActivity(
-                                                Intent(
-                                                    android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                                                    android.net.Uri.parse("package:${permCtx.packageName}"),
-                                                ),
-                                            )
-                                        }
-                                    },
-                                )
-                            }
-                        }
-                        if (showCalendarGrant) {
-                            item(key = "grant-calendar") {
-                                val pos = clipSlotCount + history.size + used.size +
-                                    grantCount + mediaGrantCount + filesGrantCount
-                                HistoryRow(
-                                    text = stringResource(R.string.quick_search_grant_calendar),
-                                    shape = segmentedShape(total - 1 - pos, total),
-                                    icon = Icons.Default.DateRange,
-                                    onClick = {
-                                        if (calendarPerm.deniedForever) onOpenAppSettings()
-                                        else calendarPerm.launchPermissionRequest()
-                                    },
-                                )
-                            }
-                        }
-                        if (showSmsGrant) {
-                            item(key = "grant-sms") {
-                                val pos = clipSlotCount + history.size + used.size +
-                                    grantCount + mediaGrantCount + filesGrantCount + calendarGrantCount
-                                HistoryRow(
-                                    text = stringResource(R.string.quick_search_grant_sms),
-                                    shape = segmentedShape(total - 1 - pos, total),
-                                    icon = Icons.AutoMirrored.Filled.Message,
-                                    onClick = {
-                                        if (smsPerm.deniedForever) onOpenAppSettings()
-                                        else smsPerm.launchPermissionRequest()
-                                    },
-                                )
-                            }
-                        }
-                        if (showCallsGrant) {
-                            item(key = "grant-calls") {
-                                val pos = clipSlotCount + history.size + used.size +
-                                    grantCount + mediaGrantCount + filesGrantCount +
-                                    calendarGrantCount + smsGrantCount
-                                HistoryRow(
-                                    text = stringResource(R.string.quick_search_grant_calls),
-                                    shape = segmentedShape(total - 1 - pos, total),
-                                    icon = Icons.Default.Call,
-                                    onClick = {
-                                        if (callsPerm.deniedForever) onOpenAppSettings()
-                                        else callsPerm.launchPermissionRequest()
-                                    },
-                                )
-                            }
-                        }
-                    }
-                } else {
-                    Spacer(Modifier.weight(1f))
-                }
+                QuickSearchEmptyList(
+                    settings = searchSettings,
+                    clipboardText = clipboardText,
+                    locked = locked,
+                    used = topUsedApps,
+                    grants = grants,
+                    contactsPerm = contactsPerm,
+                    calendarPerm = calendarPerm,
+                    smsPerm = smsPerm,
+                    callsPerm = callsPerm,
+                    mediaLauncher = mediaLauncher,
+                    permCtx = permCtx,
+                    pinnedSet = pinnedSet,
+                    onQueryChange = { query = it },
+                    onResultClick = safeResult,
+                    onLongPress = safeLongPress,
+                    onTogglePin = togglePin,
+                    onDeleteHistory = deleteHistory,
+                    onOpenAppSettings = onOpenAppSettings,
+                    modifier = Modifier.weight(1f),
+                )
             } else if (query.text.isBlank()) {
                 // 全空格输入：标识提示（图标 来源名：标识），点即填入标识。
-                // 空串走老空态；删掉空格回去。标识关闭的来源/引擎跳过。
-                val hintSources = remember(searchSettings) {
-                    listOf(
-                        SRC_APP to Icons.Default.Apps,
-                        SRC_SHORTCUT to Icons.Default.Shortcut,
-                        SRC_ACTION to Icons.Default.PlayArrow,
-                        SRC_SETTINGS to Icons.Default.Settings,
-                        SRC_CONTACT to Icons.Default.Person,
-                        SRC_MUSIC to Icons.Default.MusicNote,
-                        SRC_FILE to Icons.Default.Description,
-                        SRC_CALENDAR to Icons.Default.DateRange,
-                        SRC_SMS to Icons.AutoMirrored.Filled.Message,
-                        SRC_CALL to Icons.Default.Call,
-                        SRC_TOGGLE to Icons.Default.Tune,
-                        SRC_CLIP to Icons.Default.ContentPaste,
-                    ).mapNotNull { (key, icon) ->
-                        val t = searchSettings.effectiveTrigger(key)
-                        if (t.isBlank()) null else Triple(key, t, icon)
-                    }
-                }
-                val hintEngines = remember(searchSettings) {
-                    searchSettings.effectiveEngines()
-                        .filter { it.trigger.isNotBlank() }
-                        .map { it.name to it.trigger.trim() }
-                }
-                val hintTotal = hintSources.size + hintEngines.size
-                if (hintTotal > 0) {
-                    val hintListState = rememberLazyListState()
-                    LaunchedEffect(hintTotal) { hintListState.scrollToItem(0) }
-                    LazyColumn(
-                        state = hintListState,
-                        modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = PageGutter).listFade(),
-                        contentPadding = PaddingValues(top = 12.dp, bottom = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(SegmentedGap, Alignment.Bottom),
-                        reverseLayout = true,
-                    ) {
-                        itemsIndexed(hintSources, key = { _, h -> "th-${h.first}" }) { idx, h ->
-                            val trigger = h.second
-                            HistoryRow(
-                                text = "${sourceTitle(h.first)}：$trigger",
-                                shape = segmentedShape(hintTotal - 1 - idx, hintTotal),
-                                icon = h.third,
-                                onClick = {
-                                    query = TextFieldValue(trigger, TextRange(trigger.length))
-                                },
-                            )
-                        }
-                        itemsIndexed(hintEngines, key = { _, e -> "te-${e.second}" }) { idx, e ->
-                            val trigger = e.second
-                            HistoryRow(
-                                text = "${e.first}：$trigger",
-                                shape = segmentedShape(hintTotal - 1 - hintSources.size - idx, hintTotal),
-                                textIcon = e.first.firstOrNull()?.toString()?.let { TextIcon(it) },
-                                onClick = {
-                                    query = TextFieldValue(trigger, TextRange(trigger.length))
-                                },
-                            )
-                        }
-                    }
-                } else {
-                    Spacer(Modifier.weight(1f))
-                }
+                QuickSearchTriggerHints(
+                    settings = searchSettings,
+                    onQueryChange = { query = it },
+                    modifier = Modifier.weight(1f),
+                )
             } else {
                 Spacer(Modifier.weight(1f))
             }
+            QuickSearchEngineBar(
+                engines = searchSettings.effectiveEngines(),
+                queryText = query.text,
+                onEngineAction = safeAction,
+            )
             // 回车确认 = 右侧 Check：打列表首位。引擎兜底 tier -1 垫底，计算器排表头，
             // 所以直接取 firstOrNull 即为确认目标，无需跳过特例。
             val confirmFirst: () -> Unit = {
@@ -832,72 +474,51 @@ internal fun QuickSearchContent(
             // 键盘动作对象 remember 住：每次重组新建 lambda 会让 OutlinedTextField 的
             // keyboardActions 参数恒变，破坏它的跳过。
             val keyboardActions = remember(results) {
-                KeyboardActions(onSearch = {
-                    results.firstOrNull()?.let { safeResult(it, query.text.trim()) }
-                })
+                KeyboardActions(onSearch = { confirmFirst() })
             }
-            OutlinedTextField(
+            QuickSearchField(
                 value = query,
-                onValueChange = { if (it.text.length <= MAX_QUERY_CHARS) query = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = PageGutter)
-                    .padding(bottom = 8.dp)
-                    .focusRequester(focusRequester),
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (query.text.isNotBlank()) {
-                        androidx.compose.material3.IconButton(
-                            // 注意列表是反转的：firstOrNull 是视觉底部（离胶囊最近），与显示顺序相反。
-                            onClick = confirmFirst,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                            )
-                        }
-                    } else if (voiceAvailable) {
-                        androidx.compose.material3.IconButton(
-                            onClick = {
-                                voiceLauncher.launch(
-                                    Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                                        putExtra(
-                                            android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                                            android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
-                                        )
-                                        putExtra(
-                                            android.speech.RecognizerIntent.EXTRA_PROMPT,
-                                            query.text,
-                                        )
-                                    },
-                                )
-                            },
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Mic,
-                                contentDescription = null,
-                            )
-                        }
+                onValueChange = { query = it },
+                onConfirm = confirmFirst,
+                keyboardActions = keyboardActions,
+                focusRequester = focusRequester,
+                asciiEnter = searchSettings.asciiEnterSearch,
+            )
+        }
+
+        actionSheetResult?.let { result ->
+            val pinned = result.key in searchSettings
+                .pinnedResults[normalizePinQuery(actionSheetQuery)].orEmpty()
+            SearchResultActionSheet(
+                result = result,
+                query = actionSheetQuery,
+                pinned = pinned,
+                onAction = { action, q ->
+                    actionSheetResult = null
+                    if (action is SearchAction.ShowEngines) {
+                        enginePickerQuery = action.query
+                    } else {
+                        onAction(action, q)
                     }
                 },
-                singleLine = true,
-                shape = CircleShape,
-                // 默认英文键盘 + 回车即确认（否则回车只是收键盘）。Ascii 会让输入法
-                // 锁死英文、切不出中文，Text 则完全交给输入法；没有中间态，这里选 Ascii。
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Ascii,
-                    imeAction = ImeAction.Search,
-                ),
-                keyboardActions = keyboardActions,
-                colors = OutlinedTextFieldDefaults.colors(
-                    // 半透明底色：透出窗口背后的系统模糊，不支持的设备直接呈现半透明。
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f),
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f),
-                    focusedBorderColor = ComposeColor.Transparent,
-                    unfocusedBorderColor = ComposeColor.Transparent,
-                    cursorColor = MaterialTheme.colorScheme.primary,
-                ),
+                onTogglePin = { q, key -> actionSheetResult = null; onTogglePin(q, key) },
+                onHideResult = { key, title -> actionSheetResult = null; onHideResult(key, title) },
+                onShowEngines = { q -> actionSheetResult = null; enginePickerQuery = q },
+                onDismiss = { actionSheetResult = null },
             )
+        }
+        enginePickerQuery?.let { pickerQuery ->
+            val engines = searchSettings.effectiveEngines()
+            if (engines.isNotEmpty()) {
+                SearchEnginePickerSheet(
+                    engines = engines,
+                    onPick = { engine ->
+                        enginePickerQuery = null
+                        onAction(engine.effectiveLaunch().toSearchAction(pickerQuery), pickerQuery)
+                    },
+                    onDismiss = { enginePickerQuery = null },
+                )
+            }
         }
     }
 }

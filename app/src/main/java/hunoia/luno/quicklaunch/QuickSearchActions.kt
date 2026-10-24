@@ -11,16 +11,59 @@ import androidx.lifecycle.lifecycleScope
 import hunoia.luno.BuildConfig
 import hunoia.luno.R
 import hunoia.luno.bridge.ui.showToast
+import hunoia.luno.bridge.system.buildViewIntent
+import hunoia.luno.bridge.system.normalizeOpenAppOrUrl
 import hunoia.luno.config.model.MAX_QUERY_CHARS
 import hunoia.luno.config.model.MAX_RECENT_QUERIES
 import hunoia.luno.config.model.MIN_HISTORY_CHARS
-import hunoia.luno.quicklaunch.query.QuickSearchResult
+import hunoia.luno.quicklaunch.query.SearchAction
+import hunoia.luno.quicklaunch.query.SearchToggleKind
 import kotlinx.coroutines.launch
 
 /** 直拷文本 + 已复制 toast：计算器/网址/引擎长按共用。 */
 internal fun QuickSearchActivity.copyText(text: String) {
     hunoia.luno.bridge.system.copyText(this, "quicksearch", text)
     showToast(R.string.quick_search_copied)
+}
+
+/**
+ * 执行引擎打开：先按指定包/选择器打开，失败再试回退链接。
+ * 返回是否最终打开成功；设置页「测试」与搜索结果点按共用，避免两套行为。
+ *
+ * URL 走 [normalizeOpenAppOrUrl] + [buildViewIntent]（与 Launcher.launchUrl 同一套）：
+ * 裸域名补 https://、intent:// / android-app:// 解析、http(s) 补 BROWSABLE。
+ * 直接 Uri.parse 会让「example.com」这类无 scheme 输入直接打不开。
+ */
+internal fun launchSearchUrl(context: Context, action: SearchAction.OpenUrl): Boolean {
+    fun start(url: String, packageName: String = "", chooser: Boolean = false): Boolean {
+        val normalized = normalizeOpenAppOrUrl(url) ?: return false
+        val intent = buildViewIntent(normalized)
+        if (packageName.isNotBlank()) intent.setPackage(packageName)
+        val launch = if (chooser) {
+            // 只有单个可处理应用时，部分系统会直接拉起而不显示选择器；
+            // 显式关掉 AUTO_LAUNCH，保证「每次询问」真的每次都问。
+            // 注：EXTRA_AUTO_LAUNCH_SINGLE_CHOICE 仅 API 33+ 生效，旧系统忽略该 extra。
+            Intent.createChooser(intent, null).apply {
+                putExtra(Intent.EXTRA_AUTO_LAUNCH_SINGLE_CHOICE, false)
+            }
+        } else {
+            intent
+        }
+        return runCatching { context.startActivity(launch) }.isSuccess
+    }
+    if (start(action.url, action.packageName, action.forceChooser)) return true
+    return action.fallbackUrl.isNotBlank() && start(action.fallbackUrl)
+}
+
+/** 设置页「测试」用：预览 Open / OpenUrl 两类动作，不关面板。 */
+internal fun launchSearchAction(context: Context, action: SearchAction): Boolean = when (action) {
+    is SearchAction.Open -> {
+        val intent = Intent(action.intent)
+        if (context !is Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { context.startActivity(intent) }.isSuccess
+    }
+    is SearchAction.OpenUrl -> launchSearchUrl(context, action)
+    else -> false
 }
 
 /** 确认搜索记历史：只记 6 字以上、不超 [MAX_QUERY_CHARS] 的，去重 cap 上限，顺手清掉已存短串，供各结果分支共用。 */
@@ -42,17 +85,78 @@ internal fun QuickSearchActivity.recordQuery(text: String) {
     }
 }
 
-/** P3：直开 uri（音乐/图片/视频/文档），无 handler 接住 toast。 */
-internal fun QuickSearchActivity.viewUri(uri: String, mime: String) {
-    val ok = runCatching {
-        startActivity(
-            Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(android.net.Uri.parse(uri), mime.ifBlank { "*/*" })
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            },
-        )
-    }.isSuccess
-    if (!ok) showToast(R.string.quick_search_no_handler)
+/** 结果级 Pin：同一 query 下切换固定状态，写回最近使用顺序。 */
+internal fun QuickSearchActivity.toggleResultPin(query: String, key: String) {
+    val normalized = hunoia.luno.quicklaunch.query.normalizePinQuery(query)
+    if (normalized.isEmpty()) return
+    lifecycleScope.launch {
+        runCatching {
+            var pinned = false
+            hunoia.luno.config.ConfigProvider.updateQuickSearchSettings { current ->
+                val existing = current.pinnedResults[normalized].orEmpty()
+                pinned = key !in existing
+                val next = if (pinned) {
+                    (listOf(key) + existing).distinct()
+                        .take(hunoia.luno.config.model.MAX_PINS_PER_QUERY)
+                } else {
+                    existing.filterNot { it == key }
+                }
+                // 使用顺序「新的在前」：本次 query 前插，归一化淘汰时丢尾部。
+                val order = (listOf(normalized) + current.pinnedQueryOrder)
+                    .distinct()
+                    .take(hunoia.luno.config.model.MAX_PINNED_QUERIES)
+                current.copy(
+                    pinnedResults = if (next.isEmpty()) {
+                        current.pinnedResults - normalized
+                    } else {
+                        current.pinnedResults + (normalized to next)
+                    },
+                    pinnedQueryOrder = order,
+                )
+            }
+            showToast(if (pinned) R.string.search_result_pinned else R.string.search_result_unpinned)
+        }
+    }
+}
+
+/**
+ * 全局隐藏结果；隐藏后从所有 Pin 桶里移除，避免恢复后残留。
+ * [title] 一起存：设置页的「已隐藏的结果」只存 key 的话用户认不出是哪条；
+ * 时间戳供设置页按时间倒序展示。
+ */
+internal fun QuickSearchActivity.hideSearchResult(key: String, title: String) {
+    if (key.isBlank()) return
+    lifecycleScope.launch {
+        runCatching {
+            hunoia.luno.config.ConfigProvider.updateQuickSearchSettings { current ->
+                val nextKeys = (current.hiddenResultKeys + key)
+                    .distinct()
+                    .takeLast(hunoia.luno.config.model.MAX_HIDDEN_RESULTS)
+                current.copy(
+                    hiddenResultKeys = nextKeys,
+                    hiddenResultLabels = (current.hiddenResultLabels + (key to title))
+                        .filterKeys { it in nextKeys },
+                    hiddenResultTimes = (current.hiddenResultTimes + (key to System.currentTimeMillis()))
+                        .filterKeys { it in nextKeys },
+                    pinnedResults = current.pinnedResults.mapValues { (_, keys) ->
+                        keys.filterNot { it == key }
+                    }.filterValues { it.isNotEmpty() },
+                )
+            }
+            showToast(R.string.search_result_hidden)
+        }
+    }
+}
+
+/** 草稿只存文本，不存图片；关闭面板/确认搜索时调用。 */
+internal fun QuickSearchActivity.saveSearchDraft(query: String) {
+    lifecycleScope.launch {
+        runCatching {
+            hunoia.luno.config.ConfigProvider.updateQuickSearchSettings {
+                it.copy(lastQuery = query.take(MAX_QUERY_CHARS))
+            }
+        }
+    }
 }
 
 /** P3：分享文件（图片/视频/文档长按）。 */
@@ -95,16 +199,16 @@ internal fun QuickSearchActivity.flipTorch() {
      * 快捷开关分发：能直切的切（手电/DND 已授权），不能直切的跳面板或设置页
      * （WiFi/蓝牙/定位/热点/DND 未授权——Android 10+ 起第三方本就切不动，不硬调私有 API）。
      */
-internal fun QuickSearchActivity.handleToggle(kind: QuickSearchResult.ToggleKind) {
+internal fun QuickSearchActivity.handleToggle(kind: SearchToggleKind) {
     when (kind) {
-        QuickSearchResult.ToggleKind.WIFI -> runCatching {
+        SearchToggleKind.WIFI -> runCatching {
             startActivity(Intent(android.provider.Settings.Panel.ACTION_WIFI))
         }
-        QuickSearchResult.ToggleKind.BLUETOOTH -> runCatching {
+        SearchToggleKind.BLUETOOTH -> runCatching {
             startActivity(Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS))
         }
-        QuickSearchResult.ToggleKind.TORCH -> toggleTorch()
-        QuickSearchResult.ToggleKind.DND -> {
+        SearchToggleKind.TORCH -> toggleTorch()
+        SearchToggleKind.DND -> {
             val nm = getSystemService(android.app.NotificationManager::class.java)
             if (nm?.isNotificationPolicyAccessGranted == true) {
                 runCatching {
@@ -127,10 +231,10 @@ internal fun QuickSearchActivity.handleToggle(kind: QuickSearchResult.ToggleKind
                 }
             }
         }
-        QuickSearchResult.ToggleKind.LOCATION -> runCatching {
+        SearchToggleKind.LOCATION -> runCatching {
             startActivity(Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS))
         }
-        QuickSearchResult.ToggleKind.HOTSPOT -> {
+        SearchToggleKind.HOTSPOT -> {
             val ok = runCatching {
                 startActivity(Intent("android.settings.TETHER_SETTINGS"))
             }.isSuccess
@@ -141,35 +245,6 @@ internal fun QuickSearchActivity.handleToggle(kind: QuickSearchResult.ToggleKind
             }
         }
     }
-}
-
-/** 通话记录/联系人点：只跳拨号盘不直拨（CALL_PHONE 太危险，不碰）。 */
-internal fun QuickSearchActivity.openDial(number: String) {
-    runCatching {
-        startActivity(Intent(Intent.ACTION_DIAL, android.net.Uri.parse("tel:$number")))
-    }
-}
-
-/** 短信点：打开跟该号码的会话；通话记录长按/联系人长沿用此入口。 */
-internal fun QuickSearchActivity.openSmsThread(address: String) {
-    runCatching {
-        startActivity(Intent(Intent.ACTION_SENDTO, android.net.Uri.parse("smsto:$address")))
-    }
-}
-
-/** 日历点：看事件详情（系统日历接）。 */
-internal fun QuickSearchActivity.openCalendarEvent(eventId: Long) {
-    val ok = runCatching {
-        startActivity(
-            Intent(Intent.ACTION_VIEW).apply {
-                data = android.content.ContentUris.withAppendedId(
-                    android.provider.CalendarContract.Events.CONTENT_URI,
-                    eventId,
-                )
-            },
-        )
-    }.isSuccess
-    if (!ok) showToast(R.string.quick_search_no_handler)
 }
 
 /**

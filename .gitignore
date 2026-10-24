@@ -15,6 +15,7 @@ core.*
 .idea/
 .opencode/
 .workbuddy/
+.zcode/
 
 # Nix / direnv
 .direnv/

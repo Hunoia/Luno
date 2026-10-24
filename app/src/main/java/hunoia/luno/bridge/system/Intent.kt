@@ -93,12 +93,22 @@ fun normalizeOpenAppOrUrl(raw: String): String? {
         }.getOrNull()
     }
 
+    val candidate = withUrlScheme(trimmed)
+    val uri = runCatching { Uri.parse(candidate) }.getOrNull() ?: return null
+    return if (uri.scheme.isNullOrBlank()) null else candidate
+}
+
+/**
+ * 补 scheme：裸域名（example.com）补 https://，已有 scheme 的原样返回。
+ * 纯函数（不碰 Uri），便于 JVM 单测；[normalizeOpenAppOrUrl] 在它之上再做 Uri 校验。
+ */
+fun withUrlScheme(raw: String): String {
+    val trimmed = raw.trim()
+    if (trimmed.isBlank()) return trimmed
     val hasExplicitScheme = Regex("^[a-zA-Z][a-zA-Z0-9+.-]*:").containsMatchIn(trimmed)
-    val candidate = if (hasExplicitScheme || trimmed.contains("://")) {
+    return if (hasExplicitScheme || trimmed.contains("://")) {
         trimmed
     } else {
         "https://$trimmed"
     }
-    val uri = runCatching { Uri.parse(candidate) }.getOrNull() ?: return null
-    return if (uri.scheme.isNullOrBlank()) null else candidate
 }

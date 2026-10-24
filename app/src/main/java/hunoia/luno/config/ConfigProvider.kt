@@ -15,6 +15,7 @@ import hunoia.luno.config.model.QuickAppSnapshot
 import hunoia.luno.config.model.QuickLauncherGeometry
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SubGestureSettings
+import hunoia.luno.config.model.withUniqueEngineTriggers
 import hunoia.luno.config.repository.QuickLauncherRepository
 import hunoia.luno.config.store.SettingsStores
 import kotlinx.coroutines.flow.Flow
@@ -47,7 +48,8 @@ object ConfigProvider {
     suspend fun getSubGestureSettings(): SubGestureSettings = stores._subGestureSettings.data.first()
     suspend fun getActionLibrarySettings(): ActionLibrarySettings = stores._actionLibrarySettings.data.first()
     suspend fun getAutomationRules(): List<AutomationRule> = stores._automationRules.data.first()
-    suspend fun getQuickSearchSettings(): QuickSearchSettings = stores._quickSearchSettings.data.first()
+    suspend fun getQuickSearchSettings(): QuickSearchSettings =
+        stores._quickSearchSettings.data.first().withUniqueEngineTriggers()
 
     suspend fun updateInitialSettings(transform: suspend (InitialSettings) -> InitialSettings) {
         stores._initialSettings.updateData(transform)
@@ -96,7 +98,11 @@ object ConfigProvider {
     }
 
     suspend fun updateQuickSearchSettings(transform: suspend (QuickSearchSettings) -> QuickSearchSettings) {
-        stores._quickSearchSettings.updateData(transform)
+        stores._quickSearchSettings.updateData { current ->
+            // 先归一化再交给 transform：transform 常按引擎 id 匹配/改写，
+            // 拿到的必须是界面看到的那份（空 id 在归一化里补齐），否则改不动。
+            transform(current.withUniqueEngineTriggers()).withUniqueEngineTriggers()
+        }
     }
 
     suspend fun updateQuickAppLauncherLayout(layout: QuickLauncherGeometry, landscape: Boolean) {

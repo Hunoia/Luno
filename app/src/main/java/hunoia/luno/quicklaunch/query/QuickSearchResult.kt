@@ -2,12 +2,15 @@ package hunoia.luno.quicklaunch.query
 
 import hunoia.luno.action.model.ActionLibraryEntry
 import hunoia.luno.action.model.StoredAction
+import hunoia.luno.config.model.SearchEngine
+import hunoia.luno.config.model.SearchLaunch
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.action.model.SettingsPage
 
 /**
- * 快速搜索结果：一个可被 [toConfigAction] 转回 [Action]、交给 dispatcher 执行的条目。
+ * 搜索索引的原始结果。展示层通过 [toSearchResult] 转成 [SearchResult]，
+ * 由 Activity 统一执行 [SearchAction]；Action 类结果也可经 [toConfigAction] 走 dispatcher。
  */
 sealed interface QuickSearchResult {
     val title: String
@@ -41,12 +44,14 @@ sealed interface QuickSearchResult {
         override val title: String get() = url
         override val subtitle: String get() = ""
     }
-    /** 搜索引擎兜底：副标题为空（输入框已显示查询内容，行上只留引擎名）。 */
+    /**
+     * 搜索引擎兜底：副标题为空（输入框已显示查询内容，行上只留引擎名）。
+     * 直接持引擎对象：默认行与「标识直达」行共用同一份展示逻辑（图标文字、动作、key 都一致）。
+     */
     data class EngineSearch(
         val query: String,
         val engineTitle: String,
-        val urlTemplate: String,
-        val engineName: String = "",
+        val engine: SearchEngine,
     ) : QuickSearchResult {
         override val title: String get() = engineTitle
         override val subtitle: String get() = ""
@@ -116,7 +121,7 @@ internal fun QuickSearchResult.stableId(): String = when (this) {
         "sc#${shortcut.packageName}/${shortcut.className}|${shortcut.intents.joinToString("\u0001")}"
     is QuickSearchResult.Settings -> "sp#${page.name}"
     is QuickSearchResult.Url -> "url#$url"
-    is QuickSearchResult.EngineSearch -> "es#$engineName|$urlTemplate|$query"
+    is QuickSearchResult.EngineSearch -> "es#${engine.id}|$query"
     is QuickSearchResult.Calc -> "calc#${expression}"
     is QuickSearchResult.Contact -> "ct#${name}\u0001$number"
     is QuickSearchResult.AudioTrack -> "mu#$uri"

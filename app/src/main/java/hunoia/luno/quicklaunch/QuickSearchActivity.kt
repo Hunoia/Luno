@@ -1,6 +1,5 @@
 package hunoia.luno.quicklaunch
 
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -11,7 +10,6 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.lifecycleScope
 import hunoia.luno.BuildConfig
@@ -28,10 +26,9 @@ import hunoia.luno.config.model.MAX_CLIP_STORE_CHARS
 import hunoia.luno.quicklaunch.panel.QuickSearchContent
 import hunoia.luno.quicklaunch.query.AppSearch
 import hunoia.luno.quicklaunch.query.QuickSearchIndexProvider
-import hunoia.luno.quicklaunch.query.QuickSearchResult
-import hunoia.luno.quicklaunch.query.longPressAction
-import hunoia.luno.quicklaunch.query.resolvedUrl
-import hunoia.luno.quicklaunch.query.toConfigAction
+import hunoia.luno.quicklaunch.query.SearchAction
+import hunoia.luno.quicklaunch.query.SearchResult
+import hunoia.luno.quicklaunch.query.SOURCE_CALC
 import hunoia.luno.service.DispatchClient
 import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.Dispatchers
@@ -134,6 +131,18 @@ class QuickSearchActivity : ComponentActivity() {
 
     internal val closingState = mutableStateOf(false)
 
+    /** 图片搜索：PickImage 先记住目标包，选图回来再执行 ShareImage。 */
+    private var pendingImagePackage: String? = null
+    private val imageSearchLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent(),
+    ) { uri ->
+        val pkg = pendingImagePackage
+        pendingImagePackage = null
+        if (uri != null && !pkg.isNullOrBlank()) {
+            executeAction(SearchAction.ShareImage(uri.toString(), pkg))
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
@@ -174,9 +183,15 @@ class QuickSearchActivity : ComponentActivity() {
                     onResult = { result, confirmedQuery ->
                         handleResultTap(result, confirmedQuery)
                     },
-                    onLongPress = { result ->
-                        handleResultLongPress(result)
+                    onAction = { action, confirmedQuery ->
+                        if (action !is SearchAction.SetQuery && action !is SearchAction.ShowEngines) {
+                            recordQuery(confirmedQuery)
+                        }
+                        executeAction(action)
                     },
+                    onTogglePin = { query, key -> toggleResultPin(query, key) },
+                    onHideResult = { key, title -> hideSearchResult(key, title) },
+                    onSaveDraft = { query -> saveSearchDraft(query) },
                     onOpenAppSettings = {
                         // 权限被勾不再询问时跳本应用详情页，手动开。
                         runCatching {
@@ -194,111 +209,56 @@ class QuickSearchActivity : ComponentActivity() {
     }
 
 
-    /** 结果点按统一入口：计算器不走 dispatcher，其余先记查询历史再按类型分发。 */
-    private fun handleResultTap(result: QuickSearchResult, confirmedQuery: String) {
-        if (result is QuickSearchResult.Calc) {
-            // 计算器：直接复制结果，不进 dispatcher（toConfigAction 对 Calc 会抛错）；
-            // 算式是临时求值，不进查询历史。
-            copyText(result.value)
-            requestClose()
-            return
-        }
-        // 除计算器外统一记历史（应用使用频率另有 QuickAppLauncherSettings 记账，
-        // 音视频/文档/联系人此前即不记——保持原行为，如需统一在此收口）。
-        recordQuery(confirmedQuery)
-        when (result) {
-            is QuickSearchResult.Contact -> {
-                runCatching {
-                    startActivity(
-                        Intent(Intent.ACTION_DIAL, android.net.Uri.parse("tel:${result.number}")),
-                    )
-                }
-                requestClose()
-            }
-            is QuickSearchResult.AudioTrack -> viewUri(result.uri, "audio/*").also { requestClose() }
-            is QuickSearchResult.ImageVideo -> viewUri(result.uri, result.mime).also { requestClose() }
-            is QuickSearchResult.DocFile -> viewUri(result.uri, result.mime).also { requestClose() }
-            is QuickSearchResult.CalendarEvent -> {
-                openCalendarEvent(result.eventId)
-                requestClose()
-            }
-            is QuickSearchResult.SmsMsg -> {
-                // 短信点：打开跟该号码的会话（正文不动，只看）。
-                if (result.address.isNotBlank()) openSmsThread(result.address)
-                requestClose()
-            }
-            is QuickSearchResult.CallLogEntry -> {
-                openDial(result.number)
-                requestClose()
-            }
-            is QuickSearchResult.PhoneToggle ->
-                // 直切类（手电/DND）自己 requestClose，跳设置页的不关面板（从设置回来还要继续搜）。
-                handleToggle(result.kind)
-            is QuickSearchResult.App if result.isDisabled ->
-                // 已停用应用点选不走启动（行为未定义），进详情页让用户手动启用。
-                dispatchOrToast(result.longPressAction() ?: result.toConfigAction())
-            else -> dispatchOrToast(result.toConfigAction())
-        }
+    /** 结果点按统一入口：计算器复制、其余记历史后执行通用动作。 */
+    private fun handleResultTap(result: SearchResult, confirmedQuery: String) {
+        if (result.source != SOURCE_CALC) recordQuery(confirmedQuery)
+        executeAction(result.primary)
     }
 
-    /** 结果长按统一入口。 */
-    private fun handleResultLongPress(result: QuickSearchResult) {
-        when (result) {
-            is QuickSearchResult.Contact -> {
-                // 联系人长按：直调短信 intent。
-                runCatching {
+    private fun executeAction(action: SearchAction) {
+        when (action) {
+            is SearchAction.Run -> dispatchOrToast(action.action)
+            is SearchAction.Open -> {
+                val ok = runCatching { startActivity(action.intent) }.isSuccess
+                if (!ok) showToast(R.string.launch_no_handler)
+                requestClose()
+            }
+            is SearchAction.OpenUrl -> {
+                if (!launchSearchUrl(this, action)) showToast(R.string.launch_no_handler)
+                requestClose()
+            }
+            is SearchAction.PickImage -> {
+                pendingImagePackage = action.packageName
+                runCatching { imageSearchLauncher.launch("image/*") }.onFailure {
+                    pendingImagePackage = null
+                    showToast(R.string.launch_no_handler)
+                }
+            }
+            is SearchAction.ShareImage -> {
+                val ok = runCatching {
+                    val uri = android.net.Uri.parse(action.uri)
+                    val mime = contentResolver.getType(uri) ?: "image/*"
                     startActivity(
-                        Intent(Intent.ACTION_SENDTO, android.net.Uri.parse("smsto:${result.number}")),
+                        Intent(Intent.ACTION_SEND).apply {
+                            type = mime
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            if (action.packageName.isNotBlank()) setPackage(action.packageName)
+                        },
                     )
-                }
+                }.isSuccess
+                if (!ok) showToast(R.string.launch_no_handler)
                 requestClose()
             }
-            is QuickSearchResult.ImageVideo -> shareUri(result.uri, result.mime).also { requestClose() }
-            is QuickSearchResult.AudioTrack -> shareUri(result.uri, "audio/*").also { requestClose() }
-            is QuickSearchResult.DocFile -> shareUri(result.uri, result.mime).also { requestClose() }
-            is QuickSearchResult.CalendarEvent -> {
-                // 日历长按：复制“标题 时间 地点”。
-                copyText(
-                    listOf(result.title_, result.timeText, result.location)
-                        .filter { it.isNotEmpty() }
-                        .joinToString(" "),
-                )
+            is SearchAction.Copy -> {
+                copyText(action.text)
                 requestClose()
             }
-            is QuickSearchResult.SmsMsg -> {
-                // 短信长按：复制正文。
-                copyText(result.body)
-                requestClose()
-            }
-            is QuickSearchResult.CallLogEntry -> {
-                // 通话长按：给对方发短信。
-                if (result.number.isNotBlank()) openSmsThread(result.number)
-                requestClose()
-            }
-            is QuickSearchResult.ClipEntry -> {
-                // 剪贴长按：写回系统剪贴板。
-                copyText(result.text)
-                requestClose()
-            }
-            else -> {
-                // 长按：应用类进详情页，网址/引擎行复制链接，其余无语义。
-                val detail = result.longPressAction()
-                if (detail != null) {
-                    dispatchOrToast(detail)
-                } else {
-                    when (result) {
-                        is QuickSearchResult.Url -> {
-                            copyText(result.url)
-                            requestClose()
-                        }
-                        is QuickSearchResult.EngineSearch -> {
-                            copyText(result.resolvedUrl())
-                            requestClose()
-                        }
-                        else -> Unit
-                    }
-                }
-            }
+            is SearchAction.Share -> shareUri(action.uri, action.mime).also { requestClose() }
+            // 由 QuickSearchContent 直接回填/开引擎 Sheet；万一走到这里不处理。
+            is SearchAction.SetQuery -> Unit
+            is SearchAction.ShowEngines -> Unit
+            is SearchAction.SystemToggle -> handleToggle(action.kind)
         }
     }
 

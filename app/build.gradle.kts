@@ -159,6 +159,7 @@ dependencies {
     implementation(libs.androidx.collection)
     implementation(libs.material3)
     implementation(libs.haze)
+    implementation(libs.sh.calvin.reorderable)
     // color-picker removed; replaced with in-app HsvRectPicker
     implementation(libs.material.icons.extended)
     implementation(libs.houbb.pinyin)

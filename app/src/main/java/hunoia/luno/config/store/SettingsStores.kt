@@ -11,10 +11,12 @@ import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.QuickAppSnapshot
 import hunoia.luno.config.model.QuickSearchSettings
+import hunoia.luno.config.model.withUniqueEngineTriggers
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.core.AppContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 
 class SettingsStores(
     internal val _initialSettings: DataStore<InitialSettings>,
@@ -40,7 +42,8 @@ class SettingsStores(
     val actionLibrarySettings: Flow<ActionLibrarySettings> = _actionLibrarySettings.data
     val automationRules: Flow<List<AutomationRule>> = _automationRules.data
     val automationLog: Flow<List<hunoia.luno.runtime.automation.AutomationEvent>> = _automationLog.data
-    val quickSearchSettings: Flow<QuickSearchSettings> = _quickSearchSettings.data
+    val quickSearchSettings: Flow<QuickSearchSettings> =
+        _quickSearchSettings.data.map { it.withUniqueEngineTriggers() }
 
     /** 只读不订阅：面板首开同步取一次就够，不需要一条常驻的 flow。 */
     suspend fun readQuickAppSnapshot(): QuickAppSnapshot = _quickAppSnapshot.data.first()

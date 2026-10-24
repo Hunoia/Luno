@@ -41,6 +41,8 @@ import hunoia.luno.ui.navigation.ActionPanelEdit
 import hunoia.luno.ui.navigation.GridPanelList
 import hunoia.luno.ui.navigation.GridPanelEdit
 import hunoia.luno.ui.navigation.SearchEngineSettings
+import hunoia.luno.ui.navigation.SearchSourceSettings
+import hunoia.luno.ui.navigation.SearchGovernanceSettings
 import hunoia.luno.ui.navigation.MiniWindowAdjust
 import hunoia.luno.ui.navigation.FloatBallEdit
 import hunoia.luno.ui.settings.floatball.FloatBallEditScreen
@@ -63,6 +65,8 @@ import hunoia.luno.ui.settings.action.panel.ActionPanelListScreen
 import hunoia.luno.ui.settings.action.gridpanel.GridPanelEditScreen
 import hunoia.luno.ui.settings.action.gridpanel.GridPanelListScreen
 import hunoia.luno.ui.settings.search.SearchEngineSettingsScreen
+import hunoia.luno.ui.settings.search.SearchSourceSettingsScreen
+import hunoia.luno.ui.settings.search.SearchGovernanceSettingsScreen
 
 import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsScreen
 
@@ -203,6 +207,18 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 }
                 myComposable<SearchEngineSettings> {
                     SearchEngineSettingsScreen(
+                        onBack = { navController.popBackStack() },
+                        onNavToSources = { navController.navigate(SearchSourceSettings) },
+                        onNavToGovernance = { navController.navigate(SearchGovernanceSettings) },
+                    )
+                }
+                myComposable<SearchSourceSettings> {
+                    SearchSourceSettingsScreen(
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                myComposable<SearchGovernanceSettings> {
+                    SearchGovernanceSettingsScreen(
                         onBack = { navController.popBackStack() },
                     )
                 }

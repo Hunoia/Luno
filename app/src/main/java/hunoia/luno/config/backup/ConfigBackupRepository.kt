@@ -15,6 +15,7 @@ import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SubGestureSettings
+import hunoia.luno.config.model.withUniqueEngineTriggers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
@@ -69,7 +70,9 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { backup.subGestureSettings?.let { v -> writeSection("subGestureSettings") { stores._subGestureSettings.updateData { v } } } }
         launch { backup.actionLibrarySettings?.let { v -> writeSection("actionLibrarySettings") { stores._actionLibrarySettings.updateData { v } } } }
         launch { backup.automationRules?.let { v -> writeSection("automationRules") { stores._automationRules.updateData { v } } } }
-        launch { backup.quickSearchSettings?.let { v -> writeSection("quickSearchSettings") { stores._quickSearchSettings.updateData { v } } } }
+        // 恢复的搜索设置先归一化：旧备份缺引擎 id / 标识重复，落库前补齐，
+        // 否则顺序、隐藏、打开方式覆盖会指向不存在的引擎。
+        launch { backup.quickSearchSettings?.let { v -> writeSection("quickSearchSettings") { stores._quickSearchSettings.updateData { v.withUniqueEngineTriggers() } } } }
     }
 
     /**
