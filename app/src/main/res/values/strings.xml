@@ -243,8 +243,10 @@
     <string name="grid_panel_widget_failed">小部件加载失败</string>
     <string name="grid_panel_empty_items">空面板。长按空白处进入编辑添加项。</string>
     <string name="grid_panel_empty_items_edit">这一页还是空的。点右上角「+」添加动作或小部件。</string>
-    <string name="grid_panel_items_dropped">网格缩小后放不下，已移除 %1$d 项：%2$s</string>
-    <string name="grid_panel_items_dropped_generic">网格缩小后放不下，已移除 %1$d 项</string>
+    <string name="grid_panel_shrink_title">网格缩小后放不下</string>
+    <string name="grid_panel_shrink_desc_named">改成 %1$d 列后有 %2$d 项放不下，继续将移除：%3$s</string>
+    <string name="grid_panel_shrink_desc_generic">改成 %1$d 列后有 %2$d 项放不下，继续将移除它们。</string>
+    <string name="grid_panel_shrink_confirm">仍然缩小</string>
     <string name="compact">紧凑</string>
     <string name="loose">宽松</string>
     <string name="vibration_tap">单击振动</string>

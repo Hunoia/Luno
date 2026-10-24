@@ -21,6 +21,14 @@ import kotlin.math.roundToInt
 /** 松手后「视觉位 → 落格位」的残差衰减，与渲染层的落定回压同源。 */
 private val GlideSpring = spring<Offset>(dampingRatio = 0.70f, stiffness = 520f)
 
+/**
+ * 拖拽时命中的顶部页点。
+ * [dotIndex] 是指示点索引（0 起）；[isVirtual] = 末页后的「新建页」点。
+ * 区分它是为了避开异步落盘的时间差：配置回流前页数还是旧的，按索引猜会把
+ * 「新建页」当成刚建好的那一页（实测移两次会移到同一页）。
+ */
+data class PageDrop(val dotIndex: Int, val isVirtual: Boolean)
+
 /** 松手后 span 吸附到整格的动画时长。 */
 private const val ResizeSettleMillis = 400
 
@@ -39,8 +47,8 @@ class GridPanelState(
     private val pageItemsProvider: (Int) -> List<GridPanelItem>,
     private val onHaptic: () -> Unit,
     private val commitPage: (Int, List<GridPanelItem>) -> Unit,
-    /** 拖到左右边缘松手：把项挪到相邻页（shift = ±1），本页保持原布局。 */
-    private val moveItemToPage: (item: GridPanelItem, fromPage: Int, shift: Int) -> Unit,
+    /** 拖到顶部页指示点松手：把项挪到目标页；本页保持原布局。 */
+    private val moveItemToPage: (item: GridPanelItem, fromPage: Int, dotIndex: Int, isVirtual: Boolean) -> Unit,
     private val scope: CoroutineScope,
 ) {
     var draggingId by mutableStateOf<String?>(null)
@@ -52,8 +60,8 @@ class GridPanelState(
     var hoverCell by mutableStateOf<GridCell?>(null)
         private set
 
-    /** 拖到左右边缘：-1 / +1 = 松手后挪到相邻页，0 = 不挪。 */
-    var dragPageShift by mutableStateOf(0)
+    /** 拖到顶部页指示点时选中的下标（null = 不换页）；松手按它落项。 */
+    var dragPageDrop by mutableStateOf<PageDrop?>(null)
         private set
 
     /** 上一次落格用的**夹取后**指针格。与 [hoverCell]（planReorder 的实际落点）
@@ -115,7 +123,7 @@ class GridPanelState(
         dragVisual = Offset.Zero
         hoverCell = null
         glideFrom = null
-        dragPageShift = 0
+        dragPageDrop = null
         lastTargetCell = null
         draggingId = item.id
         dragPage = page
@@ -219,13 +227,13 @@ class GridPanelState(
     fun endDrag() {
         val id = draggingId
         val page = dragPage
-        val shift = dragPageShift
+        val drop = dragPageDrop
         if (id != null && page != null) {
             val source = pageItemsProvider(page).firstOrNull { it.id == id }
-            if (shift != 0 && source != null) {
-                // 横向边缘松手：整项挪到相邻页。本页保持**原**布局 —— 拖拽中的
+            if (drop != null && source != null) {
+                // 拖到顶部页指示点松手：整项挪到目标页。本页保持**原**布局 —— 拖拽中的
                 // 重排只是预览，没写盘，跟着提交会在源页留下被推开的空洞。
-                moveItemToPage(source, page, shift)
+                moveItemToPage(source, page, drop.dotIndex, drop.isVirtual)
             } else {
                 val target = resolved.firstOrNull { it.id == id }
                 // 原地松手（拖起又放回同一格）：不写盘、不做残差动画。
@@ -265,17 +273,18 @@ class GridPanelState(
         hoverCell = null
         dragBase = emptyList()
         resolved = emptyList()
-        dragPageShift = 0
+        dragPageDrop = null
         lastTargetCell = null
     }
 
-    /** 拖到左右边缘时由渲染层上报（-1/0/+1）：进出边缘时给一颗触感。 */
-    fun onDragPageShift(shift: Int) {
+    /** 拖拽中命中顶部页指示点：上报目标点（null = 移出热区）。 */
+    fun onDragPageDrop(drop: PageDrop?) {
         if (draggingId == null) return
-        val next = shift.coerceIn(-1, 1)
-        if (next == dragPageShift) return
-        dragPageShift = next
-        if (next != 0) hapticTick()
+        // 指回当前页等于不换页；统一存 null，避免高亮/触感以为选了一个目标。
+        val next = drop?.takeUnless { !it.isVirtual && it.dotIndex == dragPage }
+        if (next == dragPageDrop) return
+        dragPageDrop = next
+        if (next != null) hapticTick()
     }
 
     /** 无障碍「移动一格」：不走手势，直接按同一套落位规则重排并写盘。 */

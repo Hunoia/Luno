@@ -302,19 +302,19 @@ fun GridPanelRoot(
     }
 
     /**
-     * 拖到左右边缘松手：把项挪到相邻页。
+     * 拖到顶部页指示点松手：把项挪到目标页。
      * 源页保持原布局（拖拽中的重排只是预览，没写盘）；目标页找首个空位，
-     * 满了就落到最底下一行（页高会随之撑开）。向前越过末页 = 新建一页。
+     * 满了就落到最底下一行（页高会随之撑开）。
+     *
+     * 页数用 [localItems] 现算，不用异步回流的面板配置：刚建过一页时配置还没
+     * 回来，按旧页数把「新建页」点当成刚建的那页，会连续两次落到同一页。
      */
-    fun moveItemToPage(item: GridPanelItem, fromPage: Int, shift: Int) {
-        val toPage = when {
-            shift > 0 && fromPage >= pageCount - 1 -> pageCount
-            shift < 0 && fromPage == 0 -> (pageCount - 1).coerceAtLeast(0)
-            else -> (fromPage + shift).coerceIn(0, pageCount - 1)
-        }
-        if (toPage == fromPage) return
-        val targetItems = localItems.filter { it.pageIndex == toPage }
-        val m = metricsForPage(toPage)
+    fun moveItemToPage(item: GridPanelItem, fromPage: Int, dotIndex: Int, isVirtual: Boolean) {
+        val localPageCount = (localItems.maxOfOrNull { it.pageIndex } ?: 0) + 1
+        val targetPage = if (isVirtual) localPageCount else dotIndex.coerceIn(0, localPageCount - 1)
+        if (targetPage == fromPage) return
+        val targetItems = localItems.filter { it.pageIndex == targetPage }
+        val m = metricsForPage(targetPage)
         val slot = GridPanelItemLayout.firstFreeSlot(
             items = targetItems,
             columns = m.columns,
@@ -322,8 +322,8 @@ fun GridPanelRoot(
             spanX = item.spanX,
             spanY = item.spanY,
         ) ?: GridCell(0, targetItems.maxOfOrNull { it.bottom } ?: 0)
-        val moved = item.copy(pageIndex = toPage, x = slot.x, y = slot.y)
-        Log.i(TAG, "moveItemToPage id=${item.id} $fromPage -> $toPage at (${slot.x},${slot.y})")
+        val moved = item.copy(pageIndex = targetPage, x = slot.x, y = slot.y)
+        Log.i(TAG, "moveItemToPage id=${item.id} $fromPage -> $targetPage at (${slot.x},${slot.y})")
         commitAllItems(localItems.filterNot { it.id == item.id } + moved)
     }
 
@@ -342,7 +342,9 @@ fun GridPanelRoot(
             pageItemsProvider = { page -> localItems.filter { it.pageIndex == page } },
             onHaptic = { view.performHapticFeedback(HapticFeedbackConstants.TEXT_HANDLE_MOVE) },
             commitPage = { page, items -> commitPageItems(page, items) },
-            moveItemToPage = { item, fromPage, shift -> moveItemToPage(item, fromPage, shift) },
+            moveItemToPage = { item, fromPage, dotIndex, isVirtual ->
+                moveItemToPage(item, fromPage, dotIndex, isVirtual)
+            },
             scope = scope,
         )
     }
