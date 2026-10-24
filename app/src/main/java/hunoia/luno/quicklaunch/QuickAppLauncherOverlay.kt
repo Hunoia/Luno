@@ -15,6 +15,8 @@ import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -61,6 +63,10 @@ object QuickAppLauncherOverlay {
     private var attached = false
     private var lifecycleOwner: PanelLifecycleOwner? = null
 
+    // 组合消费的状态：重复 show 原位换锚点（同 GridPanelOverlay）。
+    private var anchorXState by mutableIntStateOf(0)
+    private var anchorYState by mutableIntStateOf(0)
+
     /**
      * 组合首次创建时经 onStateReady 登记；销毁重建之间常驻，[show] 用它驱动新会话。
      * teardown 时置 null（组合释放后 state 已 dispose，不能再碰）。
@@ -88,17 +94,19 @@ object QuickAppLauncherOverlay {
         )
     }
 
-    /** 从手势/Service 上下文唤起。权限检查在主线程 hop 之前（均线程安全）；未授权时平台 Toast + 跳设置页。 */
-    fun show() {
+    /** 从手势/Service 上下文唤起（锚点=触发触点）。权限检查在主线程 hop 之前（均线程安全）；未授权时平台 Toast + 跳设置页。 */
+    fun show(anchorX: Int, anchorY: Int) {
         if (!context.canDrawOverlays()) {
             showPlatformToast(R.string.quick_launcher_need_overlay_permission)
             context.gotoOverlaySettings()
             return
         }
         if (Looper.myLooper() != Looper.getMainLooper()) {
-            mainHandler.post { show() }
+            mainHandler.post { show(anchorX, anchorY) }
             return
         }
+        anchorXState = anchorX
+        anchorYState = anchorY
         ensureAdvancedSettings()
         val current = view
         val windowReady = when {
@@ -327,6 +335,8 @@ object QuickAppLauncherOverlay {
             val s = settings ?: return@SideGestureTheme
             QuickAppLauncherRoot(
                 initialSettings = s,
+                anchorX = anchorXState,
+                anchorY = anchorYState,
                 requestEnableDisabledPackage = disabledPackageEnabler::request,
                 onCloseAnimated = { closeImmediate() },
                 onClose = { (closeAnimated ?: { closeImmediate() }).invoke() },

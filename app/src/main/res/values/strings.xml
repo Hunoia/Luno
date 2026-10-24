@@ -331,10 +331,9 @@
     <string name="action_category_sub_gesture">子手势</string>
 
     <!-- 快速启动 -->
-    <string name="quick_app_launcher_panel_height">竖直位置</string>
     <string name="quick_app_launcher_content_height">高度</string>
     <string name="quick_app_launcher_panel_width">宽度</string>
-    <string name="quick_app_launcher_horizontal_bias">水平位置</string>
+    <string name="quick_app_launcher_screen_margin">离屏边距</string>
     <string name="quick_app_launcher_candidate_rows">候选应用行数</string>
     <string name="quick_app_launcher_adjust">调整面板</string>
     <string name="quick_app_launcher_delete_input">删除输入</string>

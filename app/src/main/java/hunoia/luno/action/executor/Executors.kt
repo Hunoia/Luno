@@ -204,7 +204,12 @@ class InternalExecutors : ActionExecutor {
             is Action.ButtonsVisibility -> executeButtonsVisibility(action, context)
             is Action.FloatBallVisibility -> executeFloatBallVisibility(action, context)
             is Action.QuickAppLauncher -> {
-                context.toggleQuickAppLauncher()
+                // 无触点路径（自动化/库测试）退屏幕中心；浮窗侧再夹取屏内。
+                val anchor = context.touchPosition ?: run {
+                    val dm = context.appContext.resources.displayMetrics
+                    dm.widthPixels / 2 to dm.heightPixels / 2
+                }
+                context.toggleQuickAppLauncher(anchor.first, anchor.second)
                 ActionResult.Success()
             }
             is Action.QuickSearch -> {

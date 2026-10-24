@@ -10,13 +10,13 @@ import kotlinx.serialization.Serializable
 @Serializable
 @Keep
 data class QuickLauncherGeometry(
-    val panelHeightFraction: Float = 0.43063f,
     val contentHeightFraction: Float = 0.40301f,
     val candidateRows: Int = 2,
     val panelWidthFraction: Float = 0.89973f,
-    val panelHorizontalBias: Float = 0.5f,
     val gridColumns: Int = 4,
     val keyHeightDp: Int = 45,
+    /** 面板贴屏边距：定位跟随触发锚点后的离屏间隙，与网格面板同款（0–48dp）。 */
+    val screenMarginDp: Float = GridPanelDefaults.ScreenMarginDp,
 )
 
 @Serializable

@@ -357,8 +357,8 @@ object AppSearch {
 
 /**
  * token 序列匹配：所有 token 依次出现在 text 的某个窗口内。
- * - [emptyMatches] 是必需的：`AppSearch` 侧空查询应匹配全部（true），而 `pageMatchesTokens`
- *   由三个 `||` 串联，空查询返回 true 会恒真、分页永不前进（false）。
+ * - [emptyMatches] 是必需的：`AppSearch` 侧空查询应匹配全部（true）；
+ *   `matchesTokens` 由多个 `||` 串联复用时，空查询返回 true 会恒真（false）。
  * - 内层不用 `token.lowercase().contains(...)`：那会在每个 (start, i) 组合上分配新 String，
  *   比较器被调用 O(n log n) 次，每次每个 token 都分配一次。
  */

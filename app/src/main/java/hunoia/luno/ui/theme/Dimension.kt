@@ -73,7 +73,7 @@ val CandidateRowSpacing = 2.dp
 val CandidateMinHeight = 40.dp
 val CandidateMaxHeight = 96.dp
 
-// 网格 cell 与 AppItem/PageMatchIcon 的内边距
+// 网格 cell 与 AppItem 的内边距
 val GridCellSpacing = 4.dp
 val AppItemPadding = 4.dp
 
@@ -81,6 +81,7 @@ val AppItemPadding = 4.dp
 val KeyboardGap = 6.dp
 val KeyboardRowCount = 3
 
+// 动作库图标选择器的图标尺寸
 val PageMatchIconSize = 28.dp
 val EmptyStateHeight = 88.dp
 

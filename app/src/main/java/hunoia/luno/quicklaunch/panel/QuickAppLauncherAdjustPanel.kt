@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
+import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.QuickLauncherGeometry
 import hunoia.luno.domain.search.SearchCenter
@@ -72,20 +73,13 @@ internal fun QuickAppLauncherAdjustPanel(
             valueRange = 0.65f..1.0f,
         )
         LunoTextSlider(
-            value = pending.value.panelHeightFraction,
-            onValueChange = { preview(pending.value.copy(panelHeightFraction = it)) },
+            value = pending.value.screenMarginDp,
+            onValueChange = { preview(pending.value.copy(screenMarginDp = it)) },
             onValueChangeFinished = { commit() },
-            text = stringResource(R.string.quick_app_launcher_panel_height),
-            valueDisplay = { "${(it * 100).roundToInt()}%" },
-            valueRange = 0.05f..0.9f,
-        )
-        LunoTextSlider(
-            value = pending.value.panelHorizontalBias,
-            onValueChange = { preview(pending.value.copy(panelHorizontalBias = it)) },
-            onValueChangeFinished = { commit() },
-            text = stringResource(R.string.quick_app_launcher_horizontal_bias),
-            valueDisplay = { "${(it * 100).roundToInt()}%" },
-            valueRange = 0.0f..1.0f,
+            text = stringResource(R.string.quick_app_launcher_screen_margin),
+            valueDisplay = { "${it.toInt()}dp" },
+            valueRange = GridPanelDefaults.MinScreenMarginDp..GridPanelDefaults.MaxScreenMarginDp,
+            steps = 11,
         )
         LunoTextSlider(
             value = pending.value.candidateRows.toFloat(),

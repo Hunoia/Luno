@@ -153,7 +153,8 @@ data class ExecutorContext(
     val currentPackageName: () -> String? = { null },
     val nowInLauncher: () -> Boolean = { false },
     val requestEnableDisabledPackage: (String, (Boolean) -> Unit) -> Unit = { _, onResult -> onResult(false) },
-    val toggleQuickAppLauncher: () -> Unit = {},
+    /** 快速启动面板：锚点为触发触点（无触点路径由执行器退屏幕中心），面板侧再夹取屏内。 */
+    val toggleQuickAppLauncher: (anchorX: Int, anchorY: Int) -> Unit = { _, _ -> },
     val showQuickSearch: () -> Unit = {},
     /** 网格面板：锚点为触发触点（无触点路径由执行器退屏幕中心），Activity 侧再夹取屏内。 */
     val showGridPanel: (panelId: String, anchorX: Int, anchorY: Int) -> Unit = { _, _, _ -> },

@@ -1,9 +1,13 @@
 package hunoia.luno.quicklaunch.panel
 import hunoia.luno.ui.theme.*
 
+import android.view.WindowInsets
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -51,6 +55,7 @@ import hunoia.luno.ui.theme.ExtraLargeShape
 
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.quicklaunch.model.AppInfo
+import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import kotlinx.coroutines.flow.collectLatest
 
@@ -75,6 +80,8 @@ internal fun requiredContentHeight(
 @Composable
 internal fun QuickAppLauncherRoot(
     initialSettings: QuickAppLauncherSettings,
+    anchorX: Int,
+    anchorY: Int,
     requestEnableDisabledPackage: (String, (Boolean) -> Unit) -> Unit,
     onCloseAnimated: () -> Unit,
     onClose: () -> Unit,
@@ -113,22 +120,54 @@ internal fun QuickAppLauncherRoot(
                     onClick = onClose,
                 ),
         ) {
-            // 面板几何在 Compose 里换算（窗口全屏化后不再走窗口 params）：同 fractions、同钳制。
+            // 面板几何在 Compose 里换算（窗口全屏化后不再走窗口 params）。
+            // 位置跟随触发锚点（同网格面板）：锚点落在面板 25% 处，clamp 屏内（系统栏 insets + 离屏边距）。
             val configuration = LocalConfiguration.current
             val density = LocalDensity.current
+            val view = LocalView.current
             val landscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
             val layout = state.previewSettings?.layout(landscape)
                 ?: state.launcherSettings.layout(landscape)
             val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx().roundToInt() }
             val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx().roundToInt() }
             val panelWidthPx = (screenWidthPx * layout.panelWidthFraction.coerceIn(0.65f, 1f)).roundToInt().coerceIn(1, screenWidthPx)
-            val xPx = ((screenWidthPx - panelWidthPx) * layout.panelHorizontalBias.coerceIn(0f, 1f)).roundToInt().coerceIn(0, screenWidthPx - panelWidthPx)
-            val estimatedHeightPx = (screenHeightPx * layout.contentHeightFraction.coerceIn(0.35f, 0.85f)).roundToInt().coerceAtMost(screenHeightPx)
-            val maxYPx = kotlin.math.max(0, screenHeightPx - estimatedHeightPx)
-            val yPx = (screenHeightPx * (1f - layout.panelHeightFraction.coerceIn(0.05f, 0.95f))).roundToInt().coerceIn(0, maxYPx)
+            // 与 Content 内实际渲染同口径：fraction 高度兜不住键盘+候选的最小内容时按最小内容算。
+            val requiredHeightPx = with(density) {
+                requiredContentHeight(layout.keyHeightDp.dp, layout.candidateRows.coerceIn(1, 3), CandidateMinHeight)
+                    .toPx().roundToInt()
+            }
+            val panelHeightPx = (screenHeightPx * layout.contentHeightFraction.coerceIn(0.35f, 0.85f))
+                .roundToInt().coerceAtLeast(requiredHeightPx).coerceAtMost(screenHeightPx)
+            // 系统栏余量按 configuration 记忆：转屏（导航栏换边）后不能沿用首帧的值。
+            val insetsTop = remember(configuration) {
+                runCatching { view.rootWindowInsets.getInsets(WindowInsets.Type.statusBars()).top }
+                    .getOrDefault(0)
+            }
+            val insetsBottom = remember(configuration) {
+                runCatching { view.rootWindowInsets.getInsets(WindowInsets.Type.navigationBars()).bottom }
+                    .getOrDefault(0)
+            }
+            val marginPx = with(density) {
+                layout.screenMarginDp.coerceIn(GridPanelDefaults.MinScreenMarginDp, GridPanelDefaults.MaxScreenMarginDp).dp.toPx()
+            }
+            val targetPosX = (anchorX - panelWidthPx / 4f).coerceIn(
+                marginPx,
+                (screenWidthPx - panelWidthPx - marginPx).coerceAtLeast(marginPx),
+            )
+            val targetPosY = (anchorY - panelHeightPx / 4f).coerceIn(
+                insetsTop + marginPx,
+                (screenHeightPx - insetsBottom - panelHeightPx - marginPx).coerceAtLeast(insetsTop + marginPx),
+            )
+            // 首帧（重开）初值即目标，不飞入；已可见时再触发换锚点，弹簧平滑挪过去（同网格面板卡片）。
+            val posAnimX = remember { Animatable(targetPosX) }
+            val posAnimY = remember { Animatable(targetPosY) }
+            LaunchedEffect(targetPosX, targetPosY) {
+                posAnimX.animateTo(targetPosX, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow))
+                posAnimY.animateTo(targetPosY, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow))
+            }
             Box(
                 modifier = Modifier
-                    .offset { IntOffset(xPx, yPx) }
+                    .offset { IntOffset(posAnimX.value.roundToInt(), posAnimY.value.roundToInt()) }
                     .width(with(density) { panelWidthPx.toDp() }),
             ) {
                 QuickAppLauncherContent(
@@ -171,16 +210,6 @@ private fun QuickAppLauncherContent(
     var gridAtTop by remember { mutableStateOf(true) }
     val gridState = rememberLazyGridState()
     var currentPage by remember { mutableStateOf(Page.App) }
-    val pageMatches = remember(state.tokens) {
-        if (state.tokens.isEmpty()) emptyList()
-        else buildList {
-            listOf(
-                "设置" to Page.Settings,
-            ).forEach { (name, page) ->
-                if (pageMatchesTokens(name, state.tokens)) add(name to page)
-            }
-        }
-    }
     LaunchedEffect(gridState) {
         snapshotFlow { gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset }
             .collectLatest { (index, offset) -> gridAtTop = index == 0 && offset == 0 }
@@ -296,7 +325,6 @@ private fun QuickAppLauncherContent(
                                         if (expanded) {
                                             Column {
                                                 CandidateAppRows(
-                                                    pageMatches = pageMatches,
                                                     apps = state.filteredApps,
                                                     disabledPkgs = state.appListState.disabledPkgs,
                                                     candidateHeight = candidateHeight,
@@ -308,10 +336,6 @@ private fun QuickAppLauncherContent(
                                                     onLongPress = { app, isDisabled ->
                                                         state.launchApp(app, isDisabled, !state.launcherSettings.tapOpensMiniWindow)
                                                     },
-                                                    onPageMatchClick = { page ->
-                                                        currentPage = page
-                                                        state.clearTokens()
-                                                    }
                                                 )
                                                 Spacer(modifier = Modifier.height(KeyboardGap))
                                                 KeyboardRow(
@@ -357,7 +381,6 @@ private fun QuickAppLauncherContent(
                                         } else {
                                             Column {
                                                 AppGrid(
-                                                    pageMatches = pageMatches,
                                                     apps = state.filteredApps,
                                                     disabledPkgs = state.appListState.disabledPkgs,
                                                     gridState = gridState,
@@ -373,10 +396,6 @@ private fun QuickAppLauncherContent(
                                                     onLongPress = { app, isDisabled ->
                                                         state.launchApp(app, isDisabled, !state.launcherSettings.tapOpensMiniWindow)
                                                     },
-                                                    onPageMatchClick = { page ->
-                                                        currentPage = page
-                                                        state.clearTokens()
-                                                    }
                                                 )
                                         }
                                     }

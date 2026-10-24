@@ -11,8 +11,6 @@ import hunoia.luno.domain.search.SearchCenter
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import hunoia.luno.quicklaunch.model.AppInfo
-import hunoia.luno.quicklaunch.query.AppSearch
-import hunoia.luno.quicklaunch.query.AppSearch.buildIndex
 import hunoia.luno.quicklaunch.query.AppSearch.sortApps
 import hunoia.luno.quicklaunch.query.QuickAppLauncherAppList
 import hunoia.luno.quicklaunch.QuickLaunchFacade
@@ -29,7 +27,6 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.util.Locale
-import hunoia.luno.quicklaunch.query.matchesTokens
 
 
 class QuickAppLauncherState(
@@ -239,12 +236,4 @@ class QuickAppLauncherState(
 }
 
 internal enum class Page { App, Settings }
-
-internal fun pageMatchesTokens(pageName: String, tokens: List<String>): Boolean {
-    val index = buildIndex(pageName)
-    if (matchesTokens(index.raw, tokens, false) || matchesTokens(index.pinyin, tokens, false) || matchesTokens(index.initials, tokens, false)) return true
-    // 模糊音：折叠输入对折叠拼音（声母/原文不受折叠影响，不用重比）。
-    val folded = AppSearch.foldPinyin(tokens.joinToString("")).map { it.toString() }
-    return matchesTokens(index.pinyinFolded, folded, false)
-}
 

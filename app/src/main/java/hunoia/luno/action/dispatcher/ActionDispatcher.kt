@@ -51,7 +51,7 @@ class ActionDispatcher(
      * 稳态值，消费脉冲会抢掉自动化评估该看到的那一次边沿。
      */
     private val runtimeState: () -> GestureRuntimeState,
-    private val onToggleQuickAppLauncher: () -> Unit,
+    private val onToggleQuickAppLauncher: (anchorX: Int, anchorY: Int) -> Unit,
     private val onShowQuickSearch: () -> Unit,
     private val onShowGridPanel: (panelId: String, anchorX: Int, anchorY: Int) -> Unit,
     private val onShowVolumeScrub: (VolumeScrubConfig) -> Boolean,
