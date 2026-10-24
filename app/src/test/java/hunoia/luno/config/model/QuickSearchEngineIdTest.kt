@@ -7,7 +7,7 @@ import org.junit.Test
 /**
  * 引擎 id 稳定性：旧备份/导入数据解码后没有 id，
  * 归一化要按内容派生一个稳定 id（每次解码都一样的），
- * 否则顺序/隐藏/打开方式覆盖会指向不存在的引擎。
+ * 否则顺序会指向不存在的引擎。
  */
 class QuickSearchEngineIdTest {
 
@@ -49,16 +49,5 @@ class QuickSearchEngineIdTest {
         val engine = legacy().copy(id = "keep-me")
         val normalized = QuickSearchSettings(customEngines = listOf(engine)).withUniqueEngineTriggers()
         assertEquals("keep-me", normalized.customEngines.first().id)
-    }
-
-    @Test
-    fun `hidden result labels are dropped with their keys`() {
-        val settings = QuickSearchSettings(
-            hiddenResultKeys = listOf("a", "b"),
-            hiddenResultLabels = mapOf("a" to "应用 A", "b" to "应用 B", "orphan" to "孤儿"),
-        )
-        val normalized = settings.withUniqueEngineTriggers()
-        assertEquals(setOf("a", "b"), normalized.hiddenResultLabels.keys)
-        assertEquals("应用 A", normalized.hiddenResultLabels["a"])
     }
 }

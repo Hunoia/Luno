@@ -1,5 +1,8 @@
 package hunoia.luno.ui.settings.search
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,36 +13,39 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DragHandle
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.bridge.system.copyText
@@ -47,7 +53,6 @@ import hunoia.luno.bridge.system.readClipboardText
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.domain.search.SearchCenter
-import hunoia.luno.config.model.BuiltinSearchEngineIds
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.SearchLaunch
@@ -56,22 +61,19 @@ import hunoia.luno.config.model.badgeText
 import hunoia.luno.config.model.effectiveEngines
 import hunoia.luno.config.model.effectiveLaunch
 import hunoia.luno.config.model.effectiveTrigger
-import hunoia.luno.config.model.moveEngineBetween
 import hunoia.luno.quicklaunch.query.SearchSourceRegistry
-import sh.calvin.reorderable.ReorderableItem
-import sh.calvin.reorderable.rememberReorderableLazyListState
 import kotlinx.coroutines.launch
 import hunoia.luno.ui.component.TextIcon
-import hunoia.luno.ui.component.feedback.LunoIconButton
+import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
-import hunoia.luno.ui.component.sheet.AppPickerSheet
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.ListSpacing
-import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SegmentedGap
 
 /** 导入预览：解析好待并入的引擎 + 标识冲突条数，确认后才写库。 */
@@ -85,57 +87,17 @@ private data class ImportPreview(
 fun SearchEngineSettingsScreen(
     onBack: () -> Unit,
     onNavToSources: () -> Unit,
-    onNavToGovernance: () -> Unit,
+    onNavToEdit: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val density = LocalDensity.current
     val settings by SearchCenter.search.collectAsStateWithLifecycle(initialValue = QuickSearchSettings())
-    var editSheetTarget by remember { mutableStateOf<SearchEngine?>(null) }
-    var addSheetOpen by remember { mutableStateOf(false) }
     var deleteTarget by remember { mutableStateOf<SearchEngine?>(null) }
     var importPreview by remember { mutableStateOf<ImportPreview?>(null) }
-    // 引擎编辑（Sheet 里）的目标应用：由 AppPickerSheet 回填，编辑器只读。
-    var engineTargetPackage by remember { mutableStateOf("") }
-    var showEngineAppPicker by remember { mutableStateOf(false) }
-    val visibleEngines = settings.effectiveEngines()
-    val hiddenEngines = settings.allEngines().filter { it.id in settings.hiddenEngineIds }
-    // 标识判重输入：引擎（排除正在编辑的那条）+ 来源标识。
-    val existingTriggers = settings.allEngines()
-        .filter { it.id != editSheetTarget?.id }
-        .map { it.trigger } +
-        SearchSourceRegistry.all.map { settings.effectiveTrigger(it.key) }
+    val configEngines = settings.effectiveEngines()
     fun update(transform: (QuickSearchSettings) -> QuickSearchSettings) {
         scope.launch { SearchCenter.updateSearch(transform) }
-    }
-    /** 拖拽换位（库的 onMove 按 key 回调）：直接在完整顺序里移动。 */
-    fun moveEngineById(fromId: String, toId: String) {
-        update { current ->
-            current.copy(
-                engineOrder = moveEngineBetween(current.allEngines().map { it.id }, fromId, toId),
-            )
-        }
-    }
-    fun toggleEngineHidden(engine: SearchEngine) {
-        val hidden = engine.id in settings.hiddenEngineIds
-        if (!hidden && visibleEngines.size <= 1) {
-            showToast(R.string.search_engine_keep_one)
-            return
-        }
-        update { current ->
-            val currentHidden = engine.id in current.hiddenEngineIds
-            current.copy(
-                hiddenEngineIds = if (currentHidden) {
-                    current.hiddenEngineIds.filterNot { it == engine.id }
-                } else {
-                    current.hiddenEngineIds + engine.id
-                },
-            )
-        }
-    }
-    fun closeEditSheet() {
-        addSheetOpen = false
-        editSheetTarget = null
-        engineTargetPackage = ""
     }
     fun parseImport(): ImportPreview? {
         val raw = readClipboardText(context)?.trim().orEmpty()
@@ -193,20 +155,39 @@ fun SearchEngineSettingsScreen(
         }
     }
     val listState = rememberLazyListState()
-    val haptic = LocalHapticFeedback.current
-    val reorderState = rememberReorderableLazyListState(listState) { from, to ->
-        moveEngineById(from.key.toString(), to.key.toString())
-        haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+    // 拖动排序草稿（与动作面板编辑页同一套）：null = 跟随配置，非 null = 拖动中的本地顺序。
+    var pendingEngines by remember { mutableStateOf<List<SearchEngine>?>(null) }
+    var draggingIndex by remember { mutableStateOf<Int?>(null) }
+    var dragOffset by remember { mutableFloatStateOf(0f) }
+    var dragRowHeight by remember { mutableFloatStateOf(0f) }
+    val itemHeights = remember { mutableStateMapOf<Int, Float>() }
+    val engines = pendingEngines ?: configEngines
+    // 配置到位（拖拽已结束）后草稿退回跟随，避免编辑/删除/导入后残留旧顺序。
+    LaunchedEffect(configEngines) {
+        if (draggingIndex == null) pendingEngines = null
+    }
+    /** 松手落盘：把草稿的完整 id 顺序写入 engineOrder，主引擎 = 第一位。 */
+    fun finishDrag() {
+        val finalEngines = pendingEngines
+        draggingIndex = null
+        dragOffset = 0f
+        if (finalEngines != null && finalEngines != configEngines) {
+            update { current ->
+                current.copy(engineOrder = finalEngines.map { it.id })
+            }
+        }
+    }
+    fun cancelDrag() {
+        draggingIndex = null
+        dragOffset = 0f
+        pendingEngines = null
     }
     // FAB 与网格面板页同一套：64dp、primaryContainer、无 ripple、避让导航栏。
     val addFab: @Composable () -> Unit = {
         Box(modifier = Modifier.fillMaxSize()) {
             CompositionLocalProvider(LocalRippleConfiguration provides null) {
                 FloatingActionButton(
-                    onClick = {
-                        engineTargetPackage = ""
-                        addSheetOpen = true
-                    },
+                    onClick = { onNavToEdit("") },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .windowInsetsPadding(WindowInsets.navigationBars)
@@ -270,211 +251,145 @@ fun SearchEngineSettingsScreen(
                 )
             }
         },
-        sheets = {
-            if (showEngineAppPicker) {
-                AppPickerSheet(
-                    onDismissRequest = { showEngineAppPicker = false },
-                    selectedPackageNames = listOf(engineTargetPackage),
-                    confirmOnSelect = true,
-                    onConfirm = { packages ->
-                        engineTargetPackage = packages.firstOrNull().orEmpty()
-                        showEngineAppPicker = false
-                    },
-                )
-            }
-            if (addSheetOpen || editSheetTarget != null) {
-                val target = editSheetTarget
-                val builtin = target?.id in BuiltinSearchEngineIds
-                val editState = rememberEngineEditState(
-                    initial = target,
-                    builtin = builtin,
-                    existingTriggers = existingTriggers,
-                )
-                EngineEditSheet(
-                    state = editState,
-                    builtin = builtin,
-                    targetPackage = engineTargetPackage,
-                    addMode = target == null,
-                    onDismissRequest = { closeEditSheet() },
-                    onPickApp = { showEngineAppPicker = true },
-                    onConfirm = { result ->
-                        if (target == null) {
-                            update { current ->
-                                current.copy(
-                                    customEngines = current.customEngines +
-                                        SearchEngine(
-                                            name = result.name,
-                                            urlTemplate = result.template,
-                                            trigger = result.trigger,
-                                            launch = result.launch,
-                                            iconText = result.iconText,
-                                        ),
-                                )
-                            }
-                        } else {
-                            scope.launch {
-                                SearchCenter.updateSearch { current ->
-                                    if (target.id in BuiltinSearchEngineIds) {
-                                        // 内置引擎只覆盖打开方式，名称/标识/URL 仍由代码常量控制。
-                                        current.copy(
-                                            engineLaunchOverrides = current.engineLaunchOverrides +
-                                                (target.id to result.launch),
-                                        )
-                                    } else {
-                                        current.copy(
-                                            customEngines = current.customEngines.map {
-                                                if (it.id == target.id) {
-                                                    it.copy(
-                                                        name = result.name,
-                                                        urlTemplate = result.template,
-                                                        trigger = result.trigger,
-                                                        launch = result.launch,
-                                                        iconText = result.iconText,
-                                                    )
-                                                } else {
-                                                    it
-                                                }
-                                            },
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        closeEditSheet()
-                    },
-                )
-            }
-        },
     ) {
-        // 引擎行：LazyColumn 键控项，拖拽换位交给 sh.calvin.reorderable（手柄在行尾）。
-        itemsIndexed(visibleEngines, key = { _, engine -> engine.id }) { index, engine ->
-            ReorderableItem(reorderState, key = engine.id) { _ ->
-                val locked = engine.id in BuiltinSearchEngineIds
-                val launch = engine.effectiveLaunch()
-                val template = when (launch) {
-                    is SearchLaunch.Url -> launch.template
-                    is SearchLaunch.Chooser -> launch.template
-                    is SearchLaunch.Share -> launch.textTemplate
-                    is SearchLaunch.Action -> launch.copyTemplate
-                    is SearchLaunch.ShareImage -> ""
-                }
-                val launchLabel = when (launch) {
-                    is SearchLaunch.Chooser -> stringResource(R.string.search_engine_open_chooser)
-                    is SearchLaunch.Url -> if (launch.packageName.isNotBlank()) {
-                        stringResource(R.string.search_engine_open_app)
-                    } else {
-                        ""
-                    }
-                    is SearchLaunch.Share -> stringResource(R.string.search_engine_open_share)
-                    is SearchLaunch.ShareImage -> stringResource(R.string.search_engine_open_share_image)
-                    is SearchLaunch.Action -> ""
-                }
-                LunoSettingsRow(
-                    title = engine.name,
-                    textIcon = TextIcon(engine.badgeText),
-                    subtitle = listOfNotNull(
-                        // 首位即主引擎：给个视觉锚点，拖拽换位就是换主引擎。
-                        if (index == 0) stringResource(R.string.search_engine_primary) else null,
-                        engine.trigger.takeIf { it.isNotBlank() },
-                        launchLabel.takeIf { it.isNotBlank() },
-                        template.takeIf { it.isNotBlank() },
-                    ).joinToString(" · "),
-                    shape = segmentedShape(index, visibleEngines.size),
-                    onClick = {},
-                    trailing = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            LunoIconButton(
-                                icon = Icons.Default.DragHandle,
-                                contentDescription = stringResource(R.string.search_engine_drag),
-                                onClick = {},
-                                modifier = Modifier.draggableHandle(
-                                    onDragStarted = {
-                                        haptic.performHapticFeedback(
-                                            HapticFeedbackType.GestureThresholdActivate,
-                                        )
-                                    },
-                                    onDragStopped = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.GestureEnd)
-                                    },
-                                ),
-                            )
-                            var menuOpen by remember(engine.id) { mutableStateOf(false) }
-                            LunoIconButton(
-                                icon = Icons.Default.MoreVert,
-                                contentDescription = stringResource(R.string.more),
-                                onClick = { menuOpen = true },
-                            )
-                            DropdownMenu(
-                                expanded = menuOpen,
-                                onDismissRequest = { menuOpen = false },
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.edit)) },
-                                    onClick = {
-                                        menuOpen = false
-                                        engineTargetPackage =
-                                            (engine.effectiveLaunch() as? SearchLaunch.Url)
-                                                ?.packageName
-                                                .orEmpty()
-                                        editSheetTarget = engine
-                                    },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.search_engine_hide)) },
-                                    onClick = { menuOpen = false; toggleEngineHidden(engine) },
-                                )
-                                if (!locked) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.delete)) },
-                                        onClick = { menuOpen = false; deleteTarget = engine },
-                                    )
-                                }
-                            }
+        item(key = "engines") {
+            LunoGroup(title = stringResource(R.string.search_engine_group_title)) {
+                if (engines.isEmpty()) {
+                    EmptyState(message = stringResource(R.string.search_engine_empty_hint))
+                } else {
+                    // 引擎行（与动作面板编辑页同一套交互）：点行进编辑页，行尾删除按钮，
+                    // 按住手柄只改本地草稿顺序（半行高阈值换位 + 跟手位移），松手才落盘。
+                    engines.forEachIndexed { index, engine ->
+                        val isDragging = draggingIndex == index
+                        val dragHandleInteraction = remember { MutableInteractionSource() }
+                        val launch = engine.effectiveLaunch()
+                        val template = when (launch) {
+                            is SearchLaunch.Url -> launch.template
+                            is SearchLaunch.Chooser -> launch.template
+                            is SearchLaunch.Share -> launch.textTemplate
+                            is SearchLaunch.Action -> launch.copyTemplate
+                            is SearchLaunch.ShareImage -> ""
                         }
-                    },
-                )
-            }
-        }
-        item(key = "gap-entries") { GroupGap() }
-        item(key = "entries") {
-            // 子页入口：内容源/标识与结果治理拆出，主页面只留引擎管理。
-            LunoGroup {
-                LunoSettingsRow(
-                    title = stringResource(R.string.search_source_settings),
-                    trailing = { ArrowHint() },
-                    onClick = onNavToSources,
-                )
-                LunoSettingsRow(
-                    title = stringResource(R.string.search_governance_settings),
-                    trailing = { ArrowHint() },
-                    shape = segmentedShape(1, 2),
-                    onClick = onNavToGovernance,
-                )
-            }
-        }
-        if (hiddenEngines.isNotEmpty()) {
-            item(key = "gap-hidden") { GroupGap() }
-            // 已隐藏引擎分区：点击恢复，不再混在可见列表里静默无效。
-            item(key = "hidden") {
-                LunoGroup(title = stringResource(R.string.search_engine_hidden)) {
-                    hiddenEngines.forEachIndexed { index, engine ->
+                        val launchLabel = when (launch) {
+                            is SearchLaunch.Chooser -> stringResource(R.string.search_engine_open_chooser)
+                            is SearchLaunch.Url -> if (launch.packageName.isNotBlank()) {
+                                stringResource(R.string.search_engine_open_app)
+                            } else {
+                                ""
+                            }
+                            is SearchLaunch.Share -> stringResource(R.string.search_engine_open_share)
+                            is SearchLaunch.ShareImage -> stringResource(R.string.search_engine_open_share_image)
+                            is SearchLaunch.Action -> ""
+                        }
                         LunoSettingsRow(
                             title = engine.name,
                             textIcon = TextIcon(engine.badgeText),
-                            subtitle = stringResource(R.string.search_engine_hidden_tap_hint),
-                            shape = segmentedShape(index, hiddenEngines.size),
-                            onClick = { toggleEngineHidden(engine) },
+                            subtitle = listOfNotNull(
+                                // 首位即主引擎：给个视觉锚点，拖拽换位就是换主引擎。
+                                if (index == 0) stringResource(R.string.search_engine_primary) else null,
+                                engine.trigger.takeIf { it.isNotBlank() },
+                                launchLabel.takeIf { it.isNotBlank() },
+                                template.takeIf { it.isNotBlank() },
+                            ).joinToString(" · "),
+                            modifier = Modifier
+                                .zIndex(if (isDragging) 1f else 0f)
+                                .graphicsLayer {
+                                    translationY = if (isDragging) dragOffset else 0f
+                                }
+                                .onGloballyPositioned { itemHeights[index] = it.size.height.toFloat() },
+                            onClick = { onNavToEdit(engine.id) },
+                            trailing = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = { deleteTarget = engine }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = stringResource(R.string.delete),
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(RowIconSize),
+                                        )
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .pointerInput(configEngines) {
+                                                detectDragGestures(
+                                                    onDragStart = {
+                                                        draggingIndex = index
+                                                        dragOffset = 0f
+                                                        dragRowHeight = itemHeights[index]
+                                                            ?: with(density) { 72.dp.toPx() }
+                                                    },
+                                                    onDrag = { change, dragAmount ->
+                                                        change.consume()
+                                                        var idx = draggingIndex
+                                                            ?: return@detectDragGestures
+                                                        dragOffset += dragAmount.y
+                                                        val rowHeight =
+                                                            dragRowHeight.coerceAtLeast(1f)
+                                                        while (
+                                                            dragOffset > rowHeight / 2f &&
+                                                            idx < (pendingEngines ?: configEngines).lastIndex
+                                                        ) {
+                                                            val list = (pendingEngines ?: configEngines)
+                                                                .toMutableList()
+                                                            list.add(idx + 1, list.removeAt(idx))
+                                                            pendingEngines = list
+                                                            dragOffset -= rowHeight
+                                                            idx += 1
+                                                        }
+                                                        while (
+                                                            dragOffset < -rowHeight / 2f &&
+                                                            idx > 0
+                                                        ) {
+                                                            val list = (pendingEngines ?: configEngines)
+                                                                .toMutableList()
+                                                            list.add(idx - 1, list.removeAt(idx))
+                                                            pendingEngines = list
+                                                            dragOffset += rowHeight
+                                                            idx -= 1
+                                                        }
+                                                        draggingIndex = idx
+                                                    },
+                                                    onDragEnd = { finishDrag() },
+                                                    onDragCancel = { cancelDrag() },
+                                                )
+                                            }
+                                            // 吞掉点击：按手柄不应触发整行的「进入编辑」。
+                                            .clickable(
+                                                interactionSource = dragHandleInteraction,
+                                                indication = null,
+                                                onClick = {},
+                                            ),
+                                    contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.DragHandle,
+                                            contentDescription = stringResource(R.string.search_engine_drag),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(RowIconSize),
+                                        )
+                                    }
+                                }
+                            },
+                            shape = segmentedShape(index, engines.size),
                         )
                     }
                 }
             }
         }
-        item(key = "gap-io") { GroupGap() }
-        // 导入/导出：放最底下，单独一组。
-        item(key = "io") {
-            LunoGroup {
+        item(key = "gap-data") { GroupGap() }
+        // 内容源入口与导入/导出合一组：数据进出都在这。
+        item(key = "data") {
+            LunoGroup(title = stringResource(R.string.search_engine_data_group)) {
+                LunoSettingsRow(
+                    title = stringResource(R.string.search_source_settings),
+                    trailing = { ArrowHint() },
+                    shape = segmentedShape(0, 3),
+                    onClick = onNavToSources,
+                )
                 LunoSettingsRow(
                     title = stringResource(R.string.search_engine_export),
+                    shape = segmentedShape(1, 3),
                     onClick = {
                         val json = JsonSerializer.encodeToString(settings.customEngines)
                         copyText(context, "luno-search-engines", json)
@@ -483,8 +398,30 @@ fun SearchEngineSettingsScreen(
                 )
                 LunoSettingsRow(
                     title = stringResource(R.string.search_engine_import),
-                    shape = segmentedShape(1, 2),
+                    shape = segmentedShape(2, 3),
                     onClick = { importPreview = parseImport() },
+                )
+            }
+        }
+        item(key = "gap-experience") { GroupGap() }
+        // 体验组（原「结果治理与体验」子页平铺）。
+        item(key = "experience") {
+            LunoGroup(title = stringResource(R.string.search_experience_group)) {
+                LunoSwitchRow(
+                    title = stringResource(R.string.search_restore_last_query),
+                    checked = settings.restoreLastQuery,
+                    onCheckedChange = { v ->
+                        update { it.copy(restoreLastQuery = v) }
+                    },
+                    shape = segmentedShape(0, 2),
+                )
+                LunoSwitchRow(
+                    title = stringResource(R.string.search_ascii_enter),
+                    checked = settings.asciiEnterSearch,
+                    onCheckedChange = { v ->
+                        update { it.copy(asciiEnterSearch = v) }
+                    },
+                    shape = segmentedShape(1, 2),
                 )
             }
         }

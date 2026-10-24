@@ -46,7 +46,6 @@ fun QuickSearchIndex.searchOutcome(
     }
     return SearchResults(
         results = rows
-            .filterHiddenResults(searchSettings)
             .applyResultPins(query, searchSettings),
         directive = outcome.directive,
     )

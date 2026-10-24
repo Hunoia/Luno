@@ -8,9 +8,9 @@ import java.util.UUID
 @Keep
 data class SearchEngine(
     /**
-     * 引擎标识（排序/隐藏/覆盖都按它索引）。
+     * 引擎标识（排序/覆盖都按它索引）。
      * 空 = 还没分配：旧备份与导入数据解码后由 [withUniqueEngineTriggers] 按内容派生
-     * 稳定 id（不能用随机 UUID——每次解码都变会让顺序/隐藏/覆盖全部失效）。
+     * 稳定 id（不能用随机 UUID——每次解码都变会让顺序/覆盖全部失效）。
      */
     val id: String = "",
     val name: String = "",
@@ -71,18 +71,8 @@ data class QuickSearchSettings(
      * 空串 = 关闭该源标识（只走全源搜）。跟引擎标识同规则，保存时判重。
      */
     val sourceTriggers: Map<String, String> = emptyMap(),
-    /** 引擎显示顺序（含内置 id）；空 = 内置 + 自定义默认顺序。 */
+    /** 引擎显示顺序；空 = 添加顺序。 */
     val engineOrder: List<String> = emptyList(),
-    /** 从快速搜索/引擎条隐藏的引擎 id。 */
-    val hiddenEngineIds: List<String> = emptyList(),
-    /** 内置引擎的打开方式覆盖；自定义引擎继续用 SearchEngine.launch。 */
-    val engineLaunchOverrides: Map<String, SearchLaunch> = emptyMap(),
-    /** 全局隐藏的结果 key，cap [MAX_HIDDEN_RESULTS]。 */
-    val hiddenResultKeys: List<String> = emptyList(),
-    /** 隐藏结果的展示标题（key → 标题），只为设置页可读，随 [hiddenResultKeys] 一起清。 */
-    val hiddenResultLabels: Map<String, String> = emptyMap(),
-    /** 隐藏时间戳（key → epoch millis）：设置页按时间倒序展示；旧数据缺时间按列表顺序兜底。 */
-    val hiddenResultTimes: Map<String, Long> = emptyMap(),
     /** query（trim + lowercase）→ 固定结果 key 顺序，cap [MAX_PINNED_QUERIES] 个 query。 */
     val pinnedResults: Map<String, List<String>> = emptyMap(),
     /** 最近使用过的 Pin query，用于容量淘汰（新的在前：写侧前插，淘汰时丢尾部）。 */
@@ -116,35 +106,21 @@ const val MAX_QUERY_CHARS = 2000
  */
 const val MAX_CLIP_STORE_CHARS = 100 * 1024
 
-/** 内置引擎：代码常量，可设默认、不可删改；trigger 预置同样不可改（短缩写：bb/gg/ddg）。 */
-val BuiltinSearchEngines: List<SearchEngine> = listOf(
-    SearchEngine(id = "bing", name = "Bing", urlTemplate = "https://www.bing.com/search?q=%s", trigger = "bb"),
-    SearchEngine(id = "google", name = "Google", urlTemplate = "https://www.google.com/search?q=%s", trigger = "gg"),
-    SearchEngine(id = "duckduckgo", name = "DuckDuckGo", urlTemplate = "https://duckduckgo.com/?q=%s", trigger = "ddg"),
-)
-
 /** 引擎图标文字；空 = 取名称首字。引擎条/引擎行/选择 Sheet 共用同一取值。 */
 val SearchEngine.badgeText: String
     get() = iconText.takeIf { it.isNotBlank() } ?: name.firstOrNull()?.toString().orEmpty()
 
-/** 内置 id 集合：管理页据此禁用删除（打开方式仍可覆盖）。 */
-val BuiltinSearchEngineIds: Set<String> = BuiltinSearchEngines.map { it.id }.toSet()
-
-/** Pin/Hide 容量：全部有上限，避免 DataStore 随使用无限膨胀。 */
-const val MAX_HIDDEN_RESULTS = 300
+/** Pin 容量：有上限，避免 DataStore 随使用无限膨胀。 */
 const val MAX_PINNED_QUERIES = 80
 const val MAX_PINS_PER_QUERY = 20
 
-/** 全部引擎：应用内置覆盖 + 用户顺序，包含被隐藏项（设置页管理用）。 */
+/** 全部引擎（= 用户自建引擎，按 [engineOrder] 排序；设置页管理用）。 */
 fun QuickSearchSettings.allEngines(): List<SearchEngine> {
-    val base = (BuiltinSearchEngines + customEngines).map { engine ->
-        engineLaunchOverrides[engine.id]?.let { engine.copy(launch = it) } ?: engine
-    }
-    if (engineOrder.isEmpty()) return base
+    if (engineOrder.isEmpty()) return customEngines
     // 用列表删除而不是 associateBy：id 可能为空/重复（未归一化的旧数据），
     // associateBy 会把同 id 的引擎互相顶掉。
-    val rest = base.toMutableList()
-    val ordered = ArrayList<SearchEngine>(base.size)
+    val rest = customEngines.toMutableList()
+    val ordered = ArrayList<SearchEngine>(customEngines.size)
     for (id in engineOrder) {
         val index = rest.indexOfFirst { it.id == id }
         if (index >= 0) ordered.add(rest.removeAt(index))
@@ -155,16 +131,16 @@ fun QuickSearchSettings.allEngines(): List<SearchEngine> {
 
 /**
  * 引擎 id 缺失时按内容派生稳定 id：同一条引擎每次解码都得到同一个 id，
- * 顺序/隐藏/覆盖的引用才不会因为一次解码就全失效。已落库的非空 id 永不改动。
+ * 顺序/覆盖的引用才不会因为一次解码就全失效。已落库的非空 id 永不改动。
  */
 private fun derivedEngineId(engine: SearchEngine): String =
     "ce-" + UUID.nameUUIDFromBytes(
         "${engine.name}\u0001${engine.trigger}\u0001${engine.urlTemplate}".toByteArray(Charsets.UTF_8),
     )
 
-/** 给自定义引擎补齐缺失/冲突的 id：内容派生 + 重名后缀，顺序稳定。 */
+/** 给引擎补齐缺失/冲突的 id：内容派生 + 重名后缀，顺序稳定。 */
 private fun assignEngineIds(engines: List<SearchEngine>): List<SearchEngine> {
-    val used = HashSet<String>(BuiltinSearchEngineIds)
+    val used = HashSet<String>()
     return engines.map { engine ->
         if (engine.id.isNotBlank() && used.add(engine.id)) return@map engine
         val derived = derivedEngineId(engine)
@@ -178,37 +154,19 @@ private fun assignEngineIds(engines: List<SearchEngine>): List<SearchEngine> {
     }
 }
 
-/** 可见引擎：排序后过滤隐藏项，供结果行/标识/空态提示用。 */
-fun QuickSearchSettings.effectiveEngines(): List<SearchEngine> =
-    allEngines().filterNot { it.id in hiddenEngineIds }
+/** 生效引擎：排序后的全部引擎，供结果行/标识/空态提示用。 */
+fun QuickSearchSettings.effectiveEngines(): List<SearchEngine> = allEngines()
 
 /**
- * 完整顺序里把 [fromId] 移到 [toId] 的槽位（拖拽与菜单上移/下移共用）：
- * 下移落在 [toId] 之后、上移落在其前——removeAt 后插入下标 [toId] 恰好两种方向都对。
- */
-fun moveEngineBetween(order: List<String>, fromId: String, toId: String): List<String> {
-    val from = order.indexOf(fromId)
-    val to = order.indexOf(toId)
-    if (from < 0 || to < 0 || from == to) return order
-    return order.toMutableList().apply {
-        removeAt(from)
-        add(to, fromId)
-    }
-}
-
-/**
- * 统一归一化：清洗标识、引擎顺序/隐藏/覆盖、Pin/Hide 容量与草稿。
+ * 统一归一化：清洗标识、引擎顺序、Pin 容量与草稿。
  * 读 settings 与写入前都会调用，旧数据/导入数据无需迁移即可用。
  */
 fun QuickSearchSettings.withUniqueEngineTriggers(): QuickSearchSettings {
-    // 先补 id：后面的顺序/隐藏/覆盖都按 id 索引，id 缺失时这些引用无处落地。
+    // 先补 id：后面的顺序按 id 索引，id 缺失时这些引用无处落地。
     val idFixed = assignEngineIds(customEngines)
     var changed = idFixed != customEngines
-    val all = (BuiltinSearchEngines + idFixed).map { engine ->
-        engineLaunchOverrides[engine.id]?.let { engine.copy(launch = it) } ?: engine
-    }
-    val knownIds = all.mapTo(mutableSetOf()) { it.id }
-    val used = BuiltinSearchEngines.mapTo(mutableSetOf()) { it.trigger.lowercase() }
+    val knownIds = idFixed.mapTo(mutableSetOf()) { it.id }
+    val used = mutableSetOf<String>()
     val kept = arrayOfNulls<SearchEngine>(idFixed.size)
     for (index in idFixed.indices.reversed()) {
         val engine = idFixed[index]
@@ -230,27 +188,13 @@ fun QuickSearchSettings.withUniqueEngineTriggers(): QuickSearchSettings {
     val normalizedOrder = engineOrder.filter { it in knownIds }.distinct()
     if (normalizedOrder.size != engineOrder.size) changed = true
 
-    val normalizedHidden = hiddenEngineIds.filter { it in knownIds }.distinct()
-    if (normalizedHidden.size != hiddenEngineIds.size) changed = true
-    // 至少保留一个可见引擎：全隐藏时恢复默认/首个引擎。
-    val visibleIds = knownIds - normalizedHidden.toSet()
-    val safeHidden = if (visibleIds.isEmpty() && knownIds.isNotEmpty()) {
-        changed = true
-        emptyList()
-    } else {
-        normalizedHidden
-    }
-
-    val normalizedOverrides = engineLaunchOverrides.filterKeys { it in knownIds }
-    if (normalizedOverrides.size != engineLaunchOverrides.size) changed = true
-
     // 旧「默认引擎」一次性迁移：把默认引擎挪到顺序首位后清空字段，
-    // 此后主引擎 = 列表第一位（拖拽排序决定）。默认引擎已被隐藏时不迁移、直接清。
-    val legacyDefault = defaultEngineId.takeIf { it.isNotBlank() && it in knownIds && it !in safeHidden }
+    // 此后主引擎 = 列表第一位（拖拽排序决定）。
+    val legacyDefault = defaultEngineId.takeIf { it.isNotBlank() && it in knownIds }
     val orderWithLegacy = if (legacyDefault == null) {
         normalizedOrder
     } else {
-        val base = normalizedOrder.ifEmpty { all.map { it.id } }
+        val base = normalizedOrder.ifEmpty { idFixed.map { it.id } }
         if (base.firstOrNull() == legacyDefault) {
             base
         } else {
@@ -261,18 +205,6 @@ fun QuickSearchSettings.withUniqueEngineTriggers(): QuickSearchSettings {
         }
     }
     if (orderWithLegacy != engineOrder || defaultEngineId.isNotEmpty()) changed = true
-
-    val normalizedHiddenResults = hiddenResultKeys.distinct().takeLast(MAX_HIDDEN_RESULTS)
-    if (normalizedHiddenResults.size != hiddenResultKeys.size) changed = true
-
-    // 隐藏标题：只留还在隐藏列表里的 key，空标题回落成 key 本身。
-    val normalizedLabels = hiddenResultLabels
-        .filterKeys { it in normalizedHiddenResults }
-        .mapValues { (key, title) -> title.ifBlank { key } }
-    if (normalizedLabels != hiddenResultLabels) changed = true
-
-    val normalizedTimes = hiddenResultTimes.filterKeys { it in normalizedHiddenResults }
-    if (normalizedTimes.size != hiddenResultTimes.size) changed = true
 
     val normalizedPinOrder = run {
         val keys = pinnedResults.filterValues { it.isNotEmpty() }.keys
@@ -293,11 +225,6 @@ fun QuickSearchSettings.withUniqueEngineTriggers(): QuickSearchSettings {
     return if (!changed) this else copy(
         customEngines = normalizedCustom,
         engineOrder = orderWithLegacy,
-        hiddenEngineIds = safeHidden,
-        engineLaunchOverrides = normalizedOverrides,
-        hiddenResultKeys = normalizedHiddenResults,
-        hiddenResultLabels = normalizedLabels,
-        hiddenResultTimes = normalizedTimes,
         pinnedResults = normalizedPins,
         pinnedQueryOrder = normalizedPinOrder,
         lastQuery = normalizedDraft,
@@ -339,9 +266,5 @@ val DefaultSourceTriggers: Map<String, String> = mapOf(
 fun QuickSearchSettings.effectiveTrigger(source: String): String =
     sourceTriggers[source] ?: DefaultSourceTriggers[source].orEmpty()
 
-/** 主引擎：可见引擎列表第一位（顺序由设置页拖拽决定）；用户不再单独选默认。 */
+/** 主引擎：引擎列表第一位（顺序由设置页拖拽决定）；用户不再单独选默认。 */
 fun QuickSearchSettings.primaryEngineOrNull(): SearchEngine? = effectiveEngines().firstOrNull()
-
-/** 兼容旧调用：没有可见引擎时回退到全部引擎首个。 */
-fun QuickSearchSettings.primaryEngine(): SearchEngine =
-    primaryEngineOrNull() ?: allEngines().first()

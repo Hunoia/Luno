@@ -41,8 +41,8 @@ import hunoia.luno.ui.navigation.ActionPanelEdit
 import hunoia.luno.ui.navigation.GridPanelList
 import hunoia.luno.ui.navigation.GridPanelEdit
 import hunoia.luno.ui.navigation.SearchEngineSettings
+import hunoia.luno.ui.navigation.SearchEngineEdit
 import hunoia.luno.ui.navigation.SearchSourceSettings
-import hunoia.luno.ui.navigation.SearchGovernanceSettings
 import hunoia.luno.ui.navigation.MiniWindowAdjust
 import hunoia.luno.ui.navigation.FloatBallEdit
 import hunoia.luno.ui.settings.floatball.FloatBallEditScreen
@@ -65,8 +65,8 @@ import hunoia.luno.ui.settings.action.panel.ActionPanelListScreen
 import hunoia.luno.ui.settings.action.gridpanel.GridPanelEditScreen
 import hunoia.luno.ui.settings.action.gridpanel.GridPanelListScreen
 import hunoia.luno.ui.settings.search.SearchEngineSettingsScreen
+import hunoia.luno.ui.settings.search.SearchEngineEditScreen
 import hunoia.luno.ui.settings.search.SearchSourceSettingsScreen
-import hunoia.luno.ui.settings.search.SearchGovernanceSettingsScreen
 
 import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsScreen
 
@@ -209,7 +209,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                     SearchEngineSettingsScreen(
                         onBack = { navController.popBackStack() },
                         onNavToSources = { navController.navigate(SearchSourceSettings) },
-                        onNavToGovernance = { navController.navigate(SearchGovernanceSettings) },
+                        onNavToEdit = { engineId ->
+                            navController.navigate(SearchEngineEdit(engineId))
+                        },
                     )
                 }
                 myComposable<SearchSourceSettings> {
@@ -217,8 +219,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onBack = { navController.popBackStack() },
                     )
                 }
-                myComposable<SearchGovernanceSettings> {
-                    SearchGovernanceSettingsScreen(
+                myComposable<SearchEngineEdit> {
+                    SearchEngineEditScreen(
+                        engineId = it.toRoute<SearchEngineEdit>().engineId,
                         onBack = { navController.popBackStack() },
                     )
                 }

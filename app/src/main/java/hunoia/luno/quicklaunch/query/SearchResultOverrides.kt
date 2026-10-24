@@ -8,19 +8,10 @@ import hunoia.luno.config.model.SRC_CLIP
 internal fun normalizePinQuery(query: String): String =
     query.trim().lowercase()
 
-/** 引擎/URL/计算器/剪贴板行随 query 变化或已有独立 Pin 语义，不参与结果级 Pin/Hide。 */
+/** 引擎/URL/计算器/剪贴板行随 query 变化或已有独立 Pin 语义，不参与结果级 Pin。 */
 internal fun SearchResult.isResultOverrideAllowed(): Boolean = when (source) {
     SOURCE_ENGINE, SOURCE_URL, SOURCE_CALC, SRC_CLIP -> false
     else -> true
-}
-
-/** 全局隐藏过滤；引擎行等不允许隐藏的结果即使误入 key 列表也保留。 */
-internal fun List<SearchResult>.filterHiddenResults(
-    settings: QuickSearchSettings,
-): List<SearchResult> {
-    val hidden = settings.hiddenResultKeys.toHashSet()
-    if (hidden.isEmpty()) return this
-    return filterNot { it.isResultOverrideAllowed() && it.key in hidden }
 }
 
 /** 当前 query 的 Pin 置顶；其余结果保持原排序。 */

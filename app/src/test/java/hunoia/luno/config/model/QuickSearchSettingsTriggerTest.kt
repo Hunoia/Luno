@@ -27,16 +27,6 @@ class QuickSearchSettingsTriggerTest {
     }
 
     @Test
-    fun `builtin trigger is reserved for builtin engine`() {
-        val settings = QuickSearchSettings(
-            customEngines = listOf(engine("custom", "bb"), engine("other", "x")),
-        )
-        val normalized = settings.withUniqueEngineTriggers()
-        assertEquals("", normalized.customEngines[0].trigger)
-        assertEquals("x", normalized.customEngines[1].trigger)
-    }
-
-    @Test
     fun `whitespace-only trigger is normalized to empty`() {
         val settings = QuickSearchSettings(customEngines = listOf(engine("blank", "  ")))
         val normalized = settings.withUniqueEngineTriggers()

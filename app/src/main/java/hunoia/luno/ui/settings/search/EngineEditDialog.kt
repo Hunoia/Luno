@@ -4,10 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -31,18 +27,15 @@ import hunoia.luno.quicklaunch.launchSearchAction
 import hunoia.luno.quicklaunch.query.toSearchAction
 import hunoia.luno.ui.component.sheet.TextInputDialog
 import hunoia.luno.ui.theme.CardInnerSpacing
-import hunoia.luno.ui.theme.PageGutter
-import hunoia.luno.ui.theme.SheetListMaxHeight
 
 internal enum class EngineOpenMode { Default, App, Chooser, Share, ShareImage }
 
 /**
- * 引擎编辑器状态：编辑弹窗与「添加」tab 共用一份字段与校验。
+ * 引擎编辑器状态：编辑页与「添加」共用一份字段与校验。
  * [targetPackage] 由 AppPickerSheet 回填、跨组合存活，单独由调用方持有传入。
  */
 internal class EngineEditState(
     initial: SearchEngine?,
-    private val builtin: Boolean,
     private val existingTriggers: List<String>,
 ) {
     var name by mutableStateOf(initial?.name.orEmpty())
@@ -75,6 +68,32 @@ internal class EngineEditState(
         (initial?.effectiveLaunch() as? SearchLaunch.Url)?.fallbackTemplate.orEmpty(),
     )
 
+    /** 进页快照：脏检测用（targetPackage 由页面自行对比）。 */
+    private data class InitialSnapshot(
+        val name: String,
+        val iconText: String,
+        val template: String,
+        val trigger: String,
+        val mode: EngineOpenMode,
+        val fallback: String,
+    )
+
+    private val initialSnapshot = InitialSnapshot(
+        name = name,
+        iconText = iconText,
+        template = template,
+        trigger = trigger,
+        mode = mode,
+        fallback = fallback,
+    )
+
+    fun isDirty(): Boolean = name != initialSnapshot.name ||
+        iconText != initialSnapshot.iconText ||
+        template != initialSnapshot.template ||
+        trigger != initialSnapshot.trigger ||
+        mode != initialSnapshot.mode ||
+        fallback != initialSnapshot.fallback
+
     val isShare get() = mode == EngineOpenMode.Share
     val isShareImage get() = mode == EngineOpenMode.ShareImage
     val templateError: Boolean
@@ -83,7 +102,6 @@ internal class EngineEditState(
 
     /** 标识：空 = 不启用直达；否则不能含空白、不能与其它引擎重复（大小写不敏感）。 */
     val triggerError: Int? get() = when {
-        builtin -> null
         triggerClean.any { it.isWhitespace() } -> R.string.search_engine_trigger_space
         triggerClean.isNotEmpty() &&
             existingTriggers.any { it.equals(triggerClean, ignoreCase = true) } ->
@@ -144,20 +162,17 @@ internal data class EngineEditResult(
 @Composable
 internal fun rememberEngineEditState(
     initial: SearchEngine?,
-    builtin: Boolean,
     existingTriggers: List<String>,
-): EngineEditState = remember(initial, builtin, existingTriggers) {
-    EngineEditState(initial, builtin, existingTriggers)
+): EngineEditState = remember(initial, existingTriggers) {
+    EngineEditState(initial, existingTriggers)
 }
 
 /**
- * 引擎编辑字段（无滚动容器、无确认按钮）：编辑弹窗与「添加」tab 共用。
- * 弹窗里由 CustomDialog 外层自行套竖向滚动。
+ * 引擎编辑字段（无滚动容器、无确认按钮）：编辑页整体排版，滚动由页面容器提供。
  */
 @Composable
 internal fun EngineEditFields(
     state: EngineEditState,
-    builtin: Boolean,
     targetPackage: String,
     onPickApp: () -> Unit,
     modifier: Modifier = Modifier,
@@ -174,7 +189,6 @@ internal fun EngineEditFields(
             onValueChange = { state.name = it },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            enabled = !builtin,
             label = { Text(stringResource(R.string.search_engine_name)) },
         )
         OutlinedTextField(
@@ -182,7 +196,6 @@ internal fun EngineEditFields(
             onValueChange = { state.iconText = it.take(2) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            enabled = !builtin,
             label = { Text(stringResource(R.string.search_engine_icon_text)) },
             placeholder = { Text(stringResource(R.string.search_engine_icon_text_hint)) },
         )
@@ -224,7 +237,6 @@ internal fun EngineEditFields(
             onValueChange = { state.trigger = it },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            enabled = !builtin,
             label = { Text(stringResource(R.string.search_engine_trigger)) },
             placeholder = { Text("bb") },
             isError = state.triggerError != null,
@@ -270,19 +282,16 @@ internal fun EngineEditFields(
                 onClick = { state.mode = EngineOpenMode.Chooser },
                 label = { Text(stringResource(R.string.search_engine_open_chooser)) },
             )
-            // 内置引擎只覆盖 URL 类打开方式，分享类仅自定义引擎可用。
-            if (!builtin) {
-                FilterChip(
-                    selected = state.mode == EngineOpenMode.Share,
-                    onClick = { state.mode = EngineOpenMode.Share },
-                    label = { Text(stringResource(R.string.search_engine_open_share)) },
-                )
-                FilterChip(
-                    selected = state.mode == EngineOpenMode.ShareImage,
-                    onClick = { state.mode = EngineOpenMode.ShareImage },
-                    label = { Text(stringResource(R.string.search_engine_open_share_image)) },
-                )
-            }
+            FilterChip(
+                selected = state.mode == EngineOpenMode.Share,
+                onClick = { state.mode = EngineOpenMode.Share },
+                label = { Text(stringResource(R.string.search_engine_open_share)) },
+            )
+            FilterChip(
+                selected = state.mode == EngineOpenMode.ShareImage,
+                onClick = { state.mode = EngineOpenMode.ShareImage },
+                label = { Text(stringResource(R.string.search_engine_open_share_image)) },
+            )
         }
         if (state.mode == EngineOpenMode.App || state.mode == EngineOpenMode.Share || state.isShareImage) {
             OutlinedTextField(
@@ -333,60 +342,6 @@ internal fun EngineEditFields(
                 style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
                 color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
-    }
-}
-
-/** 添加/编辑引擎的底部 Sheet：字段与校验共用 [EngineEditState]，确认输出 [EngineEditResult]。 */
-@Composable
-internal fun EngineEditSheet(
-    state: EngineEditState,
-    builtin: Boolean,
-    targetPackage: String,
-    addMode: Boolean,
-    onDismissRequest: () -> Unit,
-    onPickApp: () -> Unit,
-    onConfirm: (EngineEditResult) -> Unit,
-) {
-    val valid = state.valid(targetPackage)
-    hunoia.luno.ui.component.sheet.LunoSheet(onDismissRequest = onDismissRequest) {
-        Text(
-            text = stringResource(
-                if (addMode) R.string.search_engine_add else R.string.search_engine_edit,
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = PageGutter, vertical = 12.dp),
-            style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
-        )
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = PageGutter)
-                .heightIn(max = SheetListMaxHeight)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
-        ) {
-            EngineEditFields(
-                state = state,
-                builtin = builtin,
-                targetPackage = targetPackage,
-                onPickApp = onPickApp,
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                TextButton(onClick = onDismissRequest) {
-                    Text(stringResource(hunoia.luno.R.string.cancel))
-                }
-                TextButton(
-                    enabled = valid,
-                    onClick = { onConfirm(state.result(targetPackage)) },
-                ) {
-                    Text(stringResource(hunoia.luno.R.string.confirm))
-                }
-            }
         }
     }
 }

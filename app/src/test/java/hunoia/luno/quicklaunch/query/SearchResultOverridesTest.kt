@@ -4,7 +4,7 @@ import hunoia.luno.config.model.QuickSearchSettings
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** 结果 Pin/Hide 的纯函数行为。 */
+/** 结果 Pin 的纯函数行为。 */
 class SearchResultOverridesTest {
 
     private fun result(key: String, source: String = "app") = SearchResult(
@@ -15,20 +15,6 @@ class SearchResultOverridesTest {
         icon = SearchIcon.None,
         primary = SearchAction.Copy(key),
     )
-
-    @Test
-    fun `hidden results are filtered globally`() {
-        val settings = QuickSearchSettings(hiddenResultKeys = listOf("a"))
-        val out = listOf(result("a"), result("b")).filterHiddenResults(settings)
-        assertEquals(listOf("b"), out.map { it.key })
-    }
-
-    @Test
-    fun `engine rows cannot be hidden`() {
-        val settings = QuickSearchSettings(hiddenResultKeys = listOf("es#x"))
-        val out = listOf(result("es#x", SOURCE_ENGINE)).filterHiddenResults(settings)
-        assertEquals(1, out.size)
-    }
 
     @Test
     fun `pins move matching results to front in saved order`() {

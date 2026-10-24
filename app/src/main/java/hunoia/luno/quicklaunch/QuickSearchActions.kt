@@ -119,35 +119,6 @@ internal fun QuickSearchActivity.toggleResultPin(query: String, key: String) {
     }
 }
 
-/**
- * 全局隐藏结果；隐藏后从所有 Pin 桶里移除，避免恢复后残留。
- * [title] 一起存：设置页的「已隐藏的结果」只存 key 的话用户认不出是哪条；
- * 时间戳供设置页按时间倒序展示。
- */
-internal fun QuickSearchActivity.hideSearchResult(key: String, title: String) {
-    if (key.isBlank()) return
-    lifecycleScope.launch {
-        runCatching {
-            hunoia.luno.config.ConfigProvider.updateQuickSearchSettings { current ->
-                val nextKeys = (current.hiddenResultKeys + key)
-                    .distinct()
-                    .takeLast(hunoia.luno.config.model.MAX_HIDDEN_RESULTS)
-                current.copy(
-                    hiddenResultKeys = nextKeys,
-                    hiddenResultLabels = (current.hiddenResultLabels + (key to title))
-                        .filterKeys { it in nextKeys },
-                    hiddenResultTimes = (current.hiddenResultTimes + (key to System.currentTimeMillis()))
-                        .filterKeys { it in nextKeys },
-                    pinnedResults = current.pinnedResults.mapValues { (_, keys) ->
-                        keys.filterNot { it == key }
-                    }.filterValues { it.isNotEmpty() },
-                )
-            }
-            showToast(R.string.search_result_hidden)
-        }
-    }
-}
-
 /** 草稿只存文本，不存图片；关闭面板/确认搜索时调用。 */
 internal fun QuickSearchActivity.saveSearchDraft(query: String) {
     lifecycleScope.launch {

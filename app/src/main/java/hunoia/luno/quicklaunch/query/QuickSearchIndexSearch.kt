@@ -17,7 +17,7 @@ import hunoia.luno.config.model.SRC_SETTINGS
 import hunoia.luno.config.model.SRC_SHORTCUT
 import hunoia.luno.config.model.SRC_SMS
 import hunoia.luno.config.model.SRC_TOGGLE
-import hunoia.luno.config.model.primaryEngine
+import hunoia.luno.config.model.primaryEngineOrNull
 import hunoia.luno.config.model.effectiveEngines
 import hunoia.luno.config.model.effectiveLaunch
 import hunoia.luno.config.model.effectiveTrigger
@@ -104,8 +104,9 @@ fun QuickSearchIndex.search(
 
         // 搜索引擎兜底：tier -1 进同一管线自然垫底（不再追加特例）。
         // 只有非 URL 关键词才有；标识直达优先选引擎（如 bb 新闻），否则默认引擎。
+        // 一个引擎都没有时不出引擎行（回车只剩内容源结果）。
         if (urlResult == null) {
-            results.add(engineTriple(query.trim(), searchSettings))
+            engineTriple(query.trim(), searchSettings)?.let { results.add(it) }
         }
 
         val sorted = sortTriples(results)
@@ -468,10 +469,10 @@ internal fun QuickSearchIndex.pkgScores(
 private fun QuickSearchIndex.engineTriple(
         query: String,
         settings: QuickSearchSettings,
-    ): RankedHit {
+    ): RankedHit? {
         val directed = directedEngine(query, settings)
         if (directed != null) return RankedHit(directed, -1, 0, 0, 0.0)
-        val default = settings.primaryEngine()
+        val default = settings.primaryEngineOrNull() ?: return null
         return RankedHit(
             QuickSearchResult.EngineSearch(
                 query,

@@ -37,7 +37,6 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import hunoia.luno.BuildConfig
 import hunoia.luno.config.model.SearchEngine
-import hunoia.luno.config.model.SearchLaunch
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.action.model.ActionLibrarySettings
@@ -50,7 +49,6 @@ import hunoia.luno.quicklaunch.query.QuickSearchIndex
 import hunoia.luno.quicklaunch.query.SearchAction
 import hunoia.luno.quicklaunch.query.SearchIcon
 import hunoia.luno.quicklaunch.query.SearchResult
-import hunoia.luno.quicklaunch.query.filterHiddenResults
 import hunoia.luno.quicklaunch.query.normalizePinQuery
 import hunoia.luno.quicklaunch.query.searchOutcome
 import hunoia.luno.quicklaunch.query.topUsed
@@ -99,9 +97,6 @@ private data class SearchInputs(
     val clipHistory: List<String>,
     val pinnedClips: List<String>,
     val engineOrder: List<String>,
-    val hiddenEngineIds: List<String>,
-    val engineLaunchOverrides: Map<String, SearchLaunch>,
-    val hiddenResultKeys: List<String>,
     val pinnedResults: Map<String, List<String>>,
     val pinnedQueryOrder: List<String>,
 ) {
@@ -124,9 +119,6 @@ private data class SearchInputs(
         clipHistory = clipHistory,
         pinnedClips = pinnedClips,
         engineOrder = engineOrder,
-        hiddenEngineIds = hiddenEngineIds,
-        engineLaunchOverrides = engineLaunchOverrides,
-        hiddenResultKeys = hiddenResultKeys,
         pinnedResults = pinnedResults,
         pinnedQueryOrder = pinnedQueryOrder,
     )
@@ -150,9 +142,6 @@ private data class SearchInputs(
             clipHistory = s.clipHistory,
             pinnedClips = s.pinnedClips,
             engineOrder = s.engineOrder,
-            hiddenEngineIds = s.hiddenEngineIds,
-            engineLaunchOverrides = s.engineLaunchOverrides,
-            hiddenResultKeys = s.hiddenResultKeys,
             pinnedResults = s.pinnedResults,
             pinnedQueryOrder = s.pinnedQueryOrder,
         )
@@ -172,7 +161,6 @@ internal fun QuickSearchContent(
     onResult: (SearchResult, String) -> Unit,
     onAction: (SearchAction, String) -> Unit,
     onTogglePin: (String, String) -> Unit,
-    onHideResult: (String, String) -> Unit,
     onSaveDraft: (String) -> Unit,
     onOpenAppSettings: () -> Unit,
 ) {
@@ -335,11 +323,10 @@ internal fun QuickSearchContent(
     // 空态常用应用：放在条件分支外，面板生命周期内只跑一次 —— 写进分支里的话分支一退出
     // 就取消，来回切 query 会反复重启 IO。
     var topUsedApps by remember { mutableStateOf(emptyList<SearchResult>()) }
-    LaunchedEffect(effectiveLauncher, indexVersion, searchSettings.hiddenResultKeys) {
+    LaunchedEffect(effectiveLauncher, indexVersion) {
         topUsedApps = withContext(Dispatchers.IO) {
             index.topUsed(effectiveLauncher)
                 .map { it.toSearchResult() }
-                .filterHiddenResults(searchSettings)
         }
     }
     // 进出场动画状态：进场从 0.92/0 起播到 1，closing 置位后播到 0.95/0。
@@ -502,7 +489,6 @@ internal fun QuickSearchContent(
                     }
                 },
                 onTogglePin = { q, key -> actionSheetResult = null; onTogglePin(q, key) },
-                onHideResult = { key, title -> actionSheetResult = null; onHideResult(key, title) },
                 onShowEngines = { q -> actionSheetResult = null; enginePickerQuery = q },
                 onDismiss = { actionSheetResult = null },
             )

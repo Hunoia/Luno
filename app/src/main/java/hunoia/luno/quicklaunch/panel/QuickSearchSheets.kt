@@ -63,7 +63,7 @@ internal fun SearchEnginePickerSheet(
     }
 }
 
-/** 结果操作 Sheet：业务动作 + 通用 Pin/Hide/其他引擎。 */
+/** 结果操作 Sheet：业务动作 + 通用 Pin/其他引擎。 */
 @Composable
 internal fun SearchResultActionSheet(
     result: SearchResult,
@@ -71,7 +71,6 @@ internal fun SearchResultActionSheet(
     pinned: Boolean,
     onAction: (SearchAction, String) -> Unit,
     onTogglePin: (String, String) -> Unit,
-    onHideResult: (String, String) -> Unit,
     onShowEngines: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -86,20 +85,13 @@ internal fun SearchResultActionSheet(
                 },
             )
         }
-        if (result.isResultOverrideAllowed()) {
-            if (query.isNotBlank()) {
-                add(
-                    SheetActionItem(
-                        SearchActionLabel.Res(
-                            if (pinned) R.string.search_action_unpin else R.string.search_action_pin,
-                        ),
-                    ) { onTogglePin(query, result.key) },
-                )
-            }
+        if (result.isResultOverrideAllowed() && query.isNotBlank()) {
             add(
                 SheetActionItem(
-                    SearchActionLabel.Res(R.string.search_action_hide),
-                ) { onHideResult(result.key, result.title) },
+                    SearchActionLabel.Res(
+                        if (pinned) R.string.search_action_unpin else R.string.search_action_pin,
+                    ),
+                ) { onTogglePin(query, result.key) },
             )
         }
     }

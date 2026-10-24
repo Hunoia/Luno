@@ -11,7 +11,6 @@ composeTrain = "1.12.1"
 material3 = "1.4.0"
 materialIcons = "1.7.8"
 haze = "1.7.3"
-reorderable = "3.1.0"
 houbb-pinyin = "0.4.0"
 freereflection = "3.2.2"
 shizuku = "13.1.5"
@@ -45,9 +44,6 @@ material-icons-extended = { group = "androidx.compose.material", name = "materia
 material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 
 haze = { group = "dev.chrisbanes.haze", name = "haze-android", version.ref = "haze" }
-
-# LazyColumn 拖拽排序成熟实现（ReorderableItem + draggableHandle），引擎列表排序用。
-sh-calvin-reorderable = { group = "sh.calvin.reorderable", name = "reorderable", version.ref = "reorderable" }
 
 houbb-pinyin = { group = "com.github.houbb", name = "pinyin", version.ref = "houbb-pinyin" }
 com-tiann-freereflection = { group = "com.github.tiann", name = "FreeReflection", version.ref = "freereflection" }
