@@ -3,12 +3,9 @@ package hunoia.luno.runtime.floatball
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
-import android.annotation.SuppressLint
-import android.graphics.PixelFormat
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewPropertyAnimator
@@ -39,12 +36,10 @@ import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.runtime.overlay.safeAddView
-import hunoia.luno.runtime.overlay.safeUpdateViewLayout
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.component.actionIcon
 import hunoia.luno.ui.component.gestureButtonMarkColor
-import hunoia.luno.ui.theme.SideGestureTheme
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -178,15 +173,9 @@ class FloatBallWindow(
         applyWindowBounds()
         scheduleIdle()
         // 实测 LP 原点（状态栏高度）：窗口摆出来才知道真实屏幕落点。
-        created.post {
-            val attached = view ?: return@post
-            val location = IntArray(2)
-            attached.getLocationOnScreen(location)
-            val measured = location[1] - ((attached.layoutParams as? WindowManager.LayoutParams)?.y ?: 0)
-            if (measured != lpOriginY) {
-                lpOriginY = measured
-                applyWindowBounds()
-            }
+        postMeasureLpOriginY({ view }, { lpOriginY }) {
+            lpOriginY = it
+            applyWindowBounds()
         }
         return true
     }
@@ -216,17 +205,8 @@ class FloatBallWindow(
 
     private fun applyHiddenFlags() {
         val current = view ?: return
-        val lp = current.layoutParams as? WindowManager.LayoutParams ?: return
-        val hidden = lockHidden
-        if (hidden) {
-            lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-            lp.alpha = 0f
-        } else {
-            lp.flags = lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-            lp.alpha = 1f
-        }
-        wm.safeUpdateViewLayout(current, lp)
-        if (!hidden) scheduleIdle() else cancelIdle()
+        applyBallHiddenFlags(current, wm, lockHidden)
+        if (!lockHidden) scheduleIdle() else cancelIdle()
     }
 
     /** 挂窗并原地淡入弹回（scale 0.85→1，250ms）：面板期间窗体被移除，关闭后补回场动画。 */
@@ -547,29 +527,10 @@ class FloatBallWindow(
 
     // ---- 窗口定位 ----
 
-    private fun createLayoutParams() = WindowManager.LayoutParams().apply {
-        type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        format = PixelFormat.TRANSLUCENT
-        // NOT_FOCUSABLE | NOT_TOUCH_MODAL。不加 LAYOUT_NO_LIMITS ——
-        // 球必须完整在屏内，靠正常窗口边界 + 夹取就够。
-        flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-        width = ballPx
-        height = ballPx
-        @SuppressLint("RtlHardcoded")
-        gravity = Gravity.LEFT or Gravity.TOP
-        x = 0
-        y = 0
-    }
+    private fun createLayoutParams() = ballLayoutParams(ballPx)
 
     private fun lpSize(current: View) {
-        current.layoutParams?.let {
-            if (it is WindowManager.LayoutParams) {
-                it.width = ballPx
-                it.height = ballPx
-                wm.safeUpdateViewLayout(current, it)
-            }
-        }
+        applyBallSize(current, wm, ballPx)
     }
 
     /** 叠加底栏边界的 best-effort。顶边不用它 —— 由 [lpOriginY] 实测更可靠。 */
@@ -586,35 +547,20 @@ class FloatBallWindow(
      */
     private fun applyWindowBounds() {
         val current = view ?: return
-        val lp = current.layoutParams as? WindowManager.LayoutParams ?: return
         val maxX = max(0, screenWidthPx - ballPx)
         val maxY = max(lpOriginY, screenHeightPx - ballPx - bottomInsetPx)
         posX = posX.coerceIn(0f, maxX.toFloat())
         posY = posY.coerceIn(lpOriginY.toFloat(), maxY.toFloat())
         // 显示位置 = 基准 − 让位，但不越过 LP 原点。
         val displayY = max(lpOriginY.toFloat(), posY - imeLiftPx)
-        val nextX = (posX).roundToInt()
-        val nextY = (displayY - lpOriginY).roundToInt().coerceAtLeast(0)
-        if (lp.x == nextX && lp.y == nextY) return
-        lp.x = nextX
-        lp.y = nextY
-        wm.safeUpdateViewLayout(current, lp)
+        writeBallPosition(current, wm, posX, displayY, lpOriginY)
     }
 
     // ---- Compose ----
 
     @Composable
     private fun BallContent() {
-        SideGestureTheme {
-            val density = LocalDensity.current
-            val size = with(density) { ballPx.toDp() }
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                BallFace(modifier = Modifier.size(size))
-            }
-        }
+        BallWindowContent(ballPx) { size -> BallFace(modifier = Modifier.size(size)) }
     }
 
     @Composable

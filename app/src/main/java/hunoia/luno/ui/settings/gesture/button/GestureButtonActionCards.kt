@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
+import hunoia.luno.config.model.DirectionActions
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
@@ -138,66 +139,85 @@ fun ExpandableGestureActionCard(
         }
     }
 }
+/**
+ * 方向类动作卡共有骨架：Slide / LongSlide / SlideHold / LongSlideHold 四张卡
+ * 只差图标、标题、序位、触发类型与动作集（长滑系另传 isLongSlide 姿态）。
+ */
+@Composable
+private fun DirectionalActionCard(
+    gestureButton: GestureButton,
+    onNavToActionSelect: (ActionSelect) -> Unit,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    icon: ImageVector,
+    title: String,
+    index: Int,
+    triggerType: GestureTriggerType,
+    isLongSlide: Boolean,
+    actions: DirectionActions,
+) {
+    ExpandableGestureActionCard(
+        icon = icon,
+        title = title,
+        expanded = expanded,
+        onExpandedChange = onExpandedChange,
+        index = index,
+        count = 5,
+    ) {
+        DirectionalActionRows(
+            hiddenDirections = gestureButton.angle.zeroWidthDirections(),
+            actionsText = { direction -> actions.actionBy(direction).actionTextCompose() },
+            onDirectionClick = { direction ->
+                onNavToActionSelect(
+                    ActionSelect(
+                        gestureButtonId = gestureButton.id,
+                        direction = direction,
+                        triggerType = triggerType,
+                    )
+                )
+            },
+            isLongSlide = isLongSlide,
+        )
+    }
+}
+
 @Composable
 fun GestureButtonSlideActionsCard(
     gestureButton: GestureButton,
     onNavToActionSelect: (ActionSelect) -> Unit,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
-) {
-    ExpandableGestureActionCard(
-        icon = Icons.Default.Swipe,
-        title = stringResource(id = R.string.slide_action),
-        expanded = expanded,
-        onExpandedChange = onExpandedChange,
-        index = 1,
-        count = 5,
-    ) {
-        SlideActionRows(
-            hiddenDirections = gestureButton.angle.zeroWidthDirections(),
-            actionsText = { direction -> gestureButton.slideActions.actionBy(direction).actionTextCompose() },
-            onDirectionClick = { direction ->
-                onNavToActionSelect(
-                    ActionSelect(
-                        gestureButtonId = gestureButton.id,
-                        direction = direction,
-                        triggerType = GestureTriggerType.Slide,
-                    )
-                )
-            },
-        )
-    }
-}
+) = DirectionalActionCard(
+    gestureButton = gestureButton,
+    onNavToActionSelect = onNavToActionSelect,
+    expanded = expanded,
+    onExpandedChange = onExpandedChange,
+    icon = Icons.Default.Swipe,
+    title = stringResource(id = R.string.slide_action),
+    index = 1,
+    triggerType = GestureTriggerType.Slide,
+    isLongSlide = false,
+    actions = gestureButton.slideActions,
+)
+
 @Composable
 fun GestureButtonLongSlideActionsCard(
     gestureButton: GestureButton,
     onNavToActionSelect: (ActionSelect) -> Unit,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
-) {
-    ExpandableGestureActionCard(
-        icon = Icons.Default.Gesture,
-        title = stringResource(id = R.string.long_slide_action),
-        expanded = expanded,
-        onExpandedChange = onExpandedChange,
-        index = 3,
-        count = 5,
-    ) {
-        LongSlideActionRows(
-            hiddenDirections = gestureButton.angle.zeroWidthDirections(),
-            actionsText = { direction -> gestureButton.longSlideActions.actionBy(direction).actionTextCompose() },
-            onDirectionClick = { direction ->
-                onNavToActionSelect(
-                    ActionSelect(
-                        gestureButtonId = gestureButton.id,
-                        direction = direction,
-                        triggerType = GestureTriggerType.LongSlide,
-                    )
-                )
-            },
-        )
-    }
-}
+) = DirectionalActionCard(
+    gestureButton = gestureButton,
+    onNavToActionSelect = onNavToActionSelect,
+    expanded = expanded,
+    onExpandedChange = onExpandedChange,
+    icon = Icons.Default.Gesture,
+    title = stringResource(id = R.string.long_slide_action),
+    index = 3,
+    triggerType = GestureTriggerType.LongSlide,
+    isLongSlide = true,
+    actions = gestureButton.longSlideActions,
+)
 @Composable
 private fun <T> RowGroup(
     items: List<T>,
@@ -212,10 +232,12 @@ private fun <T> RowGroup(
         }
     }
 }
+/** 方向行组：短滑系与长滑系只差 SideGestureSettings 的 isLongSlide 姿态。 */
 @Composable
-fun SlideActionRows(
+private fun DirectionalActionRows(
     actionsText: @Composable (GestureDirection) -> String,
     onDirectionClick: (GestureDirection) -> Unit,
+    isLongSlide: Boolean,
     hiddenDirections: Set<GestureDirection> = emptySet(),
 ) {
     val directions = actionCardDirections.filterNot { it in hiddenDirections }
@@ -223,24 +245,7 @@ fun SlideActionRows(
         SideGestureSettings(
             onClick = { onDirectionClick(direction) },
             direction = direction,
-            isLongSlide = false,
-            subtitle = actionsText(direction),
-            shape = actionContentRowShape(index, directions.size),
-        )
-    }
-}
-@Composable
-fun LongSlideActionRows(
-    actionsText: @Composable (GestureDirection) -> String,
-    onDirectionClick: (GestureDirection) -> Unit,
-    hiddenDirections: Set<GestureDirection> = emptySet(),
-) {
-    val directions = actionCardDirections.filterNot { it in hiddenDirections }
-    RowGroup(items = directions) { index, direction ->
-        SideGestureSettings(
-            onClick = { onDirectionClick(direction) },
-            direction = direction,
-            isLongSlide = true,
+            isLongSlide = isLongSlide,
             subtitle = actionsText(direction),
             shape = actionContentRowShape(index, directions.size),
         )
@@ -294,57 +299,34 @@ fun GestureButtonSlideHoldActionsCard(
     onNavToActionSelect: (ActionSelect) -> Unit,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
-) {
-    ExpandableGestureActionCard(
-        icon = Icons.Default.Swipe,
-        title = stringResource(id = R.string.slide_hold_action),
-        expanded = expanded,
-        onExpandedChange = onExpandedChange,
-        index = 2,
-        count = 5,
-    ) {
-        SlideActionRows(
-            hiddenDirections = gestureButton.angle.zeroWidthDirections(),
-            actionsText = { direction -> gestureButton.slideHoldActions.actionBy(direction).actionTextCompose() },
-            onDirectionClick = { direction ->
-                onNavToActionSelect(
-                    ActionSelect(
-                        gestureButtonId = gestureButton.id,
-                        direction = direction,
-                        triggerType = GestureTriggerType.SlideHold,
-                    )
-                )
-            },
-        )
-    }
-}
+) = DirectionalActionCard(
+    gestureButton = gestureButton,
+    onNavToActionSelect = onNavToActionSelect,
+    expanded = expanded,
+    onExpandedChange = onExpandedChange,
+    icon = Icons.Default.Swipe,
+    title = stringResource(id = R.string.slide_hold_action),
+    index = 2,
+    triggerType = GestureTriggerType.SlideHold,
+    isLongSlide = false,
+    actions = gestureButton.slideHoldActions,
+)
+
 @Composable
 fun GestureButtonLongSlideHoldActionsCard(
     gestureButton: GestureButton,
     onNavToActionSelect: (ActionSelect) -> Unit,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
-) {
-    ExpandableGestureActionCard(
-        icon = Icons.Default.Gesture,
-        title = stringResource(id = R.string.long_slide_hold_action),
-        expanded = expanded,
-        onExpandedChange = onExpandedChange,
-        index = 4,
-        count = 5,
-    ) {
-        LongSlideActionRows(
-            hiddenDirections = gestureButton.angle.zeroWidthDirections(),
-            actionsText = { direction -> gestureButton.longSlideHoldActions.actionBy(direction).actionTextCompose() },
-            onDirectionClick = { direction ->
-                onNavToActionSelect(
-                    ActionSelect(
-                        gestureButtonId = gestureButton.id,
-                        direction = direction,
-                        triggerType = GestureTriggerType.LongSlideHold,
-                    )
-                )
-            },
-        )
-    }
-}
+) = DirectionalActionCard(
+    gestureButton = gestureButton,
+    onNavToActionSelect = onNavToActionSelect,
+    expanded = expanded,
+    onExpandedChange = onExpandedChange,
+    icon = Icons.Default.Gesture,
+    title = stringResource(id = R.string.long_slide_hold_action),
+    index = 4,
+    triggerType = GestureTriggerType.LongSlideHold,
+    isLongSlide = true,
+    actions = gestureButton.longSlideHoldActions,
+)

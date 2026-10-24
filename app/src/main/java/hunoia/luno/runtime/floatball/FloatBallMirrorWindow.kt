@@ -1,9 +1,6 @@
 package hunoia.luno.runtime.floatball
 
-import android.annotation.SuppressLint
-import android.graphics.PixelFormat
 import android.util.Log
-import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
@@ -26,11 +23,8 @@ import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.runtime.overlay.safeAddView
-import hunoia.luno.runtime.overlay.safeUpdateViewLayout
 import hunoia.luno.ui.component.gestureButtonMarkColor
-import hunoia.luno.ui.theme.SideGestureTheme
 import kotlin.math.max
-import kotlin.math.roundToInt
 
 /**
  * 主球的对侧镜像分身：钉在对侧边缘的半圆描边（alpha [FloatBallDefaults.MirrorDimAlpha]），独立 2038 小窗。
@@ -116,15 +110,9 @@ class FloatBallMirrorWindow(
         // 不预置的话分身会以全不透明示人（真机反馈「比主球还实」的根因）。
         created.alpha = FloatBallDefaults.MirrorDimAlpha
         snapToMirror()
-        created.post {
-            val attached = view ?: return@post
-            val location = IntArray(2)
-            attached.getLocationOnScreen(location)
-            val measured = location[1] - ((attached.layoutParams as? WindowManager.LayoutParams)?.y ?: 0)
-            if (measured != lpOriginY) {
-                lpOriginY = measured
-                applyWindowBounds()
-            }
+        postMeasureLpOriginY({ view }, { lpOriginY }) {
+            lpOriginY = it
+            applyWindowBounds()
         }
         return true
     }
@@ -142,15 +130,7 @@ class FloatBallMirrorWindow(
 
     private fun applyHiddenFlags() {
         val current = view ?: return
-        val lp = current.layoutParams as? WindowManager.LayoutParams ?: return
-        if (lockHidden) {
-            lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-            lp.alpha = 0f
-        } else {
-            lp.flags = lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-            lp.alpha = 1f
-        }
-        wm.safeUpdateViewLayout(current, lp)
+        applyBallHiddenFlags(current, wm, lockHidden)
     }
 
     // ---- 定位 ----
@@ -196,39 +176,16 @@ class FloatBallMirrorWindow(
 
     private fun applyWindowBounds() {
         val current = view ?: return
-        val lp = current.layoutParams as? WindowManager.LayoutParams ?: return
         val maxY = max(lpOriginY, screenHeightPx - ballPx)
         posY = posY.coerceIn(lpOriginY.toFloat(), maxY.toFloat())
-        val nextX = posX.roundToInt()
-        val nextY = (posY - lpOriginY).roundToInt().coerceAtLeast(0)
-        if (lp.x == nextX && lp.y == nextY) return
-        lp.x = nextX
-        lp.y = nextY
-        wm.safeUpdateViewLayout(current, lp)
+        writeBallPosition(current, wm, posX, posY, lpOriginY)
     }
 
     private fun lpSize(current: View) {
-        current.layoutParams?.let {
-            if (it is WindowManager.LayoutParams) {
-                it.width = ballPx
-                it.height = ballPx
-                wm.safeUpdateViewLayout(current, it)
-            }
-        }
+        applyBallSize(current, wm, ballPx)
     }
 
-    @SuppressLint("RtlHardcoded")
-    private fun createLayoutParams() = WindowManager.LayoutParams().apply {
-        type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        format = PixelFormat.TRANSLUCENT
-        flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-        width = ballPx
-        height = ballPx
-        gravity = Gravity.LEFT or Gravity.TOP
-        x = 0
-        y = 0
-    }
+    private fun createLayoutParams() = ballLayoutParams(ballPx)
 
     // ---- 外观 ----
 
@@ -271,16 +228,7 @@ class FloatBallMirrorWindow(
 
     @Composable
     private fun MirrorContent() {
-        SideGestureTheme {
-            val density = LocalDensity.current
-            val size = with(density) { ballPx.toDp() }
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                MirrorFace(modifier = Modifier.size(size))
-            }
-        }
+        BallWindowContent(ballPx) { size -> MirrorFace(modifier = Modifier.size(size)) }
     }
 
     @Composable

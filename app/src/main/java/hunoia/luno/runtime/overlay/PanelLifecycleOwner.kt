@@ -18,7 +18,7 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
  * 推到 RESUMED 且不随 detach 自动销毁：窗口被系统摘除后重挂时组合要原样复用，
  * 销毁时机由宿主 overlay 控制。不并入球的 owner：球窗只到 CREATED、detach 即销毁。
  */
-internal class PanelLifecycleOwner :
+class PanelLifecycleOwner :
     LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
 
     private val registry = LifecycleRegistry(this)

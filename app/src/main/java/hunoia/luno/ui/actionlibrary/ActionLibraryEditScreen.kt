@@ -13,10 +13,6 @@ import androidx.compose.foundation.verticalScroll
 import hunoia.luno.ui.theme.FloatingContentBottom
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.size
@@ -35,7 +31,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -72,6 +67,7 @@ import hunoia.luno.quicklaunch.query.ActivityOption
 import hunoia.luno.ui.component.sheet.AppPickerSheet
 import hunoia.luno.ui.component.sheet.ButtonPickerSheet
 import hunoia.luno.ui.component.AppSearchBar
+import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.core.AppContext
 import hunoia.luno.service.DispatchClient
@@ -140,28 +136,20 @@ fun ActionLibraryEditScreen(
         bottomContentPadding = FloatingContentBottom,
         floatingContent = { _ ->
             if (draft != null) {
-                // 点击直接保存（无效草稿 toast 提示）；无点击高亮（LocalRippleConfiguration 空）。
-                CompositionLocalProvider(LocalRippleConfiguration provides null) {
-                    FloatingActionButton(
-                        onClick = {
-                            if (draft.isValid) {
-                                vm.save(onSaved = onBack)
-                            } else {
-                                showToast(R.string.action_library_invalid_hint)
-                            }
-                        },
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .windowInsetsPadding(WindowInsets.navigationBars)
-                            .padding(end = 16.dp, bottom = 16.dp)
-                            .size(64.dp),
-                        shape = FloatingActionButtonDefaults.shape,
-                        containerColor = if (draft.isValid) MaterialTheme.colorScheme.primaryContainer
-                        else MaterialTheme.colorScheme.surfaceContainerHighest,
-                    ) {
-                        Icon(imageVector = Icons.Default.Save, contentDescription = stringResource(R.string.save))
-                    }
-                }
+                // 点击直接保存（无效草稿 toast 提示）。
+                LunoFab(
+                    onClick = {
+                        if (draft.isValid) {
+                            vm.save(onSaved = onBack)
+                        } else {
+                            showToast(R.string.action_library_invalid_hint)
+                        }
+                    },
+                    icon = Icons.Default.Save,
+                    contentDescription = stringResource(R.string.save),
+                    containerColor = if (draft.isValid) MaterialTheme.colorScheme.primaryContainer
+                    else MaterialTheme.colorScheme.surfaceContainerHighest,
+                )
                 if (draft.typeId == "shell.custom" && (shellResult != null || shellRunning)) {
                     ShellResultCard(
                         loading = shellRunning,

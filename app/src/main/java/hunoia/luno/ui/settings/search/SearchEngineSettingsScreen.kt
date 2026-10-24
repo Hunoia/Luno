@@ -1,51 +1,30 @@
 package hunoia.luno.ui.settings.search
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.bridge.system.copyText
@@ -63,7 +42,11 @@ import hunoia.luno.config.model.effectiveLaunch
 import hunoia.luno.config.model.effectiveTrigger
 import hunoia.luno.quicklaunch.query.SearchSourceRegistry
 import kotlinx.coroutines.launch
+import hunoia.luno.ui.component.DragReorderHandle
+import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.TextIcon
+import hunoia.luno.ui.component.dragReorderPlacement
+import hunoia.luno.ui.component.rememberDragReorderState
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -155,54 +138,25 @@ fun SearchEngineSettingsScreen(
         }
     }
     val listState = rememberLazyListState()
-    // 拖动排序草稿（与动作面板编辑页同一套）：null = 跟随配置，非 null = 拖动中的本地顺序。
-    var pendingEngines by remember { mutableStateOf<List<SearchEngine>?>(null) }
-    var draggingIndex by remember { mutableStateOf<Int?>(null) }
-    var dragOffset by remember { mutableFloatStateOf(0f) }
-    var dragRowHeight by remember { mutableFloatStateOf(0f) }
-    val itemHeights = remember { mutableStateMapOf<Int, Float>() }
-    val engines = pendingEngines ?: configEngines
+    // 拖动排序草稿由 DragReorderState 持有（与动作面板编辑页同一套）：null = 跟随配置，松手才落盘。
+    val reorder = rememberDragReorderState<SearchEngine>(
+        current = { configEngines },
+        onCommit = { finalEngines ->
+            // 把草稿的完整 id 顺序写入 engineOrder，主引擎 = 第一位。
+            update { current -> current.copy(engineOrder = finalEngines.map { it.id }) }
+        },
+    )
+    val engines = reorder.items
     // 配置到位（拖拽已结束）后草稿退回跟随，避免编辑/删除/导入后残留旧顺序。
     LaunchedEffect(configEngines) {
-        if (draggingIndex == null) pendingEngines = null
+        reorder.syncWithCurrent()
     }
-    /** 松手落盘：把草稿的完整 id 顺序写入 engineOrder，主引擎 = 第一位。 */
-    fun finishDrag() {
-        val finalEngines = pendingEngines
-        draggingIndex = null
-        dragOffset = 0f
-        if (finalEngines != null && finalEngines != configEngines) {
-            update { current ->
-                current.copy(engineOrder = finalEngines.map { it.id })
-            }
-        }
-    }
-    fun cancelDrag() {
-        draggingIndex = null
-        dragOffset = 0f
-        pendingEngines = null
-    }
-    // FAB 与网格面板页同一套：64dp、primaryContainer、无 ripple、避让导航栏。
     val addFab: @Composable () -> Unit = {
-        Box(modifier = Modifier.fillMaxSize()) {
-            CompositionLocalProvider(LocalRippleConfiguration provides null) {
-                FloatingActionButton(
-                    onClick = { onNavToEdit("") },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .windowInsetsPadding(WindowInsets.navigationBars)
-                        .padding(end = 16.dp, bottom = 16.dp)
-                        .size(64.dp),
-                    shape = FloatingActionButtonDefaults.shape,
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = stringResource(R.string.search_engine_add),
-                    )
-                }
-            }
-        }
+        LunoFab(
+            onClick = { onNavToEdit("") },
+            icon = Icons.Default.Add,
+            contentDescription = stringResource(R.string.search_engine_add),
+        )
     }
     LunoScreenLazy(
         title = stringResource(R.string.search_engine_settings),
@@ -260,8 +214,6 @@ fun SearchEngineSettingsScreen(
                     // 引擎行（与动作面板编辑页同一套交互）：点行进编辑页，行尾删除按钮，
                     // 按住手柄只改本地草稿顺序（半行高阈值换位 + 跟手位移），松手才落盘。
                     engines.forEachIndexed { index, engine ->
-                        val isDragging = draggingIndex == index
-                        val dragHandleInteraction = remember { MutableInteractionSource() }
                         val launch = engine.effectiveLaunch()
                         val template = when (launch) {
                             is SearchLaunch.Url -> launch.template
@@ -291,12 +243,7 @@ fun SearchEngineSettingsScreen(
                                 launchLabel.takeIf { it.isNotBlank() },
                                 template.takeIf { it.isNotBlank() },
                             ).joinToString(" · "),
-                            modifier = Modifier
-                                .zIndex(if (isDragging) 1f else 0f)
-                                .graphicsLayer {
-                                    translationY = if (isDragging) dragOffset else 0f
-                                }
-                                .onGloballyPositioned { itemHeights[index] = it.size.height.toFloat() },
+                            modifier = Modifier.dragReorderPlacement(reorder, index),
                             onClick = { onNavToEdit(engine.id) },
                             trailing = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -308,67 +255,12 @@ fun SearchEngineSettingsScreen(
                                             modifier = Modifier.size(RowIconSize),
                                         )
                                     }
-                                    Box(
-                                        modifier = Modifier
-                                            .size(48.dp)
-                                            .pointerInput(configEngines) {
-                                                detectDragGestures(
-                                                    onDragStart = {
-                                                        draggingIndex = index
-                                                        dragOffset = 0f
-                                                        dragRowHeight = itemHeights[index]
-                                                            ?: with(density) { 72.dp.toPx() }
-                                                    },
-                                                    onDrag = { change, dragAmount ->
-                                                        change.consume()
-                                                        var idx = draggingIndex
-                                                            ?: return@detectDragGestures
-                                                        dragOffset += dragAmount.y
-                                                        val rowHeight =
-                                                            dragRowHeight.coerceAtLeast(1f)
-                                                        while (
-                                                            dragOffset > rowHeight / 2f &&
-                                                            idx < (pendingEngines ?: configEngines).lastIndex
-                                                        ) {
-                                                            val list = (pendingEngines ?: configEngines)
-                                                                .toMutableList()
-                                                            list.add(idx + 1, list.removeAt(idx))
-                                                            pendingEngines = list
-                                                            dragOffset -= rowHeight
-                                                            idx += 1
-                                                        }
-                                                        while (
-                                                            dragOffset < -rowHeight / 2f &&
-                                                            idx > 0
-                                                        ) {
-                                                            val list = (pendingEngines ?: configEngines)
-                                                                .toMutableList()
-                                                            list.add(idx - 1, list.removeAt(idx))
-                                                            pendingEngines = list
-                                                            dragOffset += rowHeight
-                                                            idx -= 1
-                                                        }
-                                                        draggingIndex = idx
-                                                    },
-                                                    onDragEnd = { finishDrag() },
-                                                    onDragCancel = { cancelDrag() },
-                                                )
-                                            }
-                                            // 吞掉点击：按手柄不应触发整行的「进入编辑」。
-                                            .clickable(
-                                                interactionSource = dragHandleInteraction,
-                                                indication = null,
-                                                onClick = {},
-                                            ),
-                                    contentAlignment = Alignment.Center,
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.DragHandle,
-                                            contentDescription = stringResource(R.string.search_engine_drag),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(RowIconSize),
-                                        )
-                                    }
+                                    DragReorderHandle(
+                                        reorder,
+                                        index,
+                                        stringResource(R.string.search_engine_drag),
+                                        configEngines,
+                                    )
                                 }
                             },
                             shape = segmentedShape(index, engines.size),

@@ -1,39 +1,17 @@
 package hunoia.luno.ui.settings.action.panel
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.RadioButtonChecked
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalRippleConfiguration
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.ui.component.feedback.EmptyState
-import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.component.screen.LunoScreen
-import hunoia.luno.ui.component.screen.LunoScreenLazy
-import hunoia.luno.ui.theme.FloatingContentBottom
+import hunoia.luno.ui.component.screen.PanelListRow
+import hunoia.luno.ui.component.screen.PanelListScreen
 import kotlinx.coroutines.launch
 
 /**
@@ -52,7 +30,6 @@ fun ActionPanelListScreen(
     val actionSettings by TuneConfig.action
         .collectAsStateWithLifecycle(initialValue = ActionSettings())
     val panels = actionSettings.actionPanels.panels
-    val listState = rememberLazyListState()
 
     fun createPanel() {
         scope.launch {
@@ -62,58 +39,20 @@ fun ActionPanelListScreen(
         }
     }
 
-    val addFab: @Composable () -> Unit = {
-        Box(modifier = Modifier.fillMaxSize()) {
-            CompositionLocalProvider(LocalRippleConfiguration provides null) {
-                FloatingActionButton(
-                    onClick = { createPanel() },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .windowInsetsPadding(WindowInsets.navigationBars)
-                        .padding(end = 16.dp, bottom = 16.dp)
-                        .size(64.dp),
-                    shape = FloatingActionButtonDefaults.shape,
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = stringResource(R.string.add_action_panel),
-                    )
-                }
-            }
-        }
-    }
-
-    if (panels.isEmpty()) {
-        LunoScreen(
-            title = stringResource(R.string.action_panels),
-            onBack = onBack,
-            bottomContentPadding = FloatingContentBottom,
-            floatingContent = { addFab() },
-        ) {
-            EmptyState(message = stringResource(R.string.action_panel_empty_hint))
-        }
-        return
-    }
-
-    LunoScreenLazy(
+    PanelListScreen(
         title = stringResource(R.string.action_panels),
         onBack = onBack,
-        state = listState,
-        bottomContentPadding = FloatingContentBottom,
-        floatingContent = addFab,
-    ) {
-        item {
-            LunoGroup {
-                panels.forEach { panel ->
-                    LunoSettingsRow(
-                        icon = Icons.Default.RadioButtonChecked,
-                        title = panel.name.ifBlank { stringResource(R.string.action_panel_unnamed) },
-                        subtitle = stringResource(R.string.action_panel_items_count, panel.items.size),
-                        onClick = { onEditPanel(panel.id) },
-                    )
-                }
-            }
-        }
-    }
+        emptyHint = stringResource(R.string.action_panel_empty_hint),
+        addLabel = stringResource(R.string.add_action_panel),
+        rowIcon = Icons.Default.RadioButtonChecked,
+        rows = panels.map { panel ->
+            PanelListRow(
+                id = panel.id,
+                title = panel.name.ifBlank { stringResource(R.string.action_panel_unnamed) },
+                subtitle = stringResource(R.string.action_panel_items_count, panel.items.size),
+            )
+        },
+        onEditPanel = onEditPanel,
+        onCreate = { createPanel() },
+    )
 }

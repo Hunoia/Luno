@@ -1,26 +1,17 @@
 package hunoia.luno.ui.automation
 import android.os.SystemClock
 import android.util.Log
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.LocalRippleConfiguration
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,11 +22,9 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -58,6 +47,7 @@ import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.LargeShape
 import kotlinx.coroutines.launch
+import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.row.LunoGroup
@@ -213,25 +203,14 @@ fun AutomationEditScreen(
         },
         bottomContentPadding = FloatingContentBottom,
         floatingContent = { _ ->
-            // 标准 M3 FAB：点击直接保存（无效配置弹拦截框）；dirty 时主容器色提示未保存；无点击高亮。
-            CompositionLocalProvider(LocalRippleConfiguration provides null) {
-                FloatingActionButton(
-                    onClick = { trySave() },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .windowInsetsPadding(WindowInsets.navigationBars)
-                        .padding(end = 16.dp, bottom = 16.dp)
-                        .size(64.dp),
-                    shape = FloatingActionButtonDefaults.shape,
-                    containerColor = if (dirty) MaterialTheme.colorScheme.primaryContainer
-                    else MaterialTheme.colorScheme.surfaceContainerHighest,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Save,
-                        contentDescription = stringResource(R.string.save),
-                    )
-                }
-            }
+            // 标准 M3 FAB：点击直接保存（无效配置弹拦截框）；dirty 时主容器色提示未保存。
+            LunoFab(
+                onClick = { trySave() },
+                icon = Icons.Default.Save,
+                contentDescription = stringResource(R.string.save),
+                containerColor = if (dirty) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surfaceContainerHighest,
+            )
         },
         dialogs = {
             if (showBlockedDialog) {

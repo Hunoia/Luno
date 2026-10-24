@@ -75,13 +75,13 @@ class GestureButtonSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeV
         }
     }
 
-    fun onGestureButtonWidthChange(width: Float) {
+    /** 拖动调整的 live 更新：同 [updateButtonLive]，另置 adjusting 标志（落盘等 onGestureButtonAdjustFinish）。 */
+    private fun updateBoundsLive(fieldUpdate: GestureButton.() -> GestureButton) {
         updateUiState {
             val l = it.gestureButtons.toMutableList().also { list ->
                 list.forEachIndexed { index, b ->
                     if (b.id == gestureButtonSettings.buttonId) {
-                        val maxWidth = maxGestureButtonWidth(b)
-                        list[index] = b.copy(bounds = b.bounds.copy(width = width.coerceIn(MinGestureButtonLength, maxWidth)))
+                        list[index] = b.fieldUpdate()
                     }
                 }
             }
@@ -92,53 +92,20 @@ class GestureButtonSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeV
         }
     }
 
-    fun onGestureButtonHeightChange(height: Float) {
-        updateUiState {
-            val l = it.gestureButtons.toMutableList().also { list ->
-                list.forEachIndexed { index, b ->
-                    if (b.id == gestureButtonSettings.buttonId) {
-                        val maxHeight = maxGestureButtonHeight(b)
-                        list[index] = b.copy(bounds = b.bounds.copy(height = height.coerceIn(MinGestureButtonLength, maxHeight)))
-                    }
-                }
-            }
-            it.copy(
-                gestureButtons = l,
-                isGestureButtonAdjusting = true
-            )
-        }
+    fun onGestureButtonWidthChange(width: Float) = updateBoundsLive {
+        copy(bounds = bounds.copy(width = width.coerceIn(MinGestureButtonLength, maxGestureButtonWidth(this))))
     }
 
-    fun onGestureButtonXChange(x: Float) {
-        updateUiState {
-            val l = it.gestureButtons.toMutableList().also { list ->
-                list.forEachIndexed { index, b ->
-                    if (b.id == gestureButtonSettings.buttonId) {
-                        list[index] = b.copy(bounds = b.bounds.copy(x = x.coerceIn(0f, (1f - b.bounds.width).coerceAtLeast(0f))))
-                    }
-                }
-            }
-            it.copy(
-                gestureButtons = l,
-                isGestureButtonAdjusting = true
-            )
-        }
+    fun onGestureButtonHeightChange(height: Float) = updateBoundsLive {
+        copy(bounds = bounds.copy(height = height.coerceIn(MinGestureButtonLength, maxGestureButtonHeight(this))))
     }
 
-    fun onGestureButtonYChange(y: Float) {
-        updateUiState {
-            val l = it.gestureButtons.toMutableList().also { list ->
-                list.forEachIndexed { index, b ->
-                    if (b.id == gestureButtonSettings.buttonId) {
-                        list[index] = b.copy(bounds = b.bounds.copy(y = y.coerceIn(0f, (1f - b.bounds.height).coerceAtLeast(0f))))
-                    }
-                }
-            }
-            it.copy(
-                gestureButtons = l,
-                isGestureButtonAdjusting = true
-            )
-        }
+    fun onGestureButtonXChange(x: Float) = updateBoundsLive {
+        copy(bounds = bounds.copy(x = x.coerceIn(0f, (1f - bounds.width).coerceAtLeast(0f))))
+    }
+
+    fun onGestureButtonYChange(y: Float) = updateBoundsLive {
+        copy(bounds = bounds.copy(y = y.coerceIn(0f, (1f - bounds.height).coerceAtLeast(0f))))
     }
 
     fun onGestureButtonAdjustFinish() {
@@ -192,22 +159,7 @@ class GestureButtonSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeV
     fun onSlideHoldTriggerDelayMsChange(value: Float) = updateButtonLive { copy(slideHoldTriggerDelayMs = value.toLong()) }
     fun onLongSlideHoldTriggerDelayMsChange(value: Float) = updateButtonLive { copy(longSlideHoldTriggerDelayMs = value.toLong()) }
 
-    fun onGestureButtonMirrorHorizontalChange(value: Boolean) {
-        updateUiState {
-            val button = it.gestureButton
-            val list = if (button == null) it.gestureButtons else {
-                it.gestureButtons.toMutableList().apply {
-                    forEachIndexed { index, b ->
-                        if (button.id == b.id) {
-                            set(index, b.copy(mirrorHorizontal = value))
-                        }
-                    }
-                }
-            }
-            it.copy(gestureButtons = list)
-        }
-        saveSettings()
-    }
+    fun onGestureButtonMirrorHorizontalChange(value: Boolean) = updateButton { copy(mirrorHorizontal = value) }
 
     fun saveSettings() {
         viewModelScope.launch {

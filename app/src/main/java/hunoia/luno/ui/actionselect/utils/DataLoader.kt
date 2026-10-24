@@ -20,6 +20,7 @@ import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.config.model.derivedPageCount
 import hunoia.luno.config.model.effectiveGridRows
 import hunoia.luno.config.model.GridCell
+import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.config.model.GridPanelItemLayout
 import hunoia.luno.core.AppContext
@@ -155,25 +156,12 @@ private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: Stored
             outcome = SaveOutcome.TargetMissing
             return@updateAction settings
         }
-        val landscape = AppContext.get().resources.configuration.orientation ==
-            android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        val geo = panel.geometry(landscape)
-        val columns = geo.columnCount.coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
-        val pageIndex = actionSelect.gridPanelPageIndex.coerceIn(0, panel.derivedPageCount)
-        val pageOccupied = panel.items.filter { it.pageIndex == pageIndex }.maxOfOrNull { it.bottom } ?: 0
-        val rows = panel.effectiveGridRows(
-            pageIndex,
-            gridPanelVisibleRows(
-                screenWdp = AppContext.get().resources.configuration.screenWidthDp.toFloat(),
-                screenHdp = AppContext.get().resources.configuration.screenHeightDp.toFloat(),
-                columns = columns,
-                cardWidthFraction = geo.cardWidthFraction,
-                cardHeightFraction = geo.cardHeightFraction,
-            ),
-        ).coerceAtLeast(pageOccupied + 1) // 行数无上限：永远多留一行装 1×1 动作项
+        val ctx = gridContext(panel, actionSelect.gridPanelPageIndex)
+        val pageOccupied = panel.items.filter { it.pageIndex == ctx.pageIndex }.maxOfOrNull { it.bottom } ?: 0
+        val rows = ctx.rows.coerceAtLeast(pageOccupied + 1) // 行数无上限：永远多留一行装 1×1 动作项
         val free = GridPanelItemLayout.firstFreeSlot(
-            items = panel.items.filter { it.pageIndex == pageIndex },
-            columns = columns,
+            items = panel.items.filter { it.pageIndex == ctx.pageIndex },
+            columns = ctx.columns,
             rows = rows,
             spanX = 1,
             spanY = 1,
@@ -185,7 +173,7 @@ private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: Stored
                     items = panel.items + GridPanelItem(
                         x = free.x,
                         y = free.y,
-                        pageIndex = pageIndex,
+                        pageIndex = ctx.pageIndex,
                         kind = GridPanelItem.Kind.Action(listOf(picked.withoutVariantKey())),
                     ),
                 ),
@@ -222,6 +210,63 @@ private fun bottomSlot(
     return null
 }
 
+/** 网格落盘函数共享的落点上下文：横竖屏 → geometry → 列数夹取 → 页码夹取 → 有效行数。 */
+private data class GridContext(val columns: Int, val pageIndex: Int, val rows: Int)
+
+private fun gridContext(panel: GridPanel, requestedPageIndex: Int): GridContext {
+    val configuration = AppContext.get().resources.configuration
+    val landscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val geo = panel.geometry(landscape)
+    val columns = geo.columnCount.coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
+    val pageIndex = requestedPageIndex.coerceIn(0, panel.derivedPageCount)
+    return GridContext(
+        columns = columns,
+        pageIndex = pageIndex,
+        rows = panel.effectiveGridRows(
+            pageIndex,
+            gridPanelVisibleRows(
+                screenWdp = configuration.screenWidthDp.toFloat(),
+                screenHdp = configuration.screenHeightDp.toFloat(),
+                columns = columns,
+                cardWidthFraction = geo.cardWidthFraction,
+                cardHeightFraction = geo.cardHeightFraction,
+            ),
+        ),
+    )
+}
+
+/**
+ * 降格序列与拖拽的重排思路分开：加项只填空（firstFreeSlot），放不下自动降档
+ * 占更小的空位 —— 重排是编辑态拖拽的语义，加项不该惊动已有项。
+ * 面积从大到小逐档试，返回首个放得下的（格子，实际 span）。
+ */
+private fun degradeSlot(
+    pageItems: List<GridPanelItem>,
+    columns: Int,
+    rows: Int,
+    spanX: Int,
+    spanY: Int,
+): Pair<GridCell, WidgetSpan>? {
+    val candidates = buildList {
+        for (h in spanY downTo 1) {
+            for (w in spanX downTo 1) {
+                add(WidgetSpan(w, h))
+            }
+        }
+    }.sortedByDescending { it.spanX * it.spanY }.distinct()
+    for (span in candidates) {
+        val cell = GridPanelItemLayout.firstFreeSlot(
+            items = pageItems,
+            columns = columns,
+            rows = rows,
+            spanX = span.spanX,
+            spanY = span.spanY,
+        ) ?: continue
+        return cell to span
+    }
+    return null
+}
+
 /** 行数派生且追加无上限：结果只有「存进去了」和「面板不存在」两种。 */
 internal enum class GridPanelSaveResult { Saved, NoPanel }
 
@@ -243,26 +288,11 @@ internal suspend fun saveGridPanelWidget(
             "available=${settings.actionGridPanels.panels.map { it.id to it.name }} select=${actionSelect}")
             return@updateAction settings
         }
-        val landscape = AppContext.get().resources.configuration.orientation ==
-            android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        val geo = panel.geometry(landscape)
-        val columns = geo.columnCount
-            .coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
-        val pageIndex = actionSelect.gridPanelPageIndex.coerceIn(0, panel.derivedPageCount)
-        val rows = panel.effectiveGridRows(
-            pageIndex,
-            gridPanelVisibleRows(
-                screenWdp = AppContext.get().resources.configuration.screenWidthDp.toFloat(),
-                screenHdp = AppContext.get().resources.configuration.screenHeightDp.toFloat(),
-                columns = columns,
-                cardWidthFraction = geo.cardWidthFraction,
-                cardHeightFraction = geo.cardHeightFraction,
-            ),
-        )
-        val pageItems = panel.items.filter { it.pageIndex == pageIndex }
+        val ctx = gridContext(panel, actionSelect.gridPanelPageIndex)
+        val pageItems = panel.items.filter { it.pageIndex == ctx.pageIndex }
         // 追加优先：原尺寸先试「放到最下面」；实在不行才走降档扫空位兜底。
         // 行数派生且无上限：追加时把 rows 抬到装得下，运行态页面随内容长高。
-        bottomSlot(pageItems, columns, maxOf(rows, pageItems.maxOfOrNull { it.bottom } ?: 0), spanX, spanY)?.let { cell ->
+        bottomSlot(pageItems, ctx.columns, maxOf(ctx.rows, pageItems.maxOfOrNull { it.bottom } ?: 0), spanX, spanY)?.let { cell ->
             result = GridPanelSaveResult.Saved
             return@updateAction settings.copy(
                 actionGridPanels = settings.actionGridPanels.withPanel(
@@ -272,7 +302,7 @@ internal suspend fun saveGridPanelWidget(
                             y = cell.y,
                             spanX = spanX,
                             spanY = spanY,
-                            pageIndex = pageIndex,
+                            pageIndex = ctx.pageIndex,
                             kind = GridPanelItem.Kind.AppWidget(
                                 appWidgetId = appWidgetId,
                                 provider = provider,
@@ -284,24 +314,7 @@ internal suspend fun saveGridPanelWidget(
                 ),
             )
         }
-        // 降格序列与拖拽的重排思路分开：加项只填空（firstFreeSlot），放不下自动降档
-        // 占更小的空位 —— 重排是编辑态拖拽的语义，加项不该惊动已有项。
-        val candidates = buildList {
-            for (h in spanY downTo 1) {
-                for (w in spanX downTo 1) {
-                    add(WidgetSpan(w, h))
-                }
-            }
-        }.sortedByDescending { it.spanX * it.spanY }
-            .distinct()
-        for (span in candidates) {
-            val cell = GridPanelItemLayout.firstFreeSlot(
-                items = pageItems,
-                columns = columns,
-                rows = rows,
-                spanX = span.spanX,
-                spanY = span.spanY,
-            ) ?: continue
+        degradeSlot(pageItems, ctx.columns, ctx.rows, spanX, spanY)?.let { (cell, span) ->
             result = GridPanelSaveResult.Saved
             // 必须 return copy 的结果本身：return 原 settings 会让落盘形同没写。
             return@updateAction settings.copy(
@@ -312,7 +325,7 @@ internal suspend fun saveGridPanelWidget(
                             y = cell.y,
                             spanX = span.spanX,
                             spanY = span.spanY,
-                            pageIndex = pageIndex,
+                            pageIndex = ctx.pageIndex,
                             kind = GridPanelItem.Kind.AppWidget(
                                 appWidgetId = appWidgetId,
                                 provider = provider,
@@ -355,25 +368,10 @@ internal suspend fun saveGridPanelInternalWidget(
             android.util.Log.w("GridPanelSave", "internal: panel not found id=${actionSelect.gridPanelId}")
             return@updateAction settings
         }
-        val landscape = AppContext.get().resources.configuration.orientation ==
-            android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        val geo = panel.geometry(landscape)
-        val columns = geo.columnCount
-            .coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
-        val pageIndex = actionSelect.gridPanelPageIndex.coerceIn(0, panel.derivedPageCount)
-        val rows = panel.effectiveGridRows(
-            pageIndex,
-            gridPanelVisibleRows(
-                screenWdp = AppContext.get().resources.configuration.screenWidthDp.toFloat(),
-                screenHdp = AppContext.get().resources.configuration.screenHeightDp.toFloat(),
-                columns = columns,
-                cardWidthFraction = geo.cardWidthFraction,
-                cardHeightFraction = geo.cardHeightFraction,
-            ),
-        )
-        val pageItems = panel.items.filter { it.pageIndex == pageIndex }
+        val ctx = gridContext(panel, actionSelect.gridPanelPageIndex)
+        val pageItems = panel.items.filter { it.pageIndex == ctx.pageIndex }
         // 追加优先：原尺寸先试「放到最下面」；行数无上限，追加时同步抬 rows。
-        bottomSlot(pageItems, columns, maxOf(rows, pageItems.maxOfOrNull { it.bottom } ?: 0), def.spanX, def.spanY)?.let { cell ->
+        bottomSlot(pageItems, ctx.columns, maxOf(ctx.rows, pageItems.maxOfOrNull { it.bottom } ?: 0), def.spanX, def.spanY)?.let { cell ->
             result = GridPanelSaveResult.Saved
             return@updateAction settings.copy(
                 actionGridPanels = settings.actionGridPanels.withPanel(
@@ -383,28 +381,14 @@ internal suspend fun saveGridPanelInternalWidget(
                             y = cell.y,
                             spanX = def.spanX,
                             spanY = def.spanY,
-                            pageIndex = pageIndex,
+                            pageIndex = ctx.pageIndex,
                             kind = GridPanelItem.Kind.Internal(widgetId = widgetId, showBackground = false),
                         ),
                     ),
                 ),
             )
         }
-        val candidates = buildList {
-            for (h in def.spanY downTo 1) {
-                for (w in def.spanX downTo 1) {
-                    add(WidgetSpan(w, h))
-                }
-            }
-        }.sortedByDescending { it.spanX * it.spanY }.distinct()
-        for (span in candidates) {
-            val cell = GridPanelItemLayout.firstFreeSlot(
-                items = pageItems,
-                columns = columns,
-                rows = rows,
-                spanX = span.spanX,
-                spanY = span.spanY,
-            ) ?: continue
+        degradeSlot(pageItems, ctx.columns, ctx.rows, def.spanX, def.spanY)?.let { (cell, span) ->
             result = GridPanelSaveResult.Saved
             return@updateAction settings.copy(
                 actionGridPanels = settings.actionGridPanels.withPanel(
@@ -414,7 +398,7 @@ internal suspend fun saveGridPanelInternalWidget(
                             y = cell.y,
                             spanX = span.spanX,
                             spanY = span.spanY,
-                            pageIndex = pageIndex,
+                            pageIndex = ctx.pageIndex,
                             kind = GridPanelItem.Kind.Internal(widgetId = widgetId, showBackground = false),
                         ),
                     ),

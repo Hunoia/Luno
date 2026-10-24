@@ -4,28 +4,19 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalRippleConfiguration
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,7 +26,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.config.model.ActionSettings
@@ -47,6 +37,7 @@ import hunoia.luno.quicklaunch.model.icon
 import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import hunoia.luno.ui.component.AppSearchBar
+import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LoadingState
 import hunoia.luno.ui.component.feedback.LunoIconButton
@@ -159,25 +150,11 @@ fun RecentAppsBlocklistScreen(
             }
         },
         floatingContent = {
-            Box(modifier = Modifier.fillMaxSize()) {
-                CompositionLocalProvider(LocalRippleConfiguration provides null) {
-                    FloatingActionButton(
-                        onClick = { confirm() },
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .windowInsetsPadding(WindowInsets.navigationBars)
-                            .padding(end = 16.dp, bottom = 16.dp)
-                            .size(64.dp),
-                        shape = FloatingActionButtonDefaults.shape,
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Save,
-                            contentDescription = stringResource(R.string.confirm),
-                        )
-                    }
-                }
-            }
+            LunoFab(
+                onClick = { confirm() },
+                icon = Icons.Default.Save,
+                contentDescription = stringResource(R.string.confirm),
+            )
         },
     ) { topPadding, _ ->
         Column(
