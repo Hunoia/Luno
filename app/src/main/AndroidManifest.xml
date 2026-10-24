@@ -191,6 +191,17 @@
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <!-- 应用更新（adb install -r / 商店更新）后恢复常驻前台服务：
+             包被替换时系统会「停止」包内服务，START_STICKY 的重启承诺只在进程被杀时生效，
+             更新后没有别的路径会拉起悬浮球（现象：装完新版悬浮球消失）。 -->
+        <receiver
+            android:name=".service.PackageReplacedReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

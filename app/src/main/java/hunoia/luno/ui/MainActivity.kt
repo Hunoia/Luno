@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import hunoia.luno.service.ServiceAutoStart
 import hunoia.luno.ui.SideGestureApp
 
 class MainActivity : ComponentActivity() {
@@ -36,6 +37,10 @@ class MainActivity : ComponentActivity() {
         myEnableEdgeToEdge()
         super.onCreate(savedInstanceState)
         requestNotificationPermissionIfNeeded()
+
+        // 更新/重启后的恢复广播可能被 ROM 的自启动管控拦下（接收器跑不到），
+        // 主进程随本 Activity 启动时按落盘配置兜底恢复常驻服务，进程内只做一次。
+        ServiceAutoStart.restoreOnce(applicationContext)
 
         setContent {
             val created = rememberNavController()
