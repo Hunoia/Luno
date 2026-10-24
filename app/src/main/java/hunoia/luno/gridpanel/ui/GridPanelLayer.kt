@@ -45,6 +45,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import hunoia.luno.R
 import hunoia.luno.config.model.GridCell
 import hunoia.luno.config.model.GridPanelItem
@@ -260,6 +262,20 @@ fun GridPanelLayer(
                             Box(
                                 Modifier
                                     .fillMaxSize()
+                                    // 内置部件的触摸（滑杆/按钮）不属于「部件点击」：
+                                    // 取消第三方部件留下的拉起候选，防止之后音量变化
+                                    // 触发的前台包变化误关面板。
+                                    .pointerInput(Unit) {
+                                        awaitPointerEventScope {
+                                            while (true) {
+                                                val event = awaitPointerEvent()
+                                                if (event.type == PointerEventType.Press) {
+                                                    hunoia.luno.gridpanel.widget.PanelAppWidgetHostView
+                                                        .clearTapCandidate()
+                                                }
+                                            }
+                                        }
+                                    }
                                     .then(
                                         if (kind.showBackground) {
                                             Modifier

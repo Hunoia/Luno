@@ -161,6 +161,7 @@ private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: Stored
         val geo = panel.geometry(landscape)
         val columns = geo.columnCount.coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
         val pageIndex = actionSelect.gridPanelPageIndex.coerceIn(0, panel.derivedPageCount)
+        val pageOccupied = panel.items.filter { it.pageIndex == pageIndex }.maxOfOrNull { it.bottom } ?: 0
         val rows = panel.effectiveGridRows(
             pageIndex,
             gridPanelVisibleRows(
@@ -170,7 +171,7 @@ private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: Stored
                 cardWidthFraction = geo.cardWidthFraction,
                 cardHeightFraction = geo.cardHeightFraction,
             ),
-        )
+        ).coerceAtLeast(pageOccupied + 1) // 行数无上限：永远多留一行装 1×1 动作项
         val free = GridPanelItemLayout.firstFreeSlot(
             items = panel.items.filter { it.pageIndex == pageIndex },
             columns = columns,
@@ -197,7 +198,10 @@ private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: Stored
 
 /**
  * 追加语义的落点：新项放到本页已占内容正下方（y = max(bottom)），宽度不满整行时
- * 在那一行内从左往右找空位，被同排项挡住则顺延下一行。全放不下返回 null，走降档兜底。
+ * 在那一行内从左往右找空位，被同排项挡住则顺延下一行。
+ * [rows] 是「塞进现有网格空隙」的上限；越界参数用 [extendTo] 传底部追加的
+ * 最小需求（占位行数无上限），rows 会被抬到至少装得下 —— 页面行数是派生的，
+ * 追加永远能往下撑，不该出现「放不下」。
  */
 private fun bottomSlot(
     items: List<GridPanelItem>,
@@ -207,7 +211,8 @@ private fun bottomSlot(
     spanY: Int,
 ): GridCell? {
     var y = items.maxOfOrNull { it.bottom } ?: 0
-    while (y + spanY <= rows) {
+    val effectiveRows = maxOf(rows, y + spanY)
+    while (y + spanY <= effectiveRows) {
         for (x in 0..(columns - spanX)) {
             val clash = items.any {
                 it.x < x + spanX && x < it.right && it.y < y + spanY && y < it.bottom
@@ -220,7 +225,8 @@ private fun bottomSlot(
 }
 
 /** 落盘结果：区分「面板不存在」和「真放不下」，两者给用户的提示不同。 */
-internal enum class GridPanelSaveResult { Saved, PageFull, NoPanel }
+/** 行数派生且追加无上限：结果只有「存进去了」和「面板不存在」两种。 */
+internal enum class GridPanelSaveResult { Saved, NoPanel }
 
 /**
  * 第三方小部件落盘：原尺寸先追加到底部，放不下则面积从大到小逐档降格填空。
@@ -258,7 +264,8 @@ internal suspend fun saveGridPanelWidget(
         )
         val pageItems = panel.items.filter { it.pageIndex == pageIndex }
         // 追加优先：原尺寸先试「放到最下面」；实在不行才走降档扫空位兜底。
-        bottomSlot(pageItems, columns, rows, spanX, spanY)?.let { cell ->
+        // 行数派生且无上限：追加时把 rows 抬到装得下，运行态页面随内容长高。
+        bottomSlot(pageItems, columns, maxOf(rows, pageItems.maxOfOrNull { it.bottom } ?: 0), spanX, spanY)?.let { cell ->
             result = GridPanelSaveResult.Saved
             return@updateAction settings.copy(
                 actionGridPanels = settings.actionGridPanels.withPanel(
@@ -368,8 +375,8 @@ internal suspend fun saveGridPanelInternalWidget(
             ),
         )
         val pageItems = panel.items.filter { it.pageIndex == pageIndex }
-        // 追加优先：原尺寸先试「放到最下面」。
-        bottomSlot(pageItems, columns, rows, def.spanX, def.spanY)?.let { cell ->
+        // 追加优先：原尺寸先试「放到最下面」；行数无上限，追加时同步抬 rows。
+        bottomSlot(pageItems, columns, maxOf(rows, pageItems.maxOfOrNull { it.bottom } ?: 0), def.spanX, def.spanY)?.let { cell ->
             result = GridPanelSaveResult.Saved
             return@updateAction settings.copy(
                 actionGridPanels = settings.actionGridPanels.withPanel(

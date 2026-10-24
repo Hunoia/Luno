@@ -30,7 +30,8 @@ private const val ResizeSettleMillis = 400
  */
 @Stable
 class GridPanelState(
-    private val metricsProvider: () -> GridMetrics,
+    /** 按页取几何：各页行数不同（页内占用各自上撑），拖拽/缩放钳制必须认当前页。 */
+    private val metricsProvider: (Int) -> GridMetrics,
     private val pageItemsProvider: (Int) -> List<GridPanelItem>,
     private val onHaptic: () -> Unit,
     private val commitPage: (Int, List<GridPanelItem>) -> Unit,
@@ -103,7 +104,8 @@ class GridPanelState(
 
     fun onDragDelta(action: Offset) {
         val id = draggingId ?: return
-        val m = metricsProvider()
+        val page = dragPage ?: return
+        val m = metricsProvider(page)
         val moving = resolved.firstOrNull { it.id == id } ?: return
         fromAutoScroll = false
         val raw = dragVisual + action
@@ -137,7 +139,8 @@ class GridPanelState(
 
     private fun resolveTarget() {
         val id = draggingId ?: return
-        val m = metricsProvider()
+        val page = dragPage ?: return
+        val m = metricsProvider(page)
         val moving = resolved.firstOrNull { it.id == id } ?: return
         // 按项**中心**落格（不是左上角）：中心要拖过半格才换目标，
         // 拖到格边界附近时不会在相邻格间来回跳（1×1 项尤甚）。
@@ -178,7 +181,7 @@ class GridPanelState(
         val id = draggingId
         val page = dragPage
         if (id != null && page != null) {
-            val m = metricsProvider()
+            val m = metricsProvider(page)
             val target = resolved.firstOrNull { it.id == id }
             if (target != null) {
                 val visualNow = Offset(
@@ -222,7 +225,8 @@ class GridPanelState(
     fun onResizeDelta(total: Offset) {
         if (resizeSettling) return
         val item = resizeItem ?: return
-        val m = metricsProvider()
+        val page = resizePage ?: return
+        val m = metricsProvider(page)
         val maxX = (m.columns - item.x).coerceAtLeast(1).toFloat()
         val maxY = (m.rows - item.y).coerceAtLeast(1).toFloat()
         // 下限：默认 1×1，媒体部件 2×1（一格宽连歌名都放不下）。
@@ -248,7 +252,7 @@ class GridPanelState(
         resizeSettling = true
         val item = resizeItem ?: run { clearResize(); return }
         val page = resizePage ?: run { clearResize(); return }
-        val m = metricsProvider()
+        val m = metricsProvider(page)
         val current = pageItemsProvider(page)
         val raw = resizeSpanF ?: resizeStartSpan
         val startX = resizeStartSpan.x.roundToInt()

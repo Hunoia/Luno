@@ -67,7 +67,11 @@ fun widgetSpanFor(
 ): WidgetSpan {
     val cols = columns.coerceAtLeast(1)
     val rowCount = rows.coerceAtLeast(1)
-    val screenPx = AppContext.get().resources.displayMetrics.widthPixels
+    val screenPx = runCatching {
+        (AppContext.get().getSystemService(android.view.WindowManager::class.java))
+            ?.currentWindowMetrics?.bounds?.width()
+    }.getOrNull()
+        ?: AppContext.get().resources.displayMetrics.widthPixels
     return WidgetSpan(
         spanX = (info.targetCellWidth.takeIf { it > 0 } ?: cellsFor(info.minWidth, screenPx))
             .coerceIn(1, cols),

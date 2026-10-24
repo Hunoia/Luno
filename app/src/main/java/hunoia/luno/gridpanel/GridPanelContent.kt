@@ -36,7 +36,6 @@ import hunoia.luno.R
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.withoutVariantKey
 import hunoia.luno.bridge.ui.showToast
-import hunoia.luno.config.model.DynamicRowExtra
 import hunoia.luno.config.model.EditRowExtra
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.GridPanelDefaults
@@ -44,6 +43,7 @@ import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.config.model.derivedPageCount
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.gridpanel.core.GridPanelState
+import hunoia.luno.gridpanel.geometry.GridMetrics
 import hunoia.luno.gridpanel.geometry.rememberCardCornerPx
 import hunoia.luno.gridpanel.geometry.rememberGridMetrics
 import hunoia.luno.gridpanel.ui.GridItemActions
@@ -69,6 +69,8 @@ private const val TAG = "GridPanel"
  */
 @Composable
 fun GridPanelRoot(
+    /** 面板 id；与 [panel] 分开传：panel 短暂为 null（配置重读）时状态键不能跟着变。 */
+    panelId: String,
     panel: GridPanel?,
     anchorX: Int,
     anchorY: Int,
@@ -97,6 +99,71 @@ fun GridPanelRoot(
     }
     LaunchedEffect(Unit) { onRegisterCloseAnimated?.invoke { closeWithAnim() } }
 
+    // ---- 循环翻页状态（必须在 panel == null 分支之前声明：配置重读时 panel 可能
+    // 闪一帧 null，状态若声明在其后会被整体丢弃 —— pager 回到初始页、editMode
+    // 丢失，表现为「虚拟页加项返回后回到前一页」）。----
+    val pageCount = panel?.derivedPageCount ?: 1
+    var editMode by remember(panelId) { mutableStateOf(false) }
+    // 循环翻页：pager 页数恒为极大值（运行态与编辑态一致，避免页数切换引发
+    // clamp/闪跳）。真实页 = index % 有效页数；编辑态有效页数 +1（末尾虚页：
+    // index ≡ 派生页数 即虚页，落项建页）。loopBase 为页数倍数，初始落在真实第 0 页。
+    val loopBase = remember(panelId) { 1_000_000 - 1_000_000 % pageCount }
+    // 循环映射：真实页 = index % mappingPages（编辑态 +1，末尾虚页 ≡ 派生页数）。
+    // mappingPages 滞后于 editMode/pageCount：目标映射生效前先把索引 snap 到新旧映射下
+    // 真实页相同的等价点（n 与 n±1 互素，周期 n(n±1) 内必有解），切换后真实页不漂移。
+    val effectivePages = pageCount + if (editMode) 1 else 0
+    var mappingPages by remember(panelId) { mutableIntStateOf(pageCount) }
+    // pager 页数恒为极大值：页数若真的收缩到 1，PagerState 会把高位的循环索引钳回
+    // 0，之后再进编辑态右滑（索引减）就滑不动了。单页不滑改用 userScrollEnabled。
+    val pagerState = rememberPagerState(initialPage = loopBase) { Int.MAX_VALUE }
+    LaunchedEffect(pageCount, editMode) {
+        if (effectivePages != mappingPages) {
+            val cur = pagerState.currentPage
+            // 页数一次跳 2+（外部整批替换配置）时新旧模数不互素，等价点可能不存在：
+            // 直接落真实页，不试 CRT。
+            val jump = kotlin.math.abs(effectivePages - mappingPages)
+            val real = cur.mod(mappingPages).coerceAtMost(effectivePages - 1) // 退出编辑落在虚页时归末页
+            if (jump > 1) {
+                Log.i(TAG, "page mapping jump $mappingPages->$effectivePages, snap to real=$real")
+                pagerState.scrollToPage(real)
+            } else {
+                val period = mappingPages * effectivePages
+                val step = ((cur - real).toDouble() / period).roundToInt()
+                pagerState.scrollToPage((real + period * step).coerceAtLeast(0))
+            }
+            Log.d(
+                TAG,
+                "page mapping $mappingPages->$effectivePages cur=$cur real=$real " +
+                    "-> index=${pagerState.currentPage} edit=$editMode",
+            )
+            mappingPages = effectivePages
+        }
+    }
+    // 就近等价索引：离当前位置最近的、真实页为 real 的 pager 索引，避免跨百万页滚动。
+    fun nearestPageIndexOf(real: Int): Int {
+        val cur = pagerState.settledPage
+        val base = cur - cur.mod(mappingPages) + real
+        return listOf(base - mappingPages, base, base + mappingPages).minBy { abs(it - cur) }
+    }
+    // 退出编辑态：只翻 editMode，映射收缩交给上面的 LaunchedEffect 用真实配置的
+    // 页数算。不能在这里按本地 pageCount 预 snap：刚在虚页落项时配置回流有延迟，
+    // 本地 pageCount 还是旧值，会把「已建的新页」误当虚页 snap 回上一页。
+    // 新页未建时的代价是收缩帧闪一下空虚页，可接受。
+    fun exitEditMode() {
+        Log.i(TAG, "exitEditMode: cur=${pagerState.settledPage} mapping=$mappingPages pageCount=$pageCount")
+        editMode = false
+    }
+    LaunchedEffect(Unit) {
+        onRegisterBackHandler?.invoke {
+            if (editMode) {
+                exitEditMode()
+                true
+            } else {
+                false
+            }
+        }
+    }
+
     if (panel == null) {
         // 执行层已拦空面板；能到这里只有「打开后面板被删」的极端路径。给个落点不静默。
         Box(
@@ -123,7 +190,6 @@ fun GridPanelRoot(
         GridPanelDefaults.MinColumnCount,
         GridPanelDefaults.MaxColumnCount,
     )
-    val pageCount = panel.derivedPageCount
     val cardFraction = geo.cardWidthFraction
         .coerceIn(
             if (landscape) GridPanelDefaults.MinCardWidthFractionLandscape else GridPanelDefaults.MinCardWidthFraction,
@@ -133,68 +199,11 @@ fun GridPanelRoot(
         .coerceIn(GridPanelDefaults.MinCardHeightFraction, GridPanelDefaults.MaxCardHeightFraction)
     val cardAlpha = panel.cardAlpha.coerceIn(GridPanelDefaults.MinCardAlpha, GridPanelDefaults.MaxCardAlpha)
 
-    var editMode by remember(panel.id) { mutableStateOf(false) }
-    // 循环翻页：pager 页数恒为极大值（运行态与编辑态一致，避免页数切换引发
-    // clamp/闪跳）。真实页 = index % 有效页数；编辑态有效页数 +1（末尾虚页：
-    // index ≡ 派生页数 即虚页，落项建页）。loopBase 为页数倍数，初始落在真实第 0 页。
-    val loopBase = remember(panel.id) { 1_000_000 - 1_000_000 % pageCount }
-    val pagerState = rememberPagerState(initialPage = loopBase) { Int.MAX_VALUE }
-    // 循环映射：真实页 = index % mappingPages（编辑态 +1，末尾虚页 ≡ 派生页数）。
-    // mappingPages 滞后于 editMode/pageCount：目标映射生效前先把索引 snap 到新旧映射下
-    // 真实页相同的等价点（n 与 n±1 互素，周期 n(n±1) 内必有解），切换后真实页不漂移。
-    val effectivePages = pageCount + if (editMode) 1 else 0
-    var mappingPages by remember { mutableIntStateOf(pageCount) }
-    LaunchedEffect(pageCount, editMode) {
-        if (effectivePages != mappingPages) {
-            val cur = pagerState.currentPage
-            val real = cur.mod(mappingPages).coerceAtMost(effectivePages - 1) // 退出编辑落在虚页时归末页
-            val period = mappingPages * effectivePages
-            val step = ((cur - real).toDouble() / period).roundToInt()
-            pagerState.scrollToPage((real + period * step).coerceAtLeast(0))
-            mappingPages = effectivePages
-        }
-    }
-    // 就近等价索引：离当前位置最近的、真实页为 real 的 pager 索引，避免跨百万页滚动。
-    fun nearestPageIndexOf(real: Int): Int {
-        val cur = pagerState.currentPage
-        val base = cur - cur.mod(mappingPages) + real
-        return listOf(base - mappingPages, base, base + mappingPages).minBy { abs(it - cur) }
-    }
-    // 退出编辑态：若停在虚页（旧映射下 ≡ pageCount），直接翻 editMode 会闪一帧空白
-    //（editMode 先生效而重锚定下一帧才跑，中间帧仍映射到空虚页）。先 snap 到真实页 =
-    // 末页在新旧映射下的 CRT 等价点（snap 期间编辑 UI 还在、内容已是末页），再把
-    // mappingPages 与 editMode 同帧写回。实页退出内容一致，交给 LaunchedEffect 收尾。
-    fun exitEditMode() {
-        val cur = pagerState.currentPage
-        if (cur.mod(pageCount + 1) != pageCount) {
-            editMode = false
-            return
-        }
-        scope.launch {
-            val real = pageCount - 1
-            val period = (pageCount + 1) * pageCount
-            val step = ((cur - real).toDouble() / period).roundToInt()
-            pagerState.scrollToPage((real + period * step).coerceAtLeast(0))
-            mappingPages = pageCount
-            editMode = false
-        }
-    }
-    LaunchedEffect(Unit) {
-        onRegisterBackHandler?.invoke {
-            if (editMode) {
-                exitEditMode()
-                true
-            } else {
-                false
-            }
-        }
-    }
-
     // 项列表的本地真身：拖拽要连续多次落位，DataStore 回流有延迟，直接渲染
     // panel.items 会在快速拖动时被旧快照回跳。回流同步只认「与 lastWritten
     // 不同」的变更（自己写出去的回声不覆盖本地）。
-    var localItems by remember(panel.id) { mutableStateOf(panel.items) }
-    var lastWritten by remember(panel.id) { mutableStateOf(panel.items) }
+    var localItems by remember(panelId) { mutableStateOf(panel.items) }
+    var lastWritten by remember(panelId) { mutableStateOf(panel.items) }
     LaunchedEffect(panel.items) {
         if (panel.items != lastWritten) {
             localItems = panel.items
@@ -252,22 +261,27 @@ fun GridPanelRoot(
             .getOrDefault(0)
     }
 
-    // 行数不设限：实际行数 = max(可见行数，占用行数) + 额外空行。编辑态末尾 +2 行给
-    // 拖拽留落点（避免底部项被加项 FAB 遮挡）；运行态不追加，卡片底边贴齐最后一行。
-    // 可见行数由卡片高度反推（在 rememberGridMetrics 内统一算）；占用取全部页的最大值。
-    val occupiedRows = localItems.maxOfOrNull { it.bottom } ?: 0
+    // 行数按页计算（页内占用各自撑）：一个 metrics 服务整个 pager，若占用取全部页的
+    // 最大值，新加页/少内容页会和最满的页一样高。base metrics 只带可见行数（+编辑态
+    // 尾行），每页在其上按自身占用上撑。
     val editExtraRows = if (editMode) EditRowExtra else 0
     val metrics = rememberGridMetrics(
         columns, cardFraction, heightFraction,
-        occupiedRows,
+        0,
         extraRows = editExtraRows,
     )
+    val metricsState = rememberUpdatedState(metrics)
+    val metricsForPage: (Int) -> GridMetrics = { page ->
+        val m = metricsState.value
+        val occ = localItems.filter { it.pageIndex == page }.maxOfOrNull { it.bottom } ?: 0
+        val rows = maxOf(m.rows, occ + if (editMode) EditRowExtra else 0)
+        if (rows == m.rows) m else m.copy(rows = rows)
+    }
     val clampedMarginDp = geo.screenMarginDp.coerceIn(
         GridPanelDefaults.MinScreenMarginDp, GridPanelDefaults.MaxScreenMarginDp,
     )
     val screenMarginPx = with(LocalDensity.current) { clampedMarginDp.dp.toPx() }
     val cornerPx = rememberCardCornerPx(clampedMarginDp)
-    val metricsState = rememberUpdatedState(metrics)
 
     // provider 被卸载 / 用户在系统里删掉小部件 → 宿主回调 onAppWidgetRemoved。
     // 那时格子会永远空白，所以要把这项收掉。
@@ -293,7 +307,7 @@ fun GridPanelRoot(
 
     val state = remember(panel.id) {
         GridPanelState(
-            metricsProvider = { metricsState.value },
+            metricsProvider = { page -> metricsForPage(page) },
             pageItemsProvider = { page -> localItems.filter { it.pageIndex == page } },
             onHaptic = { view.performHapticFeedback(HapticFeedbackConstants.TEXT_HANDLE_MOVE) },
             commitPage = { page, items -> commitPageItems(page, items) },
@@ -339,6 +353,7 @@ fun GridPanelRoot(
             cornerPx = cornerPx,
             pagerState = pagerState,
             metrics = metrics,
+            metricsForPage = metricsForPage,
             anchorX = anchorX,
             anchorY = anchorY,
             insetsTop = insetsTop,
@@ -392,9 +407,12 @@ fun GridPanelRoot(
             },
             onAdd = {
                 // 加项落点交给落盘层决定（首个空位），这里不预选格子。
-                // 循环模式下 settledPage 是 pager 索引，先换算回真实页/虚页。
-                val settled = pagerState.settledPage
+                // 循环模式下 pager 索引先换算回真实页/虚页。用 currentPage：连续快滑
+                // 后立刻点 FAB，settledPage 还停在几页之前（实测 settled=1000000
+                // 实际已在第 4 页）；currentPage 随手势过半页即更新。
+                val settled = pagerState.currentPage
                 val realSettled = settled.mod(mappingPages)
+                Log.i(TAG, "onAdd: settled=$settled mapping=$mappingPages -> targetPage=$realSettled")
                 val started = onPickItem(
                     ActionSelect(
                         gridPanelId = panel.id,

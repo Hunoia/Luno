@@ -35,6 +35,9 @@ class PanelAppWidgetHost private constructor(
 
     override fun onProvidersChanged() {
         Log.i(TAG, "providers changed bound=${getAppWidgetIds().toList()}")
+        // 缓存里只留当前仍绑定的 id：部件应用被卸载/重装后，宿主侧残留的旧
+        // RemoteViews 不清理会一直占内存，还可能被误回放。
+        PanelAppWidgetHostView.retainViews(getAppWidgetIds().toSet())
     }
 
     override fun onAppWidgetRemoved(appWidgetId: Int) {
@@ -100,6 +103,21 @@ internal fun interface WidgetGoneListener {
  * 回放缓存；缓存也没有（全新绑定首帧）才放行，加载期占位由 Compose 侧 Overlay 盖住。
  */
 internal class PanelAppWidgetHostView(context: Context) : AppWidgetHostView(context) {
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        // 记录部件点击：面板的「小部件拉起应用则关闭」只认这个标记，
+        // 否则音量球/灵动胶囊等系统级前台包变化也会误关面板。
+        // 同时记 provider 包名：目标前台包必须是被点部件自己的应用——
+        // 否则「点网易云暂停 → 之后调音量出网易云胶囊」会被误判成拉起应用。
+        if (ev.actionMasked == android.view.MotionEvent.ACTION_DOWN) {
+            lastTapAt = android.os.SystemClock.elapsedRealtime()
+            lastTapPackage = runCatching {
+                AppWidgetManager.getInstance(context)
+                    .getAppWidgetInfo(appWidgetId)?.provider?.packageName
+            }.getOrNull()
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
     override fun updateAppWidget(views: RemoteViews?) {
         if (views != null) {
             lastViewsById[appWidgetId] = views
@@ -113,9 +131,36 @@ internal class PanelAppWidgetHostView(context: Context) : AppWidgetHostView(cont
     companion object {
         private val lastViewsById = java.util.concurrent.ConcurrentHashMap<Int, RemoteViews>()
 
+        /** 最近一次部件触摸（DOWN）时刻与被点部件的包名：宿主用它在拉起应用时关面板。 */
+        @Volatile
+        private var lastTapAt = 0L
+
+        @Volatile
+        private var lastTapPackage: String? = null
+
+        /**
+         * [withinMs] 内有部件被点过，且其 provider 包名等于 [targetPackage]：
+         * 部件内按钮（如播放/暂停）也会留下点击标记，只有「目标前台包 ==
+         * 被点部件的应用」才算拉起应用，别的不关。
+         */
+        fun recentWidgetLaunch(targetPackage: String, withinMs: Long = 1_500L): Boolean =
+            android.os.SystemClock.elapsedRealtime() - lastTapAt < withinMs &&
+                lastTapPackage != null && lastTapPackage == targetPackage
+
+        /** 部件之外的触摸（内置滑杆/滑条等）会取消拉起候选。 */
+        fun clearTapCandidate() {
+            lastTapAt = 0L
+            lastTapPackage = null
+        }
+
         /** 小部件 id 被回收（release）：缓存一并清掉，避免复用 id 后串内容。 */
         fun forget(appWidgetId: Int) {
             lastViewsById.remove(appWidgetId)
+        }
+
+        /** 只保留 [ids] 的缓存（provider 列表刷新时调用）。 */
+        fun retainViews(ids: Set<Int>) {
+            lastViewsById.keys.retainAll(ids)
         }
     }
 }

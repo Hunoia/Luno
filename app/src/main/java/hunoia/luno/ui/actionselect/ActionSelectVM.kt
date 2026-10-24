@@ -126,7 +126,6 @@ class ActionSelectVM(
             when {
                 error == null && result == GridPanelSaveResult.Saved -> toast(R.string.save_success)
                 error == null && result == GridPanelSaveResult.NoPanel -> toast(R.string.grid_panel_missing)
-                error == null -> toast(R.string.grid_panel_page_full)
                 else -> toast(R.string.save_failure)
             }
             finish()
@@ -145,7 +144,6 @@ class ActionSelectVM(
             when {
                 error == null && result == GridPanelSaveResult.Saved -> toast(R.string.save_success)
                 error == null && result == GridPanelSaveResult.NoPanel -> toast(R.string.grid_panel_missing)
-                error == null -> toast(R.string.grid_panel_page_full)
                 else -> toast(R.string.save_failure)
             }
             finish()

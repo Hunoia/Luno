@@ -34,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
@@ -82,7 +81,10 @@ fun GridPanelCard(
     /** 卡片圆角（px）= 屏幕圆角 − 离屏边距。 */
     cornerPx: Float,
     pagerState: PagerState,
+    /** 卡片级几何（定位/卡面尺寸用，不含页差异）。 */
     metrics: GridMetrics,
+    /** 按页几何：行数 = max(可见行数，本页占用) + 编辑态尾行，各行页不再同高。 */
+    metricsForPage: (Int) -> GridMetrics,
     anchorX: Int,
     anchorY: Int,
     insetsTop: Int,
@@ -186,6 +188,9 @@ fun GridPanelCard(
             ) {
                 HorizontalPager(
                     state = pagerState,
+                    // 单映射（单页运行态）禁手势滑动：页数仍恒为极大值以保住循环索引，
+                    // 只是不让用户滑（见 GridPanelContent 的注释）。
+                    userScrollEnabled = mappingPages > 1,
                     modifier = Modifier.fillMaxSize(),
                 ) { pagerIndex ->
                     // 循环模式下 pager 索引 ≠ 真实页；滚动状态等按真实页共享，
@@ -200,6 +205,7 @@ fun GridPanelCard(
                     DisposableEffect(pageIndex) {
                         onDispose { edge.stop() }
                     }
+                    val pageMetrics = metricsForPage(pageIndex)
                     LaunchedEffect(editMode, pageIndex) {
                         if (!editMode) edge.stop()
                     }
@@ -248,7 +254,7 @@ fun GridPanelCard(
                     ) {
                         GridPanelLayer(
                             items = state.renderItems(pageIndex),
-                            metrics = metrics,
+                            metrics = pageMetrics,
                             editMode = editMode,
                             draggingId = if (dragOnThisPage) state.draggingId else null,
                             hoverCell = if (dragOnThisPage) state.hoverCell else null,

@@ -25,6 +25,7 @@ import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.core.ActionSelectClosedEvent
 import hunoia.luno.core.AppContext
+import hunoia.luno.gridpanel.widget.PanelAppWidgetHostView
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
@@ -78,7 +79,6 @@ object GridPanelOverlay {
      *  tracker 是粘性的，只要用过一次选择页就停在 hunoia.luno，之后所有小部件
      *  拉起应用的事件都会被吞掉（表现为部分部件点击后面板不关闭）。 */
     private var suppressForegroundCloseUntil = 0L
-
     /** 返回键：优先让组合消费（编辑态退编辑），否则播退场动画关闭。 */
     fun dismissFromBack(): Boolean {
         if (!shownEventPosted) return false
@@ -98,14 +98,30 @@ object GridPanelOverlay {
     fun onForegroundPackageChanged(fromPackage: String, toPackage: String) {
         if (!shownEventPosted) return
         if (toPackage.isEmpty() || toPackage == context.packageName) return
-        // 选择页刚关闭的短暂窗口内：这是「返回下层应用」的正常路径，不是小部件拉应用。
-        if (SystemClock.elapsedRealtime() < suppressForegroundCloseUntil) return
+        // 音量回弹球、灵动胶囊等都挂在 systemui 插件包下，永远不是「部件拉起应用」。
+        if (toPackage.contains("systemui", ignoreCase = true)) {
+            Log.i(TAG, "foreground change ignored (systemui target): $fromPackage -> $toPackage")
+            return
+        }
+        // 关面板只认「部件刚被点过且目标包匹配」：音量回弹球、灵动胶囊等系统级界面变化
+        // 也会触发前台包变化（媒体胶囊归属正在播放的应用），但那些路径没有部件点击，
+        // 不能关面板。选择页刚关闭的窗口内同理（返回下层应用，无部件点击）。
+        if (SystemClock.elapsedRealtime() < suppressForegroundCloseUntil) {
+            Log.i(TAG, "foreground change suppressed (select page return): $fromPackage -> $toPackage")
+            return
+        }
+        if (!PanelAppWidgetHostView.recentWidgetLaunch(toPackage)) {
+            Log.i(TAG, "foreground change ignored (no matching widget tap): $fromPackage -> $toPackage")
+            return
+        }
+        Log.i(TAG, "foreground change after widget tap, closing panel: $fromPackage -> $toPackage")
         (closeAnimated ?: { closeImmediate() }).invoke()
     }
 
     private val closedSubscriber: (ActionSelectClosedEvent) -> Unit = {
         // 选择页结束：面板回显（编辑态原样继续 —— 组合里的 editMode/localItems 都在）。
         suppressForegroundCloseUntil = SystemClock.elapsedRealtime() + 1_500L
+        Log.i(TAG, "select closed, re-show panel=$panelIdState")
         show(panelIdState, anchorXState, anchorYState)
     }
 
@@ -343,6 +359,7 @@ object GridPanelOverlay {
                 LocalGridPanelClose provides { (closeAnimated ?: { closeImmediate() }).invoke() },
             ) {
                 GridPanelRoot(
+                    panelId = panelIdState,
                     panel = settings.actionGridPanels.panelById(panelIdState),
                     anchorX = anchorXState,
                     anchorY = anchorYState,
