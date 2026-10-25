@@ -96,7 +96,7 @@ class FloatBallService : Service() {
             mirrorWindow.updateImeLift(lift)
         }).apply {
             onTap = { onBallTapped() }
-            onDragFinished = { x, y -> persistBallPosition(x, y) }
+            onDragFinished = { x, y -> persistBallPosition(x, y, manualPark = true) }
         }
         mirrorWindow = FloatBallMirrorWindow(this).apply {
             onPressed = { onMirrorPressed() }
@@ -337,7 +337,7 @@ class FloatBallService : Service() {
             .coerceIn(0f, 1f)
         val newY = (mirrorTopLeftY.toFloat() / DensityProvider.screenHeightPx)
             .coerceIn(0f, 1f)
-        persistBallPosition(newX, newY)
+        persistBallPosition(newX, newY, manualPark = true)
         ballWindow.crossFadeSwap(
             mirrorTopLeftX.toFloat(),
             mirrorTopLeftY.toFloat(),
@@ -399,7 +399,7 @@ class FloatBallService : Service() {
         val edgeX = if (left) 0f else {
             max(0f, (DensityProvider.screenWidthPx - ballPx).toFloat() / DensityProvider.screenWidthPx)
         }
-        persistBallPosition(edgeX, anchorY)
+        persistBallPosition(edgeX, anchorY, manualPark = false)
     }
 
     /** 球重新可见时校正到当前持机侧（隐藏期间状态可能已翻转）。 */
@@ -411,12 +411,13 @@ class FloatBallService : Service() {
     }
 
     /**
-     * 球位置落盘：手动拖动/分身换位/自动挪球共用。停靠侧就是持机侧证据
-     * （用户亲手放的位置是确证），顺带记忆该侧高度锚点。
+     * 球位置落盘：手动拖动/分身换位/自动挪球共用，顺带记忆该侧高度锚点。
+     * 手动停靠侧是持机侧确证（用户亲手放的位置）：采用并清空票池；自动挪球只落盘，
+     * 促成切换的选票留在池里，继续稀释切换后的跨手误触。
      */
-    private fun persistBallPosition(x: Float, y: Float) {
+    private fun persistBallPosition(x: Float, y: Float, manualPark: Boolean) {
         val left = x < 0.5f
-        handSide.onManualPark(left)
+        if (manualPark) handSide.onManualPark(left)
         settings = settings.copy(
             x = x,
             y = y,

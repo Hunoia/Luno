@@ -195,6 +195,13 @@ class FloatBallWindow(
         idleRunnable = null
         view?.let(context::removeWindow)
         view = null
+        // 窗口既已摘除，交互/换位中的标志全部作废：淡出的 withEndAction 在 cancel 时
+        // 不运行，crossFading 残留 true 会把重挂后的 repositionTo 永久挡死。
+        crossFading = false
+        dragging = false
+        pressed = false
+        externalDrag = false
+        pendingExternalFinish = false
     }
 
     /** 锁屏 / 息屏：整个窗口不可见也不可点，解锁恢复。 */
@@ -551,6 +558,10 @@ class FloatBallWindow(
 
     private fun applyVisual() {
         val target = view ?: return
+        // 淡出（repositionTo/crossFadeSwap）与本方法共用同一个 ViewPropertyAnimator
+        // 实例，走到这里意味着在飞的淡出已被下面的 cancel 中止且 withEndAction 不会
+        // 运行 —— crossFading 一并收掉，否则按压球打断淡出后它会永久卡在 true。
+        crossFading = false
         val scale = if (pressed) FloatBallDefaults.PressScale else 1f
         val alpha = if (idled) FloatBallDefaults.IdleDimAlpha else 1f
         // 静置时球横向移出一截到屏幕外，方向 = 最近边缘。偏移走 View 平移：
