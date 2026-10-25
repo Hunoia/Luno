@@ -134,21 +134,13 @@ fun QuickSearchIndex.search(
     /** 排序单元：结果 + 档位 + 紧密度 + 使用分；title 在构造时取一次，避免排序比较器反复调 getter。 */
 internal data class RankedHit(
     val result: QuickSearchResult,
-    val tier: Int,
+    override val tier: Int,
     val span: Int,
-    val offset: Int,
-    val usage: Double,
-    val title: String = result.title,
-    val titleLen: Int = title.length,
-)
-
-/** 统一排序：tier → offset → 使用分 → 标题长度 → 字典序。 */
-private val HIT_COMPARATOR: Comparator<RankedHit> =
-    compareByDescending<RankedHit> { it.tier }
-        .thenBy { it.offset }
-        .thenByDescending { it.usage }
-        .thenBy { it.titleLen }
-        .thenBy { it.title }
+    override val offset: Int,
+    override val usage: Double,
+    override val title: String = result.title,
+    override val titleLen: Int = title.length,
+) : RankedResult
 
 /**
  * 有界取优：未 Pin 的命中按统一排序保留前 [limit] 条，Pin 命中旁路全留。
@@ -173,7 +165,7 @@ internal fun capHits(
         keepLimit == 0 -> emptyList()
         unpinned.size <= keepLimit -> unpinned
         else -> {
-            val heap = PriorityQueue<RankedHit>(keepLimit + 1, HIT_COMPARATOR.reversed())
+            val heap = PriorityQueue<RankedHit>(keepLimit + 1, RANK_COMPARATOR.reversed())
             for (hit in unpinned) {
                 heap.add(hit)
                 if (heap.size > keepLimit) heap.remove()
@@ -375,7 +367,7 @@ internal fun matchClipPool(
     // 空白剪贴命不中（空文本 vs 非空 token 必 NO_MATCH），无需额外过滤。
     val hits = pinnedHits + historyHits
     if (hits.isEmpty()) return emptyList()
-    return hits.sortedWith(HIT_COMPARATOR).take(10)
+    return hits.sortedWith(RANK_COMPARATOR).take(10)
 }
 
 
@@ -388,7 +380,7 @@ internal fun QuickSearchIndex.matchSettingsPages(
     /** 同一套排序：连续块语义下 tier → offset → 使用分 → 长度 → 字典序。
      *  不同类型只比匹配度，稀疏子序列不出局外无命中。 */
 private fun QuickSearchIndex.sortTriples(results: List<RankedHit>): List<QuickSearchResult> =
-        results.sortedWith(HIT_COMPARATOR).map { it.result }
+        results.sortedWith(RANK_COMPARATOR).map { it.result }
 
     /**
      * 标识指令解析（bb 新闻 / sms 138 / 裸 sms）：命中返回纯目标结果，无指令返回 null 走全源。

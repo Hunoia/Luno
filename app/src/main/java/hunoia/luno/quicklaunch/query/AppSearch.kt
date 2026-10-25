@@ -82,14 +82,14 @@ object AppSearch {
         val asciiLike: Boolean = false,
     )
 
-    private data class SearchEntry(
+    private data class RankedApp(
         val app: AppInfo,
-        val matchTier: Int,
-        val offset: Int,
-        val usageScore: Double,
-        val labelLower: String,
-        val labelLen: Int,
-    )
+        override val tier: Int,
+        override val offset: Int,
+        override val usage: Double,
+        override val title: String,
+        override val titleLen: Int,
+    ) : RankedResult
 
     // 索引常驻（总量被各源 cap 封顶）：打字只查不建，houbb 调用只发生在 IO 线程的预热期。
     // 容量按条目数封顶 + LRU 淘汰：短信正文/文件名各占一条，无界会在长会话里累积到几十 MB。
@@ -334,6 +334,13 @@ object AppSearch {
         return if (best.tier >= DEGRADED) TieredMatch(0, best.span, best.offset) else TieredMatch.NO_MATCH
     }
 
+    /** 精确匹配优先，未命中再降档走模糊音；sortApps 与快速搜索共用这一条判定。 */
+    internal fun matchIndexed(index: AppSearchIndex, plan: SearchQueryPlan): TieredMatch {
+        val exact = matchTier(index, plan)
+        if (exact.tier >= 0 || plan.foldedTokens.isEmpty()) return exact
+        return matchTierFuzzy(index, plan)
+    }
+
     fun sortApps(apps: List<AppInfo>, settings: QuickAppLauncherSettings, tokens: List<String>): List<AppInfo> {
         val now = System.currentTimeMillis()
         // 模糊音输入：分词前先整体折叠（adjacency 丢了就没法折），降档用。
@@ -345,26 +352,19 @@ object AppSearch {
         val plan = queryPlan(tokens, foldedTokens)
         val usage = UsageScores(settings.launchCount, settings.recentLaunchTime, now)
 
-        val entries = ArrayList<SearchEntry>(apps.size)
+        val entries = ArrayList<RankedApp>(apps.size)
         for (app in apps) {
             val index = buildIndex(app.label)
-            var m = matchTier(index, plan)
-            if (m.tier < 0) m = matchTierFuzzy(index, plan)
+            val m = matchIndexed(index, plan)
             if (m.tier < 0) continue
 
             val usageScore = usage.score(app.key())
-            entries.add(SearchEntry(app, m.tier, m.offset, usageScore, index.raw, app.label.length))
+            entries.add(RankedApp(app, m.tier, m.offset, usageScore, index.raw, app.label.length))
         }
 
         // 连续块语义：档位 → 起点 → 使用分 → 长度 → 字典序。
         // tier ≥ 1 的命中 offset 恒 0（0 位块写死），tier/offset 永不打架。
-        entries.sortWith(
-            compareByDescending<SearchEntry> { it.matchTier }
-                .thenBy { it.offset }
-                .thenByDescending { it.usageScore }
-                .thenBy { it.labelLen }
-                .thenBy { it.labelLower }
-        )
+        entries.sortWith(RANK_COMPARATOR)
 
         val result = ArrayList<AppInfo>(entries.size)
         for (entry in entries) result.add(entry.app)
@@ -465,10 +465,7 @@ object AppSearch {
     /** 对任意文本做与 sortApps 相同的 tier 评定，供快速搜索复用。 */
     internal fun matchTextTier(text: String, plan: SearchQueryPlan): TieredMatch {
         if (plan.tokens.isEmpty()) return TieredMatch(0, 0, 0)
-        val index = buildIndex(text)
-        val tier = matchTier(index, plan)
-        if (tier.tier >= 0 || plan.foldedTokens.isEmpty()) return tier
-        return matchTierFuzzy(index, plan)
+        return matchIndexed(buildIndex(text), plan)
     }
 
     internal fun matchTextTier(
