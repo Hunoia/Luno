@@ -25,6 +25,7 @@ class BatteryTracker(
         private set
 
     private var registered = false
+    private var initialized = false
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -55,6 +56,14 @@ class BatteryTracker(
         val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
             status == BatteryManager.BATTERY_STATUS_FULL
         val level = intent.batteryLevel()
+        if (!initialized) {
+            // 首读（粘性广播）只建基线：当前充电态不是「边沿」，不设守卫的话
+            // 充电中重绑会被记成 false→true，误触发一次「开始充电」规则。
+            initialized = true
+            isCharging = charging
+            batteryLevel = level
+            return
+        }
         val chargingChanged = charging != isCharging
         val levelChanged = level != batteryLevel
         if (!chargingChanged && !levelChanged) return

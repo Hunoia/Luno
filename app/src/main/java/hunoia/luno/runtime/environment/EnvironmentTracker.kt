@@ -128,6 +128,16 @@ class EnvironmentTracker(
         onKeyboardStateChanged(active)
     }
 
+    /**
+     * 启动播种键盘状态（与 orientation/锁屏播种同源的问题）：默认 false，重绑时键盘若已弹出，
+     * 「键盘隐藏」类启用规则的首评边沿会被吞（且 `updateKeyboardActive` 的同值早退连纠正
+     * 事件都收不到）。用焦点节点可编辑性探测一次；只设值不发脉冲，root 未就绪时探不到、
+     * 保持 false，下一次输入类事件自会纠正。
+     */
+    fun seedKeyboardInputActive() {
+        isKeyboardInputActive = hasEditableInputFocus()
+    }
+
     fun buildRuntimeState(
         hiddenGestureButtons: Map<String, Long>,
         isCharging: Boolean = false,

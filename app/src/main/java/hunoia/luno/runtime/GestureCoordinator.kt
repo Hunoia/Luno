@@ -567,6 +567,9 @@ class GestureCoordinator(
         batteryTracker.register()
         audioVolumeTracker.sync(volumePollNeeded())
         conditionSources.start()
+        // 键盘状态无法像 orientation/锁屏那样在构造期播种（rootInActiveWindow 需服务连接后才有），
+        // 放这里：早于首评的设置收集器，此刻 root 已可查询。
+        environmentTracker.seedKeyboardInputActive()
         // 通知脉冲：同 :service 进程静态直连；destroy 时置空，避免野回调。
         AutomationPulseHub.onNotification = { pulse ->
             environmentTracker.onNotificationPosted(pulse)
@@ -759,7 +762,11 @@ class GestureCoordinator(
         if (BuildConfig.DEBUG) Log.i(LOG_TAG, "GestureCoordinator release")
         mainOverlayController.release()
         buttonWindowController.release()
-        transientOverlayController.detachAll()
+        // 销毁不经过 callbacks 的配对隐藏（那里各自发 PanelDismissed）：挂着面板被销毁时
+        // 按拆掉的数量补发，否则 FloatBallService 的 panelCount 卡住、球一直隐藏。
+        repeat(transientOverlayController.detachAll()) {
+            Events.post(PanelDismissedEvent())
+        }
         broadcastObserver.unregister()
         volumeScrubRuntime.onDestroy()
         pointerRuntime.onDestroy()

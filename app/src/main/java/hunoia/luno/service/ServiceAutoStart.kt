@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.store.DataStoreFiles
 import hunoia.luno.config.store.dataStoreFile
@@ -37,6 +38,28 @@ internal object ServiceAutoStart {
         val app = context.applicationContext
         if (readKeepAliveEnabled(app)) startDaemon(app)
         if (readMasterSwitchEnabled(app) && readFloatBallEnabled(app)) FloatBallService.start(app)
+    }
+
+    /**
+     * 配置整写（备份恢复 / 恢复默认）后的运行态对齐。
+     *
+     * 恢复只落 DataStore，而保活的判定源是 prefs —— 不同步的话，恢复「保活开」后 UI
+     * 显示开、开机/更新自启却不会拉起守护（反向亦然）。这里先把 prefs 对齐成恢复后的值，
+     * 再按恢复后的配置：该关的关（服务自己管窗口/前台通知），该开的拉起，最后走常规恢复兜底。
+     */
+    fun syncAfterConfigRestore(context: Context) {
+        val app = context.applicationContext
+        val keepAlive = readSettings<AdvancedSettings>(app, DataStoreFiles.ADVANCED_SETTINGS)
+            ?.keepAliveEnabled ?: false
+        app.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_KEEP_ALIVE, keepAlive)
+            .apply()
+        if (!keepAlive) app.stopService(Intent(app, DaemonService::class.java))
+        if (!readMasterSwitchEnabled(app) || !readFloatBallEnabled(app)) {
+            FloatBallService.stop(app)
+        }
+        restore(app)
     }
 
     private val restored = AtomicBoolean(false)
