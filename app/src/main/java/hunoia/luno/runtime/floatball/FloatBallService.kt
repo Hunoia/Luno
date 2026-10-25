@@ -100,6 +100,10 @@ class FloatBallService : Service() {
         broadcastObserver = BroadcastObserver(
             context = this,
             onScreenOff = {
+                // 息屏停掉 IME 兜底轮询：屏幕不可见时键盘让位无意义，
+                // 别让前台服务以 2Hz 空转唤醒（亮屏解锁由 applyLockState 补启）。
+                imeJob?.cancel()
+                imeJob = null
                 ballWindow.setHidden(true)
                 mirrorWindow.setHidden(true)
             },
@@ -108,7 +112,7 @@ class FloatBallService : Service() {
         ).also { it.register() }
 
         observeSettings()
-        observeIme()
+        ensureImeObserver()
         observePanels()
     }
 
@@ -171,9 +175,18 @@ class FloatBallService : Service() {
         val shouldShow = enabled && !panelHidden && !tempHidden
         if (!shouldShow) {
             if (ballVisible) {
-                ballVisible = false
-                ballWindow.detach()
-                mirrorWindow.detach()
+                if (enabled) {
+                    // 面板/临时隐藏是短态：软隐藏（窗口保留、不可见不可点），
+                    // 免掉整拆整建（removeView→新 ComposeView→首帧组合→addView），
+                    // 面板开合频繁（音量刮擦每次都发面板事件）时差距最明显。
+                    ballWindow.setPanelHidden(true)
+                    mirrorWindow.setPanelHidden(true)
+                } else {
+                    // 总闸/开关/权限关：长态不出，摘窗回收。
+                    ballVisible = false
+                    ballWindow.detach()
+                    mirrorWindow.detach()
+                }
             }
             return
         }
@@ -183,8 +196,13 @@ class FloatBallService : Service() {
                 ballWindow.setHidden(isScreenLocked())
                 if (settings.mirrorBall) mirrorWindow.attach()
                 mirrorWindow.setHidden(isScreenLocked())
+                // 新窗口的 insets 推播能力未知：兜底轮询按需补启（息屏期间被停过也一样）。
+                ensureImeObserver()
             }
         } else {
+            // 软隐藏 → 恢复：窗口还在，直接亮回（带回场动画），不走重建。
+            ballWindow.setPanelHidden(false, animateRestore)
+            mirrorWindow.setPanelHidden(false)
             if (settings.mirrorBall) {
                 if (!mirrorWindow.attach()) return
                 mirrorWindow.setHidden(isScreenLocked())
@@ -351,9 +369,12 @@ class FloatBallService : Service() {
         imeJob = scope.launch {
             while (isActive) {
                 delay(IME_POLL_MS)
-                if (!ballVisible) continue
-                // 窗口已收到事件型 IME insets（大多数 ROM）：不再轮询。
-                if (ballWindow.imeInsetsAvailable()) continue
+                if (!ballVisible || panelCount > 0 ||
+                    tempHideUntilMs > SystemClock.uptimeMillis()
+                ) continue
+                // 窗口已收到事件型 IME insets：此 ROM 支持推播，兜底轮询使命完成，
+                // 整个停掉（此前只 continue，服务存活期间永远 2Hz 唤醒）。
+                if (ballWindow.imeInsetsAvailable()) break
                 val imeBottom = runCatching {
                     windowManager?.currentWindowMetrics
                         ?.windowInsets
@@ -364,6 +385,13 @@ class FloatBallService : Service() {
                 mirrorWindow.updateImeLift(ballWindow.currentImeLiftPx())
             }
         }
+    }
+
+    /** 兜底轮询的按需启动：只在球挂窗、且事件型 insets 尚未确认时跑（息屏侧由 screen off 停）。 */
+    private fun ensureImeObserver() {
+        if (imeJob?.isActive == true) return
+        if (!ballVisible || ballWindow.imeInsetsAvailable()) return
+        observeIme()
     }
 
     private fun persistPosition(x: Float, y: Float) {
@@ -382,6 +410,8 @@ class FloatBallService : Service() {
         val hidden = isScreenLocked()
         ballWindow.setHidden(hidden)
         mirrorWindow.setHidden(hidden)
+        // 息屏时兜底轮询被停掉（见 onScreenOff），亮屏解锁后按需补启。
+        if (!hidden) ensureImeObserver()
     }
 
     private fun isScreenLocked(): Boolean {

@@ -498,6 +498,9 @@ class GestureCoordinator(
             return
         }
         widgetLaunchPackages = currentAppWindowPackages()
+        // WINDOWS_CHANGED 差集基线同步播种：事件路径只在部件点击期间维护它（见 onAccessibilityEvent），
+        // 常态不再为无关窗口变化付全量扫描。
+        appWindowPackages = widgetLaunchPackages
         // 点击当下的可见窗口 id：新应用哪怕第一个 a11y 事件比 WINDOW_STATE_CHANGED 早，
         // 只要它带的 windowId 不在这个集合里，就能立刻收口。
         widgetLaunchWindowIds = currentWindowIds()
@@ -671,23 +674,26 @@ class GestureCoordinator(
         // 不然要等 0.5s 左右的应用窗口状态事件，面板会盖在新应用上“愣一下”。
         // 只看 TYPE_APPLICATION 窗口，音量球/胶囊等系统窗口天然被排除。
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
-            val current = currentAppWindowPackages()
-            val added = current - appWindowPackages
-            appWindowPackages = current
-            if (added.isNotEmpty() &&
-                hunoia.luno.gridpanel.widget.PanelAppWidgetHostView.hasRecentTap()
-            ) {
-                val target = added.firstOrNull {
-                    it != host.context.packageName && !hunoia.luno.gridpanel.isSystemOverlayPackage(it)
-                }
-                if (target != null) {
-                    if (BuildConfig.DEBUG) {
-                        Log.i(LOG_TAG, "window added after widget tap: $target (added=$added)")
+            // 无部件点击在跟踪时整段跳过：currentAppWindowPackages 是全量窗口扫描
+            // （每窗口 root 一次 Binder），动画/弹窗/IME 引起的窗口变化不该白付；基线已由
+            // startWidgetLaunchPoll 在点击时播种。
+            if (hunoia.luno.gridpanel.widget.PanelAppWidgetHostView.hasRecentTap()) {
+                val current = currentAppWindowPackages()
+                val added = current - appWindowPackages
+                appWindowPackages = current
+                if (added.isNotEmpty()) {
+                    val target = added.firstOrNull {
+                        it != host.context.packageName && !hunoia.luno.gridpanel.isSystemOverlayPackage(it)
                     }
-                    hunoia.luno.gridpanel.GridPanelOverlay.onForegroundPackageChanged(
-                        fromPackage = beforePackage.ifEmpty { target },
-                        toPackage = target,
-                    )
+                    if (target != null) {
+                        if (BuildConfig.DEBUG) {
+                            Log.i(LOG_TAG, "window added after widget tap: $target (added=$added)")
+                        }
+                        hunoia.luno.gridpanel.GridPanelOverlay.onForegroundPackageChanged(
+                            fromPackage = beforePackage.ifEmpty { target },
+                            toPackage = target,
+                        )
+                    }
                 }
             }
         }
@@ -708,8 +714,10 @@ class GestureCoordinator(
                     toPackage = afterPackage,
                 )
             }
-            // 窗口状态事件之后同步一次窗口包集合，下个 TYPE_WINDOWS_CHANGED 的差集才干净。
-            appWindowPackages = currentAppWindowPackages()
+            // 部件点击跟踪期间才维持差集基线（无点击不扫，见上方 WINDOWS_CHANGED 分支）。
+            if (hunoia.luno.gridpanel.widget.PanelAppWidgetHostView.hasRecentTap()) {
+                appWindowPackages = currentAppWindowPackages()
+            }
             refreshGestureButtons(automationKeys = setOf(AutomationEventKey.APP))
         }
     }
@@ -725,6 +733,9 @@ class GestureCoordinator(
     }
 
     fun onDestroy() {
+        // 属性初始化即 launch、不经 scopeJobs 登记：started 守卫之前就要取消，
+        // 否则 onSetOverlay 换代时这条永不完结的 collect 会钉住整个旧协调器对象图。
+        recentAppsBlocklistObserver.cancel()
         if (!started) return
         started = false
         if (BuildConfig.DEBUG) Log.i(LOG_TAG, "GestureCoordinator destroy")

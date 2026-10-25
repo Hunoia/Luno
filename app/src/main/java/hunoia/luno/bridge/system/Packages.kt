@@ -32,13 +32,15 @@ object PackageChangeReceiver {
             addDataScheme("package")
         }
         listeners.add(onPackageChanged)
-        context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        // 永远挂在 applicationContext 上：首个注册者可能是 Activity（QuickSearchActivity），
+        // 挂它身上会把实例钉到进程结束；且注销可能来自别的 context，跨 context 注销会抛。
+        context.applicationContext.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
     }
 
     fun unregister(context: Context, onPackageChanged: () -> Unit) {
         listeners.remove(onPackageChanged)
         if (listeners.isEmpty() && registered) {
-            runCatching { context.unregisterReceiver(receiver) }
+            runCatching { context.applicationContext.unregisterReceiver(receiver) }
             registered = false
         }
     }

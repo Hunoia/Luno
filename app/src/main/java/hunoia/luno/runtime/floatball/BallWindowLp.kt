@@ -43,16 +43,19 @@ internal fun applyBallSize(view: View, wm: WindowManager, ballPx: Int) {
     }
 }
 
-/** 锁屏 / 息屏隐藏：整窗不可见也不可点；恢复后的姿态（静置计时等）由调用方补。 */
+/** 锁屏 / 息屏/面板隐藏：整窗不可见也不可点；恢复后的姿态（静置计时等）由调用方补。 */
 internal fun applyBallHiddenFlags(view: View, wm: WindowManager, hidden: Boolean) {
     val lp = view.layoutParams as? WindowManager.LayoutParams ?: return
+    // 无变化不写窗：软隐藏路径会被面板事件反复触发，别为重复状态付 updateViewLayout。
+    val alreadyHidden = (lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE) != 0
+    val targetAlpha = if (hidden) 0f else 1f
+    if (alreadyHidden == hidden && lp.alpha == targetAlpha) return
     if (hidden) {
         lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-        lp.alpha = 0f
     } else {
         lp.flags = lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-        lp.alpha = 1f
     }
+    lp.alpha = targetAlpha
     wm.safeUpdateViewLayout(view, lp)
 }
 

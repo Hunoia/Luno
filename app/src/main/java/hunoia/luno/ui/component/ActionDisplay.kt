@@ -34,6 +34,7 @@ import hunoia.luno.action.model.launchPackageName
 import hunoia.luno.action.model.ActionLibraryEntry
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.config.model.DirectionActions
+import hunoia.luno.quicklaunch.icon.rememberAppDrawable
 import hunoia.luno.quicklaunch.model.icon
 import hunoia.luno.ui.actionlibrary.IconPalette
 import hunoia.luno.ui.actionselect.shortcutInfo
@@ -179,16 +180,15 @@ fun actionIcon(action: StoredAction): Any? {
         val context = androidx.compose.ui.platform.LocalContext.current
         val packageName = action.launchPackageName()
         val className = (action.params["className"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull.orEmpty()
-        return remember(action) {
-            runCatching {
-                if (className.isNotEmpty()) {
-                    context.packageManager.getActivityIcon(
-                        android.content.ComponentName.createRelative(packageName!!, className)
-                    )
-                } else {
-                    context.packageManager.getApplicationIcon(packageName!!)
-                }
-            }.getOrNull()
+        // 取图标是跨进程 PM 查询：走缓存 + IO 异步，组合期不再同步阻塞（面板首帧 N 行 × Binder）。
+        return rememberAppDrawable("launch/$packageName/$className") {
+            if (className.isNotEmpty()) {
+                context.packageManager.getActivityIcon(
+                    android.content.ComponentName.createRelative(packageName!!, className)
+                )
+            } else {
+                context.packageManager.getApplicationIcon(packageName!!)
+            }
         } ?: Icons.Default.Android
     }
     if (action.typeId == "app.launchShortcut") {
@@ -200,11 +200,9 @@ fun actionIcon(action: StoredAction): Any? {
         val context = androidx.compose.ui.platform.LocalContext.current
         val history by hunoia.luno.runtime.environment.RecentAppsHub.history.collectAsState()
         val pkg = history.dropLast(1).lastOrNull()
-        return remember(pkg) {
-            pkg?.let {
-                runCatching { context.packageManager.getApplicationIcon(it) }.getOrNull()
-            } ?: Icons.Default.SwapHoriz
-        }
+        return rememberAppDrawable("app/$pkg") {
+            pkg?.let { context.packageManager.getApplicationIcon(it) }
+        } ?: Icons.Default.SwapHoriz
     }
     return ActionDefinitions.byTypeId(action.typeId)?.icon
 }

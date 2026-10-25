@@ -50,6 +50,7 @@ class FloatBallMirrorWindow(
     private var lpOriginY = 0
 
     private var lockHidden = false
+    private var panelHidden = false
 
     /** 键盘让位量（px），由 Service 从主球同步。 */
     private var imeLiftPx = 0f
@@ -121,6 +122,9 @@ class FloatBallMirrorWindow(
     fun detach() {
         view?.let(context::removeWindow)
         view = null
+        // 摘窗即复位：下次 attach 的新窗口按可见起步，lock/panel 状态由服务侧重新推。
+        lockHidden = false
+        panelHidden = false
     }
 
     /** 锁屏 / 息屏：与主球同进退。 */
@@ -129,9 +133,15 @@ class FloatBallMirrorWindow(
         applyHiddenFlags()
     }
 
+    /** 面板/临时隐藏：与主球同进退（软隐藏，窗口保留）。 */
+    fun setPanelHidden(hidden: Boolean) {
+        panelHidden = hidden
+        applyHiddenFlags()
+    }
+
     private fun applyHiddenFlags() {
         val current = view ?: return
-        applyBallHiddenFlags(current, wm, lockHidden)
+        applyBallHiddenFlags(current, wm, lockHidden || panelHidden)
     }
 
     // ---- 定位 ----
