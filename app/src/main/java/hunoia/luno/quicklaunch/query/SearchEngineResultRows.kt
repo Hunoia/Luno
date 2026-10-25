@@ -2,30 +2,11 @@ package hunoia.luno.quicklaunch.query
 
 import android.content.Context
 import hunoia.luno.R
-import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.SearchLaunch
 import hunoia.luno.config.model.badgeText
 import hunoia.luno.config.model.copyUrl
-import hunoia.luno.config.model.primaryEngineOrNull
-import hunoia.luno.config.model.effectiveEngines
 import hunoia.luno.config.model.effectiveLaunch
-
-/**
- * 默认引擎行；由搜索流在后台线程调用。
- * 换引擎入口已由面板引擎条与长按 Sheet 的「用其他引擎搜索」覆盖，
- * 列表不再出「其他引擎」聚合行（原 es-other，与引擎条功能重复）。
- */
-internal fun buildEngineResultRows(
-    context: Context,
-    query: String,
-    settings: QuickSearchSettings,
-): List<SearchResult> {
-    val engines = settings.effectiveEngines()
-    if (engines.isEmpty()) return emptyList()
-    val primary = settings.primaryEngineOrNull() ?: return emptyList()
-    return listOf(engineResultRow(context, query, primary))
-}
 
 /**
  * 单个引擎的结果行：默认行与「标识直达」行共用这一份。

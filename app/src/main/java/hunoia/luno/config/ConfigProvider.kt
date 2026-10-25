@@ -4,6 +4,8 @@ import hunoia.luno.action.model.ActionLibrarySettings
 import hunoia.luno.config.backup.ConfigBackupRepository
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
+import hunoia.luno.config.model.AppLaunchSource
+import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.Backup
 import hunoia.luno.config.model.BackupDomain
@@ -17,6 +19,7 @@ import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.config.model.withResolvedName
 import hunoia.luno.config.model.withUniqueEngineTriggers
+import hunoia.luno.config.repository.AppUsageRepository
 import hunoia.luno.config.repository.QuickLauncherRepository
 import hunoia.luno.config.store.SettingsStores
 import kotlinx.coroutines.flow.Flow
@@ -27,6 +30,7 @@ object ConfigProvider {
 
     private val stores by lazy { SettingsStores.create() }
     private val quickLauncherRepository by lazy { QuickLauncherRepository(stores) }
+    private val appUsageRepository by lazy { AppUsageRepository(stores) }
     private val configBackupRepository by lazy { ConfigBackupRepository(stores) }
 
     val initialSettings: Flow<InitialSettings> = stores.initialSettings
@@ -36,6 +40,7 @@ object ConfigProvider {
     val gestureButtons: Flow<List<GestureButton>> =
         stores.gestureButtons.map { buttons -> buttons.map { it.withResolvedName() } }
     val quickAppLauncherSettings: Flow<QuickAppLauncherSettings> = stores.quickAppLauncherSettings
+    val appUsageStats: Flow<AppUsageStats> = stores.appUsageStats
     val subGestureSettings: Flow<SubGestureSettings> = stores.subGestureSettings
     val actionLibrarySettings: Flow<ActionLibrarySettings> = stores.actionLibrarySettings
     val automationRules: Flow<List<AutomationRule>> = stores.automationRules
@@ -111,8 +116,10 @@ object ConfigProvider {
     suspend fun updateQuickAppLauncherLayout(layout: QuickLauncherGeometry, landscape: Boolean) {
         quickLauncherRepository.updateQuickAppLauncherLayout(layout, landscape)
     }
-    suspend fun recordQuickAppLaunch(appKey: String) {
-        quickLauncherRepository.recordQuickAppLaunch(appKey)
+
+    /** 记录一次成功的 Luno 触发应用启动（包名维度）。 */
+    suspend fun recordAppLaunch(packageName: String, source: AppLaunchSource) {
+        appUsageRepository.recordLaunch(packageName, source)
     }
 
     /** 面板首开同步读一次快照。 */

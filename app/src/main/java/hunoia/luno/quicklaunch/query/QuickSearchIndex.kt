@@ -17,6 +17,16 @@ import kotlinx.coroutines.flow.asStateFlow
 import hunoia.luno.action.model.Action
 
 /**
+ * 应用/快捷方式索引快照：一次 refresh 内三个关联字段同时发布，
+ * search 侧不会看到「新 apps + 旧 shortcuts/disabledPkgs」的跨代组合。
+ */
+internal data class AppIndexData(
+    val apps: List<AppInfo> = emptyList(),
+    val disabledPkgs: Set<String> = emptySet(),
+    val shortcuts: List<LauncherInfo.ShortcutInfo> = emptyList(),
+)
+
+/**
  * 快速搜索索引：懒加载各数据源，按 query 的单字 token 做拼音/首字母/原文 tier 匹配。
  * 加载分两层：[ensureLoaded] 只做无 IO 的定义表；[refreshApps] 查包（含禁用应用）必须在后台线程调，
  * 由 overlay 的 show() 触发，[search] 内保留兜底。
@@ -25,9 +35,8 @@ class QuickSearchIndex(internal val context: Context) {
 
     internal var actions: List<QuickSearchResult.ActionDef> = emptyList()
     internal var settingsPages: List<QuickSearchResult.Settings> = emptyList()
-    internal var apps: List<AppInfo> = emptyList()
-    internal var disabledPkgs: Set<String> = emptySet()
-    internal var shortcuts: List<LauncherInfo.ShortcutInfo> = emptyList()
+    /** 应用/快捷方式/禁用包同代发布，避免读者拼出跨代数据。 */
+    @Volatile internal var appData = AppIndexData()
     /** 联系人缓存：面板打开后在 IO 线程一次性加载，打字时只查内存。 */
     internal var contacts: List<QuickSearchResult.Contact> = emptyList()
     @Volatile internal var defsLoaded = false
@@ -125,9 +134,11 @@ class QuickSearchIndex(internal val context: Context) {
             // 图标不在这里预热：flow 在发射结果前按需 resolve（SearchIconCache），
             // 只解码露出的行；全量 enqueue 又慢又跟首搜 race。
             synchronized(loadLock) {
-                apps = combined.apps
-                disabledPkgs = combined.disabledPkgs
-                shortcuts = builtShortcuts
+                appData = AppIndexData(
+                    apps = combined.apps,
+                    disabledPkgs = combined.disabledPkgs,
+                    shortcuts = builtShortcuts,
+                )
                 appsLoaded = true
                 _indexVersion.value++
             }

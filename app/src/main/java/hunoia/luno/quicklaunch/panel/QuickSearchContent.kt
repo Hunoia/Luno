@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.mapLatest
@@ -38,7 +39,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import hunoia.luno.BuildConfig
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.QuickSearchSettings
-import hunoia.luno.config.model.QuickAppLauncherSettings
+import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.action.model.ActionLibrarySettings
 import hunoia.luno.config.model.MAX_CLIP_HISTORY
 import hunoia.luno.config.model.MIN_HISTORY_CHARS
@@ -56,6 +57,8 @@ import hunoia.luno.quicklaunch.query.toSearchAction
 import hunoia.luno.quicklaunch.query.toSearchResult
 import hunoia.luno.ui.permission.rememberPermissionState
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 /** 搜索输入快照：snapshotFlow 跟踪块内读到的 State，值变化即重搜。 */
@@ -66,10 +69,13 @@ private data class SearchPacket(
     val directive: Boolean,
 )
 
+/** 首屏图标预热上限：只解码当前可能露出的前几行，长尾交给列表可见时 Coil 按需加载。 */
+private const val ICON_PREWARM_LIMIT = 24
+
 private data class SearchSnapshot(
     val text: String,
     val entries: List<hunoia.luno.action.model.ActionLibraryEntry>,
-    val launcher: QuickAppLauncherSettings,
+    val usage: AppUsageStats,
     val search: QuickSearchSettings,
     val contactsTick: Int,
     val mediaTick: Int,
@@ -167,8 +173,8 @@ internal fun QuickSearchContent(
     val libraryFlow = remember { hunoia.luno.config.ConfigProvider.actionLibrarySettings }
     val libraryState by libraryFlow.collectAsState(initial = ActionLibrarySettings())
     val entries = libraryState.entries
-    val launcherFlow = remember { hunoia.luno.config.ConfigProvider.quickAppLauncherSettings }
-    val launcherSettings by launcherFlow.collectAsState(initial = QuickAppLauncherSettings())
+    val usageFlow = remember { hunoia.luno.config.ConfigProvider.appUsageStats }
+    val usageStats by usageFlow.collectAsState(initial = AppUsageStats())
     val searchSettingsFlow = remember { hunoia.luno.config.ConfigProvider.quickSearchSettings }
     val searchSettings by searchSettingsFlow.collectAsState(initial = QuickSearchSettings())
     var query by remember { mutableStateOf(TextFieldValue("")) }
@@ -206,18 +212,11 @@ internal fun QuickSearchContent(
     // 搜索搬出主线程：query 即时更新，结果流式回来；mapLatest 取消过期搜索，空串短路。
     // 依赖只留不会每帧变的东西：query 不进 key（块内 snapshotFlow 读），设置走 SearchInputs，tick 合成 dataVersion。
     val searchInputs = remember(searchSettings) { SearchInputs.of(searchSettings) }
-    val launchCount = remember(launcherSettings) { launcherSettings.launchCount }
-    val recentLaunchTime = remember(launcherSettings) { launcherSettings.recentLaunchTime }
     // 引擎/开关匹配只吃这两个（SearchInputs 已含其余），拼回完整设置只为沿用旧签名。
     val effectiveSearchSettings = remember(searchInputs) { searchInputs.toSettings() }
-    // 启动频率/最近启动变了不必重建流：排序分是搜索时现算的，下一次搜索自然带上新值。
-    // 所以这里把 launcher 只留「搜索侧用得到」的两个 map，引用由 remember 抄平。
-    val effectiveLauncher = remember(launchCount, recentLaunchTime) {
-        QuickAppLauncherSettings(
-            launchCount = launchCount,
-            recentLaunchTime = recentLaunchTime,
-        )
-    }
+    // 启动统计是搜索输入但不重建流：用 rememberUpdatedState 包一层，由块内 snapshotFlow
+    // 读取，统计变了会自动重发一次快照，下一次搜索自然带上新分，不用重建整条管道。
+    val usageState = rememberUpdatedState(usageStats)
     // 应用索引版本：普通 @Volatile 字段 Compose 看不见，必须经 StateFlow 收集。
     val indexVersion by index.indexVersion.collectAsState()
     // dataVersion：数据源 tick / 索引版本，任一变化就重建搜索流并重搜一次。
@@ -225,13 +224,14 @@ internal fun QuickSearchContent(
     val dataVersion = ticks.contactsTick + ticks.mediaTick + ticks.calendarTick +
         ticks.smsTick + ticks.callsTick + indexVersion + ticks.permCacheTick
     val searchFlow = remember(
-        appCtx, iconPx, searchInputs, effectiveLauncher, effectiveSearchSettings, dataVersion, torchOn,
+        appCtx, iconPx, searchInputs, effectiveSearchSettings, dataVersion, torchOn,
     ) {
         snapshotFlow {
             // 块内只读快照里没装但会影响结果的 State：query（打字即时触发）、
-            // entries（动作库条目参与匹配）；tick 已由 remember 的 key 带进闭包。
+            // entries（动作库条目参与匹配）、usage（启动统计影响使用分）；
+            // tick 已由 remember 的 key 带进闭包。
             SearchSnapshot(
-                query.text, entries, effectiveLauncher, effectiveSearchSettings,
+                query.text, entries, usageState.value, effectiveSearchSettings,
                 0, 0, 0, 0, 0, torchOn,
             )
         }.mapLatest { s ->
@@ -240,11 +240,16 @@ internal fun QuickSearchContent(
                 SearchPacket(text, emptyList(), directive = false)
             } else {
                 withContext(Dispatchers.Default) {
-                    val outcome = index.searchOutcome(text, s.entries, s.launcher, s.search, s.torchOn)
+                    val job = currentCoroutineContext()[Job]
+                    val outcome = index.searchOutcome(
+                        text, s.entries, s.usage, s.search, s.torchOn,
+                        isActive = { job?.isActive != false },
+                    )
                     // 发射前把 App/快捷方式行的图标 resolve 进同步缓存：UI 线程读到即画，
-                    // 结果原子到达。已缓存的零开销，只有新包才解码（自带 bitmap 的快捷方式跳过）。
+                    // 结果原子到达。已缓存的零开销，只有新包才解码；只预热首屏上限，
+                    // 避免单字母查询把几百个包的图标串行解码后才发射结果。
                     val pkgs = HashSet<String>()
-                    for (r in outcome.results) {
+                    for (r in outcome.results.asSequence().take(ICON_PREWARM_LIMIT)) {
                         val icon = r.icon
                         if (icon is SearchIcon.AppIcon && icon.bitmap == null) {
                             pkgs.add(icon.packageName)
@@ -323,9 +328,9 @@ internal fun QuickSearchContent(
     // 空态常用应用：放在条件分支外，面板生命周期内只跑一次 —— 写进分支里的话分支一退出
     // 就取消，来回切 query 会反复重启 IO。
     var topUsedApps by remember { mutableStateOf(emptyList<SearchResult>()) }
-    LaunchedEffect(effectiveLauncher, indexVersion) {
+    LaunchedEffect(usageStats, indexVersion) {
         topUsedApps = withContext(Dispatchers.IO) {
-            index.topUsed(effectiveLauncher)
+            index.topUsed(usageStats)
                 .map { it.toSearchResult() }
         }
     }

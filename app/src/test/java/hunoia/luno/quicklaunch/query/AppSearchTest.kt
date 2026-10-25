@@ -85,6 +85,23 @@ class AppSearchTest {
     }
 
     @Test
+    fun `built ascii index takes fast path with same tiers`() {
+        val idx = AppSearch.buildIndex("Shopping List")
+        assertTrue("asciiLike=${idx.asciiLike}", idx.asciiLike)
+        // 锚定首字母：与通用路径一样是 tier 2（initials 优先于 pinyin）。
+        assertEquals(2, AppSearch.matchTextTier("Shopping List", listOf("s")).tier)
+        // 中段连续块：tier 0，offset 不变。
+        val mid = AppSearch.matchTextTier("Shopping List", listOf("p", "p"))
+        assertEquals(0, mid.tier)
+        assertEquals(3, mid.offset)
+    }
+
+    @Test
+    fun `built chinese index does not take ascii fast path`() {
+        assertFalse(AppSearch.buildIndex("微信").asciiLike)
+    }
+
+    @Test
     fun `altPinyins cap 8 behavior unchanged`() {
         // 重:zhong,chong,tong × 6 = 12 个全拼变体 > cap 8,超出的不收。
         val idx = AppSearch.buildIndex("重重重重重重重")

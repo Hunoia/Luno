@@ -15,13 +15,14 @@ import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.system.gotoOverlaySettings
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.AdvancedSettings
+import hunoia.luno.config.model.AppLaunchSource
 import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.core.AppContext
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.domain.search.SearchCenter
+import hunoia.luno.quicklaunch.launch.AppLaunchCoordinator
 import hunoia.luno.quicklaunch.launch.DisabledPackageEnabler
-import hunoia.luno.quicklaunch.launch.Launcher
 import hunoia.luno.quicklaunch.panel.QuickAppLauncherRoot
 import hunoia.luno.quicklaunch.panel.QuickAppLauncherState
 import hunoia.luno.runtime.overlay.OverlayPanelHost
@@ -189,23 +190,14 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
                 onClose = { (closeAnimated ?: { closeImmediate() }).invoke() },
                 onLaunch = { appInfo, miniWindow ->
                     // 用 AppContext（非 Activity）：Launcher 自带 FLAG_ACTIVITY_NEW_TASK，
-                    // BAL 由面板窗口可见性放行。
-                    val success = Launcher.launchAppInfo(
+                    // BAL 由面板窗口可见性放行；统计由 coordinator 在启动成功后统一记录。
+                    AppLaunchCoordinator.launchAppInfo(
                         context = AppContext.get(),
                         appInfo = appInfo,
                         miniWindow = miniWindow,
                         miniWindowSettings = advancedSettings.miniWindowSettings(),
+                        source = AppLaunchSource.QUICK_LAUNCHER,
                     )
-                    if (success) {
-                        App.applicationScope.launch(Dispatchers.IO) {
-                            runCatching {
-                                ConfigProvider.recordQuickAppLaunch(
-                                    "${appInfo.packageName}/${appInfo.className}",
-                                )
-                            }
-                        }
-                    }
-                    success
                 },
                 onRegisterCloseAnimated = { callback -> closeAnimated = callback },
                 onStateReady = { state ->

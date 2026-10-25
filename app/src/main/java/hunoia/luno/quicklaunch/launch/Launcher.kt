@@ -13,9 +13,8 @@ import android.view.WindowManager
 import hunoia.luno.R
 import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.config.model.WindowBounds
-import hunoia.luno.quicklaunch.model.AppInfo
-import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.config.model.OpenAppOrUrlData
+import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.bridge.system.buildViewIntent
 import hunoia.luno.bridge.system.hasViewActivity
@@ -104,21 +103,6 @@ object Launcher {
             Log.e(LOG_TAG, "launchAppActivity failed", e)
             false
         }
-    }
-
-    fun launchAppInfo(
-        context: Context,
-        appInfo: AppInfo,
-        miniWindow: Boolean,
-        miniWindowSettings: MiniWindowSettings = MiniWindowSettings(),
-    ): Boolean {
-        return launchApp(
-            context = context,
-            packageName = appInfo.packageName,
-            className = appInfo.className,
-            miniWindow = miniWindow,
-            miniWindowSettings = miniWindowSettings,
-        )
     }
 
     fun launchShortcutInfo(context: Context, shortcutInfo: LauncherInfo.ShortcutInfo): Boolean {
