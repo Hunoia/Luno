@@ -53,6 +53,7 @@ import hunoia.luno.config.model.SRC_TOGGLE
 import hunoia.luno.config.model.effectiveEngines
 import hunoia.luno.config.model.effectiveTrigger
 import hunoia.luno.quicklaunch.query.QuickSearchResult
+import hunoia.luno.quicklaunch.query.SearchAction
 import hunoia.luno.quicklaunch.query.SearchResult
 import hunoia.luno.quicklaunch.query.SearchSourceRegistry
 import hunoia.luno.quicklaunch.query.toSearchResult
@@ -74,6 +75,9 @@ internal fun QuickSearchEmptyList(
     clipboardText: String?,
     locked: Boolean,
     used: List<SearchResult>,
+    queryText: String,
+    menuResult: SearchResult?,
+    resultPinnedKeys: Set<String>,
     grants: QuickSearchMediaGrants,
     contactsPerm: PermissionState,
     calendarPerm: PermissionState,
@@ -84,7 +88,11 @@ internal fun QuickSearchEmptyList(
     pinnedSet: Set<String>,
     onQueryChange: (TextFieldValue) -> Unit,
     onResultClick: (SearchResult, String) -> Unit,
-    onLongPress: (SearchResult) -> Unit,
+    onMenuOpen: (SearchResult) -> Unit,
+    onMenuDismiss: () -> Unit,
+    onResultAction: (SearchAction, String) -> Unit,
+    onToggleResultPin: (String, String) -> Unit,
+    onShowEngines: (String) -> Unit,
     onTogglePin: (String) -> Unit,
     onDeleteHistory: (String) -> Unit,
     onOpenAppSettings: () -> Unit,
@@ -162,15 +170,28 @@ internal fun QuickSearchEmptyList(
                 }
             }
             itemsIndexed(clips, key = { _, c -> "c#$c" }) { pos, clipText ->
+                val clipResult = QuickSearchResult.ClipEntry(clipText).toSearchResult()
                 ClipboardRow(
                     text = clipText,
                     shape = segmentedShape(total - 1 - pos, total),
                     onClick = {
                         onQueryChange(backfillText(clipText).let { TextFieldValue(it, TextRange(it.length)) })
                     },
-                    onLongClick = { onLongPress(QuickSearchResult.ClipEntry(clipText).toSearchResult()) },
+                    onLongClick = { onMenuOpen(clipResult) },
                     pinned = clipText in pinnedSet,
                     onTogglePin = { onTogglePin(clipText) },
+                    menu = {
+                        ResultActionMenu(
+                            result = clipResult,
+                            query = queryText.trim(),
+                            pinned = clipResult.key in resultPinnedKeys,
+                            expanded = menuResult?.key == clipResult.key,
+                            onDismiss = onMenuDismiss,
+                            onAction = onResultAction,
+                            onTogglePin = onToggleResultPin,
+                            onShowEngines = onShowEngines,
+                        )
+                    },
                 )
             }
             itemsIndexed(history, key = { _, h -> "h#$h" }) { pos, h ->
@@ -191,8 +212,19 @@ internal fun QuickSearchEmptyList(
                         result = app,
                         shape = segmentedShape(total - 1 - pos, total),
                         onClick = { onResultClick(app, "") },
-                        onLongClick = { onLongPress(app) },
-                        onMore = { onLongPress(app) },
+                        onLongClick = { onMenuOpen(app) },
+                        menu = {
+                            ResultActionMenu(
+                                result = app,
+                                query = queryText.trim(),
+                                pinned = app.key in resultPinnedKeys,
+                                expanded = menuResult?.key == app.key,
+                                onDismiss = onMenuDismiss,
+                                onAction = onResultAction,
+                                onTogglePin = onToggleResultPin,
+                                onShowEngines = onShowEngines,
+                            )
+                        },
                     )
                 }
             if (showGrant) {

@@ -178,8 +178,7 @@ internal fun QuickSearchContent(
     val searchSettingsFlow = remember { hunoia.luno.config.ConfigProvider.quickSearchSettings }
     val searchSettings by searchSettingsFlow.collectAsState(initial = QuickSearchSettings())
     var query by remember { mutableStateOf(TextFieldValue("")) }
-    var actionSheetResult by remember { mutableStateOf<SearchResult?>(null) }
-    var actionSheetQuery by remember { mutableStateOf("") }
+    var menuResult by remember { mutableStateOf<SearchResult?>(null) }
     var enginePickerQuery by remember { mutableStateOf<String?>(null) }
     var restoredDraft by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -320,7 +319,7 @@ internal fun QuickSearchContent(
     }
     LaunchedEffect(closing) {
         if (closing) {
-            actionSheetResult = null
+            menuResult = null
             enginePickerQuery = null
             onSaveDraft(query.text)
         }
@@ -352,11 +351,20 @@ internal fun QuickSearchContent(
     }
     // 退场中吞掉行点击：requestClose 幂等但 dispatch 不是，守一层。
     val safeResult: (SearchResult, String) -> Unit = { r, q -> if (!closing) onResult(r, q) }
-    val safeLongPress: (SearchResult) -> Unit = { result ->
-        if (!closing) {
-            actionSheetResult = result
-            actionSheetQuery = query.text.trim()
+    val safeMenuOpen: (SearchResult) -> Unit = { result -> if (!closing) menuResult = result }
+    // 结果菜单动作收口：先收菜单；ShowEngines 转引擎选择（引擎结果的动作里内嵌它），其余上抛。
+    val handleResultAction: (SearchAction, String) -> Unit = { action, q ->
+        menuResult = null
+        if (action is SearchAction.ShowEngines) {
+            enginePickerQuery = action.query
+        } else {
+            onAction(action, q)
         }
+    }
+    val onMenuDismiss: () -> Unit = { menuResult = null }
+    // 当前 query 的结果级 Pin key 集（trim+lowercase，与索引层同口径）。
+    val resultPinnedKeys = remember(searchSettings.pinnedResults, query.text) {
+        searchSettings.pinnedResults[normalizePinQuery(query.text.trim())].orEmpty().toSet()
     }
     val safeAction: (SearchAction, String) -> Unit = { a, q -> if (!closing) onAction(a, q) }
     Box(
@@ -411,9 +419,14 @@ internal fun QuickSearchContent(
                     matches = matches,
                     pinnedSet = pinnedSet,
                     queryText = query.text,
+                    menuResult = menuResult,
+                    resultPinnedKeys = resultPinnedKeys,
                     onQueryChange = { query = it },
                     onResultClick = safeResult,
-                    onLongPress = safeLongPress,
+                    onMenuOpen = safeMenuOpen,
+                    onMenuDismiss = onMenuDismiss,
+                    onResultAction = handleResultAction,
+                    onToggleResultPin = onTogglePin,
                     onShowEngines = { enginePickerQuery = it },
                     onTogglePin = togglePin,
                     onDeleteHistory = deleteHistory,
@@ -427,6 +440,9 @@ internal fun QuickSearchContent(
                     clipboardText = clipboardText,
                     locked = locked,
                     used = topUsedApps,
+                    queryText = query.text,
+                    menuResult = menuResult,
+                    resultPinnedKeys = resultPinnedKeys,
                     grants = grants,
                     contactsPerm = contactsPerm,
                     calendarPerm = calendarPerm,
@@ -437,7 +453,11 @@ internal fun QuickSearchContent(
                     pinnedSet = pinnedSet,
                     onQueryChange = { query = it },
                     onResultClick = safeResult,
-                    onLongPress = safeLongPress,
+                    onMenuOpen = safeMenuOpen,
+                    onMenuDismiss = onMenuDismiss,
+                    onResultAction = handleResultAction,
+                    onToggleResultPin = onTogglePin,
+                    onShowEngines = { enginePickerQuery = it },
                     onTogglePin = togglePin,
                     onDeleteHistory = deleteHistory,
                     onOpenAppSettings = onOpenAppSettings,
@@ -478,26 +498,6 @@ internal fun QuickSearchContent(
             )
         }
 
-        actionSheetResult?.let { result ->
-            val pinned = result.key in searchSettings
-                .pinnedResults[normalizePinQuery(actionSheetQuery)].orEmpty()
-            SearchResultActionSheet(
-                result = result,
-                query = actionSheetQuery,
-                pinned = pinned,
-                onAction = { action, q ->
-                    actionSheetResult = null
-                    if (action is SearchAction.ShowEngines) {
-                        enginePickerQuery = action.query
-                    } else {
-                        onAction(action, q)
-                    }
-                },
-                onTogglePin = { q, key -> actionSheetResult = null; onTogglePin(q, key) },
-                onShowEngines = { q -> actionSheetResult = null; enginePickerQuery = q },
-                onDismiss = { actionSheetResult = null },
-            )
-        }
         enginePickerQuery?.let { pickerQuery ->
             val engines = searchSettings.effectiveEngines()
             if (engines.isNotEmpty()) {

@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.graphics.Color as ComposeColor
@@ -113,7 +114,8 @@ internal fun rowPreview(text: String, limit: Int = 120): String =
  */
 internal fun backfillText(text: String, limit: Int = MAX_QUERY_CHARS): String = text.take(limit)
 /** 剪贴板行：标题=剪贴内容（单行省略），无副标题；点回填、长按写回系统剪贴板；
- *  行尾图钉按钮点固定/取消（固定态=primary 色，非固定=淡色）。
+ *  行尾图钉按钮点固定/取消（固定态=primary 色，非固定=淡色）；
+ *  [menu] 锚定在行尾图钉按钮处（长按弹菜单，见调用方）。
  */
 @Composable
 internal fun ClipboardRow(
@@ -123,6 +125,7 @@ internal fun ClipboardRow(
     onLongClick: () -> Unit = {},
     pinned: Boolean = false,
     onTogglePin: () -> Unit = {},
+    menu: (@Composable () -> Unit)? = null,
 ) {
     LunoSelectableRow(
         title = rowPreview(text),
@@ -135,16 +138,19 @@ internal fun ClipboardRow(
         selectedContainerColor = searchRowSelectedContainer(),
         onLongClick = onLongClick,
         trailing = {
-            LunoIconButton(
-                icon = Icons.Default.PushPin,
-                contentDescription = stringResource(
-                    if (pinned) R.string.quick_search_unpin else R.string.quick_search_pin
-                ),
-                onClick = onTogglePin,
-                modifier = Modifier.size(32.dp),
-                tint = if (pinned) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-            )
+            Box {
+                LunoIconButton(
+                    icon = Icons.Default.PushPin,
+                    contentDescription = stringResource(
+                        if (pinned) R.string.quick_search_unpin else R.string.quick_search_pin
+                    ),
+                    onClick = onTogglePin,
+                    modifier = Modifier.size(32.dp),
+                    tint = if (pinned) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                )
+                menu?.invoke()
+            }
         },
     )
 }
@@ -175,8 +181,8 @@ internal fun ResultRow(
     result: SearchResult,
     shape: androidx.compose.ui.graphics.Shape,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
-    onMore: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
+    menu: (@Composable () -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val sizePx = with(LocalDensity.current) { 24.dp.toPx().toInt() }
@@ -228,13 +234,16 @@ internal fun ResultRow(
         containerColor = searchRowContainer(),
         selectedContainerColor = searchRowSelectedContainer(),
         onLongClick = onLongClick,
-        trailing = onMore?.let { more ->
+        trailing = menu?.let { anchor ->
             {
-                LunoIconButton(
-                    icon = Icons.Default.MoreVert,
-                    contentDescription = stringResource(R.string.more),
-                    onClick = more,
-                )
+                Box {
+                    LunoIconButton(
+                        icon = Icons.Default.MoreVert,
+                        contentDescription = stringResource(R.string.more),
+                        onClick = onLongClick ?: {},
+                    )
+                    anchor()
+                }
             }
         },
     )

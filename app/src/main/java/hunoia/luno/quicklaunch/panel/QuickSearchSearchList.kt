@@ -30,9 +30,14 @@ internal fun QuickSearchSearchList(
     matches: List<String>,
     pinnedSet: Set<String>,
     queryText: String,
+    menuResult: SearchResult?,
+    resultPinnedKeys: Set<String>,
     onQueryChange: (TextFieldValue) -> Unit,
     onResultClick: (SearchResult, String) -> Unit,
-    onLongPress: (SearchResult) -> Unit,
+    onMenuOpen: (SearchResult) -> Unit,
+    onMenuDismiss: () -> Unit,
+    onResultAction: (SearchAction, String) -> Unit,
+    onToggleResultPin: (String, String) -> Unit,
     onShowEngines: (String) -> Unit,
     onTogglePin: (String) -> Unit,
     onDeleteHistory: (String) -> Unit,
@@ -72,6 +77,18 @@ internal fun QuickSearchSearchList(
                 val pos = matches.size + index
                 val shape = segmentedShape(total - 1 - pos, total)
                 val setQuery = (item.primary as? SearchAction.SetQuery)?.text
+                val menu: @Composable () -> Unit = {
+                    ResultActionMenu(
+                        result = item,
+                        query = queryText.trim(),
+                        pinned = item.key in resultPinnedKeys,
+                        expanded = menuResult?.key == item.key,
+                        onDismiss = onMenuDismiss,
+                        onAction = onResultAction,
+                        onTogglePin = onToggleResultPin,
+                        onShowEngines = onShowEngines,
+                    )
+                }
                 if (setQuery != null) {
                     ClipboardRow(
                         text = setQuery,
@@ -81,17 +98,18 @@ internal fun QuickSearchSearchList(
                                 backfillText(setQuery).let { TextFieldValue(it, TextRange(it.length)) },
                             )
                         },
-                        onLongClick = { onLongPress(item) },
+                        onLongClick = { onMenuOpen(item) },
                         pinned = setQuery in pinnedSet,
                         onTogglePin = { onTogglePin(setQuery) },
+                        menu = menu,
                     )
                 } else {
                     ResultRow(
                         result = item,
                         shape = shape,
                         onClick = { onRowClick(item, queryText, onResultClick, onShowEngines) },
-                        onLongClick = { onLongPress(item) },
-                        onMore = { onLongPress(item) },
+                        onLongClick = { onMenuOpen(item) },
+                        menu = menu,
                     )
                 }
             }

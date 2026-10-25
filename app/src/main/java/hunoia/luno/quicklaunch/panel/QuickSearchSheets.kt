@@ -13,14 +13,8 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.badgeText
-import hunoia.luno.quicklaunch.query.SearchAction
-import hunoia.luno.quicklaunch.query.SearchActionLabel
-import hunoia.luno.quicklaunch.query.SearchResult
-import hunoia.luno.quicklaunch.query.SOURCE_ENGINE
-import hunoia.luno.quicklaunch.query.isResultOverrideAllowed
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.row.LunoSelectableRow
-import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.theme.PageGutter
@@ -61,77 +55,4 @@ internal fun SearchEnginePickerSheet(
             }
         }
     }
-}
-
-/** 结果操作 Sheet：业务动作 + 通用 Pin/其他引擎。 */
-@Composable
-internal fun SearchResultActionSheet(
-    result: SearchResult,
-    query: String,
-    pinned: Boolean,
-    onAction: (SearchAction, String) -> Unit,
-    onTogglePin: (String, String) -> Unit,
-    onShowEngines: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val items = buildList {
-        result.actions.forEach { item ->
-            add(SheetActionItem(item.label) { onAction(item.action, query) })
-        }
-        if (result.source != SOURCE_ENGINE) {
-            add(
-                SheetActionItem(SearchActionLabel.Res(R.string.search_action_use_other_engine)) {
-                    onShowEngines(query)
-                },
-            )
-        }
-        if (result.isResultOverrideAllowed() && query.isNotBlank()) {
-            add(
-                SheetActionItem(
-                    SearchActionLabel.Res(
-                        if (pinned) R.string.search_action_unpin else R.string.search_action_pin,
-                    ),
-                ) { onTogglePin(query, result.key) },
-            )
-        }
-    }
-    if (items.isEmpty()) return
-    LunoSheet(onDismissRequest = onDismiss) {
-        Text(
-            text = result.title,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = PageGutter, vertical = 12.dp),
-        )
-        androidx.compose.foundation.layout.Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = PageGutter)
-                .heightIn(max = SheetListMaxHeight)
-                .verticalScroll(rememberScrollState()),
-        ) {
-            items.forEachIndexed { index, item ->
-                LunoSettingsRow(
-                    title = item.label.resolve(),
-                    trailing = {},
-                    shape = segmentedShape(index, items.size),
-                    onClick = {
-                        onDismiss()
-                        item.onClick()
-                    },
-                )
-            }
-        }
-    }
-}
-
-private data class SheetActionItem(
-    val label: SearchActionLabel,
-    val onClick: () -> Unit,
-)
-
-@Composable
-private fun SearchActionLabel.resolve(): String = when (this) {
-    is SearchActionLabel.Res -> stringResource(id)
-    is SearchActionLabel.Literal -> text
 }
