@@ -1,5 +1,7 @@
 package hunoia.luno.ui.settings.floatball
 
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
@@ -37,6 +39,7 @@ import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.domain.system.FloatBallUseCase
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.runtime.automation.AutomationNotificationListener
 import hunoia.luno.ui.component.actionTextCompose
 import hunoia.luno.ui.component.gestureButtonMarkColor
 import hunoia.luno.ui.component.input.LunoTextSlider
@@ -75,13 +78,20 @@ fun FloatBallEditScreen(
     var localIdleDelay by remember(floatBall.idleDimDelayMs) {
         mutableFloatStateOf(floatBall.idleDimDelayMs.toFloat())
     }
+    var localCapsuleAutoHide by remember(floatBall.notificationCapsule.autoHideMs) {
+        mutableFloatStateOf(floatBall.notificationCapsule.autoHideMs.toFloat())
+    }
 
     var overlayGranted by remember { mutableStateOf(context.canDrawOverlays()) }
+    var notifAccessGranted by remember {
+        mutableStateOf(AutomationNotificationListener.isAccessGranted(context))
+    }
     var showColorPicker by remember { mutableStateOf(false) }
 
     // 从系统悬浮窗设置回来时重查（授权与撤销都要）：横幅消隐要跟手，服务也要 nudge ——
     // 授权回来服务要从无权限的隐藏态亮回；撤销时系统已拆走悬浮窗，nudge 让服务摘窗回收，
     // 否则 ballVisible 停在 true，之后重新授权也亮不回来。
+    // 通知使用权同场重查（通知胶囊的授权横幅消隐）。
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -91,6 +101,8 @@ fun FloatBallEditScreen(
                     overlayGranted = granted
                     FloatBallUseCase.refresh(context)
                 }
+                val notifGranted = AutomationNotificationListener.isAccessGranted(context)
+                if (notifGranted != notifAccessGranted) notifAccessGranted = notifGranted
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -233,6 +245,74 @@ fun FloatBallEditScreen(
                     checked = floatBall.mirrorBall,
                     onCheckedChange = { checked -> update { it.copy(mirrorBall = checked) } },
                     shape = segmentedShape(1, 2),
+                )
+            }
+        }
+
+        // 通知胶囊开了但没通知使用权：胶囊收不到任何通知，横幅必须喊出来。
+        if (floatBall.notificationCapsule.enabled && !notifAccessGranted) {
+            item(key = "capsule_permission") {
+                LunoGroup {
+                    LunoSettingsRow(
+                        title = stringResource(R.string.float_ball_capsule_need_permission),
+                        subtitle = stringResource(R.string.float_ball_capsule_need_permission_hint),
+                        icon = Icons.AutoMirrored.Filled.OpenInNew,
+                        shape = segmentedShape(0, 1),
+                        onClick = {
+                            context.startActivity(
+                                Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS),
+                            )
+                        },
+                    )
+                }
+            }
+        }
+
+        item(key = "capsule") {
+            val capsule = floatBall.notificationCapsule
+            LunoGroup(title = stringResource(R.string.float_ball_capsule_group)) {
+                LunoSwitchRow(
+                    title = stringResource(R.string.float_ball_capsule_enabled),
+                    subtitle = stringResource(R.string.float_ball_capsule_enabled_subtitle),
+                    checked = capsule.enabled,
+                    onCheckedChange = { checked ->
+                        update { it.copy(notificationCapsule = it.notificationCapsule.copy(enabled = checked)) }
+                        // 胶囊开关也要服务在跑：开 = 拉起；关 = nudge 重评（服务自决定去留）。
+                        if (checked) {
+                            FloatBallUseCase.setEnabled(context, true)
+                        } else {
+                            FloatBallUseCase.setEnabled(context, false)
+                        }
+                    },
+                    shape = segmentedShape(0, 3),
+                )
+                LunoSwitchRow(
+                    title = stringResource(R.string.float_ball_capsule_left_side),
+                    checked = capsule.leftSide,
+                    onCheckedChange = { checked ->
+                        update {
+                            it.copy(notificationCapsule = it.notificationCapsule.copy(leftSide = checked))
+                        }
+                    },
+                    shape = segmentedShape(1, 3),
+                )
+                LunoTextSlider(
+                    value = localCapsuleAutoHide,
+                    onValueChange = { value -> localCapsuleAutoHide = value },
+                    onValueChangeFinished = {
+                        update {
+                            it.copy(
+                                notificationCapsule = it.notificationCapsule.copy(
+                                    autoHideMs = localCapsuleAutoHide.toLong(),
+                                ),
+                            )
+                        }
+                    },
+                    text = stringResource(R.string.float_ball_capsule_auto_hide),
+                    valueDisplay = { "${(it / 1000).toInt()} s" },
+                    valueRange = FloatBallDefaults.CapsuleAutoHideMsMin.toFloat()..
+                        FloatBallDefaults.CapsuleAutoHideMsMax.toFloat(),
+                    shape = segmentedShape(2, 3),
                 )
             }
         }

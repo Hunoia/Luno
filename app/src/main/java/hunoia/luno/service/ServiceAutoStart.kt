@@ -108,11 +108,13 @@ internal object ServiceAutoStart {
             ?.gestureEnabled ?: true
 
     /**
-     * 悬浮球开关。读失败按「不开」处理：拉起路径抛异常会连带影响保活服务。
+     * 悬浮球服务要不要起：球开关或通知胶囊开关任一开启（FloatBallService 是共同宿主）。
+     * 读失败按「不开」处理：拉起路径抛异常会连带影响保活服务。
      */
     fun readFloatBallEnabled(context: Context): Boolean =
-        readSettings<ActionSettings>(context, DataStoreFiles.ACTION_SETTINGS)
-            ?.floatBall?.enabled ?: false
+        readSettings<ActionSettings>(context, DataStoreFiles.ACTION_SETTINGS)?.floatBall?.let {
+            it.enabled || it.notificationCapsule.enabled
+        } ?: false
 
     /** 保活开关（SharedPreferences，与 `KeepAliveUseCase` 同一份）。 */
     fun readKeepAliveEnabled(context: Context): Boolean = runCatching {

@@ -195,6 +195,13 @@
     <string name="float_ball_follow_hand_subtitle">触钮触发侧切换时，球自动挪到该侧并沿用该侧记忆高度</string>
     <string name="float_ball_mirror">对侧分身</string>
     <string name="float_ball_mirror_subtitle">屏幕对侧显示半圆分身，按下即触发动作并与主球换位</string>
+    <string name="float_ball_capsule_group">通知胶囊</string>
+    <string name="float_ball_capsule_enabled">通知到达时弹出</string>
+    <string name="float_ball_capsule_enabled_subtitle">底部弹出胶囊显示应用图标与通知内容，点击直达，数秒后自动收起</string>
+    <string name="float_ball_capsule_left_side">靠左显示</string>
+    <string name="float_ball_capsule_auto_hide">自动收起时长</string>
+    <string name="float_ball_capsule_need_permission">需要通知使用权</string>
+    <string name="float_ball_capsule_need_permission_hint">点此前往系统设置授权，胶囊才能收到通知</string>
     <string name="action_panel_missing">面板已不存在，请返回重新添加</string>
     <string name="action_panel_items_count">%1$d 项</string>
     <string name="action_panel_count">%1$d 个面板</string>

@@ -506,6 +506,15 @@ class GestureCoordinator(
         }
     }
 
+    /** 通知脉冲：驱动 NOTIFICATION 域评估（Hub 现为多观察者，胶囊悬浮球也订阅同一源）。 */
+    private val notificationObserver: (hunoia.luno.runtime.condition.NotificationPulse) -> Unit = { pulse ->
+        environmentTracker.onNotificationPosted(pulse)
+        refreshGestureButtons(automationKeys = setOf(AutomationEventKey.NOTIFICATION))
+    }
+
+    /** 勿扰变化由通知监听服务推入（需通知访问权限）。 */
+    private val interruptionObserver: (Boolean) -> Unit = { on -> dndTracker.onSystemChanged(on) }
+
     /**
      * 部件被点后每 40ms 看一次应用窗口列表：新应用窗口一出现就收口，
      * 不等 MIUI 那个约 0.5s 后才到的 TYPE_WINDOW_STATE_CHANGED。
@@ -584,13 +593,10 @@ class GestureCoordinator(
         // 键盘状态无法像 orientation/锁屏那样在构造期播种（rootInActiveWindow 需服务连接后才有），
         // 放这里：早于首评的设置收集器，此刻 root 已可查询。
         environmentTracker.seedKeyboardInputActive()
-        // 通知脉冲：同 :service 进程静态直连；destroy 时置空，避免野回调。
-        AutomationPulseHub.onNotification = { pulse ->
-            environmentTracker.onNotificationPosted(pulse)
-            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.NOTIFICATION))
-        }
-        // 勿扰变化由通知监听服务推入（需通知访问权限）。
-        AutomationPulseHub.onInterruption = { on -> dndTracker.onSystemChanged(on) }
+        // 通知脉冲：同 :service 进程静态直连；destroy 时移除，避免野回调。
+        AutomationPulseHub.addNotificationObserver(notificationObserver)
+        // 勿扰变化由通知监听服务推入（需通知访问权限）；订阅即回放当前基线。
+        AutomationPulseHub.addInterruptionObserver(interruptionObserver)
         dndTracker.refreshFromSystem()
         val listener = WallpaperManager.OnColorsChangedListener { _, _ ->
             hunoia.luno.core.Events.post(hunoia.luno.core.WallpaperChangedEvent())
@@ -773,8 +779,8 @@ class GestureCoordinator(
             hunoia.luno.action.dispatcher.GestureDispatchEvent::class,
             gestureDispatchSubscriber,
         )
-        AutomationPulseHub.onNotification = null
-        AutomationPulseHub.onInterruption = null
+        AutomationPulseHub.removeNotificationObserver(notificationObserver)
+        AutomationPulseHub.removeInterruptionObserver(interruptionObserver)
         runtimeSettingsStore.stop()
         timeConditionTicker.stop()
         batteryTracker.unregister()

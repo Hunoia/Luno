@@ -37,6 +37,22 @@ data class FloatBallSettings(
     val leftAnchorY: Float? = null,
     /** 右手侧球高度锚点。 */
     val rightAnchorY: Float? = null,
+    /** 通知胶囊（独立开关，宿主同为 FloatBallService）：通知到达时底部弹出、自动收起。 */
+    val notificationCapsule: NotificationCapsuleSettings = NotificationCapsuleSettings(),
+)
+
+/**
+ * 通知胶囊配置：通知到达时在屏幕底部弹出「图标 + 标题 + 正文」胶囊，
+ * 点击直达（通知 contentIntent 优先，失败回退启动应用），[autoHideMs] 后自动收起。
+ */
+@Serializable
+@Keep
+data class NotificationCapsuleSettings(
+    val enabled: Boolean = false,
+    /** 胶囊靠屏幕左侧；false = 右侧。 */
+    val leftSide: Boolean = false,
+    /** 弹出后多少 ms 自动收起（3–10s，设置页滑杆约束）。 */
+    val autoHideMs: Long = FloatBallDefaults.CapsuleAutoHideMs,
 )
 
 object FloatBallDefaults {
@@ -77,4 +93,9 @@ object FloatBallDefaults {
 
     /** 分身描边的常驻透明度（半圆姿态，比主球 idle 更暗）。 */
     const val MirrorDimAlpha = 0.1f
+
+    /** 通知胶囊：自动收起时长默认值与滑杆上下限（ms）。 */
+    const val CapsuleAutoHideMs = 5_000L
+    const val CapsuleAutoHideMsMin = 3_000L
+    const val CapsuleAutoHideMsMax = 10_000L
 }

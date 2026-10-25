@@ -23,12 +23,17 @@ import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.config.model.AppLaunchSource
+import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.core.TouchButtonSideEvent
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.quicklaunch.QuickLaunchFacade
+import hunoia.luno.runtime.automation.AutomationPulseHub
+import hunoia.luno.runtime.condition.NotificationPulse
 import hunoia.luno.runtime.environment.BroadcastObserver
 import hunoia.luno.gridpanel.GridPanelOverlay
 import hunoia.luno.service.SideGestureService
@@ -63,10 +68,18 @@ class FloatBallService : Service() {
 
     private lateinit var ballWindow: FloatBallWindow
     private lateinit var mirrorWindow: FloatBallMirrorWindow
+    private lateinit var capsuleWindow: NotificationCapsuleWindow
     private var broadcastObserver: BroadcastObserver? = null
 
     /** 球是否已真正挂上窗口。false = 未授权或被系统拒绝。 */
     private var ballVisible = false
+
+    /** 胶囊当前是否在屏（含进场/退场动画期间）。 */
+    private var capsuleShowing = false
+    private var capsuleTimerJob: Job? = null
+
+    /** 最近一条弹出过的通知：点击胶囊时发 contentIntent / 回退启动应用。 */
+    private var lastPulse: NotificationPulse? = null
 
     /** 面板类浮层打开计数（>0 即隐藏球）。 */
     private var panelCount = 0
@@ -99,6 +112,9 @@ class FloatBallService : Service() {
             onDragDeltas = { dx, dy -> onMirrorDragDeltas(dx, dy) }
             onDragReleased = { onMirrorDragReleased() }
         }
+        capsuleWindow = NotificationCapsuleWindow(this).apply {
+            onTapped = { onCapsuleTapped() }
+        }
         startInForeground()
 
         broadcastObserver = BroadcastObserver(
@@ -110,6 +126,7 @@ class FloatBallService : Service() {
                 imeJob = null
                 ballWindow.setHidden(true)
                 mirrorWindow.setHidden(true)
+                hideCapsule()
             },
             onScreenOn = ::applyLockState,
             onUserPresent = ::applyLockState,
@@ -119,12 +136,21 @@ class FloatBallService : Service() {
         ensureImeObserver()
         observePanels()
         Events.subscribe(TouchButtonSideEvent::class, touchSideSubscriber)
+        // 通知胶囊：与监听器同进程静态直连；勿扰变化即收当前胶囊。
+        AutomationPulseHub.addNotificationObserver(notificationObserver)
+        AutomationPulseHub.addInterruptionObserver(capsuleInterruptionObserver)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
+            // 还有功能要宿主就不退（球关了胶囊可能还开着）；真全关走
+            // settings 收集处的自停，那边有两开关的完整状态。
+            if (settings.enabled || settings.notificationCapsule.enabled) {
+                refreshWindows()
+                return START_STICKY
+            }
             stopSelf()
             return START_NOT_STICKY
         }
@@ -144,12 +170,17 @@ class FloatBallService : Service() {
         Events.unsubscribe(PanelDismissedEvent::class, panelDismissedSubscriber)
         Events.unsubscribe(TouchButtonSideEvent::class, touchSideSubscriber)
         Events.unsubscribe(FloatBallTempHideEvent::class, tempHideSubscriber)
+        AutomationPulseHub.removeNotificationObserver(notificationObserver)
+        AutomationPulseHub.removeInterruptionObserver(capsuleInterruptionObserver)
         tempHideJob?.cancel()
         tempHideJob = null
+        capsuleTimerJob?.cancel()
+        capsuleTimerJob = null
         tempHideUntilMs = 0L
         panelCount = 0
         ballWindow.detach()
         mirrorWindow.detach()
+        capsuleWindow.detachNow()
         scope.cancel()
         super.onDestroy()
     }
@@ -171,7 +202,10 @@ class FloatBallService : Service() {
                     gestureEnabledSnapshot = config.gestureEnabled
                     ballWindow.updateSettings(config.action.floatBall)
                     mirrorWindow.updateSettings(config.action.floatBall)
+                    capsuleWindow.updateSettings(config.action.floatBall)
                     refreshWindows()
+                    // 自停不变式：悬浮球与通知胶囊都关了，前台服务没有存在意义。
+                    if (!settings.enabled && !settings.notificationCapsule.enabled) stopSelf()
                 }
         }
     }
@@ -220,6 +254,7 @@ class FloatBallService : Service() {
                 mirrorWindow.detach()
             }
         }
+        refreshCapsule()
     }
 
     // ---- 面板联动（面板打开即隐藏球） ----
@@ -269,6 +304,85 @@ class FloatBallService : Service() {
         tempHideJob = null
         tempHideUntilMs = 0L
         refreshWindows()
+    }
+
+    // ---- 通知胶囊 ----
+
+    private val notificationObserver: (NotificationPulse) -> Unit = { pulse ->
+        // 监听器在 binder 线程回调：切主线程再动窗口。
+        scope.launch { onNotificationArrived(pulse) }
+    }
+
+    private val capsuleInterruptionObserver: (Boolean) -> Unit = { dndOn ->
+        // 勿扰开启即收当前胶囊；关闭不补播，等下一条通知。
+        if (dndOn) scope.launch { hideCapsule() }
+    }
+
+    /** 胶囊可见条件：与球同套联动（权限/总闸/面板/临时隐藏/锁屏）+ 自身开关 + 勿扰。 */
+    private fun capsuleAllowed(): Boolean =
+        settings.notificationCapsule.enabled &&
+            canDrawOverlays() &&
+            gestureEnabledSnapshot &&
+            panelCount == 0 &&
+            tempHideUntilMs <= SystemClock.uptimeMillis() &&
+            !isScreenLocked() &&
+            !AutomationPulseHub.dndActive
+
+    private fun onNotificationArrived(pulse: NotificationPulse) {
+        if (!capsuleAllowed()) return
+        lastPulse = pulse
+        capsuleWindow.show(pulse)
+        capsuleShowing = true
+        scheduleCapsuleHide(settings.notificationCapsule.autoHideMs)
+    }
+
+    /** 自动收起计时：新通知覆盖重计时（show 前服务层重算 allowed，不允许直接吞掉）。 */
+    private fun scheduleCapsuleHide(delayMs: Long) {
+        capsuleTimerJob?.cancel()
+        capsuleTimerJob = scope.launch {
+            delay(
+                delayMs.coerceIn(
+                    FloatBallDefaults.CapsuleAutoHideMsMin,
+                    FloatBallDefaults.CapsuleAutoHideMsMax,
+                ),
+            )
+            hideCapsule()
+        }
+    }
+
+    private fun hideCapsule() {
+        capsuleTimerJob?.cancel()
+        capsuleTimerJob = null
+        if (!capsuleShowing) return
+        capsuleShowing = false
+        capsuleWindow.hide()
+    }
+
+    /** 面板/临时隐藏/锁屏等联动入口共用：在屏但不允许了就收起（收起后不补播旧通知）。 */
+    private fun refreshCapsule() {
+        if (capsuleShowing && !capsuleAllowed()) hideCapsule()
+    }
+
+    private fun onCapsuleTapped() {
+        val pulse = lastPulse ?: return
+        hideCapsule()
+        // contentIntent 是具体会话/页面的 PendingIntent（比裸启动应用准）；
+        // 无 intent 或后台启动被 ROM 拦时回退为按包名启动应用（与手势同链路）。
+        scope.launch {
+            val contentIntent = pulse.contentIntent
+            if (contentIntent != null) {
+                val sent = runCatching { contentIntent.send() }.isSuccess
+                if (sent) return@launch
+            }
+            runCatching {
+                QuickLaunchFacade.launchAppDirect(
+                    context = this@FloatBallService,
+                    packageName = pulse.packageName,
+                    className = "",
+                    source = AppLaunchSource.UNKNOWN,
+                )
+            }.onFailure { Log.w(TAG, "capsule app launch failed: ${it.message}") }
+        }
     }
 
     // ---- 点按派发 ----
@@ -460,6 +574,7 @@ class FloatBallService : Service() {
         val hidden = isScreenLocked()
         ballWindow.setHidden(hidden)
         mirrorWindow.setHidden(hidden)
+        if (hidden) hideCapsule()
         // 息屏时兜底轮询被停掉（见 onScreenOff），亮屏解锁后按需补启。
         if (!hidden) ensureImeObserver()
     }

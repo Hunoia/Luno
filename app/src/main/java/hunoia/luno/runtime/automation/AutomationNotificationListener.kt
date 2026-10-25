@@ -8,9 +8,9 @@ import android.service.notification.StatusBarNotification
 import hunoia.luno.runtime.condition.NotificationPulse
 
 /**
- * 自动化通知触发源：只取包名/标题/正文做关键字匹配，匹配完原文即丢；
- * 执行历史不存原文。
- * 常驻通知（ongoing）与同 key 重投去重，不发脉冲。
+ * 自动化通知触发源：取包名/标题/正文做关键字匹配（匹配完原文即丢，执行历史不存原文），
+ * 附带 contentIntent 供通知胶囊点击直达。
+ * 常驻通知（ongoing）、自家通知与同 key 重投去重，不发脉冲。
  */
 class AutomationNotificationListener : NotificationListenerService() {
 
@@ -27,6 +27,8 @@ class AutomationNotificationListener : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         val notification = sbn?.notification ?: return
         if ((notification.flags and Notification.FLAG_ONGOING_EVENT) != 0) return
+        // 自家通知（前台服务常驻等）不进胶囊也不进自动化。
+        if (sbn.packageName == packageName) return
         val key = sbn.key ?: return
         // 同 key 在窗口内重投视为更新去重（多 key 各自计时，不再互相冲掉）。
         val postedAt = sbn.postTime
@@ -42,11 +44,12 @@ class AutomationNotificationListener : NotificationListenerService() {
             ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
             ?: sbn.notification.tickerText?.toString().orEmpty()
         if (title.isBlank() && text.isBlank()) return
-        AutomationPulseHub.onNotification?.invoke(
+        AutomationPulseHub.fireNotification(
             NotificationPulse(
                 packageName = sbn.packageName.orEmpty(),
                 title = title,
                 text = text,
+                contentIntent = notification.contentIntent,
             )
         )
     }
@@ -56,7 +59,7 @@ class AutomationNotificationListener : NotificationListenerService() {
     }
 
     override fun onInterruptionFilterChanged(interruptionFilter: Int) {
-        AutomationPulseHub.onInterruption?.invoke(
+        AutomationPulseHub.fireInterruption(
             interruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL
         )
     }
@@ -66,7 +69,7 @@ class AutomationNotificationListener : NotificationListenerService() {
         // 连接时补一次基线，避免授权后到首次切换之间状态缺失。
         val filter = runCatching { currentInterruptionFilter }.getOrNull()
             ?: NotificationManager.INTERRUPTION_FILTER_ALL
-        AutomationPulseHub.onInterruption?.invoke(
+        AutomationPulseHub.fireInterruption(
             filter != NotificationManager.INTERRUPTION_FILTER_ALL
         )
     }

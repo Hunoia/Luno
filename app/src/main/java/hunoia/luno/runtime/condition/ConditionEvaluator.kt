@@ -1,5 +1,6 @@
 package hunoia.luno.runtime.condition
 
+import android.app.PendingIntent
 import hunoia.luno.action.model.AudioStream
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.BooleanMode
@@ -62,11 +63,12 @@ data class ConditionContext(
     val dndChangedTo: Boolean? = null,
 )
 
-/** 通知脉冲：包名+标题+正文（匹配后原文即丢，历史默认不同原文）。 */
+/** 通知脉冲：包名+标题+正文（匹配后原文即丢，历史默认不同原文）。contentIntent 供通知胶囊点击直达。 */
 data class NotificationPulse(
     val packageName: String,
     val title: String,
     val text: String,
+    val contentIntent: PendingIntent? = null,
 )
 
 /**
