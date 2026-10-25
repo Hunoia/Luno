@@ -381,12 +381,14 @@ class FloatBallService : Service() {
         imeJob = scope.launch {
             while (isActive) {
                 delay(IME_POLL_MS)
+                // 窗口已收到事件型 IME insets：此 ROM 支持推播，兜底轮询使命完成，
+                // 整个停掉（此前只 continue，服务存活期间永远 2Hz 唤醒）。
+                // 判在隐藏类短态之前：面板/临时隐藏乃至摘窗期间确认了推播也照停，
+                // 别为迟早退出的轮询白付唤醒；重挂由 ensureImeObserver 按需补启。
+                if (ballWindow.imeInsetsAvailable()) break
                 if (!ballVisible || panelCount > 0 ||
                     tempHideUntilMs > SystemClock.uptimeMillis()
                 ) continue
-                // 窗口已收到事件型 IME insets：此 ROM 支持推播，兜底轮询使命完成，
-                // 整个停掉（此前只 continue，服务存活期间永远 2Hz 唤醒）。
-                if (ballWindow.imeInsetsAvailable()) break
                 val imeBottom = runCatching {
                     windowManager?.currentWindowMetrics
                         ?.windowInsets

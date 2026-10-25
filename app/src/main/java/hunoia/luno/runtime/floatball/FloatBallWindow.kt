@@ -244,6 +244,10 @@ class FloatBallWindow(
     /** 面板关闭后的回场：与 [attachAnimated] 同款 250ms overshoot，落在既有窗口上。 */
     private fun animateRestoreIn(target: View) {
         visualAnimator?.cancel()
+        // 在飞的挪球淡出（repositionTo/crossFadeSwap 共用本 animator 实例）被上面中止时
+        // withEndAction 不运行、crossFading 无人收：这里补复位，否则后续 repositionTo 永久
+        // 拒绝。被跳过的传送位留给下一次侧翻/交互校正（落盘值已是新位）。
+        crossFading = false
         target.alpha = 0f
         target.scaleX = 0.85f
         target.scaleY = 0.85f
