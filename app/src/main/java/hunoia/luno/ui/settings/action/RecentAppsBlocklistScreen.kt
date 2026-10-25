@@ -29,10 +29,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -76,6 +78,8 @@ import hunoia.luno.ui.theme.appHazeSource
 import hunoia.luno.ui.theme.glassCapsule
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 
 /**
@@ -209,10 +213,14 @@ fun RecentAppsBlocklistScreen(
                                 val icon = appIcons[iconKey]
                                 if (icon == null) {
                                     LaunchedEffect(iconKey) {
-                                        val bitmap = withContext(Dispatchers.IO) {
-                                            item.getIcon(AppContext.get())?.let { it.toIconBitmap(iconPx) }
+                                        // 快甩全量列表时每行都会进这里：限流，别让几百行同时发起
+                                        // 图标加载（口径同 QuickAppLauncherState 的预热并发）。
+                                        iconLoadGate.withPermit {
+                                            val bitmap = withContext(Dispatchers.IO) {
+                                                item.getIcon(AppContext.get())?.let { it.toIconBitmap(iconPx) }
+                                            }
+                                            if (bitmap != null) appIcons[iconKey] = bitmap
                                         }
-                                        if (bitmap != null) appIcons[iconKey] = bitmap
                                     }
                                 }
                                 LunoSelectableRow(
@@ -247,19 +255,22 @@ fun RecentAppsBlocklistScreen(
                             ),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        FloatingActionButton(
-                            onClick = { confirm() },
-                            modifier = Modifier
-                                .align(Alignment.End)
-                                .padding(end = PageGutter, bottom = CardInnerSpacing)
-                                .size(FabSize),
-                            shape = FloatingActionButtonDefaults.shape,
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Save,
-                                contentDescription = stringResource(R.string.confirm),
-                            )
+                        // 与 LunoFab 同口径：全 app 的 FAB 都无 ripple（反馈靠容器色/图标）。
+                        CompositionLocalProvider(LocalRippleConfiguration provides null) {
+                            FloatingActionButton(
+                                onClick = { confirm() },
+                                modifier = Modifier
+                                    .align(Alignment.End)
+                                    .padding(end = PageGutter, bottom = CardInnerSpacing)
+                                    .size(FabSize),
+                                shape = FloatingActionButtonDefaults.shape,
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Save,
+                                    contentDescription = stringResource(R.string.confirm),
+                                )
+                            }
                         }
                         // 常驻搜索胶囊：与动作选择页底栏同一套玻璃样式（glassCapsule），
                         // 无展开/收起；进页不自动聚焦（focusRequester 不传），点框才弹键盘。
@@ -288,18 +299,26 @@ fun RecentAppsBlocklistScreen(
 /** FAB 尺寸（与 LunoFab/主页一致）。 */
 private val FabSize = 64.dp
 
+/** 行图标加载并发上限：快甩列表时每行一个协程，限流防瞬时几百路 PackageManager 调用。 */
+private val iconLoadGate = Semaphore(ICON_LOAD_CONCURRENCY)
+private const val ICON_LOAD_CONCURRENCY = 4
+
 /** 底部悬浮区让位：FAB + 间距 + 胶囊本高（BottomBarHeight + 2×TileInnerPadding）+ BottomBarPadding。 */
 private val SearchFabCapsuleReservedBottom =
     FabSize + CardInnerSpacing + BottomBarHeight + TileInnerPadding * 2 + BottomBarPadding
 
 /** Drawable → 行首图标位图，只缩不放（同 SearchIconCache 口径）；取不到返回 null，该行无图标。 */
-private fun Drawable.toIconBitmap(sizePx: Int): ImageBitmap? = runCatching {
+private fun Drawable.toIconBitmap(sizePx: Int): ImageBitmap? {
     val intrinsic = maxOf(intrinsicWidth, intrinsicHeight)
     if (intrinsic <= 0 || sizePx <= 0) return null
     val side = minOf(sizePx, intrinsic)
+    // 源图不大于目标尺寸：直接共用原位图，不放大重画。
     if (this is BitmapDrawable && side >= intrinsic) return bitmap?.asImageBitmap()
-    setBounds(0, 0, side, side)
-    Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
-        .also { draw(Canvas(it)) }
-        .asImageBitmap()
-}.getOrNull()
+    // 位图分配/绘制失败只损失一个行图标，不该带崩整页。
+    return runCatching {
+        setBounds(0, 0, side, side)
+        Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
+            .also { draw(Canvas(it)) }
+            .asImageBitmap()
+    }.getOrNull()
+}
