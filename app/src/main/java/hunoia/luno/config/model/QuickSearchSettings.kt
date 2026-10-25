@@ -77,14 +77,11 @@ data class QuickSearchSettings(
     val pinnedResults: Map<String, List<String>> = emptyMap(),
     /** 最近使用过的 Pin query，用于容量淘汰（新的在前：写侧前插，淘汰时丢尾部）。 */
     val pinnedQueryOrder: List<String> = emptyList(),
-    /** 上次查询草稿；restoreLastQuery 开启时面板打开即回填。 */
-    val lastQuery: String = "",
-    val restoreLastQuery: Boolean = true,
     /**
-     * 回车即搜索（英文键盘）：开 = KeyboardType.Ascii，回车直达确认但输入法锁英文；
-     * 关（默认）= 中文输入法可用，回车交给输入法，确认走右侧按钮/引擎条。
+     * 英文键盘：开（默认）= KeyboardType.Ascii，回车直达确认但输入法锁英文；
+     * 关 = 中文输入法可用，回车交给输入法，确认走右侧按钮/引擎条。
      */
-    val asciiEnterSearch: Boolean = false,
+    val asciiEnterSearch: Boolean = true,
 )
 
 /** 历史缓存上限；空输入只展最近 [BLANK_RECENT_LIMIT] 条，搜索时匹配的全部参展。 */
@@ -219,15 +216,11 @@ fun QuickSearchSettings.withUniqueEngineTriggers(): QuickSearchSettings {
     }.filterValues { it.isNotEmpty() }
     if (normalizedPins != pinnedResults || normalizedPinOrder != pinnedQueryOrder) changed = true
 
-    val normalizedDraft = lastQuery.take(MAX_QUERY_CHARS)
-    if (normalizedDraft != lastQuery) changed = true
-
     return if (!changed) this else copy(
         customEngines = normalizedCustom,
         engineOrder = orderWithLegacy,
         pinnedResults = normalizedPins,
         pinnedQueryOrder = normalizedPinOrder,
-        lastQuery = normalizedDraft,
         defaultEngineId = "",
     )
 }

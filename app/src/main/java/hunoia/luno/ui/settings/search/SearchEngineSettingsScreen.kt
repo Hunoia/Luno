@@ -78,6 +78,7 @@ fun SearchEngineSettingsScreen(
     val settings by SearchCenter.search.collectAsStateWithLifecycle(initialValue = QuickSearchSettings())
     var deleteTarget by remember { mutableStateOf<SearchEngine?>(null) }
     var importPreview by remember { mutableStateOf<ImportPreview?>(null) }
+    var showExportConfirm by remember { mutableStateOf(false) }
     val configEngines = settings.effectiveEngines()
     fun update(transform: (QuickSearchSettings) -> QuickSearchSettings) {
         scope.launch { SearchCenter.updateSearch(transform) }
@@ -202,6 +203,22 @@ fun SearchEngineSettingsScreen(
                     },
                 )
             }
+            if (showExportConfirm) {
+                ConfirmDialog(
+                    title = stringResource(R.string.search_export_confirm_title),
+                    text = stringResource(
+                        R.string.search_export_confirm_text,
+                        settings.customEngines.size,
+                    ),
+                    onDismissRequest = { showExportConfirm = false },
+                    onConfirm = {
+                        showExportConfirm = false
+                        val json = JsonSerializer.encodeToString(settings.customEngines)
+                        copyText(context, "luno-search-engines", json)
+                        showToast(R.string.search_engine_export_done)
+                    },
+                )
+            }
         },
     ) {
         item(key = "engines") {
@@ -267,51 +284,40 @@ fun SearchEngineSettingsScreen(
                 }
             }
         }
-        item(key = "gap-data") { GroupGap() }
-        // 内容源入口与导入/导出合一组：数据进出都在这。
-        item(key = "data") {
-            LunoGroup(title = stringResource(R.string.search_engine_data_group)) {
+        item(key = "gap-general") { GroupGap() }
+        // 通用组：内容源入口 + 输入行为开关。
+        item(key = "general") {
+            LunoGroup(title = stringResource(R.string.search_general_group)) {
                 LunoSettingsRow(
                     title = stringResource(R.string.search_source_settings),
                     trailing = { ArrowHint() },
-                    shape = segmentedShape(0, 3),
-                    onClick = onNavToSources,
-                )
-                LunoSettingsRow(
-                    title = stringResource(R.string.search_engine_export),
-                    shape = segmentedShape(1, 3),
-                    onClick = {
-                        val json = JsonSerializer.encodeToString(settings.customEngines)
-                        copyText(context, "luno-search-engines", json)
-                        showToast(R.string.search_engine_export_done)
-                    },
-                )
-                LunoSettingsRow(
-                    title = stringResource(R.string.search_engine_import),
-                    shape = segmentedShape(2, 3),
-                    onClick = { importPreview = parseImport() },
-                )
-            }
-        }
-        item(key = "gap-experience") { GroupGap() }
-        // 体验组（原「结果治理与体验」子页平铺）。
-        item(key = "experience") {
-            LunoGroup(title = stringResource(R.string.search_experience_group)) {
-                LunoSwitchRow(
-                    title = stringResource(R.string.search_restore_last_query),
-                    checked = settings.restoreLastQuery,
-                    onCheckedChange = { v ->
-                        update { it.copy(restoreLastQuery = v) }
-                    },
                     shape = segmentedShape(0, 2),
+                    onClick = onNavToSources,
                 )
                 LunoSwitchRow(
                     title = stringResource(R.string.search_ascii_enter),
+                    subtitle = stringResource(R.string.search_ascii_enter_subtitle),
                     checked = settings.asciiEnterSearch,
                     onCheckedChange = { v ->
                         update { it.copy(asciiEnterSearch = v) }
                     },
                     shape = segmentedShape(1, 2),
+                )
+            }
+        }
+        item(key = "gap-data") { GroupGap() }
+        // 数据组放最后：导出会覆盖剪贴板，先确认再复制；导入维持解析后的预览确认。
+        item(key = "data") {
+            LunoGroup(title = stringResource(R.string.search_data_group)) {
+                LunoSettingsRow(
+                    title = stringResource(R.string.search_engine_export),
+                    shape = segmentedShape(0, 2),
+                    onClick = { showExportConfirm = true },
+                )
+                LunoSettingsRow(
+                    title = stringResource(R.string.search_engine_import),
+                    shape = segmentedShape(1, 2),
+                    onClick = { importPreview = parseImport() },
                 )
             }
         }

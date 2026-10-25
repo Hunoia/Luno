@@ -102,7 +102,7 @@ internal fun QuickSearchEngineBar(
 /**
  * 搜索框：Capsule 输入 + 右侧动作（有词 = 清空 + 确认 Check，空词 = 语音）。
  * 确认目标与键盘动作由根组合给（confirmFirst 读实时 query，不能在 remember 里捕获组合期快照）。
- * [asciiEnter] 开 = 英文键盘且回车直达；关（默认）= 中文输入法可用，确认走 Check。
+ * [asciiEnter] 开（默认）= 英文键盘且回车直达；关 = 中文输入法可用，确认走 Check。
  */
 @Composable
 internal fun QuickSearchField(
@@ -180,8 +180,8 @@ internal fun QuickSearchField(
         },
         singleLine = true,
         shape = CircleShape,
-        // 关（默认）= Text：中文输入法可用，回车交给输入法、确认走右侧 Check；
-        // 开 = Ascii：锁英文键盘换「回车即确认」。两档取舍见设置「回车即搜索」开关。
+        // 开（默认）= Ascii：锁英文键盘换「回车即确认」；
+        // 关 = Text：中文输入法可用，回车交给输入法、确认走右侧 Check。见设置「英文键盘」开关。
         keyboardOptions = KeyboardOptions(
             keyboardType = if (asciiEnter) KeyboardType.Ascii else KeyboardType.Text,
             imeAction = ImeAction.Search,

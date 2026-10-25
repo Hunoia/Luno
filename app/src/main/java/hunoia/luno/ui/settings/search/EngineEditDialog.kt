@@ -2,7 +2,6 @@ package hunoia.luno.ui.settings.search
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
@@ -13,19 +12,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
-import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.SearchLaunch
 import hunoia.luno.config.model.effectiveLaunch
-import hunoia.luno.quicklaunch.launchSearchAction
-import hunoia.luno.quicklaunch.query.toSearchAction
 import hunoia.luno.ui.component.sheet.TextInputDialog
 import hunoia.luno.ui.theme.CardInnerSpacing
+import hunoia.luno.ui.theme.LargeShape
 
 internal enum class EngineOpenMode { Default, App, Chooser, Share, ShareImage }
 
@@ -176,9 +171,6 @@ internal fun EngineEditFields(
     onPickApp: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
-    // 测试用固定词：能直观看出 %s / %q 是否被正确替换。
-    val testQuery = "Luno"
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
@@ -188,6 +180,7 @@ internal fun EngineEditFields(
             onValueChange = { state.name = it },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
+            shape = LargeShape,
             label = { Text(stringResource(R.string.search_engine_name)) },
         )
         OutlinedTextField(
@@ -195,6 +188,7 @@ internal fun EngineEditFields(
             onValueChange = { state.iconText = it.take(2) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
+            shape = LargeShape,
             label = { Text(stringResource(R.string.search_engine_icon_text)) },
             placeholder = { Text(stringResource(R.string.search_engine_icon_text_hint)) },
         )
@@ -204,6 +198,7 @@ internal fun EngineEditFields(
                 onValueChange = { state.template = it },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+                shape = LargeShape,
                 label = {
                     Text(
                         stringResource(
@@ -236,6 +231,7 @@ internal fun EngineEditFields(
             onValueChange = { state.trigger = it },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
+            shape = LargeShape,
             label = { Text(stringResource(R.string.search_engine_trigger)) },
             placeholder = { Text("bb") },
             isError = state.triggerError != null,
@@ -243,25 +239,10 @@ internal fun EngineEditFields(
                 Text(text = state.triggerError?.let { stringResource(it) } ?: "")
             },
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(R.string.search_engine_open_mode),
-                style = androidx.compose.material3.MaterialTheme.typography.titleSmall,
-            )
-            TextButton(
-                enabled = state.testable(targetPackage),
-                onClick = {
-                    val action = state.buildLaunch(targetPackage).toSearchAction(testQuery)
-                    if (!launchSearchAction(context, action)) showToast(R.string.launch_no_handler)
-                },
-            ) {
-                Text(stringResource(R.string.search_engine_test))
-            }
-        }
+        Text(
+            text = stringResource(R.string.search_engine_open_mode),
+            style = androidx.compose.material3.MaterialTheme.typography.titleSmall,
+        )
         androidx.compose.foundation.layout.FlowRow(
             horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
             verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
@@ -299,6 +280,7 @@ internal fun EngineEditFields(
                 readOnly = true,
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+                shape = LargeShape,
                 label = { Text(stringResource(R.string.search_engine_target_app)) },
                 placeholder = { Text(stringResource(R.string.search_engine_target_app_hint)) },
                 trailingIcon = {
@@ -323,6 +305,7 @@ internal fun EngineEditFields(
                     onValueChange = { state.fallback = it },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
+                    shape = LargeShape,
                     label = { Text(stringResource(R.string.search_engine_fallback)) },
                     placeholder = { Text(stringResource(R.string.search_engine_fallback_hint)) },
                 )

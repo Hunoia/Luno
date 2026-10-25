@@ -191,7 +191,6 @@ class QuickSearchActivity : ComponentActivity() {
                         executeAction(action)
                     },
                     onTogglePin = { query, key -> toggleResultPin(query, key) },
-                    onSaveDraft = { query -> saveSearchDraft(query) },
                     onOpenAppSettings = {
                         // 权限被勾不再询问时跳本应用详情页，手动开。
                         runCatching {

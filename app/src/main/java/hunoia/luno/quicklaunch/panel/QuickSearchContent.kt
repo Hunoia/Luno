@@ -38,7 +38,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import hunoia.luno.quicklaunch.icon.SearchIconCache
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import hunoia.luno.BuildConfig
 import hunoia.luno.config.model.SearchEngine
@@ -177,7 +176,6 @@ internal fun QuickSearchContent(
     onResult: (SearchResult, String) -> Unit,
     onAction: (SearchAction, String) -> Unit,
     onTogglePin: (String, String) -> Unit,
-    onSaveDraft: (String) -> Unit,
     onOpenAppSettings: () -> Unit,
 ) {
     val libraryFlow = remember { hunoia.luno.config.ConfigProvider.actionLibrarySettings }
@@ -190,7 +188,6 @@ internal fun QuickSearchContent(
     var query by remember { mutableStateOf(TextFieldValue("")) }
     var menuResult by remember { mutableStateOf<SearchResult?>(null) }
     var enginePickerQuery by remember { mutableStateOf<String?>(null) }
-    var restoredDraft by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     // 权限状态 + 媒体授权申请：数据装载效果（QuickSearchDataEffects）与空态授权行共用。
     val permCtx = LocalContext.current
@@ -314,24 +311,10 @@ internal fun QuickSearchContent(
         focusRequester.requestFocus()
         keyboard?.show()
     }
-    // 草稿：设置流首次到达后回填一次；空草稿不占用“已恢复”标记，避免默认空设置
-    // 先到、真实草稿后到时被吞掉。
-    LaunchedEffect(searchSettings.lastQuery, searchSettings.restoreLastQuery) {
-        if (!restoredDraft &&
-            searchSettings.restoreLastQuery &&
-            searchSettings.lastQuery.isNotBlank() &&
-            query.text.isBlank()
-        ) {
-            restoredDraft = true
-            val text = backfillText(searchSettings.lastQuery)
-            query = TextFieldValue(text, TextRange(text.length))
-        }
-    }
     LaunchedEffect(closing) {
         if (closing) {
             menuResult = null
             enginePickerQuery = null
-            onSaveDraft(query.text)
         }
     }
     // 菜单 popup 非 focusable（见 ResultActionMenu）：收不到 back、也不随键盘联动，这两处收口。

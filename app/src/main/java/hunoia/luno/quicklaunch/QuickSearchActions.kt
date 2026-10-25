@@ -119,17 +119,6 @@ internal fun QuickSearchActivity.toggleResultPin(query: String, key: String) {
     }
 }
 
-/** 草稿只存文本，不存图片；关闭面板/确认搜索时调用。 */
-internal fun QuickSearchActivity.saveSearchDraft(query: String) {
-    lifecycleScope.launch {
-        runCatching {
-            hunoia.luno.config.ConfigProvider.updateQuickSearchSettings {
-                it.copy(lastQuery = query.take(MAX_QUERY_CHARS))
-            }
-        }
-    }
-}
-
 /** P3：分享文件（图片/视频/文档长按）。 */
 internal fun QuickSearchActivity.shareUri(uri: String, mime: String) {
     val ok = runCatching {

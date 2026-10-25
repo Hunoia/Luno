@@ -1,32 +1,19 @@
 package hunoia.luno.ui.settings.search
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.SearchEngine
@@ -35,13 +22,20 @@ import hunoia.luno.config.model.allEngines
 import hunoia.luno.config.model.effectiveLaunch
 import hunoia.luno.config.model.effectiveTrigger
 import hunoia.luno.domain.search.SearchCenter
+import hunoia.luno.quicklaunch.launchSearchAction
 import hunoia.luno.quicklaunch.query.SearchSourceRegistry
+import hunoia.luno.quicklaunch.query.toSearchAction
+import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.sheet.AppPickerSheet
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.FloatingContentBottom
 import kotlinx.coroutines.launch
+
+/** 测试按钮用固定词：能直观看出 %s / %q 是否被正确替换。 */
+private const val EDIT_TEST_QUERY = "Luno"
 
 /** 进页一次性快照：目标引擎 + 标识判重输入；之后配置流变化不重建草稿。 */
 private data class EngineEditSnapshot(
@@ -61,6 +55,7 @@ fun SearchEngineEditScreen(
     onBack: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val addMode = engineId.isBlank()
     var snapshot by remember(engineId) { mutableStateOf<EngineEditSnapshot?>(null) }
     LaunchedEffect(engineId) {
@@ -144,30 +139,29 @@ fun SearchEngineEditScreen(
         ),
         onBack = guardedBack,
         bottomContentPadding = FloatingContentBottom,
-        floatingContent = {
+        actions = {
+            // 测试放顶栏（与动作库编辑页一致）：模板/目标应用就绪即可试，名称不拦。
+            LunoIconButton(
+                icon = Icons.Default.PlayArrow,
+                contentDescription = stringResource(R.string.search_engine_test),
+                enabled = editState.testable(targetPackage),
+                onClick = {
+                    val action = editState.buildLaunch(targetPackage).toSearchAction(EDIT_TEST_QUERY)
+                    if (!launchSearchAction(context, action)) showToast(R.string.launch_no_handler)
+                },
+            )
+        },
+        floatingContent = { _ ->
             // 点击直接保存（无效草稿 toast 提示）；无效态换灰底提示不可保存。
-            Box(modifier = Modifier.fillMaxSize()) {
-                CompositionLocalProvider(LocalRippleConfiguration provides null) {
-                    FloatingActionButton(
-                        onClick = {
-                            if (valid) save() else showToast(R.string.search_engine_invalid_hint)
-                        },
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .windowInsetsPadding(WindowInsets.navigationBars)
-                            .padding(end = 16.dp, bottom = 16.dp)
-                            .size(64.dp),
-                        shape = FloatingActionButtonDefaults.shape,
-                        containerColor = if (valid) MaterialTheme.colorScheme.primaryContainer
-                        else MaterialTheme.colorScheme.surfaceContainerHighest,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Save,
-                            contentDescription = stringResource(R.string.save),
-                        )
-                    }
-                }
-            }
+            LunoFab(
+                onClick = {
+                    if (valid) save() else showToast(R.string.search_engine_invalid_hint)
+                },
+                icon = Icons.Default.Save,
+                contentDescription = stringResource(R.string.save),
+                containerColor = if (valid) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surfaceContainerHighest,
+            )
         },
         dialogs = {
             if (showDiscardConfirm) {
