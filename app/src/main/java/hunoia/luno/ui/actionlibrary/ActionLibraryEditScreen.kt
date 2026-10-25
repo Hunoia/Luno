@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.CardInnerSpacing
+import hunoia.luno.ui.theme.ElevationSmall
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.SegmentedGap
 import hunoia.luno.ui.theme.SheetListMaxHeight
@@ -154,7 +155,8 @@ fun ActionLibraryEditScreen(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .windowInsetsPadding(WindowInsets.navigationBars)
-                            .padding(start = 16.dp, end = 16.dp, bottom = 96.dp)
+                            // bottom 96：结果卡浮在底部确认栏上方的一次性偏移，勿复用为列表留白 token
+                            .padding(start = PageGutter, end = PageGutter, bottom = 96.dp)
                             .fillMaxWidth(),
                     )
                 }
@@ -471,10 +473,10 @@ private fun ShellResultCard(
         modifier = modifier,
         shape = LargeShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 3.dp,
-        shadowElevation = 3.dp,
+        tonalElevation = ElevationSmall,
+        shadowElevation = ElevationSmall,
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(PageGutter)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = stringResource(R.string.action_shell_result),

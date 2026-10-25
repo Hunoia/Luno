@@ -29,7 +29,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -396,7 +395,7 @@ fun ColorPickerBottomSheet(
                     ) {
                         val tabs = listOf(
                             stringResource(id = R.string.custom) to 0,
-                            "主题色" to 1,
+                            stringResource(id = R.string.color_picker_theme_tab) to 1,
                         )
                         tabs.forEach { (label, index) ->
                             val selected = selectedTab == index
@@ -422,11 +421,12 @@ fun ColorPickerBottomSheet(
                         }
                     }
                     Spacer(Modifier.weight(1f))
-                    Button(
+                    SheetSingleActionButton(
+                        text = stringResource(id = R.string.confirm),
                         onClick = {
                             when (selectedTab) {
                                 1 -> {
-                                    val key = selectedThemeKey ?: return@Button
+                                    val key = selectedThemeKey ?: return@SheetSingleActionButton
                                     onColorSelected(ColorSelection.Theme(key))
                                 }
                                 else -> {
@@ -436,10 +436,7 @@ fun ColorPickerBottomSheet(
                             }
                             onDismissRequest()
                         },
-                        modifier = Modifier.heightIn(min = MinInteractiveSize),
-                    ) {
-                        Text(text = stringResource(id = R.string.confirm))
-                    }
+                    )
                 }
             }
         }

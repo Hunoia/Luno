@@ -15,10 +15,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Restore
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,12 +37,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import hunoia.luno.ui.theme.ExtraLargeShape
 import hunoia.luno.ui.theme.ListItemVerticalPadding
-import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.R
 import hunoia.luno.config.model.GestureButtonAngle
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.ui.component.displayNameRes
+import hunoia.luno.ui.component.sheet.SheetActionButtons
 import hunoia.luno.config.model.SubGestureAngle
 import hunoia.luno.config.model.copyDirectionAngleBoundary
 import java.lang.Math
@@ -184,25 +182,11 @@ private fun DirectionAngleContent(
             }
         }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(ListSpacing)
-        ) {
-            OutlinedButton(
-                modifier = Modifier.weight(1f),
-                onClick = onDismissRequest
-            ) {
-                Text(text = stringResource(id = R.string.cancel))
-            }
-            Button(
-                modifier = Modifier.weight(1f),
-                onClick = { onConfirm(draftBoundaries) }
-            ) {
-                Text(text = stringResource(id = R.string.confirm))
-            }
-        }
+        SheetActionButtons(
+            onDismiss = onDismissRequest,
+            onConfirm = { onConfirm(draftBoundaries) },
+            modifier = Modifier.padding(top = ContentBottom),
+        )
     }
 }
 
@@ -213,8 +197,8 @@ private fun SubGestureAngleDial(
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.primary
 ) {
-    val dragHandleRadius = 10.dp
-    val dragHitRadius = 26.dp
+    val dragHandleRadius = CanvasThumbRadius
+    val dragHitRadius = CanvasHitRadius
     var circleRadius by remember { mutableStateOf(0f) }
     var circleCenter by remember { mutableStateOf(Offset.Zero) }
     var viewBounds by remember { mutableStateOf(Rect.Zero) }

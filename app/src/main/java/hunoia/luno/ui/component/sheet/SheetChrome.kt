@@ -100,6 +100,36 @@ private fun SheetActionButton(
 }
 
 /**
+ * Sheet 底部单动作按钮（与 [SheetActionButtons] 的确认键同款澎湃实心）：
+ * 只有一个确认类动作、没有取消对的 sheet 用（如取色器的「确认」）。
+ */
+@Composable
+fun SheetSingleActionButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    destructive: Boolean = false,
+    enabled: Boolean = true,
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.heightIn(min = MinInteractiveSize),
+        shape = LargeShape,
+        colors = if (destructive) {
+            ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError,
+            )
+        } else {
+            ButtonDefaults.buttonColors()
+        },
+    ) {
+        Text(text)
+    }
+}
+
+/**
  * 澎湃样式的确认/取消按钮行：两枚等宽大圆角按钮并排（取消在左、确认在右），
  * [destructive] 时确认键红色实心。
  */
@@ -118,22 +148,13 @@ fun SheetActionButtons(
         horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
     ) {
         SheetActionButton(text = dismissLabel, onClick = onDismiss, modifier = Modifier.weight(1f))
-        Button(
+        SheetSingleActionButton(
+            text = confirmLabel,
             onClick = onConfirm,
+            modifier = Modifier.weight(1f),
+            destructive = destructive,
             enabled = confirmEnabled,
-            modifier = Modifier.weight(1f).heightIn(min = MinInteractiveSize),
-            shape = LargeShape,
-            colors = if (destructive) {
-                ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error,
-                    contentColor = MaterialTheme.colorScheme.onError,
-                )
-            } else {
-                ButtonDefaults.buttonColors()
-            },
-        ) {
-            Text(confirmLabel)
-        }
+        )
     }
 }
 

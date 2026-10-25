@@ -47,3 +47,33 @@ fun rememberAppDrawable(key: String, load: () -> Drawable?): Drawable? {
     }
     return loaded
 }
+
+/** 应用标签的进程级缓存，与 [AppIconCache] 同一套 Lru 策略（跨进程 PM 查询，量级更小）。 */
+private object AppLabelCache {
+    private const val CAP = 128
+    private val cache = LruCache<String, String>(CAP)
+
+    fun get(key: String): String? = cache.get(key)
+
+    fun put(key: String, label: String) {
+        cache.put(key, label)
+    }
+}
+
+/**
+ * [rememberAppDrawable] 的字符串版：网格面板最近应用磁贴的无障碍名用应用标签，
+ * 取不到时回落 [fallback]（首帧先吃缓存，未命中异步补载）。
+ */
+@Composable
+fun rememberAppLabel(key: String, fallback: String, load: () -> String?): String {
+    AppLabelCache.get(key)?.let { return it }
+    var label by remember(key) { mutableStateOf(fallback) }
+    LaunchedEffect(key) {
+        val result = withContext(Dispatchers.IO) { runCatching(load).getOrNull() }
+        if (!result.isNullOrBlank()) {
+            AppLabelCache.put(key, result)
+            label = result
+        }
+    }
+    return label
+}

@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">Luno</string>
     <string name="home_title">@string/app_name</string>
+    <string name="home_tab">主页</string>
     <string name="accessibility_description">辅助服务用于模拟返回、主页、等按键操作，实现侧滑手势的各种自定义操控，不会收集任何数据。</string>
     <string name="delete">删除</string>
     <string name="edit">编辑</string>
@@ -34,6 +35,9 @@
     <string name="quick_search_grant_media">授予媒体权限</string>
     <string name="quick_search_grant_files">授予文件访问权限</string>
     <string name="quick_search_no_handler">没有能打开的应用</string>
+    <string name="quick_search_voice">语音输入</string>
+    <string name="quick_search_pin">置顶</string>
+    <string name="quick_search_unpin">取消置顶</string>
     <string name="quick_search_calendar">日历</string>
     <string name="quick_search_grant_calendar">授予日历权限</string>
     <string name="quick_search_toggles">快捷开关</string>
@@ -217,6 +221,10 @@
     <string name="grid_panel_recents_empty">暂无最近应用记录</string>
     <string name="grid_panel_media_need_permission">授予通知访问权限后可控制媒体播放，点此去授权</string>
     <string name="grid_panel_media_no_session">没有正在播放的媒体</string>
+    <string name="grid_panel_media_previous">上一曲</string>
+    <string name="grid_panel_media_play_pause">播放或暂停</string>
+    <string name="grid_panel_media_next">下一曲</string>
+    <string name="grid_panel_toggle_background">切换部件背景</string>
     <string name="grid_panel_no_widgets">设备上没有可用的小部件</string>
     <string name="grid_panel_widget_pick_failed">无法打开小部件选择器</string>
     <string name="toast_select_page_failed">无法打开动作选择页</string>
@@ -284,6 +292,7 @@
     <string name="disable_mini_window">已取消小窗启动</string>
 
     <!-- 主题色 -->
+    <string name="color_picker_theme_tab">主题色</string>
     <string name="theme_color_primary">主要色</string>
     <string name="theme_color_primary_container">主要容器</string>
     <string name="theme_color_secondary">次要色</string>

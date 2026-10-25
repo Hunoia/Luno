@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.gridpanel.geometry.ItemCorner
+import hunoia.luno.ui.theme.SmallShape
 
 /**
  * 编辑态的删除角标（右上）。是项的子层且排在最后：子层先拿到指针事件，
@@ -43,7 +44,7 @@ fun ItemDeleteBadge(onDelete: () -> Unit, modifier: Modifier = Modifier) {
         modifier = modifier
             .padding(2.dp)
             .size(20.dp)
-            .clip(RoundedCornerShape(6.dp))
+            .clip(SmallShape)
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f))
             .clickable { onDelete() },
     )

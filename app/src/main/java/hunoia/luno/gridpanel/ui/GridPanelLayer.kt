@@ -384,7 +384,7 @@ fun GridPanelLayer(
                                     ) {
                                         Icon(
                                             imageVector = Icons.Outlined.Layers,
-                                            contentDescription = null,
+                                            contentDescription = stringResource(R.string.grid_panel_toggle_background),
                                             tint = gridPanelOnCardColor.copy(alpha = if (kind.showBackground) 0.9f else 0.35f),
                                             modifier = Modifier.size(16.dp),
                                         )

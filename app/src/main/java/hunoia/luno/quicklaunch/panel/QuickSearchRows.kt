@@ -7,8 +7,6 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
 import hunoia.luno.quicklaunch.icon.SearchIconCache
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -137,18 +135,16 @@ internal fun ClipboardRow(
         selectedContainerColor = searchRowSelectedContainer(),
         onLongClick = onLongClick,
         trailing = {
-            IconButton(
+            LunoIconButton(
+                icon = Icons.Default.PushPin,
+                contentDescription = stringResource(
+                    if (pinned) R.string.quick_search_unpin else R.string.quick_search_pin
+                ),
                 onClick = onTogglePin,
                 modifier = Modifier.size(32.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.PushPin,
-                    contentDescription = null,
-                    tint = if (pinned) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                    modifier = Modifier.size(18.dp),
-                )
-            }
+                tint = if (pinned) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+            )
         },
     )
 }

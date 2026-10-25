@@ -36,6 +36,7 @@ import hunoia.luno.gridpanel.widget.WidgetProviderGroup
 import hunoia.luno.gridpanel.widget.WidgetSpan
 import hunoia.luno.gridpanel.widget.applicationIconOf
 import hunoia.luno.gridpanel.widget.widgetPreviewOf
+import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.SmallShape
 
 /**
@@ -111,7 +112,7 @@ internal fun InternalWidgetCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 8.dp),
+                .padding(horizontal = 6.dp, vertical = CardInnerSpacing),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
@@ -169,7 +170,7 @@ internal fun WidgetPreviewCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 8.dp),
+                .padding(horizontal = 6.dp, vertical = CardInnerSpacing),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {

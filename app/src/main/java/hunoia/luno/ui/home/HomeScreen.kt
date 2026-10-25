@@ -96,11 +96,19 @@ import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.screen.HomeShell
 
-enum class MainTab(val label: String, val icon: ImageVector) {
-    Home("主页", Icons.TwoTone.Home),
-    ActionLibrary("动作库", Icons.AutoMirrored.TwoTone.LibraryBooks),
-    Automation("规则", Icons.Filled.AccountTree),
+enum class MainTab(val icon: ImageVector) {
+    Home(Icons.TwoTone.Home),
+    ActionLibrary(Icons.AutoMirrored.TwoTone.LibraryBooks),
+    Automation(Icons.Filled.AccountTree),
 }
+
+/** tab 的无障碍文案；标题栏标题另有映射（Home 用 home_title 即应用名）。 */
+val MainTab.contentDescriptionRes: Int
+    get() = when (this) {
+        MainTab.Home -> R.string.home_tab
+        MainTab.ActionLibrary -> R.string.action_library
+        MainTab.Automation -> R.string.automation_settings
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -348,7 +356,7 @@ fun HomeScreen(
                         // tint 用底栏的 LocalContentColor（选中 primary/未选中 onSurfaceVariant），不显式传。
                         Icon(
                             imageVector = tab.icon,
-                            contentDescription = tab.label,
+                            contentDescription = stringResource(tab.contentDescriptionRes),
                             modifier = Modifier.size(BottomBarIconSize),
                         )
                     }

@@ -11,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,7 +48,6 @@ fun GestureButtonSettingsScreen(
     var showTriggerDistanceSettings by remember { mutableStateOf(false) }
     var showGestureAngles by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     UDFComponent<GestureButtonSettingsUiState, GestureButtonSettingsUiEvent>(component = vm.udfComponent, onEvent = { }) { uiState ->
         if (uiState.showDeleteWarningDialog) {
             ConfirmDialog(
@@ -60,7 +58,6 @@ fun GestureButtonSettingsScreen(
                 onConfirm = { vm.deleteGestureButton() }
             )
         }
-        Box {
     LunoScreenLazy(
         title = uiState.gestureButton?.name?.ifEmpty { stringResource(id = R.string.gesture_button) }
             ?: stringResource(id = R.string.gesture_button),
@@ -170,8 +167,7 @@ fun GestureButtonSettingsScreen(
                                 )
                             }
                         }
-                    
-    }
+
     }
     }
 }
