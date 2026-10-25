@@ -5,7 +5,7 @@ import com.github.houbb.pinyin.util.PinyinHelper
 import androidx.collection.LruCache
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
-import hunoia.luno.config.model.QuickAppLauncherSettings
+import hunoia.luno.config.model.AppUsageStats
 import kotlin.math.ln
 import kotlin.math.pow
 
@@ -341,7 +341,7 @@ object AppSearch {
         return matchTierFuzzy(index, plan)
     }
 
-    fun sortApps(apps: List<AppInfo>, settings: QuickAppLauncherSettings, tokens: List<String>): List<AppInfo> {
+    fun sortApps(apps: List<AppInfo>, usageStats: AppUsageStats, tokens: List<String>): List<AppInfo> {
         val now = System.currentTimeMillis()
         // 模糊音输入：分词前先整体折叠（adjacency 丢了就没法折），降档用。
         val foldedTokens = if (tokens.isNotEmpty()) {
@@ -350,7 +350,7 @@ object AppSearch {
             emptyList()
         }
         val plan = queryPlan(tokens, foldedTokens)
-        val usage = UsageScores(settings.launchCount, settings.recentLaunchTime, now)
+        val usage = UsageScores(usageStats.launchCount, usageStats.recentLaunchTime, now)
 
         val entries = ArrayList<RankedApp>(apps.size)
         for (app in apps) {
@@ -358,7 +358,7 @@ object AppSearch {
             val m = matchIndexed(index, plan)
             if (m.tier < 0) continue
 
-            val usageScore = usage.score(app.key())
+            val usageScore = usage.score(app.packageName)
             entries.add(RankedApp(app, m.tier, m.offset, usageScore, index.raw, app.label.length))
         }
 

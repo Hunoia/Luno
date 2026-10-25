@@ -3,7 +3,7 @@ package hunoia.luno.quicklaunch.query
 import androidx.annotation.StringRes
 import hunoia.luno.R
 import hunoia.luno.action.model.ActionLibraryEntry
-import hunoia.luno.config.model.QuickAppLauncherSettings
+import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SRC_ACTION
 import hunoia.luno.config.model.SRC_APP
@@ -34,7 +34,7 @@ internal data class SearchSource(
 internal data class SearchContext(
     val index: QuickSearchIndex,
     val settings: QuickSearchSettings,
-    val launcher: QuickAppLauncherSettings,
+    val usage: AppUsageStats,
     val libraryEntries: List<ActionLibraryEntry>,
     val plan: SearchQueryPlan,
     val now: Long,
@@ -62,8 +62,8 @@ internal object SearchSourceRegistry {
             SRC_APP,
             R.string.quick_search_group_apps,
             enabled = { it.searchApps },
-            match = { c -> c.index.matchApps(c.plan, c.launcher, c.now) },
-            bare = { c -> c.index.bareSource(SRC_APP, c.launcher, c.settings) },
+            match = { c -> c.index.matchApps(c.plan, c.usage, c.now) },
+            bare = { c -> c.index.bareSource(SRC_APP, c.usage, c.settings) },
         ),
         source(
             SRC_SHORTCUT,
@@ -72,10 +72,10 @@ internal object SearchSourceRegistry {
             match = { c ->
                 c.index.matchShortcuts(
                     c.plan,
-                    c.index.pkgScores(c.launcher, c.now),
+                    c.index.pkgScores(c.usage, c.now),
                 )
             },
-            bare = { c -> c.index.bareSource(SRC_SHORTCUT, c.launcher, c.settings) },
+            bare = { c -> c.index.bareSource(SRC_SHORTCUT, c.usage, c.settings) },
         ),
         source(
             SRC_ACTION,
@@ -85,14 +85,14 @@ internal object SearchSourceRegistry {
                 c.index.matchActions(c.plan) +
                     c.index.matchLibrary(c.libraryEntries, c.plan)
             },
-            bare = { c -> c.index.bareSource(SRC_ACTION, c.launcher, c.settings) },
+            bare = { c -> c.index.bareSource(SRC_ACTION, c.usage, c.settings) },
         ),
         source(
             SRC_SETTINGS,
             R.string.quick_search_group_settings,
             enabled = { it.searchSettingsPages },
             match = { c -> c.index.matchSettingsPages(c.plan) },
-            bare = { c -> c.index.bareSource(SRC_SETTINGS, c.launcher, c.settings) },
+            bare = { c -> c.index.bareSource(SRC_SETTINGS, c.usage, c.settings) },
         ),
         source(
             SRC_CONTACT,
@@ -101,14 +101,14 @@ internal object SearchSourceRegistry {
             match = { c ->
                 c.index.matchContacts(c.plan, c.settings)
             },
-            bare = { c -> c.index.bareSource(SRC_CONTACT, c.launcher, c.settings) },
+            bare = { c -> c.index.bareSource(SRC_CONTACT, c.usage, c.settings) },
         ),
         source(
             SRC_MUSIC,
             R.string.quick_search_music,
             enabled = { it.searchMusic },
             match = { c -> c.index.matchTracks(c.plan, c.settings) },
-            bare = { c -> c.index.bareSource(SRC_MUSIC, c.launcher, c.settings) },
+            bare = { c -> c.index.bareSource(SRC_MUSIC, c.usage, c.settings) },
         ),
         source(
             SRC_FILE,
@@ -118,42 +118,42 @@ internal object SearchSourceRegistry {
                 c.index.matchGallery(c.plan, c.settings) +
                     c.index.matchDocs(c.plan, c.settings)
             },
-            bare = { c -> c.index.bareSource(SRC_FILE, c.launcher, c.settings) },
+            bare = { c -> c.index.bareSource(SRC_FILE, c.usage, c.settings) },
         ),
         source(
             SRC_CALENDAR,
             R.string.quick_search_calendar,
             enabled = { it.searchCalendar },
             match = { c -> c.index.matchCalendar(c.plan, c.settings) },
-            bare = { c -> c.index.bareSource(SRC_CALENDAR, c.launcher, c.settings) },
+            bare = { c -> c.index.bareSource(SRC_CALENDAR, c.usage, c.settings) },
         ),
         source(
             SRC_SMS,
             R.string.quick_search_sms,
             enabled = { it.searchSms },
             match = { c -> c.index.matchSms(c.plan, c.settings) },
-            bare = { c -> c.index.bareSource(SRC_SMS, c.launcher, c.settings) },
+            bare = { c -> c.index.bareSource(SRC_SMS, c.usage, c.settings) },
         ),
         source(
             SRC_CALL,
             R.string.quick_search_calls,
             enabled = { it.searchCalls },
             match = { c -> c.index.matchCalls(c.plan, c.settings) },
-            bare = { c -> c.index.bareSource(SRC_CALL, c.launcher, c.settings) },
+            bare = { c -> c.index.bareSource(SRC_CALL, c.usage, c.settings) },
         ),
         source(
             SRC_TOGGLE,
             R.string.quick_search_toggles,
             enabled = { it.searchToggles },
             match = { c -> c.index.matchToggles(c.plan, c.settings) },
-            bare = { c -> c.index.bareSource(SRC_TOGGLE, c.launcher, c.settings) },
+            bare = { c -> c.index.bareSource(SRC_TOGGLE, c.usage, c.settings) },
         ),
         source(
             SRC_CLIP,
             R.string.quick_search_clipboard,
             enabled = { it.searchClipboard },
             match = { c -> c.index.matchClips(c.plan, c.settings) },
-            bare = { c -> c.index.bareSource(SRC_CLIP, c.launcher, c.settings) },
+            bare = { c -> c.index.bareSource(SRC_CLIP, c.usage, c.settings) },
         ),
     )
 

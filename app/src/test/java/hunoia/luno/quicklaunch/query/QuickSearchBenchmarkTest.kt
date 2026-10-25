@@ -1,6 +1,6 @@
 package hunoia.luno.quicklaunch.query
 
-import hunoia.luno.config.model.QuickAppLauncherSettings
+import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.quicklaunch.model.AppInfo
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -28,7 +28,7 @@ class QuickSearchBenchmarkTest {
                 label = "App $i",
             )
         }
-        val settings = QuickAppLauncherSettings()
+        val settings = AppUsageStats()
         val queries = listOf("a", "app", "app1", "example", "1999")
             .map { q -> q.map { it.toString() } }
 

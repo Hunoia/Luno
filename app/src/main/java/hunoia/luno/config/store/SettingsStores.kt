@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import hunoia.luno.action.model.ActionLibrarySettings
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
+import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
@@ -31,6 +32,7 @@ class SettingsStores(
     internal val _automationLog: DataStore<List<hunoia.luno.runtime.automation.AutomationEvent>>,
     internal val _quickAppSnapshot: DataStore<QuickAppSnapshot>,
     internal val _quickSearchSettings: DataStore<QuickSearchSettings>,
+    internal val _appUsageStats: DataStore<AppUsageStats>,
 ) {
     val initialSettings: Flow<InitialSettings> = _initialSettings.data
     val advancedSettings: Flow<AdvancedSettings> = _advancedSettings.data
@@ -44,6 +46,7 @@ class SettingsStores(
     val automationLog: Flow<List<hunoia.luno.runtime.automation.AutomationEvent>> = _automationLog.data
     val quickSearchSettings: Flow<QuickSearchSettings> =
         _quickSearchSettings.data.map { it.withUniqueEngineTriggers() }
+    val appUsageStats: Flow<AppUsageStats> = _appUsageStats.data
 
     /** 只读不订阅：面板首开同步取一次就够，不需要一条常驻的 flow。 */
     suspend fun readQuickAppSnapshot(): QuickAppSnapshot = _quickAppSnapshot.data.first()
@@ -64,6 +67,7 @@ class SettingsStores(
                 _automationLog = ctx.dataStore(DataStoreFiles.AUTOMATION_LOG, emptyList()),
                 _quickAppSnapshot = ctx.dataStore(DataStoreFiles.QUICK_APP_SNAPSHOT, QuickAppSnapshot()),
                 _quickSearchSettings = ctx.dataStore(DataStoreFiles.QUICK_SEARCH_SETTINGS, QuickSearchSettings()),
+                _appUsageStats = ctx.dataStore(DataStoreFiles.APP_USAGE_STATS, AppUsageStats()),
             )
         }
     }

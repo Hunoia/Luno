@@ -3,7 +3,7 @@ package hunoia.luno.quicklaunch.query
 import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.model.ActionLibraryEntry
-import hunoia.luno.config.model.QuickAppLauncherSettings
+import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.SRC_ACTION
@@ -19,7 +19,6 @@ import hunoia.luno.config.model.SRC_SHORTCUT
 import hunoia.luno.config.model.SRC_SMS
 import hunoia.luno.config.model.SRC_TOGGLE
 import hunoia.luno.config.model.effectiveEngines
-import hunoia.luno.quicklaunch.query.AppSearch.key
 import hunoia.luno.ui.component.resolvedIcon
 import java.util.PriorityQueue
 import kotlinx.coroutines.CancellationException
@@ -53,13 +52,13 @@ internal inline fun bestOfFirst(first: TieredMatch, second: () -> TieredMatch): 
     if (first.tier == 2 && first.offset == 0) first else bestOf(first, second())
 
     /** 空输入时的常用：按衰减使用分取前 N 个（禁用应用一并返回，由调用方标注）。 */
-fun QuickSearchIndex.topUsed(settings: QuickAppLauncherSettings, limit: Int = 8): List<QuickSearchResult.App> {
+fun QuickSearchIndex.topUsed(usageStats: AppUsageStats, limit: Int = 8): List<QuickSearchResult.App> {
         ensureLoaded()
         if (!appsLoaded) refreshApps()
         val data = appData
-        val usage = UsageScores(settings.launchCount, settings.recentLaunchTime, System.currentTimeMillis())
+        val usage = UsageScores(usageStats.launchCount, usageStats.recentLaunchTime, System.currentTimeMillis())
         return data.apps
-            .map { app -> app to usage.score(app.key()) }
+            .map { app -> app to usage.score(app.packageName) }
             .filter { (_, score) -> score > 0 }
             .sortedByDescending { (_, score) -> score }
             .take(limit)
@@ -69,7 +68,7 @@ fun QuickSearchIndex.topUsed(settings: QuickAppLauncherSettings, limit: Int = 8)
 fun QuickSearchIndex.search(
         query: String,
         libraryEntries: List<ActionLibraryEntry>,
-        launcherSettings: QuickAppLauncherSettings = QuickAppLauncherSettings(),
+        usageStats: AppUsageStats = AppUsageStats(),
         searchSettings: QuickSearchSettings = QuickSearchSettings(),
         torchOn: Boolean = false,
         isActive: () -> Boolean = { true },
@@ -82,7 +81,7 @@ fun QuickSearchIndex.search(
         val engines = searchSettings.effectiveEngines()
         // 标识指令优先（bb 新闻 / sms 138 / 裸 sms）：命中只回目标类，
         // 纯目标结果（无引擎兜底、无计算器、无历史参展）。null = 无指令，走全源。
-        parseDirective(query.trim(), libraryEntries, launcherSettings, searchSettings, engines)?.let {
+        parseDirective(query.trim(), libraryEntries, usageStats, searchSettings, engines)?.let {
             return SearchOutcome(it, directive = true)
         }
         val tokens = tokenize(query)
@@ -98,11 +97,11 @@ fun QuickSearchIndex.search(
         val context = SearchContext(
             index = this,
             settings = searchSettings,
-            launcher = launcherSettings,
             libraryEntries = libraryEntries,
             plan = plan,
             now = now,
             torchOn = torchOn,
+            usage = usageStats,
         )
         val results = mutableListOf<RankedHit>()
         // 来源匹配统一走注册表；新增来源不再改这里。
@@ -224,14 +223,14 @@ internal fun QuickSearchIndex.matchLibrary(
 
 internal fun QuickSearchIndex.matchApps(
     plan: SearchQueryPlan,
-    launcherSettings: QuickAppLauncherSettings,
+    usageStats: AppUsageStats,
     now: Long,
 ): List<RankedHit> {
-    val usageScores = UsageScores(launcherSettings.launchCount, launcherSettings.recentLaunchTime, now)
+    val usageScores = UsageScores(usageStats.launchCount, usageStats.recentLaunchTime, now)
     val data = appData
     return matchEach(data.apps, plan, result = { app ->
         QuickSearchResult.App(app, app.packageName in data.disabledPkgs)
-    }, usage = { usageScores.score(it.key()) }) { app ->
+    }, usage = { usageScores.score(it.packageName) }) { app ->
         // 包名也参与匹配：行副标题本来就显示包名，搜 com.tencent 应该有结果。
         bestOfFirst(tierOf(app.label, plan)) { tierOf(app.packageName, plan) }
     }
@@ -391,7 +390,7 @@ private fun QuickSearchIndex.sortTriples(results: List<RankedHit>): List<QuickSe
 private fun QuickSearchIndex.parseDirective(
         trimmed: String,
         libraryEntries: List<ActionLibraryEntry>,
-        launcherSettings: QuickAppLauncherSettings,
+        usageStats: AppUsageStats,
         searchSettings: QuickSearchSettings,
         engines: List<SearchEngine>,
     ): List<QuickSearchResult>? {
@@ -407,19 +406,18 @@ private fun QuickSearchIndex.parseDirective(
         // 来源标识：开关关了、标识被清空（关闭）都回落全源。
         val source = SearchSourceRegistry.byTrigger(headLower, searchSettings)?.key ?: return null
         if (!SearchSourceRegistry.enabled(source, searchSettings)) return null
-        val context = contextOf(launcherSettings, searchSettings)
+        val context = contextOf(usageStats, searchSettings)
         if (rest.isEmpty()) return SearchSourceRegistry.bare(source, context)
-        return searchInSource(source, rest, libraryEntries, launcherSettings, searchSettings)
+        return searchInSource(source, rest, libraryEntries, usageStats, searchSettings)
     }
 
     private fun QuickSearchIndex.contextOf(
-        launcherSettings: QuickAppLauncherSettings,
+        usageStats: AppUsageStats,
         searchSettings: QuickSearchSettings,
         raw: String = "",
     ): SearchContext = SearchContext(
         index = this,
         settings = searchSettings,
-        launcher = launcherSettings,
         libraryEntries = emptyList(),
         plan = AppSearch.queryPlan(
             tokens = tokenize(raw),
@@ -427,6 +425,7 @@ private fun QuickSearchIndex.parseDirective(
         ),
         now = System.currentTimeMillis(),
         torchOn = torchOn,
+        usage = usageStats,
     )
 
     /** 定向搜：只在该源内匹配内容，排序与全源同一套。 */
@@ -434,12 +433,12 @@ private fun QuickSearchIndex.searchInSource(
         source: String,
         rest: String,
         libraryEntries: List<ActionLibraryEntry>,
-        launcherSettings: QuickAppLauncherSettings,
+        usageStats: AppUsageStats,
         searchSettings: QuickSearchSettings,
     ): List<QuickSearchResult> {
         val tokens = tokenize(rest)
-        if (tokens.isEmpty()) return SearchSourceRegistry.bare(source, contextOf(launcherSettings, searchSettings)) ?: emptyList()
-        val context = contextOf(launcherSettings, searchSettings, raw = rest).copy(
+        if (tokens.isEmpty()) return SearchSourceRegistry.bare(source, contextOf(usageStats, searchSettings)) ?: emptyList()
+        val context = contextOf(usageStats, searchSettings, raw = rest).copy(
             libraryEntries = libraryEntries,
         )
         // 开关关了但标识还在（极少）：注册表已 gate，空结果直接回（不回落全源，
@@ -450,11 +449,11 @@ private fun QuickSearchIndex.searchInSource(
     /** 裸标识：列出该类近项（cap 20，应用走常用 8）。无数据回 null → 全源。 */
 internal fun QuickSearchIndex.bareSource(
         source: String,
-        launcherSettings: QuickAppLauncherSettings,
+        usageStats: AppUsageStats,
         searchSettings: QuickSearchSettings,
     ): List<QuickSearchResult>? {
         val out: List<QuickSearchResult> = when (source) {
-            SRC_APP -> topUsed(launcherSettings)
+            SRC_APP -> topUsed(usageStats)
             SRC_SHORTCUT -> appData.shortcuts.map { QuickSearchResult.Shortcut(it) }.take(BARE_LIST_LIMIT)
             SRC_ACTION -> actions.take(BARE_LIST_LIMIT)
             SRC_SETTINGS -> settingsPages.take(BARE_LIST_LIMIT)
@@ -489,11 +488,11 @@ internal fun QuickSearchIndex.bareSource(
 
     /** 快捷方式包分聚合：全源与定向共用，抽出来。 */
 internal fun QuickSearchIndex.pkgScores(
-        launcherSettings: QuickAppLauncherSettings,
+        usageStats: AppUsageStats,
         now: Long,
     ): Map<String, Double> = UsageScores(
-        launcherSettings.launchCount,
-        launcherSettings.recentLaunchTime,
+        usageStats.launchCount,
+        usageStats.recentLaunchTime,
         now,
     ).pkgScores
 

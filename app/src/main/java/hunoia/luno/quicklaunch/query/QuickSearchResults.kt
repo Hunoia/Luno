@@ -1,7 +1,7 @@
 package hunoia.luno.quicklaunch.query
 
 import hunoia.luno.action.model.ActionLibraryEntry
-import hunoia.luno.config.model.QuickAppLauncherSettings
+import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.QuickSearchSettings
 
 /**
@@ -27,12 +27,12 @@ data class SearchResults(
 fun QuickSearchIndex.searchOutcome(
     query: String,
     libraryEntries: List<ActionLibraryEntry>,
-    launcherSettings: QuickAppLauncherSettings = QuickAppLauncherSettings(),
+    usageStats: AppUsageStats = AppUsageStats(),
     searchSettings: QuickSearchSettings = QuickSearchSettings(),
     torchOn: Boolean = false,
     isActive: () -> Boolean = { true },
 ): SearchResults {
-    val outcome = search(query, libraryEntries, launcherSettings, searchSettings, torchOn, isActive)
+    val outcome = search(query, libraryEntries, usageStats, searchSettings, torchOn, isActive)
     if (outcome.results.isEmpty()) return SearchResults(emptyList(), outcome.directive)
     return SearchResults(
         results = outcome.results

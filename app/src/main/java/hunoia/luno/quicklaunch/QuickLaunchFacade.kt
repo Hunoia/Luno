@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.collection.LruCache
 import coil.request.ImageRequest
 import hunoia.luno.config.model.OpenAppOrUrlData
+import hunoia.luno.config.model.AppLaunchSource
+import hunoia.luno.domain.usage.AppLaunchCoordinator
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.quicklaunch.query.AppQuery
@@ -128,8 +130,9 @@ object QuickLaunchFacade {
         intentAction: String = "",
         data: String = "",
         extras: Map<String, String> = emptyMap(),
+        source: AppLaunchSource = AppLaunchSource.UNKNOWN,
     ): Boolean {
-        return Launcher.launchApp(
+        return AppLaunchCoordinator.launchApp(
             context = context,
             packageName = packageName,
             className = className,
@@ -138,11 +141,17 @@ object QuickLaunchFacade {
             intentAction = intentAction,
             data = data,
             extras = extras,
+            source = source,
         )
     }
 
-    fun launchAppActivityDirect(context: Context, packageName: String, className: String): Boolean {
-        return Launcher.launchAppActivity(context, packageName, className)
+    fun launchAppActivityDirect(
+        context: Context,
+        packageName: String,
+        className: String,
+        source: AppLaunchSource = AppLaunchSource.UNKNOWN,
+    ): Boolean {
+        return AppLaunchCoordinator.launchAppActivity(context, packageName, className, source)
     }
 
     fun launchUrlDirect(

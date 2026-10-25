@@ -22,8 +22,6 @@ data class QuickLauncherGeometry(
 @Serializable
 @Keep
 data class QuickAppLauncherSettings(
-    val recentLaunchTime: Map<String, Long> = emptyMap(),
-    val launchCount: Map<String, Long> = emptyMap(),
     val portrait: QuickLauncherGeometry = QuickLauncherGeometry(),
     val landscape: QuickLauncherGeometry = QuickLauncherGeometry(),
     val tapOpensMiniWindow: Boolean = false,

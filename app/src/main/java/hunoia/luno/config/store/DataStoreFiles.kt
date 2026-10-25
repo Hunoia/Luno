@@ -25,6 +25,8 @@ object DataStoreFiles {
     // 搜索启动组
     const val QUICK_APP_LAUNCHER = "quick_app_launcher"
     const val QUICK_SEARCH_SETTINGS = "quick_search_settings"
+    /** Luno 触发的应用启动统计：设备本地派生数据，不进备份。 */
+    const val APP_USAGE_STATS = "app_usage_stats"
 
     // 瞬态：不进备份
     /** 自动化执行历史：调试用，可丢，刻意不进备份。 */

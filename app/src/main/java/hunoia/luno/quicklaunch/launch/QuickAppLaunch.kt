@@ -4,6 +4,7 @@ import android.content.Context
 import hunoia.luno.R
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.MiniWindowSettings
+import hunoia.luno.config.model.AppLaunchSource
 import hunoia.luno.config.model.OpenAppOrUrlData
 import hunoia.luno.config.model.OpenUrlQueryParameter
 import hunoia.luno.quicklaunch.QuickLaunchFacade
@@ -67,6 +68,7 @@ object AppLaunchBypass {
         intentAction: String = "",
         data: String = "",
         extras: Map<String, String> = emptyMap(),
+        source: AppLaunchSource = AppLaunchSource.ACTION_DISPATCH,
         unfreezePackage: suspend (context: Context, packageName: String) -> Boolean = { _, _ -> true }
     ): Boolean {
         if (!ensureEnabled(context, packageName, unfreezePackage)) return false
@@ -79,6 +81,7 @@ object AppLaunchBypass {
             intentAction = intentAction,
             data = data,
             extras = extras,
+            source = source,
         )
     }
 

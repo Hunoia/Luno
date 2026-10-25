@@ -1,6 +1,6 @@
 package hunoia.luno.quicklaunch.query
 
-import hunoia.luno.config.model.QuickAppLauncherSettings
+import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.quicklaunch.model.AppInfo
 import org.junit.Assert.assertEquals
@@ -112,9 +112,9 @@ class QuickSearchSemanticsTest {
         val now = System.currentTimeMillis()
         val labels = listOf("微信", "支付宝", "高德地图", "京东", "剪映", "QQ音乐", "知乎", "淘宝")
         val apps = labels.map { AppInfo(it, "", it) }
-        val settings = QuickAppLauncherSettings(
-            launchCount = labels.associate { "$it/" to 1L },
-            recentLaunchTime = labels.associate { "$it/" to now },
+        val settings = AppUsageStats(
+            launchCount = labels.associate { it to 1L },
+            recentLaunchTime = labels.associate { it to now },
         )
         val result = AppSearch.sortApps(apps, settings, emptyList())
         assertEquals(8, result.size)
@@ -125,9 +125,9 @@ class QuickSearchSemanticsTest {
     private fun sortNow(labels: List<Triple<String, Long, Long>>, ts: List<String>): List<String> {
         val now = System.currentTimeMillis()
         val apps = labels.map { AppInfo(it.first, "", it.first) }
-        val settings = QuickAppLauncherSettings(
-            launchCount = labels.associate { it.first + "/" to it.second },
-            recentLaunchTime = labels.associate { it.first + "/" to (now - it.third) },
+        val settings = AppUsageStats(
+            launchCount = labels.associate { it.first to it.second },
+            recentLaunchTime = labels.associate { it.first to (now - it.third) },
         )
         return AppSearch.sortApps(apps, settings, ts).map { it.label }
     }

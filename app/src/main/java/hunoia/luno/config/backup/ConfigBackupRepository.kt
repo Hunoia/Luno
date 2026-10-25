@@ -5,6 +5,7 @@ import hunoia.luno.action.model.ActionLibrarySettings
 import hunoia.luno.config.store.SettingsStores
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
+import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.Backup
 import hunoia.luno.config.model.BackupDomain
@@ -151,6 +152,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { stores._actionSettings.updateData { ActionSettings() } }
         launch { stores._gestureButtons.updateData { GestureButton.Defaults } }
         launch { stores._quickAppLauncherSettings.updateData { QuickAppLauncherSettings() } }
+        launch { stores._appUsageStats.updateData { AppUsageStats() } }
         launch { stores._subGestureSettings.updateData { SubGestureSettings() } }
         launch { stores._actionLibrarySettings.updateData { ActionLibrarySettings() } }
         launch { stores._automationRules.updateData { AutomationRule.Defaults } }
