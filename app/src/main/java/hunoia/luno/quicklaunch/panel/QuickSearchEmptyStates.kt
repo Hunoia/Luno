@@ -92,7 +92,6 @@ internal fun QuickSearchEmptyList(
     onMenuDismiss: () -> Unit,
     onResultAction: (SearchAction, String) -> Unit,
     onToggleResultPin: (String, String) -> Unit,
-    onShowEngines: (String) -> Unit,
     onTogglePin: (String) -> Unit,
     onDeleteHistory: (String) -> Unit,
     onOpenAppSettings: () -> Unit,
@@ -189,7 +188,6 @@ internal fun QuickSearchEmptyList(
                             onDismiss = onMenuDismiss,
                             onAction = onResultAction,
                             onTogglePin = onToggleResultPin,
-                            onShowEngines = onShowEngines,
                         )
                     },
                 )
@@ -208,23 +206,12 @@ internal fun QuickSearchEmptyList(
             }
                 itemsIndexed(used, key = { idx, _ -> usedKeys[idx] }) { idx, app ->
                     val pos = clipSlotCount + history.size + idx
+                    // 空态应用行没有菜单内容：引擎项已下线，Pin 只在非空 query 下出现，
+                    // 三点与长按开菜单一并去掉。
                     ResultRow(
                         result = app,
                         shape = segmentedShape(total - 1 - pos, total),
                         onClick = { onResultClick(app, "") },
-                        onLongClick = { onMenuOpen(app) },
-                        menu = {
-                            ResultActionMenu(
-                                result = app,
-                                query = queryText.trim(),
-                                pinned = app.key in resultPinnedKeys,
-                                expanded = menuResult?.key == app.key,
-                                onDismiss = onMenuDismiss,
-                                onAction = onResultAction,
-                                onTogglePin = onToggleResultPin,
-                                onShowEngines = onShowEngines,
-                            )
-                        },
                     )
                 }
             if (showGrant) {

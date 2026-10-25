@@ -38,7 +38,6 @@ internal fun QuickSearchSearchList(
     onMenuDismiss: () -> Unit,
     onResultAction: (SearchAction, String) -> Unit,
     onToggleResultPin: (String, String) -> Unit,
-    onShowEngines: (String) -> Unit,
     onTogglePin: (String) -> Unit,
     onDeleteHistory: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -86,7 +85,6 @@ internal fun QuickSearchSearchList(
                         onDismiss = onMenuDismiss,
                         onAction = onResultAction,
                         onTogglePin = onToggleResultPin,
-                        onShowEngines = onShowEngines,
                     )
                 }
                 if (setQuery != null) {
@@ -107,26 +105,11 @@ internal fun QuickSearchSearchList(
                     ResultRow(
                         result = item,
                         shape = shape,
-                        onClick = { onRowClick(item, queryText, onResultClick, onShowEngines) },
+                        onClick = { onResultClick(item, queryText.trim()) },
                         onLongClick = { onMenuOpen(item) },
                         menu = menu,
                     )
                 }
             }
-    }
-}
-
-/** 行点击统一收口：其他引擎行走 Sheet，其余按结果确认（queryText 取当前组合快照）。 */
-private fun onRowClick(
-    item: SearchResult,
-    queryText: String,
-    onResultClick: (SearchResult, String) -> Unit,
-    onShowEngines: (String) -> Unit,
-) {
-    val showEngines = item.primary as? SearchAction.ShowEngines
-    if (showEngines != null) {
-        onShowEngines(showEngines.query)
-    } else {
-        onResultClick(item, queryText.trim())
     }
 }

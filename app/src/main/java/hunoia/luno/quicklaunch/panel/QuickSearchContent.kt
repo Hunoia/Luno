@@ -48,7 +48,6 @@ import hunoia.luno.config.model.MAX_CLIP_HISTORY
 import hunoia.luno.config.model.MIN_HISTORY_CHARS
 import hunoia.luno.config.model.SRC_CLIP
 import hunoia.luno.config.model.effectiveEngines
-import hunoia.luno.config.model.effectiveLaunch
 import hunoia.luno.quicklaunch.query.QuickSearchIndex
 import hunoia.luno.quicklaunch.query.SearchAction
 import hunoia.luno.quicklaunch.query.SearchIcon
@@ -56,7 +55,6 @@ import hunoia.luno.quicklaunch.query.SearchResult
 import hunoia.luno.quicklaunch.query.normalizePinQuery
 import hunoia.luno.quicklaunch.query.searchOutcome
 import hunoia.luno.quicklaunch.query.topUsed
-import hunoia.luno.quicklaunch.query.toSearchAction
 import hunoia.luno.quicklaunch.query.toSearchResult
 import hunoia.luno.ui.permission.rememberPermissionState
 import kotlinx.coroutines.Dispatchers
@@ -187,7 +185,6 @@ internal fun QuickSearchContent(
     val searchSettings by searchSettingsFlow.collectAsState(initial = QuickSearchSettings())
     var query by remember { mutableStateOf(TextFieldValue("")) }
     var menuResult by remember { mutableStateOf<SearchResult?>(null) }
-    var enginePickerQuery by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     // 权限状态 + 媒体授权申请：数据装载效果（QuickSearchDataEffects）与空态授权行共用。
     val permCtx = LocalContext.current
@@ -314,7 +311,6 @@ internal fun QuickSearchContent(
     LaunchedEffect(closing) {
         if (closing) {
             menuResult = null
-            enginePickerQuery = null
         }
     }
     // 菜单 popup 非 focusable（见 ResultActionMenu）：收不到 back、也不随键盘联动，这两处收口。
@@ -373,14 +369,10 @@ internal fun QuickSearchContent(
             if (!suppress) menuResult = result
         }
     }
-    // 结果菜单动作收口：先收菜单；ShowEngines 转引擎选择（引擎结果的动作里内嵌它），其余上抛。
+    // 结果菜单动作收口：先收菜单再上抛。
     val handleResultAction: (SearchAction, String) -> Unit = { action, q ->
         menuResult = null
-        if (action is SearchAction.ShowEngines) {
-            enginePickerQuery = action.query
-        } else {
-            onAction(action, q)
-        }
+        onAction(action, q)
     }
     val onMenuDismiss: () -> Unit = {
         menuResult?.let { menuDismissal = DismissedMenu(it.key, SystemClock.uptimeMillis()) }
@@ -451,7 +443,6 @@ internal fun QuickSearchContent(
                     onMenuDismiss = onMenuDismiss,
                     onResultAction = handleResultAction,
                     onToggleResultPin = onTogglePin,
-                    onShowEngines = { enginePickerQuery = it },
                     onTogglePin = togglePin,
                     onDeleteHistory = deleteHistory,
                     modifier = Modifier.weight(1f),
@@ -481,7 +472,6 @@ internal fun QuickSearchContent(
                     onMenuDismiss = onMenuDismiss,
                     onResultAction = handleResultAction,
                     onToggleResultPin = onTogglePin,
-                    onShowEngines = { enginePickerQuery = it },
                     onTogglePin = togglePin,
                     onDeleteHistory = deleteHistory,
                     onOpenAppSettings = onOpenAppSettings,
@@ -520,20 +510,6 @@ internal fun QuickSearchContent(
                 focusRequester = focusRequester,
                 asciiEnter = searchSettings.asciiEnterSearch,
             )
-        }
-
-        enginePickerQuery?.let { pickerQuery ->
-            val engines = searchSettings.effectiveEngines()
-            if (engines.isNotEmpty()) {
-                SearchEnginePickerSheet(
-                    engines = engines,
-                    onPick = { engine ->
-                        enginePickerQuery = null
-                        onAction(engine.effectiveLaunch().toSearchAction(pickerQuery), pickerQuery)
-                    },
-                    onDismiss = { enginePickerQuery = null },
-                )
-            }
         }
     }
 }

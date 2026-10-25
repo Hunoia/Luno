@@ -675,14 +675,12 @@
     <string name="search_engine_fallback">回退链接（可选）</string>
     <string name="search_engine_fallback_hint">应用打不开时使用</string>
     <string name="search_engine_delete_title">删除搜索引擎？</string>
-    <string name="search_engine_other">其他引擎</string>
     <string name="search_action_app_details">应用详情</string>
     <string name="search_action_send_sms">发短信</string>
     <string name="search_action_copy">复制</string>
     <string name="search_action_copy_link">复制链接</string>
     <string name="search_action_share">分享</string>
     <string name="search_action_share_image">分享图片</string>
-    <string name="search_action_use_other_engine">用其他引擎搜索</string>
     <string name="search_action_pin">固定此结果</string>
     <string name="search_action_unpin">取消固定</string>
     <string name="search_result_pinned">已固定</string>

@@ -11,7 +11,7 @@ import hunoia.luno.config.model.effectiveLaunch
 /**
  * 单个引擎的结果行：默认行与「标识直达」行共用这一份。
  * key 固定为 `es#<引擎id>|<query>`，两条路径产出的行才能完全一致
- * （图标文字、复制链接、分享图片、用其他引擎搜索）。
+ * （图标文字、复制链接、分享图片）。
  */
 internal fun engineResultRow(
     context: Context,
@@ -48,12 +48,6 @@ internal fun engineResultRow(
                 ),
             )
         }
-        add(
-            SearchActionItem(
-                SearchActionLabel.Res(R.string.search_action_use_other_engine),
-                SearchAction.ShowEngines(query),
-            ),
-        )
     }
     return SearchResult(
         key = "es#${engine.id}|$query",

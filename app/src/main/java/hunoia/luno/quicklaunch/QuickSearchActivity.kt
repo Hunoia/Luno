@@ -185,7 +185,7 @@ class QuickSearchActivity : ComponentActivity() {
                         handleResultTap(result, confirmedQuery)
                     },
                     onAction = { action, confirmedQuery ->
-                        if (action !is SearchAction.SetQuery && action !is SearchAction.ShowEngines) {
+                        if (action !is SearchAction.SetQuery) {
                             recordQuery(confirmedQuery)
                         }
                         executeAction(action)
@@ -254,9 +254,8 @@ class QuickSearchActivity : ComponentActivity() {
                 requestClose()
             }
             is SearchAction.Share -> shareUri(action.uri, action.mime).also { requestClose() }
-            // 由 QuickSearchContent 直接回填/开引擎 Sheet；万一走到这里不处理。
+            // 由 QuickSearchContent 直接回填；万一走到这里不处理。
             is SearchAction.SetQuery -> Unit
-            is SearchAction.ShowEngines -> Unit
             is SearchAction.SystemToggle -> handleToggle(action.kind)
         }
     }

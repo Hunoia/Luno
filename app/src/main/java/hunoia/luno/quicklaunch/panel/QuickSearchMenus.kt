@@ -11,12 +11,11 @@ import hunoia.luno.R
 import hunoia.luno.quicklaunch.query.SearchAction
 import hunoia.luno.quicklaunch.query.SearchActionLabel
 import hunoia.luno.quicklaunch.query.SearchResult
-import hunoia.luno.quicklaunch.query.SOURCE_ENGINE
 import hunoia.luno.quicklaunch.query.isResultOverrideAllowed
 import hunoia.luno.ui.theme.ElevationSmall
 import hunoia.luno.ui.theme.LargeShape
 
-/** 结果操作菜单：锚定行尾 3 点/钉住按钮，业务动作 + 通用 其他引擎/Pin。 */
+/** 结果操作菜单：锚定行尾 3 点/钉住按钮，业务动作 + 通用 Pin。 */
 @Composable
 internal fun ResultActionMenu(
     result: SearchResult,
@@ -26,18 +25,10 @@ internal fun ResultActionMenu(
     onDismiss: () -> Unit,
     onAction: (SearchAction, String) -> Unit,
     onTogglePin: (String, String) -> Unit,
-    onShowEngines: (String) -> Unit,
 ) {
     val items = buildList {
         result.actions.forEach { item ->
             add(MenuActionItem(item.label) { onAction(item.action, query) })
-        }
-        if (result.source != SOURCE_ENGINE) {
-            add(
-                MenuActionItem(SearchActionLabel.Res(R.string.search_action_use_other_engine)) {
-                    onShowEngines(query)
-                },
-            )
         }
         if (result.isResultOverrideAllowed() && query.isNotBlank()) {
             add(
