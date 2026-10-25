@@ -454,7 +454,6 @@
     <string name="condition_apps_empty">未选择应用</string>
     <string name="condition_app_select_title">选择应用</string>
     <string name="loading">加载中…</string>
-    <string name="condition_scope">作用触钮</string>
     <string name="condition_app_in">前台应用 ∈ %1$s</string>
     <string name="toast_invalid_parameter">参数无效</string>
     <string name="toast_execution_failed">执行失败</string>

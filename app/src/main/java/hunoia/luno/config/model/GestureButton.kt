@@ -122,3 +122,11 @@ internal fun GestureButton.resolveDisplayName(): String {
     if (name.isNotEmpty()) return name
     return AppContext.get().getString(R.string.gesture_button)
 }
+
+/**
+ * 空名触钮（历史默认钮）在读路径补实名「触钮」：存量数据不改写，
+ * 界面统一读 `name`，兜底不再各处分叉；不带数字，不会与自动命名的「触钮 N」撞名。
+ */
+internal fun GestureButton.withResolvedName(): GestureButton =
+    if (name.isNotEmpty()) this
+    else copy(name = AppContext.get().getString(R.string.gesture_button))

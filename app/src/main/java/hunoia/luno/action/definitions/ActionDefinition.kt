@@ -63,15 +63,6 @@ sealed interface ParameterDefinition {
         override val defaultValue: String? = null
     }
 
-    /** 触钮多选（存按钮 id 数组，编辑器弹触钮选择表）。 */
-    data class ButtonSelectorMulti(
-        override val key: String,
-        override val label: String,
-        override val required: Boolean = false,
-    ) : ParameterDefinition {
-        override val defaultValue: String? = null
-    }
-
     data class MiniWindow(
         override val key: String,
         override val label: String,

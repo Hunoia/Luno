@@ -47,11 +47,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.ui.settings.action.MiniWindowAdjustContent
-import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.action.controller.ShellController
 import hunoia.luno.action.controller.ShellResult
@@ -65,7 +63,6 @@ import hunoia.luno.config.model.toMiniWindowSettings
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.query.ActivityOption
 import hunoia.luno.ui.component.sheet.AppPickerSheet
-import hunoia.luno.ui.component.sheet.ButtonPickerSheet
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
@@ -104,7 +101,6 @@ fun ActionLibraryEditScreen(
     var showAppPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
     var showActivityPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
     var showAppMultiPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
-    var showButtonPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
     var showMiniWindowPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showDiscardConfirm by remember { mutableStateOf(false) }
@@ -256,21 +252,6 @@ fun ActionLibraryEditScreen(
                     },
                 )
             }
-            showButtonPicker?.let { paramDef ->
-                val buttons by GestureConfig.buttons
-                    .collectAsStateWithLifecycle(initialValue = emptyList())
-                val selectedIds = draft?.params?.get(paramDef.key)?.jsonArray?.mapNotNull {
-                    it.jsonPrimitive?.contentOrNull
-                } ?: emptyList()
-                ButtonPickerSheet(
-                    onDismissRequest = { showButtonPicker = null },
-                    buttons = buttons,
-                    selectedIds = selectedIds,
-                    onConfirm = { selected ->
-                        vm.updateParamMulti(paramDef.key, selected)
-                    },
-                )
-            }
             showMiniWindowPicker?.let { paramDef ->
                 // 全屏对话框而不是另开路由：结果要回填给当前编辑中的动作，
                 // 走路由就得跨 nav entry 传参，这里就地拿到 vm 最直接。
@@ -345,7 +326,6 @@ if (cardParams.isNotEmpty()) {
                                         onParamElementChange = vm::updateParamElement,
                                         onPickApp = { showAppPicker = paramDef },
                                         onPickApps = { showAppMultiPicker = paramDef },
-                                        onPickButtons = { showButtonPicker = paramDef },
                                         onPickMiniWindow = { showMiniWindowPicker = paramDef },
                                         onPickActivity = { _, _ -> showActivityPicker = paramDef },
                                         shape = segmentedShape(i, cardParams.size),
@@ -394,7 +374,6 @@ if (cardParams.isNotEmpty()) {
                                 onParamElementChange = vm::updateParamElement,
                                 onPickApp = { showAppPicker = paramDef },
                                 onPickApps = { showAppMultiPicker = paramDef },
-                                onPickButtons = { showButtonPicker = paramDef },
                                 onPickMiniWindow = { showMiniWindowPicker = paramDef },
                                 onPickActivity = { _, _ -> showActivityPicker = paramDef },
                             )

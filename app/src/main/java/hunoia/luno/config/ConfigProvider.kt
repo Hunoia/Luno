@@ -15,11 +15,13 @@ import hunoia.luno.config.model.QuickAppSnapshot
 import hunoia.luno.config.model.QuickLauncherGeometry
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SubGestureSettings
+import hunoia.luno.config.model.withResolvedName
 import hunoia.luno.config.model.withUniqueEngineTriggers
 import hunoia.luno.config.repository.QuickLauncherRepository
 import hunoia.luno.config.store.SettingsStores
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 
 object ConfigProvider {
 
@@ -31,7 +33,8 @@ object ConfigProvider {
     val advancedSettings: Flow<AdvancedSettings> = stores.advancedSettings
     val gestureSettings: Flow<GestureSettings> = stores.gestureSettings
     val actionSettings: Flow<ActionSettings> = stores.actionSettings
-    val gestureButtons: Flow<List<GestureButton>> = stores.gestureButtons
+    val gestureButtons: Flow<List<GestureButton>> =
+        stores.gestureButtons.map { buttons -> buttons.map { it.withResolvedName() } }
     val quickAppLauncherSettings: Flow<QuickAppLauncherSettings> = stores.quickAppLauncherSettings
     val subGestureSettings: Flow<SubGestureSettings> = stores.subGestureSettings
     val actionLibrarySettings: Flow<ActionLibrarySettings> = stores.actionLibrarySettings
@@ -43,7 +46,8 @@ object ConfigProvider {
     suspend fun getAdvancedSettings(): AdvancedSettings = stores._advancedSettings.data.first()
     suspend fun getGestureSettings(): GestureSettings = stores._gestureSettings.data.first()
     suspend fun getActionSettings(): ActionSettings = stores._actionSettings.data.first()
-    suspend fun getGestureButtons(): List<GestureButton> = stores._gestureButtons.data.first()
+    suspend fun getGestureButtons(): List<GestureButton> =
+        stores._gestureButtons.data.first().map { it.withResolvedName() }
     suspend fun getSubGestureSettings(): SubGestureSettings = stores._subGestureSettings.data.first()
     suspend fun getActionLibrarySettings(): ActionLibrarySettings = stores._actionLibrarySettings.data.first()
     suspend fun getAutomationRules(): List<AutomationRule> = stores._automationRules.data.first()

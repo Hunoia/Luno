@@ -57,7 +57,6 @@ val ParameterDefinition.isCardRowType: Boolean
         this is ParameterDefinition.Enum ||
         this is ParameterDefinition.AppSelector ||
         this is ParameterDefinition.AppSelectorMulti ||
-        this is ParameterDefinition.ButtonSelectorMulti ||
         this is ParameterDefinition.MiniWindow ||
         this is ParameterDefinition.ActivitySelector
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,7 +68,6 @@ fun ParameterEditor(
     onParamElementChange: (String, JsonElement) -> Unit = { _, _ -> },
     onPickApp: (String) -> Unit = {},
     onPickApps: (String) -> Unit = {},
-    onPickButtons: (String) -> Unit = {},
     onPickMiniWindow: (String) -> Unit = {},
     onPickActivity: (String, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
@@ -190,20 +188,6 @@ fun ParameterEditor(
                 title = definition.label,
                 subtitle = display,
                 onClick = { onPickApps(definition.key) },
-                shape = shape,
-                modifier = modifier.fillMaxWidth(),
-            )
-        }
-        is ParameterDefinition.ButtonSelectorMulti -> {
-            val selected = currentParams[definition.key]?.jsonArray?.mapNotNull {
-                it.jsonPrimitive?.contentOrNull
-            } ?: emptyList()
-            val multiLabel = stringResource(R.string.action_param_multi_selected, selected.size)
-            val display = if (selected.isEmpty()) unselected else multiLabel
-            LunoSettingsRow(
-                title = definition.label,
-                subtitle = display,
-                onClick = { onPickButtons(definition.key) },
                 shape = shape,
                 modifier = modifier.fillMaxWidth(),
             )
