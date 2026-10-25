@@ -32,3 +32,11 @@
 
 # 抛出异常时保留代码行号，源文件名不保留以减少元数据体积
 -keepattributes LineNumberTable
+
+# release 移除 Log.v/d/i（含参数拼接）：多数日志已有 BuildConfig.DEBUG 守卫
+# （R8 常量折叠即消），这里兜底无守卫的漏网调用；w/e 保留。
+-assumenosideeffects class android.util.Log {
+    public static int v(...);
+    public static int d(...);
+    public static int i(...);
+}

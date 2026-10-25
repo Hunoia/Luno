@@ -18,6 +18,10 @@ object Events {
     private val subscribers = ConcurrentHashMap<KClass<out Any>, CopyOnWriteArrayList<(Any) -> Unit>>()
     private var isMainThread: () -> Boolean = { true }
 
+    /** 订阅表增删的互斥锁：unsubscribe 的 isEmpty 判断与 map 移除之间若并入新订阅者，
+     * 整条 map 项会被连锅端走 —— 新订阅者注册成功却永远收不到事件。 */
+    private val subscriptionLock = Any()
+
     fun initScope(applicationScope: CoroutineScope, isMainThreadCheck: () -> Boolean = { true }) {
         scope = applicationScope
         isMainThread = isMainThreadCheck
@@ -35,14 +39,18 @@ object Events {
 
     fun <T : Any> subscribe(eventClass: KClass<T>, subscriber: (T) -> Unit) {
         @Suppress("UNCHECKED_CAST")
-        subscribers.computeIfAbsent(eventClass) { CopyOnWriteArrayList() }.add(subscriber as (Any) -> Unit)
+        synchronized(subscriptionLock) {
+            subscribers.computeIfAbsent(eventClass) { CopyOnWriteArrayList() }.add(subscriber as (Any) -> Unit)
+        }
     }
 
     fun <T : Any> unsubscribe(eventClass: KClass<T>, subscriber: (T) -> Unit) {
-        val list = subscribers[eventClass] ?: return
-        list.remove(subscriber)
-        if (list.isEmpty()) {
-            subscribers.remove(eventClass, list)
+        synchronized(subscriptionLock) {
+            val list = subscribers[eventClass] ?: return
+            list.remove(subscriber)
+            if (list.isEmpty()) {
+                subscribers.remove(eventClass, list)
+            }
         }
     }
 

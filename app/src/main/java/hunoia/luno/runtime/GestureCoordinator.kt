@@ -217,7 +217,9 @@ class GestureCoordinator(
     )
 
     private val previousAppTracker = PreviousAppTracker(
+        context = host.context,
         packageManager = host.context.packageManager,
+        scope = host.coroutineScope,
         startActivity = { host.context.startActivity(it) },
         rootInActiveWindowPackageName = { host.accessibilityService.rootInActiveWindow?.packageName?.toString() },
         ownPackageName = host.context.packageName,
@@ -284,16 +286,19 @@ class GestureCoordinator(
         onFireRule = { rule, ctx ->
             val admitted = synchronized(runningRules) { runningRules.add(rule.id) }
             if (!admitted) {
-                host.coroutineScope.launch {
-                    ConfigProvider.appendAutomationEvent(
-                        AutomationEvent(
-                            ruleId = rule.id,
-                            ruleName = rule.name,
-                            timeMs = ctx.nowMs, wallTimeMs = System.currentTimeMillis(),
-                            fired = false,
-                            reason = SkipReason.RULE_BUSY.code,
+                // 跳过诊断只在 DEBUG 落盘（见 onEvents 注释）。
+                if (BuildConfig.DEBUG) {
+                    host.coroutineScope.launch {
+                        ConfigProvider.appendAutomationEvent(
+                            AutomationEvent(
+                                ruleId = rule.id,
+                                ruleName = rule.name,
+                                timeMs = ctx.nowMs, wallTimeMs = System.currentTimeMillis(),
+                                fired = false,
+                                reason = SkipReason.RULE_BUSY.code,
+                            )
                         )
-                    )
+                    }
                 }
             } else {
                 host.coroutineScope.launch {
@@ -320,7 +325,12 @@ class GestureCoordinator(
         },
         onEvents = { events ->
             // 一轮求值的跳过事件合成一次写盘（引擎侧已攒批）。
-            host.coroutineScope.launch { ConfigProvider.appendAutomationEvents(events) }
+            // 跳过诊断只在 DEBUG 落盘：release 下吵闹通知源在冷却期内的每条通知都会
+            // 产生「100 条历史全量 JSON 重写 + MultiProcess 文件锁」，而执行历史平时
+            // 几乎不看；真正的执行（fired=true，见 onFireRule）仍逐条落盘。
+            if (BuildConfig.DEBUG && events.isNotEmpty()) {
+                host.coroutineScope.launch { ConfigProvider.appendAutomationEvents(events) }
+            }
         },
     )
 
@@ -649,26 +659,29 @@ class GestureCoordinator(
         environmentTracker.onAccessibilityEvent(event)
         // 新应用先到的往往不是 WINDOW_STATE_CHANGED：只要事件来自一个点击时不可见的
         // 新窗口，就提前收口。底层应用/面板自身窗口的 id 在基线里，不会误触发。
-        val eventPackage = event?.packageName?.toString().orEmpty()
-        if (event != null && eventPackage.isNotEmpty() &&
-            event.windowId > 0 && widgetLaunchWindowIds.isNotEmpty() &&
-            event.windowId !in widgetLaunchWindowIds &&
-            eventPackage !in widgetLaunchPackages &&
-            eventPackage != host.context.packageName &&
-            !hunoia.luno.gridpanel.isSystemOverlayPackage(eventPackage) &&
-            hunoia.luno.gridpanel.widget.PanelAppWidgetHostView.hasRecentTap()
+        // 廉价短路（widgetLaunchWindowIds 常态为空）放在 packageName.toString() 分配之前。
+        if (event != null && widgetLaunchWindowIds.isNotEmpty() &&
+            event.windowId > 0 && event.windowId !in widgetLaunchWindowIds
         ) {
-            if (BuildConfig.DEBUG) {
-                Log.i(
-                    LOG_TAG,
-                    "early window event after widget tap: type=${event.eventType} " +
-                        "pkg=$eventPackage window=${event.windowId}",
+            val eventPackage = event.packageName?.toString().orEmpty()
+            if (eventPackage.isNotEmpty() &&
+                eventPackage !in widgetLaunchPackages &&
+                eventPackage != host.context.packageName &&
+                !hunoia.luno.gridpanel.isSystemOverlayPackage(eventPackage) &&
+                hunoia.luno.gridpanel.widget.PanelAppWidgetHostView.hasRecentTap()
+            ) {
+                if (BuildConfig.DEBUG) {
+                    Log.i(
+                        LOG_TAG,
+                        "early window event after widget tap: type=${event.eventType} " +
+                            "pkg=$eventPackage window=${event.windowId}",
+                    )
+                }
+                hunoia.luno.gridpanel.GridPanelOverlay.onForegroundPackageChanged(
+                    fromPackage = beforePackage.ifEmpty { eventPackage },
+                    toPackage = eventPackage,
                 )
             }
-            hunoia.luno.gridpanel.GridPanelOverlay.onForegroundPackageChanged(
-                fromPackage = beforePackage.ifEmpty { eventPackage },
-                toPackage = eventPackage,
-            )
         }
         // 窗口列表变化比 TYPE_WINDOW_STATE_CHANGED 更早：部件点击后新应用窗口一出现就收口，
         // 不然要等 0.5s 左右的应用窗口状态事件，面板会盖在新应用上“愣一下”。

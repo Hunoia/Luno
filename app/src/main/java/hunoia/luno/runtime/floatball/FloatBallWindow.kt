@@ -119,7 +119,6 @@ class FloatBallWindow(
     private val handler = Handler(Looper.getMainLooper())
     private var idleRunnable: Runnable? = null
     private var settleAnimator: ValueAnimator? = null
-    private var moveAnimator: ValueAnimator? = null
 
     // ---- 生命周期 ----
 
@@ -187,8 +186,6 @@ class FloatBallWindow(
         cancelImeAnim()
         settleAnimator?.cancel()
         settleAnimator = null
-        moveAnimator?.cancel()
-        moveAnimator = null
         visualAnimator?.cancel()
         visualAnimator = null
         idleRunnable?.let(handler::removeCallbacks)

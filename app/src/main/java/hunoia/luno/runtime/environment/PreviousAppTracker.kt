@@ -1,15 +1,21 @@
 package hunoia.luno.runtime.environment
 
+import android.content.Context
 import android.content.Intent
-import androidx.collection.LruCache
 import android.view.accessibility.AccessibilityEvent
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import hunoia.luno.bridge.system.PackageChangeReceiver
+import hunoia.luno.bridge.system.queryIntentActivitiesCompat
 
 private const val PREVIOUS_APP_HISTORY_MAX = 16
 
 class PreviousAppTracker(
+    private val context: Context,
     private val packageManager: android.content.pm.PackageManager,
+    private val scope: CoroutineScope,
     private val startActivity: (Intent) -> Unit,
     private val rootInActiveWindowPackageName: () -> String?,
     /** 自身包名：面板/设置等 overlay 窗口的 a11y 事件不入历史（否则部件会闪现本应用图标、
@@ -18,7 +24,34 @@ class PreviousAppTracker(
 ) {
     private val history = ArrayDeque<String>()
     private var currPackageName: String? = null
-    private val launchablePackageCache = LruCache<String, Boolean>(256)
+
+    /**
+     * 可启动包名集合：一次 MAIN/LAUNCHER 全量解析（单次 Binder）在 IO 算好、包变化时刷新。
+     * 此前 hasLaunchIntent 在 a11y 事件（主线程）里逐包同步 getLaunchIntentForPackage，
+     * 新装/冷启场景每次窗口切换都可能卡主线程；现在退化为集合查询，零 IPC。
+     * null = 首次查询未就绪：这一小段时间窗口事件不入历史（服务刚起，历史本来就要重建）。
+     */
+    @Volatile
+    private var launchablePackages: Set<String>? = null
+
+    private val onPackageChanged: () -> Unit = { refreshLaunchablePackages() }
+
+    init {
+        refreshLaunchablePackages()
+        PackageChangeReceiver.register(context, onPackageChanged)
+    }
+
+    private fun refreshLaunchablePackages() {
+        scope.launch(Dispatchers.IO) {
+            launchablePackages = runCatching {
+                val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+                packageManager.queryIntentActivitiesCompat(intent, 0)
+                    .asSequence()
+                    .mapNotNull { it.activityInfo?.applicationInfo?.packageName }
+                    .toSet()
+            }.getOrDefault(emptySet())
+        }
+    }
 
     /** 最近应用黑名单：历史记录源头过滤，最近应用部件与上一个应用动作共用。 */
     @Volatile
@@ -79,10 +112,10 @@ class PreviousAppTracker(
     }
 
     fun onRelease() {
+        PackageChangeReceiver.unregister(context, onPackageChanged)
         history.clear()
         RecentAppsHub.clear()
         currPackageName = null
-        launchablePackageCache.evictAll()
     }
 
     private suspend fun queryLaunchIntentAndStart(packageName: String?): Boolean {
@@ -107,9 +140,6 @@ class PreviousAppTracker(
 
     private fun hasLaunchIntent(packageName: String?): Boolean {
         val key = packageName ?: return false
-        launchablePackageCache.get(key)?.let { return it }
-        val result = packageManager.getLaunchIntentForPackage(key) != null
-        launchablePackageCache.put(key, result)
-        return result
+        return key in (launchablePackages ?: return false)
     }
 }

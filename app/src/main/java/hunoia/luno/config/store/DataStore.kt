@@ -25,12 +25,9 @@ inline fun <reified T> Context.dataStore(fileName: String, defValue: T): DataSto
             return try {
                 val string = bytes.decodeToString()
                 if (string.isBlank()) {
-                    Log.d("DataStore", "read $fileName: blank, using default")
                     return defaultValue
                 }
-                val result = JsonSerializer.decodeFromString<T>(string)
-                Log.d("DataStore", "read $fileName: success size=${bytes.size}")
-                result
+                JsonSerializer.decodeFromString<T>(string)
             } catch (e: Exception) {
                 Log.e("DataStore", "read $fileName failed: ${e::class.simpleName} ${e.message} size=${bytes.size}")
                 // 先留一份不可解析的原文件：直接回默认值的话，下一次任意 updateData 就会把
