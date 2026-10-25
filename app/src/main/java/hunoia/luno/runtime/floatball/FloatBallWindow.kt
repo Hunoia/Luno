@@ -179,6 +179,13 @@ class FloatBallWindow(
         posY = settings.y * screenHeightPx
         applyWindowBounds()
         scheduleIdle()
+        // detach 不清 idled：锁屏隐藏规则/总闸这类拆窗重建（enabled false→true），
+        // 直接把静置终态摆上（不走 applyVisual 的动画 —— 否则解锁瞬间能看见一次
+        // 「全亮 → 变暗半出屏」的静置过渡）；进程级重启是新对象，照常醒着起步。
+        if (idled) {
+            created.alpha = FloatBallDefaults.IdleDimAlpha
+            created.translationX = idleShiftPx()
+        }
         // 实测 LP 原点（状态栏高度）：窗口摆出来才知道真实屏幕落点。
         postMeasureLpOriginY({ view }, { lpOriginY }) {
             lpOriginY = it
@@ -397,8 +404,9 @@ class FloatBallWindow(
             return true
         }
         cancelSettle()
-        cancelIdle()
-        idled = false
+        // 静置变暗态跨跟手挪球保留：触点在触钮上，球只是被动搬位置 —— 传送落位后
+        // applyVisual 按新边缘重摆半出屏姿态，不唤醒。
+        cancelIdleTimer()
         moveAnimator?.cancel()
         crossFading = true
         visualAnimator?.cancel()
@@ -606,6 +614,12 @@ class FloatBallWindow(
 
     // ---- 外观（View 层） ----
 
+    /** 静置姿态的横向外移量（按当前贴边方向）。 */
+    private fun idleShiftPx(): Float {
+        val dir = if (posX * 2f + ballPx < screenWidthPx) -1f else 1f
+        return dir * FloatBallDefaults.IdleOutRatio * ballPx
+    }
+
     /** 按压/静置的 alpha、scale 走 View 层而非 Compose：服务进程托管的 ComposeView 重组不上屏。 */
     private var visualAnimator: ViewPropertyAnimator? = null
 
@@ -620,16 +634,13 @@ class FloatBallWindow(
         // 静置时球横向移出一截到屏幕外，方向 = 最近边缘。偏移走 View 平移：
         // 部分 ROM 会把越界 LP 夹回屏内，LP 方案不可靠。窗口留在贴边位，
         // 命中区仍是窗口方形，覆盖可见半圆。
-        val shiftPx = if (idled) {
-            val out = FloatBallDefaults.IdleOutRatio
-            if (posX * 2f + ballPx < screenWidthPx) -out else out
-        }           else 0f
+        val shiftPx = if (idled) idleShiftPx() else 0f
         visualAnimator?.cancel()
         visualAnimator = target.animate()
             .scaleX(scale)
             .scaleY(scale)
             .alpha(alpha)
-            .translationX(shiftPx * ballPx)
+            .translationX(shiftPx)
             .setDuration(if (pressed) 120L else 240L)
             .setInterpolator(DecelerateInterpolator())
     }
