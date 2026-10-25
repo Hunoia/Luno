@@ -1,26 +1,52 @@
 package hunoia.luno.ui.settings.search
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.background
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.SearchLaunch
 import hunoia.luno.config.model.effectiveLaunch
+import hunoia.luno.ui.component.row.LunoCardInput
+import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoInputRow
+import hunoia.luno.ui.component.row.LunoSelectableRow
+import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.sheet.TextInputDialog
-import hunoia.luno.ui.theme.CardInnerSpacing
-import hunoia.luno.ui.theme.LargeShape
+import hunoia.luno.ui.theme.ConnectionRadius
+import hunoia.luno.ui.theme.ContainerRadius
+import hunoia.luno.ui.theme.ListSpacing
+import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.theme.RowIconSize
+import hunoia.luno.ui.theme.SegmentedGap
 
 internal enum class EngineOpenMode { Default, App, Chooser, Share, ShareImage }
 
@@ -162,168 +188,211 @@ internal fun rememberEngineEditState(
 }
 
 /**
- * 引擎编辑字段（无滚动容器、无确认按钮）：编辑页整体排版，滚动由页面容器提供。
+ * 引擎编辑字段：分段卡片行式排版（与设置页同一套），滚动由页面容器提供。
+ * [appLabel] 是 [targetPackage] 解析出的应用名，null 时目标应用行回退显示包名。
  */
 @Composable
 internal fun EngineEditFields(
     state: EngineEditState,
     targetPackage: String,
+    appLabel: String?,
     onPickApp: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+        verticalArrangement = Arrangement.spacedBy(ListSpacing),
     ) {
-        OutlinedTextField(
-            value = state.name,
-            onValueChange = { state.name = it },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            shape = LargeShape,
-            label = { Text(stringResource(R.string.search_engine_name)) },
-        )
-        OutlinedTextField(
-            value = state.iconText,
-            onValueChange = { state.iconText = it.take(2) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            shape = LargeShape,
-            label = { Text(stringResource(R.string.search_engine_icon_text)) },
-            placeholder = { Text(stringResource(R.string.search_engine_icon_text_hint)) },
-        )
-        if (!state.isShareImage) {
-            OutlinedTextField(
-                value = state.template,
-                onValueChange = { state.template = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = LargeShape,
-                label = {
-                    Text(
-                        stringResource(
-                            if (state.isShare) R.string.search_engine_share_template else R.string.search_engine_url,
-                        ),
-                    )
-                },
-                placeholder = {
-                    Text(
-                        if (state.isShare) "%q" else "https://www.bing.com/search?q=%s",
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    )
-                },
-                isError = state.templateError,
-                // supportingText 常驻占位：无错时空字符串，避免错误出现/消失时弹窗高度跳动。
-                supportingText = {
-                    Text(
-                        text = if (state.templateError) {
-                            stringResource(R.string.search_engine_url_error)
-                        } else {
-                            ""
-                        },
-                    )
-                },
-            )
-        }
-        OutlinedTextField(
-            value = state.trigger,
-            onValueChange = { state.trigger = it },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            shape = LargeShape,
-            label = { Text(stringResource(R.string.search_engine_trigger)) },
-            placeholder = { Text("bb") },
-            isError = state.triggerError != null,
-            supportingText = {
-                Text(text = state.triggerError?.let { stringResource(it) } ?: "")
-            },
-        )
-        Text(
-            text = stringResource(R.string.search_engine_open_mode),
-            style = androidx.compose.material3.MaterialTheme.typography.titleSmall,
-        )
-        androidx.compose.foundation.layout.FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
-            verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+        // 基本信息：三行连成一张整卡（底色由外层统一铺，分割线两侧露出的也是卡色），
+        // 行间用两头不接边的分割线分隔。
+        LunoGroup(
+            title = stringResource(R.string.search_engine_basic_group),
+            contentSpacing = 0.dp,
         ) {
-            FilterChip(
-                selected = state.mode == EngineOpenMode.Default,
-                onClick = { state.mode = EngineOpenMode.Default },
-                label = { Text(stringResource(R.string.search_engine_open_default)) },
-            )
-            FilterChip(
-                selected = state.mode == EngineOpenMode.App,
-                onClick = { state.mode = EngineOpenMode.App },
-                label = { Text(stringResource(R.string.search_engine_open_app)) },
-            )
-            FilterChip(
-                selected = state.mode == EngineOpenMode.Chooser,
-                onClick = { state.mode = EngineOpenMode.Chooser },
-                label = { Text(stringResource(R.string.search_engine_open_chooser)) },
-            )
-            FilterChip(
-                selected = state.mode == EngineOpenMode.Share,
-                onClick = { state.mode = EngineOpenMode.Share },
-                label = { Text(stringResource(R.string.search_engine_open_share)) },
-            )
-            FilterChip(
-                selected = state.mode == EngineOpenMode.ShareImage,
-                onClick = { state.mode = EngineOpenMode.ShareImage },
-                label = { Text(stringResource(R.string.search_engine_open_share_image)) },
-            )
-        }
-        if (state.mode == EngineOpenMode.App || state.mode == EngineOpenMode.Share || state.isShareImage) {
-            OutlinedTextField(
-                value = targetPackage,
-                onValueChange = {},
-                readOnly = true,
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = LargeShape,
-                label = { Text(stringResource(R.string.search_engine_target_app)) },
-                placeholder = { Text(stringResource(R.string.search_engine_target_app_hint)) },
-                trailingIcon = {
-                    TextButton(onClick = onPickApp) {
-                        Text(stringResource(R.string.search_engine_pick_app))
-                    }
-                },
-                isError = state.targetMissing(targetPackage),
-                supportingText = {
-                    Text(
-                        if (state.targetMissing(targetPackage)) {
-                            stringResource(R.string.search_engine_target_required)
-                        } else {
-                            ""
-                        },
-                    )
-                },
-            )
-            if (state.mode == EngineOpenMode.App) {
-                OutlinedTextField(
-                    value = state.fallback,
-                    onValueChange = { state.fallback = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    shape = LargeShape,
-                    label = { Text(stringResource(R.string.search_engine_fallback)) },
-                    placeholder = { Text(stringResource(R.string.search_engine_fallback_hint)) },
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(ContainerRadius))
+                    .background(MaterialTheme.colorScheme.surfaceBright),
+            ) {
+                LunoInputRow(
+                    label = stringResource(R.string.search_engine_name),
+                    value = state.name,
+                    onValueChange = { state.name = it },
+                    placeholder = stringResource(R.string.search_engine_name_hint),
+                    shape = RoundedCornerShape(0.dp),
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = PageGutter))
+                LunoInputRow(
+                    label = stringResource(R.string.search_engine_icon_text),
+                    value = state.iconText,
+                    onValueChange = { state.iconText = it.take(2) },
+                    placeholder = stringResource(R.string.search_engine_icon_text_hint),
+                    shape = RoundedCornerShape(0.dp),
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = PageGutter))
+                LunoInputRow(
+                    label = stringResource(R.string.search_engine_trigger),
+                    value = state.trigger,
+                    onValueChange = { state.trigger = it },
+                    placeholder = "bb",
+                    subtitle = state.triggerError?.let { stringResource(it) }.orEmpty(),
+                    isError = state.triggerError != null,
+                    shape = RoundedCornerShape(0.dp),
                 )
             }
         }
-        if (state.mode == EngineOpenMode.Share) {
-            Text(
-                text = stringResource(R.string.search_engine_share_hint),
-                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-                color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        OpenModeCard(state)
+        if (!state.isShareImage) {
+            LunoGroup(
+                title = stringResource(
+                    if (state.isShare) R.string.search_engine_share_template else R.string.search_engine_url,
+                ),
+            ) {
+                LunoCardInput(
+                    value = state.template,
+                    onValueChange = { state.template = it },
+                    placeholder = if (state.isShare) "%q" else "https://www.bing.com/search?q=%s",
+                    // 分享模式常驻 %q 说明；出错时同槽位换错误文案，高度不跳。
+                    supportingText = when {
+                        state.templateError -> stringResource(R.string.search_engine_url_error)
+                        state.isShare -> stringResource(R.string.search_engine_share_hint)
+                        else -> ""
+                    },
+                    isError = state.templateError,
+                    shape = segmentedShape(0, 1),
+                )
+            }
         }
-        if (state.isShareImage) {
-            Text(
-                text = stringResource(R.string.search_engine_share_image_hint),
-                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-                color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+        if (state.mode == EngineOpenMode.App || state.mode == EngineOpenMode.Share || state.isShareImage) {
+            LunoGroup(title = stringResource(R.string.search_engine_target_app)) {
+                LunoSettingsRow(
+                    title = appLabel
+                        ?: targetPackage.takeIf { it.isNotBlank() }
+                        ?: stringResource(R.string.search_engine_target_app_hint),
+                    subtitle = when {
+                        state.targetMissing(targetPackage) -> stringResource(R.string.search_engine_target_required)
+                        appLabel != null -> targetPackage
+                        else -> ""
+                    },
+                    subtitleColor = if (state.targetMissing(targetPackage)) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    onClick = onPickApp,
+                    shape = segmentedShape(0, 1),
+                )
+            }
+            if (state.isShareImage) {
+                Text(
+                    text = stringResource(R.string.search_engine_share_image_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = PageGutter),
+                )
+            }
+            if (state.mode == EngineOpenMode.App) {
+                LunoGroup(title = stringResource(R.string.search_engine_fallback)) {
+                    LunoCardInput(
+                        value = state.fallback,
+                        onValueChange = { state.fallback = it },
+                        placeholder = stringResource(R.string.search_engine_fallback_hint),
+                        shape = segmentedShape(0, 1),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** 打开方式可展开卡：头部显示当前模式，展开列全部分模式（观感同手势按钮的动作卡）。 */
+@Composable
+private fun OpenModeCard(state: EngineEditState) {
+    var expanded by remember { mutableStateOf(false) }
+    val modes = listOf(
+        Triple(EngineOpenMode.Default, R.string.search_engine_open_default, R.string.search_engine_open_default_desc),
+        Triple(EngineOpenMode.App, R.string.search_engine_open_app, R.string.search_engine_open_app_desc),
+        Triple(EngineOpenMode.Chooser, R.string.search_engine_open_chooser, R.string.search_engine_open_chooser_desc),
+        Triple(EngineOpenMode.Share, R.string.search_engine_open_share, R.string.search_engine_open_share_desc),
+        Triple(
+            EngineOpenMode.ShareImage,
+            R.string.search_engine_open_share_image,
+            R.string.search_engine_open_share_image_desc,
+        ),
+    )
+    val current = modes.first { it.first == state.mode }
+    val rotation by animateFloatAsState(if (expanded) 180f else 0f, label = "engineModeArrowRotation")
+    val headerBottomRadius by animateDpAsState(
+        targetValue = if (expanded) ConnectionRadius else ContainerRadius,
+        label = "engineModeHeaderRadius",
+    )
+    val headerShape = RoundedCornerShape(
+        topStart = ContainerRadius,
+        topEnd = ContainerRadius,
+        bottomStart = headerBottomRadius,
+        bottomEnd = headerBottomRadius,
+    )
+    val contentShape = RoundedCornerShape(
+        topStart = ConnectionRadius,
+        topEnd = ConnectionRadius,
+        bottomStart = ContainerRadius,
+        bottomEnd = ContainerRadius,
+    )
+    LunoGroup(title = stringResource(R.string.search_engine_open_mode)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(ContainerRadius)),
+            verticalArrangement = Arrangement.spacedBy(SegmentedGap),
+        ) {
+            LunoSettingsRow(
+                title = stringResource(current.second),
+                subtitle = stringResource(current.third),
+                onClick = { expanded = !expanded },
+                shape = headerShape,
+                trailing = {
+                    Icon(
+                        modifier = Modifier
+                            .size(RowIconSize)
+                            .graphicsLayer { rotationZ = rotation },
+                        imageVector = Icons.Default.ExpandMore,
+                        contentDescription = null,
+                    )
+                },
             )
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut(),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(contentShape),
+                    verticalArrangement = Arrangement.spacedBy(SegmentedGap),
+                ) {
+                    modes.forEachIndexed { index, (mode, labelRes, descRes) ->
+                        val bottom = if (index == modes.lastIndex) ContainerRadius else ConnectionRadius
+                        LunoSelectableRow(
+                            title = stringResource(labelRes),
+                            subtitle = stringResource(descRes),
+                            selected = state.mode == mode,
+                            onSelectedChange = {
+                                state.mode = mode
+                                expanded = false
+                            },
+                            singleSelect = true,
+                            shape = RoundedCornerShape(
+                                topStart = ConnectionRadius,
+                                topEnd = ConnectionRadius,
+                                bottomStart = bottom,
+                                bottomEnd = bottom,
+                            ),
+                        )
+                    }
+                }
+            }
         }
     }
 }

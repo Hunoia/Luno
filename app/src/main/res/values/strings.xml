@@ -651,8 +651,9 @@
     <string name="search_engine_import_failed">无法识别剪贴板里的引擎 JSON</string>
     <string name="search_engine_edit">编辑搜索引擎</string>
     <string name="search_engine_name">名称</string>
+    <string name="search_engine_name_hint">必填</string>
     <string name="search_engine_icon_text">图标文字</string>
-    <string name="search_engine_icon_text_hint">留空取名称首字，最多 2 字</string>
+    <string name="search_engine_icon_text_hint">留空取首字</string>
     <string name="search_engine_url">网址模板</string>
     <string name="search_engine_url_error">模板必须包含 %s</string>
     <string name="search_engine_trigger">标识</string>
@@ -664,6 +665,12 @@
     <string name="search_engine_open_chooser">每次询问</string>
     <string name="search_engine_open_share">分享文本</string>
     <string name="search_engine_open_share_image">分享图片</string>
+    <string name="search_engine_basic_group">基本信息</string>
+    <string name="search_engine_open_default_desc">链接交给系统，用默认浏览器打开</string>
+    <string name="search_engine_open_app_desc">链接直达指定应用，可配回退链接</string>
+    <string name="search_engine_open_chooser_desc">每次弹出选择器挑选打开方式</string>
+    <string name="search_engine_open_share_desc">把模板生成的文本分享给应用</string>
+    <string name="search_engine_open_share_image_desc">选取图片后分享给指定应用</string>
     <string name="search_engine_share_image_hint">点击引擎后选一张图片，分享到目标应用。</string>
     <string name="search_engine_share_hint" formatted="false">分享内容模板：%q = 原词；例如「搜索：%q」</string>
     <string name="search_engine_share_template">分享文本模板</string>

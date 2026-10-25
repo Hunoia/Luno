@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -88,6 +89,16 @@ fun SearchEngineEditScreen(
         mutableStateOf(
             (snap.engine?.effectiveLaunch() as? SearchLaunch.Url)?.packageName.orEmpty(),
         )
+    }
+    // 目标应用显示名：包名解析失败（已卸载等）回退显示包名本身。
+    val appLabel by produceState<String?>(null, targetPackage) {
+        value = targetPackage.takeIf { it.isNotBlank() }?.let { pkg ->
+            runCatching {
+                context.packageManager.getApplicationLabel(
+                    context.packageManager.getApplicationInfo(pkg, 0),
+                ).toString()
+            }.getOrNull()
+        }
     }
     val initialPackage = remember(engineId) {
         (snap.engine?.effectiveLaunch() as? SearchLaunch.Url)?.packageName.orEmpty()
@@ -193,6 +204,7 @@ fun SearchEngineEditScreen(
         EngineEditFields(
             state = editState,
             targetPackage = targetPackage,
+            appLabel = appLabel,
             onPickApp = { showAppPicker = true },
         )
     }
