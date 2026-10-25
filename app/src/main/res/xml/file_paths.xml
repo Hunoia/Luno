@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 屏幕内容识别拾取产物：PNG 写在 Paths.AppCache 下的 screen_pick/ 子目录
+     （externalCacheDir，缺失时回退 cacheDir，两条路径都声明）。 -->
+<paths>
+    <external-cache-path
+        name="screen_pick_external"
+        path="screen_pick/" />
+    <cache-path
+        name="screen_pick_internal"
+        path="screen_pick/" />
+</paths>

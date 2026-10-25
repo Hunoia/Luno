@@ -44,6 +44,15 @@ fun copyText(
     true
 }.getOrDefault(false)
 
+/** 复制图片（FileProvider content URI）：聊天/笔记等支持粘贴图片的应用直接用。 */
+fun copyImage(context: Context, label: String, uri: android.net.Uri): Boolean = runCatching {
+    val clipboard = context.getSystemService(ClipboardManager::class.java)
+        ?: return@runCatching false
+    clipboard.setPrimaryClip(ClipData.newUri(context.contentResolver, label, uri))
+    lastSelfCopyAtMs = SystemClock.uptimeMillis()
+    true
+}.getOrDefault(false)
+
 /** 读当前剪贴板文本；无内容/无权限时返回 null。 */
 fun readClipboardText(context: Context): String? = runCatching {
     val clipboard = context.getSystemService(ClipboardManager::class.java)

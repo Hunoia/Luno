@@ -172,6 +172,17 @@
             android:exported="true"
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
+        <!-- 屏幕内容识别的拾取产物（裁剪 PNG）经 FileProvider 供剪贴板/分享方读取。 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <!-- directBootAware 已移除：数据全在 CE 存储，锁屏期读不到配置，
              只会带来「未解锁被拉起 → 读 CE 崩溃 → START_STICKY 循环重启」的风险。
              跑在 :service 进程：保活只该钉住常驻服务所在进程，别把主进程

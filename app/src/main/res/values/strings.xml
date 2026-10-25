@@ -410,6 +410,10 @@
     <string name="point_pick_hint">轻点目标位置，确定后回填坐标（仍可手改）</string>
     <string name="point_pick_point">x=%1$d dp，y=%2$d dp</string>
     <string name="point_pick_empty">未取点</string>
+    <string name="screen_pick_hint">点击复制文字 · 拖动框选图片</string>
+    <string name="screen_pick_image_copied">图片已复制</string>
+    <string name="screen_pick_no_content">未识别到可复制的内容</string>
+    <string name="screen_pick_failed">识别失败，请重试</string>
     <string name="action_library_icon_use">使用</string>
 
     <!-- 动作编辑器 -->

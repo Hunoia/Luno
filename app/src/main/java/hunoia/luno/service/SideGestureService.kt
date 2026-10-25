@@ -11,8 +11,10 @@ import hunoia.luno.runtime.GestureCoordinator
 import hunoia.luno.runtime.GestureHost
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
 import hunoia.luno.runtime.overlay.PointPickOverlay
+import hunoia.luno.runtime.overlay.ScreenPickOverlay
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
 import hunoia.luno.core.LOG_TAG
 
 class SideGestureService : ComponentAccessibilityService(), GestureHost {
@@ -44,6 +46,18 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     /** 屏幕取点窗口。必须住在无障碍服务这一侧 —— 见 DispatchService 的说明。 */
     override val pointPickOverlay by lazy {
         PointPickOverlay(this)
+    }
+
+    /** 屏幕内容识别拾取窗。与 pointPickOverlay 同规：必须住在无障碍服务这一侧。 */
+    private val screenPickOverlay by lazy {
+        ScreenPickOverlay(this)
+    }
+
+    /** 识别屏幕内容动作入口（动作执行已在 :service 进程直连）。返回是否成功弹起。 */
+    fun showScreenPick(): Boolean {
+        if (!isDispatchReady()) return false
+        coroutineScope.launch { screenPickOverlay.show() }
+        return true
     }
 
     override val advancedSettings: AdvancedSettings?
@@ -108,6 +122,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         runtimePanelOverlay.close()
         // 与 runtimePanelOverlay 同进退：点拾取全屏窗别指望系统随服务销毁回收。
         pointPickOverlay.close()
+        screenPickOverlay.close()
         coroutineScope.cancel()
     }
 

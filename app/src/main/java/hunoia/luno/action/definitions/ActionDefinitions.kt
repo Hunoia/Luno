@@ -6,6 +6,7 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.Shortcut
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Android
+import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.Assistant
@@ -186,6 +187,8 @@ object ActionDefinitions {
         ))
         add(ActionDefinition("accessibility.screenshot", "截屏", ActionCategory.UI, Capability.Accessibility,
             icon = Icons.Default.Screenshot))
+        add(ActionDefinition("accessibility.screenPick", "识别屏幕内容", ActionCategory.OPERATION, Capability.Accessibility,
+            icon = Icons.Default.DocumentScanner))
         add(ActionDefinition("accessibility.splitScreen", "分屏", ActionCategory.UI, Capability.Accessibility,
             icon = Icons.Default.Splitscreen))
         add(ActionDefinition("accessibility.powerButton", "电源菜单", ActionCategory.POWER, Capability.Accessibility,

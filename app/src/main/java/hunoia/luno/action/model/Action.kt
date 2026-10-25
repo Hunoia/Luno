@@ -170,6 +170,11 @@ sealed interface Action {
     data object Screenshot : Action {
         override val typeId: String = "accessibility.screenshot"
     }
+
+    /** 识别屏幕内容：全屏拾取层，点文本复制文字、点图片/框选复制图片。 */
+    data object ScreenPick : Action {
+        override val typeId: String = "accessibility.screenPick"
+    }
     data object SplitScreen : Action {
         override val typeId: String = "accessibility.splitScreen"
     }
