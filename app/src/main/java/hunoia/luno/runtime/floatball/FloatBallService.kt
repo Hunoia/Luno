@@ -131,6 +131,10 @@ class FloatBallService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        // 显式 nudge 的重评入口（悬浮窗授权回来等）：服务可能已在跑但停在无权限/
+        // 总闸关的隐藏态。首次启动时 settings 尚未流到，评一次默认值无害，
+        // 真实 collect 到达会再刷。
+        refreshWindows(animateRestore = false)
         return START_STICKY
     }
 
