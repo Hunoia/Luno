@@ -231,7 +231,6 @@ fun AutomationEditScreen(
                 ConfirmDialog(
                     title = stringResource(R.string.automation_delete_title),
                     text = stringResource(R.string.automation_delete_text),
-                    confirmLabel = stringResource(R.string.delete),
                     destructive = true,
                     onDismissRequest = { showDeleteConfirm = false },
                     onConfirm = {
@@ -248,7 +247,6 @@ fun AutomationEditScreen(
                 ConfirmDialog(
                     title = stringResource(R.string.automation_discard_title),
                     text = stringResource(R.string.automation_discard_text),
-                    confirmLabel = stringResource(R.string.automation_discard),
                     onDismissRequest = { showDiscardDialog = false },
                     onConfirm = {
                         showDiscardDialog = false

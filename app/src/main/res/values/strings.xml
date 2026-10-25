@@ -233,7 +233,6 @@
     <string name="grid_panel_shrink_title">网格缩小后放不下</string>
     <string name="grid_panel_shrink_desc_named">改成 %1$d 列后有 %2$d 项放不下，继续将移除：%3$s</string>
     <string name="grid_panel_shrink_desc_generic">改成 %1$d 列后有 %2$d 项放不下，继续将移除它们。</string>
-    <string name="grid_panel_shrink_confirm">仍然缩小</string>
     <string name="compact">紧凑</string>
     <string name="loose">宽松</string>
     <string name="vibration_tap">单击振动</string>
@@ -420,7 +419,6 @@
     <string name="mirror_sub_gesture_desc">将当前子手势方向做镜像复制（左↔右、左上↔右上、左下↔右下）。</string>
 
     <!-- 主页 -->
-    <string name="confirm_reset">确认重置</string>
     <string name="height">高度</string>
     <string name="tap_mini_window">短按小窗</string>
     <string name="mini_window_size_summary">%1$d%% × %2$d%%</string>
@@ -471,7 +469,6 @@
     <string name="automation_cannot_save">暂不能保存</string>
     <string name="automation_discard_title">放弃修改？</string>
     <string name="automation_discard_text">返回将丢失未保存的改动</string>
-    <string name="automation_discard">放弃</string>
     <string name="automation_name_hint">规则名称</string>
     <string name="automation_condition">触发条件</string>
     <string name="automation_pick_action">选择动作</string>

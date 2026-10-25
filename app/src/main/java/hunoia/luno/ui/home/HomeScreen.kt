@@ -229,7 +229,6 @@ fun HomeScreen(
                     ConfirmDialog(
                         title = stringResource(R.string.restore_confirm_title),
                         text = stringResource(R.string.restore_confirm_desc),
-                        confirmLabel = stringResource(R.string.confirm_restore),
                         onDismissRequest = {
                             showRestoreConfirm = false
                             pendingRestoreUri = null
@@ -241,7 +240,6 @@ fun HomeScreen(
                     ConfirmDialog(
                         title = stringResource(R.string.reset_default_settings_warning),
                         text = stringResource(R.string.reset_default_settings_warning_desc),
-                        confirmLabel = stringResource(R.string.confirm_reset),
                         destructive = true,
                         onDismissRequest = { showResetConfirm = false },
                         onConfirm = { vm.reset() },

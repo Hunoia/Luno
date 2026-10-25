@@ -175,7 +175,6 @@ fun SearchEngineEditScreen(
                     onDismissRequest = { showDiscardConfirm = false },
                     title = stringResource(R.string.action_library_discard_title),
                     text = stringResource(R.string.action_library_discard_desc),
-                    confirmLabel = stringResource(R.string.automation_discard),
                     onConfirm = {
                         showDiscardConfirm = false
                         onBack()

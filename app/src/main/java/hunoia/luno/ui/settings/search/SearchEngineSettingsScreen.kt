@@ -178,7 +178,6 @@ fun SearchEngineSettingsScreen(
                         preview.engines.size,
                         preview.conflictTriggers,
                     ),
-                    confirmLabel = stringResource(R.string.search_engine_import),
                     onDismissRequest = { importPreview = null },
                     onConfirm = {
                         importPreview = null
@@ -190,7 +189,6 @@ fun SearchEngineSettingsScreen(
                 ConfirmDialog(
                     title = stringResource(R.string.search_engine_delete_title),
                     text = target.name,
-                    confirmLabel = stringResource(R.string.delete),
                     destructive = true,
                     onDismissRequest = { deleteTarget = null },
                     onConfirm = {

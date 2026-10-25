@@ -203,7 +203,6 @@ fun ActionLibraryEditScreen(
                 ConfirmDialog(
                     title = stringResource(R.string.action_library_delete_title),
                     text = stringResource(R.string.action_editor_delete_desc),
-                    confirmLabel = stringResource(R.string.delete),
                     destructive = true,
                     onDismissRequest = { showDeleteConfirm = false },
                     onConfirm = {
