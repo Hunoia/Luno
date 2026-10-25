@@ -43,7 +43,7 @@ internal fun QuickSearchSearchList(
     // 触发用内容签名而非 total：按数量滚会拽回用户上滑看的结果。
     val listState = rememberLazyListState()
     val contentSig = signatureOf(
-        results.firstOrNull(), results.lastOrNull(),
+        results.firstOrNull()?.key, results.lastOrNull()?.key,
         total * 31 + matches.size,
     )
     LaunchedEffect(contentSig) { listState.scrollToItem(0) }

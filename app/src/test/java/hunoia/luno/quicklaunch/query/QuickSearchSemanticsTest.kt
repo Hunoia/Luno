@@ -171,6 +171,13 @@ class QuickSearchSemanticsTest {
         assertEquals("san", AppSearch.foldPinyin("sang"))
         assertEquals("cen", AppSearch.foldPinyin("chen"))
         assertEquals("weixin", AppSearch.foldPinyin("weixin"))
+        // 单次扫描与旧的连续 replace 逐段等价：跨段衔接也要一致。
+        assertEquals("zan", AppSearch.foldPinyin("zhang"))
+        assertEquals("con", AppSearch.foldPinyin("chong"))
+        assertEquals("sen", AppSearch.foldPinyin("sheng"))
+        assertEquals("zin", AppSearch.foldPinyin("zhing"))
+        assertEquals("anon", AppSearch.foldPinyin("angong"))
+        assertEquals("onin", AppSearch.foldPinyin("onging"))
     }
 
     @Test

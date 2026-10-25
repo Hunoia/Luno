@@ -19,6 +19,50 @@ internal data class TieredMatch(val tier: Int, val span: Int, val offset: Int) {
     }
 }
 
+/**
+ * 一次查询的预编译产物：token 与掩码只在搜索入口算一次，匹配循环里直接复用。
+ * 掩码是「该 token 允许出现的字符位集」；非 ASCII token 的掩码为 -1，走顺序比较回退。
+ */
+internal class SearchQueryPlan(
+    val tokens: List<String>,
+    val masks: LongArray,
+    val foldedTokens: List<String>,
+    val foldedMasks: LongArray,
+) {
+    val hasNonAscii: Boolean = masks.any { it == -1L }
+    val foldedHasNonAscii: Boolean = foldedMasks.any { it == -1L }
+}
+
+/** 使用频率分：一次搜索内按 key 缓存，避免 apps / shortcuts / pkgScores 重复算 ln/pow。 */
+internal class UsageScores(
+    private val launchCount: Map<String, Long>,
+    private val recentLaunchTime: Map<String, Long>,
+    private val now: Long,
+) {
+    private val cache = HashMap<String, Double>()
+
+    fun score(key: String): Double = cache.getOrPut(key) {
+        val count = launchCount[key] ?: 0L
+        val recent = recentLaunchTime[key] ?: 0L
+        if (count <= 0L || recent <= 0L) {
+            0.0
+        } else {
+            AppSearch.decayedUsage(count, (now - recent) / 86400000.0)
+        }
+    }
+
+    /** 快捷方式按包聚合：同一包内取最高分（与旧 pkgScores 公式一致）。 */
+    val pkgScores: Map<String, Double> by lazy(LazyThreadSafetyMode.NONE) {
+        val result = HashMap<String, Double>()
+        for (key in launchCount.keys) {
+            val pkg = key.substringBefore('/')
+            val value = score(key)
+            if (value > (result[pkg] ?: 0.0)) result[pkg] = value
+        }
+        result
+    }
+}
+
 object AppSearch {
 
     data class AppSearchIndex(
@@ -34,6 +78,8 @@ object AppSearch {
          * 首字母串只用各字第一读音构建（茄:jiā,qié → fjxs），换音读法只活在全拼变体里，
          * 没有 initials 变体则 fq 这类相邻双字母在全拼中隔着韵母永远命不中。 */
         val altInitials: List<String> = emptyList(),
+        /** 纯 ASCII 字母数字文本：initials 与 pinyin 完全同形，匹配时无需重复扫三遍。 */
+        val asciiLike: Boolean = false,
     )
 
     private data class SearchEntry(
@@ -51,6 +97,8 @@ object AppSearch {
     // 内部线程安全），不自己维护 accessOrder 锁。
     private const val PINYIN_CACHE_CAP = 48_000
     private val pinyinIndexCache = LruCache<String, AppSearchIndex>(PINYIN_CACHE_CAP)
+    // 单字读音缓存：短信正文/长文件名里同一个汉字会被反复查 houbb，读音天然稳定。
+    private val readingsCache = LruCache<Char, List<String>>(8_192)
 
     private fun cachedIndex(key: String): AppSearchIndex? = pinyinIndexCache.get(key)
 
@@ -67,6 +115,7 @@ object AppSearch {
      */
     fun trimPinyinCache(maxEntries: Int = 4_000) {
         pinyinIndexCache.trimToSize(maxEntries)
+        readingsCache.trimToSize(2_048)
     }
 
     private const val NO_MATCH = -1
@@ -78,30 +127,48 @@ object AppSearch {
      * ü→v 归一（跟键盘输入习惯一致，打 lv），去重；非中文按原文（字母数字）。
      */
     private fun readingsOf(ch: Char): List<String> {
+        readingsCache.get(ch)?.let { return it }
         val block = Character.UnicodeBlock.of(ch)
         val isCjk = block === Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS ||
             block === Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A ||
             block === Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_B ||
             block === Character.UnicodeBlock.CJK_COMPATIBILITY_IDEOGRAPHS
-        if (!isCjk) return listOf(ch.lowercaseChar().toString())
-        return runCatching {
+        if (!isCjk) {
+            return listOf(ch.lowercaseChar().toString()).also { readingsCache.put(ch, it) }
+        }
+        return (runCatching {
             PinyinHelper.toPinyinList(ch, PinyinStyleEnum.NORMAL)
                 .map { it.lowercase().replace('ü', 'v') }
                 .map { it.filter { c -> c in 'a'..'z' } }
                 .filter { it.isNotEmpty() }
                 .distinct()
-        }.getOrNull()?.takeIf { it.isNotEmpty() } ?: listOf(ch.lowercaseChar().toString())
+        }.getOrNull()?.takeIf { it.isNotEmpty() } ?: listOf(ch.lowercaseChar().toString()))
+            .also { readingsCache.put(ch, it) }
     }
 
     /**
      * 模糊音折叠：前后鼻音 + 平翘舌归到短式（打错/打全的人能命中）。
      * 精确匹配优先，折叠只走降档 tier，所以英文词（如 shopping→shopin）不受影响。
+     * 单次扫描替代连续 7 次 replace：结果与旧实现逐段等价，但只为输出分配一次 StringBuilder。
      */
     fun foldPinyin(s: String): String {
-        var t = s.lowercase()
-        t = t.replace("ing", "in").replace("eng", "en").replace("ang", "an").replace("ong", "on")
-        t = t.replace("zh", "z").replace("ch", "c").replace("sh", "s")
-        return t
+        val t = s.lowercase()
+        val out = StringBuilder(t.length)
+        var i = 0
+        while (i < t.length) {
+            val c = t[i]
+            when {
+                c == 'i' && t.startsWith("ing", i) -> { out.append("in"); i += 3 }
+                c == 'e' && t.startsWith("eng", i) -> { out.append("en"); i += 3 }
+                c == 'a' && t.startsWith("ang", i) -> { out.append("an"); i += 3 }
+                c == 'o' && t.startsWith("ong", i) -> { out.append("on"); i += 3 }
+                c == 'z' && t.startsWith("zh", i) -> { out.append('z'); i += 2 }
+                c == 'c' && t.startsWith("ch", i) -> { out.append('c'); i += 2 }
+                c == 's' && t.startsWith("sh", i) -> { out.append('s'); i += 2 }
+                else -> { out.append(c); i++ }
+            }
+        }
+        return out.toString()
     }
     /**
      * 使用频率分：对数压制次数（老人不无限累积）× 指数衰减（3 天半衰，新欢说了算）。
@@ -109,6 +176,14 @@ object AppSearch {
      */
     internal fun decayedUsage(count: Long, ageDays: Double): Double =
         ln(1.0 + count) * 0.5.pow(ageDays / 3.0)
+
+    internal fun queryPlan(tokens: List<String>, foldedTokens: List<String>): SearchQueryPlan =
+        SearchQueryPlan(
+            tokens = tokens,
+            masks = if (tokens.isEmpty()) LongArray(0) else compileTokenMasks(tokens),
+            foldedTokens = foldedTokens,
+            foldedMasks = if (foldedTokens.isEmpty()) LongArray(0) else compileTokenMasks(foldedTokens),
+        )
 
     internal fun compileTokenMasks(tokens: List<String>): LongArray {
         val masks = LongArray(tokens.size)
@@ -159,10 +234,24 @@ object AppSearch {
         return TieredMatch.NO_MATCH
     }
 
-    internal fun matchTier(index: AppSearchIndex, tokens: List<String>, masks: LongArray): TieredMatch {
+    private fun better(a: TieredMatch, b: TieredMatch): Boolean =
+        a.tier > b.tier || (a.tier == b.tier && a.offset < b.offset)
+
+    internal fun matchTier(index: AppSearchIndex, plan: SearchQueryPlan): TieredMatch =
+        matchTier(index, plan.tokens, plan.masks, plan.hasNonAscii)
+
+    internal fun matchTier(index: AppSearchIndex, tokens: List<String>, masks: LongArray): TieredMatch =
+        matchTier(index, tokens, masks, masks.any { it == -1L })
+
+    private fun matchTier(
+        index: AppSearchIndex,
+        tokens: List<String>,
+        masks: LongArray,
+        hasNonAscii: Boolean,
+    ): TieredMatch {
         if (tokens.isEmpty()) return TieredMatch(0, 0, 0)
 
-        if (masks.any { it == -1L }) {
+        if (hasNonAscii) {
             return if (matchesTokens(index.initials, tokens, true)
                 || matchesTokens(index.pinyin, tokens, true)
                 || matchesTokens(index.raw, tokens, true)
@@ -173,77 +262,97 @@ object AppSearch {
             }
         }
 
+        // 纯 ASCII：initials 与 pinyin 同形，0 位块即 tier 2，中段块 tier 0；
+        // 无需再分别扫 initials / pinyin / raw。
+        if (index.asciiLike) {
+            val r = matchWithMasks(index.pinyin, masks)
+            return if (r.tier == ANCHOR) TieredMatch(2, r.span, r.offset) else r
+        }
+
         // 代表选取：各字段（initials/pinyin/变体/raw）的连续块按档位+起点取最优。
         // initials（基准 + 变体）0 位块独占 tier 2；其余字段 0 位块 tier 1；中段块 tier 0。
-        val cands = mutableListOf<TieredMatch>()
         val ini = matchWithMasks(index.initials, masks)
-        cands.add(if (ini.tier == ANCHOR) TieredMatch(2, ini.span, ini.offset) else ini)
+        var best = if (ini.tier == ANCHOR) TieredMatch(2, ini.span, ini.offset) else ini
+        // 首字母锚定 offset 0 已是全局最优（tier 上限 2、offset 下限 0），后面的字段不用再扫。
+        if (best.tier == 2 && best.offset == 0) return best
         // 变体首字母与基准同档：换音只是库里读音排序问题（茄:jiā,qié），用户意图相同
         // （fq/fj 都在搜番茄小说），不降档。
         for (altIni in index.altInitials) {
             val r = matchWithMasks(altIni, masks)
-            cands.add(if (r.tier == ANCHOR) TieredMatch(2, r.span, r.offset) else r)
+            val candidate = if (r.tier == ANCHOR) TieredMatch(2, r.span, r.offset) else r
+            if (better(candidate, best)) best = candidate
+            if (best.tier == 2 && best.offset == 0) return best
         }
-        fun addAnchor(text: String) {
+        fun considerAnchor(text: String) {
             val r = matchWithMasks(text, masks)
-            cands.add(if (r.tier == ANCHOR) TieredMatch(1, r.span, r.offset) else r)
+            val candidate = if (r.tier == ANCHOR) TieredMatch(1, r.span, r.offset) else r
+            if (better(candidate, best)) best = candidate
         }
-        addAnchor(index.pinyin)
+        considerAnchor(index.pinyin)
 
         // 多音字变体与基准同档（如 yinyue 对 yinle/yinyue 都是 tier 1）。
         for (alt in index.altPinyins) {
-            addAnchor(alt)
+            considerAnchor(alt)
         }
-        addAnchor(index.raw)
-        return cands.maxWith(compareBy({ it.tier }, { -it.offset }))
+        considerAnchor(index.raw)
+        return best
     }
 
     /**
      * 模糊音降档：只比折叠串（基准 + 变体），命中恒 tier 0。
      * 精确匹配优先——本函数只在精确返回 -1 后调，打对的人排名不受影响。
      */
+    internal fun matchTierFuzzy(index: AppSearchIndex, plan: SearchQueryPlan): TieredMatch =
+        matchTierFuzzy(index, plan.foldedTokens, plan.foldedMasks, plan.foldedHasNonAscii)
+
     internal fun matchTierFuzzy(index: AppSearchIndex, foldedTokens: List<String>): TieredMatch {
+        val masks = if (foldedTokens.isEmpty()) LongArray(0) else compileTokenMasks(foldedTokens)
+        return matchTierFuzzy(index, foldedTokens, masks, masks.any { it == -1L })
+    }
+
+    private fun matchTierFuzzy(
+        index: AppSearchIndex,
+        foldedTokens: List<String>,
+        masks: LongArray,
+        hasNonAscii: Boolean,
+    ): TieredMatch {
         if (foldedTokens.isEmpty()) return TieredMatch.NO_MATCH
-        val masks = compileTokenMasks(foldedTokens)
-        if (masks.any { it == -1L }) {
+        if (hasNonAscii) {
             return if (matchesTokens(index.pinyinFolded, foldedTokens, false)) {
                 TieredMatch(0, foldedTokens.size, 0)
             } else {
                 TieredMatch.NO_MATCH
             }
         }
-        val cands = mutableListOf(matchWithMasks(index.pinyinFolded, masks))
+        var best = matchWithMasks(index.pinyinFolded, masks)
+        if (best.tier == ANCHOR && best.offset == 0) return TieredMatch(0, best.span, 0)
         for (alt in index.altPinyinsFolded) {
-            cands.add(matchWithMasks(alt, masks))
+            val r = matchWithMasks(alt, masks)
+            if (better(r, best)) best = r
+            if (best.tier == ANCHOR && best.offset == 0) return TieredMatch(0, best.span, 0)
         }
-        val best = cands.maxWith(compareBy({ it.tier }, { -it.offset }))
         return if (best.tier >= DEGRADED) TieredMatch(0, best.span, best.offset) else TieredMatch.NO_MATCH
     }
 
     fun sortApps(apps: List<AppInfo>, settings: QuickAppLauncherSettings, tokens: List<String>): List<AppInfo> {
         val now = System.currentTimeMillis()
-        val masks = if (tokens.isNotEmpty()) compileTokenMasks(tokens) else LongArray(0)
         // 模糊音输入：分词前先整体折叠（adjacency 丢了就没法折），降档用。
         val foldedTokens = if (tokens.isNotEmpty()) {
             foldPinyin(tokens.joinToString("")).map { it.toString() }
         } else {
             emptyList()
         }
+        val plan = queryPlan(tokens, foldedTokens)
+        val usage = UsageScores(settings.launchCount, settings.recentLaunchTime, now)
 
         val entries = ArrayList<SearchEntry>(apps.size)
         for (app in apps) {
             val index = buildIndex(app.label)
-            var m = matchTier(index, tokens, masks)
-            if (m.tier < 0) m = matchTierFuzzy(index, foldedTokens)
+            var m = matchTier(index, plan)
+            if (m.tier < 0) m = matchTierFuzzy(index, plan)
             if (m.tier < 0) continue
 
-            val key = app.key()
-            val launchCount = settings.launchCount[key] ?: 0L
-            val recentTime = settings.recentLaunchTime[key] ?: 0L
-            val usageScore = if (launchCount > 0 && recentTime > 0) {
-                decayedUsage(launchCount, (now - recentTime) / 86400000.0)
-            } else 0.0
-
+            val usageScore = usage.score(app.key())
             entries.add(SearchEntry(app, m.tier, m.offset, usageScore, index.raw, app.label.length))
         }
 
@@ -289,8 +398,13 @@ object AppSearch {
         // 短信正文若用全长 key 会以 5KB 常驻；前 200 字相同的长文本共用一份索引，结果一致。
         val short = text.length <= 200
         // 长文本先用截断串查一次缓存：索引本来就只看前 200 字，命中直接复用。
-        if (!short) cachedIndex(key.substring(0, 200))?.let { return it }
-        val work = if (short) key else key.substring(0, 200)
+        val work = if (short) {
+            key
+        } else {
+            val head = key.substring(0, 200)
+            cachedIndex(head)?.let { return it }
+            head
+        }
         // 每字读音：库给多音全集（首个为基准串，其余进变体）。
         val readings = ArrayList<List<String>>()
         val basePinyin = StringBuilder()
@@ -330,15 +444,18 @@ object AppSearch {
             }
         }
         val base = basePinyin.toString()
+        val initialText = initials.toString()
         val result = AppSearchIndex(
             // raw 取 work（被索引的前 200 字）：非 ASCII 回落走它，截断语义一致。
             raw = work,
             pinyin = base,
-            initials = initials.toString(),
+            initials = initialText,
             pinyinFolded = foldPinyin(base),
             altPinyins = alts,
             altPinyinsFolded = alts.map { foldPinyin(it) },
             altInitials = altInis.toList(),
+            // initials 与全拼同形只可能是纯 ASCII 字母数字：此时三字段匹配可以合并成一次。
+            asciiLike = initialText == base,
         )
         putIndex(work, result)
         return result
@@ -346,13 +463,19 @@ object AppSearch {
     fun AppInfo.key() = "$packageName/$className"
 
     /** 对任意文本做与 sortApps 相同的 tier 评定，供快速搜索复用。 */
-    internal fun matchTextTier(text: String, tokens: List<String>, foldedTokens: List<String> = emptyList()): TieredMatch {
-        if (tokens.isEmpty()) return TieredMatch(0, 0, 0)
+    internal fun matchTextTier(text: String, plan: SearchQueryPlan): TieredMatch {
+        if (plan.tokens.isEmpty()) return TieredMatch(0, 0, 0)
         val index = buildIndex(text)
-        val tier = matchTier(index, tokens, compileTokenMasks(tokens))
-        if (tier.tier >= 0 || foldedTokens.isEmpty()) return tier
-        return matchTierFuzzy(index, foldedTokens)
+        val tier = matchTier(index, plan)
+        if (tier.tier >= 0 || plan.foldedTokens.isEmpty()) return tier
+        return matchTierFuzzy(index, plan)
     }
+
+    internal fun matchTextTier(
+        text: String,
+        tokens: List<String>,
+        foldedTokens: List<String> = emptyList(),
+    ): TieredMatch = matchTextTier(text, queryPlan(tokens, foldedTokens))
 }
 
 /**

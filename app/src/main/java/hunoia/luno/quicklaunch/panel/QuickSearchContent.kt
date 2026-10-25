@@ -56,6 +56,8 @@ import hunoia.luno.quicklaunch.query.toSearchAction
 import hunoia.luno.quicklaunch.query.toSearchResult
 import hunoia.luno.ui.permission.rememberPermissionState
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 /** 搜索输入快照：snapshotFlow 跟踪块内读到的 State，值变化即重搜。 */
@@ -65,6 +67,9 @@ private data class SearchPacket(
     val results: List<SearchResult>,
     val directive: Boolean,
 )
+
+/** 首屏图标预热上限：只解码当前可能露出的前几行，长尾交给列表可见时 Coil 按需加载。 */
+private const val ICON_PREWARM_LIMIT = 24
 
 private data class SearchSnapshot(
     val text: String,
@@ -240,11 +245,16 @@ internal fun QuickSearchContent(
                 SearchPacket(text, emptyList(), directive = false)
             } else {
                 withContext(Dispatchers.Default) {
-                    val outcome = index.searchOutcome(text, s.entries, s.launcher, s.search, s.torchOn)
+                    val job = currentCoroutineContext()[Job]
+                    val outcome = index.searchOutcome(
+                        text, s.entries, s.launcher, s.search, s.torchOn,
+                        isActive = { job?.isActive != false },
+                    )
                     // 发射前把 App/快捷方式行的图标 resolve 进同步缓存：UI 线程读到即画，
-                    // 结果原子到达。已缓存的零开销，只有新包才解码（自带 bitmap 的快捷方式跳过）。
+                    // 结果原子到达。已缓存的零开销，只有新包才解码；只预热首屏上限，
+                    // 避免单字母查询把几百个包的图标串行解码后才发射结果。
                     val pkgs = HashSet<String>()
-                    for (r in outcome.results) {
+                    for (r in outcome.results.asSequence().take(ICON_PREWARM_LIMIT)) {
                         val icon = r.icon
                         if (icon is SearchIcon.AppIcon && icon.bitmap == null) {
                             pkgs.add(icon.packageName)

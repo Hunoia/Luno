@@ -51,8 +51,9 @@ internal class QuickSearchMediaGrants(
 )
 
 /**
- * 权限快照随 permTick 重查；「永久拒绝」的 rationale 每次组合现查（不进 remember，
- * 授予/拒绝弹框后系统状态即时变化）。
+ * 权限快照随 permTick 重查；「永久拒绝」也按 permTick remember —— 权限结果回调和
+ * ON_RESUME 都会 bump permTick，弹框后状态仍会刷新。否则每次打字重组都会打
+ * 3 次 shouldShowRequestPermissionRationale 的 binder IPC。
  */
 @Composable
 internal fun rememberMediaGrants(
@@ -74,16 +75,19 @@ internal fun rememberMediaGrants(
     }
     if (snapshot.audio || snapshot.images || snapshot.video) return snapshot
     // 三个全灭且都不再弹系统框 = 永久拒绝，授权行改跳设置页。
-    fun rationale(p: String) =
-        activity?.let { ActivityCompat.shouldShowRequestPermissionRationale(it, p) } ?: false
+    val mediaDeniedForever = remember(permTick, activity) {
+        fun rationale(p: String) =
+            activity?.let { ActivityCompat.shouldShowRequestPermissionRationale(it, p) } ?: false
+        !rationale(android.Manifest.permission.READ_MEDIA_AUDIO) &&
+            !rationale(android.Manifest.permission.READ_MEDIA_IMAGES) &&
+            !rationale(android.Manifest.permission.READ_MEDIA_VIDEO)
+    }
     return QuickSearchMediaGrants(
         audio = snapshot.audio,
         images = snapshot.images,
         video = snapshot.video,
         files = snapshot.files,
-        mediaDeniedForever = !rationale(android.Manifest.permission.READ_MEDIA_AUDIO) &&
-            !rationale(android.Manifest.permission.READ_MEDIA_IMAGES) &&
-            !rationale(android.Manifest.permission.READ_MEDIA_VIDEO),
+        mediaDeniedForever = mediaDeniedForever,
     )
 }
 
