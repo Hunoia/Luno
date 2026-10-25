@@ -14,9 +14,6 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -40,7 +37,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -58,13 +54,9 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -86,20 +78,17 @@ import androidx.compose.ui.util.fastRoundToInt
 import dev.chrisbanes.haze.HazeState
 import hunoia.luno.R
 import hunoia.luno.ui.animation.DampedDragAnimation
+import hunoia.luno.ui.component.LunoSearchField
 import hunoia.luno.ui.theme.BottomBarHeight
 import hunoia.luno.ui.theme.BottomBarIconSize
 import hunoia.luno.ui.theme.BottomBarPadding
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.TileInnerPadding
-import hunoia.luno.ui.theme.appGlassOutline
-import hunoia.luno.ui.theme.appHazeEffect
+import hunoia.luno.ui.theme.glassCapsule
 import kotlin.math.abs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-
-/** 底栏玻璃底透明度：与主页 FloatingBottomBar 同一套，自身不再盖底色（双层会发白）。 */
-private const val BottomBarHazeAlpha = 0.65f
 
 /** 底栏一颗类型 chip：图标 + 无障碍文案，key 为 null 表示「全部」。 */
 internal data class ActionTypeChip(
@@ -188,27 +177,11 @@ internal fun ActionSelectBottomBar(
             .padding(start = PageGutter, end = PageGutter, bottom = BottomBarPadding)
             .onSizeChanged { onHeightChange(it.height) },
     ) {
+        // 玻璃胶囊容器（阴影/裁形/毛玻璃/描边/内边距）与页面级悬浮搜索胶囊共用同一份样式。
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .dropShadow(
-                    shape = CircleShape,
-                    shadow = Shadow(
-                        radius = TileInnerPadding * 2.5f,
-                        color = Color.Black,
-                        alpha = if (isSystemInDarkTheme()) 0.2f else 0.1f,
-                    ),
-                )
-                // clip 在 haze 之外：方形糊输出裁成胶囊（只裁绘制，不影响采样）。
-                .clip(CircleShape)
-                // 底色/透明度对齐主页底栏；用 surfaceContainerHighest 而不是 surfaceContainer，
-                // 否则叠在列表上过淡，看起来像 chip 自己浮着、没有胶囊容器。
-                .appHazeEffect(
-                    hazeState,
-                    MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = BottomBarHazeAlpha),
-                )
-                .appGlassOutline(CircleShape)
-                .padding(TileInnerPadding),
+                .glassCapsule(hazeState),
         ) {
             Row(
                 modifier = Modifier
@@ -232,7 +205,7 @@ internal fun ActionSelectBottomBar(
                     label = "actionSearchMode",
                 ) { searching ->
                     if (searching) {
-                        CapsuleSearchField(
+                        LunoSearchField(
                             query = query,
                             onQueryChange = onQueryChange,
                             placeholder = stringResource(R.string.search_hint_all),
@@ -465,77 +438,3 @@ private fun TypeChip(
     }
 }
 
-
-/**
- * 胶囊内联搜索框：不用 M3 OutlinedTextField —— 它自带 56dp 最小高度与上下内边距，
- * 在 fontScale 1.4 的设备上会被胶囊的 56dp 内高裁掉文字底部。这里用 BasicTextField
- * 自己控制排版，行高随字体自然居中，任何 fontScale 都不会被裁。
- */
-@Composable
-private fun CapsuleSearchField(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    placeholder: String,
-    focusRequester: FocusRequester,
-    modifier: Modifier = Modifier,
-) {
-    val textStyle = MaterialTheme.typography.bodyLarge
-    val interactionSource = remember { MutableInteractionSource() }
-    Row(
-        modifier = modifier
-            .fillMaxHeight()
-            // 点输入框左侧放大镜/内边距也要能聚焦：BasicTextField 只覆盖文字那一块，
-            // 其余区域以前点了没反应（现在也被 swallowTouches 挡住，不会穿透）。
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = { runCatching { focusRequester.requestFocus() } },
-            )
-            .padding(start = 8.dp, end = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = Icons.Default.Search,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp),
-        )
-        BasicTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 8.dp)
-                .focusRequester(focusRequester),
-            singleLine = true,
-            textStyle = textStyle.copy(color = MaterialTheme.colorScheme.onSurface),
-            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-            decorationBox = { innerTextField ->
-                Box(contentAlignment = Alignment.CenterStart) {
-                    if (query.isEmpty()) {
-                        Text(
-                            text = placeholder,
-                            style = textStyle,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                        )
-                    }
-                    innerTextField()
-                }
-            },
-        )
-        if (query.isNotEmpty()) {
-            IconButton(
-                onClick = { onQueryChange("") },
-                modifier = Modifier.size(36.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = stringResource(R.string.search_clear_cd),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-        }
-    }
-}
