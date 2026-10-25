@@ -9,3 +9,5 @@ fun View.hapticTap() = performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TA
 fun View.hapticLongPress() = performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
 
 fun View.hapticMove() = performHapticFeedback(HapticFeedbackConstants.TEXT_HANDLE_MOVE)
+
+fun View.hapticTick() = performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)

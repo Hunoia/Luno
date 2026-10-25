@@ -1,5 +1,7 @@
 package hunoia.luno.gridpanel.ui
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -39,6 +41,9 @@ import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -51,6 +56,7 @@ import hunoia.luno.config.model.GridCell
 import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.gridpanel.geometry.GridMetrics
 import hunoia.luno.gridpanel.geometry.ItemCorner
+import hunoia.luno.gridpanel.gesture.gridItemPressFeedback
 import hunoia.luno.gridpanel.gesture.gridLayerGestures
 import hunoia.luno.gridpanel.internal.BrightnessSliderCell
 import hunoia.luno.gridpanel.internal.InternalWidgetIds
@@ -93,12 +99,14 @@ class GridItemActions(
     val onDragStart: (GridPanelItem) -> Unit,
     val onDrag: (Offset) -> Unit,
     val onDragEnd: () -> Unit,
-    val onDragPosition: ((GridPanelItem, contentY: Float) -> Unit)? = null,
+    val onDragPosition: ((GridPanelItem, contentX: Float, contentY: Float) -> Unit)? = null,
     val onResizeStart: (GridPanelItem) -> Unit,
     val onResizeDelta: (Offset) -> Unit,
     val onResizeEnd: () -> Unit,
     /** 内置小部件切换背景显示（左上角按钮），落盘 showBackground。 */
     val onToggleBackground: (GridPanelItem) -> Unit = { _ -> },
+    /** 无障碍「移动一格」：编辑态给每个项挂 customActions。 */
+    val onNudge: (GridPanelItem, dx: Int, dy: Int) -> Unit = { _, _, _ -> },
 )
 
 /** 网格内容层：空格/网格线、项循环、落位预览、空页提示；滚动容器在 [GridPanelCard]。 */
@@ -125,21 +133,37 @@ fun GridPanelLayer(
     val hitPx = with(density) { ResizeHandleHit.toPx() }
     val contentH = with(density) { metrics.contentH.toDp() }
 
+    // 按住的项（长按尚未成立）：给「预抬起」用。局部状态即可，不参与落盘。
+    var pressingItemId by remember { mutableStateOf<String?>(null) }
+
+    // 无障碍移动的 action 文案：每页只取一次，别在项循环里反复查资源。
+    val moveLeftLabel = stringResource(R.string.grid_panel_move_left)
+    val moveRightLabel = stringResource(R.string.grid_panel_move_right)
+    val moveUpLabel = stringResource(R.string.grid_panel_move_up)
+    val moveDownLabel = stringResource(R.string.grid_panel_move_down)
+
     // 编辑态手势统一挂在层根（静止节点），项内部不挂：否则 positionChange() 会被节点自身位移抵掉。
     val layerGestures = if (editMode) {
-        Modifier.gridLayerGestures(
-            metrics = metrics,
-            handleHitPx = hitPx,
-            onTap = { item -> actions.onTap(item, IntOffset.Zero) },
-            onDragStart = actions.onDragStart,
-            onDrag = actions.onDrag,
-            onDragEnd = actions.onDragEnd,
-            onDragPosition = { item, contentY -> actions.onDragPosition?.invoke(item, contentY) },
-            onResizeStart = actions.onResizeStart,
-            onResizeDelta = actions.onResizeDelta,
-            onResizeEnd = actions.onResizeEnd,
-            itemsProvider = { items },
-        )
+        Modifier
+            // 与主手势并列：只跟踪按下命中项，不管判定域，也不消费事件。
+            .gridItemPressFeedback(
+                metrics = metrics,
+                itemsProvider = { items },
+                onPressChange = { pressingItemId = it?.id },
+            )
+            .gridLayerGestures(
+                metrics = metrics,
+                handleHitPx = hitPx,
+                onTap = { item -> actions.onTap(item, IntOffset.Zero) },
+                onDragStart = actions.onDragStart,
+                onDrag = actions.onDrag,
+                onDragEnd = actions.onDragEnd,
+                onDragPosition = { item, x, y -> actions.onDragPosition?.invoke(item, x, y) },
+                onResizeStart = actions.onResizeStart,
+                onResizeDelta = actions.onResizeDelta,
+                onResizeEnd = actions.onResizeEnd,
+                itemsProvider = { items },
+            )
     } else {
         Modifier
     }
@@ -193,12 +217,43 @@ fun GridPanelLayer(
                     itemId = item.id,
                     target = target,
                     dragging = dragging,
-                    glide = glide,
+                    gliding = glide != null,
                 )
-                // 被拖项跟指：基位保持拖起时的格子，位移走 dragVisual。
-                val visual = placement + if (dragging) dragVisual else Offset.Zero
+                // 被拖项跟指：基位冻结在拖起格，位移走 dragVisual。
+                // 松手归格：落格基位 + 残差（残差由状态机逐帧衰减到 0），两者都是
+                // 普通状态，首帧就是正确位置 —— 不会再闪一下拖起前的位置。
+                val visual = when {
+                    dragging -> placement + dragVisual
+                    glide != null -> target + glide
+                    else -> placement
+                }
+
+                // 长按等待期先浮起一半，拖起后到顶：有过渡，不是硬跳。
+                val lift = animateFloatAsState(
+                    targetValue = if (dragging) 1f else if (item.id == pressingItemId) 0.55f else 0f,
+                    animationSpec = tween(
+                        durationMillis = if (dragging || item.id == pressingItemId) 240 else 140,
+                    ),
+                    label = "gridItemLift",
+                )
+                // 拖拽时不再给其余项压暗：alpha < 1 会让含 AndroidView 的小部件
+                // 重建离屏层，松手恢复即闪一下。区分度交给放大 + 十字准星。
 
                 val itemCenter = remember(item.id) { ItemCenterHolder() }
+
+                // 无障碍：TalkBack 用户无法长按拖拽，给四向「移动一格」。
+                val nudgeSemantics = if (editMode) {
+                    Modifier.semantics {
+                        customActions = listOf(
+                            CustomAccessibilityAction(moveLeftLabel) { actions.onNudge(item, -1, 0); true },
+                            CustomAccessibilityAction(moveRightLabel) { actions.onNudge(item, 1, 0); true },
+                            CustomAccessibilityAction(moveUpLabel) { actions.onNudge(item, 0, -1); true },
+                            CustomAccessibilityAction(moveDownLabel) { actions.onNudge(item, 0, 1); true },
+                        )
+                    }
+                } else {
+                    Modifier
+                }
 
                 Box(
                     Modifier
@@ -206,7 +261,8 @@ fun GridPanelLayer(
                             IntOffset(visual.x.roundToInt(), visual.y.roundToInt())
                         }
                         .size(sizeDp, heightDp)
-                        .zIndex(if (dragging || resizing) 1f else 0f)
+                        .zIndex(if (dragging || resizing || glide != null) 1f else 0f)
+                        .then(nudgeSemantics)
                         .onGloballyPositioned { coords ->
                             itemCenter.value = IntOffset(
                                 coords.positionOnScreen().x.roundToInt() + coords.size.width / 2,
@@ -214,10 +270,10 @@ fun GridPanelLayer(
                             )
                         }
                         .graphicsLayer {
-                            if (dragging) {
-                                scaleX = 1.06f
-                                scaleY = 1.06f
-                            }
+                            // lift 在 layer block 里读：逐帧动画只重画，不重组整个项。
+                            val s = 1f + 0.08f * lift.value
+                            scaleX = s
+                            scaleY = s
                         },
                 ) {
                     if (dragging) {
@@ -388,18 +444,18 @@ fun GridPanelLayer(
                     }
 
                     // 编辑态操作角标：删除（右上）+ 尺寸手柄（右下），常显。
-                    // 子层排在最后，点角标不会误起整项拖拽。
-                    if (editMode) {
+                    // 子层排在最后，点角标不会误起整项拖拽。拖拽中/落位滑行中收起：
+                    // 手势已锁定该项，角标跟着跑只是噪音；滑行结束再出现不会插一帧。
+                    if (editMode && !dragging && glide == null) {
                         ItemDeleteBadge(
                             onDelete = { actions.onDelete(item) },
                             modifier = Modifier.align(Alignment.TopEnd),
                         )
-                        // 视觉件 min(20dp, 30% 边长)，命中区在 gridLayerGestures 里取 min(32dp, 40% 边长)。
+                        // 视觉件：与卡片圆角同心、尺寸固定，半径取 ItemCorner（常量）。
+                        // 以前按 min(20dp, 30% 边长) 缩，小格上弧心和曲率都漂。
                         ItemResizeHandle(
                             modifier = Modifier.align(Alignment.BottomEnd),
-                            handleSize = with(density) {
-                                minOf(20.dp.toPx(), minOf(itemW, itemH) * 0.3f).toDp()
-                            },
+                            active = resizing,
                         )
                     }
                 }

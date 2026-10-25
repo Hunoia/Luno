@@ -61,12 +61,13 @@ class EdgeAutoScroll(
             while (true) {
                 // dispatchRawDelta 正好返回实际消费量（被 0..maxValue 夹过后的值）。
                 val consumed = scroll.dispatchRawDelta(direction * currentStep)
-                if (consumed != 0f) {
-                    state.onAutoScroll(Offset(0f, consumed))
-                }
+                // 到底/到顶：直接结束协程，不再空转唤醒。手指滑出 band 时 update()
+                // 会走 stop() 清掉 target，再进来就自动重启。
+                if (consumed == 0f) return@launch
+                state.onAutoScroll(Offset(0f, consumed))
                 // 每帧都要让出：dispatchRawDelta 是同步的，否则 while 会以协程调度
-                // 速度把内容一口气滚到底。消费为 0（到底/到顶）也保活，回滑要立刻响应。
-                delay(if (consumed != 0f) 16L else 32L)
+                // 速度把内容一口气滚到底。
+                delay(16L)
             }
         }
     }
