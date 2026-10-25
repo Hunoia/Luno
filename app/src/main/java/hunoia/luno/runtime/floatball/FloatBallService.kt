@@ -12,6 +12,7 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.getSystemService
 import hunoia.luno.R
@@ -72,6 +73,10 @@ class FloatBallService : Service() {
     /** 上轮「因面板隐藏」状态：从隐藏恢复时要带回场动画。 */
     private var hiddenByPanel = false
 
+    /** 临时隐藏截止时间（uptimeMillis），0 = 无。只作用窗口，不碰 `enabled` 存量。 */
+    private var tempHideUntilMs = 0L
+    private var tempHideJob: Job? = null
+
     private val powerManager by lazy { getSystemService<PowerManager>() }
     private val keyguardManager by lazy { getSystemService<KeyguardManager>() }
     private val windowManager by lazy { getSystemService<android.view.WindowManager>() }
@@ -124,6 +129,10 @@ class FloatBallService : Service() {
         broadcastObserver = null
         Events.unsubscribe(PanelShownEvent::class, panelShownSubscriber)
         Events.unsubscribe(PanelDismissedEvent::class, panelDismissedSubscriber)
+        Events.unsubscribe(FloatBallTempHideEvent::class, tempHideSubscriber)
+        tempHideJob?.cancel()
+        tempHideJob = null
+        tempHideUntilMs = 0L
         panelCount = 0
         hiddenByPanel = false
         ballWindow.detach()
@@ -142,7 +151,10 @@ class FloatBallService : Service() {
                 ConfigProvider.initialSettings,
             ) { action, initial -> FloatBallRuntimeConfig(action, initial.gestureEnabled) }
                 .collect { config ->
-                    settings = config.action.floatBall
+                    val newSettings = config.action.floatBall
+                    // 临时隐藏期间球被手动/规则打开（enabled false→true）：显示意图优先，作废本轮隐藏
+                    if (newSettings.enabled && !settings.enabled) cancelTempHide()
+                    settings = newSettings
                     gestureEnabledSnapshot = config.gestureEnabled
                     ballWindow.updateSettings(config.action.floatBall)
                     mirrorWindow.updateSettings(config.action.floatBall)
@@ -151,11 +163,12 @@ class FloatBallService : Service() {
         }
     }
 
-    /** 统一的窗口挂/摘入口：shouldShow = 总闸 && 球开关 && 悬浮窗权限 && 面板计数==0；从面板隐藏恢复时带回场动画。 */
+    /** 统一的窗口挂/摘入口：shouldShow = 总闸 && 球开关 && 悬浮窗权限 && 非临时隐藏 && 面板计数==0；从面板隐藏恢复时带回场动画。 */
     private fun refreshWindows(animateRestore: Boolean) {
         val enabled = settings.enabled && canDrawOverlays() && gestureEnabledSnapshot
         val panelHidden = panelCount > 0
-        val shouldShow = enabled && !panelHidden
+        val tempHidden = tempHideUntilMs > SystemClock.uptimeMillis()
+        val shouldShow = enabled && !panelHidden && !tempHidden
         if (!shouldShow) {
             if (ballVisible) {
                 ballVisible = false
@@ -200,6 +213,38 @@ class FloatBallService : Service() {
     private fun observePanels() {
         Events.subscribe(PanelShownEvent::class, panelShownSubscriber)
         Events.subscribe(PanelDismissedEvent::class, panelDismissedSubscriber)
+        Events.subscribe(FloatBallTempHideEvent::class, tempHideSubscriber)
+    }
+
+    // ---- 临时隐藏（显隐动作的 hideForMs 模式，只摘窗口） ----
+
+    private val tempHideSubscriber: (FloatBallTempHideEvent) -> Unit = { event ->
+        scheduleTempHide(event.durationMs)
+    }
+
+    /**
+     * 只摘窗口不碰 `enabled` 存量：恢复定时器在内存里，进程被杀（应用更新/系统回收）即失效，
+     * 球按落盘 enabled 照常恢复。重复隐藏取更晚的截止时间。
+     */
+    private fun scheduleTempHide(durationMs: Long) {
+        val deadline = SystemClock.uptimeMillis() + durationMs
+        if (deadline <= tempHideUntilMs) return
+        tempHideUntilMs = deadline
+        tempHideJob?.cancel()
+        tempHideJob = scope.launch {
+            delay(deadline - SystemClock.uptimeMillis())
+            tempHideUntilMs = 0L
+            refreshWindows(animateRestore = true)
+        }
+        refreshWindows(animateRestore = false)
+    }
+
+    private fun cancelTempHide() {
+        if (tempHideUntilMs == 0L) return
+        tempHideJob?.cancel()
+        tempHideJob = null
+        tempHideUntilMs = 0L
+        refreshWindows(animateRestore = true)
     }
 
     // ---- 点按派发 ----

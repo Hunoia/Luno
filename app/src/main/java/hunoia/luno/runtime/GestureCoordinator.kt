@@ -1,5 +1,6 @@
 package hunoia.luno.runtime
 
+import android.app.KeyguardManager
 import android.app.WallpaperManager
 import android.content.res.Configuration
 import android.os.Handler
@@ -89,6 +90,16 @@ class GestureCoordinator(
             refreshGestureButtons(automationKeys = setOf(AutomationEventKey.KEYBOARD))
         },
     )
+
+    init {
+        // 播种真实环境：服务重绑（应用更新/崩溃恢复）时进程全新，追踪器的默认值（竖屏/未锁屏）
+        // 可能与实际相反。边沿引擎首评「prev=hit」记账，种子错了的话，重启后的第一次真实转变
+        // （解锁/转回竖屏）会被当成无变化吞掉 ——「锁屏/横屏关闭 → 解锁/竖屏启用」的启用规则
+        // 就再也等不到边沿，触钮/悬浮球停在关闭态。
+        environmentTracker.onOrientationChanged(host.context.resources.configuration.orientation)
+        val keyguard = host.context.getSystemService(KeyguardManager::class.java)
+        environmentTracker.isNowInLockScreenPage = keyguard?.isKeyguardLocked == true
+    }
     val mainOverlayController = MainOverlayController(host)
     val buttonWindowController = ButtonWindowController(host.context)
     val transientOverlayController = TransientOverlayController(host.context)
