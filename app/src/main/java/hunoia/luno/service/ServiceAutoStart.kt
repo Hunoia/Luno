@@ -8,9 +8,12 @@ import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.store.DataStoreFiles
 import hunoia.luno.config.store.dataStoreFile
+import hunoia.luno.core.AppContext
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.runtime.floatball.FloatBallService
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import hunoia.luno.core.LOG_TAG
 
 /**
@@ -31,13 +34,25 @@ internal object ServiceAutoStart {
     private const val KEY_KEEP_ALIVE = "keep_alive"
 
     /**
-     * 按落盘配置把该起的常驻前台服务拉起来。
+     * 按落盘配置把该起的常驻前台服务拉起来（读盘 + 全量 JSON 反序列化在 IO 线程）。
+     * 调用方（receiver 的 onReceive、Activity 冷启动）都在主线程，此前同步读两份
+     * 完整设置文件是启动路径上的主线程卡顿源；拉起服务没有亚秒级时序要求，挪后台无感。
      * 各服务自己判权限与总闸，不满足条件时自己退出（见 [DaemonService.onStartCommand]）。
      */
     fun restore(context: Context) {
         val app = context.applicationContext
-        if (readKeepAliveEnabled(app)) startDaemon(app)
-        if (readMasterSwitchEnabled(app) && readFloatBallEnabled(app)) FloatBallService.start(app)
+        val scope = AppContext.applicationScope
+        if (scope != null) {
+            scope.launch(Dispatchers.IO) { restoreBlocking(app) }
+        } else {
+            // scope 缺失（异常初始化环境）退回原地同步执行，保行为不变。
+            runCatching { restoreBlocking(app) }
+        }
+    }
+
+    private fun restoreBlocking(context: Context) {
+        if (readKeepAliveEnabled(context)) startDaemon(context)
+        if (readMasterSwitchEnabled(context) && readFloatBallEnabled(context)) FloatBallService.start(context)
     }
 
     /**

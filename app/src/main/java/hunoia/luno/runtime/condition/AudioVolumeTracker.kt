@@ -29,6 +29,7 @@ class AudioVolumeTracker(
         private set
 
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private val powerManager = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
     private val handler = Handler(Looper.getMainLooper())
     private val lastIndex = HashMap<Int, Int>()
     private val maxVolumeCache = HashMap<Int, Int>()
@@ -43,7 +44,11 @@ class AudioVolumeTracker(
     private val poller = object : Runnable {
         override fun run() {
             poll()
-            handler.postDelayed(this, POLL_INTERVAL_MS)
+            // 息屏降频到 1/5：音量规则多在交互期有意义；息屏时蓝牙耳机调音量这类
+            // 变化仍能触发（晚几秒），而不是彻底停轮询丢能力。
+            val intervalMs =
+                if (powerManager.isInteractive) POLL_INTERVAL_MS else POLL_INTERVAL_IDLE_MS
+            handler.postDelayed(this, intervalMs)
         }
     }
 
@@ -108,5 +113,8 @@ class AudioVolumeTracker(
 
     companion object {
         private const val POLL_INTERVAL_MS = 1000L
+
+        /** 息屏轮询间隔（交互期的 1/5）。 */
+        private const val POLL_INTERVAL_IDLE_MS = 5_000L
     }
 }

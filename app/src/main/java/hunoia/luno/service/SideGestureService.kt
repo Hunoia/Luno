@@ -106,6 +106,8 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         disabledPackageEnabler.release()
         if (::gestureCoordinator.isInitialized) gestureCoordinator.onDestroy()
         runtimePanelOverlay.close()
+        // 与 runtimePanelOverlay 同进退：点拾取全屏窗别指望系统随服务销毁回收。
+        pointPickOverlay.close()
         coroutineScope.cancel()
     }
 

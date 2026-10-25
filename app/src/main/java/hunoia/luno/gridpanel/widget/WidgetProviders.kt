@@ -26,6 +26,8 @@ import kotlin.math.ceil
 data class WidgetProviderGroup(
     val appLabel: String,
     val providers: List<AppWidgetProviderInfo>,
+    /** 与 [providers] 同序的部件名（加载期在 IO 算好）：搜索过滤不再每个按键重打 PackageManager。 */
+    val widgetLabels: List<String> = emptyList(),
 )
 
 data class WidgetSpan(val spanX: Int, val spanY: Int)
@@ -110,7 +112,7 @@ suspend fun loadWidgetProviderGroups(context: Context): List<WidgetProviderGroup
         }.getOrElse { manager.installedProviders }
 
         val seen = HashSet<ComponentName>()
-        val grouped = LinkedHashMap<String, MutableList<AppWidgetProviderInfo>>()
+        val grouped = LinkedHashMap<String, MutableList<Pair<AppWidgetProviderInfo, String>>>()
         for (info in providers) {
             val component = info.provider ?: continue
             if (!seen.add(component)) continue
@@ -118,29 +120,35 @@ suspend fun loadWidgetProviderGroups(context: Context): List<WidgetProviderGroup
             val label = runCatching {
                 pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
             }.getOrElse { pkg }
-            grouped.getOrPut(label) { mutableListOf() }.add(info)
+            // 部件自己的名字也在这里（IO）一并取好：searchBy 在主线程 remember 里跑，
+            // 那边再 loadLabel 就是每个按键 × 每 provider 一次跨进程查询。
+            val widgetLabel = runCatching { info.loadLabel(pm).toString() }.getOrDefault("")
+            grouped.getOrPut(label) { mutableListOf() }.add(info to widgetLabel)
         }
         val collator = Collator.getInstance(Locale.CHINA)
         grouped.entries
             .sortedWith { a, b -> collator.compare(a.key, b.key) }
-            .map { (label, list) -> WidgetProviderGroup(label, list) }
+            .map { (label, list) ->
+                WidgetProviderGroup(label, list.map { it.first }, list.map { it.second })
+            }
     }
 /**
- * 按关键字过滤分组清单，匹配应用名、小部件名、包名三处。
- * 放在这里而不是组合里：搜索在 `remember` 里算，组合里直接调 `loadLabel` 会把
- * PackageManager 拖进 UI 层，而且那是一次跨进程查询。
+ * 按关键字过滤分组清单，匹配应用名、小部件名、包名三处。纯内存过滤：
+ * 部件名在加载期已随组带上，这里不再碰 PackageManager（跨进程）。
  */
-fun List<WidgetProviderGroup>.searchBy(query: String, packageManager: PackageManager): List<WidgetProviderGroup> {
+fun List<WidgetProviderGroup>.searchBy(query: String): List<WidgetProviderGroup> {
     if (query.isBlank()) return this
     return mapNotNull { group ->
-        val hit = group.providers.filter { info ->
-            runCatching { info.loadLabel(packageManager).toString() }
-                .getOrDefault("")
-                .contains(query, ignoreCase = true) ||
+        val hit = group.providers.indices.filter { i ->
+            group.widgetLabels.getOrElse(i) { "" }.contains(query, ignoreCase = true) ||
                 group.appLabel.contains(query, ignoreCase = true) ||
-                info.provider?.packageName?.contains(query, ignoreCase = true) == true
+                group.providers[i].provider?.packageName?.contains(query, ignoreCase = true) == true
         }
-        if (hit.isEmpty()) null else WidgetProviderGroup(group.appLabel, hit)
+        if (hit.isEmpty()) null else WidgetProviderGroup(
+            appLabel = group.appLabel,
+            providers = hit.map(group.providers::get),
+            widgetLabels = hit.map { group.widgetLabels.getOrElse(it) { "" } },
+        )
     }
 }
 

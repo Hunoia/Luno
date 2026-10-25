@@ -202,6 +202,9 @@ class FloatBallWindow(
         pressed = false
         externalDrag = false
         pendingExternalFinish = false
+        // 摘窗即复位：下次 attach 的新窗口按可见起步，lock/panel 状态由服务侧重新推。
+        lockHidden = false
+        panelHidden = false
     }
 
     /** 锁屏 / 息屏：整个窗口不可见也不可点，解锁恢复。 */
@@ -210,28 +213,52 @@ class FloatBallWindow(
         applyHiddenFlags()
     }
 
-    private var lockHidden = false
-
-    private fun applyHiddenFlags() {
-        val current = view ?: return
-        applyBallHiddenFlags(current, wm, lockHidden)
-        if (!lockHidden) scheduleIdle() else cancelIdle()
+    /**
+     * 面板/临时隐藏：软隐藏 —— 窗口保留（组合与 Recomposer 不销毁），只置不可见不可点。
+     * 相比摘窗，免掉每次面板开合的 removeView→新 ComposeView→首帧组合→addView 整链。
+     * [animateRestore] 为 true 时按 [attachAnimated] 同款弹回动画恢复。
+     */
+    fun setPanelHidden(hidden: Boolean, animateRestore: Boolean = false) {
+        panelHidden = hidden
+        applyHiddenFlags(animateRestore)
     }
 
-    /** 挂窗并原地淡入弹回（scale 0.85→1，250ms）：面板期间窗体被移除，关闭后补回场动画。 */
-    fun attachAnimated(): Boolean {
-        if (!attach()) return false
-        val target = view ?: return true
+    private var lockHidden = false
+    private var panelHidden = false
+
+    private fun applyHiddenFlags(animateRestore: Boolean = false) {
+        val current = view ?: return
+        val hidden = lockHidden || panelHidden
+        applyBallHiddenFlags(current, wm, hidden)
+        if (hidden) {
+            // 窗口不可点后事件流就断了：重置在途按压/拖动（与 detach 的 arbiter.cancel 对齐），
+            // 免得恢复后停在 pressed 视觉态。
+            arbiter.cancel()
+            cancelIdle()
+        } else {
+            if (animateRestore) animateRestoreIn(current)
+            scheduleIdle()
+        }
+    }
+
+    /** 面板关闭后的回场：与 [attachAnimated] 同款 250ms overshoot，落在既有窗口上。 */
+    private fun animateRestoreIn(target: View) {
+        visualAnimator?.cancel()
         target.alpha = 0f
         target.scaleX = 0.85f
         target.scaleY = 0.85f
-        target.animate()
+        visualAnimator = target.animate()
             .alpha(1f)
             .scaleX(1f)
             .scaleY(1f)
             .setDuration(250L)
             .setInterpolator(OvershootInterpolator(1.2f))
-            .start()
+    }
+
+    /** 挂窗并原地淡入弹回（scale 0.85→1，250ms）：面板期间窗体被移除，关闭后补回场动画。 */
+    fun attachAnimated(): Boolean {
+        if (!attach()) return false
+        view?.let(::animateRestoreIn)
         return true
     }
 

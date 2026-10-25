@@ -172,10 +172,16 @@
             android:exported="true"
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
+        <!-- directBootAware 已移除：数据全在 CE 存储，锁屏期读不到配置，
+             只会带来「未解锁被拉起 → 读 CE 崩溃 → START_STICKY 循环重启」的风险。
+             跑在 :service 进程：保活只该钉住常驻服务所在进程，别把主进程
+             （Coil/Shizuku 一整套 Application 初始化）也常驻成双进程；开关切换用
+             显式 ACTION_USER_ENABLE 传递意图，prefs 不做跨进程事实源
+             （见 DaemonService.onStartCommand）。 -->
         <service
             android:name=".service.DaemonService"
             android:exported="false"
-            android:directBootAware="true"
+            android:process=":service"
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
@@ -184,11 +190,9 @@
 
         <receiver
             android:name=".service.BootReceiver"
-            android:directBootAware="true"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
 

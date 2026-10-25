@@ -244,7 +244,7 @@ internal fun ActionPage(
             }
                 val filteredWidgets = remember(widgetGroups, query, type) {
                     if (type != TYPE_WIDGET) emptyList()
-                    else widgetGroups.searchBy(query, context.packageManager)
+                    else widgetGroups.searchBy(query)
                 }
             // 内置部件跟随小部件 chip 同屏展示；搜索按名字过滤。
             val filteredInternalWidgets = remember(type, query, context) {

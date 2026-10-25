@@ -36,6 +36,7 @@ import hunoia.luno.R
 import hunoia.luno.gridpanel.LocalGridPanelClose
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
+import hunoia.luno.quicklaunch.icon.rememberAppDrawable
 
 /**
  * 最近应用：一排图标（旧 → 新，最多 6 个，不含当前前台），点按直达。
@@ -101,8 +102,9 @@ fun RecentAppsCell(
                         continue
                     }
                     val pkg = pkgs[index]
-                    val icon = remember(pkg) {
-                        runCatching { context.packageManager.getApplicationIcon(pkg) }.getOrNull()
+                    // 跨进程 PM 查询：缓存 + IO 异步，组合期不再同步阻塞（见 rememberAppDrawable）。
+                    val icon = rememberAppDrawable("app/$pkg") {
+                        context.packageManager.getApplicationIcon(pkg)
                     }
                     Box(
                         modifier = Modifier

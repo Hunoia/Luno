@@ -128,11 +128,6 @@ object ShizukuManager {
         statusMutableStateFlow.value = snapshot()
     }
 
-    internal fun release() {
-        scope.cancel()
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    }
-
     // ---- Permission ----
 
     suspend fun autoRequestPermissionIfNeeded(): Boolean {
