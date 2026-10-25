@@ -15,6 +15,8 @@ import hunoia.luno.BuildConfig
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
+import hunoia.luno.core.TouchButtonSideEvent
+import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.actionPanelId
 import hunoia.luno.action.model.withoutVariantKey
@@ -425,6 +427,15 @@ class GestureCoordinator(
         }
         // 手势触发动作与手势事件进总线是两条独立路径：前者立即执行，后者供自动化规则订阅。
         environmentTracker.onGesturePerformed(sourceButton?.id ?: "", sourceButton?.name.orEmpty())
+        // 触钮手势按物理触点归侧广播（悬浮球跟随持机手用）：球/分身/侧滑的
+        // sourceButton 为 null 天然不参与，球位不反哺判定。
+        if (sourceButton != null && touchPosition.x.isFinite()) {
+            Events.post(
+                TouchButtonSideEvent(
+                    leftSide = touchPosition.x < DensityProvider.screenWidthPx / 2f,
+                ),
+            )
+        }
         val touch = if (touchPosition.x.isFinite() && touchPosition.y.isFinite()) {
             touchPosition.x.roundToInt() to touchPosition.y.roundToInt()
         } else {

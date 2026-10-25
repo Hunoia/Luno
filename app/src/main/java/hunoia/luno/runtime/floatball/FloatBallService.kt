@@ -27,6 +27,7 @@ import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
+import hunoia.luno.core.TouchButtonSideEvent
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.runtime.environment.BroadcastObserver
 import hunoia.luno.gridpanel.GridPanelOverlay
@@ -41,6 +42,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.math.max
 import kotlin.math.roundToInt
 import hunoia.luno.core.LOG_TAG
 
@@ -81,13 +83,20 @@ class FloatBallService : Service() {
     private val keyguardManager by lazy { getSystemService<KeyguardManager>() }
     private val windowManager by lazy { getSystemService<android.view.WindowManager>() }
 
+    /** 持机侧判定（衰减加权多数票）：触钮触发侧为主证据，球手动停靠侧为确证。 */
+    private val handSide = HandSideHysteresis()
+
+    private val touchButtonSideSubscriber: (TouchButtonSideEvent) -> Unit = { event ->
+        onTouchButtonSide(event.leftSide)
+    }
+
     override fun onCreate() {
         super.onCreate()
         ballWindow = FloatBallWindow(this, onImeLiftChanged = { lift ->
             mirrorWindow.updateImeLift(lift)
         }).apply {
             onTap = { onBallTapped() }
-            onDragFinished = { x, y -> persistPosition(x, y) }
+            onDragFinished = { x, y -> persistBallPosition(x, y) }
         }
         mirrorWindow = FloatBallMirrorWindow(this).apply {
             onPressed = { onMirrorPressed() }
@@ -110,6 +119,7 @@ class FloatBallService : Service() {
         observeSettings()
         observeIme()
         observePanels()
+        Events.subscribe(TouchButtonSideEvent::class, touchButtonSideSubscriber)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -129,6 +139,7 @@ class FloatBallService : Service() {
         broadcastObserver = null
         Events.unsubscribe(PanelShownEvent::class, panelShownSubscriber)
         Events.unsubscribe(PanelDismissedEvent::class, panelDismissedSubscriber)
+        Events.unsubscribe(TouchButtonSideEvent::class, touchButtonSideSubscriber)
         Events.unsubscribe(FloatBallTempHideEvent::class, tempHideSubscriber)
         tempHideJob?.cancel()
         tempHideJob = null
@@ -156,6 +167,7 @@ class FloatBallService : Service() {
                     if (newSettings.enabled && !settings.enabled) cancelTempHide()
                     settings = newSettings
                     gestureEnabledSnapshot = config.gestureEnabled
+                    handSide.seed(settings.x < 0.5f)
                     ballWindow.updateSettings(config.action.floatBall)
                     mirrorWindow.updateSettings(config.action.floatBall)
                     refreshWindows(animateRestore = false)
@@ -183,6 +195,7 @@ class FloatBallService : Service() {
                 ballWindow.setHidden(isScreenLocked())
                 if (settings.mirrorBall) mirrorWindow.attach()
                 mirrorWindow.setHidden(isScreenLocked())
+                followHandAfterAttach()
             }
         } else {
             if (settings.mirrorBall) {
@@ -324,8 +337,7 @@ class FloatBallService : Service() {
             .coerceIn(0f, 1f)
         val newY = (mirrorTopLeftY.toFloat() / DensityProvider.screenHeightPx)
             .coerceIn(0f, 1f)
-        persistPosition(newX, newY)
-        settings = settings.copy(x = newX, y = newY)
+        persistBallPosition(newX, newY)
         ballWindow.crossFadeSwap(
             mirrorTopLeftX.toFloat(),
             mirrorTopLeftY.toFloat(),
@@ -366,11 +378,64 @@ class FloatBallService : Service() {
         }
     }
 
-    private fun persistPosition(x: Float, y: Float) {
+    // ---- 跟随持机手（试验） ----
+
+    private fun onTouchButtonSide(leftSide: Boolean) {
+        val switched = handSide.onSideEvent(leftSide, SystemClock.uptimeMillis())
+        if (switched) {
+            Log.i(TAG, "handhold side switched: ${if (leftSide) "left" else "right"}")
+            moveBallToHandSide()
+        }
+    }
+
+    /** 球挪到当前持机侧：用该侧记忆高度（未记忆则当前 y）；球隐藏时只更新状态。 */
+    private fun moveBallToHandSide() {
+        if (!settings.followHand || !ballVisible) return
+        val left = handSide.currentLeft ?: return
+        val anchorY = (if (left) settings.leftAnchorY else settings.rightAnchorY) ?: settings.y
+        // 拖动/换位中球没接手移动：不落盘（状态已切换，下次事件或重挂时再校正）。
+        if (!ballWindow.repositionTo(left, anchorY)) return
+        val ballPx = DensityProvider.dp2px(settings.sizeDp)
+        val edgeX = if (left) 0f else {
+            max(0f, (DensityProvider.screenWidthPx - ballPx).toFloat() / DensityProvider.screenWidthPx)
+        }
+        persistBallPosition(edgeX, anchorY)
+    }
+
+    /** 球重新可见时校正到当前持机侧（隐藏期间状态可能已翻转）。 */
+    private fun followHandAfterAttach() {
+        if (!settings.followHand) return
+        val left = handSide.currentLeft ?: return
+        if (left == (settings.x < 0.5f)) return
+        moveBallToHandSide()
+    }
+
+    /**
+     * 球位置落盘：手动拖动/分身换位/自动挪球共用。停靠侧就是持机侧证据
+     * （用户亲手放的位置是确证），顺带记忆该侧高度锚点。
+     */
+    private fun persistBallPosition(x: Float, y: Float) {
+        val left = x < 0.5f
+        handSide.onManualPark(left)
+        settings = settings.copy(
+            x = x,
+            y = y,
+            leftAnchorY = if (left) y else settings.leftAnchorY,
+            rightAnchorY = if (!left) y else settings.rightAnchorY,
+        )
         scope.launch {
             runCatching {
                 ConfigProvider.updateActionSettings { current ->
-                    current.copy(floatBall = current.floatBall.copy(x = x, y = y))
+                    // 字段级合并到最新存量：整对象按内存快照覆盖会把主进程的并发
+                    // 修改（大小/颜色/动作）连同旧值一起写回去。
+                    current.copy(
+                        floatBall = current.floatBall.copy(
+                            x = x,
+                            y = y,
+                            leftAnchorY = if (left) y else current.floatBall.leftAnchorY,
+                            rightAnchorY = if (!left) y else current.floatBall.rightAnchorY,
+                        ),
+                    )
                 }
             }.onFailure { Log.w(TAG, "persist ball position failed: ${it.message}") }
         }

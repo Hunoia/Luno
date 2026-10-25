@@ -31,6 +31,12 @@ data class FloatBallSettings(
      * 静置多久后变暗缩小。0 = 关闭。
      */
     val idleDimDelayMs: Long = FloatBallDefaults.IdleDimDelayMs,
+    /** 跟随持机手：触钮触发侧翻转时自动把球挪到该侧（试验）。 */
+    val followHand: Boolean = FloatBallDefaults.FollowHand,
+    /** 左手侧球高度锚点（归一化 y，手动停靠时记忆）。null = 未记忆。 */
+    val leftAnchorY: Float? = null,
+    /** 右手侧球高度锚点。 */
+    val rightAnchorY: Float? = null,
 )
 
 object FloatBallDefaults {
@@ -65,6 +71,9 @@ object FloatBallDefaults {
     const val ImeMarginDp = 8f
 
     const val MirrorBall = false
+
+    /** 跟随持机手（试验）。 */
+    const val FollowHand = false
 
     /** 分身描边的常驻透明度（半圆姿态，比主球 idle 更暗）。 */
     const val MirrorDimAlpha = 0.1f

@@ -330,6 +330,49 @@ class FloatBallWindow(
     /** 当前球窗顶边屏幕坐标（px）。分身换位/搬球时由 Service 读取。 */
     fun currentPosition(): Pair<Float, Float> = posX to posY
 
+    /**
+     * 自动挪球（跟随持机手）：淡出 → 传送 → 淡回（与分身换位同款视觉）。
+     * 拖动/按压/换位中让位给用户并返回 false（调用方不应落盘）；淡出期间被
+     * 用户接管拖动则放弃传送。目标与当前几乎一致时不动画直接算成功。
+     */
+    fun repositionTo(leftEdge: Boolean, yRatio: Float): Boolean {
+        if (dragging || crossFading || pressed) return false
+        val target = view ?: return false
+        val targetX = if (leftEdge) 0f else max(0, screenWidthPx - ballPx).toFloat()
+        val maxY = max(lpOriginY, screenHeightPx - ballPx - bottomInsetPx)
+        val targetY = (yRatio * screenHeightPx).coerceIn(lpOriginY.toFloat(), maxY.toFloat())
+        if (kotlin.math.abs(targetX - posX) < 0.5f && kotlin.math.abs(targetY - posY) < 0.5f) {
+            scheduleIdle()
+            return true
+        }
+        cancelSettle()
+        cancelIdle()
+        idled = false
+        moveAnimator?.cancel()
+        crossFading = true
+        visualAnimator?.cancel()
+        target.animate()
+            .alpha(0f)
+            .setDuration(150L)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                crossFading = false
+                // 淡出期间用户上手拖动：放弃传送恢复可见，球留在用户手里。
+                if (dragging) {
+                    applyVisual()
+                    return@withEndAction
+                }
+                posX = targetX
+                posY = targetY
+                target.translationX = 0f
+                applyWindowBounds()
+                applyVisual()
+                scheduleIdle()
+            }
+            .start()
+        return true
+    }
+
     /** 主球是否处于静置变暗态（交换后保持姿态用）。 */
     fun isIdled(): Boolean = idled
 

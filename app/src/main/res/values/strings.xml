@@ -187,6 +187,8 @@
     <string name="float_ball_permission_hint">悬浮球需要该权限才能显示。未授权时球不会出现。</string>
     <string name="float_ball_tap_unset">未设置</string>
     <string name="float_ball_behavior">行为</string>
+    <string name="float_ball_follow_hand">跟随持机手</string>
+    <string name="float_ball_follow_hand_subtitle">触钮触发侧切换时，球自动挪到该侧并沿用该侧记忆高度</string>
     <string name="float_ball_mirror">对侧分身</string>
     <string name="float_ball_mirror_subtitle">屏幕对侧显示半圆分身，按下即触发动作并与主球换位</string>
     <string name="action_panel_missing">面板已不存在，请返回重新添加</string>
