@@ -68,7 +68,9 @@ class FloatBallWindow(
             this.pressed = pressed
             // 抬手统一重启静置计时：点按结束尤其必须 —— 否则计时器停在按下时，球不再变暗。
             if (!pressed) scheduleIdle()
-            applyVisual()
+            // 隐藏路径的 arbiter.cancel 会走到这里：那一下 applyVisual 会把在飞的
+            // 换位/挪球淡出连 endAction 掐掉（传送与分身换位全被跳过），抑制之。
+            if (!visualSuppressed) applyVisual()
         },
         onDragEnded = { onDragEnded() },
     )
@@ -104,6 +106,9 @@ class FloatBallWindow(
     private var dragging = false
     private var pressed = false
     private var idled = false
+
+    /** 隐藏路径置位：抑制 arbiter.cancel 经 onPressChanged 触发的 applyVisual。 */
+    private var visualSuppressed = false
 
     // ---- 回调 ----
 
@@ -232,16 +237,21 @@ class FloatBallWindow(
         applyBallHiddenFlags(current, wm, hidden)
         if (hidden) {
             // 窗口不可点后事件流就断了：重置在途按压/拖动（与 detach 的 arbiter.cancel 对齐），
-            // 免得恢复后停在 pressed 视觉态。
+            // 免得恢复后停在 pressed 视觉态。idled 刻意保留 —— 恢复后回到原本的静置变暗姿态。
+            // 期间抑制 onPressChanged 的 applyVisual：恰逢换位/挪球淡出时，那一下会把
+            // 动画连 endAction 一起取消，传送与分身换位全被跳过。让淡出飞完，落位照常结算。
+            visualSuppressed = true
             arbiter.cancel()
-            cancelIdle()
+            cancelIdleTimer()
+            visualSuppressed = false
         } else {
             if (animateRestore) animateRestoreIn(current)
             scheduleIdle()
         }
     }
 
-    /** 面板关闭后的回场：与 [attachAnimated] 同款 250ms overshoot，落在既有窗口上。 */
+    /** 面板关闭后的回场：与 [attachAnimated] 同款 250ms overshoot，落在既有窗口上。
+     *  终态 alpha 跟随 idled —— 隐藏前在静置变暗，恢复后仍是变暗姿态。 */
     private fun animateRestoreIn(target: View) {
         visualAnimator?.cancel()
         // 在飞的挪球淡出（repositionTo/crossFadeSwap 共用本 animator 实例）被上面中止时
@@ -252,7 +262,7 @@ class FloatBallWindow(
         target.scaleX = 0.85f
         target.scaleY = 0.85f
         visualAnimator = target.animate()
-            .alpha(1f)
+            .alpha(if (idled) FloatBallDefaults.IdleDimAlpha else 1f)
             .scaleX(1f)
             .scaleY(1f)
             .setDuration(250L)
@@ -579,10 +589,15 @@ class FloatBallWindow(
         handler.postDelayed(runnable, delay)
     }
 
-    /** 移除静置计时并退出变暗态。重启交给抬手（onPressChanged=false）。 */
-    private fun cancelIdle() {
+    /** 仅移除静置计时，不动 idled 标志：隐藏/挪球等要保留变暗姿态的路径用。 */
+    private fun cancelIdleTimer() {
         idleRunnable?.let(handler::removeCallbacks)
         idleRunnable = null
+    }
+
+    /** 移除静置计时并退出变暗态。重启交给抬手（onPressChanged=false）。 */
+    private fun cancelIdle() {
+        cancelIdleTimer()
         if (idled) {
             idled = false
             applyVisual()
