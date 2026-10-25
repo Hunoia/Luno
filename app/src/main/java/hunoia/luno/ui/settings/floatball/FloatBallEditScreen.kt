@@ -81,6 +81,9 @@ fun FloatBallEditScreen(
     var localCapsuleAutoHide by remember(floatBall.notificationCapsule.autoHideMs) {
         mutableFloatStateOf(floatBall.notificationCapsule.autoHideMs.toFloat())
     }
+    var localClipballAutoHide by remember(floatBall.clipboardBall.autoHideMs) {
+        mutableFloatStateOf(floatBall.clipboardBall.autoHideMs.toFloat())
+    }
 
     var overlayGranted by remember { mutableStateOf(context.canDrawOverlays()) }
     var notifAccessGranted by remember {
@@ -313,6 +316,45 @@ fun FloatBallEditScreen(
                     valueRange = FloatBallDefaults.CapsuleAutoHideMsMin.toFloat()..
                         FloatBallDefaults.CapsuleAutoHideMsMax.toFloat(),
                     shape = segmentedShape(2, 3),
+                )
+            }
+        }
+
+        item(key = "clipboard_ball") {
+            val clipball = floatBall.clipboardBall
+            LunoGroup(title = stringResource(R.string.float_ball_clipball_group)) {
+                LunoSwitchRow(
+                    title = stringResource(R.string.float_ball_clipball_enabled),
+                    subtitle = stringResource(R.string.float_ball_clipball_enabled_subtitle),
+                    checked = clipball.enabled,
+                    onCheckedChange = { checked ->
+                        update { it.copy(clipboardBall = it.clipboardBall.copy(enabled = checked)) }
+                        // 同胶囊：开关也要服务在跑；关 = nudge 重评（服务自决定去留）。
+                        if (checked) {
+                            FloatBallUseCase.setEnabled(context, true)
+                        } else {
+                            FloatBallUseCase.setEnabled(context, false)
+                        }
+                    },
+                    shape = segmentedShape(0, 2),
+                )
+                LunoTextSlider(
+                    value = localClipballAutoHide,
+                    onValueChange = { value -> localClipballAutoHide = value },
+                    onValueChangeFinished = {
+                        update {
+                            it.copy(
+                                clipboardBall = it.clipboardBall.copy(
+                                    autoHideMs = localClipballAutoHide.toLong(),
+                                ),
+                            )
+                        }
+                    },
+                    text = stringResource(R.string.float_ball_clipball_auto_hide),
+                    valueDisplay = { "${(it / 1000).toInt()} s" },
+                    valueRange = FloatBallDefaults.ClipboardBallAutoHideMsMin.toFloat()..
+                        FloatBallDefaults.ClipboardBallAutoHideMsMax.toFloat(),
+                    shape = segmentedShape(1, 2),
                 )
             }
         }

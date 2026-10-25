@@ -6,6 +6,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -19,7 +20,10 @@ import hunoia.luno.R
 import hunoia.luno.action.model.GRID_PANEL_TYPE_ID
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.gridPanelId
+import hunoia.luno.bridge.system.ClipboardTextInfo
 import hunoia.luno.bridge.system.canDrawOverlays
+import hunoia.luno.bridge.system.isSelfCopyRecent
+import hunoia.luno.bridge.system.readClipboardTextDetailed
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.ActionSettings
@@ -37,6 +41,8 @@ import hunoia.luno.runtime.condition.NotificationPulse
 import hunoia.luno.runtime.environment.BroadcastObserver
 import hunoia.luno.gridpanel.GridPanelOverlay
 import hunoia.luno.service.SideGestureService
+import hunoia.luno.shizuku.ShizukuClipboard
+import hunoia.luno.shizuku.ShizukuManager
 import hunoia.luno.ui.MainActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -47,6 +53,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 import hunoia.luno.core.LOG_TAG
 
@@ -69,6 +76,7 @@ class FloatBallService : Service() {
     private lateinit var ballWindow: FloatBallWindow
     private lateinit var mirrorWindow: FloatBallMirrorWindow
     private lateinit var capsuleWindow: NotificationCapsuleWindow
+    private lateinit var clipboardBallWindow: ClipboardBallWindow
     private var broadcastObserver: BroadcastObserver? = null
 
     /** 球是否已真正挂上窗口。false = 未授权或被系统拒绝。 */
@@ -80,6 +88,19 @@ class FloatBallService : Service() {
 
     /** 最近一条弹出过的通知：点击胶囊时发 contentIntent / 回退启动应用。 */
     private var lastPulse: NotificationPulse? = null
+
+    /** 剪贴板球当前是否在屏（含动画期间）与最近弹过的文本（点击分享/同文重置计时）。 */
+    private var clipboardBallShowing = false
+    private var clipboardTimerJob: Job? = null
+    private var clipboardBallText: String? = null
+    private var clipboardListenerRegistered = false
+
+    /**
+     * 轮询兜底：HyperOS 不向后台应用投递 OnPrimaryClipChangedListener（实测复制零回调），
+     * 亮屏期间每 2s 读一次剪贴板对比内容变化；读依赖无障碍豁免，读不到就永远不弹。
+     */
+    private var clipboardPollJob: Job? = null
+    private var lastSeenClipText: String? = null
 
     /** 面板类浮层打开计数（>0 即隐藏球）。 */
     private var panelCount = 0
@@ -115,6 +136,11 @@ class FloatBallService : Service() {
         capsuleWindow = NotificationCapsuleWindow(this).apply {
             onTapped = { onCapsuleTapped() }
         }
+        clipboardBallWindow = ClipboardBallWindow(this).apply {
+            onTapped = { onClipboardBallTapped() }
+            onLongPressed = { hideClipboardBall() }
+            onDragReleased = { persistClipboardBallPosition() }
+        }
         startInForeground()
 
         broadcastObserver = BroadcastObserver(
@@ -124,9 +150,12 @@ class FloatBallService : Service() {
                 // 别让前台服务以 2Hz 空转唤醒（亮屏解锁由 applyLockState 补启）。
                 imeJob?.cancel()
                 imeJob = null
+                clipboardPollJob?.cancel()
+                clipboardPollJob = null
                 ballWindow.setHidden(true)
                 mirrorWindow.setHidden(true)
                 hideCapsule()
+                hideClipboardBall()
             },
             onScreenOn = ::applyLockState,
             onUserPresent = ::applyLockState,
@@ -145,9 +174,11 @@ class FloatBallService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
-            // 还有功能要宿主就不退（球关了胶囊可能还开着）；真全关走
-            // settings 收集处的自停，那边有两开关的完整状态。
-            if (settings.enabled || settings.notificationCapsule.enabled) {
+            // 还有功能要宿主就不退（球关了胶囊/剪贴板球可能还开着）；真全关走
+            // settings 收集处的自停，那边有三开关的完整状态。
+            if (settings.enabled || settings.notificationCapsule.enabled ||
+                settings.clipboardBall.enabled
+            ) {
                 refreshWindows()
                 return START_STICKY
             }
@@ -172,15 +203,21 @@ class FloatBallService : Service() {
         Events.unsubscribe(FloatBallTempHideEvent::class, tempHideSubscriber)
         AutomationPulseHub.removeNotificationObserver(notificationObserver)
         AutomationPulseHub.removeInterruptionObserver(capsuleInterruptionObserver)
+        unregisterClipboardListener()
         tempHideJob?.cancel()
         tempHideJob = null
         capsuleTimerJob?.cancel()
         capsuleTimerJob = null
+        clipboardTimerJob?.cancel()
+        clipboardTimerJob = null
+        clipboardPollJob?.cancel()
+        clipboardPollJob = null
         tempHideUntilMs = 0L
         panelCount = 0
         ballWindow.detach()
         mirrorWindow.detach()
         capsuleWindow.detachNow()
+        clipboardBallWindow.detachNow()
         scope.cancel()
         super.onDestroy()
     }
@@ -203,15 +240,25 @@ class FloatBallService : Service() {
                     ballWindow.updateSettings(config.action.floatBall)
                     mirrorWindow.updateSettings(config.action.floatBall)
                     capsuleWindow.updateSettings(config.action.floatBall)
+                    clipboardBallWindow.updateSettings(config.action.floatBall)
+                    applyClipboardListener()
                     refreshWindows()
-                    // 自停不变式：悬浮球与通知胶囊都关了，前台服务没有存在意义。
-                    if (!settings.enabled && !settings.notificationCapsule.enabled) stopSelf()
+                    // 自停不变式：悬浮球、通知胶囊、剪贴板球全关，前台服务没有存在意义。
+                    if (!settings.enabled && !settings.notificationCapsule.enabled &&
+                        !settings.clipboardBall.enabled
+                    ) {
+                        stopSelf()
+                    }
                 }
         }
     }
 
     /** 统一的窗口挂/摘入口：shouldShow = 总闸 && 球开关 && 悬浮窗权限 && 非临时隐藏 && 面板计数==0。显隐过渡全部带动画。 */
     private fun refreshWindows() {
+        // 瞬态成员的重评放最前：主球侧下面有早退分支（面板开合/临时隐藏都从这走），
+        // 放尾部会漏掉「在屏但已不被允许」的收起路径。
+        refreshCapsule()
+        refreshClipboardBall()
         val enabled = settings.enabled && canDrawOverlays() && gestureEnabledSnapshot
         val panelHidden = panelCount > 0
         val tempHidden = tempHideUntilMs > SystemClock.uptimeMillis()
@@ -254,7 +301,6 @@ class FloatBallService : Service() {
                 mirrorWindow.detach()
             }
         }
-        refreshCapsule()
     }
 
     // ---- 面板联动（面板打开即隐藏球） ----
@@ -314,8 +360,11 @@ class FloatBallService : Service() {
     }
 
     private val capsuleInterruptionObserver: (Boolean) -> Unit = { dndOn ->
-        // 勿扰开启即收当前胶囊；关闭不补播，等下一条通知。
-        if (dndOn) scope.launch { hideCapsule() }
+        // 勿扰开启即收当前胶囊与剪贴板球；关闭不补播，等下一个事件。
+        if (dndOn) scope.launch {
+            hideCapsule()
+            hideClipboardBall()
+        }
     }
 
     /** 胶囊可见条件：与球同套联动（权限/总闸/面板/临时隐藏/锁屏）+ 自身开关 + 勿扰。 */
@@ -382,6 +431,208 @@ class FloatBallService : Service() {
                     source = AppLaunchSource.UNKNOWN,
                 )
             }.onFailure { Log.w(TAG, "capsule app launch failed: ${it.message}") }
+        }
+    }
+
+    // ---- 剪贴板球 ----
+
+    private val clipboardListener = ClipboardManager.OnPrimaryClipChangedListener {
+        // 读剪贴板可能走 Shizuku/IO：回调线程只做转发。
+        scope.launch { onClipboardChanged() }
+    }
+
+    /** 监听器随开关注册/注销（注册有旗标防重复；关闭即收在屏的球）。 */
+    private fun applyClipboardListener() {
+        val manager = getSystemService<ClipboardManager>()
+        if (settings.clipboardBall.enabled && !clipboardListenerRegistered) {
+            if (manager != null) {
+                runCatching { manager.addPrimaryClipChangedListener(clipboardListener) }
+                    .onFailure { Log.w(TAG, "register clipboard listener failed: ${it.message}") }
+                clipboardListenerRegistered = true
+                Log.i(TAG, "clipboard listener registered")
+            }
+        } else if (!settings.clipboardBall.enabled && clipboardListenerRegistered) {
+            unregisterClipboardListener()
+            hideClipboardBall()
+        }
+        ensureClipboardPoller()
+    }
+
+    private fun unregisterClipboardListener() {
+        if (!clipboardListenerRegistered) return
+        runCatching {
+            getSystemService<ClipboardManager>()?.removePrimaryClipChangedListener(clipboardListener)
+        }
+        clipboardListenerRegistered = false
+    }
+
+    /** 剪贴板球可见条件：与胶囊同套联动（权限/总闸/面板/临时隐藏/锁屏/勿扰）+ 自身开关。 */
+    private fun clipboardBallAllowed(): Boolean =
+        settings.clipboardBall.enabled &&
+            canDrawOverlays() &&
+            gestureEnabledSnapshot &&
+            panelCount == 0 &&
+            tempHideUntilMs <= SystemClock.uptimeMillis() &&
+            !isScreenLocked() &&
+            !AutomationPulseHub.dndActive
+
+    private suspend fun onClipboardChanged() {
+        if (!clipboardBallAllowed()) {
+            // 诊断日志：区分「系统没回调」与「门控吞掉」。
+            Log.i(
+                TAG,
+                "clip changed but not allowed: switch=${settings.clipboardBall.enabled} " +
+                    "overlay=${canDrawOverlays()} gesture=$gestureEnabledSnapshot " +
+                    "panel=$panelCount tempHide=${tempHideUntilMs > SystemClock.uptimeMillis()} " +
+                    "lock=${isScreenLocked()} dnd=${AutomationPulseHub.dndActive}",
+            )
+            return
+        }
+        val info = readClipForBall()
+        if (info == null) {
+            // 新 ROM 后台读取唯一路径是 Shizuku 桥；两者都拿不到就不弹。
+            Log.i(TAG, "clipboard ball: read unavailable (shizuku off or empty clip)")
+            return
+        }
+        lastSeenClipText = info.text
+        onClipboardText(info.text, info.sensitive)
+    }
+
+    /** 读剪贴板（剪贴板球专用）：Shizuku 在跑走 shell 桥（新 ROM 唯一后台路径），否则应用内直读（仅前台时刻有效）。 */
+    private suspend fun readClipForBall(): ClipboardTextInfo? {
+        val status = ShizukuManager.currentStatus()
+        if (status.binderAlive && status.permissionGranted) {
+            val viaShizuku = withContext(Dispatchers.IO) {
+                runCatching { ShizukuClipboard.readText() }
+                    .onFailure { Log.w(TAG, "shizuku clipboard read failed: ${it::class.simpleName} ${it.message}") }
+                    .getOrNull()
+            }
+            if (viaShizuku != null) return viaShizuku
+        }
+        return readClipboardTextDetailed(this)
+    }
+
+    /** 变化处理共用入口（监听器即时路径 + 轮询兜底路径）。 */
+    private fun onClipboardText(text: String, sensitive: Boolean) {
+        if (!clipboardBallAllowed()) return
+        // Luno 自己的复制（搜索面板/命令输出）不弹：人已在 Luno 里。
+        if (isSelfCopyRecent()) return
+        if (sensitive) return
+        if (text.isBlank()) return
+        if (text == clipboardBallText && clipboardBallShowing) {
+            // 同内容重复复制：只重置计时，不重播进场。
+            scheduleClipboardHide(settings.clipboardBall.autoHideMs)
+            return
+        }
+        clipboardBallText = text
+        clipboardBallShowing = true
+        clipboardBallWindow.show(settings.clipboardBall.x, settings.clipboardBall.y)
+        Log.i(TAG, "clipboard ball show (${text.length} chars)")
+        scheduleClipboardHide(settings.clipboardBall.autoHideMs)
+    }
+
+    /** 轮询兜底按需启停：开关开 + 亮屏未锁才跑（息屏由 screen off/锁屏侧停）。 */
+    private fun ensureClipboardPoller() {
+        val shouldRun = settings.clipboardBall.enabled && !isScreenLocked()
+        if (shouldRun && clipboardPollJob?.isActive != true) {
+            clipboardPollJob?.cancel()
+            clipboardPollJob = scope.launch {
+                while (isActive) {
+                    delay(CLIP_POLL_MS)
+                    pollClipboard()
+                }
+            }
+        } else if (!shouldRun) {
+            clipboardPollJob?.cancel()
+            clipboardPollJob = null
+        }
+    }
+
+    /** 读一次剪贴板：首轮读到的存量只作基线不弹（避免启用瞬间弹旧内容），之后内容变了才弹。 */
+    private suspend fun pollClipboard() {
+        val info = readClipForBall()
+        if (info == null || info.text.isBlank()) {
+            if (info == null && lastSeenClipText == null && clipboardBallText == null) {
+                val s = ShizukuManager.currentStatus()
+                Log.i(
+                    TAG,
+                    "clipboard poll: read unavailable (shizuku alive=${s.binderAlive} " +
+                        "perm=${s.permissionGranted} or empty clip)",
+                )
+            }
+            return
+        }
+        val previous = lastSeenClipText
+        lastSeenClipText = info.text
+        if (previous != null && previous != info.text) {
+            onClipboardText(info.text, info.sensitive)
+        }
+    }
+
+    /** 自动收起计时：新复制覆盖重计时（show 前服务层重算 allowed，不允许直接吞掉）。 */
+    private fun scheduleClipboardHide(delayMs: Long) {
+        clipboardTimerJob?.cancel()
+        clipboardTimerJob = scope.launch {
+            delay(
+                delayMs.coerceIn(
+                    FloatBallDefaults.ClipboardBallAutoHideMsMin,
+                    FloatBallDefaults.ClipboardBallAutoHideMsMax,
+                ),
+            )
+            hideClipboardBall()
+        }
+    }
+
+    private fun hideClipboardBall() {
+        clipboardTimerJob?.cancel()
+        clipboardTimerJob = null
+        if (!clipboardBallShowing) return
+        clipboardBallShowing = false
+        clipboardBallText = null
+        clipboardBallWindow.hide()
+    }
+
+    /** 面板/临时隐藏/锁屏/勿扰联动入口共用：在屏但不允许了就收起（收起后不补播旧内容）。 */
+    private fun refreshClipboardBall() {
+        if (clipboardBallShowing && !clipboardBallAllowed()) hideClipboardBall()
+    }
+
+    private fun onClipboardBallTapped() {
+        val text = clipboardBallText ?: return
+        // 分享面板从服务上下文起：NEW_TASK 必须加在 chooser 本体。
+        // 启动失败（如后台弹出未授权）保留球可重试。
+        val launched = runCatching {
+            val send = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+            }
+            startActivity(
+                Intent.createChooser(send, null)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            true
+        }.getOrDefault(false)
+        if (launched) {
+            hideClipboardBall()
+        } else {
+            Log.w(TAG, "clipboard share launch failed")
+        }
+    }
+
+    /** 剪贴板球位置落盘（拖动贴边后）：字段级合并到最新存量，同 persistBallPosition。 */
+    private fun persistClipboardBallPosition() {
+        val (nx, ny) = clipboardBallWindow.normalizedPosition()
+        settings = settings.copy(clipboardBall = settings.clipboardBall.copy(x = nx, y = ny))
+        scope.launch {
+            runCatching {
+                ConfigProvider.updateActionSettings { current ->
+                    current.copy(
+                        floatBall = current.floatBall.copy(
+                            clipboardBall = current.floatBall.clipboardBall.copy(x = nx, y = ny),
+                        ),
+                    )
+                }
+            }.onFailure { Log.w(TAG, "persist clipboard ball position failed: ${it.message}") }
         }
     }
 
@@ -574,9 +825,13 @@ class FloatBallService : Service() {
         val hidden = isScreenLocked()
         ballWindow.setHidden(hidden)
         mirrorWindow.setHidden(hidden)
-        if (hidden) hideCapsule()
-        // 息屏时兜底轮询被停掉（见 onScreenOff），亮屏解锁后按需补启。
+        if (hidden) {
+            hideCapsule()
+            hideClipboardBall()
+        }
+        // 亮屏解锁后按需补启：IME 兜底轮询与剪贴板兜底轮询共用这个入口。
         if (!hidden) ensureImeObserver()
+        ensureClipboardPoller()
     }
 
     private fun isScreenLocked(): Boolean {
@@ -623,6 +878,9 @@ class FloatBallService : Service() {
 
         /** IME 底边轮询间隔（事件型 insets 的兜底；支持推播的 ROM 由窗口监听即时处理）。 */
         private const val IME_POLL_MS = 500L
+
+        /** 剪贴板兜底轮询间隔：亮屏期间读一次对比内容变化（监听器在 HyperOS 上不投递）。 */
+        private const val CLIP_POLL_MS = 2_000L
 
         /** 设置开关变更 / 开机自启都走这里。必须是 startForegroundService。 */
         fun start(context: Context) {

@@ -39,6 +39,8 @@ data class FloatBallSettings(
     val rightAnchorY: Float? = null,
     /** 通知胶囊（独立开关，宿主同为 FloatBallService）：通知到达时底部弹出、自动收起。 */
     val notificationCapsule: NotificationCapsuleSettings = NotificationCapsuleSettings(),
+    /** 剪贴板球（独立开关，宿主同为 FloatBallService）：复制文本后弹出、点击分享、自动收起。 */
+    val clipboardBall: ClipboardBallSettings = ClipboardBallSettings(),
 )
 
 /**
@@ -53,6 +55,22 @@ data class NotificationCapsuleSettings(
     val leftSide: Boolean = false,
     /** 弹出后多少 ms 自动收起（3–10s，设置页滑杆约束）。 */
     val autoHideMs: Long = FloatBallDefaults.CapsuleAutoHideMs,
+)
+
+/**
+ * 剪贴板球配置：剪贴板文本变化时在贴边记忆位弹出小圆球，点击弹系统分享，
+ * [autoHideMs] 后自动收起。后台读剪贴板依赖无障碍服务（Android 10+ 限制），
+ * 读不到内容就不弹。
+ */
+@Serializable
+@Keep
+data class ClipboardBallSettings(
+    val enabled: Boolean = false,
+    /** 弹出后多少 ms 自动收起（3–10s，设置页滑杆约束）。 */
+    val autoHideMs: Long = FloatBallDefaults.ClipboardBallAutoHideMs,
+    /** 记忆位置（归一化，球窗顶边，含状态栏补偿）。null = 未记忆，首次落右缘。 */
+    val x: Float? = null,
+    val y: Float? = null,
 )
 
 object FloatBallDefaults {
@@ -98,4 +116,10 @@ object FloatBallDefaults {
     const val CapsuleAutoHideMs = 5_000L
     const val CapsuleAutoHideMsMin = 3_000L
     const val CapsuleAutoHideMsMax = 10_000L
+
+    /** 剪贴板球：球径（dp）与自动收起时长默认值、滑杆上下限（ms）。 */
+    const val ClipboardBallSizeDp = 44f
+    const val ClipboardBallAutoHideMs = 5_000L
+    const val ClipboardBallAutoHideMsMin = 3_000L
+    const val ClipboardBallAutoHideMsMax = 10_000L
 }

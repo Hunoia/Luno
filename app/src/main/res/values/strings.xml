@@ -202,6 +202,10 @@
     <string name="float_ball_capsule_auto_hide">自动收起时长</string>
     <string name="float_ball_capsule_need_permission">需要通知使用权</string>
     <string name="float_ball_capsule_need_permission_hint">点此前往系统设置授权，胶囊才能收到通知</string>
+    <string name="float_ball_clipball_group">剪贴板球</string>
+    <string name="float_ball_clipball_enabled">复制后显示分享球</string>
+    <string name="float_ball_clipball_enabled_subtitle">剪贴板变化时弹出，点击分享，长按关闭；后台读取需 Shizuku 运行并授权</string>
+    <string name="float_ball_clipball_auto_hide">自动收起时长</string>
     <string name="action_panel_missing">面板已不存在，请返回重新添加</string>
     <string name="action_panel_items_count">%1$d 项</string>
     <string name="action_panel_count">%1$d 个面板</string>

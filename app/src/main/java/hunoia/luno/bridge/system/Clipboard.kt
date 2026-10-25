@@ -4,6 +4,15 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.PersistableBundle
+import android.os.SystemClock
+
+/** 最近一次 Luno 自写剪贴板的时刻（uptimeMillis）：剪贴板球用它过滤自家复制。 */
+@Volatile
+private var lastSelfCopyAtMs = 0L
+
+/** [windowMs] 内 Luno 自己写过剪贴板视为「自复制」。 */
+fun isSelfCopyRecent(windowMs: Long = 1_500L): Boolean =
+    SystemClock.uptimeMillis() - lastSelfCopyAtMs < windowMs
 
 fun copySensitiveText(
     context: Context,
@@ -17,6 +26,7 @@ fun copySensitiveText(
             putBoolean(ClipDescriptionExtras.IS_SENSITIVE, true)
         }
         clipboard.setPrimaryClip(clip)
+        lastSelfCopyAtMs = SystemClock.uptimeMillis()
         true
     }.getOrDefault(false)
 }
@@ -30,6 +40,7 @@ fun copyText(
     val clipboard = context.getSystemService(ClipboardManager::class.java)
         ?: return@runCatching false
     clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
+    lastSelfCopyAtMs = SystemClock.uptimeMillis()
     true
 }.getOrDefault(false)
 
@@ -39,6 +50,26 @@ fun readClipboardText(context: Context): String? = runCatching {
         ?: return@runCatching null
     if (!clipboard.hasPrimaryClip()) return@runCatching null
     clipboard.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString()
+}.getOrNull()
+
+/** 剪贴板文本及其敏感标记，一次读出（剪贴板球用）。 */
+data class ClipboardTextInfo(
+    val text: String,
+    val sensitive: Boolean,
+)
+
+/** 读当前剪贴板文本 + 敏感标记；无内容/无权限（Android 10+ 后台读被限）返回 null。 */
+fun readClipboardTextDetailed(context: Context): ClipboardTextInfo? = runCatching {
+    val clipboard = context.getSystemService(ClipboardManager::class.java)
+        ?: return@runCatching null
+    if (!clipboard.hasPrimaryClip()) return@runCatching null
+    val clip = clipboard.primaryClip ?: return@runCatching null
+    val text = clip.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()
+    ClipboardTextInfo(
+        text = text,
+        sensitive = clip.description.extras
+            ?.getBoolean(ClipDescriptionExtras.IS_SENSITIVE) == true,
+    )
 }.getOrNull()
 
 private object ClipDescriptionExtras {
