@@ -43,19 +43,30 @@ internal fun applyBallSize(view: View, wm: WindowManager, ballPx: Int) {
     }
 }
 
-/** 锁屏 / 息屏/面板隐藏：整窗不可见也不可点；恢复后的姿态（静置计时等）由调用方补。 */
-internal fun applyBallHiddenFlags(view: View, wm: WindowManager, hidden: Boolean) {
+/**
+ * 软隐藏第一步：hidden=true 立即置不可点（防误触，视觉淡出由调用方在 view alpha 上播，
+ * lp alpha 收底延后到淡出完成）；hidden=false 恢复可点并把 lp alpha 抬回 1（视觉淡入
+ * 由调用方从 0 起播）。旗标无变化不写窗：软隐藏路径会被面板事件反复触发。
+ */
+internal fun applyBallTouchFlags(view: View, wm: WindowManager, hidden: Boolean) {
     val lp = view.layoutParams as? WindowManager.LayoutParams ?: return
-    // 无变化不写窗：软隐藏路径会被面板事件反复触发，别为重复状态付 updateViewLayout。
     val alreadyHidden = (lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE) != 0
-    val targetAlpha = if (hidden) 0f else 1f
-    if (alreadyHidden == hidden && lp.alpha == targetAlpha) return
     if (hidden) {
+        if (alreadyHidden) return
         lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
     } else {
+        if (!alreadyHidden && lp.alpha == 1f) return
         lp.flags = lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+        lp.alpha = 1f
     }
-    lp.alpha = targetAlpha
+    wm.safeUpdateViewLayout(view, lp)
+}
+
+/** 淡出完成的收底：lp alpha 归 0（旗标已在隐藏第一步置过）。 */
+internal fun settleBallWindowAlpha(view: View, wm: WindowManager) {
+    val lp = view.layoutParams as? WindowManager.LayoutParams ?: return
+    if (lp.alpha == 0f) return
+    lp.alpha = 0f
     wm.safeUpdateViewLayout(view, lp)
 }
 

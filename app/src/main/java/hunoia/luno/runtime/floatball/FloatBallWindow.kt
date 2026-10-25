@@ -194,7 +194,12 @@ class FloatBallWindow(
         return true
     }
 
-    fun detach() {
+    /**
+     * 摘窗。animated=true 先淡出再移除（规则/总闸/权限的重建路径不再生硬消失）；
+     * view 字段立即置空 —— 淡出中的旧窗由局部引用收尾，期间 attach 走全新挂窗不冲突。
+     */
+    fun detach(animated: Boolean = false) {
+        val current = view
         arbiter.cancel()
         cancelImeAnim()
         settleAnimator?.cancel()
@@ -205,8 +210,6 @@ class FloatBallWindow(
         visualAnimator = null
         idleRunnable?.let(handler::removeCallbacks)
         idleRunnable = null
-        view?.let(context::removeWindow)
-        view = null
         // 窗口既已摘除，交互/换位中的标志全部作废：淡出的 withEndAction 在 cancel 时
         // 不运行，crossFading 残留 true 会把重挂后的 repositionTo 永久挡死。
         crossFading = false
@@ -217,6 +220,20 @@ class FloatBallWindow(
         // 摘窗即复位：下次 attach 的新窗口按可见起步，lock/panel 状态由服务侧重新推。
         lockHidden = false
         panelHidden = false
+        visuallyHidden = false
+        view = null
+        if (current == null) return
+        if (!animated) {
+            context.removeWindow(current)
+            return
+        }
+        applyBallTouchFlags(current, wm, hidden = true)
+        current.animate()
+            .alpha(0f)
+            .setDuration(HIDE_FADE_MS)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction { context.removeWindow(current) }
+            .start()
     }
 
     /** 锁屏 / 息屏：整个窗口不可见也不可点，解锁恢复。 */
@@ -228,20 +245,24 @@ class FloatBallWindow(
     /**
      * 面板/临时隐藏：软隐藏 —— 窗口保留（组合与 Recomposer 不销毁），只置不可见不可点。
      * 相比摘窗，免掉每次面板开合的 removeView→新 ComposeView→首帧组合→addView 整链。
-     * [animateRestore] 为 true 时按 [attachAnimated] 同款弹回动画恢复。
+     * 显隐过渡统一带动画：隐藏淡出、恢复走 [animateRestoreIn] 回场。
      */
-    fun setPanelHidden(hidden: Boolean, animateRestore: Boolean = false) {
+    fun setPanelHidden(hidden: Boolean) {
         panelHidden = hidden
-        applyHiddenFlags(animateRestore)
+        applyHiddenFlags()
     }
 
     private var lockHidden = false
     private var panelHidden = false
 
-    private fun applyHiddenFlags(animateRestore: Boolean = false) {
+    /** 软隐藏的视觉态（lp 旗标 + view alpha 动画的权威）：状态没变不重播过渡。 */
+    private var visuallyHidden = false
+
+    private fun applyHiddenFlags() {
         val current = view ?: return
         val hidden = lockHidden || panelHidden
-        applyBallHiddenFlags(current, wm, hidden)
+        if (hidden == visuallyHidden) return
+        visuallyHidden = hidden
         if (hidden) {
             // 窗口不可点后事件流就断了：重置在途按压/拖动（与 detach 的 arbiter.cancel 对齐），
             // 免得恢复后停在 pressed 视觉态。idled 刻意保留 —— 恢复后回到原本的静置变暗姿态。
@@ -251,8 +272,19 @@ class FloatBallWindow(
             arbiter.cancel()
             cancelIdleTimer()
             visualSuppressed = false
+            // 立即不可点防误触，视觉淡出 150ms，播完 lp alpha 收底。
+            applyBallTouchFlags(current, wm, hidden = true)
+            current.animate()
+                .alpha(0f)
+                .setDuration(HIDE_FADE_MS)
+                .setInterpolator(DecelerateInterpolator())
+                .withEndAction { settleBallWindowAlpha(current, wm) }
+                .start()
         } else {
-            if (animateRestore) animateRestoreIn(current)
+            // 淡出中途反向：取消淡出（其收底 endAction 不跑，lp alpha 还是 1），直接回场。
+            current.animate().cancel()
+            applyBallTouchFlags(current, wm, hidden = false)
+            animateRestoreIn(current)
             scheduleIdle()
         }
     }
@@ -630,7 +662,12 @@ class FloatBallWindow(
         // 运行 —— crossFading 一并收掉，否则按压球打断淡出后它会永久卡在 true。
         crossFading = false
         val scale = if (pressed) FloatBallDefaults.PressScale else 1f
-        val alpha = if (idled) FloatBallDefaults.IdleDimAlpha else 1f
+        // 软隐藏期间一律隐身：隐藏淡出被挪球/换位动画打断时，落位重绘不得把球画回来。
+        val alpha = when {
+            visuallyHidden -> 0f
+            idled -> FloatBallDefaults.IdleDimAlpha
+            else -> 1f
+        }
         // 静置时球横向移出一截到屏幕外，方向 = 最近边缘。偏移走 View 平移：
         // 部分 ROM 会把越界 LP 夹回屏内，LP 方案不可靠。窗口留在贴边位，
         // 命中区仍是窗口方形，覆盖可见半圆。
@@ -724,5 +761,8 @@ class FloatBallWindow(
 
         /** 键盘让位缓动时长：足够平滑，又不拖泥带水。 */
         const val IME_LIFT_ANIM_MS = 220L
+
+        /** 软隐藏/摘窗的淡出时长：短促收掉，不拖泥带水。 */
+        const val HIDE_FADE_MS = 150L
     }
 }

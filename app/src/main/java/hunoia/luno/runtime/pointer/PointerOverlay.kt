@@ -7,6 +7,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.DecelerateInterpolator
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -63,14 +64,14 @@ class PointerOverlay(private val host: PointerOverlayHost) {
                     MotionEvent.ACTION_UP -> {
                         view.performClick()
                         val target = cursorPosition.value
-                        closeImmediately()
+                        close()
                         clickPulseKey += 1
                         clickPulse.value = clickPulseKey
                         onPointerAction(target.x.toInt(), target.y.toInt())
                         true
                     }
                     MotionEvent.ACTION_CANCEL -> {
-                        closeImmediately()
+                        close()
                         onDismiss()
                         true
                     }
@@ -90,6 +91,23 @@ class PointerOverlay(private val host: PointerOverlayHost) {
         }
         wm.addView(composeView, createLayoutParams())
         overlayView = composeView
+    }
+
+    /** 退场：立即不可点，光标淡出 120ms 后拆窗（show 的同步重建路径仍走 [closeImmediately]）。 */
+    fun close() {
+        val view = overlayView ?: return
+        overlayView = null
+        lastTouch = Offset.Unspecified
+        (view.layoutParams as? WindowManager.LayoutParams)?.let { lp ->
+            lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            runCatching { host.context.windowManager().updateViewLayout(view, lp) }
+        }
+        view.animate()
+            .alpha(0f)
+            .setDuration(120L)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction { runCatching { host.context.windowManager().removeViewImmediate(view) } }
+            .start()
     }
 
     fun closeImmediately() {

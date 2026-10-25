@@ -71,9 +71,6 @@ class FloatBallService : Service() {
     /** 面板类浮层打开计数（>0 即隐藏球）。 */
     private var panelCount = 0
 
-    /** 上轮「因面板隐藏」状态：从隐藏恢复时要带回场动画。 */
-    private var hiddenByPanel = false
-
     /** 临时隐藏截止时间（uptimeMillis），0 = 无。只作用窗口，不碰 `enabled` 存量。 */
     private var tempHideUntilMs = 0L
     private var tempHideJob: Job? = null
@@ -134,7 +131,7 @@ class FloatBallService : Service() {
         // 显式 nudge 的重评入口（悬浮窗授权回来等）：服务可能已在跑但停在无权限/
         // 总闸关的隐藏态。首次启动时 settings 尚未流到，评一次默认值无害，
         // 真实 collect 到达会再刷。
-        refreshWindows(animateRestore = false)
+        refreshWindows()
         return START_STICKY
     }
 
@@ -151,7 +148,6 @@ class FloatBallService : Service() {
         tempHideJob = null
         tempHideUntilMs = 0L
         panelCount = 0
-        hiddenByPanel = false
         ballWindow.detach()
         mirrorWindow.detach()
         scope.cancel()
@@ -175,13 +171,13 @@ class FloatBallService : Service() {
                     gestureEnabledSnapshot = config.gestureEnabled
                     ballWindow.updateSettings(config.action.floatBall)
                     mirrorWindow.updateSettings(config.action.floatBall)
-                    refreshWindows(animateRestore = false)
+                    refreshWindows()
                 }
         }
     }
 
-    /** 统一的窗口挂/摘入口：shouldShow = 总闸 && 球开关 && 悬浮窗权限 && 非临时隐藏 && 面板计数==0；从面板隐藏恢复时带回场动画。 */
-    private fun refreshWindows(animateRestore: Boolean) {
+    /** 统一的窗口挂/摘入口：shouldShow = 总闸 && 球开关 && 悬浮窗权限 && 非临时隐藏 && 面板计数==0。显隐过渡全部带动画。 */
+    private fun refreshWindows() {
         val enabled = settings.enabled && canDrawOverlays() && gestureEnabledSnapshot
         val panelHidden = panelCount > 0
         val tempHidden = tempHideUntilMs > SystemClock.uptimeMillis()
@@ -195,29 +191,29 @@ class FloatBallService : Service() {
                     ballWindow.setPanelHidden(true)
                     mirrorWindow.setPanelHidden(true)
                 } else {
-                    // 总闸/开关/权限关：长态不出，摘窗回收。
+                    // 总闸/开关/权限关：长态不出，淡出后摘窗回收。
                     ballVisible = false
-                    ballWindow.detach()
-                    mirrorWindow.detach()
+                    ballWindow.detach(animated = true)
+                    mirrorWindow.detach(animated = true)
                 }
             }
             return
         }
         if (!ballVisible) {
-            ballVisible = if (animateRestore) ballWindow.attachAnimated() else ballWindow.attach()
+            ballVisible = ballWindow.attachAnimated()
             if (ballVisible) {
                 ballWindow.setHidden(isScreenLocked())
-                if (settings.mirrorBall) mirrorWindow.attach()
+                if (settings.mirrorBall) mirrorWindow.attach(animated = true)
                 mirrorWindow.setHidden(isScreenLocked())
                 // 新窗口的 insets 推播能力未知：兜底轮询按需补启（息屏期间被停过也一样）。
                 ensureImeObserver()
             }
         } else {
             // 软隐藏 → 恢复：窗口还在，直接亮回（带回场动画），不走重建。
-            ballWindow.setPanelHidden(false, animateRestore)
+            ballWindow.setPanelHidden(false)
             mirrorWindow.setPanelHidden(false)
             if (settings.mirrorBall) {
-                if (!mirrorWindow.attach()) return
+                if (!mirrorWindow.attach(animated = true)) return
                 mirrorWindow.setHidden(isScreenLocked())
                 mirrorWindow.snapToMirror()
             } else {
@@ -230,15 +226,12 @@ class FloatBallService : Service() {
 
     private val panelShownSubscriber: (PanelShownEvent) -> Unit = {
         panelCount++
-        hiddenByPanel = panelCount > 0
-        refreshWindows(animateRestore = false)
+        refreshWindows()
     }
 
     private val panelDismissedSubscriber: (PanelDismissedEvent) -> Unit = {
         if (panelCount > 0) panelCount--
-        val recovered = panelCount == 0 && hiddenByPanel
-        hiddenByPanel = panelCount > 0
-        refreshWindows(animateRestore = recovered)
+        refreshWindows()
     }
 
     private fun observePanels() {
@@ -265,9 +258,9 @@ class FloatBallService : Service() {
         tempHideJob = scope.launch {
             delay(deadline - SystemClock.uptimeMillis())
             tempHideUntilMs = 0L
-            refreshWindows(animateRestore = true)
+            refreshWindows()
         }
-        refreshWindows(animateRestore = false)
+        refreshWindows()
     }
 
     private fun cancelTempHide() {
@@ -275,7 +268,7 @@ class FloatBallService : Service() {
         tempHideJob?.cancel()
         tempHideJob = null
         tempHideUntilMs = 0L
-        refreshWindows(animateRestore = true)
+        refreshWindows()
     }
 
     // ---- 点按派发 ----
