@@ -65,7 +65,6 @@ import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.core.AppContext
 import hunoia.luno.service.DispatchClient
 import hunoia.luno.shizuku.ShizukuFacade
-import kotlinx.serialization.json.contentOrNull
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

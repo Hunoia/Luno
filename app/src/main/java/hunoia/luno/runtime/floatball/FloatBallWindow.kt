@@ -370,10 +370,12 @@ class FloatBallWindow(
 
     /**
      * 自动挪球（跟随持机手）：淡出 → 传送 → 淡回（与分身换位同款视觉）。
-     * 拖动/按压/换位中让位给用户并返回 false（调用方不应落盘）；淡出期间被
-     * 用户接管拖动则放弃传送。目标与当前几乎一致时不动画直接算成功。
+     * 拖动/按压/换位中让位给用户并返回 false（调用方稍后重试）；淡出期间被
+     * 用户接管拖动则放弃传送（[onLanded] 不回调）。目标与当前几乎一致时不动画直接算成功。
+     * [onLanded] 在球真正落到目标位时回调（无动画路径同步、淡出路径异步）；被打断
+     * 则不回调 —— 调用方据此把落盘/分身同步推迟到实位落定，避免存量与实位背离。
      */
-    fun repositionTo(leftEdge: Boolean, yRatio: Float): Boolean {
+    fun repositionTo(leftEdge: Boolean, yRatio: Float, onLanded: (() -> Unit)? = null): Boolean {
         if (dragging || crossFading || pressed) return false
         val target = view ?: return false
         val targetX = if (leftEdge) 0f else max(0, screenWidthPx - ballPx).toFloat()
@@ -381,6 +383,7 @@ class FloatBallWindow(
         val targetY = (yRatio * screenHeightPx).coerceIn(lpOriginY.toFloat(), maxY.toFloat())
         if (kotlin.math.abs(targetX - posX) < 0.5f && kotlin.math.abs(targetY - posY) < 0.5f) {
             scheduleIdle()
+            onLanded?.invoke()
             return true
         }
         cancelSettle()
@@ -406,10 +409,14 @@ class FloatBallWindow(
                 applyWindowBounds()
                 applyVisual()
                 scheduleIdle()
+                onLanded?.invoke()
             }
             .start()
         return true
     }
+
+    /** 主球当前是否在屏左半（按窗口实位、球心判，与静置外移方向同口径）。 */
+    fun isOnLeft(): Boolean = posX * 2f + ballPx < screenWidthPx
 
     /** 主球是否处于静置变暗态（交换后保持姿态用）。 */
     fun isIdled(): Boolean = idled

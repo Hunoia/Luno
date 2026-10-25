@@ -42,7 +42,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlin.math.max
 import kotlin.math.roundToInt
 import hunoia.luno.core.LOG_TAG
 
@@ -83,11 +82,10 @@ class FloatBallService : Service() {
     private val keyguardManager by lazy { getSystemService<KeyguardManager>() }
     private val windowManager by lazy { getSystemService<android.view.WindowManager>() }
 
-    /** 持机侧判定（衰减加权多数票）：触钮触发侧为主证据，球手动停靠侧为确证。 */
-    private val handSide = HandSideHysteresis()
+    // ---- 跟随持机手（试验） ----
 
-    private val touchButtonSideSubscriber: (TouchButtonSideEvent) -> Unit = { event ->
-        onTouchButtonSide(event.leftSide)
+    private val touchSideSubscriber: (TouchButtonSideEvent) -> Unit = { event ->
+        onTouchSide(event.leftSide)
     }
 
     override fun onCreate() {
@@ -96,7 +94,7 @@ class FloatBallService : Service() {
             mirrorWindow.updateImeLift(lift)
         }).apply {
             onTap = { onBallTapped() }
-            onDragFinished = { x, y -> persistBallPosition(x, y, manualPark = true) }
+            onDragFinished = { x, y -> persistBallPosition(x, y) }
         }
         mirrorWindow = FloatBallMirrorWindow(this).apply {
             onPressed = { onMirrorPressed() }
@@ -123,7 +121,7 @@ class FloatBallService : Service() {
         observeSettings()
         ensureImeObserver()
         observePanels()
-        Events.subscribe(TouchButtonSideEvent::class, touchButtonSideSubscriber)
+        Events.subscribe(TouchButtonSideEvent::class, touchSideSubscriber)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -143,7 +141,7 @@ class FloatBallService : Service() {
         broadcastObserver = null
         Events.unsubscribe(PanelShownEvent::class, panelShownSubscriber)
         Events.unsubscribe(PanelDismissedEvent::class, panelDismissedSubscriber)
-        Events.unsubscribe(TouchButtonSideEvent::class, touchButtonSideSubscriber)
+        Events.unsubscribe(TouchButtonSideEvent::class, touchSideSubscriber)
         Events.unsubscribe(FloatBallTempHideEvent::class, tempHideSubscriber)
         tempHideJob?.cancel()
         tempHideJob = null
@@ -171,7 +169,6 @@ class FloatBallService : Service() {
                     if (newSettings.enabled && !settings.enabled) cancelTempHide()
                     settings = newSettings
                     gestureEnabledSnapshot = config.gestureEnabled
-                    handSide.seed(settings.x < 0.5f)
                     ballWindow.updateSettings(config.action.floatBall)
                     mirrorWindow.updateSettings(config.action.floatBall)
                     refreshWindows(animateRestore = false)
@@ -208,7 +205,6 @@ class FloatBallService : Service() {
                 ballWindow.setHidden(isScreenLocked())
                 if (settings.mirrorBall) mirrorWindow.attach()
                 mirrorWindow.setHidden(isScreenLocked())
-                followHandAfterAttach()
                 // 新窗口的 insets 推播能力未知：兜底轮询按需补启（息屏期间被停过也一样）。
                 ensureImeObserver()
             }
@@ -285,11 +281,12 @@ class FloatBallService : Service() {
         dispatchTapAction(action, ballCenterX(), ballCenterY())
     }
 
-    /** 球心屏幕坐标（px）。 */
+    /** 球心屏幕坐标（px）。读窗口实位而非落盘存量：自动挪球被打断时两者会背离，
+     *  锚点按实位算，面板才不会弹到球的对面。 */
     private fun ballCenter(): Pair<Int, Int> {
         val half = DensityProvider.dp2px(settings.sizeDp) / 2
-        return (half + (settings.x * DensityProvider.screenWidthPx).toInt()) to
-            (half + (settings.y * DensityProvider.screenHeightPx).toInt())
+        val (px, py) = ballWindow.currentPosition()
+        return (px.roundToInt() + half) to (py.roundToInt() + half)
     }
 
     private fun ballCenterX(): Int = ballCenter().first
@@ -355,7 +352,7 @@ class FloatBallService : Service() {
             .coerceIn(0f, 1f)
         val newY = (mirrorTopLeftY.toFloat() / DensityProvider.screenHeightPx)
             .coerceIn(0f, 1f)
-        persistBallPosition(newX, newY, manualPark = true)
+        persistBallPosition(newX, newY)
         ballWindow.crossFadeSwap(
             mirrorTopLeftX.toFloat(),
             mirrorTopLeftY.toFloat(),
@@ -408,46 +405,34 @@ class FloatBallService : Service() {
         observeIme()
     }
 
-    // ---- 跟随持机手（试验） ----
-
-    private fun onTouchButtonSide(leftSide: Boolean) {
-        val switched = handSide.onSideEvent(leftSide, SystemClock.uptimeMillis())
-        if (switched) {
-            Log.i(TAG, "handhold side switched: ${if (leftSide) "left" else "right"}")
-            moveBallToHandSide()
-        }
-    }
-
-    /** 球挪到当前持机侧：用该侧记忆高度（未记忆则当前 y）；球隐藏时只更新状态。 */
-    private fun moveBallToHandSide() {
+    /**
+     * 直接规则：手势碰了哪侧，球就即时移到哪侧（不投票、不留状态）。球已在该侧则
+     * 不动（同侧触发零扰动，手动调的高度保留）；被拖动/按压/上一次挪球占用时本次
+     * 跳过，下一次触发自然重试。落盘延到球真正落位（onLanded）：接受挪球就按目标
+     * 落盘的话，淡出被打断会让存量停在新侧、实位停在旧侧 —— 面板锚点按存量算会弹到
+     * 球对面，分身按存量反推会跟球同侧。
+     */
+    private fun onTouchSide(leftSide: Boolean) {
         if (!settings.followHand || !ballVisible) return
-        val left = handSide.currentLeft ?: return
-        val anchorY = (if (left) settings.leftAnchorY else settings.rightAnchorY) ?: settings.y
-        // 拖动/换位中球没接手移动：不落盘（状态已切换，下次事件或重挂时再校正）。
-        if (!ballWindow.repositionTo(left, anchorY)) return
-        val ballPx = DensityProvider.dp2px(settings.sizeDp)
-        val edgeX = if (left) 0f else {
-            max(0f, (DensityProvider.screenWidthPx - ballPx).toFloat() / DensityProvider.screenWidthPx)
+        if (leftSide == ballWindow.isOnLeft()) return
+        val anchorY = (if (leftSide) settings.leftAnchorY else settings.rightAnchorY) ?: settings.y
+        ballWindow.repositionTo(leftSide, anchorY) {
+            val (px, py) = ballWindow.currentPosition()
+            persistBallPosition(
+                px / DensityProvider.screenWidthPx,
+                py / DensityProvider.screenHeightPx,
+            )
+            // 分身立即换到新对侧：不等落盘回声的话，回声到达前与球短暂同侧。
+            mirrorWindow.crossFadeSwap(settings)
         }
-        persistBallPosition(edgeX, anchorY, manualPark = false)
-    }
-
-    /** 球重新可见时校正到当前持机侧（隐藏期间状态可能已翻转）。 */
-    private fun followHandAfterAttach() {
-        if (!settings.followHand) return
-        val left = handSide.currentLeft ?: return
-        if (left == (settings.x < 0.5f)) return
-        moveBallToHandSide()
     }
 
     /**
-     * 球位置落盘：手动拖动/分身换位/自动挪球共用，顺带记忆该侧高度锚点。
-     * 手动停靠侧是持机侧确证（用户亲手放的位置）：采用并清空票池；自动挪球只落盘，
-     * 促成切换的选票留在池里，继续稀释切换后的跨手误触。
+     * 球位置落盘：手动拖动/分身换位/跟手挪球共用，顺带记忆该侧高度锚点
+     * （下次跟手换侧落到记忆高度）。
      */
-    private fun persistBallPosition(x: Float, y: Float, manualPark: Boolean) {
+    private fun persistBallPosition(x: Float, y: Float) {
         val left = x < 0.5f
-        if (manualPark) handSide.onManualPark(left)
         settings = settings.copy(
             x = x,
             y = y,

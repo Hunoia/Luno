@@ -31,7 +31,7 @@ data class FloatBallSettings(
      * 静置多久后变暗缩小。0 = 关闭。
      */
     val idleDimDelayMs: Long = FloatBallDefaults.IdleDimDelayMs,
-    /** 跟随持机手：触钮触发侧翻转时自动把球挪到该侧（试验）。 */
+    /** 跟随持机手：手势碰了哪侧，球就即时移到哪侧（试验）。 */
     val followHand: Boolean = FloatBallDefaults.FollowHand,
     /** 左手侧球高度锚点（归一化 y，手动停靠时记忆）。null = 未记忆。 */
     val leftAnchorY: Float? = null,

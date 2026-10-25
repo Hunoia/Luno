@@ -437,9 +437,10 @@ class GestureCoordinator(
         }
         // 手势触发动作与手势事件进总线是两条独立路径：前者立即执行，后者供自动化规则订阅。
         environmentTracker.onGesturePerformed(sourceButton?.id ?: "", sourceButton?.name.orEmpty())
-        // 触钮手势按物理触点归侧广播（悬浮球跟随持机手用）：球/分身/侧滑的
-        // sourceButton 为 null 天然不参与，球位不反哺判定。
-        if (sourceButton != null && touchPosition.x.isFinite()) {
+        // 真手势（触钮/侧滑/子手势滑动，decision 非空）按物理触点归侧广播：悬浮球碰哪侧
+        // 即时跟到哪侧。面板内点击与球点按的 decision 为 null，天然不参与 —— 点面板部件
+        // 不会拽球，球的位置也不反哺判定。
+        if (decision != null && touchPosition.x.isFinite()) {
             Events.post(
                 TouchButtonSideEvent(
                     leftSide = touchPosition.x < DensityProvider.screenWidthPx / 2f,
