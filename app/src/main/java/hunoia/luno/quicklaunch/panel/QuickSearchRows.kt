@@ -237,10 +237,12 @@ internal fun ResultRow(
         trailing = menu?.let { anchor ->
             {
                 Box {
+                    // 菜单弹出本身就是反馈，三点不再叠一层按压涟漪。
                     LunoIconButton(
                         icon = Icons.Default.MoreVert,
                         contentDescription = stringResource(R.string.more),
                         onClick = onLongClick ?: {},
+                        ripple = false,
                     )
                     anchor()
                 }

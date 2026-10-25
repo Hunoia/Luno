@@ -102,7 +102,7 @@
         <activity
             android:name=".quicklaunch.QuickSearchActivity"
             android:excludeFromRecents="true"
-            android:exported="false"
+            android:exported="true"
             android:launchMode="singleTask"
             android:noHistory="true"
             android:process=":service"

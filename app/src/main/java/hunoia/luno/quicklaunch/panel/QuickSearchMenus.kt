@@ -6,6 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.window.PopupProperties
 import hunoia.luno.R
 import hunoia.luno.quicklaunch.query.SearchAction
 import hunoia.luno.quicklaunch.query.SearchActionLabel
@@ -49,9 +50,13 @@ internal fun ResultActionMenu(
         }
     }
     if (items.isEmpty()) return
+    // 非 focusable popup：弹出时不抢窗口焦点，键盘保持打开、锚点不动（默认 focusable
+    // 会顶掉输入框焦点，键盘收起连带 imePadding 塌缩，菜单跟着锚点跳）。外部点击关闭
+    // 走窗口级 ACTION_OUTSIDE，非 focusable 下依然生效；back 由面板层 BackHandler 收口。
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
+        properties = PopupProperties(focusable = false),
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         shape = LargeShape,
         tonalElevation = ElevationSmall,

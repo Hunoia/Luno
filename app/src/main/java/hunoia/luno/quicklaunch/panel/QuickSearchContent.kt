@@ -1,5 +1,6 @@
 package hunoia.luno.quicklaunch.panel
 import android.app.Activity
+import android.os.SystemClock
 import android.util.Log
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -14,7 +15,10 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -68,6 +72,12 @@ private data class SearchPacket(
     val results: List<SearchResult>,
     val directive: Boolean,
 )
+
+/** 被 ACTION_OUTSIDE 收起的菜单快照：用于吞掉同一次点击里锚点按钮随后触发的重开。 */
+private data class DismissedMenu(val key: String, val at: Long)
+
+/** 覆盖一次按压 down→up 的时长（含慢速点按），又不至于吞掉刻意的再次点击。 */
+private const val MENU_REOPEN_SUPPRESS_MS = 400L
 
 /** 首屏图标预热上限：只解码当前可能露出的前几行，长尾交给列表可见时 Coil 按需加载。 */
 private const val ICON_PREWARM_LIMIT = 24
@@ -324,6 +334,20 @@ internal fun QuickSearchContent(
             onSaveDraft(query.text)
         }
     }
+    // 菜单 popup 非 focusable（见 ResultActionMenu）：收不到 back、也不随键盘联动，这两处收口。
+    // 键盘 inset 一开始收缩就先收菜单：键盘收起（返回键/下滑收键盘）会让 imePadding 塌缩、
+    // 锚点下移，菜单必须赶在布局移动前消失，否则又是跳动。previousIme 挡掉开场键盘还没弹出
+    // （inset 恒 0）时对刚打开菜单的误清。
+    val imeInsets = WindowInsets.ime
+    val imeDensity = LocalDensity.current
+    LaunchedEffect(imeInsets, imeDensity) {
+        var previousIme = 0
+        snapshotFlow { imeInsets.getBottom(imeDensity) }.collect { ime ->
+            if (menuResult != null && ime < previousIme) menuResult = null
+            previousIme = ime
+        }
+    }
+    BackHandler(enabled = menuResult != null && !closing) { menuResult = null }
     // 空态常用应用：放在条件分支外，面板生命周期内只跑一次 —— 写进分支里的话分支一退出
     // 就取消，来回切 query 会反复重启 IO。
     var topUsedApps by remember { mutableStateOf(emptyList<SearchResult>()) }
@@ -351,7 +375,21 @@ internal fun QuickSearchContent(
     }
     // 退场中吞掉行点击：requestClose 幂等但 dispatch 不是，守一层。
     val safeResult: (SearchResult, String) -> Unit = { r, q -> if (!closing) onResult(r, q) }
-    val safeMenuOpen: (SearchResult) -> Unit = { result -> if (!closing) menuResult = result }
+    // 菜单 popup 非 focusable 后，锚点按钮上的一次点击 = down 时 ACTION_OUTSIDE 先收菜单、
+    // up 时按钮 onClick 再开菜单，表现为"点三点永远重新打开而不是关闭"。记录刚被外部
+    // 点击收起的 key + 时间戳，窗口期内同 key 的打开请求吞掉（三点即成开关）；换行/长按
+    // 打开不受影响。一次性：任何打开尝试都会消费掉这条记录。
+    var menuDismissal by remember { mutableStateOf<DismissedMenu?>(null) }
+    val safeMenuOpen: (SearchResult) -> Unit = { result ->
+        if (!closing) {
+            val dismissal = menuDismissal
+            val suppress = dismissal != null &&
+                dismissal.key == result.key &&
+                SystemClock.uptimeMillis() - dismissal.at < MENU_REOPEN_SUPPRESS_MS
+            menuDismissal = null
+            if (!suppress) menuResult = result
+        }
+    }
     // 结果菜单动作收口：先收菜单；ShowEngines 转引擎选择（引擎结果的动作里内嵌它），其余上抛。
     val handleResultAction: (SearchAction, String) -> Unit = { action, q ->
         menuResult = null
@@ -361,7 +399,10 @@ internal fun QuickSearchContent(
             onAction(action, q)
         }
     }
-    val onMenuDismiss: () -> Unit = { menuResult = null }
+    val onMenuDismiss: () -> Unit = {
+        menuResult?.let { menuDismissal = DismissedMenu(it.key, SystemClock.uptimeMillis()) }
+        menuResult = null
+    }
     // 当前 query 的结果级 Pin key 集（trim+lowercase，与索引层同口径）。
     val resultPinnedKeys = remember(searchSettings.pinnedResults, query.text) {
         searchSettings.pinnedResults[normalizePinQuery(query.text.trim())].orEmpty().toSet()
