@@ -45,12 +45,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import hunoia.luno.R
 import hunoia.luno.bridge.ui.showToast
-import hunoia.luno.ui.settings.action.MiniWindowAdjustContent
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.action.controller.ShellController
 import hunoia.luno.action.controller.ShellResult
@@ -59,8 +56,6 @@ import hunoia.luno.action.model.PARAM_X_DP
 import hunoia.luno.action.model.PARAM_Y_DP
 import hunoia.luno.action.model.POINT_PARAM_KEYS
 import hunoia.luno.action.model.USE_TRIGGER_POINT_KEY
-import hunoia.luno.config.model.MiniWindowSettings
-import hunoia.luno.config.model.toMiniWindowSettings
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.query.ActivityOption
 import hunoia.luno.ui.component.sheet.AppPickerSheet
@@ -70,9 +65,7 @@ import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.core.AppContext
 import hunoia.luno.service.DispatchClient
 import hunoia.luno.shizuku.ShizukuFacade
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -101,8 +94,6 @@ fun ActionLibraryEditScreen(
     val state by vm.uiState.collectAsState()
     var showAppPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
     var showActivityPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
-    var showAppMultiPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
-    var showMiniWindowPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showDiscardConfirm by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -240,40 +231,6 @@ fun ActionLibraryEditScreen(
                     },
                 )
             }
-            showAppMultiPicker?.let { paramDef ->
-                val multiSelected = draft?.params?.get(paramDef.key)?.jsonArray?.mapNotNull {
-                    it.jsonPrimitive?.contentOrNull
-                } ?: emptyList()
-                AppPickerSheet(
-                    onDismissRequest = { showAppMultiPicker = null },
-                    selectedPackageNames = multiSelected,
-                    onConfirm = { selected ->
-                        vm.updateParamMulti(paramDef.key, selected)
-                        showAppMultiPicker = null
-                    },
-                )
-            }
-            showMiniWindowPicker?.let { paramDef ->
-                // 全屏对话框而不是另开路由：结果要回填给当前编辑中的动作，
-                // 走路由就得跨 nav entry 传参，这里就地拿到 vm 最直接。
-                val initial = draft?.params?.get(paramDef.key)?.toMiniWindowSettings() ?: MiniWindowSettings()
-                Dialog(
-                    onDismissRequest = { showMiniWindowPicker = null },
-                    properties = DialogProperties(
-                        usePlatformDefaultWidth = false,
-                        decorFitsSystemWindows = false,
-                    ),
-                ) {
-                    MiniWindowAdjustContent(
-                        initial = initial,
-                        onCommit = { result ->
-                            vm.updateParamMiniWindow(paramDef.key, result)
-                            showMiniWindowPicker = null
-                        },
-                        onCancel = { showMiniWindowPicker = null },
-                    )
-                }
-            }
             showActivityPicker?.let { paramDef ->
                 val activityDef = paramDef as? ParameterDefinition.ActivitySelector ?: return@let
                 ActivityPickerSheet(
@@ -326,8 +283,6 @@ if (cardParams.isNotEmpty()) {
                                         onParamChange = vm::updateParam,
                                         onParamElementChange = vm::updateParamElement,
                                         onPickApp = { showAppPicker = paramDef },
-                                        onPickApps = { showAppMultiPicker = paramDef },
-                                        onPickMiniWindow = { showMiniWindowPicker = paramDef },
                                         onPickActivity = { _, _ -> showActivityPicker = paramDef },
                                         shape = segmentedShape(i, cardParams.size),
                                     )
@@ -374,8 +329,6 @@ if (cardParams.isNotEmpty()) {
                                 onParamChange = vm::updateParam,
                                 onParamElementChange = vm::updateParamElement,
                                 onPickApp = { showAppPicker = paramDef },
-                                onPickApps = { showAppMultiPicker = paramDef },
-                                onPickMiniWindow = { showMiniWindowPicker = paramDef },
                                 onPickActivity = { _, _ -> showActivityPicker = paramDef },
                             )
                         }
