@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.mapLatest
@@ -213,8 +214,9 @@ internal fun QuickSearchContent(
     val searchInputs = remember(searchSettings) { SearchInputs.of(searchSettings) }
     // 引擎/开关匹配只吃这两个（SearchInputs 已含其余），拼回完整设置只为沿用旧签名。
     val effectiveSearchSettings = remember(searchInputs) { searchInputs.toSettings() }
-    // 启动频率/最近启动变了不必重建流：排序分是搜索时现算的，下一次搜索自然带上新值。
-    // 所以这里只把 usage 当搜索输入，不把整套启动器布局设置带进快照。
+    // 启动统计是搜索输入但不重建流：用 rememberUpdatedState 包一层，由块内 snapshotFlow
+    // 读取，统计变了会自动重发一次快照，下一次搜索自然带上新分，不用重建整条管道。
+    val usageState = rememberUpdatedState(usageStats)
     // 应用索引版本：普通 @Volatile 字段 Compose 看不见，必须经 StateFlow 收集。
     val indexVersion by index.indexVersion.collectAsState()
     // dataVersion：数据源 tick / 索引版本，任一变化就重建搜索流并重搜一次。
@@ -222,13 +224,14 @@ internal fun QuickSearchContent(
     val dataVersion = ticks.contactsTick + ticks.mediaTick + ticks.calendarTick +
         ticks.smsTick + ticks.callsTick + indexVersion + ticks.permCacheTick
     val searchFlow = remember(
-        appCtx, iconPx, searchInputs, effectiveSearchSettings, dataVersion, torchOn, usageStats,
+        appCtx, iconPx, searchInputs, effectiveSearchSettings, dataVersion, torchOn,
     ) {
         snapshotFlow {
             // 块内只读快照里没装但会影响结果的 State：query（打字即时触发）、
-            // entries（动作库条目参与匹配）；tick 已由 remember 的 key 带进闭包。
+            // entries（动作库条目参与匹配）、usage（启动统计影响使用分）；
+            // tick 已由 remember 的 key 带进闭包。
             SearchSnapshot(
-                query.text, entries, usageStats, effectiveSearchSettings,
+                query.text, entries, usageState.value, effectiveSearchSettings,
                 0, 0, 0, 0, 0, torchOn,
             )
         }.mapLatest { s ->

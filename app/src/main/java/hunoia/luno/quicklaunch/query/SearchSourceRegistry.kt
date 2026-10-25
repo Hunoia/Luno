@@ -48,7 +48,10 @@ internal object SearchSourceRegistry {
         @StringRes titleRes: Int,
         enabled: (QuickSearchSettings) -> Boolean = { true },
         match: (SearchContext) -> List<RankedHit>,
-        bare: (SearchContext) -> List<QuickSearchResult>?,
+        // 默认裸标识列表就是本来源的近项列表：key 由 source() 注入，避免每个来源手抄 SRC_X。
+        bare: (SearchContext) -> List<QuickSearchResult>? = { c ->
+            c.index.bareSource(key, c.usage, c.settings)
+        },
     ) = SearchSource(
         key = key,
         titleRes = titleRes,
@@ -63,7 +66,6 @@ internal object SearchSourceRegistry {
             R.string.quick_search_group_apps,
             enabled = { it.searchApps },
             match = { c -> c.index.matchApps(c.plan, c.usage, c.now) },
-            bare = { c -> c.index.bareSource(SRC_APP, c.usage, c.settings) },
         ),
         source(
             SRC_SHORTCUT,
@@ -75,7 +77,6 @@ internal object SearchSourceRegistry {
                     c.index.pkgScores(c.usage, c.now),
                 )
             },
-            bare = { c -> c.index.bareSource(SRC_SHORTCUT, c.usage, c.settings) },
         ),
         source(
             SRC_ACTION,
@@ -85,14 +86,12 @@ internal object SearchSourceRegistry {
                 c.index.matchActions(c.plan) +
                     c.index.matchLibrary(c.libraryEntries, c.plan)
             },
-            bare = { c -> c.index.bareSource(SRC_ACTION, c.usage, c.settings) },
         ),
         source(
             SRC_SETTINGS,
             R.string.quick_search_group_settings,
             enabled = { it.searchSettingsPages },
             match = { c -> c.index.matchSettingsPages(c.plan) },
-            bare = { c -> c.index.bareSource(SRC_SETTINGS, c.usage, c.settings) },
         ),
         source(
             SRC_CONTACT,
@@ -101,14 +100,12 @@ internal object SearchSourceRegistry {
             match = { c ->
                 c.index.matchContacts(c.plan, c.settings)
             },
-            bare = { c -> c.index.bareSource(SRC_CONTACT, c.usage, c.settings) },
         ),
         source(
             SRC_MUSIC,
             R.string.quick_search_music,
             enabled = { it.searchMusic },
             match = { c -> c.index.matchTracks(c.plan, c.settings) },
-            bare = { c -> c.index.bareSource(SRC_MUSIC, c.usage, c.settings) },
         ),
         source(
             SRC_FILE,
@@ -118,42 +115,36 @@ internal object SearchSourceRegistry {
                 c.index.matchGallery(c.plan, c.settings) +
                     c.index.matchDocs(c.plan, c.settings)
             },
-            bare = { c -> c.index.bareSource(SRC_FILE, c.usage, c.settings) },
         ),
         source(
             SRC_CALENDAR,
             R.string.quick_search_calendar,
             enabled = { it.searchCalendar },
             match = { c -> c.index.matchCalendar(c.plan, c.settings) },
-            bare = { c -> c.index.bareSource(SRC_CALENDAR, c.usage, c.settings) },
         ),
         source(
             SRC_SMS,
             R.string.quick_search_sms,
             enabled = { it.searchSms },
             match = { c -> c.index.matchSms(c.plan, c.settings) },
-            bare = { c -> c.index.bareSource(SRC_SMS, c.usage, c.settings) },
         ),
         source(
             SRC_CALL,
             R.string.quick_search_calls,
             enabled = { it.searchCalls },
             match = { c -> c.index.matchCalls(c.plan, c.settings) },
-            bare = { c -> c.index.bareSource(SRC_CALL, c.usage, c.settings) },
         ),
         source(
             SRC_TOGGLE,
             R.string.quick_search_toggles,
             enabled = { it.searchToggles },
             match = { c -> c.index.matchToggles(c.plan, c.settings) },
-            bare = { c -> c.index.bareSource(SRC_TOGGLE, c.usage, c.settings) },
         ),
         source(
             SRC_CLIP,
             R.string.quick_search_clipboard,
             enabled = { it.searchClipboard },
             match = { c -> c.index.matchClips(c.plan, c.settings) },
-            bare = { c -> c.index.bareSource(SRC_CLIP, c.usage, c.settings) },
         ),
     )
 

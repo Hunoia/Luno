@@ -23,6 +23,7 @@ data class AppUsageStats(
 /**
  * 纯函数记录：成功启动后调用。
  * - 同一包名 [minIntervalMs] 内的重复事件只记一次，避免双击/转发造成虚高；
+ *   被去抖的那次不改次数/时间，但仍记最新来源（诊断字段不参与排序）；
  * - 只保留最近 [maxHistory] 个包名，计数同步裁掉窗口外的键。
  */
 internal fun AppUsageStats.recordLaunch(
@@ -34,7 +35,12 @@ internal fun AppUsageStats.recordLaunch(
 ): AppUsageStats {
     if (packageName.isBlank()) return this
     val last = recentLaunchTime[packageName] ?: 0L
-    if (last > 0L && now - last < minIntervalMs) return this
+    // now < last（时钟回拨）不当作去抖窗口，否则该包要等时钟追上来才能再计。
+    val debounced = last > 0L && now >= last && now - last < minIntervalMs
+    if (debounced) {
+        if (lastSource[packageName] == source) return this
+        return copy(lastSource = lastSource + (packageName to source))
+    }
 
     val recent = recentLaunchTime + (packageName to now)
     val trimmedRecent = if (recent.size > maxHistory) {

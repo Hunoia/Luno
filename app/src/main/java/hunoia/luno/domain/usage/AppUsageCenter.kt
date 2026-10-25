@@ -1,8 +1,8 @@
 package hunoia.luno.domain.usage
 
-import hunoia.luno.App
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.AppLaunchSource
+import hunoia.luno.core.AppContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -14,7 +14,8 @@ object AppUsageCenter {
 
     fun recordLaunch(packageName: String, source: AppLaunchSource = AppLaunchSource.UNKNOWN) {
         if (packageName.isBlank()) return
-        App.applicationScope.launch(Dispatchers.IO) {
+        val scope = AppContext.applicationScope ?: return
+        scope.launch(Dispatchers.IO) {
             runCatching { ConfigProvider.recordAppLaunch(packageName, source) }
         }
     }

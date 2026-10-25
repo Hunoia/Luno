@@ -5,7 +5,7 @@ import androidx.collection.LruCache
 import coil.request.ImageRequest
 import hunoia.luno.config.model.OpenAppOrUrlData
 import hunoia.luno.config.model.AppLaunchSource
-import hunoia.luno.domain.usage.AppLaunchCoordinator
+import hunoia.luno.quicklaunch.launch.AppLaunchCoordinator
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.quicklaunch.query.AppQuery

@@ -23,6 +23,9 @@ data class SearchResults(
 /**
  * 展示层入口：一次完成匹配 → 旧模型适配 → Pin 排序。
  * 必须在后台线程调用，UI 只消费结果。
+ *
+ * [isActive] 返回 false 时抛 [kotlinx.coroutines.CancellationException]（协作式取消），
+ * 调用方需保证在协程内且不再执行后续逻辑。
  */
 fun QuickSearchIndex.searchOutcome(
     query: String,

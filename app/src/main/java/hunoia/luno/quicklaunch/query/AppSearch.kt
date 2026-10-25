@@ -87,8 +87,8 @@ object AppSearch {
         override val tier: Int,
         override val offset: Int,
         override val usage: Double,
-        override val title: String,
-        override val titleLen: Int,
+        override val sortTitle: String,
+        override val sortTitleLen: Int,
     ) : RankedResult
 
     // 索引常驻（总量被各源 cap 封顶）：打字只查不建，houbb 调用只发生在 IO 线程的预热期。

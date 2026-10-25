@@ -26,11 +26,15 @@ import kotlinx.coroutines.CancellationException
 /** 裸标识列出该类近项的上限（应用走常用 8，不用这个）。 */
 private const val BARE_LIST_LIMIT = 20
 
-/** 单来源命中上限：全局排序只可能取到各来源前若干名，先截断避免大表全量进内存。 */
-private const val MAX_HITS_PER_SOURCE = 50
-
 /** 全源合并后的展示上限；当前 query 的 Pin 结果旁路保留，不占这个名额。 */
-private const val MAX_TOTAL_RESULTS = 200
+internal const val MAX_TOTAL_RESULTS = 200
+
+/**
+ * 单来源命中上限。必须 >= [MAX_TOTAL_RESULTS]：全局榜只有 200 个位置，
+ * 一个来源最多占满全榜，取到第 200 名之后的单源命中永远不可能进全局榜。
+ * 这样截断纯粹是内存上界，不改变结果集。
+ */
+internal const val MAX_HITS_PER_SOURCE = MAX_TOTAL_RESULTS
 
     /** 把 query 拆成单字 token（只保留字母数字），复用 AppSearch 拼音引擎。 */
 private fun QuickSearchIndex.tokenize(s: String): List<String> =
@@ -90,9 +94,7 @@ fun QuickSearchIndex.search(
         val foldedTokens = tokenize(AppSearch.foldPinyin(query))
         val now = System.currentTimeMillis()
         val plan = AppSearch.queryPlan(tokens, foldedTokens)
-        val pinnedKeys = searchSettings.pinnedResults[
-            normalizePinQuery(query)
-        ].orEmpty().toSet()
+        val pinnedKeys = searchSettings.pinnedKeyList(query).toSet()
 
         val context = SearchContext(
             index = this,
@@ -115,35 +117,39 @@ fun QuickSearchIndex.search(
         val urlResult = urlResult(query)
         if (urlResult != null) results.add(RankedHit(urlResult, 3, 0, 0, 0.0))
 
-        // 搜索引擎兜底：tier -1 进同一管线自然垫底（不再追加特例）。
-        // 只有非 URL 关键词才有；标识直达优先选引擎（如 bb 新闻），否则默认引擎。
-        // 一个引擎都没有时不出引擎行（回车只剩内容源结果）。
-        if (urlResult == null) {
-            engineTriple(query.trim(), engines)?.let { results.add(it) }
-        }
-
         val sorted = sortTriples(capHits(results, MAX_TOTAL_RESULTS, pinnedKeys))
 
-        // 计算器排表头（精确意图，回车直达）；引擎兜底已由 engineTriple 进管线垫底，不二次计算。
+        // 引擎兜底行不进 [capHits]：它恒为 tier -1，满榜时会被裁掉。固定垫底，
+        // 保证任何查询都能回车直接搜。只有非 URL 关键词才有；标识直达优先选引擎，
+        // 否则默认引擎；一个引擎都没有时不出引擎行（回车只剩内容源结果）。
+        val withEngine = if (urlResult == null) {
+            engineTriple(query.trim(), engines)?.let { sorted + it.result } ?: sorted
+        } else {
+            sorted
+        }
+
+        // 计算器排表头（精确意图，回车直达）；引擎行永远最后，不二次计算。
         val calc = calculatorResult(query.trim())
-        val finalResults = if (calc != null) listOf<QuickSearchResult>(calc) + sorted else sorted
+        val finalResults = if (calc != null) listOf<QuickSearchResult>(calc) + withEngine else withEngine
         return SearchOutcome(finalResults, directive = false)
     }
 
-    /** 排序单元：结果 + 档位 + 紧密度 + 使用分；title 在构造时取一次，避免排序比较器反复调 getter。 */
+    /** 排序单元：结果 + 档位 + 紧密度 + 使用分；排序串在构造时取一次，避免比较器反复调 getter。 */
 internal data class RankedHit(
     val result: QuickSearchResult,
     override val tier: Int,
     val span: Int,
     override val offset: Int,
     override val usage: Double,
-    override val title: String = result.title,
-    override val titleLen: Int = title.length,
+    override val sortTitle: String = result.title,
+    override val sortTitleLen: Int = sortTitle.length,
 ) : RankedResult
 
 /**
  * 有界取优：未 Pin 的命中按统一排序保留前 [limit] 条，Pin 命中旁路全留。
- * 先用小顶堆筛，避免单字母查询把几千条命中全排一遍；Pin 只在当前 query 有固定项时才算 key。
+ * 先用小顶堆筛，避免单字母查询把几千条命中全排一遍。
+ * Pin 口径与展示层 [applyResultPins] 一致：都用 [QuickSearchSettings.pinnedKeyList]
+ * 截断后的 key，且只对允许 Pin 的结果生效。
  */
 internal fun capHits(
     hits: List<RankedHit>,
@@ -153,13 +159,12 @@ internal fun capHits(
     if (hits.isEmpty()) return hits
     if (pinnedKeys.isEmpty() && hits.size <= limit) return hits
 
-    val pinned = if (pinnedKeys.isEmpty()) {
-        emptyList()
-    } else {
-        hits.filter { it.result.stableId() in pinnedKeys }
-    }
+    fun isPinned(hit: RankedHit) =
+        hit.result.isResultPinAllowed() && hit.result.stableId() in pinnedKeys
+
+    val pinned = if (pinnedKeys.isEmpty()) emptyList() else hits.filter(::isPinned)
     val keepLimit = limit.coerceAtLeast(0)
-    val unpinned = if (pinnedKeys.isEmpty()) hits else hits.filter { it.result.stableId() !in pinnedKeys }
+    val unpinned = if (pinnedKeys.isEmpty()) hits else hits.filterNot(::isPinned)
     val top = when {
         keepLimit == 0 -> emptyList()
         unpinned.size <= keepLimit -> unpinned

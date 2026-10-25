@@ -21,7 +21,7 @@ import hunoia.luno.core.AppContext
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.domain.search.SearchCenter
-import hunoia.luno.domain.usage.AppLaunchCoordinator
+import hunoia.luno.quicklaunch.launch.AppLaunchCoordinator
 import hunoia.luno.quicklaunch.launch.DisabledPackageEnabler
 import hunoia.luno.quicklaunch.panel.QuickAppLauncherRoot
 import hunoia.luno.quicklaunch.panel.QuickAppLauncherState
