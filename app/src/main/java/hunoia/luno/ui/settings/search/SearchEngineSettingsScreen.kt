@@ -13,6 +13,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,6 +36,7 @@ import hunoia.luno.bridge.system.readClipboardText
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.domain.search.SearchCenter
+import hunoia.luno.config.model.QuickSearchListStyle
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.SearchLaunch
@@ -285,14 +290,36 @@ fun SearchEngineSettingsScreen(
             }
         }
         item(key = "gap-general") { GroupGap() }
-        // 通用组：内容源入口 + 输入行为开关。
+        // 通用组：内容源入口 + 列表样式 + 输入行为开关。
         item(key = "general") {
             LunoGroup(title = stringResource(R.string.search_general_group)) {
                 LunoSettingsRow(
                     title = stringResource(R.string.search_source_settings),
                     trailing = { ArrowHint() },
-                    shape = segmentedShape(0, 2),
+                    shape = segmentedShape(0, 3),
                     onClick = onNavToSources,
+                )
+                LunoSettingsRow(
+                    title = stringResource(R.string.search_list_style),
+                    shape = segmentedShape(1, 3),
+                    trailing = {
+                        SingleChoiceSegmentedButtonRow {
+                            SegmentedButton(
+                                selected = settings.listStyle == QuickSearchListStyle.Flat,
+                                onClick = { update { it.copy(listStyle = QuickSearchListStyle.Flat) } },
+                                shape = SegmentedButtonDefaults.itemShape(count = 2, index = 0),
+                            ) {
+                                Text(stringResource(R.string.search_list_style_flat), maxLines = 1)
+                            }
+                            SegmentedButton(
+                                selected = settings.listStyle == QuickSearchListStyle.GroupedCards,
+                                onClick = { update { it.copy(listStyle = QuickSearchListStyle.GroupedCards) } },
+                                shape = SegmentedButtonDefaults.itemShape(count = 2, index = 1),
+                            ) {
+                                Text(stringResource(R.string.search_list_style_cards), maxLines = 1)
+                            }
+                        }
+                    },
                 )
                 LunoSwitchRow(
                     title = stringResource(R.string.search_ascii_enter),
@@ -301,7 +328,7 @@ fun SearchEngineSettingsScreen(
                     onCheckedChange = { v ->
                         update { it.copy(asciiEnterSearch = v) }
                     },
-                    shape = segmentedShape(1, 2),
+                    shape = segmentedShape(2, 3),
                 )
             }
         }

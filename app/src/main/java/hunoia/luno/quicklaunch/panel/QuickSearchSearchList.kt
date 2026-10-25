@@ -16,6 +16,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import hunoia.luno.quicklaunch.query.SearchAction
 import hunoia.luno.quicklaunch.query.SearchResult
+import hunoia.luno.config.model.QuickSearchListStyle
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SegmentedGap
@@ -32,6 +33,7 @@ internal fun QuickSearchSearchList(
     queryText: String,
     menuResult: SearchResult?,
     resultPinnedKeys: Set<String>,
+    listStyle: QuickSearchListStyle = QuickSearchListStyle.Flat,
     onQueryChange: (TextFieldValue) -> Unit,
     onResultClick: (SearchResult, String) -> Unit,
     onMenuOpen: (SearchResult) -> Unit,
@@ -42,6 +44,26 @@ internal fun QuickSearchSearchList(
     onDeleteHistory: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (listStyle == QuickSearchListStyle.GroupedCards) {
+        QuickSearchGroupedCards(
+            results = results,
+            matches = matches,
+            queryText = queryText,
+            menuResult = menuResult,
+            resultPinnedKeys = resultPinnedKeys,
+            pinnedSet = pinnedSet,
+            onQueryChange = onQueryChange,
+            onResultClick = onResultClick,
+            onMenuOpen = onMenuOpen,
+            onMenuDismiss = onMenuDismiss,
+            onResultAction = onResultAction,
+            onToggleResultPin = onToggleResultPin,
+            onTogglePin = onTogglePin,
+            onDeleteHistory = onDeleteHistory,
+            modifier = modifier,
+        )
+        return
+    }
     val total = matches.size + results.size
     // 反转列表内容超高时会把首项顶出可视区：受控滚动，内容一变钉回第 0 项。
     // 触发用内容签名而非 total：按数量滚会拽回用户上滑看的结果。

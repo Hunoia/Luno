@@ -700,6 +700,13 @@
     <string name="search_general_group">通用</string>
     <string name="search_ascii_enter">英文键盘</string>
     <string name="search_ascii_enter_subtitle">输入法锁定英文，回车直接搜索</string>
+    <string name="search_list_style">列表样式</string>
+    <string name="search_list_style_flat">平铺</string>
+    <string name="search_list_style_cards">大卡片</string>
+    <string name="search_card_history">搜索历史</string>
+    <string name="search_card_calculator">计算器</string>
+    <string name="search_card_url">链接</string>
+    <string name="search_card_engine">搜索引擎</string>
     <string name="quick_search_clear">清空</string>
     <string name="search_import_confirm_title">确认导入</string>
     <string name="search_import_confirm_text">将导入 %1$d 个引擎，其中 %2$d 个标识与现有重复，导入后将清空其标识</string>

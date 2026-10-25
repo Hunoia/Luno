@@ -97,7 +97,7 @@ private class FadeNode(
 }
 /** 搜索行半透明底色：透出窗口背后的系统模糊，不支持模糊的设备直接呈现半透明。 */
 @Composable
-private fun searchRowContainer(): ComposeColor =
+internal fun searchRowContainer(): ComposeColor =
     MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.65f)
 @Composable
 private fun searchRowSelectedContainer(): ComposeColor =

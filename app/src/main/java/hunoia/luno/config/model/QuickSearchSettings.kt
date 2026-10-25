@@ -27,6 +27,9 @@ data class SearchEngine(
     val iconText: String = "",
 )
 
+/** 搜索结果列表样式：Flat=现行平铺缝合行；GroupedCards=按内容源分组的大卡片（卡内横向列表）。 */
+enum class QuickSearchListStyle { Flat, GroupedCards }
+
 @Serializable
 @Keep
 data class QuickSearchSettings(
@@ -82,6 +85,8 @@ data class QuickSearchSettings(
      * 关 = 中文输入法可用，回车交给输入法，确认走右侧按钮/引擎条。
      */
     val asciiEnterSearch: Boolean = true,
+    /** 结果列表样式；纯展示字段，不入归一化（改样式不该触发重搜）。 */
+    val listStyle: QuickSearchListStyle = QuickSearchListStyle.Flat,
 )
 
 /** 历史缓存上限；空输入只展最近 [BLANK_RECENT_LIMIT] 条，搜索时匹配的全部参展。 */

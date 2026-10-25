@@ -437,6 +437,7 @@ internal fun QuickSearchContent(
                     queryText = query.text,
                     menuResult = menuResult,
                     resultPinnedKeys = resultPinnedKeys,
+                    listStyle = searchSettings.listStyle,
                     onQueryChange = { query = it },
                     onResultClick = safeResult,
                     onMenuOpen = safeMenuOpen,
