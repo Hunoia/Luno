@@ -68,12 +68,16 @@ import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 import hunoia.luno.core.LOG_TAG
 
 /** 冷启动/悬浮窗重建期间容器的面板列表未灌满时，揭示事件的等待重试参数。 */
 private const val BALL_PANEL_REVEAL_MAX_ATTEMPTS = 40
+
+/** 键盘在屏期间的短轮询间隔：捕捉没有 a11y 事件的 IME 收起（如返回键/手势）。 */
+private const val KEYBOARD_WATCH_MS = 600L
 private val BALL_PANEL_REVEAL_RETRY_MS = 250.milliseconds
 
 class GestureCoordinator(
@@ -88,10 +92,12 @@ class GestureCoordinator(
                 android.view.accessibility.AccessibilityNodeInfo.FOCUS_INPUT
             )
         },
-        onKeyboardStateChanged = { active ->
-            if (BuildConfig.DEBUG) Log.i(LOG_TAG, "keyboard active=$active")
-            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.KEYBOARD))
+        // 键盘状态以真实 IME 窗口为准；拿不到窗口列表（null）时追踪器退回焦点兜底。
+        imeWindowVisible = {
+            runCatching { host.accessibilityService.windows }.getOrNull()
+                ?.any { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD }
         },
+        onKeyboardStateChanged = { active -> onKeyboardStateChanged(active) },
     )
 
     init {
@@ -107,6 +113,9 @@ class GestureCoordinator(
     val buttonWindowController = ButtonWindowController(host.context)
     val transientOverlayController = TransientOverlayController(host.context)
     private var refreshJob: Job? = null
+
+    /** 键盘在屏期间的可见性短轮询：IME 可能无 a11y 事件地消失，只靠事件会一直停在「弹出」。 */
+    private var keyboardWatchJob: Job? = null
     /** 待评估事件键累积：100ms 窗口内多次 refresh 取并集一次评估，否则后到的 keyed 评估会顶掉通用评估。 */
     private val pendingAutomationKeys = mutableSetOf<String>()
 
@@ -610,6 +619,28 @@ class GestureCoordinator(
         widgetLaunchDeadline = 0L
     }
 
+    private fun onKeyboardStateChanged(active: Boolean) {
+        if (BuildConfig.DEBUG) Log.i(LOG_TAG, "keyboard active=$active")
+        refreshGestureButtons(automationKeys = setOf(AutomationEventKey.KEYBOARD))
+        if (active) startKeyboardWatch() else stopKeyboardWatch()
+    }
+
+    private fun startKeyboardWatch() {
+        if (keyboardWatchJob?.isActive == true) return
+        keyboardWatchJob = host.coroutineScope.launch {
+            while (isActive) {
+                delay(KEYBOARD_WATCH_MS)
+                environmentTracker.pollKeyboardVisibility()
+                if (!environmentTracker.isKeyboardInputActive) break
+            }
+        }
+    }
+
+    private fun stopKeyboardWatch() {
+        keyboardWatchJob?.cancel()
+        keyboardWatchJob = null
+    }
+
     fun onSetOverlay() {
         if (started) return
         started = true
@@ -809,6 +840,7 @@ class GestureCoordinator(
         if (BuildConfig.DEBUG) Log.i(LOG_TAG, "GestureCoordinator destroy")
         hunoia.luno.gridpanel.widget.PanelAppWidgetHostView.setTapListener(null)
         stopWidgetLaunchPoll()
+        stopKeyboardWatch()
         hunoia.luno.core.Events.unsubscribe(
             hunoia.luno.action.dispatcher.GestureDispatchEvent::class,
             gestureDispatchSubscriber,

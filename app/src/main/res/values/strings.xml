@@ -480,7 +480,7 @@
     <string name="condition_foreground_app">前台应用</string>
     <string name="condition_screen">屏幕状态</string>
     <string name="condition_portrait">竖屏</string>
-    <string name="condition_keyboard_input">键盘弹出（使用中）</string>
+    <string name="condition_keyboard_input">键盘已弹出</string>
     <string name="condition_charging">充电中</string>
     <string name="condition_time_range">时间段</string>
     <string name="condition_logic_group">组合条件</string>
