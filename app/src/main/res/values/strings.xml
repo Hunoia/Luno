@@ -763,6 +763,19 @@
     <string name="search_engine_invalid_hint">引擎信息不完整，请补全标红项</string>
     <string name="more">更多</string>
 
+    <!-- 识屏取链 -->
+    <string name="screen_links_title">屏幕上的链接</string>
+    <string name="screen_links_scanning">正在扫描屏幕…</string>
+    <string name="screen_links_count">%1$d 条</string>
+    <string name="screen_links_empty">屏幕上没有识别到链接</string>
+    <string name="screen_links_target">发往 %1$s</string>
+    <string name="screen_links_no_target">未匹配规则</string>
+    <string name="screen_links_copy">复制链接</string>
+    <string name="screen_links_copied">已复制链接</string>
+    <string name="screen_links_close">关闭</string>
+    <string name="screen_links_disabled">请先在动作设置里启用链接分发</string>
+    <string name="screen_links_unavailable">操作失败，请重试</string>
+
     <!-- 链接分发 -->
     <string name="link_dispatch">链接分发</string>
     <string name="link_dispatch_hint">按规则把链接送进指定应用</string>

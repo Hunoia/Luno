@@ -63,6 +63,15 @@ object GridPanelOverlay : OverlayPanelHost(
      *  拉起应用的事件都会被吞掉（表现为部分部件点击后面板不关闭）。 */
     private var suppressForegroundCloseUntil = 0L
 
+    /**
+     * 外部被动收面板（识屏取链这类「要先看见屏幕」的动作）：走同一条退场动画，
+     * 淡出结束后才发 PanelDismissedEvent —— 调用方等事件即可确认已真正退场。
+     */
+    fun dismissNow() {
+        if (!shownEventPosted) return
+        (closeAnimated ?: { closeImmediate() }).invoke()
+    }
+
     /** 返回键：优先让组合消费（编辑态退编辑），否则播退场动画关闭。 */
     fun dismissFromBack(): Boolean {
         if (!shownEventPosted) return false

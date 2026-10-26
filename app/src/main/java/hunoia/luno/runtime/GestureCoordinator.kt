@@ -486,6 +486,14 @@ class GestureCoordinator(
         }
     }
 
+    /**
+     * 「需要看见底下真实屏幕」的动作前置：先把自家全屏面板收掉。
+     * 网格面板在非「拉起应用」的动作上不会自动关闭，留着会挡住识屏取链的节点扫描。
+     */
+    fun dismissPanelsForScreenAction() {
+        hunoia.luno.gridpanel.GridPanelOverlay.dismissNow()
+    }
+
     /** 手势决策唯一入口：记录后立即分发；仲裁/改写只改这里。 */
     private fun onGestureDecision(
         decision: hunoia.luno.gesture.GestureDecision.Trigger?,

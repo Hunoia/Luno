@@ -106,6 +106,43 @@ class LinkUrlsTest {
     }
 
     @Test
+    fun `bare domains are opt-in`() {
+        val text = "看这个 github.com/Hunoia/Luno 挺好"
+        assertTrue(LinkUrls.extractUrls(text).isEmpty())
+        assertEquals(
+            listOf("https://github.com/Hunoia/Luno"),
+            LinkUrls.extractUrls(text, allowBareDomains = true),
+        )
+    }
+
+    @Test
+    fun `bare domains reject packages files and emails`() {
+        val text = """
+            com.android.chrome
+            photo.jpg
+            user@mail.com
+            v1.2.3
+            github.com/a
+        """.trimIndent()
+        assertEquals(
+            listOf("https://github.com/a"),
+            LinkUrls.extractUrls(text, allowBareDomains = true),
+        )
+    }
+
+    @Test
+    fun `bare domains keep query and dedupe against schemed url`() {
+        assertEquals(
+            listOf("https://taobao.com/item.htm?id=1"),
+            LinkUrls.extractUrls("item 在 taobao.com/item.htm?id=1", allowBareDomains = true),
+        )
+        assertEquals(
+            listOf("https://github.com/a"),
+            LinkUrls.extractUrls("https://github.com/a", allowBareDomains = true),
+        )
+    }
+
+    @Test
     fun `presets are well formed and unique`() {
         val all = hunoia.luno.link.LinkPresets.all
         assertTrue(all.isNotEmpty())

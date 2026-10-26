@@ -23,6 +23,22 @@ object LinkUrls {
     private val urlRegex =
         Regex("""(?i)[a-zA-Z][a-zA-Z0-9+.\-]*://[^\s\u3000\u4e00-\u9fff]+""")
 
+    /**
+     * 不带协议的域名（识屏用）：地址栏、聊天里显示的「github.com/Hunoia/Luno」很常见。
+     * 前后都排除单词字符/`@`/`.`/`/`，避免把 `user@host.com`、包名、路径片段认成链接。
+     */
+    private val bareDomainRegex = Regex(
+        """(?i)(?<![\w@./-])((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+([a-z]{2,24})(?::\d{2,5})?(?:/[^\s\u3000\u4e00-\u9fff<>"']*)?)""",
+    )
+
+    /** 认得出的顶级域（不带协议时用来挡 `.png`/`.apk`/包名之类的假链接）。 */
+    private val KnownTlds = setOf(
+        "com", "cn", "net", "org", "io", "tv", "me", "cc", "co", "app", "dev", "xyz",
+        "info", "top", "site", "vip", "fun", "link", "gov", "edu", "shop", "live", "club",
+        "jp", "hk", "tw", "uk", "de", "us", "ai", "so", "ly", "gg", "to", "fm", "in", "ru",
+        "fr", "kr", "au", "ca", "nl", "se", "no", "fi", "pl", "it", "es", "br", "mx",
+    )
+
     /** 句末/包裹标点：链接常被写在句子里，尾部这些不属于 URL。 */
     private const val TrailingPunctuation = ".,;:!?)]}>\"'、。，；：！？）】》」』…"
 
@@ -31,8 +47,12 @@ object LinkUrls {
 
     private val TemplateVarRegex = Regex("""\{(url|host|path|query|scheme|url_enc|url_dec)\}""")
 
-    /** 从混杂文本里按出现顺序提取链接（去重，最多 [MaxUrls] 条）。 */
-    fun extractUrls(text: String): List<String> {
+    /**
+     * 从混杂文本里按出现顺序提取链接（去重，最多 [MaxUrls] 条）。
+     * [allowBareDomains] = true 时额外收「不带协议」的裸域名（补 `https://`），
+     * 只给识屏用：剪贴板仍要求完整协议，避免把普通文本里的域名误判成链接。
+     */
+    fun extractUrls(text: String, allowBareDomains: Boolean = false): List<String> {
         if (text.isBlank()) return emptyList()
         val out = LinkedHashSet<String>()
         for (hit in urlRegex.findAll(text)) {
@@ -41,7 +61,23 @@ object LinkUrls {
             out += url
             if (out.size >= MaxUrls) break
         }
+        if (allowBareDomains && out.size < MaxUrls) {
+            for (hit in bareDomainRegex.findAll(text)) {
+                val raw = trimTrailing(hit.groupValues[1])
+                if (!looksLikeBareDomain(hit.groupValues[2])) continue
+                val url = "https://$raw"
+                if (!isDispatchable(url)) continue
+                out += url
+                if (out.size >= MaxUrls) break
+            }
+        }
         return out.toList()
+    }
+
+    /** 裸域名的额外闸门：顶级域白名单 + 不能是纯数字/IP + 至少一段标签。 */
+    private fun looksLikeBareDomain(tld: String): Boolean {
+        if (tld.lowercase() !in KnownTlds) return false
+        return true
     }
 
     /** 文本里第一条可分发链接（胶囊/外部打开的单链接快路径）。 */

@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.PowerSettingsNew
@@ -189,6 +190,8 @@ object ActionDefinitions {
             icon = Icons.Default.Screenshot))
         add(ActionDefinition("accessibility.screenPick", "识别屏幕内容", ActionCategory.GESTURE_TOOL, Capability.Accessibility,
             icon = Icons.Default.DocumentScanner))
+        add(ActionDefinition("accessibility.screenLinks", "识屏取链", ActionCategory.GESTURE_TOOL, Capability.Accessibility,
+            icon = Icons.Default.Link))
         add(ActionDefinition("accessibility.splitScreen", "分屏", ActionCategory.UI, Capability.Accessibility,
             icon = Icons.Default.Splitscreen))
         add(ActionDefinition("accessibility.powerButton", "电源菜单", ActionCategory.POWER, Capability.Accessibility,

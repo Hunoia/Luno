@@ -77,6 +77,7 @@ object ActionMapper {
             "accessibility.swipe" -> Action.Swipe(p.enumValue("direction"))
             "accessibility.screenshot" -> Action.Screenshot
             "accessibility.screenPick" -> Action.ScreenPick
+            "accessibility.screenLinks" -> Action.ScreenLinks
             "accessibility.splitScreen" -> Action.SplitScreen
             "accessibility.powerButton" -> Action.PowerButton
             "accessibility.notificationPanel" -> Action.NotificationPanel

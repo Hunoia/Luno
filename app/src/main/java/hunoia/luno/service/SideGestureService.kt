@@ -12,6 +12,7 @@ import hunoia.luno.runtime.GestureCoordinator
 import hunoia.luno.runtime.GestureHost
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
 import hunoia.luno.runtime.overlay.PointPickOverlay
+import hunoia.luno.runtime.overlay.ScreenLinksOverlay
 import hunoia.luno.runtime.overlay.ScreenPickOverlay
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.MainScope
@@ -52,12 +53,21 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     /** 屏幕内容识别拾取窗。与 pointPickOverlay 同规：必须住在无障碍服务这一侧。
      *  非 lazy：构造时就要订阅面板开关事件，否则第一次从面板触发时会错过 Shown。 */
     private val screenPickOverlay = ScreenPickOverlay(this)
+    private val screenLinksOverlay = ScreenLinksOverlay(this)
 
     /** 识别屏幕内容动作入口（动作执行已在 :service 进程直连）。返回是否成功弹起。 */
     fun showScreenPick(): Boolean {
         if (!isDispatchReady()) return false
         // 挂窗是同步的：锁屏/系统拒绝时直接返回失败，动作层才能给出正确结果。
         return screenPickOverlay.show()
+    }
+
+    /** 识屏取链：同样同步挂窗，扫描与分发在 overlay 内部异步完成。 */
+    fun showScreenLinks(): Boolean {
+        if (!isDispatchReady()) return false
+        // 从面板触发时必须先收面板：面板是自家全屏窗，留着就扫不到底下应用的节点。
+        gestureCoordinator.dismissPanelsForScreenAction()
+        return screenLinksOverlay.show()
     }
 
     /**
@@ -131,6 +141,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         pointPickOverlay.close()
         // 拾取窗持有全局面板事件订阅，必须显式退订。
         screenPickOverlay.release()
+        screenLinksOverlay.release()
         coroutineScope.cancel()
     }
 

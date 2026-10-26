@@ -39,7 +39,8 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
         "accessibility.back", "accessibility.home", "accessibility.recents",
         "accessibility.tap", "accessibility.longPress", "accessibility.doubleTap",
         "accessibility.scroll", "accessibility.swipe",
-        "accessibility.screenshot", "accessibility.screenPick", "accessibility.splitScreen",
+        "accessibility.screenshot", "accessibility.screenPick", "accessibility.screenLinks",
+        "accessibility.splitScreen",
         "accessibility.powerButton", "accessibility.notificationPanel",
         "accessibility.quickPanel", "accessibility.lockScreen"
     )
@@ -91,6 +92,11 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
                 // 拾取层必须挂在无障碍服务窗口上（TYPE_ACCESSIBILITY_OVERLAY 规则，
                 // 与屏幕取点同款）；执行能走到这里就说明 a11y 侧活着。
                 val shown = hunoia.luno.service.SideGestureService.current?.showScreenPick() == true
+                if (shown) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
+            }
+            is Action.ScreenLinks -> {
+                // 与 screenPick 同款：只在无障碍服务里的 overlay 层上挂窗。
+                val shown = hunoia.luno.service.SideGestureService.current?.showScreenLinks() == true
                 if (shown) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.SplitScreen -> executionResult(controller.toggleSplitScreen())
