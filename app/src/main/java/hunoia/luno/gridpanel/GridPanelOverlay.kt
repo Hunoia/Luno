@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import hunoia.luno.action.model.actionPanelId
 import hunoia.luno.core.ActionSelectClosedEvent
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelShownEvent
@@ -121,6 +122,9 @@ object GridPanelOverlay : OverlayPanelHost(
         }
         // 新一次展示不复用上一轮部件点击留下的拉起候选。
         if (!shownEventPosted) PanelAppWidgetHostView.clearTapCandidate()
+        // 面板项里引用自身（旧数据/手改配置）：已经显示的就是这块面板，重复 show 只会
+        // 重置锚点、重播入场；就地 no-op。
+        if (shownEventPosted && panelId == panelIdState) return
         panelIdState = panelId
         anchorXState = anchorX
         anchorYState = anchorY
@@ -253,7 +257,14 @@ object GridPanelOverlay : OverlayPanelHost(
                     anchorX = anchorXState,
                     anchorY = anchorYState,
                     dispatch = { action, x, y ->
-                        SideGestureService.current?.forwardPanelTap(action, x, y, Color.TRANSPARENT) == true
+                        val handled = SideGestureService.current
+                            ?.forwardPanelTap(action, x, y, Color.TRANSPARENT) == true
+                        // 动作面板（弧形菜单）是另一扇浮窗：网格面板先退场，
+                        // 否则两层浮层叠在一起，点选也会落在被盖住的那一层上。
+                        if (handled && action.actionPanelId() != null) {
+                            (closeAnimated ?: { closeImmediate() }).invoke()
+                        }
+                        handled
                     },
                     onPickItem = { select ->
                         // 先让位再起选择页，否则面板会盖住新页并被误点；让位不可逆，

@@ -169,10 +169,23 @@ internal fun assembleDataTransform(state: UiState): UiState {
         .map { def -> def.toStoredAction() }
         .toMutableList()
         .apply {
-            // 面板项模式：挑的是「面板里放什么」，不放置空入口，也不列面板本身
-            // （面板不能嵌套面板）。小部件不走这里 —— 它不是动作，入口是顶部的
-            // 「小部件」chip，不占列表行。
-            if (state.isPanelItemMode) return@apply
+            // 面板项模式：挑的是「面板里放什么」，不放置空入口，也不列当前面板自身。
+            // 网格面板例外：面板项可以是面板类动作（就地切到另一个网格面板，或弹弧形
+            // 动作面板）；引用自己会让点击无效果，选择页阶段就过滤。
+            // 小部件不走这里 —— 它不是动作，入口是顶部的「小部件」chip，不占列表行。
+            if (state.isPanelItemMode) {
+                if (state.currentGridPanelId.isNotBlank()) {
+                    state.gridPanels
+                        .filter { it.id != state.currentGridPanelId }
+                        .forEach { panel ->
+                            add(StoredAction.of(GRID_PANEL_TYPE_ID, GRID_PANEL_PARAM_PANEL_ID to panel.id))
+                        }
+                    state.actionPanels.forEach { panel ->
+                        add(StoredAction.of(ACTION_PANEL_TYPE_ID, ACTION_PANEL_PARAM_PANEL_ID to panel.id))
+                    }
+                }
+                return@apply
+            }
             // 「无动作」置空入口：internal.none 被 libraryExcluded 滤掉（动作库不该建「无」），
             // 这里额外合成一行而不碰 pickerExcluded —— 空集合会让整张定义表变可选。
             if (none { it.typeId == Action.NONE_TYPE_ID }) {

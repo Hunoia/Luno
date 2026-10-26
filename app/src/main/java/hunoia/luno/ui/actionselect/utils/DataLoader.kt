@@ -606,6 +606,7 @@ internal suspend fun loadDataBody(
             actionPanels = actionPanels,
             gridPanels = gridPanels,
             isPanelItemMode = actionSelect.actionPanelId.isNotBlank() || actionSelect.gridPanelId.isNotBlank(),
+            currentGridPanelId = actionSelect.gridPanelId,
         )
     }
     val action = when {
