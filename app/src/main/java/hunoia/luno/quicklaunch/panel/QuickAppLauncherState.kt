@@ -6,11 +6,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import coil.imageLoader
-import hunoia.luno.bridge.system.PackageChangeReceiver
 import hunoia.luno.domain.search.SearchCenter
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.QuickAppLauncherSettings
-import hunoia.luno.quicklaunch.query.DisabledAppQuery
+import hunoia.luno.quicklaunch.query.AppListRepository
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.query.AppSearch.sortApps
 import hunoia.luno.quicklaunch.query.QuickAppLauncherAppList
@@ -21,13 +20,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import kotlinx.coroutines.withContext
-import java.util.Locale
 import hunoia.luno.core.LOG_TAG
 
 
@@ -71,12 +67,6 @@ class QuickAppLauncherState(
     var panelVisible by mutableStateOf(false)
     var closing by mutableStateOf(false)
 
-    /** 常驻之后应用列表不再每次打开都重扫，所以装/卸应用得靠广播通知。 */
-    private lateinit var onPackageChanged: () -> Unit
-
-    /** 当前列表是在哪个系统语言下扫出来的，换语言要重扫。 */
-    private var loadedLocaleTag: String = ""
-
     val closeAnimated: () -> Unit = {
         if (!closing) {
             closing = true
@@ -98,59 +88,28 @@ class QuickAppLauncherState(
         coroutineScope.launch {
             SearchCenter.appUsage.collectLatest { usageStats = it }
         }
-        onPackageChanged = {
-            coroutineScope.launch {
-                val state = withContext(Dispatchers.IO) {
-                    DisabledAppQuery.queryQuickAppLauncherApps(context)
-                }
-                appListState = state
-            }
+        // 应用列表走进程级共享仓（与网格面板的抽屉部件同一份，见 AppListRepository）：
+        // 扫包与包变更广播只注册一次，面板/启动器各自只订阅结果。
+        AppListRepository.acquire()
+        coroutineScope.launch {
+            AppListRepository.state.collectLatest { appListState = it }
         }
-        PackageChangeReceiver.register(context, onPackageChanged)
-        loadApps()
         onRegisterCloseAnimated?.invoke(closeAnimated)
     }
 
     /**
-     * 组合销毁时调用。state 现在跨会话常驻，旋转 / 服务销毁都会丢弃它，
-     * 不解注册的话回调会留在 [PackageChangeReceiver] 的静态列表里跟着泄漏。
+     * 组合销毁时调用。state 现在跨会话常驻，旋转 / 服务销毁都会丢弃它；
+     * 不退订共享仓会让引用计数永远不退，包变更广播跟着泄漏。
      */
     fun dispose() {
-        PackageChangeReceiver.unregister(context, onPackageChanged)
+        AppListRepository.release()
     }
-
-    /**
-     * 先渲染磁盘快照，再等真实扫描替换：快照让面板首开不必等 PackageManager 全量扫描，
-     * 扫描是首开延迟的主要来源。快照 label 是上次进程的运行结果，按 [labelLocale] 判新鲜度，
-     * 语言对不上就当没有快照。
-     */
-    private fun loadApps() {
-        coroutineScope.launch {
-            val locale = currentLocaleTag()
-            val snapshot = withContext(Dispatchers.IO) { SearchCenter.getSnapshot() }
-            if (snapshot.apps.isNotEmpty() && snapshot.labelLocale == locale) {
-                appListState = QuickAppLauncherAppList(snapshot.apps, snapshot.disabledPkgs)
-            }
-            val state = withContext(Dispatchers.IO) {
-                DisabledAppQuery.queryQuickAppLauncherApps(context)
-            }
-            appListState = state
-            loadedLocaleTag = locale
-        }
-    }
-
-    private fun currentLocaleTag(): String = Locale.getDefault().toLanguageTag()
 
     /**
      * 系统语言变了要重扫 —— `loadLabel` 的结果跟着语言走，而常驻列表不会自己更新。
-     * 返回 true 表示确实需要重载，供 UI 层在配置变化时调用。
+     * 返回 true 表示确实触发了重扫（实际扫描在共享仓里跑）。
      */
-    fun reloadAppsIfLocaleChanged(): Boolean {
-        val tag = currentLocaleTag()
-        if (tag == loadedLocaleTag) return false
-        loadApps()
-        return true
-    }
+    fun reloadAppsIfLocaleChanged(): Boolean = AppListRepository.reloadIfLocaleChanged()
 
     val visibleApps: List<AppInfo>
         get() = appListState.apps

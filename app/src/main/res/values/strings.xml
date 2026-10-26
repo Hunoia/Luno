@@ -240,6 +240,7 @@
     <string name="grid_panel_internal_brightness">亮度调节</string>
     <string name="grid_panel_internal_recents">最近应用</string>
     <string name="grid_panel_internal_clipboard">剪贴板</string>
+    <string name="grid_panel_internal_app_drawer">应用抽屉</string>
     <string name="grid_panel_clipboard_current">当前</string>
     <string name="grid_panel_clipboard_image">图片</string>
     <string name="grid_panel_clipboard_empty">暂无剪贴板历史</string>

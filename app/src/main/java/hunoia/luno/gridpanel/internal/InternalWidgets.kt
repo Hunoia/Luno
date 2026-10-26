@@ -23,6 +23,8 @@ object InternalWidgetIds {
     const val RECENTS = "internal.recents"
     /** 页面类部件：整块可滚动的剪贴板历史（默认跨格，内部纵向滚动）。 */
     const val CLIPBOARD = "internal.clipboardPage"
+    /** 页面类部件：整块可滚动的应用抽屉（与快速启动器共用应用列表）。 */
+    const val APP_DRAWER = "internal.appDrawer"
 }
 
 /** 一个内置小部件的选择页条目与落格默认值。 */
@@ -40,6 +42,7 @@ val InternalWidgetDefs = listOf(
     InternalWidgetDef(InternalWidgetIds.BRIGHTNESS, R.string.grid_panel_internal_brightness, 4, 1),
     InternalWidgetDef(InternalWidgetIds.RECENTS, R.string.grid_panel_internal_recents, 4, 1),
     InternalWidgetDef(InternalWidgetIds.CLIPBOARD, R.string.grid_panel_internal_clipboard, 4, 3),
+    InternalWidgetDef(InternalWidgetIds.APP_DRAWER, R.string.grid_panel_internal_app_drawer, 4, 4),
 )
 
 /**
@@ -66,6 +69,8 @@ fun internalWidgetMinSpan(widgetId: String): Pair<Int, Int> =
     when (widgetId) {
         // 剪贴板列表：一格宽放不下条目文字，两格起步。
         InternalWidgetIds.CLIPBOARD -> 2 to 2
+        // 应用抽屉：1×1 只有一个图标，堆不下有意义的列表。
+        InternalWidgetIds.APP_DRAWER -> 2 to 2
         InternalWidgetIds.MEDIA -> 2 to 1
         else -> 1 to 1
     }

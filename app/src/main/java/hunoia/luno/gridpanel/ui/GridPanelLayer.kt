@@ -58,6 +58,7 @@ import hunoia.luno.gridpanel.geometry.GridMetrics
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.gesture.gridItemPressFeedback
 import hunoia.luno.gridpanel.gesture.gridLayerGestures
+import hunoia.luno.gridpanel.internal.AppDrawerCell
 import hunoia.luno.gridpanel.internal.BrightnessSliderCell
 import hunoia.luno.gridpanel.internal.ClipboardPageCell
 import hunoia.luno.gridpanel.internal.InternalWidgetIds
@@ -374,6 +375,12 @@ fun GridPanelLayer(
                                         enabled = !editMode,
                                     )
                                     InternalWidgetIds.CLIPBOARD -> ClipboardPageCell(
+                                        modifier = Modifier.fillMaxSize(),
+                                        spanX = liveSpanX,
+                                        spanY = liveSpanY,
+                                        enabled = !editMode,
+                                    )
+                                    InternalWidgetIds.APP_DRAWER -> AppDrawerCell(
                                         modifier = Modifier.fillMaxSize(),
                                         spanX = liveSpanX,
                                         spanY = liveSpanY,

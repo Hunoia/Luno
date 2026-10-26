@@ -111,27 +111,16 @@ internal fun AppGrid(
                 )
             }
     ) {
-        LazyVerticalGrid(
-            state = gridState,
-            columns = GridCells.Fixed(gridColumns),
-            verticalArrangement = Arrangement.spacedBy(GridCellSpacing),
-            horizontalArrangement = Arrangement.spacedBy(GridCellSpacing),
-            contentPadding = PaddingValues(bottom = ContentBottom),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            if (apps.isEmpty()) {
-                item { Box(modifier = Modifier.height(EmptyStateHeight).fillMaxWidth()) }
-            }
-            items(apps, key = { it.key() }, contentType = { "app" }) { app ->
-                val isDisabled = app.packageName in disabledPkgs
-                AppItem(
-                    app = app,
-                    iconSizePx = iconSizePx,
-                    onClick = { onClick(app, isDisabled) },
-                    onLongPress = { onLongPress(app, isDisabled) }
-                )
-            }
-        }
+        AppGridContent(
+            apps = apps,
+            disabledPkgs = disabledPkgs,
+            gridState = gridState,
+            iconSizePx = iconSizePx,
+            gridColumns = gridColumns,
+            onClick = onClick,
+            onLongPress = onLongPress,
+            modifier = Modifier.fillMaxSize(),
+        )
 
         Pill(
             onClick = { onExpandKeyboard() },
@@ -139,5 +128,46 @@ internal fun AppGrid(
             dragEnabled = !keyboardExpanded,
             modifier = Modifier.align(Alignment.BottomCenter),
         )
+    }
+}
+
+/**
+ * 纯应用网格（无窗口/键盘耦合）：快速启动器与网格面板的应用抽屉部件共用。
+ * 键盘上拉、底部药丸、面板几何留给各自的宿主（见 [AppGrid]）。
+ */
+@Composable
+internal fun AppGridContent(
+    apps: List<AppInfo>,
+    disabledPkgs: Set<String>,
+    gridState: LazyGridState,
+    iconSizePx: Int,
+    gridColumns: Int = 4,
+    onClick: (AppInfo, Boolean) -> Unit,
+    onLongPress: (AppInfo, Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(bottom = ContentBottom),
+    userScrollEnabled: Boolean = true,
+) {
+    LazyVerticalGrid(
+        state = gridState,
+        columns = GridCells.Fixed(gridColumns),
+        verticalArrangement = Arrangement.spacedBy(GridCellSpacing),
+        horizontalArrangement = Arrangement.spacedBy(GridCellSpacing),
+        contentPadding = contentPadding,
+        userScrollEnabled = userScrollEnabled,
+        modifier = modifier.fillMaxSize(),
+    ) {
+        if (apps.isEmpty()) {
+            item { Box(modifier = Modifier.height(EmptyStateHeight).fillMaxWidth()) }
+        }
+        items(apps, key = { it.key() }, contentType = { "app" }) { app ->
+            val isDisabled = app.packageName in disabledPkgs
+            AppItem(
+                app = app,
+                iconSizePx = iconSizePx,
+                onClick = { onClick(app, isDisabled) },
+                onLongPress = { onLongPress(app, isDisabled) },
+            )
+        }
     }
 }
