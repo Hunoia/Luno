@@ -18,6 +18,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.config.model.AdvancedSettings
+import hunoia.luno.ui.component.row.LunoSwitchRow
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.RadioButtonChecked
@@ -52,6 +54,7 @@ fun ActionSettingsScreen(
     var showActionPanelStyle by remember { mutableStateOf(false) }
     var showPointer by remember { mutableStateOf(false) }
     val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = ActionSettings())
+    val advancedSettings by TuneConfig.advanced.collectAsStateWithLifecycle(initialValue = AdvancedSettings())
     val gestureSettings by TuneConfig.gesture.collectAsStateWithLifecycle(initialValue = GestureSettings())
     LunoScreen(
         title = stringResource(R.string.action_settings),
@@ -137,6 +140,21 @@ fun ActionSettingsScreen(
                     subtitle = stringResource(R.string.action_deep_links_hint),
                     shape = segmentedShape(3, 4),
                     onClick = onNavToActionSelect,
+                )
+            }
+            LunoGroup(title = stringResource(R.string.action_settings_screen_pick_group)) {
+                LunoSwitchRow(
+                    title = stringResource(R.string.screen_pick_save_to_gallery),
+                    subtitle = stringResource(R.string.screen_pick_save_to_gallery_hint),
+                    checked = advancedSettings.screenPickSaveToGallery,
+                    onCheckedChange = { checked ->
+                        scope.launch {
+                            TuneConfig.updateAdvanced {
+                                it.copy(screenPickSaveToGallery = checked)
+                            }
+                        }
+                    },
+                    shape = segmentedShape(0, 1),
                 )
             }
     }

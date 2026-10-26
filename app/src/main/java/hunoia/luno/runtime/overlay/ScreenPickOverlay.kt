@@ -28,11 +28,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.SaveAlt
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,14 +50,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import hunoia.luno.R
 import hunoia.luno.bridge.system.copyImage
 import hunoia.luno.bridge.system.copyText
@@ -65,6 +75,7 @@ import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.runtime.GestureHost
 import hunoia.luno.runtime.environment.BroadcastObserver
+import java.io.File
 import java.util.concurrent.Executor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -116,6 +127,12 @@ private const val AdjustMinSizeDp = 16f
 /** 提示框：文本节点白框，图片节点蓝框。 */
 private data class PickBox(val rect: AndroidRect, val isImage: Boolean)
 
+/** 框选动作条的动作（关闭走 onDismiss，不在此枚举）。 */
+private enum class PickSelectionAction { Copy, Share, Save }
+
+/** 缓存目录保留的识屏分享图数量。 */
+private const val CACHE_KEEP_FILES = 20
+
 /**
  * 屏幕内容识别拾取层（动作 accessibility.screenPick）：全屏透明 a11y 窗，照 PointPickOverlay
  * 的窗口套路。轻点 = 节点树取字（含文本直接复制；无文本取图片类节点 bounds，再退到包含
@@ -148,6 +165,9 @@ internal class ScreenPickOverlay(private val host: GestureHost) {
 
     /** 轻点命中查询进行中：防重复触发（查询已挪到后台线程）。 */
     private var resolvingTap = false
+
+    /** 框选动作执行中：防动作条被连点造成重复落盘。 */
+    private var resolvingAction = false
 
     // 截屏与命中结果只在主线程读写；captured 走 Compose 态驱动视觉层渲染。
     private var capture: Bitmap? = null
@@ -230,7 +250,7 @@ internal class ScreenPickOverlay(private val host: GestureHost) {
                     originX = originX,
                     originY = originY,
                     onTap = ::onTap,
-                    onSelectRect = ::onSelectRect,
+                    onSelectionAction = ::onSelectionAction,
                     onDismiss = ::close,
                 )
             }
@@ -254,6 +274,7 @@ internal class ScreenPickOverlay(private val host: GestureHost) {
         stopLockWatch()
         session++
         resolvingTap = false
+        resolvingAction = false
         val view = overlayView ?: return
         overlayView = null
         boxesJob?.cancel()
@@ -313,24 +334,7 @@ internal class ScreenPickOverlay(private val host: GestureHost) {
             val bounds = hit?.imageBounds ?: hit?.fallbackBounds
             when {
                 bounds == null -> showToast(R.string.screen_pick_no_content)
-                !copyImageRegion(AndroidRect(bounds)) -> showToast(R.string.screen_pick_failed)
-            }
-            close()
-        }
-    }
-
-    private fun onSelectRect(rect: Rect) {
-        if (rect.width < SCREEN_PICK_MIN_REGION_PX || rect.height < SCREEN_PICK_MIN_REGION_PX) return
-        val screenRect = AndroidRect(
-            (rect.left + originX).roundToInt(),
-            (rect.top + originY).roundToInt(),
-            (rect.right + originX).roundToInt(),
-            (rect.bottom + originY).roundToInt(),
-        )
-        // 裁剪 + 落盘 + 分享都在后台（大图 PNG 压缩放主线程会卡顿/ANR）。
-        host.coroutineScope.launch {
-            if (!copyImageRegion(screenRect)) {
-                showToast(R.string.screen_pick_failed)
+                !copyAndShareImageRegion(AndroidRect(bounds)) -> showToast(R.string.screen_pick_failed)
             }
             close()
         }
@@ -368,11 +372,94 @@ internal class ScreenPickOverlay(private val host: GestureHost) {
         return crop
     }
 
+    /** 框选动作（图标动作条）：复制到剪贴板 / 分享 / 保存到相册。 */
+    private fun onSelectionAction(rect: Rect, action: PickSelectionAction) {
+        if (resolvingAction) return
+        if (rect.width < SCREEN_PICK_MIN_REGION_PX || rect.height < SCREEN_PICK_MIN_REGION_PX) return
+        resolvingAction = true
+        val screenRect = AndroidRect(
+            (rect.left + originX).roundToInt(),
+            (rect.top + originY).roundToInt(),
+            (rect.right + originX).roundToInt(),
+            (rect.bottom + originY).roundToInt(),
+        )
+        // 裁剪 + 落盘 + 分享都在后台（大图 PNG 压缩放主线程会卡顿/ANR）。
+        host.coroutineScope.launch {
+            val ok = when (action) {
+                PickSelectionAction.Copy -> copyImageRegion(screenRect)
+                PickSelectionAction.Share -> shareImageRegion(screenRect)
+                PickSelectionAction.Save -> saveImageRegion(screenRect)
+            }
+            if (!ok) showToast(R.string.screen_pick_failed)
+            close()
+        }
+    }
+
     /**
-     * [rect] 为**屏幕坐标**：截图可能是窗口级（原点非 0），先求交再按位图与区域比例换算。
-     * 裁剪/落盘在 IO 线程，UI 与分享回主线程。
+     * 复制图片：写系统图库后进剪贴板。粘贴链路仍需公开的 MediaStore URI，
+     * 因此即使关了「保存到相册」，复制动作也会保留一份（分享才走缓存）。
      */
-    private suspend fun copyImageRegion(rect: AndroidRect): Boolean {
+    private suspend fun copyImageRegion(rect: AndroidRect): Boolean = withCropped(rect) { bitmap ->
+        val uri = withContext(Dispatchers.IO) { saveImageToGallery(bitmap) } ?: return@withCropped false
+        if (!copyImage(host.context, SCREEN_PICK_LABEL, uri)) return@withCropped false
+        showToast(R.string.screen_pick_image_copied)
+        true
+    }
+
+    /** 分享图片：按设置选相册或缓存（缓存路径不污染图库）。 */
+    private suspend fun shareImageRegion(rect: AndroidRect): Boolean = withCropped(rect) { bitmap ->
+        val toGallery = host.advancedSettings?.screenPickSaveToGallery == true
+        val uri = withContext(Dispatchers.IO) {
+            if (toGallery) saveImageToGallery(bitmap) else saveImageToCache(bitmap)
+        } ?: return@withCropped false
+        shareImage(uri)
+        true
+    }
+
+    /** 保存图片：无条件写相册，并顺手放进剪贴板；不弹分享。 */
+    private suspend fun saveImageRegion(rect: AndroidRect): Boolean = withCropped(rect) { bitmap ->
+        val uri = withContext(Dispatchers.IO) { saveImageToGallery(bitmap) } ?: return@withCropped false
+        copyImage(host.context, SCREEN_PICK_LABEL, uri)
+        showToast(R.string.screen_pick_image_saved)
+        true
+    }
+
+    /** 轻点图片节点：保持旧行为（写相册 → 进剪贴板 → 弹分享）。 */
+    private suspend fun copyAndShareImageRegion(rect: AndroidRect): Boolean =
+        withCropped(rect) { bitmap ->
+            val uri = withContext(Dispatchers.IO) { saveImageToGallery(bitmap) }
+                ?: return@withCropped false
+            copyImage(host.context, SCREEN_PICK_LABEL, uri)
+            showToast(R.string.screen_pick_image_copied)
+            shareImage(uri)
+            true
+        }
+
+    private fun shareImage(uri: Uri) {
+        val context = host.context
+        val share = Intent(Intent.ACTION_SEND).apply {
+            type = "image/png"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            // 必须同时带 clipData：只给 EXTRA_STREAM 时部分应用拿不到读取授权，
+            // 会把图片当普通文件/附件显示（系统截屏分享走的是带授权的媒体 URI）。
+            clipData = android.content.ClipData.newUri(context.contentResolver, SCREEN_PICK_LABEL, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = Intent.createChooser(share, null).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        runCatching { context.startActivity(chooser) }
+            .onFailure { Log.w(LOG_TAG, "screen pick: share chooser failed: ${it.message}") }
+    }
+
+    /**
+     * 裁剪公共段：[block] 在图片落盘期间执行，裁剪图用完即回收；`saving` 期间
+     * 关闭拾取层不回收截图位图（后台还在用它裁剪），收尾处补回收。
+     */
+    private suspend fun withCropped(
+        rect: AndroidRect,
+        block: suspend (Bitmap) -> Boolean,
+    ): Boolean {
         val cap = capture ?: return false
         val crop = cropRectFor(cap, rect) ?: return false
         saving = true
@@ -384,27 +471,11 @@ internal class ScreenPickOverlay(private val host: GestureHost) {
                     Log.e(LOG_TAG, "screen pick: crop failed: ${it.message}")
                 }.getOrNull()
             } ?: return false
-            val uri = withContext(Dispatchers.IO) { saveImageToGallery(cropped) }
-            cropped.recycle()
-            if (uri == null) return false
-            val context = host.context
-            if (!copyImage(context, SCREEN_PICK_LABEL, uri)) return false
-            showToast(R.string.screen_pick_image_copied)
-            val resolver = context.contentResolver
-            val share = Intent(Intent.ACTION_SEND).apply {
-                type = "image/png"
-                putExtra(Intent.EXTRA_STREAM, uri)
-                // 必须同时带 clipData：只给 EXTRA_STREAM 时部分应用拿不到读取授权，
-                // 会把图片当普通文件/附件显示（系统截屏分享走的是带授权的媒体 URI）。
-                clipData = android.content.ClipData.newUri(resolver, SCREEN_PICK_LABEL, uri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            return try {
+                block(cropped)
+            } finally {
+                cropped.recycle()
             }
-            val chooser = Intent.createChooser(share, null).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            runCatching { context.startActivity(chooser) }
-                .onFailure { Log.w(LOG_TAG, "screen pick: share chooser failed: ${it.message}") }
-            return true
         } finally {
             saving = false
             // 关闭发生在落盘期间：图片已复制/UI 已拆，这里补回收截图位图。
@@ -448,6 +519,25 @@ internal class ScreenPickOverlay(private val host: GestureHost) {
         uri
     }.onFailure {
         Log.e(LOG_TAG, "screen pick: save image failed: ${it.message}")
+    }.getOrNull()
+
+    /** 裁剪图写入缓存目录，经 FileProvider 供分享；顺手清理旧文件。 */
+    private fun saveImageToCache(bitmap: Bitmap): Uri? = runCatching {
+        val context = host.context
+        val dir = File(context.cacheDir, "screen_pick").apply { mkdirs() }
+        runCatching {
+            dir.listFiles()
+                ?.sortedByDescending { it.lastModified() }
+                ?.drop(CACHE_KEEP_FILES)
+                ?.forEach { it.delete() }
+        }
+        val file = File(dir, "screen_pick_${System.currentTimeMillis()}.png")
+        file.outputStream().use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+        FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+    }.onFailure {
+        Log.e(LOG_TAG, "screen pick: save cache image failed: ${it.message}")
     }.getOrNull()
 
     // ---- 截屏 ----
@@ -823,7 +913,7 @@ private fun ScreenPickScreen(
     originX: Int,
     originY: Int,
     onTap: (Offset) -> Unit,
-    onSelectRect: (Rect) -> Unit,
+    onSelectionAction: (Rect, PickSelectionAction) -> Unit,
     onDismiss: () -> Unit,
 ) {
     // dragRect = 正在画的新框；adjustRect = 已落定、可拖动/缩放、待确认的框。
@@ -832,6 +922,8 @@ private fun ScreenPickScreen(
     val handleHitPx = with(LocalDensity.current) { HandleHitRadiusDp.dp.toPx() }
     val minSizePx = with(LocalDensity.current) { AdjustMinSizeDp.dp.toPx() }
     val handleDrawPx = with(LocalDensity.current) { 6.dp.toPx() }
+    // 按下未移动时高亮命中的候选框（让用户预知松手会取哪块）。
+    var pressPoint by remember { mutableStateOf<Offset?>(null) }
 
     Box(
         modifier = Modifier
@@ -842,6 +934,7 @@ private fun ScreenPickScreen(
                     // 子级（取消/确认按钮）消费掉的手势不参与拾取。
                     if (down.isConsumed) return@awaitEachGesture
                     val start = down.position
+                    pressPoint = start
                     val initial = adjustRect
                     val handle = initial?.handleAt(start, handleHitPx)
                     var resizing: SelHandle? = handle
@@ -865,8 +958,12 @@ private fun ScreenPickScreen(
                         change.consume()
                         val delta = change.position - last
                         last = change.position
-                        if (!moved && (change.position - start).getDistance() > viewConfiguration.touchSlop) {
-                            moved = true
+                        if (!moved) {
+                            pressPoint = change.position
+                            if ((change.position - start).getDistance() > viewConfiguration.touchSlop) {
+                                moved = true
+                                pressPoint = null
+                            }
                         }
                         when {
                             resizing != null -> {
@@ -887,6 +984,7 @@ private fun ScreenPickScreen(
                             }
                         }
                     }
+                    pressPoint = null
                     if (childConsumed) return@awaitEachGesture
                     if (resizing == null && !moving) {
                         // 本次是在画新框；落定后进入「可拖动/缩放 + 确认」状态，不再自动复制。
@@ -942,6 +1040,36 @@ private fun ScreenPickScreen(
                         style = Stroke(width = 1.dp.toPx()),
                     )
                 }
+                // 按下时高亮命中的候选框（找面积最小的包含框），预知松手会取哪块。
+                pressPoint?.let { press ->
+                    val sx = press.x + originX
+                    val sy = press.y + originY
+                    boxes
+                        .filter { it.rect.contains(sx.roundToInt(), sy.roundToInt()) }
+                        .minByOrNull { it.rect.width().toLong() * it.rect.height() }
+                        ?.let { hit ->
+                            val hitTopLeft = Offset(
+                                (hit.rect.left - originX).toFloat(),
+                                (hit.rect.top - originY).toFloat(),
+                            )
+                            val hitSize = Size(
+                                hit.rect.width().toFloat(),
+                                hit.rect.height().toFloat(),
+                            )
+                            val color = if (hit.isImage) PickBlue else Color.White
+                            drawRect(
+                                color.copy(alpha = 0.15f),
+                                topLeft = hitTopLeft,
+                                size = hitSize,
+                            )
+                            drawRect(
+                                color,
+                                topLeft = hitTopLeft,
+                                size = hitSize,
+                                style = Stroke(width = 2.5.dp.toPx()),
+                            )
+                        }
+                }
             }
             // 正在拖的新框 / 已落定待确认的框。
             val activeRect = adjustRect ?: dragRect
@@ -973,44 +1101,120 @@ private fun ScreenPickScreen(
                     }
                 }
             }
-            // 取消/确认统一放底部（不再占右上角，顶部留给内容）。
-            Row(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 48.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
+            // 无选区：底部常驻关闭；有选区：动作条贴在选框底部（放不下翻到上方）。
+            val sel = adjustRect
+            if (sel == null) {
                 Surface(
                     onClick = onDismiss,
                     shape = RoundedCornerShape(50),
                     color = Color.Black.copy(alpha = 0.68f),
                     contentColor = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 48.dp),
                 ) {
-                    Text(
-                        text = stringResource(R.string.screen_pick_cancel),
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = stringResource(R.string.screen_pick_close),
+                        modifier = Modifier.padding(14.dp).size(22.dp),
                     )
                 }
-                if (adjustRect != null) {
-                    Surface(
-                        onClick = {
-                            val rect = adjustRect ?: return@Surface
-                            adjustRect = null
-                            onSelectRect(rect)
-                        },
-                        shape = RoundedCornerShape(50),
-                        color = PickBlue,
-                        contentColor = Color.White,
-                    ) {
-                        Text(
-                            text = stringResource(R.string.screen_pick_confirm),
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp),
-                        )
-                    }
-                }
+            } else {
+                SelectionActionBar(
+                    rect = sel,
+                    originX = originX,
+                    originY = originY,
+                    onAction = { action ->
+                        adjustRect = null
+                        onSelectionAction(sel, action)
+                    },
+                    onClose = onDismiss,
+                )
             }
+        }
+    }
+}
+
+/** 框选动作条：贴在选框底部；下方放不下就翻到上方，水平夹在屏内。 */
+@Composable
+private fun SelectionActionBar(
+    rect: Rect,
+    originX: Int,
+    originY: Int,
+    onAction: (PickSelectionAction) -> Unit,
+    onClose: () -> Unit,
+) {
+    val density = LocalDensity.current
+    val button = 40.dp
+    val gap = 8.dp
+    val pad = 6.dp
+    val margin = 8.dp
+    val barW = with(density) { (button * 4 + gap * 3 + pad * 2).toPx() }
+    val barH = with(density) { (button + pad * 2).toPx() }
+    val marginPx = with(density) { margin.toPx() }
+    val screenW = DensityProvider.screenWidthPx.toFloat()
+    val screenH = DensityProvider.screenHeightPx.toFloat()
+    // 选框坐标 → 视图坐标。
+    val left = rect.left - originX
+    val top = rect.top - originY
+    val right = rect.right - originX
+    val bottom = rect.bottom - originY
+    val x = ((left + right) / 2f - barW / 2f)
+        .coerceIn(marginPx, (screenW - barW - marginPx).coerceAtLeast(marginPx))
+    val below = bottom + marginPx
+    val y = if (below + barH <= screenH - marginPx) {
+        below
+    } else {
+        (top - marginPx - barH).coerceAtLeast(marginPx)
+    }
+    Row(
+        modifier = Modifier
+            .offset { IntOffset(x.roundToInt(), y.roundToInt()) }
+            .clip(RoundedCornerShape(50))
+            .background(Color.Black.copy(alpha = 0.72f))
+            .padding(pad),
+        horizontalArrangement = Arrangement.spacedBy(gap),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        PickActionIcon(
+            icon = Icons.Default.Close,
+            contentDescription = stringResource(R.string.screen_pick_close),
+            onClick = onClose,
+        )
+        PickActionIcon(
+            icon = Icons.Default.ContentCopy,
+            contentDescription = stringResource(R.string.screen_pick_copy_image),
+        ) { onAction(PickSelectionAction.Copy) }
+        PickActionIcon(
+            icon = Icons.Default.Share,
+            contentDescription = stringResource(R.string.screen_pick_share_image),
+        ) { onAction(PickSelectionAction.Share) }
+        PickActionIcon(
+            icon = Icons.Default.SaveAlt,
+            contentDescription = stringResource(R.string.screen_pick_save_image),
+        ) { onAction(PickSelectionAction.Save) }
+    }
+}
+
+@Composable
+private fun PickActionIcon(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(50),
+        color = Color.White.copy(alpha = 0.12f),
+        contentColor = Color.White,
+        modifier = Modifier.size(40.dp),
+    ) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                modifier = Modifier.size(20.dp),
+            )
         }
     }
 }

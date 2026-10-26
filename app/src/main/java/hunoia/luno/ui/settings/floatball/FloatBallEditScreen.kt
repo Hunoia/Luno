@@ -387,7 +387,7 @@ fun FloatBallEditScreen(
                             FloatBallUseCase.setEnabled(context, false)
                         }
                     },
-                    shape = segmentedShape(0, 2),
+                    shape = segmentedShape(0, 3),
                 )
                 LunoTextSlider(
                     value = localClipballAutoHide,
@@ -405,7 +405,16 @@ fun FloatBallEditScreen(
                     valueDisplay = { "${(it / 1000).toInt()} s" },
                     valueRange = FloatBallDefaults.ClipboardBallAutoHideMsMin.toFloat()..
                         FloatBallDefaults.ClipboardBallAutoHideMsMax.toFloat(),
-                    shape = segmentedShape(1, 2),
+                    shape = segmentedShape(1, 3),
+                )
+                LunoSwitchRow(
+                    title = stringResource(R.string.float_ball_clipball_images),
+                    subtitle = stringResource(R.string.float_ball_clipball_images_hint),
+                    checked = clipball.respondToImages,
+                    onCheckedChange = { checked ->
+                        update { it.copy(clipboardBall = it.clipboardBall.copy(respondToImages = checked)) }
+                    },
+                    shape = segmentedShape(2, 3),
                 )
             }
         }

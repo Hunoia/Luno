@@ -1,23 +1,30 @@
 package hunoia.luno.runtime.floatball
 
 import android.content.res.Configuration
+import android.graphics.Color as AndroidColor
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -30,11 +37,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import hunoia.luno.bridge.system.ClipboardContent
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.bridge.ui.windowManager
@@ -46,12 +56,12 @@ import hunoia.luno.ui.theme.SideGestureTheme
 import kotlin.math.max
 
 /**
- * 剪贴板球：TYPE_APPLICATION_OVERLAY 胶囊小窗，剪贴板文本变化时在贴边记忆位弹出
- * 「ContentPaste 图标 + 内容预览（单行省略、宽度封顶）」（配色随主球）。
- * 窗口 WRAP_CONTENT：宽度随内容自适应，重排后按记忆侧重新贴边。
- * 点击（[onTapped]）由 Service 弹系统分享，长按（[onLongPressed]）关闭，按住即拖、
- * 抬手横向贴最近边，[onDragReleased] 后由 Service 读 [normalizedPosition] 落盘；
- * 自动收起计时归 Service。低频瞬态，走整拆整建；可见期间复制新内容只换文本并重新贴边。
+ * 剪贴板球：TYPE_APPLICATION_OVERLAY 胶囊小窗，剪贴板内容（文本/图片）变化时在贴边
+ * 记忆位弹出「图标 + 内容预览」（配色随主球）。窗口 WRAP_CONTENT：宽度随内容自适应，
+ * 重排后按记忆侧重新贴边。
+ * 点击（[onTapped]）由 Service 分享，长按 pin/取消 pin（[onPinChanged]，钉住期间不自动
+ * 收起），尾部图标点击展开/收起全文（[onExpandedChanged]），按住即拖、抬手横向贴最近边，
+ * [onDragReleased] 后由 Service 读 [normalizedPosition] 落盘。自动收起计时归 Service。
  * 动效一律 View 层（服务进程 ComposeView 重组不上屏，见 FloatBallWindow.applyVisual 注释）。
  */
 internal class ClipboardBallWindow(private val context: android.content.Context) {
@@ -64,8 +74,17 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
     /** 正在播退场动画的窗（view 已置空）：服务销毁时 detachNow 也要能把它摘掉。 */
     private var exitingView: View? = null
 
-    /** Compose 态：内容文本更新走 mutableStateOf 重组，普通字段不重绘。 */
-    private var content by mutableStateOf("")
+    /** Compose 态：内容更新走 mutableStateOf 重组，普通字段不重绘。 */
+    private var content by mutableStateOf<ClipboardContent?>(null)
+
+    /** 钉住：暂停自动收起，内容不跟着剪贴板变化。 */
+    private var pinned by mutableStateOf(false)
+
+    /** 展开全文（尾部图标切换）：展开期间由 Service 暂停计时。 */
+    private var expanded by mutableStateOf(false)
+
+    /** 钉住期间来了新内容：显示小圆点，取消钉住时切到最新内容。 */
+    private var pending by mutableStateOf(false)
 
     private var settings: FloatBallSettings = FloatBallSettings()
 
@@ -90,8 +109,11 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
     /** 点击球（未超 touchSlop 抬手；长按已触发则吞掉后续 tap）。 */
     var onTapped: (() -> Unit)? = null
 
-    /** 长按关闭（按下 [LONG_PRESS_MS] 未拖未抬）。 */
-    var onLongPressed: (() -> Unit)? = null
+    /** 长按 pin / 取消 pin（钉住期间不自动收起，计时门控在 Service）。 */
+    var onPinChanged: ((Boolean) -> Unit)? = null
+
+    /** 展开状态变化：展开期间暂停自动收起。 */
+    var onExpandedChanged: ((Boolean) -> Unit)? = null
 
     /** 拖动抬手：贴边已在本窗内结算，Service 读 [normalizedPosition] 落盘。 */
     var onDragReleased: (() -> Unit)? = null
@@ -102,12 +124,14 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
     /** 用户正在拖动：期间不再按“当前贴边侧”重钉 x（否则永远拖不到另一侧）。 */
     private var userDragging = false
 
+    /** 本次手势落在尾部展开/收起图标上（窗口层判定，不进拖动仲裁）。 */
+    private var iconGesture = false
+
     // 长按检测：仲裁器只分「拖/点」，长按在窗口层补。
     private var longPressFired = false
     private val longPressRunnable = Runnable {
         longPressFired = true
-        view?.let { applyBallTouchFlags(it, wm, hidden = true) }
-        onLongPressed?.invoke()
+        togglePin()
     }
 
     private val arbiter = FloatBallTouchArbiter(
@@ -148,26 +172,82 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
         settings = next
     }
 
+    /** 是否处于 pin 状态（Service 计时门控用）。 */
+    fun isPinned(): Boolean = pinned
+
+    /** 是否处于展开态（Service 计时门控用）。 */
+    fun isExpanded(): Boolean = expanded
+
+    /** 钉住期间有新内容到达：显示小圆点（由 Service 控制）。 */
+    fun setPendingMarker(value: Boolean) {
+        pending = value
+    }
+
+    private fun togglePin() {
+        pinned = !pinned
+        onPinChanged?.invoke(pinned)
+    }
+
+    private fun toggleExpanded() {
+        if (content !is ClipboardContent.Text) return
+        expanded = !expanded
+        onExpandedChanged?.invoke(expanded)
+    }
+
+    /**
+     * 尾部图标点击走窗口层判定：Compose 内不加 clickable，避免子级消费触摸导致拖动仲裁失效。
+     * 命中区为胶囊右缘 [PillIconHitWidthDp] 宽的区域。
+     */
+    private fun handleTouch(v: View, event: MotionEvent): Boolean {
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+            iconGesture = !userDragging &&
+                content is ClipboardContent.Text &&
+                event.x >= v.width - DensityProvider.dp2px(PillIconHitWidthDp)
+        }
+        if (iconGesture) {
+            when (event.actionMasked) {
+                MotionEvent.ACTION_UP -> {
+                    iconGesture = false
+                    toggleExpanded()
+                }
+                MotionEvent.ACTION_CANCEL -> iconGesture = false
+                else -> Unit
+            }
+            return true
+        }
+        return arbiter.onTouch(event)
+    }
+
     /**
      * 弹出/刷新：不可见则挂窗，从贴边侧滑入 + 淡入；已可见只换文本并重新贴边
      * （内容变了胶囊宽度会变）。[x]/[y] 为记忆位（归一化），x 也可视作侧别记忆，
      * y 落默认（屏高 [DefaultYRatio]）。返回是否成功挂窗。
      */
-    fun show(x: Float?, y: Float?, text: String): Boolean {
-        content = text
-        // 已可见（新复制覆盖）：内容变了宽度也变，靠下面的布局回调重新贴边；
-        // 宽高没变时回调不会来，位置也无需改。
+    fun show(
+        x: Float?,
+        y: Float?,
+        next: ClipboardContent,
+        initialPinned: Boolean = false,
+    ): Boolean {
+        content = next
+        // 新内容一律从收起态开始（上一条的展开态不带到下一条）。
+        expanded = false
+        // 已可见（新内容覆盖）：内容变了宽高也变，靠布局回调重新贴边。
         if (view != null) return true
+        // 新窗从干净状态开始：待更新标记不带到下一条；pin 仅由「锁屏恢复」显式带入。
+        pinned = initialPinned
+        pending = false
+        iconGesture = false
         resolvePosition(x, y)
         // 每个新窗都重新测原点：测量必须在写 lp.y 之前。
         originReady = false
         val created = ComposeView(context).apply {
-            setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            setBackgroundColor(AndroidColor.TRANSPARENT)
             // 瞬态窗推到 RESUMED：应用图标与内容更新都需要 effects/重组真正运行。
             FloatBallLifecycleOwner.createAndAttachTo(this, active = true)
             setContent { PillContent() }
         }
-        created.setOnTouchListener { _, event -> arbiter.onTouch(event) }
+        created.setOnTouchListener { v, event -> handleTouch(v, event) }
         created.alpha = 0f
         created.scaleX = 1f
         created.scaleY = 1f
@@ -248,6 +328,11 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
         view = null
         entering = false
         enterPending = false
+        iconGesture = false
+        // 窗口即将拆掉：立刻清掉 pin/展开/待更新，避免 Service 在隐藏期间读到陈旧状态。
+        pinned = false
+        expanded = false
+        pending = false
         mainHandler.removeCallbacks(longPressRunnable)
         if (v == null) {
             onHidden?.invoke()
@@ -283,6 +368,11 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
         exitingView = null
         entering = false
         enterPending = false
+        iconGesture = false
+        pinned = false
+        expanded = false
+        pending = false
+        content = null
         mainHandler.removeCallbacks(longPressRunnable)
         v?.let(context::removeWindow)
         exiting?.let {
@@ -398,7 +488,12 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
             }
             (screenWidthPx * ratio).toDp()
         }
-        val pill = RoundedCornerShape(percent = 50)
+        val pill = if (expanded) {
+            // 展开后是多行正文，大圆角会把两侧文字裁碎：换成普通卡片圆角。
+            RoundedCornerShape(PillExpandedCornerDp.dp)
+        } else {
+            RoundedCornerShape(percent = 50)
+        }
         Row(
             modifier = Modifier
                 .widthIn(max = maxPillWidth)
@@ -411,17 +506,46 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
         ) {
             Icon(
                 modifier = Modifier.size(16.dp),
-                imageVector = Icons.Default.ContentPaste,
+                // pin 状态用图钉替掉粘贴图标，不加额外角标。
+                imageVector = if (pinned) Icons.Default.PushPin else Icons.Default.ContentPaste,
                 contentDescription = null,
                 tint = contentColor.copy(alpha = 0.9f),
             )
-            Text(
-                text = content,
-                style = MaterialTheme.typography.titleSmall,
-                color = contentColor.copy(alpha = 0.95f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            when (val item = content) {
+                // weight(fill=false)：长文本只占剩余宽度，右端的圆点/展开图标不会被挤到裁剪区外。
+                is ClipboardContent.Text -> Text(
+                    text = item.text,
+                    modifier = Modifier.weight(1f, fill = false),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = contentColor.copy(alpha = 0.95f),
+                    maxLines = if (expanded) PillExpandedLines else 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                is ClipboardContent.Image -> AsyncImage(
+                    model = item.uri,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(PillImageDp.dp)
+                        .clip(RoundedCornerShape(6.dp)),
+                )
+                null -> Unit
+            }
+            if (pending) {
+                Box(
+                    modifier = Modifier
+                        .size(PendingDotDp.dp)
+                        .background(contentColor.copy(alpha = 0.9f), CircleShape),
+                )
+            }
+            if (content is ClipboardContent.Text) {
+                Icon(
+                    modifier = Modifier.size(16.dp),
+                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = null,
+                    tint = contentColor.copy(alpha = 0.7f),
+                )
+            }
         }
     }
 
@@ -451,7 +575,7 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
         /** LP 原点合法性上限（dp）：状态栏/分屏偏移远小于此值，防测到负数/异常值。 */
         const val MaxOriginDp = 200f
 
-        /** 长按关闭门槛（ms）。 */
+        /** 长按 pin / 取消 pin 门槛（ms）。 */
         const val LONG_PRESS_MS = 500L
 
         /** 按压缩放（同胶囊）。 */
@@ -470,6 +594,17 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
 
         /** 胶囊底色透明度（保留主球 accent 色，但不要太透）。 */
         const val PillBackgroundAlpha = 0.85f
+
+        /** 展开正文最多行数；展开后的卡片圆角。 */
+        const val PillExpandedLines = 4
+        const val PillExpandedCornerDp = 16f
+
+        /** 图片缩略图边长 / 钉住期间的「有新内容」小圆点直径（dp）。 */
+        const val PillImageDp = 28f
+        const val PendingDotDp = 6f
+
+        /** 尾部展开图标的点击命中区宽度（dp）：图标 + 右侧内边距。 */
+        const val PillIconHitWidthDp = 44f
 
         /** 未记忆时的默认落点（屏高比例，右缘）。 */
         const val DefaultYRatio = 0.5f

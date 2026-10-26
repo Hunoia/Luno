@@ -3,7 +3,8 @@ package hunoia.luno.shizuku
 import android.content.ClipData
 import android.os.IBinder
 import android.util.Log
-import hunoia.luno.bridge.system.ClipboardTextInfo
+import hunoia.luno.bridge.system.ClipboardContent
+import hunoia.luno.bridge.system.toClipboardContent
 import hunoia.luno.core.LOG_TAG
 import java.lang.reflect.Method
 import org.lsposed.hiddenapibypass.HiddenApiBypass
@@ -24,7 +25,6 @@ object ShizukuClipboard {
 
     private const val TAG = LOG_TAG
     private const val SHELL_PACKAGE = "com.android.shell"
-    private const val SENSITIVE_EXTRA = "android.content.extra.IS_SENSITIVE"
 
     /** 一次可用的调用链：代理对象 + 其来源 binder + 选定签名的 getPrimaryClip。 */
     private class Session(
@@ -84,8 +84,8 @@ object ShizukuClipboard {
         }
     }
 
-    /** 当前剪贴板文本 + 敏感标记；无内容/不可用（Shizuku 未连接、读取被拒等）返回 null。 */
-    fun readText(): ClipboardTextInfo? {
+    /** 当前剪贴板内容（文本或图片）；无内容/不可用（Shizuku 未连接、读取被拒等）返回 null。 */
+    fun readContent(): ClipboardContent? {
         // binder 抖动/Shizuku 重启后重建一次会话再试；业务侧读不到就按不可用处理。
         repeat(2) { attempt ->
             try {
@@ -100,7 +100,7 @@ object ShizukuClipboard {
         return null
     }
 
-    private fun readOnce(): ClipboardTextInfo? {
+    private fun readOnce(): ClipboardContent? {
         val active = currentSession()
         val clip = when (active.method.parameterCount) {
             4 -> active.method.invoke(active.proxy, SHELL_PACKAGE, null, 0, 0)
@@ -111,16 +111,10 @@ object ShizukuClipboard {
             Log.i(TAG, "shizuku clipboard: null clip (empty or denied)")
             return null
         }
-        // 只认纯文本：coerceToText 会把图片 URI 也转成字符串，胶囊会弹一条 content:// 长串。
-        val item = clip.getItemAt(0)
-        val text = item?.text?.toString() ?: item?.htmlText?.toString()
-        if (text == null) {
-            Log.i(TAG, "shizuku clipboard: non-text item")
-            return null
+        val content = clip.toClipboardContent()
+        if (content == null) {
+            Log.i(TAG, "shizuku clipboard: unsupported item")
         }
-        val sensitive = runCatching {
-            clip.description.extras?.getBoolean(SENSITIVE_EXTRA) == true
-        }.getOrDefault(false)
-        return ClipboardTextInfo(text, sensitive)
+        return content
     }
 }

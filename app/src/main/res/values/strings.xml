@@ -187,6 +187,9 @@
     <string name="float_ball_appearance">外观</string>
     <string name="action_settings_panel_group">面板</string>
     <string name="action_settings_other_group">其他</string>
+    <string name="action_settings_screen_pick_group">屏幕识别</string>
+    <string name="screen_pick_save_to_gallery">识屏图片保存到相册</string>
+    <string name="screen_pick_save_to_gallery_hint">关闭时分享只写缓存；复制图片仍需写一份到相册以保证粘贴兼容</string>
     <string name="float_ball_permission_required">需要「显示在其他应用上层」权限</string>
     <string name="float_ball_permission_hint">悬浮球需要该权限才能显示。未授权时球不会出现。</string>
     <string name="float_ball_tap_unset">未设置</string>
@@ -210,8 +213,10 @@
     <string name="float_ball_capsule_need_permission_hint">点此前往系统设置授权，胶囊才能收到通知</string>
     <string name="float_ball_clipball_group">剪贴板球</string>
     <string name="float_ball_clipball_enabled">复制后显示分享球</string>
-    <string name="float_ball_clipball_enabled_subtitle">剪贴板变化时弹出，点击分享，长按关闭；后台读取需 Shizuku 运行并授权</string>
+    <string name="float_ball_clipball_enabled_subtitle">剪贴板变化时弹出，点击分享、长按钉住、尾部图标展开全文；后台读取需 Shizuku 运行并授权</string>
     <string name="float_ball_clipball_auto_hide">自动收起时长</string>
+    <string name="float_ball_clipball_images">响应图片剪贴板</string>
+    <string name="float_ball_clipball_images_hint">复制图片时也弹出分享球（关闭后只处理纯文本）</string>
     <string name="action_panel_missing">面板已不存在，请返回重新添加</string>
     <string name="action_panel_items_count">%1$d 项</string>
     <string name="action_panel_count">%1$d 个面板</string>
@@ -417,8 +422,11 @@
     <string name="point_pick_point">x=%1$d dp，y=%2$d dp</string>
     <string name="point_pick_empty">未取点</string>
     <string name="screen_pick_image_copied">图片已复制</string>
-    <string name="screen_pick_cancel">取消</string>
-    <string name="screen_pick_confirm">确认</string>
+    <string name="screen_pick_image_saved">图片已保存到相册</string>
+    <string name="screen_pick_close">关闭识屏</string>
+    <string name="screen_pick_copy_image">复制图片</string>
+    <string name="screen_pick_share_image">分享图片</string>
+    <string name="screen_pick_save_image">保存到相册</string>
     <string name="screen_pick_no_content">未识别到可复制的内容</string>
     <string name="screen_pick_failed">识别失败，请重试</string>
     <string name="action_library_icon_use">使用</string>

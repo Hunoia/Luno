@@ -416,7 +416,8 @@ internal class NotificationCapsuleWindow(private val context: android.content.Co
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             AppIcon(packageName = item.packageName)
-            Column {
+            // weight(fill=false)：长正文不把胶囊撑出最大宽度（行尾内容不会被裁）。
+            Column(modifier = Modifier.weight(1f, fill = false)) {
                 Text(
                     text = item.title,
                     style = MaterialTheme.typography.titleSmall,

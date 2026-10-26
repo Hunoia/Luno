@@ -62,9 +62,10 @@ data class NotificationCapsuleSettings(
 )
 
 /**
- * 剪贴板球配置：剪贴板文本变化时在贴边记忆位弹出胶囊，点击弹系统分享，
- * [autoHideMs] 后自动收起。后台读剪贴板依赖 Shizuku 以 shell 身份读取
- * （新 ROM 不向后台应用投递剪贴板回调，无障碍也不豁免），读不到内容就不弹。
+ * 剪贴板球配置：剪贴板文本/图片变化时在贴边记忆位弹出胶囊，点击弹系统分享，
+ * 长按钉住/取消钉住，尾部图标展开/收起全文，[autoHideMs] 后自动收起（钉住/展开时暂停）。
+ * 后台读剪贴板依赖 Shizuku 以 shell 身份读取（新 ROM 不向后台应用投递剪贴板回调，
+ * 无障碍也不豁免），读不到内容就不弹。
  */
 @Serializable
 @Keep
@@ -75,6 +76,8 @@ data class ClipboardBallSettings(
     /** 记忆位置：x 只记侧别（0 = 左缘 / 1 = 右缘，null = 首弹右侧），y 为归一化纵向落点（按屏高夹在屏内）。 */
     val x: Float? = null,
     val y: Float? = null,
+    /** 是否响应图片剪贴板（关闭后只处理纯文本）。 */
+    val respondToImages: Boolean = true,
 )
 
 object FloatBallDefaults {
