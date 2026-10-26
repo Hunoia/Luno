@@ -29,6 +29,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.imageLoader
@@ -36,6 +38,8 @@ import hunoia.luno.R
 import hunoia.luno.gridpanel.LocalGridPanelClose
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
+import hunoia.luno.quicklaunch.icon.rememberAppDrawable
+import hunoia.luno.quicklaunch.icon.rememberAppLabel
 
 /**
  * 最近应用：一排图标（旧 → 新，最多 6 个，不含当前前台），点按直达。
@@ -101,14 +105,21 @@ fun RecentAppsCell(
                         continue
                     }
                     val pkg = pkgs[index]
-                    val icon = remember(pkg) {
-                        runCatching { context.packageManager.getApplicationIcon(pkg) }.getOrNull()
+                    // 跨进程 PM 查询：缓存 + IO 异步，组合期不再同步阻塞（见 rememberAppDrawable）。
+                    val icon = rememberAppDrawable("app/$pkg") {
+                        context.packageManager.getApplicationIcon(pkg)
+                    }
+                    // 磁贴没有文字：无障碍名用应用标签，首帧/查询失败回落包名。
+                    val appLabel = rememberAppLabel("label/$pkg", pkg) {
+                        context.packageManager.getApplicationInfo(pkg, 0)
+                            .let { context.packageManager.getApplicationLabel(it).toString() }
                     }
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
                             .clip(RoundedCornerShape(ItemCorner * 0.5f))
+                            .semantics { contentDescription = appLabel }
                             .then(
                                 if (enabled) {
                                     Modifier.clickable {

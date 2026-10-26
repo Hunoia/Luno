@@ -16,6 +16,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -105,7 +106,16 @@ fun <T> rememberDragReorderState(
     vararg keys: Any?,
     current: () -> List<T>,
     onCommit: (List<T>) -> Unit,
-): DragReorderState<T> = remember(*keys) { DragReorderState(current, onCommit) }
+): DragReorderState<T> {
+    // current/onCommit 必须逐帧跟随最新值：状态对象若记住首组合的 lambda，调用方列表
+    // 变化（增删/导入）后 items = draft ?: current() 仍读旧列表——搜索引擎设置页
+    // 「加完引擎设置页不显示」即此因。keys 保留：显式传 key 时整状态重建（草稿一并清空）。
+    val latestCurrent by rememberUpdatedState(current)
+    val latestOnCommit by rememberUpdatedState(onCommit)
+    return remember(*keys) {
+        DragReorderState(current = { latestCurrent() }, onCommit = { latestOnCommit(it) })
+    }
+}
 
 /** 拖拽行的渲染修饰：拖拽行置顶 + 跟手位移 + 行高测量。 */
 fun Modifier.dragReorderPlacement(state: DragReorderState<*>, index: Int): Modifier = this

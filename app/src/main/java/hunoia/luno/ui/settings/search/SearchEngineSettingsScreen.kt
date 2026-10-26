@@ -13,6 +13,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,6 +36,7 @@ import hunoia.luno.bridge.system.readClipboardText
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.domain.search.SearchCenter
+import hunoia.luno.config.model.QuickSearchListStyle
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.SearchLaunch
@@ -78,6 +83,7 @@ fun SearchEngineSettingsScreen(
     val settings by SearchCenter.search.collectAsStateWithLifecycle(initialValue = QuickSearchSettings())
     var deleteTarget by remember { mutableStateOf<SearchEngine?>(null) }
     var importPreview by remember { mutableStateOf<ImportPreview?>(null) }
+    var showExportConfirm by remember { mutableStateOf(false) }
     val configEngines = settings.effectiveEngines()
     fun update(transform: (QuickSearchSettings) -> QuickSearchSettings) {
         scope.launch { SearchCenter.updateSearch(transform) }
@@ -178,7 +184,6 @@ fun SearchEngineSettingsScreen(
                         preview.engines.size,
                         preview.conflictTriggers,
                     ),
-                    confirmLabel = stringResource(R.string.search_engine_import),
                     onDismissRequest = { importPreview = null },
                     onConfirm = {
                         importPreview = null
@@ -190,7 +195,6 @@ fun SearchEngineSettingsScreen(
                 ConfirmDialog(
                     title = stringResource(R.string.search_engine_delete_title),
                     text = target.name,
-                    confirmLabel = stringResource(R.string.delete),
                     destructive = true,
                     onDismissRequest = { deleteTarget = null },
                     onConfirm = {
@@ -201,6 +205,22 @@ fun SearchEngineSettingsScreen(
                                 )
                             }
                         }
+                    },
+                )
+            }
+            if (showExportConfirm) {
+                ConfirmDialog(
+                    title = stringResource(R.string.search_export_confirm_title),
+                    text = stringResource(
+                        R.string.search_export_confirm_text,
+                        settings.customEngines.size,
+                    ),
+                    onDismissRequest = { showExportConfirm = false },
+                    onConfirm = {
+                        showExportConfirm = false
+                        val json = JsonSerializer.encodeToString(settings.customEngines)
+                        copyText(context, "luno-search-engines", json)
+                        showToast(R.string.search_engine_export_done)
                     },
                 )
             }
@@ -269,10 +289,10 @@ fun SearchEngineSettingsScreen(
                 }
             }
         }
-        item(key = "gap-data") { GroupGap() }
-        // 内容源入口与导入/导出合一组：数据进出都在这。
-        item(key = "data") {
-            LunoGroup(title = stringResource(R.string.search_engine_data_group)) {
+        item(key = "gap-general") { GroupGap() }
+        // 通用组：内容源入口 + 列表样式 + 输入行为开关。
+        item(key = "general") {
+            LunoGroup(title = stringResource(R.string.search_general_group)) {
                 LunoSettingsRow(
                     title = stringResource(R.string.search_source_settings),
                     trailing = { ArrowHint() },
@@ -280,40 +300,51 @@ fun SearchEngineSettingsScreen(
                     onClick = onNavToSources,
                 )
                 LunoSettingsRow(
-                    title = stringResource(R.string.search_engine_export),
+                    title = stringResource(R.string.search_list_style),
                     shape = segmentedShape(1, 3),
-                    onClick = {
-                        val json = JsonSerializer.encodeToString(settings.customEngines)
-                        copyText(context, "luno-search-engines", json)
-                        showToast(R.string.search_engine_export_done)
+                    trailing = {
+                        SingleChoiceSegmentedButtonRow {
+                            SegmentedButton(
+                                selected = settings.listStyle == QuickSearchListStyle.Flat,
+                                onClick = { update { it.copy(listStyle = QuickSearchListStyle.Flat) } },
+                                shape = SegmentedButtonDefaults.itemShape(count = 2, index = 0),
+                            ) {
+                                Text(stringResource(R.string.search_list_style_flat), maxLines = 1)
+                            }
+                            SegmentedButton(
+                                selected = settings.listStyle == QuickSearchListStyle.GroupedCards,
+                                onClick = { update { it.copy(listStyle = QuickSearchListStyle.GroupedCards) } },
+                                shape = SegmentedButtonDefaults.itemShape(count = 2, index = 1),
+                            ) {
+                                Text(stringResource(R.string.search_list_style_cards), maxLines = 1)
+                            }
+                        }
                     },
-                )
-                LunoSettingsRow(
-                    title = stringResource(R.string.search_engine_import),
-                    shape = segmentedShape(2, 3),
-                    onClick = { importPreview = parseImport() },
-                )
-            }
-        }
-        item(key = "gap-experience") { GroupGap() }
-        // 体验组（原「结果治理与体验」子页平铺）。
-        item(key = "experience") {
-            LunoGroup(title = stringResource(R.string.search_experience_group)) {
-                LunoSwitchRow(
-                    title = stringResource(R.string.search_restore_last_query),
-                    checked = settings.restoreLastQuery,
-                    onCheckedChange = { v ->
-                        update { it.copy(restoreLastQuery = v) }
-                    },
-                    shape = segmentedShape(0, 2),
                 )
                 LunoSwitchRow(
                     title = stringResource(R.string.search_ascii_enter),
+                    subtitle = stringResource(R.string.search_ascii_enter_subtitle),
                     checked = settings.asciiEnterSearch,
                     onCheckedChange = { v ->
                         update { it.copy(asciiEnterSearch = v) }
                     },
+                    shape = segmentedShape(2, 3),
+                )
+            }
+        }
+        item(key = "gap-data") { GroupGap() }
+        // 数据组放最后：导出会覆盖剪贴板，先确认再复制；导入维持解析后的预览确认。
+        item(key = "data") {
+            LunoGroup(title = stringResource(R.string.search_data_group)) {
+                LunoSettingsRow(
+                    title = stringResource(R.string.search_engine_export),
+                    shape = segmentedShape(0, 2),
+                    onClick = { showExportConfirm = true },
+                )
+                LunoSettingsRow(
+                    title = stringResource(R.string.search_engine_import),
                     shape = segmentedShape(1, 2),
+                    onClick = { importPreview = parseImport() },
                 )
             }
         }

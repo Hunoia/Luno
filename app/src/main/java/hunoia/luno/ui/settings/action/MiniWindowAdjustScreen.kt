@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -61,6 +60,9 @@ import hunoia.luno.config.model.WindowBounds
 import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.config.model.withMiniWindowSettings
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.ui.theme.CardInnerSpacing
+import hunoia.luno.ui.theme.LargeShape
+import hunoia.luno.ui.theme.SmallShape
 import kotlinx.coroutines.launch
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -291,7 +293,7 @@ fun MiniWindowAdjustContent(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = 24.dp, start = 16.dp, end = 16.dp)
-                .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                .background(Color.Black.copy(alpha = 0.5f), SmallShape)
                 .padding(horizontal = 10.dp, vertical = 4.dp),
         )
 
@@ -302,9 +304,9 @@ fun MiniWindowAdjustContent(
                 .widthIn(max = 460.dp)
                 .fillMaxWidth()
                 .padding(12.dp)
-                .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(16.dp))
+                .background(Color.Black.copy(alpha = 0.55f), LargeShape)
                 .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
         ) {
             Text(
                 text = stringResource(

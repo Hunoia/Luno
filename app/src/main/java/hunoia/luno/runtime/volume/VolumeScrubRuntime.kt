@@ -45,8 +45,12 @@ class VolumeScrubRuntime(
         // 「active 但已关闭」的自相矛盾状态，show() 的 begin() 会一直返回 false。
         // （当前 GestureCoordinator.onDestroy 后整个实例都会被重建，所以这不影响现网行为，
         //   但状态本身不该留着。）
+        val wasActive = isActive || overlay != null
         overlay?.dismiss()
         overlay = null
         isActive = false
+        // 正常关闭走 end() 的配对 Dismissed；销毁路径没人发，而 panelCount 活在
+        // 跨重绑存活的 FloatBallService 里 —— 少发一次球就一直隐藏到下一次面板开合。
+        if (wasActive) Events.post(PanelDismissedEvent())
     }
 }

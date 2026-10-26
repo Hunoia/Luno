@@ -1,5 +1,6 @@
 package hunoia.luno.quicklaunch.panel
 import android.app.Activity
+import android.os.SystemClock
 import android.util.Log
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -14,7 +15,10 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -22,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.mapLatest
@@ -33,18 +38,16 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import hunoia.luno.quicklaunch.icon.SearchIconCache
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import hunoia.luno.BuildConfig
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.QuickSearchSettings
-import hunoia.luno.config.model.QuickAppLauncherSettings
+import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.action.model.ActionLibrarySettings
 import hunoia.luno.config.model.MAX_CLIP_HISTORY
 import hunoia.luno.config.model.MIN_HISTORY_CHARS
 import hunoia.luno.config.model.SRC_CLIP
 import hunoia.luno.config.model.effectiveEngines
-import hunoia.luno.config.model.effectiveLaunch
 import hunoia.luno.quicklaunch.query.QuickSearchIndex
 import hunoia.luno.quicklaunch.query.SearchAction
 import hunoia.luno.quicklaunch.query.SearchIcon
@@ -52,10 +55,11 @@ import hunoia.luno.quicklaunch.query.SearchResult
 import hunoia.luno.quicklaunch.query.normalizePinQuery
 import hunoia.luno.quicklaunch.query.searchOutcome
 import hunoia.luno.quicklaunch.query.topUsed
-import hunoia.luno.quicklaunch.query.toSearchAction
 import hunoia.luno.quicklaunch.query.toSearchResult
 import hunoia.luno.ui.permission.rememberPermissionState
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 /** 搜索输入快照：snapshotFlow 跟踪块内读到的 State，值变化即重搜。 */
@@ -66,10 +70,19 @@ private data class SearchPacket(
     val directive: Boolean,
 )
 
+/** 被 ACTION_OUTSIDE 收起的菜单快照：用于吞掉同一次点击里锚点按钮随后触发的重开。 */
+private data class DismissedMenu(val key: String, val at: Long)
+
+/** 覆盖一次按压 down→up 的时长（含慢速点按），又不至于吞掉刻意的再次点击。 */
+private const val MENU_REOPEN_SUPPRESS_MS = 400L
+
+/** 首屏图标预热上限：只解码当前可能露出的前几行，长尾交给列表可见时 Coil 按需加载。 */
+private const val ICON_PREWARM_LIMIT = 24
+
 private data class SearchSnapshot(
     val text: String,
     val entries: List<hunoia.luno.action.model.ActionLibraryEntry>,
-    val launcher: QuickAppLauncherSettings,
+    val usage: AppUsageStats,
     val search: QuickSearchSettings,
     val contactsTick: Int,
     val mediaTick: Int,
@@ -161,21 +174,17 @@ internal fun QuickSearchContent(
     onResult: (SearchResult, String) -> Unit,
     onAction: (SearchAction, String) -> Unit,
     onTogglePin: (String, String) -> Unit,
-    onSaveDraft: (String) -> Unit,
     onOpenAppSettings: () -> Unit,
 ) {
     val libraryFlow = remember { hunoia.luno.config.ConfigProvider.actionLibrarySettings }
     val libraryState by libraryFlow.collectAsState(initial = ActionLibrarySettings())
     val entries = libraryState.entries
-    val launcherFlow = remember { hunoia.luno.config.ConfigProvider.quickAppLauncherSettings }
-    val launcherSettings by launcherFlow.collectAsState(initial = QuickAppLauncherSettings())
+    val usageFlow = remember { hunoia.luno.config.ConfigProvider.appUsageStats }
+    val usageStats by usageFlow.collectAsState(initial = AppUsageStats())
     val searchSettingsFlow = remember { hunoia.luno.config.ConfigProvider.quickSearchSettings }
     val searchSettings by searchSettingsFlow.collectAsState(initial = QuickSearchSettings())
     var query by remember { mutableStateOf(TextFieldValue("")) }
-    var actionSheetResult by remember { mutableStateOf<SearchResult?>(null) }
-    var actionSheetQuery by remember { mutableStateOf("") }
-    var enginePickerQuery by remember { mutableStateOf<String?>(null) }
-    var restoredDraft by remember { mutableStateOf(false) }
+    var menuResult by remember { mutableStateOf<SearchResult?>(null) }
     val scope = rememberCoroutineScope()
     // 权限状态 + 媒体授权申请：数据装载效果（QuickSearchDataEffects）与空态授权行共用。
     val permCtx = LocalContext.current
@@ -206,18 +215,11 @@ internal fun QuickSearchContent(
     // 搜索搬出主线程：query 即时更新，结果流式回来；mapLatest 取消过期搜索，空串短路。
     // 依赖只留不会每帧变的东西：query 不进 key（块内 snapshotFlow 读），设置走 SearchInputs，tick 合成 dataVersion。
     val searchInputs = remember(searchSettings) { SearchInputs.of(searchSettings) }
-    val launchCount = remember(launcherSettings) { launcherSettings.launchCount }
-    val recentLaunchTime = remember(launcherSettings) { launcherSettings.recentLaunchTime }
     // 引擎/开关匹配只吃这两个（SearchInputs 已含其余），拼回完整设置只为沿用旧签名。
     val effectiveSearchSettings = remember(searchInputs) { searchInputs.toSettings() }
-    // 启动频率/最近启动变了不必重建流：排序分是搜索时现算的，下一次搜索自然带上新值。
-    // 所以这里把 launcher 只留「搜索侧用得到」的两个 map，引用由 remember 抄平。
-    val effectiveLauncher = remember(launchCount, recentLaunchTime) {
-        QuickAppLauncherSettings(
-            launchCount = launchCount,
-            recentLaunchTime = recentLaunchTime,
-        )
-    }
+    // 启动统计是搜索输入但不重建流：用 rememberUpdatedState 包一层，由块内 snapshotFlow
+    // 读取，统计变了会自动重发一次快照，下一次搜索自然带上新分，不用重建整条管道。
+    val usageState = rememberUpdatedState(usageStats)
     // 应用索引版本：普通 @Volatile 字段 Compose 看不见，必须经 StateFlow 收集。
     val indexVersion by index.indexVersion.collectAsState()
     // dataVersion：数据源 tick / 索引版本，任一变化就重建搜索流并重搜一次。
@@ -225,13 +227,14 @@ internal fun QuickSearchContent(
     val dataVersion = ticks.contactsTick + ticks.mediaTick + ticks.calendarTick +
         ticks.smsTick + ticks.callsTick + indexVersion + ticks.permCacheTick
     val searchFlow = remember(
-        appCtx, iconPx, searchInputs, effectiveLauncher, effectiveSearchSettings, dataVersion, torchOn,
+        appCtx, iconPx, searchInputs, effectiveSearchSettings, dataVersion, torchOn,
     ) {
         snapshotFlow {
             // 块内只读快照里没装但会影响结果的 State：query（打字即时触发）、
-            // entries（动作库条目参与匹配）；tick 已由 remember 的 key 带进闭包。
+            // entries（动作库条目参与匹配）、usage（启动统计影响使用分）；
+            // tick 已由 remember 的 key 带进闭包。
             SearchSnapshot(
-                query.text, entries, effectiveLauncher, effectiveSearchSettings,
+                query.text, entries, usageState.value, effectiveSearchSettings,
                 0, 0, 0, 0, 0, torchOn,
             )
         }.mapLatest { s ->
@@ -240,11 +243,16 @@ internal fun QuickSearchContent(
                 SearchPacket(text, emptyList(), directive = false)
             } else {
                 withContext(Dispatchers.Default) {
-                    val outcome = index.searchOutcome(text, s.entries, s.launcher, s.search, s.torchOn)
+                    val job = currentCoroutineContext()[Job]
+                    val outcome = index.searchOutcome(
+                        text, s.entries, s.usage, s.search, s.torchOn,
+                        isActive = { job?.isActive != false },
+                    )
                     // 发射前把 App/快捷方式行的图标 resolve 进同步缓存：UI 线程读到即画，
-                    // 结果原子到达。已缓存的零开销，只有新包才解码（自带 bitmap 的快捷方式跳过）。
+                    // 结果原子到达。已缓存的零开销，只有新包才解码；只预热首屏上限，
+                    // 避免单字母查询把几百个包的图标串行解码后才发射结果。
                     val pkgs = HashSet<String>()
-                    for (r in outcome.results) {
+                    for (r in outcome.results.asSequence().take(ICON_PREWARM_LIMIT)) {
                         val icon = r.icon
                         if (icon is SearchIcon.AppIcon && icon.bitmap == null) {
                             pkgs.add(icon.packageName)
@@ -300,32 +308,31 @@ internal fun QuickSearchContent(
         focusRequester.requestFocus()
         keyboard?.show()
     }
-    // 草稿：设置流首次到达后回填一次；空草稿不占用“已恢复”标记，避免默认空设置
-    // 先到、真实草稿后到时被吞掉。
-    LaunchedEffect(searchSettings.lastQuery, searchSettings.restoreLastQuery) {
-        if (!restoredDraft &&
-            searchSettings.restoreLastQuery &&
-            searchSettings.lastQuery.isNotBlank() &&
-            query.text.isBlank()
-        ) {
-            restoredDraft = true
-            val text = backfillText(searchSettings.lastQuery)
-            query = TextFieldValue(text, TextRange(text.length))
-        }
-    }
     LaunchedEffect(closing) {
         if (closing) {
-            actionSheetResult = null
-            enginePickerQuery = null
-            onSaveDraft(query.text)
+            menuResult = null
         }
     }
+    // 菜单 popup 非 focusable（见 ResultActionMenu）：收不到 back、也不随键盘联动，这两处收口。
+    // 键盘 inset 一开始收缩就先收菜单：键盘收起（返回键/下滑收键盘）会让 imePadding 塌缩、
+    // 锚点下移，菜单必须赶在布局移动前消失，否则又是跳动。previousIme 挡掉开场键盘还没弹出
+    // （inset 恒 0）时对刚打开菜单的误清。
+    val imeInsets = WindowInsets.ime
+    val imeDensity = LocalDensity.current
+    LaunchedEffect(imeInsets, imeDensity) {
+        var previousIme = 0
+        snapshotFlow { imeInsets.getBottom(imeDensity) }.collect { ime ->
+            if (menuResult != null && ime < previousIme) menuResult = null
+            previousIme = ime
+        }
+    }
+    BackHandler(enabled = menuResult != null && !closing) { menuResult = null }
     // 空态常用应用：放在条件分支外，面板生命周期内只跑一次 —— 写进分支里的话分支一退出
     // 就取消，来回切 query 会反复重启 IO。
     var topUsedApps by remember { mutableStateOf(emptyList<SearchResult>()) }
-    LaunchedEffect(effectiveLauncher, indexVersion) {
+    LaunchedEffect(usageStats, indexVersion) {
         topUsedApps = withContext(Dispatchers.IO) {
-            index.topUsed(effectiveLauncher)
+            index.topUsed(usageStats)
                 .map { it.toSearchResult() }
         }
     }
@@ -347,11 +354,33 @@ internal fun QuickSearchContent(
     }
     // 退场中吞掉行点击：requestClose 幂等但 dispatch 不是，守一层。
     val safeResult: (SearchResult, String) -> Unit = { r, q -> if (!closing) onResult(r, q) }
-    val safeLongPress: (SearchResult) -> Unit = { result ->
+    // 菜单 popup 非 focusable 后，锚点按钮上的一次点击 = down 时 ACTION_OUTSIDE 先收菜单、
+    // up 时按钮 onClick 再开菜单，表现为"点三点永远重新打开而不是关闭"。记录刚被外部
+    // 点击收起的 key + 时间戳，窗口期内同 key 的打开请求吞掉（三点即成开关）；换行/长按
+    // 打开不受影响。一次性：任何打开尝试都会消费掉这条记录。
+    var menuDismissal by remember { mutableStateOf<DismissedMenu?>(null) }
+    val safeMenuOpen: (SearchResult) -> Unit = { result ->
         if (!closing) {
-            actionSheetResult = result
-            actionSheetQuery = query.text.trim()
+            val dismissal = menuDismissal
+            val suppress = dismissal != null &&
+                dismissal.key == result.key &&
+                SystemClock.uptimeMillis() - dismissal.at < MENU_REOPEN_SUPPRESS_MS
+            menuDismissal = null
+            if (!suppress) menuResult = result
         }
+    }
+    // 结果菜单动作收口：先收菜单再上抛。
+    val handleResultAction: (SearchAction, String) -> Unit = { action, q ->
+        menuResult = null
+        onAction(action, q)
+    }
+    val onMenuDismiss: () -> Unit = {
+        menuResult?.let { menuDismissal = DismissedMenu(it.key, SystemClock.uptimeMillis()) }
+        menuResult = null
+    }
+    // 当前 query 的结果级 Pin key 集（trim+lowercase，与索引层同口径）。
+    val resultPinnedKeys = remember(searchSettings.pinnedResults, query.text) {
+        searchSettings.pinnedResults[normalizePinQuery(query.text.trim())].orEmpty().toSet()
     }
     val safeAction: (SearchAction, String) -> Unit = { a, q -> if (!closing) onAction(a, q) }
     Box(
@@ -406,10 +435,15 @@ internal fun QuickSearchContent(
                     matches = matches,
                     pinnedSet = pinnedSet,
                     queryText = query.text,
+                    menuResult = menuResult,
+                    resultPinnedKeys = resultPinnedKeys,
+                    listStyle = searchSettings.listStyle,
                     onQueryChange = { query = it },
                     onResultClick = safeResult,
-                    onLongPress = safeLongPress,
-                    onShowEngines = { enginePickerQuery = it },
+                    onMenuOpen = safeMenuOpen,
+                    onMenuDismiss = onMenuDismiss,
+                    onResultAction = handleResultAction,
+                    onToggleResultPin = onTogglePin,
                     onTogglePin = togglePin,
                     onDeleteHistory = deleteHistory,
                     modifier = Modifier.weight(1f),
@@ -422,6 +456,9 @@ internal fun QuickSearchContent(
                     clipboardText = clipboardText,
                     locked = locked,
                     used = topUsedApps,
+                    queryText = query.text,
+                    menuResult = menuResult,
+                    resultPinnedKeys = resultPinnedKeys,
                     grants = grants,
                     contactsPerm = contactsPerm,
                     calendarPerm = calendarPerm,
@@ -432,7 +469,10 @@ internal fun QuickSearchContent(
                     pinnedSet = pinnedSet,
                     onQueryChange = { query = it },
                     onResultClick = safeResult,
-                    onLongPress = safeLongPress,
+                    onMenuOpen = safeMenuOpen,
+                    onMenuDismiss = onMenuDismiss,
+                    onResultAction = handleResultAction,
+                    onToggleResultPin = onTogglePin,
                     onTogglePin = togglePin,
                     onDeleteHistory = deleteHistory,
                     onOpenAppSettings = onOpenAppSettings,
@@ -471,40 +511,6 @@ internal fun QuickSearchContent(
                 focusRequester = focusRequester,
                 asciiEnter = searchSettings.asciiEnterSearch,
             )
-        }
-
-        actionSheetResult?.let { result ->
-            val pinned = result.key in searchSettings
-                .pinnedResults[normalizePinQuery(actionSheetQuery)].orEmpty()
-            SearchResultActionSheet(
-                result = result,
-                query = actionSheetQuery,
-                pinned = pinned,
-                onAction = { action, q ->
-                    actionSheetResult = null
-                    if (action is SearchAction.ShowEngines) {
-                        enginePickerQuery = action.query
-                    } else {
-                        onAction(action, q)
-                    }
-                },
-                onTogglePin = { q, key -> actionSheetResult = null; onTogglePin(q, key) },
-                onShowEngines = { q -> actionSheetResult = null; enginePickerQuery = q },
-                onDismiss = { actionSheetResult = null },
-            )
-        }
-        enginePickerQuery?.let { pickerQuery ->
-            val engines = searchSettings.effectiveEngines()
-            if (engines.isNotEmpty()) {
-                SearchEnginePickerSheet(
-                    engines = engines,
-                    onPick = { engine ->
-                        enginePickerQuery = null
-                        onAction(engine.effectiveLaunch().toSearchAction(pickerQuery), pickerQuery)
-                    },
-                    onDismiss = { enginePickerQuery = null },
-                )
-            }
         }
     }
 }

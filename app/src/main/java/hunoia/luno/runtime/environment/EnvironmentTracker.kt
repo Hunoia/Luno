@@ -26,6 +26,11 @@ class EnvironmentTracker(
     private val getCurrentPackageName: () -> String,
     private val nowInLauncher: () -> Boolean,
     private val findFocusedNode: () -> AccessibilityNodeInfo? = { null },
+    /**
+     * 真实 IME 窗口是否在屏（a11y windows 里的 TYPE_INPUT_METHOD）。
+     * 返回 null 表示该 ROM/此刻拿不到窗口列表，退回输入焦点兜底。
+     */
+    private val imeWindowVisible: () -> Boolean? = { null },
     private val nowMs: () -> Long = { android.os.SystemClock.uptimeMillis() },
     val onKeyboardStateChanged: (Boolean) -> Unit = {},
 ) {
@@ -55,8 +60,7 @@ class EnvironmentTracker(
     private var pendingTorchChangedTo: Boolean? = null
     private var pendingDndChangedTo: Boolean? = null
 
-    private var lastFocusQueryMs = 0L
-    private var lastFocusQueryResult = false
+    private var lastKeyboardQueryMs = 0L
 
     fun onOrientationChanged(newOrientation: Int) {
         orientation = newOrientation
@@ -126,6 +130,24 @@ class EnvironmentTracker(
         isKeyboardInputActive = active
         pendingKeyboardEvent = if (active) KeyboardEventType.SHOWN else KeyboardEventType.HIDDEN
         onKeyboardStateChanged(active)
+    }
+
+    /**
+     * 启动播种键盘状态（与 orientation/锁屏播种同源的问题）：默认 false，重绑时键盘若已弹出，
+     * 「键盘隐藏」类启用规则的首评边沿会被吞（且 `updateKeyboardActive` 的同值早退连纠正
+     * 事件都收不到）。用焦点节点可编辑性探测一次；只设值不发脉冲，root 未就绪时探不到、
+     * 保持 false，下一次输入类事件自会纠正。
+     */
+    fun seedKeyboardInputActive() {
+        isKeyboardInputActive = queryKeyboardVisible()
+    }
+
+    /**
+     * 采样一次键盘可见性（主线程）：给「键盘在屏期间」的短轮询用 —— IME 可能被返回键/
+     * 系统手势收起而不产生任何 a11y 事件，只靠事件会永远停在「弹出」。
+     */
+    fun pollKeyboardVisibility() {
+        updateKeyboardActive(queryKeyboardVisible())
     }
 
     fun buildRuntimeState(
@@ -219,36 +241,39 @@ class EnvironmentTracker(
         pendingDndChangedTo = null
     }
 
+    /**
+     * 键盘状态以**真实 IME 窗口**为准（`TYPE_INPUT_METHOD` 是否在 windows 里），
+     * 不再由「是否有 EditText 获得焦点」推断：输入框保留焦点但键盘被收起是常态，
+     * 旧实现会把「键盘已收起」永远判成弹出，状态型规则和 KEYBOARD_EVENT 的收起边沿
+     * 都再也发不出来。焦点判断仅作为拿不到窗口列表时的兜底。
+     */
     private fun updateKeyboardInputState(event: AccessibilityEvent) {
-        val active = when (event.eventType) {
-            // event.source 由事件本身携带,查询它不产生 IPC,所以这三种不节流。
-            // isEditableInput(source) 命中时也不会走到 findFocus。
+        when (event.eventType) {
+            // IME 窗口的出现/消失会带窗口状态/窗口列表变化：检测延迟敏感，不节流。
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
+            AccessibilityEvent.TYPE_WINDOWS_CHANGED ->
+                updateKeyboardActive(queryKeyboardVisible())
+
+            // 打字时这类事件很密：节流窗口内复用上次采样，避免每次按键都查 windows/findFocus。
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
             AccessibilityEvent.TYPE_VIEW_FOCUSED,
             AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED,
-            AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED -> isEditableInput(event.source) || hasEditableInputFocus()
-
-            // 键盘弹出/收起必然带一次窗口变化(IME 窗口出现或消失),这条是检测延迟敏感的主信号,
-            // 保持每次真实查询。
-            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> hasEditableInputFocus()
-
-            // 全项目最高频的事件:任何应用滚动列表都是每秒几十次,与应用是否含输入框无关。
-            // 而键盘状态在这条上永远只是兜底 —— 弹出与收起都由上面两种事件先覆盖到,
-            // 所以节流这条不会让 isKeyboardInputActive 变慢,只省掉每秒几十次
-            // rootInActiveWindow + findFocus 的跨进程 Binder 与 AccessibilityNodeInfo 分配。
-            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> hasEditableInputFocusThrottled()
+            AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED -> {
+                val now = nowMs()
+                if (now - lastKeyboardQueryMs < KEYBOARD_QUERY_THROTTLE_MS) return
+                lastKeyboardQueryMs = now
+                updateKeyboardActive(queryKeyboardVisible())
+            }
 
             else -> return
         }
-        updateKeyboardActive(active)
     }
 
-    private fun hasEditableInputFocusThrottled(): Boolean {
-        val now = nowMs()
-        if (now - lastFocusQueryMs < FOCUS_QUERY_THROTTLE_MS) return lastFocusQueryResult
-        val result = hasEditableInputFocus()
-        lastFocusQueryMs = now
-        lastFocusQueryResult = result
-        return result
+    /** 真实 IME 窗口优先；窗口列表不可用时退回「可编辑节点获得焦点」。 */
+    private fun queryKeyboardVisible(): Boolean {
+        val fromWindows = imeWindowVisible()
+        if (fromWindows != null) return fromWindows
+        return hasEditableInputFocus()
     }
 
     private fun hasEditableInputFocus(): Boolean {
@@ -265,7 +290,7 @@ class EnvironmentTracker(
     }
 
     private companion object {
-        /** TYPE_WINDOW_CONTENT_CHANGED 上 findFocus 的最小查询间隔：150ms 远小于可感知延迟，把每秒几十次 Binder 压到每秒不到 7 次。 */
-        const val FOCUS_QUERY_THROTTLE_MS = 150L
+        /** 高频 a11y 事件上的键盘采样间隔：150ms 远小于可感知延迟，把每键一次的 Binder 查询压下去。 */
+        const val KEYBOARD_QUERY_THROTTLE_MS = 150L
     }
 }

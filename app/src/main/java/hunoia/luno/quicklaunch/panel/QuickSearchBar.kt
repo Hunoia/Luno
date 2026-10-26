@@ -46,6 +46,8 @@ import hunoia.luno.config.model.effectiveLaunch
 import hunoia.luno.quicklaunch.query.SearchAction
 import hunoia.luno.quicklaunch.query.toSearchAction
 import hunoia.luno.ui.component.TextIconGlyph
+import hunoia.luno.ui.component.feedback.LunoIconButton
+import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.PageGutter
 
 /**
@@ -68,7 +70,7 @@ internal fun QuickSearchEngineBar(
             modifier = modifier
                 .fillMaxWidth()
                 .padding(horizontal = PageGutter, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
         ) {
             itemsIndexed(engines, key = { _, engine -> engine.id }) { index, engine ->
                 val launch = engine.effectiveLaunch()
@@ -100,7 +102,7 @@ internal fun QuickSearchEngineBar(
 /**
  * 搜索框：Capsule 输入 + 右侧动作（有词 = 清空 + 确认 Check，空词 = 语音）。
  * 确认目标与键盘动作由根组合给（confirmFirst 读实时 query，不能在 remember 里捕获组合期快照）。
- * [asciiEnter] 开 = 英文键盘且回车直达；关（默认）= 中文输入法可用，确认走 Check。
+ * [asciiEnter] 开（默认）= 英文键盘且回车直达；关 = 中文输入法可用，确认走 Check。
  */
 @Composable
 internal fun QuickSearchField(
@@ -136,33 +138,29 @@ internal fun QuickSearchField(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = PageGutter)
-            .padding(bottom = 8.dp)
+            .padding(bottom = CardInnerSpacing)
             .focusRequester(focusRequester),
         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
         trailingIcon = {
             if (value.text.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     // 框内 ×：只清空 query（ui-guidelines §8 语义）。
-                    androidx.compose.material3.IconButton(
+                    LunoIconButton(
+                        icon = Icons.Default.Close,
+                        contentDescription = stringResource(R.string.quick_search_clear),
                         onClick = { onValueChange(TextFieldValue("")) },
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = stringResource(R.string.quick_search_clear),
-                        )
-                    }
+                    )
                     // 注意列表是反转的：firstOrNull 是视觉底部（离胶囊最近），与显示顺序相反。
-                    androidx.compose.material3.IconButton(
+                    LunoIconButton(
+                        icon = Icons.Default.Check,
+                        contentDescription = stringResource(R.string.confirm),
                         onClick = onConfirm,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = null,
-                        )
-                    }
+                    )
                 }
             } else if (voiceAvailable) {
-                androidx.compose.material3.IconButton(
+                LunoIconButton(
+                    icon = Icons.Default.Mic,
+                    contentDescription = stringResource(R.string.quick_search_voice),
                     onClick = {
                         voiceLauncher.launch(
                             Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -177,18 +175,13 @@ internal fun QuickSearchField(
                             },
                         )
                     },
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Mic,
-                        contentDescription = null,
-                    )
-                }
+                )
             }
         },
         singleLine = true,
         shape = CircleShape,
-        // 关（默认）= Text：中文输入法可用，回车交给输入法、确认走右侧 Check；
-        // 开 = Ascii：锁英文键盘换「回车即确认」。两档取舍见设置「回车即搜索」开关。
+        // 开（默认）= Ascii：锁英文键盘换「回车即确认」；
+        // 关 = Text：中文输入法可用，回车交给输入法、确认走右侧 Check。见设置「英文键盘」开关。
         keyboardOptions = KeyboardOptions(
             keyboardType = if (asciiEnter) KeyboardType.Ascii else KeyboardType.Text,
             imeAction = ImeAction.Search,

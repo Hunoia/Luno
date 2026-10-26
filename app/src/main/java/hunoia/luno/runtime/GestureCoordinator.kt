@@ -1,5 +1,6 @@
 package hunoia.luno.runtime
 
+import android.app.KeyguardManager
 import android.app.WallpaperManager
 import android.content.res.Configuration
 import android.os.Handler
@@ -14,10 +15,13 @@ import hunoia.luno.BuildConfig
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
+import hunoia.luno.core.TouchButtonSideEvent
+import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.actionPanelId
 import hunoia.luno.action.model.withoutVariantKey
 import hunoia.luno.runtime.condition.toConditionContext
+import hunoia.luno.runtime.gesturepanel.ACTION_PANEL_FADE_OUT_MS
 import kotlin.math.roundToInt
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.ConfigProvider
@@ -64,12 +68,16 @@ import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 import hunoia.luno.core.LOG_TAG
 
 /** 冷启动/悬浮窗重建期间容器的面板列表未灌满时，揭示事件的等待重试参数。 */
 private const val BALL_PANEL_REVEAL_MAX_ATTEMPTS = 40
+
+/** 键盘在屏期间的短轮询间隔：捕捉没有 a11y 事件的 IME 收起（如返回键/手势）。 */
+private const val KEYBOARD_WATCH_MS = 600L
 private val BALL_PANEL_REVEAL_RETRY_MS = 250.milliseconds
 
 class GestureCoordinator(
@@ -84,15 +92,30 @@ class GestureCoordinator(
                 android.view.accessibility.AccessibilityNodeInfo.FOCUS_INPUT
             )
         },
-        onKeyboardStateChanged = { active ->
-            if (BuildConfig.DEBUG) Log.i(LOG_TAG, "keyboard active=$active")
-            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.KEYBOARD))
+        // 键盘状态以真实 IME 窗口为准；拿不到窗口列表（null）时追踪器退回焦点兜底。
+        imeWindowVisible = {
+            runCatching { host.accessibilityService.windows }.getOrNull()
+                ?.any { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD }
         },
+        onKeyboardStateChanged = { active -> onKeyboardStateChanged(active) },
     )
+
+    init {
+        // 播种真实环境：服务重绑（应用更新/崩溃恢复）时进程全新，追踪器的默认值（竖屏/未锁屏）
+        // 可能与实际相反。边沿引擎首评「prev=hit」记账，种子错了的话，重启后的第一次真实转变
+        // （解锁/转回竖屏）会被当成无变化吞掉 ——「锁屏/横屏关闭 → 解锁/竖屏启用」的启用规则
+        // 就再也等不到边沿，触钮/悬浮球停在关闭态。
+        environmentTracker.onOrientationChanged(host.context.resources.configuration.orientation)
+        val keyguard = host.context.getSystemService(KeyguardManager::class.java)
+        environmentTracker.isNowInLockScreenPage = keyguard?.isKeyguardLocked == true
+    }
     val mainOverlayController = MainOverlayController(host)
     val buttonWindowController = ButtonWindowController(host.context)
     val transientOverlayController = TransientOverlayController(host.context)
     private var refreshJob: Job? = null
+
+    /** 键盘在屏期间的可见性短轮询：IME 可能无 a11y 事件地消失，只靠事件会一直停在「弹出」。 */
+    private var keyboardWatchJob: Job? = null
     /** 待评估事件键累积：100ms 窗口内多次 refresh 取并集一次评估，否则后到的 keyed 评估会顶掉通用评估。 */
     private val pendingAutomationKeys = mutableSetOf<String>()
 
@@ -206,7 +229,9 @@ class GestureCoordinator(
     )
 
     private val previousAppTracker = PreviousAppTracker(
+        context = host.context,
         packageManager = host.context.packageManager,
+        scope = host.coroutineScope,
         startActivity = { host.context.startActivity(it) },
         rootInActiveWindowPackageName = { host.accessibilityService.rootInActiveWindow?.packageName?.toString() },
         ownPackageName = host.context.packageName,
@@ -273,16 +298,19 @@ class GestureCoordinator(
         onFireRule = { rule, ctx ->
             val admitted = synchronized(runningRules) { runningRules.add(rule.id) }
             if (!admitted) {
-                host.coroutineScope.launch {
-                    ConfigProvider.appendAutomationEvent(
-                        AutomationEvent(
-                            ruleId = rule.id,
-                            ruleName = rule.name,
-                            timeMs = ctx.nowMs, wallTimeMs = System.currentTimeMillis(),
-                            fired = false,
-                            reason = SkipReason.RULE_BUSY.code,
+                // 跳过诊断只在 DEBUG 落盘（见 onEvents 注释）。
+                if (BuildConfig.DEBUG) {
+                    host.coroutineScope.launch {
+                        ConfigProvider.appendAutomationEvent(
+                            AutomationEvent(
+                                ruleId = rule.id,
+                                ruleName = rule.name,
+                                timeMs = ctx.nowMs, wallTimeMs = System.currentTimeMillis(),
+                                fired = false,
+                                reason = SkipReason.RULE_BUSY.code,
+                            )
                         )
-                    )
+                    }
                 }
             } else {
                 host.coroutineScope.launch {
@@ -309,7 +337,12 @@ class GestureCoordinator(
         },
         onEvents = { events ->
             // 一轮求值的跳过事件合成一次写盘（引擎侧已攒批）。
-            host.coroutineScope.launch { ConfigProvider.appendAutomationEvents(events) }
+            // 跳过诊断只在 DEBUG 落盘：release 下吵闹通知源在冷却期内的每条通知都会
+            // 产生「100 条历史全量 JSON 重写 + MultiProcess 文件锁」，而执行历史平时
+            // 几乎不看；真正的执行（fired=true，见 onFireRule）仍逐条落盘。
+            if (BuildConfig.DEBUG && events.isNotEmpty()) {
+                host.coroutineScope.launch { ConfigProvider.appendAutomationEvents(events) }
+            }
         },
     )
 
@@ -339,6 +372,15 @@ class GestureCoordinator(
     )
 
     private var started = false
+
+    /** 动作面板 Dismissed 延迟发布的代际：面板在淡出期间重开则旧事件作废。 */
+    private var actionPanelDismissGeneration = 0
+
+    /** 动作面板的 Shown/Dismissed 是否由「交互窗」路径发过（needsPanelOverlay=true）。 */
+    private var actionPanelOverlayEventPosted = false
+
+    /** 动作面板的 Shown/Dismissed 是否由「visible」路径补发（触钮直发路径）。 */
+    private var actionPanelVisibilityEventPosted = false
     private var wallpaperColorsListener: WallpaperManager.OnColorsChangedListener? = null
 
     private val callbacks: GestureOverlayCallbacks = object : GestureOverlayCallbacks {
@@ -375,17 +417,40 @@ class GestureCoordinator(
 
         override fun onActionPanelOverlayChanged(show: Boolean) {
             if (show) {
+                actionPanelDismissGeneration++
+                actionPanelOverlayEventPosted = true
                 transientOverlayController.attachActionPanelOverlay()
                 Events.post(PanelShownEvent())
             } else {
+                actionPanelOverlayEventPosted = false
+                // 交互窗立即拆（不挡住底下），但面板本体还在 a11y overlay 里淡出 400ms；
+                // Dismissed 延到淡出结束再发，否则识屏截屏/悬浮球恢复会看到正在消失的面板。
                 transientOverlayController.detachActionPanelOverlay()
-                Events.post(PanelDismissedEvent())
+                val generation = ++actionPanelDismissGeneration
+                host.coroutineScope.launch {
+                    delay(ACTION_PANEL_FADE_OUT_MS)
+                    if (generation == actionPanelDismissGeneration) {
+                        Events.post(PanelDismissedEvent())
+                    }
+                }
             }
         }
 
         override fun onActionPanelVisibilityChanged(visible: Boolean) {
             if (BuildConfig.DEBUG) Log.i(LOG_TAG, "action panel visible=$visible")
             mainOverlayController.setPanelVisible(visible)
+            // 触钮直发动作面板时 needsPanelOverlay=false，交互窗不会发事件；用这里的
+            // visible 配对补上，保证识屏截图能看到「面板已真正退场」。
+            // false 回调本身已经延后 400ms（淡出结束），所以立即发 Dismissed 即可。
+            if (visible) {
+                if (!actionPanelOverlayEventPosted && !actionPanelVisibilityEventPosted) {
+                    actionPanelVisibilityEventPosted = true
+                    Events.post(PanelShownEvent())
+                }
+            } else if (actionPanelVisibilityEventPosted) {
+                actionPanelVisibilityEventPosted = false
+                Events.post(PanelDismissedEvent())
+            }
         }
 
         override fun onAction(
@@ -414,6 +479,17 @@ class GestureCoordinator(
         }
         // 手势触发动作与手势事件进总线是两条独立路径：前者立即执行，后者供自动化规则订阅。
         environmentTracker.onGesturePerformed(sourceButton?.id ?: "", sourceButton?.name.orEmpty())
+        // 真手势按物理触点归侧广播：悬浮球碰哪侧即时跟到哪侧。
+        // 判据包含「有 sourceButton」：触钮上的**点按**动作 decision 可能为空，
+        // 旧实现只认 decision != null，表现为只有会产 decision 的按钮能跟手换位。
+        // 球点按 / 面板点选走 BallTapActionEvent（sourceButton = null），仍不参与。
+        if ((decision != null || sourceButton != null) && touchPosition.x.isFinite()) {
+            Events.post(
+                TouchButtonSideEvent(
+                    leftSide = touchPosition.x < DensityProvider.screenWidthPx / 2f,
+                ),
+            )
+        }
         val touch = if (touchPosition.x.isFinite() && touchPosition.y.isFinite()) {
             touchPosition.x.roundToInt() to touchPosition.y.roundToInt()
         } else {
@@ -473,6 +549,15 @@ class GestureCoordinator(
         }
     }
 
+    /** 通知脉冲：驱动 NOTIFICATION 域评估（Hub 现为多观察者，胶囊悬浮球也订阅同一源）。 */
+    private val notificationObserver: (hunoia.luno.runtime.condition.NotificationPulse) -> Unit = { pulse ->
+        environmentTracker.onNotificationPosted(pulse)
+        refreshGestureButtons(automationKeys = setOf(AutomationEventKey.NOTIFICATION))
+    }
+
+    /** 勿扰变化由通知监听服务推入（需通知访问权限）。 */
+    private val interruptionObserver: (Boolean) -> Unit = { on -> dndTracker.onSystemChanged(on) }
+
     /**
      * 部件被点后每 40ms 看一次应用窗口列表：新应用窗口一出现就收口，
      * 不等 MIUI 那个约 0.5s 后才到的 TYPE_WINDOW_STATE_CHANGED。
@@ -487,6 +572,9 @@ class GestureCoordinator(
             return
         }
         widgetLaunchPackages = currentAppWindowPackages()
+        // WINDOWS_CHANGED 差集基线同步播种：事件路径只在部件点击期间维护它（见 onAccessibilityEvent），
+        // 常态不再为无关窗口变化付全量扫描。
+        appWindowPackages = widgetLaunchPackages
         // 点击当下的可见窗口 id：新应用哪怕第一个 a11y 事件比 WINDOW_STATE_CHANGED 早，
         // 只要它带的 windowId 不在这个集合里，就能立刻收口。
         widgetLaunchWindowIds = currentWindowIds()
@@ -531,6 +619,28 @@ class GestureCoordinator(
         widgetLaunchDeadline = 0L
     }
 
+    private fun onKeyboardStateChanged(active: Boolean) {
+        if (BuildConfig.DEBUG) Log.i(LOG_TAG, "keyboard active=$active")
+        refreshGestureButtons(automationKeys = setOf(AutomationEventKey.KEYBOARD))
+        if (active) startKeyboardWatch() else stopKeyboardWatch()
+    }
+
+    private fun startKeyboardWatch() {
+        if (keyboardWatchJob?.isActive == true) return
+        keyboardWatchJob = host.coroutineScope.launch {
+            while (isActive) {
+                delay(KEYBOARD_WATCH_MS)
+                environmentTracker.pollKeyboardVisibility()
+                if (!environmentTracker.isKeyboardInputActive) break
+            }
+        }
+    }
+
+    private fun stopKeyboardWatch() {
+        keyboardWatchJob?.cancel()
+        keyboardWatchJob = null
+    }
+
     fun onSetOverlay() {
         if (started) return
         started = true
@@ -545,13 +655,13 @@ class GestureCoordinator(
         batteryTracker.register()
         audioVolumeTracker.sync(volumePollNeeded())
         conditionSources.start()
-        // 通知脉冲：同 :service 进程静态直连；destroy 时置空，避免野回调。
-        AutomationPulseHub.onNotification = { pulse ->
-            environmentTracker.onNotificationPosted(pulse)
-            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.NOTIFICATION))
-        }
-        // 勿扰变化由通知监听服务推入（需通知访问权限）。
-        AutomationPulseHub.onInterruption = { on -> dndTracker.onSystemChanged(on) }
+        // 键盘状态无法像 orientation/锁屏那样在构造期播种（rootInActiveWindow 需服务连接后才有），
+        // 放这里：早于首评的设置收集器，此刻 root 已可查询。
+        environmentTracker.seedKeyboardInputActive()
+        // 通知脉冲：同 :service 进程静态直连；destroy 时移除，避免野回调。
+        AutomationPulseHub.addNotificationObserver(notificationObserver)
+        // 勿扰变化由通知监听服务推入（需通知访问权限）；订阅即回放当前基线。
+        AutomationPulseHub.addInterruptionObserver(interruptionObserver)
         dndTracker.refreshFromSystem()
         val listener = WallpaperManager.OnColorsChangedListener { _, _ ->
             hunoia.luno.core.Events.post(hunoia.luno.core.WallpaperChangedEvent())
@@ -635,48 +745,54 @@ class GestureCoordinator(
         environmentTracker.onAccessibilityEvent(event)
         // 新应用先到的往往不是 WINDOW_STATE_CHANGED：只要事件来自一个点击时不可见的
         // 新窗口，就提前收口。底层应用/面板自身窗口的 id 在基线里，不会误触发。
-        val eventPackage = event?.packageName?.toString().orEmpty()
-        if (event != null && eventPackage.isNotEmpty() &&
-            event.windowId > 0 && widgetLaunchWindowIds.isNotEmpty() &&
-            event.windowId !in widgetLaunchWindowIds &&
-            eventPackage !in widgetLaunchPackages &&
-            eventPackage != host.context.packageName &&
-            !hunoia.luno.gridpanel.isSystemOverlayPackage(eventPackage) &&
-            hunoia.luno.gridpanel.widget.PanelAppWidgetHostView.hasRecentTap()
+        // 廉价短路（widgetLaunchWindowIds 常态为空）放在 packageName.toString() 分配之前。
+        if (event != null && widgetLaunchWindowIds.isNotEmpty() &&
+            event.windowId > 0 && event.windowId !in widgetLaunchWindowIds
         ) {
-            if (BuildConfig.DEBUG) {
-                Log.i(
-                    LOG_TAG,
-                    "early window event after widget tap: type=${event.eventType} " +
-                        "pkg=$eventPackage window=${event.windowId}",
+            val eventPackage = event.packageName?.toString().orEmpty()
+            if (eventPackage.isNotEmpty() &&
+                eventPackage !in widgetLaunchPackages &&
+                eventPackage != host.context.packageName &&
+                !hunoia.luno.gridpanel.isSystemOverlayPackage(eventPackage) &&
+                hunoia.luno.gridpanel.widget.PanelAppWidgetHostView.hasRecentTap()
+            ) {
+                if (BuildConfig.DEBUG) {
+                    Log.i(
+                        LOG_TAG,
+                        "early window event after widget tap: type=${event.eventType} " +
+                            "pkg=$eventPackage window=${event.windowId}",
+                    )
+                }
+                hunoia.luno.gridpanel.GridPanelOverlay.onForegroundPackageChanged(
+                    fromPackage = beforePackage.ifEmpty { eventPackage },
+                    toPackage = eventPackage,
                 )
             }
-            hunoia.luno.gridpanel.GridPanelOverlay.onForegroundPackageChanged(
-                fromPackage = beforePackage.ifEmpty { eventPackage },
-                toPackage = eventPackage,
-            )
         }
         // 窗口列表变化比 TYPE_WINDOW_STATE_CHANGED 更早：部件点击后新应用窗口一出现就收口，
         // 不然要等 0.5s 左右的应用窗口状态事件，面板会盖在新应用上“愣一下”。
         // 只看 TYPE_APPLICATION 窗口，音量球/胶囊等系统窗口天然被排除。
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
-            val current = currentAppWindowPackages()
-            val added = current - appWindowPackages
-            appWindowPackages = current
-            if (added.isNotEmpty() &&
-                hunoia.luno.gridpanel.widget.PanelAppWidgetHostView.hasRecentTap()
-            ) {
-                val target = added.firstOrNull {
-                    it != host.context.packageName && !hunoia.luno.gridpanel.isSystemOverlayPackage(it)
-                }
-                if (target != null) {
-                    if (BuildConfig.DEBUG) {
-                        Log.i(LOG_TAG, "window added after widget tap: $target (added=$added)")
+            // 无部件点击在跟踪时整段跳过：currentAppWindowPackages 是全量窗口扫描
+            // （每窗口 root 一次 Binder），动画/弹窗/IME 引起的窗口变化不该白付；基线已由
+            // startWidgetLaunchPoll 在点击时播种。
+            if (hunoia.luno.gridpanel.widget.PanelAppWidgetHostView.hasRecentTap()) {
+                val current = currentAppWindowPackages()
+                val added = current - appWindowPackages
+                appWindowPackages = current
+                if (added.isNotEmpty()) {
+                    val target = added.firstOrNull {
+                        it != host.context.packageName && !hunoia.luno.gridpanel.isSystemOverlayPackage(it)
                     }
-                    hunoia.luno.gridpanel.GridPanelOverlay.onForegroundPackageChanged(
-                        fromPackage = beforePackage.ifEmpty { target },
-                        toPackage = target,
-                    )
+                    if (target != null) {
+                        if (BuildConfig.DEBUG) {
+                            Log.i(LOG_TAG, "window added after widget tap: $target (added=$added)")
+                        }
+                        hunoia.luno.gridpanel.GridPanelOverlay.onForegroundPackageChanged(
+                            fromPackage = beforePackage.ifEmpty { target },
+                            toPackage = target,
+                        )
+                    }
                 }
             }
         }
@@ -697,8 +813,10 @@ class GestureCoordinator(
                     toPackage = afterPackage,
                 )
             }
-            // 窗口状态事件之后同步一次窗口包集合，下个 TYPE_WINDOWS_CHANGED 的差集才干净。
-            appWindowPackages = currentAppWindowPackages()
+            // 部件点击跟踪期间才维持差集基线（无点击不扫，见上方 WINDOWS_CHANGED 分支）。
+            if (hunoia.luno.gridpanel.widget.PanelAppWidgetHostView.hasRecentTap()) {
+                appWindowPackages = currentAppWindowPackages()
+            }
             refreshGestureButtons(automationKeys = setOf(AutomationEventKey.APP))
         }
     }
@@ -714,17 +832,21 @@ class GestureCoordinator(
     }
 
     fun onDestroy() {
+        // 属性初始化即 launch、不经 scopeJobs 登记：started 守卫之前就要取消，
+        // 否则 onSetOverlay 换代时这条永不完结的 collect 会钉住整个旧协调器对象图。
+        recentAppsBlocklistObserver.cancel()
         if (!started) return
         started = false
         if (BuildConfig.DEBUG) Log.i(LOG_TAG, "GestureCoordinator destroy")
         hunoia.luno.gridpanel.widget.PanelAppWidgetHostView.setTapListener(null)
         stopWidgetLaunchPoll()
+        stopKeyboardWatch()
         hunoia.luno.core.Events.unsubscribe(
             hunoia.luno.action.dispatcher.GestureDispatchEvent::class,
             gestureDispatchSubscriber,
         )
-        AutomationPulseHub.onNotification = null
-        AutomationPulseHub.onInterruption = null
+        AutomationPulseHub.removeNotificationObserver(notificationObserver)
+        AutomationPulseHub.removeInterruptionObserver(interruptionObserver)
         runtimeSettingsStore.stop()
         timeConditionTicker.stop()
         batteryTracker.unregister()
@@ -737,7 +859,16 @@ class GestureCoordinator(
         if (BuildConfig.DEBUG) Log.i(LOG_TAG, "GestureCoordinator release")
         mainOverlayController.release()
         buttonWindowController.release()
-        transientOverlayController.detachAll()
+        // 销毁不经过 callbacks 的配对隐藏（那里各自发 PanelDismissed）：挂着面板被销毁时
+        // 按拆掉的数量补发，否则 FloatBallService 的 panelCount 卡住、球一直隐藏。
+        actionPanelDismissGeneration++
+        if (actionPanelVisibilityEventPosted) {
+            actionPanelVisibilityEventPosted = false
+            Events.post(PanelDismissedEvent())
+        }
+        repeat(transientOverlayController.detachAll()) {
+            Events.post(PanelDismissedEvent())
+        }
         broadcastObserver.unregister()
         volumeScrubRuntime.onDestroy()
         pointerRuntime.onDestroy()

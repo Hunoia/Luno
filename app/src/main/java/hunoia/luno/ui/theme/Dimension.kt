@@ -122,6 +122,8 @@ val ElevationSmall = 3.dp
 
 // Color picker canvas geometry
 val CanvasThumbRadius = 10.dp
+/** 画布拖拽把手的热区半径（大于可视半径，手指好命中；角度盘与取色器共用）。 */
+val CanvasHitRadius = 26.dp
 val CanvasStrokeWidth = 2.dp
 val HueBarHeight = 24.dp
 val HueBarTouchHeight = 32.dp

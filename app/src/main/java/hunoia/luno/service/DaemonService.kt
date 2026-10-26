@@ -17,6 +17,7 @@ import android.database.ContentObserver
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
+import android.os.SystemClock
 import android.provider.Settings
 import android.text.TextUtils
 import hunoia.luno.R
@@ -33,12 +34,19 @@ class DaemonService : Service() {
         private const val KEY_KEEP_ALIVE = "keep_alive"
         private const val NOTIFICATION_ID = 2001
         private const val CHANNEL_ID = "daemon"
+
+        /** 用户开保活时 KeepAliveUseCase 显式携带：跨进程 prefs 缓存不可靠的兜底。 */
+        const val ACTION_USER_ENABLE = "hunoia.luno.action.USER_ENABLE_DAEMON"
+
+        /** 回写最小间隔：防「无障碍启动即崩」时的秒级回写循环（见 restoreIfNeeded）。 */
+        private const val RESTORE_WRITE_MIN_INTERVAL_MS = 5_000L
     }
 
     private lateinit var prefs: SharedPreferences
     private var contentObserver: ContentObserver? = null
     private var screenReceiver: BroadcastReceiver? = null
     private var selfWroteValue = ""
+    private var lastRestoreWriteAtMs = 0L
     private val serviceClassName = SideGestureService::class.java.name
 
     override fun onCreate() {
@@ -47,7 +55,11 @@ class DaemonService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (!prefs.getBoolean(KEY_KEEP_ALIVE, false)) {
+        // 用户在主进程刚打开开关（ACTION_USER_ENABLE，磁盘写在前）：直接信任。
+        // 其余来源（开机恢复、START_STICKY 重启）按落盘开关自判 —— 本服务已归并到
+        // :service 进程，prefs 是各进程独立缓存，不能当跨进程事实源。
+        val userEnabled = intent?.action == ACTION_USER_ENABLE
+        if (!userEnabled && !prefs.getBoolean(KEY_KEEP_ALIVE, false)) {
             stopSelf()
             return START_NOT_STICKY
         }
@@ -114,11 +126,17 @@ class DaemonService : Service() {
             android.util.Log.w(LOG_TAG, "restoreIfNeeded skipped: WRITE_SECURE_SETTINGS revoked")
             return
         }
+        // 回写节流：无障碍服务启动即崩的场景下，ContentObserver / SCREEN_ON / onStartCommand
+        // 三路触发会把「回写 → 系统重绑 → 再崩」变成秒级循环；最小间隔内不重复回写，
+        // 循环断成稀疏重试，用户来得及处理（正常的一次性恢复不受影响）。
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastRestoreWriteAtMs < RESTORE_WRITE_MIN_INTERVAL_MS) return
         val accessibilityEnabled = runCatching {
             Settings.Secure.getInt(contentResolver, Settings.Secure.ACCESSIBILITY_ENABLED) == 1
         }.getOrDefault(false)
 
         if (!accessibilityEnabled) {
+            lastRestoreWriteAtMs = now
             Settings.Secure.putString(
                 contentResolver,
                 Settings.Secure.ACCESSIBILITY_ENABLED,
@@ -133,6 +151,7 @@ class DaemonService : Service() {
 
         val newValue = if (current.isBlank()) serviceId else "$serviceId:$current"
         selfWroteValue = newValue
+        lastRestoreWriteAtMs = now
         Settings.Secure.putString(
             contentResolver,
             Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,

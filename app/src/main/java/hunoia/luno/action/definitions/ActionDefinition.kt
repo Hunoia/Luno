@@ -22,15 +22,6 @@ sealed interface ParameterDefinition {
         val placeholder: String? = null,
     ) : ParameterDefinition
 
-    data class Number(
-        override val key: String,
-        override val label: String,
-        override val required: Boolean = true,
-        override val defaultValue: String? = null,
-        val min: Int? = null,
-        val max: Int? = null,
-    ) : ParameterDefinition
-
     data class Bool(
         override val key: String,
         override val label: String,
@@ -38,14 +29,6 @@ sealed interface ParameterDefinition {
     ) : ParameterDefinition {
         override val required: Boolean = false
     }
-
-    data class Enum(
-        override val key: String,
-        override val label: String,
-        val options: List<EnumOption>,
-        override val required: Boolean = true,
-        override val defaultValue: String? = null,
-    ) : ParameterDefinition
 
     data class AppSelector(
         override val key: String,
@@ -55,44 +38,11 @@ sealed interface ParameterDefinition {
         override val defaultValue: String? = null
     }
 
-    data class AppSelectorMulti(
-        override val key: String,
-        override val label: String,
-        override val required: Boolean = false,
-    ) : ParameterDefinition {
-        override val defaultValue: String? = null
-    }
-
-    /** 触钮多选（存按钮 id 数组，编辑器弹触钮选择表）。 */
-    data class ButtonSelectorMulti(
-        override val key: String,
-        override val label: String,
-        override val required: Boolean = false,
-    ) : ParameterDefinition {
-        override val defaultValue: String? = null
-    }
-
-    data class MiniWindow(
-        override val key: String,
-        override val label: String,
-        override val required: Boolean = false,
-    ) : ParameterDefinition {
-        override val defaultValue: String? = null
-    }
-
     data class ActivitySelector(
         override val key: String,
         override val label: String,
         override val required: Boolean = true,
         val packageKey: String = "packageName",
-    ) : ParameterDefinition {
-        override val defaultValue: String? = null
-    }
-
-    data class Path(
-        override val key: String,
-        override val label: String,
-        override val required: Boolean = true,
     ) : ParameterDefinition {
         override val defaultValue: String? = null
     }
@@ -119,8 +69,6 @@ sealed interface ParameterDefinition {
         override val defaultValue: String? = null
     }
 }
-
-data class EnumOption(val value: String, val label: String)
 
 /**
  * 该定义是否带坐标参数（tap/longPress）：决定参数编辑器是否给屏幕取点入口、

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.CardInnerSpacing
+import hunoia.luno.ui.theme.ElevationSmall
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.SegmentedGap
 import hunoia.luno.ui.theme.SheetListMaxHeight
@@ -44,14 +45,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.bridge.ui.showToast
-import hunoia.luno.ui.settings.action.MiniWindowAdjustContent
-import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.action.controller.ShellController
 import hunoia.luno.action.controller.ShellResult
@@ -60,21 +56,15 @@ import hunoia.luno.action.model.PARAM_X_DP
 import hunoia.luno.action.model.PARAM_Y_DP
 import hunoia.luno.action.model.POINT_PARAM_KEYS
 import hunoia.luno.action.model.USE_TRIGGER_POINT_KEY
-import hunoia.luno.config.model.MiniWindowSettings
-import hunoia.luno.config.model.toMiniWindowSettings
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.query.ActivityOption
 import hunoia.luno.ui.component.sheet.AppPickerSheet
-import hunoia.luno.ui.component.sheet.ButtonPickerSheet
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.core.AppContext
 import hunoia.luno.service.DispatchClient
 import hunoia.luno.shizuku.ShizukuFacade
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -103,9 +93,6 @@ fun ActionLibraryEditScreen(
     val state by vm.uiState.collectAsState()
     var showAppPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
     var showActivityPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
-    var showAppMultiPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
-    var showButtonPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
-    var showMiniWindowPicker by remember { mutableStateOf<ParameterDefinition?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showDiscardConfirm by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -158,7 +145,8 @@ fun ActionLibraryEditScreen(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .windowInsetsPadding(WindowInsets.navigationBars)
-                            .padding(start = 16.dp, end = 16.dp, bottom = 96.dp)
+                            // bottom 96：结果卡浮在底部确认栏上方的一次性偏移，勿复用为列表留白 token
+                            .padding(start = PageGutter, end = PageGutter, bottom = 96.dp)
                             .fillMaxWidth(),
                     )
                 }
@@ -207,7 +195,6 @@ fun ActionLibraryEditScreen(
                 ConfirmDialog(
                     title = stringResource(R.string.action_library_delete_title),
                     text = stringResource(R.string.action_editor_delete_desc),
-                    confirmLabel = stringResource(R.string.delete),
                     destructive = true,
                     onDismissRequest = { showDeleteConfirm = false },
                     onConfirm = {
@@ -242,55 +229,6 @@ fun ActionLibraryEditScreen(
                         showAppPicker = null
                     },
                 )
-            }
-            showAppMultiPicker?.let { paramDef ->
-                val multiSelected = draft?.params?.get(paramDef.key)?.jsonArray?.mapNotNull {
-                    it.jsonPrimitive?.contentOrNull
-                } ?: emptyList()
-                AppPickerSheet(
-                    onDismissRequest = { showAppMultiPicker = null },
-                    selectedPackageNames = multiSelected,
-                    onConfirm = { selected ->
-                        vm.updateParamMulti(paramDef.key, selected)
-                        showAppMultiPicker = null
-                    },
-                )
-            }
-            showButtonPicker?.let { paramDef ->
-                val buttons by GestureConfig.buttons
-                    .collectAsStateWithLifecycle(initialValue = emptyList())
-                val selectedIds = draft?.params?.get(paramDef.key)?.jsonArray?.mapNotNull {
-                    it.jsonPrimitive?.contentOrNull
-                } ?: emptyList()
-                ButtonPickerSheet(
-                    onDismissRequest = { showButtonPicker = null },
-                    buttons = buttons,
-                    selectedIds = selectedIds,
-                    onConfirm = { selected ->
-                        vm.updateParamMulti(paramDef.key, selected)
-                    },
-                )
-            }
-            showMiniWindowPicker?.let { paramDef ->
-                // 全屏对话框而不是另开路由：结果要回填给当前编辑中的动作，
-                // 走路由就得跨 nav entry 传参，这里就地拿到 vm 最直接。
-                val initial = draft?.params?.get(paramDef.key)?.toMiniWindowSettings() ?: MiniWindowSettings()
-                Dialog(
-                    onDismissRequest = { showMiniWindowPicker = null },
-                    properties = DialogProperties(
-                        usePlatformDefaultWidth = false,
-                        decorFitsSystemWindows = false,
-                    ),
-                ) {
-                    MiniWindowAdjustContent(
-                        initial = initial,
-                        onCommit = { result ->
-                            vm.updateParamMiniWindow(paramDef.key, result)
-                            showMiniWindowPicker = null
-                        },
-                        onCancel = { showMiniWindowPicker = null },
-                    )
-                }
             }
             showActivityPicker?.let { paramDef ->
                 val activityDef = paramDef as? ParameterDefinition.ActivitySelector ?: return@let
@@ -344,9 +282,6 @@ if (cardParams.isNotEmpty()) {
                                         onParamChange = vm::updateParam,
                                         onParamElementChange = vm::updateParamElement,
                                         onPickApp = { showAppPicker = paramDef },
-                                        onPickApps = { showAppMultiPicker = paramDef },
-                                        onPickButtons = { showButtonPicker = paramDef },
-                                        onPickMiniWindow = { showMiniWindowPicker = paramDef },
                                         onPickActivity = { _, _ -> showActivityPicker = paramDef },
                                         shape = segmentedShape(i, cardParams.size),
                                     )
@@ -393,9 +328,6 @@ if (cardParams.isNotEmpty()) {
                                 onParamChange = vm::updateParam,
                                 onParamElementChange = vm::updateParamElement,
                                 onPickApp = { showAppPicker = paramDef },
-                                onPickApps = { showAppMultiPicker = paramDef },
-                                onPickButtons = { showButtonPicker = paramDef },
-                                onPickMiniWindow = { showMiniWindowPicker = paramDef },
                                 onPickActivity = { _, _ -> showActivityPicker = paramDef },
                             )
                         }
@@ -493,10 +425,10 @@ private fun ShellResultCard(
         modifier = modifier,
         shape = LargeShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 3.dp,
-        shadowElevation = 3.dp,
+        tonalElevation = ElevationSmall,
+        shadowElevation = ElevationSmall,
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(PageGutter)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = stringResource(R.string.action_shell_result),

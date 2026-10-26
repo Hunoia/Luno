@@ -11,8 +11,6 @@ import hunoia.luno.action.model.POINT_PARAM_KEYS
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.USE_TRIGGER_POINT_KEY
 import hunoia.luno.domain.action.ActionLibrary
-import hunoia.luno.config.model.MiniWindowSettings
-import hunoia.luno.config.model.toJsonObject
 import hunoia.luno.ui.navigation.ACTION_LIBRARY_ENTRY_ID
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,7 +19,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -87,26 +84,6 @@ class ActionLibraryEditVM : ViewModel() {
     fun updateParamElement(key: String, value: JsonElement) {
         _uiState.update { state ->
             state.copy(draft = state.draft?.copy(params = state.draft.params + (key to value)))
-        }
-    }
-
-    fun updateParamMulti(key: String, values: List<String>) {
-        _uiState.update { state ->
-            state.copy(
-                draft = state.draft?.copy(
-                    params = state.draft.params + (key to JsonArray(values.map { JsonPrimitive(it) })),
-                ),
-            )
-        }
-    }
-
-    fun updateParamMiniWindow(key: String, value: MiniWindowSettings) {
-        _uiState.update { state ->
-            state.copy(
-                draft = state.draft?.copy(
-                    params = state.draft.params + (key to value.toJsonObject()),
-                ),
-            )
         }
     }
 

@@ -1,6 +1,7 @@
 package hunoia.luno.domain.search
 
 import hunoia.luno.config.ConfigProvider
+import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.QuickLauncherGeometry
 import hunoia.luno.config.model.QuickAppSnapshot
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.Flow
 object SearchCenter {
 
     val launcher: Flow<QuickAppLauncherSettings> = ConfigProvider.quickAppLauncherSettings
+    val appUsage: Flow<AppUsageStats> = ConfigProvider.appUsageStats
     val search: Flow<QuickSearchSettings> = ConfigProvider.quickSearchSettings
 
     suspend fun updateLauncher(transform: suspend (QuickAppLauncherSettings) -> QuickAppLauncherSettings) =

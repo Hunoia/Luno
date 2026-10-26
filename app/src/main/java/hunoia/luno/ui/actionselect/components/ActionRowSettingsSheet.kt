@@ -384,7 +384,9 @@ fun ActionRowSettingsSheet(
                                 buttons.forEachIndexed { index, button ->
                                     LunoSelectableRow(
                                         modifier = Modifier.fillMaxWidth(),
-                                        title = button.name.ifBlank { button.id },
+                                        title = button.name.ifBlank {
+                                            stringResource(R.string.gesture_button)
+                                        },
                                         selected = button.id in selectedIds,
                                         onSelectedChange = { checked ->
                                             val next = if (checked) {

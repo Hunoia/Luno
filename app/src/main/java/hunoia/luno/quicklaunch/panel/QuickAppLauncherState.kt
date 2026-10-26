@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import coil.imageLoader
 import hunoia.luno.bridge.system.PackageChangeReceiver
 import hunoia.luno.domain.search.SearchCenter
+import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import hunoia.luno.quicklaunch.model.AppInfo
@@ -53,6 +54,9 @@ class QuickAppLauncherState(
         private set
     var launcherSettings by mutableStateOf(initialSettings)
         private set
+    /** Luno 触发的应用启动统计（包名维度）：与布局配置分开订阅。 */
+    var usageStats by mutableStateOf(AppUsageStats())
+        private set
     /**
      * 调整面板拖拽中的实时预览：窗口全屏化后不再有窗口级缩放，拖拽预览走重组。
      * 为 null 时用已落盘的 [launcherSettings]；落盘值到达即清掉，避免覆盖已持久化的值。
@@ -90,6 +94,9 @@ class QuickAppLauncherState(
                 launcherSettings = it
                 previewSettings = null
             }
+        }
+        coroutineScope.launch {
+            SearchCenter.appUsage.collectLatest { usageStats = it }
         }
         onPackageChanged = {
             coroutineScope.launch {
@@ -149,7 +156,7 @@ class QuickAppLauncherState(
         get() = appListState.apps
 
     val filteredApps: List<AppInfo> by derivedStateOf {
-        sortApps(visibleApps, launcherSettings, tokens)
+        sortApps(visibleApps, usageStats, tokens)
     }
 
     fun addToken(token: String) {

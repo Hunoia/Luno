@@ -7,7 +7,6 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.createBitmap
@@ -15,6 +14,7 @@ import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.drawable.updateBounds
 import androidx.core.graphics.scale
 import hunoia.luno.bridge.ui.DensityProvider
+import hunoia.luno.quicklaunch.icon.rememberAppDrawable
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import kotlin.math.min
 
@@ -24,7 +24,8 @@ val LauncherInfo.qualifiedName: String get() = "$packageName/$className"
 
 val LauncherInfo.icon: Drawable? @Composable get() {
     val context = LocalContext.current
-    return remember(this, context) { getIcon(context) }
+    // 跨进程 PM 查询：缓存 + IO 异步，组合期不再同步阻塞（见 rememberAppDrawable）。
+    return rememberAppDrawable("info/$qualifiedName") { getIcon(context) }
 }
 
 fun LauncherInfo.getIcon(context: Context): Drawable? {
@@ -49,7 +50,8 @@ val LauncherInfo.ShortcutInfo.qualifiedNameWithIntents: String get() = "$package
 
 val LauncherInfo.ShortcutInfo.icon: Drawable? @Composable get() {
     val context = LocalContext.current
-    return remember(this, context) { getIcon(context) }
+    // 快捷方式图标含磁盘解码/位图栅格化，更不该在组合期同步做；key 区分图标来源。
+    return rememberAppDrawable("shortcut/$packageName/${iconPath ?: iconRes}") { getIcon(context) }
 }
 
 fun LauncherInfo.ShortcutInfo.getIcon(context: Context): Drawable? {

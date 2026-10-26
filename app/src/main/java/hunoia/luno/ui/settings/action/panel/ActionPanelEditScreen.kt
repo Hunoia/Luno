@@ -145,7 +145,6 @@ fun ActionPanelEditScreen(
                         R.string.action_panel_delete_desc,
                         current.name.ifBlank { stringResource(R.string.action_panel_unnamed) },
                     ),
-                    confirmLabel = stringResource(R.string.delete),
                     destructive = true,
                     onConfirm = {
                         showDeleteConfirm = false

@@ -174,7 +174,6 @@ fun GridPanelEditScreen(
                         R.string.action_panel_delete_desc,
                         current.name.ifBlank { stringResource(R.string.grid_panel_unnamed) },
                     ),
-                    confirmLabel = stringResource(R.string.delete),
                     destructive = true,
                     onConfirm = {
                         showDeleteConfirm = false
@@ -207,7 +206,6 @@ fun GridPanelEditScreen(
                             named.joinToString("、").take(60),
                         )
                     },
-                    confirmLabel = stringResource(R.string.grid_panel_shrink_confirm),
                     destructive = true,
                     onConfirm = {
                         val transform = pending.transform

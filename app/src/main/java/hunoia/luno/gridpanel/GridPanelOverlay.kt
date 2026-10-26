@@ -5,6 +5,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
 import android.view.WindowManager
+import android.view.animation.DecelerateInterpolator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -152,7 +153,8 @@ object GridPanelOverlay : OverlayPanelHost(
         }
     }
 
-    /** 编辑态让位：窗口隐身但保留（组合与 surface 都在，选择页叠在其上）。 */
+    /** 编辑态让位：窗口隐身但保留（组合与 surface 都在，选择页叠在其上）。
+     *  立即不可点，视觉淡出 150ms，播完 lp alpha 收底 —— 不再瞬间硬切。 */
     private fun hide() {
         PanelAppWidgetHostView.clearTapCandidate()
         PanelAppWidgetHostView.setLaunchCloseListener(null)
@@ -161,8 +163,18 @@ object GridPanelOverlay : OverlayPanelHost(
         if (lp.alpha == 0f) return
         lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-        lp.alpha = 0f
         wm.safeUpdateViewLayout(current, lp)
+        current.animate()
+            .alpha(0f)
+            .setDuration(150L)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                // 能跑到这里 = 淡出完整播完（restore 会 cancel 本动画），lp alpha 安全收底。
+                val settled = current.layoutParams as? WindowManager.LayoutParams ?: return@withEndAction
+                settled.alpha = 0f
+                runCatching { wm.updateViewLayout(current, settled) }
+            }
+            .start()
         postDismissed()
     }
 
@@ -202,6 +214,14 @@ object GridPanelOverlay : OverlayPanelHost(
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
         lp.alpha = 1f
         wm.safeUpdateViewLayout(current, lp)
+        // 让位期间的淡出可能还在飞（同 instance 动画先取消），从 0 淡回到场。
+        current.animate().cancel()
+        current.alpha = 0f
+        current.animate()
+            .alpha(1f)
+            .setDuration(170L)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
         current.requestFocus()
     }
 

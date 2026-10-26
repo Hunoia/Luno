@@ -50,6 +50,7 @@ class FloatBallMirrorWindow(
     private var lpOriginY = 0
 
     private var lockHidden = false
+    private var panelHidden = false
 
     /** 键盘让位量（px），由 Service 从主球同步。 */
     private var imeLiftPx = 0f
@@ -90,7 +91,7 @@ class FloatBallMirrorWindow(
         snapToMirror()
     }
 
-    fun attach(): Boolean {
+    fun attach(animated: Boolean = false): Boolean {
         if (view != null) return true
         ballPx = DensityProvider.dp2px(settings.sizeDp)
         val created = ComposeView(context).apply {
@@ -109,8 +110,16 @@ class FloatBallMirrorWindow(
         view = created
         // 常态 alpha 必须在 attach 时就位：applyVisual 只在按压/静置事件跑，
         // 不预置的话分身会以全不透明示人（真机反馈「比主球还实」的根因）。
-        created.alpha = FloatBallDefaults.MirrorDimAlpha
+        // animated 时从 0 淡入到常态 —— 挂窗不再生硬蹦出。
+        created.alpha = if (animated) 0f else FloatBallDefaults.MirrorDimAlpha
         snapToMirror()
+        if (animated) {
+            created.animate()
+                .alpha(FloatBallDefaults.MirrorDimAlpha)
+                .setDuration(250L)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+        }
         postMeasureLpOriginY({ view }, { lpOriginY }) {
             lpOriginY = it
             applyWindowBounds()
@@ -118,9 +127,26 @@ class FloatBallMirrorWindow(
         return true
     }
 
-    fun detach() {
-        view?.let(context::removeWindow)
+    /** 摘窗。animated=true 先淡出再移除（与主球同进退）。view 立即置空，淡出中的旧窗由局部引用收尾。 */
+    fun detach(animated: Boolean = false) {
+        val current = view
         view = null
+        // 摘窗即复位：下次 attach 的新窗口按可见起步，lock/panel 状态由服务侧重新推。
+        lockHidden = false
+        panelHidden = false
+        visuallyHidden = false
+        if (current == null) return
+        if (!animated) {
+            context.removeWindow(current)
+            return
+        }
+        applyBallTouchFlags(current, wm, hidden = true)
+        current.animate()
+            .alpha(0f)
+            .setDuration(HIDE_FADE_MS)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction { context.removeWindow(current) }
+            .start()
     }
 
     /** 锁屏 / 息屏：与主球同进退。 */
@@ -129,9 +155,39 @@ class FloatBallMirrorWindow(
         applyHiddenFlags()
     }
 
+    /** 面板/临时隐藏：与主球同进退（软隐藏，窗口保留）。 */
+    fun setPanelHidden(hidden: Boolean) {
+        panelHidden = hidden
+        applyHiddenFlags()
+    }
+
+    /** 软隐藏的视觉态：状态没变不重播过渡。 */
+    private var visuallyHidden = false
+
     private fun applyHiddenFlags() {
         val current = view ?: return
-        applyBallHiddenFlags(current, wm, lockHidden)
+        val hidden = lockHidden || panelHidden
+        if (hidden == visuallyHidden) return
+        visuallyHidden = hidden
+        if (hidden) {
+            // 立即不可点，视觉淡出后 lp alpha 收底（与主球同款时序）。
+            applyBallTouchFlags(current, wm, hidden = true)
+            current.animate()
+                .alpha(0f)
+                .setDuration(HIDE_FADE_MS)
+                .setInterpolator(DecelerateInterpolator())
+                .withEndAction { settleBallWindowAlpha(current, wm) }
+                .start()
+        } else {
+            current.animate().cancel()
+            applyBallTouchFlags(current, wm, hidden = false)
+            current.alpha = 0f
+            current.animate()
+                .alpha(FloatBallDefaults.MirrorDimAlpha)
+                .setDuration(250L)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+        }
     }
 
     // ---- 定位 ----
@@ -255,5 +311,8 @@ class FloatBallMirrorWindow(
 
     private companion object {
         const val TAG = LOG_TAG
+
+        /** 软隐藏/摘窗的淡出时长（与主球同款）。 */
+        const val HIDE_FADE_MS = 150L
     }
 }

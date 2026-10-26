@@ -407,7 +407,12 @@ private fun TransportKeys(
                 "next" -> Icons.Default.SkipNext
                 else -> if (playing) Icons.Default.Pause else Icons.Default.PlayArrow
             },
-            contentDescription = null,
+            // icon-only 按钮必须带可访问名（ui-guidelines §8/§10）。
+            contentDescription = when (key) {
+                "prev" -> stringResource(R.string.grid_panel_media_previous)
+                "next" -> stringResource(R.string.grid_panel_media_next)
+                else -> stringResource(R.string.grid_panel_media_play_pause)
+            },
             tint = onCard,
             modifier = Modifier.size(metrics.keySize * 0.66f),
         )

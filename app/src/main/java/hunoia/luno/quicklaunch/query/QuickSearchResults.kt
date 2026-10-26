@@ -1,7 +1,7 @@
 package hunoia.luno.quicklaunch.query
 
 import hunoia.luno.action.model.ActionLibraryEntry
-import hunoia.luno.config.model.QuickAppLauncherSettings
+import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.QuickSearchSettings
 
 /**
@@ -21,31 +21,25 @@ data class SearchResults(
 )
 
 /**
- * 展示层入口：一次完成匹配 → 旧模型适配 → 引擎行 → 隐藏过滤 → Pin 排序。
+ * 展示层入口：一次完成匹配 → 旧模型适配 → Pin 排序。
  * 必须在后台线程调用，UI 只消费结果。
+ *
+ * [isActive] 返回 false 时抛 [kotlinx.coroutines.CancellationException]（协作式取消），
+ * 调用方需保证在协程内且不再执行后续逻辑。
  */
 fun QuickSearchIndex.searchOutcome(
     query: String,
     libraryEntries: List<ActionLibraryEntry>,
-    launcherSettings: QuickAppLauncherSettings = QuickAppLauncherSettings(),
+    usageStats: AppUsageStats = AppUsageStats(),
     searchSettings: QuickSearchSettings = QuickSearchSettings(),
     torchOn: Boolean = false,
+    isActive: () -> Boolean = { true },
 ): SearchResults {
-    val outcome = search(query, libraryEntries, launcherSettings, searchSettings, torchOn)
-    val raw = outcome.results
-    if (raw.isEmpty()) return SearchResults(emptyList(), outcome.directive)
-    val mapped = raw.map { it.toSearchResult() }
-    val hasEngineFallback = raw.any { it is QuickSearchResult.EngineSearch }
-    val rows = if (hasEngineFallback && !outcome.directive) {
-        // 非指令态：默认引擎行统一由 buildEngineResultRows 产出（带图标文字与完整动作），
-        // 索引层那张先丢掉，避免同一条引擎出两行。
-        mapped.filterNot { it.source == SOURCE_ENGINE } +
-            buildEngineResultRows(context, query.trim(), searchSettings)
-    } else {
-        mapped
-    }
+    val outcome = search(query, libraryEntries, usageStats, searchSettings, torchOn, isActive)
+    if (outcome.results.isEmpty()) return SearchResults(emptyList(), outcome.directive)
     return SearchResults(
-        results = rows
+        results = outcome.results
+            .map { it.toSearchResult() }
             .applyResultPins(query, searchSettings),
         directive = outcome.directive,
     )

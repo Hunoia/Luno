@@ -14,7 +14,9 @@ import hunoia.luno.core.JsonSerializer
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.launch.AppLaunchBypass
 import hunoia.luno.quicklaunch.model.LauncherInfo
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 import hunoia.luno.config.model.miniWindowSettings
 
@@ -61,7 +63,7 @@ class AppExecutors(private val intentController: IntentController) : ActionExecu
         }
     }
 
-    private fun popupScreen(context: ExecutorContext, adv: AdvancedSettings) {
+    private suspend fun popupScreen(context: ExecutorContext, adv: AdvancedSettings) {
         val pkgName = context.accessibilityService
             .rootInActiveWindow?.packageName?.toString()
             ?: context.currentPackageName()
@@ -73,9 +75,12 @@ class AppExecutors(private val intentController: IntentController) : ActionExecu
             setAction(Intent.ACTION_MAIN)
             addCategory(Intent.CATEGORY_LAUNCHER)
         }
-        val resolveInfo = context.appContext.packageManager
-            .queryIntentActivitiesCompat(intent, PackageManager.MATCH_ALL)
-            .firstOrNull()
+        // MATCH_ALL 是 PMS 重查询（几十 ms 级），别占手势收尾的主线程。
+        val resolveInfo = withContext(Dispatchers.IO) {
+            context.appContext.packageManager
+                .queryIntentActivitiesCompat(intent, PackageManager.MATCH_ALL)
+                .firstOrNull()
+        }
         val className = resolveInfo?.activityInfo?.name
         if (!className.isNullOrEmpty()) {
             QuickLaunchFacade.launchAppInPopup(

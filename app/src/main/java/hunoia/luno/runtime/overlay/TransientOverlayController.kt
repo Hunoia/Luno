@@ -26,10 +26,12 @@ class TransientOverlayController(
         actionPanelOverlayView = view
     }
 
-    fun detachActionPanelOverlay() {
-        val view = actionPanelOverlayView ?: return
+    /** @return 是否真的拆掉了一个窗（供销毁路径补发配对的 PanelDismissed 用）。 */
+    fun detachActionPanelOverlay(): Boolean {
+        val view = actionPanelOverlayView ?: return false
         host.removeWindow(view)
         actionPanelOverlayView = null
+        return true
     }
 
     fun attachSubGestureOverlay(center: Offset, radiusPx: Int) {
@@ -49,14 +51,19 @@ class TransientOverlayController(
         subGestureOverlayView = view
     }
 
-    fun detachSubGestureOverlay() {
-        val view = subGestureOverlayView ?: return
+    /** @return 是否真的拆掉了一个窗（供销毁路径补发配对的 PanelDismissed 用）。 */
+    fun detachSubGestureOverlay(): Boolean {
+        val view = subGestureOverlayView ?: return false
         host.removeWindow(view)
         subGestureOverlayView = null
+        return true
     }
 
-    fun detachAll() {
-        detachActionPanelOverlay()
-        detachSubGestureOverlay()
+    /** 拆掉所有瞬态浮层，返回拆掉的数量。 */
+    fun detachAll(): Int {
+        var count = 0
+        if (detachActionPanelOverlay()) count++
+        if (detachSubGestureOverlay()) count++
+        return count
     }
 }

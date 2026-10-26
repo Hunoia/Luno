@@ -185,13 +185,12 @@ class QuickSearchActivity : ComponentActivity() {
                         handleResultTap(result, confirmedQuery)
                     },
                     onAction = { action, confirmedQuery ->
-                        if (action !is SearchAction.SetQuery && action !is SearchAction.ShowEngines) {
+                        if (action !is SearchAction.SetQuery) {
                             recordQuery(confirmedQuery)
                         }
                         executeAction(action)
                     },
                     onTogglePin = { query, key -> toggleResultPin(query, key) },
-                    onSaveDraft = { query -> saveSearchDraft(query) },
                     onOpenAppSettings = {
                         // 权限被勾不再询问时跳本应用详情页，手动开。
                         runCatching {
@@ -255,9 +254,8 @@ class QuickSearchActivity : ComponentActivity() {
                 requestClose()
             }
             is SearchAction.Share -> shareUri(action.uri, action.mime).also { requestClose() }
-            // 由 QuickSearchContent 直接回填/开引擎 Sheet；万一走到这里不处理。
+            // 由 QuickSearchContent 直接回填；万一走到这里不处理。
             is SearchAction.SetQuery -> Unit
-            is SearchAction.ShowEngines -> Unit
             is SearchAction.SystemToggle -> handleToggle(action.kind)
         }
     }

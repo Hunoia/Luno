@@ -77,9 +77,6 @@ sealed interface SearchAction {
     /** 开关类：WiFi/蓝牙/定位/热点跳设置，手电/勿扰直接切。 */
     data class SystemToggle(val kind: SearchToggleKind) : SearchAction
 
-    /** 打开引擎选择 Sheet；由面板消费，不进入 Dispatcher。 */
-    data class ShowEngines(val query: String) : SearchAction
-
     /** 图片搜索：先让用户选图，选完由 Activity 转成 [ShareImage]。 */
     data class PickImage(val packageName: String) : SearchAction
 

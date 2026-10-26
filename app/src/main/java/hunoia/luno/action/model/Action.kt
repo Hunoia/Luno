@@ -170,6 +170,11 @@ sealed interface Action {
     data object Screenshot : Action {
         override val typeId: String = "accessibility.screenshot"
     }
+
+    /** 识别屏幕内容：全屏拾取层，点文本复制文字、点图片/框选复制图片。 */
+    data object ScreenPick : Action {
+        override val typeId: String = "accessibility.screenPick"
+    }
     data object SplitScreen : Action {
         override val typeId: String = "accessibility.splitScreen"
     }
@@ -220,8 +225,9 @@ sealed interface Action {
         override val typeId: String = "internal.quickAppLauncher"
     }
     /**
-     * 悬浮球显隐：直接改 enabled 存量，后求值/后执行的覆盖先生效。
-     * `visible = null` 表示切换。`hideForMs > 0` 为临时隐藏（到期自动恢复）。
+     * 悬浮球显隐：`hideForMs = 0` 直接改 enabled 存量，后求值/后执行的覆盖先生效。
+     * `visible = null` 表示切换。`hideForMs > 0` 为临时隐藏（只摘运行时窗口，到期自动恢复，
+     * 不碰 enabled 存量 —— 进程重启即失效）。
      */
     data class FloatBallVisibility(
         val visible: Boolean? = null,

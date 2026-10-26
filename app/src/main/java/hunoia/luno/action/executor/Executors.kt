@@ -16,7 +16,10 @@ import hunoia.luno.config.model.OpenAppOrUrlData
 import hunoia.luno.config.model.OpenUrlQueryParameter
 import hunoia.luno.config.model.VolumeScrubConfig
 import hunoia.luno.config.model.miniWindowSettings
+import hunoia.luno.core.Events
 import hunoia.luno.quicklaunch.QuickLaunchFacade
+import hunoia.luno.runtime.floatball.FloatBallService
+import hunoia.luno.runtime.floatball.FloatBallTempHideEvent
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -36,7 +39,7 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
         "accessibility.back", "accessibility.home", "accessibility.recents",
         "accessibility.tap", "accessibility.longPress", "accessibility.doubleTap",
         "accessibility.scroll", "accessibility.swipe",
-        "accessibility.screenshot", "accessibility.splitScreen",
+        "accessibility.screenshot", "accessibility.screenPick", "accessibility.splitScreen",
         "accessibility.powerButton", "accessibility.notificationPanel",
         "accessibility.quickPanel", "accessibility.lockScreen"
     )
@@ -83,6 +86,12 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
                     controller.takeScreenshot()
                 }
                 ActionResult.Success()
+            }
+            is Action.ScreenPick -> {
+                // 拾取层必须挂在无障碍服务窗口上（TYPE_ACCESSIBILITY_OVERLAY 规则，
+                // 与屏幕取点同款）；执行能走到这里就说明 a11y 侧活着。
+                val shown = hunoia.luno.service.SideGestureService.current?.showScreenPick() == true
+                if (shown) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.SplitScreen -> executionResult(controller.toggleSplitScreen())
             is Action.PowerButton -> executionResult(controller.powerDialog())
@@ -257,42 +266,26 @@ class InternalExecutors : ActionExecutor {
     }
 
     /**
-     * 悬浮球显隐：改 [hunoia.luno.config.model.FloatBallSettings].enabled 存量。
+     * 悬浮球显隐：`hideForMs > 0` 走 [FloatBallTempHideEvent] 临时隐藏（FloatBallService
+     * 内存到期恢复，只摘窗口、不碰 enabled 存量，进程被杀即失效）；否则改
+     * [hunoia.luno.config.model.FloatBallSettings].enabled 存量。
      * visible=null 为切换；`FloatBallService` 的 settings flow 会自动摘/挂球窗。
      * 失败吞掉报 Failed，不抛。
      */
     private suspend fun executeFloatBallVisibility(action: Action.FloatBallVisibility, context: ExecutorContext): ActionResult {
-        // 临时隐藏：先记当前态，关掉后延时恢复；隐藏期间用户手动调整过球（无论开/关），
-        // 到期恢复分支检测到 enabled 与我们关掉的值不符则直接跳过，不覆盖用户的选择。
         if (action.hideForMs > 0) {
-            val wasEnabled = runCatching {
-                var enabled = false
-                ConfigProvider.updateActionSettings { current ->
-                    enabled = current.floatBall.enabled
-                    current.copy(floatBall = current.floatBall.copy(enabled = false))
-                }
-                enabled
-            }.getOrDefault(false)
-            if (!wasEnabled) return ActionResult.Success()
-            context.scope.launch {
-                delay(action.hideForMs)
-                runCatching {
-                    ConfigProvider.updateActionSettings { current ->
-                        if (!current.floatBall.enabled) {
-                            current.copy(floatBall = current.floatBall.copy(enabled = true))
-                        } else {
-                            current
-                        }
-                    }
-                }
-            }
+            Events.post(FloatBallTempHideEvent(action.hideForMs))
             return ActionResult.Success()
         }
         val ok = runCatching {
+            var enabled = false
             ConfigProvider.updateActionSettings { current ->
-                val enabled = action.visible ?: !current.floatBall.enabled
+                enabled = action.visible ?: !current.floatBall.enabled
                 current.copy(floatBall = current.floatBall.copy(enabled = enabled))
             }
+            // 服务不在跑的场景（装更新时 restore 读到关闭态没拉球，随后规则把球启用）：
+            // 只写盘上的值没有 settings flow 消费，必须把服务拉起来球才会回来。
+            if (enabled) FloatBallService.start(context.appContext)
             true
         }.getOrDefault(false)
         return if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)

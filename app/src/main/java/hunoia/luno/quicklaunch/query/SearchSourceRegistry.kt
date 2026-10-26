@@ -3,7 +3,7 @@ package hunoia.luno.quicklaunch.query
 import androidx.annotation.StringRes
 import hunoia.luno.R
 import hunoia.luno.action.model.ActionLibraryEntry
-import hunoia.luno.config.model.QuickAppLauncherSettings
+import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SRC_ACTION
 import hunoia.luno.config.model.SRC_APP
@@ -34,10 +34,9 @@ internal data class SearchSource(
 internal data class SearchContext(
     val index: QuickSearchIndex,
     val settings: QuickSearchSettings,
-    val launcher: QuickAppLauncherSettings,
+    val usage: AppUsageStats,
     val libraryEntries: List<ActionLibraryEntry>,
-    val tokens: List<String>,
-    val foldedTokens: List<String>,
+    val plan: SearchQueryPlan,
     val now: Long,
     val torchOn: Boolean,
 )
@@ -49,7 +48,10 @@ internal object SearchSourceRegistry {
         @StringRes titleRes: Int,
         enabled: (QuickSearchSettings) -> Boolean = { true },
         match: (SearchContext) -> List<RankedHit>,
-        bare: (SearchContext) -> List<QuickSearchResult>?,
+        // 默认裸标识列表就是本来源的近项列表：key 由 source() 注入，避免每个来源手抄 SRC_X。
+        bare: (SearchContext) -> List<QuickSearchResult>? = { c ->
+            c.index.bareSource(key, c.usage, c.settings)
+        },
     ) = SearchSource(
         key = key,
         titleRes = titleRes,
@@ -63,8 +65,7 @@ internal object SearchSourceRegistry {
             SRC_APP,
             R.string.quick_search_group_apps,
             enabled = { it.searchApps },
-            match = { c -> c.index.matchApps(c.tokens, c.foldedTokens, c.launcher, c.now) },
-            bare = { c -> c.index.bareSource(SRC_APP, c.launcher, c.settings) },
+            match = { c -> c.index.matchApps(c.plan, c.usage, c.now) },
         ),
         source(
             SRC_SHORTCUT,
@@ -72,90 +73,78 @@ internal object SearchSourceRegistry {
             enabled = { it.searchShortcuts },
             match = { c ->
                 c.index.matchShortcuts(
-                    c.tokens,
-                    c.foldedTokens,
-                    c.index.pkgScores(c.launcher, c.now),
+                    c.plan,
+                    c.index.pkgScores(c.usage, c.now),
                 )
             },
-            bare = { c -> c.index.bareSource(SRC_SHORTCUT, c.launcher, c.settings) },
         ),
         source(
             SRC_ACTION,
             R.string.quick_search_group_actions,
             enabled = { it.searchActions },
             match = { c ->
-                c.index.matchActions(c.tokens, c.foldedTokens) +
-                    c.index.matchLibrary(c.libraryEntries, c.tokens, c.foldedTokens)
+                c.index.matchActions(c.plan) +
+                    c.index.matchLibrary(c.libraryEntries, c.plan)
             },
-            bare = { c -> c.index.bareSource(SRC_ACTION, c.launcher, c.settings) },
         ),
         source(
             SRC_SETTINGS,
             R.string.quick_search_group_settings,
             enabled = { it.searchSettingsPages },
-            match = { c -> c.index.matchSettingsPages(c.tokens, c.foldedTokens) },
-            bare = { c -> c.index.bareSource(SRC_SETTINGS, c.launcher, c.settings) },
+            match = { c -> c.index.matchSettingsPages(c.plan) },
         ),
         source(
             SRC_CONTACT,
             R.string.quick_search_contacts,
             enabled = { it.searchContacts },
             match = { c ->
-                c.index.matchContacts(c.tokens, c.foldedTokens, c.settings)
+                c.index.matchContacts(c.plan, c.settings)
             },
-            bare = { c -> c.index.bareSource(SRC_CONTACT, c.launcher, c.settings) },
         ),
         source(
             SRC_MUSIC,
             R.string.quick_search_music,
             enabled = { it.searchMusic },
-            match = { c -> c.index.matchTracks(c.tokens, c.foldedTokens, c.settings) },
-            bare = { c -> c.index.bareSource(SRC_MUSIC, c.launcher, c.settings) },
+            match = { c -> c.index.matchTracks(c.plan, c.settings) },
         ),
         source(
             SRC_FILE,
             R.string.quick_search_files,
             enabled = { it.searchFiles },
             match = { c ->
-                c.index.matchGallery(c.tokens, c.foldedTokens, c.settings) +
-                    c.index.matchDocs(c.tokens, c.foldedTokens, c.settings)
+                c.index.matchGallery(c.plan, c.settings) +
+                    c.index.matchDocs(c.plan, c.settings)
             },
-            bare = { c -> c.index.bareSource(SRC_FILE, c.launcher, c.settings) },
         ),
         source(
             SRC_CALENDAR,
             R.string.quick_search_calendar,
             enabled = { it.searchCalendar },
-            match = { c -> c.index.matchCalendar(c.tokens, c.foldedTokens, c.settings) },
-            bare = { c -> c.index.bareSource(SRC_CALENDAR, c.launcher, c.settings) },
+            match = { c -> c.index.matchCalendar(c.plan, c.settings) },
         ),
         source(
             SRC_SMS,
             R.string.quick_search_sms,
             enabled = { it.searchSms },
-            match = { c -> c.index.matchSms(c.tokens, c.foldedTokens, c.settings) },
-            bare = { c -> c.index.bareSource(SRC_SMS, c.launcher, c.settings) },
+            match = { c -> c.index.matchSms(c.plan, c.settings) },
         ),
         source(
             SRC_CALL,
             R.string.quick_search_calls,
             enabled = { it.searchCalls },
-            match = { c -> c.index.matchCalls(c.tokens, c.foldedTokens, c.settings) },
-            bare = { c -> c.index.bareSource(SRC_CALL, c.launcher, c.settings) },
+            match = { c -> c.index.matchCalls(c.plan, c.settings) },
         ),
         source(
             SRC_TOGGLE,
             R.string.quick_search_toggles,
             enabled = { it.searchToggles },
-            match = { c -> c.index.matchToggles(c.tokens, c.foldedTokens, c.settings) },
-            bare = { c -> c.index.bareSource(SRC_TOGGLE, c.launcher, c.settings) },
+            match = { c -> c.index.matchToggles(c.plan, c.settings) },
         ),
         source(
             SRC_CLIP,
             R.string.quick_search_clipboard,
             enabled = { it.searchClipboard },
-            match = { c -> c.index.matchClips(c.tokens, c.foldedTokens, c.settings) },
-            bare = { c -> c.index.bareSource(SRC_CLIP, c.launcher, c.settings) },
+            match = { c -> c.index.matchClips(c.plan, c.settings) },
         ),
     )
 

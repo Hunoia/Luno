@@ -5,8 +5,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * 引擎行的两条产出路径必须完全一致：
- * 默认引擎行（buildEngineResultRows）与「标识直达」行（QuickSearchResult.EngineSearch）。
+ * 默认引擎行（现由索引层 [QuickSearchIndex.search] 的 engineTriple 产出）与
+ * 「标识直达」行（[QuickSearchResult.EngineSearch]）必须完全一致。
  * key 不同会导致同一引擎出两行，图标文字/动作缺失会让行为前后不一。
  */
 class EngineRowConsistencyTest {

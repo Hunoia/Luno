@@ -6,11 +6,13 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -102,11 +104,20 @@ internal fun QuickAppLauncherRoot(
             onRegisterCloseAnimated = onRegisterCloseAnimated,
         ).also { onStateReady(it) }
     }
-    // 进退场淡入淡出走 AnimatedVisibility：Content 每次打开都是全新进入组合，
+    // 进退场走 AnimatedVisibility：Content 每次打开都是全新进入组合，
     // animateFloatAsState 在首次组合时初值即目标值、动画会被跳过（重开瞬现的根因）。
+    // 进场淡入 + 0.92→1 缩放（对齐网格面板质感）；退场纯淡出 —— 缩放重采样尾段发糊
+    //（快搜同款结论），且拆窗时机由 closeAnimated→closeImmediate 编排，不在这里管。
     AnimatedVisibility(
         visible = state.panelVisible,
-        enter = fadeIn(animationSpec = tween(durationMillis = AnimOverlayFade.toInt())),
+        enter = fadeIn(animationSpec = tween(durationMillis = AnimOverlayFade.toInt())) +
+            scaleIn(
+                initialScale = 0.92f,
+                animationSpec = tween(
+                    durationMillis = AnimOverlayFade.toInt(),
+                    easing = LinearOutSlowInEasing,
+                ),
+            ),
         exit = fadeOut(animationSpec = tween(durationMillis = AnimOverlayFade.toInt())),
     ) {
         // 全屏 scrim：面板外的点击落在这里被消费（只关面板，不传透下层应用），

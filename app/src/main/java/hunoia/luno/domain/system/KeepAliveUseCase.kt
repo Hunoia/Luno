@@ -28,7 +28,10 @@ object KeepAliveUseCase {
 
         val intent = Intent(appContext, DaemonService::class.java)
         if (enabled) {
-            appContext.startForegroundService(intent)
+            // 显式动作 = 用户刚打开开关（磁盘写发生在 start 之前）：daemon 已归并到
+            // :service 进程，SharedPreferences 跨进程缓存不可靠，不能让 daemon
+            // 再拿开关自判把这次启动否决掉。
+            appContext.startForegroundService(intent.setAction(DaemonService.ACTION_USER_ENABLE))
         } else {
             appContext.stopService(intent)
         }

@@ -16,6 +16,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import hunoia.luno.quicklaunch.query.SearchAction
 import hunoia.luno.quicklaunch.query.SearchResult
+import hunoia.luno.config.model.QuickSearchListStyle
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SegmentedGap
@@ -30,20 +31,45 @@ internal fun QuickSearchSearchList(
     matches: List<String>,
     pinnedSet: Set<String>,
     queryText: String,
+    menuResult: SearchResult?,
+    resultPinnedKeys: Set<String>,
+    listStyle: QuickSearchListStyle = QuickSearchListStyle.Flat,
     onQueryChange: (TextFieldValue) -> Unit,
     onResultClick: (SearchResult, String) -> Unit,
-    onLongPress: (SearchResult) -> Unit,
-    onShowEngines: (String) -> Unit,
+    onMenuOpen: (SearchResult) -> Unit,
+    onMenuDismiss: () -> Unit,
+    onResultAction: (SearchAction, String) -> Unit,
+    onToggleResultPin: (String, String) -> Unit,
     onTogglePin: (String) -> Unit,
     onDeleteHistory: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (listStyle == QuickSearchListStyle.GroupedCards) {
+        QuickSearchGroupedCards(
+            results = results,
+            matches = matches,
+            queryText = queryText,
+            menuResult = menuResult,
+            resultPinnedKeys = resultPinnedKeys,
+            pinnedSet = pinnedSet,
+            onQueryChange = onQueryChange,
+            onResultClick = onResultClick,
+            onMenuOpen = onMenuOpen,
+            onMenuDismiss = onMenuDismiss,
+            onResultAction = onResultAction,
+            onToggleResultPin = onToggleResultPin,
+            onTogglePin = onTogglePin,
+            onDeleteHistory = onDeleteHistory,
+            modifier = modifier,
+        )
+        return
+    }
     val total = matches.size + results.size
     // 反转列表内容超高时会把首项顶出可视区：受控滚动，内容一变钉回第 0 项。
     // 触发用内容签名而非 total：按数量滚会拽回用户上滑看的结果。
     val listState = rememberLazyListState()
     val contentSig = signatureOf(
-        results.firstOrNull(), results.lastOrNull(),
+        results.firstOrNull()?.key, results.lastOrNull()?.key,
         total * 31 + matches.size,
     )
     LaunchedEffect(contentSig) { listState.scrollToItem(0) }
@@ -72,6 +98,17 @@ internal fun QuickSearchSearchList(
                 val pos = matches.size + index
                 val shape = segmentedShape(total - 1 - pos, total)
                 val setQuery = (item.primary as? SearchAction.SetQuery)?.text
+                val menu: @Composable () -> Unit = {
+                    ResultActionMenu(
+                        result = item,
+                        query = queryText.trim(),
+                        pinned = item.key in resultPinnedKeys,
+                        expanded = menuResult?.key == item.key,
+                        onDismiss = onMenuDismiss,
+                        onAction = onResultAction,
+                        onTogglePin = onToggleResultPin,
+                    )
+                }
                 if (setQuery != null) {
                     ClipboardRow(
                         text = setQuery,
@@ -81,34 +118,20 @@ internal fun QuickSearchSearchList(
                                 backfillText(setQuery).let { TextFieldValue(it, TextRange(it.length)) },
                             )
                         },
-                        onLongClick = { onLongPress(item) },
+                        onLongClick = { onMenuOpen(item) },
                         pinned = setQuery in pinnedSet,
                         onTogglePin = { onTogglePin(setQuery) },
+                        menu = menu,
                     )
                 } else {
                     ResultRow(
                         result = item,
                         shape = shape,
-                        onClick = { onRowClick(item, queryText, onResultClick, onShowEngines) },
-                        onLongClick = { onLongPress(item) },
-                        onMore = { onLongPress(item) },
+                        onClick = { onResultClick(item, queryText.trim()) },
+                        onLongClick = { onMenuOpen(item) },
+                        menu = menu,
                     )
                 }
             }
-    }
-}
-
-/** 行点击统一收口：其他引擎行走 Sheet，其余按结果确认（queryText 取当前组合快照）。 */
-private fun onRowClick(
-    item: SearchResult,
-    queryText: String,
-    onResultClick: (SearchResult, String) -> Unit,
-    onShowEngines: (String) -> Unit,
-) {
-    val showEngines = item.primary as? SearchAction.ShowEngines
-    if (showEngines != null) {
-        onShowEngines(showEngines.query)
-    } else {
-        onResultClick(item, queryText.trim())
     }
 }

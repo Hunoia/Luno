@@ -4,12 +4,16 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.store.DataStoreFiles
 import hunoia.luno.config.store.dataStoreFile
+import hunoia.luno.core.AppContext
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.runtime.floatball.FloatBallService
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import hunoia.luno.core.LOG_TAG
 
 /**
@@ -30,13 +34,47 @@ internal object ServiceAutoStart {
     private const val KEY_KEEP_ALIVE = "keep_alive"
 
     /**
-     * 按落盘配置把该起的常驻前台服务拉起来。
+     * 按落盘配置把该起的常驻前台服务拉起来（读盘 + 全量 JSON 反序列化在 IO 线程）。
+     * 调用方（receiver 的 onReceive、Activity 冷启动）都在主线程，此前同步读两份
+     * 完整设置文件是启动路径上的主线程卡顿源；拉起服务没有亚秒级时序要求，挪后台无感。
      * 各服务自己判权限与总闸，不满足条件时自己退出（见 [DaemonService.onStartCommand]）。
      */
     fun restore(context: Context) {
         val app = context.applicationContext
-        if (readKeepAliveEnabled(app)) startDaemon(app)
-        if (readMasterSwitchEnabled(app) && readFloatBallEnabled(app)) FloatBallService.start(app)
+        val scope = AppContext.applicationScope
+        if (scope != null) {
+            scope.launch(Dispatchers.IO) { restoreBlocking(app) }
+        } else {
+            // scope 缺失（异常初始化环境）退回原地同步执行，保行为不变。
+            runCatching { restoreBlocking(app) }
+        }
+    }
+
+    private fun restoreBlocking(context: Context) {
+        if (readKeepAliveEnabled(context)) startDaemon(context)
+        if (readMasterSwitchEnabled(context) && readFloatBallEnabled(context)) FloatBallService.start(context)
+    }
+
+    /**
+     * 配置整写（备份恢复 / 恢复默认）后的运行态对齐。
+     *
+     * 恢复只落 DataStore，而保活的判定源是 prefs —— 不同步的话，恢复「保活开」后 UI
+     * 显示开、开机/更新自启却不会拉起守护（反向亦然）。这里先把 prefs 对齐成恢复后的值，
+     * 再按恢复后的配置：该关的关（服务自己管窗口/前台通知），该开的拉起，最后走常规恢复兜底。
+     */
+    fun syncAfterConfigRestore(context: Context) {
+        val app = context.applicationContext
+        val keepAlive = readSettings<AdvancedSettings>(app, DataStoreFiles.ADVANCED_SETTINGS)
+            ?.keepAliveEnabled ?: false
+        app.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_KEEP_ALIVE, keepAlive)
+            .apply()
+        if (!keepAlive) app.stopService(Intent(app, DaemonService::class.java))
+        if (!readMasterSwitchEnabled(app) || !readFloatBallEnabled(app)) {
+            FloatBallService.stop(app)
+        }
+        restore(app)
     }
 
     private val restored = AtomicBoolean(false)
@@ -70,11 +108,13 @@ internal object ServiceAutoStart {
             ?.gestureEnabled ?: true
 
     /**
-     * 悬浮球开关。读失败按「不开」处理：拉起路径抛异常会连带影响保活服务。
+     * 悬浮球服务要不要起：球开关、通知胶囊或剪贴板球任一开启（FloatBallService 是共同宿主）。
+     * 读失败按「不开」处理：拉起路径抛异常会连带影响保活服务。
      */
     fun readFloatBallEnabled(context: Context): Boolean =
-        readSettings<ActionSettings>(context, DataStoreFiles.ACTION_SETTINGS)
-            ?.floatBall?.enabled ?: false
+        readSettings<ActionSettings>(context, DataStoreFiles.ACTION_SETTINGS)?.floatBall?.let {
+            it.enabled || it.notificationCapsule.enabled || it.clipboardBall.enabled
+        } ?: false
 
     /** 保活开关（SharedPreferences，与 `KeepAliveUseCase` 同一份）。 */
     fun readKeepAliveEnabled(context: Context): Boolean = runCatching {

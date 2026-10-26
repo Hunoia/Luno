@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -29,7 +28,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.R
 import hunoia.luno.core.AppContext
 import hunoia.luno.quicklaunch.QuickLaunchFacade
@@ -177,28 +175,14 @@ fun AppPickerSheet(
                     }
                 }
                 if (!confirmOnSelect) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = PageGutter, vertical = CardInnerSpacing),
-                        horizontalArrangement = Arrangement.spacedBy(ListSpacing),
-                    ) {
-                        TextButton(
-                            modifier = Modifier.weight(1f),
-                            onClick = onDismissRequest,
-                        ) {
-                            Text(stringResource(R.string.cancel))
-                        }
-                        FilledTonalButton(
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                onConfirm(selectedPackageNames.filter { it in selected } + selected.filter { it !in selectedPackageNames })
-                                onDismissRequest()
-                            },
-                        ) {
-                            Text(stringResource(R.string.confirm))
-                        }
-                    }
+                    SheetActionButtons(
+                        onDismiss = onDismissRequest,
+                        onConfirm = {
+                            onConfirm(selectedPackageNames.filter { it in selected } + selected.filter { it !in selectedPackageNames })
+                            onDismissRequest()
+                        },
+                        modifier = Modifier.padding(horizontal = PageGutter, vertical = CardInnerSpacing),
+                    )
                 }
             }
         }
