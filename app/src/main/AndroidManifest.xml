@@ -20,6 +20,8 @@
     <uses-permission android:name="android.permission.FLASHLIGHT" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- 短链解析：规则开启「解析短链」时跟随后（仅 http(s)、3s 超时）。其余功能全程离线。 -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <!-- 悬浮球窗口（TYPE_APPLICATION_OVERLAY）。球住在独立 :service 前台服务，
          无障碍关闭时仍可显示；需用户手动授权，拒绝则不显示。 -->
@@ -88,6 +90,57 @@
                     android:scheme="luno" />
             </intent-filter>
         </activity>
+
+        <!-- 链接分发入口：可被设为默认浏览器。收到的 http(s) 链接与「分享到 Luno」的文本
+             都按链接分发规则直达目标应用，全程无 UI。带 MIME 的 VIEW 必须独立成 filter：
+             平台规则下 intent 带 MIME 时只声明 scheme 的 filter 一律 NO_MATCH_TYPE，
+             而声明了 type 的 filter 又匹配不上不带 MIME 的意图，两者互补缺一不可。 -->
+        <activity
+            android:name=".ui.link.LinkDispatchActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/link_dispatch"
+            android:launchMode="singleTop"
+            android:noHistory="true"
+            android:taskAffinity="hunoia.luno.linkdispatch"
+            android:theme="@style/Theme.SideGesture.Transparent">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <!-- 多链接选择页：一次认出多条链接时由胶囊或分发入口拉起。 -->
+        <activity
+            android:name=".ui.link.LinkSelectionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:noHistory="true"
+            android:taskAffinity="hunoia.luno.linkdispatch"
+            android:theme="@style/Theme.SideGesture" />
 
         <activity
             android:name=".ui.actionselect.ActionSelectHostActivity"

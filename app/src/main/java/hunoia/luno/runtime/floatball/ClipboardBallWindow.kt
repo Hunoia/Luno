@@ -10,6 +10,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -31,28 +32,35 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import hunoia.luno.R
 import hunoia.luno.bridge.system.ClipboardContent
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.core.LOG_TAG
+import hunoia.luno.quicklaunch.icon.SearchIconCache
 import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.ui.component.gestureButtonMarkColor
 import hunoia.luno.ui.theme.SideGestureTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.math.max
 
 /**
@@ -85,6 +93,13 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
 
     /** 钉住期间来了新内容：显示小圆点，取消钉住时切到最新内容。 */
     private var pending by mutableStateOf(false)
+
+    /**
+     * 链接信息（见 [ClipboardLinkInfo]）：单条命中规则时显示目标应用图标/名，
+     * 多条链接显示条数角标。Service 在每次 show 前按规则表算好传入；
+     * 窗口本身不碰规则与包名解析（服务进程 Compose 重组不上屏，只吃现成值）。
+     */
+    private var linkInfo by mutableStateOf<ClipboardLinkInfo?>(null)
 
     private var settings: FloatBallSettings = FloatBallSettings()
 
@@ -228,8 +243,10 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
         y: Float?,
         next: ClipboardContent,
         initialPinned: Boolean = false,
+        nextLink: ClipboardLinkInfo? = null,
     ): Boolean {
         content = next
+        linkInfo = nextLink
         // 新内容一律从收起态开始（上一条的展开态不带到下一条）。
         expanded = false
         // 已可见（新内容覆盖）：内容变了宽高也变，靠布局回调重新贴边。
@@ -333,6 +350,7 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
         pinned = false
         expanded = false
         pending = false
+        linkInfo = null
         mainHandler.removeCallbacks(longPressRunnable)
         if (v == null) {
             onHidden?.invoke()
@@ -372,6 +390,7 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
         pinned = false
         expanded = false
         pending = false
+        linkInfo = null
         content = null
         mainHandler.removeCallbacks(longPressRunnable)
         v?.let(context::removeWindow)
@@ -504,13 +523,19 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Icon(
-                modifier = Modifier.size(16.dp),
-                // pin 状态用图钉替掉粘贴图标，不加额外角标。
-                imageVector = if (pinned) Icons.Default.PushPin else Icons.Default.ContentPaste,
-                contentDescription = null,
-                tint = contentColor.copy(alpha = 0.9f),
-            )
+            // 单条链接命中分发规则时，粘贴图标换成目标应用图标（一眼看出会发往哪里）。
+            val targetPackage = linkInfo?.targetPackage
+            if (targetPackage != null) {
+                LinkAppIcon(packageName = targetPackage, tint = contentColor.copy(alpha = 0.9f))
+            } else {
+                Icon(
+                    modifier = Modifier.size(16.dp),
+                    // pin 状态用图钉替掉粘贴图标，不加额外角标。
+                    imageVector = if (pinned) Icons.Default.PushPin else Icons.Default.ContentPaste,
+                    contentDescription = null,
+                    tint = contentColor.copy(alpha = 0.9f),
+                )
+            }
             when (val item = content) {
                 // weight(fill=false)：长文本只占剩余宽度，右端的圆点/展开图标不会被挤到裁剪区外。
                 is ClipboardContent.Text -> Text(
@@ -531,6 +556,20 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
                 )
                 null -> Unit
             }
+            val link = linkInfo
+            if (link != null) {
+                when {
+                    link.count > 1 -> LinkChip(
+                        text = stringResource(R.string.clipboard_link_count, link.count),
+                        color = contentColor,
+                    )
+
+                    link.targetLabel != null -> LinkChip(
+                        text = link.targetLabel,
+                        color = contentColor,
+                    )
+                }
+            }
             if (pending) {
                 Box(
                     modifier = Modifier
@@ -547,6 +586,57 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
                 )
             }
         }
+    }
+
+    /** 单条链接命中规则时的目标应用图标（与通知胶囊同一套 SearchIconCache 通路）。 */
+    @Composable
+    private fun LinkAppIcon(packageName: String, tint: Color) {
+        val sizePx = DensityProvider.dp2px(LinkIconDp)
+        val icon by produceState<ImageBitmap?>(initialValue = null, packageName) {
+            val cached = SearchIconCache.get(packageName, sizePx)
+            if (cached != null) {
+                value = cached
+            } else {
+                value = withContext(Dispatchers.IO) {
+                    runCatching {
+                        SearchIconCache.ensureAll(context, listOf(packageName), sizePx)
+                        SearchIconCache.get(packageName, sizePx)
+                    }.getOrNull()
+                }
+            }
+        }
+        val loaded = icon
+        if (loaded != null) {
+            Image(
+                bitmap = loaded,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.size(LinkIconDp.dp),
+            )
+        } else {
+            Icon(
+                modifier = Modifier.size(16.dp),
+                imageVector = Icons.Default.ContentPaste,
+                contentDescription = null,
+                tint = tint,
+            )
+        }
+    }
+
+    /** 尾部的链接角标：「N 条」或目标应用名，弱底色小胶囊。 */
+    @Composable
+    private fun LinkChip(text: String, color: Color) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = color.copy(alpha = 0.9f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .clip(RoundedCornerShape(percent = 50))
+                .background(color.copy(alpha = 0.16f))
+                .padding(horizontal = 6.dp, vertical = 2.dp),
+        )
     }
 
     /** 胶囊窗 LP：TYPE_APPLICATION_OVERLAY、WRAP_CONTENT（宽度随内容）、LEFT|TOP 手工定位。 */
@@ -603,6 +693,9 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
         const val PillImageDp = 28f
         const val PendingDotDp = 6f
 
+        /** 链接目标应用图标边长（dp）。 */
+        const val LinkIconDp = 18f
+
         /** 尾部展开图标的点击命中区宽度（dp）：图标 + 右侧内边距。 */
         const val PillIconHitWidthDp = 44f
 
@@ -610,3 +703,13 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
         const val DefaultYRatio = 0.5f
     }
 }
+
+/**
+ * 胶囊要展示的链接信息：认出几条链接 + 单条命中规则时的目标应用。
+ * 由 [FloatBallService] 按链接分发规则算好传入，窗口只负责画。
+ */
+internal data class ClipboardLinkInfo(
+    val count: Int,
+    val targetPackage: String? = null,
+    val targetLabel: String? = null,
+)

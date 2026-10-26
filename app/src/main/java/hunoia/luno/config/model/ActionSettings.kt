@@ -19,6 +19,8 @@ data class ActionSettings(
     val floatBall: FloatBallSettings = FloatBallSettings(),
     /** 最近应用黑名单：历史记录源头过滤，内置部件最近应用与动作上一个应用共用。 */
     val recentAppsBlocklist: List<String> = emptyList(),
+    /** 链接分发：剪贴板胶囊与「Luno 作为默认浏览器」两个入口共用的规则表。 */
+    val linkDispatch: LinkDispatchSettings = LinkDispatchSettings(),
 )
 
 @Serializable

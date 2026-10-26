@@ -33,7 +33,12 @@ import hunoia.luno.core.Events
 import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.core.TouchButtonSideEvent
+import hunoia.luno.config.model.LinkDispatchSettings
+import hunoia.luno.config.model.LinkTapMode
 import hunoia.luno.domain.clipboard.ClipboardCenter
+import hunoia.luno.link.LinkDispatcher
+import hunoia.luno.link.LinkUrls
+import hunoia.luno.ui.link.LinkSelectionActivity
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.automation.AutomationNotificationListener
@@ -107,6 +112,9 @@ class FloatBallService : Service() {
 
     /** 钉住期间又来了新内容：胶囊显示圆点，取消钉住时切到最新内容。 */
     private var clipboardPending = false
+
+    /** 链接分发配置（随 actionSettings 流更新）：胶囊识别链接、点击直达都读它。 */
+    private var linkDispatch: LinkDispatchSettings = LinkDispatchSettings()
 
     /** 锁屏/临时隐藏等被动收起时暂存的钉住内容：解锁/恢复后原样弹回。 */
     private var pinnedClipboardContent: ClipboardContent? = null
@@ -279,6 +287,7 @@ class FloatBallService : Service() {
                     // 临时隐藏期间球被手动/规则打开（enabled false→true）：显示意图优先，作废本轮隐藏
                     if (newSettings.enabled && !settings.enabled) cancelTempHide()
                     settings = newSettings
+                    linkDispatch = config.action.linkDispatch
                     gestureEnabledSnapshot = config.gestureEnabled
                     ballWindow.updateSettings(config.action.floatBall)
                     mirrorWindow.updateSettings(config.action.floatBall)
@@ -655,7 +664,13 @@ class FloatBallService : Service() {
             return true
         }
         clipboardBallContent = content
-        if (!clipboardBallWindow.show(settings.clipboardBall.x, settings.clipboardBall.y, content)) {
+        if (!clipboardBallWindow.show(
+                settings.clipboardBall.x,
+                settings.clipboardBall.y,
+                content,
+                nextLink = linkInfoOf(content),
+            )
+        ) {
             // 挂窗被系统拒绝：不动 showing，下次复制再试。
             clipboardBallContent = null
             return true
@@ -763,7 +778,12 @@ class FloatBallService : Service() {
             val next = lastSeenClip
             if (next != null && next != clipboardBallContent) {
                 clipboardBallContent = next
-                clipboardBallWindow.show(settings.clipboardBall.x, settings.clipboardBall.y, next)
+                clipboardBallWindow.show(
+                    settings.clipboardBall.x,
+                    settings.clipboardBall.y,
+                    next,
+                    nextLink = linkInfoOf(next),
+                )
             }
         }
         resumeClipboardTimerIfIdle()
@@ -816,6 +836,7 @@ class FloatBallService : Service() {
                 settings.clipboardBall.y,
                 content,
                 initialPinned = true,
+                nextLink = linkInfoOf(content),
             )
         ) {
             return
@@ -833,8 +854,69 @@ class FloatBallService : Service() {
         }
     }
 
+    /** 认出文本里的链接（仅当链接分发开启；图片不参与）。 */
+    private fun linksOf(content: ClipboardContent): List<String> {
+        if (!linkDispatch.enabled) return emptyList()
+        val text = (content as? ClipboardContent.Text)?.text ?: return emptyList()
+        return LinkUrls.extractUrls(text)
+    }
+
+    /** 胶囊展示用的链接信息：多条给条数，单条命中给目标应用（未命中不给）。 */
+    private fun linkInfoOf(content: ClipboardContent): ClipboardLinkInfo? {
+        val links = linksOf(content)
+        if (links.isEmpty()) return null
+        if (links.size > 1) return ClipboardLinkInfo(links.size)
+        val url = links.first()
+        val rule = LinkUrls.firstMatch(url, linkDispatch.rules) ?: return null
+        val target = LinkDispatcher.resolvedTargetOf(this, rule, url) ?: return null
+        return ClipboardLinkInfo(1, target.packageName, target.label)
+    }
+
     private fun onClipboardBallTapped() {
         val content = clipboardBallContent ?: return
+        val links = linksOf(content)
+        if (links.isNotEmpty()) {
+            onClipboardLinkTapped(links, content)
+            return
+        }
+        shareClipboardContent(content)
+    }
+
+    /**
+     * 胶囊点击命中链接：单条按规则直达（「命中链接时的点击行为」允许时），多条转选择页，
+     * 未命中按「未命中规则时」回退；直达失败也走同一条回退。
+     */
+    private fun onClipboardLinkTapped(links: List<String>, content: ClipboardContent) {
+        if (links.size > 1) {
+            val launched = runCatching { startActivity(LinkSelectionActivity.intent(this, links)) }
+                .onFailure { Log.w(TAG, "link selection launch failed: ${it.message}") }
+                .isSuccess
+            if (launched) hideClipboardBall()
+            return
+        }
+        val url = links.first()
+        val rule = LinkUrls.firstMatch(url, linkDispatch.rules)
+        if (rule == null) {
+            LinkDispatcher.fallback(this, url, linkDispatch.missAction)
+            hideClipboardBall()
+            return
+        }
+        if (linkDispatch.capsuleTap == LinkTapMode.SHARE) {
+            // 命中但点击行为选了分享：保持既有行为（分享整段原文）。
+            shareClipboardContent(content)
+            return
+        }
+        scope.launch {
+            val dispatched = LinkDispatcher.dispatch(this@FloatBallService, url, linkDispatch)
+            if (!dispatched) {
+                Log.w(TAG, "link dispatch failed, fallback: ${url.take(80)}")
+                LinkDispatcher.fallback(this@FloatBallService, url, linkDispatch.missAction)
+            }
+            hideClipboardBall()
+        }
+    }
+
+    private fun shareClipboardContent(content: ClipboardContent) {
         // 分享面板从服务上下文起：NEW_TASK 必须加在 chooser 本体。
         // 启动失败（如后台弹出未授权）保留球可重试。
         val launched = runCatching {

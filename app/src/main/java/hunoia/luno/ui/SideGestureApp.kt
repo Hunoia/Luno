@@ -41,6 +41,8 @@ import hunoia.luno.ui.navigation.Home
 import hunoia.luno.ui.navigation.ActionSettings
 import hunoia.luno.ui.navigation.NotificationBlocklist
 import hunoia.luno.ui.navigation.RecentAppsBlocklist
+import hunoia.luno.ui.navigation.LinkDispatchRules
+import hunoia.luno.ui.navigation.LinkDispatchRuleEdit
 import hunoia.luno.ui.navigation.ActionPanelList
 import hunoia.luno.ui.navigation.ActionPanelEdit
 import hunoia.luno.ui.navigation.GridPanelList
@@ -64,6 +66,8 @@ import hunoia.luno.ui.automation.AutomationHistoryScreen
 import hunoia.luno.ui.settings.action.ActionSettingsScreen
 import hunoia.luno.ui.settings.action.RecentAppsBlocklistScreen
 import hunoia.luno.ui.settings.action.MiniWindowAdjustScreen
+import hunoia.luno.ui.settings.link.LinkDispatchEditScreen
+import hunoia.luno.ui.settings.link.LinkDispatchSettingsScreen
 import hunoia.luno.ui.settings.floatball.FloatBallEditScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelEditScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelListScreen
@@ -166,9 +170,27 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToGridPanels = { navController.navigate(GridPanelList) },
                         onNavToRecentAppsBlocklist = { navController.navigate(RecentAppsBlocklist) },
                         onNavToMiniWindowAdjust = { navController.navigate(MiniWindowAdjust) },
+                        onNavToLinkDispatch = { navController.navigate(LinkDispatchRules) },
                         onNavToActionSelect = {
                             navController.navigate(ActionSelect(copyDeepLink = true))
                         },
+                    )
+                }
+                myComposable<LinkDispatchRules> {
+                    LinkDispatchSettingsScreen(
+                        onBack = { navController.popBackStack() },
+                        onEditRule = { ruleId ->
+                            navController.navigate(LinkDispatchRuleEdit(ruleId))
+                        },
+                        onCreateRule = {
+                            navController.navigate(LinkDispatchRuleEdit(""))
+                        },
+                    )
+                }
+                myComposable<LinkDispatchRuleEdit> {
+                    LinkDispatchEditScreen(
+                        ruleId = it.toRoute<LinkDispatchRuleEdit>().ruleId,
+                        onBack = { navController.popBackStack() },
                     )
                 }
                 myComposable<RecentAppsBlocklist> {
