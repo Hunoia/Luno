@@ -3,7 +3,6 @@ package hunoia.luno.shizuku
 import android.content.ClipData
 import android.util.Log
 import hunoia.luno.bridge.system.ClipboardTextInfo
-import hunoia.luno.core.AppContext
 import hunoia.luno.core.LOG_TAG
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import rikka.shizuku.ShizukuBinderWrapper
@@ -49,9 +48,11 @@ object ShizukuClipboard {
             Log.i(TAG, "shizuku clipboard: null clip (empty or denied)")
             return@runCatching null
         }
-        val text = clip.getItemAt(0)?.coerceToText(AppContext.get())?.toString()
+        // 只认纯文本：coerceToText 会把图片 URI 也转成字符串，胶囊会弹一条 content:// 长串。
+        val item = clip.getItemAt(0)
+        val text = item?.text?.toString() ?: item?.htmlText?.toString()
         if (text == null) {
-            Log.i(TAG, "shizuku clipboard: null item text")
+            Log.i(TAG, "shizuku clipboard: non-text item")
             return@runCatching null
         }
         val sensitive = runCatching {

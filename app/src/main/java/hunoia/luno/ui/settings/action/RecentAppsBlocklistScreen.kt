@@ -40,7 +40,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,11 +48,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
-import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.core.AppContext
-import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.getIcon
@@ -77,27 +73,26 @@ import hunoia.luno.ui.theme.TileInnerPadding
 import hunoia.luno.ui.theme.appHazeSource
 import hunoia.luno.ui.theme.glassCapsule
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 
 /**
- * 最近应用黑名单（全屏版应用多选）。
- *
- * 选择只保存在本地草稿；点右下角 FAB 才落盘。直接返回（含系统返回键）不写配置，即取消。
+ * 最近应用黑名单（全屏版应用多选）：选择列表由调用方提供、结果经 [onSave] 落盘，
+ * 通知胶囊黑名单等复用同一交互。选择只保存在本地草稿；点右下角 FAB 才提交。
+ * 直接返回（含系统返回键）不写配置，即取消。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecentAppsBlocklistScreen(
     onBack: () -> Unit,
+    current: List<String>,
+    onSave: (List<String>) -> Unit,
+    title: String = stringResource(R.string.recent_apps_blocklist),
 ) {
-    val scope = rememberCoroutineScope()
-    val actionSettings by TuneConfig.action
-        .collectAsStateWithLifecycle(initialValue = ActionSettings())
     // 以当前配置为草稿初值；用户改动不写盘，确认时才提交。
-    var selected by remember(actionSettings.recentAppsBlocklist) {
-        mutableStateOf(actionSettings.recentAppsBlocklist.toSet())
+    var selected by remember(current) {
+        mutableStateOf(current.toSet())
     }
     var apps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
     // 图标位图随屏幕存活：LazyColumn 条目滚出视口即销毁，进程级 AppIconCache 容量有限，
@@ -122,9 +117,9 @@ fun RecentAppsBlocklistScreen(
     }
 
     // 配置可能是异步到达的：等 apps 与已选列表都就绪后再排一次，且只排一次。
-    LaunchedEffect(apps, actionSettings.recentAppsBlocklist) {
+    LaunchedEffect(apps, current) {
         if (!initialOrderApplied && apps.isNotEmpty()) {
-            val selectedPackages = actionSettings.recentAppsBlocklist.toSet()
+            val selectedPackages = current.toSet()
             apps = apps.sortedByDescending { it.packageName in selectedPackages }
             initialOrderApplied = true
         }
@@ -148,16 +143,13 @@ fun RecentAppsBlocklistScreen(
     }
 
     fun confirm() {
-        val ordered = actionSettings.recentAppsBlocklist.filter { it in selected } +
-            selected.filter { it !in actionSettings.recentAppsBlocklist }
-        scope.launch {
-            TuneConfig.updateAction { it.copy(recentAppsBlocklist = ordered) }
-            onBack()
-        }
+        val ordered = current.filter { it in selected } +
+            selected.filter { it !in current }
+        onSave(ordered)
     }
 
     LunoScreenPlain(
-        title = stringResource(R.string.recent_apps_blocklist),
+        title = title,
         onBack = onBack,
         actions = {
             if (permissionState.isGranted) {

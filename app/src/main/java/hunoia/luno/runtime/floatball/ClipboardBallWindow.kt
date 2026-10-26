@@ -1,30 +1,43 @@
 package hunoia.luno.runtime.floatball
 
+import android.content.res.Configuration
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.bridge.ui.windowManager
-import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.runtime.overlay.safeAddView
@@ -33,13 +46,13 @@ import hunoia.luno.ui.theme.SideGestureTheme
 import kotlin.math.max
 
 /**
- * 剪贴板球：TYPE_APPLICATION_OVERLAY 小圆窗，剪贴板文本变化时在贴边记忆位弹出
- * 「ContentPaste 图标」圆球（配色随主球）。点击（[onTapped]）由 Service 弹系统分享，
- * 长按（[onLongPressed]）关闭，按住即拖、抬手横向贴最近边，[onDragReleased] 后由
- * Service 读 [normalizedPosition] 落盘；自动收起计时归 Service。
- * 低频瞬态，走整拆整建（show 挂窗、hide 滑出后摘窗）；可见期间复制新内容只重算位置，
- * 图标球面无内容可换。动效一律 View 层（服务进程 ComposeView 重组不上屏，
- * 见 FloatBallWindow.applyVisual 注释）。
+ * 剪贴板球：TYPE_APPLICATION_OVERLAY 胶囊小窗，剪贴板文本变化时在贴边记忆位弹出
+ * 「ContentPaste 图标 + 内容预览（单行省略、宽度封顶）」（配色随主球）。
+ * 窗口 WRAP_CONTENT：宽度随内容自适应，重排后按记忆侧重新贴边。
+ * 点击（[onTapped]）由 Service 弹系统分享，长按（[onLongPressed]）关闭，按住即拖、
+ * 抬手横向贴最近边，[onDragReleased] 后由 Service 读 [normalizedPosition] 落盘；
+ * 自动收起计时归 Service。低频瞬态，走整拆整建；可见期间复制新内容只换文本并重新贴边。
+ * 动效一律 View 层（服务进程 ComposeView 重组不上屏，见 FloatBallWindow.applyVisual 注释）。
  */
 internal class ClipboardBallWindow(private val context: android.content.Context) {
 
@@ -48,9 +61,10 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
 
     private var view: View? = null
 
-    private var settings: FloatBallSettings = FloatBallSettings()
+    /** Compose 态：内容文本更新走 mutableStateOf 重组，普通字段不重绘。 */
+    private var content by mutableStateOf("")
 
-    private val ballPx: Int get() = DensityProvider.dp2px(FloatBallDefaults.ClipboardBallSizeDp)
+    private var settings: FloatBallSettings = FloatBallSettings()
 
     /** LP 坐标系原点在屏幕上的 y（状态栏下沿），attach 后实测（与球窗同套路）。 */
     private var lpOriginY = 0
@@ -58,8 +72,17 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
     private var posX = 0f
     private var posY = 0f
 
+    /** 贴哪侧边（内容重排重新贴边、进出场滑动方向都看它）。 */
+    private var pinnedRight = true
+
     /** 进场动画在飞：期间按压/拖动/长按不介入（同一 ViewPropertyAnimator 会互相打断）。 */
     private var entering = false
+
+    /** 等待布局回调补播进场：WRAP_CONTENT 的宽度布局后才有，进场位移要按真实宽度算。 */
+    private var enterPending = false
+
+    /** 本次窗口的 LP 原点是否已实测。实测前绝不写 lp.y（否则会把原点差当成窗口位置）。 */
+    private var originReady = false
 
     /** 点击球（未超 touchSlop 抬手；长按已触发则吞掉后续 tap）。 */
     var onTapped: (() -> Unit)? = null
@@ -67,8 +90,14 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
     /** 长按关闭（按下 [LONG_PRESS_MS] 未拖未抬）。 */
     var onLongPressed: (() -> Unit)? = null
 
-    /** 拖动抬手：贴边已在本窗内结算，Service 读位置落盘。 */
+    /** 拖动抬手：贴边已在本窗内结算，Service 读 [normalizedPosition] 落盘。 */
     var onDragReleased: (() -> Unit)? = null
+
+    /** 手指按压状态：Service 用它在按住/拖动期间暂停自动收起计时。 */
+    var onPressStateChanged: ((Boolean) -> Unit)? = null
+
+    /** 用户正在拖动：期间不再按“当前贴边侧”重钉 x（否则永远拖不到另一侧）。 */
+    private var userDragging = false
 
     // 长按检测：仲裁器只分「拖/点」，长按在窗口层补。
     private var longPressFired = false
@@ -80,12 +109,16 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
 
     private val arbiter = FloatBallTouchArbiter(
         onSlideDragged = { dx, dy ->
-            if (!entering) onDragged(dx, dy)
+            // 进场未播完也要能拖：直接收掉进场动画再跟手，不要拦住拖动。
+            view?.let { cancelEnter(it) }
+            userDragging = true
+            onDragged(dx, dy)
         },
         onTapped = { if (!longPressFired) onTapped?.invoke() },
         onPressChanged = { pressed ->
-            if (entering) return@FloatBallTouchArbiter
+            onPressStateChanged?.invoke(pressed)
             view?.let { v ->
+                cancelEnter(v)
                 val scale = if (pressed) PressScale else 1f
                 v.animate().scaleX(scale).scaleY(scale).setDuration(PRESS_MS).start()
             }
@@ -97,6 +130,8 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
             }
         },
         onDragEnded = {
+            // 松手才决定归哪侧：拖动中 x 必须跟手，不能提前回贴。
+            userDragging = false
             snapToNearestEdge()
             applyWindowBounds()
             onDragReleased?.invoke()
@@ -111,46 +146,96 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
     }
 
     /**
-     * 弹出：不可见则挂窗，从贴边侧滑入 + 淡入；已可见（新复制覆盖）只重算位置。
-     * [x]/[y] 为记忆位（归一化），null 落默认（右缘、屏高 [DefaultYRatio]）。
+     * 弹出/刷新：不可见则挂窗，从贴边侧滑入 + 淡入；已可见只换文本并重新贴边
+     * （内容变了胶囊宽度会变）。[x]/[y] 为记忆位（归一化），x 也可视作侧别记忆，
+     * y 落默认（屏高 [DefaultYRatio]）。
      */
-    fun show(x: Float?, y: Float?) {
-        val existing = view
-        if (existing != null) {
-            resolvePosition(x, y)
-            applyWindowBounds()
-            return
-        }
+    fun show(x: Float?, y: Float?, text: String) {
+        content = text
+        // 已可见（新复制覆盖）：内容变了宽度也变，靠下面的布局回调重新贴边；
+        // 宽高没变时回调不会来，位置也无需改。
+        if (view != null) return
+        resolvePosition(x, y)
+        // 每个新窗都重新测原点：测量必须在写 lp.y 之前。
+        originReady = false
         val created = ComposeView(context).apply {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
-            FloatBallLifecycleOwner.createAndAttachTo(this)
-            setContent { BallContent() }
+            // 瞬态窗推到 RESUMED：应用图标与内容更新都需要 effects/重组真正运行。
+            FloatBallLifecycleOwner.createAndAttachTo(this, active = true)
+            setContent { PillContent() }
         }
         created.setOnTouchListener { _, event -> arbiter.onTouch(event) }
-        if (!wm.safeAddView(created, ballLayoutParams(ballPx))) {
+        created.alpha = 0f
+        created.scaleX = 1f
+        created.scaleY = 1f
+        // WRAP_CONTENT 的尺寸只有布局后才知道：原点、贴边、进场都等布局回调结算。
+        // 关键顺序：第一次 layout 时 lp.y 仍为 0，此时 getLocationOnScreen().y 就是 LP 原点；
+        // 先测原点再写 lp.y，否则「已写入的 y」会被当成原点算出负数，第二次开窗就被推到屏底。
+        created.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+            if (v.width <= 0 || v.height <= 0) return@addOnLayoutChangeListener
+            if (!originReady) {
+                lpOriginY = screenOriginY(v)
+                originReady = true
+            }
+            applyWindowBounds()
+            if (enterPending) {
+                enterPending = false
+                startEnter(v)
+            }
+        }
+        if (!wm.safeAddView(created, pillLayoutParams())) {
             Log.e(TAG, "clipboard ball addView failed (overlay permission or window rejected)")
             return
         }
         view = created
-        resolvePosition(x, y)
-        applyWindowBounds()
-        postMeasureLpOriginY({ view }, { lpOriginY }) {
-            lpOriginY = it
-            applyWindowBounds()
-        }
-        // 进场：从贴边侧滑入 + 淡入。
         entering = true
-        created.scaleX = 1f
-        created.scaleY = 1f
-        created.translationX = slideOffsetX()
-        created.alpha = 0f
-        created.animate()
+        enterPending = true
+        // 兜底：layout 回调不来时（极少数）用当前实测位置（lp.y 仍为 0）自行补位。
+        mainHandler.postDelayed({
+            val v = view
+            if (v === created && !originReady) {
+                lpOriginY = screenOriginY(v)
+                originReady = true
+                applyWindowBounds()
+                if (enterPending) {
+                    enterPending = false
+                    startEnter(v)
+                }
+            }
+        }, ENTER_FALLBACK_MS)
+    }
+
+    /** 实测 LP 原点（状态栏下沿）：限定 0..[MaxOriginDp]，防任何竞态测出负数把窗口推飞。 */
+    private fun screenOriginY(v: View): Int {
+        val location = IntArray(2)
+        v.getLocationOnScreen(location)
+        return location[1].coerceIn(0, DensityProvider.dp2px(MaxOriginDp))
+    }
+
+    /** 收掉在飞的进场动画（拖拽/按压需要即时响应时）；已完成则无操作。 */
+    private fun cancelEnter(v: View) {
+        if (!entering && !enterPending) return
+        enterPending = false
+        v.animate().cancel()
+        v.alpha = 1f
+        v.translationX = 0f
+        v.scaleX = 1f
+        v.scaleY = 1f
+        entering = false
+    }
+
+    /** 量到实际宽度后的进场：从贴边侧滑入 + 淡入。 */
+    private fun startEnter(v: View) {
+        v.translationX = slideOffsetX()
+        v.animate()
             .translationX(0f)
             .alpha(1f)
             .setDuration(ENTER_MS)
             .setInterpolator(DecelerateInterpolator())
-            .withEndAction { entering = false }
+            .withEndAction { if (view === v) entering = false }
             .start()
+        // 兜底：动画被系统掐掉时也别把 entering 永久钉在 true（否则拖不动）。
+        mainHandler.postDelayed({ if (view === v) entering = false }, ENTER_MS + 80L)
     }
 
     /** 收起：向贴边侧滑出 + 淡出后整窗摘除。 */
@@ -158,15 +243,21 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
         val v = view
         view = null
         entering = false
+        enterPending = false
         mainHandler.removeCallbacks(longPressRunnable)
         if (v == null) {
             onHidden?.invoke()
             return
         }
+        // view 已置空，slideOffsetX() 会退到兜底宽度；出屏位移要用实际宽度。
+        val width = v.width.takeIf { it > 0 } ?: fallbackWidthPx()
+        // 包含侧边距，否则滑出后还留 8dp 在屏上。
+        val distance = (width + sideMarginPx()).toFloat()
+        val exitX = if (pinnedRight) distance else -distance
         v.animate().cancel()
         applyBallTouchFlags(v, wm, hidden = true)
         v.animate()
-            .translationX(slideOffsetX())
+            .translationX(exitX)
             .alpha(0f)
             .setDuration(HIDE_MS)
             .setInterpolator(DecelerateInterpolator())
@@ -182,84 +273,156 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
         val v = view
         view = null
         entering = false
+        enterPending = false
         mainHandler.removeCallbacks(longPressRunnable)
         v?.let(context::removeWindow)
     }
 
-    /** 当前位置（归一化 0..1，y 含状态栏补偿），Service 落盘用。 */
+    /**
+     * 当前位置（归一化 0..1，y 含状态栏补偿），Service 落盘用。
+     * x 只记侧别（0 = 左缘 / 1 = 右缘）：宽度封顶后贴边的 x 可能落在 0.5 以下，
+     * 用 x 反推侧别会在“宽度恰好半屏”时把胶囊翻到另一侧。
+     */
     fun normalizedPosition(): Pair<Float, Float> = Pair(
-        (posX / screenWidthPx).coerceIn(0f, 1f),
-        ((posY + lpOriginY) / screenHeightPx).coerceIn(0f, 1f),
+        if (pinnedRight) 1f else 0f,
+        (posY / screenHeightPx).coerceIn(0f, 1f),
     )
 
     // ---- 定位 ----
 
     private fun resolvePosition(x: Float?, y: Float?) {
-        posX = if (x != null) {
-            (x * screenWidthPx).coerceIn(0f, (screenWidthPx - ballPx).toFloat())
-        } else {
-            (screenWidthPx - ballPx).toFloat()
-        }
-        posY = ((y ?: DefaultYRatio) * screenHeightPx - lpOriginY)
-            .coerceIn(lpOriginY.toFloat(), maxY())
+        pinnedRight = (x ?: 1f) >= 0.5f
+        posX = pinnedX()
+        // posY 是屏幕坐标的窗顶（writeBallPosition 会减 LP 原点），不要再提前减一次。
+        posY = clampY((y ?: DefaultYRatio) * screenHeightPx)
+        Log.i(
+            TAG,
+            "clip show x=$x y=$y screen=${screenWidthPx}x$screenHeightPx " +
+                "origin=$lpOriginY pos=($posX,$posY)",
+        )
     }
+
+    /** 贴边后的窗顶 x（两侧留 [PillSideMarginDp]，不贴死屏幕边）。 */
+    private fun pinnedX(): Float {
+        val margin = sideMarginPx()
+        return if (pinnedRight) {
+            (screenWidthPx - currentWidthPx() - margin).toFloat()
+        } else {
+            margin.toFloat()
+        }
+    }
+
+    private fun sideMarginPx(): Int = DensityProvider.dp2px(PillSideMarginDp)
 
     private fun onDragged(dx: Float, dy: Float) {
         mainHandler.removeCallbacks(longPressRunnable)
-        posX = (posX + dx).coerceIn(0f, (screenWidthPx - ballPx).toFloat())
-        posY = (posY + dy).coerceIn(lpOriginY.toFloat(), maxY())
+        val margin = sideMarginPx().toFloat()
+        val maxX = (screenWidthPx - currentWidthPx() - sideMarginPx()).toFloat()
+        posX = (posX + dx).coerceIn(margin, max(margin, maxX))
+        posY = clampY(posY + dy)
         applyWindowBounds()
     }
 
     /** 抬手横向贴最近边（y 保持不动）。 */
     private fun snapToNearestEdge() {
-        posX = if (posX + ballPx / 2f < screenWidthPx / 2f) {
-            0f
-        } else {
-            (screenWidthPx - ballPx).toFloat()
-        }
+        pinnedRight = posX + currentWidthPx() / 2f >= screenWidthPx / 2f
     }
 
-    private fun maxY(): Float = max(lpOriginY, screenHeightPx - ballPx).toFloat()
+    private fun maxY(): Float = max(lpOriginY, screenHeightPx - currentHeightPx()).toFloat()
+
+    /** 纵向只夹在屏内（不额外限制位置）。 */
+    private fun clampY(y: Float): Float {
+        val lower = lpOriginY.toFloat()
+        val upper = maxY().coerceAtLeast(lower)
+        return y.coerceIn(lower, upper)
+    }
 
     private fun applyWindowBounds() {
         val v = view ?: return
+        // 原点未实测前不写 lp.y：写早了会把本次写入的 y 当成原点，第二次开窗就会被推到屏底。
+        if (!originReady) return
+        // 拖动中保持跟手的 x，不要按当前侧重钉；松手后 onDragEnded 再贴边。
+        if (!userDragging) posX = pinnedX()
+        posY = clampY(posY)
         writeBallPosition(v, wm, posX, posY, lpOriginY)
     }
 
-    /** 进出场横向位移基准：贴哪边就从哪边滑（出屏方向）。 */
-    private fun slideOffsetX(): Float =
-        if (posX + ballPx / 2f < screenWidthPx / 2f) -ballPx.toFloat() else ballPx.toFloat()
+    /** 当前窗宽高（WRAP_CONTENT 挂上后才有值；未量到时用最小胶囊宽兜底）。 */
+    private fun currentWidthPx(): Int =
+        view?.width?.takeIf { it > 0 } ?: fallbackWidthPx()
+
+    private fun currentHeightPx(): Int =
+        view?.height?.takeIf { it > 0 } ?: DensityProvider.dp2px(FallbackHeightDp)
+
+    private fun fallbackWidthPx(): Int = DensityProvider.dp2px(FallbackWidthDp)
+
+    /** 进出场横向位移基准：贴哪边就从哪边滑（出屏方向，含侧边距）。 */
+    private fun slideOffsetX(): Float {
+        val distance = currentWidthPx() + sideMarginPx()
+        return if (pinnedRight) distance.toFloat() else -distance.toFloat()
+    }
 
     // ---- Compose ----
 
     @Composable
-    private fun BallContent() {
+    private fun PillContent() {
         SideGestureTheme {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                BallFace()
-            }
+            PillFace()
         }
     }
 
     @Composable
-    private fun BallFace() {
-        // 配色在组合期读取：普通字段不触发重组，球为瞬态，显示期间改色不生效可接受。
+    private fun PillFace() {
         val accentColor = gestureButtonMarkColor(settings.color)
-        Box(
+        // 深色底用白字、浅色底用黑字：accent 可由用户任意选色，不能写死 onSurface。
+        val contentColor = if (accentColor.luminance() > 0.5f) Color.Black else Color.White
+        val maxPillWidth = with(LocalDensity.current) {
+            val config = LocalConfiguration.current
+            val ratio = if (config.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                PillWidthRatioLandscape
+            } else {
+                PillWidthRatioPortrait
+            }
+            (screenWidthPx * ratio).toDp()
+        }
+        val pill = RoundedCornerShape(percent = 50)
+        Row(
             modifier = Modifier
-                .fillMaxSize()
-                .background(accentColor.copy(alpha = 0.16f), CircleShape)
-                .border(1.5.dp, accentColor.copy(alpha = 0.6f), CircleShape),
-            contentAlignment = Alignment.Center,
+                .widthIn(max = maxPillWidth)
+                .clip(pill)
+                .background(accentColor.copy(alpha = PillBackgroundAlpha))
+                .border(1.dp, contentColor.copy(alpha = 0.22f), pill)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Icon(
-                modifier = Modifier.size(IconDp.dp),
+                modifier = Modifier.size(16.dp),
                 imageVector = Icons.Default.ContentPaste,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                tint = contentColor.copy(alpha = 0.9f),
+            )
+            Text(
+                text = content,
+                style = MaterialTheme.typography.titleSmall,
+                color = contentColor.copy(alpha = 0.95f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
+    }
+
+    /** 胶囊窗 LP：TYPE_APPLICATION_OVERLAY、WRAP_CONTENT（宽度随内容）、LEFT|TOP 手工定位。 */
+    private fun pillLayoutParams() = WindowManager.LayoutParams().apply {
+        type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        format = android.graphics.PixelFormat.TRANSLUCENT
+        flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+        width = WindowManager.LayoutParams.WRAP_CONTENT
+        height = WindowManager.LayoutParams.WRAP_CONTENT
+        gravity = Gravity.LEFT or Gravity.TOP
+        x = 0
+        y = 0
     }
 
     private companion object {
@@ -269,16 +432,33 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
         const val HIDE_MS = 200L
         const val PRESS_MS = 100L
 
+        /** Compose 首帧布局兜底：超时仍未量到尺寸就按当前实测位置自行起进场。 */
+        const val ENTER_FALLBACK_MS = 300L
+
+        /** LP 原点合法性上限（dp）：状态栏/分屏偏移远小于此值，防测到负数/异常值。 */
+        const val MaxOriginDp = 200f
+
         /** 长按关闭门槛（ms）。 */
         const val LONG_PRESS_MS = 500L
 
         /** 按压缩放（同胶囊）。 */
         const val PressScale = 0.95f
 
-        /** 图标直径（dp）。 */
-        const val IconDp = 20f
+        /** 未量到尺寸前的兜底（dp）。 */
+        const val FallbackWidthDp = 120f
+        const val FallbackHeightDp = 38f
+
+        /** 两侧留白（dp）：不贴死屏幕边，进场位移也会加上它。 */
+        const val PillSideMarginDp = 8f
+
+        /** 内容宽度上限（屏宽比例）：竖屏 50%，横屏 20%（横屏太宽很潼）。 */
+        const val PillWidthRatioPortrait = 0.5f
+        const val PillWidthRatioLandscape = 0.2f
+
+        /** 胶囊底色透明度（保留主球 accent 色，但不要太透）。 */
+        const val PillBackgroundAlpha = 0.85f
 
         /** 未记忆时的默认落点（屏高比例，右缘）。 */
-        const val DefaultYRatio = 0.7f
+        const val DefaultYRatio = 0.5f
     }
 }

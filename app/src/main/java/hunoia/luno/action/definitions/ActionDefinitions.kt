@@ -187,7 +187,7 @@ object ActionDefinitions {
         ))
         add(ActionDefinition("accessibility.screenshot", "截屏", ActionCategory.UI, Capability.Accessibility,
             icon = Icons.Default.Screenshot))
-        add(ActionDefinition("accessibility.screenPick", "识别屏幕内容", ActionCategory.OPERATION, Capability.Accessibility,
+        add(ActionDefinition("accessibility.screenPick", "识别屏幕内容", ActionCategory.GESTURE_TOOL, Capability.Accessibility,
             icon = Icons.Default.DocumentScanner))
         add(ActionDefinition("accessibility.splitScreen", "分屏", ActionCategory.UI, Capability.Accessibility,
             icon = Icons.Default.Splitscreen))

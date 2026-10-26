@@ -34,18 +34,19 @@ internal fun ballLayoutParams(ballPx: Int) = WindowManager.LayoutParams().apply 
     y = 0
 }
 
-/** 通知胶囊窗 LP：TYPE_APPLICATION_OVERLAY、固定宽高、LEFT|TOP。同球窗不加 LAYOUT_NO_LIMITS。 */
+/** 通知胶囊窗 LP：TYPE_APPLICATION_OVERLAY、WRAP_CONTENT（尺寸随内容自适应）、
+ *  BOTTOM|CENTER_HORIZONTAL 重力（底部居中，换内容重排自动保持），y = 离屏底偏移。 */
 @SuppressLint("RtlHardcoded")
-internal fun capsuleLayoutParams(widthPx: Int, heightPx: Int) = WindowManager.LayoutParams().apply {
+internal fun capsuleLayoutParams(bottomOffsetPx: Int) = WindowManager.LayoutParams().apply {
     type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
     format = PixelFormat.TRANSLUCENT
     flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
         WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-    width = widthPx
-    height = heightPx
-    gravity = Gravity.LEFT or Gravity.TOP
+    width = WindowManager.LayoutParams.WRAP_CONTENT
+    height = WindowManager.LayoutParams.WRAP_CONTENT
+    gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
     x = 0
-    y = 0
+    y = bottomOffsetPx
 }
 
 /** 尺寸变化落到现有窗（updateSettings 的 sizeDp 变更路径）。 */

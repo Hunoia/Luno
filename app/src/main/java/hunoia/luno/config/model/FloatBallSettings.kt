@@ -44,17 +44,17 @@ data class FloatBallSettings(
 )
 
 /**
- * 通知胶囊配置：通知到达时在屏幕底部弹出「图标 + 标题 + 正文」胶囊，
+ * 通知胶囊配置：通知到达时在屏幕底部居中弹出「图标 + 标题 + 正文」胶囊，
  * 点击直达（通知 contentIntent 优先，失败回退启动应用），[autoHideMs] 后自动收起。
  */
 @Serializable
 @Keep
 data class NotificationCapsuleSettings(
     val enabled: Boolean = false,
-    /** 胶囊靠屏幕左侧；false = 右侧。 */
-    val leftSide: Boolean = false,
     /** 弹出后多少 ms 自动收起（3–10s，设置页滑杆约束）。 */
     val autoHideMs: Long = FloatBallDefaults.CapsuleAutoHideMs,
+    /** 应用黑名单：这些包的通知不弹胶囊。 */
+    val blocklist: List<String> = emptyList(),
 )
 
 /**
@@ -68,7 +68,7 @@ data class ClipboardBallSettings(
     val enabled: Boolean = false,
     /** 弹出后多少 ms 自动收起（3–10s，设置页滑杆约束）。 */
     val autoHideMs: Long = FloatBallDefaults.ClipboardBallAutoHideMs,
-    /** 记忆位置（归一化，球窗顶边，含状态栏补偿）。null = 未记忆，首次落右缘。 */
+    /** 记忆位置：x 只记侧别（0 = 左缘 / 1 = 右缘，null = 首弹右侧），y 为归一化纵向落点（夹在 0.18–0.72）。 */
     val x: Float? = null,
     val y: Float? = null,
 )
@@ -117,8 +117,7 @@ object FloatBallDefaults {
     const val CapsuleAutoHideMsMin = 3_000L
     const val CapsuleAutoHideMsMax = 10_000L
 
-    /** 剪贴板球：球径（dp）与自动收起时长默认值、滑杆上下限（ms）。 */
-    const val ClipboardBallSizeDp = 44f
+    /** 剪贴板球：自动收起时长默认值与滑杆上下限（ms）。 */
     const val ClipboardBallAutoHideMs = 5_000L
     const val ClipboardBallAutoHideMsMin = 3_000L
     const val ClipboardBallAutoHideMsMax = 10_000L

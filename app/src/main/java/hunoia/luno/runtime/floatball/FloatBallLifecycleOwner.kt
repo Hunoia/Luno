@@ -16,8 +16,10 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
  * 给 `ComposeView` 用的最小生命周期宿主：`ComposeView` 在 `onAttachedToWindow` 时会向上找
  * `ViewTreeLifecycleOwner`/`ViewTreeViewModelStoreOwner`/`ViewTreeSavedStateRegistryOwner`，
  * 三者缺一就抛 `IllegalStateException`；`FloatBallService` 是普通 Service 一个都没有，必须自己补。
- * 生命周期只推到 CREATED：推到 RESUMED 会让 `LaunchedEffect`/`snapshotFlow` 真正跑起来，
+ * 生命周期默认只推到 CREATED：推到 RESUMED 会让 `LaunchedEffect`/`snapshotFlow` 真正跑起来，
  * 球不需要活跃期，停在 CREATED 既够用也避免不可见时仍跑协程。
+ * 瞬态胶囊例外（[createAndAttachTo] 的 active=true）：它只有几秒寿命，且 `produceState`
+ * 加载应用图标、新内容换文案都需要 effects/重组真正运行。
  */
 class FloatBallLifecycleOwner private constructor() :
     LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
@@ -39,9 +41,12 @@ class FloatBallLifecycleOwner private constructor() :
      * `LifecycleRegistry(this).apply { ... }` —— 那会让 create() 看到已 CREATED 的生命周期并抛
      * "Restarter must be created only during owner's initialization stage"。
      */
-    fun restore() {
+    fun restore(active: Boolean = false) {
         savedStateController.performRestore(null)
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
+        // 瞬态胶囊：CREATED 下 LaunchedEffect/produceState 不会执行（应用图标永远加载不出来），
+        // 状态驱动的内容更新也不会应用；推到 RESUMED 让 effects 与重组真正跑。
+        if (active) lifecycleRegistry.currentState = Lifecycle.State.RESUMED
     }
 
     fun destroy() {
@@ -50,9 +55,9 @@ class FloatBallLifecycleOwner private constructor() :
     }
 
     companion object {
-        fun createAndAttachTo(view: android.view.View) {
+        fun createAndAttachTo(view: android.view.View, active: Boolean = false) {
             val owner = FloatBallLifecycleOwner()
-            owner.restore()
+            owner.restore(active)
             view.setViewTreeLifecycleOwner(owner)
             view.setViewTreeViewModelStoreOwner(owner)
             view.setViewTreeSavedStateRegistryOwner(owner)

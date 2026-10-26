@@ -4,15 +4,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.PersistableBundle
-import android.os.SystemClock
-
-/** 最近一次 Luno 自写剪贴板的时刻（uptimeMillis）：剪贴板球用它过滤自家复制。 */
-@Volatile
-private var lastSelfCopyAtMs = 0L
-
-/** [windowMs] 内 Luno 自己写过剪贴板视为「自复制」。 */
-fun isSelfCopyRecent(windowMs: Long = 1_500L): Boolean =
-    SystemClock.uptimeMillis() - lastSelfCopyAtMs < windowMs
 
 fun copySensitiveText(
     context: Context,
@@ -26,7 +17,6 @@ fun copySensitiveText(
             putBoolean(ClipDescriptionExtras.IS_SENSITIVE, true)
         }
         clipboard.setPrimaryClip(clip)
-        lastSelfCopyAtMs = SystemClock.uptimeMillis()
         true
     }.getOrDefault(false)
 }
@@ -40,16 +30,14 @@ fun copyText(
     val clipboard = context.getSystemService(ClipboardManager::class.java)
         ?: return@runCatching false
     clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
-    lastSelfCopyAtMs = SystemClock.uptimeMillis()
     true
 }.getOrDefault(false)
 
-/** 复制图片（FileProvider content URI）：聊天/笔记等支持粘贴图片的应用直接用。 */
+/** 复制图片（content URI，现为 MediaStore 图库 URI）：聊天/笔记等支持粘贴图片的应用直接用。 */
 fun copyImage(context: Context, label: String, uri: android.net.Uri): Boolean = runCatching {
     val clipboard = context.getSystemService(ClipboardManager::class.java)
         ?: return@runCatching false
     clipboard.setPrimaryClip(ClipData.newUri(context.contentResolver, label, uri))
-    lastSelfCopyAtMs = SystemClock.uptimeMillis()
     true
 }.getOrDefault(false)
 
@@ -67,13 +55,15 @@ data class ClipboardTextInfo(
     val sensitive: Boolean,
 )
 
-/** 读当前剪贴板文本 + 敏感标记；无内容/无权限（Android 10+ 后台读被限）返回 null。 */
+/** 读当前剪贴板**文本**，一次带出敏感标记（剪贴板球用）；图片/URI 等非文本返回 null。 */
 fun readClipboardTextDetailed(context: Context): ClipboardTextInfo? = runCatching {
     val clipboard = context.getSystemService(ClipboardManager::class.java)
         ?: return@runCatching null
     if (!clipboard.hasPrimaryClip()) return@runCatching null
     val clip = clipboard.primaryClip ?: return@runCatching null
-    val text = clip.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()
+    val item = clip.getItemAt(0) ?: return@runCatching null
+    // 只认纯文本：coerceToText 会把图片 URI 也转成字符串，胶囊会弹出一条 content:// 长串。
+    val text = item.text?.toString() ?: item.htmlText?.toString() ?: return@runCatching null
     ClipboardTextInfo(
         text = text,
         sensitive = clip.description.extras

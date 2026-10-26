@@ -16,7 +16,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDeepLink
@@ -27,7 +29,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import hunoia.luno.R
 import hunoia.luno.ui.theme.AnimNavTransition
+import kotlinx.coroutines.launch
 
 import hunoia.luno.ui.navigation.ActionSelect
 
@@ -35,6 +39,7 @@ import hunoia.luno.ui.navigation.GestureButtonSettings
 
 import hunoia.luno.ui.navigation.Home
 import hunoia.luno.ui.navigation.ActionSettings
+import hunoia.luno.ui.navigation.NotificationBlocklist
 import hunoia.luno.ui.navigation.RecentAppsBlocklist
 import hunoia.luno.ui.navigation.ActionPanelList
 import hunoia.luno.ui.navigation.ActionPanelEdit
@@ -167,8 +172,18 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                     )
                 }
                 myComposable<RecentAppsBlocklist> {
+                    val scope = rememberCoroutineScope()
+                    val actionSettings by TuneConfig.action
+                        .collectAsStateWithLifecycle(initialValue = ActionTuning())
                     RecentAppsBlocklistScreen(
                         onBack = { navController.popBackStack() },
+                        current = actionSettings.recentAppsBlocklist,
+                        onSave = { ordered ->
+                            scope.launch {
+                                TuneConfig.updateAction { it.copy(recentAppsBlocklist = ordered) }
+                                navController.popBackStack()
+                            }
+                        },
                     )
                 }
                 myComposable<MiniWindowAdjust> {
@@ -178,6 +193,31 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                     FloatBallEditScreen(
                         onBack = { navController.popBackStack() },
                         onNavToActionSelect = { navController.navigate(it) },
+                        onNavToNotificationBlocklist = { navController.navigate(NotificationBlocklist) },
+                    )
+                }
+                myComposable<NotificationBlocklist> {
+                    val scope = rememberCoroutineScope()
+                    val actionSettings by TuneConfig.action
+                        .collectAsStateWithLifecycle(initialValue = ActionTuning())
+                    RecentAppsBlocklistScreen(
+                        onBack = { navController.popBackStack() },
+                        title = stringResource(R.string.notification_blocklist),
+                        current = actionSettings.floatBall.notificationCapsule.blocklist,
+                        onSave = { ordered ->
+                            scope.launch {
+                                TuneConfig.updateAction {
+                                    it.copy(
+                                        floatBall = it.floatBall.copy(
+                                            notificationCapsule = it.floatBall.notificationCapsule.copy(
+                                                blocklist = ordered,
+                                            ),
+                                        ),
+                                    )
+                                }
+                                navController.popBackStack()
+                            }
+                        },
                     )
                 }
                 myComposable<ActionPanelList> {

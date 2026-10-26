@@ -45,7 +45,7 @@ import hunoia.luno.action.model.Action
 private const val SUB_GESTURE_DIRECT_ACTION_DELAY_MS = 50L
 
 /** 面板收起主 overlay 前的等待：盖住 ActionPanel 的淡出动画，不等窗口会先缩成 1x1 导致内容跳位。 */
-private const val ACTION_PANEL_FADE_OUT_MS = 400L
+internal const val ACTION_PANEL_FADE_OUT_MS = 400L
 
 @Composable
 fun SideGestureContainer(

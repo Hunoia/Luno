@@ -1,5 +1,6 @@
 package hunoia.luno.runtime.condition
 
+import android.app.NotificationManager
 import android.app.PendingIntent
 import hunoia.luno.action.model.AudioStream
 import hunoia.luno.config.model.AutomationRule
@@ -63,12 +64,22 @@ data class ConditionContext(
     val dndChangedTo: Boolean? = null,
 )
 
-/** 通知脉冲：包名+标题+正文（匹配后原文即丢，历史默认不同原文）。contentIntent 供通知胶囊点击直达。 */
+/**
+ * 通知脉冲：包名+标题+正文（匹配后原文即丢，历史默认不同原文）。
+ * contentIntent 供通知胶囊点击直达；后面几个字段只给胶囊做可见性过滤（自动化语义不变）。
+ */
 data class NotificationPulse(
     val packageName: String,
     val title: String,
     val text: String,
     val contentIntent: PendingIntent? = null,
+    /** 原始 [android.app.Notification.flags]。 */
+    val flags: Int = 0,
+    val ongoing: Boolean = false,
+    val clearable: Boolean = true,
+    val importance: Int = NotificationManager.IMPORTANCE_DEFAULT,
+    /** 用于通知栏仍在显示的二段确认（延迟后查 activeNotifications）。 */
+    val key: String? = null,
 )
 
 /**

@@ -48,10 +48,9 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         PointPickOverlay(this)
     }
 
-    /** 屏幕内容识别拾取窗。与 pointPickOverlay 同规：必须住在无障碍服务这一侧。 */
-    private val screenPickOverlay by lazy {
-        ScreenPickOverlay(this)
-    }
+    /** 屏幕内容识别拾取窗。与 pointPickOverlay 同规：必须住在无障碍服务这一侧。
+     *  非 lazy：构造时就要订阅面板开关事件，否则第一次从面板触发时会错过 Shown。 */
+    private val screenPickOverlay = ScreenPickOverlay(this)
 
     /** 识别屏幕内容动作入口（动作执行已在 :service 进程直连）。返回是否成功弹起。 */
     fun showScreenPick(): Boolean {
@@ -122,7 +121,8 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         runtimePanelOverlay.close()
         // 与 runtimePanelOverlay 同进退：点拾取全屏窗别指望系统随服务销毁回收。
         pointPickOverlay.close()
-        screenPickOverlay.close()
+        // 拾取窗持有全局面板事件订阅，必须显式退订。
+        screenPickOverlay.release()
         coroutineScope.cancel()
     }
 

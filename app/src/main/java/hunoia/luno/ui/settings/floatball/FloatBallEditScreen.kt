@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -65,6 +66,7 @@ import kotlinx.coroutines.launch
 fun FloatBallEditScreen(
     onBack: () -> Unit,
     onNavToActionSelect: (ActionSelect) -> Unit = {},
+    onNavToNotificationBlocklist: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -289,16 +291,6 @@ fun FloatBallEditScreen(
                     },
                     shape = segmentedShape(0, 3),
                 )
-                LunoSwitchRow(
-                    title = stringResource(R.string.float_ball_capsule_left_side),
-                    checked = capsule.leftSide,
-                    onCheckedChange = { checked ->
-                        update {
-                            it.copy(notificationCapsule = it.notificationCapsule.copy(leftSide = checked))
-                        }
-                    },
-                    shape = segmentedShape(1, 3),
-                )
                 LunoTextSlider(
                     value = localCapsuleAutoHide,
                     onValueChange = { value -> localCapsuleAutoHide = value },
@@ -315,7 +307,25 @@ fun FloatBallEditScreen(
                     valueDisplay = { "${(it / 1000).toInt()} s" },
                     valueRange = FloatBallDefaults.CapsuleAutoHideMsMin.toFloat()..
                         FloatBallDefaults.CapsuleAutoHideMsMax.toFloat(),
+                    shape = segmentedShape(1, 3),
+                )
+                LunoSettingsRow(
+                    title = stringResource(R.string.float_ball_capsule_blocklist),
+                    subtitle = stringResource(R.string.float_ball_capsule_blocklist_hint),
+                    trailing = {
+                        if (capsule.blocklist.isNotEmpty()) {
+                            Text(
+                                text = stringResource(
+                                    R.string.float_ball_capsule_blocklist_count,
+                                    capsule.blocklist.size,
+                                ),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    },
                     shape = segmentedShape(2, 3),
+                    onClick = onNavToNotificationBlocklist,
                 )
             }
         }

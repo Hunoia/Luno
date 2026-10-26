@@ -21,6 +21,7 @@ import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.model.actionPanelId
 import hunoia.luno.action.model.withoutVariantKey
 import hunoia.luno.runtime.condition.toConditionContext
+import hunoia.luno.runtime.gesturepanel.ACTION_PANEL_FADE_OUT_MS
 import kotlin.math.roundToInt
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.ConfigProvider
@@ -362,6 +363,15 @@ class GestureCoordinator(
     )
 
     private var started = false
+
+    /** 动作面板 Dismissed 延迟发布的代际：面板在淡出期间重开则旧事件作废。 */
+    private var actionPanelDismissGeneration = 0
+
+    /** 动作面板的 Shown/Dismissed 是否由「交互窗」路径发过（needsPanelOverlay=true）。 */
+    private var actionPanelOverlayEventPosted = false
+
+    /** 动作面板的 Shown/Dismissed 是否由「visible」路径补发（触钮直发路径）。 */
+    private var actionPanelVisibilityEventPosted = false
     private var wallpaperColorsListener: WallpaperManager.OnColorsChangedListener? = null
 
     private val callbacks: GestureOverlayCallbacks = object : GestureOverlayCallbacks {
@@ -398,17 +408,40 @@ class GestureCoordinator(
 
         override fun onActionPanelOverlayChanged(show: Boolean) {
             if (show) {
+                actionPanelDismissGeneration++
+                actionPanelOverlayEventPosted = true
                 transientOverlayController.attachActionPanelOverlay()
                 Events.post(PanelShownEvent())
             } else {
+                actionPanelOverlayEventPosted = false
+                // 交互窗立即拆（不挡住底下），但面板本体还在 a11y overlay 里淡出 400ms；
+                // Dismissed 延到淡出结束再发，否则识屏截屏/悬浮球恢复会看到正在消失的面板。
                 transientOverlayController.detachActionPanelOverlay()
-                Events.post(PanelDismissedEvent())
+                val generation = ++actionPanelDismissGeneration
+                host.coroutineScope.launch {
+                    delay(ACTION_PANEL_FADE_OUT_MS)
+                    if (generation == actionPanelDismissGeneration) {
+                        Events.post(PanelDismissedEvent())
+                    }
+                }
             }
         }
 
         override fun onActionPanelVisibilityChanged(visible: Boolean) {
             if (BuildConfig.DEBUG) Log.i(LOG_TAG, "action panel visible=$visible")
             mainOverlayController.setPanelVisible(visible)
+            // 触钮直发动作面板时 needsPanelOverlay=false，交互窗不会发事件；用这里的
+            // visible 配对补上，保证识屏截图能看到「面板已真正退场」。
+            // false 回调本身已经延后 400ms（淡出结束），所以立即发 Dismissed 即可。
+            if (visible) {
+                if (!actionPanelOverlayEventPosted && !actionPanelVisibilityEventPosted) {
+                    actionPanelVisibilityEventPosted = true
+                    Events.post(PanelShownEvent())
+                }
+            } else if (actionPanelVisibilityEventPosted) {
+                actionPanelVisibilityEventPosted = false
+                Events.post(PanelDismissedEvent())
+            }
         }
 
         override fun onAction(
@@ -437,10 +470,11 @@ class GestureCoordinator(
         }
         // 手势触发动作与手势事件进总线是两条独立路径：前者立即执行，后者供自动化规则订阅。
         environmentTracker.onGesturePerformed(sourceButton?.id ?: "", sourceButton?.name.orEmpty())
-        // 真手势（触钮/侧滑/子手势滑动，decision 非空）按物理触点归侧广播：悬浮球碰哪侧
-        // 即时跟到哪侧。面板内点击与球点按的 decision 为 null，天然不参与 —— 点面板部件
-        // 不会拽球，球的位置也不反哺判定。
-        if (decision != null && touchPosition.x.isFinite()) {
+        // 真手势按物理触点归侧广播：悬浮球碰哪侧即时跟到哪侧。
+        // 判据包含「有 sourceButton」：触钮上的**点按**动作 decision 可能为空，
+        // 旧实现只认 decision != null，表现为只有会产 decision 的按钮能跟手换位。
+        // 球点按 / 面板点选走 BallTapActionEvent（sourceButton = null），仍不参与。
+        if ((decision != null || sourceButton != null) && touchPosition.x.isFinite()) {
             Events.post(
                 TouchButtonSideEvent(
                     leftSide = touchPosition.x < DensityProvider.screenWidthPx / 2f,
@@ -795,6 +829,11 @@ class GestureCoordinator(
         buttonWindowController.release()
         // 销毁不经过 callbacks 的配对隐藏（那里各自发 PanelDismissed）：挂着面板被销毁时
         // 按拆掉的数量补发，否则 FloatBallService 的 panelCount 卡住、球一直隐藏。
+        actionPanelDismissGeneration++
+        if (actionPanelVisibilityEventPosted) {
+            actionPanelVisibilityEventPosted = false
+            Events.post(PanelDismissedEvent())
+        }
         repeat(transientOverlayController.detachAll()) {
             Events.post(PanelDismissedEvent())
         }

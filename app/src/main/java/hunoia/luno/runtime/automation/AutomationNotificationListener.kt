@@ -42,16 +42,39 @@ class AutomationNotificationListener : NotificationListenerService() {
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
         val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
             ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
-            ?: sbn.notification.tickerText?.toString().orEmpty()
+            ?: ""
         if (title.isBlank() && text.isBlank()) return
+        // importance 只在胶囊层用（自动化语义不变）：MIN 在状态栏不显示、NONE 完全不出。
+        val ranking = Ranking()
+        val hasRanking = runCatching { currentRanking?.getRanking(key, ranking) }
+            .getOrNull() ?: false
         AutomationPulseHub.fireNotification(
             NotificationPulse(
                 packageName = sbn.packageName.orEmpty(),
                 title = title,
                 text = text,
                 contentIntent = notification.contentIntent,
+                flags = notification.flags,
+                ongoing = sbn.isOngoing,
+                clearable = sbn.isClearable,
+                importance = if (hasRanking) {
+                    ranking.importance
+                } else {
+                    NotificationManager.IMPORTANCE_DEFAULT
+                },
+                key = key,
             )
         )
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        instance = this
+    }
+
+    override fun onDestroy() {
+        if (instance === this) instance = null
+        super.onDestroy()
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
@@ -75,6 +98,19 @@ class AutomationNotificationListener : NotificationListenerService() {
     }
 
     companion object {
+        /** 当前连接中的监听器实例：胶囊用它确认通知在延迟后仍留在通知栏。 */
+        @Volatile
+        private var instance: AutomationNotificationListener? = null
+
+        /** [key] 对应的通知现在仍在通知栏；实例未连接时保守返回 true（不拦自动化/胶囊）。 */
+        fun isPosted(key: String?): Boolean {
+            if (key == null) return true
+            val live = instance ?: return true
+            return runCatching {
+                live.activeNotifications?.any { it.key == key } == true
+            }.getOrDefault(true)
+        }
+
         /** 同 key 重投的去重窗口（ms）。 */
         private const val DEDUPE_WINDOW_MS = 2_000L
 

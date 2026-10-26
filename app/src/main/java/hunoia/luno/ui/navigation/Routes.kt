@@ -61,6 +61,10 @@ data object RecentAppsBlocklist
 
 @Keep
 @Serializable
+data object NotificationBlocklist
+
+@Keep
+@Serializable
 data object ActionPanelList
 
 @Keep
