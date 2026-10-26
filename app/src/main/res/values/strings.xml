@@ -239,6 +239,15 @@
     <string name="grid_panel_internal_volume">音量调节</string>
     <string name="grid_panel_internal_brightness">亮度调节</string>
     <string name="grid_panel_internal_recents">最近应用</string>
+    <string name="grid_panel_internal_clipboard">剪贴板</string>
+    <string name="grid_panel_clipboard_current">当前</string>
+    <string name="grid_panel_clipboard_image">图片</string>
+    <string name="grid_panel_clipboard_empty">暂无剪贴板历史</string>
+    <string name="grid_panel_clipboard_copy">复制</string>
+    <string name="grid_panel_clipboard_delete">删除</string>
+    <string name="grid_panel_clipboard_clear">清空全部</string>
+    <string name="grid_panel_clipboard_more">更多操作</string>
+    <string name="grid_panel_clipboard_copy_failed">复制失败</string>
     <string name="grid_panel_brightness_need_permission">授予修改系统设置权限后可调节亮度，点此去授权</string>
     <string name="grid_panel_recents_empty">暂无最近应用记录</string>
     <string name="grid_panel_media_need_permission">授予通知访问权限后可控制媒体播放，点此去授权</string>

@@ -21,6 +21,8 @@ object InternalWidgetIds {
     const val VOLUME = "internal.volume"
     const val BRIGHTNESS = "internal.brightness"
     const val RECENTS = "internal.recents"
+    /** 页面类部件：整块可滚动的剪贴板历史（默认跨格，内部纵向滚动）。 */
+    const val CLIPBOARD = "internal.clipboardPage"
 }
 
 /** 一个内置小部件的选择页条目与落格默认值。 */
@@ -37,6 +39,7 @@ val InternalWidgetDefs = listOf(
     InternalWidgetDef(InternalWidgetIds.VOLUME, R.string.grid_panel_internal_volume, 4, 1),
     InternalWidgetDef(InternalWidgetIds.BRIGHTNESS, R.string.grid_panel_internal_brightness, 4, 1),
     InternalWidgetDef(InternalWidgetIds.RECENTS, R.string.grid_panel_internal_recents, 4, 1),
+    InternalWidgetDef(InternalWidgetIds.CLIPBOARD, R.string.grid_panel_internal_clipboard, 4, 3),
 )
 
 /**
@@ -60,7 +63,12 @@ internal fun rememberVerticalSpan(spanX: Int, spanY: Int): Boolean {
  * 缩放手柄直接不让人拖到那么窄。
  */
 fun internalWidgetMinSpan(widgetId: String): Pair<Int, Int> =
-    if (widgetId == InternalWidgetIds.MEDIA) 2 to 1 else 1 to 1
+    when (widgetId) {
+        // 剪贴板列表：一格宽放不下条目文字，两格起步。
+        InternalWidgetIds.CLIPBOARD -> 2 to 2
+        InternalWidgetIds.MEDIA -> 2 to 1
+        else -> 1 to 1
+    }
 
 /**
  * 滑条所在容器的内边距。格子是方格（cellH == cellW），横向的上下内边距必须与

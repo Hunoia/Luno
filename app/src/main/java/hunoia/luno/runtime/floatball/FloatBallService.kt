@@ -33,6 +33,7 @@ import hunoia.luno.core.Events
 import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.core.TouchButtonSideEvent
+import hunoia.luno.domain.clipboard.ClipboardCenter
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.automation.AutomationNotificationListener
@@ -637,6 +638,9 @@ class FloatBallService : Service() {
         if (content is ClipboardContent.Image && !settings.clipboardBall.respondToImages) {
             return true
         }
+        // 剪贴板页面部件的历史捕获时机（另一处是部件打开时自读）：这里只记非敏感文本，
+        // 图片与敏感文本不入历史（见 ClipboardCenter.record 的过滤）。
+        ClipboardCenter.record(content)
         // 钉住期间冻结内容：只标记「有新内容」，取消钉住时再切到最新。
         if (clipboardBallWindow.isPinned()) {
             if (content != clipboardBallContent) {

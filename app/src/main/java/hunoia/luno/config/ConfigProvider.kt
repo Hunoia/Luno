@@ -9,6 +9,10 @@ import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.Backup
 import hunoia.luno.config.model.BackupDomain
+import hunoia.luno.config.model.ClipboardHistory
+import hunoia.luno.config.model.record
+import hunoia.luno.config.model.remove
+import hunoia.luno.config.model.cleared
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.InitialSettings
@@ -46,6 +50,8 @@ object ConfigProvider {
     val automationRules: Flow<List<AutomationRule>> = stores.automationRules
     val automationLog: Flow<List<hunoia.luno.runtime.automation.AutomationEvent>> = stores.automationLog
     val quickSearchSettings: Flow<QuickSearchSettings> = stores.quickSearchSettings
+    /** 剪贴板历史：设备本地派生数据，只供剪贴板页面部件订阅。 */
+    val clipboardHistory: Flow<ClipboardHistory> = stores.clipboardHistory
 
     suspend fun getInitialSettings(): InitialSettings = stores._initialSettings.data.first()
     suspend fun getAdvancedSettings(): AdvancedSettings = stores._advancedSettings.data.first()
@@ -124,6 +130,26 @@ object ConfigProvider {
 
     /** 面板首开同步读一次快照。 */
     suspend fun getQuickAppSnapshot(): QuickAppSnapshot = stores.readQuickAppSnapshot()
+
+    /**
+     * 记一条剪贴板文本历史（去重置顶 + 环形裁剪）。
+     * 失败静默：历史是辅助数据，写盘失败不能影响复制/粘贴本身。
+     */
+    suspend fun recordClipboardText(text: String) {
+        if (text.isBlank()) return
+        runCatching {
+            stores._clipboardHistory.updateData { it.record(text, System.currentTimeMillis()) }
+        }
+    }
+
+    suspend fun removeClipboardEntry(id: String) {
+        if (id.isBlank()) return
+        runCatching { stores._clipboardHistory.updateData { it.remove(id) } }
+    }
+
+    suspend fun clearClipboardHistory() {
+        runCatching { stores._clipboardHistory.updateData { it.cleared() } }
+    }
 
     /**
      * 回写派生快照（不含任何用户配置）。内容没变就不写：预热每次都重扫，结果通常

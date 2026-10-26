@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.Icon
@@ -119,6 +120,7 @@ internal fun InternalWidgetCard(
             Icon(
                 imageVector = when (def.id) {
                     hunoia.luno.gridpanel.internal.InternalWidgetIds.MEDIA -> Icons.Filled.MusicNote
+                    hunoia.luno.gridpanel.internal.InternalWidgetIds.CLIPBOARD -> Icons.Filled.ContentPaste
                     else -> Icons.AutoMirrored.Filled.VolumeUp
                 },
                 contentDescription = null,

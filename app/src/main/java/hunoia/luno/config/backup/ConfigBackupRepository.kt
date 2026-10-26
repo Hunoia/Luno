@@ -153,6 +153,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { stores._gestureButtons.updateData { GestureButton.Defaults } }
         launch { stores._quickAppLauncherSettings.updateData { QuickAppLauncherSettings() } }
         launch { stores._appUsageStats.updateData { AppUsageStats() } }
+        launch { stores._clipboardHistory.updateData { hunoia.luno.config.model.ClipboardHistory() } }
         launch { stores._subGestureSettings.updateData { SubGestureSettings() } }
         launch { stores._actionLibrarySettings.updateData { ActionLibrarySettings() } }
         launch { stores._automationRules.updateData { AutomationRule.Defaults } }

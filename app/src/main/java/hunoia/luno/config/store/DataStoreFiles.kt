@@ -33,5 +33,7 @@ object DataStoreFiles {
     const val AUTOMATION_LOG = "automation_log"
     /** 快速启动器应用列表快照。可从系统重建，刻意不进备份。 */
     const val QUICK_APP_SNAPSHOT = "quick_app_snapshot"
+    /** 剪贴板历史：设备本地派生数据，刻意不进备份（URI/敏感内容的跨机恢复没有意义）。 */
+    const val CLIPBOARD_HISTORY = "clipboard_history"
 }
 
