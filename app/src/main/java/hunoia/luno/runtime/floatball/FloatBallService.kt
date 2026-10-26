@@ -92,6 +92,12 @@ class FloatBallService : Service() {
     /** 最近一条弹出过的通知：点击胶囊时发 contentIntent / 回退启动应用。 */
     private var lastPulse: NotificationPulse? = null
 
+    /**
+     * 用户主动滑掉的 key（插入顺序 LRU + 时间窗）：刚滑掉的通知在窗口期内即使原地更新
+     * 也不再弹出来（否则「滑掉 -> 更新 -> 又弹」很恼人）。
+     */
+    private val dismissedCapsuleKeys = LinkedHashMap<String, Long>()
+
     /** 剪贴板球当前是否在屏（含动画期间）与最近弹过的文本（点击分享/同文重置计时）。 */
     private var clipboardBallShowing = false
     private var clipboardTimerJob: Job? = null
@@ -138,6 +144,24 @@ class FloatBallService : Service() {
         }
         capsuleWindow = NotificationCapsuleWindow(this).apply {
             onTapped = { onCapsuleTapped() }
+            onSwipedAway = { onCapsuleSwipedAway() }
+            // 按住/拖动期间暂停自动收起；展开正文期间也暂停（否则还没读完就消失）。
+            onPressStateChanged = { pressed ->
+                if (pressed) {
+                    capsuleTimerJob?.cancel()
+                    capsuleTimerJob = null
+                } else if (capsuleShowing && !this@FloatBallService.capsuleWindow.isExpanded()) {
+                    scheduleCapsuleHide(settings.notificationCapsule.autoHideMs)
+                }
+            }
+            onExpandedChanged = { expanded ->
+                if (expanded) {
+                    capsuleTimerJob?.cancel()
+                    capsuleTimerJob = null
+                } else if (capsuleShowing) {
+                    scheduleCapsuleHide(settings.notificationCapsule.autoHideMs)
+                }
+            }
         }
         clipboardBallWindow = ClipboardBallWindow(this).apply {
             onTapped = { onClipboardBallTapped() }
@@ -407,6 +431,10 @@ class FloatBallService : Service() {
     private fun onNotificationArrived(pulse: NotificationPulse) {
         if (!capsuleAllowed()) return
         if (pulse.packageName in settings.notificationCapsule.blocklist) return
+        if (isCapsuleDismissed(pulse.key)) {
+            Log.i(TAG, "capsule skip dismissed pkg=${pulse.packageName} key=${pulse.key}")
+            return
+        }
         // 只弹「通知栏里真的能看到」的：常驻/前台服务/分组汇总（正文往往是「1」）/仅本地
         // 都不是用户会去点的普通通知。自动化侧的 ongoing 已在监听器层过滤，胶囊再按 flags 收紧。
         val blockedFlags = Notification.FLAG_ONGOING_EVENT or
@@ -468,6 +496,40 @@ class FloatBallService : Service() {
     /** 面板/临时隐藏/锁屏等联动入口共用：在屏但不允许了就收起（收起后不补播旧通知）。 */
     private fun refreshCapsule() {
         if (capsuleShowing && !capsuleAllowed()) hideCapsule()
+    }
+
+    /** 用户下滑关闭：记抑制 key（同 key 更新窗口期内不再弹），再走正常收起。 */
+    private fun onCapsuleSwipedAway() {
+        markCapsuleDismissed(lastPulse?.key)
+        hideCapsule()
+    }
+
+    private fun markCapsuleDismissed(key: String?) {
+        if (key == null) return
+        if (!settings.notificationCapsule.dismissSuppressEnabled) {
+            dismissedCapsuleKeys.remove(key)
+            return
+        }
+        dismissedCapsuleKeys.remove(key)
+        dismissedCapsuleKeys[key] = SystemClock.uptimeMillis()
+        while (dismissedCapsuleKeys.size > CAPSULE_DISMISSED_KEYS_MAX) {
+            val oldest = dismissedCapsuleKeys.keys.firstOrNull() ?: break
+            dismissedCapsuleKeys.remove(oldest)
+        }
+    }
+
+    private fun isCapsuleDismissed(key: String?): Boolean {
+        if (key == null) return false
+        val capsule = settings.notificationCapsule
+        if (!capsule.dismissSuppressEnabled) return false
+        val at = dismissedCapsuleKeys[key] ?: return false
+        val windowMs = capsule.dismissSuppressMs.coerceIn(
+            FloatBallDefaults.CapsuleDismissSuppressMsMin,
+            FloatBallDefaults.CapsuleDismissSuppressMsMax,
+        )
+        if (SystemClock.uptimeMillis() - at < windowMs) return true
+        dismissedCapsuleKeys.remove(key)
+        return false
     }
 
     private fun onCapsuleTapped() {
@@ -974,6 +1036,9 @@ class FloatBallService : Service() {
 
         /** 通知胶囊的「仍在通知栏」确认延时：一次性/立即撤回的通知不弹。 */
         private const val CAPSULE_SETTLE_MS = 300L
+
+        /** 用户滑掉后同 key 更新不再弹出的 LRU 容量（时间窗见设置）。 */
+        private const val CAPSULE_DISMISSED_KEYS_MAX = 8
 
         /** 设置开关变更 / 开机自启都走这里。必须是 startForegroundService。 */
         fun start(context: Context) {

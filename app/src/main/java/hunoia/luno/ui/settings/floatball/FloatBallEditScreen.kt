@@ -83,6 +83,9 @@ fun FloatBallEditScreen(
     var localCapsuleAutoHide by remember(floatBall.notificationCapsule.autoHideMs) {
         mutableFloatStateOf(floatBall.notificationCapsule.autoHideMs.toFloat())
     }
+    var localCapsuleSuppressMs by remember(floatBall.notificationCapsule.dismissSuppressMs) {
+        mutableFloatStateOf(floatBall.notificationCapsule.dismissSuppressMs.toFloat())
+    }
     var localClipballAutoHide by remember(floatBall.clipboardBall.autoHideMs) {
         mutableFloatStateOf(floatBall.clipboardBall.autoHideMs.toFloat())
     }
@@ -275,6 +278,9 @@ fun FloatBallEditScreen(
 
         item(key = "capsule") {
             val capsule = floatBall.notificationCapsule
+            val suppress = capsule.dismissSuppressEnabled
+            // 抑制时长只在开关打开时出现：条数会变，段形按实际条数算。
+            val rowCount = if (suppress) 5 else 4
             LunoGroup(title = stringResource(R.string.float_ball_capsule_group)) {
                 LunoSwitchRow(
                     title = stringResource(R.string.float_ball_capsule_enabled),
@@ -289,7 +295,7 @@ fun FloatBallEditScreen(
                             FloatBallUseCase.setEnabled(context, false)
                         }
                     },
-                    shape = segmentedShape(0, 3),
+                    shape = segmentedShape(0, rowCount),
                 )
                 LunoTextSlider(
                     value = localCapsuleAutoHide,
@@ -307,8 +313,43 @@ fun FloatBallEditScreen(
                     valueDisplay = { "${(it / 1000).toInt()} s" },
                     valueRange = FloatBallDefaults.CapsuleAutoHideMsMin.toFloat()..
                         FloatBallDefaults.CapsuleAutoHideMsMax.toFloat(),
-                    shape = segmentedShape(1, 3),
+                    shape = segmentedShape(1, rowCount),
                 )
+                LunoSwitchRow(
+                    title = stringResource(R.string.float_ball_capsule_suppress_dismiss),
+                    subtitle = stringResource(R.string.float_ball_capsule_suppress_dismiss_hint),
+                    checked = suppress,
+                    onCheckedChange = { checked ->
+                        update {
+                            it.copy(
+                                notificationCapsule = it.notificationCapsule.copy(
+                                    dismissSuppressEnabled = checked,
+                                ),
+                            )
+                        }
+                    },
+                    shape = segmentedShape(2, rowCount),
+                )
+                if (suppress) {
+                    LunoTextSlider(
+                        value = localCapsuleSuppressMs,
+                        onValueChange = { value -> localCapsuleSuppressMs = value },
+                        onValueChangeFinished = {
+                            update {
+                                it.copy(
+                                    notificationCapsule = it.notificationCapsule.copy(
+                                        dismissSuppressMs = localCapsuleSuppressMs.toLong(),
+                                    ),
+                                )
+                            }
+                        },
+                        text = stringResource(R.string.float_ball_capsule_suppress_duration),
+                        valueDisplay = { "${(it / 1000).toInt()} s" },
+                        valueRange = FloatBallDefaults.CapsuleDismissSuppressMsMin.toFloat()..
+                            FloatBallDefaults.CapsuleDismissSuppressMsMax.toFloat(),
+                        shape = segmentedShape(3, rowCount),
+                    )
+                }
                 LunoSettingsRow(
                     title = stringResource(R.string.float_ball_capsule_blocklist),
                     subtitle = stringResource(R.string.float_ball_capsule_blocklist_hint),
@@ -324,7 +365,7 @@ fun FloatBallEditScreen(
                             )
                         }
                     },
-                    shape = segmentedShape(2, 3),
+                    shape = segmentedShape(if (suppress) 4 else 3, rowCount),
                     onClick = onNavToNotificationBlocklist,
                 )
             }

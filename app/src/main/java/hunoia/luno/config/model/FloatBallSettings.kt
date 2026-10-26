@@ -55,6 +55,10 @@ data class NotificationCapsuleSettings(
     val autoHideMs: Long = FloatBallDefaults.CapsuleAutoHideMs,
     /** 应用黑名单：这些包的通知不弹胶囊。 */
     val blocklist: List<String> = emptyList(),
+    /** 用户滑掉后，同 key 的通知在 [dismissSuppressMs] 内再次更新也不再弹。 */
+    val dismissSuppressEnabled: Boolean = FloatBallDefaults.CapsuleDismissSuppressEnabled,
+    /** 抑制重弹的时间窗（ms，设置页滑杆约束）。 */
+    val dismissSuppressMs: Long = FloatBallDefaults.CapsuleDismissSuppressMs,
 )
 
 /**
@@ -116,6 +120,12 @@ object FloatBallDefaults {
     const val CapsuleAutoHideMs = 5_000L
     const val CapsuleAutoHideMsMin = 3_000L
     const val CapsuleAutoHideMsMax = 10_000L
+
+    /** 通知胶囊：滑掉后的重弹抑制开关、时间窗默认值与滑杆上下限（ms）。 */
+    const val CapsuleDismissSuppressEnabled = true
+    const val CapsuleDismissSuppressMs = 10_000L
+    const val CapsuleDismissSuppressMsMin = 3_000L
+    const val CapsuleDismissSuppressMsMax = 60_000L
 
     /** 剪贴板球：自动收起时长默认值与滑杆上下限（ms）。 */
     const val ClipboardBallAutoHideMs = 5_000L
