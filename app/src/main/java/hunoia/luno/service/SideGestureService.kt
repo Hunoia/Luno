@@ -3,6 +3,7 @@ package hunoia.luno.service
 import android.content.res.Configuration
 import android.view.accessibility.AccessibilityEvent
 import com.aaron.composeaccessibility.ComponentAccessibilityService
+import hunoia.luno.action.controller.TextInserter
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.quicklaunch.launch.DisabledPackageEnabler
@@ -58,6 +59,13 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         // 挂窗是同步的：锁屏/系统拒绝时直接返回失败，动作层才能给出正确结果。
         return screenPickOverlay.show()
     }
+
+    /**
+     * 剪贴板拖拽落点输入：在屏幕 (x,y) 下的输入框里直接写入文本（仅个别编辑器才用剪贴板粘贴兜底）。
+     * 面板浮窗自己吞掉系统拖放事件，跨应用输入只能走无障碍节点（见 TextInserter）。
+     */
+    fun insertTextAt(text: String, x: Int, y: Int): TextInserter.Result =
+        TextInserter.insertAt(this, text, x, y)
 
     override val advancedSettings: AdvancedSettings?
         get() = if (::gestureCoordinator.isInitialized)

@@ -249,6 +249,7 @@
     <string name="grid_panel_clipboard_clear">清空全部</string>
     <string name="grid_panel_clipboard_more">更多操作</string>
     <string name="grid_panel_clipboard_copy_failed">复制失败</string>
+    <string name="grid_panel_clipboard_pasted_via_clipboard">该输入框只支持粘贴，已使用剪贴板</string>
     <string name="grid_panel_brightness_need_permission">授予修改系统设置权限后可调节亮度，点此去授权</string>
     <string name="grid_panel_recents_empty">暂无最近应用记录</string>
     <string name="grid_panel_media_need_permission">授予通知访问权限后可控制媒体播放，点此去授权</string>

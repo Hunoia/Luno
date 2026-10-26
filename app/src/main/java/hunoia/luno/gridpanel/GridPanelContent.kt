@@ -366,6 +366,10 @@ fun GridPanelRoot(
 
     var suppressItemTapUntil by remember(panel.id) { mutableStateOf(0L) }
 
+    // 拖拽幽灵提供在更外层（见 GridPanelOverlay）：拖拽时这里只负责把卡片本体淡出，
+    // 让下面的应用露出来；窗口不摘，手势才接得上。
+    val dragGhost = LocalGridPanelDragGhost.current
+
     // 根 Box：点按 + 长按空白进出编辑。
     // 长按只收**空白**的事件：项的手势层会在触发时消费同一路事件，
     // detectTapGestures 见 consumed 即取消 —— 消费链天然就是判定域。
@@ -408,6 +412,7 @@ fun GridPanelRoot(
             insetsTop = insetsTop,
             insetsBottom = insetsBottom,
             appearance = appearance.value,
+            hiddenForDrag = dragGhost?.chromeHidden == true,
             cardAlpha = cardAlpha,
             state = state,
             itemActions = { pageIndex ->

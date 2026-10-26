@@ -112,6 +112,8 @@ fun GridPanelCard(
     insetsTop: Int,
     insetsBottom: Int,
     appearance: Float,
+    /** 拖拽中把卡面整体隐去（只改 alpha，不改布局：缩放会让行列坐标跟着变）。 */
+    hiddenForDrag: Boolean = false,
     cardAlpha: Float,
     state: GridPanelState,
     itemActions: (pageIndex: Int) -> GridItemActions,
@@ -226,7 +228,7 @@ fun GridPanelCard(
                 with(density) { metrics.cardH.toDp() },
             )
             .graphicsLayer {
-                alpha = appearance
+                alpha = if (hiddenForDrag) 0f else appearance
                 scaleX = 0.92f + 0.08f * appearance
                 scaleY = scaleX
             }

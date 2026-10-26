@@ -6,11 +6,15 @@ import android.os.SystemClock
 import android.util.Log
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.action.model.actionPanelId
@@ -20,6 +24,7 @@ import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.gridpanel.ui.GridPanelDragGhostLayer
 import hunoia.luno.gridpanel.widget.PanelAppWidgetHostView
 import hunoia.luno.runtime.overlay.OverlayPanelHost
 import hunoia.luno.runtime.overlay.safeAddView
@@ -243,6 +248,8 @@ object GridPanelOverlay : OverlayPanelHost(
                 .collectAsStateWithLifecycle(initialValue = null)
             val settings = actionSettings ?: return@SideGestureTheme
             val library = librarySettings ?: return@SideGestureTheme
+            // 拖拽幽灵：跟着手指跨越面板边界，必须画在整个面板之上（格子会被裁剪）。
+            val dragGhost = remember(panelIdState) { GridPanelDragGhost() }
             // 动作库为空会让库引用项掉图标、嵌套面板项显示裸 typeId。
             CompositionLocalProvider(
                 LocalActionLibraryEntries provides library.entries,
@@ -250,8 +257,10 @@ object GridPanelOverlay : OverlayPanelHost(
                 LocalGridPanels provides settings.actionGridPanels.panels,
                 // 自绘小部件里启动外部应用后，用同一个退场动画关掉面板。
                 LocalGridPanelClose provides { (closeAnimated ?: { closeImmediate() }).invoke() },
+                LocalGridPanelDragGhost provides dragGhost,
             ) {
-                GridPanelRoot(
+                Box(Modifier.fillMaxSize()) {
+                    GridPanelRoot(
                     panelId = panelIdState,
                     panel = settings.actionGridPanels.panelById(panelIdState),
                     anchorX = anchorXState,
@@ -280,7 +289,9 @@ object GridPanelOverlay : OverlayPanelHost(
                     onCloseAnimated = { closeImmediate() },
                     onRegisterCloseAnimated = { callback -> closeAnimated = callback },
                     onRegisterBackHandler = { handler -> backHandler = handler },
-                )
+                    )
+                    GridPanelDragGhostLayer(dragGhost)
+                }
             }
         }
     }
