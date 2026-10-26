@@ -379,6 +379,19 @@ class GestureCoordinator(
     /** 动作面板的 Shown/Dismissed 是否由「交互窗」路径发过（needsPanelOverlay=true）。 */
     private var actionPanelOverlayEventPosted = false
 
+    /** 动作面板需要全屏宿主窗（面板内容画在主 overlay 里）。 */
+    private var actionPanelFullscreen = false
+
+    /**
+     * 按住类触发的指针光标画在主 overlay 里（[hunoia.luno.runtime.pointer.rememberPointerHandle]）。
+     * 主 overlay 平时收成 1x1 省 buffer，光标就看不见 —— 指针会话期间必须临时撑全屏。
+     */
+    private var pointerCursorHosted = false
+
+    private fun syncMainOverlayFullscreen() {
+        mainOverlayController.setPanelVisible(actionPanelFullscreen || pointerCursorHosted)
+    }
+
     /** 动作面板的 Shown/Dismissed 是否由「visible」路径补发（触钮直发路径）。 */
     private var actionPanelVisibilityEventPosted = false
     private var wallpaperColorsListener: WallpaperManager.OnColorsChangedListener? = null
@@ -400,7 +413,11 @@ class GestureCoordinator(
         }
 
         override fun onPointerStart(settings: hunoia.luno.config.model.GestureSettings.Pointer): Boolean {
-            return pointerRuntime.beginBridge()
+            val started = pointerRuntime.beginBridge()
+            // 已在会话中（start=false）时不要收回宿主窗：光标还在画。
+            if (started) pointerCursorHosted = true
+            syncMainOverlayFullscreen()
+            return started
         }
 
         override fun onPointerShow(settings: hunoia.luno.config.model.GestureSettings.Pointer): Boolean {
@@ -409,10 +426,15 @@ class GestureCoordinator(
 
         override fun onPointerEnd() {
             pointerRuntime.end()
+            pointerCursorHosted = false
+            syncMainOverlayFullscreen()
         }
 
         override fun onPointerActionAtPosition(x: Int, y: Int) {
             pointerRuntime.performBridgeActionAt(x, y)
+            // 松手后点击由无障碍延迟派发，光标不必再留着，宿主窗可以收回。
+            pointerCursorHosted = false
+            syncMainOverlayFullscreen()
         }
 
         override fun onActionPanelOverlayChanged(show: Boolean) {
@@ -438,7 +460,8 @@ class GestureCoordinator(
 
         override fun onActionPanelVisibilityChanged(visible: Boolean) {
             if (BuildConfig.DEBUG) Log.i(LOG_TAG, "action panel visible=$visible")
-            mainOverlayController.setPanelVisible(visible)
+            actionPanelFullscreen = visible
+            syncMainOverlayFullscreen()
             // 触钮直发动作面板时 needsPanelOverlay=false，交互窗不会发事件；用这里的
             // visible 配对补上，保证识屏截图能看到「面板已真正退场」。
             // false 回调本身已经延后 400ms（淡出结束），所以立即发 Dismissed 即可。
