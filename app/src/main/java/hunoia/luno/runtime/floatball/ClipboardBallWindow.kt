@@ -61,6 +61,9 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
 
     private var view: View? = null
 
+    /** 正在播退场动画的窗（view 已置空）：服务销毁时 detachNow 也要能把它摘掉。 */
+    private var exitingView: View? = null
+
     /** Compose 态：内容文本更新走 mutableStateOf 重组，普通字段不重绘。 */
     private var content by mutableStateOf("")
 
@@ -148,13 +151,13 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
     /**
      * 弹出/刷新：不可见则挂窗，从贴边侧滑入 + 淡入；已可见只换文本并重新贴边
      * （内容变了胶囊宽度会变）。[x]/[y] 为记忆位（归一化），x 也可视作侧别记忆，
-     * y 落默认（屏高 [DefaultYRatio]）。
+     * y 落默认（屏高 [DefaultYRatio]）。返回是否成功挂窗。
      */
-    fun show(x: Float?, y: Float?, text: String) {
+    fun show(x: Float?, y: Float?, text: String): Boolean {
         content = text
         // 已可见（新复制覆盖）：内容变了宽度也变，靠下面的布局回调重新贴边；
         // 宽高没变时回调不会来，位置也无需改。
-        if (view != null) return
+        if (view != null) return true
         resolvePosition(x, y)
         // 每个新窗都重新测原点：测量必须在写 lp.y 之前。
         originReady = false
@@ -185,7 +188,7 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
         }
         if (!wm.safeAddView(created, pillLayoutParams())) {
             Log.e(TAG, "clipboard ball addView failed (overlay permission or window rejected)")
-            return
+            return false
         }
         view = created
         entering = true
@@ -203,6 +206,7 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
                 }
             }
         }, ENTER_FALLBACK_MS)
+        return true
     }
 
     /** 实测 LP 原点（状态栏下沿）：限定 0..[MaxOriginDp]，防任何竞态测出负数把窗口推飞。 */
@@ -256,26 +260,35 @@ internal class ClipboardBallWindow(private val context: android.content.Context)
         val exitX = if (pinnedRight) distance else -distance
         v.animate().cancel()
         applyBallTouchFlags(v, wm, hidden = true)
+        // 退出动画期间也要留着句柄：服务在此期间销毁时 detachNow 才能把窗摘掉。
+        exitingView = v
         v.animate()
             .translationX(exitX)
             .alpha(0f)
             .setDuration(HIDE_MS)
             .setInterpolator(DecelerateInterpolator())
             .withEndAction {
+                if (exitingView === v) exitingView = null
                 context.removeWindow(v)
                 onHidden?.invoke()
             }
             .start()
     }
 
-    /** 不播动画直接摘窗：服务销毁等即时路径。 */
+    /** 不播动画直接摘窗：服务销毁等即时路径（含正在播退场动画的窗）。 */
     fun detachNow() {
         val v = view
+        val exiting = exitingView
         view = null
+        exitingView = null
         entering = false
         enterPending = false
         mainHandler.removeCallbacks(longPressRunnable)
         v?.let(context::removeWindow)
+        exiting?.let {
+            it.animate().cancel()
+            context.removeWindow(it)
+        }
     }
 
     /**

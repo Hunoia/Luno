@@ -17,10 +17,13 @@ class AutomationNotificationListener : NotificationListenerService() {
     /**
      * 同 key 重投去重的窗口。以前只记「上一个 key + 时间」，两个应用交替发通知时
      * 每次 key 都在变，去重直接失效 —— 每条通知都要走一遍脉冲 + 全量规则求值。
+     * 键值是「postTime + 内容指纹」：同一条通知原地更新（新消息/新文案）不能再被吞掉。
      */
-    private val recentPosts = object : LinkedHashMap<String, Long>(8, 0.75f, true) {
+    private data class RecentPost(val postedAt: Long, val signature: String)
+
+    private val recentPosts = object : LinkedHashMap<String, RecentPost>(8, 0.75f, true) {
         override fun removeEldestEntry(
-            eldest: MutableMap.MutableEntry<String, Long>?,
+            eldest: MutableMap.MutableEntry<String, RecentPost>?,
         ): Boolean = size > RECENT_KEYS
     }
 
@@ -30,13 +33,6 @@ class AutomationNotificationListener : NotificationListenerService() {
         // 自家通知（前台服务常驻等）不进胶囊也不进自动化。
         if (sbn.packageName == packageName) return
         val key = sbn.key ?: return
-        // 同 key 在窗口内重投视为更新去重（多 key 各自计时，不再互相冲掉）。
-        val postedAt = sbn.postTime
-        synchronized(recentPosts) {
-            val last = recentPosts[key]
-            if (last != null && postedAt - last in 0L until DEDUPE_WINDOW_MS) return
-            recentPosts[key] = postedAt
-        }
 
         val extras = sbn.notification.extras ?: return
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
@@ -44,6 +40,21 @@ class AutomationNotificationListener : NotificationListenerService() {
             ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
             ?: ""
         if (title.isBlank() && text.isBlank()) return
+        // 同 key 重投去重（多 key 各自计时，不再互相冲掉）。仅在「postTime 未推进 + 内容
+        // 完全一致」时判重：部分 ROM 在通知原地更新时沿用旧 postTime，只按时间判重会把
+        // 同一会话的第二条消息/新文案全部吞掉。
+        val postedAt = sbn.postTime
+        val signature = "$title\u0000$text"
+        synchronized(recentPosts) {
+            val last = recentPosts[key]
+            if (last != null &&
+                last.signature == signature &&
+                postedAt - last.postedAt in 0L until DEDUPE_WINDOW_MS
+            ) {
+                return
+            }
+            recentPosts[key] = RecentPost(postedAt, signature)
+        }
         // importance 只在胶囊层用（自动化语义不变）：MIN 在状态栏不显示、NONE 完全不出。
         val ranking = Ranking()
         val hasRanking = runCatching { currentRanking?.getRanking(key, ranking) }

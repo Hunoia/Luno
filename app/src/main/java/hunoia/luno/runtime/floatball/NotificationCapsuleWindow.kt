@@ -61,6 +61,9 @@ internal class NotificationCapsuleWindow(private val context: android.content.Co
     private val wm: WindowManager get() = context.windowManager()
     private var view: View? = null
 
+    /** 正在播退场动画的窗（view 已置空）：服务销毁时 detachNow 也要能把它摘掉。 */
+    private var exitingView: View? = null
+
     // Compose 态：内容更新走 mutableStateOf 重组（镜像窗同款前提），普通字段不重绘。
     private var current by mutableStateOf<CapsuleItem?>(null)
 
@@ -96,11 +99,11 @@ internal class NotificationCapsuleWindow(private val context: android.content.Co
         settings = next
     }
 
-    /** 弹出/刷新：不可见则挂窗播进场；已可见只换内容（新通知覆盖 + Service 重新计时）。 */
-    fun show(pulse: NotificationPulse) {
+    /** 弹出/刷新：不可见则挂窗播进场；已可见只换内容（新通知覆盖 + Service 重新计时）。返回是否成功挂窗。 */
+    fun show(pulse: NotificationPulse): Boolean {
         current = CapsuleItem(pulse.packageName, pulse.title, pulse.text)
         val existing = view
-        if (existing != null) return
+        if (existing != null) return true
         navBarInsetPx = readNavBarInsetPx()
         val created = ComposeView(context).apply {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
@@ -128,11 +131,12 @@ internal class NotificationCapsuleWindow(private val context: android.content.Co
         }
         if (!wm.safeAddView(created, capsuleLayoutParams(bottomOffsetPx()))) {
             Log.e(TAG, "notification capsule addView failed (overlay permission or window rejected)")
-            return
+            return false
         }
         view = created
         entering = true
         enterPending = true
+        return true
     }
 
     /** 收起：淡出 + 滑回底部后整窗摘除（内容保留到淡完，别在半路清空闪白）。 */
@@ -147,6 +151,8 @@ internal class NotificationCapsuleWindow(private val context: android.content.Co
         }
         v.animate().cancel()
         applyBallTouchFlags(v, wm, hidden = true)
+        // 退出动画期间也留着句柄：服务在此期间销毁时 detachNow 才能把窗摘掉。
+        exitingView = v
         // 首帧前 hide 时 height 还为 0，退回内容大致高度，至少保留滑出方向。
         val exitY = if (v.height > 0) {
             v.height.toFloat()
@@ -159,20 +165,27 @@ internal class NotificationCapsuleWindow(private val context: android.content.Co
             .setDuration(HIDE_MS)
             .setInterpolator(DecelerateInterpolator())
             .withEndAction {
+                if (exitingView === v) exitingView = null
                 context.removeWindow(v)
                 onHidden?.invoke()
             }
             .start()
     }
 
-    /** 不播动画直接摘窗：服务销毁等即时路径。 */
+    /** 不播动画直接摘窗：服务销毁等即时路径（含正在播退场动画的窗）。 */
     fun detachNow() {
         val v = view
+        val exiting = exitingView
         view = null
+        exitingView = null
         entering = false
         enterPending = false
         current = null
         v?.let(context::removeWindow)
+        exiting?.let {
+            it.animate().cancel()
+            context.removeWindow(it)
+        }
     }
 
     private fun readNavBarInsetPx(): Int {

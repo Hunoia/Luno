@@ -55,8 +55,8 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     /** 识别屏幕内容动作入口（动作执行已在 :service 进程直连）。返回是否成功弹起。 */
     fun showScreenPick(): Boolean {
         if (!isDispatchReady()) return false
-        coroutineScope.launch { screenPickOverlay.show() }
-        return true
+        // 挂窗是同步的：锁屏/系统拒绝时直接返回失败，动作层才能给出正确结果。
+        return screenPickOverlay.show()
     }
 
     override val advancedSettings: AdvancedSettings?

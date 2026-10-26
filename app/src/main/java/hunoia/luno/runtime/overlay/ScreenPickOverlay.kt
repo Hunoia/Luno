@@ -38,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -141,7 +142,12 @@ internal class ScreenPickOverlay(private val host: GestureHost) {
     private val mainExecutor = Executor { r -> Handler(Looper.getMainLooper()).post(r) }
 
     private var overlayView: View? = null
-    private var onDismiss: (() -> Unit)? = null
+
+    /** 图片落盘进行中：期间关闭拾取层不回收截图位图（后台仍在用它裁剪）。 */
+    private var saving = false
+
+    /** 轻点命中查询进行中：防重复触发（查询已挪到后台线程）。 */
+    private var resolvingTap = false
 
     // 截屏与命中结果只在主线程读写；captured 走 Compose 态驱动视觉层渲染。
     private var capture: Bitmap? = null
@@ -190,11 +196,12 @@ internal class ScreenPickOverlay(private val host: GestureHost) {
         close()
     }
 
-    fun show() {
-        if (overlayView != null) return
+    /** 返回是否成功挂窗（锁屏/挂窗被拒返回 false，动作层据此判失败）。 */
+    fun show(): Boolean {
+        if (overlayView != null) return true
         // 锁屏状态不开层：拾取窗画在锁屏上既无意义又可能泄露上次内容。
         val keyguard = host.context.getSystemService(android.app.KeyguardManager::class.java)
-        if (keyguard?.isKeyguardLocked == true) return
+        if (keyguard?.isKeyguardLocked == true) return false
         session++
         originCorrected = false
         val wm = host.context.windowManager()
@@ -233,25 +240,29 @@ internal class ScreenPickOverlay(private val host: GestureHost) {
         if (!wm.safeAddView(composeView, lp)) {
             Log.e(LOG_TAG, "screen pick: addView failed type=touch_trusted")
             showToast(R.string.screen_pick_failed)
-            return
+            return false
         }
         overlayView = composeView
         startLockWatch()
         composeView.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ -> updateOrigin(v) }
         composeView.post { correctWindowOriginOnce(composeView) }
         captureWhenSettled(session)
+        return true
     }
 
     fun close() {
         stopLockWatch()
         session++
+        resolvingTap = false
         val view = overlayView ?: return
-        val dismiss = onDismiss
-        onDismiss = null
         overlayView = null
         boxesJob?.cancel()
         boxesJob = null
-        capture = null
+        // 落盘在跑时不回收：后台仍在用这张位图裁剪，收尾处（copyImageRegion 的 finally）补回收。
+        if (!saving) {
+            capture?.let { if (!it.isRecycled) it.recycle() }
+            capture = null
+        }
         captured = false
         captureOriginX = 0
         captureOriginY = 0
@@ -263,7 +274,6 @@ internal class ScreenPickOverlay(private val host: GestureHost) {
         originCorrected = false
         val wm = host.context.windowManager()
         runCatching { wm.removeView(view) }
-        dismiss?.invoke()
     }
 
     /** 锁屏/息屏即时关层并清空（截屏、提示框、拖框都不跨锁屏保留）。 */
@@ -281,20 +291,32 @@ internal class ScreenPickOverlay(private val host: GestureHost) {
 
     private fun onTap(px: Offset) {
         // 视图坐标 → 屏幕坐标：节点 bounds 与截图都在屏幕空间。
-        val hit = findNodeHitAt(px.x.roundToInt() + originX, px.y.roundToInt() + originY)
-        val text = hit?.text
-        if (!text.isNullOrBlank()) {
-            copyText(host.context, SCREEN_PICK_LABEL, text)
-            showToast(R.string.quick_search_copied)
+        val screenX = px.x.roundToInt() + originX
+        val screenY = px.y.roundToInt() + originY
+        if (resolvingTap) return
+        resolvingTap = true
+        val token = session
+        // 节点树遍历是成百上千次 Binder 调用，绝不上主线程（性能审查 §2.2）。
+        host.coroutineScope.launch {
+            val hit = withContext(Dispatchers.Default) {
+                runCatching { findNodeHitAt(screenX, screenY) }.getOrNull()
+            }
+            if (token != session || overlayView == null) return@launch
+            resolvingTap = false
+            val text = hit?.text
+            if (!text.isNullOrBlank()) {
+                copyText(host.context, SCREEN_PICK_LABEL, text)
+                showToast(R.string.quick_search_copied)
+                close()
+                return@launch
+            }
+            val bounds = hit?.imageBounds ?: hit?.fallbackBounds
+            when {
+                bounds == null -> showToast(R.string.screen_pick_no_content)
+                !copyImageRegion(AndroidRect(bounds)) -> showToast(R.string.screen_pick_failed)
+            }
             close()
-            return
         }
-        val bounds = hit?.imageBounds ?: hit?.fallbackBounds
-        when {
-            bounds == null -> showToast(R.string.screen_pick_no_content)
-            !copyImageRegion(AndroidRect(bounds)) -> showToast(R.string.screen_pick_failed)
-        }
-        close()
     }
 
     private fun onSelectRect(rect: Rect) {
@@ -305,30 +327,68 @@ internal class ScreenPickOverlay(private val host: GestureHost) {
             (rect.right + originX).roundToInt(),
             (rect.bottom + originY).roundToInt(),
         )
-        if (!copyImageRegion(screenRect)) {
-            showToast(R.string.screen_pick_failed)
+        // 裁剪 + 落盘 + 分享都在后台（大图 PNG 压缩放主线程会卡顿/ANR）。
+        host.coroutineScope.launch {
+            if (!copyImageRegion(screenRect)) {
+                showToast(R.string.screen_pick_failed)
+            }
+            close()
         }
-        close()
     }
 
-    /** [rect] 为**屏幕坐标**：截图是整屏，按显示器与位图分辨率的比例换算。 */
-    private fun copyImageRegion(rect: AndroidRect): Boolean {
-        val cap = capture ?: return false
-        if (captureScreenW <= 0 || captureScreenH <= 0) return false
+    /** 本次截图覆盖的屏幕区域（窗口截图时原点不是 0）。 */
+    private fun captureRegion(): AndroidRect? {
+        if (captureScreenW <= 0 || captureScreenH <= 0) return null
+        return AndroidRect(
+            captureOriginX,
+            captureOriginY,
+            captureOriginX + captureScreenW,
+            captureOriginY + captureScreenH,
+        )
+    }
+
+    /**
+     * 屏幕矩形 → 截图位图内的裁剪矩形。先与截图区域求交再换算：越界部分取交集
+     * （裁剪内容仍正确），完全落在区域外返回 null。不能用 coerceIn 把越界边钳到
+     * 边缘 —— 那会把内容整体平移，复制到一张错位图。
+     */
+    private fun cropRectFor(cap: Bitmap, rect: AndroidRect): AndroidRect? {
+        val region = captureRegion() ?: return null
+        val inter = AndroidRect(rect)
+        if (!inter.intersect(region) || inter.isEmpty) return null
         val sx = cap.width.toFloat() / captureScreenW
         val sy = cap.height.toFloat() / captureScreenH
         val crop = AndroidRect(
-            ((rect.left - captureOriginX) * sx).roundToInt().coerceIn(0, cap.width),
-            ((rect.top - captureOriginY) * sy).roundToInt().coerceIn(0, cap.height),
-            ((rect.right - captureOriginX) * sx).roundToInt().coerceIn(0, cap.width),
-            ((rect.bottom - captureOriginY) * sy).roundToInt().coerceIn(0, cap.height),
+            ((inter.left - captureOriginX) * sx).roundToInt().coerceIn(0, cap.width),
+            ((inter.top - captureOriginY) * sy).roundToInt().coerceIn(0, cap.height),
+            ((inter.right - captureOriginX) * sx).roundToInt().coerceIn(0, cap.width),
+            ((inter.bottom - captureOriginY) * sy).roundToInt().coerceIn(0, cap.height),
         )
-        if (crop.isEmpty || crop.width() <= 0 || crop.height() <= 0) return false
-        return runCatching {
+        if (crop.width() <= 0 || crop.height() <= 0) return null
+        return crop
+    }
+
+    /**
+     * [rect] 为**屏幕坐标**：截图可能是窗口级（原点非 0），先求交再按位图与区域比例换算。
+     * 裁剪/落盘在 IO 线程，UI 与分享回主线程。
+     */
+    private suspend fun copyImageRegion(rect: AndroidRect): Boolean {
+        val cap = capture ?: return false
+        val crop = cropRectFor(cap, rect) ?: return false
+        saving = true
+        try {
+            val cropped = withContext(Dispatchers.IO) {
+                runCatching {
+                    Bitmap.createBitmap(cap, crop.left, crop.top, crop.width(), crop.height())
+                }.onFailure {
+                    Log.e(LOG_TAG, "screen pick: crop failed: ${it.message}")
+                }.getOrNull()
+            } ?: return false
+            val uri = withContext(Dispatchers.IO) { saveImageToGallery(cropped) }
+            cropped.recycle()
+            if (uri == null) return false
             val context = host.context
-            val cropped = Bitmap.createBitmap(cap, crop.left, crop.top, crop.width(), crop.height())
-            val uri = saveImageToGallery(cropped) ?: return@runCatching false
-            if (!copyImage(context, SCREEN_PICK_LABEL, uri)) return@runCatching false
+            if (!copyImage(context, SCREEN_PICK_LABEL, uri)) return false
             showToast(R.string.screen_pick_image_copied)
             val resolver = context.contentResolver
             val share = Intent(Intent.ACTION_SEND).apply {
@@ -342,11 +402,17 @@ internal class ScreenPickOverlay(private val host: GestureHost) {
             val chooser = Intent.createChooser(share, null).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            context.startActivity(chooser)
-            true
-        }.onFailure {
-            Log.e(LOG_TAG, "screen pick: copy region failed: ${it.message}")
-        }.getOrDefault(false)
+            runCatching { context.startActivity(chooser) }
+                .onFailure { Log.w(LOG_TAG, "screen pick: share chooser failed: ${it.message}") }
+            return true
+        } finally {
+            saving = false
+            // 关闭发生在落盘期间：图片已复制/UI 已拆，这里补回收截图位图。
+            if (overlayView == null && capture === cap) {
+                if (!cap.isRecycled) cap.recycle()
+                capture = null
+            }
+        }
     }
 
     /**
@@ -578,7 +644,8 @@ internal class ScreenPickOverlay(private val host: GestureHost) {
             node.getBoundsInScreen(bounds)
             val onScreen = !bounds.isEmpty && AndroidRect.intersects(bounds, screen)
             if (onScreen && node.isVisibleToUser) {
-                val text = node.text
+                // 密码框文本不取（无障碍可能暴露明文）。
+                val text = if (node.isPassword) null else node.text
                 if (!text.isNullOrBlank() &&
                     bounds.width() >= minTextW &&
                     bounds.height() >= minTextH
@@ -606,14 +673,17 @@ internal class ScreenPickOverlay(private val host: GestureHost) {
                 (boxes.size - published >= PublishEveryNodes || now - lastPublishAt >= PublishEveryMs)
             ) {
                 if (token != session) return published > 0
-                pickBoxes = ArrayList(boxes)
+                // 扫描在 Default 线程：发布 Compose 态走显式快照，避免跨线程裸写。
+                val snapshotBoxes = ArrayList(boxes)
+                Snapshot.withMutableSnapshot { pickBoxes = snapshotBoxes }
                 published = boxes.size
                 lastPublishAt = now
             }
         }
         if (boxes.size > published) {
             if (token != session) return published > 0
-            pickBoxes = ArrayList(boxes)
+            val snapshotBoxes = ArrayList(boxes)
+            Snapshot.withMutableSnapshot { pickBoxes = snapshotBoxes }
             published = boxes.size
         }
         return published > 0
@@ -650,15 +720,18 @@ internal class ScreenPickOverlay(private val host: GestureHost) {
         var bestImageDepth = -1
         var bestFallback: AndroidRect? = null
         var bestFallbackDepth = -1
+        var visited = 0
 
         fun walk(node: AccessibilityNodeInfo, depth: Int) {
-            if (depth > MAX_NODE_DEPTH) return
+            if (depth > MAX_NODE_DEPTH || visited >= MaxPickNodes) return
+            visited++
             val bounds = AndroidRect()
             node.getBoundsInScreen(bounds)
             // 父不含触点即剪枝：常规布局子节点都在父 bounds 内；框选是另一条兜底路。
             if (!bounds.contains(x, y)) return
             if (node.isVisibleToUser) {
-                val text = node.text
+                // 密码框文本不取（无障碍可能暴露明文）；仍允许框选兜底成图片。
+                val text = if (node.isPassword) null else node.text
                 if (!text.isNullOrBlank() && depth > bestTextDepth) {
                     bestTextDepth = depth
                     bestText = text.toString()

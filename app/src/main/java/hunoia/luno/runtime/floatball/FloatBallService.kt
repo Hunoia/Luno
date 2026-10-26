@@ -168,6 +168,8 @@ class FloatBallService : Service() {
                 mirrorWindow.setHidden(true)
                 hideCapsule()
                 hideClipboardBall()
+                // 息屏期间不读剪贴板：重置基线，解锁后由 seedClipboardBaseline 重新对齐。
+                lastSeenClipText = null
             },
             onScreenOn = ::applyLockState,
             onUserPresent = ::applyLockState,
@@ -273,6 +275,8 @@ class FloatBallService : Service() {
         // 放尾部会漏掉「在屏但已不被允许」的收起路径。
         refreshCapsule()
         refreshClipboardBall()
+        // 门控（权限/总闸/勿扰）可能刚变化，轮询按需启停（幂等，只查 job 状态）。
+        ensureClipboardPoller()
         val enabled = settings.enabled && canDrawOverlays() && gestureEnabledSnapshot
         val panelHidden = panelCount > 0
         val tempHidden = tempHideUntilMs > SystemClock.uptimeMillis()
@@ -353,6 +357,8 @@ class FloatBallService : Service() {
         tempHideJob = scope.launch {
             delay(deadline - SystemClock.uptimeMillis())
             tempHideUntilMs = 0L
+            // 隐藏期间复制的内容不补弹：恢复前先把基线对齐到当前剪贴板。
+            seedClipboardBaseline()
             refreshWindows()
         }
         refreshWindows()
@@ -379,23 +385,30 @@ class FloatBallService : Service() {
             hideCapsule()
             hideClipboardBall()
         }
+        // 轮询按勿扰状态启停；解除勿扰时把基线对齐到当前剪贴板 —— 勿扰期间/锁屏期间
+        // 复制的内容属于用户没看到提示的旧内容，不能在恢复后补弹。
+        ensureClipboardPoller()
+        if (!dndOn) seedClipboardBaseline()
     }
 
-    /** 胶囊可见条件：与球同套联动（权限/总闸/面板/临时隐藏/锁屏）+ 自身开关 + 勿扰。 */
-    private fun capsuleAllowed(): Boolean =
-        settings.notificationCapsule.enabled &&
-            canDrawOverlays() &&
+    /** 瞬态浮层共用门控：悬浮窗权限 / 总闸 / 无面板 / 非临时隐藏 / 非锁屏 / 非勿扰。 */
+    private fun transientOverlayAllowed(): Boolean =
+        canDrawOverlays() &&
             gestureEnabledSnapshot &&
             panelCount == 0 &&
             tempHideUntilMs <= SystemClock.uptimeMillis() &&
             !isScreenLocked() &&
             !AutomationPulseHub.dndActive
 
+    /** 胶囊可见条件：与球同套联动 + 自身开关。 */
+    private fun capsuleAllowed(): Boolean =
+        settings.notificationCapsule.enabled && transientOverlayAllowed()
+
     private fun onNotificationArrived(pulse: NotificationPulse) {
         if (!capsuleAllowed()) return
         if (pulse.packageName in settings.notificationCapsule.blocklist) return
         // 只弹「通知栏里真的能看到」的：常驻/前台服务/分组汇总（正文往往是「1」）/仅本地
-        // 都不是用户会去点的普通通知。自动化仍按旧语义拿脉冲，不受这几个过滤影响。
+        // 都不是用户会去点的普通通知。自动化侧的 ongoing 已在监听器层过滤，胶囊再按 flags 收紧。
         val blockedFlags = Notification.FLAG_ONGOING_EVENT or
             Notification.FLAG_FOREGROUND_SERVICE or
             Notification.FLAG_GROUP_SUMMARY or
@@ -405,9 +418,9 @@ class FloatBallService : Service() {
             (pulse.flags and blockedFlags) == 0 &&
             pulse.importance != NotificationManager.IMPORTANCE_NONE
         if (!shadeVisible) {
+            // 通知正文是隐私（验证码/私聊）：日志只留判定所需的元数据，不落 title/text。
             Log.i(TAG, "capsule skip pkg=${pulse.packageName} flags=0x${pulse.flags.toString(16)} " +
-                "ongoing=${pulse.ongoing} clearable=${pulse.clearable} imp=${pulse.importance} " +
-                "title=${pulse.title.take(40)} text=${pulse.text.take(40)}")
+                "ongoing=${pulse.ongoing} clearable=${pulse.clearable} imp=${pulse.importance}")
             return
         }
         // 延迟一拍再确认仍在通知栏：一次性/立即撤回的通知（复制、分享后的系统提示等）不弹。
@@ -416,17 +429,13 @@ class FloatBallService : Service() {
             delay(CAPSULE_SETTLE_MS)
             if (!capsuleAllowed()) return@launch
             if (!AutomationNotificationListener.isPosted(pulse.key)) {
-                Log.i(
-                    TAG,
-                    "capsule skip gone pkg=${pulse.packageName} key=${pulse.key} " +
-                        "title=${pulse.title.take(40)} text=${pulse.text.take(40)}",
-                )
+                Log.i(TAG, "capsule skip gone pkg=${pulse.packageName} key=${pulse.key}")
                 return@launch
             }
             Log.i(TAG, "capsule show pkg=${pulse.packageName} flags=0x${pulse.flags.toString(16)} " +
-                "imp=${pulse.importance} title=${pulse.title.take(40)} text=${pulse.text.take(40)}")
+                "imp=${pulse.importance}")
+            if (!capsuleWindow.show(pulse)) return@launch
             lastPulse = pulse
-            capsuleWindow.show(pulse)
             capsuleShowing = true
             scheduleCapsuleHide(settings.notificationCapsule.autoHideMs)
         }
@@ -494,6 +503,8 @@ class FloatBallService : Service() {
     private fun applyClipboardListener() {
         val manager = getSystemService<ClipboardManager>()
         if (settings.clipboardBall.enabled && !clipboardListenerRegistered) {
+            // 刚开启：清空基线，首次读取只对齐基线不补弹（开关前就有的旧内容不弹）。
+            lastSeenClipText = null
             if (manager != null) {
                 runCatching { manager.addPrimaryClipChangedListener(clipboardListener) }
                     .onFailure { Log.w(TAG, "register clipboard listener failed: ${it.message}") }
@@ -515,15 +526,9 @@ class FloatBallService : Service() {
         clipboardListenerRegistered = false
     }
 
-    /** 剪贴板球可见条件：与胶囊同套联动（权限/总闸/面板/临时隐藏/锁屏/勿扰）+ 自身开关。 */
+    /** 剪贴板球可见条件：与胶囊同套联动 + 自身开关。 */
     private fun clipboardBallAllowed(): Boolean =
-        settings.clipboardBall.enabled &&
-            canDrawOverlays() &&
-            gestureEnabledSnapshot &&
-            panelCount == 0 &&
-            tempHideUntilMs <= SystemClock.uptimeMillis() &&
-            !isScreenLocked() &&
-            !AutomationPulseHub.dndActive
+        settings.clipboardBall.enabled && transientOverlayAllowed()
 
     private suspend fun onClipboardChanged() {
         if (!clipboardBallAllowed()) {
@@ -562,7 +567,8 @@ class FloatBallService : Service() {
             }
             if (viaShizuku != null) return viaShizuku
         }
-        return readClipboardTextDetailed(this)
+        // 无障碍/应用内直读也是 binder 调用：不在主线程读。
+        return withContext(Dispatchers.IO) { readClipboardTextDetailed(this@FloatBallService) }
     }
 
     /** 变化处理共用入口（监听器即时路径 + 轮询兜底路径）。返回值 = 这次变化已处理（可推进已读基线）。 */
@@ -576,16 +582,36 @@ class FloatBallService : Service() {
             return true
         }
         clipboardBallText = text
+        if (!clipboardBallWindow.show(settings.clipboardBall.x, settings.clipboardBall.y, text)) {
+            // 挂窗被系统拒绝：不动 showing，下次复制再试。
+            clipboardBallText = null
+            return true
+        }
         clipboardBallShowing = true
-        clipboardBallWindow.show(settings.clipboardBall.x, settings.clipboardBall.y, text)
         Log.i(TAG, "clipboard ball show (${text.length} chars)")
         scheduleClipboardHide(settings.clipboardBall.autoHideMs)
         return true
     }
 
-    /** 轮询兜底按需启停：开关开 + 亮屏未锁才跑（息屏由 screen off/锁屏侧停）。 */
+    /**
+     * 把基线对齐到当前剪贴板（不弹球）：解锁/解除勿扰时用，避免把门控期间复制的内容
+     * 当成新内容补弹。只读一次，无内容/读不到就没基线（下次读取自然重新建立）。
+     */
+    private fun seedClipboardBaseline() {
+        if (!settings.clipboardBall.enabled || isScreenLocked()) return
+        scope.launch {
+            val info = readClipForBall() ?: return@launch
+            if (info.text.isNotBlank()) lastSeenClipText = info.text
+        }
+    }
+
+    /** 轮询兜底按需启停：开关开 + 亮屏未锁 + 门控允许（权限/总闸/勿扰）才跑。 */
     private fun ensureClipboardPoller() {
-        val shouldRun = settings.clipboardBall.enabled && !isScreenLocked()
+        val shouldRun = settings.clipboardBall.enabled &&
+            canDrawOverlays() &&
+            gestureEnabledSnapshot &&
+            !AutomationPulseHub.dndActive &&
+            !isScreenLocked()
         if (shouldRun && clipboardPollJob?.isActive != true) {
             clipboardPollJob?.cancel()
             clipboardPollJob = scope.launch {
@@ -887,7 +913,11 @@ class FloatBallService : Service() {
             hideClipboardBall()
         }
         // 亮屏解锁后按需补启：IME 兜底轮询与剪贴板兜底轮询共用这个入口。
-        if (!hidden) ensureImeObserver()
+        if (!hidden) {
+            ensureImeObserver()
+            // 锁屏期间复制的内容不补弹：解锁时先把基线对齐到当前剪贴板。
+            seedClipboardBaseline()
+        }
         ensureClipboardPoller()
     }
 
