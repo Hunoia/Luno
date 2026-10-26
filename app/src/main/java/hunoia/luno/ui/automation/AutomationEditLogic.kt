@@ -11,6 +11,7 @@ import hunoia.luno.config.model.RuleEffect
 import hunoia.luno.config.model.RulePriority
 import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.model.RuleStepKind
+import hunoia.luno.config.model.StepFailure
 import hunoia.luno.config.model.ThrottlePolicy
 import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.domain.automation.AutomationCenter
@@ -113,6 +114,7 @@ internal fun stepSummary(
     library: ActionLibrarySettings?,
     step: RuleStep,
     rules: List<AutomationRule> = emptyList(),
+    includeFailure: Boolean = true,
 ): String = when (step.kind) {
     RuleStepKind.DELAY -> context.getString(R.string.step_delay_summary, step.delayMs / 1000)
     RuleStepKind.IF -> conditionSummary(context, step.condition) + " · " +
@@ -126,7 +128,19 @@ internal fun stepSummary(
         val label = step.action?.let {
             context.selectedItemLabel(it, emptyList(), library?.entries ?: emptyList(), rules)
         }.orEmpty()
-        label.ifBlank { context.getString(R.string.step_empty_action) }
+        val failure = if (!includeFailure) {
+            ""
+        } else {
+            when (step.onFailure) {
+                StepFailure.SKIP -> " · " + context.getString(R.string.step_failure_summary_skip)
+                StepFailure.RETRY -> " · " + context.getString(
+                    R.string.step_failure_summary_retry,
+                    step.retryCount.coerceIn(0, StepFailure.MAX_RETRY_COUNT),
+                )
+                else -> ""
+            }
+        }
+        label.ifBlank { context.getString(R.string.step_empty_action) } + failure
     }
 }
 

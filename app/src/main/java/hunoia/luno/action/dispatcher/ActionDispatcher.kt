@@ -270,7 +270,8 @@ class ActionDispatcher(
      * 规则即动作：只跑目标规则的 effect steps，目标自身的触发条件/节流/优先级
      * 全部忽略，也不占引擎的「同规则单飞」名额。递归深度随协程上下文传递，
      * A→B→A 循环由 [SequenceGuards.MAX_RULE_DEPTH] 截断。steps 复用
-     * [SequenceExecutor]，delay/if 与步数/超时守卫和引擎路径一致；失败即整体失败。
+     * [SequenceExecutor]，delay/if 与步数/超时守卫和引擎路径一致；
+     * 内层步骤按自身失败策略处理，未被 SKIP 的失败使整体失败。
      */
     private suspend fun runRuleSteps(ruleId: String, ctx: ExecutorContext): ActionResult {
         val depth = currentCoroutineContext()[RuleDepth]?.depth ?: 0
@@ -297,7 +298,7 @@ class ActionDispatcher(
                 },
             )
             val records = nested.runSteps(steps, templateCtx)
-            val failed = records.firstOrNull { !it.ok }
+            val failed = records.firstOrNull { !it.ok && !it.skipped }
             if (failed == null) {
                 ActionResult.Success()
             } else {

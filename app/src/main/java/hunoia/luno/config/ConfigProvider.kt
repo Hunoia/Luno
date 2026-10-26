@@ -106,7 +106,14 @@ object ConfigProvider {
         if (events.isEmpty()) return
         runCatching {
             stores._automationLog.updateData { old ->
-                (old + events).takeLast(hunoia.luno.runtime.automation.ExecutionLog.MAX_EVENTS)
+                val merged = old + events
+                // 跳过事件限流：只保留最近 MAX_SKIP_EVENTS 条，超出的从最旧开始丢。
+                val skipIndices = merged.indices.filter { !merged[it].fired }
+                val dropCount = (skipIndices.size -
+                    hunoia.luno.runtime.automation.ExecutionLog.MAX_SKIP_EVENTS).coerceAtLeast(0)
+                val dropped = skipIndices.take(dropCount).toSet()
+                val kept = merged.filterIndexed { index, _ -> index !in dropped }
+                kept.takeLast(hunoia.luno.runtime.automation.ExecutionLog.MAX_EVENTS)
             }
         }
     }

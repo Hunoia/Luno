@@ -1,12 +1,16 @@
 package hunoia.luno.ui.automation
 import android.os.SystemClock
 import android.util.Log
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -32,6 +36,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.automation.AutomationCenter
+import hunoia.luno.domain.automation.RuleTestResult
+import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.FireMode
 import hunoia.luno.config.model.RuleEffect
@@ -91,6 +97,9 @@ fun AutomationEditScreen(
     var showBlockedDialog by remember { mutableStateOf(false) }
     var showDiscardDialog by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var testRunning by remember { mutableStateOf(false) }
+    var testMenuExpanded by remember { mutableStateOf(false) }
+    var testResult by remember { mutableStateOf<RuleTestResult?>(null) }
     // IF 步骤条件编辑（屏幕层 sheet，不嵌套）：目标步骤路径 + 叶路径 + 待选类型落点。
     var ifConditionStepPath by remember { mutableStateOf<String?>(null) }
     var ifNestedPath by remember { mutableStateOf<List<Int>?>(null) }
@@ -169,6 +178,22 @@ fun AutomationEditScreen(
         }
     }
     val hasCondition = AutomationCenter.hasLeafOf(rule.condition)
+    fun testRun(executeSteps: Boolean = true) {
+        if (testRunning) return
+        testRunning = true
+        val started = AutomationCenter.runRuleTest(rule, executeSteps) { result ->
+            testRunning = false
+            if (result == null) {
+                showToast(R.string.automation_test_unavailable)
+            } else {
+                testResult = result
+            }
+        }
+        if (!started) {
+            testRunning = false
+            showToast(R.string.automation_test_unavailable)
+        }
+    }
     val conditionIncomplete = rule.condition.hasIncompleteCondition() ||
         rule.constraints.hasIncompleteCondition() ||
         rule.effect.steps.hasIncompleteStepCondition()
@@ -189,6 +214,33 @@ fun AutomationEditScreen(
         title = stringResource(R.string.automation_edit),
         onBack = { tryBack() },
         actions = {
+            Box {
+                LunoIconButton(
+                    icon = Icons.Default.PlayArrow,
+                    contentDescription = stringResource(R.string.automation_test_run),
+                    enabled = !testRunning,
+                    onClick = { testMenuExpanded = true },
+                )
+                DropdownMenu(
+                    expanded = testMenuExpanded,
+                    onDismissRequest = { testMenuExpanded = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.automation_test_run_once)) },
+                        onClick = {
+                            testMenuExpanded = false
+                            testRun(executeSteps = true)
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.automation_test_condition_only)) },
+                        onClick = {
+                            testMenuExpanded = false
+                            testRun(executeSteps = false)
+                        },
+                    )
+                }
+            }
             LunoIconButton(
                 icon = Icons.Default.History,
                 contentDescription = stringResource(R.string.automation_history),
@@ -301,6 +353,17 @@ fun AutomationEditScreen(
                             stepSheetPath = null
                             ifConditionStepPath = path
                         },
+                        actionSummary = stepSummary(
+                            context = context,
+                            library = library,
+                            step = step,
+                            rules = loadedRules ?: emptyList(),
+                            includeFailure = false,
+                        ),
+                        onPickAction = {
+                            stepSheetPath = null
+                            onPickAction(rule, path)
+                        },
                     )
                 }
             }
@@ -359,6 +422,12 @@ fun AutomationEditScreen(
                     },
                     // IF 条件里的 MANUAL 恒假（无手势调用语义），不提供。
                     includeManual = false,
+                )
+            }
+            testResult?.let { result ->
+                RuleTestResultSheet(
+                    result = result,
+                    onDismissRequest = { testResult = null },
                 )
             }
             stepTypePickerFor?.let { prefix ->
@@ -478,6 +547,15 @@ fun AutomationEditScreen(
             if (conditionUsesNotification(rule.condition) || rule.effect.usesNotificationCondition()) {
                 NotificationPermissionRow()
             }
+        }
+        LunoGroup(
+            title = stringResource(R.string.automation_run_control),
+            titleBottomSpacing = CardInnerSpacing,
+        ) {
+            RunControlEditor(
+                rule = rule,
+                onRuleChange = { update(it) },
+            )
         }
     }
 }

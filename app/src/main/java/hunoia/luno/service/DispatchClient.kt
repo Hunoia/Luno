@@ -8,7 +8,9 @@ import android.os.IBinder
 import android.os.Handler
 import android.os.Looper
 import hunoia.luno.action.model.StoredAction
+import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.core.JsonSerializer
+import hunoia.luno.runtime.automation.RuleTestResult
 
 /**
  * 分发 IPC 客户端（主进程 / :service 进程通用）。
@@ -21,7 +23,7 @@ object DispatchClient {
     /** 未连上时的重试间隔。 */
     private const val RETRY_INTERVAL_MS = 2_000L
 
-    private var stub: IDispatchService? = null
+    @Volatile private var stub: IDispatchService? = null
     @Volatile private var bindRequested = false
     @Volatile private var appCtx: Context? = null
     private var lastBindRetryMs = 0L
@@ -92,6 +94,52 @@ object DispatchClient {
             return false
         }
         return runCatching { s.releaseOrphanAppWidgets(keepIds.toIntArray()) }.isSuccess
+    }
+
+    /** 运行中的规则 id；服务未连接时返回空集（列表页按「未运行」展示）。 */
+    fun runningRuleIds(): Set<String> {
+        val s = stub ?: run {
+            retryBindIfNeeded()
+            return emptySet()
+        }
+        return runCatching {
+            JsonSerializer.decodeFromString<List<String>>(s.runningRuleIds()).toSet()
+        }.getOrDefault(emptySet())
+    }
+
+    /** 停止一条规则的所有运行实例；false = 未送达或本来就没在跑。 */
+    fun stopRule(ruleId: String): Boolean {
+        val s = stub ?: run {
+            retryBindIfNeeded()
+            return false
+        }
+        return runCatching { s.stopRule(ruleId) }.getOrDefault(false)
+    }
+
+    /**
+     * 编辑页测试运行：条件按 :service 当前快照求值，[executeSteps] 为 false 时只检查条件。
+     * [onResult] 回到主线程；null 表示服务未就绪或返回不可解析。
+     */
+    fun runRuleTest(
+        rule: AutomationRule,
+        executeSteps: Boolean,
+        onResult: (RuleTestResult?) -> Unit,
+    ): Boolean {
+        val s = stub ?: run {
+            retryBindIfNeeded()
+            return false
+        }
+        val cb = object : IRuleTestCallback.Stub() {
+            override fun onResult(resultJson: String) {
+                val result = runCatching {
+                    JsonSerializer.decodeFromString<RuleTestResult>(resultJson)
+                }.getOrNull()
+                mainHandler.post { onResult(result) }
+            }
+        }
+        return runCatching {
+            s.runRuleTest(JsonSerializer.encodeToString(rule), executeSteps, cb)
+        }.getOrDefault(false)
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())

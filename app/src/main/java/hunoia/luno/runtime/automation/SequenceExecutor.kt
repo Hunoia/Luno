@@ -4,6 +4,7 @@ import hunoia.luno.action.model.RUN_RULE_TYPE_ID
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.model.RuleStepKind
+import hunoia.luno.config.model.StepFailure
 import hunoia.luno.runtime.condition.ConditionContext
 import hunoia.luno.runtime.condition.matches
 import kotlinx.coroutines.CancellationException
@@ -37,7 +38,8 @@ sealed interface StepOutcome {
 }
 
 /**
- * 步骤序列执行器：顺序跑 steps，某步失败即中断（动作异常 / entry 缺失 / Failed|RequiresCapability / 动作超时）。
+ * 步骤序列执行器：顺序跑 steps，默认某步失败即中断（动作异常 / entry 缺失 / Failed|RequiresCapability / 动作超时）。
+ * ACTION 步可按 [hunoia.luno.config.model.StepFailure] 配「跳过」或「重试」；delay/if/setVar 的配置错误仍按中断处理。
  * delay 等上一步真正落定之后；每条规则独立协程跑一份。
  */
 class SequenceExecutor(
@@ -145,43 +147,83 @@ class SequenceExecutor(
                 records += StepRecord(index, RuleStepKind.ACTION, ok = true, message = "empty_skipped")
                 return
             }
-            try {
-                // runRule 是复合步骤（内部可能含 delay/if，自带守卫），用放宽的时限；
-                // 其余单动作保持 30s 挂起上限。
-                val timeoutMs = if (action.typeId == RUN_RULE_TYPE_ID) {
-                    SequenceGuards.MAX_RULE_STEP_MS
-                } else {
-                    SequenceGuards.MAX_ACTION_MS
+            val policy = when (step.onFailure) {
+                StepFailure.SKIP -> StepFailure.SKIP
+                StepFailure.RETRY -> StepFailure.RETRY
+                else -> StepFailure.STOP
+            }
+            val maxRetries = if (policy == StepFailure.RETRY) {
+                step.retryCount.coerceIn(0, StepFailure.MAX_RETRY_COUNT)
+            } else {
+                0
+            }
+            val retryIntervalMs = step.retryIntervalMs.coerceIn(0L, StepFailure.MAX_RETRY_INTERVAL_MS)
+            // runRule 是复合步骤（内部可能含 delay/if，自带守卫），用放宽的时限；
+            // 其余单动作保持 30s 挂起上限。
+            val timeoutMs = if (action.typeId == RUN_RULE_TYPE_ID) {
+                SequenceGuards.MAX_RULE_STEP_MS
+            } else {
+                SequenceGuards.MAX_ACTION_MS
+            }
+
+            var attemptsMade = 0
+            var lastFailure: String? = null
+            while (true) {
+                if (attemptsMade > 0) {
+                    // 重试等待也计入总延时预算，避免 20 步 × 5 次 × 30s 绕过序列时长上限。
+                    if (totalDelayMs + retryIntervalMs > SequenceGuards.MAX_TOTAL_DELAY_MS) {
+                        lastFailure = (lastFailure.orEmpty() + " retry_delay_capped").trim()
+                        break
+                    }
+                    totalDelayMs += retryIntervalMs
+                    delay(retryIntervalMs)
                 }
-                val outcome = withTimeoutOrNull(timeoutMs) {
-                    runSingleAction(action, ctx, variables.toMap())
+                attemptsMade++
+                lastFailure = try {
+                    val outcome = withTimeoutOrNull(timeoutMs) {
+                        runSingleAction(action, ctx, variables.toMap())
+                    }
+                    when (outcome) {
+                        null -> "action_timeout"
+                        is StepOutcome.EntryMissing -> "entry_missing"
+                        is StepOutcome.Done -> failureOf(outcome.result)
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    (e.message ?: e.javaClass.name).take(120)
                 }
-                if (outcome == null) {
-                    records += StepRecord(index, RuleStepKind.ACTION, ok = false, message = "action_timeout")
-                    interrupted = true
+
+                if (lastFailure == null) {
+                    records += StepRecord(
+                        index, RuleStepKind.ACTION, ok = true,
+                        message = if (attemptsMade > 1) {
+                            "dispatched_retry_${attemptsMade - 1}"
+                        } else {
+                            "dispatched"
+                        },
+                    )
                     return
                 }
-                when (outcome) {
-                    is StepOutcome.EntryMissing -> {
-                        records += StepRecord(index, RuleStepKind.ACTION, ok = false, message = "entry_missing")
-                        interrupted = true
-                    }
-                    is StepOutcome.Done -> {
-                        val failure = failureOf(outcome.result)
-                        records += StepRecord(
-                            index, RuleStepKind.ACTION, ok = failure == null,
-                            message = failure ?: "dispatched",
-                        )
-                        if (failure != null) interrupted = true
-                    }
+                // RequiresCapability / entry_missing 重试也不会变，直接按策略收尾。
+                val canRetry = policy == StepFailure.RETRY &&
+                    isRetryable(lastFailure) &&
+                    attemptsMade <= maxRetries
+                if (canRetry) continue
+                break
+            }
+
+            val message = buildString {
+                append(lastFailure.orEmpty())
+                if (policy == StepFailure.RETRY && attemptsMade > 1) {
+                    append(" (attempts=").append(attemptsMade).append(')')
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                records += StepRecord(
-                    index, RuleStepKind.ACTION, ok = false,
-                    message = (e.message ?: e.javaClass.name).take(120),
-                )
+            }
+            records += StepRecord(
+                index, RuleStepKind.ACTION, ok = false, message = message,
+                skipped = policy == StepFailure.SKIP,
+            )
+            if (policy != StepFailure.SKIP) {
                 interrupted = true
             }
         }
@@ -193,5 +235,9 @@ class SequenceExecutor(
                 (result.message ?: result.reason.name).lowercase().take(120)
             is hunoia.luno.action.model.ActionResult.RequiresCapability -> "requires_capability"
         }
+
+        /** 重试对这些失败无意义：能力缺失要用户授权，entry 缺失要用户修数据。 */
+        private fun isRetryable(failure: String): Boolean =
+            failure != "requires_capability" && failure != "entry_missing"
     }
 }

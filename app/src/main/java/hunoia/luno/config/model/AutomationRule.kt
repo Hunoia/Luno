@@ -94,6 +94,29 @@ object RuleStepKind {
     const val SET_VAR = "setVar"
 }
 
+/**
+ * 单步失败策略（仅 ACTION 生效；delay/if/setVar 的配置错误仍按 STOP 中断）。
+ * STOP = 现状；SKIP = 记失败后继续后续步骤；RETRY = 可重试失败按次数/间隔重试，耗尽后按 STOP。
+ */
+object StepFailure {
+    const val STOP = "stop"
+    const val SKIP = "skip"
+    const val RETRY = "retry"
+
+    /** 编辑器与执行器共用上限：防止手改数据无限重试/长间隔。 */
+    const val MAX_RETRY_COUNT = 5
+    const val MAX_RETRY_INTERVAL_MS = 30_000L
+}
+
+/** 同规则重入策略：默认单飞（与旧行为一致）。 */
+@Serializable
+@Keep
+enum class RuleReentry {
+    BLOCK_NEW,
+    STOP_CURRENT_AND_RUN_NEW,
+    ALLOW_PARALLEL,
+}
+
 /** 节流策略类型：同上扁平。BOTH=冷却与窗口同时生效（通用编辑器派生）。 */
 object ThrottleKind {
     const val OFF = "off"
@@ -260,6 +283,12 @@ data class RuleStep(
     val varName: String = "",
     /** SET_VAR：值模板，支持 ${...} 与表达式。 */
     val varTemplate: String = "",
+    /** ACTION 失败策略：见 [StepFailure]；旧数据缺键默认 STOP。 */
+    val onFailure: String = StepFailure.STOP,
+    /** RETRY：额外重试次数（0 = 不重试）。 */
+    val retryCount: Int = 0,
+    /** RETRY：两次尝试之间的等待（ms）。 */
+    val retryIntervalMs: Long = 1_000L,
 )
 
 /**
@@ -300,6 +329,10 @@ data class AutomationRule(
     val priority: Int = RulePriority.MEDIUM,
     /** 创建时间戳（同优先级 tie-break；存量 0 保持原列表顺序）。 */
     val createdAtMs: Long = 0L,
+    /** 单次运行超时（ms；0 = 不限）。仅约束本条规则的一次触发实例。 */
+    val maxRunMs: Long = 0L,
+    /** 同规则重入策略；旧数据缺键保持单飞。 */
+    val reentry: RuleReentry = RuleReentry.BLOCK_NEW,
 ) {
     companion object {
         val Defaults: List<AutomationRule> = emptyList()

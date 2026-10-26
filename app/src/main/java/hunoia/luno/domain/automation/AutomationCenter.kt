@@ -6,11 +6,15 @@ import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.config.repository.cleanActions
 import hunoia.luno.config.repository.cleanStepRefs
 import hunoia.luno.action.model.runRuleId
+import hunoia.luno.service.DispatchClient
 import hunoia.luno.runtime.condition.hasLeaf as runtimeHasLeaf
 import kotlinx.coroutines.flow.Flow
 
 /** 执行历史事件：展示用，经 domain 转调，ui 不得直引 runtime。 */
 typealias AutomationEvent = hunoia.luno.runtime.automation.AutomationEvent
+
+/** 测试运行结果：展示用，经 domain 转调。 */
+typealias RuleTestResult = hunoia.luno.runtime.automation.RuleTestResult
 
 /** 自动化域门面（ui 层唯一入口）。 */
 object AutomationCenter {
@@ -73,6 +77,9 @@ object AutomationCenter {
     fun isOkReason(reason: String): Boolean =
         reason == hunoia.luno.runtime.automation.ExecutionReason.OK
 
+    fun isTimeoutReason(reason: String): Boolean =
+        reason == hunoia.luno.runtime.automation.ExecutionReason.TIMEOUT
+
     fun isInterruptedReason(reason: String): Boolean =
         reason.startsWith(hunoia.luno.runtime.automation.ExecutionReason.INTERRUPTED_PREFIX)
 
@@ -92,6 +99,24 @@ object AutomationCenter {
     /** 通知监听权限是否已授：编辑页通知条件行展示（读系统设置，无副作用）。 */
     fun isNotificationAccessGranted(context: android.content.Context): Boolean =
         hunoia.luno.runtime.automation.AutomationNotificationListener.isAccessGranted(context)
+
+    // ---- 运行态 / 测试运行（经 Binder 转到 :service，ui 不直引 runtime） ----
+
+    /** 当前运行中的规则 id；服务未连接时为空集。 */
+    fun runningRuleIds(): Set<String> = DispatchClient.runningRuleIds()
+
+    /** 停止一条规则的所有实例。 */
+    fun stopRule(ruleId: String): Boolean = DispatchClient.stopRule(ruleId)
+
+    /**
+     * 测试运行：条件/约束按 :service 当前快照求值，[executeSteps] 为 false 时只检查条件。
+     * [onResult] 在主线程回调；返回 false 表示请求未送达。
+     */
+    fun runRuleTest(
+        rule: AutomationRule,
+        executeSteps: Boolean = true,
+        onResult: (RuleTestResult?) -> Unit,
+    ): Boolean = DispatchClient.runRuleTest(rule, executeSteps, onResult)
 }
 
 // ---- 纯函数转调（顶层，ui 可直接 import；直引 runtime 会违 B1） ----

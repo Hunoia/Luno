@@ -5,11 +5,13 @@ import android.view.accessibility.AccessibilityEvent
 import com.aaron.composeaccessibility.ComponentAccessibilityService
 import hunoia.luno.action.controller.TextInserter
 import hunoia.luno.config.model.AdvancedSettings
+import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.quicklaunch.launch.DisabledPackageEnabler
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.GestureCoordinator
 import hunoia.luno.runtime.GestureHost
+import hunoia.luno.runtime.automation.RuleTestResult
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
 import hunoia.luno.runtime.overlay.PointPickOverlay
 import hunoia.luno.runtime.overlay.ScreenLinksOverlay
@@ -105,6 +107,25 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
 
     /** 分发链就绪：coordinator 已初始化。供 DispatchService 跨进程查询。 */
     fun isDispatchReady(): Boolean = ::gestureCoordinator.isInitialized
+
+    /** 运行中的规则 id（规则列表页的「运行中/停止」入口）。 */
+    fun runningRuleIds(): Set<String> =
+        if (::gestureCoordinator.isInitialized) gestureCoordinator.runningRuleIds() else emptySet()
+
+    /** 手动停止一条规则的所有实例。 */
+    fun stopRule(ruleId: String): Boolean =
+        if (::gestureCoordinator.isInitialized) gestureCoordinator.stopRule(ruleId) else false
+
+    /** 编辑页测试运行：条件按当前快照求值，步骤真实执行一次；executeSteps=false 只检查条件。 */
+    fun runRuleTest(
+        rule: AutomationRule,
+        executeSteps: Boolean,
+        onResult: (RuleTestResult) -> Unit,
+    ): Boolean {
+        if (!::gestureCoordinator.isInitialized) return false
+        gestureCoordinator.runRuleTest(rule, executeSteps, onResult)
+        return true
+    }
 
     override fun onSetOverlay() {
         current = this

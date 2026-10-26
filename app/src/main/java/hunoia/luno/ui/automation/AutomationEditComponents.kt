@@ -2,6 +2,8 @@ package hunoia.luno.ui.automation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,7 +20,9 @@ import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.Icon
@@ -41,12 +45,15 @@ import androidx.compose.ui.text.input.KeyboardType
 import hunoia.luno.R
 import hunoia.luno.action.model.ActionLibrarySettings
 import hunoia.luno.domain.automation.AutomationCenter
+import hunoia.luno.domain.automation.RuleTestResult
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.ConditionItem
 import hunoia.luno.config.model.ConditionType
 import hunoia.luno.config.model.FireMode
+import hunoia.luno.config.model.RuleReentry
 import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.model.RuleStepKind
+import hunoia.luno.config.model.StepFailure
 import hunoia.luno.config.model.ThrottleKind
 import hunoia.luno.config.model.ThrottlePolicy
 import hunoia.luno.config.model.WhenGroup
@@ -61,6 +68,7 @@ import hunoia.luno.ui.component.CheckDropdownMenuItem
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.sheet.LunoSheet
+import hunoia.luno.ui.component.sheet.OptimizedScrollState
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.sheet.SheetHeader
 import hunoia.luno.ui.component.timeline.TimelineBadge
@@ -180,7 +188,8 @@ internal fun StepsEditor(
     }
 }
 /**
- * 步骤一行：动作行整行点击直达动作选择页并在行内删除；其余类型点行进各自 sheet。
+ * 步骤一行：动作行整行点击直达动作选择页；行尾设置按钮打开步骤 sheet（失败策略/换动作），
+ * 删除按钮在行内。其余类型点行进各自 sheet。
  */
 @Composable
 internal fun StepRow(
@@ -204,11 +213,18 @@ internal fun StepRow(
         onClick = if (isAction) onPickAction else onEdit,
         trailing = if (isAction) {
             {
-                LunoIconButton(
-                    icon = Icons.Default.Delete,
-                    contentDescription = stringResource(R.string.delete),
-                    onClick = onDelete,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    LunoIconButton(
+                        icon = Icons.Default.Settings,
+                        contentDescription = stringResource(R.string.step_settings),
+                        onClick = onEdit,
+                    )
+                    LunoIconButton(
+                        icon = Icons.Default.Delete,
+                        contentDescription = stringResource(R.string.delete),
+                        onClick = onDelete,
+                    )
+                }
             }
         } else {
             null
@@ -318,7 +334,7 @@ internal fun ConditionGroupEditor(
                             onEditItem = onEditItem,
                             basePath = path,
                             depth = depth + 1,
-                            groupLabel = context.getString(R.string.condition_group_number, index + 1),
+                            groupLabel = stringResource(R.string.condition_group_number, index + 1),
                             stateOnly = stateOnly,
                             onDeleteSelf = {
                                 val items = group.items.toMutableList()
@@ -493,7 +509,8 @@ internal fun ConditionSheet(
     }
 }
 /**
- * 步骤 sheet：只有 DELAY / IF 会进来；动作行直达选择页、删除在行内，没有中间 sheet。
+ * 步骤 sheet：延时 / 条件 / 变量 / 动作配置都走这里。
+ * 动作行点击仍直达选择页；行尾的设置按钮进入本 sheet 改失败策略或换动作。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -503,6 +520,8 @@ internal fun StepSheet(
     onStepChange: (RuleStep) -> Unit,
     onDelete: () -> Unit,
     onEditIfCondition: () -> Unit,
+    actionSummary: String = "",
+    onPickAction: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     LunoSheet(
@@ -514,6 +533,7 @@ internal fun StepSheet(
         ) {
             SheetHeader(
                 title = when (step.kind) {
+                    RuleStepKind.ACTION -> stringResource(R.string.step_action)
                     RuleStepKind.DELAY -> stringResource(R.string.step_delay)
                     RuleStepKind.SET_VAR -> stringResource(R.string.step_set_var)
                     else -> stringResource(R.string.step_if)
@@ -524,6 +544,15 @@ internal fun StepSheet(
                 verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
             ) {
                 when (step.kind) {
+                    RuleStepKind.ACTION -> {
+                        LunoSettingsRow(
+                            title = stringResource(R.string.step_action),
+                            subtitle = actionSummary,
+                            onClick = onPickAction,
+                            enabled = onPickAction != null,
+                        )
+                        StepFailureEditor(step = step, onStepChange = onStepChange)
+                    }
                     RuleStepKind.DELAY -> {
                         var text by remember(step.delayMs) {
                             mutableStateOf((step.delayMs / 1000).toString())
@@ -575,7 +604,7 @@ internal fun StepSheet(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    else -> {
+                    RuleStepKind.IF -> {
                         LunoSettingsRow(
                             title = stringResource(R.string.step_if),
                             subtitle = conditionSummary(context, step.condition),
@@ -600,6 +629,96 @@ internal fun StepSheet(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun StepFailureEditor(step: RuleStep, onStepChange: (RuleStep) -> Unit) {
+    val policy = when (step.onFailure) {
+        StepFailure.SKIP -> StepFailure.SKIP
+        StepFailure.RETRY -> StepFailure.RETRY
+        else -> StepFailure.STOP
+    }
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        LunoSettingsRow(
+            title = stringResource(R.string.step_failure),
+            subtitle = when (policy) {
+                StepFailure.SKIP -> stringResource(R.string.step_failure_skip)
+                StepFailure.RETRY -> stringResource(R.string.step_failure_summary_retry, step.retryCount.coerceIn(0, StepFailure.MAX_RETRY_COUNT))
+                else -> stringResource(R.string.step_failure_stop)
+            },
+            onClick = { expanded = true },
+            trailing = {
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = null,
+                )
+            },
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            listOf(
+                StepFailure.STOP to R.string.step_failure_stop,
+                StepFailure.SKIP to R.string.step_failure_skip,
+                StepFailure.RETRY to R.string.step_failure_retry,
+            ).forEach { (value, labelRes) ->
+                DropdownMenuItem(
+                    text = { Text(stringResource(labelRes)) },
+                    onClick = {
+                        expanded = false
+                        onStepChange(
+                            step.copy(
+                                onFailure = value,
+                                retryCount = if (value == StepFailure.RETRY) {
+                                    step.retryCount.coerceIn(1, StepFailure.MAX_RETRY_COUNT)
+                                } else {
+                                    step.retryCount
+                                },
+                            ),
+                        )
+                    },
+                )
+            }
+        }
+    }
+    if (policy == StepFailure.RETRY) {
+        var countText by remember(step.retryCount) { mutableStateOf(step.retryCount.toString()) }
+        OutlinedTextField(
+            value = countText,
+            onValueChange = {
+                countText = it
+                val n = it.toIntOrNull() ?: 0
+                onStepChange(step.copy(retryCount = n.coerceIn(0, StepFailure.MAX_RETRY_COUNT)))
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(R.string.step_retry_count)) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            shape = LargeShape,
+        )
+        var intervalText by remember(step.retryIntervalMs) {
+            mutableStateOf((step.retryIntervalMs / 1000).toString())
+        }
+        OutlinedTextField(
+            value = intervalText,
+            onValueChange = {
+                intervalText = it
+                val s = it.toLongOrNull() ?: 0L
+                onStepChange(
+                    step.copy(
+                        retryIntervalMs = (s * 1000).coerceIn(
+                            0L,
+                            StepFailure.MAX_RETRY_INTERVAL_MS,
+                        ),
+                    ),
+                )
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(R.string.step_retry_interval)) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            shape = LargeShape,
+        )
     }
 }
 /**
@@ -763,4 +882,196 @@ internal fun NotificationPermissionRow() {
             }
         },
     )
+}
+
+/**
+ * 运行控制：整体超时 + 同规则重入策略。
+ * 超时留空 = 不限；单位秒，上限 1 小时（再长基本等于不限，且会长期占着运行态）。
+ */
+@Composable
+internal fun RunControlEditor(rule: AutomationRule, onRuleChange: (AutomationRule) -> Unit) {
+    var timeoutText by remember(rule.maxRunMs) {
+        mutableStateOf(if (rule.maxRunMs > 0L) (rule.maxRunMs / 1000).toString() else "")
+    }
+    OutlinedTextField(
+        value = timeoutText,
+        onValueChange = {
+            timeoutText = it
+            onRuleChange(
+                rule.copy(
+                    maxRunMs = (it.toLongOrNull() ?: 0L).coerceIn(0L, 3_600L) * 1000L,
+                ),
+            )
+        },
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(stringResource(R.string.automation_timeout)) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        shape = LargeShape,
+    )
+    var reentryExpanded by remember { mutableStateOf(false) }
+    Box {
+        LunoSettingsRow(
+            title = stringResource(R.string.automation_reentry),
+            subtitle = reentryLabel(rule.reentry),
+            onClick = { reentryExpanded = true },
+            trailing = {
+                Icon(imageVector = Icons.Default.ArrowDropDown, contentDescription = null)
+            },
+        )
+        DropdownMenu(
+            expanded = reentryExpanded,
+            onDismissRequest = { reentryExpanded = false },
+        ) {
+            listOf(
+                RuleReentry.BLOCK_NEW to R.string.reentry_block,
+                RuleReentry.STOP_CURRENT_AND_RUN_NEW to R.string.reentry_stop_current,
+                RuleReentry.ALLOW_PARALLEL to R.string.reentry_parallel,
+            ).forEach { (value, labelRes) ->
+                DropdownMenuItem(
+                    text = { Text(stringResource(labelRes)) },
+                    onClick = {
+                        reentryExpanded = false
+                        onRuleChange(rule.copy(reentry = value))
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun reentryLabel(reentry: RuleReentry): String = stringResource(
+    when (reentry) {
+        RuleReentry.STOP_CURRENT_AND_RUN_NEW -> R.string.reentry_stop_current
+        RuleReentry.ALLOW_PARALLEL -> R.string.reentry_parallel
+        else -> R.string.reentry_block
+    },
+)
+
+/** 编辑页「测试运行」结果：条件/约束快照 + 每步真实执行记录。 */
+@Composable
+internal fun RuleTestResultSheet(result: RuleTestResult, onDismissRequest: () -> Unit) {
+    val hit = stringResource(R.string.automation_test_hit)
+    val miss = stringResource(R.string.automation_test_miss)
+    val skipped = stringResource(R.string.step_skipped)
+    val hasSkipped = result.steps.any { it.skipped }
+    val overall = when {
+        result.reason == RuleTestResult.CONDITION_ONLY ->
+            stringResource(R.string.automation_test_condition_only)
+        AutomationCenter.isInterruptedReason(result.reason) -> stringResource(
+            R.string.history_interrupted,
+            AutomationCenter.stripInterruptedPrefix(result.reason),
+        )
+        AutomationCenter.isTimeoutReason(result.reason) -> stringResource(R.string.history_timeout)
+        AutomationCenter.isOkReason(result.reason) && hasSkipped ->
+            stringResource(R.string.automation_test_partial)
+        AutomationCenter.isOkReason(result.reason) -> stringResource(R.string.automation_test_ok)
+        else -> result.reason
+    }
+    val scrollState = rememberScrollState()
+    LunoSheet(
+        onDismissRequest = onDismissRequest,
+        scrollState = OptimizedScrollState.Scroll(scrollState),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(scrollState)
+                .padding(bottom = PageGutter),
+            verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+        ) {
+            SheetHeader(title = stringResource(R.string.automation_test_title))
+            Column(
+                modifier = Modifier.padding(horizontal = PageGutter),
+                verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+            ) {
+                LunoSettingsRow(
+                    title = stringResource(R.string.automation_condition),
+                    subtitle = if (result.conditionHit) hit else miss,
+                    subtitleColor = if (result.conditionHit) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                )
+                LunoSettingsRow(
+                    title = stringResource(R.string.automation_constraints),
+                    subtitle = when {
+                        result.constraintsEmpty -> stringResource(R.string.automation_test_none)
+                        result.constraintsHit -> hit
+                        else -> miss
+                    },
+                    subtitleColor = if (result.constraintsHit) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                )
+                LunoSettingsRow(
+                    title = stringResource(R.string.automation_test_result),
+                    subtitle = overall,
+                    subtitleColor = if (
+                        AutomationCenter.isOkReason(result.reason) ||
+                        result.reason == RuleTestResult.CONDITION_ONLY
+                    ) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                )
+                if (!result.executed) {
+                    Text(
+                        stringResource(R.string.automation_test_not_executed),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else if (result.steps.isNotEmpty()) {
+                    Text(
+                        stringResource(R.string.automation_test_steps),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    result.steps.forEach { record ->
+                        LunoSettingsRow(
+                            title = "${record.index} · ${stepKindLabel(record.kind)}",
+                            subtitle = record.message.ifBlank {
+                                if (record.ok) hit else stringResource(R.string.automation_test_failed)
+                            } + if (record.skipped) " · $skipped" else "",
+                            subtitleColor = if (record.ok || record.skipped) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            },
+                        )
+                    }
+                } else if (AutomationCenter.isOkReason(result.reason)) {
+                    Text(
+                        stringResource(R.string.automation_test_no_steps),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Text(
+                    stringResource(
+                        if (result.executed) R.string.automation_test_note
+                        else R.string.automation_test_note_condition_only,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TextButton(onClick = onDismissRequest, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.confirm))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun stepKindLabel(kind: String): String = when (kind) {
+    RuleStepKind.ACTION -> stringResource(R.string.step_action)
+    RuleStepKind.DELAY -> stringResource(R.string.step_delay)
+    RuleStepKind.IF -> stringResource(R.string.step_if)
+    RuleStepKind.SET_VAR -> stringResource(R.string.step_set_var)
+    else -> kind
 }
