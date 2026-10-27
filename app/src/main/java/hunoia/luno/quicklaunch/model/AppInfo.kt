@@ -3,21 +3,17 @@ package hunoia.luno.quicklaunch.model
 import android.content.ComponentName
 import android.content.Context
 import android.graphics.drawable.Drawable
-import androidx.annotation.Keep
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import hunoia.luno.quicklaunch.icon.rememberAppDrawable
-import hunoia.luno.quicklaunch.model.AppInfo
-import kotlinx.serialization.Serializable
 
-@Serializable
-@Keep
-data class AppInfo(
-    val packageName: String,
-    val className: String,
-    val label: String,
-    val miniWindow: Boolean = false,
-)
+/**
+ * AppInfo 的平台与 Compose 扩展。
+ *
+ * 数据类本身已下沉 `hunoia.luno.model`，这里用 typealias 保持既有引用（
+ * `import hunoia.luno.quicklaunch.model.AppInfo`）不漂移；配置层直接依赖 model 包。
+ */
+typealias AppInfo = hunoia.luno.model.AppInfo
 
 val AppInfo.componentName: ComponentName get() = ComponentName.createRelative(packageName, className)
 
