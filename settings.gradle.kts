@@ -36,4 +36,5 @@ include(":ui:design")
 include(":capability:launch")
 include(":feature:search")
 include(":feature:quicklaunch")
+include(":feature:gesture")
  

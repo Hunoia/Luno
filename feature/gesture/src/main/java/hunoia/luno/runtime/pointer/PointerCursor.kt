@@ -129,11 +129,11 @@ fun PointerCursor(
 
 /** 面板内指针会话的句柄：容器拖动链路按优先级喂给它。 */
 class PointerHandle(
-    internal val isActiveState: MutableState<Boolean>,
-    internal val start: (GestureSettings.Pointer, Offset) -> Boolean,
-    internal val onDrag: (Offset) -> Boolean,
-    internal val onDragEnd: () -> Unit,
-    internal val onDragCancel: () -> Unit,
+    val isActiveState: MutableState<Boolean>,
+    val start: (GestureSettings.Pointer, Offset) -> Boolean,
+    val onDrag: (Offset) -> Boolean,
+    val onDragEnd: () -> Unit,
+    val onDragCancel: () -> Unit,
 ) {
     val isActive: Boolean get() = isActiveState.value
 }
@@ -143,7 +143,7 @@ class PointerHandle(
  * 映射给光标，UP 时在光标落点回调 [onPointerActionAtPosition] 触发点击。
  */
 @Composable
-internal fun rememberPointerHandle(
+fun rememberPointerHandle(
     gestureSettings: GestureSettings,
     modifier: Modifier = Modifier,
     onPointerStart: (GestureSettings.Pointer) -> Boolean,

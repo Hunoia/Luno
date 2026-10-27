@@ -151,6 +151,7 @@ dependencies {
     implementation(project(":capability:launch"))
     implementation(project(":feature:search"))
     implementation(project(":feature:quicklaunch"))
+    implementation(project(":feature:gesture"))
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.compose.foundation)
