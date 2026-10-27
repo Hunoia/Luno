@@ -26,6 +26,7 @@ import hunoia.luno.R
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.SwapHoriz
+import hunoia.luno.actions.resolvedIcon
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.actionPanelId
 import hunoia.luno.core.domain.gridPanelId
@@ -36,7 +37,6 @@ import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.config.model.DirectionActions
 import hunoia.luno.quicklaunch.icon.rememberAppDrawable
 import hunoia.luno.quicklaunch.model.icon
-import hunoia.luno.ui.actionlibrary.IconPalette
 import hunoia.luno.ui.actionselect.shortcutInfo
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
@@ -113,15 +113,6 @@ fun actionText(
         ?: if (emptyIfNone) "" else stringResource(R.string.action_none)
 }
 
-/** 图标优先级：自定义文字/表情 > palette 图标 > 类型默认图标。 */
-fun ActionLibraryEntry.resolvedIcon(): Any? {
-    iconKey?.let { key ->
-        val vector = IconPalette.byKey(key)
-        if (vector != null) return vector
-        if (key.isNotBlank()) return TextIcon(key)
-    }
-    return ActionDefinitions.byTypeId(typeId)?.icon
-}
 
 @Composable
 fun actionIcon(action: StoredAction): Any? {

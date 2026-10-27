@@ -44,7 +44,7 @@ import hunoia.luno.config.model.SearchLaunch.Share as SearchLaunchShare
 import hunoia.luno.config.model.SearchLaunch.ShareImage as SearchLaunchShareImage
 import hunoia.luno.config.model.SearchLaunch.Url as SearchLaunchUrl
 import hunoia.luno.config.model.fillSearchQuery
-import hunoia.luno.ui.component.TextIcon
+import hunoia.luno.core.domain.TextIcon
 
 /**
  * 旧结果模型 → 展示/动作模型。这里是唯一还认识业务类型的桥；

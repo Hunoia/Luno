@@ -73,6 +73,22 @@ object LunoActionSearchSource : hunoia.luno.core.domain.ActionSearchSource {
                 action = StoredAction(def.typeId),
             )
         }
+
+    override fun definitionName(typeId: String): String? =
+        ActionDefinitions.byTypeId(typeId)?.name
+
+    override fun resolveLibraryEntry(
+        entry: hunoia.luno.core.domain.ActionLibraryEntry,
+    ): hunoia.luno.core.domain.ActionSearchEntry = hunoia.luno.core.domain.ActionSearchEntry(
+        key = "library:${entry.id}",
+        group = "action",
+        label = entry.name.ifBlank {
+            ActionDefinitions.byTypeId(entry.typeId)?.name ?: entry.typeId
+        },
+        typeId = entry.typeId,
+        icon = entry.resolvedIcon(),
+        action = StoredAction.of("internal.libraryRef", "entryId" to entry.id),
+    )
 }
 
 /** 设置页与动作库条目的搜索投影（ADR-0001 D2）。 */
@@ -97,4 +113,20 @@ object LunoActionSearchExtras : hunoia.luno.core.domain.ActionSearchSource {
                 ),
             )
         }
+
+    override fun definitionName(typeId: String): String? =
+        ActionDefinitions.byTypeId(typeId)?.name
+
+    override fun resolveLibraryEntry(
+        entry: hunoia.luno.core.domain.ActionLibraryEntry,
+    ): hunoia.luno.core.domain.ActionSearchEntry = hunoia.luno.core.domain.ActionSearchEntry(
+        key = "library:${entry.id}",
+        group = "action",
+        label = entry.name.ifBlank {
+            ActionDefinitions.byTypeId(entry.typeId)?.name ?: entry.typeId
+        },
+        typeId = entry.typeId,
+        icon = entry.resolvedIcon(),
+        action = StoredAction.of("internal.libraryRef", "entryId" to entry.id),
+    )
 }

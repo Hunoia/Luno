@@ -1,7 +1,6 @@
 package hunoia.luno.quicklaunch.query
 
 import hunoia.luno.R
-import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.core.domain.ActionLibraryEntry
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.QuickSearchSettings
@@ -19,7 +18,6 @@ import hunoia.luno.config.model.SRC_SHORTCUT
 import hunoia.luno.config.model.SRC_SMS
 import hunoia.luno.config.model.SRC_TOGGLE
 import hunoia.luno.config.model.effectiveEngines
-import hunoia.luno.ui.component.resolvedIcon
 import java.util.PriorityQueue
 import kotlinx.coroutines.CancellationException
 
@@ -211,13 +209,18 @@ internal fun QuickSearchIndex.matchLibrary(
     plan: SearchQueryPlan,
 ): List<RankedHit> {
     val out = mutableListOf<RankedHit>()
+    val source = hunoia.luno.runtime.SearchCapabilities.actionSearch
     for (entry in libraryEntries) {
-        val fallback = ActionDefinitions.byTypeId(entry.typeId)?.name ?: entry.typeId
+        val fallback = source.definitionName(entry.typeId) ?: entry.typeId
         val m = bestOfFirst(tierOf(entry.name, plan)) { tierOf(fallback, plan) }
         if (m.tier >= 0) {
             out.add(
                 RankedHit(
-                    QuickSearchResult.LibraryEntry(entry, fallback, entry.resolvedIcon()),
+                    QuickSearchResult.LibraryEntry(
+                        entry,
+                        fallback,
+                        source.resolveLibraryEntry(entry)?.icon,
+                    ),
                     m.tier, m.span, m.offset, 0.0,
                 ),
             )

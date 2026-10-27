@@ -27,6 +27,9 @@ interface ActionSearchSource {
      * 搜索侧不持有 `ActionDefinitions` 与图标资源。
      */
     fun resolveLibraryEntry(entry: ActionLibraryEntry): ActionSearchEntry? = null
+
+    /** 动作类型的展示名（未知名返回 null）；库条目的兜底标题/匹配用。 */
+    fun definitionName(typeId: String): String? = null
 }
 
 /**

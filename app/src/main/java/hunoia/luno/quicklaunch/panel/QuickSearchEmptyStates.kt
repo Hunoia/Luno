@@ -57,7 +57,7 @@ import hunoia.luno.quicklaunch.query.SearchAction
 import hunoia.luno.quicklaunch.query.SearchResult
 import hunoia.luno.quicklaunch.query.SearchSourceRegistry
 import hunoia.luno.quicklaunch.query.toSearchResult
-import hunoia.luno.ui.component.TextIcon
+import hunoia.luno.core.domain.TextIcon
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.settings.search.sourceTitle
 import hunoia.luno.ui.theme.ContainerRadius

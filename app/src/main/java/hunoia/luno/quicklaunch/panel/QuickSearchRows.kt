@@ -27,7 +27,7 @@ import hunoia.luno.config.model.MAX_QUERY_CHARS
 import hunoia.luno.quicklaunch.query.SearchBadge
 import hunoia.luno.quicklaunch.query.SearchIcon
 import hunoia.luno.quicklaunch.query.SearchResult
-import hunoia.luno.ui.component.TextIcon
+import hunoia.luno.core.domain.TextIcon
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.row.LunoSelectableRow
 /**

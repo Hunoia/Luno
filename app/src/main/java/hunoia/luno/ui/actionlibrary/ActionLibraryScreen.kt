@@ -42,7 +42,7 @@ import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.component.displayNameRes
-import hunoia.luno.ui.component.resolvedIcon
+import hunoia.luno.actions.resolvedIcon
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SegmentedGap
 import hunoia.luno.ui.theme.RowIconSize

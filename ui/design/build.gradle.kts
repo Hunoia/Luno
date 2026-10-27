@@ -19,6 +19,8 @@ android {
 
 dependencies {
     api(project(":core:common"))
+    // 只依赖契约（TextIcon 等展示数据），不依赖任何 feature。
+    api(project(":core:domain"))
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.compose.foundation)

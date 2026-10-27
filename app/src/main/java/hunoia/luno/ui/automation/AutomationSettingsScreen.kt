@@ -57,7 +57,7 @@ import hunoia.luno.config.model.GlobalVariables
 import hunoia.luno.config.model.RulePriority
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.automation.AutomationCenter
-import hunoia.luno.ui.actionlibrary.IconPalette
+import hunoia.luno.actions.icon.IconPalette
 import hunoia.luno.ui.actionlibrary.IconPickerSheet
 import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.component.feedback.EmptyState

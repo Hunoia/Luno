@@ -21,10 +21,20 @@ import androidx.compose.ui.unit.TextUnit
 import kotlin.math.min
 
 /**
- * 文字/表情图标：动作库条目的 [ActionLibraryEntry.iconKey] 非 palette key 时，
- * 把原始字符串当文字/表情渲染，与 App/快捷方式的 String(Coil 模型) 区分开。
+ * 兼容桥：文字/表情图标数据已下沉 `hunoia.luno.core.domain`，渲染仍在 UI 层。
  */
-data class TextIcon(val text: String)
+typealias TextIcon = hunoia.luno.core.domain.TextIcon
+
+/** 渲染 [TextIcon]：与 App 图标（Coil 模型）区分开的文字/表情图标。 */
+@Composable
+fun TextIconGlyph(
+    icon: TextIcon,
+    size: Dp,
+    color: Color = LocalContentColor.current,
+    modifier: Modifier = Modifier,
+) {
+    TextIconGlyph(text = icon.text, size = size, color = color, modifier = modifier)
+}
 
 /**
  * 文字/表情图标的统一渲染：在 [size] 见方容器内按需缩小字号，避免裁剪且横竖居中。

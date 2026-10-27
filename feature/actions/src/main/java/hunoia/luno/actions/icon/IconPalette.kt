@@ -1,4 +1,4 @@
-package hunoia.luno.ui.actionlibrary
+package hunoia.luno.actions.icon
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
