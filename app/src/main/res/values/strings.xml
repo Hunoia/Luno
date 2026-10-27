@@ -21,21 +21,7 @@
     <string name="width">宽度</string>
     <string name="mini_window_position_hint">调整小窗打开的位置</string>
     <string name="keep_alive_need_permission">保活需要授予「修改系统设置」权限，请先在 Shizuku 中授权或通过 ADB 执行：adb shell pm grant hunoia.luno android.permission.WRITE_SECURE_SETTINGS</string>
-    <string name="quick_launcher_start_failed">启动面板打开失败</string>
-    <string name="quick_launcher_need_overlay_permission">打开启动面板需要「显示在其他应用上层」权限，正在前往设置</string>
-    <string name="quick_search_start_failed">搜索面板打开失败</string>
     <string name="quick_search_copied">已复制</string>
-    <string name="quick_search_clipboard_locked">已锁定，解锁后显示剪贴板</string>
-    <string name="quick_search_grant_contacts">授予联系人权限</string>
-    <string name="quick_search_grant_media">授予媒体权限</string>
-    <string name="quick_search_grant_files">授予文件访问权限</string>
-    <string name="quick_search_no_handler">没有能打开的应用</string>
-    <string name="quick_search_voice">语音输入</string>
-    <string name="quick_search_pin">置顶</string>
-    <string name="quick_search_unpin">取消置顶</string>
-    <string name="quick_search_grant_calendar">授予日历权限</string>
-    <string name="quick_search_grant_sms">授予短信权限</string>
-    <string name="quick_search_grant_calls">授予通话记录权限</string>
     <string name="quick_search_trigger_off">留空则关闭该来源标识</string>
     <string name="quick_search_trigger_closed">标识已关闭</string>
     <string name="mini_window_position_short">小窗</string>
@@ -332,14 +318,6 @@
     <string name="action_category_sub_gesture">子手势</string>
 
     <!-- 快速启动 -->
-    <string name="quick_app_launcher_content_height">高度</string>
-    <string name="quick_app_launcher_panel_width">宽度</string>
-    <string name="quick_app_launcher_screen_margin">离屏边距</string>
-    <string name="quick_app_launcher_candidate_rows">候选应用行数</string>
-    <string name="quick_app_launcher_adjust">调整面板</string>
-    <string name="quick_app_launcher_delete_input">删除输入</string>
-    <string name="quick_app_launcher_grid_columns">搜索列数</string>
-    <string name="quick_app_launcher_key_height">按键高度</string>
 
     <!-- 手势设置 -->
     <string name="sub_gesture_timeout_label">子手势超时</string>
@@ -435,7 +413,6 @@
 
     <!-- 主页 -->
     <string name="height">高度</string>
-    <string name="tap_mini_window">短按小窗</string>
     <string name="mini_window_portrait_hint">当前编辑竖屏位置，转动屏幕可编辑横屏</string>
     <string name="mini_window_landscape_hint">当前编辑横屏位置，转回竖屏可编辑竖屏</string>
     <string name="mini_window_position">位置</string>
@@ -781,7 +758,6 @@
     <string name="network_other">其他网络</string>
 
     <!-- 快速搜索 -->
-    <string name="quick_search_app_disabled">已停用</string>
 
     <!-- 搜索引擎 -->
     <string name="search_engine_settings">搜索引擎</string>
@@ -826,10 +802,6 @@
     <string name="search_engine_fallback">回退链接（可选）</string>
     <string name="search_engine_fallback_hint">应用打不开时使用</string>
     <string name="search_engine_delete_title">删除搜索引擎？</string>
-    <string name="search_action_pin">固定此结果</string>
-    <string name="search_action_unpin">取消固定</string>
-    <string name="search_result_pinned">已固定</string>
-    <string name="search_result_unpinned">已取消固定</string>
     <string name="search_source_settings">内容源与标识</string>
     <string name="search_source_group_apps">应用与动作</string>
     <string name="search_source_group_comms">通讯</string>
@@ -841,11 +813,6 @@
     <string name="search_list_style">列表样式</string>
     <string name="search_list_style_flat">平铺</string>
     <string name="search_list_style_cards">大卡片</string>
-    <string name="search_card_history">搜索历史</string>
-    <string name="search_card_calculator">计算器</string>
-    <string name="search_card_url">链接</string>
-    <string name="search_card_engine">搜索引擎</string>
-    <string name="quick_search_clear">清空</string>
     <string name="search_import_confirm_title">确认导入</string>
     <string name="search_import_confirm_text">将导入 %1$d 个引擎，其中 %2$d 个标识与现有重复，导入后将清空其标识</string>
     <string name="search_import_confirm_text_no_conflict">将导入 %1$d 个引擎</string>
@@ -858,7 +825,6 @@
     <string name="search_engine_empty_hint">暂无搜索引擎，点右下角添加</string>
     <string name="search_engine_missing">引擎不存在或已被删除</string>
     <string name="search_engine_invalid_hint">引擎信息不完整，请补全标红项</string>
-    <string name="more">更多</string>
 
     <!-- 识屏取链 -->
     <string name="screen_links_title">屏幕上的链接</string>

@@ -39,7 +39,7 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.quicklaunch.icon.SearchIconCache
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.TextFieldValue
-import hunoia.luno.BuildConfig
+import hunoia.luno.quicklaunch.BuildConfig
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.AppUsageStats
@@ -81,7 +81,7 @@ private const val ICON_PREWARM_LIMIT = 24
 
 private data class SearchSnapshot(
     val text: String,
-    val entries: List<hunoia.luno.action.model.ActionLibraryEntry>,
+    val entries: List<hunoia.luno.core.domain.ActionLibraryEntry>,
     val usage: AppUsageStats,
     val search: QuickSearchSettings,
     val contactsTick: Int,

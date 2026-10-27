@@ -8,8 +8,8 @@ import android.util.Log
 import androidx.compose.material.icons.filled.Settings
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import hunoia.luno.BuildConfig
-import hunoia.luno.R
+import hunoia.luno.quicklaunch.BuildConfig
+import hunoia.luno.quicklaunch.R
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.bridge.system.buildViewIntent
 import hunoia.luno.bridge.system.normalizeOpenAppOrUrl
@@ -56,7 +56,7 @@ internal fun launchSearchUrl(context: Context, action: SearchAction.OpenUrl): Bo
 }
 
 /** 设置页「测试」用：预览 Open / OpenUrl 两类动作，不关面板。 */
-internal fun launchSearchAction(context: Context, action: SearchAction): Boolean = when (action) {
+fun launchSearchAction(context: Context, action: SearchAction): Boolean = when (action) {
     is SearchAction.Open -> {
         val intent = Intent(action.intent)
         if (context !is Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

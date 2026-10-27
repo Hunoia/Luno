@@ -46,7 +46,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
 import hunoia.luno.ui.theme.MediumShape
-import hunoia.luno.R
+import hunoia.luno.quicklaunch.R
 import coil.compose.AsyncImage
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo

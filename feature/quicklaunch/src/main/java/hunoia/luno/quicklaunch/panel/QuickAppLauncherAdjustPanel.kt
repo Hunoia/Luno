@@ -21,11 +21,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import hunoia.luno.R
+import hunoia.luno.quicklaunch.R
 import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.QuickLauncherGeometry
-import hunoia.luno.domain.search.SearchCenter
 import hunoia.luno.ui.component.input.LunoTextSlider
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -34,7 +33,7 @@ import kotlin.math.roundToInt
 internal fun QuickAppLauncherAdjustPanel(
     onSettingsChanged: (QuickAppLauncherSettings) -> Unit,
 ) {
-    val settings by SearchCenter.launcher.collectAsState(initial = QuickAppLauncherSettings())
+    val settings by hunoia.luno.config.ConfigProvider.quickAppLauncherSettings.collectAsState(initial = QuickAppLauncherSettings())
     val coroutineScope = rememberCoroutineScope()
     // 当前朝向：横屏下调的就是横屏那份几何，实时跟随旋转
     val landscape = LocalConfiguration.current.orientation ==
@@ -45,7 +44,7 @@ internal fun QuickAppLauncherAdjustPanel(
         onSettingsChanged(settings.withLayout(landscape) { next })
     }
     fun commit() {
-        coroutineScope.launch { SearchCenter.updateLauncherLayout(pending.value, landscape) }
+        coroutineScope.launch { hunoia.luno.config.ConfigProvider.updateQuickAppLauncherLayout(pending.value, landscape) }
     }
 
     val screenH = LocalConfiguration.current.screenHeightDp
@@ -123,7 +122,7 @@ internal fun QuickAppLauncherAdjustPanel(
                 checked = settings.tapOpensMiniWindow,
                 onCheckedChange = { checked ->
                     coroutineScope.launch {
-                        SearchCenter.updateLauncher {
+                        hunoia.luno.config.ConfigProvider.updateQuickAppLauncherSettings {
                             it.copy(tapOpensMiniWindow = checked)
                         }
                     }

@@ -37,7 +37,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import hunoia.luno.R
+import hunoia.luno.quicklaunch.R
 import hunoia.luno.config.model.MAX_QUERY_CHARS
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.SearchLaunch

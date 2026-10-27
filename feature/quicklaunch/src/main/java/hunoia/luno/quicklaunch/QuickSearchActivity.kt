@@ -12,8 +12,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.lifecycleScope
-import hunoia.luno.BuildConfig
-import hunoia.luno.R
+import hunoia.luno.quicklaunch.BuildConfig
+import hunoia.luno.quicklaunch.R
 import hunoia.luno.bridge.system.PackageChangeReceiver
 import hunoia.luno.bridge.system.readClipboardText
 import hunoia.luno.bridge.ui.showToast

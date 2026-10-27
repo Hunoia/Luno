@@ -60,7 +60,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.imageLoader
 import coil.compose.AsyncImage
-import hunoia.luno.R
+import hunoia.luno.quicklaunch.R
 import hunoia.luno.config.model.SRC_ACTION
 import hunoia.luno.config.model.SRC_APP
 import hunoia.luno.config.model.SRC_CALENDAR
@@ -82,7 +82,7 @@ import hunoia.luno.quicklaunch.query.SOURCE_CALC
 import hunoia.luno.quicklaunch.query.SOURCE_ENGINE
 import hunoia.luno.quicklaunch.query.SOURCE_URL
 import hunoia.luno.ui.component.TextIconGlyph
-import hunoia.luno.ui.settings.search.sourceTitle
+
 import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SmallShape
@@ -120,7 +120,7 @@ private fun cardTitle(key: String): String = when (key) {
     SOURCE_CALC -> stringResource(R.string.search_card_calculator)
     SOURCE_URL -> stringResource(R.string.search_card_url)
     SOURCE_ENGINE -> stringResource(R.string.search_card_engine)
-    else -> sourceTitle(key)
+    else -> hunoia.luno.search.searchSourceTitle(key)
 }
 
 /**

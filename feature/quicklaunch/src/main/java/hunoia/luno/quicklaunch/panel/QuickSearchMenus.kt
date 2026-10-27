@@ -7,7 +7,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.window.PopupProperties
-import hunoia.luno.R
+import hunoia.luno.quicklaunch.R
 import hunoia.luno.quicklaunch.query.SearchAction
 import hunoia.luno.quicklaunch.query.SearchActionLabel
 import hunoia.luno.quicklaunch.query.SearchResult

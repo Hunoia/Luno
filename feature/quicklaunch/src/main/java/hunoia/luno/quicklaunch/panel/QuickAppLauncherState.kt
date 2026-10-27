@@ -6,7 +6,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import coil.imageLoader
-import hunoia.luno.domain.search.SearchCenter
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.quicklaunch.query.AppListRepository
@@ -15,7 +14,7 @@ import hunoia.luno.quicklaunch.query.AppSearch.sortApps
 import hunoia.luno.quicklaunch.query.QuickAppLauncherAppList
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.ui.theme.AnimPostHideDelay
-import hunoia.luno.App
+import hunoia.luno.core.AppContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -80,13 +79,13 @@ class QuickAppLauncherState(
 
     init {
         coroutineScope.launch {
-            SearchCenter.launcher.collectLatest {
+            hunoia.luno.config.ConfigProvider.quickAppLauncherSettings.collectLatest {
                 launcherSettings = it
                 previewSettings = null
             }
         }
         coroutineScope.launch {
-            SearchCenter.appUsage.collectLatest { usageStats = it }
+            hunoia.luno.config.ConfigProvider.appUsageStats.collectLatest { usageStats = it }
         }
         // 应用列表走进程级共享仓（与网格面板的抽屉部件同一份，见 AppListRepository）：
         // 扫包与包变更广播只注册一次，面板/启动器各自只订阅结果。
@@ -162,7 +161,7 @@ class QuickAppLauncherState(
     /**
      * 只预热当前查询命中列表的前 [PREWARM_COUNT] 个（由调用方传 `filteredApps`，已排序）：
      * 固定取 `appListState.apps` 前 N 个与用户眼前的列表几乎无关，等于白预热。
-     * 挂在 `App.applicationScope` 而非面板 scope：面板收起即销毁，预热会被中途取消。
+     * 挂在 `AppContext.applicationScope` 而非面板 scope：面板收起即销毁，预热会被中途取消。
      * 并发用 [Semaphore] 限流而不用 `ImageLoader.Builder.fetcherDispatcher` —— 后者是全局的，
      * 会连带限掉用户滚动时正在加载的可见图标。
      */
@@ -171,7 +170,7 @@ class QuickAppLauncherState(
         val targets = apps.take(PREWARM_COUNT)
         if (targets.isEmpty()) return
         val loader = context.imageLoader
-        App.applicationScope.launch {
+        AppContext.applicationScope!!.launch {
             val gate = Semaphore(PREWARM_CONCURRENCY)
             targets.map { app ->
                 async {

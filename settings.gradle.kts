@@ -35,4 +35,5 @@ include(":feature:link")
 include(":ui:design")
 include(":capability:launch")
 include(":feature:search")
+include(":feature:quicklaunch")
  

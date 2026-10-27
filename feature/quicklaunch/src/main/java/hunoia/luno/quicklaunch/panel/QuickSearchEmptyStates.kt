@@ -34,7 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import hunoia.luno.R
+import hunoia.luno.quicklaunch.R
 import hunoia.luno.config.model.BLANK_RECENT_LIMIT
 import hunoia.luno.config.model.MIN_HISTORY_CHARS
 import hunoia.luno.config.model.QuickSearchSettings
@@ -59,7 +59,7 @@ import hunoia.luno.quicklaunch.query.SearchSourceRegistry
 import hunoia.luno.quicklaunch.query.toSearchResult
 import hunoia.luno.core.domain.TextIcon
 import hunoia.luno.ui.component.row.segmentedShape
-import hunoia.luno.ui.settings.search.sourceTitle
+
 import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SegmentedGap
@@ -377,7 +377,7 @@ internal fun QuickSearchTriggerHints(
             itemsIndexed(hintSources, key = { _, h -> "th-${h.first}" }) { idx, h ->
                 val trigger = h.second
                 HistoryRow(
-                    text = "${sourceTitle(h.first)}：$trigger",
+                    text = "${hunoia.luno.search.searchSourceTitle(h.first)}：$trigger",
                     shape = segmentedShape(hintTotal - 1 - idx, hintTotal),
                     icon = h.third,
                     onClick = {

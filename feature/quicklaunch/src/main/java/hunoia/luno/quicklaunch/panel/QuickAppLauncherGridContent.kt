@@ -136,7 +136,7 @@ internal fun AppGrid(
  * 键盘上拉、底部药丸、面板几何留给各自的宿主（见 [AppGrid]）。
  */
 @Composable
-internal fun AppGridContent(
+fun AppGridContent(
     apps: List<AppInfo>,
     disabledPkgs: Set<String>,
     gridState: LazyGridState,

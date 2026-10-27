@@ -22,7 +22,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import hunoia.luno.R
+import hunoia.luno.quicklaunch.R
 import hunoia.luno.config.model.MAX_QUERY_CHARS
 import hunoia.luno.quicklaunch.query.SearchBadge
 import hunoia.luno.quicklaunch.query.SearchIcon

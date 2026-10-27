@@ -9,18 +9,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.App
-import hunoia.luno.R
+import hunoia.luno.core.AppContext
+import hunoia.luno.quicklaunch.R
 import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.system.gotoOverlaySettings
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.AppLaunchSource
 import hunoia.luno.config.model.miniWindowSettings
-import hunoia.luno.core.AppContext
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelShownEvent
-import hunoia.luno.domain.search.SearchCenter
 import hunoia.luno.quicklaunch.launch.AppLaunchCoordinator
 import hunoia.luno.quicklaunch.launch.DisabledPackageEnabler
 import hunoia.luno.quicklaunch.panel.QuickAppLauncherRoot
@@ -66,7 +64,7 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
     private val disabledPackageEnabler by lazy {
         DisabledPackageEnabler(
             context = AppContext.get(),
-            scopeProvider = { App.applicationScope },
+            scopeProvider = { AppContext.applicationScope!! },
             log = { message -> Log.i(TAG, message) },
         )
     }
@@ -156,7 +154,7 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
     private fun ensureAdvancedSettings() {
         if (advancedLoaded) return
         advancedLoaded = true
-        App.applicationScope.launch(Dispatchers.IO) {
+        AppContext.applicationScope!!.launch(Dispatchers.IO) {
             runCatching { ConfigProvider.getAdvancedSettings() }
                 .getOrDefault(AdvancedSettings())
                 .let { advancedSettings = it }
@@ -176,9 +174,9 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
     @Composable
     override fun panelContent() {
         SideGestureTheme {
-            // 直读 SearchCenter.launcher（跨进程 DataStore 门面），不依赖 Activity 预读。
+            // 直读 hunoia.luno.config.ConfigProvider.launcher（跨进程 DataStore 门面），不依赖 Activity 预读。
             // initialValue 用 null 而非空配置：null = 还没读到，空配置会让首帧走错分支糊一帧。
-            val settings by SearchCenter.launcher
+            val settings by hunoia.luno.config.ConfigProvider.quickAppLauncherSettings
                 .collectAsStateWithLifecycle(initialValue = null)
             val s = settings ?: return@SideGestureTheme
             QuickAppLauncherRoot(
