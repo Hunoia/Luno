@@ -8,9 +8,7 @@ import android.os.IBinder
 import android.os.Handler
 import android.os.Looper
 import hunoia.luno.core.domain.StoredAction
-import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.core.domain.JsonSerializer
-import hunoia.luno.runtime.automation.RuleTestResult
 
 /**
  * 分发 IPC 客户端（主进程 / :service 进程通用）。
@@ -19,6 +17,15 @@ import hunoia.luno.runtime.automation.RuleTestResult
  * 未连上时 [dispatch]/[isReady] 直接返回 false，调用方负责提示。
  */
 object DispatchClient {
+
+    /**
+     * 由 `:app` 注入：要绑定的分发服务组件（`DispatchService`）。
+     * 执行口不认识宿主 Android 组件，只认这个 Class。
+     */
+    @Volatile var serviceClass: Class<*>? = null
+
+    /** 由 `:app` 注入：同进程内已就绪的兜底判断（服务进程自己查询时用）。 */
+    @Volatile var localReady: () -> Boolean = { false }
 
     /** 未连上时的重试间隔。 */
     private const val RETRY_INTERVAL_MS = 2_000L
@@ -45,9 +52,10 @@ object DispatchClient {
     fun bind(appContext: Context) {
         appCtx = appContext.applicationContext
         if (bindRequested) return
+        val component = serviceClass ?: return
         val bound = runCatching {
             appContext.bindService(
-                Intent(appContext, DispatchService::class.java),
+                Intent(appContext, component),
                 conn,
                 Context.BIND_AUTO_CREATE,
             )
@@ -68,7 +76,7 @@ object DispatchClient {
     /** 分发链就绪。跨进程走 Binder，同进程 bind 未完成时兜底直查。 */
     fun isReady(): Boolean {
         val viaBinder = runCatching { stub?.isReady() == true }.getOrDefault(false)
-        if (viaBinder || SideGestureService.current?.isDispatchReady() == true) return true
+        if (viaBinder || localReady()) return true
         retryBindIfNeeded()
         return false
     }
@@ -130,9 +138,9 @@ object DispatchClient {
      * [onResult] 回到主线程；null 表示服务未就绪或返回不可解析。
      */
     fun runRuleTest(
-        rule: AutomationRule,
+        ruleJson: String,
         executeSteps: Boolean,
-        onResult: (RuleTestResult?) -> Unit,
+        onResult: (String?) -> Unit,
     ): Boolean {
         val s = stub ?: run {
             retryBindIfNeeded()
@@ -140,14 +148,12 @@ object DispatchClient {
         }
         val cb = object : IRuleTestCallback.Stub() {
             override fun onResult(resultJson: String) {
-                val result = runCatching {
-                    JsonSerializer.decodeFromString<RuleTestResult>(resultJson)
-                }.getOrNull()
-                mainHandler.post { onResult(result) }
+                // 结果模型归自动化模块，这里只透传 JSON，避免执行口反向依赖自动化。
+                mainHandler.post { onResult(resultJson) }
             }
         }
         return runCatching {
-            s.runRuleTest(JsonSerializer.encodeToString(rule), executeSteps, cb)
+            s.runRuleTest(ruleJson, executeSteps, cb)
         }.getOrDefault(false)
     }
 

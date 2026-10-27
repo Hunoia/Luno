@@ -73,6 +73,12 @@ class App : Application(), ImageLoaderFactory {
         UDFComponentDefaults.set(UDFComponentDefaultsImpl())
 
         // 两进程都连分发 Binder：主进程靠它转发，:service 靠它自查就绪。
+        // 执行口不认识宿主组件，服务类与同进程就绪判断由这里注入。
+        hunoia.luno.service.DispatchClient.serviceClass =
+            hunoia.luno.service.DispatchService::class.java
+        hunoia.luno.service.DispatchClient.localReady = {
+            hunoia.luno.service.SideGestureService.current?.isDispatchReady() == true
+        }
         hunoia.luno.service.DispatchClient.bind(applicationContext)
         // 链接分发的应用内导航（规则编辑页 / 选择页）需要 context。
         hunoia.luno.link.AppLinkPorts.context = applicationContext

@@ -142,7 +142,20 @@ object AutomationCenter {
         rule: AutomationRule,
         executeSteps: Boolean = true,
         onResult: (RuleTestResult?) -> Unit,
-    ): Boolean = DispatchClient.runRuleTest(rule, executeSteps, onResult)
+    ): Boolean = DispatchClient.runRuleTest(
+        ruleJson = hunoia.luno.core.domain.JsonSerializer.encodeToString(rule),
+        executeSteps = executeSteps,
+        onResult = { json ->
+            onResult(
+                json?.let {
+                    runCatching {
+                        hunoia.luno.core.domain.JsonSerializer
+                            .decodeFromString<RuleTestResult>(it)
+                    }.getOrNull()
+                },
+            )
+        },
+    )
 }
 
 // ---- 纯函数转调（顶层，ui 可直接 import；直引 runtime 会违 B1） ----
