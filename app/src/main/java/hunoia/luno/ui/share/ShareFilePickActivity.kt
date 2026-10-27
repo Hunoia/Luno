@@ -70,7 +70,7 @@ class ShareFilePickActivity : Activity() {
             dispatched = true
             lostFocusAfterDispatch = false
         } catch (ignored: ActivityNotFoundException) {
-            showToast(R.string.launch_no_handler)
+            showToast(hunoia.luno.core.bridge.R.string.launch_no_handler)
             finish()
         }
     }

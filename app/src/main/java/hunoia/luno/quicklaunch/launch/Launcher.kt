@@ -132,12 +132,12 @@ object Launcher {
     ): Boolean {
         return try {
             val normalizedUrl = buildOpenUrl(data) ?: run {
-                showToast(context.getString(R.string.invalid_url))
+                showToast(context.getString(hunoia.luno.core.bridge.R.string.invalid_url))
                 return false
             }
             val intent = buildViewIntent(normalizedUrl)
             if (!context.packageManager.hasViewActivity(intent)) {
-                showToast(context.getString(R.string.launch_no_handler))
+                showToast(context.getString(hunoia.luno.core.bridge.R.string.launch_no_handler))
                 return false
             }
             if (data.miniWindow) {
@@ -147,7 +147,7 @@ object Launcher {
             true
         } catch (e: Exception) {
             Log.e(LOG_TAG, "launchUrl failed", e)
-            showToast(context.getString(R.string.launch_failed))
+            showToast(context.getString(hunoia.luno.core.bridge.R.string.launch_failed))
             false
         }
     }

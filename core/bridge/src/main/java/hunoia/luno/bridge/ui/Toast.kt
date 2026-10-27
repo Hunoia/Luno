@@ -5,7 +5,7 @@ import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
 import androidx.annotation.StringRes
-import hunoia.luno.R
+import hunoia.luno.core.bridge.R
 import hunoia.luno.core.AppContext
 
 private val handler = Handler(Looper.getMainLooper())

@@ -79,16 +79,6 @@ object ConditionType {
     const val GROUP = "group"
 }
 
-/** 应用包变化动作；null/空表示不限。 */
-object PackageChangeAction {
-    const val ADDED = "added"
-    const val REMOVED = "removed"
-    const val REPLACED = "replaced"
-    const val CHANGED = "changed"
-
-    val all: List<String> = listOf(ADDED, REMOVED, REPLACED, CHANGED)
-}
-
 /** 通知文本匹配方式：contains（默认）、glob、regex。 */
 object NotificationMatchMode {
     const val CONTAINS = "contains"

@@ -3,9 +3,8 @@ package hunoia.luno.shizuku
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.ParcelFileDescriptor
-import hunoia.luno.BuildConfig
-import hunoia.luno.bridge.system.AccessibilitySettings
 import hunoia.luno.core.AppContext
+import hunoia.luno.bridge.system.AccessibilitySettings
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -43,7 +42,7 @@ object ShizukuManager {
     private var scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private val isRoot get() = runCatching { Shizuku.getUid() }.getOrDefault(-1) == 0
-    private val callerPackage get() = if (isRoot) "com.android.shell" else BuildConfig.APPLICATION_ID
+    private val callerPackage get() = if (isRoot) "com.android.shell" else AppContext.get().packageName
 
     private val binderReceivedListener = Shizuku.OnBinderReceivedListener {
         updateStatus()
@@ -172,7 +171,7 @@ object ShizukuManager {
         }
     }
 
-    internal suspend fun ensureWriteSecureSettings() {
+    suspend fun ensureWriteSecureSettings() {
         val context = AppContext.get()
         if (!AccessibilitySettings.hasWriteSecureSettings(context)) {
             grantWriteSecureSettings()

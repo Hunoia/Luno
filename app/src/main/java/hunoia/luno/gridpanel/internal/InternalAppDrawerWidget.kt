@@ -89,7 +89,7 @@ fun AppDrawerCell(
             miniWindowSettings = miniWindowSettings,
             source = AppLaunchSource.GRID_PANEL,
         )
-        if (launched) closePanel() else showToast(R.string.launch_failed)
+        if (launched) closePanel() else showToast(hunoia.luno.core.bridge.R.string.launch_failed)
     }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {

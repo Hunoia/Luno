@@ -7,7 +7,7 @@ import android.content.Intent
 import android.media.AudioManager
 import android.provider.Settings
 import android.view.KeyEvent
-import hunoia.luno.R
+import hunoia.luno.core.bridge.R
 
 fun Context.volumeUp() {
     val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager

@@ -5,7 +5,7 @@ import hunoia.luno.config.model.ConditionItem
 import hunoia.luno.config.model.ConditionType
 import hunoia.luno.config.model.NetworkType
 import hunoia.luno.config.model.NotificationMatchMode
-import hunoia.luno.config.model.PackageChangeAction
+import hunoia.luno.core.domain.PackageChangeAction
 import hunoia.luno.config.model.RingerMode
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

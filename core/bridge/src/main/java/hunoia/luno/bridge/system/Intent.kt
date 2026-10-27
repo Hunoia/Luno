@@ -9,7 +9,7 @@ import android.net.Uri
 import android.provider.Settings
 import android.content.ActivityNotFoundException
 
-import hunoia.luno.R
+import hunoia.luno.core.bridge.R
 
 fun Context.gotoAppDetailSettings() {
     Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {

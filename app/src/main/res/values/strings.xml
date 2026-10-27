@@ -296,7 +296,6 @@
     <string name="gesture_button_name">触钮 %1$d</string>
     <string name="gesture_button_size_max">已达到最大触钮数量</string>
     <string name="request_get_apps_permission">获取应用列表</string>
-    <string name="goto_grant_notification_policy_access_permission">请手动开启"免打扰权限"以使用静音开关</string>
     <string name="grant_camera_permission">请开启"相机权限"以使用手电筒</string>
     <string name="tab_apps">应用</string>
     <string name="tab_shortcuts">快捷</string>
@@ -308,10 +307,7 @@
     <string name="launch_mini_window_failed">无法启动应用小窗。</string>
     <string name="enable_disabled_app_failed">启用禁用应用失败。</string>
     <string name="launch_shortcut_info_failed">无法启动%1$s快捷方式。</string>
-    <string name="launch_assist_failed">无法启动系统助手，请检查您是否已安装。</string>
     <string name="flashlight_failed">无法使用手电筒，请检查设备是否支持。</string>
-    <string name="os_version_too_low">系统版本不支持</string>
-    <string name="os_version_too_low_placeholder">系统版本不支持：%1$s</string>
 
     <string name="slide_to_right">向右滑动</string>
     <string name="slide_to_left">向左滑动</string>
@@ -389,9 +385,6 @@
 
     <string name="search_clear_cd">清除</string>
     <string name="search_collapse_cd">收起搜索</string>
-    <string name="invalid_url">链接格式不正确</string>
-    <string name="launch_failed">启动失败</string>
-    <string name="launch_no_handler">没有可处理该链接的应用</string>
     <string name="long_press">长按</string>
     <string name="tap_action">单击</string>
     <string name="tap_and_long_press_action">单击/长按</string>

@@ -158,7 +158,7 @@ fun SearchEngineEditScreen(
                 enabled = editState.testable(targetPackage),
                 onClick = {
                     val action = editState.buildLaunch(targetPackage).toSearchAction(EDIT_TEST_QUERY)
-                    if (!launchSearchAction(context, action)) showToast(R.string.launch_no_handler)
+                    if (!launchSearchAction(context, action)) showToast(hunoia.luno.core.bridge.R.string.launch_no_handler)
                 },
             )
         },

@@ -219,18 +219,18 @@ class QuickSearchActivity : ComponentActivity() {
             is SearchAction.Run -> dispatchOrToast(action.action)
             is SearchAction.Open -> {
                 val ok = runCatching { startActivity(action.intent) }.isSuccess
-                if (!ok) showToast(R.string.launch_no_handler)
+                if (!ok) showToast(hunoia.luno.core.bridge.R.string.launch_no_handler)
                 requestClose()
             }
             is SearchAction.OpenUrl -> {
-                if (!launchSearchUrl(this, action)) showToast(R.string.launch_no_handler)
+                if (!launchSearchUrl(this, action)) showToast(hunoia.luno.core.bridge.R.string.launch_no_handler)
                 requestClose()
             }
             is SearchAction.PickImage -> {
                 pendingImagePackage = action.packageName
                 runCatching { imageSearchLauncher.launch("image/*") }.onFailure {
                     pendingImagePackage = null
-                    showToast(R.string.launch_no_handler)
+                    showToast(hunoia.luno.core.bridge.R.string.launch_no_handler)
                 }
             }
             is SearchAction.ShareImage -> {
@@ -246,7 +246,7 @@ class QuickSearchActivity : ComponentActivity() {
                         },
                     )
                 }.isSuccess
-                if (!ok) showToast(R.string.launch_no_handler)
+                if (!ok) showToast(hunoia.luno.core.bridge.R.string.launch_no_handler)
                 requestClose()
             }
             is SearchAction.Copy -> {

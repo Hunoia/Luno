@@ -7,7 +7,7 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 
-/** 包变化事件：action 见 [hunoia.luno.config.model.PackageChangeAction]。 */
+/** 包变化事件：action 见 [hunoia.luno.core.domain.PackageChangeAction]。 */
 data class PackageChangeEvent(
     val action: String,
     val packageName: String,
@@ -77,13 +77,13 @@ object PackageChangeReceiver {
         val replacing = getBooleanExtra(Intent.EXTRA_REPLACING, false)
         val action = when (action) {
             Intent.ACTION_PACKAGE_ADDED ->
-                if (replacing) return null else hunoia.luno.config.model.PackageChangeAction.ADDED
+                if (replacing) return null else hunoia.luno.core.domain.PackageChangeAction.ADDED
 
             Intent.ACTION_PACKAGE_REMOVED ->
-                if (replacing) return null else hunoia.luno.config.model.PackageChangeAction.REMOVED
+                if (replacing) return null else hunoia.luno.core.domain.PackageChangeAction.REMOVED
 
-            Intent.ACTION_PACKAGE_REPLACED -> hunoia.luno.config.model.PackageChangeAction.REPLACED
-            Intent.ACTION_PACKAGE_CHANGED -> hunoia.luno.config.model.PackageChangeAction.CHANGED
+            Intent.ACTION_PACKAGE_REPLACED -> hunoia.luno.core.domain.PackageChangeAction.REPLACED
+            Intent.ACTION_PACKAGE_CHANGED -> hunoia.luno.core.domain.PackageChangeAction.CHANGED
             else -> return null
         }
         return PackageChangeEvent(action, packageName, replacing)

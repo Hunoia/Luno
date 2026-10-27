@@ -24,4 +24,5 @@ rootProject.name = "Luno"
 include(":app")
 include(":core:common")
 include(":core:domain")
+include(":core:bridge")
  

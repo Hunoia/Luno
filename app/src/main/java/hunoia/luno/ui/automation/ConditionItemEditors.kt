@@ -38,7 +38,7 @@ import hunoia.luno.config.model.ConditionType
 import hunoia.luno.config.model.ConnectionDirection
 import hunoia.luno.config.model.KeyboardEventType
 import hunoia.luno.config.model.NotificationMatchMode
-import hunoia.luno.config.model.PackageChangeAction
+import hunoia.luno.core.domain.PackageChangeAction
 import hunoia.luno.config.model.PlaybackDirection
 import hunoia.luno.config.model.RingerMode
 import hunoia.luno.config.model.WhenGroup

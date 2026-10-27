@@ -1,5 +1,7 @@
 package hunoia.luno.config.model
 
+import hunoia.luno.core.domain.PackageChangeAction
+
 /** 自动化配置读取时的轻量归一化：只修可安全修正的字段，不偷偷删用户步骤。 */
 object AutomationRuleNormalizer {
     const val CURRENT_SCHEMA_VERSION = 3
