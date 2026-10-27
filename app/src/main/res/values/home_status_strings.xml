@@ -12,9 +12,4 @@
     <string name="gesture_switch_retry_failed">未检测到无障碍服务已开启，开关已复位</string>
     <string name="restore_confirm_title">确认恢复配置？</string>
     <string name="restore_confirm_desc">恢复后将覆盖当前设置。</string>
-    <string name="restore_precheck_cannot_read_file">无法读取备份文件</string>
-    <string name="restore_precheck_invalid_format">备份格式不正确</string>
-    <string name="restore_precheck_empty_backup">备份内容为空</string>
-    <string name="restore_precheck_verification_failed">恢复校验失败</string>
-    <string name="restore_precheck_unsupported_version">备份来自更新版本的应用，无法恢复</string>
 </resources>

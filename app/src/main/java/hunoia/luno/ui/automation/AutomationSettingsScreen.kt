@@ -375,7 +375,7 @@ private fun RuleIcon(rule: AutomationRule, onClick: () -> Unit) {
             )
         } else if (!rule.iconKey.isNullOrBlank()) {
             TextIconGlyph(
-                text = rule.iconKey,
+                text = rule.iconKey.orEmpty(),
                 size = RowIconSize,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

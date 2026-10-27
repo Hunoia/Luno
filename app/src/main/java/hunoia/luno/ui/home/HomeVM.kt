@@ -56,7 +56,7 @@ class HomeVM : HomeVMBase() {
     fun precheckRestore(context: Context, restoreFrom: Uri, onPassed: () -> Unit) {
         viewModelScope.launchWithLoading(
             Dispatchers.IO + CoroutineExceptionHandler { _, _ ->
-                toast(R.string.restore_precheck_invalid_format)
+                toast(hunoia.luno.core.data.R.string.restore_precheck_invalid_format)
             },
             cancelable = false
         ) {

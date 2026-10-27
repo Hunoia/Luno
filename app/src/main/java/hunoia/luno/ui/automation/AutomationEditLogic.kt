@@ -256,8 +256,9 @@ internal fun WhenGroup.hasIncompleteCondition(): Boolean = items.any { item ->
             item.bluetoothDeviceName.isBlank() &&
             item.bluetoothDeviceAddress.isBlank()
 
-        ConditionType.GROUP -> item.group == null || item.group.items.isEmpty() ||
-            item.group.hasIncompleteCondition()
+        ConditionType.GROUP -> item.group.let { group ->
+            group == null || group.items.isEmpty() || group.hasIncompleteCondition()
+        }
 
         else -> false
     }

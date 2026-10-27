@@ -25,4 +25,5 @@ include(":app")
 include(":core:common")
 include(":core:domain")
 include(":core:bridge")
+include(":core:data")
  

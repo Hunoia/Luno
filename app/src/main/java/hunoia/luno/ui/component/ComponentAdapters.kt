@@ -64,7 +64,7 @@ val Capability.displayNameRes: Int
 @Composable
 fun GestureButton.buttonTextCompose(): String {
     if (name.isNotEmpty()) return name
-    return stringResource(id = R.string.gesture_button)
+    return stringResource(id = hunoia.luno.core.data.R.string.gesture_button)
 }
 
 @Composable

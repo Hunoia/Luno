@@ -51,7 +51,7 @@ object ConfigProvider {
     val automationRules: Flow<List<AutomationRule>> =
         stores.automationRules.map { hunoia.luno.config.model.AutomationRuleNormalizer.normalize(it) }
     val automationVariables: Flow<GlobalVariables> = stores.automationVariables
-    val automationLog: Flow<List<hunoia.luno.runtime.automation.AutomationEvent>> = stores.automationLog
+    val automationLog: Flow<List<hunoia.luno.core.domain.AutomationEvent>> = stores.automationLog
     val quickSearchSettings: Flow<QuickSearchSettings> = stores.quickSearchSettings
     /** 剪贴板历史：设备本地派生数据，只供剪贴板页面部件订阅。 */
     val clipboardHistory: Flow<ClipboardHistory> = stores.clipboardHistory
@@ -114,14 +114,14 @@ object ConfigProvider {
     }
 
     /** 执行历史追加：全局环形 100，写盘失败吞掉（调试数据不影响规则执行）。 */
-    suspend fun appendAutomationEvent(event: hunoia.luno.runtime.automation.AutomationEvent) {
+    suspend fun appendAutomationEvent(event: hunoia.luno.core.domain.AutomationEvent) {
         appendAutomationEvents(listOf(event))
     }
 
     /**
      * 批量追加：一次 updateData 写入整批，避免 N 次序列化 + N 次写盘。
      */
-    suspend fun appendAutomationEvents(events: List<hunoia.luno.runtime.automation.AutomationEvent>) {
+    suspend fun appendAutomationEvents(events: List<hunoia.luno.core.domain.AutomationEvent>) {
         if (events.isEmpty()) return
         runCatching {
             stores._automationLog.updateData { old ->
@@ -129,10 +129,10 @@ object ConfigProvider {
                 // 跳过事件限流：只保留最近 MAX_SKIP_EVENTS 条，超出的从最旧开始丢。
                 val skipIndices = merged.indices.filter { !merged[it].fired }
                 val dropCount = (skipIndices.size -
-                    hunoia.luno.runtime.automation.ExecutionLog.MAX_SKIP_EVENTS).coerceAtLeast(0)
+                    hunoia.luno.core.domain.AutomationHistoryLimits.MAX_SKIP_EVENTS).coerceAtLeast(0)
                 val dropped = skipIndices.take(dropCount).toSet()
                 val kept = merged.filterIndexed { index, _ -> index !in dropped }
-                kept.takeLast(hunoia.luno.runtime.automation.ExecutionLog.MAX_EVENTS)
+                kept.takeLast(hunoia.luno.core.domain.AutomationHistoryLimits.MAX_EVENTS)
             }
         }
     }

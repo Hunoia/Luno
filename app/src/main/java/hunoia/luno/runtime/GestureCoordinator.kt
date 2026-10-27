@@ -50,7 +50,7 @@ import hunoia.luno.runtime.automation.AutomationEventKey
 import hunoia.luno.runtime.automation.AutomationPulseHub
 import hunoia.luno.runtime.automation.AutomationShareBridge
 import hunoia.luno.runtime.automation.AutomationRuntime
-import hunoia.luno.runtime.automation.ExecutionReason
+import hunoia.luno.core.domain.ExecutionReason
 import hunoia.luno.runtime.automation.SequenceExecutor
 import hunoia.luno.runtime.automation.SkipReason
 import hunoia.luno.runtime.button.ButtonHideRuntime

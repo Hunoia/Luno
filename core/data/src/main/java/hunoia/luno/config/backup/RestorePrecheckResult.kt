@@ -1,7 +1,7 @@
 package hunoia.luno.config.backup
 
 import androidx.annotation.StringRes
-import hunoia.luno.R
+import hunoia.luno.core.data.R
 
 sealed interface RestorePrecheckResult {
     data object Passed : RestorePrecheckResult

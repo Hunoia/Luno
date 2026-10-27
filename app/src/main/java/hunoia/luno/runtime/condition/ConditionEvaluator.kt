@@ -222,7 +222,8 @@ private fun ConditionItem.notificationMatches(pulse: NotificationPulse?): Boolea
     if (notifyExcludePackages.isNotEmpty() && pulse.packageName in notifyExcludePackages) return false
     if (notifyOngoing != null && pulse.ongoing != notifyOngoing) return false
     if (notifyClearable != null && pulse.clearable != notifyClearable) return false
-    if (notifyImportanceAtLeast != null && pulse.importance < notifyImportanceAtLeast) return false
+    val importanceAtLeast = notifyImportanceAtLeast
+    if (importanceAtLeast != null && pulse.importance < importanceAtLeast) return false
 
     val mode = notifyMatchMode.takeIf { it in NotificationMatchMode.all }
         ?: NotificationMatchMode.CONTAINS

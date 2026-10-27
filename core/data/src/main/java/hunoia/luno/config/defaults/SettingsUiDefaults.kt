@@ -25,6 +25,4 @@ object SettingsUiDefaults {
     val MaxSubGestureTriggerDistance = DensityProvider.dp2px(80f)
     val MinSubGestureLongSlideTriggerDistance = DensityProvider.dp2px(48f)
     val MaxSubGestureLongSlideTriggerDistance = DensityProvider.dp2px(240f)
-    /** 禁用态透明度取自 ui/theme（UI 令牌，不属于配置默认值）。 */
-    val DisabledAlpha: Float get() = hunoia.luno.ui.theme.DisabledAlpha
 }

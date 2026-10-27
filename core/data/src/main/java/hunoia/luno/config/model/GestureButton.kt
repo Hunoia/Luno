@@ -1,7 +1,7 @@
 package hunoia.luno.config.model
 
 import androidx.annotation.Keep
-import hunoia.luno.R
+import hunoia.luno.core.data.R
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.core.AppContext
@@ -118,7 +118,7 @@ data class GestureButton(
 }
 
 /** 按钮显示名：有名字用名字，否则取主题字符串（与 UI 侧 buttonTextCompose 同约定）。 */
-internal fun GestureButton.resolveDisplayName(): String {
+fun GestureButton.resolveDisplayName(): String {
     if (name.isNotEmpty()) return name
     return AppContext.get().getString(R.string.gesture_button)
 }

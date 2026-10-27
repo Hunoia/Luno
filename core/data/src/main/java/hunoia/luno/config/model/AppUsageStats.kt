@@ -26,7 +26,7 @@ data class AppUsageStats(
  *   被去抖的那次不改次数/时间，但仍记最新来源（诊断字段不参与排序）；
  * - 只保留最近 [maxHistory] 个包名，计数同步裁掉窗口外的键。
  */
-internal fun AppUsageStats.recordLaunch(
+fun AppUsageStats.recordLaunch(
     packageName: String,
     now: Long,
     source: AppLaunchSource = AppLaunchSource.UNKNOWN,

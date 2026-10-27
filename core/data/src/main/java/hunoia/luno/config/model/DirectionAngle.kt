@@ -44,17 +44,17 @@ internal fun <T> directionOf(boundaries: List<Float>, directions: List<T>, offse
     return directions[nearest]
 }
 
-internal fun normalizedAngle(offset: Offset): Float = normalizedAngle(offset, Offset.Zero)
+fun normalizedAngle(offset: Offset): Float = normalizedAngle(offset, Offset.Zero)
 
 /** 归一化角度（[0,1)，0 = 正右、逆时针为正）：[center] 为旋转中心，缺省屏幕原点。 */
-internal fun normalizedAngle(offset: Offset, center: Offset): Float {
+fun normalizedAngle(offset: Offset, center: Offset): Float {
     val angle = atan2(-(offset.y - center.y).toDouble(), (offset.x - center.x).toDouble())
     var norm = (angle / (2 * PI)).toFloat()
     if (norm < 0f) norm += 1f
     return norm
 }
 
-internal fun sectorWidth(boundaries: List<Float>, index: Int): Float {
+fun sectorWidth(boundaries: List<Float>, index: Int): Float {
     val start = boundaries[index]
     val end = boundaries[(index + 1) % boundaries.size]
     return if (end >= start) (end - start) * 360f else (end + 1f - start) * 360f
@@ -66,7 +66,7 @@ internal fun isZeroWidthSector(boundaries: List<Float>, index: Int): Boolean =
 internal fun List<Float>.zeroWidthDirections(): Set<GestureDirection> =
     indices.filter { isZeroWidthSector(this, it) }.map { DirectionSectorDirections[it] }.toSet()
 
-internal fun copyDirectionAngleBoundary(boundaries: List<Float>, index: Int, newBoundary: Float): List<Float> {
+fun copyDirectionAngleBoundary(boundaries: List<Float>, index: Int, newBoundary: Float): List<Float> {
     val boundary = ((newBoundary % 1f) + 1f) % 1f
     val n = boundaries.size
     val previous = boundaries[(index + n - 1) % n]

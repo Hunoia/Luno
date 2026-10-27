@@ -89,16 +89,16 @@ object AutomationCenter {
         get() = hunoia.luno.runtime.automation.SkipReason.PERMISSION_MISSING
 
     fun isOkReason(reason: String): Boolean =
-        reason == hunoia.luno.runtime.automation.ExecutionReason.OK
+        reason == hunoia.luno.core.domain.ExecutionReason.OK
 
     fun isTimeoutReason(reason: String): Boolean =
-        reason == hunoia.luno.runtime.automation.ExecutionReason.TIMEOUT
+        reason == hunoia.luno.core.domain.ExecutionReason.TIMEOUT
 
     fun isInterruptedReason(reason: String): Boolean =
-        reason.startsWith(hunoia.luno.runtime.automation.ExecutionReason.INTERRUPTED_PREFIX)
+        reason.startsWith(hunoia.luno.core.domain.ExecutionReason.INTERRUPTED_PREFIX)
 
     fun stripInterruptedPrefix(reason: String): String =
-        reason.removePrefix(hunoia.luno.runtime.automation.ExecutionReason.INTERRUPTED_PREFIX)
+        reason.removePrefix(hunoia.luno.core.domain.ExecutionReason.INTERRUPTED_PREFIX)
 
     /** 条件组是否有叶子：编辑页保存按钮可用性（转调 runtime 纯函数）。 */
     fun hasLeafOf(group: WhenGroup): Boolean = with(group) { runtimeHasLeaf() }

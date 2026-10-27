@@ -32,7 +32,7 @@ class SettingsStores(
     internal val _actionLibrarySettings: DataStore<ActionLibrarySettings>,
     internal val _automationRules: DataStore<List<AutomationRule>>,
     internal val _automationVariables: DataStore<GlobalVariables>,
-    internal val _automationLog: DataStore<List<hunoia.luno.runtime.automation.AutomationEvent>>,
+    internal val _automationLog: DataStore<List<hunoia.luno.core.domain.AutomationEvent>>,
     internal val _quickAppSnapshot: DataStore<QuickAppSnapshot>,
     internal val _quickSearchSettings: DataStore<QuickSearchSettings>,
     internal val _appUsageStats: DataStore<AppUsageStats>,
@@ -48,7 +48,7 @@ class SettingsStores(
     val actionLibrarySettings: Flow<ActionLibrarySettings> = _actionLibrarySettings.data
     val automationRules: Flow<List<AutomationRule>> = _automationRules.data
     val automationVariables: Flow<GlobalVariables> = _automationVariables.data.map { it.normalized() }
-    val automationLog: Flow<List<hunoia.luno.runtime.automation.AutomationEvent>> = _automationLog.data
+    val automationLog: Flow<List<hunoia.luno.core.domain.AutomationEvent>> = _automationLog.data
     val quickSearchSettings: Flow<QuickSearchSettings> =
         _quickSearchSettings.data.map { it.withUniqueEngineTriggers() }
     val appUsageStats: Flow<AppUsageStats> = _appUsageStats.data
