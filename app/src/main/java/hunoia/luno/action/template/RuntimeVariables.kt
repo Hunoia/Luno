@@ -5,7 +5,7 @@ import hunoia.luno.core.domain.AudioStream
 import hunoia.luno.bridge.system.readClipboardText
 import hunoia.luno.config.model.RingerMode
 import hunoia.luno.runtime.condition.ConditionContext
-import hunoia.luno.runtime.condition.formatTimeOfDay
+import hunoia.luno.core.domain.formatTimeOfDay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Calendar

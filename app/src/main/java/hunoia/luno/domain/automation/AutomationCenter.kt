@@ -148,4 +148,4 @@ object AutomationCenter {
 // ---- 纯函数转调（顶层，ui 可直接 import；直引 runtime 会违 B1） ----
 
 /** 分钟数 → "HH:mm"：条件摘要展示。 */
-fun formatTimeOfDay(minute: Int): String = hunoia.luno.runtime.condition.formatTimeOfDay(minute)
+fun formatTimeOfDay(minute: Int): String = hunoia.luno.core.domain.formatTimeOfDay(minute)

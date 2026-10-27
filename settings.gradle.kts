@@ -26,4 +26,5 @@ include(":core:common")
 include(":core:domain")
 include(":core:bridge")
 include(":core:data")
+include(":core:runtime")
  

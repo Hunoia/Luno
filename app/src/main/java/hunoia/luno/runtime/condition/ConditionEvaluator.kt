@@ -20,46 +20,13 @@ import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.runtime.GestureRuntimeState
 import hunoia.luno.runtime.VolumeChange
 import java.util.Calendar
+import hunoia.luno.core.domain.formatTimeOfDay
+import hunoia.luno.core.domain.nowDayOfWeek
+import hunoia.luno.core.domain.nowMinuteOfDay
 
 /** 间隔触发键：规则 id + 分钟数，允许同一规则里多个不同间隔各自到期。 */
 fun intervalDueKey(ruleId: String, item: ConditionItem): String? =
     item.intervalMinutes?.let { "$ruleId:$it" }
-
-/**
- * 每条求值路径一个 Calendar,避免 Calendar.getInstance() 每次做时区与 locale 查找。
- * ThreadLocal 而不是单个共享实例:AutomationEngine.evaluate() 从 Main 和 IO 两条路径进来,
- * 共享的可变 Calendar 会竞争。
- */
-private val minuteOfDayCalendar = ThreadLocal.withInitial { Calendar.getInstance() }
-
-// @Volatile: 两个线程同时跨过整分时最多各算一次并写入同样的值,不需要加锁。
-@Volatile private var cachedMinuteOfDay = -1
-@Volatile private var cachedDayOfWeek = -1
-@Volatile private var cachedAtSecond = -1L
-
-/** 分钟与星期共用一个 60s 缓存：跨整分重读一次日历，时区改动最多 60s 自纠。 */
-private fun refreshCalendarCacheIfNeeded() {
-    val nowSecond = System.currentTimeMillis() / 1000L
-    if (cachedMinuteOfDay >= 0 && nowSecond - cachedAtSecond < 60L) return
-    val calendar = minuteOfDayCalendar.get()
-    calendar.timeInMillis = System.currentTimeMillis()
-    cachedMinuteOfDay = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
-    cachedDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
-    cachedAtSecond = nowSecond
-}
-
-fun nowMinuteOfDay(): Int {
-    refreshCalendarCacheIfNeeded()
-    return cachedMinuteOfDay
-}
-
-/** Calendar.DAY_OF_WEEK 常量（SUNDAY=1..SATURDAY=7）。 */
-fun nowDayOfWeek(): Int {
-    refreshCalendarCacheIfNeeded()
-    return cachedDayOfWeek
-}
-
-fun formatTimeOfDay(minute: Int): String = "%02d:%02d".format(minute / 60, minute % 60)
 
 fun inTimeWindow(minuteOfDay: Int, start: Int?, end: Int?): Boolean {
     val s = start ?: return false

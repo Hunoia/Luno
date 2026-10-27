@@ -12,12 +12,12 @@ import hunoia.luno.config.model.RingerMode
 import hunoia.luno.config.model.ScreenEventType
 import hunoia.luno.runtime.GestureRuntimeState
 import hunoia.luno.runtime.VolumeChange
-import hunoia.luno.runtime.condition.ClipboardPulse
-import hunoia.luno.runtime.condition.NotificationPulse
-import hunoia.luno.runtime.condition.PackageChangePulse
-import hunoia.luno.runtime.condition.SharePulse
-import hunoia.luno.runtime.condition.nowDayOfWeek
-import hunoia.luno.runtime.condition.nowMinuteOfDay
+import hunoia.luno.core.domain.ClipboardPulse
+import hunoia.luno.core.domain.NotificationPulse
+import hunoia.luno.core.domain.PackageChangePulse
+import hunoia.luno.core.domain.SharePulse
+import hunoia.luno.core.domain.nowDayOfWeek
+import hunoia.luno.core.domain.nowMinuteOfDay
 
 /**
  * 环境状态源：前台应用、屏幕事件、充电、音量、键盘等。

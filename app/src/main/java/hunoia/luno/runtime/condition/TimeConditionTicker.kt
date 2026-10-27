@@ -1,6 +1,7 @@
 package hunoia.luno.runtime.condition
 
 import hunoia.luno.config.model.AutomationRule
+import hunoia.luno.core.domain.nowMinuteOfDay
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
