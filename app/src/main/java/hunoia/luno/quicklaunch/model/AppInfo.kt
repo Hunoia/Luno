@@ -13,7 +13,7 @@ import hunoia.luno.quicklaunch.icon.rememberAppDrawable
  * 数据类本身已下沉 `hunoia.luno.model`，这里用 typealias 保持既有引用（
  * `import hunoia.luno.quicklaunch.model.AppInfo`）不漂移；配置层直接依赖 model 包。
  */
-typealias AppInfo = hunoia.luno.model.AppInfo
+typealias AppInfo = hunoia.luno.core.domain.AppInfo
 
 val AppInfo.componentName: ComponentName get() = ComponentName.createRelative(packageName, className)
 

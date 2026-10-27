@@ -3,6 +3,7 @@ package hunoia.luno.action.model
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import java.io.File
+import hunoia.luno.core.domain.longPressVariant
 
 /**
  * 快捷方式位图图标的落盘与清理。图标必须存文件（`iconPath` 会被序列化进动作），

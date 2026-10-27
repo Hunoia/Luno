@@ -1,6 +1,6 @@
 package hunoia.luno.core
 
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.StoredAction
 
 /**
  * 悬浮球点按 → 容器的事件，锚点 = 球心。容器交给 `runGestureActions` 统一分类执行

@@ -46,8 +46,8 @@ import hunoia.luno.config.model.RuleStepKind
 import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.config.model.conditionAt
 import hunoia.luno.config.model.withConditionAt
-import hunoia.luno.action.model.runRuleId
-import hunoia.luno.core.JsonSerializer
+import hunoia.luno.core.domain.runRuleId
+import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.navigation.NEW_AUTOMATION_RULE_ID
 import hunoia.luno.ui.theme.CardInnerSpacing

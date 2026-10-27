@@ -5,7 +5,7 @@ import android.net.Uri
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.Backup
 import hunoia.luno.config.model.isSupported
-import hunoia.luno.core.JsonSerializer
+import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.core.Paths
 import java.io.File
 import java.io.FileInputStream

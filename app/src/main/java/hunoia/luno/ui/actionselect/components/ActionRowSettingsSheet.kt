@@ -28,7 +28,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.config.defaults.ActionSettingsDefaults
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.service.DispatchClient

@@ -5,9 +5,9 @@ import android.content.Intent
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.config.model.AutomationRule
-import hunoia.luno.core.JsonSerializer
+import hunoia.luno.core.domain.JsonSerializer
 
 /**
  * 真 IPC 分发口（跑在 :service 进程）：跨进程拿不到静态引用，统一走 Binder，

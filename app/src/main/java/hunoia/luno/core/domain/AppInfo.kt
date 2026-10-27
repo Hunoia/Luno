@@ -1,4 +1,4 @@
-package hunoia.luno.model
+package hunoia.luno.core.domain
 
 import androidx.annotation.Keep
 import kotlinx.serialization.Serializable

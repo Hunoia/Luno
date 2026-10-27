@@ -6,7 +6,7 @@ import hunoia.luno.config.model.GlobalVariables
 import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.config.repository.cleanActions
 import hunoia.luno.config.repository.cleanStepRefs
-import hunoia.luno.action.model.runRuleId
+import hunoia.luno.core.domain.runRuleId
 import hunoia.luno.service.DispatchClient
 import hunoia.luno.runtime.condition.hasLeaf as runtimeHasLeaf
 import kotlinx.coroutines.flow.Flow

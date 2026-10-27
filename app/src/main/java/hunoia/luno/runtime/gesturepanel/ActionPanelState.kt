@@ -9,9 +9,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import hunoia.luno.action.model.TriggerType
-import hunoia.luno.action.model.StoredAction
-import hunoia.luno.action.model.longPressVariant
-import hunoia.luno.action.model.withoutVariantKey
+import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.core.domain.longPressVariant
+import hunoia.luno.core.domain.withoutVariantKey
 import hunoia.luno.config.model.ActionPanelStyle
 import hunoia.luno.config.model.GestureDirection
 import kotlinx.coroutines.CoroutineScope

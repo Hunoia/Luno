@@ -49,9 +49,9 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionCategory
 import hunoia.luno.action.definitions.ActionDefinitions
-import hunoia.luno.action.model.ActionLibraryEntry
-import hunoia.luno.action.model.matchesQuery
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.ActionLibraryEntry
+import hunoia.luno.core.domain.matchesQuery
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.gridpanel.internal.InternalWidgetDefs
 import hunoia.luno.gridpanel.widget.WidgetProviderGroup
 import hunoia.luno.gridpanel.widget.WidgetSpan

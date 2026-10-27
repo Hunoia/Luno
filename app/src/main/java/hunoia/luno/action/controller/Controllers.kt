@@ -5,9 +5,9 @@ import android.media.AudioManager
 import android.os.VibrationEffect
 import android.os.VibratorManager
 import android.view.KeyEvent
-import hunoia.luno.action.model.AudioStream
+import hunoia.luno.core.domain.AudioStream
 import hunoia.luno.action.model.MediaCommand
-import hunoia.luno.action.model.VolumeDirection
+import hunoia.luno.core.domain.VolumeDirection
 import hunoia.luno.action.model.toStreamType
 import hunoia.luno.bridge.system.copySensitiveText
 import hunoia.luno.bridge.system.dispatchMediaKeyEvent

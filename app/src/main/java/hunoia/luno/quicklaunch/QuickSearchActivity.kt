@@ -17,7 +17,7 @@ import hunoia.luno.R
 import hunoia.luno.bridge.system.PackageChangeReceiver
 import hunoia.luno.bridge.system.readClipboardText
 import hunoia.luno.bridge.ui.showToast
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent

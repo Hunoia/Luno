@@ -4,8 +4,8 @@ import androidx.lifecycle.viewModelScope
 import com.aaron.compose.base.BaseComposeVM
 import hunoia.luno.R
 import hunoia.luno.action.model.ActionDeepLink
-import hunoia.luno.action.model.ActionLibraryEntry
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.ActionLibraryEntry
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.bridge.system.copyText
 import hunoia.luno.core.AppContext
 import hunoia.luno.domain.gesture.GestureConfig

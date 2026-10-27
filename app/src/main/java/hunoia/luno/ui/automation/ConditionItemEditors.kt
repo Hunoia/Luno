@@ -31,8 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
-import hunoia.luno.action.model.AudioStream
-import hunoia.luno.action.model.VolumeDirection
+import hunoia.luno.core.domain.AudioStream
+import hunoia.luno.core.domain.VolumeDirection
 import hunoia.luno.config.model.ConditionItem
 import hunoia.luno.config.model.ConditionType
 import hunoia.luno.config.model.ConnectionDirection

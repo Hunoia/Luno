@@ -1,7 +1,7 @@
 package hunoia.luno.domain.gridpanel
 
 import hunoia.luno.action.model.ShortcutIconFiles
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AutomationRule

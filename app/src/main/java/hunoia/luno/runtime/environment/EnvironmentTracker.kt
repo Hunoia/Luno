@@ -3,7 +3,7 @@ package hunoia.luno.runtime.environment
 import android.content.res.Configuration
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import hunoia.luno.action.model.AudioStream
+import hunoia.luno.core.domain.AudioStream
 import hunoia.luno.config.model.ConnectionDirection
 import hunoia.luno.config.model.KeyboardEventType
 import hunoia.luno.config.model.NetworkType

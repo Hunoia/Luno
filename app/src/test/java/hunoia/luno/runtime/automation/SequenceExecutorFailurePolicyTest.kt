@@ -4,7 +4,7 @@ import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.core.domain.StepOutcome
 import hunoia.luno.core.domain.Capability
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.config.model.NetworkType
 import hunoia.luno.config.model.RingerMode
 import hunoia.luno.config.model.RuleStep

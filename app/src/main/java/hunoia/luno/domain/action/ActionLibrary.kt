@@ -1,7 +1,7 @@
 package hunoia.luno.domain.action
 
-import hunoia.luno.action.model.ActionLibrarySettings
-import hunoia.luno.action.model.libraryEntryId
+import hunoia.luno.core.domain.ActionLibrarySettings
+import hunoia.luno.core.domain.libraryEntryId
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.repository.cleanActions
 import hunoia.luno.config.repository.cleanStepRefs

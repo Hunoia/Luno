@@ -32,8 +32,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
-import hunoia.luno.action.model.StoredAction
-import hunoia.luno.action.model.withoutVariantKey
+import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.core.domain.withoutVariantKey
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.EditRowExtra
 import hunoia.luno.config.model.GridCell

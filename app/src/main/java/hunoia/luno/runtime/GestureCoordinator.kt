@@ -21,9 +21,9 @@ import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.core.TouchButtonSideEvent
 import hunoia.luno.bridge.ui.DensityProvider
-import hunoia.luno.action.model.StoredAction
-import hunoia.luno.action.model.actionPanelId
-import hunoia.luno.action.model.withoutVariantKey
+import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.core.domain.actionPanelId
+import hunoia.luno.core.domain.withoutVariantKey
 import hunoia.luno.runtime.condition.toConditionContext
 import hunoia.luno.runtime.condition.matches
 import hunoia.luno.runtime.condition.ConditionContext

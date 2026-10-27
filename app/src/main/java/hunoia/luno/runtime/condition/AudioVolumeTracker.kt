@@ -7,8 +7,8 @@ import android.content.IntentFilter
 import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
-import hunoia.luno.action.model.AudioStream
-import hunoia.luno.action.model.VolumeDirection
+import hunoia.luno.core.domain.AudioStream
+import hunoia.luno.core.domain.VolumeDirection
 import hunoia.luno.config.model.RingerMode
 import hunoia.luno.runtime.VolumeChange
 import hunoia.luno.action.model.toStreamType

@@ -1,10 +1,7 @@
 package hunoia.luno.core
 
 import android.content.Context
-import androidx.annotation.Keep
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
 object AppContext {
     private var appContext: Context? = null
@@ -29,21 +26,5 @@ object Paths {
     /** 快捷方式位图图标（ShortcutInfo.iconPath 指向这里）。 */
     val ShortcutIcons: String by lazy {
         "${AppContext.get().filesDir.absolutePath}/shortcut_icons"
-    }
-}
-
-@Keep
-object JsonSerializer {
-
-    val globalJson = Json {
-        ignoreUnknownKeys = true
-    }
-
-    inline fun <reified T> encodeToString(value: T): String {
-        return globalJson.encodeToString(value)
-    }
-
-    inline fun <reified T> decodeFromString(string: String): T {
-        return globalJson.decodeFromString(string)
     }
 }

@@ -3,7 +3,7 @@ package hunoia.luno.config.model
 import androidx.annotation.Keep
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.config.defaults.GestureSettingsDefaults.SubGestureTimeoutMs
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.StoredAction
 import kotlinx.serialization.Serializable
 
 @Serializable

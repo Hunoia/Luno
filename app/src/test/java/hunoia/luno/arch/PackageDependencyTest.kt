@@ -35,7 +35,6 @@ class PackageDependencyTest {
     private val pending: Set<Edge> = setOf(
         Edge("action", "runtime"),
         Edge("runtime", "action"),
-        Edge("config", "action"),
         Edge("action", "config"),
         Edge("ui", "quicklaunch"),
         Edge("quicklaunch", "ui"),

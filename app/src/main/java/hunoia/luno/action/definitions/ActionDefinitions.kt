@@ -43,11 +43,12 @@ import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.Window
 import androidx.compose.material.icons.filled.Widgets
 import hunoia.luno.action.definitions.ActionCategory
-import hunoia.luno.action.model.ACTION_PANEL_PARAM_PANEL_ID
-import hunoia.luno.action.model.ACTION_PANEL_TYPE_ID
+import hunoia.luno.core.domain.ACTION_PANEL_PARAM_PANEL_ID
+import hunoia.luno.core.domain.ACTION_PANEL_TYPE_ID
 import hunoia.luno.action.model.*
 import hunoia.luno.core.domain.Capability
 import hunoia.luno.action.model.Action
+import hunoia.luno.core.domain.GRID_PANEL_TYPE_ID
 
 object ActionDefinitions {
 

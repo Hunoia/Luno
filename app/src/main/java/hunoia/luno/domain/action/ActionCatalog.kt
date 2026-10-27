@@ -2,10 +2,10 @@ package hunoia.luno.domain.action
 
 import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ActionDefinitions
-import hunoia.luno.action.model.StoredAction
-import hunoia.luno.action.model.RUN_RULE_TYPE_ID
-import hunoia.luno.action.model.RUN_RULE_PARAM_RULE_ID
-import hunoia.luno.action.model.runRuleId
+import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.core.domain.RUN_RULE_TYPE_ID
+import hunoia.luno.core.domain.RUN_RULE_PARAM_RULE_ID
+import hunoia.luno.core.domain.runRuleId
 import hunoia.luno.config.model.AutomationRule
 
 /**

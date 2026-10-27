@@ -7,7 +7,7 @@ import hunoia.luno.action.model.Action
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.core.domain.Capability
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.StoredAction
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job

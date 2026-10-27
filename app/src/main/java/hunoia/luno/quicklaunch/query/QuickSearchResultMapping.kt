@@ -23,7 +23,7 @@ import androidx.compose.material.icons.filled.WifiTethering
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.R
 import hunoia.luno.config.model.SRC_ACTION
 import hunoia.luno.config.model.SRC_APP
@@ -111,7 +111,7 @@ fun QuickSearchResult.toSearchResult(): SearchResult {
             primary = SearchAction.Run(
                 StoredAction.of(
                     "app.launchShortcut",
-                    "data" to hunoia.luno.core.JsonSerializer.encodeToString(shortcut),
+                    "data" to hunoia.luno.core.domain.JsonSerializer.encodeToString(shortcut),
                 ),
             ),
             actions = listOf(

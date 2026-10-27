@@ -1,8 +1,8 @@
 package hunoia.luno.config.repository
 
-import hunoia.luno.action.model.StoredAction
-import hunoia.luno.action.model.longPressVariant
-import hunoia.luno.action.model.withLongPressVariant
+import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.core.domain.longPressVariant
+import hunoia.luno.core.domain.withLongPressVariant
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.DirectionActions
 import hunoia.luno.config.model.GestureButton

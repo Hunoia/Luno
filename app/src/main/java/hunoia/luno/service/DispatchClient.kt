@@ -7,9 +7,9 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import android.os.Handler
 import android.os.Looper
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.config.model.AutomationRule
-import hunoia.luno.core.JsonSerializer
+import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.runtime.automation.RuleTestResult
 
 /**

@@ -52,10 +52,10 @@ import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.action.controller.ShellController
 import hunoia.luno.action.controller.ShellResult
 import hunoia.luno.action.definitions.hasPointParams
-import hunoia.luno.action.model.PARAM_X_DP
-import hunoia.luno.action.model.PARAM_Y_DP
-import hunoia.luno.action.model.POINT_PARAM_KEYS
-import hunoia.luno.action.model.USE_TRIGGER_POINT_KEY
+import hunoia.luno.core.domain.PARAM_X_DP
+import hunoia.luno.core.domain.PARAM_Y_DP
+import hunoia.luno.core.domain.POINT_PARAM_KEYS
+import hunoia.luno.core.domain.USE_TRIGGER_POINT_KEY
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.query.ActivityOption
 import hunoia.luno.ui.component.sheet.AppPickerSheet

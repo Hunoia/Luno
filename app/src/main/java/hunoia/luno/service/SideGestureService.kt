@@ -6,8 +6,8 @@ import com.aaron.composeaccessibility.ComponentAccessibilityService
 import hunoia.luno.action.controller.TextInserter
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.AutomationRule
-import hunoia.luno.action.model.StoredAction
-import hunoia.luno.action.model.gridPanelId
+import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.core.domain.gridPanelId
 import hunoia.luno.quicklaunch.launch.DisabledPackageEnabler
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.GestureCoordinator

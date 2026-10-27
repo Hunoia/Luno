@@ -17,7 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.action.model.actionPanelId
+import hunoia.luno.core.domain.actionPanelId
 import hunoia.luno.core.ActionSelectClosedEvent
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelShownEvent

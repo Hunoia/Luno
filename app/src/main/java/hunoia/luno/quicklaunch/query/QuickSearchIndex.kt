@@ -2,12 +2,12 @@ package hunoia.luno.quicklaunch.query
 
 import android.content.Context
 import android.util.Log
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.config.model.SearchLaunch
 import hunoia.luno.config.model.effectiveLaunch
 import hunoia.luno.config.model.fillSearchQuery
 import hunoia.luno.domain.action.ActionCatalog
-import hunoia.luno.core.JsonSerializer
+import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo

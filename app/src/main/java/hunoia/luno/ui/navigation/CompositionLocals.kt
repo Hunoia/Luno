@@ -2,7 +2,7 @@ package hunoia.luno.ui.navigation
 
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.navigation.NavController
-import hunoia.luno.action.model.ActionLibraryEntry
+import hunoia.luno.core.domain.ActionLibraryEntry
 import hunoia.luno.config.model.ActionPanel
 import hunoia.luno.config.model.GridPanel
 

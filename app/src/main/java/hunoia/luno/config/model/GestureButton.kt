@@ -2,7 +2,7 @@ package hunoia.luno.config.model
 
 import androidx.annotation.Keep
 import hunoia.luno.R
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.core.AppContext
 import kotlinx.serialization.Serializable

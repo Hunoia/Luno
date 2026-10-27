@@ -15,7 +15,7 @@ import hunoia.luno.action.model.InvalidActionParameterException
 import hunoia.luno.action.model.UnknownActionTypeException
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.core.domain.Capability
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.action.template.ParamTemplates
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings

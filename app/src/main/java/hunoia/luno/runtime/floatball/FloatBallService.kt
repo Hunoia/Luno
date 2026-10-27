@@ -17,8 +17,8 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.getSystemService
 import hunoia.luno.R
-import hunoia.luno.action.model.GRID_PANEL_TYPE_ID
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.GRID_PANEL_TYPE_ID
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.bridge.system.ClipboardContent
 import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.system.readClipboardContentDetailed

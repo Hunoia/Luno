@@ -1,9 +1,9 @@
 package hunoia.luno.config.model
 
 import androidx.annotation.Keep
-import hunoia.luno.action.model.AudioStream
-import hunoia.luno.action.model.StoredAction
-import hunoia.luno.action.model.VolumeDirection
+import hunoia.luno.core.domain.AudioStream
+import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.core.domain.VolumeDirection
 import kotlinx.serialization.Serializable
 
 @Serializable

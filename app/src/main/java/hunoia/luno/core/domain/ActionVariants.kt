@@ -1,7 +1,5 @@
-package hunoia.luno.action.model
+package hunoia.luno.core.domain
 
-import hunoia.luno.core.JsonSerializer
-import hunoia.luno.quicklaunch.model.qualifiedNameWithIntents
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -118,40 +116,22 @@ fun StoredAction.hasPointParams(): Boolean {
     return x != null && y != null && x >= 0 && y >= 0
 }
 
-/** internal.volumeScrub 的配置解码（读不到落默认值）。 */
-fun StoredAction.volumeScrubConfigOrDefault(): hunoia.luno.config.model.VolumeScrubConfig {
-    if (typeId != "internal.volumeScrub") return hunoia.luno.config.model.VolumeScrubConfig()
-    val step = (params["stepThresholdDp"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
-    return hunoia.luno.config.model.VolumeScrubConfig(
-        stepThresholdDp = step ?: hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubStepThresholdDp,
-    )
-}
-
 fun StoredAction.launchPackageName(): String? {
     if (typeId != "app.launch") return null
     return (params["packageName"] as? JsonPrimitive)?.contentOrNull
 }
 
 /** app.launch 的应用引用（label 用包名兜底，仅供去重与比对）。 */
-fun StoredAction.launchAppRef(): hunoia.luno.quicklaunch.model.AppInfo? {
+fun StoredAction.launchAppRef(): AppInfo? {
     if (typeId != "app.launch") return null
     val pkg = (params["packageName"] as? JsonPrimitive)?.contentOrNull ?: return null
     val cls = (params["className"] as? JsonPrimitive)?.contentOrNull.orEmpty()
-    return hunoia.luno.quicklaunch.model.AppInfo(
+    return AppInfo(
         packageName = pkg,
         className = cls,
         label = pkg,
         miniWindow = launchMiniWindow(),
     )
-}
-
-/** app.launchShortcut 内嵌的快捷方式标识（解 data JSON，用于去重与比对）。 */
-fun StoredAction.shortcutQualifiedName(): String? {
-    if (typeId != "app.launchShortcut") return null
-    val data = (params["data"] as? JsonPrimitive)?.contentOrNull ?: return null
-    return runCatching {
-        JsonSerializer.decodeFromString<hunoia.luno.quicklaunch.model.LauncherInfo.ShortcutInfo>(data)
-    }.getOrNull()?.qualifiedNameWithIntents
 }
 
 fun StoredAction.withLaunchMiniWindow(miniWindow: Boolean): StoredAction {

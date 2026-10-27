@@ -44,7 +44,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import hunoia.luno.R
-import hunoia.luno.action.model.ActionLibrarySettings
+import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.domain.automation.AutomationCenter
 import hunoia.luno.domain.automation.RuleTestResult
 import hunoia.luno.config.model.AutomationRule

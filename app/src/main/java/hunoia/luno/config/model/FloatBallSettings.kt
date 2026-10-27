@@ -2,7 +2,7 @@ package hunoia.luno.config.model
 
 import android.graphics.Color as AndroidColor
 import androidx.annotation.Keep
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.StoredAction
 import kotlinx.serialization.Serializable
 
 /**

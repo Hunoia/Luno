@@ -1,7 +1,7 @@
 package hunoia.luno.config.model
 
 import androidx.annotation.Keep
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.config.defaults.GestureSettingsDefaults
 import hunoia.luno.config.defaults.InitialSettingsDefaults.GestureEnabled
 import kotlinx.serialization.Serializable

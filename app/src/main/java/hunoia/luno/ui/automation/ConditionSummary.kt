@@ -2,7 +2,7 @@ package hunoia.luno.ui.automation
 
 import android.content.Context
 import hunoia.luno.R
-import hunoia.luno.action.model.AudioStream
+import hunoia.luno.core.domain.AudioStream
 import hunoia.luno.config.model.BooleanMode
 import hunoia.luno.config.model.ConditionItem
 import hunoia.luno.config.model.ConditionType

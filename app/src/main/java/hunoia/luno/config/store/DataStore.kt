@@ -5,7 +5,7 @@ import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.MultiProcessDataStoreFactory
 import androidx.datastore.core.Serializer
-import hunoia.luno.core.JsonSerializer
+import hunoia.luno.core.domain.JsonSerializer
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream

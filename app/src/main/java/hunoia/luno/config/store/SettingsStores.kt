@@ -1,7 +1,7 @@
 package hunoia.luno.config.store
 
 import androidx.datastore.core.DataStore
-import hunoia.luno.action.model.ActionLibrarySettings
+import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.AppUsageStats

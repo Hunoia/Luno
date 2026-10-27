@@ -3,7 +3,7 @@ package hunoia.luno.quicklaunch.query
 import android.content.Intent
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.StoredAction
 
 /**
  * 快速搜索的展示层结果：Activity 只认识 [SearchAction]，不再按联系人/短信/文件等

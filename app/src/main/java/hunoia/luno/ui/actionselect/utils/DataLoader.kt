@@ -1,13 +1,13 @@
 package hunoia.luno.ui.actionselect
 
 import hunoia.luno.action.definitions.ActionDefinitions
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.action.model.ShortcutIconFiles
-import hunoia.luno.action.model.hasPointParams
-import hunoia.luno.action.model.launchAppRef
-import hunoia.luno.action.model.longPressVariant
-import hunoia.luno.action.model.withoutVariantKey
-import hunoia.luno.action.model.withLongPressVariant
+import hunoia.luno.core.domain.hasPointParams
+import hunoia.luno.core.domain.launchAppRef
+import hunoia.luno.core.domain.longPressVariant
+import hunoia.luno.core.domain.withoutVariantKey
+import hunoia.luno.core.domain.withLongPressVariant
 import hunoia.luno.domain.action.ActionCatalog
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.automation.AutomationCenter
@@ -25,7 +25,7 @@ import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.config.model.GridPanelItemLayout
 import hunoia.luno.core.AppContext
 import hunoia.luno.gridpanel.geometry.gridPanelVisibleRows
-import hunoia.luno.core.JsonSerializer
+import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.gridpanel.widget.PanelAppWidgetHost
 import hunoia.luno.gridpanel.widget.WidgetSpan
 import hunoia.luno.quicklaunch.model.LauncherInfo

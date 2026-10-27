@@ -7,6 +7,11 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
+import hunoia.luno.core.domain.PARAM_X_DP
+import hunoia.luno.core.domain.PARAM_Y_DP
+import hunoia.luno.core.domain.USE_TRIGGER_POINT_KEY
+import hunoia.luno.core.domain.GRID_PANEL_PARAM_PANEL_ID
+import hunoia.luno.core.domain.ACTION_PANEL_TYPE_ID
 
 /** 存储里的 typeId 在定义表中不存在（数据损坏、外部构造的备份）。 */
 class UnknownActionTypeException(val typeId: String) :

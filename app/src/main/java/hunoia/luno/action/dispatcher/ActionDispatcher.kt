@@ -41,6 +41,8 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlin.coroutines.CoroutineContext
 import hunoia.luno.core.LOG_TAG
+import hunoia.luno.core.domain.withoutVariantKey
+import hunoia.luno.core.domain.hasPointParams
 
 /**
  * 统一分发口（单 Dispatcher）：找定义 → 校验参数 → 查能力闸 → 调执行，同步返回三态。

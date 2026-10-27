@@ -1,6 +1,6 @@
 package hunoia.luno.quicklaunch.query
 
-import hunoia.luno.action.model.ActionLibraryEntry
+import hunoia.luno.core.domain.ActionLibraryEntry
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.QuickSearchSettings
 

@@ -4,7 +4,7 @@ import hunoia.luno.config.model.AutomationRuleNormalizer
 import hunoia.luno.config.model.Backup
 import hunoia.luno.config.model.BackupVersions
 import hunoia.luno.config.model.InitialSettings
-import hunoia.luno.core.JsonSerializer
+import hunoia.luno.core.domain.JsonSerializer
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

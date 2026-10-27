@@ -39,8 +39,8 @@ class SearchLaunchActionTest {
             urlTemplate = "https://example/?q=%s",
             launch = SearchLaunch.Share("搜索：%q", "com.example"),
         )
-        val decoded = hunoia.luno.core.JsonSerializer.decodeFromString<hunoia.luno.config.model.SearchEngine>(
-            hunoia.luno.core.JsonSerializer.encodeToString(engine),
+        val decoded = hunoia.luno.core.domain.JsonSerializer.decodeFromString<hunoia.luno.config.model.SearchEngine>(
+            hunoia.luno.core.domain.JsonSerializer.encodeToString(engine),
         )
         assertEquals(engine, decoded)
     }

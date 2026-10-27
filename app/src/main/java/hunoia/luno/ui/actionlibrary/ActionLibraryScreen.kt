@@ -33,7 +33,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
 import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionDefinitions
-import hunoia.luno.action.model.ActionLibraryEntry
+import hunoia.luno.core.domain.ActionLibraryEntry
 import hunoia.luno.action.definitions.ActionCategory
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive

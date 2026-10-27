@@ -1,7 +1,7 @@
 package hunoia.luno.action.template
 
 import android.content.Context
-import hunoia.luno.action.model.AudioStream
+import hunoia.luno.core.domain.AudioStream
 import hunoia.luno.bridge.system.readClipboardText
 import hunoia.luno.config.model.RingerMode
 import hunoia.luno.runtime.condition.ConditionContext

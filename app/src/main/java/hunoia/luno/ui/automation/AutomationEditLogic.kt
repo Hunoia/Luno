@@ -2,7 +2,7 @@ package hunoia.luno.ui.automation
 
 import android.content.Context
 import hunoia.luno.R
-import hunoia.luno.action.model.ActionLibrarySettings
+import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.BooleanMode
 import hunoia.luno.config.model.ConditionItem

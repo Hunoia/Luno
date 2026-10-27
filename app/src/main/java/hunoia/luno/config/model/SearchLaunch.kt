@@ -1,6 +1,6 @@
 package hunoia.luno.config.model
 
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.StoredAction
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement

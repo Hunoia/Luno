@@ -2,7 +2,7 @@ package hunoia.luno.runtime.condition
 
 import android.app.NotificationManager
 import android.app.PendingIntent
-import hunoia.luno.action.model.AudioStream
+import hunoia.luno.core.domain.AudioStream
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.BooleanMode
 import hunoia.luno.config.model.ConditionItem

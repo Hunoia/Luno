@@ -2,8 +2,8 @@ package hunoia.luno.runtime.automation
 
 import android.os.SystemClock
 import hunoia.luno.core.domain.ActionResult
-import hunoia.luno.action.model.RUN_RULE_TYPE_ID
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.RUN_RULE_TYPE_ID
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.model.RuleStepKind
 import hunoia.luno.config.model.SequenceLimits

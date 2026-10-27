@@ -1,8 +1,8 @@
 package hunoia.luno.runtime
 
 import android.os.SystemClock
-import hunoia.luno.action.model.AudioStream
-import hunoia.luno.action.model.VolumeDirection
+import hunoia.luno.core.domain.AudioStream
+import hunoia.luno.core.domain.VolumeDirection
 import hunoia.luno.config.model.KeyboardEventType
 import hunoia.luno.config.model.NetworkType
 import hunoia.luno.config.model.PlaybackDirection

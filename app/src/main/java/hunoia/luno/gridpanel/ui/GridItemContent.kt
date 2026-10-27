@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.imageLoader
 import androidx.compose.ui.platform.LocalContext
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.widget.WidgetLoadState
 import hunoia.luno.ui.component.TextIcon

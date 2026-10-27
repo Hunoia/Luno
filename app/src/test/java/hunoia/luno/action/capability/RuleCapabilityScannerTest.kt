@@ -1,10 +1,10 @@
 package hunoia.luno.action.capability
 
-import hunoia.luno.action.model.ActionLibraryEntry
-import hunoia.luno.action.model.ActionLibrarySettings
+import hunoia.luno.core.domain.ActionLibraryEntry
+import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.core.domain.Capability
-import hunoia.luno.action.model.RUN_RULE_TYPE_ID
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.RUN_RULE_TYPE_ID
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.ConditionItem
 import hunoia.luno.config.model.ConditionType

@@ -10,7 +10,7 @@ import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.bridge.system.queryIntentActivitiesCompat
 import hunoia.luno.config.model.AdvancedSettings
-import hunoia.luno.core.JsonSerializer
+import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.launch.AppLaunchBypass
 import hunoia.luno.quicklaunch.model.LauncherInfo

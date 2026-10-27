@@ -50,9 +50,9 @@ import com.aaron.compose.ktx.clipToBackground
 import com.aaron.compose.ktx.toPx
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-import hunoia.luno.action.model.StoredAction
-import hunoia.luno.action.model.launchMiniWindow
-import hunoia.luno.action.model.ActionLibrarySettings
+import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.core.domain.launchMiniWindow
+import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.config.model.ActionPanelStyle
 import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.domain.action.ActionLibrary

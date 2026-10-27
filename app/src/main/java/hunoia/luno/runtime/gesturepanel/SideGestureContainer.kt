@@ -14,8 +14,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
-import hunoia.luno.action.model.StoredAction
-import hunoia.luno.action.model.actionPanelId
+import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.core.domain.actionPanelId
 import hunoia.luno.action.model.volumeScrubConfigOrDefault
 import hunoia.luno.core.Events
 import hunoia.luno.core.BallTapActionEvent

@@ -43,7 +43,7 @@ import hunoia.luno.BuildConfig
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.AppUsageStats
-import hunoia.luno.action.model.ActionLibrarySettings
+import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.config.model.MAX_CLIP_HISTORY
 import hunoia.luno.config.model.MIN_HISTORY_CHARS
 import hunoia.luno.config.model.SRC_CLIP
