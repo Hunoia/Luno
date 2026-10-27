@@ -1,7 +1,6 @@
-package hunoia.luno.domain.clipboard
+package hunoia.luno.clipboard
 
 import android.util.Log
-import hunoia.luno.R
 import hunoia.luno.bridge.system.ClipboardContent
 import hunoia.luno.bridge.system.copyImage
 import hunoia.luno.bridge.system.copyText
@@ -33,6 +32,15 @@ object ClipboardCenter {
      */
     private var lastRecorded: ClipboardContent? = null
 
+    /**
+     * 记录成功后的外部回调（自动化脉冲）。
+     *
+     * 归 `:core:data` 的剪贴板访问不该 import 自动化模块，所以由 `:app` 注入；
+     * 未注入时只记历史、不发脉冲。
+     */
+    @Volatile
+    var onRecorded: ((String) -> Unit)? = null
+
     /** 读当前主剪贴项：Shizuku 可用走 shell 桥，否则应用内直读。 */
     suspend fun readCurrent(): ClipboardContent? = withContext(Dispatchers.IO) {
         val status = runCatching { ShizukuManager.currentStatus() }.getOrNull()
@@ -60,7 +68,7 @@ object ClipboardCenter {
             previous != content
         }
         if (changed) {
-            hunoia.luno.runtime.automation.AutomationPulseHub.fireClipboard(text)
+            onRecorded?.invoke(text)
         }
         val scope = AppContext.applicationScope ?: return
         scope.launch(Dispatchers.IO) {
@@ -81,7 +89,10 @@ object ClipboardCenter {
         copyImage(AppContext.get(), clipboardLabel(), uri)
     }
 
-    private fun clipboardLabel(): String = AppContext.get().getString(R.string.app_name)
+    private fun clipboardLabel(): String = runCatching {
+        val context = AppContext.get()
+        context.applicationInfo.loadLabel(context.packageManager).toString()
+    }.getOrDefault("Luno")
 
     fun remove(id: String) {
         val scope = AppContext.applicationScope ?: return

@@ -920,6 +920,5 @@
     <string name="link_dispatch_select_hint">共 %1$d 条链接，点按分发，长按分享</string>
     <string name="link_dispatch_select_target">发往 %1$s · %2$s</string>
     <string name="link_dispatch_select_no_target">未匹配规则 · %1$s</string>
-    <string name="clipboard_link_count">%1$d 条</string>
     <string name="clipboard_link_target">%1$s</string>
 </resources>

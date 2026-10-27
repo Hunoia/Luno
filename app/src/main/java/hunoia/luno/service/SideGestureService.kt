@@ -155,6 +155,13 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         current = this
         if (::gestureCoordinator.isInitialized) gestureCoordinator.onDestroy()
         gestureCoordinator = GestureCoordinator(this)
+        // 球侧（:feature:floatball）经注入点下发命令，避免反向依赖宿主服务。
+        hunoia.luno.gesture.GestureCommand.showGridPanel = { action, anchorX, anchorY ->
+            showGridPanelDirect(action, anchorX, anchorY)
+        }
+        hunoia.luno.gesture.GestureCommand.forwardBallTap = { action, anchorX, anchorY, color ->
+            forwardBallTap(action, anchorX, anchorY, color)
+        }
         gestureCoordinator.onSetOverlay()
     }
 

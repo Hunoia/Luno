@@ -42,7 +42,6 @@ class PackageDependencyTest {
         Edge("runtime", "ui"),
         Edge("ui", "runtime"),
         Edge("domain", "runtime"),
-        Edge("runtime", "domain"),
         Edge("service", "ui"),
         Edge("ui", "service"),
     )

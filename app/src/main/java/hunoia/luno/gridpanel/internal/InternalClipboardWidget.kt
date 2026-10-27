@@ -65,7 +65,7 @@ import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.ClipboardHistory
 import hunoia.luno.config.model.ClipboardHistoryEntry
 import hunoia.luno.core.AppContext
-import hunoia.luno.domain.clipboard.ClipboardCenter
+import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.gridpanel.LocalGridPanelClose
 import hunoia.luno.gridpanel.LocalGridPanelDragGhost
 import hunoia.luno.gridpanel.geometry.ItemCorner

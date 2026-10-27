@@ -49,6 +49,30 @@ object AppLinkPorts : LinkPorts {
         )
     }
 
+    override fun pickLinks(urls: List<String>) {
+        val context = AppLinkPorts.context ?: return
+        context.startActivity(
+            Intent().apply {
+                component = ComponentName(context.packageName, LinkExtras.ACTIVITY_SELECT)
+                putStringArrayListExtra(LinkExtras.EXTRA_URLS, ArrayList(urls))
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            },
+        )
+    }
+
+    override fun mainActivityIntent(): Intent {
+        val context = AppLinkPorts.context
+        return Intent().apply {
+            if (context != null) {
+                component = ComponentName(context.packageName, LinkExtras.ACTIVITY_MAIN)
+            } else {
+                action = Intent.ACTION_MAIN
+                addCategory(Intent.CATEGORY_LAUNCHER)
+            }
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+    }
+
     override fun pickApp(url: String) {
         val context = AppLinkPorts.context ?: return
         context.startActivity(

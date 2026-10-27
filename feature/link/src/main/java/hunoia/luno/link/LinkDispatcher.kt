@@ -38,6 +38,12 @@ interface LinkPorts {
 
     /** 选择应用打开链接（应用内选择页）。 */
     fun pickApp(url: String)
+
+    /** 多条链接的选择页（胶囊一次识别到多条时）。 */
+    fun pickLinks(urls: List<String>)
+
+    /** 主界面 Intent（通知点击等需要 PendingIntent 的场景）。 */
+    fun mainActivityIntent(): android.content.Intent
 }
 
 /**
@@ -203,6 +209,12 @@ class LinkDispatcher(private val ports: LinkPorts) {
         runCatching { ports.pickApp(url) }
             .onFailure { Log.w(LOG_TAG, "link picker launch failed", it) }
     }
+
+    /** 多条链接选择页（应用内导航，委托端口）。 */
+    fun pickLinks(urls: List<String>) = ports.pickLinks(urls)
+
+    /** 主界面 Intent（通知 PendingIntent 用）。 */
+    fun mainActivityIntent(): Intent = ports.mainActivityIntent()
 
     /** 按未命中策略回退；[policy] 见 [LinkMissMode]。 */
     fun fallback(context: Context, url: String, policy: LinkMissMode) {

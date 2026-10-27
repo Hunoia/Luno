@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="clipboard_link_count">%1$d 条</string>
+</resources>

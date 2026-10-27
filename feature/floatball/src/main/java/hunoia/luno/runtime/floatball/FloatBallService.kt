@@ -16,7 +16,7 @@ import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.getSystemService
-import hunoia.luno.R
+import hunoia.luno.floatball.R
 import hunoia.luno.core.domain.GRID_PANEL_TYPE_ID
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.bridge.system.ClipboardContent
@@ -34,20 +34,17 @@ import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.core.TouchButtonSideEvent
 import hunoia.luno.config.model.LinkDispatchSettings
 import hunoia.luno.config.model.LinkTapMode
-import hunoia.luno.domain.clipboard.ClipboardCenter
+import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.link.Links
 import hunoia.luno.link.LinkUrls
-import hunoia.luno.ui.link.LinkSelectionActivity
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.automation.AutomationNotificationListener
 import hunoia.luno.runtime.automation.AutomationPulseHub
 import hunoia.luno.runtime.automation.NotificationContentIntents
 import hunoia.luno.runtime.condition.NotificationPulse
 import hunoia.luno.runtime.environment.BroadcastObserver
-import hunoia.luno.service.SideGestureService
 import hunoia.luno.shizuku.ShizukuClipboard
 import hunoia.luno.shizuku.ShizukuManager
-import hunoia.luno.ui.MainActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -886,7 +883,7 @@ class FloatBallService : Service() {
      */
     private fun onClipboardLinkTapped(links: List<String>, content: ClipboardContent) {
         if (links.size > 1) {
-            val launched = runCatching { startActivity(LinkSelectionActivity.intent(this, links)) }
+            val launched = runCatching { Links.pickLinks(links) }
                 .onFailure { Log.w(TAG, "link selection launch failed: ${it.message}") }
                 .isSuccess
             if (launched) hideClipboardBall()
@@ -989,10 +986,10 @@ class FloatBallService : Service() {
         // a11y 运行态），球侧只转交入口 —— 无障碍没开照样弹，这是「无 a11y 可用」的主路径。
         // 触钮/子手势绑它的路径仍走容器 executor，同一个 GridPanelOverlay.show 入口。
         if (action.typeId == GRID_PANEL_TYPE_ID) {
-            SideGestureService.current?.showGridPanelDirect(action, anchorX, anchorY)
+            hunoia.luno.gesture.GestureCommand.showGridPanel?.invoke(action, anchorX, anchorY)
             return
         }
-        SideGestureService.current?.forwardBallTap(action, anchorX, anchorY, settings.color)
+        hunoia.luno.gesture.GestureCommand.forwardBallTap?.invoke(action, anchorX, anchorY, settings.color)
     }
 
     // ---- 分身（mirrorBall） ----
@@ -1175,11 +1172,11 @@ class FloatBallService : Service() {
             },
         )
         val pendingIntent = PendingIntent.getActivity(
-            this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE,
+            this, 0, Links.mainActivityIntent(), PendingIntent.FLAG_IMMUTABLE,
         )
         val notification = Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("悬浮球待命")
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(android.R.drawable.stat_notify_sync)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .build()
