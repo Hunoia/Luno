@@ -22,6 +22,8 @@ dependencies {
     api(project(":core:common"))
     api(project(":core:domain"))
     api(project(":core:bridge"))
+    // 偏差（同 conditions/automation/link）：音量刮擦默认值等配置模型在 :core:data。
+    api(project(":core:data"))
     api(project(":feature:execute"))
     // 动作展示 UI（图标/标题/行内组件）：动作扩展面自带的展示能力。
     api(project(":ui:design"))

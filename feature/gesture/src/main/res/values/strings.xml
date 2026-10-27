@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 手势面板/触钮文案。 -->
+    <string name="long_press">长按</string>
+    <string name="tap">单击</string>
+</resources>

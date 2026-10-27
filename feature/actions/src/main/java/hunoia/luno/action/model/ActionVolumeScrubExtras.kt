@@ -7,17 +7,12 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
 /**
- * 依赖配置默认值的 StoredAction 扩展，暂留 `:app`。
+ * `internal.volumeScrub` 的参数解码（读不到落默认值）。
  *
- * `shortcutQualifiedName` 已迁 `:feature:search`（它需要查询侧的 `LauncherInfo`）；
- * 本文件只剩音量刮擦阈值解码，等 `:feature:actions` 允许依赖配置模型后一并迁走。
+ * 归 `:feature:actions`：参数形态与默认值都是动作侧知识；手势面板/选择页只调用它。
  */
-
-/** internal.volumeScrub 的配置解码（读不到落默认值）。 */
 fun StoredAction.volumeScrubConfigOrDefault(): VolumeScrubConfig {
     if (typeId != "internal.volumeScrub") return VolumeScrubConfig()
     val step = (params["stepThresholdDp"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
-    return VolumeScrubConfig(
-        stepThresholdDp = step ?: VolumeScrubStepThresholdDp,
-    )
+    return VolumeScrubConfig(stepThresholdDp = step ?: VolumeScrubStepThresholdDp)
 }
