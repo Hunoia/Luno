@@ -9,6 +9,7 @@ import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.ClipboardHistory
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
+import hunoia.luno.config.model.GlobalVariables
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.QuickAppSnapshot
@@ -30,6 +31,7 @@ class SettingsStores(
     internal val _subGestureSettings: DataStore<SubGestureSettings>,
     internal val _actionLibrarySettings: DataStore<ActionLibrarySettings>,
     internal val _automationRules: DataStore<List<AutomationRule>>,
+    internal val _automationVariables: DataStore<GlobalVariables>,
     internal val _automationLog: DataStore<List<hunoia.luno.runtime.automation.AutomationEvent>>,
     internal val _quickAppSnapshot: DataStore<QuickAppSnapshot>,
     internal val _quickSearchSettings: DataStore<QuickSearchSettings>,
@@ -45,6 +47,7 @@ class SettingsStores(
     val subGestureSettings: Flow<SubGestureSettings> = _subGestureSettings.data
     val actionLibrarySettings: Flow<ActionLibrarySettings> = _actionLibrarySettings.data
     val automationRules: Flow<List<AutomationRule>> = _automationRules.data
+    val automationVariables: Flow<GlobalVariables> = _automationVariables.data.map { it.normalized() }
     val automationLog: Flow<List<hunoia.luno.runtime.automation.AutomationEvent>> = _automationLog.data
     val quickSearchSettings: Flow<QuickSearchSettings> =
         _quickSearchSettings.data.map { it.withUniqueEngineTriggers() }
@@ -67,6 +70,7 @@ class SettingsStores(
                 _subGestureSettings = ctx.dataStore(DataStoreFiles.SUB_GESTURE_SETTINGS, SubGestureSettings()),
                 _actionLibrarySettings = ctx.dataStore(DataStoreFiles.ACTION_LIBRARY_SETTINGS, ActionLibrarySettings()),
                 _automationRules = ctx.dataStore(DataStoreFiles.AUTOMATION_RULES, AutomationRule.Defaults),
+                _automationVariables = ctx.dataStore(DataStoreFiles.AUTOMATION_VARIABLES, GlobalVariables()),
                 _automationLog = ctx.dataStore(DataStoreFiles.AUTOMATION_LOG, emptyList()),
                 _quickAppSnapshot = ctx.dataStore(DataStoreFiles.QUICK_APP_SNAPSHOT, QuickAppSnapshot()),
                 _quickSearchSettings = ctx.dataStore(DataStoreFiles.QUICK_SEARCH_SETTINGS, QuickSearchSettings()),

@@ -52,6 +52,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.config.model.AutomationRule
+import hunoia.luno.config.model.GlobalVariable
+import hunoia.luno.config.model.GlobalVariables
 import hunoia.luno.config.model.RulePriority
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.automation.AutomationCenter
@@ -89,6 +91,9 @@ fun AutomationRulesTabContent(
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val library by ActionLibrary.settings
         .collectAsStateWithLifecycle(initialValue = null)
+    val variables by AutomationCenter.variables
+        .collectAsStateWithLifecycle(initialValue = GlobalVariables())
+    var showVariables by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     fun submit(next: List<AutomationRule>) {
         scope.launch {
@@ -135,6 +140,14 @@ fun AutomationRulesTabContent(
                 EmptyState(message = stringResource(R.string.automation_empty))
             }
         }
+        item(key = "variables") {
+            hunoia.luno.ui.component.row.LunoSettingsRow(
+                title = stringResource(R.string.automation_variables),
+                subtitle = stringResource(R.string.automation_variables_count, variables.entries.size),
+                onClick = { showVariables = true },
+                modifier = Modifier.padding(horizontal = PageGutter),
+            )
+        }
         items(ordered, key = { it.id }) { rule ->
             val conditionText = conditionSummary(context, rule.condition)
             // 预览前两步（延时 + 动作），其余用 +N；只看首步会把「延时 0 秒」当成全部效果。
@@ -147,10 +160,17 @@ fun AutomationRulesTabContent(
                 if (steps.size > 2) "$shown  +${steps.size - 2}" else shown
             }
             val lastRunMs = lastRunByRule[rule.id]
+            val permissionText = remember(rule, rules, library) {
+                capabilityWarningText(
+                    context,
+                    AutomationCenter.capabilityReport(context, rule, rules, library),
+                )
+            }
             RuleCard(
                 rule = rule,
                 conditionText = conditionText,
                 effectText = effectText,
+                permissionText = permissionText,
                 lastRunText = lastRunMs?.let {
                     DateUtils.getRelativeTimeSpanString(it, now, DateUtils.MINUTE_IN_MILLIS).toString()
                 } ?: stringResource(R.string.rule_never_run),
@@ -175,6 +195,18 @@ fun AutomationRulesTabContent(
             )
         }
     }
+    if (showVariables) {
+        GlobalVariablesSheet(
+            initial = variables,
+            onDismissRequest = { showVariables = false },
+            onSave = { entries ->
+                scope.launch {
+                    AutomationCenter.updateVariables { GlobalVariables(entries) }
+                }
+                showVariables = false
+            },
+        )
+    }
 }
 
 @Composable
@@ -182,6 +214,7 @@ private fun RuleCard(
     rule: AutomationRule,
     conditionText: String,
     effectText: String,
+    permissionText: String?,
     lastRunText: String,
     running: Boolean,
     onStop: () -> Unit,
@@ -260,6 +293,15 @@ private fun RuleCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (permissionText != null) {
+                Text(
+                    text = permissionText,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }

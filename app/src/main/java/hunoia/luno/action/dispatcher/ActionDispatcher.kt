@@ -16,6 +16,7 @@ import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
+import hunoia.luno.config.model.GlobalVariables
 import hunoia.luno.config.model.VolumeScrubConfig
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.runtime.GestureHost
@@ -59,6 +60,8 @@ class ActionDispatcher(
     private val onShowPointer: () -> Boolean,
     private val onHideGestureButton: (GestureButton?, Long) -> Unit,
     private val onHideGestureButtons: (ButtonTarget, List<String>, Long) -> Unit,
+    /** 全局变量写入后通知引擎重评变量条件（携带新值，避免 DataStore 回填延迟）。 */
+    private val onGlobalVariableChanged: (name: String, value: String) -> Unit = { _, _ -> },
 ) {
     private val capabilityGate = CapabilityGate(host.context.applicationContext)
 
@@ -73,6 +76,7 @@ class ActionDispatcher(
             ),
             AccessibilityExecutors(AccessibilityController(host.accessibilityService)),
             ShellExecutor(ShellController()),
+            AutomationActionExecutors(ClipboardController(host.context.applicationContext)),
             InternalExecutors(),
         ),
         isCapabilityAvailable = capabilityGate::isAvailable,
@@ -120,7 +124,9 @@ class ActionDispatcher(
         stored: StoredAction,
         sourceButton: GestureButton?,
         touchPosition: Pair<Int, Int>? = null,
-        templateContext: () -> ConditionContext? = { runtimeState().toConditionContext() },
+        templateContext: () -> ConditionContext? = {
+            runtimeState().toConditionContext(settingsSnapshot().globalVariables.toTemplateMap())
+        },
         /** 手势触发类型（手势链路传入）；overlay 直调用默认 null。 */
         gestureTrigger: hunoia.luno.config.model.GestureTriggerType? = null,
         /** 是否源自手势链路：只有它为 true，分发落定事件才会驱动 GESTURE 域评估。 */
@@ -216,6 +222,7 @@ class ActionDispatcher(
             Capability.Accessibility -> R.string.toast_accessibility_required
             Capability.Shizuku -> R.string.toast_shizuku_required
             Capability.None -> R.string.toast_execution_failed
+            Capability.Notification -> R.string.toast_notification_required
         }
     )
 
@@ -259,10 +266,10 @@ class ActionDispatcher(
             templateValues = { used ->
                 val runtime = templateContext()
                 val system = if (runtime == null) emptyMap() else RuntimeVariables.resolve(used, runtime, context)
-                // 局部变量覆盖同名系统 token，SET_VAR 才能改写模板取值。
-                system + localVariables
+                // 局部变量覆盖同名系统/全局 token，SET_VAR 才能改写模板取值。
+                system + settingsSnapshot().globalVariables.toTemplateMap() + localVariables
             },
-            runRule = { ruleId, ctx -> runRuleSteps(ruleId, ctx) },
+            runRule = { ruleId, params, ctx -> runRuleSteps(ruleId, params, ctx) },
         )
     }
 
@@ -273,7 +280,11 @@ class ActionDispatcher(
      * [SequenceExecutor]，delay/if 与步数/超时守卫和引擎路径一致；
      * 内层步骤按自身失败策略处理，未被 SKIP 的失败使整体失败。
      */
-    private suspend fun runRuleSteps(ruleId: String, ctx: ExecutorContext): ActionResult {
+    private suspend fun runRuleSteps(
+        ruleId: String,
+        params: Map<String, String>,
+        ctx: ExecutorContext,
+    ): ActionResult {
         val depth = currentCoroutineContext()[RuleDepth]?.depth ?: 0
         if (depth >= SequenceGuards.MAX_RULE_DEPTH) {
             return ActionResult.Failed(ActionFailure.ExecutionFailed, "rule_depth_capped")
@@ -288,6 +299,16 @@ class ActionDispatcher(
             return ActionResult.Failed(ActionFailure.ExecutionFailed, "rule_no_steps:$ruleId")
         }
         val templateCtx = ctx.templateContext() ?: return ActionResult.Failed(ActionFailure.ExecutionFailed)
+        // 子规则作用域：全局变量 + 本次调用参数（缺省用规则定义里的默认值）。
+        // 父规则局部变量不向下泄漏，避免同名变量被意外覆盖。
+        val variables = settingsSnapshot().globalVariables.toTemplateMap().toMutableMap()
+        rule.params.forEach { param ->
+            val provided = params[param.name]
+            val value = provided ?: runCatching {
+                resolveStepTemplate(param.defaultValue, templateCtx, variables)
+            }.getOrDefault(param.defaultValue)
+            variables["param.${param.name}"] = value
+        }
         return withContext(RuleDepth(depth + 1)) {
             val nested = SequenceExecutor(
                 runSingleAction = { action, _, vars ->
@@ -296,11 +317,18 @@ class ActionDispatcher(
                 resolveTemplate = { text, _, vars ->
                     resolveStepTemplate(text, templateCtx, vars)
                 },
+                writeGlobalVariable = { name, value ->
+                    hunoia.luno.config.ConfigProvider.setGlobalVariable(name, value)
+                    onGlobalVariableChanged(name, value)
+                },
             )
-            val records = nested.runSteps(steps, templateCtx)
-            val failed = records.firstOrNull { !it.ok && !it.skipped }
+            val result = nested.runStepsWithResult(steps, templateCtx, variables)
+            val failed = result.records.firstOrNull { !it.ok && !it.skipped }
             if (failed == null) {
-                ActionResult.Success()
+                val returned = result.variables["return"]
+                ActionResult.Success(
+                    outputs = if (returned == null) emptyMap() else mapOf("return" to returned),
+                )
             } else {
                 ActionResult.Failed(
                     ActionFailure.ExecutionFailed,
@@ -319,6 +347,8 @@ data class SettingsSnapshot(
     val actionLibrarySettings: ActionLibrarySettings = ActionLibrarySettings(),
     /** runRule 目标查找：快照直读，不额外走 DataStore（Main 上安全）。 */
     val automationRules: List<AutomationRule> = emptyList(),
+    /** 全局变量模板快照（key 带 var. 前缀）。 */
+    val globalVariables: GlobalVariables = GlobalVariables(),
 )
 
 /** runRule 嵌套深度：随协程上下文传递，顶层触发天然从 0 起。 */

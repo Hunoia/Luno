@@ -68,6 +68,7 @@ val LEVEL_CONDITION_TYPES: List<ConditionTypeSpec> = listOf(
     ConditionTypeSpec(ConditionType.AIRPLANE_MODE, R.string.condition_airplane_mode),
     ConditionTypeSpec(ConditionType.TORCH_ON, R.string.condition_torch_on),
     ConditionTypeSpec(ConditionType.DND_ON, R.string.condition_dnd_on),
+    ConditionTypeSpec(ConditionType.VAR_COMPARE, R.string.condition_var_compare),
 )
 val EVENT_CONDITION_TYPES: List<ConditionTypeSpec> = listOf(
     ConditionTypeSpec(ConditionType.APP_CHANGED_TO, R.string.condition_app_changed),
@@ -197,9 +198,29 @@ fun defaultConditionOf(type: String): ConditionItem = when (type) {
     ConditionType.TORCH_CHANGED -> ConditionItem(type, torchChangedTo = true)
     ConditionType.DND_ON -> ConditionItem(type, dndOn = true)
     ConditionType.DND_CHANGED -> ConditionItem(type, dndChangedTo = true)
+    ConditionType.VAR_COMPARE -> ConditionItem(
+        type,
+        compareOp = hunoia.luno.config.model.VariableCompareOp.EQUALS,
+    )
     ConditionType.GROUP -> ConditionItem(type, group = WhenGroup())
     else -> ConditionItem(type)
 }
+fun variableCompareOpLabel(context: Context, op: String): String = context.getString(
+    when (op) {
+        hunoia.luno.config.model.VariableCompareOp.EQUALS -> R.string.condition_var_op_eq
+        hunoia.luno.config.model.VariableCompareOp.NOT_EQUALS -> R.string.condition_var_op_neq
+        hunoia.luno.config.model.VariableCompareOp.GREATER -> R.string.condition_var_op_gt
+        hunoia.luno.config.model.VariableCompareOp.GREATER_OR_EQUALS -> R.string.condition_var_op_gte
+        hunoia.luno.config.model.VariableCompareOp.LESS -> R.string.condition_var_op_lt
+        hunoia.luno.config.model.VariableCompareOp.LESS_OR_EQUALS -> R.string.condition_var_op_lte
+        hunoia.luno.config.model.VariableCompareOp.CONTAINS -> R.string.condition_var_op_contains
+        hunoia.luno.config.model.VariableCompareOp.STARTS_WITH -> R.string.condition_var_op_starts
+        hunoia.luno.config.model.VariableCompareOp.ENDS_WITH -> R.string.condition_var_op_ends
+        hunoia.luno.config.model.VariableCompareOp.IS_EMPTY -> R.string.condition_var_op_empty
+        else -> R.string.condition_var_op_not_empty
+    },
+)
+
 fun conditionTypeLabel(context: Context, type: String): String = context.getString(
     CONDITION_TYPES.find { it.type == type }?.labelRes ?: R.string.condition_logic_group,
 )
@@ -536,6 +557,53 @@ fun ConditionItemFields(item: ConditionItem, onConditionChange: (ConditionItem) 
                 weekdays = item.scheduledWeekdays,
                 onScheduleChange = { m, w -> onConditionChange(item.copy(scheduledMinutes = m, scheduledWeekdays = w)) },
             )
+            ConditionType.VAR_COMPARE -> {
+                OutlinedTextField(
+                    value = item.compareVarName,
+                    onValueChange = {
+                        onConditionChange(item.copy(compareVarName = it.trimStart()))
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.condition_var_name)) },
+                    singleLine = true,
+                    isError = item.compareVarName.isNotBlank() &&
+                        !hunoia.luno.config.model.VariableNames.isValid(item.compareVarName),
+                    shape = hunoia.luno.ui.theme.LargeShape,
+                )
+                Text(
+                    text = stringResource(R.string.condition_var_op),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                FilterChipRow(
+                    options = hunoia.luno.config.model.VariableCompareOp.all.map {
+                        variableCompareOpLabel(context, it)
+                    },
+                    selectedIndex = hunoia.luno.config.model.VariableCompareOp.all.indexOf(item.compareOp)
+                        .coerceAtLeast(0),
+                    onIntChange = { index ->
+                        onConditionChange(item.copy(
+                            compareOp = hunoia.luno.config.model.VariableCompareOp.all[index],
+                        ))
+                    },
+                )
+                val noRightOperand = item.compareOp == hunoia.luno.config.model.VariableCompareOp.IS_EMPTY ||
+                    item.compareOp == hunoia.luno.config.model.VariableCompareOp.IS_NOT_EMPTY
+                if (!noRightOperand) {
+                    OutlinedTextField(
+                        value = item.compareValue,
+                        onValueChange = { onConditionChange(item.copy(compareValue = it)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.condition_var_value)) },
+                        singleLine = true,
+                        shape = hunoia.luno.ui.theme.LargeShape,
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.condition_var_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             ConditionType.MANUAL -> Text(
                 stringResource(R.string.condition_manual_hint),
                 style = MaterialTheme.typography.bodySmall,

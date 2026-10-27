@@ -19,6 +19,7 @@ enum class SkipReason(val code: String) {
     OUTPRIORITIZED("outprioritized"),
     CONSTRAINT_UNMET("constraint_unmet"),
     RULE_BUSY("rule_busy"),
+    PERMISSION_MISSING("permission_missing"),
 }
 
 /** 执行结果原因码（UI 映射到 strings.xml，Check 镜像断言用同一套）。 */
@@ -37,6 +38,8 @@ data class StepRecord(
     val message: String = "",
     /** 失败但按 SKIP 策略继续执行：用于把「跳过」与「整条中断」区分开。 */
     val skipped: Boolean = false,
+    /** 步骤级禁用：未执行，但不算失败。 */
+    val disabled: Boolean = false,
 )
 
 @Serializable

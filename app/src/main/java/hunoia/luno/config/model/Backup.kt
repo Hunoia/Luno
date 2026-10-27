@@ -11,7 +11,7 @@ object BackupVersions {
     const val GESTURE = 1
     const val TUNE = 1
     const val ACTION = 1
-    const val AUTOMATION = 1
+    const val AUTOMATION = 2
     const val SEARCH = 1
 }
 
@@ -43,6 +43,7 @@ data class Backup(
     val subGestureSettings: SubGestureSettings? = null,
     val actionLibrarySettings: ActionLibrarySettings? = null,
     val automationRules: List<AutomationRule>? = null,
+    val globalVariables: GlobalVariables? = null,
     val quickSearchSettings: QuickSearchSettings? = null,
 )
 

@@ -375,7 +375,15 @@ object BackupOperator {
             backup.quickAppLauncherSettings?.let { if (verified.quickAppLauncherSettings != it) add("quickAppLauncherSettings") }
             backup.subGestureSettings?.let { if (verified.subGestureSettings != it) add("subGestureSettings") }
             backup.actionLibrarySettings?.let { if (verified.actionLibrarySettings != it) add("actionLibrarySettings") }
-            backup.automationRules?.let { if (verified.automationRules != it) add("automationRules") }
+            backup.automationRules?.let {
+                // 恢复时会跑 normalizer（含 schemaVersion 升级/越界夹取），校验必须比归一化后的期望值。
+                if (verified.automationRules != hunoia.luno.config.model.AutomationRuleNormalizer.normalize(it)) {
+                    add("automationRules")
+                }
+            }
+            backup.globalVariables?.let {
+                if (verified.globalVariables != it.normalized()) add("globalVariables")
+            }
             backup.quickSearchSettings?.let { if (verified.quickSearchSettings != it) add("quickSearchSettings") }
         }
         if (mismatched.isNotEmpty()) {
@@ -398,6 +406,7 @@ object BackupOperator {
             subGestureSettings == null &&
             actionLibrarySettings == null &&
             automationRules == null &&
+            globalVariables == null &&
             quickSearchSettings == null
     }
 

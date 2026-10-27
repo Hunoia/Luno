@@ -246,7 +246,7 @@ class InternalExecutors : ActionExecutor {
                 ActionResult.Success()
             }
             is Action.RunRule -> {
-                context.runRule?.invoke(action.ruleId, context)
+                context.runRule?.invoke(action.ruleId, action.params, context)
                     ?: ActionResult.Failed(ActionFailure.Unsupported)
             }
             else -> ActionResult.Failed(ActionFailure.Unsupported)

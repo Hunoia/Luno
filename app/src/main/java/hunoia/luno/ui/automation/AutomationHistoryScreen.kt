@@ -85,11 +85,15 @@ fun AutomationHistoryScreen(
                             event.steps.forEach { record ->
                                 LunoSettingsRow(
                                     title = "${record.index} · ${stepKindLabel(record.kind)}",
-                                    subtitle = record.message.ifBlank {
-                                        if (record.ok) {
-                                            stringResource(R.string.history_ok)
-                                        } else {
-                                            stringResource(R.string.automation_test_failed)
+                                    subtitle = if (record.disabled) {
+                                        stringResource(R.string.step_disabled)
+                                    } else {
+                                        record.message.ifBlank {
+                                            if (record.ok) {
+                                                stringResource(R.string.history_ok)
+                                            } else {
+                                                stringResource(R.string.automation_test_failed)
+                                            }
                                         }
                                     } + if (record.skipped) {
                                         " · " + stringResource(R.string.step_skipped)
@@ -122,6 +126,7 @@ fun historySubtitle(event: AutomationEvent): String {
                 AutomationCenter.skipOutprioritized.code -> R.string.history_outprioritized
                 AutomationCenter.skipConstraintUnmet.code -> R.string.history_constraint_unmet
                 AutomationCenter.skipRuleBusy.code -> R.string.history_rule_busy
+                AutomationCenter.skipPermissionMissing.code -> R.string.history_permission_missing
                 else -> R.string.history_no_steps
             },
         )

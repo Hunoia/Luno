@@ -27,6 +27,7 @@ import hunoia.luno.runtime.automation.RuleTestResult
 import hunoia.luno.runtime.gesturepanel.ACTION_PANEL_FADE_OUT_MS
 import kotlin.math.roundToInt
 import hunoia.luno.config.model.GestureButton
+import hunoia.luno.config.model.GlobalVariables
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.RuleReentry
 import hunoia.luno.config.ConfigProvider
@@ -270,6 +271,7 @@ class GestureCoordinator(
                 gestureSettings = s.gestureSettings,
                 actionLibrarySettings = s.actionLibrarySettings,
                 automationRules = s.automationRules,
+                globalVariables = s.globalVariables,
             )
         },
         onToggleQuickAppLauncher = { anchorX, anchorY ->
@@ -291,6 +293,14 @@ class GestureCoordinator(
                 delayMs,
             )
         },
+        onGlobalVariableChanged = { name, value ->
+            val updated = runtimeSettingsStore.snapshot().globalVariables.put(name, value)
+            refreshGestureButtons(
+                delayMs = 0L,
+                automationKeys = setOf(hunoia.luno.runtime.automation.AutomationEventKey.VARIABLE),
+                globalVariablesOverride = updated,
+            )
+        },
     )
 
     /** 同规则重入控制：规则 id → 正在跑的 Job 列表（ALLOW_PARALLEL 时一个 id 可有多条）。 */
@@ -305,6 +315,18 @@ class GestureCoordinator(
         },
         resolveTemplate = { text, ctx, variables ->
             actionDispatcher.resolveStepTemplate(text, ctx, variables)
+        },
+        refreshContext = { buildRuntimeState(peekPulses = true).toConditionContext(
+            runtimeSettingsStore.snapshot().globalVariables.toTemplateMap(),
+        ) },
+        writeGlobalVariable = { name, value ->
+            val updated = runtimeSettingsStore.snapshot().globalVariables.put(name, value)
+            ConfigProvider.setGlobalVariable(name, value)
+            refreshGestureButtons(
+                delayMs = 0L,
+                automationKeys = setOf(hunoia.luno.runtime.automation.AutomationEventKey.VARIABLE),
+                globalVariablesOverride = updated,
+            )
         },
     )
 
@@ -333,7 +355,9 @@ class GestureCoordinator(
     ) {
         host.coroutineScope.launch {
             val ctx = try {
-                buildRuntimeState(consumePulses = false, peekPulses = true).toConditionContext()
+                buildRuntimeState(consumePulses = false, peekPulses = true).toConditionContext(
+                    runtimeSettingsStore.snapshot().globalVariables.toTemplateMap(),
+                )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -382,10 +406,18 @@ class GestureCoordinator(
             val result = try {
                 val records = if (rule.maxRunMs > 0L) {
                     withTimeoutOrNull(rule.maxRunMs) {
-                        sequenceExecutor.runSteps(rule.effect.steps, ctx)
+                        sequenceExecutor.runSteps(
+                            rule.effect.steps,
+                            ctx,
+                            runtimeSettingsStore.snapshot().globalVariables.toTemplateMap().toMutableMap(),
+                        )
                     }
                 } else {
-                    sequenceExecutor.runSteps(rule.effect.steps, ctx)
+                    sequenceExecutor.runSteps(
+                        rule.effect.steps,
+                        ctx,
+                        runtimeSettingsStore.snapshot().globalVariables.toTemplateMap().toMutableMap(),
+                    )
                 }
                 if (records == null) {
                     RuleTestResult(
@@ -481,6 +513,18 @@ class GestureCoordinator(
         rule: AutomationRule,
         ctx: ConditionContext,
     ): Boolean {
+        // P3-3 触发前预检：缺能力不再进入序列执行，避免历史里只看到笼统的步骤中断。
+        val snapshot = runtimeSettingsStore.snapshot()
+        val permission = hunoia.luno.action.capability.RuleCapabilityScanner.report(
+            host.context,
+            rule,
+            snapshot.automationRules,
+            snapshot.actionLibrarySettings,
+        )
+        if (permission.hasMissing) {
+            logSkip(rule.id, rule.name, ctx.nowMs, SkipReason.PERMISSION_MISSING.code)
+            return true
+        }
         val job = synchronized(runningRuleJobs) {
             val existing = runningRuleJobs[rule.id]?.toList().orEmpty()
             if (existing.isNotEmpty() && rule.reentry == RuleReentry.BLOCK_NEW) {
@@ -495,10 +539,18 @@ class GestureCoordinator(
                     try {
                         val records = if (rule.maxRunMs > 0L) {
                             withTimeoutOrNull(rule.maxRunMs) {
-                                sequenceExecutor.runSteps(rule.effect.steps, ctx)
+                                sequenceExecutor.runSteps(
+                                    rule.effect.steps,
+                                    ctx,
+                                    runtimeSettingsStore.snapshot().globalVariables.toTemplateMap().toMutableMap(),
+                                )
                             }
                         } else {
-                            sequenceExecutor.runSteps(rule.effect.steps, ctx)
+                            sequenceExecutor.runSteps(
+                                rule.effect.steps,
+                                ctx,
+                                runtimeSettingsStore.snapshot().globalVariables.toTemplateMap().toMutableMap(),
+                            )
                         }
                         // STOP_CURRENT_AND_RUN_NEW / 手动停止是协作式取消：动作即使吞掉取消，
                         // 也不能再落一条“已完成”的历史。
@@ -758,7 +810,9 @@ class GestureCoordinator(
             action.withoutVariantKey(),
             sourceButton,
             touch,
-            { buildRuntimeState(peekPulses = true).toConditionContext() },
+            { buildRuntimeState(peekPulses = true).toConditionContext(
+                runtimeSettingsStore.snapshot().globalVariables.toTemplateMap(),
+            ) },
             gestureTrigger = decision?.triggerType,
             fromGesture = true,
         )
@@ -1173,7 +1227,11 @@ class GestureCoordinator(
         return list.any { rule -> rule.enabled && rule.condition.hasTorchCondition() }
     }
 
-    private fun refreshGestureButtons(delayMs: Long = 100L, automationKeys: Set<String> = emptySet()) {
+    private fun refreshGestureButtons(
+        delayMs: Long = 100L,
+        automationKeys: Set<String> = emptySet(),
+        globalVariablesOverride: GlobalVariables? = null,
+    ) {
         synchronized(pendingAutomationKeys) {
             pendingAutomationKeys.addAll(automationKeys)
             // 已有延迟刷新在等待：键并进去，不再 cancel 重建。
@@ -1189,7 +1247,7 @@ class GestureCoordinator(
                 refreshPending = false
                 pendingAutomationKeys.toSet().also { pendingAutomationKeys.clear() }
             }
-            automationRuntime.evaluate(keys)
+            automationRuntime.evaluate(keys, globalVariablesOverride)
         }
     }
 

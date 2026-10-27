@@ -15,6 +15,7 @@ import hunoia.luno.config.model.remove
 import hunoia.luno.config.model.cleared
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
+import hunoia.luno.config.model.GlobalVariables
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.QuickAppSnapshot
@@ -47,7 +48,9 @@ object ConfigProvider {
     val appUsageStats: Flow<AppUsageStats> = stores.appUsageStats
     val subGestureSettings: Flow<SubGestureSettings> = stores.subGestureSettings
     val actionLibrarySettings: Flow<ActionLibrarySettings> = stores.actionLibrarySettings
-    val automationRules: Flow<List<AutomationRule>> = stores.automationRules
+    val automationRules: Flow<List<AutomationRule>> =
+        stores.automationRules.map { hunoia.luno.config.model.AutomationRuleNormalizer.normalize(it) }
+    val automationVariables: Flow<GlobalVariables> = stores.automationVariables
     val automationLog: Flow<List<hunoia.luno.runtime.automation.AutomationEvent>> = stores.automationLog
     val quickSearchSettings: Flow<QuickSearchSettings> = stores.quickSearchSettings
     /** 剪贴板历史：设备本地派生数据，只供剪贴板页面部件订阅。 */
@@ -61,7 +64,10 @@ object ConfigProvider {
         stores._gestureButtons.data.first().map { it.withResolvedName() }
     suspend fun getSubGestureSettings(): SubGestureSettings = stores._subGestureSettings.data.first()
     suspend fun getActionLibrarySettings(): ActionLibrarySettings = stores._actionLibrarySettings.data.first()
-    suspend fun getAutomationRules(): List<AutomationRule> = stores._automationRules.data.first()
+    suspend fun getAutomationRules(): List<AutomationRule> =
+        hunoia.luno.config.model.AutomationRuleNormalizer.normalize(stores._automationRules.data.first())
+    suspend fun getAutomationVariables(): GlobalVariables =
+        stores._automationVariables.data.first().normalized()
     suspend fun getQuickSearchSettings(): QuickSearchSettings =
         stores._quickSearchSettings.data.first().withUniqueEngineTriggers()
 
@@ -91,7 +97,20 @@ object ConfigProvider {
     }
 
     suspend fun updateAutomationRules(transform: suspend (List<AutomationRule>) -> List<AutomationRule>) {
-        stores._automationRules.updateData(transform)
+        stores._automationRules.updateData { current ->
+            hunoia.luno.config.model.AutomationRuleNormalizer.normalize(transform(current))
+        }
+    }
+
+    suspend fun updateAutomationVariables(transform: suspend (GlobalVariables) -> GlobalVariables) {
+        stores._automationVariables.updateData { current ->
+            transform(current.normalized()).normalized()
+        }
+    }
+
+    /** SET_VAR 的全局作用域写入：值截断/名称校验由模型统一处理。 */
+    suspend fun setGlobalVariable(name: String, value: String) {
+        updateAutomationVariables { it.put(name, value) }
     }
 
     /** 执行历史追加：全局环形 100，写盘失败吞掉（调试数据不影响规则执行）。 */

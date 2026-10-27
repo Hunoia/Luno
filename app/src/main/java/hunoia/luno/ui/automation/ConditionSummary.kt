@@ -169,6 +169,18 @@ fun itemSummary(context: Context, item: ConditionItem): String {
 
         ConditionType.MANUAL -> context.getString(R.string.condition_manual)
 
+        ConditionType.VAR_COMPARE -> {
+            val name = item.compareVarName.ifBlank { "var" }
+            val op = variableCompareOpLabel(context, item.compareOp)
+            if (item.compareOp == hunoia.luno.config.model.VariableCompareOp.IS_EMPTY ||
+                item.compareOp == hunoia.luno.config.model.VariableCompareOp.IS_NOT_EMPTY
+            ) {
+                "$name $op"
+            } else {
+                "$name $op ${item.compareValue}"
+            }
+        }
+
         ConditionType.GROUP -> conditionSummary(context, item.group ?: WhenGroup())
 
         else -> conditionTypeLabel(context, item.type)

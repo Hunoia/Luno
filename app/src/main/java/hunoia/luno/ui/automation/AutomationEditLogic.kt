@@ -75,7 +75,7 @@ internal fun removeStepAt(effect: RuleEffect, path: String): RuleEffect {
     val parentPath = tokens.dropLast(2).joinToString(".")
     if (parentPath.isEmpty()) return effect
     return effect.withStepAt(parentPath) { step ->
-        if (step.kind != RuleStepKind.IF) step
+        if (step.kind != RuleStepKind.IF && step.kind != RuleStepKind.REPEAT) step
         else if (branch == "then") step.copy(thenSteps = removeFromList(step.thenSteps, index))
         else step.copy(elseSteps = removeFromList(step.elseSteps, index))
     }
@@ -100,7 +100,7 @@ internal fun appendStep(
     if (branch != "then" && branch != "else") return null
     val parentPath = tokens.dropLast(1).joinToString(".")
     val parent = effect.stepAt(parentPath) ?: return null
-    if (parent.kind != RuleStepKind.IF) return null
+    if (parent.kind != RuleStepKind.IF && parent.kind != RuleStepKind.REPEAT) return null
     val childIndex = if (branch == "then") parent.thenSteps.size else parent.elseSteps.size
     val updated = effect.withStepAt(parentPath) { step ->
         if (branch == "then") step.copy(thenSteps = step.thenSteps + created)
@@ -108,6 +108,35 @@ internal fun appendStep(
     }
     return "$parentPath.$branch.$childIndex" to updated
 }
+
+/**
+ * 同层移动步骤（delta=-1 上移 / +1 下移）：交换目标与相邻项。越界/非法路径返回 null。
+ * 仅同分支内移动，跨 IF 分支拖拽不做（编辑器只给上下按钮）。
+ */
+internal fun moveStepAt(effect: RuleEffect, path: String, delta: Int): RuleEffect? {
+    val tokens = path.split(".").filter { it.isNotEmpty() }
+    val index = tokens.lastOrNull()?.toIntOrNull() ?: return null
+    val sibling = index + delta
+    if (sibling < 0) return null
+    val siblingPath = (tokens.dropLast(1) + sibling.toString()).joinToString(".")
+    val currentStep = effect.stepAt(path) ?: return null
+    val siblingStep = effect.stepAt(siblingPath) ?: return null
+    return effect
+        .withStepAt(path) { siblingStep }
+        .withStepAt(siblingPath) { currentStep }
+}
+
+internal fun canMoveStep(effect: RuleEffect, path: String, delta: Int): Boolean {
+    val tokens = path.split(".").filter { it.isNotEmpty() }
+    val index = tokens.lastOrNull()?.toIntOrNull() ?: return false
+    val sibling = index + delta
+    if (sibling < 0) return false
+    val siblingPath = (tokens.dropLast(1) + sibling.toString()).joinToString(".")
+    return effect.stepAt(siblingPath) != null
+}
+
+private fun secondsText(ms: Long): String =
+    if (ms % 1000L == 0L) (ms / 1000L).toString() else String.format(java.util.Locale.US, "%.1f", ms / 1000.0)
 
 internal fun stepSummary(
     context: Context,
@@ -122,6 +151,20 @@ internal fun stepSummary(
     RuleStepKind.SET_VAR -> context.getString(
         R.string.step_set_var_summary,
         step.varName.ifBlank { context.getString(R.string.step_set_var_name) },
+        step.varTemplate.ifBlank { "-" },
+    ) + if (step.varGlobal) " · " + context.getString(R.string.step_var_global) else ""
+    RuleStepKind.REPEAT -> context.getString(
+        R.string.step_repeat_summary,
+        step.repeatCount.coerceIn(1, hunoia.luno.config.model.SequenceLimits.MAX_REPEAT_COUNT),
+        step.thenSteps.size,
+    )
+    RuleStepKind.WAIT_UNTIL -> context.getString(
+        R.string.step_wait_summary,
+        secondsText(step.waitTimeoutMs),
+        secondsText(step.waitIntervalMs),
+    ) + " · " + conditionSummary(context, step.condition)
+    RuleStepKind.RETURN -> context.getString(
+        R.string.step_return_summary,
         step.varTemplate.ifBlank { "-" },
     )
     else -> {
@@ -203,6 +246,7 @@ internal fun WhenGroup.hasIncompleteCondition(): Boolean = items.any { item ->
         ConditionType.CHARGING_CHANGED -> item.charging == null
         ConditionType.KEYBOARD_EVENT -> item.keyboardEvent == null
         ConditionType.SCHEDULED_TIME -> item.scheduledMinutes.isEmpty()
+        ConditionType.VAR_COMPARE -> !isValidVarName(item.compareVarName)
         ConditionType.BLUETOOTH -> item.expectedBluetoothAdapterOn == null &&
             item.expectedBluetoothAudioConnected == null
 
@@ -222,7 +266,9 @@ internal fun isValidVarName(name: String): Boolean = VarNamePattern.matches(name
 internal fun List<RuleStep>.hasIncompleteStepCondition(): Boolean = any { step ->
     val self = when (step.kind) {
         RuleStepKind.IF -> step.condition.items.isEmpty() || step.condition.hasIncompleteCondition()
+        RuleStepKind.WAIT_UNTIL -> step.condition.items.isEmpty() || step.condition.hasIncompleteCondition()
         RuleStepKind.SET_VAR -> !isValidVarName(step.varName)
+        RuleStepKind.RETURN -> step.varTemplate.isBlank()
         else -> false
     }
     self || step.thenSteps.hasIncompleteStepCondition() || step.elseSteps.hasIncompleteStepCondition()

@@ -14,6 +14,7 @@ import hunoia.luno.config.model.PlaybackDirection
 import hunoia.luno.config.model.RingerMode
 import hunoia.luno.config.model.ScreenEventType
 import hunoia.luno.config.model.ScreenType
+import hunoia.luno.config.model.VariableCompareOp
 import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.runtime.GestureRuntimeState
 import hunoia.luno.runtime.VolumeChange
@@ -62,6 +63,8 @@ data class ConditionContext(
     val musicChanged: PlaybackDirection? = null,
     val torchChangedTo: Boolean? = null,
     val dndChangedTo: Boolean? = null,
+    /** 全局/局部变量快照（key 带 `var.` 前缀）；默认空。 */
+    val variables: Map<String, String> = emptyMap(),
 )
 
 /**
@@ -130,7 +133,9 @@ fun rangeContains(actual: Int?, min: Int?, max: Int?): Boolean {
     return (min == null || value >= min) && (max == null || value <= max)
 }
 
-fun GestureRuntimeState.toConditionContext(): ConditionContext = ConditionContext(
+fun GestureRuntimeState.toConditionContext(
+    variables: Map<String, String> = emptyMap(),
+): ConditionContext = ConditionContext(
     nowMs = nowMs,
     packageName = currentPackageName,
     isLockScreen = isNowInLockScreenPage,
@@ -165,6 +170,7 @@ fun GestureRuntimeState.toConditionContext(): ConditionContext = ConditionContex
     musicChanged = musicChanged,
     torchChangedTo = torchChangedTo,
     dndChangedTo = dndChangedTo,
+    variables = variables,
 )
 
 fun AutomationRule.matches(ctx: ConditionContext): Boolean = condition.matches(ctx)
@@ -196,6 +202,7 @@ fun ConditionItem.matches(ctx: ConditionContext): Boolean {
         type == ConditionType.MUSIC_PLAYING -> (musicPlaying ?: false) == ctx.isMusicPlaying
         type == ConditionType.TORCH_ON -> (torchOn ?: false) == ctx.isTorchOn
         type == ConditionType.DND_ON -> (dndOn ?: false) == ctx.isDndOn
+        type == ConditionType.VAR_COMPARE -> variableMatches(ctx.variables)
         type == ConditionType.APP_CHANGED_TO -> ctx.appChangedTo != null && ctx.appChangedTo in packageNames
         type == ConditionType.SCREEN_EVENT -> ctx.screenEvent == screenEvent
         type == ConditionType.KEYBOARD_EVENT -> ctx.keyboardEvent != null && ctx.keyboardEvent == keyboardEvent
@@ -214,6 +221,35 @@ fun ConditionItem.matches(ctx: ConditionContext): Boolean {
         else -> false
     }
     return if (negated) !raw else raw
+}
+
+private fun ConditionItem.variableMatches(variables: Map<String, String>): Boolean {
+    val name = compareVarName.trim()
+    if (name.isEmpty()) return false
+    val key = if (name.startsWith("var.")) name else "var.$name"
+    val left = variables[key] ?: return false
+    return compareValues(left, compareOp, compareValue)
+}
+
+/** 条件变量比较：数值运算优先按 double，文本运算保留原大小写。 */
+fun compareValues(left: String, op: String, right: String): Boolean {
+    val ln = left.trim().toDoubleOrNull()
+    val rn = right.trim().toDoubleOrNull()
+    val numeric = ln != null && rn != null
+    return when (op) {
+        VariableCompareOp.EQUALS -> if (numeric) ln == rn else left == right
+        VariableCompareOp.NOT_EQUALS -> !(if (numeric) ln == rn else left == right)
+        VariableCompareOp.GREATER -> ln != null && rn != null && ln > rn
+        VariableCompareOp.GREATER_OR_EQUALS -> ln != null && rn != null && ln >= rn
+        VariableCompareOp.LESS -> ln != null && rn != null && ln < rn
+        VariableCompareOp.LESS_OR_EQUALS -> ln != null && rn != null && ln <= rn
+        VariableCompareOp.CONTAINS -> left.contains(right)
+        VariableCompareOp.STARTS_WITH -> left.startsWith(right)
+        VariableCompareOp.ENDS_WITH -> left.endsWith(right)
+        VariableCompareOp.IS_EMPTY -> left.isEmpty()
+        VariableCompareOp.IS_NOT_EMPTY -> left.isNotEmpty()
+        else -> false
+    }
 }
 
 private fun ConditionItem.connectionMatches(pulse: ConnectionDirection?): Boolean {

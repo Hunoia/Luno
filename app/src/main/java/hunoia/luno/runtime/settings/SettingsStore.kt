@@ -5,6 +5,7 @@ import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
+import hunoia.luno.config.model.GlobalVariables
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -33,12 +34,14 @@ class SettingsStore(
                 ConfigProvider.advancedSettings,
                 ConfigProvider.gestureSettings,
                 ConfigProvider.actionSettings,
-            ) { gestureButtons, advancedSettings, gestureSettings, actionSettings ->
+                ConfigProvider.automationVariables,
+            ) { gestureButtons, advancedSettings, gestureSettings, actionSettings, globalVariables ->
                 RuntimeSettingsCore(
                     gestureButtons = gestureButtons,
                     advancedSettings = advancedSettings,
                     gestureSettings = gestureSettings,
                     actionSettings = actionSettings,
+                    globalVariables = globalVariables,
                 )
             }
 
@@ -58,6 +61,7 @@ class SettingsStore(
                     subGestureSettings = subGestureSettings,
                     actionLibrarySettings = actionLibrarySettings,
                     automationRules = automationRules,
+                    globalVariables = runtime.globalVariables,
                 )
             }.collectLatest { _state.value = it }
         }
@@ -77,4 +81,5 @@ private data class RuntimeSettingsCore(
     val advancedSettings: AdvancedSettings,
     val gestureSettings: GestureSettings,
     val actionSettings: ActionSettings,
+    val globalVariables: GlobalVariables = GlobalVariables(),
 )

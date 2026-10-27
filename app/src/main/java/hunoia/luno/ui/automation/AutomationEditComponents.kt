@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -65,6 +66,7 @@ import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.component.CheckDropdownMenuItem
+import hunoia.luno.ui.component.displayNameRes
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.sheet.LunoSheet
@@ -75,6 +77,7 @@ import hunoia.luno.ui.component.timeline.TimelineBadge
 import hunoia.luno.ui.component.timeline.TimelineColumn
 import hunoia.luno.ui.component.timeline.TimelineNode
 import hunoia.luno.ui.component.timeline.timelineIndent
+import kotlinx.serialization.json.contentOrNull
 
 /** 添加行：图标独占一行，背景/高度/圆角与其他行一致。 */
 @Composable
@@ -112,7 +115,10 @@ internal fun StepsEditor(
     pathPrefix: String = "",
     numberPrefix: String = "",
     depth: Int = 0,
+    clipboard: RuleStep? = null,
+    onPasteStep: (String) -> Unit = {},
 ) {
+    val context = LocalContext.current
     TimelineColumn {
         steps.forEachIndexed { index, step ->
             val number = "$numberPrefix${index + 1}"
@@ -151,6 +157,8 @@ internal fun StepsEditor(
                         pathPrefix = "$pathPrefix$index.then.",
                         numberPrefix = "$number.",
                         depth = depth + 1,
+                        clipboard = clipboard,
+                        onPasteStep = onPasteStep,
                     )
                 }
                 Text(
@@ -176,9 +184,48 @@ internal fun StepsEditor(
                         pathPrefix = "$pathPrefix$index.else.",
                         numberPrefix = "$number.",
                         depth = depth + 1,
+                        clipboard = clipboard,
+                        onPasteStep = onPasteStep,
                     )
                 }
             }
+            if (step.kind == RuleStepKind.REPEAT) {
+                Text(
+                    text = stringResource(R.string.step_repeat_body),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = timelineIndent(),
+                )
+                TimelineColumn(modifier = timelineIndent()) {
+                    StepsEditor(
+                        steps = step.thenSteps,
+                        onStepsChange = { body ->
+                            onStepsChange(steps.toMutableList().also { list ->
+                                list[index] = step.copy(thenSteps = body)
+                            })
+                        },
+                        onEditStep = onEditStep,
+                        onAddStep = onAddStep,
+                        onPickAction = onPickAction,
+                        onDeleteStep = onDeleteStep,
+                        library = library,
+                        rules = rules,
+                        pathPrefix = "$pathPrefix$index.then.",
+                        numberPrefix = "$number.",
+                        depth = depth + 1,
+                        clipboard = clipboard,
+                        onPasteStep = onPasteStep,
+                    )
+                }
+            }
+        }
+        if (clipboard != null) {
+            LunoSettingsRow(
+                title = stringResource(R.string.step_paste),
+                subtitle = stepSummary(context, library, clipboard, rules),
+                onClick = { onPasteStep(pathPrefix) },
+                modifier = timelineIndent(),
+            )
         }
         AddRow(
             onClick = { onAddStep(pathPrefix) },
@@ -207,9 +254,16 @@ internal fun StepRow(
             RuleStepKind.DELAY -> stringResource(R.string.step_delay)
             RuleStepKind.IF -> stringResource(R.string.step_if)
             RuleStepKind.SET_VAR -> stringResource(R.string.step_set_var)
+            RuleStepKind.REPEAT -> stringResource(R.string.step_repeat)
+            RuleStepKind.WAIT_UNTIL -> stringResource(R.string.step_wait_until)
+            RuleStepKind.RETURN -> stringResource(R.string.step_return)
             else -> stringResource(R.string.step_action)
         },
-        subtitle = stepSummary(context, library, step, rules),
+        subtitle = if (step.enabled) {
+            stepSummary(context, library, step, rules)
+        } else {
+            stringResource(R.string.step_disabled) + " · " + stepSummary(context, library, step, rules)
+        },
         onClick = if (isAction) onPickAction else onEdit,
         trailing = if (isAction) {
             {
@@ -522,6 +576,13 @@ internal fun StepSheet(
     onEditIfCondition: () -> Unit,
     actionSummary: String = "",
     onPickAction: (() -> Unit)? = null,
+    /** runRule 目标规则：用于编辑参数与返回值绑定。 */
+    runRuleTarget: AutomationRule? = null,
+    onCopy: (() -> Unit)? = null,
+    canMoveUp: Boolean = false,
+    canMoveDown: Boolean = false,
+    onMoveUp: (() -> Unit)? = null,
+    onMoveDown: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     LunoSheet(
@@ -536,6 +597,9 @@ internal fun StepSheet(
                     RuleStepKind.ACTION -> stringResource(R.string.step_action)
                     RuleStepKind.DELAY -> stringResource(R.string.step_delay)
                     RuleStepKind.SET_VAR -> stringResource(R.string.step_set_var)
+                    RuleStepKind.REPEAT -> stringResource(R.string.step_repeat)
+                    RuleStepKind.WAIT_UNTIL -> stringResource(R.string.step_wait_until)
+                    RuleStepKind.RETURN -> stringResource(R.string.step_return)
                     else -> stringResource(R.string.step_if)
                 },
             )
@@ -543,6 +607,11 @@ internal fun StepSheet(
                 modifier = Modifier.padding(horizontal = PageGutter),
                 verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
             ) {
+                LunoSwitchRow(
+                    title = stringResource(R.string.step_enabled),
+                    checked = step.enabled,
+                    onCheckedChange = { onStepChange(step.copy(enabled = it)) },
+                )
                 when (step.kind) {
                     RuleStepKind.ACTION -> {
                         LunoSettingsRow(
@@ -552,6 +621,13 @@ internal fun StepSheet(
                             enabled = onPickAction != null,
                         )
                         StepFailureEditor(step = step, onStepChange = onStepChange)
+                        if (runRuleTarget != null) {
+                            RunRuleStepEditor(
+                                step = step,
+                                target = runRuleTarget,
+                                onStepChange = onStepChange,
+                            )
+                        }
                     }
                     RuleStepKind.DELAY -> {
                         var text by remember(step.delayMs) {
@@ -603,6 +679,12 @@ internal fun StepSheet(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        LunoSwitchRow(
+                            title = stringResource(R.string.step_var_global),
+                            subtitle = stringResource(R.string.step_var_global_hint),
+                            checked = step.varGlobal,
+                            onCheckedChange = { onStepChange(step.copy(varGlobal = it)) },
+                        )
                     }
                     RuleStepKind.IF -> {
                         LunoSettingsRow(
@@ -611,6 +693,129 @@ internal fun StepSheet(
                             onClick = onEditIfCondition,
                         )
                     }
+                    RuleStepKind.REPEAT -> {
+                        var countText by remember(step.repeatCount) {
+                            mutableStateOf(step.repeatCount.coerceAtLeast(1).toString())
+                        }
+                        OutlinedTextField(
+                            value = countText,
+                            onValueChange = {
+                                countText = it
+                                val n = it.toIntOrNull() ?: 1
+                                onStepChange(
+                                    step.copy(
+                                        repeatCount = n.coerceIn(
+                                            1,
+                                            hunoia.luno.config.model.SequenceLimits.MAX_REPEAT_COUNT,
+                                        ),
+                                    ),
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text(stringResource(R.string.step_repeat_count)) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            shape = LargeShape,
+                        )
+                        Text(
+                            stringResource(
+                                R.string.step_repeat_hint,
+                                hunoia.luno.config.model.SequenceLimits.MAX_REPEAT_COUNT,
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    RuleStepKind.WAIT_UNTIL -> {
+                        LunoSettingsRow(
+                            title = stringResource(R.string.step_wait_condition),
+                            subtitle = conditionSummary(context, step.condition),
+                            onClick = onEditIfCondition,
+                        )
+                        var timeoutText by remember(step.waitTimeoutMs) {
+                            mutableStateOf((step.waitTimeoutMs / 1000).toString())
+                        }
+                        OutlinedTextField(
+                            value = timeoutText,
+                            onValueChange = {
+                                timeoutText = it
+                                val s = it.toLongOrNull() ?: 0L
+                                onStepChange(
+                                    step.copy(
+                                        waitTimeoutMs = (s * 1000).coerceIn(
+                                            0L,
+                                            hunoia.luno.config.model.SequenceLimits.MAX_WAIT_MS,
+                                        ),
+                                    ),
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text(stringResource(R.string.step_wait_timeout)) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            shape = LargeShape,
+                        )
+                        var intervalText by remember(step.waitIntervalMs) {
+                            mutableStateOf((step.waitIntervalMs / 1000.0).toString())
+                        }
+                        OutlinedTextField(
+                            value = intervalText,
+                            onValueChange = {
+                                intervalText = it
+                                val s = it.toDoubleOrNull() ?: 1.0
+                                onStepChange(
+                                    step.copy(
+                                        waitIntervalMs = (s * 1000).toLong().coerceIn(
+                                            hunoia.luno.config.model.SequenceLimits.MIN_WAIT_INTERVAL_MS,
+                                            hunoia.luno.config.model.SequenceLimits.MAX_WAIT_INTERVAL_MS,
+                                        ),
+                                    ),
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text(stringResource(R.string.step_wait_interval)) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            shape = LargeShape,
+                        )
+                    }
+                    RuleStepKind.RETURN -> {
+                        var template by remember(step.varTemplate) { mutableStateOf(step.varTemplate) }
+                        TemplateTextField(
+                            value = template,
+                            onValueChange = {
+                                template = it
+                                onStepChange(step.copy(varTemplate = it))
+                            },
+                            label = stringResource(R.string.step_return_value),
+                            isError = template.isBlank(),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Text(
+                            text = stringResource(R.string.step_return_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                if (onCopy != null) {
+                    LunoSettingsRow(
+                        title = stringResource(R.string.step_copy),
+                        onClick = onCopy,
+                    )
+                }
+                if (canMoveUp && onMoveUp != null) {
+                    LunoSettingsRow(
+                        title = stringResource(R.string.step_move_up),
+                        onClick = onMoveUp,
+                    )
+                }
+                if (canMoveDown && onMoveDown != null) {
+                    LunoSettingsRow(
+                        title = stringResource(R.string.step_move_down),
+                        onClick = onMoveDown,
+                    )
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -629,6 +834,181 @@ internal fun StepSheet(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun RunRuleStepEditor(
+    step: RuleStep,
+    target: AutomationRule,
+    onStepChange: (RuleStep) -> Unit,
+) {
+    val action = step.action ?: return
+    fun updateParam(key: String, value: String) {
+        val map = action.params.toMutableMap()
+        if (value.isBlank() || (key != "resultVar" && value == target.params.firstOrNull {
+                "param.${it.name}" == key
+            }?.defaultValue)
+        ) {
+            map.remove(key)
+        } else {
+            map[key] = kotlinx.serialization.json.JsonPrimitive(value)
+        }
+        onStepChange(step.copy(action = action.copy(params = kotlinx.serialization.json.JsonObject(map))))
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
+        Text(
+            text = stringResource(R.string.step_run_rule_target, target.name.ifBlank { target.id }),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (target.params.isEmpty() && !target.hasReturnStep()) {
+            Text(
+                text = stringResource(R.string.step_run_rule_no_params),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        target.params.forEach { param ->
+            val key = "param.${param.name}"
+            val stored = (action.params[key] as? kotlinx.serialization.json.JsonPrimitive)
+                ?.contentOrNull.orEmpty()
+            var value by remember(param.name, stored) {
+                mutableStateOf(stored.ifBlank { param.defaultValue })
+            }
+            TemplateTextField(
+                value = value,
+                onValueChange = {
+                    value = it
+                    updateParam(key, it)
+                },
+                label = param.name,
+                isError = false,
+                singleLine = false,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (target.hasReturnStep()) {
+            val stored = (action.params["resultVar"] as? kotlinx.serialization.json.JsonPrimitive)
+                ?.contentOrNull.orEmpty()
+            var resultVar by remember(target.id, stored) { mutableStateOf(stored) }
+            OutlinedTextField(
+                value = resultVar,
+                onValueChange = {
+                    resultVar = it
+                    updateParam("resultVar", it)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.step_run_rule_result_var)) },
+                singleLine = true,
+                isError = resultVar.isNotBlank() && !isValidVarName(resultVar),
+                shape = LargeShape,
+            )
+            Text(
+                text = stringResource(R.string.step_run_rule_result_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** P3-3：把静态权限报告转成一行可读提示；无缺失时返回 null。 */
+internal fun capabilityWarningText(
+    context: android.content.Context,
+    report: hunoia.luno.domain.automation.AutomationCapabilityReport,
+): String? {
+    if (!report.hasMissing) return null
+    val parts = report.missingCapabilities.map { context.getString(it.displayNameRes) } +
+        if (report.notificationAccessMissing) {
+            listOf(context.getString(R.string.notify_permission_title))
+        } else {
+            emptyList()
+        }
+    return context.getString(R.string.permission_precheck_missing, parts.joinToString("、"))
+}
+
+@Composable
+internal fun CapabilityWarningRow(
+    report: hunoia.luno.domain.automation.AutomationCapabilityReport,
+) {
+    val context = LocalContext.current
+    val text = capabilityWarningText(context, report) ?: return
+    LunoSettingsRow(
+        title = stringResource(R.string.permission_precheck_title),
+        subtitle = text,
+        subtitleColor = MaterialTheme.colorScheme.tertiary,
+        icon = Icons.Default.Warning,
+    )
+}
+
+/** P2-3：子规则参数定义；runRule 调用方按名传值，子规则用 `${param.x}` 读取。 */
+@Composable
+internal fun RuleParamsEditor(
+    params: List<hunoia.luno.config.model.RuleParam>,
+    onParamsChange: (List<hunoia.luno.config.model.RuleParam>) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(CardInnerSpacing)) {
+        Text(
+            text = stringResource(R.string.rule_params_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        params.forEachIndexed { index, param ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+            ) {
+                OutlinedTextField(
+                    value = param.name,
+                    onValueChange = { value ->
+                        onParamsChange(params.toMutableList().also {
+                            it[index] = param.copy(name = value.trimStart())
+                        })
+                    },
+                    modifier = Modifier.weight(1f),
+                    label = { Text(stringResource(R.string.rule_param_name)) },
+                    singleLine = true,
+                    isError = !isValidVarName(param.name) ||
+                        params.count { it.name == param.name } > 1,
+                    shape = LargeShape,
+                )
+                OutlinedTextField(
+                    value = param.defaultValue,
+                    onValueChange = { value ->
+                        onParamsChange(params.toMutableList().also {
+                            it[index] = param.copy(defaultValue = value)
+                        })
+                    },
+                    modifier = Modifier.weight(1.4f),
+                    label = { Text(stringResource(R.string.rule_param_default)) },
+                    singleLine = true,
+                    shape = LargeShape,
+                )
+                LunoIconButton(
+                    icon = Icons.Default.Delete,
+                    contentDescription = stringResource(R.string.delete),
+                    onClick = {
+                        onParamsChange(params.toMutableList().also { it.removeAt(index) })
+                    },
+                )
+            }
+        }
+        LunoSettingsRow(
+            title = stringResource(R.string.rule_param_add),
+            onClick = {
+                var index = params.size + 1
+                while (params.any { it.name == "arg$index" }) index++
+                onParamsChange(params + hunoia.luno.config.model.RuleParam("arg$index"))
+            },
+            trailing = {
+                androidx.compose.material3.Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                )
+            },
+        )
     }
 }
 
@@ -775,6 +1155,9 @@ internal fun StepTypeSheet(
                 RuleStepKind.DELAY to R.string.step_add_delay,
                 RuleStepKind.IF to R.string.step_add_if,
                 RuleStepKind.SET_VAR to R.string.step_add_set_var,
+                RuleStepKind.REPEAT to R.string.step_add_repeat,
+                RuleStepKind.WAIT_UNTIL to R.string.step_add_wait,
+                RuleStepKind.RETURN to R.string.step_add_return,
             ).forEach { (kind, labelRes) ->
                 LunoSettingsRow(
                     title = stringResource(labelRes),
@@ -1034,8 +1417,12 @@ internal fun RuleTestResultSheet(result: RuleTestResult, onDismissRequest: () ->
                     result.steps.forEach { record ->
                         LunoSettingsRow(
                             title = "${record.index} · ${stepKindLabel(record.kind)}",
-                            subtitle = record.message.ifBlank {
-                                if (record.ok) hit else stringResource(R.string.automation_test_failed)
+                            subtitle = if (record.disabled) {
+                                stringResource(R.string.step_disabled)
+                            } else {
+                                record.message.ifBlank {
+                                    if (record.ok) hit else stringResource(R.string.automation_test_failed)
+                                }
                             } + if (record.skipped) " · $skipped" else "",
                             subtitleColor = if (record.ok || record.skipped) {
                                 MaterialTheme.colorScheme.onSurfaceVariant
@@ -1073,5 +1460,8 @@ internal fun stepKindLabel(kind: String): String = when (kind) {
     RuleStepKind.DELAY -> stringResource(R.string.step_delay)
     RuleStepKind.IF -> stringResource(R.string.step_if)
     RuleStepKind.SET_VAR -> stringResource(R.string.step_set_var)
+    RuleStepKind.REPEAT -> stringResource(R.string.step_repeat)
+    RuleStepKind.WAIT_UNTIL -> stringResource(R.string.step_wait_until)
+    RuleStepKind.RETURN -> stringResource(R.string.step_return)
     else -> kind
 }

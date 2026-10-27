@@ -12,6 +12,7 @@ import hunoia.luno.config.model.BackupDomain
 import hunoia.luno.config.model.BackupVersions
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
+import hunoia.luno.config.model.GlobalVariables
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.QuickSearchSettings
@@ -36,6 +37,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         val subGestureDeferred = async { stores._subGestureSettings.data.first() }
         val actionLibraryDeferred = async { stores._actionLibrarySettings.data.first() }
         val automationRulesDeferred = async { stores._automationRules.data.first() }
+        val globalVariablesDeferred = async { stores._automationVariables.data.first() }
         val quickSearchDeferred = async { stores._quickSearchSettings.data.first() }
         Backup(
             backupFormatVersion = BackupVersions.FORMAT,
@@ -53,6 +55,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
             subGestureSettings = subGestureDeferred.await(),
             actionLibrarySettings = actionLibraryDeferred.await(),
             automationRules = automationRulesDeferred.await(),
+            globalVariables = globalVariablesDeferred.await(),
             quickSearchSettings = quickSearchDeferred.await(),
         )
     }
@@ -70,7 +73,8 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { backup.quickAppLauncherSettings?.let { v -> writeSection("quickAppLauncherSettings") { stores._quickAppLauncherSettings.updateData { v } } } }
         launch { backup.subGestureSettings?.let { v -> writeSection("subGestureSettings") { stores._subGestureSettings.updateData { v } } } }
         launch { backup.actionLibrarySettings?.let { v -> writeSection("actionLibrarySettings") { stores._actionLibrarySettings.updateData { v } } } }
-        launch { backup.automationRules?.let { v -> writeSection("automationRules") { stores._automationRules.updateData { v } } } }
+        launch { backup.automationRules?.let { v -> writeSection("automationRules") { stores._automationRules.updateData { hunoia.luno.config.model.AutomationRuleNormalizer.normalize(v) } } } }
+        launch { backup.globalVariables?.let { v -> writeSection("globalVariables") { stores._automationVariables.updateData { v.normalized() } } } }
         // 恢复的搜索设置先归一化：旧备份缺引擎 id / 标识重复，落库前补齐，
         // 否则顺序、隐藏、打开方式覆盖会指向不存在的引擎。
         launch { backup.quickSearchSettings?.let { v -> writeSection("quickSearchSettings") { stores._quickSearchSettings.updateData { v.withUniqueEngineTriggers() } } } }
@@ -120,6 +124,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
                 backupFormatVersion = full.backupFormatVersion,
                 automationSchemaVersion = full.automationSchemaVersion,
                 automationRules = full.automationRules,
+                globalVariables = full.globalVariables,
             )
             BackupDomain.SEARCH -> Backup(
                 backupFormatVersion = full.backupFormatVersion,
@@ -157,6 +162,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { stores._subGestureSettings.updateData { SubGestureSettings() } }
         launch { stores._actionLibrarySettings.updateData { ActionLibrarySettings() } }
         launch { stores._automationRules.updateData { AutomationRule.Defaults } }
+        launch { stores._automationVariables.updateData { GlobalVariables() } }
         launch { stores._quickSearchSettings.updateData { QuickSearchSettings() } }
     }
 }

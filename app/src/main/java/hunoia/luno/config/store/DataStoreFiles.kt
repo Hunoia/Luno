@@ -21,6 +21,8 @@ object DataStoreFiles {
 
     // 自动化组
     const val AUTOMATION_RULES = "automation_rules"
+    /** 自动化全局变量：跨运行持久化，随自动化域备份。 */
+    const val AUTOMATION_VARIABLES = "automation_variables"
 
     // 搜索启动组
     const val QUICK_APP_LAUNCHER = "quick_app_launcher"

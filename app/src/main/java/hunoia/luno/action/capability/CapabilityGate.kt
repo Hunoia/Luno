@@ -1,6 +1,9 @@
 package hunoia.luno.action.capability
 
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.app.NotificationManagerCompat
 import hunoia.luno.action.model.Capability
 import hunoia.luno.bridge.system.isAccessibilitySettingsOn
 import hunoia.luno.service.SideGestureService
@@ -22,5 +25,11 @@ class CapabilityGate(
         Capability.Accessibility ->
             appContext.isAccessibilitySettingsOn(SideGestureService::class.java) ||
                 isServiceAlive()
+        Capability.Notification -> {
+            val permissionOk = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                appContext.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) ==
+                    PackageManager.PERMISSION_GRANTED
+            permissionOk && NotificationManagerCompat.from(appContext).areNotificationsEnabled()
+        }
     }
 }

@@ -57,6 +57,7 @@ val Capability.displayNameRes: Int
     get() = when (this) {
         Capability.Accessibility -> R.string.action_capability_accessibility
         Capability.Shizuku -> R.string.action_capability_shizuku
+        Capability.Notification -> R.string.action_capability_notification
         Capability.None -> R.string.action_none
     }
 

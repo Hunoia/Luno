@@ -24,6 +24,7 @@ object AutomationEventKey {
     const val MUSIC = "music"
     const val TORCH = "torch"
     const val DND = "dnd"
+    const val VARIABLE = "variable"
 }
 
 /** 条件类型 → 订阅键。状态与脉冲同域归一键；GROUP 自身不订阅。 */
@@ -74,6 +75,8 @@ fun keysForConditionType(type: String): Set<String> = when (type) {
     ConditionType.NOTIFICATION_POSTED -> setOf(AutomationEventKey.NOTIFICATION)
 
     ConditionType.GESTURE_PERFORMED -> setOf(AutomationEventKey.GESTURE)
+
+    ConditionType.VAR_COMPARE -> setOf(AutomationEventKey.VARIABLE)
 
     else -> emptySet()
 }

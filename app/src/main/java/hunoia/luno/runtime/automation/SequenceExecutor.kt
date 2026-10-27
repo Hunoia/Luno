@@ -1,22 +1,32 @@
 package hunoia.luno.runtime.automation
 
+import android.os.SystemClock
+import hunoia.luno.action.model.ActionResult
 import hunoia.luno.action.model.RUN_RULE_TYPE_ID
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.model.RuleStepKind
+import hunoia.luno.config.model.SequenceLimits
 import hunoia.luno.config.model.StepFailure
 import hunoia.luno.runtime.condition.ConditionContext
 import hunoia.luno.runtime.condition.matches
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 /** 步骤执行守卫：步数 / IF 深度 / delay 单步与总量上限 / 单动作挂起上限。 */
 object SequenceGuards {
-    const val MAX_STEPS = 20
+    const val MAX_STEPS = SequenceLimits.MAX_STEPS
     const val MAX_IF_DEPTH = 5
-    const val MAX_DELAY_MS = 60_000L
+    const val MAX_DELAY_MS = SequenceLimits.MAX_DELAY_MS
     const val MAX_TOTAL_DELAY_MS = 300_000L
+    const val MAX_REPEAT_COUNT = SequenceLimits.MAX_REPEAT_COUNT
+    const val MAX_TOTAL_STEPS = SequenceLimits.MAX_TOTAL_STEPS
+    const val MAX_WAIT_MS = SequenceLimits.MAX_WAIT_MS
+    const val MIN_WAIT_INTERVAL_MS = SequenceLimits.MIN_WAIT_INTERVAL_MS
+    const val MAX_WAIT_INTERVAL_MS = SequenceLimits.MAX_WAIT_INTERVAL_MS
 
     /** 单个动作步的挂起上限：执行器永不回调（如 Shizuku enablePackage 挂住）时，序列真等结果会永久占着单飞名额。 */
     const val MAX_ACTION_MS = 30_000L
@@ -34,27 +44,43 @@ object SequenceGuards {
 /** 单步执行结果：区分"条目没了"与"执行了但失败"。 */
 sealed interface StepOutcome {
     data object EntryMissing : StepOutcome
-    data class Done(val result: hunoia.luno.action.model.ActionResult) : StepOutcome
+    data class Done(val result: ActionResult) : StepOutcome
 }
+
+/** 一次序列执行的完整结果：记录 + 结束时的变量（runRule 的 RETURN 从 variables["return"] 取）。 */
+data class SequenceResult(
+    val records: List<StepRecord>,
+    val variables: Map<String, String>,
+)
 
 /**
  * 步骤序列执行器：顺序跑 steps，默认某步失败即中断（动作异常 / entry 缺失 / Failed|RequiresCapability / 动作超时）。
- * ACTION 步可按 [hunoia.luno.config.model.StepFailure] 配「跳过」或「重试」；delay/if/setVar 的配置错误仍按中断处理。
- * delay 等上一步真正落定之后；每条规则独立协程跑一份。
+ * ACTION 步可按 [StepFailure] 配「跳过」或「重试」；delay/if/setVar 的配置错误仍按中断处理。
+ * REPEAT/WAIT_UNTIL/RETURN 都是 P2 的有界扩展，循环次数和等待时长在模型与执行层双重夹取。
  */
 class SequenceExecutor(
     private val runSingleAction: suspend (action: StoredAction, ctx: ConditionContext, variables: Map<String, String>) -> StepOutcome,
-    /** 解析 SET_VAR 的值模板：系统/触发变量 + 本次运行已写入的局部变量。 */
+    /** 解析 SET_VAR/RETURN 的值模板：系统/触发变量 + 本次运行已写入的局部变量。 */
     private val resolveTemplate: suspend (text: String, ctx: ConditionContext, variables: Map<String, String>) -> String,
+    /** WAIT_UNTIL 轮询时刷新环境；默认保持触发时快照（嵌套 runRule 没有独立环境源）。 */
+    private val refreshContext: suspend (ConditionContext) -> ConditionContext = { it },
+    /** SET_VAR varGlobal=true 时写入全局变量存储。 */
+    private val writeGlobalVariable: suspend (name: String, value: String) -> Unit = { _, _ -> },
 ) {
     suspend fun runSteps(
         steps: List<RuleStep>,
         ctx: ConditionContext,
         variables: MutableMap<String, String> = mutableMapOf(),
-    ): List<StepRecord> {
+    ): List<StepRecord> = runStepsWithResult(steps, ctx, variables).records
+
+    suspend fun runStepsWithResult(
+        steps: List<RuleStep>,
+        ctx: ConditionContext,
+        variables: MutableMap<String, String> = mutableMapOf(),
+    ): SequenceResult {
         val runner = Runner(ctx, variables)
         runner.runList(steps.take(SequenceGuards.MAX_STEPS), prefix = "", depth = 0)
-        return runner.records
+        return SequenceResult(runner.records, runner.variables.toMap())
     }
 
     private inner class Runner(
@@ -62,17 +88,35 @@ class SequenceExecutor(
         val variables: MutableMap<String, String>,
     ) {
         val records = mutableListOf<StepRecord>()
+        val localKeys = mutableSetOf<String>()
         var totalDelayMs = 0L
+        var executedSteps = 0
         var interrupted = false
+        var returned = false
 
         suspend fun runList(steps: List<RuleStep>, prefix: String, depth: Int) {
             for ((i, step) in steps.withIndex()) {
-                if (interrupted) return
+                if (interrupted || returned) return
                 val index = if (prefix.isEmpty()) "$i" else "$prefix.$i"
+                if (!step.enabled) {
+                    records += StepRecord(
+                        index, step.kind, ok = true, message = "disabled", disabled = true,
+                    )
+                    continue
+                }
+                if (executedSteps >= SequenceGuards.MAX_TOTAL_STEPS) {
+                    records += StepRecord(index, step.kind, ok = false, message = "steps_total_capped")
+                    interrupted = true
+                    return
+                }
+                executedSteps++
                 when (step.kind) {
                     RuleStepKind.DELAY -> runDelay(step, index)
                     RuleStepKind.IF -> runIf(step, index, depth)
                     RuleStepKind.SET_VAR -> runSetVar(step, index)
+                    RuleStepKind.REPEAT -> runRepeat(step, index, depth)
+                    RuleStepKind.WAIT_UNTIL -> runWaitUntil(step, index)
+                    RuleStepKind.RETURN -> runReturn(step, index)
                     else -> runAction(step, index)
                 }
             }
@@ -98,8 +142,8 @@ class SequenceExecutor(
 
         suspend fun runSetVar(step: RuleStep, index: String) {
             val name = step.varName.trim()
-            if (name.isEmpty()) {
-                records += StepRecord(index, RuleStepKind.SET_VAR, ok = false, message = "var_name_empty")
+            if (!hunoia.luno.config.model.VariableNames.isValid(name)) {
+                records += StepRecord(index, RuleStepKind.SET_VAR, ok = false, message = "var_name_invalid")
                 interrupted = true
                 return
             }
@@ -116,10 +160,25 @@ class SequenceExecutor(
                 return
             }
             // 局部变量只在本次运行内有效；写成 var.<name> 与系统变量同形，模板扫描无需特殊分支。
-            variables["var.$name"] = value
+            val key = "var.$name"
+            variables[key] = value
+            localKeys += key
+            var suffix = ""
+            if (step.varGlobal) {
+                suffix = try {
+                    writeGlobalVariable(name, value)
+                    " global"
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // 全局落盘失败不影响本次运行：局部值仍生效，历史里留痕。
+                    " global_write_failed"
+                }
+            }
             records += StepRecord(
                 index, RuleStepKind.SET_VAR, ok = true,
-                message = "var.$name=${value.take(80)}",
+                // 变量值可能来自剪贴板/通知正文/密码，历史只留变量名和写入范围。
+                message = "var.$name=<redacted>$suffix",
             )
         }
 
@@ -130,8 +189,8 @@ class SequenceExecutor(
                 return
             }
             // 用触发时冻结的 ConditionContext 求值：脉冲字段（通知/手势等）在触发瞬间
-            // 之后仍可见，delay 后读到的也是触发时快照，不是实时环境。
-            val thenBranch = step.condition.matches(ctx)
+            // 之后仍可见；变量则叠加本次运行的局部写入。
+            val thenBranch = step.condition.matches(conditionCtx(ctx))
             val branch = (if (thenBranch) step.thenSteps else step.elseSteps)
                 .take(SequenceGuards.MAX_STEPS)
             records += StepRecord(
@@ -139,6 +198,92 @@ class SequenceExecutor(
                 message = "branch=${if (thenBranch) "then" else "else"} n=${branch.size}",
             )
             runList(branch, prefix = index, depth = depth + 1)
+        }
+
+        suspend fun runRepeat(step: RuleStep, index: String, depth: Int) {
+            if (depth >= SequenceGuards.MAX_IF_DEPTH) {
+                records += StepRecord(index, RuleStepKind.REPEAT, ok = false, message = "loop_depth_capped")
+                interrupted = true
+                return
+            }
+            val count = step.repeatCount.coerceIn(1, SequenceGuards.MAX_REPEAT_COUNT)
+            records += StepRecord(index, RuleStepKind.REPEAT, ok = true, message = "repeat=$count")
+            val body = step.thenSteps.take(SequenceGuards.MAX_STEPS)
+            for (iteration in 1..count) {
+                if (interrupted || returned) break
+                runList(body, prefix = "$index.then", depth = depth + 1)
+            }
+        }
+
+        suspend fun runWaitUntil(step: RuleStep, index: String) {
+            val timeoutMs = step.waitTimeoutMs.coerceIn(0L, SequenceGuards.MAX_WAIT_MS)
+            val intervalMs = step.waitIntervalMs.coerceIn(
+                SequenceGuards.MIN_WAIT_INTERVAL_MS,
+                SequenceGuards.MAX_WAIT_INTERVAL_MS,
+            )
+            val started = SystemClock.elapsedRealtime()
+            while (true) {
+                val live = try {
+                    conditionCtx(refreshContext(ctx))
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    conditionCtx(ctx)
+                }
+                if (step.condition.matches(live)) {
+                    records += StepRecord(
+                        index, RuleStepKind.WAIT_UNTIL, ok = true,
+                        message = "condition_met ${SystemClock.elapsedRealtime() - started}ms",
+                    )
+                    return
+                }
+                val elapsed = SystemClock.elapsedRealtime() - started
+                if (elapsed >= timeoutMs) {
+                    records += StepRecord(
+                        index, RuleStepKind.WAIT_UNTIL, ok = false,
+                        message = "wait_timeout ${timeoutMs}ms",
+                    )
+                    interrupted = true
+                    return
+                }
+                val sleepMs = minOf(intervalMs, timeoutMs - elapsed).coerceAtLeast(0L)
+                if (totalDelayMs + sleepMs > SequenceGuards.MAX_TOTAL_DELAY_MS) {
+                    records += StepRecord(
+                        index, RuleStepKind.WAIT_UNTIL, ok = false,
+                        message = "wait_budget_capped",
+                    )
+                    interrupted = true
+                    return
+                }
+                totalDelayMs += sleepMs
+                try {
+                    delay(sleepMs)
+                } catch (e: CancellationException) {
+                    records += StepRecord(index, RuleStepKind.WAIT_UNTIL, ok = false, message = "cancelled")
+                    throw e
+                }
+            }
+        }
+
+        suspend fun runReturn(step: RuleStep, index: String) {
+            val value = try {
+                resolveTemplate(step.varTemplate, ctx, variables.toMap())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                records += StepRecord(
+                    index, RuleStepKind.RETURN, ok = false,
+                    message = (e.message ?: e.javaClass.name).take(120),
+                )
+                interrupted = true
+                return
+            }
+            variables["return"] = value
+            returned = true
+            records += StepRecord(
+                index, RuleStepKind.RETURN, ok = true,
+                message = "return=<redacted>",
+            )
         }
 
         suspend fun runAction(step: RuleStep, index: String) {
@@ -168,6 +313,7 @@ class SequenceExecutor(
 
             var attemptsMade = 0
             var lastFailure: String? = null
+            var success: ActionResult.Success? = null
             while (true) {
                 if (attemptsMade > 0) {
                     // 重试等待也计入总延时预算，避免 20 步 × 5 次 × 30s 绕过序列时长上限。
@@ -186,7 +332,10 @@ class SequenceExecutor(
                     when (outcome) {
                         null -> "action_timeout"
                         is StepOutcome.EntryMissing -> "entry_missing"
-                        is StepOutcome.Done -> failureOf(outcome.result)
+                        is StepOutcome.Done -> {
+                            (outcome.result as? ActionResult.Success)?.let { success = it }
+                            failureOf(outcome.result)
+                        }
                     }
                 } catch (e: CancellationException) {
                     throw e
@@ -195,6 +344,8 @@ class SequenceExecutor(
                 }
 
                 if (lastFailure == null) {
+                    // runRule 的 RETURN 绑定到父规则局部变量：resultVar 由步骤参数指定。
+                    bindRunRuleResult(action, success)
                     records += StepRecord(
                         index, RuleStepKind.ACTION, ok = true,
                         message = if (attemptsMade > 1) {
@@ -228,16 +379,32 @@ class SequenceExecutor(
             }
         }
 
+        private fun bindRunRuleResult(action: StoredAction, success: ActionResult.Success?) {
+            if (action.typeId != RUN_RULE_TYPE_ID || success == null) return
+            val dest = (action.params["resultVar"] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
+            val value = success.outputs["return"] ?: return
+            if (dest.isEmpty() || !hunoia.luno.config.model.VariableNames.isValid(dest)) return
+            val key = "var.$dest"
+            variables[key] = value
+            localKeys += key
+        }
+
+        /** 刷新后的环境 + 本次运行局部变量；全局变量以刷新值为准，局部同名覆盖。 */
+        private fun conditionCtx(base: ConditionContext): ConditionContext {
+            val locals = variables.filterKeys { it in localKeys }
+            return base.copy(variables = base.variables + locals)
+        }
+
         /** 成功返回 null；失败返回可读原因（写进执行历史）。 */
-        private fun failureOf(result: hunoia.luno.action.model.ActionResult): String? = when (result) {
-            is hunoia.luno.action.model.ActionResult.Success -> null
-            is hunoia.luno.action.model.ActionResult.Failed ->
+        private fun failureOf(result: ActionResult): String? = when (result) {
+            is ActionResult.Success -> null
+            is ActionResult.Failed ->
                 (result.message ?: result.reason.name).lowercase().take(120)
-            is hunoia.luno.action.model.ActionResult.RequiresCapability -> "requires_capability"
+            is ActionResult.RequiresCapability -> "requires_capability"
         }
 
         /** 重试对这些失败无意义：能力缺失要用户授权，entry 缺失要用户修数据。 */
         private fun isRetryable(failure: String): Boolean =
-            failure != "requires_capability" && failure != "entry_missing"
+            !failure.startsWith("requires_capability") && failure != "entry_missing"
     }
 }

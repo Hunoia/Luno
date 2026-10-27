@@ -175,5 +175,5 @@ data class ExecutorContext(
      * 规则即动作回调（分发器注入）：只跑目标规则的 effect steps。
      * null = 非分发链路构造的上下文，runRule 报 Unsupported。
      */
-    val runRule: (suspend (ruleId: String, ctx: ExecutorContext) -> ActionResult)? = null,
+    val runRule: (suspend (ruleId: String, params: Map<String, String>, ctx: ExecutorContext) -> ActionResult)? = null,
 )

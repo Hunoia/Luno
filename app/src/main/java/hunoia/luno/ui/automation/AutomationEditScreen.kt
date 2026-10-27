@@ -46,6 +46,7 @@ import hunoia.luno.config.model.RuleStepKind
 import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.config.model.conditionAt
 import hunoia.luno.config.model.withConditionAt
+import hunoia.luno.action.model.runRuleId
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.navigation.NEW_AUTOMATION_RULE_ID
@@ -93,6 +94,7 @@ fun AutomationEditScreen(
     /** 当前条件 sheet 编辑的是触发条件还是约束条件（决定写回哪棵树）。 */
     var conditionIsConstraint by remember { mutableStateOf(false) }
     var stepSheetPath by remember { mutableStateOf<String?>(null) }
+    var stepClipboard by remember { mutableStateOf<RuleStep?>(null) }
     var stepTypePickerFor by remember { mutableStateOf<String?>(null) }
     var showBlockedDialog by remember { mutableStateOf(false) }
     var showDiscardDialog by remember { mutableStateOf(false) }
@@ -142,6 +144,14 @@ fun AutomationEditScreen(
     }
     val rule = draft ?: return
     val context = LocalContext.current
+    val capabilityReport = remember(rule, loadedRules, library, resumeTick) {
+        AutomationCenter.capabilityReport(
+            context,
+            rule,
+            (loadedRules ?: emptyList()).filterNot { it.id == rule.id } + rule,
+            library,
+        )
+    }
     /** 条件树含状态叶：决定规则级进入/退出是否可用（纯事件树发生即触发）。 */
     val conditionHasState = rule.condition.hasStateCondition()
     /**
@@ -197,9 +207,12 @@ fun AutomationEditScreen(
     val conditionIncomplete = rule.condition.hasIncompleteCondition() ||
         rule.constraints.hasIncompleteCondition() ||
         rule.effect.steps.hasIncompleteStepCondition()
+    val paramsIncomplete = rule.params.any { !isValidVarName(it.name) } ||
+        rule.params.map { it.name }.size != rule.params.map { it.name }.distinct().size
     val stepsEmpty = rule.effect.steps.isEmpty()
     val throttleInvalid = isInvalidThrottle(rule.throttle)
-    val canSave = hasCondition && !conditionIncomplete && !stepsEmpty && !throttleInvalid
+    val canSave = hasCondition && !conditionIncomplete && !paramsIncomplete &&
+        !stepsEmpty && !throttleInvalid
     fun trySave() {
         if (canSave) save() else showBlockedDialog = true
     }
@@ -341,10 +354,15 @@ fun AutomationEditScreen(
             }
             stepSheetPath?.let { path ->
                 rule.effect.stepAt(path)?.let { step ->
+                    val runRuleTarget = step.action?.runRuleId()?.let { targetId ->
+                        loadedRules?.firstOrNull { it.id == targetId }
+                    }
                     StepSheet(
                         step = step,
                         onDismissRequest = { stepSheetPath = null },
-                        onStepChange = { update(rule.copy(effect = rule.effect.withStepAt(path) { it })) },
+                        onStepChange = { changed ->
+                            update(rule.copy(effect = rule.effect.withStepAt(path) { changed }))
+                        },
                         onDelete = {
                             update(rule.copy(effect = removeStepAt(rule.effect, path)))
                             stepSheetPath = null
@@ -364,12 +382,31 @@ fun AutomationEditScreen(
                             stepSheetPath = null
                             onPickAction(rule, path)
                         },
+                        runRuleTarget = runRuleTarget,
+                        onCopy = {
+                            stepClipboard = step
+                            showToast(R.string.step_copied)
+                        },
+                        canMoveUp = canMoveStep(rule.effect, path, -1),
+                        canMoveDown = canMoveStep(rule.effect, path, 1),
+                        onMoveUp = {
+                            moveStepAt(rule.effect, path, -1)?.let { moved ->
+                                update(rule.copy(effect = moved))
+                            }
+                            stepSheetPath = null
+                        },
+                        onMoveDown = {
+                            moveStepAt(rule.effect, path, 1)?.let { moved ->
+                                update(rule.copy(effect = moved))
+                            }
+                            stepSheetPath = null
+                        },
                     )
                 }
             }
             ifConditionStepPath?.let { stepPath ->
                 rule.effect.stepAt(stepPath)?.let { step ->
-                    if (step.kind == RuleStepKind.IF) {
+                    if (step.kind == RuleStepKind.IF || step.kind == RuleStepKind.WAIT_UNTIL) {
                         IfConditionSheet(
                             condition = step.condition,
                             onConditionChange = { newCond ->
@@ -491,6 +528,18 @@ fun AutomationEditScreen(
             }
         }
         LunoGroup(
+            title = stringResource(R.string.rule_params),
+            badgeText = if (rule.params.isEmpty()) null else {
+                stringResource(R.string.condition_group_count, rule.params.size)
+            },
+            badgeError = paramsIncomplete,
+        ) {
+            RuleParamsEditor(
+                params = rule.params,
+                onParamsChange = { update(rule.copy(params = it)) },
+            )
+        }
+        LunoGroup(
             title = stringResource(R.string.automation_steps),
             badgeText = if (stepsEmpty) {
                 stringResource(R.string.automation_steps_empty)
@@ -510,6 +559,14 @@ fun AutomationEditScreen(
                 },
                 library = library,
                 rules = loadedRules ?: emptyList(),
+                clipboard = stepClipboard,
+                onPasteStep = { prefix ->
+                    stepClipboard?.let { clip ->
+                        appendStep(rule.effect, prefix, clip)?.let { (_, newEffect) ->
+                            update(rule.copy(effect = newEffect))
+                        }
+                    }
+                },
             )
         }
         LunoGroup(
@@ -551,11 +608,18 @@ fun AutomationEditScreen(
         LunoGroup(
             title = stringResource(R.string.automation_run_control),
             titleBottomSpacing = CardInnerSpacing,
+            badgeText = if (capabilityReport.hasMissing) {
+                stringResource(R.string.permission_precheck_title)
+            } else {
+                null
+            },
+            badgeError = capabilityReport.hasMissing,
         ) {
             RunControlEditor(
                 rule = rule,
                 onRuleChange = { update(it) },
             )
+            CapabilityWarningRow(capabilityReport)
         }
     }
 }
