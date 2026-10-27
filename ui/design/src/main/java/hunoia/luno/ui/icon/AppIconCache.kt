@@ -1,4 +1,4 @@
-package hunoia.luno.quicklaunch.icon
+package hunoia.luno.ui.icon
 
 import android.graphics.drawable.Drawable
 import androidx.collection.LruCache

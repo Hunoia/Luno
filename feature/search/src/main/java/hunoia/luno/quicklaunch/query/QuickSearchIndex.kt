@@ -11,7 +11,7 @@ import hunoia.luno.config.model.fillSearchQuery
 import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
-import hunoia.luno.quicklaunch.model.LauncherInfo
+import hunoia.luno.bridge.launcher.LauncherInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

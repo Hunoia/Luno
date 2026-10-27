@@ -4,7 +4,7 @@ import com.github.houbb.pinyin.constant.enums.PinyinStyleEnum
 import com.github.houbb.pinyin.util.PinyinHelper
 import androidx.collection.LruCache
 import hunoia.luno.quicklaunch.model.AppInfo
-import hunoia.luno.quicklaunch.model.LauncherInfo
+import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.config.model.AppUsageStats
 import kotlin.math.ln
 import kotlin.math.pow

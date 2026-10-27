@@ -2,7 +2,7 @@ package hunoia.luno.action.model
 
 import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.core.domain.StoredAction
-import hunoia.luno.quicklaunch.model.LauncherInfo
+import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.quicklaunch.model.qualifiedNameWithIntents
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull

@@ -10,7 +10,7 @@ import hunoia.luno.bridge.system.copyText
 import hunoia.luno.core.AppContext
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.quicklaunch.model.AppInfo
-import hunoia.luno.quicklaunch.model.LauncherInfo
+import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.ui.actionselect.SaveOutcome
 import hunoia.luno.ui.actionselect.updateActionParamsTransform

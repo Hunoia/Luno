@@ -22,7 +22,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
-import hunoia.luno.R
+import hunoia.luno.actions.R
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -35,9 +35,9 @@ import hunoia.luno.core.domain.launchPackageName
 import hunoia.luno.core.domain.ActionLibraryEntry
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.config.model.DirectionActions
-import hunoia.luno.quicklaunch.icon.rememberAppDrawable
-import hunoia.luno.quicklaunch.model.icon
-import hunoia.luno.ui.actionselect.shortcutInfo
+import hunoia.luno.ui.icon.icon
+import hunoia.luno.ui.icon.rememberAppDrawable
+import hunoia.luno.action.model.shortcutInfo
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
 import hunoia.luno.ui.navigation.LocalGridPanels

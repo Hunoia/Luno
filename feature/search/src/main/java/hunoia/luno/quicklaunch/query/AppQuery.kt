@@ -9,7 +9,7 @@ import hunoia.luno.bridge.system.PackageChangeReceiver
 import hunoia.luno.bridge.system.queryIntentActivitiesCompat
 import hunoia.luno.core.AppContext
 import hunoia.luno.quicklaunch.model.AppInfo
-import hunoia.luno.quicklaunch.model.LauncherInfo
+import hunoia.luno.bridge.launcher.LauncherInfo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 

@@ -1,4 +1,4 @@
-package hunoia.luno.quicklaunch.model
+package hunoia.luno.bridge.launcher
 
 import android.graphics.Bitmap
 import androidx.annotation.Keep

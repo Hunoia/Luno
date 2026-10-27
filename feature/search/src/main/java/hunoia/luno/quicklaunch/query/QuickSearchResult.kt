@@ -4,7 +4,7 @@ import hunoia.luno.core.domain.ActionLibraryEntry
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.quicklaunch.model.AppInfo
-import hunoia.luno.quicklaunch.model.LauncherInfo
+import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.core.domain.SettingsPage
 
 /**

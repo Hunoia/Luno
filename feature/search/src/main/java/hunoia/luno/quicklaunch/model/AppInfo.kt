@@ -5,7 +5,7 @@ import android.content.Context
 import android.graphics.drawable.Drawable
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
-import hunoia.luno.quicklaunch.icon.rememberAppDrawable
+import hunoia.luno.ui.icon.rememberAppDrawable
 
 /**
  * AppInfo 的平台与 Compose 扩展。

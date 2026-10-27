@@ -1,4 +1,4 @@
-package hunoia.luno.quicklaunch.model
+package hunoia.luno.ui.icon
 
 import android.content.ComponentName
 import android.content.Context
@@ -13,19 +13,19 @@ import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.drawable.updateBounds
 import androidx.core.graphics.scale
+import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.bridge.ui.DensityProvider
-import hunoia.luno.quicklaunch.icon.rememberAppDrawable
-import hunoia.luno.quicklaunch.model.LauncherInfo
 import kotlin.math.min
 
-val LauncherInfo.componentName: ComponentName get() = ComponentName.createRelative(packageName, className)
-
-val LauncherInfo.qualifiedName: String get() = "$packageName/$className"
+/**
+ * 启动器条目/快捷方式的图标：跨进程 PM 查询与磁盘解码都走 [rememberAppDrawable]，
+ * 组合期不做同步 IO。归 `:ui:design`：这是图标原子组件，查询侧与动作展示共用。
+ */
 
 val LauncherInfo.icon: Drawable? @Composable get() {
     val context = LocalContext.current
     // 跨进程 PM 查询：缓存 + IO 异步，组合期不再同步阻塞（见 rememberAppDrawable）。
-    return rememberAppDrawable("info/$qualifiedName") { getIcon(context) }
+    return rememberAppDrawable("info/$packageName/$className") { getIcon(context) }
 }
 
 fun LauncherInfo.getIcon(context: Context): Drawable? {

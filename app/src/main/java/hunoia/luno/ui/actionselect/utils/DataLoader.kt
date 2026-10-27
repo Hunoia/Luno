@@ -28,7 +28,7 @@ import hunoia.luno.gridpanel.geometry.gridPanelVisibleRows
 import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.gridpanel.widget.PanelAppWidgetHost
 import hunoia.luno.gridpanel.widget.WidgetSpan
-import hunoia.luno.quicklaunch.model.LauncherInfo
+import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
@@ -42,12 +42,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import hunoia.luno.action.model.Action
-
-internal fun StoredAction.shortcutInfo(): LauncherInfo.ShortcutInfo? {
-    if (typeId != "app.launchShortcut") return null
-    val data = (params["data"] as? JsonPrimitive)?.contentOrNull ?: return null
-    return runCatching { JsonSerializer.decodeFromString<LauncherInfo.ShortcutInfo>(data) }.getOrNull()
-}
+import hunoia.luno.action.model.shortcutInfo
 
 internal fun List<StoredAction>.shortcutIconPaths(): List<String> =
     flatMap { ShortcutIconFiles.iconPathsOf(it) }

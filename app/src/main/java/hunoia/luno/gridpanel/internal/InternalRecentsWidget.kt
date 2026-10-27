@@ -38,8 +38,8 @@ import hunoia.luno.R
 import hunoia.luno.gridpanel.LocalGridPanelClose
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
-import hunoia.luno.quicklaunch.icon.rememberAppDrawable
-import hunoia.luno.quicklaunch.icon.rememberAppLabel
+import hunoia.luno.ui.icon.rememberAppDrawable
+import hunoia.luno.ui.icon.rememberAppLabel
 
 /**
  * 最近应用：一排图标（旧 → 新，最多 6 个，不含当前前台），点按直达。
