@@ -1,4 +1,4 @@
-package hunoia.luno.action.dispatcher
+package hunoia.luno.gesture.event
 
 import hunoia.luno.config.model.GestureTriggerType
 

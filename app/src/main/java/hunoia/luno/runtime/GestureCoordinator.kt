@@ -1036,7 +1036,7 @@ class GestureCoordinator(
             ),
             onSettled = { settlement ->
                 hunoia.luno.core.Events.post(
-                    hunoia.luno.action.dispatcher.GestureDispatchEvent(
+                    hunoia.luno.gesture.event.GestureDispatchEvent(
                         typeId = settlement.typeId,
                         buttonId = sourceButton?.id,
                         trigger = decision?.triggerType,
@@ -1093,7 +1093,7 @@ class GestureCoordinator(
     }
 
     /** 分发落定后驱动 GESTURE 域评估。 */
-    private val gestureDispatchSubscriber: (hunoia.luno.action.dispatcher.GestureDispatchEvent) -> Unit = { event ->
+    private val gestureDispatchSubscriber: (hunoia.luno.gesture.event.GestureDispatchEvent) -> Unit = { event ->
         if (event.fromGesture) {
             refreshGestureButtons(delayMs = 0L, automationKeys = setOf(AutomationEventKey.GESTURE))
         }
@@ -1234,7 +1234,7 @@ class GestureCoordinator(
         if (BuildConfig.DEBUG) Log.i(LOG_TAG, "GestureCoordinator start")
         hunoia.luno.gridpanel.widget.PanelAppWidgetHostView.setTapListener { startWidgetLaunchPoll() }
         hunoia.luno.core.Events.subscribe(
-            hunoia.luno.action.dispatcher.GestureDispatchEvent::class,
+            hunoia.luno.gesture.event.GestureDispatchEvent::class,
             gestureDispatchSubscriber,
         )
         // 链接分发经执行口启动：本进程内可等待，主进程走 IPC。
@@ -1451,7 +1451,7 @@ class GestureCoordinator(
         stopWidgetLaunchPoll()
         stopKeyboardWatch()
         hunoia.luno.core.Events.unsubscribe(
-            hunoia.luno.action.dispatcher.GestureDispatchEvent::class,
+            hunoia.luno.gesture.event.GestureDispatchEvent::class,
             gestureDispatchSubscriber,
         )
         hunoia.luno.link.LocalDispatch.provider = null
