@@ -5,7 +5,7 @@ import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import hunoia.luno.BuildConfig
+import hunoia.luno.gesture.BuildConfig
 import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.bridge.ui.removeWindows

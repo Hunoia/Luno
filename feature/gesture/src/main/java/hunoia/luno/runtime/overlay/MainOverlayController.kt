@@ -4,7 +4,7 @@ import android.util.Log
 import android.view.WindowManager
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.ComposeView
-import hunoia.luno.BuildConfig
+import hunoia.luno.gesture.BuildConfig
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner

@@ -36,8 +36,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import hunoia.luno.BuildConfig
-import hunoia.luno.R
+import hunoia.luno.gesture.BuildConfig
+import hunoia.luno.gesture.R
 import hunoia.luno.bridge.ui.applyOverlayViewTreeOwners
 import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.runtime.GestureHost

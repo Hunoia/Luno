@@ -21,7 +21,6 @@
     <string name="width">宽度</string>
     <string name="mini_window_position_hint">调整小窗打开的位置</string>
     <string name="keep_alive_need_permission">保活需要授予「修改系统设置」权限，请先在 Shizuku 中授权或通过 ADB 执行：adb shell pm grant hunoia.luno android.permission.WRITE_SECURE_SETTINGS</string>
-    <string name="quick_search_copied">已复制</string>
     <string name="quick_search_trigger_off">留空则关闭该来源标识</string>
     <string name="quick_search_trigger_closed">标识已关闭</string>
     <string name="mini_window_position_short">小窗</string>
@@ -370,17 +369,8 @@
     <string name="action_library_icon_default">默认</string>
     <string name="action_library_icon_custom">文字或表情</string>
     <string name="point_pick">屏幕取点</string>
-    <string name="point_pick_hint">轻点目标位置，确定后回填坐标（仍可手改）</string>
     <string name="point_pick_point">x=%1$d dp，y=%2$d dp</string>
     <string name="point_pick_empty">未取点</string>
-    <string name="screen_pick_image_copied">图片已复制</string>
-    <string name="screen_pick_image_saved">图片已保存到相册</string>
-    <string name="screen_pick_close">关闭识屏</string>
-    <string name="screen_pick_copy_image">复制图片</string>
-    <string name="screen_pick_share_image">分享图片</string>
-    <string name="screen_pick_save_image">保存到相册</string>
-    <string name="screen_pick_no_content">未识别到可复制的内容</string>
-    <string name="screen_pick_failed">识别失败，请重试</string>
     <string name="action_library_icon_use">使用</string>
 
     <!-- 动作编辑器 -->

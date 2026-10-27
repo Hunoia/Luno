@@ -12,11 +12,7 @@ import hunoia.luno.runtime.pointer.PointerOverlayHost
 import kotlinx.coroutines.CoroutineScope
 
 /** 指针窗口宿主是 [GestureHost] 的子集（context + 生命周期三件套），直接继承。 */
-interface GestureHost : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner, PointerOverlayHost {
-    override val context: Context
-    val accessibilityService: AccessibilityService
-    val coroutineScope: CoroutineScope
-    val advancedSettings: hunoia.luno.config.model.AdvancedSettings?
+interface GestureHost : hunoia.luno.runtime.RuntimeHost, PointerOverlayHost {
 
     val runtimePanelOverlay: RuntimePanelOverlay
     val pointPickOverlay: PointPickOverlay
