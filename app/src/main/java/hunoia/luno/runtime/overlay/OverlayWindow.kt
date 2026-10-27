@@ -1,11 +1,7 @@
 package hunoia.luno.runtime.overlay
 
-import android.util.Log
-import android.view.View
-import android.view.WindowManager
 import androidx.compose.ui.geometry.Offset
 import hunoia.luno.config.model.GestureButton
-import hunoia.luno.core.LOG_TAG
 
 /**
  * 一个手势按钮窗口的标识。[mirrored] 区分同一按钮的主/镜像窗口 —— 镜像窗口的 windowButton
@@ -43,21 +39,4 @@ interface GestureOverlayCallbacks {
         /** 触发这次动作的识别结果；面板点选等非直接触发为 null。 */
         decision: hunoia.luno.gesture.GestureDecision.Trigger?,
     )
-}
-
-internal fun WindowManager.safeAddView(view: View?, params: WindowManager.LayoutParams): Boolean {
-    val target = view ?: return false
-    return runCatching { addView(target, params) }
-        .onFailure { error ->
-            Log.e(LOG_TAG, "overlay addView failed: ${error::class.simpleName} ${error.message}")
-        }
-        .isSuccess
-}
-
-/** updateViewLayout 在窗口已被系统移除（服务销毁竞态、权限被撤销）时会抛异常；这是预期竞态，记日志而非静默吞掉。 */
-internal fun WindowManager.safeUpdateViewLayout(view: View, params: WindowManager.LayoutParams) {
-    runCatching { updateViewLayout(view, params) }
-        .onFailure { error ->
-            Log.w(LOG_TAG, "overlay updateViewLayout failed: ${error::class.simpleName} ${error.message}")
-        }
 }

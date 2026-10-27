@@ -10,7 +10,7 @@ import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.config.model.GestureButton
 import kotlin.math.roundToInt
 
-internal object WindowLayoutFactory {
+object WindowLayoutFactory {
 
     private val rootSize: IntSize
         get() = IntSize(DensityProvider.screenWidthPx, DensityProvider.screenHeightPx)
