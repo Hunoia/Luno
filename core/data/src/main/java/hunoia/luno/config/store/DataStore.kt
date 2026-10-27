@@ -35,7 +35,12 @@ inline fun <reified T> Context.dataStore(fileName: String, defValue: T): DataSto
                 if (bytes.isNotEmpty()) {
                     runCatching {
                         targetFile.parentFile?.mkdirs()
-                        File("${targetFile.absolutePath}.corrupt").writeBytes(bytes)
+                        val stamp = System.currentTimeMillis()
+                        val backup = File("${targetFile.absolutePath}.bak.$stamp")
+                        backup.writeBytes(bytes)
+                        pruneBackups(targetFile, keep = 3)
+                    }.onFailure {
+                        Log.w("DataStore", "keep corrupt backup $fileName failed: ${it.message}")
                     }
                 }
                 defaultValue
@@ -55,4 +60,15 @@ inline fun <reified T> Context.dataStore(fileName: String, defValue: T): DataSto
     return MultiProcessDataStoreFactory.create(serializer) {
         targetFile
     }
+}
+
+/** 只保留最近 [keep] 份 `<file>.bak.<timestamp>`，防止反复坏文件把存储撑大。 */
+@PublishedApi
+internal fun pruneBackups(target: File, keep: Int) {
+    val dir = target.parentFile ?: return
+    val prefix = "${target.name}.bak."
+    val backups = dir.listFiles { f -> f.isFile && f.name.startsWith(prefix) }
+        ?.sortedByDescending { it.name }
+        ?: return
+    backups.drop(keep).forEach { runCatching { it.delete() } }
 }
