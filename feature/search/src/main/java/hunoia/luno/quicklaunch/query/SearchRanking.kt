@@ -7,7 +7,7 @@ package hunoia.luno.quicklaunch.query
  * [sortTitle] 是排序用的归一化串（应用侧是索引 raw，搜索侧是展示标题），
  * 不是展示字段，别拿它渲染。
  */
-internal interface RankedResult {
+interface RankedResult {
     val tier: Int
     val offset: Int
     val usage: Double
@@ -16,7 +16,7 @@ internal interface RankedResult {
 }
 
 /** 统一排序：tier → offset → 使用分 → 标题长度 → 字典序。 */
-internal val RANK_COMPARATOR: Comparator<RankedResult> =
+val RANK_COMPARATOR: Comparator<RankedResult> =
     compareByDescending<RankedResult> { it.tier }
         .thenBy { it.offset }
         .thenByDescending { it.usage }

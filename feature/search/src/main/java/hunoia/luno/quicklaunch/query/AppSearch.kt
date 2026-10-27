@@ -13,7 +13,7 @@ import kotlin.math.pow
  * 档位 + 紧密度：tier 定档，offset 定同档先后；只认连续块（token 依次占相邻字符，块可在任意位置）。
  * 无块即 NO_MATCH（稀疏子序列不是命中）；块在 0 位 → 锚定，span 恒 = token 数。
  */
-internal data class TieredMatch(val tier: Int, val span: Int, val offset: Int) {
+data class TieredMatch(val tier: Int, val span: Int, val offset: Int) {
     companion object {
         val NO_MATCH = TieredMatch(-1, Int.MAX_VALUE, Int.MAX_VALUE)
     }
@@ -23,7 +23,7 @@ internal data class TieredMatch(val tier: Int, val span: Int, val offset: Int) {
  * 一次查询的预编译产物：token 与掩码只在搜索入口算一次，匹配循环里直接复用。
  * 掩码是「该 token 允许出现的字符位集」；非 ASCII token 的掩码为 -1，走顺序比较回退。
  */
-internal class SearchQueryPlan(
+class SearchQueryPlan(
     val tokens: List<String>,
     val masks: LongArray,
     val foldedTokens: List<String>,
@@ -34,7 +34,7 @@ internal class SearchQueryPlan(
 }
 
 /** 使用频率分：一次搜索内按 key 缓存，避免 apps / shortcuts / pkgScores 重复算 ln/pow。 */
-internal class UsageScores(
+class UsageScores(
     private val launchCount: Map<String, Long>,
     private val recentLaunchTime: Map<String, Long>,
     private val now: Long,
@@ -482,7 +482,7 @@ object AppSearch {
  * - 内层不用 `token.lowercase().contains(...)`：那会在每个 (start, i) 组合上分配新 String，
  *   比较器被调用 O(n log n) 次，每次每个 token 都分配一次。
  */
-internal fun matchesTokens(text: String, tokens: List<String>, emptyMatches: Boolean): Boolean {
+fun matchesTokens(text: String, tokens: List<String>, emptyMatches: Boolean): Boolean {
     if (tokens.isEmpty()) return emptyMatches
     if (tokens.size > text.length) return false
     for (start in 0..(text.length - tokens.size)) {

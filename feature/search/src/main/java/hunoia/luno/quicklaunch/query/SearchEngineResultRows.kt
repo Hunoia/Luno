@@ -1,7 +1,7 @@
 package hunoia.luno.quicklaunch.query
 
 import android.content.Context
-import hunoia.luno.R
+import hunoia.luno.search.R
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.SearchLaunch
 import hunoia.luno.config.model.badgeText
@@ -13,7 +13,7 @@ import hunoia.luno.config.model.effectiveLaunch
  * key 固定为 `es#<引擎id>|<query>`，两条路径产出的行才能完全一致
  * （图标文字、复制链接、分享图片）。
  */
-internal fun engineResultRow(
+fun engineResultRow(
     context: Context,
     query: String,
     engine: SearchEngine,
@@ -24,7 +24,7 @@ internal fun engineResultRow(
 )
 
 /** 不依赖 Context 的版本：标题由调用方给（索引层已有解析好的标题）。 */
-internal fun engineResultRow(
+fun engineResultRow(
     title: String,
     query: String,
     engine: SearchEngine,

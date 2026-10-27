@@ -5,7 +5,7 @@ import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.LauncherInfo
-import hunoia.luno.action.model.SettingsPage
+import hunoia.luno.core.domain.SettingsPage
 
 /**
  * 搜索索引的原始结果。展示层通过 [toSearchResult] 转成 [SearchResult]，
@@ -109,7 +109,7 @@ sealed interface QuickSearchResult {
  * 用作 LazyColumn 的 key 基串——带 idx 的 key 会在结果重排时整列失效，全部重建。
  * 无独立 id 的类型取「能区分同一实体」的最小字段集，并把类型前缀写进去防跨类型撞 key。
  */
-internal fun QuickSearchResult.stableId(): String = when (this) {
+fun QuickSearchResult.stableId(): String = when (this) {
     is QuickSearchResult.ActionDef -> "a#${stored.typeId}|${stored.params}"
     is QuickSearchResult.LibraryEntry -> "l#${entry.id}"
     // 应用/快捷方式：包名+类名就是唯一标识（AppInfo.qualifiedName）。

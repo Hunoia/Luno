@@ -1,5 +1,7 @@
 package hunoia.luno.action.model
 
+import hunoia.luno.core.domain.SettingsPage
+
 import hunoia.luno.actions.R
 
 /**

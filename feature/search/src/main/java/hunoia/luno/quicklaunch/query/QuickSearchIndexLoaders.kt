@@ -1,8 +1,8 @@
 package hunoia.luno.quicklaunch.query
 
-import hunoia.luno.R
-import hunoia.luno.action.model.SettingsPage
-import hunoia.luno.action.model.labelRes
+import hunoia.luno.search.R
+import hunoia.luno.core.domain.SettingsPage
+import kotlinx.serialization.json.contentOrNull
 
 fun QuickSearchIndex.hasContactsPermission(): Boolean =
     androidx.core.content.ContextCompat.checkSelfPermission(
@@ -192,7 +192,7 @@ fun QuickSearchIndex.ensureMedia() {
     /** 媒体是否已就绪（任一源试过）：search 只查内存，权限实时复查。 */
 fun QuickSearchIndex.mediaReady(): Boolean = audioTried || galleryTried || docsTried
 
-internal data class PermSnapshot(
+data class PermSnapshot(
     val contacts: Boolean,
     val calendar: Boolean,
     val sms: Boolean,
@@ -214,7 +214,7 @@ internal data class PermSnapshot(
  */
 @Volatile private var permSnapshotHolder: PermSnapshot = PermSnapshot.NONE
 
-internal val QuickSearchIndex.permSnapshot: PermSnapshot
+val QuickSearchIndex.permSnapshot: PermSnapshot
     get() = permSnapshotHolder
 
 /** 刷新权限快照：必须在后台线程调（8 次 IPC）。 */
@@ -390,7 +390,7 @@ fun QuickSearchIndex.recentFiles(limit: Int = 10): List<QuickSearchResult> {
     }
 
     /** 开关行的静态元数据：标题/关键词参与匹配，不含状态（零 IPC，可常驻）。 */
-internal data class ToggleSpec(
+data class ToggleSpec(
     val kind: QuickSearchResult.ToggleKind,
     val title: String,
     val keywords: String,
@@ -405,7 +405,7 @@ private val TOGGLE_SPECS = listOf(
     ToggleSpec(QuickSearchResult.ToggleKind.HOTSPOT, "热点", "热点 hotspot 共享 网络"),
     )
 
-internal fun QuickSearchIndex.toggleSpecs(): List<ToggleSpec> = TOGGLE_SPECS
+fun QuickSearchIndex.toggleSpecs(): List<ToggleSpec> = TOGGLE_SPECS
 
 /**
  * 开关状态（副标题）缓存：TTL 1s，命中缓存后同一会话内连打零 IPC；面板每次打开会
@@ -421,7 +421,7 @@ private const val TOGGLE_TTL_MS = 1_000L
 
 @Volatile private var toggleCache: ToggleStateCache? = null
 
-internal fun invalidateToggleState() {
+fun invalidateToggleState() {
     toggleCache = null
     }
 
@@ -494,5 +494,15 @@ private fun QuickSearchIndex.formatSize(bytes: Long): String {
     }
 
     /** 设置页 label 同源：SettingsPage.labelRes（原 Enum 参数已改为选择页行尾设置）。 */
-internal fun QuickSearchIndex.systemSettingsPages(): List<QuickSearchResult.Settings> =
-    SettingsPage.entries.map { QuickSearchResult.Settings(it, context.getString(it.labelRes)) }
+fun QuickSearchIndex.systemSettingsPages(): List<QuickSearchResult.Settings> =
+    // 设置页条目由动作模块的契约提供（ADR-0001 D2）：搜索不持有页面文案与枚举含义。
+    hunoia.luno.search.SearchCapabilities.actionSearch
+        .settingsPages { context.getString(it) }
+        .mapNotNull { entry ->
+            val pageName = (entry.action.params["page"] as? kotlinx.serialization.json.JsonPrimitive)
+                ?.contentOrNull
+                ?: return@mapNotNull null
+            val page = runCatching { SettingsPage.valueOf(pageName) }.getOrNull()
+                ?: return@mapNotNull null
+            QuickSearchResult.Settings(page, entry.label)
+        }

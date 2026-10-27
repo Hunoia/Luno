@@ -2,7 +2,6 @@ package hunoia.luno.quicklaunch.query
 
 import hunoia.luno.bridge.system.PackageChangeReceiver
 import hunoia.luno.core.AppContext
-import hunoia.luno.domain.search.SearchCenter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -79,7 +78,7 @@ object AppListRepository {
                 val locale = currentLocaleTag()
                 // 先记下语言：扫描期间 UI 再问一次不该判成「变了」而重扫第二遍。
                 loadedLocaleTag = locale
-                val snapshot = runCatching { SearchCenter.getSnapshot() }.getOrNull()
+                val snapshot = runCatching { hunoia.luno.config.ConfigProvider.getQuickAppSnapshot() }.getOrNull()
                 if (snapshot != null && snapshot.apps.isNotEmpty() && snapshot.labelLocale == locale) {
                     _state.value = QuickAppLauncherAppList(snapshot.apps, snapshot.disabledPkgs)
                 }

@@ -1,6 +1,6 @@
 package hunoia.luno.quicklaunch.query
 
-import hunoia.luno.R
+import hunoia.luno.search.R
 import hunoia.luno.core.domain.ActionLibraryEntry
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.QuickSearchSettings
@@ -25,32 +25,32 @@ import kotlinx.coroutines.CancellationException
 private const val BARE_LIST_LIMIT = 20
 
 /** 全源合并后的展示上限；当前 query 的 Pin 结果旁路保留，不占这个名额。 */
-internal const val MAX_TOTAL_RESULTS = 200
+const val MAX_TOTAL_RESULTS = 200
 
 /**
  * 单来源命中上限。必须 >= [MAX_TOTAL_RESULTS]：全局榜只有 200 个位置，
  * 一个来源最多占满全榜，取到第 200 名之后的单源命中永远不可能进全局榜。
  * 这样截断纯粹是内存上界，不改变结果集。
  */
-internal const val MAX_HITS_PER_SOURCE = MAX_TOTAL_RESULTS
+const val MAX_HITS_PER_SOURCE = MAX_TOTAL_RESULTS
 
     /** 把 query 拆成单字 token（只保留字母数字），复用 AppSearch 拼音引擎。 */
 private fun QuickSearchIndex.tokenize(s: String): List<String> =
         s.lowercase().filter { it.isLetterOrDigit() }.map { it.toString() }
 
 /** 复用 AppSearch 拼音引擎：精确档评定，foldedTokens 非空时补模糊降档。 */
-internal fun tierOf(text: String, plan: SearchQueryPlan): TieredMatch =
+fun tierOf(text: String, plan: SearchQueryPlan): TieredMatch =
     AppSearch.matchTextTier(text, plan)
 
 /** 取最优命中（tier 大者胜，再比 offset 小者胜；连续块 span 恒定不参比）。 */
-internal fun bestOf(a: TieredMatch, b: TieredMatch): TieredMatch =
+fun bestOf(a: TieredMatch, b: TieredMatch): TieredMatch =
     maxOf(a, b, compareBy({ it.tier }, { -it.offset }))
 
 /**
  * 首字段已是理论最优（tier 2 / offset 0）时不再计算第二字段。
  * 应用名/联系人姓名主命中占多数，能省掉包名/号码的一次建索引与扫描。
  */
-internal inline fun bestOfFirst(first: TieredMatch, second: () -> TieredMatch): TieredMatch =
+inline fun bestOfFirst(first: TieredMatch, second: () -> TieredMatch): TieredMatch =
     if (first.tier == 2 && first.offset == 0) first else bestOf(first, second())
 
     /** 空输入时的常用：按衰减使用分取前 N 个（禁用应用一并返回，由调用方标注）。 */
@@ -133,7 +133,7 @@ fun QuickSearchIndex.search(
     }
 
     /** 排序单元：结果 + 档位 + 紧密度 + 使用分；排序串在构造时取一次，避免比较器反复调 getter。 */
-internal data class RankedHit(
+data class RankedHit(
     val result: QuickSearchResult,
     override val tier: Int,
     val span: Int,
@@ -149,7 +149,7 @@ internal data class RankedHit(
  * Pin 口径与展示层 [applyResultPins] 一致：都用 [QuickSearchSettings.pinnedKeyList]
  * 截断后的 key，且只对允许 Pin 的结果生效。
  */
-internal fun capHits(
+fun capHits(
     hits: List<RankedHit>,
     limit: Int,
     pinnedKeys: Set<String>,
@@ -183,7 +183,7 @@ internal fun capHits(
  * [score] 决定匹配字段（多个字段用 [bestOf]），[usage] 提供使用分（默认 0）。
  * plan 在调用方构造一次，任务内所有条目复用同一份 masks，不再逐条编译。
  */
-internal inline fun <T> matchEach(
+inline fun <T> matchEach(
     items: Iterable<T>,
     plan: SearchQueryPlan,
     result: (T) -> QuickSearchResult,
@@ -198,18 +198,18 @@ internal inline fun <T> matchEach(
     return out
 }
 
-internal fun QuickSearchIndex.matchActions(
+fun QuickSearchIndex.matchActions(
     plan: SearchQueryPlan,
 ): List<RankedHit> {
     return matchEach(actions, plan, result = { it }) { tierOf(it.title, plan) }
 }
 
-internal fun QuickSearchIndex.matchLibrary(
+fun QuickSearchIndex.matchLibrary(
     libraryEntries: List<ActionLibraryEntry>,
     plan: SearchQueryPlan,
 ): List<RankedHit> {
     val out = mutableListOf<RankedHit>()
-    val source = hunoia.luno.runtime.SearchCapabilities.actionSearch
+    val source = hunoia.luno.search.SearchCapabilities.actionSearch
     for (entry in libraryEntries) {
         val fallback = source.definitionName(entry.typeId) ?: entry.typeId
         val m = bestOfFirst(tierOf(entry.name, plan)) { tierOf(fallback, plan) }
@@ -229,7 +229,7 @@ internal fun QuickSearchIndex.matchLibrary(
     return out
 }
 
-internal fun QuickSearchIndex.matchApps(
+fun QuickSearchIndex.matchApps(
     plan: SearchQueryPlan,
     usageStats: AppUsageStats,
     now: Long,
@@ -244,7 +244,7 @@ internal fun QuickSearchIndex.matchApps(
     }
 }
 
-internal fun QuickSearchIndex.matchShortcuts(
+fun QuickSearchIndex.matchShortcuts(
     plan: SearchQueryPlan,
     pkgScore: Map<String, Double>,
 ): List<RankedHit> {
@@ -255,7 +255,7 @@ internal fun QuickSearchIndex.matchShortcuts(
     }
 }
 
-internal fun QuickSearchIndex.matchContacts(
+fun QuickSearchIndex.matchContacts(
     plan: SearchQueryPlan,
     searchSettings: QuickSearchSettings,
 ): List<RankedHit> {
@@ -265,7 +265,7 @@ internal fun QuickSearchIndex.matchContacts(
     }
 }
 
-internal fun QuickSearchIndex.matchTracks(
+fun QuickSearchIndex.matchTracks(
     plan: SearchQueryPlan,
     searchSettings: QuickSearchSettings,
 ): List<RankedHit> {
@@ -279,7 +279,7 @@ internal fun QuickSearchIndex.matchTracks(
     }
 }
 
-internal fun QuickSearchIndex.matchGallery(
+fun QuickSearchIndex.matchGallery(
     plan: SearchQueryPlan,
     searchSettings: QuickSearchSettings,
 ): List<RankedHit> {
@@ -290,7 +290,7 @@ internal fun QuickSearchIndex.matchGallery(
     return matchEach(mediaFiles, plan, result = { it }) { tierOf(it.name, plan) }
 }
 
-internal fun QuickSearchIndex.matchDocs(
+fun QuickSearchIndex.matchDocs(
     plan: SearchQueryPlan,
     searchSettings: QuickSearchSettings,
 ): List<RankedHit> {
@@ -298,7 +298,7 @@ internal fun QuickSearchIndex.matchDocs(
     return matchEach(docs, plan, result = { it }) { tierOf(it.name, plan) }
 }
 
-internal fun QuickSearchIndex.matchToggles(
+fun QuickSearchIndex.matchToggles(
     plan: SearchQueryPlan,
     searchSettings: QuickSearchSettings,
 ): List<RankedHit> {
@@ -312,7 +312,7 @@ internal fun QuickSearchIndex.matchToggles(
     }
 }
 
-internal fun QuickSearchIndex.matchCalendar(
+fun QuickSearchIndex.matchCalendar(
     plan: SearchQueryPlan,
     searchSettings: QuickSearchSettings,
 ): List<RankedHit> {
@@ -322,7 +322,7 @@ internal fun QuickSearchIndex.matchCalendar(
     }
 }
 
-internal fun QuickSearchIndex.matchSms(
+fun QuickSearchIndex.matchSms(
     plan: SearchQueryPlan,
     searchSettings: QuickSearchSettings,
 ): List<RankedHit> {
@@ -332,7 +332,7 @@ internal fun QuickSearchIndex.matchSms(
     }
 }
 
-internal fun QuickSearchIndex.matchCalls(
+fun QuickSearchIndex.matchCalls(
     plan: SearchQueryPlan,
     searchSettings: QuickSearchSettings,
 ): List<RankedHit> {
@@ -342,7 +342,7 @@ internal fun QuickSearchIndex.matchCalls(
     }
 }
 
-internal fun QuickSearchIndex.matchClips(
+fun QuickSearchIndex.matchClips(
     plan: SearchQueryPlan,
     searchSettings: QuickSearchSettings,
 ): List<RankedHit> {
@@ -351,14 +351,14 @@ internal fun QuickSearchIndex.matchClips(
 }
 
 /** 剪贴匹配核心：不依赖索引实例（池=固定+历史），供 matchClips 与单测共用。 */
-internal fun matchClipPool(
+fun matchClipPool(
     pinned: List<String>,
     history: List<String>,
     tokens: List<String>,
     foldedTokens: List<String>,
 ): List<RankedHit> = matchClipPool(pinned, history, AppSearch.queryPlan(tokens, foldedTokens))
 
-internal fun matchClipPool(
+fun matchClipPool(
     pinned: List<String>,
     history: List<String>,
     plan: SearchQueryPlan,
@@ -378,7 +378,7 @@ internal fun matchClipPool(
 }
 
 
-internal fun QuickSearchIndex.matchSettingsPages(
+fun QuickSearchIndex.matchSettingsPages(
     plan: SearchQueryPlan,
 ): List<RankedHit> {
     return matchEach(settingsPages, plan, result = { it }) { tierOf(it.title, plan) }
@@ -455,7 +455,7 @@ private fun QuickSearchIndex.searchInSource(
     }
 
     /** 裸标识：列出该类近项（cap 20，应用走常用 8）。无数据回 null → 全源。 */
-internal fun QuickSearchIndex.bareSource(
+fun QuickSearchIndex.bareSource(
         source: String,
         usageStats: AppUsageStats,
         searchSettings: QuickSearchSettings,
@@ -495,7 +495,7 @@ internal fun QuickSearchIndex.bareSource(
     }
 
     /** 快捷方式包分聚合：全源与定向共用，抽出来。 */
-internal fun QuickSearchIndex.pkgScores(
+fun QuickSearchIndex.pkgScores(
         usageStats: AppUsageStats,
         now: Long,
     ): Map<String, Double> = UsageScores(

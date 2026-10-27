@@ -25,28 +25,17 @@
     <string name="quick_launcher_need_overlay_permission">打开启动面板需要「显示在其他应用上层」权限，正在前往设置</string>
     <string name="quick_search_start_failed">搜索面板打开失败</string>
     <string name="quick_search_copied">已复制</string>
-    <string name="quick_search_clipboard">剪贴板</string>
     <string name="quick_search_clipboard_locked">已锁定，解锁后显示剪贴板</string>
-    <string name="quick_search_contacts">联系人</string>
     <string name="quick_search_grant_contacts">授予联系人权限</string>
-    <string name="quick_search_music">音乐</string>
-    <string name="quick_search_files">文件</string>
     <string name="quick_search_grant_media">授予媒体权限</string>
     <string name="quick_search_grant_files">授予文件访问权限</string>
     <string name="quick_search_no_handler">没有能打开的应用</string>
     <string name="quick_search_voice">语音输入</string>
     <string name="quick_search_pin">置顶</string>
     <string name="quick_search_unpin">取消置顶</string>
-    <string name="quick_search_calendar">日历</string>
     <string name="quick_search_grant_calendar">授予日历权限</string>
-    <string name="quick_search_toggles">快捷开关</string>
-    <string name="quick_search_sms">短信</string>
     <string name="quick_search_grant_sms">授予短信权限</string>
-    <string name="quick_search_calls">通话记录</string>
     <string name="quick_search_grant_calls">授予通话记录权限</string>
-    <string name="quick_search_state_on">开</string>
-    <string name="quick_search_state_off">关</string>
-    <string name="quick_search_open_settings">去设置</string>
     <string name="quick_search_trigger_off">留空则关闭该来源标识</string>
     <string name="quick_search_trigger_closed">标识已关闭</string>
     <string name="mini_window_position_short">小窗</string>
@@ -792,12 +781,7 @@
     <string name="network_other">其他网络</string>
 
     <!-- 快速搜索 -->
-    <string name="quick_search_group_actions">动作</string>
-    <string name="quick_search_group_apps">应用</string>
-    <string name="quick_search_group_shortcuts">快捷方式</string>
-    <string name="quick_search_group_settings">设置</string>
     <string name="quick_search_app_disabled">已停用</string>
-    <string name="quick_search_engine_search">用 %1$s 搜索</string>
 
     <!-- 搜索引擎 -->
     <string name="search_engine_settings">搜索引擎</string>
@@ -842,12 +826,6 @@
     <string name="search_engine_fallback">回退链接（可选）</string>
     <string name="search_engine_fallback_hint">应用打不开时使用</string>
     <string name="search_engine_delete_title">删除搜索引擎？</string>
-    <string name="search_action_app_details">应用详情</string>
-    <string name="search_action_send_sms">发短信</string>
-    <string name="search_action_copy">复制</string>
-    <string name="search_action_copy_link">复制链接</string>
-    <string name="search_action_share">分享</string>
-    <string name="search_action_share_image">分享图片</string>
     <string name="search_action_pin">固定此结果</string>
     <string name="search_action_unpin">取消固定</string>
     <string name="search_result_pinned">已固定</string>

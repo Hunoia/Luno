@@ -2,6 +2,7 @@ package hunoia.luno.action.model
 
 import hunoia.luno.core.domain.AudioStream
 import hunoia.luno.core.domain.QueryParam
+import hunoia.luno.core.domain.SettingsPage
 import hunoia.luno.core.domain.VolumeDirection
 
 /**
@@ -11,10 +12,6 @@ import hunoia.luno.core.domain.VolumeDirection
  * 参数编辑器元数据仍在 `:feature:actions`。不得携带资源 id / 配置默认值：
  * 展示文案与默认值由各自层提供（见 `SettingsPage.labelRes` 的 app 侧扩展）。
  */
-
-enum class SettingsPage {
-    WIFI, BLUETOOTH, DISPLAY, BATTERY, APPS, NETWORK, ACCESSIBILITY, MAIN
-}
 
 /** 触钮显隐作用范围（沿用自动化旧 RuleScope 语义）。 */
 enum class ButtonTarget { ALL, EXCEPT, ONLY }

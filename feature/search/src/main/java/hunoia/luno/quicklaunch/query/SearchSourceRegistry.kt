@@ -1,7 +1,7 @@
 package hunoia.luno.quicklaunch.query
 
 import androidx.annotation.StringRes
-import hunoia.luno.R
+import hunoia.luno.search.R
 import hunoia.luno.core.domain.ActionLibraryEntry
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.QuickSearchSettings
@@ -23,7 +23,7 @@ import hunoia.luno.config.model.effectiveTrigger
  * 搜索来源的唯一注册表：标识、开关、匹配与裸标识列表都在这里声明。
  * 新增来源只改本文件，不再改 parseDirective / 设置页提示列表的 when。
  */
-internal data class SearchSource(
+data class SearchSource(
     val key: String,
     @param:StringRes val titleRes: Int,
     val enabled: (QuickSearchSettings) -> Boolean = { true },
@@ -31,7 +31,7 @@ internal data class SearchSource(
     val bare: (SearchContext) -> List<QuickSearchResult>?,
 )
 
-internal data class SearchContext(
+data class SearchContext(
     val index: QuickSearchIndex,
     val settings: QuickSearchSettings,
     val usage: AppUsageStats,
@@ -41,7 +41,7 @@ internal data class SearchContext(
     val torchOn: Boolean,
 )
 
-internal object SearchSourceRegistry {
+object SearchSourceRegistry {
 
     private fun source(
         key: String,

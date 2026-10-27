@@ -19,6 +19,6 @@ data class AppIconModel(val packageName: String, val sizePx: Int)
  * 不要用 `ImageRequest.Builder.memoryCacheKey()` 直接写死包名：那个值会被原样当作完整键，
  * 候选行与网格两个尺寸就会互相污染。
  */
-internal object AppIconKeyer : Keyer<AppIconModel> {
+object AppIconKeyer : Keyer<AppIconModel> {
     override fun key(data: AppIconModel, options: Options): String = data.packageName
 }

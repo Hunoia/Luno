@@ -1,5 +1,7 @@
 package hunoia.luno.quicklaunch.query
 
+import hunoia.luno.core.domain.SettingsPage
+
 import android.content.Context
 import android.util.Log
 import hunoia.luno.core.domain.StoredAction
@@ -13,13 +15,12 @@ import hunoia.luno.quicklaunch.model.LauncherInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import hunoia.luno.action.model.Action
 
 /**
  * 应用/快捷方式索引快照：一次 refresh 内三个关联字段同时发布，
  * search 侧不会看到「新 apps + 旧 shortcuts/disabledPkgs」的跨代组合。
  */
-internal data class AppIndexData(
+data class AppIndexData(
     val apps: List<AppInfo> = emptyList(),
     val disabledPkgs: Set<String> = emptySet(),
     val shortcuts: List<LauncherInfo.ShortcutInfo> = emptyList(),
@@ -101,7 +102,7 @@ class QuickSearchIndex(internal val context: Context) {
         // 先在局部变量里建好，再一次性发布：并发下不能出现「已加载但 actions 还是空」，
         // 否则搜应用名直接整表丢失。
         // 动作条目来自契约端口（ADR-0001 D2）：搜索不认识 ActionDefinitions。
-        val builtActions = hunoia.luno.runtime.SearchCapabilities.actionSearch.index().map { entry ->
+        val builtActions = hunoia.luno.search.SearchCapabilities.actionSearch.index().map { entry ->
             QuickSearchResult.ActionDef(entry.action, entry.label, entry.icon)
         }
         val builtPages = systemSettingsPages()
@@ -214,7 +215,7 @@ fun QuickSearchResult.toConfigAction(): StoredAction = when (this) {
             "intent.shareText",
             "text" to launch.textTemplate.fillSearchQuery(query),
         )
-        is SearchLaunch.ShareImage -> StoredAction.of(Action.NONE_TYPE_ID)
+        is SearchLaunch.ShareImage -> StoredAction.of(hunoia.luno.core.domain.NONE_TYPE_ID)
         is SearchLaunch.Action -> launch.action.fillSearchQuery(query)
     }
     // Calc/联系人/媒体/日历/开关/短信/通话 在 toSearchResult 里转成

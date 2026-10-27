@@ -20,7 +20,7 @@ import coil.request.Options
  * 栅格化沿用 `setBounds` + `Canvas.draw`（`AdaptiveIconDrawable` 不是 `BitmapDrawable`，
  * 不能靠 `bitmap` 直接取）。不做 in-flight 去重：Coil 的 `EngineInterceptor` 已按缓存键维护 in-flight 表。
  */
-internal class AppIconFetcher(
+class AppIconFetcher(
     private val context: Context,
     private val packageName: String,
     private val targetPx: Int,
@@ -53,7 +53,7 @@ internal class AppIconFetcher(
     }
 }
 
-internal class AppIconFetcherFactory : Fetcher.Factory<AppIconModel> {
+class AppIconFetcherFactory : Fetcher.Factory<AppIconModel> {
     override fun create(data: AppIconModel, options: Options, imageLoader: ImageLoader): Fetcher =
         AppIconFetcher(options.context, data.packageName, data.sizePx)
 }

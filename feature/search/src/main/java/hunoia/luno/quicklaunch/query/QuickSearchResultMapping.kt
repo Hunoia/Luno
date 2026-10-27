@@ -24,7 +24,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import hunoia.luno.core.domain.StoredAction
-import hunoia.luno.R
+import hunoia.luno.search.R
 import hunoia.luno.config.model.SRC_ACTION
 import hunoia.luno.config.model.SRC_APP
 import hunoia.luno.config.model.SRC_CALENDAR
@@ -312,7 +312,7 @@ fun QuickSearchResult.toSearchResult(): SearchResult {
     }
 }
 
-internal fun SearchLaunch.toSearchAction(query: String): SearchAction = when (this) {
+fun SearchLaunch.toSearchAction(query: String): SearchAction = when (this) {
     is SearchLaunchUrl -> SearchAction.OpenUrl(
         url = template.fillSearchQuery(query),
         packageName = packageName,
