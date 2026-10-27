@@ -439,7 +439,7 @@ class FloatBallService : Service() {
             return
         }
         // 只弹「通知栏里真的能看到」的：常驻/前台服务/分组汇总（正文往往是「1」）/仅本地
-        // 都不是用户会去点的普通通知。自动化侧的 ongoing 已在监听器层过滤，胶囊再按 flags 收紧。
+        // 都不是用户会去点的普通通知。自动化侧按条件过滤 ongoing，胶囊这里再按 flags 收紧。
         val blockedFlags = Notification.FLAG_ONGOING_EVENT or
             Notification.FLAG_FOREGROUND_SERVICE or
             Notification.FLAG_GROUP_SUMMARY or

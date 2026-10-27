@@ -200,6 +200,32 @@ class AutomationSemanticsTest {
         assertEquals(emptyList<String>(), fired) // 无脉冲
     }
 
+    // ======== 触发前预检 ========
+
+    @Test
+    fun `preflight skip does not consume throttle window`() {
+        var blocked = true
+        val engine = AutomationEngine(
+            onFireRule = { rule, _ -> fired.add(rule.id) },
+            onEvents = { events.addAll(it) },
+            preflightBlockReason = { if (blocked) SkipReason.PERMISSION_MISSING else null },
+        )
+        val rule = AutomationRule(
+            id = "r1",
+            condition = WhenGroup(items = listOf(ConditionItem(type = ConditionType.NOTIFICATION_POSTED))),
+            effect = RuleEffect(steps = listOf(RuleStep(action = StoredAction("noop")))),
+            throttle = ThrottlePolicy(kind = ThrottleKind.COOLDOWN, cooldownMs = 60_000L),
+        )
+        fired.clear(); events.clear()
+        engine.evaluate(listOf(rule), ctx(nowMs = 0, notificationPosted = NotificationPulse("com.a", "T", "x")))
+        assertEquals(emptyList<String>(), fired)
+        assertEquals("permission_missing", events.last().reason)
+
+        blocked = false
+        engine.evaluate(listOf(rule), ctx(nowMs = 1_000, notificationPosted = NotificationPulse("com.a", "T", "y")))
+        assertEquals(listOf("r1"), fired) // 第一次预检失败没有写下 cooldown 时间戳
+    }
+
     // ======== 节流：冷却 / 窗口 / 双活 ========
 
     @Test

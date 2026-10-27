@@ -27,6 +27,12 @@ object ClipboardCenter {
 
     private const val TAG = LOG_TAG
 
+    /**
+     * 最近一次从可见读取路径记录的主剪贴项。剪贴板球和面板可能先后读到同一内容，
+     * 只让第一次记录产生自动化脉冲；1.5s 的 Hub 去重兜不住「关掉面板再打开」。
+     */
+    private var lastRecorded: ClipboardContent? = null
+
     /** 读当前主剪贴项：Shizuku 可用走 shell 桥，否则应用内直读。 */
     suspend fun readCurrent(): ClipboardContent? = withContext(Dispatchers.IO) {
         val status = runCatching { ShizukuManager.currentStatus() }.getOrNull()
@@ -46,6 +52,16 @@ object ClipboardCenter {
     fun record(content: ClipboardContent?) {
         val text = (content as? ClipboardContent.Text)?.takeIf { !it.sensitive }?.text ?: return
         if (text.isBlank()) return
+        // 只在用户可见读取路径记历史：同时作为剪贴板触发源，不承诺后台实时监听。
+        // 球和面板各读一次是常态；按「是否读到过同一主剪贴项」去重，而不是按时间窗。
+        val changed = synchronized(this) {
+            val previous = lastRecorded
+            lastRecorded = content
+            previous != content
+        }
+        if (changed) {
+            hunoia.luno.runtime.automation.AutomationPulseHub.fireClipboard(text)
+        }
         val scope = AppContext.applicationScope ?: return
         scope.launch(Dispatchers.IO) {
             ConfigProvider.recordClipboardText(text)

@@ -21,6 +21,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountTree
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -28,6 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,11 +46,14 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.config.model.AutomationRule
+import hunoia.luno.config.model.GlobalVariable
+import hunoia.luno.config.model.GlobalVariables
 import hunoia.luno.config.model.RulePriority
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.automation.AutomationCenter
@@ -56,12 +61,16 @@ import hunoia.luno.ui.actionlibrary.IconPalette
 import hunoia.luno.ui.actionlibrary.IconPickerSheet
 import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.RowIconSize
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** 停用规则整体降透明度，仍可读、仍可操作。 */
 private const val DisabledRuleAlpha = 0.55f
@@ -82,6 +91,9 @@ fun AutomationRulesTabContent(
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val library by ActionLibrary.settings
         .collectAsStateWithLifecycle(initialValue = null)
+    val variables by AutomationCenter.variables
+        .collectAsStateWithLifecycle(initialValue = GlobalVariables())
+    var showVariables by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     fun submit(next: List<AutomationRule>) {
         scope.launch {
@@ -97,12 +109,26 @@ fun AutomationRulesTabContent(
     val ordered = rules.sortedByDescending { it.priority }
     // 一次算完各规则的最后触发时间：卡片里逐张扫全量日志会 O(规则 × 事件)。
     val lastRunByRule = remember(events) {
+        // 只要真实触发：P0-1 后 release 也会落跳过诊断，不能把「上次跳过」当成「上次运行」。
         events.asSequence()
-            .filter { it.wallTimeMs > 0L }
+            .filter { it.fired && it.wallTimeMs > 0L }
             .groupBy { it.ruleId }
             .mapValues { (_, list) -> list.maxOf { it.wallTimeMs } }
     }
-    val now = System.currentTimeMillis()
+    // 运行态：规则在 :service 进程跑，主进程只能轮询 Binder；页面可见时 1s 一次足够。
+    var runningIds by remember { mutableStateOf(emptySet<String>()) }
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        var tick = 0
+        while (true) {
+            val ids = withContext(Dispatchers.IO) { AutomationCenter.runningRuleIds() }
+            if (ids != runningIds) runningIds = ids
+            // 相对时间每 30s 刷新一次，避免轮询本身每秒触发整页重组。
+            if (tick % 30 == 0) now = System.currentTimeMillis()
+            tick++
+            delay(1_000L)
+        }
+    }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         state = listState,
@@ -111,8 +137,16 @@ fun AutomationRulesTabContent(
     ) {
         if (rules.isEmpty()) {
             item(key = "empty") {
-                EmptyState(message = context.getString(R.string.automation_empty))
+                EmptyState(message = stringResource(R.string.automation_empty))
             }
+        }
+        item(key = "variables") {
+            hunoia.luno.ui.component.row.LunoSettingsRow(
+                title = stringResource(R.string.automation_variables),
+                subtitle = stringResource(R.string.automation_variables_count, variables.entries.size),
+                onClick = { showVariables = true },
+                modifier = Modifier.padding(horizontal = PageGutter),
+            )
         }
         items(ordered, key = { it.id }) { rule ->
             val conditionText = conditionSummary(context, rule.condition)
@@ -126,13 +160,27 @@ fun AutomationRulesTabContent(
                 if (steps.size > 2) "$shown  +${steps.size - 2}" else shown
             }
             val lastRunMs = lastRunByRule[rule.id]
+            val permissionText = remember(rule, rules, library) {
+                capabilityWarningText(
+                    context,
+                    AutomationCenter.capabilityReport(context, rule, rules, library),
+                )
+            }
             RuleCard(
                 rule = rule,
                 conditionText = conditionText,
                 effectText = effectText,
+                permissionText = permissionText,
                 lastRunText = lastRunMs?.let {
                     DateUtils.getRelativeTimeSpanString(it, now, DateUtils.MINUTE_IN_MILLIS).toString()
-                } ?: context.getString(R.string.rule_never_run),
+                } ?: stringResource(R.string.rule_never_run),
+                running = rule.id in runningIds,
+                onStop = {
+                    runningIds = runningIds - rule.id
+                    scope.launch {
+                        withContext(Dispatchers.IO) { AutomationCenter.stopRule(rule.id) }
+                    }
+                },
                 onEnabledChange = { enabled ->
                     submit(rules.map { if (it.id == rule.id) it.copy(enabled = enabled) else it })
                 },
@@ -147,6 +195,18 @@ fun AutomationRulesTabContent(
             )
         }
     }
+    if (showVariables) {
+        GlobalVariablesSheet(
+            initial = variables,
+            onDismissRequest = { showVariables = false },
+            onSave = { entries ->
+                scope.launch {
+                    AutomationCenter.updateVariables { GlobalVariables(entries) }
+                }
+                showVariables = false
+            },
+        )
+    }
 }
 
 @Composable
@@ -154,7 +214,10 @@ private fun RuleCard(
     rule: AutomationRule,
     conditionText: String,
     effectText: String,
+    permissionText: String?,
     lastRunText: String,
+    running: Boolean,
+    onStop: () -> Unit,
     onEnabledChange: (Boolean) -> Unit,
     onPriorityChange: (Int) -> Unit,
     onIconChange: (String?) -> Unit,
@@ -203,6 +266,12 @@ private fun RuleCard(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    } else if (running) {
+                        Text(
+                            text = stringResource(R.string.running_now),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
                     }
                 }
                 Switch(
@@ -227,6 +296,15 @@ private fun RuleCard(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            if (permissionText != null) {
+                Text(
+                    text = permissionText,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -237,13 +315,28 @@ private fun RuleCard(
                     selected = rule.priority,
                     onSelect = onPriorityChange,
                 )
-                Text(
-                    text = lastRunText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    Text(
+                        text = lastRunText,
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.End,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (running) {
+                        LunoIconButton(
+                            icon = Icons.Default.Stop,
+                            contentDescription = stringResource(R.string.stop_rule),
+                            onClick = onStop,
+                        )
+                    }
+                }
             }
         }
     }

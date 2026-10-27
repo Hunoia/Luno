@@ -59,6 +59,8 @@ object ConditionType {
     const val VOLUME_CHANGED = "volumeChanged"
 
     const val NOTIFICATION_POSTED = "notificationPosted"
+    const val NOTIFICATION_REMOVED = "notificationRemoved"
+    const val NOTIFICATION_EXISTS = "notificationExists"
     const val BLUETOOTH_CHANGED = "bluetoothChanged"
     const val HEADPHONES_CHANGED = "headphonesChanged"
     const val SCHEDULED_TIME = "scheduledTime"
@@ -82,7 +84,60 @@ object ConditionType {
      */
     const val MANUAL = "manual"
 
+    /** 全局/局部变量比较：`var.<name> <op> <value>`。 */
+    const val VAR_COMPARE = "varCompare"
+
+    /** 应用安装/卸载/更新事件。 */
+    const val APP_PACKAGE_CHANGED = "appPackageChanged"
+    /** 每隔 N 分钟触发一次（ticker 维持 lastFiredAt，Doze 下会漂移）。 */
+    const val INTERVAL = "interval"
+    /** 收到系统分享/链接。 */
+    const val SHARE_RECEIVED = "shareReceived"
+    /** 剪贴板球/面板读到新内容（不承诺后台实时监听）。 */
+    const val CLIPBOARD_CHANGED = "clipboardChanged"
+    /** Wi‑Fi SSID 状态（空=任意 Wi‑Fi）。 */
+    const val WIFI_SSID = "wifiSsid"
+
     const val GROUP = "group"
+}
+
+/** 应用包变化动作；null/空表示不限。 */
+object PackageChangeAction {
+    const val ADDED = "added"
+    const val REMOVED = "removed"
+    const val REPLACED = "replaced"
+    const val CHANGED = "changed"
+
+    val all: List<String> = listOf(ADDED, REMOVED, REPLACED, CHANGED)
+}
+
+/** 通知文本匹配方式：contains（默认）、glob、regex。 */
+object NotificationMatchMode {
+    const val CONTAINS = "contains"
+    const val GLOB = "glob"
+    const val REGEX = "regex"
+
+    val all: List<String> = listOf(CONTAINS, GLOB, REGEX)
+}
+
+/** 变量比较运算符；执行层与条件编辑器共用。 */
+object VariableCompareOp {
+    const val EQUALS = "eq"
+    const val NOT_EQUALS = "neq"
+    const val GREATER = "gt"
+    const val GREATER_OR_EQUALS = "gte"
+    const val LESS = "lt"
+    const val LESS_OR_EQUALS = "lte"
+    const val CONTAINS = "contains"
+    const val STARTS_WITH = "startsWith"
+    const val ENDS_WITH = "endsWith"
+    const val IS_EMPTY = "isEmpty"
+    const val IS_NOT_EMPTY = "isNotEmpty"
+
+    val all: List<String> = listOf(
+        EQUALS, NOT_EQUALS, GREATER, GREATER_OR_EQUALS, LESS, LESS_OR_EQUALS,
+        CONTAINS, STARTS_WITH, ENDS_WITH, IS_EMPTY, IS_NOT_EMPTY,
+    )
 }
 
 /** 步骤类型：扁平 kind 字符串（不用 sealed 多态，免得动全局 Json 的 SerializersModule）。 */
@@ -92,6 +147,38 @@ object RuleStepKind {
     const val IF = "if"
     /** 规则局部变量：只在本次运行内有效，供后续参数模板 ${var.name} 使用。 */
     const val SET_VAR = "setVar"
+
+    /** 有界循环：按 [RuleStep.repeatCount] 重复执行 thenSteps（≤20）。 */
+    const val REPEAT = "repeat"
+
+    /** 等待直到条件满足：超时 ≤60s，按 [RuleStep.waitIntervalMs] 轮询。 */
+    const val WAIT_UNTIL = "waitUntil"
+
+    /** 结束子规则并把 [RuleStep.varTemplate] 作为返回值（仅 runRule 调用时可见）。 */
+    const val RETURN = "return"
+}
+
+/**
+ * 单步失败策略（仅 ACTION 生效；delay/if/setVar 的配置错误仍按 STOP 中断）。
+ * STOP = 现状；SKIP = 记失败后继续后续步骤；RETRY = 可重试失败按次数/间隔重试，耗尽后按 STOP。
+ */
+object StepFailure {
+    const val STOP = "stop"
+    const val SKIP = "skip"
+    const val RETRY = "retry"
+
+    /** 编辑器与执行器共用上限：防止手改数据无限重试/长间隔。 */
+    const val MAX_RETRY_COUNT = 5
+    const val MAX_RETRY_INTERVAL_MS = 30_000L
+}
+
+/** 同规则重入策略：默认单飞（与旧行为一致）。 */
+@Serializable
+@Keep
+enum class RuleReentry {
+    BLOCK_NEW,
+    STOP_CURRENT_AND_RUN_NEW,
+    ALLOW_PARALLEL,
 }
 
 /** 节流策略类型：同上扁平。BOTH=冷却与窗口同时生效（通用编辑器派生）。 */
@@ -133,7 +220,23 @@ data class ConditionItem(
     val group: WhenGroup? = null,
     // 脉冲条件字段（null=不限）
     val notifyPackages: List<String> = emptyList(),
+    /** 旧版「标题或正文」关键字；新规则分别使用 notifyTitleKeyword / notifyTextKeyword。 */
     val notifyKeyword: String = "",
+    val notifyTitleKeyword: String = "",
+    val notifyTextKeyword: String = "",
+    /** 标题或正文命中任一排除词即过滤掉。 */
+    val notifyExcludeKeyword: String = "",
+    val notifyExcludePackages: List<String> = emptyList(),
+    /** 见 [NotificationMatchMode]；旧规则默认 contains。 */
+    val notifyMatchMode: String = NotificationMatchMode.CONTAINS,
+    /** 常驻通知过滤；null=不限。 */
+    val notifyOngoing: Boolean? = null,
+    /** 可清除过滤；null=不限。 */
+    val notifyClearable: Boolean? = null,
+    /** 重要性下限（NotificationManager.IMPORTANCE_*）；null=不限。 */
+    val notifyImportanceAtLeast: Int? = null,
+    /** NOTIFICATION_EXISTS：true=存在（默认），false=不存在。 */
+    val notifyExists: Boolean? = null,
     val connectionDirection: ConnectionDirection? = null,
     val scheduledMinutes: List<Int> = emptyList(),
     val scheduledWeekdays: Set<Int> = emptySet(),
@@ -156,6 +259,23 @@ data class ConditionItem(
     val dndChangedTo: Boolean? = null,
     /** 铃声模式（null=不限）。 */
     val ringerMode: RingerMode? = null,
+    /** 变量比较：变量名（不含 var. 前缀）。 */
+    val compareVarName: String = "",
+    /** 变量比较运算符：见 [VariableCompareOp]。 */
+    val compareOp: String = VariableCompareOp.EQUALS,
+    /** 变量比较右侧字面量（不作为模板展开，避免条件里再套模板）。 */
+    val compareValue: String = "",
+    /** APP_PACKAGE_CHANGED：见 [PackageChangeAction]；null=不限。 */
+    val packageChangeAction: String? = null,
+    /** INTERVAL：大致间隔（分钟，1..1440）；null=未配置。 */
+    val intervalMinutes: Int? = null,
+    /** WIFI_SSID：空=任意 Wi‑Fi；否则 SSID 精确匹配（忽略大小写）。 */
+    val wifiSsid: String = "",
+    /** BLUETOOTH：已连接设备名/地址过滤；空=不限。 */
+    val bluetoothDeviceName: String = "",
+    val bluetoothDeviceAddress: String = "",
+    /** CLIPBOARD_CHANGED：可选文本包含过滤；空=不限。 */
+    val clipboardKeyword: String = "",
 )
 
 @Serializable
@@ -260,6 +380,22 @@ data class RuleStep(
     val varName: String = "",
     /** SET_VAR：值模板，支持 ${...} 与表达式。 */
     val varTemplate: String = "",
+    /** SET_VAR：true 时同时写入全局变量存储（跨运行/跨规则持久化）。 */
+    val varGlobal: Boolean = false,
+    /** ACTION 失败策略：见 [StepFailure]；旧数据缺键默认 STOP。 */
+    val onFailure: String = StepFailure.STOP,
+    /** RETRY：额外重试次数（0 = 不重试）。 */
+    val retryCount: Int = 0,
+    /** RETRY：两次尝试之间的等待（ms）。 */
+    val retryIntervalMs: Long = 1_000L,
+    /** 步骤级启用开关；false 时执行器跳过并写一条 disabled 记录。 */
+    val enabled: Boolean = true,
+    /** REPEAT：重复次数（执行器再按上限夹取）。 */
+    val repeatCount: Int = 1,
+    /** WAIT_UNTIL：总超时（ms；执行器上限 60s）。 */
+    val waitTimeoutMs: Long = 10_000L,
+    /** WAIT_UNTIL：轮询间隔（ms；执行器夹取 100..5000）。 */
+    val waitIntervalMs: Long = 1_000L,
 )
 
 /**
@@ -282,6 +418,15 @@ object RulePriority {
     const val LOW = 0
 }
 
+/** 规则参数定义：runRule 调用方按名传值，子规则用 `${param.name}` 读取。 */
+@Serializable
+@Keep
+data class RuleParam(
+    val name: String,
+    /** 默认值模板；调用方未传时使用。 */
+    val defaultValue: String = "",
+)
+
 @Serializable
 @Keep
 data class AutomationRule(
@@ -300,8 +445,24 @@ data class AutomationRule(
     val priority: Int = RulePriority.MEDIUM,
     /** 创建时间戳（同优先级 tie-break；存量 0 保持原列表顺序）。 */
     val createdAtMs: Long = 0L,
+    /** 单次运行超时（ms；0 = 不限）。仅约束本条规则的一次触发实例。 */
+    val maxRunMs: Long = 0L,
+    /** 同规则重入策略；旧数据缺键保持单飞。 */
+    val reentry: RuleReentry = RuleReentry.BLOCK_NEW,
+    /** 子规则参数定义；空 = 无参。 */
+    val params: List<RuleParam> = emptyList(),
+    /** 配置 schema 版本；读取时由 AutomationRuleNormalizer 升级。 */
+    val schemaVersion: Int = 1,
 ) {
+    /** 是否含 RETURN 步骤（UI 提示 + runRule 结果变量展示用）。 */
+    fun hasReturnStep(): Boolean = effect.steps.any { it.hasReturnStep() }
+
     companion object {
         val Defaults: List<AutomationRule> = emptyList()
     }
 }
+
+private fun RuleStep.hasReturnStep(): Boolean =
+    kind == RuleStepKind.RETURN ||
+        thenSteps.any { it.hasReturnStep() } ||
+        elseSteps.any { it.hasReturnStep() }

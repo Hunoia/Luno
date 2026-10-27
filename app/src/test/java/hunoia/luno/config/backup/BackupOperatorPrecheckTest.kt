@@ -1,5 +1,6 @@
 package hunoia.luno.config.backup
 
+import hunoia.luno.config.model.AutomationRuleNormalizer
 import hunoia.luno.config.model.Backup
 import hunoia.luno.config.model.BackupVersions
 import hunoia.luno.config.model.InitialSettings
@@ -111,6 +112,25 @@ class BackupOperatorPrecheckTest {
             RestorePrecheckResult.Failed(RestorePrecheckFailure.UnsupportedVersion),
             BackupOperator.precheckRestoreFile(zip),
         )
+    }
+
+    @Test
+    fun `backup from newer automation schema version is rejected`() {
+        val zip = zipWith(
+            "backup" to backupEntryBytes(
+                validBackup.copy(automationSchemaVersion = BackupVersions.AUTOMATION + 1),
+            ),
+        )
+        assertEquals(
+            RestorePrecheckResult.Failed(RestorePrecheckFailure.UnsupportedVersion),
+            BackupOperator.precheckRestoreFile(zip),
+        )
+    }
+
+    @Test
+    fun `exported automation schema version tracks current rule schema`() {
+        // 规则 schema 升版时忘记升备份域版本，会让旧版 app 静默丢掉新字段。
+        assertEquals(AutomationRuleNormalizer.CURRENT_SCHEMA_VERSION, BackupVersions.AUTOMATION)
     }
 
     @Test

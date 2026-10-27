@@ -10,7 +10,7 @@ import hunoia.luno.runtime.condition.NotificationPulse
 /**
  * 自动化通知触发源：取包名/标题/正文做关键字匹配（匹配完原文即丢，执行历史不存原文），
  * 附带 contentIntent 供通知胶囊点击直达。
- * 常驻通知（ongoing）、自家通知与同 key 重投去重，不发脉冲。
+ * 常驻通知也发脉冲，是否过滤交给规则条件；自家通知与同 key 重投去重不发。
  */
 class AutomationNotificationListener : NotificationListenerService() {
 
@@ -28,23 +28,22 @@ class AutomationNotificationListener : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
-        val notification = sbn?.notification ?: return
-        if ((notification.flags and Notification.FLAG_ONGOING_EVENT) != 0) return
+        val pulse = sbn?.toPulse() ?: return
         // 自家通知（前台服务常驻等）不进胶囊也不进自动化。
-        if (sbn.packageName == packageName) return
-        val key = sbn.key ?: return
-
-        val extras = sbn.notification.extras ?: return
-        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
-        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
-            ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
-            ?: ""
-        if (title.isBlank() && text.isBlank()) return
+        if (pulse.packageName == packageName) return
+        updateActiveCache(add = pulse)
+        val key = pulse.key
+        // 无标题/正文的通知仍然改变「当前是否存在」：通知胶囊不弹，但必须重评
+        // NOTIFICATION_EXISTS，否则空白通知更新会一直停在旧状态。
+        if (key == null || (pulse.title.isBlank() && pulse.text.isBlank())) {
+            AutomationPulseHub.fireNotificationStateChanged()
+            return
+        }
         // 同 key 重投去重（多 key 各自计时，不再互相冲掉）。仅在「postTime 未推进 + 内容
         // 完全一致」时判重：部分 ROM 在通知原地更新时沿用旧 postTime，只按时间判重会把
         // 同一会话的第二条消息/新文案全部吞掉。
         val postedAt = sbn.postTime
-        val signature = "$title\u0000$text"
+        val signature = "${pulse.title}\u0000${pulse.text}"
         synchronized(recentPosts) {
             val last = recentPosts[key]
             if (last != null &&
@@ -55,27 +54,7 @@ class AutomationNotificationListener : NotificationListenerService() {
             }
             recentPosts[key] = RecentPost(postedAt, signature)
         }
-        // importance 只在胶囊层用（自动化语义不变）：MIN 在状态栏不显示、NONE 完全不出。
-        val ranking = Ranking()
-        val hasRanking = runCatching { currentRanking?.getRanking(key, ranking) }
-            .getOrNull() ?: false
-        AutomationPulseHub.fireNotification(
-            NotificationPulse(
-                packageName = sbn.packageName.orEmpty(),
-                title = title,
-                text = text,
-                contentIntent = notification.contentIntent,
-                flags = notification.flags,
-                ongoing = sbn.isOngoing,
-                clearable = sbn.isClearable,
-                importance = if (hasRanking) {
-                    ranking.importance
-                } else {
-                    NotificationManager.IMPORTANCE_DEFAULT
-                },
-                key = key,
-            )
-        )
+        AutomationPulseHub.fireNotification(pulse)
     }
 
     override fun onCreate() {
@@ -89,7 +68,16 @@ class AutomationNotificationListener : NotificationListenerService() {
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
-        // 移除不发脉冲：v2 只有"到达"语义。
+        val pulse = sbn?.toPulse() ?: return
+        if (pulse.packageName == packageName) return
+        updateActiveCache(removeKey = pulse.key)
+        AutomationPulseHub.fireNotificationRemoved(pulse)
+    }
+
+    override fun onListenerDisconnected() {
+        synchronized(activeLock) { activeCache = emptyList() }
+        AutomationPulseHub.fireNotificationStateChanged()
+        super.onListenerDisconnected()
     }
 
     override fun onInterruptionFilterChanged(interruptionFilter: Int) {
@@ -100,6 +88,8 @@ class AutomationNotificationListener : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        refreshActiveCache()
+        AutomationPulseHub.fireNotificationStateChanged()
         // 连接时补一次基线，避免授权后到首次切换之间状态缺失。
         val filter = runCatching { currentInterruptionFilter }.getOrNull()
             ?: NotificationManager.INTERRUPTION_FILTER_ALL
@@ -108,7 +98,61 @@ class AutomationNotificationListener : NotificationListenerService() {
         )
     }
 
+    private fun refreshActiveCache() {
+        val current = runCatching { activeNotifications?.mapNotNull { it.toPulse() }.orEmpty() }
+            .getOrDefault(emptyList())
+            .filter { it.packageName != packageName }
+        synchronized(activeLock) { activeCache = current }
+    }
+
+    private fun updateActiveCache(add: NotificationPulse? = null, removeKey: String? = null) {
+        synchronized(activeLock) {
+            var next = activeCache
+            if (add != null) {
+                next = next.filterNot { it.key != null && it.key == add.key } + add
+            }
+            if (removeKey != null) {
+                next = next.filterNot { it.key == removeKey }
+            }
+            activeCache = next
+        }
+    }
+
+    private fun StatusBarNotification.toPulse(): NotificationPulse {
+        val extras = notification.extras
+        val title = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
+        val text = extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString()
+            ?: extras?.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
+            ?: ""
+        val ranking = Ranking()
+        val hasRanking = runCatching { currentRanking?.getRanking(key, ranking) }
+            .getOrNull() ?: false
+        return NotificationPulse(
+            packageName = packageName.orEmpty(),
+            title = title,
+            text = text,
+            contentIntent = notification.contentIntent,
+            flags = notification.flags,
+            ongoing = isOngoing,
+            clearable = isClearable,
+            importance = if (hasRanking) ranking.importance else NotificationManager.IMPORTANCE_DEFAULT,
+            key = key,
+            groupKey = groupKey,
+            channelId = notification.channelId,
+            category = notification.category,
+        )
+    }
+
     companion object {
+        private val activeLock = Any()
+
+        /** 通知栏当前快照（NOTIFICATION_EXISTS 状态条件用），只在监听器已连接时有值。 */
+        @Volatile
+        private var activeCache: List<NotificationPulse> = emptyList()
+
+        fun activePulses(): List<NotificationPulse> = synchronized(activeLock) {
+            activeCache.toList()
+        }
         /** 当前连接中的监听器实例：胶囊用它确认通知在延迟后仍留在通知栏。 */
         @Volatile
         private var instance: AutomationNotificationListener? = null

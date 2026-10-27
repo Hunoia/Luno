@@ -14,12 +14,24 @@ class TimeConditionTicker(
     private val onTimeSignatureChanged: () -> Unit,
     /** 定时命中：调用方先置 scheduledTimeHit 脉冲（幂等），再照常求值消费。 */
     private val markScheduledHit: () -> Unit = {},
+    /** 间隔命中：key 为 ruleId:分钟；调用方置脉冲后按 INTERVAL 域求值。 */
+    private val markIntervalHit: (Set<String>) -> Unit = {},
 ) {
     private var job: Job? = null
 
+    /** 每个 interval 项的上次触发时间（elapsedRealtime），规则删除后自动修剪。 */
+    private val lastFiredAt = mutableMapOf<String, Long>()
+
     fun sync(rules: List<AutomationRule>) {
         // 只看启用规则：纯禁用规则不该让分钟 ticker 空转。
-        if (rules.any { it.enabled && (it.condition.hasTimeRange() || it.condition.hasScheduledTime()) }) {
+        if (rules.any {
+                it.enabled && (
+                    it.condition.hasTimeRange() ||
+                        it.condition.hasScheduledTime() ||
+                        it.condition.hasIntervalCondition()
+                    )
+            }
+        ) {
             if (job?.isActive != true) start()
         } else {
             stop()
@@ -29,6 +41,7 @@ class TimeConditionTicker(
     fun stop() {
         job?.cancel()
         job = null
+        lastFiredAt.clear()
     }
 
     private fun start() {
@@ -52,6 +65,33 @@ class TimeConditionTicker(
                     if (due) {
                         markScheduledHit()
                         onTimeSignatureChanged()
+                    }
+                }
+                if (rules.any { it.condition.hasIntervalCondition() }) {
+                    val now = android.os.SystemClock.elapsedRealtime()
+                    val due = mutableSetOf<String>()
+                    val activeKeys = mutableSetOf<String>()
+                    for (rule in rules) {
+                        for (item in rule.condition.intervalItems()) {
+                            val key = intervalDueKey(rule.id, item) ?: continue
+                            activeKeys.add(key)
+                            val last = lastFiredAt[key]
+                            if (last == null) {
+                                // 首次看到该间隔项只播种，不立即触发；新建规则也遵循同一语义。
+                                lastFiredAt[key] = now
+                                continue
+                            }
+                            val intervalMs = (item.intervalMinutes ?: continue) * 60_000L
+                            if (now - last >= intervalMs) {
+                                due.add(key)
+                                lastFiredAt[key] = now
+                            }
+                        }
+                    }
+                    // 规则删除/禁用/改间隔后清理旧 key，避免 map 长期增长。
+                    lastFiredAt.keys.retainAll(activeKeys)
+                    if (due.isNotEmpty()) {
+                        markIntervalHit(due)
                     }
                 }
                 if (rules.none { it.condition.hasTimeRange() }) {

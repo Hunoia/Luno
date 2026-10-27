@@ -12,7 +12,10 @@ import hunoia.luno.config.model.RingerMode
 import hunoia.luno.config.model.ScreenEventType
 import hunoia.luno.runtime.GestureRuntimeState
 import hunoia.luno.runtime.VolumeChange
+import hunoia.luno.runtime.condition.ClipboardPulse
 import hunoia.luno.runtime.condition.NotificationPulse
+import hunoia.luno.runtime.condition.PackageChangePulse
+import hunoia.luno.runtime.condition.SharePulse
 import hunoia.luno.runtime.condition.nowDayOfWeek
 import hunoia.luno.runtime.condition.nowMinuteOfDay
 
@@ -50,6 +53,11 @@ class EnvironmentTracker(
     private var pendingChargingChangedTo: Boolean? = null
     private var pendingVolumeChange: VolumeChange? = null
     private var pendingNotification: NotificationPulse? = null
+    private var pendingNotificationRemoved: NotificationPulse? = null
+    private var pendingPackageChange: PackageChangePulse? = null
+    private var pendingShare: SharePulse? = null
+    private var pendingClipboard: ClipboardPulse? = null
+    private var pendingIntervalDueKeys: Set<String> = emptySet()
     private var pendingBluetoothChanged: ConnectionDirection? = null
     private var pendingHeadphonesChanged: ConnectionDirection? = null
     private var pendingScheduledTimeHit: Boolean = false
@@ -94,6 +102,28 @@ class EnvironmentTracker(
 
     fun onNotificationPosted(pulse: NotificationPulse) {
         pendingNotification = pulse
+    }
+
+    fun onNotificationRemoved(pulse: NotificationPulse) {
+        pendingNotificationRemoved = pulse
+    }
+
+    fun onPackageChanged(pulse: PackageChangePulse) {
+        pendingPackageChange = pulse
+    }
+
+    fun onShareReceived(pulse: SharePulse) {
+        pendingShare = pulse
+    }
+
+    fun onClipboardChanged(pulse: ClipboardPulse) {
+        pendingClipboard = pulse
+    }
+
+    /** ticker 命中：键集合在本轮求值后消费；多个间隔可同轮触发。 */
+    fun onIntervalDue(keys: Set<String>) {
+        if (keys.isEmpty()) return
+        pendingIntervalDueKeys = pendingIntervalDueKeys + keys
     }
 
     fun onBluetoothChanged(direction: ConnectionDirection) {
@@ -155,9 +185,13 @@ class EnvironmentTracker(
         isCharging: Boolean = false,
         batteryLevel: Int = -1,
         networkType: NetworkType = NetworkType.NONE,
+        wifiSsid: String? = null,
         headphonesConnected: Boolean = false,
         bluetoothAdapterOn: Boolean? = null,
         bluetoothAudioConnected: Boolean? = null,
+        bluetoothDeviceName: String? = null,
+        bluetoothDeviceAddress: String? = null,
+        activeNotifications: List<NotificationPulse> = emptyList(),
         airplaneMode: Boolean = false,
         ringerMode: RingerMode = RingerMode.NORMAL,
         volumePercent: Map<AudioStream, Int> = emptyMap(),
@@ -174,6 +208,11 @@ class EnvironmentTracker(
         val chargingChangedTo = if (expose) pendingChargingChangedTo else null
         val volumeChanged = if (expose) pendingVolumeChange else null
         val notificationPosted = if (expose) pendingNotification else null
+        val notificationRemoved = if (expose) pendingNotificationRemoved else null
+        val packageChanged = if (expose) pendingPackageChange else null
+        val shareReceived = if (expose) pendingShare else null
+        val clipboardChanged = if (expose) pendingClipboard else null
+        val intervalDueKeys = if (expose) pendingIntervalDueKeys else emptySet()
         val bluetoothChanged = if (expose) pendingBluetoothChanged else null
         val headphonesChanged = if (expose) pendingHeadphonesChanged else null
         val scheduledTimeHit = expose && pendingScheduledTimeHit
@@ -198,9 +237,12 @@ class EnvironmentTracker(
             minuteOfDay = nowMinuteOfDay(),
             dayOfWeek = nowDayOfWeek(),
             networkType = networkType,
+            wifiSsid = wifiSsid,
             headphonesConnected = headphonesConnected,
             bluetoothAdapterOn = bluetoothAdapterOn,
             bluetoothAudioConnected = bluetoothAudioConnected,
+            bluetoothDeviceName = bluetoothDeviceName,
+            bluetoothDeviceAddress = bluetoothDeviceAddress,
             airplaneMode = airplaneMode,
             ringerMode = ringerMode,
             volumePercent = volumePercent,
@@ -212,6 +254,12 @@ class EnvironmentTracker(
             chargingChangedTo = chargingChangedTo,
             volumeChanged = volumeChanged,
             notificationPosted = notificationPosted,
+            notificationRemoved = notificationRemoved,
+            activeNotifications = activeNotifications,
+            packageChanged = packageChanged,
+            shareReceived = shareReceived,
+            clipboardChanged = clipboardChanged,
+            intervalDueKeys = intervalDueKeys,
             bluetoothChanged = bluetoothChanged,
             headphonesChanged = headphonesChanged,
             scheduledTimeHit = scheduledTimeHit,
@@ -230,6 +278,11 @@ class EnvironmentTracker(
         pendingChargingChangedTo = null
         pendingVolumeChange = null
         pendingNotification = null
+        pendingNotificationRemoved = null
+        pendingPackageChange = null
+        pendingShare = null
+        pendingClipboard = null
+        pendingIntervalDueKeys = emptySet()
         pendingBluetoothChanged = null
         pendingHeadphonesChanged = null
         pendingScheduledTimeHit = false

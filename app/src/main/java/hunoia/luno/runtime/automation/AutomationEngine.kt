@@ -20,6 +20,11 @@ class AutomationEngine(
     private val onFireRule: (AutomationRule, ConditionContext) -> Unit,
     /** 一轮求值的全部跳过事件一次性交付（以前每条起协程写盘，N 条规则即 N 次全量重写）。 */
     private val onEvents: (List<AutomationEvent>) -> Unit,
+    /**
+     * 触发前预检（能力/通知访问等）。返回原因时只落跳过事件，不消耗节流窗口，
+     * 因为规则根本没进入执行。
+     */
+    private val preflightBlockReason: (AutomationRule) -> SkipReason? = { null },
 ) {
     private val prevMatches = mutableMapOf<String, Boolean>()
 
@@ -48,7 +53,7 @@ class AutomationEngine(
                 LOG_TAG,
                 "eval keys=$effectiveKeys pkg=${ctx.packageName} " +
                     "rules=" + rules.filter { it.enabled }.joinToString(",") {
-                        "${it.id.takeLast(4)}:${if (it.id in allowedIds) "hit=${it.matches(ctx)}" else "skip"}"
+                        "${it.id.takeLast(4)}:${if (it.id in allowedIds) "hit=${it.matches(ctx, it.id)}" else "skip"}"
                     },
             )
         }
@@ -60,7 +65,7 @@ class AutomationEngine(
         for (rule in rules) {
             if (!rule.enabled) continue
             if (rule.id !in allowedIds) continue
-            val hit = rule.matches(ctx)
+            val hit = rule.matches(ctx, rule.id)
             val known = lastCondition[rule.id]
             // 首次见到（known==null）或条件被改过就把 prev 当作 hit：
             // 等效于「不产生边沿」，服务启动/新建规则时不会因条件当前为假
@@ -79,7 +84,7 @@ class AutomationEngine(
             // 脉冲命中即边沿：脉冲读一次即消费，prev 机制对它恒卡死
             //（首次求值 prev=hit → 非脉冲路径永无进入沿），所以由 pulseEdge 单独放行。
             // 非否定脉冲叶命中即视为边沿，只影响 ENTER/BOTH 的进入侧。
-            val pulseEdge = fireOn != FireMode.EXIT && hasPresentPulse(rule.condition, ctx)
+            val pulseEdge = fireOn != FireMode.EXIT && hasPresentPulse(rule.condition, ctx, rule.id)
             val edge = when (fireOn) {
                 FireMode.ENTER -> hit && (!prev || pulseEdge)
                 FireMode.EXIT -> !hit && prev
@@ -147,6 +152,21 @@ class AutomationEngine(
             cleanup(rules)
             return
         }
+        // 权限预检放在节流判定之后、markFired 之前：被节流的规则不重复扫描，
+        // 缺权限的规则也不会吃掉冷却/窗口次数。
+        val preflightReason = preflightBlockReason(winner)
+        if (preflightReason != null) {
+            skipped.add(
+                AutomationEvent(
+                    ruleId = winner.id, ruleName = winner.name, timeMs = ctx.nowMs,
+                    wallTimeMs = System.currentTimeMillis(),
+                    fired = false, reason = preflightReason.code,
+                )
+            )
+            dispatch(skipped)
+            cleanup(rules)
+            return
+        }
         // 跳过记录先落，再触发执行：历史顺序保持「谁被压制」在前。
         dispatch(skipped)
         markFired(winner.id, throttle, ctx.nowMs)
@@ -205,13 +225,13 @@ class AutomationEngine(
  * 条件树里是否有命中的非否定脉冲叶（raw 语义，未取反）。
  * raw 求值复用 matches()（copy 去否定），脉冲类型判定复用 AutomationBus.isPulseConditionType，避免两处清单漂移。
  */
-private fun hasPresentPulse(group: WhenGroup, ctx: ConditionContext): Boolean {
-    return group.items.any { item -> item.hasPresentPulse(ctx) }
+private fun hasPresentPulse(group: WhenGroup, ctx: ConditionContext, ruleId: String): Boolean {
+    return group.items.any { item -> item.hasPresentPulse(ctx, ruleId) }
 }
 
-private fun ConditionItem.hasPresentPulse(ctx: ConditionContext): Boolean {
+private fun ConditionItem.hasPresentPulse(ctx: ConditionContext, ruleId: String): Boolean {
     if (negated) return false
-    if (type == ConditionType.GROUP) return group?.let { hasPresentPulse(it, ctx) } == true
+    if (type == ConditionType.GROUP) return group?.let { hasPresentPulse(it, ctx, ruleId) } == true
     if (!isPulseConditionType(type)) return false
-    return copy(negated = false).matches(ctx)
+    return copy(negated = false).matches(ctx, ruleId)
 }

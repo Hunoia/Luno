@@ -17,6 +17,10 @@ object AutomationEventKey {
     const val CHARGING = "charging"
     const val VOLUME = "volume"
     const val NOTIFICATION = "notification"
+    const val PACKAGE = "package"
+    const val INTERVAL = "interval"
+    const val SHARE = "share"
+    const val CLIPBOARD = "clipboard"
     const val BLUETOOTH = "bluetooth"
     const val HEADPHONES = "headphones"
     const val TIME = "time"
@@ -24,6 +28,7 @@ object AutomationEventKey {
     const val MUSIC = "music"
     const val TORCH = "torch"
     const val DND = "dnd"
+    const val VARIABLE = "variable"
 }
 
 /** 条件类型 → 订阅键。状态与脉冲同域归一键；GROUP 自身不订阅。 */
@@ -71,9 +76,18 @@ fun keysForConditionType(type: String): Set<String> = when (type) {
     ConditionType.BLUETOOTH,
     ConditionType.BLUETOOTH_CHANGED -> setOf(AutomationEventKey.BLUETOOTH)
 
-    ConditionType.NOTIFICATION_POSTED -> setOf(AutomationEventKey.NOTIFICATION)
+    ConditionType.NOTIFICATION_POSTED,
+    ConditionType.NOTIFICATION_REMOVED,
+    ConditionType.NOTIFICATION_EXISTS -> setOf(AutomationEventKey.NOTIFICATION)
+
+    ConditionType.APP_PACKAGE_CHANGED -> setOf(AutomationEventKey.PACKAGE)
+    ConditionType.INTERVAL -> setOf(AutomationEventKey.INTERVAL)
+    ConditionType.SHARE_RECEIVED -> setOf(AutomationEventKey.SHARE)
+    ConditionType.CLIPBOARD_CHANGED -> setOf(AutomationEventKey.CLIPBOARD)
 
     ConditionType.GESTURE_PERFORMED -> setOf(AutomationEventKey.GESTURE)
+
+    ConditionType.VAR_COMPARE -> setOf(AutomationEventKey.VARIABLE)
 
     else -> emptySet()
 }
@@ -85,6 +99,11 @@ fun isPulseConditionType(type: String): Boolean = when (type) {
     ConditionType.CHARGING_CHANGED,
     ConditionType.VOLUME_CHANGED,
     ConditionType.NOTIFICATION_POSTED,
+    ConditionType.NOTIFICATION_REMOVED,
+    ConditionType.APP_PACKAGE_CHANGED,
+    ConditionType.INTERVAL,
+    ConditionType.SHARE_RECEIVED,
+    ConditionType.CLIPBOARD_CHANGED,
     ConditionType.BLUETOOTH_CHANGED,
     ConditionType.HEADPHONES_CHANGED,
     ConditionType.SCHEDULED_TIME,
@@ -104,6 +123,11 @@ fun pulseKeysIn(ctx: ConditionContext): Set<String> {
     if (ctx.chargingChangedTo != null) keys.add(AutomationEventKey.CHARGING)
     if (ctx.volumeChanged != null) keys.add(AutomationEventKey.VOLUME)
     if (ctx.notificationPosted != null) keys.add(AutomationEventKey.NOTIFICATION)
+    if (ctx.notificationRemoved != null) keys.add(AutomationEventKey.NOTIFICATION)
+    if (ctx.packageChanged != null) keys.add(AutomationEventKey.PACKAGE)
+    if (ctx.intervalDueKeys.isNotEmpty()) keys.add(AutomationEventKey.INTERVAL)
+    if (ctx.shareReceived != null) keys.add(AutomationEventKey.SHARE)
+    if (ctx.clipboardChanged != null) keys.add(AutomationEventKey.CLIPBOARD)
     if (ctx.bluetoothChanged != null) keys.add(AutomationEventKey.BLUETOOTH)
     if (ctx.headphonesChanged != null) keys.add(AutomationEventKey.HEADPHONES)
     if (ctx.scheduledTimeHit) keys.add(AutomationEventKey.TIME)

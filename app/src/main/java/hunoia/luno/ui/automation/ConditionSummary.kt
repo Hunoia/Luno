@@ -135,14 +135,36 @@ fun itemSummary(context: Context, item: ConditionItem): String {
 
         ConditionType.BLUETOOTH -> bluetoothSummary(context, item)
 
-        ConditionType.NOTIFICATION_POSTED -> {
-            val apps = if (item.notifyPackages.isEmpty()) {
-                context.getString(R.string.condition_apps_empty)
-            } else {
-                item.notifyPackages.take(2).joinToString(", ")
+        ConditionType.NOTIFICATION_POSTED,
+        ConditionType.NOTIFICATION_REMOVED,
+        ConditionType.NOTIFICATION_EXISTS -> notificationSummary(context, item)
+
+        ConditionType.APP_PACKAGE_CHANGED -> {
+            val action = when (item.packageChangeAction) {
+                hunoia.luno.config.model.PackageChangeAction.ADDED ->
+                    context.getString(R.string.condition_package_action_added)
+                hunoia.luno.config.model.PackageChangeAction.REMOVED ->
+                    context.getString(R.string.condition_package_action_removed)
+                hunoia.luno.config.model.PackageChangeAction.REPLACED ->
+                    context.getString(R.string.condition_package_action_replaced)
+                hunoia.luno.config.model.PackageChangeAction.CHANGED ->
+                    context.getString(R.string.condition_package_action_changed)
+                else -> context.getString(R.string.condition_package_action_any)
             }
-            if (item.notifyKeyword.isBlank()) apps
-            else "$apps · ${item.notifyKeyword}"
+            val apps = item.packageNames.take(2).joinToString(", ")
+            if (apps.isBlank()) action else "$action · $apps"
+        }
+
+        ConditionType.INTERVAL -> context.getString(
+            R.string.condition_interval_minutes,
+        ) + " ${item.intervalMinutes ?: 5}"
+
+        ConditionType.SHARE_RECEIVED -> context.getString(R.string.condition_share_received)
+        ConditionType.CLIPBOARD_CHANGED -> context.getString(R.string.condition_clipboard_changed)
+        ConditionType.WIFI_SSID -> if (item.wifiSsid.isBlank()) {
+            context.getString(R.string.condition_wifi_ssid)
+        } else {
+            "${context.getString(R.string.condition_wifi_ssid)}: ${item.wifiSsid}"
         }
 
         ConditionType.GESTURE_PERFORMED -> context.getString(R.string.condition_gesture_any)
@@ -169,6 +191,18 @@ fun itemSummary(context: Context, item: ConditionItem): String {
 
         ConditionType.MANUAL -> context.getString(R.string.condition_manual)
 
+        ConditionType.VAR_COMPARE -> {
+            val name = item.compareVarName.ifBlank { "var" }
+            val op = variableCompareOpLabel(context, item.compareOp)
+            if (item.compareOp == hunoia.luno.config.model.VariableCompareOp.IS_EMPTY ||
+                item.compareOp == hunoia.luno.config.model.VariableCompareOp.IS_NOT_EMPTY
+            ) {
+                "$name $op"
+            } else {
+                "$name $op ${item.compareValue}"
+            }
+        }
+
         ConditionType.GROUP -> conditionSummary(context, item.group ?: WhenGroup())
 
         else -> conditionTypeLabel(context, item.type)
@@ -186,9 +220,39 @@ private fun bluetoothSummary(context: Context, item: ConditionItem): String {
             add(context.getString(R.string.bluetooth_audio) + ":" +
                 context.getString(if (item.expectedBluetoothAudioConnected == true) R.string.state_on else R.string.state_off))
         }
+        if (item.bluetoothDeviceName.isNotBlank()) {
+            add(context.getString(R.string.condition_bluetooth_device_name) + ":" + item.bluetoothDeviceName)
+        }
+        if (item.bluetoothDeviceAddress.isNotBlank()) {
+            add(context.getString(R.string.condition_bluetooth_device_address) + ":" + item.bluetoothDeviceAddress)
+        }
     }
     return if (parts.isEmpty()) context.getString(R.string.condition_bluetooth)
     else parts.joinToString(" / ")
+}
+
+private fun notificationSummary(context: Context, item: ConditionItem): String {
+    val apps = when {
+        item.notifyPackages.isEmpty() -> context.getString(R.string.condition_apps_empty)
+        else -> item.notifyPackages.take(2).joinToString(", ")
+    }
+    val keyword = listOf(item.notifyTitleKeyword, item.notifyTextKeyword, item.notifyKeyword)
+        .firstOrNull { it.isNotBlank() }
+        .orEmpty()
+    val base = when (item.type) {
+        ConditionType.NOTIFICATION_REMOVED -> context.getString(R.string.condition_notification_removed)
+        ConditionType.NOTIFICATION_EXISTS -> context.getString(
+            if (item.notifyExists == false) R.string.condition_notify_exists_no
+            else R.string.condition_notify_exists_yes,
+        )
+        else -> context.getString(R.string.condition_notification_posted)
+    }
+    return buildString {
+        append(base)
+        if (item.notifyPackages.isNotEmpty()) append(" · ").append(apps)
+        if (keyword.isNotBlank()) append(" · ").append(keyword)
+        if (item.notifyExcludeKeyword.isNotBlank()) append(" · !").append(item.notifyExcludeKeyword)
+    }
 }
 
 /** 时间范围的星期摘要：工作日/周末走快捷文案，自定义组合按周一~周日拼接单字。 */

@@ -53,6 +53,17 @@ object RuntimeVariables {
     const val TRIGGER_NOTIFICATION_TITLE = "trigger.notification.title"
     const val TRIGGER_NOTIFICATION_TEXT = "trigger.notification.text"
     const val TRIGGER_NOTIFICATION_APP = "trigger.notification.app"
+    const val TRIGGER_NOTIFICATION_CHANNEL = "trigger.notification.channel"
+    const val TRIGGER_NOTIFICATION_GROUP = "trigger.notification.group"
+    const val TRIGGER_NOTIFICATION_CATEGORY = "trigger.notification.category"
+    const val TRIGGER_PACKAGE_NAME = "trigger.package"
+    const val TRIGGER_PACKAGE_ACTION = "trigger.package.action"
+    const val TRIGGER_SHARE_TEXT = "trigger.share.text"
+    const val TRIGGER_SHARE_URL = "trigger.share.url"
+    const val TRIGGER_CLIPBOARD_TEXT = "trigger.clipboard.text"
+    const val WIFI_SSID = "wifi.ssid"
+    const val BLUETOOTH_DEVICE_NAME = "bluetooth.device.name"
+    const val BLUETOOTH_DEVICE_ADDRESS = "bluetooth.device.address"
     const val CLIPBOARD = "clipboard"
 
     private const val VOLUME_PREFIX = "volume."
@@ -93,6 +104,17 @@ object RuntimeVariables {
         TemplateVariable(TRIGGER_NOTIFICATION_TITLE, "触发通知的标题", "张三", triggerOnly = true),
         TemplateVariable(TRIGGER_NOTIFICATION_TEXT, "触发通知的正文", "在吗", triggerOnly = true),
         TemplateVariable(TRIGGER_NOTIFICATION_APP, "触发通知的应用名", "微信", triggerOnly = true),
+        TemplateVariable(TRIGGER_NOTIFICATION_CHANNEL, "触发通知的 channel", "messages", triggerOnly = true),
+        TemplateVariable(TRIGGER_NOTIFICATION_GROUP, "触发通知的 group", "chat", triggerOnly = true),
+        TemplateVariable(TRIGGER_NOTIFICATION_CATEGORY, "触发通知的 category", "msg", triggerOnly = true),
+        TemplateVariable(TRIGGER_PACKAGE_NAME, "触发包变化的包名", "com.example.app", triggerOnly = true),
+        TemplateVariable(TRIGGER_PACKAGE_ACTION, "触发包变化的动作", "added", triggerOnly = true),
+        TemplateVariable(TRIGGER_SHARE_TEXT, "触发分享的完整文本", "看看这个 https://…", triggerOnly = true),
+        TemplateVariable(TRIGGER_SHARE_URL, "触发分享中的首个链接", "https://…", triggerOnly = true),
+        TemplateVariable(TRIGGER_CLIPBOARD_TEXT, "触发剪贴板的新文本", "剪贴内容", triggerOnly = true),
+        TemplateVariable(WIFI_SSID, "当前 Wi‑Fi SSID", "Home"),
+        TemplateVariable(BLUETOOTH_DEVICE_NAME, "当前蓝牙设备名", "耳机"),
+        TemplateVariable(BLUETOOTH_DEVICE_ADDRESS, "当前蓝牙设备地址", "AA:BB:CC:DD:EE:FF"),
         TemplateVariable(CLIPBOARD, "当前剪贴板文本", "剪贴内容"),
     )
 
@@ -133,12 +155,30 @@ object RuntimeVariables {
                 TRIGGER_SCREEN -> ctx.screenEvent?.name.orEmpty()
                 TRIGGER_CHARGING -> ctx.chargingChangedTo?.toString().orEmpty()
                 TRIGGER_VOLUME -> ctx.volumeChanged?.let { "${it.stream.name}_${it.direction.name}" }.orEmpty()
-                TRIGGER_NOTIFICATION_PACKAGE -> ctx.notificationPosted?.packageName.orEmpty()
-                TRIGGER_NOTIFICATION_TITLE -> ctx.notificationPosted?.title.orEmpty()
-                TRIGGER_NOTIFICATION_TEXT -> ctx.notificationPosted?.text.orEmpty()
-                TRIGGER_NOTIFICATION_APP -> ctx.notificationPosted?.packageName
+                TRIGGER_NOTIFICATION_PACKAGE -> (ctx.notificationPosted ?: ctx.notificationRemoved)
+                    ?.packageName.orEmpty()
+                TRIGGER_NOTIFICATION_TITLE -> (ctx.notificationPosted ?: ctx.notificationRemoved)
+                    ?.title.orEmpty()
+                TRIGGER_NOTIFICATION_TEXT -> (ctx.notificationPosted ?: ctx.notificationRemoved)
+                    ?.text.orEmpty()
+                TRIGGER_NOTIFICATION_APP -> (ctx.notificationPosted ?: ctx.notificationRemoved)
+                    ?.packageName
                     ?.let { appLabel(appContext, it) }
                     .orEmpty()
+                TRIGGER_NOTIFICATION_CHANNEL -> (ctx.notificationPosted ?: ctx.notificationRemoved)
+                    ?.channelId.orEmpty()
+                TRIGGER_NOTIFICATION_GROUP -> (ctx.notificationPosted ?: ctx.notificationRemoved)
+                    ?.groupKey.orEmpty()
+                TRIGGER_NOTIFICATION_CATEGORY -> (ctx.notificationPosted ?: ctx.notificationRemoved)
+                    ?.category.orEmpty()
+                TRIGGER_PACKAGE_NAME -> ctx.packageChanged?.packageName.orEmpty()
+                TRIGGER_PACKAGE_ACTION -> ctx.packageChanged?.action.orEmpty()
+                TRIGGER_SHARE_TEXT -> ctx.shareReceived?.text.orEmpty()
+                TRIGGER_SHARE_URL -> ctx.shareReceived?.url.orEmpty()
+                TRIGGER_CLIPBOARD_TEXT -> ctx.clipboardChanged?.text.orEmpty()
+                WIFI_SSID -> ctx.wifiSsid.orEmpty()
+                BLUETOOTH_DEVICE_NAME -> ctx.bluetoothDeviceName.orEmpty()
+                BLUETOOTH_DEVICE_ADDRESS -> ctx.bluetoothDeviceAddress.orEmpty()
                 CLIPBOARD -> readClipboard(appContext)
                 else -> {
                     if (!token.startsWith(VOLUME_PREFIX)) continue

@@ -2,23 +2,39 @@ package hunoia.luno.domain.automation
 
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.AutomationRule
+import hunoia.luno.config.model.GlobalVariables
 import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.config.repository.cleanActions
 import hunoia.luno.config.repository.cleanStepRefs
 import hunoia.luno.action.model.runRuleId
+import hunoia.luno.service.DispatchClient
 import hunoia.luno.runtime.condition.hasLeaf as runtimeHasLeaf
 import kotlinx.coroutines.flow.Flow
 
 /** 执行历史事件：展示用，经 domain 转调，ui 不得直引 runtime。 */
 typealias AutomationEvent = hunoia.luno.runtime.automation.AutomationEvent
 
+/** 测试运行结果：展示用，经 domain 转调。 */
+typealias RuleTestResult = hunoia.luno.runtime.automation.RuleTestResult
+
+/** P3-3 权限报告：UI 只读展示，不直接依赖 action/capability 实现。 */
+typealias AutomationCapabilityReport = hunoia.luno.action.capability.RuleCapabilityReport
+
 /** 自动化域门面（ui 层唯一入口）。 */
 object AutomationCenter {
 
     val rules: Flow<List<AutomationRule>> = ConfigProvider.automationRules
+    val variables: Flow<GlobalVariables> = ConfigProvider.automationVariables
     val log: Flow<List<AutomationEvent>> = ConfigProvider.automationLog
 
     suspend fun getRules(): List<AutomationRule> = ConfigProvider.getAutomationRules()
+    suspend fun getVariables(): GlobalVariables = ConfigProvider.getAutomationVariables()
+
+    suspend fun updateVariables(transform: suspend (GlobalVariables) -> GlobalVariables) =
+        ConfigProvider.updateAutomationVariables(transform)
+
+    suspend fun setVariable(name: String, value: String) =
+        ConfigProvider.setGlobalVariable(name, value)
 
     suspend fun updateRules(transform: suspend (List<AutomationRule>) -> List<AutomationRule>) =
         ConfigProvider.updateAutomationRules(transform)
@@ -69,9 +85,14 @@ object AutomationCenter {
         get() = hunoia.luno.runtime.automation.SkipReason.CONSTRAINT_UNMET
     val skipRuleBusy: hunoia.luno.runtime.automation.SkipReason
         get() = hunoia.luno.runtime.automation.SkipReason.RULE_BUSY
+    val skipPermissionMissing: hunoia.luno.runtime.automation.SkipReason
+        get() = hunoia.luno.runtime.automation.SkipReason.PERMISSION_MISSING
 
     fun isOkReason(reason: String): Boolean =
         reason == hunoia.luno.runtime.automation.ExecutionReason.OK
+
+    fun isTimeoutReason(reason: String): Boolean =
+        reason == hunoia.luno.runtime.automation.ExecutionReason.TIMEOUT
 
     fun isInterruptedReason(reason: String): Boolean =
         reason.startsWith(hunoia.luno.runtime.automation.ExecutionReason.INTERRUPTED_PREFIX)
@@ -89,9 +110,39 @@ object AutomationCenter {
     fun hasStateConditionOf(group: WhenGroup): Boolean =
         hunoia.luno.runtime.automation.hasStateLeaf(group)
 
+    /**
+     * 静态能力扫描：动作（含动作库引用/runRule 目标）所需能力 + 通知监听访问。
+     * 只读系统权限状态，不执行动作。
+     */
+    fun capabilityReport(
+        context: android.content.Context,
+        rule: AutomationRule,
+        allRules: List<AutomationRule>,
+        library: hunoia.luno.action.model.ActionLibrarySettings?,
+    ): AutomationCapabilityReport =
+        hunoia.luno.action.capability.RuleCapabilityScanner.report(context, rule, allRules, library)
+
     /** 通知监听权限是否已授：编辑页通知条件行展示（读系统设置，无副作用）。 */
     fun isNotificationAccessGranted(context: android.content.Context): Boolean =
         hunoia.luno.runtime.automation.AutomationNotificationListener.isAccessGranted(context)
+
+    // ---- 运行态 / 测试运行（经 Binder 转到 :service，ui 不直引 runtime） ----
+
+    /** 当前运行中的规则 id；服务未连接时为空集。 */
+    fun runningRuleIds(): Set<String> = DispatchClient.runningRuleIds()
+
+    /** 停止一条规则的所有实例。 */
+    fun stopRule(ruleId: String): Boolean = DispatchClient.stopRule(ruleId)
+
+    /**
+     * 测试运行：条件/约束按 :service 当前快照求值，[executeSteps] 为 false 时只检查条件。
+     * [onResult] 在主线程回调；返回 false 表示请求未送达。
+     */
+    fun runRuleTest(
+        rule: AutomationRule,
+        executeSteps: Boolean = true,
+        onResult: (RuleTestResult?) -> Unit,
+    ): Boolean = DispatchClient.runRuleTest(rule, executeSteps, onResult)
 }
 
 // ---- 纯函数转调（顶层，ui 可直接 import；直引 runtime 会违 B1） ----

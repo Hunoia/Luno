@@ -10,10 +10,12 @@ import hunoia.luno.config.model.ConditionType
 import hunoia.luno.config.model.ConnectionDirection
 import hunoia.luno.config.model.KeyboardEventType
 import hunoia.luno.config.model.NetworkType
+import hunoia.luno.config.model.NotificationMatchMode
 import hunoia.luno.config.model.PlaybackDirection
 import hunoia.luno.config.model.RingerMode
 import hunoia.luno.config.model.ScreenEventType
 import hunoia.luno.config.model.ScreenType
+import hunoia.luno.config.model.VariableCompareOp
 import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.runtime.GestureRuntimeState
 import hunoia.luno.runtime.VolumeChange
@@ -32,9 +34,13 @@ data class ConditionContext(
     val dayOfWeek: Int,
 
     val networkType: NetworkType,
+    /** 当前 Wi‑Fi SSID；读不到/未连接时为 null。 */
+    val wifiSsid: String? = null,
     val headphonesConnected: Boolean,
     val bluetoothAdapterOn: Boolean?,
     val bluetoothAudioConnected: Boolean?,
+    val bluetoothDeviceName: String? = null,
+    val bluetoothDeviceAddress: String? = null,
     val airplaneMode: Boolean,
     val ringerMode: RingerMode,
     val volumePercent: Map<AudioStream, Int>,
@@ -49,6 +55,14 @@ data class ConditionContext(
 
     // v2 新增脉冲（事件源在 P2 接入；null=无脉冲）
     val notificationPosted: NotificationPulse? = null,
+    val notificationRemoved: NotificationPulse? = null,
+    /** 当前通知栏里的通知快照（NOTIFICATION_EXISTS 状态条件用）。 */
+    val activeNotifications: List<NotificationPulse> = emptyList(),
+    val packageChanged: PackageChangePulse? = null,
+    val shareReceived: SharePulse? = null,
+    val clipboardChanged: ClipboardPulse? = null,
+    /** INTERVAL 到期的 ruleId:分钟 键；ticker 写入，求值后随脉冲消费。 */
+    val intervalDueKeys: Set<String> = emptySet(),
     val bluetoothChanged: ConnectionDirection? = null,
     val headphonesChanged: ConnectionDirection? = null,
     val scheduledTimeHit: Boolean = false,
@@ -62,6 +76,8 @@ data class ConditionContext(
     val musicChanged: PlaybackDirection? = null,
     val torchChangedTo: Boolean? = null,
     val dndChangedTo: Boolean? = null,
+    /** 全局/局部变量快照（key 带 `var.` 前缀）；默认空。 */
+    val variables: Map<String, String> = emptyMap(),
 )
 
 /**
@@ -80,7 +96,31 @@ data class NotificationPulse(
     val importance: Int = NotificationManager.IMPORTANCE_DEFAULT,
     /** 用于通知栏仍在显示的二段确认（延迟后查 activeNotifications）。 */
     val key: String? = null,
+    val groupKey: String? = null,
+    val channelId: String? = null,
+    val category: String? = null,
 )
+
+/** 应用安装/卸载/更新脉冲。 */
+data class PackageChangePulse(
+    val action: String,
+    val packageName: String,
+)
+
+/** 分享/链接接收脉冲；url 为提取出的首个 http(s) 链接（没有则为 null）。 */
+data class SharePulse(
+    val text: String,
+    val url: String? = null,
+    /** VIEW / SEND / 其它。 */
+    val source: String = "",
+)
+
+/** 剪贴板球/面板读到的新文本。 */
+data class ClipboardPulse(val text: String)
+
+/** 间隔触发键：规则 id + 分钟数，允许同一规则里多个不同间隔各自到期。 */
+fun intervalDueKey(ruleId: String, item: ConditionItem): String? =
+    item.intervalMinutes?.let { "$ruleId:$it" }
 
 /**
  * 每条求值路径一个 Calendar,避免 Calendar.getInstance() 每次做时区与 locale 查找。
@@ -130,7 +170,9 @@ fun rangeContains(actual: Int?, min: Int?, max: Int?): Boolean {
     return (min == null || value >= min) && (max == null || value <= max)
 }
 
-fun GestureRuntimeState.toConditionContext(): ConditionContext = ConditionContext(
+fun GestureRuntimeState.toConditionContext(
+    variables: Map<String, String> = emptyMap(),
+): ConditionContext = ConditionContext(
     nowMs = nowMs,
     packageName = currentPackageName,
     isLockScreen = isNowInLockScreenPage,
@@ -142,9 +184,12 @@ fun GestureRuntimeState.toConditionContext(): ConditionContext = ConditionContex
     minuteOfDay = minuteOfDay,
     dayOfWeek = dayOfWeek,
     networkType = networkType,
+    wifiSsid = wifiSsid,
     headphonesConnected = headphonesConnected,
     bluetoothAdapterOn = bluetoothAdapterOn,
     bluetoothAudioConnected = bluetoothAudioConnected,
+    bluetoothDeviceName = bluetoothDeviceName,
+    bluetoothDeviceAddress = bluetoothDeviceAddress,
     airplaneMode = airplaneMode,
     ringerMode = ringerMode,
     volumePercent = volumePercent,
@@ -156,6 +201,12 @@ fun GestureRuntimeState.toConditionContext(): ConditionContext = ConditionContex
     chargingChangedTo = chargingChangedTo,
     volumeChanged = volumeChanged,
     notificationPosted = notificationPosted,
+    notificationRemoved = notificationRemoved,
+    activeNotifications = activeNotifications,
+    packageChanged = packageChanged,
+    shareReceived = shareReceived,
+    clipboardChanged = clipboardChanged,
+    intervalDueKeys = intervalDueKeys,
     bluetoothChanged = bluetoothChanged,
     headphonesChanged = headphonesChanged,
     scheduledTimeHit = scheduledTimeHit,
@@ -165,19 +216,21 @@ fun GestureRuntimeState.toConditionContext(): ConditionContext = ConditionContex
     musicChanged = musicChanged,
     torchChangedTo = torchChangedTo,
     dndChangedTo = dndChangedTo,
+    variables = variables,
 )
 
-fun AutomationRule.matches(ctx: ConditionContext): Boolean = condition.matches(ctx)
+fun AutomationRule.matches(ctx: ConditionContext, ruleId: String? = null): Boolean =
+    condition.matches(ctx, ruleId)
 
-fun WhenGroup.matches(ctx: ConditionContext): Boolean {
+fun WhenGroup.matches(ctx: ConditionContext, ruleId: String? = null): Boolean {
     if (items.isEmpty()) return false
     return when (mode) {
-        BooleanMode.AND -> items.all { it.matches(ctx) }
-        BooleanMode.OR -> items.any { it.matches(ctx) }
+        BooleanMode.AND -> items.all { it.matches(ctx, ruleId) }
+        BooleanMode.OR -> items.any { it.matches(ctx, ruleId) }
     }
 }
 
-fun ConditionItem.matches(ctx: ConditionContext): Boolean {
+fun ConditionItem.matches(ctx: ConditionContext, ruleId: String? = null): Boolean {
     // 手动触发：恒假且无视取反（取反恒真会变成永远触发），只供手势/runRule 调用。
     if (type == ConditionType.MANUAL) return false
     val raw = when {
@@ -190,12 +243,14 @@ fun ConditionItem.matches(ctx: ConditionContext): Boolean {
         type == ConditionType.VOLUME_RANGE -> rangeContains(ctx.volumePercent[audioStream], volumeMin, volumeMax)
         type == ConditionType.RINGER_SILENT -> ringerMatches(ctx)
         type == ConditionType.NETWORK_TYPE -> networkType == ctx.networkType
+        type == ConditionType.WIFI_SSID -> wifiSsidMatches(ctx)
         type == ConditionType.HEADPHONES -> (plugged ?: false) == ctx.headphonesConnected
         type == ConditionType.BLUETOOTH -> bluetoothMatches(ctx)
         type == ConditionType.AIRPLANE_MODE -> (airplaneMode ?: false) == ctx.airplaneMode
         type == ConditionType.MUSIC_PLAYING -> (musicPlaying ?: false) == ctx.isMusicPlaying
         type == ConditionType.TORCH_ON -> (torchOn ?: false) == ctx.isTorchOn
         type == ConditionType.DND_ON -> (dndOn ?: false) == ctx.isDndOn
+        type == ConditionType.VAR_COMPARE -> variableMatches(ctx.variables)
         type == ConditionType.APP_CHANGED_TO -> ctx.appChangedTo != null && ctx.appChangedTo in packageNames
         type == ConditionType.SCREEN_EVENT -> ctx.screenEvent == screenEvent
         type == ConditionType.KEYBOARD_EVENT -> ctx.keyboardEvent != null && ctx.keyboardEvent == keyboardEvent
@@ -205,15 +260,52 @@ fun ConditionItem.matches(ctx: ConditionContext): Boolean {
             (playbackDirection == null || playbackDirection == ctx.musicChanged)
         type == ConditionType.TORCH_CHANGED -> ctx.torchChangedTo != null && torchChangedTo == ctx.torchChangedTo
         type == ConditionType.DND_CHANGED -> ctx.dndChangedTo != null && dndChangedTo == ctx.dndChangedTo
-        type == ConditionType.NOTIFICATION_POSTED -> notificationMatches(ctx)
+        type == ConditionType.NOTIFICATION_POSTED -> notificationMatches(ctx.notificationPosted)
+        type == ConditionType.NOTIFICATION_REMOVED -> notificationMatches(ctx.notificationRemoved)
+        type == ConditionType.NOTIFICATION_EXISTS -> notificationExistsMatches(ctx)
+        type == ConditionType.APP_PACKAGE_CHANGED -> packageChangedMatches(ctx)
+        type == ConditionType.INTERVAL -> intervalMatches(ctx, ruleId)
+        type == ConditionType.SHARE_RECEIVED -> ctx.shareReceived != null
+        type == ConditionType.CLIPBOARD_CHANGED -> ctx.clipboardChanged?.let {
+            clipboardKeyword.isBlank() || it.text.contains(clipboardKeyword, ignoreCase = true)
+        } == true
         type == ConditionType.BLUETOOTH_CHANGED -> connectionMatches(ctx.bluetoothChanged)
         type == ConditionType.HEADPHONES_CHANGED -> connectionMatches(ctx.headphonesChanged)
         type == ConditionType.SCHEDULED_TIME -> ctx.scheduledTimeHit && scheduledTimeMatches(ctx)
         type == ConditionType.GESTURE_PERFORMED -> ctx.gesturePerformedId != null
-        type == ConditionType.GROUP -> group?.matches(ctx) == true
+        type == ConditionType.GROUP -> group?.matches(ctx, ruleId) == true
         else -> false
     }
     return if (negated) !raw else raw
+}
+
+private fun ConditionItem.variableMatches(variables: Map<String, String>): Boolean {
+    val name = compareVarName.trim()
+    if (name.isEmpty()) return false
+    val key = if (name.startsWith("var.")) name else "var.$name"
+    val left = variables[key] ?: return false
+    return compareValues(left, compareOp, compareValue)
+}
+
+/** 条件变量比较：数值运算优先按 double，文本运算保留原大小写。 */
+fun compareValues(left: String, op: String, right: String): Boolean {
+    val ln = left.trim().toDoubleOrNull()
+    val rn = right.trim().toDoubleOrNull()
+    val numeric = ln != null && rn != null
+    return when (op) {
+        VariableCompareOp.EQUALS -> if (numeric) ln == rn else left == right
+        VariableCompareOp.NOT_EQUALS -> !(if (numeric) ln == rn else left == right)
+        VariableCompareOp.GREATER -> ln != null && rn != null && ln > rn
+        VariableCompareOp.GREATER_OR_EQUALS -> ln != null && rn != null && ln >= rn
+        VariableCompareOp.LESS -> ln != null && rn != null && ln < rn
+        VariableCompareOp.LESS_OR_EQUALS -> ln != null && rn != null && ln <= rn
+        VariableCompareOp.CONTAINS -> left.contains(right)
+        VariableCompareOp.STARTS_WITH -> left.startsWith(right)
+        VariableCompareOp.ENDS_WITH -> left.endsWith(right)
+        VariableCompareOp.IS_EMPTY -> left.isEmpty()
+        VariableCompareOp.IS_NOT_EMPTY -> left.isNotEmpty()
+        else -> false
+    }
 }
 
 private fun ConditionItem.connectionMatches(pulse: ConnectionDirection?): Boolean {
@@ -221,14 +313,76 @@ private fun ConditionItem.connectionMatches(pulse: ConnectionDirection?): Boolea
     return connectionDirection == null || connectionDirection == pulse
 }
 
-private fun ConditionItem.notificationMatches(ctx: ConditionContext): Boolean {
-    val pulse = ctx.notificationPosted ?: return false
+private fun ConditionItem.notificationMatches(pulse: NotificationPulse?): Boolean {
+    if (pulse == null) return false
     if (notifyPackages.isNotEmpty() && pulse.packageName !in notifyPackages) return false
+    if (notifyExcludePackages.isNotEmpty() && pulse.packageName in notifyExcludePackages) return false
+    if (notifyOngoing != null && pulse.ongoing != notifyOngoing) return false
+    if (notifyClearable != null && pulse.clearable != notifyClearable) return false
+    if (notifyImportanceAtLeast != null && pulse.importance < notifyImportanceAtLeast) return false
+
+    val mode = notifyMatchMode.takeIf { it in NotificationMatchMode.all }
+        ?: NotificationMatchMode.CONTAINS
+    // 旧版单关键字继续兼容：标题或正文任意命中即可。
     if (notifyKeyword.isNotBlank() &&
-        !pulse.title.contains(notifyKeyword, ignoreCase = true) &&
-        !pulse.text.contains(notifyKeyword, ignoreCase = true)
+        !textMatches(pulse.title, notifyKeyword, mode) &&
+        !textMatches(pulse.text, notifyKeyword, mode)
+    ) return false
+    if (notifyTitleKeyword.isNotBlank() && !textMatches(pulse.title, notifyTitleKeyword, mode)) return false
+    if (notifyTextKeyword.isNotBlank() && !textMatches(pulse.text, notifyTextKeyword, mode)) return false
+    if (notifyExcludeKeyword.isNotBlank() &&
+        (textMatches(pulse.title, notifyExcludeKeyword, mode) ||
+            textMatches(pulse.text, notifyExcludeKeyword, mode))
     ) return false
     return true
+}
+
+/** 通知当前是否存在：对 activeNotifications 快照套用同一套过滤器。 */
+private fun ConditionItem.notificationExistsMatches(ctx: ConditionContext): Boolean {
+    val exists = ctx.activeNotifications.any { notificationMatches(it) }
+    return exists == (notifyExists ?: true)
+}
+
+private fun textMatches(source: String, pattern: String, mode: String): Boolean = when (mode) {
+    NotificationMatchMode.REGEX -> runCatching {
+        Regex(pattern, RegexOption.IGNORE_CASE).containsMatchIn(source)
+    }.getOrDefault(false)
+
+    NotificationMatchMode.GLOB -> {
+        val regex = buildString {
+            append(".*")
+            for (ch in pattern) {
+                when (ch) {
+                    '*' -> append(".*")
+                    '?' -> append('.')
+                    else -> append(Regex.escape(ch.toString()))
+                }
+            }
+            append(".*")
+        }
+        runCatching { Regex(regex, RegexOption.IGNORE_CASE).containsMatchIn(source) }
+            .getOrDefault(false)
+    }
+
+    else -> source.contains(pattern, ignoreCase = true)
+}
+
+private fun ConditionItem.packageChangedMatches(ctx: ConditionContext): Boolean {
+    val pulse = ctx.packageChanged ?: return false
+    if (packageNames.isNotEmpty() && pulse.packageName !in packageNames) return false
+    return packageChangeAction == null || packageChangeAction == pulse.action
+}
+
+private fun ConditionItem.intervalMatches(ctx: ConditionContext, ruleId: String?): Boolean {
+    val key = ruleId?.let { intervalDueKey(it, this) } ?: return false
+    return key in ctx.intervalDueKeys
+}
+
+private fun ConditionItem.wifiSsidMatches(ctx: ConditionContext): Boolean {
+    if (ctx.networkType != NetworkType.WIFI) return false
+    if (wifiSsid.isBlank()) return true
+    val actual = ctx.wifiSsid ?: return false
+    return actual.equals(wifiSsid.trim(), ignoreCase = true)
 }
 
 private fun ConditionItem.scheduledTimeMatches(ctx: ConditionContext): Boolean {
@@ -247,12 +401,27 @@ private fun ConditionItem.screenStateMatches(ctx: ConditionContext): Boolean = w
 }
 
 private fun ConditionItem.bluetoothMatches(ctx: ConditionContext): Boolean {
-    if (expectedBluetoothAdapterOn == null && expectedBluetoothAudioConnected == null) return false
+    val hasDeviceFilter = bluetoothDeviceName.isNotBlank() || bluetoothDeviceAddress.isNotBlank()
+    if (expectedBluetoothAdapterOn == null &&
+        expectedBluetoothAudioConnected == null &&
+        !hasDeviceFilter
+    ) return false
     val adapterOk = expectedBluetoothAdapterOn == null ||
         expectedBluetoothAdapterOn == ctx.bluetoothAdapterOn
     val audioOk = expectedBluetoothAudioConnected == null ||
         expectedBluetoothAudioConnected == ctx.bluetoothAudioConnected
-    return adapterOk && audioOk
+    if (!adapterOk) return false
+    // 指定设备意味着必须已连接；读取失败（null）按不匹配处理，避免误触。
+    if (hasDeviceFilter) {
+        if (ctx.bluetoothAudioConnected != true) return false
+        if (bluetoothDeviceName.isNotBlank() &&
+            !ctx.bluetoothDeviceName.equals(bluetoothDeviceName.trim(), ignoreCase = true)
+        ) return false
+        if (bluetoothDeviceAddress.isNotBlank() &&
+            !ctx.bluetoothDeviceAddress.equals(bluetoothDeviceAddress.trim(), ignoreCase = true)
+        ) return false
+    }
+    return audioOk
 }
 
 private fun ConditionItem.volumeChangedMatches(ctx: ConditionContext): Boolean {
@@ -332,6 +501,17 @@ fun WhenGroup.scheduledItems(): List<ConditionItem> = items.flatMap { item ->
 }
 
 fun WhenGroup.hasScheduledTime(): Boolean = scheduledItems().isNotEmpty()
+
+/** 间隔触发项（递归进 GROUP）：ticker 用 rule.id + 分钟数维护 lastFiredAt。 */
+fun WhenGroup.intervalItems(): List<ConditionItem> = items.flatMap { item ->
+    when (item.type) {
+        ConditionType.INTERVAL -> listOfNotNull(item.takeIf { it.intervalMinutes != null })
+        ConditionType.GROUP -> item.group?.intervalItems() ?: emptyList()
+        else -> emptyList()
+    }
+}
+
+fun WhenGroup.hasIntervalCondition(): Boolean = intervalItems().isNotEmpty()
 
 fun WhenGroup.hasLeaf(): Boolean = items.any { item ->
     if (item.type == ConditionType.GROUP) item.group?.hasLeaf() == true else true

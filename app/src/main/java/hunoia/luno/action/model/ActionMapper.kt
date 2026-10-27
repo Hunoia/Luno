@@ -52,6 +52,18 @@ object ActionMapper {
             "system.mediaPrevious" -> Action.MediaPrevious
             "system.mediaMute" -> Action.MediaMute
             "system.flashlight" -> Action.Flashlight
+            "http.request" -> Action.HttpRequest(
+                url = p.str("url"),
+                method = p.str("method", "GET"),
+                headers = p.str("headers"),
+                body = p.str("body"),
+            )
+            "system.toast" -> Action.Toast(p.str("text"))
+            "system.notify" -> Action.Notify(
+                title = p.str("title", "Luno"),
+                text = p.str("text"),
+            )
+            "system.clipboardSet" -> Action.SetClipboard(p.str("text"))
             "accessibility.back" -> Action.Back
             "accessibility.home" -> Action.Home
             "accessibility.recents" -> Action.Recents
@@ -115,7 +127,10 @@ object ActionMapper {
             )
             "internal.pointer" -> Action.Pointer
             "internal.previousApp" -> Action.PreviousApp
-            "internal.runRule" -> Action.RunRule(p.str("ruleId"))
+            "internal.runRule" -> Action.RunRule(
+                ruleId = p.str("ruleId"),
+                params = p.ruleParams(),
+            )
             // 动作面板由 SideGestureContainer.runGestureActions 就地展开成面板项，正常路径
             // 不会流到执行层。能走到这里说明面板被删或内容为空 —— 按「无动作」收口，
             // 而不是抛 UnknownActionTypeException 让手势链路报错。
@@ -161,6 +176,13 @@ object ActionMapper {
             if (k.isBlank()) null else k to ((v as? JsonPrimitive)?.contentOrNull.orEmpty())
         }.toMap()
     }
+
+    /** runRule 参数：只取 `param.` 前缀键，去掉前缀后作为子规则参数名。 */
+    private fun JsonObject.ruleParams(): Map<String, String> =
+        entries.mapNotNull { (key, value) ->
+            if (!key.startsWith("param.")) null
+            else key.removePrefix("param.") to ((value as? JsonPrimitive)?.contentOrNull.orEmpty())
+        }.toMap()
 
     /** Query 参数：存成 JSON 对象 `{key: value}`，空键忽略。 */
     private fun JsonObject.queryParams(): List<QueryParam> {

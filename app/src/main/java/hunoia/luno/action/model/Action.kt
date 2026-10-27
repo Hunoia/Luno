@@ -125,6 +125,27 @@ sealed interface Action {
     data object Flashlight : Action {
         override val typeId: String = "system.flashlight"
     }
+    /** HTTP 请求：GET/POST/...，headers 按行 `Key: Value`，正文按 UTF-8。 */
+    data class HttpRequest(
+        val url: String,
+        val method: String = "GET",
+        val headers: String = "",
+        val body: String = "",
+    ) : Action {
+        override val typeId: String = "http.request"
+    }
+    /** 轻量 Toast（自动化里不依赖动作执行结果提示）。 */
+    data class Toast(val text: String) : Action {
+        override val typeId: String = "system.toast"
+    }
+    /** 发系统通知（Android 13+ 受 POST_NOTIFICATIONS 控制）。 */
+    data class Notify(val title: String, val text: String) : Action {
+        override val typeId: String = "system.notify"
+    }
+    /** 写剪贴板（与“剪贴板随机名称”区分，内容由用户/模板提供）。 */
+    data class SetClipboard(val text: String) : Action {
+        override val typeId: String = "system.clipboardSet"
+    }
 
     // Accessibility
     data object Back : Action {
@@ -264,7 +285,11 @@ sealed interface Action {
      * 运行规则（规则即动作）：只跑目标规则的 effect steps，目标自身的触发条件/
      * 节流/优先级全部忽略；嵌套由执行层深度上限兜底。
      */
-    data class RunRule(val ruleId: String) : Action {
+    data class RunRule(
+        val ruleId: String,
+        /** `param.<name>` 子规则参数，已由参数模板展开。 */
+        val params: Map<String, String> = emptyMap(),
+    ) : Action {
         override val typeId: String = "internal.runRule"
     }
 
@@ -278,11 +303,17 @@ sealed interface Action {
 enum class Capability {
     None,
     Accessibility,
-    Shizuku
+    Shizuku,
+    /** Android 13+ POST_NOTIFICATIONS / 通知总开关。 */
+    Notification,
 }
 
 sealed interface ActionResult {
-    data class Success(val message: String? = null) : ActionResult
+    /** outputs: runRule 等复合动作回传的变量（目前只有 "return"）。 */
+    data class Success(
+        val message: String? = null,
+        val outputs: Map<String, String> = emptyMap(),
+    ) : ActionResult
     data class Failed(val reason: ActionFailure, val message: String? = null) : ActionResult
     data class RequiresCapability(val capability: Capability) : ActionResult
 }

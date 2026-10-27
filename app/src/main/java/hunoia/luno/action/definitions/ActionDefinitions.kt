@@ -166,6 +166,46 @@ object ActionDefinitions {
             Capability.None,
             icon = Icons.Default.FlashlightOn,
         ))
+        // P2-5：自动化最常用的四个外部动作。HTTP 走 HttpURLConnection，不引入额外依赖。
+        add(ActionDefinition(
+            "http.request", "HTTP 请求", ActionCategory.ADVANCED,
+            Capability.None,
+            listOf(
+                ParameterDefinition.Text("url", "URL"),
+                ParameterDefinition.Text(
+                    "method",
+                    "方法",
+                    required = false,
+                    defaultValue = "GET",
+                    allowTemplates = false,
+                    placeholder = "GET / POST / PUT / DELETE / HEAD",
+                ),
+                ParameterDefinition.TextLarge("headers", "请求头（每行 Key: Value）", required = false),
+                ParameterDefinition.TextLarge("body", "请求体", required = false),
+            ),
+            icon = Icons.Default.Link,
+        ))
+        add(ActionDefinition(
+            "system.toast", "Toast 提示", ActionCategory.SYSTEM,
+            Capability.None,
+            listOf(ParameterDefinition.Text("text", "文本")),
+            icon = Icons.Default.Info,
+        ))
+        add(ActionDefinition(
+            "system.notify", "发送通知", ActionCategory.SYSTEM,
+            Capability.Notification,
+            listOf(
+                ParameterDefinition.Text("title", "标题", required = false, defaultValue = "Luno"),
+                ParameterDefinition.TextLarge("text", "正文"),
+            ),
+            icon = Icons.Default.Notifications,
+        ))
+        add(ActionDefinition(
+            "system.clipboardSet", "写入剪贴板", ActionCategory.CLIPBOARD,
+            Capability.None,
+            listOf(ParameterDefinition.TextLarge("text", "文本")),
+            icon = Icons.Default.ContentCopy,
+        ))
 
         // Accessibility
         add(ActionDefinition("accessibility.back", "返回", ActionCategory.NAVIGATION, Capability.Accessibility,
