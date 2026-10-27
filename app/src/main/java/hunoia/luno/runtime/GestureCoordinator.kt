@@ -274,16 +274,17 @@ class GestureCoordinator(
     private val executeEnvironment: hunoia.luno.execute.ExecuteEnvironment = LunoExecuteEnvironment(host)
     private val executeMessages = LunoExecuteMessages(host.context)
 
-    /** 启动基础设施端口实现：解冻/小窗/弹窗/快捷方式都留在 app 侧。 */
-    private val launchSurfaces = LaunchSurfaces(
-        context = host.context.applicationContext,
-        advancedSettings = { runtimeSettingsStore.snapshot().advancedSettings },
-        enableDisabledPackage = { pkg ->
-            suspendCancellableCoroutine { cont ->
-                host.requestEnableDisabledPackage(pkg) { ok -> if (cont.isActive) cont.resume(ok) }
-            }
-        },
-    )
+    /** 启动能力库的默认实现（`:capability:launch`）：解冻与小窗设置由这里注入。 */
+    private val appLauncher: hunoia.luno.core.domain.AppLauncher =
+        hunoia.luno.launch.DefaultAppLauncher(
+            context = host.context.applicationContext,
+            advancedSettings = { runtimeSettingsStore.snapshot().advancedSettings },
+            unfreezePackage = { pkg ->
+                suspendCancellableCoroutine { cont ->
+                    host.requestEnableDisabledPackage(pkg) { ok -> if (cont.isActive) cont.resume(ok) }
+                }
+            },
+        )
 
     /** 执行口的 Surface 副作用端口：执行口只说要弹哪个面，窗口控制留在这里。 */
     private val executeSurfaces = object : hunoia.luno.execute.SurfaceHost {
@@ -332,25 +333,22 @@ class GestureCoordinator(
         }
 
         override suspend fun launchApp(spec: hunoia.luno.execute.LaunchSpec): Boolean =
-            launchSurfaces.launch(spec)
+            appLauncher.launch(spec)
 
         override suspend fun openUrl(
             url: String,
             miniWindow: Boolean,
             queryParameters: List<hunoia.luno.action.model.QueryParam>,
-        ): Boolean = launchSurfaces.openUrl(url, miniWindow, queryParameters)
+        ): Boolean = appLauncher.openUrl(url, miniWindow, queryParameters)
 
         override suspend fun launchShortcut(dataJson: String): Boolean =
-            launchSurfaces.launchShortcut(dataJson)
+            appLauncher.launchShortcut(dataJson)
 
         override suspend fun openAppDetails(packageName: String) =
-            launchSurfaces.openAppDetails(packageName)
+            appLauncher.openAppDetails(packageName)
 
-        override suspend fun launchInPopup(packageName: String) = launchSurfaces.launchInPopup(
-            packageName,
-            currentPackage = { executeEnvironment.currentPackageName() },
-            nowInLauncher = { executeEnvironment.nowInLauncher() },
-        )
+        override suspend fun launchInPopup(packageName: String) =
+            appLauncher.launchInPopup(packageName)
 
         override fun showScreenPick(): Boolean =
             hunoia.luno.service.SideGestureService.current?.showScreenPick() == true

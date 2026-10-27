@@ -1,13 +1,11 @@
 package hunoia.luno.launch
 
 import android.content.Context
-import hunoia.luno.R
+import hunoia.luno.capability.launch.R
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.AppLaunchSource
 import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.quicklaunch.launch.AppLaunchCoordinator
-import hunoia.luno.quicklaunch.query.AppQuery
-import hunoia.luno.quicklaunch.query.DisabledAppQuery
 
 /**
  * 启动动作的共享门面：解冻被禁用应用后再启动。
@@ -52,13 +50,14 @@ object AppLaunchBypass {
         packageName: String,
         unfreezePackage: suspend (context: Context, packageName: String) -> Boolean,
     ): Boolean {
-        if (!DisabledAppQuery.isDisabled(context, packageName)) return true
+        val disabledApps = LaunchCapability.resolveDisabledState()
+        if (!disabledApps.isDisabled(packageName)) return true
         if (!unfreezePackage(context, packageName)) {
             showToast(R.string.enable_disabled_app_failed)
             return false
         }
-        DisabledAppQuery.markEnabled(packageName)
-        AppQuery.invalidateLauncherCache()
+        disabledApps.markEnabled(packageName)
+        disabledApps.invalidateLauncherCache()
         return true
     }
 }

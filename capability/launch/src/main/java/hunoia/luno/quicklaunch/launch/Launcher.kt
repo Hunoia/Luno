@@ -10,11 +10,10 @@ import android.net.Uri
 import android.os.Build
 import android.util.Log
 import android.view.WindowManager
-import hunoia.luno.R
+import hunoia.luno.capability.launch.R
 import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.config.model.WindowBounds
 import hunoia.luno.config.model.OpenAppOrUrlData
-import hunoia.luno.quicklaunch.model.LauncherInfo
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.bridge.system.buildViewIntent
 import hunoia.luno.bridge.system.hasViewActivity
@@ -105,9 +104,14 @@ object Launcher {
         }
     }
 
-    fun launchShortcutInfo(context: Context, shortcutInfo: LauncherInfo.ShortcutInfo): Boolean {
+    /**
+     * 启动快捷方式：入参是已解析好的 Intent URI 列表。
+     *
+     * `LauncherInfo.ShortcutInfo` 是查询侧模型（带 Bitmap），不进口契约；调用方负责解码落库 JSON。
+     */
+    fun launchShortcutIntents(context: Context, intentUris: List<String>, label: String): Boolean {
         return try {
-            val intents = shortcutInfo.intents.map {
+            val intents = intentUris.map {
                 Intent.parseUri(it, Intent.URI_INTENT_SCHEME).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
@@ -116,7 +120,7 @@ object Launcher {
             true
         } catch (e: Exception) {
             Log.e(LOG_TAG, "launchShortcutInfo failed", e)
-            showToast(context.getString(R.string.launch_shortcut_info_failed, shortcutInfo.label))
+            showToast(context.getString(R.string.launch_shortcut_info_failed, label))
             false
         }
     }

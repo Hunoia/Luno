@@ -4,8 +4,8 @@ import android.content.Context
 import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.config.model.OpenAppOrUrlData
 import hunoia.luno.config.model.OpenUrlQueryParameter
-import hunoia.luno.quicklaunch.model.AppInfo
-import hunoia.luno.quicklaunch.query.AppQuery
+import hunoia.luno.launch.LaunchCapability
+import hunoia.luno.core.domain.AppInfo
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.CoroutineScope
@@ -36,7 +36,7 @@ object QuickAppLaunch {
             log("enable_package: request launch pkg=${app.packageName} miniWindow=$miniWindow")
             coroutineScope.launch launchBlock@{
                 val found = withContext(Dispatchers.IO) {
-                    AppQuery.findLauncherActivity(context, app.packageName)
+                    LaunchCapability.resolveLauncherActivity(app.packageName)
                 }
                 if (found == null) {
                     log("enable_package: launcher activity not found pkg=${app.packageName}")
@@ -44,7 +44,8 @@ object QuickAppLaunch {
                 }
 
                 log("enable_package: launcher found pkg=${found.packageName} cls=${found.className}")
-                val result = onLaunch(found, miniWindow)
+                val resolved = AppInfo(packageName = found.packageName, className = found.className, label = app.label)
+                val result = onLaunch(resolved, miniWindow)
                 log("enable_package: launch after enable result=$result pkg=${app.packageName}")
                 if (result) onLaunched()
             }

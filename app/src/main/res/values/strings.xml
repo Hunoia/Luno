@@ -301,9 +301,6 @@
     <string name="delete_gesture_button_warning">删除触钮</string>
     <string name="delete_gesture_button_warning_desc">将删除触钮，是否继续？</string>
     <string name="rename">重命名</string>
-    <string name="launch_mini_window_failed">无法启动应用小窗。</string>
-    <string name="enable_disabled_app_failed">启用禁用应用失败。</string>
-    <string name="launch_shortcut_info_failed">无法启动%1$s快捷方式。</string>
 
     <string name="slide_to_right">向右滑动</string>
     <string name="slide_to_left">向左滑动</string>

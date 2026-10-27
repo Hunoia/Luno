@@ -77,6 +77,29 @@ class App : Application(), ImageLoaderFactory {
         // 链接分发的应用内导航（规则编辑页 / 选择页）需要 context。
         hunoia.luno.link.AppLinkPorts.context = applicationContext
 
+        // 启动能力库的协作者注入（ADR-0001 D1/D3）：能力库自己不认识配置流与查询层。
+        hunoia.luno.launch.LaunchCapability.telemetry = hunoia.luno.config.DataLaunchTelemetry
+        hunoia.luno.launch.LaunchCapability.targetResolver =
+            hunoia.luno.core.domain.LaunchTargetResolver { packageName ->
+                hunoia.luno.quicklaunch.query.AppQuery
+                    .findLauncherActivity(applicationContext, packageName)
+                    ?.let { hunoia.luno.core.domain.LaunchTarget(it.packageName, it.className) }
+            }
+        hunoia.luno.launch.LaunchCapability.disabledApps =
+            object : hunoia.luno.core.domain.DisabledAppState {
+                override fun isDisabled(packageName: String): Boolean =
+                    hunoia.luno.quicklaunch.query.DisabledAppQuery
+                        .isDisabled(applicationContext, packageName)
+
+                override fun markEnabled(packageName: String) {
+                    hunoia.luno.quicklaunch.query.DisabledAppQuery.markEnabled(packageName)
+                }
+
+                override fun invalidateLauncherCache() {
+                    hunoia.luno.quicklaunch.query.AppQuery.invalidateLauncherCache()
+                }
+            }
+
         Thread.setDefaultUncaughtExceptionHandler(CrashHandler)
     }
 

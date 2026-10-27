@@ -55,3 +55,34 @@ interface AppLauncher {
 fun interface LaunchTelemetry {
     fun recordLaunch(packageName: String, source: AppLaunchSource)
 }
+
+/** 可启动的 launcher 目标（包名 + Activity）。 */
+data class LaunchTarget(
+    val packageName: String,
+    val className: String,
+)
+
+/**
+ * 启动目标解析：需要「包名 → launcher Activity」时的端口。
+ *
+ * 归属判据：解析实现依赖 `PackageManager` 查询与启动器缓存（`:app` / 搜索模块的查询能力），
+ * 启动能力库不该反向依赖查询模块，所以由调用方注入。
+ */
+fun interface LaunchTargetResolver {
+    suspend fun launcherActivity(packageName: String): LaunchTarget?
+}
+
+/**
+ * 被禁用/冻结应用的状态查询与标记，启动能力库解冻前后要用。
+ *
+ * 实现方在 `:app`（`DisabledAppQuery` + 启动器缓存失效），启动库不 import 查询模块。
+ */
+interface DisabledAppState {
+    fun isDisabled(packageName: String): Boolean
+
+    /** 解冻成功后标记为可用（含缓存失效）。 */
+    fun markEnabled(packageName: String)
+
+    /** 解冻成功后让启动器查询缓存失效。 */
+    fun invalidateLauncherCache()
+}

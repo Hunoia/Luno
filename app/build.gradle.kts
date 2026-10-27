@@ -148,6 +148,7 @@ dependencies {
     implementation(project(":feature:automation"))
     implementation(project(":feature:link"))
     implementation(project(":ui:design"))
+    implementation(project(":capability:launch"))
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.compose.foundation)
