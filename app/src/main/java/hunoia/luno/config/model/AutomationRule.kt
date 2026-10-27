@@ -18,28 +18,6 @@ enum class FireMode { ENTER, EXIT, BOTH }
 @Keep
 enum class ScreenType { LOCK_SCREEN, LAUNCHER, LANDSCAPE, PORTRAIT, KEYBOARD_INPUT }
 
-@Serializable
-@Keep
-enum class ScreenEventType { SCREEN_ON, SCREEN_OFF, USER_UNLOCK }
-
-@Serializable
-@Keep
-enum class KeyboardEventType { SHOWN, HIDDEN }
-
-/** 音乐播放变化方向（MUSIC_CHANGED 脉冲）。 */
-@Serializable
-@Keep
-enum class PlaybackDirection { STARTED, STOPPED }
-
-/** 铃声模式三态（静音条件）。 */
-@Serializable
-@Keep
-enum class RingerMode { SILENT, VIBRATE, NORMAL }
-
-@Serializable
-@Keep
-enum class NetworkType { WIFI, MOBILE, NONE, OTHER }
-
 object ConditionType {
     const val FOREGROUND_APP = "foregroundApp"
     const val SCREEN_STATE = "screenState"
@@ -190,10 +168,6 @@ object ThrottleKind {
 }
 
 /** 通知方向/连接方向：null 表示不限。 */
-@Serializable
-@Keep
-enum class ConnectionDirection { CONNECTED, DISCONNECTED }
-
 @Serializable
 @Keep
 data class ConditionItem(

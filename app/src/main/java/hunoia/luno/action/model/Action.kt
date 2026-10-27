@@ -34,20 +34,6 @@ fun resolveButtonTargetIds(target: ButtonTarget, allIds: List<String>, selectedI
         ButtonTarget.ONLY -> selectedIds.toSet()
     }
 
-enum class AudioStream { MUSIC, RING, NOTIFICATION, ALARM, VOICE, SYSTEM }
-
-/** 动作层与运行时层共用，避免 AudioController / AudioVolumeTracker 各写一份 */
-fun AudioStream.toStreamType(): Int = when (this) {
-    AudioStream.MUSIC -> AudioManager.STREAM_MUSIC
-    AudioStream.RING -> AudioManager.STREAM_RING
-    AudioStream.NOTIFICATION -> AudioManager.STREAM_NOTIFICATION
-    AudioStream.ALARM -> AudioManager.STREAM_ALARM
-    AudioStream.VOICE -> AudioManager.STREAM_VOICE_CALL
-    AudioStream.SYSTEM -> AudioManager.STREAM_SYSTEM
-}
-
-enum class VolumeDirection { UP, DOWN }
-
 enum class SwipeDirection { UP, DOWN, LEFT, RIGHT, TO_TOP }
 
 enum class MediaCommand { PLAY_PAUSE, NEXT, PREVIOUS, MUTE }

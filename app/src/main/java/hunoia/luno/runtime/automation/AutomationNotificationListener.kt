@@ -71,6 +71,7 @@ class AutomationNotificationListener : NotificationListenerService() {
         val pulse = sbn?.toPulse() ?: return
         if (pulse.packageName == packageName) return
         updateActiveCache(removeKey = pulse.key)
+        NotificationContentIntents.forget(pulse.key)
         AutomationPulseHub.fireNotificationRemoved(pulse)
     }
 
@@ -131,16 +132,17 @@ class AutomationNotificationListener : NotificationListenerService() {
             packageName = packageName.orEmpty(),
             title = title,
             text = text,
-            contentIntent = notification.contentIntent,
             flags = notification.flags,
             ongoing = isOngoing,
             clearable = isClearable,
-            importance = if (hasRanking) ranking.importance else NotificationManager.IMPORTANCE_DEFAULT,
+            importance = if (hasRanking) ranking.importance else NotificationPulse.DEFAULT_IMPORTANCE,
             key = key,
             groupKey = groupKey,
             channelId = notification.channelId,
             category = notification.category,
-        )
+        ).also { pulse ->
+            NotificationContentIntents.remember(pulse.key, notification.contentIntent)
+        }
     }
 
     companion object {

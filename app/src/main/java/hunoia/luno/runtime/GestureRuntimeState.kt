@@ -63,7 +63,3 @@ data class GestureRuntimeState(
     val dndChangedTo: Boolean? = null,
 )
 
-data class VolumeChange(
-    val stream: AudioStream,
-    val direction: VolumeDirection,
-)

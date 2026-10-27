@@ -41,6 +41,7 @@ import hunoia.luno.ui.link.LinkSelectionActivity
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.automation.AutomationNotificationListener
 import hunoia.luno.runtime.automation.AutomationPulseHub
+import hunoia.luno.runtime.automation.NotificationContentIntents
 import hunoia.luno.runtime.condition.NotificationPulse
 import hunoia.luno.runtime.environment.BroadcastObserver
 import hunoia.luno.service.SideGestureService
@@ -538,7 +539,7 @@ class FloatBallService : Service() {
         // contentIntent 是具体会话/页面的 PendingIntent（比裸启动应用准）；
         // 无 intent 或后台启动被 ROM 拦时回退为按包名启动应用（与手势同链路）。
         scope.launch {
-            val contentIntent = pulse.contentIntent
+            val contentIntent = NotificationContentIntents.get(pulse.key)
             if (contentIntent != null) {
                 val sent = runCatching { contentIntent.send() }.isSuccess
                 if (sent) return@launch
