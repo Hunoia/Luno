@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
@@ -74,6 +75,20 @@ class SettingsStore(
     }
 
     fun snapshot(): SettingsState = _state.value
+
+    /**
+     * 全局变量写入后立即反映到运行时快照：DataStore 回流有延迟，
+     * 同一条规则里「SET_VAR 全局 → 立即 runRule/IF」不能读到旧值。
+     * 调用方仍需负责真正落盘（ConfigProvider.setGlobalVariable）。
+     */
+    fun applyGlobalVariable(name: String, value: String): GlobalVariables {
+        var updated = _state.value.globalVariables
+        _state.update { state ->
+            updated = state.globalVariables.put(name, value)
+            state.copy(globalVariables = updated)
+        }
+        return updated
+    }
 }
 
 private data class RuntimeSettingsCore(

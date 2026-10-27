@@ -6,6 +6,8 @@ import hunoia.luno.action.model.Capability
 import hunoia.luno.action.model.RUN_RULE_TYPE_ID
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.config.model.AutomationRule
+import hunoia.luno.config.model.ConditionItem
+import hunoia.luno.config.model.ConditionType
 import hunoia.luno.config.model.RuleEffect
 import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.model.RuleStepKind
@@ -14,6 +16,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RuleCapabilityScannerTest {
@@ -83,5 +87,54 @@ class RuleCapabilityScannerTest {
             setOf(Capability.Notification),
             RuleCapabilityScanner.requiredCapabilities(root, listOf(root), library),
         )
+    }
+
+    @Test
+    fun `notification access includes constraints and runRule target if branches`() {
+        val notification = WhenGroup(
+            items = listOf(ConditionItem(type = ConditionType.NOTIFICATION_EXISTS)),
+        )
+        val target = rule("target").copy(
+            effect = RuleEffect(
+                steps = listOf(
+                    RuleStep(kind = RuleStepKind.IF, condition = notification),
+                ),
+            ),
+        )
+        val root = rule(
+            "root",
+            action(RUN_RULE_TYPE_ID, buildJsonObject { put("ruleId", "target") }),
+        ).copy(constraints = notification)
+
+        assertTrue(RuleCapabilityScanner.notificationAccessRequired(root, listOf(root, target), null))
+        assertFalse(
+            RuleCapabilityScanner.notificationAccessRequired(
+                rule("plain", action("accessibility.back")),
+                listOf(root, target),
+                null,
+            ),
+        )
+    }
+
+    @Test
+    fun `disabled notification branch does not require listener access`() {
+        val target = rule("target").copy(
+            effect = RuleEffect(
+                steps = listOf(
+                    RuleStep(
+                        kind = RuleStepKind.IF,
+                        condition = WhenGroup(
+                            items = listOf(ConditionItem(type = ConditionType.NOTIFICATION_POSTED)),
+                        ),
+                        enabled = false,
+                    ),
+                ),
+            ),
+        )
+        val root = rule(
+            "root",
+            action(RUN_RULE_TYPE_ID, buildJsonObject { put("ruleId", "target") }),
+        )
+        assertFalse(RuleCapabilityScanner.notificationAccessRequired(root, listOf(root, target), null))
     }
 }

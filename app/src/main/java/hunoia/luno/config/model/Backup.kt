@@ -11,7 +11,7 @@ object BackupVersions {
     const val GESTURE = 1
     const val TUNE = 1
     const val ACTION = 1
-    const val AUTOMATION = 2
+    const val AUTOMATION = 3
     const val SEARCH = 1
 }
 

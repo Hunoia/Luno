@@ -20,6 +20,11 @@ class AutomationEngine(
     private val onFireRule: (AutomationRule, ConditionContext) -> Unit,
     /** 一轮求值的全部跳过事件一次性交付（以前每条起协程写盘，N 条规则即 N 次全量重写）。 */
     private val onEvents: (List<AutomationEvent>) -> Unit,
+    /**
+     * 触发前预检（能力/通知访问等）。返回原因时只落跳过事件，不消耗节流窗口，
+     * 因为规则根本没进入执行。
+     */
+    private val preflightBlockReason: (AutomationRule) -> SkipReason? = { null },
 ) {
     private val prevMatches = mutableMapOf<String, Boolean>()
 
@@ -141,6 +146,21 @@ class AutomationEngine(
                 AutomationEvent(
                     ruleId = winner.id, ruleName = winner.name, timeMs = ctx.nowMs, wallTimeMs = System.currentTimeMillis(),
                     fired = false, reason = blockReason.code,
+                )
+            )
+            dispatch(skipped)
+            cleanup(rules)
+            return
+        }
+        // 权限预检放在节流判定之后、markFired 之前：被节流的规则不重复扫描，
+        // 缺权限的规则也不会吃掉冷却/窗口次数。
+        val preflightReason = preflightBlockReason(winner)
+        if (preflightReason != null) {
+            skipped.add(
+                AutomationEvent(
+                    ruleId = winner.id, ruleName = winner.name, timeMs = ctx.nowMs,
+                    wallTimeMs = System.currentTimeMillis(),
+                    fired = false, reason = preflightReason.code,
                 )
             )
             dispatch(skipped)

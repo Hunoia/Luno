@@ -304,7 +304,9 @@ class GestureCoordinator(
             )
         },
         onGlobalVariableChanged = { name, value ->
-            val updated = runtimeSettingsStore.snapshot().globalVariables.put(name, value)
+            // 跨规则嵌套调用发生在同一条协程链里：DataStore 回流前先更新运行时快照，
+            // 否则紧接着的 runRule/IF 会读到写入前的全局变量。
+            val updated = runtimeSettingsStore.applyGlobalVariable(name, value)
             refreshGestureButtons(
                 delayMs = 0L,
                 automationKeys = setOf(hunoia.luno.runtime.automation.AutomationEventKey.VARIABLE),
@@ -330,8 +332,10 @@ class GestureCoordinator(
             runtimeSettingsStore.snapshot().globalVariables.toTemplateMap(),
         ) },
         writeGlobalVariable = { name, value ->
-            val updated = runtimeSettingsStore.snapshot().globalVariables.put(name, value)
+            // 先等落盘完成再更新运行时快照：DataStore 写失败时本次运行只保留局部变量，
+            // 不能让引擎误以为全局值已经生效。
             ConfigProvider.setGlobalVariable(name, value)
+            val updated = runtimeSettingsStore.applyGlobalVariable(name, value)
             refreshGestureButtons(
                 delayMs = 0L,
                 automationKeys = setOf(hunoia.luno.runtime.automation.AutomationEventKey.VARIABLE),
@@ -339,6 +343,12 @@ class GestureCoordinator(
             )
         },
     )
+
+    /** 权限授予/撤销后重读 Wi-Fi/蓝牙条件源；主进程经 Binder 调用。 */
+    fun refreshConditionSources() {
+        if (!started) return
+        conditionSources.refresh()
+    }
 
     /** 运行中的规则 id：规则列表页展示「运行中」与停止入口。 */
     fun runningRuleIds(): Set<String> = synchronized(runningRuleJobs) {
@@ -513,6 +523,21 @@ class GestureCoordinator(
                 }
             }
         },
+        preflightBlockReason = { rule ->
+            // 权限预检必须在 markFired 之前：缺权限时规则没有执行，不能吃掉冷却/窗口次数。
+            val snapshot = runtimeSettingsStore.snapshot()
+            if (hunoia.luno.action.capability.RuleCapabilityScanner.report(
+                    host.context,
+                    rule,
+                    snapshot.automationRules,
+                    snapshot.actionLibrarySettings,
+                ).hasMissing
+            ) {
+                SkipReason.PERMISSION_MISSING
+            } else {
+                null
+            }
+        },
     )
 
     /**
@@ -523,18 +548,7 @@ class GestureCoordinator(
         rule: AutomationRule,
         ctx: ConditionContext,
     ): Boolean {
-        // P3-3 触发前预检：缺能力不再进入序列执行，避免历史里只看到笼统的步骤中断。
-        val snapshot = runtimeSettingsStore.snapshot()
-        val permission = hunoia.luno.action.capability.RuleCapabilityScanner.report(
-            host.context,
-            rule,
-            snapshot.automationRules,
-            snapshot.actionLibrarySettings,
-        )
-        if (permission.hasMissing) {
-            logSkip(rule.id, rule.name, ctx.nowMs, SkipReason.PERMISSION_MISSING.code)
-            return true
-        }
+        // P3-3 触发前预检已前移到 AutomationEngine：缺能力时不会消耗节流窗口。
         val job = synchronized(runningRuleJobs) {
             val existing = runningRuleJobs[rule.id]?.toList().orEmpty()
             if (existing.isNotEmpty() && rule.reentry == RuleReentry.BLOCK_NEW) {

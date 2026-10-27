@@ -15,6 +15,9 @@ interface IDispatchService {
     /** 主进程删除面板后，让 :service 的 AppWidgetHost 回收未引用的 widget id。 */
     oneway void releaseOrphanAppWidgets(in int[] keepIds);
 
+    /** 权限授予/撤销后，让 :service 重读 Wi-Fi/蓝牙等条件源。 */
+    oneway void refreshConditionSources();
+
     /** 运行中的规则 id JSON 数组（规则列表页展示「运行中/停止」）。 */
     String runningRuleIds();
 

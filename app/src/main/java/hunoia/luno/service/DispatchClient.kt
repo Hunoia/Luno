@@ -96,6 +96,15 @@ object DispatchClient {
         return runCatching { s.releaseOrphanAppWidgets(keepIds.toIntArray()) }.isSuccess
     }
 
+    /** 权限授予/撤销后让 :service 重读 Wi-Fi/蓝牙条件源；false = 未送达。 */
+    fun refreshConditionSources(): Boolean {
+        val s = stub ?: run {
+            retryBindIfNeeded()
+            return false
+        }
+        return runCatching { s.refreshConditionSources() }.isSuccess
+    }
+
     /** 运行中的规则 id；服务未连接时返回空集（列表页按「未运行」展示）。 */
     fun runningRuleIds(): Set<String> {
         val s = stub ?: run {

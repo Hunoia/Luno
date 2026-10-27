@@ -108,6 +108,13 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     /** 分发链就绪：coordinator 已初始化。供 DispatchService 跨进程查询。 */
     fun isDispatchReady(): Boolean = ::gestureCoordinator.isInitialized
 
+    /** 权限变化后让 :service 的条件源重新读取（Wi-Fi SSID/蓝牙设备身份）。 */
+    fun refreshConditionSources(): Boolean {
+        if (!::gestureCoordinator.isInitialized) return false
+        gestureCoordinator.refreshConditionSources()
+        return true
+    }
+
     /** 运行中的规则 id（规则列表页的「运行中/停止」入口）。 */
     fun runningRuleIds(): Set<String> =
         if (::gestureCoordinator.isInitialized) gestureCoordinator.runningRuleIds() else emptySet()

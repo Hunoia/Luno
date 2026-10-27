@@ -32,9 +32,13 @@ class AutomationNotificationListener : NotificationListenerService() {
         // 自家通知（前台服务常驻等）不进胶囊也不进自动化。
         if (pulse.packageName == packageName) return
         updateActiveCache(add = pulse)
-        val key = pulse.key ?: return
-        // 常驻通知也要进入自动化：ongoing/clearable/importance 由条件过滤。
-        if (pulse.title.isBlank() && pulse.text.isBlank()) return
+        val key = pulse.key
+        // 无标题/正文的通知仍然改变「当前是否存在」：通知胶囊不弹，但必须重评
+        // NOTIFICATION_EXISTS，否则空白通知更新会一直停在旧状态。
+        if (key == null || (pulse.title.isBlank() && pulse.text.isBlank())) {
+            AutomationPulseHub.fireNotificationStateChanged()
+            return
+        }
         // 同 key 重投去重（多 key 各自计时，不再互相冲掉）。仅在「postTime 未推进 + 内容
         // 完全一致」时判重：部分 ROM 在通知原地更新时沿用旧 postTime，只按时间判重会把
         // 同一会话的第二条消息/新文案全部吞掉。

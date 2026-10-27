@@ -46,6 +46,7 @@ import hunoia.luno.config.model.NetworkType
 import hunoia.luno.config.model.ScreenEventType
 import hunoia.luno.config.model.ScreenType
 import hunoia.luno.domain.automation.formatTimeOfDay
+import hunoia.luno.service.DispatchClient
 import hunoia.luno.ui.component.sheet.AppPickerSheet
 import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.Alignment
@@ -439,7 +440,11 @@ fun ConditionItemFields(item: ConditionItem, onConditionChange: (ConditionItem) 
                 }
                 val locationLauncher = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestPermission(),
-                ) { granted -> locationGranted = granted }
+                ) { granted ->
+                    locationGranted = granted
+                    // 授权发生在主进程，:service 的条件源不会自己重读；不刷新会一直停在 null。
+                    if (granted) DispatchClient.refreshConditionSources()
+                }
                 OutlinedTextField(
                     value = item.wifiSsid,
                     onValueChange = { onConditionChange(item.copy(wifiSsid = it)) },
@@ -482,7 +487,10 @@ fun ConditionItemFields(item: ConditionItem, onConditionChange: (ConditionItem) 
                 }
                 val bluetoothLauncher = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestPermission(),
-                ) { granted -> bluetoothGranted = granted }
+                ) { granted ->
+                    bluetoothGranted = granted
+                    if (granted) DispatchClient.refreshConditionSources()
+                }
                 if (!bluetoothGranted) {
                     OutlinedButton(
                         onClick = {

@@ -846,13 +846,17 @@ private fun RunRuleStepEditor(
     val action = step.action ?: return
     fun updateParam(key: String, value: String) {
         val map = action.params.toMutableMap()
-        if (value.isBlank() || (key != "resultVar" && value == target.params.firstOrNull {
-                "param.${it.name}" == key
-            }?.defaultValue)
-        ) {
-            map.remove(key)
+        if (key == "resultVar") {
+            // 返回值变量名留空 = 不接收返回值。
+            if (value.isBlank()) map.remove(key) else {
+                map[key] = kotlinx.serialization.json.JsonPrimitive(value)
+            }
         } else {
-            map[key] = kotlinx.serialization.json.JsonPrimitive(value)
+            val defaultValue = target.params.firstOrNull { "param.${it.name}" == key }?.defaultValue
+            // 与默认值相同就省掉参数；空串是合法的显式值，必须保留（默认值非空时尤其重要）。
+            if (value == defaultValue) map.remove(key) else {
+                map[key] = kotlinx.serialization.json.JsonPrimitive(value)
+            }
         }
         onStepChange(step.copy(action = action.copy(params = kotlinx.serialization.json.JsonObject(map))))
     }
@@ -871,10 +875,12 @@ private fun RunRuleStepEditor(
         }
         target.params.forEach { param ->
             val key = "param.${param.name}"
+            val provided = action.params.containsKey(key)
             val stored = (action.params[key] as? kotlinx.serialization.json.JsonPrimitive)
                 ?.contentOrNull.orEmpty()
-            var value by remember(param.name, stored) {
-                mutableStateOf(stored.ifBlank { param.defaultValue })
+            var value by remember(param.name, stored, provided) {
+                // 区分「未传 = 用默认值」与「显式传空串」：两者在存储层一个是缺键、一个是空 JsonPrimitive。
+                mutableStateOf(if (provided) stored else param.defaultValue)
             }
             TemplateTextField(
                 value = value,
@@ -1245,9 +1251,11 @@ internal fun ThrottleEditor(throttle: ThrottlePolicy, onThrottleChange: (Throttl
     }
 }
 @Composable
-internal fun NotificationPermissionRow() {
+internal fun NotificationPermissionRow(refreshKey: Any? = null) {
     val context = LocalContext.current
-    val granted = remember {
+    // 从系统设置返回时编辑页会更新 resumeTick；用它作 key 重新读权限，
+    // 否则 remember 会把「未授权」一直缓存到页面销毁。
+    val granted = remember(refreshKey) {
         AutomationCenter.isNotificationAccessGranted(context)
     }
     LunoSettingsRow(

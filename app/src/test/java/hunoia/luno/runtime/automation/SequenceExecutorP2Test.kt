@@ -154,6 +154,43 @@ class SequenceExecutorP2Test {
     }
 
     @Test
+    fun `wait until refresh updates context for following steps`() = runBlocking {
+        var calls = 0
+        val live = ctx().copy(packageName = "com.live")
+        val condition = WhenGroup(
+            items = listOf(
+                ConditionItem(type = ConditionType.FOREGROUND_APP, packageNames = listOf("com.live")),
+            ),
+        )
+        val executor = SequenceExecutor(
+            runSingleAction = { _, _, _ ->
+                calls++
+                StepOutcome.Done(ActionResult.Success())
+            },
+            resolveTemplate = { text, _, _ -> text },
+            refreshContext = { live },
+        )
+        val result = executor.runStepsWithResult(
+            listOf(
+                RuleStep(
+                    kind = RuleStepKind.WAIT_UNTIL,
+                    condition = condition,
+                    waitTimeoutMs = 1_000L,
+                    waitIntervalMs = 100L,
+                ),
+                RuleStep(
+                    kind = RuleStepKind.IF,
+                    condition = condition,
+                    thenSteps = listOf(action()),
+                ),
+            ),
+            ctx().copy(packageName = "com.old"),
+        )
+        assertEquals(1, calls)
+        assertTrue(result.records[1].message.startsWith("branch=then"))
+    }
+
+    @Test
     fun `variable comparison handles numeric and text operators`() {
         assertTrue(compareValues("10", VariableCompareOp.GREATER, "9"))
         assertFalse(compareValues("10", VariableCompareOp.LESS, "9"))

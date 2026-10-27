@@ -41,9 +41,89 @@ object RuleCapabilityScanner {
         val required = requiredCapabilities(rule, allRules, library)
         return RuleCapabilityReport(
             missingCapabilities = required.filterNot(gate::isAvailable).toSet(),
-            notificationAccessMissing = needsNotificationAccess(rule) &&
+            notificationAccessMissing = notificationAccessRequired(rule, allRules, library) &&
                 !AutomationNotificationListener.isAccessGranted(context),
         )
+    }
+
+    /**
+     * 规则（含约束、IF 分支、动作库引用和 runRule 目标）是否读取通知监听数据。
+     * 触发条件与约束都算：约束缺失时规则同样永远不会进入仲裁。
+     */
+    fun notificationAccessRequired(
+        rule: AutomationRule,
+        allRules: List<AutomationRule>,
+        library: ActionLibrarySettings?,
+    ): Boolean {
+        val visitedRules = mutableSetOf<String>()
+        val visitedLibraryRefs = mutableSetOf<String>()
+        return notificationAccessInRule(rule, allRules, library, visitedRules, visitedLibraryRefs)
+    }
+
+    private fun notificationAccessInRule(
+        rule: AutomationRule,
+        allRules: List<AutomationRule>,
+        library: ActionLibrarySettings?,
+        visitedRules: MutableSet<String>,
+        visitedLibraryRefs: MutableSet<String>,
+    ): Boolean {
+        if (!visitedRules.add(rule.id)) return false
+        return notificationAccessInGroup(rule.condition) ||
+            notificationAccessInGroup(rule.constraints) ||
+            notificationAccessInSteps(rule.effect.steps, allRules, library, visitedRules, visitedLibraryRefs)
+    }
+
+    private fun notificationAccessInSteps(
+        steps: List<RuleStep>,
+        allRules: List<AutomationRule>,
+        library: ActionLibrarySettings?,
+        visitedRules: MutableSet<String>,
+        visitedLibraryRefs: MutableSet<String>,
+    ): Boolean = steps.any { step ->
+        step.enabled && (
+            notificationAccessInGroup(step.condition) ||
+                notificationAccessInSteps(step.thenSteps, allRules, library, visitedRules, visitedLibraryRefs) ||
+                notificationAccessInSteps(step.elseSteps, allRules, library, visitedRules, visitedLibraryRefs) ||
+                (step.kind == RuleStepKind.ACTION && step.action?.let { action ->
+                    notificationAccessInAction(action, allRules, library, visitedRules, visitedLibraryRefs)
+                } == true)
+            )
+    }
+
+    private fun notificationAccessInAction(
+        stored: StoredAction,
+        allRules: List<AutomationRule>,
+        library: ActionLibrarySettings?,
+        visitedRules: MutableSet<String>,
+        visitedLibraryRefs: MutableSet<String>,
+    ): Boolean = when (stored.typeId) {
+        "internal.libraryRef" -> {
+            val entryId = (stored.params["entryId"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+            if (entryId.isEmpty() || !visitedLibraryRefs.add(entryId)) {
+                false
+            } else {
+                val entry = library?.entries?.firstOrNull { it.id == entryId }
+                entry != null && notificationAccessInAction(
+                    entry.storedAction,
+                    allRules,
+                    library,
+                    visitedRules,
+                    visitedLibraryRefs,
+                )
+            }
+        }
+        RUN_RULE_TYPE_ID -> {
+            val targetId = (stored.params["ruleId"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+            val target = allRules.firstOrNull { it.id == targetId }
+            target != null && notificationAccessInRule(
+                target,
+                allRules,
+                library,
+                visitedRules,
+                visitedLibraryRefs,
+            )
+        }
+        else -> false
     }
 
     fun requiredCapabilities(
@@ -116,22 +196,11 @@ object RuleCapabilityScanner {
         }
     }
 
-    private fun needsNotificationAccess(rule: AutomationRule): Boolean =
-        needsNotificationAccess(rule.condition) || needsNotificationAccess(rule.effect.steps)
-
-    private fun needsNotificationAccess(steps: List<RuleStep>): Boolean = steps.any { step ->
-        step.enabled && (
-            needsNotificationAccess(step.condition) ||
-                needsNotificationAccess(step.thenSteps) ||
-                needsNotificationAccess(step.elseSteps)
-            )
-    }
-
-    private fun needsNotificationAccess(group: WhenGroup): Boolean =
+    private fun notificationAccessInGroup(group: WhenGroup): Boolean =
         group.items.any { item ->
             item.type == ConditionType.NOTIFICATION_POSTED ||
                 item.type == ConditionType.NOTIFICATION_REMOVED ||
                 item.type == ConditionType.NOTIFICATION_EXISTS ||
-                (item.type == ConditionType.GROUP && item.group?.let(::needsNotificationAccess) == true)
+                (item.type == ConditionType.GROUP && item.group?.let(::notificationAccessInGroup) == true)
         }
 }

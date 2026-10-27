@@ -59,6 +59,12 @@ class DispatchService : Service() {
             }
         }
 
+        override fun refreshConditionSources() {
+            Handler(Looper.getMainLooper()).post {
+                SideGestureService.current?.refreshConditionSources()
+            }
+        }
+
         override fun runningRuleIds(): String =
             runCatching {
                 JsonSerializer.encodeToString(

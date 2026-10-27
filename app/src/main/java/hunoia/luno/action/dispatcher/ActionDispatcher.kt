@@ -311,11 +311,23 @@ class ActionDispatcher(
         }
         return withContext(RuleDepth(depth + 1)) {
             val nested = SequenceExecutor(
-                runSingleAction = { action, _, vars ->
-                    runStepAction(action, templateCtx, vars)
+                // 用 Runner 传入的当前上下文：WAIT_UNTIL 刷新后，后续动作/条件不能继续读子规则启动时的旧快照。
+                runSingleAction = { action, stepCtx, vars ->
+                    runStepAction(action, stepCtx, vars)
                 },
-                resolveTemplate = { text, _, vars ->
-                    resolveStepTemplate(text, templateCtx, vars)
+                resolveTemplate = { text, stepCtx, vars ->
+                    resolveStepTemplate(text, stepCtx, vars)
+                },
+                refreshContext = { base ->
+                    try {
+                        runtimeState().toConditionContext(
+                            settingsSnapshot().globalVariables.toTemplateMap(),
+                        )
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        base
+                    }
                 },
                 writeGlobalVariable = { name, value ->
                     hunoia.luno.config.ConfigProvider.setGlobalVariable(name, value)

@@ -4,6 +4,9 @@ package hunoia.luno.config.model
 object AutomationRuleNormalizer {
     const val CURRENT_SCHEMA_VERSION = 3
 
+    /** 条件树递归上限：导入畸形备份/手工 JSON 时避免 StackOverflow。 */
+    private const val MAX_CONDITION_DEPTH = 8
+
     fun normalize(rules: List<AutomationRule>): List<AutomationRule> = rules.map { normalize(it) }
 
     fun normalize(rule: AutomationRule): AutomationRule {
@@ -21,21 +24,24 @@ object AutomationRuleNormalizer {
         )
     }
 
-    /** 条件树归一化：只夹取越界数值/未知枚举，不删除用户条件。 */
-    private fun normalizeGroup(group: WhenGroup): WhenGroup = group.copy(
-        items = group.items.map { item ->
-            item.copy(
-                notifyMatchMode = item.notifyMatchMode
-                    .takeIf { it in NotificationMatchMode.all }
-                    ?: NotificationMatchMode.CONTAINS,
-                notifyImportanceAtLeast = item.notifyImportanceAtLeast?.coerceIn(0, 5),
-                packageChangeAction = item.packageChangeAction
-                    ?.takeIf { it in PackageChangeAction.all },
-                intervalMinutes = item.intervalMinutes?.coerceIn(1, 1440),
-                group = item.group?.let(::normalizeGroup),
-            )
-        },
-    )
+    /** 条件树归一化：只夹取越界数值/未知枚举，不删除用户条件；超过深度上限的子树清空。 */
+    private fun normalizeGroup(group: WhenGroup, depth: Int = 0): WhenGroup {
+        if (depth > MAX_CONDITION_DEPTH) return WhenGroup()
+        return group.copy(
+            items = group.items.map { item ->
+                item.copy(
+                    notifyMatchMode = item.notifyMatchMode
+                        .takeIf { it in NotificationMatchMode.all }
+                        ?: NotificationMatchMode.CONTAINS,
+                    notifyImportanceAtLeast = item.notifyImportanceAtLeast?.coerceIn(0, 5),
+                    packageChangeAction = item.packageChangeAction
+                        ?.takeIf { it in PackageChangeAction.all },
+                    intervalMinutes = item.intervalMinutes?.coerceIn(1, 1440),
+                    group = item.group?.let { normalizeGroup(it, depth + 1) },
+                )
+            },
+        )
+    }
 
     fun normalizeSteps(steps: List<RuleStep>, depth: Int = 0): List<RuleStep> {
         if (depth > 8) return emptyList()

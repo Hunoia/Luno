@@ -601,8 +601,12 @@ fun AutomationEditScreen(
                 throttle = rule.throttle,
                 onThrottleChange = { update(rule.copy(throttle = it)) },
             )
-            if (conditionUsesNotification(rule.condition) || rule.effect.usesNotificationCondition()) {
-                NotificationPermissionRow()
+            if (conditionUsesNotification(rule.condition) ||
+                conditionUsesNotification(rule.constraints) ||
+                rule.effect.usesNotificationCondition() ||
+                capabilityReport.notificationAccessMissing
+            ) {
+                NotificationPermissionRow(refreshKey = resumeTick)
             }
         }
         LunoGroup(

@@ -84,7 +84,8 @@ class SequenceExecutor(
     }
 
     private inner class Runner(
-        val ctx: ConditionContext,
+        /** WAIT_UNTIL 成功轮询后会替换为最新环境，后续步骤/条件不再使用触发时旧快照。 */
+        var ctx: ConditionContext,
         val variables: MutableMap<String, String>,
     ) {
         val records = mutableListOf<StepRecord>()
@@ -188,8 +189,8 @@ class SequenceExecutor(
                 interrupted = true
                 return
             }
-            // 用触发时冻结的 ConditionContext 求值：脉冲字段（通知/手势等）在触发瞬间
-            // 之后仍可见；变量则叠加本次运行的局部写入。
+            // 使用当前上下文求值：WAIT_UNTIL 会把它替换成最新环境；脉冲字段在触发瞬间
+            // 之后仍可见，变量则叠加本次运行的局部写入。
             val thenBranch = step.condition.matches(conditionCtx(ctx))
             val branch = (if (thenBranch) step.thenSteps else step.elseSteps)
                 .take(SequenceGuards.MAX_STEPS)
@@ -223,13 +224,18 @@ class SequenceExecutor(
             )
             val started = SystemClock.elapsedRealtime()
             while (true) {
-                val live = try {
-                    conditionCtx(refreshContext(ctx))
+                val refreshed = try {
+                    refreshContext(ctx)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (_: Exception) {
-                    conditionCtx(ctx)
+                    ctx
                 }
+                // 轮询成功读到的新环境保留给后续步骤（IF/动作模板）；刷新失败才沿用旧快照。
+                // 触发瞬间的脉冲/trigger.* 字段仍从旧上下文带过来，避免 WAIT_UNTIL 后
+                // 通知正文、手势名等触发变量突然变成空。
+                ctx = refreshed.preserveTriggerFields(ctx)
+                val live = conditionCtx(refreshed)
                 if (step.condition.matches(live)) {
                     records += StepRecord(
                         index, RuleStepKind.WAIT_UNTIL, ok = true,
@@ -394,6 +400,33 @@ class SequenceExecutor(
             val locals = variables.filterKeys { it in localKeys }
             return base.copy(variables = base.variables + locals)
         }
+
+        /**
+         * WAIT_UNTIL 刷新会得到最新系统状态，但不能把触发瞬间的脉冲/trigger.* 变量抹掉。
+         * 旧值优先；只有旧值为空时才接受轮询期间新出现的脉冲。
+         */
+        private fun ConditionContext.preserveTriggerFields(previous: ConditionContext): ConditionContext = copy(
+            appChangedTo = previous.appChangedTo ?: appChangedTo,
+            screenEvent = previous.screenEvent ?: screenEvent,
+            chargingChangedTo = previous.chargingChangedTo ?: chargingChangedTo,
+            volumeChanged = previous.volumeChanged ?: volumeChanged,
+            notificationPosted = previous.notificationPosted ?: notificationPosted,
+            notificationRemoved = previous.notificationRemoved ?: notificationRemoved,
+            packageChanged = previous.packageChanged ?: packageChanged,
+            shareReceived = previous.shareReceived ?: shareReceived,
+            clipboardChanged = previous.clipboardChanged ?: clipboardChanged,
+            intervalDueKeys = intervalDueKeys + previous.intervalDueKeys,
+            bluetoothChanged = previous.bluetoothChanged ?: bluetoothChanged,
+            headphonesChanged = previous.headphonesChanged ?: headphonesChanged,
+            scheduledTimeHit = scheduledTimeHit || previous.scheduledTimeHit,
+            gesturePerformedId = previous.gesturePerformedId ?: gesturePerformedId,
+            gesturePerformedName = previous.gesturePerformedName ?: gesturePerformedName,
+            triggerRuleName = previous.triggerRuleName ?: triggerRuleName,
+            keyboardEvent = previous.keyboardEvent ?: keyboardEvent,
+            musicChanged = previous.musicChanged ?: musicChanged,
+            torchChangedTo = previous.torchChangedTo ?: torchChangedTo,
+            dndChangedTo = previous.dndChangedTo ?: dndChangedTo,
+        )
 
         /** 成功返回 null；失败返回可读原因（写进执行历史）。 */
         private fun failureOf(result: ActionResult): String? = when (result) {

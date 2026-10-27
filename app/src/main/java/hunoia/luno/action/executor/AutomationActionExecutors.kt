@@ -47,9 +47,16 @@ class AutomationActionExecutors(
         if (method !in HTTP_METHODS) {
             return@withContext ActionResult.Failed(ActionFailure.InvalidParameter, "http_method_invalid")
         }
+        val url = runCatching { URL(action.url.trim()) }.getOrNull()
+        if (url == null ||
+            url.protocol.lowercase() !in HTTP_SCHEMES ||
+            url.host.isNullOrBlank()
+        ) {
+            return@withContext ActionResult.Failed(ActionFailure.InvalidParameter, "http_url_invalid")
+        }
         var connection: HttpURLConnection? = null
         try {
-            connection = (URL(action.url).openConnection() as HttpURLConnection).apply {
+            connection = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = method
                 connectTimeout = HTTP_TIMEOUT_MS
                 readTimeout = HTTP_TIMEOUT_MS
@@ -116,5 +123,6 @@ class AutomationActionExecutors(
         const val CHANNEL_ID = "luno_automation_actions"
         const val CHANNEL_NAME = "自动化动作"
         val HTTP_METHODS = setOf("GET", "POST", "PUT", "DELETE", "HEAD")
+        val HTTP_SCHEMES = setOf("http", "https")
     }
 }

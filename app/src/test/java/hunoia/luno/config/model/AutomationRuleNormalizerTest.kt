@@ -59,6 +59,27 @@ class AutomationRuleNormalizerTest {
     }
 
     @Test
+    fun `deeply nested condition groups are bounded`() {
+        var group = WhenGroup(items = listOf(ConditionItem(type = ConditionType.FOREGROUND_APP)))
+        repeat(20) {
+            group = WhenGroup(items = listOf(ConditionItem(type = ConditionType.GROUP, group = group)))
+        }
+        val normalized = AutomationRuleNormalizer.normalize(
+            AutomationRule(id = "r", name = "r", condition = group, effect = RuleEffect()),
+        )
+        var depth = 0
+        var current = normalized.condition
+        while (true) {
+            val nested = current.items.singleOrNull()
+                ?.takeIf { it.type == ConditionType.GROUP }
+                ?.group ?: break
+            current = nested
+            depth++
+        }
+        assertTrue(depth <= 9)
+    }
+
+    @Test
     fun `global variables normalize names values and duplicates`() {
         val variables = GlobalVariables(
             listOf(
