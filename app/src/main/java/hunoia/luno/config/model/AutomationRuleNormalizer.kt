@@ -2,7 +2,7 @@ package hunoia.luno.config.model
 
 /** 自动化配置读取时的轻量归一化：只修可安全修正的字段，不偷偷删用户步骤。 */
 object AutomationRuleNormalizer {
-    const val CURRENT_SCHEMA_VERSION = 2
+    const val CURRENT_SCHEMA_VERSION = 3
 
     fun normalize(rules: List<AutomationRule>): List<AutomationRule> = rules.map { normalize(it) }
 
@@ -15,9 +15,27 @@ object AutomationRuleNormalizer {
             schemaVersion = CURRENT_SCHEMA_VERSION,
             maxRunMs = rule.maxRunMs.coerceAtLeast(0L),
             params = params,
+            condition = normalizeGroup(rule.condition),
+            constraints = normalizeGroup(rule.constraints),
             effect = rule.effect.copy(steps = normalizeSteps(rule.effect.steps)),
         )
     }
+
+    /** 条件树归一化：只夹取越界数值/未知枚举，不删除用户条件。 */
+    private fun normalizeGroup(group: WhenGroup): WhenGroup = group.copy(
+        items = group.items.map { item ->
+            item.copy(
+                notifyMatchMode = item.notifyMatchMode
+                    .takeIf { it in NotificationMatchMode.all }
+                    ?: NotificationMatchMode.CONTAINS,
+                notifyImportanceAtLeast = item.notifyImportanceAtLeast?.coerceIn(0, 5),
+                packageChangeAction = item.packageChangeAction
+                    ?.takeIf { it in PackageChangeAction.all },
+                intervalMinutes = item.intervalMinutes?.coerceIn(1, 1440),
+                group = item.group?.let(::normalizeGroup),
+            )
+        },
+    )
 
     fun normalizeSteps(steps: List<RuleStep>, depth: Int = 0): List<RuleStep> {
         if (depth > 8) return emptyList()
@@ -48,6 +66,7 @@ object AutomationRuleNormalizer {
                     SequenceLimits.MIN_WAIT_INTERVAL_MS,
                     SequenceLimits.MAX_WAIT_INTERVAL_MS,
                 ),
+                condition = normalizeGroup(step.condition),
                 thenSteps = normalizeSteps(step.thenSteps, depth + 1),
                 elseSteps = normalizeSteps(step.elseSteps, depth + 1),
                 varName = step.varName.trim(),

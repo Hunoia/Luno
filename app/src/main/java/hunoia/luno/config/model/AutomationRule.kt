@@ -59,6 +59,8 @@ object ConditionType {
     const val VOLUME_CHANGED = "volumeChanged"
 
     const val NOTIFICATION_POSTED = "notificationPosted"
+    const val NOTIFICATION_REMOVED = "notificationRemoved"
+    const val NOTIFICATION_EXISTS = "notificationExists"
     const val BLUETOOTH_CHANGED = "bluetoothChanged"
     const val HEADPHONES_CHANGED = "headphonesChanged"
     const val SCHEDULED_TIME = "scheduledTime"
@@ -85,7 +87,37 @@ object ConditionType {
     /** 全局/局部变量比较：`var.<name> <op> <value>`。 */
     const val VAR_COMPARE = "varCompare"
 
+    /** 应用安装/卸载/更新事件。 */
+    const val APP_PACKAGE_CHANGED = "appPackageChanged"
+    /** 每隔 N 分钟触发一次（ticker 维持 lastFiredAt，Doze 下会漂移）。 */
+    const val INTERVAL = "interval"
+    /** 收到系统分享/链接。 */
+    const val SHARE_RECEIVED = "shareReceived"
+    /** 剪贴板球/面板读到新内容（不承诺后台实时监听）。 */
+    const val CLIPBOARD_CHANGED = "clipboardChanged"
+    /** Wi‑Fi SSID 状态（空=任意 Wi‑Fi）。 */
+    const val WIFI_SSID = "wifiSsid"
+
     const val GROUP = "group"
+}
+
+/** 应用包变化动作；null/空表示不限。 */
+object PackageChangeAction {
+    const val ADDED = "added"
+    const val REMOVED = "removed"
+    const val REPLACED = "replaced"
+    const val CHANGED = "changed"
+
+    val all: List<String> = listOf(ADDED, REMOVED, REPLACED, CHANGED)
+}
+
+/** 通知文本匹配方式：contains（默认）、glob、regex。 */
+object NotificationMatchMode {
+    const val CONTAINS = "contains"
+    const val GLOB = "glob"
+    const val REGEX = "regex"
+
+    val all: List<String> = listOf(CONTAINS, GLOB, REGEX)
 }
 
 /** 变量比较运算符；执行层与条件编辑器共用。 */
@@ -188,7 +220,23 @@ data class ConditionItem(
     val group: WhenGroup? = null,
     // 脉冲条件字段（null=不限）
     val notifyPackages: List<String> = emptyList(),
+    /** 旧版「标题或正文」关键字；新规则分别使用 notifyTitleKeyword / notifyTextKeyword。 */
     val notifyKeyword: String = "",
+    val notifyTitleKeyword: String = "",
+    val notifyTextKeyword: String = "",
+    /** 标题或正文命中任一排除词即过滤掉。 */
+    val notifyExcludeKeyword: String = "",
+    val notifyExcludePackages: List<String> = emptyList(),
+    /** 见 [NotificationMatchMode]；旧规则默认 contains。 */
+    val notifyMatchMode: String = NotificationMatchMode.CONTAINS,
+    /** 常驻通知过滤；null=不限。 */
+    val notifyOngoing: Boolean? = null,
+    /** 可清除过滤；null=不限。 */
+    val notifyClearable: Boolean? = null,
+    /** 重要性下限（NotificationManager.IMPORTANCE_*）；null=不限。 */
+    val notifyImportanceAtLeast: Int? = null,
+    /** NOTIFICATION_EXISTS：true=存在（默认），false=不存在。 */
+    val notifyExists: Boolean? = null,
     val connectionDirection: ConnectionDirection? = null,
     val scheduledMinutes: List<Int> = emptyList(),
     val scheduledWeekdays: Set<Int> = emptySet(),
@@ -217,6 +265,17 @@ data class ConditionItem(
     val compareOp: String = VariableCompareOp.EQUALS,
     /** 变量比较右侧字面量（不作为模板展开，避免条件里再套模板）。 */
     val compareValue: String = "",
+    /** APP_PACKAGE_CHANGED：见 [PackageChangeAction]；null=不限。 */
+    val packageChangeAction: String? = null,
+    /** INTERVAL：大致间隔（分钟，1..1440）；null=未配置。 */
+    val intervalMinutes: Int? = null,
+    /** WIFI_SSID：空=任意 Wi‑Fi；否则 SSID 精确匹配（忽略大小写）。 */
+    val wifiSsid: String = "",
+    /** BLUETOOTH：已连接设备名/地址过滤；空=不限。 */
+    val bluetoothDeviceName: String = "",
+    val bluetoothDeviceAddress: String = "",
+    /** CLIPBOARD_CHANGED：可选文本包含过滤；空=不限。 */
+    val clipboardKeyword: String = "",
 )
 
 @Serializable

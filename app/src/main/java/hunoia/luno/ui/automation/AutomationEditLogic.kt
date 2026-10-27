@@ -215,7 +215,10 @@ internal fun isInvalidThrottle(throttle: ThrottlePolicy): Boolean {
 
 internal fun conditionUsesNotification(group: WhenGroup): Boolean = group.items.any { item ->
     when (item.type) {
-        ConditionType.NOTIFICATION_POSTED -> true
+        ConditionType.NOTIFICATION_POSTED,
+        ConditionType.NOTIFICATION_REMOVED,
+        ConditionType.NOTIFICATION_EXISTS -> true
+
         ConditionType.GROUP -> item.group?.let { conditionUsesNotification(it) } == true
         else -> false
     }
@@ -246,9 +249,12 @@ internal fun WhenGroup.hasIncompleteCondition(): Boolean = items.any { item ->
         ConditionType.CHARGING_CHANGED -> item.charging == null
         ConditionType.KEYBOARD_EVENT -> item.keyboardEvent == null
         ConditionType.SCHEDULED_TIME -> item.scheduledMinutes.isEmpty()
+        ConditionType.INTERVAL -> item.intervalMinutes == null
         ConditionType.VAR_COMPARE -> !isValidVarName(item.compareVarName)
         ConditionType.BLUETOOTH -> item.expectedBluetoothAdapterOn == null &&
-            item.expectedBluetoothAudioConnected == null
+            item.expectedBluetoothAudioConnected == null &&
+            item.bluetoothDeviceName.isBlank() &&
+            item.bluetoothDeviceAddress.isBlank()
 
         ConditionType.GROUP -> item.group == null || item.group.items.isEmpty() ||
             item.group.hasIncompleteCondition()

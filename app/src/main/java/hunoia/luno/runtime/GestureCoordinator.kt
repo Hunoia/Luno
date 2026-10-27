@@ -2,6 +2,10 @@ package hunoia.luno.runtime
 
 import android.app.KeyguardManager
 import android.app.WallpaperManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.res.Configuration
 import android.os.Handler
 import android.os.Looper
@@ -44,6 +48,7 @@ import hunoia.luno.runtime.automation.AutomationEngine
 import hunoia.luno.runtime.automation.AutomationEvent
 import hunoia.luno.runtime.automation.AutomationEventKey
 import hunoia.luno.runtime.automation.AutomationPulseHub
+import hunoia.luno.runtime.automation.AutomationShareBridge
 import hunoia.luno.runtime.automation.AutomationRuntime
 import hunoia.luno.runtime.automation.ExecutionReason
 import hunoia.luno.runtime.automation.SequenceExecutor
@@ -60,6 +65,7 @@ import hunoia.luno.runtime.condition.hasTorchCondition
 import hunoia.luno.runtime.environment.BroadcastObserver
 import hunoia.luno.runtime.environment.ConditionSources
 import hunoia.luno.runtime.environment.EnvironmentTracker
+import hunoia.luno.bridge.system.PackageChangeReceiver
 import hunoia.luno.runtime.overlay.GestureOverlayCallbacks
 import hunoia.luno.runtime.overlay.ButtonWindowController
 import hunoia.luno.runtime.overlay.MainOverlayController
@@ -239,6 +245,10 @@ class GestureCoordinator(
         rulesProvider = { runtimeSettingsStore.snapshot().automationRules },
         onTimeSignatureChanged = { refreshGestureButtons(delayMs = 0L, automationKeys = setOf(AutomationEventKey.TIME)) },
         markScheduledHit = { environmentTracker.onScheduledTimeHit() },
+        markIntervalHit = { keys ->
+            environmentTracker.onIntervalDue(keys)
+            refreshGestureButtons(delayMs = 0L, automationKeys = setOf(AutomationEventKey.INTERVAL))
+        },
     )
 
     private val previousAppTracker = PreviousAppTracker(
@@ -868,6 +878,43 @@ class GestureCoordinator(
         refreshGestureButtons(automationKeys = setOf(AutomationEventKey.NOTIFICATION))
     }
 
+    private val notificationRemovedObserver: (hunoia.luno.runtime.condition.NotificationPulse) -> Unit = { pulse ->
+        environmentTracker.onNotificationRemoved(pulse)
+        refreshGestureButtons(automationKeys = setOf(AutomationEventKey.NOTIFICATION))
+    }
+
+    private val notificationStateObserver: () -> Unit = {
+        refreshGestureButtons(delayMs = 0L, automationKeys = setOf(AutomationEventKey.NOTIFICATION))
+    }
+
+    /** 剪贴板球/面板读到新文本；不承诺后台实时监听。 */
+    private val clipboardObserver: (String) -> Unit = { text ->
+        environmentTracker.onClipboardChanged(
+            hunoia.luno.runtime.condition.ClipboardPulse(text),
+        )
+        refreshGestureButtons(delayMs = 0L, automationKeys = setOf(AutomationEventKey.CLIPBOARD))
+    }
+
+    private val packageChangeListener: (hunoia.luno.bridge.system.PackageChangeEvent) -> Unit = { event ->
+        environmentTracker.onPackageChanged(
+            hunoia.luno.runtime.condition.PackageChangePulse(event.action, event.packageName),
+        )
+        refreshGestureButtons(delayMs = 0L, automationKeys = setOf(AutomationEventKey.PACKAGE))
+    }
+
+    private val shareReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != AutomationShareBridge.ACTION) return
+            val text = intent.getStringExtra(AutomationShareBridge.EXTRA_TEXT) ?: return
+            val source = intent.getStringExtra(AutomationShareBridge.EXTRA_SOURCE).orEmpty()
+            val url = hunoia.luno.link.LinkUrls.extractUrls(text).firstOrNull()
+            environmentTracker.onShareReceived(
+                hunoia.luno.runtime.condition.SharePulse(text, url, source),
+            )
+            refreshGestureButtons(delayMs = 0L, automationKeys = setOf(AutomationEventKey.SHARE))
+        }
+    }
+
     /** 勿扰变化由通知监听服务推入（需通知访问权限）。 */
     private val interruptionObserver: (Boolean) -> Unit = { on -> dndTracker.onSystemChanged(on) }
 
@@ -973,6 +1020,17 @@ class GestureCoordinator(
         environmentTracker.seedKeyboardInputActive()
         // 通知脉冲：同 :service 进程静态直连；destroy 时移除，避免野回调。
         AutomationPulseHub.addNotificationObserver(notificationObserver)
+        AutomationPulseHub.addNotificationRemovedObserver(notificationRemovedObserver)
+        AutomationPulseHub.addNotificationStateObserver(notificationStateObserver)
+        AutomationPulseHub.addClipboardObserver(clipboardObserver)
+        PackageChangeReceiver.registerForEvents(host.context, packageChangeListener)
+        runCatching {
+            host.context.registerReceiver(
+                shareReceiver,
+                IntentFilter(AutomationShareBridge.ACTION),
+                Context.RECEIVER_NOT_EXPORTED,
+            )
+        }
         // 勿扰变化由通知监听服务推入（需通知访问权限）；订阅即回放当前基线。
         AutomationPulseHub.addInterruptionObserver(interruptionObserver)
         dndTracker.refreshFromSystem()
@@ -1159,6 +1217,11 @@ class GestureCoordinator(
             gestureDispatchSubscriber,
         )
         AutomationPulseHub.removeNotificationObserver(notificationObserver)
+        AutomationPulseHub.removeNotificationRemovedObserver(notificationRemovedObserver)
+        AutomationPulseHub.removeNotificationStateObserver(notificationStateObserver)
+        AutomationPulseHub.removeClipboardObserver(clipboardObserver)
+        PackageChangeReceiver.unregisterForEvents(host.context, packageChangeListener)
+        runCatching { host.context.unregisterReceiver(shareReceiver) }
         AutomationPulseHub.removeInterruptionObserver(interruptionObserver)
         runtimeSettingsStore.stop()
         timeConditionTicker.stop()
@@ -1198,9 +1261,13 @@ class GestureCoordinator(
             isCharging = batteryTracker.isCharging,
             batteryLevel = batteryTracker.batteryLevel,
             networkType = conditionSources.networkType,
+            wifiSsid = conditionSources.wifiSsid,
             headphonesConnected = conditionSources.headphonesConnected,
             bluetoothAdapterOn = conditionSources.bluetoothAdapterOn,
             bluetoothAudioConnected = conditionSources.bluetoothAudioConnected,
+            bluetoothDeviceName = conditionSources.bluetoothDeviceName,
+            bluetoothDeviceAddress = conditionSources.bluetoothDeviceAddress,
+            activeNotifications = hunoia.luno.runtime.automation.AutomationNotificationListener.activePulses(),
             airplaneMode = conditionSources.airplaneMode,
             ringerMode = audioVolumeTracker.ringerMode,
             volumePercent = audioVolumeTracker.volumePercent,

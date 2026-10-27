@@ -130,6 +130,8 @@ object RuleCapabilityScanner {
     private fun needsNotificationAccess(group: WhenGroup): Boolean =
         group.items.any { item ->
             item.type == ConditionType.NOTIFICATION_POSTED ||
+                item.type == ConditionType.NOTIFICATION_REMOVED ||
+                item.type == ConditionType.NOTIFICATION_EXISTS ||
                 (item.type == ConditionType.GROUP && item.group?.let(::needsNotificationAccess) == true)
         }
 }

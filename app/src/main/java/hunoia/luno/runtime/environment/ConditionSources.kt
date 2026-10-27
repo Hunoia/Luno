@@ -17,6 +17,7 @@ import android.media.AudioManager
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.wifi.WifiManager
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -35,6 +36,10 @@ class ConditionSources(
     var networkType: NetworkType = NetworkType.NONE
         private set
 
+    /** 读不到/无定位权限/未连接时为 null；不要把 `<unknown ssid>` 当成真实网络名。 */
+    var wifiSsid: String? = null
+        private set
+
     var headphonesConnected: Boolean = false
         private set
 
@@ -42,6 +47,12 @@ class ConditionSources(
         private set
 
     var bluetoothAudioConnected: Boolean? = null
+        private set
+
+    var bluetoothDeviceName: String? = null
+        private set
+
+    var bluetoothDeviceAddress: String? = null
         private set
 
     var airplaneMode: Boolean = false
@@ -122,6 +133,7 @@ class ConditionSources(
 
             override fun onLost(network: Network) {
                 networkType = NetworkType.NONE
+                wifiSsid = null
                 onStateChanged()
             }
         }
@@ -131,6 +143,7 @@ class ConditionSources(
         // 立即读一次当前网络，不触发 onStateChanged：此刻 GestureCoordinator 尚未构造完成，
         // 同步回调会踩到未初始化的字段；网络已就绪，后续条件评估直接可见。
         readActiveNetwork(connectivityManager)
+        readWifiSsid()
 
         context.registerReceiver(
             broadcastReceiver,
@@ -205,19 +218,31 @@ class ConditionSources(
 
     private fun readBluetoothAudio() {
         if (bluetoothAdapterOn != true) {
-            if (bluetoothAudioConnected != false) {
+            val hadDevice = bluetoothDeviceName != null || bluetoothDeviceAddress != null
+            bluetoothDeviceName = null
+            bluetoothDeviceAddress = null
+            if (bluetoothAudioConnected != false || hadDevice) {
                 bluetoothAudioConnected = false
                 onStateChanged()
             }
             return
         }
         val manager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager ?: return
-        val connected = runCatching {
-            manager.getConnectedDevices(BluetoothProfile.A2DP).isNotEmpty() ||
-                manager.getConnectedDevices(BluetoothProfile.HEADSET).isNotEmpty()
-        }.getOrNull() ?: false
-        if (connected != bluetoothAudioConnected) {
-            bluetoothAudioConnected = connected
+        val devices = runCatching {
+            manager.getConnectedDevices(BluetoothProfile.A2DP) +
+                manager.getConnectedDevices(BluetoothProfile.HEADSET)
+        }.getOrNull().orEmpty()
+        val device = devices.firstOrNull()
+        val connected = device != null
+        val name = runCatching { device?.name }.getOrNull()
+        val address = runCatching { device?.address }.getOrNull()
+        val changed = connected != bluetoothAudioConnected ||
+            name != bluetoothDeviceName ||
+            address != bluetoothDeviceAddress
+        bluetoothAudioConnected = connected
+        bluetoothDeviceName = name
+        bluetoothDeviceAddress = address
+        if (changed) {
             if (bluetoothAudioInitDone) {
                 onBluetoothPulse(
                     if (connected) ConnectionDirection.CONNECTED else ConnectionDirection.DISCONNECTED
@@ -251,9 +276,33 @@ class ConditionSources(
     }
 
     private fun updateNetworkType(type: NetworkType, notify: Boolean) {
-        if (type == networkType) return
+        val previousSsid = wifiSsid
+        val typeChanged = type != networkType
         networkType = type
-        if (notify) onStateChanged()
+        readWifiSsid()
+        // 同一 WiFi 下换 SSID 也要刷新；类型没变时只在名字变化时通知。
+        if (notify && (typeChanged || previousSsid != wifiSsid)) onStateChanged()
+    }
+
+    /**
+     * `connectionInfo.ssid` 在 Android 8.1+ 需要定位权限；无权限/已关闭定位时返回
+     * `<unknown ssid>`，这里统一降级为 null，不把占位符当成真实网络名。
+     */
+    private fun readWifiSsid() {
+        if (networkType != NetworkType.WIFI) {
+            wifiSsid = null
+            return
+        }
+        val manager = runCatching {
+            context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+        }.getOrNull() ?: run {
+            wifiSsid = null
+            return
+        }
+        val raw = runCatching { manager.connectionInfo?.ssid }.getOrNull()
+        wifiSsid = raw
+            ?.removeSurrounding("\"")
+            ?.takeIf { it.isNotBlank() && it != "<unknown ssid>" }
     }
 
     private fun toNetworkType(capabilities: NetworkCapabilities): NetworkType = when {

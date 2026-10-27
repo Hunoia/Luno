@@ -46,6 +46,8 @@ object ClipboardCenter {
     fun record(content: ClipboardContent?) {
         val text = (content as? ClipboardContent.Text)?.takeIf { !it.sensitive }?.text ?: return
         if (text.isBlank()) return
+        // 只在用户可见读取路径记历史：同时作为剪贴板触发源，不承诺后台实时监听。
+        hunoia.luno.runtime.automation.AutomationPulseHub.fireClipboard(text)
         val scope = AppContext.applicationScope ?: return
         scope.launch(Dispatchers.IO) {
             ConfigProvider.recordClipboardText(text)

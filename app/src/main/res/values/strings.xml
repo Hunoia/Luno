@@ -582,6 +582,13 @@
     <string name="volume_up">音量增大</string>
     <string name="volume_down">音量减小</string>
     <string name="condition_notification_posted">通知到达</string>
+    <string name="condition_notification_removed">通知被移除</string>
+    <string name="condition_notification_exists">通知当前存在</string>
+    <string name="condition_package_changed">应用安装/卸载/更新</string>
+    <string name="condition_interval">间隔触发</string>
+    <string name="condition_share_received">收到分享/链接</string>
+    <string name="condition_clipboard_changed">剪贴板新内容</string>
+    <string name="condition_wifi_ssid">Wi‑Fi 名称</string>
     <string name="condition_gesture_performed">手势完成</string>
     <string name="condition_manual">手动触发</string>
     <string name="condition_manual_hint">仅手势与规则调用，不会自动触发</string>
@@ -590,7 +597,47 @@
     <string name="condition_bluetooth_changed">蓝牙音频连接变化</string>
     <string name="condition_headphones_changed">耳机插拔</string>
     <string name="condition_scheduled_time">定时时刻</string>
-    <string name="condition_notify_keyword">标题/正文关键字（空=不限）</string>
+    <string name="condition_notify_keyword">标题/正文关键字（空=不限，旧版）</string>
+    <string name="condition_notify_title_keyword">标题包含（空=不限）</string>
+    <string name="condition_notify_text_keyword">正文包含（空=不限）</string>
+    <string name="condition_notify_exclude_keyword">排除关键字（标题/正文任一命中）</string>
+    <string name="condition_notify_exclude_packages">排除应用</string>
+    <string name="condition_notify_match_mode">匹配方式</string>
+    <string name="condition_notify_match_contains">包含</string>
+    <string name="condition_notify_match_glob">通配符</string>
+    <string name="condition_notify_match_regex">正则</string>
+    <string name="condition_notify_packages_hint">不选应用=任意应用</string>
+    <string name="condition_notify_ongoing">常驻通知</string>
+    <string name="condition_notify_clearable">可清除</string>
+    <string name="condition_notify_importance">重要性不低于</string>
+    <string name="condition_notify_importance_any">不限</string>
+    <string name="condition_notify_importance_low">低</string>
+    <string name="condition_notify_importance_default">默认</string>
+    <string name="condition_notify_importance_high">高</string>
+    <string name="condition_notify_exists">通知状态</string>
+    <string name="condition_notify_exists_yes">存在</string>
+    <string name="condition_notify_exists_no">不存在</string>
+    <string name="condition_notify_regex_hint">正则使用 Java/Android 正则语法；无效表达式按不匹配处理</string>
+    <string name="condition_notify_privacy_hint">只读取标题/正文用于本次匹配，不写入执行历史原文</string>
+    <string name="condition_package_action">变化类型</string>
+    <string name="condition_package_action_any">不限</string>
+    <string name="condition_package_action_added">安装</string>
+    <string name="condition_package_action_removed">卸载</string>
+    <string name="condition_package_action_replaced">更新</string>
+    <string name="condition_package_action_changed">组件变化</string>
+    <string name="condition_package_apps_hint">不选应用=任意应用</string>
+    <string name="condition_interval_minutes">间隔（分钟，60=1 小时）</string>
+    <string name="condition_interval_hint">大致间隔；Doze/省电下可能延后，首次配置不会立即触发</string>
+    <string name="condition_share_hint">从系统分享面板或默认浏览器打开链接时触发；可用 ${trigger.share.text} / ${trigger.share.url}</string>
+    <string name="condition_clipboard_keyword">文本包含（空=不限）</string>
+    <string name="condition_clipboard_privacy_hint">仅在剪贴板球/面板读取到新内容时触发；敏感文本不会进入历史</string>
+    <string name="condition_wifi_ssid_value">SSID（空=任意 Wi‑Fi）</string>
+    <string name="condition_wifi_ssid_hint">读取 SSID 需要定位权限；读取失败时按未知处理，不会误判为匹配</string>
+    <string name="condition_wifi_permission">授予定位权限以读取 Wi‑Fi 名称</string>
+    <string name="condition_bluetooth_device_name">设备名称（空=不限）</string>
+    <string name="condition_bluetooth_device_address">设备地址（空=不限）</string>
+    <string name="condition_bluetooth_device_hint">留空表示任意已连接音频设备；读取失败时按未连接处理</string>
+    <string name="condition_bluetooth_permission">授予附近设备权限以读取蓝牙信息</string>
     <string name="condition_connected">已连接</string>
     <string name="condition_disconnected">已断开</string>
     <string name="condition_scheduled_times">时刻（可多个）</string>

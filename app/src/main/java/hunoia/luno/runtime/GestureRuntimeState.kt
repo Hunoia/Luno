@@ -24,9 +24,12 @@ data class GestureRuntimeState(
 
     // 电平条件
     val networkType: NetworkType = NetworkType.NONE,
+    val wifiSsid: String? = null,
     val headphonesConnected: Boolean = false,
     val bluetoothAdapterOn: Boolean? = null,
     val bluetoothAudioConnected: Boolean? = null,
+    val bluetoothDeviceName: String? = null,
+    val bluetoothDeviceAddress: String? = null,
     val airplaneMode: Boolean = false,
     val ringerMode: RingerMode = RingerMode.NORMAL,
     val volumePercent: Map<AudioStream, Int> = emptyMap(),
@@ -41,6 +44,12 @@ data class GestureRuntimeState(
     val volumeChanged: VolumeChange? = null,
     // v2 新增脉冲（P2 事件源接入；默认 null=无脉冲）
     val notificationPosted: hunoia.luno.runtime.condition.NotificationPulse? = null,
+    val notificationRemoved: hunoia.luno.runtime.condition.NotificationPulse? = null,
+    val activeNotifications: List<hunoia.luno.runtime.condition.NotificationPulse> = emptyList(),
+    val packageChanged: hunoia.luno.runtime.condition.PackageChangePulse? = null,
+    val shareReceived: hunoia.luno.runtime.condition.SharePulse? = null,
+    val clipboardChanged: hunoia.luno.runtime.condition.ClipboardPulse? = null,
+    val intervalDueKeys: Set<String> = emptySet(),
     val bluetoothChanged: hunoia.luno.config.model.ConnectionDirection? = null,
     val headphonesChanged: hunoia.luno.config.model.ConnectionDirection? = null,
     val scheduledTimeHit: Boolean = false,
