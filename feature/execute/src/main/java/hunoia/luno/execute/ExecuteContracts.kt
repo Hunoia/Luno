@@ -49,8 +49,8 @@ interface SurfaceHost {
     /** 网格面板是否还存在（面板被删时按无动作静默收口）。 */
     fun gridPanelExists(panelId: String): Boolean
 
-    /** 音量刮擦 overlay；参数是每档位移阈值（dp），默认值由实现侧决定。 */
-    fun showVolumeScrub(stepThresholdDp: Int): Boolean
+    /** 音量刮擦 overlay；参数是每档位移阈值（dp），null = 用实现侧默认值。 */
+    fun showVolumeScrub(stepThresholdDp: Int?): Boolean
     fun showPointer(): Boolean
 
     /** 临时隐藏触发钮（触发钮才隐藏；非手势链路无触发钮）。 */
@@ -73,6 +73,29 @@ interface SurfaceHost {
 
     /** 当前应用以小窗打开；包名 / Activity 解析与全局设置由实现侧负责。 */
     suspend fun launchInPopup(packageName: String): ActionResult
+
+    /** 分享文件：挑文件页（Activity）归 Surface 层。 */
+    fun shareFile(): ActionResult
+
+    /** 屏幕取点（transient Surface）：挂在无障碍服务窗口上。 */
+    fun showScreenPick(): Boolean
+
+    /** 识屏取链（transient Surface）：挂在无障碍服务窗口上。 */
+    fun showScreenLinks(): Boolean
+
+    /**
+     * 悬浮球显隐：`hideForMs > 0` 走临时隐藏（只摘窗口、到期恢复），否则改 enabled 存量。
+     * 配置写入与 FloatBallService 都留在 Surface 层。
+     */
+    suspend fun setFloatBallVisible(visible: Boolean?, hideForMs: Long): ActionResult
+
+    /** 触钮显隐：`hideForMs > 0` 走临时隐藏（按 target/buttonIds 选作用钮），否则改 enabled 存量。 */
+    suspend fun setButtonsVisible(
+        visible: Boolean,
+        target: ButtonTarget,
+        buttonIds: List<String>,
+        hideForMs: Long,
+    ): ActionResult
 }
 
 /** 三态反馈文案与 Toast 出口：资源归属执行口之外，执行口只拿已本地化的字符串。 */

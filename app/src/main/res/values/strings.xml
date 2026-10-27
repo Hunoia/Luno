@@ -295,7 +295,6 @@
     <string name="gesture_button_name">触钮 %1$d</string>
     <string name="gesture_button_size_max">已达到最大触钮数量</string>
     <string name="request_get_apps_permission">获取应用列表</string>
-    <string name="grant_camera_permission">请开启"相机权限"以使用手电筒</string>
     <string name="tab_apps">应用</string>
     <string name="tab_shortcuts">快捷</string>
     <string name="create_shortcut">创建快捷方式</string>
@@ -306,7 +305,6 @@
     <string name="launch_mini_window_failed">无法启动应用小窗。</string>
     <string name="enable_disabled_app_failed">启用禁用应用失败。</string>
     <string name="launch_shortcut_info_failed">无法启动%1$s快捷方式。</string>
-    <string name="flashlight_failed">无法使用手电筒，请检查设备是否支持。</string>
 
     <string name="slide_to_right">向右滑动</string>
     <string name="slide_to_left">向左滑动</string>
@@ -388,8 +386,6 @@
     <string name="tap_action">单击</string>
     <string name="tap_and_long_press_action">单击/长按</string>
     <string name="tap">单击</string>
-    <string name="random_name_generate_failed">生成失败</string>
-    <string name="random_name_copy_failed">复制失败</string>
     <string name="sub_gesture">子手势</string>
     <string name="add_sub_gesture">添加子手势</string>
     <string name="delete_sub_gesture_warning">删除子手势？</string>
@@ -443,7 +439,6 @@
     <string name="action_param_kv_key">键</string>
     <string name="action_param_kv_value">值</string>
     <string name="action_param_kv_add">添加一项</string>
-    <string name="action_shell_clipboard_label">Shell 输出</string>
     <string name="action_shell_result">命令结果</string>
     <string name="action_shell_running">执行中…</string>
     <string name="action_shell_no_output">（无输出）</string>

@@ -8,8 +8,8 @@ import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.core.domain.Capability
 import hunoia.luno.core.domain.StoredAction
-import hunoia.luno.runtime.LunoActionCatalog
-import hunoia.luno.runtime.LunoActionFactory
+import hunoia.luno.actions.LunoActionCatalog
+import hunoia.luno.actions.LunoActionFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job

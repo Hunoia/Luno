@@ -1,6 +1,5 @@
 package hunoia.luno.action.model
 
-import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubStepThresholdDp
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -125,10 +124,9 @@ object ActionMapper {
             "internal.gridPanel" -> Action.GridPanel(p.str(GRID_PANEL_PARAM_PANEL_ID))
             "internal.quickSearch" -> Action.QuickSearch
             "internal.volumeScrub" -> Action.VolumeScrub(
-                stepThresholdDp = p.int(
-                    "stepThresholdDp",
-                    VolumeScrubStepThresholdDp,
-                ),
+                // 未写阈值 = null，默认值由实现侧（配置层）决定，映射层不持默认。
+                stepThresholdDp = (p["stepThresholdDp"] as? JsonPrimitive)
+                    ?.contentOrNull?.toIntOrNull(),
             )
             "internal.pointer" -> Action.Pointer
             "internal.previousApp" -> Action.PreviousApp

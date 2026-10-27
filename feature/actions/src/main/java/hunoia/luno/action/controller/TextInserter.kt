@@ -7,7 +7,7 @@ import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
-import hunoia.luno.R
+import hunoia.luno.actions.R
 import hunoia.luno.bridge.system.copyText
 import hunoia.luno.core.LOG_TAG
 

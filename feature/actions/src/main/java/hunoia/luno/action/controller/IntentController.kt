@@ -4,23 +4,9 @@ import android.content.Context
 import android.util.Log
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
-import hunoia.luno.launch.AppLaunchBypass
-import hunoia.luno.ui.share.ShareFilePickActivity
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import hunoia.luno.core.LOG_TAG
 
 class IntentController(private val context: Context) {
-
-    suspend fun launchApp(packageName: String, className: String, miniWindow: Boolean = false): Boolean =
-        withContext(Dispatchers.IO) {
-            AppLaunchBypass.launchWithAutoUnfreeze(
-                context = context,
-                packageName = packageName,
-                className = className,
-                miniWindow = miniWindow,
-            )
-        }
 
     fun openAppDetails(packageName: String): ActionResult {
         return try {
@@ -51,27 +37,10 @@ class IntentController(private val context: Context) {
         }
     }
 
-    fun shareFile(): ActionResult = launchFilePicker(ShareFilePickActivity.ACTION_SHARE)
-
     private fun startChooser(target: android.content.Intent) {
         val chooser = android.content.Intent.createChooser(target, null)
         chooser.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(chooser)
-    }
-
-    private fun launchFilePicker(action: String): ActionResult {
-        return try {
-            context.startActivity(
-                android.content.Intent(context, ShareFilePickActivity::class.java).apply {
-                    setAction(action)
-                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                },
-            )
-            ActionResult.Success()
-        } catch (e: Exception) {
-            Log.e(LOG_TAG, "launchFilePicker failed", e)
-            ActionResult.Failed(ActionFailure.ExecutionFailed, e.message ?: e.javaClass.name)
-        }
     }
 
     fun launchAssist(): ActionResult {

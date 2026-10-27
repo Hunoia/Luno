@@ -209,6 +209,11 @@ class ActionDispatcher(
             launchShortcut = surfaces::launchShortcut,
             openAppDetails = surfaces::openAppDetails,
             launchInPopup = surfaces::launchInPopup,
+            shareFile = surfaces::shareFile,
+            showScreenPick = surfaces::showScreenPick,
+            showScreenLinks = surfaces::showScreenLinks,
+            setFloatBallVisible = surfaces::setFloatBallVisible,
+            setButtonsVisible = surfaces::setButtonsVisible,
         )
     }
 

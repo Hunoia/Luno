@@ -1,6 +1,6 @@
 package hunoia.luno.action.executor
 
-import hunoia.luno.R
+import hunoia.luno.actions.R
 import hunoia.luno.action.controller.AudioController
 import hunoia.luno.action.controller.ClipboardController
 import hunoia.luno.action.controller.VibrateController

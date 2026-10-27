@@ -249,8 +249,8 @@ sealed interface Action {
         override val typeId: String = "internal.quickSearch"
     }
     data class VolumeScrub(
-        /** 每档位移阈值（dp）；默认值属配置层，映射时由 `:app` 注入，本层不持默认。 */
-        val stepThresholdDp: Int,
+        /** 每档位移阈值（dp）；null = 未指定，由实现侧用配置默认值。本层不持默认值。 */
+        val stepThresholdDp: Int? = null,
     ) : Action {
         override val typeId: String = "internal.volumeScrub"
     }

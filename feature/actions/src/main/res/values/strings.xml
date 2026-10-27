@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 动作执行器独占文案：随 :feature:actions 迁移；通用文案归 :ui:design（Phase 3）。 -->
+    <string name="app_name">Luno</string>
+    <string name="grant_camera_permission">请开启"相机权限"以使用手电筒</string>
+    <string name="flashlight_failed">无法使用手电筒，请检查设备是否支持。</string>
+    <string name="random_name_generate_failed">生成失败</string>
+    <string name="random_name_copy_failed">复制失败</string>
+    <string name="action_shell_clipboard_label">Shell 输出</string>
+</resources>

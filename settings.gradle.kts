@@ -28,4 +28,5 @@ include(":core:bridge")
 include(":core:data")
 include(":core:runtime")
 include(":feature:execute")
+include(":feature:actions")
  

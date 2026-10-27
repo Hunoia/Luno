@@ -6,7 +6,7 @@ import android.content.Context
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import hunoia.luno.R
+import hunoia.luno.actions.R
 import hunoia.luno.action.controller.ClipboardController
 import hunoia.luno.action.execution.ActionExecutor
 import hunoia.luno.action.execution.ExecutorContext

@@ -1,6 +1,6 @@
 package hunoia.luno.action.executor
 
-import hunoia.luno.R
+import hunoia.luno.actions.R
 import hunoia.luno.action.controller.AccessibilityController
 import hunoia.luno.action.controller.IntentController
 import hunoia.luno.action.controller.ShellController
@@ -9,12 +9,7 @@ import hunoia.luno.action.execution.ExecutorContext
 import hunoia.luno.action.model.Action
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
-import hunoia.luno.action.model.resolveButtonTargetIds
 import hunoia.luno.bridge.system.copyText
-import hunoia.luno.config.ConfigProvider
-import hunoia.luno.core.Events
-import hunoia.luno.runtime.floatball.FloatBallService
-import hunoia.luno.runtime.floatball.FloatBallTempHideEvent
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -86,12 +81,12 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
             is Action.ScreenPick -> {
                 // 拾取层必须挂在无障碍服务窗口上（TYPE_ACCESSIBILITY_OVERLAY 规则，
                 // 与屏幕取点同款）；执行能走到这里就说明 a11y 侧活着。
-                val shown = hunoia.luno.service.SideGestureService.current?.showScreenPick() == true
+                val shown = context.showScreenPick()
                 if (shown) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.ScreenLinks -> {
                 // 与 screenPick 同款：只在无障碍服务里的 overlay 层上挂窗。
-                val shown = hunoia.luno.service.SideGestureService.current?.showScreenLinks() == true
+                val shown = context.showScreenLinks()
                 if (shown) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.SplitScreen -> executionResult(controller.toggleSplitScreen())
@@ -176,7 +171,7 @@ class IntentExecutors(private val intentController: IntentController) : ActionEx
                 if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.ShareText -> intentController.shareText(action.text, action.mimeType)
-            is Action.ShareFile -> intentController.shareFile()
+            is Action.ShareFile -> context.shareFile()
             is Action.Assist -> intentController.launchAssist()
             else -> ActionResult.Failed(ActionFailure.Unsupported)
         }
@@ -263,24 +258,8 @@ class InternalExecutors : ActionExecutor {
      * visible=null 为切换；`FloatBallService` 的 settings flow 会自动摘/挂球窗。
      * 失败吞掉报 Failed，不抛。
      */
-    private suspend fun executeFloatBallVisibility(action: Action.FloatBallVisibility, context: ExecutorContext): ActionResult {
-        if (action.hideForMs > 0) {
-            Events.post(FloatBallTempHideEvent(action.hideForMs))
-            return ActionResult.Success()
-        }
-        val ok = runCatching {
-            var enabled = false
-            ConfigProvider.updateActionSettings { current ->
-                enabled = action.visible ?: !current.floatBall.enabled
-                current.copy(floatBall = current.floatBall.copy(enabled = enabled))
-            }
-            // 服务不在跑的场景（装更新时 restore 读到关闭态没拉球，随后规则把球启用）：
-            // 只写盘上的值没有 settings flow 消费，必须把服务拉起来球才会回来。
-            if (enabled) FloatBallService.start(context.appContext)
-            true
-        }.getOrDefault(false)
-        return if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
-    }
+    private suspend fun executeFloatBallVisibility(action: Action.FloatBallVisibility, context: ExecutorContext): ActionResult =
+        context.setFloatBallVisible(action.visible, action.hideForMs)
 
     /**
      * 触钮显隐：`hideForMs > 0` 走 [ExecutorContext.hideGestureButtons] 临时隐藏
@@ -288,22 +267,8 @@ class InternalExecutors : ActionExecutor {
      * 原「隐藏触钮」动作语义）；否则直接改按钮 enabled 存量。DataStore 更新自带顺序，后写覆盖先写，
      * 即规则列表顺序=优先级。
      */
-    private suspend fun executeButtonsVisibility(action: Action.ButtonsVisibility, context: ExecutorContext): ActionResult {
-        if (action.hideForMs > 0) {
-            context.hideGestureButtons(action.target, action.buttonIds, action.hideForMs)
-            return ActionResult.Success()
-        }
-        val ok = runCatching {
-            ConfigProvider.updateGestureButtons { list ->
-                val ids = resolveButtonTargetIds(action.target, list.map { it.id }, action.buttonIds)
-                list.map { button ->
-                    if (button.id in ids) button.copy(enabled = action.visible) else button
-                }
-            }
-            true
-        }.getOrDefault(false)
-        return if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
-    }
+    private suspend fun executeButtonsVisibility(action: Action.ButtonsVisibility, context: ExecutorContext): ActionResult =
+        context.setButtonsVisible(action.visible, action.target, action.buttonIds, action.hideForMs)
 }
 
 class ShellExecutor(private val shellController: ShellController) : ActionExecutor {

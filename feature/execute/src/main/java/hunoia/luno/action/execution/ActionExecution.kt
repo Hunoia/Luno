@@ -173,8 +173,8 @@ data class ExecutorContext(
     val showGridPanel: (panelId: String, anchorX: Int, anchorY: Int) -> Unit = { _, _, _ -> },
     /** 网格面板是否还存在（面板被删时按无动作静默收口）。 */
     val gridPanelExists: (panelId: String) -> Boolean = { true },
-    /** 音量刮擦 overlay：参数是每档位移阈值（dp）。 */
-    val showVolumeScrub: (stepThresholdDp: Int) -> Boolean = { false },
+    /** 音量刮擦 overlay：参数是每档位移阈值（dp），null = 用实现侧默认值。 */
+    val showVolumeScrub: (stepThresholdDp: Int?) -> Boolean = { false },
     val showPointer: () -> Boolean = { false },
     val hideGestureButton: (Long) -> Unit = {},
     /** 触钮临时隐藏（按 target/buttonIds 选作用钮）：到期自动恢复，不碰 enabled 存量。 */
@@ -204,4 +204,23 @@ data class ExecutorContext(
     val launchInPopup: suspend (packageName: String) -> ActionResult = {
         ActionResult.Failed(ActionFailure.Unsupported)
     },
+    /** 分享文件：挑文件页（Activity）归 `:app`，执行口只声明「要分享文件」。 */
+    val shareFile: () -> ActionResult = { ActionResult.Failed(ActionFailure.Unsupported) },
+
+    /** 屏幕取点（transient Surface）。 */
+    val showScreenPick: () -> Boolean = { false },
+
+    /** 识屏取链（transient Surface）。 */
+    val showScreenLinks: () -> Boolean = { false },
+    /**
+     * 悬浮球显隐：`hideForMs > 0` 走临时隐藏（只摘窗口、到期恢复），否则改 enabled 存量。
+     * 配置写入与 FloatBallService 都归 `:app`。
+     */
+    val setFloatBallVisible: suspend (visible: Boolean?, hideForMs: Long) -> ActionResult =
+        { _, _ -> ActionResult.Failed(ActionFailure.Unsupported) },
+    /**
+     * 触钮显隐：`hideForMs > 0` 走临时隐藏（按 target/buttonIds 选作用钮），否则改 enabled 存量。
+     */
+    val setButtonsVisible: suspend (Boolean, ButtonTarget, List<String>, Long) -> ActionResult =
+        { _, _, _, _ -> ActionResult.Failed(ActionFailure.Unsupported) },
 )

@@ -143,6 +143,7 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:runtime"))
     implementation(project(":feature:execute"))
+    implementation(project(":feature:actions"))
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.compose.foundation)

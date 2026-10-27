@@ -302,8 +302,12 @@ class GestureCoordinator(
         override fun gridPanelExists(panelId: String): Boolean =
             runtimeSettingsStore.snapshot().actionSettings.actionGridPanels.panelById(panelId) != null
 
-        override fun showVolumeScrub(stepThresholdDp: Int): Boolean =
-            volumeScrubRuntime.show(hunoia.luno.config.model.VolumeScrubConfig(stepThresholdDp))
+        override fun showVolumeScrub(stepThresholdDp: Int?): Boolean = volumeScrubRuntime.show(
+            hunoia.luno.config.model.VolumeScrubConfig(
+                stepThresholdDp = stepThresholdDp
+                    ?: hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubStepThresholdDp,
+            ),
+        )
 
         override fun showPointer(): Boolean = pointerRuntime.show()
 
@@ -347,6 +351,85 @@ class GestureCoordinator(
             currentPackage = { executeEnvironment.currentPackageName() },
             nowInLauncher = { executeEnvironment.nowInLauncher() },
         )
+
+        override fun showScreenPick(): Boolean =
+            hunoia.luno.service.SideGestureService.current?.showScreenPick() == true
+
+        override fun showScreenLinks(): Boolean =
+            hunoia.luno.service.SideGestureService.current?.showScreenLinks() == true
+
+        override fun shareFile(): hunoia.luno.core.domain.ActionResult = runCatching {
+            host.context.startActivity(
+                Intent(host.context, hunoia.luno.ui.share.ShareFilePickActivity::class.java).apply {
+                    setAction(hunoia.luno.ui.share.ShareFilePickActivity.ACTION_SHARE)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                },
+            )
+            hunoia.luno.core.domain.ActionResult.Success()
+        }.getOrElse { e ->
+            hunoia.luno.core.domain.ActionResult.Failed(
+                hunoia.luno.core.domain.ActionFailure.ExecutionFailed,
+                e.message ?: e.javaClass.name,
+            )
+        }
+
+        override suspend fun setFloatBallVisible(
+            visible: Boolean?,
+            hideForMs: Long,
+        ): hunoia.luno.core.domain.ActionResult {
+            if (hideForMs > 0) {
+                Events.post(hunoia.luno.runtime.floatball.FloatBallTempHideEvent(hideForMs))
+                return hunoia.luno.core.domain.ActionResult.Success()
+            }
+            val ok = runCatching {
+                var enabled = false
+                ConfigProvider.updateActionSettings { current ->
+                    enabled = visible ?: !current.floatBall.enabled
+                    current.copy(floatBall = current.floatBall.copy(enabled = enabled))
+                }
+                // 服务不在跑的场景（装更新时 restore 读到关闭态没拉球，随后规则把球启用）：
+                // 只写盘上的值没有 settings flow 消费，必须把服务拉起来球才会回来。
+                if (enabled) hunoia.luno.runtime.floatball.FloatBallService.start(host.context)
+                true
+            }.getOrDefault(false)
+            return if (ok) {
+                hunoia.luno.core.domain.ActionResult.Success()
+            } else {
+                hunoia.luno.core.domain.ActionResult.Failed(
+                    hunoia.luno.core.domain.ActionFailure.ExecutionFailed,
+                )
+            }
+        }
+
+        override suspend fun setButtonsVisible(
+            visible: Boolean,
+            target: hunoia.luno.action.model.ButtonTarget,
+            buttonIds: List<String>,
+            hideForMs: Long,
+        ): hunoia.luno.core.domain.ActionResult {
+            if (hideForMs > 0) {
+                hideGestureButtons(target, buttonIds, hideForMs)
+                return hunoia.luno.core.domain.ActionResult.Success()
+            }
+            val ok = runCatching {
+                ConfigProvider.updateGestureButtons { list ->
+                    val ids = hunoia.luno.action.model.resolveButtonTargetIds(
+                        target,
+                        list.map { it.id },
+                        buttonIds,
+                    )
+                    list.map { button -> if (button.id in ids) button.copy(enabled = visible) else button }
+                }
+                true
+            }.getOrDefault(false)
+            return if (ok) {
+                hunoia.luno.core.domain.ActionResult.Success()
+            } else {
+                hunoia.luno.core.domain.ActionResult.Failed(
+                    hunoia.luno.core.domain.ActionFailure.ExecutionFailed,
+                )
+            }
+        }
     }
 
     /**
@@ -358,8 +441,8 @@ class GestureCoordinator(
             environment = executeEnvironment,
             surfaces = executeSurfaces,
             messages = executeMessages,
-            catalog = LunoActionCatalog,
-            factory = LunoActionFactory,
+            catalog = hunoia.luno.actions.LunoActionCatalog,
+            factory = hunoia.luno.actions.LunoActionFactory,
             scope = host.coroutineScope,
             snapshot = {
                 buildRuntimeState(peekPulses = true).toConditionContext(
