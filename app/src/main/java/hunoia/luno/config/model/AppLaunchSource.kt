@@ -12,6 +12,8 @@ import kotlinx.serialization.Serializable
 enum class AppLaunchSource {
     QUICK_LAUNCHER,
     QUICK_SEARCH,
+    /** 网格面板的应用抽屉部件：与快速启动器共用列表，但统计上分开。 */
+    GRID_PANEL,
     ACTION_DISPATCH,
     SHORTCUT,
     PREVIOUS_APP,

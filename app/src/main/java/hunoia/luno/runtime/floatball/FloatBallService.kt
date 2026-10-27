@@ -910,7 +910,7 @@ class FloatBallService : Service() {
             val dispatched = LinkDispatcher.dispatch(this@FloatBallService, url, linkDispatch)
             if (!dispatched) {
                 Log.w(TAG, "link dispatch failed, fallback: ${url.take(80)}")
-                LinkDispatcher.fallback(this@FloatBallService, url, linkDispatch.missAction)
+                LinkDispatcher.fallbackFor(this@FloatBallService, url, rule, linkDispatch)
             }
             hideClipboardBall()
         }

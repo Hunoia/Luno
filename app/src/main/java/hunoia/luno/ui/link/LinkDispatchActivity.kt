@@ -54,13 +54,21 @@ class LinkDispatchActivity : ComponentActivity() {
                 urls.size > 1 -> startActivity(LinkSelectionActivity.intent(this@LinkDispatchActivity, urls))
                 else -> {
                     val url = urls.first()
-                    val matched = settings.enabled &&
-                        LinkUrls.firstMatch(url, settings.rules) != null
+                    val rule = if (settings.enabled) {
+                        LinkUrls.firstMatch(url, settings.rules)
+                    } else {
+                        null
+                    }
                     // 交给「规则表级」分发：命中规则若开了短链解析，会在内部跟随后重新匹配。
-                    if (!matched ||
+                    if (rule == null ||
                         !LinkDispatcher.dispatch(this@LinkDispatchActivity, url, settings)
                     ) {
-                        LinkDispatcher.fallback(this@LinkDispatchActivity, url, settings.missAction)
+                        LinkDispatcher.fallbackFor(
+                            this@LinkDispatchActivity,
+                            url,
+                            rule,
+                            settings,
+                        )
                     }
                 }
             }

@@ -19,7 +19,10 @@ import java.util.UUID
 @Serializable
 @Keep
 data class LinkDispatchSettings(
-    /** 总开关：关掉后胶囊不再识别链接、外部打开也不按规则分发（走 [missAction]）。 */
+    /**
+     * 总开关：关掉后胶囊不再识别链接、外部打开也不按规则分发（走 [missAction]）。
+     * 识屏取链（`accessibility.screenLinks`）不受影响：仍能扫描/复制，只跳过分发。
+     */
     val enabled: Boolean = true,
     /** 规则表：按顺序取第一条命中（不设优先级字段）。 */
     val rules: List<LinkDispatchRule> = emptyList(),
@@ -35,6 +38,8 @@ data class LinkDispatchSettings(
 enum class LinkMatchType {
     /** 域名（含子域）或完整 URL 包含即可。 */
     CONTAINS,
+    /** 只比对域名：相等或子域，`bilibili.com` 不会命中 `bilibili.com.evil.com`。 */
+    DOMAIN,
     /** 正则 `find`（部分匹配）。 */
     REGEX,
     /** 整串相等（忽略大小写）。 */
@@ -97,9 +102,20 @@ data class LinkDispatchRule(
      * 用于 `xhslink.com` 这类应用没有声明的短链（方案 A，需要 INTERNET 权限）。
      */
     val resolveShortLink: Boolean = false,
+    /**
+     * 排除串：URL 里出现任意一条（忽略大小写）就跳过本规则，继续往下匹配。
+     * 用来挡「同一域名下的特定路径」，比写复杂正则直观。
+     */
+    val excludePatterns: List<String> = emptyList(),
+    /** 本规则命中但分发失败时的回退；null = 跟随全局未命中策略。 */
+    val missAction: LinkMissMode? = null,
 ) {
     val isValid: Boolean
         get() = pattern.isNotBlank() && (targetPackage.isNotBlank() || viaBrowser)
+
+    /** 有效排除串（去空白、去空项）。 */
+    val effectiveExcludes: List<String>
+        get() = excludePatterns.map { it.trim() }.filter { it.isNotEmpty() }
 }
 
 /** 新增/更新/删除都走这里，保持 `ActionSettings` 的字段级合并语义。 */

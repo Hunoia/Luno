@@ -2,30 +2,21 @@ package hunoia.luno.ui.settings.link
 
 import android.content.Intent
 import android.provider.Settings
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Link
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.config.model.ActionSettings
@@ -43,12 +34,12 @@ import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.dragReorderPlacement
 import hunoia.luno.ui.component.rememberDragReorderState
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.row.ChoiceRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
-import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.FloatingContentBottom
 import kotlinx.coroutines.launch
@@ -57,7 +48,6 @@ import kotlinx.coroutines.launch
  * 链接分发设置：规则表 + 胶囊/未命中行为 + 默认浏览器入口。
  * 规则按顺序匹配（第一行优先），行级进入编辑页，新增走右下角 FAB。
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LinkDispatchSettingsScreen(
     onBack: () -> Unit,
@@ -152,7 +142,10 @@ fun LinkDispatchSettingsScreen(
             }
         }
         item {
-            val addable = LinkPresets.addable(context, linkSettings.rules)
+            // PM 查询很贵：只在规则表变化时重算，开关/滚动不重复扫包。
+            val addable = remember(linkSettings.rules) {
+                LinkPresets.addable(context, linkSettings.rules)
+            }
             LunoGroup(title = stringResource(R.string.link_dispatch_presets_group)) {
                 LunoSettingsRow(
                     title = stringResource(R.string.link_dispatch_presets_add),
@@ -183,7 +176,13 @@ fun LinkDispatchSettingsScreen(
                     }
                 } else {
                     rules.forEachIndexed { index, rule ->
-                        val targetLabel by produceState(initialValue = null as String?, rule.id) {
+                        // key 必须带上目标应用/浏览器开关：改完目标返回列表时才能刷新副标题。
+                        val targetLabel by produceState(
+                            initialValue = null as String?,
+                            rule.id,
+                            rule.targetPackage,
+                            rule.viaBrowser,
+                        ) {
                             value = LinkDispatcher.targetOf(context, rule)?.label
                         }
                         LunoSettingsRow(
@@ -252,6 +251,7 @@ private fun linkRuleSummary(
     val typeLabel = stringResource(
         when (type) {
             LinkMatchType.CONTAINS -> R.string.link_dispatch_match_contains
+            LinkMatchType.DOMAIN -> R.string.link_dispatch_match_domain
             LinkMatchType.REGEX -> R.string.link_dispatch_match_regex
             LinkMatchType.EXACT -> R.string.link_dispatch_match_exact
         },
@@ -266,54 +266,5 @@ private fun linkRuleSummary(
         summary + stringResource(R.string.link_dispatch_rule_resolve_tag)
     } else {
         summary
-    }
-}
-
-/** 标题 + 副标题 + 整行分段选择：选项 2–3 个时比塞在行尾可读性好。 */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ChoiceRow(
-    title: String,
-    subtitle: String,
-    options: List<String>,
-    selectedIndex: Int,
-    onSelect: (Int) -> Unit,
-    shape: androidx.compose.ui.graphics.Shape,
-) {
-    Surface(
-        shape = shape,
-        color = MaterialTheme.colorScheme.surfaceBright,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(
-            modifier = Modifier.padding(
-                horizontal = CardInnerSpacing * 2,
-                vertical = CardInnerSpacing * 2,
-            ),
-            verticalArrangement = Arrangement.spacedBy(CardInnerSpacing * 2),
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(text = title, style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                options.forEachIndexed { index, option ->
-                    SegmentedButton(
-                        selected = index == selectedIndex,
-                        onClick = { onSelect(index) },
-                        shape = SegmentedButtonDefaults.itemShape(
-                            count = options.size,
-                            index = index,
-                        ),
-                    ) {
-                        Text(text = option, maxLines = 1)
-                    }
-                }
-            }
-        }
     }
 }

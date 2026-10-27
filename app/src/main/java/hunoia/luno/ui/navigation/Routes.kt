@@ -64,11 +64,12 @@ data object RecentAppsBlocklist
 @Serializable
 data object LinkDispatchRules
 
-/** 链接分发规则编辑页；ruleId 空 = 新增。 */
+/** 链接分发规则编辑页；ruleId 空 = 新增，[pattern] 非空 = 预填匹配串（识屏卡片「新建规则」）。 */
 @Keep
 @Serializable
 data class LinkDispatchRuleEdit(
     val ruleId: String = "",
+    val pattern: String = "",
 )
 
 @Keep

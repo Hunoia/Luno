@@ -1,6 +1,8 @@
 package hunoia.luno.ui.settings.link
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Save
@@ -8,9 +10,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -23,16 +22,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.LinkDispatchRule
 import hunoia.luno.config.model.LinkMatchType
+import hunoia.luno.config.model.LinkMissMode
 import hunoia.luno.config.model.remove
 import hunoia.luno.config.model.upsert
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.link.LinkDispatcher
+import hunoia.luno.link.LinkUrls
 import hunoia.luno.ui.actionlibrary.TemplateTextField
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.row.ChoiceRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
@@ -52,6 +56,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun LinkDispatchEditScreen(
     ruleId: String,
+    prefillPattern: String = "",
     onBack: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -65,7 +70,7 @@ fun LinkDispatchEditScreen(
         if (!addMode && existing == null) {
             missing = true
         } else {
-            snapshot = existing ?: LinkDispatchRule()
+            snapshot = existing ?: LinkDispatchRule(pattern = prefillPattern)
         }
     }
 
@@ -88,6 +93,16 @@ fun LinkDispatchEditScreen(
     var miniWindow by remember(ruleId) { mutableStateOf(initial.miniWindow) }
     var viaBrowser by remember(ruleId) { mutableStateOf(initial.viaBrowser) }
     var resolveShortLink by remember(ruleId) { mutableStateOf(initial.resolveShortLink) }
+    var excludeText by remember(ruleId) {
+        mutableStateOf(initial.effectiveExcludes.joinToString("\n"))
+    }
+    var ruleMiss by remember(ruleId) { mutableStateOf(initial.missAction) }
+    var testUrl by remember(ruleId) { mutableStateOf("") }
+    // 规则表的其他条目（测试匹配要把整张表按顺序跑一遍）。
+    var otherRules by remember(ruleId) { mutableStateOf<List<LinkDispatchRule>>(emptyList()) }
+    LaunchedEffect(ruleId) {
+        otherRules = TuneConfig.action.first().linkDispatch.rules
+    }
     var showAppPicker by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showDiscardConfirm by remember { mutableStateOf(false) }
@@ -101,12 +116,18 @@ fun LinkDispatchEditScreen(
             }.getOrNull()
         }
     }
-    val valid = pattern.isNotBlank() && (viaBrowser || targetPackage.isNotBlank())
+    // 正则非法直接标红：现在 runCatching 会静默判不命中，用户只看到「规则没用」。
+    val regexError = matchType == LinkMatchType.REGEX && pattern.isNotBlank() &&
+        runCatching { Regex(pattern) }.isFailure
+    val valid = pattern.isNotBlank() && !regexError &&
+        (viaBrowser || targetPackage.isNotBlank())
     val dirty = name != initial.name || enabled != initial.enabled ||
         matchType != initial.matchType || pattern != initial.pattern ||
         targetPackage != initial.targetPackage || targetActivity != initial.targetActivity ||
         template != initial.template || miniWindow != initial.miniWindow ||
-        viaBrowser != initial.viaBrowser || resolveShortLink != initial.resolveShortLink
+        viaBrowser != initial.viaBrowser || resolveShortLink != initial.resolveShortLink ||
+        excludeText != initial.effectiveExcludes.joinToString("\n") ||
+        ruleMiss != initial.missAction
     val guardedBack = { if (dirty) showDiscardConfirm = true else onBack() }
 
     fun save() {
@@ -121,6 +142,10 @@ fun LinkDispatchEditScreen(
             miniWindow = miniWindow,
             viaBrowser = viaBrowser,
             resolveShortLink = resolveShortLink,
+            excludePatterns = excludeText.split('\n', ',', '，', ' ')
+                .map { it.trim() }
+                .filter { it.isNotEmpty() },
+            missAction = ruleMiss,
         )
         scope.launch {
             TuneConfig.updateAction { it.copy(linkDispatch = it.linkDispatch.upsert(rule)) }
@@ -217,19 +242,76 @@ fun LinkDispatchEditScreen(
             )
         }
         LunoGroup(title = stringResource(R.string.link_dispatch_rule_match_group)) {
-            MatchTypeRow(
-                matchType = matchType,
-                onSelect = { matchType = it },
+            val matchOptions = listOf(
+                LinkMatchType.CONTAINS to stringResource(R.string.link_dispatch_match_contains),
+                LinkMatchType.DOMAIN to stringResource(R.string.link_dispatch_match_domain),
+                LinkMatchType.REGEX to stringResource(R.string.link_dispatch_match_regex),
+                LinkMatchType.EXACT to stringResource(R.string.link_dispatch_match_exact),
+            )
+            ChoiceRow(
+                title = stringResource(R.string.link_dispatch_rule_match_type),
+                subtitle = stringResource(R.string.link_dispatch_rule_match_type_hint),
+                options = matchOptions.map { it.second },
+                selectedIndex = matchOptions.indexOfFirst { it.first == matchType }.coerceAtLeast(0),
+                onSelect = { index -> matchType = matchOptions[index].first },
+                shape = segmentedShape(0, 2),
             )
             TemplateTextField(
                 value = pattern,
                 onValueChange = { pattern = it },
                 label = stringResource(R.string.link_dispatch_rule_pattern),
-                isError = pattern.isBlank(),
+                isError = pattern.isBlank() || regexError,
                 singleLine = true,
                 allowTemplates = false,
                 placeholder = stringResource(R.string.link_dispatch_rule_pattern_hint),
                 modifier = Modifier.fillMaxWidth(),
+            )
+            if (regexError) {
+                Text(
+                    text = stringResource(R.string.link_dispatch_rule_regex_invalid),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+            TemplateTextField(
+                value = excludeText,
+                onValueChange = { excludeText = it },
+                label = stringResource(R.string.link_dispatch_rule_exclude),
+                isError = false,
+                singleLine = false,
+                allowTemplates = false,
+                placeholder = stringResource(R.string.link_dispatch_rule_exclude_hint),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            TemplateTextField(
+                value = testUrl,
+                onValueChange = { testUrl = it },
+                label = stringResource(R.string.link_dispatch_rule_test),
+                isError = false,
+                singleLine = true,
+                allowTemplates = false,
+                placeholder = stringResource(R.string.link_dispatch_rule_test_hint),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            TestMatchResult(
+                testUrl = testUrl,
+                draft = initial.copy(
+                    name = name.trim(),
+                    enabled = enabled,
+                    matchType = matchType,
+                    pattern = pattern.trim(),
+                    targetPackage = targetPackage.trim(),
+                    targetActivity = targetActivity.trim(),
+                    template = template.trim(),
+                    miniWindow = miniWindow,
+                    viaBrowser = viaBrowser,
+                    resolveShortLink = resolveShortLink,
+                    excludePatterns = excludeText.split('\n', ',', '，', ' ')
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() },
+                ),
+                otherRules = otherRules,
             )
         }
         LunoGroup(title = stringResource(R.string.link_dispatch_rule_target_group)) {
@@ -307,39 +389,67 @@ fun LinkDispatchEditScreen(
                 onCheckedChange = { miniWindow = it },
                 shape = segmentedShape(1, 2),
             )
+            val missOptions = listOf(
+                null to stringResource(R.string.link_dispatch_rule_miss_global),
+                LinkMissMode.SHARE to stringResource(R.string.link_dispatch_rule_miss_share_short),
+                LinkMissMode.BROWSER to stringResource(
+                    R.string.link_dispatch_rule_miss_browser_short,
+                ),
+                LinkMissMode.PICKER to stringResource(R.string.link_dispatch_rule_miss_picker_short),
+            )
+            ChoiceRow(
+                title = stringResource(R.string.link_dispatch_rule_miss),
+                subtitle = stringResource(R.string.link_dispatch_rule_miss_hint),
+                options = missOptions.map { it.second },
+                selectedIndex = missOptions.indexOfFirst { it.first == ruleMiss }.coerceAtLeast(0),
+                onSelect = { index -> ruleMiss = missOptions[index].first },
+                shape = segmentedShape(2, 3),
+            )
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * 测试匹配：用整张规则表（含当前草稿）跑一遍，直接告诉用户「这条 URL 会被谁接手」。
+ * 没命中时也要说明会走全局未命中策略，否则用户分不清「规则写错了」和「没命中」。
+ */
 @Composable
-private fun MatchTypeRow(
-    matchType: LinkMatchType,
-    onSelect: (LinkMatchType) -> Unit,
+private fun TestMatchResult(
+    testUrl: String,
+    draft: LinkDispatchRule,
+    otherRules: List<LinkDispatchRule>,
 ) {
-    val options = listOf(
-        LinkMatchType.CONTAINS to stringResource(R.string.link_dispatch_match_contains),
-        LinkMatchType.REGEX to stringResource(R.string.link_dispatch_match_regex),
-        LinkMatchType.EXACT to stringResource(R.string.link_dispatch_match_exact),
-    )
-    LunoSettingsRow(
-        title = stringResource(R.string.link_dispatch_rule_match_type),
-        shape = segmentedShape(0, 1),
-        trailing = {
-            SingleChoiceSegmentedButtonRow {
-                options.forEachIndexed { index, (type, label) ->
-                    SegmentedButton(
-                        selected = matchType == type,
-                        onClick = { onSelect(type) },
-                        shape = SegmentedButtonDefaults.itemShape(
-                            count = options.size,
-                            index = index,
-                        ),
-                    ) {
-                        Text(text = label, maxLines = 1)
-                    }
-                }
-            }
-        },
-    )
+    val context = LocalContext.current
+    if (testUrl.isBlank()) return
+    // 保持原有顺序，把草稿替换/追加进去：顺序就是优先级，不能重排。
+    val rules = remember(otherRules, draft) {
+        val replaced = otherRules.map { if (it.id == draft.id) draft else it }
+        if (replaced.none { it.id == draft.id }) replaced + draft else replaced
+    }
+    val matched = remember(rules, testUrl) {
+        LinkUrls.firstMatch(testUrl.trim(), rules)
+    }
+    val targetLabel by produceState(initialValue = null as String?, matched?.id, testUrl) {
+        value = matched?.let { LinkDispatcher.resolvedTargetOf(context, it, testUrl.trim())?.label }
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+    ) {
+        Text(
+            text = if (matched == null) {
+                stringResource(R.string.link_dispatch_rule_test_miss)
+            } else {
+                stringResource(
+                    R.string.link_dispatch_rule_test_hit,
+                    matched.name.ifBlank { matched.pattern },
+                    targetLabel ?: stringResource(R.string.link_dispatch_rule_no_target),
+                )
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = if (matched == null) MaterialTheme.colorScheme.onSurfaceVariant
+            else MaterialTheme.colorScheme.primary,
+        )
+    }
 }

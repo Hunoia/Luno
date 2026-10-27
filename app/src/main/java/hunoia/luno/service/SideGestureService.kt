@@ -16,7 +16,6 @@ import hunoia.luno.runtime.overlay.ScreenLinksOverlay
 import hunoia.luno.runtime.overlay.ScreenPickOverlay
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.launch
 import hunoia.luno.core.LOG_TAG
 
 class SideGestureService : ComponentAccessibilityService(), GestureHost {

@@ -15,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -87,6 +88,7 @@ import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
 import hunoia.luno.ui.navigation.LocalGridPanels
 import hunoia.luno.ui.navigation.LocalNavController
+import hunoia.luno.ui.navigation.PendingLinkRule
 import hunoia.luno.ui.home.HomeScreen
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.config.model.ActionSettings as ActionTuning
@@ -102,6 +104,13 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
             .collectAsStateWithLifecycle(initialValue = ActionLibrarySettings())
         val actionSettings by TuneConfig.action
             .collectAsStateWithLifecycle(initialValue = ActionTuning())
+        // 识屏卡片「新建分发规则」：跨进程 Intent → [PendingLinkRule]，消费一次就跳编辑页。
+        val pendingRulePattern by PendingLinkRule.pattern.collectAsStateWithLifecycle()
+        LaunchedEffect(pendingRulePattern) {
+            val pattern = pendingRulePattern ?: return@LaunchedEffect
+            PendingLinkRule.consume()
+            navController.navigate(LinkDispatchRuleEdit("", pattern)) { launchSingleTop = true }
+        }
         CompositionLocalProvider(
             LocalNavController provides navController,
             LocalActionLibraryEntries provides actionLibrarySettings.entries,
@@ -190,6 +199,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 myComposable<LinkDispatchRuleEdit> {
                     LinkDispatchEditScreen(
                         ruleId = it.toRoute<LinkDispatchRuleEdit>().ruleId,
+                        prefillPattern = it.toRoute<LinkDispatchRuleEdit>().pattern,
                         onBack = { navController.popBackStack() },
                     )
                 }

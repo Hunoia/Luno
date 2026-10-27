@@ -149,7 +149,7 @@ class LinkUrlsTest {
         assertTrue(
             all.all {
                 it.pattern.isNotBlank() && it.name.isNotBlank() &&
-                    (it.targetPackage.contains('.') || (it.viaBrowser && it.targetPackage.isEmpty()))
+                    (it.targetPackages.any { pkg -> pkg.contains('.') } || it.viaBrowser)
             },
         )
         assertEquals(all.size, all.map { it.pattern.lowercase() }.distinct().size)
@@ -166,6 +166,64 @@ class LinkUrlsTest {
         assertTrue(rule.isValid)
         assertFalse(rule.copy(viaBrowser = false).isValid)
         assertFalse(rule.copy(pattern = " ").isValid)
+    }
+
+    @Test
+    fun `bare domains do not mistake package names for links`() {
+        val text = "com.example.app com.foo.dev org.example.io androidx.core.ktx"
+        assertEquals(
+            emptyList<String>(),
+            LinkUrls.extractUrls(text, allowBareDomains = true),
+        )
+        // 真实域名不受影响（首段不是包名前缀）。
+        assertEquals(
+            listOf("https://www.example.com/a"),
+            LinkUrls.extractUrls("www.example.com/a", allowBareDomains = true),
+        )
+    }
+
+    @Test
+    fun `domain match only accepts host or subdomain`() {
+        val rule = rule(pattern = "bilibili.com", matchType = LinkMatchType.DOMAIN)
+        assertTrue(LinkUrls.matches("https://bilibili.com/video/1", rule))
+        assertTrue(LinkUrls.matches("https://www.bilibili.com/video/1", rule))
+        assertTrue(LinkUrls.matches("https://bilibili.com.evil.com/x", rule.copy(pattern = "evil.com")))
+        assertFalse(LinkUrls.matches("https://bilibili.com.evil.com/x", rule))
+        assertFalse(LinkUrls.matches("https://notbilibili.com/x", rule))
+        // 前导点/通配前缀都按同一语义处理。
+        assertTrue(LinkUrls.matches("https://www.bilibili.com/x", rule.copy(pattern = "*.bilibili.com")))
+    }
+
+    @Test
+    fun `exclude patterns skip a rule`() {
+        val rule = rule(pattern = "example.com").copy(excludePatterns = listOf("/ads/"))
+        assertTrue(LinkUrls.matches("https://example.com/video/1", rule))
+        assertFalse(LinkUrls.matches("https://example.com/ads/1", rule))
+        // 被排除时继续往下匹配。
+        val fallback = rule(id = "fallback", pattern = "example.com/ads")
+        assertEquals(
+            "fallback",
+            LinkUrls.firstMatch(
+                "https://example.com/ads/1",
+                listOf(rule, fallback),
+            )?.id,
+        )
+    }
+
+    @Test
+    fun `private hosts are recognised`() {
+        assertTrue(LinkUrls.isPrivateHost("localhost"))
+        assertTrue(LinkUrls.isPrivateHost("app.localhost"))
+        assertTrue(LinkUrls.isPrivateHost("nas.local"))
+        assertTrue(LinkUrls.isPrivateHost("192.168.1.10"))
+        assertTrue(LinkUrls.isPrivateHost("10.0.0.1:8080"))
+        assertTrue(LinkUrls.isPrivateHost("172.20.1.1"))
+        assertTrue(LinkUrls.isPrivateHost("127.0.0.1"))
+        assertTrue(LinkUrls.isPrivateHost("[::1]"))
+        assertFalse(LinkUrls.isPrivateHost("example.com"))
+        assertFalse(LinkUrls.isPrivateHost("172.32.0.1"))
+        assertFalse(LinkUrls.isPrivateHost("8.8.8.8"))
+        assertFalse(LinkUrls.isPrivateHost(null))
     }
 
     private fun rule(

@@ -105,11 +105,13 @@ private fun LinkSelectionContent(
     fun pick(url: String) {
         if (handled) return
         handled = true
-        val matched = LinkUrls.firstMatch(url, linkSettings.rules) != null
+        val rule = LinkUrls.firstMatch(url, linkSettings.rules)
         scope.launch {
             // 规则表级分发：命中规则开了短链解析时，内部跟随后会重新匹配。
-            val dispatched = matched && LinkDispatcher.dispatch(context, url, linkSettings)
-            if (!dispatched) LinkDispatcher.fallback(context, url, linkSettings.missAction)
+            val dispatched = rule != null && LinkDispatcher.dispatch(context, url, linkSettings)
+            if (!dispatched) {
+                LinkDispatcher.fallbackFor(context, url, rule, linkSettings)
+            }
             onDone()
         }
     }

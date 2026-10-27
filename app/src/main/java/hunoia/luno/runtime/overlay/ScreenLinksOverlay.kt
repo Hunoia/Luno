@@ -12,6 +12,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -30,19 +31,31 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -60,27 +73,34 @@ import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.link.LinkDispatcher
 import hunoia.luno.link.LinkUrls
+import hunoia.luno.quicklaunch.icon.SearchIconCache
 import hunoia.luno.runtime.GestureHost
 import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** 屏幕上认出的一条链接：[targetLabel] 为命中规则的目标应用（未命中为 null）。 */
+/** 屏幕上认出的一条链接；[targetPackage] 为命中规则的目标应用（未命中为 null）。 */
 private data class ScreenLink(
     val url: String,
     val host: String,
+    val targetPackage: String?,
     val targetLabel: String?,
 )
 
 /**
  * 识屏取链（动作 `accessibility.screenLinks`）：扫当前应用窗口的无障碍节点文本，抽出全部链接
- * 列成一张卡片，点一条就按链接分发规则直达目标应用，长按或尾部图标复制。
+ * 列成一张卡片，点一条就按链接分发规则直达目标应用，长按或尾部菜单可以复制 / 浏览器打开 /
+ * 分享 / 用该域名新建规则。
  *
  * 走无障碍节点树而不是 OCR：链接本身是文本，节点里的 `text`/`contentDescription` 是原文，
  * 比截图识别准得多，也不需要截屏权限。窗口自身是 TYPE_ACCESSIBILITY_OVERLAY，扫描时按包名
  * 跳过自家窗口，因此不会把自己列进结果。
+ *
+ * 与「链接分发」总开关解耦：开关只管分发，识屏、复制、列表始终可用；关掉时点条目走全局
+ * 未命中策略（浏览器/分享/选择应用），而不是直接报错关层。
  */
 internal class ScreenLinksOverlay(private val host: GestureHost) {
 
@@ -99,7 +119,7 @@ internal class ScreenLinksOverlay(private val host: GestureHost) {
         const val PANEL_SETTLE_MAX_MS = 900L
         const val PANEL_SETTLE_POLL_MS = 50L
 
-        /** 首轮没扫到时的补扫间隔（最多 3 轮）：面板退场瞬间窗口树可能刚恢复。 */
+        /** 首轮没扫到时的补扫间隔（最多 3 轮）：只在窗口/节点数为 0 时补扫。 */
         const val SCAN_RETRY_MS = 200L
 
         /** 面板退场后的额外等待（同 ScreenPick：Dismissed 之后窗口树可能还在收尾）。 */
@@ -107,6 +127,9 @@ internal class ScreenLinksOverlay(private val host: GestureHost) {
     }
 
     private var overlayView: View? = null
+
+    /** 扫描协程：连续触发/关层时取消上一轮，避免多个扫描并发抢 Binder。 */
+    private var scanJob: Job? = null
 
     /** 在屏面板计数（动作面板/网格面板等自家 overlay）：全部退场前不扫。 */
     private val openPanelCount = java.util.concurrent.atomic.AtomicInteger(0)
@@ -126,7 +149,7 @@ internal class ScreenLinksOverlay(private val host: GestureHost) {
     /** 会话号：异步扫描回来时若已关层/换会话就丢弃结果。 */
     private var session = 0
 
-    /** Compose 态：扫描中转圈，扫完换成列表。 */
+    /** Compose 态：扫描中转圈，扫完换成列表；空结果保留卡片给「重新扫描」。 */
     private var scanning by mutableStateOf(true)
     private var links by mutableStateOf<List<ScreenLink>>(emptyList())
 
@@ -141,8 +164,6 @@ internal class ScreenLinksOverlay(private val host: GestureHost) {
         if (overlayView != null) return true
         val keyguard = host.context.getSystemService(android.app.KeyguardManager::class.java)
         if (keyguard?.isKeyguardLocked == true) return false
-        session++
-        val current = session
         scanning = true
         links = emptyList()
         val lp = WindowManager.LayoutParams().apply {
@@ -171,6 +192,12 @@ internal class ScreenLinksOverlay(private val host: GestureHost) {
                         links = links,
                         onPick = ::onPick,
                         onCopy = ::onCopy,
+                        onOpenBrowser = ::onOpenBrowser,
+                        onShare = ::onShare,
+                        onCreateRule = ::onCreateRule,
+                        onCopyAll = ::onCopyAll,
+                        onShareAll = ::onShareAll,
+                        onRescan = ::rescan,
                         onDismiss = ::close,
                     )
                 }
@@ -182,12 +209,14 @@ internal class ScreenLinksOverlay(private val host: GestureHost) {
             return false
         }
         overlayView = composeView
-        host.coroutineScope.launch { scan(current) }
+        startScan()
         return true
     }
 
     fun close() {
         session++
+        scanJob?.cancel()
+        scanJob = null
         val view = overlayView ?: return
         overlayView = null
         scanning = true
@@ -195,44 +224,52 @@ internal class ScreenLinksOverlay(private val host: GestureHost) {
         runCatching { host.context.windowManager().removeView(view) }
     }
 
+    /** 重新扫描：复用当前卡片，不重建窗口（空结果时用户滚完页面可直接重试）。 */
+    private fun rescan() {
+        if (overlayView == null) return
+        scanning = true
+        links = emptyList()
+        startScan()
+    }
+
+    private fun startScan() {
+        session++
+        val current = session
+        scanJob?.cancel()
+        scanJob = host.coroutineScope.launch { scan(current) }
+    }
+
     private suspend fun scan(current: Int) {
         val context = host.context
         val settings = runCatching { ConfigProvider.getActionSettings().linkDispatch }
             .getOrDefault(LinkDispatchSettings())
-        if (!settings.enabled) {
-            if (current == session) {
-                showToast(R.string.screen_links_disabled)
-                close()
-            }
-            return
-        }
         val hadPanels = openPanelCount.get() > 0
         awaitPanelsDismissed()
         if (hadPanels) delay(PANEL_POST_SETTLE_MS)
         delay(SCAN_SETTLE_MS)
-        var urls = emptyList<Pair<String, Int>>()
+        var result = ScanResult.Empty
         for (attempt in 0 until 3) {
             if (current != session) return
-            urls = scanNow(context)
-            if (urls.isNotEmpty()) break
+            result = scanNow()
+            if (current != session) return
+            if (result.urls.isNotEmpty()) break
+            // 只有「窗口/节点都没拿到」才值得补扫；屏幕上确实没链接时，重扫只是白跑
+            // 3 轮 × 最多 4000 个 Binder 调用。
+            if (result.windows > 0 && result.nodes > 0) break
             if (attempt < 2) delay(SCAN_RETRY_MS)
         }
         if (current != session) return
-        if (urls.isEmpty()) {
-            showToast(R.string.screen_links_empty)
-            close()
-            return
-        }
+        val rules = if (settings.enabled) settings.rules else emptyList()
         val resolved = withContext(Dispatchers.IO) {
             // 按屏幕上的视觉顺序（y 从上到下）展示，遍历顺序对用户没意义。
-            urls.sortedBy { it.second }.map { (url, _) ->
-                val rule = LinkUrls.firstMatch(url, settings.rules)
+            result.urls.sortedBy { it.second }.map { (url, _) ->
+                val rule = LinkUrls.firstMatch(url, rules)
+                val target = rule?.let { LinkDispatcher.resolvedTargetOf(context, it, url) }
                 ScreenLink(
                     url = url,
                     host = LinkUrls.hostOf(url) ?: url,
-                    targetLabel = rule?.let {
-                        LinkDispatcher.resolvedTargetOf(context, it, url)?.label
-                    },
+                    targetPackage = target?.packageName,
+                    targetLabel = target?.label,
                 )
             }
         }
@@ -254,16 +291,18 @@ internal class ScreenLinksOverlay(private val host: GestureHost) {
         return maxOf(systemInset, DensityProvider.dp2px(16f))
     }
 
+    private suspend fun currentSettings(): LinkDispatchSettings =
+        runCatching { ConfigProvider.getActionSettings().linkDispatch }
+            .getOrDefault(LinkDispatchSettings())
+
     private fun onPick(link: ScreenLink) {
         val current = session
         val context = host.context
         host.coroutineScope.launch {
-            val settings = runCatching { ConfigProvider.getActionSettings().linkDispatch }
-                .getOrDefault(LinkDispatchSettings())
+            val settings = currentSettings()
+            val rule = if (settings.enabled) LinkUrls.firstMatch(link.url, settings.rules) else null
             val dispatched = settings.enabled && LinkDispatcher.dispatch(context, link.url, settings)
-            if (!dispatched && settings.enabled) {
-                LinkDispatcher.fallback(context, link.url, settings.missAction)
-            }
+            if (!dispatched) LinkDispatcher.fallbackFor(context, link.url, rule, settings)
             if (current == session) close()
         }
     }
@@ -276,16 +315,59 @@ internal class ScreenLinksOverlay(private val host: GestureHost) {
         }
     }
 
-    private suspend fun scanNow(context: android.content.Context): List<Pair<String, Int>> =
-        withContext(Dispatchers.Default) {
-            runCatching { ScreenLinkScanner.scan(host.accessibilityService, context.packageName) }
-                .getOrDefault(emptyList())
-        }
+    private suspend fun scanNow(): ScanResult = withContext(Dispatchers.Default) {
+        runCatching { ScreenLinkScanner.scan(host.accessibilityService, host.context.packageName) }
+            .getOrDefault(ScanResult.Empty)
+    }
 
     private fun onCopy(link: ScreenLink) {
-        val label = runCatching { host.context.getString(R.string.app_name) }.getOrDefault("Luno")
-        val copied = copyText(host.context, label, link.url)
+        val copied = copyText(host.context, appLabel(), link.url)
         showToast(if (copied) R.string.screen_links_copied else R.string.screen_links_unavailable)
+    }
+
+    private fun onOpenBrowser(link: ScreenLink) {
+        LinkDispatcher.openInBrowser(host.context, link.url)
+        close()
+    }
+
+    private fun onShare(link: ScreenLink) {
+        LinkDispatcher.share(host.context, link.url)
+        close()
+    }
+
+    private fun onCreateRule(link: ScreenLink) {
+        // 用注册域名（不是完整 URL）预填：同域名下的不同路径应该共用一条规则。
+        val ruleHost = runCatching { java.net.URI(link.url).host }.getOrNull()
+            ?.removePrefix("www.")
+            ?: link.host.removePrefix("www.")
+        LinkDispatcher.createRule(host.context, ruleHost)
+        close()
+    }
+
+    private fun onCopyAll() {
+        if (links.isEmpty()) return
+        val copied = copyText(host.context, appLabel(), links.joinToString("\n") { it.url })
+        showToast(if (copied) R.string.screen_links_copied else R.string.screen_links_unavailable)
+    }
+
+    private fun onShareAll() {
+        if (links.isEmpty()) return
+        LinkDispatcher.shareAll(host.context, links.map { it.url })
+        close()
+    }
+
+    private fun appLabel(): String =
+        runCatching { host.context.getString(R.string.app_name) }.getOrDefault("Luno")
+}
+
+/** 一次扫描的结果：URL + 屏幕 y，附带窗口/节点计数（决定要不要补扫）。 */
+private data class ScanResult(
+    val urls: List<Pair<String, Int>>,
+    val windows: Int,
+    val nodes: Int,
+) {
+    companion object {
+        val Empty = ScanResult(emptyList(), windows = 0, nodes = 0)
     }
 }
 
@@ -300,8 +382,8 @@ private object ScreenLinkScanner {
     private const val MaxDepth = 60
 
     /** 返回「URL → 首次出现的屏幕 y」：便于按视觉顺序展示，而不是按遍历顺序。 */
-    fun scan(service: AccessibilityService, ownPackage: String): List<Pair<String, Int>> {
-        val windows = service.windows ?: return emptyList()
+    fun scan(service: AccessibilityService, ownPackage: String): ScanResult {
+        val windows = service.windows ?: return ScanResult.Empty
         val found = LinkedHashMap<String, Int>()
         var visited = 0
         var scannedWindows = 0
@@ -314,8 +396,11 @@ private object ScreenLinkScanner {
             if (visited >= MaxNodes) break
         }
         // WARN 级：部分 ROM（HyperOS）会把第三方应用的 INFO 日志吞掉，排查时只留 I 看不见。
-        Log.w(LOG_TAG, "screen links: windows=$scannedWindows nodes=$visited urls=${found.size}")
-        return found.map { it.key to it.value }
+        Log.w(
+            LOG_TAG,
+            "screen links: windows=$scannedWindows nodes=$visited urls=${found.size}",
+        )
+        return ScanResult(found.map { it.key to it.value }, scannedWindows, visited)
     }
 
     /** DFS 收集节点文本里的链接；返回累计访问的节点数，超预算提前停。 */
@@ -329,10 +414,16 @@ private object ScreenLinkScanner {
         if (count >= MaxNodes || depth > MaxDepth) return count
         count++
         if (node.isVisibleToUser && !node.isPassword) {
-            val bounds = android.graphics.Rect()
-            node.getBoundsInScreen(bounds)
-            node.text?.toString()?.let { addUrls(it, bounds.top, out) }
-            node.contentDescription?.toString()?.let { addUrls(it, bounds.top, out) }
+            val text = node.text?.toString()
+            val description = node.contentDescription?.toString()
+            if (!text.isNullOrEmpty() || !description.isNullOrEmpty()) {
+                // 只有真的带文本的节点才去取 bounds：容器节点占绝大多数，逐个
+                // getBoundsInScreen 是纯浪费的跨进程调用。
+                val bounds = android.graphics.Rect()
+                node.getBoundsInScreen(bounds)
+                text?.let { addUrls(it, bounds.top, out) }
+                description?.let { addUrls(it, bounds.top, out) }
+            }
         }
         if (count < MaxNodes) {
             for (index in 0 until node.childCount) {
@@ -361,6 +452,12 @@ private fun ScreenLinksCard(
     links: List<ScreenLink>,
     onPick: (ScreenLink) -> Unit,
     onCopy: (ScreenLink) -> Unit,
+    onOpenBrowser: (ScreenLink) -> Unit,
+    onShare: (ScreenLink) -> Unit,
+    onCreateRule: (ScreenLink) -> Unit,
+    onCopyAll: () -> Unit,
+    onShareAll: () -> Unit,
+    onRescan: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     Box(
@@ -376,9 +473,7 @@ private fun ScreenLinksCard(
             color = MaterialTheme.colorScheme.surfaceContainer,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = with(androidx.compose.ui.platform.LocalDensity.current) {
-                    bottomInsetPx.toDp()
-                }),
+                .padding(bottom = with(LocalDensity.current) { bottomInsetPx.toDp() }),
             // 卡片自己吃掉点击，不要穿透到后面的"点空白关闭"。
             onClick = {},
         ) {
@@ -410,8 +505,32 @@ private fun ScreenLinksCard(
                             text = stringResource(R.string.screen_links_count, links.size),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(end = 8.dp),
+                            modifier = Modifier.padding(end = 4.dp),
                         )
+                        if (links.isNotEmpty()) {
+                            IconButton(onClick = onCopyAll) {
+                                Icon(
+                                    imageVector = Icons.Default.ContentCopy,
+                                    contentDescription = stringResource(
+                                        R.string.screen_links_copy_all,
+                                    ),
+                                )
+                            }
+                            IconButton(onClick = onShareAll) {
+                                Icon(
+                                    imageVector = Icons.Default.Share,
+                                    contentDescription = stringResource(
+                                        R.string.screen_links_share_all,
+                                    ),
+                                )
+                            }
+                        }
+                        IconButton(onClick = onRescan) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = stringResource(R.string.screen_links_rescan),
+                            )
+                        }
                     }
                     IconButton(onClick = onDismiss) {
                         Icon(
@@ -432,8 +551,40 @@ private fun ScreenLinksCard(
                             ScreenLinkRow(
                                 link = link,
                                 onClick = { onPick(link) },
-                                onLongClick = { onCopy(link) },
                                 onCopy = { onCopy(link) },
+                                onOpenBrowser = { onOpenBrowser(link) },
+                                onShare = { onShare(link) },
+                                onCreateRule = { onCreateRule(link) },
+                            )
+                        }
+                    }
+                } else if (!scanning) {
+                    // 空结果不再 toast + 关层：用户可能只是还没滚到有链接的位置。
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.screen_links_empty),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            text = stringResource(R.string.screen_links_empty_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        TextButton(onClick = onRescan) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Text(
+                                text = stringResource(R.string.screen_links_rescan),
+                                modifier = Modifier.padding(start = 6.dp),
                             )
                         }
                     }
@@ -448,19 +599,24 @@ private fun ScreenLinksCard(
 private fun ScreenLinkRow(
     link: ScreenLink,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
     onCopy: () -> Unit,
+    onOpenBrowser: () -> Unit,
+    onShare: () -> Unit,
+    onCreateRule: () -> Unit,
 ) {
+    var menuOpen by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(
                 onClick = onClick,
-                onLongClick = onLongClick,
+                onLongClick = { menuOpen = true },
             )
-            .padding(horizontal = 8.dp, vertical = 10.dp),
+            .padding(horizontal = 4.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        TargetIcon(packageName = link.targetPackage)
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = link.host,
@@ -480,12 +636,63 @@ private fun ScreenLinkRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        IconButton(onClick = onCopy) {
-            Icon(
-                imageVector = Icons.Default.ContentCopy,
-                contentDescription = stringResource(R.string.screen_links_copy),
-                modifier = Modifier.size(20.dp),
-            )
+        Box {
+            IconButton(onClick = { menuOpen = true }) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = stringResource(R.string.screen_links_more),
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.screen_links_copy)) },
+                    onClick = { menuOpen = false; onCopy() },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.screen_links_open_browser)) },
+                    onClick = { menuOpen = false; onOpenBrowser() },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.screen_links_share)) },
+                    onClick = { menuOpen = false; onShare() },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.screen_links_create_rule)) },
+                    onClick = { menuOpen = false; onCreateRule() },
+                )
+            }
         }
+    }
+}
+
+/** 命中规则时显示目标应用图标；未命中显示链接图标占位。 */
+@Composable
+private fun TargetIcon(packageName: String?) {
+    val size = 28.dp
+    val sizePx = with(LocalDensity.current) { size.toPx().toInt() }
+    val context = LocalContext.current
+    val icon by produceState<ImageBitmap?>(initialValue = null, packageName) {
+        val pkg = packageName ?: return@produceState
+        value = SearchIconCache.get(pkg, sizePx) ?: withContext(Dispatchers.IO) {
+            runCatching {
+                SearchIconCache.ensureAll(context.applicationContext, listOf(pkg), sizePx)
+                SearchIconCache.get(pkg, sizePx)
+            }.getOrNull()
+        }
+    }
+    if (icon != null) {
+        Image(
+            bitmap = icon!!,
+            contentDescription = null,
+            modifier = Modifier.size(size),
+        )
+    } else {
+        Icon(
+            imageVector = Icons.Default.Link,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }

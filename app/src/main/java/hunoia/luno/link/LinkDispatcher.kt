@@ -142,11 +142,41 @@ object LinkDispatcher {
 
     /** 系统分享面板（既有剪贴板胶囊点击行为）。 */
     fun share(context: Context, url: String) {
+        shareText(context, url)
+    }
+
+    /** 一次分享多条链接（识屏卡片的「分享全部」）：每条一行。 */
+    fun shareAll(context: Context, urls: List<String>) {
+        if (urls.isEmpty()) return
+        shareText(context, urls.joinToString("\n"))
+    }
+
+    private fun shareText(context: Context, text: String) {
         val send = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, url)
+            putExtra(Intent.EXTRA_TEXT, text)
         }
         startExternalIntent(context, Intent.createChooser(send, null))
+    }
+
+    /**
+     * 用屏幕识别到的域名新建一条分发规则：拉起主界面的规则编辑页并预填匹配串。
+     * 不在 `:service` 里直接写配置——目标应用得由用户选，走既有编辑页最省事。
+     */
+    fun createRule(context: Context, host: String) {
+        val pattern = host.trim()
+        if (pattern.isEmpty()) return
+        val launched = runCatching {
+            context.startActivity(
+                Intent().apply {
+                    component = ComponentName(context.packageName, LinkExtras.ACTIVITY_MAIN)
+                    putExtra(LinkExtras.EXTRA_RULE_PATTERN, pattern)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                },
+            )
+        }.onFailure { Log.w(LOG_TAG, "link rule editor launch failed", it) }
+            .isSuccess
+        if (!launched) showToast(R.string.link_dispatch_open_failed)
     }
 
     /** 用其他浏览器打开；解析到 Luno 自己时改成「选择应用」，避免自我循环。 */
@@ -189,6 +219,19 @@ object LinkDispatcher {
             LinkMissMode.BROWSER -> openInBrowser(context, url)
             LinkMissMode.PICKER -> pickApp(context, url)
         }
+    }
+
+    /**
+     * 分发失败后的回退：命中规则可以自定义自己的回退方式，没设则跟随全局。
+     * 只应在「有命中规则但没发出去」时调用；完全未命中直接用 [fallback]。
+     */
+    fun fallbackFor(
+        context: Context,
+        url: String,
+        rule: LinkDispatchRule?,
+        settings: LinkDispatchSettings,
+    ) {
+        fallback(context, url, rule?.missAction ?: settings.missAction)
     }
 
     /**

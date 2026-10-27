@@ -87,7 +87,7 @@ fun AppDrawerCell(
             appInfo = app,
             miniWindow = miniWindow,
             miniWindowSettings = miniWindowSettings,
-            source = AppLaunchSource.QUICK_LAUNCHER,
+            source = AppLaunchSource.GRID_PANEL,
         )
         if (launched) closePanel() else showToast(R.string.launch_failed)
     }
@@ -106,10 +106,19 @@ fun AppDrawerCell(
             iconSizePx = iconSizePx,
             gridColumns = columns,
             onClick = { app, isDisabled ->
-                if (enabled && !isDisabled) launch(app, launcherSettings.tapOpensMiniWindow)
+                when {
+                    !enabled -> Unit
+                    // 禁用应用静默忽略会让人以为点坏了：给一句提示。
+                    isDisabled -> showToast(R.string.app_drawer_disabled_app)
+                    else -> launch(app, launcherSettings.tapOpensMiniWindow)
+                }
             },
             onLongPress = { app, isDisabled ->
-                if (enabled && !isDisabled) launch(app, !launcherSettings.tapOpensMiniWindow)
+                when {
+                    !enabled -> Unit
+                    isDisabled -> showToast(R.string.app_drawer_disabled_app)
+                    else -> launch(app, !launcherSettings.tapOpensMiniWindow)
+                }
             },
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(DrawerPadding),

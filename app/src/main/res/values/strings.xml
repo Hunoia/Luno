@@ -242,6 +242,7 @@
     <string name="grid_panel_internal_clipboard">剪贴板</string>
     <string name="grid_panel_internal_app_drawer">应用抽屉</string>
     <string name="grid_panel_clipboard_current">当前</string>
+    <string name="app_drawer_disabled_app">该应用已被禁用</string>
     <string name="grid_panel_clipboard_image">图片</string>
     <string name="grid_panel_clipboard_empty">暂无剪贴板历史</string>
     <string name="grid_panel_clipboard_copy">复制</string>
@@ -773,8 +774,15 @@
     <string name="screen_links_copy">复制链接</string>
     <string name="screen_links_copied">已复制链接</string>
     <string name="screen_links_close">关闭</string>
-    <string name="screen_links_disabled">请先在动作设置里启用链接分发</string>
     <string name="screen_links_unavailable">操作失败，请重试</string>
+    <string name="screen_links_rescan">重新扫描</string>
+    <string name="screen_links_copy_all">复制全部链接</string>
+    <string name="screen_links_share_all">分享全部链接</string>
+    <string name="screen_links_more">更多操作</string>
+    <string name="screen_links_open_browser">用浏览器打开</string>
+    <string name="screen_links_share">分享链接</string>
+    <string name="screen_links_create_rule">用该域名新建规则</string>
+    <string name="screen_links_empty_hint">可以先滚动页面再点「重新扫描」</string>
 
     <!-- 链接分发 -->
     <string name="link_dispatch">链接分发</string>
@@ -784,7 +792,7 @@
     <string name="link_dispatch_no_link">没有识别到链接</string>
     <string name="link_dispatch_global_group">行为</string>
     <string name="link_dispatch_enabled">启用链接分发</string>
-    <string name="link_dispatch_enabled_hint">关闭后胶囊不再识别链接，外部打开也不按规则分发</string>
+    <string name="link_dispatch_enabled_hint">关闭后胶囊不再识别链接、外部打开也不按规则分发；识屏取链仍可扫描和复制</string>
     <string name="link_dispatch_capsule_tap">命中链接时的点击行为</string>
     <string name="link_dispatch_capsule_tap_hint">剪贴板胶囊里认出链接且命中规则时，点击胶囊做什么</string>
     <string name="link_dispatch_tap_dispatch">直达目标应用</string>
@@ -814,9 +822,24 @@
     <string name="link_dispatch_rule_name">规则名称</string>
     <string name="link_dispatch_rule_match_group">匹配</string>
     <string name="link_dispatch_rule_match_type">匹配方式</string>
+    <string name="link_dispatch_rule_match_type_hint">「仅域名」不会把 bilibili.com.evil.com 当成 bilibili.com</string>
     <string name="link_dispatch_match_contains">包含</string>
+    <string name="link_dispatch_match_domain">仅域名</string>
     <string name="link_dispatch_match_regex">正则</string>
     <string name="link_dispatch_match_exact">精确</string>
+    <string name="link_dispatch_rule_regex_invalid">正则表达式无效，请检查括号/转义</string>
+    <string name="link_dispatch_rule_exclude">排除内容</string>
+    <string name="link_dispatch_rule_exclude_hint">每行一条，URL 里出现就跳过本规则（可选）</string>
+    <string name="link_dispatch_rule_test">测试匹配</string>
+    <string name="link_dispatch_rule_test_hint">粘贴一条链接，实时看会被哪条规则接手</string>
+    <string name="link_dispatch_rule_test_hit">命中「%1$s」→ %2$s</string>
+    <string name="link_dispatch_rule_test_miss">未命中任何规则，按「未命中规则时」处理</string>
+    <string name="link_dispatch_rule_miss">分发失败时</string>
+    <string name="link_dispatch_rule_miss_hint">本规则命中但没能打开目标应用时怎么处理</string>
+    <string name="link_dispatch_rule_miss_global">跟随全局</string>
+    <string name="link_dispatch_rule_miss_share_short">分享</string>
+    <string name="link_dispatch_rule_miss_browser_short">浏览器</string>
+    <string name="link_dispatch_rule_miss_picker_short">选择应用</string>
     <string name="link_dispatch_rule_pattern">匹配内容</string>
     <string name="link_dispatch_rule_pattern_hint">域名（如 b23.tv）或正则</string>
     <string name="link_dispatch_rule_target_group">目标</string>

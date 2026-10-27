@@ -36,6 +36,11 @@ object LinkShortLinkResolver {
         if (!LinkUrls.isDispatchable(rawUrl)) return emptyList()
         val scheme = LinkUrls.schemeOf(rawUrl)?.lowercase()
         if (scheme != "http" && scheme != "https") return emptyList()
+        if (LinkUrls.isPrivateHost(LinkUrls.hostOf(rawUrl))) {
+            Log.i(LOG_TAG, "short link skipped (private host): ${rawUrl.take(80)}")
+            return emptyList()
+        }
+        cached(rawUrl)?.let { return it }
         return withContext(Dispatchers.IO) {
             val result = withTimeoutOrNull(TotalTimeoutMs) {
                 runCatching { fetch(rawUrl) }
@@ -47,9 +52,28 @@ object LinkShortLinkResolver {
                 emptyList()
             } else {
                 Log.i(LOG_TAG, "short link resolved: ${rawUrl.take(60)} -> ${result.first().take(120)}")
+                remember(rawUrl, result)
                 result
             }
         }
+    }
+
+    /**
+     * 进程内结果缓存：同一条短链常被胶囊、识屏、选择页连续解析，重复联网只会让点击变慢。
+     * 只缓存成功结果，且只在进程存活期有效（短链目标可能变，但一次会话内足够稳定）。
+     */
+    private const val CacheCap = 32
+    private val cache = object : LinkedHashMap<String, List<String>>(CacheCap, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<String>>) =
+            size > CacheCap
+    }
+
+    private fun cached(url: String): List<String>? = synchronized(cache) {
+        cache[url]?.toList()
+    }
+
+    private fun remember(url: String, result: List<String>) = synchronized(cache) {
+        cache[url] = result.toList()
     }
 
     private fun fetch(rawUrl: String): List<String> {
@@ -59,7 +83,9 @@ object LinkShortLinkResolver {
             val conn = (URL(current).openConnection() as HttpURLConnection).apply {
                 connectTimeout = ConnectTimeoutMs
                 readTimeout = ReadTimeoutMs
-                instanceFollowRedirects = true
+                // 必须关掉 JDK 自动跟随：它最多跟 20 跳且不校验内网地址，
+                // 会绕过 MaxRedirects 与 [LinkUrls.isPrivateHost] 两道闸。
+                instanceFollowRedirects = false
                 requestMethod = "GET"
                 setRequestProperty("User-Agent", UserAgent)
                 setRequestProperty("Accept", "text/html,application/xhtml+xml")
@@ -67,9 +93,13 @@ object LinkShortLinkResolver {
             try {
                 val code = conn.responseCode
                 if (code in 300..399) {
-                    // 跨协议跳转（https → http）JDK 不会代跟，这里补一手。
                     val location = conn.getHeaderField("Location") ?: return emptyList()
-                    current = URL(URL(current), location).toString()
+                    val next = URL(URL(current), location).toString()
+                    if (LinkUrls.isPrivateHost(LinkUrls.hostOf(next))) {
+                        Log.i(LOG_TAG, "short link redirect to private host, stop: ${next.take(80)}")
+                        return emptyList()
+                    }
+                    current = next
                     hop++
                     continue
                 }

@@ -3,6 +3,7 @@ package hunoia.luno.ui
 import android.Manifest
 import android.app.ActivityManager
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
@@ -17,6 +18,8 @@ import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import hunoia.luno.service.ServiceAutoStart
+import hunoia.luno.link.LinkExtras
+import hunoia.luno.ui.navigation.PendingLinkRule
 import hunoia.luno.ui.SideGestureApp
 
 class MainActivity : ComponentActivity() {
@@ -42,6 +45,8 @@ class MainActivity : ComponentActivity() {
         // 主进程随本 Activity 启动时按落盘配置兜底恢复常驻服务，进程内只做一次。
         ServiceAutoStart.restoreOnce(applicationContext)
 
+        handleLinkRuleIntent(intent)
+
         setContent {
             val created = rememberNavController()
             // 无 key 的 remember：重建时重新求值，但 cached 已非 null，稳定返回同一实例。
@@ -51,6 +56,23 @@ class MainActivity : ComponentActivity() {
 
         val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         am.appTasks.firstOrNull()?.setExcludeFromRecents(true)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleLinkRuleIntent(intent)
+    }
+
+    /**
+     * 识屏卡片的「新建分发规则」：`LinkExtras.EXTRA_RULE_PATTERN` 预填域名。
+     * 导航由 [SideGestureApp] 消费 [PendingLinkRule] 完成；这里只负责收件，
+     * 免得 UI 层去改 Intent 语义。
+     */
+    private fun handleLinkRuleIntent(intent: Intent?) {
+        val pattern = intent?.getStringExtra(LinkExtras.EXTRA_RULE_PATTERN) ?: return
+        intent.removeExtra(LinkExtras.EXTRA_RULE_PATTERN)
+        PendingLinkRule.request(pattern)
     }
 
     private fun requestNotificationPermissionIfNeeded() {

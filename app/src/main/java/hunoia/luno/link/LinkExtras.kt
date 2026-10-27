@@ -20,4 +20,10 @@ object LinkExtras {
 
     /** 外部链接接收口（默认浏览器 / 分享到 Luno）。 */
     const val ACTIVITY_DISPATCH = "hunoia.luno.ui.link.LinkDispatchActivity"
+
+    /** 主界面：从识屏卡片「新建分发规则」拉起规则编辑页时带预填域名。 */
+    const val ACTIVITY_MAIN = "hunoia.luno.ui.MainActivity"
+
+    /** 预填到规则编辑页的匹配串（`String`）。 */
+    const val EXTRA_RULE_PATTERN = "hunoia.luno.extra.RULE_PATTERN"
 }

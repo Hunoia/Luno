@@ -64,7 +64,7 @@ object LinkUrls {
         if (allowBareDomains && out.size < MaxUrls) {
             for (hit in bareDomainRegex.findAll(text)) {
                 val raw = trimTrailing(hit.groupValues[1])
-                if (!looksLikeBareDomain(hit.groupValues[2])) continue
+                if (!looksLikeBareDomain(raw, hit.groupValues[2])) continue
                 val url = "https://$raw"
                 if (!isDispatchable(url)) continue
                 out += url
@@ -74,11 +74,25 @@ object LinkUrls {
         return out.toList()
     }
 
-    /** 裸域名的额外闸门：顶级域白名单 + 不能是纯数字/IP + 至少一段标签。 */
-    private fun looksLikeBareDomain(tld: String): Boolean {
+    /** 裸域名的额外闸门：顶级域白名单 + 不像包名。 */
+    private fun looksLikeBareDomain(raw: String, tld: String): Boolean {
         if (tld.lowercase() !in KnownTlds) return false
-        return true
+        return !looksLikePackageName(raw)
     }
+
+    /**
+     * `com.example.app` / `com.foo.dev` 这类串和裸域名长得一模一样：
+     * 首段是常见包名前缀、段数 ≥ 3、末段又刚好是顶级域。真实域名里这种组合极少，
+     * 直接当包名跳过（代价是 `io.github.com` 这类仍会通过——首段不是 com/org/net）。
+     */
+    private fun looksLikePackageName(raw: String): Boolean {
+        val host = raw.substringBefore('/').substringBefore(':').lowercase()
+        val segments = host.split('.').filter { it.isNotEmpty() }
+        if (segments.size < 3) return false
+        return segments.first() in PackagePrefixes
+    }
+
+    private val PackagePrefixes = setOf("com", "org", "net", "androidx", "android", "kotlin", "java")
 
     /** 文本里第一条可分发链接（胶囊/外部打开的单链接快路径）。 */
     fun firstUrl(text: String): String? = extractUrls(text).firstOrNull()
@@ -128,23 +142,61 @@ object LinkUrls {
     fun matches(url: String, rule: LinkDispatchRule): Boolean {
         val pattern = rule.pattern.trim()
         if (pattern.isEmpty()) return false
+        if (rule.effectiveExcludes.any { url.contains(it, ignoreCase = true) }) return false
         return when (rule.matchType) {
             LinkMatchType.CONTAINS -> {
                 val host = hostOf(url)
-                if (host != null && (
-                        host.equals(pattern, ignoreCase = true) ||
-                            host.endsWith(".$pattern", ignoreCase = true)
-                        )
-                ) {
+                if (host != null && hostMatches(host, pattern)) {
                     true
                 } else {
                     url.contains(pattern, ignoreCase = true)
                 }
             }
+            LinkMatchType.DOMAIN -> {
+                val host = hostOf(url) ?: return false
+                hostMatches(host, pattern)
+            }
             LinkMatchType.REGEX -> runCatching {
                 Regex(pattern, RegexOption.IGNORE_CASE).containsMatchIn(url)
             }.getOrDefault(false)
             LinkMatchType.EXACT -> url.equals(pattern, ignoreCase = true)
+        }
+    }
+
+    /** `host` 等于 `domain` 或是它的子域；`domain` 允许带前导点/通配前缀。 */
+    fun hostMatches(host: String, domain: String): Boolean {
+        val normalized = domain.trim().trimStart('.').removePrefix("*.").lowercase()
+        if (normalized.isEmpty()) return false
+        val hostLower = host.lowercase()
+        return hostLower == normalized || hostLower.endsWith(".$normalized")
+    }
+
+    /**
+     * 内网/本机地址：短链解析是后台联网请求，别让剪贴板里的 `192.168.x` / `localhost`
+     * 变成对局域网服务的探测。纯函数，供 [LinkShortLinkResolver] 与单测共用。
+     */
+    fun isPrivateHost(host: String?): Boolean {
+        if (host.isNullOrBlank()) return false
+        val bare = host.trim().removePrefix("[").removeSuffix("]")
+        // 多个冒号 = IPv6 字面量（内网段太多，一律不联网）；单个冒号是 host:port。
+        if (bare.count { it == ':' } > 1) return true
+        val raw = bare.substringBefore(':')
+        val lower = raw.lowercase()
+        if (lower == "localhost" || lower.endsWith(".localhost") || lower.endsWith(".local")) {
+            return true
+        }
+        val parts = lower.split('.')
+        if (parts.size != 4) return false
+        val octets = parts.map { it.toIntOrNull() ?: return false }
+        if (octets.any { it !in 0..255 }) return false
+        val (a, b) = octets
+        return when {
+            a == 10 || a == 127 || a == 0 -> true
+            a == 192 && b == 168 -> true
+            a == 172 && b in 16..31 -> true
+            a == 169 && b == 254 -> true
+            a == 100 && b in 64..127 -> true
+            else -> false
         }
     }
 
