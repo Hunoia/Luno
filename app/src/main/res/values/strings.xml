@@ -6,7 +6,6 @@
     <string name="accessibility_description">辅助服务用于模拟返回、主页、等按键操作，实现侧滑手势的各种自定义操控，不会收集任何数据。</string>
     <string name="delete">删除</string>
     <string name="edit">编辑</string>
-    <string name="go_back">返回</string>
     <string name="save">保存</string>
     <string name="add_gesture_button">添加触钮</string>
     <string name="reset_default_settings_warning">恢复默认设置</string>
@@ -379,8 +378,6 @@
     <string name="no_matching_results">无匹配结果</string>
     <string name="all_categories">全部</string>
     <string name="search_hint_all">搜索</string>
-
-    <string name="search_clear_cd">清除</string>
     <string name="search_collapse_cd">收起搜索</string>
     <string name="long_press">长按</string>
     <string name="tap_action">单击</string>

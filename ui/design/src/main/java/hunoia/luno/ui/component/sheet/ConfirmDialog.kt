@@ -42,7 +42,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
-import hunoia.luno.R
+import hunoia.luno.design.R
 import hunoia.luno.ui.theme.ExtraLargeShape
 import hunoia.luno.ui.theme.LargeGutter
 import hunoia.luno.ui.theme.LargeShape

@@ -113,53 +113,6 @@ fun actionText(
         ?: if (emptyIfNone) "" else stringResource(R.string.action_none)
 }
 
-/**
- * 文字/表情图标：动作库条目的 [ActionLibraryEntry.iconKey] 非 palette key 时，
- * 把原始字符串当文字/表情渲染，与 App/快捷方式的 String(Coil 模型) 区分开。
- */
-data class TextIcon(val text: String)
-
-/**
- * 文字/表情图标的统一渲染：在 [size] 见方容器内按需缩小字号，避免裁剪且横竖居中。
- * 直接用 titleLarge 的 Text 会因行高超出容器被切掉，emoji 还会偏上。
- */
-@Composable
-fun TextIconGlyph(
-    text: String,
-    size: Dp,
-    color: Color = LocalContentColor.current,
-    modifier: Modifier = Modifier,
-) {
-    val measurer = rememberTextMeasurer()
-    val density = LocalDensity.current
-    val base = MaterialTheme.typography.titleLarge.copy(
-        color = color,
-        lineHeight = TextUnit.Unspecified,
-    )
-    val sidePx = with(density) { size.toPx() }
-    val style = remember(text, base, sidePx, density) {
-        val measured = measurer.measure(text = AnnotatedString(text), style = base)
-        val w = measured.size.width.toFloat()
-        val h = measured.size.height.toFloat()
-        if (w <= sidePx && h <= sidePx) {
-            base
-        } else {
-            base.copy(fontSize = base.fontSize * min(sidePx / w, sidePx / h))
-        }
-    }
-    Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
-        Text(
-            text = text,
-            modifier = Modifier.wrapContentSize(Alignment.Center, unbounded = true),
-            style = style,
-            maxLines = 1,
-            softWrap = false,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-        )
-    }
-}
-
 /** 图标优先级：自定义文字/表情 > palette 图标 > 类型默认图标。 */
 fun ActionLibraryEntry.resolvedIcon(): Any? {
     iconKey?.let { key ->

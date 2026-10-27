@@ -24,7 +24,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import dev.chrisbanes.haze.HazeState
-import hunoia.luno.R
+import hunoia.luno.design.R
 import hunoia.luno.ui.theme.TopBarPaddingExtra
 import hunoia.luno.ui.theme.TopBarTitlePadding
 import hunoia.luno.ui.theme.appHazeEffect

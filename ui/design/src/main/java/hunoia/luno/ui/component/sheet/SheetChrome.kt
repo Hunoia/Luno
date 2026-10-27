@@ -17,7 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import hunoia.luno.R
+import hunoia.luno.design.R
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ContentBottom
