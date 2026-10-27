@@ -2,6 +2,7 @@ package hunoia.luno.actions
 
 import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ActionDefinitions
+import hunoia.luno.action.model.labelRes
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.action.definitions.excludedTemplateKeys
 import hunoia.luno.action.model.Action
@@ -70,6 +71,30 @@ object LunoActionSearchSource : hunoia.luno.core.domain.ActionSearchSource {
                 typeId = def.typeId,
                 icon = def.icon,
                 action = StoredAction(def.typeId),
+            )
+        }
+}
+
+/** 设置页与动作库条目的搜索投影（ADR-0001 D2）。 */
+object LunoActionSearchExtras : hunoia.luno.core.domain.ActionSearchSource {
+    override fun index(): List<hunoia.luno.core.domain.ActionSearchEntry> = emptyList()
+
+    override fun settingsPages(
+        label: (resId: Int) -> String,
+    ): List<hunoia.luno.core.domain.ActionSearchEntry> =
+        hunoia.luno.action.model.SettingsPage.entries.map { page ->
+            hunoia.luno.core.domain.ActionSearchEntry(
+                key = "settings:${page.name}",
+                group = "settings",
+                label = label(page.labelRes),
+                typeId = "system.openSettings",
+                icon = null,
+                action = StoredAction(
+                    "system.openSettings",
+                    kotlinx.serialization.json.JsonObject(
+                        mapOf("page" to kotlinx.serialization.json.JsonPrimitive(page.name)),
+                    ),
+                ),
             )
         }
 }

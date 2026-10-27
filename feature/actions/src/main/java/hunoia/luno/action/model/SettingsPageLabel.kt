@@ -1,6 +1,6 @@
 package hunoia.luno.action.model
 
-import hunoia.luno.R
+import hunoia.luno.actions.R
 
 /**
  * 设置页名称资源：快速搜索与选择页弹窗共用。

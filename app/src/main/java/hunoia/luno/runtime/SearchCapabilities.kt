@@ -10,5 +10,7 @@ import hunoia.luno.core.domain.ActionSearchSource
  * 搜索模块不需要改。
  */
 object SearchCapabilities {
-    var actionSearch: ActionSearchSource = ActionSearchSource { emptyList() }
+    var actionSearch: ActionSearchSource = object : ActionSearchSource {
+        override fun index(): List<hunoia.luno.core.domain.ActionSearchEntry> = emptyList()
+    }
 }

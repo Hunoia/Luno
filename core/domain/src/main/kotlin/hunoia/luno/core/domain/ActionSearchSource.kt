@@ -10,9 +10,23 @@ package hunoia.luno.core.domain
  *
  * `:app` 组装时把实现注入 `:feature:search`；搜索不 import 动作模块。
  */
-fun interface ActionSearchSource {
+interface ActionSearchSource {
     /** 当前可用于搜索的动作条目（已按动作模块的口径过滤：默认排除 picker 排除集）。 */
     fun index(): List<ActionSearchEntry>
+
+    /**
+     * 系统设置页条目（`system.openSettings` 的各个 page）。
+     *
+     * 归在动作模块是因为「有哪些设置页、叫什么」的变化原因就是动作定义演进；
+     * 搜索只负责召回与排序。
+     */
+    fun settingsPages(label: (resId: Int) -> String): List<ActionSearchEntry> = emptyList()
+
+    /**
+     * 动作库条目的标题/图标解析：库条目的 label 与图标规则属动作模块，
+     * 搜索侧不持有 `ActionDefinitions` 与图标资源。
+     */
+    fun resolveLibraryEntry(entry: ActionLibraryEntry): ActionSearchEntry? = null
 }
 
 /**

@@ -114,14 +114,6 @@
     <string name="recent_apps_blocklist">最近应用黑名单</string>
     <string name="recent_apps_blocklist_hint">最近的内置部件与上一个应用不显示/不切换到这些应用</string>
     <!-- 设置页（动作/快速搜索共用） -->
-    <string name="settings_page_wifi">Wi-Fi</string>
-    <string name="settings_page_bluetooth">蓝牙</string>
-    <string name="settings_page_display">显示</string>
-    <string name="settings_page_battery">电池</string>
-    <string name="settings_page_apps">应用</string>
-    <string name="settings_page_network">网络</string>
-    <string name="settings_page_accessibility">无障碍</string>
-    <string name="settings_page_main">主设置</string>
     <!-- 动作选择页行尾设置弹窗 -->
     <string name="ok">确定</string>
     <string name="row_settings_sensitivity">灵敏度</string>

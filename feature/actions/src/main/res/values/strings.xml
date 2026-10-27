@@ -7,4 +7,12 @@
     <string name="random_name_generate_failed">生成失败</string>
     <string name="random_name_copy_failed">复制失败</string>
     <string name="action_shell_clipboard_label">Shell 输出</string>
+    <string name="settings_page_wifi">Wi-Fi</string>
+    <string name="settings_page_bluetooth">蓝牙</string>
+    <string name="settings_page_display">显示</string>
+    <string name="settings_page_battery">电池</string>
+    <string name="settings_page_apps">应用</string>
+    <string name="settings_page_network">网络</string>
+    <string name="settings_page_accessibility">无障碍</string>
+    <string name="settings_page_main">主设置</string>
 </resources>
