@@ -9,6 +9,9 @@ import hunoia.luno.action.controller.*
 import hunoia.luno.action.execution.*
 import hunoia.luno.action.executor.*
 import hunoia.luno.action.model.*
+import hunoia.luno.core.domain.ActionFailure
+import hunoia.luno.core.domain.ActionResult
+import hunoia.luno.core.domain.Capability
 import hunoia.luno.bridge.ui.showToast as showToastUtil
 import hunoia.luno.bridge.ui.showToastLong as showToastLongUtil
 import hunoia.luno.bridge.ui.showVersionTooLowToast as showVersionTooLowToastUtil

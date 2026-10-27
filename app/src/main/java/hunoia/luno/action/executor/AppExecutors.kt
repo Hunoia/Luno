@@ -6,13 +6,13 @@ import hunoia.luno.action.controller.IntentController
 import hunoia.luno.action.execution.ActionExecutor
 import hunoia.luno.action.execution.ExecutorContext
 import hunoia.luno.action.model.Action
-import hunoia.luno.action.model.ActionFailure
-import hunoia.luno.action.model.ActionResult
+import hunoia.luno.core.domain.ActionFailure
+import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.bridge.system.queryIntentActivitiesCompat
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.core.JsonSerializer
 import hunoia.luno.quicklaunch.QuickLaunchFacade
-import hunoia.luno.quicklaunch.launch.AppLaunchBypass
+import hunoia.luno.launch.AppLaunchBypass
 import hunoia.luno.quicklaunch.model.LauncherInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine

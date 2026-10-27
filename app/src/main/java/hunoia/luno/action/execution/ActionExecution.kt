@@ -9,12 +9,12 @@ import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.action.definitions.excludedTemplateKeys
 import hunoia.luno.action.model.ButtonTarget
 import hunoia.luno.action.model.Action
-import hunoia.luno.action.model.ActionFailure
+import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.action.model.ActionMapper
 import hunoia.luno.action.model.InvalidActionParameterException
 import hunoia.luno.action.model.UnknownActionTypeException
-import hunoia.luno.action.model.ActionResult
-import hunoia.luno.action.model.Capability
+import hunoia.luno.core.domain.ActionResult
+import hunoia.luno.core.domain.Capability
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.action.template.ParamTemplates
 import hunoia.luno.config.model.ActionSettings

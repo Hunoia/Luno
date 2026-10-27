@@ -4,9 +4,9 @@ import android.accessibilityservice.AccessibilityService
 import android.content.ContextWrapper
 import android.view.accessibility.AccessibilityEvent
 import hunoia.luno.action.model.Action
-import hunoia.luno.action.model.ActionFailure
-import hunoia.luno.action.model.ActionResult
-import hunoia.luno.action.model.Capability
+import hunoia.luno.core.domain.ActionFailure
+import hunoia.luno.core.domain.ActionResult
+import hunoia.luno.core.domain.Capability
 import hunoia.luno.action.model.StoredAction
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope

@@ -49,8 +49,6 @@ class PackageDependencyTest {
         Edge("ui", "service"),
         Edge("action", "quicklaunch"),
         Edge("quicklaunch", "action"),
-        Edge("link", "quicklaunch"),
-        Edge("runtime", "gridpanel"),
     )
 
     @Test

@@ -46,6 +46,7 @@ import hunoia.luno.action.definitions.ActionCategory
 import hunoia.luno.action.model.ACTION_PANEL_PARAM_PANEL_ID
 import hunoia.luno.action.model.ACTION_PANEL_TYPE_ID
 import hunoia.luno.action.model.*
+import hunoia.luno.core.domain.Capability
 import hunoia.luno.action.model.Action
 
 object ActionDefinitions {

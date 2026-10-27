@@ -1,7 +1,5 @@
 package hunoia.luno.core.domain
 
-import hunoia.luno.action.model.ActionResult
-
 /**
  * 单个动作步骤的执行落定结果。
  *

@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationManagerCompat
-import hunoia.luno.action.model.Capability
+import hunoia.luno.core.domain.Capability
 import hunoia.luno.bridge.system.isAccessibilitySettingsOn
 import hunoia.luno.service.SideGestureService
 

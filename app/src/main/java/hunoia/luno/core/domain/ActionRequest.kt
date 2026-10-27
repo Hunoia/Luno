@@ -1,7 +1,5 @@
 package hunoia.luno.core.domain
 
-import hunoia.luno.action.model.StoredAction
-
 /**
  * 一次动作执行请求：统一进 Dispatcher 的唯一输入。
  *

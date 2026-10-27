@@ -3,7 +3,7 @@ package hunoia.luno.action.capability
 import android.content.Context
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.model.ActionLibrarySettings
-import hunoia.luno.action.model.Capability
+import hunoia.luno.core.domain.Capability
 import hunoia.luno.action.model.RUN_RULE_TYPE_ID
 import hunoia.luno.action.model.StoredAction
 import hunoia.luno.config.model.AutomationRule

@@ -299,28 +299,4 @@ sealed interface Action {
     }
 }
 
-/** 动作所需能力（无障碍/Shizuku），执行前由 [hunoia.luno.action.execution.ActionExecutorRegistry] 校验。 */
-enum class Capability {
-    None,
-    Accessibility,
-    Shizuku,
-    /** Android 13+ POST_NOTIFICATIONS / 通知总开关。 */
-    Notification,
-}
-
-sealed interface ActionResult {
-    /** outputs: runRule 等复合动作回传的变量（目前只有 "return"）。 */
-    data class Success(
-        val message: String? = null,
-        val outputs: Map<String, String> = emptyMap(),
-    ) : ActionResult
-    data class Failed(val reason: ActionFailure, val message: String? = null) : ActionResult
-    data class RequiresCapability(val capability: Capability) : ActionResult
-}
-
-enum class ActionFailure {
-    InvalidParameter,
-    ExecutionFailed,
-    PermissionDenied,
-    Unsupported
-}
+/** 动作所需能力/结果类型已下沉契约层，见 ActionModelAliases.kt 与 `hunoia.luno.core.domain`。 */

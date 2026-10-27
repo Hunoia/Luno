@@ -15,7 +15,7 @@ import hunoia.luno.config.model.LinkMissMode
 import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.core.LOG_TAG
-import hunoia.luno.quicklaunch.launch.AppLaunchBypass
+import hunoia.luno.launch.AppLaunchBypass
 
 /** 规则解析出的分发目标（胶囊上显示用）。 */
 data class LinkTarget(

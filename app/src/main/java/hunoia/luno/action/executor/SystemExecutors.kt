@@ -7,8 +7,8 @@ import hunoia.luno.action.controller.VibrateController
 import hunoia.luno.action.execution.ActionExecutor
 import hunoia.luno.action.execution.ExecutorContext
 import hunoia.luno.action.model.Action
-import hunoia.luno.action.model.ActionFailure
-import hunoia.luno.action.model.ActionResult
+import hunoia.luno.core.domain.ActionFailure
+import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.action.model.MediaCommand
 import hunoia.luno.bridge.system.FlashlightController
 import hunoia.luno.bridge.system.gotoAppDetailSettings

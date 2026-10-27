@@ -11,8 +11,9 @@ import hunoia.luno.action.controller.ClipboardController
 import hunoia.luno.action.execution.ActionExecutor
 import hunoia.luno.action.execution.ExecutorContext
 import hunoia.luno.action.model.Action
-import hunoia.luno.action.model.ActionFailure
-import hunoia.luno.action.model.ActionResult
+import hunoia.luno.core.domain.ActionFailure
+import hunoia.luno.core.domain.ActionResult
+import hunoia.luno.core.domain.Capability
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
@@ -93,7 +94,7 @@ class AutomationActionExecutors(
     private fun executeNotify(action: Action.Notify, context: Context): ActionResult {
         val manager = NotificationManagerCompat.from(context)
         if (!manager.areNotificationsEnabled()) {
-            return ActionResult.RequiresCapability(hunoia.luno.action.model.Capability.Notification)
+            return ActionResult.RequiresCapability(hunoia.luno.core.domain.Capability.Notification)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val system = context.getSystemService(NotificationManager::class.java)
@@ -114,7 +115,7 @@ class AutomationActionExecutors(
             manager.notify((System.currentTimeMillis() and 0x7fffffff).toInt(), notification)
             ActionResult.Success()
         } catch (e: SecurityException) {
-            ActionResult.RequiresCapability(hunoia.luno.action.model.Capability.Notification)
+            ActionResult.RequiresCapability(hunoia.luno.core.domain.Capability.Notification)
         }
     }
 

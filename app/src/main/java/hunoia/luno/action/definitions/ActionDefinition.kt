@@ -3,7 +3,7 @@ package hunoia.luno.action.definitions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.ui.graphics.vector.ImageVector
-import hunoia.luno.action.model.Capability
+import hunoia.luno.core.domain.Capability
 import hunoia.luno.action.definitions.ActionCategory
 
 sealed interface ParameterDefinition {

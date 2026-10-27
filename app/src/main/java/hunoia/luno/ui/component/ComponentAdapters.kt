@@ -8,7 +8,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionCategory
-import hunoia.luno.action.model.Capability
+import hunoia.luno.core.domain.Capability
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.ui.component.actionTextCompose

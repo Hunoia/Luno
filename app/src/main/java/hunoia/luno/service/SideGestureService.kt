@@ -7,6 +7,7 @@ import hunoia.luno.action.controller.TextInserter
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.action.model.StoredAction
+import hunoia.luno.action.model.gridPanelId
 import hunoia.luno.quicklaunch.launch.DisabledPackageEnabler
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.GestureCoordinator
@@ -17,6 +18,7 @@ import hunoia.luno.runtime.overlay.PointPickOverlay
 import hunoia.luno.runtime.overlay.ScreenLinksOverlay
 import hunoia.luno.runtime.overlay.ScreenPickOverlay
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.MainScope
 import hunoia.luno.core.LOG_TAG
 
@@ -82,6 +84,22 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         get() = if (::gestureCoordinator.isInitialized)
             gestureCoordinator.runtimeSettingsStore.snapshot().advancedSettings
         else null
+
+    /** 球直发网格面板：悬空引用（面板被删）静默收口，空面板照常弹（本体是编辑入口）。
+     *  实现在 service 侧，避免 runtime 包直接依赖 gridpanel。 */
+    fun showGridPanelDirect(action: StoredAction, anchorX: Int, anchorY: Int) {
+        coroutineScope.launch {
+            val panelId = action.gridPanelId() ?: return@launch
+            val actionSettings = runCatching { hunoia.luno.domain.tune.TuneConfig.getAction() }
+                .onFailure {
+                    android.util.Log.w(LOG_TAG, "grid panel direct config read failed: ${it.message}")
+                }
+                .getOrDefault(hunoia.luno.config.model.ActionSettings())
+            hunoia.luno.gridpanel.GridPanelOverlay.showIfExists(
+                actionSettings, panelId, anchorX, anchorY,
+            )
+        }
+    }
 
     override fun dispatchAction(action: StoredAction) {
         if (::gestureCoordinator.isInitialized) gestureCoordinator.dispatchAction(action)

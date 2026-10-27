@@ -19,7 +19,6 @@ import androidx.core.content.getSystemService
 import hunoia.luno.R
 import hunoia.luno.action.model.GRID_PANEL_TYPE_ID
 import hunoia.luno.action.model.StoredAction
-import hunoia.luno.action.model.gridPanelId
 import hunoia.luno.bridge.system.ClipboardContent
 import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.system.readClipboardContentDetailed
@@ -39,13 +38,11 @@ import hunoia.luno.domain.clipboard.ClipboardCenter
 import hunoia.luno.link.LinkDispatcher
 import hunoia.luno.link.LinkUrls
 import hunoia.luno.ui.link.LinkSelectionActivity
-import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.automation.AutomationNotificationListener
 import hunoia.luno.runtime.automation.AutomationPulseHub
 import hunoia.luno.runtime.condition.NotificationPulse
 import hunoia.luno.runtime.environment.BroadcastObserver
-import hunoia.luno.gridpanel.GridPanelOverlay
 import hunoia.luno.service.SideGestureService
 import hunoia.luno.shizuku.ShizukuClipboard
 import hunoia.luno.shizuku.ShizukuManager
@@ -987,11 +984,11 @@ class FloatBallService : Service() {
 
     /** 按锚点派发 tapAction（主球与分身共用）：网格面板直发，其余进容器。 */
     private fun dispatchTapAction(action: StoredAction, anchorX: Int, anchorY: Int) {
-        // 网格面板动作不进容器：面板浮窗自包含（直读 TuneConfig，不依赖 a11y
-        // 运行态），球侧直发 —— 无障碍没开照样弹，这是「无 a11y 可用」的主路径。
+        // 网格面板动作不进容器：面板浮窗自包含（配置在 service 侧读取，不依赖
+        // a11y 运行态），球侧只转交入口 —— 无障碍没开照样弹，这是「无 a11y 可用」的主路径。
         // 触钮/子手势绑它的路径仍走容器 executor，同一个 GridPanelOverlay.show 入口。
         if (action.typeId == GRID_PANEL_TYPE_ID) {
-            showGridPanelDirect(action, anchorX, anchorY)
+            SideGestureService.current?.showGridPanelDirect(action, anchorX, anchorY)
             return
         }
         SideGestureService.current?.forwardBallTap(action, anchorX, anchorY, settings.color)
@@ -1050,17 +1047,6 @@ class FloatBallService : Service() {
             mirrorTopLeftY.toFloat(),
             endIdled = wasIdled,
         ) { mirrorWindow.crossFadeSwap(settings) }
-    }
-
-    /** 球直发网格面板：悬空引用（面板被删）静默收口，空面板照常弹（本体是编辑入口）。 */
-    private fun showGridPanelDirect(action: StoredAction, anchorX: Int, anchorY: Int) {
-        scope.launch {
-            val panelId = action.gridPanelId() ?: return@launch
-            val actionSettings = runCatching { TuneConfig.getAction() }
-                .onFailure { Log.w(TAG, "grid panel direct config read failed: ${it.message}") }
-                .getOrDefault(ActionSettings())
-            GridPanelOverlay.showIfExists(actionSettings, panelId, anchorX, anchorY)
-        }
     }
 
     // ---- 键盘让位 ----

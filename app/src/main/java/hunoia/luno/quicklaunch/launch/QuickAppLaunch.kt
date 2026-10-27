@@ -1,16 +1,11 @@
 package hunoia.luno.quicklaunch.launch
 
 import android.content.Context
-import hunoia.luno.R
-import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.MiniWindowSettings
-import hunoia.luno.config.model.AppLaunchSource
 import hunoia.luno.config.model.OpenAppOrUrlData
 import hunoia.luno.config.model.OpenUrlQueryParameter
-import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.query.AppQuery
-import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.CoroutineScope
@@ -54,51 +49,6 @@ object QuickAppLaunch {
                 if (result) onLaunched()
             }
         }
-    }
-}
-
-object AppLaunchBypass {
-
-    suspend fun launchWithAutoUnfreeze(
-        context: Context,
-        packageName: String,
-        className: String,
-        miniWindow: Boolean = false,
-        miniWindowSettings: MiniWindowSettings = MiniWindowSettings(),
-        intentAction: String = "",
-        data: String = "",
-        extras: Map<String, String> = emptyMap(),
-        source: AppLaunchSource = AppLaunchSource.ACTION_DISPATCH,
-        unfreezePackage: suspend (context: Context, packageName: String) -> Boolean = { _, _ -> true }
-    ): Boolean {
-        if (!ensureEnabled(context, packageName, unfreezePackage)) return false
-        return QuickLaunchFacade.launchAppDirect(
-            context = context,
-            packageName = packageName,
-            className = className,
-            miniWindow = miniWindow,
-            miniWindowSettings = miniWindowSettings,
-            intentAction = intentAction,
-            data = data,
-            extras = extras,
-            source = source,
-        )
-    }
-
-    /** 应用被禁用时先解冻再启动；解冻失败弹提示并返回 false */
-    private suspend fun ensureEnabled(
-        context: Context,
-        packageName: String,
-        unfreezePackage: suspend (context: Context, packageName: String) -> Boolean,
-    ): Boolean {
-        if (!DisabledAppQuery.isDisabled(context, packageName)) return true
-        if (!unfreezePackage(context, packageName)) {
-            showToast(R.string.enable_disabled_app_failed)
-            return false
-        }
-        DisabledAppQuery.markEnabled(packageName)
-        QuickLaunchFacade.invalidateLauncherCache()
-        return true
     }
 }
 
