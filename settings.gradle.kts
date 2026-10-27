@@ -30,4 +30,5 @@ include(":core:runtime")
 include(":feature:execute")
 include(":feature:actions")
 include(":feature:conditions")
+include(":feature:automation")
  

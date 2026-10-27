@@ -48,7 +48,7 @@ class AutomationEngine(
         subscriptionIndex.refreshIfNeeded(rules)
         val effectiveKeys = eventKeys + pulseKeysIn(ctx)
         val allowedIds = subscriptionIndex.ruleIdsForKeys(effectiveKeys)
-        if (hunoia.luno.BuildConfig.DEBUG && rules.isNotEmpty()) {
+        if (hunoia.luno.automation.BuildConfig.DEBUG && rules.isNotEmpty()) {
             android.util.Log.i(
                 LOG_TAG,
                 "eval keys=$effectiveKeys pkg=${ctx.packageName} " +

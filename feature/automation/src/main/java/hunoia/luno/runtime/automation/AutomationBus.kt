@@ -153,7 +153,7 @@ private fun collectKeys(group: WhenGroup, out: MutableSet<String>) {
  * 否定脉冲（如「没有收到通知」）被当作非状态叶：只在对应脉冲事件到达时评估，
  * 语义是「本次事件不是这个脉冲」；纯否定脉冲规则不进通用刷新，否则恒真会疯狂触发。
  */
-internal fun hasStateLeaf(group: WhenGroup): Boolean {
+fun hasStateLeaf(group: WhenGroup): Boolean {
     for (item in group.items) {
         if (item.type == ConditionType.GROUP) {
             if (item.group?.let(::hasStateLeaf) == true) return true
