@@ -9,9 +9,9 @@ import android.os.Handler
 import android.os.Looper
 import hunoia.luno.core.domain.AudioStream
 import hunoia.luno.core.domain.VolumeDirection
-import hunoia.luno.config.model.RingerMode
-import hunoia.luno.runtime.VolumeChange
-import hunoia.luno.action.model.toStreamType
+import hunoia.luno.core.domain.RingerMode
+import hunoia.luno.core.domain.VolumeChange
+import hunoia.luno.bridge.system.toStreamType
 
 /**
  * 提供音量与铃声电平；仅有相关规则时轮询并产生音量变化脉冲。

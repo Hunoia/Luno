@@ -24,7 +24,7 @@ import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.actionPanelId
 import hunoia.luno.core.domain.withoutVariantKey
-import hunoia.luno.runtime.condition.toConditionContext
+import hunoia.luno.runtime.toConditionContext
 import hunoia.luno.runtime.condition.matches
 import hunoia.luno.runtime.condition.ConditionContext
 import hunoia.luno.runtime.automation.RuleTestResult

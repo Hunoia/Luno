@@ -17,8 +17,7 @@ import hunoia.luno.config.model.ScreenEventType
 import hunoia.luno.config.model.ScreenType
 import hunoia.luno.config.model.VariableCompareOp
 import hunoia.luno.config.model.WhenGroup
-import hunoia.luno.runtime.GestureRuntimeState
-import hunoia.luno.runtime.VolumeChange
+import hunoia.luno.core.domain.VolumeChange
 import java.util.Calendar
 import hunoia.luno.core.domain.formatTimeOfDay
 import hunoia.luno.core.domain.nowDayOfWeek
@@ -39,55 +38,6 @@ fun rangeContains(actual: Int?, min: Int?, max: Int?): Boolean {
     if (value < 0) return false
     return (min == null || value >= min) && (max == null || value <= max)
 }
-
-fun GestureRuntimeState.toConditionContext(
-    variables: Map<String, String> = emptyMap(),
-): ConditionContext = ConditionContext(
-    nowMs = nowMs,
-    packageName = currentPackageName,
-    isLockScreen = isNowInLockScreenPage,
-    isLauncher = isInLauncher,
-    isLandscape = isLandscape,
-    isKeyboardInput = isKeyboardInputActive,
-    isCharging = isCharging,
-    batteryLevel = batteryLevel,
-    minuteOfDay = minuteOfDay,
-    dayOfWeek = dayOfWeek,
-    networkType = networkType,
-    wifiSsid = wifiSsid,
-    headphonesConnected = headphonesConnected,
-    bluetoothAdapterOn = bluetoothAdapterOn,
-    bluetoothAudioConnected = bluetoothAudioConnected,
-    bluetoothDeviceName = bluetoothDeviceName,
-    bluetoothDeviceAddress = bluetoothDeviceAddress,
-    airplaneMode = airplaneMode,
-    ringerMode = ringerMode,
-    volumePercent = volumePercent,
-    isMusicPlaying = isMusicPlaying,
-    isTorchOn = isTorchOn,
-    isDndOn = isDndOn,
-    appChangedTo = appChangedTo,
-    screenEvent = screenEvent,
-    chargingChangedTo = chargingChangedTo,
-    volumeChanged = volumeChanged,
-    notificationPosted = notificationPosted,
-    notificationRemoved = notificationRemoved,
-    activeNotifications = activeNotifications,
-    packageChanged = packageChanged,
-    shareReceived = shareReceived,
-    clipboardChanged = clipboardChanged,
-    intervalDueKeys = intervalDueKeys,
-    bluetoothChanged = bluetoothChanged,
-    headphonesChanged = headphonesChanged,
-    scheduledTimeHit = scheduledTimeHit,
-    gesturePerformedId = gesturePerformedId,
-    gesturePerformedName = gesturePerformedName,
-    keyboardEvent = keyboardEvent,
-    musicChanged = musicChanged,
-    torchChangedTo = torchChangedTo,
-    dndChangedTo = dndChangedTo,
-    variables = variables,
-)
 
 fun AutomationRule.matches(ctx: ConditionContext, ruleId: String? = null): Boolean =
     condition.matches(ctx, ruleId)

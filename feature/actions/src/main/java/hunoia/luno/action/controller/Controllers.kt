@@ -8,7 +8,7 @@ import android.view.KeyEvent
 import hunoia.luno.core.domain.AudioStream
 import hunoia.luno.action.model.MediaCommand
 import hunoia.luno.core.domain.VolumeDirection
-import hunoia.luno.action.model.toStreamType
+import hunoia.luno.bridge.system.toStreamType
 import hunoia.luno.bridge.system.copySensitiveText
 import hunoia.luno.bridge.system.dispatchMediaKeyEvent
 import hunoia.luno.bridge.system.toggleMute

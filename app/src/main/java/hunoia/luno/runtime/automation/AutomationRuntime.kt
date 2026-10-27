@@ -2,7 +2,7 @@ package hunoia.luno.runtime.automation
 
 import hunoia.luno.config.model.GlobalVariables
 import hunoia.luno.runtime.GestureRuntimeState
-import hunoia.luno.runtime.condition.toConditionContext
+import hunoia.luno.runtime.toConditionContext
 import hunoia.luno.runtime.settings.SettingsStore
 
 /**

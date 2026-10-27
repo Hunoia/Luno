@@ -29,4 +29,5 @@ include(":core:data")
 include(":core:runtime")
 include(":feature:execute")
 include(":feature:actions")
+include(":feature:conditions")
  
