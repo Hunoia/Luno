@@ -8,6 +8,7 @@ import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.model.RuleStepKind
 import hunoia.luno.config.model.SequenceLimits
 import hunoia.luno.config.model.StepFailure
+import hunoia.luno.core.domain.StepOutcome
 import hunoia.luno.runtime.condition.ConditionContext
 import hunoia.luno.runtime.condition.matches
 import kotlinx.coroutines.CancellationException
@@ -39,12 +40,6 @@ object SequenceGuards {
 
     /** 规则嵌套（internal.runRule）深度上限：A→B→A 循环在此截断（选择页同时禁自引用）；只跑 steps，不经过引擎仲裁。 */
     const val MAX_RULE_DEPTH = 5
-}
-
-/** 单步执行结果：区分"条目没了"与"执行了但失败"。 */
-sealed interface StepOutcome {
-    data object EntryMissing : StepOutcome
-    data class Done(val result: ActionResult) : StepOutcome
 }
 
 /** 一次序列执行的完整结果：记录 + 结束时的变量（runRule 的 RETURN 从 variables["return"] 取）。 */

@@ -23,7 +23,7 @@ import hunoia.luno.runtime.GestureHost
 import hunoia.luno.runtime.GestureRuntimeState
 import hunoia.luno.runtime.condition.toConditionContext
 import hunoia.luno.runtime.environment.PreviousAppTracker
-import hunoia.luno.runtime.automation.StepOutcome
+import hunoia.luno.core.domain.StepOutcome
 import hunoia.luno.runtime.automation.SequenceGuards
 import hunoia.luno.runtime.automation.SequenceExecutor
 import hunoia.luno.runtime.condition.ConditionContext
