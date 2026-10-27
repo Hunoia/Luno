@@ -32,6 +32,15 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.material3)
+    implementation(libs.material.icons.extended)
+    implementation(libs.coil)
+    implementation(libs.coil.compose)
+    implementation(libs.com.aaronzzx.fastcompose.compose) {
+        exclude(group = "androidx.hilt")
+        exclude(group = "com.google.dagger")
+        exclude(group = "com.google.accompanist")
+        exclude(group = "net.engawapg.lib")
+    }
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel)
