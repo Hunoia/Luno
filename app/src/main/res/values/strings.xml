@@ -920,7 +920,6 @@
     <string name="link_dispatch">链接分发</string>
     <string name="link_dispatch_hint">按规则把链接送进指定应用</string>
     <string name="link_dispatch_rule_count">%1$d 条规则 · 按规则把链接送进指定应用</string>
-    <string name="link_dispatch_open_failed">没有可打开该链接的应用</string>
     <string name="link_dispatch_no_link">没有识别到链接</string>
     <string name="link_dispatch_global_group">行为</string>
     <string name="link_dispatch_enabled">启用链接分发</string>

@@ -74,6 +74,8 @@ class App : Application(), ImageLoaderFactory {
 
         // 两进程都连分发 Binder：主进程靠它转发，:service 靠它自查就绪。
         hunoia.luno.service.DispatchClient.bind(applicationContext)
+        // 链接分发的应用内导航（规则编辑页 / 选择页）需要 context。
+        hunoia.luno.link.AppLinkPorts.context = applicationContext
 
         Thread.setDefaultUncaughtExceptionHandler(CrashHandler)
     }

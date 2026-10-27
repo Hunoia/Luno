@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="link_dispatch_open_failed">没有可打开该链接的应用</string>
+</resources>

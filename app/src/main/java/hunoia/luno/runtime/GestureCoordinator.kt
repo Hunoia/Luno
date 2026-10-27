@@ -1239,6 +1239,17 @@ class GestureCoordinator(
             hunoia.luno.action.dispatcher.GestureDispatchEvent::class,
             gestureDispatchSubscriber,
         )
+        // 链接分发经执行口启动：本进程内可等待，主进程走 IPC。
+        hunoia.luno.link.LocalDispatch.provider = { action ->
+            actionDispatcher.execute(
+                hunoia.luno.execute.ExecuteCall(
+                    request = hunoia.luno.core.domain.ActionRequest(
+                        stored = action.withoutVariantKey(),
+                        origin = hunoia.luno.core.domain.DispatchOrigin.LINK,
+                    ),
+                ),
+            ).succeeded
+        }
         runtimeSettingsStore.start()
         broadcastObserver.register()
         batteryTracker.register()
@@ -1445,6 +1456,7 @@ class GestureCoordinator(
             hunoia.luno.action.dispatcher.GestureDispatchEvent::class,
             gestureDispatchSubscriber,
         )
+        hunoia.luno.link.LocalDispatch.provider = null
         AutomationPulseHub.removeNotificationObserver(notificationObserver)
         AutomationPulseHub.removeNotificationRemovedObserver(notificationRemovedObserver)
         AutomationPulseHub.removeNotificationStateObserver(notificationStateObserver)

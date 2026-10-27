@@ -71,7 +71,7 @@ import hunoia.luno.core.Events
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
-import hunoia.luno.link.LinkDispatcher
+import hunoia.luno.link.Links
 import hunoia.luno.link.LinkUrls
 import hunoia.luno.quicklaunch.icon.SearchIconCache
 import hunoia.luno.runtime.GestureHost
@@ -264,7 +264,7 @@ internal class ScreenLinksOverlay(private val host: GestureHost) {
             // 按屏幕上的视觉顺序（y 从上到下）展示，遍历顺序对用户没意义。
             result.urls.sortedBy { it.second }.map { (url, _) ->
                 val rule = LinkUrls.firstMatch(url, rules)
-                val target = rule?.let { LinkDispatcher.resolvedTargetOf(context, it, url) }
+                val target = rule?.let { Links.resolvedTargetOf(context, it, url) }
                 ScreenLink(
                     url = url,
                     host = LinkUrls.hostOf(url) ?: url,
@@ -301,8 +301,8 @@ internal class ScreenLinksOverlay(private val host: GestureHost) {
         host.coroutineScope.launch {
             val settings = currentSettings()
             val rule = if (settings.enabled) LinkUrls.firstMatch(link.url, settings.rules) else null
-            val dispatched = settings.enabled && LinkDispatcher.dispatch(context, link.url, settings)
-            if (!dispatched) LinkDispatcher.fallbackFor(context, link.url, rule, settings)
+            val dispatched = settings.enabled && Links.dispatch(context, link.url, settings)
+            if (!dispatched) Links.fallbackFor(context, link.url, rule, settings)
             if (current == session) close()
         }
     }
@@ -326,12 +326,12 @@ internal class ScreenLinksOverlay(private val host: GestureHost) {
     }
 
     private fun onOpenBrowser(link: ScreenLink) {
-        LinkDispatcher.openInBrowser(host.context, link.url)
+        Links.openInBrowser(host.context, link.url)
         close()
     }
 
     private fun onShare(link: ScreenLink) {
-        LinkDispatcher.share(host.context, link.url)
+        Links.share(host.context, link.url)
         close()
     }
 
@@ -340,7 +340,7 @@ internal class ScreenLinksOverlay(private val host: GestureHost) {
         val ruleHost = runCatching { java.net.URI(link.url).host }.getOrNull()
             ?.removePrefix("www.")
             ?: link.host.removePrefix("www.")
-        LinkDispatcher.createRule(host.context, ruleHost)
+        Links.createRule(host.context, ruleHost)
         close()
     }
 
@@ -352,7 +352,7 @@ internal class ScreenLinksOverlay(private val host: GestureHost) {
 
     private fun onShareAll() {
         if (links.isEmpty()) return
-        LinkDispatcher.shareAll(host.context, links.map { it.url })
+        Links.shareAll(host.context, links.map { it.url })
         close()
     }
 

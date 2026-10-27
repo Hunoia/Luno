@@ -5,23 +5,40 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.util.Log
-import hunoia.luno.R
-import hunoia.luno.config.ConfigProvider
-import hunoia.luno.config.model.AdvancedSettings
-import hunoia.luno.config.model.AppLaunchSource
+import hunoia.luno.link.R
 import hunoia.luno.config.model.LinkDispatchRule
 import hunoia.luno.config.model.LinkDispatchSettings
 import hunoia.luno.config.model.LinkMissMode
-import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.core.LOG_TAG
-import hunoia.luno.launch.AppLaunchBypass
 
 /** 规则解析出的分发目标（胶囊上显示用）。 */
 data class LinkTarget(
     val packageName: String,
     val label: String,
 )
+
+/** 链接分发的外部能力：启动（必须经执行口）、应用内导航。实现方在 `:app`。 */
+interface LinkPorts {
+    /**
+     * 按规则把链接送到目标应用；返回是否真的发出。
+     *
+     * 实现方**必须**走 `ActionRequest → Dispatcher`：链接分发不是执行旁路，
+     * 解冻、小窗、能力闸、三态反馈都由执行口统一负责。
+     */
+    suspend fun launchLink(
+        packageName: String,
+        className: String,
+        miniWindow: Boolean,
+        url: String,
+    ): Boolean
+
+    /** 拉起规则编辑页并预填匹配串（应用内导航）。 */
+    fun createRule(host: String)
+
+    /** 选择应用打开链接（应用内选择页）。 */
+    fun pickApp(url: String)
+}
 
 /**
  * 把链接送进指定应用的动作层：胶囊（`:service`）与 `LinkDispatchActivity`（主进程）共用。
@@ -30,10 +47,10 @@ data class LinkTarget(
  * intentAction/data 通路），因此自动带上解冻、冻结检测、用量统计与小窗支持。
  * Luno 自己可能被设成默认浏览器：所有回退路径都要排除自身组件，否则会自我循环。
  */
-object LinkDispatcher {
+class LinkDispatcher(private val ports: LinkPorts) {
 
     /** 未指定具体浏览器时，胶囊/规则列表上显示的名字。 */
-    private const val BROWSER_LABEL = "浏览器"
+    private val BROWSER_LABEL = "浏览器"
 
     /** 规则的目标应用显示名；包名解析失败（已卸载）回退显示包名本身。 */
     fun targetOf(context: Context, rule: LinkDispatchRule): LinkTarget? {
@@ -118,19 +135,12 @@ object LinkDispatcher {
             return false
         }
         val effectiveUrl = LinkUrls.applyTemplate(url, rule.template)
-        val advanced = runCatching { ConfigProvider.getAdvancedSettings() }
-            .onFailure { Log.w(LOG_TAG, "link dispatch: read advanced settings failed: ${it.message}") }
-            .getOrDefault(AdvancedSettings())
         val launched = runCatching {
-            AppLaunchBypass.launchWithAutoUnfreeze(
-                context = context,
+            ports.launchLink(
                 packageName = target,
                 className = rule.targetActivity.trim(),
                 miniWindow = rule.miniWindow,
-                miniWindowSettings = advanced.miniWindowSettings(),
-                intentAction = Intent.ACTION_VIEW,
-                data = effectiveUrl,
-                source = AppLaunchSource.ACTION_DISPATCH,
+                url = effectiveUrl,
             )
         }.onFailure { Log.w(LOG_TAG, "link dispatch failed: $effectiveUrl -> $target", it) }
             .getOrDefault(false)
@@ -166,17 +176,8 @@ object LinkDispatcher {
     fun createRule(context: Context, host: String) {
         val pattern = host.trim()
         if (pattern.isEmpty()) return
-        val launched = runCatching {
-            context.startActivity(
-                Intent().apply {
-                    component = ComponentName(context.packageName, LinkExtras.ACTIVITY_MAIN)
-                    putExtra(LinkExtras.EXTRA_RULE_PATTERN, pattern)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                },
-            )
-        }.onFailure { Log.w(LOG_TAG, "link rule editor launch failed", it) }
-            .isSuccess
-        if (!launched) showToast(R.string.link_dispatch_open_failed)
+        runCatching { ports.createRule(pattern) }
+            .onFailure { Log.w(LOG_TAG, "link rule editor launch failed", it) }
     }
 
     /** 用其他浏览器打开；解析到 Luno 自己时改成「选择应用」，避免自我循环。 */
@@ -199,17 +200,8 @@ object LinkDispatcher {
      * 直接显示空白（HyperOS 实测），而且无法控制排序。改用自绘 [LinkExtras.ACTIVITY_SELECT]。
      */
     fun pickApp(context: Context, url: String) {
-        val launched = runCatching {
-            context.startActivity(
-                Intent().apply {
-                    component = ComponentName(context.packageName, LinkExtras.ACTIVITY_SELECT)
-                    putExtra(LinkExtras.EXTRA_PICK_URL, url)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                },
-            )
-        }.onFailure { Log.w(LOG_TAG, "link picker launch failed", it) }
-            .isSuccess
-        if (!launched) showToast(R.string.link_dispatch_open_failed)
+        runCatching { ports.pickApp(url) }
+            .onFailure { Log.w(LOG_TAG, "link picker launch failed", it) }
     }
 
     /** 按未命中策略回退；[policy] 见 [LinkMissMode]。 */

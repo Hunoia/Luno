@@ -35,7 +35,7 @@ import hunoia.luno.core.TouchButtonSideEvent
 import hunoia.luno.config.model.LinkDispatchSettings
 import hunoia.luno.config.model.LinkTapMode
 import hunoia.luno.domain.clipboard.ClipboardCenter
-import hunoia.luno.link.LinkDispatcher
+import hunoia.luno.link.Links
 import hunoia.luno.link.LinkUrls
 import hunoia.luno.ui.link.LinkSelectionActivity
 import hunoia.luno.quicklaunch.QuickLaunchFacade
@@ -866,7 +866,7 @@ class FloatBallService : Service() {
         if (links.size > 1) return ClipboardLinkInfo(links.size)
         val url = links.first()
         val rule = LinkUrls.firstMatch(url, linkDispatch.rules) ?: return null
-        val target = LinkDispatcher.resolvedTargetOf(this, rule, url) ?: return null
+        val target = Links.resolvedTargetOf(this, rule, url) ?: return null
         return ClipboardLinkInfo(1, target.packageName, target.label)
     }
 
@@ -895,7 +895,7 @@ class FloatBallService : Service() {
         val url = links.first()
         val rule = LinkUrls.firstMatch(url, linkDispatch.rules)
         if (rule == null) {
-            LinkDispatcher.fallback(this, url, linkDispatch.missAction)
+            Links.fallback(this, url, linkDispatch.missAction)
             hideClipboardBall()
             return
         }
@@ -905,10 +905,10 @@ class FloatBallService : Service() {
             return
         }
         scope.launch {
-            val dispatched = LinkDispatcher.dispatch(this@FloatBallService, url, linkDispatch)
+            val dispatched = Links.dispatch(this@FloatBallService, url, linkDispatch)
             if (!dispatched) {
                 Log.w(TAG, "link dispatch failed, fallback: ${url.take(80)}")
-                LinkDispatcher.fallbackFor(this@FloatBallService, url, rule, linkDispatch)
+                Links.fallbackFor(this@FloatBallService, url, rule, linkDispatch)
             }
             hideClipboardBall()
         }

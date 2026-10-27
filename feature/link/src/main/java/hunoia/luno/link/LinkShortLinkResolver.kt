@@ -158,7 +158,7 @@ object LinkShortLinkResolver {
  * 优先级：meta refresh → JS 的 `location(.href) =` / `location.replace|assign(...)` →
  * 正文里出现的任意链接（兜底）。JS 经常把斜杠转义成 `\/`，先还原再扫。
  */
-internal object ShortLinkScan {
+object ShortLinkScan {
 
     private val metaRefresh = Regex(
         """(?i)<meta[^>]+http-equiv\s*=\s*["']?refresh["']?[^>]*content\s*=\s*["']?\s*\d*\s*;?\s*url=([^"'>\s]+)""",

@@ -69,6 +69,11 @@ class ActionDispatcher(
 
     private val resolver = ActionResolver(registry, catalog, factory)
 
+    /** 可等待分发：调用方需要真实成败时用（如链接分发经执行口启动）。 */
+    suspend fun execute(call: ExecuteCall): ExecuteSettlement = withContext(Dispatchers.Main.immediate) {
+        dispatchAwait(call)
+    }
+
     /** 异步分发：等执行落定后回调 [onSettled]（触发侧据此发事件/驱动自动化评估）。 */
     fun submit(call: ExecuteCall, onSettled: (ExecuteSettlement) -> Unit = {}) {
         scope.launch(Dispatchers.Main.immediate) {
