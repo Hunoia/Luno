@@ -1,6 +1,7 @@
 package hunoia.luno.action.model
 
 import hunoia.luno.core.domain.AudioStream
+import hunoia.luno.core.domain.QueryParam
 import hunoia.luno.core.domain.VolumeDirection
 
 /**
@@ -10,8 +11,6 @@ import hunoia.luno.core.domain.VolumeDirection
  * 参数编辑器元数据仍在 `:feature:actions`。不得携带资源 id / 配置默认值：
  * 展示文案与默认值由各自层提供（见 `SettingsPage.labelRes` 的 app 侧扩展）。
  */
-
-data class QueryParam(val name: String, val value: String, val enabled: Boolean = true)
 
 enum class SettingsPage {
     WIFI, BLUETOOTH, DISPLAY, BATTERY, APPS, NETWORK, ACCESSIBILITY, MAIN

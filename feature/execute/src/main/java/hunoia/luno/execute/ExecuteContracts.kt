@@ -154,16 +154,11 @@ interface NestedRuleRunner {
     ): ActionResult
 }
 
-/** 启动参数：小窗尺寸/位置等全局设置由实现侧读取，不进执行口。 */
-data class LaunchSpec(
-    val packageName: String,
-    val className: String = "",
-    val miniWindow: Boolean = false,
-    /** 空 = 不覆盖系统默认启动行为。 */
-    val intentAction: String = "",
-    val data: String = "",
-    val extras: Map<String, String> = emptyMap(),
-)
+/**
+ * 启动参数：契约已下沉 `hunoia.luno.core.domain`（`LaunchSpec`），此处保留同包别名，
+ * 供执行口内部与旧调用点引用。
+ */
+typealias LaunchSpec = hunoia.luno.core.domain.LaunchSpec
 
 /**
  * 一次分发调用：`ActionRequest` 是唯一输入，其余是触发侧在提交前补好的上下文。
