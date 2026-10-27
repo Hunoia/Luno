@@ -53,3 +53,23 @@ object LunoActionFactory : ActionFactory {
         throw ActionMappingException(unsupported = false, message = "${e.key}=${e.raw}")
     }
 }
+
+/**
+ * 搜索动作源（ADR-0001 D2）：把动作模块的「可搜动作」投影成契约条目。
+ *
+ * 搜索侧只依赖 `hunoia.luno.core.domain.ActionSearchSource`，看不到
+ * `ActionDefinitions` / 图标实现 / 资源 id；`:app` 组装时把本实现注入搜索。
+ */
+object LunoActionSearchSource : hunoia.luno.core.domain.ActionSearchSource {
+    override fun index(): List<hunoia.luno.core.domain.ActionSearchEntry> =
+        ActionDefinitions.pickerDefinitions().map { def ->
+            hunoia.luno.core.domain.ActionSearchEntry(
+                key = "action:${def.typeId}",
+                group = "action",
+                label = def.name,
+                typeId = def.typeId,
+                icon = def.icon,
+                action = StoredAction(def.typeId),
+            )
+        }
+}

@@ -6,7 +6,6 @@ import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.config.model.SearchLaunch
 import hunoia.luno.config.model.effectiveLaunch
 import hunoia.luno.config.model.fillSearchQuery
-import hunoia.luno.domain.action.ActionCatalog
 import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
@@ -101,12 +100,9 @@ class QuickSearchIndex(internal val context: Context) {
         if (defsLoaded) return
         // 先在局部变量里建好，再一次性发布：并发下不能出现「已加载但 actions 还是空」，
         // 否则搜应用名直接整表丢失。
-        val builtActions = ActionCatalog.searchDefinitions().map { def ->
-            QuickSearchResult.ActionDef(
-                StoredAction(def.typeId),
-                def.name,
-                def.icon,
-            )
+        // 动作条目来自契约端口（ADR-0001 D2）：搜索不认识 ActionDefinitions。
+        val builtActions = hunoia.luno.runtime.SearchCapabilities.actionSearch.index().map { entry ->
+            QuickSearchResult.ActionDef(entry.action, entry.label, entry.icon)
         }
         val builtPages = systemSettingsPages()
         synchronized(loadLock) {

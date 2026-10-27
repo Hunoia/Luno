@@ -10,7 +10,7 @@ package hunoia.luno.core.domain
  *
  * `:app` 组装时把实现注入 `:feature:search`；搜索不 import 动作模块。
  */
-interface ActionSearchSource {
+fun interface ActionSearchSource {
     /** 当前可用于搜索的动作条目（已按动作模块的口径过滤：默认排除 picker 排除集）。 */
     fun index(): List<ActionSearchEntry>
 }
