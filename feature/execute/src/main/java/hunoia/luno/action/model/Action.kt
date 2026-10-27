@@ -1,27 +1,21 @@
 package hunoia.luno.action.model
 
-import hunoia.luno.R
-import hunoia.luno.config.defaults.ActionSettingsDefaults.VolumeScrubStepThresholdDp
-import android.media.AudioManager
+import hunoia.luno.core.domain.AudioStream
+import hunoia.luno.core.domain.VolumeDirection
+
+/**
+ * 执行器输入：由 [hunoia.luno.execute.ActionFactory] 把 StoredAction 映射成具体动作。
+ *
+ * 本类型住在执行口（`:feature:execute`），因为它就是 Executor 的入参；动作目录、
+ * 参数编辑器元数据仍在 `:feature:actions`。不得携带资源 id / 配置默认值：
+ * 展示文案与默认值由各自层提供（见 `SettingsPage.labelRes` 的 app 侧扩展）。
+ */
 
 data class QueryParam(val name: String, val value: String, val enabled: Boolean = true)
 
 enum class SettingsPage {
     WIFI, BLUETOOTH, DISPLAY, BATTERY, APPS, NETWORK, ACCESSIBILITY, MAIN
 }
-
-/** 设置页名称资源：快速搜索与选择页弹窗共用。 */
-val SettingsPage.labelRes: Int
-    get() = when (this) {
-        SettingsPage.WIFI -> R.string.settings_page_wifi
-        SettingsPage.BLUETOOTH -> R.string.settings_page_bluetooth
-        SettingsPage.DISPLAY -> R.string.settings_page_display
-        SettingsPage.BATTERY -> R.string.settings_page_battery
-        SettingsPage.APPS -> R.string.settings_page_apps
-        SettingsPage.NETWORK -> R.string.settings_page_network
-        SettingsPage.ACCESSIBILITY -> R.string.settings_page_accessibility
-        SettingsPage.MAIN -> R.string.settings_page_main
-    }
 
 /** 触钮显隐作用范围（沿用自动化旧 RuleScope 语义）。 */
 enum class ButtonTarget { ALL, EXCEPT, ONLY }
@@ -255,7 +249,8 @@ sealed interface Action {
         override val typeId: String = "internal.quickSearch"
     }
     data class VolumeScrub(
-        val stepThresholdDp: Int = VolumeScrubStepThresholdDp,
+        /** 每档位移阈值（dp）；默认值属配置层，映射时由 `:app` 注入，本层不持默认。 */
+        val stepThresholdDp: Int,
     ) : Action {
         override val typeId: String = "internal.volumeScrub"
     }

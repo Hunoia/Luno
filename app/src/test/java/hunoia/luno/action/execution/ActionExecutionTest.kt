@@ -8,6 +8,8 @@ import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.core.domain.Capability
 import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.runtime.LunoActionCatalog
+import hunoia.luno.runtime.LunoActionFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -56,11 +58,19 @@ class ActionExecutionTest {
         JsonObject(params.associate { (k, v) -> k to JsonPrimitive(v) }),
     )
 
+    private fun registry(
+        executors: List<ActionExecutor>,
+        isCapabilityAvailable: (Capability) -> Boolean = { true },
+    ) = ActionExecutorRegistry(executors, LunoActionCatalog, isCapabilityAvailable)
+
+    private fun resolver(registry: ActionExecutorRegistry) =
+        ActionResolver(registry, LunoActionCatalog, LunoActionFactory)
+
     @Test
     fun `duplicate type id registration is rejected`() {
         val duplicate = FakeExecutor(setOf("custom.a"))
         try {
-            ActionExecutorRegistry(listOf(duplicate, FakeExecutor(setOf("custom.a"))))
+            registry(listOf(duplicate, FakeExecutor(setOf("custom.a"))))
             fail("重复 typeId 应在构造时炸出来")
         } catch (_: IllegalStateException) {
         }
@@ -68,7 +78,7 @@ class ActionExecutionTest {
 
     @Test
     fun `unregistered type yields unsupported`() = runBlocking {
-        val registry = ActionExecutorRegistry(listOf(FakeExecutor(setOf("shell.custom"))))
+        val registry = registry(listOf(FakeExecutor(setOf("shell.custom"))))
         assertEquals(
             ActionResult.Failed(ActionFailure.Unsupported),
             registry.execute(Action.None, executorContext()),
@@ -78,7 +88,7 @@ class ActionExecutionTest {
     @Test
     fun `unavailable capability short-circuits before executing`() = runBlocking {
         val executor = FakeExecutor(setOf("accessibility.lockScreen"))
-        val registry = ActionExecutorRegistry(listOf(executor), isCapabilityAvailable = { false })
+        val registry = registry(listOf(executor), isCapabilityAvailable = { false })
         assertEquals(
             ActionResult.RequiresCapability(Capability.Accessibility),
             registry.execute(Action.LockScreen, executorContext()),
@@ -89,7 +99,7 @@ class ActionExecutionTest {
     @Test
     fun `available capability lets the executor run`() = runBlocking {
         val executor = FakeExecutor(setOf("accessibility.lockScreen"))
-        val registry = ActionExecutorRegistry(listOf(executor), isCapabilityAvailable = { true })
+        val registry = registry(listOf(executor), isCapabilityAvailable = { true })
         assertEquals(
             ActionResult.Success(),
             registry.execute(Action.LockScreen, executorContext()),
@@ -100,7 +110,7 @@ class ActionExecutionTest {
     @Test
     fun `executor exception becomes execution failed`() = runBlocking {
         val boom = FakeExecutor(setOf("shell.custom")) { throw IllegalStateException("boom") }
-        val registry = ActionExecutorRegistry(listOf(boom))
+        val registry = registry(listOf(boom))
         val result = registry.execute(Action.CustomCommand("id"), executorContext())
         assertEquals(ActionFailure.ExecutionFailed, (result as ActionResult.Failed).reason)
         assertEquals("boom", result.message)
@@ -109,7 +119,7 @@ class ActionExecutionTest {
     @Test
     fun `cancellation is never swallowed as a failed result`() = runBlocking {
         val cancel = FakeExecutor(setOf("shell.custom")) { throw CancellationException("scope closed") }
-        val registry = ActionExecutorRegistry(listOf(cancel))
+        val registry = registry(listOf(cancel))
         try {
             registry.execute(Action.CustomCommand("id"), executorContext())
             fail("CancellationException 必须放行，否则序列/协程取消失效")
@@ -120,7 +130,7 @@ class ActionExecutionTest {
     @Test
     fun `blank required text parameter is rejected before executing`() = runBlocking {
         val executor = FakeExecutor(setOf("shell.custom"))
-        val resolver = ActionResolver(ActionExecutorRegistry(listOf(executor)))
+        val resolver = resolver(registry(listOf(executor)))
         val result = resolver.resolveFromLibrary(stored("shell.custom", "command" to "  "), executorContext())
         assertEquals(ActionFailure.InvalidParameter, (result as ActionResult.Failed).reason)
         assertTrue(executor.executed.isEmpty())
@@ -129,7 +139,7 @@ class ActionExecutionTest {
     @Test
     fun `params without templates pass through untouched`() = runBlocking {
         val executor = FakeExecutor(setOf("shell.custom"))
-        val resolver = ActionResolver(ActionExecutorRegistry(listOf(executor)))
+        val resolver = resolver(registry(listOf(executor)))
         resolver.resolveFromLibrary(stored("shell.custom", "command" to "id -u"), executorContext())
         assertEquals("id -u", (executor.executed.single() as Action.CustomCommand).command)
     }
@@ -137,7 +147,7 @@ class ActionExecutionTest {
     @Test
     fun `template tokens are expanded via context values`() = runBlocking {
         val executor = FakeExecutor(setOf("shell.custom"))
-        val resolver = ActionResolver(ActionExecutorRegistry(listOf(executor)))
+        val resolver = resolver(registry(listOf(executor)))
         val context = executorContext(templateValues = { used ->
             assertEquals(setOf("name"), used)
             mapOf("name" to "luno")
@@ -148,14 +158,14 @@ class ActionExecutionTest {
 
     @Test
     fun `unknown type id resolves to unsupported instead of crashing the dispatch`() = runBlocking {
-        val resolver = ActionResolver(ActionExecutorRegistry(listOf(FakeExecutor(setOf("shell.custom")))))
+        val resolver = resolver(registry(listOf(FakeExecutor(setOf("shell.custom")))))
         val result = resolver.resolveFromLibrary(stored("nope.thing", "x" to "1"), executorContext())
         assertEquals(ActionFailure.Unsupported, (result as ActionResult.Failed).reason)
     }
 
     @Test
     fun `invalid enum parameter resolves to invalid parameter with the key named`() = runBlocking {
-        val resolver = ActionResolver(ActionExecutorRegistry(emptyList()))
+        val resolver = resolver(registry(emptyList()))
         val result = resolver.resolveFromLibrary(
             stored("system.volume", "direction" to "bogus"),
             executorContext(),

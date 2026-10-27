@@ -12,12 +12,7 @@ import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.action.model.resolveButtonTargetIds
 import hunoia.luno.bridge.system.copyText
 import hunoia.luno.config.ConfigProvider
-import hunoia.luno.config.model.OpenAppOrUrlData
-import hunoia.luno.config.model.OpenUrlQueryParameter
-import hunoia.luno.config.model.VolumeScrubConfig
-import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.core.Events
-import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.floatball.FloatBallService
 import hunoia.luno.runtime.floatball.FloatBallTempHideEvent
 import kotlin.math.roundToInt
@@ -177,20 +172,7 @@ class IntentExecutors(private val intentController: IntentController) : ActionEx
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
         return when (action) {
             is Action.OpenUrl -> {
-                val adv = context.advancedSettings
-                val data = OpenAppOrUrlData(
-                    type = OpenAppOrUrlData.TYPE_URL,
-                    url = action.url,
-                    miniWindow = action.miniWindow,
-                    queryParameters = action.queryParameters.map {
-                        OpenUrlQueryParameter(name = it.name, value = it.value, enabled = it.enabled)
-                    },
-                )
-                val ok = QuickLaunchFacade.launchUrlDirect(
-                    context = context.appContext,
-                    data = data,
-                    miniWindowSettings = adv.miniWindowSettings(),
-                )
+                val ok = context.openUrl(action.url, action.miniWindow, action.queryParameters)
                 if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.ShareText -> intentController.shareText(action.text, action.mimeType)
@@ -233,8 +215,11 @@ class InternalExecutors : ActionExecutor {
             }
             is Action.GridPanel -> executeGridPanel(action, context)
             is Action.VolumeScrub -> {
-                val config = VolumeScrubConfig(action.stepThresholdDp)
-                if (context.showVolumeScrub(config)) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
+                if (context.showVolumeScrub(action.stepThresholdDp)) {
+                    ActionResult.Success()
+                } else {
+                    ActionResult.Failed(ActionFailure.ExecutionFailed)
+                }
             }
             is Action.Pointer -> {
                 // 已有会话时 begin 拒绝重复开启，按幂等成功收口。
@@ -259,7 +244,7 @@ class InternalExecutors : ActionExecutor {
      * 浮窗入口走注入的 `context.showGridPanel`，不直接摸浮窗。
      */
     private fun executeGridPanel(action: Action.GridPanel, context: ExecutorContext): ActionResult {
-        if (context.actionSettings.actionGridPanels.panelById(action.panelId) == null) {
+        if (!context.gridPanelExists(action.panelId)) {
             return ActionResult.Success()
         }
         // 无触点路径（自动化/库测试）退屏幕中心；浮窗侧再夹取屏内。

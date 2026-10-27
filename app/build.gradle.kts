@@ -142,6 +142,7 @@ dependencies {
     implementation(project(":core:bridge"))
     implementation(project(":core:data"))
     implementation(project(":core:runtime"))
+    implementation(project(":feature:execute"))
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.compose.foundation)

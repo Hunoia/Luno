@@ -3,29 +3,32 @@ package hunoia.luno.action.execution
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.util.Log
-import hunoia.luno.action.definitions.ActionDefinition
-import hunoia.luno.action.definitions.ActionDefinitions
-import hunoia.luno.action.definitions.ParameterDefinition
-import hunoia.luno.action.definitions.excludedTemplateKeys
-import hunoia.luno.action.model.ButtonTarget
 import hunoia.luno.action.model.Action
+import hunoia.luno.action.model.ButtonTarget
+import hunoia.luno.action.model.QueryParam
+import hunoia.luno.action.template.ParamTemplates
+import hunoia.luno.core.LOG_TAG
 import hunoia.luno.core.domain.ActionFailure
-import hunoia.luno.action.model.ActionMapper
-import hunoia.luno.action.model.InvalidActionParameterException
-import hunoia.luno.action.model.UnknownActionTypeException
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.core.domain.Capability
+import hunoia.luno.core.domain.RuntimeSnapshot
 import hunoia.luno.core.domain.StoredAction
-import hunoia.luno.action.template.ParamTemplates
-import hunoia.luno.config.model.ActionSettings
-import hunoia.luno.config.model.AdvancedSettings
-import hunoia.luno.config.model.VolumeScrubConfig
-import hunoia.luno.runtime.condition.ConditionContext
+import hunoia.luno.execute.ActionCatalog
+import hunoia.luno.execute.ActionFactory
+import hunoia.luno.execute.ActionMappingException
+import hunoia.luno.execute.LaunchSpec
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
-import hunoia.luno.core.LOG_TAG
+
+/**
+ * 执行口核心（`:feature:execute`）。
+ *
+ * 分工：Dispatcher 负责「找定义 → 校验参数 → 查能力闸 → 调执行」；Executor 只执行，
+ * 不校验、不鉴权、不碰 UI、不查动作。动作目录（[ActionCatalog]）与 StoredAction 映射
+ * （[ActionFactory]）由 `:feature:actions` 实现并通过端口注入。
+ */
 
 interface ActionExecutor {
     val supportedTypes: Set<String>
@@ -34,6 +37,7 @@ interface ActionExecutor {
 
 class ActionExecutorRegistry(
     private val executors: List<ActionExecutor>,
+    private val catalog: ActionCatalog,
     private val isCapabilityAvailable: (Capability) -> Boolean = { true },
 ) {
     private val executorMap: Map<String, ActionExecutor> = executors
@@ -53,7 +57,7 @@ class ActionExecutorRegistry(
 
     suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
         val executor = executorMap[action.typeId] ?: return ActionResult.Failed(ActionFailure.Unsupported)
-        val capability = ActionDefinitions.byTypeId(action.typeId)?.capability ?: Capability.None
+        val capability = catalog.definition(action.typeId)?.capability ?: Capability.None
         if (capability != Capability.None && !isCapabilityAvailable(capability)) {
             return ActionResult.RequiresCapability(capability)
         }
@@ -70,12 +74,14 @@ class ActionExecutorRegistry(
 
 class ActionResolver(
     private val registry: ActionExecutorRegistry,
+    private val catalog: ActionCatalog,
+    private val factory: ActionFactory,
 ) {
     suspend fun resolveFromLibrary(
         stored: StoredAction,
         context: ExecutorContext,
     ): ActionResult {
-        val definition = ActionDefinitions.byTypeId(stored.typeId)
+        val definition = catalog.definition(stored.typeId)
         val resolved = runCatching { resolveParams(stored, definition, context) }
             .onFailure { error -> Log.w(LOG_TAG, "param template resolve failed", error) }
             .getOrNull()
@@ -89,15 +95,17 @@ class ActionResolver(
         // 映射层的受控异常（未知 typeId / 非法枚举参数）必须在这里转成结果：
         // 直接冒出会让 launch 协程异常、既没有提示还会连带崩进程。
         return try {
-            registry.execute(ActionMapper.fromStored(StoredAction(stored.typeId, params)), context)
+            registry.execute(factory.fromStored(StoredAction(stored.typeId, params)), context)
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
-        } catch (e: UnknownActionTypeException) {
-            Log.w(LOG_TAG, "unknown action type ${e.typeId}")
-            ActionResult.Failed(ActionFailure.Unsupported)
-        } catch (e: InvalidActionParameterException) {
-            Log.w(LOG_TAG, "invalid param ${e.key}=${e.raw} typeId=${stored.typeId}")
-            ActionResult.Failed(ActionFailure.InvalidParameter, e.message)
+        } catch (e: ActionMappingException) {
+            if (e.unsupported) {
+                Log.w(LOG_TAG, "unknown action type ${stored.typeId}")
+                ActionResult.Failed(ActionFailure.Unsupported)
+            } else {
+                Log.w(LOG_TAG, "invalid param typeId=${stored.typeId}: ${e.message}")
+                ActionResult.Failed(ActionFailure.InvalidParameter, e.message)
+            }
         } catch (e: Exception) {
             Log.w(LOG_TAG, "map/execute failed typeId=${stored.typeId}", e)
             ActionResult.Failed(ActionFailure.ExecutionFailed, e.message ?: e.javaClass.name)
@@ -107,11 +115,11 @@ class ActionResolver(
     /** 无 token 时零分配；有 token 时才取值并展开，存储保持原文。 */
     private suspend fun resolveParams(
         stored: StoredAction,
-        definition: ActionDefinition?,
+        definition: hunoia.luno.execute.ActionMetadata?,
         context: ExecutorContext,
     ): ResolvedParams {
         val params = stored.params
-        val excluded = definition?.excludedTemplateKeys().orEmpty()
+        val excluded = definition?.excludedTemplateKeys.orEmpty()
 
         if (excluded.isEmpty()) {
             val used = ParamTemplates.tokensIn(params)
@@ -133,22 +141,26 @@ class ActionResolver(
     }
 
     /** 模板展开后为空的必填文本参数（如手势触发时的 `${trigger.app}`）直接判为参数无效。 */
-    private fun hasBlankRequiredText(definition: ActionDefinition?, params: JsonObject): Boolean =
-        definition?.parameters.orEmpty().any { param ->
-            val isText = param is ParameterDefinition.Text || param is ParameterDefinition.TextLarge
-            isText && param.required &&
-                (params[param.key] as? JsonPrimitive)?.contentOrNull?.isBlank() == true
-        }
+    private fun hasBlankRequiredText(
+        definition: hunoia.luno.execute.ActionMetadata?,
+        params: JsonObject,
+    ): Boolean = definition?.requiredTextKeys.orEmpty().any { key ->
+        (params[key] as? JsonPrimitive)?.contentOrNull?.isBlank() == true
+    }
 
     private data class ResolvedParams(val params: JsonObject, val substituted: Boolean)
 }
 
+/**
+ * 执行器运行上下文：只携带执行真正需要的东西。
+ *
+ * 不持有配置模型（`config.model.*`）：需要全局设置时走端口（启动、面板、音量刮擦），
+ * 需要运行态时读 [RuntimeSnapshot]。这两条是 `execute → data / runtime` 禁令的落地方式。
+ */
 data class ExecutorContext(
     val accessibilityService: AccessibilityService,
     val appContext: Context,
     val scope: CoroutineScope,
-    val actionSettings: ActionSettings = ActionSettings(),
-    val advancedSettings: AdvancedSettings = AdvancedSettings(),
     val showToast: (String) -> Unit = {},
     val showLongToast: (String) -> Unit = {},
     val currentPackageName: () -> String? = { null },
@@ -159,21 +171,37 @@ data class ExecutorContext(
     val showQuickSearch: () -> Unit = {},
     /** 网格面板：锚点为触发触点（无触点路径由执行器退屏幕中心），Activity 侧再夹取屏内。 */
     val showGridPanel: (panelId: String, anchorX: Int, anchorY: Int) -> Unit = { _, _, _ -> },
-    val showVolumeScrub: (VolumeScrubConfig) -> Boolean = { false },
+    /** 网格面板是否还存在（面板被删时按无动作静默收口）。 */
+    val gridPanelExists: (panelId: String) -> Boolean = { true },
+    /** 音量刮擦 overlay：参数是每档位移阈值（dp）。 */
+    val showVolumeScrub: (stepThresholdDp: Int) -> Boolean = { false },
     val showPointer: () -> Boolean = { false },
     val hideGestureButton: (Long) -> Unit = {},
     /** 触钮临时隐藏（按 target/buttonIds 选作用钮）：到期自动恢复，不碰 enabled 存量。 */
     val hideGestureButtons: (ButtonTarget, List<String>, Long) -> Unit = { _, _, _ -> },
-    val showVersionTooLowToast: (Int) -> Unit = {},
     val previousApp: suspend () -> Unit = {},
     val touchPosition: Pair<Int, Int>? = null,
     /** 参数模板取值器：入参是本次解析实际用到的 token 集合，返回对应运行时值。 */
     val templateValues: suspend (Set<String>) -> Map<String, String> = { emptyMap() },
     /** 本次分发的模板上下文：runRule 嵌套执行目标步骤时复用同一上下文，不重新快照。 */
-    val templateContext: () -> ConditionContext? = { null },
+    val templateContext: () -> RuntimeSnapshot? = { null },
     /**
      * 规则即动作回调（分发器注入）：只跑目标规则的 effect steps。
      * null = 非分发链路构造的上下文，runRule 报 Unsupported。
      */
     val runRule: (suspend (ruleId: String, params: Map<String, String>, ctx: ExecutorContext) -> ActionResult)? = null,
+    /** 启动应用（小窗等全局设置由实现侧读）。 */
+    val launchApp: suspend (LaunchSpec) -> Boolean = { false },
+    /** 打开链接（含 Query 参数与小窗）。 */
+    val openUrl: suspend (url: String, miniWindow: Boolean, queryParameters: List<QueryParam>) -> Boolean =
+        { _, _, _ -> false },
+    /** 启动已声明的 App Shortcut（入参是落库的快捷方式 JSON）。 */
+    val launchShortcut: suspend (dataJson: String) -> Boolean = { false },
+    val openAppDetails: suspend (packageName: String) -> ActionResult = {
+        ActionResult.Failed(ActionFailure.Unsupported)
+    },
+    /** 当前应用以小窗打开；包名/Activity 解析与全局设置由实现侧负责。 */
+    val launchInPopup: suspend (packageName: String) -> ActionResult = {
+        ActionResult.Failed(ActionFailure.Unsupported)
+    },
 )

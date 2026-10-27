@@ -3,8 +3,8 @@ package hunoia.luno.action.template
 import android.content.Context
 import hunoia.luno.core.domain.AudioStream
 import hunoia.luno.bridge.system.readClipboardText
-import hunoia.luno.config.model.RingerMode
-import hunoia.luno.runtime.condition.ConditionContext
+import hunoia.luno.core.domain.RingerMode
+import hunoia.luno.core.domain.RuntimeSnapshot
 import hunoia.luno.core.domain.formatTimeOfDay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -19,7 +19,7 @@ data class TemplateVariable(
 )
 
 /**
- * 模板取值：条件匹配用的 ConditionContext 同时也是模板变量来源，
+ * 模板取值：条件匹配用的 RuntimeSnapshot 同时也是模板变量来源，
  * 自动化规则触发时因此能读到 appChangedTo / screenEvent 等边沿值。
  */
 object RuntimeVariables {
@@ -123,7 +123,7 @@ object RuntimeVariables {
     /** 只计算实际用到的 token；未知 token 跳过，由 ParamTemplates 原样保留。 */
     suspend fun resolve(
         used: Set<String>,
-        ctx: ConditionContext,
+        ctx: RuntimeSnapshot,
         appContext: Context,
     ): Map<String, String> {
         if (used.isEmpty()) return emptyMap()

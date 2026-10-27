@@ -30,6 +30,9 @@ import hunoia.luno.runtime.condition.ConditionContext
 import hunoia.luno.runtime.automation.RuleTestResult
 import hunoia.luno.runtime.gesturepanel.ACTION_PANEL_FADE_OUT_MS
 import kotlin.math.roundToInt
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import hunoia.luno.bridge.system.isAccessibilitySettingsOn
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GlobalVariables
 import hunoia.luno.config.model.AutomationRule
@@ -268,52 +271,158 @@ class GestureCoordinator(
             .collect { previousAppTracker.onBlocklistChanged(it) }
     }
 
-    private val actionDispatcher = ActionDispatcher(
-        host = host,
-        scope = host.coroutineScope,
-        previousAppTracker = previousAppTracker,
-        runtimeState = { buildRuntimeState(peekPulses = true) },
-        settingsSnapshot = {
-            val s = runtimeSettingsStore.snapshot()
-            hunoia.luno.action.dispatcher.SettingsSnapshot(
-                actionSettings = s.actionSettings,
-                advancedSettings = s.advancedSettings,
-                gestureSettings = s.gestureSettings,
-                actionLibrarySettings = s.actionLibrarySettings,
-                automationRules = s.automationRules,
-                globalVariables = s.globalVariables,
-            )
+    private val executeEnvironment: hunoia.luno.execute.ExecuteEnvironment = LunoExecuteEnvironment(host)
+    private val executeMessages = LunoExecuteMessages(host.context)
+
+    /** 启动基础设施端口实现：解冻/小窗/弹窗/快捷方式都留在 app 侧。 */
+    private val launchSurfaces = LaunchSurfaces(
+        context = host.context.applicationContext,
+        advancedSettings = { runtimeSettingsStore.snapshot().advancedSettings },
+        enableDisabledPackage = { pkg ->
+            suspendCancellableCoroutine { cont ->
+                host.requestEnableDisabledPackage(pkg) { ok -> if (cont.isActive) cont.resume(ok) }
+            }
         },
-        onToggleQuickAppLauncher = { anchorX, anchorY ->
+    )
+
+    /** 执行口的 Surface 副作用端口：执行口只说要弹哪个面，窗口控制留在这里。 */
+    private val executeSurfaces = object : hunoia.luno.execute.SurfaceHost {
+        override fun toggleQuickAppLauncher(anchorX: Int, anchorY: Int) {
             hunoia.luno.quicklaunch.QuickAppLauncherOverlay.show(anchorX, anchorY)
-        },
-        onShowQuickSearch = { hunoia.luno.quicklaunch.QuickSearchActivity.start(host.context) },
-        onShowGridPanel = { panelId, anchorX, anchorY ->
+        }
+
+        override fun showQuickSearch() {
+            hunoia.luno.quicklaunch.QuickSearchActivity.start(host.context)
+        }
+
+        override fun showGridPanel(panelId: String, anchorX: Int, anchorY: Int) {
             hunoia.luno.gridpanel.GridPanelOverlay.show(panelId, anchorX, anchorY)
-        },
-        onShowVolumeScrub = { config -> volumeScrubRuntime.show(config) },
-        onShowPointer = { pointerRuntime.show() },
-        onHideGestureButton = { button, delayMs ->
-            if (button != null) buttonHideRuntime.hideTemporarily(listOf(button.id), delayMs)
-        },
-        onHideGestureButtons = { target, buttonIds, delayMs ->
+        }
+
+        override fun gridPanelExists(panelId: String): Boolean =
+            runtimeSettingsStore.snapshot().actionSettings.actionGridPanels.panelById(panelId) != null
+
+        override fun showVolumeScrub(stepThresholdDp: Int): Boolean =
+            volumeScrubRuntime.show(hunoia.luno.config.model.VolumeScrubConfig(stepThresholdDp))
+
+        override fun showPointer(): Boolean = pointerRuntime.show()
+
+        override fun hideGestureButton(buttonId: String, delayMs: Long) {
+            buttonHideRuntime.hideTemporarily(listOf(buttonId), delayMs)
+        }
+
+        override fun hideGestureButtons(
+            target: hunoia.luno.action.model.ButtonTarget,
+            buttonIds: List<String>,
+            delayMs: Long,
+        ) {
             val allIds = runtimeSettingsStore.snapshot().gestureButtons.map { it.id }
             buttonHideRuntime.hideTemporarily(
                 hunoia.luno.action.model.resolveButtonTargetIds(target, allIds, buttonIds),
                 delayMs,
             )
-        },
-        onGlobalVariableChanged = { name, value ->
-            // 跨规则嵌套调用发生在同一条协程链里：DataStore 回流前先更新运行时快照，
-            // 否则紧接着的 runRule/IF 会读到写入前的全局变量。
-            val updated = runtimeSettingsStore.applyGlobalVariable(name, value)
-            refreshGestureButtons(
-                delayMs = 0L,
-                automationKeys = setOf(hunoia.luno.runtime.automation.AutomationEventKey.VARIABLE),
-                globalVariablesOverride = updated,
-            )
-        },
-    )
+        }
+
+        override suspend fun previousApp() {
+            previousAppTracker.previousApp()
+        }
+
+        override suspend fun launchApp(spec: hunoia.luno.execute.LaunchSpec): Boolean =
+            launchSurfaces.launch(spec)
+
+        override suspend fun openUrl(
+            url: String,
+            miniWindow: Boolean,
+            queryParameters: List<hunoia.luno.action.model.QueryParam>,
+        ): Boolean = launchSurfaces.openUrl(url, miniWindow, queryParameters)
+
+        override suspend fun launchShortcut(dataJson: String): Boolean =
+            launchSurfaces.launchShortcut(dataJson)
+
+        override suspend fun openAppDetails(packageName: String) =
+            launchSurfaces.openAppDetails(packageName)
+
+        override suspend fun launchInPopup(packageName: String) = launchSurfaces.launchInPopup(
+            packageName,
+            currentPackage = { executeEnvironment.currentPackageName() },
+            nowInLauncher = { executeEnvironment.nowInLauncher() },
+        )
+    }
+
+    /**
+     * 执行口实例。`by lazy`：嵌套规则运行器（runRule）要回指分发口，
+     * 而它本身又是分发口的构造参数。
+     */
+    private val actionDispatcher: ActionDispatcher by lazy {
+        ActionDispatcher(
+            environment = executeEnvironment,
+            surfaces = executeSurfaces,
+            messages = executeMessages,
+            catalog = LunoActionCatalog,
+            factory = LunoActionFactory,
+            scope = host.coroutineScope,
+            snapshot = {
+                buildRuntimeState(peekPulses = true).toConditionContext(
+                    runtimeSettingsStore.snapshot().globalVariables.toTemplateMap(),
+                )
+            },
+            libraryEntry = { entryId ->
+                runtimeSettingsStore.snapshot().actionLibrarySettings.entries
+                    .find { it.id == entryId }?.storedAction
+            },
+            executors = listOf(
+                hunoia.luno.action.executor.AppExecutors(),
+                hunoia.luno.action.executor.IntentExecutors(
+                    hunoia.luno.action.controller.IntentController(host.context.applicationContext),
+                ),
+                hunoia.luno.action.executor.SystemExecutors(
+                    hunoia.luno.action.controller.AudioController(host.context.applicationContext),
+                    hunoia.luno.action.controller.ClipboardController(host.context.applicationContext),
+                    hunoia.luno.action.controller.VibrateController(host.context.applicationContext),
+                ),
+                hunoia.luno.action.executor.AccessibilityExecutors(
+                    hunoia.luno.action.controller.AccessibilityController(host.accessibilityService),
+                ),
+                hunoia.luno.action.executor.ShellExecutor(hunoia.luno.action.controller.ShellController()),
+                hunoia.luno.action.executor.AutomationActionExecutors(
+                    hunoia.luno.action.controller.ClipboardController(host.context.applicationContext),
+                ),
+                hunoia.luno.action.executor.InternalExecutors(),
+            ),
+            capabilityGate = hunoia.luno.action.capability.CapabilityGate(
+                appContext = host.context.applicationContext,
+                isAccessibilityAvailable = {
+                    runCatching {
+                        host.context.isAccessibilitySettingsOn(hunoia.luno.service.SideGestureService::class.java)
+                    }.getOrDefault(false) ||
+                        hunoia.luno.service.DispatchClient.isReady() ||
+                        hunoia.luno.service.SideGestureService.current != null
+                },
+            ),
+            nestedRules = AutomationNestedRuleRunner(
+                ruleById = { id -> runtimeSettingsStore.snapshot().automationRules.find { it.id == id } },
+                globalVariables = { runtimeSettingsStore.snapshot().globalVariables.toTemplateMap() },
+                runSingleAction = { action, ctx, vars -> actionDispatcher.runStepAction(action, ctx, vars) },
+                resolveTemplate = { text, ctx, vars -> actionDispatcher.resolveStepTemplate(text, ctx, vars) },
+                refreshSnapshot = {
+                    buildRuntimeState(peekPulses = true).toConditionContext(
+                        runtimeSettingsStore.snapshot().globalVariables.toTemplateMap(),
+                    )
+                },
+                writeGlobalVariable = { name, value ->
+                    // 先等落盘完成再更新运行时快照：DataStore 写失败时本次运行只保留局部变量，
+                    // 不能让引擎误以为全局值已经生效。
+                    ConfigProvider.setGlobalVariable(name, value)
+                    val updated = runtimeSettingsStore.applyGlobalVariable(name, value)
+                    refreshGestureButtons(
+                        delayMs = 0L,
+                        automationKeys = setOf(hunoia.luno.runtime.automation.AutomationEventKey.VARIABLE),
+                        globalVariablesOverride = updated,
+                    )
+                },
+            ),
+        )
+    }
 
     /** 同规则重入控制：规则 id → 正在跑的 Job 列表（ALLOW_PARALLEL 时一个 id 可有多条）。 */
     private val runningRuleJobs = mutableMapOf<String, MutableList<Job>>()
@@ -830,21 +939,44 @@ class GestureCoordinator(
         } else {
             null
         }
-        actionDispatcher.dispatch(
-            action.withoutVariantKey(),
-            sourceButton,
-            touch,
-            { buildRuntimeState(peekPulses = true).toConditionContext(
-                runtimeSettingsStore.snapshot().globalVariables.toTemplateMap(),
-            ) },
-            gestureTrigger = decision?.triggerType,
-            fromGesture = true,
+        // 只提交 ActionRequest；触发源专属状态（按钮/触点/手势类型）随调用传入，
+        // 落定回执在这里发事件，执行口不碰事件总线。
+        actionDispatcher.submit(
+            hunoia.luno.execute.ExecuteCall(
+                request = hunoia.luno.core.domain.ActionRequest(
+                    stored = action.withoutVariantKey(),
+                    origin = hunoia.luno.core.domain.DispatchOrigin.GESTURE,
+                ),
+                snapshot = buildRuntimeState(peekPulses = true).toConditionContext(
+                    runtimeSettingsStore.snapshot().globalVariables.toTemplateMap(),
+                ),
+                touchPosition = touch,
+                sourceButtonId = sourceButton?.id,
+            ),
+            onSettled = { settlement ->
+                hunoia.luno.core.Events.post(
+                    hunoia.luno.action.dispatcher.GestureDispatchEvent(
+                        typeId = settlement.typeId,
+                        buttonId = sourceButton?.id,
+                        trigger = decision?.triggerType,
+                        fromGesture = true,
+                        ok = settlement.succeeded,
+                    ),
+                )
+            },
         )
     }
 
     /** 供 overlay 等场景直接执行一个已构造好的动作。 */
     fun dispatchAction(action: hunoia.luno.action.model.StoredAction) {
-        actionDispatcher.dispatch(action.withoutVariantKey(), null)
+        actionDispatcher.submit(
+            hunoia.luno.execute.ExecuteCall(
+                request = hunoia.luno.core.domain.ActionRequest(
+                    stored = action.withoutVariantKey(),
+                    origin = hunoia.luno.core.domain.DispatchOrigin.PANEL,
+                ),
+            ),
+        )
     }
 
     /**

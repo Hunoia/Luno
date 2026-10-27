@@ -1,26 +1,19 @@
 package hunoia.luno.action.executor
 
-import android.content.Intent
-import android.content.pm.PackageManager
-import hunoia.luno.action.controller.IntentController
 import hunoia.luno.action.execution.ActionExecutor
 import hunoia.luno.action.execution.ExecutorContext
 import hunoia.luno.action.model.Action
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
-import hunoia.luno.bridge.system.queryIntentActivitiesCompat
-import hunoia.luno.config.model.AdvancedSettings
-import hunoia.luno.core.domain.JsonSerializer
-import hunoia.luno.quicklaunch.QuickLaunchFacade
-import hunoia.luno.launch.AppLaunchBypass
-import hunoia.luno.quicklaunch.model.LauncherInfo
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
-import kotlin.coroutines.resume
-import hunoia.luno.config.model.miniWindowSettings
+import hunoia.luno.execute.LaunchSpec
 
-class AppExecutors(private val intentController: IntentController) : ActionExecutor {
+/**
+ * 应用类执行器：只做「动作 → 端口调用」的翻译。
+ *
+ * 启动机制（解冻被禁用应用、小窗、弹窗、快捷方式、Intent 覆盖）都在 `:app` 的
+ * `LaunchSurfaces` 里；执行器不读配置、不碰 PackageManager。
+ */
+class AppExecutors : ActionExecutor {
 
     override val supportedTypes: Set<String> = setOf(
         "app.launch", "app.details", "app.popup", "app.launchShortcut"
@@ -29,71 +22,28 @@ class AppExecutors(private val intentController: IntentController) : ActionExecu
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
         return when (action) {
             is Action.LaunchApp -> {
-                val adv = context.advancedSettings
-                val ok = AppLaunchBypass.launchWithAutoUnfreeze(
-                    context = context.appContext,
-                    packageName = action.packageName,
-                    className = action.className,
-                    miniWindow = action.miniWindow,
-                    miniWindowSettings = adv.miniWindowSettings(),
-                    intentAction = action.intentAction,
-                    data = action.data,
-                    extras = action.extras,
-                    unfreezePackage = { _, pkg -> enablePackage(context, pkg) },
+                val ok = context.launchApp(
+                    LaunchSpec(
+                        packageName = action.packageName,
+                        className = action.className,
+                        miniWindow = action.miniWindow,
+                        intentAction = action.intentAction,
+                        data = action.data,
+                        extras = action.extras,
+                    )
                 )
                 if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
-            is Action.AppDetails -> intentController.openAppDetails(action.packageName)
-            is Action.Popup -> {
-                popupScreen(context, context.advancedSettings)
-                ActionResult.Success()
-            }
+            is Action.AppDetails -> context.openAppDetails(action.packageName)
+            is Action.Popup -> context.launchInPopup(context.currentPackageName().orEmpty())
             is Action.LaunchShortcut -> {
-                val info = runCatching {
-                    JsonSerializer.decodeFromString<LauncherInfo.ShortcutInfo>(action.data)
-                }.getOrNull()
-                if (info == null) {
-                    ActionResult.Failed(ActionFailure.InvalidParameter)
-                } else {
-                    QuickLaunchFacade.launchShortcutInfo(context.appContext, info)
+                if (context.launchShortcut(action.data)) {
                     ActionResult.Success()
+                } else {
+                    ActionResult.Failed(ActionFailure.InvalidParameter)
                 }
             }
             else -> ActionResult.Failed(ActionFailure.Unsupported)
         }
     }
-
-    private suspend fun popupScreen(context: ExecutorContext, adv: AdvancedSettings) {
-        val pkgName = context.accessibilityService
-            .rootInActiveWindow?.packageName?.toString()
-            ?: context.currentPackageName()
-        if (context.nowInLauncher() || pkgName.isNullOrEmpty()) {
-            return
-        }
-        val intent = Intent().apply {
-            setPackage(pkgName)
-            setAction(Intent.ACTION_MAIN)
-            addCategory(Intent.CATEGORY_LAUNCHER)
-        }
-        // MATCH_ALL 是 PMS 重查询（几十 ms 级），别占手势收尾的主线程。
-        val resolveInfo = withContext(Dispatchers.IO) {
-            context.appContext.packageManager
-                .queryIntentActivitiesCompat(intent, PackageManager.MATCH_ALL)
-                .firstOrNull()
-        }
-        val className = resolveInfo?.activityInfo?.name
-        if (!className.isNullOrEmpty()) {
-            QuickLaunchFacade.launchAppInPopup(
-                context.appContext, pkgName, className,
-                adv.miniWindowSettings(),
-            )
-        }
-    }
-
-    private suspend fun enablePackage(context: ExecutorContext, pkg: String): Boolean =
-        suspendCancellableCoroutine { cont ->
-            context.requestEnableDisabledPackage(pkg) { success ->
-                if (cont.isActive) cont.resume(success)
-            }
-        }
 }

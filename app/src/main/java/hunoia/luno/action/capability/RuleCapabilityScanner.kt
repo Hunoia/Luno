@@ -1,6 +1,7 @@
 package hunoia.luno.action.capability
 
 import android.content.Context
+import hunoia.luno.bridge.system.isAccessibilitySettingsOn
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.core.domain.Capability
@@ -37,7 +38,14 @@ object RuleCapabilityScanner {
         allRules: List<AutomationRule>,
         library: ActionLibrarySettings?,
     ): RuleCapabilityReport {
-        val gate = CapabilityGate(context.applicationContext)
+        val gate = CapabilityGate(
+            appContext = context.applicationContext,
+            isAccessibilityAvailable = {
+                context.isAccessibilitySettingsOn(hunoia.luno.service.SideGestureService::class.java) ||
+                    hunoia.luno.service.SideGestureService.current != null ||
+                    hunoia.luno.service.DispatchClient.isReady()
+            },
+        )
         val required = requiredCapabilities(rule, allRules, library)
         return RuleCapabilityReport(
             missingCapabilities = required.filterNot(gate::isAvailable).toSet(),
