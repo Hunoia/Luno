@@ -1,6 +1,5 @@
 package hunoia.luno.config.model
 
-import android.graphics.Color as AndroidColor
 import androidx.annotation.Keep
 import hunoia.luno.core.domain.StoredAction
 import kotlinx.serialization.Serializable
@@ -87,7 +86,8 @@ object FloatBallDefaults {
     const val SizeDp = 56f
     const val MinSizeDp = 36f
     const val MaxSizeDp = 96f
-    val Color: Int = AndroidColor.TRANSPARENT
+    /** 0 = 透明（与 `android.graphics.Color.TRANSPARENT` 同值）。 */
+    val Color: Int = 0
 
     /** 静置延时（ms），0 = 关。 */
     const val IdleDimDelayMs = 3_000L
