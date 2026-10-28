@@ -33,11 +33,13 @@ class ShareFilePickActivity : Activity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        data?.data?.let { uri ->
-            if (requestCode == REQUEST_PICK && resultCode == RESULT_OK) {
-                perform(uri)
-            }
+        if (requestCode != REQUEST_PICK || resultCode != RESULT_OK) {
+            // 用户在文件选择器里直接返回：必须收掉本 Activity，否则会留下一个
+            // 没有内容、却占着窗口焦点的透明 Activity，表现为屏幕触摸无效。
+            finish()
+            return
         }
+        data?.data?.let(::perform) ?: finish()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

@@ -229,6 +229,7 @@
     <string name="tab_apps">应用</string>
     <string name="tab_shortcuts">快捷</string>
     <string name="create_shortcut">创建快捷方式</string>
+    <string name="create_shortcut_failed">创建快捷方式失败：应用没有返回可启动的 Intent。</string>
     <string name="launch_shortcut">启动快捷方式</string>
     <string name="delete_gesture_button_warning">删除触钮</string>
     <string name="delete_gesture_button_warning_desc">将删除触钮，是否继续？</string>

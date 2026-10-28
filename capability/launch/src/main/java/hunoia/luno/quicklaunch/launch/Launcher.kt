@@ -110,13 +110,25 @@ object Launcher {
      * `LauncherInfo.ShortcutInfo` 是查询侧模型（带 Bitmap），不进口契约；调用方负责解码落库 JSON。
      */
     fun launchShortcutIntents(context: Context, intentUris: List<String>, label: String): Boolean {
+        if (intentUris.isEmpty()) return false
         return try {
             val intents = intentUris.map {
                 Intent.parseUri(it, Intent.URI_INTENT_SCHEME).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
-            }.toTypedArray()
-            context.startActivities(intents)
+            }
+            val resolved = intents.filter { context.packageManager.resolveActivity(it, 0) != null }
+            if (resolved.isEmpty()) {
+                showToast(context.getString(R.string.launch_shortcut_info_failed, label))
+                return false
+            }
+            // 多 intent 快捷方式按顺序建回退栈；若后面的 intent 不可解析（部分应用
+            // 声明了可选的目标页），退到最后一个可解析 intent，而不是整条失败。
+            if (resolved.size == intents.size) {
+                context.startActivities(intents.toTypedArray())
+            } else {
+                context.startActivity(resolved.last())
+            }
             true
         } catch (e: Exception) {
             Log.e(LOG_TAG, "launchShortcutInfo failed", e)

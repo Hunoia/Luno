@@ -87,11 +87,23 @@ object ShortcutQuery {
                         val shortcutIntent = Intent().apply {
                             action = parser.getAttributeValue("action")
                             val pkg = parser.getAttributeValue("targetPackage")
-                            val cls = parser.getAttributeValue("targetClass")
-                                ?: parser.getAttributeValue("targetActivity")?.replace('$', '_')
-                            if (pkg != null && cls != null) setClassName(pkg, cls)
-                            currentLabel = currentLabel ?: cls?.substringAfterLast('.')
+                            val rawClass = parser.getAttributeValue("targetClass")
+                                ?: parser.getAttributeValue("targetActivity")
+                            if (pkg != null && rawClass != null) {
+                                setClassName(pkg, normalizeShortcutClassName(pkg, rawClass))
+                            } else if (pkg != null) {
+                                // 部分快捷方式只声明 targetPackage + data（隐式 URI），
+                                // 之前丢掉 package 后可能被其他应用接走或无法启动。
+                                setPackage(pkg)
+                            } else if (rawClass != null) {
+                                val classPackage = rawClass.substringBeforeLast('.', "")
+                                if (classPackage.isNotEmpty()) {
+                                    setClassName(classPackage, normalizeShortcutClassName(classPackage, rawClass))
+                                }
+                            }
+                            currentLabel = currentLabel ?: rawClass?.substringAfterLast('.')
                             data = parser.getAttributeValue("data")?.let(Uri::parse)
+                            type = parser.getAttributeValue("mimeType")
                         }
                         currentIntent = shortcutIntent
                     } catch (e: Exception) {
@@ -122,4 +134,11 @@ object ShortcutQuery {
         if (res != 0) return res
         return getAttributeResourceValue(null, attribute, 0)
     }
+}
+
+/** shortcut XML 的 targetClass 可能是 `.MainActivity` / 短类名；补全后才能解析。 */
+internal fun normalizeShortcutClassName(packageName: String, raw: String): String = when {
+    raw.startsWith(".") -> packageName + raw
+    !raw.contains('.') -> "$packageName.$raw"
+    else -> raw
 }

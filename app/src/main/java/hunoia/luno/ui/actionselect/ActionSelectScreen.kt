@@ -117,6 +117,14 @@ fun ActionSelectContent(
                                 val shortcutIconRes = result.data?.getParcelableExtra(shortcutIconResourceExtraKey(), ShortcutIconResource::class.java)
                                 val intent = result.data?.getParcelableExtra(shortcutIntentExtraKey(), Intent::class.java)?.toUri(Intent.URI_INTENT_SCHEME)
                                 val label = result.data?.getStringExtra(shortcutNameExtraKey()).orEmpty()
+                                if (intent == null) {
+                                    // 部分创建器只返回名称/图标，不返回启动 Intent；
+                                    // 落库成空 intents 的快捷方式只会在点击时报“参数无效”。
+                                    Log.w("ActionSelect", "shortcut creator returned no intent: pkg=${launcherInfo.packageName}")
+                                    showToast(context.getString(R.string.create_shortcut_failed))
+                                    currentLauncherInfo = null
+                                    return@launch
+                                }
                                 val iconRes = if (shortcutIconRes != null) {
                                     withContext(Dispatchers.IO) {
                                         QuickLaunchFacade.resolveShortcutIconResourceId(context, shortcutIconRes)
@@ -136,10 +144,10 @@ fun ActionSelectContent(
                                     }
                                 }
                                 Log.d("ActionSelect", "shortcut created: pkg=${launcherInfo.packageName} label=$label " +
-                                    "iconRes=$iconRes iconPath=$iconPath bitmap!=null=${bitmap != null} intent=${intent != null}")
+                                    "iconRes=$iconRes iconPath=$iconPath bitmap!=null=${bitmap != null} intent=$intent")
                                 val shortcutInfo = LauncherInfo.ShortcutInfo(
                                     packageName = launcherInfo.packageName, className = launcherInfo.className,
-                                    intents = intent?.let { listOf(it) } ?: emptyList(), label = label,
+                                    intents = listOf(intent), label = label,
                                     iconRes = iconRes, iconPath = iconPath, iconBitmap = bitmap
                                 )
                                 vm.addNewShortcut(launcherInfo, shortcutInfo)

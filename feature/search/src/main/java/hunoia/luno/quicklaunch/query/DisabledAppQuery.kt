@@ -29,11 +29,22 @@ object DisabledAppQuery {
     }
 
     fun isDisabled(context: Context, packageName: String): Boolean {
+        ensureReceiver()
         disabledResultCache.get(packageName)?.let { return it }
+        val pm = context.packageManager
         val enabledSetting = runCatching {
-            context.packageManager.getApplicationEnabledSetting(packageName)
-        }.getOrNull() ?: return false.also { disabledResultCache.put(packageName, false) }
-        val result = enabledSetting == PackageManager.COMPONENT_ENABLED_STATE_DISABLED ||
+            pm.getApplicationEnabledSetting(packageName)
+        }.getOrNull()
+        if (enabledSetting == null) {
+            disabledResultCache.put(packageName, false)
+            return false
+        }
+        // 与 queryDisabledApplications 保持同一口径：MIUI 等 ROM 的“冻结”可能表现为
+        // disabled，也可能是 suspended；只看 enabledSetting 会漏掉后者，导致
+        // 除快速启动器外的启动链路认为应用可启动而跳过解冻。
+        val suspended = runCatching { pm.isPackageSuspended(packageName) }.getOrDefault(false)
+        val result = suspended ||
+            enabledSetting == PackageManager.COMPONENT_ENABLED_STATE_DISABLED ||
             enabledSetting == PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER ||
             enabledSetting == PackageManager.COMPONENT_ENABLED_STATE_DISABLED_UNTIL_USED
         disabledResultCache.put(packageName, result)
