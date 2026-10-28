@@ -96,8 +96,8 @@ fun ActionDefinition.excludedTemplateKeys(): Set<String> = parameters
  * 新增动作时只增加一条 [ActionDefinition]；执行口不再需要另建匿名元数据适配器。
  */
 data class ActionDefinition(
-    val typeId: String,
-    val name: String,
+    override val typeId: String,
+    override val name: String,
     val category: ActionCategory,
     override val capability: Capability,
     val parameters: List<ParameterDefinition> = emptyList(),

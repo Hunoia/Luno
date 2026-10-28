@@ -10,6 +10,12 @@ package hunoia.luno.core.domain
  * 执行口只读本接口；展示层不得把 Compose / 资源类型泄漏进契约。
  */
 interface ActionMetadata {
+    /** 稳定 typeId（= `StoredAction.typeId`）。 */
+    val typeId: String
+
+    /** 展示名称；执行口只用于日志 / 错误上下文。 */
+    val name: String
+
     /** 动作声明的能力需求；`Capability.None` 表示无需额外能力。 */
     val capability: Capability
 
