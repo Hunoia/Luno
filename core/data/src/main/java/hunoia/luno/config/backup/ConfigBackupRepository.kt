@@ -97,42 +97,10 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         }
     }
 
-    /** 单域快照：只含该域的段与版本，其余为 null。 */
+    /** 单域快照：域内包含哪些段由 [BackupDomainRegistry] 注册的投影决定。 */
     suspend fun snapshotDomain(domain: BackupDomain): Backup {
-        val full = snapshotAll()
-        return when (domain) {
-            BackupDomain.GESTURE -> Backup(
-                backupFormatVersion = full.backupFormatVersion,
-                gestureSchemaVersion = full.gestureSchemaVersion,
-                initialSettings = full.initialSettings,
-                gestureSettings = full.gestureSettings,
-                gestureButtons = full.gestureButtons,
-                subGestureSettings = full.subGestureSettings,
-            )
-            BackupDomain.TUNE -> Backup(
-                backupFormatVersion = full.backupFormatVersion,
-                tuneSchemaVersion = full.tuneSchemaVersion,
-                advancedSettings = full.advancedSettings,
-            )
-            BackupDomain.ACTION -> Backup(
-                backupFormatVersion = full.backupFormatVersion,
-                actionSchemaVersion = full.actionSchemaVersion,
-                actionSettings = full.actionSettings,
-                actionLibrarySettings = full.actionLibrarySettings,
-            )
-            BackupDomain.AUTOMATION -> Backup(
-                backupFormatVersion = full.backupFormatVersion,
-                automationSchemaVersion = full.automationSchemaVersion,
-                automationRules = full.automationRules,
-                globalVariables = full.globalVariables,
-            )
-            BackupDomain.SEARCH -> Backup(
-                backupFormatVersion = full.backupFormatVersion,
-                searchSchemaVersion = full.searchSchemaVersion,
-                quickAppLauncherSettings = full.quickAppLauncherSettings,
-                quickSearchSettings = full.quickSearchSettings,
-            )
-        }
+        BuiltinBackupDomains.ensure()
+        return BackupDomainRegistry.snapshot(snapshotAll(), domain)
     }
 
     /** 单域恢复：只写非 null 段。 */
