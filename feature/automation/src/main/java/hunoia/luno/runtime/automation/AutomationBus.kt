@@ -39,28 +39,7 @@ fun keysForConditionType(type: String): Set<String> = ConditionRegistry.subscrip
 fun isPulseConditionType(type: String): Boolean = ConditionRegistry.isPulse(type)
 
 /** 快照里实际携带的脉冲键（防抖合并导致一次刷新带多个脉冲时不丢）。 */
-fun pulseKeysIn(ctx: ConditionContext): Set<String> {
-    val keys = mutableSetOf<String>()
-    if (ctx.appChangedTo != null) keys.add(AutomationEventKey.APP)
-    if (ctx.screenEvent != null) keys.add(AutomationEventKey.SCREEN)
-    if (ctx.chargingChangedTo != null) keys.add(AutomationEventKey.CHARGING)
-    if (ctx.volumeChanged != null) keys.add(AutomationEventKey.VOLUME)
-    if (ctx.notificationPosted != null) keys.add(AutomationEventKey.NOTIFICATION)
-    if (ctx.notificationRemoved != null) keys.add(AutomationEventKey.NOTIFICATION)
-    if (ctx.packageChanged != null) keys.add(AutomationEventKey.PACKAGE)
-    if (ctx.intervalDueKeys.isNotEmpty()) keys.add(AutomationEventKey.INTERVAL)
-    if (ctx.shareReceived != null) keys.add(AutomationEventKey.SHARE)
-    if (ctx.clipboardChanged != null) keys.add(AutomationEventKey.CLIPBOARD)
-    if (ctx.bluetoothChanged != null) keys.add(AutomationEventKey.BLUETOOTH)
-    if (ctx.headphonesChanged != null) keys.add(AutomationEventKey.HEADPHONES)
-    if (ctx.scheduledTimeHit) keys.add(AutomationEventKey.TIME)
-    if (ctx.gesturePerformedId != null) keys.add(AutomationEventKey.GESTURE)
-    if (ctx.keyboardEvent != null) keys.add(AutomationEventKey.KEYBOARD)
-    if (ctx.musicChanged != null) keys.add(AutomationEventKey.MUSIC)
-    if (ctx.torchChangedTo != null) keys.add(AutomationEventKey.TORCH)
-    if (ctx.dndChangedTo != null) keys.add(AutomationEventKey.DND)
-    return keys
-}
+fun pulseKeysIn(ctx: ConditionContext): Set<String> = EventSourceRegistry.pulseKeysIn(ctx)
 
 private fun collectKeys(group: WhenGroup, out: MutableSet<String>) {
     for (item in group.items) {

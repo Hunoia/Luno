@@ -43,7 +43,8 @@ object PanelWidgetRegistry {
 
     fun register(widget: PanelWidget) {
         require(widget.id.isNotBlank()) { "panel widget id must not be blank" }
-        require(widgets.put(widget.id, widget) == null) { "duplicate panel widget: ${widget.id}" }
+        require(!widgets.containsKey(widget.id)) { "duplicate panel widget: ${widget.id}" }
+        widgets[widget.id] = widget
     }
 
     fun byId(id: String): PanelWidget? = widgets[id]

@@ -37,7 +37,8 @@ object ThrottlePolicyRegistry {
 
     fun register(kind: String, handler: ThrottlePolicyHandler) {
         require(kind.isNotBlank()) { "throttle kind must not be blank" }
-        require(handlers.put(kind, handler) == null) { "duplicate throttle kind: $kind" }
+        require(!handlers.containsKey(kind)) { "duplicate throttle kind: $kind" }
+        handlers[kind] = handler
     }
 
     fun handler(kind: String): ThrottlePolicyHandler = handlers[kind] ?: LegacyValueDrivenPolicy

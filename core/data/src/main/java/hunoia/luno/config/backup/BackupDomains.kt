@@ -22,7 +22,8 @@ object BackupDomainRegistry {
     private val handlers = LinkedHashMap<BackupDomain, BackupDomainSnapshot>()
 
     fun register(domain: BackupDomain, snapshot: BackupDomainSnapshot) {
-        require(handlers.put(domain, snapshot) == null) { "duplicate backup domain: $domain" }
+        require(!handlers.containsKey(domain)) { "duplicate backup domain: $domain" }
+        handlers[domain] = snapshot
     }
 
     fun snapshot(full: Backup, domain: BackupDomain): Backup =

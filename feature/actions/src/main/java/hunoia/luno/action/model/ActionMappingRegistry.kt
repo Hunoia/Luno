@@ -24,7 +24,8 @@ object ActionMappingRegistry {
 
     fun register(typeId: String, decoder: ActionDecoder) {
         require(typeId.isNotBlank()) { "action typeId must not be blank" }
-        require(decoders.put(typeId, decoder) == null) { "duplicate action decoder: $typeId" }
+        require(!decoders.containsKey(typeId)) { "duplicate action decoder: $typeId" }
+        decoders[typeId] = decoder
     }
 
     fun decode(typeId: String, params: JsonObject): Action =

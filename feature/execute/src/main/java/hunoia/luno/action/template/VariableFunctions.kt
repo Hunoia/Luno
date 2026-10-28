@@ -73,7 +73,8 @@ object VariableFunctionRegistry {
 
     fun register(token: String, function: VariableFunction) {
         require(token.isNotBlank()) { "variable token must not be blank" }
-        require(functions.put(token, function) == null) { "duplicate variable token: $token" }
+        require(!functions.containsKey(token)) { "duplicate variable token: $token" }
+        functions[token] = function
     }
 
     /** 未知 token 返回 null，由 ParamTemplates 原样保留。 */

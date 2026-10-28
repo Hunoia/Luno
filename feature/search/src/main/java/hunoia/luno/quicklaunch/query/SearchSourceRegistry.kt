@@ -53,9 +53,10 @@ object SearchSourceRegistry {
     /** 供功能模块注册额外来源；重复 key 在启动期直接失败。 */
     fun register(source: SearchSource) {
         require(source.key.isNotBlank()) { "search source key must not be blank" }
-        require(sources.put(source.key, source) == null) {
+        require(!sources.containsKey(source.key)) {
             "duplicate search source: ${source.key}"
         }
+        sources[source.key] = source
     }
 
     private fun source(
