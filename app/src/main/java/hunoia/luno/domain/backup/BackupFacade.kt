@@ -26,5 +26,5 @@ interface BackupFacade {
     suspend fun restore(context: Context, restoreFrom: Uri)
 
     suspend fun exportDomain(context: Context, domain: BackupDomain, saveTo: Uri)
-    suspend fun importDomain(context: Context, restoreFrom: Uri)
+    suspend fun importDomain(context: Context, domain: BackupDomain, restoreFrom: Uri)
 }

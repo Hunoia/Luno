@@ -65,9 +65,10 @@ object BackupCenter : BackupFacade {
             BackupOperator.exportDomain(context, domain, saveTo)
         }
 
-    override suspend fun importDomain(context: Context, restoreFrom: Uri) = withContext(Dispatchers.IO) {
-        BackupOperator.importDomain(context, restoreFrom)
-        PanelResources.cleanup()
-        syncRuntimeAfterRestore()
-    }
+    override suspend fun importDomain(context: Context, domain: BackupDomain, restoreFrom: Uri) =
+        withContext(Dispatchers.IO) {
+            BackupOperator.importDomain(context, domain, restoreFrom)
+            PanelResources.cleanup()
+            syncRuntimeAfterRestore()
+        }
 }

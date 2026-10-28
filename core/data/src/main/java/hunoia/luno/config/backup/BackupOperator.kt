@@ -299,9 +299,9 @@ object BackupOperator {
                 iconsZip.inputStream().use { it.copyTo(zos) }
                 zos.closeEntry()
             }
-            if (zipFile.length() > MAX_EXPORT_BYTES) {
+            if (zipFile.length() > BackupDomainRegistry.maxExportBytes(domain)) {
                 throw IllegalStateException(
-                    "export failed: domain $domain exceeds 8MB (${zipFile.length()} bytes)"
+                    "export failed: domain $domain exceeds ${BackupDomainRegistry.maxExportBytes(domain)} bytes (${zipFile.length()} bytes)"
                 )
             }
             val outputStream = context.contentResolver.openOutputStream(saveTo)
@@ -316,7 +316,13 @@ object BackupOperator {
     }
 
     /** 单域恢复：只写快照里非 null 的段，其余不动。 */
-    suspend fun importDomain(context: Context, restoreFrom: Uri) {
+    suspend fun importDomain(
+        context: Context,
+        domain: hunoia.luno.config.model.BackupDomain,
+        restoreFrom: Uri,
+    ) {
+        BuiltinBackupDomains.ensure()
+        val limit = BackupDomainRegistry.maxExportBytes(domain)
         val restoreDirFile = File(restoreDir).also { it.mkdirs() }
         try {
             val restoreFile = File(restoreDirFile, "domain.zip").also {
@@ -328,8 +334,8 @@ object BackupOperator {
             inputStream.use { stream ->
                 restoreFile.outputStream().use { out -> stream.copyToLimited(out, MAX_IMPORT_BYTES, "import") }
             }
-            if (restoreFile.length() > MAX_EXPORT_BYTES) {
-                throw IllegalStateException("import failed: file exceeds 8MB (${restoreFile.length()} bytes)")
+            if (restoreFile.length() > limit) {
+                throw IllegalStateException("import failed: file exceeds $limit bytes (${restoreFile.length()} bytes)")
             }
             val extracted = unzipFile(restoreFile, restoreDirFile)
             val item = extracted.firstOrNull { it.isFile && it.name == ZIP_BACKUP }
@@ -341,12 +347,8 @@ object BackupOperator {
                 if (it.size > MAX_ENTRY_BYTES) throw EntryTooLargeException(item.name)
             }
             val backup = decodeBackup(bytes) ?: throw IllegalStateException("import failed: backup decode failed")
-            if (backup.isEmpty()) {
-                throw IllegalStateException("import failed: backup contains no settings")
-            }
-            if (!backup.isSupported()) {
-                throw IllegalStateException("import failed: backup from newer app version")
-            }
+            BackupDomainRegistry.validate(backup, domain)
+                ?.let { throw IllegalStateException("import failed: $it") }
             ConfigProvider.restoreDomain(backup)
         } finally {
             File(restoreDir).deleteRecursively()
