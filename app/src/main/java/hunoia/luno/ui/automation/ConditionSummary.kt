@@ -2,7 +2,7 @@ package hunoia.luno.ui.automation
 
 import android.content.Context
 import hunoia.luno.R
-import hunoia.luno.action.model.AudioStream
+import hunoia.luno.core.domain.AudioStream
 import hunoia.luno.config.model.BooleanMode
 import hunoia.luno.config.model.ConditionItem
 import hunoia.luno.config.model.ConditionType
@@ -141,13 +141,13 @@ fun itemSummary(context: Context, item: ConditionItem): String {
 
         ConditionType.APP_PACKAGE_CHANGED -> {
             val action = when (item.packageChangeAction) {
-                hunoia.luno.config.model.PackageChangeAction.ADDED ->
+                hunoia.luno.core.domain.PackageChangeAction.ADDED ->
                     context.getString(R.string.condition_package_action_added)
-                hunoia.luno.config.model.PackageChangeAction.REMOVED ->
+                hunoia.luno.core.domain.PackageChangeAction.REMOVED ->
                     context.getString(R.string.condition_package_action_removed)
-                hunoia.luno.config.model.PackageChangeAction.REPLACED ->
+                hunoia.luno.core.domain.PackageChangeAction.REPLACED ->
                     context.getString(R.string.condition_package_action_replaced)
-                hunoia.luno.config.model.PackageChangeAction.CHANGED ->
+                hunoia.luno.core.domain.PackageChangeAction.CHANGED ->
                     context.getString(R.string.condition_package_action_changed)
                 else -> context.getString(R.string.condition_package_action_any)
             }

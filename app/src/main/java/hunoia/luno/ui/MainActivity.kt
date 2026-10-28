@@ -1,5 +1,7 @@
 package hunoia.luno.ui
 
+import hunoia.luno.domain.AppGraph
+
 import android.Manifest
 import android.app.ActivityManager
 import android.content.Context
@@ -17,7 +19,6 @@ import androidx.compose.runtime.remember
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-import hunoia.luno.service.ServiceAutoStart
 import hunoia.luno.link.LinkExtras
 import hunoia.luno.ui.navigation.PendingLinkRule
 import hunoia.luno.ui.SideGestureApp
@@ -43,7 +44,7 @@ class MainActivity : ComponentActivity() {
 
         // 更新/重启后的恢复广播可能被 ROM 的自启动管控拦下（接收器跑不到），
         // 主进程随本 Activity 启动时按落盘配置兜底恢复常驻服务，进程内只做一次。
-        ServiceAutoStart.restoreOnce(applicationContext)
+        AppGraph.runtime.restoreServicesOnce(applicationContext)
 
         handleLinkRuleIntent(intent)
 

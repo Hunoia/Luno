@@ -192,10 +192,10 @@ internal fun ActionSelectBottomBar(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                     targetState = searchExpanded,
                     transitionSpec = {
-                        val enter = fadeIn(tween(160)) + slideInHorizontally(tween(160)) { full ->
+                        val enter = fadeIn(tween(hunoia.luno.ui.theme.MotionSwapIn)) + slideInHorizontally(tween(hunoia.luno.ui.theme.MotionSwapIn)) { full ->
                             if (targetState) full / 8 else -full / 8
                         }
-                        val exit = fadeOut(tween(120)) + slideOutHorizontally(tween(120)) { full ->
+                        val exit = fadeOut(tween(hunoia.luno.ui.theme.MotionSwapOut)) + slideOutHorizontally(tween(hunoia.luno.ui.theme.MotionSwapOut)) { full ->
                             if (targetState) -full / 8 else full / 8
                         }
                         enter togetherWith exit
@@ -410,7 +410,7 @@ private fun TypeChip(
 ) {
     val contentColor by animateColorAsState(
         targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-        animationSpec = tween(180),
+        animationSpec = tween(hunoia.luno.ui.theme.MotionSubtle),
         label = "actionTypeChipFg",
     )
     Box(

@@ -1,4 +1,6 @@
 package hunoia.luno.ui.automation
+
+import hunoia.luno.domain.AppGraph
 import android.os.SystemClock
 import android.util.Log
 import androidx.compose.foundation.layout.Box
@@ -35,7 +37,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.domain.action.ActionLibrary
-import hunoia.luno.domain.automation.AutomationCenter
 import hunoia.luno.domain.automation.RuleTestResult
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.AutomationRule
@@ -46,8 +47,8 @@ import hunoia.luno.config.model.RuleStepKind
 import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.config.model.conditionAt
 import hunoia.luno.config.model.withConditionAt
-import hunoia.luno.action.model.runRuleId
-import hunoia.luno.core.JsonSerializer
+import hunoia.luno.core.domain.runRuleId
+import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.navigation.NEW_AUTOMATION_RULE_ID
 import hunoia.luno.ui.theme.CardInnerSpacing
@@ -83,7 +84,7 @@ fun AutomationEditScreen(
     onNavToActionSelect: (ActionSelect) -> Unit,
     onNavToHistory: (String) -> Unit,
 ) {
-    val loadedRules by AutomationCenter.rules
+    val loadedRules by AppGraph.automation.rules
         .collectAsStateWithLifecycle(initialValue = null)
     val library by ActionLibrary.settings
         .collectAsStateWithLifecycle(initialValue = null)
@@ -145,7 +146,7 @@ fun AutomationEditScreen(
     val rule = draft ?: return
     val context = LocalContext.current
     val capabilityReport = remember(rule, loadedRules, library, resumeTick) {
-        AutomationCenter.capabilityReport(
+        AppGraph.automation.capabilityReport(
             context,
             rule,
             (loadedRules ?: emptyList()).filterNot { it.id == rule.id } + rule,
@@ -172,7 +173,7 @@ fun AutomationEditScreen(
             try {
                 // 纯事件树没有持续边沿，触发方式统一落 ENTER（引擎同样归一化，双保险）。
                 val toSave = if (conditionHasState) rule else rule.copy(fireOn = FireMode.ENTER)
-                AutomationCenter.updateRules { rules ->
+                AppGraph.automation.updateRules { rules ->
                     if (rules.any { it.id == toSave.id }) {
                         rules.map { if (it.id == toSave.id) toSave else it }
                     } else {
@@ -187,11 +188,11 @@ fun AutomationEditScreen(
             }
         }
     }
-    val hasCondition = AutomationCenter.hasLeafOf(rule.condition)
+    val hasCondition = AppGraph.automation.hasLeafOf(rule.condition)
     fun testRun(executeSteps: Boolean = true) {
         if (testRunning) return
         testRunning = true
-        val started = AutomationCenter.runRuleTest(rule, executeSteps) { result ->
+        val started = AppGraph.automation.runRuleTest(rule, executeSteps) { result ->
             testRunning = false
             if (result == null) {
                 showToast(R.string.automation_test_unavailable)
@@ -301,7 +302,7 @@ fun AutomationEditScreen(
                     onConfirm = {
                         showDeleteConfirm = false
                         scope.launch {
-                            AutomationCenter.removeRule(rule.id)
+                            AppGraph.automation.removeRule(rule.id)
                             AutomationDraftHolder.remove(rule.id)
                             onBack()
                         }

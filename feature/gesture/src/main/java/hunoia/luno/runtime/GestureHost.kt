@@ -1,0 +1,26 @@
+package hunoia.luno.runtime
+
+import android.accessibilityservice.AccessibilityService
+import android.content.Context
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ViewModelStoreOwner
+import androidx.savedstate.SavedStateRegistryOwner
+import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.runtime.overlay.RuntimePanelOverlay
+import hunoia.luno.runtime.overlay.PointPickOverlay
+import hunoia.luno.runtime.pointer.PointerOverlayHost
+import kotlinx.coroutines.CoroutineScope
+
+/** 指针窗口宿主是 [GestureHost] 的子集（context + 生命周期三件套），直接继承。 */
+interface GestureHost : hunoia.luno.runtime.RuntimeHost, PointerOverlayHost {
+
+    val runtimePanelOverlay: RuntimePanelOverlay
+    val pointPickOverlay: PointPickOverlay
+
+    fun nowInLauncher(): Boolean
+    fun requestEnableDisabledPackage(packageName: String, onResult: (Boolean) -> Unit)
+    fun getCurrentPackageName(): String
+
+    /** 供 overlay 等场景直接执行一个已构造好的动作。 */
+    fun dispatchAction(action: StoredAction)
+}

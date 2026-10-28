@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 动作执行器独占文案：随 :feature:actions 迁移；通用文案归 :ui:design（Phase 3）。 -->
+    <string name="app_name">Luno</string>
+    <string name="grant_camera_permission">请开启"相机权限"以使用手电筒</string>
+    <string name="flashlight_failed">无法使用手电筒，请检查设备是否支持。</string>
+    <string name="random_name_generate_failed">生成失败</string>
+    <string name="random_name_copy_failed">复制失败</string>
+    <string name="action_shell_clipboard_label">Shell 输出</string>
+    <string name="settings_page_wifi">Wi-Fi</string>
+    <string name="settings_page_bluetooth">蓝牙</string>
+    <string name="settings_page_display">显示</string>
+    <string name="settings_page_battery">电池</string>
+    <string name="settings_page_apps">应用</string>
+    <string name="settings_page_network">网络</string>
+    <string name="settings_page_accessibility">无障碍</string>
+    <string name="settings_page_main">主设置</string>
+    <string name="action_library_missing">动作库条目已移除</string>
+    <string name="action_none">无</string>
+    <string name="grid_panel_unnamed">未命名网格面板</string>
+</resources>

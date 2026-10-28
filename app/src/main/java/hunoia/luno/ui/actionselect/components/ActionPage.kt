@@ -49,9 +49,9 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionCategory
 import hunoia.luno.action.definitions.ActionDefinitions
-import hunoia.luno.action.model.ActionLibraryEntry
-import hunoia.luno.action.model.matchesQuery
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.ActionLibraryEntry
+import hunoia.luno.core.domain.matchesQuery
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.gridpanel.internal.InternalWidgetDefs
 import hunoia.luno.gridpanel.widget.WidgetProviderGroup
 import hunoia.luno.gridpanel.widget.WidgetSpan
@@ -62,7 +62,7 @@ import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.domain.action.ActionCatalog
 import hunoia.luno.quicklaunch.model.AppInfo
-import hunoia.luno.quicklaunch.model.LauncherInfo
+import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.ui.actionselect.UiState.SelectedRecord
 import hunoia.luno.ui.actionselect.components.ActionRowSettingsSheet
@@ -158,13 +158,13 @@ internal fun ActionPage(
             transitionSpec = {
                 val forward = chipIndexOf(targetState) > chipIndexOf(initialState)
                 val enter = slideInHorizontally(
-                    animationSpec = tween(200, easing = FastOutSlowInEasing),
+                    animationSpec = tween(hunoia.luno.ui.theme.MotionPageEnter, easing = FastOutSlowInEasing),
                 ) { full -> if (forward) full / 6 else -full / 6 } +
-                    fadeIn(animationSpec = tween(200))
+                    fadeIn(animationSpec = tween(hunoia.luno.ui.theme.MotionPageEnter))
                 val exit = slideOutHorizontally(
-                    animationSpec = tween(150, easing = FastOutSlowInEasing),
+                    animationSpec = tween(hunoia.luno.ui.theme.MotionPageExit, easing = FastOutSlowInEasing),
                 ) { full -> if (forward) -full / 6 else full / 6 } +
-                    fadeOut(animationSpec = tween(120))
+                    fadeOut(animationSpec = tween(hunoia.luno.ui.theme.MotionSwapOut))
                 enter togetherWith exit
             },
             contentKey = { it },

@@ -55,21 +55,27 @@ class DaemonService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // 只要是被 startForegroundService 拉起的，就必须先 startForeground：
+        // 先判条件再 stopSelf 在部分 ROM 上仍会触发
+        // ForegroundServiceDidNotStartInTimeException（5s 内未转前台）。
+        // 不满足条件时短暂显示通知后立即撤掉，比进程崩溃安全。
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        startForegroundNotification(notificationManager)
+
         // 用户在主进程刚打开开关（ACTION_USER_ENABLE，磁盘写在前）：直接信任。
         // 其余来源（开机恢复、START_STICKY 重启）按落盘开关自判 —— 本服务已归并到
         // :service 进程，prefs 是各进程独立缓存，不能当跨进程事实源。
         val userEnabled = intent?.action == ACTION_USER_ENABLE
         if (!userEnabled && !prefs.getBoolean(KEY_KEEP_ALIVE, false)) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
         }
         if (!hasWriteSecureSettings()) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
         }
-
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        startForegroundNotification(notificationManager)
 
         val serviceComponentName = ComponentName(packageName, serviceClassName)
         val serviceId = serviceComponentName.flattenToShortString()

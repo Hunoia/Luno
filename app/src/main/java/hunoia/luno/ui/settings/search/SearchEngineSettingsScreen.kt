@@ -34,7 +34,7 @@ import hunoia.luno.R
 import hunoia.luno.bridge.system.copyText
 import hunoia.luno.bridge.system.readClipboardText
 import hunoia.luno.bridge.ui.showToast
-import hunoia.luno.core.JsonSerializer
+import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.domain.search.SearchCenter
 import hunoia.luno.config.model.QuickSearchListStyle
 import hunoia.luno.config.model.QuickSearchSettings

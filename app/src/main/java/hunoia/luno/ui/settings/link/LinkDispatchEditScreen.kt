@@ -31,7 +31,7 @@ import hunoia.luno.config.model.LinkMissMode
 import hunoia.luno.config.model.remove
 import hunoia.luno.config.model.upsert
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.link.LinkDispatcher
+import hunoia.luno.link.Links
 import hunoia.luno.link.LinkUrls
 import hunoia.luno.ui.actionlibrary.TemplateTextField
 import hunoia.luno.ui.component.LunoFab
@@ -430,7 +430,7 @@ private fun TestMatchResult(
         LinkUrls.firstMatch(testUrl.trim(), rules)
     }
     val targetLabel by produceState(initialValue = null as String?, matched?.id, testUrl) {
-        value = matched?.let { LinkDispatcher.resolvedTargetOf(context, it, testUrl.trim())?.label }
+        value = matched?.let { Links.resolvedTargetOf(context, it, testUrl.trim())?.label }
     }
     Column(
         modifier = Modifier

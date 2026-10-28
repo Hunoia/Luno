@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 设计系统通用文案（D6）：只放被组件库直接引用的通用字串。 -->
+    <string name="cancel">取消</string>
+    <string name="confirm">确认</string>
+    <string name="go_back">返回</string>
+    <string name="search_clear_cd">清除</string>
+    <string name="search_hint_all">搜索</string>
+</resources>

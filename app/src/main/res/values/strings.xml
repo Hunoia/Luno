@@ -6,7 +6,6 @@
     <string name="accessibility_description">辅助服务用于模拟返回、主页、等按键操作，实现侧滑手势的各种自定义操控，不会收集任何数据。</string>
     <string name="delete">删除</string>
     <string name="edit">编辑</string>
-    <string name="go_back">返回</string>
     <string name="save">保存</string>
     <string name="add_gesture_button">添加触钮</string>
     <string name="reset_default_settings_warning">恢复默认设置</string>
@@ -22,32 +21,6 @@
     <string name="width">宽度</string>
     <string name="mini_window_position_hint">调整小窗打开的位置</string>
     <string name="keep_alive_need_permission">保活需要授予「修改系统设置」权限，请先在 Shizuku 中授权或通过 ADB 执行：adb shell pm grant hunoia.luno android.permission.WRITE_SECURE_SETTINGS</string>
-    <string name="quick_launcher_start_failed">启动面板打开失败</string>
-    <string name="quick_launcher_need_overlay_permission">打开启动面板需要「显示在其他应用上层」权限，正在前往设置</string>
-    <string name="quick_search_start_failed">搜索面板打开失败</string>
-    <string name="quick_search_copied">已复制</string>
-    <string name="quick_search_clipboard">剪贴板</string>
-    <string name="quick_search_clipboard_locked">已锁定，解锁后显示剪贴板</string>
-    <string name="quick_search_contacts">联系人</string>
-    <string name="quick_search_grant_contacts">授予联系人权限</string>
-    <string name="quick_search_music">音乐</string>
-    <string name="quick_search_files">文件</string>
-    <string name="quick_search_grant_media">授予媒体权限</string>
-    <string name="quick_search_grant_files">授予文件访问权限</string>
-    <string name="quick_search_no_handler">没有能打开的应用</string>
-    <string name="quick_search_voice">语音输入</string>
-    <string name="quick_search_pin">置顶</string>
-    <string name="quick_search_unpin">取消置顶</string>
-    <string name="quick_search_calendar">日历</string>
-    <string name="quick_search_grant_calendar">授予日历权限</string>
-    <string name="quick_search_toggles">快捷开关</string>
-    <string name="quick_search_sms">短信</string>
-    <string name="quick_search_grant_sms">授予短信权限</string>
-    <string name="quick_search_calls">通话记录</string>
-    <string name="quick_search_grant_calls">授予通话记录权限</string>
-    <string name="quick_search_state_on">开</string>
-    <string name="quick_search_state_off">关</string>
-    <string name="quick_search_open_settings">去设置</string>
     <string name="quick_search_trigger_off">留空则关闭该来源标识</string>
     <string name="quick_search_trigger_closed">标识已关闭</string>
     <string name="mini_window_position_short">小窗</string>
@@ -115,14 +88,6 @@
     <string name="recent_apps_blocklist">最近应用黑名单</string>
     <string name="recent_apps_blocklist_hint">最近的内置部件与上一个应用不显示/不切换到这些应用</string>
     <!-- 设置页（动作/快速搜索共用） -->
-    <string name="settings_page_wifi">Wi-Fi</string>
-    <string name="settings_page_bluetooth">蓝牙</string>
-    <string name="settings_page_display">显示</string>
-    <string name="settings_page_battery">电池</string>
-    <string name="settings_page_apps">应用</string>
-    <string name="settings_page_network">网络</string>
-    <string name="settings_page_accessibility">无障碍</string>
-    <string name="settings_page_main">主设置</string>
     <!-- 动作选择页行尾设置弹窗 -->
     <string name="ok">确定</string>
     <string name="row_settings_sensitivity">灵敏度</string>
@@ -235,45 +200,11 @@
     <string name="grid_panel_card_alpha">卡片透明度</string>
     <string name="grid_panel_add_widget">桌面小部件</string>
     <string name="grid_panel_internal_widgets">Luno 内置</string>
-    <string name="grid_panel_internal_media">媒体控制</string>
-    <string name="grid_panel_internal_volume">音量调节</string>
-    <string name="grid_panel_internal_brightness">亮度调节</string>
-    <string name="grid_panel_internal_recents">最近应用</string>
-    <string name="grid_panel_internal_clipboard">剪贴板</string>
-    <string name="grid_panel_internal_app_drawer">应用抽屉</string>
-    <string name="grid_panel_clipboard_current">当前</string>
-    <string name="app_drawer_disabled_app">该应用已被禁用</string>
-    <string name="grid_panel_clipboard_image">图片</string>
-    <string name="grid_panel_clipboard_empty">暂无剪贴板历史</string>
-    <string name="grid_panel_clipboard_copy">复制</string>
-    <string name="grid_panel_clipboard_delete">删除</string>
-    <string name="grid_panel_clipboard_clear">清空全部</string>
-    <string name="grid_panel_clipboard_more">更多操作</string>
-    <string name="grid_panel_clipboard_copy_failed">复制失败</string>
-    <string name="grid_panel_clipboard_pasted_via_clipboard">该输入框只支持粘贴，已使用剪贴板</string>
-    <string name="grid_panel_brightness_need_permission">授予修改系统设置权限后可调节亮度，点此去授权</string>
-    <string name="grid_panel_recents_empty">暂无最近应用记录</string>
-    <string name="grid_panel_media_need_permission">授予通知访问权限后可控制媒体播放，点此去授权</string>
-    <string name="grid_panel_media_no_session">没有正在播放的媒体</string>
-    <string name="grid_panel_media_previous">上一曲</string>
-    <string name="grid_panel_media_play_pause">播放或暂停</string>
-    <string name="grid_panel_media_next">下一曲</string>
-    <string name="grid_panel_toggle_background">切换部件背景</string>
     <string name="grid_panel_no_widgets">设备上没有可用的小部件</string>
     <string name="grid_panel_widget_pick_failed">无法打开小部件选择器</string>
-    <string name="toast_select_page_failed">无法打开动作选择页</string>
     <string name="grid_panel_add_item">添加面板项</string>
-    <string name="grid_panel_item_menu_delete">删除</string>
-    <string name="grid_panel_item_resize">调整大小</string>
-    <string name="grid_panel_move_left">向左移动一格</string>
-    <string name="grid_panel_move_right">向右移动一格</string>
-    <string name="grid_panel_move_up">向上移动一格</string>
-    <string name="grid_panel_move_down">向下移动一格</string>
     <string name="grid_panel_page_full">这一页放不下了，已取消添加</string>
     <string name="grid_panel_missing">面板不存在，可能已被删除</string>
-    <string name="grid_panel_widget_failed">小部件加载失败</string>
-    <string name="grid_panel_empty_items">空面板。长按空白处进入编辑添加项。</string>
-    <string name="grid_panel_empty_items_edit">这一页还是空的。点右上角「+」添加动作或小部件。</string>
     <string name="grid_panel_shrink_title">网格缩小后放不下</string>
     <string name="grid_panel_shrink_desc_named">改成 %1$d 列后有 %2$d 项放不下，继续将移除：%3$s</string>
     <string name="grid_panel_shrink_desc_generic">改成 %1$d 列后有 %2$d 项放不下，继续将移除它们。</string>
@@ -292,26 +223,17 @@
     <string name="save_failure">保存失败</string>
     <string name="left">左</string>
     <string name="right">右</string>
-    <string name="gesture_button">触钮</string>
     <string name="gesture_button_name">触钮 %1$d</string>
     <string name="gesture_button_size_max">已达到最大触钮数量</string>
     <string name="request_get_apps_permission">获取应用列表</string>
-    <string name="goto_grant_notification_policy_access_permission">请手动开启"免打扰权限"以使用静音开关</string>
-    <string name="grant_camera_permission">请开启"相机权限"以使用手电筒</string>
     <string name="tab_apps">应用</string>
     <string name="tab_shortcuts">快捷</string>
     <string name="create_shortcut">创建快捷方式</string>
+    <string name="create_shortcut_failed">创建快捷方式失败：应用没有返回可启动的 Intent。</string>
     <string name="launch_shortcut">启动快捷方式</string>
     <string name="delete_gesture_button_warning">删除触钮</string>
     <string name="delete_gesture_button_warning_desc">将删除触钮，是否继续？</string>
     <string name="rename">重命名</string>
-    <string name="launch_mini_window_failed">无法启动应用小窗。</string>
-    <string name="enable_disabled_app_failed">启用禁用应用失败。</string>
-    <string name="launch_shortcut_info_failed">无法启动%1$s快捷方式。</string>
-    <string name="launch_assist_failed">无法启动系统助手，请检查您是否已安装。</string>
-    <string name="flashlight_failed">无法使用手电筒，请检查设备是否支持。</string>
-    <string name="os_version_too_low">系统版本不支持</string>
-    <string name="os_version_too_low_placeholder">系统版本不支持：%1$s</string>
 
     <string name="slide_to_right">向右滑动</string>
     <string name="slide_to_left">向左滑动</string>
@@ -362,14 +284,6 @@
     <string name="action_category_sub_gesture">子手势</string>
 
     <!-- 快速启动 -->
-    <string name="quick_app_launcher_content_height">高度</string>
-    <string name="quick_app_launcher_panel_width">宽度</string>
-    <string name="quick_app_launcher_screen_margin">离屏边距</string>
-    <string name="quick_app_launcher_candidate_rows">候选应用行数</string>
-    <string name="quick_app_launcher_adjust">调整面板</string>
-    <string name="quick_app_launcher_delete_input">删除输入</string>
-    <string name="quick_app_launcher_grid_columns">搜索列数</string>
-    <string name="quick_app_launcher_key_height">按键高度</string>
 
     <!-- 手势设置 -->
     <string name="sub_gesture_timeout_label">子手势超时</string>
@@ -386,18 +300,10 @@
     <string name="no_matching_results">无匹配结果</string>
     <string name="all_categories">全部</string>
     <string name="search_hint_all">搜索</string>
-
-    <string name="search_clear_cd">清除</string>
     <string name="search_collapse_cd">收起搜索</string>
-    <string name="invalid_url">链接格式不正确</string>
-    <string name="launch_failed">启动失败</string>
-    <string name="launch_no_handler">没有可处理该链接的应用</string>
     <string name="long_press">长按</string>
     <string name="tap_action">单击</string>
     <string name="tap_and_long_press_action">单击/长按</string>
-    <string name="tap">单击</string>
-    <string name="random_name_generate_failed">生成失败</string>
-    <string name="random_name_copy_failed">复制失败</string>
     <string name="sub_gesture">子手势</string>
     <string name="add_sub_gesture">添加子手势</string>
     <string name="delete_sub_gesture_warning">删除子手势？</string>
@@ -430,17 +336,8 @@
     <string name="action_library_icon_default">默认</string>
     <string name="action_library_icon_custom">文字或表情</string>
     <string name="point_pick">屏幕取点</string>
-    <string name="point_pick_hint">轻点目标位置，确定后回填坐标（仍可手改）</string>
     <string name="point_pick_point">x=%1$d dp，y=%2$d dp</string>
     <string name="point_pick_empty">未取点</string>
-    <string name="screen_pick_image_copied">图片已复制</string>
-    <string name="screen_pick_image_saved">图片已保存到相册</string>
-    <string name="screen_pick_close">关闭识屏</string>
-    <string name="screen_pick_copy_image">复制图片</string>
-    <string name="screen_pick_share_image">分享图片</string>
-    <string name="screen_pick_save_image">保存到相册</string>
-    <string name="screen_pick_no_content">未识别到可复制的内容</string>
-    <string name="screen_pick_failed">识别失败，请重试</string>
     <string name="action_library_icon_use">使用</string>
 
     <!-- 动作编辑器 -->
@@ -451,7 +348,6 @@
     <string name="action_param_kv_key">键</string>
     <string name="action_param_kv_value">值</string>
     <string name="action_param_kv_add">添加一项</string>
-    <string name="action_shell_clipboard_label">Shell 输出</string>
     <string name="action_shell_result">命令结果</string>
     <string name="action_shell_running">执行中…</string>
     <string name="action_shell_no_output">（无输出）</string>
@@ -473,7 +369,6 @@
 
     <!-- 主页 -->
     <string name="height">高度</string>
-    <string name="tap_mini_window">短按小窗</string>
     <string name="mini_window_portrait_hint">当前编辑竖屏位置，转动屏幕可编辑横屏</string>
     <string name="mini_window_landscape_hint">当前编辑横屏位置，转回竖屏可编辑竖屏</string>
     <string name="mini_window_position">位置</string>
@@ -819,12 +714,6 @@
     <string name="network_other">其他网络</string>
 
     <!-- 快速搜索 -->
-    <string name="quick_search_group_actions">动作</string>
-    <string name="quick_search_group_apps">应用</string>
-    <string name="quick_search_group_shortcuts">快捷方式</string>
-    <string name="quick_search_group_settings">设置</string>
-    <string name="quick_search_app_disabled">已停用</string>
-    <string name="quick_search_engine_search">用 %1$s 搜索</string>
 
     <!-- 搜索引擎 -->
     <string name="search_engine_settings">搜索引擎</string>
@@ -869,16 +758,6 @@
     <string name="search_engine_fallback">回退链接（可选）</string>
     <string name="search_engine_fallback_hint">应用打不开时使用</string>
     <string name="search_engine_delete_title">删除搜索引擎？</string>
-    <string name="search_action_app_details">应用详情</string>
-    <string name="search_action_send_sms">发短信</string>
-    <string name="search_action_copy">复制</string>
-    <string name="search_action_copy_link">复制链接</string>
-    <string name="search_action_share">分享</string>
-    <string name="search_action_share_image">分享图片</string>
-    <string name="search_action_pin">固定此结果</string>
-    <string name="search_action_unpin">取消固定</string>
-    <string name="search_result_pinned">已固定</string>
-    <string name="search_result_unpinned">已取消固定</string>
     <string name="search_source_settings">内容源与标识</string>
     <string name="search_source_group_apps">应用与动作</string>
     <string name="search_source_group_comms">通讯</string>
@@ -890,11 +769,6 @@
     <string name="search_list_style">列表样式</string>
     <string name="search_list_style_flat">平铺</string>
     <string name="search_list_style_cards">大卡片</string>
-    <string name="search_card_history">搜索历史</string>
-    <string name="search_card_calculator">计算器</string>
-    <string name="search_card_url">链接</string>
-    <string name="search_card_engine">搜索引擎</string>
-    <string name="quick_search_clear">清空</string>
     <string name="search_import_confirm_title">确认导入</string>
     <string name="search_import_confirm_text">将导入 %1$d 个引擎，其中 %2$d 个标识与现有重复，导入后将清空其标识</string>
     <string name="search_import_confirm_text_no_conflict">将导入 %1$d 个引擎</string>
@@ -907,33 +781,11 @@
     <string name="search_engine_empty_hint">暂无搜索引擎，点右下角添加</string>
     <string name="search_engine_missing">引擎不存在或已被删除</string>
     <string name="search_engine_invalid_hint">引擎信息不完整，请补全标红项</string>
-    <string name="more">更多</string>
-
-    <!-- 识屏取链 -->
-    <string name="screen_links_title">屏幕上的链接</string>
-    <string name="screen_links_scanning">正在扫描屏幕…</string>
-    <string name="screen_links_count">%1$d 条</string>
-    <string name="screen_links_empty">屏幕上没有识别到链接</string>
-    <string name="screen_links_target">发往 %1$s</string>
-    <string name="screen_links_no_target">未匹配规则</string>
-    <string name="screen_links_copy">复制链接</string>
-    <string name="screen_links_copied">已复制链接</string>
-    <string name="screen_links_close">关闭</string>
-    <string name="screen_links_unavailable">操作失败，请重试</string>
-    <string name="screen_links_rescan">重新扫描</string>
-    <string name="screen_links_copy_all">复制全部链接</string>
-    <string name="screen_links_share_all">分享全部链接</string>
-    <string name="screen_links_more">更多操作</string>
-    <string name="screen_links_open_browser">用浏览器打开</string>
-    <string name="screen_links_share">分享链接</string>
-    <string name="screen_links_create_rule">用该域名新建规则</string>
-    <string name="screen_links_empty_hint">可以先滚动页面再点「重新扫描」</string>
 
     <!-- 链接分发 -->
     <string name="link_dispatch">链接分发</string>
     <string name="link_dispatch_hint">按规则把链接送进指定应用</string>
     <string name="link_dispatch_rule_count">%1$d 条规则 · 按规则把链接送进指定应用</string>
-    <string name="link_dispatch_open_failed">没有可打开该链接的应用</string>
     <string name="link_dispatch_no_link">没有识别到链接</string>
     <string name="link_dispatch_global_group">行为</string>
     <string name="link_dispatch_enabled">启用链接分发</string>
@@ -1015,6 +867,5 @@
     <string name="link_dispatch_select_hint">共 %1$d 条链接，点按分发，长按分享</string>
     <string name="link_dispatch_select_target">发往 %1$s · %2$s</string>
     <string name="link_dispatch_select_no_target">未匹配规则 · %1$s</string>
-    <string name="clipboard_link_count">%1$d 条</string>
     <string name="clipboard_link_target">%1$s</string>
 </resources>

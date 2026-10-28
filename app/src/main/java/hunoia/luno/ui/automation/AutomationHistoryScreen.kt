@@ -1,4 +1,6 @@
 package hunoia.luno.ui.automation
+
+import hunoia.luno.domain.AppGraph
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -16,7 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
-import hunoia.luno.domain.automation.AutomationCenter
 import hunoia.luno.domain.automation.AutomationEvent
 import hunoia.luno.ui.component.feedback.EmptyState
 import java.text.SimpleDateFormat
@@ -32,13 +33,13 @@ fun AutomationHistoryScreen(
     onBack: () -> Unit,
     ruleId: String,
 ) {
-    val events by AutomationCenter.log
+    val events by AppGraph.automation.log
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val timeFormat = remember { SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault()) }
     val ruleEvents = remember(events, ruleId) {
         // 无墙钟的老事件直接丢弃（timeMs 是开机时长，格式化出来是错的）。
         events.filter { it.ruleId == ruleId && it.wallTimeMs > 0L }
-            .takeLast(AutomationCenter.maxEventsPerRuleQuery)
+            .takeLast(AppGraph.automation.maxEventsPerRuleQuery)
             .reversed()
     }
     LunoScreen(
@@ -120,29 +121,29 @@ fun historySubtitle(event: AutomationEvent): String {
     if (!event.fired) {
         return stringResource(
             when (event.reason) {
-                AutomationCenter.skipNoSteps.code -> R.string.history_no_steps
-                AutomationCenter.skipThrottledCooldown.code -> R.string.history_throttled_cooldown
-                AutomationCenter.skipThrottledWindow.code -> R.string.history_throttled_window
-                AutomationCenter.skipOutprioritized.code -> R.string.history_outprioritized
-                AutomationCenter.skipConstraintUnmet.code -> R.string.history_constraint_unmet
-                AutomationCenter.skipRuleBusy.code -> R.string.history_rule_busy
-                AutomationCenter.skipPermissionMissing.code -> R.string.history_permission_missing
+                AppGraph.automation.skipNoSteps.code -> R.string.history_no_steps
+                AppGraph.automation.skipThrottledCooldown.code -> R.string.history_throttled_cooldown
+                AppGraph.automation.skipThrottledWindow.code -> R.string.history_throttled_window
+                AppGraph.automation.skipOutprioritized.code -> R.string.history_outprioritized
+                AppGraph.automation.skipConstraintUnmet.code -> R.string.history_constraint_unmet
+                AppGraph.automation.skipRuleBusy.code -> R.string.history_rule_busy
+                AppGraph.automation.skipPermissionMissing.code -> R.string.history_permission_missing
                 else -> R.string.history_no_steps
             },
         )
     }
-    if (AutomationCenter.isOkReason(event.reason)) {
+    if (AppGraph.automation.isOkReason(event.reason)) {
         return if (event.steps.any { it.skipped }) {
             stringResource(R.string.history_partial)
         } else {
             stringResource(R.string.history_ok)
         }
     }
-    if (AutomationCenter.isTimeoutReason(event.reason)) return stringResource(R.string.history_timeout)
-    if (AutomationCenter.isInterruptedReason(event.reason)) {
+    if (AppGraph.automation.isTimeoutReason(event.reason)) return stringResource(R.string.history_timeout)
+    if (AppGraph.automation.isInterruptedReason(event.reason)) {
         return stringResource(
             R.string.history_interrupted,
-            AutomationCenter.stripInterruptedPrefix(event.reason),
+            AppGraph.automation.stripInterruptedPrefix(event.reason),
         )
     }
     return event.reason

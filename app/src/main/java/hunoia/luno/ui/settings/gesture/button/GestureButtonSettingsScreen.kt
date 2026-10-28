@@ -59,8 +59,8 @@ fun GestureButtonSettingsScreen(
             )
         }
     LunoScreenLazy(
-        title = uiState.gestureButton?.name?.ifEmpty { stringResource(id = R.string.gesture_button) }
-            ?: stringResource(id = R.string.gesture_button),
+        title = uiState.gestureButton?.name?.ifEmpty { stringResource(id = hunoia.luno.core.data.R.string.gesture_button) }
+            ?: stringResource(id = hunoia.luno.core.data.R.string.gesture_button),
         onBack = onBack,
         postfixTitle = {
                             if (uiState.gestureButton != null) {

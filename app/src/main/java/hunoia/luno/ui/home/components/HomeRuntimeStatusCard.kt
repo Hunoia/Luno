@@ -76,7 +76,7 @@ fun HomeRuntimeStatusCard(
             HomeRuntimeStatusLevel.NeedsAttention -> colorScheme.secondaryContainer
             HomeRuntimeStatusLevel.Unavailable -> colorScheme.errorContainer
         },
-        animationSpec = tween(300),
+        animationSpec = tween(hunoia.luno.ui.theme.MotionOverlayEnter),
         label = "statusContainer",
     )
     val contentColor by animateColorAsState(
@@ -85,7 +85,7 @@ fun HomeRuntimeStatusCard(
             HomeRuntimeStatusLevel.NeedsAttention -> colorScheme.onSecondaryContainer
             HomeRuntimeStatusLevel.Unavailable -> colorScheme.onErrorContainer
         },
-        animationSpec = tween(300),
+        animationSpec = tween(hunoia.luno.ui.theme.MotionOverlayEnter),
         label = "statusContent",
     )
 
@@ -108,8 +108,8 @@ fun HomeRuntimeStatusCard(
             AnimatedContent(
                 targetState = runtimeStatus.level,
                 transitionSpec = {
-                    (fadeIn(tween(200)) + scaleIn(initialScale = 0.7f, animationSpec = tween(200))) togetherWith
-                        fadeOut(tween(150))
+                    (fadeIn(tween(hunoia.luno.ui.theme.MotionPageEnter)) + scaleIn(initialScale = 0.7f, animationSpec = tween(hunoia.luno.ui.theme.MotionPageEnter))) togetherWith
+                        fadeOut(tween(hunoia.luno.ui.theme.MotionPageExit))
                 },
                 label = "statusIcon",
             ) { level ->
@@ -133,8 +133,8 @@ fun HomeRuntimeStatusCard(
                 targetState = runtimeStatus,
                 contentKey = { status -> status.level to status.primaryIssue },
                 transitionSpec = {
-                    ((fadeIn(tween(220)) + slideInVertically(tween(220)) { height -> height / 3 }) togetherWith
-                        (fadeOut(tween(140)) + slideOutVertically(tween(140)) { height -> -height / 3 }))
+                    ((fadeIn(tween(hunoia.luno.ui.theme.MotionStatusIn)) + slideInVertically(tween(hunoia.luno.ui.theme.MotionStatusIn)) { height -> height / 3 }) togetherWith
+                        (fadeOut(tween(hunoia.luno.ui.theme.MotionStatusOut)) + slideOutVertically(tween(hunoia.luno.ui.theme.MotionStatusOut)) { height -> -height / 3 }))
                         .using(SizeTransform(clip = false))
                 },
                 label = "statusText",

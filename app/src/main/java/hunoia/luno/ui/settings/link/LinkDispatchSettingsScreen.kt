@@ -27,7 +27,7 @@ import hunoia.luno.config.model.LinkTapMode
 import hunoia.luno.config.model.LinkDispatchSettings
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.link.LinkDispatcher
+import hunoia.luno.link.Links
 import hunoia.luno.link.LinkPresets
 import hunoia.luno.ui.component.DragReorderHandle
 import hunoia.luno.ui.component.LunoFab
@@ -183,7 +183,7 @@ fun LinkDispatchSettingsScreen(
                             rule.targetPackage,
                             rule.viaBrowser,
                         ) {
-                            value = LinkDispatcher.targetOf(context, rule)?.label
+                            value = Links.targetOf(context, rule)?.label
                         }
                         LunoSettingsRow(
                             icon = Icons.Default.Link,

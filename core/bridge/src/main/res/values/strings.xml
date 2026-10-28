@@ -1,0 +1,9 @@
+<resources>
+    <string name="launch_assist_failed">无法启动系统助手，请检查您是否已安装。</string>
+    <string name="os_version_too_low">系统版本不支持</string>
+    <string name="os_version_too_low_placeholder">系统版本不支持：%1$s</string>
+    <string name="invalid_url">链接格式不正确</string>
+    <string name="launch_failed">启动失败</string>
+    <string name="launch_no_handler">没有可处理该链接的应用</string>
+    <string name="goto_grant_notification_policy_access_permission">请手动开启"免打扰权限"以使用静音开关</string>
+</resources>

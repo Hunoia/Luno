@@ -1,5 +1,7 @@
 package hunoia.luno.ui.automation
 
+import hunoia.luno.domain.AppGraph
+
 import android.text.format.DateUtils
 import android.util.Log
 import androidx.compose.foundation.background
@@ -56,8 +58,7 @@ import hunoia.luno.config.model.GlobalVariable
 import hunoia.luno.config.model.GlobalVariables
 import hunoia.luno.config.model.RulePriority
 import hunoia.luno.domain.action.ActionLibrary
-import hunoia.luno.domain.automation.AutomationCenter
-import hunoia.luno.ui.actionlibrary.IconPalette
+import hunoia.luno.actions.icon.IconPalette
 import hunoia.luno.ui.actionlibrary.IconPickerSheet
 import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.component.feedback.EmptyState
@@ -85,20 +86,20 @@ fun AutomationRulesTabContent(
     onNavToEdit: (String) -> Unit,
     contentPadding: PaddingValues,
 ) {
-    val rules by AutomationCenter.rules
+    val rules by AppGraph.automation.rules
         .collectAsStateWithLifecycle(initialValue = emptyList())
-    val events by AutomationCenter.log
+    val events by AppGraph.automation.log
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val library by ActionLibrary.settings
         .collectAsStateWithLifecycle(initialValue = null)
-    val variables by AutomationCenter.variables
+    val variables by AppGraph.automation.variables
         .collectAsStateWithLifecycle(initialValue = GlobalVariables())
     var showVariables by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     fun submit(next: List<AutomationRule>) {
         scope.launch {
             try {
-                AutomationCenter.updateRules { next }
+                AppGraph.automation.updateRules { next }
             } catch (e: Exception) {
                 Log.e("AutomationSettings", "submit failed", e)
             }
@@ -121,7 +122,7 @@ fun AutomationRulesTabContent(
     LaunchedEffect(Unit) {
         var tick = 0
         while (true) {
-            val ids = withContext(Dispatchers.IO) { AutomationCenter.runningRuleIds() }
+            val ids = withContext(Dispatchers.IO) { AppGraph.automation.runningRuleIds() }
             if (ids != runningIds) runningIds = ids
             // 相对时间每 30s 刷新一次，避免轮询本身每秒触发整页重组。
             if (tick % 30 == 0) now = System.currentTimeMillis()
@@ -163,7 +164,7 @@ fun AutomationRulesTabContent(
             val permissionText = remember(rule, rules, library) {
                 capabilityWarningText(
                     context,
-                    AutomationCenter.capabilityReport(context, rule, rules, library),
+                    AppGraph.automation.capabilityReport(context, rule, rules, library),
                 )
             }
             RuleCard(
@@ -178,7 +179,7 @@ fun AutomationRulesTabContent(
                 onStop = {
                     runningIds = runningIds - rule.id
                     scope.launch {
-                        withContext(Dispatchers.IO) { AutomationCenter.stopRule(rule.id) }
+                        withContext(Dispatchers.IO) { AppGraph.automation.stopRule(rule.id) }
                     }
                 },
                 onEnabledChange = { enabled ->
@@ -201,7 +202,7 @@ fun AutomationRulesTabContent(
             onDismissRequest = { showVariables = false },
             onSave = { entries ->
                 scope.launch {
-                    AutomationCenter.updateVariables { GlobalVariables(entries) }
+                    AppGraph.automation.updateVariables { GlobalVariables(entries) }
                 }
                 showVariables = false
             },
@@ -375,7 +376,7 @@ private fun RuleIcon(rule: AutomationRule, onClick: () -> Unit) {
             )
         } else if (!rule.iconKey.isNullOrBlank()) {
             TextIconGlyph(
-                text = rule.iconKey,
+                text = rule.iconKey.orEmpty(),
                 size = RowIconSize,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

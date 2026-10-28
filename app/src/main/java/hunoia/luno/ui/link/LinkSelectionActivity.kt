@@ -25,10 +25,10 @@ import hunoia.luno.R
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.link.LinkDispatcher
+import hunoia.luno.link.Links
 import hunoia.luno.link.LinkExtras
 import hunoia.luno.link.LinkUrls
-import hunoia.luno.quicklaunch.icon.SearchIconCache
+import hunoia.luno.ui.icon.SearchIconCache
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
@@ -108,9 +108,9 @@ private fun LinkSelectionContent(
         val rule = LinkUrls.firstMatch(url, linkSettings.rules)
         scope.launch {
             // 规则表级分发：命中规则开了短链解析时，内部跟随后会重新匹配。
-            val dispatched = rule != null && LinkDispatcher.dispatch(context, url, linkSettings)
+            val dispatched = rule != null && Links.dispatch(context, url, linkSettings)
             if (!dispatched) {
-                LinkDispatcher.fallbackFor(context, url, rule, linkSettings)
+                Links.fallbackFor(context, url, rule, linkSettings)
             }
             onDone()
         }
@@ -119,7 +119,7 @@ private fun LinkSelectionContent(
     fun share(url: String) {
         if (handled) return
         handled = true
-        LinkDispatcher.share(context, url)
+        Links.share(context, url)
         onDone()
     }
 
@@ -135,7 +135,7 @@ private fun LinkSelectionContent(
                     LinkUrls.firstMatch(url, linkSettings.rules)
                 }
                 val targetLabel by produceState(initialValue = null as String?, url, rule?.id) {
-                    value = rule?.let { LinkDispatcher.resolvedTargetOf(context, it, url)?.label }
+                    value = rule?.let { Links.resolvedTargetOf(context, it, url)?.label }
                 }
                 val host = remember(url) { LinkUrls.hostOf(url) ?: url }
                 LunoSettingsRow(
@@ -186,14 +186,14 @@ private fun AppPickerContent(
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             )
         }.isSuccess
-        if (!launched) showToast(R.string.link_dispatch_open_failed)
+        if (!launched) showToast(hunoia.luno.link.R.string.link_dispatch_open_failed)
         onDone()
     }
 
     fun share() {
         if (handled) return
         handled = true
-        LinkDispatcher.share(context, url)
+        Links.share(context, url)
         onDone()
     }
 

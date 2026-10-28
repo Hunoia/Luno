@@ -25,8 +25,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
-import hunoia.luno.action.model.StoredAction
-import hunoia.luno.action.model.longPressVariant
+import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.core.domain.longPressVariant
 import hunoia.luno.config.model.ActionPanel
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.ui.component.DragReorderHandle
@@ -78,7 +78,7 @@ fun ActionPanelEditScreen(
                     actionPanels = settings.actionPanels.withPanel(latest.copy(items = newItems))
                 )
             }
-            if (cleanupResources) hunoia.luno.domain.gridpanel.PanelResources.cleanup()
+            if (cleanupResources) hunoia.luno.gridpanel.PanelResources.cleanup()
         }
     }
 
@@ -152,7 +152,7 @@ fun ActionPanelEditScreen(
                             TuneConfig.updateAction { settings ->
                                 settings.copy(actionPanels = settings.actionPanels.withoutPanel(panelId))
                             }
-                            hunoia.luno.domain.gridpanel.PanelResources.cleanup()
+                            hunoia.luno.gridpanel.PanelResources.cleanup()
                             onBack()
                         }
                     },

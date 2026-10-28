@@ -1,16 +1,16 @@
 package hunoia.luno.ui.actionselect
 
-import hunoia.luno.action.model.StoredAction
-import hunoia.luno.action.model.withoutVariantKey
-import hunoia.luno.action.model.launchQualifiedName
+import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.core.domain.withoutVariantKey
+import hunoia.luno.core.domain.launchQualifiedName
 import hunoia.luno.action.model.shortcutQualifiedName
-import hunoia.luno.action.model.ActionLibraryEntry
+import hunoia.luno.core.domain.ActionLibraryEntry
 import hunoia.luno.config.model.ActionPanel
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.quicklaunch.model.AppInfo
-import hunoia.luno.quicklaunch.model.LauncherInfo
+import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.quicklaunch.model.qualifiedNameWithIntents
 import hunoia.luno.action.model.Action

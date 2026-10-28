@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.actionIcon
 import hunoia.luno.ui.theme.ContainerRadius

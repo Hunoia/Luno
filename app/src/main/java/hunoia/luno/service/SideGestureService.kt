@@ -6,7 +6,8 @@ import com.aaron.composeaccessibility.ComponentAccessibilityService
 import hunoia.luno.action.controller.TextInserter
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.AutomationRule
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.core.domain.gridPanelId
 import hunoia.luno.quicklaunch.launch.DisabledPackageEnabler
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.GestureCoordinator
@@ -14,9 +15,10 @@ import hunoia.luno.runtime.GestureHost
 import hunoia.luno.runtime.automation.RuleTestResult
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
 import hunoia.luno.runtime.overlay.PointPickOverlay
-import hunoia.luno.runtime.overlay.ScreenLinksOverlay
+import hunoia.luno.link.ScreenLinksOverlay
 import hunoia.luno.runtime.overlay.ScreenPickOverlay
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.MainScope
 import hunoia.luno.core.LOG_TAG
 
@@ -83,6 +85,22 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             gestureCoordinator.runtimeSettingsStore.snapshot().advancedSettings
         else null
 
+    /** 球直发网格面板：悬空引用（面板被删）静默收口，空面板照常弹（本体是编辑入口）。
+     *  实现在 service 侧，避免 runtime 包直接依赖 gridpanel。 */
+    fun showGridPanelDirect(action: StoredAction, anchorX: Int, anchorY: Int) {
+        coroutineScope.launch {
+            val panelId = action.gridPanelId() ?: return@launch
+            val actionSettings = runCatching { hunoia.luno.domain.tune.TuneConfig.getAction() }
+                .onFailure {
+                    android.util.Log.w(LOG_TAG, "grid panel direct config read failed: ${it.message}")
+                }
+                .getOrDefault(hunoia.luno.config.model.ActionSettings())
+            hunoia.luno.gridpanel.GridPanelOverlay.showIfExists(
+                actionSettings, panelId, anchorX, anchorY,
+            )
+        }
+    }
+
     override fun dispatchAction(action: StoredAction) {
         if (::gestureCoordinator.isInitialized) gestureCoordinator.dispatchAction(action)
     }
@@ -137,6 +155,27 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         current = this
         if (::gestureCoordinator.isInitialized) gestureCoordinator.onDestroy()
         gestureCoordinator = GestureCoordinator(this)
+        // 球侧（:feature:floatball）经注入点下发命令，避免反向依赖宿主服务。
+        hunoia.luno.gesture.GestureCommand.showGridPanel = { action, anchorX, anchorY ->
+            showGridPanelDirect(action, anchorX, anchorY)
+        }
+        hunoia.luno.gesture.GestureCommand.forwardBallTap = { action, anchorX, anchorY, color ->
+            forwardBallTap(action, anchorX, anchorY, color)
+        }
+        hunoia.luno.gesture.GestureCommand.forwardPanelTap = { action, x, y, color ->
+            forwardPanelTap(action, x, y, color)
+        }
+        hunoia.luno.gesture.GestureCommand.insertText = { text, x, y -> insertTextAt(text, x, y) }
+        // 网格面板「加项」要起选择页：路由与宿主 Activity 都在 :app，面板模块只发中性请求。
+        hunoia.luno.gridpanel.GridPanelCommand.openItemPicker = { pick ->
+            hunoia.luno.ui.actionselect.ActionSelectHostActivity.start(
+                this,
+                hunoia.luno.ui.navigation.ActionSelect(
+                    gridPanelId = pick.gridPanelId,
+                    gridPanelPageIndex = pick.pageIndex,
+                ),
+            )
+        }
         gestureCoordinator.onSetOverlay()
     }
 

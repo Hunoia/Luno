@@ -1,7 +1,7 @@
 package hunoia.luno.config.model
 
-import hunoia.luno.action.model.StoredAction
-import hunoia.luno.core.JsonSerializer
+import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.core.domain.JsonSerializer
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

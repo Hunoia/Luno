@@ -1,6 +1,6 @@
 package hunoia.luno.runtime.automation
 
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.ConditionItem
 import hunoia.luno.config.model.ConditionType

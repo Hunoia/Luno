@@ -2,12 +2,12 @@ package hunoia.luno.ui.actionlibrary
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import hunoia.luno.action.model.ActionLibraryEntry
+import hunoia.luno.core.domain.ActionLibraryEntry
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.gesture.GestureConfig
-import hunoia.luno.action.model.StoredAction
-import hunoia.luno.action.model.libraryEntryId
-import hunoia.luno.action.model.longPressVariant
+import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.core.domain.libraryEntryId
+import hunoia.luno.core.domain.longPressVariant
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.SubGesture
 import kotlinx.coroutines.flow.MutableStateFlow
