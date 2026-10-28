@@ -35,15 +35,16 @@ data class InternalWidgetDef(
     val spanY: Int,
 )
 
-/** 选择页「Luno 内置」分区的清单。 */
-val InternalWidgetDefs = listOf(
-    InternalWidgetDef(InternalWidgetIds.MEDIA, R.string.grid_panel_internal_media, 4, 2),
-    InternalWidgetDef(InternalWidgetIds.VOLUME, R.string.grid_panel_internal_volume, 4, 1),
-    InternalWidgetDef(InternalWidgetIds.BRIGHTNESS, R.string.grid_panel_internal_brightness, 4, 1),
-    InternalWidgetDef(InternalWidgetIds.RECENTS, R.string.grid_panel_internal_recents, 4, 1),
-    InternalWidgetDef(InternalWidgetIds.CLIPBOARD, R.string.grid_panel_internal_clipboard, 4, 3),
-    InternalWidgetDef(InternalWidgetIds.APP_DRAWER, R.string.grid_panel_internal_app_drawer, 4, 4),
-)
+/** 选择页「Luno 内置」分区的清单：从 [PanelWidgetRegistry] 派生。 */
+val InternalWidgetDefs: List<InternalWidgetDef>
+    get() = PanelWidgetRegistry.all.map { widget ->
+        InternalWidgetDef(
+            id = widget.id,
+            labelRes = widget.labelRes,
+            spanX = widget.defaultSpanX,
+            spanY = widget.defaultSpanY,
+        )
+    }
 
 /**
  * 竖排判定：spanY > spanX 时竖排；正方形保持横排。
@@ -66,14 +67,7 @@ internal fun rememberVerticalSpan(spanX: Int, spanY: Int): Boolean {
  * 缩放手柄直接不让人拖到那么窄。
  */
 fun internalWidgetMinSpan(widgetId: String): Pair<Int, Int> =
-    when (widgetId) {
-        // 剪贴板列表：一格宽放不下条目文字，两格起步。
-        InternalWidgetIds.CLIPBOARD -> 2 to 2
-        // 应用抽屉：1×1 只有一个图标，堆不下有意义的列表。
-        InternalWidgetIds.APP_DRAWER -> 2 to 2
-        InternalWidgetIds.MEDIA -> 2 to 1
-        else -> 1 to 1
-    }
+    PanelWidgetRegistry.byId(widgetId)?.let { it.minSpanX to it.minSpanY } ?: (1 to 1)
 
 /**
  * 滑条所在容器的内边距。格子是方格（cellH == cellW），横向的上下内边距必须与

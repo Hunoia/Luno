@@ -58,13 +58,8 @@ import hunoia.luno.gridpanel.geometry.GridMetrics
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.gesture.gridItemPressFeedback
 import hunoia.luno.gridpanel.gesture.gridLayerGestures
-import hunoia.luno.gridpanel.internal.AppDrawerCell
-import hunoia.luno.gridpanel.internal.BrightnessSliderCell
-import hunoia.luno.gridpanel.internal.ClipboardPageCell
-import hunoia.luno.gridpanel.internal.InternalWidgetIds
-import hunoia.luno.gridpanel.internal.RecentAppsCell
-import hunoia.luno.gridpanel.internal.MediaControlCell
-import hunoia.luno.gridpanel.internal.VolumeSliderCell
+import hunoia.luno.gridpanel.internal.PanelWidgetContentScope
+import hunoia.luno.gridpanel.internal.PanelWidgetRegistry
 import hunoia.luno.gridpanel.widget.PanelAppWidgetView
 import hunoia.luno.gridpanel.widget.WidgetLoadState
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
@@ -347,46 +342,22 @@ fun GridPanelLayer(
                                         } else Modifier,
                                     ),
                             ) {
-                                when (kind.widgetId) {
-                                    // 自绘部件自带点击目标，不走整格 combinedClickable；
-                                    // 编辑态 enabled=false，否则拖部件会同时改音量/切歌。
-                                    InternalWidgetIds.MEDIA -> MediaControlCell(
-                                        modifier = Modifier.fillMaxSize(),
-                                        spanX = liveSpanX,
-                                        spanY = liveSpanY,
-                                        enabled = !editMode,
+                                // 自绘部件自带点击目标，不走整格 combinedClickable；
+                                // 编辑态 enabled=false，否则拖部件会同时改音量/切歌。
+                                val widget = PanelWidgetRegistry.byId(kind.widgetId)
+                                if (widget == null) {
+                                    BrokenItemCell(Modifier.fillMaxSize())
+                                } else {
+                                    widget.content(
+                                        PanelWidgetContentScope(
+                                            modifier = Modifier.fillMaxSize(),
+                                            spanX = liveSpanX,
+                                            spanY = liveSpanY,
+                                            itemSpanX = item.spanX,
+                                            itemSpanY = item.spanY,
+                                            enabled = !editMode,
+                                        ),
                                     )
-                                    InternalWidgetIds.VOLUME -> VolumeSliderCell(
-                                        modifier = Modifier.fillMaxSize(),
-                                        spanX = liveSpanX,
-                                        spanY = liveSpanY,
-                                        enabled = !editMode,
-                                    )
-                                    InternalWidgetIds.BRIGHTNESS -> BrightnessSliderCell(
-                                        modifier = Modifier.fillMaxSize(),
-                                        spanX = liveSpanX,
-                                        spanY = liveSpanY,
-                                        enabled = !editMode,
-                                    )
-                                    InternalWidgetIds.RECENTS -> RecentAppsCell(
-                                        modifier = Modifier.fillMaxSize(),
-                                        spanX = item.spanX,
-                                        spanY = item.spanY,
-                                        enabled = !editMode,
-                                    )
-                                    InternalWidgetIds.CLIPBOARD -> ClipboardPageCell(
-                                        modifier = Modifier.fillMaxSize(),
-                                        spanX = liveSpanX,
-                                        spanY = liveSpanY,
-                                        enabled = !editMode,
-                                    )
-                                    InternalWidgetIds.APP_DRAWER -> AppDrawerCell(
-                                        modifier = Modifier.fillMaxSize(),
-                                        spanX = liveSpanX,
-                                        spanY = liveSpanY,
-                                        enabled = !editMode,
-                                    )
-                                    else -> BrokenItemCell(Modifier.fillMaxSize())
                                 }
                                 // 左上角背景开关：编辑态才显示，切换 showBackground（实时落盘）。
                                 if (editMode) {
