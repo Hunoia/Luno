@@ -69,7 +69,7 @@ class ModuleDependencyTest {
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
             ":core:runtime", ":feature:actions", ":feature:automation",
             ":feature:conditions", ":feature:execute", ":feature:gesture",
-            ":feature:link", ":feature:search", ":ui:design",
+            ":feature:link", ":ui:design",
         ),
         ":feature:gridpanel" to setOf(
             ":capability:launch",

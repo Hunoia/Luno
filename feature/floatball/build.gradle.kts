@@ -32,7 +32,6 @@ dependencies {
     api(project(":feature:conditions"))
     api(project(":feature:automation"))
     api(project(":feature:gesture"))
-    api(project(":feature:search"))
     api(project(":feature:link"))
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.ui)
