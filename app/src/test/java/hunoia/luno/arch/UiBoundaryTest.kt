@@ -23,6 +23,31 @@ class UiBoundaryTest {
     )
 
     @Test
+    fun `no bare tween literals in ui code`() {
+        val roots = listOf(
+            File("src/main/java/hunoia/luno/ui"),
+            File("../feature"),
+            File("../ui"),
+        )
+        val problems = roots.flatMap { root ->
+            if (!root.isDirectory) return@flatMap emptyList()
+            root.walkTopDown()
+                .filter { it.isFile && it.extension == "kt" && "/build/" !in it.path }
+                .flatMap { file ->
+                    file.readLines().mapIndexedNotNull { index, line ->
+                        val marker = "tween("
+                        val at = line.indexOf(marker)
+                        val bare = at >= 0 &&
+                            line.getOrNull(at + marker.length)?.isDigit() == true
+                        if (bare) "${file.path}:${index + 1} 使用了裸 tween 数字" else null
+                    }
+                }
+                .toList()
+        }
+        assertTrue(problems.joinToString("\n"), problems.isEmpty())
+    }
+
+    @Test
     fun `ui does not reach into storage runtime or service`() {
         assertTrue("缺少 UI 目录：${uiRoot.absolutePath}", uiRoot.isDirectory)
         val problems = uiRoot.walkTopDown()
