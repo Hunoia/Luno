@@ -123,6 +123,30 @@ class FloatBallService : Service() {
     private val visibility = hunoia.luno.runtime.surface.SurfaceVisibilityState()
     private var tempHideJob: Job? = null
 
+    /** 悬浮球在 SurfaceController 的句柄：短态软隐藏、长态摘窗。 */
+    private val surfaceHandle = object : hunoia.luno.runtime.surface.SurfaceHandle {
+        override val surfaceId: String = "float-ball"
+        override val surfaceKind: hunoia.luno.runtime.surface.SurfaceKind =
+            hunoia.luno.runtime.surface.SurfaceKind.FLOAT_BALL
+
+        override fun softHide() {
+            ballWindow.setPanelHidden(true)
+            mirrorWindow.setPanelHidden(true)
+        }
+
+        override fun restore() {
+            ballWindow.setPanelHidden(false)
+            mirrorWindow.setPanelHidden(false)
+        }
+
+        override fun detach() {
+            hunoia.luno.runtime.surface.SurfaceController.unregister(surfaceId)
+            ballVisible = false
+            ballWindow.detach()
+            mirrorWindow.detach()
+        }
+    }
+
     private val powerManager by lazy { getSystemService<PowerManager>() }
     private val keyguardManager by lazy { getSystemService<KeyguardManager>() }
     private val windowManager by lazy { getSystemService<android.view.WindowManager>() }
@@ -208,6 +232,7 @@ class FloatBallService : Service() {
         Events.subscribe(TouchButtonSideEvent::class, touchSideSubscriber)
         // 通知胶囊：与监听器同进程静态直连；勿扰变化即收当前胶囊。
         AutomationPulseHub.addNotificationObserver(notificationObserver)
+        hunoia.luno.runtime.surface.SurfaceController.register(surfaceHandle)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -254,8 +279,9 @@ class FloatBallService : Service() {
         clipboardPollJob?.cancel()
         clipboardPollJob = null
         visibility.reset()
-        ballWindow.detach()
-        mirrorWindow.detach()
+        hunoia.luno.runtime.surface.SurfaceController.detachAll(
+            hunoia.luno.runtime.surface.SurfaceKind.FLOAT_BALL,
+        )
         capsuleWindow.detachNow()
         clipboardBallWindow.detachNow()
         scope.cancel()

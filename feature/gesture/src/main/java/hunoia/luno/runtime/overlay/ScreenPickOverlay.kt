@@ -133,7 +133,15 @@ private const val CACHE_KEEP_FILES = 20
  * 写入 MediaStore（Pictures/Luno）→ 用带 MIME + clipData 授权的 content URI 写剪贴板并弹分享，
  * 对端按普通图库图片处理（不会变成一个「文件」）。
  */
-class ScreenPickOverlay(private val host: GestureHost) {
+class ScreenPickOverlay(private val host: GestureHost) : hunoia.luno.runtime.surface.SurfaceHandle {
+    override val surfaceId: String = "screen-pick"
+    override val surfaceKind: hunoia.luno.runtime.surface.SurfaceKind =
+        hunoia.luno.runtime.surface.SurfaceKind.TRANSIENT
+
+    override fun softHide() = close()
+    override fun restore() = Unit
+    override fun detach() = close()
+
 
     private companion object {
         /** 无障碍 overlay 不带这个标志时触摸会被系统拦掉（Android 12 起），只能照发。 */
@@ -244,6 +252,7 @@ class ScreenPickOverlay(private val host: GestureHost) {
             return false
         }
         overlayView = composeView
+        hunoia.luno.runtime.surface.SurfaceController.register(this)
         startLockWatch()
         composeView.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ -> updateOrigin(v) }
         composeView.post { correctWindowOriginOnce(composeView) }
@@ -258,6 +267,7 @@ class ScreenPickOverlay(private val host: GestureHost) {
         resolvingAction = false
         val view = overlayView ?: return
         overlayView = null
+        hunoia.luno.runtime.surface.SurfaceController.unregister(surfaceId)
         boxesJob?.cancel()
         boxesJob = null
         // 落盘在跑时不回收：后台仍在用这张位图裁剪，收尾处（copyImageRegion 的 finally）补回收。

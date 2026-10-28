@@ -103,7 +103,15 @@ private data class ScreenLink(
  * 与「链接分发」总开关解耦：开关只管分发，识屏、复制、列表始终可用；关掉时点条目走全局
  * 未命中策略（浏览器/分享/选择应用），而不是直接报错关层。
  */
-class ScreenLinksOverlay(private val host: RuntimeHost) {
+class ScreenLinksOverlay(private val host: RuntimeHost) : hunoia.luno.runtime.surface.SurfaceHandle {
+    override val surfaceId: String = "screen-links"
+    override val surfaceKind: hunoia.luno.runtime.surface.SurfaceKind =
+        hunoia.luno.runtime.surface.SurfaceKind.TRANSIENT
+
+    override fun softHide() = close()
+    override fun restore() = Unit
+    override fun detach() = close()
+
 
     private companion object {
         /** 无障碍 overlay 不带这个标志时触摸会被系统拦掉（Android 12 起）。 */
@@ -197,6 +205,7 @@ class ScreenLinksOverlay(private val host: RuntimeHost) {
             return false
         }
         overlayView = composeView
+        hunoia.luno.runtime.surface.SurfaceController.register(this)
         startScan()
         return true
     }
@@ -207,6 +216,7 @@ class ScreenLinksOverlay(private val host: RuntimeHost) {
         scanJob = null
         val view = overlayView ?: return
         overlayView = null
+        hunoia.luno.runtime.surface.SurfaceController.unregister(surfaceId)
         scanning = true
         links = emptyList()
         runCatching { host.context.windowManager().removeView(view) }
