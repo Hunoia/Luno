@@ -43,6 +43,21 @@ data class SearchContext(
 
 object SearchSourceRegistry {
 
+    /** 来源注册表：key 唯一，顺序即设置页与匹配顺序。 */
+    private val sources = LinkedHashMap<String, SearchSource>()
+
+    init {
+        installBuiltins()
+    }
+
+    /** 供功能模块注册额外来源；重复 key 在启动期直接失败。 */
+    fun register(source: SearchSource) {
+        require(source.key.isNotBlank()) { "search source key must not be blank" }
+        require(sources.put(source.key, source) == null) {
+            "duplicate search source: ${source.key}"
+        }
+    }
+
     private fun source(
         key: String,
         @StringRes titleRes: Int,
@@ -58,15 +73,16 @@ object SearchSourceRegistry {
         enabled = enabled,
         match = match,
         bare = bare,
-    )
+    ).also(::register)
 
-    val all: List<SearchSource> = listOf(
+    /** 内置来源集合：顺序即匹配顺序，新增来源在 [installBuiltins] 里追加。 */
+    private fun installBuiltins() = with(this) {
         source(
             SRC_APP,
             R.string.quick_search_group_apps,
             enabled = { it.searchApps },
             match = { c -> c.index.matchApps(c.plan, c.usage, c.now) },
-        ),
+        )
         source(
             SRC_SHORTCUT,
             R.string.quick_search_group_shortcuts,
@@ -77,7 +93,7 @@ object SearchSourceRegistry {
                     c.index.pkgScores(c.usage, c.now),
                 )
             },
-        ),
+        )
         source(
             SRC_ACTION,
             R.string.quick_search_group_actions,
@@ -86,13 +102,13 @@ object SearchSourceRegistry {
                 c.index.matchActions(c.plan) +
                     c.index.matchLibrary(c.libraryEntries, c.plan)
             },
-        ),
+        )
         source(
             SRC_SETTINGS,
             R.string.quick_search_group_settings,
             enabled = { it.searchSettingsPages },
             match = { c -> c.index.matchSettingsPages(c.plan) },
-        ),
+        )
         source(
             SRC_CONTACT,
             R.string.quick_search_contacts,
@@ -100,13 +116,13 @@ object SearchSourceRegistry {
             match = { c ->
                 c.index.matchContacts(c.plan, c.settings)
             },
-        ),
+        )
         source(
             SRC_MUSIC,
             R.string.quick_search_music,
             enabled = { it.searchMusic },
             match = { c -> c.index.matchTracks(c.plan, c.settings) },
-        ),
+        )
         source(
             SRC_FILE,
             R.string.quick_search_files,
@@ -115,40 +131,44 @@ object SearchSourceRegistry {
                 c.index.matchGallery(c.plan, c.settings) +
                     c.index.matchDocs(c.plan, c.settings)
             },
-        ),
+        )
         source(
             SRC_CALENDAR,
             R.string.quick_search_calendar,
             enabled = { it.searchCalendar },
             match = { c -> c.index.matchCalendar(c.plan, c.settings) },
-        ),
+        )
         source(
             SRC_SMS,
             R.string.quick_search_sms,
             enabled = { it.searchSms },
             match = { c -> c.index.matchSms(c.plan, c.settings) },
-        ),
+        )
         source(
             SRC_CALL,
             R.string.quick_search_calls,
             enabled = { it.searchCalls },
             match = { c -> c.index.matchCalls(c.plan, c.settings) },
-        ),
+        )
         source(
             SRC_TOGGLE,
             R.string.quick_search_toggles,
             enabled = { it.searchToggles },
             match = { c -> c.index.matchToggles(c.plan, c.settings) },
-        ),
+        )
         source(
             SRC_CLIP,
             R.string.quick_search_clipboard,
             enabled = { it.searchClipboard },
             match = { c -> c.index.matchClips(c.plan, c.settings) },
-        ),
-    )
+        )
+    }
 
-    private val byKey: Map<String, SearchSource> = all.associateBy { it.key }
+    val all: List<SearchSource>
+        get() = sources.values.toList()
+
+    private val byKey: Map<String, SearchSource>
+        get() = sources
 
     fun byTrigger(headLower: String, settings: QuickSearchSettings): SearchSource? {
         if (headLower.isEmpty()) return null
