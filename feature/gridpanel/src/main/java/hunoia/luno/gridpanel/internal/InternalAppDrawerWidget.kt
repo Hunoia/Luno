@@ -12,22 +12,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import hunoia.luno.gridpanel.R
 import hunoia.luno.bridge.ui.showToast
-import hunoia.luno.config.model.AdvancedSettings
-import hunoia.luno.config.model.AppLaunchSource
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.QuickAppLauncherSettings
-import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.gridpanel.LocalGridPanelClose
-import hunoia.luno.quicklaunch.launch.AppLaunchCoordinator
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.panel.AppGridContent
 import hunoia.luno.quicklaunch.query.AppListRepository
 import hunoia.luno.quicklaunch.query.AppSearch
+import hunoia.luno.core.domain.DispatchOrigin
+import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.execute.SurfaceDispatch
 import hunoia.luno.ui.theme.AppItemPadding
 import hunoia.luno.ui.theme.GridCellSpacing
 
@@ -55,13 +53,10 @@ fun AppDrawerCell(
     /** 编辑态=false：内部滚动与点按全禁，事件让给层根拖拽/缩放。 */
     enabled: Boolean = true,
 ) {
-    val context = LocalContext.current
     val closePanel = LocalGridPanelClose.current
     val appList by AppListRepository.state.collectAsState()
     val usageStats by hunoia.luno.config.ConfigProvider.appUsageStats.collectAsState(initial = AppUsageStats())
     val launcherSettings by hunoia.luno.config.ConfigProvider.quickAppLauncherSettings.collectAsState(initial = QuickAppLauncherSettings())
-    val advanced by hunoia.luno.config.ConfigProvider.advancedSettings.collectAsState(initial = AdvancedSettings())
-    val miniWindowSettings = remember(advanced) { advanced.miniWindowSettings() }
 
     // 引用计数：部件离开组合就退订；多个部件/快速启动器同时在线只维持一份列表。
     DisposableEffect(Unit) {
@@ -78,16 +73,18 @@ fun AppDrawerCell(
     }
 
     fun launch(app: AppInfo, miniWindow: Boolean) {
-        // 直接走启动协调器：QuickLaunchFacade.launchApp 的 onLaunch 是需要宿主注入的
-        // 回调，默认实现只返回 true 不真启动（部件里直接用它就变成「只关面板」）。
-        val launched = AppLaunchCoordinator.launchAppInfo(
-            context = context,
-            appInfo = app,
-            miniWindow = miniWindow,
-            miniWindowSettings = miniWindowSettings,
-            source = AppLaunchSource.GRID_PANEL,
-        )
-        if (launched) closePanel() else showToast(hunoia.luno.core.bridge.R.string.launch_failed)
+        // 走 Surface 统一执行口：部件只构造动作，启动细节与三态由 Dispatcher 负责。
+        SurfaceDispatch.dispatch(
+            action = StoredAction.of(
+                "app.launch",
+                "packageName" to app.packageName,
+                "miniWindow" to miniWindow.toString(),
+            ),
+            origin = DispatchOrigin.PANEL,
+        ) { launched ->
+            if (launched) closePanel()
+            else showToast(hunoia.luno.core.bridge.R.string.launch_failed)
+        }
     }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {

@@ -13,20 +13,14 @@ import hunoia.luno.core.AppContext
 import hunoia.luno.quicklaunch.R
 import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.system.gotoOverlaySettings
-import hunoia.luno.config.ConfigProvider
-import hunoia.luno.config.model.AdvancedSettings
-import hunoia.luno.config.model.AppLaunchSource
-import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelShownEvent
-import hunoia.luno.quicklaunch.launch.AppLaunchCoordinator
 import hunoia.luno.quicklaunch.launch.DisabledPackageEnabler
 import hunoia.luno.quicklaunch.panel.QuickAppLauncherRoot
 import hunoia.luno.quicklaunch.panel.QuickAppLauncherState
 import hunoia.luno.runtime.overlay.OverlayPanelHost
 import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.ui.theme.SideGestureTheme
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import hunoia.luno.core.LOG_TAG
 
@@ -54,13 +48,6 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
      */
     private var quickState: QuickAppLauncherState? = null
 
-    /**
-     * 小窗启动参数：首次 show 时 IO 预载一次；首帧即点小窗启动可能读到默认值。
-     */
-    @Volatile
-    private var advancedSettings = AdvancedSettings()
-    private var advancedLoaded = false
-
     private val disabledPackageEnabler by lazy {
         DisabledPackageEnabler(
             context = AppContext.get(),
@@ -82,7 +69,6 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
         }
         anchorXState = anchorX
         anchorYState = anchorY
-        ensureAdvancedSettings()
         val current = view
         val windowReady = when {
             current == null -> attach()
@@ -151,16 +137,6 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
         disabledPackageEnabler.release()
     }
 
-    private fun ensureAdvancedSettings() {
-        if (advancedLoaded) return
-        advancedLoaded = true
-        AppContext.applicationScope!!.launch(Dispatchers.IO) {
-            runCatching { ConfigProvider.getAdvancedSettings() }
-                .getOrDefault(AdvancedSettings())
-                .let { advancedSettings = it }
-        }
-    }
-
     /**
      * 平台 Toast（非 Compose 通道）：引导授权时球必然已 detach，Compose 的 showToast
      * 没有宿主消费会被静默丢弃；addView 失败时窗口没挂上，同样无主题宿主。
@@ -187,15 +163,19 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
                 onCloseAnimated = { closeImmediate() },
                 onClose = { (closeAnimated ?: { closeImmediate() }).invoke() },
                 onLaunch = { appInfo, miniWindow ->
-                    // 用 AppContext（非 Activity）：Launcher 自带 FLAG_ACTIVITY_NEW_TASK，
-                    // BAL 由面板窗口可见性放行；统计由 coordinator 在启动成功后统一记录。
-                    AppLaunchCoordinator.launchAppInfo(
-                        context = AppContext.get(),
-                        appInfo = appInfo,
-                        miniWindow = miniWindow,
-                        miniWindowSettings = advancedSettings.miniWindowSettings(),
-                        source = AppLaunchSource.QUICK_LAUNCHER,
-                    )
+                    // Surface 只构造动作；启动、统计、三态统一由进程级 Dispatcher 负责。
+                    hunoia.luno.execute.SurfaceDispatch.dispatch(
+                        action = hunoia.luno.core.domain.StoredAction.of(
+                            "app.launch",
+                            "packageName" to appInfo.packageName,
+                            "miniWindow" to miniWindow.toString(),
+                        ),
+                        origin = hunoia.luno.core.domain.DispatchOrigin.PANEL,
+                    ) { launched ->
+                        if (!launched) showPlatformToast(R.string.quick_launcher_start_failed)
+                    }
+                    // 已提交即视为「已接管」：真实失败由 onSettled 的平台 Toast 反馈。
+                    true
                 },
                 onRegisterCloseAnimated = { callback -> closeAnimated = callback },
                 onStateReady = { state ->

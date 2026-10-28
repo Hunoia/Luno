@@ -1,8 +1,6 @@
 package hunoia.luno.action.execution
 
-import android.accessibilityservice.AccessibilityService
 import android.content.ContextWrapper
-import android.view.accessibility.AccessibilityEvent
 import hunoia.luno.action.model.Action
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
@@ -38,16 +36,9 @@ class ActionExecutionTest {
         }
     }
 
-    // mockable android.jar 下构造为 no-op：这些字段在本层只透传，不触达方法。
-    private val stubService = object : AccessibilityService() {
-        override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
-        override fun onInterrupt() {}
-    }
-
     private fun executorContext(
         templateValues: suspend (Set<String>) -> Map<String, String> = { emptyMap() },
     ) = ExecutorContext(
-        accessibilityService = stubService,
         appContext = ContextWrapper(null),
         scope = CoroutineScope(Job()),
         templateValues = templateValues,

@@ -177,7 +177,6 @@ class ActionDispatcher(
         val buttonId = call.sourceButtonId
         val callSnapshot: () -> RuntimeSnapshot? = { call.snapshot }
         return ExecutorContext(
-            accessibilityService = environment.accessibilityService,
             appContext = context,
             scope = scope,
             showToast = messages::showToast,

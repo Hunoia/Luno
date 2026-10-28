@@ -115,3 +115,36 @@ data class SharePulse(
 
 /** 剪贴板球/面板读到的新文本。 */
 data class ClipboardPulse(val text: String)
+
+/**
+ * 最小可用快照：供不消费运行态模板的 Surface 直派发路径使用。
+ *
+ * 只填必填字段，不读系统状态；需要真实模板变量的路径必须由调用方提供自己的快照，
+ * 不得用本函数冒充运行态。
+ */
+fun blankRuntimeSnapshot(nowMs: Long = System.currentTimeMillis()): RuntimeSnapshot = RuntimeSnapshot(
+    nowMs = nowMs,
+    packageName = "",
+    isLockScreen = false,
+    isLauncher = false,
+    isLandscape = false,
+    isKeyboardInput = false,
+    isCharging = false,
+    batteryLevel = 0,
+    minuteOfDay = 0,
+    dayOfWeek = 0,
+    networkType = NetworkType.NONE,
+    headphonesConnected = false,
+    bluetoothAdapterOn = null,
+    bluetoothAudioConnected = null,
+    airplaneMode = false,
+    ringerMode = RingerMode.NORMAL,
+    volumePercent = emptyMap(),
+    isMusicPlaying = false,
+    isTorchOn = false,
+    isDndOn = false,
+    appChangedTo = null,
+    screenEvent = null,
+    chargingChangedTo = null,
+    volumeChanged = null,
+)

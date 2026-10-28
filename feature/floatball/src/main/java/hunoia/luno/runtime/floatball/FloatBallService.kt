@@ -25,7 +25,6 @@ import hunoia.luno.bridge.system.readClipboardContentDetailed
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.ActionSettings
-import hunoia.luno.config.model.AppLaunchSource
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.core.Events
@@ -37,7 +36,6 @@ import hunoia.luno.config.model.LinkTapMode
 import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.link.Links
 import hunoia.luno.link.LinkUrls
-import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.automation.AutomationNotificationListener
 import hunoia.luno.runtime.automation.AutomationPulseHub
 import hunoia.luno.runtime.automation.NotificationContentIntents
@@ -541,14 +539,16 @@ class FloatBallService : Service() {
                 val sent = runCatching { contentIntent.send() }.isSuccess
                 if (sent) return@launch
             }
-            runCatching {
-                QuickLaunchFacade.launchAppDirect(
-                    context = this@FloatBallService,
-                    packageName = pulse.packageName,
-                    className = "",
-                    source = AppLaunchSource.UNKNOWN,
-                )
-            }.onFailure { Log.w(TAG, "capsule app launch failed: ${it.message}") }
+            // 启动收敛到进程级 Dispatcher：胶囊不需要持有启动协调器，也不产生旁路。
+            hunoia.luno.execute.SurfaceDispatch.dispatch(
+                action = StoredAction.of(
+                    "app.launch",
+                    "packageName" to pulse.packageName,
+                ),
+                origin = hunoia.luno.core.domain.DispatchOrigin.PANEL,
+            ) { launched ->
+                if (!launched) Log.w(TAG, "capsule app launch failed: package=${pulse.packageName}")
+            }
         }
     }
 

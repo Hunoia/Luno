@@ -67,6 +67,8 @@ class App : Application(), ImageLoaderFactory {
         AppContext.init(applicationContext, scope)
         val appScope = AppContext.applicationScope ?: error("ApplicationScope not initialized")
         Events.initScope(appScope) { isMainThread() }
+        // Surface 动作统一进 Dispatcher：进程级门面不依赖无障碍服务生命周期。
+        hunoia.luno.runtime.SurfaceActionRuntime.install(applicationContext)
         initVibrationContext(applicationContext)
         DensityProvider.init(applicationContext)
 

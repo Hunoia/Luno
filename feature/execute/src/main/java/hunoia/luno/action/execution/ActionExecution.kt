@@ -1,6 +1,5 @@
 package hunoia.luno.action.execution
 
-import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.util.Log
 import hunoia.luno.action.model.Action
@@ -158,7 +157,6 @@ class ActionResolver(
  * 需要运行态时读 [RuntimeSnapshot]。这两条是 `execute → data / runtime` 禁令的落地方式。
  */
 data class ExecutorContext(
-    val accessibilityService: AccessibilityService,
     val appContext: Context,
     val scope: CoroutineScope,
     val showToast: (String) -> Unit = {},

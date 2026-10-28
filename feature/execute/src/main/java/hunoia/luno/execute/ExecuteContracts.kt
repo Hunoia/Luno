@@ -1,6 +1,5 @@
 package hunoia.luno.execute
 
-import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ButtonTarget
@@ -22,7 +21,6 @@ import hunoia.luno.core.domain.StoredAction
 /** 执行口需要的宿主能力（context / 无障碍服务 / 前台应用查询）。 */
 interface ExecuteEnvironment {
     val appContext: Context
-    val accessibilityService: AccessibilityService
 
     /** 当前前台包名；读不到返回 null。 */
     fun currentPackageName(): String?

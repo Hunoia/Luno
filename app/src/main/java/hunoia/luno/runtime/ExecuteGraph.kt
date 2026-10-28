@@ -43,7 +43,6 @@ class LunoExecuteMessages(private val context: Context) : ExecuteMessages {
 /** 宿主能力：直接转发 [GestureHost]，执行口不 import 宿主实现。 */
 class LunoExecuteEnvironment(private val host: GestureHost) : ExecuteEnvironment {
     override val appContext: Context get() = host.context.applicationContext
-    override val accessibilityService get() = host.accessibilityService
     override fun currentPackageName(): String? = host.getCurrentPackageName()
     override fun nowInLauncher(): Boolean = host.nowInLauncher()
     override fun requestEnableDisabledPackage(packageName: String, onResult: (Boolean) -> Unit) =
