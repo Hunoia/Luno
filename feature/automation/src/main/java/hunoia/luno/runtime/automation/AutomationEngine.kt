@@ -31,8 +31,7 @@ class AutomationEngine(
     /** 每条规则上次求值时的条件树，存对象而非签名字符串：data class 结构相等即 equals，比 toString 更严格。 */
     private val lastCondition = mutableMapOf<String, WhenGroup>()
 
-    private val cooldownLastFiredAt = mutableMapOf<String, Long>()
-    private val windowHits = mutableMapOf<String, ArrayDeque<Long>>()
+    private val throttleStates = mutableMapOf<String, ThrottleRuntimeState>()
 
     /** 订阅索引：规则变更时重建，事件到达直接查表（只评估相关规则）。 */
     private val subscriptionIndex = SubscriptionIndex()
@@ -178,33 +177,15 @@ class AutomationEngine(
         if (events.isNotEmpty()) onEvents(events)
     }
 
-    /** 值驱动节流：OFF 直接放行；冷却（cooldownMs>0）与窗口（count>=1 且 window>=1s）先冷后窗。 */
+    /** 节流语义由 [ThrottlePolicyRegistry] 按 kind 提供，引擎只负责取状态与调用。 */
     private fun throttleBlockReason(ruleId: String, throttle: ThrottlePolicy, nowMs: Long): SkipReason? {
-        if (throttle.kind == ThrottleKind.OFF) return null
-        if (throttle.cooldownMs > 0) {
-            val last = cooldownLastFiredAt[ruleId]
-            if (last != null && nowMs - last < throttle.cooldownMs) {
-                return SkipReason.THROTTLED_COOLDOWN
-            }
-        }
-        if (throttle.maxCount >= 1 && throttle.windowMs >= 1000L) {
-            val windowMs = throttle.windowMs
-            val maxCount = throttle.maxCount
-            val queue = windowHits.getOrPut(ruleId) { ArrayDeque() }
-            while (queue.isNotEmpty() && nowMs - queue.first() >= windowMs) queue.removeFirst()
-            if (queue.size >= maxCount) return SkipReason.THROTTLED_WINDOW
-        }
-        return null
+        val state = throttleStates.getOrPut(ruleId) { ThrottleRuntimeState() }
+        return ThrottlePolicyRegistry.handler(throttle.kind).blockReason(throttle, state, nowMs)
     }
 
     private fun markFired(ruleId: String, throttle: ThrottlePolicy, nowMs: Long) {
-        if (throttle.kind != ThrottleKind.OFF && throttle.cooldownMs > 0) {
-            cooldownLastFiredAt[ruleId] = nowMs
-        }
-        if (throttle.kind != ThrottleKind.OFF && throttle.maxCount >= 1 && throttle.windowMs >= 1000L) {
-            val queue = windowHits.getOrPut(ruleId) { ArrayDeque() }
-            queue.addLast(nowMs)
-        }
+        val state = throttleStates.getOrPut(ruleId) { ThrottleRuntimeState() }
+        ThrottlePolicyRegistry.handler(throttle.kind).markFired(throttle, state, nowMs)
     }
 
     private fun cleanup(rules: List<AutomationRule>) {
@@ -216,8 +197,7 @@ class AutomationEngine(
         for (rule in rules) ids.add(rule.id)
         prevMatches.keys.retainAll(ids)
         lastCondition.keys.retainAll(ids)
-        cooldownLastFiredAt.keys.retainAll(ids)
-        windowHits.keys.retainAll(ids)
+        throttleStates.keys.retainAll(ids)
     }
 }
 
