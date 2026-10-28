@@ -74,6 +74,20 @@ class BackupDomainRegistryTest {
     }
 
     @Test
+    fun `domain validation rejects newer backup format`() {
+        Backup().isSupported()
+
+        val newer = Backup(
+            backupFormatVersion = BackupVersions.FORMAT + 1,
+            gestureSchemaVersion = BackupVersions.GESTURE,
+            initialSettings = InitialSettings(),
+        )
+
+        assertNotNull(BackupDomainRegistry.validate(newer, BackupDomain.GESTURE))
+        assertFalse(newer.isSupported())
+    }
+
+    @Test
     fun `duplicate domain registration fails fast`() {
         Backup().isSupported()
         try {

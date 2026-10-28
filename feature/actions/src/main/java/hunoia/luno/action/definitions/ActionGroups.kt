@@ -29,12 +29,13 @@ internal object BuiltinActionGroups {
 
     private var installed = false
 
+    @Synchronized
     fun ensure() {
         if (installed) return
-        installed = true
         groups.forEach { group ->
             ActionDefinitionRegistry.registerAll(group.definitions())
             group.installDecoders()
         }
+        installed = true
     }
 }

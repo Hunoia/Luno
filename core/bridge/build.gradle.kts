@@ -32,4 +32,5 @@ dependencies {
     implementation(libs.androidx.compose.ui.unit)
     implementation(libs.rikka.shizuku.api)
     implementation(libs.hiddenapibypass)
+    implementation(libs.jetbrains.kotlin.serialization)
 }

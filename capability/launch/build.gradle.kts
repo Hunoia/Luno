@@ -27,4 +27,5 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.annotation)
+    implementation(libs.jetbrains.kotlin.serialization)
 }

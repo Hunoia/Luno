@@ -10,17 +10,21 @@ object ActionDefinitionRegistry {
 
     private val definitions = LinkedHashMap<String, ActionDefinition>()
 
+    private var snapshot: List<ActionDefinition>? = null
+
     fun register(definition: ActionDefinition) {
         require(definition.typeId.isNotBlank()) { "action typeId must not be blank" }
         require(!definitions.containsKey(definition.typeId)) {
             "duplicate action definition: ${definition.typeId}"
         }
         definitions[definition.typeId] = definition
+        snapshot = null
     }
 
     fun registerAll(items: List<ActionDefinition>) = items.forEach(::register)
 
-    fun all(): List<ActionDefinition> = definitions.values.toList()
+    fun all(): List<ActionDefinition> =
+        snapshot ?: definitions.values.toList().also { snapshot = it }
 
     fun byTypeId(typeId: String): ActionDefinition? = definitions[typeId]
 

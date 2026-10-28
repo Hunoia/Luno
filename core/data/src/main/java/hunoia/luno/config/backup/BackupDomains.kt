@@ -45,9 +45,11 @@ object BackupDomainRegistry {
         handlers[spec.domain] = spec
     }
 
-    fun spec(domain: BackupDomain): BackupDomainSpec =
-        handlers[domain]
+    fun spec(domain: BackupDomain): BackupDomainSpec {
+        ensureBuiltins()
+        return handlers[domain]
             ?: throw IllegalArgumentException("backup domain not registered: $domain")
+    }
 
     fun snapshot(full: Backup, domain: BackupDomain): Backup = spec(domain).snapshot(full)
 
@@ -55,22 +57,34 @@ object BackupDomainRegistry {
 
     fun maxExportBytes(domain: BackupDomain): Long = spec(domain).maxExportBytes
 
-    /** 导入校验：未知域（旧实现读到新域）与域内校验失败都返回原因。 */
+    /** 导入校验：格式版本、未知域（旧实现读到新域）与域内校验失败都返回原因。 */
     fun validate(backup: Backup, domain: BackupDomain): String? {
-        val spec = handlers[domain] ?: return "backup domain not registered: $domain"
+        if (backup.backupFormatVersion > BackupVersions.FORMAT) {
+            return "backup format ${backup.backupFormatVersion} comes from a newer app version"
+        }
+        val spec = spec(domain)
         return spec.validate(backup)
     }
 
     /** 整机备份的版本判定：逐域读取注册的 Schema 版本，不在备份核心写死。 */
     fun isSupported(backup: Backup): Boolean {
         if (backup.backupFormatVersion > BackupVersions.FORMAT) return false
+        ensureBuiltins()
         return handlers.values.all { backup.schemaVersionOf(it.domain) <= it.schemaVersion }
     }
 
-    fun contains(domain: BackupDomain): Boolean = handlers.containsKey(domain)
+    fun contains(domain: BackupDomain): Boolean {
+        ensureBuiltins()
+        return handlers.containsKey(domain)
+    }
 
     val registeredDomains: Set<BackupDomain>
-        get() = handlers.keys.toSet()
+        get() {
+            ensureBuiltins()
+            return handlers.keys.toSet()
+        }
+
+    private fun ensureBuiltins() = BuiltinBackupDomains.ensure()
 }
 
 /** 备份里某域的 Schema 版本字段。新增域只需在注册表登记并在 [Backup] 里加字段。 */
@@ -87,10 +101,11 @@ internal object BuiltinBackupDomains {
 
     private var installed = false
 
+    @Synchronized
     fun ensure() {
         if (installed) return
-        installed = true
         install()
+        installed = true
     }
 
     private fun install() {

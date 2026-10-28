@@ -49,9 +49,9 @@ object SurfaceActionRuntime {
     private var installed = false
 
     /** 由 `App.onCreate` 调用；两进程都执行。 */
+    @Synchronized
     fun install(context: Context) {
         if (installed) return
-        installed = true
         val appContext = context.applicationContext
         AppContext.applicationScope?.launch(Dispatchers.IO) {
             runCatching { ConfigProvider.getAdvancedSettings() }
@@ -64,6 +64,7 @@ object SurfaceActionRuntime {
                 onSettled = { settlement -> onSettled(settlement.succeeded) },
             )
         })
+        installed = true
     }
 
     private fun dispatcher(context: Context): ActionDispatcher = ActionDispatcher(
