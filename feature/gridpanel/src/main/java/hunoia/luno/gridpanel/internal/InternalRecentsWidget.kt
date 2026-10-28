@@ -1,6 +1,5 @@
 package hunoia.luno.gridpanel.internal
 
-import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -123,14 +122,15 @@ fun RecentAppsCell(
                             .then(
                                 if (enabled) {
                                     Modifier.clickable {
-                                        val launched = runCatching {
-                                            context.packageManager.getLaunchIntentForPackage(pkg)?.let {
-                                                it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                context.startActivity(it)
-                                                true
-                                            } ?: false
-                                        }.getOrDefault(false)
-                                        if (launched) closePanel()
+                                        // Surface 只构造动作；解冻、启动、统计统一走进程级 Dispatcher。
+                                        hunoia.luno.execute.SurfaceDispatch.dispatch(
+                                            action = hunoia.luno.core.domain.StoredAction.of(
+                                                "app.launch",
+                                                "packageName" to pkg,
+                                                "miniWindow" to "false",
+                                            ),
+                                            origin = hunoia.luno.core.domain.DispatchOrigin.PANEL,
+                                        ) { launched -> if (launched) closePanel() }
                                     }
                                 } else {
                                     Modifier

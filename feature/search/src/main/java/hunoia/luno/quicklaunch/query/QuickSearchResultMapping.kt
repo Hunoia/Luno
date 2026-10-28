@@ -79,18 +79,14 @@ fun QuickSearchResult.toSearchResult(): SearchResult {
                 title = title,
                 subtitle = subtitle,
                 icon = SearchIcon.AppIcon(appInfo.packageName),
-                primary = if (isDisabled) {
-                    SearchAction.Run(details)
-                } else {
-                    SearchAction.Run(
-                        StoredAction.of(
-                            "app.launch",
-                            "packageName" to appInfo.packageName,
-                            "className" to appInfo.className,
-                            "miniWindow" to appInfo.miniWindow.toString(),
-                        ),
-                    )
-                },
+                primary = SearchAction.Run(
+                    StoredAction.of(
+                        "app.launch",
+                        "packageName" to appInfo.packageName,
+                        "className" to appInfo.className,
+                        "miniWindow" to appInfo.miniWindow.toString(),
+                    ),
+                ),
                 // 长按始终进应用详情（停用应用也保留该入口）。
                 actions = listOf(
                     SearchActionItem(
