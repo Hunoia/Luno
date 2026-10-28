@@ -140,6 +140,9 @@ object AutomationCenter : AutomationFacade {
     override fun isNotificationAccessGranted(context: android.content.Context): Boolean =
         hunoia.luno.runtime.automation.AutomationNotificationListener.isAccessGranted(context)
 
+    override fun publishSharedText(context: android.content.Context, text: String, action: String) =
+        hunoia.luno.runtime.automation.AutomationShareBridge.publish(context, text, action)
+
     // ---- 运行态 / 测试运行（经 Binder 转到 :service，ui 不直引 runtime） ----
 
     /** 当前运行中的规则 id；服务未连接时为空集。 */

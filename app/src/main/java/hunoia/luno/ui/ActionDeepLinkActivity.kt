@@ -1,5 +1,7 @@
 package hunoia.luno.ui
 
+import hunoia.luno.domain.AppGraph
+
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
@@ -7,7 +9,6 @@ import hunoia.luno.R
 import hunoia.luno.action.model.ActionDeepLink
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.domain.action.ActionLibrary
-import hunoia.luno.service.DispatchClient
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -37,7 +38,7 @@ class ActionDeepLinkActivity : ComponentActivity() {
     /** App.onCreate 的 bindService 是异步的，首次联动可能还没连上，短轮询兜一下。 */
     private suspend fun dispatchWithRetry(action: hunoia.luno.action.model.StoredAction): Boolean {
         repeat(10) {
-            if (DispatchClient.dispatch(action)) return true
+            if (AppGraph.runtime.dispatch(action)) return true
             delay(100)
         }
         return false

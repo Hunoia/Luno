@@ -8,12 +8,12 @@ import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import hunoia.luno.R
 import hunoia.luno.bridge.ui.showToast
-import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.LinkDispatchSettings
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.link.Links
 import hunoia.luno.link.LinkUrls
-import hunoia.luno.runtime.automation.AutomationShareBridge
+import hunoia.luno.domain.AppGraph
+import hunoia.luno.domain.tune.TuneConfig
 import kotlinx.coroutines.launch
 
 /**
@@ -44,9 +44,9 @@ class LinkDispatchActivity : ComponentActivity() {
             finish()
             return
         }
-        AutomationShareBridge.publish(this, text, intent?.action.orEmpty())
+        AppGraph.automation.publishSharedText(this, text, intent?.action.orEmpty())
         lifecycleScope.launch {
-            val settings = runCatching { ConfigProvider.getActionSettings().linkDispatch }
+            val settings = runCatching { TuneConfig.getAction().linkDispatch }
                 .onFailure { Log.w(LOG_TAG, "link dispatch: read settings failed: ${it.message}") }
                 .getOrDefault(LinkDispatchSettings())
             val urls = LinkUrls.extractUrls(text)

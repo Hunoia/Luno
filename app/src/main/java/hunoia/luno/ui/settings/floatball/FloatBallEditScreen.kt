@@ -41,7 +41,6 @@ import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.runtime.automation.AutomationNotificationListener
 import hunoia.luno.ui.component.actionTextCompose
 import hunoia.luno.ui.component.gestureButtonMarkColor
 import hunoia.luno.ui.component.input.LunoTextSlider
@@ -93,7 +92,7 @@ fun FloatBallEditScreen(
 
     var overlayGranted by remember { mutableStateOf(context.canDrawOverlays()) }
     var notifAccessGranted by remember {
-        mutableStateOf(AutomationNotificationListener.isAccessGranted(context))
+        mutableStateOf(AppGraph.automation.isNotificationAccessGranted(context))
     }
     var showColorPicker by remember { mutableStateOf(false) }
 
@@ -110,7 +109,7 @@ fun FloatBallEditScreen(
                     overlayGranted = granted
                     AppGraph.system.refreshFloatBall(context)
                 }
-                val notifGranted = AutomationNotificationListener.isAccessGranted(context)
+                val notifGranted = AppGraph.automation.isNotificationAccessGranted(context)
                 if (notifGranted != notifAccessGranted) notifAccessGranted = notifGranted
             }
         }

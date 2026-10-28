@@ -1,4 +1,6 @@
 package hunoia.luno.ui.automation
+
+import hunoia.luno.domain.AppGraph
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -46,7 +48,6 @@ import hunoia.luno.config.model.NetworkType
 import hunoia.luno.config.model.ScreenEventType
 import hunoia.luno.config.model.ScreenType
 import hunoia.luno.domain.automation.formatTimeOfDay
-import hunoia.luno.service.DispatchClient
 import hunoia.luno.ui.component.sheet.AppPickerSheet
 import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.Alignment
@@ -443,7 +444,7 @@ fun ConditionItemFields(item: ConditionItem, onConditionChange: (ConditionItem) 
                 ) { granted ->
                     locationGranted = granted
                     // 授权发生在主进程，:service 的条件源不会自己重读；不刷新会一直停在 null。
-                    if (granted) DispatchClient.refreshConditionSources()
+                    if (granted) AppGraph.runtime.refreshConditionSources()
                 }
                 OutlinedTextField(
                     value = item.wifiSsid,
@@ -489,7 +490,7 @@ fun ConditionItemFields(item: ConditionItem, onConditionChange: (ConditionItem) 
                     ActivityResultContracts.RequestPermission(),
                 ) { granted ->
                     bluetoothGranted = granted
-                    if (granted) DispatchClient.refreshConditionSources()
+                    if (granted) AppGraph.runtime.refreshConditionSources()
                 }
                 if (!bluetoothGranted) {
                     OutlinedButton(

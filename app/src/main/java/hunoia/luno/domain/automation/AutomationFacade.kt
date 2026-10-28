@@ -54,6 +54,9 @@ interface AutomationFacade {
 
     fun isNotificationAccessGranted(context: Context): Boolean
 
+    /** 把外部分享进来的文本投进自动化事件源（链接分发入口用）。 */
+    fun publishSharedText(context: Context, text: String, action: String)
+
     fun runningRuleIds(): Set<String>
     fun stopRule(ruleId: String): Boolean
 

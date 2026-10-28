@@ -5,6 +5,8 @@ import hunoia.luno.domain.automation.AutomationFacade
 import hunoia.luno.domain.backup.BackupCenter
 import hunoia.luno.domain.backup.BackupFacade
 import hunoia.luno.domain.system.SystemFacade
+import hunoia.luno.domain.runtime.RuntimeActions
+import hunoia.luno.domain.runtime.RuntimeFacade
 import hunoia.luno.domain.system.SystemUseCases
 
 /**
@@ -18,6 +20,7 @@ object AppGraph {
     private var automationOverride: AutomationFacade? = null
     private var backupOverride: BackupFacade? = null
     private var systemOverride: SystemFacade? = null
+    private var runtimeOverride: RuntimeFacade? = null
 
     val automation: AutomationFacade
         get() = automationOverride ?: AutomationCenter
@@ -27,6 +30,9 @@ object AppGraph {
 
     val system: SystemFacade
         get() = systemOverride ?: SystemUseCases
+
+    val runtime: RuntimeFacade
+        get() = runtimeOverride ?: RuntimeActions
 
     fun overrideAutomation(facade: AutomationFacade?) {
         automationOverride = facade
@@ -38,5 +44,9 @@ object AppGraph {
 
     fun overrideSystem(facade: SystemFacade?) {
         systemOverride = facade
+    }
+
+    fun overrideRuntime(facade: RuntimeFacade?) {
+        runtimeOverride = facade
     }
 }

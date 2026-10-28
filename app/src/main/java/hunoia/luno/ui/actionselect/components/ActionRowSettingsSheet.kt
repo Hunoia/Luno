@@ -1,5 +1,7 @@
 package hunoia.luno.ui.actionselect.components
 
+import hunoia.luno.domain.AppGraph
+
 import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -32,7 +34,6 @@ import hunoia.luno.actions.R as ActionsR
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.config.defaults.ActionSettingsDefaults
 import hunoia.luno.domain.gesture.GestureConfig
-import hunoia.luno.service.DispatchClient
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.selectedSegmentedShape
@@ -478,7 +479,7 @@ fun ActionRowSettingsSheet(
                             // 屏幕取点：经 :service 侧 overlay，回填后仍可在坐标框手改。
                             var pickHint by remember { mutableStateOf("") }
                             TextButton(onClick = {
-                                val ok = DispatchClient.showPointPicker(
+                                val ok = AppGraph.runtime.showPointPicker(
                                     initialXdp = xText.toIntOrNull(),
                                     initialYdp = yText.toIntOrNull(),
                                     onCommit = { x, y ->

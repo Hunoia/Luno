@@ -1,4 +1,6 @@
 package hunoia.luno.ui.actionlibrary
+
+import hunoia.luno.domain.AppGraph
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -63,7 +65,6 @@ import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.core.AppContext
-import hunoia.luno.service.DispatchClient
 import hunoia.luno.shizuku.ShizukuFacade
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -175,7 +176,7 @@ fun ActionLibraryEditScreen(
                                     }
                                 }
                             }
-                        } else if (!DispatchClient.dispatch(draft.toStoredAction())) {
+                        } else if (!AppGraph.runtime.dispatch(draft.toStoredAction())) {
                             // 分发失败才提示；成功不给 toast（动作本身会在屏幕上有反馈，多一个弹窗是噪音）。
                             showToast(R.string.dispatch_service_not_ready)
                         }
@@ -308,7 +309,7 @@ if (cardParams.isNotEmpty()) {
                                         // （TYPE_ACCESSIBILITY_OVERLAY 只有 AccessibilityService 能
                                         // addView；改用 TYPE_APPLICATION_OVERLAY 需要引入一个本来
                                         // 不必有的「显示在其他应用上层」权限）。见 DispatchService。
-                                        val ok = DispatchClient.showPointPicker(
+                                        val ok = AppGraph.runtime.showPointPicker(
                                             initialXdp = curX,
                                             initialYdp = curY,
                                             onCommit = { xDp, yDp ->
