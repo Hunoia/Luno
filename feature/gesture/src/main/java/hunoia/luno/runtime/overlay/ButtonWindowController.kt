@@ -60,6 +60,20 @@ class ButtonWindowController(
         }
     }
 
+    /** 短态隐藏：保留窗口，只关触摸；恢复由 ButtonRefreshCoordinator 按真实策略重算。 */
+    fun setTouchable(touchable: Boolean) {
+        for (view in _buttonViews) {
+            val lp = view.layoutParams as? WindowManager.LayoutParams ?: continue
+            val before = lp.snapshot()
+            lp.flags = if (touchable) {
+                lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+            } else {
+                lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            }
+            if (!lp.snapshot().contentEquals(before)) wm.safeUpdateViewLayout(view, lp)
+        }
+    }
+
     fun release() {
         if (BuildConfig.DEBUG) Log.i(LOG_TAG, "ButtonWindowController release: count=${_buttonViews.size}")
         host.removeWindows(_buttonViews)

@@ -854,6 +854,26 @@ class GestureCoordinator(
         buttonWindowController = buttonWindowController,
     )
 
+    /** 触钮 Surface：短态只关触摸，恢复按真实显隐策略重算，长态统一 release。 */
+    private val buttonSurfaceHandle = object : hunoia.luno.runtime.surface.SurfaceHandle {
+        override val surfaceId: String = "gesture-buttons"
+        override val surfaceKind: hunoia.luno.runtime.surface.SurfaceKind =
+            hunoia.luno.runtime.surface.SurfaceKind.BUTTON
+
+        override fun softHide() {
+            buttonWindowController.setTouchable(false)
+        }
+
+        override fun restore() {
+            buttonRefreshCoordinator.refresh(buildRuntimeState(consumePulses = false))
+        }
+
+        override fun detach() {
+            hunoia.luno.runtime.surface.SurfaceController.unregister(surfaceId)
+            buttonWindowController.release()
+        }
+    }
+
     private val automationRuntime = AutomationRuntime(
         runtimeSettingsStore = runtimeSettingsStore,
         buildRuntimeState = ::buildRuntimeState,
@@ -1244,6 +1264,7 @@ class GestureCoordinator(
         if (started) return
         started = true
         if (BuildConfig.DEBUG) Log.i(LOG_TAG, "GestureCoordinator start")
+        hunoia.luno.runtime.surface.SurfaceController.register(buttonSurfaceHandle)
         hunoia.luno.gridpanel.widget.PanelAppWidgetHostView.setTapListener { startWidgetLaunchPoll() }
         hunoia.luno.core.Events.subscribe(
             hunoia.luno.gesture.event.GestureDispatchEvent::class,
@@ -1485,7 +1506,9 @@ class GestureCoordinator(
         scopeJobs.clear()
         if (BuildConfig.DEBUG) Log.i(LOG_TAG, "GestureCoordinator release")
         mainOverlayController.release()
-        buttonWindowController.release()
+        hunoia.luno.runtime.surface.SurfaceController.detachAll(
+            hunoia.luno.runtime.surface.SurfaceKind.BUTTON,
+        )
         // 销毁不经过 callbacks 的配对隐藏（那里各自发 PanelDismissed）：挂着面板被销毁时
         // 按拆掉的数量补发，否则 FloatBallService 的 panelCount 卡住、球一直隐藏。
         actionPanelDismissGeneration++
