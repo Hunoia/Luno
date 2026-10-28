@@ -89,12 +89,28 @@ fun ActionDefinition.excludedTemplateKeys(): Set<String> = parameters
     }
     .toSet()
 
+/**
+ * 展示 / 编辑器投影。它同时实现纯契约 [hunoia.luno.core.domain.ActionMetadata]：
+ * 执行口只读能力与模板规则，展示层再加名称、分类、参数编辑器与图标。
+ *
+ * 新增动作时只增加一条 [ActionDefinition]；执行口不再需要另建匿名元数据适配器。
+ */
 data class ActionDefinition(
     val typeId: String,
     val name: String,
     val category: ActionCategory,
-    val capability: Capability,
+    override val capability: Capability,
     val parameters: List<ParameterDefinition> = emptyList(),
     val icon: ImageVector = Icons.Default.Android,
-)
+) : hunoia.luno.core.domain.ActionMetadata {
+
+    override val excludedTemplateKeys: Set<String>
+        get() = excludedTemplateKeys()
+
+    override val requiredTextKeys: Set<String>
+        get() = parameters.mapNotNull { param ->
+            val isText = param is ParameterDefinition.Text || param is ParameterDefinition.TextLarge
+            if (isText && param.required) param.key else null
+        }.toSet()
+}
 
