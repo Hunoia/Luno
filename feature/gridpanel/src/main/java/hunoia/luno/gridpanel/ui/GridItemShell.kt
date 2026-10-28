@@ -68,12 +68,12 @@ fun ItemResizeHandle(
     val primary = MaterialTheme.colorScheme.primary
     val color by animateColorAsState(
         targetValue = if (active) primary else gridPanelOnCardColor.copy(alpha = 0.6f),
-        animationSpec = tween(120),
+        animationSpec = tween(hunoia.luno.ui.theme.MotionSwapOut),
         label = "itemResizeHandleTint",
     )
     val strokeDp by animateFloatAsState(
         targetValue = if (active) 3f else 2.5f,
-        animationSpec = tween(120),
+        animationSpec = tween(hunoia.luno.ui.theme.MotionSwapOut),
         label = "itemResizeHandleStroke",
     )
     val label = stringResource(R.string.grid_panel_item_resize)

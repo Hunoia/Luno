@@ -340,14 +340,14 @@ internal fun QuickSearchContent(
     val panelScale = remember { Animatable(0.92f) }
     val panelAlpha = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
-        launch { panelScale.animateTo(1f, tween(300, easing = LinearOutSlowInEasing)) }
-        launch { panelAlpha.animateTo(1f, tween(300)) }
+        launch { panelScale.animateTo(1f, tween(hunoia.luno.ui.theme.MotionOverlayEnter, easing = LinearOutSlowInEasing)) }
+        launch { panelAlpha.animateTo(1f, tween(hunoia.luno.ui.theme.MotionOverlayEnter)) }
     }
     LaunchedEffect(closing) {
         // 退场纯淡出 200ms（缩放重采样尾段是糊的）。播完才调 onExitFinished 拆窗：提前拆会掐断结尾。
         if (closing) {
             keyboard?.hide()
-            panelAlpha.animateTo(0f, tween(200))
+            panelAlpha.animateTo(0f, tween(hunoia.luno.ui.theme.MotionPageEnter))
             if (BuildConfig.DEBUG) Log.i("LunoQuickSearch", "fadeDone=${System.currentTimeMillis()}")
             onExitFinished()
         }

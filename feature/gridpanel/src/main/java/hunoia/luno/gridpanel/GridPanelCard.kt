@@ -394,8 +394,8 @@ fun GridPanelCard(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp),
-            enter = fadeIn(tween(120)) + scaleIn(tween(120), initialScale = 0.8f),
-            exit = fadeOut(tween(100)) + scaleOut(tween(100), targetScale = 0.8f),
+            enter = fadeIn(tween(hunoia.luno.ui.theme.MotionSwapOut)) + scaleIn(tween(hunoia.luno.ui.theme.MotionSwapOut), initialScale = 0.8f),
+            exit = fadeOut(tween(hunoia.luno.ui.theme.MotionCellOut)) + scaleOut(tween(hunoia.luno.ui.theme.MotionCellOut), targetScale = 0.8f),
         ) {
             FloatingActionButton(
                 onClick = onAdd,

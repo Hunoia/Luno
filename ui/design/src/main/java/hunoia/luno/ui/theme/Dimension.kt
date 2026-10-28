@@ -138,3 +138,22 @@ val DistanceStrokeWidth = 4.dp
 val TimelineRailX = 13.dp
 val TimelineRailWidth = 2.dp
 val TimelineBadgeSize = 26.dp
+
+// 语义动效 token（ui-guidelines.md §2.4）：页面禁止再写裸 tween(数字)。
+const val MotionPageEnter = 200
+const val MotionPageExit = 150
+const val MotionSwapIn = 160
+const val MotionSwapOut = 120
+const val MotionPress = 120
+const val MotionSettle = 240
+const val MotionReturn = 250
+const val MotionFadeOut = 150
+const val MotionSubtle = 180
+const val MotionOverlayEnter = 300
+const val MotionOverlayExit = 200
+const val MotionStatusIn = 220
+const val MotionStatusOut = 140
+const val MotionCellIn = 120
+const val MotionCellOut = 100
+const val MotionPanelIn = 170
+const val MotionPanelOut = 140

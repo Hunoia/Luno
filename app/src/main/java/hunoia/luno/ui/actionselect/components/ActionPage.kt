@@ -158,13 +158,13 @@ internal fun ActionPage(
             transitionSpec = {
                 val forward = chipIndexOf(targetState) > chipIndexOf(initialState)
                 val enter = slideInHorizontally(
-                    animationSpec = tween(200, easing = FastOutSlowInEasing),
+                    animationSpec = tween(hunoia.luno.ui.theme.MotionPageEnter, easing = FastOutSlowInEasing),
                 ) { full -> if (forward) full / 6 else -full / 6 } +
-                    fadeIn(animationSpec = tween(200))
+                    fadeIn(animationSpec = tween(hunoia.luno.ui.theme.MotionPageEnter))
                 val exit = slideOutHorizontally(
-                    animationSpec = tween(150, easing = FastOutSlowInEasing),
+                    animationSpec = tween(hunoia.luno.ui.theme.MotionPageExit, easing = FastOutSlowInEasing),
                 ) { full -> if (forward) -full / 6 else full / 6 } +
-                    fadeOut(animationSpec = tween(120))
+                    fadeOut(animationSpec = tween(hunoia.luno.ui.theme.MotionSwapOut))
                 enter togetherWith exit
             },
             contentKey = { it },

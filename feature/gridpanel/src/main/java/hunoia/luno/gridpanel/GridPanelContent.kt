@@ -90,12 +90,12 @@ fun GridPanelRoot(
     val appearance = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     var closing by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { appearance.animateTo(1f, tween(170)) }
+    LaunchedEffect(Unit) { appearance.animateTo(1f, tween(hunoia.luno.ui.theme.MotionPanelIn)) }
     fun closeWithAnim() {
         if (closing) return
         closing = true
         scope.launch {
-            appearance.animateTo(0f, tween(140))
+            appearance.animateTo(0f, tween(hunoia.luno.ui.theme.MotionStatusOut))
             onCloseAnimated()
         }
     }
