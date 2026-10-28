@@ -107,19 +107,12 @@ interface ExecuteMessages {
 }
 
 /**
- * 动作元数据视图：执行口只需要能力声明与参数模板规则。
+ * 动作元数据视图：契约已下沉 `hunoia.luno.core.domain.ActionMetadata`（ADR-0001 D4），
+ * 这里保留同包别名，供执行口内部与旧调用点引用。
  *
  * 展示元件（名称、图标、参数编辑器）仍在 `:feature:actions`，不进执行口。
  */
-interface ActionMetadata {
-    val capability: Capability
-
-    /** 不做模板展开的参数键（坐标、正则等原样落库的参数）。 */
-    val excludedTemplateKeys: Set<String>
-
-    /** 必填文本参数键：模板展开后为空即判参数无效。 */
-    val requiredTextKeys: Set<String>
-}
+typealias ActionMetadata = hunoia.luno.core.domain.ActionMetadata
 
 /** 动作目录端口：typeId → 元数据。实现方在 `:feature:actions`。 */
 fun interface ActionCatalog {
