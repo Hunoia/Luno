@@ -36,7 +36,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import hunoia.luno.quicklaunch.icon.SearchIconCache
+import hunoia.luno.ui.icon.SearchIconCache
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.TextFieldValue
 import hunoia.luno.quicklaunch.BuildConfig

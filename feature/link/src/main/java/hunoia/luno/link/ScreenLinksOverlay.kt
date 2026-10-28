@@ -1,4 +1,4 @@
-package hunoia.luno.runtime.overlay
+package hunoia.luno.link
 
 import android.annotation.SuppressLint
 import android.accessibilityservice.AccessibilityService
@@ -59,7 +59,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import hunoia.luno.R
+import hunoia.luno.link.R
 import hunoia.luno.bridge.system.copyText
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.applyOverlayViewTreeOwners
@@ -73,8 +73,9 @@ import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.link.Links
 import hunoia.luno.link.LinkUrls
-import hunoia.luno.quicklaunch.icon.SearchIconCache
-import hunoia.luno.runtime.GestureHost
+import hunoia.luno.ui.icon.SearchIconCache
+import hunoia.luno.runtime.RuntimeHost
+import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -102,7 +103,7 @@ private data class ScreenLink(
  * 与「链接分发」总开关解耦：开关只管分发，识屏、复制、列表始终可用；关掉时点条目走全局
  * 未命中策略（浏览器/分享/选择应用），而不是直接报错关层。
  */
-internal class ScreenLinksOverlay(private val host: GestureHost) {
+class ScreenLinksOverlay(private val host: RuntimeHost) {
 
     private companion object {
         /** 无障碍 overlay 不带这个标志时触摸会被系统拦掉（Android 12 起）。 */

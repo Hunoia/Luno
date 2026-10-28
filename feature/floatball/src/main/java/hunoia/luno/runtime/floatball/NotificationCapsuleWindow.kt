@@ -41,7 +41,7 @@ import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.core.LOG_TAG
-import hunoia.luno.quicklaunch.icon.SearchIconCache
+import hunoia.luno.ui.icon.SearchIconCache
 import hunoia.luno.runtime.condition.NotificationPulse
 import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.runtime.overlay.safeUpdateViewLayout

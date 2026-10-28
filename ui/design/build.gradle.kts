@@ -33,6 +33,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.annotation)
+    implementation(libs.androidx.collection)
     implementation(libs.coil.compose)
     implementation(libs.haze)
 }

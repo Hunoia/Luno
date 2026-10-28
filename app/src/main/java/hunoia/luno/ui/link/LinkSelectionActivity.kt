@@ -28,7 +28,7 @@ import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.link.Links
 import hunoia.luno.link.LinkExtras
 import hunoia.luno.link.LinkUrls
-import hunoia.luno.quicklaunch.icon.SearchIconCache
+import hunoia.luno.ui.icon.SearchIconCache
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape

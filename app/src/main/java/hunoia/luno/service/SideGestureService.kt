@@ -15,7 +15,7 @@ import hunoia.luno.runtime.GestureHost
 import hunoia.luno.runtime.automation.RuleTestResult
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
 import hunoia.luno.runtime.overlay.PointPickOverlay
-import hunoia.luno.runtime.overlay.ScreenLinksOverlay
+import hunoia.luno.link.ScreenLinksOverlay
 import hunoia.luno.runtime.overlay.ScreenPickOverlay
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch

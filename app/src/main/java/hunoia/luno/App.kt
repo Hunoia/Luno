@@ -115,7 +115,7 @@ class App : Application(), ImageLoaderFactory {
         if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
             // 进程级搜索索引保留，但拼音索引/图标位图是大头；内存吃紧时退回小上限。
             hunoia.luno.quicklaunch.query.AppSearch.trimPinyinCache(1_000)
-            hunoia.luno.quicklaunch.icon.SearchIconCache.clear()
+            hunoia.luno.ui.icon.SearchIconCache.clear()
         }
     }
 
