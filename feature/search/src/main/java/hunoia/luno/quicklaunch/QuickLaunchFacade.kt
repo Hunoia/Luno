@@ -3,9 +3,6 @@ package hunoia.luno.quicklaunch
 import android.content.Context
 import androidx.collection.LruCache
 import coil.request.ImageRequest
-import hunoia.luno.config.model.OpenAppOrUrlData
-import hunoia.luno.config.model.AppLaunchSource
-import hunoia.luno.quicklaunch.launch.AppLaunchCoordinator
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.quicklaunch.query.AppQuery
@@ -119,47 +116,6 @@ object QuickLaunchFacade {
 
     fun invalidateLauncherCache() {
         AppQuery.invalidateLauncherCache()
-    }
-
-    fun launchAppDirect(
-        context: Context,
-        packageName: String,
-        className: String,
-        miniWindow: Boolean = false,
-        miniWindowSettings: MiniWindowSettings = MiniWindowSettings(),
-        intentAction: String = "",
-        data: String = "",
-        extras: Map<String, String> = emptyMap(),
-        source: AppLaunchSource = AppLaunchSource.UNKNOWN,
-    ): Boolean {
-        return AppLaunchCoordinator.launchApp(
-            context = context,
-            packageName = packageName,
-            className = className,
-            miniWindow = miniWindow,
-            miniWindowSettings = miniWindowSettings,
-            intentAction = intentAction,
-            data = data,
-            extras = extras,
-            source = source,
-        )
-    }
-
-    fun launchAppActivityDirect(
-        context: Context,
-        packageName: String,
-        className: String,
-        source: AppLaunchSource = AppLaunchSource.UNKNOWN,
-    ): Boolean {
-        return AppLaunchCoordinator.launchAppActivity(context, packageName, className, source)
-    }
-
-    fun launchUrlDirect(
-        context: Context,
-        data: OpenAppOrUrlData,
-        miniWindowSettings: MiniWindowSettings = MiniWindowSettings(),
-    ): Boolean {
-        return Launcher.launchUrl(context = context, data = data, miniWindowSettings = miniWindowSettings)
     }
 
     fun queryCombinedQuickAppList(context: Context, disabledApps: List<AppInfo>): QuickAppLauncherAppList {
