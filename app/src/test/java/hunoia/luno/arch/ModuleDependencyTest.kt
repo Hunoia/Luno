@@ -37,7 +37,7 @@ class ModuleDependencyTest {
             ":core:common", ":core:domain", ":core:data", ":core:bridge",
         ),
         ":feature:execute" to setOf(":core:common", ":core:domain", ":core:bridge"),
-        // 偏差：动作定义/执行器与展示元数据仍同模块（Action 注册表化挂账）。
+        // 偏差：动作定义/执行器与展示元数据仍同模块（ActionDefinition 完全二分挂账）。
         ":feature:actions" to setOf(
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
             ":core:runtime", ":feature:execute", ":ui:design",
