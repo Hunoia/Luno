@@ -10,12 +10,33 @@ import hunoia.luno.domain.system.SystemUseCases
 /**
  * 轻量组装根：UI 只认门面接口，实现可在测试或后续拆分时替换。
  *
- * 不引入第三方 DI；实现默认指向 `:app` 内的门面对象。可写属性仅用于测试注入，
- * 生产路径不应在运行期替换。
+ * 不引入第三方 DI；默认实现按需解析（getter），避免仅引用组装根就提前初始化
+ * DataStore / 运行态。测试可用 `overrideXxx` 注入替身。
  */
 object AppGraph {
 
-    var automation: AutomationFacade = AutomationCenter
-    var backup: BackupFacade = BackupCenter
-    var system: SystemFacade = SystemUseCases
+    private var automationOverride: AutomationFacade? = null
+    private var backupOverride: BackupFacade? = null
+    private var systemOverride: SystemFacade? = null
+
+    val automation: AutomationFacade
+        get() = automationOverride ?: AutomationCenter
+
+    val backup: BackupFacade
+        get() = backupOverride ?: BackupCenter
+
+    val system: SystemFacade
+        get() = systemOverride ?: SystemUseCases
+
+    fun overrideAutomation(facade: AutomationFacade?) {
+        automationOverride = facade
+    }
+
+    fun overrideBackup(facade: BackupFacade?) {
+        backupOverride = facade
+    }
+
+    fun overrideSystem(facade: SystemFacade?) {
+        systemOverride = facade
+    }
 }
