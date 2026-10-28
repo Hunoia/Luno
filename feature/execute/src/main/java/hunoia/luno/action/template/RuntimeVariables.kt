@@ -2,13 +2,7 @@ package hunoia.luno.action.template
 
 import android.content.Context
 import hunoia.luno.core.domain.AudioStream
-import hunoia.luno.bridge.system.readClipboardText
-import hunoia.luno.core.domain.RingerMode
 import hunoia.luno.core.domain.RuntimeSnapshot
-import hunoia.luno.core.domain.formatTimeOfDay
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import java.util.Calendar
 
 /** 编辑器可选的运行时变量，token 为 `${...}` 内的名字。 */
 data class TemplateVariable(
@@ -128,105 +122,12 @@ object RuntimeVariables {
     ): Map<String, String> {
         if (used.isEmpty()) return emptyMap()
         val values = LinkedHashMap<String, String>(used.size)
+        val context = VariableContext(ctx, appContext)
         for (token in used) {
-            val value = when (token) {
-                PKG -> ctx.packageName
-                PKG_LABEL -> appLabel(appContext, ctx.packageName) ?: ctx.packageName
-                TIME -> formatTimeOfDay(ctx.minuteOfDay)
-                DATE -> today()
-                HOUR -> "%02d".format(ctx.minuteOfDay / 60)
-                MINUTE -> "%02d".format(ctx.minuteOfDay % 60)
-                TIMESTAMP -> System.currentTimeMillis().toString()
-                BATTERY -> ctx.batteryLevel.takeIf { it >= 0 }?.toString().orEmpty()
-                CHARGING -> ctx.isCharging.toString()
-                NETWORK -> ctx.networkType.name
-                SILENT -> (ctx.ringerMode == RingerMode.SILENT).toString()
-                HEADPHONES -> ctx.headphonesConnected.toString()
-                BLUETOOTH -> (ctx.bluetoothAudioConnected ?: ctx.bluetoothAdapterOn).toString()
-                AIRPLANE -> ctx.airplaneMode.toString()
-                LANDSCAPE -> ctx.isLandscape.toString()
-                LOCKSCREEN -> ctx.isLockScreen.toString()
-                LAUNCHER -> ctx.isLauncher.toString()
-                KEYBOARD -> ctx.isKeyboardInput.toString()
-                TRIGGER_APP -> ctx.appChangedTo.orEmpty()
-                TRIGGER_GESTURE_ID -> ctx.gesturePerformedId.orEmpty()
-                TRIGGER_GESTURE_NAME -> (ctx.gesturePerformedName ?: ctx.gesturePerformedId).orEmpty()
-                TRIGGER_RULE_NAME -> ctx.triggerRuleName.orEmpty()
-                TRIGGER_SCREEN -> ctx.screenEvent?.name.orEmpty()
-                TRIGGER_CHARGING -> ctx.chargingChangedTo?.toString().orEmpty()
-                TRIGGER_VOLUME -> ctx.volumeChanged?.let { "${it.stream.name}_${it.direction.name}" }.orEmpty()
-                TRIGGER_NOTIFICATION_PACKAGE -> (ctx.notificationPosted ?: ctx.notificationRemoved)
-                    ?.packageName.orEmpty()
-                TRIGGER_NOTIFICATION_TITLE -> (ctx.notificationPosted ?: ctx.notificationRemoved)
-                    ?.title.orEmpty()
-                TRIGGER_NOTIFICATION_TEXT -> (ctx.notificationPosted ?: ctx.notificationRemoved)
-                    ?.text.orEmpty()
-                TRIGGER_NOTIFICATION_APP -> (ctx.notificationPosted ?: ctx.notificationRemoved)
-                    ?.packageName
-                    ?.let { appLabel(appContext, it) }
-                    .orEmpty()
-                TRIGGER_NOTIFICATION_CHANNEL -> (ctx.notificationPosted ?: ctx.notificationRemoved)
-                    ?.channelId.orEmpty()
-                TRIGGER_NOTIFICATION_GROUP -> (ctx.notificationPosted ?: ctx.notificationRemoved)
-                    ?.groupKey.orEmpty()
-                TRIGGER_NOTIFICATION_CATEGORY -> (ctx.notificationPosted ?: ctx.notificationRemoved)
-                    ?.category.orEmpty()
-                TRIGGER_PACKAGE_NAME -> ctx.packageChanged?.packageName.orEmpty()
-                TRIGGER_PACKAGE_ACTION -> ctx.packageChanged?.action.orEmpty()
-                TRIGGER_SHARE_TEXT -> ctx.shareReceived?.text.orEmpty()
-                TRIGGER_SHARE_URL -> ctx.shareReceived?.url.orEmpty()
-                TRIGGER_CLIPBOARD_TEXT -> ctx.clipboardChanged?.text.orEmpty()
-                WIFI_SSID -> ctx.wifiSsid.orEmpty()
-                BLUETOOTH_DEVICE_NAME -> ctx.bluetoothDeviceName.orEmpty()
-                BLUETOOTH_DEVICE_ADDRESS -> ctx.bluetoothDeviceAddress.orEmpty()
-                CLIPBOARD -> readClipboard(appContext)
-                else -> {
-                    if (!token.startsWith(VOLUME_PREFIX)) continue
-                    audioStream(token)?.let { ctx.volumePercent[it]?.toString().orEmpty() } ?: continue
-                }
-            }
+            val value = VariableFunctionRegistry.resolve(token, context) ?: continue
             values[token] = value
         }
         return values
     }
 
-    private fun audioStream(token: String): AudioStream? {
-        val name = token.removePrefix(VOLUME_PREFIX).uppercase()
-        return AudioStream.entries.firstOrNull { it.name == name }
-    }
-
-    /**
-     * 剪贴板文本：后台无焦点时系统返回 null（Android 10+ 限制），此时给空串。
-     * resolve 本来就是 suspend，可在 IO 线程读，失败一律吞掉给空串。
-     */
-    private fun readClipboard(appContext: Context): String =
-        readClipboardText(appContext).orEmpty()
-
-    private fun today(): String {
-        val calendar = Calendar.getInstance()
-        return "%04d-%02d-%02d".format(
-            calendar.get(Calendar.YEAR),
-            calendar.get(Calendar.MONTH) + 1,
-            calendar.get(Calendar.DAY_OF_MONTH),
-        )
-    }
-
-    private suspend fun appLabel(appContext: Context, packageName: String): String? {
-        if (packageName.isBlank()) return null
-        lastLabel?.let { (cachedPackage, cachedLabel) ->
-            if (cachedPackage == packageName) return cachedLabel
-        }
-        val label = withContext(Dispatchers.IO) {
-            runCatching {
-                val pm = appContext.packageManager
-                pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
-            }.getOrNull()?.takeIf { it.isNotBlank() }
-        } ?: return null
-        lastLabel = packageName to label
-        return label
-    }
-
-    /** 手势每次触发都可能用到，靠一条记忆避免反复走 PackageManager。 */
-    @Volatile
-    private var lastLabel: Pair<String, String>? = null
 }
