@@ -96,6 +96,26 @@ object ShizukuManager {
         HiddenApiBypass.invoke(stubClass, null, "asInterface", ShizukuBinderWrapper(binder))
     }
 
+    private val launcherAppsProxy by lazy {
+        val stubClass = Class.forName("android.content.pm.ILauncherApps\$Stub")
+        val binder = SystemServiceHelper.getSystemService(Context.LAUNCHER_APPS_SERVICE)
+        HiddenApiBypass.invoke(stubClass, null, "asInterface", ShizukuBinderWrapper(binder))
+    }
+
+    /**
+     * Android 16 把 startShortcut 的参数扩成带 callingPackage/feature 的 7 参重载；
+     * 按实际方法签名调，避免绑死某个版本。
+     */
+    private val startShortcutMethod by lazy {
+        val methods = Class.forName("android.content.pm.ILauncherApps").methods
+        methods.firstOrNull { it.name == "startShortcutWithFeature" }
+            ?: methods.firstOrNull { it.name == "startShortcut" && it.parameterCount >= 5 }
+            ?: throw NoSuchMethodException(
+                "ILauncherApps.startShortcut methods=" +
+                    methods.filter { "hortcut" in it.name }.joinToString { it.name + it.parameterCount }
+            )
+    }
+
     private val userId by lazy {
         Class.forName("android.os.UserHandle").getMethod("myUserId").invoke(null) as Int
     }
@@ -248,6 +268,47 @@ object ShizukuManager {
                     }
                 }
             }
+        }
+    }
+
+    // ---- Shortcut Operations ----
+
+    /**
+     * 以 shell 身份启动快捷方式。非默认 launcher 调 `LauncherApps.startShortcut` 会被
+     * 「Caller can't access shortcut information」拦住；shell 持有 ACCESS_SHORTCUTS，
+     * 通过 Shizuku 代理调用即可启动应用未导出的 shortcut trampoline。
+     */
+    suspend fun startShortcut(packageName: String, shortcutId: String): Boolean = withContext(Dispatchers.IO) {
+        if (!isBinderAlive()) return@withContext false
+        if (!hasPermission()) return@withContext false
+        runCatching {
+            val args: Array<Any?> = when (startShortcutMethod.parameterCount) {
+                8 -> arrayOf(
+                    null, // callingActivityToken
+                    "com.android.shell", // callingPackage
+                    packageName,
+                    null, // featureId
+                    shortcutId,
+                    null, // sourceBounds
+                    null, // startActivityOptions
+                    userId,
+                )
+                7 -> arrayOf(
+                    "com.android.shell", // callingPackage
+                    packageName,
+                    null, // featureId
+                    shortcutId,
+                    null, // sourceBounds
+                    null, // startActivityOptions
+                    userId,
+                )
+                else -> arrayOf(packageName, shortcutId, null, null, userId)
+            }
+            startShortcutMethod.invoke(launcherAppsProxy, *args)
+            true
+        }.getOrElse { t ->
+            android.util.Log.w("ShizukuManager", "startShortcut failed pkg=$packageName id=$shortcutId", t)
+            false
         }
     }
 

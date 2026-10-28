@@ -50,12 +50,17 @@ class DefaultAppLauncher(
     )
 
     override suspend fun launchShortcut(dataJson: String): Boolean {
-        val intents = runCatching {
+        val shortcut = runCatching {
             hunoia.luno.core.domain.JsonSerializer
                 .decodeFromString<ShortcutIntents>(dataJson)
-                .intents
         }.getOrNull() ?: return false
-        return Launcher.launchShortcutIntents(context, intents, label = "")
+        return Launcher.launchShortcutWithFallback(
+            context = context,
+            packageName = shortcut.packageName,
+            shortcutId = shortcut.shortcutId,
+            intentUris = shortcut.intents,
+            label = "",
+        )
     }
 
     override suspend fun launchInPopup(packageName: String): ActionResult {
@@ -119,5 +124,7 @@ class DefaultAppLauncher(
  */
 @kotlinx.serialization.Serializable
 private data class ShortcutIntents(
+    val packageName: String = "",
+    val shortcutId: String? = null,
     val intents: List<String> = emptyList(),
 )

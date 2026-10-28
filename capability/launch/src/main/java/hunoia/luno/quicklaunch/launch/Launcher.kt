@@ -4,10 +4,12 @@ import android.app.ActivityOptions
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.LauncherApps
 import android.graphics.Point
 import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
+import android.os.Process
 import android.util.Log
 import android.view.WindowManager
 import hunoia.luno.capability.launch.R
@@ -105,10 +107,61 @@ object Launcher {
     }
 
     /**
-     * 启动快捷方式：入参是已解析好的 Intent URI 列表。
+     * 启动快捷方式：优先走 LauncherApps（可启动应用未导出的 shortcut trampoline），
+     * 失败再回退到直接 startActivity。
      *
      * `LauncherInfo.ShortcutInfo` 是查询侧模型（带 Bitmap），不进口契约；调用方负责解码落库 JSON。
      */
+    fun launchShortcut(
+        context: Context,
+        packageName: String,
+        shortcutId: String?,
+        intentUris: List<String>,
+        label: String,
+    ): Boolean {
+        if (packageName.isNotBlank() && !shortcutId.isNullOrBlank()) {
+            if (startShortcutViaLauncherApps(context, packageName, shortcutId)) return true
+        }
+        return launchShortcutIntents(context, intentUris, label)
+    }
+
+    suspend fun launchShortcutWithFallback(
+        context: Context,
+        packageName: String,
+        shortcutId: String?,
+        intentUris: List<String>,
+        label: String,
+    ): Boolean {
+        if (packageName.isNotBlank() && !shortcutId.isNullOrBlank()) {
+            if (startShortcutViaLauncherApps(context, packageName, shortcutId)) return true
+            if (hunoia.luno.shizuku.ShizukuManager.startShortcut(packageName, shortcutId)) return true
+        }
+        return launchShortcutIntents(context, intentUris, label)
+    }
+
+    /**
+     * 非默认 launcher 直接 startActivity 会被非导出 trampoline 拦住；
+     * LauncherApps 是系统给快捷方式开的正式入口。
+     */
+    private fun startShortcutViaLauncherApps(
+        context: Context,
+        packageName: String,
+        shortcutId: String,
+    ): Boolean = try {
+        val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+        launcherApps.startShortcut(
+            packageName,
+            shortcutId,
+            null,
+            null,
+            Process.myUserHandle(),
+        )
+        true
+    } catch (e: Exception) {
+        Log.w(LOG_TAG, "launcherApps.startShortcut failed pkg=$packageName id=$shortcutId", e)
+        false
+    }
+
     fun launchShortcutIntents(context: Context, intentUris: List<String>, label: String): Boolean {
         if (intentUris.isEmpty()) return false
         return try {

@@ -59,7 +59,8 @@ object ShortcutQuery {
                             className = actInfo.name,
                             label = currentLabel,
                             iconRes = currentIconRes,
-                            intents = currentIntents
+                            intents = currentIntents,
+                            shortcutId = currentId,
                         )
                         result.add(info)
                     }

@@ -22,6 +22,8 @@ data class LauncherInfo (
         val label: String,
         val iconRes: Int = 0,
         val iconPath: String? = null,
+        /** 静态/动态快捷方式 id；非默认 launcher 用它走 LauncherApps 启动非导出 trampoline。 */
+        val shortcutId: String? = null,
         @Transient
         val iconBitmap: Bitmap? = null
     )

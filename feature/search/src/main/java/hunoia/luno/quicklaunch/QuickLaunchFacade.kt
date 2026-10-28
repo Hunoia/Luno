@@ -148,8 +148,14 @@ object QuickLaunchFacade {
         )
     }
 
-    fun launchShortcutInfo(context: Context, shortcutInfo: LauncherInfo.ShortcutInfo): Boolean =
-        Launcher.launchShortcutIntents(context, shortcutInfo.intents, shortcutInfo.label)
+    suspend fun launchShortcutInfo(context: Context, shortcutInfo: LauncherInfo.ShortcutInfo): Boolean =
+        Launcher.launchShortcutWithFallback(
+            context = context,
+            packageName = shortcutInfo.packageName,
+            shortcutId = shortcutInfo.shortcutId,
+            intentUris = shortcutInfo.intents,
+            label = shortcutInfo.label,
+        )
 
     fun isLauncherPackage(context: Context, packageName: String): Boolean =
         LauncherEnvironment.isLauncherPackage(context, packageName)

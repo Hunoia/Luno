@@ -24,6 +24,7 @@ class LauncherInfoSerializationTest {
                     className = "com.example.Shortcut",
                     intents = listOf("intent:#Intent;action=android.intent.action.VIEW;end"),
                     label = "Shortcut",
+                    shortcutId = "shortcut_id",
                 )
             ),
         )
