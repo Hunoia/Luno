@@ -14,4 +14,10 @@ object GestureCommand {
 
     /** 球点击转发（携带按钮颜色，面板/手势链路从这里走同一套分发）。 */
     var forwardBallTap: ((action: StoredAction, anchorX: Int, anchorY: Int, color: Int) -> Unit)? = null
+
+    /** 面板点选转发（返回是否已接管；网格面板据此决定先退场）。 */
+    var forwardPanelTap: ((action: StoredAction, anchorX: Int, anchorY: Int, color: Int) -> Boolean)? = null
+
+    /** 在屏幕坐标处注入文本（剪贴板部件拖入输入框）。 */
+    var insertText: (suspend (text: String, x: Int, y: Int) -> hunoia.luno.action.controller.TextInserter.Result)? = null
 }

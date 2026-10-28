@@ -1,4 +1,4 @@
-package hunoia.luno.domain.gridpanel
+package hunoia.luno.gridpanel
 
 import hunoia.luno.action.model.ShortcutIconFiles
 import hunoia.luno.core.domain.StoredAction

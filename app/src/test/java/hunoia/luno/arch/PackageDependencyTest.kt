@@ -38,7 +38,6 @@ class PackageDependencyTest {
         Edge("action", "config"),
         Edge("ui", "quicklaunch"),
         Edge("ui", "gridpanel"),
-        Edge("gridpanel", "ui"),
         Edge("runtime", "ui"),
         Edge("ui", "runtime"),
         Edge("domain", "runtime"),

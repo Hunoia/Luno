@@ -149,7 +149,7 @@ fun GridPanelEditScreen(
                 )
             }
             // 缩列可能丢弃项：落盘完成后统一回收被丢项的图标/宿主 id。
-            hunoia.luno.domain.gridpanel.PanelResources.cleanup()
+            hunoia.luno.gridpanel.PanelResources.cleanup()
         }
     }
 
@@ -181,7 +181,7 @@ fun GridPanelEditScreen(
                             TuneConfig.updateAction { settings ->
                                 settings.copy(actionGridPanels = settings.actionGridPanels.withoutPanel(panelId))
                             }
-                            hunoia.luno.domain.gridpanel.PanelResources.cleanup()
+                            hunoia.luno.gridpanel.PanelResources.cleanup()
                             onBack()
                         }
                     },

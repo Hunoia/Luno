@@ -12,7 +12,7 @@ import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
-import hunoia.luno.BuildConfig
+import hunoia.luno.gridpanel.BuildConfig
 import kotlin.math.abs
 import kotlin.math.min
 

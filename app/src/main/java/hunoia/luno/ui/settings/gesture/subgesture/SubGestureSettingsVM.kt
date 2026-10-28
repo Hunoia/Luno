@@ -97,7 +97,7 @@ class SubGestureSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeVM<S
                 )
             }
             cleanReferences(subGestureEditor.subGestureId)
-            hunoia.luno.domain.gridpanel.PanelResources.cleanup()
+            hunoia.luno.gridpanel.PanelResources.cleanup()
         }.invokeOnCompletion {
             finish()
         }

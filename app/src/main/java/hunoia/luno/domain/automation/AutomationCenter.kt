@@ -47,7 +47,7 @@ object AutomationCenter {
     suspend fun removeRule(ruleId: String) {
         removeRunRuleRefs(ruleId)
         updateRules { rules -> rules.filterNot { it.id == ruleId } }
-        hunoia.luno.domain.gridpanel.PanelResources.cleanup()
+        hunoia.luno.gridpanel.PanelResources.cleanup()
     }
 
     private suspend fun removeRunRuleRefs(ruleId: String) {

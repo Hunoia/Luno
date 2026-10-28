@@ -13,7 +13,7 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.widget.RemoteViews
-import hunoia.luno.BuildConfig
+import hunoia.luno.gridpanel.BuildConfig
 import hunoia.luno.core.AppContext
 import kotlin.math.abs
 
@@ -109,7 +109,7 @@ internal fun interface WidgetGoneListener {
  * 这里按 id 缓存最近一次非 null 的 RemoteViews（进程级，跨视图重建存活），null 时
  * 回放缓存；缓存也没有（全新绑定首帧）才放行，加载期占位由 Compose 侧 Overlay 盖住。
  */
-internal class PanelAppWidgetHostView(context: Context) : AppWidgetHostView(context) {
+class PanelAppWidgetHostView(context: Context) : AppWidgetHostView(context) {
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private var downX = 0f
     private var downY = 0f

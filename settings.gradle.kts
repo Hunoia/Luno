@@ -38,4 +38,5 @@ include(":feature:search")
 include(":feature:quicklaunch")
 include(":feature:gesture")
 include(":feature:floatball")
+include(":feature:gridpanel")
  

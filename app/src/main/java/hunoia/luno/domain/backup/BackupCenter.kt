@@ -7,7 +7,7 @@ import hunoia.luno.config.backup.BackupOperator
 import hunoia.luno.config.backup.RestorePrecheckResult
 import hunoia.luno.config.model.Backup
 import hunoia.luno.config.model.BackupDomain
-import hunoia.luno.domain.gridpanel.PanelResources
+import hunoia.luno.gridpanel.PanelResources
 import hunoia.luno.service.ServiceAutoStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

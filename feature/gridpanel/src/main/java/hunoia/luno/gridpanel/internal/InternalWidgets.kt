@@ -8,7 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
-import hunoia.luno.R
+import hunoia.luno.gridpanel.R
 
 /**
  * 内置小部件（Compose 自绘，不走 AppWidgetHost）的定义与内容。

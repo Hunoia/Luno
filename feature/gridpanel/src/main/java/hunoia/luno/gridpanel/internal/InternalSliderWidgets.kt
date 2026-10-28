@@ -46,7 +46,7 @@ import kotlin.math.abs
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import hunoia.luno.R
+import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
 
 /**

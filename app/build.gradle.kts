@@ -153,6 +153,7 @@ dependencies {
     implementation(project(":feature:quicklaunch"))
     implementation(project(":feature:gesture"))
     implementation(project(":feature:floatball"))
+    implementation(project(":feature:gridpanel"))
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.compose.foundation)

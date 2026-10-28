@@ -22,15 +22,11 @@ import hunoia.luno.core.ActionSelectClosedEvent
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.config.model.ActionSettings
-import hunoia.luno.domain.action.ActionLibrary
-import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.gridpanel.ui.GridPanelDragGhostLayer
 import hunoia.luno.gridpanel.widget.PanelAppWidgetHostView
 import hunoia.luno.runtime.overlay.OverlayPanelHost
 import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.runtime.overlay.safeUpdateViewLayout
-import hunoia.luno.service.SideGestureService
-import hunoia.luno.ui.actionselect.ActionSelectHostActivity
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
 import hunoia.luno.ui.navigation.LocalGridPanels
@@ -251,9 +247,9 @@ object GridPanelOverlay : OverlayPanelHost(
             // initialValue 必须是 null：空 ActionSettings 会让首帧 panelById 落空，
             // GridPanelRoot 走「面板已删除」分支且不吃 appearance 动画，会糊一帧
             // 32% 黑遮罩；null 表示还没读到，此刻不渲染，出场交给 0→1 淡入。
-            val actionSettings by TuneConfig.action
+            val actionSettings by hunoia.luno.config.ConfigProvider.actionSettings
                 .collectAsStateWithLifecycle(initialValue = null)
-            val librarySettings by ActionLibrary.settings
+            val librarySettings by hunoia.luno.config.ConfigProvider.actionLibrarySettings
                 .collectAsStateWithLifecycle(initialValue = null)
             val settings = actionSettings ?: return@SideGestureTheme
             val library = librarySettings ?: return@SideGestureTheme
@@ -275,8 +271,8 @@ object GridPanelOverlay : OverlayPanelHost(
                     anchorX = anchorXState,
                     anchorY = anchorYState,
                     dispatch = { action, x, y ->
-                        val handled = SideGestureService.current
-                            ?.forwardPanelTap(action, x, y, Color.TRANSPARENT) == true
+                        val handled = hunoia.luno.gesture.GestureCommand.forwardPanelTap
+                            ?.invoke(action, x, y, Color.TRANSPARENT) == true
                         // 动作面板（弧形菜单）是另一扇浮窗：网格面板先退场，
                         // 否则两层浮层叠在一起，点选也会落在被盖住的那一层上。
                         if (handled && action.actionPanelId() != null) {
@@ -284,11 +280,12 @@ object GridPanelOverlay : OverlayPanelHost(
                         }
                         handled
                     },
-                    onPickItem = { select ->
+                    onPickItem = { pick ->
                         // 先让位再起选择页，否则面板会盖住新页并被误点；让位不可逆，
                         // 启动失败必须把面板放回来，否则窗口永远停在 alpha 0。
+                        // 选择页路由由 :app 注入，面板模块不认识导航类型。
                         hide()
-                        if (!ActionSelectHostActivity.start(context, select)) {
+                        if (GridPanelCommand.openItemPicker?.invoke(pick) != true) {
                             Log.e(TAG, "grid overlay start action select failed, restore panel")
                             restoreVisibility()
                         }
@@ -310,7 +307,7 @@ object GridPanelOverlay : OverlayPanelHost(
  * 系统级前台包（音量球、灵动胶囊、媒体控制插件等）：它们也会改变前台窗口，
  * 不是小部件拉起应用，不能因此关面板。
  */
-internal fun isSystemOverlayPackage(packageName: String): Boolean {
+fun isSystemOverlayPackage(packageName: String): Boolean {
     val pkg = packageName.lowercase()
     return pkg.contains("systemui") ||
         pkg.contains("miui.misound") ||

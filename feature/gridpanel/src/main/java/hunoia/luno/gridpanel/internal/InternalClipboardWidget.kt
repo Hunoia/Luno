@@ -56,7 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.imageLoader
-import hunoia.luno.R
+import hunoia.luno.gridpanel.R
 import hunoia.luno.action.controller.TextInserter
 import hunoia.luno.bridge.system.ClipboardContent
 import hunoia.luno.bridge.ui.hapticLongPress
@@ -70,7 +70,6 @@ import hunoia.luno.gridpanel.LocalGridPanelClose
 import hunoia.luno.gridpanel.LocalGridPanelDragGhost
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
-import hunoia.luno.service.SideGestureService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -156,8 +155,8 @@ fun ClipboardPageCell(
     fun dropToInput(text: String, screenPosition: Offset) {
         ghost?.end()
         closePanel()
-        val service = SideGestureService.current
-        if (service == null) {
+        val insertText = hunoia.luno.gesture.GestureCommand.insertText
+        if (insertText == null) {
             showToast(R.string.toast_accessibility_required)
             return
         }
@@ -168,7 +167,7 @@ fun ClipboardPageCell(
             // 等淡出动画播完、窗口真正摘掉：面板窗口还在时它会把下面应用窗口顶成
             // 非交互窗口，无障碍的 `windows` 列表里根本看不到目标应用。
             delay(PanelCloseSettleMs)
-            when (service.insertTextAt(text, x, y)) {
+            when (insertText(text, x, y)) {
                 TextInserter.Result.Inserted -> Unit
                 TextInserter.Result.InsertedViaClipboard ->
                     showToast(R.string.grid_panel_clipboard_pasted_via_clipboard)

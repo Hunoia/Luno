@@ -60,3 +60,20 @@ class GridPanelDragGhost {
 
 /** 当前面板的拖拽幽灵；不在网格面板内（或不需要该能力）时为 null。 */
 val LocalGridPanelDragGhost = staticCompositionLocalOf<GridPanelDragGhost?> { null }
+
+/**
+ * 网格面板「加项 / 换动作」请求。只带面板自身的参数，选择页路由由宿主映射，
+ * 面板模块不认识 `:app` 的导航类型。
+ */
+data class GridPanelItemPick(
+    val gridPanelId: String,
+    val pageIndex: Int,
+)
+
+/**
+ * 宿主注入的选择页入口（`:app` 在 service 初始化时挂上）。
+ * 返回 false = 未能启动，面板会恢复自身显示。
+ */
+object GridPanelCommand {
+    var openItemPicker: ((GridPanelItemPick) -> Boolean)? = null
+}

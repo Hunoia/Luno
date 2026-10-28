@@ -28,7 +28,7 @@ import hunoia.luno.gridpanel.widget.WidgetLoadState
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.component.actionIcon
-import hunoia.luno.R
+import hunoia.luno.gridpanel.R
 import androidx.compose.ui.res.stringResource
 
 /**

@@ -15,15 +15,13 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import hunoia.luno.R
+import hunoia.luno.gridpanel.R
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.AppLaunchSource
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.miniWindowSettings
-import hunoia.luno.domain.search.SearchCenter
-import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.gridpanel.LocalGridPanelClose
 import hunoia.luno.quicklaunch.launch.AppLaunchCoordinator
 import hunoia.luno.quicklaunch.model.AppInfo
@@ -60,9 +58,9 @@ fun AppDrawerCell(
     val context = LocalContext.current
     val closePanel = LocalGridPanelClose.current
     val appList by AppListRepository.state.collectAsState()
-    val usageStats by SearchCenter.appUsage.collectAsState(initial = AppUsageStats())
-    val launcherSettings by SearchCenter.launcher.collectAsState(initial = QuickAppLauncherSettings())
-    val advanced by TuneConfig.advanced.collectAsState(initial = AdvancedSettings())
+    val usageStats by hunoia.luno.config.ConfigProvider.appUsageStats.collectAsState(initial = AppUsageStats())
+    val launcherSettings by hunoia.luno.config.ConfigProvider.quickAppLauncherSettings.collectAsState(initial = QuickAppLauncherSettings())
+    val advanced by hunoia.luno.config.ConfigProvider.advancedSettings.collectAsState(initial = AdvancedSettings())
     val miniWindowSettings = remember(advanced) { advanced.miniWindowSettings() }
 
     // 引用计数：部件离开组合就退订；多个部件/快速启动器同时在线只维持一份列表。

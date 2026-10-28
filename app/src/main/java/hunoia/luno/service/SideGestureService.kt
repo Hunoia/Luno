@@ -162,6 +162,20 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         hunoia.luno.gesture.GestureCommand.forwardBallTap = { action, anchorX, anchorY, color ->
             forwardBallTap(action, anchorX, anchorY, color)
         }
+        hunoia.luno.gesture.GestureCommand.forwardPanelTap = { action, x, y, color ->
+            forwardPanelTap(action, x, y, color)
+        }
+        hunoia.luno.gesture.GestureCommand.insertText = { text, x, y -> insertTextAt(text, x, y) }
+        // 网格面板「加项」要起选择页：路由与宿主 Activity 都在 :app，面板模块只发中性请求。
+        hunoia.luno.gridpanel.GridPanelCommand.openItemPicker = { pick ->
+            hunoia.luno.ui.actionselect.ActionSelectHostActivity.start(
+                this,
+                hunoia.luno.ui.navigation.ActionSelect(
+                    gridPanelId = pick.gridPanelId,
+                    gridPanelPageIndex = pick.pageIndex,
+                ),
+            )
+        }
         gestureCoordinator.onSetOverlay()
     }
 

@@ -78,7 +78,7 @@ fun ActionPanelEditScreen(
                     actionPanels = settings.actionPanels.withPanel(latest.copy(items = newItems))
                 )
             }
-            if (cleanupResources) hunoia.luno.domain.gridpanel.PanelResources.cleanup()
+            if (cleanupResources) hunoia.luno.gridpanel.PanelResources.cleanup()
         }
     }
 
@@ -152,7 +152,7 @@ fun ActionPanelEditScreen(
                             TuneConfig.updateAction { settings ->
                                 settings.copy(actionPanels = settings.actionPanels.withoutPanel(panelId))
                             }
-                            hunoia.luno.domain.gridpanel.PanelResources.cleanup()
+                            hunoia.luno.gridpanel.PanelResources.cleanup()
                             onBack()
                         }
                     },

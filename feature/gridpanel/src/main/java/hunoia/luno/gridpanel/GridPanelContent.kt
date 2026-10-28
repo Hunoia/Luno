@@ -31,7 +31,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import hunoia.luno.R
+import hunoia.luno.gridpanel.R
+import hunoia.luno.config.ConfigProvider
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.withoutVariantKey
 import hunoia.luno.bridge.ui.showToast
@@ -42,7 +43,6 @@ import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.config.model.GridPanelItemLayout
 import hunoia.luno.config.model.derivedPageCount
-import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.gridpanel.core.GridPanelState
 import hunoia.luno.gridpanel.geometry.GridMetrics
 import hunoia.luno.gridpanel.geometry.rememberCardCornerPx
@@ -51,12 +51,11 @@ import hunoia.luno.gridpanel.ui.GridItemActions
 import hunoia.luno.gridpanel.widget.WidgetGoneListener
 import hunoia.luno.gridpanel.widget.addWidgetGoneListener
 import hunoia.luno.gridpanel.widget.removeWidgetGoneListener
-import hunoia.luno.ui.navigation.ActionSelect
+import hunoia.luno.bridge.ui.hapticLongPress
+import hunoia.luno.bridge.ui.hapticMove
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
-import hunoia.luno.bridge.ui.hapticLongPress
-import hunoia.luno.bridge.ui.hapticMove
 
 
 /** 点空白退出编辑后，这段时间内的项点按不执行（防连点误触）。 */
@@ -79,7 +78,7 @@ fun GridPanelRoot(
     anchorY: Int,
     dispatch: (action: StoredAction, screenX: Int, screenY: Int) -> Boolean,
     /** 跳动作选择页；返回 false 表示没跳起来，调用方负责把面板放回可见。 */
-    onPickItem: (ActionSelect) -> Boolean,
+    onPickItem: (GridPanelItemPick) -> Boolean,
     onClose: () -> Unit,
     onCloseAnimated: () -> Unit,
     onRegisterCloseAnimated: ((() -> Unit) -> Unit)?,
@@ -223,8 +222,8 @@ fun GridPanelRoot(
         lastWritten = rebuilt
         scope.launch {
             runCatching {
-                TuneConfig.updateAction { settings ->
-                    val latest = settings.actionGridPanels.panelById(panel.id) ?: return@updateAction settings
+                ConfigProvider.updateActionSettings { settings ->
+                    val latest = settings.actionGridPanels.panelById(panel.id) ?: return@updateActionSettings settings
                     settings.copy(
                         actionGridPanels = settings.actionGridPanels.withPanel(
                             latest.copy(items = rebuilt),
@@ -240,8 +239,8 @@ fun GridPanelRoot(
         lastWritten = next
         scope.launch {
             runCatching {
-                TuneConfig.updateAction { settings ->
-                    val latest = settings.actionGridPanels.panelById(panel.id) ?: return@updateAction settings
+                ConfigProvider.updateActionSettings { settings ->
+                    val latest = settings.actionGridPanels.panelById(panel.id) ?: return@updateActionSettings settings
                     settings.copy(
                         actionGridPanels = settings.actionGridPanels.withPanel(
                             latest.copy(items = next),
@@ -249,7 +248,7 @@ fun GridPanelRoot(
                     )
                 }
             }.onFailure { Log.w(TAG, "grid panel commitAll failed: ${it.message}") }
-            if (cleanupResources) hunoia.luno.domain.gridpanel.PanelResources.cleanup()
+            if (cleanupResources) PanelResources.cleanup()
         }
     }
 
@@ -469,9 +468,9 @@ fun GridPanelRoot(
                 val realSettled = settled.mod(mappingPages)
                 Log.i(TAG, "onAdd: settled=$settled mapping=$mappingPages -> targetPage=$realSettled")
                 val started = onPickItem(
-                    ActionSelect(
+                    GridPanelItemPick(
                         gridPanelId = panel.id,
-                        gridPanelPageIndex = realSettled,
+                        pageIndex = realSettled,
                     ),
                 )
                 if (!started) showToast(R.string.toast_select_page_failed)
