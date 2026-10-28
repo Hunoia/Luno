@@ -119,11 +119,8 @@ class FloatBallService : Service() {
     private var clipboardPollJob: Job? = null
     private var lastSeenClip: ClipboardContent? = null
 
-    /** 面板类浮层打开计数（>0 即隐藏球）。 */
-    private var panelCount = 0
-
-    /** 临时隐藏截止时间（uptimeMillis），0 = 无。只作用窗口，不碰 `enabled` 存量。 */
-    private var tempHideUntilMs = 0L
+    /** Surface 隐藏状态机：面板计数 + 临时隐藏，窗口动作仍由本服务负责。 */
+    private val visibility = hunoia.luno.runtime.surface.SurfaceVisibilityState()
     private var tempHideJob: Job? = null
 
     private val powerManager by lazy { getSystemService<PowerManager>() }
@@ -256,8 +253,7 @@ class FloatBallService : Service() {
         clipboardTimerJob = null
         clipboardPollJob?.cancel()
         clipboardPollJob = null
-        tempHideUntilMs = 0L
-        panelCount = 0
+        visibility.reset()
         ballWindow.detach()
         mirrorWindow.detach()
         capsuleWindow.detachNow()
@@ -309,8 +305,8 @@ class FloatBallService : Service() {
         // 门控（权限/总闸）可能刚变化，轮询按需启停（幂等，只查 job 状态）。
         ensureClipboardPoller()
         val enabled = settings.enabled && canDrawOverlays() && gestureEnabledSnapshot
-        val panelHidden = panelCount > 0
-        val tempHidden = tempHideUntilMs > SystemClock.uptimeMillis()
+        val panelHidden = visibility.isPanelHidden
+        val tempHidden = visibility.isTempHidden()
         val shouldShow = enabled && !panelHidden && !tempHidden
         if (!shouldShow) {
             if (ballVisible) {
@@ -355,12 +351,12 @@ class FloatBallService : Service() {
     // ---- 面板联动（面板打开即隐藏球） ----
 
     private val panelShownSubscriber: (PanelShownEvent) -> Unit = {
-        panelCount++
+        visibility.onPanelShown()
         refreshWindows()
     }
 
     private val panelDismissedSubscriber: (PanelDismissedEvent) -> Unit = {
-        if (panelCount > 0) panelCount--
+        visibility.onPanelDismissed()
         refreshWindows()
     }
 
@@ -381,13 +377,11 @@ class FloatBallService : Service() {
      * 球按落盘 enabled 照常恢复。重复隐藏取更晚的截止时间。
      */
     private fun scheduleTempHide(durationMs: Long) {
-        val deadline = SystemClock.uptimeMillis() + durationMs
-        if (deadline <= tempHideUntilMs) return
-        tempHideUntilMs = deadline
+        if (!visibility.applyTempHide(durationMs)) return
         tempHideJob?.cancel()
         tempHideJob = scope.launch {
-            delay(deadline - SystemClock.uptimeMillis())
-            tempHideUntilMs = 0L
+            delay(visibility.tempHideRemainingMs())
+            visibility.cancelTempHide()
             // 隐藏期间复制的内容不补弹：恢复前先把基线对齐到当前剪贴板。
             seedClipboardBaseline()
             refreshWindows()
@@ -396,10 +390,10 @@ class FloatBallService : Service() {
     }
 
     private fun cancelTempHide() {
-        if (tempHideUntilMs == 0L) return
+        if (!visibility.hasTempHide) return
         tempHideJob?.cancel()
         tempHideJob = null
-        tempHideUntilMs = 0L
+        visibility.cancelTempHide()
         refreshWindows()
     }
 
@@ -599,7 +593,7 @@ class FloatBallService : Service() {
                 TAG,
                 "clip changed but not allowed: switch=${settings.clipboardBall.enabled} " +
                     "overlay=${canDrawOverlays()} gesture=$gestureEnabledSnapshot " +
-                    "panel=$panelCount tempHide=${tempHideUntilMs > SystemClock.uptimeMillis()} " +
+                    "panel=${visibility.panelCount} tempHide=${visibility.isTempHidden()} " +
                     "lock=${isScreenLocked()} dnd=${AutomationPulseHub.dndActive}",
             )
             return
@@ -1059,9 +1053,7 @@ class FloatBallService : Service() {
                 // 判在隐藏类短态之前：面板/临时隐藏乃至摘窗期间确认了推播也照停，
                 // 别为迟早退出的轮询白付唤醒；重挂由 ensureImeObserver 按需补启。
                 if (ballWindow.imeInsetsAvailable()) break
-                if (!ballVisible || panelCount > 0 ||
-                    tempHideUntilMs > SystemClock.uptimeMillis()
-                ) continue
+                if (!ballVisible || visibility.isHidden) continue
                 val imeBottom = runCatching {
                     windowManager?.currentWindowMetrics
                         ?.windowInsets
