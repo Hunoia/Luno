@@ -90,12 +90,6 @@ object ShizukuManager {
         HiddenApiBypass.invoke(stubClass, null, "asInterface", ShizukuBinderWrapper(binder))
     }
 
-    private val amProxy by lazy {
-        val stubClass = Class.forName("android.app.IActivityManager\$Stub")
-        val binder = SystemServiceHelper.getSystemService(Context.ACTIVITY_SERVICE)
-        HiddenApiBypass.invoke(stubClass, null, "asInterface", ShizukuBinderWrapper(binder))
-    }
-
     private val launcherAppsProxy by lazy {
         val stubClass = Class.forName("android.content.pm.ILauncherApps\$Stub")
         val binder = SystemServiceHelper.getSystemService(Context.LAUNCHER_APPS_SERVICE)
@@ -103,8 +97,8 @@ object ShizukuManager {
     }
 
     /**
-     * Android 16 把 startShortcut 的参数扩成带 callingPackage/feature 的 7 参重载；
-     * 按实际方法签名调，避免绑死某个版本。
+     * Android 16 的 startShortcut 是 8 参（callingToken / callingPackage / packageName /
+     * featureId / shortcutId / bounds / options / userId）；按实际签名调，避免绑死版本。
      */
     private val startShortcutMethod by lazy {
         val methods = Class.forName("android.content.pm.ILauncherApps").methods

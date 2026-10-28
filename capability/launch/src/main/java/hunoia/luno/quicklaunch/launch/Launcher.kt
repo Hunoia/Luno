@@ -107,24 +107,11 @@ object Launcher {
     }
 
     /**
-     * 启动快捷方式：优先走 LauncherApps（可启动应用未导出的 shortcut trampoline），
-     * 失败再回退到直接 startActivity。
+     * 启动快捷方式：优先走 LauncherApps / Shizuku（可启动应用未导出的 shortcut
+     * trampoline），失败再回退到直接 startActivity。
      *
      * `LauncherInfo.ShortcutInfo` 是查询侧模型（带 Bitmap），不进口契约；调用方负责解码落库 JSON。
      */
-    fun launchShortcut(
-        context: Context,
-        packageName: String,
-        shortcutId: String?,
-        intentUris: List<String>,
-        label: String,
-    ): Boolean {
-        if (packageName.isNotBlank() && !shortcutId.isNullOrBlank()) {
-            if (startShortcutViaLauncherApps(context, packageName, shortcutId)) return true
-        }
-        return launchShortcutIntents(context, intentUris, label)
-    }
-
     suspend fun launchShortcutWithFallback(
         context: Context,
         packageName: String,
