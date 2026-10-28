@@ -24,8 +24,7 @@ import hunoia.luno.quicklaunch.panel.AppGridContent
 import hunoia.luno.quicklaunch.query.AppListRepository
 import hunoia.luno.quicklaunch.query.AppSearch
 import hunoia.luno.core.domain.DispatchOrigin
-import hunoia.luno.core.domain.StoredAction
-import hunoia.luno.execute.SurfaceDispatch
+import hunoia.luno.runtime.surface.SurfaceDispatch
 import hunoia.luno.ui.theme.AppItemPadding
 import hunoia.luno.ui.theme.GridCellSpacing
 
@@ -75,10 +74,9 @@ fun AppDrawerCell(
     fun launch(app: AppInfo, miniWindow: Boolean) {
         // 走 Surface 统一执行口：部件只构造动作，启动细节与三态由 Dispatcher 负责。
         SurfaceDispatch.dispatch(
-            action = StoredAction.of(
-                "app.launch",
-                "packageName" to app.packageName,
-                "miniWindow" to miniWindow.toString(),
+            action = hunoia.luno.core.domain.AppLaunchAction.stored(
+                packageName = app.packageName,
+                miniWindow = miniWindow,
             ),
             origin = DispatchOrigin.PANEL,
         ) { launched ->

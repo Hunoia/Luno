@@ -51,7 +51,7 @@ class ModuleDependencyTest {
         ),
         ":feature:link" to setOf(
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
-            ":core:runtime", ":feature:execute", ":ui:design",
+            ":core:runtime", ":ui:design",
         ),
         ":feature:search" to setOf(
             ":core:common", ":core:domain", ":core:data", ":core:bridge",
@@ -59,7 +59,7 @@ class ModuleDependencyTest {
         ),
         ":feature:quicklaunch" to setOf(
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
-            ":core:runtime", ":feature:execute", ":feature:search", ":ui:design",
+            ":core:runtime", ":feature:search", ":ui:design",
         ),
         ":feature:gesture" to setOf(
             ":core:common", ":core:domain", ":core:data", ":core:bridge",
@@ -68,7 +68,7 @@ class ModuleDependencyTest {
         ":feature:floatball" to setOf(
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
             ":core:runtime", ":feature:actions", ":feature:automation",
-            ":feature:conditions", ":feature:execute", ":feature:gesture",
+            ":feature:conditions", ":feature:gesture",
             ":feature:link", ":ui:design",
         ),
         ":feature:gridpanel" to setOf(

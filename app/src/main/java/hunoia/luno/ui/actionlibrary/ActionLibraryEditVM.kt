@@ -26,7 +26,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import java.util.UUID
 
-internal const val DEFAULT_ACTION_TYPE_ID = "app.launch"
+internal const val DEFAULT_ACTION_TYPE_ID = hunoia.luno.core.domain.AppLaunchAction.TYPE_ID
 
 internal fun JsonElement?.scalarText(): String? = (this as? JsonPrimitive)?.contentOrNull
 

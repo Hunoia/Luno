@@ -144,11 +144,10 @@ internal fun Any.toStoredAction(): StoredAction {
     return when (this) {
         is StoredAction -> this
         is ActionLibraryEntry -> StoredAction.of("internal.libraryRef", "entryId" to id)
-        is AppInfo -> StoredAction.of(
-            "app.launch",
-            "packageName" to packageName,
-            "className" to className,
-            "miniWindow" to miniWindow.toString(),
+        is AppInfo -> hunoia.luno.core.domain.AppLaunchAction.stored(
+            packageName = packageName,
+            className = className,
+            miniWindow = miniWindow,
         )
         is LauncherInfo.ShortcutInfo -> StoredAction.of(
             "app.launchShortcut",

@@ -17,6 +17,7 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.getSystemService
 import hunoia.luno.floatball.R
+import hunoia.luno.core.domain.AppLaunchAction
 import hunoia.luno.core.domain.GRID_PANEL_TYPE_ID
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.bridge.system.ClipboardContent
@@ -40,7 +41,9 @@ import hunoia.luno.runtime.automation.AutomationNotificationListener
 import hunoia.luno.runtime.automation.AutomationPulseHub
 import hunoia.luno.runtime.automation.NotificationContentIntents
 import hunoia.luno.runtime.condition.NotificationPulse
+import hunoia.luno.runtime.dispatch.ActionDispatch
 import hunoia.luno.runtime.environment.BroadcastObserver
+import hunoia.luno.runtime.surface.SurfaceDispatch
 import hunoia.luno.shizuku.ShizukuClipboard
 import hunoia.luno.shizuku.ShizukuManager
 import kotlinx.coroutines.CoroutineScope
@@ -560,11 +563,8 @@ class FloatBallService : Service() {
                 if (sent) return@launch
             }
             // 启动收敛到进程级 Dispatcher：胶囊不需要持有启动协调器，也不产生旁路。
-            hunoia.luno.execute.SurfaceDispatch.dispatch(
-                action = StoredAction.of(
-                    "app.launch",
-                    "packageName" to pulse.packageName,
-                ),
+            SurfaceDispatch.dispatch(
+                action = AppLaunchAction.stored(packageName = pulse.packageName),
                 origin = hunoia.luno.core.domain.DispatchOrigin.PANEL,
             ) { launched ->
                 if (!launched) Log.w(TAG, "capsule app launch failed: package=${pulse.packageName}")
@@ -922,10 +922,16 @@ class FloatBallService : Service() {
             return
         }
         scope.launch {
-            val dispatched = Links.dispatch(this@FloatBallService, url, linkDispatch)
+            // Trigger 只产出意图：链接模块负责选路，返回 ActionRequest 后再交给执行口。
+            val resolution = Links.resolve(this@FloatBallService, url, linkDispatch, rule)
+            val dispatched = resolution?.let {
+                runCatching { ActionDispatch.dispatchAwait(it.request) }
+                    .onFailure { error -> Log.w(TAG, "link dispatch threw: ${url.take(80)}", error) }
+                    .getOrDefault(false)
+            } ?: false
             if (!dispatched) {
                 Log.w(TAG, "link dispatch failed, fallback: ${url.take(80)}")
-                Links.fallbackFor(this@FloatBallService, url, rule, linkDispatch)
+                Links.fallbackFor(this@FloatBallService, url, resolution?.rule ?: rule, linkDispatch)
             }
             hideClipboardBall()
         }

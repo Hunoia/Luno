@@ -166,11 +166,10 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
                 onClose = { (closeAnimated ?: { closeImmediate() }).invoke() },
                 onLaunch = { appInfo, miniWindow ->
                     // Surface 只构造动作；启动、统计、三态统一由进程级 Dispatcher 负责。
-                    hunoia.luno.execute.SurfaceDispatch.dispatch(
-                        action = hunoia.luno.core.domain.StoredAction.of(
-                            "app.launch",
-                            "packageName" to appInfo.packageName,
-                            "miniWindow" to miniWindow.toString(),
+                    hunoia.luno.runtime.surface.SurfaceDispatch.dispatch(
+                        action = hunoia.luno.core.domain.AppLaunchAction.stored(
+                            packageName = appInfo.packageName,
+                            miniWindow = miniWindow,
                         ),
                         origin = hunoia.luno.core.domain.DispatchOrigin.PANEL,
                     ) { launched ->

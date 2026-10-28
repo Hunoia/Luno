@@ -41,7 +41,7 @@ sealed interface Action {
         val data: String = "",
         val extras: Map<String, String> = emptyMap(),
     ) : Action {
-        override val typeId: String = "app.launch"
+        override val typeId: String = hunoia.luno.core.domain.AppLaunchAction.TYPE_ID
     }
     data class AppDetails(val packageName: String) : Action {
         override val typeId: String = "app.details"

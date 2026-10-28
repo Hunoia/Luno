@@ -115,7 +115,7 @@ fun ActionPanelMenu(
                     .align(Alignment.Center)
                     .displayCutoutPadding()
                     .padding(12.dp),
-                visible = selectedAction.typeId == "app.launch",
+                visible = selectedAction.typeId == hunoia.luno.core.domain.AppLaunchAction.TYPE_ID,
                 enter = enter,
                 exit = ExitTransition.None
             ) {

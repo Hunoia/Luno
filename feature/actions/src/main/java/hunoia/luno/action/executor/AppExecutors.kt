@@ -16,7 +16,10 @@ import hunoia.luno.execute.LaunchSpec
 class AppExecutors : ActionExecutor {
 
     override val supportedTypes: Set<String> = setOf(
-        "app.launch", "app.details", "app.popup", "app.launchShortcut"
+        hunoia.luno.core.domain.AppLaunchAction.TYPE_ID,
+        "app.details",
+        "app.popup",
+        "app.launchShortcut",
     )
 
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult {

@@ -190,11 +190,10 @@ class QuickSearchIndex(internal val context: Context) {
 fun QuickSearchResult.toConfigAction(): StoredAction = when (this) {
     is QuickSearchResult.ActionDef -> stored
     is QuickSearchResult.LibraryEntry -> StoredAction.of("internal.libraryRef", "entryId" to entry.id)
-    is QuickSearchResult.App -> StoredAction.of(
-        "app.launch",
-        "packageName" to appInfo.packageName,
-        "className" to appInfo.className,
-        "miniWindow" to appInfo.miniWindow.toString(),
+    is QuickSearchResult.App -> hunoia.luno.core.domain.AppLaunchAction.stored(
+        packageName = appInfo.packageName,
+        className = appInfo.className,
+        miniWindow = appInfo.miniWindow,
     )
     is QuickSearchResult.Shortcut -> StoredAction.of(
         "app.launchShortcut",

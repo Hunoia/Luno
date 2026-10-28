@@ -29,7 +29,7 @@ import hunoia.luno.quicklaunch.query.QuickSearchIndexProvider
 import hunoia.luno.quicklaunch.query.SearchAction
 import hunoia.luno.quicklaunch.query.SearchResult
 import hunoia.luno.quicklaunch.query.SOURCE_CALC
-import hunoia.luno.service.DispatchClient
+import hunoia.luno.runtime.dispatch.ActionDispatch
 import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -262,7 +262,7 @@ class QuickSearchActivity : ComponentActivity() {
 
     /** 分发 + 未就绪提示 + 成功关面板：点按与长按的 App/详情页共用。 */
     private fun dispatchOrToast(action: StoredAction) {
-        if (DispatchClient.dispatch(action)) {
+        if (ActionDispatch.send(action)) {
             requestClose()
         } else {
             showToast(R.string.dispatch_service_not_ready)

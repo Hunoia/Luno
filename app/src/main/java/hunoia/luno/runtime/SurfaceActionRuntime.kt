@@ -17,9 +17,11 @@ import hunoia.luno.execute.ExecuteCall
 import hunoia.luno.execute.ExecuteEnvironment
 import hunoia.luno.execute.ExecuteMessages
 import hunoia.luno.execute.LaunchSpec
-import hunoia.luno.execute.SurfaceActionDispatch
-import hunoia.luno.execute.SurfaceDispatch
+import hunoia.luno.core.domain.ActionDispatchPort
+import hunoia.luno.core.domain.SurfaceActionDispatch
 import hunoia.luno.execute.SurfaceHost
+import hunoia.luno.runtime.dispatch.ActionDispatch
+import hunoia.luno.runtime.surface.SurfaceDispatch
 import hunoia.luno.launch.DefaultAppLauncher
 import hunoia.luno.quicklaunch.launch.DisabledPackageEnabler
 import kotlinx.coroutines.CoroutineScope
@@ -63,6 +65,11 @@ object SurfaceActionRuntime {
                 ExecuteCall(request = request),
                 onSettled = { settlement -> onSettled(settlement.succeeded) },
             )
+        })
+        // 同步送达口给搜索面板等只需要「是否交给 Dispatcher」的调用方；
+        // 真实执行结果仍由 Surface 回调或链接侧可等待端口返回。
+        ActionDispatch.installSender(ActionDispatchPort { action ->
+            hunoia.luno.service.DispatchClient.dispatch(action)
         })
         installed = true
     }

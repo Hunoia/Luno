@@ -80,11 +80,10 @@ fun QuickSearchResult.toSearchResult(): SearchResult {
                 subtitle = subtitle,
                 icon = SearchIcon.AppIcon(appInfo.packageName),
                 primary = SearchAction.Run(
-                    StoredAction.of(
-                        "app.launch",
-                        "packageName" to appInfo.packageName,
-                        "className" to appInfo.className,
-                        "miniWindow" to appInfo.miniWindow.toString(),
+                    hunoia.luno.core.domain.AppLaunchAction.stored(
+                        packageName = appInfo.packageName,
+                        className = appInfo.className,
+                        miniWindow = appInfo.miniWindow,
                     ),
                 ),
                 // 长按始终进应用详情（停用应用也保留该入口）。

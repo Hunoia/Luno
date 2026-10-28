@@ -57,7 +57,7 @@ fun Context.actionText(
             return getString(R.string.action_library_missing)
         }
     }
-    if (action.typeId == "app.launch") {
+    if (action.typeId == hunoia.luno.core.domain.AppLaunchAction.TYPE_ID) {
         return appLabel(action) ?: ""
     }
     if (action.typeId == "app.launchShortcut") {
@@ -101,7 +101,7 @@ fun actionText(
             return panel.name.ifBlank { stringResource(R.string.grid_panel_unnamed) }
         }
     }
-    if (action.typeId == "app.launch") {
+    if (action.typeId == hunoia.luno.core.domain.AppLaunchAction.TYPE_ID) {
         val context = androidx.compose.ui.platform.LocalContext.current
         val packageName = action.launchPackageName()
         return remember(action, packageName) { context.appLabel(action) ?: "" }
@@ -120,7 +120,7 @@ fun actionIcon(action: StoredAction): Any? {
     action.libraryEntryId()?.let { refId ->
         return LocalActionLibraryEntries.current.firstOrNull { it.id == refId }?.resolvedIcon()
     }
-    if (action.typeId == "app.launch") {
+    if (action.typeId == hunoia.luno.core.domain.AppLaunchAction.TYPE_ID) {
         val context = androidx.compose.ui.platform.LocalContext.current
         val packageName = action.launchPackageName()
         val className = (action.params["className"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull.orEmpty()

@@ -17,7 +17,7 @@ internal object AppActionGroup : ActionGroup {
 
     override fun definitions(): List<ActionDefinition> = listOf(
         ActionDefinition(
-            "app.launch", "启动应用", ActionCategory.APP,
+            hunoia.luno.core.domain.AppLaunchAction.TYPE_ID, "启动应用", ActionCategory.APP,
             Capability.None,
             listOf(
                 ParameterDefinition.AppSelector("packageName", "应用"),
@@ -57,7 +57,7 @@ internal object AppActionGroup : ActionGroup {
     )
 
     override fun installDecoders() {
-        ActionMappingRegistry.register("app.launch") { p ->
+        ActionMappingRegistry.register(hunoia.luno.core.domain.AppLaunchAction.TYPE_ID) { p ->
             Action.LaunchApp(
                 packageName = p.str("packageName"),
                 miniWindow = p.bool("miniWindow"),

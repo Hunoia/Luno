@@ -11,6 +11,10 @@ import hunoia.luno.config.model.LinkDispatchSettings
 import hunoia.luno.config.model.LinkMissMode
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.core.LOG_TAG
+import hunoia.luno.core.domain.ActionRequest
+import hunoia.luno.core.domain.AppLaunchAction
+import hunoia.luno.core.domain.DispatchOrigin
+import hunoia.luno.runtime.dispatch.ActionDispatch
 
 /** 规则解析出的分发目标（胶囊上显示用）。 */
 data class LinkTarget(
@@ -18,21 +22,20 @@ data class LinkTarget(
     val label: String,
 )
 
-/** 链接分发的外部能力：启动（必须经执行口）、应用内导航。实现方在 `:app`。 */
-interface LinkPorts {
-    /**
-     * 按规则把链接送到目标应用；返回是否真的发出。
-     *
-     * 实现方**必须**走 `ActionRequest → Dispatcher`：链接分发不是执行旁路，
-     * 解冻、小窗、能力闸、三态反馈都由执行口统一负责。
-     */
-    suspend fun launchLink(
-        packageName: String,
-        className: String,
-        miniWindow: Boolean,
-        url: String,
-    ): Boolean
+/**
+ * 一次链接选路的结果：Resolve 只产出动作请求，不执行。
+ *
+ * [rule] 保留给失败回退使用；[request] 交给统一执行口。
+ */
+data class LinkResolution(
+    val rule: LinkDispatchRule,
+    val targetPackage: String,
+    val url: String,
+    val request: ActionRequest,
+)
 
+/** 链接分发的应用内导航端口；启动执行不再经过这里。实现为 [AppLinkPorts]，Context 由 `:app` 注入。 */
+interface LinkPorts {
     /** 拉起规则编辑页并预填匹配串（应用内导航）。 */
     fun createRule(host: String)
 
@@ -87,18 +90,25 @@ class LinkDispatcher(private val ports: LinkPorts) {
     }
 
     /**
-     * 规则表级分发：先按原链接匹配，命中规则若开了「解析短链」就跟随后重新匹配一次，
-     * 再交给 [dispatch]。解析失败（超时/断网/无跳转）用原链接继续，绝不把点击吞掉。
+     * 规则表级选路：先按原链接匹配，命中规则若开了「解析短链」就跟随后重新匹配一次，
+     * 产出 [ActionRequest] 后返回；不执行。解析失败（超时/断网/无跳转）用原链接继续，
+     * 绝不把点击吞掉。
+     *
+     * [matched] 由调用方已经算好时传入，避免 Trigger 侧再匹配一次。
      */
-    suspend fun dispatch(
+    suspend fun resolve(
         context: Context,
         url: String,
         settings: LinkDispatchSettings,
-    ): Boolean {
-        val first = LinkUrls.firstMatch(url, settings.rules) ?: return false
-        if (!first.resolveShortLink) return dispatch(context, url, first)
-        val (effectiveUrl, rule) = resolveShortLink(url, first, settings)
-        return dispatch(context, effectiveUrl, rule)
+        matched: LinkDispatchRule? = null,
+    ): LinkResolution? {
+        val first = matched ?: LinkUrls.firstMatch(url, settings.rules) ?: return null
+        val (effectiveUrl, rule) = if (first.resolveShortLink) {
+            resolveShortLink(url, first, settings)
+        } else {
+            url to first
+        }
+        return resolutionOf(context, effectiveUrl, rule)
     }
 
     /** 短链解析 → 二次匹配；返回最终要打开的 URL 与规则。 */
@@ -121,37 +131,81 @@ class LinkDispatcher(private val ports: LinkPorts) {
         return fallback to rule
     }
 
-    /** 按规则把 [url] 分发给目标应用。返回是否已发出启动。 */
-    suspend fun dispatch(context: Context, url: String, rule: LinkDispatchRule): Boolean {
-        if (!rule.isValid) return false
+    /**
+     * 把已经选好的规则翻译成 `app.launch` 请求。
+     *
+     * 这里只做 Resolve，不碰执行；目标应用、小窗、Intent 覆盖都进入统一的
+     * `ActionRequest → Dispatcher` 通路。
+     */
+    private fun resolutionOf(
+        context: Context,
+        url: String,
+        rule: LinkDispatchRule,
+    ): LinkResolution? {
+        if (!rule.isValid) return null
         val target = if (rule.viaBrowser) {
             // 交给浏览器：指定了就发给指定浏览器，没指定就自动挑一个非 Luno 的。
             rule.targetPackage.trim().ifBlank {
                 resolveBrowser(context, url) ?: run {
-                    Log.w(LOG_TAG, "link dispatch: no other browser for $url")
-                    return false
+                    Log.w(LOG_TAG, "link resolve: no other browser for $url")
+                    return null
                 }
             }
         } else {
             rule.targetPackage.trim()
         }
-        // 规则指向 Luno 自己：直接返回 false，交给上层走回退，避免死循环。
+        // 规则指向 Luno 自己：直接返回 null，交给上层走回退，避免死循环。
         if (target == context.packageName) {
-            Log.w(LOG_TAG, "link dispatch target is self, skip: $url")
-            return false
+            Log.w(LOG_TAG, "link resolve target is self, skip: $url")
+            return null
         }
         val effectiveUrl = LinkUrls.applyTemplate(url, rule.template)
-        val launched = runCatching {
-            ports.launchLink(
-                packageName = target,
-                className = rule.targetActivity.trim(),
-                miniWindow = rule.miniWindow,
-                url = effectiveUrl,
-            )
-        }.onFailure { Log.w(LOG_TAG, "link dispatch failed: $effectiveUrl -> $target", it) }
+        return LinkResolution(
+            rule = rule,
+            targetPackage = target,
+            url = effectiveUrl,
+            request = ActionRequest(
+                stored = AppLaunchAction.stored(
+                    packageName = target,
+                    className = rule.targetActivity.trim(),
+                    miniWindow = rule.miniWindow,
+                    intentAction = Intent.ACTION_VIEW,
+                    data = effectiveUrl,
+                ),
+                origin = DispatchOrigin.LINK,
+            ),
+        )
+    }
+
+    /**
+     * 规则表级分发：Resolve 后交给统一执行口。返回值表示实际执行是否成功
+     * （主进程只能确认 IPC 送达，沿用既有的 `DispatchClient` 语义）。
+     */
+    suspend fun dispatch(
+        context: Context,
+        url: String,
+        settings: LinkDispatchSettings,
+    ): Boolean {
+        val resolution = resolve(context, url, settings) ?: return false
+        return dispatch(resolution)
+    }
+
+    private suspend fun dispatch(resolution: LinkResolution): Boolean {
+        val launched = runCatching { ActionDispatch.dispatchAwait(resolution.request) }
+            .onFailure {
+                Log.w(
+                    LOG_TAG,
+                    "link dispatch failed: ${resolution.url.take(80)} -> ${resolution.targetPackage}",
+                    it,
+                )
+            }
             .getOrDefault(false)
         if (launched) {
-            Log.i(LOG_TAG, "link dispatched: ${rule.name}/${rule.id} -> $target (${effectiveUrl.take(80)})")
+            Log.i(
+                LOG_TAG,
+                "link dispatched: ${resolution.rule.name}/${resolution.rule.id} -> " +
+                    "${resolution.targetPackage} (${resolution.url.take(80)})",
+            )
         }
         return launched
     }

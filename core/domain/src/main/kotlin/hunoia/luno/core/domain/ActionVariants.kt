@@ -35,7 +35,7 @@ fun StoredAction.withoutVariantKey(): StoredAction {
 
 /** app.launch 的应用标识（免 PackageManager 查询，用于去重与比对）。 */
 fun StoredAction.launchQualifiedName(): String? {
-    if (typeId != "app.launch") return null
+    if (typeId != AppLaunchAction.TYPE_ID) return null
     val pkg = (params["packageName"] as? JsonPrimitive)?.contentOrNull ?: return null
     val cls = (params["className"] as? JsonPrimitive)?.contentOrNull.orEmpty()
     return "$pkg/$cls"
@@ -117,13 +117,13 @@ fun StoredAction.hasPointParams(): Boolean {
 }
 
 fun StoredAction.launchPackageName(): String? {
-    if (typeId != "app.launch") return null
+    if (typeId != AppLaunchAction.TYPE_ID) return null
     return (params["packageName"] as? JsonPrimitive)?.contentOrNull
 }
 
 /** app.launch 的应用引用（label 用包名兜底，仅供去重与比对）。 */
 fun StoredAction.launchAppRef(): AppInfo? {
-    if (typeId != "app.launch") return null
+    if (typeId != AppLaunchAction.TYPE_ID) return null
     val pkg = (params["packageName"] as? JsonPrimitive)?.contentOrNull ?: return null
     val cls = (params["className"] as? JsonPrimitive)?.contentOrNull.orEmpty()
     return AppInfo(
@@ -135,9 +135,9 @@ fun StoredAction.launchAppRef(): AppInfo? {
 }
 
 fun StoredAction.withLaunchMiniWindow(miniWindow: Boolean): StoredAction {
-    if (typeId != "app.launch") return this
+    if (typeId != AppLaunchAction.TYPE_ID) return this
     return copy(params = buildJsonObject {
         for ((k, v) in this@withLaunchMiniWindow.params) put(k, v)
-        put("miniWindow", JsonPrimitive(miniWindow.toString()))
+        put("miniWindow", JsonPrimitive(miniWindow))
     })
 }
