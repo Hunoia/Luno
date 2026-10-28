@@ -104,13 +104,19 @@ data class ActionDefinition(
     val icon: ImageVector = Icons.Default.Android,
 ) : hunoia.luno.core.domain.ActionMetadata {
 
-    override val excludedTemplateKeys: Set<String>
-        get() = excludedTemplateKeys()
+    private val excludedTemplateKeyCache by lazy { excludedTemplateKeys() }
 
-    override val requiredTextKeys: Set<String>
-        get() = parameters.mapNotNull { param ->
+    private val requiredTextKeyCache by lazy {
+        parameters.mapNotNull { param ->
             val isText = param is ParameterDefinition.Text || param is ParameterDefinition.TextLarge
             if (isText && param.required) param.key else null
         }.toSet()
+    }
+
+    override val excludedTemplateKeys: Set<String>
+        get() = excludedTemplateKeyCache
+
+    override val requiredTextKeys: Set<String>
+        get() = requiredTextKeyCache
 }
 
