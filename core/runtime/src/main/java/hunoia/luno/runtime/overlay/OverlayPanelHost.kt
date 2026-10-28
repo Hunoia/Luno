@@ -19,6 +19,9 @@ import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.core.AppContext
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelDismissedEvent
+import hunoia.luno.runtime.surface.SurfaceController
+import hunoia.luno.runtime.surface.SurfaceHandle
+import hunoia.luno.runtime.surface.SurfaceKind
 
 /**
  * 全屏面板悬浮窗宿主的公共骨架（TYPE_APPLICATION_OVERLAY）：可获焦 FrameLayout 容器
@@ -34,7 +37,12 @@ abstract class OverlayPanelHost(
     private val logPrefix: String,
     /** 锁屏上是否可见（仅启动面板开；球窗没有这个 flag，属首次尝试，需真机验证）。 */
     private val showWhenLocked: Boolean,
-) {
+) : SurfaceHandle {
+    override val surfaceKind: SurfaceKind get() = SurfaceKind.PANEL
+
+    /** 子类提供稳定 id（用于控制器注册 / 诊断）。 */
+    abstract override val surfaceId: String
+
     protected val context: Context get() = AppContext.get()
     protected val wm: WindowManager get() = context.windowManager()
     protected val mainHandler = Handler(Looper.getMainLooper())
@@ -124,6 +132,7 @@ abstract class OverlayPanelHost(
         try {
             view = created
             lifecycleOwner = owner
+        SurfaceController.register(this)
             created.requestFocus()
             // 面包屑：后面几行的异常来自组合协程，try 抓不到；看到这行紧接着崩溃
             // 就说明是 resume 之后的异步段（LaunchedEffect / DataStore 收流）。
@@ -156,8 +165,38 @@ abstract class OverlayPanelHost(
         }
     }
 
+    /**
+     * 默认软隐藏：窗口保留，alpha 收底 + 不可触摸。
+     * 需要自定义动画的子类可覆盖；语义必须保持「可恢复、不销毁组合」。
+     */
+    override fun softHide() {
+        val current = view ?: return
+        val lp = current.layoutParams as? WindowManager.LayoutParams ?: return
+        if (lp.alpha == 0f && lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0) return
+        lp.alpha = 0f
+        lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        runCatching { wm.safeUpdateViewLayout(current, lp) }
+    }
+
+    /** 默认恢复：alpha 回到 1 并恢复触摸。 */
+    override fun restore() {
+        val current = view ?: return
+        val lp = current.layoutParams as? WindowManager.LayoutParams ?: return
+        if (lp.alpha == 1f && lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE == 0) return
+        lp.alpha = 1f
+        lp.flags = lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+        runCatching { wm.safeUpdateViewLayout(current, lp) }
+    }
+
+    /** 长态关闭：先补发配对事件，再移窗销毁。 */
+    override fun detach() {
+        postDismissed()
+        removeAndTeardown()
+    }
+
     /** 清宿主引用并销毁 owner（组合随之释放）；先 [teardownExtra] 再销毁。不移窗。 */
     protected fun teardownRefs() {
+        SurfaceController.unregister(surfaceId)
         teardownExtra()
         view = null
         attached = false

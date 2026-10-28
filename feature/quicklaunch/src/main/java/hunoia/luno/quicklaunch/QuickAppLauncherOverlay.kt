@@ -36,6 +36,8 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
     showWhenLocked = true,
 ) {
 
+    override val surfaceId: String = "quick-launcher"
+
     private const val TAG = LOG_TAG
 
     // 组合消费的状态：重复 show 原位换锚点（同 GridPanelOverlay）。
