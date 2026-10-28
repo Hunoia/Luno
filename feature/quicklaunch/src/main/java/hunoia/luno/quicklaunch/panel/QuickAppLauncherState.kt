@@ -79,13 +79,13 @@ class QuickAppLauncherState(
 
     init {
         coroutineScope.launch {
-            hunoia.luno.config.ConfigProvider.quickAppLauncherSettings.collectLatest {
+            hunoia.luno.domain.search.SearchCenter.launcher.collectLatest {
                 launcherSettings = it
                 previewSettings = null
             }
         }
         coroutineScope.launch {
-            hunoia.luno.config.ConfigProvider.appUsageStats.collectLatest { usageStats = it }
+            hunoia.luno.domain.search.SearchCenter.appUsage.collectLatest { usageStats = it }
         }
         // 应用列表走进程级共享仓（与网格面板的抽屉部件同一份，见 AppListRepository）：
         // 扫包与包变更广播只注册一次，面板/启动器各自只订阅结果。

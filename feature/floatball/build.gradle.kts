@@ -27,7 +27,6 @@ dependencies {
     api(project(":core:data"))
     api(project(":core:runtime"))
     api(project(":ui:design"))
-    api(project(":feature:actions"))
     api(project(":feature:conditions"))
     api(project(":feature:automation"))
     api(project(":feature:gesture"))

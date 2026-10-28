@@ -61,7 +61,6 @@ import hunoia.luno.action.controller.TextInserter
 import hunoia.luno.bridge.system.ClipboardContent
 import hunoia.luno.bridge.ui.hapticLongPress
 import hunoia.luno.bridge.ui.showToast
-import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.ClipboardHistory
 import hunoia.luno.config.model.ClipboardHistoryEntry
 import hunoia.luno.core.AppContext
@@ -100,7 +99,7 @@ fun ClipboardPageCell(
     val closePanel = LocalGridPanelClose.current
     val scope = rememberCoroutineScope()
     val ghost = LocalGridPanelDragGhost.current
-    val history by ConfigProvider.clipboardHistory.collectAsState(initial = ClipboardHistory())
+    val history by ClipboardCenter.history.collectAsState(initial = ClipboardHistory())
     var current by remember { mutableStateOf<ClipboardContent?>(null) }
 
     // 打开部件即抓一次当前主剪贴项（新 ROM 后台监听不可用，这是主要捕获时机）。

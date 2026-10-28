@@ -176,12 +176,12 @@ internal fun QuickSearchContent(
     onTogglePin: (String, String) -> Unit,
     onOpenAppSettings: () -> Unit,
 ) {
-    val libraryFlow = remember { hunoia.luno.config.ConfigProvider.actionLibrarySettings }
+    val libraryFlow = remember { hunoia.luno.domain.search.SearchCenter.actionLibrary }
     val libraryState by libraryFlow.collectAsState(initial = ActionLibrarySettings())
     val entries = libraryState.entries
-    val usageFlow = remember { hunoia.luno.config.ConfigProvider.appUsageStats }
+    val usageFlow = remember { hunoia.luno.domain.search.SearchCenter.appUsage }
     val usageStats by usageFlow.collectAsState(initial = AppUsageStats())
-    val searchSettingsFlow = remember { hunoia.luno.config.ConfigProvider.quickSearchSettings }
+    val searchSettingsFlow = remember { hunoia.luno.domain.search.SearchCenter.search }
     val searchSettings by searchSettingsFlow.collectAsState(initial = QuickSearchSettings())
     var query by remember { mutableStateOf(TextFieldValue("")) }
     var menuResult by remember { mutableStateOf<SearchResult?>(null) }
@@ -273,7 +273,7 @@ internal fun QuickSearchContent(
     val deleteHistory: (String) -> Unit = { h ->
         scope.launch {
             runCatching {
-                hunoia.luno.config.ConfigProvider.updateQuickSearchSettings {
+                hunoia.luno.domain.search.SearchCenter.updateSearch {
                     it.copy(recentQueries = it.recentQueries.filterNot { q -> q == h })
                 }
             }
@@ -283,7 +283,7 @@ internal fun QuickSearchContent(
     val togglePin: (String) -> Unit = { clip ->
         scope.launch {
             runCatching {
-                hunoia.luno.config.ConfigProvider.updateQuickSearchSettings {
+                hunoia.luno.domain.search.SearchCenter.updateSearch {
                     if (clip in it.pinnedClips) {
                         it.copy(
                             pinnedClips = it.pinnedClips.filterNot { c -> c == clip },

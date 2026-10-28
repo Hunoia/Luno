@@ -244,9 +244,9 @@ object GridPanelOverlay : OverlayPanelHost(
             // initialValue 必须是 null：空 ActionSettings 会让首帧 panelById 落空，
             // GridPanelRoot 走「面板已删除」分支且不吃 appearance 动画，会糊一帧
             // 32% 黑遮罩；null 表示还没读到，此刻不渲染，出场交给 0→1 淡入。
-            val actionSettings by hunoia.luno.config.ConfigProvider.actionSettings
+            val actionSettings by hunoia.luno.domain.gridpanel.GridPanelCenter.actionSettings
                 .collectAsStateWithLifecycle(initialValue = null)
-            val librarySettings by hunoia.luno.config.ConfigProvider.actionLibrarySettings
+            val librarySettings by hunoia.luno.domain.action.ActionLibrary.settings
                 .collectAsStateWithLifecycle(initialValue = null)
             val settings = actionSettings ?: return@SideGestureTheme
             val library = librarySettings ?: return@SideGestureTheme

@@ -47,7 +47,7 @@ class ModuleDependencyTest {
         ),
         ":feature:automation" to setOf(
             ":core:common", ":core:domain", ":core:bridge",
-            ":core:runtime", ":feature:conditions", ":feature:execute",
+            ":core:runtime", ":feature:conditions",
         ),
         ":feature:link" to setOf(
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
@@ -63,11 +63,11 @@ class ModuleDependencyTest {
         ),
         ":feature:gesture" to setOf(
             ":core:common", ":core:domain", ":core:data", ":core:bridge",
-            ":core:runtime", ":feature:actions", ":feature:execute", ":ui:design",
+            ":core:runtime", ":feature:actions", ":ui:design",
         ),
         ":feature:floatball" to setOf(
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
-            ":core:runtime", ":feature:actions", ":feature:automation",
+            ":core:runtime", ":feature:automation",
             ":feature:conditions", ":feature:gesture",
             ":feature:link", ":ui:design",
         ),

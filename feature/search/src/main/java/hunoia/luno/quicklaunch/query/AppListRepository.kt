@@ -78,7 +78,7 @@ object AppListRepository {
                 val locale = currentLocaleTag()
                 // 先记下语言：扫描期间 UI 再问一次不该判成「变了」而重扫第二遍。
                 loadedLocaleTag = locale
-                val snapshot = runCatching { hunoia.luno.config.ConfigProvider.getQuickAppSnapshot() }.getOrNull()
+                val snapshot = runCatching { hunoia.luno.domain.search.SearchCenter.getSnapshot() }.getOrNull()
                 if (snapshot != null && snapshot.apps.isNotEmpty() && snapshot.labelLocale == locale) {
                     _state.value = QuickAppLauncherAppList(snapshot.apps, snapshot.disabledPkgs)
                 }

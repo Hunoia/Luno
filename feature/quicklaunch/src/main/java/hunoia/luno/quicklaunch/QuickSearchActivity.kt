@@ -97,9 +97,9 @@ class QuickSearchActivity : ComponentActivity() {
             } else {
                 lifecycleScope.launch {
                     runCatching {
-                        val pinned = hunoia.luno.config.ConfigProvider.getQuickSearchSettings().pinnedClips
+                        val pinned = hunoia.luno.domain.search.SearchCenter.getSearch().pinnedClips
                         if (clip in pinned) return@runCatching
-                        hunoia.luno.config.ConfigProvider.updateQuickSearchSettings {
+                        hunoia.luno.domain.search.SearchCenter.updateSearch {
                             it.copy(
                                 clipHistory = (listOf(clip) + it.clipHistory)
                                     .distinct()

@@ -6,11 +6,13 @@ import hunoia.luno.bridge.system.copyImage
 import hunoia.luno.bridge.system.copyText
 import hunoia.luno.bridge.system.readClipboardContentDetailed
 import hunoia.luno.config.ConfigProvider
+import hunoia.luno.config.model.ClipboardHistory
 import hunoia.luno.core.AppContext
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.shizuku.ShizukuClipboard
 import hunoia.luno.shizuku.ShizukuManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -40,6 +42,9 @@ object ClipboardCenter {
      */
     @Volatile
     var onRecorded: ((String) -> Unit)? = null
+
+    /** 剪贴板页面部件只读历史投影，避免 UI 直连配置存储。 */
+    val history: Flow<ClipboardHistory> = ConfigProvider.clipboardHistory
 
     /** 读当前主剪贴项：Shizuku 可用走 shell 桥，否则应用内直读。 */
     suspend fun readCurrent(): ClipboardContent? = withContext(Dispatchers.IO) {

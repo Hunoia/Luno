@@ -27,7 +27,6 @@ dependencies {
     api(project(":core:data"))
     api(project(":core:runtime"))
     api(project(":ui:design"))
-    api(project(":feature:execute"))
     api(project(":feature:actions"))
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.ui)

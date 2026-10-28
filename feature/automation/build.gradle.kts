@@ -29,7 +29,6 @@ dependencies {
     api(project(":core:bridge"))
     api(project(":core:runtime"))
     api(project(":feature:conditions"))
-    api(project(":feature:execute"))
     implementation(libs.jetbrains.kotlin.serialization)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.core.ktx)

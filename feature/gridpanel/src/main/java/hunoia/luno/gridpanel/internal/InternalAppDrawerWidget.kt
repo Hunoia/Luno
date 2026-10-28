@@ -54,8 +54,8 @@ fun AppDrawerCell(
 ) {
     val closePanel = LocalGridPanelClose.current
     val appList by AppListRepository.state.collectAsState()
-    val usageStats by hunoia.luno.config.ConfigProvider.appUsageStats.collectAsState(initial = AppUsageStats())
-    val launcherSettings by hunoia.luno.config.ConfigProvider.quickAppLauncherSettings.collectAsState(initial = QuickAppLauncherSettings())
+    val usageStats by hunoia.luno.domain.search.SearchCenter.appUsage.collectAsState(initial = AppUsageStats())
+    val launcherSettings by hunoia.luno.domain.search.SearchCenter.launcher.collectAsState(initial = QuickAppLauncherSettings())
 
     // 引用计数：部件离开组合就退订；多个部件/快速启动器同时在线只维持一份列表。
     DisposableEffect(Unit) {

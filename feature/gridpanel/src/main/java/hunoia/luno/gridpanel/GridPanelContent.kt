@@ -32,7 +32,6 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.gridpanel.R
-import hunoia.luno.config.ConfigProvider
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.withoutVariantKey
 import hunoia.luno.bridge.ui.showToast
@@ -222,7 +221,7 @@ fun GridPanelRoot(
         lastWritten = rebuilt
         scope.launch {
             runCatching {
-                ConfigProvider.updateActionSettings { settings ->
+                hunoia.luno.domain.gridpanel.GridPanelCenter.updateActionSettings { settings ->
                     val latest = settings.actionGridPanels.panelById(panel.id) ?: return@updateActionSettings settings
                     settings.copy(
                         actionGridPanels = settings.actionGridPanels.withPanel(
@@ -239,7 +238,7 @@ fun GridPanelRoot(
         lastWritten = next
         scope.launch {
             runCatching {
-                ConfigProvider.updateActionSettings { settings ->
+                hunoia.luno.domain.gridpanel.GridPanelCenter.updateActionSettings { settings ->
                     val latest = settings.actionGridPanels.panelById(panel.id) ?: return@updateActionSettings settings
                     settings.copy(
                         actionGridPanels = settings.actionGridPanels.withPanel(

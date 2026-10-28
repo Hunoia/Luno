@@ -65,7 +65,6 @@ import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.applyOverlayViewTreeOwners
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.bridge.ui.windowManager
-import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.LinkDispatchSettings
 import hunoia.luno.core.Events
 import hunoia.luno.core.LOG_TAG
@@ -239,8 +238,7 @@ class ScreenLinksOverlay(private val host: RuntimeHost) : hunoia.luno.runtime.su
 
     private suspend fun scan(current: Int) {
         val context = host.context
-        val settings = runCatching { ConfigProvider.getActionSettings().linkDispatch }
-            .getOrDefault(LinkDispatchSettings())
+        val settings = hunoia.luno.domain.link.LinkSettingsCenter.linkDispatch()
         val hadPanels = openPanels.hasOpenPanels
         openPanels.awaitDismissed()
         if (hadPanels) delay(PANEL_POST_SETTLE_MS)
@@ -290,8 +288,7 @@ class ScreenLinksOverlay(private val host: RuntimeHost) : hunoia.luno.runtime.su
     }
 
     private suspend fun currentSettings(): LinkDispatchSettings =
-        runCatching { ConfigProvider.getActionSettings().linkDispatch }
-            .getOrDefault(LinkDispatchSettings())
+        hunoia.luno.domain.link.LinkSettingsCenter.linkDispatch()
 
     private fun onPick(link: ScreenLink) {
         val current = session

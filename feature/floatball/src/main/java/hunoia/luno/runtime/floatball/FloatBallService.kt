@@ -22,9 +22,7 @@ import hunoia.luno.core.domain.GRID_PANEL_TYPE_ID
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.bridge.system.ClipboardContent
 import hunoia.luno.bridge.system.canDrawOverlays
-import hunoia.luno.bridge.system.readClipboardContentDetailed
 import hunoia.luno.bridge.ui.DensityProvider
-import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
@@ -44,7 +42,6 @@ import hunoia.luno.runtime.condition.NotificationPulse
 import hunoia.luno.runtime.dispatch.ActionDispatch
 import hunoia.luno.runtime.environment.BroadcastObserver
 import hunoia.luno.runtime.surface.SurfaceDispatch
-import hunoia.luno.shizuku.ShizukuClipboard
 import hunoia.luno.shizuku.ShizukuManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -55,7 +52,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 import hunoia.luno.core.LOG_TAG
 
@@ -297,8 +293,8 @@ class FloatBallService : Service() {
         settingsJob?.cancel()
         settingsJob = scope.launch {
             combine(
-                ConfigProvider.actionSettings,
-                ConfigProvider.initialSettings,
+                hunoia.luno.domain.floatball.FloatBallSettingsCenter.actionSettings,
+                hunoia.luno.domain.floatball.FloatBallSettingsCenter.initialSettings,
             ) { action, initial -> FloatBallRuntimeConfig(action, initial.gestureEnabled) }
                 .collect { config ->
                     val newSettings = config.action.floatBall
@@ -637,20 +633,8 @@ class FloatBallService : Service() {
         if (onClipboardContent(info)) lastSeenClip = info
     }
 
-    /** 读剪贴板（剪贴板球专用）：Shizuku 在跑走 shell 桥（新 ROM 唯一后台路径），否则应用内直读（仅前台时刻有效）。 */
-    private suspend fun readClipForBall(): ClipboardContent? {
-        val status = ShizukuManager.currentStatus()
-        if (status.binderAlive && status.permissionGranted) {
-            val viaShizuku = withContext(Dispatchers.IO) {
-                runCatching { ShizukuClipboard.readContent() }
-                    .onFailure { Log.w(TAG, "shizuku clipboard read failed: ${it::class.simpleName} ${it.message}") }
-                    .getOrNull()
-            }
-            if (viaShizuku != null) return viaShizuku
-        }
-        // 无障碍/应用内直读也是 binder 调用：不在主线程读。
-        return withContext(Dispatchers.IO) { readClipboardContentDetailed(this@FloatBallService) }
-    }
+    /** 读剪贴板（剪贴板球专用）：统一走数据层剪贴板门面，避免两套 Shizuku 回退逻辑漂移。 */
+    private suspend fun readClipForBall(): ClipboardContent? = ClipboardCenter.readCurrent()
 
     /** 变化处理共用入口（监听器即时路径 + 轮询兜底路径）。返回值 = 这次变化已处理（可推进已读基线）。 */
     private fun onClipboardContent(content: ClipboardContent): Boolean {
@@ -976,7 +960,7 @@ class FloatBallService : Service() {
         settings = settings.copy(clipboardBall = settings.clipboardBall.copy(x = nx, y = ny))
         scope.launch {
             runCatching {
-                ConfigProvider.updateActionSettings { current ->
+                hunoia.luno.domain.floatball.FloatBallSettingsCenter.updateActionSettings { current ->
                     current.copy(
                         floatBall = current.floatBall.copy(
                             clipboardBall = current.floatBall.clipboardBall.copy(x = nx, y = ny),
@@ -1141,7 +1125,7 @@ class FloatBallService : Service() {
         )
         scope.launch {
             runCatching {
-                ConfigProvider.updateActionSettings { current ->
+                hunoia.luno.domain.floatball.FloatBallSettingsCenter.updateActionSettings { current ->
                     // 字段级合并到最新存量：整对象按内存快照覆盖会把主进程的并发
                     // 修改（大小/颜色/动作）连同旧值一起写回去。
                     current.copy(

@@ -1,5 +1,6 @@
 package hunoia.luno.runtime
 
+import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.util.Log
@@ -50,29 +51,45 @@ object SurfaceActionRuntime {
 
     private var installed = false
 
-    /** 由 `App.onCreate` 调用；两进程都执行。 */
+    /**
+     * 由 `App.onCreate` 调用；两进程都执行。
+     *
+     * 只有 `:service` 进程持有本地 Dispatcher。主进程的 Surface 入口只做 IPC 转发，
+     * 避免主进程绕过服务进程的执行上下文与能力状态。
+     */
     @Synchronized
     fun install(context: Context) {
         if (installed) return
         val appContext = context.applicationContext
-        AppContext.applicationScope?.launch(Dispatchers.IO) {
-            runCatching { ConfigProvider.getAdvancedSettings() }
-                .onSuccess { advanced = it }
-            ConfigProvider.advancedSettings.collect { advanced = it }
-        }
-        SurfaceDispatch.install(SurfaceActionDispatch { request, onSettled ->
-            dispatcher(appContext).submit(
-                ExecuteCall(request = request),
-                onSettled = { settlement -> onSettled(settlement.succeeded) },
-            )
-        })
+        val serviceProcess = isServiceProcess()
         // 同步送达口给搜索面板等只需要「是否交给 Dispatcher」的调用方；
         // 真实执行结果仍由 Surface 回调或链接侧可等待端口返回。
         ActionDispatch.installSender(ActionDispatchPort { action ->
             hunoia.luno.service.DispatchClient.dispatch(action)
         })
+        if (serviceProcess) {
+            AppContext.applicationScope?.launch(Dispatchers.IO) {
+                runCatching { ConfigProvider.getAdvancedSettings() }
+                    .onSuccess { advanced = it }
+                ConfigProvider.advancedSettings.collect { advanced = it }
+            }
+            SurfaceDispatch.install(SurfaceActionDispatch { request, onSettled ->
+                dispatcher(appContext).submit(
+                    ExecuteCall(request = request),
+                    onSettled = { settlement -> onSettled(settlement.succeeded) },
+                )
+            })
+        } else {
+            // 主进程没有本地 Dispatcher：只确认是否交给 :service，不伪装成执行结果。
+            SurfaceDispatch.install(SurfaceActionDispatch { request, onSettled ->
+                onSettled(hunoia.luno.service.DispatchClient.dispatch(request.stored))
+            })
+        }
         installed = true
     }
+
+    private fun isServiceProcess(): Boolean =
+        Application.getProcessName()?.endsWith(":service") == true
 
     private fun dispatcher(context: Context): ActionDispatcher = ActionDispatcher(
         environment = environment(context),

@@ -152,9 +152,9 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
     @Composable
     override fun panelContent() {
         SideGestureTheme {
-            // 直读 hunoia.luno.config.ConfigProvider.launcher（跨进程 DataStore 门面），不依赖 Activity 预读。
+            // 经搜索域门面读启动器配置，不依赖 Activity 预读。
             // initialValue 用 null 而非空配置：null = 还没读到，空配置会让首帧走错分支糊一帧。
-            val settings by hunoia.luno.config.ConfigProvider.quickAppLauncherSettings
+            val settings by hunoia.luno.domain.search.SearchCenter.launcher
                 .collectAsStateWithLifecycle(initialValue = null)
             val s = settings ?: return@SideGestureTheme
             QuickAppLauncherRoot(
