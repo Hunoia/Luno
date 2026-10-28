@@ -50,4 +50,5 @@ dependencies {
         exclude(group = "com.google.accompanist")
         exclude(group = "net.engawapg.lib")
     }
+    testImplementation(libs.junit)
 }
