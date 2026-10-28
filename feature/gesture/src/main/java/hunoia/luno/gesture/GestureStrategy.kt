@@ -65,8 +65,7 @@ class GestureSession {
  * 识别器只负责会话状态推进与策略遍历；新增手势类型只需注册一条策略。
  */
 interface GestureStrategy {
-    fun onDown(timeMs: Long, position: Offset, config: GestureConfig, session: GestureSession): GestureDecision =
-        GestureDecision.Noop
+    fun onDown(timeMs: Long, position: Offset, config: GestureConfig, session: GestureSession) = Unit
 
     fun onMove(timeMs: Long, delta: Offset, config: GestureConfig, session: GestureSession): GestureDecision =
         GestureDecision.Noop
@@ -236,11 +235,10 @@ private object TapDoubleTapStrategy : GestureStrategy {
         position: Offset,
         config: GestureConfig,
         session: GestureSession,
-    ): GestureDecision {
+    ) {
         if (!config.hasDoubleTapActions || session.pendingButtonId != config.buttonId) {
             session.pendingButtonId = null
         }
-        return GestureDecision.Noop
     }
 
     override fun onUp(timeMs: Long, config: GestureConfig, session: GestureSession): GestureDecision {
