@@ -6,7 +6,6 @@
     <string name="accessibility_description">辅助服务用于模拟返回、主页、等按键操作，实现侧滑手势的各种自定义操控，不会收集任何数据。</string>
     <string name="delete">删除</string>
     <string name="edit">编辑</string>
-    <string name="go_back">返回</string>
     <string name="save">保存</string>
     <string name="add_gesture_button">添加触钮</string>
     <string name="reset_default_settings_warning">恢复默认设置</string>
@@ -22,32 +21,6 @@
     <string name="width">宽度</string>
     <string name="mini_window_position_hint">调整小窗打开的位置</string>
     <string name="keep_alive_need_permission">保活需要授予「修改系统设置」权限，请先在 Shizuku 中授权或通过 ADB 执行：adb shell pm grant hunoia.luno android.permission.WRITE_SECURE_SETTINGS</string>
-    <string name="quick_launcher_start_failed">启动面板打开失败</string>
-    <string name="quick_launcher_need_overlay_permission">打开启动面板需要「显示在其他应用上层」权限，正在前往设置</string>
-    <string name="quick_search_start_failed">搜索面板打开失败</string>
-    <string name="quick_search_copied">已复制</string>
-    <string name="quick_search_clipboard">剪贴板</string>
-    <string name="quick_search_clipboard_locked">已锁定，解锁后显示剪贴板</string>
-    <string name="quick_search_contacts">联系人</string>
-    <string name="quick_search_grant_contacts">授予联系人权限</string>
-    <string name="quick_search_music">音乐</string>
-    <string name="quick_search_files">文件</string>
-    <string name="quick_search_grant_media">授予媒体权限</string>
-    <string name="quick_search_grant_files">授予文件访问权限</string>
-    <string name="quick_search_no_handler">没有能打开的应用</string>
-    <string name="quick_search_voice">语音输入</string>
-    <string name="quick_search_pin">置顶</string>
-    <string name="quick_search_unpin">取消置顶</string>
-    <string name="quick_search_calendar">日历</string>
-    <string name="quick_search_grant_calendar">授予日历权限</string>
-    <string name="quick_search_toggles">快捷开关</string>
-    <string name="quick_search_sms">短信</string>
-    <string name="quick_search_grant_sms">授予短信权限</string>
-    <string name="quick_search_calls">通话记录</string>
-    <string name="quick_search_grant_calls">授予通话记录权限</string>
-    <string name="quick_search_state_on">开</string>
-    <string name="quick_search_state_off">关</string>
-    <string name="quick_search_open_settings">去设置</string>
     <string name="quick_search_trigger_off">留空则关闭该来源标识</string>
     <string name="quick_search_trigger_closed">标识已关闭</string>
     <string name="mini_window_position_short">小窗</string>
@@ -115,14 +88,6 @@
     <string name="recent_apps_blocklist">最近应用黑名单</string>
     <string name="recent_apps_blocklist_hint">最近的内置部件与上一个应用不显示/不切换到这些应用</string>
     <!-- 设置页（动作/快速搜索共用） -->
-    <string name="settings_page_wifi">Wi-Fi</string>
-    <string name="settings_page_bluetooth">蓝牙</string>
-    <string name="settings_page_display">显示</string>
-    <string name="settings_page_battery">电池</string>
-    <string name="settings_page_apps">应用</string>
-    <string name="settings_page_network">网络</string>
-    <string name="settings_page_accessibility">无障碍</string>
-    <string name="settings_page_main">主设置</string>
     <!-- 动作选择页行尾设置弹窗 -->
     <string name="ok">确定</string>
     <string name="row_settings_sensitivity">灵敏度</string>
@@ -235,33 +200,11 @@
     <string name="grid_panel_card_alpha">卡片透明度</string>
     <string name="grid_panel_add_widget">桌面小部件</string>
     <string name="grid_panel_internal_widgets">Luno 内置</string>
-    <string name="grid_panel_internal_media">媒体控制</string>
-    <string name="grid_panel_internal_volume">音量调节</string>
-    <string name="grid_panel_internal_brightness">亮度调节</string>
-    <string name="grid_panel_internal_recents">最近应用</string>
-    <string name="grid_panel_brightness_need_permission">授予修改系统设置权限后可调节亮度，点此去授权</string>
-    <string name="grid_panel_recents_empty">暂无最近应用记录</string>
-    <string name="grid_panel_media_need_permission">授予通知访问权限后可控制媒体播放，点此去授权</string>
-    <string name="grid_panel_media_no_session">没有正在播放的媒体</string>
-    <string name="grid_panel_media_previous">上一曲</string>
-    <string name="grid_panel_media_play_pause">播放或暂停</string>
-    <string name="grid_panel_media_next">下一曲</string>
-    <string name="grid_panel_toggle_background">切换部件背景</string>
     <string name="grid_panel_no_widgets">设备上没有可用的小部件</string>
     <string name="grid_panel_widget_pick_failed">无法打开小部件选择器</string>
-    <string name="toast_select_page_failed">无法打开动作选择页</string>
     <string name="grid_panel_add_item">添加面板项</string>
-    <string name="grid_panel_item_menu_delete">删除</string>
-    <string name="grid_panel_item_resize">调整大小</string>
-    <string name="grid_panel_move_left">向左移动一格</string>
-    <string name="grid_panel_move_right">向右移动一格</string>
-    <string name="grid_panel_move_up">向上移动一格</string>
-    <string name="grid_panel_move_down">向下移动一格</string>
     <string name="grid_panel_page_full">这一页放不下了，已取消添加</string>
     <string name="grid_panel_missing">面板不存在，可能已被删除</string>
-    <string name="grid_panel_widget_failed">小部件加载失败</string>
-    <string name="grid_panel_empty_items">空面板。长按空白处进入编辑添加项。</string>
-    <string name="grid_panel_empty_items_edit">这一页还是空的。点右上角「+」添加动作或小部件。</string>
     <string name="grid_panel_shrink_title">网格缩小后放不下</string>
     <string name="grid_panel_shrink_desc_named">改成 %1$d 列后有 %2$d 项放不下，继续将移除：%3$s</string>
     <string name="grid_panel_shrink_desc_generic">改成 %1$d 列后有 %2$d 项放不下，继续将移除它们。</string>
@@ -280,26 +223,17 @@
     <string name="save_failure">保存失败</string>
     <string name="left">左</string>
     <string name="right">右</string>
-    <string name="gesture_button">触钮</string>
     <string name="gesture_button_name">触钮 %1$d</string>
     <string name="gesture_button_size_max">已达到最大触钮数量</string>
     <string name="request_get_apps_permission">获取应用列表</string>
-    <string name="goto_grant_notification_policy_access_permission">请手动开启"免打扰权限"以使用静音开关</string>
-    <string name="grant_camera_permission">请开启"相机权限"以使用手电筒</string>
     <string name="tab_apps">应用</string>
     <string name="tab_shortcuts">快捷</string>
     <string name="create_shortcut">创建快捷方式</string>
+    <string name="create_shortcut_failed">创建快捷方式失败：应用没有返回可启动的 Intent。</string>
     <string name="launch_shortcut">启动快捷方式</string>
     <string name="delete_gesture_button_warning">删除触钮</string>
     <string name="delete_gesture_button_warning_desc">将删除触钮，是否继续？</string>
     <string name="rename">重命名</string>
-    <string name="launch_mini_window_failed">无法启动应用小窗。</string>
-    <string name="enable_disabled_app_failed">启用禁用应用失败。</string>
-    <string name="launch_shortcut_info_failed">无法启动%1$s快捷方式。</string>
-    <string name="launch_assist_failed">无法启动系统助手，请检查您是否已安装。</string>
-    <string name="flashlight_failed">无法使用手电筒，请检查设备是否支持。</string>
-    <string name="os_version_too_low">系统版本不支持</string>
-    <string name="os_version_too_low_placeholder">系统版本不支持：%1$s</string>
 
     <string name="slide_to_right">向右滑动</string>
     <string name="slide_to_left">向左滑动</string>
@@ -350,14 +284,6 @@
     <string name="action_category_sub_gesture">子手势</string>
 
     <!-- 快速启动 -->
-    <string name="quick_app_launcher_content_height">高度</string>
-    <string name="quick_app_launcher_panel_width">宽度</string>
-    <string name="quick_app_launcher_screen_margin">离屏边距</string>
-    <string name="quick_app_launcher_candidate_rows">候选应用行数</string>
-    <string name="quick_app_launcher_adjust">调整面板</string>
-    <string name="quick_app_launcher_delete_input">删除输入</string>
-    <string name="quick_app_launcher_grid_columns">搜索列数</string>
-    <string name="quick_app_launcher_key_height">按键高度</string>
 
     <!-- 手势设置 -->
     <string name="sub_gesture_timeout_label">子手势超时</string>
@@ -374,18 +300,10 @@
     <string name="no_matching_results">无匹配结果</string>
     <string name="all_categories">全部</string>
     <string name="search_hint_all">搜索</string>
-
-    <string name="search_clear_cd">清除</string>
     <string name="search_collapse_cd">收起搜索</string>
-    <string name="invalid_url">链接格式不正确</string>
-    <string name="launch_failed">启动失败</string>
-    <string name="launch_no_handler">没有可处理该链接的应用</string>
     <string name="long_press">长按</string>
     <string name="tap_action">单击</string>
     <string name="tap_and_long_press_action">单击/长按</string>
-    <string name="tap">单击</string>
-    <string name="random_name_generate_failed">生成失败</string>
-    <string name="random_name_copy_failed">复制失败</string>
     <string name="sub_gesture">子手势</string>
     <string name="add_sub_gesture">添加子手势</string>
     <string name="delete_sub_gesture_warning">删除子手势？</string>
@@ -418,17 +336,8 @@
     <string name="action_library_icon_default">默认</string>
     <string name="action_library_icon_custom">文字或表情</string>
     <string name="point_pick">屏幕取点</string>
-    <string name="point_pick_hint">轻点目标位置，确定后回填坐标（仍可手改）</string>
     <string name="point_pick_point">x=%1$d dp，y=%2$d dp</string>
     <string name="point_pick_empty">未取点</string>
-    <string name="screen_pick_image_copied">图片已复制</string>
-    <string name="screen_pick_image_saved">图片已保存到相册</string>
-    <string name="screen_pick_close">关闭识屏</string>
-    <string name="screen_pick_copy_image">复制图片</string>
-    <string name="screen_pick_share_image">分享图片</string>
-    <string name="screen_pick_save_image">保存到相册</string>
-    <string name="screen_pick_no_content">未识别到可复制的内容</string>
-    <string name="screen_pick_failed">识别失败，请重试</string>
     <string name="action_library_icon_use">使用</string>
 
     <!-- 动作编辑器 -->
@@ -439,7 +348,6 @@
     <string name="action_param_kv_key">键</string>
     <string name="action_param_kv_value">值</string>
     <string name="action_param_kv_add">添加一项</string>
-    <string name="action_shell_clipboard_label">Shell 输出</string>
     <string name="action_shell_result">命令结果</string>
     <string name="action_shell_running">执行中…</string>
     <string name="action_shell_no_output">（无输出）</string>
@@ -461,7 +369,6 @@
 
     <!-- 主页 -->
     <string name="height">高度</string>
-    <string name="tap_mini_window">短按小窗</string>
     <string name="mini_window_portrait_hint">当前编辑竖屏位置，转动屏幕可编辑横屏</string>
     <string name="mini_window_landscape_hint">当前编辑横屏位置，转回竖屏可编辑竖屏</string>
     <string name="mini_window_position">位置</string>
@@ -571,6 +478,13 @@
     <string name="volume_up">音量增大</string>
     <string name="volume_down">音量减小</string>
     <string name="condition_notification_posted">通知到达</string>
+    <string name="condition_notification_removed">通知被移除</string>
+    <string name="condition_notification_exists">通知当前存在</string>
+    <string name="condition_package_changed">应用安装/卸载/更新</string>
+    <string name="condition_interval">间隔触发</string>
+    <string name="condition_share_received">收到分享/链接</string>
+    <string name="condition_clipboard_changed">剪贴板新内容</string>
+    <string name="condition_wifi_ssid">Wi‑Fi 名称</string>
     <string name="condition_gesture_performed">手势完成</string>
     <string name="condition_manual">手动触发</string>
     <string name="condition_manual_hint">仅手势与规则调用，不会自动触发</string>
@@ -579,7 +493,47 @@
     <string name="condition_bluetooth_changed">蓝牙音频连接变化</string>
     <string name="condition_headphones_changed">耳机插拔</string>
     <string name="condition_scheduled_time">定时时刻</string>
-    <string name="condition_notify_keyword">标题/正文关键字（空=不限）</string>
+    <string name="condition_notify_keyword">标题/正文关键字（空=不限，旧版）</string>
+    <string name="condition_notify_title_keyword">标题包含（空=不限）</string>
+    <string name="condition_notify_text_keyword">正文包含（空=不限）</string>
+    <string name="condition_notify_exclude_keyword">排除关键字（标题/正文任一命中）</string>
+    <string name="condition_notify_exclude_packages">排除应用</string>
+    <string name="condition_notify_match_mode">匹配方式</string>
+    <string name="condition_notify_match_contains">包含</string>
+    <string name="condition_notify_match_glob">通配符</string>
+    <string name="condition_notify_match_regex">正则</string>
+    <string name="condition_notify_packages_hint">不选应用=任意应用</string>
+    <string name="condition_notify_ongoing">常驻通知</string>
+    <string name="condition_notify_clearable">可清除</string>
+    <string name="condition_notify_importance">重要性不低于</string>
+    <string name="condition_notify_importance_any">不限</string>
+    <string name="condition_notify_importance_low">低</string>
+    <string name="condition_notify_importance_default">默认</string>
+    <string name="condition_notify_importance_high">高</string>
+    <string name="condition_notify_exists">通知状态</string>
+    <string name="condition_notify_exists_yes">存在</string>
+    <string name="condition_notify_exists_no">不存在</string>
+    <string name="condition_notify_regex_hint">正则使用 Java/Android 正则语法；无效表达式按不匹配处理</string>
+    <string name="condition_notify_privacy_hint">只读取标题/正文用于本次匹配，不写入执行历史原文</string>
+    <string name="condition_package_action">变化类型</string>
+    <string name="condition_package_action_any">不限</string>
+    <string name="condition_package_action_added">安装</string>
+    <string name="condition_package_action_removed">卸载</string>
+    <string name="condition_package_action_replaced">更新</string>
+    <string name="condition_package_action_changed">组件变化</string>
+    <string name="condition_package_apps_hint">不选应用=任意应用</string>
+    <string name="condition_interval_minutes">间隔（分钟，60=1 小时）</string>
+    <string name="condition_interval_hint">大致间隔；Doze/省电下可能延后，首次配置不会立即触发</string>
+    <string name="condition_share_hint">从系统分享面板或默认浏览器打开链接时触发；可用 ${trigger.share.text} / ${trigger.share.url}</string>
+    <string name="condition_clipboard_keyword">文本包含（空=不限）</string>
+    <string name="condition_clipboard_privacy_hint">仅在剪贴板球/面板读取到新内容时触发；敏感文本不会进入历史</string>
+    <string name="condition_wifi_ssid_value">SSID（空=任意 Wi‑Fi）</string>
+    <string name="condition_wifi_ssid_hint">读取 SSID 需要定位权限；读取失败时按未知处理，不会误判为匹配</string>
+    <string name="condition_wifi_permission">授予定位权限以读取 Wi‑Fi 名称</string>
+    <string name="condition_bluetooth_device_name">设备名称（空=不限）</string>
+    <string name="condition_bluetooth_device_address">设备地址（空=不限）</string>
+    <string name="condition_bluetooth_device_hint">留空表示任意已连接音频设备；读取失败时按未连接处理</string>
+    <string name="condition_bluetooth_permission">授予附近设备权限以读取蓝牙信息</string>
     <string name="condition_connected">已连接</string>
     <string name="condition_disconnected">已断开</string>
     <string name="condition_scheduled_times">时刻（可多个）</string>
@@ -625,12 +579,107 @@
     <string name="step_set_var_name">变量名</string>
     <string name="step_set_var_value">值（支持 ${...} 模板）</string>
     <string name="step_set_var_summary">%1$s = %2$s</string>
-    <string name="step_set_var_hint">后续动作参数里用 ${var.变量名} 引用；只在本次运行内有效</string>
+    <string name="step_set_var_hint">后续动作参数里用 ${var.变量名} 引用；勾选全局后跨运行保留，否则只在本次运行内有效</string>
+    <string name="step_var_global">写入全局变量</string>
+    <string name="step_var_global_hint">跨运行、跨规则持久化；条件里用 ${var.变量名} 比较</string>
+    <string name="step_enabled">启用此步骤</string>
+    <string name="step_disabled">已禁用</string>
+    <string name="step_copy">复制步骤</string>
+    <string name="step_copied">已复制步骤</string>
+    <string name="step_paste">粘贴步骤</string>
+    <string name="step_move_up">上移</string>
+    <string name="step_move_down">下移</string>
+    <string name="step_repeat">循环</string>
+    <string name="step_add_repeat">添加循环</string>
+    <string name="step_repeat_body">循环体（每次重复执行）</string>
+    <string name="step_repeat_count">循环次数（1–20）</string>
+    <string name="step_repeat_hint">有界循环：最多 %1$d 次；循环体内可再嵌套分支/循环</string>
+    <string name="step_repeat_summary">循环 %1$d 次 · %2$d 步</string>
+    <string name="step_wait_until">等待条件</string>
+    <string name="step_add_wait">添加等待条件</string>
+    <string name="step_wait_condition">等待直到条件满足</string>
+    <string name="step_wait_timeout">超时（秒，≤60）</string>
+    <string name="step_wait_interval">轮询间隔（秒，0.1–5）</string>
+    <string name="step_wait_summary">最多等 %1$s 秒 · 每 %2$s 秒检查</string>
+    <string name="step_return">返回值</string>
+    <string name="step_add_return">添加返回值</string>
+    <string name="step_return_value">返回值（支持 ${...} 模板）</string>
+    <string name="step_return_hint">仅 runRule 调用时可见；调用方在「返回值变量」里接收</string>
+    <string name="step_return_summary">返回 %1$s</string>
+    <string name="step_run_rule_target">调用子规则：%1$s</string>
+    <string name="step_run_rule_no_params">该子规则没有参数，也没有返回值</string>
+    <string name="step_run_rule_result_var">接收返回值变量名</string>
+    <string name="step_run_rule_result_hint">子规则执行 RETURN 后写入该变量，后续步骤可用 ${var.变量名}</string>
+    <string name="automation_variables">全局变量</string>
+    <string name="automation_variables_count">%1$d 个变量</string>
+    <string name="automation_variables_hint">跨运行、跨规则持久化的字符串；仅在规则里用 ${var.变量名} 引用，值不会写进执行历史</string>
+    <string name="automation_variables_add">新增变量</string>
+    <string name="automation_variables_invalid">变量名需以字母/下划线开头且不重复，只含字母、数字、下划线</string>
+    <string name="condition_var_compare">变量比较</string>
+    <string name="condition_var_name">变量名（不含 var.）</string>
+    <string name="condition_var_op">比较方式</string>
+    <string name="condition_var_value">比较值</string>
+    <string name="condition_var_hint">变量不存在时视为不满足；数值运算符只对数字生效</string>
+    <string name="condition_var_op_eq">等于</string>
+    <string name="condition_var_op_neq">不等于</string>
+    <string name="condition_var_op_gt">大于</string>
+    <string name="condition_var_op_gte">大于等于</string>
+    <string name="condition_var_op_lt">小于</string>
+    <string name="condition_var_op_lte">小于等于</string>
+    <string name="condition_var_op_contains">包含</string>
+    <string name="condition_var_op_starts">开头是</string>
+    <string name="condition_var_op_ends">结尾是</string>
+    <string name="condition_var_op_empty">为空</string>
+    <string name="condition_var_op_not_empty">不为空</string>
+    <string name="history_permission_missing">缺少权限，跳过</string>
+    <string name="permission_precheck_title">权限预检</string>
+    <string name="permission_precheck_missing">缺少：%1$s；触发时这条规则会被跳过</string>
+    <string name="rule_params">规则参数</string>
+    <string name="rule_params_hint">runRule 调用时按名传入；子规则里用 ${param.参数名} 读取。默认值在调用方未传时使用</string>
+    <string name="rule_param_name">参数名</string>
+    <string name="rule_param_default">默认值（可选）</string>
+    <string name="rule_param_add">新增参数</string>
+    <string name="toast_notification_required">需要通知权限（Android 13+）或通知总开关</string>
+    <string name="action_capability_notification">通知权限</string>
     <string name="step_delay_seconds">延时秒数（≤60）</string>
     <string name="step_delay_summary">延时 %1$d 秒</string>
     <string name="step_if_then">满足时执行</string>
     <string name="step_if_else">不满足时执行</string>
     <string name="step_empty_action">未选择动作</string>
+    <string name="step_failure">失败时</string>
+    <string name="step_settings">步骤设置</string>
+    <string name="step_failure_stop">停止整个规则</string>
+    <string name="step_failure_skip">跳过此步</string>
+    <string name="step_failure_retry">重试</string>
+    <string name="step_retry_count">重试次数（0–5）</string>
+    <string name="step_retry_interval">重试间隔（秒，0–30）</string>
+    <string name="step_failure_summary_skip">失败跳过</string>
+    <string name="step_failure_summary_retry">失败重试 %1$d 次</string>
+    <string name="automation_run_control">运行控制</string>
+    <string name="automation_timeout">超时（秒，0=不限）</string>
+    <string name="automation_reentry">重复触发</string>
+    <string name="reentry_block">忽略新触发</string>
+    <string name="reentry_stop_current">停止旧的，运行新的</string>
+    <string name="reentry_parallel">并行运行</string>
+    <string name="automation_test_run">测试运行</string>
+    <string name="automation_test_run_once">运行一次</string>
+    <string name="automation_test_unavailable">无障碍服务未就绪，无法测试</string>
+    <string name="automation_test_condition_only">仅检查条件</string>
+    <string name="automation_test_not_executed">仅检查条件，未执行步骤</string>
+    <string name="automation_test_title">测试运行结果</string>
+    <string name="automation_test_result">结果</string>
+    <string name="automation_test_hit">满足</string>
+    <string name="automation_test_miss">不满足</string>
+    <string name="automation_test_none">不限</string>
+    <string name="automation_test_steps">步骤</string>
+    <string name="automation_test_no_steps">没有可执行步骤</string>
+    <string name="automation_test_note">运行一次会真实执行动作，不等待条件满足；事件类条件只按当前快照判断</string>
+    <string name="automation_test_note_condition_only">仅检查条件；未执行任何动作</string>
+    <string name="automation_test_ok">全部成功</string>
+    <string name="automation_test_partial">完成（有步骤被跳过）</string>
+    <string name="automation_test_failed">失败</string>
+    <string name="running_now">运行中</string>
+    <string name="stop_rule">停止</string>
     <string name="automation_history">执行历史</string>
     <string name="automation_history_empty">暂无执行记录</string>
     <string name="history_ok">成功</string>
@@ -640,6 +689,9 @@
     <string name="history_outprioritized">被更高优先级规则取代，跳过</string>
     <string name="history_constraint_unmet">约束条件不满足，跳过</string>
     <string name="history_rule_busy">规则运行中，跳过</string>
+    <string name="history_timeout">运行超时</string>
+    <string name="history_partial">完成（有步骤被跳过）</string>
+    <string name="step_skipped">已跳过</string>
     <string name="history_interrupted">中断于步骤 %1$s</string>
     <string name="rule_never_run">从未触发</string>
     <string name="rule_disabled">已停用</string>
@@ -662,12 +714,6 @@
     <string name="network_other">其他网络</string>
 
     <!-- 快速搜索 -->
-    <string name="quick_search_group_actions">动作</string>
-    <string name="quick_search_group_apps">应用</string>
-    <string name="quick_search_group_shortcuts">快捷方式</string>
-    <string name="quick_search_group_settings">设置</string>
-    <string name="quick_search_app_disabled">已停用</string>
-    <string name="quick_search_engine_search">用 %1$s 搜索</string>
 
     <!-- 搜索引擎 -->
     <string name="search_engine_settings">搜索引擎</string>
@@ -712,16 +758,6 @@
     <string name="search_engine_fallback">回退链接（可选）</string>
     <string name="search_engine_fallback_hint">应用打不开时使用</string>
     <string name="search_engine_delete_title">删除搜索引擎？</string>
-    <string name="search_action_app_details">应用详情</string>
-    <string name="search_action_send_sms">发短信</string>
-    <string name="search_action_copy">复制</string>
-    <string name="search_action_copy_link">复制链接</string>
-    <string name="search_action_share">分享</string>
-    <string name="search_action_share_image">分享图片</string>
-    <string name="search_action_pin">固定此结果</string>
-    <string name="search_action_unpin">取消固定</string>
-    <string name="search_result_pinned">已固定</string>
-    <string name="search_result_unpinned">已取消固定</string>
     <string name="search_source_settings">内容源与标识</string>
     <string name="search_source_group_apps">应用与动作</string>
     <string name="search_source_group_comms">通讯</string>
@@ -733,11 +769,6 @@
     <string name="search_list_style">列表样式</string>
     <string name="search_list_style_flat">平铺</string>
     <string name="search_list_style_cards">大卡片</string>
-    <string name="search_card_history">搜索历史</string>
-    <string name="search_card_calculator">计算器</string>
-    <string name="search_card_url">链接</string>
-    <string name="search_card_engine">搜索引擎</string>
-    <string name="quick_search_clear">清空</string>
     <string name="search_import_confirm_title">确认导入</string>
     <string name="search_import_confirm_text">将导入 %1$d 个引擎，其中 %2$d 个标识与现有重复，导入后将清空其标识</string>
     <string name="search_import_confirm_text_no_conflict">将导入 %1$d 个引擎</string>
@@ -750,5 +781,91 @@
     <string name="search_engine_empty_hint">暂无搜索引擎，点右下角添加</string>
     <string name="search_engine_missing">引擎不存在或已被删除</string>
     <string name="search_engine_invalid_hint">引擎信息不完整，请补全标红项</string>
-    <string name="more">更多</string>
+
+    <!-- 链接分发 -->
+    <string name="link_dispatch">链接分发</string>
+    <string name="link_dispatch_hint">按规则把链接送进指定应用</string>
+    <string name="link_dispatch_rule_count">%1$d 条规则 · 按规则把链接送进指定应用</string>
+    <string name="link_dispatch_no_link">没有识别到链接</string>
+    <string name="link_dispatch_global_group">行为</string>
+    <string name="link_dispatch_enabled">启用链接分发</string>
+    <string name="link_dispatch_enabled_hint">关闭后胶囊不再识别链接、外部打开也不按规则分发；识屏取链仍可扫描和复制</string>
+    <string name="link_dispatch_capsule_tap">命中链接时的点击行为</string>
+    <string name="link_dispatch_capsule_tap_hint">剪贴板胶囊里认出链接且命中规则时，点击胶囊做什么</string>
+    <string name="link_dispatch_tap_dispatch">直达目标应用</string>
+    <string name="link_dispatch_tap_share">系统分享面板</string>
+    <string name="link_dispatch_miss">未命中规则时</string>
+    <string name="link_dispatch_miss_hint">胶囊点击与外部打开链接都按这里处理</string>
+    <string name="link_dispatch_miss_share">系统分享面板</string>
+    <string name="link_dispatch_miss_browser">浏览器打开</string>
+    <string name="link_dispatch_miss_picker">选择应用</string>
+    <string name="link_dispatch_presets_group">常用规则</string>
+    <string name="link_dispatch_presets_add">添加常用规则</string>
+    <string name="link_dispatch_presets_available">%1$d 条可添加（按本机已安装的应用生成）</string>
+    <string name="link_dispatch_presets_none">已全部添加</string>
+    <string name="link_dispatch_presets_added">已添加 %1$d 条规则</string>
+    <string name="link_dispatch_rules_group">规则（按顺序匹配，第一条命中生效）</string>
+    <string name="link_dispatch_rules_empty">暂无规则，点右下角添加。未命中任何规则的链接按上面的「未命中规则时」处理。</string>
+    <string name="link_dispatch_rule_add">新增规则</string>
+    <string name="link_dispatch_rule_edit">编辑规则</string>
+    <string name="link_dispatch_rule_missing">规则不存在或已被删除</string>
+    <string name="link_dispatch_rule_invalid">规则信息不完整，请补全标红项</string>
+    <string name="link_dispatch_rule_delete_title">删除这条规则？</string>
+    <string name="link_dispatch_rule_delete_desc">删除后该链接不再分发到目标应用。</string>
+    <string name="link_dispatch_rule_enabled">启用规则</string>
+    <string name="link_dispatch_rule_no_target">未设目标</string>
+    <string name="link_dispatch_rule_drag">拖动调整优先级</string>
+    <string name="link_dispatch_rule_summary">%1$s · %2$s → %3$s</string>
+    <string name="link_dispatch_rule_name">规则名称</string>
+    <string name="link_dispatch_rule_match_group">匹配</string>
+    <string name="link_dispatch_rule_match_type">匹配方式</string>
+    <string name="link_dispatch_rule_match_type_hint">「仅域名」不会把 bilibili.com.evil.com 当成 bilibili.com</string>
+    <string name="link_dispatch_match_contains">包含</string>
+    <string name="link_dispatch_match_domain">仅域名</string>
+    <string name="link_dispatch_match_regex">正则</string>
+    <string name="link_dispatch_match_exact">精确</string>
+    <string name="link_dispatch_rule_regex_invalid">正则表达式无效，请检查括号/转义</string>
+    <string name="link_dispatch_rule_exclude">排除内容</string>
+    <string name="link_dispatch_rule_exclude_hint">每行一条，URL 里出现就跳过本规则（可选）</string>
+    <string name="link_dispatch_rule_test">测试匹配</string>
+    <string name="link_dispatch_rule_test_hint">粘贴一条链接，实时看会被哪条规则接手</string>
+    <string name="link_dispatch_rule_test_hit">命中「%1$s」→ %2$s</string>
+    <string name="link_dispatch_rule_test_miss">未命中任何规则，按「未命中规则时」处理</string>
+    <string name="link_dispatch_rule_miss">分发失败时</string>
+    <string name="link_dispatch_rule_miss_hint">本规则命中但没能打开目标应用时怎么处理</string>
+    <string name="link_dispatch_rule_miss_global">跟随全局</string>
+    <string name="link_dispatch_rule_miss_share_short">分享</string>
+    <string name="link_dispatch_rule_miss_browser_short">浏览器</string>
+    <string name="link_dispatch_rule_miss_picker_short">选择应用</string>
+    <string name="link_dispatch_rule_pattern">匹配内容</string>
+    <string name="link_dispatch_rule_pattern_hint">域名（如 b23.tv）或正则</string>
+    <string name="link_dispatch_rule_target_group">目标</string>
+    <string name="link_dispatch_rule_resolve">解析短链</string>
+    <string name="link_dispatch_rule_resolve_hint">先跟随后再匹配（联网，3 秒超时）。适合 xhslink.com 这类短链</string>
+    <string name="link_dispatch_rule_resolve_tag"> · 解析短链</string>
+    <string name="link_dispatch_rule_via_browser">交给浏览器打开</string>
+    <string name="link_dispatch_rule_via_browser_hint">适合 xhslink.com 这类应用没有声明的短链：交给另一个浏览器跟随后跳回应用</string>
+    <string name="link_dispatch_rule_browser_target">指定浏览器</string>
+    <string name="link_dispatch_rule_browser_auto">自动（本机默认浏览器之外）</string>
+    <string name="link_dispatch_rule_browser_clear">改回自动选择</string>
+    <string name="link_dispatch_rule_browser_clear_hint">清空已指定的浏览器，回到本机自动挑选</string>
+    <string name="link_dispatch_rule_target_app">目标应用</string>
+    <string name="link_dispatch_rule_target_activity">目标 Activity</string>
+    <string name="link_dispatch_rule_target_activity_hint">留空按链接自动解析（推荐）</string>
+    <string name="link_dispatch_rule_advanced_group">改写</string>
+    <string name="link_dispatch_rule_template">链接模板</string>
+    <string name="link_dispatch_rule_template_hint">留空原样分发；可用 {url} {host} {path} {query}</string>
+    <string name="link_dispatch_rule_mini_window">小窗方式打开</string>
+    <string name="link_dispatch_browser_group">默认浏览器</string>
+    <string name="link_dispatch_default_browser">把 Luno 设为默认浏览器</string>
+    <string name="link_dispatch_default_browser_hint">设置后，其它应用点开的 http(s) 链接会先送到这里，再按上面的规则分发</string>
+    <string name="link_dispatch_pick_app_title">选择打开方式</string>
+    <string name="link_dispatch_pick_app_hint">选择一个应用打开这条链接</string>
+    <string name="link_dispatch_pick_app_empty">没有找到能打开该链接的应用</string>
+    <string name="link_dispatch_share_action">用系统分享面板发送</string>
+    <string name="link_dispatch_select_title">选择链接</string>
+    <string name="link_dispatch_select_hint">共 %1$d 条链接，点按分发，长按分享</string>
+    <string name="link_dispatch_select_target">发往 %1$s · %2$s</string>
+    <string name="link_dispatch_select_no_target">未匹配规则 · %1$s</string>
+    <string name="clipboard_link_target">%1$s</string>
 </resources>

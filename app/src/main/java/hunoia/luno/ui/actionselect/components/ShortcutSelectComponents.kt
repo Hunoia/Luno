@@ -9,7 +9,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.util.fastForEachIndexed
 import com.aaron.compose.ktx.onClick
 import hunoia.luno.quicklaunch.model.icon
-import hunoia.luno.quicklaunch.model.LauncherInfo
+import hunoia.luno.ui.icon.icon as launcherIcon
+import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.ui.theme.SegmentedGap
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.segmentedShape
@@ -31,7 +32,7 @@ internal fun LauncherInfoItem(
         LunoSettingsRow(
             title = launcherInfo.label,
             subtitle = launcherInfo.packageName,
-            iconModel = launcherInfo.icon,
+            iconModel = launcherInfo.launcherIcon,
             onClick = onClick,
             shape = segmentedShape(0, total),
         )
@@ -41,7 +42,7 @@ internal fun LauncherInfoItem(
                     title = shortcutInfo.label,
                     selected = isShortcutInfoSelected(shortcutInfo),
                     onSelectedChange = { onSelect(shortcutInfo, it) },
-                    iconModel = shortcutInfo.icon,
+                    iconModel = shortcutInfo.launcherIcon,
                     singleSelect = true,
                     shape = selectedSegmentedShape(index + 1, total, flags),
                 )

@@ -1,0 +1,61 @@
+package hunoia.luno.quicklaunch.query
+
+import android.content.Context
+import hunoia.luno.search.R
+import hunoia.luno.config.model.SearchEngine
+import hunoia.luno.config.model.SearchLaunch
+import hunoia.luno.config.model.badgeText
+import hunoia.luno.config.model.copyUrl
+import hunoia.luno.config.model.effectiveLaunch
+
+/**
+ * 单个引擎的结果行：默认行与「标识直达」行共用这一份。
+ * key 固定为 `es#<引擎id>|<query>`，两条路径产出的行才能完全一致
+ * （图标文字、复制链接、分享图片）。
+ */
+fun engineResultRow(
+    context: Context,
+    query: String,
+    engine: SearchEngine,
+): SearchResult = engineResultRow(
+    title = context.getString(R.string.quick_search_engine_search, engine.name),
+    query = query,
+    engine = engine,
+)
+
+/** 不依赖 Context 的版本：标题由调用方给（索引层已有解析好的标题）。 */
+fun engineResultRow(
+    title: String,
+    query: String,
+    engine: SearchEngine,
+): SearchResult {
+    val launch = engine.effectiveLaunch()
+    val copy = launch.copyUrl(query)
+    val actions = buildList {
+        copy?.let {
+            add(
+                SearchActionItem(
+                    SearchActionLabel.Res(R.string.search_action_copy_link),
+                    SearchAction.Copy(it),
+                ),
+            )
+        }
+        if (launch is SearchLaunch.ShareImage) {
+            add(
+                SearchActionItem(
+                    SearchActionLabel.Res(R.string.search_action_share_image),
+                    SearchAction.PickImage(launch.packageName),
+                ),
+            )
+        }
+    }
+    return SearchResult(
+        key = "es#${engine.id}|$query",
+        source = SOURCE_ENGINE,
+        title = title,
+        subtitle = "",
+        icon = SearchIcon.Text(engine.badgeText),
+        primary = launch.toSearchAction(query),
+        actions = actions,
+    )
+}

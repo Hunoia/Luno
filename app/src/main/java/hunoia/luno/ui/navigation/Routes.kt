@@ -59,6 +59,19 @@ data object ActionSettings
 @Serializable
 data object RecentAppsBlocklist
 
+/** 链接分发设置（规则列表 + 胶囊/未命中行为）。 */
+@Keep
+@Serializable
+data object LinkDispatchRules
+
+/** 链接分发规则编辑页；ruleId 空 = 新增，[pattern] 非空 = 预填匹配串（识屏卡片「新建规则」）。 */
+@Keep
+@Serializable
+data class LinkDispatchRuleEdit(
+    val ruleId: String = "",
+    val pattern: String = "",
+)
+
 @Keep
 @Serializable
 data object NotificationBlocklist

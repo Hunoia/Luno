@@ -137,6 +137,23 @@ composeCompiler {
 }
 
 dependencies {
+    implementation(project(":core:common"))
+    implementation(project(":core:domain"))
+    implementation(project(":core:bridge"))
+    implementation(project(":core:data"))
+    implementation(project(":core:runtime"))
+    implementation(project(":feature:execute"))
+    implementation(project(":feature:actions"))
+    implementation(project(":feature:conditions"))
+    implementation(project(":feature:automation"))
+    implementation(project(":feature:link"))
+    implementation(project(":ui:design"))
+    implementation(project(":capability:launch"))
+    implementation(project(":feature:search"))
+    implementation(project(":feature:quicklaunch"))
+    implementation(project(":feature:gesture"))
+    implementation(project(":feature:floatball"))
+    implementation(project(":feature:gridpanel"))
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.compose.foundation)

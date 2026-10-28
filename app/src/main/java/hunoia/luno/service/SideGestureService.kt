@@ -3,18 +3,23 @@ package hunoia.luno.service
 import android.content.res.Configuration
 import android.view.accessibility.AccessibilityEvent
 import com.aaron.composeaccessibility.ComponentAccessibilityService
+import hunoia.luno.action.controller.TextInserter
 import hunoia.luno.config.model.AdvancedSettings
-import hunoia.luno.action.model.StoredAction
+import hunoia.luno.config.model.AutomationRule
+import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.core.domain.gridPanelId
 import hunoia.luno.quicklaunch.launch.DisabledPackageEnabler
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.GestureCoordinator
 import hunoia.luno.runtime.GestureHost
+import hunoia.luno.runtime.automation.RuleTestResult
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
 import hunoia.luno.runtime.overlay.PointPickOverlay
+import hunoia.luno.link.ScreenLinksOverlay
 import hunoia.luno.runtime.overlay.ScreenPickOverlay
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.MainScope
 import hunoia.luno.core.LOG_TAG
 
 class SideGestureService : ComponentAccessibilityService(), GestureHost {
@@ -51,6 +56,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     /** 屏幕内容识别拾取窗。与 pointPickOverlay 同规：必须住在无障碍服务这一侧。
      *  非 lazy：构造时就要订阅面板开关事件，否则第一次从面板触发时会错过 Shown。 */
     private val screenPickOverlay = ScreenPickOverlay(this)
+    private val screenLinksOverlay = ScreenLinksOverlay(this)
 
     /** 识别屏幕内容动作入口（动作执行已在 :service 进程直连）。返回是否成功弹起。 */
     fun showScreenPick(): Boolean {
@@ -59,10 +65,41 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         return screenPickOverlay.show()
     }
 
+    /** 识屏取链：同样同步挂窗，扫描与分发在 overlay 内部异步完成。 */
+    fun showScreenLinks(): Boolean {
+        if (!isDispatchReady()) return false
+        // 从面板触发时必须先收面板：面板是自家全屏窗，留着就扫不到底下应用的节点。
+        gestureCoordinator.dismissPanelsForScreenAction()
+        return screenLinksOverlay.show()
+    }
+
+    /**
+     * 剪贴板拖拽落点输入：在屏幕 (x,y) 下的输入框里直接写入文本（仅个别编辑器才用剪贴板粘贴兜底）。
+     * 面板浮窗自己吞掉系统拖放事件，跨应用输入只能走无障碍节点（见 TextInserter）。
+     */
+    fun insertTextAt(text: String, x: Int, y: Int): TextInserter.Result =
+        TextInserter.insertAt(this, text, x, y)
+
     override val advancedSettings: AdvancedSettings?
         get() = if (::gestureCoordinator.isInitialized)
             gestureCoordinator.runtimeSettingsStore.snapshot().advancedSettings
         else null
+
+    /** 球直发网格面板：悬空引用（面板被删）静默收口，空面板照常弹（本体是编辑入口）。
+     *  实现在 service 侧，避免 runtime 包直接依赖 gridpanel。 */
+    fun showGridPanelDirect(action: StoredAction, anchorX: Int, anchorY: Int) {
+        coroutineScope.launch {
+            val panelId = action.gridPanelId() ?: return@launch
+            val actionSettings = runCatching { hunoia.luno.domain.tune.TuneConfig.getAction() }
+                .onFailure {
+                    android.util.Log.w(LOG_TAG, "grid panel direct config read failed: ${it.message}")
+                }
+                .getOrDefault(hunoia.luno.config.model.ActionSettings())
+            hunoia.luno.gridpanel.GridPanelOverlay.showIfExists(
+                actionSettings, panelId, anchorX, anchorY,
+            )
+        }
+    }
 
     override fun dispatchAction(action: StoredAction) {
         if (::gestureCoordinator.isInitialized) gestureCoordinator.dispatchAction(action)
@@ -88,10 +125,57 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     /** 分发链就绪：coordinator 已初始化。供 DispatchService 跨进程查询。 */
     fun isDispatchReady(): Boolean = ::gestureCoordinator.isInitialized
 
+    /** 权限变化后让 :service 的条件源重新读取（Wi-Fi SSID/蓝牙设备身份）。 */
+    fun refreshConditionSources(): Boolean {
+        if (!::gestureCoordinator.isInitialized) return false
+        gestureCoordinator.refreshConditionSources()
+        return true
+    }
+
+    /** 运行中的规则 id（规则列表页的「运行中/停止」入口）。 */
+    fun runningRuleIds(): Set<String> =
+        if (::gestureCoordinator.isInitialized) gestureCoordinator.runningRuleIds() else emptySet()
+
+    /** 手动停止一条规则的所有实例。 */
+    fun stopRule(ruleId: String): Boolean =
+        if (::gestureCoordinator.isInitialized) gestureCoordinator.stopRule(ruleId) else false
+
+    /** 编辑页测试运行：条件按当前快照求值，步骤真实执行一次；executeSteps=false 只检查条件。 */
+    fun runRuleTest(
+        rule: AutomationRule,
+        executeSteps: Boolean,
+        onResult: (RuleTestResult) -> Unit,
+    ): Boolean {
+        if (!::gestureCoordinator.isInitialized) return false
+        gestureCoordinator.runRuleTest(rule, executeSteps, onResult)
+        return true
+    }
+
     override fun onSetOverlay() {
         current = this
         if (::gestureCoordinator.isInitialized) gestureCoordinator.onDestroy()
         gestureCoordinator = GestureCoordinator(this)
+        // 球侧（:feature:floatball）经注入点下发命令，避免反向依赖宿主服务。
+        hunoia.luno.gesture.GestureCommand.showGridPanel = { action, anchorX, anchorY ->
+            showGridPanelDirect(action, anchorX, anchorY)
+        }
+        hunoia.luno.gesture.GestureCommand.forwardBallTap = { action, anchorX, anchorY, color ->
+            forwardBallTap(action, anchorX, anchorY, color)
+        }
+        hunoia.luno.gesture.GestureCommand.forwardPanelTap = { action, x, y, color ->
+            forwardPanelTap(action, x, y, color)
+        }
+        hunoia.luno.gesture.GestureCommand.insertText = { text, x, y -> insertTextAt(text, x, y) }
+        // 网格面板「加项」要起选择页：路由与宿主 Activity 都在 :app，面板模块只发中性请求。
+        hunoia.luno.gridpanel.GridPanelCommand.openItemPicker = { pick ->
+            hunoia.luno.ui.actionselect.ActionSelectHostActivity.start(
+                this,
+                hunoia.luno.ui.navigation.ActionSelect(
+                    gridPanelId = pick.gridPanelId,
+                    gridPanelPageIndex = pick.pageIndex,
+                ),
+            )
+        }
         gestureCoordinator.onSetOverlay()
     }
 
@@ -123,6 +207,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         pointPickOverlay.close()
         // 拾取窗持有全局面板事件订阅，必须显式退订。
         screenPickOverlay.release()
+        screenLinksOverlay.release()
         coroutineScope.cancel()
     }
 

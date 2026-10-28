@@ -268,7 +268,7 @@ fun HomeScreen(
                     // FAB 恒组合，显隐走缩放+淡入淡出：切 tab 时不重新组合/不占位跳变，消除掉帧。
                     val fabProgress by animateFloatAsState(
                         targetValue = if (showAdd) 1f else 0f,
-                        animationSpec = tween(180, easing = FastOutSlowInEasing),
+                        animationSpec = tween(hunoia.luno.ui.theme.MotionSubtle, easing = FastOutSlowInEasing),
                         label = "homeFab",
                     )
                     // 无点击高亮：LocalRippleConfiguration 提供空值关闭 ripple；
@@ -369,13 +369,13 @@ fun HomeScreen(
                 transitionSpec = {
                     val forward = targetState.ordinal > initialState.ordinal
                     val enter = slideInHorizontally(
-                        animationSpec = tween(200, easing = FastOutSlowInEasing),
+                        animationSpec = tween(hunoia.luno.ui.theme.MotionPageEnter, easing = FastOutSlowInEasing),
                     ) { full -> if (forward) full / 6 else -full / 6 } +
-                        fadeIn(animationSpec = tween(200))
+                        fadeIn(animationSpec = tween(hunoia.luno.ui.theme.MotionPageEnter))
                     val exit = slideOutHorizontally(
-                        animationSpec = tween(150, easing = FastOutSlowInEasing),
+                        animationSpec = tween(hunoia.luno.ui.theme.MotionPageExit, easing = FastOutSlowInEasing),
                     ) { full -> if (forward) -full / 6 else full / 6 } +
-                        fadeOut(animationSpec = tween(120))
+                        fadeOut(animationSpec = tween(hunoia.luno.ui.theme.MotionSwapOut))
                     enter togetherWith exit
                 },
                 contentKey = { it },

@@ -9,7 +9,7 @@ import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.store.DataStoreFiles
 import hunoia.luno.config.store.dataStoreFile
 import hunoia.luno.core.AppContext
-import hunoia.luno.core.JsonSerializer
+import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.runtime.floatball.FloatBallService
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.Dispatchers

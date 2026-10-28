@@ -14,11 +14,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.rememberNavController
-import hunoia.luno.action.model.ActionLibrarySettings
+import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.core.ActionSelectClosedEvent
 import hunoia.luno.core.Events
-import hunoia.luno.core.JsonSerializer
+import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.ui.navigation.ActionSelect

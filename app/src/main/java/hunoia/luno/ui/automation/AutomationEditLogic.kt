@@ -1,8 +1,10 @@
 package hunoia.luno.ui.automation
 
+import hunoia.luno.domain.AppGraph
+
 import android.content.Context
 import hunoia.luno.R
-import hunoia.luno.action.model.ActionLibrarySettings
+import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.BooleanMode
 import hunoia.luno.config.model.ConditionItem
@@ -11,9 +13,9 @@ import hunoia.luno.config.model.RuleEffect
 import hunoia.luno.config.model.RulePriority
 import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.model.RuleStepKind
+import hunoia.luno.config.model.StepFailure
 import hunoia.luno.config.model.ThrottlePolicy
 import hunoia.luno.config.model.WhenGroup
-import hunoia.luno.domain.automation.AutomationCenter
 import hunoia.luno.ui.actionselect.selectedItemLabel
 
 /**
@@ -74,7 +76,7 @@ internal fun removeStepAt(effect: RuleEffect, path: String): RuleEffect {
     val parentPath = tokens.dropLast(2).joinToString(".")
     if (parentPath.isEmpty()) return effect
     return effect.withStepAt(parentPath) { step ->
-        if (step.kind != RuleStepKind.IF) step
+        if (step.kind != RuleStepKind.IF && step.kind != RuleStepKind.REPEAT) step
         else if (branch == "then") step.copy(thenSteps = removeFromList(step.thenSteps, index))
         else step.copy(elseSteps = removeFromList(step.elseSteps, index))
     }
@@ -99,7 +101,7 @@ internal fun appendStep(
     if (branch != "then" && branch != "else") return null
     val parentPath = tokens.dropLast(1).joinToString(".")
     val parent = effect.stepAt(parentPath) ?: return null
-    if (parent.kind != RuleStepKind.IF) return null
+    if (parent.kind != RuleStepKind.IF && parent.kind != RuleStepKind.REPEAT) return null
     val childIndex = if (branch == "then") parent.thenSteps.size else parent.elseSteps.size
     val updated = effect.withStepAt(parentPath) { step ->
         if (branch == "then") step.copy(thenSteps = step.thenSteps + created)
@@ -108,11 +110,41 @@ internal fun appendStep(
     return "$parentPath.$branch.$childIndex" to updated
 }
 
+/**
+ * 同层移动步骤（delta=-1 上移 / +1 下移）：交换目标与相邻项。越界/非法路径返回 null。
+ * 仅同分支内移动，跨 IF 分支拖拽不做（编辑器只给上下按钮）。
+ */
+internal fun moveStepAt(effect: RuleEffect, path: String, delta: Int): RuleEffect? {
+    val tokens = path.split(".").filter { it.isNotEmpty() }
+    val index = tokens.lastOrNull()?.toIntOrNull() ?: return null
+    val sibling = index + delta
+    if (sibling < 0) return null
+    val siblingPath = (tokens.dropLast(1) + sibling.toString()).joinToString(".")
+    val currentStep = effect.stepAt(path) ?: return null
+    val siblingStep = effect.stepAt(siblingPath) ?: return null
+    return effect
+        .withStepAt(path) { siblingStep }
+        .withStepAt(siblingPath) { currentStep }
+}
+
+internal fun canMoveStep(effect: RuleEffect, path: String, delta: Int): Boolean {
+    val tokens = path.split(".").filter { it.isNotEmpty() }
+    val index = tokens.lastOrNull()?.toIntOrNull() ?: return false
+    val sibling = index + delta
+    if (sibling < 0) return false
+    val siblingPath = (tokens.dropLast(1) + sibling.toString()).joinToString(".")
+    return effect.stepAt(siblingPath) != null
+}
+
+private fun secondsText(ms: Long): String =
+    if (ms % 1000L == 0L) (ms / 1000L).toString() else String.format(java.util.Locale.US, "%.1f", ms / 1000.0)
+
 internal fun stepSummary(
     context: Context,
     library: ActionLibrarySettings?,
     step: RuleStep,
     rules: List<AutomationRule> = emptyList(),
+    includeFailure: Boolean = true,
 ): String = when (step.kind) {
     RuleStepKind.DELAY -> context.getString(R.string.step_delay_summary, step.delayMs / 1000)
     RuleStepKind.IF -> conditionSummary(context, step.condition) + " · " +
@@ -121,12 +153,38 @@ internal fun stepSummary(
         R.string.step_set_var_summary,
         step.varName.ifBlank { context.getString(R.string.step_set_var_name) },
         step.varTemplate.ifBlank { "-" },
+    ) + if (step.varGlobal) " · " + context.getString(R.string.step_var_global) else ""
+    RuleStepKind.REPEAT -> context.getString(
+        R.string.step_repeat_summary,
+        step.repeatCount.coerceIn(1, hunoia.luno.config.model.SequenceLimits.MAX_REPEAT_COUNT),
+        step.thenSteps.size,
+    )
+    RuleStepKind.WAIT_UNTIL -> context.getString(
+        R.string.step_wait_summary,
+        secondsText(step.waitTimeoutMs),
+        secondsText(step.waitIntervalMs),
+    ) + " · " + conditionSummary(context, step.condition)
+    RuleStepKind.RETURN -> context.getString(
+        R.string.step_return_summary,
+        step.varTemplate.ifBlank { "-" },
     )
     else -> {
         val label = step.action?.let {
             context.selectedItemLabel(it, emptyList(), library?.entries ?: emptyList(), rules)
         }.orEmpty()
-        label.ifBlank { context.getString(R.string.step_empty_action) }
+        val failure = if (!includeFailure) {
+            ""
+        } else {
+            when (step.onFailure) {
+                StepFailure.SKIP -> " · " + context.getString(R.string.step_failure_summary_skip)
+                StepFailure.RETRY -> " · " + context.getString(
+                    R.string.step_failure_summary_retry,
+                    step.retryCount.coerceIn(0, StepFailure.MAX_RETRY_COUNT),
+                )
+                else -> ""
+            }
+        }
+        label.ifBlank { context.getString(R.string.step_empty_action) } + failure
     }
 }
 
@@ -158,7 +216,10 @@ internal fun isInvalidThrottle(throttle: ThrottlePolicy): Boolean {
 
 internal fun conditionUsesNotification(group: WhenGroup): Boolean = group.items.any { item ->
     when (item.type) {
-        ConditionType.NOTIFICATION_POSTED -> true
+        ConditionType.NOTIFICATION_POSTED,
+        ConditionType.NOTIFICATION_REMOVED,
+        ConditionType.NOTIFICATION_EXISTS -> true
+
         ConditionType.GROUP -> item.group?.let { conditionUsesNotification(it) } == true
         else -> false
     }
@@ -189,11 +250,16 @@ internal fun WhenGroup.hasIncompleteCondition(): Boolean = items.any { item ->
         ConditionType.CHARGING_CHANGED -> item.charging == null
         ConditionType.KEYBOARD_EVENT -> item.keyboardEvent == null
         ConditionType.SCHEDULED_TIME -> item.scheduledMinutes.isEmpty()
+        ConditionType.INTERVAL -> item.intervalMinutes == null
+        ConditionType.VAR_COMPARE -> !isValidVarName(item.compareVarName)
         ConditionType.BLUETOOTH -> item.expectedBluetoothAdapterOn == null &&
-            item.expectedBluetoothAudioConnected == null
+            item.expectedBluetoothAudioConnected == null &&
+            item.bluetoothDeviceName.isBlank() &&
+            item.bluetoothDeviceAddress.isBlank()
 
-        ConditionType.GROUP -> item.group == null || item.group.items.isEmpty() ||
-            item.group.hasIncompleteCondition()
+        ConditionType.GROUP -> item.group.let { group ->
+            group == null || group.items.isEmpty() || group.hasIncompleteCondition()
+        }
 
         else -> false
     }
@@ -208,7 +274,9 @@ internal fun isValidVarName(name: String): Boolean = VarNamePattern.matches(name
 internal fun List<RuleStep>.hasIncompleteStepCondition(): Boolean = any { step ->
     val self = when (step.kind) {
         RuleStepKind.IF -> step.condition.items.isEmpty() || step.condition.hasIncompleteCondition()
+        RuleStepKind.WAIT_UNTIL -> step.condition.items.isEmpty() || step.condition.hasIncompleteCondition()
         RuleStepKind.SET_VAR -> !isValidVarName(step.varName)
+        RuleStepKind.RETURN -> step.varTemplate.isBlank()
         else -> false
     }
     self || step.thenSteps.hasIncompleteStepCondition() || step.elseSteps.hasIncompleteStepCondition()
@@ -218,4 +286,4 @@ internal fun List<RuleStep>.hasIncompleteStepCondition(): Boolean = any { step -
  * 条件树是否含状态叶（非脉冲、非 MANUAL）：决定规则级"进入/退出"是否可用。
  * 纯事件树发生即触发、没有持续边沿，编辑器隐藏触发方式（引擎侧同样归一化）。
  */
-internal fun WhenGroup.hasStateCondition(): Boolean = AutomationCenter.hasStateConditionOf(this)
+internal fun WhenGroup.hasStateCondition(): Boolean = AppGraph.automation.hasStateConditionOf(this)

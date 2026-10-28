@@ -5,8 +5,9 @@ import android.content.Intent
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import hunoia.luno.action.model.StoredAction
-import hunoia.luno.core.JsonSerializer
+import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.config.model.AutomationRule
+import hunoia.luno.core.domain.JsonSerializer
 
 /**
  * 真 IPC 分发口（跑在 :service 进程）：跨进程拿不到静态引用，统一走 Binder，
@@ -56,6 +57,43 @@ class DispatchService : Service() {
             Handler(Looper.getMainLooper()).post {
                 runCatching { hunoia.luno.gridpanel.widget.PanelAppWidgetHost.get().releaseOrphans(keep) }
             }
+        }
+
+        override fun refreshConditionSources() {
+            Handler(Looper.getMainLooper()).post {
+                SideGestureService.current?.refreshConditionSources()
+            }
+        }
+
+        override fun runningRuleIds(): String =
+            runCatching {
+                JsonSerializer.encodeToString(
+                    (SideGestureService.current?.runningRuleIds() ?: emptySet()).toList(),
+                )
+            }.getOrDefault("[]")
+
+        override fun stopRule(ruleId: String): Boolean =
+            SideGestureService.current?.stopRule(ruleId) == true
+
+        override fun runRuleTest(ruleJson: String, executeSteps: Boolean, cb: IRuleTestCallback): Boolean {
+            val rule = runCatching {
+                JsonSerializer.decodeFromString<AutomationRule>(ruleJson)
+            }.getOrNull() ?: return false
+            val svc = SideGestureService.current ?: return false
+            if (!svc.isDispatchReady()) return false
+            Handler(Looper.getMainLooper()).post {
+                val started = runCatching {
+                    svc.runRuleTest(rule, executeSteps) { result ->
+                        // 编码失败也要回调空串，让客户端走「结果不可用」提示而不是一直等。
+                        val json = runCatching {
+                            JsonSerializer.encodeToString(result)
+                        }.getOrDefault("")
+                        runCatching { cb.onResult(json) }
+                    }
+                }.getOrDefault(false)
+                if (!started) runCatching { cb.onResult("") }
+            }
+            return true
         }
     }
 

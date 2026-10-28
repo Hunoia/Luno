@@ -15,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -41,6 +42,8 @@ import hunoia.luno.ui.navigation.Home
 import hunoia.luno.ui.navigation.ActionSettings
 import hunoia.luno.ui.navigation.NotificationBlocklist
 import hunoia.luno.ui.navigation.RecentAppsBlocklist
+import hunoia.luno.ui.navigation.LinkDispatchRules
+import hunoia.luno.ui.navigation.LinkDispatchRuleEdit
 import hunoia.luno.ui.navigation.ActionPanelList
 import hunoia.luno.ui.navigation.ActionPanelEdit
 import hunoia.luno.ui.navigation.GridPanelList
@@ -64,6 +67,8 @@ import hunoia.luno.ui.automation.AutomationHistoryScreen
 import hunoia.luno.ui.settings.action.ActionSettingsScreen
 import hunoia.luno.ui.settings.action.RecentAppsBlocklistScreen
 import hunoia.luno.ui.settings.action.MiniWindowAdjustScreen
+import hunoia.luno.ui.settings.link.LinkDispatchEditScreen
+import hunoia.luno.ui.settings.link.LinkDispatchSettingsScreen
 import hunoia.luno.ui.settings.floatball.FloatBallEditScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelEditScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelListScreen
@@ -77,12 +82,13 @@ import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsScreen
 
 import hunoia.luno.ui.settings.gesture.subgesture.SubGestureSettingsScreen
 import hunoia.luno.domain.action.ActionLibrary
-import hunoia.luno.action.model.ActionLibrarySettings
+import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
 import hunoia.luno.ui.navigation.LocalGridPanels
 import hunoia.luno.ui.navigation.LocalNavController
+import hunoia.luno.ui.navigation.PendingLinkRule
 import hunoia.luno.ui.home.HomeScreen
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.config.model.ActionSettings as ActionTuning
@@ -98,6 +104,13 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
             .collectAsStateWithLifecycle(initialValue = ActionLibrarySettings())
         val actionSettings by TuneConfig.action
             .collectAsStateWithLifecycle(initialValue = ActionTuning())
+        // 识屏卡片「新建分发规则」：跨进程 Intent → [PendingLinkRule]，消费一次就跳编辑页。
+        val pendingRulePattern by PendingLinkRule.pattern.collectAsStateWithLifecycle()
+        LaunchedEffect(pendingRulePattern) {
+            val pattern = pendingRulePattern ?: return@LaunchedEffect
+            PendingLinkRule.consume()
+            navController.navigate(LinkDispatchRuleEdit("", pattern)) { launchSingleTop = true }
+        }
         CompositionLocalProvider(
             LocalNavController provides navController,
             LocalActionLibraryEntries provides actionLibrarySettings.entries,
@@ -166,9 +179,28 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToGridPanels = { navController.navigate(GridPanelList) },
                         onNavToRecentAppsBlocklist = { navController.navigate(RecentAppsBlocklist) },
                         onNavToMiniWindowAdjust = { navController.navigate(MiniWindowAdjust) },
+                        onNavToLinkDispatch = { navController.navigate(LinkDispatchRules) },
                         onNavToActionSelect = {
                             navController.navigate(ActionSelect(copyDeepLink = true))
                         },
+                    )
+                }
+                myComposable<LinkDispatchRules> {
+                    LinkDispatchSettingsScreen(
+                        onBack = { navController.popBackStack() },
+                        onEditRule = { ruleId ->
+                            navController.navigate(LinkDispatchRuleEdit(ruleId))
+                        },
+                        onCreateRule = {
+                            navController.navigate(LinkDispatchRuleEdit(""))
+                        },
+                    )
+                }
+                myComposable<LinkDispatchRuleEdit> {
+                    LinkDispatchEditScreen(
+                        ruleId = it.toRoute<LinkDispatchRuleEdit>().ruleId,
+                        prefillPattern = it.toRoute<LinkDispatchRuleEdit>().pattern,
+                        onBack = { navController.popBackStack() },
                     )
                 }
                 myComposable<RecentAppsBlocklist> {

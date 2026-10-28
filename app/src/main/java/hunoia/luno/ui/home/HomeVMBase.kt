@@ -1,9 +1,10 @@
 package hunoia.luno.ui.home
 
+import hunoia.luno.domain.AppGraph
+
 import androidx.lifecycle.viewModelScope
 import com.aaron.compose.base.BaseComposeVM
 import hunoia.luno.core.AppContext
-import hunoia.luno.domain.backup.BackupCenter
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.config.model.AdvancedSettings
@@ -11,7 +12,6 @@ import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.SubGestureSettings
-import hunoia.luno.domain.system.PermissionStateUseCase
 import hunoia.luno.shizuku.ShizukuManager
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -28,7 +28,7 @@ abstract class HomeVMBase : BaseComposeVM<UiState, UiEvent>() {
 
     fun updatePermissionState() {
         viewModelScope.launch {
-            val state = PermissionStateUseCase.loadHomePermissionState(AppContext.get())
+            val state = AppGraph.system.loadHomePermissionState(AppContext.get())
             updateUiState {
                 it.copy(
                     isGestureSwitchEnabled = state.isGestureEnabled,
@@ -46,7 +46,7 @@ abstract class HomeVMBase : BaseComposeVM<UiState, UiEvent>() {
 
     fun reset() {
         viewModelScope.launch {
-            BackupCenter.resetAll()
+            AppGraph.backup.resetAll()
         }
     }
 

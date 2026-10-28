@@ -48,6 +48,7 @@ fun ActionSettingsScreen(
     onNavToGridPanels: () -> Unit = {},
     onNavToRecentAppsBlocklist: () -> Unit = {},
     onNavToMiniWindowAdjust: () -> Unit = {},
+    onNavToLinkDispatch: () -> Unit = {},
     onNavToActionSelect: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
@@ -140,6 +141,18 @@ fun ActionSettingsScreen(
                     subtitle = stringResource(R.string.action_deep_links_hint),
                     shape = segmentedShape(3, 4),
                     onClick = onNavToActionSelect,
+                )
+            }
+            LunoGroup(title = stringResource(R.string.link_dispatch)) {
+                LunoSettingsRow(
+                    icon = Icons.Default.Link,
+                    title = stringResource(R.string.link_dispatch),
+                    subtitle = stringResource(
+                        R.string.link_dispatch_rule_count,
+                        actionSettings.linkDispatch.rules.size,
+                    ),
+                    shape = segmentedShape(0, 1),
+                    onClick = onNavToLinkDispatch,
                 )
             }
             LunoGroup(title = stringResource(R.string.action_settings_screen_pick_group)) {

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 搜索模块文案（召回/行文案）。面板文案归 :feature:quicklaunch。 -->
+    <string name="quick_search_calendar">日历</string>
+    <string name="quick_search_calls">通话记录</string>
+    <string name="quick_search_clipboard">剪贴板</string>
+    <string name="quick_search_contacts">联系人</string>
+    <string name="quick_search_engine_search">用 %1$s 搜索</string>
+    <string name="quick_search_files">文件</string>
+    <string name="quick_search_group_actions">动作</string>
+    <string name="quick_search_group_apps">应用</string>
+    <string name="quick_search_group_settings">设置</string>
+    <string name="quick_search_group_shortcuts">快捷方式</string>
+    <string name="quick_search_music">音乐</string>
+    <string name="quick_search_open_settings">去设置</string>
+    <string name="quick_search_sms">短信</string>
+    <string name="quick_search_state_off">关</string>
+    <string name="quick_search_state_on">开</string>
+    <string name="quick_search_toggles">快捷开关</string>
+    <string name="search_action_app_details">应用详情</string>
+    <string name="search_action_copy">复制</string>
+    <string name="search_action_copy_link">复制链接</string>
+    <string name="search_action_send_sms">发短信</string>
+    <string name="search_action_share">分享</string>
+    <string name="search_action_share_image">分享图片</string>
+</resources>

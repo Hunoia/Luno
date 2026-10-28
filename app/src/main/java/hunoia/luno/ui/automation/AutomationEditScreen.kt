@@ -1,12 +1,18 @@
 package hunoia.luno.ui.automation
+
+import hunoia.luno.domain.AppGraph
 import android.os.SystemClock
 import android.util.Log
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -31,7 +37,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.domain.action.ActionLibrary
-import hunoia.luno.domain.automation.AutomationCenter
+import hunoia.luno.domain.automation.RuleTestResult
+import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.FireMode
 import hunoia.luno.config.model.RuleEffect
@@ -40,7 +47,8 @@ import hunoia.luno.config.model.RuleStepKind
 import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.config.model.conditionAt
 import hunoia.luno.config.model.withConditionAt
-import hunoia.luno.core.JsonSerializer
+import hunoia.luno.core.domain.runRuleId
+import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.navigation.NEW_AUTOMATION_RULE_ID
 import hunoia.luno.ui.theme.CardInnerSpacing
@@ -76,7 +84,7 @@ fun AutomationEditScreen(
     onNavToActionSelect: (ActionSelect) -> Unit,
     onNavToHistory: (String) -> Unit,
 ) {
-    val loadedRules by AutomationCenter.rules
+    val loadedRules by AppGraph.automation.rules
         .collectAsStateWithLifecycle(initialValue = null)
     val library by ActionLibrary.settings
         .collectAsStateWithLifecycle(initialValue = null)
@@ -87,10 +95,14 @@ fun AutomationEditScreen(
     /** 当前条件 sheet 编辑的是触发条件还是约束条件（决定写回哪棵树）。 */
     var conditionIsConstraint by remember { mutableStateOf(false) }
     var stepSheetPath by remember { mutableStateOf<String?>(null) }
+    var stepClipboard by remember { mutableStateOf<RuleStep?>(null) }
     var stepTypePickerFor by remember { mutableStateOf<String?>(null) }
     var showBlockedDialog by remember { mutableStateOf(false) }
     var showDiscardDialog by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var testRunning by remember { mutableStateOf(false) }
+    var testMenuExpanded by remember { mutableStateOf(false) }
+    var testResult by remember { mutableStateOf<RuleTestResult?>(null) }
     // IF 步骤条件编辑（屏幕层 sheet，不嵌套）：目标步骤路径 + 叶路径 + 待选类型落点。
     var ifConditionStepPath by remember { mutableStateOf<String?>(null) }
     var ifNestedPath by remember { mutableStateOf<List<Int>?>(null) }
@@ -133,6 +145,14 @@ fun AutomationEditScreen(
     }
     val rule = draft ?: return
     val context = LocalContext.current
+    val capabilityReport = remember(rule, loadedRules, library, resumeTick) {
+        AppGraph.automation.capabilityReport(
+            context,
+            rule,
+            (loadedRules ?: emptyList()).filterNot { it.id == rule.id } + rule,
+            library,
+        )
+    }
     /** 条件树含状态叶：决定规则级进入/退出是否可用（纯事件树发生即触发）。 */
     val conditionHasState = rule.condition.hasStateCondition()
     /**
@@ -153,7 +173,7 @@ fun AutomationEditScreen(
             try {
                 // 纯事件树没有持续边沿，触发方式统一落 ENTER（引擎同样归一化，双保险）。
                 val toSave = if (conditionHasState) rule else rule.copy(fireOn = FireMode.ENTER)
-                AutomationCenter.updateRules { rules ->
+                AppGraph.automation.updateRules { rules ->
                     if (rules.any { it.id == toSave.id }) {
                         rules.map { if (it.id == toSave.id) toSave else it }
                     } else {
@@ -168,13 +188,32 @@ fun AutomationEditScreen(
             }
         }
     }
-    val hasCondition = AutomationCenter.hasLeafOf(rule.condition)
+    val hasCondition = AppGraph.automation.hasLeafOf(rule.condition)
+    fun testRun(executeSteps: Boolean = true) {
+        if (testRunning) return
+        testRunning = true
+        val started = AppGraph.automation.runRuleTest(rule, executeSteps) { result ->
+            testRunning = false
+            if (result == null) {
+                showToast(R.string.automation_test_unavailable)
+            } else {
+                testResult = result
+            }
+        }
+        if (!started) {
+            testRunning = false
+            showToast(R.string.automation_test_unavailable)
+        }
+    }
     val conditionIncomplete = rule.condition.hasIncompleteCondition() ||
         rule.constraints.hasIncompleteCondition() ||
         rule.effect.steps.hasIncompleteStepCondition()
+    val paramsIncomplete = rule.params.any { !isValidVarName(it.name) } ||
+        rule.params.map { it.name }.size != rule.params.map { it.name }.distinct().size
     val stepsEmpty = rule.effect.steps.isEmpty()
     val throttleInvalid = isInvalidThrottle(rule.throttle)
-    val canSave = hasCondition && !conditionIncomplete && !stepsEmpty && !throttleInvalid
+    val canSave = hasCondition && !conditionIncomplete && !paramsIncomplete &&
+        !stepsEmpty && !throttleInvalid
     fun trySave() {
         if (canSave) save() else showBlockedDialog = true
     }
@@ -189,6 +228,33 @@ fun AutomationEditScreen(
         title = stringResource(R.string.automation_edit),
         onBack = { tryBack() },
         actions = {
+            Box {
+                LunoIconButton(
+                    icon = Icons.Default.PlayArrow,
+                    contentDescription = stringResource(R.string.automation_test_run),
+                    enabled = !testRunning,
+                    onClick = { testMenuExpanded = true },
+                )
+                DropdownMenu(
+                    expanded = testMenuExpanded,
+                    onDismissRequest = { testMenuExpanded = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.automation_test_run_once)) },
+                        onClick = {
+                            testMenuExpanded = false
+                            testRun(executeSteps = true)
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.automation_test_condition_only)) },
+                        onClick = {
+                            testMenuExpanded = false
+                            testRun(executeSteps = false)
+                        },
+                    )
+                }
+            }
             LunoIconButton(
                 icon = Icons.Default.History,
                 contentDescription = stringResource(R.string.automation_history),
@@ -236,7 +302,7 @@ fun AutomationEditScreen(
                     onConfirm = {
                         showDeleteConfirm = false
                         scope.launch {
-                            AutomationCenter.removeRule(rule.id)
+                            AppGraph.automation.removeRule(rule.id)
                             AutomationDraftHolder.remove(rule.id)
                             onBack()
                         }
@@ -289,10 +355,15 @@ fun AutomationEditScreen(
             }
             stepSheetPath?.let { path ->
                 rule.effect.stepAt(path)?.let { step ->
+                    val runRuleTarget = step.action?.runRuleId()?.let { targetId ->
+                        loadedRules?.firstOrNull { it.id == targetId }
+                    }
                     StepSheet(
                         step = step,
                         onDismissRequest = { stepSheetPath = null },
-                        onStepChange = { update(rule.copy(effect = rule.effect.withStepAt(path) { it })) },
+                        onStepChange = { changed ->
+                            update(rule.copy(effect = rule.effect.withStepAt(path) { changed }))
+                        },
                         onDelete = {
                             update(rule.copy(effect = removeStepAt(rule.effect, path)))
                             stepSheetPath = null
@@ -301,12 +372,42 @@ fun AutomationEditScreen(
                             stepSheetPath = null
                             ifConditionStepPath = path
                         },
+                        actionSummary = stepSummary(
+                            context = context,
+                            library = library,
+                            step = step,
+                            rules = loadedRules ?: emptyList(),
+                            includeFailure = false,
+                        ),
+                        onPickAction = {
+                            stepSheetPath = null
+                            onPickAction(rule, path)
+                        },
+                        runRuleTarget = runRuleTarget,
+                        onCopy = {
+                            stepClipboard = step
+                            showToast(R.string.step_copied)
+                        },
+                        canMoveUp = canMoveStep(rule.effect, path, -1),
+                        canMoveDown = canMoveStep(rule.effect, path, 1),
+                        onMoveUp = {
+                            moveStepAt(rule.effect, path, -1)?.let { moved ->
+                                update(rule.copy(effect = moved))
+                            }
+                            stepSheetPath = null
+                        },
+                        onMoveDown = {
+                            moveStepAt(rule.effect, path, 1)?.let { moved ->
+                                update(rule.copy(effect = moved))
+                            }
+                            stepSheetPath = null
+                        },
                     )
                 }
             }
             ifConditionStepPath?.let { stepPath ->
                 rule.effect.stepAt(stepPath)?.let { step ->
-                    if (step.kind == RuleStepKind.IF) {
+                    if (step.kind == RuleStepKind.IF || step.kind == RuleStepKind.WAIT_UNTIL) {
                         IfConditionSheet(
                             condition = step.condition,
                             onConditionChange = { newCond ->
@@ -359,6 +460,12 @@ fun AutomationEditScreen(
                     },
                     // IF 条件里的 MANUAL 恒假（无手势调用语义），不提供。
                     includeManual = false,
+                )
+            }
+            testResult?.let { result ->
+                RuleTestResultSheet(
+                    result = result,
+                    onDismissRequest = { testResult = null },
                 )
             }
             stepTypePickerFor?.let { prefix ->
@@ -422,6 +529,18 @@ fun AutomationEditScreen(
             }
         }
         LunoGroup(
+            title = stringResource(R.string.rule_params),
+            badgeText = if (rule.params.isEmpty()) null else {
+                stringResource(R.string.condition_group_count, rule.params.size)
+            },
+            badgeError = paramsIncomplete,
+        ) {
+            RuleParamsEditor(
+                params = rule.params,
+                onParamsChange = { update(rule.copy(params = it)) },
+            )
+        }
+        LunoGroup(
             title = stringResource(R.string.automation_steps),
             badgeText = if (stepsEmpty) {
                 stringResource(R.string.automation_steps_empty)
@@ -441,6 +560,14 @@ fun AutomationEditScreen(
                 },
                 library = library,
                 rules = loadedRules ?: emptyList(),
+                clipboard = stepClipboard,
+                onPasteStep = { prefix ->
+                    stepClipboard?.let { clip ->
+                        appendStep(rule.effect, prefix, clip)?.let { (_, newEffect) ->
+                            update(rule.copy(effect = newEffect))
+                        }
+                    }
+                },
             )
         }
         LunoGroup(
@@ -475,9 +602,29 @@ fun AutomationEditScreen(
                 throttle = rule.throttle,
                 onThrottleChange = { update(rule.copy(throttle = it)) },
             )
-            if (conditionUsesNotification(rule.condition) || rule.effect.usesNotificationCondition()) {
-                NotificationPermissionRow()
+            if (conditionUsesNotification(rule.condition) ||
+                conditionUsesNotification(rule.constraints) ||
+                rule.effect.usesNotificationCondition() ||
+                capabilityReport.notificationAccessMissing
+            ) {
+                NotificationPermissionRow(refreshKey = resumeTick)
             }
+        }
+        LunoGroup(
+            title = stringResource(R.string.automation_run_control),
+            titleBottomSpacing = CardInnerSpacing,
+            badgeText = if (capabilityReport.hasMissing) {
+                stringResource(R.string.permission_precheck_title)
+            } else {
+                null
+            },
+            badgeError = capabilityReport.hasMissing,
+        ) {
+            RunControlEditor(
+                rule = rule,
+                onRuleChange = { update(it) },
+            )
+            CapabilityWarningRow(capabilityReport)
         }
     }
 }

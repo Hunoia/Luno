@@ -73,7 +73,7 @@ fun GesturePanel(
         verticalArrangement = Arrangement.spacedBy(ListSpacing),
     ) {
         GestureSection(
-            title = stringResource(id = R.string.gesture_button),
+            title = stringResource(id = hunoia.luno.core.data.R.string.gesture_button),
             addContentDescription = stringResource(id = R.string.add_gesture_button),
             expanded = expandedSection == GesturePanelSection.TouchButton,
             itemCount = gestureButtons.size,

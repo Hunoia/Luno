@@ -1,0 +1,8 @@
+<resources>
+    <string name="gesture_button">触钮</string>
+    <string name="restore_precheck_cannot_read_file">无法读取备份文件</string>
+    <string name="restore_precheck_invalid_format">备份格式不正确</string>
+    <string name="restore_precheck_empty_backup">备份内容为空</string>
+    <string name="restore_precheck_verification_failed">恢复校验失败</string>
+    <string name="restore_precheck_unsupported_version">备份来自更新版本的应用，无法恢复</string>
+</resources>

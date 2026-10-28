@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 快速启动/搜索面板文案。 -->
+    <string name="confirm">确认</string>
+    <string name="dispatch_service_not_ready">手势服务未就绪，动作未执行</string>
+    <string name="more">更多</string>
+    <string name="quick_app_launcher_adjust">调整面板</string>
+    <string name="quick_app_launcher_candidate_rows">候选应用行数</string>
+    <string name="quick_app_launcher_content_height">高度</string>
+    <string name="quick_app_launcher_delete_input">删除输入</string>
+    <string name="quick_app_launcher_grid_columns">搜索列数</string>
+    <string name="quick_app_launcher_key_height">按键高度</string>
+    <string name="quick_app_launcher_panel_width">宽度</string>
+    <string name="quick_app_launcher_screen_margin">离屏边距</string>
+    <string name="quick_launcher_need_overlay_permission">打开启动面板需要「显示在其他应用上层」权限，正在前往设置</string>
+    <string name="quick_launcher_start_failed">启动面板打开失败</string>
+    <string name="quick_search_app_disabled">已停用</string>
+    <string name="quick_search_clear">清空</string>
+    <string name="quick_search_clipboard_locked">已锁定，解锁后显示剪贴板</string>
+    <string name="quick_search_copied">已复制</string>
+    <string name="quick_search_grant_calendar">授予日历权限</string>
+    <string name="quick_search_grant_calls">授予通话记录权限</string>
+    <string name="quick_search_grant_contacts">授予联系人权限</string>
+    <string name="quick_search_grant_files">授予文件访问权限</string>
+    <string name="quick_search_grant_media">授予媒体权限</string>
+    <string name="quick_search_grant_sms">授予短信权限</string>
+    <string name="quick_search_no_handler">没有能打开的应用</string>
+    <string name="quick_search_pin">置顶</string>
+    <string name="quick_search_start_failed">搜索面板打开失败</string>
+    <string name="quick_search_unpin">取消置顶</string>
+    <string name="quick_search_voice">语音输入</string>
+    <string name="search_action_pin">固定此结果</string>
+    <string name="search_action_unpin">取消固定</string>
+    <string name="search_card_calculator">计算器</string>
+    <string name="search_card_engine">搜索引擎</string>
+    <string name="search_card_history">搜索历史</string>
+    <string name="search_card_url">链接</string>
+    <string name="search_result_pinned">已固定</string>
+    <string name="search_result_unpinned">已取消固定</string>
+    <string name="tap_mini_window">短按小窗</string>
+</resources>
