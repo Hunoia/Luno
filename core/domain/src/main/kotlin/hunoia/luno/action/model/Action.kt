@@ -6,11 +6,11 @@ import hunoia.luno.core.domain.SettingsPage
 import hunoia.luno.core.domain.VolumeDirection
 
 /**
- * 执行器输入：由 [hunoia.luno.execute.ActionFactory] 把 StoredAction 映射成具体动作。
+ * 执行器输入：由 `ActionFactory` 把 StoredAction 映射成具体动作。
  *
- * 本类型住在执行口（`:feature:execute`），因为它就是 Executor 的入参；动作目录、
- * 参数编辑器元数据仍在 `:feature:actions`。不得携带资源 id / 配置默认值：
- * 展示文案与默认值由各自层提供（见 `SettingsPage.labelRes` 的 app 侧扩展）。
+ * 本类型是纯契约，住在 `:core:domain`，供执行口（Dispatcher / ExecutorRegistry）
+ * 与动作目录（`:feature:actions` 的映射 / 展示元数据）共同引用。不得携带资源 id /
+ * 配置默认值：展示文案与默认值由各自层提供（见 `SettingsPage.labelRes` 的 app 侧扩展）。
  */
 
 /** 触钮显隐作用范围（沿用自动化旧 RuleScope 语义）。 */
