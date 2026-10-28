@@ -1,5 +1,7 @@
 package hunoia.luno.ui.actionselect
 
+import hunoia.luno.domain.AppGraph
+
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.action.model.ShortcutIconFiles
@@ -10,7 +12,6 @@ import hunoia.luno.core.domain.withoutVariantKey
 import hunoia.luno.core.domain.withLongPressVariant
 import hunoia.luno.domain.action.ActionCatalog
 import hunoia.luno.domain.action.ActionLibrary
-import hunoia.luno.domain.automation.AutomationCenter
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.config.model.AutomationRule
@@ -438,7 +439,7 @@ private suspend fun saveAutomationEffect(actionSelect: ActionSelect, picked: Sto
     // 草稿优先：编辑页跳转时只暂存内存，未保存前不写库。
     // 无暂存时以库中规则为底新建暂存——选择页永不直写库，落盘统一由编辑页保存键负责。
     val base = AutomationDraftHolder.take(actionSelect.automationRuleId)
-        ?: AutomationCenter.getRules().find { it.id == actionSelect.automationRuleId }
+        ?: AppGraph.automation.getRules().find { it.id == actionSelect.automationRuleId }
         ?: return
     AutomationDraftHolder.stage(applyTo(base))
 }
@@ -446,7 +447,7 @@ private suspend fun saveAutomationEffect(actionSelect: ActionSelect, picked: Sto
 private suspend fun loadAutomationAction(actionSelect: ActionSelect): StoredAction? {
     // 草稿命中就不读库（getRules 是一次 DataStore 读）。
     val draft = AutomationDraftHolder.take(actionSelect.automationRuleId)
-    val rule = draft ?: AutomationCenter.getRules().find { it.id == actionSelect.automationRuleId }
+    val rule = draft ?: AppGraph.automation.getRules().find { it.id == actionSelect.automationRuleId }
     ?: return null
     return rule.effect.stepAt(actionSelect.automationStepPath)?.action
 }
@@ -572,7 +573,7 @@ internal suspend fun loadDataBody(
     val isAutomation = actionSelect.automationRuleId.isNotBlank()
     // 规则即动作：选择页专属分组（只留启用；自动化模式剔除正在编辑的自身，禁自引用）。
     val rules = ActionCatalog.rulesForPicker(
-        AutomationCenter.getRules(),
+        AppGraph.automation.getRules(),
         excludeRuleId = if (isAutomation) actionSelect.automationRuleId else "",
     )
 

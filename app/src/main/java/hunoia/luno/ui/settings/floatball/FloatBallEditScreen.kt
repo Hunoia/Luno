@@ -1,5 +1,7 @@
 package hunoia.luno.ui.settings.floatball
 
+import hunoia.luno.domain.AppGraph
+
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.background
@@ -38,7 +40,6 @@ import hunoia.luno.bridge.system.gotoOverlaySettings
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
-import hunoia.luno.domain.system.FloatBallUseCase
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.runtime.automation.AutomationNotificationListener
 import hunoia.luno.ui.component.actionTextCompose
@@ -107,7 +108,7 @@ fun FloatBallEditScreen(
                 val granted = context.canDrawOverlays()
                 if (granted != overlayGranted) {
                     overlayGranted = granted
-                    FloatBallUseCase.refresh(context)
+                    AppGraph.system.refreshFloatBall(context)
                 }
                 val notifGranted = AutomationNotificationListener.isAccessGranted(context)
                 if (notifGranted != notifAccessGranted) notifAccessGranted = notifGranted
@@ -130,7 +131,7 @@ fun FloatBallEditScreen(
             runCatching {
                 TuneConfig.updateAction { it.copy(floatBall = it.floatBall.copy(enabled = enabled)) }
             }
-            if (enabled) FloatBallUseCase.setEnabled(context, true) else FloatBallUseCase.setEnabled(context, false)
+            if (enabled) AppGraph.system.setFloatBallEnabled(context, true) else AppGraph.system.setFloatBallEnabled(context, false)
         }
     }
 
@@ -290,9 +291,9 @@ fun FloatBallEditScreen(
                         update { it.copy(notificationCapsule = it.notificationCapsule.copy(enabled = checked)) }
                         // 胶囊开关也要服务在跑：开 = 拉起；关 = nudge 重评（服务自决定去留）。
                         if (checked) {
-                            FloatBallUseCase.setEnabled(context, true)
+                            AppGraph.system.setFloatBallEnabled(context, true)
                         } else {
-                            FloatBallUseCase.setEnabled(context, false)
+                            AppGraph.system.setFloatBallEnabled(context, false)
                         }
                     },
                     shape = segmentedShape(0, rowCount),
@@ -382,9 +383,9 @@ fun FloatBallEditScreen(
                         update { it.copy(clipboardBall = it.clipboardBall.copy(enabled = checked)) }
                         // 同胶囊：开关也要服务在跑；关 = nudge 重评（服务自决定去留）。
                         if (checked) {
-                            FloatBallUseCase.setEnabled(context, true)
+                            AppGraph.system.setFloatBallEnabled(context, true)
                         } else {
-                            FloatBallUseCase.setEnabled(context, false)
+                            AppGraph.system.setFloatBallEnabled(context, false)
                         }
                     },
                     shape = segmentedShape(0, 3),

@@ -1,5 +1,7 @@
 package hunoia.luno.ui.automation
 
+import hunoia.luno.domain.AppGraph
+
 import android.content.Context
 import hunoia.luno.R
 import hunoia.luno.core.domain.ActionLibrarySettings
@@ -14,7 +16,6 @@ import hunoia.luno.config.model.RuleStepKind
 import hunoia.luno.config.model.StepFailure
 import hunoia.luno.config.model.ThrottlePolicy
 import hunoia.luno.config.model.WhenGroup
-import hunoia.luno.domain.automation.AutomationCenter
 import hunoia.luno.ui.actionselect.selectedItemLabel
 
 /**
@@ -285,4 +286,4 @@ internal fun List<RuleStep>.hasIncompleteStepCondition(): Boolean = any { step -
  * 条件树是否含状态叶（非脉冲、非 MANUAL）：决定规则级"进入/退出"是否可用。
  * 纯事件树发生即触发、没有持续边沿，编辑器隐藏触发方式（引擎侧同样归一化）。
  */
-internal fun WhenGroup.hasStateCondition(): Boolean = AutomationCenter.hasStateConditionOf(this)
+internal fun WhenGroup.hasStateCondition(): Boolean = AppGraph.automation.hasStateConditionOf(this)

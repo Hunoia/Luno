@@ -1,5 +1,7 @@
 package hunoia.luno.ui.home
 
+import hunoia.luno.domain.AppGraph
+
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.viewModelScope
@@ -10,9 +12,6 @@ import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.resolveDisplayName
 import hunoia.luno.core.AppContext
 import hunoia.luno.R
-import hunoia.luno.domain.system.EnableAccessibilityUseCase
-import hunoia.luno.domain.system.KeepAliveUseCase
-import hunoia.luno.domain.system.PermissionStateUseCase
 import hunoia.luno.bridge.system.hasWriteSecureSettingsPermission
 import hunoia.luno.shizuku.ShizukuManager
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -161,7 +160,7 @@ class HomeVM : HomeVMBase() {
             }
             saveGestureSwitchEnabled(false)
             viewModelScope.launch {
-                runCatching { KeepAliveUseCase.setEnabled(AppContext.get(), false) { _ -> } }
+                runCatching { AppGraph.system.setKeepAliveEnabled(AppContext.get(), false) { _ -> } }
             }
             return
         }
@@ -182,8 +181,8 @@ class HomeVM : HomeVMBase() {
                 }
             }
             if (wss) {
-                runCatching { KeepAliveUseCase.setEnabled(context, true) { _ -> } }
-                val ok = runCatching { EnableAccessibilityUseCase.enable(context) }.getOrDefault(false)
+                runCatching { AppGraph.system.setKeepAliveEnabled(context, true) { _ -> } }
+                val ok = runCatching { AppGraph.system.enableAccessibility(context) }.getOrDefault(false)
                 if (ok) {
                     pendingEnableByAccessibility = false
                     commitGestureSwitch(true)
@@ -202,13 +201,13 @@ class HomeVM : HomeVMBase() {
         pendingEnableByAccessibility = false
         viewModelScope.launch {
             val context = AppContext.get()
-            val state = PermissionStateUseCase.loadHomePermissionState(context)
+            val state = AppGraph.system.loadHomePermissionState(context)
             if (!state.isAccessibilityEnabled) {
                 updateUiState { it.copy(isGestureSwitchEnabled = false).withRuntimeStatus() }
                 withContext(Dispatchers.Main) { onRetryFailed() }
                 return@launch
             }
-            runCatching { KeepAliveUseCase.setEnabled(context, true) { _ -> } }
+            runCatching { AppGraph.system.setKeepAliveEnabled(context, true) { _ -> } }
             commitGestureSwitch(true)
         }
     }

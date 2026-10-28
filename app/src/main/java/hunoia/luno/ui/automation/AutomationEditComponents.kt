@@ -1,5 +1,7 @@
 package hunoia.luno.ui.automation
 
+import hunoia.luno.domain.AppGraph
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
@@ -45,7 +47,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import hunoia.luno.R
 import hunoia.luno.core.domain.ActionLibrarySettings
-import hunoia.luno.domain.automation.AutomationCenter
 import hunoia.luno.domain.automation.RuleTestResult
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.ConditionItem
@@ -1256,7 +1257,7 @@ internal fun NotificationPermissionRow(refreshKey: Any? = null) {
     // 从系统设置返回时编辑页会更新 resumeTick；用它作 key 重新读权限，
     // 否则 remember 会把「未授权」一直缓存到页面销毁。
     val granted = remember(refreshKey) {
-        AutomationCenter.isNotificationAccessGranted(context)
+        AppGraph.automation.isNotificationAccessGranted(context)
     }
     LunoSettingsRow(
         title = stringResource(R.string.notify_permission_title),
@@ -1350,14 +1351,14 @@ internal fun RuleTestResultSheet(result: RuleTestResult, onDismissRequest: () ->
     val overall = when {
         result.reason == RuleTestResult.CONDITION_ONLY ->
             stringResource(R.string.automation_test_condition_only)
-        AutomationCenter.isInterruptedReason(result.reason) -> stringResource(
+        AppGraph.automation.isInterruptedReason(result.reason) -> stringResource(
             R.string.history_interrupted,
-            AutomationCenter.stripInterruptedPrefix(result.reason),
+            AppGraph.automation.stripInterruptedPrefix(result.reason),
         )
-        AutomationCenter.isTimeoutReason(result.reason) -> stringResource(R.string.history_timeout)
-        AutomationCenter.isOkReason(result.reason) && hasSkipped ->
+        AppGraph.automation.isTimeoutReason(result.reason) -> stringResource(R.string.history_timeout)
+        AppGraph.automation.isOkReason(result.reason) && hasSkipped ->
             stringResource(R.string.automation_test_partial)
-        AutomationCenter.isOkReason(result.reason) -> stringResource(R.string.automation_test_ok)
+        AppGraph.automation.isOkReason(result.reason) -> stringResource(R.string.automation_test_ok)
         else -> result.reason
     }
     val scrollState = rememberScrollState()
@@ -1403,7 +1404,7 @@ internal fun RuleTestResultSheet(result: RuleTestResult, onDismissRequest: () ->
                     title = stringResource(R.string.automation_test_result),
                     subtitle = overall,
                     subtitleColor = if (
-                        AutomationCenter.isOkReason(result.reason) ||
+                        AppGraph.automation.isOkReason(result.reason) ||
                         result.reason == RuleTestResult.CONDITION_ONLY
                     ) {
                         MaterialTheme.colorScheme.onSurfaceVariant
@@ -1439,7 +1440,7 @@ internal fun RuleTestResultSheet(result: RuleTestResult, onDismissRequest: () ->
                             },
                         )
                     }
-                } else if (AutomationCenter.isOkReason(result.reason)) {
+                } else if (AppGraph.automation.isOkReason(result.reason)) {
                     Text(
                         stringResource(R.string.automation_test_no_steps),
                         style = MaterialTheme.typography.bodySmall,
