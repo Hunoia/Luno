@@ -27,8 +27,6 @@ dependencies {
     api(project(":core:common"))
     api(project(":core:domain"))
     api(project(":core:bridge"))
-    // 偏差（记录在 refactor-progress.md）：规则模型（AutomationRule / RuleStep / 节流）在 :core:data。
-    api(project(":core:data"))
     api(project(":core:runtime"))
     api(project(":feature:conditions"))
     api(project(":feature:execute"))

@@ -24,9 +24,6 @@ dependencies {
     api(project(":core:common"))
     api(project(":core:domain"))
     api(project(":core:bridge"))
-    // 偏差（记录在 refactor-progress.md）：条件求值直接读 AutomationRule / ConditionItem /
-    // WhenGroup 这些 config 模型，它们住在 :core:data。等模型归位到 :core:domain 后删除这条边。
-    api(project(":core:data"))
     implementation(libs.jetbrains.kotlin.serialization)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.core.ktx)

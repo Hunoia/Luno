@@ -42,12 +42,11 @@ class ModuleDependencyTest {
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
             ":core:runtime", ":feature:execute", ":ui:design",
         ),
-        // 偏差：条件/自动化直接读 config 模型（Phase 4 模型归位未做）。
         ":feature:conditions" to setOf(
-            ":core:common", ":core:domain", ":core:data", ":core:bridge",
+            ":core:common", ":core:domain", ":core:bridge",
         ),
         ":feature:automation" to setOf(
-            ":core:common", ":core:domain", ":core:bridge", ":core:data",
+            ":core:common", ":core:domain", ":core:bridge",
             ":core:runtime", ":feature:conditions", ":feature:execute",
         ),
         ":feature:link" to setOf(
