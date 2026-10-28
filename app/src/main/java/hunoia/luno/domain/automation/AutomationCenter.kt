@@ -6,6 +6,7 @@ import hunoia.luno.config.model.GlobalVariables
 import hunoia.luno.config.model.WhenGroup
 import hunoia.luno.config.repository.cleanActions
 import hunoia.luno.config.repository.cleanStepRefs
+import hunoia.luno.bridge.system.isAccessibilitySettingsOn
 import hunoia.luno.core.domain.runRuleId
 import hunoia.luno.service.DispatchClient
 import hunoia.luno.runtime.condition.hasLeaf as runtimeHasLeaf
@@ -120,7 +121,20 @@ object AutomationCenter {
         allRules: List<AutomationRule>,
         library: hunoia.luno.action.model.ActionLibrarySettings?,
     ): AutomationCapabilityReport =
-        hunoia.luno.action.capability.RuleCapabilityScanner.report(context, rule, allRules, library)
+        hunoia.luno.action.capability.RuleCapabilityScanner.report(
+            context = context,
+            rule = rule,
+            allRules = allRules,
+            library = library,
+            isAccessibilityAvailable = {
+                context.isAccessibilitySettingsOn(
+                    hunoia.luno.service.SideGestureService::class.java,
+                ) || hunoia.luno.service.SideGestureService.current != null || DispatchClient.isReady()
+            },
+            isNotificationAccessGranted = {
+                hunoia.luno.runtime.automation.AutomationNotificationListener.isAccessGranted(it)
+            },
+        )
 
     /** 通知监听权限是否已授：编辑页通知条件行展示（读系统设置，无副作用）。 */
     fun isNotificationAccessGranted(context: android.content.Context): Boolean =

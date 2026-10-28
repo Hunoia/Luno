@@ -721,6 +721,15 @@ class GestureCoordinator(
                     rule,
                     snapshot.automationRules,
                     snapshot.actionLibrarySettings,
+                    isAccessibilityAvailable = {
+                        host.context.isAccessibilitySettingsOn(
+                            hunoia.luno.service.SideGestureService::class.java,
+                        ) || hunoia.luno.service.SideGestureService.current != null ||
+                            hunoia.luno.service.DispatchClient.isReady()
+                    },
+                    isNotificationAccessGranted = {
+                        hunoia.luno.runtime.automation.AutomationNotificationListener.isAccessGranted(it)
+                    },
                 ).hasMissing
             ) {
                 SkipReason.PERMISSION_MISSING

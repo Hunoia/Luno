@@ -28,6 +28,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
+import hunoia.luno.actions.R as ActionsR
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.config.defaults.ActionSettingsDefaults
 import hunoia.luno.domain.gesture.GestureConfig
@@ -105,14 +106,14 @@ private fun JsonObject.ids(key: String): List<String> =
     (this[key] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull } ?: emptyList()
 
 private fun settingsPageLabelRes(page: String): Int = when (page) {
-    "WIFI" -> R.string.settings_page_wifi
-    "BLUETOOTH" -> R.string.settings_page_bluetooth
-    "DISPLAY" -> R.string.settings_page_display
-    "BATTERY" -> R.string.settings_page_battery
-    "APPS" -> R.string.settings_page_apps
-    "NETWORK" -> R.string.settings_page_network
-    "ACCESSIBILITY" -> R.string.settings_page_accessibility
-    else -> R.string.settings_page_main
+    "WIFI" -> ActionsR.string.settings_page_wifi
+    "BLUETOOTH" -> ActionsR.string.settings_page_bluetooth
+    "DISPLAY" -> ActionsR.string.settings_page_display
+    "BATTERY" -> ActionsR.string.settings_page_battery
+    "APPS" -> ActionsR.string.settings_page_apps
+    "NETWORK" -> ActionsR.string.settings_page_network
+    "ACCESSIBILITY" -> ActionsR.string.settings_page_accessibility
+    else -> ActionsR.string.settings_page_main
 }
 
 private fun audioStreamLabelRes(stream: String): Int = when (stream) {
@@ -418,14 +419,14 @@ fun ActionRowSettingsSheet(
                         LabeledChips(
                             R.string.row_settings_settings_page,
                             listOf(
-                                "WIFI" to R.string.settings_page_wifi,
-                                "BLUETOOTH" to R.string.settings_page_bluetooth,
-                                "DISPLAY" to R.string.settings_page_display,
-                                "BATTERY" to R.string.settings_page_battery,
-                                "APPS" to R.string.settings_page_apps,
-                                "NETWORK" to R.string.settings_page_network,
-                                "ACCESSIBILITY" to R.string.settings_page_accessibility,
-                                "MAIN" to R.string.settings_page_main,
+                                "WIFI" to ActionsR.string.settings_page_wifi,
+                                "BLUETOOTH" to ActionsR.string.settings_page_bluetooth,
+                                "DISPLAY" to ActionsR.string.settings_page_display,
+                                "BATTERY" to ActionsR.string.settings_page_battery,
+                                "APPS" to ActionsR.string.settings_page_apps,
+                                "NETWORK" to ActionsR.string.settings_page_network,
+                                "ACCESSIBILITY" to ActionsR.string.settings_page_accessibility,
+                                "MAIN" to ActionsR.string.settings_page_main,
                             ),
                             draft.str("page", RowSettingsDefaults.SettingsPage),
                         ) { setStr("page", it) }

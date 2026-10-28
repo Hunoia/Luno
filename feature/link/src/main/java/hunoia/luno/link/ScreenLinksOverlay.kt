@@ -115,10 +115,8 @@ class ScreenLinksOverlay(private val host: RuntimeHost) {
         /**
          * 等面板真正退场：动作面板在自家 a11y overlay 里要淡出 400ms 才发 Dismissed，
          * 面板还在时底下应用的窗口在无障碍里拿不到内容（用户实测：从面板触发就 0 条）。
-         * 与 ScreenPick 同一套等待口径。
          */
         const val PANEL_SETTLE_MAX_MS = 900L
-        const val PANEL_SETTLE_POLL_MS = 50L
 
         /** 首轮没扫到时的补扫间隔（最多 3 轮）：只在窗口/节点数为 0 时补扫。 */
         const val SCAN_RETRY_MS = 200L
@@ -133,19 +131,9 @@ class ScreenLinksOverlay(private val host: RuntimeHost) {
     private var scanJob: Job? = null
 
     /** 在屏面板计数（动作面板/网格面板等自家 overlay）：全部退场前不扫。 */
-    private val openPanelCount = java.util.concurrent.atomic.AtomicInteger(0)
-
-    private val panelShownSubscriber: (PanelShownEvent) -> Unit = {
-        openPanelCount.incrementAndGet()
-    }
-    private val panelDismissedSubscriber: (PanelDismissedEvent) -> Unit = {
-        openPanelCount.updateAndGet { count -> (count - 1).coerceAtLeast(0) }
-    }
-
-    init {
-        Events.subscribe(PanelShownEvent::class, panelShownSubscriber)
-        Events.subscribe(PanelDismissedEvent::class, panelDismissedSubscriber)
-    }
+    private val openPanels = hunoia.luno.runtime.overlay.OpenPanelCounter(
+        maxWaitMs = PANEL_SETTLE_MAX_MS,
+    )
 
     /** 会话号：异步扫描回来时若已关层/换会话就丢弃结果。 */
     private var session = 0
@@ -155,8 +143,7 @@ class ScreenLinksOverlay(private val host: RuntimeHost) {
     private var links by mutableStateOf<List<ScreenLink>>(emptyList())
 
     fun release() {
-        Events.unsubscribe(PanelShownEvent::class, panelShownSubscriber)
-        Events.unsubscribe(PanelDismissedEvent::class, panelDismissedSubscriber)
+        openPanels.close()
         close()
     }
 
@@ -244,8 +231,8 @@ class ScreenLinksOverlay(private val host: RuntimeHost) {
         val context = host.context
         val settings = runCatching { ConfigProvider.getActionSettings().linkDispatch }
             .getOrDefault(LinkDispatchSettings())
-        val hadPanels = openPanelCount.get() > 0
-        awaitPanelsDismissed()
+        val hadPanels = openPanels.hasOpenPanels
+        openPanels.awaitDismissed()
         if (hadPanels) delay(PANEL_POST_SETTLE_MS)
         delay(SCAN_SETTLE_MS)
         var result = ScanResult.Empty
@@ -305,14 +292,6 @@ class ScreenLinksOverlay(private val host: RuntimeHost) {
             val dispatched = settings.enabled && Links.dispatch(context, link.url, settings)
             if (!dispatched) Links.fallbackFor(context, link.url, rule, settings)
             if (current == session) close()
-        }
-    }
-
-    /** 面板还在（淡出中）时底下应用的窗口内容取不到，等它退场再扫。 */
-    private suspend fun awaitPanelsDismissed() {
-        val deadline = android.os.SystemClock.uptimeMillis() + PANEL_SETTLE_MAX_MS
-        while (openPanelCount.get() > 0 && android.os.SystemClock.uptimeMillis() < deadline) {
-            delay(PANEL_SETTLE_POLL_MS)
         }
     }
 

@@ -12,7 +12,6 @@ import hunoia.luno.config.model.ConditionType
 import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.model.RuleStepKind
 import hunoia.luno.config.model.WhenGroup
-import hunoia.luno.runtime.automation.AutomationNotificationListener
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
@@ -37,20 +36,18 @@ object RuleCapabilityScanner {
         rule: AutomationRule,
         allRules: List<AutomationRule>,
         library: ActionLibrarySettings?,
+        isAccessibilityAvailable: () -> Boolean,
+        isNotificationAccessGranted: (Context) -> Boolean,
     ): RuleCapabilityReport {
         val gate = CapabilityGate(
             appContext = context.applicationContext,
-            isAccessibilityAvailable = {
-                context.isAccessibilitySettingsOn(hunoia.luno.service.SideGestureService::class.java) ||
-                    hunoia.luno.service.SideGestureService.current != null ||
-                    hunoia.luno.service.DispatchClient.isReady()
-            },
+            isAccessibilityAvailable = isAccessibilityAvailable,
         )
         val required = requiredCapabilities(rule, allRules, library)
         return RuleCapabilityReport(
             missingCapabilities = required.filterNot(gate::isAvailable).toSet(),
             notificationAccessMissing = notificationAccessRequired(rule, allRules, library) &&
-                !AutomationNotificationListener.isAccessGranted(context),
+                !isNotificationAccessGranted(context),
         )
     }
 

@@ -105,14 +105,6 @@ private const val MaxScanDepth = 24
 private const val PublishEveryNodes = 30
 private const val PublishEveryMs = 80L
 
-/**
- * 面板（搜索 Activity / 网格浮窗等）退场等待：截图与节点扫描都要等它退场，
- * 否则截屏会把面板拍进去、提示框也会按面板内容画（表现为错位）。
- * 事件先到就继续，超时兜底不卡死拾取层。
- */
-private const val PanelSettleMaxMs = 800L
-private const val PanelSettlePollMs = 50L
-
 /** 提示框扫描重试：首轮没找到时再试一次（面板关后底层窗口可能刚恢复可见）。 */
 private const val PickBoxAttempts = 2
 private const val PickBoxRetryMs = 150L
@@ -185,7 +177,7 @@ class ScreenPickOverlay(private val host: GestureHost) {
     private var originY by mutableStateOf(0)
 
     /** 在屏面板计数（自家搜索/网格/动作面板）：等它们全部退场再截图与扫节点。 */
-    private var openPanelCount = 0
+    private val openPanels = hunoia.luno.runtime.overlay.OpenPanelCounter()
 
     /** 开层会话号：异步截屏回调回来时若已换会话/已关层，丢弃旧位图。 */
     @Volatile
@@ -199,20 +191,9 @@ class ScreenPickOverlay(private val host: GestureHost) {
     /** 锁屏/息屏监听：拾取层不跨锁屏保留（拆窗时即清掉截图与提示框）。 */
     private var lockObserver: BroadcastObserver? = null
 
-    private val panelShownSubscriber: (PanelShownEvent) -> Unit = { openPanelCount++ }
-    private val panelDismissedSubscriber: (PanelDismissedEvent) -> Unit = {
-        openPanelCount = (openPanelCount - 1).coerceAtLeast(0)
-    }
-
-    init {
-        Events.subscribe(PanelShownEvent::class, panelShownSubscriber)
-        Events.subscribe(PanelDismissedEvent::class, panelDismissedSubscriber)
-    }
-
     /** 服务销毁：退订全局面板事件并摘窗。 */
     fun release() {
-        Events.unsubscribe(PanelShownEvent::class, panelShownSubscriber)
-        Events.unsubscribe(PanelDismissedEvent::class, panelDismissedSubscriber)
+        openPanels.close()
         close()
     }
 
@@ -652,12 +633,8 @@ class ScreenPickOverlay(private val host: GestureHost) {
      */
     private fun captureWhenSettled(token: Int) {
         host.coroutineScope.launch {
-            val hadPanels = openPanelCount > 0
-            var waited = 0L
-            while (openPanelCount > 0 && waited < PanelSettleMaxMs) {
-                delay(PanelSettlePollMs)
-                waited += PanelSettlePollMs
-            }
+            val hadPanels = openPanels.hasOpenPanels
+            openPanels.awaitDismissed()
             if (token != session || overlayView == null || capture != null) return@launch
             // 面板退场多留一拍：动作面板的淡出在 Dismissed 之后还可能再收尾。
             if (hadPanels) delay(PanelPostSettleMs)
