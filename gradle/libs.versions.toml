@@ -15,7 +15,7 @@ houbb-pinyin = "0.4.0"
 freereflection = "3.2.2"
 shizuku = "13.1.5"
 hiddenapibypass = "6.1"
-mlkitTextRecognition = "16.0.1"
+mlkitPlayTextRecognition = "16.0.2"
 coil = "2.7.0"
 navigationCompose = "2.8.4"
 activityCompose = "1.9.3"
@@ -67,9 +67,10 @@ rikka-shizuku-api = { group = "dev.rikka.shizuku", name = "api", version.ref = "
 rikka-shizuku-provider = { group = "dev.rikka.shizuku", name = "provider", version.ref = "shizuku" }
 hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version.ref = "hiddenapibypass" }
 
-mlkit-text-recognition-chinese = { group = "com.google.mlkit", name = "text-recognition-chinese", version.ref = "mlkitTextRecognition" }
-mlkit-text-recognition-japanese = { group = "com.google.mlkit", name = "text-recognition-japanese", version.ref = "mlkitTextRecognition" }
-mlkit-text-recognition-korean = { group = "com.google.mlkit", name = "text-recognition-korean", version.ref = "mlkitTextRecognition" }
+# 文本识别走 GMS 按需下载模型（unbundled）：APK 不带模型，首用下载。
+play-mlkit-text-recognition-chinese = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition-chinese", version.ref = "mlkitPlayTextRecognition" }
+play-mlkit-text-recognition-japanese = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition-japanese", version.ref = "mlkitPlayTextRecognition" }
+play-mlkit-text-recognition-korean = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition-korean", version.ref = "mlkitPlayTextRecognition" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

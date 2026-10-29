@@ -255,6 +255,9 @@ class ScreenPickOverlay(
     /** 幽灵卡会话是否在进行中（已有落点、未松手）。 */
     val isPortalActive: Boolean get() = portalAnchor != null
 
+    /** 拾取层窗口是否在屏（含无幽灵卡的普通框选态）。 */
+    val isShown: Boolean get() = overlayView != null
+
     /** 服务销毁：退订全局面板事件并摘窗。 */
     fun release() {
         openPanels.close()

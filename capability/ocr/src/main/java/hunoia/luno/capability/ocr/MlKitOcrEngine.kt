@@ -47,26 +47,32 @@ class MlKitOcrEngine(private val context: Context) : OcrEngine {
 
     override suspend fun recognize(bitmap: Bitmap, scripts: List<OcrScript>): OcrResult =
         withContext(Dispatchers.Default) {
-            mutex.withLock {
-                if (bitmap.isRecycled) return@withContext OcrResult.Empty
-                // 注意：构造可能发生在 Service.attachBaseContext 之前，这里才取 applicationContext。
-                if (!initialized) {
-                    MlKit.initialize(context.applicationContext)
-                    initialized = true
+            runCatching {
+                mutex.withLock {
+                    if (bitmap.isRecycled) return@withContext OcrResult.Empty
+                    // 注意：构造可能发生在 Service.attachBaseContext 之前，这里才取 applicationContext。
+                    if (!initialized) {
+                        MlKit.initialize(context.applicationContext)
+                        initialized = true
+                    }
+                    val effective = scripts.ifEmpty { listOf(OcrScript.Chinese) }.distinct()
+                    val image = InputImage.fromBitmap(bitmap, 0)
+                    val perScript = coroutineScope {
+                        effective.map { script ->
+                            async(Dispatchers.Default) {
+                                runCatching { recognizeWith(script, image) }
+                                    .onFailure { Log.w(LOG_TAG, "ocr: $script failed: ${it.message}") }
+                                    .getOrDefault(emptyList())
+                            }
+                        }.awaitAll()
+                    }
+                    OcrText.merge(perScript.flatten())
                 }
-                val effective = scripts.ifEmpty { listOf(OcrScript.Chinese) }.distinct()
-                val image = InputImage.fromBitmap(bitmap, 0)
-                val perScript = coroutineScope {
-                    effective.map { script ->
-                        async(Dispatchers.Default) {
-                            runCatching { recognizeWith(script, image) }
-                                .onFailure { Log.w(LOG_TAG, "ocr: $script failed: ${it.message}") }
-                                .getOrDefault(emptyList())
-                        }
-                    }.awaitAll()
-                }
-                OcrText.merge(perScript.flatten())
-            }
+            }.onFailure {
+                // 初始化 / 模型下载 / 识别器创建失败都不能让调用方协程崩掉：按无结果降级。
+                Log.w(LOG_TAG, "ocr: recognize failed: ${it.message}")
+                initialized = false
+            }.getOrDefault(OcrResult.Empty)
         }
 
     override fun close() {

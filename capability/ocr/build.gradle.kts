@@ -21,9 +21,9 @@ dependencies {
     api(project(":core:domain"))
     implementation(libs.androidx.annotation)
     implementation(libs.kotlinx.coroutines.core)
-    // 3 个脚本模型全部打包：离线可用，不依赖 GMS 下载（见 docs/ocr-mlkit-plan-2026-10-29.md §2）。
-    implementation(libs.mlkit.text.recognition.chinese)
-    implementation(libs.mlkit.text.recognition.japanese)
-    implementation(libs.mlkit.text.recognition.korean)
+    // unbundled：模型由 GMS 按需下载，APK 不打包模型（见 docs/ocr-mlkit-plan-2026-10-29.md §2）。
+    implementation(libs.play.mlkit.text.recognition.chinese)
+    implementation(libs.play.mlkit.text.recognition.japanese)
+    implementation(libs.play.mlkit.text.recognition.korean)
     testImplementation(libs.junit)
 }

@@ -12,7 +12,9 @@ ML Kit（bundled）文本识别的默认实现。方案与取舍见
 
 ## 实现要点
 
-- 三个模型 AAR 全部打包（约 6.5 MB），离线可用，不依赖 GMS 模型下载。
+- 使用 unbundled 依赖（`com.google.android.gms:play-services-mlkit-text-recognition-*`）：
+  模型由 GMS 按需下载，APK 不打包模型与 OCR native 库。首用可能耗时数秒；下载/识别失败
+  按空结果降级，不抛到调用方协程。
 - 识别器懒加载、按脚本缓存；`close()` 释放。
 - 首次识别前显式 `MlKit.initialize(appContext)`：识屏在 `:service` 独立进程，
   ContentProvider 自动初始化在该进程不可靠（实测会报 `MlKitContext has not been initialized`）。

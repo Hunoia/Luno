@@ -182,6 +182,9 @@ class GestureCoordinator(
             hunoia.luno.service.SideGestureService.current?.releaseScreenPickPortal(x, y)
         },
     )
+
+    /** 自家面板（搜索/网格/动作面板）在屏计数：面板上的长按不能当“识屏”。 */
+    private val openPanels = hunoia.luno.runtime.overlay.OpenPanelCounter()
     private var refreshJob: Job? = null
 
     /** 键盘在屏期间的可见性短轮询：IME 可能无 a11y 事件地消失，只靠事件会一直停在「弹出」。 */
@@ -1067,14 +1070,29 @@ class GestureCoordinator(
         // 识屏长按复用同一股内核触摸流：把每帧（含非拦截区）喂给长按检测器。
         // 触钮拦截区内的长按交给手势管线（可能是触钮自己的长按动作），避免重复触发。
         shizukuTouchInput.globalFrameListener = listener@{ point, action ->
+            if (action == TouchAction.Down) {
+                val service = hunoia.luno.service.SideGestureService.current
+                // Luno 自己的界面不参与“全局长按识屏”：
+                // - 识屏层/取点窗在屏：长按由窗口自己的手势处理（否则会双触发）；
+                // - 搜索/网格/动作面板在屏：那是面板交互；
+                // - 前台是自家 Activity，或触点落在自家窗口（浮球/面板）上。
+                if (service == null ||
+                    service.isScreenPickVisible() ||
+                    service.isPointPickVisible() ||
+                    service.isScreenPickPortalVisible()
+                ) {
+                    return@listener
+                }
+                if (openPanels.hasOpenPanels) return@listener
+                if (service.isOwnUiForeground() ||
+                    service.isOwnWindowAt(point.x.toInt(), point.y.toInt())
+                ) {
+                    return@listener
+                }
+            }
             val regions = touchInputLayout().interceptRegions()
             // 抬手保留的幽灵卡在屏时，新的 DOWN 由 overlay 窗口直接处理，
             // 不能让内核流再起一份长按（Move/Up 仍要继续转发当前全局会话）。
-            if (action == TouchAction.Down &&
-                hunoia.luno.service.SideGestureService.current?.isScreenPickPortalVisible() == true
-            ) {
-                return@listener
-            }
             // 只有 DOWN 要避开触钮拦截区（那属于触钮手势）；一旦全局长按会话开始，
             // MOVE/UP 必须继续转发，否则拖到屏幕右半的触钮区就会“卡住不跟手”。
             if (action == TouchAction.Down &&
@@ -1678,6 +1696,7 @@ class GestureCoordinator(
         PackageChangeReceiver.unregisterForEvents(host.context, packageChangeListener)
         runCatching { host.context.unregisterReceiver(shareReceiver) }
         AutomationPulseHub.removeInterruptionObserver(interruptionObserver)
+        openPanels.close()
         runtimeSettingsStore.stop()
         timeConditionTicker.stop()
         batteryTracker.unregister()

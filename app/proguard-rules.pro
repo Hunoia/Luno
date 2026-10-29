@@ -40,3 +40,13 @@
     public static int d(...);
     public static int i(...);
 }
+
+# ML Kit（unbundled 文本识别）：release 下 R8 会优化组件注册链，
+# 实测崩在 InputImage.fromBitmap → MlKitContext.get(SharedPrefManager) 返回 null 的 NPE。
+# 官方 consumer 规则只保 ComponentRegistrar 类名，不足以保住注册用的静态字段/方法体。
+-keep class com.google.mlkit.** { *; }
+-keep class com.google.android.gms.internal.mlkit_common.** { *; }
+-keep class com.google.android.gms.internal.mlkit_vision_common.** { *; }
+-keep class com.google.android.gms.internal.mlkit_vision_text_bundled_common.** { *; }
+-dontwarn com.google.mlkit.**
+-dontwarn com.google.android.gms.internal.mlkit_**

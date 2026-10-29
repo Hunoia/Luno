@@ -132,6 +132,34 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     /** 幽灵卡是否正在显示（抬手保留后，下一次按下由 overlay 自己处理）。 */
     fun isScreenPickPortalVisible(): Boolean = screenPickOverlay.isPortalActive
 
+    /** 识屏拾取层是否在屏（普通框选态也算：此时长按由 overlay 自己处理）。 */
+    fun isScreenPickVisible(): Boolean = screenPickOverlay.isShown
+
+    /** 屏幕取点窗是否在屏。 */
+    fun isPointPickVisible(): Boolean = pointPickOverlay.isShown
+
+    /** 前台 Activity 是否 Luno 自身界面（设置/搜索/链接选择等）。 */
+    fun isOwnUiForeground(): Boolean =
+        runCatching { rootInActiveWindow?.packageName?.toString() }.getOrNull() == packageName
+
+    /**
+     * 触点是否落在 Luno 自家窗口上（浮球/面板/识屏层）：按 layer 从高到低找第一个
+     * 包含触点的窗口，取它的包名。自家 overlay 的 root 偶发为空时继续往下找，
+     * 交由调用方的面板/Surface 状态兜底。
+     */
+    fun isOwnWindowAt(x: Int, y: Int): Boolean {
+        val own = packageName
+        val currentWindows = runCatching { windows }.getOrNull() ?: return false
+        for (window in currentWindows.sortedByDescending { it.layer }) {
+            val bounds = android.graphics.Rect()
+            window.getBoundsInScreen(bounds)
+            if (!bounds.contains(x, y)) continue
+            val pkg = runCatching { window.root?.packageName?.toString() }.getOrNull()
+            if (pkg != null) return pkg == own
+        }
+        return false
+    }
+
     /**
      * 剪贴板拖拽落点输入：在屏幕 (x,y) 下的输入框里直接写入文本（仅个别编辑器才用剪贴板粘贴兜底）。
      * 面板浮窗自己吞掉系统拖放事件，跨应用输入只能走无障碍节点（见 TextInserter）。

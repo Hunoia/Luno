@@ -63,6 +63,9 @@ class PointPickOverlay(private val host: GestureHost) {
     private var onCommit: ((Int, Int) -> Unit)? = null
     private var onDismiss: (() -> Unit)? = null
 
+    /** 拾取窗口是否在屏。 */
+    val isShown: Boolean get() = overlayView != null
+
     /** 打开 overlay。[onCommit] 在点【确定】时回调 dp 坐标；[onDismiss] 在关闭时调用。 */
     fun show(
         initialXdp: Int?,
