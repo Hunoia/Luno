@@ -17,8 +17,10 @@ enum class TouchInputMode {
     ONLY_SHIZUKU,
 
     /**
-     * 无障碍在线走按钮窗；无障碍不在线且 Shizuku 就绪时自动切到内核触摸流。
-     * 默认值：没装 Shizuku / 没授权时退化成 [ONLY_ACCESSIBILITY]，与旧行为一致。
+     * 无障碍在线走按钮窗；Shizuku 就绪且无障碍不在线时自动切到内核触摸流。
+     *
+     * 显式选择才启用：默认值仍是 [ONLY_ACCESSIBILITY]，因为“Shizuku 一就绪就静默改走内核流
+     * 并生成拦截窗”会改变既有按钮的手感与耗电，不适合当默认。
      */
     AUTO,
 }
@@ -32,7 +34,7 @@ enum class TouchInputMode {
 @Serializable
 @Keep
 data class TouchInputConfig(
-    val mode: TouchInputMode = TouchInputMode.AUTO,
+    val mode: TouchInputMode = TouchInputMode.ONLY_ACCESSIBILITY,
     /**
      * 拦截区宽度（dp）。`0` 表示整块触发区域（默认）：Shizuku 场景下这一块本来就归它，
      * 不需要为了穿透把条带做窄。调小则只吃贴边一条，其余触摸照常穿透到下层。

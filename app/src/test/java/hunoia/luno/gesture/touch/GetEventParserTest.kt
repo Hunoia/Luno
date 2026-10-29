@@ -52,6 +52,17 @@ class GetEventParserTest {
     }
 
     @Test
+    fun `parse event line tolerates device path prefix`() {
+        val event = GetEventParser.parseEvent(
+            "/dev/input/event2: [   75100.752262] EV_ABS       ABS_MT_POSITION_X    00000123"
+        )
+        assertNotNull(event)
+        assertEquals("EV_ABS", event!!.type)
+        assertEquals("ABS_MT_POSITION_X", event.code)
+        assertEquals(0x123, event.value)
+    }
+
+    @Test
     fun `parse event rejects non event lines`() {
         assertNull(GetEventParser.parseEvent("add device 1: /dev/input/event2"))
         assertNull(GetEventParser.parseEvent(""))

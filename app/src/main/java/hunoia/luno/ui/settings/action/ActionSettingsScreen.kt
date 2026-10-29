@@ -17,8 +17,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
+import hunoia.luno.config.model.InitialSettings
+import hunoia.luno.config.model.ScreenPickGesture
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.Gesture
@@ -58,6 +61,11 @@ fun ActionSettingsScreen(
     val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = ActionSettings())
     val advancedSettings by TuneConfig.advanced.collectAsStateWithLifecycle(initialValue = AdvancedSettings())
     val gestureSettings by TuneConfig.gesture.collectAsStateWithLifecycle(initialValue = GestureSettings())
+    val initialSettings by GestureConfig.initial.collectAsStateWithLifecycle(initialValue = InitialSettings())
+    val screenPick = initialSettings.screenPickGesture
+    val updateScreenPick: (ScreenPickGesture) -> Unit = { next ->
+        scope.launch { GestureConfig.updateInitial { it.copy(screenPickGesture = next) } }
+    }
     LunoScreen(
         title = stringResource(R.string.action_settings),
         onBack = onBack,
@@ -163,6 +171,19 @@ fun ActionSettingsScreen(
             }
             LunoGroup(title = stringResource(R.string.action_settings_screen_pick_group)) {
                 LunoSwitchRow(
+                    title = stringResource(R.string.screen_pick_global_long_press),
+                    subtitle = stringResource(R.string.screen_pick_global_long_press_hint),
+                    checked = screenPick.enabled,
+                    onCheckedChange = { checked ->
+                        updateScreenPick(screenPick.copy(enabled = checked))
+                    },
+                    shape = segmentedShape(0, 3),
+                )
+                LunoScreenPickSliders(
+                    screenPick = screenPick,
+                    onCommit = updateScreenPick,
+                )
+                LunoSwitchRow(
                     title = stringResource(R.string.screen_pick_save_to_gallery),
                     subtitle = stringResource(R.string.screen_pick_save_to_gallery_hint),
                     checked = advancedSettings.screenPickSaveToGallery,
@@ -173,13 +194,47 @@ fun ActionSettingsScreen(
                             }
                         }
                     },
-                    shape = segmentedShape(0, 1),
+                    shape = segmentedShape(2, 3),
                 )
             }
     }
 }
 
 /** 指针手感/外观滑杆组：拖动改草稿，松手统一落盘。 */
+@Composable
+private fun LunoScreenPickSliders(
+    screenPick: ScreenPickGesture,
+    onCommit: (ScreenPickGesture) -> Unit,
+) {
+    // 滑杆是浮点：本地草稿避免拖动中频繁落盘，松手才提交。
+    var delayDraft by remember(screenPick.longPressDelayMs) {
+        mutableStateOf(screenPick.longPressDelayMs.toFloat())
+    }
+    var slopDraft by remember(screenPick.slopDp) { mutableStateOf(screenPick.slopDp) }
+    LunoTextSlider(
+        value = delayDraft,
+        onValueChange = { delayDraft = it },
+        onValueChangeFinished = {
+            onCommit(screenPick.copy(longPressDelayMs = delayDraft.roundToInt()))
+        },
+        text = stringResource(R.string.screen_pick_long_press_delay),
+        valueDisplay = { stringResource(R.string.screen_pick_long_press_delay_value, it.roundToInt()) },
+        valueRange = 200f..1000f,
+        shape = segmentedShape(1, 3),
+    )
+    LunoTextSlider(
+        value = slopDraft,
+        onValueChange = { slopDraft = it },
+        onValueChangeFinished = {
+            onCommit(screenPick.copy(slopDp = slopDraft.roundToInt().toFloat()))
+        },
+        text = stringResource(R.string.screen_pick_slop),
+        valueDisplay = { stringResource(R.string.screen_pick_slop_value, it.roundToInt()) },
+        valueRange = 2f..40f,
+        shape = segmentedShape(2, 3),
+    )
+}
+
 @Composable
 private fun PointerControls(
     pointer: GestureSettings.Pointer,

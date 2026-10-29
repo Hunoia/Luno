@@ -153,6 +153,12 @@
     <string name="action_settings_panel_group">面板</string>
     <string name="action_settings_other_group">其他</string>
     <string name="action_settings_screen_pick_group">屏幕识别</string>
+    <string name="screen_pick_global_long_press">全屏长按识屏</string>
+    <string name="screen_pick_global_long_press_hint">任意位置按住，拖到底部动作上松手执行（需 Shizuku）</string>
+    <string name="screen_pick_long_press_delay">长按时间</string>
+    <string name="screen_pick_long_press_delay_value">%1$d ms</string>
+    <string name="screen_pick_slop">拖动容差</string>
+    <string name="screen_pick_slop_value">%1$d dp</string>
     <string name="screen_pick_save_to_gallery">识屏图片保存到相册</string>
     <string name="screen_pick_save_to_gallery_hint">关闭时分享只写缓存；复制图片仍需写一份到相册以保证粘贴兼容</string>
     <string name="float_ball_permission_required">需要「显示在其他应用上层」权限</string>

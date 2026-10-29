@@ -20,24 +20,35 @@ import hunoia.luno.bridge.ui.windowManager
 class InterceptWindows(private val context: Context) {
 
     private val wm: WindowManager get() = context.windowManager()
-    private val views = mutableListOf<Pair<View, InterceptRegion>>()
+    private val views = LinkedHashMap<InterceptRegion, View>()
 
     var isShowing: Boolean = false
         private set
 
+    /**
+     * 按 diff 更新：只摘掉没了的区、只添加新出现的区。
+     * 之前每次配置发射都全拆全建，拦截窗会闪一下（那段时间触摸穿透到下层）。
+     */
     fun update(regions: List<InterceptRegion>) {
-        release()
-        if (regions.isEmpty()) return
-        if (!Settings.canDrawOverlays(context)) return
+        if (!Settings.canDrawOverlays(context)) {
+            release()
+            return
+        }
+        val wanted = regions.toSet()
+        val removed = views.keys.filterNot { it in wanted }
+        removed.forEach { region ->
+            views.remove(region)?.let { view -> runCatching { wm.removeView(view) } }
+        }
         regions.forEach { region ->
-            add(region)?.let { views += it to region }
+            if (region in views) return@forEach
+            add(region)?.let { views[region] = it }
         }
         isShowing = views.isNotEmpty()
     }
 
     /** 注入/临时放行期间关掉触摸，避免自己的注入再次命中拦截窗。 */
     fun setTouchable(touchable: Boolean) {
-        views.forEach { (view, _) ->
+        views.values.forEach { view ->
             val lp = view.layoutParams as? WindowManager.LayoutParams ?: return@forEach
             val before = lp.flags
             lp.flags = if (touchable) {
@@ -52,7 +63,7 @@ class InterceptWindows(private val context: Context) {
     }
 
     fun release() {
-        views.forEach { (view, _) -> runCatching { wm.removeView(view) } }
+        views.values.forEach { view -> runCatching { wm.removeView(view) } }
         views.clear()
         isShowing = false
     }

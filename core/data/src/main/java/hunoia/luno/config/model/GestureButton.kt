@@ -88,7 +88,12 @@ data class GestureButton(
     val doubleTapTriggerDelayMs: Long = GestureButtonDefaults.DoubleTapTriggerDelayMs,
     val slideHoldTriggerDelayMs: Long = GestureButtonDefaults.SlideHoldTriggerDelayMs,
     val longSlideHoldTriggerDelayMs: Long = GestureButtonDefaults.LongSlideHoldTriggerDelayMs,
-    /** 触摸来源：无障碍窗口 / 内核触摸流（Shizuku）。每个触钮各自决定。 */
+    /**
+     * 触摸来源：无障碍窗口 / 内核触摸流（Shizuku）。每个触钮各自决定。
+     *
+     * 默认 [TouchInputMode.ONLY_ACCESSIBILITY]：接入内核触摸流不改变任何存量按钮的行为，
+     * 想要“系统边缘手势抢不走触摸”的按钮需要显式切成 AUTO / ONLY_SHIZUKU。
+     */
     val touchInput: TouchInputConfig = TouchInputConfig(),
 ) {
 

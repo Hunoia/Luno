@@ -81,9 +81,6 @@ interface SurfaceHost {
     /** 识屏取链（transient Surface）：挂在无障碍服务窗口上。 */
     fun showScreenLinks(): Boolean
 
-    /** 按压取词（transient Surface）：在触点坐标处取词并弹结果浮层。返回是否成功发起。 */
-    fun showExtract(x: Int, y: Int): Boolean
-
     /**
      * 悬浮球显隐：`hideForMs > 0` 走临时隐藏（只摘窗口、到期恢复），否则改 enabled 存量。
      * 配置写入与 FloatBallService 都留在 Surface 层。

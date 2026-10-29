@@ -12,7 +12,4 @@
     <string name="gesture_switch_retry_failed">未检测到无障碍服务已开启，开关已复位</string>
     <string name="restore_confirm_title">确认恢复配置？</string>
     <string name="restore_confirm_desc">恢复后将覆盖当前设置。</string>
-    <string name="extract_global_long_press_title">全屏长按取词</string>
-    <string name="extract_global_long_press_subtitle">任意位置按住取词（需 Shizuku）</string>
-    <string name="extract_needs_shizuku_subtitle">需先授权 Shizuku 才能使用</string>
 </resources>

@@ -42,6 +42,9 @@ import hunoia.luno.core.LOG_TAG
  */
 class QuickSearchActivity : ComponentActivity() {
 
+    /** 带词打开：识屏幽灵卡「搜索」把识别文本带进来。 */
+    private val initialQuery = mutableStateOf("")
+
     private val index by lazy { QuickSearchIndexProvider.get(applicationContext) }
 
     /** 面板开着时装卸应用：立即重扫，结果经 indexVersion 触发重搜。 */
@@ -155,6 +158,7 @@ class QuickSearchActivity : ComponentActivity() {
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
         window.attributes.blurBehindRadius = 80
         if (BuildConfig.DEBUG) Log.i(LOG_TAG, "QuickSearchActivity onCreate taskId=$taskId")
+        initialQuery.value = intent?.getStringExtra(EXTRA_QUERY).orEmpty()
         if (!shownEventPosted) {
             shownEventPosted = true
             Events.post(PanelShownEvent())
@@ -202,6 +206,7 @@ class QuickSearchActivity : ComponentActivity() {
                             )
                         }
                     },
+                    initialQuery = initialQuery.value,
                 )
             }
         }
@@ -274,6 +279,9 @@ class QuickSearchActivity : ComponentActivity() {
         // singleTask 重复触发：面板已在前台，保留当前内容；只重扫包列表，避免
         // 上次打开期间装卸的应用在复用时仍按旧索引搜不到。
         if (BuildConfig.DEBUG) Log.i(LOG_TAG, "QuickSearchActivity onNewIntent taskId=$taskId")
+        intent?.getStringExtra(EXTRA_QUERY)?.takeIf { it.isNotBlank() }?.let {
+            initialQuery.value = it
+        }
         lifecycleScope.launch(Dispatchers.IO) { runCatching { index.invalidateApps() } }
     }
 
@@ -296,21 +304,27 @@ class QuickSearchActivity : ComponentActivity() {
     private var shownEventPosted = false
 
     companion object {
+        private const val EXTRA_QUERY = "hunoia.luno.quicklaunch.extra.QUERY"
+
         /**
          * 从手势/Service 上下文启动搜索面板。
          * BAL（后台启动限制）：无障碍服务不在豁免名单，但应用有常驻可见窗口（手势触钮）
          * 时 BAL_ALLOW_VISIBLE_WINDOW 放行——悬浮触钮点开 Activity 是标准路径。
          * 真机若被拦：logcat 会有 "Background activity start ... blocked"。
+         *
+         * @return 是否成功发起；识屏幽灵卡的「搜索」槽用它决定是否提示失败。
          */
-        fun start(context: Context) {
+        fun start(context: Context, query: String = ""): Boolean {
             val intent = Intent(context, QuickSearchActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (query.isNotBlank()) putExtra(EXTRA_QUERY, query)
             }
             val ok = runCatching { context.startActivity(intent) }.isSuccess
             if (!ok) {
                 Log.w(LOG_TAG, "QuickSearchActivity start failed")
                 showToast(R.string.quick_search_start_failed)
             }
+            return ok
         }
     }
 }

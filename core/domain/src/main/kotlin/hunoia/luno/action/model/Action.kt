@@ -259,14 +259,6 @@ sealed interface Action {
         override val typeId: String = "internal.previousApp"
     }
     /**
-     * 按压取词：长按落点处取文字并弹结果浮层（feature:extract）。
-     * 与指针 / 滑动调音量同属「手势工具」类内部动作，不进普通执行器——
-     * 触发侧（GestureCoordinator.onAction）拦截后改走 SurfaceHost.showExtract。
-     */
-    data object Extract : Action {
-        override val typeId: String = "internal.extract"
-    }
-    /**
      * 运行规则（规则即动作）：只跑目标规则的 effect steps，目标自身的触发条件/
      * 节流/优先级全部忽略；嵌套由执行层深度上限兜底。
      */

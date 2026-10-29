@@ -175,6 +175,7 @@ internal fun QuickSearchContent(
     onAction: (SearchAction, String) -> Unit,
     onTogglePin: (String, String) -> Unit,
     onOpenAppSettings: () -> Unit,
+    initialQuery: String = "",
 ) {
     val libraryFlow = remember { hunoia.luno.domain.search.SearchCenter.actionLibrary }
     val libraryState by libraryFlow.collectAsState(initial = ActionLibrarySettings())
@@ -184,6 +185,10 @@ internal fun QuickSearchContent(
     val searchSettingsFlow = remember { hunoia.luno.domain.search.SearchCenter.search }
     val searchSettings by searchSettingsFlow.collectAsState(initial = QuickSearchSettings())
     var query by remember { mutableStateOf(TextFieldValue("")) }
+    // 带词打开（识屏幽灵卡「搜索」）：预填并触发一次搜索；面板复用时随新词更新。
+    LaunchedEffect(initialQuery) {
+        if (initialQuery.isNotBlank()) query = TextFieldValue(initialQuery)
+    }
     var menuResult by remember { mutableStateOf<SearchResult?>(null) }
     val scope = rememberCoroutineScope()
     // 权限状态 + 媒体授权申请：数据装载效果（QuickSearchDataEffects）与空态授权行共用。

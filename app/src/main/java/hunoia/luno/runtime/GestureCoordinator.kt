@@ -41,13 +41,8 @@ import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.QuickAppSnapshot
 import hunoia.luno.quicklaunch.query.AppSearch
 import hunoia.luno.quicklaunch.query.DisabledAppQuery
-import hunoia.luno.action.controller.ClipboardController
-import hunoia.luno.extract.ExtractActions
-import hunoia.luno.extract.ExtractController
-import hunoia.luno.quicklaunch.QuickSearchActivity
 import java.util.Locale
 import hunoia.luno.action.dispatcher.ActionDispatcher
-import hunoia.luno.config.model.ExtractConfig
 import hunoia.luno.config.model.ScreenEventType
 import hunoia.luno.runtime.environment.PreviousAppTracker
 import hunoia.luno.runtime.condition.AudioVolumeTracker
@@ -98,7 +93,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration.Companion.milliseconds
 import hunoia.luno.gesture.hasAnyActions
-import hunoia.luno.gesture.touch.TouchAction
+import hunoia.luno.gesture.touchsource.GlobalLongPressTrigger
 import hunoia.luno.gesture.touchsource.TouchInputGeometry
 import hunoia.luno.core.LOG_TAG
 
@@ -148,22 +143,35 @@ class GestureCoordinator(
     val buttonWindowController = ButtonWindowController(host.context)
     val transientOverlayController = TransientOverlayController(host.context)
 
-    /** 按压取词编排（feature:extract）：触发侧只把坐标喂进来，结果走轻量浮层。 */
-    private val extractController by lazy { ExtractController(host, LunoExtractActions(host)) }
+    /**
+     * 识屏长按配置：跟随手势总开关。总开关关闭时不启动内核触摸流，
+     * 也不接受全屏长按（与侧边手势保持一致）。
+     */
+    private val screenPickGestureConfig: hunoia.luno.config.model.ScreenPickGesture
+        get() = runtimeSettingsStore.snapshot().initialSettings.let { initial ->
+            if (!initial.gestureEnabled) {
+                initial.screenPickGesture.copy(enabled = false)
+            } else {
+                initial.screenPickGesture
+            }
+        }
 
     /**
-     * 按压取词配置（全屏长按触发）：挂在 [hunoia.luno.config.model.InitialSettings.extract]，
-     * 运行时读最新快照，设置页开关即时生效（见 syncTouchInputSources / showExtract）。
+     * 全屏长按识屏检测器：复用 ADR-0003 内核触摸流（需 Shizuku），不消费触摸。
+     * 触发后由同一股原始触摸流继续喂拖动/抬手，幽灵卡靠它跟随手指。
      */
-    private val extractConfig: ExtractConfig
-        get() = runtimeSettingsStore.snapshot().initialSettings.extract
-
-    /** 全屏任意位置长按取词检测器：复用 ADR-0003 内核触摸流（需 Shizuku），不消费触摸。 */
-    private val globalExtractLongPress = GlobalExtractLongPress(
-        configProvider = { extractConfig },
-    ) { x, y ->
-        executeSurfaces.showExtract(x, y)
-    }
+    private val globalScreenPickTrigger = GlobalLongPressTrigger(
+        config = { screenPickGestureConfig },
+        onTrigger = { x, y ->
+            hunoia.luno.service.SideGestureService.current?.showScreenPickPortal(x, y)
+        },
+        onDrag = { x, y ->
+            hunoia.luno.service.SideGestureService.current?.moveScreenPickPortal(x, y)
+        },
+        onRelease = { x, y ->
+            hunoia.luno.service.SideGestureService.current?.releaseScreenPickPortal(x, y)
+        },
+    )
     private var refreshJob: Job? = null
 
     /** 键盘在屏期间的可见性短轮询：IME 可能无 a11y 事件地消失，只靠事件会一直停在「弹出」。 */
@@ -385,18 +393,6 @@ class GestureCoordinator(
 
         override fun showScreenLinks(): Boolean =
             hunoia.luno.service.SideGestureService.current?.showScreenLinks() == true
-
-        override fun showExtract(x: Int, y: Int): Boolean {
-            if (!started) return false
-            return showExtract(x, y, extractConfig.preferOcr)
-        }
-
-        fun showExtract(x: Int, y: Int, preferOcr: Boolean): Boolean {
-            if (!started) return false
-            val pkg = host.getCurrentPackageName()
-            host.coroutineScope.launch { extractController.extractAt(x, y, pkg, preferOcr) }
-            return true
-        }
 
         override fun shareFile(): hunoia.luno.core.domain.ActionResult = runCatching {
             host.context.startActivity(
@@ -1001,13 +997,27 @@ class GestureCoordinator(
             layoutProvider = { touchInputLayout() },
         ).also { shizukuTouchInputRef = it }
 
-    /** 当前来源仲裁所需的几何快照。只在 DOWN 时读，不参与逐帧计算。 */
+    /** 当前来源仲裁所需的几何快照。仅在配置快照/拦截态变化时重建，逐帧复用同一实例。 */
+    private var cachedTouchInputLayout: hunoia.luno.gesture.touchsource.TouchInputLayout? = null
+    private var cachedTouchInputState: hunoia.luno.runtime.settings.SettingsState? = null
+    private var cachedTouchInputStreaming = false
+
     private fun touchInputLayout(): hunoia.luno.gesture.touchsource.TouchInputLayout {
         val state = runtimeSettingsStore.snapshot()
+        val streaming = shizukuTouchInput.intercepting
+        val cached = cachedTouchInputLayout
+        if (cached != null &&
+            cachedTouchInputState === state &&
+            cachedTouchInputStreaming == streaming
+        ) {
+            return cached
+        }
+        cachedTouchInputState = state
+        cachedTouchInputStreaming = streaming
         return hunoia.luno.gesture.touchsource.TouchInputLayout(
             buttons = state.gestureButtons,
-            shizukuStreaming = shizukuTouchInput.intercepting,
-        )
+            shizukuStreaming = streaming,
+        ).also { cachedTouchInputLayout = it }
     }
 
     /** 把配置快照推给管线；按钮/手势参数变化会重建识别状态，此时旧会话作废。 */
@@ -1027,18 +1037,19 @@ class GestureCoordinator(
     }
 
     /**
-     * 按「是否至少有一个触钮配了内核触摸流」决定 Shizuku 源是否运行；无障碍窗口来源始终在跑。
-     * 来源是每个触钮各自的实现选择，这里只做聚合。
+     * 需要内核触摸流的情形：手势总开关开启，且至少一个触钮配了 Shizuku 来源
+     * 或开启了全屏长按识屏。总开关关闭时整条内核链路都停，与侧边手势一致。
      */
     private fun syncTouchInputSources() {
         val state = runtimeSettingsStore.snapshot()
-        val wantShizuku = state.initialSettings.gestureEnabled &&
-            (
-                state.gestureButtons.any {
-                    it.hasAnyActions() &&
-                        it.touchInput.mode != hunoia.luno.config.model.TouchInputMode.ONLY_ACCESSIBILITY
-                } || extractConfig.enabled
-            )
+        val gestureEnabled = state.initialSettings.gestureEnabled
+        val buttonsWantShizuku = gestureEnabled &&
+            state.gestureButtons.any {
+                it.hasAnyActions() &&
+                    it.touchInput.mode != hunoia.luno.config.model.TouchInputMode.ONLY_ACCESSIBILITY
+            }
+        val wantShizuku = gestureEnabled &&
+            (buttonsWantShizuku || state.initialSettings.screenPickGesture.enabled)
         motionEventInput.start()
         if (wantShizuku) {
             shizukuTouchInput.start()
@@ -1046,12 +1057,12 @@ class GestureCoordinator(
             // 只在真的在跑时停：无谓 stop 会 router.reset()，把进行中的手势会话掐断。
             shizukuTouchInput.stop()
         }
-        // 全屏长按取词复用同一股内核触摸流：把每帧（含非拦截区）喂给长按检测器。
-        // 触钮拦截区内的长按交给手势管线（可能就是 internal.extract），避免重复触发。
+        // 识屏长按复用同一股内核触摸流：把每帧（含非拦截区）喂给长按检测器。
+        // 触钮拦截区内的长按交给手势管线（可能是触钮自己的长按动作），避免重复触发。
         shizukuTouchInput.globalFrameListener = listener@{ point, action ->
             val regions = touchInputLayout().interceptRegions()
             if (regions.isNotEmpty() && TouchInputGeometry.contains(regions, point) != null) return@listener
-            globalExtractLongPress.onFrame(point, action)
+            globalScreenPickTrigger.onFrame(point, action)
         }
         shizukuTouchInput.refreshGeometry()
     }
@@ -1142,13 +1153,6 @@ class GestureCoordinator(
             touchPosition: Offset,
             decision: hunoia.luno.gesture.GestureDecision.Trigger?,
         ) {
-            // 按压取词：不进分发口，改走 SurfaceHost.showExtract（轻量浮层，不静默改剪贴板）。
-            if (action.typeId == "internal.extract") {
-                val x = touchPosition.x
-                val y = touchPosition.y
-                if (x.isFinite() && y.isFinite()) executeSurfaces.showExtract(x.roundToInt(), y.roundToInt())
-                return
-            }
             onGestureDecision(decision, action, sourceButton, touchPosition)
         }
     }
@@ -1808,76 +1812,5 @@ class GestureCoordinator(
             pipeline = gesturePipeline,
             settingsState = runtimeSettingsStore.state,
         )
-    }
-}
-
-/** 取词结果浮层上的用户动作出口：落点在 `:app`（剪贴板 / 快速搜索 / 系统分享）。 */
-private class LunoExtractActions(
-    private val host: GestureHost,
-) : ExtractActions {
-    override fun copy(text: String) {
-        ClipboardController(host.context.applicationContext).copyText(text)
-    }
-
-    override fun search(text: String) {
-        QuickSearchActivity.start(host.context)
-    }
-
-    override fun share(text: String) {
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, text)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        runCatching { host.context.startActivity(Intent.createChooser(intent, null)) }
-    }
-}
-
-/**
- * 全屏任意位置长按取词检测器：复用 ADR-0003 内核触摸流（[ShizukuTouchInputSource] 每帧回调）。
- *
- * 口径对齐一墨：按住 ≥ [ExtractConfig.longPressDelayMs] 且位移 < slop 才触发；
- * 位移超 slop 视为拖动、UP 视为取消，都不取词。触发后弹轻量浮层，不静默改剪贴板。
- * 不消费触摸——底层 App 仍收到同一段按下，与一墨“下层可能跟随”同口径。
- */
-private class GlobalExtractLongPress(
-    private val configProvider: () -> ExtractConfig,
-    private val onTrigger: (x: Int, y: Int) -> Unit,
-) {
-    private var downX = 0f
-    private var downY = 0f
-    private var downAt = 0L
-    private var fired = false
-
-    fun onFrame(point: Offset, action: TouchAction) {
-        val config = configProvider()
-        if (!config.enabled) return
-        val slopPx = (config.slopDp * hunoia.luno.bridge.ui.DensityProvider.density)
-        when (action) {
-            TouchAction.Down -> {
-                downX = point.x
-                downY = point.y
-                downAt = android.os.SystemClock.uptimeMillis()
-                fired = false
-            }
-            TouchAction.Move -> {
-                if (fired) return
-                val dist = kotlin.math.hypot((point.x - downX).toDouble(), (point.y - downY).toDouble())
-                if (dist > slopPx) {
-                    reset()
-                    return
-                }
-                if (android.os.SystemClock.uptimeMillis() - downAt >= config.longPressDelayMs) {
-                    fired = true
-                    onTrigger(point.x.roundToInt(), point.y.roundToInt())
-                }
-            }
-            TouchAction.Up -> reset()
-        }
-    }
-
-    fun reset() {
-        fired = false
-        downAt = 0L
     }
 }

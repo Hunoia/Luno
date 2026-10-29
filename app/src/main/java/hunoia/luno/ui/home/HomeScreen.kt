@@ -76,7 +76,6 @@ import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.ThemeColorKey
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.ColorSelection
-import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.actionlibrary.ActionLibraryScreen
 import hunoia.luno.ui.automation.AutomationRulesTabContent
 import hunoia.luno.ui.component.FloatingBottomBar
@@ -401,24 +400,6 @@ fun HomeScreen(
                                     onGestureSwitchEnabledChange = { enabled ->
                                         vm.onGestureSwitchChange(enabled) { context.gotoAccessibilitySettings() }
                                     },
-                                )
-                            }
-
-                            item(key = "extract_global") {
-                                val shizukuReady =
-                                    uiState.shizukuStatus.binderAlive && uiState.shizukuStatus.permissionGranted
-                                LunoSwitchRow(
-                                    title = stringResource(R.string.extract_global_long_press_title),
-                                    subtitle = stringResource(
-                                        if (shizukuReady) {
-                                            R.string.extract_global_long_press_subtitle
-                                        } else {
-                                            R.string.extract_needs_shizuku_subtitle
-                                        },
-                                    ),
-                                    checked = uiState.isExtractEnabled,
-                                    enabled = shizukuReady,
-                                    onCheckedChange = { vm.onExtractEnabledChange(it) },
                                 )
                             }
 

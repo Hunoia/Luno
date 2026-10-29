@@ -112,7 +112,8 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
             }
             is Action.SplitScreen -> executionResult(controller.toggleSplitScreen())
             is Action.PowerButton -> withShellFallback(controller.powerDialog()) {
-                hunoia.luno.shizuku.ShizukuInputInjection.keyEvent(KEYCODE_POWER)
+                // 短按电源键只会熄屏；电源菜单是长按语义。
+                hunoia.luno.shizuku.ShizukuInputInjection.keyEvent(KEYCODE_POWER, longPress = true)
             }
             is Action.NotificationPanel -> withShellFallback(controller.notificationPanel()) {
                 hunoia.luno.shizuku.ShizukuInputInjection.expandNotifications()
@@ -228,7 +229,6 @@ class InternalExecutors : ActionExecutor {
         "internal.volumeScrub",
         "internal.pointer",
         "internal.previousApp", "internal.runRule",
-        "internal.extract"
     )
 
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult {

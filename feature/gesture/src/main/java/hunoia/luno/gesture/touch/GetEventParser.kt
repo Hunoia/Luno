@@ -14,8 +14,12 @@ object GetEventParser {
     )
     private val INPUT_PROP = Regex("""INPUT_PROP_[A-Z0-9_]+""")
     private val KEY_CODE = Regex("""\b[A-Z][A-Z0-9_]{2,}\b""")
+    /**
+     * `getevent -lt` 在多设备或部分 ROM 上会给每行加 `/dev/input/eventN:` 前缀，
+     * 单设备时又没有。两种都要认，否则整条流会被当成无效行静默丢弃。
+     */
     private val EVENT_LINE = Regex(
-        """^\[\s*(\d+(?:\.\d+)?)\]\s+(\S+)\s+(\S+)\s+([0-9a-fA-F]+)\s*$"""
+        """^(?:/dev/input/event\d+:\s*)?\[\s*(\d+(?:\.\d+)?)\]\s+(\S+)\s+(\S+)\s+([0-9a-fA-F]+)\s*$"""
     )
 
     /**

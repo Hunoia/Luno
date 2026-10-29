@@ -1,7 +1,5 @@
 package hunoia.luno.shizuku
 
-import android.os.SystemClock
-
 /**
  * 以 shell 身份注入输入：
  * - [tap]/[swipe]/[longPress] 走 `input`，用于「被拦截但没有落到动作」之外的场景
@@ -31,20 +29,18 @@ object ShizukuInputInjection {
     suspend fun longPress(x: Int, y: Int, durationMs: Long = 700L): Boolean =
         swipe(x, y, x, y, durationMs)
 
-    /** 原始 motionevent 三步；给需要精确控制按下/抬起间隔的场景用。 */
-    suspend fun motionEvent(action: String, x: Int, y: Int): Boolean =
-        ShizukuManager.executeShell("input motionevent ${action.uppercase()} $x $y").isSuccess
-
-    suspend fun keyEvent(keyCode: Int): Boolean =
-        ShizukuManager.executeShell("input keyevent $keyCode").isSuccess
+    /**
+     * 按键注入。[longPress] 走 `input keyevent --longpress`：部分按键（如电源键 26）
+     * 的“长按语义”（电源菜单）只能这样触发，普通 click 只是短按。
+     */
+    suspend fun keyEvent(keyCode: Int, longPress: Boolean = false): Boolean {
+        val flag = if (longPress) "--longpress " else ""
+        return ShizukuManager.executeShell("input keyevent $flag$keyCode").isSuccess
+    }
 
     suspend fun expandNotifications(): Boolean =
         ShizukuManager.executeShell("cmd statusbar expand-notifications").isSuccess
 
     suspend fun expandQuickSettings(): Boolean =
         ShizukuManager.executeShell("cmd statusbar expand-settings").isSuccess
-
-    /** 注入窗口期：调用方用它屏蔽 getevent 里由自己注入的事件。 */
-    fun suppressUntil(durationMs: Long): Long =
-        SystemClock.uptimeMillis() + durationMs
 }

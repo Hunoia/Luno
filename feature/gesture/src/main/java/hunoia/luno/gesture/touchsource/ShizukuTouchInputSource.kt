@@ -5,8 +5,11 @@ import android.hardware.display.DisplayManager
 import android.os.SystemClock
 import android.view.Display
 import android.view.Surface
+import android.util.Log
 import androidx.compose.ui.geometry.Offset
 import hunoia.luno.bridge.ui.DensityProvider
+import hunoia.luno.core.LOG_TAG
+import hunoia.luno.gesture.BuildConfig
 import hunoia.luno.gesture.TouchWindowHint
 import hunoia.luno.gesture.touch.GetEventDevice
 import hunoia.luno.gesture.touch.GetEventParser
@@ -25,6 +28,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -77,10 +82,6 @@ class ShizukuTouchInputSource(
     /** 上一次真正摆上去的拦截区；配置每次发射都重建窗会闪，相同就跳过。 */
     private var appliedRegions: List<InterceptRegion> = emptyList()
 
-    /** 注入期间屏蔽自己注入的事件（按压取词等后续功能复用）。 */
-    @Volatile
-    var suppressUntilMs: Long = 0L
-
     /**
      * 全屏触摸帧监听（坐标已归屏幕像素）：每一帧（含非拦截区）都会回调，
      * 由 :app 用来做“全屏任意位置长按取词”等全局手势识别。
@@ -118,11 +119,13 @@ class ShizukuTouchInputSource(
 
     private suspend fun monitorLoop() {
         var attempt = 0
+        if (BuildConfig.DEBUG) Log.i(LOG_TAG, "touch source monitor start")
         while (scope.isActive) {
             _status.value = ShizukuTouchStatus(ShizukuTouchStatus.State.WAITING_SHIZUKU, "等待 Shizuku 授权")
             if (!awaitShizuku()) {
                 releaseWindows()
                 val backoff = backoffMs(attempt++)
+                if (BuildConfig.DEBUG) Log.w(LOG_TAG, "touch source waiting shizuku, retry in ${backoff}ms")
                 _status.value = ShizukuTouchStatus(
                     ShizukuTouchStatus.State.WAITING_SHIZUKU,
                     "Shizuku 未运行或未授权，${backoff / 1000}s 后重试",
@@ -135,6 +138,7 @@ class ShizukuTouchInputSource(
             val device = scanTouchDevice()
             if (device == null) {
                 val backoff = backoffMs(attempt++)
+                if (BuildConfig.DEBUG) Log.w(LOG_TAG, "touch source scan failed, retry in ${backoff}ms")
                 _status.value = ShizukuTouchStatus(
                     ShizukuTouchStatus.State.ERROR,
                     "未找到触摸屏设备（检查 getevent 权限），${backoff / 1000}s 后重试",
@@ -145,6 +149,12 @@ class ShizukuTouchInputSource(
 
             mapper.device = device
             applyWindows(force = true)
+            if (BuildConfig.DEBUG) {
+                Log.i(
+                    LOG_TAG,
+                    "touch source streaming device=${device.path} name=${device.name} intercepting=$intercepting",
+                )
+            }
             _status.value = ShizukuTouchStatus(
                 state = ShizukuTouchStatus.State.STREAMING,
                 detail = if (intercepting) {
@@ -169,6 +179,7 @@ class ShizukuTouchInputSource(
         val opened = ShizukuShellStream.openArgv("/system/bin/getevent", "-lt", device.path)
         val stream = when (opened) {
             is ShizukuShellStream.OpenResult.Failure -> {
+                if (BuildConfig.DEBUG) Log.w(LOG_TAG, "touch source open failed: ${opened.reason}")
                 _status.value = ShizukuTouchStatus(
                     ShizukuTouchStatus.State.ERROR,
                     "打开 ${device.path} 失败：${opened.reason}",
@@ -180,12 +191,12 @@ class ShizukuTouchInputSource(
         session = stream
         try {
             tracker.reset()
-            stream.lines.collect { line ->
-                if (SystemClock.uptimeMillis() < suppressUntilMs) return@collect
-                val event = GetEventParser.parseEvent(line) ?: return@collect
-                val frame = tracker.feed(event) ?: return@collect
-                dispatch(frame)
-            }
+            // 解析与聚帧都是纯文本/状态机运算，放在 IO 线程；主线程只接“已成形的帧”，
+            // 避免每行（EV_ABS/EV_SYN 一条一帧）都在主线程正则与排序。
+            stream.lines
+                .mapNotNull { line -> GetEventParser.parseEvent(line)?.let(tracker::feed) }
+                .flowOn(Dispatchers.IO)
+                .collect { frame -> dispatch(frame) }
             _status.value = ShizukuTouchStatus(
                 ShizukuTouchStatus.State.ERROR,
                 "事件流已结束：${stream.stderrText.ifBlank { "无 stderr" }}",
@@ -200,9 +211,26 @@ class ShizukuTouchInputSource(
         }
     }
 
+    /** 全屏帧监听用的屏幕坐标：UP 帧没有触摸点，抬手位置只能沿用最后一次坐标。 */
+    private var lastGlobalScreen: Offset? = null
+
     private fun dispatch(frame: TouchFrame) {
+        // UP 帧的 points 恒为空（TouchTracker 用“点集变空”表达抬手），
+        // 不能先取 primaryPoint 再转发，否则全局监听永远收不到 Up，
+        // 长按状态机会一直停在“已触发”（表现为只能触发一次）。
+        if (frame.action == TouchAction.Up) {
+            lastGlobalScreen?.let { globalFrameListener?.invoke(it, TouchAction.Up) }
+            lastGlobalScreen = null
+            if (router.currentSource == TouchSourceKind.SHIZUKU) {
+                mapper.lastScreen = null
+                router.onUp()
+            }
+            return
+        }
+
         val point = primaryPoint(frame) ?: return
         val screen = mapper.toScreen(point) ?: return
+        lastGlobalScreen = screen
         // 全屏帧先喂全局监听（含非拦截区）：长按取词等全局手势识别复用同一股原始输入，
         // 不取会话归属、不消费触摸（与 一墨 T3 同口径，底层 App 照常收到触摸）。
         globalFrameListener?.invoke(screen, frame.action)
@@ -223,11 +251,7 @@ class ShizukuTouchInputSource(
                 if (last == null) return
                 router.onMove(screen - last)
             }
-            TouchAction.Up -> {
-                if (router.currentSource != TouchSourceKind.SHIZUKU) return
-                mapper.lastScreen = null
-                router.onUp()
-            }
+            TouchAction.Up -> Unit
         }
     }
 
@@ -236,11 +260,11 @@ class ShizukuTouchInputSource(
         frame.points.minByOrNull { it.id }
 
     private suspend fun awaitShizuku(): Boolean {
-        repeat(20) {
+        // 不在主线程忙循环：每次尝试之间让出，让 Shizuku 状态更新有机会落地。
+        repeat(10) {
             ShizukuManager.updateStatus()
-            val status = ShizukuManager.currentStatus()
-            if (status.isReady) return true
-            if (!status.binderAlive) delay(500)
+            if (ShizukuManager.currentStatus().isReady) return true
+            delay(300)
         }
         return ShizukuManager.currentStatus().isReady
     }
@@ -291,6 +315,9 @@ class ShizukuTouchInputSource(
     }
 
     private fun closeSession() {
+        // 流在按住中途断掉时没有 UP：补一发抬手，避免全局长按状态机永远停在“已触发”。
+        lastGlobalScreen?.let { globalFrameListener?.invoke(it, TouchAction.Up) }
+        lastGlobalScreen = null
         session?.let { runCatching { it.close() } }
         session = null
     }
