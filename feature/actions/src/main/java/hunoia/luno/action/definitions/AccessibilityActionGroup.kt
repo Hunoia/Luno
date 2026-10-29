@@ -6,7 +6,6 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.ScreenLockPortrait
@@ -65,8 +64,6 @@ internal object AccessibilityActionGroup : ActionGroup {
             icon = Icons.Default.Screenshot),
         ActionDefinition("accessibility.screenPick", "识别屏幕内容", ActionCategory.GESTURE_TOOL, Capability.Accessibility,
             icon = Icons.Default.DocumentScanner),
-        ActionDefinition("accessibility.screenLinks", "识屏取链", ActionCategory.GESTURE_TOOL, Capability.Accessibility,
-            icon = Icons.Default.Link),
         ActionDefinition("accessibility.splitScreen", "分屏", ActionCategory.UI, Capability.Accessibility,
             icon = Icons.Default.Splitscreen),
         ActionDefinition("accessibility.powerButton", "电源菜单", ActionCategory.POWER, Capability.Accessibility,
@@ -119,7 +116,8 @@ internal object AccessibilityActionGroup : ActionGroup {
         ActionMappingRegistry.register("accessibility.swipe") { p -> Action.Swipe(p.enumValue("direction")) }
         ActionMappingRegistry.register("accessibility.screenshot") { Action.Screenshot }
         ActionMappingRegistry.register("accessibility.screenPick") { Action.ScreenPick }
-        ActionMappingRegistry.register("accessibility.screenLinks") { Action.ScreenLinks }
+        // 旧配置兼容：独立识链接页已并入识屏幽灵卡（长按含 URL 的文本时出现「打开链接」）。
+        ActionMappingRegistry.register("accessibility.screenLinks") { Action.ScreenPick }
         ActionMappingRegistry.register("accessibility.splitScreen") { Action.SplitScreen }
         ActionMappingRegistry.register("accessibility.powerButton") { Action.PowerButton }
         ActionMappingRegistry.register("accessibility.notificationPanel") { Action.NotificationPanel }

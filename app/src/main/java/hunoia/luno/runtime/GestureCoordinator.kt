@@ -93,6 +93,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration.Companion.milliseconds
 import hunoia.luno.gesture.hasAnyActions
+import hunoia.luno.gesture.touch.TouchAction
 import hunoia.luno.gesture.touchsource.GlobalLongPressTrigger
 import hunoia.luno.gesture.touchsource.TouchInputGeometry
 import hunoia.luno.core.LOG_TAG
@@ -155,6 +156,15 @@ class GestureCoordinator(
                 initial.screenPickGesture
             }
         }
+
+    /** 供 Surface 层复用同一套长按/拖动阈值。 */
+    fun currentScreenPickGesture(): hunoia.luno.config.model.ScreenPickGesture =
+        screenPickGestureConfig
+
+    /** 幽灵卡在屏时放开拦截条，避免右半屏的下一次按下被拦截窗抢走。 */
+    fun setScreenPickInterceptTouchable(touchable: Boolean) {
+        shizukuTouchInput.setInterceptTouchable(touchable)
+    }
 
     /**
      * 全屏长按识屏检测器：复用 ADR-0003 内核触摸流（需 Shizuku），不消费触摸。
@@ -390,9 +400,6 @@ class GestureCoordinator(
 
         override fun showScreenPick(): Boolean =
             hunoia.luno.service.SideGestureService.current?.showScreenPick() == true
-
-        override fun showScreenLinks(): Boolean =
-            hunoia.luno.service.SideGestureService.current?.showScreenLinks() == true
 
         override fun shareFile(): hunoia.luno.core.domain.ActionResult = runCatching {
             host.context.startActivity(
@@ -1061,7 +1068,21 @@ class GestureCoordinator(
         // 触钮拦截区内的长按交给手势管线（可能是触钮自己的长按动作），避免重复触发。
         shizukuTouchInput.globalFrameListener = listener@{ point, action ->
             val regions = touchInputLayout().interceptRegions()
-            if (regions.isNotEmpty() && TouchInputGeometry.contains(regions, point) != null) return@listener
+            // 抬手保留的幽灵卡在屏时，新的 DOWN 由 overlay 窗口直接处理，
+            // 不能让内核流再起一份长按（Move/Up 仍要继续转发当前全局会话）。
+            if (action == TouchAction.Down &&
+                hunoia.luno.service.SideGestureService.current?.isScreenPickPortalVisible() == true
+            ) {
+                return@listener
+            }
+            // 只有 DOWN 要避开触钮拦截区（那属于触钮手势）；一旦全局长按会话开始，
+            // MOVE/UP 必须继续转发，否则拖到屏幕右半的触钮区就会“卡住不跟手”。
+            if (action == TouchAction.Down &&
+                regions.isNotEmpty() &&
+                TouchInputGeometry.contains(regions, point) != null
+            ) {
+                return@listener
+            }
             globalScreenPickTrigger.onFrame(point, action)
         }
         shizukuTouchInput.refreshGeometry()

@@ -21,7 +21,7 @@ import java.util.UUID
 data class LinkDispatchSettings(
     /**
      * 总开关：关掉后胶囊不再识别链接、外部打开也不按规则分发（走 [missAction]）。
-     * 识屏取链（`accessibility.screenLinks`）不受影响：仍能扫描/复制，只跳过分发。
+     * 识屏幽灵卡的「打开链接」仍可用，但同样跳过规则分发、按 [missAction] 回退。
      */
     val enabled: Boolean = true,
     /** 规则表：按顺序取第一条命中（不设优先级字段）。 */

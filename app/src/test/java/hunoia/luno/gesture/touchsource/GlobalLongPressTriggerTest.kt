@@ -9,7 +9,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * 全屏长按状态机：定时器触发、MOVE 早触发、超 slop 取消、触发后的拖动/抬手转发。
+ * 全屏长按状态机：定时器触发、MOVE 早触发、超 slop 取消、触发后的拖动/抬手转发、
+ * 无拖动自动取消与触发冷却。
  *
  * 这几条一旦错，表现是“按住不动永远不出卡”或“拖动时误弹卡”，真机上很难复现，
  * 所以用假时钟把时序钉死。
@@ -17,19 +18,25 @@ import org.junit.Test
 class GlobalLongPressTriggerTest {
 
     private class FakeTimer : LongPressTimer {
-        var task: (() -> Unit)? = null
-        var delayMs = -1L
-        var cancelled = false
-
-        override fun schedule(delayMs: Long, task: () -> Unit): Cancelable {
-            this.delayMs = delayMs
-            this.task = task
-            cancelled = false
-            return Cancelable { cancelled = true }
+        class Entry(val delayMs: Long, val task: () -> Unit) {
+            var cancelled = false
         }
 
-        fun fire() {
-            task?.invoke()
+        val entries = mutableListOf<Entry>()
+
+        val lastDelay: Long get() = entries.lastOrNull()?.delayMs ?: -1L
+        val lastCancelled: Boolean get() = entries.lastOrNull()?.cancelled == true
+
+        override fun schedule(delayMs: Long, task: () -> Unit): Cancelable {
+            val entry = Entry(delayMs, task)
+            entries += entry
+            return Cancelable { entry.cancelled = true }
+        }
+
+        fun fire(delayMs: Long? = null) {
+            entries.lastOrNull { !it.cancelled && (delayMs == null || it.delayMs == delayMs) }
+                ?.task
+                ?.invoke()
         }
     }
 
@@ -40,7 +47,13 @@ class GlobalLongPressTriggerTest {
     private val releases = mutableListOf<Pair<Int, Int>>()
 
     private fun trigger(
-        config: ScreenPickGesture = ScreenPickGesture(enabled = true, longPressDelayMs = 400, slopDp = 10f),
+        config: ScreenPickGesture = ScreenPickGesture(
+            enabled = true,
+            longPressDelayMs = 400,
+            slopDp = 10f,
+            dragStartTimeoutMs = 3_000,
+            triggerCooldownMs = 0,
+        ),
     ) = GlobalLongPressTrigger(
         config = { config },
         now = { now },
@@ -54,72 +67,139 @@ class GlobalLongPressTriggerTest {
     fun `disabled config schedules nothing`() {
         val subject = trigger(ScreenPickGesture(enabled = false))
         subject.onFrame(Offset(10f, 20f), TouchAction.Down)
-        assertEquals(-1L, timer.delayMs)
+        assertTrue(timer.entries.isEmpty())
         assertFalse(subject.isFired)
     }
 
     @Test
-    fun `timer fires at anchor even without further frames`() {
+    fun `long press alone does not trigger`() {
         val subject = trigger()
         subject.onFrame(Offset(10f, 20f), TouchAction.Down)
-        assertEquals(400L, timer.delayMs)
+        assertEquals(400L, timer.lastDelay)
 
-        timer.fire()
-        assertEquals(listOf(10 to 20), triggers)
-        assertTrue(subject.isFired)
+        timer.fire(400)
+        assertTrue(triggers.isEmpty())
+        assertFalse(subject.isFired)
+        // 长按窗口到期仍不动：本次会话作废。
+        timer.fire(3_000)
+        assertTrue(triggers.isEmpty())
     }
 
     @Test
-    fun `fired session forwards drag and release`() {
-        val subject = trigger()
+    fun `long press then drag triggers and forwards frames`() {
+        val subject = trigger(
+            ScreenPickGesture(
+                enabled = true,
+                longPressDelayMs = 400,
+                slopDp = 10f,
+                dragStartTimeoutMs = 3_000,
+                triggerCooldownMs = 0,
+            ),
+        )
         subject.onFrame(Offset(10f, 20f), TouchAction.Down)
-        timer.fire()
+        timer.fire(400)
+        assertTrue(triggers.isEmpty())
 
-        subject.onFrame(Offset(80f, 90f), TouchAction.Move)
+        // 小于 slop：仍不触发。
+        subject.onFrame(Offset(12f, 22f), TouchAction.Move)
+        assertTrue(triggers.isEmpty())
+
+        subject.onFrame(Offset(80f, 20f), TouchAction.Move)
+        assertEquals(listOf(10 to 20), triggers)
+        assertTrue(subject.isFired)
+        assertEquals(listOf(80 to 20), drags)
+
         subject.onFrame(Offset(90f, 100f), TouchAction.Up)
-
-        assertEquals(listOf(80 to 90), drags)
         assertEquals(listOf(90 to 100), releases)
         assertFalse(subject.isFired)
     }
 
     @Test
-    fun `move beyond slop cancels the session`() {
+    fun `drag before long press cancels`() {
         val subject = trigger()
         subject.onFrame(Offset(10f, 20f), TouchAction.Down)
-
         subject.onFrame(Offset(80f, 20f), TouchAction.Move)
-        assertTrue(timer.cancelled)
-
-        timer.fire()
+        timer.fire(400)
         assertTrue(triggers.isEmpty())
-
-        subject.onFrame(Offset(80f, 20f), TouchAction.Up)
-        assertTrue(releases.isEmpty())
     }
 
     @Test
-    fun `move past delay fires without waiting for timer`() {
-        val subject = trigger()
+    fun `no drag within window means no trigger`() {
+        val subject = trigger(
+            ScreenPickGesture(
+                enabled = true,
+                longPressDelayMs = 400,
+                slopDp = 10f,
+                dragStartTimeoutMs = 800,
+                triggerCooldownMs = 0,
+            ),
+        )
         subject.onFrame(Offset(10f, 20f), TouchAction.Down)
+        timer.fire(400)
+        timer.fire(800)
+        subject.onFrame(Offset(80f, 20f), TouchAction.Move)
+        assertTrue(triggers.isEmpty())
+        assertFalse(subject.isFired)
+    }
 
-        now = 400
-        subject.onFrame(Offset(12f, 22f), TouchAction.Move)
-
+    @Test
+    fun `drag after long press window without timer tick still triggers`() {
+        val subject = trigger(
+            ScreenPickGesture(
+                enabled = true,
+                longPressDelayMs = 400,
+                slopDp = 10f,
+                dragStartTimeoutMs = 3_000,
+                triggerCooldownMs = 0,
+            ),
+        )
+        now = 450
+        subject.onFrame(Offset(10f, 20f), TouchAction.Down)
+        now = 900
+        // 定时器尚未执行：MOVE 到达时先补 arm，再按拖动触发。
+        subject.onFrame(Offset(80f, 20f), TouchAction.Move)
         assertEquals(listOf(10 to 20), triggers)
-        assertTrue(subject.isFired)
     }
 
     @Test
-    fun `a new down restarts a finished session`() {
-        val subject = trigger()
+    fun `zero drag window keeps legacy long press trigger`() {
+        val subject = trigger(
+            ScreenPickGesture(
+                enabled = true,
+                longPressDelayMs = 400,
+                slopDp = 10f,
+                dragStartTimeoutMs = 0,
+                triggerCooldownMs = 0,
+            ),
+        )
         subject.onFrame(Offset(10f, 20f), TouchAction.Down)
-        timer.fire()
+        timer.fire(400)
+        assertEquals(listOf(10 to 20), triggers)
+    }
+
+    @Test
+    fun `trigger cooldown blocks immediate re-arm`() {
+        val subject = trigger(
+            ScreenPickGesture(
+                enabled = true,
+                longPressDelayMs = 400,
+                slopDp = 10f,
+                dragStartTimeoutMs = 0,
+                triggerCooldownMs = 800,
+            ),
+        )
+        subject.onFrame(Offset(10f, 20f), TouchAction.Down)
+        timer.fire(400)
         subject.onFrame(Offset(10f, 20f), TouchAction.Up)
 
-        subject.onFrame(Offset(30f, 40f), TouchAction.Down)
-        timer.fire()
+        now = 500
+        val before = timer.entries.size
+        subject.onFrame(Offset(10f, 20f), TouchAction.Down)
+        assertEquals(before, timer.entries.size)
 
-        assertEquals(listOf(10 to 20, 30 to 40), triggers)
+        now = 900
+        subject.onFrame(Offset(10f, 20f), TouchAction.Down)
+        assertEquals(400L, timer.lastDelay)
     }
+
 }

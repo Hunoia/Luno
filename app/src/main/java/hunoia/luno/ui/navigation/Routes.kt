@@ -55,6 +55,11 @@ data object Home
 @Serializable
 data object ActionSettings
 
+/** 屏幕识别设置页：全屏长按识屏与幽灵卡参数。 */
+@Keep
+@Serializable
+data object ScreenPickSettings
+
 @Keep
 @Serializable
 data object RecentAppsBlocklist

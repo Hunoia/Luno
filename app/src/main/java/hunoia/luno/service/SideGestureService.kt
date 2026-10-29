@@ -15,7 +15,6 @@ import hunoia.luno.runtime.GestureHost
 import hunoia.luno.runtime.automation.RuleTestResult
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
 import hunoia.luno.runtime.overlay.PointPickOverlay
-import hunoia.luno.link.ScreenLinksOverlay
 import hunoia.luno.runtime.overlay.ScreenPickOverlay
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -60,14 +59,43 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         onSearch = { query ->
             hunoia.luno.quicklaunch.QuickSearchActivity.start(this, query)
         },
+        onOpenLink = { url ->
+            val settings = hunoia.luno.domain.link.LinkSettingsCenter.linkDispatch()
+            val rule = if (settings.enabled) {
+                hunoia.luno.link.LinkUrls.firstMatch(url, settings.rules)
+            } else {
+                null
+            }
+            val dispatched = settings.enabled &&
+                hunoia.luno.link.Links.dispatch(this, url, settings)
+            if (!dispatched) {
+                hunoia.luno.link.Links.fallbackFor(this, url, rule, settings)
+            }
+            true
+        },
+        screenPickGesture = {
+            if (::gestureCoordinator.isInitialized) {
+                gestureCoordinator.currentScreenPickGesture()
+            } else {
+                hunoia.luno.config.model.ScreenPickGesture()
+            }
+        },
+        onClosed = {
+            if (::gestureCoordinator.isInitialized) {
+                gestureCoordinator.setScreenPickInterceptTouchable(true)
+            }
+        },
     )
-    private val screenLinksOverlay = ScreenLinksOverlay(this)
 
     /** 识别屏幕内容动作入口（动作执行已在 :service 进程直连）。返回是否成功弹起。 */
     fun showScreenPick(): Boolean {
         if (!isDispatchReady()) return false
         // 挂窗是同步的：锁屏/系统拒绝时直接返回失败，动作层才能给出正确结果。
-        return screenPickOverlay.show()
+        val shown = screenPickOverlay.show()
+        if (shown && ::gestureCoordinator.isInitialized) {
+            gestureCoordinator.setScreenPickInterceptTouchable(false)
+        }
+        return shown
     }
 
     /**
@@ -77,6 +105,9 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     fun showScreenPickPortal(x: Int, y: Int): Boolean {
         if (!isDispatchReady()) return false
         val shown = screenPickOverlay.showPortalAt(x, y)
+        if (shown && ::gestureCoordinator.isInitialized) {
+            gestureCoordinator.setScreenPickInterceptTouchable(false)
+        }
         if (hunoia.luno.gesture.BuildConfig.DEBUG) {
             android.util.Log.i(LOG_TAG, "screen pick portal at ($x,$y) shown=$shown")
         }
@@ -88,16 +119,15 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     }
 
     fun releaseScreenPickPortal(x: Int, y: Int) {
-        screenPickOverlay.releasePortal(x, y)
+        screenPickOverlay.releasePortal(
+            x,
+            y,
+            keepOnMiss = gestureCoordinator.currentScreenPickGesture().keepAfterRelease,
+        )
     }
 
-    /** 识屏取链：同样同步挂窗，扫描与分发在 overlay 内部异步完成。 */
-    fun showScreenLinks(): Boolean {
-        if (!isDispatchReady()) return false
-        // 从面板触发时必须先收面板：面板是自家全屏窗，留着就扫不到底下应用的节点。
-        gestureCoordinator.dismissPanelsForScreenAction()
-        return screenLinksOverlay.show()
-    }
+    /** 幽灵卡是否正在显示（抬手保留后，下一次按下由 overlay 自己处理）。 */
+    fun isScreenPickPortalVisible(): Boolean = screenPickOverlay.isPortalActive
 
     /**
      * 剪贴板拖拽落点输入：在屏幕 (x,y) 下的输入框里直接写入文本（仅个别编辑器才用剪贴板粘贴兜底）。
@@ -233,7 +263,6 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         pointPickOverlay.close()
         // 拾取窗持有全局面板事件订阅，必须显式退订。
         screenPickOverlay.release()
-        screenLinksOverlay.release()
         coroutineScope.cancel()
     }
 

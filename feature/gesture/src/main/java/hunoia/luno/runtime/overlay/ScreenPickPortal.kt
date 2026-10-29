@@ -1,5 +1,6 @@
 package hunoia.luno.runtime.overlay
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
@@ -25,9 +27,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -38,16 +43,32 @@ import hunoia.luno.ui.theme.MinInteractiveSize
 import java.util.Locale
 import kotlin.math.roundToInt
 
-/** 幽灵卡上可拖放的动作。动作集按内容类型给：文字不看 [Save]，图片不看 [Search]。 */
-enum class PortalAction { Copy, Search, Share, Save }
+/** 幽灵卡上可拖放的动作。动作集按内容类型给：文字不看 [Save]，图片不看 [Search]/[OpenLink]。 */
+enum class PortalAction { Copy, Search, Share, Save, OpenLink }
 
 /** 一次长按识别出的内容：文字节点或图片节点（两者都为空 = 识别中 / 无可取内容）。 */
 internal data class PortalContent(
     val text: String? = null,
     val imageSize: Pair<Int, Int>? = null,
+    /** 文本里抽出的第一条链接（有则显示「打开链接」）。 */
+    val url: String? = null,
+    /** 图片节点的缩略图（来自预截图裁剪）；还没裁好时为 null。 */
+    val preview: ImageBitmap? = null,
 ) {
     val isImage: Boolean get() = text.isNullOrBlank() && imageSize != null
     val isEmpty: Boolean get() = text.isNullOrBlank() && imageSize == null
+}
+
+/** 动作集：文字 复制/搜索/分享（含链接时多一个打开）；图片 复制/分享/保存。 */
+internal fun portalActionsFor(content: PortalContent): List<PortalAction> = when {
+    content.isImage -> listOf(PortalAction.Copy, PortalAction.Share, PortalAction.Save)
+    !content.text.isNullOrBlank() -> buildList {
+        add(PortalAction.Copy)
+        add(PortalAction.Search)
+        add(PortalAction.Share)
+        if (!content.url.isNullOrBlank()) add(PortalAction.OpenLink)
+    }
+    else -> emptyList()
 }
 
 /**
@@ -95,18 +116,12 @@ object PortalLayout {
         rects.indexOfFirst { it.contains(point) }.takeIf { it >= 0 }
 }
 
-/** 动作集：文字 复制/搜索/分享；图片 复制/分享/保存。 */
-internal fun portalActionsFor(content: PortalContent): List<PortalAction> = when {
-    content.isImage -> listOf(PortalAction.Copy, PortalAction.Share, PortalAction.Save)
-    !content.text.isNullOrBlank() -> listOf(PortalAction.Copy, PortalAction.Search, PortalAction.Share)
-    else -> emptyList()
-}
-
 private fun PortalAction.icon(): ImageVector = when (this) {
     PortalAction.Copy -> Icons.Default.ContentCopy
     PortalAction.Search -> Icons.Default.Search
     PortalAction.Share -> Icons.Default.Share
     PortalAction.Save -> Icons.Default.SaveAlt
+    PortalAction.OpenLink -> Icons.Default.OpenInNew
 }
 
 @Composable
@@ -116,6 +131,7 @@ private fun PortalAction.label(): String = stringResource(
         PortalAction.Search -> R.string.screen_pick_portal_search
         PortalAction.Share -> R.string.screen_pick_portal_share
         PortalAction.Save -> R.string.screen_pick_portal_save
+        PortalAction.OpenLink -> R.string.screen_pick_portal_open_link
     },
 )
 
@@ -157,8 +173,12 @@ internal fun PortalLayer(
         }
 
         val gapPx = PortalLayout.CardGapDp * DensityProvider.density
-        val cardX = (finger.x - cardWidthPx / 2f)
-            .coerceIn(0f, (screenWidthPx - cardWidthPx).coerceAtLeast(0f))
+        // 卡片中心跟随手指；靠近边缘时允许露一半（保证右半屏也能滑过去），
+        // 不再用“整张卡必须留在屏内”的 clamp，否则卡片到屏幕 2/3 就停住。
+        val cardX = (finger.x - cardWidthPx / 2f).coerceIn(
+            -cardWidthPx / 2f,
+            screenWidthPx - cardWidthPx / 2f,
+        )
         val estimatedCard = PortalLayout.CardEstimatedHeightDp * DensityProvider.density
         val above = finger.y - gapPx - estimatedCard
         val cardY = (if (above > 0f) above else finger.y + gapPx)
@@ -177,29 +197,41 @@ internal fun PortalLayer(
                     color = cardContent.copy(alpha = 0.75f),
                     style = MaterialTheme.typography.labelMedium,
                 )
-                content.isImage -> Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        Icons.Default.Image,
-                        contentDescription = null,
-                        tint = cardContent,
-                        modifier = Modifier.size(20.dp),
+                content.isImage -> if (content.preview != null) {
+                    Image(
+                        bitmap = content.preview,
+                        contentDescription = stringResource(R.string.screen_pick_portal_image),
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .widthIn(max = 180.dp)
+                            .heightIn(max = 96.dp)
+                            .clip(RoundedCornerShape(12.dp)),
                     )
-                    Text(
-                        text = content.imageSize?.let { size ->
-                            String.format(
-                                Locale.US,
-                                "%s · %d×%d",
-                                stringResource(R.string.screen_pick_portal_image),
-                                size.first,
-                                size.second,
-                            )
-                        } ?: stringResource(R.string.screen_pick_portal_image),
-                        color = cardContent,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                } else {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Default.Image,
+                            contentDescription = null,
+                            tint = cardContent,
+                            modifier = Modifier.size(20.dp),
+                        )
+                        Text(
+                            text = content.imageSize?.let { size ->
+                                String.format(
+                                    Locale.US,
+                                    "%s · %d×%d",
+                                    stringResource(R.string.screen_pick_portal_image),
+                                    size.first,
+                                    size.second,
+                                )
+                            } ?: stringResource(R.string.screen_pick_portal_image),
+                            color = cardContent,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
                 }
                 content.isEmpty -> Text(
                     text = stringResource(R.string.screen_pick_no_content),

@@ -21,6 +21,7 @@
     <string name="screen_pick_portal_search">搜索</string>
     <string name="screen_pick_portal_share">发送到应用</string>
     <string name="screen_pick_portal_save">保存</string>
+    <string name="screen_pick_portal_open_link">打开链接</string>
     <string name="screen_pick_portal_image">图片</string>
     <string name="screen_pick_portal_resolving">识别中…</string>
 </resources>

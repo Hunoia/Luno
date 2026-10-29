@@ -211,9 +211,6 @@ data class ExecutorContext(
 
     /** 屏幕取点（transient Surface）。 */
     val showScreenPick: () -> Boolean = { false },
-
-    /** 识屏取链（transient Surface）。 */
-    val showScreenLinks: () -> Boolean = { false },
     /**
      * 悬浮球显隐：`hideForMs > 0` 走临时隐藏（只摘窗口、到期恢复），否则改 enabled 存量。
      * 配置写入与 FloatBallService 都归 `:app`。

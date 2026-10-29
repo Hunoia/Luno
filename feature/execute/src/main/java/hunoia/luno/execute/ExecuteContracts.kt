@@ -78,9 +78,6 @@ interface SurfaceHost {
     /** 屏幕取点（transient Surface）：挂在无障碍服务窗口上。 */
     fun showScreenPick(): Boolean
 
-    /** 识屏取链（transient Surface）：挂在无障碍服务窗口上。 */
-    fun showScreenLinks(): Boolean
-
     /**
      * 悬浮球显隐：`hideForMs > 0` 走临时隐藏（只摘窗口、到期恢复），否则改 enabled 存量。
      * 配置写入与 FloatBallService 都留在 Surface 层。

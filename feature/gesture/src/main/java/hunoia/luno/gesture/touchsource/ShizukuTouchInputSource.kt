@@ -117,6 +117,11 @@ class ShizukuTouchInputSource(
         applyWindows()
     }
 
+    /** 幽灵卡在屏时临时放开拦截条，让 overlay 能收到下一次按下。 */
+    fun setInterceptTouchable(touchable: Boolean) {
+        windows.setTouchable(touchable)
+    }
+
     private suspend fun monitorLoop() {
         var attempt = 0
         if (BuildConfig.DEBUG) Log.i(LOG_TAG, "touch source monitor start")

@@ -63,7 +63,7 @@ class ModuleDependencyTest {
         ),
         ":feature:gesture" to setOf(
             ":core:common", ":core:domain", ":core:data", ":core:bridge",
-            ":core:runtime", ":feature:actions", ":ui:design",
+            ":core:runtime", ":feature:actions", ":feature:link", ":ui:design",
         ),
         ":feature:floatball" to setOf(
             ":core:common", ":core:domain", ":core:bridge", ":core:data",

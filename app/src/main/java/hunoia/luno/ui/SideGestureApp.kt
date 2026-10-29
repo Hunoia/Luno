@@ -40,6 +40,7 @@ import hunoia.luno.ui.navigation.GestureButtonSettings
 
 import hunoia.luno.ui.navigation.Home
 import hunoia.luno.ui.navigation.ActionSettings
+import hunoia.luno.ui.navigation.ScreenPickSettings
 import hunoia.luno.ui.navigation.NotificationBlocklist
 import hunoia.luno.ui.navigation.PrivilegedPermissions
 import hunoia.luno.ui.navigation.RecentAppsBlocklist
@@ -66,6 +67,7 @@ import hunoia.luno.ui.actionlibrary.ActionLibraryEditScreen
 import hunoia.luno.ui.automation.AutomationEditScreen
 import hunoia.luno.ui.automation.AutomationHistoryScreen
 import hunoia.luno.ui.settings.action.ActionSettingsScreen
+import hunoia.luno.ui.settings.action.ScreenPickSettingsScreen
 import hunoia.luno.ui.settings.action.RecentAppsBlocklistScreen
 import hunoia.luno.ui.settings.permission.PrivilegedPermissionsScreen
 import hunoia.luno.ui.settings.action.MiniWindowAdjustScreen
@@ -188,6 +190,14 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToPrivilegedPermissions = {
                             navController.navigate(PrivilegedPermissions)
                         },
+                        onNavToScreenPickSettings = {
+                            navController.navigate(ScreenPickSettings)
+                        },
+                    )
+                }
+                myComposable<ScreenPickSettings> {
+                    ScreenPickSettingsScreen(
+                        onBack = { navController.popBackStack() },
                     )
                 }
                 myComposable<LinkDispatchRules> {
