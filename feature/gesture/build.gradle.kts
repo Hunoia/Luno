@@ -29,6 +29,7 @@ dependencies {
     api(project(":ui:design"))
     api(project(":feature:actions"))
     api(project(":feature:link"))
+    api(project(":capability:ocr"))
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)

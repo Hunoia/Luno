@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -72,6 +73,9 @@ import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.applyOverlayViewTreeOwners
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.bridge.ui.windowManager
+import hunoia.luno.capability.ocr.OcrEngine
+import hunoia.luno.capability.ocr.OcrText
+import hunoia.luno.config.model.OcrScript
 import hunoia.luno.core.Events
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.core.PanelDismissedEvent
@@ -80,11 +84,14 @@ import hunoia.luno.runtime.GestureHost
 import hunoia.luno.runtime.environment.BroadcastObserver
 import java.io.File
 import java.util.concurrent.Executor
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -133,7 +140,7 @@ private data class PortalState(
 )
 
 /** 框选动作条的动作（关闭走 onDismiss，不在此枚举）。 */
-private enum class PickSelectionAction { Copy, Share, Save }
+private enum class PickSelectionAction { Text, Copy, Share, Save }
 
 /** 缓存目录保留的识屏分享图数量。 */
 private const val CACHE_KEEP_FILES = 20
@@ -146,6 +153,8 @@ private const val CACHE_KEEP_FILES = 20
  */
 class ScreenPickOverlay(
     private val host: GestureHost,
+    /** OCR 能力（`:app` 注入）：默认 ML Kit；本模块只依赖契约，不直接引第三方 SDK。 */
+    private val ocrEngine: OcrEngine,
     /** 幽灵卡「搜索」的落点（`:app` 注入快速搜索，本模块不依赖 `:feature:quicklaunch`）。 */
     private val onSearch: (String) -> Boolean = { false },
     /** 幽灵卡「打开链接」的落点（`:app` 注入链接分发，本模块不依赖链接分发实现）。 */
@@ -188,6 +197,15 @@ class ScreenPickOverlay(
 
     /** 框选动作执行中：防动作条被连点造成重复落盘。 */
     private var resolvingAction = false
+
+    /** 截图就绪信号：长按比截图快时，OCR 等它（最多 1.2s）。 */
+    private var captureSignal = CompletableDeferred<Unit>()
+
+    /** 幽灵卡会话号：每次长按 +1；OCR 回来时对不上就丢弃。 */
+    private var portalSession = 0
+
+    /** 进行中的 OCR 任务数：期间 close() 不回收截图位图（识别仍在读它）。 */
+    private var ocrInFlight = 0
 
     // 截屏与命中结果只在主线程读写；captured 走 Compose 态驱动视觉层渲染。
     private var capture: Bitmap? = null
@@ -250,6 +268,7 @@ class ScreenPickOverlay(
         val keyguard = host.context.getSystemService(android.app.KeyguardManager::class.java)
         if (keyguard?.isKeyguardLocked == true) return false
         session++
+        captureSignal = CompletableDeferred()
         originCorrected = false
         val wm = host.context.windowManager()
         val lp = WindowManager.LayoutParams().apply {
@@ -349,7 +368,7 @@ class ScreenPickOverlay(
         val imageBounds = portalImageBounds
         // 图片动作要用预截图，但 close() 会回收它。先摘出快照，动作结束后再自行回收，
         // 否则「拖到保存/分享上松手」必失败（与窗口生命周期解耦）。
-        val captureForAction = if (content.isImage) detachCapture() else null
+        val captureForAction = if (content.imageSize != null) detachCapture() else null
         close()
         executePortalAction(action, content, imageBounds, captureForAction)
     }
@@ -381,13 +400,14 @@ class ScreenPickOverlay(
         portalImageBounds = null
         portalResolving = true
         val token = session
+        val pickToken = ++portalSession
         portalJob?.cancel()
         // 节点树遍历是成百上千次 Binder 调用，绝不上主线程。
         portalJob = host.coroutineScope.launch {
             val hit = withContext(Dispatchers.Default) {
                 runCatching { findNodeHitAt(screenX, screenY) }.getOrNull()
             }
-            if (token != session || overlayView == null) return@launch
+            if (token != session || pickToken != portalSession || overlayView == null) return@launch
             if (BuildConfig.DEBUG) {
                 Log.i(
                     LOG_TAG,
@@ -398,25 +418,152 @@ class ScreenPickOverlay(
             // 拿它当图片会把 QQ 消息气泡这类无文字节点误判成图片。
             val imageBounds = hit?.imageBounds
             portalImageBounds = imageBounds
-            portalContent = PortalContent(
-                text = hit?.text,
-                imageSize = imageBounds?.let { it.width() to it.height() },
-                url = hit?.text
-                    ?.let {
-                        runCatching { hunoia.luno.link.LinkUrls.extractUrls(it, allowBareDomains = true) }
-                            .getOrNull()
-                            ?.firstOrNull()
-                    },
-            )
-            portalResolving = false
             refreshPortalPreview()
+            // 节点文字优先：不跑模型。
+            if (!hit?.text.isNullOrBlank()) {
+                applyPortalText(hit.text, imageBounds)
+                return@launch
+            }
+            if (!screenPickGesture().ocrEnabled) {
+                applyPortalText(null, imageBounds)
+                return@launch
+            }
+            // OCR 不挂在 portalJob 下面：close() 会取消 portalJob，而 ML Kit 任务不可取消，
+            // 中途回收截图会让 native 层读到已释放内存。
+            host.coroutineScope.launch {
+                val region = imageBounds?.let { AndroidRect(it) } ?: bandAround(screenX, screenY)
+                val text = ocrTextIn(
+                    token = token,
+                    pickToken = pickToken,
+                    region = region,
+                    hitX = if (imageBounds == null) screenX else null,
+                    hitY = if (imageBounds == null) screenY else null,
+                )
+                if (token != session || pickToken != portalSession || overlayView == null) return@launch
+                applyPortalText(text, imageBounds)
+            }
         }
+    }
+
+    /** 统一回填幽灵卡内容：文本与图片可并存（图片节点 OCR 出文字时两者都有）。 */
+    private fun applyPortalText(text: String?, imageBounds: AndroidRect?) {
+        portalImageBounds = imageBounds
+        portalContent = PortalContent(
+            text = text,
+            imageSize = imageBounds?.let { it.width() to it.height() },
+            url = text?.let {
+                runCatching { hunoia.luno.link.LinkUrls.extractUrls(it, allowBareDomains = true) }
+                    .getOrNull()
+                    ?.firstOrNull()
+            },
+        )
+        portalResolving = false
+        refreshPortalPreview()
+    }
+
+    /** 等预截图就绪（长按可能比截图快）；超时或截图失败返回 null。 */
+    private suspend fun awaitCapture(timeoutMs: Long = 1_200): PickCapture? {
+        if (currentCapture() == null) {
+            withTimeoutOrNull(timeoutMs) { captureSignal.await() }
+        }
+        return currentCapture()
+    }
+
+    /**
+     * 对屏幕区域做 OCR，返回屏幕坐标下的文本。
+     *
+     * 给了 [hitX]/[hitY] 时取落点命中的那一块（长按），否则把区域内所有行拼成文本（图片 / 框选）。
+     * 只识别裁剪后的小图：更快，也避免整屏无关文字干扰落点命中。
+     */
+    private suspend fun ocrTextIn(
+        token: Int,
+        pickToken: Int,
+        region: AndroidRect,
+        hitX: Int? = null,
+        hitY: Int? = null,
+    ): String? {
+        val snapshot = awaitCapture() ?: return null
+        if (token != session || pickToken != portalSession) return null
+        val crop = cropRectFor(snapshot, region) ?: return null
+        val scripts = screenPickGesture().ocrScripts.ifEmpty { listOf(OcrScript.Chinese) }
+        ocrInFlight++
+        return try {
+            val bitmap = withContext(Dispatchers.IO) {
+                runCatching {
+                    Bitmap.createBitmap(
+                        snapshot.bitmap,
+                        crop.left,
+                        crop.top,
+                        crop.width(),
+                        crop.height(),
+                    )
+                }.getOrNull()
+            } ?: return null
+            try {
+                // ML Kit 的 Task 不可取消：识别段不可中断，避免回收正在被读取的位图。
+                val result = withContext(NonCancellable) { ocrEngine.recognize(bitmap, scripts) }
+                if (token != session || pickToken != portalSession) return null
+                val blocks = result.blocks.map { it.toScreenBlock(snapshot, crop) }
+                val text = if (hitX != null && hitY != null) {
+                    OcrText.blockAt(
+                        blocks = blocks,
+                        x = hitX,
+                        y = hitY,
+                        tolerancePx = DensityProvider.dp2px(HitToleranceDp),
+                        maxDistancePx = DensityProvider.dp2px(48),
+                    )?.text
+                } else {
+                    OcrText.join(blocks).ifBlank { null }
+                }
+                if (BuildConfig.DEBUG) {
+                    Log.i(LOG_TAG, "screen pick ocr blocks=${blocks.size} text=${text?.length ?: 0}")
+                }
+                text
+            } finally {
+                if (!bitmap.isRecycled) bitmap.recycle()
+            }
+        } finally {
+            ocrInFlight--
+            // 层已关/换会话时截图已从 overlay 摘下，这里补回收。
+            if (capture !== snapshot.bitmap && !snapshot.bitmap.isRecycled) {
+                snapshot.bitmap.recycle()
+            }
+        }
+    }
+
+    /** 落点周围的一带：宽 90% 屏宽、高约 30% 屏高，夹在屏内。 */
+    private fun bandAround(x: Int, y: Int): AndroidRect {
+        val screenW = DensityProvider.screenWidthPx
+        val screenH = DensityProvider.screenHeightPx
+        val halfW = (screenW * 0.45f).roundToInt()
+        val halfH = max(DensityProvider.dp2px(48), (screenH * 0.15f).roundToInt())
+        return AndroidRect(
+            (x - halfW).coerceAtLeast(0),
+            (y - halfH).coerceAtLeast(0),
+            (x + halfW).coerceAtMost(screenW),
+            (y + halfH).coerceAtMost(screenH),
+        )
+    }
+
+    /** OCR 包围盒（裁剪图内坐标）→ 屏幕坐标，与 [cropRectFor] 互为逆运算。 */
+    private fun hunoia.luno.capability.ocr.OcrBlock.toScreenBlock(
+        capture: PickCapture,
+        crop: AndroidRect,
+    ): hunoia.luno.capability.ocr.OcrBlock {
+        val sx = capture.bitmap.width.toFloat() / capture.screenW
+        val sy = capture.bitmap.height.toFloat() / capture.screenH
+        return copy(
+            left = (capture.originX + (crop.left + left) / sx).roundToInt(),
+            top = (capture.originY + (crop.top + top) / sy).roundToInt(),
+            right = (capture.originX + (crop.left + right) / sx).roundToInt(),
+            bottom = (capture.originY + (crop.top + bottom) / sy).roundToInt(),
+        )
     }
 
     /** 图片节点的缩略图：等预截图就绪后从原图裁一小块给幽灵卡。 */
     private fun refreshPortalPreview() {
         val bounds = portalImageBounds ?: return
-        if (!portalContent.isImage || portalContent.preview != null) return
+        if (portalContent.imageSize == null || portalContent.preview != null) return
         val snapshot = currentCapture() ?: return
         val token = session
         portalPreviewJob?.cancel()
@@ -550,14 +697,19 @@ class ScreenPickOverlay(
     fun close() {
         stopLockWatch()
         session++
+        portalSession++
         resolvingAction = false
         cancelPortal()
+        if (!captureSignal.isCompleted) captureSignal.complete(Unit)
         val view = overlayView ?: return
         overlayView = null
         hunoia.luno.runtime.surface.SurfaceController.unregister(surfaceId)
-        // 落盘在跑时不回收：后台仍在用这张位图裁剪，收尾处（copyImageRegion 的 finally）补回收。
-        if (!saving) {
+        // 落盘 / OCR 在跑时不回收：后台仍在用这张位图；收尾处补回收。
+        if (!saving && ocrInFlight == 0) {
             capture?.let { if (!it.isRecycled) it.recycle() }
+            capture = null
+        } else {
+            // 交给仍持有它的后台任务回收；避免下一次会话误用旧截图。
             capture = null
         }
         captured = false
@@ -639,12 +791,31 @@ class ScreenPickOverlay(
             (rect.right + originX).roundToInt(),
             (rect.bottom + originY).roundToInt(),
         )
+        // 框选文字：OCR 选区后不静默写剪贴板，而是把结果放回幽灵卡让用户选择动作。
+        if (action == PickSelectionAction.Text) {
+            host.coroutineScope.launch {
+                val token = session
+                val text = ocrTextIn(session, portalSession, screenRect)
+                resolvingAction = false
+                if (token != session) return@launch
+                if (text.isNullOrBlank()) {
+                    showToast(R.string.screen_pick_no_content)
+                    return@launch
+                }
+                portalAnchor = Offset(screenRect.exactCenterX(), screenRect.top.toFloat())
+                portalFinger = portalAnchor
+                portalImageBounds = null
+                applyPortalText(text, null)
+            }
+            return
+        }
         // 裁剪 + 落盘 + 分享都在后台（大图 PNG 压缩放主线程会卡顿/ANR）。
         host.coroutineScope.launch {
             val ok = when (action) {
                 PickSelectionAction.Copy -> copyImageRegion(screenRect)
                 PickSelectionAction.Share -> shareImageRegion(screenRect)
                 PickSelectionAction.Save -> saveImageRegion(screenRect)
+                PickSelectionAction.Text -> false
             }
             if (!ok) showToast(R.string.screen_pick_failed)
             close()
@@ -869,6 +1040,7 @@ class ScreenPickOverlay(
                     } else {
                         capture = copied
                         recordCaptureRegion(windowBounds)
+                        if (!captureSignal.isCompleted) captureSignal.complete(Unit)
                         // 蒙层与提示框解耦：截图一到就亮层（可立即点/拖），提示框后台扫完再补。
                         captured = true
                         // 幽灵卡可能比截图先出现：截图就绪后补图片缩略图。
@@ -889,6 +1061,7 @@ class ScreenPickOverlay(
             private fun pickFailed() {
                 // 幽灵卡不靠截图也能用（复制/搜索/发送文字）：截图失败只降级图片动作，
                 // 不把已经浮起的卡片直接收掉。
+                if (!captureSignal.isCompleted) captureSignal.complete(Unit)
                 val keepPortal = portalAnchor != null
                 showToast(R.string.screen_pick_failed)
                 if (!keepPortal) close()
@@ -1504,7 +1677,7 @@ private fun SelectionActionBar(
     val gap = 8.dp
     val pad = 6.dp
     val margin = 8.dp
-    val barW = with(density) { (button * 4 + gap * 3 + pad * 2).toPx() }
+    val barW = with(density) { (button * 5 + gap * 4 + pad * 2).toPx() }
     val barH = with(density) { (button + pad * 2).toPx() }
     val marginPx = with(density) { margin.toPx() }
     val screenW = DensityProvider.screenWidthPx.toFloat()
@@ -1536,6 +1709,10 @@ private fun SelectionActionBar(
             contentDescription = stringResource(R.string.screen_pick_close),
             onClick = onClose,
         )
+        PickActionIcon(
+            icon = Icons.Default.TextFields,
+            contentDescription = stringResource(R.string.screen_pick_extract_text),
+        ) { onAction(PickSelectionAction.Text) }
         PickActionIcon(
             icon = Icons.Default.ContentCopy,
             contentDescription = stringResource(R.string.screen_pick_copy_image),

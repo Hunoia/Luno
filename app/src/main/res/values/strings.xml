@@ -173,6 +173,13 @@
     <string name="screen_pick_slop_value">%1$d dp</string>
     <string name="screen_pick_save_to_gallery">识屏图片保存到相册</string>
     <string name="screen_pick_save_to_gallery_hint">关闭时分享只写缓存；复制图片仍需写一份到相册以保证粘贴兼容</string>
+    <string name="screen_pick_ocr_group">文字识别</string>
+    <string name="screen_pick_ocr_enabled">无节点文字时使用 OCR</string>
+    <string name="screen_pick_ocr_enabled_hint">节点能取到文字时不跑模型；图片内文字、自绘文字、QQ 气泡等走 OCR</string>
+    <string name="screen_pick_ocr_chinese">中文 / English</string>
+    <string name="screen_pick_ocr_japanese">日本語</string>
+    <string name="screen_pick_ocr_korean">한국어</string>
+    <string name="screen_pick_ocr_script_hint">可多选；多选时并行识别后合并（至少保留一种）</string>
     <string name="float_ball_permission_required">需要「显示在其他应用上层」权限</string>
     <string name="float_ball_permission_hint">悬浮球需要该权限才能显示。未授权时球不会出现。</string>
     <string name="float_ball_tap_unset">未设置</string>

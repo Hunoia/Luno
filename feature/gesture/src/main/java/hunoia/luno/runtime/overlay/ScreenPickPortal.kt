@@ -59,16 +59,18 @@ internal data class PortalContent(
     val isEmpty: Boolean get() = text.isNullOrBlank() && imageSize == null
 }
 
-/** 动作集：文字 复制/搜索/分享（含链接时多一个打开）；图片 复制/分享/保存。 */
-internal fun portalActionsFor(content: PortalContent): List<PortalAction> = when {
-    content.isImage -> listOf(PortalAction.Copy, PortalAction.Share, PortalAction.Save)
-    !content.text.isNullOrBlank() -> buildList {
+/** 动作集：文字 复制/搜索/分享（含链接时多一个打开）；图片 复制/分享/保存；两者共存时并集。 */
+internal fun portalActionsFor(content: PortalContent): List<PortalAction> {
+    val hasText = !content.text.isNullOrBlank()
+    val hasImage = content.imageSize != null
+    if (!hasText && !hasImage) return emptyList()
+    return buildList {
         add(PortalAction.Copy)
-        add(PortalAction.Search)
+        if (hasText) add(PortalAction.Search)
         add(PortalAction.Share)
-        if (!content.url.isNullOrBlank()) add(PortalAction.OpenLink)
+        if (hasImage) add(PortalAction.Save)
+        if (hasText && !content.url.isNullOrBlank()) add(PortalAction.OpenLink)
     }
-    else -> emptyList()
 }
 
 /**

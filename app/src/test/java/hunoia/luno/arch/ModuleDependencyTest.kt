@@ -18,7 +18,7 @@ class ModuleDependencyTest {
     /** 模块 → 允许依赖的模块（只允许这些，且必须与声明完全一致）。 */
     private val knownModules: Set<String> = setOf(
         ":core:common", ":core:domain", ":core:bridge", ":core:data", ":core:runtime",
-        ":ui:design", ":capability:launch",
+        ":ui:design", ":capability:launch", ":capability:ocr",
         ":feature:execute", ":feature:actions", ":feature:conditions", ":feature:automation",
         ":feature:link", ":feature:search", ":feature:quicklaunch", ":feature:gesture",
         ":feature:floatball", ":feature:gridpanel", ":app",
@@ -36,6 +36,7 @@ class ModuleDependencyTest {
         ":capability:launch" to setOf(
             ":core:common", ":core:domain", ":core:data", ":core:bridge",
         ),
+        ":capability:ocr" to setOf(":core:common", ":core:domain"),
         ":feature:execute" to setOf(":core:common", ":core:domain", ":core:bridge"),
         // 偏差：动作定义/执行器与展示元数据仍同模块（ActionDefinition 完全二分挂账）。
         ":feature:actions" to setOf(
@@ -62,6 +63,7 @@ class ModuleDependencyTest {
             ":core:runtime", ":feature:search", ":ui:design",
         ),
         ":feature:gesture" to setOf(
+            ":capability:ocr",
             ":core:common", ":core:domain", ":core:data", ":core:bridge",
             ":core:runtime", ":feature:actions", ":feature:link", ":ui:design",
         ),

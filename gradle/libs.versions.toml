@@ -15,6 +15,7 @@ houbb-pinyin = "0.4.0"
 freereflection = "3.2.2"
 shizuku = "13.1.5"
 hiddenapibypass = "6.1"
+mlkitTextRecognition = "16.0.1"
 coil = "2.7.0"
 navigationCompose = "2.8.4"
 activityCompose = "1.9.3"
@@ -65,6 +66,10 @@ com-tiann-freereflection = { group = "com.github.tiann", name = "FreeReflection"
 rikka-shizuku-api = { group = "dev.rikka.shizuku", name = "api", version.ref = "shizuku" }
 rikka-shizuku-provider = { group = "dev.rikka.shizuku", name = "provider", version.ref = "shizuku" }
 hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version.ref = "hiddenapibypass" }
+
+mlkit-text-recognition-chinese = { group = "com.google.mlkit", name = "text-recognition-chinese", version.ref = "mlkitTextRecognition" }
+mlkit-text-recognition-japanese = { group = "com.google.mlkit", name = "text-recognition-japanese", version.ref = "mlkitTextRecognition" }
+mlkit-text-recognition-korean = { group = "com.google.mlkit", name = "text-recognition-korean", version.ref = "mlkitTextRecognition" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -149,6 +149,7 @@ dependencies {
     implementation(project(":feature:link"))
     implementation(project(":ui:design"))
     implementation(project(":capability:launch"))
+    implementation(project(":capability:ocr"))
     implementation(project(":feature:search"))
     implementation(project(":feature:quicklaunch"))
     implementation(project(":feature:gesture"))

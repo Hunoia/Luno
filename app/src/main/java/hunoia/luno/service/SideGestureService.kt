@@ -54,8 +54,11 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
 
     /** 屏幕内容识别拾取窗。与 pointPickOverlay 同规：必须住在无障碍服务这一侧。
      *  非 lazy：构造时就要订阅面板开关事件，否则第一次从面板触发时会错过 Shown。 */
+    private val ocrEngine = hunoia.luno.capability.ocr.MlKitOcrEngine(this)
+
     private val screenPickOverlay = ScreenPickOverlay(
         this,
+        ocrEngine = ocrEngine,
         onSearch = { query ->
             hunoia.luno.quicklaunch.QuickSearchActivity.start(this, query)
         },
@@ -263,6 +266,8 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         pointPickOverlay.close()
         // 拾取窗持有全局面板事件订阅，必须显式退订。
         screenPickOverlay.release()
+        // 识别器随服务销毁释放（模型 native 资源）；下次服务重建会重新懒加载。
+        ocrEngine.close()
         coroutineScope.cancel()
     }
 
