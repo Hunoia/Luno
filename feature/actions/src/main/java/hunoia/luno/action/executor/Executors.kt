@@ -227,7 +227,8 @@ class InternalExecutors : ActionExecutor {
         "internal.quickAppLauncher", "internal.quickSearch", "internal.gridPanel",
         "internal.volumeScrub",
         "internal.pointer",
-        "internal.previousApp", "internal.runRule"
+        "internal.previousApp", "internal.runRule",
+        "internal.extract"
     )
 
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult {

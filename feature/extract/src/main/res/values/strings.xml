@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 按压取词（feature:extract）结果浮层 -->
+    <string name="extract_dismiss">关闭</string>
+    <string name="extract_copy">复制</string>
+    <string name="extract_search">搜索</string>
+    <string name="extract_share">分享</string>
+</resources>

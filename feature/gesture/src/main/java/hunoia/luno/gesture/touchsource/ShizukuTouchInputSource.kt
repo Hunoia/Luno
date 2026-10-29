@@ -81,6 +81,13 @@ class ShizukuTouchInputSource(
     @Volatile
     var suppressUntilMs: Long = 0L
 
+    /**
+     * 全屏触摸帧监听（坐标已归屏幕像素）：每一帧（含非拦截区）都会回调，
+     * 由 :app 用来做“全屏任意位置长按取词”等全局手势识别。
+     * 与来源仲裁互不干扰——本监听不取会话归属、不消费触摸，底层 App 照常收到触摸。
+     */
+    var globalFrameListener: ((screen: Offset, action: TouchAction) -> Unit)? = null
+
     /** 拦截窗是否生效：生效时路由才认为拦截区归本来源（否则整块按钮区仍归无障碍窗口）。 */
     @Volatile
     var intercepting: Boolean = false
@@ -194,10 +201,13 @@ class ShizukuTouchInputSource(
     }
 
     private fun dispatch(frame: TouchFrame) {
+        val point = primaryPoint(frame) ?: return
+        val screen = mapper.toScreen(point) ?: return
+        // 全屏帧先喂全局监听（含非拦截区）：长按取词等全局手势识别复用同一股原始输入，
+        // 不取会话归属、不消费触摸（与 一墨 T3 同口径，底层 App 照常收到触摸）。
+        globalFrameListener?.invoke(screen, frame.action)
         when (frame.action) {
             TouchAction.Down -> {
-                val point = primaryPoint(frame) ?: return
-                val screen = mapper.toScreen(point) ?: return
                 val region = router.acceptsShizuku(screen) ?: return
                 mapper.lastScreen = screen
                 router.onDown(
@@ -208,8 +218,6 @@ class ShizukuTouchInputSource(
             }
             TouchAction.Move -> {
                 if (router.currentSource != TouchSourceKind.SHIZUKU) return
-                val point = primaryPoint(frame) ?: return
-                val screen = mapper.toScreen(point) ?: return
                 val last = mapper.lastScreen
                 mapper.lastScreen = screen
                 if (last == null) return

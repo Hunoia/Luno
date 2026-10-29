@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.TextFormat
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Widgets
@@ -71,6 +72,8 @@ internal object InternalActionGroup : ActionGroup {
             icon = Icons.Default.Widgets),
         ActionDefinition("internal.pointer", "指针", ActionCategory.GESTURE_TOOL, Capability.None,
             icon = Icons.Default.TouchApp),
+        ActionDefinition("internal.extract", "按压取词", ActionCategory.GESTURE_TOOL, Capability.None,
+            icon = Icons.Default.TextFormat),
         // 无参定义：动作库只收有参动作，自动不显示；选择页仍可选。
         // 排除名单改为全局「最近应用黑名单」（动作设置），历史源头过滤。
         ActionDefinition("internal.previousApp", "上一个应用", ActionCategory.APP, Capability.None,
@@ -112,6 +115,9 @@ internal object InternalActionGroup : ActionGroup {
         }
         ActionMappingRegistry.register("internal.pointer") { Action.Pointer }
         ActionMappingRegistry.register("internal.previousApp") { Action.PreviousApp }
+        // 按压取词：触发侧（GestureCoordinator.onAction）拦截改走 SurfaceHost.showExtract，
+        // 正常路径不会流到执行层；走到这里按「无动作」收口，不报失败。
+        ActionMappingRegistry.register("internal.extract") { Action.Extract }
         // 动作面板由 SideGestureContainer.runGestureActions 就地展开成面板项，正常路径
         // 不会流到执行层。能走到这里说明面板被删或内容为空 —— 按「无动作」收口，
         // 而不是抛 UnknownActionTypeException 让手势链路报错。

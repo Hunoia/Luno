@@ -28,6 +28,12 @@ data class DirectionActions(
 @Keep
 data class InitialSettings(
     val gestureEnabled: Boolean = GestureEnabled,
+    /**
+     * 按压取词（feature:extract）总开关：是否在**全屏任意位置**监听长按取词。
+     * 复用 ADR-0003 的内核触摸流（[hunoia.luno.gesture.touchsource.ShizukuTouchInputSource]），因此需要 Shizuku。
+     * 关闭后取词只能走触钮长按动作（internal.extract），不再全屏触发。
+     */
+    val extract: ExtractConfig = ExtractConfig(),
 )
 
 @Serializable

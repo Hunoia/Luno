@@ -79,6 +79,20 @@ abstract class HomeVMBase : BaseComposeVM<UiState, UiEvent>() {
         }
     }
 
+    /** 全屏长按取词开关：写入 InitialSettings.extract，运行时经快照即时生效。 */
+    protected fun saveExtractEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            GestureConfig.updateInitial {
+                it.copy(extract = it.extract.copy(enabled = enabled))
+            }
+        }
+    }
+
+    fun onExtractEnabledChange(enabled: Boolean) {
+        updateUiState { it.copy(isExtractEnabled = enabled) }
+        saveExtractEnabled(enabled)
+    }
+
     protected fun loadData() {
         viewModelScope.launch {
             val gestureData = combine(
@@ -113,6 +127,7 @@ abstract class HomeVMBase : BaseComposeVM<UiState, UiEvent>() {
                     gestureButtons = gesture.gestureButtons.sortedBy { it.id },
                     subGestures = gesture.subGestureSettings.subGestures,
                     isKeepAliveEnabled = runtime.advancedSettings.keepAliveEnabled,
+                    isExtractEnabled = gesture.initialSettings.extract.enabled,
                 ).withRuntimeStatus()
             }.collectLatest { state ->
                 updateUiState { state }

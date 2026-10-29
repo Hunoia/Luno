@@ -23,6 +23,8 @@ data class UiState(
     val subGestures: List<SubGesture> = emptyList(),
     val isGestureSwitchEnabled: Boolean = false,
     val isAccessibilityEnabled: Boolean = false,
+    /** 全屏长按取词总开关（InitialSettings.extract.enabled），依赖 Shizuku。 */
+    val isExtractEnabled: Boolean = false,
     val isKeepAliveEnabled: Boolean = false,
     val shizukuStatus: ShizukuStatus = ShizukuStatus(
         binderAlive = false,
