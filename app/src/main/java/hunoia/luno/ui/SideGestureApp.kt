@@ -41,6 +41,7 @@ import hunoia.luno.ui.navigation.GestureButtonSettings
 import hunoia.luno.ui.navigation.Home
 import hunoia.luno.ui.navigation.ActionSettings
 import hunoia.luno.ui.navigation.NotificationBlocklist
+import hunoia.luno.ui.navigation.PrivilegedPermissions
 import hunoia.luno.ui.navigation.RecentAppsBlocklist
 import hunoia.luno.ui.navigation.LinkDispatchRules
 import hunoia.luno.ui.navigation.LinkDispatchRuleEdit
@@ -66,6 +67,7 @@ import hunoia.luno.ui.automation.AutomationEditScreen
 import hunoia.luno.ui.automation.AutomationHistoryScreen
 import hunoia.luno.ui.settings.action.ActionSettingsScreen
 import hunoia.luno.ui.settings.action.RecentAppsBlocklistScreen
+import hunoia.luno.ui.settings.permission.PrivilegedPermissionsScreen
 import hunoia.luno.ui.settings.action.MiniWindowAdjustScreen
 import hunoia.luno.ui.settings.link.LinkDispatchEditScreen
 import hunoia.luno.ui.settings.link.LinkDispatchSettingsScreen
@@ -183,6 +185,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToActionSelect = {
                             navController.navigate(ActionSelect(copyDeepLink = true))
                         },
+                        onNavToPrivilegedPermissions = {
+                            navController.navigate(PrivilegedPermissions)
+                        },
                     )
                 }
                 myComposable<LinkDispatchRules> {
@@ -217,6 +222,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                             }
                         },
                     )
+                }
+                myComposable<PrivilegedPermissions> {
+                    PrivilegedPermissionsScreen(onBack = { navController.popBackStack() })
                 }
                 myComposable<MiniWindowAdjust> {
                     MiniWindowAdjustScreen(onBack = { navController.popBackStack() })

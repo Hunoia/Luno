@@ -43,9 +43,14 @@ object RuleCapabilityScanner {
             appContext = context.applicationContext,
             isAccessibilityAvailable = isAccessibilityAvailable,
         )
-        val required = requiredCapabilities(rule, allRules, library)
+        // 一组 = 「这些能力任一可用即可」（如 back 既可是无障碍也可是 shell 注入）。
+        // 只要组内一个可用就不算缺失；缺失时对外仍报主能力，UI 文案不变。
+        val groups = requiredCapabilityGroups(rule, allRules, library)
         return RuleCapabilityReport(
-            missingCapabilities = required.filterNot(gate::isAvailable).toSet(),
+            missingCapabilities = groups
+                .filterNot { group -> group.any(gate::isAvailable) }
+                .mapNotNull { it.firstOrNull() }
+                .toSet(),
             notificationAccessMissing = notificationAccessRequired(rule, allRules, library) &&
                 !isNotificationAccessGranted(context),
         )
@@ -135,8 +140,17 @@ object RuleCapabilityScanner {
         rule: AutomationRule,
         allRules: List<AutomationRule>,
         library: ActionLibrarySettings?,
-    ): Set<Capability> {
-        val result = mutableSetOf<Capability>()
+    ): Set<Capability> = requiredCapabilityGroups(rule, allRules, library)
+        .mapNotNull { it.firstOrNull() }
+        .toSet()
+
+    /** 每条需求是一组「或」关系的能力（[ActionMetadata.capabilities]）。 */
+    fun requiredCapabilityGroups(
+        rule: AutomationRule,
+        allRules: List<AutomationRule>,
+        library: ActionLibrarySettings?,
+    ): Set<Set<Capability>> {
+        val result = mutableSetOf<Set<Capability>>()
         val visited = mutableSetOf<String>()
         val visitedLibraryRefs = mutableSetOf<String>()
         collectRule(rule, allRules, library, result, visited, visitedLibraryRefs)
@@ -147,7 +161,7 @@ object RuleCapabilityScanner {
         rule: AutomationRule,
         allRules: List<AutomationRule>,
         library: ActionLibrarySettings?,
-        out: MutableSet<Capability>,
+        out: MutableSet<Set<Capability>>,
         visited: MutableSet<String>,
         visitedLibraryRefs: MutableSet<String>,
     ) {
@@ -159,7 +173,7 @@ object RuleCapabilityScanner {
         steps: List<RuleStep>,
         allRules: List<AutomationRule>,
         library: ActionLibrarySettings?,
-        out: MutableSet<Capability>,
+        out: MutableSet<Set<Capability>>,
         visited: MutableSet<String>,
         visitedLibraryRefs: MutableSet<String>,
     ) {
@@ -177,7 +191,7 @@ object RuleCapabilityScanner {
         stored: StoredAction,
         allRules: List<AutomationRule>,
         library: ActionLibrarySettings?,
-        out: MutableSet<Capability>,
+        out: MutableSet<Set<Capability>>,
         visited: MutableSet<String>,
         visitedLibraryRefs: MutableSet<String>,
     ) {
@@ -194,9 +208,11 @@ object RuleCapabilityScanner {
                 collectRule(target, allRules, library, out, visited, visitedLibraryRefs)
             }
             else -> {
-                val capability = ActionDefinitions.byTypeId(stored.typeId)?.capability
-                    ?: Capability.None
-                if (capability != Capability.None) out += capability
+                val capabilities = ActionDefinitions.byTypeId(stored.typeId)?.capabilities
+                    ?.filterNot { it == Capability.None }
+                    ?.toSet()
+                    .orEmpty()
+                if (capabilities.isNotEmpty()) out += capabilities
             }
         }
     }

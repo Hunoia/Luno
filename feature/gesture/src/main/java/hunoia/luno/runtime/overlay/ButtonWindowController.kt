@@ -13,6 +13,7 @@ import hunoia.luno.config.model.GestureButton
 import hunoia.luno.gesture.MotionEventDispatcher
 import hunoia.luno.gesture.TouchWindowHint
 import hunoia.luno.runtime.button.ButtonVisibilityPolicy
+import hunoia.luno.gesture.effectiveWindowButton
 import hunoia.luno.gesture.mirroredButton
 import hunoia.luno.core.LOG_TAG
 
@@ -25,11 +26,14 @@ class ButtonWindowController(
 
     fun replaceGestureButtons(buttons: Collection<GestureButton>) {
         if (BuildConfig.DEBUG) Log.i(LOG_TAG, "replace buttons: count=${buttons.size}")
+        // 窗口按**生效触摸区**摆放：配了内核触摸流的按钮只占贴边那条，
+        // 条带之外不再有窗口，触摸自然落到下层应用（与拦截窗几何同源）。
         val targets = buttons.flatMap { button ->
+            val effective = button.effectiveWindowButton()
             buildList {
-                add(GestureButtonWindowTarget(button, button))
-                button.mirroredButton()?.let { mirrored ->
-                    if (mirrored.bounds != button.bounds) {
+                add(GestureButtonWindowTarget(button, effective))
+                effective.mirroredButton()?.let { mirrored ->
+                    if (mirrored.bounds != effective.bounds) {
                         add(GestureButtonWindowTarget(button, mirrored, mirrored = true))
                     }
                 }

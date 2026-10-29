@@ -161,6 +161,15 @@ class GestureButtonSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeV
 
     fun onGestureButtonMirrorHorizontalChange(value: Boolean) = updateButton { copy(mirrorHorizontal = value) }
 
+    /** 触摸来源是每个触钮各自的实现选择：改模式立即落盘，拖宽度只改内存。 */
+    fun onTouchInputModeChange(mode: hunoia.luno.config.model.TouchInputMode) = updateButton {
+        copy(touchInput = touchInput.copy(mode = mode))
+    }
+
+    fun onInterceptWidthLiveChange(widthDp: Int) = updateButtonLive {
+        copy(touchInput = touchInput.copy(interceptWidthDp = widthDp.coerceIn(0, 48)))
+    }
+
     fun saveSettings() {
         viewModelScope.launch {
             launch {

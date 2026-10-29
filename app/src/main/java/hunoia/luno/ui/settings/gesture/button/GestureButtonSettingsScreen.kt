@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.util.fastForEach
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aaron.compose.component.UDFComponent
 import hunoia.luno.R
@@ -47,6 +48,7 @@ fun GestureButtonSettingsScreen(
     var showVibrationSettings by remember { mutableStateOf(false) }
     var showTriggerDistanceSettings by remember { mutableStateOf(false) }
     var showGestureAngles by remember { mutableStateOf(false) }
+    val shizukuStatus by hunoia.luno.shizuku.ShizukuManager.statusFlow.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     UDFComponent<GestureButtonSettingsUiState, GestureButtonSettingsUiEvent>(component = vm.udfComponent, onEvent = { }) { uiState ->
         if (uiState.showDeleteWarningDialog) {
@@ -157,9 +159,19 @@ fun GestureButtonSettingsScreen(
                                 }
                             }
                             item {
+                                GestureButtonTouchInputGroup(
+                                    touchInput = gestureButton.touchInput,
+                                    shizukuReady = shizukuStatus.isReady,
+                                    onModeChange = vm::onTouchInputModeChange,
+                                    onInterceptWidthChange = vm::onInterceptWidthLiveChange,
+                                    onCommit = vm::saveSettings,
+                                )
+                            }
+                            item {
                                 GestureButtonPhysicalParamsCard(
                                     gestureButton = gestureButton,
                                     mirrorHorizontal = uiState.mirrorHorizontal,
+                                    shizukuReady = shizukuStatus.isReady,
                                     vm = vm,
                                     onAngleClick = { showGestureAngles = true },
                                     onVibrationClick = { showVibrationSettings = true },

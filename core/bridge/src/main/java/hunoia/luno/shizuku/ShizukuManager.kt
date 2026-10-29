@@ -192,7 +192,7 @@ object ShizukuManager {
         }
     }
 
-    suspend fun executeShell(command: String): ShellResult = withContext(Dispatchers.IO) {
+    suspend fun executeShell(command: String, maxChars: Int = 4096): ShellResult = withContext(Dispatchers.IO) {
         if (command.isBlank()) {
             return@withContext ShellResult(-1, "", "", false, "Command is blank")
         }
@@ -212,7 +212,6 @@ object ShizukuManager {
                 }
                 val stdoutResult = StringBuilder()
                 val stderrResult = StringBuilder()
-                val maxChars = 4096
                 // 必须把管道一直读到 EOF，哪怕已经超上限。半途停止读取会让子进程的
                 // write() 永久阻塞在满管道上，进而 proc.waitFor() 永不返回 —— 输出超过
                 // 管道缓冲（~64KB）的命令（如 dumpsys）会直接把这条协程和 IO 线程挂死。

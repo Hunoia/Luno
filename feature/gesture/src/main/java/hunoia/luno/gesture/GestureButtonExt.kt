@@ -3,6 +3,7 @@ package hunoia.luno.gesture
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.rootSize
 import hunoia.luno.config.model.GestureButton
 
@@ -74,4 +75,38 @@ fun GestureButton.bounds(imePadding: Int = 0): Rect {
 fun GestureButton.mirroredButton(): GestureButton? {
     if (!mirrorHorizontal) return null
     return copy(bounds = bounds.copy(x = 1f - bounds.x - bounds.width), mirrorHorizontal = false)
+}
+
+/** 按钮是否配置了至少一个动作；全空时不值得占拦截区，也不该参与来源仲裁。 */
+fun GestureButton.hasAnyActions(): Boolean =
+    tapActions.isSet() ||
+        doubleTapActions.isSet() ||
+        longPressActions.isSet() ||
+        slideActions.actions.values.any { it.isSet() } ||
+        slideHoldActions.actions.values.any { it.isSet() } ||
+        longSlideActions.actions.values.any { it.isSet() } ||
+        longSlideHoldActions.actions.values.any { it.isSet() }
+
+private fun hunoia.luno.core.domain.StoredAction?.isSet(): Boolean =
+    this != null && typeId != hunoia.luno.action.model.Action.NONE_TYPE_ID
+
+/**
+ * 触钮**实际生效的触摸区域**（归一化坐标）。
+ *
+ * 触摸来源配成内核触摸流且拦截宽度 < 触发宽度时，按钮只保留贴边一条：
+ * 无障碍按钮窗与拦截窗都按这个矩形摆放，所以条带之外的像素照常落到下层应用。
+ * 未配内核触摸流时原样返回，行为与接入 Shizuku 之前完全一致。
+ */
+fun GestureButton.effectiveWindowButton(
+    screenWidthPx: Int = rootSize.width,
+    density: Float = DensityProvider.density,
+): GestureButton {
+    if (touchInput.mode == hunoia.luno.config.model.TouchInputMode.ONLY_ACCESSIBILITY) return this
+    val widthDp = touchInput.interceptWidthDp
+    if (widthDp <= 0 || screenWidthPx <= 0) return this
+    val strip = (widthDp * density / screenWidthPx).coerceAtMost(bounds.width)
+    if (strip >= bounds.width) return this
+    val hugLeft = (bounds.x + bounds.width / 2f) < 0.5f
+    val x = if (hugLeft) bounds.x else bounds.x + bounds.width - strip
+    return copy(bounds = bounds.copy(x = x, width = strip))
 }

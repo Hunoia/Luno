@@ -56,9 +56,13 @@ class ActionExecutorRegistry(
 
     suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
         val executor = executorMap[action.typeId] ?: return ActionResult.Failed(ActionFailure.Unsupported)
-        val capability = catalog.definition(action.typeId)?.capability ?: Capability.None
-        if (capability != Capability.None && !isCapabilityAvailable(capability)) {
-            return ActionResult.RequiresCapability(capability)
+        val metadata = catalog.definition(action.typeId)
+        val capabilities = metadata?.capabilities ?: setOf(Capability.None)
+        // 组内任一可用即可：无障碍不在位时，back/home 这类动作可由 shell 注入完成。
+        if (!capabilities.any(isCapabilityAvailable)) {
+            return ActionResult.RequiresCapability(
+                capabilities.firstOrNull { it != Capability.None } ?: Capability.None,
+            )
         }
         return runCatching {
             executor.execute(action, context)

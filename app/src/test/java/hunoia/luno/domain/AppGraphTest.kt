@@ -2,6 +2,9 @@ package hunoia.luno.domain
 
 import android.content.Context
 import hunoia.luno.domain.system.HomePermissionState
+import hunoia.luno.domain.system.PrivilegedGrantSummary
+import hunoia.luno.domain.system.PrivilegedPermission
+import hunoia.luno.domain.system.PrivilegedPermissionStatus
 import hunoia.luno.domain.system.SystemFacade
 import org.junit.Assert.assertSame
 import org.junit.Test
@@ -27,6 +30,23 @@ class AppGraphTest {
                 isAccessibilityEnabled = false,
                 isKeepAliveEnabled = false,
             )
+
+        override fun privilegedPermissionStatus(context: Context): List<PrivilegedPermissionStatus> =
+            PrivilegedPermission.entries.map { PrivilegedPermissionStatus(it, granted = false) }
+
+        override fun privilegedPermissionIntent(
+            context: Context,
+            permission: PrivilegedPermission,
+        ): android.content.Intent? = null
+
+        override suspend fun grantPrivilegedPermission(
+            context: Context,
+            permission: PrivilegedPermission,
+        ): Boolean = true
+
+        override suspend fun grantAllPrivilegedPermissions(
+            context: Context,
+        ): PrivilegedGrantSummary = PrivilegedGrantSummary(total = 0)
     }
 
     @Test

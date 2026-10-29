@@ -40,6 +40,23 @@ class ConditionSources(
     var wifiSsid: String? = null
         private set
 
+    /**
+     * 是否需要读 SSID：**只有存在 WiFi 名称条件时**才为 true。
+     *
+     * 读 SSID 在 Android 8.1+ 需要定位权限，且每读一次系统都会点亮「正在使用位置信息」。
+     * 没有规则用 SSID 就一次都不碰——这是"Luno 一直在用位置权限"的根因。
+     */
+    var wifiSsidNeeded: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            if (value) {
+                readWifiSsid()
+            } else {
+                wifiSsid = null
+            }
+        }
+
     var headphonesConnected: Boolean = false
         private set
 
@@ -336,6 +353,11 @@ class ConditionSources(
      * `<unknown ssid>`，这里统一降级为 null，不把占位符当成真实网络名。
      */
     private fun readWifiSsid() {
+        // 没有 WiFi 名称条件就不读：这个调用会拉起定位权限使用提示。
+        if (!wifiSsidNeeded) {
+            wifiSsid = null
+            return
+        }
         if (networkType != NetworkType.WIFI) {
             wifiSsid = null
             return

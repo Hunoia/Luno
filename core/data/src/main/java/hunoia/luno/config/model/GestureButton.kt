@@ -88,6 +88,8 @@ data class GestureButton(
     val doubleTapTriggerDelayMs: Long = GestureButtonDefaults.DoubleTapTriggerDelayMs,
     val slideHoldTriggerDelayMs: Long = GestureButtonDefaults.SlideHoldTriggerDelayMs,
     val longSlideHoldTriggerDelayMs: Long = GestureButtonDefaults.LongSlideHoldTriggerDelayMs,
+    /** 触摸来源：无障碍窗口 / 内核触摸流（Shizuku）。每个触钮各自决定。 */
+    val touchInput: TouchInputConfig = TouchInputConfig(),
 ) {
 
     /**

@@ -17,7 +17,7 @@ object WindowLayoutFactory {
 
     /**
      * 主 overlay 的 LayoutParams。[fullScreen] 为 false 时收成 1x1：这个窗口平时什么都不画，
-     * 只带 FLAG_NOT_TOUCHABLE，用途是承载 SideGestureContainer 的 DragGestureHandler 与 ActionPanel
+     * 只带 FLAG_NOT_TOUCHABLE，用途是承载手势会话的动作面板与指针光标
      *（面板隐藏时内容不进组合）。全屏 RGBA_8888 buffer（1200x2670 ≈ 12.2MB）常驻画空白，
      * 面板隐藏时缩到 1x1，组合体不销毁、DisposableEffect 继续挂着，手势不受影响。
      */

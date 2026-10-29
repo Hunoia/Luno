@@ -19,6 +19,18 @@ interface SystemFacade {
     fun refreshFloatBall(context: Context)
 
     suspend fun loadHomePermissionState(context: Context): HomePermissionState
+
+    /** 各项特权授权的当前状态（悬浮窗 / 无障碍 / 通知监听 / 系统设置写入 / 电池白名单 / 通知）。 */
+    fun privilegedPermissionStatus(context: Context): List<PrivilegedPermissionStatus>
+
+    /** 该项对应的系统设置页；没有可跳页面时返回 null（如 `WRITE_SECURE_SETTINGS`）。 */
+    fun privilegedPermissionIntent(context: Context, permission: PrivilegedPermission): android.content.Intent?
+
+    /** 用 Shizuku 只授这一项；返回是否真的授上了。 */
+    suspend fun grantPrivilegedPermission(context: Context, permission: PrivilegedPermission): Boolean
+
+    /** 一键补齐：返回成功/失败计数，没拿到 Shizuku 时 total=0。 */
+    suspend fun grantAllPrivilegedPermissions(context: Context): PrivilegedGrantSummary
 }
 
 /** `SystemFacade` 的默认实现：只做委托，不引入新的状态。 */
@@ -40,4 +52,20 @@ object SystemUseCases : SystemFacade {
 
     override suspend fun loadHomePermissionState(context: Context): HomePermissionState =
         PermissionStateUseCase.loadHomePermissionState(context)
+
+    override fun privilegedPermissionStatus(context: Context): List<PrivilegedPermissionStatus> =
+        PrivilegedPermissionUseCase.status(context)
+
+    override fun privilegedPermissionIntent(
+        context: Context,
+        permission: PrivilegedPermission,
+    ): android.content.Intent? = PrivilegedPermissionUseCase.settingsIntent(context, permission)
+
+    override suspend fun grantPrivilegedPermission(
+        context: Context,
+        permission: PrivilegedPermission,
+    ): Boolean = PrivilegedPermissionUseCase.grant(context, permission)
+
+    override suspend fun grantAllPrivilegedPermissions(context: Context): PrivilegedGrantSummary =
+        PrivilegedPermissionUseCase.grantAll(context)
 }

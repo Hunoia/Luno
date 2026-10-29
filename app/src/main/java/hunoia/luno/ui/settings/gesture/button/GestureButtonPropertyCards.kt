@@ -22,6 +22,7 @@ import hunoia.luno.ui.component.row.segmentedShape
 fun GestureButtonPhysicalParamsCard(
     gestureButton: GestureButton,
     mirrorHorizontal: Boolean,
+    shizukuReady: Boolean,
     vm: GestureButtonSettingsVM,
     onAngleClick: () -> Unit,
     onVibrationClick: () -> Unit,

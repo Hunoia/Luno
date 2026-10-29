@@ -72,6 +72,11 @@ data class LinkDispatchRuleEdit(
     val pattern: String = "",
 )
 
+/** 授权总览：每项一行的状态 + 跳系统设置 + 单项授权，顶部一键补齐。 */
+@Keep
+@Serializable
+data object PrivilegedPermissions
+
 @Keep
 @Serializable
 data object NotificationBlocklist

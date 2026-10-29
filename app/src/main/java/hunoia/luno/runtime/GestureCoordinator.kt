@@ -47,6 +47,7 @@ import hunoia.luno.config.model.ScreenEventType
 import hunoia.luno.runtime.environment.PreviousAppTracker
 import hunoia.luno.runtime.condition.AudioVolumeTracker
 import hunoia.luno.runtime.condition.hasVolumeCondition
+import hunoia.luno.runtime.condition.hasWifiSsidCondition
 import hunoia.luno.runtime.automation.AutomationEngine
 import hunoia.luno.runtime.automation.AutomationEvent
 import hunoia.luno.runtime.automation.AutomationEventKey
@@ -76,6 +77,7 @@ import hunoia.luno.runtime.overlay.TransientOverlayController
 import hunoia.luno.runtime.settings.SettingsStore
 import hunoia.luno.runtime.volume.VolumeScrubRuntime
 import hunoia.luno.runtime.pointer.PointerRuntime
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
@@ -90,6 +92,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration.Companion.milliseconds
+import hunoia.luno.gesture.hasAnyActions
 import hunoia.luno.core.LOG_TAG
 
 /** 冷启动/悬浮窗重建期间容器的面板列表未灌满时，揭示事件的等待重试参数。 */
@@ -97,6 +100,9 @@ private const val BALL_PANEL_REVEAL_MAX_ATTEMPTS = 40
 
 /** 键盘在屏期间的短轮询间隔：捕捉没有 a11y 事件的 IME 收起（如返回键/手势）。 */
 private const val KEYBOARD_WATCH_MS = 600L
+
+/** 模板变量 `{wifi.ssid}` 的标记：出现即代表需要读 SSID（会拉起定位使用提示）。 */
+private const val WIFI_SSID_TOKEN = "wifi.ssid"
 
 /** 跳过诊断节流窗口：同规则同原因窗口内只留一条历史，避免通知风暴写爆历史。 */
 private const val SKIP_LOG_WINDOW_MS = 60_000L
@@ -919,6 +925,92 @@ class GestureCoordinator(
     private var actionPanelVisibilityEventPosted = false
     private var wallpaperColorsListener: WallpaperManager.OnColorsChangedListener? = null
 
+    /**
+     * 手势会话管线：输入源无关。无障碍按钮窗与 Shizuku 内核触摸流共用这一份识别状态，
+     * 因此不存在“两条链路各触发一次”。
+     */
+    private var gesturePipelineRef: hunoia.luno.runtime.gesturepanel.GestureSessionPipeline? = null
+
+    private val gesturePipeline: hunoia.luno.runtime.gesturepanel.GestureSessionPipeline
+        get() = gesturePipelineRef ?: hunoia.luno.runtime.gesturepanel.GestureSessionPipeline(
+            host.coroutineScope,
+            callbacks,
+        ).also { gesturePipelineRef = it }
+
+    private var touchInputRouterRef: hunoia.luno.gesture.touchsource.TouchInputRouter? = null
+
+    private val touchInputRouter: hunoia.luno.gesture.touchsource.TouchInputRouter
+        get() = touchInputRouterRef ?: hunoia.luno.gesture.touchsource.TouchInputRouter(
+            gesturePipeline,
+        ) { touchInputLayout() }.also { touchInputRouterRef = it }
+
+    private var motionEventInputRef: hunoia.luno.gesture.touchsource.MotionEventInputSource? = null
+
+    private val motionEventInput: hunoia.luno.gesture.touchsource.MotionEventInputSource
+        get() = motionEventInputRef ?: hunoia.luno.gesture.touchsource.MotionEventInputSource(
+            touchInputRouter,
+        ).also { motionEventInputRef = it }
+
+    private var shizukuTouchInputRef: hunoia.luno.gesture.touchsource.ShizukuTouchInputSource? = null
+
+    /**
+     * 内核触摸流输入源。宿主就是无障碍服务本身：动作面板 / 子手势 / 指针 / 音量刮擦
+     * 都依赖无障碍窗口，所以“只用 Shizuku”指“触摸不从无障碍按钮窗来”，不等于可以关掉无障碍。
+     */
+    private val shizukuTouchInput: hunoia.luno.gesture.touchsource.ShizukuTouchInputSource
+        get() = shizukuTouchInputRef ?: hunoia.luno.gesture.touchsource.ShizukuTouchInputSource(
+            context = host.context,
+            scope = host.coroutineScope,
+            router = touchInputRouter,
+            layoutProvider = { touchInputLayout() },
+        ).also { shizukuTouchInputRef = it }
+
+    /** 当前来源仲裁所需的几何快照。只在 DOWN 时读，不参与逐帧计算。 */
+    private fun touchInputLayout(): hunoia.luno.gesture.touchsource.TouchInputLayout {
+        val state = runtimeSettingsStore.snapshot()
+        return hunoia.luno.gesture.touchsource.TouchInputLayout(
+            buttons = state.gestureButtons,
+            shizukuStreaming = shizukuTouchInput.intercepting,
+        )
+    }
+
+    /** 把配置快照推给管线；按钮/手势参数变化会重建识别状态，此时旧会话作废。 */
+    private fun syncGesturePipeline() {
+        val state = runtimeSettingsStore.snapshot()
+        val recreated = gesturePipeline.update(
+            hunoia.luno.runtime.gesturepanel.GesturePipelineSettings(
+                buttons = state.gestureButtons,
+                actionPanels = state.actionSettings.actionPanels.panels,
+                advancedSettings = state.advancedSettings,
+                gestureSettings = state.gestureSettings,
+                subGestureSettings = state.subGestureSettings,
+                actionPanelStyle = state.actionSettings.actionPanelStyle,
+            ),
+        )
+        if (recreated) touchInputRouter.reset()
+    }
+
+    /**
+     * 按「是否至少有一个触钮配了内核触摸流」决定 Shizuku 源是否运行；无障碍窗口来源始终在跑。
+     * 来源是每个触钮各自的实现选择，这里只做聚合。
+     */
+    private fun syncTouchInputSources() {
+        val state = runtimeSettingsStore.snapshot()
+        val wantShizuku = state.initialSettings.gestureEnabled &&
+            state.gestureButtons.any {
+                it.hasAnyActions() &&
+                    it.touchInput.mode != hunoia.luno.config.model.TouchInputMode.ONLY_ACCESSIBILITY
+            }
+        motionEventInput.start()
+        if (wantShizuku) {
+            shizukuTouchInput.start()
+        } else if (shizukuTouchInput.isRunning) {
+            // 只在真的在跑时停：无谓 stop 会 router.reset()，把进行中的手势会话掐断。
+            shizukuTouchInput.stop()
+        }
+        shizukuTouchInput.refreshGeometry()
+    }
+
     private val callbacks: GestureOverlayCallbacks = object : GestureOverlayCallbacks {
         override fun onSubGestureModeChanged(inSubGesture: Boolean, center: Offset, radiusPx: Int) {
             if (inSubGesture) {
@@ -1281,6 +1373,10 @@ class GestureCoordinator(
             },
         )
         runtimeSettingsStore.start()
+        // 先按当前快照把管线和输入源建起来，再挂 overlay：否则首帧渲染时管线还是空配置，
+        // 开局几毫秒内的触摸会解析不到任何触钮。
+        syncGesturePipeline()
+        syncTouchInputSources()
         broadcastObserver.register()
         batteryTracker.register()
         audioVolumeTracker.sync(volumePollNeeded())
@@ -1330,6 +1426,15 @@ class GestureCoordinator(
                 .collect { refreshGestureButtons(delayMs = 0L) }
         }
 
+        // 手势会话管线与输入源跟随配置：按钮、面板、参数、输入模式任一变化都走同一条同步。
+        // 先同步配置再决定输入源，避免用旧快照建拦截窗。
+        scopeJobs += host.coroutineScope.launch {
+            runtimeSettingsStore.state.collect {
+                syncGesturePipeline()
+                syncTouchInputSources()
+            }
+        }
+
         scopeJobs += host.coroutineScope.launch(Dispatchers.IO) {
             // 用面板真正展示的那份查询（allowRepeatPackage=false，且含禁用应用），
             // 而不是 queryApps —— 后者列表不同，预热出来的索引对不上。
@@ -1350,6 +1455,8 @@ class GestureCoordinator(
                 .distinctUntilChangedBy { it.automationRules }
                 .collect { state ->
                     timeConditionTicker.sync(state.automationRules)
+                    // SSID 读取会触发系统的定位使用提示：只在真的用得上时才开。
+                    conditionSources.wifiSsidNeeded = wifiSsidNeeded(state)
                     audioVolumeTracker.sync(volumePollNeeded(state.automationRules))
                     musicTracker.sync(musicConditionNeeded(state.automationRules))
                     torchTracker.sync(torchConditionNeeded(state.automationRules))
@@ -1503,6 +1610,16 @@ class GestureCoordinator(
         conditionSources.stop()
         scopeJobs.forEach { it.cancel() }
         scopeJobs.clear()
+        // 只在真的建过时释放：这三个对象是惰性创建的，没建过就不该为了 release 而创建。
+        gesturePipelineRef?.let { pipeline ->
+            motionEventInputRef?.stop()
+            shizukuTouchInputRef?.stop()
+            pipeline.release()
+        }
+        motionEventInputRef = null
+        shizukuTouchInputRef = null
+        touchInputRouterRef = null
+        gesturePipelineRef = null
         if (BuildConfig.DEBUG) Log.i(LOG_TAG, "GestureCoordinator release")
         mainOverlayController.release()
         hunoia.luno.runtime.surface.SurfaceController.detachAll(
@@ -1555,6 +1672,44 @@ class GestureCoordinator(
             peekPulses = peekPulses,
         )
 
+    /**
+     * 是否需要读 WiFi SSID。
+     *
+     * 读 SSID 在 Android 8.1+ 需要定位权限，每读一次系统都会点亮「正在使用位置信息」。
+     * 所以只有两种情况才开：启用规则里有 WiFi 名称条件，或有动作模板引用了 `{wifi.ssid}`。
+     * 两者都没有就一次都不读——这是「Luno 一直在用位置权限」的根因。
+     */
+    private fun wifiSsidNeeded(state: hunoia.luno.runtime.settings.SettingsState): Boolean {
+        if (state.automationRules.any { it.enabled && it.condition.hasWifiSsidCondition() }) return true
+
+        fun usesTemplate(action: hunoia.luno.core.domain.StoredAction?, seen: MutableSet<String>): Boolean {
+            action ?: return false
+            if (action.typeId == "internal.libraryRef") {
+                val entryId = (action.params["entryId"] as? kotlinx.serialization.json.JsonPrimitive)
+                    ?.contentOrNull
+                    ?: return false
+                if (!seen.add(entryId)) return false
+                val entry = state.actionLibrarySettings.entries.firstOrNull { it.id == entryId }
+                return usesTemplate(entry?.storedAction, seen)
+            }
+            return action.params.values.any { it.toString().contains(WIFI_SSID_TOKEN) }
+        }
+
+        fun stepsUseTemplate(
+            steps: List<hunoia.luno.config.model.RuleStep>,
+            seen: MutableSet<String>,
+        ): Boolean = steps.any { step ->
+            step.enabled && (
+                usesTemplate(step.action, seen) ||
+                    stepsUseTemplate(step.thenSteps, seen) ||
+                    stepsUseTemplate(step.elseSteps, seen)
+                )
+        }
+
+        return state.automationRules.any { stepsUseTemplate(it.effect.steps, mutableSetOf()) } ||
+            state.actionLibrarySettings.entries.any { usesTemplate(it.storedAction, mutableSetOf()) }
+    }
+
     private fun volumePollNeeded(rules: List<hunoia.luno.config.model.AutomationRule>? = null): Boolean {
         val list = rules ?: runtimeSettingsStore.snapshot().automationRules
         // 只看启用规则：纯禁用规则不该让音量轮询空转。
@@ -1598,7 +1753,7 @@ class GestureCoordinator(
     @Composable
     private fun renderMainOverlay() {
         hunoia.luno.runtime.overlay.GestureOverlayView(
-            callbacks = callbacks,
+            pipeline = gesturePipeline,
             settingsState = runtimeSettingsStore.state,
         )
     }

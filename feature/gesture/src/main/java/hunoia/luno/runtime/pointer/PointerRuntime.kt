@@ -8,7 +8,7 @@ import kotlinx.coroutines.launch
 
 /**
  * 指针会话状态机，两条进入路径：
- * - [beginBridge]：按住类触发，光标画在面板内（[rememberPointerHandle]），这里只登记会话，
+ * - [beginBridge]：按住类触发，光标画在主 overlay 里（[PointerSession]），这里只登记会话，
  *   UP 后经 [performBridgeActionAt] 在落点点击；
  * - [showBridge]/[show]：滑动/面板点选/悬浮球/动作分发，挂全屏 [PointerOverlay] 接管触摸，
  *   UP 后经 [performActionAt] 点击。
@@ -32,7 +32,7 @@ class PointerRuntime(
     }
 
     fun beginBridge(): Boolean {
-        // 面板内路径：设置由 PointerHandle 自持，这里只登记会话。
+        // 面板内路径：设置由 PointerSession 自持，这里只登记会话。
         return begin()
     }
 

@@ -50,6 +50,7 @@ fun ActionSettingsScreen(
     onNavToMiniWindowAdjust: () -> Unit = {},
     onNavToLinkDispatch: () -> Unit = {},
     onNavToActionSelect: () -> Unit = {},
+    onNavToPrivilegedPermissions: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var showActionPanelStyle by remember { mutableStateOf(false) }
@@ -81,8 +82,6 @@ fun ActionSettingsScreen(
                         )
                     }
                 }
-
-
         },
     ) {
 
@@ -139,8 +138,15 @@ fun ActionSettingsScreen(
                     icon = Icons.Default.Link,
                     title = stringResource(R.string.action_deep_links),
                     subtitle = stringResource(R.string.action_deep_links_hint),
-                    shape = segmentedShape(3, 4),
+                    shape = segmentedShape(3, 5),
                     onClick = onNavToActionSelect,
+                )
+                LunoSettingsRow(
+                    icon = Icons.Default.TouchApp,
+                    title = stringResource(R.string.perm_page_title),
+                    subtitle = stringResource(R.string.perm_page_entry_hint),
+                    shape = segmentedShape(4, 5),
+                    onClick = onNavToPrivilegedPermissions,
                 )
             }
             LunoGroup(title = stringResource(R.string.link_dispatch)) {

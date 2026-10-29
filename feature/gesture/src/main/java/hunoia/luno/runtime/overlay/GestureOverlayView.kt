@@ -10,18 +10,25 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import hunoia.luno.core.Events.SubscribeEvent
 import hunoia.luno.core.WallpaperChangedEvent
-import hunoia.luno.runtime.settings.SettingsState
+import hunoia.luno.runtime.gesturepanel.GestureSessionPipeline
 import hunoia.luno.runtime.gesturepanel.SideGestureContainer
+import hunoia.luno.runtime.settings.SettingsState
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
-import hunoia.luno.core.Events.SubscribeEvent
 import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.flow.StateFlow
 
+/**
+ * 主 overlay 的内容：只负责画。
+ *
+ * 手势会话状态机在 [GestureSessionPipeline]，输入源在 `touchsource` 包——两者都不由
+ * 这个组合决定，所以输入源可以随时切换（无障碍窗口 / 内核触摸流）而窗口不必重建。
+ */
 @Composable
 fun GestureOverlayView(
-    callbacks: GestureOverlayCallbacks,
+    pipeline: GestureSessionPipeline,
     settingsState: StateFlow<SettingsState>,
 ) {
     var lastWallpaperChangeMs by remember { mutableStateOf(0L) }
@@ -40,40 +47,8 @@ fun GestureOverlayView(
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 SideGestureContainer(
+                    pipeline = pipeline,
                     modifier = Modifier.matchParentSize(),
-                    buttons = state.gestureButtons,
-                    onSubGestureModeChanged = { inSubGesture, center, radiusPx ->
-                        callbacks.onSubGestureModeChanged(inSubGesture, center, radiusPx)
-                    },
-                    onActionPanelOverlayChanged = { show ->
-                        callbacks.onActionPanelOverlayChanged(show)
-                    },
-                    onActionPanelVisibilityChanged = { visible ->
-                        callbacks.onActionPanelVisibilityChanged(visible)
-                    },
-                    onVolumeScrubOverlayRequested = { config ->
-                        callbacks.onVolumeScrubOverlayRequested(config)
-                    },
-                    onPointerStart = { settings ->
-                        callbacks.onPointerStart(settings)
-                    },
-                    onPointerShow = { settings ->
-                        callbacks.onPointerShow(settings)
-                    },
-                    onPointerEnd = {
-                        callbacks.onPointerEnd()
-                    },
-                    onPointerActionAtPosition = { x, y ->
-                        callbacks.onPointerActionAtPosition(x, y)
-                    },
-                    onAction = { action, sourceButton, touchPosition, decision ->
-                        callbacks.onAction(action, sourceButton, touchPosition, decision)
-                    },
-                    advancedSettings = state.advancedSettings,
-                    gestureSettings = state.gestureSettings,
-                    actionPanelStyle = state.actionSettings.actionPanelStyle,
-                    actionPanels = state.actionSettings.actionPanels.panels,
-                    subGestureSettings = state.subGestureSettings,
                 )
             }
         }

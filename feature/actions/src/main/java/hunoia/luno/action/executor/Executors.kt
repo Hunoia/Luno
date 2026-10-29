@@ -19,9 +19,15 @@ import kotlin.coroutines.resume
 
 /** 注入触点前隐藏触钮的时长：要盖住整段注入（tap 100ms / 长按 durationMs）之后再让触钮回来。 */
 private const val BUTTON_HIDE_MS = 250L
-
 /** 隐藏触钮后等它真正不可触的帧数（WM 事务要等一次 traversal 才落到输入分发）。 */
 private const val BUTTON_HIDE_SETTLE_FRAMES = 2
+
+// shell 兜底用的键码：无障碍不在位时仍要能把导航类动作做完。
+private const val KEYCODE_BACK = 4
+private const val KEYCODE_HOME = 3
+private const val KEYCODE_APP_SWITCH = 187
+private const val KEYCODE_POWER = 26
+private const val KEYCODE_SLEEP = 223
 
 class AccessibilityExecutors(private val controller: AccessibilityController) : ActionExecutor {
 
@@ -37,20 +43,30 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
 
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
         return when (action) {
-            is Action.Back -> executionResult(controller.back())
-            is Action.Home -> executionResult(controller.home())
-            is Action.Recents -> executionResult(controller.recents())
+            is Action.Back -> withShellFallback(controller.back()) {
+                hunoia.luno.shizuku.ShizukuInputInjection.keyEvent(KEYCODE_BACK)
+            }
+            is Action.Home -> withShellFallback(controller.home()) {
+                hunoia.luno.shizuku.ShizukuInputInjection.keyEvent(KEYCODE_HOME)
+            }
+            is Action.Recents -> withShellFallback(controller.recents()) {
+                hunoia.luno.shizuku.ShizukuInputInjection.keyEvent(KEYCODE_APP_SWITCH)
+            }
             is Action.Tap -> {
                 val (x, y) = action.targetPoint(context)
                     ?: return ActionResult.Failed(ActionFailure.InvalidParameter)
                 hideButtonAndSettle(context)
-                executionResult(controller.click(x, y))
+                withShellFallback(controller.click(x, y)) {
+                    hunoia.luno.shizuku.ShizukuInputInjection.tap(x, y)
+                }
             }
             is Action.LongPress -> {
                 val (x, y) = action.targetPoint(context)
                     ?: return ActionResult.Failed(ActionFailure.InvalidParameter)
                 hideButtonAndSettle(context)
-                executionResult(controller.longPress(x, y, action.durationMs))
+                withShellFallback(controller.longPress(x, y, action.durationMs)) {
+                    hunoia.luno.shizuku.ShizukuInputInjection.longPress(x, y, action.durationMs)
+                }
             }
             is Action.Swipe -> {
                 val performed = when (action.direction) {
@@ -66,7 +82,12 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
                 val (x, y) = action.targetPoint(context)
                     ?: return ActionResult.Failed(ActionFailure.InvalidParameter)
                 hideButtonAndSettle(context)
-                executionResult(controller.doubleTap(x, y))
+                withShellFallback(controller.doubleTap(x, y)) {
+                    val first = hunoia.luno.shizuku.ShizukuInputInjection.tap(x, y)
+                    if (!first) return@withShellFallback false
+                    delay(80)
+                    hunoia.luno.shizuku.ShizukuInputInjection.tap(x, y)
+                }
             }
             is Action.ScrollFocused -> executionResult(controller.scrollFocused(action.forward))
             is Action.Screenshot -> {
@@ -90,16 +111,36 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
                 if (shown) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.SplitScreen -> executionResult(controller.toggleSplitScreen())
-            is Action.PowerButton -> executionResult(controller.powerDialog())
-            is Action.NotificationPanel -> executionResult(controller.notificationPanel())
-            is Action.QuickPanel -> executionResult(controller.quickPanel())
-            is Action.LockScreen -> executionResult(controller.lockScreen())
+            is Action.PowerButton -> withShellFallback(controller.powerDialog()) {
+                hunoia.luno.shizuku.ShizukuInputInjection.keyEvent(KEYCODE_POWER)
+            }
+            is Action.NotificationPanel -> withShellFallback(controller.notificationPanel()) {
+                hunoia.luno.shizuku.ShizukuInputInjection.expandNotifications()
+            }
+            is Action.QuickPanel -> withShellFallback(controller.quickPanel()) {
+                hunoia.luno.shizuku.ShizukuInputInjection.expandQuickSettings()
+            }
+            is Action.LockScreen -> withShellFallback(controller.lockScreen()) {
+                hunoia.luno.shizuku.ShizukuInputInjection.keyEvent(KEYCODE_SLEEP)
+            }
             else -> ActionResult.Failed(ActionFailure.Unsupported)
         }
     }
 
     private fun executionResult(performed: Boolean): ActionResult =
         if (performed) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
+
+    /**
+     * 先试无障碍，失败再试 shell。能力闸已放行「无障碍或 Shizuku 任一」，
+     * 所以这里只负责在两条实现里挑一条能成的：无障碍在位时延迟最低，不在位时靠 shell。
+     */
+    private suspend fun withShellFallback(
+        viaAccessibility: Boolean,
+        shell: suspend () -> Boolean,
+    ): ActionResult {
+        if (viaAccessibility) return ActionResult.Success()
+        return if (shell()) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
+    }
 
     /**
      * 点击/长按落点：勾了「使用触发位置坐标」只认手势触点，否则参数坐标优先再退触点。

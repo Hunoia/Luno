@@ -102,6 +102,8 @@ data class ActionDefinition(
     override val capability: Capability,
     val parameters: List<ParameterDefinition> = emptyList(),
     val icon: ImageVector = Icons.Default.Android,
+    /** 其他可选能力：任一可用即可执行（见 `ActionMetadata.alternativeCapabilities`）。 */
+    override val alternativeCapabilities: Set<Capability> = emptySet(),
 ) : hunoia.luno.core.domain.ActionMetadata {
 
     private val excludedTemplateKeyCache by lazy { excludedTemplateKeys() }

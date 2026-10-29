@@ -87,6 +87,20 @@ fun WhenGroup.hasVolumeCondition(): Boolean = items.any { item ->
     }
 }
 
+/**
+ * WiFi 名称（SSID）条件：决定要不要读 SSID。
+ *
+ * 读 SSID 在 Android 8.1+ 需要定位权限，且每次读都会点亮系统的「正在使用位置信息」
+ * 提示。没有规则用 SSID 就一次都不读。
+ */
+fun WhenGroup.hasWifiSsidCondition(): Boolean = items.any { item ->
+    if (item.type == ConditionType.GROUP) {
+        item.group?.hasWifiSsidCondition() == true
+    } else {
+        item.type == ConditionType.WIFI_SSID
+    }
+}
+
 /** 音乐条件：决定播放回调的注册/注销（事件驱动，不注册零开销）。 */
 fun WhenGroup.hasMusicCondition(): Boolean = items.any { item ->
     if (item.type == ConditionType.GROUP) {
