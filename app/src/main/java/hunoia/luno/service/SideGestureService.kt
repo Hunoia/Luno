@@ -54,7 +54,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
 
     /** 屏幕内容识别拾取窗。与 pointPickOverlay 同规：必须住在无障碍服务这一侧。
      *  非 lazy：构造时就要订阅面板开关事件，否则第一次从面板触发时会错过 Shown。 */
-    private val ocrEngine = hunoia.luno.capability.ocr.MlKitOcrEngine(this)
+    private val ocrEngine = hunoia.luno.capability.ocr.PpOcrEngine(this)
 
     private val screenPickOverlay = ScreenPickOverlay(
         this,
@@ -89,6 +89,14 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             }
         },
     )
+
+    /**
+     * OCR 模型包导入 / 删除后调用：丢弃旧引擎（模型 native 句柄）并重新预热，
+     * 避免设置页换了模型而 `:service` 一直用旧的。
+     */
+    fun refreshOcrEngine() {
+        coroutineScope.launch { runCatching { ocrEngine.reload() } }
+    }
 
     /** 识别屏幕内容动作入口（动作执行已在 :service 进程直连）。返回是否成功弹起。 */
     fun showScreenPick(): Boolean {
@@ -240,6 +248,9 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
 
     override fun onSetOverlay() {
         current = this
+        // 服务起来就把 AOT 引擎加载 / 预热一次：第一次长按不用再等 NPU 建 context，
+        // 加载失败也会在 logcat 留下 w 级日志（见 PpOcrModelRunner）。
+        coroutineScope.launch { runCatching { ocrEngine.warmUp() } }
         if (::gestureCoordinator.isInitialized) gestureCoordinator.onDestroy()
         gestureCoordinator = GestureCoordinator(this)
         // 球侧（:feature:floatball）经注入点下发命令，避免反向依赖宿主服务。

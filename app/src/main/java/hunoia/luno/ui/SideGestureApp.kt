@@ -40,6 +40,7 @@ import hunoia.luno.ui.navigation.GestureButtonSettings
 
 import hunoia.luno.ui.navigation.Home
 import hunoia.luno.ui.navigation.ActionSettings
+import hunoia.luno.ui.navigation.OcrModelSettings
 import hunoia.luno.ui.navigation.ScreenPickSettings
 import hunoia.luno.ui.navigation.NotificationBlocklist
 import hunoia.luno.ui.navigation.PrivilegedPermissions
@@ -67,6 +68,7 @@ import hunoia.luno.ui.actionlibrary.ActionLibraryEditScreen
 import hunoia.luno.ui.automation.AutomationEditScreen
 import hunoia.luno.ui.automation.AutomationHistoryScreen
 import hunoia.luno.ui.settings.action.ActionSettingsScreen
+import hunoia.luno.ui.settings.action.OcrModelSettingsScreen
 import hunoia.luno.ui.settings.action.ScreenPickSettingsScreen
 import hunoia.luno.ui.settings.action.RecentAppsBlocklistScreen
 import hunoia.luno.ui.settings.permission.PrivilegedPermissionsScreen
@@ -198,7 +200,11 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 myComposable<ScreenPickSettings> {
                     ScreenPickSettingsScreen(
                         onBack = { navController.popBackStack() },
+                        onNavToOcrModels = { navController.navigate(OcrModelSettings) },
                     )
+                }
+                myComposable<OcrModelSettings> {
+                    OcrModelSettingsScreen(onBack = { navController.popBackStack() })
                 }
                 myComposable<LinkDispatchRules> {
                     LinkDispatchSettingsScreen(

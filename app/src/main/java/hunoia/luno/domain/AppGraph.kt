@@ -4,6 +4,8 @@ import hunoia.luno.domain.automation.AutomationCenter
 import hunoia.luno.domain.automation.AutomationFacade
 import hunoia.luno.domain.backup.BackupCenter
 import hunoia.luno.domain.backup.BackupFacade
+import hunoia.luno.domain.ocr.OcrModelCenter
+import hunoia.luno.domain.ocr.OcrModelFacade
 import hunoia.luno.domain.system.SystemFacade
 import hunoia.luno.domain.runtime.RuntimeActions
 import hunoia.luno.domain.runtime.RuntimeFacade
@@ -21,6 +23,7 @@ object AppGraph {
     private var backupOverride: BackupFacade? = null
     private var systemOverride: SystemFacade? = null
     private var runtimeOverride: RuntimeFacade? = null
+    private var ocrModelsOverride: OcrModelFacade? = null
 
     val automation: AutomationFacade
         get() = automationOverride ?: AutomationCenter
@@ -33,6 +36,10 @@ object AppGraph {
 
     val runtime: RuntimeFacade
         get() = runtimeOverride ?: RuntimeActions
+
+    /** OCR 模型管理（PP-OCRv5 AOT 包的导入/删除/状态）。 */
+    val ocrModels: OcrModelFacade
+        get() = ocrModelsOverride ?: OcrModelCenter
 
     fun overrideAutomation(facade: AutomationFacade?) {
         automationOverride = facade
@@ -48,5 +55,9 @@ object AppGraph {
 
     fun overrideRuntime(facade: RuntimeFacade?) {
         runtimeOverride = facade
+    }
+
+    fun overrideOcrModels(facade: OcrModelFacade?) {
+        ocrModelsOverride = facade
     }
 }

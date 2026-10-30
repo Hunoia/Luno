@@ -21,9 +21,11 @@ dependencies {
     api(project(":core:domain"))
     implementation(libs.androidx.annotation)
     implementation(libs.kotlinx.coroutines.core)
-    // unbundled：模型由 GMS 按需下载，APK 不打包模型（见 docs/ocr-mlkit-plan-2026-10-29.md §2）。
-    implementation(libs.play.mlkit.text.recognition.chinese)
-    implementation(libs.play.mlkit.text.recognition.japanese)
-    implementation(libs.play.mlkit.text.recognition.korean)
+    // PP-OCRv5：LiteRT CompiledModel + Qualcomm NPU dispatch；模型为 host AOT 包，用户导入。
+    implementation(libs.litert)
+    implementation(libs.litert.npu.qualcomm)
+    implementation(libs.qnn.runtime)
     testImplementation(libs.junit)
+    // 单测里 OcrModelStore 解析 manifest.json；Android 的 org.json 在 JVM 单测中是空实现。
+    testImplementation(libs.org.json)
 }

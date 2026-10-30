@@ -4,9 +4,9 @@ import android.graphics.Bitmap
 import hunoia.luno.config.model.OcrScript
 
 /**
- * 屏幕文字识别能力（默认实现见 [MlKitOcrEngine]）。
+ * 屏幕文字识别能力（实现见 [PpOcrEngine]）。
  *
- * 契约只暴露纯数据，不泄漏 ML Kit 类型；将来换 PaddleOCR 时 feature 侧不改。
+ * 契约只暴露纯数据，不泄漏 LiteRT / QNN 类型；换后端时 feature 侧不改。
  * 输入 bitmap 的包围盒坐标系即 bitmap 像素坐标，调用方负责换算成屏幕坐标
  *（`:feature:gesture` 统一走 `PickCapture.origin + crop`）。
  */

@@ -65,6 +65,12 @@ class DispatchService : Service() {
             }
         }
 
+        override fun refreshOcrEngine() {
+            Handler(Looper.getMainLooper()).post {
+                SideGestureService.current?.refreshOcrEngine()
+            }
+        }
+
         override fun runningRuleIds(): String =
             runCatching {
                 JsonSerializer.encodeToString(

@@ -177,7 +177,6 @@
     <string name="screen_pick_ocr_enabled">无节点文字时使用 OCR</string>
     <string name="screen_pick_ocr_enabled_hint">节点能取到文字时不跑模型；图片内文字、自绘文字、QQ 气泡等走 OCR</string>
     <string name="screen_pick_ocr_chinese">中文 / English</string>
-    <string name="screen_pick_ocr_japanese">日本語</string>
     <string name="screen_pick_ocr_korean">한국어</string>
     <string name="screen_pick_ocr_script_hint">可多选；多选时并行识别后合并（至少保留一种）</string>
     <string name="float_ball_permission_required">需要「显示在其他应用上层」权限</string>
@@ -935,4 +934,37 @@
     <string name="perm_battery_hint">避免后台被冻结导致触钮延迟</string>
     <string name="perm_notifications">通知权限</string>
     <string name="perm_notifications_hint">保活前台服务的通知需要它</string>
+    <!-- ===== 首页运行状态卡（自 debug APK 资源还原） ===== -->
+
+    <!-- ===== 无障碍开关复位提示（自 debug APK 资源还原） ===== -->
+
+    <!-- ===== 恢复配置确认（自 debug APK 资源还原） ===== -->
+
+    <!-- ===== OCR 模型设置页（自 debug APK 资源还原） ===== -->
+    <string name="ocr_model_cancel">取消</string>
+    <string name="ocr_model_delete">删除</string>
+    <string name="ocr_model_env_group">运行环境</string>
+    <string name="ocr_model_npu_supported">NPU 可用（SM8750 / 骁龙 8 Elite）</string>
+    <string name="ocr_model_npu_unsupported">非 SM8750：AOT 包按骁龙 8 Elite 编译，此机型大概率无法运行</string>
+    <string name="ocr_model_pp_delete">删除模型</string>
+    <string name="ocr_model_pp_delete_confirm">删除已导入的 PP-OCRv5 模型？删除后识屏将无法识别文字，可重新导入。</string>
+    <string name="ocr_model_pp_detail">%1$s · %2$s</string>
+    <string name="ocr_model_pp_error">不可用</string>
+    <string name="ocr_model_pp_failed">不可用：%1$s</string>
+    <string name="ocr_model_pp_group">PP-OCRv5（本地 NPU）</string>
+    <string name="ocr_model_pp_import">导入 AOT ZIP</string>
+    <string name="ocr_model_pp_import_hint">包含 manifest.json、det / zh_rec / ko_rec 与两份字典</string>
+    <string name="ocr_model_pp_imported_at">导入于 %1$s</string>
+    <string name="ocr_model_pp_missing">未导入 AOT 模型</string>
+    <string name="ocr_model_pp_ready">已就绪</string>
+    <string name="ocr_model_pp_state">模型状态</string>
+    <string name="ocr_model_pp_verifying">校验中…</string>
+    <string name="ocr_model_refresh">重新检查状态</string>
+    <string name="ocr_model_soc">SoC</string>
+    <string name="ocr_model_summary_pp_missing">PP-OCRv5 未导入</string>
+    <string name="ocr_model_summary_pp_ready">PP-OCRv5 已就绪</string>
+    <string name="ocr_model_title">OCR 模型</string>
+
+    <!-- ===== 识屏 OCR 后端 / 模型入口（自 debug APK 资源还原） ===== -->
+    <string name="screen_pick_ocr_model">OCR 模型</string>
 </resources>

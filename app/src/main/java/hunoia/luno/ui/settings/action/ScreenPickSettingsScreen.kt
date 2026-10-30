@@ -14,10 +14,13 @@ import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.OcrScript
 import hunoia.luno.config.model.ScreenPickGesture
+import hunoia.luno.domain.AppGraph
 import hunoia.luno.domain.gesture.GestureConfig
+import hunoia.luno.domain.ocr.OcrModelState
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreen
@@ -32,8 +35,10 @@ import kotlinx.coroutines.launch
 @Composable
 fun ScreenPickSettingsScreen(
     onBack: () -> Unit,
+    onNavToOcrModels: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
+    val ocrModels by AppGraph.ocrModels.state.collectAsStateWithLifecycle()
     val initialSettings by GestureConfig.initial.collectAsStateWithLifecycle(
         initialValue = InitialSettings(),
     )
@@ -119,7 +124,7 @@ fun ScreenPickSettingsScreen(
                 subtitle = stringResource(R.string.screen_pick_ocr_enabled_hint),
                 checked = screenPick.ocrEnabled,
                 onCheckedChange = { checked -> commit(screenPick.copy(ocrEnabled = checked)) },
-                shape = segmentedShape(0, 4),
+                shape = segmentedShape(0, 3),
             )
             val toggleScript: (OcrScript) -> Unit = { script ->
                 val toggled = if (script in screenPick.ocrScripts) {
@@ -137,20 +142,26 @@ fun ScreenPickSettingsScreen(
                 title = stringResource(R.string.screen_pick_ocr_chinese),
                 checked = OcrScript.Chinese in screenPick.ocrScripts,
                 onCheckedChange = { toggleScript(OcrScript.Chinese) },
-                shape = segmentedShape(1, 4),
-            )
-            LunoSwitchRow(
-                title = stringResource(R.string.screen_pick_ocr_japanese),
-                checked = OcrScript.Japanese in screenPick.ocrScripts,
-                onCheckedChange = { toggleScript(OcrScript.Japanese) },
-                shape = segmentedShape(2, 4),
+                shape = segmentedShape(1, 3),
             )
             LunoSwitchRow(
                 title = stringResource(R.string.screen_pick_ocr_korean),
                 subtitle = stringResource(R.string.screen_pick_ocr_script_hint),
                 checked = OcrScript.Korean in screenPick.ocrScripts,
                 onCheckedChange = { toggleScript(OcrScript.Korean) },
-                shape = segmentedShape(3, 4),
+                shape = segmentedShape(2, 3),
+            )
+        }
+        LunoGroup(title = stringResource(R.string.screen_pick_ocr_model)) {
+            LunoSettingsRow(
+                title = stringResource(R.string.screen_pick_ocr_model),
+                subtitle = when (ocrModels.pp.state) {
+                    is OcrModelState.Ready -> stringResource(R.string.ocr_model_summary_pp_ready)
+                    is OcrModelState.Failed -> stringResource(R.string.ocr_model_pp_error)
+                    else -> stringResource(R.string.ocr_model_summary_pp_missing)
+                },
+                onClick = onNavToOcrModels,
+                shape = segmentedShape(0, 1),
             )
         }
     }

@@ -15,7 +15,9 @@ houbb-pinyin = "0.4.0"
 freereflection = "3.2.2"
 shizuku = "13.1.5"
 hiddenapibypass = "6.1"
-mlkitPlayTextRecognition = "16.0.2"
+litert = "2.3.2"
+qnnRuntime = "2.51.0"
+orgJson = "20240303"
 coil = "2.7.0"
 navigationCompose = "2.8.4"
 activityCompose = "1.9.3"
@@ -67,10 +69,16 @@ rikka-shizuku-api = { group = "dev.rikka.shizuku", name = "api", version.ref = "
 rikka-shizuku-provider = { group = "dev.rikka.shizuku", name = "provider", version.ref = "shizuku" }
 hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version.ref = "hiddenapibypass" }
 
-# 文本识别走 GMS 按需下载模型（unbundled）：APK 不带模型，首用下载。
-play-mlkit-text-recognition-chinese = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition-chinese", version.ref = "mlkitPlayTextRecognition" }
-play-mlkit-text-recognition-japanese = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition-japanese", version.ref = "mlkitPlayTextRecognition" }
-play-mlkit-text-recognition-korean = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition-korean", version.ref = "mlkitPlayTextRecognition" }
+
+# PP-OCRv5：LiteRT CompiledModel + Qualcomm NPU dispatch（模型为用户导入的 host AOT 包）。
+litert = { group = "com.google.ai.edge.litert", name = "litert", version.ref = "litert" }
+litert-gpu = { group = "com.google.ai.edge.litert", name = "litert-gpu", version.ref = "litert" }
+litert-npu-qualcomm = { group = "com.google.ai.edge.litert", name = "litert-npu-runtime-qualcomm", version.ref = "litert" }
+qnn-runtime = { group = "com.qualcomm.qti", name = "qnn-runtime", version.ref = "qnnRuntime" }
+
+
+# JVM 单测里需要真实 org.json（Android 的实现是空炮）。
+org-json = { module = "org.json:json", version.ref = "orgJson" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -2,6 +2,8 @@ package hunoia.luno.runtime.overlay
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -240,14 +242,19 @@ internal fun PortalLayer(
                     color = cardContent.copy(alpha = 0.75f),
                     style = MaterialTheme.typography.bodySmall,
                 )
-                else -> Text(
-                    text = content.text.orEmpty(),
-                    color = cardContent,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.heightIn(max = 72.dp),
-                )
+                // 整段原文都显示：气泡/段落常被识别成好几行，截到 3 行会让人以为只认出一句。
+                // 卡片最高 40% 屏高，超出部分滚动，抬手后的动作仍拿全文。
+                else -> Box(
+                    modifier = Modifier
+                        .heightIn(max = (screenHeightPx * 0.4f / DensityProvider.density).dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    Text(
+                        text = content.text.orEmpty(),
+                        color = cardContent,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
             }
         }
     }

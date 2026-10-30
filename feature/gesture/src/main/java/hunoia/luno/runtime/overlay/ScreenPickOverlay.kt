@@ -92,7 +92,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -417,12 +416,11 @@ class ScreenPickOverlay(
                     "screen pick hit text=${hit?.text?.length ?: 0} image=${hit?.imageBounds != null}",
                 )
             }
-            // 只有真正的 Image/Video 类节点才算图片；fallback 只是容器 bounds，
-            // 拿它当图片会把 QQ 消息气泡这类无文字节点误判成图片。
+            // 图片节点 / 无文字的容器都按「图片」处理：截图裁剪 + 区域 OCR。
             val imageBounds = hit?.imageBounds
             portalImageBounds = imageBounds
             refreshPortalPreview()
-            // 节点文字优先：不跑模型。
+            // 节点自带真实文本（TextView 等）时优先，不跑模型。
             if (!hit?.text.isNullOrBlank()) {
                 applyPortalText(hit.text, imageBounds)
                 return@launch
@@ -431,16 +429,23 @@ class ScreenPickOverlay(
                 applyPortalText(null, imageBounds)
                 return@launch
             }
-            // OCR 不挂在 portalJob 下面：close() 会取消 portalJob，而 ML Kit 任务不可取消，
-            // 中途回收截图会让 native 层读到已释放内存。
+            // 按布局裁剪（而不是盲裁一条 30% 屏高的带子）：节点 bounds 通常正好是一个气泡 /
+            // 一段正文，检测分辨率更高、也不会把隔壁行的字带进来。
+            val layoutRegion = hit?.fallbackBounds?.let { nodeRegion(it) }
+            val region = imageBounds?.let { AndroidRect(it) }
+                ?: layoutRegion
+                ?: bandAround(screenX, screenY)
+            // 有布局区域时整段返回；退回 band 时只取落点所在那一行。
+            val singleLine = imageBounds == null && layoutRegion == null
+            // OCR 不挂在 portalJob 下面：close() 会取消 portalJob，识别段不可中断，
+            // 中途回收截图会让原生层读到已释放内存。
             host.coroutineScope.launch {
-                val region = imageBounds?.let { AndroidRect(it) } ?: bandAround(screenX, screenY)
                 val text = ocrTextIn(
                     token = token,
                     pickToken = pickToken,
                     region = region,
-                    hitX = if (imageBounds == null) screenX else null,
-                    hitY = if (imageBounds == null) screenY else null,
+                    hitX = if (singleLine) screenX else null,
+                    hitY = if (singleLine) screenY else null,
                 )
                 if (token != session || pickToken != portalSession || overlayView == null) return@launch
                 applyPortalText(text, imageBounds)
@@ -508,12 +513,13 @@ class ScreenPickOverlay(
                 if (token != session || pickToken != portalSession) return null
                 val blocks = result.blocks.map { it.toScreenBlock(snapshot, crop) }
                 val text = if (hitX != null && hitY != null) {
+                    // 只认落点所在的那一块：按在空白处就该是空，不吸附到隔壁行。
                     OcrText.blockAt(
                         blocks = blocks,
                         x = hitX,
                         y = hitY,
                         tolerancePx = DensityProvider.dp2px(HitToleranceDp),
-                        maxDistancePx = DensityProvider.dp2px(48),
+                        maxDistancePx = 0,
                     )?.text
                 } else {
                     OcrText.join(blocks).ifBlank { null }
@@ -535,11 +541,38 @@ class ScreenPickOverlay(
     }
 
     /** 落点周围的一带：宽 90% 屏宽、高约 30% 屏高，夹在屏内。 */
+    /**
+     * 命中节点的 bounds → OCR 裁剪区（外扩 10dp，夹在屏内）。
+     *
+     * 节点几乎占满整屏时（列表容器 / WebView 根）没有裁剪价值，返回 null 让调用方退回 band。
+     */
+    private fun nodeRegion(bounds: AndroidRect): AndroidRect? {
+        if (bounds.width() < MIN_IMAGE_PX || bounds.height() < MIN_IMAGE_PX) return null
+        val screenW = DensityProvider.screenWidthPx
+        val screenH = DensityProvider.screenHeightPx
+        if (bounds.width().toLong() * bounds.height() * 100 >
+            screenW.toLong() * screenH * 85
+        ) {
+            return null
+        }
+        val pad = DensityProvider.dp2px(10)
+        return AndroidRect(
+            (bounds.left - pad).coerceAtLeast(0),
+            (bounds.top - pad).coerceAtLeast(0),
+            (bounds.right + pad).coerceAtMost(screenW),
+            (bounds.bottom + pad).coerceAtMost(screenH),
+        )
+    }
+
+    /**
+     * 落点周围的兜底裁剪带：拿不到节点 bounds（WebView/Flutter 之类的空树）才用。
+     * 只取 ±8% 屏高，够盖住落点那一行；裁太大会让 640 检测图把相邻行糊在一起。
+     */
     private fun bandAround(x: Int, y: Int): AndroidRect {
         val screenW = DensityProvider.screenWidthPx
         val screenH = DensityProvider.screenHeightPx
         val halfW = (screenW * 0.45f).roundToInt()
-        val halfH = max(DensityProvider.dp2px(48), (screenH * 0.15f).roundToInt())
+        val halfH = max(DensityProvider.dp2px(72), (screenH * 0.08f).roundToInt())
         return AndroidRect(
             (x - halfW).coerceAtLeast(0),
             (y - halfH).coerceAtLeast(0),
@@ -1174,7 +1207,6 @@ class ScreenPickOverlay(
         var bestImageDepth = -1
         var bestFallback: AndroidRect? = null
         var bestFallbackDepth = -1
-        var bestFallbackNode: AccessibilityNodeInfo? = null
         var visited = 0
         val tolerance = DensityProvider.dp2px(HitToleranceDp)
 
@@ -1215,7 +1247,6 @@ class ScreenPickOverlay(
                 if (depth > bestFallbackDepth) {
                     bestFallbackDepth = depth
                     bestFallback = bounds
-                    bestFallbackNode = node
                 }
             }
             for (i in 0 until node.childCount) {
@@ -1224,24 +1255,22 @@ class ScreenPickOverlay(
         }
 
         walk(root, 0)
-        // 命中节点自己没字（图标/容器）时向上找最近的带字祖先。
-        var text = bestText
-            ?: bestFallbackNode?.let { ancestorText(it) }
         // 一句话常被拆成多个子节点：把命中子树的文字并起来，避免只取到半句。
-        text = bestTextNode?.let { collectSubtreeText(it) } ?: text
+        var text = bestTextNode?.let { collectSubtreeText(it) } ?: bestText
+        if (!text.isNullOrBlank() && isGenericImageLabel(text)) text = null
         var image = bestImage
-        if (!text.isNullOrBlank() && isGenericImageLabel(text)) {
-            // 图片的无障碍描述常就是“图片/照片”，不能当文本复制；有容器 bounds 时按图片处理。
-            if (image == null && bestFallback != null &&
-                bestFallback.width() >= MIN_IMAGE_PX && bestFallback.height() >= MIN_IMAGE_PX
-            ) {
-                image = bestFallback
-            }
-            text = null
-        }
-        // 树里没有直接命中的文字时，找触点附近的文本节点（列表/气泡的 padding 命中）。
         if (text.isNullOrBlank() && image == null) {
-            text = nearestText(root, x, y)
+            // 命中处没有真实文本（图标 / 图片 / 空容器）：按图片返回。
+            // 节点几乎占满整屏时不当图片（列表根容器），交给 OCR 的落点逻辑。
+            val fallback = bestFallback
+            if (fallback != null &&
+                fallback.width() >= MIN_IMAGE_PX &&
+                fallback.height() >= MIN_IMAGE_PX &&
+                fallback.width().toLong() * fallback.height() * 100 <=
+                DensityProvider.screenWidthPx.toLong() * DensityProvider.screenHeightPx * 60
+            ) {
+                image = fallback
+            }
         }
         return NodeHit(text, image, bestFallback)
     }
@@ -1252,60 +1281,16 @@ class ScreenPickOverlay(
         return normalized in setOf("图片", "图像", "照片", "图片消息", "image", "photo", "picture")
     }
 
-    /** 无直接命中时的兜底：在窗口内找距触点最近的文本节点（限 48dp）。 */
-    private fun nearestText(root: AccessibilityNodeInfo, x: Int, y: Int): String? {
-        val maxDistance = DensityProvider.dp2px(48).toDouble()
-        var bestDistance = Double.MAX_VALUE
-        var bestText: String? = null
-        var visited = 0
-        fun walk(node: AccessibilityNodeInfo, depth: Int) {
-            if (depth > MAX_NODE_DEPTH || visited >= MaxPickNodes) return
-            visited++
-            val bounds = AndroidRect()
-            node.getBoundsInScreen(bounds)
-            if (!bounds.isEmpty) {
-                val dx = when {
-                    x < bounds.left -> (bounds.left - x).toDouble()
-                    x > bounds.right -> (x - bounds.right).toDouble()
-                    else -> 0.0
-                }
-                val dy = when {
-                    y < bounds.top -> (bounds.top - y).toDouble()
-                    y > bounds.bottom -> (y - bounds.bottom).toDouble()
-                    else -> 0.0
-                }
-                val distance = hypot(dx, dy)
-                if (distance <= maxDistance && distance < bestDistance) {
-                    val text = readableText(node)
-                    if (!text.isNullOrBlank() && !isGenericImageLabel(text)) {
-                        bestDistance = distance
-                        bestText = text
-                    }
-                }
-            }
-            for (i in 0 until node.childCount) {
-                if (visited >= MaxPickNodes) return
-                walk(node.getChild(i) ?: continue, depth + 1)
-            }
-        }
-        walk(root, 0)
-        return bestText
-    }
-
-    /** 无障碍文本字段统一入口：图标/按钮/输入框常只有非 text 字段。 */
+    /**
+     * 只认节点上的**真实文本**（`node.text`）。
+     *
+     * 不取 contentDescription / stateDescription / tooltipText / paneTitle：图标、按钮、
+     * 页面容器的这些字段全是无障碍标签（“返回”“更多”“当前页面”），当可复制文字会让
+     * 幽灵卡冒出一堆用户没想复制的词。没有 text 的节点一律按图片处理（见 [searchNode]）。
+     */
     private fun readableText(node: AccessibilityNodeInfo): String? {
         if (node.isPassword) return null
-        val parts = buildList {
-            node.text?.toString()?.let(::add)
-            node.contentDescription?.toString()?.let(::add)
-            node.hintText?.toString()?.let(::add)
-            node.stateDescription?.toString()?.let(::add)
-            node.tooltipText?.toString()?.let(::add)
-            node.paneTitle?.toString()?.let(::add)
-        }.map { it.trim() }
-            .filter { it.isNotEmpty() }
-            .distinct()
-        return parts.joinToString(" ").ifBlank { null }
+        return node.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }
     }
 
     /** 聚合节点自身与子树的可读文本（限深限量，防长列表把主线程预算吃满）。 */
@@ -1328,17 +1313,6 @@ class ScreenPickOverlay(
         return out.joinToString("\n").ifBlank { null }
     }
 
-    /** 从命中节点向上找第一段可读文本（图标/空容器兜底）。 */
-    private fun ancestorText(node: AccessibilityNodeInfo): String? {
-        var current: AccessibilityNodeInfo? = node.parent
-        var depth = 0
-        while (current != null && depth < 12) {
-            readableText(current)?.let { return it }
-            current = current.parent
-            depth++
-        }
-        return null
-    }
 }
 
 /** 框选调整期的命中部位。 */

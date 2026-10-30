@@ -113,6 +113,15 @@ object DispatchClient {
         return runCatching { s.refreshConditionSources() }.isSuccess
     }
 
+    /** OCR 模型导入/删除后，让 :service 重新加载引擎（未连接返回 false）。 */
+    fun refreshOcrEngine(): Boolean {
+        val s = stub ?: run {
+            retryBindIfNeeded()
+            return false
+        }
+        return runCatching { s.refreshOcrEngine() }.isSuccess
+    }
+
     /** 运行中的规则 id；服务未连接时返回空集（列表页按「未运行」展示）。 */
     fun runningRuleIds(): Set<String> {
         val s = stub ?: run {

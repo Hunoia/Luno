@@ -101,6 +101,24 @@ android {
             // 压缩 dex：下载体积更小、安装后占用更大（有意的体积取舍）。
             useLegacyPackaging = true
         }
+        jniLibs {
+            // 压缩 native：APK 15MB。实测改成不压缩（extractNativeLibs=false）后
+            // QNN 的 skel 从 APK 直接映射会在 invoke 阶段报 “Failed to invoke the compiled
+            // model”，所以这里保持压缩 + 安装时解压。
+            useLegacyPackaging = true
+            // 只保留 SM8750 / HTP V79 的执行库。host AOT 不需要 Prepare；若真机仍触发编译，
+            // 再把 libQnnHtpPrepare.so 加回来。
+            excludes += setOf(
+                "**/libQnnHtpPrepare.so",
+                "**/libQnnDsp*",
+                "**/libQnnGpu*",
+                "**/libQnnHtpV68*",
+                "**/libQnnHtpV69*",
+                "**/libQnnHtpV73*",
+                "**/libQnnHtpV75*",
+                "**/libQnnHtpV81*",
+            )
+        }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "/META-INF/**/LICENSE*"

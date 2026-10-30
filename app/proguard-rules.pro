@@ -50,3 +50,17 @@
 -keep class com.google.android.gms.internal.mlkit_vision_text_bundled_common.** { *; }
 -dontwarn com.google.mlkit.**
 -dontwarn com.google.android.gms.internal.mlkit_**
+
+# Room：room-runtime:2.5.0 的 consumer 规则只保留 RoomDatabase 子类本身，未保留无参构造。
+# R8 full mode 会把 WorkDatabase_Impl 的 <init>() 裁掉（LiteRT → play:asset-delivery →
+# work-runtime 传递引入），导致 WorkManager/AssetDelivery 初始化时反射实例化失败、进程启动即崩。
+-keep class * extends androidx.room.RoomDatabase { <init>(); }
+
+# PP-OCRv5 NPU：Qualcomm QNN runtime 与 LiteRT NPU dispatch 走 native/JNI 注册，
+# 不能由 R8 裁剪入口类。
+-keep class com.qualcomm.qti.** { *; }
+-keep class com.google.ai.edge.litert.** { *; }
+-keep class org.tensorflow.lite.** { *; }
+-dontwarn com.qualcomm.qti.**
+-dontwarn com.google.ai.edge.litert.**
+

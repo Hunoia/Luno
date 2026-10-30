@@ -18,6 +18,9 @@ interface IDispatchService {
     /** 权限授予/撤销后，让 :service 重读 Wi-Fi/蓝牙等条件源。 */
     oneway void refreshConditionSources();
 
+    /** OCR 模型导入/删除后，让 :service 丢弃旧引擎、重新加载并预热。 */
+    oneway void refreshOcrEngine();
+
     /** 运行中的规则 id JSON 数组（规则列表页展示「运行中/停止」）。 */
     String runningRuleIds();
 

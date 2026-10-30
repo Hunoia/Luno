@@ -31,9 +31,7 @@ data class ScreenPickGesture(
     val triggerCooldownMs: Int = 800,
     val keepAfterRelease: Boolean = false,
     val ocrEnabled: Boolean = true,
-    val ocrScripts: List<OcrScript> = listOf(
-        OcrScript.Chinese,
-        OcrScript.Japanese,
-        OcrScript.Korean,
-    ),
+    // 中文模型同时覆盖拉丁字母与数字（中英混排），默认只跑它：多跑一份就多一份耗时，
+    // 而日文映射到同一个 zh 模型（纯重复）、韩文模型对中文只会产出垃圾块再被去重丢掉。
+    val ocrScripts: List<OcrScript> = listOf(OcrScript.Chinese),
 )

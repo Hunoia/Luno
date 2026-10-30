@@ -64,6 +64,11 @@ data object ScreenPickSettings
 @Serializable
 data object RecentAppsBlocklist
 
+/** OCR 模型管理页：PP-OCRv5 AOT 包的导入 / 删除与状态。 */
+@Keep
+@Serializable
+data object OcrModelSettings
+
 /** 链接分发设置（规则列表 + 胶囊/未命中行为）。 */
 @Keep
 @Serializable
