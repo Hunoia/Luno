@@ -945,25 +945,25 @@
     <string name="ocr_model_cancel">取消</string>
     <string name="ocr_model_delete">删除</string>
     <string name="ocr_model_env_group">运行环境</string>
-    <string name="ocr_model_npu_supported">NPU 可用（SM8750 / 骁龙 8 Elite）</string>
-    <string name="ocr_model_npu_unsupported">非 SM8750：AOT 包按骁龙 8 Elite 编译，此机型大概率无法运行</string>
+    <string name="ocr_model_gpu_supported">GPU 可用（OpenCL / Adreno，运行时加载 fp32 tflite）</string>
+    <string name="ocr_model_gpu_unsupported">此机型无可用 GPU delegate，将回落 CPU 运行（较慢）</string>
     <string name="ocr_model_pp_delete">删除模型</string>
-    <string name="ocr_model_pp_delete_confirm">删除已导入的 PP-OCRv5 模型？删除后识屏将无法识别文字，可重新导入。</string>
+    <string name="ocr_model_pp_delete_confirm">删除已导入的 PP-OCRv6 模型？删除后识屏将无法识别文字，可重新导入。</string>
     <string name="ocr_model_pp_detail">%1$s · %2$s</string>
     <string name="ocr_model_pp_error">不可用</string>
     <string name="ocr_model_pp_failed">不可用：%1$s</string>
-    <string name="ocr_model_pp_group">PP-OCRv5（本地 NPU）</string>
-    <string name="ocr_model_pp_import">导入 AOT ZIP</string>
-    <string name="ocr_model_pp_import_hint">包含 manifest.json、det / zh_rec / ko_rec 与两份字典</string>
+    <string name="ocr_model_pp_group">PP-OCRv6（本地 GPU）</string>
+    <string name="ocr_model_pp_import">导入模型 ZIP</string>
+    <string name="ocr_model_pp_import_hint">包含 manifest.json、det / rec tflite 与 characters.json</string>
     <string name="ocr_model_pp_imported_at">导入于 %1$s</string>
-    <string name="ocr_model_pp_missing">未导入 AOT 模型</string>
+    <string name="ocr_model_pp_missing">未导入 GPU 模型</string>
     <string name="ocr_model_pp_ready">已就绪</string>
     <string name="ocr_model_pp_state">模型状态</string>
     <string name="ocr_model_pp_verifying">校验中…</string>
     <string name="ocr_model_refresh">重新检查状态</string>
     <string name="ocr_model_soc">SoC</string>
-    <string name="ocr_model_summary_pp_missing">PP-OCRv5 未导入</string>
-    <string name="ocr_model_summary_pp_ready">PP-OCRv5 已就绪</string>
+    <string name="ocr_model_summary_pp_missing">PP-OCRv6 未导入</string>
+    <string name="ocr_model_summary_pp_ready">PP-OCRv6 已就绪</string>
     <string name="ocr_model_title">OCR 模型</string>
 
     <!-- ===== 识屏 OCR 后端 / 模型入口（自 debug APK 资源还原） ===== -->

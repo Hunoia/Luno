@@ -16,7 +16,6 @@ freereflection = "3.2.2"
 shizuku = "13.1.5"
 hiddenapibypass = "6.1"
 litert = "2.3.2"
-qnnRuntime = "2.51.0"
 orgJson = "20240303"
 coil = "2.7.0"
 navigationCompose = "2.8.4"
@@ -70,11 +69,9 @@ rikka-shizuku-provider = { group = "dev.rikka.shizuku", name = "provider", versi
 hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version.ref = "hiddenapibypass" }
 
 
-# PP-OCRv5：LiteRT CompiledModel + Qualcomm NPU dispatch（模型为用户导入的 host AOT 包）。
+# PP-OCRv6：LiteRT CompiledModel + GPU delegate（模型为用户导入的 fp32 tflite 包）。
 litert = { group = "com.google.ai.edge.litert", name = "litert", version.ref = "litert" }
 litert-gpu = { group = "com.google.ai.edge.litert", name = "litert-gpu", version.ref = "litert" }
-litert-npu-qualcomm = { group = "com.google.ai.edge.litert", name = "litert-npu-runtime-qualcomm", version.ref = "litert" }
-qnn-runtime = { group = "com.qualcomm.qti", name = "qnn-runtime", version.ref = "qnnRuntime" }
 
 
 # JVM 单测里需要真实 org.json（Android 的实现是空炮）。

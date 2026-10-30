@@ -8,10 +8,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * 用户导入的 AOT 模型包。
+ * 用户导入的 GPU 模型包。
  *
  * 包内可以是扁平结构，也可以带一层目录；只接受白名单文件，按 basename 落盘，
  * 拒绝 `..` / 绝对路径 / 重复文件，避免 Zip Slip 与覆盖。
+ *
+ * 白名单与校验规则见 [OcrModelStore]（`kind="gpu"`，逐文件 SHA-256）。
  */
 object OcrModelPack {
 

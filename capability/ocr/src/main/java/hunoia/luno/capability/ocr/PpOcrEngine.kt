@@ -17,18 +17,17 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
- * PP-OCRv5（LiteRT / Google AI Edge）本地离线识别实现。
+ * PP-OCRv6（LiteRT / Google AI Edge）本地离线识别实现。
  *
  * 管线移植自 google-ai-edge/litert-samples 的 `PpocrImageEngine`：检测（DBNet）+ 逐行
- * 识别（PPLCNetV3+SVTR+CTC）。模型为**用户导入的 host AOT 包**，运行时优先 Qualcomm NPU、
- * 失败降级 CPU（见 `PpOcrModelRunner`），完全离线。
+ * 识别（CTC）。模型为**用户导入的 GPU 包**（原始 fp32 tflite），运行时经 GPU delegate
+ * （OpenCL，Adreno）执行、失败降级 CPU（见 `PpOcrModelRunner`），完全离线。
  *
  * 模型目录与校验见 [OcrModelStore]；未导入 / 不完整时直接返回空结果，不做任何隐式下载。
  * 加载或推理失败时抛异常，由调用方（识屏层）按「无结果」处理。
  *
- * 多脚本：中文模型（zh rec）覆盖拉丁 / 西里尔 / CJK，韩文模型（ko rec）覆盖谚文；
- * 选中的脚本各自对同一检测框识别一次，再交给 [OcrText.merge] 按重合与脚本匹配度
- * 去重、定阅读顺序。
+ * v6 用单一模型 + 统一 50 语言字符表，覆盖中文 / 日文 / 韩文 / 拉丁等；请求的脚本
+ * 只作为结果块的标签，不再选不同模型。
  */
 class PpOcrEngine(private val context: Context) : OcrEngine {
 
@@ -43,29 +42,25 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
 
     private val mutex = Mutex()
     private var detector: PpOcrDetector? = null
-    private val recognizers = HashMap<OcrScript, PpOcrRecognizer>()
+    private var recognizer: PpOcrRecognizer? = null
 
     override suspend fun recognize(bitmap: Bitmap, scripts: List<OcrScript>): OcrResult =
         withContext(Dispatchers.Default) {
             mutex.withLock {
                 if (bitmap.isRecycled) return@withContext OcrResult.Empty
                 if (!OcrModelStore.isReady(context)) {
-                    Log.w(LOG_TAG, "ppocr: 模型未就绪（未导入 AOT 包），返回空结果")
+                    Log.w(LOG_TAG, "ppocr: 模型未就绪（未导入 GPU 包），返回空结果")
                     return@withContext OcrResult.Empty
                 }
-                val effective = scripts.ifEmpty { listOf(OcrScript.Chinese) }.distinct()
+                val script = scripts.firstOrNull() ?: OcrScript.Chinese
                 val det = detector ?: openDetector().also { detector = it }
-                val recs = effective.map { script ->
-                    script to (recognizers[script] ?: openRecognizer(script).also {
-                        recognizers[script] = it
-                    })
-                }
+                val rec = recognizer ?: openRecognizer().also { recognizer = it }
 
                 val t0 = System.nanoTime()
                 val lb = letterbox(bitmap)
                 val rgb = bitmapToRgb(lb.image)
                 // 正 / 反两遍检测取并集：暗色模式、彩底白字（微信绿气泡、蓝色气泡）只有反色
-                // 那一遍才检得出来。det 单次 NPU ~1ms，这一遍几乎不增加端到端耗时。
+                // 那一遍才检得出来。det 单次几 ms，这一遍几乎不增加端到端耗时。
                 val boxes = unionBoxes(
                     PpOcrDetector.boxes(det.probMap(rgb)),
                     PpOcrDetector.boxes(det.probMap(invertRgb(rgb))),
@@ -76,21 +71,37 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
                     // 太矮的框多半是图标里的碎笔划，识别出来也是「`」「*」这种噪声。
                     if (src.y1 - src.y0 < MIN_LINE_HEIGHT_PX) continue
                     // 识别取图用**原图**：640 图上那一条文字只有十几像素高，放大到 48 高后
-                    // 细节早没了（实测 CER 0.28 vs 从原图裁 0.07）。
-                    val line = lineInput(bitmap, src)
-                    for ((script, rec) in recs) {
-                        val text = rec.recognize(line).trim()
-                        if (text.isEmpty()) continue
-                        blocks.add(
-                            OcrBlock(
-                                text = text,
-                                left = src.x0,
-                                top = src.y0,
-                                right = src.x1,
-                                bottom = src.y1,
-                                script = script,
-                            ),
-                        )
+                    // 细节早没了（实测 CER 0.28 vs 从原图裁 0.07）。宽高比超过模型输入
+                    // （320/48）的宽行按原图切段（一个字高重叠），不能整体压扁。
+                    val height = src.y1 - src.y0
+                    val segments = PpOcrRecognizer.lineSegments(src.x1 - src.x0, height)
+                    val inputs = segments.map { seg ->
+                        lineInput(bitmap, src.x0 + seg.x0, src.y0, seg.x1 - seg.x0, height)
+                    }
+                    run {
+                        // 拼接去重：后段开头的 [overlapSrc] 像素与上一段重叠，重叠区完整
+                        // 包含一个字形、两段都会解出它 —— 把后段里落在这段前缀的字符
+                        // 丢掉。CTC 时间步线性映射回输入宽度：x ≈ (step+0.5) × W / T。
+                        val text = buildString {
+                            inputs.forEachIndexed { j, input ->
+                                val dropX = segments[j].overlapSrc * PpOcrRecognizer.H / height
+                                rec.recognizeDetailed(input).forEach { ch ->
+                                    if (j == 0 || ch.x >= dropX) append(ch.text)
+                                }
+                            }
+                        }.trim()
+                        if (text.isNotEmpty()) {
+                            blocks.add(
+                                OcrBlock(
+                                    text = text,
+                                    left = src.x0,
+                                    top = src.y0,
+                                    right = src.x1,
+                                    bottom = src.y1,
+                                    script = script,
+                                ),
+                            )
+                        }
                     }
                 }
                 // letterbox 的 640 位图每调用分配一张，用完即回收（lineInputs 内部各自回收）。
@@ -116,7 +127,7 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
             }
         }
 
-    /** 预热：导入模型后由 `:service` 触发，确认 AOT 包可加载 / 可执行。失败只记日志。 */
+    /** 预热：导入模型后由 `:service` 触发，确认 GPU 包可加载 / 可执行。失败只记日志。 */
     suspend fun warmUp() {
         val probe = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
         Canvas(probe).drawColor(Color.WHITE)
@@ -140,8 +151,8 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
             mutex.withLock {
                 val d = detector
                 detector = null
-                recognizers.values.forEach { runCatching { it.close() } }
-                recognizers.clear()
+                recognizer?.let { runCatching { it.close() } }
+                recognizer = null
                 runCatching { d?.close() }
             }
         }
@@ -151,8 +162,8 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
     override fun close() {
         val d = detector
         detector = null
-        recognizers.values.forEach { runCatching { it.close() } }
-        recognizers.clear()
+        recognizer?.let { runCatching { it.close() } }
+        recognizer = null
         runCatching { d?.close() }
     }
 
@@ -161,13 +172,12 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
         return PpOcrDetector(context, file)
     }
 
-    private fun openRecognizer(script: OcrScript): PpOcrRecognizer {
+    private fun openRecognizer(): PpOcrRecognizer {
         val dir = OcrModelStore.modelDir(context)
-        val korean = script == OcrScript.Korean
         return PpOcrRecognizer(
             context = context,
-            modelFile = File(dir, if (korean) OcrModelStore.KO_REC_MODEL else OcrModelStore.ZH_REC_MODEL),
-            dictFile = File(dir, if (korean) OcrModelStore.KO_DICT else OcrModelStore.ZH_DICT),
+            modelFile = File(dir, OcrModelStore.REC_MODEL),
+            dictFile = File(dir, OcrModelStore.DICT),
         )
     }
 
@@ -204,9 +214,9 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
     /**
      * 把框内的文字行转成 rec 的输入张量：按 **原图** 裁 + 上下留 15% 行高余量。
      *
-     * 不做长行切段：实测 zh 模型对 18:1 的宽行整行识别是准的，切段反而在切口处
-     * 多字/错字（“整整体”）。余量必须留：det 的框贴得紧，切掉字形上下沿后
-     * 识别会在「蓝牙/医牙」之间抖。
+     * 超宽行在调用方按 [PpOcrRecognizer.lineSegments] 切段后逐段走这里；本函数保证
+     * 单段 resize 到 48 高后宽度 ≤320（不压扁）。余量必须留：det 的框贴得紧，切掉
+     * 字形上下沿后识别会在「蓝牙/医牙」之间抖。
      */
     private fun lineInput(source: Bitmap, box: PpOcrDetector.Box): FloatArray {
         val h = (box.y1 - box.y0).coerceAtLeast(1)

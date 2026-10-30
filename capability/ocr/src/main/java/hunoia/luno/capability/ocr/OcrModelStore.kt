@@ -3,12 +3,13 @@ package hunoia.luno.capability.ocr
 import android.content.Context
 import java.io.File
 import java.security.MessageDigest
+import org.json.JSONArray
 import org.json.JSONObject
 
-/** PP-OCRv5 的 AOT 模型清单；只接受 host AOT 包，不再接受原始 JIT 包。 */
+/** PP-OCRv6 的 GPU 模型清单；只接受 GPU 包（原始 fp32 tflite），不再接受 AOT / JIT 包。 */
 data class AotModelManifest(
     val kind: String,
-    val soc: String,
+    val soc: String?,
     val runtime: String?,
     val qairt: String?,
     val aiEdgeLitert: String?,
@@ -30,29 +31,25 @@ sealed interface OcrModelStatus {
 }
 
 /**
- * PP-OCRv5 AOT 模型目录。
+ * PP-OCRv6 GPU 模型目录。
  *
  * 模型只由用户导入；这里不发起网络请求。`.ready` 只在完整校验通过后写入，
  * `isReady()` 用它做快速判断，避免每次识别都对 30MB 文件重算哈希。
  */
 object OcrModelStore {
 
-    const val DIR_NAME = "ppocrv5_sm8750_aot"
+    const val DIR_NAME = "ppocrv6_gpu"
     const val MANIFEST = "manifest.json"
     const val READY = ".ready"
 
-    const val DET_MODEL = "pp_ocrv5_det_mobile.tflite"
-    const val ZH_REC_MODEL = "pp_ocrv5_zh_rec.tflite"
-    const val KO_REC_MODEL = "pp_ocrv5_ko_rec.tflite"
-    const val ZH_DICT = "zh_dict.txt"
-    const val KO_DICT = "ko_dict.txt"
+    const val DET_MODEL = "ppocrv6_small_det_640_fp32.tflite"
+    const val REC_MODEL = "ppocrv6_small_rec_320_fp32.tflite"
+    const val DICT = "characters.json"
 
     val requiredFiles = listOf(
         DET_MODEL,
-        ZH_REC_MODEL,
-        KO_REC_MODEL,
-        ZH_DICT,
-        KO_DICT,
+        REC_MODEL,
+        DICT,
     )
 
     fun baseDir(context: Context): File = File(context.filesDir, "ocr_models")
@@ -92,15 +89,14 @@ object OcrModelStore {
         val json = JSONObject(file.readText())
         val kind = json.optString("kind").trim()
         val soc = json.optString("soc").trim()
-        require(kind == "aot") { "不是 AOT 模型包（kind=$kind）" }
-        require(soc.equals("SM8750", ignoreCase = true)) { "模型包不是 SM8750 编译的（soc=$soc）" }
+        require(kind == "gpu") { "不是 GPU 模型包（kind=$kind）" }
         val filesJson = json.optJSONObject("files") ?: error("manifest 缺少 files")
         val files = buildMap {
             filesJson.keys().forEach { name -> put(name, filesJson.optString(name).trim()) }
         }
         return AotModelManifest(
             kind = kind,
-            soc = soc,
+            soc = soc.ifBlank { null },
             runtime = json.optString("runtime").ifBlank { null },
             qairt = json.optString("qairt").ifBlank { null },
             aiEdgeLitert = json.optString("aiEdgeLitert").ifBlank { null },
@@ -123,8 +119,9 @@ object OcrModelStore {
                 "$name SHA-256 不匹配（期望 $expected，实际 $actual）"
             }
         }
-        require(File(dir, ZH_DICT).readLines().isNotEmpty()) { "zh_dict.txt 为空" }
-        require(File(dir, KO_DICT).readLines().isNotEmpty()) { "ko_dict.txt 为空" }
+        require(File(dir, DICT).let { f -> f.isFile && JSONArray(f.readText()).length() > 0 }) {
+            "characters.json 为空或不是 JSON 数组"
+        }
         return manifest
     }
 
@@ -145,7 +142,7 @@ object OcrModelStore {
         File(target, READY).writeText(
             buildString {
                 appendLine("imported=${System.currentTimeMillis()}")
-                appendLine("soc=${parseManifest(File(target, MANIFEST)).soc}")
+                appendLine("kind=gpu")
             },
         )
         backup.deleteRecursively()

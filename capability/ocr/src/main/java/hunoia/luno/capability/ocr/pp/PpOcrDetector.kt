@@ -6,11 +6,10 @@ import java.io.File
 import kotlin.math.min
 
 /**
- * PP-OCRv5 文本检测（DBNet）on LiteRT（移植自 google-ai-edge/litert-samples）。
+ * PP-OCRv6 文本检测（DBNet）on LiteRT GPU delegate。
  *
  * image[1,3,640,640] -> prob map[640*640]（sigmoid 文本区域概率）。模型来自用户导入的
- * host AOT 包，优先 NPU、失败降级 CPU；取框（阈值 + 连通域 + unclip）在 CPU，
- * 标准 OCR 部署切分。
+ * GPU 包（fp32 tflite）；取框（阈值 + 连通域 + unclip）在 CPU，标准 OCR 部署切分。
  */
 class PpOcrDetector(context: Context, modelFile: File) : Closeable {
 
@@ -31,15 +30,10 @@ class PpOcrDetector(context: Context, modelFile: File) : Closeable {
         const val UNCLIP_RATIO = 1.6f
 
         /**
-         * det 概率图的还原系数。
-         *
-         * 这版 int8 导出把 sigmoid 结果量化成 int8(scale=1/256, zero_point=-128) 再
-         * DEQUANTIZE 成 float：`(q + 128) / 256`，实测输出落在 0..0.5，文字区域大面积
-         * 饱和在 0.5（`-128` 那半段是负概率）。直接拿它当 0..1 概率用，[BOX_THRESH]
-         * 的“连通域平均概率”过滤永远不成立（平均 ≤ 0.5），绝大多数界面 0 个框 ——
-         * 表现就是“未识别到可复制内容”。乘以 2 还原到 0..1 后检测恢复正常。
+         * fp32 导出的输出就是 0..1 的 sigmoid 概率，不需要还原系数（v5 int8 的
+         * DEQUANTIZE 偏移问题在 fp32 上不存在）。保留常量以便万一换回量化包。
          */
-        const val PROB_SCALE = 2f
+        const val PROB_SCALE = 1f
 
         /**
          * 对概率图阈值化、找连通文本区域，返回 unclip 后的框（SIZE 空间坐标系）。

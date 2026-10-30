@@ -250,7 +250,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         current = this
         // debug-only 探测入口（app/src/debug 的 ScreenPickProbeReceiver）；release 恒为 null。
         ScreenPickProbe.hook = { x, y -> probeCapture(x, y) }
-        // 服务起来就把 AOT 引擎加载 / 预热一次：第一次长按不用再等 NPU 建 context，
+        // 服务起来就把引擎加载 / 预热一次：第一次长按不用再等 GPU delegate 建context，
         // 加载失败也会在 logcat 留下 w 级日志（见 PpOcrModelRunner）。
         coroutineScope.launch { runCatching { ocrEngine.warmUp() } }
         if (::gestureCoordinator.isInitialized) gestureCoordinator.onDestroy()

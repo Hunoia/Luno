@@ -9,7 +9,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * AOT 模型目录 / 清单校验：只接受 `kind=aot`、`soc=SM8750` 且逐文件 SHA-256 正确的包。
+ * GPU 模型目录 / 清单校验：只接受 `kind=gpu` 且逐文件 SHA-256 正确的包。
  */
 class OcrModelStoreTest {
 
@@ -17,15 +17,14 @@ class OcrModelStoreTest {
     val temp = TemporaryFolder()
 
     private fun staging(
-        kind: String = "aot",
-        soc: String = "SM8750",
+        kind: String = "gpu",
         corruptSha: String? = null,
     ): File {
         val dir = temp.newFolder()
         OcrModelStore.requiredFiles.forEach { name ->
             val file = File(dir, name)
-            if (name.endsWith(".txt")) {
-                file.writeText("第\n一\n")
+            if (name.endsWith(".json")) {
+                file.writeText("[\"blank\",\"A\"]")
             } else {
                 file.writeBytes(ByteArray(32) { it.toByte() })
             }
@@ -38,9 +37,7 @@ class OcrModelStoreTest {
         File(dir, OcrModelStore.MANIFEST).writeText(
             JSONObject()
                 .put("kind", kind)
-                .put("soc", soc)
-                .put("runtime", "litert-npu-qualcomm")
-                .put("qairt", "2.51.0")
+                .put("runtime", "litert-gpu-opencl")
                 .put("files", files)
                 .toString(),
         )
@@ -48,21 +45,22 @@ class OcrModelStoreTest {
     }
 
     @Test
-    fun acceptsValidAotPack() {
+    fun acceptsValidGpuPack() {
         val manifest = OcrModelStore.validateStaging(staging())
-        assertEquals("aot", manifest.kind)
-        assertEquals("SM8750", manifest.soc)
+        assertEquals("gpu", manifest.kind)
         assertEquals(OcrModelStore.requiredFiles.size, manifest.files.size)
     }
 
     @Test(expected = IllegalArgumentException::class)
-    fun rejectsNonAotPack() {
-        OcrModelStore.validateStaging(staging(kind = "jit"))
+    fun rejectsNonGpuPack() {
+        OcrModelStore.validateStaging(staging(kind = "aot"))
     }
 
     @Test(expected = IllegalArgumentException::class)
-    fun rejectsOtherSoc() {
-        OcrModelStore.validateStaging(staging(soc = "SM8650"))
+    fun rejectsEmptyDict() {
+        val dir = staging()
+        File(dir, OcrModelStore.DICT).writeText("[]")
+        OcrModelStore.validateStaging(dir)
     }
 
     @Test

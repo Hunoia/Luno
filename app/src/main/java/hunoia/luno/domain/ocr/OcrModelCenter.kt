@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
 /**
  * OCR 模型管理实现（主进程）。
  *
- * 只管理 PP-OCRv5 的 host AOT 包：扫描 `filesDir/ocr_models/ppocrv5_sm8750_aot`，
+ * 只管理 PP-OCRv6 的 GPU 包：扫描 `filesDir/ocr_models/ppocrv6_gpu`，
  * 只做「展示 / 导入 / 删除」，不联网。
  * 导入或删除后通过 [DispatchClient] 让 `:service` 丢弃旧引擎并重新预热。
  */
@@ -31,7 +31,7 @@ object OcrModelCenter : OcrModelFacade {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _state = MutableStateFlow(
-        OcrModelUiState(npuSupported = detectTargetSoc(), socModel = socModelName()),
+        OcrModelUiState(socModel = socModelName()),
     )
     override val state: StateFlow<OcrModelUiState> = _state.asStateFlow()
 
@@ -47,7 +47,6 @@ object OcrModelCenter : OcrModelFacade {
         val context = appContext ?: return
         _state.update { current ->
             current.copy(
-                npuSupported = detectTargetSoc(),
                 socModel = socModelName(),
                 pp = if (current.importing) current.pp else ppState(context),
             )
@@ -95,9 +94,7 @@ object OcrModelCenter : OcrModelFacade {
     private fun ppStateOf(info: OcrModelInfo): PpModelUiState =
         PpModelUiState(
             state = OcrModelState.Ready,
-            source = listOfNotNull(info.manifest.runtime, info.manifest.qairt?.let { "QAIRT $it" })
-                .joinToString(" · ")
-                .ifBlank { null },
+            source = info.manifest.runtime?.ifBlank { null },
             sizeBytes = info.sizeBytes,
             importedAt = info.importedAt,
             soc = info.manifest.soc,
@@ -109,10 +106,4 @@ object OcrModelCenter : OcrModelFacade {
         } else {
             Build.BOARD.orEmpty()
         }
-
-    /** AOT 包按 SM8750（骁龙 8 Elite）编译；其他 SoC 只提示「可能不支持」。 */
-    private fun detectTargetSoc(): Boolean {
-        val name = socModelName().uppercase()
-        return "SM8750" in name || "SUN" in name
-    }
 }

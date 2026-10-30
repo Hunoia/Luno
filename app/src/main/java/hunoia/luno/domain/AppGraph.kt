@@ -37,7 +37,7 @@ object AppGraph {
     val runtime: RuntimeFacade
         get() = runtimeOverride ?: RuntimeActions
 
-    /** OCR 模型管理（PP-OCRv5 AOT 包的导入/删除/状态）。 */
+    /** OCR 模型管理（PP-OCRv6 GPU 包的导入/删除/状态）。 */
     val ocrModels: OcrModelFacade
         get() = ocrModelsOverride ?: OcrModelCenter
 

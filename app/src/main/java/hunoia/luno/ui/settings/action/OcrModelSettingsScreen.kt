@@ -28,7 +28,7 @@ import java.util.Locale
 import kotlinx.coroutines.launch
 
 /**
- * OCR 模型管理页：PP-OCRv5 AOT 包的导入 / 删除与状态。
+ * OCR 模型管理页：PP-OCRv6 GPU 包的导入 / 删除与状态。
  *
  * 只调 `AppGraph.ocrModels`；不 import `capability.ocr` 实现类。
  */
@@ -49,10 +49,10 @@ fun OcrModelSettingsScreen(onBack: () -> Unit) {
             LunoSettingsRow(
                 title = state.socModel.ifBlank { stringResource(R.string.ocr_model_soc) },
                 subtitle = stringResource(
-                    if (state.npuSupported) {
-                        R.string.ocr_model_npu_supported
+                    if (state.gpuSupported) {
+                        R.string.ocr_model_gpu_supported
                     } else {
-                        R.string.ocr_model_npu_unsupported
+                        R.string.ocr_model_gpu_unsupported
                     },
                 ),
                 shape = segmentedShape(0, 1),

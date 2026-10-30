@@ -21,10 +21,9 @@ dependencies {
     api(project(":core:domain"))
     implementation(libs.androidx.annotation)
     implementation(libs.kotlinx.coroutines.core)
-    // PP-OCRv5：LiteRT CompiledModel + Qualcomm NPU dispatch；模型为 host AOT 包，用户导入。
+    // PP-OCRv6：LiteRT CompiledModel + GPU delegate（OpenCL）；fp32 tflite 原始包，用户导入。
     implementation(libs.litert)
-    implementation(libs.litert.npu.qualcomm)
-    implementation(libs.qnn.runtime)
+    implementation(libs.litert.gpu)
     testImplementation(libs.junit)
     // 单测里 OcrModelStore 解析 manifest.json；Android 的 org.json 在 JVM 单测中是空实现。
     testImplementation(libs.org.json)
