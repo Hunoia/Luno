@@ -443,8 +443,22 @@ class ScreenPickOverlay(
             val imageBounds = hit?.imageBounds
             portalImageBounds = imageBounds
             refreshPortalPreview()
-            // 长按只读快照：有文字取文字，有图片取图片；图片不再跑 OCR。
             applyPortalText(hit?.text, imageBounds)
+            // 图片/视频节点本身无 a11y 文字（如抖音信息流整屏视频），卡片只剩“图片 W×H”
+            // 没用：对落点区域后台 OCR，有字则文字与图片并存（动作集自动变并集）。
+            if (hit?.text == null && imageBounds != null) {
+                val ocr = runCatching { ocrTextIn(token, pickToken, imageBounds) }.getOrNull()
+                if (token != session || pickToken != portalSession || overlayView == null) return@launch
+                if (!ocr.isNullOrBlank()) {
+                    portalContent = portalContent.copy(
+                        text = ocr,
+                        url = runCatching {
+                            hunoia.luno.link.LinkUrls.extractUrls(ocr, allowBareDomains = true)
+                                .firstOrNull()
+                        }.getOrNull(),
+                    )
+                }
+            }
         }
     }
 
@@ -1385,7 +1399,6 @@ private fun ScreenPickScreen(
     val density = LocalDensity.current.density
     var cardHeightPx by remember { mutableStateOf(0f) }
     var cardWidthPx by remember { mutableStateOf(0f) }
-    var cardDragging by remember { mutableStateOf(false) }
     val currentCardHeight = rememberUpdatedState(cardHeightPx)
     val currentCardWidth = rememberUpdatedState(cardWidthPx)
 
@@ -1457,13 +1470,11 @@ private fun ScreenPickScreen(
                                     moved = true
                                 }
                                 if (moved) {
-                                    cardDragging = true
                                     onPortalMove(change.position)
                                 }
                             }
                         } finally {
                             // 卡片拖动后保持在最后位置；未移动的轻点视为取消并退出。
-                            cardDragging = false
                         }
                         if (!moved) onDismiss()
                         return@awaitEachGesture
@@ -1713,7 +1724,6 @@ private fun ScreenPickScreen(
                 actions = portalActionsFor(portal.content),
                 cardHeightPx = cardHeightPx,
                 cardWidthPx = cardWidthPx,
-                showActions = !cardDragging,
                 onCardSize = {
                     cardWidthPx = it.width.toFloat()
                     cardHeightPx = it.height.toFloat()

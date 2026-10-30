@@ -113,6 +113,7 @@ class A11yTextSnapshotReader(
                 images = images,
                 layoutRects = layoutRects,
                 occluders = occluders,
+                windowArea = windowRect.width() * windowRect.height(),
             )
             if (timedOut) {
                 complete = false
@@ -195,6 +196,7 @@ class A11yTextSnapshotReader(
         images: MutableList<ImageLeaf>,
         layoutRects: MutableList<SnapshotRect>,
         occluders: List<SnapshotRect>,
+        windowArea: Int,
     ): Boolean {
         if (depth > MAX_DEPTH) return false
         if (visited.value >= MAX_NODES || SystemClock.uptimeMillis() > deadline) return true
@@ -226,10 +228,10 @@ class A11yTextSnapshotReader(
                     images += ImageLeaf(bounds, packageName, windowId)
                 }
                 // 图片节点不回退 contentDescription（alt/标签不是屏上文字）；
-                // 普通节点 text 为空时回退 CD：很多自定义控件/图标按钮只暴露 CD，
-                // 删掉回退会导致大量界面识别不到。
+                // 普通节点 text 为空时回退 CD，但仅限小块控件：全屏容器的 CD 是
+                // 控件描述（如抖音播放器的“视频”），当文字会把整卡变成无意义标签。
                 val content = nodeText?.takeIf { it.isNotEmpty() }
-                    ?: if (!classLikeImage) {
+                    ?: if (!classLikeImage && bounds.area * 4 <= windowArea) {
                         runCatching { node.contentDescription?.toString() }.getOrNull()
                             ?.takeIf { it.isNotEmpty() }
                     } else {
@@ -269,6 +271,7 @@ class A11yTextSnapshotReader(
                 images = images,
                 layoutRects = layoutRects,
                 occluders = occluders,
+                windowArea = windowArea,
             )
             if (timedOut) return true
         }

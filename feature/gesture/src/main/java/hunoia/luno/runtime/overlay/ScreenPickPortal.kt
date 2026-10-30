@@ -28,7 +28,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -178,7 +177,6 @@ internal fun PortalLayer(
     actions: List<PortalAction>,
     cardHeightPx: Float,
     cardWidthPx: Float = 0f,
-    showActions: Boolean = true,
     onCardSize: (IntSize) -> Unit,
     onAction: (PortalAction) -> Unit = {},
 ) {
@@ -271,7 +269,6 @@ internal fun PortalLayer(
                 // 内容少时也全宽。动作槽按图标数量自适应。
                 Row(
                     modifier = Modifier
-                        .alpha(if (showActions) 1f else 0f)
                         .padding(top = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically,
