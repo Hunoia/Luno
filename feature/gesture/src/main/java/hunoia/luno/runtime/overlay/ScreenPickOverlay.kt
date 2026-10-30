@@ -287,8 +287,6 @@ class ScreenPickOverlay(
                     captured = captured,
                     originX = originX,
                     originY = originY,
-                    slopPx = screenPickGesture().slopDp * DensityProvider.density,
-                    dragStartTimeoutMs = screenPickGesture().dragStartTimeoutMs.toLong(),
                     portal = PortalState(
                         anchor = portalAnchor,
                         finger = portalFinger,
@@ -299,6 +297,7 @@ class ScreenPickOverlay(
                     onPortalStart = ::beginPortalAtView,
                     onPortalMove = ::movePortalAtView,
                     onPortalAction = ::onPortalAction,
+                    onFrameSelectStart = ::dismissPortal,
                     ocrPanel = ocrPanelText?.let {
                         OcrPanelState(text = it, loading = ocrPanelLoading)
                     },
@@ -332,7 +331,10 @@ class ScreenPickOverlay(
 
     /** 长按预捕获的截图已经在菜单前拍好：直接接管，不再重新截屏。 */
     private fun adoptPreCapture(preCapture: PickCapture) {
-        if (preCapture.bitmap.isRecycled) return
+        if (preCapture.bitmap.isRecycled) {
+            Log.w(LOG_TAG, "screen pick pre-capture dropped: bitmap recycled")
+            return
+        }
         capture?.let { old -> if (old !== preCapture.bitmap && !old.isRecycled) old.recycle() }
         capture = preCapture.bitmap
         captureOriginX = preCapture.originX
@@ -370,23 +372,25 @@ class ScreenPickOverlay(
     /**
      * 全局长按松手：只保留幽灵卡，不执行动作。
      *
-     * 新交互里“从卡片上拖动 = 移动卡片”，动作改由底部动作槽点击触发；
+     * “从卡片上拖动 = 移动卡片”，动作由底部按钮点击触发；
      * 松手直接退出会让卡片无法被拖动/继续框选。
      */
-    fun releasePortal(x: Int, y: Int, keepOnMiss: Boolean = false) {
-        // 保留卡片；动作由 PortalLayer 的动作槽点击执行。
+    fun releasePortal(x: Int, y: Int) {
+        // 保留卡片；动作由卡片底部按钮点击执行。
     }
 
-    /** 点击底部动作槽：立即执行，不要求先把卡片拖过去。 */
+    /** 点击底部动作槽：立即执行，执行后关层（无例外）。 */
     private fun onPortalAction(action: PortalAction) {
         if (portalResolving) return
         val content = portalContent
         val imageBounds = portalImageBounds
-        // 不摘除 capture：卡片继续留着，用户可以连续点复制/保存/分享。
+        // 动作以参数捕获内容/截图，不依赖卡片状态；关层后后台仍能继续落盘/分享。
         val captureForAction = if (content.imageSize != null) currentCapture() else null
+        // 关层会回收截图；图片动作异步在跑，先把 saving 置位让它拿走这张位图
+        //（withCropped 收尾时会补回收）。
+        if (captureForAction != null) saving = true
         executePortalAction(action, content, imageBounds, captureForAction)
-        // 动作已交接（内容/截图均以参数捕获，不依赖卡片状态）：点击底部按钮后卡片自动关闭。
-        cancelPortal()
+        close()
     }
 
     /** 内嵌手势（识屏层自己收到的长按）入口：视图坐标换算成屏幕坐标后同一套流程。 */
@@ -444,21 +448,8 @@ class ScreenPickOverlay(
             portalImageBounds = imageBounds
             refreshPortalPreview()
             applyPortalText(hit?.text, imageBounds)
-            // 图片/视频节点本身无 a11y 文字（如抖音信息流整屏视频），卡片只剩“图片 W×H”
-            // 没用：对落点区域后台 OCR，有字则文字与图片并存（动作集自动变并集）。
-            if (hit?.text == null && imageBounds != null) {
-                val ocr = runCatching { ocrTextIn(token, pickToken, imageBounds) }.getOrNull()
-                if (token != session || pickToken != portalSession || overlayView == null) return@launch
-                if (!ocr.isNullOrBlank()) {
-                    portalContent = portalContent.copy(
-                        text = ocr,
-                        url = runCatching {
-                            hunoia.luno.link.LinkUrls.extractUrls(ocr, allowBareDomains = true)
-                                .firstOrNull()
-                        }.getOrNull(),
-                    )
-                }
-            }
+            // 图片/布局命中只出纯图片卡（W×H + 复制/分享/保存），不再回退 OCR：
+            // 整屏图跑 OCR 耗时且独占引擎，还会把无关 UI 文字混进卡片。
         }
     }
 
@@ -541,27 +532,49 @@ class ScreenPickOverlay(
         hitX: Int? = null,
         hitY: Int? = null,
     ): String? {
-        val snapshot = awaitCapture() ?: return null
-        if (token != session || pickToken != portalSession) return null
-        val crop = cropRectFor(snapshot, region) ?: return null
+        val snapshot = awaitCapture()
+        if (snapshot == null) {
+            Log.w(LOG_TAG, "screen pick ocr abort: no capture")
+            return null
+        }
+        if (token != session || pickToken != portalSession) {
+            if (BuildConfig.DEBUG) {
+                Log.i(LOG_TAG, "screen pick ocr skip: session/token mismatch")
+            }
+            return null
+        }
+        val crop = cropRectFor(snapshot, region)
+        if (crop == null) {
+            Log.w(
+                LOG_TAG,
+                "screen pick ocr abort: crop null region=$region " +
+                    "capture=${captureOriginX},${captureOriginY} ${captureScreenW}x${captureScreenH}",
+            )
+            return null
+        }
         val scripts = screenPickGesture().ocrScripts.ifEmpty { listOf(OcrScript.Chinese) }
         ocrInFlight++
         return try {
             val bitmap = withContext(Dispatchers.IO) {
                 runCatching {
-                    Bitmap.createBitmap(
+                    cropBitmap(
                         snapshot.bitmap,
-                        crop.left,
-                        crop.top,
-                        crop.width(),
-                        crop.height(),
+                        crop,
                     )
                 }.getOrNull()
-            } ?: return null
+            } ?: run {
+                Log.w(LOG_TAG, "screen pick ocr abort: crop bitmap failed crop=$crop")
+                return null
+            }
             try {
                 // ML Kit 的 Task 不可取消：识别段不可中断，避免回收正在被读取的位图。
                 val result = withContext(NonCancellable) { ocrEngine.recognize(bitmap, scripts) }
-                if (token != session || pickToken != portalSession) return null
+                if (token != session || pickToken != portalSession) {
+                    if (BuildConfig.DEBUG) {
+                        Log.i(LOG_TAG, "screen pick ocr skip after recognize: session/token mismatch")
+                    }
+                    return null
+                }
                 val blocks = result.blocks.map { it.toScreenBlock(snapshot, crop) }
                 val text = if (hitX != null && hitY != null) {
                     // 只认落点所在的那一块：按在空白处就该是空，不吸附到隔壁行。
@@ -618,12 +631,9 @@ class ScreenPickOverlay(
                 runCatching {
                     if (snapshot.bitmap.isRecycled) return@runCatching null
                     val crop = cropRectFor(snapshot, bounds) ?: return@runCatching null
-                    val source = Bitmap.createBitmap(
+                    val source = cropBitmap(
                         snapshot.bitmap,
-                        crop.left,
-                        crop.top,
-                        crop.width(),
-                        crop.height(),
+                        crop,
                     )
                     val target = DensityProvider.dp2px(160)
                     val scale = (target.toFloat() / max(source.width, source.height)).coerceAtMost(1f)
@@ -650,6 +660,24 @@ class ScreenPickOverlay(
         portalJob = null
         portalPreviewJob?.cancel()
         portalPreviewJob = null
+        portalAnchor = null
+        portalFinger = null
+        portalContent = PortalContent()
+        portalImageBounds = null
+        portalResolving = false
+    }
+
+    /**
+     * 撤掉幽灵卡但保留拾取层（进入框选时调用）：卡片只在长按取词阶段存在，
+     * 框选开始后不再回来；在途的取词 OCR 一并作废，防止迟到结果把卡片填回来。
+     */
+    private fun dismissPortal() {
+        if (portalAnchor == null) return
+        portalJob?.cancel()
+        portalJob = null
+        portalPreviewJob?.cancel()
+        portalPreviewJob = null
+        portalSession++
         portalAnchor = null
         portalFinger = null
         portalContent = PortalContent()
@@ -736,6 +764,9 @@ class ScreenPickOverlay(
         cancelPortal()
         textSnapshot = null
         if (!captureSignal.isCompleted) captureSignal.complete(Unit)
+        if (BuildConfig.DEBUG) {
+            Log.i(LOG_TAG, "screen pick close: hasCapture=${capture != null} saving=$saving ocrInFlight=$ocrInFlight")
+        }
         val view = overlayView ?: return
         overlayView = null
         hunoia.luno.runtime.surface.SurfaceController.unregister(surfaceId)
@@ -809,6 +840,20 @@ class ScreenPickOverlay(
         return crop
     }
 
+    /**
+     * 裁剪预截图。`Bitmap.createBitmap` 在裁剪区域等于整图时会**原样返回源位图**，
+     * 而调用方对裁剪结果都是“用完即回收”，那会把预截图一起收掉（相册里整屏兜底/大图
+     * 命中后 OCR/保存全变成 no capture 的根因）。这里遇同实例强制拷贝。
+     */
+    private fun cropBitmap(src: Bitmap, crop: AndroidRect): Bitmap {
+        val direct = Bitmap.createBitmap(src, crop.left, crop.top, crop.width(), crop.height())
+        return if (direct === src) {
+            direct.copy(Bitmap.Config.ARGB_8888, false) ?: direct
+        } else {
+            direct
+        }
+    }
+
     /** 框选动作（图标动作条）：文本复制/搜索/分享，图片复制/分享/保存，OCR 单独进可编辑面板。 */
     private fun onSelectionAction(rect: Rect, action: PickSelectionAction) {
         if (resolvingAction) return
@@ -869,6 +914,8 @@ class ScreenPickOverlay(
                 PickSelectionAction.Ocr -> false
             }
             resolvingAction = false
+            // 动作执行即关层（无例外）；OCR 已改为打开面板，由面板按钮关层。
+            if (action != PickSelectionAction.Ocr) close()
             if (!ok) {
                 // 图片动作失败时给出与旧逻辑一致的提示；文本路径已各自提示。
                 if (action != PickSelectionAction.Search) showToast(R.string.screen_pick_failed)
@@ -938,31 +985,39 @@ class ScreenPickOverlay(
         ocrPanelText = text
     }
 
+    /** OCR 面板按钮：除重试外，执行后一律关层。 */
     private fun onOcrAction(action: OcrPanelAction) {
         when (action) {
-            OcrPanelAction.Close -> closeOcrPanel()
-            OcrPanelAction.Copy -> {
-                val text = ocrPanelText.orEmpty()
-                if (text.isBlank()) {
-                    showToast(R.string.screen_pick_no_content)
-                } else {
-                    copyText(host.context, SCREEN_PICK_LABEL, text)
-                    showToast(R.string.quick_search_copied)
-                }
-            }
-            OcrPanelAction.Search -> {
-                val text = ocrPanelText.orEmpty()
-                when {
-                    text.isBlank() -> showToast(R.string.screen_pick_no_content)
-                    !onSearch(text) -> showToast(R.string.screen_pick_failed)
-                }
-            }
-            OcrPanelAction.Share -> {
-                val text = ocrPanelText.orEmpty()
-                if (text.isBlank()) showToast(R.string.screen_pick_no_content)
-                else shareText(text)
-            }
             OcrPanelAction.Retry -> ocrPanelRect?.let { openOcrPanel(it) }
+            else -> {
+                when (action) {
+                    OcrPanelAction.Close -> Unit
+                    OcrPanelAction.Copy -> {
+                        val text = ocrPanelText.orEmpty()
+                        if (text.isBlank()) {
+                            showToast(R.string.screen_pick_no_content)
+                        } else {
+                            copyText(host.context, SCREEN_PICK_LABEL, text)
+                            showToast(R.string.quick_search_copied)
+                        }
+                    }
+                    OcrPanelAction.Search -> {
+                        val text = ocrPanelText.orEmpty()
+                        when {
+                            text.isBlank() -> showToast(R.string.screen_pick_no_content)
+                            !onSearch(text) -> showToast(R.string.screen_pick_failed)
+                        }
+                    }
+                    OcrPanelAction.Share -> {
+                        val text = ocrPanelText.orEmpty()
+                        if (text.isBlank()) showToast(R.string.screen_pick_no_content)
+                        else shareText(text)
+                    }
+                    else -> Unit
+                }
+                // 关闭/复制/搜索/分享都关层；toast 在拆窗前发出仍可见。
+                close()
+            }
         }
     }
 
@@ -1051,18 +1106,27 @@ class ScreenPickOverlay(
         capture: PickCapture? = null,
         block: suspend (Bitmap) -> Boolean,
     ): Boolean {
-        val snapshot = capture ?: currentCapture() ?: return false
-        val crop = cropRectFor(snapshot, rect) ?: return false
+        val snapshot = capture ?: currentCapture()
+        if (snapshot == null) {
+            Log.w(LOG_TAG, "screen pick: crop abort: no capture rect=$rect")
+            return false
+        }
+        val crop = cropRectFor(snapshot, rect)
+        if (crop == null) {
+            Log.w(
+                LOG_TAG,
+                "screen pick: crop abort: rect out of capture rect=$rect " +
+                    "capture=${captureOriginX},${captureOriginY} ${captureScreenW}x${captureScreenH}",
+            )
+            return false
+        }
         saving = true
         try {
             val cropped = withContext(Dispatchers.IO) {
                 runCatching {
-                    Bitmap.createBitmap(
+                    cropBitmap(
                         snapshot.bitmap,
-                        crop.left,
-                        crop.top,
-                        crop.width(),
-                        crop.height(),
+                        crop,
                     )
                 }.onFailure {
                     Log.e(LOG_TAG, "screen pick: crop failed: ${it.message}")
@@ -1100,13 +1164,17 @@ class ScreenPickOverlay(
             put(MediaStore.Images.Media.IS_PENDING, 1)
         }
         val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-            ?: return@runCatching null
+        if (uri == null) {
+            Log.w(LOG_TAG, "screen pick: save image: MediaStore insert failed")
+            return@runCatching null
+        }
         val written = runCatching {
             resolver.openOutputStream(uri)?.use { out ->
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
             } ?: false
         }.getOrDefault(false)
         if (!written) {
+            Log.w(LOG_TAG, "screen pick: save image: compress/write failed")
             runCatching { resolver.delete(uri, null, null) }
             return@runCatching null
         }
@@ -1170,6 +1238,9 @@ class ScreenPickOverlay(
         val window = topApplicationWindow()
         if (window != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             val accepted = runCatching {
+                if (BuildConfig.DEBUG) {
+                    Log.i(LOG_TAG, "screen pick shot: window id=${window.id}")
+                }
                 host.accessibilityService.takeScreenshotOfWindow(
                     window.id,
                     mainExecutor,
@@ -1184,15 +1255,20 @@ class ScreenPickOverlay(
         return takeScreenshotOfDisplay(token)
     }
 
-    private fun takeScreenshotOfDisplay(token: Int): Boolean = runCatching {
-        host.accessibilityService.takeScreenshot(
-            Display.DEFAULT_DISPLAY,
-            mainExecutor,
-            screenshotCallback(token, windowBounds = null, allowDisplayFallback = false),
-        )
-    }.onFailure {
-        Log.e(LOG_TAG, "screen pick: takeScreenshot rejected: ${it.message}")
-    }.isSuccess
+    private fun takeScreenshotOfDisplay(token: Int): Boolean {
+        if (BuildConfig.DEBUG) {
+            Log.i(LOG_TAG, "screen pick shot: display fallback")
+        }
+        return runCatching {
+            host.accessibilityService.takeScreenshot(
+                Display.DEFAULT_DISPLAY,
+                mainExecutor,
+                screenshotCallback(token, windowBounds = null, allowDisplayFallback = false),
+            )
+        }.onFailure {
+            Log.e(LOG_TAG, "screen pick: takeScreenshot rejected: ${it.message}")
+        }.isSuccess
+    }
 
     private fun AccessibilityWindowInfo.boundsOnScreen(): AndroidRect =
         AndroidRect().also { getBoundsInScreen(it) }
@@ -1205,7 +1281,10 @@ class ScreenPickOverlay(
         object : AccessibilityService.TakeScreenshotCallback {
             override fun onSuccess(result: AccessibilityService.ScreenshotResult) {
                 try {
-                    if (token != session) return
+                    if (token != session) {
+                        Log.w(LOG_TAG, "screen pick shot dropped: token mismatch ($token != $session)")
+                        return
+                    }
                     val hardware = Bitmap.wrapHardwareBuffer(result.hardwareBuffer, result.colorSpace)
                     val copied = hardware?.copy(Bitmap.Config.ARGB_8888, false)
                     if (copied == null) {
@@ -1226,12 +1305,14 @@ class ScreenPickOverlay(
 
             override fun onFailure(errorCode: Int) {
                 if (token != session) return
+                Log.w(LOG_TAG, "screen pick shot failed: errorCode=$errorCode")
                 // 窗口截图失败（刚切走/系统拒绝）：回退整屏一次，不直接判失败。
                 if (allowDisplayFallback && windowBounds != null && takeScreenshotOfDisplay(token)) return
                 pickFailed()
             }
 
             private fun pickFailed() {
+                Log.w(LOG_TAG, "screen pick shot: pick failed (no capture)")
                 // 幽灵卡不靠截图也能用（复制/搜索/发送文字）：截图失败只降级图片动作，
                 // 不把已经浮起的卡片直接收掉。
                 if (!captureSignal.isCompleted) captureSignal.complete(Unit)
@@ -1265,12 +1346,25 @@ class ScreenPickOverlay(
     private fun captureWhenSettled(token: Int) {
         host.coroutineScope.launch {
             val hadPanels = openPanels.hasOpenPanels
+            if (BuildConfig.DEBUG) {
+                Log.i(LOG_TAG, "screen pick captureWhenSettled: panels=$hadPanels")
+            }
             openPanels.awaitDismissed()
-            if (token != session || overlayView == null || capture != null) return@launch
+            if (token != session || overlayView == null || capture != null) {
+                if (BuildConfig.DEBUG) {
+                    Log.i(
+                        LOG_TAG,
+                        "screen pick captureWhenSettled skip: session=${token == session} " +
+                            "shown=${overlayView != null} hasCapture=${capture != null}",
+                    )
+                }
+                return@launch
+            }
             // 面板退场多留一拍：动作面板的淡出在 Dismissed 之后还可能再收尾。
             if (hadPanels) delay(PanelPostSettleMs)
             // 扫描与截屏并行：提示框不用等 takeScreenshot 回调（它往往是慢的那一步）。
             if (!takeScreenshot()) {
+                Log.w(LOG_TAG, "screen pick shot: takeScreenshot rejected outright")
                 showToast(R.string.screen_pick_failed)
                 // 幽灵卡仍可用文字/搜索动作：截图被拒也只降级图片动作，不拆窗。
                 if (portalAnchor == null) close()
@@ -1373,13 +1467,12 @@ private fun ScreenPickScreen(
     captured: Boolean,
     originX: Int,
     originY: Int,
-    slopPx: Float,
-    dragStartTimeoutMs: Long,
     portal: PortalState,
     onSelectionAction: (Rect, PickSelectionAction) -> Unit,
     onPortalStart: (Offset) -> Unit,
     onPortalMove: (Offset) -> Unit,
     onPortalAction: (PortalAction) -> Unit,
+    onFrameSelectStart: () -> Unit,
     ocrPanel: OcrPanelState?,
     onOcrTextChange: (String) -> Unit,
     onOcrAction: (OcrPanelAction) -> Unit,
@@ -1514,6 +1607,8 @@ private fun ScreenPickScreen(
                                     longPress.cancel()
                                     if (!longPressed) {
                                         selecting = true
+                                        // 框选一开始就撤卡：卡只在取词阶段存在，落框/动作阶段不再回来。
+                                        onFrameSelectStart()
                                         dragRect = Rect(
                                             left = minOf(start.x, change.position.x),
                                             top = minOf(start.y, change.position.y),
@@ -1561,33 +1656,22 @@ private fun ScreenPickScreen(
                     var last = start
                     var upPosition = start
                     var childConsumed = false
-                    var armed = false
                     var portalStarted = false
-                    var dragWindow: kotlinx.coroutines.Job? = null
                     fun startPortal(at: Offset) {
-                        armed = false
-                        dragWindow?.cancel()
-                        dragWindow = null
                         portalStarted = true
                         selecting = false
                         adjustRect = null
                         onPortalStart(start)
                         onPortalMove(at)
                     }
+                    // 识屏层内长按“按住即触发”，不设拖动取消窗口；
+                    // dragStartTimeoutMs 只作用于全局长按路径（GlobalLongPressTrigger）。
                     val portalTimer = scope.launch {
                         delay(viewConfiguration.longPressTimeoutMillis)
                         if (!moved && !childConsumed && !portalStarted &&
                             initial == null && handle == null && !moving
                         ) {
-                            armed = true
-                            if (dragStartTimeoutMs <= 0L) {
-                                startPortal(start)
-                            } else {
-                                dragWindow = scope.launch {
-                                    delay(dragStartTimeoutMs)
-                                    if (armed) armed = false
-                                }
-                            }
+                            startPortal(start)
                         }
                     }
                     try {
@@ -1603,16 +1687,13 @@ private fun ScreenPickScreen(
                             change.consume()
                             val delta = change.position - last
                             last = change.position
-                            val distance = (change.position - start).getDistance()
                             if (portalStarted) {
                                 onPortalMove(change.position)
                                 continue
                             }
-                            if (armed) {
-                                if (distance > slopPx) startPortal(change.position)
-                                continue
-                            }
-                            if (!moved && distance > viewConfiguration.touchSlop) {
+                            if (!moved && (change.position - start).getDistance() >
+                                viewConfiguration.touchSlop
+                            ) {
                                 moved = true
                             }
                             when {
@@ -1639,7 +1720,6 @@ private fun ScreenPickScreen(
                         }
                     } finally {
                         portalTimer.cancel()
-                        dragWindow?.cancel()
                     }
                     if (childConsumed) return@awaitEachGesture
                     if (portalStarted) {
@@ -1713,8 +1793,8 @@ private fun ScreenPickScreen(
                 )
             }
         }
-        // 框选期间/选区待确认时隐藏幽灵卡；其余时候显示并跟手（位置由手指坐标决定）。
-        if (portal.anchor != null && !selecting && adjustRect == null) {
+        // 框选期间/选区待确认/OCR 面板打开时隐藏幽灵卡；否则显示并跟手。
+        if (portal.anchor != null && !selecting && adjustRect == null && ocrPanel == null) {
             PortalLayer(
                 finger = (portal.finger ?: portal.anchor).let {
                     Offset(it.x - originX, it.y - originY)

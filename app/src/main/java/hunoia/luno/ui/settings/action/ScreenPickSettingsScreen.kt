@@ -59,20 +59,24 @@ fun ScreenPickSettingsScreen(
                 onCheckedChange = { checked -> commit(screenPick.copy(enabled = checked)) },
                 shape = segmentedShape(0, 5),
             )
-            LunoSwitchRow(
-                title = stringResource(R.string.screen_pick_keep_after_release),
-                subtitle = stringResource(R.string.screen_pick_keep_after_release_hint),
-                checked = screenPick.keepAfterRelease,
-                onCheckedChange = { checked -> commit(screenPick.copy(keepAfterRelease = checked)) },
-                shape = segmentedShape(1, 5),
-            )
             ScreenPickSlider(
                 value = screenPick.longPressDelayMs.toFloat(),
                 range = 200f..1_000f,
                 text = stringResource(R.string.screen_pick_long_press_delay),
                 display = { stringResource(R.string.screen_pick_long_press_delay_value, it.roundToInt()) },
-                shape = segmentedShape(2, 5),
+                shape = segmentedShape(1, 5),
                 onCommit = { commit(screenPick.copy(longPressDelayMs = it.roundToInt())) },
+            )
+            ScreenPickSlider(
+                value = screenPick.dragStartTimeoutMs.toFloat(),
+                range = 0f..5_000f,
+                text = stringResource(R.string.screen_pick_drag_timeout),
+                display = { ms ->
+                    if (ms.roundToInt() == 0) stringResource(R.string.screen_pick_drag_timeout_off)
+                    else stringResource(R.string.screen_pick_drag_timeout_value, ms.roundToInt())
+                },
+                shape = segmentedShape(2, 5),
+                onCommit = { commit(screenPick.copy(dragStartTimeoutMs = it.roundToInt())) },
             )
             ScreenPickSlider(
                 value = screenPick.slopDp,

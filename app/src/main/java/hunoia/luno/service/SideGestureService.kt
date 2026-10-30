@@ -134,11 +134,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     }
 
     fun releaseScreenPickPortal(x: Int, y: Int) {
-        screenPickOverlay.releasePortal(
-            x,
-            y,
-            keepOnMiss = gestureCoordinator.currentScreenPickGesture().keepAfterRelease,
-        )
+        screenPickOverlay.releasePortal(x, y)
     }
 
     /** 幽灵卡是否正在显示（抬手保留后，下一次按下由 overlay 自己处理）。 */

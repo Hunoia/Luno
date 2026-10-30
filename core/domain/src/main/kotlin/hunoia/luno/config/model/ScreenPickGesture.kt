@@ -10,9 +10,9 @@ import kotlinx.serialization.Serializable
  *   （[hunoia.luno.gesture.touchsource.ShizukuTouchInputSource]），因此需要 Shizuku；
  *   默认关闭，用户显式打开才启动这条常驻读取（无事件不做功）。
  * - [longPressDelayMs] / [slopDp]：按住 ≥ 阈值即触发；长按前位移超 slop 视为滚动，本次作废。
- * - [dragStartTimeoutMs]：已废弃，仅为兼容旧配置保留；长按触发不再等待拖动。
+ * - [dragStartTimeoutMs]：长按就绪后的“取消窗口”：窗口内没拖动超过阈值，本次按住
+ *   不再触发幽灵卡。0 表示不启用（按住多久都能拖动触发）。
  * - [triggerCooldownMs]：两次长按触发之间的最小间隔，防误触发连着弹卡。
- * - [keepAfterRelease]：抬手后不收起幽灵卡；再按住可拖动，长按其他位置另选。
  * - [ocrEnabled]：框选后的动作菜单是否显示 OCR；长按取词不再触发 OCR。
  * - [ocrScripts]：框选 OCR 要尝试的文字体系；多选时并行识别后合并。中文模型已覆盖拉丁字母。
  *
@@ -27,7 +27,6 @@ data class ScreenPickGesture(
     val slopDp: Float = 10f,
     val dragStartTimeoutMs: Int = 3_000,
     val triggerCooldownMs: Int = 800,
-    val keepAfterRelease: Boolean = false,
     val ocrEnabled: Boolean = true,
     // 中文模型同时覆盖拉丁字母与数字（中英混排），默认只跑它：多跑一份就多一份耗时，
     // 而日文映射到同一个 zh 模型（纯重复）、韩文模型对中文只会产出垃圾块再被去重丢掉。

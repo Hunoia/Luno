@@ -108,12 +108,14 @@ class GlobalLongPressTrigger(
     private fun arm() {
         if (!active || fired || armed) return
         armed = true
-        // 只长按不拖动不再触发；dragStartTimeoutMs 仅作为等待拖动的上限。
-        // 旧配置里的 0 也按默认 3s 处理，避免长按直接弹卡。
-        val waitMs = dragStartTimeoutMs.takeIf { it > 0L } ?: 3_000L
-        dragWindow = timer.schedule(waitMs) {
-            // 窗口内没拖动：本次长按作废，不触发。
-            if (active && !fired) reset()
+        // 只长按不拖动不再触发；dragStartTimeoutMs 是等待拖动的取消窗口，
+        // 0 = 不启用（按住多久都能拖动触发）。
+        val waitMs = dragStartTimeoutMs
+        if (waitMs > 0L) {
+            dragWindow = timer.schedule(waitMs) {
+                // 窗口内没拖动：本次长按作废，不触发。
+                if (active && !fired) reset()
+            }
         }
     }
 

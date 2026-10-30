@@ -165,8 +165,9 @@
     <string name="action_settings_screen_pick_group">屏幕识别</string>
     <string name="screen_pick_global_long_press">全屏长按识屏</string>
     <string name="screen_pick_global_long_press_hint">任意位置按住出卡；拖动卡片移动，空白处拖动框选（需 Shizuku）</string>
-    <string name="screen_pick_keep_after_release">抬手后保留幽灵卡</string>
-    <string name="screen_pick_keep_after_release_hint">抬手不取消；再按住可拖卡/框选，长按其他位置可重新识别</string>
+    <string name="screen_pick_drag_timeout">拖动窗口</string>
+    <string name="screen_pick_drag_timeout_value">按住 %1$d ms 内拖动</string>
+    <string name="screen_pick_drag_timeout_off">不限时</string>
     <string name="screen_pick_long_press_delay">长按时间</string>
     <string name="screen_pick_long_press_delay_value">%1$d ms</string>
     <string name="screen_pick_slop">拖动容差</string>
