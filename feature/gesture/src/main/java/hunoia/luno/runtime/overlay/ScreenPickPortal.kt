@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -29,15 +31,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.gesture.R
@@ -88,7 +93,7 @@ object PortalLayout {
     const val BottomMarginDp = 28f
 
     /** 幽灵卡自身尺寸/圆角：与底部分布共用，避免卡片和槽位两个尺寸体系。 */
-    const val CardWidthDp = 216f
+    const val CardWidthDp = 280f
     const val CardEstimatedHeightDp = 96f
     const val CardGapDp = 20f
     const val CardRadiusDp = 18f
@@ -125,18 +130,17 @@ object PortalLayout {
         screenWidth: Float,
         screenHeight: Float,
         density: Float,
+        cardHeightPx: Float = CardEstimatedHeightDp * density,
     ): Rect {
         val cardWidthPx = CardWidthDp * density
         val gapPx = CardGapDp * density
-        val estimatedCard = CardEstimatedHeightDp * density
-        val cardX = (finger.x - cardWidthPx / 2f).coerceIn(
-            -cardWidthPx / 2f,
-            screenWidth - cardWidthPx / 2f,
-        )
-        // 幽灵卡中心在手指下方：卡片顶边从手指下方一个 gap 开始。
+        val height = cardHeightPx.takeIf { it > 0f } ?: CardEstimatedHeightDp * density
+        // 卡片完整限制在屏幕内；中心对齐手指，顶边在手指下方一个 gap。
+        val cardX = (finger.x - cardWidthPx / 2f)
+            .coerceIn(0f, (screenWidth - cardWidthPx).coerceAtLeast(0f))
         val cardY = (finger.y + gapPx)
-            .coerceIn(0f, (screenHeight - estimatedCard).coerceAtLeast(0f))
-        return Rect(cardX, cardY, cardX + cardWidthPx, cardY + estimatedCard)
+            .coerceIn(0f, (screenHeight - height).coerceAtLeast(0f))
+        return Rect(cardX, cardY, cardX + cardWidthPx, cardY + height)
     }
 }
 
@@ -173,10 +177,11 @@ internal fun PortalLayer(
     content: PortalContent,
     resolving: Boolean,
     actions: List<PortalAction>,
-    activeSlot: Int?,
-    slotRects: List<Rect>,
+    cardHeightPx: Float,
     originX: Int,
     originY: Int,
+    showActions: Boolean = true,
+    onCardSize: (IntSize) -> Unit,
     onAction: (PortalAction) -> Unit = {},
 ) {
     val screenWidthPx = DensityProvider.screenWidthPx.toFloat()
@@ -186,31 +191,18 @@ internal fun PortalLayer(
     val cardContent = MaterialTheme.colorScheme.inverseOnSurface
 
     Box(modifier = Modifier.fillMaxSize()) {
-        actions.forEachIndexed { index, action ->
-            val rect = slotRects.getOrNull(index) ?: return@forEachIndexed
-            Box(
-                modifier = Modifier
-                    .offsetPx(rect.left - originX, rect.top - originY)
-                    .size(PortalLayout.SlotDp.dp),
-            ) {
-                PortalSlot(
-                    action = action,
-                    active = activeSlot == index,
-                    onClick = { onAction(action) },
-                )
-            }
-        }
-
         val card = PortalLayout.cardRect(
             finger = finger,
             screenWidth = screenWidthPx,
             screenHeight = screenHeightPx,
             density = DensityProvider.density,
+            cardHeightPx = cardHeightPx,
         )
         Column(
             modifier = Modifier
                 .offsetPx(card.left, card.top)
-                .widthIn(max = PortalLayout.CardWidthDp.dp)
+                .width(PortalLayout.CardWidthDp.dp)
+                .onSizeChanged(onCardSize)
                 .background(cardBackground, RoundedCornerShape(PortalLayout.CardRadiusDp.dp))
                 .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -276,6 +268,45 @@ internal fun PortalLayer(
                     )
                 }
             }
+            if (actions.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .alpha(if (showActions) 1f else 0f)
+                        .padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    actions.forEach { action ->
+                        PortalCardActionIcon(
+                            action = action,
+                            onClick = { onAction(action) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PortalCardActionIcon(
+    action: PortalAction,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(50),
+        color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.12f),
+        contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+        modifier = Modifier.size(40.dp),
+    ) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = action.icon(),
+                contentDescription = action.label(),
+                modifier = Modifier.size(20.dp),
+            )
         }
     }
 }

@@ -124,7 +124,6 @@ private data class PortalState(
     val finger: Offset?,
     val content: PortalContent,
     val resolving: Boolean,
-    val slots: List<Rect>,
 )
 
 /** 框选动作条的动作（关闭走 onDismiss，不在此枚举）。 */
@@ -237,9 +236,6 @@ class ScreenPickOverlay(
     /** 图片节点 bounds（屏幕坐标）：保存 / 分享图片时按它裁剪预截图。 */
     private var portalImageBounds: AndroidRect? = null
 
-    /** 导航栏 inset（px）：动作槽要避开它，由 Compose 侧量回来后写回。 */
-    private var portalInsetBottom by mutableStateOf(0)
-
     private var portalJob: Job? = null
     private var portalPreviewJob: Job? = null
 
@@ -299,7 +295,6 @@ class ScreenPickOverlay(
                         finger = portalFinger,
                         content = portalContent,
                         resolving = portalResolving,
-                        slots = portalSlots(portalActionsFor(portalContent).size),
                     ),
                     onSelectionAction = ::onSelectionAction,
                     onPortalStart = ::beginPortalAtView,
@@ -322,13 +317,6 @@ class ScreenPickOverlay(
             return false
         }
         overlayView = composeView
-        // 动作槽要避开导航栏：挂窗后同步量一次，比等 Compose 首帧再回填更稳
-        //（幽灵卡可能在同一帧就要命中判断）。
-        portalInsetBottom = runCatching {
-            androidx.core.view.ViewCompat.getRootWindowInsets(composeView)
-                ?.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
-                ?.bottom
-        }.getOrNull() ?: 0
         hunoia.luno.runtime.surface.SurfaceController.register(this)
         // 识屏分享图缓存只留最近几张；顺手清掉历史遗留的大缓存。
         host.coroutineScope.launch(Dispatchers.IO) { cleanScreenPickCache() }
@@ -629,15 +617,6 @@ class ScreenPickOverlay(
         portalImageBounds = null
         portalResolving = false
     }
-
-    /** 动作槽几何：与 Compose 渲染共用 [PortalLayout]，保证“看到的位置 = 命中的位置”。 */
-    private fun portalSlots(count: Int): List<Rect> = PortalLayout.slotRects(
-        screenWidth = DensityProvider.screenWidthPx.toFloat(),
-        screenHeight = DensityProvider.screenHeightPx.toFloat(),
-        insetBottom = portalInsetBottom.toFloat(),
-        count = count,
-        density = DensityProvider.density,
-    )
 
     private fun executePortalAction(
         action: PortalAction,
@@ -1377,6 +1356,9 @@ private fun ScreenPickScreen(
     val portalActive = rememberUpdatedState(portal.anchor != null)
     val currentPortal = rememberUpdatedState(portal)
     val density = LocalDensity.current.density
+    var cardHeightPx by remember { mutableStateOf(0f) }
+    var cardDragging by remember { mutableStateOf(false) }
+    val currentCardHeight = rememberUpdatedState(cardHeightPx)
 
     Box(
         modifier = Modifier
@@ -1394,6 +1376,7 @@ private fun ScreenPickScreen(
                             screenWidth = DensityProvider.screenWidthPx.toFloat(),
                             screenHeight = DensityProvider.screenHeightPx.toFloat(),
                             density = density,
+                            cardHeightPx = currentCardHeight.value,
                         )
                     } else {
                         null
@@ -1418,10 +1401,14 @@ private fun ScreenPickScreen(
                                 ) {
                                     moved = true
                                 }
-                                if (moved) onPortalMove(change.position)
+                                if (moved) {
+                                    cardDragging = true
+                                    onPortalMove(change.position)
+                                }
                             }
                         } finally {
                             // 卡片拖动后保持在最后位置；未移动的轻点视为取消并退出。
+                            cardDragging = false
                         }
                         if (!moved) onDismiss()
                         return@awaitEachGesture
@@ -1617,7 +1604,8 @@ private fun ScreenPickScreen(
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.12f)),
             )
-            val activeRect = adjustRect ?: dragRect
+            // 新拖动优先显示：已有旧框时也要能看见正在画的框。
+            val activeRect = dragRect ?: adjustRect
             activeRect?.let { rect ->
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     drawRect(
@@ -1685,13 +1673,11 @@ private fun ScreenPickScreen(
                 content = portal.content,
                 resolving = portal.resolving,
                 actions = portalActionsFor(portal.content),
-                activeSlot = PortalLayout.hit(
-                    portal.slots,
-                    portal.finger ?: portal.anchor,
-                ),
-                slotRects = portal.slots,
+                cardHeightPx = cardHeightPx,
                 originX = originX,
                 originY = originY,
+                showActions = !cardDragging,
+                onCardSize = { cardHeightPx = it.height.toFloat() },
                 onAction = onPortalAction,
             )
         }

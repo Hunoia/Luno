@@ -86,33 +86,42 @@ class GlobalLongPressTriggerTest {
     }
 
     @Test
-    fun `long press alone triggers immediately`() {
+    fun `long press alone does not trigger`() {
         val subject = trigger()
         subject.onFrame(Offset(10f, 20f), TouchAction.Down)
         assertEquals(400L, timer.lastDelay)
 
         timer.fire(400)
-        assertEquals(listOf(10 to 20), triggers)
-        assertTrue(subject.isFired)
+        assertTrue(triggers.isEmpty())
+        assertFalse(subject.isFired)
+        // 长按窗口到期仍不动：本次会话作废。
+        timer.fire(3_000)
+        assertTrue(triggers.isEmpty())
     }
 
     @Test
-    fun `after long press drag forwards frames`() {
+    fun `long press then drag triggers and forwards frames`() {
         val subject = trigger(
             ScreenPickGesture(
                 enabled = true,
                 longPressDelayMs = 400,
                 slopDp = 10f,
+                dragStartTimeoutMs = 3_000,
                 triggerCooldownMs = 0,
             ),
         )
         subject.onFrame(Offset(10f, 20f), TouchAction.Down)
         timer.fire(400)
-        assertEquals(listOf(10 to 20), triggers)
+        assertTrue(triggers.isEmpty())
 
+        // 小于 slop：仍不触发。
         subject.onFrame(Offset(12f, 22f), TouchAction.Move)
+        assertTrue(triggers.isEmpty())
+
         subject.onFrame(Offset(80f, 20f), TouchAction.Move)
-        assertEquals(listOf(12 to 22, 80 to 20), drags)
+        assertEquals(listOf(10 to 20), triggers)
+        assertTrue(subject.isFired)
+        assertEquals(listOf(80 to 20), drags)
 
         subject.onFrame(Offset(90f, 100f), TouchAction.Up)
         assertEquals(listOf(90 to 100), releases)
@@ -129,22 +138,59 @@ class GlobalLongPressTriggerTest {
     }
 
     @Test
-    fun `move after long press delay triggers even without timer tick`() {
+    fun `no drag within window means no trigger`() {
         val subject = trigger(
             ScreenPickGesture(
                 enabled = true,
                 longPressDelayMs = 400,
                 slopDp = 10f,
+                dragStartTimeoutMs = 800,
+                triggerCooldownMs = 0,
+            ),
+        )
+        subject.onFrame(Offset(10f, 20f), TouchAction.Down)
+        timer.fire(400)
+        timer.fire(800)
+        subject.onFrame(Offset(80f, 20f), TouchAction.Move)
+        assertTrue(triggers.isEmpty())
+        assertFalse(subject.isFired)
+    }
+
+    @Test
+    fun `drag after long press window without timer tick still triggers`() {
+        val subject = trigger(
+            ScreenPickGesture(
+                enabled = true,
+                longPressDelayMs = 400,
+                slopDp = 10f,
+                dragStartTimeoutMs = 3_000,
                 triggerCooldownMs = 0,
             ),
         )
         now = 450
         subject.onFrame(Offset(10f, 20f), TouchAction.Down)
         now = 900
-        // 定时器尚未执行：MOVE 到达时已过长按时间，直接触发并转发。
+        // 定时器尚未执行：MOVE 到达时先补 arm，再按拖动触发。
         subject.onFrame(Offset(80f, 20f), TouchAction.Move)
         assertEquals(listOf(10 to 20), triggers)
-        assertEquals(listOf(80 to 20), drags)
+    }
+
+    @Test
+    fun `zero drag window still waits for drag`() {
+        val subject = trigger(
+            ScreenPickGesture(
+                enabled = true,
+                longPressDelayMs = 400,
+                slopDp = 10f,
+                dragStartTimeoutMs = 0,
+                triggerCooldownMs = 0,
+            ),
+        )
+        subject.onFrame(Offset(10f, 20f), TouchAction.Down)
+        timer.fire(400)
+        assertTrue(triggers.isEmpty())
+        subject.onFrame(Offset(80f, 20f), TouchAction.Move)
+        assertEquals(listOf(10 to 20), triggers)
     }
 
     @Test
@@ -154,22 +200,26 @@ class GlobalLongPressTriggerTest {
                 enabled = true,
                 longPressDelayMs = 400,
                 slopDp = 10f,
-                dragStartTimeoutMs = 0,
+                dragStartTimeoutMs = 3_000,
                 triggerCooldownMs = 800,
             ),
         )
         subject.onFrame(Offset(10f, 20f), TouchAction.Down)
         timer.fire(400)
-        subject.onFrame(Offset(10f, 20f), TouchAction.Up)
+        subject.onFrame(Offset(80f, 20f), TouchAction.Move)
+        subject.onFrame(Offset(80f, 20f), TouchAction.Up)
+        assertEquals(1, triggers.size)
 
         now = 500
-        val before = timer.entries.size
         subject.onFrame(Offset(10f, 20f), TouchAction.Down)
-        assertEquals(before, timer.entries.size)
+        subject.onFrame(Offset(10f, 20f), TouchAction.Up)
+        assertEquals(1, triggers.size)
 
         now = 900
         subject.onFrame(Offset(10f, 20f), TouchAction.Down)
-        assertEquals(400L, timer.lastDelay)
+        timer.fire(400)
+        subject.onFrame(Offset(80f, 20f), TouchAction.Move)
+        assertEquals(listOf(10 to 20, 10 to 20), triggers)
     }
 
 }

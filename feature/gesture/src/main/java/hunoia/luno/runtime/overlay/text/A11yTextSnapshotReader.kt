@@ -155,6 +155,7 @@ class A11yTextSnapshotReader(
             nodeBounds.bottom,
         )
         val visible = runCatching { node.isVisibleToUser }.getOrDefault(true)
+        val nodeText = runCatching { node.text?.toString() }.getOrNull()
         val classLikeImage = isImageLike(runCatching { node.className?.toString() }.getOrNull().orEmpty())
 
         if (visible && !bounds.isEmpty) {
@@ -163,31 +164,29 @@ class A11yTextSnapshotReader(
                     bounds.right <= cover.right && bounds.bottom <= cover.bottom
             }
             if (!fullyCovered) {
-                if (classLikeImage) {
+                // 图片类节点没有真实 text 时只按图片处理；带 text 的仍按文字
+                //（部分聊天/容器会把文本挂在 ImageView 类节点上）。
+                if (classLikeImage && nodeText.isNullOrEmpty()) {
                     images += ImageLeaf(bounds, packageName, windowId)
-                    // 图片类节点只按图片处理：不再往下收文本，避免 ImageView 的
-                    // contentDescription/子文本被当成可取文字。
                     return false
+                }
+                val description = if (nodeText.isNullOrEmpty()) {
+                    runCatching { node.contentDescription?.toString() }.getOrNull()
                 } else {
-                    val text = runCatching { node.text?.toString() }.getOrNull()
-                    val description = if (text.isNullOrEmpty()) {
-                        runCatching { node.contentDescription?.toString() }.getOrNull()
-                    } else {
-                        null
-                    }
-                    val content = text?.takeIf { it.isNotEmpty() }
-                        ?: description?.takeIf { it.isNotEmpty() }
-                    if (!content.isNullOrEmpty() && content.length <= MAX_TEXT_CHARS) {
-                        leaves += TextLeaf(
-                            text = content,
-                            bounds = bounds,
-                            chars = readCharBounds(node, content.length),
-                            packageName = packageName,
-                            windowId = windowId,
-                            fromContentDescription = text.isNullOrEmpty(),
-                            isPassword = runCatching { node.isPassword }.getOrDefault(false),
-                        )
-                    }
+                    null
+                }
+                val content = nodeText?.takeIf { it.isNotEmpty() }
+                    ?: description?.takeIf { it.isNotEmpty() }
+                if (!content.isNullOrEmpty() && content.length <= MAX_TEXT_CHARS) {
+                    leaves += TextLeaf(
+                        text = content,
+                        bounds = bounds,
+                        chars = readCharBounds(node, content.length),
+                        packageName = packageName,
+                        windowId = windowId,
+                        fromContentDescription = nodeText.isNullOrEmpty(),
+                        isPassword = runCatching { node.isPassword }.getOrDefault(false),
+                    )
                 }
             }
         }
