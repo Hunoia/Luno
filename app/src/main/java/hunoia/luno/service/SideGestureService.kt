@@ -252,6 +252,8 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
 
     override fun onSetOverlay() {
         current = this
+        // debug-only 探测入口（app/src/debug 的 ScreenPickProbeReceiver）；release 恒为 null。
+        ScreenPickProbe.hook = { x, y -> probeCapture(x, y) }
         // 服务起来就把 AOT 引擎加载 / 预热一次：第一次长按不用再等 NPU 建 context，
         // 加载失败也会在 logcat 留下 w 级日志（见 PpOcrModelRunner）。
         coroutineScope.launch { runCatching { ocrEngine.warmUp() } }
@@ -279,6 +281,37 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             )
         }
         gestureCoordinator.onSetOverlay()
+    }
+
+    /** debug 探测：在指定屏幕坐标跑一次快照+命中，把结果打到 logcat（tag 同 LOG_TAG）。 */
+    private fun probeCapture(x: Int, y: Int) {
+        coroutineScope.launch {
+            val snapshot = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                runCatching {
+                    hunoia.luno.runtime.overlay.text.A11yTextSnapshotReader(
+                        this@SideGestureService,
+                        packageName,
+                    ).capture(x, y)
+                }.onFailure { android.util.Log.w(LOG_TAG, "probe capture failed: ${it.message}") }
+                    .getOrNull()
+            } ?: return@launch
+            val tolerance = 8
+            val hit = hunoia.luno.runtime.overlay.text.TextSnapshotOps.hitText(snapshot, x, y, tolerance)
+            val sb = StringBuilder(
+                "probe@($x,$y): leaves=${snapshot.leaves.size} " +
+                    "charLeaves=${snapshot.leaves.count { it.hasCharGeometry }} " +
+                    "images=${snapshot.images.size} complete=${snapshot.complete} " +
+                    "pkg=${snapshot.targetPackage} hit=${hit?.text?.take(40)}",
+            )
+            snapshot.leaves.forEach { leaf ->
+                sb.append("\n  leaf ").append(leaf.bounds).append(" cd=").append(leaf.fromContentDescription)
+                    .append(' ').append(leaf.text.take(30))
+            }
+            snapshot.images.take(10).forEach { img ->
+                sb.append("\n  img ").append(img.bounds)
+            }
+            android.util.Log.i(LOG_TAG, sb.toString())
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {

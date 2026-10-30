@@ -5,7 +5,7 @@
     android:settingsActivity="hunoia.luno.ui.MainActivity"
     android:accessibilityEventTypes="typeWindowStateChanged|typeWindowsChanged|typeViewFocused|typeViewTextChanged|typeViewTextSelectionChanged|typeWindowContentChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows"
+    android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows|flagIncludeNotImportantViews"
     android:notificationTimeout="50"
     android:canPerformGestures="true"
     android:canTakeScreenshot="true"

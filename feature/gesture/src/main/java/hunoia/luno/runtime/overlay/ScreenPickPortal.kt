@@ -2,20 +2,17 @@ package hunoia.luno.runtime.overlay
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
@@ -92,10 +89,11 @@ object PortalLayout {
     const val GapDp = 12f
     const val BottomMarginDp = 28f
 
-    /** 幽灵卡自身尺寸/圆角：与底部分布共用，避免卡片和槽位两个尺寸体系。 */
-    const val CardWidthDp = 280f
+    /** 幽灵卡尺寸（dp）：宽度按内容自适应，封顶 [CardMaxWidthDp]、保底 [CardMinWidthDp]；高度封顶 [CardMaxHeightDp]。 */
+    const val CardMinWidthDp = 160f
+    const val CardMaxWidthDp = 280f
+    const val CardMaxHeightDp = 320f
     const val CardEstimatedHeightDp = 96f
-    const val CardGapDp = 20f
     const val CardRadiusDp = 18f
     const val SlotRadiusDp = 18f
 
@@ -130,17 +128,15 @@ object PortalLayout {
         screenWidth: Float,
         screenHeight: Float,
         density: Float,
+        cardWidthPx: Float = CardMaxWidthDp * density,
         cardHeightPx: Float = CardEstimatedHeightDp * density,
     ): Rect {
-        val cardWidthPx = CardWidthDp * density
-        val gapPx = CardGapDp * density
+        val width = cardWidthPx.takeIf { it > 0f } ?: CardMaxWidthDp * density
         val height = cardHeightPx.takeIf { it > 0f } ?: CardEstimatedHeightDp * density
-        // 卡片完整限制在屏幕内；中心对齐手指，顶边在手指下方一个 gap。
-        val cardX = (finger.x - cardWidthPx / 2f)
-            .coerceIn(0f, (screenWidth - cardWidthPx).coerceAtLeast(0f))
-        val cardY = (finger.y + gapPx)
-            .coerceIn(0f, (screenHeight - height).coerceAtLeast(0f))
-        return Rect(cardX, cardY, cardX + cardWidthPx, cardY + height)
+        // 卡片中心对齐手指（跟手：指下即卡心）；贴边时整卡回推到屏内。
+        val cardX = (finger.x - width / 2f).coerceIn(0f, (screenWidth - width).coerceAtLeast(0f))
+        val cardY = (finger.y - height / 2f).coerceIn(0f, (screenHeight - height).coerceAtLeast(0f))
+        return Rect(cardX, cardY, cardX + width, cardY + height)
     }
 }
 
@@ -164,12 +160,15 @@ private fun PortalAction.label(): String = stringResource(
 )
 
 /**
- * 幽灵卡层：手指按住时浮起的卡片 + 底部动作槽，`activeSlot` 高亮当前指下的槽。
+ * 幽灵卡层：手指按下时浮起的卡片，底部动作槽点击执行。
  *
- * 卡片跟随手指（始终位于指上方，上方放不下才翻到下方）；底部动作槽可点击执行。
+ * 卡片中心对齐手指坐标（跟手，贴边时整体夹在屏内）；宽度按内容自适应、
+ * 封顶 [PortalLayout.CardMaxWidthDp] 并保底 [PortalLayout.CardMinWidthDp]；高度封顶
+ * [PortalLayout.CardMaxHeightDp]；文字最多两行（抬手后的动作仍拿全文，不截断）。
  *
  * @param finger 手指位置（视图坐标）
- * @param slotRects 动作槽矩形（屏幕坐标，长度与 [actions] 对齐）
+ * @param cardWidthPx 卡片当前测量宽度（px）；0 时回退封顶宽，用于首帧与命中判定对齐
+ * @param cardHeightPx 卡片当前测量高度（px）
  */
 @Composable
 internal fun PortalLayer(
@@ -178,15 +177,13 @@ internal fun PortalLayer(
     resolving: Boolean,
     actions: List<PortalAction>,
     cardHeightPx: Float,
-    originX: Int,
-    originY: Int,
+    cardWidthPx: Float = 0f,
     showActions: Boolean = true,
     onCardSize: (IntSize) -> Unit,
     onAction: (PortalAction) -> Unit = {},
 ) {
     val screenWidthPx = DensityProvider.screenWidthPx.toFloat()
     val screenHeightPx = DensityProvider.screenHeightPx.toFloat()
-    val cardWidthPx = PortalLayout.CardWidthDp * DensityProvider.density
     val cardBackground = MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.92f)
     val cardContent = MaterialTheme.colorScheme.inverseOnSurface
 
@@ -196,12 +193,18 @@ internal fun PortalLayer(
             screenWidth = screenWidthPx,
             screenHeight = screenHeightPx,
             density = DensityProvider.density,
+            cardWidthPx = cardWidthPx,
             cardHeightPx = cardHeightPx,
         )
         Column(
             modifier = Modifier
                 .offsetPx(card.left, card.top)
-                .width(PortalLayout.CardWidthDp.dp)
+                .widthIn(
+                    min = PortalLayout.CardMinWidthDp.dp,
+                    max = PortalLayout.CardMaxWidthDp.dp,
+                )
+                .wrapContentWidth(Alignment.Start)
+                .heightIn(max = PortalLayout.CardMaxHeightDp.dp)
                 .onSizeChanged(onCardSize)
                 .background(cardBackground, RoundedCornerShape(PortalLayout.CardRadiusDp.dp))
                 .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -254,24 +257,20 @@ internal fun PortalLayer(
                     color = cardContent.copy(alpha = 0.75f),
                     style = MaterialTheme.typography.bodySmall,
                 )
-                // 整段原文都显示：气泡/段落常被识别成好几行，截到 3 行会让人以为只认出一句。
-                // 卡片最高 40% 屏高，超出部分滚动，抬手后的动作仍拿全文。
-                else -> Box(
-                    modifier = Modifier
-                        .heightIn(max = (screenHeightPx * 0.4f / DensityProvider.density).dp)
-                        .verticalScroll(rememberScrollState()),
-                ) {
-                    Text(
-                        text = content.text.orEmpty(),
-                        color = cardContent,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
+                // 文字最多两行，超出省略；全文仍保留在 content.text，复制/搜索不受影响。
+                else -> Text(
+                    text = content.text.orEmpty(),
+                    color = cardContent,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
             if (actions.isNotEmpty()) {
+                // 不用 fillMaxWidth：会把 wrapContentWidth 的卡片撑到最大宽，
+                // 内容少时也全宽。动作槽按图标数量自适应。
                 Row(
                     modifier = Modifier
-                        .fillMaxWidth()
                         .alpha(if (showActions) 1f else 0f)
                         .padding(top = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),

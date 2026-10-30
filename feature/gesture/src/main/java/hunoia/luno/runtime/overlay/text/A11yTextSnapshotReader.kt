@@ -32,6 +32,18 @@ class A11yTextSnapshotReader(
         private const val MAX_TEXT_CHARS = 20_000
         private const val TIME_BUDGET_MS = 250L
 
+        /**
+         * 逐字坐标 pass 的独立预算。
+         *
+         * 不能和遍历共用：[refreshWithExtraData] 是每叶一次的同步 IPC，
+         * 叶子多的界面（聊天流/信息流）会把遍历预算吃光，后面的节点整片丢失，
+         * 表现为“界面越复杂越识别不到”。遍历只收叶子，字符坐标只给命中候选。
+         */
+        private const val CHAR_BUDGET_MS = 300L
+
+        /** 命中候选（落点在叶内）最多补逐字坐标的叶子数，按面积从小到大。 */
+        private const val MAX_CHAR_CANDIDATES = 8
+
         private val SYSTEM_UI_PACKAGES = setOf(
             "com.android.systemui",
             "com.miui.systemui",
@@ -110,8 +122,13 @@ class A11yTextSnapshotReader(
             }
         }
 
+        // 逐字坐标 pass：只为落点所在叶子补（长按取词最精确的路径），
+        // 框选裁字在无字符坐标时走相交比例回退，仍然可用。
+        fillCharBounds(leaves, downX, downY, deadline + CHAR_BUDGET_MS)
+
+        val deduped = TextSnapshotOps.dedupeAndOrder(leaves)
         val snapshot = TextSnapshot(
-            leaves = TextSnapshotOps.dedupeAndOrder(leaves),
+            leaves = deduped,
             images = images.sortedBy { it.bounds.top / 16 }.distinctBy {
                 "${it.bounds.left},${it.bounds.top},${it.bounds.right},${it.bounds.bottom}"
             },
@@ -123,12 +140,37 @@ class A11yTextSnapshotReader(
         if (BuildConfig.DEBUG) {
             Log.i(
                 TAG,
-                "a11y snapshot: leaves=${snapshot.leaves.size} images=${snapshot.images.size} " +
-                    "nodes=${visited.value} complete=$complete pkg=$targetPackage down=($downX,$downY)",
+                "a11y snapshot: leaves=${snapshot.leaves.size} " +
+                    "charLeaves=${deduped.count { it.hasCharGeometry }} " +
+                    "images=${snapshot.images.size} nodes=${visited.value} " +
+                    "complete=$complete pkg=$targetPackage down=($downX,$downY)",
             )
         }
         return snapshot
     }
+
+    /**
+     * 给命中候选补逐字坐标：落点压在叶 bounds 内的叶子（容差同命中判定），
+     * 按面积从小到大（更具体的叶子优先）最多 [MAX_CHAR_CANDIDATES] 个，
+     * 超出 [deadline] 即停。
+     */
+    private fun fillCharBounds(leaves: MutableList<TextLeaf>, x: Int, y: Int, deadline: Long) {
+        if (leafNodes.size != leaves.size) return
+        val candidates = leaves.indices
+            .filter { leaves[it].bounds.contains(x, y, tolerance = 8) }
+            .sortedBy { leaves[it].bounds.area }
+            .take(MAX_CHAR_CANDIDATES)
+        for (index in candidates) {
+            if (SystemClock.uptimeMillis() > deadline) return
+            val node = leafNodes[index] ?: continue
+            val chars = readCharBounds(node, leaves[index].text.length)
+            if (chars.isNotEmpty()) leaves[index] = leaves[index].copy(chars = chars)
+        }
+        leafNodes.clear()
+    }
+
+    /** 与遍历同步填充：每个已收叶子对应的节点（供逐字坐标 pass 复用）。 */
+    private val leafNodes = ArrayList<AccessibilityNodeInfo?>()
 
     /** @return true = 超时/预算用尽，快照不完整。 */
     private fun walk(
@@ -164,30 +206,37 @@ class A11yTextSnapshotReader(
                     bounds.right <= cover.right && bounds.bottom <= cover.bottom
             }
             if (!fullyCovered) {
-                // 图片类节点没有真实 text 时只按图片处理；带 text 的仍按文字
-                //（部分聊天/容器会把文本挂在 ImageView 类节点上）。
-                if (classLikeImage && nodeText.isNullOrEmpty()) {
+                // 图片类节点一律按图片处理（长按取词只出图片卡，不把 alt/标签当文字）；
+                // 普通节点 text 为空时回退 contentDescription。
+                if (classLikeImage) {
                     images += ImageLeaf(bounds, packageName, windowId)
-                    return false
                 }
-                val description = if (nodeText.isNullOrEmpty()) {
-                    runCatching { node.contentDescription?.toString() }.getOrNull()
-                } else {
-                    null
-                }
+                // 图片节点不回退 contentDescription（alt/标签不是屏上文字）；
+                // 普通节点 text 为空时回退 CD：很多自定义控件/图标按钮只暴露 CD，
+                // 删掉回退会导致大量界面识别不到。
                 val content = nodeText?.takeIf { it.isNotEmpty() }
-                    ?: description?.takeIf { it.isNotEmpty() }
+                    ?: if (!classLikeImage) {
+                        runCatching { node.contentDescription?.toString() }.getOrNull()
+                            ?.takeIf { it.isNotEmpty() }
+                    } else {
+                        null
+                    }
                 if (!content.isNullOrEmpty() && content.length <= MAX_TEXT_CHARS) {
+                    // 遍历阶段不取逐字坐标（每叶一次同步 IPC，会把预算吃光）；
+                    // 节点先暂存，命中候选在 fillCharBounds 里按需补。
+                    leafNodes += node
                     leaves += TextLeaf(
                         text = content,
                         bounds = bounds,
-                        chars = readCharBounds(node, content.length),
+                        chars = emptyList(),
                         packageName = packageName,
                         windowId = windowId,
                         fromContentDescription = nodeText.isNullOrEmpty(),
                         isPassword = runCatching { node.isPassword }.getOrDefault(false),
                     )
                 }
+                // 图片节点若自身无 text，不深入子节点（与原行为一致：图片叶不再细扫）。
+                if (classLikeImage && nodeText.isNullOrEmpty()) return false
             }
         }
 

@@ -32,7 +32,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Search
@@ -116,8 +115,8 @@ private const val HandleHitRadiusDp = 22f
 private const val AdjustMinSizeDp = 16f
 
 /**
- * 幽灵卡的一次快照：`anchor`/`finger` 是视图坐标（渲染用），`slots` 是屏幕像素坐标
- * （与 [PortalLayout.hit] 的命中口径一致，渲染时再减窗口原点）。
+ * 幽灵卡的一次快照：`anchor`/`finger` 是屏幕坐标；[ScreenPickScreen] 渲染前会减窗口原点。
+ * 卡片几何（含命中判定）由 [PortalLayout.cardRect] 统一计算。
  */
 private data class PortalState(
     val anchor: Offset?,
@@ -386,6 +385,8 @@ class ScreenPickOverlay(
         // 不摘除 capture：卡片继续留着，用户可以连续点复制/保存/分享。
         val captureForAction = if (content.imageSize != null) currentCapture() else null
         executePortalAction(action, content, imageBounds, captureForAction)
+        // 动作已交接（内容/截图均以参数捕获，不依赖卡片状态）：点击底部按钮后卡片自动关闭。
+        cancelPortal()
     }
 
     /** 内嵌手势（识屏层自己收到的长按）入口：视图坐标换算成屏幕坐标后同一套流程。 */
@@ -447,27 +448,42 @@ class ScreenPickOverlay(
         }
     }
 
-    /** 快照命中：文本优先；图片只回 bounds，交给幽灵卡图片动作。 */
+    /**
+     * 快照命中：落点直接压在图片节点上时优先出图片卡（Copy/Share/Save）；
+     * 仅当同一落点同时压着更小的文字叶子（如图标内的字、背景图上的文字）才回退文字，
+     * 避免整屏背景大图把上面的文字吞掉。图片节点不再被 contentDescription 当成文字
+     * （见 [A11yTextSnapshotReader]）。
+     */
     private fun snapshotHit(snapshot: TextSnapshot, x: Int, y: Int): NodeHit? {
         val tolerance = DensityProvider.dp2px(HitToleranceDp)
+        val image = snapshot.imageAt(x, y, tolerance)
         val leaf = TextSnapshotOps.hitText(snapshot, x, y, tolerance)
-        if (leaf != null) {
-            val text = TextSnapshotOps.selectAll(leaf, x, y)
-            if (!text.isNullOrBlank()) return NodeHit(text, null, null)
+        val text = leaf?.let { TextSnapshotOps.selectAll(it, x, y) }?.takeIf { it.isNotBlank() }
+        val imageBounds = image?.bounds
+        // 图片比压着的文字更小/更具体（或无文字）→ 图片优先；否则（小字压在大图上）回退文字。
+        // text 非空必然来自 leaf 非空；用 leafArea 兜底，免去冗余的 null 判定。
+        val leafArea = leaf?.bounds?.area ?: Int.MAX_VALUE
+        if (imageBounds != null && (text == null || imageBounds.area <= leafArea)) {
+            return NodeHit(
+                null,
+                AndroidRect(imageBounds.left, imageBounds.top, imageBounds.right, imageBounds.bottom),
+                AndroidRect(imageBounds.left, imageBounds.top, imageBounds.right, imageBounds.bottom),
+            )
         }
-        val image = snapshot.imageAt(x, y, tolerance) ?: return null
-        val bounds = AndroidRect(
-            image.bounds.left,
-            image.bounds.top,
-            image.bounds.right,
-            image.bounds.bottom,
-        )
-        return NodeHit(null, bounds, bounds)
+        if (text != null) return NodeHit(text, null, null)
+        if (image != null) {
+            val b = image.bounds
+            return NodeHit(
+                null,
+                AndroidRect(b.left, b.top, b.right, b.bottom),
+                AndroidRect(b.left, b.top, b.right, b.bottom),
+            )
+        }
+        return null
     }
 
     /** 统一回填幽灵卡内容：文本与图片可并存（图片节点 OCR 出文字时两者都有）。 */
     private fun applyPortalText(text: String?, imageBounds: AndroidRect?) {
-        portalImageBounds = imageBounds
         portalContent = PortalContent(
             text = text,
             imageSize = imageBounds?.let { it.width() to it.height() },
@@ -1271,6 +1287,8 @@ class ScreenPickOverlay(
 
 }
 
+
+
 /** 框选调整期的命中部位。 */
 private enum class SelHandle { TopLeft, TopRight, BottomLeft, BottomRight }
 
@@ -1357,8 +1375,10 @@ private fun ScreenPickScreen(
     val currentPortal = rememberUpdatedState(portal)
     val density = LocalDensity.current.density
     var cardHeightPx by remember { mutableStateOf(0f) }
+    var cardWidthPx by remember { mutableStateOf(0f) }
     var cardDragging by remember { mutableStateOf(false) }
     val currentCardHeight = rememberUpdatedState(cardHeightPx)
+    val currentCardWidth = rememberUpdatedState(cardWidthPx)
 
     Box(
         modifier = Modifier
@@ -1369,6 +1389,31 @@ private fun ScreenPickScreen(
                     val down = awaitFirstDown(requireUnconsumed = false)
                     if (down.isConsumed) return@awaitEachGesture
                     val start = down.position
+                    // 已落定的选框（adjustRect）优先命中：拖角=缩放、框内=平移。
+                    // 必须在卡片/框选分支之前判定：幽灵卡一旦长按出过就一直 active
+                    // （releasePortal 保留卡片），否则选框永远走不到调整分支，
+                    // 表现为“拖不动、一点就新建框”。
+                    if (adjustRect != null) {
+                        val handle = adjustRect!!.handleAt(start, handleHitPx)
+                        if (handle != null || adjustRect!!.contains(start)) {
+                            var last = start
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull() ?: break
+                                if (!change.pressed) break
+                                change.consume()
+                                val delta = change.position - last
+                                last = change.position
+                                val r = adjustRect ?: break
+                                adjustRect = if (handle != null) {
+                                    r.resized(handle, change.position, minSizePx, size.toSizeF())
+                                } else {
+                                    r.moved(delta.x, delta.y, size.toSizeF())
+                                }
+                            }
+                            return@awaitEachGesture
+                        }
+                    }
                     val portalFinger = currentPortal.value.finger ?: currentPortal.value.anchor
                     val cardRect = if (portalFinger != null) {
                         PortalLayout.cardRect(
@@ -1376,6 +1421,7 @@ private fun ScreenPickScreen(
                             screenWidth = DensityProvider.screenWidthPx.toFloat(),
                             screenHeight = DensityProvider.screenHeightPx.toFloat(),
                             density = density,
+                            cardWidthPx = currentCardWidth.value,
                             cardHeightPx = currentCardHeight.value,
                         )
                     } else {
@@ -1633,25 +1679,9 @@ private fun ScreenPickScreen(
                     }
                 }
             }
+            // 选区待确认时显示动作条；无选区不画底部关闭按钮，统一由「点击空白」关闭。
             val sel = adjustRect
-            if (sel == null) {
-                // 无选区时始终保留底部 X；有幽灵卡时也不隐藏退出入口。
-                Surface(
-                    onClick = onDismiss,
-                    shape = RoundedCornerShape(50),
-                    color = Color.Black.copy(alpha = 0.68f),
-                    contentColor = Color.White,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 48.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = stringResource(R.string.screen_pick_close),
-                        modifier = Modifier.padding(14.dp).size(22.dp),
-                    )
-                }
-            } else {
+            if (sel != null) {
                 SelectionActionBar(
                     rect = sel,
                     originX = originX,
@@ -1660,11 +1690,10 @@ private fun ScreenPickScreen(
                         adjustRect = null
                         onSelectionAction(sel, action)
                     },
-                    onClose = onDismiss,
                 )
             }
         }
-        // 框选期间/选区待确认时隐藏幽灵卡；其余时候显示并可拖动。
+        // 框选期间/选区待确认时隐藏幽灵卡；其余时候显示并跟手（位置由手指坐标决定）。
         if (portal.anchor != null && !selecting && adjustRect == null) {
             PortalLayer(
                 finger = (portal.finger ?: portal.anchor).let {
@@ -1674,10 +1703,12 @@ private fun ScreenPickScreen(
                 resolving = portal.resolving,
                 actions = portalActionsFor(portal.content),
                 cardHeightPx = cardHeightPx,
-                originX = originX,
-                originY = originY,
+                cardWidthPx = cardWidthPx,
                 showActions = !cardDragging,
-                onCardSize = { cardHeightPx = it.height.toFloat() },
+                onCardSize = {
+                    cardWidthPx = it.width.toFloat()
+                    cardHeightPx = it.height.toFloat()
+                },
                 onAction = onPortalAction,
             )
         }
@@ -1691,21 +1722,20 @@ private fun ScreenPickScreen(
     }
 }
 
-/** 框选动作条：贴在选框底部；下方放不下就翻到上方，水平夹在屏内。 */
+/** 框选动作条：贴在选框底部；下方放不下就翻到上方，水平夹在屏内。不含关闭按钮（点击空白即关闭）。 */
 @Composable
 private fun SelectionActionBar(
     rect: Rect,
     originX: Int,
     originY: Int,
     onAction: (PickSelectionAction) -> Unit,
-    onClose: () -> Unit,
 ) {
     val density = LocalDensity.current
     val button = 40.dp
     val gap = 8.dp
     val pad = 6.dp
     val margin = 8.dp
-    val barW = with(density) { (button * 6 + gap * 5 + pad * 2).toPx() }
+    val barW = with(density) { (button * 5 + gap * 4 + pad * 2).toPx() }
     val barH = with(density) { (button + pad * 2).toPx() }
     val marginPx = with(density) { margin.toPx() }
     val screenW = DensityProvider.screenWidthPx.toFloat()
@@ -1732,11 +1762,6 @@ private fun SelectionActionBar(
         horizontalArrangement = Arrangement.spacedBy(gap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        PickActionIcon(
-            icon = Icons.Default.Close,
-            contentDescription = stringResource(R.string.screen_pick_close),
-            onClick = onClose,
-        )
         PickActionIcon(
             icon = Icons.Default.TextFields,
             contentDescription = stringResource(R.string.screen_pick_extract_text),
@@ -1785,3 +1810,5 @@ private fun PickActionIcon(
 
 /** IntSize → Float Size（PointerInputScope 的 size 是 IntSize）。 */
 private fun IntSize.toSizeF() = Size(width.toFloat(), height.toFloat())
+
+
