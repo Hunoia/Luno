@@ -25,6 +25,7 @@ host AOT 包的构建见 [findings/2026-10-30-ocr-aot-build.md](../../docs/findi
 
 ## 使用方
 
-- `:feature:gesture` 的 `ScreenPickOverlay`：长按无节点文字、图片内文字、框选文字。
+- `:feature:gesture` 的 `ScreenPickOverlay`：**仅框选菜单的 OCR 动作 / 图片文字**。
+  长按取词走 a11y 字符级快照，不再调用 OCR（见 [ADR-0006](../../docs/adr/0006-screen-text-acquisition.md)）。
 - 组装根 `:app`（`SideGestureService`）持有 `PpOcrEngine`，服务销毁时 `close()`；
   模型导入 / 删除后经 `DispatchClient.refreshOcrEngine()` 让 `:service` 重载并预热。

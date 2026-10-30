@@ -161,6 +161,15 @@ class GestureCoordinator(
     fun currentScreenPickGesture(): hunoia.luno.config.model.ScreenPickGesture =
         screenPickGestureConfig
 
+    /** DOWN 后 100ms 抓一次 a11y 快照，避免应用自己的长按菜单污染取词结果。 */
+    private val screenTextPreCapture by lazy {
+        hunoia.luno.runtime.overlay.text.ScreenTextPreCapture(
+            service = host.accessibilityService,
+            ownPackage = host.context.packageName,
+            scope = host.coroutineScope,
+        )
+    }
+
     /** 幽灵卡在屏时放开拦截条，避免右半屏的下一次按下被拦截窗抢走。 */
     fun setScreenPickInterceptTouchable(touchable: Boolean) {
         shizukuTouchInput.setInterceptTouchable(touchable)
@@ -173,7 +182,11 @@ class GestureCoordinator(
     private val globalScreenPickTrigger = GlobalLongPressTrigger(
         config = { screenPickGestureConfig },
         onTrigger = { x, y ->
-            hunoia.luno.service.SideGestureService.current?.showScreenPickPortal(x, y)
+            hunoia.luno.service.SideGestureService.current?.showScreenPickPortal(
+                x,
+                y,
+                screenTextPreCapture.peek(),
+            )
         },
         onDrag = { x, y ->
             hunoia.luno.service.SideGestureService.current?.moveScreenPickPortal(x, y)
@@ -181,6 +194,8 @@ class GestureCoordinator(
         onRelease = { x, y ->
             hunoia.luno.service.SideGestureService.current?.releaseScreenPickPortal(x, y)
         },
+        onPreCapture = { x, y, _ -> screenTextPreCapture.start(x, y) },
+        onPreCaptureCancel = { screenTextPreCapture.cancel() },
     )
 
     /** 自家面板（搜索/网格/动作面板）在屏计数：面板上的长按不能当“识屏”。 */

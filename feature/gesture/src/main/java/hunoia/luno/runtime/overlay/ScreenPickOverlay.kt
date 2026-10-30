@@ -18,7 +18,6 @@ import android.view.Display
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
-import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -36,6 +35,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.SaveAlt
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.Icon
@@ -81,6 +81,10 @@ import hunoia.luno.core.LOG_TAG
 import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.runtime.GestureHost
+import hunoia.luno.runtime.overlay.text.A11yTextSnapshotReader
+import hunoia.luno.runtime.overlay.text.ScreenPreCapture
+import hunoia.luno.runtime.overlay.text.TextSnapshot
+import hunoia.luno.runtime.overlay.text.TextSnapshotOps
 import hunoia.luno.runtime.environment.BroadcastObserver
 import java.io.File
 import java.util.concurrent.Executor
@@ -101,9 +105,6 @@ private const val SCREEN_PICK_MIN_REGION_PX = 12f
 /** 可选内容提示框（图片/拖动选框）的主题蓝。 */
 private val PickBlue = Color(0xFF1A73E8)
 
-/** 节点遍历预算：长按命中只走一条 DFS，仍设上限防病态节点树。 */
-private const val MaxPickNodes = 1_200
-
 /** 命中容差（dp）：文字节点 bounds 常比触点小一圈，贴边按会漏。 */
 private const val HitToleranceDp = 6f
 
@@ -113,18 +114,6 @@ private const val PanelPostSettleMs = 80L
 /** 框选框的拖角命中半径 / 最小尺寸（dp）。 */
 private const val HandleHitRadiusDp = 22f
 private const val AdjustMinSizeDp = 16f
-
-/**
- * 预截图的独立快照：幽灵卡关闭后动作仍在后台裁剪，不能依赖 overlay 的可变字段
- *（close() 会重置原点并回收位图）。
- */
-private data class PickCapture(
-    val bitmap: Bitmap,
-    val originX: Int,
-    val originY: Int,
-    val screenW: Int,
-    val screenH: Int,
-)
 
 /**
  * 幽灵卡的一次快照：`anchor`/`finger` 是视图坐标（渲染用），`slots` 是屏幕像素坐标
@@ -139,7 +128,7 @@ private data class PortalState(
 )
 
 /** 框选动作条的动作（关闭走 onDismiss，不在此枚举）。 */
-private enum class PickSelectionAction { Text, Copy, Share, Save }
+private enum class PickSelectionAction { Ocr, Copy, Search, Share, Save }
 
 /** 缓存目录保留的识屏分享图数量。 */
 private const val CACHE_KEEP_FILES = 20
@@ -179,12 +168,6 @@ class ScreenPickOverlay(
         const val TRUSTED_OVERLAY_FLAG = 0x300000
 
         const val SCREEN_PICK_LABEL = "screen_pick"
-
-        /** 节点树 DFS 深度上限：常规应用一屏远达不到，防恶意/病态树卡主线程。 */
-        const val MAX_NODE_DEPTH = 45
-
-        /** 图片候选的最小边长（px）：小于它的 Image 类节点多半是装饰图标，裁出来没意义。 */
-        const val MIN_IMAGE_PX = 24
     }
 
     private val mainExecutor = Executor { r -> Handler(Looper.getMainLooper()).post(r) }
@@ -209,6 +192,15 @@ class ScreenPickOverlay(
     // 截屏与命中结果只在主线程读写；captured 走 Compose 态驱动视觉层渲染。
     private var capture: Bitmap? = null
     private var captured by mutableStateOf(false)
+
+    /** 长按按下时抓的 a11y 快照；框选按它裁字，避免应用菜单/后续变化污染。 */
+    private var textSnapshot: TextSnapshot? = null
+
+    /** 框选 OCR 结果面板；非 null 表示面板在屏。 */
+    private var ocrPanelText by mutableStateOf<String?>(null)
+    private var ocrPanelLoading by mutableStateOf(false)
+    private var ocrPanelRect: AndroidRect? = null
+    private var ocrPanelSession = 0
     /** 本次截图对应的屏幕区域：窗口截图时不是整屏（0,0 起），裁剪要先减原点再按区域缩放。 */
     private var captureOriginX = 0
     private var captureOriginY = 0
@@ -232,7 +224,7 @@ class ScreenPickOverlay(
     /** 锁屏/息屏监听：拾取层不跨锁屏保留（拆窗时即清掉截图与提示框）。 */
     private var lockObserver: BroadcastObserver? = null
 
-    // ---- 幽灵卡（长按 → 拖到动作上松手） ----
+    // ---- 幽灵卡（长按出卡；拖卡移动；动作槽点击执行） ----
 
     /** 长按落点 / 当前手指位置：**屏幕坐标**，渲染时再减窗口原点。 */
     private var portalAnchor by mutableStateOf<Offset?>(null)
@@ -264,12 +256,16 @@ class ScreenPickOverlay(
     }
 
     /** 返回是否成功挂窗（锁屏/挂窗被拒返回 false，动作层据此判失败）。 */
-    fun show(): Boolean {
-        if (overlayView != null) return true
+    fun show(preCapture: PickCapture? = null): Boolean {
+        if (overlayView != null) {
+            preCapture?.let { adoptPreCapture(it) }
+            return true
+        }
         // 锁屏状态不开层：拾取窗画在锁屏上既无意义又可能泄露上次内容。
         val keyguard = host.context.getSystemService(android.app.KeyguardManager::class.java)
         if (keyguard?.isKeyguardLocked == true) return false
         session++
+        textSnapshot = null
         captureSignal = CompletableDeferred()
         originCorrected = false
         val wm = host.context.windowManager()
@@ -308,7 +304,13 @@ class ScreenPickOverlay(
                     onSelectionAction = ::onSelectionAction,
                     onPortalStart = ::beginPortalAtView,
                     onPortalMove = ::movePortalAtView,
-                    onPortalRelease = ::releasePortalAtView,
+                    onPortalAction = ::onPortalAction,
+                    onClear = ::clearPortal,
+                    ocrPanel = ocrPanelText?.let {
+                        OcrPanelState(text = it, loading = ocrPanelLoading)
+                    },
+                    onOcrTextChange = ::onOcrTextChange,
+                    onOcrAction = ::onOcrAction,
                     onDismiss = ::close,
                 )
             }
@@ -332,8 +334,26 @@ class ScreenPickOverlay(
         startLockWatch()
         composeView.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ -> updateOrigin(v) }
         composeView.post { correctWindowOriginOnce(composeView) }
-        captureWhenSettled(session)
+        if (preCapture != null) {
+            adoptPreCapture(preCapture)
+        } else {
+            captureWhenSettled(session)
+        }
         return true
+    }
+
+    /** 长按预捕获的截图已经在菜单前拍好：直接接管，不再重新截屏。 */
+    private fun adoptPreCapture(preCapture: PickCapture) {
+        if (preCapture.bitmap.isRecycled) return
+        capture?.let { old -> if (old !== preCapture.bitmap && !old.isRecycled) old.recycle() }
+        capture = preCapture.bitmap
+        captureOriginX = preCapture.originX
+        captureOriginY = preCapture.originY
+        captureScreenW = preCapture.screenW
+        captureScreenH = preCapture.screenH
+        captured = true
+        if (!captureSignal.isCompleted) captureSignal.complete(Unit)
+        refreshPortalPreview()
     }
 
     /**
@@ -343,9 +363,13 @@ class ScreenPickOverlay(
      * 继续喂 [movePortal] / [releasePortal]：按下那一刻已经发生在别人的窗口上，
      * 本层拿不到后续 MOVE/UP，只能借同一股原始触摸流。
      */
-    fun showPortalAt(x: Int, y: Int): Boolean {
-        if (!show()) return false
-        beginPortal(x, y)
+    fun showPortalAt(
+        x: Int,
+        y: Int,
+        preCapture: ScreenPreCapture? = null,
+    ): Boolean {
+        if (!show(preCapture?.capture)) return false
+        beginPortal(x, y, preCapture?.text)
         return true
     }
 
@@ -355,23 +379,32 @@ class ScreenPickOverlay(
         portalFinger = Offset(x.toFloat(), y.toFloat())
     }
 
-    /** 幽灵卡松手：落在动作槽上就执行，落在别处就取消整层。 */
+    /**
+     * 全局长按松手：只保留幽灵卡，不执行动作。
+     *
+     * 新交互里“从卡片上拖动 = 移动卡片”，动作改由底部动作槽点击触发；
+     * 松手直接退出会让卡片无法被拖动/继续框选。
+     */
     fun releasePortal(x: Int, y: Int, keepOnMiss: Boolean = false) {
-        if (portalAnchor == null) return
-        val actions = portalActionsFor(portalContent)
-        val hit = PortalLayout.hit(portalSlots(actions.size), Offset(x.toFloat(), y.toFloat()))
-        if (hit == null || portalResolving || actions.isEmpty()) {
-            // 抬手保留：没落在动作槽上时只把卡片留在原地，等下一次按下继续拖/另选。
-            if (!keepOnMiss) close()
-            return
-        }
-        val action = actions[hit]
+        // 保留卡片；动作由 PortalLayer 的动作槽点击执行。
+    }
+
+    /** 点击空白：清空卡片/框选/OCR 面板，但保留识屏层。 */
+    fun clearPortal() {
+        portalJob?.cancel()
+        portalJob = null
+        cancelPortal()
+        textSnapshot = null
+        closeOcrPanel()
+    }
+
+    /** 点击底部动作槽：立即执行，不要求先把卡片拖过去。 */
+    private fun onPortalAction(action: PortalAction) {
+        if (portalResolving) return
         val content = portalContent
         val imageBounds = portalImageBounds
-        // 图片动作要用预截图，但 close() 会回收它。先摘出快照，动作结束后再自行回收，
-        // 否则「拖到保存/分享上松手」必失败（与窗口生命周期解耦）。
-        val captureForAction = if (content.imageSize != null) detachCapture() else null
-        close()
+        // 不摘除 capture：卡片继续留着，用户可以连续点复制/保存/分享。
+        val captureForAction = if (content.imageSize != null) currentCapture() else null
         executePortalAction(action, content, imageBounds, captureForAction)
     }
 
@@ -387,15 +420,12 @@ class ScreenPickOverlay(
         movePortal((viewPoint.x + originX).roundToInt(), (viewPoint.y + originY).roundToInt())
     }
 
-    private fun releasePortalAtView(viewPoint: Offset) {
-        releasePortal(
-            (viewPoint.x + originX).roundToInt(),
-            (viewPoint.y + originY).roundToInt(),
-            keepOnMiss = screenPickGesture().keepAfterRelease,
-        )
-    }
-
-    private fun beginPortal(screenX: Int, screenY: Int) {
+    private fun beginPortal(
+        screenX: Int,
+        screenY: Int,
+        snapshot: TextSnapshot? = null,
+    ) {
+        textSnapshot = snapshot
         portalAnchor = Offset(screenX.toFloat(), screenY.toFloat())
         portalFinger = portalAnchor
         portalContent = PortalContent()
@@ -406,51 +436,53 @@ class ScreenPickOverlay(
         portalJob?.cancel()
         // 节点树遍历是成百上千次 Binder 调用，绝不上主线程。
         portalJob = host.coroutineScope.launch {
+            val liveSnapshot = if (snapshot == null) {
+                withContext(Dispatchers.Default) {
+                    runCatching {
+                        A11yTextSnapshotReader(host.accessibilityService, host.context.packageName)
+                            .capture(screenX, screenY)
+                    }.getOrNull()
+                }
+            } else {
+                null
+            }
+            val effective = snapshot ?: liveSnapshot ?: TextSnapshot.Empty
+            if (snapshot == null && liveSnapshot != null) textSnapshot = liveSnapshot
             val hit = withContext(Dispatchers.Default) {
-                runCatching { findNodeHitAt(screenX, screenY) }.getOrNull()
+                snapshotHit(effective, screenX, screenY)
             }
             if (token != session || pickToken != portalSession || overlayView == null) return@launch
             if (BuildConfig.DEBUG) {
                 Log.i(
                     LOG_TAG,
-                    "screen pick hit text=${hit?.text?.length ?: 0} image=${hit?.imageBounds != null}",
+                    "screen pick hit text=${hit?.text?.length ?: 0} image=${hit?.imageBounds != null} " +
+                        "snapshot=${snapshot != null}",
                 )
             }
-            // 图片节点 / 无文字的容器都按「图片」处理：截图裁剪 + 区域 OCR。
             val imageBounds = hit?.imageBounds
             portalImageBounds = imageBounds
             refreshPortalPreview()
-            // 节点自带真实文本（TextView 等）时优先，不跑模型。
-            if (!hit?.text.isNullOrBlank()) {
-                applyPortalText(hit.text, imageBounds)
-                return@launch
-            }
-            if (!screenPickGesture().ocrEnabled) {
-                applyPortalText(null, imageBounds)
-                return@launch
-            }
-            // 按布局裁剪（而不是盲裁一条 30% 屏高的带子）：节点 bounds 通常正好是一个气泡 /
-            // 一段正文，检测分辨率更高、也不会把隔壁行的字带进来。
-            val layoutRegion = hit?.fallbackBounds?.let { nodeRegion(it) }
-            val region = imageBounds?.let { AndroidRect(it) }
-                ?: layoutRegion
-                ?: bandAround(screenX, screenY)
-            // 有布局区域时整段返回；退回 band 时只取落点所在那一行。
-            val singleLine = imageBounds == null && layoutRegion == null
-            // OCR 不挂在 portalJob 下面：close() 会取消 portalJob，识别段不可中断，
-            // 中途回收截图会让原生层读到已释放内存。
-            host.coroutineScope.launch {
-                val text = ocrTextIn(
-                    token = token,
-                    pickToken = pickToken,
-                    region = region,
-                    hitX = if (singleLine) screenX else null,
-                    hitY = if (singleLine) screenY else null,
-                )
-                if (token != session || pickToken != portalSession || overlayView == null) return@launch
-                applyPortalText(text, imageBounds)
-            }
+            // 长按只读快照：有文字取文字，有图片取图片；图片不再跑 OCR。
+            applyPortalText(hit?.text, imageBounds)
         }
+    }
+
+    /** 快照命中：文本优先；图片只回 bounds，交给幽灵卡图片动作。 */
+    private fun snapshotHit(snapshot: TextSnapshot, x: Int, y: Int): NodeHit? {
+        val tolerance = DensityProvider.dp2px(HitToleranceDp)
+        val leaf = TextSnapshotOps.hitText(snapshot, x, y, tolerance)
+        if (leaf != null) {
+            val text = TextSnapshotOps.selectAll(leaf, x, y)
+            if (!text.isNullOrBlank()) return NodeHit(text, null, null)
+        }
+        val image = snapshot.imageAt(x, y, tolerance) ?: return null
+        val bounds = AndroidRect(
+            image.bounds.left,
+            image.bounds.top,
+            image.bounds.right,
+            image.bounds.bottom,
+        )
+        return NodeHit(null, bounds, bounds)
     }
 
     /** 统一回填幽灵卡内容：文本与图片可并存（图片节点 OCR 出文字时两者都有）。 */
@@ -540,47 +572,6 @@ class ScreenPickOverlay(
         }
     }
 
-    /** 落点周围的一带：宽 90% 屏宽、高约 30% 屏高，夹在屏内。 */
-    /**
-     * 命中节点的 bounds → OCR 裁剪区（外扩 10dp，夹在屏内）。
-     *
-     * 节点几乎占满整屏时（列表容器 / WebView 根）没有裁剪价值，返回 null 让调用方退回 band。
-     */
-    private fun nodeRegion(bounds: AndroidRect): AndroidRect? {
-        if (bounds.width() < MIN_IMAGE_PX || bounds.height() < MIN_IMAGE_PX) return null
-        val screenW = DensityProvider.screenWidthPx
-        val screenH = DensityProvider.screenHeightPx
-        if (bounds.width().toLong() * bounds.height() * 100 >
-            screenW.toLong() * screenH * 85
-        ) {
-            return null
-        }
-        val pad = DensityProvider.dp2px(10)
-        return AndroidRect(
-            (bounds.left - pad).coerceAtLeast(0),
-            (bounds.top - pad).coerceAtLeast(0),
-            (bounds.right + pad).coerceAtMost(screenW),
-            (bounds.bottom + pad).coerceAtMost(screenH),
-        )
-    }
-
-    /**
-     * 落点周围的兜底裁剪带：拿不到节点 bounds（WebView/Flutter 之类的空树）才用。
-     * 只取 ±8% 屏高，够盖住落点那一行；裁太大会让 640 检测图把相邻行糊在一起。
-     */
-    private fun bandAround(x: Int, y: Int): AndroidRect {
-        val screenW = DensityProvider.screenWidthPx
-        val screenH = DensityProvider.screenHeightPx
-        val halfW = (screenW * 0.45f).roundToInt()
-        val halfH = max(DensityProvider.dp2px(72), (screenH * 0.08f).roundToInt())
-        return AndroidRect(
-            (x - halfW).coerceAtLeast(0),
-            (y - halfH).coerceAtLeast(0),
-            (x + halfW).coerceAtMost(screenW),
-            (y + halfH).coerceAtMost(screenH),
-        )
-    }
-
     /** OCR 包围盒（裁剪图内坐标）→ 屏幕坐标，与 [cropRectFor] 互为逆运算。 */
     private fun hunoia.luno.capability.ocr.OcrBlock.toScreenBlock(
         capture: PickCapture,
@@ -663,8 +654,7 @@ class ScreenPickOverlay(
         capture: PickCapture? = null,
     ) {
         host.coroutineScope.launch {
-            try {
-                when (action) {
+            when (action) {
                     PortalAction.Copy -> {
                         val text = content.text
                         if (!text.isNullOrBlank()) {
@@ -710,9 +700,6 @@ class ScreenPickOverlay(
                         }
                     }
                 }
-            } finally {
-                capture?.bitmap?.let { if (!it.isRecycled) it.recycle() }
-            }
         }
     }
 
@@ -735,7 +722,9 @@ class ScreenPickOverlay(
         session++
         portalSession++
         resolvingAction = false
+        closeOcrPanel()
         cancelPortal()
+        textSnapshot = null
         if (!captureSignal.isCompleted) captureSignal.complete(Unit)
         val view = overlayView ?: return
         overlayView = null
@@ -790,12 +779,6 @@ class ScreenPickOverlay(
     }
 
     /**
-     * 把预截图从 overlay 生命周期里摘出来：close() 不会再回收它，
-     * 由调用方（幽灵卡动作）在用完后自行 recycle。
-     */
-    private fun detachCapture(): PickCapture? = currentCapture()?.also { capture = null }
-
-    /**
      * 屏幕矩形 → 截图位图内的裁剪矩形。先与截图区域求交再换算：越界部分取交集
      * （裁剪内容仍正确），完全落在区域外返回 null。不能用 coerceIn 把越界边钳到
      * 边缘 —— 那会把内容整体平移，复制到一张错位图。
@@ -816,7 +799,7 @@ class ScreenPickOverlay(
         return crop
     }
 
-    /** 框选动作（图标动作条）：复制到剪贴板 / 分享 / 保存到相册。 */
+    /** 框选动作（图标动作条）：文本复制/搜索/分享，图片复制/分享/保存，OCR 单独进可编辑面板。 */
     private fun onSelectionAction(rect: Rect, action: PickSelectionAction) {
         if (resolvingAction) return
         if (rect.width < SCREEN_PICK_MIN_REGION_PX || rect.height < SCREEN_PICK_MIN_REGION_PX) return
@@ -827,35 +810,171 @@ class ScreenPickOverlay(
             (rect.right + originX).roundToInt(),
             (rect.bottom + originY).roundToInt(),
         )
-        // 框选文字：OCR 选区后不静默写剪贴板，而是把结果放回幽灵卡让用户选择动作。
-        if (action == PickSelectionAction.Text) {
-            host.coroutineScope.launch {
-                val token = session
-                val text = ocrTextIn(session, portalSession, screenRect)
+        if (action == PickSelectionAction.Ocr) {
+            if (!screenPickGesture().ocrEnabled) {
+                showToast(R.string.screen_pick_no_content)
                 resolvingAction = false
-                if (token != session) return@launch
-                if (text.isNullOrBlank()) {
-                    showToast(R.string.screen_pick_no_content)
-                    return@launch
-                }
-                portalAnchor = Offset(screenRect.exactCenterX(), screenRect.top.toFloat())
-                portalFinger = portalAnchor
-                portalImageBounds = null
-                applyPortalText(text, null)
+                return
             }
+            openOcrPanel(screenRect)
+            resolvingAction = false
             return
         }
-        // 裁剪 + 落盘 + 分享都在后台（大图 PNG 压缩放主线程会卡顿/ANR）。
         host.coroutineScope.launch {
             val ok = when (action) {
-                PickSelectionAction.Copy -> copyImageRegion(screenRect)
-                PickSelectionAction.Share -> shareImageRegion(screenRect)
+                PickSelectionAction.Copy -> {
+                    val text = selectionText(screenRect)
+                    if (!text.isNullOrBlank()) {
+                        copyText(host.context, SCREEN_PICK_LABEL, text)
+                        showToast(R.string.quick_search_copied)
+                        true
+                    } else {
+                        copyImageRegion(screenRect)
+                    }
+                }
+                PickSelectionAction.Search -> {
+                    val text = selectionText(screenRect)
+                    when {
+                        text.isNullOrBlank() -> {
+                            showToast(R.string.screen_pick_no_content)
+                            false
+                        }
+                        !onSearch(text) -> {
+                            showToast(R.string.screen_pick_failed)
+                            false
+                        }
+                        else -> true
+                    }
+                }
+                PickSelectionAction.Share -> {
+                    val text = selectionText(screenRect)
+                    if (!text.isNullOrBlank()) {
+                        shareText(text)
+                        true
+                    } else {
+                        shareImageRegion(screenRect)
+                    }
+                }
                 PickSelectionAction.Save -> saveImageRegion(screenRect)
-                PickSelectionAction.Text -> false
+                PickSelectionAction.Ocr -> false
             }
-            if (!ok) showToast(R.string.screen_pick_failed)
-            close()
+            resolvingAction = false
+            if (!ok) {
+                // 图片动作失败时给出与旧逻辑一致的提示；文本路径已各自提示。
+                if (action != PickSelectionAction.Search) showToast(R.string.screen_pick_failed)
+            }
         }
+    }
+
+    /** 选区文本：优先用长按快照；快照没有覆盖时补抓实时 a11y（过滤目标窗口）。 */
+    private suspend fun selectionText(screenRect: AndroidRect): String? {
+        val snapshot = textSnapshot
+        if (snapshot != null && snapshot.leaves.isNotEmpty()) {
+            val text = TextSnapshotOps.regionText(
+                snapshot,
+                screenRect.left,
+                screenRect.top,
+                screenRect.right,
+                screenRect.bottom,
+            )
+            if (text.isNotBlank()) return text
+        }
+        return withContext(Dispatchers.Default) {
+            val live = runCatching {
+                A11yTextSnapshotReader(host.accessibilityService, host.context.packageName)
+                    .capture(screenRect.left, screenRect.top)
+            }.getOrNull() ?: return@withContext null
+            TextSnapshotOps.regionText(
+                live,
+                screenRect.left,
+                screenRect.top,
+                screenRect.right,
+                screenRect.bottom,
+            ).takeIf { it.isNotBlank() }
+        }
+    }
+
+    /** 框选菜单点 OCR：打开可编辑面板，识别完成后填入。 */
+    private fun openOcrPanel(rect: AndroidRect) {
+        ocrPanelRect = rect
+        ocrPanelText = ""
+        ocrPanelLoading = true
+        setWindowFocusable(true)
+        val token = session
+        val panelToken = ++ocrPanelSession
+        host.coroutineScope.launch {
+            val text = ocrTextIn(session, portalSession, rect)
+            if (token != session || panelToken != ocrPanelSession) return@launch
+            ocrPanelLoading = false
+            if (text.isNullOrBlank()) {
+                ocrPanelText = ""
+                showToast(R.string.screen_pick_no_content)
+            } else {
+                ocrPanelText = text
+            }
+        }
+    }
+
+    private fun closeOcrPanel() {
+        if (ocrPanelText == null && !ocrPanelLoading) return
+        ocrPanelSession++
+        ocrPanelText = null
+        ocrPanelLoading = false
+        ocrPanelRect = null
+        setWindowFocusable(false)
+    }
+
+    private fun onOcrTextChange(text: String) {
+        ocrPanelText = text
+    }
+
+    private fun onOcrAction(action: OcrPanelAction) {
+        when (action) {
+            OcrPanelAction.Close -> closeOcrPanel()
+            OcrPanelAction.Copy -> {
+                val text = ocrPanelText.orEmpty()
+                if (text.isBlank()) {
+                    showToast(R.string.screen_pick_no_content)
+                } else {
+                    copyText(host.context, SCREEN_PICK_LABEL, text)
+                    showToast(R.string.quick_search_copied)
+                }
+            }
+            OcrPanelAction.Search -> {
+                val text = ocrPanelText.orEmpty()
+                when {
+                    text.isBlank() -> showToast(R.string.screen_pick_no_content)
+                    !onSearch(text) -> showToast(R.string.screen_pick_failed)
+                }
+            }
+            OcrPanelAction.Share -> {
+                val text = ocrPanelText.orEmpty()
+                if (text.isBlank()) showToast(R.string.screen_pick_no_content)
+                else shareText(text)
+            }
+            OcrPanelAction.Retry -> ocrPanelRect?.let { openOcrPanel(it) }
+        }
+    }
+
+    /**
+     * OCR 面板要能编辑，识屏窗必须先去掉 `FLAG_NOT_FOCUSABLE` 并允许 IME；
+     * 关面板时恢复成不可获焦，避免影响底层 App 的输入。
+     */
+    private fun setWindowFocusable(focusable: Boolean) {
+        val view = overlayView ?: return
+        val lp = view.layoutParams as? WindowManager.LayoutParams ?: return
+        lp.flags = if (focusable) {
+            lp.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+        } else {
+            lp.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        }
+        lp.softInputMode = if (focusable) {
+            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or
+                WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE
+        } else {
+            WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
+        }
+        host.context.windowManager().safeUpdateViewLayout(view, lp)
     }
 
     /**
@@ -1135,7 +1254,7 @@ class ScreenPickOverlay(
             // 扫描与截屏并行：提示框不用等 takeScreenshot 回调（它往往是慢的那一步）。
             if (!takeScreenshot()) {
                 showToast(R.string.screen_pick_failed)
-                // 幽灵卡在等你拖到动作上：截图被拒也只降级图片动作，不拆窗。
+                // 幽灵卡仍可用文字/搜索动作：截图被拒也只降级图片动作，不拆窗。
                 if (portalAnchor == null) close()
             }
         }
@@ -1170,148 +1289,6 @@ class ScreenPickOverlay(
         val fallbackBounds: AndroidRect?,
     )
 
-    /** 从最上层包含触点的应用窗口开始找（跳过自家 overlay 与输入法窗）。 */
-    private fun findNodeHitAt(x: Int, y: Int): NodeHit? {
-        val windows = host.accessibilityService.windows ?: return null
-        val ownPackage = host.context.packageName
-        var fallbackHit: NodeHit? = null
-        for (index in windows.indices.reversed()) {
-            val window = windows.getOrNull(index) ?: continue
-            if (window.type != AccessibilityWindowInfo.TYPE_APPLICATION) continue
-            val root = window.root ?: continue
-            // 同一套口径：自家面板（搜索页等）不能当拾取目标。
-            if (root.packageName?.toString() == ownPackage) continue
-            val windowBounds = AndroidRect()
-            window.getBoundsInScreen(windowBounds)
-            if (!windowBounds.contains(x, y)) continue
-            val hit = searchNode(root, x, y)
-            // 顶层可能是无文字的小浮窗；继续往下层应用找真正内容。
-            if (!hit.text.isNullOrBlank() || hit.imageBounds != null) return hit
-            if (fallbackHit == null) fallbackHit = hit
-        }
-        // windows 列表偶发拿不到根（root 为 null / 窗口刚切换）：再试一次当前活动窗口。
-        val activeRoot = runCatching { host.accessibilityService.rootInActiveWindow }.getOrNull()
-        if (activeRoot != null && activeRoot.packageName?.toString() != ownPackage) {
-            val hit = searchNode(activeRoot, x, y)
-            if (!hit.text.isNullOrBlank() || hit.imageBounds != null) return hit
-            if (fallbackHit == null) fallbackHit = hit
-        }
-        return fallbackHit
-    }
-
-    private fun searchNode(root: AccessibilityNodeInfo, x: Int, y: Int): NodeHit {
-        var bestText: String? = null
-        var bestTextDepth = -1
-        var bestTextNode: AccessibilityNodeInfo? = null
-        var bestImage: AndroidRect? = null
-        var bestImageDepth = -1
-        var bestFallback: AndroidRect? = null
-        var bestFallbackDepth = -1
-        var visited = 0
-        val tolerance = DensityProvider.dp2px(HitToleranceDp)
-
-        fun walk(node: AccessibilityNodeInfo, depth: Int) {
-            if (depth > MAX_NODE_DEPTH || visited >= MaxPickNodes) return
-            visited++
-            val bounds = AndroidRect()
-            node.getBoundsInScreen(bounds)
-            // 只有能报出 bounds 的节点才按“父不含触点”剪枝。WebView/Compose 的容器
-            // 常见空 bounds，按旧逻辑会整棵子树被剪掉，表现就是“这里识别不到文字”。
-            if (!bounds.isEmpty) {
-                val expanded = AndroidRect(bounds)
-                expanded.left -= tolerance
-                expanded.top -= tolerance
-                expanded.right += tolerance
-                expanded.bottom += tolerance
-                if (!expanded.contains(x, y)) return
-            }
-            // bounds 含触点已经足够说明在屏内；部分 ROM 的 isVisibleToUser 不可靠。
-            if (node.isVisibleToUser || !bounds.isEmpty) {
-                val text = readableText(node)
-                if (!text.isNullOrBlank() && depth > bestTextDepth) {
-                    bestTextDepth = depth
-                    bestText = text
-                    bestTextNode = node
-                }
-                val className = node.className?.toString().orEmpty()
-                val imageLike = listOf("Image", "Video", "Surface", "Texture")
-                    .any { className.contains(it, ignoreCase = true) }
-                if (imageLike &&
-                    bounds.width() >= MIN_IMAGE_PX &&
-                    bounds.height() >= MIN_IMAGE_PX &&
-                    depth > bestImageDepth
-                ) {
-                    bestImageDepth = depth
-                    bestImage = bounds
-                }
-                if (depth > bestFallbackDepth) {
-                    bestFallbackDepth = depth
-                    bestFallback = bounds
-                }
-            }
-            for (i in 0 until node.childCount) {
-                node.getChild(i)?.let { walk(it, depth + 1) }
-            }
-        }
-
-        walk(root, 0)
-        // 一句话常被拆成多个子节点：把命中子树的文字并起来，避免只取到半句。
-        var text = bestTextNode?.let { collectSubtreeText(it) } ?: bestText
-        if (!text.isNullOrBlank() && isGenericImageLabel(text)) text = null
-        var image = bestImage
-        if (text.isNullOrBlank() && image == null) {
-            // 命中处没有真实文本（图标 / 图片 / 空容器）：按图片返回。
-            // 节点几乎占满整屏时不当图片（列表根容器），交给 OCR 的落点逻辑。
-            val fallback = bestFallback
-            if (fallback != null &&
-                fallback.width() >= MIN_IMAGE_PX &&
-                fallback.height() >= MIN_IMAGE_PX &&
-                fallback.width().toLong() * fallback.height() * 100 <=
-                DensityProvider.screenWidthPx.toLong() * DensityProvider.screenHeightPx * 60
-            ) {
-                image = fallback
-            }
-        }
-        return NodeHit(text, image, bestFallback)
-    }
-
-    /** 图片类节点常见的无意义描述；命中时按图片而不是文本处理。 */
-    private fun isGenericImageLabel(text: String): Boolean {
-        val normalized = text.trim().lowercase()
-        return normalized in setOf("图片", "图像", "照片", "图片消息", "image", "photo", "picture")
-    }
-
-    /**
-     * 只认节点上的**真实文本**（`node.text`）。
-     *
-     * 不取 contentDescription / stateDescription / tooltipText / paneTitle：图标、按钮、
-     * 页面容器的这些字段全是无障碍标签（“返回”“更多”“当前页面”），当可复制文字会让
-     * 幽灵卡冒出一堆用户没想复制的词。没有 text 的节点一律按图片处理（见 [searchNode]）。
-     */
-    private fun readableText(node: AccessibilityNodeInfo): String? {
-        if (node.isPassword) return null
-        return node.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }
-    }
-
-    /** 聚合节点自身与子树的可读文本（限深限量，防长列表把主线程预算吃满）。 */
-    private fun collectSubtreeText(root: AccessibilityNodeInfo): String? {
-        val out = LinkedHashSet<String>()
-        var chars = 0
-        var visited = 0
-        fun walk(node: AccessibilityNodeInfo, depth: Int) {
-            if (depth > 8 || visited >= 40 || chars >= 2_000) return
-            visited++
-            readableText(node)?.let { text ->
-                if (out.add(text)) chars += text.length
-            }
-            for (i in 0 until node.childCount) {
-                if (visited >= 40 || chars >= 2_000) break
-                walk(node.getChild(i) ?: continue, depth + 1)
-            }
-        }
-        walk(root, 0)
-        return out.joinToString("\n").ifBlank { null }
-    }
 
 }
 
@@ -1382,39 +1359,52 @@ private fun ScreenPickScreen(
     onSelectionAction: (Rect, PickSelectionAction) -> Unit,
     onPortalStart: (Offset) -> Unit,
     onPortalMove: (Offset) -> Unit,
-    onPortalRelease: (Offset) -> Unit,
+    onPortalAction: (PortalAction) -> Unit,
+    onClear: () -> Unit,
+    ocrPanel: OcrPanelState?,
+    onOcrTextChange: (String) -> Unit,
+    onOcrAction: (OcrPanelAction) -> Unit,
     onDismiss: () -> Unit,
 ) {
     // dragRect = 正在画的新框；adjustRect = 已落定、可拖动/缩放、待确认的框。
     var dragRect by remember { mutableStateOf<Rect?>(null) }
     var adjustRect by remember { mutableStateOf<Rect?>(null) }
+    // 框选期间隐藏幽灵卡（需求：框选时不显示卡片）。
+    var selecting by remember { mutableStateOf(false) }
     val handleHitPx = with(LocalDensity.current) { HandleHitRadiusDp.dp.toPx() }
     val minSizePx = with(LocalDensity.current) { AdjustMinSizeDp.dp.toPx() }
     val handleDrawPx = with(LocalDensity.current) { 6.dp.toPx() }
     val scope = rememberCoroutineScope()
     val portalActive = rememberUpdatedState(portal.anchor != null)
+    val currentPortal = rememberUpdatedState(portal)
+    val density = LocalDensity.current.density
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .pointerInput(Unit) {
+            .pointerInput(ocrPanel != null) {
+                if (ocrPanel != null) return@pointerInput
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
-                    // 子级（关闭/确认按钮）消费掉的手势不参与拾取。
                     if (down.isConsumed) return@awaitEachGesture
                     val start = down.position
-                    // 抬手保留的幽灵卡：下一次按下直接拖它；原地长按则重新识别落点内容。
-                    if (portalActive.value) {
-                        var started = false
+                    val portalFinger = currentPortal.value.finger ?: currentPortal.value.anchor
+                    val cardRect = if (portalFinger != null) {
+                        PortalLayout.cardRect(
+                            finger = Offset(portalFinger.x - originX, portalFinger.y - originY),
+                            screenWidth = DensityProvider.screenWidthPx.toFloat(),
+                            screenHeight = DensityProvider.screenHeightPx.toFloat(),
+                            density = density,
+                        )
+                    } else {
+                        null
+                    }
+                    val downOnCard = cardRect?.contains(start) == true
+
+                    // 按住卡片拖动 = 移动卡片；松手不执行动作。
+                    if (portalActive.value && downOnCard) {
                         var moved = false
                         var upPosition = start
-                        val reselect = scope.launch {
-                            delay(viewConfiguration.longPressTimeoutMillis)
-                            if (!moved) {
-                                started = true
-                                onPortalStart(start)
-                            }
-                        }
                         try {
                             while (true) {
                                 val event = awaitPointerEvent()
@@ -1423,26 +1413,90 @@ private fun ScreenPickScreen(
                                 if (change.isConsumed) break
                                 if (!change.pressed) break
                                 change.consume()
-                                if (!started &&
-                                    (change.position - start).getDistance() > viewConfiguration.touchSlop
+                                if (!moved &&
+                                    (change.position - start).getDistance() >
+                                    viewConfiguration.touchSlop
                                 ) {
                                     moved = true
-                                    started = true
-                                    reselect.cancel()
                                 }
-                                if (started) onPortalMove(change.position)
+                                if (moved) onPortalMove(change.position)
                             }
                         } finally {
-                            reselect.cancel()
-                        }
-                        if (started) {
-                            onPortalRelease(upPosition)
-                        } else {
-                            // 保留态下轻点（未拖动、未长按）视为关闭。
-                            onDismiss()
+                            // 卡片保持在最后位置；不执行动作、不退出识屏层。
                         }
                         return@awaitEachGesture
                     }
+
+                    // 幽灵卡在屏、按在空白：拖动=框选；长按=重新取词；轻点=清空但不退出。
+                    if (portalActive.value) {
+                        var moved = false
+                        var longPressed = false
+                        var upPosition = start
+                        var childConsumed = false
+                        val longPress = scope.launch {
+                            delay(viewConfiguration.longPressTimeoutMillis)
+                            if (!moved && !childConsumed) {
+                                longPressed = true
+                                selecting = false
+                                dragRect = null
+                                adjustRect = null
+                                onPortalStart(start)
+                            }
+                        }
+                        try {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull() ?: break
+                                upPosition = change.position
+                                if (change.isConsumed) {
+                                    childConsumed = true
+                                    break
+                                }
+                                if (!change.pressed) break
+                                change.consume()
+                                if ((change.position - start).getDistance() >
+                                    viewConfiguration.touchSlop
+                                ) {
+                                    moved = true
+                                    longPress.cancel()
+                                    if (!longPressed) {
+                                        selecting = true
+                                        dragRect = Rect(
+                                            left = minOf(start.x, change.position.x),
+                                            top = minOf(start.y, change.position.y),
+                                            right = maxOf(start.x, change.position.x),
+                                            bottom = maxOf(start.y, change.position.y),
+                                        )
+                                    }
+                                }
+                            }
+                        } finally {
+                            longPress.cancel()
+                        }
+                        if (childConsumed) return@awaitEachGesture
+                        if (longPressed) return@awaitEachGesture
+                        if (moved) {
+                            val rect = dragRect
+                            dragRect = null
+                            selecting = false
+                            if (rect != null &&
+                                rect.width >= minSizePx && rect.height >= minSizePx
+                            ) {
+                                adjustRect = rect
+                            } else {
+                                onClear()
+                            }
+                        } else {
+                            // 轻点空白：清空幽灵卡 + 框选 + OCR 面板，但保留识屏层。
+                            selecting = false
+                            dragRect = null
+                            adjustRect = null
+                            onClear()
+                        }
+                        return@awaitEachGesture
+                    }
+
+                    // 无幽灵卡：拖动=框选；长按后拖动=出幽灵卡；轻点无操作。
                     val initial = adjustRect
                     val handle = initial?.handleAt(start, handleHitPx)
                     var resizing: SelHandle? = handle
@@ -1457,13 +1511,13 @@ private fun ScreenPickScreen(
                     var armed = false
                     var portalStarted = false
                     var dragWindow: kotlinx.coroutines.Job? = null
-                    // 三态共存：轻点无操作、拖动=框选、长按后拖动=幽灵卡。
-                    // 达到长按时间只进入“等待拖动”窗口；窗口内拖动超容差才出卡。
                     fun startPortal(at: Offset) {
                         armed = false
                         dragWindow?.cancel()
                         dragWindow = null
                         portalStarted = true
+                        selecting = false
+                        adjustRect = null
                         onPortalStart(start)
                         onPortalMove(at)
                     }
@@ -1498,12 +1552,10 @@ private fun ScreenPickScreen(
                             last = change.position
                             val distance = (change.position - start).getDistance()
                             if (portalStarted) {
-                                // 幽灵卡会话：只跟随手指，不再画框/拖框。
                                 onPortalMove(change.position)
                                 continue
                             }
                             if (armed) {
-                                // 长按成立后：只有拖动超过容差才触发；没拖到就什么都不做。
                                 if (distance > slopPx) startPortal(change.position)
                                 continue
                             }
@@ -1513,13 +1565,16 @@ private fun ScreenPickScreen(
                             when {
                                 resizing != null -> {
                                     val r = adjustRect ?: break
-                                    adjustRect = r.resized(resizing, change.position, minSizePx, size.toSizeF())
+                                    adjustRect = r.resized(
+                                        resizing, change.position, minSizePx, size.toSizeF(),
+                                    )
                                 }
                                 moving -> {
                                     val r = adjustRect ?: break
                                     adjustRect = r.moved(delta.x, delta.y, size.toSizeF())
                                 }
                                 moved -> {
+                                    selecting = true
                                     dragRect = Rect(
                                         left = minOf(start.x, change.position.x),
                                         top = minOf(start.y, change.position.y),
@@ -1535,17 +1590,20 @@ private fun ScreenPickScreen(
                     }
                     if (childConsumed) return@awaitEachGesture
                     if (portalStarted) {
-                        onPortalRelease(upPosition)
+                        selecting = false
+                        dragRect = null
                         return@awaitEachGesture
                     }
                     if (resizing == null && !moving) {
-                        // 本次是在画新框；落定后进入「可拖动/缩放 + 确认」状态。
                         val rect = dragRect
                         dragRect = null
-                        if (rect != null && rect.width >= minSizePx && rect.height >= minSizePx) {
+                        selecting = false
+                        if (rect != null &&
+                            rect.width >= minSizePx && rect.height >= minSizePx
+                        ) {
                             adjustRect = rect
                         } else if (!moved && adjustRect != null) {
-                            // 点选框外空白：丢弃选框；轻点本身无操作（不再静默复制）。
+                            // 点选框外空白：只清选框，保留识屏层。
                             adjustRect = null
                         }
                     }
@@ -1559,7 +1617,6 @@ private fun ScreenPickScreen(
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.12f)),
             )
-            // 正在拖的新框 / 已落定待确认的框。
             val activeRect = adjustRect ?: dragRect
             activeRect?.let { rect ->
                 Canvas(modifier = Modifier.fillMaxSize()) {
@@ -1575,7 +1632,6 @@ private fun ScreenPickScreen(
                         style = Stroke(width = 2.dp.toPx()),
                     )
                     if (adjustRect != null) {
-                        // 四角拖拽把手。
                         listOf(rect.topLeft, rect.topRight, rect.bottomLeft, rect.bottomRight)
                             .forEach { corner ->
                                 drawCircle(Color.White, radius = handleDrawPx, center = corner)
@@ -1589,52 +1645,61 @@ private fun ScreenPickScreen(
                     }
                 }
             }
-            // 无选区：底部常驻关闭；有选区：动作条贴在选框底部（放不下翻到上方）。
-            // 幽灵卡进行中不画这些：它的动作槽占着底部同一条位置（幽灵卡在 captured 之外渲染，
-            // 截图未就绪/失败也要能看到卡片）。
             val sel = adjustRect
-            if (portal.anchor == null) {
-                if (sel == null) {
-                    Surface(
-                        onClick = onDismiss,
-                        shape = RoundedCornerShape(50),
-                        color = Color.Black.copy(alpha = 0.68f),
-                        contentColor = Color.White,
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 48.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = stringResource(R.string.screen_pick_close),
-                            modifier = Modifier.padding(14.dp).size(22.dp),
-                        )
-                    }
-                } else {
-                    SelectionActionBar(
-                        rect = sel,
-                        originX = originX,
-                        originY = originY,
-                        onAction = { action ->
-                            adjustRect = null
-                            onSelectionAction(sel, action)
-                        },
-                        onClose = onDismiss,
+            if (sel == null) {
+                // 无选区时始终保留底部 X；有幽灵卡时也不隐藏退出入口。
+                Surface(
+                    onClick = onDismiss,
+                    shape = RoundedCornerShape(50),
+                    color = Color.Black.copy(alpha = 0.68f),
+                    contentColor = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 48.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = stringResource(R.string.screen_pick_close),
+                        modifier = Modifier.padding(14.dp).size(22.dp),
                     )
                 }
+            } else {
+                SelectionActionBar(
+                    rect = sel,
+                    originX = originX,
+                    originY = originY,
+                    onAction = { action ->
+                        adjustRect = null
+                        onSelectionAction(sel, action)
+                    },
+                    onClose = onDismiss,
+                )
             }
         }
-        // 幽灵卡不依赖预截图：截图慢/失败时卡片仍应出现（文字复制、搜索不靠截图）。
-        if (portal.anchor != null) {
+        // 框选期间/选区待确认时隐藏幽灵卡；其余时候显示并可拖动。
+        if (portal.anchor != null && !selecting && adjustRect == null) {
             PortalLayer(
-                finger = (portal.finger ?: portal.anchor).let { Offset(it.x - originX, it.y - originY) },
+                finger = (portal.finger ?: portal.anchor).let {
+                    Offset(it.x - originX, it.y - originY)
+                },
                 content = portal.content,
                 resolving = portal.resolving,
                 actions = portalActionsFor(portal.content),
-                activeSlot = PortalLayout.hit(portal.slots, portal.finger ?: portal.anchor),
+                activeSlot = PortalLayout.hit(
+                    portal.slots,
+                    portal.finger ?: portal.anchor,
+                ),
                 slotRects = portal.slots,
                 originX = originX,
                 originY = originY,
+                onAction = onPortalAction,
+            )
+        }
+        ocrPanel?.let { panel ->
+            ScreenOcrPanel(
+                state = panel,
+                onTextChange = onOcrTextChange,
+                onAction = onOcrAction,
             )
         }
     }
@@ -1654,7 +1719,7 @@ private fun SelectionActionBar(
     val gap = 8.dp
     val pad = 6.dp
     val margin = 8.dp
-    val barW = with(density) { (button * 5 + gap * 4 + pad * 2).toPx() }
+    val barW = with(density) { (button * 6 + gap * 5 + pad * 2).toPx() }
     val barH = with(density) { (button + pad * 2).toPx() }
     val marginPx = with(density) { margin.toPx() }
     val screenW = DensityProvider.screenWidthPx.toFloat()
@@ -1689,11 +1754,15 @@ private fun SelectionActionBar(
         PickActionIcon(
             icon = Icons.Default.TextFields,
             contentDescription = stringResource(R.string.screen_pick_extract_text),
-        ) { onAction(PickSelectionAction.Text) }
+        ) { onAction(PickSelectionAction.Ocr) }
         PickActionIcon(
             icon = Icons.Default.ContentCopy,
             contentDescription = stringResource(R.string.screen_pick_copy_image),
         ) { onAction(PickSelectionAction.Copy) }
+        PickActionIcon(
+            icon = Icons.Default.Search,
+            contentDescription = stringResource(R.string.screen_pick_portal_search),
+        ) { onAction(PickSelectionAction.Search) }
         PickActionIcon(
             icon = Icons.Default.Share,
             contentDescription = stringResource(R.string.screen_pick_share_image),

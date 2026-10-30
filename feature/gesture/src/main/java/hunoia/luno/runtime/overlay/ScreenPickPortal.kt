@@ -45,7 +45,7 @@ import hunoia.luno.ui.theme.MinInteractiveSize
 import java.util.Locale
 import kotlin.math.roundToInt
 
-/** 幽灵卡上可拖放的动作。动作集按内容类型给：文字不看 [Save]，图片不看 [Search]/[OpenLink]。 */
+/** 幽灵卡底部动作槽的动作。动作集按内容类型给：文字不看 [Save]，图片不看 [Search]/[OpenLink]。 */
 enum class PortalAction { Copy, Search, Share, Save, OpenLink }
 
 /** 一次长按识别出的内容：文字节点或图片节点（两者都为空 = 识别中 / 无可取内容）。 */
@@ -118,6 +118,26 @@ object PortalLayout {
     /** 命中的槽位下标；未命中返回 null（松手即取消，不执行任何动作）。 */
     fun hit(rects: List<Rect>, point: Offset): Int? =
         rects.indexOfFirst { it.contains(point) }.takeIf { it >= 0 }
+
+    /** 幽灵卡在视图坐标下的矩形；手势层用它判断“按在卡上=移动、按在空白=框选”。 */
+    fun cardRect(
+        finger: Offset,
+        screenWidth: Float,
+        screenHeight: Float,
+        density: Float,
+    ): Rect {
+        val cardWidthPx = CardWidthDp * density
+        val gapPx = CardGapDp * density
+        val estimatedCard = CardEstimatedHeightDp * density
+        val cardX = (finger.x - cardWidthPx / 2f).coerceIn(
+            -cardWidthPx / 2f,
+            screenWidth - cardWidthPx / 2f,
+        )
+        val above = finger.y - gapPx - estimatedCard
+        val cardY = (if (above > 0f) above else finger.y + gapPx)
+            .coerceIn(0f, (screenHeight - estimatedCard).coerceAtLeast(0f))
+        return Rect(cardX, cardY, cardX + cardWidthPx, cardY + estimatedCard)
+    }
 }
 
 private fun PortalAction.icon(): ImageVector = when (this) {
@@ -142,7 +162,7 @@ private fun PortalAction.label(): String = stringResource(
 /**
  * 幽灵卡层：手指按住时浮起的卡片 + 底部动作槽，`activeSlot` 高亮当前指下的槽。
  *
- * 卡片跟随手指（始终位于指上方，上方放不下才翻到下方），拖到底部动作槽时仍能看到内容。
+ * 卡片跟随手指（始终位于指上方，上方放不下才翻到下方）；底部动作槽可点击执行。
  *
  * @param finger 手指位置（视图坐标）
  * @param slotRects 动作槽矩形（屏幕坐标，长度与 [actions] 对齐）
@@ -157,6 +177,7 @@ internal fun PortalLayer(
     slotRects: List<Rect>,
     originX: Int,
     originY: Int,
+    onAction: (PortalAction) -> Unit = {},
 ) {
     val screenWidthPx = DensityProvider.screenWidthPx.toFloat()
     val screenHeightPx = DensityProvider.screenHeightPx.toFloat()
@@ -172,24 +193,23 @@ internal fun PortalLayer(
                     .offsetPx(rect.left - originX, rect.top - originY)
                     .size(PortalLayout.SlotDp.dp),
             ) {
-                PortalSlot(action = action, active = activeSlot == index)
+                PortalSlot(
+                    action = action,
+                    active = activeSlot == index,
+                    onClick = { onAction(action) },
+                )
             }
         }
 
-        val gapPx = PortalLayout.CardGapDp * DensityProvider.density
-        // 卡片中心跟随手指；靠近边缘时允许露一半（保证右半屏也能滑过去），
-        // 不再用“整张卡必须留在屏内”的 clamp，否则卡片到屏幕 2/3 就停住。
-        val cardX = (finger.x - cardWidthPx / 2f).coerceIn(
-            -cardWidthPx / 2f,
-            screenWidthPx - cardWidthPx / 2f,
+        val card = PortalLayout.cardRect(
+            finger = finger,
+            screenWidth = screenWidthPx,
+            screenHeight = screenHeightPx,
+            density = DensityProvider.density,
         )
-        val estimatedCard = PortalLayout.CardEstimatedHeightDp * DensityProvider.density
-        val above = finger.y - gapPx - estimatedCard
-        val cardY = (if (above > 0f) above else finger.y + gapPx)
-            .coerceIn(0f, (screenHeightPx - estimatedCard).coerceAtLeast(0f))
         Column(
             modifier = Modifier
-                .offsetPx(cardX, cardY)
+                .offsetPx(card.left, card.top)
                 .widthIn(max = PortalLayout.CardWidthDp.dp)
                 .background(cardBackground, RoundedCornerShape(PortalLayout.CardRadiusDp.dp))
                 .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -261,8 +281,13 @@ internal fun PortalLayer(
 }
 
 @Composable
-private fun PortalSlot(action: PortalAction, active: Boolean) {
+private fun PortalSlot(
+    action: PortalAction,
+    active: Boolean,
+    onClick: () -> Unit,
+) {
     Surface(
+        onClick = onClick,
         shape = RoundedCornerShape(PortalLayout.SlotRadiusDp.dp),
         color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.92f),
         contentColor = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.inverseOnSurface,

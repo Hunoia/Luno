@@ -49,4 +49,5 @@ dependencies {
     implementation(libs.androidx.savedstate)
     implementation(libs.androidx.annotation)
     implementation(libs.kotlinx.coroutines.core)
+    testImplementation(libs.junit)
 }

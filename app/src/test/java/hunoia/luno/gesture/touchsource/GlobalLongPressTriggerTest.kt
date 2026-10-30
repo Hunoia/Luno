@@ -45,6 +45,8 @@ class GlobalLongPressTriggerTest {
     private val triggers = mutableListOf<Pair<Int, Int>>()
     private val drags = mutableListOf<Pair<Int, Int>>()
     private val releases = mutableListOf<Pair<Int, Int>>()
+    private val preCaptures = mutableListOf<Triple<Int, Int, Long>>()
+    private var preCaptureCancels = 0
 
     private fun trigger(
         config: ScreenPickGesture = ScreenPickGesture(
@@ -61,7 +63,19 @@ class GlobalLongPressTriggerTest {
         onTrigger = { x, y -> triggers += x to y },
         onDrag = { x, y -> drags += x to y },
         onRelease = { x, y -> releases += x to y },
+        onPreCapture = { x, y, at -> preCaptures += Triple(x, y, at) },
+        onPreCaptureCancel = { preCaptureCancels++ },
     )
+
+    @Test
+    fun `down starts pre-capture and up cancels it`() {
+        val subject = trigger()
+        now = 123
+        subject.onFrame(Offset(10f, 20f), TouchAction.Down)
+        assertEquals(listOf(Triple(10, 20, 123L)), preCaptures)
+        subject.onFrame(Offset(10f, 20f), TouchAction.Up)
+        assertTrue(preCaptureCancels >= 1)
+    }
 
     @Test
     fun `disabled config schedules nothing`() {

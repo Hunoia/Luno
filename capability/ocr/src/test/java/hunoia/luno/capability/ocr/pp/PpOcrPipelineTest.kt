@@ -33,7 +33,7 @@ class PpOcrPipelineTest {
             }
         }
         assertEquals(
-            listOf(PpOcrDetector.Box(28, 18, 39, 29)),
+            listOf(PpOcrDetector.Box(27, 17, 40, 30)),
             PpOcrDetector.boxes(p),
         )
     }

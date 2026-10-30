@@ -113,9 +113,13 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
      * 全屏长按识屏入口：落到幽灵卡（不经过轻点取词 / 拖动框选）。
      * 后续拖动/抬手由 GlobalLongPressTrigger 从同一股内核触摸流转发进来。
      */
-    fun showScreenPickPortal(x: Int, y: Int): Boolean {
+    fun showScreenPickPortal(
+        x: Int,
+        y: Int,
+        preCapture: hunoia.luno.runtime.overlay.text.ScreenPreCapture? = null,
+    ): Boolean {
         if (!isDispatchReady()) return false
-        val shown = screenPickOverlay.showPortalAt(x, y)
+        val shown = screenPickOverlay.showPortalAt(x, y, preCapture)
         if (shown && ::gestureCoordinator.isInitialized) {
             gestureCoordinator.setScreenPickInterceptTouchable(false)
         }

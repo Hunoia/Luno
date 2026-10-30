@@ -10,14 +10,14 @@
     <string name="point_pick_point">x=%1$d dp，y=%2$d dp</string>
     <string name="quick_search_copied">已复制</string>
     <string name="screen_pick_close">关闭识屏</string>
-    <string name="screen_pick_copy_image">复制图片</string>
+    <string name="screen_pick_copy_image">复制</string>
     <string name="screen_pick_failed">识别失败，请重试</string>
     <string name="screen_pick_image_copied">图片已复制</string>
     <string name="screen_pick_image_saved">图片已保存到相册</string>
     <string name="screen_pick_no_content">未识别到可复制的内容</string>
-    <string name="screen_pick_save_image">保存到相册</string>
-    <string name="screen_pick_share_image">分享图片</string>
-    <string name="screen_pick_extract_text">提取文字</string>
+    <string name="screen_pick_save_image">保存图片</string>
+    <string name="screen_pick_share_image">分享</string>
+    <string name="screen_pick_extract_text">OCR 识别</string>
     <string name="screen_pick_portal_copy">复制</string>
     <string name="screen_pick_portal_search">搜索</string>
     <string name="screen_pick_portal_share">发送到应用</string>
@@ -25,4 +25,9 @@
     <string name="screen_pick_portal_open_link">打开链接</string>
     <string name="screen_pick_portal_image">图片</string>
     <string name="screen_pick_portal_resolving">识别中…</string>
+    <string name="screen_pick_ocr_result">OCR 文本</string>
+    <string name="screen_pick_ocr_retry">重试</string>
+    <string name="screen_pick_ocr_copy">复制</string>
+    <string name="screen_pick_ocr_search">搜索</string>
+    <string name="screen_pick_ocr_share">分享</string>
 </resources>

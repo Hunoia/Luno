@@ -164,9 +164,9 @@
     <string name="screen_pick_trigger_interval_value">%1$d ms</string>
     <string name="action_settings_screen_pick_group">屏幕识别</string>
     <string name="screen_pick_global_long_press">全屏长按识屏</string>
-    <string name="screen_pick_global_long_press_hint">任意位置按住，拖到底部动作上松手执行（需 Shizuku）</string>
+    <string name="screen_pick_global_long_press_hint">任意位置按住出卡；拖动卡片移动，空白处拖动框选（需 Shizuku）</string>
     <string name="screen_pick_keep_after_release">抬手后保留幽灵卡</string>
-    <string name="screen_pick_keep_after_release_hint">抬手不取消；再按住可拖动，长按其他位置可重新识别</string>
+    <string name="screen_pick_keep_after_release_hint">抬手不取消；再按住可拖卡/框选，长按其他位置可重新识别</string>
     <string name="screen_pick_long_press_delay">长按时间</string>
     <string name="screen_pick_long_press_delay_value">%1$d ms</string>
     <string name="screen_pick_slop">拖动容差</string>
@@ -174,8 +174,8 @@
     <string name="screen_pick_save_to_gallery">识屏图片保存到相册</string>
     <string name="screen_pick_save_to_gallery_hint">关闭时分享只写缓存；复制图片仍需写一份到相册以保证粘贴兼容</string>
     <string name="screen_pick_ocr_group">文字识别</string>
-    <string name="screen_pick_ocr_enabled">无节点文字时使用 OCR</string>
-    <string name="screen_pick_ocr_enabled_hint">节点能取到文字时不跑模型；图片内文字、自绘文字、QQ 气泡等走 OCR</string>
+    <string name="screen_pick_ocr_enabled">框选菜单显示 OCR</string>
+    <string name="screen_pick_ocr_enabled_hint">长按取词不跑模型；只有框选后手动点 OCR 才识别</string>
     <string name="screen_pick_ocr_chinese">中文 / English</string>
     <string name="screen_pick_ocr_korean">한국어</string>
     <string name="screen_pick_ocr_script_hint">可多选；多选时并行识别后合并（至少保留一种）</string>

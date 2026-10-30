@@ -15,8 +15,8 @@ import kotlinx.serialization.Serializable
  *   没拖动则本次长按作废；0 = 长按即触发。
  * - [triggerCooldownMs]：两次长按触发之间的最小间隔，防误触发连着弹卡。
  * - [keepAfterRelease]：抬手后不收起幽灵卡；再按住可拖动，长按其他位置另选。
- * - [ocrEnabled]：a11y 节点取不到文字时是否用 OCR 兜底（图片内文字也在此列）。
- * - [ocrScripts]：要尝试的文字体系；多选时并行识别后合并。中文模型已覆盖拉丁字母。
+ * - [ocrEnabled]：框选后的动作菜单是否显示 OCR；长按取词不再触发 OCR。
+ * - [ocrScripts]：框选 OCR 要尝试的文字体系；多选时并行识别后合并。中文模型已覆盖拉丁字母。
  *
  * 与「轻点取词、拖动框选」共存：这两条走识屏层自己的窗口手势，不需要 Shizuku；
  * 只有“在别人的应用上按住不放”才必须借内核触摸流。

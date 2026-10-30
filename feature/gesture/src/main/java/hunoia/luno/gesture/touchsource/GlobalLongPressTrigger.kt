@@ -55,6 +55,10 @@ class GlobalLongPressTrigger(
     private val onTrigger: (x: Int, y: Int) -> Unit,
     private val onDrag: (x: Int, y: Int) -> Unit = { _, _ -> },
     private val onRelease: (x: Int, y: Int) -> Unit = { _, _ -> },
+    /** DOWN 时启动“菜单前快照”；默认空实现，保持纯状态机可测。 */
+    private val onPreCapture: (x: Int, y: Int, downAtMs: Long) -> Unit = { _, _, _ -> },
+    /** 会话作废/松手时丢弃快照。 */
+    private val onPreCaptureCancel: () -> Unit = {},
 ) {
 
     private var pending: Cancelable? = null
@@ -93,6 +97,7 @@ class GlobalLongPressTrigger(
         anchorX = point.x
         anchorY = point.y
         downAt = now()
+        onPreCapture(anchorX.toInt(), anchorY.toInt(), downAt)
         delayMs = snapshot.longPressDelayMs.toLong().coerceAtLeast(0L)
         slopPx = snapshot.slopDp * hunoia.luno.bridge.ui.DensityProvider.density
         dragStartTimeoutMs = snapshot.dragStartTimeoutMs.toLong().coerceAtLeast(0L)
@@ -162,6 +167,7 @@ class GlobalLongPressTrigger(
         hypot((point.x - anchorX).toDouble(), (point.y - anchorY).toDouble())
 
     private fun reset() {
+        onPreCaptureCancel()
         pending?.cancel()
         pending = null
         dragWindow?.cancel()
