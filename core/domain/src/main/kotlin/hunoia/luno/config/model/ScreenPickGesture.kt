@@ -9,10 +9,8 @@ import kotlinx.serialization.Serializable
  * - [enabled]：是否在全屏任意位置监听长按。复用 ADR-0003 的内核触摸流
  *   （[hunoia.luno.gesture.touchsource.ShizukuTouchInputSource]），因此需要 Shizuku；
  *   默认关闭，用户显式打开才启动这条常驻读取（无事件不做功）。
- * - [longPressDelayMs] / [slopDp]：按住 ≥ 阈值且位移 < slop 才算“长按”，
- *   位移超 slop 视为拖动（交给触钮手势 / 底层应用），不算识屏。
- * - [dragStartTimeoutMs]：长按达到后等待拖动的时间窗口；窗口内拖动超过 [slopDp] 才触发，
- *   没拖动则本次长按作废；0 = 长按即触发。
+ * - [longPressDelayMs] / [slopDp]：按住 ≥ 阈值即触发；长按前位移超 slop 视为滚动，本次作废。
+ * - [dragStartTimeoutMs]：已废弃，仅为兼容旧配置保留；长按触发不再等待拖动。
  * - [triggerCooldownMs]：两次长按触发之间的最小间隔，防误触发连着弹卡。
  * - [keepAfterRelease]：抬手后不收起幽灵卡；再按住可拖动，长按其他位置另选。
  * - [ocrEnabled]：框选后的动作菜单是否显示 OCR；长按取词不再触发 OCR。

@@ -133,8 +133,8 @@ object PortalLayout {
             -cardWidthPx / 2f,
             screenWidth - cardWidthPx / 2f,
         )
-        val above = finger.y - gapPx - estimatedCard
-        val cardY = (if (above > 0f) above else finger.y + gapPx)
+        // 幽灵卡中心在手指下方：卡片顶边从手指下方一个 gap 开始。
+        val cardY = (finger.y + gapPx)
             .coerceIn(0f, (screenHeight - estimatedCard).coerceAtLeast(0f))
         return Rect(cardX, cardY, cardX + cardWidthPx, cardY + estimatedCard)
     }

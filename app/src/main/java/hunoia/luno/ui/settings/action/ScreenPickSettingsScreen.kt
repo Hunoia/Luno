@@ -57,21 +57,21 @@ fun ScreenPickSettingsScreen(
                 subtitle = stringResource(R.string.screen_pick_global_long_press_hint),
                 checked = screenPick.enabled,
                 onCheckedChange = { checked -> commit(screenPick.copy(enabled = checked)) },
-                shape = segmentedShape(0, 6),
+                shape = segmentedShape(0, 5),
             )
             LunoSwitchRow(
                 title = stringResource(R.string.screen_pick_keep_after_release),
                 subtitle = stringResource(R.string.screen_pick_keep_after_release_hint),
                 checked = screenPick.keepAfterRelease,
                 onCheckedChange = { checked -> commit(screenPick.copy(keepAfterRelease = checked)) },
-                shape = segmentedShape(1, 6),
+                shape = segmentedShape(1, 5),
             )
             ScreenPickSlider(
                 value = screenPick.longPressDelayMs.toFloat(),
                 range = 200f..1_000f,
                 text = stringResource(R.string.screen_pick_long_press_delay),
                 display = { stringResource(R.string.screen_pick_long_press_delay_value, it.roundToInt()) },
-                shape = segmentedShape(2, 6),
+                shape = segmentedShape(2, 5),
                 onCommit = { commit(screenPick.copy(longPressDelayMs = it.roundToInt())) },
             )
             ScreenPickSlider(
@@ -79,29 +79,15 @@ fun ScreenPickSettingsScreen(
                 range = 2f..40f,
                 text = stringResource(R.string.screen_pick_slop),
                 display = { stringResource(R.string.screen_pick_slop_value, it.roundToInt()) },
-                shape = segmentedShape(3, 6),
+                shape = segmentedShape(3, 5),
                 onCommit = { commit(screenPick.copy(slopDp = it.roundToInt().toFloat())) },
-            )
-            ScreenPickSlider(
-                value = screenPick.dragStartTimeoutMs.toFloat(),
-                range = 0f..5_000f,
-                text = stringResource(R.string.screen_pick_drag_start_timeout),
-                display = {
-                    if (it.roundToInt() <= 0) {
-                        stringResource(R.string.screen_pick_drag_start_timeout_off)
-                    } else {
-                        stringResource(R.string.screen_pick_drag_start_timeout_value, it.roundToInt())
-                    }
-                },
-                shape = segmentedShape(4, 6),
-                onCommit = { commit(screenPick.copy(dragStartTimeoutMs = it.roundToInt())) },
             )
             ScreenPickSlider(
                 value = screenPick.triggerCooldownMs.toFloat(),
                 range = 0f..3_000f,
                 text = stringResource(R.string.screen_pick_trigger_interval),
                 display = { stringResource(R.string.screen_pick_trigger_interval_value, it.roundToInt()) },
-                shape = segmentedShape(5, 6),
+                shape = segmentedShape(4, 5),
                 onCommit = { commit(screenPick.copy(triggerCooldownMs = it.roundToInt())) },
             )
         }

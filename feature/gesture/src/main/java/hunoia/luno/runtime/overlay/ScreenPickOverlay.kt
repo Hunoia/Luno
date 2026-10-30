@@ -131,7 +131,7 @@ private data class PortalState(
 private enum class PickSelectionAction { Ocr, Copy, Search, Share, Save }
 
 /** 缓存目录保留的识屏分享图数量。 */
-private const val CACHE_KEEP_FILES = 20
+private const val CACHE_KEEP_FILES = 5
 
 /**
  * 屏幕内容识别拾取层（动作 accessibility.screenPick）：全屏透明 a11y 窗。
@@ -305,7 +305,6 @@ class ScreenPickOverlay(
                     onPortalStart = ::beginPortalAtView,
                     onPortalMove = ::movePortalAtView,
                     onPortalAction = ::onPortalAction,
-                    onClear = ::clearPortal,
                     ocrPanel = ocrPanelText?.let {
                         OcrPanelState(text = it, loading = ocrPanelLoading)
                     },
@@ -331,6 +330,8 @@ class ScreenPickOverlay(
                 ?.bottom
         }.getOrNull() ?: 0
         hunoia.luno.runtime.surface.SurfaceController.register(this)
+        // 识屏分享图缓存只留最近几张；顺手清掉历史遗留的大缓存。
+        host.coroutineScope.launch(Dispatchers.IO) { cleanScreenPickCache() }
         startLockWatch()
         composeView.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ -> updateOrigin(v) }
         composeView.post { correctWindowOriginOnce(composeView) }
@@ -387,15 +388,6 @@ class ScreenPickOverlay(
      */
     fun releasePortal(x: Int, y: Int, keepOnMiss: Boolean = false) {
         // 保留卡片；动作由 PortalLayer 的动作槽点击执行。
-    }
-
-    /** 点击空白：清空卡片/框选/OCR 面板，但保留识屏层。 */
-    fun clearPortal() {
-        portalJob?.cancel()
-        portalJob = null
-        cancelPortal()
-        textSnapshot = null
-        closeOcrPanel()
     }
 
     /** 点击底部动作槽：立即执行，不要求先把卡片拖过去。 */
@@ -1112,12 +1104,7 @@ class ScreenPickOverlay(
     private fun saveImageToCache(bitmap: Bitmap): Uri? = runCatching {
         val context = host.context
         val dir = File(context.cacheDir, "screen_pick").apply { mkdirs() }
-        runCatching {
-            dir.listFiles()
-                ?.sortedByDescending { it.lastModified() }
-                ?.drop(CACHE_KEEP_FILES)
-                ?.forEach { it.delete() }
-        }
+        cleanScreenPickCache(dir)
         val file = File(dir, "screen_pick_${System.currentTimeMillis()}.png")
         file.outputStream().use { out ->
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
@@ -1126,6 +1113,19 @@ class ScreenPickOverlay(
     }.onFailure {
         Log.e(LOG_TAG, "screen pick: save cache image failed: ${it.message}")
     }.getOrNull()
+
+    /** 清理识屏分享图缓存，只保留最近 [CACHE_KEEP_FILES] 张。 */
+    private fun cleanScreenPickCache(
+        dir: File = File(host.context.cacheDir, "screen_pick"),
+    ) {
+        runCatching {
+            if (!dir.isDirectory) return
+            dir.listFiles()
+                ?.sortedByDescending { it.lastModified() }
+                ?.drop(CACHE_KEEP_FILES)
+                ?.forEach { it.delete() }
+        }
+    }
 
     // ---- 截屏 ----
 
@@ -1360,7 +1360,6 @@ private fun ScreenPickScreen(
     onPortalStart: (Offset) -> Unit,
     onPortalMove: (Offset) -> Unit,
     onPortalAction: (PortalAction) -> Unit,
-    onClear: () -> Unit,
     ocrPanel: OcrPanelState?,
     onOcrTextChange: (String) -> Unit,
     onOcrAction: (OcrPanelAction) -> Unit,
@@ -1422,8 +1421,9 @@ private fun ScreenPickScreen(
                                 if (moved) onPortalMove(change.position)
                             }
                         } finally {
-                            // 卡片保持在最后位置；不执行动作、不退出识屏层。
+                            // 卡片拖动后保持在最后位置；未移动的轻点视为取消并退出。
                         }
+                        if (!moved) onDismiss()
                         return@awaitEachGesture
                     }
 
@@ -1484,19 +1484,19 @@ private fun ScreenPickScreen(
                             ) {
                                 adjustRect = rect
                             } else {
-                                onClear()
+                                onDismiss()
                             }
                         } else {
-                            // 轻点空白：清空幽灵卡 + 框选 + OCR 面板，但保留识屏层。
+                            // 轻点空白：取消本次取词并退出识屏层；层内长按仍走重新取词。
                             selecting = false
                             dragRect = null
                             adjustRect = null
-                            onClear()
+                            onDismiss()
                         }
                         return@awaitEachGesture
                     }
 
-                    // 无幽灵卡：拖动=框选；长按后拖动=出幽灵卡；轻点无操作。
+                    // 无幽灵卡：拖动=框选；长按=出幽灵卡；轻点=退出。
                     val initial = adjustRect
                     val handle = initial?.handleAt(start, handleHitPx)
                     var resizing: SelHandle? = handle
@@ -1602,9 +1602,9 @@ private fun ScreenPickScreen(
                             rect.width >= minSizePx && rect.height >= minSizePx
                         ) {
                             adjustRect = rect
-                        } else if (!moved && adjustRect != null) {
-                            // 点选框外空白：只清选框，保留识屏层。
-                            adjustRect = null
+                        } else if (!moved) {
+                            // 轻点：取消并退出识屏层。
+                            onDismiss()
                         }
                     }
                 }
