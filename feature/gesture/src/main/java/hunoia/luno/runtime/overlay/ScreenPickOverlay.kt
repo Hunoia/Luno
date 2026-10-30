@@ -479,6 +479,15 @@ class ScreenPickOverlay(
                 AndroidRect(b.left, b.top, b.right, b.bottom),
             )
         }
+        // 布局兜底：空白处（无文字叶子、无图片节点）取按下点所在的最小可视节点 bounds，
+        // 走图片卡路径（截图裁剪出预览 + 复制/分享/保存）。
+        snapshot.layoutAt(x, y, tolerance)?.let { rect ->
+            return NodeHit(
+                null,
+                AndroidRect(rect.left, rect.top, rect.right, rect.bottom),
+                AndroidRect(rect.left, rect.top, rect.right, rect.bottom),
+            )
+        }
         return null
     }
 

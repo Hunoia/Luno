@@ -80,6 +80,7 @@ class A11yTextSnapshotReader(
 
         val leaves = ArrayList<TextLeaf>()
         val images = ArrayList<ImageLeaf>()
+        val layoutRects = ArrayList<SnapshotRect>()
         val visited = IntRef()
         var complete = true
         val occluders = ArrayList<SnapshotRect>()
@@ -110,6 +111,7 @@ class A11yTextSnapshotReader(
                 visited = visited,
                 leaves = leaves,
                 images = images,
+                layoutRects = layoutRects,
                 occluders = occluders,
             )
             if (timedOut) {
@@ -126,12 +128,21 @@ class A11yTextSnapshotReader(
         // 框选裁字在无字符坐标时走相交比例回退，仍然可用。
         fillCharBounds(leaves, downX, downY, deadline + CHAR_BUDGET_MS)
 
+        // 布局兜底：按下点所在的可视节点 bounds（含容器），按面积升序去重。
+        // 文字/图片都没命中时，取最小的那个裁截图出图片卡，空白处不再是“无内容”。
+        val layouts = layoutRects
+            .filter { it.contains(downX, downY) }
+            .distinct()
+            .sortedBy { it.area }
+            .take(32)
+
         val deduped = TextSnapshotOps.dedupeAndOrder(leaves)
         val snapshot = TextSnapshot(
             leaves = deduped,
             images = images.sortedBy { it.bounds.top / 16 }.distinctBy {
                 "${it.bounds.left},${it.bounds.top},${it.bounds.right},${it.bounds.bottom}"
             },
+            layouts = layouts,
             capturedAtMs = startedAtMs,
             targetPackage = targetPackage,
             targetWindowIds = targetIds,
@@ -182,6 +193,7 @@ class A11yTextSnapshotReader(
         visited: IntRef,
         leaves: MutableList<TextLeaf>,
         images: MutableList<ImageLeaf>,
+        layoutRects: MutableList<SnapshotRect>,
         occluders: List<SnapshotRect>,
     ): Boolean {
         if (depth > MAX_DEPTH) return false
@@ -206,6 +218,8 @@ class A11yTextSnapshotReader(
                     bounds.right <= cover.right && bounds.bottom <= cover.bottom
             }
             if (!fullyCovered) {
+                // 所有可视节点都记录布局 bounds（按下点命中的候选，供空白处截屏兜底）。
+                layoutRects += bounds
                 // 图片类节点一律按图片处理（长按取词只出图片卡，不把 alt/标签当文字）；
                 // 普通节点 text 为空时回退 contentDescription。
                 if (classLikeImage) {
@@ -253,6 +267,7 @@ class A11yTextSnapshotReader(
                 visited = visited,
                 leaves = leaves,
                 images = images,
+                layoutRects = layoutRects,
                 occluders = occluders,
             )
             if (timedOut) return true

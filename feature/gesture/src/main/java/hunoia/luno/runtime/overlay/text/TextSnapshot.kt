@@ -81,6 +81,8 @@ data class ImageLeaf(
 data class TextSnapshot(
     val leaves: List<TextLeaf> = emptyList(),
     val images: List<ImageLeaf> = emptyList(),
+    /** 按下点所在的可视节点 bounds（含容器），按面积升序；空白无字时的布局兜底用。 */
+    val layouts: List<SnapshotRect> = emptyList(),
     val capturedAtMs: Long = 0L,
     val targetPackage: String = "",
     val targetWindowIds: Set<Int> = emptySet(),
@@ -93,6 +95,12 @@ data class TextSnapshot(
         images
             .filter { it.bounds.contains(x, y, tolerance) }
             .minByOrNull { it.bounds.area }
+
+    /** 按下点所在的最小可视节点 bounds；无则 null（空白处按布局截屏兜底用）。 */
+    fun layoutAt(x: Int, y: Int, tolerance: Int = 0): SnapshotRect? =
+        layouts
+            .filter { it.contains(x, y, tolerance) }
+            .minByOrNull { it.area }
 
     companion object {
         val Empty = TextSnapshot()

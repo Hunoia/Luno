@@ -142,6 +142,20 @@ class TextSnapshotOpsTest {
         assertEquals(small, snapshot.imageAt(45, 45))
     }
 
+    /** 布局兜底：layouts 按面积升序，返回按下点所在的最小节点 bounds；可带容差。 */
+    @Test
+    fun `layoutAt returns the first layout rect under the point`() {
+        val big = SnapshotRect(0, 0, 1000, 2000)
+        val mid = SnapshotRect(100, 100, 900, 800)
+        val snapshot = TextSnapshot(layouts = listOf(big, mid))
+
+        assertSame(mid, snapshot.layoutAt(500, 500))
+        assertSame(big, snapshot.layoutAt(50, 50))
+        assertNull(snapshot.layoutAt(1200, 2500))
+        // 容差：落在 mid 外 4px 内时仍命中（与文字命中同容差口径）。
+        assertSame(mid, snapshot.layoutAt(904, 500, tolerance = 8))
+    }
+
     @Test
     fun `empty snapshot has no content`() {
         assertTrue(TextSnapshot.Empty.isEmpty)

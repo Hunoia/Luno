@@ -300,9 +300,12 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             val sb = StringBuilder(
                 "probe@($x,$y): leaves=${snapshot.leaves.size} " +
                     "charLeaves=${snapshot.leaves.count { it.hasCharGeometry }} " +
-                    "images=${snapshot.images.size} complete=${snapshot.complete} " +
+                    "images=${snapshot.images.size} layouts=${snapshot.layouts.size} complete=${snapshot.complete} " +
                     "pkg=${snapshot.targetPackage} hit=${hit?.text?.take(40)}",
             )
+            snapshot.layouts.take(3).forEach { rect ->
+                sb.append("\n  lay ").append(rect)
+            }
             snapshot.leaves.forEach { leaf ->
                 sb.append("\n  leaf ").append(leaf.bounds).append(" cd=").append(leaf.fromContentDescription)
                     .append(' ').append(leaf.text.take(30))
