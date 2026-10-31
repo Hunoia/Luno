@@ -1,7 +1,9 @@
 package hunoia.luno.gesture.touchsource
 
+import android.os.SystemClock
 import android.view.MotionEvent
 import androidx.compose.ui.geometry.Offset
+import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.gesture.MotionEventDispatcher
 import hunoia.luno.gesture.OnMotionEventListener
@@ -18,11 +20,14 @@ data class TouchInputLayout(
     val buttons: List<GestureButton> = emptyList(),
     val shizukuStreaming: Boolean = false,
     val imePadding: Int = 0,
+    private val screenWidth: Int = DensityProvider.screenWidthPx,
+    private val screenHeight: Int = DensityProvider.screenHeightPx,
+    private val density: Float = DensityProvider.density,
 ) {
     // 逐帧都会问几何（全局长按监听 / 每帧 MOVE），但按钮与拦截宽度只在配置变化时变。
     // 按实例缓存，命中同一份快照时不再重算矩形列表。
     private val buttonRectsCache by lazy(LazyThreadSafetyMode.NONE) {
-        TouchInputGeometry.buttonRects(buttons, imePadding)
+        TouchInputGeometry.buttonRects(buttons, imePadding, screenWidth, screenHeight, density)
     }
     private val interceptRegionsCache by lazy(LazyThreadSafetyMode.NONE) {
         val shizukuIds = buttons
@@ -36,7 +41,16 @@ data class TouchInputLayout(
 
     fun buttonRects(): List<TouchButtonRect> = buttonRectsCache
 
-    /** 只有当内核触摸流在跑时才存在拦截区；否则没有像素需要被“吃掉”。 */
+    /**
+     * 拦截窗**要摆**的几何：不受 [shizukuStreaming] 门控。
+     *
+     * 摆放窗口不能用 [interceptRegions]：那个函数按“拦截窗已生效”过滤，而该标志的唯一来源
+     * 正是“窗口是否摆上去了”。拿它当摆放输入会死锁——窗永远建不出来，内核触摸流永远拿不到
+     * 辖区，触钮只能靠无障碍按钮窗硬扛系统边缘手势（表现就是边缘滑动时灵时不灵）。
+     */
+    fun desiredInterceptRegions(): List<InterceptRegion> = interceptRegionsCache
+
+    /** 只有当内核触摸流在跑且拦截窗已生效时才存在拦截区；否则没有像素需要被“吃掉”。 */
     fun interceptRegions(): List<InterceptRegion> =
         if (shizukuStreaming) interceptRegionsCache else emptyList()
 }
@@ -54,10 +68,15 @@ data class TouchInputLayout(
 class TouchInputRouter(
     private val pipeline: GestureSessionPipeline,
     private val layoutProvider: () -> TouchInputLayout,
+    private val timeProvider: () -> Long = SystemClock::uptimeMillis,
 ) {
 
     @Volatile
     private var activeSource: TouchSourceKind? = null
+
+    /** 上一次会话事件的时间：判定旧会话是否已经失联（UP/CANCEL 丢失）。 */
+    @Volatile
+    private var lastEventAtMs: Long = 0L
 
     val currentSource: TouchSourceKind? get() = activeSource
 
@@ -87,37 +106,58 @@ class TouchInputRouter(
         point: Offset,
         hint: TouchWindowHint? = null,
     ): Boolean {
-        if (activeSource != null) return false
         val accepted = when (kind) {
             TouchSourceKind.WINDOW -> acceptsWindow(point, hint)
             TouchSourceKind.SHIZUKU -> acceptsShizuku(point) != null
         }
         if (!accepted) return false
+        if (activeSource != null) {
+            // 会话保活：UP/CANCEL 一旦丢失（按钮窗被摘、系统边缘手势吞掉抬手），activeSource
+            // 会永久卡住，之后每一次按下都被当成“会话进行中”丢弃 —— 表现是触钮彻底失效，
+            // 只有重启总开关（stop() → reset()）才恢复。超过阈值即按旧会话已死处理。
+            if (timeProvider() - lastEventAtMs <= SESSION_STALE_MS) return false
+            reset()
+        }
         activeSource = kind
+        lastEventAtMs = timeProvider()
         pipeline.onDown(point, hint)
         return true
     }
 
     fun onMove(delta: Offset) {
         if (activeSource == null) return
+        lastEventAtMs = timeProvider()
         pipeline.onMove(delta)
     }
 
     fun onUp() {
         if (activeSource == null) return
         activeSource = null
+        lastEventAtMs = 0L
         pipeline.onUp()
     }
 
     fun onCancel() {
         if (activeSource == null) return
         activeSource = null
+        lastEventAtMs = 0L
         pipeline.onCancel()
     }
 
-    /** 会话被打断（输入源重启、配置换基线）：强制复位，避免下一次 DOWN 被旧会话挡住。 */
+    /**
+     * 会话被打断（输入源重启、配置换基线、旧会话失联）：复位仲裁并让管线收尾。
+     * 只清 activeSource 会把半截会话留在管线里（长按 job 到点仍会触发动作），所以一并取消。
+     */
     fun reset() {
+        if (activeSource == null) return
         activeSource = null
+        lastEventAtMs = 0L
+        pipeline.onCancel()
+    }
+
+    private companion object {
+        /** 超过此时长没有任何会话事件，判定旧会话的 UP/CANCEL 已丢失。 */
+        const val SESSION_STALE_MS = 10_000L
     }
 }
 

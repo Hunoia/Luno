@@ -998,8 +998,9 @@ class GestureCoordinator(
 
     private val touchInputRouter: hunoia.luno.gesture.touchsource.TouchInputRouter
         get() = touchInputRouterRef ?: hunoia.luno.gesture.touchsource.TouchInputRouter(
-            gesturePipeline,
-        ) { touchInputLayout() }.also { touchInputRouterRef = it }
+            pipeline = gesturePipeline,
+            layoutProvider = { touchInputLayout() },
+        ).also { touchInputRouterRef = it }
 
     private var motionEventInputRef: hunoia.luno.gesture.touchsource.MotionEventInputSource? = null
 
@@ -1680,6 +1681,13 @@ class GestureCoordinator(
     }
 
     fun onConfigurationChanged(newConfig: Configuration) {
+        // 屏幕尺寸 / 密度变了：触摸几何缓存必须作废，否则拦截窗与判定还停在旧坐标系
+        //（旋转后触钮在左边、拦截区还在原来的位置）。放到下一轮主线程：等
+        // DensityProvider 的配置回调先把尺寸缓存清掉，再按新尺寸重算。
+        mainHandler.post {
+            cachedTouchInputLayout = null
+            shizukuTouchInputRef?.refreshGeometry()
+        }
         val oldOrientation = environmentTracker.orientation
         if (oldOrientation != newConfig.orientation) {
             if (BuildConfig.DEBUG) Log.i(LOG_TAG, "orientation=${newConfig.orientation}")

@@ -285,10 +285,13 @@ class ShizukuTouchInputSource(
     /**
      * 重建拦截窗。只吃「这一按钮配了 Shizuku 来源」的那块，宽度按该按钮自己的设置。
      * 配置每次发射都会走到这里，所以相同几何直接跳过，避免窗口抖动。
+     *
+     * 几何取 [TouchInputLayout.desiredInterceptRegions]：不能用 `interceptRegions`，
+     * 那个函数按“拦截窗已生效”过滤，而本方法正是它的前置。
      */
     private fun applyWindows(force: Boolean = false) {
         if (!isRunning) return
-        val next = layoutProvider().interceptRegions()
+        val next = layoutProvider().desiredInterceptRegions()
         if (!force && next == appliedRegions && windows.isShowing == next.isNotEmpty()) {
             syncIntercepting()
             return
