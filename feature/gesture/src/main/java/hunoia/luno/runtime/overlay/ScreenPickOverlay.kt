@@ -2,17 +2,14 @@ package hunoia.luno.runtime.overlay
 
 import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
-import android.content.ContentValues
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.graphics.Rect as AndroidRect
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
 import android.os.Handler
 import android.os.Looper
-import android.provider.MediaStore
 import android.util.Log
 import android.view.Display
 import android.view.Gravity
@@ -63,9 +60,9 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
 import hunoia.luno.gesture.R
 import hunoia.luno.gesture.BuildConfig
+import hunoia.luno.bridge.system.ImageOutput
 import hunoia.luno.bridge.system.copyImage
 import hunoia.luno.bridge.system.copyText
 import hunoia.luno.bridge.ui.DensityProvider
@@ -128,8 +125,8 @@ private data class PortalState(
 /** 框选动作条的动作（关闭走 onDismiss，不在此枚举）。 */
 private enum class PickSelectionAction { Ocr, Copy, Search, Share, Save }
 
-/** 缓存目录保留的识屏分享图数量。 */
-private const val CACHE_KEEP_FILES = 5
+/** 结果页「图片」视图的裁剪图长边上限：够看清内容，又不至于把几十 MB 位图塞进进程。 */
+private const val RESULT_IMAGE_MAX_PX = 1600
 
 /**
  * 屏幕内容识别拾取层（动作 accessibility.screenPick）：全屏透明 a11y 窗。
@@ -143,8 +140,9 @@ class ScreenPickOverlay(
     private val ocrEngine: OcrEngine,
     /** 幽灵卡「搜索」的落点（`:app` 注入快速搜索，本模块不依赖 `:feature:quicklaunch`）。 */
     private val onSearch: (String) -> Boolean = { false },
-    /** 框选 OCR 完成后的结果页落点（`:app` 注入）；返回 true = 已接管，浮层关闭。 */
-    private val onOcrResult: (String) -> Boolean = { false },
+    /** 结果页落点（`:app` 注入）：OCR 文本 + a11y 文本 + 裁剪图；true = 已接管，浮层关闭。 */
+    private val onOcrResult: (ocr: String, a11y: String?, image: Bitmap?) -> Boolean =
+        { _, _, _ -> false },
     /** 幽灵卡「打开链接」的落点（`:app` 注入链接分发，本模块不依赖链接分发实现）。 */
     private val onOpenLink: suspend (String) -> Boolean = { false },
     /** 长按/拖动参数：`:app` 注入运行时配置，保证与全屏长按使用同一套阈值。 */
@@ -196,11 +194,6 @@ class ScreenPickOverlay(
     /** 长按按下时抓的 a11y 快照；框选按它裁字，避免应用菜单/后续变化污染。 */
     private var textSnapshot: TextSnapshot? = null
 
-    /** 框选 OCR 结果面板；非 null 表示面板在屏。 */
-    private var ocrPanelText by mutableStateOf<String?>(null)
-    private var ocrPanelLoading by mutableStateOf(false)
-    private var ocrPanelRect: AndroidRect? = null
-    private var ocrPanelSession = 0
     /** 本次截图对应的屏幕区域：窗口截图时不是整屏（0,0 起），裁剪要先减原点再按区域缩放。 */
     private var captureOriginX = 0
     private var captureOriginY = 0
@@ -300,11 +293,6 @@ class ScreenPickOverlay(
                     onPortalMove = ::movePortalAtView,
                     onPortalAction = ::onPortalAction,
                     onFrameSelectStart = ::dismissPortal,
-                    ocrPanel = ocrPanelText?.let {
-                        OcrPanelState(text = it, loading = ocrPanelLoading)
-                    },
-                    onOcrTextChange = ::onOcrTextChange,
-                    onOcrAction = ::onOcrAction,
                     onDismiss = ::close,
                 )
             }
@@ -319,7 +307,9 @@ class ScreenPickOverlay(
         overlayView = composeView
         hunoia.luno.runtime.surface.SurfaceController.register(this)
         // 识屏分享图缓存只留最近几张；顺手清掉历史遗留的大缓存。
-        host.coroutineScope.launch(Dispatchers.IO) { cleanScreenPickCache() }
+        host.coroutineScope.launch(Dispatchers.IO) {
+            ImageOutput.cleanCache(File(host.context.cacheDir, "screen_pick"))
+        }
         startLockWatch()
         composeView.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ -> updateOrigin(v) }
         composeView.post { correctWindowOriginOnce(composeView) }
@@ -381,11 +371,15 @@ class ScreenPickOverlay(
         // 保留卡片；动作由卡片底部按钮点击执行。
     }
 
-    /** 点击底部动作槽：立即执行，执行后关层（无例外）。 */
+    /** 点击底部动作槽：立即执行，执行后关层（OCR 例外：识别并交接后再关）。 */
     private fun onPortalAction(action: PortalAction) {
         if (portalResolving) return
         val content = portalContent
         val imageBounds = portalImageBounds
+        if (action == PortalAction.Ocr) {
+            openOcrResultForPortal(content)
+            return
+        }
         // 动作以参数捕获内容/截图，不依赖卡片状态；关层后后台仍能继续落盘/分享。
         val captureForAction = if (content.imageSize != null) currentCapture() else null
         // 关层会回收截图；图片动作异步在跑，先把 saving 置位让它拿走这张位图
@@ -449,7 +443,7 @@ class ScreenPickOverlay(
             val imageBounds = hit?.imageBounds
             portalImageBounds = imageBounds
             refreshPortalPreview()
-            applyPortalText(hit?.text, imageBounds)
+            applyPortalText(hit?.text, imageBounds, hit?.fallbackBounds ?: imageBounds)
             // 图片/布局命中只出纯图片卡（W×H + 复制/分享/保存），不再回退 OCR：
             // 整屏图跑 OCR 耗时且独占引擎，还会把无关 UI 文字混进卡片。
         }
@@ -477,7 +471,18 @@ class ScreenPickOverlay(
                 AndroidRect(imageBounds.left, imageBounds.top, imageBounds.right, imageBounds.bottom),
             )
         }
-        if (text != null) return NodeHit(text, null, null)
+        if (text != null) {
+            return NodeHit(
+                text,
+                null,
+                AndroidRect(
+                    leaf.bounds.left,
+                    leaf.bounds.top,
+                    leaf.bounds.right,
+                    leaf.bounds.bottom,
+                ),
+            )
+        }
         if (image != null) {
             val b = image.bounds
             return NodeHit(
@@ -499,10 +504,15 @@ class ScreenPickOverlay(
     }
 
     /** 统一回填幽灵卡内容：文本与图片可并存（图片节点 OCR 出文字时两者都有）。 */
-    private fun applyPortalText(text: String?, imageBounds: AndroidRect?) {
+    private fun applyPortalText(
+        text: String?,
+        imageBounds: AndroidRect?,
+        nodeBounds: AndroidRect? = null,
+    ) {
         portalContent = PortalContent(
             text = text,
             imageSize = imageBounds?.let { it.width() to it.height() },
+            nodeBounds = nodeBounds,
             url = text?.let {
                 runCatching { hunoia.luno.link.LinkUrls.extractUrls(it, allowBareDomains = true) }
                     .getOrNull()
@@ -739,6 +749,8 @@ class ScreenPickOverlay(
                             !onOpenLink(url) -> showToast(R.string.screen_pick_failed)
                         }
                     }
+                    // OCR 要先识别再关层，走 openOcrResultForPortal，不在这个分支里。
+                    PortalAction.Ocr -> Unit
                 }
         }
     }
@@ -762,7 +774,6 @@ class ScreenPickOverlay(
         session++
         portalSession++
         resolvingAction = false
-        closeOcrPanel()
         cancelPortal()
         textSnapshot = null
         if (!captureSignal.isCompleted) captureSignal.complete(Unit)
@@ -953,101 +964,107 @@ class ScreenPickOverlay(
         }
     }
 
-    /** 框选菜单点 OCR：优先交给结果页 Activity，失败才回退可编辑浮层。 */
-    private fun openOcrPanel(rect: AndroidRect) {
-        ocrPanelRect = rect
-        ocrPanelText = ""
-        ocrPanelLoading = true
-        // 先不抢焦点：结果页 Activity 自己处理 IME；只有回退到浮层时才需要可获焦。
+    /**
+     * 幽灵卡「OCR」：对命中的 a11y 节点 bounds 跑 OCR，再把
+     * 「OCR 文本 + 节点 a11y 文本 + 裁剪图」一起交给结果页。
+     *
+     * 不立即关层：识别要用本次截屏，关层会回收位图。识别完再交接并关层。
+     */
+    private fun openOcrResultForPortal(content: PortalContent) {
+        val rect = content.nodeBounds
+        if (rect == null) {
+            showToast(R.string.screen_pick_no_content)
+            return
+        }
         val token = session
-        val panelToken = ++ocrPanelSession
+        val pickToken = portalSession
         host.coroutineScope.launch {
-            val text = ocrTextIn(session, portalSession, rect)
-            if (token != session || panelToken != ocrPanelSession) return@launch
-            ocrPanelLoading = false
-            when {
-                text.isNullOrBlank() -> {
-                    ocrPanelText = ""
-                    setWindowFocusable(true)
-                    showToast(R.string.screen_pick_no_content)
-                }
-                runCatching { onOcrResult(text) }.getOrDefault(false) -> close()
-                else -> {
-                    ocrPanelText = text
-                    setWindowFocusable(true)
-                }
+            val ocr = ocrTextIn(token, pickToken, rect)
+            val a11y = content.text
+            val image = croppedForResult(rect)
+            if (token != session) {
+                image?.recycle()
+                return@launch
             }
+            if (ocr.isNullOrBlank() && a11y.isNullOrBlank() && image == null) {
+                showToast(R.string.screen_pick_no_content)
+                close()
+                return@launch
+            }
+            val ok = runCatching { onOcrResult(ocr.orEmpty(), a11y, image) }.getOrDefault(false)
+            if (!ok) {
+                image?.recycle()
+                showToast(R.string.screen_pick_failed)
+            }
+            close()
         }
     }
 
-    private fun closeOcrPanel() {
-        if (ocrPanelText == null && !ocrPanelLoading) return
-        ocrPanelSession++
-        ocrPanelText = null
-        ocrPanelLoading = false
-        ocrPanelRect = null
-        setWindowFocusable(false)
-    }
-
-    private fun onOcrTextChange(text: String) {
-        ocrPanelText = text
-    }
-
-    /** OCR 面板按钮：除重试外，执行后一律关层。 */
-    private fun onOcrAction(action: OcrPanelAction) {
-        when (action) {
-            OcrPanelAction.Retry -> ocrPanelRect?.let { openOcrPanel(it) }
-            else -> {
-                when (action) {
-                    OcrPanelAction.Close -> Unit
-                    OcrPanelAction.Copy -> {
-                        val text = ocrPanelText.orEmpty()
-                        if (text.isBlank()) {
-                            showToast(R.string.screen_pick_no_content)
-                        } else {
-                            copyText(host.context, SCREEN_PICK_LABEL, text)
-                            showToast(R.string.quick_search_copied)
-                        }
-                    }
-                    OcrPanelAction.Search -> {
-                        val text = ocrPanelText.orEmpty()
-                        when {
-                            text.isBlank() -> showToast(R.string.screen_pick_no_content)
-                            !onSearch(text) -> showToast(R.string.screen_pick_failed)
-                        }
-                    }
-                    OcrPanelAction.Share -> {
-                        val text = ocrPanelText.orEmpty()
-                        if (text.isBlank()) showToast(R.string.screen_pick_no_content)
-                        else shareText(text)
-                    }
-                    else -> Unit
+    /**
+     * 框选菜单点 OCR：识别完成后交结果页 Activity，附带同一区域的 a11y 文本与裁剪图
+     *（结果页可切「无障碍 / OCR」与「文本 / 图片」）。
+     *
+     * 失败只提示并收层：旧的浮层结果面板已删除，不维护第二条 UI 路径。
+     */
+    private fun openOcrPanel(rect: AndroidRect) {
+        val token = session
+        host.coroutineScope.launch {
+            val text = ocrTextIn(session, portalSession, rect)
+            val a11y = selectionText(rect)
+            val image = croppedForResult(rect)
+            if (token != session) {
+                image?.recycle()
+                return@launch
+            }
+            when {
+                text.isNullOrBlank() && a11y.isNullOrBlank() && image == null -> {
+                    showToast(R.string.screen_pick_no_content)
+                    close()
                 }
-                // 关闭/复制/搜索/分享都关层；toast 在拆窗前发出仍可见。
-                close()
+                runCatching { onOcrResult(text.orEmpty(), a11y, image) }.getOrDefault(false) ->
+                    close()
+                else -> {
+                    image?.recycle()
+                    showToast(R.string.screen_pick_failed)
+                    close()
+                }
             }
         }
     }
 
     /**
-     * OCR 面板要能编辑，识屏窗必须先去掉 `FLAG_NOT_FOCUSABLE` 并允许 IME；
-     * 关面板时恢复成不可获焦，避免影响底层 App 的输入。
+     * 结果页「图片」视图用的裁剪图：与复制/保存同一裁剪口径，长边压到
+     * [RESULT_IMAGE_MAX_PX] 以内，交接给 Activity 后由其回收，避免大图 OOM。
      */
-    private fun setWindowFocusable(focusable: Boolean) {
-        val view = overlayView ?: return
-        val lp = view.layoutParams as? WindowManager.LayoutParams ?: return
-        lp.flags = if (focusable) {
-            lp.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
-        } else {
-            lp.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+    private suspend fun croppedForResult(rect: AndroidRect): Bitmap? {
+        val snapshot = currentCapture() ?: return null
+        val crop = cropRectFor(snapshot, rect) ?: return null
+        saving = true
+        return try {
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    val raw = cropBitmap(snapshot.bitmap, crop)
+                    val longest = maxOf(raw.width, raw.height)
+                    if (longest <= RESULT_IMAGE_MAX_PX) {
+                        raw
+                    } else {
+                        val scale = RESULT_IMAGE_MAX_PX.toFloat() / longest
+                        val scaled = Bitmap.createScaledBitmap(
+                            raw,
+                            (raw.width * scale).roundToInt().coerceAtLeast(1),
+                            (raw.height * scale).roundToInt().coerceAtLeast(1),
+                            true,
+                        )
+                        if (scaled !== raw) raw.recycle()
+                        scaled
+                    }
+                }.onFailure {
+                    Log.e(LOG_TAG, "screen pick: result crop failed: ${it.message}")
+                }.getOrNull()
+            }
+        } finally {
+            saving = false
         }
-        lp.softInputMode = if (focusable) {
-            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or
-                WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE
-        } else {
-            WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
-        }
-        host.context.windowManager().safeUpdateViewLayout(view, lp)
     }
 
     /**
@@ -1089,20 +1106,7 @@ class ScreenPickOverlay(
     }
 
     private fun shareImage(uri: Uri) {
-        val context = host.context
-        val share = Intent(Intent.ACTION_SEND).apply {
-            type = "image/png"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            // 必须同时带 clipData：只给 EXTRA_STREAM 时部分应用拿不到读取授权，
-            // 会把图片当普通文件/附件显示（系统截屏分享走的是带授权的媒体 URI）。
-            clipData = android.content.ClipData.newUri(context.contentResolver, SCREEN_PICK_LABEL, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        val chooser = Intent.createChooser(share, null).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        runCatching { context.startActivity(chooser) }
-            .onFailure { Log.w(LOG_TAG, "screen pick: share chooser failed: ${it.message}") }
+        ImageOutput.share(host.context, uri, SCREEN_PICK_LABEL)
     }
 
     /**
@@ -1155,71 +1159,11 @@ class ScreenPickOverlay(
         }
     }
 
-    /**
-     * 裁剪图写入系统图库（Pictures/Luno），返回 content URI。
-     * 用 MediaStore 而非 FileProvider：接收方/粘贴方按普通图片（带 MIME、可被系统预览）处理，
-     * 不会识别成一个无缩略图的「文件」。
-     */
-    private fun saveImageToGallery(bitmap: Bitmap): Uri? = runCatching {
-        val resolver = host.context.contentResolver
-        val values = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, "screen_pick_${System.currentTimeMillis()}.png")
-            put(MediaStore.Images.Media.MIME_TYPE, "image/png")
-            put(
-                MediaStore.Images.Media.RELATIVE_PATH,
-                "${Environment.DIRECTORY_PICTURES}/Luno",
-            )
-            put(MediaStore.Images.Media.IS_PENDING, 1)
-        }
-        val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-        if (uri == null) {
-            Log.w(LOG_TAG, "screen pick: save image: MediaStore insert failed")
-            return@runCatching null
-        }
-        val written = runCatching {
-            resolver.openOutputStream(uri)?.use { out ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-            } ?: false
-        }.getOrDefault(false)
-        if (!written) {
-            Log.w(LOG_TAG, "screen pick: save image: compress/write failed")
-            runCatching { resolver.delete(uri, null, null) }
-            return@runCatching null
-        }
-        values.clear()
-        values.put(MediaStore.Images.Media.IS_PENDING, 0)
-        resolver.update(uri, values, null, null)
-        uri
-    }.onFailure {
-        Log.e(LOG_TAG, "screen pick: save image failed: ${it.message}")
-    }.getOrNull()
+    private fun saveImageToGallery(bitmap: Bitmap): Uri? =
+        ImageOutput.saveToGallery(host.context, bitmap, prefix = "screen_pick")
 
-    /** 裁剪图写入缓存目录，经 FileProvider 供分享；顺手清理旧文件。 */
-    private fun saveImageToCache(bitmap: Bitmap): Uri? = runCatching {
-        val context = host.context
-        val dir = File(context.cacheDir, "screen_pick").apply { mkdirs() }
-        cleanScreenPickCache(dir)
-        val file = File(dir, "screen_pick_${System.currentTimeMillis()}.png")
-        file.outputStream().use { out ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-        }
-        FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-    }.onFailure {
-        Log.e(LOG_TAG, "screen pick: save cache image failed: ${it.message}")
-    }.getOrNull()
-
-    /** 清理识屏分享图缓存，只保留最近 [CACHE_KEEP_FILES] 张。 */
-    private fun cleanScreenPickCache(
-        dir: File = File(host.context.cacheDir, "screen_pick"),
-    ) {
-        runCatching {
-            if (!dir.isDirectory) return
-            dir.listFiles()
-                ?.sortedByDescending { it.lastModified() }
-                ?.drop(CACHE_KEEP_FILES)
-                ?.forEach { it.delete() }
-        }
-    }
+    private fun saveImageToCache(bitmap: Bitmap): Uri? =
+        ImageOutput.saveToCache(host.context, bitmap, prefix = "screen_pick")
 
     // ---- 截屏 ----
 
@@ -1481,9 +1425,6 @@ private fun ScreenPickScreen(
     onPortalMove: (Offset) -> Unit,
     onPortalAction: (PortalAction) -> Unit,
     onFrameSelectStart: () -> Unit,
-    ocrPanel: OcrPanelState?,
-    onOcrTextChange: (String) -> Unit,
-    onOcrAction: (OcrPanelAction) -> Unit,
     onDismiss: () -> Unit,
 ) {
     // dragRect = 正在画的新框；adjustRect = 已落定、可拖动/缩放、待确认的框。
@@ -1506,8 +1447,7 @@ private fun ScreenPickScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .pointerInput(ocrPanel != null) {
-                if (ocrPanel != null) return@pointerInput
+            .pointerInput(Unit) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     if (down.isConsumed) return@awaitEachGesture
@@ -1802,7 +1742,7 @@ private fun ScreenPickScreen(
             }
         }
         // 框选期间/选区待确认/OCR 面板打开时隐藏幽灵卡；否则显示并跟手。
-        if (portal.anchor != null && !selecting && adjustRect == null && ocrPanel == null) {
+        if (portal.anchor != null && !selecting && adjustRect == null) {
             PortalLayer(
                 finger = (portal.finger ?: portal.anchor).let {
                     Offset(it.x - originX, it.y - originY)
@@ -1817,13 +1757,6 @@ private fun ScreenPickScreen(
                     cardHeightPx = it.height.toFloat()
                 },
                 onAction = onPortalAction,
-            )
-        }
-        ocrPanel?.let { panel ->
-            ScreenOcrPanel(
-                state = panel,
-                onTextChange = onOcrTextChange,
-                onAction = onOcrAction,
             )
         }
     }

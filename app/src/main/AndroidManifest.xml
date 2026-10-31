@@ -171,7 +171,7 @@
             android:windowSoftInputMode="adjustResize" />
 
         <!-- OCR 结果页：与识屏浮窗、OCR 引擎同住 :service，透明 Activity 承载
-             文本选择、IME 与分享；由 ScreenPickOverlay 识别完成后拉起，失败回退旧浮层。 -->
+             选词、编辑、IME 与分享；由 ScreenPickOverlay 识别完成后拉起，拉起失败只提示。 -->
         <activity
             android:name=".ui.ocr.OcrResultActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|density|fontScale|uiMode|layoutDirection|locale"

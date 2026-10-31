@@ -16,7 +16,7 @@ import android.content.Intent
 class OcrResultPreviewReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val text = intent.getStringExtra("text")?.takeIf { it.isNotBlank() } ?: return
-        val session = OcrResultHandoff.put(text)
+        val session = OcrResultHandoff.put(OcrResultPayload(ocrText = text))
         val launch = Intent(context, OcrResultActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             putExtra(OcrResultActivity.EXTRA_SESSION, session)

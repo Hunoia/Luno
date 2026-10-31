@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Search
@@ -46,8 +47,13 @@ import hunoia.luno.ui.theme.MinInteractiveSize
 import java.util.Locale
 import kotlin.math.roundToInt
 
-/** 幽灵卡底部动作槽的动作。动作集按内容类型给：文字不看 [Save]，图片不看 [Search]/[OpenLink]。 */
-enum class PortalAction { Copy, Search, Share, Save, OpenLink }
+/**
+ * 幽灵卡底部动作槽的动作。
+ *
+ * 动作集按内容类型给：文字不看 [Save]，图片不看 [Search]/[OpenLink]；
+ * [Ocr] 只在拿得到 a11y 节点 bounds 时出现（a11y 取不到文本时的兜底取字）。
+ */
+enum class PortalAction { Copy, Search, Share, Save, OpenLink, Ocr }
 
 /** 一次长按识别出的内容：文字节点或图片节点（两者都为空 = 识别中 / 无可取内容）。 */
 internal data class PortalContent(
@@ -57,6 +63,8 @@ internal data class PortalContent(
     val url: String? = null,
     /** 图片节点的缩略图（来自预截图裁剪）；还没裁好时为 null。 */
     val preview: ImageBitmap? = null,
+    /** 命中的 a11y 节点 bounds（屏幕坐标）：OCR 兜底取字的区域。 */
+    val nodeBounds: android.graphics.Rect? = null,
 ) {
     val isImage: Boolean get() = text.isNullOrBlank() && imageSize != null
     val isEmpty: Boolean get() = text.isNullOrBlank() && imageSize == null
@@ -73,6 +81,8 @@ internal fun portalActionsFor(content: PortalContent): List<PortalAction> {
         add(PortalAction.Share)
         if (hasImage) add(PortalAction.Save)
         if (hasText && !content.url.isNullOrBlank()) add(PortalAction.OpenLink)
+        // 有节点 bounds 才给 OCR：没有区域就没法识别，别放一个点了没反应的按钮。
+        if (content.nodeBounds != null) add(PortalAction.Ocr)
     }
 }
 
@@ -105,8 +115,15 @@ object PortalLayout {
         density: Float,
     ): List<Rect> {
         if (count <= 0 || screenWidth <= 0f || screenHeight <= 0f) return emptyList()
-        val slot = SlotDp * density
-        val gap = GapDp * density
+        var slot = SlotDp * density
+        var gap = GapDp * density
+        // 动作多到一行放不下（6 个及以上 + 窄屏）时整体等比缩小，绝不横向溢出屏外。
+        val natural = count * slot + (count - 1) * gap
+        if (natural > screenWidth) {
+            val scale = screenWidth / natural
+            slot *= scale
+            gap *= scale
+        }
         val rowWidth = count * slot + (count - 1) * gap
         val left = ((screenWidth - rowWidth) / 2f).coerceAtLeast(0f)
         val bottom = (screenHeight - insetBottom - BottomMarginDp * density).coerceAtLeast(slot)
@@ -145,6 +162,7 @@ private fun PortalAction.icon(): ImageVector = when (this) {
     PortalAction.Share -> Icons.Default.Share
     PortalAction.Save -> Icons.Default.SaveAlt
     PortalAction.OpenLink -> Icons.Default.OpenInNew
+    PortalAction.Ocr -> Icons.Default.TextFields
 }
 
 @Composable
@@ -155,6 +173,7 @@ private fun PortalAction.label(): String = stringResource(
         PortalAction.Share -> R.string.screen_pick_portal_share
         PortalAction.Save -> R.string.screen_pick_portal_save
         PortalAction.OpenLink -> R.string.screen_pick_portal_open_link
+        PortalAction.Ocr -> R.string.screen_pick_portal_ocr
     },
 )
 
