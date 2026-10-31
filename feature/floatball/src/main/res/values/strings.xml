@@ -1,4 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="clipboard_link_count">%1$d 条</string>
+    <string name="smart_ball_content_desc">智能球</string>
+    <string name="smart_ball_unread">智能球，%1$d 条未读</string>
+    <string name="smart_ball_pinned_only">智能球，已钉住内容</string>
+    <string name="smart_ball_count">%1$d/%2$d</string>
+    <string name="smart_ball_next">下一条，当前第 %1$d 条，共 %2$d 条</string>
+    <string name="smart_ball_link">链接</string>
+    <string name="smart_ball_clipboard">剪贴板</string>
+    <string name="smart_ball_image">图片</string>
+    <string name="smart_ball_pinned">已钉住</string>
+    <string name="smart_ball_share">分享</string>
+    <string name="smart_ball_notification">通知</string>
 </resources>

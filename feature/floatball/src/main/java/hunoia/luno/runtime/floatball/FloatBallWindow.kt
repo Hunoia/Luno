@@ -3,9 +3,12 @@ package hunoia.luno.runtime.floatball
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
+import android.graphics.Color as AndroidColor
+import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewPropertyAnimator
@@ -13,6 +16,8 @@ import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
+import android.widget.FrameLayout
+import android.widget.TextView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -35,6 +40,8 @@ import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
+import hunoia.luno.floatball.R
+import hunoia.luno.runtime.floatball.inbox.BadgeState
 import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.TextIconGlyph
@@ -53,11 +60,19 @@ class FloatBallWindow(
     private val context: android.content.Context,
     /** 抬升量变化回调（含动画逐帧）：服务侧转发给镜像窗，事件路径下镜像也能跟随。 */
     private val onImeLiftChanged: (Float) -> Unit = {},
+    /** 窗口收到 IME insets 事件：服务侧立即轮询一次绝对值（事件值仅作触发信号，不直接采信）。 */
+    private val onImeInsetsHint: () -> Unit = {},
 ) {
     private val wm: WindowManager get() = context.windowManager()
 
     private var view: View? = null
+    private var rootView: FrameLayout? = null
+    private var composeView: ComposeView? = null
+    private var badgeView: TextView? = null
     private var ballPx = 0
+
+    /** 主球关闭但收件箱开启时的迷你形态：40dp、半透明、无静置外移。 */
+    private var miniMode = false
 
     private var settings: FloatBallSettings = FloatBallSettings()
 
@@ -73,6 +88,10 @@ class FloatBallWindow(
             if (!visualSuppressed) applyVisual()
         },
         onDragEnded = { onDragEnded() },
+        onLongPress = {
+            view?.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+            onLongPress?.invoke()
+        },
     )
 
     // ---- 定位 ----
@@ -90,9 +109,6 @@ class FloatBallWindow(
     /** 最近一次上报的键盘底边（px）。拖动中如收起键盘，拖完结算按此值归零。 */
     private var imeBottomPx = 0
 
-    /** 系统是否真的把 IME insets 推给了这个悬浮窗；为 true 时服务侧可停掉轮询。 */
-    private var imeInsetsAvailable = false
-
     /** 系统栏边界（px）。取不到时为 0，夹取退化为全屏。 */
     private var bottomInsetPx = 0
 
@@ -107,6 +123,12 @@ class FloatBallWindow(
     private var pressed = false
     private var idled = false
 
+    /** 气泡在屏期间抑制静置变暗/半出屏，避免气泡锚点与球之间留白。 */
+    private var idleSuppressed = false
+
+    /** 胶囊展开期间球窗整体隐去：胶囊从球的位置原地长出，视觉上仍是同一个物体。 */
+    private var capsuleActive = false
+
     /** 隐藏路径置位：抑制 arbiter.cancel 经 onPressChanged 触发的 applyVisual。 */
     private var visualSuppressed = false
 
@@ -114,6 +136,12 @@ class FloatBallWindow(
 
     /** 抬手点按（未超 touchSlop）。Service 决定派发动作还是开动作面板。 */
     var onTap: (() -> Unit)? = null
+
+    /** 长按（≥500ms 且未移动）：打开 / 展开共享气泡。 */
+    var onLongPress: (() -> Unit)? = null
+
+    /** 开始拖动：服务侧据此立即收起气泡，且本轮不再自动重开。 */
+    var onDragStarted: (() -> Unit)? = null
 
     /** 拖动松手，带归一化 (-[(顶边 x)/W, (顶边 y)/H])。 */
     var onDragFinished: ((Float, Float) -> Unit)? = null
@@ -129,26 +157,127 @@ class FloatBallWindow(
     // ---- 生命周期 ----
 
     fun updateSettings(next: FloatBallSettings) {
-        val sizeChanged = next.sizeDp != settings.sizeDp
+        val oldSize = effectiveSizeDp()
         settings = next
-        if (sizeChanged) {
-            ballPx = DensityProvider.dp2px(next.sizeDp)
+        val newSize = effectiveSizeDp()
+        if (newSize != oldSize) {
+            ballPx = DensityProvider.dp2px(newSize)
             view?.let { lpSize(it) }
             if (view != null) applyWindowBounds()
         }
+        if (miniMode) {
+            cancelIdleTimer()
+            if (idled) {
+                idled = false
+                applyVisual()
+            }
+        }
+    }
+
+    /** 主球关闭但收件箱开启：切到迷你球形态。 */
+    fun setMiniMode(enabled: Boolean) {
+        if (miniMode == enabled) return
+        miniMode = enabled
+        val newSize = effectiveSizeDp()
+        if (view != null) {
+            ballPx = DensityProvider.dp2px(newSize)
+            view?.let(::lpSize)
+            applyWindowBounds()
+        }
+        if (miniMode) {
+            cancelIdleTimer()
+            if (idled) idled = false
+        } else {
+            scheduleIdle()
+        }
+        applyVisual()
+    }
+
+    private fun effectiveSizeDp(): Float =
+        if (miniMode) FloatBallDefaults.MiniBallSizeDp else settings.sizeDp
+
+    /**
+     * 球当前可见矩形（屏幕坐标）。静置半出屏时用平移后的实际可见边，
+     * 气泡据此贴边，不会飘到球和屏幕之间。
+     */
+    internal fun visibleRectOnScreen(): BubbleAnchor? {
+        if (view == null) return null
+        val displayY = max(lpOriginY.toFloat(), posY - imeLiftPx)
+        val shift = if (idled) idleShiftPx() else 0f
+        val left = (posX + shift).roundToInt()
+        val top = displayY.roundToInt()
+        return BubbleAnchor(left, top, left + ballPx, top + ballPx)
+    }
+
+    fun isAttached(): Boolean = view != null
+
+    /** 球上徽标：只在气泡隐藏时显示；[badge] 为 null / 不可见时清空。 */
+    internal fun setBadge(badge: BadgeState?) {
+        val tv = badgeView ?: return
+        if (badge == null || !badge.visible) {
+            tv.visibility = View.GONE
+            view?.contentDescription = context.getString(R.string.smart_ball_content_desc)
+            return
+        }
+        val label = when {
+            badge.showPinOnly -> "📌"
+            else -> badge.countLabel?.let { if (it.length > 2) "99+" else it } ?: "📌"
+        }
+        tv.text = label
+        tv.visibility = View.VISIBLE
+        val description = if (badge.showPinOnly) {
+            context.getString(R.string.smart_ball_pinned_only)
+        } else {
+            context.getString(R.string.smart_ball_unread, badge.unpinnedCount + badge.pinnedCount)
+        }
+        view?.contentDescription = description
+        updateBadgeGravity()
     }
 
     /** 建窗口。false = 没建起来（未授权 / 系统拒绝）。 */
     fun attach(): Boolean {
         if (view != null) return true
-        imeInsetsAvailable = false
-        ballPx = DensityProvider.dp2px(settings.sizeDp)
-        val created = ComposeView(context).apply {
-            setBackgroundColor(android.graphics.Color.TRANSPARENT)
+        ballPx = DensityProvider.dp2px(effectiveSizeDp())
+        val compose = ComposeView(context).apply {
+            setBackgroundColor(AndroidColor.TRANSPARENT)
             FloatBallLifecycleOwner.createAndAttachTo(this)
             setContent { BallContent() }
         }
-        created.setOnTouchListener { _, event ->
+        val badge = TextView(context).apply {
+            setTextColor(AndroidColor.WHITE)
+            textSize = 9f
+            gravity = Gravity.CENTER
+            setPadding(dp(4), 0, dp(4), 0)
+            background = GradientDrawable().apply {
+                cornerRadius = dp(8).toFloat()
+                setColor(0xFFE53935.toInt())
+            }
+            visibility = View.GONE
+            isClickable = false
+            isFocusable = false
+        }
+        val root = FrameLayout(context).apply {
+            setBackgroundColor(AndroidColor.TRANSPARENT)
+            addView(
+                compose,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                ),
+            )
+            addView(
+                badge,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    dp(17),
+                ).apply {
+                    gravity = Gravity.TOP or Gravity.START
+                    topMargin = dp(1)
+                    marginStart = dp(1)
+                },
+            )
+        }
+        root.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     cancelSettle()
@@ -157,23 +286,28 @@ class FloatBallWindow(
             }
             arbiter.onTouch(event)
         }
-        // 键盘 insets 优先走事件：系统支持时会立即回调（比轮询快）。
-        // 兼容性兜底仍保留服务侧的低频轮询（部分 ROM 不给不可获焦悬浮窗推 IME insets）。
-        created.setOnApplyWindowInsetsListener { v, insets ->
-            val imeBottom = insets.getInsets(WindowInsets.Type.ime()).bottom
-            // 只有真的收到非零 IME inset 才停轮询；部分 ROM 会派发一次空 insets
-            // 但之后不再更新，提前信任会丢掉键盘让位。
-            if (imeBottom > 0) imeInsetsAvailable = true
-            updateIme(imeBottom)
+        // IME 让位统一用 display 绝对参考系（服务侧 currentWindowMetrics 轮询）。
+        // 小窗口的 onApplyWindowInsets 给的是「窗口自身被键盘重叠的量」，参考系随窗口
+        // 位置漂移：球被抬升 → 窗口上移 → insets 变小 → 抬升量变小 → 循环，表现为
+        // 键盘弹出后上下抖动。事件在这里只作为「立即轮询一次」的触发信号。
+        root.setOnApplyWindowInsetsListener { v, insets ->
+            if (insets.getInsets(WindowInsets.Type.ime()).bottom > 0) onImeInsetsHint()
             v.onApplyWindowInsets(insets)
         }
-        created.requestApplyInsets()
+        root.requestApplyInsets()
+        // owner 必须也在 root 上：Compose 建 recomposer 时查的是 view.rootView（最外层）
+        // 而非 ComposeView 自己 —— 只设在 Compose 上，root 树查不到 owner 会直接崩
+        //（ViewTreeLifecycleOwner not found from FrameLayout），服务循环崩溃、球永远出不来。
+        FloatBallLifecycleOwner.createAndAttachTo(root)
         val lp = createLayoutParams()
-        if (!wm.safeAddView(created, lp)) {
+        if (!wm.safeAddView(root, lp)) {
             Log.e(TAG, "ball addView failed (overlay permission or window rejected)")
             return false
         }
-        view = created
+        view = root
+        rootView = root
+        composeView = compose
+        badgeView = badge
         applySystemInsets()
         posX = settings.x * screenWidthPx
         posY = settings.y * screenHeightPx
@@ -183,8 +317,8 @@ class FloatBallWindow(
         // 直接把静置终态摆上（不走 applyVisual 的动画 —— 否则解锁瞬间能看见一次
         // 「全亮 → 变暗半出屏」的静置过渡）；进程级重启是新对象，照常醒着起步。
         if (idled) {
-            created.alpha = FloatBallDefaults.IdleDimAlpha
-            created.translationX = idleShiftPx()
+            root.alpha = FloatBallDefaults.IdleDimAlpha
+            root.translationX = idleShiftPx()
         }
         // 实测 LP 原点（状态栏高度）：窗口摆出来才知道真实屏幕落点。
         postMeasureLpOriginY({ view }, { lpOriginY }) {
@@ -222,6 +356,9 @@ class FloatBallWindow(
         panelHidden = false
         visuallyHidden = false
         view = null
+        rootView = null
+        composeView = null
+        badgeView = null
         if (current == null) return
         if (!animated) {
             context.removeWindow(current)
@@ -260,7 +397,7 @@ class FloatBallWindow(
 
     private fun applyHiddenFlags() {
         val current = view ?: return
-        val hidden = lockHidden || panelHidden
+        val hidden = lockHidden || panelHidden || capsuleActive
         if (hidden == visuallyHidden) return
         visuallyHidden = hidden
         if (hidden) {
@@ -377,6 +514,7 @@ class FloatBallWindow(
     private fun onDragged(dx: Float, dy: Float) {
         if (!dragging) {
             dragging = true
+            onDragStarted?.invoke()
             cancelSettle()
             cancelImeAnim()
             cancelIdle()
@@ -465,17 +603,32 @@ class FloatBallWindow(
         return true
     }
 
+    /** 气泡在屏时保持球的完整姿态（B 方案不采用）：显示/收起气泡时由 Service 调用。 */
+    fun setIdleSuppressed(suppressed: Boolean) {
+        if (idleSuppressed == suppressed) return
+        idleSuppressed = suppressed
+        if (suppressed) cancelIdle() else scheduleIdle()
+    }
+
+    /** 胶囊展开/收起：展开时球窗淡出并不可点，收起后恢复。 */
+    fun setCapsuleActive(active: Boolean) {
+        if (capsuleActive == active) return
+        capsuleActive = active
+        applyHiddenFlags()
+        if (active) cancelIdle() else scheduleIdle()
+    }
+
     /** 主球当前是否在屏左半（按窗口实位、球心判，与静置外移方向同口径）。 */
     fun isOnLeft(): Boolean = posX * 2f + ballPx < screenWidthPx
 
     /** 主球是否处于静置变暗态（交换后保持姿态用）。 */
     fun isIdled(): Boolean = idled
 
+    /** 主球窗实测的 LP 原点（屏幕 y）：胶囊窗复用它，避免两窗各自测量产生偏差。 */
+    fun lpOriginYPx(): Int = lpOriginY
+
     /** 当前键盘让位量（px）。分身 y 跟随用。 */
     fun currentImeLiftPx(): Float = imeLiftPx
-
-    /** IME insets 已由窗口事件送达；服务侧可跳过轮询。 */
-    fun imeInsetsAvailable(): Boolean = imeInsetsAvailable
 
     /**
      * 交换的淡入淡出：淡出 → 传送到目标贴边位 → 淡回，[endIdled] 决定落位姿态。
@@ -613,6 +766,22 @@ class FloatBallWindow(
 
     private fun scheduleIdle() {
         idleRunnable?.let(handler::removeCallbacks)
+        idleRunnable = null
+        if (idleSuppressed || capsuleActive) {
+            if (idled) {
+                idled = false
+                applyVisual()
+            }
+            return
+        }
+        if (miniMode) {
+            cancelIdleTimer()
+            if (idled) {
+                idled = false
+                applyVisual()
+            }
+            return
+        }
         val delay = settings.idleDimDelayMs
         if (delay <= 0L) {
             if (idled) {
@@ -664,7 +833,9 @@ class FloatBallWindow(
         val scale = if (pressed) FloatBallDefaults.PressScale else 1f
         // 软隐藏期间一律隐身：隐藏淡出被挪球/换位动画打断时，落位重绘不得把球画回来。
         val alpha = when {
+            capsuleActive -> 0f
             visuallyHidden -> 0f
+            miniMode -> MINI_BALL_ALPHA
             idled -> FloatBallDefaults.IdleDimAlpha
             else -> 1f
         }
@@ -711,7 +882,20 @@ class FloatBallWindow(
         // 显示位置 = 基准 − 让位，但不越过 LP 原点。
         val displayY = max(lpOriginY.toFloat(), posY - imeLiftPx)
         writeBallPosition(current, wm, posX, displayY, lpOriginY)
+        updateBadgeGravity()
     }
+
+    private fun updateBadgeGravity() {
+        val tv = badgeView ?: return
+        val lp = tv.layoutParams as? FrameLayout.LayoutParams ?: return
+        val gravity = Gravity.TOP or if (isOnLeft()) Gravity.END else Gravity.START
+        if (lp.gravity != gravity) {
+            lp.gravity = gravity
+            tv.layoutParams = lp
+        }
+    }
+
+    private fun dp(value: Int): Int = DensityProvider.dp2px(value)
 
     // ---- Compose ----
 
@@ -764,5 +948,7 @@ class FloatBallWindow(
 
         /** 软隐藏/摘窗的淡出时长：短促收掉，不拖泥带水。 */
         const val HIDE_FADE_MS = 150L
+
+        const val MINI_BALL_ALPHA = 0.62f
     }
 }

@@ -40,6 +40,8 @@ data class FloatBallSettings(
     val notificationCapsule: NotificationCapsuleSettings = NotificationCapsuleSettings(),
     /** 剪贴板球（独立开关，宿主同为 FloatBallService）：复制文本后弹出、点击分享、自动收起。 */
     val clipboardBall: ClipboardBallSettings = ClipboardBallSettings(),
+    /** 统一收件箱：通知与剪贴板共用队列、TTL 与容量。 */
+    val inbox: BallInboxSettings = BallInboxSettings(),
 )
 
 /**
@@ -77,6 +79,21 @@ data class ClipboardBallSettings(
     val y: Float? = null,
     /** 是否响应图片剪贴板（关闭后只处理纯文本）。 */
     val respondToImages: Boolean = true,
+)
+
+/**
+ * 统一收件箱配置：通知与剪贴板共用容量，按来源分别计时。
+ * 钉住项不参与 TTL；容量包含钉住项。
+ */
+@Serializable
+@Keep
+data class BallInboxSettings(
+    /** 通知在收件箱中的保留时长（ms）。 */
+    val notificationTtlMs: Long = FloatBallDefaults.InboxNotificationTtlMs,
+    /** 剪贴板在收件箱中的保留时长（ms）。 */
+    val clipboardTtlMs: Long = FloatBallDefaults.InboxClipboardTtlMs,
+    /** 收件箱总容量（含钉住项）。 */
+    val capacity: Int = FloatBallDefaults.InboxCapacity,
 )
 
 object FloatBallDefaults {
@@ -134,4 +151,20 @@ object FloatBallDefaults {
     const val ClipboardBallAutoHideMs = 5_000L
     const val ClipboardBallAutoHideMsMin = 3_000L
     const val ClipboardBallAutoHideMsMax = 10_000L
+
+    /** 统一收件箱：来源 TTL 默认值与滑杆上下限（ms）。 */
+    const val InboxNotificationTtlMs = 120_000L
+    const val InboxNotificationTtlMsMin = 30_000L
+    const val InboxNotificationTtlMsMax = 600_000L
+    const val InboxClipboardTtlMs = 300_000L
+    const val InboxClipboardTtlMsMin = 60_000L
+    const val InboxClipboardTtlMsMax = 1_800_000L
+
+    /** 统一收件箱容量默认值与滑杆上下限。 */
+    const val InboxCapacity = 10
+    const val InboxCapacityMin = 5
+    const val InboxCapacityMax = 20
+
+    /** 主球关闭但收件箱开启时的迷你球直径。 */
+    const val MiniBallSizeDp = 40f
 }
