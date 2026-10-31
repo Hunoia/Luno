@@ -12,7 +12,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.InitialSettings
-import hunoia.luno.config.model.OcrScript
 import hunoia.luno.config.model.ScreenPickGesture
 import hunoia.luno.domain.AppGraph
 import hunoia.luno.domain.gesture.GestureConfig
@@ -114,33 +113,10 @@ fun ScreenPickSettingsScreen(
                 subtitle = stringResource(R.string.screen_pick_ocr_enabled_hint),
                 checked = screenPick.ocrEnabled,
                 onCheckedChange = { checked -> commit(screenPick.copy(ocrEnabled = checked)) },
-                shape = segmentedShape(0, 3),
+                shape = segmentedShape(0, 1),
             )
-            val toggleScript: (OcrScript) -> Unit = { script ->
-                val toggled = if (script in screenPick.ocrScripts) {
-                    screenPick.ocrScripts - script
-                } else {
-                    screenPick.ocrScripts + script
-                }
-                // 固定枚举顺序，且不允许清空（空集合在运行时回退到中文，但 UI 上别让人以为关掉了）。
-                val ordered = OcrScript.entries.filter { it in toggled }.ifEmpty {
-                    listOf(OcrScript.Chinese)
-                }
-                commit(screenPick.copy(ocrScripts = ordered))
-            }
-            LunoSwitchRow(
-                title = stringResource(R.string.screen_pick_ocr_chinese),
-                checked = OcrScript.Chinese in screenPick.ocrScripts,
-                onCheckedChange = { toggleScript(OcrScript.Chinese) },
-                shape = segmentedShape(1, 3),
-            )
-            LunoSwitchRow(
-                title = stringResource(R.string.screen_pick_ocr_korean),
-                subtitle = stringResource(R.string.screen_pick_ocr_script_hint),
-                checked = OcrScript.Korean in screenPick.ocrScripts,
-                onCheckedChange = { toggleScript(OcrScript.Korean) },
-                shape = segmentedShape(2, 3),
-            )
+            // v6 单模型统一覆盖中文 / 日文 / 韩文 / 拉丁等，不再有按语言选模型的选项；
+            // 请求脚本只作为结果标签（见 PpOcrEngine）。
         }
         LunoGroup(title = stringResource(R.string.screen_pick_ocr_model)) {
             LunoSettingsRow(

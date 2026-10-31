@@ -17,7 +17,13 @@ import kotlinx.coroutines.withContext
  */
 object OcrModelPack {
 
-    private val allowed = (OcrModelStore.requiredFiles + OcrModelStore.MANIFEST).toSet()
+    /** 白名单：det / 字典 / 清单固定名，rec 按 `ppocrv6_small_rec_<宽度>_fp32.tflite` 匹配（可多档）。 */
+    private fun allowed(name: String): Boolean =
+        name == OcrModelStore.DET_MODEL ||
+            name == OcrModelStore.DICT ||
+            name == OcrModelStore.MANIFEST ||
+            OcrModelStore.isRecFile(name)
+
     private const val MAX_ENTRY_BYTES = 200L * 1024 * 1024
 
     suspend fun importZip(context: Context, uri: Uri): Result<OcrModelInfo> =
@@ -46,7 +52,7 @@ object OcrModelPack {
                                     "ZIP 含非法路径：${entry.name}"
                                 }
                                 val name = normalized.substringAfterLast('/')
-                                if (name !in allowed) {
+                                if (!allowed(name)) {
                                     zip.closeEntry()
                                     continue
                                 }

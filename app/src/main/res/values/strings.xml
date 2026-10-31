@@ -958,6 +958,7 @@
     <string name="ocr_model_pp_imported_at">导入于 %1$s</string>
     <string name="ocr_model_pp_missing">未导入 GPU 模型</string>
     <string name="ocr_model_pp_ready">已就绪</string>
+    <string name="ocr_model_pp_rec">rec %1$s</string>
     <string name="ocr_model_pp_state">模型状态</string>
     <string name="ocr_model_pp_verifying">校验中…</string>
     <string name="ocr_model_refresh">重新检查状态</string>

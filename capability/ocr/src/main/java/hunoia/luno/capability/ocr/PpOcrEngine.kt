@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.util.Log
 import hunoia.luno.capability.ocr.pp.PpOcrDetector
 import hunoia.luno.capability.ocr.pp.PpOcrRecognizer
+import hunoia.luno.capability.ocr.pp.RecModelChoice
 import hunoia.luno.config.model.OcrScript
 import hunoia.luno.core.LOG_TAG
 import java.io.File
@@ -32,17 +33,19 @@ import kotlinx.coroutines.withContext
 class PpOcrEngine(private val context: Context) : OcrEngine {
 
     private companion object {
-        /** rec 裁剪时上下留的行高比例（det 框贴得紧，必须留余量）。 */
-        const val LINE_PAD_Y = 0.15f
-        /** 左右留白（防首尾字被切）。 */
-        const val LINE_PAD_X = 0.02f
         /** 源图里矮于该值的框直接丢（图标碎笔划）。 */
         const val MIN_LINE_HEIGHT_PX = 10
+
+        /** 同时常驻的 rec 模型上限：320/640 两档足够覆盖常见屏幕，960 用时再换入。 */
+        const val MAX_RESIDENT_RECOGNIZERS = 2
     }
 
     private val mutex = Mutex()
     private var detector: PpOcrDetector? = null
-    private var recognizer: PpOcrRecognizer? = null
+
+    /** 已加载的 rec 模型，按输入宽度索引；访问顺序即 LRU（最多常驻两档，防显存堆积）。 */
+    private val recognizers = LinkedHashMap<Int, PpOcrRecognizer>(4, 0.75f, true)
+    private var cachedRecFiles: List<Pair<Int, File>>? = null
 
     override suspend fun recognize(bitmap: Bitmap, scripts: List<OcrScript>): OcrResult =
         withContext(Dispatchers.Default) {
@@ -54,7 +57,10 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
                 }
                 val script = scripts.firstOrNull() ?: OcrScript.Chinese
                 val det = detector ?: openDetector().also { detector = it }
-                val rec = recognizer ?: openRecognizer().also { recognizer = it }
+                if (recModelFiles().isEmpty()) {
+                    Log.w(LOG_TAG, "ppocr: 没有可用的 rec 模型，返回空结果")
+                    return@withContext OcrResult.Empty
+                }
 
                 val t0 = System.nanoTime()
                 val lb = letterbox(bitmap)
@@ -66,27 +72,50 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
                     PpOcrDetector.boxes(det.probMap(invertRgb(rgb))),
                 )
                 val blocks = ArrayList<OcrBlock>()
+                // 诊断：每档模型实际用了几行、总共切了几段，方便真机确认动态选档生效。
+                val recUse = LinkedHashMap<Int, Int>()
+                var segmentCount = 0
                 for (b in boxes) {
                     val src = lb.toSource(b)
                     // 太矮的框多半是图标里的碎笔划，识别出来也是「`」「*」这种噪声。
                     if (src.y1 - src.y0 < MIN_LINE_HEIGHT_PX) continue
                     // 识别取图用**原图**：640 图上那一条文字只有十几像素高，放大到 48 高后
                     // 细节早没了（实测 CER 0.28 vs 从原图裁 0.07）。宽高比超过模型输入
-                    // （320/48）的宽行按原图切段（一个字高重叠），不能整体压扁。
+                    // （recW/recH）的宽行按原图切段（2 个字高重叠），不能整体压扁。
                     val height = src.y1 - src.y0
-                    val segments = PpOcrRecognizer.lineSegments(src.x1 - src.x0, height)
+                    val width = src.x1 - src.x0
+                    if (width < 1) continue
+                    // 按行宽选模型：短行 320、宽行自动升到 640/960，放不下才切段。
+                    val rec = recognizerForLine(width, height) ?: continue
+                    val recW = rec.inputWidth
+                    val recH = rec.inputHeight
+                    recUse[recW] = (recUse[recW] ?: 0) + 1
+                    val segments = PpOcrRecognizer.lineSegments(
+                        width = width,
+                        height = height,
+                        modelWidth = recW,
+                        modelHeight = recH,
+                    )
+                    segmentCount += segments.size
                     val inputs = segments.map { seg ->
-                        lineInput(bitmap, src.x0 + seg.x0, src.y0, seg.x1 - seg.x0, height)
+                        lineInput(bitmap, src.x0 + seg.x0, src.y0, seg.x1 - seg.x0, height, recW, recH)
                     }
                     run {
-                        // 拼接去重：后段开头的 [overlapSrc] 像素与上一段重叠，重叠区完整
-                        // 包含一个字形、两段都会解出它 —— 把后段里落在这段前缀的字符
-                        // 丢掉。CTC 时间步线性映射回输入宽度：x ≈ (step+0.5) × W / T。
+                        // 拼接去重：本段开头 [dropSrc] 由上一段完整看到；本段结尾 [dropTailSrc]
+                        // 只有半截字，交给下一段完整识别（末段不切尾）。两条合起来保证边界处
+                        // 每个字恰好由一侧完整出字，既不多字也不吃字。
+                        // CTC 时间步线性映射回输入宽度：x ≈ (step+0.5) × recW / T。
+                        val last = inputs.lastIndex
                         val text = buildString {
                             inputs.forEachIndexed { j, input ->
-                                val dropX = segments[j].overlapSrc * PpOcrRecognizer.H / height
+                                val seg = segments[j]
+                                val headX = seg.dropSrc * recH.toFloat() / height
+                                val tailX = seg.dropTailSrc * recH.toFloat() / height
+                                val segWidthX = (seg.x1 - seg.x0) * recH.toFloat() / height
                                 rec.recognizeDetailed(input).forEach { ch ->
-                                    if (j == 0 || ch.x >= dropX) append(ch.text)
+                                    val afterHead = ch.x >= headX
+                                    val beforeTail = j == last || ch.x <= segWidthX - tailX
+                                    if (afterHead && beforeTail) append(ch.text)
                                 }
                             }
                         }.trim()
@@ -109,10 +138,13 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
                 val merged = OcrText.merge(blocks)
                 val ms = (System.nanoTime() - t0) / 1_000_000.0
                 val totalChars = merged.blocks.sumOf { it.text.length }
+                val recDesc = recUse.entries
+                    .joinToString("/") { (w, n) -> "${w}×$n" }
+                    .ifEmpty { "无" }
                 Log.i(
                     LOG_TAG,
                     "ppocr: 识别完成 boxes=${merged.blocks.size} " +
-                        "字符=$totalChars 耗时=${ms}ms",
+                        "字符=$totalChars 耗时=${ms}ms rec=$recDesc 切段=$segmentCount",
                 )
                 // release 会裁掉 Log.i，这里留一条 w：整段一个字都没认出来时能直接从 logcat 定位到
                 //“没检出框”还是“框检出了但识别空”，不用再猜。
@@ -151,8 +183,7 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
             mutex.withLock {
                 val d = detector
                 detector = null
-                recognizer?.let { runCatching { it.close() } }
-                recognizer = null
+                releaseRecognizers()
                 runCatching { d?.close() }
             }
         }
@@ -162,9 +193,14 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
     override fun close() {
         val d = detector
         detector = null
-        recognizer?.let { runCatching { it.close() } }
-        recognizer = null
+        releaseRecognizers()
         runCatching { d?.close() }
+    }
+
+    private fun releaseRecognizers() {
+        recognizers.values.forEach { runCatching { it.close() } }
+        recognizers.clear()
+        cachedRecFiles = null
     }
 
     private fun openDetector(): PpOcrDetector {
@@ -172,14 +208,60 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
         return PpOcrDetector(context, file)
     }
 
-    private fun openRecognizer(): PpOcrRecognizer {
+    /** 目录里已安装的 rec 档位（宽度 → 文件），按宽度升序；缓存到下次 reload。 */
+    private fun recModelFiles(): List<Pair<Int, File>> {
+        cachedRecFiles?.let { return it }
         val dir = OcrModelStore.modelDir(context)
-        return PpOcrRecognizer(
-            context = context,
-            modelFile = File(dir, OcrModelStore.REC_MODEL),
-            dictFile = File(dir, OcrModelStore.DICT),
-        )
+        return OcrModelStore.recFiles(dir)
+            .mapNotNull { file -> OcrModelStore.recWidth(file.name)?.let { it to file } }
+            .sortedBy { it.first }
+            .also { cachedRecFiles = it }
     }
+
+    /**
+     * 按行宽挑一个可用模型：优先“刚好放得下”的最小档；加载失败就换下一档，
+     * 全部失败返回 null（这一行跳过，不拖垮整屏识别）。
+     */
+    private fun recognizerForLine(lineWidth: Int, lineHeight: Int): PpOcrRecognizer? {
+        val files = recModelFiles()
+        var candidates = files.map { it.first }
+        while (candidates.isNotEmpty()) {
+            val width = RecModelChoice.pick(
+                lineWidth = lineWidth,
+                lineHeight = lineHeight,
+                modelHeight = PpOcrRecognizer.H,
+                widths = candidates,
+            ) ?: return null
+            val file = files.firstOrNull { it.first == width }?.second ?: return null
+            try {
+                return recognizerFor(width, file)
+            } catch (failure: Throwable) {
+                Log.w(LOG_TAG, "ppocr: rec($width) 加载失败，换下一档：${failure.message}")
+                candidates = candidates.filter { it != width }
+            }
+        }
+        return null
+    }
+
+    private fun recognizerFor(width: Int, file: File): PpOcrRecognizer {
+        recognizers[width]?.let { return it }
+        if (recognizers.size >= MAX_RESIDENT_RECOGNIZERS) {
+            // 访问顺序即 LRU：换出最久未用的那一档，避免三档模型同时占显存。
+            val iterator = recognizers.entries.iterator()
+            if (iterator.hasNext()) {
+                val evicted = iterator.next()
+                iterator.remove()
+                runCatching { evicted.value.close() }
+            }
+        }
+        return openRecognizer(file).also { recognizers[width] = it }
+    }
+
+    private fun openRecognizer(file: File): PpOcrRecognizer = PpOcrRecognizer(
+        context = context,
+        modelFile = file,
+        dictFile = File(OcrModelStore.modelDir(context), OcrModelStore.DICT),
+    )
 
     /** 把输入位图等比铺进 [PpOcrDetector.SIZE]×[PpOcrDetector.SIZE]，白底居中（letterbox）。 */
     private fun letterbox(src: Bitmap): Letterbox {
@@ -212,36 +294,29 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
     }
 
     /**
-     * 把框内的文字行转成 rec 的输入张量：按 **原图** 裁 + 上下留 15% 行高余量。
+     * 裁 [x, y, w, h] → resize 到 [targetH] 高、宽按比例（≤[targetW]）→ 白底右补 → CHW 归一化。
      *
-     * 超宽行在调用方按 [PpOcrRecognizer.lineSegments] 切段后逐段走这里；本函数保证
-     * 单段 resize 到 48 高后宽度 ≤320（不压扁）。余量必须留：det 的框贴得紧，切掉
-     * 字形上下沿后识别会在「蓝牙/医牙」之间抖。
+     * 尺寸取自模型自身（320 / 640 / 960 三档），不写死。
      */
-    private fun lineInput(source: Bitmap, box: PpOcrDetector.Box): FloatArray {
-        val h = (box.y1 - box.y0).coerceAtLeast(1)
-        val padY = (h * LINE_PAD_Y).toInt().coerceAtLeast(2)
-        val padX = ((box.x1 - box.x0) * LINE_PAD_X).toInt().coerceAtLeast(2)
-        val x0 = (box.x0 - padX).coerceIn(0, source.width - 1)
-        val y0 = (box.y0 - padY).coerceIn(0, source.height - 1)
-        val x1 = (box.x1 + padX).coerceIn(x0 + 1, source.width)
-        val y1 = (box.y1 + padY).coerceIn(y0 + 1, source.height)
-        return lineInput(source, x0, y0, x1 - x0, y1 - y0)
-    }
-
-    /** 裁 [x, y, w, h] → resize 到 H 高、宽按比例（≤W）→ 白底右补 → CHW 归一化。 */
-    private fun lineInput(source: Bitmap, x: Int, y: Int, w: Int, h: Int): FloatArray {
+    private fun lineInput(
+        source: Bitmap,
+        x: Int,
+        y: Int,
+        w: Int,
+        h: Int,
+        targetW: Int,
+        targetH: Int,
+    ): FloatArray {
         val crop = Bitmap.createBitmap(source, x, y, w.coerceAtLeast(1), h.coerceAtLeast(1))
-        val nw = minOf((PpOcrRecognizer.H.toFloat() * w / h).toInt(), PpOcrRecognizer.W)
-            .coerceAtLeast(1)
-        val rz = Bitmap.createScaledBitmap(crop, nw, PpOcrRecognizer.H, true)
-        val px = IntArray(nw * PpOcrRecognizer.H)
-        rz.getPixels(px, 0, nw, 0, 0, nw, PpOcrRecognizer.H)
-        val out = FloatArray(PpOcrRecognizer.H * PpOcrRecognizer.W * 3)
-        for (yy in 0 until PpOcrRecognizer.H) {
+        val nw = minOf((targetH.toFloat() * w / h).toInt(), targetW).coerceAtLeast(1)
+        val rz = Bitmap.createScaledBitmap(crop, nw, targetH, true)
+        val px = IntArray(nw * targetH)
+        rz.getPixels(px, 0, nw, 0, 0, nw, targetH)
+        val out = FloatArray(targetH * targetW * 3)
+        for (yy in 0 until targetH) {
             for (xx in 0 until nw) {
                 val p = px[yy * nw + xx]
-                val o = (yy * PpOcrRecognizer.W + xx) * 3
+                val o = (yy * targetW + xx) * 3
                 out[o] = ((p shr 16) and 0xFF).toFloat()
                 out[o + 1] = ((p shr 8) and 0xFF).toFloat()
                 out[o + 2] = (p and 0xFF).toFloat()

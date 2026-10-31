@@ -141,6 +141,9 @@ private fun ppDetail(pp: PpModelUiState): String {
     }
     val meta = buildList {
         pp.source?.takeIf { it.isNotBlank() }?.let { add(it) }
+        pp.recWidths.takeIf { it.isNotEmpty() }?.let {
+            add(stringResource(R.string.ocr_model_pp_rec, it.joinToString("/")))
+        }
         pp.sizeBytes?.let { add(formatSize(it)) }
         pp.importedAt?.takeIf { it > 0 }?.let {
             add(

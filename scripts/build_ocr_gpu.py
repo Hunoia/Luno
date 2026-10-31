@@ -6,7 +6,8 @@ GPU 方案不需要 AOT：app 端用 LiteRT GPU delegate（OpenCL，Adreno）运
 `<out>/ppocrv6_gpu.zip` 可直接在「设置 → 屏幕识别 → OCR 模型」里导入。
 
 用法：
-  python3 scripts/build_ocr_gpu.py --out /tmp/luno-gpu
+  python3 scripts/build_ocr_gpu.py --out /tmp/luno-gpu --rec 320,640
+  # 单档：--rec 320 / 640 / 960
 """
 
 from __future__ import annotations
@@ -20,11 +21,12 @@ import zipfile
 REPO = pathlib.Path(__file__).resolve().parent.parent
 SRC_DIR = REPO / "docs/ppocrv"
 
-# det 640 + rec 320（宽行由 app 内切段解决，暂不打包 640/960 档）。
-MODELS = [
-    "ppocrv6_small_det_640_fp32.tflite",
-    "ppocrv6_small_rec_320_fp32.tflite",
-]
+DET = "ppocrv6_small_det_640_fp32.tflite"
+REC_TEMPLATE = "ppocrv6_small_rec_{}_fp32.tflite"
+# rec 输入宽度三档：app 端按行宽自动选“刚好放得下”的最小档（短行 320、宽行升 640/960）。
+# 一个包可以同时放多档（--rec 320,640），运行时最多常驻两档，超出按 LRU 换入换出。
+REC_WIDTHS = (320, 640, 960)
+DEFAULT_REC = "320,640"
 DICT = "characters.json"
 RUNTIME = "litert-gpu-opencl"
 LITERT_VERSION = "2.3.2"
@@ -42,14 +44,29 @@ def sha256(path: pathlib.Path) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", default="build/ocr-gpu", help="输出目录（放 zip）")
+    parser.add_argument(
+        "--rec",
+        default=DEFAULT_REC,
+        help=f"rec 输入宽度，逗号分隔，可多选：{','.join(map(str, REC_WIDTHS))}（默认 {DEFAULT_REC}）",
+    )
     args = parser.parse_args()
 
+    recs = sorted({int(part) for part in args.rec.split(",") if part.strip()})
+    if not recs or any(width not in REC_WIDTHS for width in recs):
+        parser.error(f"--rec 只支持 {REC_WIDTHS}，收到：{args.rec}")
+
+    models = [DET, *[REC_TEMPLATE.format(width) for width in recs]]
     out = pathlib.Path(args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
     pkg = out / PACKAGE_DIR
     pkg.mkdir(exist_ok=True)
 
-    for name in [*MODELS, DICT]:
+    # 复用输出目录时先清掉上一次的模型文件：包里出现两个 rec 会直接被 app 拒绝导入。
+    for stale in pkg.iterdir():
+        if stale.is_file() and stale.name != DICT:
+            stale.unlink()
+
+    for name in [*models, DICT]:
         src = SRC_DIR / name
         if not src.is_file() or src.stat().st_size == 0:
             raise SystemExit(f"缺少模型资产：{src}")

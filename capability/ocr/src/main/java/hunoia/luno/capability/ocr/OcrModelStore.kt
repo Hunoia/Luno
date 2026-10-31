@@ -22,7 +22,13 @@ data class OcrModelInfo(
     val sizeBytes: Long,
     val fileCount: Int,
     val importedAt: Long,
-)
+    /** rec 模型文件名（含输入宽度档位，如 …_rec_640_…）；可同时装多档，运行时按行宽自动选。 */
+    val recFileNames: List<String> = emptyList(),
+) {
+    /** 从文件名解析的 rec 输入宽度（320 / 640 / 960），升序；解析不出为空。 */
+    val recWidths: List<Int>
+        get() = recFileNames.mapNotNull(OcrModelStore::recWidth).distinct().sorted()
+}
 
 sealed interface OcrModelStatus {
     data object Missing : OcrModelStatus
@@ -43,14 +49,36 @@ object OcrModelStore {
     const val READY = ".ready"
 
     const val DET_MODEL = "ppocrv6_small_det_640_fp32.tflite"
-    const val REC_MODEL = "ppocrv6_small_rec_320_fp32.tflite"
     const val DICT = "characters.json"
 
-    val requiredFiles = listOf(
-        DET_MODEL,
-        REC_MODEL,
-        DICT,
-    )
+    /**
+     * rec 模型允许 320 / 640 / 960 三档输入宽度，文件名自带档位：
+     * `ppocrv6_small_rec_<宽度>_fp32.tflite`。同一个包/目录里可以同时装多档：
+     * 运行时按每行宽度选“刚好放得下”的那一档，正常行用 320、宽行自动升到 640/960，
+     * 避免宽行无谓切段（见 `RecModelChoice`）。模型输入尺寸仍以运行时读出为准。
+     */
+    const val REC_PREFIX = "ppocrv6_small_rec_"
+    val REC_NAME = Regex("""^${Regex.escape(REC_PREFIX)}\d+_fp32\.tflite$""")
+
+    fun isRecFile(name: String): Boolean = REC_NAME.matches(name)
+
+    /** 从 rec 文件名解析输入宽度；不是合法 rec 名时返回 null。 */
+    fun recWidth(name: String): Int? =
+        if (!isRecFile(name)) null
+        else name.removePrefix(REC_PREFIX).substringBefore('_').toIntOrNull()
+
+    /** 目录里的全部 rec 模型，按输入宽度升序；没有时为空。 */
+    fun recFiles(dir: File): List<File> =
+        dir.listFiles()
+            ?.filter { it.isFile && isRecFile(it.name) }
+            ?.sortedBy { recWidth(it.name) ?: Int.MAX_VALUE }
+            .orEmpty()
+
+    /** 一个完整 GPU 包应有的文件（按目录里实际存在的 rec 文件名）。 */
+    fun requiredFiles(dir: File): List<String> {
+        val recs = recFiles(dir).map { it.name }
+        return listOf(DET_MODEL) + recs + DICT
+    }
 
     fun baseDir(context: Context): File = File(context.filesDir, "ocr_models")
 
@@ -60,7 +88,9 @@ object OcrModelStore {
         val dir = modelDir(context)
         if (!File(dir, READY).isFile) return false
         if (!File(dir, MANIFEST).isFile) return false
-        return requiredFiles.all { File(dir, it).let { f -> f.isFile && f.length() > 0 } }
+        // rec 缺失时 isReady 直接 false；多档共存是正常状态。
+        if (recFiles(dir).isEmpty()) return false
+        return requiredFiles(dir).all { name -> File(dir, name).let { f -> f.isFile && f.length() > 0 } }
     }
 
     fun status(context: Context): OcrModelStatus {
@@ -76,12 +106,14 @@ object OcrModelStore {
 
     fun readInfo(dir: File): OcrModelInfo {
         val manifest = parseManifest(File(dir, MANIFEST))
-        val files = requiredFiles.map { File(dir, it) }
+        val recs = recFiles(dir)
+        val files = requiredFiles(dir).map { File(dir, it) }
         return OcrModelInfo(
             manifest = manifest,
             sizeBytes = files.sumOf { it.length() },
             fileCount = files.size,
             importedAt = File(dir, READY).lastModified(),
+            recFileNames = recs.map { it.name },
         )
     }
 
@@ -109,7 +141,11 @@ object OcrModelStore {
         val manifestFile = File(dir, MANIFEST)
         require(manifestFile.isFile) { "缺少 manifest.json" }
         val manifest = parseManifest(manifestFile)
-        for (name in requiredFiles) {
+        val recs = recFiles(dir)
+        require(recs.isNotEmpty()) {
+            "缺少 rec 模型（${REC_PREFIX}<宽度>_fp32.tflite，可同时放 320/640/960）"
+        }
+        for (name in requiredFiles(dir)) {
             val file = File(dir, name)
             require(file.isFile && file.length() > 0) { "缺少或为空的模型文件：$name" }
             val expected = manifest.files[name]

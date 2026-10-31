@@ -38,6 +38,8 @@ data class PpModelUiState(
     val sizeBytes: Long? = null,
     val importedAt: Long? = null,
     val soc: String? = null,
+    /** rec 模型输入宽度档位（320 / 640 / 960，可多档共存），来自文件名；未导入时为空。 */
+    val recWidths: List<Int> = emptyList(),
 )
 
 data class OcrModelUiState(

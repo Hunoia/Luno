@@ -59,7 +59,11 @@ object OcrModelCenter : OcrModelFacade {
         _state.update { it.copy(importing = true, pp = it.pp.copy(state = OcrModelState.Verifying)) }
         OcrModelPack.importZip(context, uri)
             .onSuccess { info ->
-                Log.i(LOG_TAG, "ocr: PP 模型导入完成 ${info.fileCount} 个文件，${info.sizeBytes} 字节")
+                Log.i(
+                    LOG_TAG,
+                    "ocr: PP 模型导入完成 ${info.fileCount} 个文件，${info.sizeBytes} 字节，" +
+                        "rec=${info.recWidths.joinToString("/").ifEmpty { "?" }}",
+                )
                 _state.update { it.copy(importing = false, pp = ppStateOf(info)) }
                 DispatchClient.refreshOcrEngine()
             }
@@ -98,6 +102,7 @@ object OcrModelCenter : OcrModelFacade {
             sizeBytes = info.sizeBytes,
             importedAt = info.importedAt,
             soc = info.manifest.soc,
+            recWidths = info.recWidths,
         )
 
     private fun socModelName(): String =
