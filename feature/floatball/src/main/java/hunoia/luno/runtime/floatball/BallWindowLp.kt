@@ -49,6 +49,20 @@ internal fun capsuleLayoutParams(bottomOffsetPx: Int) = WindowManager.LayoutPara
     y = bottomOffsetPx
 }
 
+/** 共享气泡窗 LP：TYPE_APPLICATION_OVERLAY、WRAP_CONTENT、LEFT|TOP 手工贴球定位。 */
+@SuppressLint("RtlHardcoded")
+internal fun bubbleLayoutParams() = WindowManager.LayoutParams().apply {
+    type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+    format = PixelFormat.TRANSLUCENT
+    flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+    width = WindowManager.LayoutParams.WRAP_CONTENT
+    height = WindowManager.LayoutParams.WRAP_CONTENT
+    gravity = Gravity.LEFT or Gravity.TOP
+    x = 0
+    y = 0
+}
+
 /** 尺寸变化落到现有窗（updateSettings 的 sizeDp 变更路径）。 */
 internal fun applyBallSize(view: View, wm: WindowManager, ballPx: Int) {
     (view.layoutParams as? WindowManager.LayoutParams)?.let {
