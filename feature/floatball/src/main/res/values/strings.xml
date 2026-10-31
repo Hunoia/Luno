@@ -6,8 +6,6 @@
     <string name="smart_ball_pinned_only">智能球，已钉住内容</string>
     <string name="smart_ball_count">%1$d/%2$d</string>
     <string name="smart_ball_next">下一条，当前第 %1$d 条，共 %2$d 条</string>
-    <string name="smart_ball_expand">展开全文</string>
-    <string name="smart_ball_collapse">收起全文</string>
     <string name="smart_ball_link">链接</string>
     <string name="smart_ball_clipboard">剪贴板</string>
     <string name="smart_ball_image">图片</string>

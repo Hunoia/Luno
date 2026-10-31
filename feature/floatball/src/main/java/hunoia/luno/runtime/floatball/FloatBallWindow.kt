@@ -60,6 +60,8 @@ class FloatBallWindow(
     private val context: android.content.Context,
     /** 抬升量变化回调（含动画逐帧）：服务侧转发给镜像窗，事件路径下镜像也能跟随。 */
     private val onImeLiftChanged: (Float) -> Unit = {},
+    /** 窗口收到 IME insets 事件：服务侧立即轮询一次绝对值（事件值仅作触发信号，不直接采信）。 */
+    private val onImeInsetsHint: () -> Unit = {},
 ) {
     private val wm: WindowManager get() = context.windowManager()
 
@@ -106,9 +108,6 @@ class FloatBallWindow(
 
     /** 最近一次上报的键盘底边（px）。拖动中如收起键盘，拖完结算按此值归零。 */
     private var imeBottomPx = 0
-
-    /** 系统是否真的把 IME insets 推给了这个悬浮窗；为 true 时服务侧可停掉轮询。 */
-    private var imeInsetsAvailable = false
 
     /** 系统栏边界（px）。取不到时为 0，夹取退化为全屏。 */
     private var bottomInsetPx = 0
@@ -232,7 +231,6 @@ class FloatBallWindow(
     /** 建窗口。false = 没建起来（未授权 / 系统拒绝）。 */
     fun attach(): Boolean {
         if (view != null) return true
-        imeInsetsAvailable = false
         ballPx = DensityProvider.dp2px(effectiveSizeDp())
         val compose = ComposeView(context).apply {
             setBackgroundColor(AndroidColor.TRANSPARENT)
@@ -282,14 +280,12 @@ class FloatBallWindow(
             }
             arbiter.onTouch(event)
         }
-        // 键盘 insets 优先走事件：系统支持时会立即回调（比轮询快）。
-        // 兼容性兜底仍保留服务侧的低频轮询（部分 ROM 不给不可获焦悬浮窗推 IME insets）。
+        // IME 让位统一用 display 绝对参考系（服务侧 currentWindowMetrics 轮询）。
+        // 小窗口的 onApplyWindowInsets 给的是「窗口自身被键盘重叠的量」，参考系随窗口
+        // 位置漂移：球被抬升 → 窗口上移 → insets 变小 → 抬升量变小 → 循环，表现为
+        // 键盘弹出后上下抖动。事件在这里只作为「立即轮询一次」的触发信号。
         root.setOnApplyWindowInsetsListener { v, insets ->
-            val imeBottom = insets.getInsets(WindowInsets.Type.ime()).bottom
-            // 只有真的收到非零 IME inset 才停轮询；部分 ROM 会派发一次空 insets
-            // 但之后不再更新，提前信任会丢掉键盘让位。
-            if (imeBottom > 0) imeInsetsAvailable = true
-            updateIme(imeBottom)
+            if (insets.getInsets(WindowInsets.Type.ime()).bottom > 0) onImeInsetsHint()
             v.onApplyWindowInsets(insets)
         }
         root.requestApplyInsets()
@@ -609,9 +605,6 @@ class FloatBallWindow(
 
     /** 当前键盘让位量（px）。分身 y 跟随用。 */
     fun currentImeLiftPx(): Float = imeLiftPx
-
-    /** IME insets 已由窗口事件送达；服务侧可跳过轮询。 */
-    fun imeInsetsAvailable(): Boolean = imeInsetsAvailable
 
     /**
      * 交换的淡入淡出：淡出 → 传送到目标贴边位 → 淡回，[endIdled] 决定落位姿态。

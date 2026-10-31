@@ -205,7 +205,7 @@
     <string name="float_ball_capsule_need_permission_hint">点此前往系统设置授权，胶囊才能收到通知</string>
     <string name="float_ball_clipball_group">剪贴板收件箱</string>
     <string name="float_ball_clipball_enabled">复制后探头</string>
-    <string name="float_ball_clipball_enabled_subtitle">剪贴板变化时在球侧弹出气泡，点击分享、长按正文钉住、上滑展开全文；后台读取需 Shizuku 运行并授权</string>
+    <string name="float_ball_clipball_enabled_subtitle">剪贴板变化时在球侧弹出气泡，点击分享、长按正文钉住；后台读取需 Shizuku 运行并授权</string>
     <string name="float_ball_clipball_auto_hide">气泡停留时长</string>
     <string name="float_ball_clipball_ttl">剪贴板保留时长</string>
     <string name="float_ball_clipball_ttl_hint">气泡收起后内容在收件箱里保留多久；钉住项不过期</string>

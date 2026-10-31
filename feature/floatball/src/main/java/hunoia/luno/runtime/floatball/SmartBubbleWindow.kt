@@ -25,8 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentPaste
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -89,7 +88,6 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     private var current by mutableStateOf<BallItem?>(null)
     private var currentIndex by mutableIntStateOf(0)
     private var total by mutableIntStateOf(0)
-    private var expanded by mutableStateOf(false)
     private var linkInfo by mutableStateOf<ClipboardLinkInfo?>(null)
     private var maxWidthPx by mutableIntStateOf(0)
 
@@ -137,9 +135,6 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     /** 计数 chip：切到下一项。 */
     var onCountTapped: (() -> Unit)? = null
 
-    /** 尾部图标 / 上滑：展开或收起正文。 */
-    var onExpandedChanged: ((Boolean) -> Unit)? = null
-
     /** 下滑：关闭并删除当前项（钉住项只隐藏）。 */
     var onSwipedAway: (() -> Unit)? = null
 
@@ -150,27 +145,27 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         settings = next
     }
 
-    fun isExpanded(): Boolean = expanded
+    /** 异步补链接信息：识别在 IO 线程完成后回填，当前项已切换则忽略。 */
+    fun updateLink(link: ClipboardLinkInfo?) {
+        linkInfo = link
+    }
 
     fun isPinned(): Boolean = current?.pinned == true
 
     /**
      * 显示 / 刷新气泡。已可见时只更新内容并重新贴边，不重播进场。
-     * [expanded] 由服务侧决定：新通知自动探头时收起，手动切项时保留。
      */
     fun show(
         item: BallItem,
         index: Int,
         totalCount: Int,
         anchor: BubbleAnchor,
-        expanded: Boolean,
         link: ClipboardLinkInfo?,
     ): Boolean {
         current = item
         currentIndex = index.coerceAtLeast(0)
         total = totalCount.coerceAtLeast(1)
         this.anchor = anchor
-        this.expanded = expanded
         linkInfo = link
         maxWidthPx = provisionalMaxWidth(anchor)
 
@@ -239,7 +234,6 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         hitTarget = HitTarget.BODY
         current = null
         linkInfo = null
-        expanded = false
         dragDy = 0f
         mainHandler.removeCallbacksAndMessages(null)
         if (v == null) {
@@ -272,7 +266,6 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         enterPending = false
         current = null
         linkInfo = null
-        expanded = false
         dragDy = 0f
         mainHandler.removeCallbacksAndMessages(null)
         v?.let {
@@ -322,7 +315,6 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                     if (!hitMoved) {
                         when (hitTarget) {
                             HitTarget.COUNT -> onCountTapped?.invoke()
-                            HitTarget.TAIL -> toggleExpanded()
                             HitTarget.BODY -> Unit
                         }
                     }
@@ -341,15 +333,10 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     }
 
     private fun resolveHitTarget(v: View, x: Float): HitTarget {
-        val textLike = current is NotificationItem || current is ClipboardTextItem
-        val tail = if (textLike) DensityProvider.dp2px(TailHitDp) else 0
         val count = if (total > 1) DensityProvider.dp2px(CountHitDp) else 0
-        val tailStart = v.width - tail
-        val countStart = tailStart - count
+        val countStart = v.width - count
         return when {
-            textLike && x >= tailStart -> HitTarget.TAIL
-            total > 1 && x >= countStart && x < tailStart -> HitTarget.COUNT
-            !textLike && total > 1 && x >= countStart -> HitTarget.COUNT
+            total > 1 && x >= countStart -> HitTarget.COUNT
             else -> HitTarget.BODY
         }
     }
@@ -373,16 +360,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         }
         when {
             dy >= DismissThresholdPx -> onSwipedAway?.invoke()
-            dy <= -ExpandThresholdPx -> if (!expanded) toggleExpanded()
         }
-    }
-
-    private fun toggleExpanded() {
-        if (current !is NotificationItem && current !is ClipboardTextItem) return
-        expanded = !expanded
-        view?.requestLayout()
-        view?.post { applyWindowBounds() }
-        onExpandedChanged?.invoke(expanded)
     }
 
     private val touchSlop: Float
@@ -477,7 +455,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             maxWidthPx.takeIf { it > 0 }?.toDp() ?: MaxWidthDp.dp
         }
         val minWidth = if (maxWidth < MinWidthDp.dp) maxWidth else MinWidthDp.dp
-        val shape = if (expanded) RoundedCornerShape(20.dp) else RoundedCornerShape(24.dp)
+        val shape = RoundedCornerShape(24.dp)
         Row(
             modifier = Modifier
                 .widthIn(min = minWidth, max = maxWidth)
@@ -503,7 +481,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Medium,
                         color = contentColor.copy(alpha = 0.95f),
-                        maxLines = if (expanded) 2 else 1,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     if (item.pinned) {
@@ -520,7 +498,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                         text = item.text,
                         style = MaterialTheme.typography.bodySmall,
                         color = contentColor.copy(alpha = 0.82f),
-                        maxLines = if (expanded) ExpandedLines else CollapsedLines,
+                        maxLines = CollapsedLines,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -549,16 +527,6 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                         .clip(RoundedCornerShape(percent = 50))
                         .background(contentColor.copy(alpha = 0.16f))
                         .padding(horizontal = 6.dp, vertical = 2.dp),
-                )
-            }
-            if (item is NotificationItem || item is ClipboardTextItem) {
-                Icon(
-                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = stringResource(
-                        if (expanded) R.string.smart_ball_collapse else R.string.smart_ball_expand,
-                    ),
-                    tint = contentColor.copy(alpha = 0.72f),
-                    modifier = Modifier.size(16.dp),
                 )
             }
         }
@@ -643,7 +611,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         )
     }
 
-    private enum class HitTarget { BODY, COUNT, TAIL }
+    private enum class HitTarget { BODY, COUNT }
 
     private companion object {
         const val TAG = LOG_TAG
@@ -658,14 +626,11 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         const val MaxWidthDp = 360f
         const val MarginDp = 8f
         const val GapDp = 8f
-        const val TailHitDp = 44f
         const val CountHitDp = 44f
         const val BubbleBackgroundAlpha = 0.88f
         const val CollapsedLines = 2
-        const val ExpandedLines = 8
 
         val DismissThresholdPx: Float = DensityProvider.dp2px(44f).toFloat()
-        val ExpandThresholdPx: Float = DensityProvider.dp2px(28f).toFloat()
     }
 }
 

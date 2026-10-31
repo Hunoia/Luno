@@ -76,6 +76,9 @@ class FloatBallService : Service() {
     private var settingsJob: Job? = null
     private var imeJob: Job? = null
 
+    /** insets 事件触发的合并复测任务。 */
+    private var imeHintJob: Job? = null
+
     private var settings: FloatBallSettings = FloatBallSettings()
 
     /** 应用手势总闸（combine 出来的 gestureEnabled，总闸关则球与分身都不出）。 */
@@ -93,13 +96,22 @@ class FloatBallService : Service() {
     private var capsuleShowing = false
     private var capsuleTimerJob: Job? = null
 
-    /** 胶囊延迟上屏的任务：新通知到达时取消上一拍，避免旧通知延迟上屏盖新的。 */
-    private var capsuleShowJob: Job? = null
+    /** 通知 settle 按 key 管理：新通知不再取消上一条还在 300ms 确认期内的通知（plan §4.4）。 */
+    private val settleJobs = LinkedHashMap<String, Job>()
 
     // ---- 统一收件箱（Stage 2：通知 + 剪贴板入队，共享气泡展示）----
 
     private var inboxState = BallInboxState()
     private var inboxConfig = BallInboxConfig()
+
+    /**
+     * 手动浏览会话（§7.5）：长按球打开 / 点计数切换 / 展开全文 / 长按钉住期间置位。
+     * 新内容只入队更新徽标，不抢当前项、不探头；气泡隐藏时清除。
+     */
+    private var manualSession = false
+
+    /** 气泡是否正被按住（重复复制重置计时的门控之一）。 */
+    private var bubblePressed = false
 
     /** 收件箱 TTL 到点 prune 的任务（钉住项/当前展示项免清理，见 [BallInboxState.nextExpiryAt]）。 */
     private var inboxTtlJob: Job? = null
@@ -163,10 +175,15 @@ class FloatBallService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        ballWindow = FloatBallWindow(this, onImeLiftChanged = { lift ->
-            mirrorWindow.updateImeLift(lift)
-            updateBubbleAnchor()
-        }).apply {
+        ballWindow = FloatBallWindow(
+            this,
+            onImeLiftChanged = { lift ->
+                mirrorWindow.updateImeLift(lift)
+                updateBubbleAnchor()
+            },
+            // 事件 insets 只当触发信号：立即用绝对参考系复测一次（不采信事件值）。
+            onImeInsetsHint = ::onImeInsetsHinted,
+        ).apply {
             onTap = { onBallTapped() }
             onLongPress = { onBallLongPressed() }
             onDragStarted = { if (capsuleShowing) hideCapsule() }
@@ -186,21 +203,14 @@ class FloatBallService : Service() {
             onLongPress = { onBubbleLongPressed() }
             onCountTapped = { onBubbleCountTapped() }
             onSwipedAway = { onCapsuleSwipedAway() }
-            // 按住/拖动期间暂停自动收起；展开正文期间也暂停（否则还没读完就消失）。
+            // 按住/拖动期间暂停自动收起，松手后按当前项来源重置计时。
             onPressStateChanged = { pressed ->
+                bubblePressed = pressed
                 if (pressed) {
                     capsuleTimerJob?.cancel()
                     capsuleTimerJob = null
-                } else if (capsuleShowing && !smartBubble.isExpanded()) {
-                    scheduleCapsuleHide(settings.notificationCapsule.autoHideMs)
-                }
-            }
-            onExpandedChanged = { expanded ->
-                if (expanded) {
-                    capsuleTimerJob?.cancel()
-                    capsuleTimerJob = null
                 } else if (capsuleShowing) {
-                    scheduleCapsuleHide(settings.notificationCapsule.autoHideMs)
+                    scheduleBubbleHideForCurrent()
                 }
             }
         }
@@ -213,6 +223,8 @@ class FloatBallService : Service() {
                 // 别让前台服务以 2Hz 空转唤醒（亮屏解锁由 applyLockState 补启）。
                 imeJob?.cancel()
                 imeJob = null
+                imeHintJob?.cancel()
+                imeHintJob = null
                 clipboardPollJob?.cancel()
                 clipboardPollJob = null
                 ballWindow.setHidden(true)
@@ -259,6 +271,7 @@ class FloatBallService : Service() {
     override fun onDestroy() {
         settingsJob?.cancel()
         imeJob?.cancel()
+        imeHintJob?.cancel()
         broadcastObserver?.unregister()
         broadcastObserver = null
         Events.unsubscribe(PanelShownEvent::class, panelShownSubscriber)
@@ -271,8 +284,8 @@ class FloatBallService : Service() {
         tempHideJob = null
         capsuleTimerJob?.cancel()
         capsuleTimerJob = null
-        capsuleShowJob?.cancel()
-        capsuleShowJob = null
+        settleJobs.values.forEach { it.cancel() }
+        settleJobs.clear()
         inboxTtlJob?.cancel()
         inboxTtlJob = null
         clipboardPollJob?.cancel()
@@ -350,6 +363,8 @@ class FloatBallService : Service() {
         val tempHidden = visibility.isTempHidden()
         val shouldShow = enabled && !panelHidden && !tempHidden
         if (!shouldShow) {
+            // 气泡锚在球上：球被面板/临时隐藏/摘窗时气泡一并收起（队列与徽标保留，决策 9）。
+            hideCapsule()
             if (ballVisible) {
                 if (enabled) {
                     // 面板/临时隐藏是短态：软隐藏（窗口保留、不可见不可点），
@@ -460,7 +475,7 @@ class FloatBallService : Service() {
         settings.notificationCapsule.enabled && transientOverlayAllowed()
 
     private fun onNotificationArrived(pulse: NotificationPulse) {
-        if (!capsuleAllowed()) return
+        if (!settings.notificationCapsule.enabled) return
         if (pulse.packageName in settings.notificationCapsule.blocklist) return
         if (isCapsuleDismissed(pulse.key)) {
             Log.i(TAG, "capsule skip dismissed pkg=${pulse.packageName} key=${pulse.key}")
@@ -483,10 +498,19 @@ class FloatBallService : Service() {
             return
         }
         // 延迟一拍再确认仍在通知栏：一次性/立即撤回的通知（复制、分享后的系统提示等）不弹。
-        capsuleShowJob?.cancel()
-        capsuleShowJob = scope.launch {
+        // settle 按 key 管理（plan §4.4）：新通知不再取消上一条还在确认期内的通知。
+        val settleKey = pulse.key ?: "${pulse.packageName}:${pulse.title}"
+        // 防御上限：异常洪泛时放弃 settle 直接入队（取消最旧的会让那条通知永远丢失）。
+        if (settleJobs.size >= 16) {
+            Log.w(TAG, "settle jobs overflow, skip settle pkg=${pulse.packageName}")
+            enqueueNotification(pulse)
+            return
+        }
+        settleJobs.remove(settleKey)?.cancel()
+        settleJobs[settleKey] = scope.launch {
             delay(CAPSULE_SETTLE_MS)
-            if (!capsuleAllowed()) return@launch
+            settleJobs.remove(settleKey)
+            if (!settings.notificationCapsule.enabled) return@launch
             if (!AutomationNotificationListener.isPosted(pulse.key)) {
                 Log.i(TAG, "capsule skip gone pkg=${pulse.packageName} key=${pulse.key}")
                 return@launch
@@ -508,35 +532,56 @@ class FloatBallService : Service() {
             text = pulse.text,
             receivedAtElapsedMs = now,
         )
-        val change = BallInboxReducer.reduce(inboxState, BallInboxAction.Add(item), now, inboxConfig)
+        val change = BallInboxReducer.reduce(
+            inboxState,
+            BallInboxAction.Add(item, makeCurrent = !manualSession),
+            now,
+            inboxConfig,
+        )
         inboxState = change.state
-        if (change.added == null) {
+        if (change.added == null && change.updated == null) {
             // 队列被钉住项填满（v1 通知不可钉，实际几乎不可达）；只记日志不探头。
             Log.w(TAG, "inbox add dropped pkg=${pulse.packageName} key=${pulse.key}")
             updateBadge()
             scheduleInboxTtl()
             return
         }
-        showBubbleForCurrent(expanded = false)
+        // 锁屏/面板/临时隐藏：只入队不探头，解锁后徽标可见（决策 9 / §7.1）。
+        // 同 key 更新在自动探头状态下允许替换当前项重新探头；手动浏览不抢（§4.2/§7.5）。
+        if (!capsuleAllowed() || manualSession) {
+            updateBadge()
+            scheduleInboxTtl()
+            return
+        }
+        showBubbleForCurrent()
     }
 
     /** 按收件箱当前项显示/刷新气泡；入队后新项在队首，即当前项。 */
-    private fun showBubbleForCurrent(expanded: Boolean) {
+    private fun showBubbleForCurrent() {
         val item = inboxState.current
         if (item == null) {
             hideCapsule()
             return
         }
-        // 剪贴板文本在展示层就认链接（图片/通知不参与）。
-        val link = (item as? ClipboardTextItem)
-            ?.let { linkInfoOf(ClipboardContent.Text(it.text)) }
+        // 链接识别涉及正则提取 + PackageManager 查询，不放主线程：
+        // 先不带链接上屏，IO 线程识别完成后回填（当前项已切换则丢弃）。
+        smartBubble.updateLink(null)
+        if (item is ClipboardTextItem) {
+            val itemId = item.id
+            val text = item.text
+            scope.launch(Dispatchers.Default) {
+                val link = linkInfoOf(ClipboardContent.Text(text))
+                if (capsuleShowing && inboxState.currentId == itemId) {
+                    smartBubble.updateLink(link)
+                }
+            }
+        }
         if (!smartBubble.show(
                 item = item,
                 index = inboxState.currentIndex,
                 totalCount = inboxState.items.size,
                 anchor = bubbleAnchor(),
-                expanded = expanded,
-                link = link,
+                link = null,
             )
         ) {
             // 挂窗被系统拒绝：收件箱保留（解锁/下次事件再试），只显示徽标。
@@ -546,7 +591,7 @@ class FloatBallService : Service() {
         }
         capsuleShowing = true
         updateBadge()
-        scheduleCapsuleHide(settings.notificationCapsule.autoHideMs)
+        scheduleBubbleHideForCurrent()
         scheduleInboxTtl()
     }
 
@@ -598,7 +643,7 @@ class FloatBallService : Service() {
             return
         }
         if (change.currentChanged && capsuleShowing) {
-            showBubbleForCurrent(expanded = smartBubble.isExpanded())
+            showBubbleForCurrent()
         } else {
             updateBadge()
         }
@@ -618,8 +663,16 @@ class FloatBallService : Service() {
         scheduleInboxTtl()
     }
 
-    /** 自动收起计时：新通知覆盖重计时（show 前服务层重算 allowed，不允许直接吞掉）。 */
-    private fun scheduleCapsuleHide(delayMs: Long) {
+    /**
+     * 自动收起计时（唯一入口）：按当前项来源取探头时长，夹在 3–10s。
+     * 新探头 / 重复刷新 / 按住松开 / 切项 / 取消钉住都走这里重置。
+     */
+    private fun scheduleBubbleHideForCurrent() {
+        val delayMs = if (inboxState.current?.source == BallSource.CLIPBOARD) {
+            settings.clipboardBall.autoHideMs
+        } else {
+            settings.notificationCapsule.autoHideMs
+        }
         capsuleTimerJob?.cancel()
         capsuleTimerJob = scope.launch {
             delay(
@@ -632,19 +685,8 @@ class FloatBallService : Service() {
         }
     }
 
-    /** 同内容重复刷新 / 取消钉住：按当前项来源的探头时长重置自动收起计时。 */
-    private fun scheduleBubbleHideForCurrent() {
-        val delay = if (inboxState.current?.source == BallSource.CLIPBOARD) {
-            settings.clipboardBall.autoHideMs
-        } else {
-            settings.notificationCapsule.autoHideMs
-        }
-        scheduleCapsuleHide(delay)
-    }
-
     private fun hideCapsule() {
-        capsuleShowJob?.cancel()
-        capsuleShowJob = null
+        manualSession = false
         capsuleTimerJob?.cancel()
         capsuleTimerJob = null
         if (!capsuleShowing) {
@@ -701,6 +743,32 @@ class FloatBallService : Service() {
         return false
     }
 
+    /** 系统通知被移除 → 收件箱同步移除；正在显示则切下一条或收起（plan §4.4）。 */
+    private val notificationRemovedObserver: (NotificationPulse) -> Unit = { pulse ->
+        onNotificationRemovedFromSystem(pulse)
+    }
+
+    private fun onNotificationRemovedFromSystem(pulse: NotificationPulse) {
+        if (!settings.notificationCapsule.enabled) return
+        val key = pulse.key ?: return
+        val change = BallInboxReducer.reduce(
+            inboxState,
+            BallInboxAction.Remove("notif:$key"),
+            SystemClock.elapsedRealtime(),
+            inboxConfig,
+        )
+        if (!change.changed) return
+        settleJobs.remove(key)?.cancel()
+        inboxState = change.state
+        if (inboxState.items.isEmpty()) {
+            hideCapsule()
+        } else if (change.currentChanged && capsuleShowing) {
+            showBubbleForCurrent()
+        }
+        updateBadge()
+        scheduleInboxTtl()
+    }
+
     /** 点气泡正文：通知打开内容；剪贴板分享/链接直达（决策 17：成功移除，失败保留可重试）。 */
     private fun onCapsuleTapped() {
         when (val item = inboxState.current) {
@@ -715,10 +783,15 @@ class FloatBallService : Service() {
                 }
             }
 
-            is ClipboardImageItem -> shareClipboardContent(
-                ClipboardContent.Image(android.net.Uri.parse(item.uri), item.mimeType ?: "image/*"),
-                item.id,
-            )
+            is ClipboardImageItem -> {
+                // 图片 URI 来自系统剪贴板，容错解析；解析失败保留项可重试。
+                runCatching { android.net.Uri.parse(item.uri) }.getOrNull()?.let { uri ->
+                    shareClipboardContent(
+                        ClipboardContent.Image(uri, item.mimeType ?: "image/*"),
+                        item.id,
+                    )
+                }
+            }
 
             else -> {}
         }
@@ -756,9 +829,12 @@ class FloatBallService : Service() {
             SystemClock.elapsedRealtime(),
             inboxConfig,
         )
+        if (!change.changed) return
         inboxState = change.state
+        manualSession = true
         if (change.currentChanged && capsuleShowing) {
-            showBubbleForCurrent(expanded = smartBubble.isExpanded())
+            showBubbleForCurrent()
+            scheduleBubbleHideForCurrent()
         }
     }
 
@@ -840,7 +916,7 @@ class FloatBallService : Service() {
 
     /** 变化处理共用入口（监听器即时路径 + 轮询兜底路径）。返回值 = 这次变化已处理（可推进已读基线）。 */
     private fun onClipboardContent(content: ClipboardContent): Boolean {
-        if (!clipboardBallAllowed()) return false
+        if (!settings.clipboardBall.enabled) return false
         // 敏感文本 / 空文本 / 关掉图片开关时的图片：当作已处理，不弹也不入库。
         if (content is ClipboardContent.Text && (content.sensitive || content.text.isBlank())) {
             return true
@@ -857,20 +933,37 @@ class FloatBallService : Service() {
         ClipboardCenter.record(content)
         val item = clipboardItemOf(content) ?: return true
         val now = SystemClock.elapsedRealtime()
-        val change = BallInboxReducer.reduce(inboxState, BallInboxAction.Add(item), now, inboxConfig)
+        val change = BallInboxReducer.reduce(
+            inboxState,
+            BallInboxAction.Add(item, makeCurrent = !manualSession),
+            now,
+            inboxConfig,
+        )
         inboxState = change.state
+        if (change.duplicate) {
+            // 重复内容：只刷新 TTL，不重复探头（§4.2）；正在显示该项且未被按住/展开时重置计时。
+            updateBadge()
+            scheduleInboxTtl()
+            if (capsuleShowing && inboxState.currentId == item.id &&
+                !bubblePressed
+            ) {
+                scheduleBubbleHideForCurrent()
+            }
+            return true
+        }
         if (change.added == null) {
             Log.w(TAG, "inbox clipboard add dropped (capacity)")
             updateBadge()
             scheduleInboxTtl()
             return true
         }
-        // 同内容重复复制且已在屏：只重置计时，不重播进场（TTL 已由 reducer 刷新）。
-        if (change.duplicate && capsuleShowing && inboxState.currentId == item.id) {
-            scheduleBubbleHideForCurrent()
+        // 锁屏/面板/临时隐藏：只入队不探头（决策 9 / §7.1）；手动浏览不抢当前项。
+        if (manualSession || !clipboardBallAllowed()) {
+            updateBadge()
+            scheduleInboxTtl()
             return true
         }
-        showBubbleForCurrent(expanded = false)
+        showBubbleForCurrent()
         return true
     }
 
@@ -981,7 +1074,8 @@ class FloatBallService : Service() {
      */
     private fun onBallLongPressed() {
         if (inboxState.items.isEmpty()) return
-        showBubbleForCurrent(expanded = false)
+        manualSession = true
+        showBubbleForCurrent()
     }
 
     /**
@@ -997,15 +1091,26 @@ class FloatBallService : Service() {
             SystemClock.elapsedRealtime(),
             inboxConfig,
         )
-        if (change.updated == null) return
+        if (!change.changed) return
         inboxState = change.state
-        if (change.updated.pinned) {
+        manualSession = true
+        if (change.updated?.pinned == true) {
+            // 钉住：气泡收起，球显示图钉；钉住项免 TTL（决策 10）。
             hideCapsule()
+            updateBadge()
+            scheduleInboxTtl()
+            return
+        }
+        // 取消钉住（或取消钉住后立即过期被 reducer 移除）：显示下一条或收起。
+        if (inboxState.items.isEmpty()) {
+            hideCapsule()
+        } else if (capsuleShowing) {
+            showBubbleForCurrent()
         } else {
             updateBadge()
-            scheduleBubbleHideForCurrent()
-            scheduleInboxTtl()
         }
+        scheduleBubbleHideForCurrent()
+        scheduleInboxTtl()
     }
 
     /** 认出文本里的链接（仅当链接分发开启；图片不参与）。 */
@@ -1059,7 +1164,7 @@ class FloatBallService : Service() {
                 Links.fallbackFor(this@FloatBallService, url, resolution?.rule ?: rule, linkDispatch)
             }
             // 成功移除项；失败保留气泡与项，允许重试（决策 17）。
-            if (dispatched) removeInboxItem(itemId) else showBubbleForCurrent(expanded = false)
+            if (dispatched) removeInboxItem(itemId) else showBubbleForCurrent()
         }
     }
 
@@ -1106,7 +1211,8 @@ class FloatBallService : Service() {
         // 迷你球没有用户动作：单击 = 切换气泡（§3.6）。
         if (miniMode) {
             if (!capsuleShowing && inboxState.items.isNotEmpty()) {
-                showBubbleForCurrent(expanded = false)
+                manualSession = true
+                showBubbleForCurrent()
             }
             return
         }
@@ -1198,33 +1304,47 @@ class FloatBallService : Service() {
 
     // ---- 键盘让位 ----
 
+    /**
+     * IME 让位唯一事实源：`currentWindowMetrics` 的 display 绝对坐标轮询。
+     * 小悬浮窗自身的 insets 事件参考系随窗口位置漂移（球被抬升 → insets 变化 →
+     * 抖动循环），只用来作为「立即复测」的触发信号，不直接采信。
+     */
     private fun observeIme() {
         imeJob?.cancel()
         imeJob = scope.launch {
             while (isActive) {
                 delay(IME_POLL_MS)
-                // 窗口已收到事件型 IME insets：此 ROM 支持推播，兜底轮询使命完成，
-                // 整个停掉（此前只 continue，服务存活期间永远 2Hz 唤醒）。
-                // 判在隐藏类短态之前：面板/临时隐藏乃至摘窗期间确认了推播也照停，
-                // 别为迟早退出的轮询白付唤醒；重挂由 ensureImeObserver 按需补启。
-                if (ballWindow.imeInsetsAvailable()) break
                 if (!ballVisible || visibility.isHidden) continue
-                val imeBottom = runCatching {
-                    windowManager?.currentWindowMetrics
-                        ?.windowInsets
-                        ?.getInsets(android.view.WindowInsets.Type.ime())
-                        ?.bottom
-                }.getOrNull() ?: 0
-                ballWindow.updateIme(imeBottom)
-                mirrorWindow.updateImeLift(ballWindow.currentImeLiftPx())
+                pollImeOnce()
             }
         }
     }
 
-    /** 兜底轮询的按需启动：只在球挂窗、且事件型 insets 尚未确认时跑（息屏侧由 screen off 停）。 */
+    /** insets 事件触发：合并高频派发，延迟一拍立即复测。 */
+    private fun onImeInsetsHinted() {
+        if (imeHintJob?.isActive == true) return
+        imeHintJob = scope.launch {
+            delay(32)
+            if (!ballVisible || visibility.isHidden) return@launch
+            pollImeOnce()
+        }
+    }
+
+    private fun pollImeOnce() {
+        val imeBottom = runCatching {
+            windowManager?.currentWindowMetrics
+                ?.windowInsets
+                ?.getInsets(android.view.WindowInsets.Type.ime())
+                ?.bottom
+        }.getOrNull() ?: 0
+        ballWindow.updateIme(imeBottom)
+        mirrorWindow.updateImeLift(ballWindow.currentImeLiftPx())
+    }
+
+    /** 轮询按需启动：球挂窗即跑（息屏侧由 screen off 停）。 */
     private fun ensureImeObserver() {
         if (imeJob?.isActive == true) return
-        if (!ballVisible || ballWindow.imeInsetsAvailable()) return
+        if (!ballVisible) return
         observeIme()
     }
 
