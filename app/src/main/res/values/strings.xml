@@ -923,8 +923,10 @@
     <string name="privileged_grant_failed">授权失败：检查 Shizuku 是否运行并已授权</string>
     <string name="perm_page_title">授权</string>
     <string name="perm_page_entry_hint">查看各项权限状态，单项授权或一键补齐</string>
-    <string name="perm_page_hint">下面逐项列出当前状态；点行跳系统设置页，右侧「授权」只授权该项。</string>
-    <string name="perm_group_title">权限状态</string>
+    <string name="perm_group_app">应用权限</string>
+    <string name="perm_group_core">核心权限</string>
+    <string name="perm_group_notification">通知</string>
+    <string name="perm_group_system">系统增强</string>
     <string name="perm_grant_all">一键补齐授权</string>
     <string name="perm_grant_one">授权</string>
     <string name="perm_grant_one_done">已授权该项</string>
@@ -943,6 +945,32 @@
     <string name="perm_battery_hint">避免后台被冻结导致触钮延迟</string>
     <string name="perm_notifications">通知权限</string>
     <string name="perm_notifications_hint">保活前台服务的通知需要它</string>
+    <string name="perm_open_settings">去设置</string>
+    <string name="perm_group_location">定位</string>
+    <string name="perm_manage_files">所有文件访问</string>
+    <string name="perm_manage_files_hint">读写全部存储文件，导出 / 备份需要它</string>
+    <string name="perm_write_system">修改系统设置</string>
+    <string name="perm_write_system_hint">部分系统开关（如屏幕超时）需要，只能手动开</string>
+    <string name="perm_notification_policy">勿扰访问</string>
+    <string name="perm_notification_policy_hint">自动切换勿扰等动作需要</string>
+    <string name="perm_location">定位权限</string>
+    <string name="perm_location_hint">基于位置的动作 / 条件需要，需手动授权</string>
+    <string name="perm_camera">相机</string>
+    <string name="perm_camera_hint">扫码 / 截图识别等用到</string>
+    <string name="perm_read_contacts">读取联系人</string>
+    <string name="perm_read_contacts_hint">联系人搜索需要</string>
+    <string name="perm_read_calendar">读取日历</string>
+    <string name="perm_read_calendar_hint">日历搜索需要</string>
+    <string name="perm_read_sms">读取短信</string>
+    <string name="perm_read_sms_hint">短信搜索需要</string>
+    <string name="perm_read_call_log">读取通话记录</string>
+    <string name="perm_read_call_log_hint">通话记录搜索需要</string>
+    <string name="perm_read_media_images">读取图片</string>
+    <string name="perm_read_media_images_hint">图片搜索需要</string>
+    <string name="perm_read_media_video">读取视频</string>
+    <string name="perm_read_media_video_hint">视频搜索需要</string>
+    <string name="perm_read_media_audio">读取音频</string>
+    <string name="perm_read_media_audio_hint">音频搜索需要</string>
     <!-- ===== 首页运行状态卡（自 debug APK 资源还原） ===== -->
 
     <!-- ===== 无障碍开关复位提示（自 debug APK 资源还原） ===== -->

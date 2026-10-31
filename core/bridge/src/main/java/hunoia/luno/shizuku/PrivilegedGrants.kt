@@ -137,6 +137,15 @@ object PrivilegedGrants {
         return Result(Item.BatteryWhitelist, result.isSuccess, result.errorMessage)
     }
 
+    /** 授予单个标准运行期权限（`pm grant`）；已授权直接返回成功。 */
+    suspend fun ensurePermission(context: Context, name: String): Result {
+        if (context.checkSelfPermission(name) == PackageManager.PERMISSION_GRANTED) {
+            return Result(Item.Permission(name), true, "已授权")
+        }
+        val result = ShizukuManager.executeShell("pm grant ${context.packageName} $name")
+        return Result(Item.Permission(name), result.isSuccess, result.errorMessage)
+    }
+
     /**
      * 授予**清单里已经声明**的全部运行期权限（不含未声明权限，避免静默扩权）。
      * 只在用户显式点「自动补齐授权」时调用，不在启动路径上跑。
