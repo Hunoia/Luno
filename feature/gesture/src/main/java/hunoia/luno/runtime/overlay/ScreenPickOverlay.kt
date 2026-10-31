@@ -143,6 +143,8 @@ class ScreenPickOverlay(
     private val ocrEngine: OcrEngine,
     /** 幽灵卡「搜索」的落点（`:app` 注入快速搜索，本模块不依赖 `:feature:quicklaunch`）。 */
     private val onSearch: (String) -> Boolean = { false },
+    /** 框选 OCR 完成后的结果页落点（`:app` 注入）；返回 true = 已接管，浮层关闭。 */
+    private val onOcrResult: (String) -> Boolean = { false },
     /** 幽灵卡「打开链接」的落点（`:app` 注入链接分发，本模块不依赖链接分发实现）。 */
     private val onOpenLink: suspend (String) -> Boolean = { false },
     /** 长按/拖动参数：`:app` 注入运行时配置，保证与全屏长按使用同一套阈值。 */
@@ -951,23 +953,29 @@ class ScreenPickOverlay(
         }
     }
 
-    /** 框选菜单点 OCR：打开可编辑面板，识别完成后填入。 */
+    /** 框选菜单点 OCR：优先交给结果页 Activity，失败才回退可编辑浮层。 */
     private fun openOcrPanel(rect: AndroidRect) {
         ocrPanelRect = rect
         ocrPanelText = ""
         ocrPanelLoading = true
-        setWindowFocusable(true)
+        // 先不抢焦点：结果页 Activity 自己处理 IME；只有回退到浮层时才需要可获焦。
         val token = session
         val panelToken = ++ocrPanelSession
         host.coroutineScope.launch {
             val text = ocrTextIn(session, portalSession, rect)
             if (token != session || panelToken != ocrPanelSession) return@launch
             ocrPanelLoading = false
-            if (text.isNullOrBlank()) {
-                ocrPanelText = ""
-                showToast(R.string.screen_pick_no_content)
-            } else {
-                ocrPanelText = text
+            when {
+                text.isNullOrBlank() -> {
+                    ocrPanelText = ""
+                    setWindowFocusable(true)
+                    showToast(R.string.screen_pick_no_content)
+                }
+                runCatching { onOcrResult(text) }.getOrDefault(false) -> close()
+                else -> {
+                    ocrPanelText = text
+                    setWindowFocusable(true)
+                }
             }
         }
     }

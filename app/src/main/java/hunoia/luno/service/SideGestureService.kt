@@ -62,6 +62,9 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         onSearch = { query ->
             hunoia.luno.quicklaunch.QuickSearchActivity.start(this, query)
         },
+        onOcrResult = { text ->
+            hunoia.luno.ui.ocr.OcrResultActivity.start(this, text)
+        },
         onOpenLink = { url ->
             val settings = hunoia.luno.domain.link.LinkSettingsCenter.linkDispatch()
             val rule = if (settings.enabled) {

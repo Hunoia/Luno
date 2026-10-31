@@ -941,6 +941,23 @@
 
     <!-- ===== 恢复配置确认（自 debug APK 资源还原） ===== -->
 
+    <!-- ===== OCR 结果页 ===== -->
+    <string name="ocr_result_title">OCR 文本</string>
+    <string name="ocr_result_hint">长按选词，拖动扩选；点右上角切换分词视图</string>
+    <string name="ocr_result_edit_hint">编辑后复制、搜索或分享会使用新文本</string>
+    <string name="ocr_result_placeholder">输入文本</string>
+    <string name="ocr_result_show_text">显示原文</string>
+    <string name="ocr_result_show_words">分词视图</string>
+    <string name="ocr_result_finish_edit">完成编辑</string>
+    <string name="ocr_result_edit">编辑</string>
+    <string name="ocr_result_close">关闭</string>
+    <string name="ocr_result_copy">复制</string>
+    <string name="ocr_result_search">搜索</string>
+    <string name="ocr_result_share">分享</string>
+    <string name="ocr_result_empty">未识别到文字</string>
+    <string name="ocr_result_failed">操作失败，请重试</string>
+    <string name="ocr_result_copied">已复制</string>
+
     <!-- ===== OCR 模型设置页（自 debug APK 资源还原） ===== -->
     <string name="ocr_model_cancel">取消</string>
     <string name="ocr_model_delete">删除</string>

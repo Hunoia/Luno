@@ -1,10 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- debug 变体追加：识屏快照探测广播（仅调试用）。 -->
+<!-- debug 变体追加：识屏快照探测与 OCR 结果页预览广播（仅调试用）。 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
         <receiver
             android:name="hunoia.luno.service.ScreenPickProbeReceiver"
             android:exported="true"
             android:process=":service" />
+
+        <receiver
+            android:name="hunoia.luno.ui.ocr.OcrResultPreviewReceiver"
+            android:exported="true"
+            android:process=":service">
+            <intent-filter>
+                <action android:name="hunoia.luno.debug.OCR_PREVIEW" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>
