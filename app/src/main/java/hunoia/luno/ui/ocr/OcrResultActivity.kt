@@ -239,11 +239,15 @@ class OcrResultActivity : ComponentActivity() {
         lifecycleScope.launch {
             val ok = withContext(Dispatchers.IO) {
                 when (action) {
-                    OcrImageAction.Copy, OcrImageAction.Save ->
+                    // 复制要的是一个可被粘贴方读取的 URI，所以先落图库再写剪贴板。
+                    OcrImageAction.Copy ->
                         ImageOutput.saveToGallery(this@OcrResultActivity, bitmap, "ocr_result")
                             ?.let { uri ->
                                 copyImage(this@OcrResultActivity, "ocr_result", uri)
                             } ?: false
+                    // 保存只写图库：不额外改剪贴板，避免「保存」带出看不见的副作用。
+                    OcrImageAction.Save ->
+                        ImageOutput.saveToGallery(this@OcrResultActivity, bitmap, "ocr_result") != null
                     OcrImageAction.Share ->
                         ImageOutput.saveToCache(this@OcrResultActivity, bitmap, "ocr_result")
                             ?.let { uri -> ImageOutput.share(this@OcrResultActivity, uri, "ocr_result") }
