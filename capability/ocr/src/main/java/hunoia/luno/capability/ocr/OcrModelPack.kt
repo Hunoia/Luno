@@ -17,12 +17,13 @@ import kotlinx.coroutines.withContext
  */
 object OcrModelPack {
 
-    /** 白名单：det / 字典 / 清单固定名，rec 按 `ppocrv6_small_rec_<宽度>_fp32.tflite` 匹配（可多档）。 */
+    /** 白名单：det / 字典 / 清单固定名，rec 按 `ppocrv6_small_rec_<宽度>_fp32.tflite` 匹配（可多档），另允许 rec 差分补丁。 */
     private fun allowed(name: String): Boolean =
         name == OcrModelStore.DET_MODEL ||
             name == OcrModelStore.DICT ||
             name == OcrModelStore.MANIFEST ||
-            OcrModelStore.isRecFile(name)
+            OcrModelStore.isRecFile(name) ||
+            RecModelPatch.isPatch(name)
 
     private const val MAX_ENTRY_BYTES = 200L * 1024 * 1024
 
@@ -75,6 +76,9 @@ object OcrModelPack {
                             }
                         }
                     }
+                    // 320/640 只差少量形状字节：包里可能只有一份完整 rec + 补丁，
+                    // 先在本机还原出缺失档位，再按 manifest 做完整 SHA 校验。
+                    RecModelPatch.applyAll(staging)
                     OcrModelStore.validateStaging(staging)
                     OcrModelStore.commit(context, staging)
                     OcrModelStore.readInfo(OcrModelStore.modelDir(context))
