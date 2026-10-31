@@ -88,13 +88,30 @@ class OcrSelectionTest {
     }
 
     @Test
-    fun `joinSelected 不连续选词补空格，不生出假词`() {
-        val l = line("ab" to 0..1, "cd" to 3..4)
-        assertEquals("ab cd", joinSelected(listOf(l), lineStartsOf(listOf(l)), setOf(0, 1)))
+    fun `joinSelected 保留选中段之间的原文空白`() {
+        val single = line("ab" to 0..1, "cd" to 3..4)
+        assertEquals(
+            "ab cd",
+            joinSelected(listOf(single), lineStartsOf(listOf(single)), setOf(0, 1)),
+        )
+        // 原文是两个空格就保留两个空格，不压成一个。
+        val double = line("ab" to 0..1, "cd" to 4..5)
+        assertEquals(
+            "ab  cd",
+            joinSelected(listOf(double), lineStartsOf(listOf(double)), setOf(0, 1)),
+        )
     }
 
     @Test
-    fun `joinSelected 按原文顺序输出，与点击先后无关`() {        val lines = listOf(line("ab" to 0..1), line("cd" to 0..1))
+    fun `joinSelected 跳过未选中的词时只补一个分隔空格`() {
+        val l = line("ab" to 0..1, "cd" to 3..4, "ef" to 6..7)
+        // 只选首尾两个词：中间未选中的 "cd" 不能拼进来。
+        assertEquals("ab ef", joinSelected(listOf(l), lineStartsOf(listOf(l)), setOf(0, 2)))
+    }
+
+    @Test
+    fun `joinSelected 按原文顺序输出，与点击先后无关`() {
+        val lines = listOf(line("ab" to 0..1), line("cd" to 0..1))
         val starts = lineStartsOf(lines)
         val forward = joinSelected(lines, starts, setOf(0, 1))
         val reversedClickOrder = joinSelected(lines, starts, setOf(1, 0))

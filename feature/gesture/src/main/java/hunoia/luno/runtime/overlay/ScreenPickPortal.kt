@@ -63,7 +63,7 @@ internal data class PortalContent(
     val url: String? = null,
     /** 图片节点的缩略图（来自预截图裁剪）；还没裁好时为 null。 */
     val preview: ImageBitmap? = null,
-    /** 命中的 a11y 节点 bounds（屏幕坐标）：OCR 兜底取字的区域。 */
+    /** 命中的 a11y 节点 bounds（屏幕坐标）：OCR 兜底/按需识别的区域。 */
     val nodeBounds: android.graphics.Rect? = null,
 ) {
     val isImage: Boolean get() = text.isNullOrBlank() && imageSize != null
@@ -82,6 +82,7 @@ internal fun portalActionsFor(content: PortalContent): List<PortalAction> {
         if (hasImage) add(PortalAction.Save)
         if (hasText && !content.url.isNullOrBlank()) add(PortalAction.OpenLink)
         // 有节点 bounds 才给 OCR：没有区域就没法识别，别放一个点了没反应的按钮。
+        // 文本节点默认直接用 a11y 文本，OCR 在结果页按需触发；图片/空白节点才先跑 OCR。
         if (content.nodeBounds != null) add(PortalAction.Ocr)
     }
 }

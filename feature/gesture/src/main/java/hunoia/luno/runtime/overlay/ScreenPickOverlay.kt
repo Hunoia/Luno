@@ -141,8 +141,12 @@ class ScreenPickOverlay(
     /** 幽灵卡「搜索」的落点（`:app` 注入快速搜索，本模块不依赖 `:feature:quicklaunch`）。 */
     private val onSearch: (String) -> Boolean = { false },
     /** 结果页落点（`:app` 注入）：OCR 文本 + a11y 文本 + 裁剪图；true = 已接管，浮层关闭。 */
-    private val onOcrResult: (ocr: String, a11y: String?, image: Bitmap?) -> Boolean =
-        { _, _, _ -> false },
+    private val onOcrResult: (
+        ocr: String,
+        a11y: String?,
+        image: Bitmap?,
+        ocrLoader: (suspend () -> String?)?,
+    ) -> Boolean = { _, _, _, _ -> false },
     /** 幽灵卡「打开链接」的落点（`:app` 注入链接分发，本模块不依赖链接分发实现）。 */
     private val onOpenLink: suspend (String) -> Boolean = { false },
     /** 长按/拖动参数：`:app` 注入运行时配置，保证与全屏长按使用同一套阈值。 */
@@ -371,11 +375,14 @@ class ScreenPickOverlay(
         // 保留卡片；动作由卡片底部按钮点击执行。
     }
 
-    /** 点击底部动作槽：立即执行，执行后关层（OCR 例外：识别并交接后再关）。 */
+    /** 点击底部动作槽：先立即撤卡再执行；OCR 保留拾取层到结果页交接完成。 */
     private fun onPortalAction(action: PortalAction) {
         if (portalResolving) return
         val content = portalContent
         val imageBounds = portalImageBounds
+        // 卡片阶段到此结束：先撤卡，避免 OCR 异步交接/保存期间卡片还留在屏上，
+        // 也避免动作条清空选框后卡片重新出现。
+        dismissPortal()
         if (action == PortalAction.Ocr) {
             openOcrResultForPortal(content)
             return
@@ -870,6 +877,9 @@ class ScreenPickOverlay(
     /** 框选动作（图标动作条）：文本复制/搜索/分享，图片复制/分享/保存，OCR 单独进可编辑面板。 */
     private fun onSelectionAction(rect: Rect, action: PickSelectionAction) {
         if (resolvingAction) return
+        // 框选动作开始前兜底撤卡：已有选框调整、动作条清空 adjustRect 等路径
+        // 不一定会走 onFrameSelectStart，不能让幽灵卡在动作执行后闪回来。
+        dismissPortal()
         if (rect.width < SCREEN_PICK_MIN_REGION_PX || rect.height < SCREEN_PICK_MIN_REGION_PX) return
         resolvingAction = true
         val screenRect = AndroidRect(
@@ -965,22 +975,26 @@ class ScreenPickOverlay(
     }
 
     /**
-     * 幽灵卡「OCR」：对命中的 a11y 节点 bounds 跑 OCR，再把
-     * 「OCR 文本 + 节点 a11y 文本 + 裁剪图」一起交给结果页。
+     * 幽灵卡「OCR」：命中文本节点时直接用 a11y 文本，OCR 作为结果页里的按需来源；
+     * 没有 a11y 文本时才先跑 OCR，再把「OCR 文本 + 节点 a11y 文本 + 裁剪图」交给结果页。
      *
      * 不立即关层：识别要用本次截屏，关层会回收位图。识别完再交接并关层。
      */
     private fun openOcrResultForPortal(content: PortalContent) {
         val rect = content.nodeBounds
         if (rect == null) {
+            dismissPortal()
             showToast(R.string.screen_pick_no_content)
+            close()
             return
         }
         val token = session
         val pickToken = portalSession
         host.coroutineScope.launch {
-            val ocr = ocrTextIn(token, pickToken, rect)
-            val a11y = content.text
+            val a11y = content.text?.takeIf { it.isNotBlank() }
+            // 命中文本节点：a11y 文本已经是现成全文，先不跑 OCR；
+            // 结果页切到 OCR 来源时再按需识别，避免默认路径白跑一次模型。
+            val ocr = if (a11y == null) ocrTextIn(token, pickToken, rect) else ""
             val image = croppedForResult(rect)
             if (token != session) {
                 image?.recycle()
@@ -991,12 +1005,48 @@ class ScreenPickOverlay(
                 close()
                 return@launch
             }
-            val ok = runCatching { onOcrResult(ocr.orEmpty(), a11y, image) }.getOrDefault(false)
+            val ocrLoader = if (!a11y.isNullOrBlank() && image != null) {
+                lazyOcrLoader(image)
+            } else {
+                null
+            }
+            val ok = runCatching {
+                onOcrResult(ocr.orEmpty(), a11y, image, ocrLoader)
+            }.getOrDefault(false)
             if (!ok) {
                 image?.recycle()
                 showToast(R.string.screen_pick_failed)
             }
             close()
+        }
+    }
+
+    /**
+     * 文本命中时的按需 OCR：结果页切到 OCR 来源才执行。
+     *
+     * 用结果图副本识别，避免结果页回收原图与模型读取位图竞争；识别完立即回收副本。
+     */
+    private fun lazyOcrLoader(image: Bitmap): suspend () -> String? = {
+        val source = withContext(Dispatchers.IO) {
+            runCatching {
+                if (image.isRecycled) null else image.copy(Bitmap.Config.ARGB_8888, false)
+            }.getOrNull()
+        }
+        if (source == null) {
+            null
+        } else {
+            try {
+                val scripts = screenPickGesture().ocrScripts.ifEmpty { listOf(OcrScript.Chinese) }
+                val result = withContext(NonCancellable) {
+                    ocrEngine.recognize(source, scripts)
+                }
+                OcrText.join(result.blocks).ifBlank { null }
+            } catch (t: Throwable) {
+                Log.w(LOG_TAG, "screen pick lazy ocr failed: ${t.message}")
+                null
+            } finally {
+                if (!source.isRecycled) source.recycle()
+            }
         }
     }
 
@@ -1021,7 +1071,7 @@ class ScreenPickOverlay(
                     showToast(R.string.screen_pick_no_content)
                     close()
                 }
-                runCatching { onOcrResult(text.orEmpty(), a11y, image) }.getOrDefault(false) ->
+                runCatching { onOcrResult(text.orEmpty(), a11y, image, null) }.getOrDefault(false) ->
                     close()
                 else -> {
                     image?.recycle()
@@ -1735,6 +1785,9 @@ private fun ScreenPickScreen(
                     originX = originX,
                     originY = originY,
                     onAction = { action ->
+                        // 先撤卡再清选框：否则 adjustRect 变 null 的同一帧里
+                        // 残留的 portalAnchor 会让幽灵卡重新出现。
+                        onFrameSelectStart()
                         adjustRect = null
                         onSelectionAction(sel, action)
                     },

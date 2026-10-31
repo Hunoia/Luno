@@ -77,10 +77,11 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.State
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.State
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -109,6 +110,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected as selectedSemantics
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import hunoia.luno.R
@@ -140,9 +142,10 @@ import kotlin.math.hypot
  * 框选 / 长按 OCR 的结果页：透明 Activity + 底部卡片。
  *
  * 住在 `:service`，与 `ScreenPickOverlay` / OCR 引擎同进程；结果通过 [OcrResultHandoff]
- * 交接，不把大文本或位图塞进 Intent。Activity 只做展示、选择与动作发起，不跑 OCR。
+ * 交接，不把大文本或位图塞进 Intent。Activity 只做展示、选择与动作发起，不直接持 OCR 引擎。
  *
  * 三种内容同屏可选：a11y 文本、OCR 文本、裁剪图，各自来自同一次识屏。
+ * 文本命中时 OCR 可延迟到用户切到 OCR 来源，默认先展示无障碍文本。
  */
 class OcrResultActivity : ComponentActivity() {
 
@@ -291,7 +294,26 @@ class OcrResultActivity : ComponentActivity() {
 }
 
 /** 文本来源：同一次识屏的 a11y 取词与模型识别各一份。 */
-private enum class ResultSource { A11y, Ocr }
+internal enum class ResultSource { A11y, Ocr }
+
+/**
+ * 结果页默认来源：有 a11y 且 OCR 还是懒加载时先展示无障碍，避免开场等待模型；
+ * 已经拿到 OCR 文本（框选等路径）时保持原来的默认 OCR 行为。
+ */
+internal fun defaultResultSource(
+    ocrText: String,
+    hasLazyOcr: Boolean,
+    a11yText: String?,
+): ResultSource {
+    val ocrAvailable = ocrText.isNotBlank() || hasLazyOcr
+    val a11yAvailable = !a11yText.isNullOrBlank()
+    return when {
+        a11yAvailable && ocrText.isBlank() -> ResultSource.A11y
+        ocrAvailable -> ResultSource.Ocr
+        a11yAvailable -> ResultSource.A11y
+        else -> ResultSource.Ocr
+    }
+}
 
 /** 内容形态：文本（分词 chip）或原图裁剪。 */
 private enum class ResultPane { Text, Image }
@@ -314,17 +336,39 @@ private fun OcrResultScreen(
     onImageAction: (OcrImageAction) -> Unit,
 ) {
     val a11yAvailable = !payload.a11yText.isNullOrBlank()
-    val ocrAvailable = payload.ocrText.isNotBlank()
+    val ocrLoader = payload.ocrLoader
+    val ocrAvailable = payload.hasOcrSource
     val image = payload.image
+    val scope = rememberCoroutineScope()
 
     var source by rememberSaveable {
-        mutableStateOf(if (!ocrAvailable && a11yAvailable) ResultSource.A11y else ResultSource.Ocr)
+        mutableStateOf(
+            defaultResultSource(
+                ocrText = payload.ocrText,
+                hasLazyOcr = ocrLoader != null,
+                a11yText = payload.a11yText,
+            ),
+        )
     }
     var pane by rememberSaveable { mutableStateOf(ResultPane.Text) }
     var editing by rememberSaveable { mutableStateOf(false) }
     // 两份文本各自的当前值：编辑只改「当前来源」那一份，切回来还在。
     var ocrText by rememberSaveable { mutableStateOf(payload.ocrText) }
     var a11yText by rememberSaveable { mutableStateOf(payload.a11yText.orEmpty()) }
+    // 懒加载 OCR 只在切到 OCR 来源时跑一次；加载中不阻塞无障碍文本。
+    var ocrLoading by remember { mutableStateOf(false) }
+    var ocrLoaded by remember { mutableStateOf(payload.ocrText.isNotBlank()) }
+    val loadOcr: () -> Unit = {
+        if (!ocrLoading && !ocrLoaded && ocrLoader != null) {
+            ocrLoading = true
+            scope.launch {
+                val value = runCatching { ocrLoader() }.getOrNull().orEmpty()
+                ocrText = value
+                ocrLoaded = true
+                ocrLoading = false
+            }
+        }
+    }
     val text = if (source == ResultSource.Ocr) ocrText else a11yText
 
     // 多选：全局词下标集合。动作作用于“选中词按原文顺序拼接”，未选中时作用于全文。
@@ -471,6 +515,7 @@ private fun OcrResultScreen(
                                     if (it != source) {
                                         source = it
                                         selected = emptySet()
+                                        if (it == ResultSource.Ocr) loadOcr()
                                     }
                                 },
                                 showPane = image != null,
@@ -526,29 +571,54 @@ private fun OcrResultScreen(
                                         Text(stringResource(R.string.ocr_result_placeholder))
                                     },
                                 )
-                                ContentKind.Chips -> LazyColumn(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .onGloballyPositioned { listCoords.value = it }
-                                        .pointerInput(Unit) {
-                                            detectChipSelection(
-                                                chipBounds = chipBounds,
-                                                listCoords = listCoords,
-                                                currentSelected = { currentSelected },
-                                                onSelection = { selected = it },
-                                            )
-                                        },
-                                    contentPadding = PaddingValues(vertical = 2.dp),
-                                    verticalArrangement = Arrangement.spacedBy(0.dp),
-                                ) {
-                                    itemsIndexed(lines) { index, line ->
-                                        WordChips(
-                                            line = line,
-                                            startIndex = lineStarts[index],
-                                            selected = selected,
-                                            bounds = chipBounds,
-                                            onToggle = { selected = toggle(selected, it) },
+                                ContentKind.Chips -> if (ocrLoading && source == ResultSource.Ocr) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .heightIn(min = 80.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            strokeWidth = 2.dp,
                                         )
+                                    }
+                                } else if (
+                                    source == ResultSource.Ocr &&
+                                    ocrLoaded &&
+                                    ocrText.isBlank()
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.ocr_result_empty),
+                                        modifier = Modifier.fillMaxWidth(),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                } else {
+                                    LazyColumn(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .onGloballyPositioned { listCoords.value = it }
+                                            .pointerInput(Unit) {
+                                                detectChipSelection(
+                                                    chipBounds = chipBounds,
+                                                    listCoords = listCoords,
+                                                    currentSelected = { currentSelected },
+                                                    onSelection = { selected = it },
+                                                )
+                                            },
+                                        contentPadding = PaddingValues(vertical = 2.dp),
+                                        verticalArrangement = Arrangement.spacedBy(0.dp),
+                                    ) {
+                                        itemsIndexed(lines) { index, line ->
+                                            WordChips(
+                                                line = line,
+                                                startIndex = lineStarts[index],
+                                                selected = selected,
+                                                bounds = chipBounds,
+                                                onToggle = { selected = toggle(selected, it) },
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -789,7 +859,7 @@ private fun WordChips(
                 contentAlignment = Alignment.Center,
             ) {
                 Surface(
-                    modifier = Modifier.height(32.dp),
+                    modifier = Modifier.heightIn(min = 32.dp),
                     shape = RoundedCornerShape(10.dp),
                     color = if (isSelected) {
                         MaterialTheme.colorScheme.primaryContainer
@@ -815,6 +885,10 @@ private fun WordChips(
                         Text(
                             text = word.text,
                             style = MaterialTheme.typography.labelMedium,
+                            // 长链接在分词里是一个完整 chip：允许换行显示，
+                            // 但固定高度会裁掉第二行；用 maxLines + 省略号兜底。
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
@@ -885,7 +959,8 @@ internal fun selectedRanges(
     return ranges
 }
 
-/** 选中词按原文顺序拼接：行内直接取原文子串，行间换行，避免 CJK 被插入空格。 */
+/** 选中词按原文顺序拼接：行内取原文子串；相邻选中段之间原文只有空白就原样保留，
+ *  否则补一个空格隔开未选中的内容；行间换行。 */
 internal fun joinSelected(
     lines: List<OcrLine>,
     lineStarts: IntArray,
@@ -897,8 +972,12 @@ internal fun joinSelected(
         if (ranges.isEmpty()) return@forEachIndexed
         if (out.isNotEmpty()) out.append('\n')
         ranges.forEachIndexed { rangeIndex, (start, end) ->
-            // 词与词之间若有间隔（不连续多选），补一个空格，避免拼成生造词。
-            if (rangeIndex > 0) out.append(' ')
+            if (rangeIndex > 0) {
+                // 两个选中段之间的原文间隔：只有空白就原样保留（全选 == 原文）；
+                // 若是未选中的内容，用一个空格隔开，不能把没选的字也拼进来。
+                val gap = line.text.substring(ranges[rangeIndex - 1].second, start)
+                if (gap.isBlank()) out.append(gap) else out.append(' ')
+            }
             out.append(line.text, start, end)
         }
     }

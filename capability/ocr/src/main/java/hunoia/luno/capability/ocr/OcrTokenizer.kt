@@ -8,6 +8,8 @@ package hunoia.luno.capability.ocr
  *
  * 分词只影响选择与命中；复制、搜索、分享始终使用原文或用户选中的词，
  * 不会改写 OCR 结果。
+ *
+ * 词与标点都各成一个 [OcrWord]（标点也是可点选的 chip）；只有纯空白不生成词。
  */
 data class OcrWord(
     val text: String,
@@ -84,12 +86,10 @@ object OcrTokenizer {
             while (wordStart < wordEnd && text[wordStart].isWhitespace()) wordStart++
             while (wordEnd > wordStart && text[wordEnd - 1].isWhitespace()) wordEnd--
             if (wordStart >= wordEnd) continue
-            val token = text.substring(wordStart, wordEnd)
-            if (token.none { it.isWordChar() }) continue
-            words += OcrWord(token, wordStart, wordEnd)
+            words += OcrWord(text.substring(wordStart, wordEnd), wordStart, wordEnd)
         }
 
-        // 整行都是标点或 emoji 时，至少保留整行可选中，避免结果页没有任何可选内容。
+        // 断词器没有给出任何边界时，至少保留整行可选中，避免结果页没有任何可选内容。
         if (words.isEmpty()) {
             val first = text.indexOfFirst { !it.isWhitespace() }
             val last = text.indexOfLast { !it.isWhitespace() }
@@ -126,15 +126,4 @@ object OcrTokenizer {
         }
         return merged
     }
-
-    private fun Char.isWordChar(): Boolean =
-        isLetterOrDigit() ||
-            this in '\u4E00'..'\u9FFF' ||
-            this in '\u3400'..'\u4DBF' ||
-            this in '\u3040'..'\u30FF' ||
-            this in '\uAC00'..'\uD7AF' ||
-            code in 0x2600..0x27BF ||
-            code in 0x1F000..0x1FAFF ||
-            isHighSurrogate() ||
-            isLowSurrogate()
 }

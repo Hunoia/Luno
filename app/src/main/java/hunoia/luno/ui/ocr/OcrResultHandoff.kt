@@ -7,13 +7,23 @@ import android.graphics.Bitmap
  *
  * 三者都可为空，但不能同时为空（调用方先判空）。结果页据此渲染
  * 「无障碍 / OCR」与「文本 / 图片」两组切换。
+ * 命中文本节点时 [ocrText] 可为空，由 [ocrLoader] 在用户切到 OCR 来源时按需识别。
  */
 data class OcrResultPayload(
     val ocrText: String = "",
     val a11yText: String? = null,
     /** 框选区域裁剪图；由结果页负责回收。 */
     val image: Bitmap? = null,
+    /**
+     * 懒加载 OCR：命中 a11y 文本时先不跑模型，用户切到 OCR 来源再调用。
+     * 返回 null / 空串表示识别失败或没有文字。
+     */
+    val ocrLoader: (suspend () -> String?)? = null,
 ) {
+    /** 有没有可用的 OCR 来源：已识别文本或可懒加载的识别入口。 */
+    val hasOcrSource: Boolean
+        get() = ocrText.isNotBlank() || ocrLoader != null
+
     val isEmpty: Boolean
         get() = ocrText.isBlank() && a11yText.isNullOrBlank() && image == null
 }

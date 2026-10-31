@@ -43,11 +43,12 @@ class OcrTokenizerTest {
     }
 
     @Test
-    fun `skips whitespace and punctuation-only tokens`() {
+    fun `keeps punctuation as its own chip and drops whitespace`() {
         val breaker = FakeBreaker { listOf(0, 1, 2, 3, 4) }
         val line = OcrTokenizer.lines("， 中", breaker).single()
-        assertEquals(listOf("中"), line.words.map { it.text })
-        assertEquals(2, line.words.single().start)
+        assertEquals(listOf("，", "中"), line.words.map { it.text })
+        assertEquals(0, line.words[0].start)
+        assertEquals(2, line.words[1].start)
     }
 
     @Test
@@ -63,10 +64,26 @@ class OcrTokenizerTest {
     }
 
     @Test
-    fun `falls back to whole line when only punctuation`() {
-        val breaker = FakeBreaker { listOf(0, 2, 4) }
+    fun `punctuation-only line stays made of punctuation chips`() {
+        val breaker = FakeBreaker { listOf(0, 1, 2, 3) }
         val line = OcrTokenizer.lines("。。。", breaker).single()
-        assertEquals("。。。", line.words.single().text)
+        assertEquals(listOf("。", "。", "。"), line.words.map { it.text })
+    }
+
+    @Test
+    fun `chips cover punctuation so gaps are whitespace only`() {
+        val text = "你好，世界！ https://a.com/x?q=1"
+        // 每个字符都切一刀：验证标点不被丢掉，保护区间仍然整体成词。
+        val breaker = FakeBreaker { t -> (0..t.length).toList() }
+        val line = OcrTokenizer.lines(text, breaker).single()
+        assertTrue(line.words.any { it.text == "，" })
+        assertTrue(line.words.any { it.text == "！" })
+        var last = 0
+        line.words.forEach { word ->
+            assertTrue(line.text.substring(last, word.start).isBlank())
+            last = word.end
+        }
+        assertTrue(line.text.substring(last).isBlank())
     }
 
     @Test
