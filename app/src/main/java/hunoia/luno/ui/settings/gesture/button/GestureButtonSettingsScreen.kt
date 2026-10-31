@@ -159,15 +159,6 @@ fun GestureButtonSettingsScreen(
                                 }
                             }
                             item {
-                                GestureButtonTouchInputGroup(
-                                    touchInput = gestureButton.touchInput,
-                                    shizukuReady = shizukuStatus.isReady,
-                                    onModeChange = vm::onTouchInputModeChange,
-                                    onInterceptWidthChange = vm::onInterceptWidthLiveChange,
-                                    onCommit = vm::saveSettings,
-                                )
-                            }
-                            item {
                                 GestureButtonPhysicalParamsCard(
                                     gestureButton = gestureButton,
                                     mirrorHorizontal = uiState.mirrorHorizontal,

@@ -24,7 +24,7 @@ import kotlinx.coroutines.flow.StateFlow
  * 主 overlay 的内容：只负责画。
  *
  * 手势会话状态机在 [GestureSessionPipeline]，输入源在 `touchsource` 包——两者都不由
- * 这个组合决定，所以输入源可以随时切换（无障碍窗口 / 内核触摸流）而窗口不必重建。
+ * 这个组合决定，所以输入链路调整时窗口不必重建。
  */
 @Composable
 fun GestureOverlayView(

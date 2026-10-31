@@ -11,8 +11,8 @@ import kotlinx.coroutines.delay
  * 手势会话的渲染面：动作面板、指针光标。
  *
  * 会话状态机已经搬到 [GestureSessionPipeline]（输入源无关），这里只负责把状态画出来。
- * 输入不从这里进：无障碍窗口与内核触摸流分别经 `MotionEventInputSource` /
- * `ShizukuTouchInputSource` 投给同一份管线。
+ * 输入不从这里进：触钮触摸由 `MotionEventInputSource` 直接投给管线；
+ * Shizuku 内核触摸流只服务全屏长按识屏，不经过本容器。
  */
 @Composable
 fun SideGestureContainer(

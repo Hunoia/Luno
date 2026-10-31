@@ -94,11 +94,6 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
                 hunoia.luno.config.model.ScreenPickGesture()
             }
         },
-        onClosed = {
-            if (::gestureCoordinator.isInitialized) {
-                gestureCoordinator.setScreenPickInterceptTouchable(true)
-            }
-        },
     )
 
     /**
@@ -113,11 +108,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     fun showScreenPick(): Boolean {
         if (!isDispatchReady()) return false
         // 挂窗是同步的：锁屏/系统拒绝时直接返回失败，动作层才能给出正确结果。
-        val shown = screenPickOverlay.show()
-        if (shown && ::gestureCoordinator.isInitialized) {
-            gestureCoordinator.setScreenPickInterceptTouchable(false)
-        }
-        return shown
+        return screenPickOverlay.show()
     }
 
     /**
@@ -131,9 +122,6 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     ): Boolean {
         if (!isDispatchReady()) return false
         val shown = screenPickOverlay.showPortalAt(x, y, preCapture)
-        if (shown && ::gestureCoordinator.isInitialized) {
-            gestureCoordinator.setScreenPickInterceptTouchable(false)
-        }
         if (hunoia.luno.gesture.BuildConfig.DEBUG) {
             android.util.Log.i(LOG_TAG, "screen pick portal at ($x,$y) shown=$shown")
         }

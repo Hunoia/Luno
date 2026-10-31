@@ -12,7 +12,7 @@ import kotlin.math.roundToInt
  * 面板内指针会话的状态机（按住类触发时启动）。
  *
  * 与渲染分离：状态在这里，光标由 `PointerCursor` 按 [position]/[settings]/[clickPulseKey] 画。
- * 分离的原因输入源有两个——无障碍按钮窗与内核触摸流——两者都要能驱动同一个会话。
+ * 分离的原因：会话状态要能被渲染层与输入层分别驱动，互不依赖 Compose 重组。
  */
 class PointerSession(
     initialSettings: GestureSettings.Pointer = GestureSettings.Pointer(),

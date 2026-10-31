@@ -92,10 +92,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration.Companion.milliseconds
-import hunoia.luno.gesture.hasAnyActions
 import hunoia.luno.gesture.touch.TouchAction
 import hunoia.luno.gesture.touchsource.GlobalLongPressTrigger
-import hunoia.luno.gesture.touchsource.TouchInputGeometry
 import hunoia.luno.core.LOG_TAG
 
 /** 冷启动/悬浮窗重建期间容器的面板列表未灌满时，揭示事件的等待重试参数。 */
@@ -168,11 +166,6 @@ class GestureCoordinator(
             ownPackage = host.context.packageName,
             scope = host.coroutineScope,
         )
-    }
-
-    /** 幽灵卡在屏时放开拦截条，避免右半屏的下一次按下被拦截窗抢走。 */
-    fun setScreenPickInterceptTouchable(touchable: Boolean) {
-        shizukuTouchInput.setInterceptTouchable(touchable)
     }
 
     /**
@@ -983,8 +976,8 @@ class GestureCoordinator(
     private var wallpaperColorsListener: WallpaperManager.OnColorsChangedListener? = null
 
     /**
-     * 手势会话管线：输入源无关。无障碍按钮窗与 Shizuku 内核触摸流共用这一份识别状态，
-     * 因此不存在“两条链路各触发一次”。
+     * 手势会话管线：输入源无关。触钮固定由无障碍按钮窗投喂；
+     * Shizuku 内核触摸流只服务全屏长按识屏，不再参与触钮识别。
      */
     private var gesturePipelineRef: hunoia.luno.runtime.gesturepanel.GestureSessionPipeline? = null
 
@@ -994,57 +987,25 @@ class GestureCoordinator(
             callbacks,
         ).also { gesturePipelineRef = it }
 
-    private var touchInputRouterRef: hunoia.luno.gesture.touchsource.TouchInputRouter? = null
-
-    private val touchInputRouter: hunoia.luno.gesture.touchsource.TouchInputRouter
-        get() = touchInputRouterRef ?: hunoia.luno.gesture.touchsource.TouchInputRouter(
-            pipeline = gesturePipeline,
-            layoutProvider = { touchInputLayout() },
-        ).also { touchInputRouterRef = it }
-
+    /** 触钮的唯一触摸路径：无障碍按钮窗投递的 `MotionEvent`。 */
     private var motionEventInputRef: hunoia.luno.gesture.touchsource.MotionEventInputSource? = null
 
     private val motionEventInput: hunoia.luno.gesture.touchsource.MotionEventInputSource
         get() = motionEventInputRef ?: hunoia.luno.gesture.touchsource.MotionEventInputSource(
-            touchInputRouter,
+            pipeline = gesturePipeline,
         ).also { motionEventInputRef = it }
 
     private var shizukuTouchInputRef: hunoia.luno.gesture.touchsource.ShizukuTouchInputSource? = null
 
     /**
-     * 内核触摸流输入源。宿主就是无障碍服务本身：动作面板 / 子手势 / 指针 / 音量刮擦
-     * 都依赖无障碍窗口，所以“只用 Shizuku”指“触摸不从无障碍按钮窗来”，不等于可以关掉无障碍。
+     * 内核触摸流输入源：只服务全屏长按识屏（不拦截、不仲裁、不参与触钮）。
+     * 宿主就是无障碍服务本身：手势管线与面板都依赖无障碍窗口。
      */
     private val shizukuTouchInput: hunoia.luno.gesture.touchsource.ShizukuTouchInputSource
         get() = shizukuTouchInputRef ?: hunoia.luno.gesture.touchsource.ShizukuTouchInputSource(
             context = host.context,
             scope = host.coroutineScope,
-            router = touchInputRouter,
-            layoutProvider = { touchInputLayout() },
         ).also { shizukuTouchInputRef = it }
-
-    /** 当前来源仲裁所需的几何快照。仅在配置快照/拦截态变化时重建，逐帧复用同一实例。 */
-    private var cachedTouchInputLayout: hunoia.luno.gesture.touchsource.TouchInputLayout? = null
-    private var cachedTouchInputState: hunoia.luno.runtime.settings.SettingsState? = null
-    private var cachedTouchInputStreaming = false
-
-    private fun touchInputLayout(): hunoia.luno.gesture.touchsource.TouchInputLayout {
-        val state = runtimeSettingsStore.snapshot()
-        val streaming = shizukuTouchInput.intercepting
-        val cached = cachedTouchInputLayout
-        if (cached != null &&
-            cachedTouchInputState === state &&
-            cachedTouchInputStreaming == streaming
-        ) {
-            return cached
-        }
-        cachedTouchInputState = state
-        cachedTouchInputStreaming = streaming
-        return hunoia.luno.gesture.touchsource.TouchInputLayout(
-            buttons = state.gestureButtons,
-            shizukuStreaming = streaming,
-        ).also { cachedTouchInputLayout = it }
-    }
 
     /** 把配置快照推给管线；按钮/手势参数变化会重建识别状态，此时旧会话作废。 */
     private fun syncGesturePipeline() {
@@ -1059,32 +1020,25 @@ class GestureCoordinator(
                 actionPanelStyle = state.actionSettings.actionPanelStyle,
             ),
         )
-        if (recreated) touchInputRouter.reset()
+        if (recreated) motionEventInput.reset()
     }
 
     /**
-     * 需要内核触摸流的情形：手势总开关开启，且至少一个触钮配了 Shizuku 来源
-     * 或开启了全屏长按识屏。总开关关闭时整条内核链路都停，与侧边手势一致。
+     * 内核触摸流只为「全屏长按识屏」而启停：手势总开关与识屏开关都开才跑。
+     * 触钮固定走无障碍按钮窗，不再触发内核触摸流。
      */
     private fun syncTouchInputSources() {
         val state = runtimeSettingsStore.snapshot()
         val gestureEnabled = state.initialSettings.gestureEnabled
-        val buttonsWantShizuku = gestureEnabled &&
-            state.gestureButtons.any {
-                it.hasAnyActions() &&
-                    it.touchInput.mode != hunoia.luno.config.model.TouchInputMode.ONLY_ACCESSIBILITY
-            }
-        val wantShizuku = gestureEnabled &&
-            (buttonsWantShizuku || state.initialSettings.screenPickGesture.enabled)
         motionEventInput.start()
-        if (wantShizuku) {
+        if (gestureEnabled && state.initialSettings.screenPickGesture.enabled) {
             shizukuTouchInput.start()
         } else if (shizukuTouchInput.isRunning) {
-            // 只在真的在跑时停：无谓 stop 会 router.reset()，把进行中的手势会话掐断。
+            // 只在真的在跑时停：无谓 stop 会掐断进行中的全局长按会话。
             shizukuTouchInput.stop()
         }
-        // 识屏长按复用同一股内核触摸流：把每帧（含非拦截区）喂给长按检测器。
-        // 触钮拦截区内的长按交给手势管线（可能是触钮自己的长按动作），避免重复触发。
+        // 识屏长按复用这一股内核触摸流：把每帧喂给长按检测器。
+        // 触钮固定走无障碍窗，内核流不消费也不仲裁，因此这里只做“自家界面让位”。
         shizukuTouchInput.globalFrameListener = listener@{ point, action ->
             if (action == TouchAction.Down) {
                 val service = hunoia.luno.service.SideGestureService.current
@@ -1106,20 +1060,8 @@ class GestureCoordinator(
                     return@listener
                 }
             }
-            val regions = touchInputLayout().interceptRegions()
-            // 抬手保留的幽灵卡在屏时，新的 DOWN 由 overlay 窗口直接处理，
-            // 不能让内核流再起一份长按（Move/Up 仍要继续转发当前全局会话）。
-            // 只有 DOWN 要避开触钮拦截区（那属于触钮手势）；一旦全局长按会话开始，
-            // MOVE/UP 必须继续转发，否则拖到屏幕右半的触钮区就会“卡住不跟手”。
-            if (action == TouchAction.Down &&
-                regions.isNotEmpty() &&
-                TouchInputGeometry.contains(regions, point) != null
-            ) {
-                return@listener
-            }
             globalScreenPickTrigger.onFrame(point, action)
         }
-        shizukuTouchInput.refreshGeometry()
     }
 
     private val callbacks: GestureOverlayCallbacks = object : GestureOverlayCallbacks {
@@ -1681,13 +1623,6 @@ class GestureCoordinator(
     }
 
     fun onConfigurationChanged(newConfig: Configuration) {
-        // 屏幕尺寸 / 密度变了：触摸几何缓存必须作废，否则拦截窗与判定还停在旧坐标系
-        //（旋转后触钮在左边、拦截区还在原来的位置）。放到下一轮主线程：等
-        // DensityProvider 的配置回调先把尺寸缓存清掉，再按新尺寸重算。
-        mainHandler.post {
-            cachedTouchInputLayout = null
-            shizukuTouchInputRef?.refreshGeometry()
-        }
         val oldOrientation = environmentTracker.orientation
         if (oldOrientation != newConfig.orientation) {
             if (BuildConfig.DEBUG) Log.i(LOG_TAG, "orientation=${newConfig.orientation}")
@@ -1737,7 +1672,6 @@ class GestureCoordinator(
         }
         motionEventInputRef = null
         shizukuTouchInputRef = null
-        touchInputRouterRef = null
         gesturePipelineRef = null
         if (BuildConfig.DEBUG) Log.i(LOG_TAG, "GestureCoordinator release")
         mainOverlayController.release()

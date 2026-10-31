@@ -153,8 +153,6 @@ class ScreenPickOverlay(
     private val screenPickGesture: () -> hunoia.luno.config.model.ScreenPickGesture = {
         hunoia.luno.config.model.ScreenPickGesture()
     },
-    /** 叠层关闭回调：用于恢复拦截条可触。 */
-    private val onClosed: () -> Unit = {},
 ) : hunoia.luno.runtime.surface.SurfaceHandle {
     override val surfaceId: String = "screen-pick"
     override val surfaceKind: hunoia.luno.runtime.surface.SurfaceKind =
@@ -808,7 +806,6 @@ class ScreenPickOverlay(
         originCorrected = false
         val wm = host.context.windowManager()
         runCatching { wm.removeView(view) }
-        onClosed()
     }
 
     /** 锁屏/息屏即时关层并清空（截屏、提示框、拖框都不跨锁屏保留）。 */

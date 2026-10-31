@@ -10,7 +10,6 @@ import androidx.compose.ui.geometry.Offset
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.gesture.BuildConfig
-import hunoia.luno.gesture.TouchWindowHint
 import hunoia.luno.gesture.touch.GetEventDevice
 import hunoia.luno.gesture.touch.GetEventParser
 import hunoia.luno.gesture.touch.TouchAction
@@ -34,13 +33,11 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Shizuku 触摸源的对外状态：设置页/首页用它解释“现在到底是哪条链路在跑”。 */
+/** Shizuku 触摸源的对外状态：设置页用它解释“现在内核触摸流到底跑没跑起来”。 */
 data class ShizukuTouchStatus(
     val state: State = State.STOPPED,
     val detail: String = "",
     val deviceName: String = "",
-    /** 拦截窗是否生效；false 时下层应用会同时收到同一段手势。 */
-    val intercepting: Boolean = false,
 ) {
     enum class State {
         STOPPED,
@@ -54,45 +51,34 @@ data class ShizukuTouchStatus(
 /**
  * 内核触摸流输入源（Shizuku shell 身份读 `/dev/input/eventX`）。
  *
- * 职责边界：
- * - 只产生**触摸帧**并投给 [TouchInputRouter]，不做手势识别、不执行动作；
- * - 拦截窗是它自己的副作用（没有窗就拦不住系统手势），几何由 [TouchInputGeometry] 统一给；
+ * 职责边界（路线 A 收敛后）：
+ * - 只产生**全屏触摸帧**并投给 [globalFrameListener]，不做手势识别、不执行动作；
+ * - 唯一消费者是「全屏长按识屏」（`GlobalLongPressTrigger`）；触钮固定走无障碍按钮窗；
+ * - 不摆拦截窗、不消费触摸、不做来源仲裁——视觉与窗口层的东西一概不碰；
  * - 失败一律降级并暴露在 [status] 上，不静默。
  *
- * 降级口径：Shizuku 未就绪 → 等；拿不到悬浮窗权限 → 只监听不拦截（此时不宣称独占
- * 拦截区，避免与无障碍窗口重复触发）；读到事件流结束 → 退避重连。
+ * 降级口径：Shizuku 未就绪 → 等；拿不到触摸设备 → 退避重试；读到事件流结束 → 退避重连。
  */
 class ShizukuTouchInputSource(
     private val context: Context,
     private val scope: CoroutineScope,
-    private val router: TouchInputRouter,
-    private val layoutProvider: () -> TouchInputLayout,
 ) {
 
     private val _status = MutableStateFlow(ShizukuTouchStatus())
     val status: StateFlow<ShizukuTouchStatus> = _status.asStateFlow()
 
-    private val windows = InterceptWindows(context)
     private val tracker = TouchTracker()
     private val mapper = TouchScreenMapper(context)
 
     private var monitorJob: Job? = null
     private var session: ShizukuShellSession? = null
 
-    /** 上一次真正摆上去的拦截区；配置每次发射都重建窗会闪，相同就跳过。 */
-    private var appliedRegions: List<InterceptRegion> = emptyList()
-
     /**
-     * 全屏触摸帧监听（坐标已归屏幕像素）：每一帧（含非拦截区）都会回调，
+     * 全屏触摸帧监听（坐标已归屏幕像素）：每一帧都会回调，
      * 由 :app 用来做“全屏任意位置长按取词”等全局手势识别。
-     * 与来源仲裁互不干扰——本监听不取会话归属、不消费触摸，底层 App 照常收到触摸。
+     * 本监听不消费触摸，底层 App 照常收到触摸。
      */
     var globalFrameListener: ((screen: Offset, action: TouchAction) -> Unit)? = null
-
-    /** 拦截窗是否生效：生效时路由才认为拦截区归本来源（否则整块按钮区仍归无障碍窗口）。 */
-    @Volatile
-    var intercepting: Boolean = false
-        private set
 
     val isRunning: Boolean get() = monitorJob?.isActive == true
 
@@ -107,19 +93,7 @@ class ShizukuTouchInputSource(
         monitorJob?.cancel()
         monitorJob = null
         closeSession()
-        releaseWindows()
-        router.reset()
         _status.value = ShizukuTouchStatus()
-    }
-
-    /** 按钮配置/拦截宽度变化：只重建窗，不重启事件流。 */
-    fun refreshGeometry() {
-        applyWindows()
-    }
-
-    /** 幽灵卡在屏时临时放开拦截条，让 overlay 能收到下一次按下。 */
-    fun setInterceptTouchable(touchable: Boolean) {
-        windows.setTouchable(touchable)
     }
 
     private suspend fun monitorLoop() {
@@ -128,7 +102,6 @@ class ShizukuTouchInputSource(
         while (scope.isActive) {
             _status.value = ShizukuTouchStatus(ShizukuTouchStatus.State.WAITING_SHIZUKU, "等待 Shizuku 授权")
             if (!awaitShizuku()) {
-                releaseWindows()
                 val backoff = backoffMs(attempt++)
                 if (BuildConfig.DEBUG) Log.w(LOG_TAG, "touch source waiting shizuku, retry in ${backoff}ms")
                 _status.value = ShizukuTouchStatus(
@@ -153,29 +126,18 @@ class ShizukuTouchInputSource(
             }
 
             mapper.device = device
-            applyWindows(force = true)
             if (BuildConfig.DEBUG) {
-                Log.i(
-                    LOG_TAG,
-                    "touch source streaming device=${device.path} name=${device.name} intercepting=$intercepting",
-                )
+                Log.i(LOG_TAG, "touch source streaming device=${device.path} name=${device.name}")
             }
             _status.value = ShizukuTouchStatus(
                 state = ShizukuTouchStatus.State.STREAMING,
-                detail = if (intercepting) {
-                    "监听中：拦截区归 Shizuku，其余触摸照常穿透"
-                } else {
-                    "监听中：悬浮窗未授权，未拦截（下层会同时收到同一手势）"
-                },
+                detail = "监听中：仅用于全屏长按识屏，不拦截触摸",
                 deviceName = device.name.ifBlank { device.path },
-                intercepting = intercepting,
             )
 
             attempt = 0
             openAndCollect(device)
             closeSession()
-            releaseWindows()
-            router.reset()
             if (scope.isActive) delay(1_500)
         }
     }
@@ -226,38 +188,15 @@ class ShizukuTouchInputSource(
         if (frame.action == TouchAction.Up) {
             lastGlobalScreen?.let { globalFrameListener?.invoke(it, TouchAction.Up) }
             lastGlobalScreen = null
-            if (router.currentSource == TouchSourceKind.SHIZUKU) {
-                mapper.lastScreen = null
-                router.onUp()
-            }
             return
         }
 
         val point = primaryPoint(frame) ?: return
         val screen = mapper.toScreen(point) ?: return
         lastGlobalScreen = screen
-        // 全屏帧先喂全局监听（含非拦截区）：长按取词等全局手势识别复用同一股原始输入，
-        // 不取会话归属、不消费触摸（与 一墨 T3 同口径，底层 App 照常收到触摸）。
+        // 每帧（含自己窗口上方）都喂给全局监听：长按状态机自己判断是否该忽略，
+        // 本监听不消费触摸、不改变窗口层。
         globalFrameListener?.invoke(screen, frame.action)
-        when (frame.action) {
-            TouchAction.Down -> {
-                val region = router.acceptsShizuku(screen) ?: return
-                mapper.lastScreen = screen
-                router.onDown(
-                    TouchSourceKind.SHIZUKU,
-                    screen,
-                    TouchWindowHint(region.buttonId, region.mirrored),
-                )
-            }
-            TouchAction.Move -> {
-                if (router.currentSource != TouchSourceKind.SHIZUKU) return
-                val last = mapper.lastScreen
-                mapper.lastScreen = screen
-                if (last == null) return
-                router.onMove(screen - last)
-            }
-            TouchAction.Up -> Unit
-        }
     }
 
     /** 多指时锁定第一根落下的手指；其余手指不参与，也不打断会话。 */
@@ -282,46 +221,6 @@ class ShizukuTouchInputSource(
             ?: devices.maxByOrNull { it.score }
     }
 
-    /**
-     * 重建拦截窗。只吃「这一按钮配了 Shizuku 来源」的那块，宽度按该按钮自己的设置。
-     * 配置每次发射都会走到这里，所以相同几何直接跳过，避免窗口抖动。
-     *
-     * 几何取 [TouchInputLayout.desiredInterceptRegions]：不能用 `interceptRegions`，
-     * 那个函数按“拦截窗已生效”过滤，而本方法正是它的前置。
-     */
-    private fun applyWindows(force: Boolean = false) {
-        if (!isRunning) return
-        val next = layoutProvider().desiredInterceptRegions()
-        if (!force && next == appliedRegions && windows.isShowing == next.isNotEmpty()) {
-            syncIntercepting()
-            return
-        }
-        appliedRegions = next
-        windows.update(next)
-        syncIntercepting()
-    }
-
-    private fun syncIntercepting() {
-        intercepting = windows.isShowing
-        val current = _status.value
-        if (current.state == ShizukuTouchStatus.State.STREAMING) {
-            _status.value = current.copy(
-                intercepting = windows.isShowing,
-                detail = if (windows.isShowing) {
-                    "监听中：拦截区归 Shizuku，其余触摸照常穿透"
-                } else {
-                    "监听中：悬浮窗未授权，未拦截（下层会同时收到同一手势）"
-                },
-            )
-        }
-    }
-
-    private fun releaseWindows() {
-        windows.release()
-        appliedRegions = emptyList()
-        intercepting = false
-    }
-
     private fun closeSession() {
         // 流在按住中途断掉时没有 UP：补一发抬手，避免全局长按状态机永远停在“已触发”。
         lastGlobalScreen?.let { globalFrameListener?.invoke(it, TouchAction.Up) }
@@ -344,9 +243,6 @@ class ShizukuTouchInputSource(
 internal class TouchScreenMapper(private val context: Context) {
 
     var device: GetEventDevice? = null
-
-    /** 上一帧的屏幕坐标，用于算 MOVE 增量。 */
-    var lastScreen: Offset? = null
 
     private var rotation: Int = Surface.ROTATION_0
     private var rotationFetchedAt = 0L

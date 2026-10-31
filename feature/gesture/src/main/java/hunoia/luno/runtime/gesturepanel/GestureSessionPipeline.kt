@@ -34,7 +34,7 @@ private const val SUB_GESTURE_DIRECT_ACTION_DELAY_MS = 50L
 /** 面板收起主 overlay 前的等待：盖住 ActionPanel 的淡出动画，不等窗口会先缩成 1x1 导致内容跳位。 */
 const val ACTION_PANEL_FADE_OUT_MS = 400L
 
-/** 一次手势配置快照：输入源无关，窗口与内核触摸流共用同一份。 */
+/** 一次手势配置快照：由无障碍按钮窗路径与设置页共用同一份。 */
 data class GesturePipelineSettings(
     val buttons: List<GestureButton> = emptyList(),
     val actionPanels: List<ActionPanel> = emptyList(),
@@ -48,12 +48,8 @@ data class GesturePipelineSettings(
  * 手势会话管线：DOWN/MOVE/UP 进来，动作意图出去。
  *
  * 这里承载原先散在 Compose 容器里的会话状态机（主手势、子手势、动作面板、音量刮擦、指针），
- * 只是把「谁来投喂」抽走了：
- * - 无障碍按钮窗（`MotionEventInputSource`）；
- * - 内核触摸流（`ShizukuTouchInputSource`）。
- *
- * 两者共用同一个实例，所以**不会**出现两份识别器各自触发一次的问题；
- * 谁是合法来源由 [hunoia.luno.gesture.touchsource.TouchInputRouter] 按区域判定。
+ * 唯一投喂方是无障碍按钮窗（`MotionEventInputSource`）。Shizuku 内核触摸流只服务
+ * 全屏长按识屏，不进入本管线，也不存在“两条链路各触发一次”的问题。
  *
  * 本类不持有窗口、不执行动作：动作经 [GestureOverlayCallbacks.onAction] 交给 Trigger 侧，
  * 最终仍走 `Dispatcher` 单口。
@@ -62,7 +58,7 @@ class GestureSessionPipeline(
     private val scope: CoroutineScope,
     private val callbacks: GestureOverlayCallbacks,
     initial: GesturePipelineSettings = GesturePipelineSettings(),
-    /** 键盘遮挡高度：无障碍窗口路径一直是 0，内核触摸流自己按当前 insets 传。 */
+    /** 键盘遮挡高度：窗口路径一直是 0，保留参数给需要按 insets 校正的输入源。 */
     private val imePaddingProvider: () -> Int = { 0 },
 ) {
 
@@ -129,7 +125,7 @@ class GestureSessionPipeline(
         callbacks.onActionPanelVisibilityChanged(false)
     }
 
-    // ---- 输入入口（两个输入源共用） ----
+    // ---- 输入入口（无障碍按钮窗单一来源） ----
 
     fun onDown(offset: Offset, hint: hunoia.luno.gesture.TouchWindowHint? = null) {
         dragInFlight = true
