@@ -53,6 +53,8 @@ val BottomBarTabWidth = 76.dp
 val ContainerRadius = ShapeLarge
 val ConnectionRadius = 5.dp
 val SegmentedGap = 1.dp
+// OCR 分词 chip 可见高度；命中区与之同高，行距即 chip 高，分词排版更紧凑。
+val OcrChipMinHeight = 32.dp
 
 // Row icon badge
 val RowIconBadgeSize = 32.dp

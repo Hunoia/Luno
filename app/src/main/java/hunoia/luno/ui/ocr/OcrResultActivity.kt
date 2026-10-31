@@ -14,7 +14,10 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -30,6 +33,7 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -37,6 +41,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -45,9 +50,12 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -57,15 +65,15 @@ import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Accessibility
+import androidx.compose.material.icons.filled.DocumentScanner
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -124,9 +132,14 @@ import hunoia.luno.capability.ocr.OcrWord
 import hunoia.luno.quicklaunch.QuickSearchActivity
 import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.ExtraLargeShape
+import hunoia.luno.ui.theme.BottomBarIconSize
+import hunoia.luno.ui.theme.CardInnerSpacing
+import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.MinInteractiveSize
+import hunoia.luno.ui.theme.OcrChipMinHeight
 import hunoia.luno.ui.theme.MotionPanelIn
 import hunoia.luno.ui.theme.MotionPanelOut
+import hunoia.luno.ui.theme.MotionSettle
 import hunoia.luno.ui.theme.MotionSubtle
 import hunoia.luno.ui.theme.MotionSwapIn
 import hunoia.luno.ui.theme.MotionSwapOut
@@ -612,7 +625,7 @@ private fun OcrResultScreen(
                                                 )
                                             },
                                         contentPadding = PaddingValues(vertical = 2.dp),
-                                        verticalArrangement = Arrangement.spacedBy(0.dp),
+                                        verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
                                     ) {
                                         itemsIndexed(lines) { index, line ->
                                             WordChips(
@@ -655,8 +668,11 @@ private fun OcrResultScreen(
     }
 }
 
-/** 顶部两个紧凑分段：内容来源（无障碍/OCR）与形态（文本/图片）。都没有时整行不渲染。 */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * 顶部两个图标分段：内容来源（无障碍 / OCR）与形态（文本 / 图片）。
+ * 选中态用跟手的滑动 pill 表达（D2）；纯图标无文字标签（E），无障碍靠 Role.Tab + selected + 点击标签。
+ * 都没有时不渲染（调用方已判）。
+ */
 @Composable
 private fun SourceAndPaneBar(
     showSource: Boolean,
@@ -671,24 +687,37 @@ private fun SourceAndPaneBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (showSource) {
-            MiniSegmented(
-                labels = listOf(
-                    stringResource(R.string.ocr_result_source_a11y),
-                    stringResource(R.string.ocr_result_source_ocr),
+            IconPillSegmented(
+                modifier = Modifier.weight(1f),
+                items = listOf(
+                    IconPillItem(
+                        Icons.Filled.Accessibility,
+                        stringResource(R.string.ocr_result_source_a11y),
+                    ),
+                    IconPillItem(
+                        Icons.Filled.DocumentScanner,
+                        stringResource(R.string.ocr_result_source_ocr),
+                    ),
                 ),
                 selectedIndex = if (source == ResultSource.A11y) 0 else 1,
                 onSelect = { onSource(if (it == 0) ResultSource.A11y else ResultSource.Ocr) },
             )
         }
         if (showSource && showPane) {
-            Box(modifier = Modifier.weight(1f))
+            Box(modifier = Modifier.width(CardInnerSpacing))
         }
         if (showPane) {
-            if (!showSource) Box(modifier = Modifier.weight(1f))
-            MiniSegmented(
-                labels = listOf(
-                    stringResource(R.string.ocr_result_view_text),
-                    stringResource(R.string.ocr_result_view_image),
+            IconPillSegmented(
+                modifier = Modifier.weight(1f),
+                items = listOf(
+                    IconPillItem(
+                        Icons.Filled.TextFields,
+                        stringResource(R.string.ocr_result_view_text),
+                    ),
+                    IconPillItem(
+                        Icons.Filled.Image,
+                        stringResource(R.string.ocr_result_view_image),
+                    ),
                 ),
                 selectedIndex = if (pane == ResultPane.Text) 0 else 1,
                 onSelect = { onPane(if (it == 0) ResultPane.Text else ResultPane.Image) },
@@ -697,23 +726,88 @@ private fun SourceAndPaneBar(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** 图标分段的一项：矢量图标 + 无障碍标签（无可见文字）。 */
+private data class IconPillItem(
+    val icon: ImageVector,
+    val contentDescription: String,
+)
+
+/**
+ * 两态图标分段：轨道垫底，选中项背后一块 primaryContainer pill 横向滑到目标位（D2）。
+ * 纯图标、无文字标签（E）；自绘可选项按 ui-guidelines §6 声明 Role.Tab / selected / 点击标签。
+ * 两段独立选择，故意不做成一条四选项的分段。
+ */
 @Composable
-private fun MiniSegmented(
-    labels: List<String>,
+private fun IconPillSegmented(
+    items: List<IconPillItem>,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    SingleChoiceSegmentedButtonRow {
-        labels.forEachIndexed { index, label ->
-            SegmentedButton(
-                selected = index == selectedIndex,
-                onClick = { onSelect(index) },
-                shape = SegmentedButtonDefaults.itemShape(index = index, count = labels.size),
-                // 去掉勾选图标：40dp 高的小分段放不下图标 + 文字。
-                icon = {},
-            ) {
-                Text(text = label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+    require(items.size >= 2) { "IconPillSegmented 至少需要两个选项" }
+    // 轨道高度取命中区(48)的 2/3 = 32dp：pill 填满更矮的轨道，整体更紧凑；底部容器与 pill 同高。
+    val barHeight = MinInteractiveSize * 2 / 3
+    BoxWithConstraints(
+        modifier = modifier
+            .height(barHeight)
+            .clip(RoundedCornerShape(ContainerRadius))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+    ) {
+        val segmentWidth = maxWidth / items.size
+        val pillX by animateDpAsState(
+            targetValue = segmentWidth * selectedIndex,
+            animationSpec = tween(MotionSettle, easing = FastOutSlowInEasing),
+            label = "ocr-pill-x",
+        )
+        // 选中 pill：跟手滑动；形态 / 配色照抄主页底栏（胶囊 + primary 15% 透明），高 = 轨道高。
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .offset(x = pillX)
+                .width(segmentWidth)
+                .height(barHeight)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+        )
+        Row(modifier = Modifier.fillMaxSize()) {
+            items.forEachIndexed { index, item ->
+                val isSelected = index == selectedIndex
+                val contentColor by animateColorAsState(
+                    targetValue = if (isSelected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    animationSpec = tween(MotionSubtle),
+                    label = "ocrPillIcon",
+                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clip(CircleShape)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { onSelect(index) },
+                        )
+                        .semantics {
+                            selectedSemantics = isSelected
+                            role = Role.Tab
+                            onClick(label = item.contentDescription) {
+                                onSelect(index)
+                                true
+                            }
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = item.icon,
+                        contentDescription = null,
+                        tint = contentColor,
+                        modifier = Modifier.size(BottomBarIconSize),
+                    )
+                }
             }
         }
     }
@@ -838,7 +932,9 @@ private fun WordChips(
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalArrangement = Arrangement.spacedBy(0.dp),
+        // 折行（FlowRow 竖向换行）的竖向间距 = 行与行之间的 CardInnerSpacing，
+        // 窄屏换行处与 OCR 行间视觉一致，不挤成一团。
+        verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
     ) {
         line.words.forEachIndexed { local, word ->
             val index = startIndex + local
@@ -847,10 +943,11 @@ private fun WordChips(
             DisposableEffect(index) {
                 onDispose { bounds.remove(index) }
             }
-            // 外层 48dp = 命中区，内层 32dp = 视觉高度：chip 看着小，手指仍然点得中。
+            // 命中区与视觉 chip 同高（OcrChipMinHeight）：行距即 chip 高，分词排版更紧凑；
+            // 拖动命中靠 chipBounds + hitChipNear 72px 容差兜底。
             Box(
                 modifier = Modifier
-                    .heightIn(min = MinInteractiveSize)
+                    .heightIn(min = OcrChipMinHeight)
                     .onGloballyPositioned { bounds[index] = it.boundsInRoot() }
                     .semantics {
                         selectedSemantics = isSelected
@@ -863,7 +960,7 @@ private fun WordChips(
                 contentAlignment = Alignment.Center,
             ) {
                 Surface(
-                    modifier = Modifier.heightIn(min = 32.dp),
+                    modifier = Modifier.heightIn(min = OcrChipMinHeight),
                     shape = RoundedCornerShape(10.dp),
                     color = if (isSelected) {
                         MaterialTheme.colorScheme.primaryContainer

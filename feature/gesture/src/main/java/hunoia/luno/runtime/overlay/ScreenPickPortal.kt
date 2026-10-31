@@ -76,14 +76,14 @@ internal fun portalActionsFor(content: PortalContent): List<PortalAction> {
     val hasImage = content.imageSize != null
     if (!hasText && !hasImage) return emptyList()
     return buildList {
+        // OCR 放第一：与屏幕识别框选动作条（Ocr → Copy → Search → Share → Save）对齐，
+        // 长按取词幽灵卡底部动作顺序一致；只有拿得到节点 bounds 才给 OCR。
+        if (content.nodeBounds != null) add(PortalAction.Ocr)
         add(PortalAction.Copy)
         if (hasText) add(PortalAction.Search)
         add(PortalAction.Share)
         if (hasImage) add(PortalAction.Save)
         if (hasText && !content.url.isNullOrBlank()) add(PortalAction.OpenLink)
-        // 有节点 bounds 才给 OCR：没有区域就没法识别，别放一个点了没反应的按钮。
-        // 文本节点默认直接用 a11y 文本，OCR 在结果页按需触发；图片/空白节点才先跑 OCR。
-        if (content.nodeBounds != null) add(PortalAction.Ocr)
     }
 }
 
