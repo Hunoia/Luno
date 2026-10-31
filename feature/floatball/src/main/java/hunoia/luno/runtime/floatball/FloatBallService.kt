@@ -201,8 +201,22 @@ class FloatBallService : Service() {
         smartBubble = SmartBubbleWindow(this).apply {
             onBodyTapped = { onCapsuleTapped() }
             onLongPress = { onBubbleLongPressed() }
-            onCountTapped = { onBubbleCountTapped() }
+            onPageSelected = { id -> onBubblePageSelected(id) }
+            onCollapsed = { onCapsuleCollapsed() }
             onSwipedAway = { onCapsuleSwipedAway() }
+            // 胶囊首帧真正画出来后再隐藏球；组合失败则收起胶囊，球始终不会被单独藏掉。
+            onReady = {
+                if (capsuleShowing) {
+                    setCapsuleActive(true)
+                    updateBadge()
+                }
+            }
+            onUnavailable = {
+                if (capsuleShowing) {
+                    Log.w(TAG, "capsule compose unavailable, collapsing to ball")
+                    hideCapsule()
+                }
+            }
             // 按住/拖动期间暂停自动收起，松手后按当前项来源重置计时。
             onPressStateChanged = { pressed ->
                 bubblePressed = pressed
@@ -549,6 +563,9 @@ class FloatBallService : Service() {
         // 锁屏/面板/临时隐藏：只入队不探头，解锁后徽标可见（决策 9 / §7.1）。
         // 同 key 更新在自动探头状态下允许替换当前项重新探头；手动浏览不抢（§4.2/§7.5）。
         if (!capsuleAllowed() || manualSession) {
+            if (capsuleShowing && manualSession) {
+                smartBubble.updateItems(inboxState.items, inboxState.currentIndex)
+            }
             updateBadge()
             scheduleInboxTtl()
             return
@@ -556,43 +573,58 @@ class FloatBallService : Service() {
         showBubbleForCurrent()
     }
 
-    /** 按收件箱当前项显示/刷新气泡；入队后新项在队首，即当前项。 */
+    /** 按收件箱当前项显示/刷新胶囊；入队后新项在队首，即当前项。 */
     private fun showBubbleForCurrent() {
         val item = inboxState.current
         if (item == null) {
             hideCapsule()
             return
         }
-        // 链接识别涉及正则提取 + PackageManager 查询，不放主线程：
-        // 先不带链接上屏，IO 线程识别完成后回填（当前项已切换则丢弃）。
-        smartBubble.updateLink(null)
-        if (item is ClipboardTextItem) {
-            val itemId = item.id
-            val text = item.text
-            scope.launch(Dispatchers.Default) {
-                val link = linkInfoOf(ClipboardContent.Text(text))
-                if (capsuleShowing && inboxState.currentId == itemId) {
-                    smartBubble.updateLink(link)
-                }
-            }
-        }
+        // 先唤醒球（取消静置半出屏），再按完整矩形算锚点；胶囊挂窗成功后才隐藏球窗。
+        ballWindow.setIdleSuppressed(true)
+        refreshBubbleLink()
         if (!smartBubble.show(
-                item = item,
-                index = inboxState.currentIndex,
-                totalCount = inboxState.items.size,
+                items = inboxState.items,
+                index = inboxState.currentIndex.coerceAtLeast(0),
                 anchor = bubbleAnchor(),
                 link = null,
+                originY = ballWindow.lpOriginYPx(),
             )
         ) {
             // 挂窗被系统拒绝：收件箱保留（解锁/下次事件再试），只显示徽标。
+            ballWindow.setIdleSuppressed(false)
             capsuleShowing = false
             updateBadge()
             return
         }
         capsuleShowing = true
+        // 球窗暂不隐藏：等胶囊 onReady（首帧已画）再隐藏，避免空白胶囊把球单独藏掉。
         updateBadge()
         scheduleBubbleHideForCurrent()
         scheduleInboxTtl()
+    }
+
+    /** 链接识别涉及正则 + PackageManager，放 IO 线程，当前项已切换则丢弃结果。 */
+    private fun refreshBubbleLink() {
+        val item = inboxState.current
+        if (item !is ClipboardTextItem) {
+            smartBubble.updateLink(null, null)
+            return
+        }
+        val itemId = item.id
+        val text = item.text
+        smartBubble.updateLink(itemId, null)
+        scope.launch(Dispatchers.Default) {
+            val link = linkInfoOf(ClipboardContent.Text(text))
+            if (capsuleShowing && inboxState.currentId == itemId) {
+                smartBubble.updateLink(itemId, link)
+            }
+        }
+    }
+
+    private fun setCapsuleActive(active: Boolean) {
+        ballWindow.setCapsuleActive(active)
+        mirrorWindow.setCapsuleActive(active)
     }
 
     /** 气泡锚点：球当前可见矩形（静置半出屏取可见边）；球未挂窗时按落盘存量估算。 */
@@ -612,6 +644,8 @@ class FloatBallService : Service() {
 
     /** 徽标：气泡在屏时不显示；隐藏后按收件箱剩余项显示（仅钉住项时显示图钉）。 */
     private fun updateBadge() {
+        // 防御：胶囊不在屏时球绝不能停在“隐藏”态（窗口被系统吞掉 / 竞态）。
+        if (!capsuleShowing) setCapsuleActive(false)
         val badge = inboxState.badge
         ballWindow.setBadge(if (capsuleShowing || !badge.visible) null else badge)
     }
@@ -690,11 +724,18 @@ class FloatBallService : Service() {
         capsuleTimerJob?.cancel()
         capsuleTimerJob = null
         if (!capsuleShowing) {
+            setCapsuleActive(false)
+            ballWindow.setIdleSuppressed(false)
             updateBadge()
             return
         }
         capsuleShowing = false
-        smartBubble.hide { updateBadge() }
+        // 胶囊缩回球的动画结束后，球窗与镜像球再恢复。
+        smartBubble.hide {
+            setCapsuleActive(false)
+            ballWindow.setIdleSuppressed(false)
+            updateBadge()
+        }
     }
 
     /** 面板/临时隐藏/锁屏等联动入口共用：在屏但不允许了就收起（收起后不补播旧通知）。 */
@@ -713,6 +754,12 @@ class FloatBallService : Service() {
         markCapsuleDismissed((item as? NotificationItem)?.notificationKey)
         if (item != null) removeInboxItem(item.id)
         hideCapsule()
+    }
+
+    /** 朝球侧横滑收起：只隐藏气泡，保留队列与当前项，不标记 dismissed（决策 5）。 */
+    private fun onCapsuleCollapsed() {
+        hideCapsule()
+        updateBadge()
     }
 
     private fun markCapsuleDismissed(key: String?) {
@@ -821,21 +868,21 @@ class FloatBallService : Service() {
         }
     }
 
-    /** 计数 chip：切到下一项（手动浏览，不重播进场，展开态保留）。 */
-    private fun onBubbleCountTapped() {
+    /** 轮播停到新的一页：更新当前项、进入手动会话并重置计时。 */
+    private fun onBubblePageSelected(id: String) {
         val change = BallInboxReducer.reduce(
             inboxState,
-            BallInboxAction.Next,
+            BallInboxAction.Select(id),
             SystemClock.elapsedRealtime(),
             inboxConfig,
         )
         if (!change.changed) return
         inboxState = change.state
         manualSession = true
-        if (change.currentChanged && capsuleShowing) {
-            showBubbleForCurrent()
-            scheduleBubbleHideForCurrent()
-        }
+        updateBadge()
+        refreshBubbleLink()
+        scheduleBubbleHideForCurrent()
+        scheduleInboxTtl()
     }
 
     // ---- 剪贴板球 ----
@@ -959,6 +1006,9 @@ class FloatBallService : Service() {
         }
         // 锁屏/面板/临时隐藏：只入队不探头（决策 9 / §7.1）；手动浏览不抢当前项。
         if (manualSession || !clipboardBallAllowed()) {
+            if (capsuleShowing && manualSession) {
+                smartBubble.updateItems(inboxState.items, inboxState.currentIndex)
+            }
             updateBadge()
             scheduleInboxTtl()
             return true

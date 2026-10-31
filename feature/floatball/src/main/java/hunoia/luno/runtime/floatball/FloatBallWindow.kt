@@ -123,6 +123,12 @@ class FloatBallWindow(
     private var pressed = false
     private var idled = false
 
+    /** 气泡在屏期间抑制静置变暗/半出屏，避免气泡锚点与球之间留白。 */
+    private var idleSuppressed = false
+
+    /** 胶囊展开期间球窗整体隐去：胶囊从球的位置原地长出，视觉上仍是同一个物体。 */
+    private var capsuleActive = false
+
     /** 隐藏路径置位：抑制 arbiter.cancel 经 onPressChanged 触发的 applyVisual。 */
     private var visualSuppressed = false
 
@@ -391,7 +397,7 @@ class FloatBallWindow(
 
     private fun applyHiddenFlags() {
         val current = view ?: return
-        val hidden = lockHidden || panelHidden
+        val hidden = lockHidden || panelHidden || capsuleActive
         if (hidden == visuallyHidden) return
         visuallyHidden = hidden
         if (hidden) {
@@ -597,11 +603,29 @@ class FloatBallWindow(
         return true
     }
 
+    /** 气泡在屏时保持球的完整姿态（B 方案不采用）：显示/收起气泡时由 Service 调用。 */
+    fun setIdleSuppressed(suppressed: Boolean) {
+        if (idleSuppressed == suppressed) return
+        idleSuppressed = suppressed
+        if (suppressed) cancelIdle() else scheduleIdle()
+    }
+
+    /** 胶囊展开/收起：展开时球窗淡出并不可点，收起后恢复。 */
+    fun setCapsuleActive(active: Boolean) {
+        if (capsuleActive == active) return
+        capsuleActive = active
+        applyHiddenFlags()
+        if (active) cancelIdle() else scheduleIdle()
+    }
+
     /** 主球当前是否在屏左半（按窗口实位、球心判，与静置外移方向同口径）。 */
     fun isOnLeft(): Boolean = posX * 2f + ballPx < screenWidthPx
 
     /** 主球是否处于静置变暗态（交换后保持姿态用）。 */
     fun isIdled(): Boolean = idled
+
+    /** 主球窗实测的 LP 原点（屏幕 y）：胶囊窗复用它，避免两窗各自测量产生偏差。 */
+    fun lpOriginYPx(): Int = lpOriginY
 
     /** 当前键盘让位量（px）。分身 y 跟随用。 */
     fun currentImeLiftPx(): Float = imeLiftPx
@@ -742,6 +766,14 @@ class FloatBallWindow(
 
     private fun scheduleIdle() {
         idleRunnable?.let(handler::removeCallbacks)
+        idleRunnable = null
+        if (idleSuppressed || capsuleActive) {
+            if (idled) {
+                idled = false
+                applyVisual()
+            }
+            return
+        }
         if (miniMode) {
             cancelIdleTimer()
             if (idled) {
@@ -801,6 +833,7 @@ class FloatBallWindow(
         val scale = if (pressed) FloatBallDefaults.PressScale else 1f
         // 软隐藏期间一律隐身：隐藏淡出被挪球/换位动画打断时，落位重绘不得把球画回来。
         val alpha = when {
+            capsuleActive -> 0f
             visuallyHidden -> 0f
             miniMode -> MINI_BALL_ALPHA
             idled -> FloatBallDefaults.IdleDimAlpha

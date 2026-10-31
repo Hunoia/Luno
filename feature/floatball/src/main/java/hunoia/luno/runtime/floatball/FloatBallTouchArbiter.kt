@@ -31,6 +31,9 @@ internal class FloatBallTouchArbiter(
     private var dragging = false
     private var longPressFired = false
 
+    /** [cancel] 之后仍可能收到本次手势的 ACTION_UP：必须吞掉，不能补触发点按。 */
+    private var canceled = false
+
     private val touchSlopPx: Float by lazy {
         DensityProvider.dp2px(hunoia.luno.config.model.FloatBallDefaults.TouchSlopDp).toFloat()
     }
@@ -51,12 +54,14 @@ internal class FloatBallTouchArbiter(
                 currentY = startY
                 dragging = false
                 longPressFired = false
+                canceled = false
                 onPressChanged(true)
                 handler.postDelayed(longPressRunnable, longPressMs)
                 return true
             }
 
             MotionEvent.ACTION_MOVE -> {
+                if (canceled) return true
                 currentX = event.rawX
                 currentY = event.rawY
                 if (longPressFired) return true
@@ -79,14 +84,18 @@ internal class FloatBallTouchArbiter(
 
             MotionEvent.ACTION_UP -> {
                 handler.removeCallbacks(longPressRunnable)
-                onPressChanged(false)
-                if (dragging) {
-                    onDragEnded()
-                } else if (!longPressFired) {
-                    onTapped()
+                // 长按打开面板会先走 cancel()：那之后到达的 UP 只收尾，不能再当成点按。
+                if (!canceled) {
+                    onPressChanged(false)
+                    if (dragging) {
+                        onDragEnded()
+                    } else if (!longPressFired) {
+                        onTapped()
+                    }
                 }
                 dragging = false
                 longPressFired = false
+                canceled = false
                 return true
             }
 
@@ -96,6 +105,7 @@ internal class FloatBallTouchArbiter(
                 if (dragging) onDragEnded()
                 dragging = false
                 longPressFired = false
+                canceled = false
                 return true
             }
 
@@ -109,5 +119,7 @@ internal class FloatBallTouchArbiter(
         if (dragging) onDragEnded()
         dragging = false
         longPressFired = false
+        // 本次手势作废：若系统仍把 UP 送进来，不能再触发点按。
+        canceled = true
     }
 }

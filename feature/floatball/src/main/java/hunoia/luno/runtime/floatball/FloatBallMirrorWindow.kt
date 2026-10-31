@@ -52,6 +52,9 @@ class FloatBallMirrorWindow(
     private var lockHidden = false
     private var panelHidden = false
 
+    /** 胶囊展开期间镜像球也隐去，保证屏幕上只有一个物体。 */
+    private var capsuleActive = false
+
     /** 键盘让位量（px），由 Service 从主球同步。 */
     private var imeLiftPx = 0f
 
@@ -113,7 +116,10 @@ class FloatBallMirrorWindow(
         // animated 时从 0 淡入到常态 —— 挂窗不再生硬蹦出。
         created.alpha = if (animated) 0f else FloatBallDefaults.MirrorDimAlpha
         snapToMirror()
-        if (animated) {
+        if (capsuleActive) {
+            applyBallTouchFlags(created, wm, hidden = true)
+            created.alpha = 0f
+        } else if (animated) {
             created.animate()
                 .alpha(FloatBallDefaults.MirrorDimAlpha)
                 .setDuration(250L)
@@ -161,12 +167,19 @@ class FloatBallMirrorWindow(
         applyHiddenFlags()
     }
 
+    /** 胶囊展开/收起：与主球同进退。 */
+    fun setCapsuleActive(active: Boolean) {
+        if (capsuleActive == active) return
+        capsuleActive = active
+        applyHiddenFlags()
+    }
+
     /** 软隐藏的视觉态：状态没变不重播过渡。 */
     private var visuallyHidden = false
 
     private fun applyHiddenFlags() {
         val current = view ?: return
-        val hidden = lockHidden || panelHidden
+        val hidden = lockHidden || panelHidden || capsuleActive
         if (hidden == visuallyHidden) return
         visuallyHidden = hidden
         if (hidden) {
