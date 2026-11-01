@@ -107,17 +107,6 @@ fun ScreenPickSettingsScreen(
                 shape = segmentedShape(0, 1),
             )
         }
-        LunoGroup(title = stringResource(R.string.screen_pick_ocr_group)) {
-            LunoSwitchRow(
-                title = stringResource(R.string.screen_pick_ocr_enabled),
-                subtitle = stringResource(R.string.screen_pick_ocr_enabled_hint),
-                checked = screenPick.ocrEnabled,
-                onCheckedChange = { checked -> commit(screenPick.copy(ocrEnabled = checked)) },
-                shape = segmentedShape(0, 1),
-            )
-            // v6 单模型统一覆盖中文 / 日文 / 韩文 / 拉丁等，不再有按语言选模型的选项；
-            // 请求脚本只作为结果标签（见 PpOcrEngine）。
-        }
         LunoGroup(title = stringResource(R.string.screen_pick_ocr_model)) {
             LunoSettingsRow(
                 title = stringResource(R.string.screen_pick_ocr_model),

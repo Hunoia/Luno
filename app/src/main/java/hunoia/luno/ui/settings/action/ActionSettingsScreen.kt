@@ -17,6 +17,8 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -50,19 +52,19 @@ import hunoia.luno.ui.theme.PageGutter
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
-/** 设置 tab：动作设置 + 原主页设置入口。 */
+/** 设置 tab：面板 / 动作 / 其他。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActionSettingsTab(
     topPadding: Dp,
     onNavToActionPanels: () -> Unit = {},
     onNavToGridPanels: () -> Unit = {},
+    onNavToButtonVisibility: () -> Unit = {},
     onNavToRecentAppsBlocklist: () -> Unit = {},
     onNavToMiniWindowAdjust: () -> Unit = {},
-    onNavToLinkDispatch: () -> Unit = {},
+    onNavToScreenPickSettings: () -> Unit = {},
     onNavToActionSelect: () -> Unit = {},
     onNavToPrivilegedPermissions: () -> Unit = {},
-    onNavToScreenPickSettings: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var showActionPanelStyle by remember { mutableStateOf(false) }
@@ -108,65 +110,15 @@ fun ActionSettingsTab(
                     )
                 }
             }
-            item(key = "other") {
-                LunoGroup(title = stringResource(R.string.action_settings_other_group)) {
-                    LunoSettingsRow(
-                        icon = Icons.Default.Crop,
-                        title = stringResource(R.string.mini_window_position_short),
-                        subtitle = stringResource(R.string.mini_window_position_hint),
-                        shape = segmentedShape(0, 4),
-                        onClick = onNavToMiniWindowAdjust,
-                    )
-                    LunoSettingsRow(
-                        icon = Icons.Default.History,
-                        title = stringResource(R.string.recent_apps_blocklist),
-                        subtitle = if (actionSettings.recentAppsBlocklist.isEmpty()) {
-                            stringResource(R.string.recent_apps_blocklist_hint)
-                        } else {
-                            stringResource(R.string.action_param_multi_selected, actionSettings.recentAppsBlocklist.size)
-                        },
-                        shape = segmentedShape(1, 4),
-                        onClick = onNavToRecentAppsBlocklist,
-                    )
+            item(key = "actions") {
+                LunoGroup(title = stringResource(R.string.action_settings_action_group)) {
                     LunoSettingsRow(
                         icon = Icons.Default.TouchApp,
                         title = stringResource(R.string.pointer),
                         subtitle = stringResource(R.string.pointer_hint),
-                        shape = segmentedShape(2, 4),
+                        shape = segmentedShape(0, 4),
                         onClick = { showPointer = true },
                     )
-                    LunoSettingsRow(
-                        icon = Icons.Default.Link,
-                        title = stringResource(R.string.action_deep_links),
-                        subtitle = stringResource(R.string.action_deep_links_hint),
-                        shape = segmentedShape(3, 5),
-                        onClick = onNavToActionSelect,
-                    )
-                    LunoSettingsRow(
-                        icon = Icons.Default.TouchApp,
-                        title = stringResource(R.string.perm_page_title),
-                        subtitle = stringResource(R.string.perm_page_entry_hint),
-                        shape = segmentedShape(4, 5),
-                        onClick = onNavToPrivilegedPermissions,
-                    )
-                }
-            }
-            item(key = "link_dispatch") {
-                LunoGroup(title = stringResource(R.string.link_dispatch)) {
-                    LunoSettingsRow(
-                        icon = Icons.Default.Link,
-                        title = stringResource(R.string.link_dispatch),
-                        subtitle = stringResource(
-                            R.string.link_dispatch_rule_count,
-                            actionSettings.linkDispatch.rules.size,
-                        ),
-                        shape = segmentedShape(0, 1),
-                        onClick = onNavToLinkDispatch,
-                    )
-                }
-            }
-            item(key = "screen_pick") {
-                LunoGroup(title = stringResource(R.string.action_settings_screen_pick_group)) {
                     LunoSettingsRow(
                         icon = Icons.Default.DocumentScanner,
                         title = stringResource(R.string.screen_pick_settings_title),
@@ -177,8 +129,51 @@ fun ActionSettingsTab(
                                 R.string.screen_pick_settings_disabled
                             },
                         ),
-                        shape = segmentedShape(0, 1),
+                        shape = segmentedShape(1, 4),
                         onClick = onNavToScreenPickSettings,
+                    )
+                    LunoSettingsRow(
+                        icon = Icons.Default.Crop,
+                        title = stringResource(R.string.action_settings_mini_window_position),
+                        shape = segmentedShape(2, 4),
+                        onClick = onNavToMiniWindowAdjust,
+                    )
+                    LunoSettingsRow(
+                        icon = Icons.Default.History,
+                        title = stringResource(R.string.recent_apps_blocklist),
+                        subtitle = if (actionSettings.recentAppsBlocklist.isEmpty()) {
+                            ""
+                        } else {
+                            stringResource(R.string.action_param_multi_selected, actionSettings.recentAppsBlocklist.size)
+                        },
+                        shape = segmentedShape(3, 4),
+                        onClick = onNavToRecentAppsBlocklist,
+                    )
+                }
+            }
+            item(key = "other") {
+                LunoGroup(title = stringResource(R.string.action_settings_other_group)) {
+                    LunoSettingsRow(
+                        icon = Icons.Default.Visibility,
+                        title = stringResource(R.string.button_visibility),
+                        shape = segmentedShape(0, 1),
+                        onClick = onNavToButtonVisibility,
+                    )
+                }
+            }
+            item(key = "permissions") {
+                LunoGroup(title = stringResource(R.string.action_settings_permissions_group)) {
+                    LunoSettingsRow(
+                        icon = Icons.Default.Link,
+                        title = stringResource(R.string.action_deep_links),
+                        shape = segmentedShape(0, 2),
+                        onClick = onNavToActionSelect,
+                    )
+                    LunoSettingsRow(
+                        icon = Icons.Default.VerifiedUser,
+                        title = stringResource(R.string.perm_page_title),
+                        shape = segmentedShape(1, 2),
+                        onClick = onNavToPrivilegedPermissions,
                     )
                 }
             }

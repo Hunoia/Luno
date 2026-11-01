@@ -1,10 +1,10 @@
 package hunoia.luno.ui.home
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.twotone.Link
 import androidx.compose.material.icons.twotone.RadioButtonChecked
 import androidx.compose.material.icons.twotone.RestartAlt
 import androidx.compose.material.icons.twotone.Restore
-import androidx.compose.material.icons.twotone.Visibility
 import androidx.compose.material.icons.twotone.Save
 import androidx.compose.material.icons.twotone.Search
 import androidx.compose.runtime.Composable
@@ -19,7 +19,7 @@ import hunoia.luno.ui.component.row.segmentedShape
 fun HomeSettingsGroup(
     onSearchEngineClick: () -> Unit,
     onFloatBallClick: () -> Unit,
-    onButtonVisibilityClick: () -> Unit,
+    onLinkDispatchClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LunoGroup(
@@ -39,13 +39,15 @@ fun HomeSettingsGroup(
             onClick = onFloatBallClick,
         )
         LunoSettingsRow(
-            title = stringResource(R.string.button_visibility),
-            icon = Icons.TwoTone.Visibility,
+            title = stringResource(R.string.link_dispatch),
+            icon = Icons.TwoTone.Link,
             shape = segmentedShape(2, 3),
-            onClick = onButtonVisibilityClick,
+            onClick = onLinkDispatchClick,
         )
     }
 }
+
+/** 外部调用与系统授权已移到设置页底部。 */
 
 @Composable
 fun DataTransferGroup(

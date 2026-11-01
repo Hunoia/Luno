@@ -1,5 +1,6 @@
 package hunoia.luno.ui.settings.permission
 
+import android.widget.Toast
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.MaterialTheme
@@ -16,6 +17,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.util.fastForEach
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -105,10 +108,8 @@ fun PrivilegedPermissionsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var tick by remember { mutableIntStateOf(0) }
-    var shizukuReady by remember { mutableStateOf(ShizukuManager.currentStatus().isReady) }
     var busy by remember { mutableStateOf<PrivilegedPermission?>(null) }
     var bulkBusy by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf<String?>(null) }
 
     // 从系统设置页回来时重查（授权与撤销都要跟手）。
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -116,7 +117,6 @@ fun PrivilegedPermissionsScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 tick++
-                shizukuReady = ShizukuManager.currentStatus().isReady
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -125,7 +125,6 @@ fun PrivilegedPermissionsScreen(
 
     fun refresh() {
         tick++
-        shizukuReady = ShizukuManager.currentStatus().isReady
     }
 
     fun openSettings(permission: PrivilegedPermission) {
@@ -137,16 +136,16 @@ fun PrivilegedPermissionsScreen(
         if (busy != null || bulkBusy) return
         scope.launch {
             busy = permission
-            message = null
             if (!ShizukuManager.currentStatus().isReady) {
                 runCatching { ShizukuManager.autoRequestPermissionIfNeeded() }
             }
             val ok = runCatching { AppGraph.system.grantPrivilegedPermission(context, permission) }
                 .getOrDefault(false)
             busy = null
-            message = context.getString(
-                if (ok) R.string.perm_grant_one_done else R.string.perm_grant_one_failed,
-            )
+            // 成功不提示，只靠行内状态色变化；失败用 toast 提示原因。
+            if (!ok) {
+                Toast.makeText(context, R.string.perm_grant_one_failed, Toast.LENGTH_SHORT).show()
+            }
             refresh()
         }
     }
@@ -155,19 +154,20 @@ fun PrivilegedPermissionsScreen(
         if (bulkBusy || busy != null) return
         scope.launch {
             bulkBusy = true
-            message = null
             if (!ShizukuManager.currentStatus().isReady) {
                 runCatching { ShizukuManager.autoRequestPermissionIfNeeded() }
             }
             val summary = runCatching { AppGraph.system.grantAllPrivilegedPermissions(context) }
                 .getOrNull()
             bulkBusy = false
-            message = when {
+            when {
                 summary == null || summary.total == 0 ->
-                    context.getString(R.string.privileged_grant_failed)
-                summary.failed == 0 ->
-                    context.getString(R.string.privileged_grant_done, summary.total)
-                else -> context.getString(R.string.privileged_grant_partial, summary.failed)
+                    Toast.makeText(context, R.string.privileged_grant_failed, Toast.LENGTH_SHORT).show()
+                summary.failed > 0 -> Toast.makeText(
+                    context,
+                    context.getString(R.string.privileged_grant_partial, summary.failed),
+                    Toast.LENGTH_SHORT,
+                ).show()
             }
             refresh()
         }
@@ -195,65 +195,45 @@ fun PrivilegedPermissionsScreen(
             )
         },
     ) {
-        // 结果反馈 / Shizuku 缺失提示；删掉原先的「下面逐项…」静态说明。
-        val statusText = message ?: if (shizukuReady) null
-        else context.getString(R.string.privileged_grant_shizuku_missing)
-        if (statusText != null) {
-            Text(
-                text = statusText,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
         grouped.fastForEach { groupStatuses ->
             LunoGroup(title = groupStatuses.first().permission.group.title()) {
                 groupStatuses.forEachIndexed { index, status ->
                     val permission = status.permission
                     val granted = status.granted
+                    val stateDesc = stringResource(
+                        if (granted) R.string.perm_state_granted else R.string.perm_state_missing,
+                    )
                     LunoSettingsRow(
+                        modifier = Modifier.semantics { stateDescription = stateDesc },
                         title = permission.title(),
-                        subtitle = buildString {
-                            append(
-                                stringResource(
-                                    if (granted) R.string.perm_state_granted else R.string.perm_state_missing,
-                                ),
-                            )
-                            append(" · ")
-                            append(permission.hint())
-                        },
+                        subtitle = permission.hint(),
                         subtitleColor = if (granted) {
                             MaterialTheme.colorScheme.primary
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
                         shape = segmentedShape(index, groupStatuses.size),
-                        enabled = permission.hasSettingsPage,
-                        onClick = {
-                            AppGraph.system.privilegedPermissionIntent(context, permission)
-                                ?.let { intent -> runCatching { context.startActivity(intent) } }
+                        onClick = if (permission.hasSettingsPage) {
+                            { openSettings(permission) }
+                        } else {
+                            null
                         },
-                        trailing = {
-                            if (!granted) {
-                                if (permission.shizukuGrantable) {
-                                    TextButton(
-                                        onClick = { grantOne(permission) },
-                                        enabled = !bulkBusy && busy == null,
-                                    ) {
-                                        Text(
-                                            text = stringResource(
-                                                if (busy == permission) R.string.privileged_granting
-                                                else R.string.perm_grant_one,
-                                            ),
-                                        )
-                                    }
-                                } else if (permission.hasSettingsPage) {
-                                    // Shizuku 授不了的权限：给「去设置」，点行也能跳对应系统设置页。
-                                    TextButton(onClick = { openSettings(permission) }) {
-                                        Text(text = stringResource(R.string.perm_open_settings))
-                                    }
+                        trailing = if (!granted && permission.shizukuGrantable) {
+                            {
+                                TextButton(
+                                    onClick = { grantOne(permission) },
+                                    enabled = !bulkBusy && busy == null,
+                                ) {
+                                    Text(
+                                        text = stringResource(
+                                            if (busy == permission) R.string.privileged_granting
+                                            else R.string.perm_grant_one,
+                                        ),
+                                    )
                                 }
                             }
+                        } else {
+                            null
                         },
                     )
                 }

@@ -2,6 +2,7 @@ package hunoia.luno.shizuku
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.content.pm.PermissionInfo
 import android.provider.Settings
 
 /**
@@ -168,6 +169,14 @@ object PrivilegedGrants {
             // 定位是隐私敏感授权，不给"顺手全授"的路径：需要时由用户自己去系统设置开。
             .filterNot { it == android.Manifest.permission.ACCESS_FINE_LOCATION }
             .filterNot { it == android.Manifest.permission.ACCESS_COARSE_LOCATION }
+            // 只处理运行期（dangerous）权限：WRITE_SETTINGS / BIND_APPWIDGET 等
+            // 属于 appop 或 signature，pm grant 必然失败，不能计入一键补齐的失败数。
+            .filter { permission ->
+                runCatching {
+                    getPermissionInfo(permission, 0).protection and
+                        PermissionInfo.PROTECTION_MASK_BASE == PermissionInfo.PROTECTION_DANGEROUS
+                }.getOrDefault(false)
+            }
             .filter { permission ->
                 context.checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED
             }

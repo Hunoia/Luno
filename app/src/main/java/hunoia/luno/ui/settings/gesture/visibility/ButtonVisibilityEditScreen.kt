@@ -66,11 +66,20 @@ fun ButtonVisibilityEditScreen(
     var showTargetPicker by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
-    LaunchedEffect(profileId, initial) {
+    LaunchedEffect(profileId, initial.buttonVisibility.profiles, isNew) {
         if (!loaded) {
             val existing = initial.buttonVisibility.profiles.find { it.id == profileId }
-            draft = existing ?: VisibilityProfile(id = UUID.randomUUID().toString())
-            loaded = true
+            when {
+                isNew -> {
+                    draft = VisibilityProfile(id = UUID.randomUUID().toString())
+                    loaded = true
+                }
+                existing != null -> {
+                    draft = existing
+                    loaded = true
+                }
+                // 配置还没加载完：继续等，别先用随机 id 建草稿（否则保存会新增副本、删除匹配不到）。
+            }
         }
     }
 

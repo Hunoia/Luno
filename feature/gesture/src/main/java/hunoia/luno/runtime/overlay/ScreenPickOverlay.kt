@@ -886,11 +886,6 @@ class ScreenPickOverlay(
             (rect.bottom + originY).roundToInt(),
         )
         if (action == PickSelectionAction.Ocr) {
-            if (!screenPickGesture().ocrEnabled) {
-                showToast(R.string.screen_pick_no_content)
-                resolvingAction = false
-                return
-            }
             openOcrPanel(screenRect)
             resolvingAction = false
             return

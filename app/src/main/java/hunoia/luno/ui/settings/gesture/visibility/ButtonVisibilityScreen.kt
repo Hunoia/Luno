@@ -1,25 +1,14 @@
 package hunoia.luno.ui.settings.gesture.visibility
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.twotone.Visibility
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.config.model.InitialSettings
@@ -27,13 +16,14 @@ import hunoia.luno.config.model.VisibilityProfile
 import hunoia.luno.config.model.VisibilityScreen
 import hunoia.luno.config.model.VisibilityTargetMode
 import hunoia.luno.domain.gesture.GestureConfig
+import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.settings.gesture.visibility.ButtonVisibilityText.summary
-import hunoia.luno.ui.theme.CardInnerSpacing
-import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.theme.FloatingContentBottom
+import hunoia.luno.ui.theme.SegmentedGap
 import kotlinx.coroutines.launch
 
 /** 触钮显隐场景列表：顺序即优先级，最后命中的场景生效。 */
@@ -60,23 +50,14 @@ fun ButtonVisibilityScreen(
         title = stringResource(R.string.button_visibility),
         onBack = onBack,
         state = rememberLazyListState(),
+        contentSpacing = SegmentedGap,
+        bottomContentPadding = FloatingContentBottom,
         floatingContent = {
-            Box(modifier = Modifier.fillMaxSize()) {
-                FloatingActionButton(
-                    onClick = { onEdit(NEW_VISIBILITY_PROFILE_ID) },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = PageGutter, bottom = CardInnerSpacing)
-                        .size(64.dp),
-                    shape = FloatingActionButtonDefaults.shape,
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = stringResource(R.string.button_visibility_new),
-                    )
-                }
-            }
+            LunoFab(
+                onClick = { onEdit(NEW_VISIBILITY_PROFILE_ID) },
+                icon = Icons.Default.Add,
+                contentDescription = stringResource(R.string.button_visibility_new),
+            )
         },
     ) {
         if (profiles.isEmpty()) {

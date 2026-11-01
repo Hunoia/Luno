@@ -402,7 +402,7 @@ fun HomeScreen(
                                 HomeSettingsGroup(
                                     onSearchEngineClick = onNavToSearchEngines,
                                     onFloatBallClick = onNavToFloatBallSettings,
-                                    onButtonVisibilityClick = onNavToButtonVisibility,
+                                    onLinkDispatchClick = onNavToLinkDispatch,
                                 )
                             }
 
@@ -461,12 +461,12 @@ fun HomeScreen(
                             topPadding = topPadding,
                             onNavToActionPanels = onNavToActionPanels,
                             onNavToGridPanels = onNavToGridPanels,
+                            onNavToButtonVisibility = onNavToButtonVisibility,
                             onNavToRecentAppsBlocklist = onNavToRecentAppsBlocklist,
                             onNavToMiniWindowAdjust = onNavToMiniWindowAdjust,
-                            onNavToLinkDispatch = onNavToLinkDispatch,
+                            onNavToScreenPickSettings = onNavToScreenPickSettings,
                             onNavToActionSelect = onNavToActionSelect,
                             onNavToPrivilegedPermissions = onNavToPrivilegedPermissions,
-                            onNavToScreenPickSettings = onNavToScreenPickSettings,
                         )
                     }
                 }
