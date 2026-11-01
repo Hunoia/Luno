@@ -23,6 +23,7 @@ internal object BuiltinActionGroups {
         IntentActionGroup,
         SystemActionGroup,
         AccessibilityActionGroup,
+        ImageActionGroup,
         AdvancedActionGroup,
         InternalActionGroup,
     )

@@ -166,6 +166,12 @@ data class ExecutorContext(
 
     /** 屏幕取点（transient Surface）。 */
     val showScreenPick: () -> Boolean = { false },
+
+    /** 屏幕标注（a11y 浮层 + 截屏）。 */
+    val showScreenAnnotate: () -> Boolean = { false },
+
+    /** 图片编辑（系统图片选择器 → 全屏标注页）。 */
+    val openImageAnnotate: () -> Boolean = { false },
     /**
      * 悬浮球显隐：`hideForMs > 0` 走临时隐藏（只摘窗口、到期恢复），否则改 enabled 存量。
      * 配置写入与 FloatBallService 都归 `:app`。

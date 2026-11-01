@@ -60,6 +60,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.SaveAlt
@@ -258,11 +259,29 @@ class OcrResultActivity : ComponentActivity() {
     private fun onImageAction(action: OcrImageAction, selection: Rect) {
         val bitmap = payload.image ?: return
         if (bitmap.isRecycled) return
+        // 「标注」要交给图片编辑页长期持有：先转成独立软件位图，不碰 payload 的生命周期。
+        if (action == OcrImageAction.Annotate) {
+            val handoff = runCatching {
+                cropSelection(bitmap, selection).copy(Bitmap.Config.ARGB_8888, false)
+            }.getOrNull()
+            if (handoff == null) {
+                showToast(R.string.ocr_result_failed)
+                return
+            }
+            val opened = hunoia.luno.ui.annotate.ImageAnnotateActivity.startWithBitmap(this, handoff)
+            if (opened) finish() else {
+                if (!handoff.isRecycled) handoff.recycle()
+                showToast(R.string.ocr_result_failed)
+            }
+            return
+        }
         val cropped = runCatching { cropSelection(bitmap, selection) }.getOrNull() ?: return
         lifecycleScope.launch {
             val ok = withContext(Dispatchers.IO) {
                 try {
                     when (action) {
+                        // 「标注」在上层提前分支处理，不会走到这里。
+                        OcrImageAction.Annotate -> false
                         // 复制要的是一个可被粘贴方读取的 URI，所以先落图库再写剪贴板。
                         OcrImageAction.Copy ->
                             ImageOutput.saveToGallery(this@OcrResultActivity, cropped, "ocr_result")
@@ -349,7 +368,7 @@ internal fun defaultResultSource(
 /** 内容形态：文本（分词 chip）或原图裁剪。 */
 private enum class ResultPane { Text, Image }
 
-internal enum class OcrImageAction { Copy, Share, Save }
+internal enum class OcrImageAction { Annotate, Copy, Share, Save }
 
 /** 按归一化选区裁剪；选区等于整图时直接返回原图，不产生副本。 */
 private fun cropBitmap(bitmap: Bitmap, selection: Rect): Bitmap? {
@@ -1313,6 +1332,11 @@ private fun ResultActions(
                         onClick = onImageReOcr,
                     )
                 }
+                ResultAction(
+                    icon = Icons.Default.Brush,
+                    label = stringResource(R.string.ocr_result_image_annotate),
+                    onClick = { onImageAction(OcrImageAction.Annotate) },
+                )
                 ResultAction(
                     icon = Icons.Default.ContentCopy,
                     label = stringResource(R.string.ocr_result_image_copy),

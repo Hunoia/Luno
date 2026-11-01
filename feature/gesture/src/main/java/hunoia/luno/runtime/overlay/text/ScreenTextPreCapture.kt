@@ -7,7 +7,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
-import android.view.Display
 import android.view.accessibility.AccessibilityWindowInfo
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.runtime.overlay.PickCapture
@@ -143,32 +142,11 @@ class ScreenTextPreCapture(
             }
         }
 
-    private suspend fun takeDisplayScreenshot(): Bitmap? =
-        kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
-            val callback = object : AccessibilityService.TakeScreenshotCallback {
-                override fun onSuccess(result: AccessibilityService.ScreenshotResult) {
-                    val bitmap = runCatching {
-                        val hardware = Bitmap.wrapHardwareBuffer(
-                            result.hardwareBuffer,
-                            result.colorSpace,
-                        )
-                        hardware?.copy(Bitmap.Config.ARGB_8888, false)
-                    }.getOrNull()
-                    runCatching { result.hardwareBuffer.close() }
-                    if (continuation.isActive) continuation.resumeWith(Result.success(bitmap))
-                }
-
-                override fun onFailure(errorCode: Int) {
-                    if (continuation.isActive) continuation.resumeWith(Result.success(null))
-                }
-            }
-            val accepted = runCatching {
-                service.takeScreenshot(Display.DEFAULT_DISPLAY, mainExecutor, callback)
-            }.isSuccess
-            if (!accepted && continuation.isActive) {
-                continuation.resumeWith(Result.success(null))
-            }
-        }
+    private suspend fun takeDisplayScreenshot(): Bitmap? {
+        // 截屏入口统一在 bridge，避免与标注回归各写一份回调。
+        val result = hunoia.luno.bridge.system.ScreenScreenshot.capture(service)
+        return (result as? hunoia.luno.bridge.system.ScreenScreenshot.Result.Success)?.bitmap
+    }
 
     private fun topApplicationWindow(): AccessibilityWindowInfo? {
         val windows = runCatching { service.windows }.getOrNull() ?: return null

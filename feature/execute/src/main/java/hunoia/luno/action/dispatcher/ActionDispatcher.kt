@@ -158,6 +158,8 @@ class ActionDispatcher(
             launchInPopup = surfaces::launchInPopup,
             shareFile = surfaces::shareFile,
             showScreenPick = surfaces::showScreenPick,
+            showScreenAnnotate = surfaces::showScreenAnnotate,
+            openImageAnnotate = surfaces::openImageAnnotate,
             setFloatBallVisible = surfaces::setFloatBallVisible,
             setButtonsVisible = surfaces::setButtonsVisible,
         )

@@ -198,6 +198,12 @@ object SurfaceActionRuntime {
         override fun showScreenPick(): Boolean =
             hunoia.luno.service.SideGestureService.current?.showScreenPick() == true
 
+        override fun showScreenAnnotate(): Boolean =
+            hunoia.luno.service.SideGestureService.current?.showScreenAnnotate() == true
+
+        override fun openImageAnnotate(): Boolean =
+            hunoia.luno.ui.annotate.ImageAnnotateActivity.startPicker(context)
+
         override suspend fun setFloatBallVisible(
             visible: Boolean?,
             hideForMs: Long,

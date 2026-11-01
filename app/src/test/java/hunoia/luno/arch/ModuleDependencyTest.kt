@@ -21,7 +21,7 @@ class ModuleDependencyTest {
         ":ui:design", ":capability:launch", ":capability:ocr",
         ":feature:execute", ":feature:actions",
         ":feature:link", ":feature:search", ":feature:quicklaunch", ":feature:gesture",
-        ":feature:floatball", ":feature:gridpanel", ":app",
+        ":feature:floatball", ":feature:gridpanel", ":feature:annotate", ":app",
     )
 
     private val allowList: Map<String, Set<String>> = mapOf(
@@ -71,6 +71,9 @@ class ModuleDependencyTest {
             ":core:runtime", ":feature:actions",
             ":feature:execute", ":feature:gesture", ":feature:quicklaunch",
             ":feature:search", ":ui:design",
+        ),
+        ":feature:annotate" to setOf(
+            ":core:common", ":core:domain", ":core:bridge", ":ui:design",
         ),
         ":app" to (knownModules - ":app"),
     )

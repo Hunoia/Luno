@@ -13,7 +13,9 @@ import kotlinx.coroutines.withContext
 import moe.shizuku.server.IRemoteProcess
 import moe.shizuku.server.IShizukuService
 import rikka.shizuku.Shizuku
+import java.io.ByteArrayOutputStream
 import java.io.Closeable
+import java.io.IOException
 
 /**
  * 长生命周期的 Shizuku shell 子进程。
@@ -131,6 +133,26 @@ class ShizukuShellSession internal constructor(
             runCatching { reader.close() }
         }
     }.flowOn(Dispatchers.IO)
+
+    /**
+     * 一次性读取二进制 stdout 到 EOF（`screencap -p` 这类输出必须是字节，不能走 [lines]）。
+     * 与 [lines] 相同是单消费者：读完后 stdout 即关闭，不能再 collect。
+     */
+    suspend fun readBytes(maxBytes: Int = 64 * 1024 * 1024): ByteArray = withContext(Dispatchers.IO) {
+        ParcelFileDescriptor.AutoCloseInputStream(stdout).use { input ->
+            val out = ByteArrayOutputStream()
+            val buffer = ByteArray(64 * 1024)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                if (out.size() + read > maxBytes) {
+                    throw IOException("stdout exceeded $maxBytes bytes")
+                }
+                out.write(buffer, 0, read)
+            }
+            out.toByteArray()
+        }
+    }
 
     override fun close() {
         runCatching { process.destroy() }

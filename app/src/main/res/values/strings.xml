@@ -749,6 +749,7 @@
     <string name="ocr_result_image_copy">复制图片</string>
     <string name="ocr_result_image_share">分享图片</string>
     <string name="ocr_result_image_save">保存图片</string>
+    <string name="ocr_result_image_annotate">标注</string>
     <string name="ocr_result_image_copied">图片已复制</string>
     <string name="ocr_result_image_saved">图片已保存到相册</string>
     <string name="ocr_result_select_all">全选</string>

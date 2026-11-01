@@ -26,6 +26,7 @@ class MiscActionExecutors(
 
     override val supportedTypes: Set<String> = setOf(
         "http.request", "system.toast", "system.notify", "system.clipboardSet",
+        "image.edit",
     )
 
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult = when (action) {
@@ -39,6 +40,11 @@ class MiscActionExecutors(
         is Action.SetClipboard -> {
             val ok = clipboardController.copyText(action.text)
             if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
+        }
+        is Action.ImageEdit -> {
+            // 选择器与 Activity 都在 `:app`；这里只转发「打开图片编辑」。
+            val opened = context.openImageAnnotate()
+            if (opened) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
         }
         else -> ActionResult.Failed(ActionFailure.Unsupported)
     }

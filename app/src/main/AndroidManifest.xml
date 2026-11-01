@@ -171,8 +171,7 @@
             android:windowSoftInputMode="adjustResize" />
 
         <!-- OCR 结果页：与识屏浮窗、OCR 引擎同住 :service，透明 Activity 承载
-             选词、编辑、IME 与分享；由 ScreenPickOverlay 识别完成后拉起，拉起失败只提示。 -->
-        <activity
+             选词、编辑、IME 与分享；由 ScreenPickOverlay 识别完成后拉起，拉起失败只提示。 -->        <activity
             android:name=".ui.ocr.OcrResultActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|density|fontScale|uiMode|layoutDirection|locale"
             android:excludeFromRecents="true"
@@ -182,6 +181,21 @@
             android:process=":service"
             android:taskAffinity="hunoia.luno.ocrresult"
             android:theme="@style/Theme.SideGesture.Transparent"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- 图片标注页：:service 透明 Activity（计划 2026-11-04-annotate）。
+             picker 模式由 image.edit 动作进入；payload 模式由识屏/OCR 页进程内交接位图。
+             不能加 noHistory：picker 模式下系统选择器一上屏，noHistory 会把本页直接结掉，
+             选择结果就回不来了；退出统一走工具条的关闭按钮。 -->
+        <activity
+            android:name=".ui.annotate.ImageAnnotateActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|density|fontScale|uiMode|layoutDirection|locale"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:process=":service"
+            android:taskAffinity="hunoia.luno.annotate"
+            android:theme="@style/Theme.SideGesture.Annotate"
             android:windowSoftInputMode="adjustResize" />
 
         <activity

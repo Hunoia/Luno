@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Search
@@ -127,7 +128,7 @@ private data class PortalState(
 )
 
 /** 框选动作条的动作（关闭走 onDismiss，不在此枚举）。 */
-private enum class PickSelectionAction { Ocr, Copy, Search, Share, Save }
+private enum class PickSelectionAction { Ocr, Annotate, Copy, Search, Share, Save }
 
 /** 结果页「图片」视图的裁剪图长边上限：够看清内容，又不至于把几十 MB 位图塞进进程。 */
 private const val RESULT_IMAGE_MAX_PX = 1600
@@ -151,8 +152,9 @@ class ScreenPickOverlay(
         image: Bitmap?,
         ocrLoader: (suspend (Bitmap) -> String?)?,
     ) -> Boolean = { _, _, _, _ -> false },
-    /** 幽灵卡「打开链接」的落点（`:app` 注入链接分发，本模块不依赖链接分发实现）。 */
-    private val onOpenLink: suspend (String) -> Boolean = { false },
+    /** 「标注」落点（`:app` 注入）：把裁剪图交给图片编辑页；true = 已接管。 */
+    private val onAnnotate: (Bitmap) -> Boolean = { false },
+    /** 幽灵卡「打开链接」的落点（`:app` 注入链接分发，本模块不依赖链接分发实现）。 */    private val onOpenLink: suspend (String) -> Boolean = { false },
     /** 长按/拖动参数：`:app` 注入运行时配置，保证与全屏长按使用同一套阈值。 */
     private val screenPickGesture: () -> hunoia.luno.config.model.ScreenPickGesture = {
         hunoia.luno.config.model.ScreenPickGesture()
@@ -895,6 +897,21 @@ class ScreenPickOverlay(
             return
         }
         host.coroutineScope.launch {
+            if (action == PickSelectionAction.Annotate) {
+                // 标注页要一直持有位图，withCropped 会在 block 结束后回收，所以这里交一份副本。
+                val handed = withCropped(screenRect) { bitmap ->
+                    val copy = bitmap.copy(Bitmap.Config.ARGB_8888, false) ?: return@withCropped false
+                    if (!onAnnotate(copy)) {
+                        if (!copy.isRecycled) copy.recycle()
+                        false
+                    } else {
+                        true
+                    }
+                }
+                resolvingAction = false
+                if (handed) close() else showToast(R.string.screen_pick_failed)
+                return@launch
+            }
             val ok = when (action) {
                 PickSelectionAction.Copy -> {
                     val text = selectionText(screenRect)
@@ -930,7 +947,7 @@ class ScreenPickOverlay(
                     }
                 }
                 PickSelectionAction.Save -> saveImageRegion(screenRect)
-                PickSelectionAction.Ocr -> false
+                PickSelectionAction.Ocr, PickSelectionAction.Annotate -> false
             }
             resolvingAction = false
             // 动作执行即关层（无例外）；OCR 已改为打开面板，由面板按钮关层。
@@ -1767,7 +1784,7 @@ private fun SelectionActionBar(
     val gap = 8.dp
     val pad = 6.dp
     val margin = 8.dp
-    val barW = with(density) { (button * 5 + gap * 4 + pad * 2).toPx() }
+    val barW = with(density) { (button * 6 + gap * 5 + pad * 2).toPx() }
     val barH = with(density) { (button + pad * 2).toPx() }
     val marginPx = with(density) { margin.toPx() }
     val screenW = DensityProvider.screenWidthPx.toFloat()
@@ -1798,6 +1815,10 @@ private fun SelectionActionBar(
             icon = Icons.Default.TextFields,
             contentDescription = stringResource(R.string.screen_pick_extract_text),
         ) { onAction(PickSelectionAction.Ocr) }
+        PickActionIcon(
+            icon = Icons.Default.Brush,
+            contentDescription = stringResource(R.string.screen_pick_annotate_image),
+        ) { onAction(PickSelectionAction.Annotate) }
         PickActionIcon(
             icon = Icons.Default.ContentCopy,
             contentDescription = stringResource(R.string.screen_pick_copy_image),

@@ -17,6 +17,7 @@
     <string name="screen_pick_save_image">保存图片</string>
     <string name="screen_pick_share_image">分享</string>
     <string name="screen_pick_extract_text">OCR 识别</string>
+    <string name="screen_pick_annotate_image">标注</string>
     <string name="screen_pick_portal_copy">复制</string>
     <string name="screen_pick_portal_search">搜索</string>
     <string name="screen_pick_portal_share">发送到应用</string>

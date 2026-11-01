@@ -85,6 +85,9 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             }
             true
         },
+        onAnnotate = { bitmap ->
+            hunoia.luno.ui.annotate.ImageAnnotateActivity.startWithBitmap(this, bitmap)
+        },
         screenPickGesture = {
             if (::gestureCoordinator.isInitialized) {
                 gestureCoordinator.currentScreenPickGesture()
@@ -93,6 +96,15 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             }
         },
     )
+
+    /** 屏幕标注浮层实例；onClosed 时置空。 */
+    private var annotateOverlay: hunoia.luno.annotate.ui.AnnotateOverlay? = null
+
+    /** 截屏 + 挂窗是异步的；在途时不允许重复开第二层。 */
+    private var annotateOpening = false
+
+    /** 标注期间球/面板一直隐藏，避免盖在画布上（关层时恢复）。 */
+    private var annotateSurfacesHidden = false
 
     /**
      * OCR 模型包导入 / 删除后调用：丢弃旧引擎（模型 native 句柄）并重新预热，
@@ -107,6 +119,52 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         if (!isDispatchReady()) return false
         // 挂窗是同步的：锁屏/系统拒绝时直接返回失败，动作层才能给出正确结果。
         return screenPickOverlay.show()
+    }
+
+    /** 屏幕标注浮层（计划 2026-11-04-annotate）。
+     *  截屏是异步的：这里只返回「已接管」；失败 toast，不打开空画布。 */
+    fun showScreenAnnotate(): Boolean {
+        if (!isDispatchReady()) return false
+        if (annotateOverlay?.isShown == true || annotateOpening) return true
+        annotateOpening = true
+        // 整段标注期间收起自家球/面板：一来不进截图，二来不会盖在画布上抢触摸。
+        hunoia.luno.runtime.surface.SurfaceController.softHideAll()
+        annotateSurfacesHidden = true
+        coroutineScope.launch {
+            kotlinx.coroutines.delay(64)
+            val bitmap = hunoia.luno.annotate.screenshot.AnnotateScreenshot.capture(this@SideGestureService)
+            if (bitmap == null) {
+                annotateOpening = false
+                restoreAnnotateSurfaces()
+                hunoia.luno.bridge.ui.showToast(hunoia.luno.annotate.R.string.annotate_screenshot_failed)
+                return@launch
+            }
+            val overlay = hunoia.luno.annotate.ui.AnnotateOverlay(
+                service = this@SideGestureService,
+                // 浮层重截前会先隐藏自己两窗；自家 Surface 已在打开时收起，这里只负责抓图。
+                captureScreenshot = {
+                    hunoia.luno.annotate.screenshot.AnnotateScreenshot.capture(this@SideGestureService)
+                },
+                onClosed = {
+                    annotateOverlay = null
+                    restoreAnnotateSurfaces()
+                },
+            )
+            annotateOverlay = overlay
+            annotateOpening = false
+            if (!overlay.open(bitmap)) {
+                annotateOverlay = null
+                restoreAnnotateSurfaces()
+                hunoia.luno.bridge.ui.showToast(hunoia.luno.annotate.R.string.annotate_screenshot_failed)
+            }
+        }
+        return true
+    }
+
+    private fun restoreAnnotateSurfaces() {
+        if (!annotateSurfacesHidden) return
+        annotateSurfacesHidden = false
+        hunoia.luno.runtime.surface.SurfaceController.restoreAll()
     }
 
     /**
@@ -312,6 +370,9 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         pointPickOverlay.close()
         // 拾取窗持有全局面板事件订阅，必须显式退订。
         screenPickOverlay.release()
+        // 标注浮层不随服务自动回收；关掉它并恢复被隐藏的球/面板。
+        annotateOverlay?.close()
+        annotateOverlay = null
         // 识别器随服务销毁释放（模型 native 资源）；下次服务重建会重新懒加载。
         ocrEngine.close()
         coroutineScope.cancel()

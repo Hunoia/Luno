@@ -172,6 +172,16 @@ sealed interface Action {
     data object ScreenPick : Action {
         override val typeId: String = "accessibility.screenPick"
     }
+
+    /** 屏幕标注：触发后截屏，进入冻结底图的浮层标注（可穿透）。 */
+    data object ScreenAnnotate : Action {
+        override val typeId: String = "screen.annotate"
+    }
+
+    /** 图片编辑：先走系统图片选择器，再进入全屏标注。 */
+    data object ImageEdit : Action {
+        override val typeId: String = "image.edit"
+    }
     data object SplitScreen : Action {
         override val typeId: String = "accessibility.splitScreen"
     }

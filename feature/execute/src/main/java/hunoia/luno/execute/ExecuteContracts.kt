@@ -77,6 +77,12 @@ interface SurfaceHost {
     /** 屏幕取点（transient Surface）：挂在无障碍服务窗口上。 */
     fun showScreenPick(): Boolean
 
+    /** 屏幕标注：截屏 + 浮层；返回 false = 未接管（服务未就绪 / 窗口被拒）。 */
+    fun showScreenAnnotate(): Boolean
+
+    /** 图片编辑：系统图片选择器 → 全屏标注页；返回 false = 未启动。 */
+    fun openImageAnnotate(): Boolean
+
     /**
      * 悬浮球显隐：`hideForMs > 0` 走临时隐藏（只摘窗口、到期恢复），否则改 enabled 存量。
      * 配置写入与 FloatBallService 都留在 Surface 层。

@@ -15,5 +15,15 @@
                 <action android:name="hunoia.luno.debug.OCR_PREVIEW" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name="hunoia.luno.ui.annotate.AnnotatePreviewReceiver"
+            android:exported="true"
+            android:process=":service">
+            <intent-filter>
+                <action android:name="hunoia.luno.debug.ANNOTATE_PREVIEW" />
+                <action android:name="hunoia.luno.debug.ANNOTATE_SCREEN" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

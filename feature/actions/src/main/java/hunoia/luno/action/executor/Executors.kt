@@ -36,6 +36,7 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
         "accessibility.tap", "accessibility.longPress", "accessibility.doubleTap",
         "accessibility.scroll", "accessibility.swipe",
         "accessibility.screenshot", "accessibility.screenPick",
+        "screen.annotate",
         "accessibility.splitScreen",
         "accessibility.powerButton", "accessibility.notificationPanel",
         "accessibility.quickPanel", "accessibility.lockScreen"
@@ -103,6 +104,11 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
                 // 拾取层必须挂在无障碍服务窗口上（TYPE_ACCESSIBILITY_OVERLAY 规则，
                 // 与屏幕取点同款）；执行能走到这里就说明 a11y 侧活着。
                 val shown = context.showScreenPick()
+                if (shown) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
+            }
+            is Action.ScreenAnnotate -> {
+                // 截屏是异步的：这里只确认「已接管」，失败由宿主 toast，不打开空画布。
+                val shown = context.showScreenAnnotate()
                 if (shown) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.SplitScreen -> executionResult(controller.toggleSplitScreen())

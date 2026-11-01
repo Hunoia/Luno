@@ -300,6 +300,12 @@ class GestureCoordinator(
         override fun showScreenPick(): Boolean =
             hunoia.luno.service.SideGestureService.current?.showScreenPick() == true
 
+        override fun showScreenAnnotate(): Boolean =
+            hunoia.luno.service.SideGestureService.current?.showScreenAnnotate() == true
+
+        override fun openImageAnnotate(): Boolean =
+            hunoia.luno.ui.annotate.ImageAnnotateActivity.startPicker(host.context)
+
         override fun shareFile(): hunoia.luno.core.domain.ActionResult = runCatching {
             host.context.startActivity(
                 Intent(host.context, hunoia.luno.ui.share.ShareFilePickActivity::class.java).apply {
