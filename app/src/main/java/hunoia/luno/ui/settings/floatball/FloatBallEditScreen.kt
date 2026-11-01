@@ -101,7 +101,7 @@ fun FloatBallEditScreen(
 
     var overlayGranted by remember { mutableStateOf(context.canDrawOverlays()) }
     var notifAccessGranted by remember {
-        mutableStateOf(AppGraph.automation.isNotificationAccessGranted(context))
+        mutableStateOf(AppGraph.system.isNotificationAccessGranted(context))
     }
     var showColorPicker by remember { mutableStateOf(false) }
 
@@ -118,7 +118,7 @@ fun FloatBallEditScreen(
                     overlayGranted = granted
                     AppGraph.system.refreshFloatBall(context)
                 }
-                val notifGranted = AppGraph.automation.isNotificationAccessGranted(context)
+                val notifGranted = AppGraph.system.isNotificationAccessGranted(context)
                 if (notifGranted != notifAccessGranted) notifAccessGranted = notifGranted
             }
         }

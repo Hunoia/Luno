@@ -87,6 +87,37 @@
     <string name="float_ball">悬浮球</string>
     <string name="recent_apps_blocklist">最近应用黑名单</string>
     <string name="recent_apps_blocklist_hint">最近的内置部件与上一个应用不显示/不切换到这些应用</string>
+    <string name="button_visibility">触钮显隐</string>
+    <string name="button_visibility_hint">按应用或界面自动隐藏 / 显示触钮</string>
+    <string name="button_visibility_empty">还没有显隐场景</string>
+    <string name="button_visibility_empty_desc">添加一条场景，指定哪些应用或界面隐藏触钮</string>
+    <string name="button_visibility_new">新建场景</string>
+    <string name="button_visibility_edit">编辑场景</string>
+    <string name="button_visibility_name">名称</string>
+    <string name="button_visibility_name_hint">可选</string>
+    <string name="button_visibility_apps">应用</string>
+    <string name="button_visibility_any_app">任意应用</string>
+    <string name="button_visibility_apps_count">%1$d 个应用</string>
+    <string name="button_visibility_screens">界面</string>
+    <string name="button_visibility_any_screen">任意界面</string>
+    <string name="button_visibility_visible">显示触钮</string>
+    <string name="button_visibility_visible_desc">关闭则隐藏触钮</string>
+    <string name="button_visibility_target">作用触钮</string>
+    <string name="button_visibility_target_all">全部触钮</string>
+    <string name="button_visibility_target_only">仅选中的触钮</string>
+    <string name="button_visibility_target_except">除选中的触钮</string>
+    <string name="button_visibility_target_count">%1$d 个触钮</string>
+    <string name="button_visibility_delete_title">删除这个场景？</string>
+    <string name="button_visibility_delete_text">删除后该场景不再影响触钮显隐</string>
+    <string name="button_visibility_screen_lock">锁屏</string>
+    <string name="button_visibility_screen_launcher">桌面</string>
+    <string name="button_visibility_screen_landscape">横屏</string>
+    <string name="button_visibility_screen_portrait">竖屏</string>
+    <string name="button_visibility_screen_keyboard">键盘弹出</string>
+    <string name="button_visibility_summary_hide">隐藏</string>
+    <string name="button_visibility_summary_show">显示</string>
+    <string name="button_visibility_summary_all_apps">任意应用</string>
+    <string name="button_visibility_summary_all_screens">任意界面</string>
     <!-- 设置页（动作/快速搜索共用） -->
     <!-- 动作选择页行尾设置弹窗 -->
     <string name="ok">确定</string>

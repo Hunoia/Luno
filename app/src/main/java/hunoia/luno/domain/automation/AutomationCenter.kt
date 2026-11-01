@@ -1,5 +1,6 @@
 package hunoia.luno.domain.automation
 
+import hunoia.luno.bridge.system.NotificationAccess
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.GlobalVariables
@@ -131,14 +132,12 @@ object AutomationCenter : AutomationFacade {
                     hunoia.luno.service.SideGestureService::class.java,
                 ) || hunoia.luno.service.SideGestureService.current != null || DispatchClient.isReady()
             },
-            isNotificationAccessGranted = {
-                hunoia.luno.runtime.automation.AutomationNotificationListener.isAccessGranted(it)
-            },
+            isNotificationAccessGranted = { hunoia.luno.bridge.system.NotificationAccess.isGranted(it) },
         )
 
     /** 通知监听权限是否已授：编辑页通知条件行展示（读系统设置，无副作用）。 */
     override fun isNotificationAccessGranted(context: android.content.Context): Boolean =
-        hunoia.luno.runtime.automation.AutomationNotificationListener.isAccessGranted(context)
+        NotificationAccess.isGranted(context)
 
     override fun publishSharedText(context: android.content.Context, text: String, action: String) =
         hunoia.luno.runtime.automation.AutomationShareBridge.publish(context, text, action)

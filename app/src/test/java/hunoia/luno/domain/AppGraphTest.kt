@@ -24,6 +24,8 @@ class AppGraphTest {
 
         override fun refreshFloatBall(context: Context) = Unit
 
+        override fun isNotificationAccessGranted(context: Context): Boolean = false
+
         override suspend fun loadHomePermissionState(context: Context): HomePermissionState =
             HomePermissionState(
                 isGestureEnabled = false,

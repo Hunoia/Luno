@@ -140,6 +140,18 @@ data object MiniWindowAdjust
 @Serializable
 data object FloatBallEdit
 
+/** 触钮显隐场景列表。 */
+@Keep
+@Serializable
+data object ButtonVisibility
+
+/** 触钮显隐场景编辑页；[profileId] = `new` 表示新建。 */
+@Keep
+@Serializable
+data class ButtonVisibilityEdit(
+    val profileId: String,
+)
+
 @Keep
 @Serializable
 data class SubGestureEditor(

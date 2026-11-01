@@ -226,7 +226,7 @@
         </service>
 
         <service
-            android:name=".runtime.automation.AutomationNotificationListener"
+            android:name=".runtime.floatball.notification.NotificationPulseListener"
             android:exported="true"
             android:label="@string/app_name"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"

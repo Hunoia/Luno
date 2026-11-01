@@ -118,6 +118,7 @@ fun HomeScreen(
     onNavToActionSettings: () -> Unit = {},
     onNavToSearchEngines: () -> Unit = {},
     onNavToFloatBallSettings: () -> Unit = {},
+    onNavToButtonVisibility: () -> Unit = {},
     onNavToAutomationEdit: (String) -> Unit = {},
     onNavToActionLibraryEdit: (String, String?) -> Unit = { _, _ -> },
     vm: HomeVM = viewModel()
@@ -408,6 +409,7 @@ fun HomeScreen(
                                     onActionSettingsClick = onNavToActionSettings,
                                     onSearchEngineClick = onNavToSearchEngines,
                                     onFloatBallClick = onNavToFloatBallSettings,
+                                    onButtonVisibilityClick = onNavToButtonVisibility,
                                 )
                             }
 

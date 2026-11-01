@@ -12,7 +12,6 @@ import hunoia.luno.config.model.LinkDispatchSettings
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.link.Links
 import hunoia.luno.link.LinkUrls
-import hunoia.luno.domain.AppGraph
 import hunoia.luno.domain.tune.TuneConfig
 import kotlinx.coroutines.launch
 
@@ -44,7 +43,6 @@ class LinkDispatchActivity : ComponentActivity() {
             finish()
             return
         }
-        AppGraph.automation.publishSharedText(this, text, intent?.action.orEmpty())
         lifecycleScope.launch {
             val settings = runCatching { TuneConfig.getAction().linkDispatch }
                 .onFailure { Log.w(LOG_TAG, "link dispatch: read settings failed: ${it.message}") }

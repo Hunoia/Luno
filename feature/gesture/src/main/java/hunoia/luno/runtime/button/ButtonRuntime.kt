@@ -5,6 +5,8 @@ import android.util.Log
 import hunoia.luno.gesture.BuildConfig
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.InitialSettings
+import hunoia.luno.config.model.VisibilityProfile
+import hunoia.luno.config.model.VisibilityScreen
 import hunoia.luno.runtime.GestureRuntimeState
 import hunoia.luno.runtime.overlay.ButtonWindowController
 import hunoia.luno.runtime.settings.SettingsStore
@@ -66,8 +68,35 @@ class ButtonVisibilityPolicy(
     fun shouldShow(button: GestureButton): Boolean {
         if (!initialSettings.gestureEnabled) return false
         if ((runtimeState.hiddenGestureButtons[button.id] ?: 0L) > runtimeState.nowMs) return false
+        // 用户基线：场景配置只能相对它隐藏 / 恢复，不能把手动关掉的钮重新打开。
         if (!button.enabled) return false
-        // 触钮显隐由 internal.buttonsVisibility 动作直接改 button.enabled；规则列表顺序=后写覆盖=优先级。
-        return true
+        // 规则列表顺序 = 优先级：最后命中的一条生效；target 不覆盖本钮的配置不改状态。
+        var visible = true
+        initialSettings.buttonVisibility.profiles.forEach { profile ->
+            if (profile.enabled && profile.matches(runtimeState) && profile.affects(button.id)) {
+                visible = profile.visible
+            }
+        }
+        return visible
     }
+}
+
+private fun VisibilityProfile.matches(state: GestureRuntimeState): Boolean {
+    if (packageNames.isNotEmpty() && state.currentPackageName !in packageNames) return false
+    if (screens.isNotEmpty() && screens.none { it.matches(state) }) return false
+    return true
+}
+
+private fun VisibilityScreen.matches(state: GestureRuntimeState): Boolean = when (this) {
+    VisibilityScreen.LOCK_SCREEN -> state.isNowInLockScreenPage
+    VisibilityScreen.LAUNCHER -> state.isInLauncher
+    VisibilityScreen.LANDSCAPE -> state.isLandscape
+    VisibilityScreen.PORTRAIT -> !state.isLandscape
+    VisibilityScreen.KEYBOARD_INPUT -> state.isKeyboardInputActive
+}
+
+private fun VisibilityProfile.affects(buttonId: String): Boolean = when (target) {
+    hunoia.luno.action.model.ButtonTarget.ALL -> true
+    hunoia.luno.action.model.ButtonTarget.ONLY -> buttonId in buttonIds
+    hunoia.luno.action.model.ButtonTarget.EXCEPT -> buttonId !in buttonIds
 }

@@ -45,10 +45,10 @@ import hunoia.luno.runtime.floatball.inbox.BallSource
 import hunoia.luno.runtime.floatball.inbox.ClipboardImageItem
 import hunoia.luno.runtime.floatball.inbox.ClipboardTextItem
 import hunoia.luno.runtime.floatball.inbox.NotificationItem
-import hunoia.luno.runtime.automation.AutomationNotificationListener
-import hunoia.luno.runtime.automation.AutomationPulseHub
-import hunoia.luno.runtime.automation.NotificationContentIntents
-import hunoia.luno.runtime.condition.NotificationPulse
+import hunoia.luno.runtime.floatball.notification.NotificationContentIntents
+import hunoia.luno.runtime.floatball.notification.NotificationPulseListener
+import hunoia.luno.runtime.notification.NotificationPulseHub
+import hunoia.luno.core.domain.NotificationPulse
 import hunoia.luno.runtime.dispatch.ActionDispatch
 import hunoia.luno.runtime.environment.BroadcastObserver
 import hunoia.luno.runtime.surface.SurfaceDispatch
@@ -256,7 +256,8 @@ class FloatBallService : Service() {
         observePanels()
         Events.subscribe(TouchButtonSideEvent::class, touchSideSubscriber)
         // 通知胶囊：与监听器同进程静态直连；勿扰变化即收当前胶囊。
-        AutomationPulseHub.addNotificationObserver(notificationObserver)
+        NotificationPulseHub.addPostedObserver(notificationObserver)
+        NotificationPulseHub.addRemovedObserver(notificationRemovedObserver)
         hunoia.luno.runtime.surface.SurfaceController.register(surfaceHandle)
     }
 
@@ -292,7 +293,8 @@ class FloatBallService : Service() {
         Events.unsubscribe(PanelDismissedEvent::class, panelDismissedSubscriber)
         Events.unsubscribe(TouchButtonSideEvent::class, touchSideSubscriber)
         Events.unsubscribe(FloatBallTempHideEvent::class, tempHideSubscriber)
-        AutomationPulseHub.removeNotificationObserver(notificationObserver)
+        NotificationPulseHub.removePostedObserver(notificationObserver)
+        NotificationPulseHub.removeRemovedObserver(notificationRemovedObserver)
         unregisterClipboardListener()
         tempHideJob?.cancel()
         tempHideJob = null
@@ -525,7 +527,7 @@ class FloatBallService : Service() {
             delay(CAPSULE_SETTLE_MS)
             settleJobs.remove(settleKey)
             if (!settings.notificationCapsule.enabled) return@launch
-            if (!AutomationNotificationListener.isPosted(pulse.key)) {
+            if (!NotificationPulseListener.isPosted(pulse.key)) {
                 Log.i(TAG, "capsule skip gone pkg=${pulse.packageName} key=${pulse.key}")
                 return@launch
             }
@@ -941,7 +943,7 @@ class FloatBallService : Service() {
                 "clip changed but not allowed: switch=${settings.clipboardBall.enabled} " +
                     "overlay=${canDrawOverlays()} gesture=$gestureEnabledSnapshot " +
                     "panel=${visibility.panelCount} tempHide=${visibility.isTempHidden()} " +
-                    "lock=${isScreenLocked()} dnd=${AutomationPulseHub.dndActive}",
+                    "lock=${isScreenLocked()}",
             )
             return
         }

@@ -1,4 +1,4 @@
-package hunoia.luno.runtime.automation
+package hunoia.luno.runtime.floatball.notification
 
 import android.app.PendingIntent
 import java.util.concurrent.ConcurrentHashMap

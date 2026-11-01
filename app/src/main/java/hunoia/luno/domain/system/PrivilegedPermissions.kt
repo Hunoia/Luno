@@ -12,7 +12,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import hunoia.luno.bridge.system.AccessibilitySettings
-import hunoia.luno.runtime.automation.AutomationNotificationListener
+import hunoia.luno.bridge.system.NotificationAccess
 import hunoia.luno.service.SideGestureService
 import hunoia.luno.shizuku.PrivilegedGrants
 
@@ -92,7 +92,7 @@ object PrivilegedPermissionUseCase {
         PrivilegedPermission.ACCESSIBILITY ->
             AccessibilitySettings.isEnabled(context, SideGestureService::class.java)
         PrivilegedPermission.NOTIFICATION_LISTENER ->
-            AutomationNotificationListener.isAccessGranted(context)
+            NotificationAccess.isGranted(context)
         PrivilegedPermission.WRITE_SECURE_SETTINGS ->
             context.checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) ==
                 android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -167,7 +167,7 @@ object PrivilegedPermissionUseCase {
             PrivilegedPermission.NOTIFICATION_LISTENER ->
                 PrivilegedGrants.ensureNotificationListener(
                     context,
-                    ComponentName(context, AutomationNotificationListener::class.java).flattenToShortString(),
+                    NotificationAccess.listenerComponent(context).flattenToShortString(),
                 ).ok
             PrivilegedPermission.WRITE_SECURE_SETTINGS ->
                 PrivilegedGrants.ensureWriteSecureSettings(context).ok
@@ -190,10 +190,9 @@ object PrivilegedPermissionUseCase {
                 context = context,
                 accessibilityComponent = ComponentName(context, SideGestureService::class.java)
                     .flattenToShortString(),
-                notificationListenerComponent = ComponentName(
-                    context,
-                    AutomationNotificationListener::class.java,
-                ).flattenToShortString(),
+                notificationListenerComponent = NotificationAccess
+                    .listenerComponent(context)
+                    .flattenToShortString(),
             )
         }.getOrNull() ?: return PrivilegedGrantSummary()
         return PrivilegedGrantSummary(

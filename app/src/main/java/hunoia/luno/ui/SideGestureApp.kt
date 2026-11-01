@@ -56,7 +56,12 @@ import hunoia.luno.ui.navigation.SearchEngineEdit
 import hunoia.luno.ui.navigation.SearchSourceSettings
 import hunoia.luno.ui.navigation.MiniWindowAdjust
 import hunoia.luno.ui.navigation.FloatBallEdit
+import hunoia.luno.ui.navigation.ButtonVisibility
+import hunoia.luno.ui.navigation.ButtonVisibilityEdit
 import hunoia.luno.ui.settings.floatball.FloatBallEditScreen
+import hunoia.luno.ui.settings.gesture.visibility.ButtonVisibilityEditScreen
+import hunoia.luno.ui.settings.gesture.visibility.ButtonVisibilityScreen
+import hunoia.luno.ui.settings.gesture.visibility.NEW_VISIBILITY_PROFILE_ID
 import hunoia.luno.ui.navigation.SubGestureEditor
 import hunoia.luno.ui.navigation.AutomationEdit
 import hunoia.luno.ui.navigation.AutomationHistory
@@ -158,6 +163,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         },
                         onNavToSearchEngines = { navController.navigate(SearchEngineSettings) },
                         onNavToFloatBallSettings = { navController.navigate(FloatBallEdit) },
+                        onNavToButtonVisibility = { navController.navigate(ButtonVisibility) },
                         onNavToAutomationEdit = { ruleId ->
                             navController.navigate(AutomationEdit(ruleId))
                         },
@@ -250,6 +256,20 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onBack = { navController.popBackStack() },
                         onNavToActionSelect = { navController.navigate(it) },
                         onNavToNotificationBlocklist = { navController.navigate(NotificationBlocklist) },
+                    )
+                }
+                myComposable<ButtonVisibility> {
+                    ButtonVisibilityScreen(
+                        onBack = { navController.popBackStack() },
+                        onEdit = { profileId ->
+                            navController.navigate(ButtonVisibilityEdit(profileId))
+                        },
+                    )
+                }
+                myComposable<ButtonVisibilityEdit> {
+                    ButtonVisibilityEditScreen(
+                        profileId = it.toRoute<ButtonVisibilityEdit>().profileId,
+                        onBack = { navController.popBackStack() },
                     )
                 }
                 myComposable<NotificationBlocklist> {

@@ -51,7 +51,7 @@ import hunoia.luno.runtime.condition.hasWifiSsidCondition
 import hunoia.luno.runtime.automation.AutomationEngine
 import hunoia.luno.runtime.automation.AutomationEvent
 import hunoia.luno.runtime.automation.AutomationEventKey
-import hunoia.luno.runtime.automation.AutomationPulseHub
+import hunoia.luno.runtime.notification.NotificationPulseHub
 import hunoia.luno.runtime.automation.AutomationShareBridge
 import hunoia.luno.runtime.automation.AutomationRuntime
 import hunoia.luno.core.domain.ExecutionReason
@@ -784,7 +784,7 @@ class GestureCoordinator(
                             hunoia.luno.service.DispatchClient.isReady()
                     },
                     isNotificationAccessGranted = {
-                        hunoia.luno.runtime.automation.AutomationNotificationListener.isAccessGranted(it)
+                        hunoia.luno.bridge.system.NotificationAccess.isGranted(it)
                     },
                 ).hasMissing
             ) {
@@ -1291,14 +1291,7 @@ class GestureCoordinator(
         refreshGestureButtons(delayMs = 0L, automationKeys = setOf(AutomationEventKey.NOTIFICATION))
     }
 
-    /** 剪贴板球/面板读到新文本；不承诺后台实时监听。 */
-    private val clipboardObserver: (String) -> Unit = { text ->
-        environmentTracker.onClipboardChanged(
-            hunoia.luno.runtime.condition.ClipboardPulse(text),
-        )
-        refreshGestureButtons(delayMs = 0L, automationKeys = setOf(AutomationEventKey.CLIPBOARD))
-    }
-
+    /** 包安装 / 卸载 / 更新事件。 */
     private val packageChangeListener: (hunoia.luno.bridge.system.PackageChangeEvent) -> Unit = { event ->
         environmentTracker.onPackageChanged(
             hunoia.luno.runtime.condition.PackageChangePulse(event.action, event.packageName),
@@ -1438,10 +1431,9 @@ class GestureCoordinator(
         // 放这里：早于首评的设置收集器，此刻 root 已可查询。
         environmentTracker.seedKeyboardInputActive()
         // 通知脉冲：同 :service 进程静态直连；destroy 时移除，避免野回调。
-        AutomationPulseHub.addNotificationObserver(notificationObserver)
-        AutomationPulseHub.addNotificationRemovedObserver(notificationRemovedObserver)
-        AutomationPulseHub.addNotificationStateObserver(notificationStateObserver)
-        AutomationPulseHub.addClipboardObserver(clipboardObserver)
+        NotificationPulseHub.addPostedObserver(notificationObserver)
+        NotificationPulseHub.addRemovedObserver(notificationRemovedObserver)
+        NotificationPulseHub.addStateObserver(notificationStateObserver)
         PackageChangeReceiver.registerForEvents(host.context, packageChangeListener)
         runCatching {
             host.context.registerReceiver(
@@ -1451,7 +1443,7 @@ class GestureCoordinator(
             )
         }
         // 勿扰变化由通知监听服务推入（需通知访问权限）；订阅即回放当前基线。
-        AutomationPulseHub.addInterruptionObserver(interruptionObserver)
+        NotificationPulseHub.addInterruptionObserver(interruptionObserver)
         dndTracker.refreshFromSystem()
         val listener = WallpaperManager.OnColorsChangedListener { _, _ ->
             hunoia.luno.core.Events.post(hunoia.luno.core.WallpaperChangedEvent())
@@ -1647,13 +1639,12 @@ class GestureCoordinator(
             gestureDispatchSubscriber,
         )
         hunoia.luno.runtime.dispatch.ActionDispatch.installAwaitable(null)
-        AutomationPulseHub.removeNotificationObserver(notificationObserver)
-        AutomationPulseHub.removeNotificationRemovedObserver(notificationRemovedObserver)
-        AutomationPulseHub.removeNotificationStateObserver(notificationStateObserver)
-        AutomationPulseHub.removeClipboardObserver(clipboardObserver)
+        NotificationPulseHub.removePostedObserver(notificationObserver)
+        NotificationPulseHub.removeRemovedObserver(notificationRemovedObserver)
+        NotificationPulseHub.removeStateObserver(notificationStateObserver)
         PackageChangeReceiver.unregisterForEvents(host.context, packageChangeListener)
         runCatching { host.context.unregisterReceiver(shareReceiver) }
-        AutomationPulseHub.removeInterruptionObserver(interruptionObserver)
+        NotificationPulseHub.removeInterruptionObserver(interruptionObserver)
         openPanels.close()
         runtimeSettingsStore.stop()
         timeConditionTicker.stop()
@@ -1714,7 +1705,7 @@ class GestureCoordinator(
             bluetoothAudioConnected = conditionSources.bluetoothAudioConnected,
             bluetoothDeviceName = conditionSources.bluetoothDeviceName,
             bluetoothDeviceAddress = conditionSources.bluetoothDeviceAddress,
-            activeNotifications = hunoia.luno.runtime.automation.AutomationNotificationListener.activePulses(),
+            activeNotifications = hunoia.luno.runtime.floatball.notification.NotificationPulseListener.activePulses(),
             airplaneMode = conditionSources.airplaneMode,
             ringerMode = audioVolumeTracker.ringerMode,
             volumePercent = audioVolumeTracker.volumePercent,

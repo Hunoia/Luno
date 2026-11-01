@@ -18,6 +18,9 @@ interface SystemFacade {
     fun setFloatBallEnabled(context: Context, enabled: Boolean)
     fun refreshFloatBall(context: Context)
 
+    /** 通知使用权是否已授（通知胶囊 / 媒体控制共用）。 */
+    fun isNotificationAccessGranted(context: Context): Boolean
+
     suspend fun loadHomePermissionState(context: Context): HomePermissionState
 
     /** 各项特权授权的当前状态（悬浮窗 / 无障碍 / 通知监听 / 系统设置写入 / 电池白名单 / 通知）。 */
@@ -49,6 +52,9 @@ object SystemUseCases : SystemFacade {
         FloatBallUseCase.setEnabled(context, enabled)
 
     override fun refreshFloatBall(context: Context) = FloatBallUseCase.refresh(context)
+
+    override fun isNotificationAccessGranted(context: Context): Boolean =
+        hunoia.luno.bridge.system.NotificationAccess.isGranted(context)
 
     override suspend fun loadHomePermissionState(context: Context): HomePermissionState =
         PermissionStateUseCase.loadHomePermissionState(context)
