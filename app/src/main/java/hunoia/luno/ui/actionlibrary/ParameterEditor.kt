@@ -61,13 +61,12 @@ fun ParameterEditor(
     when (definition) {
         is ParameterDefinition.Text -> {
             val value = currentParams[definition.key]?.scalarText() ?: (definition.defaultValue ?: "")
-            TemplateTextField(
+            LabeledTextField(
                 value = value,
                 onValueChange = { onParamChange(definition.key, it) },
                 label = definition.label,
                 isError = required && value.isBlank(),
                 singleLine = true,
-                allowTemplates = definition.allowTemplates,
                 placeholder = definition.placeholder,
                 modifier = modifier.fillMaxWidth(),
             )
@@ -129,13 +128,12 @@ fun ParameterEditor(
         }
         is ParameterDefinition.TextLarge -> {
             val value = currentParams[definition.key]?.scalarText() ?: (definition.defaultValue ?: "")
-            TemplateTextField(
+            LabeledTextField(
                 value = value,
                 onValueChange = { onParamChange(definition.key, it) },
                 label = definition.label,
                 isError = required && value.isBlank(),
                 singleLine = false,
-                allowTemplates = definition.allowTemplates,
                 modifier = modifier.fillMaxWidth(),
             )
         }

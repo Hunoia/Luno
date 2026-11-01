@@ -33,7 +33,7 @@ import hunoia.luno.config.model.upsert
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.link.Links
 import hunoia.luno.link.LinkUrls
-import hunoia.luno.ui.actionlibrary.TemplateTextField
+import hunoia.luno.ui.actionlibrary.LabeledTextField
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.row.ChoiceRow
@@ -231,13 +231,12 @@ fun LinkDispatchEditScreen(
                 onCheckedChange = { enabled = it },
                 shape = segmentedShape(0, 2),
             )
-            TemplateTextField(
+            LabeledTextField(
                 value = name,
                 onValueChange = { name = it },
                 label = stringResource(R.string.link_dispatch_rule_name),
                 isError = false,
                 singleLine = true,
-                allowTemplates = false,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -256,13 +255,12 @@ fun LinkDispatchEditScreen(
                 onSelect = { index -> matchType = matchOptions[index].first },
                 shape = segmentedShape(0, 2),
             )
-            TemplateTextField(
+            LabeledTextField(
                 value = pattern,
                 onValueChange = { pattern = it },
                 label = stringResource(R.string.link_dispatch_rule_pattern),
                 isError = pattern.isBlank() || regexError,
                 singleLine = true,
-                allowTemplates = false,
                 placeholder = stringResource(R.string.link_dispatch_rule_pattern_hint),
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -274,23 +272,21 @@ fun LinkDispatchEditScreen(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
-            TemplateTextField(
+            LabeledTextField(
                 value = excludeText,
                 onValueChange = { excludeText = it },
                 label = stringResource(R.string.link_dispatch_rule_exclude),
                 isError = false,
                 singleLine = false,
-                allowTemplates = false,
                 placeholder = stringResource(R.string.link_dispatch_rule_exclude_hint),
                 modifier = Modifier.fillMaxWidth(),
             )
-            TemplateTextField(
+            LabeledTextField(
                 value = testUrl,
                 onValueChange = { testUrl = it },
                 label = stringResource(R.string.link_dispatch_rule_test),
                 isError = false,
                 singleLine = true,
-                allowTemplates = false,
                 placeholder = stringResource(R.string.link_dispatch_rule_test_hint),
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -360,26 +356,24 @@ fun LinkDispatchEditScreen(
                     shape = segmentedShape(2, 3),
                     onClick = { showAppPicker = true },
                 )
-                TemplateTextField(
+                LabeledTextField(
                     value = targetActivity,
                     onValueChange = { targetActivity = it },
                     label = stringResource(R.string.link_dispatch_rule_target_activity),
                     isError = false,
                     singleLine = true,
-                    allowTemplates = false,
                     placeholder = stringResource(R.string.link_dispatch_rule_target_activity_hint),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
         LunoGroup(title = stringResource(R.string.link_dispatch_rule_advanced_group)) {
-            TemplateTextField(
+            LabeledTextField(
                 value = template,
                 onValueChange = { template = it },
                 label = stringResource(R.string.link_dispatch_rule_template),
                 isError = false,
                 singleLine = true,
-                allowTemplates = false,
                 placeholder = stringResource(R.string.link_dispatch_rule_template_hint),
                 modifier = Modifier.fillMaxWidth(),
             )

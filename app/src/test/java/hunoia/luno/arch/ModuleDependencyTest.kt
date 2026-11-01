@@ -19,7 +19,7 @@ class ModuleDependencyTest {
     private val knownModules: Set<String> = setOf(
         ":core:common", ":core:domain", ":core:bridge", ":core:data", ":core:runtime",
         ":ui:design", ":capability:launch", ":capability:ocr",
-        ":feature:execute", ":feature:actions", ":feature:conditions", ":feature:automation",
+        ":feature:execute", ":feature:actions",
         ":feature:link", ":feature:search", ":feature:quicklaunch", ":feature:gesture",
         ":feature:floatball", ":feature:gridpanel", ":app",
     )
@@ -43,13 +43,6 @@ class ModuleDependencyTest {
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
             ":core:runtime", ":feature:execute", ":ui:design",
         ),
-        ":feature:conditions" to setOf(
-            ":core:common", ":core:domain", ":core:bridge",
-        ),
-        ":feature:automation" to setOf(
-            ":core:common", ":core:domain", ":core:bridge",
-            ":core:runtime", ":feature:conditions",
-        ),
         ":feature:link" to setOf(
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
             ":core:runtime", ":ui:design",
@@ -69,14 +62,13 @@ class ModuleDependencyTest {
         ),
         ":feature:floatball" to setOf(
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
-            ":core:runtime", ":feature:automation",
-            ":feature:conditions", ":feature:gesture",
+            ":core:runtime", ":feature:gesture",
             ":feature:link", ":ui:design",
         ),
         ":feature:gridpanel" to setOf(
             ":capability:launch",
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
-            ":core:runtime", ":feature:actions", ":feature:automation",
+            ":core:runtime", ":feature:actions",
             ":feature:execute", ":feature:gesture", ":feature:quicklaunch",
             ":feature:search", ":ui:design",
         ),

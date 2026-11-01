@@ -15,7 +15,6 @@ import hunoia.luno.core.domain.gridPanelId
 import hunoia.luno.core.domain.launchQualifiedName
 import hunoia.luno.core.domain.withLaunchMiniWindow
 import hunoia.luno.core.domain.ActionLibraryEntry
-import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.ActionPanel
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.SubGesture
@@ -43,10 +42,9 @@ fun Context.selectedItemLabel(
     item: Any,
     subGestures: List<SubGesture>,
     actionLibraryEntries: List<ActionLibraryEntry>,
-    rules: List<AutomationRule> = emptyList(),
 ): String {
     return when (item) {
-        is StoredAction -> actionTextWithSubGesture(item, subGestures, actionLibraryEntries, rules, emptyIfNone = false)
+        is StoredAction -> actionTextWithSubGesture(item, subGestures, actionLibraryEntries, emptyIfNone = false)
         is AppInfo -> item.label
         is LauncherInfo.ShortcutInfo -> item.label
         else -> ""
@@ -54,7 +52,7 @@ fun Context.selectedItemLabel(
 }
 
 /**
- * 动作显示名：库引用 / 规则 / 具名面板 / 子手势各自解析，其余走定义表。
+ * 动作显示名：库引用 / 具名面板 / 子手势各自解析，其余走定义表。
  * 面板列表给默认空列表：调用方没配置上下文时面板行落回类型名。
  */
 @Suppress("CyclomaticComplexMethod")
@@ -62,7 +60,6 @@ fun Context.actionTextWithSubGesture(
     action: StoredAction,
     subGestures: List<SubGesture>,
     actionLibraryEntries: List<ActionLibraryEntry>,
-    rules: List<AutomationRule> = emptyList(),
     actionPanels: List<ActionPanel> = emptyList(),
     gridPanels: List<GridPanel> = emptyList(),
     emptyIfNone: Boolean,
@@ -71,12 +68,6 @@ fun Context.actionTextWithSubGesture(
         val id = (action.params["entryId"] as? JsonPrimitive)?.contentOrNull.orEmpty()
         return actionLibraryEntries.firstOrNull { it.id == id }?.name
             ?: getString(R.string.action_library_missing)
-    }
-    ActionCatalog.runRuleIdOf(action)?.let { ruleId ->
-        rules.firstOrNull { it.id == ruleId }?.name?.takeIf { it.isNotBlank() }?.let { return it }
-        if (rules.isNotEmpty()) {
-            return getString(R.string.action_rule_missing)
-        }
     }
     // 面板行显示具名面板而不是类型名；面板存在但没起名时给「未命名」，与设置页列表兜底一致。
     action.gridPanelId()?.let { panelId ->
@@ -120,9 +111,6 @@ internal fun createTitle(actionSelect: ActionSelect): String {
     if (actionSelect.gridPanelId.isNotBlank()) {
         // 面板项只进不出（想换动作就删了重加），进这页只会是加项。
         return context.getString(R.string.grid_panel_add_item)
-    }
-    if (actionSelect.automationRuleId.isNotBlank()) {
-        return context.getString(R.string.automation_pick_action)
     }
     when (actionSelect.triggerType) {
         GestureTriggerType.Tap -> return context.getString(R.string.tap_action)
@@ -198,9 +186,6 @@ internal fun assembleDataTransform(state: UiState): UiState {
             state.gridPanels.forEach { panel ->
                 add(StoredAction.of(GRID_PANEL_TYPE_ID, GRID_PANEL_PARAM_PANEL_ID to panel.id))
             }
-            // 自动化里绑子手势无效：SubGestureState.tryEnterSubGesture 需要真实手势
-            // 完成脉冲，自动化上下文没有，命中后静默 return false。
-            if (state.isAutomation) return@apply
             state.subGestures
                 .filter { gesture -> gesture.enabled && gesture.id != state.excludedSubGestureId }
                 .forEach { gesture ->

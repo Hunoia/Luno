@@ -5,12 +5,10 @@ import android.util.Log
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ButtonTarget
 import hunoia.luno.action.model.QueryParam
-import hunoia.luno.action.template.ParamTemplates
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.core.domain.Capability
-import hunoia.luno.core.domain.RuntimeSnapshot
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.execute.ActionCatalog
 import hunoia.luno.execute.ActionFactory
@@ -85,13 +83,9 @@ class ActionResolver(
         context: ExecutorContext,
     ): ActionResult {
         val definition = catalog.definition(stored.typeId)
-        val resolved = runCatching { resolveParams(stored, definition, context) }
-            .onFailure { error -> Log.w(LOG_TAG, "param template resolve failed", error) }
-            .getOrNull()
-        val params = resolved?.params ?: stored.params
+        val params = stored.params
 
-        // 必填文本参数为空直接判参数无效（模板展开与否一致处理）。
-        // Executor 不做参数校验，只执行。
+        // 必填文本参数为空直接判参数无效。Executor 不做参数校验，只执行。
         if (hasBlankRequiredText(definition, params)) {
             return ActionResult.Failed(ActionFailure.InvalidParameter)
         }
@@ -115,50 +109,20 @@ class ActionResolver(
         }
     }
 
-    /** 无 token 时零分配；有 token 时才取值并展开，存储保持原文。 */
-    private suspend fun resolveParams(
-        stored: StoredAction,
-        definition: hunoia.luno.execute.ActionMetadata?,
-        context: ExecutorContext,
-    ): ResolvedParams {
-        val params = stored.params
-        val excluded = definition?.excludedTemplateKeys.orEmpty()
-
-        if (excluded.isEmpty()) {
-            val used = ParamTemplates.tokensIn(params)
-            if (used.isEmpty()) return ResolvedParams(params, substituted = false)
-            return ResolvedParams(
-                ParamTemplates.resolveParams(params, context.templateValues(used)),
-                substituted = true,
-            )
-        }
-
-        val substitutable = JsonObject(params.filterKeys { it !in excluded })
-        val used = ParamTemplates.tokensIn(substitutable)
-        if (used.isEmpty()) return ResolvedParams(params, substituted = false)
-        val replaced = ParamTemplates.resolveParams(substitutable, context.templateValues(used))
-        return ResolvedParams(
-            JsonObject(params.mapValues { (key, value) -> if (key in excluded) value else replaced[key] ?: value }),
-            substituted = true,
-        )
-    }
-
-    /** 模板展开后为空的必填文本参数（如手势触发时的 `${trigger.app}`）直接判为参数无效。 */
+    /** 必填文本参数为空直接判为参数无效。 */
     private fun hasBlankRequiredText(
         definition: hunoia.luno.execute.ActionMetadata?,
         params: JsonObject,
     ): Boolean = definition?.requiredTextKeys.orEmpty().any { key ->
         (params[key] as? JsonPrimitive)?.contentOrNull?.isBlank() == true
     }
-
-    private data class ResolvedParams(val params: JsonObject, val substituted: Boolean)
 }
 
 /**
  * 执行器运行上下文：只携带执行真正需要的东西。
  *
  * 不持有配置模型（`config.model.*`）：需要全局设置时走端口（启动、面板、音量刮擦），
- * 需要运行态时读 [RuntimeSnapshot]。这两条是 `execute → data / runtime` 禁令的落地方式。
+ * 这两条是 `execute → data / runtime` 禁令的落地方式。
  */
 data class ExecutorContext(
     val appContext: Context,
@@ -183,15 +147,6 @@ data class ExecutorContext(
     val hideGestureButtons: (ButtonTarget, List<String>, Long) -> Unit = { _, _, _ -> },
     val previousApp: suspend () -> Unit = {},
     val touchPosition: Pair<Int, Int>? = null,
-    /** 参数模板取值器：入参是本次解析实际用到的 token 集合，返回对应运行时值。 */
-    val templateValues: suspend (Set<String>) -> Map<String, String> = { emptyMap() },
-    /** 本次分发的模板上下文：runRule 嵌套执行目标步骤时复用同一上下文，不重新快照。 */
-    val templateContext: () -> RuntimeSnapshot? = { null },
-    /**
-     * 规则即动作回调（分发器注入）：只跑目标规则的 effect steps。
-     * null = 非分发链路构造的上下文，runRule 报 Unsupported。
-     */
-    val runRule: (suspend (ruleId: String, params: Map<String, String>, ctx: ExecutorContext) -> ActionResult)? = null,
     /** 启动应用（小窗等全局设置由实现侧读）。 */
     val launchApp: suspend (LaunchSpec) -> Boolean = { false },
     /** 打开链接（含 Query 参数与小窗）。 */

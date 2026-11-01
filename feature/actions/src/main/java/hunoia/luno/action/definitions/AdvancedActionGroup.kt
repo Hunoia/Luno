@@ -6,7 +6,6 @@ import androidx.compose.material.icons.filled.Terminal
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionMappingRegistry
 import hunoia.luno.action.model.bool
-import hunoia.luno.action.model.ruleParams
 import hunoia.luno.action.model.str
 import hunoia.luno.core.domain.Capability
 
@@ -24,15 +23,6 @@ internal object AdvancedActionGroup : ActionGroup {
             ),
             icon = Icons.Default.Terminal,
         ),
-        // 规则即动作：只能引用已存规则（库新建/定义表直选都不开放），ruleId 必填。
-        ActionDefinition(
-            "internal.runRule", "运行规则", ActionCategory.ADVANCED, Capability.None,
-            parameters = listOf(ParameterDefinition.Text(
-                key = "ruleId",
-                label = "规则",
-            )),
-            icon = Icons.Default.PlayCircle,
-        ),
     )
 
     override fun installDecoders() {
@@ -41,12 +31,6 @@ internal object AdvancedActionGroup : ActionGroup {
                 p.str("command"),
                 p.bool("showToast"),
                 p.bool("copyOutput"),
-            )
-        }
-        ActionMappingRegistry.register("internal.runRule") { p ->
-            Action.RunRule(
-                ruleId = p.str("ruleId"),
-                params = p.ruleParams(),
             )
         }
     }

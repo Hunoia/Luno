@@ -20,7 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /** P2-5：HTTP / Toast / 通知 / 写剪贴板。HTTP 用 HttpURLConnection，不额外引依赖。 */
-class AutomationActionExecutors(
+class MiscActionExecutors(
     private val clipboardController: ClipboardController,
 ) : ActionExecutor {
 
@@ -121,8 +121,8 @@ class AutomationActionExecutors(
 
     private companion object {
         const val HTTP_TIMEOUT_MS = 15_000
-        const val CHANNEL_ID = "luno_automation_actions"
-        const val CHANNEL_NAME = "自动化动作"
+        const val CHANNEL_ID = "luno_misc_actions"
+        const val CHANNEL_NAME = "动作通知"
         val HTTP_METHODS = setOf("GET", "POST", "PUT", "DELETE", "HEAD")
         val HTTP_SCHEMES = setOf("http", "https")
     }

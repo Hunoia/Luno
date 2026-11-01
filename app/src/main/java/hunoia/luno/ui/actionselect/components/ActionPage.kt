@@ -57,7 +57,6 @@ import hunoia.luno.gridpanel.widget.WidgetProviderGroup
 import hunoia.luno.gridpanel.widget.WidgetSpan
 import hunoia.luno.gridpanel.widget.searchBy
 import hunoia.luno.config.model.ActionPanel
-import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.domain.action.ActionCatalog
@@ -73,7 +72,6 @@ import hunoia.luno.ui.component.displayNameRes
 import hunoia.luno.ui.theme.*
 import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.SheetGroupHeader
-import hunoia.luno.ui.automation.conditionSummary
 import dev.chrisbanes.haze.HazeState
 /** 动作库与规则合成一颗 chip：两者都是「已保存的动作来源」，分屏会多一层切换。 */
 private const val TYPE_LIBRARY_AND_RULE = "action_library"
@@ -93,7 +91,6 @@ internal fun ActionPage(
     subGestures: List<SubGesture> = emptyList(),
     actions: List<StoredAction>,
     actionLibraryEntries: List<ActionLibraryEntry> = emptyList(),
-    rules: List<AutomationRule> = emptyList(),
     actionPanels: List<ActionPanel> = emptyList(),
     gridPanels: List<GridPanel> = emptyList(),
     appInfos: List<AppInfo>,
@@ -175,7 +172,7 @@ internal fun ActionPage(
             LaunchedEffect(query) {
                 if (listState.firstVisibleItemIndex > 0) listState.scrollToItem(0)
             }
-            val filteredActions = remember(actions, query, type, subGestures, actionLibraryEntries, rules) {
+            val filteredActions = remember(actions, query, type, subGestures, actionLibraryEntries) {
                 when {
                     // 小部件这一屏不列动作：小部件不是 StoredAction，混进来会让选中类型不可证伪。
                     type == TYPE_WIDGET -> emptyList()
@@ -183,7 +180,7 @@ internal fun ActionPage(
                     type == TYPE_LIBRARY_AND_RULE -> emptyList()
                     query.isBlank() -> actions
                     else -> actions.filter {
-                        context.actionTextWithSubGesture(it, subGestures, actionLibraryEntries, rules, actionPanels, gridPanels, emptyIfNone = false)
+                        context.actionTextWithSubGesture(it, subGestures, actionLibraryEntries, actionPanels, gridPanels, emptyIfNone = false)
                             .contains(query, ignoreCase = true)
                     }
                 }
@@ -207,15 +204,6 @@ internal fun ActionPage(
                     actionLibraryEntries.filter { if (query.isNotBlank()) it.matchesQuery(query) else true }
                 } else emptyList()
             }.sortedBy { it.createdAt }
-            // 规则即动作：专属分组（定义表直选不开，ruleId 必填，只能引用已存规则）。
-            val filteredRules = remember(rules, query, type) {
-                if (type == TYPE_WIDGET) emptyList() else if (type == TYPE_LIBRARY_AND_RULE || query.isNotBlank()) {
-                    rules.filter {
-                        if (query.isBlank()) true
-                        else it.name.contains(query, ignoreCase = true)
-                    }
-                } else emptyList()
-            }
             val filteredApps = remember(appInfos, query, type) {
                 if (type == TYPE_WIDGET) emptyList() else if (type == TYPE_APP || query.isNotBlank()) {
                     appInfos.filter {
@@ -266,7 +254,7 @@ internal fun ActionPage(
                 ),
                 verticalArrangement = Arrangement.spacedBy(SegmentedGap),
             ) {
-                val hasAnyContent = grouped.isNotEmpty() || filteredApps.isNotEmpty() || filteredLibraryEntries.isNotEmpty() || filteredCreateShortcuts.isNotEmpty() || filteredLaunchShortcuts.isNotEmpty() || filteredRules.isNotEmpty() || filteredWidgets.isNotEmpty() || filteredInternalWidgets.isNotEmpty()
+                val hasAnyContent = grouped.isNotEmpty() || filteredApps.isNotEmpty() || filteredLibraryEntries.isNotEmpty() || filteredCreateShortcuts.isNotEmpty() || filteredLaunchShortcuts.isNotEmpty() || filteredWidgets.isNotEmpty() || filteredInternalWidgets.isNotEmpty()
                 if ((query.isNotEmpty() || type != null) && !hasAnyContent) {
                     item {
                         EmptyState(
@@ -343,7 +331,6 @@ internal fun ActionPage(
                                         item,
                                         subGestures,
                                         actionLibraryEntries,
-                                        rules,
                                         actionPanels,
                                         gridPanels,
                                         emptyIfNone = false,
@@ -378,26 +365,6 @@ internal fun ActionPage(
                                 selected = selectedRecord.isSelected(action),
                                 onSelect = { onSelectLibraryEntry(entry) },
                                 shape = selectedSegmentedShape(index, filteredLibraryEntries.size, librarySelectionFlags),
-                            )
-                        }
-                    }
-                    if (filteredRules.isNotEmpty()) {
-                        val ruleFlags = filteredRules.map {
-                            selectedRecord.isSelected(ActionCatalog.ruleStoredAction(it.id))
-                        }
-                        stickyHeader(key = "rules_all") {
-                            SheetGroupHeader(stringResource(R.string.action_rule_group))
-                        }
-                        itemsIndexed(items = filteredRules, key = { _, it -> "rule_${it.id}" }) { index, rule ->
-                            val action = ActionCatalog.ruleStoredAction(rule.id)
-                            ActionItem(
-                                modifier = Modifier.animateItem(),
-                                action = action,
-                                actionLabel = rule.name.ifBlank { context.actionTextWithSubGesture(action, subGestures, actionLibraryEntries, rules, actionPanels, gridPanels, emptyIfNone = false) },
-                                subtitle = conditionSummary(context, rule.condition),
-                                selected = selectedRecord.isSelected(action),
-                                onSelect = { onSelect(action) },
-                                shape = selectedSegmentedShape(index, filteredRules.size, ruleFlags),
                             )
                         }
                     }

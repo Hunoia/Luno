@@ -104,7 +104,7 @@ fun AppPickerSheet(
             ) {
                 Text(
                     modifier = Modifier.weight(1f),
-                    text = stringResource(R.string.condition_app_select_title),
+                    text = stringResource(R.string.app_picker_select_title),
                     style = MaterialTheme.typography.titleLarge,
                 )
                 if (permissionState.isGranted) {

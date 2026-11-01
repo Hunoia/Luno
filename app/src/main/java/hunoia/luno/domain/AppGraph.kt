@@ -1,7 +1,5 @@
 package hunoia.luno.domain
 
-import hunoia.luno.domain.automation.AutomationCenter
-import hunoia.luno.domain.automation.AutomationFacade
 import hunoia.luno.domain.backup.BackupCenter
 import hunoia.luno.domain.backup.BackupFacade
 import hunoia.luno.domain.ocr.OcrModelCenter
@@ -19,14 +17,10 @@ import hunoia.luno.domain.system.SystemUseCases
  */
 object AppGraph {
 
-    private var automationOverride: AutomationFacade? = null
     private var backupOverride: BackupFacade? = null
     private var systemOverride: SystemFacade? = null
     private var runtimeOverride: RuntimeFacade? = null
     private var ocrModelsOverride: OcrModelFacade? = null
-
-    val automation: AutomationFacade
-        get() = automationOverride ?: AutomationCenter
 
     val backup: BackupFacade
         get() = backupOverride ?: BackupCenter
@@ -40,10 +34,6 @@ object AppGraph {
     /** OCR 模型管理（PP-OCRv6 GPU 包的导入/删除/状态）。 */
     val ocrModels: OcrModelFacade
         get() = ocrModelsOverride ?: OcrModelCenter
-
-    fun overrideAutomation(facade: AutomationFacade?) {
-        automationOverride = facade
-    }
 
     fun overrideBackup(facade: BackupFacade?) {
         backupOverride = facade

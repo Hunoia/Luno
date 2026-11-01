@@ -28,7 +28,6 @@ internal object AppActionGroup : ActionGroup {
                     "intentAction",
                     "Intent Action",
                     required = false,
-                    allowTemplates = false,
                     placeholder = "如 android.intent.action.VIEW",
                 ),
                 ParameterDefinition.Text("data", "Data URI", required = false),

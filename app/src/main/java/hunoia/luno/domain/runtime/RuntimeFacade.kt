@@ -20,9 +20,6 @@ interface RuntimeFacade {
         onUnavailable: () -> Unit = {},
     ): Boolean
 
-    /** 权限变化后让 `:service` 重读条件源；false = 未送达。 */
-    fun refreshConditionSources(): Boolean
-
     /** 冷启动按落盘配置恢复常驻服务。 */
     fun restoreServicesOnce(context: Context)
 }
@@ -46,9 +43,6 @@ object RuntimeActions : RuntimeFacade {
         onDismiss = onDismiss,
         onUnavailable = onUnavailable,
     )
-
-    override fun refreshConditionSources(): Boolean =
-        hunoia.luno.service.DispatchClient.refreshConditionSources()
 
     override fun restoreServicesOnce(context: Context) =
         hunoia.luno.service.ServiceAutoStart.restoreOnce(context)

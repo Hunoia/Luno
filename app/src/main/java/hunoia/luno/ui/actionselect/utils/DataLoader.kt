@@ -14,7 +14,6 @@ import hunoia.luno.domain.action.ActionCatalog
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.GridPanelDefaults
@@ -35,7 +34,6 @@ import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.quicklaunch.model.qualifiedNameWithIntents
-import hunoia.luno.ui.automation.AutomationDraftHolder
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.navigation.FloatBallSlot
 import kotlinx.coroutines.Dispatchers
@@ -79,10 +77,6 @@ internal suspend fun saveSettingsAction(
     }
     if (actionSelect.floatBallSlot.isNotBlank()) {
         saveFloatBallSlot(actionSelect.floatBallSlot, picked)
-        return SaveOutcome.Saved
-    }
-    if (actionSelect.automationRuleId.isNotBlank()) {
-        saveAutomationEffect(actionSelect, picked)
         return SaveOutcome.Saved
     }
     if (actionSelect.subGestureId.isNotBlank()) {
@@ -419,39 +413,6 @@ private suspend fun saveFloatBallSlot(slot: String, picked: StoredAction?) {
     }
 }
 
-private suspend fun saveAutomationEffect(actionSelect: ActionSelect, picked: StoredAction?) {
-    val current = loadAutomationAction(actionSelect)
-    tryDeleteShortcutIcons(current, picked)
-    // 动作库条目存的就是引用本身（internal.libraryRef），运行时由分发器就地解析成条目动作。
-    val action = picked?.withoutVariantKey()
-    val path = actionSelect.automationStepPath
-    fun applyTo(rule: AutomationRule): AutomationRule {
-        if (rule.effect.stepAt(path) == null) {
-            android.util.Log.w(
-                "ActionSelect",
-                "automation step path missing, rule=${rule.id} path=$path",
-            )
-        }
-        return rule.copy(effect = rule.effect.withStepAt(path) { step ->
-            step.copy(kind = hunoia.luno.config.model.RuleStepKind.ACTION, action = action)
-        })
-    }
-    // 草稿优先：编辑页跳转时只暂存内存，未保存前不写库。
-    // 无暂存时以库中规则为底新建暂存——选择页永不直写库，落盘统一由编辑页保存键负责。
-    val base = AutomationDraftHolder.take(actionSelect.automationRuleId)
-        ?: AppGraph.automation.getRules().find { it.id == actionSelect.automationRuleId }
-        ?: return
-    AutomationDraftHolder.stage(applyTo(base))
-}
-
-private suspend fun loadAutomationAction(actionSelect: ActionSelect): StoredAction? {
-    // 草稿命中就不读库（getRules 是一次 DataStore 读）。
-    val draft = AutomationDraftHolder.take(actionSelect.automationRuleId)
-    val rule = draft ?: AppGraph.automation.getRules().find { it.id == actionSelect.automationRuleId }
-    ?: return null
-    return rule.effect.stepAt(actionSelect.automationStepPath)?.action
-}
-
 internal suspend fun updateShortcutInfosBody(
     getUiState: () -> UiState,
     updateUiState: ((UiState) -> UiState) -> Unit,
@@ -570,26 +531,14 @@ internal suspend fun loadDataBody(
     val actionSettings = TuneConfig.getAction()
     val actionPanels = actionSettings.actionPanels.panels
     val gridPanels = actionSettings.actionGridPanels.panels
-    val isAutomation = actionSelect.automationRuleId.isNotBlank()
-    // 规则即动作：选择页专属分组（只留启用；自动化模式剔除正在编辑的自身，禁自引用）。
-    val rules = ActionCatalog.rulesForPicker(
-        AppGraph.automation.getRules(),
-        excludeRuleId = if (isAutomation) actionSelect.automationRuleId else "",
-    )
-
     // pickerExcluded 决定「有哪些类型可被选」，必须恒非空（空集让整张定义表都可选）；
     // libraryExcluded 只过滤动作库已存条目；触钮路径不额外过滤，否则已保存的条目会被藏掉。
-    val pickerExcluded = if (isAutomation) {
-        ActionDefinitions.automationExcludedTypeIds()
-    } else {
-        ActionDefinitions.pickerExcludedTypeIds()
-    }
-    val libraryExcluded = if (isAutomation) ActionDefinitions.automationExcludedTypeIds() else emptySet()
-    val button = if (isAutomation) null else buttons.find { it.id == actionSelect.gestureButtonId }
-    val subGesture = if (isAutomation) null else subGestures.find { it.id == actionSelect.subGestureId }
+    val pickerExcluded = ActionDefinitions.pickerExcludedTypeIds()
+    val libraryExcluded = emptySet<String>()
+    val button = buttons.find { it.id == actionSelect.gestureButtonId }
+    val subGesture = subGestures.find { it.id == actionSelect.subGestureId }
     onUpdateState { state ->
         state.copy(
-            isAutomation = isAutomation,
             subGestures = subGestures,
             excludedSubGestureId = actionSelect.subGestureId,
             actionLibraryEntries = actionLibraryEntries.filter {
@@ -598,7 +547,6 @@ internal suspend fun loadDataBody(
                 it.typeId !in libraryExcluded || it.storedAction.hasPointParams()
             },
             excludedTypeIds = pickerExcluded,
-            rules = rules,
             actionPanels = actionPanels,
             gridPanels = gridPanels,
             isPanelItemMode = actionSelect.actionPanelId.isNotBlank() || actionSelect.gridPanelId.isNotBlank(),
@@ -617,7 +565,6 @@ internal suspend fun loadDataBody(
         actionSelect.gridPanelId.isNotBlank() -> null
         // 悬浮球槽：与触钮路径互斥，先判它，否则会掉进 button/subGesture 的 null 分支。
         actionSelect.floatBallSlot == FloatBallSlot.TAP -> actionSettings.floatBall.tapAction
-        isAutomation -> loadAutomationAction(actionSelect)
         subGesture != null -> subGesture.actionFor(actionSelect.triggerType, actionSelect.direction)
         button != null -> button.actionFor(actionSelect.triggerType, actionSelect.direction)
         else -> null

@@ -4,11 +4,9 @@ import hunoia.luno.action.model.ShortcutIconFiles
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.ActionSettings
-import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.DirectionActions
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GridPanelItem
-import hunoia.luno.config.model.RuleStep
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.core.AppContext
 import hunoia.luno.service.DispatchClient
@@ -34,13 +32,11 @@ object PanelResources {
                 val buttons = ConfigProvider.getGestureButtons()
                 val subGestures = ConfigProvider.getSubGestureSettings().subGestures
                 val library = ConfigProvider.getActionLibrarySettings().entries
-                val rules = ConfigProvider.getAutomationRules()
 
                 val referencedIcons = buildSet {
                     buttons.forEach { addAll(it.storedActions()) }
                     subGestures.forEach { addAll(it.storedActions()) }
                     library.forEach { add(it.storedAction) }
-                    rules.forEach { addAll(it.storedActions()) }
                     addAll(actionSettings.storedActions())
                 }.flatMapTo(mutableSetOf()) { ShortcutIconFiles.iconPathsOf(it) }
                 ShortcutIconFiles.deleteUnreferenced(AppContext.get(), referencedIcons)
@@ -94,12 +90,4 @@ object PanelResources {
         addAll(longSlideHoldActions.storedActions())
     }
 
-    private fun AutomationRule.storedActions(): List<StoredAction> =
-        effect.steps.flatMap { it.storedActions() }
-
-    private fun RuleStep.storedActions(): List<StoredAction> = buildList {
-        action?.let(::add)
-        addAll(thenSteps.flatMap { it.storedActions() })
-        addAll(elseSteps.flatMap { it.storedActions() })
-    }
 }

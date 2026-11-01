@@ -223,7 +223,7 @@ class InternalExecutors : ActionExecutor {
         "internal.quickAppLauncher", "internal.quickSearch", "internal.gridPanel",
         "internal.volumeScrub",
         "internal.pointer",
-        "internal.previousApp", "internal.runRule",
+        "internal.previousApp",
     )
 
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
@@ -261,10 +261,6 @@ class InternalExecutors : ActionExecutor {
             is Action.PreviousApp -> {
                 context.previousApp()
                 ActionResult.Success()
-            }
-            is Action.RunRule -> {
-                context.runRule?.invoke(action.ruleId, action.params, context)
-                    ?: ActionResult.Failed(ActionFailure.Unsupported)
             }
             else -> ActionResult.Failed(ActionFailure.Unsupported)
         }

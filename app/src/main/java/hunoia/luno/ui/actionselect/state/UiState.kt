@@ -6,7 +6,6 @@ import hunoia.luno.core.domain.launchQualifiedName
 import hunoia.luno.action.model.shortcutQualifiedName
 import hunoia.luno.core.domain.ActionLibraryEntry
 import hunoia.luno.config.model.ActionPanel
-import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.quicklaunch.model.AppInfo
@@ -31,15 +30,7 @@ data class UiState(
     val selectedRecord: SelectedRecord = SelectedRecord(),
     val subGestures: List<SubGesture> = emptyList(),
     val excludedSubGestureId: String = "",
-
-    /**
-     * 本页是自动化规则的动作选择（而不是触钮/子手势）。子手势动作需要真实手指才能进入，
-     * 绑到自动化规则上会静默无效，所以要区别对待。
-     */
-    val isAutomation: Boolean = false,
     val actionLibraryEntries: List<ActionLibraryEntry> = emptyList(),
-    /** 选择页“规则”分组数据源：已按 rulesForPicker 过滤（只留启用，自动化模式剔除自身）。 */
-    val rules: List<AutomationRule> = emptyList(),
     /** 全局动作面板列表，选择页一行一个具名面板。 */
     val actionPanels: List<ActionPanel> = emptyList(),
     /** 全局网格面板列表，选择页一行一个具名面板（与弧形面板动态行同机制）。 */

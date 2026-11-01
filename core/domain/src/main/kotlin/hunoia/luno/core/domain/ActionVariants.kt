@@ -50,10 +50,6 @@ fun StoredAction.libraryEntryId(): String? {
     return (params["entryId"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
 }
 
-/** 规则即动作的类型与参数 key（定义表注册/映射/引用判断共用，避免字面量漂移）。 */
-const val RUN_RULE_TYPE_ID = "internal.runRule"
-const val RUN_RULE_PARAM_RULE_ID = "ruleId"
-
 /** 动作面板的类型与参数 key（引用全局面板列表里的某个具名面板）。 */
 const val ACTION_PANEL_TYPE_ID = "internal.actionPanel"
 const val ACTION_PANEL_PARAM_PANEL_ID = "panelId"
@@ -75,12 +71,6 @@ fun StoredAction.actionPanelId(): String? {
 fun StoredAction.gridPanelId(): String? {
     if (typeId != GRID_PANEL_TYPE_ID) return null
     return (params[GRID_PANEL_PARAM_PANEL_ID] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
-}
-
-/** 规则引用 id（internal.runRule），非引用或空 id 返回 null。 */
-fun StoredAction.runRuleId(): String? {
-    if (typeId != RUN_RULE_TYPE_ID) return null
-    return (params[RUN_RULE_PARAM_RULE_ID] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
 }
 
 /** 点击/长按的坐标参数 key（定义表、分发前置校验、库 UI 共用，避免字面量漂移）。 */

@@ -6,14 +6,10 @@ import hunoia.luno.action.execution.ActionExecutor
 import hunoia.luno.action.execution.ActionExecutorRegistry
 import hunoia.luno.action.execution.ActionResolver
 import hunoia.luno.action.execution.ExecutorContext
-import hunoia.luno.action.template.ParamTemplates
-import hunoia.luno.action.template.RuntimeVariables
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionRequest
 import hunoia.luno.core.domain.ActionResult
-import hunoia.luno.core.domain.RuntimeSnapshot
-import hunoia.luno.core.domain.StepOutcome
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.hasPointParams
 import hunoia.luno.core.domain.withoutVariantKey
@@ -23,7 +19,6 @@ import hunoia.luno.execute.ExecuteCall
 import hunoia.luno.execute.ExecuteEnvironment
 import hunoia.luno.execute.ExecuteMessages
 import hunoia.luno.execute.ExecuteSettlement
-import hunoia.luno.execute.NestedRuleRunner
 import hunoia.luno.execute.SurfaceHost
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,17 +44,10 @@ class ActionDispatcher(
     private val catalog: ActionCatalog,
     private val factory: ActionFactory,
     private val scope: CoroutineScope,
-    /**
-     * 模板变量取值用的缺省运行时快照。不消费脉冲：手势直接触发与 overlay 直派发都要用
-     * 稳态值，消费脉冲会抢掉自动化评估该看到的那一次边沿。
-     */
-    private val snapshot: () -> RuntimeSnapshot,
     /** 动作库引用解析：entryId → 条目动作。 */
     private val libraryEntry: (String) -> StoredAction?,
     executors: List<ActionExecutor>,
     capabilityGate: CapabilityGate,
-    /** 嵌套规则端口（automation 侧实现）；null = 该链路不支持 runRule。 */
-    private val nestedRules: NestedRuleRunner? = null,
 ) {
     private val registry: ActionExecutorRegistry = ActionExecutorRegistry(
         executors = executors,
@@ -79,40 +67,6 @@ class ActionDispatcher(
         scope.launch(Dispatchers.Main.immediate) {
             onSettled(dispatchAwait(call))
         }
-    }
-
-    /**
-     * v2 单步骤执行：**等执行落定**才返回，真实成败与异常都交给 SequenceExecutor 记账/中断。
-     * 必须在 Main 上跑（与 dispatch 的 launch 目标一致），否则无障碍调用线程会变。
-     */
-    suspend fun runStepAction(
-        action: StoredAction,
-        ctx: RuntimeSnapshot,
-        variables: Map<String, String> = emptyMap(),
-    ): StepOutcome = withContext(Dispatchers.Main.immediate) {
-        dispatchAwait(
-            ExecuteCall(
-                request = ActionRequest(action.withoutVariantKey(), hunoia.luno.core.domain.DispatchOrigin.AUTOMATION),
-                snapshot = ctx,
-                localVariables = variables,
-            )
-        ).toStepOutcome()
-    }
-
-    /** 解析 SET_VAR 的值模板：系统/触发变量 + 本次运行已写入的局部变量。 */
-    suspend fun resolveStepTemplate(
-        text: String,
-        ctx: RuntimeSnapshot,
-        variables: Map<String, String>,
-    ): String {
-        if (text.isEmpty()) return text
-        val used = ParamTemplates.tokensIn(text)
-        val values = if (used.isEmpty()) {
-            emptyMap()
-        } else {
-            RuntimeVariables.resolve(used, ctx, environment.appContext)
-        }
-        return ParamTemplates.resolve(text, values + variables)
     }
 
     private suspend fun dispatchAwait(call: ExecuteCall): ExecuteSettlement {
@@ -175,7 +129,6 @@ class ActionDispatcher(
     private fun buildContext(call: ExecuteCall, effective: StoredAction): ExecutorContext {
         val context = environment.appContext
         val buttonId = call.sourceButtonId
-        val callSnapshot: () -> RuntimeSnapshot? = { call.snapshot }
         return ExecutorContext(
             appContext = context,
             scope = scope,
@@ -198,16 +151,6 @@ class ActionDispatcher(
             hideGestureButtons = surfaces::hideGestureButtons,
             previousApp = surfaces::previousApp,
             touchPosition = call.touchPosition,
-            templateContext = callSnapshot,
-            templateValues = { used ->
-                val runtime = call.snapshot ?: snapshot()
-                val system = RuntimeVariables.resolve(used, runtime, context)
-                // 局部变量覆盖同名系统/全局 token，SET_VAR 才能改写模板取值。
-                system + runtime.variables + call.localVariables
-            },
-            runRule = nestedRules?.let { runner ->
-                { ruleId, params, ctx -> runner.run(ruleId, params, ctx.templateContext()) }
-            },
             launchApp = surfaces::launchApp,
             openUrl = surfaces::openUrl,
             launchShortcut = surfaces::launchShortcut,
@@ -219,7 +162,5 @@ class ActionDispatcher(
             setButtonsVisible = surfaces::setButtonsVisible,
         )
     }
-
-    private fun ExecuteSettlement.toStepOutcome(): StepOutcome = StepOutcome.Done(result)
 }
 

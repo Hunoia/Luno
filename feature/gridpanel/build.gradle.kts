@@ -30,7 +30,6 @@ dependencies {
     api(project(":feature:execute"))
     api(project(":feature:actions"))
     api(project(":feature:gesture"))
-    api(project(":feature:automation"))
     api(project(":feature:search"))
     api(project(":feature:quicklaunch"))
     api(project(":capability:launch"))

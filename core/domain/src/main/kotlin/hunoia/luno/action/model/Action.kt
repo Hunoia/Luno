@@ -253,17 +253,6 @@ sealed interface Action {
     data object PreviousApp : Action {
         override val typeId: String = "internal.previousApp"
     }
-    /**
-     * 运行规则（规则即动作）：只跑目标规则的 effect steps，目标自身的触发条件/
-     * 节流/优先级全部忽略；嵌套由执行层深度上限兜底。
-     */
-    data class RunRule(
-        val ruleId: String,
-        /** `param.<name>` 子规则参数，已由参数模板展开。 */
-        val params: Map<String, String> = emptyMap(),
-    ) : Action {
-        override val typeId: String = "internal.runRule"
-    }
 
     companion object {
         /** 「无动作」的 typeId：判断/构造无动作时的命名常量，散落字面量已全部收口于此。 */

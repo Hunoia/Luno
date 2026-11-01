@@ -18,7 +18,6 @@ sealed interface ParameterDefinition {
         override val label: String,
         override val required: Boolean = true,
         override val defaultValue: String? = null,
-        val allowTemplates: Boolean = true,
         /** 输入框为空时的占位提示（如可选 Action 的常见取值）。 */
         val placeholder: String? = null,
     ) : ParameterDefinition
@@ -65,7 +64,6 @@ sealed interface ParameterDefinition {
         override val key: String,
         override val label: String,
         override val required: Boolean = true,
-        val allowTemplates: Boolean = true,
     ) : ParameterDefinition {
         override val defaultValue: String? = null
     }
@@ -78,20 +76,9 @@ sealed interface ParameterDefinition {
 fun ActionDefinition.hasPointParams(): Boolean =
     parameters.map { it.key }.containsAll(hunoia.luno.core.domain.POINT_PARAM_KEYS)
 
-/** 该定义中明确禁止模板展开的文本参数 key（编辑器不提供插入入口，运行时也不替换）。 */
-fun ActionDefinition.excludedTemplateKeys(): Set<String> = parameters
-    .mapNotNull { definition ->
-        when (definition) {
-            is ParameterDefinition.Text -> definition.key.takeIf { !definition.allowTemplates }
-            is ParameterDefinition.TextLarge -> definition.key.takeIf { !definition.allowTemplates }
-            else -> null
-        }
-    }
-    .toSet()
-
 /**
  * 展示 / 编辑器投影。它同时实现纯契约 [hunoia.luno.core.domain.ActionMetadata]：
- * 执行口只读能力与模板规则，展示层再加名称、分类、参数编辑器与图标。
+ * 执行口只读能力与必填文本键，展示层再加名称、分类、参数编辑器与图标。
  *
  * 新增动作时只增加一条 [ActionDefinition]；执行口不再需要另建匿名元数据适配器。
  */
@@ -106,17 +93,12 @@ data class ActionDefinition(
     override val alternativeCapabilities: Set<Capability> = emptySet(),
 ) : hunoia.luno.core.domain.ActionMetadata {
 
-    private val excludedTemplateKeyCache by lazy { excludedTemplateKeys() }
-
     private val requiredTextKeyCache by lazy {
         parameters.mapNotNull { param ->
             val isText = param is ParameterDefinition.Text || param is ParameterDefinition.TextLarge
             if (isText && param.required) param.key else null
         }.toSet()
     }
-
-    override val excludedTemplateKeys: Set<String>
-        get() = excludedTemplateKeyCache
 
     override val requiredTextKeys: Set<String>
         get() = requiredTextKeyCache

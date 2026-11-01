@@ -14,9 +14,6 @@ data class ActionSelect(
     val direction: GestureDirection = GestureDirection.Right,
     val triggerType: GestureTriggerType = GestureTriggerType.Slide,
     val subGestureId: String = "",
-    val automationRuleId: String = "",
-    /** 自动化步骤路径（"0" / "2.then.0"）；空 = 规则级。 */
-    val automationStepPath: String = "",
     /** 非空 = 本次不配触钮/子手势，而是在这个动作面板里挑一个面板项。 */
     val actionPanelId: String = "",
     /** true = 只选动作并复制其 Deep Link，不写入任何配置。 */
@@ -160,24 +157,10 @@ data class SubGestureEditor(
 
 @Keep
 @Serializable
-data class AutomationEdit(
-    val ruleId: String,
-)
-
-@Keep
-@Serializable
-data class AutomationHistory(
-    val ruleId: String,
-)
-
-@Keep
-@Serializable
 data class ActionLibraryEdit(
     val entryId: String,
     val typeId: String? = null,
 )
 
-
-const val NEW_AUTOMATION_RULE_ID = "new"
 
 const val ACTION_LIBRARY_ENTRY_ID = "new"

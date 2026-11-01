@@ -350,6 +350,10 @@ class FloatBallService : Service() {
     /** 主球关闭但任一收件箱来源开启：迷你球形态（决策 11）。 */
     private var miniMode = false
 
+    /** refreshWindows 重入保护：hideCapsule / 收件箱清空路径会回触发 refreshWindows，
+     *  嵌套调用直接跳过，由最外层那次做完整挂/摘评估，避免无限递归。 */
+    private var refreshingWindows = false
+
     /** 收件箱 TTL/容量落到 reducer 配置；变化后重排下一轮清理。 */
     private fun applyInboxSettings() {
         miniMode = !settings.enabled &&
@@ -368,12 +372,27 @@ class FloatBallService : Service() {
 
     /** 统一的窗口挂/摘入口：shouldShow = 总闸 && 球开关 && 悬浮窗权限 && 非临时隐藏 && 面板计数==0。显隐过渡全部带动画。 */
     private fun refreshWindows() {
+        // hideCapsule / 收件箱清空路径会回触发本方法：嵌套调用直接跳过，由最外层做完整评估，
+        // 否则「空收件箱→摘窗」会经 hideCapsule→refreshWindows 无限递归。
+        if (refreshingWindows) return
+        refreshingWindows = true
+        try {
+            refreshWindowsLocked()
+        } finally {
+            refreshingWindows = false
+        }
+    }
+
+    private fun refreshWindowsLocked() {
         // 瞬态成员的重评放最前：主球侧下面有早退分支（面板开合/临时隐藏都从这走），
         // 放尾部会漏掉「在屏但已不被允许」的收起路径。
         refreshCapsule()
         // 门控（权限/总闸）可能刚变化，轮询按需启停（幂等，只查 job 状态）。
         ensureClipboardPoller()
-        val enabled = (settings.enabled || miniMode) && canDrawOverlays() &&
+        // 迷你球只是气泡锚点：收件箱为空时没有任何可承载的内容，不应常驻显示
+        //（空收件箱仍持久显示迷你球即本 bug）。有内容才出，无内容则摘窗。
+        val miniVisible = miniMode && inboxState.items.isNotEmpty()
+        val enabled = (settings.enabled || miniVisible) && canDrawOverlays() &&
             (settings.enabled || gestureEnabledSnapshot)
         val panelHidden = visibility.isPanelHidden
         val tempHidden = visibility.isTempHidden()
@@ -674,8 +693,8 @@ class FloatBallService : Service() {
         )
         inboxState = change.state
         if (change.isEmpty) {
-            if (capsuleShowing) hideCapsule()
-            updateBadge()
+            // 队列清空：直接收起胶囊（未显示时 hideCapsule 早退无害），迷你球随收件箱空而摘窗。
+            hideCapsule()
             return
         }
         if (change.currentChanged && capsuleShowing) {
@@ -696,6 +715,8 @@ class FloatBallService : Service() {
         )
         inboxState = change.state
         updateBadge()
+        // 移除后收件箱清空：迷你球作为气泡锚点已无内容，摘窗（重入保护下安全）。
+        if (inboxState.items.isEmpty()) refreshWindows()
         scheduleInboxTtl()
     }
 
@@ -729,6 +750,9 @@ class FloatBallService : Service() {
             setCapsuleActive(false)
             ballWindow.setIdleSuppressed(false)
             updateBadge()
+            // 收件箱已空（徽标清零）：迷你球作为气泡锚点此时无内容可承载，摘窗。
+            // 重入保护下安全回触发，不会经 refreshWindows→hideCapsule 死循环。
+            refreshWindows()
             return
         }
         capsuleShowing = false
@@ -737,6 +761,8 @@ class FloatBallService : Service() {
             setCapsuleActive(false)
             ballWindow.setIdleSuppressed(false)
             updateBadge()
+            // 同上：胶囊收起且收件箱已空时，迷你球一并摘窗。
+            refreshWindows()
         }
     }
 

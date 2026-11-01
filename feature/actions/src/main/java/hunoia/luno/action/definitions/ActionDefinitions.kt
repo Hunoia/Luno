@@ -29,25 +29,16 @@ object ActionDefinitions {
     private val libraryExcluded: Set<String> = setOf(
         Action.NONE_TYPE_ID,
         "internal.subGesture",
-        "internal.runRule",
         ACTION_PANEL_TYPE_ID,
         "app.launchShortcut",
         // 应用详情只服务快速搜索长按入口，不在库/选择页开放新建
         "app.details",
         // 网格面板通用空行：panelId 只能由选择页合成的具名行带入，
-        // 库/选择页/自动化全禁（无参本就进不了库，这里为 picker/automation 生效）。
+        // 库/选择页全禁（无参本就进不了库，这里为 picker 生效）。
         GRID_PANEL_TYPE_ID,
     )
 
-    /** 不可作为自动化规则动作的类型：依赖运行时触点，或在自动化上下文中空跑 */
-    val automationExcluded: Set<String> = libraryExcluded + setOf(
-        "accessibility.tap",
-        "accessibility.longPress",
-    )
-
     fun libraryDefinitions(): List<ActionDefinition> = definitions.filterNot { it.typeId in libraryExcluded }
-
-    fun automationExcludedTypeIds(): Set<String> = automationExcluded
 
     /**
      * 触钮/子手势动作选择页要排除的类型。必须由调用方显式取用，不能依赖

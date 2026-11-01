@@ -84,7 +84,6 @@ internal object SystemActionGroup : ActionGroup {
                     "方法",
                     required = false,
                     defaultValue = "GET",
-                    allowTemplates = false,
                     placeholder = "GET / POST / PUT / DELETE / HEAD",
                 ),
                 ParameterDefinition.TextLarge("headers", "请求头（每行 Key: Value）", required = false),

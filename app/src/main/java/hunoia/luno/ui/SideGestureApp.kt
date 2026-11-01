@@ -63,15 +63,11 @@ import hunoia.luno.ui.settings.gesture.visibility.ButtonVisibilityEditScreen
 import hunoia.luno.ui.settings.gesture.visibility.ButtonVisibilityScreen
 import hunoia.luno.ui.settings.gesture.visibility.NEW_VISIBILITY_PROFILE_ID
 import hunoia.luno.ui.navigation.SubGestureEditor
-import hunoia.luno.ui.navigation.AutomationEdit
-import hunoia.luno.ui.navigation.AutomationHistory
 
 import hunoia.luno.ui.navigation.ActionLibraryEdit
 
 import hunoia.luno.ui.actionselect.ActionSelectContent
 import hunoia.luno.ui.actionlibrary.ActionLibraryEditScreen
-import hunoia.luno.ui.automation.AutomationEditScreen
-import hunoia.luno.ui.automation.AutomationHistoryScreen
 import hunoia.luno.ui.settings.action.ActionSettingsScreen
 import hunoia.luno.ui.settings.action.OcrModelSettingsScreen
 import hunoia.luno.ui.settings.action.ScreenPickSettingsScreen
@@ -164,9 +160,6 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToSearchEngines = { navController.navigate(SearchEngineSettings) },
                         onNavToFloatBallSettings = { navController.navigate(FloatBallEdit) },
                         onNavToButtonVisibility = { navController.navigate(ButtonVisibility) },
-                        onNavToAutomationEdit = { ruleId ->
-                            navController.navigate(AutomationEdit(ruleId))
-                        },
                         onNavToActionLibraryEdit = { entryId, typeId ->
                             navController.navigate(ActionLibraryEdit(entryId, typeId))
                         },
@@ -345,20 +338,6 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                     SubGestureSettingsScreen(
                         onBack = { navController.navigateUp() },
                         onNavToActionSelect = { navController.navigate(it) }
-                    )
-                }
-                myComposable<AutomationEdit> {
-                    AutomationEditScreen(
-                        onBack = { navController.popBackStack() },
-                        ruleId = it.toRoute<AutomationEdit>().ruleId,
-                        onNavToActionSelect = { navController.navigate(it) },
-                        onNavToHistory = { ruleId -> navController.navigate(AutomationHistory(ruleId)) },
-                    )
-                }
-                myComposable<AutomationHistory> {
-                    AutomationHistoryScreen(
-                        onBack = { navController.popBackStack() },
-                        ruleId = it.toRoute<AutomationHistory>().ruleId,
                     )
                 }
                 myComposable<ActionLibraryEdit> {

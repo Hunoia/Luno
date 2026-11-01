@@ -1,7 +1,6 @@
 package hunoia.luno.runtime.floatball.notification
 
 import android.app.Notification
-import android.app.NotificationManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import hunoia.luno.core.domain.NotificationPulse
@@ -81,15 +80,6 @@ class NotificationPulseListener : NotificationListenerService() {
         super.onListenerConnected()
         refreshActiveCache()
         NotificationPulseHub.fireStateChanged()
-        val filter = runCatching { currentInterruptionFilter }.getOrNull()
-            ?: NotificationManager.INTERRUPTION_FILTER_ALL
-        NotificationPulseHub.fireInterruption(filter != NotificationManager.INTERRUPTION_FILTER_ALL)
-    }
-
-    override fun onInterruptionFilterChanged(interruptionFilter: Int) {
-        NotificationPulseHub.fireInterruption(
-            interruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL,
-        )
     }
 
     private fun refreshActiveCache() {

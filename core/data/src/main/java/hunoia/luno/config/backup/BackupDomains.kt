@@ -92,7 +92,6 @@ internal fun Backup.schemaVersionOf(domain: BackupDomain): Int = when (domain) {
     BackupDomain.GESTURE -> gestureSchemaVersion
     BackupDomain.TUNE -> tuneSchemaVersion
     BackupDomain.ACTION -> actionSchemaVersion
-    BackupDomain.AUTOMATION -> automationSchemaVersion
     BackupDomain.SEARCH -> searchSchemaVersion
 }
 
@@ -153,19 +152,6 @@ internal object BuiltinBackupDomains {
                 )
             },
             isEmpty = { it.actionSettings == null && it.actionLibrarySettings == null },
-        )
-        register(
-            domain = BackupDomain.AUTOMATION,
-            schemaVersion = BackupVersions.AUTOMATION,
-            snapshot = { full ->
-                Backup(
-                    backupFormatVersion = full.backupFormatVersion,
-                    automationSchemaVersion = full.automationSchemaVersion,
-                    automationRules = full.automationRules,
-                    globalVariables = full.globalVariables,
-                )
-            },
-            isEmpty = { it.automationRules == null && it.globalVariables == null },
         )
         register(
             domain = BackupDomain.SEARCH,

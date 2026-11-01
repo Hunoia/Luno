@@ -13,7 +13,6 @@ import hunoia.luno.core.AppContext
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
-import hunoia.luno.core.domain.blankRuntimeSnapshot
 import hunoia.luno.execute.ExecuteCall
 import hunoia.luno.execute.ExecuteEnvironment
 import hunoia.luno.execute.ExecuteMessages
@@ -98,7 +97,6 @@ object SurfaceActionRuntime {
         catalog = hunoia.luno.actions.LunoActionCatalog,
         factory = hunoia.luno.actions.LunoActionFactory,
         scope = scope,
-        snapshot = { blankRuntimeSnapshot() },
         libraryEntry = { null },
         executors = listOf(
             hunoia.luno.action.executor.AppExecutors(),
@@ -111,7 +109,7 @@ object SurfaceActionRuntime {
                 hunoia.luno.action.controller.VibrateController(context),
             ),
             hunoia.luno.action.executor.ShellExecutor(hunoia.luno.action.controller.ShellController()),
-            hunoia.luno.action.executor.AutomationActionExecutors(
+            hunoia.luno.action.executor.MiscActionExecutors(
                 hunoia.luno.action.controller.ClipboardController(context),
             ),
             hunoia.luno.action.executor.InternalExecutors(),

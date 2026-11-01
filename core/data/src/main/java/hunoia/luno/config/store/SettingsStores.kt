@@ -5,11 +5,9 @@ import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.AppUsageStats
-import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.ClipboardHistory
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
-import hunoia.luno.config.model.GlobalVariables
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.QuickAppSnapshot
@@ -30,9 +28,6 @@ class SettingsStores(
     internal val _quickAppLauncherSettings: DataStore<QuickAppLauncherSettings>,
     internal val _subGestureSettings: DataStore<SubGestureSettings>,
     internal val _actionLibrarySettings: DataStore<ActionLibrarySettings>,
-    internal val _automationRules: DataStore<List<AutomationRule>>,
-    internal val _automationVariables: DataStore<GlobalVariables>,
-    internal val _automationLog: DataStore<List<hunoia.luno.core.domain.AutomationEvent>>,
     internal val _quickAppSnapshot: DataStore<QuickAppSnapshot>,
     internal val _quickSearchSettings: DataStore<QuickSearchSettings>,
     internal val _appUsageStats: DataStore<AppUsageStats>,
@@ -46,9 +41,6 @@ class SettingsStores(
     val quickAppLauncherSettings: Flow<QuickAppLauncherSettings> = _quickAppLauncherSettings.data
     val subGestureSettings: Flow<SubGestureSettings> = _subGestureSettings.data
     val actionLibrarySettings: Flow<ActionLibrarySettings> = _actionLibrarySettings.data
-    val automationRules: Flow<List<AutomationRule>> = _automationRules.data
-    val automationVariables: Flow<GlobalVariables> = _automationVariables.data.map { it.normalized() }
-    val automationLog: Flow<List<hunoia.luno.core.domain.AutomationEvent>> = _automationLog.data
     val quickSearchSettings: Flow<QuickSearchSettings> =
         _quickSearchSettings.data.map { it.withUniqueEngineTriggers() }
     val appUsageStats: Flow<AppUsageStats> = _appUsageStats.data
@@ -69,9 +61,6 @@ class SettingsStores(
                 _quickAppLauncherSettings = ctx.dataStore(DataStoreFiles.QUICK_APP_LAUNCHER, QuickAppLauncherSettings()),
                 _subGestureSettings = ctx.dataStore(DataStoreFiles.SUB_GESTURE_SETTINGS, SubGestureSettings()),
                 _actionLibrarySettings = ctx.dataStore(DataStoreFiles.ACTION_LIBRARY_SETTINGS, ActionLibrarySettings()),
-                _automationRules = ctx.dataStore(DataStoreFiles.AUTOMATION_RULES, AutomationRule.Defaults),
-                _automationVariables = ctx.dataStore(DataStoreFiles.AUTOMATION_VARIABLES, GlobalVariables()),
-                _automationLog = ctx.dataStore(DataStoreFiles.AUTOMATION_LOG, emptyList()),
                 _quickAppSnapshot = ctx.dataStore(DataStoreFiles.QUICK_APP_SNAPSHOT, QuickAppSnapshot()),
                 _quickSearchSettings = ctx.dataStore(DataStoreFiles.QUICK_SEARCH_SETTINGS, QuickSearchSettings()),
                 _appUsageStats = ctx.dataStore(DataStoreFiles.APP_USAGE_STATS, AppUsageStats()),

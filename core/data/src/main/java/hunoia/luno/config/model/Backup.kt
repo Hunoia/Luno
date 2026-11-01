@@ -11,7 +11,6 @@ object BackupVersions {
     const val GESTURE = 1
     const val TUNE = 1
     const val ACTION = 1
-    const val AUTOMATION = 3
     const val SEARCH = 1
 }
 
@@ -20,7 +19,6 @@ enum class BackupDomain {
     GESTURE,
     TUNE,
     ACTION,
-    AUTOMATION,
     SEARCH,
 }
 
@@ -32,7 +30,6 @@ data class Backup(
     val gestureSchemaVersion: Int = 1,
     val tuneSchemaVersion: Int = 1,
     val actionSchemaVersion: Int = 1,
-    val automationSchemaVersion: Int = 1,
     val searchSchemaVersion: Int = 1,
     val initialSettings: InitialSettings? = null,
     val advancedSettings: AdvancedSettings? = null,
@@ -42,8 +39,6 @@ data class Backup(
     val quickAppLauncherSettings: QuickAppLauncherSettings? = null,
     val subGestureSettings: SubGestureSettings? = null,
     val actionLibrarySettings: ActionLibrarySettings? = null,
-    val automationRules: List<AutomationRule>? = null,
-    val globalVariables: GlobalVariables? = null,
     val quickSearchSettings: QuickSearchSettings? = null,
 )
 
