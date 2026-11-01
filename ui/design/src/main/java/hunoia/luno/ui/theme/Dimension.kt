@@ -8,6 +8,9 @@ val MarkColorSize = 20.dp
 val MinItemHeightNoSecondary = 50.dp
 val MinInteractiveSize = 48.dp
 val SubMinInteractiveSize = 36.dp
+// 卡片内纯图标工具条的紧凑尺寸：仅在内容空间受挤压时使用（见 ui-guidelines §4.8）
+val CompactToolbarHeight = 32.dp
+val CompactControlIconSize = 20.dp
 val RowIconSize = 24.dp
 val BadgeIconSize = 16.dp
 val TopBarPaddingExtra = 8.dp

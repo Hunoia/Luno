@@ -15,10 +15,10 @@ data class OcrResultPayload(
     /** 框选区域裁剪图；由结果页负责回收。 */
     val image: Bitmap? = null,
     /**
-     * 懒加载 OCR：命中 a11y 文本时先不跑模型，用户切到 OCR 来源再调用。
-     * 返回 null / 空串表示识别失败或没有文字。
+     * 按需 OCR：对给定位图识别文字。结果页切到 OCR 来源或重新识别选区时调用。
+     * 返回 null / 空串表示识别失败或没有文字；入参位图由调用方持有与回收。
      */
-    val ocrLoader: (suspend () -> String?)? = null,
+    val ocrLoader: (suspend (Bitmap) -> String?)? = null,
 ) {
     /** 有没有可用的 OCR 来源：已识别文本或可懒加载的识别入口。 */
     val hasOcrSource: Boolean

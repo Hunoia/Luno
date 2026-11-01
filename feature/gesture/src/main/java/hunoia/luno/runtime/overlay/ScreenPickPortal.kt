@@ -227,6 +227,7 @@ internal fun PortalLayer(
                 .background(cardBackground, RoundedCornerShape(PortalLayout.CardRadiusDp.dp))
                 .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalAlignment = if (content.isImage) Alignment.CenterHorizontally else Alignment.Start,
         ) {
             when {
                 resolving -> Text(
@@ -238,7 +239,7 @@ internal fun PortalLayer(
                     Image(
                         bitmap = content.preview,
                         contentDescription = stringResource(R.string.screen_pick_portal_image),
-                        contentScale = ContentScale.Crop,
+                        contentScale = ContentScale.Fit,
                         modifier = Modifier
                             .widthIn(max = 180.dp)
                             .heightIn(max = 96.dp)

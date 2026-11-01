@@ -68,6 +68,10 @@ import hunoia.luno.bridge.system.copyText
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.applyOverlayViewTreeOwners
 import hunoia.luno.bridge.ui.showToast
+import hunoia.luno.ui.component.selection.SelectionHandle
+import hunoia.luno.ui.component.selection.handleAt
+import hunoia.luno.ui.component.selection.moved
+import hunoia.luno.ui.component.selection.resized
 import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.capability.ocr.OcrEngine
 import hunoia.luno.capability.ocr.OcrText
@@ -145,7 +149,7 @@ class ScreenPickOverlay(
         ocr: String,
         a11y: String?,
         image: Bitmap?,
-        ocrLoader: (suspend () -> String?)?,
+        ocrLoader: (suspend (Bitmap) -> String?)?,
     ) -> Boolean = { _, _, _, _ -> false },
     /** 幽灵卡「打开链接」的落点（`:app` 注入链接分发，本模块不依赖链接分发实现）。 */
     private val onOpenLink: suspend (String) -> Boolean = { false },
@@ -997,8 +1001,8 @@ class ScreenPickOverlay(
                 close()
                 return@launch
             }
-            val ocrLoader = if (!a11y.isNullOrBlank() && image != null) {
-                lazyOcrLoader(image)
+            val ocrLoader = if (image != null) {
+                ocrLoader()
             } else {
                 null
             }
@@ -1014,14 +1018,13 @@ class ScreenPickOverlay(
     }
 
     /**
-     * 文本命中时的按需 OCR：结果页切到 OCR 来源才执行。
-     *
-     * 用结果图副本识别，避免结果页回收原图与模型读取位图竞争；识别完立即回收副本。
+     * 结果页的按需 OCR 入口：对传入的位图副本识别，结果页可用它做整图或选区重识别。
+     * 调用方持有传入位图；这里只复制、识别、回收副本，不回收入参。
      */
-    private fun lazyOcrLoader(image: Bitmap): suspend () -> String? = {
+    private fun ocrLoader(): suspend (Bitmap) -> String? = { bitmap ->
         val source = withContext(Dispatchers.IO) {
             runCatching {
-                if (image.isRecycled) null else image.copy(Bitmap.Config.ARGB_8888, false)
+                if (bitmap.isRecycled) null else bitmap.copy(Bitmap.Config.ARGB_8888, false)
             }.getOrNull()
         }
         if (source == null) {
@@ -1063,7 +1066,7 @@ class ScreenPickOverlay(
                     showToast(R.string.screen_pick_no_content)
                     close()
                 }
-                runCatching { onOcrResult(text.orEmpty(), a11y, image, null) }.getOrDefault(false) ->
+                runCatching { onOcrResult(text.orEmpty(), a11y, image, image?.let { ocrLoader() }) }.getOrDefault(false) ->
                     close()
                 else -> {
                     image?.recycle()
@@ -1400,62 +1403,6 @@ class ScreenPickOverlay(
 
 
 
-/** 框选调整期的命中部位。 */
-private enum class SelHandle { TopLeft, TopRight, BottomLeft, BottomRight }
-
-/** 按下点是否落在某个拖角上。 */
-private fun Rect.handleAt(p: Offset, radius: Float): SelHandle? = listOf(
-    SelHandle.TopLeft to topLeft,
-    SelHandle.TopRight to topRight,
-    SelHandle.BottomLeft to bottomLeft,
-    SelHandle.BottomRight to bottomRight,
-).firstOrNull { (_, corner) -> (corner - p).getDistance() <= radius }?.first
-
-/** 拖角缩放：只移动被拖的那条边，保持对角固定，并保证最小尺寸。 */
-private fun Rect.resized(handle: SelHandle, p: Offset, minSize: Float, bounds: Size): Rect {
-    val x = p.x.coerceIn(0f, bounds.width)
-    val y = p.y.coerceIn(0f, bounds.height)
-    var left = left
-    var top = top
-    var right = right
-    var bottom = bottom
-    when (handle) {
-        SelHandle.TopLeft -> { left = x; top = y }
-        SelHandle.TopRight -> { right = x; top = y }
-        SelHandle.BottomLeft -> { left = x; bottom = y }
-        SelHandle.BottomRight -> { right = x; bottom = y }
-    }
-    if (right - left < minSize) {
-        if (handle == SelHandle.TopLeft || handle == SelHandle.BottomLeft) {
-            left = right - minSize
-        } else {
-            right = left + minSize
-        }
-    }
-    if (bottom - top < minSize) {
-        if (handle == SelHandle.TopLeft || handle == SelHandle.TopRight) {
-            top = bottom - minSize
-        } else {
-            bottom = top + minSize
-        }
-    }
-    return Rect(
-        left.coerceIn(0f, bounds.width),
-        top.coerceIn(0f, bounds.height),
-        right.coerceIn(0f, bounds.width),
-        bottom.coerceIn(0f, bounds.height),
-    )
-}
-
-/** 平移选框并夹在屏内。 */
-private fun Rect.moved(dx: Float, dy: Float, bounds: Size): Rect {
-    val maxLeft = (bounds.width - width).coerceAtLeast(0f)
-    val maxTop = (bounds.height - height).coerceAtLeast(0f)
-    val left = (left + dx).coerceIn(0f, maxLeft)
-    val top = (top + dy).coerceIn(0f, maxTop)
-    return Rect(left, top, left + width, top + height)
-}
-
 @Composable
 private fun ScreenPickScreen(
     captured: Boolean,
@@ -1637,7 +1584,7 @@ private fun ScreenPickScreen(
                     // 无幽灵卡：拖动=框选；长按=出幽灵卡；轻点=退出。
                     val initial = adjustRect
                     val handle = initial?.handleAt(start, handleHitPx)
-                    var resizing: SelHandle? = handle
+                    var resizing: SelectionHandle? = handle
                     var moving = false
                     if (initial != null && handle == null) {
                         moving = initial.contains(start)

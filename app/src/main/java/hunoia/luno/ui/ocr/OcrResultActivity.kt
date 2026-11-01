@@ -14,20 +14,22 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -40,8 +42,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -55,7 +57,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -97,9 +98,11 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputScope
@@ -119,6 +122,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected as selectedSemantics
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import hunoia.luno.R
@@ -130,12 +134,15 @@ import hunoia.luno.capability.ocr.OcrLine
 import hunoia.luno.capability.ocr.OcrTokenizer
 import hunoia.luno.capability.ocr.OcrWord
 import hunoia.luno.quicklaunch.QuickSearchActivity
+import hunoia.luno.ui.component.selection.handleAt
+import hunoia.luno.ui.component.selection.moved
+import hunoia.luno.ui.component.selection.resized
+import hunoia.luno.ui.theme.CompactControlIconSize
+import hunoia.luno.ui.theme.CompactToolbarHeight
 import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.ExtraLargeShape
-import hunoia.luno.ui.theme.BottomBarIconSize
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ContainerRadius
-import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.OcrChipMinHeight
 import hunoia.luno.ui.theme.MotionPanelIn
 import hunoia.luno.ui.theme.MotionPanelOut
@@ -145,11 +152,13 @@ import hunoia.luno.ui.theme.MotionSwapIn
 import hunoia.luno.ui.theme.MotionSwapOut
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SideGestureTheme
+import hunoia.luno.ui.theme.SubMinInteractiveSize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.math.hypot
+import kotlin.math.roundToInt
 
 /**
  * 框选 / 长按 OCR 的结果页：透明 Activity + 底部卡片。
@@ -245,26 +254,31 @@ class OcrResultActivity : ComponentActivity() {
         return true
     }
 
-    /** 图片动作：与识屏拾取共用 [ImageOutput]，不另写一套落盘/授权逻辑。 */
-    private fun onImageAction(action: OcrImageAction) {
+    /** 图片动作：选区内裁剪后与识屏拾取共用 [ImageOutput]。 */
+    private fun onImageAction(action: OcrImageAction, selection: Rect) {
         val bitmap = payload.image ?: return
         if (bitmap.isRecycled) return
+        val cropped = runCatching { cropSelection(bitmap, selection) }.getOrNull() ?: return
         lifecycleScope.launch {
             val ok = withContext(Dispatchers.IO) {
-                when (action) {
-                    // 复制要的是一个可被粘贴方读取的 URI，所以先落图库再写剪贴板。
-                    OcrImageAction.Copy ->
-                        ImageOutput.saveToGallery(this@OcrResultActivity, bitmap, "ocr_result")
-                            ?.let { uri ->
-                                copyImage(this@OcrResultActivity, "ocr_result", uri)
-                            } ?: false
-                    // 保存只写图库：不额外改剪贴板，避免「保存」带出看不见的副作用。
-                    OcrImageAction.Save ->
-                        ImageOutput.saveToGallery(this@OcrResultActivity, bitmap, "ocr_result") != null
-                    OcrImageAction.Share ->
-                        ImageOutput.saveToCache(this@OcrResultActivity, bitmap, "ocr_result")
-                            ?.let { uri -> ImageOutput.share(this@OcrResultActivity, uri, "ocr_result") }
-                            ?: false
+                try {
+                    when (action) {
+                        // 复制要的是一个可被粘贴方读取的 URI，所以先落图库再写剪贴板。
+                        OcrImageAction.Copy ->
+                            ImageOutput.saveToGallery(this@OcrResultActivity, cropped, "ocr_result")
+                                ?.let { uri ->
+                                    copyImage(this@OcrResultActivity, "ocr_result", uri)
+                                } ?: false
+                        // 保存只写图库：不额外改剪贴板，避免「保存」带出看不见的副作用。
+                        OcrImageAction.Save ->
+                            ImageOutput.saveToGallery(this@OcrResultActivity, cropped, "ocr_result") != null
+                        OcrImageAction.Share ->
+                            ImageOutput.saveToCache(this@OcrResultActivity, cropped, "ocr_result")
+                                ?.let { uri -> ImageOutput.share(this@OcrResultActivity, uri, "ocr_result") }
+                                ?: false
+                    }
+                } finally {
+                    if (cropped !== bitmap && !cropped.isRecycled) cropped.recycle()
                 }
             }
             when {
@@ -337,8 +351,25 @@ private enum class ResultPane { Text, Image }
 
 internal enum class OcrImageAction { Copy, Share, Save }
 
-/** 卡片高度上限：分词页面最多占半屏，长文本内部滚动。 */
-private const val CardMaxHeightFraction = 0.5f
+/** 按归一化选区裁剪；选区等于整图时直接返回原图，不产生副本。 */
+private fun cropBitmap(bitmap: Bitmap, selection: Rect): Bitmap? {
+    if (bitmap.isRecycled) return null
+    val width = bitmap.width
+    val height = bitmap.height
+    if (width <= 0 || height <= 0) return null
+    val left = (selection.left.coerceIn(0f, 1f) * width).roundToInt().coerceIn(0, width - 1)
+    val top = (selection.top.coerceIn(0f, 1f) * height).roundToInt().coerceIn(0, height - 1)
+    val right = (selection.right.coerceIn(0f, 1f) * width).roundToInt().coerceIn(left + 1, width)
+    val bottom = (selection.bottom.coerceIn(0f, 1f) * height).roundToInt().coerceIn(top + 1, height)
+    if (left == 0 && top == 0 && right == width && bottom == height) return bitmap
+    return runCatching { Bitmap.createBitmap(bitmap, left, top, right - left, bottom - top) }.getOrNull()
+}
+
+private fun cropSelection(bitmap: Bitmap, selection: Rect): Bitmap =
+    cropBitmap(bitmap, selection) ?: bitmap
+
+/** 卡片高度上限：分词页面最多占六成屏，长文本内部滚动。 */
+private const val CardMaxHeightFraction = 0.6f
 
 /** 文本区三种形态：互斥切换时做一次短促的淡入淡出 + 高度过渡。 */
 private enum class ContentKind { Chips, Editor, Image }
@@ -350,7 +381,7 @@ private fun OcrResultScreen(
     onCopy: (String) -> Unit,
     onSearch: (String) -> Boolean,
     onShare: (String) -> Boolean,
-    onImageAction: (OcrImageAction) -> Unit,
+    onImageAction: (OcrImageAction, Rect) -> Unit,
 ) {
     val a11yAvailable = !payload.a11yText.isNullOrBlank()
     val ocrLoader = payload.ocrLoader
@@ -375,11 +406,16 @@ private fun OcrResultScreen(
     // 懒加载 OCR 只在切到 OCR 来源时跑一次；加载中不阻塞无障碍文本。
     var ocrLoading by remember { mutableStateOf(false) }
     var ocrLoaded by remember { mutableStateOf(payload.ocrText.isNotBlank()) }
+    // 图片选区：归一化坐标（0..1），默认整图。
+    var imageSelection by remember { mutableStateOf(Rect(0f, 0f, 1f, 1f)) }
+    var reOcrLoading by remember { mutableStateOf(false) }
     val loadOcr: () -> Unit = {
-        if (!ocrLoading && !ocrLoaded && ocrLoader != null) {
+        val loader = ocrLoader
+        val bitmap = image
+        if (!ocrLoading && !ocrLoaded && loader != null && bitmap != null) {
             ocrLoading = true
             scope.launch {
-                val value = runCatching { ocrLoader() }.getOrNull().orEmpty()
+                val value = runCatching { loader(bitmap) }.getOrNull().orEmpty()
                 ocrText = value
                 ocrLoaded = true
                 ocrLoading = false
@@ -390,6 +426,28 @@ private fun OcrResultScreen(
 
     // 多选：全局词下标集合。动作作用于“选中词按原文顺序拼接”，未选中时作用于全文。
     var selected by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    val reOcrSelection: () -> Unit = {
+        val loader = ocrLoader
+        val bitmap = image
+        if (!reOcrLoading && loader != null && bitmap != null) {
+            reOcrLoading = true
+            scope.launch {
+                val cropped = withContext(Dispatchers.IO) { cropBitmap(bitmap, imageSelection) }
+                val value = if (cropped == null) null else runCatching { loader(cropped) }.getOrNull()
+                if (cropped != null && cropped !== bitmap && !cropped.isRecycled) cropped.recycle()
+                reOcrLoading = false
+                if (!value.isNullOrBlank()) {
+                    ocrText = value
+                    ocrLoaded = true
+                    source = ResultSource.Ocr
+                    pane = ResultPane.Text
+                    selected = emptySet()
+                } else {
+                    showToast(R.string.ocr_result_failed)
+                }
+            }
+        }
+    }
     // chip 在根坐标下的命中区；拖动选择要跨行、跨 FlowRow，所以命中共用一张表。
     val chipBounds = remember { mutableStateMapOf<Int, Rect>() }
     val listCoords = remember { mutableStateOf<LayoutCoordinates?>(null) }
@@ -506,8 +564,8 @@ private fun OcrResultScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .widthIn(max = 720.dp)
-                        .heightIn(min = 160.dp, max = cardMaxHeight)
-                        .padding(horizontal = PageGutter, vertical = ContentBottom),
+                        .heightIn(min = 112.dp, max = cardMaxHeight)
+                        .padding(start = PageGutter, end = PageGutter, bottom = ContentBottom),
                     shape = ExtraLargeShape,
                     color = MaterialTheme.colorScheme.surface,
                     tonalElevation = 6.dp,
@@ -516,13 +574,13 @@ private fun OcrResultScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = PageGutter, vertical = PageGutter)
+                            .padding(horizontal = PageGutter, vertical = 8.dp)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
                                 onClick = {},
                             ),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         if (a11yAvailable && ocrAvailable || image != null) {
                             SourceAndPaneBar(
@@ -550,7 +608,6 @@ private fun OcrResultScreen(
                                 },
                             )
                         }
-
                         AnimatedContent(
                             targetState = when {
                                 pane == ResultPane.Image && image != null -> ContentKind.Image
@@ -572,6 +629,8 @@ private fun OcrResultScreen(
                             when (kind) {
                                 ContentKind.Image -> ImagePane(
                                     bitmap = image ?: return@AnimatedContent,
+                                    selection = imageSelection,
+                                    onSelectionChange = { imageSelection = it },
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                                 ContentKind.Editor -> OutlinedTextField(
@@ -659,7 +718,10 @@ private fun OcrResultScreen(
                                 }
                             },
                             allSelected = allSelected,
-                            onImageAction = onImageAction,
+                            onImageAction = { action -> onImageAction(action, imageSelection) },
+                            onImageReOcr = reOcrSelection,
+                            reOcrAvailable = ocrLoader != null,
+                            reOcrLoading = reOcrLoading,
                         )
                     }
                 }
@@ -669,12 +731,12 @@ private fun OcrResultScreen(
 }
 
 /**
- * 顶部两个图标分段：内容来源（无障碍 / OCR）与形态（文本 / 图片）。
- * 选中态用跟手的滑动 pill 表达（D2）；纯图标无文字标签（E），无障碍靠 Role.Tab + selected + 点击标签。
- * 都没有时不渲染（调用方已判）。
+ * 顶部两个独立切换：图标显示当前状态，点击切到另一个。
+ * 只渲染当前有可选项的切换；无障碍标签写目标状态。
  */
 @Composable
 private fun SourceAndPaneBar(
+    modifier: Modifier = Modifier,
     showSource: Boolean,
     source: ResultSource,
     onSource: (ResultSource) -> Unit,
@@ -683,141 +745,81 @@ private fun SourceAndPaneBar(
     onPane: (ResultPane) -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (showSource) {
-            IconPillSegmented(
-                modifier = Modifier.weight(1f),
-                items = listOf(
-                    IconPillItem(
-                        Icons.Filled.Accessibility,
-                        stringResource(R.string.ocr_result_source_a11y),
-                    ),
-                    IconPillItem(
-                        Icons.Filled.DocumentScanner,
-                        stringResource(R.string.ocr_result_source_ocr),
+            val toOcr = source == ResultSource.A11y
+            ModeToggleIcon(
+                icon = if (toOcr) Icons.Filled.Accessibility else Icons.Filled.DocumentScanner,
+                contentDescription = stringResource(
+                    R.string.ocr_result_switch_to,
+                    stringResource(
+                        if (toOcr) R.string.ocr_result_source_ocr else R.string.ocr_result_source_a11y,
                     ),
                 ),
-                selectedIndex = if (source == ResultSource.A11y) 0 else 1,
-                onSelect = { onSource(if (it == 0) ResultSource.A11y else ResultSource.Ocr) },
+                onClick = {
+                    onSource(if (toOcr) ResultSource.Ocr else ResultSource.A11y)
+                },
             )
         }
         if (showSource && showPane) {
-            Box(modifier = Modifier.width(CardInnerSpacing))
+            Spacer(modifier = Modifier.width(CardInnerSpacing))
         }
         if (showPane) {
-            IconPillSegmented(
-                modifier = Modifier.weight(1f),
-                items = listOf(
-                    IconPillItem(
-                        Icons.Filled.TextFields,
-                        stringResource(R.string.ocr_result_view_text),
-                    ),
-                    IconPillItem(
-                        Icons.Filled.Image,
-                        stringResource(R.string.ocr_result_view_image),
+            val toImage = pane == ResultPane.Text
+            ModeToggleIcon(
+                icon = if (toImage) Icons.Filled.TextFields else Icons.Filled.Image,
+                contentDescription = stringResource(
+                    R.string.ocr_result_switch_to,
+                    stringResource(
+                        if (toImage) R.string.ocr_result_view_image else R.string.ocr_result_view_text,
                     ),
                 ),
-                selectedIndex = if (pane == ResultPane.Text) 0 else 1,
-                onSelect = { onPane(if (it == 0) ResultPane.Text else ResultPane.Image) },
+                onClick = {
+                    onPane(if (toImage) ResultPane.Image else ResultPane.Text)
+                },
             )
         }
     }
 }
 
-/** 图标分段的一项：矢量图标 + 无障碍标签（无可见文字）。 */
-private data class IconPillItem(
-    val icon: ImageVector,
-    val contentDescription: String,
-)
-
-/**
- * 两态图标分段：轨道垫底，选中项背后一块 primaryContainer pill 横向滑到目标位（D2）。
- * 纯图标、无文字标签（E）；自绘可选项按 ui-guidelines §6 声明 Role.Tab / selected / 点击标签。
- * 两段独立选择，故意不做成一条四选项的分段。
- */
+/** 单个模式切换图标：显示当前状态，点击切到另一个。 */
 @Composable
-private fun IconPillSegmented(
-    items: List<IconPillItem>,
-    selectedIndex: Int,
-    onSelect: (Int) -> Unit,
-    modifier: Modifier = Modifier,
+private fun ModeToggleIcon(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
 ) {
-    require(items.size >= 2) { "IconPillSegmented 至少需要两个选项" }
-    // 轨道高度取命中区(48)的 2/3 = 32dp：pill 填满更矮的轨道，整体更紧凑；底部容器与 pill 同高。
-    val barHeight = MinInteractiveSize * 2 / 3
-    BoxWithConstraints(
-        modifier = modifier
-            .height(barHeight)
-            .clip(RoundedCornerShape(ContainerRadius))
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier.size(CompactToolbarHeight),
     ) {
-        val segmentWidth = maxWidth / items.size
-        val pillX by animateDpAsState(
-            targetValue = segmentWidth * selectedIndex,
-            animationSpec = tween(MotionSettle, easing = FastOutSlowInEasing),
-            label = "ocr-pill-x",
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(CompactControlIconSize),
         )
-        // 选中 pill：跟手滑动；形态 / 配色照抄主页底栏（胶囊 + primary 15% 透明），高 = 轨道高。
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .offset(x = pillX)
-                .width(segmentWidth)
-                .height(barHeight)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-        )
-        Row(modifier = Modifier.fillMaxSize()) {
-            items.forEachIndexed { index, item ->
-                val isSelected = index == selectedIndex
-                val contentColor by animateColorAsState(
-                    targetValue = if (isSelected) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    animationSpec = tween(MotionSubtle),
-                    label = "ocrPillIcon",
-                )
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .clip(CircleShape)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = { onSelect(index) },
-                        )
-                        .semantics {
-                            selectedSemantics = isSelected
-                            role = Role.Tab
-                            onClick(label = item.contentDescription) {
-                                onSelect(index)
-                                true
-                            }
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = item.icon,
-                        contentDescription = null,
-                        tint = contentColor,
-                        modifier = Modifier.size(BottomBarIconSize),
-                    )
-                }
-            }
-        }
     }
 }
 
-/** 原图视图：双指缩放 + 单指平移，缩放回弹到 1x。 */
+/** 原图视图：双指缩放 + 单指平移；画布内叠加可调选区。 */
 @Composable
-private fun ImagePane(bitmap: Bitmap, modifier: Modifier = Modifier) {
+private fun ImagePane(
+    bitmap: Bitmap,
+    selection: Rect,
+    onSelectionChange: (Rect) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     var scale by remember(bitmap) { mutableStateOf(1f) }
     var offset by remember(bitmap) { mutableStateOf(Offset.Zero) }
+    val density = LocalDensity.current
+    val handleHitPx = with(density) { 22.dp.toPx() }
+    val borderStroke = with(density) { 1.5.dp.toPx() }
+    val handleRadius = with(density) { 6.dp.toPx() }
+    val currentSelection by rememberUpdatedState(selection)
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -825,33 +827,223 @@ private fun ImagePane(bitmap: Bitmap, modifier: Modifier = Modifier) {
         shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
     ) {
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(RoundedCornerShape(14.dp))
-                .pointerInput(bitmap) {
-                    detectTransformGestures { _, pan, zoom, _ ->
-                        scale = (scale * zoom).coerceIn(1f, 6f)
-                        offset = if (scale <= 1f) Offset.Zero else offset + pan
-                    }
-                },
-            contentAlignment = Alignment.Center,
+                .clip(RoundedCornerShape(14.dp)),
         ) {
-            Image(
-                bitmap = bitmap.asImageBitmap(),
-                contentDescription = stringResource(R.string.ocr_result_view_image),
-                contentScale = ContentScale.Fit,
+            val containerW = constraints.maxWidth.toFloat()
+            val containerH = if (constraints.maxHeight == Constraints.Infinity) {
+                containerW
+            } else {
+                constraints.maxHeight.toFloat()
+            }
+            val imageRect = remember(bitmap, containerW, containerH) {
+                fitRect(bitmap, containerW, containerH)
+            }
+            val center = Offset(containerW / 2f, containerH / 2f)
+            val primary = MaterialTheme.colorScheme.primary
+
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .graphicsLayer(
-                        scaleX = scale,
-                        scaleY = scale,
-                        translationX = offset.x,
-                        translationY = offset.y,
-                    ),
-            )
+                    .pointerInput(bitmap) {
+                        // 双击复位；拖动时由下面的手势消费事件，tap 检测会自动取消。
+                        detectTapGestures(
+                            onDoubleTap = {
+                                scale = 1f
+                                offset = Offset.Zero
+                            },
+                        )
+                    }
+                    .pointerInput(bitmap, imageRect) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            val sel = currentSelection
+                            val selScreen = sel.toScreenRect(imageRect, scale, offset, center)
+                            val handle = selScreen.handleAt(down.position, handleHitPx)
+                            // 整图选区拖内部没有可移动空间：放大后让给平移，避免单指拖拽看起来没反应。
+                            val selectionFull = sel.left <= 0.001f && sel.top <= 0.001f &&
+                                sel.right >= 0.999f && sel.bottom >= 0.999f
+                            var mode = when {
+                                handle != null -> ImageGesture.Resize
+                                selScreen.contains(down.position) && !(selectionFull && scale > 1.001f) ->
+                                    ImageGesture.Move
+                                else -> ImageGesture.Transform
+                            }
+                            var resizeHandle = handle
+                            var lastNormalized = down.position.toNormalized(
+                                imageRect, scale, offset, center,
+                            )
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val pressed = event.changes.filter { it.pressed }
+                                if (pressed.isEmpty()) break
+                                // 第二根手指加入：切到缩放/平移，已开始的选区调整让位。
+                                if (pressed.size > 1) mode = ImageGesture.Transform
+                                when (mode) {
+                                    ImageGesture.Resize, ImageGesture.Move -> {
+                                        val change = event.changes
+                                            .firstOrNull { it.id == down.id } ?: break
+                                        if (!change.pressed) break
+                                        val normalized = change.position.toNormalized(
+                                            imageRect, scale, offset, center,
+                                        )
+                                        if ((normalized - lastNormalized).getDistance() > 0f) {
+                                            change.consume()
+                                        }
+                                        val current = currentSelection
+                                        if (mode == ImageGesture.Move) {
+                                            val delta = normalized - lastNormalized
+                                            onSelectionChange(
+                                                current.moved(delta.x, delta.y, Size(1f, 1f)),
+                                            )
+                                        } else {
+                                            resizeHandle?.let { active ->
+                                                onSelectionChange(
+                                                    current.resized(
+                                                        handle = active,
+                                                        p = normalized,
+                                                        minSize = 0.02f,
+                                                        bounds = Size(1f, 1f),
+                                                    ),
+                                                )
+                                            }
+                                        }
+                                        lastNormalized = normalized
+                                    }
+                                    ImageGesture.Transform -> {
+                                        val zoom = event.calculateZoom()
+                                        val pan = event.calculatePan()
+                                        if (zoom != 1f || pan != Offset.Zero) {
+                                            val nextScale = (scale * zoom).coerceIn(1f, 6f)
+                                            scale = nextScale
+                                            offset = if (nextScale <= 1.001f) {
+                                                Offset.Zero
+                                            } else {
+                                                clampPan(
+                                                    offset = offset + pan,
+                                                    scale = nextScale,
+                                                    imageRect = imageRect,
+                                                    containerW = containerW,
+                                                    containerH = containerH,
+                                                )
+                                            }
+                                            event.changes.forEach { if (it.pressed) it.consume() }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = stringResource(R.string.ocr_result_view_image),
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer(
+                            scaleX = scale,
+                            scaleY = scale,
+                            translationX = offset.x,
+                            translationY = offset.y,
+                        ),
+                )
+            }
+
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val rect = selection.toScreenRect(imageRect, scale, offset, center)
+                drawRect(
+                    color = primary,
+                    topLeft = rect.topLeft,
+                    size = rect.size,
+                    style = Stroke(width = borderStroke),
+                )
+                listOf(rect.topLeft, rect.topRight, rect.bottomLeft, rect.bottomRight).forEach {
+                    drawCircle(color = primary, radius = handleRadius, center = it)
+                }
+            }
         }
     }
+}
+
+private enum class ImageGesture { Resize, Move, Transform }
+
+/** 图片在容器内按 Fit 居中后的矩形（px）。 */
+private fun fitRect(bitmap: Bitmap, containerW: Float, containerH: Float): Rect {
+    if (containerW <= 0f || containerH <= 0f) return Rect.Zero
+    val imageAspect = bitmap.width.toFloat() / bitmap.height.coerceAtLeast(1)
+    val containerAspect = containerW / containerH
+    val width = if (imageAspect > containerAspect) containerW else containerH * imageAspect
+    val height = if (imageAspect > containerAspect) containerW / imageAspect else containerH
+    val left = (containerW - width) / 2f
+    val top = (containerH - height) / 2f
+    return Rect(left, top, left + width, top + height)
+}
+
+/** 屏幕点 → 归一化图片坐标（叠加缩放与平移后）。 */
+private fun Offset.toNormalized(
+    imageRect: Rect,
+    scale: Float,
+    offset: Offset,
+    center: Offset,
+): Offset {
+    if (imageRect.width <= 0f || imageRect.height <= 0f) return Offset.Zero
+    val qx = (x - center.x - offset.x) / scale + center.x
+    val qy = (y - center.y - offset.y) / scale + center.y
+    return Offset(
+        x = ((qx - imageRect.left) / imageRect.width).coerceIn(0f, 1f),
+        y = ((qy - imageRect.top) / imageRect.height).coerceIn(0f, 1f),
+    )
+}
+
+/** 归一化图片坐标 → 屏幕点（叠加缩放与平移后）。 */
+private fun Offset.toScreen(
+    imageRect: Rect,
+    scale: Float,
+    offset: Offset,
+    center: Offset,
+): Offset {
+    val qx = imageRect.left + x * imageRect.width
+    val qy = imageRect.top + y * imageRect.height
+    return Offset(
+        x = (qx - center.x) * scale + center.x + offset.x,
+        y = (qy - center.y) * scale + center.y + offset.y,
+    )
+}
+
+private fun Rect.toScreenRect(
+    imageRect: Rect,
+    scale: Float,
+    offset: Offset,
+    center: Offset,
+): Rect {
+    val a = topLeft.toScreen(imageRect, scale, offset, center)
+    val b = bottomRight.toScreen(imageRect, scale, offset, center)
+    return Rect(
+        left = minOf(a.x, b.x),
+        top = minOf(a.y, b.y),
+        right = maxOf(a.x, b.x),
+        bottom = maxOf(a.y, b.y),
+    )
+}
+
+/** 平移夹紧：缩放到超过容器后才允许移动，且图片边缘不离开容器。 */
+private fun clampPan(
+    offset: Offset,
+    scale: Float,
+    imageRect: Rect,
+    containerW: Float,
+    containerH: Float,
+): Offset {
+    val maxX = ((imageRect.width * scale - containerW) / 2f).coerceAtLeast(0f)
+    val maxY = ((imageRect.height * scale - containerH) / 2f).coerceAtLeast(0f)
+    return Offset(
+        x = offset.x.coerceIn(-maxX, maxX),
+        y = offset.y.coerceIn(-maxY, maxY),
+    )
 }
 
 /**
@@ -1097,22 +1289,30 @@ private fun ResultActions(
     onSelectAll: () -> Unit,
     allSelected: Boolean,
     onImageAction: (OcrImageAction) -> Unit,
+    onImageReOcr: () -> Unit,
+    reOcrAvailable: Boolean,
+    reOcrLoading: Boolean,
 ) {
-    // 动作全部收进底部一条：图标即操作；独立 tonal 容器替代原来的分隔线。
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
+    // 动作收进底部一条：透明容器，避免再叠一层视觉高度。
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(SubMinInteractiveSize),
+        horizontalArrangement = Arrangement.spacedBy(
+            space = 4.dp,
+            alignment = Alignment.CenterHorizontally,
+        ),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(
-                space = 4.dp,
-                alignment = Alignment.CenterHorizontally,
-            ),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
             if (imageMode) {
+                if (reOcrAvailable) {
+                    ResultAction(
+                        icon = Icons.Default.DocumentScanner,
+                        label = stringResource(R.string.ocr_result_re_ocr),
+                        enabled = !reOcrLoading,
+                        onClick = onImageReOcr,
+                    )
+                }
                 ResultAction(
                     icon = Icons.Default.ContentCopy,
                     label = stringResource(R.string.ocr_result_image_copy),
@@ -1168,7 +1368,6 @@ private fun ResultActions(
                 )
             }
         }
-    }
 }
 
 /**
@@ -1187,7 +1386,7 @@ private fun EditAction(
     IconButton(
         onClick = onClick,
         enabled = !pending,
-        modifier = Modifier.size(MinInteractiveSize),
+        modifier = Modifier.size(SubMinInteractiveSize),
     ) {
         if (pending) {
             CircularProgressIndicator(
@@ -1217,16 +1416,18 @@ private fun ResultAction(
     icon: ImageVector,
     label: String,
     onClick: () -> Unit,
+    enabled: Boolean = true,
 ) {
     // 图标按钮必须有 contentDescription；动作名同时作为无障碍标签。
     IconButton(
         onClick = onClick,
-        modifier = Modifier.size(MinInteractiveSize),
+        enabled = enabled,
+        modifier = Modifier.size(SubMinInteractiveSize),
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(CompactControlIconSize),
         )
     }
 }
