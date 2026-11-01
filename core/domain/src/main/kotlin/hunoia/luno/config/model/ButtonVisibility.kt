@@ -1,10 +1,9 @@
 package hunoia.luno.config.model
 
 import androidx.annotation.Keep
-import hunoia.luno.action.model.ButtonTarget
 import kotlinx.serialization.Serializable
 
-/** 触钮可见性场景的界面维度。 */
+/** 显隐场景的界面维度。 */
 @Serializable
 @Keep
 enum class VisibilityScreen {
@@ -15,12 +14,26 @@ enum class VisibilityScreen {
     KEYBOARD_INPUT,
 }
 
+/** 场景作用对象的选取方式。 */
+@Serializable
+@Keep
+enum class VisibilityTargetMode {
+    ALL,
+    ONLY,
+    EXCEPT,
+}
+
+/** 场景可作用的非触钮 Surface。触钮直接用 `GestureButton.id`。 */
+object VisibilityTargets {
+    const val FLOAT_BALL = "surface:float_ball"
+}
+
 /**
- * 一条触钮可见性场景。
+ * 一条显隐场景。
  *
  * - [packageNames] 为空 = 任意应用；[screens] 为空 = 任意界面。
  * - 应用维度与界面维度是 AND；多条场景按列表顺序求值，最后命中的一条生效。
- * - [visible] 只相对用户基线（`GestureButton.enabled`）隐藏 / 恢复，不会把用户手动关掉的钮重新打开。
+ * - [visible] 只相对用户基线隐藏 / 恢复，不会把总开关或用户手动关闭的对象重新打开。
  */
 @Serializable
 @Keep
@@ -31,8 +44,9 @@ data class VisibilityProfile(
     val packageNames: Set<String> = emptySet(),
     val screens: Set<VisibilityScreen> = emptySet(),
     val visible: Boolean = true,
-    val target: ButtonTarget = ButtonTarget.ALL,
-    val buttonIds: List<String> = emptyList(),
+    val mode: VisibilityTargetMode = VisibilityTargetMode.ALL,
+    /** 触钮 id 或 [VisibilityTargets] 中的 Surface id。 */
+    val targetIds: Set<String> = emptySet(),
 )
 
 @Serializable

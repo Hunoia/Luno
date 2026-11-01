@@ -89,13 +89,16 @@ import hunoia.luno.ui.theme.resolveColor
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.twotone.LibraryBooks
 import androidx.compose.material.icons.twotone.Home
+import androidx.compose.material.icons.twotone.Settings
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.screen.HomeShell
+import hunoia.luno.ui.settings.action.ActionSettingsTab
 
 enum class MainTab(val icon: ImageVector) {
     Home(Icons.TwoTone.Home),
     ActionLibrary(Icons.AutoMirrored.TwoTone.LibraryBooks),
+    Settings(Icons.TwoTone.Settings),
 }
 
 /** tab 的无障碍文案；标题栏标题另有映射（Home 用 home_title 即应用名）。 */
@@ -103,6 +106,7 @@ val MainTab.contentDescriptionRes: Int
     get() = when (this) {
         MainTab.Home -> R.string.home_tab
         MainTab.ActionLibrary -> R.string.action_library
+        MainTab.Settings -> R.string.settings
     }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -110,10 +114,17 @@ val MainTab.contentDescriptionRes: Int
 fun HomeScreen(
     onNavToGestureButtonSettings: (GestureButton) -> Unit,
     onNavToSubGestureEditor: (String) -> Unit,
-    onNavToActionSettings: () -> Unit = {},
     onNavToSearchEngines: () -> Unit = {},
     onNavToFloatBallSettings: () -> Unit = {},
     onNavToButtonVisibility: () -> Unit = {},
+    onNavToActionPanels: () -> Unit = {},
+    onNavToGridPanels: () -> Unit = {},
+    onNavToRecentAppsBlocklist: () -> Unit = {},
+    onNavToMiniWindowAdjust: () -> Unit = {},
+    onNavToLinkDispatch: () -> Unit = {},
+    onNavToActionSelect: () -> Unit = {},
+    onNavToPrivilegedPermissions: () -> Unit = {},
+    onNavToScreenPickSettings: () -> Unit = {},
     onNavToActionLibraryEdit: (String, String?) -> Unit = { _, _ -> },
     vm: HomeVM = viewModel()
 ) {
@@ -186,6 +197,7 @@ fun HomeScreen(
             title = when (mainTab) {
                 MainTab.Home -> stringResource(id = R.string.home_title)
                 MainTab.ActionLibrary -> stringResource(id = R.string.action_library)
+                MainTab.Settings -> stringResource(id = R.string.settings)
             },
             sheets = {
                 if (colorPickerTarget != null) {
@@ -388,7 +400,6 @@ fun HomeScreen(
 
                             item(key = "settings_group") {
                                 HomeSettingsGroup(
-                                    onActionSettingsClick = onNavToActionSettings,
                                     onSearchEngineClick = onNavToSearchEngines,
                                     onFloatBallClick = onNavToFloatBallSettings,
                                     onButtonVisibilityClick = onNavToButtonVisibility,
@@ -444,7 +455,20 @@ fun HomeScreen(
                             listState = libraryListState,
                             onNavToEdit = onNavToActionLibraryEdit,
                             contentPadding = PaddingValues(top = topPadding),
-                        )                    }
+                        )
+
+                        MainTab.Settings -> ActionSettingsTab(
+                            topPadding = topPadding,
+                            onNavToActionPanels = onNavToActionPanels,
+                            onNavToGridPanels = onNavToGridPanels,
+                            onNavToRecentAppsBlocklist = onNavToRecentAppsBlocklist,
+                            onNavToMiniWindowAdjust = onNavToMiniWindowAdjust,
+                            onNavToLinkDispatch = onNavToLinkDispatch,
+                            onNavToActionSelect = onNavToActionSelect,
+                            onNavToPrivilegedPermissions = onNavToPrivilegedPermissions,
+                            onNavToScreenPickSettings = onNavToScreenPickSettings,
+                        )
+                    }
                 }
         }
     }

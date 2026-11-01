@@ -25,11 +25,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
-import hunoia.luno.action.model.ButtonTarget
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.VisibilityProfile
 import hunoia.luno.config.model.VisibilityScreen
+import hunoia.luno.config.model.VisibilityTargetMode
+import hunoia.luno.config.model.VisibilityTargets
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.row.LunoGroup
@@ -187,11 +188,11 @@ fun ButtonVisibilityEditScreen(
                     current = current,
                     buttons = buttons,
                     onDismissRequest = { showTargetPicker = false },
-                    onTargetChange = { draft = current.copy(target = it) },
-                    onButtonToggle = { id, checked ->
+                    onModeChange = { draft = current.copy(mode = it) },
+                    onTargetToggle = { id, checked ->
                         draft = current.copy(
-                            buttonIds = if (checked) current.buttonIds + id
-                            else current.buttonIds - id,
+                            targetIds = if (checked) current.targetIds + id
+                            else current.targetIds - id,
                         )
                     },
                 )
@@ -253,15 +254,14 @@ fun ButtonVisibilityEditScreen(
 }
 
 @Composable
-private fun targetSummary(profile: VisibilityProfile): String = when {
-    profile.target == ButtonTarget.ALL -> stringResource(R.string.button_visibility_target_all)
-    profile.buttonIds.isEmpty() -> stringResource(R.string.button_visibility_target_all)
-    profile.target == ButtonTarget.ONLY -> stringResource(
+private fun targetSummary(profile: VisibilityProfile): String = when (profile.mode) {
+    VisibilityTargetMode.ALL -> stringResource(R.string.button_visibility_target_all)
+    VisibilityTargetMode.ONLY -> stringResource(
         R.string.button_visibility_target_only,
-    ) + " · " + stringResource(R.string.button_visibility_target_count, profile.buttonIds.size)
-    else -> stringResource(
+    ) + " · " + stringResource(R.string.button_visibility_target_count, profile.targetIds.size)
+    VisibilityTargetMode.EXCEPT -> stringResource(
         R.string.button_visibility_target_except,
-    ) + " · " + stringResource(R.string.button_visibility_target_count, profile.buttonIds.size)
+    ) + " · " + stringResource(R.string.button_visibility_target_count, profile.targetIds.size)
 }
 
 @Composable
@@ -269,8 +269,8 @@ private fun TargetPickerSheet(
     current: VisibilityProfile,
     buttons: List<GestureButton>,
     onDismissRequest: () -> Unit,
-    onTargetChange: (ButtonTarget) -> Unit,
-    onButtonToggle: (String, Boolean) -> Unit,
+    onModeChange: (VisibilityTargetMode) -> Unit,
+    onTargetToggle: (String, Boolean) -> Unit,
 ) {
     LunoSheet(onDismissRequest = onDismissRequest) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = PageGutter)) {
@@ -280,9 +280,9 @@ private fun TargetPickerSheet(
                 modifier = Modifier.padding(vertical = PageGutter),
             )
             val modes = listOf(
-                ButtonTarget.ALL to stringResource(R.string.button_visibility_target_all),
-                ButtonTarget.ONLY to stringResource(R.string.button_visibility_target_only),
-                ButtonTarget.EXCEPT to stringResource(R.string.button_visibility_target_except),
+                VisibilityTargetMode.ALL to stringResource(R.string.button_visibility_target_all),
+                VisibilityTargetMode.ONLY to stringResource(R.string.button_visibility_target_only),
+                VisibilityTargetMode.EXCEPT to stringResource(R.string.button_visibility_target_except),
             )
             LazyColumn(
                 contentPadding = PaddingValues(bottom = ContentBottom),
@@ -291,13 +291,13 @@ private fun TargetPickerSheet(
                 items(modes) { (mode, label) ->
                     LunoSelectableRow(
                         title = label,
-                        selected = current.target == mode,
+                        selected = current.mode == mode,
                         singleSelect = true,
-                        onSelectedChange = { onTargetChange(mode) },
+                        onSelectedChange = { onModeChange(mode) },
                     )
                 }
-                if (current.target != ButtonTarget.ALL) {
-                    item(key = "buttons_title") {
+                if (current.mode != VisibilityTargetMode.ALL) {
+                    item(key = "targets_title") {
                         Text(
                             text = stringResource(R.string.button_visibility_target),
                             style = MaterialTheme.typography.titleSmall,
@@ -305,11 +305,20 @@ private fun TargetPickerSheet(
                             modifier = Modifier.padding(top = PageGutter),
                         )
                     }
+                    item(key = "float_ball") {
+                        LunoSelectableRow(
+                            title = stringResource(R.string.button_visibility_target_float_ball),
+                            selected = VisibilityTargets.FLOAT_BALL in current.targetIds,
+                            onSelectedChange = { checked ->
+                                onTargetToggle(VisibilityTargets.FLOAT_BALL, checked)
+                            },
+                        )
+                    }
                     items(buttons) { button ->
                         LunoSelectableRow(
                             title = button.name.ifBlank { button.id },
-                            selected = button.id in current.buttonIds,
-                            onSelectedChange = { checked -> onButtonToggle(button.id, checked) },
+                            selected = button.id in current.targetIds,
+                            onSelectedChange = { checked -> onTargetToggle(button.id, checked) },
                         )
                     }
                 }

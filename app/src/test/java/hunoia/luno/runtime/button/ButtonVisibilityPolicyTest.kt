@@ -1,11 +1,12 @@
 package hunoia.luno.runtime.button
 
-import hunoia.luno.action.model.ButtonTarget
 import hunoia.luno.config.model.ButtonVisibilitySettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.VisibilityProfile
 import hunoia.luno.config.model.VisibilityScreen
+import hunoia.luno.config.model.VisibilityTargetMode
+import hunoia.luno.config.model.VisibilityTargets
 import hunoia.luno.runtime.GestureRuntimeState
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -60,8 +61,8 @@ class ButtonVisibilityPolicyTest {
                     id = "p",
                     packageNames = setOf("com.example"),
                     visible = false,
-                    target = ButtonTarget.ONLY,
-                    buttonIds = listOf("1"),
+                    mode = VisibilityTargetMode.ONLY,
+                    targetIds = setOf("1"),
                 ),
             ),
         )
@@ -102,8 +103,8 @@ class ButtonVisibilityPolicyTest {
     fun laterProfileNotAffectingButton_doesNotResetEarlierDecision() {
         val policy = policy(
             listOf(
-                VisibilityProfile(id = "hide1", visible = false, target = ButtonTarget.ONLY, buttonIds = listOf("1")),
-                VisibilityProfile(id = "hide2", visible = false, target = ButtonTarget.ONLY, buttonIds = listOf("2")),
+                VisibilityProfile(id = "hide1", visible = false, mode = VisibilityTargetMode.ONLY, targetIds = setOf("1")),
+                VisibilityProfile(id = "hide2", visible = false, mode = VisibilityTargetMode.ONLY, targetIds = setOf("2")),
             ),
         )
         assertFalse(policy.shouldShow(button1))
@@ -168,13 +169,44 @@ class ButtonVisibilityPolicyTest {
                 VisibilityProfile(
                     id = "except",
                     visible = false,
-                    target = ButtonTarget.EXCEPT,
-                    buttonIds = listOf("2"),
+                    mode = VisibilityTargetMode.EXCEPT,
+                    targetIds = setOf("2"),
                 ),
             ),
         )
         assertFalse(policy.shouldShow(button1))
         assertTrue(policy.shouldShow(button2))
+    }
+
+    @Test
+    fun floatBallProfile_hidesOnlyBallWhenOnlySelected() {
+        val profile = VisibilityProfile(
+            id = "ball",
+            visible = false,
+            mode = VisibilityTargetMode.ONLY,
+            targetIds = setOf(VisibilityTargets.FLOAT_BALL),
+        )
+        val settings = InitialSettings(buttonVisibility = ButtonVisibilitySettings(listOf(profile)))
+        assertFalse(shouldShowFloatBall(settings, state()))
+        assertTrue(policy(listOf(profile)).shouldShow(button1))
+    }
+
+    @Test
+    fun floatBallDefaultsVisibleWithoutProfile() {
+        assertTrue(shouldShowFloatBall(InitialSettings(), state()))
+    }
+
+    @Test
+    fun floatBallShowProfileCannotBeatLaterHideProfile() {
+        val settings = InitialSettings(
+            buttonVisibility = ButtonVisibilitySettings(
+                listOf(
+                    VisibilityProfile(id = "show", visible = true),
+                    VisibilityProfile(id = "hide", visible = false),
+                ),
+            ),
+        )
+        assertFalse(shouldShowFloatBall(settings, state()))
     }
 
     @Test

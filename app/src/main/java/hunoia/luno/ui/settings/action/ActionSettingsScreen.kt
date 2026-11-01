@@ -1,51 +1,60 @@
 package hunoia.luno.ui.settings.action
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.DocumentScanner
+import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.RadioButtonChecked
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.res.stringResource
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.R
-import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.domain.gesture.GestureConfig
-import hunoia.luno.config.model.ActionSettings
-import hunoia.luno.config.model.InitialSettings
-import hunoia.luno.ui.component.row.LunoSwitchRow
-import kotlinx.coroutines.launch
-import androidx.compose.material.icons.filled.Gesture
-import androidx.compose.material.icons.filled.RadioButtonChecked
-import androidx.compose.material.icons.filled.TouchApp
-import androidx.compose.material.icons.filled.History
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import hunoia.luno.R
+import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.config.model.GestureSettings
-import hunoia.luno.ui.component.sheet.LunoSheet
+import hunoia.luno.config.model.InitialSettings
+import hunoia.luno.domain.gesture.GestureConfig
+import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.ui.component.input.LunoTextSlider
-import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleConfigContent
-import kotlin.math.roundToInt
 import hunoia.luno.ui.component.row.LunoGroup
-import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.component.screen.LunoScreen
+import hunoia.luno.ui.component.row.LunoSwitchRow
+import hunoia.luno.ui.component.row.segmentedShape
+import hunoia.luno.ui.component.sheet.LunoSheet
+import hunoia.luno.ui.settings.gesture.style.ActionPanelStyleConfigContent
 import hunoia.luno.ui.theme.ContentBottom
+import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
+import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
+
+/** 设置 tab：动作设置 + 原主页设置入口。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ActionSettingsScreen(
-    onBack: () -> Unit,
+fun ActionSettingsTab(
+    topPadding: Dp,
     onNavToActionPanels: () -> Unit = {},
     onNavToGridPanels: () -> Unit = {},
     onNavToRecentAppsBlocklist: () -> Unit = {},
@@ -61,124 +70,140 @@ fun ActionSettingsScreen(
     val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = ActionSettings())
     val gestureSettings by TuneConfig.gesture.collectAsStateWithLifecycle(initialValue = GestureSettings())
     val initialSettings by GestureConfig.initial.collectAsStateWithLifecycle(initialValue = InitialSettings())
-    LunoScreen(
-        title = stringResource(R.string.action_settings),
-        onBack = onBack,
-        sheets = {
-        if (showActionPanelStyle) {
-                    LunoSheet(onDismissRequest = { showActionPanelStyle = false }, showDragHandle = true) {
-                        ActionPanelStyleConfigContent(
-                            currentStyle = actionSettings.actionPanelStyle,
-                            onStyleChanged = { next ->
-                                scope.launch { TuneConfig.updateAction { it.copy(actionPanelStyle = next) } }
-                            },
-                        )
-                    }
-                }
-        if (showPointer) {
-                    LunoSheet(onDismissRequest = { showPointer = false }, showDragHandle = true) {
-                        PointerControls(
-                            pointer = gestureSettings.pointer,
-                            onCommit = { next ->
-                                scope.launch { TuneConfig.updateGesture { it.copy(pointer = next) } }
-                            },
-                        )
-                    }
-                }
-        },
-    ) {
 
-            LunoGroup(title = stringResource(R.string.action_settings_panel_group)) {
-                LunoSettingsRow(
-                    icon = Icons.Default.RadioButtonChecked,
-                    title = stringResource(R.string.action_panels),
-                    subtitle = stringResource(R.string.action_panel_count, actionSettings.actionPanels.panels.size),
-                    shape = segmentedShape(0, 3),
-                    onClick = onNavToActionPanels,
-                )
-                LunoSettingsRow(
-                    icon = Icons.Default.GridView,
-                    title = stringResource(R.string.grid_panels),
-                    subtitle = stringResource(R.string.action_panel_count, actionSettings.actionGridPanels.panels.size),
-                    shape = segmentedShape(1, 3),
-                    onClick = onNavToGridPanels,
-                )
-                LunoSettingsRow(
-                    icon = Icons.Default.Gesture,
-                    title = stringResource(R.string.action_panel_style),
-                    subtitle = actionPanelStyleSummary(actionSettings.actionPanelStyle),
-                    shape = segmentedShape(2, 3),
-                    onClick = { showActionPanelStyle = true },
-                )
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            state = rememberLazyListState(),
+            contentPadding = PaddingValues(
+                start = PageGutter,
+                top = topPadding,
+                end = PageGutter,
+                bottom = FloatingContentBottom,
+            ),
+            verticalArrangement = Arrangement.spacedBy(ListSpacing),
+        ) {
+            item(key = "panels") {
+                LunoGroup(title = stringResource(R.string.action_settings_panel_group)) {
+                    LunoSettingsRow(
+                        icon = Icons.Default.RadioButtonChecked,
+                        title = stringResource(R.string.action_panels),
+                        subtitle = stringResource(R.string.action_panel_count, actionSettings.actionPanels.panels.size),
+                        shape = segmentedShape(0, 3),
+                        onClick = onNavToActionPanels,
+                    )
+                    LunoSettingsRow(
+                        icon = Icons.Default.GridView,
+                        title = stringResource(R.string.grid_panels),
+                        subtitle = stringResource(R.string.action_panel_count, actionSettings.actionGridPanels.panels.size),
+                        shape = segmentedShape(1, 3),
+                        onClick = onNavToGridPanels,
+                    )
+                    LunoSettingsRow(
+                        icon = Icons.Default.Gesture,
+                        title = stringResource(R.string.action_panel_style),
+                        subtitle = actionPanelStyleSummary(actionSettings.actionPanelStyle),
+                        shape = segmentedShape(2, 3),
+                        onClick = { showActionPanelStyle = true },
+                    )
+                }
             }
-            LunoGroup(title = stringResource(R.string.action_settings_other_group)) {
-                LunoSettingsRow(
-                    icon = Icons.Default.Crop,
-                    title = stringResource(R.string.mini_window_position_short),
-                    subtitle = stringResource(R.string.mini_window_position_hint),
-                    shape = segmentedShape(0, 4),
-                    onClick = { onNavToMiniWindowAdjust() },
-                )
-                LunoSettingsRow(
-                    icon = Icons.Default.History,
-                    title = stringResource(R.string.recent_apps_blocklist),
-                    subtitle = if (actionSettings.recentAppsBlocklist.isEmpty()) {
-                        stringResource(R.string.recent_apps_blocklist_hint)
-                    } else {
-                        stringResource(R.string.action_param_multi_selected, actionSettings.recentAppsBlocklist.size)
-                    },
-                    shape = segmentedShape(1, 4),
-                    onClick = onNavToRecentAppsBlocklist,
-                )
-                LunoSettingsRow(
-                    icon = Icons.Default.TouchApp,
-                    title = stringResource(R.string.pointer),
-                    subtitle = stringResource(R.string.pointer_hint),
-                    shape = segmentedShape(2, 4),
-                    onClick = { showPointer = true },
-                )
-                LunoSettingsRow(
-                    icon = Icons.Default.Link,
-                    title = stringResource(R.string.action_deep_links),
-                    subtitle = stringResource(R.string.action_deep_links_hint),
-                    shape = segmentedShape(3, 5),
-                    onClick = onNavToActionSelect,
-                )
-                LunoSettingsRow(
-                    icon = Icons.Default.TouchApp,
-                    title = stringResource(R.string.perm_page_title),
-                    subtitle = stringResource(R.string.perm_page_entry_hint),
-                    shape = segmentedShape(4, 5),
-                    onClick = onNavToPrivilegedPermissions,
-                )
-            }
-            LunoGroup(title = stringResource(R.string.link_dispatch)) {
-                LunoSettingsRow(
-                    icon = Icons.Default.Link,
-                    title = stringResource(R.string.link_dispatch),
-                    subtitle = stringResource(
-                        R.string.link_dispatch_rule_count,
-                        actionSettings.linkDispatch.rules.size,
-                    ),
-                    shape = segmentedShape(0, 1),
-                    onClick = onNavToLinkDispatch,
-                )
-            }
-            LunoGroup(title = stringResource(R.string.action_settings_screen_pick_group)) {
-                LunoSettingsRow(
-                    icon = Icons.Default.DocumentScanner,
-                    title = stringResource(R.string.screen_pick_settings_title),
-                    subtitle = stringResource(
-                        if (initialSettings.screenPickGesture.enabled) {
-                            R.string.screen_pick_settings_enabled
+            item(key = "other") {
+                LunoGroup(title = stringResource(R.string.action_settings_other_group)) {
+                    LunoSettingsRow(
+                        icon = Icons.Default.Crop,
+                        title = stringResource(R.string.mini_window_position_short),
+                        subtitle = stringResource(R.string.mini_window_position_hint),
+                        shape = segmentedShape(0, 4),
+                        onClick = onNavToMiniWindowAdjust,
+                    )
+                    LunoSettingsRow(
+                        icon = Icons.Default.History,
+                        title = stringResource(R.string.recent_apps_blocklist),
+                        subtitle = if (actionSettings.recentAppsBlocklist.isEmpty()) {
+                            stringResource(R.string.recent_apps_blocklist_hint)
                         } else {
-                            R.string.screen_pick_settings_disabled
+                            stringResource(R.string.action_param_multi_selected, actionSettings.recentAppsBlocklist.size)
                         },
-                    ),
-                    shape = segmentedShape(0, 1),
-                    onClick = onNavToScreenPickSettings,
+                        shape = segmentedShape(1, 4),
+                        onClick = onNavToRecentAppsBlocklist,
+                    )
+                    LunoSettingsRow(
+                        icon = Icons.Default.TouchApp,
+                        title = stringResource(R.string.pointer),
+                        subtitle = stringResource(R.string.pointer_hint),
+                        shape = segmentedShape(2, 4),
+                        onClick = { showPointer = true },
+                    )
+                    LunoSettingsRow(
+                        icon = Icons.Default.Link,
+                        title = stringResource(R.string.action_deep_links),
+                        subtitle = stringResource(R.string.action_deep_links_hint),
+                        shape = segmentedShape(3, 5),
+                        onClick = onNavToActionSelect,
+                    )
+                    LunoSettingsRow(
+                        icon = Icons.Default.TouchApp,
+                        title = stringResource(R.string.perm_page_title),
+                        subtitle = stringResource(R.string.perm_page_entry_hint),
+                        shape = segmentedShape(4, 5),
+                        onClick = onNavToPrivilegedPermissions,
+                    )
+                }
+            }
+            item(key = "link_dispatch") {
+                LunoGroup(title = stringResource(R.string.link_dispatch)) {
+                    LunoSettingsRow(
+                        icon = Icons.Default.Link,
+                        title = stringResource(R.string.link_dispatch),
+                        subtitle = stringResource(
+                            R.string.link_dispatch_rule_count,
+                            actionSettings.linkDispatch.rules.size,
+                        ),
+                        shape = segmentedShape(0, 1),
+                        onClick = onNavToLinkDispatch,
+                    )
+                }
+            }
+            item(key = "screen_pick") {
+                LunoGroup(title = stringResource(R.string.action_settings_screen_pick_group)) {
+                    LunoSettingsRow(
+                        icon = Icons.Default.DocumentScanner,
+                        title = stringResource(R.string.screen_pick_settings_title),
+                        subtitle = stringResource(
+                            if (initialSettings.screenPickGesture.enabled) {
+                                R.string.screen_pick_settings_enabled
+                            } else {
+                                R.string.screen_pick_settings_disabled
+                            },
+                        ),
+                        shape = segmentedShape(0, 1),
+                        onClick = onNavToScreenPickSettings,
+                    )
+                }
+            }
+        }
+
+        if (showActionPanelStyle) {
+            LunoSheet(onDismissRequest = { showActionPanelStyle = false }, showDragHandle = true) {
+                ActionPanelStyleConfigContent(
+                    currentStyle = actionSettings.actionPanelStyle,
+                    onStyleChanged = { next ->
+                        scope.launch { TuneConfig.updateAction { it.copy(actionPanelStyle = next) } }
+                    },
                 )
             }
+        }
+        if (showPointer) {
+            LunoSheet(onDismissRequest = { showPointer = false }, showDragHandle = true) {
+                PointerControls(
+                    pointer = gestureSettings.pointer,
+                    onCommit = { next ->
+                        scope.launch { TuneConfig.updateGesture { it.copy(pointer = next) } }
+                    },
+                )
+            }
+        }
     }
 }
 

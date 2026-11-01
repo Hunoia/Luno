@@ -25,6 +25,7 @@ import hunoia.luno.bridge.system.SelfWriteGuard
 import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.config.model.ButtonVisibilitySettings
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.core.Events
@@ -49,6 +50,9 @@ import hunoia.luno.runtime.floatball.notification.NotificationContentIntents
 import hunoia.luno.runtime.floatball.notification.NotificationPulseListener
 import hunoia.luno.runtime.notification.NotificationPulseHub
 import hunoia.luno.core.domain.NotificationPulse
+import hunoia.luno.runtime.GestureRuntimeState
+import hunoia.luno.runtime.RuntimeStateHub
+import hunoia.luno.runtime.button.shouldShowFloatBall
 import hunoia.luno.runtime.dispatch.ActionDispatch
 import hunoia.luno.runtime.environment.BroadcastObserver
 import hunoia.luno.runtime.surface.SurfaceDispatch
@@ -80,6 +84,7 @@ class FloatBallService : Service() {
     private var imeHintJob: Job? = null
 
     private var settings: FloatBallSettings = FloatBallSettings()
+    private var visibilitySettings: ButtonVisibilitySettings = ButtonVisibilitySettings()
 
     /** 应用手势总闸（combine 出来的 gestureEnabled，总闸关则球与分身都不出）。 */
     private var gestureEnabledSnapshot = true
@@ -138,6 +143,9 @@ class FloatBallService : Service() {
     /** Surface 隐藏状态机：面板计数 + 临时隐藏，窗口动作仍由本服务负责。 */
     private val visibility = hunoia.luno.runtime.surface.SurfaceVisibilityState()
     private var tempHideJob: Job? = null
+
+    /** 显隐场景随运行态（前台应用 / 锁屏 / 横屏 / 键盘）重算。 */
+    private val runtimeStateObserver: (GestureRuntimeState) -> Unit = { refreshWindows() }
 
     /** 悬浮球在 SurfaceController 的句柄：短态软隐藏、长态摘窗。 */
     private val surfaceHandle = object : hunoia.luno.runtime.surface.SurfaceHandle {
@@ -252,6 +260,7 @@ class FloatBallService : Service() {
         ).also { it.register() }
 
         observeSettings()
+        RuntimeStateHub.addObserver(runtimeStateObserver)
         ensureImeObserver()
         observePanels()
         Events.subscribe(TouchButtonSideEvent::class, touchSideSubscriber)
@@ -293,6 +302,7 @@ class FloatBallService : Service() {
         Events.unsubscribe(PanelDismissedEvent::class, panelDismissedSubscriber)
         Events.unsubscribe(TouchButtonSideEvent::class, touchSideSubscriber)
         Events.unsubscribe(FloatBallTempHideEvent::class, tempHideSubscriber)
+        RuntimeStateHub.removeObserver(runtimeStateObserver)
         NotificationPulseHub.removePostedObserver(notificationObserver)
         NotificationPulseHub.removeRemovedObserver(notificationRemovedObserver)
         unregisterClipboardListener()
@@ -323,12 +333,15 @@ class FloatBallService : Service() {
             combine(
                 hunoia.luno.domain.floatball.FloatBallSettingsCenter.actionSettings,
                 hunoia.luno.domain.floatball.FloatBallSettingsCenter.initialSettings,
-            ) { action, initial -> FloatBallRuntimeConfig(action, initial.gestureEnabled) }
+            ) { action, initial ->
+                FloatBallRuntimeConfig(action, initial.gestureEnabled, initial.buttonVisibility)
+            }
                 .collect { config ->
                     val newSettings = config.action.floatBall
                     // 临时隐藏期间球被手动/规则打开（enabled false→true）：显示意图优先，作废本轮隐藏
                     if (newSettings.enabled && !settings.enabled) cancelTempHide()
                     settings = newSettings
+                    visibilitySettings = config.buttonVisibility
                     linkDispatch = config.action.linkDispatch
                     gestureEnabledSnapshot = config.gestureEnabled
                     ballWindow.updateSettings(config.action.floatBall)
@@ -392,8 +405,15 @@ class FloatBallService : Service() {
         // 迷你球只是气泡锚点：收件箱为空时没有任何可承载的内容，不应常驻显示
         //（空收件箱仍持久显示迷你球即本 bug）。有内容才出，无内容则摘窗。
         val miniVisible = miniMode && inboxState.items.isNotEmpty()
-        val enabled = (settings.enabled || miniVisible) && canDrawOverlays() &&
+        val baseVisible = (settings.enabled || miniVisible) && canDrawOverlays() &&
             (settings.enabled || gestureEnabledSnapshot)
+        val sceneVisible = shouldShowFloatBall(
+            initialSettings = hunoia.luno.config.model.InitialSettings(
+                buttonVisibility = visibilitySettings,
+            ),
+            runtimeState = RuntimeStateHub.current(),
+        )
+        val enabled = baseVisible && sceneVisible
         val panelHidden = visibility.isPanelHidden
         val tempHidden = visibility.isTempHidden()
         val shouldShow = enabled && !panelHidden && !tempHidden
@@ -401,7 +421,7 @@ class FloatBallService : Service() {
             // 气泡锚在球上：球被面板/临时隐藏/摘窗时气泡一并收起（队列与徽标保留，决策 9）。
             hideCapsule()
             if (ballVisible) {
-                if (enabled) {
+                if (baseVisible) {
                     // 面板/临时隐藏是短态：软隐藏（窗口保留、不可见不可点），
                     // 免掉整拆整建（removeView→新 ComposeView→首帧组合→addView），
                     // 面板开合频繁（音量刮擦每次都发面板事件）时差距最明显。
@@ -1579,4 +1599,5 @@ class FloatBallService : Service() {
 private data class FloatBallRuntimeConfig(
     val action: ActionSettings,
     val gestureEnabled: Boolean,
+    val buttonVisibility: ButtonVisibilitySettings,
 )

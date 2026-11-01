@@ -25,6 +25,7 @@ import hunoia.luno.R
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.VisibilityProfile
 import hunoia.luno.config.model.VisibilityScreen
+import hunoia.luno.config.model.VisibilityTargetMode
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.row.LunoSwitchRow
@@ -124,11 +125,14 @@ internal object ButtonVisibilityText {
             if (profile.visible) R.string.button_visibility_summary_show
             else R.string.button_visibility_summary_hide,
         )
-        val target = when {
-            profile.target == hunoia.luno.action.model.ButtonTarget.ALL ->
-                stringResource(R.string.button_visibility_target_all)
-            profile.buttonIds.isEmpty() -> stringResource(R.string.button_visibility_target_all)
-            else -> stringResource(R.string.button_visibility_target_count, profile.buttonIds.size)
+        val target = when (profile.mode) {
+            VisibilityTargetMode.ALL -> stringResource(R.string.button_visibility_target_all)
+            VisibilityTargetMode.ONLY -> stringResource(
+                R.string.button_visibility_target_only,
+            ) + " · " + stringResource(R.string.button_visibility_target_count, profile.targetIds.size)
+            VisibilityTargetMode.EXCEPT -> stringResource(
+                R.string.button_visibility_target_except,
+            ) + " · " + stringResource(R.string.button_visibility_target_count, profile.targetIds.size)
         }
         return "$apps · $screens · $action · $target"
     }

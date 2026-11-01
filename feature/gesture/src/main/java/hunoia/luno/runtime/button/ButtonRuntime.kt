@@ -7,7 +7,10 @@ import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.VisibilityProfile
 import hunoia.luno.config.model.VisibilityScreen
+import hunoia.luno.config.model.VisibilityTargetMode
+import hunoia.luno.config.model.VisibilityTargets
 import hunoia.luno.runtime.GestureRuntimeState
+import hunoia.luno.runtime.RuntimeStateHub
 import hunoia.luno.runtime.overlay.ButtonWindowController
 import hunoia.luno.runtime.settings.SettingsStore
 import kotlinx.coroutines.CoroutineScope
@@ -45,6 +48,7 @@ class ButtonRefreshCoordinator(
     private val buttonWindowController: ButtonWindowController,
 ) {
     fun refresh(runtimeState: GestureRuntimeState) {
+        RuntimeStateHub.update(runtimeState)
         val settings = runtimeSettingsStore.snapshot()
         val policy = ButtonVisibilityPolicy(
             initialSettings = settings.initialSettings,
@@ -95,8 +99,27 @@ private fun VisibilityScreen.matches(state: GestureRuntimeState): Boolean = when
     VisibilityScreen.KEYBOARD_INPUT -> state.isKeyboardInputActive
 }
 
-private fun VisibilityProfile.affects(buttonId: String): Boolean = when (target) {
-    hunoia.luno.action.model.ButtonTarget.ALL -> true
-    hunoia.luno.action.model.ButtonTarget.ONLY -> buttonId in buttonIds
-    hunoia.luno.action.model.ButtonTarget.EXCEPT -> buttonId !in buttonIds
+private fun VisibilityProfile.affects(targetId: String): Boolean = when (mode) {
+    VisibilityTargetMode.ALL -> true
+    VisibilityTargetMode.ONLY -> targetId in targetIds
+    VisibilityTargetMode.EXCEPT -> targetId !in targetIds
+}
+
+/**
+ * 悬浮球是否被场景允许显示。null = 运行态尚未就绪，按允许处理（不阻塞球的原有门控）。
+ *
+ * 总开关与临时隐藏仍由 FloatBallService 判断；这里只做场景匹配。
+ */
+fun shouldShowFloatBall(
+    initialSettings: InitialSettings,
+    runtimeState: GestureRuntimeState?,
+): Boolean {
+    val state = runtimeState ?: return true
+    var visible = true
+    initialSettings.buttonVisibility.profiles.forEach { profile ->
+        if (profile.enabled && profile.matches(state) && profile.affects(VisibilityTargets.FLOAT_BALL)) {
+            visible = profile.visible
+        }
+    }
+    return visible
 }

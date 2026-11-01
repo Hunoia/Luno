@@ -48,10 +48,6 @@ data class GestureButtonSettings(
 @Serializable
 data object Home
 
-@Keep
-@Serializable
-data object ActionSettings
-
 /** 屏幕识别设置页：全屏长按识屏与幽灵卡参数。 */
 @Keep
 @Serializable

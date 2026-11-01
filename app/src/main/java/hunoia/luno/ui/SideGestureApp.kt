@@ -39,7 +39,6 @@ import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.navigation.GestureButtonSettings
 
 import hunoia.luno.ui.navigation.Home
-import hunoia.luno.ui.navigation.ActionSettings
 import hunoia.luno.ui.navigation.OcrModelSettings
 import hunoia.luno.ui.navigation.ScreenPickSettings
 import hunoia.luno.ui.navigation.NotificationBlocklist
@@ -68,7 +67,6 @@ import hunoia.luno.ui.navigation.ActionLibraryEdit
 
 import hunoia.luno.ui.actionselect.ActionSelectContent
 import hunoia.luno.ui.actionlibrary.ActionLibraryEditScreen
-import hunoia.luno.ui.settings.action.ActionSettingsScreen
 import hunoia.luno.ui.settings.action.OcrModelSettingsScreen
 import hunoia.luno.ui.settings.action.ScreenPickSettingsScreen
 import hunoia.luno.ui.settings.action.RecentAppsBlocklistScreen
@@ -154,12 +152,23 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToSubGestureEditor = { subGestureId ->
                             navController.navigate(SubGestureEditor(subGestureId))
                         },
-                        onNavToActionSettings = {
-                            navController.navigate(ActionSettings)
-                        },
                         onNavToSearchEngines = { navController.navigate(SearchEngineSettings) },
                         onNavToFloatBallSettings = { navController.navigate(FloatBallEdit) },
                         onNavToButtonVisibility = { navController.navigate(ButtonVisibility) },
+                        onNavToActionPanels = { navController.navigate(ActionPanelList) },
+                        onNavToGridPanels = { navController.navigate(GridPanelList) },
+                        onNavToRecentAppsBlocklist = { navController.navigate(RecentAppsBlocklist) },
+                        onNavToMiniWindowAdjust = { navController.navigate(MiniWindowAdjust) },
+                        onNavToLinkDispatch = { navController.navigate(LinkDispatchRules) },
+                        onNavToActionSelect = {
+                            navController.navigate(ActionSelect(copyDeepLink = true))
+                        },
+                        onNavToPrivilegedPermissions = {
+                            navController.navigate(PrivilegedPermissions)
+                        },
+                        onNavToScreenPickSettings = {
+                            navController.navigate(ScreenPickSettings)
+                        },
                         onNavToActionLibraryEdit = { entryId, typeId ->
                             navController.navigate(ActionLibraryEdit(entryId, typeId))
                         },
@@ -175,25 +184,6 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                     ActionSelectContent(
                         onDismissRequest = { navController.popBackStack() },
                         actionSelect = it.toRoute()
-                    )
-                }
-                myComposable<ActionSettings> {
-                    ActionSettingsScreen(
-                        onBack = { navController.popBackStack() },
-                        onNavToActionPanels = { navController.navigate(ActionPanelList) },
-                        onNavToGridPanels = { navController.navigate(GridPanelList) },
-                        onNavToRecentAppsBlocklist = { navController.navigate(RecentAppsBlocklist) },
-                        onNavToMiniWindowAdjust = { navController.navigate(MiniWindowAdjust) },
-                        onNavToLinkDispatch = { navController.navigate(LinkDispatchRules) },
-                        onNavToActionSelect = {
-                            navController.navigate(ActionSelect(copyDeepLink = true))
-                        },
-                        onNavToPrivilegedPermissions = {
-                            navController.navigate(PrivilegedPermissions)
-                        },
-                        onNavToScreenPickSettings = {
-                            navController.navigate(ScreenPickSettings)
-                        },
                     )
                 }
                 myComposable<ScreenPickSettings> {
