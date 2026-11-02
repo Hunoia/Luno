@@ -165,6 +165,4 @@ object FloatBallDefaults {
     const val InboxCapacityMin = 5
     const val InboxCapacityMax = 20
 
-    /** 主球关闭但收件箱开启时的迷你球直径。 */
-    const val MiniBallSizeDp = 40f
 }

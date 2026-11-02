@@ -26,6 +26,8 @@ enum class VisibilityTargetMode {
 /** 场景可作用的非触钮 Surface。触钮直接用 `GestureButton.id`。 */
 object VisibilityTargets {
     const val FLOAT_BALL = "surface:float_ball"
+    const val NOTIFICATION_CAPSULE = "surface:notification_capsule"
+    const val CLIPBOARD_BALL = "surface:clipboard_ball"
 }
 
 /**

@@ -18,6 +18,9 @@ interface SystemFacade {
     fun setFloatBallEnabled(context: Context, enabled: Boolean)
     fun refreshFloatBall(context: Context)
 
+    /** 总闸重新打开后按落盘配置恢复悬浮球宿主（球 / 通知 / 剪贴板任一开启才拉起）。 */
+    suspend fun restoreFloatBall(context: Context)
+
     /** 通知使用权是否已授（通知胶囊 / 媒体控制共用）。 */
     fun isNotificationAccessGranted(context: Context): Boolean
 
@@ -52,6 +55,9 @@ object SystemUseCases : SystemFacade {
         FloatBallUseCase.setEnabled(context, enabled)
 
     override fun refreshFloatBall(context: Context) = FloatBallUseCase.refresh(context)
+
+    override suspend fun restoreFloatBall(context: Context) =
+        FloatBallUseCase.restoreIfEnabled(context)
 
     override fun isNotificationAccessGranted(context: Context): Boolean =
         hunoia.luno.bridge.system.NotificationAccess.isGranted(context)

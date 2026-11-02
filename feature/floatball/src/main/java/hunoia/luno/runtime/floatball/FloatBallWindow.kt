@@ -27,6 +27,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
@@ -71,10 +74,8 @@ class FloatBallWindow(
     private var badgeView: TextView? = null
     private var ballPx = 0
 
-    /** 主球关闭但收件箱开启时的迷你形态：40dp、半透明、无静置外移。 */
-    private var miniMode = false
-
-    private var settings: FloatBallSettings = FloatBallSettings()
+    /** Compose 会读取动作图标 / 颜色：必须是快照状态，否则配置更新不重组。 */
+    private var settings by mutableStateOf(FloatBallSettings())
 
     private val arbiter = FloatBallTouchArbiter(
         onSlideDragged = { dx, dy -> onDragged(dx, dy) },
@@ -157,44 +158,14 @@ class FloatBallWindow(
     // ---- 生命周期 ----
 
     fun updateSettings(next: FloatBallSettings) {
-        val oldSize = effectiveSizeDp()
+        val sizeChanged = next.sizeDp != settings.sizeDp
         settings = next
-        val newSize = effectiveSizeDp()
-        if (newSize != oldSize) {
-            ballPx = DensityProvider.dp2px(newSize)
+        if (sizeChanged) {
+            ballPx = DensityProvider.dp2px(next.sizeDp)
             view?.let { lpSize(it) }
             if (view != null) applyWindowBounds()
         }
-        if (miniMode) {
-            cancelIdleTimer()
-            if (idled) {
-                idled = false
-                applyVisual()
-            }
-        }
     }
-
-    /** 主球关闭但收件箱开启：切到迷你球形态。 */
-    fun setMiniMode(enabled: Boolean) {
-        if (miniMode == enabled) return
-        miniMode = enabled
-        val newSize = effectiveSizeDp()
-        if (view != null) {
-            ballPx = DensityProvider.dp2px(newSize)
-            view?.let(::lpSize)
-            applyWindowBounds()
-        }
-        if (miniMode) {
-            cancelIdleTimer()
-            if (idled) idled = false
-        } else {
-            scheduleIdle()
-        }
-        applyVisual()
-    }
-
-    private fun effectiveSizeDp(): Float =
-        if (miniMode) FloatBallDefaults.MiniBallSizeDp else settings.sizeDp
 
     /**
      * 球当前可见矩形（屏幕坐标）。静置半出屏时用平移后的实际可见边，
@@ -237,10 +208,11 @@ class FloatBallWindow(
     /** 建窗口。false = 没建起来（未授权 / 系统拒绝）。 */
     fun attach(): Boolean {
         if (view != null) return true
-        ballPx = DensityProvider.dp2px(effectiveSizeDp())
+        ballPx = DensityProvider.dp2px(settings.sizeDp)
         val compose = ComposeView(context).apply {
             setBackgroundColor(AndroidColor.TRANSPARENT)
-            FloatBallLifecycleOwner.createAndAttachTo(this)
+            // RESUMED：球图标/颜色由快照状态驱动，CREATED 下重组不会上屏。
+            FloatBallLifecycleOwner.createAndAttachTo(this, active = true)
             setContent { BallContent() }
         }
         val badge = TextView(context).apply {
@@ -298,7 +270,7 @@ class FloatBallWindow(
         // owner 必须也在 root 上：Compose 建 recomposer 时查的是 view.rootView（最外层）
         // 而非 ComposeView 自己 —— 只设在 Compose 上，root 树查不到 owner 会直接崩
         //（ViewTreeLifecycleOwner not found from FrameLayout），服务循环崩溃、球永远出不来。
-        FloatBallLifecycleOwner.createAndAttachTo(root)
+        FloatBallLifecycleOwner.createAndAttachTo(root, active = true)
         val lp = createLayoutParams()
         if (!wm.safeAddView(root, lp)) {
             Log.e(TAG, "ball addView failed (overlay permission or window rejected)")
@@ -774,14 +746,6 @@ class FloatBallWindow(
             }
             return
         }
-        if (miniMode) {
-            cancelIdleTimer()
-            if (idled) {
-                idled = false
-                applyVisual()
-            }
-            return
-        }
         val delay = settings.idleDimDelayMs
         if (delay <= 0L) {
             if (idled) {
@@ -835,7 +799,6 @@ class FloatBallWindow(
         val alpha = when {
             capsuleActive -> 0f
             visuallyHidden -> 0f
-            miniMode -> MINI_BALL_ALPHA
             idled -> FloatBallDefaults.IdleDimAlpha
             else -> 1f
         }
@@ -948,7 +911,5 @@ class FloatBallWindow(
 
         /** 软隐藏/摘窗的淡出时长：短促收掉，不拖泥带水。 */
         const val HIDE_FADE_MS = 150L
-
-        const val MINI_BALL_ALPHA = 0.62f
     }
 }

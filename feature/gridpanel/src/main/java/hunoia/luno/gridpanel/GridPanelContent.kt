@@ -33,6 +33,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.gridpanel.R
 import hunoia.luno.core.domain.StoredAction
+import hunoia.luno.core.domain.gridPanelId
 import hunoia.luno.core.domain.withoutVariantKey
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.EditRowExtra
@@ -332,6 +333,10 @@ fun GridPanelRoot(
             showToast(R.string.toast_accessibility_required)
             return
         }
+        // 另一个网格面板：执行链已让 GridPanelOverlay 就地切换 panelIdState，
+        // 这里不能再关，否则刚切过去的目标面板会被旧面板的退场动画收掉。
+        val targetPanelId = action.gridPanelId()
+        if (targetPanelId != null && targetPanelId != panel.id) return
         closeWithAnim()
     }
 

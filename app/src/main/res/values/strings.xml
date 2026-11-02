@@ -109,6 +109,8 @@
     <string name="button_visibility_target_except">除选中的元素</string>
     <string name="button_visibility_target_count">%1$d 个元素</string>
     <string name="button_visibility_target_float_ball">悬浮球</string>
+    <string name="button_visibility_target_notification_capsule">通知气泡</string>
+    <string name="button_visibility_target_clipboard_ball">剪贴板气泡</string>
     <string name="button_visibility_delete_title">删除这个场景？</string>
     <string name="button_visibility_delete_text">删除后该场景不再影响触钮或悬浮球显隐</string>
     <string name="button_visibility_screen_lock">锁屏</string>
@@ -220,7 +222,6 @@
     <string name="float_ball_inbox_group">收件箱</string>
     <string name="float_ball_inbox_capacity">收件箱容量</string>
     <string name="float_ball_inbox_capacity_hint">容量满时优先淘汰最旧的未钉住项</string>
-    <string name="float_ball_mini_hint">主球关闭但通知或剪贴板收件箱开启时，显示迷你球作为气泡锚点；长按打开收件箱</string>
     <string name="action_panel_missing">面板已不存在，请返回重新添加</string>
     <string name="action_panel_items_count">%1$d 项</string>
     <string name="action_panel_count">%1$d 个面板</string>

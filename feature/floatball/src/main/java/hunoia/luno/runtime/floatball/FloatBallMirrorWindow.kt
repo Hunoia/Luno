@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
@@ -39,9 +42,8 @@ class FloatBallMirrorWindow(
 
     private var view: View? = null
     private var ballPx = 0
-    // Compose 态：MirrorFace 的描边偏移/颜色依赖重组，普通字段不会触发重绘
-    // （真机「换位后半圆方向不对」的根因）。
-    private var settings: FloatBallSettings = FloatBallSettings()
+    // Compose 态：MirrorFace 的颜色依赖重组，普通字段不会触发重绘。
+    private var settings by mutableStateOf(FloatBallSettings())
 
     private var posX = 0f
     private var posY = 0f
@@ -99,7 +101,7 @@ class FloatBallMirrorWindow(
         ballPx = DensityProvider.dp2px(settings.sizeDp)
         val created = ComposeView(context).apply {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
-            FloatBallLifecycleOwner.createAndAttachTo(this)
+            FloatBallLifecycleOwner.createAndAttachTo(this, active = true)
             setContent { MirrorContent() }
         }
         created.setOnTouchListener { _, event ->

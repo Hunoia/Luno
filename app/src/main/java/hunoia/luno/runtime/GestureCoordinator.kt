@@ -676,6 +676,32 @@ class GestureCoordinator(
         )
     }
 
+    /**
+     * 总开关关闭：把已展开的会话与浮层全部收口，避免“总闸关了，面板还盖在屏幕上”。
+     * 触钮/悬浮球各自的可见性由 ButtonRuntime / FloatBallService 处理；这里只负责
+     * 已经打开的临时 Surface 与手势会话。
+     */
+    private fun closeSurfacesForMasterOff() {
+        gesturePipelineRef?.let { pipeline ->
+            pipeline.actionPanelState.cancel()
+            pipeline.sideGestureState.cancel()
+            pipeline.subGestureState.clear(notifyService = false)
+        }
+        actionPanelFullscreen = false
+        pointerCursorHosted = false
+        syncMainOverlayFullscreen()
+        transientOverlayController.detachAll()
+        actionPanelDismissGeneration++
+        if (actionPanelOverlayEventPosted || actionPanelVisibilityEventPosted) {
+            actionPanelOverlayEventPosted = false
+            actionPanelVisibilityEventPosted = false
+            Events.post(PanelDismissedEvent())
+        }
+        volumeScrubRuntime.end()
+        pointerRuntime.end()
+        dismissPanelsForScreenAction()
+    }
+
     /** 手势决策唯一入口：记录后立即分发；仲裁/改写只改这里。 */
     private fun onGestureDecision(
         decision: hunoia.luno.gesture.GestureDecision.Trigger?,
@@ -922,9 +948,10 @@ class GestureCoordinator(
         // 手势会话管线与输入源跟随配置：按钮、面板、参数、输入模式任一变化都走同一条同步。
         // 先同步配置再决定输入源，避免用旧快照建拦截窗。
         scopeJobs += host.coroutineScope.launch {
-            runtimeSettingsStore.state.collect {
+            runtimeSettingsStore.state.collect { state ->
                 syncGesturePipeline()
                 syncTouchInputSources()
+                if (!state.initialSettings.gestureEnabled) closeSurfacesForMasterOff()
             }
         }
 

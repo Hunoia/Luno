@@ -224,7 +224,13 @@ class HomeVM : HomeVMBase() {
                 isAccessibilityEnabled = if (enabled) true else it.isAccessibilityEnabled,
             ).withRuntimeStatus()
         }
-        saveGestureSwitchEnabled(enabled)
+        saveGestureSwitchEnabled(enabled) {
+            if (enabled) {
+                // 总闸重新打开：按落盘的球/收件箱配置把共同宿主拉回来。
+                // 关闭方向由 FloatBallService 收到总闸后自行 stopSelf，不需要在这里抢时序。
+                AppGraph.system.restoreFloatBall(AppContext.get())
+            }
+        }
     }
 
     fun onGestureButtonEnabledChange(button: GestureButton, enabled: Boolean) {

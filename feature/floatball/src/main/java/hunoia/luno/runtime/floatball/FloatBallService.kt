@@ -34,6 +34,7 @@ import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.core.TouchButtonSideEvent
 import hunoia.luno.config.model.LinkDispatchSettings
 import hunoia.luno.config.model.LinkTapMode
+import hunoia.luno.config.model.VisibilityTargets
 import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.link.Links
 import hunoia.luno.link.LinkUrls
@@ -52,7 +53,7 @@ import hunoia.luno.runtime.notification.NotificationPulseHub
 import hunoia.luno.core.domain.NotificationPulse
 import hunoia.luno.runtime.GestureRuntimeState
 import hunoia.luno.runtime.RuntimeStateHub
-import hunoia.luno.runtime.button.shouldShowFloatBall
+import hunoia.luno.runtime.button.shouldShowSurface
 import hunoia.luno.runtime.dispatch.ActionDispatch
 import hunoia.luno.runtime.environment.BroadcastObserver
 import hunoia.luno.runtime.surface.SurfaceDispatch
@@ -281,10 +282,10 @@ class FloatBallService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
-            // 还有功能要宿主就不退（球关了胶囊/剪贴板球可能还开着）；真全关走
-            // settings 收集处的自停，那边有三开关的完整状态。
-            if (settings.enabled || settings.notificationCapsule.enabled ||
-                settings.clipboardBall.enabled
+            // 总闸关恒停；否则球/通知/剪贴还有任一想用的功能就保留宿主。
+            if (gestureEnabledSnapshot &&
+                (settings.enabled || settings.notificationCapsule.enabled ||
+                    settings.clipboardBall.enabled)
             ) {
                 refreshWindows()
                 return START_STICKY
@@ -361,9 +362,10 @@ class FloatBallService : Service() {
                     applyInboxSettings()
                     applyClipboardListener()
                     refreshWindows()
-                    // 自停不变式：悬浮球、通知胶囊、剪贴板球全关，前台服务没有存在意义。
-                    if (!settings.enabled && !settings.notificationCapsule.enabled &&
-                        !settings.clipboardBall.enabled
+                    // 自停不变式：总闸关，或悬浮球与两个收件箱来源全关，前台服务没有存在意义。
+                    if (!gestureEnabledSnapshot ||
+                        (!settings.enabled && !settings.notificationCapsule.enabled &&
+                            !settings.clipboardBall.enabled)
                     ) {
                         stopSelf()
                     }
@@ -371,18 +373,12 @@ class FloatBallService : Service() {
         }
     }
 
-    /** 主球关闭但任一收件箱来源开启：迷你球形态（决策 11）。 */
-    private var miniMode = false
-
     /** refreshWindows 重入保护：hideCapsule / 收件箱清空路径会回触发 refreshWindows，
      *  嵌套调用直接跳过，由最外层那次做完整挂/摘评估，避免无限递归。 */
     private var refreshingWindows = false
 
     /** 收件箱 TTL/容量落到 reducer 配置；变化后重排下一轮清理。 */
     private fun applyInboxSettings() {
-        miniMode = !settings.enabled &&
-            (settings.notificationCapsule.enabled || settings.clipboardBall.enabled)
-        ballWindow.setMiniMode(miniMode)
         val next = BallInboxConfig(
             notificationTtlMs = settings.inbox.notificationTtlMs,
             clipboardTtlMs = settings.inbox.clipboardTtlMs,
@@ -413,21 +409,16 @@ class FloatBallService : Service() {
         refreshCapsule()
         // 门控（权限/总闸）可能刚变化，轮询按需启停（幂等，只查 job 状态）。
         ensureClipboardPoller()
-        // 迷你球只是气泡锚点：收件箱为空时没有任何可承载的内容，不应常驻显示
-        //（空收件箱仍持久显示迷你球即本 bug）。有内容才出，无内容则摘窗。
-        val miniVisible = miniMode && inboxState.items.isNotEmpty()
-        val baseVisible = (settings.enabled || miniVisible) && canDrawOverlays() &&
-            (settings.enabled || gestureEnabledSnapshot)
-        val sceneVisible = shouldShowFloatBall(
-            initialSettings = hunoia.luno.config.model.InitialSettings(
-                buttonVisibility = visibilitySettings,
-            ),
-            runtimeState = RuntimeStateHub.current(),
-        )
-        val enabled = baseVisible && sceneVisible
+        // 球开关开：常驻球，受「悬浮球」显隐场景控制。
+        // 球开关关但收件箱非空：同一个球作为气泡锚点短暂出现，无内容立即隐藏。
+        val persistentVisible = gestureEnabledSnapshot && settings.enabled &&
+            canDrawOverlays() && sceneAllows(VisibilityTargets.FLOAT_BALL)
+        val inboxAnchorVisible = gestureEnabledSnapshot && !settings.enabled &&
+            canDrawOverlays() && inboxAnchorEligible()
+        val baseVisible = persistentVisible || inboxAnchorVisible
         val panelHidden = visibility.isPanelHidden
         val tempHidden = visibility.isTempHidden()
-        val shouldShow = enabled && !panelHidden && !tempHidden
+        val shouldShow = baseVisible && !panelHidden && !tempHidden
         if (!shouldShow) {
             // 气泡锚在球上：球被面板/临时隐藏/摘窗时气泡一并收起（队列与徽标保留，决策 9）。
             hideCapsule()
@@ -451,7 +442,7 @@ class FloatBallService : Service() {
             ballVisible = ballWindow.attachAnimated()
             if (ballVisible) {
                 ballWindow.setHidden(isScreenLocked())
-                if (settings.mirrorBall && !miniMode) mirrorWindow.attach(animated = true)
+                if (settings.enabled && settings.mirrorBall) mirrorWindow.attach(animated = true)
                 mirrorWindow.setHidden(isScreenLocked())
                 // 新窗口的 insets 推播能力未知：兜底轮询按需补启（息屏期间被停过也一样）。
                 ensureImeObserver()
@@ -460,7 +451,7 @@ class FloatBallService : Service() {
             // 软隐藏 → 恢复：窗口还在，直接亮回（带回场动画），不走重建。
             ballWindow.setPanelHidden(false)
             mirrorWindow.setPanelHidden(false)
-            if (settings.mirrorBall && !miniMode) {
+            if (settings.enabled && settings.mirrorBall) {
                 if (!mirrorWindow.attach(animated = true)) return
                 mirrorWindow.setHidden(isScreenLocked())
                 mirrorWindow.snapToMirror()
@@ -536,12 +527,38 @@ class FloatBallService : Service() {
             gestureEnabledSnapshot &&
             !isScreenLocked()
 
-    /** 胶囊可见条件：与球同套联动 + 自身开关。 */
-    private fun capsuleAllowed(): Boolean =
-        settings.notificationCapsule.enabled && transientOverlayAllowed()
+    /** 当前运行态是否允许某块 Surface（显隐场景）。 */
+    private fun sceneAllows(targetId: String): Boolean = shouldShowSurface(
+        targetId = targetId,
+        initialSettings = hunoia.luno.config.model.InitialSettings(
+            buttonVisibility = visibilitySettings,
+        ),
+        runtimeState = RuntimeStateHub.current(),
+    )
+
+    /** 通知气泡可见条件：自身开关 + 瞬态门控 + 独立显隐场景。 */
+    private fun notificationCapsuleAllowed(): Boolean =
+        settings.notificationCapsule.enabled &&
+            transientOverlayAllowed() &&
+            sceneAllows(VisibilityTargets.NOTIFICATION_CAPSULE)
+
+    /** 收件箱当前项来自哪个来源，就按该来源的独立开关与显隐场景判断。 */
+    private fun sourceCapsuleAllowed(source: BallSource): Boolean = when (source) {
+        BallSource.NOTIFICATION -> notificationCapsuleAllowed()
+        BallSource.CLIPBOARD -> clipboardBallAllowed()
+    }
+
+    private fun currentCapsuleAllowed(): Boolean =
+        inboxState.current?.let { sourceCapsuleAllowed(it.source) } == true
+
+    /**
+     * 球开关关闭时，悬浮球只在收件箱有可展示内容时作为锚点出现；
+     * 当前项来源被开关/显隐场景挡住时，连锚点球也不出现（内容只入队等待）。
+     */
+    private fun inboxAnchorEligible(): Boolean = currentCapsuleAllowed()
 
     private fun onNotificationArrived(pulse: NotificationPulse) {
-        if (!settings.notificationCapsule.enabled) return
+        if (!gestureEnabledSnapshot || !settings.notificationCapsule.enabled) return
         if (pulse.packageName in settings.notificationCapsule.blocklist) return
         if (isCapsuleDismissed(pulse.key)) {
             Log.i(TAG, "capsule skip dismissed pkg=${pulse.packageName} key=${pulse.key}")
@@ -576,7 +593,7 @@ class FloatBallService : Service() {
         settleJobs[settleKey] = scope.launch {
             delay(CAPSULE_SETTLE_MS)
             settleJobs.remove(settleKey)
-            if (!settings.notificationCapsule.enabled) return@launch
+            if (!gestureEnabledSnapshot || !settings.notificationCapsule.enabled) return@launch
             if (!NotificationPulseListener.isPosted(pulse.key)) {
                 Log.i(TAG, "capsule skip gone pkg=${pulse.packageName} key=${pulse.key}")
                 return@launch
@@ -614,7 +631,7 @@ class FloatBallService : Service() {
         }
         // 锁屏/面板/临时隐藏：只入队不探头，解锁后徽标可见（决策 9 / §7.1）。
         // 同 key 更新在自动探头状态下允许替换当前项重新探头；手动浏览不抢（§4.2/§7.5）。
-        if (!capsuleAllowed() || manualSession) {
+        if (!notificationCapsuleAllowed() || manualSession) {
             if (capsuleShowing && manualSession) {
                 smartBubble.updateItems(inboxState.items, inboxState.currentIndex)
             }
@@ -628,10 +645,12 @@ class FloatBallService : Service() {
     /** 按收件箱当前项显示/刷新胶囊；入队后新项在队首，即当前项。 */
     private fun showBubbleForCurrent() {
         val item = inboxState.current
-        if (item == null) {
+        if (item == null || !sourceCapsuleAllowed(item.source)) {
             hideCapsule()
             return
         }
+        // 球开关关闭时先把锚点球挂上，否则气泡只能按落盘坐标估算位置。
+        if (!ballVisible) refreshWindows()
         // 先唤醒球（取消静置半出屏），再按完整矩形算锚点；胶囊挂窗成功后才隐藏球窗。
         ballWindow.setIdleSuppressed(true)
         refreshBubbleLink()
@@ -799,7 +818,7 @@ class FloatBallService : Service() {
 
     /** 面板/临时隐藏/锁屏等联动入口共用：在屏但不允许了就收起（收起后不补播旧通知）。 */
     private fun refreshCapsule() {
-        if (capsuleShowing && !capsuleAllowed()) hideCapsule()
+        if (capsuleShowing && !currentCapsuleAllowed()) hideCapsule()
     }
 
     /** 用户下滑关闭：未钉住移除当前项并收起；已钉住只收起、项保留（决策 10）。 */
@@ -855,7 +874,7 @@ class FloatBallService : Service() {
     }
 
     private fun onNotificationRemovedFromSystem(pulse: NotificationPulse) {
-        if (!settings.notificationCapsule.enabled) return
+        if (!gestureEnabledSnapshot || !settings.notificationCapsule.enabled) return
         val key = pulse.key ?: return
         val change = BallInboxReducer.reduce(
             inboxState,
@@ -951,10 +970,11 @@ class FloatBallService : Service() {
         scope.launch { onClipboardChanged() }
     }
 
-    /** 监听器随开关注册/注销（注册有旗标防重复；关闭即收在屏的球）。 */
+    /** 监听器随开关/总闸注册与注销（注册有旗标防重复；关闭即收在屏的球）。 */
     private fun applyClipboardListener() {
         val manager = getSystemService<ClipboardManager>()
-        if (settings.clipboardBall.enabled && !clipboardListenerRegistered) {
+        val shouldListen = gestureEnabledSnapshot && settings.clipboardBall.enabled
+        if (shouldListen && !clipboardListenerRegistered) {
             // 刚开启：清空基线，首次读取只对齐基线不补弹（开关前就有的旧内容不弹）。
             lastSeenClip = null
             if (manager != null) {
@@ -963,7 +983,7 @@ class FloatBallService : Service() {
                 clipboardListenerRegistered = true
                 Log.i(TAG, "clipboard listener registered")
             }
-        } else if (!settings.clipboardBall.enabled && clipboardListenerRegistered) {
+        } else if (!shouldListen && clipboardListenerRegistered) {
             unregisterClipboardListener()
             // 功能关闭：清空收件箱里的剪贴板来源（含钉住项），在屏气泡随当前项清空收起。
             inboxState = BallInboxReducer.reduce(
@@ -988,9 +1008,11 @@ class FloatBallService : Service() {
         clipboardListenerRegistered = false
     }
 
-    /** 剪贴板来源可见条件：与共享气泡同套联动 + 自身开关。 */
+    /** 剪贴板气泡可见条件：自身开关 + 瞬态门控 + 独立显隐场景。 */
     private fun clipboardBallAllowed(): Boolean =
-        settings.clipboardBall.enabled && transientOverlayAllowed()
+        settings.clipboardBall.enabled &&
+            transientOverlayAllowed() &&
+            sceneAllows(VisibilityTargets.CLIPBOARD_BALL)
 
     private suspend fun onClipboardChanged() {
         if (!clipboardBallAllowed()) {
@@ -1022,7 +1044,7 @@ class FloatBallService : Service() {
 
     /** 变化处理共用入口（监听器即时路径 + 轮询兜底路径）。返回值 = 这次变化已处理（可推进已读基线）。 */
     private fun onClipboardContent(content: ClipboardContent): Boolean {
-        if (!settings.clipboardBall.enabled) return false
+        if (!gestureEnabledSnapshot || !settings.clipboardBall.enabled) return false
         // 敏感文本 / 空文本 / 关掉图片开关时的图片：当作已处理，不弹也不入库。
         if (content is ClipboardContent.Text && (content.sensitive || content.text.isBlank())) {
             return true
@@ -1123,7 +1145,7 @@ class FloatBallService : Service() {
      * 当成新内容补弹。只读一次，无内容/读不到就没基线（下次读取自然重新建立）。
      */
     private fun seedClipboardBaseline() {
-        if (!settings.clipboardBall.enabled || isScreenLocked()) return
+        if (!gestureEnabledSnapshot || !settings.clipboardBall.enabled || isScreenLocked()) return
         scope.launch {
             val info = readClipForBall() ?: return@launch
             if (info is ClipboardContent.Text && info.text.isBlank()) return@launch
@@ -1182,7 +1204,7 @@ class FloatBallService : Service() {
      * 空队列无空气泡；已显示则视为重新探头，重置计时。
      */
     private fun onBallLongPressed() {
-        if (inboxState.items.isEmpty()) return
+        if (inboxState.items.isEmpty() || !currentCapsuleAllowed()) return
         manualSession = true
         showBubbleForCurrent()
     }
@@ -1315,16 +1337,20 @@ class FloatBallService : Service() {
     // ---- 点按派发 ----
 
     private fun onBallTapped() {
-        // 主球单击收起气泡（决策 18），队列与徽标保留。
-        if (capsuleShowing) hideCapsule()
-        // 迷你球没有用户动作：单击 = 切换气泡（§3.6）。
-        if (miniMode) {
-            if (!capsuleShowing && inboxState.items.isNotEmpty()) {
+        // 球开关关闭时的锚点球没有用户动作：单击 = 展开/收起收件箱气泡（§3.6）。
+        if (!settings.enabled) {
+            if (capsuleShowing) {
+                hideCapsule()
+                return
+            }
+            if (inboxState.items.isNotEmpty()) {
                 manualSession = true
                 showBubbleForCurrent()
             }
             return
         }
+        // 主球单击收起气泡（决策 18），队列与徽标保留。
+        if (capsuleShowing) hideCapsule()
         val action = settings.tapAction ?: return
         dispatchTapAction(action, ballCenterX(), ballCenterY())
     }

@@ -106,20 +106,51 @@ private fun VisibilityProfile.affects(targetId: String): Boolean = when (mode) {
 }
 
 /**
- * 悬浮球是否被场景允许显示。null = 运行态尚未就绪，按允许处理（不阻塞球的原有门控）。
+ * Surface 是否被场景允许显示。null = 运行态尚未就绪，按允许处理（不阻塞原有门控）。
  *
- * 总开关与临时隐藏仍由 FloatBallService 判断；这里只做场景匹配。
+ * 总开关、临时隐藏、面板占用与功能开关仍由各 Surface 宿主判断；这里只做场景匹配。
  */
-fun shouldShowFloatBall(
+fun shouldShowSurface(
+    targetId: String,
     initialSettings: InitialSettings,
     runtimeState: GestureRuntimeState?,
 ): Boolean {
     val state = runtimeState ?: return true
     var visible = true
     initialSettings.buttonVisibility.profiles.forEach { profile ->
-        if (profile.enabled && profile.matches(state) && profile.affects(VisibilityTargets.FLOAT_BALL)) {
+        if (profile.enabled && profile.matches(state) && profile.affects(targetId)) {
             visible = profile.visible
         }
     }
     return visible
 }
+
+/** 悬浮球场景。 */
+fun shouldShowFloatBall(
+    initialSettings: InitialSettings,
+    runtimeState: GestureRuntimeState?,
+): Boolean = shouldShowSurface(
+    VisibilityTargets.FLOAT_BALL,
+    initialSettings,
+    runtimeState,
+)
+
+/** 通知气泡场景。 */
+fun shouldShowNotificationCapsule(
+    initialSettings: InitialSettings,
+    runtimeState: GestureRuntimeState?,
+): Boolean = shouldShowSurface(
+    VisibilityTargets.NOTIFICATION_CAPSULE,
+    initialSettings,
+    runtimeState,
+)
+
+/** 剪贴板气泡场景。 */
+fun shouldShowClipboardBall(
+    initialSettings: InitialSettings,
+    runtimeState: GestureRuntimeState?,
+): Boolean = shouldShowSurface(
+    VisibilityTargets.CLIPBOARD_BALL,
+    initialSettings,
+    runtimeState,
+)

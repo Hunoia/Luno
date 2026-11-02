@@ -108,7 +108,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     private var linkInfo by mutableStateOf<ClipboardLinkInfo?>(null)
     private var linkItemId by mutableStateOf<String?>(null)
 
-    private var settings: FloatBallSettings = FloatBallSettings()
+    private var settings by mutableStateOf(FloatBallSettings())
     private var anchor = BubbleAnchor(0, 0, 0, 0)
     private var sideRight = false
     private var lpOriginY = 0

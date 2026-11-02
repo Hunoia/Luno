@@ -477,17 +477,5 @@ fun FloatBallEditScreen(
             }
         }
 
-        if (!floatBall.enabled &&
-            (floatBall.notificationCapsule.enabled || floatBall.clipboardBall.enabled)
-        ) {
-            item(key = "mini_hint") {
-                LunoGroup {
-                    LunoSettingsRow(
-                        title = stringResource(R.string.float_ball_mini_hint),
-                        shape = segmentedShape(0, 1),
-                    )
-                }
-            }
-        }
     }
 }

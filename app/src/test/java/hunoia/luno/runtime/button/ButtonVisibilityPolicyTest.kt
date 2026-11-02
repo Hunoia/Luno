@@ -194,6 +194,43 @@ class ButtonVisibilityPolicyTest {
     @Test
     fun floatBallDefaultsVisibleWithoutProfile() {
         assertTrue(shouldShowFloatBall(InitialSettings(), state()))
+        assertTrue(shouldShowNotificationCapsule(InitialSettings(), state()))
+        assertTrue(shouldShowClipboardBall(InitialSettings(), state()))
+    }
+
+    @Test
+    fun surfaceTargetsAreIndependent() {
+        val hideNotification = InitialSettings(
+            buttonVisibility = ButtonVisibilitySettings(
+                listOf(
+                    VisibilityProfile(
+                        id = "notification",
+                        visible = false,
+                        mode = VisibilityTargetMode.ONLY,
+                        targetIds = setOf(VisibilityTargets.NOTIFICATION_CAPSULE),
+                    ),
+                ),
+            ),
+        )
+        assertTrue(shouldShowFloatBall(hideNotification, state()))
+        assertFalse(shouldShowNotificationCapsule(hideNotification, state()))
+        assertTrue(shouldShowClipboardBall(hideNotification, state()))
+
+        val hideClipboard = InitialSettings(
+            buttonVisibility = ButtonVisibilitySettings(
+                listOf(
+                    VisibilityProfile(
+                        id = "clipboard",
+                        visible = false,
+                        mode = VisibilityTargetMode.ONLY,
+                        targetIds = setOf(VisibilityTargets.CLIPBOARD_BALL),
+                    ),
+                ),
+            ),
+        )
+        assertTrue(shouldShowFloatBall(hideClipboard, state()))
+        assertTrue(shouldShowNotificationCapsule(hideClipboard, state()))
+        assertFalse(shouldShowClipboardBall(hideClipboard, state()))
     }
 
     @Test
