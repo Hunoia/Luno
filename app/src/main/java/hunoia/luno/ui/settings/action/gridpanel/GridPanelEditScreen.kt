@@ -26,7 +26,7 @@ import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.config.model.withGeometry
+import hunoia.luno.config.model.withOrientation
 import hunoia.luno.gridpanel.geometry.GridResizePlan
 import hunoia.luno.gridpanel.geometry.planGridResize
 import hunoia.luno.ui.component.feedback.EmptyState
@@ -111,11 +111,12 @@ fun GridPanelEditScreen(
         val landscape = isLandscape()
 
         fun plan(panel: GridPanel): Pair<GridResizePlan, Int> {
-            val geo = panel.geometry(landscape)
+            val orientation = panel.orientation(landscape)
+            val geo = orientation.geometry
             val cols = geo.columnCount
                 .coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
             return planGridResize(
-                items = panel.items,
+                items = orientation.items,
                 columns = cols,
                 cardWidthFraction = geo.cardWidthFraction,
                 cardHeightFraction = geo.cardHeightFraction,
@@ -140,11 +141,14 @@ fun GridPanelEditScreen(
                 if (result.dropped.isNotEmpty()) {
                     Log.w(TAG, "resizeGrid drops ${result.dropped.size} item(s) at $cols columns")
                 }
-                val newGeo = resized.geometry(landscape).copy(columnCount = cols)
                 settings.copy(
                     actionGridPanels = settings.actionGridPanels.withPanel(
-                        (if (landscape) resized.copy(landscape = newGeo) else resized.copy(portrait = newGeo))
-                            .copy(items = result.items),
+                        resized.withOrientation(landscape) { orientation ->
+                            orientation.copy(
+                                geometry = orientation.geometry.copy(columnCount = cols),
+                                items = result.items,
+                            )
+                        },
                     ),
                 )
             }
@@ -236,12 +240,14 @@ fun GridPanelEditScreen(
                 var pendingColumns by remember { mutableStateOf<Int?>(null) }
                 key(columnSliderEpoch) {
                     LunoTextSlider(
-                        value = current.geometry(isLandscape()).columnCount.toFloat(),
+                        value = current.orientation(isLandscape()).geometry.columnCount.toFloat(),
                         onValueChange = { value -> pendingColumns = value.toInt() },
                         onValueChangeFinished = {
                             pendingColumns?.let { v ->
                                 resizeGrid(transform = {
-                                    it.withGeometry(isLandscape()) { g -> g.copy(columnCount = v) }
+                                    it.withOrientation(isLandscape()) { o ->
+                                        o.copy(geometry = o.geometry.copy(columnCount = v))
+                                    }
                                 })
                             }
                             pendingColumns = null
@@ -271,11 +277,15 @@ fun GridPanelEditScreen(
                 // 离屏边距：纯外观（clamp + 圆角联动），无级拖动、按 1dp 落盘。
                 var pendingMargin by remember { mutableStateOf<Float?>(null) }
                 LunoTextSlider(
-                    value = current.geometry(isLandscape()).screenMarginDp,
+                    value = current.orientation(isLandscape()).geometry.screenMarginDp,
                     onValueChange = { value -> pendingMargin = value.roundToInt().toFloat() },
                     onValueChangeFinished = {
                         pendingMargin?.let { v ->
-                            update { it.withGeometry(isLandscape()) { g -> g.copy(screenMarginDp = v) } }
+                            update {
+                                it.withOrientation(isLandscape()) { o ->
+                                    o.copy(geometry = o.geometry.copy(screenMarginDp = v))
+                                }
+                            }
                         }
                         pendingMargin = null
                     },

@@ -126,6 +126,7 @@ fun AppDrawerCell(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(DrawerPadding),
             userScrollEnabled = enabled,
+            enabled = enabled,
         )
     }
 }

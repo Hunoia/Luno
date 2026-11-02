@@ -10,7 +10,7 @@ object BackupVersions {
     const val FORMAT = 2
     const val GESTURE = 1
     const val TUNE = 1
-    const val ACTION = 1
+    const val ACTION = 2
     const val SEARCH = 1
 }
 

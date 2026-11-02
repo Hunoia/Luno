@@ -44,16 +44,21 @@ import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.config.model.GridPanelGeometry
 import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.config.model.GridPanelItemLayout
-import hunoia.luno.config.model.derivedPageCount
-import hunoia.luno.config.model.withGeometry
+import hunoia.luno.config.model.withOrientation
 import hunoia.luno.gridpanel.core.GridPanelState
 import hunoia.luno.gridpanel.geometry.GridMetrics
 import hunoia.luno.gridpanel.geometry.ResizeCorner
+import hunoia.luno.gridpanel.geometry.GridPadding
+import hunoia.luno.gridpanel.geometry.IndicatorHeight
+import hunoia.luno.gridpanel.geometry.gapFor
+import hunoia.luno.gridpanel.geometry.gridPanelCardHeight
+import hunoia.luno.gridpanel.geometry.keepCardHeightFraction
 import hunoia.luno.gridpanel.geometry.isLeft
 import hunoia.luno.gridpanel.geometry.isTop
 import hunoia.luno.gridpanel.geometry.rememberCardCornerPx
 import hunoia.luno.gridpanel.geometry.rememberGridMetrics
 import hunoia.luno.gridpanel.geometry.planGridResize
+import hunoia.luno.gridpanel.geometry.resolvePanelResize
 import hunoia.luno.gridpanel.ui.GridItemActions
 import hunoia.luno.gridpanel.widget.WidgetGoneListener
 import hunoia.luno.gridpanel.widget.addWidgetGoneListener
@@ -108,15 +113,19 @@ fun GridPanelRoot(
     }
     LaunchedEffect(Unit) { onRegisterCloseAnimated?.invoke { closeWithAnim() } }
 
+    // 横竖屏分别取几何与部件：转屏后面板显示另一朝向的独立布局。
+    val landscape = LocalConfiguration.current.orientation ==
+        android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
     // ---- 循环翻页状态（必须在 panel == null 分支之前声明：配置重读时 panel 可能
     // 闪一帧 null，状态若声明在其后会被整体丢弃 —— pager 回到初始页、editMode
     // 丢失，表现为「虚拟页加项返回后回到前一页」）。----
     // panel 短暂为 null 时沿用上一次有效页数：否则 pageCount 会闪成 1，
     // 映射效果把 pager 重锚到低位，回来后当前页和循环起点都丢了。
     var lastKnownPageCount by remember(panelId) {
-        mutableIntStateOf(panel?.derivedPageCount ?: 1)
+        mutableIntStateOf(panel?.orientation(landscape)?.derivedPageCount ?: 1)
     }
-    val pageCount = panel?.derivedPageCount ?: lastKnownPageCount
+    val pageCount = panel?.orientation(landscape)?.derivedPageCount ?: lastKnownPageCount
     LaunchedEffect(pageCount) {
         if (panel != null) lastKnownPageCount = pageCount
     }
@@ -195,9 +204,8 @@ fun GridPanelRoot(
     }
 
     // 横竖屏分别取几何：尺寸拖拽期间用本地预览，松手才落盘。
-    val landscape = LocalConfiguration.current.orientation ==
-        android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    val serverGeometry = panel.geometry(landscape)
+    val orientation = panel.orientation(landscape)
+    val serverGeometry = orientation.geometry
     var localGeometry by remember(panelId, landscape) { mutableStateOf(serverGeometry) }
     LaunchedEffect(serverGeometry) { localGeometry = serverGeometry }
     val geo = localGeometry
@@ -213,7 +221,7 @@ fun GridPanelRoot(
     )
     val cardFraction = geo.cardWidthFraction
         .coerceIn(
-            if (landscape) GridPanelDefaults.MinCardWidthFractionLandscape else GridPanelDefaults.MinCardWidthFraction,
+            GridPanelDefaults.MinCardWidthFraction,
             GridPanelDefaults.MaxCardWidthFraction,
         )
     val heightFraction = geo.cardHeightFraction
@@ -223,12 +231,12 @@ fun GridPanelRoot(
     // 项列表的本地真身：拖拽要连续多次落位，DataStore 回流有延迟，直接渲染
     // panel.items 会在快速拖动时被旧快照回跳。回流同步只认「与 lastWritten
     // 不同」的变更（自己写出去的回声不覆盖本地）。
-    var localItems by remember(panelId) { mutableStateOf(panel.items) }
-    var lastWritten by remember(panelId) { mutableStateOf(panel.items) }
-    LaunchedEffect(panel.items) {
-        if (panel.items != lastWritten) {
-            localItems = panel.items
-            lastWritten = panel.items
+    var localItems by remember(panelId, landscape) { mutableStateOf(orientation.items) }
+    var lastWritten by remember(panelId, landscape) { mutableStateOf(orientation.items) }
+    LaunchedEffect(orientation.items) {
+        if (orientation.items != lastWritten) {
+            localItems = orientation.items
+            lastWritten = orientation.items
         }
     }
 
@@ -242,7 +250,7 @@ fun GridPanelRoot(
                     val latest = settings.actionGridPanels.panelById(panel.id) ?: return@updateActionSettings settings
                     settings.copy(
                         actionGridPanels = settings.actionGridPanels.withPanel(
-                            latest.copy(items = rebuilt),
+                            latest.withOrientation(landscape) { it.copy(items = rebuilt) },
                         ),
                     )
                 }
@@ -259,7 +267,7 @@ fun GridPanelRoot(
                     val latest = settings.actionGridPanels.panelById(panel.id) ?: return@updateActionSettings settings
                     settings.copy(
                         actionGridPanels = settings.actionGridPanels.withPanel(
-                            latest.copy(items = next),
+                            latest.withOrientation(landscape) { it.copy(items = next) },
                         ),
                     )
                 }
@@ -272,6 +280,13 @@ fun GridPanelRoot(
     // 走 LocalConfiguration 而不是 displayMetrics：组合必须订阅配置变化才会在转屏后
     // 重算（只读 metrics 的组合不会重组）。
     val configuration = LocalConfiguration.current
+    // 提前取渲染几何常量：metrics 声明在 commitPinchColumns 之后，而保持卡高的反推
+    // 需要这些不随列数变化的量（screen/gridPad/indicator 固定，gap 随列数另取）。
+    val density = LocalDensity.current
+    val renderScreenW = with(density) { configuration.screenWidthDp.dp.toPx() }
+    val renderScreenH = with(density) { configuration.screenHeightDp.dp.toPx() }
+    val renderGridPad = with(density) { GridPadding.toPx() }
+    val renderIndicator = with(density) { (IndicatorHeight * 2).toPx() }
 
     // 手势预览：按目标列数重排一份临时项，拖动过程中卡片能实时「放大/缩小」。
     // expandRows = true 保证缩列只把项往下挤，不静默丢项（面板内没有确认弹窗）。
@@ -307,7 +322,27 @@ fun GridPanelRoot(
         if (plan.dropped.isNotEmpty()) {
             Log.w(TAG, "pinch columns $cols drops ${plan.dropped.size} item(s)")
         }
-        localGeometry = localGeometry.copy(columnCount = cols)
+        // 调列数保持视觉卡高：列数变 → cellH/gap 变 → 同一 heightFraction 的量化卡高会漂。
+        // 反推 heightFraction 使新列数下渲染卡高 ≈ 调列数前卡高，用户调列数不会顺带改高度。
+        val baseCardH = gridPanelCardHeight(
+            columns = baseColumns,
+            cardW = renderScreenW * geo.cardWidthFraction,
+            cardHeightFraction = geo.cardHeightFraction,
+            screenH = renderScreenH,
+            gridPad = renderGridPad,
+            indicator = renderIndicator,
+            gap = with(density) { gapFor(baseColumns).toPx() },
+        )
+        val newFracH = keepCardHeightFraction(
+            columns = cols,
+            cardW = renderScreenW * geo.cardWidthFraction,
+            currentCardH = baseCardH,
+            screenH = renderScreenH,
+            gridPad = renderGridPad,
+            indicator = renderIndicator,
+            gap = with(density) { gapFor(cols).toPx() },
+        )
+        localGeometry = localGeometry.copy(columnCount = cols, cardHeightFraction = newFracH)
         localItems = plan.items
         lastWritten = plan.items
         scope.launch {
@@ -317,8 +352,14 @@ fun GridPanelRoot(
                         ?: return@updateActionSettings settings
                     settings.copy(
                         actionGridPanels = settings.actionGridPanels.withPanel(
-                            latest.copy(items = plan.items).withGeometry(landscape) {
-                                it.copy(columnCount = cols)
+                            latest.withOrientation(landscape) {
+                                it.copy(
+                                    items = plan.items,
+                                    geometry = it.geometry.copy(
+                                        columnCount = cols,
+                                        cardHeightFraction = newFracH,
+                                    ),
+                                )
                             },
                         ),
                     )
@@ -326,7 +367,7 @@ fun GridPanelRoot(
             }.onFailure { Log.w(TAG, "pinch column commit failed: ${it.message}") }
             if (plan.dropped.isNotEmpty()) PanelResources.cleanup()
         }
-        Log.i(TAG, "pinch columns committed: $baseColumns -> $cols")
+        Log.i(TAG, "pinch columns committed: $baseColumns -> $cols, heightFraction $newFracH")
     }
 
     // 系统栏余量按 configuration 取：转屏（导航栏换边）后不能沿用首帧的值。
@@ -379,11 +420,7 @@ fun GridPanelRoot(
     var panelResizeStartSize by remember(panelId, landscape) {
         mutableStateOf<Offset?>(null)
     }
-    val minWidthFraction = if (landscape) {
-        GridPanelDefaults.MinCardWidthFractionLandscape
-    } else {
-        GridPanelDefaults.MinCardWidthFraction
-    }
+    val minWidthFraction = GridPanelDefaults.MinCardWidthFraction
 
     fun beginPanelResize(corner: ResizeCorner, cardLeft: Float, cardTop: Float) {
         panelResizeStartGeometry = localGeometry
@@ -397,44 +434,28 @@ fun GridPanelRoot(
         val startGeo = panelResizeStartGeometry ?: return
         val corner = panelResizeCorner ?: return
         val startSize = panelResizeStartSize ?: return
-        val screenW = metrics.screenW
-        val screenH = metrics.screenH
-        val startW = startSize.x
-        val startH = startSize.y
-        val widthDelta = if (corner.isLeft) -total.x else total.x
-        val heightDelta = if (corner.isTop) -total.y else total.y
-        val newW = (startW + widthDelta).coerceIn(
-            screenW * minWidthFraction,
-            screenW * GridPanelDefaults.MaxCardWidthFraction,
-        )
-        val newH = (startH + heightDelta).coerceIn(
-            screenH * GridPanelDefaults.MinCardHeightFraction,
-            screenH * GridPanelDefaults.MaxCardHeightFraction,
-        )
-        val newLeft = if (corner.isLeft) {
-            panelResizeStartPosition.x + (startW - newW)
-        } else {
-            panelResizeStartPosition.x
-        }
-        val newTop = if (corner.isTop) {
-            panelResizeStartPosition.y + (startH - newH)
-        } else {
-            panelResizeStartPosition.y
-        }
-        val left = newLeft.coerceIn(
-            screenMarginPx,
-            (screenW - newW - screenMarginPx).coerceAtLeast(screenMarginPx),
-        )
-        val top = newTop.coerceIn(
-            insetsTop + screenMarginPx,
-            (screenH - insetsBottom - newH - screenMarginPx)
-                .coerceAtLeast(insetsTop + screenMarginPx),
+        val startPos = panelResizeStartPosition
+        val result = resolvePanelResize(
+            corner = corner,
+            startSize = startSize,
+            startPos = startPos,
+            total = total,
+            screenW = metrics.screenW,
+            screenH = metrics.screenH,
+            insetsTop = insetsTop,
+            insetsBottom = insetsBottom,
+            screenMarginPx = screenMarginPx,
+            columns = metrics.columns,
+            gridPad = metrics.gridPad,
+            indicator = metrics.indicator,
+            gap = metrics.gap,
+            minWidthFraction = minWidthFraction,
         )
         localGeometry = startGeo.copy(
-            cardWidthFraction = newW / screenW,
-            cardHeightFraction = newH / screenH,
+            cardWidthFraction = result.cardWidthFraction,
+            cardHeightFraction = result.cardHeightFraction,
         )
-        panelResizePosition = Offset(left, top)
+        panelResizePosition = Offset(result.left, result.top)
     }
 
     fun endPanelResize() {
@@ -451,10 +472,12 @@ fun GridPanelRoot(
                         ?: return@updateActionSettings settings
                     settings.copy(
                         actionGridPanels = settings.actionGridPanels.withPanel(
-                            latest.withGeometry(landscape) { geometry ->
-                                geometry.copy(
-                                    cardWidthFraction = finalGeo.cardWidthFraction,
-                                    cardHeightFraction = finalGeo.cardHeightFraction,
+                            latest.withOrientation(landscape) { orientation ->
+                                orientation.copy(
+                                    geometry = orientation.geometry.copy(
+                                        cardWidthFraction = finalGeo.cardWidthFraction,
+                                        cardHeightFraction = finalGeo.cardHeightFraction,
+                                    ),
                                 )
                             },
                         ),

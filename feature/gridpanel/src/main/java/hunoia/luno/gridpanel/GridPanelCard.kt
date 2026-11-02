@@ -72,6 +72,8 @@ import hunoia.luno.gridpanel.geometry.GridMetrics
 import hunoia.luno.gridpanel.geometry.IndicatorHeight
 import hunoia.luno.gridpanel.geometry.ResizeCorner
 import hunoia.luno.gridpanel.geometry.choosePanelResizeCorner
+import hunoia.luno.gridpanel.geometry.isLeft
+import hunoia.luno.gridpanel.geometry.isTop
 import hunoia.luno.gridpanel.geometry.GridPadding
 import hunoia.luno.gridpanel.ui.GridItemActions
 import hunoia.luno.gridpanel.ui.GridPageIndicator
@@ -280,12 +282,8 @@ fun GridPanelCard(
                 scaleX = 0.92f + 0.08f * appearance
                 scaleY = scaleX
             }
-            .background(
-                gridPanelCardColor.copy(alpha = cardAlpha),
-                RoundedCornerShape(cornerPx),
-            )
-            .clip(RoundedCornerShape(cornerPx))
             // 编辑态双指捏合调列数：只在卡面上生效，且要求两根手指，避免抢走单项拖拽。
+            // 捏合命中区放外层（无 clip）：双指本就是全卡面，圆角外差几个像素无感。
             .pinchToColumns(
                 enabled = editMode && onPinchColumns != null,
                 currentColumns = { currentColumns.value },
@@ -295,6 +293,17 @@ fun GridPanelCard(
                 },
             ),
     ) {
+        // 卡面内容：背景/圆角裁剪放在内层。外层留着给面板缩放手柄，命中区才能伸出
+        // 面板外——Modifier.clip 会连子节点的命中测试一起裁，就地偏移会被裁掉。
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    gridPanelCardColor.copy(alpha = cardAlpha),
+                    RoundedCornerShape(cornerPx),
+                )
+                .clip(RoundedCornerShape(cornerPx)),
+        ) {
         // 多页指示点固定在顶部，高度预算 IndicatorHeight 在 metrics 里；页切换靠点/横滑。
         Column(Modifier.fillMaxSize()) {
             // 顶部预留区恒存在（高度 = IndicatorHeight），单页运行态为空白，
@@ -444,33 +453,6 @@ fun GridPanelCard(
                     .padding(bottom = 16.dp),
             )
         }
-        // 整块面板缩放手柄：编辑态显示在离屏边最远的角，视觉与项手柄一致。
-        // 项拖拽/项缩放进行中先收起，避免两套手柄抢同一根手指。
-        if (editMode && !hiddenForDrag && state.draggingId == null &&
-            (state.resizingId == null || panelResizing) &&
-            onPanelResizeStart != null
-        ) {
-            val handleAlignment = when (resizeCorner) {
-                ResizeCorner.TOP_START -> Alignment.TopStart
-                ResizeCorner.TOP_END -> Alignment.TopEnd
-                ResizeCorner.BOTTOM_START -> Alignment.BottomStart
-                ResizeCorner.BOTTOM_END -> Alignment.BottomEnd
-            }
-            PanelResizeHandle(
-                corner = resizeCorner,
-                cornerRadiusPx = cornerPx,
-                active = panelResizing,
-                modifier = Modifier
-                    .align(handleAlignment)
-                    .zIndex(2f),
-                onStart = {
-                    resizeCornerOverride = resizeCorner
-                    onPanelResizeStart.invoke(resizeCorner, drawX, drawY)
-                },
-                onDelta = { delta -> onPanelResizeDelta?.invoke(delta) },
-                onEnd = { onPanelResizeEnd?.invoke() },
-            )
-        }
         // 双指调列数：列的实时数值浮在卡面中央，松手后按该值重排并落盘。
         if (pinchColumns != null) {
             val shape = RoundedCornerShape(50)
@@ -518,6 +500,35 @@ fun GridPanelCard(
                     contentDescription = stringResource(R.string.grid_panel_add_item),
                 )
             }
+        }
+        }
+        // 整块面板缩放手柄：编辑态显示在离屏边最远的角，视觉与项手柄一致。
+        // 放外层（卡面 clip 之外）：命中盒一半伸出面板外，面板边缘也能抓到。
+        // 项拖拽/项缩放进行中先收起，避免两套手柄抢同一根手指。
+        if (editMode && !hiddenForDrag && state.draggingId == null &&
+            (state.resizingId == null || panelResizing) &&
+            onPanelResizeStart != null
+        ) {
+            val handleAlignment = when (resizeCorner) {
+                ResizeCorner.TOP_START -> Alignment.TopStart
+                ResizeCorner.TOP_END -> Alignment.TopEnd
+                ResizeCorner.BOTTOM_START -> Alignment.BottomStart
+                ResizeCorner.BOTTOM_END -> Alignment.BottomEnd
+            }
+            PanelResizeHandle(
+                corner = resizeCorner,
+                cornerRadiusPx = cornerPx,
+                active = panelResizing,
+                modifier = Modifier
+                    .align(handleAlignment)
+                    .zIndex(2f),
+                onStart = {
+                    resizeCornerOverride = resizeCorner
+                    onPanelResizeStart.invoke(resizeCorner, drawX, drawY)
+                },
+                onDelta = { delta -> onPanelResizeDelta?.invoke(delta) },
+                onEnd = { onPanelResizeEnd?.invoke() },
+            )
         }
     }
 }
@@ -609,12 +620,18 @@ private fun PanelResizeHandle(
     val cornerRadius = with(density) { cornerRadiusPx.toDp() }
     val visualSize = cornerRadius + 6.dp
     val hitSize = if (visualSize > 44.dp) visualSize + 8.dp else 44.dp
+    val hitSizePx = with(density) { hitSize.toPx() }
+    // 命中盒中心对准卡片角顶点：一半在卡内一半在卡外，面板边缘也能抓到。
+    val hitOutX = (if (corner.isLeft) -1f else 1f) * hitSizePx / 2f
+    val hitOutY = (if (corner.isTop) -1f else 1f) * hitSizePx / 2f
     var handleCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
     Box(modifier) {
+        // 命中盒：外移半盒到面板外（在无 clip 的外层 Box 里才不被裁）。
         Box(
             Modifier
                 .align(cornerAlignment)
                 .size(hitSize)
+                .offset { IntOffset(hitOutX.roundToInt(), hitOutY.roundToInt()) }
                 .onGloballyPositioned { handleCoords = it }
                 .pointerInput(corner) {
                     awaitEachGesture {
@@ -643,15 +660,15 @@ private fun PanelResizeHandle(
                         }
                     }
                 },
-        ) {
-            ItemResizeHandle(
-                modifier = Modifier.align(cornerAlignment),
-                active = active,
-                corner = corner,
-                label = stringResource(R.string.grid_panel_resize),
-                cornerRadius = cornerRadius,
-            )
-        }
+        )
+        // 视觉：仍贴卡片角，不随命中盒外移（视觉不变）。
+        ItemResizeHandle(
+            modifier = Modifier.align(cornerAlignment),
+            active = active,
+            corner = corner,
+            label = stringResource(R.string.grid_panel_resize),
+            cornerRadius = cornerRadius,
+        )
     }
 }
 

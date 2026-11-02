@@ -67,6 +67,22 @@ class GridResizePlanTest {
     }
 
     @Test
+    fun `expanding rows compacts items to top-left by row-major`() {
+        // 4 列：b 在 (2,0) 留出 (0,1)(1,1) 空洞，c 更在 (3,2)。缩到 2 列后
+        // expandRows=true 按 (y,x) 排序从左上角按行优先填充，上方不留空洞。
+        val result = plan(
+            listOf(item("a", 0, 0), item("b", 2, 0), item("c", 3, 2)),
+            columns = 2,
+            expandRows = true,
+        )
+        assertTrue(result.dropped.isEmpty())
+        assertEquals(3, result.items.size)
+        val positions = result.items.map { it.x to it.y }.toSet()
+        assertEquals(setOf(0 to 0, 0 to 1, 1 to 0), positions)
+        result.items.forEach { assertTrue("x=${it.x}", it.x + it.spanX <= 2) }
+    }
+
+    @Test
     fun `widening columns keeps every item`() {
         val result = plan(
             listOf(item("a", 0, 0), item("b", 1, 0), item("c", 0, 1, spanX = 2)),

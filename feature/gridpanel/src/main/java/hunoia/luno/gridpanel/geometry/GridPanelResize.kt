@@ -17,8 +17,10 @@ class GridResizePlan(
  *
  * 设置页弹窗预演与真实落盘共用这一份规则，所以「弹窗里说要移除哪些」就是实际会移除的。
  *
- * [expandRows] = true 时改用「向下长高」而不是丢弃：面板内双指调列数没有确认弹窗，
- * 缩小列数把项挤掉会变成静默丢失，宁可让面板多出几行可滚动。
+ * [expandRows] = true 时改用**紧凑重排**而不是丢弃：面板内双指调列数没有确认弹窗，
+ * 缩小列数把项挤掉会变成静默丢失，宁可让面板多出几行可滚动。紧凑重排把本页所有项
+ * 按 (y, x) 排序后从左上角按行优先逐个落位，填满可见区再向下撑 —— 缩列不会把项
+ * 推到很下面而上方还留着空位。
  */
 fun planGridResize(
     items: List<GridPanelItem>,
@@ -41,7 +43,14 @@ fun planGridResize(
     )
     val coerced = items.map { it.copy(pageIndex = it.pageIndex.coerceIn(0, pages - 1)) }
     for (p in 0 until pages) {
-        for (raw in coerced.filter { it.pageIndex == p }) {
+        // 紧凑重排按 (y, x) 排序：原始越靠上的项越先落位，填满上方再往下。
+        val pageItems = coerced.filter { it.pageIndex == p }
+        val ordered = if (expandRows) {
+            pageItems.sortedWith(compareBy({ it.y }, { it.x }))
+        } else {
+            pageItems
+        }
+        for (raw in ordered) {
             // 先夹到网格内，放不下的按比例缩小：宁可变小也要留住内容。下界 1×1
             // 避免退化项（planReorder 对退化项行为未定义，见 GridPanelItem.normalized）。
             val clamped = raw.normalized(cols, effectiveRows)
@@ -62,25 +71,32 @@ fun planGridResize(
                 }
                 shrunk.normalized(cols, effectiveRows)
             }
-            when {
-                GridPanelItemLayout.isFree(
-                    placed, candidate.x, candidate.y, candidate.spanX, candidate.spanY,
-                ) -> placed += candidate
-                else -> {
-                    var slot = GridPanelItemLayout.firstFreeSlot(
+            if (expandRows) {
+                // 紧凑重排：忽略原始 x/y，从左上角按行优先找空位，行数不够向下撑。
+                var slot = GridPanelItemLayout.firstFreeSlot(
+                    placed, cols, effectiveRows, candidate.spanX, candidate.spanY,
+                )
+                if (slot == null) {
+                    effectiveRows += candidate.spanY
+                    slot = GridPanelItemLayout.firstFreeSlot(
                         placed, cols, effectiveRows, candidate.spanX, candidate.spanY,
                     )
-                    if (slot == null && expandRows) {
-                        // 多长一行再找：行数无上限，永远能放下，不会静默丢项。
-                        effectiveRows += candidate.spanY
-                        slot = GridPanelItemLayout.firstFreeSlot(
+                }
+                placed += candidate.copy(x = slot!!.x, y = slot.y)
+            } else {
+                when {
+                    GridPanelItemLayout.isFree(
+                        placed, candidate.x, candidate.y, candidate.spanX, candidate.spanY,
+                    ) -> placed += candidate
+                    else -> {
+                        val slot = GridPanelItemLayout.firstFreeSlot(
                             placed, cols, effectiveRows, candidate.spanX, candidate.spanY,
                         )
-                    }
-                    if (slot != null) {
-                        placed += candidate.copy(x = slot.x, y = slot.y)
-                    } else {
-                        dropped += candidate
+                        if (slot != null) {
+                            placed += candidate.copy(x = slot.x, y = slot.y)
+                        } else {
+                            dropped += candidate
+                        }
                     }
                 }
             }

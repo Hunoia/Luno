@@ -48,7 +48,7 @@ fun GridPanelListScreen(
                 title = panel.name.ifBlank { stringResource(R.string.grid_panel_unnamed) },
                 subtitle = stringResource(
                     R.string.grid_panel_summary,
-                    panel.items.size, panel.geometry(false).columnCount,
+                    panel.portrait.items.size, panel.portrait.geometry.columnCount,
                 ),
             )
         },

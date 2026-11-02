@@ -59,16 +59,20 @@ object PanelResources {
         floatBall.tapAction?.let(::add)
         actionPanels.panels.forEach { addAll(it.items) }
         actionGridPanels.panels.forEach { panel ->
-            panel.items.forEach { item ->
-                (item.kind as? GridPanelItem.Kind.Action)?.items?.let(::addAll)
+            listOf(panel.portrait, panel.landscape).forEach { orientation ->
+                orientation.items.forEach { item ->
+                    (item.kind as? GridPanelItem.Kind.Action)?.items?.let(::addAll)
+                }
             }
         }
     }
 
     private fun ActionSettings.referencedAppWidgetIds(): Set<Int> = buildSet {
         actionGridPanels.panels.forEach { panel ->
-            panel.items.forEach { item ->
-                (item.kind as? GridPanelItem.Kind.AppWidget)?.let { add(it.appWidgetId) }
+            listOf(panel.portrait, panel.landscape).forEach { orientation ->
+                orientation.items.forEach { item ->
+                    (item.kind as? GridPanelItem.Kind.AppWidget)?.let { add(it.appWidgetId) }
+                }
             }
         }
     }

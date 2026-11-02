@@ -158,6 +158,8 @@ internal fun AppItem(
     iconHeight: Dp? = null,
     onClick: () -> Unit,
     onLongPress: () -> Unit,
+    /** 编辑态 false：不挂点击/长按手势，事件让给层根拖拽/缩放。 */
+    enabled: Boolean = true,
 ) {
     val context = LocalContext.current
     val interactionSource = remember { MutableInteractionSource() }
@@ -174,10 +176,16 @@ internal fun AppItem(
                 scaleX = scale
                 scaleY = scale
             }
-            .combinedClickable(
-                interactionSource = interactionSource,
-                onClick = { onClick() },
-                onLongClick = { onLongPress() }
+            .then(
+                if (enabled) {
+                    Modifier.combinedClickable(
+                        interactionSource = interactionSource,
+                        onClick = { onClick() },
+                        onLongClick = { onLongPress() }
+                    )
+                } else {
+                    Modifier
+                }
             )
             .padding(AppItemPadding),
         horizontalAlignment = Alignment.CenterHorizontally

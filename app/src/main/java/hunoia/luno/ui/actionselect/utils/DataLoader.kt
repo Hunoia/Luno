@@ -14,12 +14,11 @@ import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.GridPanelDefaults
-import hunoia.luno.config.model.derivedPageCount
-import hunoia.luno.config.model.effectiveGridRows
 import hunoia.luno.config.model.GridCell
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.config.model.GridPanelItemLayout
+import hunoia.luno.config.model.withOrientation
 import hunoia.luno.core.AppContext
 import hunoia.luno.gridpanel.geometry.gridPanelVisibleRows
 import hunoia.luno.gridpanel.widget.PanelAppWidgetHost
@@ -141,10 +140,10 @@ private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: Stored
             return@updateAction settings
         }
         val ctx = gridContext(panel, actionSelect.gridPanelPageIndex)
-        val pageOccupied = panel.items.filter { it.pageIndex == ctx.pageIndex }.maxOfOrNull { it.bottom } ?: 0
+        val pageOccupied = ctx.items.filter { it.pageIndex == ctx.pageIndex }.maxOfOrNull { it.bottom } ?: 0
         val rows = ctx.rows.coerceAtLeast(pageOccupied + 1) // 行数无上限：永远多留一行装 1×1 动作项
         val free = GridPanelItemLayout.firstFreeSlot(
-            items = panel.items.filter { it.pageIndex == ctx.pageIndex },
+            items = ctx.items.filter { it.pageIndex == ctx.pageIndex },
             columns = ctx.columns,
             rows = rows,
             spanX = 1,
@@ -153,14 +152,16 @@ private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: Stored
         outcome = SaveOutcome.Saved
         settings.copy(
             actionGridPanels = settings.actionGridPanels.withPanel(
-                panel.copy(
-                    items = panel.items + GridPanelItem(
-                        x = free.x,
-                        y = free.y,
-                        pageIndex = ctx.pageIndex,
-                        kind = GridPanelItem.Kind.Action(listOf(picked.withoutVariantKey())),
-                    ),
-                ),
+                panel.withOrientation(ctx.landscape) { orientation ->
+                    orientation.copy(
+                        items = orientation.items + GridPanelItem(
+                            x = free.x,
+                            y = free.y,
+                            pageIndex = ctx.pageIndex,
+                            kind = GridPanelItem.Kind.Action(listOf(picked.withoutVariantKey())),
+                        ),
+                    )
+                },
             ),
         )
     }
@@ -195,18 +196,26 @@ private fun bottomSlot(
 }
 
 /** 网格落盘函数共享的落点上下文：横竖屏 → geometry → 列数夹取 → 页码夹取 → 有效行数。 */
-private data class GridContext(val columns: Int, val pageIndex: Int, val rows: Int)
+private data class GridContext(
+    val columns: Int,
+    val pageIndex: Int,
+    val rows: Int,
+    val landscape: Boolean,
+    /** 当前朝向的项列表（横竖屏分开后按朝向取）。 */
+    val items: List<GridPanelItem>,
+)
 
 private fun gridContext(panel: GridPanel, requestedPageIndex: Int): GridContext {
     val configuration = AppContext.get().resources.configuration
     val landscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    val geo = panel.geometry(landscape)
+    val orientation = panel.orientation(landscape)
+    val geo = orientation.geometry
     val columns = geo.columnCount.coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
-    val pageIndex = requestedPageIndex.coerceIn(0, panel.derivedPageCount)
+    val pageIndex = requestedPageIndex.coerceIn(0, orientation.derivedPageCount)
     return GridContext(
         columns = columns,
         pageIndex = pageIndex,
-        rows = panel.effectiveGridRows(
+        rows = orientation.effectiveGridRows(
             pageIndex,
             gridPanelVisibleRows(
                 screenWdp = configuration.screenWidthDp.toFloat(),
@@ -216,6 +225,8 @@ private fun gridContext(panel: GridPanel, requestedPageIndex: Int): GridContext 
                 cardHeightFraction = geo.cardHeightFraction,
             ),
         ),
+        landscape = landscape,
+        items = orientation.items,
     )
 }
 
@@ -273,28 +284,30 @@ internal suspend fun saveGridPanelWidget(
             return@updateAction settings
         }
         val ctx = gridContext(panel, actionSelect.gridPanelPageIndex)
-        val pageItems = panel.items.filter { it.pageIndex == ctx.pageIndex }
+        val pageItems = ctx.items.filter { it.pageIndex == ctx.pageIndex }
         // 追加优先：原尺寸先试「放到最下面」；实在不行才走降档扫空位兜底。
         // 行数派生且无上限：追加时把 rows 抬到装得下，运行态页面随内容长高。
         bottomSlot(pageItems, ctx.columns, maxOf(ctx.rows, pageItems.maxOfOrNull { it.bottom } ?: 0), spanX, spanY)?.let { cell ->
             result = GridPanelSaveResult.Saved
             return@updateAction settings.copy(
                 actionGridPanels = settings.actionGridPanels.withPanel(
-                    panel.copy(
-                        items = panel.items + GridPanelItem(
-                            x = cell.x,
-                            y = cell.y,
-                            spanX = spanX,
-                            spanY = spanY,
-                            pageIndex = ctx.pageIndex,
-                            kind = GridPanelItem.Kind.AppWidget(
-                                appWidgetId = appWidgetId,
-                                provider = provider,
-                                minSpanX = spanX,
-                                minSpanY = spanY,
+                    panel.withOrientation(ctx.landscape) { orientation ->
+                        orientation.copy(
+                            items = orientation.items + GridPanelItem(
+                                x = cell.x,
+                                y = cell.y,
+                                spanX = spanX,
+                                spanY = spanY,
+                                pageIndex = ctx.pageIndex,
+                                kind = GridPanelItem.Kind.AppWidget(
+                                    appWidgetId = appWidgetId,
+                                    provider = provider,
+                                    minSpanX = spanX,
+                                    minSpanY = spanY,
+                                ),
                             ),
-                        ),
-                    ),
+                        )
+                    },
                 ),
             )
         }
@@ -303,24 +316,26 @@ internal suspend fun saveGridPanelWidget(
             // 必须 return copy 的结果本身：return 原 settings 会让落盘形同没写。
             return@updateAction settings.copy(
                 actionGridPanels = settings.actionGridPanels.withPanel(
-                    panel.copy(
-                        items = panel.items + GridPanelItem(
-                            x = cell.x,
-                            y = cell.y,
-                            spanX = span.spanX,
-                            spanY = span.spanY,
-                            pageIndex = ctx.pageIndex,
-                            kind = GridPanelItem.Kind.AppWidget(
-                                appWidgetId = appWidgetId,
-                                provider = provider,
-                                // 冻结实际落位的 span（不是 provider 声明的最小值）：
-                                // minSpan 会经 options 传给 provider，必须与真实渲染一致。
-                                // 页满降档低于 provider 声明最小值是本路径的既定权衡。
-                                minSpanX = span.spanX,
-                                minSpanY = span.spanY,
+                    panel.withOrientation(ctx.landscape) { orientation ->
+                        orientation.copy(
+                            items = orientation.items + GridPanelItem(
+                                x = cell.x,
+                                y = cell.y,
+                                spanX = span.spanX,
+                                spanY = span.spanY,
+                                pageIndex = ctx.pageIndex,
+                                kind = GridPanelItem.Kind.AppWidget(
+                                    appWidgetId = appWidgetId,
+                                    provider = provider,
+                                    // 冻结实际落位的 span（不是 provider 声明的最小值）：
+                                    // minSpan 会经 options 传给 provider，必须与真实渲染一致。
+                                    // 页满降档低于 provider 声明最小值是本路径的既定权衡。
+                                    minSpanX = span.spanX,
+                                    minSpanY = span.spanY,
+                                ),
                             ),
-                        ),
-                    ),
+                        )
+                    },
                 ),
             )
         }
@@ -353,22 +368,24 @@ internal suspend fun saveGridPanelInternalWidget(
             return@updateAction settings
         }
         val ctx = gridContext(panel, actionSelect.gridPanelPageIndex)
-        val pageItems = panel.items.filter { it.pageIndex == ctx.pageIndex }
+        val pageItems = ctx.items.filter { it.pageIndex == ctx.pageIndex }
         // 追加优先：原尺寸先试「放到最下面」；行数无上限，追加时同步抬 rows。
         bottomSlot(pageItems, ctx.columns, maxOf(ctx.rows, pageItems.maxOfOrNull { it.bottom } ?: 0), def.spanX, def.spanY)?.let { cell ->
             result = GridPanelSaveResult.Saved
             return@updateAction settings.copy(
                 actionGridPanels = settings.actionGridPanels.withPanel(
-                    panel.copy(
-                        items = panel.items + GridPanelItem(
-                            x = cell.x,
-                            y = cell.y,
-                            spanX = def.spanX,
-                            spanY = def.spanY,
-                            pageIndex = ctx.pageIndex,
-                            kind = GridPanelItem.Kind.Internal(widgetId = widgetId, showBackground = false),
-                        ),
-                    ),
+                    panel.withOrientation(ctx.landscape) { orientation ->
+                        orientation.copy(
+                            items = orientation.items + GridPanelItem(
+                                x = cell.x,
+                                y = cell.y,
+                                spanX = def.spanX,
+                                spanY = def.spanY,
+                                pageIndex = ctx.pageIndex,
+                                kind = GridPanelItem.Kind.Internal(widgetId = widgetId, showBackground = false),
+                            ),
+                        )
+                    },
                 ),
             )
         }
@@ -376,16 +393,18 @@ internal suspend fun saveGridPanelInternalWidget(
             result = GridPanelSaveResult.Saved
             return@updateAction settings.copy(
                 actionGridPanels = settings.actionGridPanels.withPanel(
-                    panel.copy(
-                        items = panel.items + GridPanelItem(
-                            x = cell.x,
-                            y = cell.y,
-                            spanX = span.spanX,
-                            spanY = span.spanY,
-                            pageIndex = ctx.pageIndex,
-                            kind = GridPanelItem.Kind.Internal(widgetId = widgetId, showBackground = false),
-                        ),
-                    ),
+                    panel.withOrientation(ctx.landscape) { orientation ->
+                        orientation.copy(
+                            items = orientation.items + GridPanelItem(
+                                x = cell.x,
+                                y = cell.y,
+                                spanX = span.spanX,
+                                spanY = span.spanY,
+                                pageIndex = ctx.pageIndex,
+                                kind = GridPanelItem.Kind.Internal(widgetId = widgetId, showBackground = false),
+                            ),
+                        )
+                    },
                 ),
             )
         }
