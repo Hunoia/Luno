@@ -18,7 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.TextFields
-import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
@@ -43,7 +43,6 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.gesture.R
-import hunoia.luno.ui.theme.MinInteractiveSize
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -162,7 +161,7 @@ private fun PortalAction.icon(): ImageVector = when (this) {
     PortalAction.Search -> Icons.Default.Search
     PortalAction.Share -> Icons.Default.Share
     PortalAction.Save -> Icons.Default.SaveAlt
-    PortalAction.OpenLink -> Icons.Default.OpenInNew
+    PortalAction.OpenLink -> Icons.AutoMirrored.Filled.OpenInNew
     PortalAction.Ocr -> Icons.Default.TextFields
 }
 
@@ -323,34 +322,6 @@ private fun PortalCardActionIcon(
                 imageVector = action.icon(),
                 contentDescription = action.label(),
                 modifier = Modifier.size(20.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun PortalSlot(
-    action: PortalAction,
-    active: Boolean,
-    onClick: () -> Unit,
-) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(PortalLayout.SlotRadiusDp.dp),
-        color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.92f),
-        contentColor = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.inverseOnSurface,
-        modifier = Modifier.fillMaxSize().heightIn(min = MinInteractiveSize),
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Icon(action.icon(), contentDescription = null, modifier = Modifier.size(22.dp))
-            Text(
-                text = action.label(),
-                style = MaterialTheme.typography.labelSmall,
-                maxLines = 1,
             )
         }
     }

@@ -16,6 +16,16 @@ object AccessibilitySettings {
         return ComponentName(context.packageName, clazz.name)
     }
 
+    /** `ENABLED_ACCESSIBILITY_SERVICES` 的冒号分隔串里是否含指定组件。 */
+    fun tokenContains(value: String, componentName: ComponentName): Boolean {
+        val splitter = TextUtils.SimpleStringSplitter(':')
+        splitter.setString(value)
+        while (splitter.hasNext()) {
+            if (ComponentName.unflattenFromString(splitter.next()) == componentName) return true
+        }
+        return false
+    }
+
     fun isEnabled(context: Context, clazz: Class<out AccessibilityService>): Boolean {
         val accessibilityEnabled = runCatching {
             Settings.Secure.getInt(context.contentResolver, Settings.Secure.ACCESSIBILITY_ENABLED) == 1

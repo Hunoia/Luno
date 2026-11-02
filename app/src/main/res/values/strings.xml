@@ -6,7 +6,6 @@
     <string name="settings">设置</string>
     <string name="accessibility_description">辅助服务用于模拟返回、主页、等按键操作，实现侧滑手势的各种自定义操控，不会收集任何数据。</string>
     <string name="delete">删除</string>
-    <string name="edit">编辑</string>
     <string name="save">保存</string>
     <string name="add_gesture_button">添加触钮</string>
     <string name="reset_default_settings_warning">恢复默认设置</string>
@@ -20,15 +19,11 @@
     <string name="dispatch_service_not_ready">手势服务未就绪，动作未执行</string>
     <string name="action_library_test">测试</string>
     <string name="width">宽度</string>
-    <string name="mini_window_position_hint">调整小窗打开的位置</string>
     <string name="keep_alive_need_permission">保活需要授予「修改系统设置」权限，请先在 Shizuku 中授权或通过 ADB 执行：adb shell pm grant hunoia.luno android.permission.WRITE_SECURE_SETTINGS</string>
     <string name="quick_search_trigger_off">留空则关闭该来源标识</string>
     <string name="quick_search_trigger_closed">标识已关闭</string>
     <string name="mini_window_position_short">小窗</string>
-    <string name="landscape">横屏</string>
     <string name="refresh">刷新</string>
-    <string name="lock_screen">锁屏</string>
-    <string name="launcher">桌面</string>
     <string name="slide_action">短滑</string>
     <string name="slide_hold_action">短滑停留</string>
     <string name="gesture_angles">手势角度</string>
@@ -87,10 +82,7 @@
     <!-- 悬浮球（2038 悬浮球触发方式） -->
     <string name="float_ball">悬浮球</string>
     <string name="recent_apps_blocklist">最近应用黑名单</string>
-    <string name="recent_apps_blocklist_hint">最近的内置部件与上一个应用不显示/不切换到这些应用</string>
     <string name="button_visibility">显隐设置</string>
-    <string name="button_visibility_hint">按应用或界面自动隐藏 / 显示触钮与悬浮球</string>
-    <string name="button_visibility_empty">还没有显隐场景</string>
     <string name="button_visibility_empty_desc">添加一条场景，指定哪些应用或界面隐藏触钮或悬浮球</string>
     <string name="button_visibility_new">新建场景</string>
     <string name="button_visibility_edit">编辑场景</string>
@@ -171,12 +163,8 @@
     <string name="screen_pick_settings_image_group">图片</string>
     <string name="screen_pick_settings_enabled">已开启</string>
     <string name="screen_pick_settings_disabled">已关闭</string>
-    <string name="screen_pick_drag_start_timeout">长按后等待拖动</string>
-    <string name="screen_pick_drag_start_timeout_value">%1$d ms</string>
-    <string name="screen_pick_drag_start_timeout_off">立即触发</string>
     <string name="screen_pick_trigger_interval">触发间隔</string>
     <string name="screen_pick_trigger_interval_value">%1$d ms</string>
-    <string name="action_settings_screen_pick_group">屏幕识别</string>
     <string name="screen_pick_global_long_press">全屏长按识屏</string>
     <string name="screen_pick_global_long_press_hint">任意位置按住出卡；拖动卡片移动，空白处拖动框选（需 Shizuku）</string>
     <string name="screen_pick_drag_timeout">拖动窗口</string>
@@ -201,7 +189,6 @@
     <string name="float_ball_capsule_enabled_subtitle">通知进入收件箱并在球侧弹出气泡，点击直达、下滑移除、长按球打开收件箱，数秒后自动收起</string>
     <string name="float_ball_capsule_auto_hide">气泡停留时长</string>
     <string name="float_ball_capsule_ttl">通知保留时长</string>
-    <string name="float_ball_capsule_ttl_hint">气泡收起后内容在收件箱里保留多久</string>
     <string name="float_ball_capsule_suppress_dismiss">滑掉后暂停重弹</string>
     <string name="float_ball_capsule_suppress_dismiss_hint">同一条通知在设定时长内再次更新也不再弹出</string>
     <string name="float_ball_capsule_suppress_duration">暂停时长</string>
@@ -216,7 +203,6 @@
     <string name="float_ball_clipball_enabled_subtitle">剪贴板变化时在球侧弹出气泡，点击分享、长按正文钉住；后台读取需 Shizuku 运行并授权</string>
     <string name="float_ball_clipball_auto_hide">气泡停留时长</string>
     <string name="float_ball_clipball_ttl">剪贴板保留时长</string>
-    <string name="float_ball_clipball_ttl_hint">气泡收起后内容在收件箱里保留多久；钉住项不过期</string>
     <string name="float_ball_clipball_images">响应图片剪贴板</string>
     <string name="float_ball_clipball_images_hint">复制图片时也弹出分享气泡（关闭后只处理纯文本）</string>
     <string name="float_ball_inbox_group">收件箱</string>
@@ -246,8 +232,6 @@
     <string name="grid_panel_shrink_title">网格缩小后放不下</string>
     <string name="grid_panel_shrink_desc_named">改成 %1$d 列后有 %2$d 项放不下，继续将移除：%3$s</string>
     <string name="grid_panel_shrink_desc_generic">改成 %1$d 列后有 %2$d 项放不下，继续将移除它们。</string>
-    <string name="compact">紧凑</string>
-    <string name="loose">宽松</string>
     <string name="vibration_tap">单击振动</string>
     <string name="vibration_long_press">长按振动</string>
     <string name="vibration_slide_hold">短滑停留时振动</string>
@@ -349,10 +333,8 @@
     <string name="sub_gesture_angles">子手势角度</string>
     <string name="home_section_settings">配置</string>
     <string name="home_section_data">数据管理</string>
-    <string name="action_settings">动作设置</string>
     <string name="action_library">动作库</string>
     <string name="action_deep_links">外部调用</string>
-    <string name="action_deep_links_hint">选择动作后复制 Deep Link，可用 adb 或第三方应用调用</string>
     <string name="action_deep_links_pick_title">选择动作</string>
     <string name="action_deep_link_copied">Deep Link 已复制</string>
     <string name="action_deep_link_not_found">动作不存在或已删除</string>
@@ -409,9 +391,6 @@
     <string name="trigger_actions">触发动作</string>
 
     <!-- 显示条件 -->
-    <string name="logic_all">且</string>
-    <string name="logic_any">或</string>
-    <string name="logic_not">非</string>
     <string name="app_picker_select_title">选择应用</string>
     <string name="loading">加载中…</string>
     <string name="toast_invalid_parameter">参数无效</string>
@@ -424,69 +403,12 @@
     <!-- 自动化规则 -->
 
     <!-- 条件类型 -->
-    <string name="screen_event_on">亮屏</string>
-    <string name="screen_event_off">灭屏</string>
-    <string name="screen_event_unlock">解锁</string>
-    <string name="keyboard_shown">键盘弹出</string>
-    <string name="keyboard_hidden">键盘收起</string>
-    <string name="charging_started">开始充电</string>
-    <string name="charging_stopped">停止充电</string>
-    <string name="music_is_playing">播放中</string>
-    <string name="music_not_playing">未播放</string>
-    <string name="music_started">开始播放</string>
-    <string name="music_stopped">停止播放</string>
-    <string name="torch_is_on">手电筒亮着</string>
-    <string name="torch_is_off">手电筒关闭</string>
-    <string name="dnd_is_on">勿扰开启</string>
-    <string name="dnd_is_off">勿扰关闭</string>
-    <string name="state_on">开启</string>
-    <string name="state_off">关闭</string>
-    <string name="headphones_plugged">已插入</string>
-    <string name="headphones_unplugged">未插入</string>
-    <string name="bluetooth_adapter">蓝牙开关</string>
-    <string name="bluetooth_audio">蓝牙音频</string>
-    <string name="volume_stream">音频流</string>
-    <string name="volume_up">音量增大</string>
-    <string name="volume_down">音量减小</string>
-    <string name="weekday_mon">一</string>
-    <string name="weekday_tue">二</string>
-    <string name="weekday_wed">三</string>
-    <string name="weekday_thu">四</string>
-    <string name="weekday_fri">五</string>
-    <string name="weekday_sat">六</string>
-    <string name="weekday_sun">日</string>
-    <string name="fire_enter">进入时</string>
-    <string name="fire_exit">退出时</string>
-    <string name="fire_both">进入和退出</string>
-    <string name="priority_high">高</string>
-    <string name="priority_medium">中</string>
-    <string name="priority_low">低</string>
-    
-    <string name="throttle_window_count">最多（次）</string>
-    <string name="throttle_window_seconds">窗口（秒）</string>
-    <string name="throttle_invalid">请输入有效数字</string>
-    <string name="permission_precheck_title">权限预检</string>
-    <string name="permission_precheck_missing">缺少：%1$s；触发时这条规则会被跳过</string>
-    <string name="reentry_block">忽略新触发</string>
-    <string name="reentry_stop_current">停止旧的，运行新的</string>
-    <string name="reentry_parallel">并行运行</string>
-    <string name="running_now">运行中</string>
-    <string name="stop_rule">停止</string>
-    <string name="notify_permission_title">通知访问权限</string>
-    <string name="notify_permission_granted">已授予，可监听通知到达</string>
-    <string name="notify_permission_missing">未授予，通知条件不会触发</string>
-    <string name="notify_permission_privacy">仅读取包名/标题/正文做关键字匹配，原文不入库</string>
     <string name="audio_stream_music">音乐</string>
     <string name="audio_stream_ring">铃声</string>
     <string name="audio_stream_notification">通知</string>
     <string name="audio_stream_alarm">闹钟</string>
     <string name="audio_stream_voice">通话</string>
     <string name="audio_stream_system">系统</string>
-    <string name="network_wifi">Wi-Fi</string>
-    <string name="network_mobile">移动网络</string>
-    <string name="network_none">无网络</string>
-    <string name="network_other">其他网络</string>
-
     <!-- 快速搜索 -->
 
     <!-- 搜索引擎 -->
@@ -526,7 +448,6 @@
     <string name="search_engine_share_template">分享文本模板</string>
     <string name="search_engine_target_app">目标应用</string>
     <string name="search_engine_target_app_hint">选择能处理该链接的应用</string>
-    <string name="search_engine_pick_app">选择</string>
     <string name="search_engine_test">测试</string>
     <string name="search_engine_target_required">请选择目标应用</string>
     <string name="search_engine_fallback">回退链接（可选）</string>
@@ -558,8 +479,6 @@
 
     <!-- 链接分发 -->
     <string name="link_dispatch">链接分发</string>
-    <string name="link_dispatch_hint">按规则把链接送进指定应用</string>
-    <string name="link_dispatch_rule_count">%1$d 条规则 · 按规则把链接送进指定应用</string>
     <string name="link_dispatch_no_link">没有识别到链接</string>
     <string name="link_dispatch_global_group">行为</string>
     <string name="link_dispatch_enabled">启用链接分发</string>
@@ -641,9 +560,6 @@
     <string name="link_dispatch_select_hint">共 %1$d 条链接，点按分发，长按分享</string>
     <string name="link_dispatch_select_target">发往 %1$s · %2$s</string>
     <string name="link_dispatch_select_no_target">未匹配规则 · %1$s</string>
-    <string name="clipboard_link_target">%1$s</string>
-    <string name="privileged_grant">一键补齐授权</string>
-    <string name="privileged_grant_hint">用 Shizuku 自动授予悬浮窗、无障碍、通知监听、电池白名单与清单内权限</string>
     <string name="privileged_granting">正在授权…</string>
     <string name="privileged_grant_partial">%1$d 项未能授权，可重试或手动设置</string>
     <string name="privileged_grant_failed">授权失败：检查 Shizuku 是否运行并已授权</string>

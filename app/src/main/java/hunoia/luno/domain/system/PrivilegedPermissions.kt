@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.app.NotificationManager
 import android.net.Uri
-import android.os.Build
 import android.os.Environment
 import android.os.PowerManager
 import android.provider.Settings
@@ -128,13 +127,8 @@ object PrivilegedPermissionUseCase {
             Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
         PrivilegedPermission.BATTERY -> Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
         PrivilegedPermission.NOTIFICATIONS ->
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-            } else {
-                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                    .setData(Uri.parse("package:${context.packageName}"))
-            }
+            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
         PrivilegedPermission.WRITE_SECURE_SETTINGS -> null
         PrivilegedPermission.MANAGE_FILES ->
             Intent(

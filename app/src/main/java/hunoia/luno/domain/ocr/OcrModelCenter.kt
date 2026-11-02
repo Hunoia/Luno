@@ -106,9 +106,5 @@ object OcrModelCenter : OcrModelFacade {
         )
 
     private fun socModelName(): String =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            Build.SOC_MODEL.ifBlank { Build.BOARD.orEmpty() }
-        } else {
-            Build.BOARD.orEmpty()
-        }
+        Build.SOC_MODEL.ifBlank { Build.BOARD.orEmpty() }
 }

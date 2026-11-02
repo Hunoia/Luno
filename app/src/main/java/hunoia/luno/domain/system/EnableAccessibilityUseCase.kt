@@ -3,7 +3,7 @@ package hunoia.luno.domain.system
 import android.content.ComponentName
 import android.content.Context
 import android.provider.Settings
-import android.text.TextUtils
+import hunoia.luno.bridge.system.AccessibilitySettings
 import hunoia.luno.bridge.system.hasWriteSecureSettingsPermission
 import hunoia.luno.service.SideGestureService
 import kotlinx.coroutines.Dispatchers
@@ -26,7 +26,7 @@ object EnableAccessibilityUseCase {
             Settings.Secure.getString(resolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
         }.getOrNull() ?: ""
 
-        if (!tokenContains(current, componentName)) {
+        if (!AccessibilitySettings.tokenContains(current, componentName)) {
             val newValue = if (current.isBlank()) serviceId else "$serviceId:$current"
             runCatching {
                 Settings.Secure.putString(
@@ -40,14 +40,5 @@ object EnableAccessibilityUseCase {
             Settings.Secure.putString(resolver, Settings.Secure.ACCESSIBILITY_ENABLED, "1")
         }.getOrElse { return@withContext false }
         true
-    }
-
-    private fun tokenContains(value: String, componentName: ComponentName): Boolean {
-        val splitter = TextUtils.SimpleStringSplitter(':')
-        splitter.setString(value)
-        while (splitter.hasNext()) {
-            if (ComponentName.unflattenFromString(splitter.next()) == componentName) return true
-        }
-        return false
     }
 }

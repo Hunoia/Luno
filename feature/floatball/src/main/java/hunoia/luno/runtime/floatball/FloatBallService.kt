@@ -1140,17 +1140,6 @@ class FloatBallService : Service() {
         is ClipboardContent.Image -> "image, ${content.mimeType}"
     }
 
-    /** 收件箱条目 → 剪贴板内容（分享/链接派发用）。通知项不可还原。 */
-    private fun clipboardContentOf(item: BallItem): ClipboardContent? = when (item) {
-        is ClipboardTextItem -> ClipboardContent.Text(item.text)
-        is ClipboardImageItem -> ClipboardContent.Image(
-            android.net.Uri.parse(item.uri),
-            item.mimeType ?: "image/*",
-        )
-
-        else -> null
-    }
-
     /**
      * 把基线对齐到当前剪贴板（不弹球）：解锁/解除勿扰时用，避免把门控期间复制的内容
      * 当成新内容补弹。只读一次，无内容/读不到就没基线（下次读取自然重新建立）。
