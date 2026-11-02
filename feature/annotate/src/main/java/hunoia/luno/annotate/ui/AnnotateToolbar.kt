@@ -23,9 +23,9 @@ import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LayersClear
-import androidx.compose.material.icons.filled.Redo
+import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.filled.TextFields
-import androidx.compose.material.icons.filled.Undo
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,7 +33,6 @@ import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
@@ -142,13 +141,13 @@ fun AnnotateToolbar(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     CompactIconButton(
-                        icon = Icons.Default.Undo,
+                        icon = Icons.AutoMirrored.Filled.Undo,
                         label = stringResource(R.string.annotate_undo),
                         enabled = state.undoStack.isNotEmpty(),
                         onClick = { document.undo() },
                     )
                     CompactIconButton(
-                        icon = Icons.Default.Redo,
+                        icon = Icons.AutoMirrored.Filled.Redo,
                         label = stringResource(R.string.annotate_redo),
                         enabled = state.redoStack.isNotEmpty(),
                         onClick = { document.redo() },

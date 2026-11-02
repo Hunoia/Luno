@@ -16,7 +16,6 @@ import hunoia.luno.core.domain.AppLauncher
 import hunoia.luno.core.domain.AppLaunchSource
 import hunoia.luno.core.domain.LaunchSpec
 import hunoia.luno.core.domain.QueryParam
-import hunoia.luno.quicklaunch.launch.AppLaunchCoordinator
 import hunoia.luno.quicklaunch.launch.Launcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

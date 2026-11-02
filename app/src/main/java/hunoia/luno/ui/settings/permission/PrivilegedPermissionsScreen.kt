@@ -27,7 +27,6 @@ import hunoia.luno.R
 import hunoia.luno.domain.AppGraph
 import hunoia.luno.domain.system.PrivilegedPermission
 import hunoia.luno.domain.system.PrivilegedPermissionGroup
-import hunoia.luno.domain.system.PrivilegedPermissionStatus
 import hunoia.luno.shizuku.ShizukuManager
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow

@@ -8,7 +8,6 @@ import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.util.fastForEachIndexed
 import com.aaron.compose.ktx.onClick
-import hunoia.luno.quicklaunch.model.icon
 import hunoia.luno.ui.icon.icon as launcherIcon
 import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.ui.theme.SegmentedGap

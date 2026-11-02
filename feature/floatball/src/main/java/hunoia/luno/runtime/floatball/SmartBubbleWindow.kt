@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentPaste
@@ -654,7 +653,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     private fun fixedCapsuleWidth(): Int {
         val screenW = DensityProvider.screenWidthPx
         val cap = min(DensityProvider.dp2px(MaxWidthDp), (screenW * WidthRatio).roundToInt())
-        return max(pageHeightPx, cap.coerceAtMost(screenW - DensityProvider.dp2px(16f).toInt()))
+        return max(pageHeightPx, cap.coerceAtMost(screenW - DensityProvider.dp2px(16f)))
     }
 
     private fun updateWindowLayout(v: View) {

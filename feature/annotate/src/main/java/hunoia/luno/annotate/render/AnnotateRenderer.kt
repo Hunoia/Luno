@@ -20,7 +20,6 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import hunoia.luno.annotate.model.AnnotateState
-import hunoia.luno.annotate.model.AnnotationElement
 import hunoia.luno.annotate.model.ContainFit
 import hunoia.luno.annotate.model.MosaicElement
 import hunoia.luno.annotate.model.Pt

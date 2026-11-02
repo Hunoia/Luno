@@ -54,7 +54,6 @@ import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.getIcon
 import hunoia.luno.quicklaunch.model.identity
-import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.ui.component.LunoSearchField
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LoadingState

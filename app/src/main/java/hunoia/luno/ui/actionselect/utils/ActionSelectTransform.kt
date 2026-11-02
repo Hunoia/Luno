@@ -31,7 +31,6 @@ import hunoia.luno.ui.navigation.FloatBallSlot
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.quicklaunch.model.identity
-import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.ui.component.slideToRes
 import hunoia.luno.action.model.Action
 

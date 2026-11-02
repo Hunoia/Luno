@@ -60,7 +60,6 @@ import hunoia.luno.ui.navigation.ButtonVisibilityEdit
 import hunoia.luno.ui.settings.floatball.FloatBallEditScreen
 import hunoia.luno.ui.settings.gesture.visibility.ButtonVisibilityEditScreen
 import hunoia.luno.ui.settings.gesture.visibility.ButtonVisibilityScreen
-import hunoia.luno.ui.settings.gesture.visibility.NEW_VISIBILITY_PROFILE_ID
 import hunoia.luno.ui.navigation.SubGestureEditor
 
 import hunoia.luno.ui.navigation.ActionLibraryEdit

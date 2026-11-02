@@ -11,7 +11,6 @@ import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionRequest
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.core.domain.StoredAction
-import hunoia.luno.core.domain.withoutVariantKey
 import hunoia.luno.execute.ActionCatalog
 import hunoia.luno.execute.ActionFactory
 import hunoia.luno.execute.ExecuteCall

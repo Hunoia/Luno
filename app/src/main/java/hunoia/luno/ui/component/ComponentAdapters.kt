@@ -1,9 +1,7 @@
 package hunoia.luno.ui.component
 
 import androidx.annotation.StringRes
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionCategory

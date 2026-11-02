@@ -2,7 +2,6 @@ package hunoia.luno.domain.action
 
 import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ActionDefinitions
-import hunoia.luno.core.domain.StoredAction
 
 /**
  * 统一动作来源：动作库、动作选择页、搜索面板三端只从这里取数，只是展示过滤不同。

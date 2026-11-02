@@ -21,7 +21,6 @@ import hunoia.luno.quicklaunch.panel.QuickAppLauncherState
 import hunoia.luno.runtime.overlay.OverlayPanelHost
 import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.ui.theme.SideGestureTheme
-import kotlinx.coroutines.launch
 import hunoia.luno.core.LOG_TAG
 
 /**

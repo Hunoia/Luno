@@ -1,7 +1,6 @@
 package hunoia.luno.quicklaunch.query
 
 import hunoia.luno.config.model.AppUsageStats
-import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.quicklaunch.model.AppInfo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

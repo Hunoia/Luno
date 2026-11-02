@@ -7,7 +7,6 @@ import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.quicklaunch.query.AppCatalog
 import hunoia.luno.quicklaunch.query.AppQuery
-import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import hunoia.luno.quicklaunch.query.ShortcutQuery
 import hunoia.luno.quicklaunch.query.LauncherIconQuery
 import hunoia.luno.quicklaunch.launch.Launcher

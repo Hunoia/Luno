@@ -2,10 +2,7 @@ package hunoia.luno.runtime
 
 import android.app.KeyguardManager
 import android.app.WallpaperManager
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.res.Configuration
 import android.os.Handler
 import android.os.Looper
@@ -50,7 +47,6 @@ import hunoia.luno.runtime.volume.VolumeScrubRuntime
 import hunoia.luno.runtime.pointer.PointerRuntime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.collectLatest
@@ -58,7 +54,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 import hunoia.luno.gesture.touch.TouchAction
 import hunoia.luno.gesture.touchsource.GlobalLongPressTrigger

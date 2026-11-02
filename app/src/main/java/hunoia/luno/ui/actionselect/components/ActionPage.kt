@@ -60,7 +60,6 @@ import hunoia.luno.gridpanel.widget.searchBy
 import hunoia.luno.config.model.ActionPanel
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.SubGesture
-import hunoia.luno.domain.action.ActionCatalog
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.quicklaunch.model.identity

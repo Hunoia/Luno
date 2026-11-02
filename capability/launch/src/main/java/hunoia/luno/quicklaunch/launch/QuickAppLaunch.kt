@@ -1,7 +1,6 @@
 package hunoia.luno.quicklaunch.launch
 
 import android.content.Context
-import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.config.model.OpenAppOrUrlData
 import hunoia.luno.config.model.OpenUrlQueryParameter
 import hunoia.luno.launch.LaunchCapability

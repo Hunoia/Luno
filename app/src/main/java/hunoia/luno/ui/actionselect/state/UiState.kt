@@ -11,7 +11,6 @@ import hunoia.luno.config.model.SubGesture
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.quicklaunch.model.identity
-import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.quicklaunch.model.qualifiedNameWithIntents
 import hunoia.luno.action.model.Action
 

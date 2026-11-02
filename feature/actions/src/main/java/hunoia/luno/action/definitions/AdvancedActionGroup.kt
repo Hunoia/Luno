@@ -1,7 +1,6 @@
 package hunoia.luno.action.definitions
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Terminal
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionMappingRegistry

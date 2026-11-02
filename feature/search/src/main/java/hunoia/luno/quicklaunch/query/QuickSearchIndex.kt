@@ -1,6 +1,5 @@
 package hunoia.luno.quicklaunch.query
 
-import hunoia.luno.core.domain.SettingsPage
 
 import android.content.Context
 import android.util.Log

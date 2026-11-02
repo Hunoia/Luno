@@ -3,7 +3,6 @@ package hunoia.luno.capability.ocr.pp
 import android.content.Context
 import java.io.Closeable
 import java.io.File
-import kotlin.math.min
 
 /**
  * PP-OCRv6 文本检测（DBNet）on LiteRT GPU delegate。

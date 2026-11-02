@@ -15,7 +15,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -31,7 +30,6 @@ import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -133,7 +131,6 @@ import hunoia.luno.bridge.system.copyText
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.capability.ocr.OcrLine
 import hunoia.luno.capability.ocr.OcrTokenizer
-import hunoia.luno.capability.ocr.OcrWord
 import hunoia.luno.quicklaunch.QuickSearchActivity
 import hunoia.luno.ui.component.selection.handleAt
 import hunoia.luno.ui.component.selection.moved
@@ -143,11 +140,9 @@ import hunoia.luno.ui.theme.CompactToolbarHeight
 import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.ExtraLargeShape
 import hunoia.luno.ui.theme.CardInnerSpacing
-import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.OcrChipMinHeight
 import hunoia.luno.ui.theme.MotionPanelIn
 import hunoia.luno.ui.theme.MotionPanelOut
-import hunoia.luno.ui.theme.MotionSettle
 import hunoia.luno.ui.theme.MotionSubtle
 import hunoia.luno.ui.theme.MotionSwapIn
 import hunoia.luno.ui.theme.MotionSwapOut

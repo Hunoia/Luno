@@ -77,10 +77,7 @@ import hunoia.luno.bridge.ui.windowManager
 import hunoia.luno.capability.ocr.OcrEngine
 import hunoia.luno.capability.ocr.OcrText
 import hunoia.luno.config.model.OcrScript
-import hunoia.luno.core.Events
 import hunoia.luno.core.LOG_TAG
-import hunoia.luno.core.PanelDismissedEvent
-import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.runtime.GestureHost
 import hunoia.luno.runtime.overlay.text.A11yTextSnapshotReader
 import hunoia.luno.runtime.overlay.text.ScreenPreCapture
