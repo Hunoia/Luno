@@ -252,13 +252,13 @@ object Launcher {
         }
         val id = taskId ?: return
         val metrics = MiniWindowGeometry.realScreenSize(context)
+        val landscape = context.resources.configuration.orientation ==
+            android.content.res.Configuration.ORIENTATION_LANDSCAPE
         val bounds = MiniWindowGeometry.bounds(
-            settings = settings.forOrientation(
-                context.resources.configuration.orientation ==
-                    android.content.res.Configuration.ORIENTATION_LANDSCAPE,
-            ),
+            settings = settings.forOrientation(landscape),
             realSw = metrics.x,
             realSh = metrics.y,
+            landscape = landscape,
         )
         ShizukuManager.executeShell(
             "am task resize $id ${bounds.left} ${bounds.top} ${bounds.right} ${bounds.bottom}",
@@ -465,15 +465,20 @@ internal object MiniWindowGeometry {
     }
 
     /**
-     * MIUI13+/澎湃对 freeform 小窗在合成层按 freeformScale(默认 0.7) 缩小显示，但 WindowManager
-     * 帧仍是请求的 bounds。要让实际可见窗口等于设定尺寸，必须把 bounds 宽高乘以 1/0.7≈1.42 抵消。
+     * MIUI13+/澎湃对 freeform 小窗在合成层再缩一次显示，但 WindowManager 帧仍是请求的 bounds，
+     * 所以必须把宽高乘以 1/scale 抵消，否则实际窗口只有预览的 scale 倍大。
+     *
+     * 合成 scale 按屏幕方向不同（HyperOS 4.0 真机实测）：竖屏 0.7，横屏 0.56。
+     * 竖屏若只按 1/0.7 补偿会得到预期大小；横屏沿用 1/0.7 则只有预览的 0.8 倍，
+     * 这正是「横屏小窗比预览小」的成因。横屏补偿值用 1/0.56≈1.786。
      */
-    private val miuiFreeformCompensation: Float by lazy {
-        if (isMiui13Plus()) 1.42f else 1f
+    private fun miuiFreeformCompensation(landscape: Boolean): Float {
+        if (!isMiui13Plus()) return 1f
+        return if (landscape) 1f / 0.56f else 1f / 0.7f
     }
 
-    fun bounds(settings: WindowBounds, realSw: Int, realSh: Int): Rect {
-        val comp = miuiFreeformCompensation
+    fun bounds(settings: WindowBounds, realSw: Int, realSh: Int, landscape: Boolean): Rect {
+        val comp = miuiFreeformCompensation(landscape)
         val left = (realSw * settings.x.coerceIn(0f, 1f)).roundToInt()
         val top = (realSh * settings.y.coerceIn(0f, 1f)).roundToInt()
         val winW = (realSw * settings.width.coerceIn(0.2f, 1.5f) * comp).roundToInt()
@@ -483,16 +488,15 @@ internal object MiniWindowGeometry {
 
     fun activityOptions(context: Context, miniWindowSettings: MiniWindowSettings): ActivityOptions {
         val size = realScreenSize(context)
-        val settings = miniWindowSettings.forOrientation(
-            context.resources.configuration.orientation ==
-                android.content.res.Configuration.ORIENTATION_LANDSCAPE,
-        )
+        val landscape = context.resources.configuration.orientation ==
+            android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val settings = miniWindowSettings.forOrientation(landscape)
         return ActivityOptions.makeBasic().also { opts ->
             runCatching {
                 opts.javaClass.getMethod("setLaunchWindowingMode", Int::class.javaPrimitiveType)
                     .invoke(opts, 5)
             }
-            opts.setLaunchBounds(bounds(settings, size.x, size.y))
+            opts.setLaunchBounds(bounds(settings, size.x, size.y, landscape))
         }
     }
 

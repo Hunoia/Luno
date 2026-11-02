@@ -81,6 +81,7 @@ private enum class HitKind {
  * 小窗位置/大小的调整界面。
  * 整屏接管：隐藏系统栏、无 TopBar，系统返回不可靠，出口只有预览底部的【完成】/【取消】。
  * 预览铺满整屏，比例与运行时 `makeActivityOptions` 1:1 对应，无需缩放映射；拖拽同样 clamp 到 0..1。
+ * 运行时按方向抵消 HyperOS 的 freeformScale（竖屏 0.7 / 横屏 0.56），两边预览都等于实际。
  * 不锁方向，编辑的是当前 [orientation] 那套；转屏重组会丢弃未保存改动。
  * 两个入口共用本内容组件：路由页与全屏对话框，后者靠 [DialogWindowProvider] 取自己的 Window。
  */

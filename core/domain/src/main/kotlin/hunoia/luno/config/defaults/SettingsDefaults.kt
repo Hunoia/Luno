@@ -15,7 +15,7 @@ object AdvancedSettingsDefaults {
     const val MiniWindowHeight = 0.54f
     const val KeepAliveEnabled = true
 
-    /** 横屏那套。约 16:10 的竖长小窗，靠左。 */
+    /** 横屏那套。约 16:10 的竖长小窗，靠左。横屏 freeformScale 为 0.56（竖屏 0.7），同样乘 1/0.56 抵消。 */
     const val MiniWindowLandscapeX = 0.05f
     const val MiniWindowLandscapeY = 0.11f
     const val MiniWindowLandscapeWidth = 0.24f
