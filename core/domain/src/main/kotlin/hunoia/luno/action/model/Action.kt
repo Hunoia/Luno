@@ -60,7 +60,11 @@ sealed interface Action {
     ) : Action {
         override val typeId: String = "intent.openUrl"
     }
-    data class ShareText(val text: String, val mimeType: String = "text/plain") : Action {
+    /**
+     * 分享文本：用户从选择页直接选时无参数，执行期读当前剪贴板；
+     * 搜索的「分享」打开方式会把查询结果写进 [text]，两条来源共用同一 typeId。
+     */
+    data class ShareText(val text: String = "") : Action {
         override val typeId: String = "intent.shareText"
     }
     data object ShareFile : Action {
@@ -110,8 +114,11 @@ sealed interface Action {
     data object Tap : Action {
         override val typeId: String = "accessibility.tap"
     }
-    data class ScrollFocused(val forward: Boolean) : Action {
-        override val typeId: String = "accessibility.scroll"
+    data object ScrollForward : Action {
+        override val typeId: String = "accessibility.scrollForward"
+    }
+    data object ScrollBackward : Action {
+        override val typeId: String = "accessibility.scrollBackward"
     }
     data object ScrollToTop : Action {
         override val typeId: String = "accessibility.scrollToTop"

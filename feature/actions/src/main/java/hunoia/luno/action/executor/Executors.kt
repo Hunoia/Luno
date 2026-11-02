@@ -10,6 +10,7 @@ import hunoia.luno.action.model.Action
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.bridge.system.copyText
+import hunoia.luno.bridge.system.readClipboardText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -33,7 +34,8 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
     override val supportedTypes: Set<String> = setOf(
         "accessibility.back", "accessibility.home", "accessibility.recents",
         "accessibility.tap",
-        "accessibility.scroll", "accessibility.scrollToTop", "accessibility.scrollToBottom",
+        "accessibility.scrollForward", "accessibility.scrollBackward",
+        "accessibility.scrollToTop", "accessibility.scrollToBottom",
         "accessibility.screenshot", "accessibility.screenPick",
         "screen.annotate",
         "accessibility.splitScreen",
@@ -60,7 +62,8 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
                     hunoia.luno.shizuku.ShizukuInputInjection.tap(x, y)
                 }
             }
-            is Action.ScrollFocused -> executionResult(controller.scrollFocused(action.forward))
+            is Action.ScrollForward -> executionResult(controller.scrollFocused(true))
+            is Action.ScrollBackward -> executionResult(controller.scrollFocused(false))
             is Action.ScrollToTop -> executionResult(controller.scrollToTop())
             is Action.ScrollToBottom -> executionResult(controller.scrollToBottom())
             is Action.Screenshot -> {
@@ -153,7 +156,15 @@ class IntentExecutors(private val intentController: IntentController) : ActionEx
                 val ok = context.openUrl(action.url, action.miniWindow, action.queryParameters)
                 if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
-            is Action.ShareText -> intentController.shareText(action.text, action.mimeType)
+            is Action.ShareText -> {
+                // 空参数 = 选择页直接选的「分享剪贴板文本」；非空 = 搜索「分享」打开方式带入的查询文本。
+                val text = action.text.ifBlank { readClipboardText(context.appContext).orEmpty() }
+                if (text.isBlank()) {
+                    ActionResult.Failed(ActionFailure.InvalidParameter)
+                } else {
+                    intentController.shareText(text)
+                }
+            }
             is Action.ShareFile -> context.shareFile()
             is Action.Assist -> intentController.launchAssist()
             else -> ActionResult.Failed(ActionFailure.Unsupported)

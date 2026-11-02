@@ -16,7 +16,6 @@ import androidx.compose.material.icons.filled.VerticalAlignTop
 import androidx.compose.material.icons.filled.ViewCarousel
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionMappingRegistry
-import hunoia.luno.action.model.str
 import hunoia.luno.core.domain.Capability
 
 /** 无障碍能力类动作。 */
@@ -39,7 +38,9 @@ internal object AccessibilityActionGroup : ActionGroup {
             icon = Icons.Default.TouchApp,
             alternativeCapabilities = setOf(Capability.Shizuku),
         ),
-        ActionDefinition("accessibility.scroll", "滚动焦点元素", ActionCategory.OPERATION, Capability.Accessibility,
+        ActionDefinition("accessibility.scrollForward", "向下滚动", ActionCategory.OPERATION, Capability.Accessibility,
+            icon = Icons.Default.VerticalAlignBottom),
+        ActionDefinition("accessibility.scrollBackward", "向上滚动", ActionCategory.OPERATION, Capability.Accessibility,
             icon = Icons.Default.VerticalAlignTop),
         ActionDefinition("accessibility.scrollToTop", "滑动到顶部", ActionCategory.OPERATION, Capability.Accessibility,
             icon = Icons.Default.VerticalAlignTop),
@@ -74,9 +75,8 @@ internal object AccessibilityActionGroup : ActionGroup {
         ActionMappingRegistry.register("accessibility.home") { Action.Home }
         ActionMappingRegistry.register("accessibility.recents") { Action.Recents }
         ActionMappingRegistry.register("accessibility.tap") { Action.Tap }
-        ActionMappingRegistry.register("accessibility.scroll") { p ->
-            Action.ScrollFocused(p.str("direction") != "BACKWARD")
-        }
+        ActionMappingRegistry.register("accessibility.scrollForward") { Action.ScrollForward }
+        ActionMappingRegistry.register("accessibility.scrollBackward") { Action.ScrollBackward }
         ActionMappingRegistry.register("accessibility.scrollToTop") { Action.ScrollToTop }
         ActionMappingRegistry.register("accessibility.scrollToBottom") { Action.ScrollToBottom }
         ActionMappingRegistry.register("accessibility.screenshot") { Action.Screenshot }

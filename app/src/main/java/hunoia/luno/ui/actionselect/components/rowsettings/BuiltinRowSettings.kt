@@ -1,33 +1,10 @@
 package hunoia.luno.ui.actionselect.components.rowsettings
 
-import android.content.Context
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.actions.R as ActionsR
-import hunoia.luno.ui.component.input.LunoTextSlider
-import hunoia.luno.ui.component.row.LunoSelectableRow
-import hunoia.luno.ui.component.row.selectedSegmentedShape
-import hunoia.luno.ui.theme.CardInnerSpacing
-import hunoia.luno.ui.theme.LargeShape
-import hunoia.luno.ui.theme.SegmentedGap
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -35,14 +12,21 @@ import kotlinx.serialization.json.buildJsonObject
 /** 内置可配置动作的行设置描述符。 */
 internal object BuiltinRowSettings {
 
+    private val settingsPages = listOf(
+        "WIFI", "BLUETOOTH", "DISPLAY", "BATTERY",
+        "APPS", "NETWORK", "ACCESSIBILITY", "MAIN",
+    )
+    private val audioStreams = listOf("MUSIC", "RING", "NOTIFICATION", "ALARM", "VOICE", "SYSTEM")
+    private val floatBallVisibilityKeys = listOf("toggle", "true", "false", "HIDE_FOR")
+    private val buttonsVisibilityKeys = listOf("true", "false", "HIDE_FOR")
+    private val buttonScopeKeys = listOf("ALL", "EXCEPT", "ONLY")
+
     fun registerAll(register: (ActionRowSettingsDescriptor) -> Unit) {
         register(volumeScrub())
         register(floatBallVisibility())
         register(buttonsVisibility())
         register(openSettings())
         register(volume())
-        register(scroll())
-        register(shareText())
     }
 
     private fun volumeScrub() = ActionRowSettingsDescriptor(
@@ -61,11 +45,10 @@ internal object BuiltinRowSettings {
             }
         },
         editor = { scope ->
-            val step = scope.draft.int("stepThresholdDp", RowSettingsDefaults.VolumeScrubStepDp)
-            LunoTextSlider(
-                value = step.toFloat(),
+            SettingSlider(
+                value = scope.draft.int("stepThresholdDp", RowSettingsDefaults.VolumeScrubStepDp).toFloat(),
                 onValueChange = { scope.setInt("stepThresholdDp", it.toInt()) },
-                text = stringResource(R.string.row_settings_sensitivity),
+                title = stringResource(R.string.row_settings_sensitivity),
                 valueDisplay = { "${it.toInt()}dp" },
                 valueRange = 4f..64f,
             )
@@ -94,32 +77,37 @@ internal object BuiltinRowSettings {
         },
         editor = { scope ->
             val hideForMs = scope.draft.long("hideForMs", 0)
-            LabeledChips(
-                R.string.row_settings_visibility,
-                listOf(
-                    "toggle" to R.string.row_settings_toggle,
-                    "true" to R.string.row_settings_show,
-                    "false" to R.string.row_settings_hide,
-                    "HIDE_FOR" to R.string.row_settings_hide_temporarily,
+            val selectedKey = if (hideForMs > 0) {
+                "HIDE_FOR"
+            } else {
+                scope.draft.str("visible", RowSettingsDefaults.FloatBallVisible)
+            }
+            SettingChoiceList(
+                title = stringResource(R.string.row_settings_visibility),
+                options = listOf(
+                    stringResource(R.string.row_settings_toggle),
+                    stringResource(R.string.row_settings_show),
+                    stringResource(R.string.row_settings_hide),
+                    stringResource(R.string.row_settings_hide_temporarily),
                 ),
-                if (hideForMs > 0) "HIDE_FOR"
-                else scope.draft.str("visible", RowSettingsDefaults.FloatBallVisible),
-            ) {
-                if (it == "HIDE_FOR") {
+                selectedIndex = floatBallVisibilityKeys.indexOf(selectedKey).coerceAtLeast(0),
+            ) { index ->
+                val key = floatBallVisibilityKeys[index]
+                if (key == "HIDE_FOR") {
                     scope.setStr("visible", "toggle")
                     if (hideForMs <= 0) {
                         scope.setLong("hideForMs", RowSettingsDefaults.HideGestureButtonDelayMs)
                     }
                 } else {
                     scope.setLong("hideForMs", 0)
-                    scope.setStr("visible", it)
+                    scope.setStr("visible", key)
                 }
             }
-            if (hideForMs > 0) {
-                LunoTextSlider(
+            AnimatedVisibility(visible = hideForMs > 0) {
+                SettingSlider(
                     value = hideForMs.toFloat(),
                     onValueChange = { scope.setLong("hideForMs", it.toLong()) },
-                    text = stringResource(R.string.row_settings_hide_duration),
+                    title = stringResource(R.string.row_settings_hide_duration),
                     valueDisplay = { "${it.toLong()}ms" },
                     valueRange = 500f..30000f,
                 )
@@ -180,20 +168,14 @@ internal object BuiltinRowSettings {
             }
         },
         editor = { scope ->
-            LabeledChips(
-                R.string.row_settings_settings_page,
-                listOf(
-                    "WIFI" to ActionsR.string.settings_page_wifi,
-                    "BLUETOOTH" to ActionsR.string.settings_page_bluetooth,
-                    "DISPLAY" to ActionsR.string.settings_page_display,
-                    "BATTERY" to ActionsR.string.settings_page_battery,
-                    "APPS" to ActionsR.string.settings_page_apps,
-                    "NETWORK" to ActionsR.string.settings_page_network,
-                    "ACCESSIBILITY" to ActionsR.string.settings_page_accessibility,
-                    "MAIN" to ActionsR.string.settings_page_main,
-                ),
-                scope.draft.str("page", RowSettingsDefaults.SettingsPage),
-            ) { scope.setStr("page", it) }
+            val selected = settingsPages
+                .indexOf(scope.draft.str("page", RowSettingsDefaults.SettingsPage))
+                .coerceAtLeast(0)
+            SettingChoiceList(
+                title = stringResource(R.string.row_settings_settings_page),
+                options = settingsPages.map { stringResource(settingsPageLabelRes(it)) },
+                selectedIndex = selected,
+            ) { scope.setStr("page", settingsPages[it]) }
         },
     )
 
@@ -220,145 +202,84 @@ internal object BuiltinRowSettings {
             }
         },
         editor = { scope ->
-            LabeledChips(
-                R.string.row_settings_stream,
-                listOf(
-                    "MUSIC" to R.string.audio_stream_music,
-                    "RING" to R.string.audio_stream_ring,
-                    "NOTIFICATION" to R.string.audio_stream_notification,
-                    "ALARM" to R.string.audio_stream_alarm,
-                    "VOICE" to R.string.audio_stream_voice,
-                    "SYSTEM" to R.string.audio_stream_system,
+            val stream = scope.draft.str("stream", RowSettingsDefaults.AudioStream)
+            SettingChoiceList(
+                title = stringResource(R.string.row_settings_stream),
+                options = audioStreams.map { stringResource(audioStreamLabelRes(it)) },
+                selectedIndex = audioStreams.indexOf(stream).coerceAtLeast(0),
+            ) { scope.setStr("stream", audioStreams[it]) }
+            val direction = scope.draft.str("direction", RowSettingsDefaults.VolumeDirection)
+            SettingChoiceRow(
+                title = stringResource(R.string.row_settings_direction),
+                options = listOf(
+                    stringResource(R.string.row_settings_direction_up),
+                    stringResource(R.string.row_settings_direction_down),
                 ),
-                scope.draft.str("stream", RowSettingsDefaults.AudioStream),
-            ) { scope.setStr("stream", it) }
-            LabeledChips(
-                R.string.row_settings_direction,
-                listOf(
-                    "UP" to R.string.row_settings_direction_up,
-                    "DOWN" to R.string.row_settings_direction_down,
-                ),
-                scope.draft.str("direction", RowSettingsDefaults.VolumeDirection),
-            ) { scope.setStr("direction", it) }
+                selectedIndex = if (direction == "DOWN") 1 else 0,
+            ) { scope.setStr("direction", if (it == 1) "DOWN" else "UP") }
         },
     )
 
-    private fun scroll() = ActionRowSettingsDescriptor(
-        typeId = "accessibility.scroll",
-        titleRes = R.string.row_dialog_scroll,
-        subtitle = { params, context ->
-            context.getString(
-                if (params.str("direction", "FORWARD") == "BACKWARD") R.string.row_settings_scroll_up
-                else R.string.row_settings_scroll_down
-            )
-        },
-        canonicalize = { draft ->
-            buildJsonObject { put("direction", JsonPrimitive(draft.str("direction", "FORWARD"))) }
-        },
-        editor = { scope ->
-            LabeledChips(
-                R.string.row_settings_direction,
-                listOf(
-                    "FORWARD" to R.string.row_settings_scroll_down,
-                    "BACKWARD" to R.string.row_settings_scroll_up,
-                ),
-                scope.draft.str("direction", "FORWARD"),
-            ) { scope.setStr("direction", it) }
-        },
-    )
-
-    private fun shareText() = ActionRowSettingsDescriptor(
-        typeId = "intent.shareText",
-        titleRes = R.string.row_dialog_share_text,
-        subtitle = { params, _ -> params.str("text", "") },
-        canonicalize = { draft ->
-            buildJsonObject {
-                put("text", JsonPrimitive(draft.str("text", "")))
-                put("mimeType", JsonPrimitive("text/plain"))
-            }
-        },
-        isValid = { draft -> draft.str("text", "").isNotBlank() },
-        editor = { scope ->
-            val text = scope.draft.str("text", "")
-            LabeledTextField(
-                R.string.row_settings_text_content,
-                text,
-                { scope.setStr("text", it) },
-                keyboardType = KeyboardType.Text,
-            )
-            if (text.isBlank()) FieldError(stringResource(R.string.row_settings_text_required))
-        },
-    )
-
-
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun ButtonsVisibilityEditor(scope: RowSettingsEditorScope) {
-    val hideForMs = scope.draft.long("hideForMs", 0)
-    val visible = scope.draft.bool("visible", RowSettingsDefaults.ButtonsVisible)
-    LabeledChips(
-        R.string.row_settings_visibility,
-        listOf(
-            "true" to R.string.row_settings_show,
-            "false" to R.string.row_settings_hide,
-            "HIDE_FOR" to R.string.row_settings_hide_temporarily,
-        ),
-        when {
+    @Composable
+    private fun ButtonsVisibilityEditor(scope: RowSettingsEditorScope) {
+        val hideForMs = scope.draft.long("hideForMs", 0)
+        val visible = scope.draft.bool("visible", RowSettingsDefaults.ButtonsVisible)
+        val visibilityKey = when {
             hideForMs > 0 -> "HIDE_FOR"
             visible -> "true"
             else -> "false"
-        },
-    ) {
-        if (it == "HIDE_FOR") {
-            if (hideForMs <= 0) scope.setLong("hideForMs", RowSettingsDefaults.HideGestureButtonDelayMs)
-        } else {
-            scope.setLong("hideForMs", 0)
-            scope.setBool("visible", it.toBooleanStrict())
         }
-    }
-    if (hideForMs > 0) {
-        LunoTextSlider(
-            value = hideForMs.toFloat(),
-            onValueChange = { scope.setLong("hideForMs", it.toLong()) },
-            text = stringResource(R.string.row_settings_hide_duration),
-            valueDisplay = { "${it.toLong()}ms" },
-            valueRange = 500f..30000f,
-        )
-    }
-    val target = scope.draft.str("target", RowSettingsDefaults.ButtonsTarget)
-    LabeledChips(
-        R.string.row_settings_scope,
-        listOf(
-            "ALL" to R.string.row_settings_scope_all,
-            "EXCEPT" to R.string.row_settings_scope_except,
-            "ONLY" to R.string.row_settings_scope_only,
-        ),
-        target,
-    ) { scope.setStr("target", it) }
-    if (target != "ALL") {
-        val selectedIds = scope.draft.ids("buttonIds").toSet()
-        Text(
-            text = stringResource(R.string.row_settings_buttons) + " · ${selectedIds.size}",
-            style = MaterialTheme.typography.labelLarge,
-        )
-        val selectionFlags = scope.buttons.map { it.id in selectedIds }
-        Column(verticalArrangement = Arrangement.spacedBy(SegmentedGap)) {
-            scope.buttons.forEachIndexed { index, button ->
-                LunoSelectableRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    title = button.name.ifBlank {
-                        stringResource(hunoia.luno.core.data.R.string.gesture_button)
-                    },
-                    selected = button.id in selectedIds,
-                    onSelectedChange = { checked ->
-                        val next = if (checked) selectedIds + button.id else selectedIds - button.id
-                        scope.setStringArray("buttonIds", next.toList())
-                    },
-                    shape = selectedSegmentedShape(index, scope.buttons.size, selectionFlags),
-                )
+        SettingChoiceRow(
+            title = stringResource(R.string.row_settings_visibility),
+            options = listOf(
+                stringResource(R.string.row_settings_show),
+                stringResource(R.string.row_settings_hide),
+                stringResource(R.string.row_settings_hide_temporarily),
+            ),
+            selectedIndex = buttonsVisibilityKeys.indexOf(visibilityKey).coerceAtLeast(0),
+        ) { index ->
+            val key = buttonsVisibilityKeys[index]
+            if (key == "HIDE_FOR") {
+                if (hideForMs <= 0) scope.setLong("hideForMs", RowSettingsDefaults.HideGestureButtonDelayMs)
+            } else {
+                scope.setLong("hideForMs", 0)
+                scope.setBool("visible", key.toBooleanStrict())
             }
+        }
+        AnimatedVisibility(visible = hideForMs > 0) {
+            SettingSlider(
+                value = hideForMs.toFloat(),
+                onValueChange = { scope.setLong("hideForMs", it.toLong()) },
+                title = stringResource(R.string.row_settings_hide_duration),
+                valueDisplay = { "${it.toLong()}ms" },
+                valueRange = 500f..30000f,
+            )
+        }
+        val target = scope.draft.str("target", RowSettingsDefaults.ButtonsTarget)
+        SettingChoiceRow(
+            title = stringResource(R.string.row_settings_scope),
+            options = listOf(
+                stringResource(R.string.row_settings_scope_all),
+                stringResource(R.string.row_settings_scope_except),
+                stringResource(R.string.row_settings_scope_only),
+            ),
+            selectedIndex = buttonScopeKeys.indexOf(target).coerceAtLeast(0),
+        ) { scope.setStr("target", buttonScopeKeys[it]) }
+        val selectedIds = scope.draft.ids("buttonIds").toSet()
+        AnimatedVisibility(visible = target != "ALL") {
+            SettingMultiChoiceList(
+                title = "${stringResource(R.string.row_settings_buttons)} · ${selectedIds.size}",
+                options = scope.buttons.map { button ->
+                    button.id to button.name.ifBlank {
+                        stringResource(hunoia.luno.core.data.R.string.gesture_button)
+                    }
+                },
+                selectedIds = selectedIds,
+                onToggle = { id, checked ->
+                    val next = if (checked) selectedIds + id else selectedIds - id
+                    scope.setStringArray("buttonIds", next.toList())
+                },
+            )
         }
     }
 }
@@ -381,59 +302,4 @@ private fun audioStreamLabelRes(stream: String): Int = when (stream) {
     "VOICE" -> R.string.audio_stream_voice
     "SYSTEM" -> R.string.audio_stream_system
     else -> R.string.audio_stream_music
-}
-
-@Composable
-private fun FieldError(text: String) {
-    Text(text = text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun LabeledChips(
-    labelRes: Int,
-    options: List<Pair<String, Int>>,
-    selected: String,
-    onSelect: (String) -> Unit,
-) {
-    Text(text = stringResource(labelRes), style = MaterialTheme.typography.labelLarge)
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        options.forEach { (value, textRes) ->
-            FilterChip(
-                selected = selected == value,
-                onClick = { onSelect(value) },
-                label = { Text(stringResource(textRes)) },
-                shape = LargeShape,
-                colors = FilterChipDefaults.filterChipColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceBright,
-                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                ),
-                border = null,
-            )
-        }
-    }
-}
-
-@Composable
-private fun LabeledTextField(
-    labelRes: Int,
-    value: String,
-    onValueChange: (String) -> Unit,
-    isError: Boolean = false,
-    keyboardType: KeyboardType = KeyboardType.Text,
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = Modifier.fillMaxWidth(),
-        label = { Text(stringResource(labelRes)) },
-        isError = isError,
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-    )
 }

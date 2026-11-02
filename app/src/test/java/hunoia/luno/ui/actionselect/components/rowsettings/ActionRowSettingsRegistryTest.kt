@@ -15,8 +15,6 @@ class ActionRowSettingsRegistryTest {
             "internal.buttonsVisibility",
             "system.openSettings",
             "system.volume",
-            "accessibility.scroll",
-            "intent.shareText",
         )
         assertEquals(expected, ActionRowSettingsRegistry.typeIds)
     }
