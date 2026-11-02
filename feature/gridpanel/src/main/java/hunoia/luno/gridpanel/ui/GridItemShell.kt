@@ -23,12 +23,15 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.geometry.ItemCorner
+import hunoia.luno.gridpanel.geometry.ResizeCorner
 import hunoia.luno.ui.theme.SmallShape
 
 /**
@@ -64,7 +67,13 @@ fun ItemResizeHandle(
     modifier: Modifier = Modifier,
     /** 正在拖拽这一项：提亮 + 加粗，给一个「已经抓住了」的反馈。 */
     active: Boolean = false,
+    corner: ResizeCorner = ResizeCorner.BOTTOM_END,
+    label: String = stringResource(R.string.grid_panel_item_resize),
+    /** 圆角半径：项用 [ItemCorner]，面板用卡片实际圆角，弧线才能贴着边框。 */
+    cornerRadius: Dp = ItemCorner,
 ) {
+    val density = LocalDensity.current
+    val radiusPx = with(density) { cornerRadius.toPx() }
     val primary = MaterialTheme.colorScheme.primary
     val color by animateColorAsState(
         targetValue = if (active) primary else gridPanelOnCardColor.copy(alpha = 0.6f),
@@ -76,11 +85,10 @@ fun ItemResizeHandle(
         animationSpec = tween(hunoia.luno.ui.theme.MotionSwapOut),
         label = "itemResizeHandleStroke",
     )
-    val label = stringResource(R.string.grid_panel_item_resize)
     Box(
         modifier
             // 固定尺寸：半径是常量，手柄再跟着格子缩放只会让弧心漂移。
-            .size(ItemCorner + 6.dp)
+            .size(cornerRadius + 6.dp)
             .semantics { contentDescription = label },
     ) {
         // 只裁到这块盒子内的「卡片圆角」形状：弧线外侧的半条描边不会跑出卡外。
@@ -88,24 +96,35 @@ fun ItemResizeHandle(
             Modifier
                 .fillMaxSize()
                 .clip(
-                    RoundedCornerShape(
-                        topStart = 0.dp,
-                        topEnd = 0.dp,
-                        bottomEnd = ItemCorner,
-                        bottomStart = 0.dp,
-                    ),
+                    when (corner) {
+                        ResizeCorner.TOP_START -> RoundedCornerShape(topStart = cornerRadius)
+                        ResizeCorner.TOP_END -> RoundedCornerShape(topEnd = cornerRadius)
+                        ResizeCorner.BOTTOM_START -> RoundedCornerShape(bottomStart = cornerRadius)
+                        ResizeCorner.BOTTOM_END -> RoundedCornerShape(bottomEnd = cornerRadius)
+                    },
                 ),
         ) {
-            val r = ItemCorner.toPx()
+            val r = radiusPx
             val stroke = strokeDp.dp.toPx()
-            // 圆心 = 卡片那道圆角的圆心（手柄盒贴 BottomEnd，所以是盒内右下 r 处）。
-            val center = Offset(size.width - r, size.height - r)
+            // 圆心 = 卡片那道圆角的圆心，随手柄所在角切换。
+            val center = when (corner) {
+                ResizeCorner.TOP_START -> Offset(r, r)
+                ResizeCorner.TOP_END -> Offset(size.width - r, r)
+                ResizeCorner.BOTTOM_START -> Offset(r, size.height - r)
+                ResizeCorner.BOTTOM_END -> Offset(size.width - r, size.height - r)
+            }
+            val startAngle = when (corner) {
+                ResizeCorner.TOP_START -> 180f
+                ResizeCorner.TOP_END -> 270f
+                ResizeCorner.BOTTOM_START -> 90f
+                ResizeCorner.BOTTOM_END -> 0f
+            }
             val arcRadius = (r - stroke / 2f).coerceAtLeast(1f)
 
             // 主弧：与卡片边框共形。
             drawArc(
                 color = color,
-                startAngle = 0f,
+                startAngle = startAngle,
                 sweepAngle = 90f,
                 useCenter = false,
                 topLeft = center - Offset(arcRadius, arcRadius),
@@ -118,7 +137,7 @@ fun ItemResizeHandle(
             if (innerRadius > 2.dp.toPx()) {
                 drawArc(
                     color = color.copy(alpha = if (active) 0.7f else 0.45f),
-                    startAngle = 8f,
+                    startAngle = startAngle + 8f,
                     sweepAngle = 74f,
                     useCenter = false,
                     topLeft = center - Offset(innerRadius, innerRadius),

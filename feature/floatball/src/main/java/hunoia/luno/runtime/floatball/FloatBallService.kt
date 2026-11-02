@@ -10,6 +10,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.content.res.Configuration
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -35,6 +36,7 @@ import hunoia.luno.core.TouchButtonSideEvent
 import hunoia.luno.config.model.LinkDispatchSettings
 import hunoia.luno.config.model.LinkTapMode
 import hunoia.luno.config.model.VisibilityTargets
+import hunoia.luno.config.model.withPosition
 import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.link.Links
 import hunoia.luno.link.LinkUrls
@@ -300,6 +302,12 @@ class FloatBallService : Service() {
         return START_STICKY
     }
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // Service 不会自动重建窗口：转屏后主动切到该朝向的落点。
+        refreshWindows()
+    }
+
     override fun onDestroy() {
         settingsJob?.cancel()
         imeJob?.cancel()
@@ -404,6 +412,8 @@ class FloatBallService : Service() {
     }
 
     private fun refreshWindowsLocked() {
+        // 转屏后先换到对应朝向的落点；气泡在屏时同步重贴锚点。
+        if (syncOrientation()) updateBubbleAnchor()
         // 瞬态成员的重评放最前：主球侧下面有早退分支（面板开合/临时隐藏都从这走），
         // 放尾部会漏掉「在屏但已不被允许」的收起路径。
         refreshCapsule()
@@ -702,8 +712,9 @@ class FloatBallService : Service() {
     private fun bubbleAnchor(): BubbleAnchor {
         ballWindow.visibleRectOnScreen()?.let { return it }
         val size = DensityProvider.dp2px(settings.sizeDp)
-        val left = (settings.x * DensityProvider.screenWidthPx).roundToInt()
-        val top = (settings.y * DensityProvider.screenHeightPx).roundToInt()
+        val position = settings.position(isLandscapeNow())
+        val left = (position.x * DensityProvider.screenWidthPx).roundToInt()
+        val top = (position.y * DensityProvider.screenHeightPx).roundToInt()
         return BubbleAnchor(left, top, left + size, top + size)
     }
 
@@ -1518,7 +1529,8 @@ class FloatBallService : Service() {
             pendingFollowHandSide = null
             return
         }
-        val anchorY = (if (side) settings.leftAnchorY else settings.rightAnchorY) ?: settings.y
+        val position = settings.position(isLandscapeNow())
+        val anchorY = (if (side) position.leftAnchorY else position.rightAnchorY) ?: position.y
         val accepted = ballWindow.repositionTo(side, anchorY) { onFollowHandLanded(side) }
         if (accepted) {
             followHandRetryJob?.cancel()
@@ -1544,7 +1556,8 @@ class FloatBallService : Service() {
                     pendingFollowHandSide = null
                     return@launch
                 }
-                val anchorY = (if (side) settings.leftAnchorY else settings.rightAnchorY) ?: settings.y
+                val position = settings.position(isLandscapeNow())
+                val anchorY = (if (side) position.leftAnchorY else position.rightAnchorY) ?: position.y
                 if (ballWindow.repositionTo(side, anchorY) { onFollowHandLanded(side) }) return@launch
             }
             // 长时间被用户按住/拖动：放弃本次补做，避免用户松手后球又自己跑。
@@ -1572,24 +1585,29 @@ class FloatBallService : Service() {
      */
     private fun persistBallPosition(x: Float, y: Float) {
         val left = x < 0.5f
-        settings = settings.copy(
-            x = x,
-            y = y,
-            leftAnchorY = if (left) y else settings.leftAnchorY,
-            rightAnchorY = if (!left) y else settings.rightAnchorY,
-        )
+        val landscape = isLandscapeNow()
+        settings = settings.withPosition(landscape) { position ->
+            position.copy(
+                x = x,
+                y = y,
+                leftAnchorY = if (left) y else position.leftAnchorY,
+                rightAnchorY = if (!left) y else position.rightAnchorY,
+            )
+        }
         scope.launch {
             runCatching {
                 hunoia.luno.domain.floatball.FloatBallSettingsCenter.updateActionSettings { current ->
                     // 字段级合并到最新存量：整对象按内存快照覆盖会把主进程的并发
                     // 修改（大小/颜色/动作）连同旧值一起写回去。
                     current.copy(
-                        floatBall = current.floatBall.copy(
-                            x = x,
-                            y = y,
-                            leftAnchorY = if (left) y else current.floatBall.leftAnchorY,
-                            rightAnchorY = if (!left) y else current.floatBall.rightAnchorY,
-                        ),
+                        floatBall = current.floatBall.withPosition(landscape) { position ->
+                            position.copy(
+                                x = x,
+                                y = y,
+                                leftAnchorY = if (left) y else position.leftAnchorY,
+                                rightAnchorY = if (!left) y else position.rightAnchorY,
+                            )
+                        },
                     )
                 }
             }.onFailure { Log.w(TAG, "persist ball position failed: ${it.message}") }
@@ -1619,6 +1637,17 @@ class FloatBallService : Service() {
         val poweredOff = powerManager?.isInteractive == false
         val locked = runCatching { keyguardManager?.isKeyguardLocked == true }.getOrDefault(false)
         return poweredOff || locked
+    }
+
+    private fun isLandscapeNow(): Boolean = RuntimeStateHub.current()?.isLandscape
+        ?: (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE)
+
+    /** 把当前朝向同步给两个球窗；返回是否真的换了朝向。 */
+    private fun syncOrientation(): Boolean {
+        val landscape = isLandscapeNow()
+        val ballChanged = ballWindow.setOrientation(landscape)
+        val mirrorChanged = mirrorWindow.setOrientation(landscape)
+        return ballChanged || mirrorChanged
     }
 
     // ---- 前台通知 ----

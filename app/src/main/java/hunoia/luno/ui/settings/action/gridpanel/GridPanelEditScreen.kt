@@ -46,10 +46,10 @@ import kotlin.math.roundToInt
 private const val TAG = "GridPanelEdit"
 
 /**
- * 网格面板属性编辑：名称 / 列数 / 卡片宽高 / 透明度 / 离屏边距。项在面板内管理。
+ * 网格面板属性编辑：名称 / 列数 / 透明度 / 离屏边距。项在面板内管理。
  * 页数是派生值（编辑态滑到末尾虚页落项即建页），不在这里设置。
- * 列数走 [resizeGrid]（当场重排；放不下时先弹确认再移除）；宽度/透明度/边距是纯外观，
- * 松手落盘，步进 1（1% / 1dp），拖动过程无级。
+ * 列数走 [resizeGrid]（当场重排；放不下时先弹确认再移除）；透明度/边距是纯外观，
+ * 卡片宽高只在面板内的缩放手柄调整，不在这里重复给数值入口。
  * 装载必须显式 collect：拿到 DataStore 真实值前不能判「面板不存在」，首帧空配置会误报。
  */
 @Composable
@@ -250,52 +250,13 @@ fun GridPanelEditScreen(
                         valueDisplay = { "${it.toInt()}" },
                         valueRange = GridPanelDefaults.MinColumnCount.toFloat()..GridPanelDefaults.MaxColumnCount.toFloat(),
                         steps = GridPanelDefaults.MaxColumnCount - GridPanelDefaults.MinColumnCount - 1,
-                        shape = segmentedShape(0, 2),
+                        shape = segmentedShape(0, 1),
                     )
                 }
-                var pendingHeight by remember { mutableStateOf<Float?>(null) }
-                LunoTextSlider(
-                    value = current.geometry(isLandscape()).cardHeightFraction,
-                    onValueChange = { value -> pendingHeight = value.percentStep() },
-                    onValueChangeFinished = {
-                        pendingHeight?.let { v ->
-                            update { it.withGeometry(isLandscape()) { g -> g.copy(cardHeightFraction = v) } }
-                        }
-                        pendingHeight = null
-                    },
-                    text = stringResource(R.string.grid_panel_card_height),
-                    valueDisplay = { "${(it * 100).roundToInt()}%" },
-                    valueRange = GridPanelDefaults.MinCardHeightFraction..GridPanelDefaults.MaxCardHeightFraction,
-                    // 无级拖动、按 1% 落盘；固定 steps 会把刻度画成密集圆点。
-                    steps = 0,
-                    shape = segmentedShape(1, 2),
-                )
             }
         }
         item {
             LunoGroup {
-                var pendingWidth by remember { mutableStateOf<Float?>(null) }
-                LunoTextSlider(
-                    value = current.geometry(isLandscape()).cardWidthFraction,
-                    onValueChange = { value -> pendingWidth = value.percentStep() },
-                    onValueChangeFinished = {
-                        pendingWidth?.let { v ->
-                            update { it.withGeometry(isLandscape()) { g -> g.copy(cardWidthFraction = v) } }
-                        }
-                        pendingWidth = null
-                    },
-                    text = stringResource(R.string.grid_panel_card_width),
-                    valueDisplay = { "${(it * 100).roundToInt()}%" },
-                    valueRange = (
-                        if (isLandscape()) {
-                            GridPanelDefaults.MinCardWidthFractionLandscape
-                        } else {
-                            GridPanelDefaults.MinCardWidthFraction
-                        }
-                    )..GridPanelDefaults.MaxCardWidthFraction,
-                    steps = 0,
-                    shape = segmentedShape(0, 3),
-                )
                 var localAlpha by remember(current.cardAlpha) { mutableFloatStateOf(current.cardAlpha) }
                 LunoTextSlider(
                     value = localAlpha,
@@ -305,7 +266,7 @@ fun GridPanelEditScreen(
                     valueDisplay = { "${(it * 100).roundToInt()}%" },
                     valueRange = GridPanelDefaults.MinCardAlpha..GridPanelDefaults.MaxCardAlpha,
                     steps = 0,
-                    shape = segmentedShape(1, 3),
+                    shape = segmentedShape(0, 2),
                 )
                 // 离屏边距：纯外观（clamp + 圆角联动），无级拖动、按 1dp 落盘。
                 var pendingMargin by remember { mutableStateOf<Float?>(null) }
@@ -322,7 +283,7 @@ fun GridPanelEditScreen(
                     valueDisplay = { "${it.roundToInt()}dp" },
                     valueRange = GridPanelDefaults.MinScreenMarginDp..GridPanelDefaults.MaxScreenMarginDp,
                     steps = 0,
-                    shape = segmentedShape(2, 3),
+                    shape = segmentedShape(1, 2),
                 )
             }
         }

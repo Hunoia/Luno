@@ -45,6 +45,9 @@ class FloatBallMirrorWindow(
     // Compose 态：MirrorFace 的颜色依赖重组，普通字段不会触发重绘。
     private var settings by mutableStateOf(FloatBallSettings())
 
+    /** 当前朝向：决定读 portrait 还是 landscape 落点。 */
+    private var landscape = false
+
     private var posX = 0f
     private var posY = 0f
 
@@ -94,6 +97,14 @@ class FloatBallMirrorWindow(
             view?.let { lpSize(it) }
         }
         snapToMirror()
+    }
+
+    /** 转屏：换用该朝向记忆的落点。返回是否真的换了朝向。 */
+    fun setOrientation(landscape: Boolean): Boolean {
+        if (this.landscape == landscape) return false
+        this.landscape = landscape
+        snapToMirror()
+        return true
     }
 
     fun attach(animated: Boolean = false): Boolean {
@@ -214,14 +225,14 @@ class FloatBallMirrorWindow(
     fun updateImeLift(liftPx: Float) {
         if (liftPx == imeLiftPx) return
         imeLiftPx = liftPx
-        posY = clampY(settings.y * screenHeightPx - imeLiftPx)
+        posY = clampY(settings.position(landscape).y * screenHeightPx - imeLiftPx)
         applyWindowBounds()
     }
 
     /** 按当前设置重算镜像位置（主球换位/搬球落定后由 Service 调）。 */
     fun snapToMirror() {
         posX = pinnedX()
-        posY = clampY(settings.y * screenHeightPx - imeLiftPx)
+        posY = clampY(settings.position(landscape).y * screenHeightPx - imeLiftPx)
         applyWindowBounds()
         // 半圆偏移必须走 View 层：服务进程托管的 ComposeView 重组不上屏
         // （见 FloatBallWindow.applyVisual 注释），Compose 里画偏移会停在旧帧。
@@ -230,7 +241,7 @@ class FloatBallMirrorWindow(
 
     /** 主球是否在屏左半（按球心判）。 */
     private fun mainOnLeft(): Boolean =
-        settings.x * screenWidthPx + ballPx / 2f < screenWidthPx / 2f
+        settings.position(landscape).x * screenWidthPx + ballPx / 2f < screenWidthPx / 2f
 
     /** 主球在左半屏 → 分身贴右缘，反之贴左缘。 */
     private fun mirrorOnRight(): Boolean = mainOnLeft()

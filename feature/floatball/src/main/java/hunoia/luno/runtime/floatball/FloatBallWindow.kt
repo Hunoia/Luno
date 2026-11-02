@@ -77,6 +77,9 @@ class FloatBallWindow(
     /** Compose 会读取动作图标 / 颜色：必须是快照状态，否则配置更新不重组。 */
     private var settings by mutableStateOf(FloatBallSettings())
 
+    /** 当前朝向：决定读 portrait 还是 landscape 落点。 */
+    private var landscape = false
+
     private val arbiter = FloatBallTouchArbiter(
         onSlideDragged = { dx, dy -> onDragged(dx, dy) },
         onTapped = { onTap?.invoke() },
@@ -165,6 +168,18 @@ class FloatBallWindow(
             view?.let { lpSize(it) }
             if (view != null) applyWindowBounds()
         }
+    }
+
+    /** 转屏：换用该朝向记忆的落点。返回是否真的换了朝向。 */
+    fun setOrientation(landscape: Boolean): Boolean {
+        if (this.landscape == landscape) return false
+        this.landscape = landscape
+        if (view == null) return true
+        val position = settings.position(landscape)
+        posX = position.x * screenWidthPx
+        posY = position.y * screenHeightPx
+        applyWindowBounds()
+        return true
     }
 
     /**
@@ -281,8 +296,9 @@ class FloatBallWindow(
         composeView = compose
         badgeView = badge
         applySystemInsets()
-        posX = settings.x * screenWidthPx
-        posY = settings.y * screenHeightPx
+        val position = settings.position(landscape)
+        posX = position.x * screenWidthPx
+        posY = position.y * screenHeightPx
         applyWindowBounds()
         scheduleIdle()
         // detach 不清 idled：锁屏隐藏规则/总闸这类拆窗重建（enabled false→true），

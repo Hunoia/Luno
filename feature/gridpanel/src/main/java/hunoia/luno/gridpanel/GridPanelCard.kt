@@ -11,6 +11,8 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Spacer
@@ -49,8 +51,13 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -60,16 +67,20 @@ import hunoia.luno.gridpanel.core.GridPanelState
 import hunoia.luno.gridpanel.core.PageDrop
 import hunoia.luno.gridpanel.geometry.GridMetrics
 import hunoia.luno.gridpanel.geometry.IndicatorHeight
+import hunoia.luno.gridpanel.geometry.ResizeCorner
+import hunoia.luno.gridpanel.geometry.choosePanelResizeCorner
 import hunoia.luno.gridpanel.geometry.GridPadding
 import hunoia.luno.gridpanel.ui.GridItemActions
 import hunoia.luno.gridpanel.ui.GridPageIndicator
 import hunoia.luno.gridpanel.ui.GridPanelLayer
 import hunoia.luno.gridpanel.ui.PageDotSlot
+import hunoia.luno.gridpanel.ui.ItemResizeHandle
 import hunoia.luno.gridpanel.ui.PageEllipsisDots
 import hunoia.luno.gridpanel.ui.PageEllipsisSize
 import hunoia.luno.gridpanel.ui.pageDotCentersPx
 import hunoia.luno.gridpanel.ui.pageDotSlots
 import hunoia.luno.gridpanel.ui.gridPanelCardColor
+import hunoia.luno.bridge.ui.hapticTick
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
@@ -119,6 +130,12 @@ fun GridPanelCard(
     itemActions: (pageIndex: Int) -> GridItemActions,
     onSelectPage: (Int) -> Unit,
     onAdd: () -> Unit,
+    /** 面板级缩放期间的临时位置：保持对角固定，避免配置回流前跳位。 */
+    positionOverride: Offset? = null,
+    panelResizing: Boolean = false,
+    onPanelResizeStart: ((ResizeCorner, Float, Float) -> Unit)? = null,
+    onPanelResizeDelta: ((Offset) -> Unit)? = null,
+    onPanelResizeEnd: (() -> Unit)? = null,
 ) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -137,9 +154,30 @@ fun GridPanelCard(
         (metrics.screenH - insetsBottom - metrics.cardH - marginPx)
             .coerceAtLeast(insetsTop + marginPx),
     )
+    // 面板级缩放手柄：优先落在离屏边最远的角。拖动期间冻结起手角，尺寸变化
+    // 不能把正在拖的手柄换到另一个角去。
+    var resizeCornerOverride by remember(panelId) { mutableStateOf<ResizeCorner?>(null) }
+    LaunchedEffect(editMode) {
+        if (!editMode) resizeCornerOverride = null
+    }
+    val cornerLeft = positionOverride?.x ?: targetPosX
+    val cornerTop = positionOverride?.y ?: targetPosY
+    val resizeCorner = resizeCornerOverride ?: choosePanelResizeCorner(
+        cardLeft = cornerLeft,
+        cardTop = cornerTop,
+        cardWidth = metrics.cardW,
+        cardHeight = metrics.cardH,
+        screenWidth = metrics.screenW,
+        screenHeight = metrics.screenH,
+        insetsTop = insetsTop,
+        insetsBottom = insetsBottom,
+        marginPx = marginPx,
+    )
     // 转屏 / 改网格尺寸时卡片要挪位置：首帧直接对齐（别从 0 飞过来），之后平滑过渡。
     val posAnimX = remember { Animatable(targetPosX) }
     val posAnimY = remember { Animatable(targetPosY) }
+    val drawX = positionOverride?.x ?: posAnimX.value
+    val drawY = positionOverride?.y ?: posAnimY.value
     LaunchedEffect(targetPosX, targetPosY) {
         if (appearance < 0.99f) {
             posAnimX.snapTo(targetPosX)
@@ -222,7 +260,7 @@ fun GridPanelCard(
 
     Box(
         Modifier
-            .offset { IntOffset(posAnimX.value.roundToInt(), posAnimY.value.roundToInt()) }
+            .offset { IntOffset(drawX.roundToInt(), drawY.roundToInt()) }
             .size(
                 with(density) { metrics.cardW.toDp() },
                 with(density) { metrics.cardH.toDp() },
@@ -387,12 +425,45 @@ fun GridPanelCard(
                     .padding(bottom = 16.dp),
             )
         }
-        // 编辑态加项入口：右下角悬浮按钮。
+        // 整块面板缩放手柄：编辑态显示在离屏边最远的角，视觉与项手柄一致。
+        // 项拖拽/项缩放进行中先收起，避免两套手柄抢同一根手指。
+        if (editMode && !hiddenForDrag && state.draggingId == null &&
+            (state.resizingId == null || panelResizing) &&
+            onPanelResizeStart != null
+        ) {
+            val handleAlignment = when (resizeCorner) {
+                ResizeCorner.TOP_START -> Alignment.TopStart
+                ResizeCorner.TOP_END -> Alignment.TopEnd
+                ResizeCorner.BOTTOM_START -> Alignment.BottomStart
+                ResizeCorner.BOTTOM_END -> Alignment.BottomEnd
+            }
+            PanelResizeHandle(
+                corner = resizeCorner,
+                cornerRadiusPx = cornerPx,
+                active = panelResizing,
+                modifier = Modifier
+                    .align(handleAlignment)
+                    .zIndex(2f),
+                onStart = {
+                    resizeCornerOverride = resizeCorner
+                    onPanelResizeStart.invoke(resizeCorner, drawX, drawY)
+                },
+                onDelta = { delta -> onPanelResizeDelta?.invoke(delta) },
+                onEnd = { onPanelResizeEnd?.invoke() },
+            )
+        }
+        // 编辑态加项入口：默认右下角；面板手柄占右下角时让到左下，两个抓手不叠。
         // 拖拽中隐藏：此时加项没有意义，而且它会挡住底部的页拾取浮层。
         AnimatedVisibility(
             visible = editMode && state.draggingId == null,
             modifier = Modifier
-                .align(Alignment.BottomEnd)
+                .align(
+                    if (editMode && resizeCorner == ResizeCorner.BOTTOM_END) {
+                        Alignment.BottomStart
+                    } else {
+                        Alignment.BottomEnd
+                    },
+                )
                 .padding(16.dp),
             enter = fadeIn(tween(hunoia.luno.ui.theme.MotionSwapOut)) + scaleIn(tween(hunoia.luno.ui.theme.MotionSwapOut), initialScale = 0.8f),
             exit = fadeOut(tween(hunoia.luno.ui.theme.MotionCellOut)) + scaleOut(tween(hunoia.luno.ui.theme.MotionCellOut), targetScale = 0.8f),
@@ -409,6 +480,75 @@ fun GridPanelCard(
                     contentDescription = stringResource(R.string.grid_panel_add_item),
                 )
             }
+        }
+    }
+}
+
+/** 整块面板的缩放手柄：按下即接管，输出相对按下点的总位移。 */
+@Composable
+private fun PanelResizeHandle(
+    corner: ResizeCorner,
+    /** 卡片实际圆角（px）：手柄双弧与边框同心。 */
+    cornerRadiusPx: Float,
+    active: Boolean,
+    modifier: Modifier = Modifier,
+    onStart: () -> Unit,
+    onDelta: (Offset) -> Unit,
+    onEnd: () -> Unit,
+) {
+    val density = LocalDensity.current
+    val view = LocalView.current
+    val cornerAlignment = when (corner) {
+        ResizeCorner.TOP_START -> Alignment.TopStart
+        ResizeCorner.TOP_END -> Alignment.TopEnd
+        ResizeCorner.BOTTOM_START -> Alignment.BottomStart
+        ResizeCorner.BOTTOM_END -> Alignment.BottomEnd
+    }
+    val cornerRadius = with(density) { cornerRadiusPx.toDp() }
+    val visualSize = cornerRadius + 6.dp
+    val hitSize = if (visualSize > 44.dp) visualSize + 8.dp else 44.dp
+    var handleCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    Box(modifier) {
+        Box(
+            Modifier
+                .align(cornerAlignment)
+                .size(hitSize)
+                .onGloballyPositioned { handleCoords = it }
+                .pointerInput(corner) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        down.consume()
+                        // 手柄会跟着卡片移动：位移必须换算到不动的根坐标，
+                        // 否则每帧都把布局位移算进拖动量，卡片会来回抽动。
+                        fun toRoot(position: Offset): Offset =
+                            handleCoords?.localToRoot(position) ?: position
+                        val start = toRoot(down.position)
+                        view.hapticTick()
+                        onStart()
+                        try {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                if (!change.pressed) {
+                                    change.consume()
+                                    break
+                                }
+                                change.consume()
+                                onDelta(toRoot(change.position) - start)
+                            }
+                        } finally {
+                            onEnd()
+                        }
+                    }
+                },
+        ) {
+            ItemResizeHandle(
+                modifier = Modifier.align(cornerAlignment),
+                active = active,
+                corner = corner,
+                label = stringResource(R.string.grid_panel_resize),
+                cornerRadius = cornerRadius,
+            )
         }
     }
 }

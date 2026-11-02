@@ -9,17 +9,26 @@ import kotlinx.serialization.Serializable
  *
  * 挂在 [ActionSettings.floatBall] 下才能顺着 ConfigProvider → SettingsStore →
  * SettingsState 到达 `:service` 进程的 `FloatBallService`；挂到别的域会静默失效。
- * 坐标归一化（0..1），转屏 / 换分辨率不用迁移数据。
+ * 位置坐标归一化（0..1），横竖屏各存一份，转屏后各用各的落点。
  * 按住即拖（无长按门槛），松手落位；点按 = 抬手未超 touchSlop 时执行 [tapAction]。
  */
 @Serializable
 @Keep
-data class FloatBallSettings(
-    val enabled: Boolean = FloatBallDefaults.Enabled,
+data class FloatBallPosition(
     /** 归一化横坐标（球窗顶边 / 屏宽）。 */
     val x: Float = FloatBallDefaults.X,
     /** 归一化纵坐标（球窗顶边 / 屏高）。 */
     val y: Float = FloatBallDefaults.Y,
+    /** 左手侧球高度锚点（归一化 y，手动停靠时记忆）。null = 未记忆。 */
+    val leftAnchorY: Float? = null,
+    /** 右手侧球高度锚点。 */
+    val rightAnchorY: Float? = null,
+)
+
+@Serializable
+@Keep
+data class FloatBallSettings(
+    val enabled: Boolean = FloatBallDefaults.Enabled,
     val sizeDp: Float = FloatBallDefaults.SizeDp,
     val color: Int = FloatBallDefaults.Color,
     /** 单击球执行的动作。为 null 表示单击无响应。 */
@@ -32,17 +41,28 @@ data class FloatBallSettings(
     val idleDimDelayMs: Long = FloatBallDefaults.IdleDimDelayMs,
     /** 跟随持机手：手势碰了哪侧，球就即时移到哪侧（试验）。 */
     val followHand: Boolean = FloatBallDefaults.FollowHand,
-    /** 左手侧球高度锚点（归一化 y，手动停靠时记忆）。null = 未记忆。 */
-    val leftAnchorY: Float? = null,
-    /** 右手侧球高度锚点。 */
-    val rightAnchorY: Float? = null,
+    /** 竖屏落点。 */
+    val portrait: FloatBallPosition = FloatBallPosition(),
+    /** 横屏落点。 */
+    val landscape: FloatBallPosition = FloatBallPosition(),
     /** 通知胶囊（独立开关，宿主同为 FloatBallService）：通知到达时底部弹出、自动收起。 */
     val notificationCapsule: NotificationCapsuleSettings = NotificationCapsuleSettings(),
     /** 剪贴板球（独立开关，宿主同为 FloatBallService）：复制文本后弹出、点击分享、自动收起。 */
     val clipboardBall: ClipboardBallSettings = ClipboardBallSettings(),
     /** 统一收件箱：通知与剪贴板共用队列、TTL 与容量。 */
     val inbox: BallInboxSettings = BallInboxSettings(),
-)
+) {
+    fun position(landscape: Boolean): FloatBallPosition =
+        if (landscape) this.landscape else portrait
+}
+
+/** 只改当前朝向那份落点。 */
+fun FloatBallSettings.withPosition(
+    landscape: Boolean,
+    transform: (FloatBallPosition) -> FloatBallPosition,
+): FloatBallSettings =
+    if (landscape) copy(landscape = transform(this.landscape))
+    else copy(portrait = transform(portrait))
 
 /**
  * 通知胶囊配置：通知到达时在屏幕底部居中弹出「图标 + 标题 + 正文」胶囊，

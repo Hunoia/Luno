@@ -24,6 +24,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
@@ -40,11 +41,16 @@ import hunoia.luno.config.model.EditRowExtra
 import hunoia.luno.config.model.GridCell
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.GridPanelDefaults
+import hunoia.luno.config.model.GridPanelGeometry
 import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.config.model.GridPanelItemLayout
 import hunoia.luno.config.model.derivedPageCount
+import hunoia.luno.config.model.withGeometry
 import hunoia.luno.gridpanel.core.GridPanelState
 import hunoia.luno.gridpanel.geometry.GridMetrics
+import hunoia.luno.gridpanel.geometry.ResizeCorner
+import hunoia.luno.gridpanel.geometry.isLeft
+import hunoia.luno.gridpanel.geometry.isTop
 import hunoia.luno.gridpanel.geometry.rememberCardCornerPx
 import hunoia.luno.gridpanel.geometry.rememberGridMetrics
 import hunoia.luno.gridpanel.ui.GridItemActions
@@ -187,10 +193,13 @@ fun GridPanelRoot(
         return
     }
 
-    // 横竖屏分别取几何。
+    // 横竖屏分别取几何：尺寸拖拽期间用本地预览，松手才落盘。
     val landscape = LocalConfiguration.current.orientation ==
         android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    val geo = panel.geometry(landscape)
+    val serverGeometry = panel.geometry(landscape)
+    var localGeometry by remember(panelId, landscape) { mutableStateOf(serverGeometry) }
+    LaunchedEffect(serverGeometry) { localGeometry = serverGeometry }
+    val geo = localGeometry
     val columns = geo.columnCount.coerceIn(
         GridPanelDefaults.MinColumnCount,
         GridPanelDefaults.MaxColumnCount,
@@ -287,6 +296,113 @@ fun GridPanelRoot(
     )
     val screenMarginPx = with(LocalDensity.current) { clampedMarginDp.dp.toPx() }
     val cornerPx = rememberCardCornerPx(clampedMarginDp)
+
+    // ---- 整块面板缩放：手势期间只改本地预览，松手一次性写当前朝向几何 ----
+    var panelResizeCorner by remember(panelId, landscape) {
+        mutableStateOf<ResizeCorner?>(null)
+    }
+    var panelResizePosition by remember(panelId, landscape) {
+        mutableStateOf<Offset?>(null)
+    }
+    var panelResizeStartGeometry by remember(panelId, landscape) {
+        mutableStateOf<GridPanelGeometry?>(null)
+    }
+    var panelResizeStartPosition by remember(panelId, landscape) {
+        mutableStateOf(Offset.Zero)
+    }
+    // 起手尺寸取实际渲染尺寸（高度会被可见行数量化），不能从比例反推：
+    // 否则第一次拖动时手柄与手指之间会跳一行。
+    var panelResizeStartSize by remember(panelId, landscape) {
+        mutableStateOf<Offset?>(null)
+    }
+    val minWidthFraction = if (landscape) {
+        GridPanelDefaults.MinCardWidthFractionLandscape
+    } else {
+        GridPanelDefaults.MinCardWidthFraction
+    }
+
+    fun beginPanelResize(corner: ResizeCorner, cardLeft: Float, cardTop: Float) {
+        panelResizeStartGeometry = localGeometry
+        panelResizeStartPosition = Offset(cardLeft, cardTop)
+        panelResizeStartSize = Offset(metrics.cardW, metrics.cardH)
+        panelResizePosition = panelResizeStartPosition
+        panelResizeCorner = corner
+    }
+
+    fun updatePanelResize(total: Offset) {
+        val startGeo = panelResizeStartGeometry ?: return
+        val corner = panelResizeCorner ?: return
+        val startSize = panelResizeStartSize ?: return
+        val screenW = metrics.screenW
+        val screenH = metrics.screenH
+        val startW = startSize.x
+        val startH = startSize.y
+        val widthDelta = if (corner.isLeft) -total.x else total.x
+        val heightDelta = if (corner.isTop) -total.y else total.y
+        val newW = (startW + widthDelta).coerceIn(
+            screenW * minWidthFraction,
+            screenW * GridPanelDefaults.MaxCardWidthFraction,
+        )
+        val newH = (startH + heightDelta).coerceIn(
+            screenH * GridPanelDefaults.MinCardHeightFraction,
+            screenH * GridPanelDefaults.MaxCardHeightFraction,
+        )
+        val newLeft = if (corner.isLeft) {
+            panelResizeStartPosition.x + (startW - newW)
+        } else {
+            panelResizeStartPosition.x
+        }
+        val newTop = if (corner.isTop) {
+            panelResizeStartPosition.y + (startH - newH)
+        } else {
+            panelResizeStartPosition.y
+        }
+        val left = newLeft.coerceIn(
+            screenMarginPx,
+            (screenW - newW - screenMarginPx).coerceAtLeast(screenMarginPx),
+        )
+        val top = newTop.coerceIn(
+            insetsTop + screenMarginPx,
+            (screenH - insetsBottom - newH - screenMarginPx)
+                .coerceAtLeast(insetsTop + screenMarginPx),
+        )
+        localGeometry = startGeo.copy(
+            cardWidthFraction = newW / screenW,
+            cardHeightFraction = newH / screenH,
+        )
+        panelResizePosition = Offset(left, top)
+    }
+
+    fun endPanelResize() {
+        val corner = panelResizeCorner ?: return
+        panelResizeCorner = null
+        panelResizeStartGeometry = null
+        panelResizeStartSize = null
+        val finalGeo = localGeometry
+        // 保留预览位置到面板关闭：尺寸落盘回流后不再跳回 anchor 推导位。
+        scope.launch {
+            runCatching {
+                hunoia.luno.domain.gridpanel.GridPanelCenter.updateActionSettings { settings ->
+                    val latest = settings.actionGridPanels.panelById(panel.id)
+                        ?: return@updateActionSettings settings
+                    settings.copy(
+                        actionGridPanels = settings.actionGridPanels.withPanel(
+                            latest.withGeometry(landscape) { geometry ->
+                                geometry.copy(
+                                    cardWidthFraction = finalGeo.cardWidthFraction,
+                                    cardHeightFraction = finalGeo.cardHeightFraction,
+                                )
+                            },
+                        ),
+                    )
+                }
+            }.onFailure { Log.w(TAG, "panel resize commit failed: ${it.message}") }
+        }
+        Log.i(
+            TAG,
+            "panel resized corner=$corner size=${finalGeo.cardWidthFraction}x${finalGeo.cardHeightFraction}",
+        )
+    }
 
     // provider 被卸载 / 用户在系统里删掉小部件 → 宿主回调 onAppWidgetRemoved。
     // 那时格子会永远空白，所以要把这项收掉。
@@ -463,6 +579,11 @@ fun GridPanelRoot(
                 // 指示点给的是真实页；循环模式下滚到就近等价索引，不做跨段长距离动画。
                 scope.launch { pagerState.animateScrollToPage(nearestPageIndexOf(index)) }
             },
+            positionOverride = panelResizePosition,
+            panelResizing = panelResizeCorner != null,
+            onPanelResizeStart = ::beginPanelResize,
+            onPanelResizeDelta = ::updatePanelResize,
+            onPanelResizeEnd = ::endPanelResize,
             onAdd = {
                 // 加项落点交给落盘层决定（首个空位），这里不预选格子。
                 // 循环模式下 pager 索引先换算回真实页/虚页。用 currentPage：连续快滑
