@@ -31,7 +31,6 @@ import hunoia.luno.ui.navigation.FloatBallSlot
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.quicklaunch.model.identity
-import hunoia.luno.ui.component.slideToRes
 import hunoia.luno.action.model.Action
 
 fun Context.selectedItemLabel(item: Any, subGestures: List<SubGesture>): String {
@@ -118,7 +117,7 @@ internal fun createTitle(actionSelect: ActionSelect): String {
         GestureTriggerType.LongPress -> return context.getString(R.string.long_press)
         else -> Unit
     }
-    val str1 = context.getString(actionSelect.direction.slideToRes)
+    val str1 = actionSelect.directionLabel.ifBlank { context.getString(R.string.action_select_slide) }
     val str2 = when (actionSelect.triggerType) {
         GestureTriggerType.Slide -> context.getString(R.string.short1)
         GestureTriggerType.SlideHold -> context.getString(R.string.slide_hold_action)

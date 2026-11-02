@@ -65,7 +65,7 @@ fun ActionSelectContent(
     onDismissRequest: () -> Unit,
     actionSelect: ActionSelect,
     vm: ActionSelectVM = viewModel(
-        key = "action_select_${actionSelect.gestureButtonId}_${actionSelect.direction}_${actionSelect.triggerType}_${actionSelect.subGestureId}_${actionSelect.actionPanelId}_${actionSelect.gridPanelId}",
+        key = "action_select_${actionSelect.gestureButtonId}_${actionSelect.slot}_${actionSelect.triggerType}_${actionSelect.subGestureId}_${actionSelect.actionPanelId}_${actionSelect.gridPanelId}",
         factory = object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 @Suppress("UNCHECKED_CAST")

@@ -116,7 +116,20 @@ class GestureButtonSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeV
     }
 
 
-    fun updateGestureButtonAngle(angle: GestureButtonAngle) = updateButton { copy(angle = angle) }
+    fun updateGestureButtonAngle(angle: GestureButtonAngle) = updateButton {
+        if (angle.count != this.angle.count) {
+            // 方向数变了：槽位含义整体改变，整组方向动作清空（避免错位继承）。
+            copy(
+                angle = angle,
+                slideActions = hunoia.luno.config.model.DirectionActions(),
+                slideHoldActions = hunoia.luno.config.model.DirectionActions(),
+                longSlideActions = hunoia.luno.config.model.DirectionActions(),
+                longSlideHoldActions = hunoia.luno.config.model.DirectionActions(),
+            )
+        } else {
+            copy(angle = angle)
+        }
+    }
 
     private fun updateButtonLive(fieldUpdate: GestureButton.() -> GestureButton) {
         updateUiState {

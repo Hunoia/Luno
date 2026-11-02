@@ -76,9 +76,9 @@ internal suspend fun saveSettingsAction(
             settings.copy(
                 subGestures = settings.subGestures.map { gesture ->
                     if (gesture.id != actionSelect.subGestureId) return@map gesture
-                    val oldAction = gesture.actionFor(actionSelect.triggerType, actionSelect.direction)
+                    val oldAction = gesture.actionFor(actionSelect.triggerType, actionSelect.slot)
                     tryDeleteShortcutIcons(oldAction, picked)
-                    gesture.withAction(actionSelect.triggerType, actionSelect.direction, picked)
+                    gesture.withAction(actionSelect.triggerType, actionSelect.slot, picked)
                 }
             )
         }
@@ -88,10 +88,10 @@ internal suspend fun saveSettingsAction(
         val mutableList = list.toMutableList()
         val index = mutableList.indexOfFirst { it.id == actionSelect.gestureButtonId }
         if (index < 0) return@updateButtons mutableList
-        val oldAction = mutableList[index].actionFor(actionSelect.triggerType, actionSelect.direction)
+        val oldAction = mutableList[index].actionFor(actionSelect.triggerType, actionSelect.slot)
         tryDeleteShortcutIcons(oldAction, picked)
         mutableList[index] = mutableList[index]
-            .withAction(actionSelect.triggerType, actionSelect.direction, picked)
+            .withAction(actionSelect.triggerType, actionSelect.slot, picked)
         mutableList
     }
     return SaveOutcome.Saved
@@ -566,8 +566,8 @@ internal suspend fun loadDataBody(
         actionSelect.gridPanelId.isNotBlank() -> null
         // 悬浮球槽：与触钮路径互斥，先判它，否则会掉进 button/subGesture 的 null 分支。
         actionSelect.floatBallSlot == FloatBallSlot.TAP -> actionSettings.floatBall.tapAction
-        subGesture != null -> subGesture.actionFor(actionSelect.triggerType, actionSelect.direction)
-        button != null -> button.actionFor(actionSelect.triggerType, actionSelect.direction)
+        subGesture != null -> subGesture.actionFor(actionSelect.triggerType, actionSelect.slot)
+        button != null -> button.actionFor(actionSelect.triggerType, actionSelect.slot)
         else -> null
     }
     onUpdateState { state ->
@@ -575,57 +575,57 @@ internal suspend fun loadDataBody(
     }
 }
 
-private fun GestureButton.actionFor(triggerType: GestureTriggerType, direction: hunoia.luno.config.model.GestureDirection): StoredAction? {
+private fun GestureButton.actionFor(triggerType: GestureTriggerType, slot: Int): StoredAction? {
     return when (triggerType) {
         GestureTriggerType.Tap -> tapActions
         GestureTriggerType.DoubleTap -> doubleTapActions
         GestureTriggerType.LongPress -> longPressActions
-        GestureTriggerType.Slide -> slideActions.actionBy(direction)
-        GestureTriggerType.SlideHold -> slideHoldActions.actionBy(direction)
-        GestureTriggerType.LongSlide -> longSlideActions.actionBy(direction)
-        GestureTriggerType.LongSlideHold -> longSlideHoldActions.actionBy(direction)
+        GestureTriggerType.Slide -> slideActions.actionBy(slot)
+        GestureTriggerType.SlideHold -> slideHoldActions.actionBy(slot)
+        GestureTriggerType.LongSlide -> longSlideActions.actionBy(slot)
+        GestureTriggerType.LongSlideHold -> longSlideHoldActions.actionBy(slot)
     }
 }
 
 private fun GestureButton.withAction(
     triggerType: GestureTriggerType,
-    direction: hunoia.luno.config.model.GestureDirection,
+    slot: Int,
     action: StoredAction?
 ): GestureButton {
     return when (triggerType) {
         GestureTriggerType.Tap -> copy(tapActions = action)
         GestureTriggerType.DoubleTap -> copy(doubleTapActions = action)
         GestureTriggerType.LongPress -> copy(longPressActions = action)
-        GestureTriggerType.Slide -> copy(slideActions = slideActions.withAction(direction, action))
-        GestureTriggerType.SlideHold -> copy(slideHoldActions = slideHoldActions.withAction(direction, action))
-        GestureTriggerType.LongSlide -> copy(longSlideActions = longSlideActions.withAction(direction, action))
-        GestureTriggerType.LongSlideHold -> copy(longSlideHoldActions = longSlideHoldActions.withAction(direction, action))
+        GestureTriggerType.Slide -> copy(slideActions = slideActions.withAction(slot, action))
+        GestureTriggerType.SlideHold -> copy(slideHoldActions = slideHoldActions.withAction(slot, action))
+        GestureTriggerType.LongSlide -> copy(longSlideActions = longSlideActions.withAction(slot, action))
+        GestureTriggerType.LongSlideHold -> copy(longSlideHoldActions = longSlideHoldActions.withAction(slot, action))
     }
 }
 
 private fun hunoia.luno.config.model.SubGesture.actionFor(
     triggerType: GestureTriggerType,
-    direction: hunoia.luno.config.model.GestureDirection
+    slot: Int
 ): StoredAction? {
     return when (triggerType) {
-        GestureTriggerType.Slide -> slideActionFor(direction)
-        GestureTriggerType.SlideHold -> slideHoldActionFor(direction)
-        GestureTriggerType.LongSlide -> longSlideActionFor(direction)
-        GestureTriggerType.LongSlideHold -> longSlideHoldActionFor(direction)
+        GestureTriggerType.Slide -> slideActionFor(slot)
+        GestureTriggerType.SlideHold -> slideHoldActionFor(slot)
+        GestureTriggerType.LongSlide -> longSlideActionFor(slot)
+        GestureTriggerType.LongSlideHold -> longSlideHoldActionFor(slot)
         else -> null
     }
 }
 
 private fun hunoia.luno.config.model.SubGesture.withAction(
     triggerType: GestureTriggerType,
-    direction: hunoia.luno.config.model.GestureDirection,
+    slot: Int,
     action: StoredAction?
 ): hunoia.luno.config.model.SubGesture {
     return when (triggerType) {
-        GestureTriggerType.Slide -> withSlideAction(direction, action)
-        GestureTriggerType.SlideHold -> withSlideHoldAction(direction, action)
-        GestureTriggerType.LongSlide -> withLongSlideAction(direction, action)
-        GestureTriggerType.LongSlideHold -> withLongSlideHoldAction(direction, action)
+        GestureTriggerType.Slide -> withSlideAction(slot, action)
+        GestureTriggerType.SlideHold -> withSlideHoldAction(slot, action)
+        GestureTriggerType.LongSlide -> withLongSlideAction(slot, action)
+        GestureTriggerType.LongSlideHold -> withLongSlideHoldAction(slot, action)
         else -> this
     }
 }

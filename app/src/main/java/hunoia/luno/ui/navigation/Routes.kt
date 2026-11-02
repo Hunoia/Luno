@@ -1,7 +1,6 @@
 package hunoia.luno.ui.navigation
 
 import androidx.annotation.Keep
-import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
 import kotlinx.serialization.Serializable
 
@@ -11,7 +10,10 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ActionSelect(
     val gestureButtonId: String = "",
-    val direction: GestureDirection = GestureDirection.Right,
+    /** 方向槽序号（0..count-1）；点按 / 长按类动作不使用。 */
+    val slot: Int = 0,
+    /** 进入时的方向文案（罗盘名 + 角度），只用于标题展示。 */
+    val directionLabel: String = "",
     val triggerType: GestureTriggerType = GestureTriggerType.Slide,
     val subGestureId: String = "",
     /** 非空 = 本次不配触钮/子手势，而是在这个动作面板里挑一个面板项。 */

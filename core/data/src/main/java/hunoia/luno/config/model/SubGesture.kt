@@ -35,26 +35,26 @@ data class SubGesture(
         get() = (effectiveLongSlideTriggerDistance + DensityProvider.dp2px(24f))
             .coerceAtMost(DensityProvider.dp2px(220f))
 
-    fun slideActionFor(direction: GestureDirection): StoredAction? = slideActions.actionBy(direction)
+    fun slideActionFor(slot: Int): StoredAction? = slideActions.actionBy(slot)
 
-    fun slideHoldActionFor(direction: GestureDirection): StoredAction? = slideHoldActions.actionBy(direction)
+    fun slideHoldActionFor(slot: Int): StoredAction? = slideHoldActions.actionBy(slot)
 
-    fun longSlideActionFor(direction: GestureDirection): StoredAction? = longSlideActions.actionBy(direction)
+    fun longSlideActionFor(slot: Int): StoredAction? = longSlideActions.actionBy(slot)
 
-    fun longSlideHoldActionFor(direction: GestureDirection): StoredAction? =
-        longSlideHoldActions.actionBy(direction)
+    fun longSlideHoldActionFor(slot: Int): StoredAction? =
+        longSlideHoldActions.actionBy(slot)
 
-    fun withSlideAction(direction: GestureDirection, action: StoredAction?): SubGesture =
-        copy(slideActions = slideActions.withAction(direction, action))
+    fun withSlideAction(slot: Int, action: StoredAction?): SubGesture =
+        copy(slideActions = slideActions.withAction(slot, action))
 
-    fun withSlideHoldAction(direction: GestureDirection, action: StoredAction?): SubGesture =
-        copy(slideHoldActions = slideHoldActions.withAction(direction, action))
+    fun withSlideHoldAction(slot: Int, action: StoredAction?): SubGesture =
+        copy(slideHoldActions = slideHoldActions.withAction(slot, action))
 
-    fun withLongSlideAction(direction: GestureDirection, action: StoredAction?): SubGesture =
-        copy(longSlideActions = longSlideActions.withAction(direction, action))
+    fun withLongSlideAction(slot: Int, action: StoredAction?): SubGesture =
+        copy(longSlideActions = longSlideActions.withAction(slot, action))
 
-    fun withLongSlideHoldAction(direction: GestureDirection, action: StoredAction?): SubGesture =
-        copy(longSlideHoldActions = longSlideHoldActions.withAction(direction, action))
+    fun withLongSlideHoldAction(slot: Int, action: StoredAction?): SubGesture =
+        copy(longSlideHoldActions = longSlideHoldActions.withAction(slot, action))
 }
 
 /** 子手势集合（SubGesture 的容器）。 */

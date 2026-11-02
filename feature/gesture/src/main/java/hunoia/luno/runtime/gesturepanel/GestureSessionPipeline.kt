@@ -8,7 +8,6 @@ import hunoia.luno.config.model.ActionPanelStyle
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.config.model.GestureButton
-import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.SubGestureSettings
@@ -287,7 +286,7 @@ class GestureSessionPipeline(
 
     fun runGestureActions(
         resolvedAction: StoredAction?,
-        direction: GestureDirection,
+        centerDegrees: Float,
         touchPosition: Offset,
         sourceButton: GestureButton?,
         panelStyle: ActionPanelStyle = settings.actionPanelStyle,
@@ -311,7 +310,7 @@ class GestureSessionPipeline(
                 // 否则 ActionPanel 的头几帧会按收起时的尺寸定位。
                 callbacks.onActionPanelVisibilityChanged(true)
                 actionPanelState.onDragStart(touchPosition)
-                actionPanelState.ready(direction, items, panelStyle, panelColor)
+                actionPanelState.ready(centerDegrees, items, panelStyle, panelColor)
                 actionPanelSourceButton = sourceButton
                 onPanelStarted()
                 return
@@ -376,7 +375,7 @@ class GestureSessionPipeline(
         val anchor = Offset(event.anchorX.toFloat(), event.anchorY.toFloat())
         runGestureActions(
             resolvedAction = event.action,
-            direction = directionFromAnchor(anchor),
+            centerDegrees = angleDegreesTowardCenter(anchor),
             touchPosition = anchor,
             sourceButton = null,
             panelColor = event.color,
@@ -397,7 +396,7 @@ class GestureSessionPipeline(
         // （按动作类型），这里恒 false。
         runGestureActions(
             resolvedAction = resolvedActions.action,
-            direction = resolvedActions.direction,
+            centerDegrees = resolvedActions.subGesture.angle.slotCenterDegrees(resolvedActions.direction),
             touchPosition = touchPosition,
             sourceButton = sideGestureState.button,
             decision = resolvedActions.decision,
@@ -416,7 +415,7 @@ class GestureSessionPipeline(
     fun handleGestureResolvedActions(resolvedActions: GestureResolvedActions) {
         runGestureActions(
             resolvedAction = resolvedActions.action,
-            direction = resolvedActions.actionDirection,
+            centerDegrees = resolvedActions.button.angle.slotCenterDegrees(resolvedActions.actionDirection),
             touchPosition = resolvedActions.touchPosition,
             sourceButton = resolvedActions.button,
             decision = resolvedActions.decision,
@@ -454,14 +453,13 @@ class GestureSessionPipeline(
     }
 }
 
-/** 外部锚点（悬浮球球心）展开面板的方向：取「锚点 → 屏幕中心」连线决定往屏幕内侧铺。 */
-internal fun directionFromAnchor(anchor: Offset): GestureDirection {
+/** 外部锚点（悬浮球球心）展开面板的朝向：取「锚点 → 屏幕中心」连线的角度（度）。 */
+internal fun angleDegreesTowardCenter(anchor: Offset): Float {
     val widthPx = hunoia.luno.bridge.ui.DensityProvider.screenWidthPx
     val heightPx = hunoia.luno.bridge.ui.DensityProvider.screenHeightPx
-    return when {
-        anchor.y < heightPx / 3f -> GestureDirection.Down
-        anchor.y > heightPx * 2f / 3f -> GestureDirection.Up
-        anchor.x < widthPx / 2f -> GestureDirection.Right
-        else -> GestureDirection.Left
-    }
+    val dx = (widthPx / 2f - anchor.x).toDouble()
+    val dy = (anchor.y - heightPx / 2f).toDouble()
+    var degrees = Math.toDegrees(kotlin.math.atan2(dy, dx)).toFloat()
+    if (degrees < 0f) degrees += 360f
+    return degrees
 }

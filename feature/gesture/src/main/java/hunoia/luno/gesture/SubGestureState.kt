@@ -7,7 +7,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import hunoia.luno.core.domain.StoredAction
-import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.SubGestureSettings
@@ -23,7 +22,7 @@ private const val MAX_SUB_GESTURE_DEPTH = 3
 
 data class SubGestureResolvedActions(
     val subGesture: SubGesture,
-    val direction: GestureDirection,
+    val direction: Int,
     val action: StoredAction?,
     val triggerType: GestureTriggerType,
     val touchPosition: Offset,
@@ -180,7 +179,7 @@ class SubGestureState(
 
     private fun resolve(
         subGesture: SubGesture,
-        direction: GestureDirection,
+        direction: Int,
         triggerType: GestureTriggerType,
     ): SubGestureResolvedActions {
         val action = when (triggerType) {

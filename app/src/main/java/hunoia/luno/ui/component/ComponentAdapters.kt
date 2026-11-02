@@ -7,7 +7,6 @@ import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionCategory
 import hunoia.luno.core.domain.Capability
 import hunoia.luno.config.model.GestureButton
-import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.ui.component.actionTextCompose
 
 @get:StringRes
@@ -64,23 +63,4 @@ fun GestureButton.actionTextCompose(): String {
     return text
 }
 
-@get:StringRes
-val GestureDirection.displayNameRes: Int
-    get() = when (this) {
-        GestureDirection.Up -> R.string.top
-        GestureDirection.Down -> R.string.bottom
-        GestureDirection.Left -> R.string.left
-        GestureDirection.Right -> R.string.right
-    }
 
-@get:StringRes
-val GestureDirection.slideToRes: Int
-    get() = when (this) {
-        GestureDirection.Left -> R.string.slide_to_left
-        GestureDirection.Up -> R.string.slide_to_top
-        GestureDirection.Right -> R.string.slide_to_right
-        GestureDirection.Down -> R.string.slide_to_bottom
-    }
-
-@Composable
-fun GestureDirection.slideToLabel(): String = stringResource(slideToRes)

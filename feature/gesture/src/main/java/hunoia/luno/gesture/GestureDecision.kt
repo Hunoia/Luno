@@ -1,6 +1,5 @@
 package hunoia.luno.gesture
 
-import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
 
 sealed interface GestureDecision {
@@ -10,8 +9,8 @@ sealed interface GestureDecision {
 
     data class Trigger(
         val triggerType: GestureTriggerType,
-        val direction: GestureDirection,
-        val actionDirection: GestureDirection,
+        val direction: Int,
+        val actionDirection: Int,
     ) : GestureDecision
 
     data class PendingDoubleTap(

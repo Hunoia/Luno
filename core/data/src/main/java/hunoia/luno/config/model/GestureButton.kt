@@ -28,19 +28,23 @@ object GestureButtonDefaults {
     const val ID_DEFAULT = "1"
     const val Enabled = true
     val Bounds = GestureButtonBounds(y = 0.50529f, height = 0.30311f)
+    /**
+     * 默认四扇区（起点 45°，顺序 [Up, Left, Down, Right]）下的默认动作：
+     * 槽 0 = 上、槽 1 = 左、槽 2 = 下、槽 3 = 右。
+     */
     val SlideActions = DirectionActions(
         mapOf(
-            GestureDirection.Right to StoredAction.of("accessibility.back"),
-            GestureDirection.Up to StoredAction.of("accessibility.recents"),
-            GestureDirection.Down to StoredAction.of("accessibility.notificationPanel"),
+            3 to StoredAction.of("accessibility.back"),
+            0 to StoredAction.of("accessibility.recents"),
+            2 to StoredAction.of("accessibility.notificationPanel"),
         )
     )
     val LongSlideActions = DirectionActions()
     val SlideHoldActions = DirectionActions(
-        mapOf(GestureDirection.Right to StoredAction.of("internal.quickAppLauncher"))
+        mapOf(3 to StoredAction.of("internal.quickAppLauncher"))
     )
     val LongSlideHoldActions = DirectionActions(
-        mapOf(GestureDirection.Right to StoredAction.of("internal.quickSearch"))
+        mapOf(3 to StoredAction.of("internal.quickSearch"))
     )
     const val Color = 0
     const val MirrorHorizontal = true

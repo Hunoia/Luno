@@ -29,9 +29,11 @@ import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
 import hunoia.luno.config.model.DirectionActions
 import hunoia.luno.config.model.GestureButton
-import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
+import hunoia.luno.config.model.GestureButtonAngle
+import hunoia.luno.ui.component.DirectionLabels
 import hunoia.luno.ui.component.RowIconBadge
+import hunoia.luno.ui.component.directionLabel
 import hunoia.luno.ui.component.actionTextCompose
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.settings.gesture.style.SideGestureSettings
@@ -51,12 +53,6 @@ fun actionContentRowShape(index: Int, count: Int): RoundedCornerShape {
         bottomEnd = bottom,
     )
 }
-val actionCardDirections = listOf(
-    GestureDirection.Left,
-    GestureDirection.Up,
-    GestureDirection.Right,
-    GestureDirection.Down,
-)
 enum class GestureActionGroup {
     Tap,
     Slide,
@@ -141,7 +137,7 @@ fun ExpandableGestureActionCard(
 }
 /**
  * 方向类动作卡共有骨架：Slide / LongSlide / SlideHold / LongSlideHold 四张卡
- * 只差图标、标题、序位、触发类型与动作集（长滑系另传 isLongSlide 姿态）。
+ * 只差图标、标题、序位、触发类型与动作集。
  */
 @Composable
 private fun DirectionalActionCard(
@@ -153,7 +149,6 @@ private fun DirectionalActionCard(
     title: String,
     index: Int,
     triggerType: GestureTriggerType,
-    isLongSlide: Boolean,
     actions: DirectionActions,
 ) {
     ExpandableGestureActionCard(
@@ -165,18 +160,18 @@ private fun DirectionalActionCard(
         count = 5,
     ) {
         DirectionalActionRows(
-            hiddenDirections = gestureButton.angle.zeroWidthDirections(),
-            actionsText = { direction -> actions.actionBy(direction).actionTextCompose() },
-            onDirectionClick = { direction ->
+            angle = gestureButton.angle,
+            actionsText = { slot -> actions.actionBy(slot).actionTextCompose() },
+            onSlotClick = { slot, label ->
                 onNavToActionSelect(
                     ActionSelect(
                         gestureButtonId = gestureButton.id,
-                        direction = direction,
+                        slot = slot,
+                        directionLabel = label,
                         triggerType = triggerType,
                     )
                 )
             },
-            isLongSlide = isLongSlide,
         )
     }
 }
@@ -196,7 +191,6 @@ fun GestureButtonSlideActionsCard(
     title = stringResource(id = R.string.slide_action),
     index = 1,
     triggerType = GestureTriggerType.Slide,
-    isLongSlide = false,
     actions = gestureButton.slideActions,
 )
 
@@ -215,7 +209,6 @@ fun GestureButtonLongSlideActionsCard(
     title = stringResource(id = R.string.long_slide_action),
     index = 3,
     triggerType = GestureTriggerType.LongSlide,
-    isLongSlide = true,
     actions = gestureButton.longSlideActions,
 )
 @Composable
@@ -232,22 +225,24 @@ private fun <T> RowGroup(
         }
     }
 }
-/** 方向行组：短滑系与长滑系只差 SideGestureSettings 的 isLongSlide 姿态。 */
+/** 方向行组：按扇区中心角顺时针排列，零宽扇区不显示。 */
 @Composable
 private fun DirectionalActionRows(
-    actionsText: @Composable (GestureDirection) -> String,
-    onDirectionClick: (GestureDirection) -> Unit,
-    isLongSlide: Boolean,
-    hiddenDirections: Set<GestureDirection> = emptySet(),
+    angle: GestureButtonAngle,
+    actionsText: @Composable (Int) -> String,
+    onSlotClick: (Int, String) -> Unit,
 ) {
-    val directions = actionCardDirections.filterNot { it in hiddenDirections }
-    RowGroup(items = directions) { index, direction ->
+    val slots = DirectionLabels.clockwiseSlots(angle.boundaries)
+        .filterNot { it in angle.zeroWidthSlots() }
+    RowGroup(items = slots) { index, slot ->
+        val center = angle.slotCenterDegrees(slot)
+        val label = directionLabel(center, angle.count)
         SideGestureSettings(
-            onClick = { onDirectionClick(direction) },
-            direction = direction,
-            isLongSlide = isLongSlide,
-            subtitle = actionsText(direction),
-            shape = actionContentRowShape(index, directions.size),
+            onClick = { onSlotClick(slot, label) },
+            centerDegrees = center,
+            count = angle.count,
+            subtitle = actionsText(slot),
+            shape = actionContentRowShape(index, slots.size),
         )
     }
 }
@@ -277,7 +272,7 @@ fun GestureButtonTapActionsCard(
                     onNavToActionSelect(
                         ActionSelect(
                             gestureButtonId = gestureButton.id,
-                            direction = GestureDirection.Right,
+                            slot = 0,
                             triggerType = triggerType,
                         )
                     )
@@ -308,7 +303,6 @@ fun GestureButtonSlideHoldActionsCard(
     title = stringResource(id = R.string.slide_hold_action),
     index = 2,
     triggerType = GestureTriggerType.SlideHold,
-    isLongSlide = false,
     actions = gestureButton.slideHoldActions,
 )
 
@@ -327,6 +321,5 @@ fun GestureButtonLongSlideHoldActionsCard(
     title = stringResource(id = R.string.long_slide_hold_action),
     index = 4,
     triggerType = GestureTriggerType.LongSlideHold,
-    isLongSlide = true,
     actions = gestureButton.longSlideHoldActions,
 )

@@ -164,7 +164,7 @@ fun ActionPanelMenu(
                     !parentSize.isEmpty()
             if (canShowPill) {
                 val origin = actionPanelOrigin(parentSize, actionPanelState.origin, itemSizePx)
-                val sector = actionPanelSector(parentSize, origin, actionPanelState.direction, itemSizePx)
+                val sector = actionPanelSector(parentSize, origin, actionPanelState.centerDegrees, itemSizePx)
                 val actionBounds = actionPanelContentBounds(
                     parentSize = parentSize,
                     origin = origin,

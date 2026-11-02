@@ -13,7 +13,6 @@ import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.longPressVariant
 import hunoia.luno.core.domain.withoutVariantKey
 import hunoia.luno.config.model.ActionPanelStyle
-import hunoia.luno.config.model.GestureDirection
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -34,7 +33,8 @@ class ActionPanelState(private val coroutineScope: CoroutineScope) : LongSlideSt
         private set
     var actions: List<StoredAction> by mutableStateOf(emptyList())
         private set
-    var direction: GestureDirection by mutableStateOf(GestureDirection.Right)
+    /** 面板扇区中心角（度）：由触钮/子手势的方向布局算出来，不再用名义方向枚举。 */
+    var centerDegrees: Float by mutableStateOf(0f)
         private set
     var actionPanelStyle: ActionPanelStyle? by mutableStateOf(null)
         private set
@@ -62,8 +62,8 @@ class ActionPanelState(private val coroutineScope: CoroutineScope) : LongSlideSt
         visible = true
     }
 
-    fun ready(direction: GestureDirection, actions: List<StoredAction>, actionPanelStyle: ActionPanelStyle, buttonColor: Int) {
-        this.direction = direction
+    fun ready(centerDegrees: Float, actions: List<StoredAction>, actionPanelStyle: ActionPanelStyle, buttonColor: Int) {
+        this.centerDegrees = centerDegrees
         this.actions = actions
         this.actionPanelStyle = actionPanelStyle
         this.buttonColor = buttonColor

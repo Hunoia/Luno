@@ -27,6 +27,12 @@
     <string name="slide_action">短滑</string>
     <string name="slide_hold_action">短滑停留</string>
     <string name="gesture_angles">手势角度</string>
+    <string name="direction_count">方向数</string>
+    <string name="direction_any">任意方向</string>
+    <string name="direction_count_add">增加方向数</string>
+    <string name="direction_count_remove">减少方向数</string>
+    <string name="direction_sector_summary">%1$d 个方向</string>
+    <string name="direction_sector_custom">宽度：%1$s</string>
     <string name="gesture_button_vibration">振动</string>
     <string name="gesture_button_trigger_distance">触发距离</string>
     <string name="vibration_slide">滑动时振动</string>
@@ -43,9 +49,14 @@
     <string name="trigger_distance_slide_group">滑动距离</string>
     <string name="trigger_distance_delay_group">停留与按压时间</string>
     <string name="short1">短滑</string>
+    <string name="action_select_slide">滑动</string>
     <string name="long1">长滑</string>
     <string name="top">上</string>
+    <string name="top_right">右上</string>
+    <string name="top_left">左上</string>
     <string name="bottom">下</string>
+    <string name="bottom_right">右下</string>
+    <string name="bottom_left">左下</string>
     <string name="long_slide_action">长滑</string>
     <string name="long_slide_hold_action">长滑停留</string>
     <string name="action_panel_style">动作面板样式</string>
