@@ -106,16 +106,20 @@ internal object ButtonVisibilityText {
             if (profile.visible) R.string.button_visibility_summary_show
             else R.string.button_visibility_summary_hide,
         )
-        val target = when (profile.mode) {
-            VisibilityTargetMode.ALL -> stringResource(R.string.button_visibility_target_all)
-            VisibilityTargetMode.ONLY -> stringResource(
-                R.string.button_visibility_target_only,
-            ) + " · " + stringResource(R.string.button_visibility_target_count, profile.targetIds.size)
-            VisibilityTargetMode.EXCEPT -> stringResource(
-                R.string.button_visibility_target_except,
-            ) + " · " + stringResource(R.string.button_visibility_target_count, profile.targetIds.size)
-        }
+        val target = ButtonVisibilityText.targetSummary(profile)
         return "$apps · $screens · $action · $target"
+    }
+
+    /** 作用对象摘要：设置列表与编辑页共用，避免两处拼装分叉。 */
+    @Composable
+    fun targetSummary(profile: VisibilityProfile): String = when (profile.mode) {
+        VisibilityTargetMode.ALL -> stringResource(R.string.button_visibility_target_all)
+        VisibilityTargetMode.ONLY -> stringResource(
+            R.string.button_visibility_target_only,
+        ) + " · " + stringResource(R.string.button_visibility_target_count, profile.targetIds.size)
+        VisibilityTargetMode.EXCEPT -> stringResource(
+            R.string.button_visibility_target_except,
+        ) + " · " + stringResource(R.string.button_visibility_target_count, profile.targetIds.size)
     }
 
     @Composable

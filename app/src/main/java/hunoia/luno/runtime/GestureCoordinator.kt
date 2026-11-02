@@ -193,7 +193,8 @@ class GestureCoordinator(
 
     private val buttonHideRuntime = ButtonHideRuntime(
         scope = host.coroutineScope,
-        onStateChanged = { refreshGestureButtons() },
+        // 显式动作路径不吃 a11y 事件的 100ms 防抖。
+        onStateChanged = { refreshGestureButtons(delayMs = 0L) },
     )
 
     private val previousAppTracker = PreviousAppTracker(
@@ -424,17 +425,18 @@ class GestureCoordinator(
         buttonWindowController = buttonWindowController,
     )
 
-    /** 触钮 Surface：短态只关触摸，恢复按真实显隐策略重算，长态统一 release。 */
+    /** 触钮 Surface：软隐藏只改输入位，恢复按真实显隐策略重算，长态统一 release。 */
     private val buttonSurfaceHandle = object : hunoia.luno.runtime.surface.SurfaceHandle {
         override val surfaceId: String = "gesture-buttons"
         override val surfaceKind: hunoia.luno.runtime.surface.SurfaceKind =
             hunoia.luno.runtime.surface.SurfaceKind.BUTTON
 
         override fun softHide() {
-            buttonWindowController.setTouchable(false)
+            buttonWindowController.setSoftHidden(true)
         }
 
         override fun restore() {
+            buttonWindowController.setSoftHidden(false)
             buttonRefreshCoordinator.refresh(buildRuntimeState())
         }
 
@@ -928,6 +930,8 @@ class GestureCoordinator(
                 .collectLatest { state ->
                     if (BuildConfig.DEBUG) Log.i(LOG_TAG, "gesture buttons changed: count=${state.gestureButtons.size}")
                     buttonWindowController.replaceGestureButtons(state.gestureButtons)
+                    // 按钮集合变了（窗口增删）：旧会话不可能再收到 UP，先作废再重算。
+                    motionEventInputRef?.reset()
                     refreshGestureButtons(delayMs = 0L)
                 }
         }
@@ -1112,6 +1116,8 @@ class GestureCoordinator(
         // 销毁不经过 callbacks 的配对隐藏（那里各自发 PanelDismissed）：挂着面板被销毁时
         // 按拆掉的数量补发，否则 FloatBallService 的 panelCount 卡住、球一直隐藏。
         actionPanelDismissGeneration++
+        refreshJob?.cancel()
+        refreshJob = null
         if (actionPanelVisibilityEventPosted) {
             actionPanelVisibilityEventPosted = false
             Events.post(PanelDismissedEvent())

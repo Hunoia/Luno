@@ -17,7 +17,7 @@ import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.runtime.overlay.safeUpdateViewLayout
 import kotlin.math.roundToInt
 
-/** 主球窗与镜像分身窗共用的窗口装配件：参数全是显式传入，不携带状态。 */
+/** 球窗 / 胶囊窗共用的窗口装配件：参数全是显式传入，不携带状态。 */
 
 /** 球窗 LP：TYPE_APPLICATION_OVERLAY、ballPx 见方、LEFT|TOP。不加 LAYOUT_NO_LIMITS ——
  *  球必须完整在屏内，靠正常窗口边界 + 夹取就够。 */

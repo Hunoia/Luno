@@ -10,7 +10,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
-import hunoia.luno.config.defaults.SettingsUiDefaults.MaxGestureButtonArea
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinGestureButtonLength
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.ui.component.input.LunoTextSlider
@@ -22,7 +21,6 @@ import hunoia.luno.ui.component.row.segmentedShape
 fun GestureButtonPhysicalParamsCard(
     gestureButton: GestureButton,
     mirrorHorizontal: Boolean,
-    shizukuReady: Boolean,
     vm: GestureButtonSettingsVM,
     onAngleClick: () -> Unit,
     onVibrationClick: () -> Unit,
@@ -49,14 +47,9 @@ fun GestureButtonPhysicalParamsCard(
             icon = Icons.Default.Settings,
             shape = segmentedShape(2, 8),
         )
-        val maxWidth = minOf(
-            (1f - gestureButton.bounds.x).coerceAtLeast(MinGestureButtonLength),
-            MaxGestureButtonArea / gestureButton.bounds.height.coerceAtLeast(MinGestureButtonLength),
-        ).coerceAtLeast(MinGestureButtonLength)
-        val maxHeight = minOf(
-            (1f - gestureButton.bounds.y).coerceAtLeast(MinGestureButtonLength),
-            MaxGestureButtonArea / gestureButton.bounds.width.coerceAtLeast(MinGestureButtonLength),
-        ).coerceAtLeast(MinGestureButtonLength)
+        // 与 VM 写入共用同一份夹取，避免滑杆上限与落盘上限分叉。
+        val maxWidth = maxGestureButtonWidth(gestureButton)
+        val maxHeight = maxGestureButtonHeight(gestureButton)
         var localBtnWidth by remember(gestureButton.bounds.width) { mutableStateOf(gestureButton.bounds.width.coerceIn(MinGestureButtonLength, maxWidth)) }
         var localBtnHeight by remember(gestureButton.bounds.height) { mutableStateOf(gestureButton.bounds.height.coerceIn(MinGestureButtonLength, maxHeight)) }
         var localBtnX by remember(gestureButton.bounds.x) { mutableStateOf(gestureButton.bounds.x) }

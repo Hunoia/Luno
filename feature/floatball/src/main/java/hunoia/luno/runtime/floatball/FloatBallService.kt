@@ -89,11 +89,10 @@ class FloatBallService : Service() {
     private var settings: FloatBallSettings = FloatBallSettings()
     private var visibilitySettings: ButtonVisibilitySettings = ButtonVisibilitySettings()
 
-    /** 应用手势总闸（combine 出来的 gestureEnabled，总闸关则球与分身都不出）。 */
+    /** 应用手势总闸（combine 出来的 gestureEnabled，总闸关则球不出）。 */
     private var gestureEnabledSnapshot = true
 
     private lateinit var ballWindow: FloatBallWindow
-    private lateinit var mirrorWindow: FloatBallMirrorWindow
     private lateinit var smartBubble: SmartBubbleWindow
     private var broadcastObserver: BroadcastObserver? = null
 
@@ -147,6 +146,16 @@ class FloatBallService : Service() {
     private val visibility = hunoia.luno.runtime.surface.SurfaceVisibilityState()
     private var tempHideJob: Job? = null
 
+    /**
+     * Surface 短态软隐藏（标注等）：与 [visibility] 一样只是求值输入。
+     * 不能直接对窗口下命令 —— 否则任意一次 [refreshWindows] 都会把它撤销。
+     */
+    private var softHidden = false
+
+    /** insets 推播是否已确认可用（确认后可停掉 IME 兜底轮询）。 */
+    private var imePushConfirmed = false
+    private var imeHintCount = 0
+
     /** 显隐场景随运行态（前台应用 / 锁屏 / 横屏 / 键盘）重算。 */
     private val runtimeStateObserver: (GestureRuntimeState) -> Unit = { refreshWindows() }
 
@@ -157,20 +166,20 @@ class FloatBallService : Service() {
             hunoia.luno.runtime.surface.SurfaceKind.FLOAT_BALL
 
         override fun softHide() {
-            ballWindow.setPanelHidden(true)
-            mirrorWindow.setPanelHidden(true)
+            softHidden = true
+            refreshWindows()
         }
 
         override fun restore() {
-            ballWindow.setPanelHidden(false)
-            mirrorWindow.setPanelHidden(false)
+            // 只清输入位：真实显隐由同一份求值决定，恢复不是“强制显示”。
+            softHidden = false
+            refreshWindows()
         }
 
         override fun detach() {
             hunoia.luno.runtime.surface.SurfaceController.unregister(surfaceId)
             ballVisible = false
             ballWindow.detach()
-            mirrorWindow.detach()
         }
     }
 
@@ -194,10 +203,8 @@ class FloatBallService : Service() {
         super.onCreate()
         ballWindow = FloatBallWindow(
             this,
-            onImeLiftChanged = { lift ->
-                mirrorWindow.updateImeLift(lift)
-                updateBubbleAnchor()
-            },
+            // 让位量变化时同步气泡锚点（胶囊贴球）。
+            onImeLiftChanged = { updateBubbleAnchor() },
             // 事件 insets 只当触发信号：立即用绝对参考系复测一次（不采信事件值）。
             onImeInsetsHint = ::onImeInsetsHinted,
         ).apply {
@@ -208,12 +215,6 @@ class FloatBallService : Service() {
                 updateBubbleAnchor()
                 persistBallPosition(x, y)
             }
-        }
-        mirrorWindow = FloatBallMirrorWindow(this).apply {
-            onPressed = { onMirrorPressed() }
-            onTapped = { onMirrorTapped() }
-            onDragDeltas = { dx, dy -> onMirrorDragDeltas(dx, dy) }
-            onDragReleased = { onMirrorDragReleased() }
         }
         smartBubble = SmartBubbleWindow(this).apply {
             onBodyTapped = { onCapsuleTapped() }
@@ -259,7 +260,6 @@ class FloatBallService : Service() {
                 clipboardPollJob?.cancel()
                 clipboardPollJob = null
                 ballWindow.setHidden(true)
-                mirrorWindow.setHidden(true)
                 hideCapsule()
                 // 息屏期间不读剪贴板：重置基线，解锁后由 seedClipboardBaseline 重新对齐。
                 lastSeenClip = null
@@ -365,7 +365,6 @@ class FloatBallService : Service() {
                     linkDispatch = config.action.linkDispatch
                     gestureEnabledSnapshot = config.gestureEnabled
                     ballWindow.updateSettings(config.action.floatBall)
-                    mirrorWindow.updateSettings(config.action.floatBall)
                     smartBubble.updateSettings(config.action.floatBall)
                     applyInboxSettings()
                     applyClipboardListener()
@@ -421,14 +420,16 @@ class FloatBallService : Service() {
         ensureClipboardPoller()
         // 球开关开：常驻球，受「悬浮球」显隐场景控制。
         // 球开关关但收件箱非空：同一个球作为气泡锚点短暂出现，无内容立即隐藏。
-        val persistentVisible = gestureEnabledSnapshot && settings.enabled &&
-            canDrawOverlays() && sceneAllows(VisibilityTargets.FLOAT_BALL)
+        val sceneAllowsBall = canDrawOverlays() && sceneAllows(VisibilityTargets.FLOAT_BALL)
+        val persistentVisible = gestureEnabledSnapshot && settings.enabled && sceneAllowsBall
+        // 锚点球（球开关关闭但收件箱非空）同样受场景配置约束：用户在某个界面隐藏了球，
+        // 就不该因为一条通知把球放出来。几何兜底见 bubbleAnchor()。
         val inboxAnchorVisible = gestureEnabledSnapshot && !settings.enabled &&
-            canDrawOverlays() && inboxAnchorEligible()
+            sceneAllowsBall && inboxAnchorEligible()
         val baseVisible = persistentVisible || inboxAnchorVisible
         val panelHidden = visibility.isPanelHidden
         val tempHidden = visibility.isTempHidden()
-        val shouldShow = baseVisible && !panelHidden && !tempHidden
+        val shouldShow = baseVisible && !panelHidden && !tempHidden && !softHidden
         if (!shouldShow) {
             // 气泡锚在球上：球被面板/临时隐藏/摘窗时气泡一并收起（队列与徽标保留，决策 9）。
             hideCapsule()
@@ -438,12 +439,10 @@ class FloatBallService : Service() {
                     // 免掉整拆整建（removeView→新 ComposeView→首帧组合→addView），
                     // 面板开合频繁（音量刮擦每次都发面板事件）时差距最明显。
                     ballWindow.setPanelHidden(true)
-                    mirrorWindow.setPanelHidden(true)
                 } else {
                     // 总闸/开关/权限关：长态不出，淡出后摘窗回收。
                     ballVisible = false
                     ballWindow.detach(animated = true)
-                    mirrorWindow.detach(animated = true)
                 }
             }
             return
@@ -452,22 +451,13 @@ class FloatBallService : Service() {
             ballVisible = ballWindow.attachAnimated()
             if (ballVisible) {
                 ballWindow.setHidden(isScreenLocked())
-                if (settings.enabled && settings.mirrorBall) mirrorWindow.attach(animated = true)
-                mirrorWindow.setHidden(isScreenLocked())
                 // 新窗口的 insets 推播能力未知：兜底轮询按需补启（息屏期间被停过也一样）。
+                resetImePushConfirmation()
                 ensureImeObserver()
             }
         } else {
             // 软隐藏 → 恢复：窗口还在，直接亮回（带回场动画），不走重建。
             ballWindow.setPanelHidden(false)
-            mirrorWindow.setPanelHidden(false)
-            if (settings.enabled && settings.mirrorBall) {
-                if (!mirrorWindow.attach(animated = true)) return
-                mirrorWindow.setHidden(isScreenLocked())
-                mirrorWindow.snapToMirror()
-            } else {
-                mirrorWindow.detach()
-            }
         }
     }
 
@@ -540,9 +530,7 @@ class FloatBallService : Service() {
     /** 当前运行态是否允许某块 Surface（显隐场景）。 */
     private fun sceneAllows(targetId: String): Boolean = shouldShowSurface(
         targetId = targetId,
-        initialSettings = hunoia.luno.config.model.InitialSettings(
-            buttonVisibility = visibilitySettings,
-        ),
+        visibility = visibilitySettings,
         runtimeState = RuntimeStateHub.current(),
     )
 
@@ -705,7 +693,6 @@ class FloatBallService : Service() {
 
     private fun setCapsuleActive(active: Boolean) {
         ballWindow.setCapsuleActive(active)
-        mirrorWindow.setCapsuleActive(active)
     }
 
     /** 气泡锚点：球当前可见矩形（静置半出屏取可见边）；球未挂窗时按落盘存量估算。 */
@@ -1358,6 +1345,8 @@ class FloatBallService : Service() {
     /** 球心屏幕坐标（px）。读窗口实位而非落盘存量：自动挪球被打断时两者会背离，
      *  锚点按实位算，面板才不会弹到球的对面。 */
     private fun ballCenter(): Pair<Int, Int> {
+        // 读窗口的可见矩形：它已包含键盘让位与静置外移；直接用基准 posY 会在键盘弹起时偏低。
+        ballWindow.visibleRectOnScreen()?.let { return it.centerX to it.centerY }
         val half = DensityProvider.dp2px(settings.sizeDp) / 2
         val (px, py) = ballWindow.currentPosition()
         return (px.roundToInt() + half) to (py.roundToInt() + half)
@@ -1367,7 +1356,7 @@ class FloatBallService : Service() {
 
     private fun ballCenterY(): Int = ballCenter().second
 
-    /** 按锚点派发 tapAction（主球与分身共用）：网格面板直发，其余进容器。 */
+    /** 按锚点派发 tapAction：网格面板直发，其余进容器。 */
     private fun dispatchTapAction(action: StoredAction, anchorX: Int, anchorY: Int) {
         // 网格面板动作不进容器：面板浮窗自包含（配置在 service 侧读取，不依赖
         // a11y 运行态），球侧只转交入口 —— 无障碍没开照样弹，这是「无 a11y 可用」的主路径。
@@ -1379,77 +1368,22 @@ class FloatBallService : Service() {
         hunoia.luno.gesture.GestureCommand.forwardBallTap?.invoke(action, anchorX, anchorY, settings.color)
     }
 
-    // ---- 分身（mirrorBall） ----
-
-    /** 按下分身：立即交换位置（不触发动作），锚点记录在按下时的分身球心，点击抬手时补派发。 */
-    private fun onMirrorPressed() {
-        if (!ballVisible) return
-        val sizePx = DensityProvider.dp2px(settings.sizeDp)
-        val (mx, my) = mirrorWindowPosition()
-        pendingMirrorAnchorX = mx + sizePx / 2
-        pendingMirrorAnchorY = my + sizePx / 2
-        // 接力拖待命：抬手若未拖动就是纯点按，无副作用。
-        ballWindow.beginExternalDrag()
-        swapWithMirror(mx, my)
-    }
-
-    /** 点击分身（未超 touchSlop 抬手）：补触发动作（交换已在按下时完成）。 */
-    private fun onMirrorTapped() {
-        if (!ballVisible) return
-        ballWindow.endExternalDrag()
-        val action = settings.tapAction ?: return
-        dispatchTapAction(action, pendingMirrorAnchorX, pendingMirrorAnchorY)
-    }
-
-    /** 分身拖动接力：位移增量转给主球。 */
-    private fun onMirrorDragDeltas(dx: Float, dy: Float) {
-        ballWindow.externalDragBy(dx, dy)
-    }
-
-    /** 分身抬手：主球贴边结算 + 落盘。 */
-    private fun onMirrorDragReleased() {
-        ballWindow.endExternalDrag()
-    }
-
-    private var pendingMirrorAnchorX = 0
-    private var pendingMirrorAnchorY = 0
-    /** 分身窗当前顶边屏幕坐标（px）。 */
-    private fun mirrorWindowPosition(): Pair<Int, Int> {
-        val pos = mirrorWindow.currentPosition()
-        return pos.first.roundToInt() to pos.second.roundToInt()
-    }
-
-    /** 交换：主球新位置 = 对侧贴边（屏内语义），写回存量，双方交叉淡入淡出。 */
-    private fun swapWithMirror(mirrorTopLeftX: Int, mirrorTopLeftY: Int) {
-        val wasIdled = ballWindow.isIdled()
-        val newX = (mirrorTopLeftX.toFloat() / DensityProvider.screenWidthPx)
-            .coerceIn(0f, 1f)
-        val newY = (mirrorTopLeftY.toFloat() / DensityProvider.screenHeightPx)
-            .coerceIn(0f, 1f)
-        persistBallPosition(newX, newY)
-        ballWindow.crossFadeSwap(
-            mirrorTopLeftX.toFloat(),
-            mirrorTopLeftY.toFloat(),
-            endIdled = wasIdled,
-        ) {
-            updateBubbleAnchor()
-            mirrorWindow.crossFadeSwap(settings)
-        }
-    }
-
     // ---- 键盘让位 ----
 
     /**
-     * IME 让位唯一事实源：`currentWindowMetrics` 的 display 绝对坐标轮询。
+     * IME 让位唯一事实源：`currentWindowMetrics` 的 display 绝对坐标复测。
      * 小悬浮窗自身的 insets 事件参考系随窗口位置漂移（球被抬升 → insets 变化 →
      * 抖动循环），只用来作为「立即复测」的触发信号，不直接采信。
+     *
+     * 轮询只是兜底：insets 推播连续确认可用后即停（architecture §7.2「确认推播后即停」），
+     * 窗口重建 / 息屏时重置为待确认。
      */
     private fun observeIme() {
         imeJob?.cancel()
         imeJob = scope.launch {
             while (isActive) {
                 delay(IME_POLL_MS)
-                if (!ballVisible || visibility.isHidden) continue
+                if (!ballVisible || visibility.isHidden || softHidden) continue
                 pollImeOnce()
             }
         }
@@ -1460,8 +1394,14 @@ class FloatBallService : Service() {
         if (imeHintJob?.isActive == true) return
         imeHintJob = scope.launch {
             delay(32)
-            if (!ballVisible || visibility.isHidden) return@launch
+            if (!ballVisible || visibility.isHidden || softHidden) return@launch
             pollImeOnce()
+            imeHintCount++
+            if (!imePushConfirmed && imeHintCount >= IME_PUSH_CONFIRM_HINTS) {
+                imePushConfirmed = true
+                imeJob?.cancel()
+                imeJob = null
+            }
         }
     }
 
@@ -1473,14 +1413,20 @@ class FloatBallService : Service() {
                 ?.bottom
         }.getOrNull() ?: 0
         ballWindow.updateIme(imeBottom)
-        mirrorWindow.updateImeLift(ballWindow.currentImeLiftPx())
     }
 
-    /** 轮询按需启动：球挂窗即跑（息屏侧由 screen off 停）。 */
+    /** 轮询按需启动：球挂窗且推播未确认时跑（息屏侧由 screen off 停）。 */
     private fun ensureImeObserver() {
+        if (imePushConfirmed) return
         if (imeJob?.isActive == true) return
         if (!ballVisible) return
         observeIme()
+    }
+
+    /** 新窗口的推播能力未知：重置确认状态，先跑兜底轮询。 */
+    private fun resetImePushConfirmation() {
+        imePushConfirmed = false
+        imeHintCount = 0
     }
 
     /**
@@ -1490,7 +1436,7 @@ class FloatBallService : Service() {
      * 触钮路径由手势服务在本轮动作**之前**同步调用；球被拖动/按压/上一次挪球占用时
      * 不丢请求，记下目标侧并短暂重试，动作照常执行。落盘延到球真正落位
      * （onLanded）：接受挪球就按目标落盘的话，淡出被打断会让存量停在新侧、实位停在
-     * 旧侧 —— 面板锚点按存量算会弹到球对面，分身按存量反推会跟球同侧。
+     * 旧侧 —— 面板锚点按存量算会弹到球对面。
      */
     private fun requestFollowHandSwap(leftSide: Boolean): Boolean {
         if (!settings.followHand || !ballVisible) return false
@@ -1562,14 +1508,13 @@ class FloatBallService : Service() {
             px / DensityProvider.screenWidthPx,
             py / DensityProvider.screenHeightPx,
         )
-        // 气泡重贴新位（在屏时）；分身立即换到新对侧：不等落盘回声的话，回声到达前与球短暂同侧。
+        // 气泡重贴新位（在屏时）。
         updateBubbleAnchor()
-        mirrorWindow.crossFadeSwap(settings)
         if (pendingFollowHandSide != null) scheduleFollowHandRetry()
     }
 
     /**
-     * 球位置落盘：手动拖动/分身换位/跟手挪球共用，顺带记忆该侧高度锚点
+     * 球位置落盘：手动拖动/跟手挪球共用，顺带记忆该侧高度锚点
      * （下次跟手换侧落到记忆高度）。
      */
     private fun persistBallPosition(x: Float, y: Float) {
@@ -1608,7 +1553,6 @@ class FloatBallService : Service() {
     private fun applyLockState() {
         val hidden = isScreenLocked()
         ballWindow.setHidden(hidden)
-        mirrorWindow.setHidden(hidden)
         if (hidden) {
             // 不探头、不补播：队列与徽标保留（决策 9）。
             hideCapsule()
@@ -1628,23 +1572,28 @@ class FloatBallService : Service() {
         return poweredOff || locked
     }
 
-    private fun isLandscapeNow(): Boolean = RuntimeStateHub.current()?.isLandscape
-        ?: (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE)
+    /**
+     * 朝向唯一事实源：自身 Configuration。
+     *
+     * 不能优先读 `RuntimeStateHub`：那份快照由触钮刷新链写入、带防抖，转屏瞬间可能还是旧值，
+     * 落盘会写进错误朝向的坐标键（横竖屏落点互相污染）。
+     */
+    private fun isLandscapeNow(): Boolean =
+        resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    /** 把当前朝向同步给两个球窗；返回是否真的换了朝向。 */
-    private fun syncOrientation(): Boolean {
-        val landscape = isLandscapeNow()
-        val ballChanged = ballWindow.setOrientation(landscape)
-        val mirrorChanged = mirrorWindow.setOrientation(landscape)
-        return ballChanged || mirrorChanged
-    }
+    /** 把当前朝向同步给球窗；返回是否真的换了朝向。 */
+    private fun syncOrientation(): Boolean = ballWindow.setOrientation(isLandscapeNow())
 
     // ---- 前台通知 ----
 
     private fun startInForeground() {
         val manager = getSystemService<NotificationManager>() ?: return
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "悬浮球", NotificationManager.IMPORTANCE_LOW).apply {
+            NotificationChannel(
+                CHANNEL_ID,
+                getString(R.string.float_ball_foreground_channel),
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
                 enableLights(false)
                 setShowBadge(false)
                 lockscreenVisibility = Notification.VISIBILITY_SECRET
@@ -1654,7 +1603,8 @@ class FloatBallService : Service() {
             this, 0, Links.mainActivityIntent(), PendingIntent.FLAG_IMMUTABLE,
         )
         val notification = Notification.Builder(this, CHANNEL_ID)
-            .setContentTitle("悬浮球待命")
+            .setContentTitle(getString(R.string.float_ball_foreground_title))
+            .setContentText(getString(R.string.float_ball_foreground_content_desc))
             .setSmallIcon(android.R.drawable.stat_notify_sync)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
@@ -1677,6 +1627,9 @@ class FloatBallService : Service() {
 
         /** IME 底边轮询间隔（事件型 insets 的兜底；支持推播的 ROM 由窗口监听即时处理）。 */
         private const val IME_POLL_MS = 500L
+
+        /** 连续多少次 insets 事件复测成功即认定推播可用，停掉兜底轮询。 */
+        private const val IME_PUSH_CONFIRM_HINTS = 2
 
         /** 跟手换位被球占用时的重试间隔与上限。 */
         private const val FOLLOW_HAND_RETRY_MS = 120L

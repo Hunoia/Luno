@@ -70,6 +70,11 @@ internal class FloatBallTouchArbiter(
                 if (!dragging && (dx * dx + dy * dy) > touchSlopPx * touchSlopPx) {
                     dragging = true
                     handler.removeCallbacks(longPressRunnable)
+                    // 跨过 slop 的这一帧只建立基准、不上报：dx 含 slop 本身的累计量，
+                    // 直接上报会让球在开始拖动的瞬间跳一下。
+                    startX = currentX
+                    startY = currentY
+                    return true
                 }
                 if (dragging) {
                     // 每帧上报**本帧增量**（窗口侧做累加）。基准不能只在进入拖动时

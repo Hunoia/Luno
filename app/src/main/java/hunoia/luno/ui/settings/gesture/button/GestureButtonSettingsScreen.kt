@@ -48,7 +48,6 @@ fun GestureButtonSettingsScreen(
     var showVibrationSettings by remember { mutableStateOf(false) }
     var showTriggerDistanceSettings by remember { mutableStateOf(false) }
     var showGestureAngles by remember { mutableStateOf(false) }
-    val shizukuStatus by hunoia.luno.shizuku.ShizukuManager.statusFlow.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     UDFComponent<GestureButtonSettingsUiState, GestureButtonSettingsUiEvent>(component = vm.udfComponent, onEvent = { }) { uiState ->
         if (uiState.showDeleteWarningDialog) {
@@ -162,7 +161,6 @@ fun GestureButtonSettingsScreen(
                                 GestureButtonPhysicalParamsCard(
                                     gestureButton = gestureButton,
                                     mirrorHorizontal = uiState.mirrorHorizontal,
-                                    shizukuReady = shizukuStatus.isReady,
                                     vm = vm,
                                     onAngleClick = { showGestureAngles = true },
                                     onVibrationClick = { showVibrationSettings = true },

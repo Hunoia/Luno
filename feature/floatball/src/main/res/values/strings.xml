@@ -12,4 +12,7 @@
     <string name="smart_ball_pinned">已钉住</string>
     <string name="smart_ball_share">分享</string>
     <string name="smart_ball_notification">通知</string>
+    <string name="float_ball_foreground_channel">悬浮球</string>
+    <string name="float_ball_foreground_title">悬浮球待命</string>
+    <string name="float_ball_foreground_content_desc">点击打开 Luno</string>
 </resources>

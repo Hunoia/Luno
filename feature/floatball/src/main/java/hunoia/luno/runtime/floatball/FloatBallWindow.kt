@@ -88,7 +88,7 @@ class FloatBallWindow(
             // 抬手统一重启静置计时：点按结束尤其必须 —— 否则计时器停在按下时，球不再变暗。
             if (!pressed) scheduleIdle()
             // 隐藏路径的 arbiter.cancel 会走到这里：那一下 applyVisual 会把在飞的
-            // 换位/挪球淡出连 endAction 掐掉（传送与分身换位全被跳过），抑制之。
+            // 挪球淡出连 endAction 掐掉（传送被跳过），抑制之。
             if (!visualSuppressed) applyVisual()
         },
         onDragEnded = { onDragEnded() },
@@ -127,6 +127,9 @@ class FloatBallWindow(
     private var pressed = false
     private var idled = false
 
+    /** 自动挪球的「淡出→传送」是否在飞：期间拒绝新的传送，避免两段 endAction 抢写位置。 */
+    private var transferring = false
+
     /** 气泡在屏期间抑制静置变暗/半出屏，避免气泡锚点与球之间留白。 */
     private var idleSuppressed = false
 
@@ -164,7 +167,7 @@ class FloatBallWindow(
         val sizeChanged = next.sizeDp != settings.sizeDp
         settings = next
         if (sizeChanged) {
-            ballPx = DensityProvider.dp2px(next.sizeDp)
+            ballPx = sizePx(next)
             view?.let { lpSize(it) }
             if (view != null) applyWindowBounds()
         }
@@ -223,7 +226,7 @@ class FloatBallWindow(
     /** 建窗口。false = 没建起来（未授权 / 系统拒绝）。 */
     fun attach(): Boolean {
         if (view != null) return true
-        ballPx = DensityProvider.dp2px(settings.sizeDp)
+        ballPx = sizePx(settings)
         val compose = ComposeView(context).apply {
             setBackgroundColor(AndroidColor.TRANSPARENT)
             // RESUMED：球图标/颜色由快照状态驱动，CREATED 下重组不会上屏。
@@ -278,7 +281,11 @@ class FloatBallWindow(
         // 位置漂移：球被抬升 → 窗口上移 → insets 变小 → 抬升量变小 → 循环，表现为
         // 键盘弹出后上下抖动。事件在这里只作为「立即轮询一次」的触发信号。
         root.setOnApplyWindowInsetsListener { v, insets ->
-            if (insets.getInsets(WindowInsets.Type.ime()).bottom > 0) onImeInsetsHint()
+            // 导航栏高度只在这里拿得到（attach 时 rootWindowInsets 还不存在）。
+            updateBottomInset(insets.getInsets(WindowInsets.Type.navigationBars()).bottom)
+            // IME 的 insets 值参考系会随窗口位置漂移，只当作「立即复测」的信号；
+            // 隐藏（bottom 归零）同样要触发，否则只能等兜底轮询。
+            onImeInsetsHint()
             v.onApplyWindowInsets(insets)
         }
         root.requestApplyInsets()
@@ -295,7 +302,9 @@ class FloatBallWindow(
         rootView = root
         composeView = compose
         badgeView = badge
-        applySystemInsets()
+        // attach 当下 rootWindowInsets 必然为空：等下一次遍历再补一次 best-effort，
+        // 主路径是上面的 insets 监听。
+        root.post { applySystemInsets() }
         val position = settings.position(landscape)
         posX = position.x * screenWidthPx
         posY = position.y * screenHeightPx
@@ -333,12 +342,10 @@ class FloatBallWindow(
         idleRunnable?.let(handler::removeCallbacks)
         idleRunnable = null
         // 窗口既已摘除，交互/换位中的标志全部作废：淡出的 withEndAction 在 cancel 时
-        // 不运行，crossFading 残留 true 会把重挂后的 repositionTo 永久挡死。
-        crossFading = false
+        // 不运行，transferring 残留 true 会把重挂后的 repositionTo 永久挡死。
+        transferring = false
         dragging = false
         pressed = false
-        externalDrag = false
-        pendingExternalFinish = false
         // 摘窗即复位：下次 attach 的新窗口按可见起步，lock/panel 状态由服务侧重新推。
         lockHidden = false
         panelHidden = false
@@ -392,7 +399,7 @@ class FloatBallWindow(
             // 窗口不可点后事件流就断了：重置在途按压/拖动（与 detach 的 arbiter.cancel 对齐），
             // 免得恢复后停在 pressed 视觉态。idled 刻意保留 —— 恢复后回到原本的静置变暗姿态。
             // 期间抑制 onPressChanged 的 applyVisual：恰逢换位/挪球淡出时，那一下会把
-            // 动画连 endAction 一起取消，传送与分身换位全被跳过。让淡出飞完，落位照常结算。
+            // 动画连 endAction 一起取消，传送被跳过。让淡出飞完，落位照常结算。
             visualSuppressed = true
             arbiter.cancel()
             cancelIdleTimer()
@@ -418,10 +425,10 @@ class FloatBallWindow(
      *  终态 alpha 跟随 idled —— 隐藏前在静置变暗，恢复后仍是变暗姿态。 */
     private fun animateRestoreIn(target: View) {
         visualAnimator?.cancel()
-        // 在飞的挪球淡出（repositionTo/crossFadeSwap 共用本 animator 实例）被上面中止时
-        // withEndAction 不运行、crossFading 无人收：这里补复位，否则后续 repositionTo 永久
+        // 在飞的挪球淡出（repositionTo 与本方法共用同一 animator 实例）被上面中止时
+        // withEndAction 不运行、transferring 无人收：这里补复位，否则后续 repositionTo 永久
         // 拒绝。被跳过的传送位留给下一次侧翻/交互校正（落盘值已是新位）。
-        crossFading = false
+        transferring = false
         target.alpha = 0f
         target.scaleX = 0.85f
         target.scaleY = 0.85f
@@ -518,7 +525,7 @@ class FloatBallWindow(
         finishDrag()
     }
 
-    /** 贴边结算 + 落盘（本窗拖动与分身接力拖共用）。调用前应已置 dragging=false。 */
+    /** 贴边结算 + 落盘（拖动收尾）。调用前应已置 dragging=false。 */
     private fun finishDrag() {
         // 拖动中键盘可能起落过：结算一次让位，再夹取。
         imeLiftPx = computeImeLift(imeBottomPx).toFloat()
@@ -540,18 +547,18 @@ class FloatBallWindow(
         settleAnimator = null
     }
 
-    /** 当前球窗顶边屏幕坐标（px）。分身换位/搬球时由 Service 读取。 */
+    /** 当前球窗顶边屏幕坐标（px）。跟手挪球/气泡锚点由 Service 读取。 */
     fun currentPosition(): Pair<Float, Float> = posX to posY
 
     /**
-     * 自动挪球（跟随持机手）：淡出 → 传送 → 淡回（与分身换位同款视觉）。
+     * 自动挪球（跟随持机手）：淡出 → 传送 → 淡回。
      * 拖动/按压/换位中让位给用户并返回 false（调用方稍后重试）；淡出期间被
      * 用户接管拖动则放弃传送（[onLanded] 不回调）。目标与当前几乎一致时不动画直接算成功。
      * [onLanded] 在球真正落到目标位时回调（无动画路径同步、淡出路径异步）；被打断
-     * 则不回调 —— 调用方据此把落盘/分身同步推迟到实位落定，避免存量与实位背离。
+     * 则不回调 —— 调用方据此把落盘推迟到实位落定，避免存量与实位背离。
      */
     fun repositionTo(leftEdge: Boolean, yRatio: Float, onLanded: (() -> Unit)? = null): Boolean {
-        if (dragging || crossFading || pressed) return false
+        if (dragging || transferring || pressed) return false
         val target = view ?: return false
         val targetX = if (leftEdge) 0f else max(0, screenWidthPx - ballPx).toFloat()
         val maxY = max(lpOriginY, screenHeightPx - ballPx - bottomInsetPx)
@@ -566,14 +573,14 @@ class FloatBallWindow(
         // applyVisual 按新边缘重摆半出屏姿态，不唤醒。
         cancelIdleTimer()
         moveAnimator?.cancel()
-        crossFading = true
+        transferring = true
         visualAnimator?.cancel()
         target.animate()
             .alpha(0f)
             .setDuration(150L)
             .setInterpolator(DecelerateInterpolator())
             .withEndAction {
-                crossFading = false
+                transferring = false
                 // 淡出期间用户上手拖动：放弃传送恢复可见，球留在用户手里。
                 if (dragging) {
                     applyVisual()
@@ -609,123 +616,11 @@ class FloatBallWindow(
     /** 主球当前是否在屏左半（按窗口实位、球心判，与静置外移方向同口径）。 */
     fun isOnLeft(): Boolean = posX * 2f + ballPx < screenWidthPx
 
-    /** 主球是否处于静置变暗态（交换后保持姿态用）。 */
-    fun isIdled(): Boolean = idled
-
     /** 主球窗实测的 LP 原点（屏幕 y）：胶囊窗复用它，避免两窗各自测量产生偏差。 */
     fun lpOriginYPx(): Int = lpOriginY
 
-    /** 当前键盘让位量（px）。分身 y 跟随用。 */
+    /** 当前键盘让位量（px）。 */
     fun currentImeLiftPx(): Float = imeLiftPx
-
-    /**
-     * 交换的淡入淡出：淡出 → 传送到目标贴边位 → 淡回，[endIdled] 决定落位姿态。
-     * 淡出期间分身已开始接力拖时，落点加上累计位移并直接进入拖动态。
-     */
-    fun crossFadeSwap(targetX: Float, targetY: Float, endIdled: Boolean, onDone: () -> Unit) {
-        val target = view
-        crossFading = true
-        if (target == null) {
-            posX = targetX
-            posY = targetY
-            idled = endIdled
-            crossFading = false
-            onDone()
-            return
-        }
-        cancelSettle()
-        visualAnimator?.cancel()
-        target.animate()
-            .alpha(0f)
-            .setDuration(150L)
-            .setInterpolator(DecelerateInterpolator())
-            .withEndAction {
-                crossFading = false
-                posX = targetX + externalAccX
-                posY = targetY + externalAccY
-                externalAccX = 0f
-                externalAccY = 0f
-                applyWindowBounds()
-                if (pendingExternalFinish) {
-                    // 接力拖在淡出期间已抬手：落位（含累计位移）后代为结算贴边 + 落盘。
-                    pendingExternalFinish = false
-                    idled = false
-                    pressed = false
-                    target.translationX = 0f
-                    applyVisual()
-                    onDone()
-                    finishDrag()
-                } else if (externalDrag) {
-                    // 接力拖已开始：实心拖动态落位，后续位移走增量。
-                    idled = false
-                    dragging = true
-                    pressed = true
-                    target.translationX = 0f
-                    applyVisual()
-                } else {
-                    idled = endIdled
-                    pressed = false
-                    // 落位姿态直接摆好（平移不参与动画），alpha 由 applyVisual 淡回。
-                    target.translationX = if (idled) {
-                        val dir = if (posX * 2f + ballPx < screenWidthPx) -1f else 1f
-                        dir * FloatBallDefaults.IdleOutRatio * ballPx
-                    } else 0f
-                    applyVisual()
-                }
-                onDone()
-            }
-            .start()
-    }
-
-    // ---- 分身接力拖 ----
-
-    private var externalDrag = false
-    private var crossFading = false
-    private var externalAccX = 0f
-    private var externalAccY = 0f
-
-    /** 分身侧按下：接力拖待命（抬手若未拖动就是纯点按，无副作用）。 */
-    fun beginExternalDrag() {
-        externalDrag = true
-    }
-
-    /** 分身侧每帧位移增量。淡出期间先记账，落位后实时跟手。 */
-    fun externalDragBy(dx: Float, dy: Float) {
-        if (!externalDrag) return
-        if (crossFading) {
-            externalAccX += dx
-            externalAccY += dy
-            return
-        }
-        if (!dragging) {
-            dragging = true
-            cancelSettle()
-            cancelIdle()
-            pressed = true
-            applyVisual()
-        }
-        posX += dx
-        posY += dy
-        applyWindowBounds()
-    }
-
-    /** 分身侧抬手：结束接力拖；淡出未结束时由落位逻辑代为结算。 */
-    fun endExternalDrag() {
-        if (!externalDrag) return
-        externalDrag = false
-        if (crossFading) {
-            // 落位后需结算贴边 + 落盘：把收尾挂到 endAction 之后。
-            pendingExternalFinish = true
-            return
-        }
-        if (dragging) {
-            dragging = false
-            pressed = false
-            finishDrag()
-        }
-    }
-
-    private var pendingExternalFinish = false
 
     private fun settleToEdge(targetX: Float) {
         val fromX = posX
@@ -806,10 +701,10 @@ class FloatBallWindow(
 
     private fun applyVisual() {
         val target = view ?: return
-        // 淡出（repositionTo/crossFadeSwap）与本方法共用同一个 ViewPropertyAnimator
+        // 淡出（repositionTo）与本方法共用同一个 ViewPropertyAnimator
         // 实例，走到这里意味着在飞的淡出已被下面的 cancel 中止且 withEndAction 不会
-        // 运行 —— crossFading 一并收掉，否则按压球打断淡出后它会永久卡在 true。
-        crossFading = false
+        // 运行 —— transferring 一并收掉，否则按压球打断淡出后它会永久卡在 true。
+        transferring = false
         val scale = if (pressed) FloatBallDefaults.PressScale else 1f
         // 软隐藏期间一律隐身：隐藏淡出被挪球/换位动画打断时，落位重绘不得把球画回来。
         val alpha = when {
@@ -844,8 +739,15 @@ class FloatBallWindow(
     private fun applySystemInsets() {
         runCatching {
             val insets = view?.rootWindowInsets ?: return
-            bottomInsetPx = insets.getInsets(WindowInsets.Type.navigationBars()).bottom
+            updateBottomInset(insets.getInsets(WindowInsets.Type.navigationBars()).bottom)
         }.onFailure { Log.w(TAG, "insets unavailable: ${it.message}") }
+    }
+
+    /** 底栏边界变化时重夹一次：球不该停在导航栏下面。 */
+    private fun updateBottomInset(bottom: Int) {
+        if (bottom == bottomInsetPx) return
+        bottomInsetPx = bottom
+        applyWindowBounds()
     }
 
     /**
@@ -875,6 +777,11 @@ class FloatBallWindow(
     }
 
     private fun dp(value: Int): Int = DensityProvider.dp2px(value)
+
+    /** 视觉尺寸夹到 [FloatBallDefaults.MinSizeDp]..[FloatBallDefaults.MaxSizeDp]：命中区 = 窗口，不得低于 48dp。 */
+    private fun sizePx(settings: FloatBallSettings): Int = DensityProvider.dp2px(
+        settings.sizeDp.coerceIn(FloatBallDefaults.MinSizeDp, FloatBallDefaults.MaxSizeDp),
+    )
 
     // ---- Compose ----
 

@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.twotone.Visibility
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,6 +32,7 @@ import hunoia.luno.config.model.VisibilityScreen
 import hunoia.luno.config.model.VisibilityTargetMode
 import hunoia.luno.config.model.VisibilityTargets
 import hunoia.luno.domain.gesture.GestureConfig
+import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoInputRow
@@ -82,7 +84,25 @@ fun ButtonVisibilityEditScreen(
         }
     }
 
-    val current = draft ?: return
+    val current = draft
+    if (current == null) {
+        // 配置未加载完靠上面 LaunchedEffect 的「继续等」规避；真正落到这里说明场景已被删。
+        LunoScreenLazy(
+            title = stringResource(
+                if (isNew) R.string.button_visibility_new else R.string.button_visibility_edit,
+            ),
+            onBack = onBack,
+            state = rememberLazyListState(),
+        ) {
+            item(key = "missing") {
+                EmptyState(
+                    message = stringResource(R.string.button_visibility_missing),
+                    icon = Icons.TwoTone.Visibility,
+                )
+            }
+        }
+        return
+    }
 
     fun save() {
         val profile = current
@@ -252,24 +272,13 @@ fun ButtonVisibilityEditScreen(
                 )
                 LunoSettingsRow(
                     title = stringResource(R.string.button_visibility_target),
-                    subtitle = targetSummary(current),
+                    subtitle = ButtonVisibilityText.targetSummary(current),
                     shape = segmentedShape(1, 2),
                     onClick = { showTargetPicker = true },
                 )
             }
         }
     }
-}
-
-@Composable
-private fun targetSummary(profile: VisibilityProfile): String = when (profile.mode) {
-    VisibilityTargetMode.ALL -> stringResource(R.string.button_visibility_target_all)
-    VisibilityTargetMode.ONLY -> stringResource(
-        R.string.button_visibility_target_only,
-    ) + " · " + stringResource(R.string.button_visibility_target_count, profile.targetIds.size)
-    VisibilityTargetMode.EXCEPT -> stringResource(
-        R.string.button_visibility_target_except,
-    ) + " · " + stringResource(R.string.button_visibility_target_count, profile.targetIds.size)
 }
 
 @Composable

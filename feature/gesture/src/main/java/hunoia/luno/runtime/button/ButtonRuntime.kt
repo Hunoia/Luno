@@ -5,6 +5,7 @@ import android.util.Log
 import hunoia.luno.gesture.BuildConfig
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.InitialSettings
+import hunoia.luno.config.model.ButtonVisibilitySettings
 import hunoia.luno.config.model.VisibilityProfile
 import hunoia.luno.config.model.VisibilityScreen
 import hunoia.luno.config.model.VisibilityTargetMode
@@ -17,12 +18,19 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import hunoia.luno.core.LOG_TAG
+import java.util.concurrent.ConcurrentHashMap
 
+/**
+ * 触钮临时隐藏（`internal.buttonsVisibility{hideForMs>0}` / `hideGestureButton`）。
+ *
+ * 只存在于内存：无持久化、进程重启即失效。读写都在主线程（执行口 `Dispatchers.Main.immediate`、
+ * 刷新链在 `MainScope`），用并发容器只是为了不让“以后多一条写入方”直接变成数据竞争。
+ */
 class ButtonHideRuntime(
     private val scope: CoroutineScope,
     private val onStateChanged: () -> Unit,
 ) {
-    private val hiddenButtons = mutableMapOf<String, Long>()
+    private val hiddenButtons = ConcurrentHashMap<String, Long>()
 
     /** 批量临时隐藏：到期自动恢复；期间重复 hide 会刷新到期时间。 */
     fun hideTemporarily(buttonIds: Collection<String>, delayMs: Long) {
@@ -74,15 +82,23 @@ class ButtonVisibilityPolicy(
         if ((runtimeState.hiddenGestureButtons[button.id] ?: 0L) > runtimeState.nowMs) return false
         // 用户基线：场景配置只能相对它隐藏 / 恢复，不能把手动关掉的钮重新打开。
         if (!button.enabled) return false
-        // 规则列表顺序 = 优先级：最后命中的一条生效；target 不覆盖本钮的配置不改状态。
-        var visible = true
-        initialSettings.buttonVisibility.profiles.forEach { profile ->
-            if (profile.enabled && profile.matches(runtimeState) && profile.affects(button.id)) {
-                visible = profile.visible
-            }
-        }
-        return visible
+        return evaluateProfiles(button.id, initialSettings.buttonVisibility.profiles, runtimeState)
     }
+}
+
+/** 场景求值：最后命中的一条生效；target 不覆盖本对象的配置不改状态。 */
+private fun evaluateProfiles(
+    targetId: String,
+    profiles: List<VisibilityProfile>,
+    state: GestureRuntimeState,
+): Boolean {
+    var visible = true
+    profiles.forEach { profile ->
+        if (profile.enabled && profile.matches(state) && profile.affects(targetId)) {
+            visible = profile.visible
+        }
+    }
+    return visible
 }
 
 private fun VisibilityProfile.matches(state: GestureRuntimeState): Boolean {
@@ -114,15 +130,16 @@ fun shouldShowSurface(
     targetId: String,
     initialSettings: InitialSettings,
     runtimeState: GestureRuntimeState?,
+): Boolean = shouldShowSurface(targetId, initialSettings.buttonVisibility, runtimeState)
+
+/** 只吃可见性配置的窄入口：调用方不必为了一个字段构造整个 [InitialSettings]。 */
+fun shouldShowSurface(
+    targetId: String,
+    visibility: ButtonVisibilitySettings,
+    runtimeState: GestureRuntimeState?,
 ): Boolean {
     val state = runtimeState ?: return true
-    var visible = true
-    initialSettings.buttonVisibility.profiles.forEach { profile ->
-        if (profile.enabled && profile.matches(state) && profile.affects(targetId)) {
-            visible = profile.visible
-        }
-    }
-    return visible
+    return evaluateProfiles(targetId, visibility.profiles, state)
 }
 
 /** 悬浮球场景。 */

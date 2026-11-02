@@ -19,7 +19,7 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
  * 生命周期默认只推到 CREATED；[createAndAttachTo] 的 active=true 推到 RESUMED。
  *
  * CREATED 下重组不会真正上屏：悬浮球的动作图标/颜色、瞬态胶囊的内容更新都需要
- * 状态驱动重组，所以主球、分身与胶囊一律用 active=true。
+ * 状态驱动重组，所以主球与胶囊一律用 active=true。
  */
 class FloatBallLifecycleOwner private constructor() :
     LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {

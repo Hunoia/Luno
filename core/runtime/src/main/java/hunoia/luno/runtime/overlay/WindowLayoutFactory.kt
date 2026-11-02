@@ -113,6 +113,11 @@ object WindowLayoutFactory {
         lp.gravity = Gravity.LEFT or Gravity.TOP
     }
 
+    /** 触钮窗的触摸开关：与 [gestureButtonLayoutParams] 共用同一份 flags 组合，避免两套口径。 */
+    fun updateGestureButtonTouch(lp: WindowManager.LayoutParams, touchEnabled: Boolean) {
+        lp.setTouchFlags(touchEnabled)
+    }
+
     private fun WindowManager.LayoutParams.setTouchFlags(touchEnabled: Boolean) {
         flags = if (touchEnabled) {
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or

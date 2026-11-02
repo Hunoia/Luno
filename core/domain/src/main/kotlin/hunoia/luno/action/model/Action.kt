@@ -179,9 +179,12 @@ sealed interface Action {
         override val typeId: String = "internal.subGesture"
     }
     /**
-     * 触钮显隐：直接改按钮 enabled 存量，后求值/后执行的覆盖先生效
-     *（规则列表顺序即优先级）。
-     * `hideForMs > 0` 为临时隐藏（走 ButtonHideRuntime，到期自动恢复，不碰 enabled 存量），
+     * 触钮显隐。两个分支写的是**两份不同的存储**，不构成一个统一的“后写胜出”顺序：
+     *
+     * - `hideForMs = 0`：改 `GestureButton.enabled` 用户基线（DataStore，后写覆盖先写）；
+     * - `hideForMs > 0`：内存临时隐藏（`ButtonHideRuntime`，到期自动恢复，不碰 enabled 存量）。
+     *
+     * 临时隐藏到期后回到的是**当时的** enabled，期间被别的规则改过就会看到新基线。
      * 原「隐藏触钮」动作合并于此。
      */
     data class ButtonsVisibility(

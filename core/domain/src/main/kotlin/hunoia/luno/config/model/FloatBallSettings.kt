@@ -33,8 +33,6 @@ data class FloatBallSettings(
     val color: Int = FloatBallDefaults.Color,
     /** 单击球执行的动作。为 null 表示单击无响应。 */
     val tapAction: StoredAction? = null,
-    /** 屏幕对侧镜像位置显示描边分身：点击触发动作并换位，拖动可搬球。 */
-    val mirrorBall: Boolean = FloatBallDefaults.MirrorBall,
     /**
      * 静置多久后变暗缩小。0 = 关闭。
      */
@@ -120,22 +118,25 @@ object FloatBallDefaults {
     const val Enabled = false
     const val X = 0.92f
     const val Y = 0.42f
-    const val SizeDp = 56f
-    const val MinSizeDp = 36f
+    const val SizeDp = 48f
+    /** 视觉尺寸下限 = 命中区硬下限（ui-guidelines §4.6：窗口/命中区 ≥ 48dp）。 */
+    const val MinSizeDp = 48f
     const val MaxSizeDp = 96f
     /** 0 = 透明（与 `android.graphics.Color.TRANSPARENT` 同值）。 */
     val Color: Int = 0
 
-    /** 静置延时（ms），0 = 关。 */
+    /** 静置延时（ms），0 = 关；滑杆上下限与默认值同源。 */
     const val IdleDimDelayMs = 3_000L
+    const val IdleDimDelayMsMin = 0L
+    const val IdleDimDelayMsMax = 8_000L
 
-    const val IdleDimAlpha = 0.4f
+    const val IdleDimAlpha = 0.5f
 
     /**
      * 静置出屏比例：球径的这部分移到屏幕外（语义是横向偏移而非等比缩小）。
-     * 一半出屏。
+     * 与 ui-guidelines §4.6 一致（1/4）。
      */
-    const val IdleOutRatio = 0.5f
+    const val IdleOutRatio = 0.25f
 
     const val PressScale = 0.9f
 
@@ -148,13 +149,8 @@ object FloatBallDefaults {
 
     const val ImeMarginDp = 8f
 
-    const val MirrorBall = false
-
     /** 跟随持机手（试验）。 */
     const val FollowHand = false
-
-    /** 分身描边的常驻透明度（半圆姿态，比主球 idle 更暗）。 */
-    const val MirrorDimAlpha = 0.1f
 
     /** 通知胶囊：自动收起时长默认值与滑杆上下限（ms）。 */
     const val CapsuleAutoHideMs = 5_000L

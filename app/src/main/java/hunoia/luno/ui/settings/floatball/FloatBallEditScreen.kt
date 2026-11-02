@@ -241,7 +241,8 @@ fun FloatBallEditScreen(
                     },
                     text = stringResource(R.string.float_ball_idle_dim_delay),
                     valueDisplay = { if (it <= 0f) stringResource(R.string.float_ball_off) else "${it.toInt()} ms" },
-                    valueRange = 0f..8000f,
+                    valueRange = FloatBallDefaults.IdleDimDelayMsMin.toFloat()..
+                        FloatBallDefaults.IdleDimDelayMsMax.toFloat(),
                     shape = segmentedShape(2, 3),
                 )
             }
@@ -254,14 +255,7 @@ fun FloatBallEditScreen(
                     subtitle = stringResource(R.string.float_ball_follow_hand_subtitle),
                     checked = floatBall.followHand,
                     onCheckedChange = { checked -> update { it.copy(followHand = checked) } },
-                    shape = segmentedShape(0, 2),
-                )
-                LunoSwitchRow(
-                    title = stringResource(R.string.float_ball_mirror),
-                    subtitle = stringResource(R.string.float_ball_mirror_subtitle),
-                    checked = floatBall.mirrorBall,
-                    onCheckedChange = { checked -> update { it.copy(mirrorBall = checked) } },
-                    shape = segmentedShape(1, 2),
+                    shape = segmentedShape(0, 1),
                 )
             }
         }
@@ -351,7 +345,7 @@ fun FloatBallEditScreen(
                             )
                         }
                     },
-                    shape = segmentedShape(2, rowCount),
+                    shape = segmentedShape(3, rowCount),
                 )
                 if (suppress) {
                     LunoTextSlider(
@@ -468,11 +462,11 @@ fun FloatBallEditScreen(
                     valueDisplay = { "${it.toInt()} 项" },
                     valueRange = FloatBallDefaults.InboxCapacityMin.toFloat()..
                         FloatBallDefaults.InboxCapacityMax.toFloat(),
-                    shape = segmentedShape(0, 1),
+                    shape = segmentedShape(0, 2),
                 )
                 LunoSettingsRow(
                     title = stringResource(R.string.float_ball_inbox_capacity_hint),
-                    shape = segmentedShape(0, 1),
+                    shape = segmentedShape(1, 2),
                 )
             }
         }

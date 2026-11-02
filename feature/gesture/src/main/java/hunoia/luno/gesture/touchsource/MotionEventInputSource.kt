@@ -14,6 +14,9 @@ import hunoia.luno.runtime.gesturepanel.GestureSessionPipeline
  * 触钮只有这一条触摸路径（Shizuku 内核流只服务全屏长按识屏），因此这里不再做来源仲裁。
  * 判据是**窗口身份**（触摸回调携带的 [TouchWindowHint]）：动作面板 / 子手势等自家瞬态窗
  * 不带 hint，不会被当成触钮来源而起会话。
+ *
+ * 一次会话只跟踪起手的那根手指：多指时忽略后续 pointer 的按下/抬起，坐标固定取该 pointer 的
+ * 原始值。否则 index 0 在第二指抬起时会切换，单帧位移直接变成两指间距（误触发滑动）。
  */
 class MotionEventInputSource(
     private val pipeline: GestureSessionPipeline,
@@ -23,6 +26,9 @@ class MotionEventInputSource(
     private var listener: OnMotionEventListener? = null
     private var lastX = Float.NaN
     private var lastY = Float.NaN
+
+    /** 本次会话跟踪的 pointer（起手那根）。 */
+    private var activePointerId = MotionEvent.INVALID_POINTER_ID
 
     /** 本次会话是否由本来源起（自家瞬态窗的事件不得污染进行中的触钮会话）。 */
     private var ownsSession = false
@@ -55,20 +61,29 @@ class MotionEventInputSource(
     private fun onEvent(event: MotionEvent, source: TouchWindowHint?) {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> onDown(event, source)
+            // 多指：只认起手指针，其余 pointer 的按下/抬起不参与会话。
+            MotionEvent.ACTION_POINTER_DOWN -> Unit
             MotionEvent.ACTION_MOVE -> onMove(event)
-            MotionEvent.ACTION_UP -> {
-                clearSession()
-                if (!ownsSession) return
-                ownsSession = false
-                pipeline.onUp()
+            MotionEvent.ACTION_POINTER_UP -> {
+                if (event.getPointerId(event.actionIndex) == activePointerId) finishUp()
             }
-            MotionEvent.ACTION_CANCEL -> {
-                clearSession()
-                if (!ownsSession) return
-                ownsSession = false
-                pipeline.onCancel()
-            }
+            MotionEvent.ACTION_UP -> finishUp()
+            MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_OUTSIDE -> finishCancel()
         }
+    }
+
+    private fun finishUp() {
+        clearSession()
+        if (!ownsSession) return
+        ownsSession = false
+        pipeline.onUp()
+    }
+
+    private fun finishCancel() {
+        clearSession()
+        if (!ownsSession) return
+        ownsSession = false
+        pipeline.onCancel()
     }
 
     private fun onDown(event: MotionEvent, source: TouchWindowHint?) {
@@ -90,13 +105,16 @@ class MotionEventInputSource(
             pipeline.onCancel()
         }
         ownsSession = true
+        activePointerId = event.getPointerId(0)
         lastEventAtMs = timeProvider()
         pipeline.onDown(point, source)
     }
 
     private fun onMove(event: MotionEvent) {
         if (!ownsSession || lastX.isNaN() || lastY.isNaN()) return
-        val point = Offset(event.rawX, event.rawY)
+        val index = event.findPointerIndex(activePointerId)
+        if (index < 0) return
+        val point = Offset(event.getRawX(index), event.getRawY(index))
         val delta = Offset(point.x - lastX, point.y - lastY)
         lastX = point.x
         lastY = point.y
@@ -108,6 +126,7 @@ class MotionEventInputSource(
         lastX = Float.NaN
         lastY = Float.NaN
         lastEventAtMs = 0L
+        activePointerId = MotionEvent.INVALID_POINTER_ID
     }
 
     private companion object {
