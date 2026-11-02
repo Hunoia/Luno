@@ -53,6 +53,9 @@ class GestureRecognizer {
         GestureStrategyRegistry.onTick(timeMs, config, session)
 
     fun onCancel(): GestureDecision {
+        // 取消必须同时结束「双击待定」：否则 pendingButtonId 会活过会话，
+        // 之后的一次单击会被当成双击（执行错误动作）。
+        session.pendingButtonId = null
         session.reset()
         return GestureDecision.Cancel
     }

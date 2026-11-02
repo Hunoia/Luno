@@ -240,6 +240,9 @@ class GestureState(
         pendingDoubleTapJob?.cancel()
         pendingDoubleTapJob = null
         pendingTapResult = null
+        // 任务取消后没有超时兜底，识别器里的「双击待定」必须一起清，
+        // 否则下一次单击会被当成双击（G-03）。
+        recognizer.clearPendingDoubleTap()
         resetSession()
         isCanceled = false
     }

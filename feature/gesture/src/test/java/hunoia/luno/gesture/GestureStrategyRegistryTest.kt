@@ -109,6 +109,20 @@ class GestureStrategyRegistryTest {
     }
 
     @Test
+    fun `cancel clears pending double tap`() {
+        // 回归 G-03：待定双击在 CANCEL 后必须失效，否则下一次单击会被判成双击。
+        val recognizer = GestureRecognizer()
+        val cfg = config(doubleTap = true)
+        recognizer.onDown(0L, Offset.Zero, cfg)
+        assertTrue(recognizer.onUp(50L, cfg) is GestureDecision.PendingDoubleTap)
+
+        recognizer.onCancel()
+
+        recognizer.onDown(10_000L, Offset.Zero, cfg)
+        assertTrue(recognizer.onUp(10_050L, cfg) is GestureDecision.PendingDoubleTap)
+    }
+
+    @Test
     fun `duplicate strategy id fails fast`() {
         try {
             GestureStrategyRegistry.register(
