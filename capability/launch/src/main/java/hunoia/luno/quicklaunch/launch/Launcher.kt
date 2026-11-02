@@ -55,13 +55,20 @@ object Launcher {
             )
         }
         return try {
-            val pm = context.packageManager
-            val intent = resolveLaunchIntent(pm, packageName, className, intentAction, data, extras)
-                ?: pm.getLaunchIntentForPackage(packageName)?.also { fallback ->
-                    // 兜底保持系统启动 Intent：自定义 action/data 命不中时不塞进去，
-                    // 否则本来能启动的应用也会失败；extras 不改变解析结果，保留。
-                    extras.forEach { (key, value) -> fallback.putExtra(key, value) }
+            // 目标应用有分身时，普通 startActivity 会被 MIUI XSpace 拦成「主应用/分身」二选一；
+            // 用 shell 身份显式指定 userId=0 启动，和分身的显式 user 路径保持一致。
+            if (AppIcons.hasClone(context, packageName) && ShizukuManager.currentStatus().isReady) {
+                buildLaunchIntent(context, packageName, className, intentAction, data, extras)?.let { intent ->
+                    val options = if (miniWindow) {
+                        MiniWindowGeometry.activityOptions(context, miniWindowSettings).toBundle()
+                    } else {
+                        null
+                    }
+                    if (ShizukuManager.startActivityAsUser(intent, 0, options)) return true
                 }
+            }
+            val pm = context.packageManager
+            val intent = buildLaunchIntent(context, packageName, className, intentAction, data, extras)
                 ?: run {
                     // 无桌面入口的系统包（或没有 launcher intent 的包）：打开应用详情，
                     // 而不是静默失败。包本身不存在时仍返回 false。
@@ -70,7 +77,6 @@ object Launcher {
                     }
                     return openAppDetails(context, packageName)
                 }
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             if (miniWindow) {
                 MiniWindow.startActivity(context, intent, miniWindowSettings)
             } else {
@@ -81,6 +87,27 @@ object Launcher {
             Log.e(LOG_TAG, "launchApp failed", e)
             false
         }
+    }
+
+    /** 解析 + 系统 launch intent 兜底，统一补 NEW_TASK；解析不到返回 null。 */
+    private fun buildLaunchIntent(
+        context: Context,
+        packageName: String,
+        className: String,
+        intentAction: String,
+        data: String,
+        extras: Map<String, String>,
+    ): Intent? {
+        val pm = context.packageManager
+        val intent = resolveLaunchIntent(pm, packageName, className, intentAction, data, extras)
+            ?: pm.getLaunchIntentForPackage(packageName)?.also { fallback ->
+                // 兜底保持系统启动 Intent：自定义 action/data 命不中时不塞进去，
+                // 否则本来能启动的应用也会失败；extras 不改变解析结果，保留。
+                extras.forEach { (key, value) -> fallback.putExtra(key, value) }
+            }
+            ?: return null
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return intent
     }
 
     /**
@@ -134,6 +161,17 @@ object Launcher {
         userId: Int,
     ): Boolean {
         if (ShizukuManager.currentStatus().isReady) {
+            val intent = buildLaunchIntent(context, packageName, className, intentAction, data, extras)
+            if (intent != null) {
+                val options = if (miniWindow) {
+                    MiniWindowGeometry.activityOptions(context, miniWindowSettings).toBundle()
+                } else {
+                    null
+                }
+                // 首选 binder：options 和 userId 同一次调用生效，小窗不会先按系统尺寸显示。
+                if (ShizukuManager.startActivityAsUser(intent, userId, options)) return true
+            }
+            // binder 被 ROM 拒绝时退回 shell；小窗再用 task resize 兜底（会有一次尺寸跳变）。
             if (launchCloneViaShell(
                     context = context,
                     packageName = packageName,

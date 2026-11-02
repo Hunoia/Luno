@@ -378,7 +378,7 @@ internal fun ActionPage(
                                     action = action,
                                     actionLabel = entry.name,
                                     selected = selectedRecord.isSelected(action),
-                                    subtitle = actionLibraryParamSummary(entry),
+                                    subtitle = actionLibraryParamSummary(entry, context),
                                     onSelect = { onSelectLibraryEntry(entry) },
                                     shape = selectedSegmentedShape(index, entries.size, selectionFlags),
                                 )
@@ -396,7 +396,7 @@ internal fun ActionPage(
                                 action = action,
                                 actionLabel = entry.name,
                                 selected = selectedRecord.isSelected(action),
-                                subtitle = actionLibraryParamSummary(entry),
+                                subtitle = actionLibraryParamSummary(entry, context),
                                 onSelect = { onSelectLibraryEntry(entry) },
                                 shape = selectedSegmentedShape(index, filteredLibraryEntries.size, selectionFlags),
                             )

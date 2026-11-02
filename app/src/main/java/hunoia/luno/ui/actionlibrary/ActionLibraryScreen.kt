@@ -125,10 +125,11 @@ private fun ActionLibraryItem(
     onIconClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val def = ActionDefinitions.byTypeId(entry.typeId)
     val icon = entry.resolvedIcon() ?: Icons.Default.Build
     // 副标题 = 已配置的参数值（空值跳过，布尔 false 不喘）；无参数回退类型名。
-    val paramSummary = remember(entry) { actionLibraryParamSummary(entry) }
+    val paramSummary = remember(entry, context) { actionLibraryParamSummary(entry, context) }
     LunoSettingsRow(
         modifier = modifier,
         title = entry.name.ifBlank { def?.name ?: entry.typeId },

@@ -58,6 +58,8 @@ fun AppPickerSheet(
     confirmOnSelect: Boolean = false,
     /** 需要保留 userId（分身）时使用：点击行直接把完整 AppInfo 交给调用方。 */
     onSelectApp: ((AppInfo) -> Unit)? = null,
+    /** 与 [onSelectApp] 搭配：只高亮这个用户下的那一行，避免主应用/分身同时选中。 */
+    selectedUserId: Int? = null,
 ) {
     val scope = rememberCoroutineScope()
     var apps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
@@ -156,9 +158,14 @@ fun AppPickerSheet(
                             itemsIndexed(filteredApps, key = { _, item -> item.identity }) { index, item ->
                                 LunoSelectableRow(
                                     title = item.label,
-                                    subtitle = item.packageName,
+                                    subtitle = if (item.isClone) {
+                                        "${item.packageName} · ${stringResource(R.string.app_clone_label)}"
+                                    } else {
+                                        item.packageName
+                                    },
                                     iconModel = item.icon,
-                                    selected = item.packageName in selected,
+                                    selected = item.packageName in selected &&
+                                        (selectedUserId == null || item.userId == selectedUserId),
                                     onSelectedChange = { isSelected ->
                                         if (onSelectApp != null) {
                                             onSelectApp(item)

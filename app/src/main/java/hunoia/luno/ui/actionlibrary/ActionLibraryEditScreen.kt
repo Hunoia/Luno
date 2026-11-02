@@ -207,9 +207,16 @@ fun ActionLibraryEditScreen(
                         ?.let { selector ->
                             { app ->
                                 vm.updateParam(selector.key, app.packageName)
-                                selector.userIdKey?.let { vm.updateParam(it, app.userId.toString()) }
+                                selector.userIdKey?.let {
+                                    vm.updateParam(it, if (app.userId == 0) "" else app.userId.toString())
+                                }
                                 showAppPicker = null
                             }
+                        },
+                    selectedUserId = (paramDef as? ParameterDefinition.AppSelector)
+                        ?.takeIf { it.userIdKey != null }
+                        ?.let {
+                            draft?.params?.get("userId")?.scalarText()?.toIntOrNull() ?: 0
                         },
                     onConfirm = { selected ->
                         val current = draft?.params?.get(paramDef.key)?.scalarText()

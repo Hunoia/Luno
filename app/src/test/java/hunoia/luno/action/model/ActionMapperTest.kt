@@ -20,6 +20,7 @@ class ActionMapperTest {
                     put("className", JsonPrimitive("com.example.Main"))
                     put("intentAction", JsonPrimitive("android.intent.action.VIEW"))
                     put("data", JsonPrimitive("example://open"))
+                    put("userId", JsonPrimitive("999"))
                     put("extras", buildJsonObject {
                         put("id", JsonPrimitive("42"))
                         put("", JsonPrimitive("ignored"))
@@ -33,6 +34,7 @@ class ActionMapperTest {
         assertEquals("android.intent.action.VIEW", action.intentAction)
         assertEquals("example://open", action.data)
         assertEquals(mapOf("id" to "42"), action.extras)
+        assertEquals(999, action.userId)
     }
 
     @Test

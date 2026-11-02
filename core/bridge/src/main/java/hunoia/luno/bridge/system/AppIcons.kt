@@ -39,6 +39,15 @@ object AppIcons {
         }
     }.getOrNull()
 
+    /** 该包在其它用户（分身/工作资料）里是否有可启动入口。 */
+    fun hasClone(context: Context, packageName: String): Boolean = runCatching {
+        val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+        val mainUser = Process.myUserHandle()
+        launcherApps.profiles.any { profile ->
+            profile != mainUser && launcherApps.getActivityList(packageName, profile).isNotEmpty()
+        }
+    }.getOrDefault(false)
+
     /** 用户 id → UserHandle；UserHandle 没有公开的 of(int)，uid 换算可用。 */
     fun userHandle(userId: Int): UserHandle? = runCatching {
         UserHandle.getUserHandleForUid(userId * 100000)
