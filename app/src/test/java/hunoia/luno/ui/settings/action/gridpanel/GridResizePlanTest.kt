@@ -1,6 +1,7 @@
 package hunoia.luno.ui.settings.action.gridpanel
 
 import hunoia.luno.config.model.GridPanelItem
+import hunoia.luno.gridpanel.geometry.planGridResize
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -12,13 +13,14 @@ class GridResizePlanTest {
         GridPanelItem(id = id, x = x, y = y, spanX = spanX, spanY = spanY)
 
     // 极小屏幕 + 小卡高 → 可见行数压到 1，便于构造「真的没地方放」的场景。
-    private fun plan(items: List<GridPanelItem>, columns: Int) = planGridResize(
+    private fun plan(items: List<GridPanelItem>, columns: Int, expandRows: Boolean = false) = planGridResize(
         items = items,
         columns = columns,
         cardWidthFraction = 0.9f,
         cardHeightFraction = 0.30f,
         screenWdp = 100f,
         screenHdp = 100f,
+        expandRows = expandRows,
     )
 
     @Test
@@ -51,6 +53,17 @@ class GridResizePlanTest {
         assertEquals(2, result.items.size)
         assertEquals(1, result.dropped.size)
         assertEquals("c", result.dropped.single().id)
+    }
+
+    @Test
+    fun `expanding rows keeps items that would otherwise drop`() {
+        val items = listOf(item("a", 0, 0), item("b", 1, 0), item("c", 2, 0))
+        val destructive = plan(items, columns = 2)
+        assertEquals(1, destructive.dropped.size)
+
+        val growing = plan(items, columns = 2, expandRows = true)
+        assertTrue(growing.dropped.isEmpty())
+        assertEquals(3, growing.items.size)
     }
 
     @Test

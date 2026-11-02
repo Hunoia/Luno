@@ -53,6 +53,7 @@ import hunoia.luno.gridpanel.geometry.isLeft
 import hunoia.luno.gridpanel.geometry.isTop
 import hunoia.luno.gridpanel.geometry.rememberCardCornerPx
 import hunoia.luno.gridpanel.geometry.rememberGridMetrics
+import hunoia.luno.gridpanel.geometry.planGridResize
 import hunoia.luno.gridpanel.ui.GridItemActions
 import hunoia.luno.gridpanel.widget.WidgetGoneListener
 import hunoia.luno.gridpanel.widget.addWidgetGoneListener
@@ -200,7 +201,13 @@ fun GridPanelRoot(
     var localGeometry by remember(panelId, landscape) { mutableStateOf(serverGeometry) }
     LaunchedEffect(serverGeometry) { localGeometry = serverGeometry }
     val geo = localGeometry
-    val columns = geo.columnCount.coerceIn(
+    val baseColumns = geo.columnCount.coerceIn(
+        GridPanelDefaults.MinColumnCount,
+        GridPanelDefaults.MaxColumnCount,
+    )
+    // 双指调列数：手势期间只改本地预览（列数 + 非破坏性重排），松手才落盘。
+    var pinchColumns by remember(panelId, landscape) { mutableStateOf<Int?>(null) }
+    val columns = (pinchColumns ?: baseColumns).coerceIn(
         GridPanelDefaults.MinColumnCount,
         GridPanelDefaults.MaxColumnCount,
     )
@@ -265,6 +272,63 @@ fun GridPanelRoot(
     // 走 LocalConfiguration 而不是 displayMetrics：组合必须订阅配置变化才会在转屏后
     // 重算（只读 metrics 的组合不会重组）。
     val configuration = LocalConfiguration.current
+
+    // 手势预览：按目标列数重排一份临时项，拖动过程中卡片能实时「放大/缩小」。
+    // expandRows = true 保证缩列只把项往下挤，不静默丢项（面板内没有确认弹窗）。
+    val pinchPlan = remember(localItems, pinchColumns, cardFraction, heightFraction, configuration) {
+        pinchColumns?.let { target ->
+            planGridResize(
+                items = localItems,
+                columns = target,
+                cardWidthFraction = cardFraction,
+                cardHeightFraction = heightFraction,
+                screenWdp = configuration.screenWidthDp.toFloat(),
+                screenHdp = configuration.screenHeightDp.toFloat(),
+                expandRows = true,
+            )
+        }
+    }
+    val renderItems = pinchPlan?.items ?: localItems
+    val renderItemsState = rememberUpdatedState(renderItems)
+
+    fun commitPinchColumns(target: Int) {
+        val cols = target.coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
+        pinchColumns = null
+        if (cols == baseColumns) return
+        val plan = planGridResize(
+            items = localItems,
+            columns = cols,
+            cardWidthFraction = cardFraction,
+            cardHeightFraction = heightFraction,
+            screenWdp = configuration.screenWidthDp.toFloat(),
+            screenHdp = configuration.screenHeightDp.toFloat(),
+            expandRows = true,
+        )
+        if (plan.dropped.isNotEmpty()) {
+            Log.w(TAG, "pinch columns $cols drops ${plan.dropped.size} item(s)")
+        }
+        localGeometry = localGeometry.copy(columnCount = cols)
+        localItems = plan.items
+        lastWritten = plan.items
+        scope.launch {
+            runCatching {
+                hunoia.luno.domain.gridpanel.GridPanelCenter.updateActionSettings { settings ->
+                    val latest = settings.actionGridPanels.panelById(panel.id)
+                        ?: return@updateActionSettings settings
+                    settings.copy(
+                        actionGridPanels = settings.actionGridPanels.withPanel(
+                            latest.copy(items = plan.items).withGeometry(landscape) {
+                                it.copy(columnCount = cols)
+                            },
+                        ),
+                    )
+                }
+            }.onFailure { Log.w(TAG, "pinch column commit failed: ${it.message}") }
+            if (plan.dropped.isNotEmpty()) PanelResources.cleanup()
+        }
+        Log.i(TAG, "pinch columns committed: $baseColumns -> $cols")
+    }
+
     // 系统栏余量按 configuration 取：转屏（导航栏换边）后不能沿用首帧的值。
     val insetsTop = remember(configuration) {
         runCatching { view.rootWindowInsets.getInsets(WindowInsets.Type.statusBars()).top }
@@ -287,7 +351,7 @@ fun GridPanelRoot(
     val metricsState = rememberUpdatedState(metrics)
     val metricsForPage: (Int) -> GridMetrics = { page ->
         val m = metricsState.value
-        val occ = localItems.filter { it.pageIndex == page }.maxOfOrNull { it.bottom } ?: 0
+        val occ = renderItemsState.value.filter { it.pageIndex == page }.maxOfOrNull { it.bottom } ?: 0
         val rows = maxOf(m.rows, occ + if (editMode) EditRowExtra else 0)
         if (rows == m.rows) m else m.copy(rows = rows)
     }
@@ -459,7 +523,7 @@ fun GridPanelRoot(
     val state = remember(panel.id) {
         GridPanelState(
             metricsProvider = { page -> metricsForPage(page) },
-            pageItemsProvider = { page -> localItems.filter { it.pageIndex == page } },
+            pageItemsProvider = { page -> renderItemsState.value.filter { it.pageIndex == page } },
             onHaptic = { view.hapticMove() },
             commitPage = { page, items -> commitPageItems(page, items) },
             moveItemToPage = { item, fromPage, dotIndex, isVirtual ->
@@ -584,6 +648,15 @@ fun GridPanelRoot(
             onPanelResizeStart = ::beginPanelResize,
             onPanelResizeDelta = ::updatePanelResize,
             onPanelResizeEnd = ::endPanelResize,
+            pinchColumns = pinchColumns,
+            onPinchColumns = { target, final ->
+                if (final) {
+                    commitPinchColumns(target)
+                } else {
+                    // 回到起始列数时隐藏 HUD，但手势结束仍按 target 收尾。
+                    pinchColumns = target.takeIf { it != baseColumns }
+                }
+            },
             onAdd = {
                 // 加项落点交给落盘层决定（首个空位），这里不预选格子。
                 // 循环模式下 pager 索引先换算回真实页/虚页。用 currentPage：连续快滑

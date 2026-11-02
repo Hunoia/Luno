@@ -51,6 +51,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -62,6 +64,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import hunoia.luno.gridpanel.R
+import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.gridpanel.core.EdgeAutoScroll
 import hunoia.luno.gridpanel.core.GridPanelState
 import hunoia.luno.gridpanel.core.PageDrop
@@ -136,8 +139,13 @@ fun GridPanelCard(
     onPanelResizeStart: ((ResizeCorner, Float, Float) -> Unit)? = null,
     onPanelResizeDelta: ((Offset) -> Unit)? = null,
     onPanelResizeEnd: (() -> Unit)? = null,
+    /** 双指调列数的实时目标（null = 未在调）；仅用于中间提示。 */
+    pinchColumns: Int? = null,
+    /** (目标列数, 是否松手收尾)。 */
+    onPinchColumns: ((Int, Boolean) -> Unit)? = null,
 ) {
     val density = LocalDensity.current
+    val view = LocalView.current
     val scope = rememberCoroutineScope()
     val marginPx = screenMarginPx
     val gridPadDp = GridPadding
@@ -160,6 +168,8 @@ fun GridPanelCard(
     LaunchedEffect(editMode) {
         if (!editMode) resizeCornerOverride = null
     }
+    val currentColumns = rememberUpdatedState(metrics.columns)
+    val pinchColumnsCallback = rememberUpdatedState(onPinchColumns)
     val cornerLeft = positionOverride?.x ?: targetPosX
     val cornerTop = positionOverride?.y ?: targetPosY
     val resizeCorner = resizeCornerOverride ?: choosePanelResizeCorner(
@@ -274,7 +284,16 @@ fun GridPanelCard(
                 gridPanelCardColor.copy(alpha = cardAlpha),
                 RoundedCornerShape(cornerPx),
             )
-            .clip(RoundedCornerShape(cornerPx)),
+            .clip(RoundedCornerShape(cornerPx))
+            // 编辑态双指捏合调列数：只在卡面上生效，且要求两根手指，避免抢走单项拖拽。
+            .pinchToColumns(
+                enabled = editMode && onPinchColumns != null,
+                currentColumns = { currentColumns.value },
+                onColumns = { target, final ->
+                    if (!final) view.hapticTick()
+                    pinchColumnsCallback.value?.invoke(target, final)
+                },
+            ),
     ) {
         // 多页指示点固定在顶部，高度预算 IndicatorHeight 在 metrics 里；页切换靠点/横滑。
         Column(Modifier.fillMaxSize()) {
@@ -452,6 +471,25 @@ fun GridPanelCard(
                 onEnd = { onPanelResizeEnd?.invoke() },
             )
         }
+        // 双指调列数：列的实时数值浮在卡面中央，松手后按该值重排并落盘。
+        if (pinchColumns != null) {
+            val shape = RoundedCornerShape(50)
+            Box(
+                Modifier
+                    .align(Alignment.Center)
+                    .zIndex(3f)
+                    .clip(shape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.95f))
+                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), shape)
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.grid_panel_pinch_columns, pinchColumns),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
         // 编辑态加项入口：默认右下角；面板手柄占右下角时让到左下，两个抓手不叠。
         // 拖拽中隐藏：此时加项没有意义，而且它会挡住底部的页拾取浮层。
         AnimatedVisibility(
@@ -480,6 +518,70 @@ fun GridPanelCard(
                     contentDescription = stringResource(R.string.grid_panel_add_item),
                 )
             }
+        }
+    }
+}
+
+/** 编辑态双指调列数：只在出现第二根手指后接管，单指事件完全不消费。 */
+private fun Modifier.pinchToColumns(
+    enabled: Boolean,
+    currentColumns: () -> Int,
+    onColumns: (target: Int, final: Boolean) -> Unit,
+): Modifier {
+    if (!enabled) return this
+    return pointerInput(Unit) {
+        awaitEachGesture {
+            val first = awaitFirstDown(
+                requireUnconsumed = false,
+                pass = PointerEventPass.Initial,
+            )
+            var firstId: PointerId = first.id
+            var secondId: PointerId? = null
+            var startSpan = 0f
+            var baseColumns = currentColumns()
+            var lastTarget = baseColumns
+            var pinching = false
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val pressed = event.changes.filter { it.pressed }
+                if (!pinching) {
+                    if (pressed.size >= 2) {
+                        val a = pressed[0]
+                        val b = pressed[1]
+                        firstId = a.id
+                        secondId = b.id
+                        startSpan = (a.position - b.position).getDistance()
+                        baseColumns = currentColumns()
+                        lastTarget = baseColumns
+                        pinching = startSpan > 0f
+                    } else if (pressed.isEmpty()) {
+                        break
+                    }
+                }
+                if (pinching) {
+                    val a = event.changes.firstOrNull { it.id == firstId && it.pressed }
+                    val b = event.changes.firstOrNull { it.id == secondId && it.pressed }
+                    if (a == null || b == null) {
+                        event.changes.forEach { it.consume() }
+                        break
+                    }
+                    val span = (a.position - b.position).getDistance()
+                    if (startSpan > 0f) {
+                        // 放大手势 = 格子变大 = 列数变少；缩小手势 = 列数变多。
+                        val target = (baseColumns / (span / startSpan)).roundToInt()
+                            .coerceIn(
+                                GridPanelDefaults.MinColumnCount,
+                                GridPanelDefaults.MaxColumnCount,
+                            )
+                        if (target != lastTarget) {
+                            lastTarget = target
+                            onColumns(target, false)
+                        }
+                    }
+                    event.changes.forEach { it.consume() }
+                }
+            }
+            if (pinching) onColumns(lastTarget, true)
         }
     }
 }
