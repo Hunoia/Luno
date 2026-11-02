@@ -178,8 +178,14 @@ class FloatBallService : Service() {
     // ---- 跟随持机手（试验） ----
 
     private val touchSideSubscriber: (TouchButtonSideEvent) -> Unit = { event ->
-        onTouchSide(event.leftSide)
+        requestFollowHandSwap(event.leftSide)
     }
+
+    // ---- 跟手换位（同步请求 + 球忙时重试）----
+
+    /** 最近一次请求换到的侧；球被按压/拖动/上一次换位占用时先记着，空闲后补做。 */
+    private var pendingFollowHandSide: Boolean? = null
+    private var followHandRetryJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -264,6 +270,7 @@ class FloatBallService : Service() {
         ensureImeObserver()
         observePanels()
         Events.subscribe(TouchButtonSideEvent::class, touchSideSubscriber)
+        FloatBallCommand.requestFollowHandSwap = ::requestFollowHandSwap
         // 通知胶囊：与监听器同进程静态直连；勿扰变化即收当前胶囊。
         NotificationPulseHub.addPostedObserver(notificationObserver)
         NotificationPulseHub.addRemovedObserver(notificationRemovedObserver)
@@ -301,6 +308,10 @@ class FloatBallService : Service() {
         Events.unsubscribe(PanelShownEvent::class, panelShownSubscriber)
         Events.unsubscribe(PanelDismissedEvent::class, panelDismissedSubscriber)
         Events.unsubscribe(TouchButtonSideEvent::class, touchSideSubscriber)
+        FloatBallCommand.requestFollowHandSwap = null
+        followHandRetryJob?.cancel()
+        followHandRetryJob = null
+        pendingFollowHandSide = null
         Events.unsubscribe(FloatBallTempHideEvent::class, tempHideSubscriber)
         RuntimeStateHub.removeObserver(runtimeStateObserver)
         NotificationPulseHub.removePostedObserver(notificationObserver)
@@ -1448,25 +1459,85 @@ class FloatBallService : Service() {
 
     /**
      * 直接规则：手势碰了哪侧，球就即时移到哪侧（不投票、不留状态）。球已在该侧则
-     * 不动（同侧触发零扰动，手动调的高度保留）；被拖动/按压/上一次挪球占用时本次
-     * 跳过，下一次触发自然重试。落盘延到球真正落位（onLanded）：接受挪球就按目标
-     * 落盘的话，淡出被打断会让存量停在新侧、实位停在旧侧 —— 面板锚点按存量算会弹到
-     * 球对面，分身按存量反推会跟球同侧。
+     * 不动（同侧触发零扰动，手动调的高度保留）。
+     *
+     * 触钮路径由手势服务在本轮动作**之前**同步调用；球被拖动/按压/上一次挪球占用时
+     * 不丢请求，记下目标侧并短暂重试，动作照常执行。落盘延到球真正落位
+     * （onLanded）：接受挪球就按目标落盘的话，淡出被打断会让存量停在新侧、实位停在
+     * 旧侧 —— 面板锚点按存量算会弹到球对面，分身按存量反推会跟球同侧。
      */
-    private fun onTouchSide(leftSide: Boolean) {
-        if (!settings.followHand || !ballVisible) return
-        if (leftSide == ballWindow.isOnLeft()) return
-        val anchorY = (if (leftSide) settings.leftAnchorY else settings.rightAnchorY) ?: settings.y
-        ballWindow.repositionTo(leftSide, anchorY) {
-            val (px, py) = ballWindow.currentPosition()
-            persistBallPosition(
-                px / DensityProvider.screenWidthPx,
-                py / DensityProvider.screenHeightPx,
-            )
-            // 气泡重贴新位（在屏时）；分身立即换到新对侧：不等落盘回声的话，回声到达前与球短暂同侧。
-            updateBubbleAnchor()
-            mirrorWindow.crossFadeSwap(settings)
+    private fun requestFollowHandSwap(leftSide: Boolean): Boolean {
+        if (!settings.followHand || !ballVisible) return false
+        // 窗口操作只能在主线程：调用方不在主线程时排到主线程，先声明已接管。
+        if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
+            scope.launch { requestFollowHandSwap(leftSide) }
+            return true
         }
+        if (leftSide == ballWindow.isOnLeft()) {
+            pendingFollowHandSide = null
+            return true
+        }
+        pendingFollowHandSide = leftSide
+        tryFollowHandSwap()
+        return true
+    }
+
+    private fun tryFollowHandSwap() {
+        val side = pendingFollowHandSide ?: return
+        if (!settings.followHand || !ballVisible) {
+            pendingFollowHandSide = null
+            return
+        }
+        if (side == ballWindow.isOnLeft()) {
+            pendingFollowHandSide = null
+            return
+        }
+        val anchorY = (if (side) settings.leftAnchorY else settings.rightAnchorY) ?: settings.y
+        val accepted = ballWindow.repositionTo(side, anchorY) { onFollowHandLanded(side) }
+        if (accepted) {
+            followHandRetryJob?.cancel()
+            followHandRetryJob = null
+        } else {
+            scheduleFollowHandRetry()
+        }
+    }
+
+    /** 球忙（拖动/按压/换位中）时短暂重试：动作已经执行，换位不能因此丢掉。 */
+    private fun scheduleFollowHandRetry() {
+        if (followHandRetryJob?.isActive == true) return
+        followHandRetryJob = scope.launch {
+            repeat(FOLLOW_HAND_RETRY_MAX) {
+                delay(FOLLOW_HAND_RETRY_MS)
+                if (pendingFollowHandSide == null) return@launch
+                if (!settings.followHand || !ballVisible) {
+                    pendingFollowHandSide = null
+                    return@launch
+                }
+                val side = pendingFollowHandSide ?: return@launch
+                if (side == ballWindow.isOnLeft()) {
+                    pendingFollowHandSide = null
+                    return@launch
+                }
+                val anchorY = (if (side) settings.leftAnchorY else settings.rightAnchorY) ?: settings.y
+                if (ballWindow.repositionTo(side, anchorY) { onFollowHandLanded(side) }) return@launch
+            }
+            // 长时间被用户按住/拖动：放弃本次补做，避免用户松手后球又自己跑。
+            pendingFollowHandSide = null
+        }
+    }
+
+    private fun onFollowHandLanded(side: Boolean) {
+        // 落位期间又来了新目标侧：保留新请求，等本次落位后由重试补做。
+        if (pendingFollowHandSide == side) pendingFollowHandSide = null
+        val (px, py) = ballWindow.currentPosition()
+        persistBallPosition(
+            px / DensityProvider.screenWidthPx,
+            py / DensityProvider.screenHeightPx,
+        )
+        // 气泡重贴新位（在屏时）；分身立即换到新对侧：不等落盘回声的话，回声到达前与球短暂同侧。
+        updateBubbleAnchor()
+        mirrorWindow.crossFadeSwap(settings)
+        if (pendingFollowHandSide != null) scheduleFollowHandRetry()
     }
 
     /**
@@ -1562,6 +1633,10 @@ class FloatBallService : Service() {
 
         /** IME 底边轮询间隔（事件型 insets 的兜底；支持推播的 ROM 由窗口监听即时处理）。 */
         private const val IME_POLL_MS = 500L
+
+        /** 跟手换位被球占用时的重试间隔与上限。 */
+        private const val FOLLOW_HAND_RETRY_MS = 120L
+        private const val FOLLOW_HAND_RETRY_MAX = 12
 
         /** 剪贴板兜底轮询间隔：亮屏期间读一次对比内容变化（监听器在 HyperOS 上不投递）。 */
         private const val CLIP_POLL_MS = 2_000L

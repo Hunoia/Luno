@@ -94,10 +94,17 @@ fun AppDrawerCell(
         val iconSizePx = with(LocalDensity.current) {
             (cellWidth - AppItemPadding * 2).toPx().toInt().coerceAtLeast(MinIconPx)
         }
+        val gridState = rememberLazyGridState()
+        // 抽屉每次重新打开都从第一行开始：网格状态可能被保存恢复成上次位置；
+        // 应用列表异步从空变全量时再兜底一次，避免首帧空列表把恢复位置夹在中间。
+        LaunchedEffect(Unit) { gridState.scrollToItem(0) }
+        LaunchedEffect(apps.isNotEmpty()) {
+            if (apps.isNotEmpty()) gridState.scrollToItem(0)
+        }
         AppGridContent(
             apps = apps,
             disabledPkgs = appList.disabledPkgs,
-            gridState = rememberLazyGridState(),
+            gridState = gridState,
             iconSizePx = iconSizePx,
             gridColumns = columns,
             onClick = { app, isDisabled ->

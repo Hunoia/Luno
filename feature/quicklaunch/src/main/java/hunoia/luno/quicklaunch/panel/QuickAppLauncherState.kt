@@ -121,10 +121,6 @@ class QuickAppLauncherState(
         tokens = tokens + token
     }
 
-    fun deleteToken() {
-        tokens = tokens.dropLast(1)
-    }
-
     fun clearTokens() {
         tokens = emptyList()
     }

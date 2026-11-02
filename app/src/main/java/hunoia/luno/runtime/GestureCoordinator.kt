@@ -691,15 +691,16 @@ class GestureCoordinator(
             )
         }
         // 真手势按物理触点归侧广播：悬浮球碰哪侧即时跟到哪侧。
-        // 判据包含「有 sourceButton」：触钮上的**点按**动作 decision 可能为空，
-        // 旧实现只认 decision != null，表现为只有会产 decision 的按钮能跟手换位。
-        // 球点按 / 面板点选走 BallTapActionEvent（sourceButton = null），仍不参与。
-        if ((decision != null || sourceButton != null) && touchPosition.x.isFinite()) {
-            Events.post(
-                TouchButtonSideEvent(
-                    leftSide = touchPosition.x < DensityProvider.screenWidthPx / 2f,
-                ),
-            )
+        // 触钮走同步命令口（[FloatBallCommand]），在动作提交**之前**换位；否则异步事件
+        // 晚于动作到达，球已被打开的面板/按压态占用，repositionTo 失败且不重试。
+        // 其他手势仍走事件；球点按 / 面板点选（sourceButton = null 且无 decision）不参与。
+        if (touchPosition.x.isFinite()) {
+            val leftSide = touchPosition.x < DensityProvider.screenWidthPx / 2f
+            if (sourceButton != null) {
+                hunoia.luno.runtime.floatball.FloatBallCommand.requestFollowHandSwap?.invoke(leftSide)
+            } else if (decision != null) {
+                Events.post(TouchButtonSideEvent(leftSide = leftSide))
+            }
         }
         val touch = if (touchPosition.x.isFinite() && touchPosition.y.isFinite()) {
             touchPosition.x.roundToInt() to touchPosition.y.roundToInt()

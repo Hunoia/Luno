@@ -7,7 +7,7 @@
     <string name="quick_app_launcher_adjust">调整面板</string>
     <string name="quick_app_launcher_candidate_rows">候选应用行数</string>
     <string name="quick_app_launcher_content_height">高度</string>
-    <string name="quick_app_launcher_delete_input">删除输入</string>
+    <string name="quick_app_launcher_clear_input">清空输入</string>
     <string name="quick_app_launcher_grid_columns">搜索列数</string>
     <string name="quick_app_launcher_key_height">按键高度</string>
     <string name="quick_app_launcher_panel_width">宽度</string>
