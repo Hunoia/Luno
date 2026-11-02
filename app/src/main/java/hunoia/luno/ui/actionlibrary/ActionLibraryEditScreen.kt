@@ -202,6 +202,15 @@ fun ActionLibraryEditScreen(
                         draft?.params?.get(paramDef.key)?.scalarText()?.takeIf(String::isNotBlank),
                     ),
                     confirmOnSelect = true,
+                    onSelectApp = (paramDef as? ParameterDefinition.AppSelector)
+                        ?.takeIf { it.userIdKey != null }
+                        ?.let { selector ->
+                            { app ->
+                                vm.updateParam(selector.key, app.packageName)
+                                selector.userIdKey?.let { vm.updateParam(it, app.userId.toString()) }
+                                showAppPicker = null
+                            }
+                        },
                     onConfirm = { selected ->
                         val current = draft?.params?.get(paramDef.key)?.scalarText()
                         val picked = selected.lastOrNull { it != current }

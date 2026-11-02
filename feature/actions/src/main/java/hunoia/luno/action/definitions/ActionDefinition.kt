@@ -33,6 +33,8 @@ sealed interface ParameterDefinition {
         override val key: String,
         override val label: String,
         override val required: Boolean = true,
+        /** 需要区分分身时，把选中条目的 userId 写进这个键；null = 不展示分身。 */
+        val userIdKey: String? = null,
     ) : ParameterDefinition {
         override val defaultValue: String? = null
     }

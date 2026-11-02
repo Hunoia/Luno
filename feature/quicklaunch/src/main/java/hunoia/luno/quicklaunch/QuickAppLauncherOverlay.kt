@@ -169,7 +169,9 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
                     hunoia.luno.runtime.surface.SurfaceDispatch.dispatch(
                         action = hunoia.luno.core.domain.AppLaunchAction.stored(
                             packageName = appInfo.packageName,
+                            className = appInfo.className,
                             miniWindow = miniWindow,
+                            userId = appInfo.userId,
                         ),
                         origin = hunoia.luno.core.domain.DispatchOrigin.PANEL,
                     ) { launched ->

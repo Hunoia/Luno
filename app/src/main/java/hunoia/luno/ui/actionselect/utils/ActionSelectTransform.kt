@@ -30,6 +30,7 @@ import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.navigation.FloatBallSlot
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
+import hunoia.luno.quicklaunch.model.identity
 import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.ui.component.slideToRes
 import hunoia.luno.action.model.Action
@@ -136,6 +137,7 @@ internal fun Any.toStoredAction(): StoredAction {
             packageName = packageName,
             className = className,
             miniWindow = miniWindow,
+            userId = userId,
         )
         is LauncherInfo.ShortcutInfo -> StoredAction.of(
             "app.launchShortcut",
@@ -225,12 +227,12 @@ internal fun selectShortcutInfoTransform(state: UiState, shortcut: LauncherInfo.
 
 internal fun toggleMiniWindowTransform(state: UiState, appInfo: AppInfo, switchToMiniWindow: Boolean): UiState {
     val apps = state.apps.map { app ->
-        if (app.qualifiedName == appInfo.qualifiedName) {
+        if (app.identity == appInfo.identity) {
             app.copy(miniWindow = switchToMiniWindow)
         } else app
     }
     val current = state.selectedRecord.action
-    val record = if (current?.launchQualifiedName() == appInfo.qualifiedName) {
+    val record = if (current?.launchQualifiedName() == appInfo.identity) {
         state.selectedRecord.selectOne(current.withLaunchMiniWindow(switchToMiniWindow))
     } else {
         state.selectedRecord

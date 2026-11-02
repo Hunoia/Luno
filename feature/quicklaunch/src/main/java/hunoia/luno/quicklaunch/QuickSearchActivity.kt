@@ -168,6 +168,13 @@ class QuickSearchActivity : ComponentActivity() {
             index.ensureLoaded()
             runCatching { index.refreshApps() }
         }
+        // 系统应用开关变化时重扫索引（搜索面板可能在服务进程里长时间存在）。
+        lifecycleScope.launch(Dispatchers.IO) {
+            hunoia.luno.domain.search.SearchCenter.showSystemApps.collect { enabled ->
+                hunoia.luno.quicklaunch.query.AppCatalog.setShowSystemApps(enabled)
+                index.invalidateApps()
+            }
+        }
         // 返回键不直接 finish：走退场动画。
         onBackPressedDispatcher.addCallback(
             this,

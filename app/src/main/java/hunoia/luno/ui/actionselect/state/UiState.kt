@@ -10,6 +10,7 @@ import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
+import hunoia.luno.quicklaunch.model.identity
 import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.quicklaunch.model.qualifiedNameWithIntents
 import hunoia.luno.action.model.Action
@@ -85,7 +86,7 @@ data class UiState(
         fun isSelected(obj: Any): Boolean {
             val current = action ?: return obj is StoredAction && obj.typeId == Action.NONE_TYPE_ID
             return when (obj) {
-                is AppInfo -> current.launchQualifiedName() == obj.qualifiedName
+                is AppInfo -> current.launchQualifiedName() == obj.identity
                 is LauncherInfo.ShortcutInfo ->
                     current.shortcutQualifiedName() == obj.qualifiedNameWithIntents
                 is StoredAction -> current.sameAction(obj)

@@ -14,7 +14,7 @@ import hunoia.luno.core.domain.AppInfo
  */
 object AppLaunchCoordinator {
 
-    fun launchApp(
+    suspend fun launchApp(
         context: Context,
         packageName: String,
         className: String,
@@ -23,6 +23,7 @@ object AppLaunchCoordinator {
         intentAction: String = "",
         data: String = "",
         extras: Map<String, String> = emptyMap(),
+        userId: Int = 0,
         source: AppLaunchSource = AppLaunchSource.UNKNOWN,
     ): Boolean {
         val launched = Launcher.launchApp(
@@ -34,12 +35,13 @@ object AppLaunchCoordinator {
             intentAction = intentAction,
             data = data,
             extras = extras,
+            userId = userId,
         )
         if (launched) LaunchCapability.recordLaunch(packageName, source)
         return launched
     }
 
-    fun launchAppInfo(
+    suspend fun launchAppInfo(
         context: Context,
         appInfo: AppInfo,
         miniWindow: Boolean,
@@ -51,6 +53,7 @@ object AppLaunchCoordinator {
         className = appInfo.className,
         miniWindow = miniWindow,
         miniWindowSettings = miniWindowSettings,
+        userId = appInfo.userId,
         source = source,
     )
 

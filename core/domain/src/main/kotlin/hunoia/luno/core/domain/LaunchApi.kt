@@ -18,6 +18,8 @@ data class LaunchSpec(
     val intentAction: String = "",
     val data: String = "",
     val extras: Map<String, String> = emptyMap(),
+    /** 目标用户：0 = 主用户，其他值 = 分身。 */
+    val userId: Int = 0,
 )
 
 /**

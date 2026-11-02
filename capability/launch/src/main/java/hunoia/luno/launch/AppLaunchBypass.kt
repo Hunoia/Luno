@@ -27,6 +27,7 @@ object AppLaunchBypass {
         intentAction: String = "",
         data: String = "",
         extras: Map<String, String> = emptyMap(),
+        userId: Int = 0,
         source: AppLaunchSource = AppLaunchSource.ACTION_DISPATCH,
         unfreezePackage: suspend (context: Context, packageName: String) -> Boolean = { _, _ -> true },
     ): Boolean {
@@ -40,6 +41,7 @@ object AppLaunchBypass {
             intentAction = intentAction,
             data = data,
             extras = extras,
+            userId = userId,
             source = source,
         )
     }

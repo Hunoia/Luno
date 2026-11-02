@@ -7,6 +7,7 @@ import android.graphics.drawable.BitmapDrawable
 import androidx.collection.LruCache
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import hunoia.luno.bridge.system.AppIcons
 
 /**
  * 搜索行图标的同步缓存：composition 里同步读，首帧即有图。
@@ -15,13 +16,15 @@ import androidx.compose.ui.graphics.asImageBitmap
  * 填充只许在后台线程（搜索 flow 发射结果前），composition 只读。
  */
 object SearchIconCache {
-    // 键 = 包名@边长：density 变化（折叠屏）时同包不同尺寸是两条独立缓存，不串味。
+    /** 缓存键：包名 + 用户 + 边长。分身与主应用包名相同，必须带 userId。 */
+    data class Key(val packageName: String, val userId: Int = 0)
+
     // 上限 256（一屏结果约十几行，留够几轮滚动的量）；LruCache 自带 LRU 淘汰与线程安全。
     private const val CAP = 256
     private val cache = LruCache<String, ImageBitmap>(CAP)
 
-    fun get(packageName: String, sizePx: Int): ImageBitmap? =
-        cache.get(keyOf(packageName, sizePx))
+    fun get(packageName: String, sizePx: Int, userId: Int = 0): ImageBitmap? =
+        cache.get(keyOf(Key(packageName, userId), sizePx))
 
     /** 内存吃紧时丢弃图标缓存；下次搜索按需重新解码。 */
     fun clear() {
@@ -29,25 +32,26 @@ object SearchIconCache {
     }
 
     /**
-     * 确保这些包的图标在缓存里（阻塞当前线程，只能后台调）。
+     * 确保这些应用的图标在缓存里（阻塞当前线程，只能后台调）。
      * 已缓存的直接跳过，所以每次搜索的开销≈0，只有新包才解码。
      */
-    fun ensureAll(context: Context, packageNames: Collection<String>, sizePx: Int) {
-        if (packageNames.isEmpty() || sizePx <= 0) return
+    fun ensureAll(context: Context, apps: Collection<Key>, sizePx: Int) {
+        if (apps.isEmpty() || sizePx <= 0) return
         val appCtx = context.applicationContext ?: context
-        for (pkg in packageNames) {
-            val key = keyOf(pkg, sizePx)
+        for (app in apps) {
+            val key = keyOf(app, sizePx)
             if (cache.get(key) != null) continue
-            loadSync(appCtx, pkg, sizePx)?.let { bmp -> cache.put(key, bmp) }
+            loadSync(appCtx, app, sizePx)?.let { bmp -> cache.put(key, bmp) }
         }
     }
 
-    private fun keyOf(packageName: String, sizePx: Int) = "$packageName@$sizePx"
+    private fun keyOf(app: Key, sizePx: Int) =
+        if (app.userId == 0) "${app.packageName}@$sizePx" else "${app.packageName}@$sizePx@${app.userId}"
 
     /** 只缩不放（同 AppIconFetcher 口径）：原生够小直接原样转。失败返回 null，走 AsyncImage 兜底。 */
-    private fun loadSync(context: Context, packageName: String, sizePx: Int): ImageBitmap? {
+    private fun loadSync(context: Context, app: Key, sizePx: Int): ImageBitmap? {
         return runCatching {
-            val source = context.packageManager.getApplicationIcon(packageName)
+            val source = AppIcons.drawable(context, app.packageName, userId = app.userId) ?: return null
             val intrinsic = maxOf(source.intrinsicWidth, source.intrinsicHeight)
             if (intrinsic <= 0) return null
             val side = minOf(sizePx, intrinsic)

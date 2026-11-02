@@ -45,6 +45,7 @@ class DefaultAppLauncher(
         intentAction = spec.intentAction,
         data = spec.data,
         extras = spec.extras,
+        userId = spec.userId,
         source = AppLaunchSource.ACTION_DISPATCH,
         unfreezePackage = { _, pkg -> unfreezePackage(pkg) },
     )

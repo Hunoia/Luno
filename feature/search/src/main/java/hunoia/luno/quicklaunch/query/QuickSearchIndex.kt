@@ -194,6 +194,7 @@ fun QuickSearchResult.toConfigAction(): StoredAction = when (this) {
         packageName = appInfo.packageName,
         className = appInfo.className,
         miniWindow = appInfo.miniWindow,
+        userId = appInfo.userId,
     )
     is QuickSearchResult.Shortcut -> StoredAction.of(
         "app.launchShortcut",

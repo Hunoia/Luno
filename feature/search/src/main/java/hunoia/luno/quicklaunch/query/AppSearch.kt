@@ -368,7 +368,8 @@ object AppSearch {
 
         val result = ArrayList<AppInfo>(entries.size)
         for (entry in entries) result.add(entry.app)
-        return result
+        // 分身与主应用标题相同：排序后把副本拉回主应用后面，避免两行看起来是重复项。
+        return AppCatalog.groupClonesAfterPrimary(result)
     }
 
     fun warmIndexes(apps: List<AppInfo>) {
@@ -460,7 +461,7 @@ object AppSearch {
         putIndex(work, result)
         return result
     }
-    fun AppInfo.key() = "$packageName/$className"
+    fun AppInfo.key() = if (userId == 0) "$packageName/$className" else "$packageName/$className#$userId"
 
     /** 对任意文本做与 sortApps 相同的 tier 评定，供快速搜索复用。 */
     internal fun matchTextTier(text: String, plan: SearchQueryPlan): TieredMatch {

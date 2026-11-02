@@ -16,4 +16,11 @@ data class AppInfo(
     val className: String,
     val label: String,
     val miniWindow: Boolean = false,
-)
+    /** 应用所属用户：0 = 主用户，其他值 = 分身（XSpace / 工作资料）。 */
+    val userId: Int = 0,
+    /** 没有桌面入口的系统包（需要「显示系统应用」开关打开才会出现在列表里）。 */
+    val isSystem: Boolean = false,
+) {
+    /** 分身条目：包名/Activity 与主应用相同，仅用户不同。 */
+    val isClone: Boolean get() = userId != 0
+}

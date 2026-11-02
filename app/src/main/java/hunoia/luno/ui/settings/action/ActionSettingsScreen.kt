@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.Gesture
@@ -156,8 +157,20 @@ fun ActionSettingsTab(
                     LunoSettingsRow(
                         icon = Icons.Default.Visibility,
                         title = stringResource(R.string.button_visibility),
-                        shape = segmentedShape(0, 1),
+                        shape = segmentedShape(0, 2),
                         onClick = onNavToButtonVisibility,
+                    )
+                    LunoSwitchRow(
+                        icon = Icons.Default.Android,
+                        title = stringResource(R.string.apps_show_system),
+                        subtitle = stringResource(R.string.apps_show_system_hint),
+                        checked = actionSettings.showSystemAppsInAppList,
+                        onCheckedChange = { enabled ->
+                            scope.launch {
+                                TuneConfig.updateAction { it.copy(showSystemAppsInAppList = enabled) }
+                            }
+                        },
+                        shape = segmentedShape(1, 2),
                     )
                 }
             }

@@ -45,7 +45,12 @@ sealed interface SearchIcon {
     data class Vector(val image: ImageVector) : SearchIcon
     data class Bitmap(val image: ImageBitmap) : SearchIcon
     /** 应用图标：行内按当前 density 从缓存取，未命中再走 Coil。 */
-    data class AppIcon(val packageName: String, val bitmap: ImageBitmap? = null) : SearchIcon
+    data class AppIcon(
+        val packageName: String,
+        val bitmap: ImageBitmap? = null,
+        /** 0 = 主用户；分身用角标图标，缓存键也要分开。 */
+        val userId: Int = 0,
+    ) : SearchIcon
     data class Request(val model: Any) : SearchIcon
     data class Text(val text: String) : SearchIcon
 }

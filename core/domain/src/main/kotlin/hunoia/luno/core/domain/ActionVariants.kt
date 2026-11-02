@@ -38,7 +38,9 @@ fun StoredAction.launchQualifiedName(): String? {
     if (typeId != AppLaunchAction.TYPE_ID) return null
     val pkg = (params["packageName"] as? JsonPrimitive)?.contentOrNull ?: return null
     val cls = (params["className"] as? JsonPrimitive)?.contentOrNull.orEmpty()
-    return "$pkg/$cls"
+    val userId = (params["userId"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull() ?: 0
+    // 与 AppInfo.identity 同形：分身动作必须能和主应用动作区分开。
+    return if (userId == 0) "$pkg/$cls" else "$pkg/$cls#$userId"
 }
 
 fun StoredAction.launchMiniWindow(): Boolean =
@@ -83,11 +85,13 @@ fun StoredAction.launchAppRef(): AppInfo? {
     if (typeId != AppLaunchAction.TYPE_ID) return null
     val pkg = (params["packageName"] as? JsonPrimitive)?.contentOrNull ?: return null
     val cls = (params["className"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+    val userId = (params["userId"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull() ?: 0
     return AppInfo(
         packageName = pkg,
         className = cls,
         label = pkg,
         miniWindow = launchMiniWindow(),
+        userId = userId,
     )
 }
 

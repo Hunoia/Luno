@@ -10,6 +10,7 @@ import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
 import android.os.Process
+import android.os.UserHandle
 import android.util.Log
 import android.view.WindowManager
 import hunoia.luno.capability.launch.R
@@ -20,13 +21,16 @@ import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.bridge.system.buildViewIntent
 import hunoia.luno.bridge.system.hasViewActivity
 import hunoia.luno.bridge.system.normalizeOpenAppOrUrl
+import hunoia.luno.bridge.system.AppIcons
+import hunoia.luno.shizuku.ShizukuManager
 import java.util.Locale
+import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 import hunoia.luno.core.LOG_TAG
 
 object Launcher {
 
-    fun launchApp(
+    suspend fun launchApp(
         context: Context,
         packageName: String,
         className: String,
@@ -35,7 +39,21 @@ object Launcher {
         intentAction: String = "",
         data: String = "",
         extras: Map<String, String> = emptyMap(),
+        userId: Int = 0,
     ): Boolean {
+        if (userId != 0 && userId != Process.myUserHandle().hashCode()) {
+            return launchCloneApp(
+                context = context,
+                packageName = packageName,
+                className = className,
+                miniWindow = miniWindow,
+                miniWindowSettings = miniWindowSettings,
+                intentAction = intentAction,
+                data = data,
+                extras = extras,
+                userId = userId,
+            )
+        }
         return try {
             val pm = context.packageManager
             val intent = resolveLaunchIntent(pm, packageName, className, intentAction, data, extras)
@@ -44,7 +62,14 @@ object Launcher {
                     // 否则本来能启动的应用也会失败；extras 不改变解析结果，保留。
                     extras.forEach { (key, value) -> fallback.putExtra(key, value) }
                 }
-                ?: return false
+                ?: run {
+                    // 无桌面入口的系统包（或没有 launcher intent 的包）：打开应用详情，
+                    // 而不是静默失败。包本身不存在时仍返回 false。
+                    if (runCatching { pm.getApplicationInfo(packageName, 0) }.getOrNull() == null) {
+                        return false
+                    }
+                    return openAppDetails(context, packageName)
+                }
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             if (miniWindow) {
                 MiniWindow.startActivity(context, intent, miniWindowSettings)
@@ -88,6 +113,164 @@ object Launcher {
             if (pm.resolveActivity(explicit, 0) != null) return explicit
         }
         return null
+    }
+
+    /**
+     * 分身启动：优先 Shizuku shell `am start --user`（直达，绕开 MIUI XSpace 二选一），
+     * 无 Shizuku 时退回 LauncherApps（系统会弹分身选择器）。
+     *
+     * 小窗：shell 没有 `--bounds`，先按 freeform 启动，再用 `am task resize` 落到
+     * Luno 小窗设置的位置/尺寸（MIUI 合成层缩放由 [MiniWindowGeometry] 补偿）。
+     */
+    private suspend fun launchCloneApp(
+        context: Context,
+        packageName: String,
+        className: String,
+        miniWindow: Boolean,
+        miniWindowSettings: MiniWindowSettings,
+        intentAction: String,
+        data: String,
+        extras: Map<String, String>,
+        userId: Int,
+    ): Boolean {
+        if (ShizukuManager.currentStatus().isReady) {
+            if (launchCloneViaShell(
+                    context = context,
+                    packageName = packageName,
+                    className = className,
+                    miniWindow = miniWindow,
+                    miniWindowSettings = miniWindowSettings,
+                    intentAction = intentAction,
+                    data = data,
+                    extras = extras,
+                    userId = userId,
+                )
+            ) {
+                return true
+            }
+        }
+        return launchCloneViaLauncherApps(
+            context = context,
+            packageName = packageName,
+            className = className,
+            miniWindow = miniWindow,
+            miniWindowSettings = miniWindowSettings,
+            userId = userId,
+        )
+    }
+
+    private suspend fun launchCloneViaShell(
+        context: Context,
+        packageName: String,
+        className: String,
+        miniWindow: Boolean,
+        miniWindowSettings: MiniWindowSettings,
+        intentAction: String,
+        data: String,
+        extras: Map<String, String>,
+        userId: Int,
+    ): Boolean {
+        val cmd = buildString {
+            append("am start --user ").append(userId)
+            if (intentAction.isNotBlank()) append(" -a ").append(shellQuote(intentAction))
+            if (data.isNotBlank()) append(" -d ").append(shellQuote(data))
+            if (className.isNotBlank()) {
+                append(" -n ").append(shellQuote("$packageName/$className"))
+            } else {
+                append(" -a ").append(shellQuote(Intent.ACTION_MAIN))
+                append(" -c ").append(shellQuote(Intent.CATEGORY_LAUNCHER))
+                append(" -p ").append(shellQuote(packageName))
+            }
+            if (miniWindow) append(" --windowingMode 5")
+            for ((key, value) in extras) {
+                append(" --es ").append(shellQuote(key)).append(' ').append(shellQuote(value))
+            }
+        }
+        val result = ShizukuManager.executeShell(cmd, maxChars = 16_384)
+        val output = result.stdout + result.stderr
+        if (!result.isSuccess || output.contains("Error", ignoreCase = true)) {
+            Log.w(LOG_TAG, "clone shell launch failed user=$userId pkg=$packageName out=$output")
+            return false
+        }
+        if (miniWindow) {
+            applyMiniWindowBounds(context, packageName, userId, miniWindowSettings)
+        }
+        return true
+    }
+
+    /** `am start` 异步返回：轮询 `am stack list` 找到本次 task，再按设置 resize。 */
+    private suspend fun applyMiniWindowBounds(
+        context: Context,
+        packageName: String,
+        userId: Int,
+        settings: MiniWindowSettings,
+    ) {
+        var taskId: Int? = null
+        for (attempt in 0 until 6) {
+            if (attempt > 0) delay(120)
+            val list = ShizukuManager.executeShell("am stack list", maxChars = 200_000)
+            taskId = parseTaskId(list.stdout, packageName, userId)
+            if (taskId != null) break
+        }
+        val id = taskId ?: return
+        val metrics = MiniWindowGeometry.realScreenSize(context)
+        val bounds = MiniWindowGeometry.bounds(
+            settings = settings.forOrientation(
+                context.resources.configuration.orientation ==
+                    android.content.res.Configuration.ORIENTATION_LANDSCAPE,
+            ),
+            realSw = metrics.x,
+            realSh = metrics.y,
+        )
+        ShizukuManager.executeShell(
+            "am task resize $id ${bounds.left} ${bounds.top} ${bounds.right} ${bounds.bottom}",
+        )
+    }
+
+    private fun parseTaskId(output: String, packageName: String, userId: Int): Int? {
+        val regex = Regex("""taskId=(\d+): ${Regex.escape(packageName)}/\S+.*userId=$userId""")
+        return regex.find(output)?.groupValues?.getOrNull(1)?.toIntOrNull()
+    }
+
+    private fun shellQuote(value: String): String = "'" + value.replace("'", "'\\''") + "'"
+
+    private fun launchCloneViaLauncherApps(
+        context: Context,
+        packageName: String,
+        className: String,
+        miniWindow: Boolean,
+        miniWindowSettings: MiniWindowSettings,
+        userId: Int,
+    ): Boolean = try {
+        val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+        val user: UserHandle = AppIcons.userHandle(userId) ?: return false
+        val activity = launcherApps.getActivityList(packageName, user)
+            .firstOrNull { className.isBlank() || it.componentName.className == className }
+            ?: return false
+        val options = if (miniWindow) {
+            MiniWindowGeometry.activityOptions(context, miniWindowSettings).toBundle()
+        } else {
+            null
+        }
+        launcherApps.startMainActivity(activity.componentName, user, null, options)
+        true
+    } catch (e: Exception) {
+        Log.e(LOG_TAG, "clone launcherApps launch failed user=$userId pkg=$packageName", e)
+        false
+    }
+
+    /** 打开系统「应用详情」页；无桌面入口的系统包只能这样进入。 */
+    fun openAppDetails(context: Context, packageName: String): Boolean = try {
+        context.startActivity(
+            Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.parse("package:$packageName")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            },
+        )
+        true
+    } catch (e: Exception) {
+        Log.e(LOG_TAG, "openAppDetails failed pkg=$packageName", e)
+        false
     }
 
     fun launchAppActivity(context: Context, packageName: String, className: String): Boolean {
@@ -235,13 +418,68 @@ object Launcher {
 }
 
 
-private object MiniWindow {
+internal object MiniWindowGeometry {
 
-    private fun getRealScreenSize(context: Context): Point {
+    fun realScreenSize(context: Context): Point {
         val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val bounds = wm.maximumWindowMetrics.bounds
         return Point(bounds.width(), bounds.height())
     }
+
+    /**
+     * MIUI13+/澎湃对 freeform 小窗在合成层按 freeformScale(默认 0.7) 缩小显示，但 WindowManager
+     * 帧仍是请求的 bounds。要让实际可见窗口等于设定尺寸，必须把 bounds 宽高乘以 1/0.7≈1.42 抵消。
+     */
+    private val miuiFreeformCompensation: Float by lazy {
+        if (isMiui13Plus()) 1.42f else 1f
+    }
+
+    fun bounds(settings: WindowBounds, realSw: Int, realSh: Int): Rect {
+        val comp = miuiFreeformCompensation
+        val left = (realSw * settings.x.coerceIn(0f, 1f)).roundToInt()
+        val top = (realSh * settings.y.coerceIn(0f, 1f)).roundToInt()
+        val winW = (realSw * settings.width.coerceIn(0.2f, 1.5f) * comp).roundToInt()
+        val winH = (realSh * settings.height.coerceIn(0.2f, 1.5f) * comp).roundToInt()
+        return Rect(left, top, left + winW, top + winH)
+    }
+
+    fun activityOptions(context: Context, miniWindowSettings: MiniWindowSettings): ActivityOptions {
+        val size = realScreenSize(context)
+        val settings = miniWindowSettings.forOrientation(
+            context.resources.configuration.orientation ==
+                android.content.res.Configuration.ORIENTATION_LANDSCAPE,
+        )
+        return ActivityOptions.makeBasic().also { opts ->
+            runCatching {
+                opts.javaClass.getMethod("setLaunchWindowingMode", Int::class.javaPrimitiveType)
+                    .invoke(opts, 5)
+            }
+            opts.setLaunchBounds(bounds(settings, size.x, size.y))
+        }
+    }
+
+    private fun isMiui13Plus(): Boolean {
+        val manufacturer = Build.MANUFACTURER.lowercase(Locale.ROOT)
+        val isXiaomi = manufacturer.contains("xiaomi") ||
+            manufacturer.contains("redmi") ||
+            manufacturer.contains("poco")
+        if (!isXiaomi) return false
+        val code = systemProperty("ro.miui.ui.version.code")?.toIntOrNull()
+            ?: systemProperty("ro.miui.ui.version.name")
+                ?.filter { it.isDigit() }
+                ?.toIntOrNull()
+            ?: return false
+        return code >= 13
+    }
+
+    private fun systemProperty(key: String): String? = runCatching {
+        val clazz = Class.forName("android.os.SystemProperties")
+        val get = clazz.getMethod("get", String::class.java)
+        get.invoke(null, key) as? String
+    }.getOrNull()?.takeIf { it.isNotEmpty() }
+}
+
+private object MiniWindow {
 
     fun startActivity(
         context: Context,
@@ -273,15 +511,7 @@ private object MiniWindow {
         miniWindowSettings: MiniWindowSettings,
     ): Boolean {
         return try {
-            val realSize = getRealScreenSize(context)
-            val activityOptions = makeActivityOptions(
-                settings = miniWindowSettings.forOrientation(
-                    context.resources.configuration.orientation ==
-                        android.content.res.Configuration.ORIENTATION_LANDSCAPE
-                ),
-                realSw = realSize.x,
-                realSh = realSize.y,
-            )
+            val activityOptions = MiniWindowGeometry.activityOptions(context, miniWindowSettings)
             context.startActivity(intent, activityOptions.toBundle())
             true
         } catch (e: Exception) {
@@ -290,48 +520,4 @@ private object MiniWindow {
             false
         }
     }
-
-    /**
-     * MIUI13+/澎湃对 freeform 小窗在合成层按 freeformScale(默认 0.7) 缩小显示，但 WindowManager
-     * 帧仍是请求的 bounds。要让实际可见窗口等于设定尺寸，必须把 bounds 宽高乘以 1/0.7≈1.42 抵消。
-     */
-    private val miuiFreeformCompensation: Float by lazy {
-        if (isMiui13Plus()) 1.42f else 1f
-    }
-
-    private fun makeActivityOptions(
-        settings: WindowBounds,
-        realSw: Int,
-        realSh: Int,
-    ) = ActivityOptions.makeBasic().also { opts ->
-        runCatching {
-            opts.javaClass.getMethod("setLaunchWindowingMode", Int::class.javaPrimitiveType).invoke(opts, 5)
-        }
-        val comp = miuiFreeformCompensation
-        val left = (realSw * settings.x.coerceIn(0f, 1f)).roundToInt()
-        val top = (realSh * settings.y.coerceIn(0f, 1f)).roundToInt()
-        val winW = (realSw * settings.width.coerceIn(0.2f, 1.5f) * comp).roundToInt()
-        val winH = (realSh * settings.height.coerceIn(0.2f, 1.5f) * comp).roundToInt()
-        opts.setLaunchBounds(Rect(left, top, left + winW, top + winH))
-    }
-
-    private fun isMiui13Plus(): Boolean {
-        val manufacturer = Build.MANUFACTURER.lowercase(Locale.ROOT)
-        val isXiaomi = manufacturer.contains("xiaomi") ||
-            manufacturer.contains("redmi") ||
-            manufacturer.contains("poco")
-        if (!isXiaomi) return false
-        val code = systemProperty("ro.miui.ui.version.code")?.toIntOrNull()
-            ?: systemProperty("ro.miui.ui.version.name")
-                ?.filter { it.isDigit() }
-                ?.toIntOrNull()
-            ?: return false
-        return code >= 13
-    }
-
-    private fun systemProperty(key: String): String? = runCatching {
-        val clazz = Class.forName("android.os.SystemProperties")
-        val get = clazz.getMethod("get", String::class.java)
-        get.invoke(null, key) as? String
-    }.getOrNull()?.takeIf { it.isNotEmpty() }
 }

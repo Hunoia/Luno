@@ -2,6 +2,7 @@ package hunoia.luno.quicklaunch.query
 
 import hunoia.luno.bridge.system.PackageChangeReceiver
 import hunoia.luno.core.AppContext
+import hunoia.luno.domain.search.SearchCenter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -34,6 +35,7 @@ object AppListRepository {
     private var refCount = 0
 
     private var reloadJob: Job? = null
+    private var systemAppsJob: Job? = null
 
     /** 当前列表是在哪个系统语言下扫出来的；空 = 还没扫过。写入在 IO、读取在主线程。 */
     @Volatile
@@ -47,6 +49,13 @@ object AppListRepository {
             refCount++
             if (refCount == 1) {
                 PackageChangeReceiver.register(AppContext.get(), onPackageChanged)
+                // 系统应用开关是清单的一部分：打开/关闭时重扫，否则各消费方看到旧集合。
+                systemAppsJob = scope.launch {
+                    SearchCenter.showSystemApps.collect { enabled ->
+                        AppCatalog.setShowSystemApps(enabled)
+                        reload()
+                    }
+                }
                 reload()
             }
         }
@@ -59,6 +68,8 @@ object AppListRepository {
             runCatching { PackageChangeReceiver.unregister(AppContext.get(), onPackageChanged) }
             reloadJob?.cancel()
             reloadJob = null
+            systemAppsJob?.cancel()
+            systemAppsJob = null
             // 不清 _state：下次 acquire 的首帧可以直接复用上次结果，扫描会随后覆盖。
         }
     }
@@ -83,7 +94,7 @@ object AppListRepository {
                     _state.value = QuickAppLauncherAppList(snapshot.apps, snapshot.disabledPkgs)
                 }
                 val fresh = withContext(Dispatchers.IO) {
-                    DisabledAppQuery.queryQuickAppLauncherApps(AppContext.get())
+                    AppCatalog.query(AppContext.get(), includeDisabled = true)
                 }
                 _state.value = fresh
             }

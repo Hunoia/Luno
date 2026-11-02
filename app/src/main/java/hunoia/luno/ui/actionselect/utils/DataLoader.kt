@@ -31,6 +31,7 @@ import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
+import hunoia.luno.quicklaunch.model.identity
 import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.quicklaunch.model.qualifiedNameWithIntents
 import hunoia.luno.ui.navigation.ActionSelect
@@ -481,21 +482,16 @@ internal suspend fun updateAppInfosBody(
     getUiState: () -> UiState,
     updateUiState: ((UiState) -> UiState) -> Unit
 ) {
-    val appInfos = withContext(Dispatchers.IO) {
-        QuickLaunchFacade.queryApps(AppContext.get())
+    // 统一清单：主用户 + 分身 + 禁用应用 +（按开关）无桌面入口系统包。
+    val mergedApps = withContext(Dispatchers.IO) {
+        QuickLaunchFacade.queryAppsIncludingDisabled(AppContext.get())
     }
-    val disabledApps = DisabledAppQuery.queryDisabledApplicationsOnIo(AppContext.get())
-    val normalPackageNames = appInfos.map { it.packageName }.toSet()
-    val filteredDisabledApps = disabledApps.filter { it.packageName !in normalPackageNames }
-    val mergedApps = mutableListOf<AppInfo>()
-    mergedApps.addAll(appInfos)
-    mergedApps.addAll(filteredDisabledApps)
     val selectedRecord = withContext(Dispatchers.Default) {
         getUiState().selectedRecord.let { record ->
             val selectedApp = record.action?.launchAppRef()
             if (selectedApp == null) {
                 record
-            } else if (mergedApps.any { it.qualifiedName == selectedApp.qualifiedName }) {
+            } else if (mergedApps.any { it.identity == selectedApp.identity }) {
                 record
             } else {
                 UiState.SelectedRecord()   // 已卸载：槽清空
@@ -506,7 +502,7 @@ internal suspend fun updateAppInfosBody(
         // 选中的应用置顶（沿用既有排序），单值下最多只有一个。
         val selectedRef = selectedRecord.action?.launchAppRef()
         val (selected, rest) = mergedApps.partition { appInfo ->
-            selectedRef != null && selectedRef.qualifiedName == appInfo.qualifiedName
+            selectedRef != null && selectedRef.identity == appInfo.identity
         }
         selected.map { it.copy(miniWindow = selectedRef?.miniWindow ?: it.miniWindow) } + rest
     }

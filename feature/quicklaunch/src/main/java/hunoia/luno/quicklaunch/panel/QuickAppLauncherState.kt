@@ -177,7 +177,7 @@ class QuickAppLauncherState(
                     gate.withPermit {
                         runCatching {
                             loader.execute(
-                                QuickLaunchFacade.appIconRequest(context, app.packageName, iconSizePx)
+                                QuickLaunchFacade.appIconRequest(context, app.packageName, iconSizePx, app.userId)
                             )
                         }
                     }

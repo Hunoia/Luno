@@ -50,6 +50,23 @@ class AppLaunchActionTest {
         assertEquals("true", action.params.string("miniWindow"))
     }
 
+    @Test
+    fun `clone user survives storage and identity comparison`() {
+        val clone = AppLaunchAction.stored(
+            packageName = "com.example.app",
+            className = "com.example.app.MainActivity",
+            userId = 999,
+        )
+
+        assertEquals("999", clone.params.string("userId"))
+        assertEquals("com.example.app/com.example.app.MainActivity#999", clone.launchQualifiedName())
+        assertEquals(999, clone.launchAppRef()?.userId)
+        assertEquals(
+            "com.example.app/",
+            AppLaunchAction.stored(packageName = "com.example.app").launchQualifiedName(),
+        )
+    }
+
     private fun kotlinx.serialization.json.JsonObject.string(key: String): String? =
         this[key]?.jsonPrimitive?.content
 }

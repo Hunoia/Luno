@@ -882,7 +882,11 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
             } else {
                 value = withContext(Dispatchers.IO) {
                     runCatching {
-                        SearchIconCache.ensureAll(context, listOf(packageName), sizePx)
+                        SearchIconCache.ensureAll(
+                            context,
+                            listOf(SearchIconCache.Key(packageName)),
+                            sizePx,
+                        )
                         SearchIconCache.get(packageName, sizePx)
                     }.getOrNull()
                 }

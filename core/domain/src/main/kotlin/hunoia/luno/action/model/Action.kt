@@ -38,6 +38,8 @@ sealed interface Action {
         val intentAction: String = "",
         val data: String = "",
         val extras: Map<String, String> = emptyMap(),
+        /** 0 = 主用户；其他值 = 分身。 */
+        val userId: Int = 0,
     ) : Action {
         override val typeId: String = hunoia.luno.core.domain.AppLaunchAction.TYPE_ID
     }

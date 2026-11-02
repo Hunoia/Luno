@@ -256,14 +256,14 @@ internal fun QuickSearchContent(
                     // 发射前把 App/快捷方式行的图标 resolve 进同步缓存：UI 线程读到即画，
                     // 结果原子到达。已缓存的零开销，只有新包才解码；只预热首屏上限，
                     // 避免单字母查询把几百个包的图标串行解码后才发射结果。
-                    val pkgs = HashSet<String>()
+                    val icons = HashSet<SearchIconCache.Key>()
                     for (r in outcome.results.asSequence().take(ICON_PREWARM_LIMIT)) {
                         val icon = r.icon
                         if (icon is SearchIcon.AppIcon && icon.bitmap == null) {
-                            pkgs.add(icon.packageName)
+                            icons.add(SearchIconCache.Key(icon.packageName, icon.userId))
                         }
                     }
-                    SearchIconCache.ensureAll(appCtx, pkgs, iconPx)
+                    SearchIconCache.ensureAll(appCtx, icons, iconPx)
                     SearchPacket(text, outcome.results, outcome.directive)
                 }
             }

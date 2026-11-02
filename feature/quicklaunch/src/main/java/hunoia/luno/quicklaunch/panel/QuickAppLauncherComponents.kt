@@ -188,8 +188,8 @@ internal fun AppItem(
         } else {
             Modifier.fillMaxWidth().aspectRatio(1f)
         }.clip(MediumShape)
-        val request = remember(app.packageName, iconSizePx) {
-            QuickLaunchFacade.appIconRequest(context, app.packageName, iconSizePx)
+        val request = remember(app.packageName, iconSizePx, app.userId, app.className) {
+            QuickLaunchFacade.appIconRequest(context, app.packageName, iconSizePx, app.userId)
         }
         // 图标压在面板底色上，不再叠一层占位底色（面板底是唯一的一层底色）。
         // Box 留着是因为图标异步到位时尺寸不能变——用 matchParentSize 而不是 if/else，

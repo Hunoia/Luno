@@ -78,12 +78,13 @@ fun QuickSearchResult.toSearchResult(): SearchResult {
                 source = SRC_APP,
                 title = title,
                 subtitle = subtitle,
-                icon = SearchIcon.AppIcon(appInfo.packageName),
+                icon = SearchIcon.AppIcon(appInfo.packageName, userId = appInfo.userId),
                 primary = SearchAction.Run(
                     hunoia.luno.core.domain.AppLaunchAction.stored(
                         packageName = appInfo.packageName,
                         className = appInfo.className,
                         miniWindow = appInfo.miniWindow,
+                        userId = appInfo.userId,
                     ),
                 ),
                 // 长按始终进应用详情（停用应用也保留该入口）。

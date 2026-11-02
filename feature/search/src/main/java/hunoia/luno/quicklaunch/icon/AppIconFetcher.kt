@@ -11,6 +11,7 @@ import coil.fetch.DrawableResult
 import coil.fetch.FetchResult
 import coil.fetch.Fetcher
 import coil.request.Options
+import hunoia.luno.bridge.system.AppIcons
 
 /**
  * 按目标像素栅格化应用图标。
@@ -24,11 +25,12 @@ class AppIconFetcher(
     private val context: Context,
     private val packageName: String,
     private val targetPx: Int,
+    private val userId: Int = 0,
 ) : Fetcher {
 
     override suspend fun fetch(): FetchResult? {
         val source = runCatching {
-            context.packageManager.getApplicationIcon(packageName)
+            AppIcons.drawable(context, packageName, userId = userId)
         }.getOrNull() ?: return null
 
         return runCatching {
@@ -55,5 +57,5 @@ class AppIconFetcher(
 
 class AppIconFetcherFactory : Fetcher.Factory<AppIconModel> {
     override fun create(data: AppIconModel, options: Options, imageLoader: ImageLoader): Fetcher =
-        AppIconFetcher(options.context, data.packageName, data.sizePx)
+        AppIconFetcher(options.context, data.packageName, data.sizePx, data.userId)
 }

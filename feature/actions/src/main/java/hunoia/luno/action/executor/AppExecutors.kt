@@ -33,6 +33,7 @@ class AppExecutors : ActionExecutor {
                         intentAction = action.intentAction,
                         data = action.data,
                         extras = action.extras,
+                        userId = action.userId,
                     )
                 )
                 if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)

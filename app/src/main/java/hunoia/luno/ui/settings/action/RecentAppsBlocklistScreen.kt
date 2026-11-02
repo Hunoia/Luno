@@ -53,6 +53,7 @@ import hunoia.luno.core.AppContext
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.getIcon
+import hunoia.luno.quicklaunch.model.identity
 import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.ui.component.LunoSearchField
 import hunoia.luno.ui.component.feedback.EmptyState
@@ -200,8 +201,8 @@ fun RecentAppsBlocklistScreen(
                         } else if (filteredApps.isEmpty()) {
                             item { EmptyState(message = stringResource(R.string.no_matching_results)) }
                         } else {
-                            itemsIndexed(filteredApps, key = { _, item -> item.qualifiedName }) { index, item ->
-                                val iconKey = item.qualifiedName
+                            itemsIndexed(filteredApps, key = { _, item -> item.identity }) { index, item ->
+                                val iconKey = item.identity
                                 val icon = appIcons[iconKey]
                                 if (icon == null) {
                                     LaunchedEffect(iconKey) {

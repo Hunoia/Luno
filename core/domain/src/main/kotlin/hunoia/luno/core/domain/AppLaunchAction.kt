@@ -21,12 +21,14 @@ object AppLaunchAction {
         intentAction: String = "",
         data: String = "",
         extras: Map<String, String> = emptyMap(),
+        userId: Int = 0,
     ): StoredAction = StoredAction(
         typeId = TYPE_ID,
         params = buildJsonObject {
             put("packageName", packageName)
             if (className.isNotBlank()) put("className", className)
             if (miniWindow) put("miniWindow", true)
+            if (userId != 0) put("userId", userId)
             if (intentAction.isNotBlank()) put("intentAction", intentAction)
             if (data.isNotBlank()) put("data", data)
             if (extras.isNotEmpty()) {

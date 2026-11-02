@@ -159,6 +159,8 @@
     <string name="action_settings_panel_group">面板</string>
     <string name="action_settings_action_group">动作</string>
     <string name="action_settings_other_group">其他</string>
+    <string name="apps_show_system">显示系统应用</string>
+    <string name="apps_show_system_hint">在应用列表中加入没有桌面入口的系统应用</string>
     <string name="action_settings_permissions_group">权限</string>
     <string name="action_settings_mini_window_position">迷你窗位置</string>
     <string name="screen_pick_settings_title">屏幕识别</string>

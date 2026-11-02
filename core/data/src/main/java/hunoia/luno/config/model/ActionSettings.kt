@@ -21,6 +21,11 @@ data class ActionSettings(
     val recentAppsBlocklist: List<String> = emptyList(),
     /** 链接分发：剪贴板胶囊与「Luno 作为默认浏览器」两个入口共用的规则表。 */
     val linkDispatch: LinkDispatchSettings = LinkDispatchSettings(),
+    /**
+     * 应用列表是否包含「无桌面入口的系统包」。
+     * 统一应用清单（启动器 / 抽屉 / 搜索 / 选择弹层 / 黑名单）共用这一个开关。
+     */
+    val showSystemAppsInAppList: Boolean = false,
 )
 
 @Serializable

@@ -113,7 +113,8 @@ fun QuickSearchResult.stableId(): String = when (this) {
     is QuickSearchResult.ActionDef -> "a#${stored.typeId}|${stored.params}"
     is QuickSearchResult.LibraryEntry -> "l#${entry.id}"
     // 应用/快捷方式：包名+类名就是唯一标识（AppInfo.qualifiedName）。
-    is QuickSearchResult.App -> "app#${appInfo.packageName}/${appInfo.className}"
+    is QuickSearchResult.App ->
+        "app#${appInfo.packageName}/${appInfo.className}@${appInfo.userId}"
     // 快捷方式没有独立 id（XML 解析时 currentId 就丢了），intents 是唯一能区分
     // 同包同 activity 多个快捷方式的字段。
     is QuickSearchResult.Shortcut ->

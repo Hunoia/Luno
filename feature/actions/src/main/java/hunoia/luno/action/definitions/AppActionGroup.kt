@@ -20,7 +20,7 @@ internal object AppActionGroup : ActionGroup {
             hunoia.luno.core.domain.AppLaunchAction.TYPE_ID, "启动应用", ActionCategory.APP,
             Capability.None,
             listOf(
-                ParameterDefinition.AppSelector("packageName", "应用"),
+                ParameterDefinition.AppSelector("packageName", "应用", userIdKey = "userId"),
                 ParameterDefinition.Bool("miniWindow", "小窗模式", "false"),
                 ParameterDefinition.ActivitySelector("className", "Activity", required = false, packageKey = "packageName"),
                 // Intent 覆盖：留空保持默认启动行为，与旧数据/旧交互完全一致。
@@ -64,6 +64,7 @@ internal object AppActionGroup : ActionGroup {
                 intentAction = p.str("intentAction"),
                 data = p.str("data"),
                 extras = p.mapOfStr("extras"),
+                userId = p.str("userId").toIntOrNull() ?: 0,
             )
         }
         ActionMappingRegistry.register("app.details") { p -> Action.AppDetails(p.str("packageName")) }

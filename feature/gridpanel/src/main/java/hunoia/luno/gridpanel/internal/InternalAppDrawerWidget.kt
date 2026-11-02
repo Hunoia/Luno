@@ -76,7 +76,9 @@ fun AppDrawerCell(
         SurfaceDispatch.dispatch(
             action = hunoia.luno.core.domain.AppLaunchAction.stored(
                 packageName = app.packageName,
+                className = app.className,
                 miniWindow = miniWindow,
+                userId = app.userId,
             ),
             origin = DispatchOrigin.PANEL,
         ) { launched ->

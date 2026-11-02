@@ -928,8 +928,9 @@ class GestureCoordinator(
         }
 
         scopeJobs += host.coroutineScope.launch(Dispatchers.IO) {
-            // 用面板真正展示的那份查询（allowRepeatPackage=false，且含禁用应用），
+            // 用面板真正展示的那份查询（allowRepeatPackage=false，含禁用应用/分身/系统包开关），
             // 而不是 queryApps —— 后者列表不同，预热出来的索引对不上。
+            hunoia.luno.quicklaunch.query.AppCatalog.refreshSystemSetting()
             val list = DisabledAppQuery.queryQuickAppLauncherApps(host.context)
             ConfigProvider.writeQuickAppSnapshot(
                 QuickAppSnapshot(

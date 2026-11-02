@@ -62,6 +62,7 @@ import hunoia.luno.config.model.SubGesture
 import hunoia.luno.domain.action.ActionCatalog
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
+import hunoia.luno.quicklaunch.model.identity
 import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.ui.actionselect.UiState.SelectedRecord
 import hunoia.luno.ui.actionselect.components.ActionRowSettingsSheet
@@ -405,7 +406,7 @@ internal fun ActionPage(
                         stickyHeader(key = "apps") {
                             SheetGroupHeader(stringResource(R.string.tab_apps))
                         }
-                        itemsIndexed(items = filteredApps, key = { _, it -> "app_${it.qualifiedName}" }) { index, item ->
+                        itemsIndexed(items = filteredApps, key = { _, it -> "app_${it.identity}" }) { index, item ->
                             AppItem(appInfo = item, selected = selectedRecord.isSelected(item),
                                 onSelect = { onSelectApp(item) },
                                 onLongClick = { onAppLongClick(item) },
