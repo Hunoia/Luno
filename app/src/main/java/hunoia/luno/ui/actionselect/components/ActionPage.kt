@@ -67,6 +67,7 @@ import hunoia.luno.ui.actionselect.UiState.SelectedRecord
 import hunoia.luno.ui.actionselect.components.ActionRowSettingsSheet
 import hunoia.luno.ui.actionselect.components.RowSettingsActionTypeIds
 import hunoia.luno.ui.actionselect.components.rowSettingsSubtitle
+import hunoia.luno.ui.actionlibrary.actionLibraryParamSummary
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.displayNameRes
 import hunoia.luno.ui.theme.*
@@ -204,6 +205,18 @@ internal fun ActionPage(
                     actionLibraryEntries.filter { if (query.isNotBlank()) it.matchesQuery(query) else true }
                 } else emptyList()
             }.sortedBy { it.createdAt }
+            // 「动作库」chip 内按动作类型分组；混合搜索时仍收在单个「动作库」标题下。
+            val groupedLibraryEntries = remember(filteredLibraryEntries, type) {
+                if (type != TYPE_LIBRARY_AND_RULE) {
+                    emptyMap()
+                } else {
+                    filteredLibraryEntries
+                        .groupBy { ActionDefinitions.byTypeId(it.typeId)?.category ?: ActionCategory.ADVANCED }
+                        .toList()
+                        .sortedBy { (category, _) -> ActionDefinitions.categoryOrder(category) }
+                        .toMap(LinkedHashMap())
+                }
+            }
             val filteredApps = remember(appInfos, query, type) {
                 if (type == TYPE_WIDGET) emptyList() else if (type == TYPE_APP || query.isNotBlank()) {
                     appInfos.filter {
@@ -239,7 +252,6 @@ internal fun ActionPage(
                 if (type != TYPE_WIDGET) emptyList()
                 else InternalWidgetDefs.filter { context.getString(it.labelRes).contains(query, ignoreCase = true) || query.isBlank() }
             }
-            val librarySelectionFlags = filteredLibraryEntries.map { selectedRecord.isSelected(it.toStoredAction()) }
             val appSelectionFlags = filteredApps.map { selectedRecord.isSelected(it) }
             LazyColumn(
                 state = listState,
@@ -352,10 +364,30 @@ internal fun ActionPage(
                             }
                         }
                     }
-                    if (filteredLibraryEntries.isNotEmpty()) {
+                    if (groupedLibraryEntries.isNotEmpty()) {
+                        groupedLibraryEntries.forEach { (category, entries) ->
+                            stickyHeader(key = "lib_cat_${category.name}") {
+                                SheetGroupHeader(stringResource(id = category.displayNameRes))
+                            }
+                            val selectionFlags = entries.map { selectedRecord.isSelected(it.toStoredAction()) }
+                            itemsIndexed(items = entries, key = { _, it -> "lib_${it.id}" }) { index, entry ->
+                                val action = entry.toStoredAction()
+                                ActionItem(
+                                    modifier = Modifier.animateItem(),
+                                    action = action,
+                                    actionLabel = entry.name,
+                                    selected = selectedRecord.isSelected(action),
+                                    subtitle = actionLibraryParamSummary(entry),
+                                    onSelect = { onSelectLibraryEntry(entry) },
+                                    shape = selectedSegmentedShape(index, entries.size, selectionFlags),
+                                )
+                            }
+                        }
+                    } else if (filteredLibraryEntries.isNotEmpty()) {
                         stickyHeader(key = "lib_all") {
                             SheetGroupHeader(stringResource(R.string.action_library))
                         }
+                        val selectionFlags = filteredLibraryEntries.map { selectedRecord.isSelected(it.toStoredAction()) }
                         itemsIndexed(items = filteredLibraryEntries, key = { _, it -> "lib_${it.id}" }) { index, entry ->
                             val action = entry.toStoredAction()
                             ActionItem(
@@ -363,8 +395,9 @@ internal fun ActionPage(
                                 action = action,
                                 actionLabel = entry.name,
                                 selected = selectedRecord.isSelected(action),
+                                subtitle = actionLibraryParamSummary(entry),
                                 onSelect = { onSelectLibraryEntry(entry) },
-                                shape = selectedSegmentedShape(index, filteredLibraryEntries.size, librarySelectionFlags),
+                                shape = selectedSegmentedShape(index, filteredLibraryEntries.size, selectionFlags),
                             )
                         }
                     }

@@ -2,8 +2,6 @@ package hunoia.luno.action.controller
 
 import android.content.Context
 import android.media.AudioManager
-import android.os.VibrationEffect
-import android.os.VibratorManager
 import android.view.KeyEvent
 import hunoia.luno.core.domain.AudioStream
 import hunoia.luno.action.model.MediaCommand
@@ -12,7 +10,6 @@ import hunoia.luno.bridge.system.toStreamType
 import hunoia.luno.bridge.system.copySensitiveText
 import hunoia.luno.bridge.system.dispatchMediaKeyEvent
 import hunoia.luno.bridge.system.toggleMute
-import hunoia.luno.bridge.vibration.vibrate
 import hunoia.luno.bridge.system.volumeDown
 import hunoia.luno.bridge.system.volumeUp
 import hunoia.luno.shizuku.ShizukuFacade
@@ -108,24 +105,5 @@ class ShellController {
             error = result.error,
             exitCode = result.exitCode,
         )
-    }
-}
-
-class VibrateController(private val context: Context) {
-
-    fun vibrate() {
-        vibrate(context)
-    }
-
-    fun vibrateWithPattern(pattern: String) {
-        try {
-            val parts = pattern.split(",").map { it.trim().toLong() }
-            if (parts.isEmpty()) return
-            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-            val vibrator = vibratorManager.defaultVibrator
-            vibrator.vibrate(VibrationEffect.createWaveform(parts.toLongArray(), -1))
-        } catch (_: Exception) {
-            vibrate()
-        }
     }
 }

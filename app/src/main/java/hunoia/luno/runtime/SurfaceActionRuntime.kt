@@ -106,16 +106,12 @@ object SurfaceActionRuntime {
             hunoia.luno.action.executor.SystemExecutors(
                 hunoia.luno.action.controller.AudioController(context),
                 hunoia.luno.action.controller.ClipboardController(context),
-                hunoia.luno.action.controller.VibrateController(context),
             ),
             hunoia.luno.action.executor.ShellExecutor(hunoia.luno.action.controller.ShellController()),
-            hunoia.luno.action.executor.MiscActionExecutors(
-                hunoia.luno.action.controller.ClipboardController(context),
-            ),
+            hunoia.luno.action.executor.MiscActionExecutors(),
             hunoia.luno.action.executor.InternalExecutors(),
         ),
         capabilityGate = hunoia.luno.action.capability.CapabilityGate(
-            appContext = context,
             // Surface 直派发没有无障碍执行器；一律按「需授权」收口。
             isAccessibilityAvailable = { false },
         ),

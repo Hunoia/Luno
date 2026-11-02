@@ -7,7 +7,6 @@ import androidx.lifecycle.ViewModelStoreOwner
 import androidx.savedstate.SavedStateRegistryOwner
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
-import hunoia.luno.runtime.overlay.PointPickOverlay
 import hunoia.luno.runtime.pointer.PointerOverlayHost
 import kotlinx.coroutines.CoroutineScope
 
@@ -15,7 +14,6 @@ import kotlinx.coroutines.CoroutineScope
 interface GestureHost : hunoia.luno.runtime.RuntimeHost, PointerOverlayHost {
 
     val runtimePanelOverlay: RuntimePanelOverlay
-    val pointPickOverlay: PointPickOverlay
 
     fun nowInLauncher(): Boolean
     fun requestEnableDisabledPackage(packageName: String, onResult: (Boolean) -> Unit)

@@ -4,7 +4,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.DocumentScanner
-import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PowerSettingsNew
@@ -12,19 +11,13 @@ import androidx.compose.material.icons.filled.ScreenLockPortrait
 import androidx.compose.material.icons.filled.Screenshot
 import androidx.compose.material.icons.filled.Splitscreen
 import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.VerticalAlignBottom
 import androidx.compose.material.icons.filled.VerticalAlignTop
 import androidx.compose.material.icons.filled.ViewCarousel
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionMappingRegistry
-import hunoia.luno.action.model.bool
-import hunoia.luno.action.model.enumValue
-import hunoia.luno.action.model.intOrNull
-import hunoia.luno.action.model.long
 import hunoia.luno.action.model.str
 import hunoia.luno.core.domain.Capability
-import hunoia.luno.core.domain.PARAM_X_DP
-import hunoia.luno.core.domain.PARAM_Y_DP
-import hunoia.luno.core.domain.USE_TRIGGER_POINT_KEY
 
 /** 无障碍能力类动作。 */
 internal object AccessibilityActionGroup : ActionGroup {
@@ -46,20 +39,12 @@ internal object AccessibilityActionGroup : ActionGroup {
             icon = Icons.Default.TouchApp,
             alternativeCapabilities = setOf(Capability.Shizuku),
         ),
-        ActionDefinition("accessibility.longPress", "长按", ActionCategory.OPERATION, Capability.Accessibility,
-            icon = Icons.Default.Gesture,
-            alternativeCapabilities = setOf(Capability.Shizuku),
-        ),
-        ActionDefinition("accessibility.doubleTap", "双击", ActionCategory.OPERATION, Capability.Accessibility,
-            icon = Icons.Default.TouchApp,
-            alternativeCapabilities = setOf(Capability.Shizuku),
-        ),
         ActionDefinition("accessibility.scroll", "滚动焦点元素", ActionCategory.OPERATION, Capability.Accessibility,
             icon = Icons.Default.VerticalAlignTop),
-        ActionDefinition(
-            "accessibility.swipe", "滑动", ActionCategory.OPERATION, Capability.Accessibility,
-            icon = Icons.Default.VerticalAlignTop,
-        ),
+        ActionDefinition("accessibility.scrollToTop", "滑动到顶部", ActionCategory.OPERATION, Capability.Accessibility,
+            icon = Icons.Default.VerticalAlignTop),
+        ActionDefinition("accessibility.scrollToBottom", "滑动到底部", ActionCategory.OPERATION, Capability.Accessibility,
+            icon = Icons.Default.VerticalAlignBottom),
         ActionDefinition("accessibility.screenshot", "截屏", ActionCategory.UI, Capability.Accessibility,
             icon = Icons.Default.Screenshot),
         ActionDefinition("accessibility.screenPick", "识别屏幕内容", ActionCategory.GESTURE_TOOL, Capability.Accessibility,
@@ -88,32 +73,12 @@ internal object AccessibilityActionGroup : ActionGroup {
         ActionMappingRegistry.register("accessibility.back") { Action.Back }
         ActionMappingRegistry.register("accessibility.home") { Action.Home }
         ActionMappingRegistry.register("accessibility.recents") { Action.Recents }
-        ActionMappingRegistry.register("accessibility.tap") { p ->
-            Action.Tap(
-                p.intOrNull(PARAM_X_DP),
-                p.intOrNull(PARAM_Y_DP),
-                p.bool(USE_TRIGGER_POINT_KEY),
-            )
-        }
-        ActionMappingRegistry.register("accessibility.longPress") { p ->
-            Action.LongPress(
-                p.intOrNull(PARAM_X_DP),
-                p.intOrNull(PARAM_Y_DP),
-                p.long("durationMs", 1000L),
-                p.bool(USE_TRIGGER_POINT_KEY),
-            )
-        }
-        ActionMappingRegistry.register("accessibility.doubleTap") { p ->
-            Action.DoubleTap(
-                p.intOrNull(PARAM_X_DP),
-                p.intOrNull(PARAM_Y_DP),
-                p.bool(USE_TRIGGER_POINT_KEY),
-            )
-        }
+        ActionMappingRegistry.register("accessibility.tap") { Action.Tap }
         ActionMappingRegistry.register("accessibility.scroll") { p ->
             Action.ScrollFocused(p.str("direction") != "BACKWARD")
         }
-        ActionMappingRegistry.register("accessibility.swipe") { p -> Action.Swipe(p.enumValue("direction")) }
+        ActionMappingRegistry.register("accessibility.scrollToTop") { Action.ScrollToTop }
+        ActionMappingRegistry.register("accessibility.scrollToBottom") { Action.ScrollToBottom }
         ActionMappingRegistry.register("accessibility.screenshot") { Action.Screenshot }
         ActionMappingRegistry.register("accessibility.screenPick") { Action.ScreenPick }
         // 旧配置兼容：独立识链接页已并入识屏幽灵卡（长按含 URL 的文本时出现「打开链接」）。

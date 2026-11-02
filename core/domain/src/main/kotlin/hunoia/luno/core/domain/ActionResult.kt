@@ -5,8 +5,6 @@ enum class Capability {
     None,
     Accessibility,
     Shizuku,
-    /** Android 13+ POST_NOTIFICATIONS / 通知总开关。 */
-    Notification,
 }
 
 /** 一次执行的落定结果：成功 / 失败带因 / 需授权带去向。 */

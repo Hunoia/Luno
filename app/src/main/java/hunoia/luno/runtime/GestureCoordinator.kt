@@ -404,19 +404,15 @@ class GestureCoordinator(
                 hunoia.luno.action.executor.SystemExecutors(
                     hunoia.luno.action.controller.AudioController(host.context.applicationContext),
                     hunoia.luno.action.controller.ClipboardController(host.context.applicationContext),
-                    hunoia.luno.action.controller.VibrateController(host.context.applicationContext),
                 ),
                 hunoia.luno.action.executor.AccessibilityExecutors(
                     hunoia.luno.action.controller.AccessibilityController(host.accessibilityService),
                 ),
                 hunoia.luno.action.executor.ShellExecutor(hunoia.luno.action.controller.ShellController()),
-                hunoia.luno.action.executor.MiscActionExecutors(
-                    hunoia.luno.action.controller.ClipboardController(host.context.applicationContext),
-                ),
+                hunoia.luno.action.executor.MiscActionExecutors(),
                 hunoia.luno.action.executor.InternalExecutors(),
             ),
             capabilityGate = hunoia.luno.action.capability.CapabilityGate(
-                appContext = host.context.applicationContext,
                 isAccessibilityAvailable = {
                     runCatching {
                         host.context.isAccessibilitySettingsOn(hunoia.luno.service.SideGestureService::class.java)
@@ -559,12 +555,11 @@ class GestureCoordinator(
             if (action == TouchAction.Down) {
                 val service = hunoia.luno.service.SideGestureService.current
                 // Luno 自己的界面不参与“全局长按识屏”：
-                // - 识屏层/取点窗在屏：长按由窗口自己的手势处理（否则会双触发）；
+                // - 识屏层在屏：长按由窗口自己的手势处理（否则会双触发）；
                 // - 搜索/网格/动作面板在屏：那是面板交互；
                 // - 前台是自家 Activity，或触点落在自家窗口（浮球/面板）上。
                 if (service == null ||
                     service.isScreenPickVisible() ||
-                    service.isPointPickVisible() ||
                     service.isScreenPickPortalVisible()
                 ) {
                     return@listener

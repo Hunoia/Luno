@@ -19,14 +19,14 @@ internal object ImageActionGroup : ActionGroup {
         ActionDefinition(
             "screen.annotate",
             "屏幕标注",
-            ActionCategory.UI,
+            ActionCategory.GESTURE_TOOL,
             Capability.Accessibility,
             icon = Icons.Default.Brush,
         ),
         ActionDefinition(
             "image.edit",
             "图片标注",
-            ActionCategory.MEDIA,
+            ActionCategory.GESTURE_TOOL,
             Capability.None,
             icon = Icons.Default.Image,
         ),

@@ -5,7 +5,6 @@ import androidx.compose.material.icons.filled.Android
 import androidx.compose.ui.graphics.vector.ImageVector
 import hunoia.luno.core.domain.Capability
 import hunoia.luno.action.definitions.ActionCategory
-import hunoia.luno.core.domain.POINT_PARAM_KEYS
 
 sealed interface ParameterDefinition {
     val key: String
@@ -68,13 +67,6 @@ sealed interface ParameterDefinition {
         override val defaultValue: String? = null
     }
 }
-
-/**
- * 该定义是否带坐标参数（tap/longPress）：决定参数编辑器是否给屏幕取点入口、
- * 以及是否适用「使用触发位置坐标」开关（`StoredAction.usesTriggerPoint`）。
- */
-fun ActionDefinition.hasPointParams(): Boolean =
-    parameters.map { it.key }.containsAll(hunoia.luno.core.domain.POINT_PARAM_KEYS)
 
 /**
  * 展示 / 编辑器投影。它同时实现纯契约 [hunoia.luno.core.domain.ActionMetadata]：

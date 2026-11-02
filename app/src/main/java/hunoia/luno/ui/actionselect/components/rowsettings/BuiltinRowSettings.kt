@@ -13,19 +13,14 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.actions.R as ActionsR
-import hunoia.luno.domain.AppGraph
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.selectedSegmentedShape
@@ -46,13 +41,8 @@ internal object BuiltinRowSettings {
         register(buttonsVisibility())
         register(openSettings())
         register(volume())
-        register(vibrate())
-        register(tapLike("accessibility.tap", R.string.row_dialog_tap, longPress = false))
-        register(tapLike("accessibility.longPress", R.string.row_dialog_long_press, longPress = true))
-        register(tapLike("accessibility.doubleTap", R.string.row_dialog_double_tap, longPress = false))
         register(scroll())
         register(shareText())
-        register(swipe())
     }
 
     private fun volumeScrub() = ActionRowSettingsDescriptor(
@@ -253,53 +243,6 @@ internal object BuiltinRowSettings {
         },
     )
 
-    private fun vibrate() = ActionRowSettingsDescriptor(
-        typeId = "system.vibrate",
-        titleRes = R.string.row_dialog_vibrate,
-        subtitle = { params, _ -> params.str("pattern", RowSettingsDefaults.VibratePattern) },
-        canonicalize = { draft ->
-            buildJsonObject {
-                put("pattern", JsonPrimitive(draft.str("pattern", RowSettingsDefaults.VibratePattern)))
-            }
-        },
-        isValid = { draft ->
-            VibratePatternRegex.matches(draft.str("pattern", RowSettingsDefaults.VibratePattern).trim())
-        },
-        editor = { scope ->
-            val text = scope.draft.str("pattern", RowSettingsDefaults.VibratePattern)
-            val invalid = !VibratePatternRegex.matches(text.trim())
-            LabeledTextField(
-                R.string.row_settings_pattern_hint,
-                text,
-                { scope.setStr("pattern", it) },
-                isError = invalid,
-                keyboardType = KeyboardType.Text,
-            )
-            if (invalid) FieldError(stringResource(R.string.row_settings_pattern_invalid))
-        },
-    )
-
-    private fun tapLike(typeId: String, titleRes: Int, longPress: Boolean) = ActionRowSettingsDescriptor(
-        typeId = typeId,
-        titleRes = titleRes,
-        subtitle = { params, context -> tapSubtitle(params, context) },
-        canonicalize = { draft ->
-            if (!longPress) {
-                tapPointParams(draft)
-            } else {
-                buildJsonObject {
-                    tapPointParams(draft).forEach { (k, v) -> put(k, v) }
-                    put("durationMs", JsonPrimitive(draft.long("durationMs", RowSettingsDefaults.LongPressDurationMs)))
-                }
-            }
-        },
-        isValid = { draft ->
-            draft.bool("useTriggerPoint", RowSettingsDefaults.UseTriggerPoint) ||
-                (draft.str("xDp", "").toIntOrNull() != null && draft.str("yDp", "").toIntOrNull() != null)
-        },
-        editor = { scope -> TapLikeEditor(scope, longPress) },
-    )
-
     private fun scroll() = ActionRowSettingsDescriptor(
         typeId = "accessibility.scroll",
         titleRes = R.string.row_dialog_scroll,
@@ -347,39 +290,7 @@ internal object BuiltinRowSettings {
         },
     )
 
-    private fun swipe() = ActionRowSettingsDescriptor(
-        typeId = "accessibility.swipe",
-        titleRes = R.string.row_dialog_swipe,
-        subtitle = { params, context ->
-            context.getString(
-                when (params.str("direction", RowSettingsDefaults.SwipeDirection)) {
-                    "DOWN" -> R.string.row_settings_swipe_down
-                    "LEFT" -> R.string.row_settings_swipe_left
-                    "RIGHT" -> R.string.row_settings_swipe_right
-                    "TO_TOP" -> R.string.row_settings_swipe_to_top
-                    else -> R.string.row_settings_swipe_up
-                },
-            )
-        },
-        canonicalize = { draft ->
-            buildJsonObject {
-                put("direction", JsonPrimitive(draft.str("direction", RowSettingsDefaults.SwipeDirection)))
-            }
-        },
-        editor = { scope ->
-            LabeledChips(
-                R.string.row_settings_direction,
-                listOf(
-                    "UP" to R.string.row_settings_swipe_up,
-                    "DOWN" to R.string.row_settings_swipe_down,
-                    "LEFT" to R.string.row_settings_swipe_left,
-                    "RIGHT" to R.string.row_settings_swipe_right,
-                    "TO_TOP" to R.string.row_settings_swipe_to_top,
-                ),
-                scope.draft.str("direction", RowSettingsDefaults.SwipeDirection),
-            ) { scope.setStr("direction", it) }
-        },
-    )
+
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -452,68 +363,6 @@ private fun ButtonsVisibilityEditor(scope: RowSettingsEditorScope) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun TapLikeEditor(scope: RowSettingsEditorScope, longPress: Boolean) {
-    val useTriggerPoint = scope.draft.bool("useTriggerPoint", RowSettingsDefaults.UseTriggerPoint)
-    val xText = scope.draft.str("xDp", RowSettingsDefaults.TapXDp.toString())
-    val yText = scope.draft.str("yDp", RowSettingsDefaults.TapYDp.toString())
-    LabeledChips(
-        R.string.row_settings_fall_point,
-        listOf(
-            "true" to R.string.row_settings_trigger_point,
-            "false" to R.string.row_settings_fixed_point,
-        ),
-        if (useTriggerPoint) "true" else "false",
-    ) { scope.setBool("useTriggerPoint", it.toBooleanStrict()) }
-    if (!useTriggerPoint) {
-        var pickHint by remember { mutableStateOf("") }
-        TextButton(onClick = {
-            val ok = AppGraph.runtime.showPointPicker(
-                initialXdp = xText.toIntOrNull(),
-                initialYdp = yText.toIntOrNull(),
-                onCommit = { x, y ->
-                    scope.setInt("xDp", x)
-                    scope.setInt("yDp", y)
-                },
-                onDismiss = {},
-                onUnavailable = {
-                    pickHint = scope.context.getString(R.string.row_settings_point_picker_failed)
-                },
-            )
-            pickHint = if (ok) "" else scope.context.getString(R.string.row_settings_point_picker_failed)
-        }) { Text(stringResource(R.string.point_pick)) }
-        if (pickHint.isNotEmpty()) Text(text = pickHint, style = MaterialTheme.typography.bodySmall)
-        LabeledTextField(
-            R.string.row_settings_coord_x,
-            xText,
-            { scope.setStr("xDp", it) },
-            isError = xText.toIntOrNull() == null,
-            keyboardType = KeyboardType.Number,
-        )
-        LabeledTextField(
-            R.string.row_settings_coord_y,
-            yText,
-            { scope.setStr("yDp", it) },
-            isError = yText.toIntOrNull() == null,
-            keyboardType = KeyboardType.Number,
-        )
-        if (xText.toIntOrNull() == null || yText.toIntOrNull() == null) {
-            FieldError(stringResource(R.string.row_settings_coord_invalid))
-        }
-    }
-    if (longPress) {
-        val duration = scope.draft.long("durationMs", RowSettingsDefaults.LongPressDurationMs)
-        LunoTextSlider(
-            value = duration.toFloat(),
-            onValueChange = { scope.setLong("durationMs", it.toLong()) },
-            text = stringResource(R.string.row_settings_duration),
-            valueDisplay = { "${it.toLong()}ms" },
-            valueRange = 100f..10000f,
-        )
-    }
-}
-
 private fun settingsPageLabelRes(page: String): Int = when (page) {
     "WIFI" -> ActionsR.string.settings_page_wifi
     "BLUETOOTH" -> ActionsR.string.settings_page_bluetooth
@@ -532,16 +381,6 @@ private fun audioStreamLabelRes(stream: String): Int = when (stream) {
     "VOICE" -> R.string.audio_stream_voice
     "SYSTEM" -> R.string.audio_stream_system
     else -> R.string.audio_stream_music
-}
-
-private fun tapSubtitle(params: JsonObject, context: Context): String {
-    val x = params.str("xDp", "").toIntOrNull()
-    val y = params.str("yDp", "").toIntOrNull()
-    return if (params.bool("useTriggerPoint", RowSettingsDefaults.UseTriggerPoint) || x == null || y == null) {
-        context.getString(R.string.row_settings_trigger_point)
-    } else {
-        context.getString(R.string.row_settings_coord_dp, x, y)
-    }
 }
 
 @Composable

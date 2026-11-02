@@ -139,42 +139,21 @@
     <string name="row_settings_direction">方向</string>
     <string name="row_settings_direction_up">增大</string>
     <string name="row_settings_direction_down">减小</string>
-    <string name="row_settings_swipe_up">向上</string>
-    <string name="row_settings_swipe_down">向下</string>
-    <string name="row_settings_swipe_left">向左</string>
-    <string name="row_settings_swipe_right">向右</string>
-    <string name="row_settings_swipe_to_top">到顶部</string>
-    <string name="row_settings_pattern_hint">振动模式（毫秒，逗号分隔）</string>
-    <string name="row_settings_fall_point">落点</string>
-    <string name="row_settings_trigger_point">触发位置</string>
-    <string name="row_settings_fixed_point">固定坐标</string>
-    <string name="row_settings_coord_x">横坐标 dp</string>
-    <string name="row_settings_coord_y">纵坐标 dp</string>
-    <string name="row_settings_duration">时长</string>
-    <string name="row_settings_point_picker_failed">取点不可用：请确认无障碍服务已开启</string>
-    <string name="row_settings_coord_dp">%1$d, %2$d dp</string>
     <string name="row_settings_reset">恢复默认</string>
-    <string name="row_settings_coord_invalid">坐标需要整数</string>
-    <string name="row_settings_pattern_invalid">格式：毫秒值用逗号分隔，如 0,500</string>
     <!-- 行尾设置弹窗标题 -->
     <string name="row_dialog_volume_scrub">滑动调音量</string>
     <string name="row_dialog_float_ball">悬浮球显隐</string>
     <string name="row_dialog_buttons_visibility">触钮显隐</string>
     <string name="row_dialog_open_settings">打开设置页</string>
     <string name="row_dialog_volume">音量控制</string>
-    <string name="row_dialog_vibrate">振动</string>
-    <string name="row_dialog_tap">点击</string>
-    <string name="row_dialog_long_press">长按</string>
-    <string name="row_dialog_double_tap">双击</string>
     <string name="row_dialog_scroll">滚动焦点元素</string>
-    <string name="row_dialog_swipe">滑动</string>
     <string name="row_settings_scroll_down">向下滚</string>
     <string name="row_settings_scroll_up">向上滚</string>
     <string name="row_settings_text_content">文本内容</string>
     <string name="row_settings_text_required">文本内容不能为空</string>
     <string name="row_settings_hide_temporarily">临时隐藏</string>
     <string name="row_dialog_share_text">分享文本</string>
-    <string name="action_library_invalid_hint">草稿无效，先补全参数或坐标</string>
+    <string name="action_library_invalid_hint">草稿无效，先补全参数</string>
     <string name="float_ball_enabled">显示悬浮球</string>
     <string name="float_ball_tap_action">悬浮球单击动作</string>
     <string name="float_ball_size">球大小</string>
@@ -396,9 +375,6 @@
     <string name="action_library_discard_desc">返回后本次修改将丢失。</string>
     <string name="action_library_icon_default">默认</string>
     <string name="action_library_icon_custom">文字或表情</string>
-    <string name="point_pick">屏幕取点</string>
-    <string name="point_pick_point">x=%1$d dp，y=%2$d dp</string>
-    <string name="point_pick_empty">未取点</string>
     <string name="action_library_icon_use">使用</string>
 
     <!-- 动作编辑器 -->
@@ -495,8 +471,6 @@
     <string name="throttle_invalid">请输入有效数字</string>
     <string name="permission_precheck_title">权限预检</string>
     <string name="permission_precheck_missing">缺少：%1$s；触发时这条规则会被跳过</string>
-    <string name="toast_notification_required">需要通知权限（Android 13+）或通知总开关</string>
-    <string name="action_capability_notification">通知权限</string>
     <string name="reentry_block">忽略新触发</string>
     <string name="reentry_stop_current">停止旧的，运行新的</string>
     <string name="reentry_parallel">并行运行</string>

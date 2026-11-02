@@ -11,15 +11,6 @@ interface RuntimeFacade {
     /** 把明确动作转交 `:service` 执行；false = 未送达。 */
     fun dispatch(action: StoredAction): Boolean
 
-    /** 屏幕取点（跨进程无障碍 overlay）；false = 未送达。 */
-    fun showPointPicker(
-        initialXdp: Int?,
-        initialYdp: Int?,
-        onCommit: (Int, Int) -> Unit,
-        onDismiss: () -> Unit,
-        onUnavailable: () -> Unit = {},
-    ): Boolean
-
     /** 冷启动按落盘配置恢复常驻服务。 */
     fun restoreServicesOnce(context: Context)
 }
@@ -29,20 +20,6 @@ object RuntimeActions : RuntimeFacade {
 
     override fun dispatch(action: StoredAction): Boolean =
         hunoia.luno.service.DispatchClient.dispatch(action)
-
-    override fun showPointPicker(
-        initialXdp: Int?,
-        initialYdp: Int?,
-        onCommit: (Int, Int) -> Unit,
-        onDismiss: () -> Unit,
-        onUnavailable: () -> Unit,
-    ): Boolean = hunoia.luno.service.DispatchClient.showPointPicker(
-        initialXdp = initialXdp,
-        initialYdp = initialYdp,
-        onCommit = onCommit,
-        onDismiss = onDismiss,
-        onUnavailable = onUnavailable,
-    )
 
     override fun restoreServicesOnce(context: Context) =
         hunoia.luno.service.ServiceAutoStart.restoreOnce(context)

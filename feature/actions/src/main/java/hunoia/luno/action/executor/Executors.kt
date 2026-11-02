@@ -10,14 +10,13 @@ import hunoia.luno.action.model.Action
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.bridge.system.copyText
-import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import android.view.Choreographer
 import kotlin.coroutines.resume
 
-/** 注入触点前隐藏触钮的时长：要盖住整段注入（tap 100ms / 长按 durationMs）之后再让触钮回来。 */
+/** 注入触点前隐藏触钮的时长：要盖住整段注入（tap 100ms）之后再让触钮回来。 */
 private const val BUTTON_HIDE_MS = 250L
 /** 隐藏触钮后等它真正不可触的帧数（WM 事务要等一次 traversal 才落到输入分发）。 */
 private const val BUTTON_HIDE_SETTLE_FRAMES = 2
@@ -33,8 +32,8 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
 
     override val supportedTypes: Set<String> = setOf(
         "accessibility.back", "accessibility.home", "accessibility.recents",
-        "accessibility.tap", "accessibility.longPress", "accessibility.doubleTap",
-        "accessibility.scroll", "accessibility.swipe",
+        "accessibility.tap",
+        "accessibility.scroll", "accessibility.scrollToTop", "accessibility.scrollToBottom",
         "accessibility.screenshot", "accessibility.screenPick",
         "screen.annotate",
         "accessibility.splitScreen",
@@ -54,43 +53,16 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
                 hunoia.luno.shizuku.ShizukuInputInjection.keyEvent(KEYCODE_APP_SWITCH)
             }
             is Action.Tap -> {
-                val (x, y) = action.targetPoint(context)
+                val (x, y) = context.touchPosition
                     ?: return ActionResult.Failed(ActionFailure.InvalidParameter)
                 hideButtonAndSettle(context)
                 withShellFallback(controller.click(x, y)) {
                     hunoia.luno.shizuku.ShizukuInputInjection.tap(x, y)
                 }
             }
-            is Action.LongPress -> {
-                val (x, y) = action.targetPoint(context)
-                    ?: return ActionResult.Failed(ActionFailure.InvalidParameter)
-                hideButtonAndSettle(context)
-                withShellFallback(controller.longPress(x, y, action.durationMs)) {
-                    hunoia.luno.shizuku.ShizukuInputInjection.longPress(x, y, action.durationMs)
-                }
-            }
-            is Action.Swipe -> {
-                val performed = when (action.direction) {
-                    hunoia.luno.action.model.SwipeDirection.UP -> controller.swipeUp()
-                    hunoia.luno.action.model.SwipeDirection.DOWN -> controller.swipeDown()
-                    hunoia.luno.action.model.SwipeDirection.LEFT -> controller.swipeLeft()
-                    hunoia.luno.action.model.SwipeDirection.RIGHT -> controller.swipeRight()
-                    hunoia.luno.action.model.SwipeDirection.TO_TOP -> controller.scrollToTop()
-                }
-                executionResult(performed)
-            }
-            is Action.DoubleTap -> {
-                val (x, y) = action.targetPoint(context)
-                    ?: return ActionResult.Failed(ActionFailure.InvalidParameter)
-                hideButtonAndSettle(context)
-                withShellFallback(controller.doubleTap(x, y)) {
-                    val first = hunoia.luno.shizuku.ShizukuInputInjection.tap(x, y)
-                    if (!first) return@withShellFallback false
-                    delay(80)
-                    hunoia.luno.shizuku.ShizukuInputInjection.tap(x, y)
-                }
-            }
             is Action.ScrollFocused -> executionResult(controller.scrollFocused(action.forward))
+            is Action.ScrollToTop -> executionResult(controller.scrollToTop())
+            is Action.ScrollToBottom -> executionResult(controller.scrollToBottom())
             is Action.Screenshot -> {
                 // fire-and-forget：takeScreenshot 的回调是异步且无失败语义，
                 // 这里拿不到真实成败，统一按成功收口（失败静默）。
@@ -145,22 +117,6 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
     }
 
     /**
-     * 点击/长按落点：勾了「使用触发位置坐标」只认手势触点，否则参数坐标优先再退触点。
-     * 两者都没有判参数无效（分发器已前置拦截，这里兜底直接执行路径）。
-     */
-    private fun Action.Tap.targetPoint(context: ExecutorContext): Pair<Int, Int>? =
-        if (useTriggerPoint) context.touchPosition
-        else pointPx(context.appContext) ?: context.touchPosition
-
-    private fun Action.LongPress.targetPoint(context: ExecutorContext): Pair<Int, Int>? =
-        if (useTriggerPoint) context.touchPosition
-        else pointPx(context.appContext) ?: context.touchPosition
-
-    private fun Action.DoubleTap.targetPoint(context: ExecutorContext): Pair<Int, Int>? =
-        if (useTriggerPoint) context.touchPosition
-        else pointPx(context.appContext) ?: context.touchPosition
-
-    /**
      * 先隐藏触钮并等它真的不可触再注入：`hideGestureButton` 只加 `FLAG_NOT_TOUCHABLE`
      * 并发一笔 WM 事务，不同步生效；不等落地，点击会被触钮自己的捕获窗口吃掉。
      * WMS 从 App 侧观测不到，按帧等待是最近似做法（主 overlay 本身不挡注入）。
@@ -182,22 +138,6 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
         }
         choreographer.postFrameCallback(callback)
         cont.invokeOnCancellation { choreographer.removeFrameCallback(callback) }
-    }
-
-    /** 参数坐标转屏像素（dp→px，按执行时 density）；任一缺失/为负视为未填，调用方回退触点。 */
-    private fun Action.Tap.pointPx(context: android.content.Context): Pair<Int, Int>? =
-        pointPx(context, xDp, yDp)
-
-    private fun Action.LongPress.pointPx(context: android.content.Context): Pair<Int, Int>? =
-        pointPx(context, xDp, yDp)
-
-    private fun Action.DoubleTap.pointPx(context: android.content.Context): Pair<Int, Int>? =
-        pointPx(context, xDp, yDp)
-
-    private fun pointPx(context: android.content.Context, xDp: Int?, yDp: Int?): Pair<Int, Int>? {
-        if (xDp == null || yDp == null || xDp < 0 || yDp < 0) return null
-        val density = context.resources.displayMetrics.density
-        return (xDp * density).roundToInt() to (yDp * density).roundToInt()
     }
 }
 

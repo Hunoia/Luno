@@ -12,7 +12,6 @@ import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.GestureCoordinator
 import hunoia.luno.runtime.GestureHost
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
-import hunoia.luno.runtime.overlay.PointPickOverlay
 import hunoia.luno.runtime.overlay.ScreenPickOverlay
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -45,12 +44,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         RuntimePanelOverlay(this)
     }
 
-    /** 屏幕取点窗口。必须住在无障碍服务这一侧 —— 见 DispatchService 的说明。 */
-    override val pointPickOverlay by lazy {
-        PointPickOverlay(this)
-    }
-
-    /** 屏幕内容识别拾取窗。与 pointPickOverlay 同规：必须住在无障碍服务这一侧。
+    /** 屏幕内容识别拾取窗：必须住在无障碍服务这一侧。
      *  非 lazy：构造时就要订阅面板开关事件，否则第一次从面板触发时会错过 Shown。 */
     private val ocrEngine = hunoia.luno.capability.ocr.PpOcrEngine(this)
 
@@ -197,9 +191,6 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
 
     /** 识屏拾取层是否在屏（普通框选态也算：此时长按由 overlay 自己处理）。 */
     fun isScreenPickVisible(): Boolean = screenPickOverlay.isShown
-
-    /** 屏幕取点窗是否在屏。 */
-    fun isPointPickVisible(): Boolean = pointPickOverlay.isShown
 
     /** 前台 Activity 是否 Luno 自身界面（设置/搜索/链接选择等）。 */
     fun isOwnUiForeground(): Boolean =
@@ -366,8 +357,6 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         disabledPackageEnabler.release()
         if (::gestureCoordinator.isInitialized) gestureCoordinator.onDestroy()
         runtimePanelOverlay.close()
-        // 与 runtimePanelOverlay 同进退：点拾取全屏窗别指望系统随服务销毁回收。
-        pointPickOverlay.close()
         // 拾取窗持有全局面板事件订阅，必须显式退订。
         screenPickOverlay.release()
         // 标注浮层不随服务自动回收；关掉它并恢复被隐藏的球/面板。

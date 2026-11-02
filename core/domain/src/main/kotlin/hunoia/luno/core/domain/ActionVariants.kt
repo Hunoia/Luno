@@ -73,39 +73,6 @@ fun StoredAction.gridPanelId(): String? {
     return (params[GRID_PANEL_PARAM_PANEL_ID] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
 }
 
-/** 点击/长按的坐标参数 key（定义表、分发前置校验、库 UI 共用，避免字面量漂移）。 */
-const val PARAM_X_DP = "xDp"
-const val PARAM_Y_DP = "yDp"
-val POINT_PARAM_KEYS = setOf(PARAM_X_DP, PARAM_Y_DP)
-
-/**
- * 点击/长按的「使用触发位置坐标」开关：勾上只认手势触点，固定坐标忽略。
- * 这是「隐藏触钮 + 单击穿透到覆盖层下面界面」那条路的开关，点击要落在手指按下的位置。
- */
-const val USE_TRIGGER_POINT_KEY = "useTriggerPoint"
-
-/** 依赖真实触点的动作类型（tap / longPress / doubleTap）。 */
-val POINT_ACTION_TYPE_IDS = setOf("accessibility.tap", "accessibility.longPress", "accessibility.doubleTap")
-
-/** 点击/长按（含双击）是否勾了「使用触发位置坐标」，非这三种动作恒 false。 */
-fun StoredAction.usesTriggerPoint(): Boolean {
-    if (typeId !in POINT_ACTION_TYPE_IDS) return false
-    return (params[USE_TRIGGER_POINT_KEY] as? JsonPrimitive)?.contentOrNull?.toBoolean() == true
-}
-
-/**
- * 点击/长按是否自带参数坐标（xDp+yDp 双全且合法）：是则不依赖手势触点，
- * 无触点路径（库测试/自动化/搜索/runRule）可直接执行。勾了「使用触发位置坐标」
- * 的一律 false——它按定义依赖触点（与分发器前置校验、自动化选择页过滤同一判据）。
- */
-fun StoredAction.hasPointParams(): Boolean {
-    if (typeId !in POINT_ACTION_TYPE_IDS) return false
-    if (usesTriggerPoint()) return false
-    val x = (params[PARAM_X_DP] as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
-    val y = (params[PARAM_Y_DP] as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
-    return x != null && y != null && x >= 0 && y >= 0
-}
-
 fun StoredAction.launchPackageName(): String? {
     if (typeId != AppLaunchAction.TYPE_ID) return null
     return (params["packageName"] as? JsonPrimitive)?.contentOrNull

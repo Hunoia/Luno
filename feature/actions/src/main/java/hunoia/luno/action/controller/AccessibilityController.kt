@@ -10,7 +10,6 @@ import android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_QUICK_SET
 import android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS
 import android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT
 import android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_TOGGLE_SPLIT_SCREEN
-import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.system.Accessibility
 
 class AccessibilityController(private val service: AccessibilityService) {
@@ -26,59 +25,10 @@ class AccessibilityController(private val service: AccessibilityService) {
     fun quickPanel(): Boolean = service.performGlobalAction(GLOBAL_ACTION_QUICK_SETTINGS)
 
     fun click(x: Int, y: Int): Boolean = Accessibility.click(service, x, y)
-    fun longPress(x: Int, y: Int, durationMs: Long = 1000L): Boolean =
-        Accessibility.longPress(service, x, y, durationMs)
-    fun doubleTap(x: Int, y: Int): Boolean = Accessibility.doubleTap(service, x, y)
 
     fun scrollToTop(): Boolean = Accessibility.fastVerticalScroll(service, toTop = true)
 
-    fun swipeUp(): Boolean {
-        val w = DensityProvider.screenWidthPx
-        val h = DensityProvider.screenHeightPx
-        val startX = w / 2
-        val startY = h * 3 / 4
-        val endY = h / 4
-        return dispatchSwipe(startX.toFloat(), startY.toFloat(), startX.toFloat(), endY.toFloat(), 300)
-    }
-
-    fun swipeDown(): Boolean {
-        val w = DensityProvider.screenWidthPx
-        val h = DensityProvider.screenHeightPx
-        val startX = w / 2
-        val startY = h / 4
-        val endY = h * 3 / 4
-        return dispatchSwipe(startX.toFloat(), startY.toFloat(), startX.toFloat(), endY.toFloat(), 300)
-    }
-
-    fun swipeLeft(): Boolean {
-        val w = DensityProvider.screenWidthPx
-        val h = DensityProvider.screenHeightPx
-        val startY = h / 2
-        val startX = w * 3 / 4
-        val endX = w / 4
-        return dispatchSwipe(startX.toFloat(), startY.toFloat(), endX.toFloat(), startY.toFloat(), 300)
-    }
-
-    fun swipeRight(): Boolean {
-        val w = DensityProvider.screenWidthPx
-        val h = DensityProvider.screenHeightPx
-        val startY = h / 2
-        val startX = w / 4
-        val endX = w * 3 / 4
-        return dispatchSwipe(startX.toFloat(), startY.toFloat(), endX.toFloat(), startY.toFloat(), 300)
-    }
-
-    private fun dispatchSwipe(startX: Float, startY: Float, endX: Float, endY: Float, duration: Long): Boolean {
-        val builder = android.accessibilityservice.GestureDescription.Builder()
-        val path = android.graphics.Path().apply {
-            moveTo(startX, startY)
-            lineTo(endX, endY)
-        }
-        builder.addStroke(
-            android.accessibilityservice.GestureDescription.StrokeDescription(path, 0, duration)
-        )
-        return service.dispatchGesture(builder.build(), null, null)
-    }
+    fun scrollToBottom(): Boolean = Accessibility.fastVerticalScroll(service, toTop = false)
 
     /** 滚动焦点元素（ACTION_SCROLL_FORWARD/BACKWARD，比固定坐标 swipe 精准）。 */
     fun scrollFocused(forward: Boolean): Boolean {

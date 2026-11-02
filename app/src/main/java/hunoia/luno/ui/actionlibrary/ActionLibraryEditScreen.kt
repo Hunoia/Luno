@@ -53,11 +53,6 @@ import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.action.controller.ShellController
 import hunoia.luno.action.controller.ShellResult
-import hunoia.luno.action.definitions.hasPointParams
-import hunoia.luno.core.domain.PARAM_X_DP
-import hunoia.luno.core.domain.PARAM_Y_DP
-import hunoia.luno.core.domain.POINT_PARAM_KEYS
-import hunoia.luno.core.domain.USE_TRIGGER_POINT_KEY
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.query.ActivityOption
 import hunoia.luno.ui.component.sheet.AppPickerSheet
@@ -71,18 +66,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSelectableRow
-import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.component.feedback.LunoIconButton
-/**
- * 依赖真实触点的动作：分发时必须带触点坐标；库条目配好固定坐标后可独立试执行，
- * 无坐标（或勾了「使用触发位置坐标」）时测试按钮置灰。
- */
-private val TOUCH_ONLY_TYPES = setOf("accessibility.tap", "accessibility.longPress", "accessibility.doubleTap")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActionLibraryEditScreen(
@@ -109,13 +98,6 @@ fun ActionLibraryEditScreen(
     val guardedBack: () -> Unit = {
         if (state.isDirty) showDiscardConfirm = true else onBack()
     }
-    // 测试门槛：触点类动作必须已配固定坐标且未勾「使用触发位置坐标」。
-    val testable = draft?.let { d ->
-        val hasTapPoint = d.params[PARAM_X_DP]?.scalarText()?.toIntOrNull() != null &&
-            d.params[PARAM_Y_DP]?.scalarText()?.toIntOrNull() != null
-        val useTriggerPoint = d.params[USE_TRIGGER_POINT_KEY]?.scalarText()?.toBoolean() == true
-        d.typeId !in TOUCH_ONLY_TYPES || (hasTapPoint && !useTriggerPoint)
-    } == true
     LunoScreen(
         title = stringResource(
             if (draft?.id == null) R.string.action_library_add else R.string.action_library_edit,
@@ -159,7 +141,7 @@ fun ActionLibraryEditScreen(
                 LunoIconButton(
                     icon = Icons.Default.PlayArrow,
                     contentDescription = stringResource(R.string.action_library_test),
-                    enabled = draft.isValid && testable && !state.isSaving && !shellRunning,
+                    enabled = draft.isValid && !state.isSaving && !shellRunning,
                     onClick = {
                         // shell 命令在编辑页直接跑一次，把 stdout/stderr 显示在底部面板，
                         // 不走分发（分发拿不到结果，只能 toast）。
@@ -251,8 +233,6 @@ fun ActionLibraryEditScreen(
                 state.notFound -> EmptyState(stringResource(R.string.action_library_entry_not_found))
                 draft == null || definition == null -> EmptyState(stringResource(R.string.action_library_empty))
                 else -> {
-                    val useTriggerPoint =
-                        draft.params[USE_TRIGGER_POINT_KEY]?.scalarText()?.toBoolean() == true
                     OutlinedTextField(
                         value = draft.name,
                         onValueChange = { vm.updateName(it) },
@@ -290,39 +270,6 @@ if (cardParams.isNotEmpty()) {
                             }
                         }
                         fieldParams.forEach { paramDef ->
-                            // 勾了「使用触发位置坐标」：固定坐标整组（含屏幕取点入口）不显示。
-                            if (useTriggerPoint && paramDef.key in POINT_PARAM_KEYS) return@forEach
-                            // 坐标参数（tap/longPress）：首个数字框前插屏幕取点入口，
-                            // 取点经服务侧 overlay，回填后仍可在数字框里手改。
-                            if (paramDef.key == PARAM_X_DP && definition.hasPointParams()) {
-                                val curX = draft.params[PARAM_X_DP]?.scalarText()?.toIntOrNull()
-                                val curY = draft.params[PARAM_Y_DP]?.scalarText()?.toIntOrNull()
-                                LunoSettingsRow(
-                                    title = stringResource(R.string.point_pick),
-                                    subtitle = if (curX != null && curY != null) {
-                                        stringResource(R.string.point_pick_point, curX, curY)
-                                    } else {
-                                        stringResource(R.string.point_pick_empty)
-                                    },
-                                    onClick = {
-                                        // 取点窗口盖在别的应用上面，只能由 :service 的无障碍服务加
-                                        // （TYPE_ACCESSIBILITY_OVERLAY 只有 AccessibilityService 能
-                                        // addView；改用 TYPE_APPLICATION_OVERLAY 需要引入一个本来
-                                        // 不必有的「显示在其他应用上层」权限）。见 DispatchService。
-                                        val ok = AppGraph.runtime.showPointPicker(
-                                            initialXdp = curX,
-                                            initialYdp = curY,
-                                            onCommit = { xDp, yDp ->
-                                                vm.updateParam(PARAM_X_DP, xDp.toString())
-                                                vm.updateParam(PARAM_Y_DP, yDp.toString())
-                                            },
-                                            onDismiss = {},
-                                        )
-                                        if (!ok) showToast(R.string.dispatch_service_not_ready)
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                            }
                             ParameterEditor(
                                 definition = paramDef,
                                 currentParams = draft.params,

@@ -11,7 +11,6 @@ import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionRequest
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.core.domain.StoredAction
-import hunoia.luno.core.domain.hasPointParams
 import hunoia.luno.core.domain.withoutVariantKey
 import hunoia.luno.execute.ActionCatalog
 import hunoia.luno.execute.ActionFactory
@@ -89,15 +88,8 @@ class ActionDispatcher(
                 stored
             }
             val ctx = buildContext(call, effective)
-            // 点按类动作的前置条件：手势触点优先，其次看参数坐标，两者都没有才判参数无效。
-            // 勾了「使用触发位置坐标」的条目 hasPointParams() 恒 false，无触点路径（自动化）在这里被拦。
-            // 只看 StoredAction 参数，进 Executor 前不再复验。
-            if (call.touchPosition == null &&
-                (effective.typeId == "accessibility.tap" ||
-                    effective.typeId == "accessibility.longPress" ||
-                    effective.typeId == "accessibility.doubleTap") &&
-                !effective.hasPointParams()
-            ) {
+            // 点击只在触点路径有意义：没有触点就判参数无效。
+            if (call.touchPosition == null && effective.typeId == "accessibility.tap") {
                 ctx.showToast(messages.failureText(ActionFailure.InvalidParameter))
                 return ExecuteSettlement(
                     call.request,

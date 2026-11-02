@@ -5,7 +5,6 @@ import hunoia.luno.domain.AppGraph
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.action.model.ShortcutIconFiles
-import hunoia.luno.core.domain.hasPointParams
 import hunoia.luno.core.domain.launchAppRef
 import hunoia.luno.core.domain.longPressVariant
 import hunoia.luno.core.domain.withoutVariantKey
@@ -531,21 +530,15 @@ internal suspend fun loadDataBody(
     val actionSettings = TuneConfig.getAction()
     val actionPanels = actionSettings.actionPanels.panels
     val gridPanels = actionSettings.actionGridPanels.panels
-    // pickerExcluded 决定「有哪些类型可被选」，必须恒非空（空集让整张定义表都可选）；
-    // libraryExcluded 只过滤动作库已存条目；触钮路径不额外过滤，否则已保存的条目会被藏掉。
+    // pickerExcluded 决定「有哪些类型可被选」，必须恒非空（空集让整张定义表都可选）。
     val pickerExcluded = ActionDefinitions.pickerExcludedTypeIds()
-    val libraryExcluded = emptySet<String>()
     val button = buttons.find { it.id == actionSelect.gestureButtonId }
     val subGesture = subGestures.find { it.id == actionSelect.subGestureId }
     onUpdateState { state ->
         state.copy(
             subGestures = subGestures,
             excludedSubGestureId = actionSelect.subGestureId,
-            actionLibraryEntries = actionLibraryEntries.filter {
-                // 自动化放行带固定坐标的 tap/longPress 条目（参数优先于触点）；
-                // 无坐标的条目在无触点的自动化路径必 InvalidParameter，继续藏。
-                it.typeId !in libraryExcluded || it.storedAction.hasPointParams()
-            },
+            actionLibraryEntries = actionLibraryEntries,
             excludedTypeIds = pickerExcluded,
             actionPanels = actionPanels,
             gridPanels = gridPanels,

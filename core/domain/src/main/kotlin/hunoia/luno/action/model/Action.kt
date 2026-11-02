@@ -24,8 +24,6 @@ fun resolveButtonTargetIds(target: ButtonTarget, allIds: List<String>, selectedI
         ButtonTarget.ONLY -> selectedIds.toSet()
     }
 
-enum class SwipeDirection { UP, DOWN, LEFT, RIGHT, TO_TOP }
-
 enum class MediaCommand { PLAY_PAUSE, NEXT, PREVIOUS, MUTE }
 
 sealed interface Action {
@@ -79,9 +77,6 @@ sealed interface Action {
     data class Volume(val stream: AudioStream, val direction: VolumeDirection) : Action {
         override val typeId: String = "system.volume"
     }
-    data class Vibrate(val pattern: String = "0,500") : Action {
-        override val typeId: String = "system.vibrate"
-    }
     /** 剪贴板随机名称；密码长度等全局配置在动作设置的密码生成里。 */
     data object ClipboardRandomName : Action {
         override val typeId: String = "system.clipboardRandomName"
@@ -101,28 +96,6 @@ sealed interface Action {
     data object Flashlight : Action {
         override val typeId: String = "system.flashlight"
     }
-    /** HTTP 请求：GET/POST/...，headers 按行 `Key: Value`，正文按 UTF-8。 */
-    data class HttpRequest(
-        val url: String,
-        val method: String = "GET",
-        val headers: String = "",
-        val body: String = "",
-    ) : Action {
-        override val typeId: String = "http.request"
-    }
-    /** 轻量 Toast（自动化里不依赖动作执行结果提示）。 */
-    data class Toast(val text: String) : Action {
-        override val typeId: String = "system.toast"
-    }
-    /** 发系统通知（Android 13+ 受 POST_NOTIFICATIONS 控制）。 */
-    data class Notify(val title: String, val text: String) : Action {
-        override val typeId: String = "system.notify"
-    }
-    /** 写剪贴板（与“剪贴板随机名称”区分，内容由用户/模板提供）。 */
-    data class SetClipboard(val text: String) : Action {
-        override val typeId: String = "system.clipboardSet"
-    }
-
     // Accessibility
     data object Back : Action {
         override val typeId: String = "accessibility.back"
@@ -133,36 +106,18 @@ sealed interface Action {
     data object Recents : Action {
         override val typeId: String = "accessibility.recents"
     }
-    data class Tap(
-        val xDp: Int? = null,
-        val yDp: Int? = null,
-        /** 用触发位置坐标：忽略上面的固定坐标，点在手指按下的位置（隐藏触钮后即穿透到下层）。 */
-        val useTriggerPoint: Boolean = false,
-    ) : Action {
+    /** 点击当前触点位置：注入前先隐藏触钮，点完再恢复。 */
+    data object Tap : Action {
         override val typeId: String = "accessibility.tap"
-    }
-    data class LongPress(
-        val xDp: Int? = null,
-        val yDp: Int? = null,
-        val durationMs: Long = 1000L,
-        /** 用触发位置坐标：忽略固定坐标，长按在手指按下的位置。 */
-        val useTriggerPoint: Boolean = false,
-    ) : Action {
-        override val typeId: String = "accessibility.longPress"
-    }
-    data class DoubleTap(
-        val xDp: Int? = null,
-        val yDp: Int? = null,
-        /** 用触发位置坐标：忽略固定坐标，双击在手指按下的位置。 */
-        val useTriggerPoint: Boolean = false,
-    ) : Action {
-        override val typeId: String = "accessibility.doubleTap"
     }
     data class ScrollFocused(val forward: Boolean) : Action {
         override val typeId: String = "accessibility.scroll"
     }
-    data class Swipe(val direction: SwipeDirection) : Action {
-        override val typeId: String = "accessibility.swipe"
+    data object ScrollToTop : Action {
+        override val typeId: String = "accessibility.scrollToTop"
+    }
+    data object ScrollToBottom : Action {
+        override val typeId: String = "accessibility.scrollToBottom"
     }
     data object Screenshot : Action {
         override val typeId: String = "accessibility.screenshot"

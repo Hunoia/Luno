@@ -90,7 +90,7 @@ class AnnotateOverlay(
 ) {
 
     private companion object {
-        /** 无障碍 overlay 不带这个标志时触摸会被系统拦掉（Android 12 起），与 PointPickOverlay 同源。 */
+        /** 无障碍 overlay 不带这个标志时触摸会被系统拦掉（Android 12 起），与其它无障碍 overlay 同源。 */
         const val TRUSTED_OVERLAY_FLAG = 0x300000
         const val SURFACE_ID = "annotate.overlay"
         const val TOOLBAR_MARGIN_DP = 28

@@ -19,12 +19,6 @@ object RowSettingsDefaults {
     const val SettingsPage = "MAIN"
     const val AudioStream = "MUSIC"
     const val VolumeDirection = "UP"
-    const val VibratePattern = "0,500"
-    const val UseTriggerPoint = false
-    val LongPressDurationMs = 1000L
-    const val SwipeDirection = "UP"
-    const val TapXDp = 0
-    const val TapYDp = 0
 }
 
 /** 行设置编辑器的上下文：草稿 + 数据 + 写回函数。 */
@@ -82,8 +76,6 @@ object ActionRowSettingsRegistry {
     }
 }
 
-internal val VibratePatternRegex = Regex("""^\d+(\s*,\s*\d+)*$""")
-
 internal fun JsonObject.str(key: String, default: String): String =
     (this[key] as? JsonPrimitive)?.contentOrNull ?: default
 
@@ -99,13 +91,3 @@ internal fun JsonObject.bool(key: String, default: Boolean): Boolean =
 internal fun JsonObject.ids(key: String): List<String> =
     (this[key] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull } ?: emptyList()
 
-internal fun tapPointParams(draft: JsonObject): JsonObject =
-    if (draft.bool("useTriggerPoint", RowSettingsDefaults.UseTriggerPoint)) {
-        kotlinx.serialization.json.buildJsonObject { put("useTriggerPoint", JsonPrimitive(true)) }
-    } else {
-        kotlinx.serialization.json.buildJsonObject {
-            put("useTriggerPoint", JsonPrimitive(false))
-            put("xDp", JsonPrimitive(draft.str("xDp", "").toIntOrNull() ?: RowSettingsDefaults.TapXDp))
-            put("yDp", JsonPrimitive(draft.str("yDp", "").toIntOrNull() ?: RowSettingsDefaults.TapYDp))
-        }
-    }
