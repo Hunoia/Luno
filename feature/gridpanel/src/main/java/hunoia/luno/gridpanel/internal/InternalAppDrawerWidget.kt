@@ -95,10 +95,11 @@ fun AppDrawerCell(
             (cellWidth - AppItemPadding * 2).toPx().toInt().coerceAtLeast(MinIconPx)
         }
         val gridState = rememberLazyGridState()
-        // 抽屉每次重新打开都从第一行开始：网格状态可能被保存恢复成上次位置；
-        // 应用列表异步从空变全量时再兜底一次，避免首帧空列表把恢复位置夹在中间。
-        LaunchedEffect(Unit) { gridState.scrollToItem(0) }
-        LaunchedEffect(apps.isNotEmpty()) {
+        // 抽屉每次重新打开都从第一行开始。
+        // 不能只看「空 → 非空」：应用列表打开后还会从「无使用统计」重排成
+        // 「按使用频率」，LazyGrid 会跟着旧首项 key 下移，正表现为从第二行开始。
+        // 所以按整份列表复位，顺序一变就拉回顶部。
+        LaunchedEffect(apps) {
             if (apps.isNotEmpty()) gridState.scrollToItem(0)
         }
         AppGridContent(
