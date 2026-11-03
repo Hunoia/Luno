@@ -130,6 +130,11 @@ class FloatBallWindow(
     /** 自动挪球的「淡出→传送」是否在飞：期间拒绝新的传送，避免两段 endAction 抢写位置。 */
     private var transferring = false
 
+    /** 在飞的换边传送目标与回调：淡出被隐藏/回场打断时改为立即结算，不再丢传送。 */
+    private var pendingTransferX = 0f
+    private var pendingTransferY = 0f
+    private var pendingTransferLanded: (() -> Unit)? = null
+
     /** 气泡在屏期间抑制静置变暗/半出屏，避免气泡锚点与球之间留白。 */
     private var idleSuppressed = false
 
@@ -357,6 +362,7 @@ class FloatBallWindow(
         // 窗口既已摘除，交互/换位中的标志全部作废：淡出的 withEndAction 在 cancel 时
         // 不运行，transferring 残留 true 会把重挂后的 repositionTo 永久挡死。
         transferring = false
+        pendingTransferLanded = null
         dragging = false
         pressed = false
         // 摘窗即复位：下次 attach 的新窗口按可见起步，lock/panel 状态由服务侧重新推。
@@ -417,6 +423,9 @@ class FloatBallWindow(
             arbiter.cancel()
             cancelIdleTimer()
             visualSuppressed = false
+            // 在飞的换边淡出马上会被下面的隐藏淡出取消：先立即结算传送，
+            // 否则 endAction 被取消、换边静默丢失（触钮弹面板路径必现）。
+            settlePendingTransferNow()
             // 立即不可点防误触，视觉淡出 150ms，播完 lp alpha 收底。
             applyBallTouchFlags(current, wm, hidden = true)
             current.animate()
@@ -438,13 +447,19 @@ class FloatBallWindow(
      *  终态 alpha 跟随 idled —— 隐藏前在静置变暗，恢复后仍是变暗姿态。 */
     private fun animateRestoreIn(target: View) {
         visualAnimator?.cancel()
-        // 在飞的挪球淡出（repositionTo 与本方法共用同一 animator 实例）被上面中止时
-        // withEndAction 不运行、transferring 无人收：这里补复位，否则后续 repositionTo 永久
-        // 拒绝。被跳过的传送位留给下一次侧翻/交互校正（落盘值已是新位）。
-        transferring = false
+        // 在飞的换边淡出被本动画取消时 endAction 不会运行：立即结算传送（而不是丢弃，
+        // 那会让关面板后球停在旧侧且无人补做），再从新位回场。
+        settlePendingTransferNow()
         target.alpha = 0f
         target.scaleX = 0.85f
         target.scaleY = 0.85f
+        // 消费隐形结算的落窗：此刻 alpha 已置 0，瞬移不可见；平移按静置姿态重摆，
+        // 否则残留的是旧位的半出屏方向。
+        if (transferPendingLayout) {
+            transferPendingLayout = false
+            target.translationX = if (idled) idleShiftPx() else 0f
+            applyWindowBounds()
+        }
         visualAnimator = target.animate()
             .alpha(if (idled) FloatBallDefaults.IdleDimAlpha else 1f)
             .scaleX(1f)
@@ -587,6 +602,9 @@ class FloatBallWindow(
         cancelIdleTimer()
         moveAnimator?.cancel()
         transferring = true
+        pendingTransferX = targetX
+        pendingTransferY = targetY
+        pendingTransferLanded = onLanded
         visualAnimator?.cancel()
         target.animate()
             .alpha(0f)
@@ -594,22 +612,47 @@ class FloatBallWindow(
             .setInterpolator(DecelerateInterpolator())
             .withEndAction {
                 transferring = false
+                pendingTransferLanded = null
                 // 淡出期间用户上手拖动：放弃传送恢复可见，球留在用户手里。
                 if (dragging) {
                     applyVisual()
                     return@withEndAction
                 }
-                posX = targetX
-                posY = targetY
-                target.translationX = 0f
-                applyWindowBounds()
-                applyVisual()
-                scheduleIdle()
-                onLanded?.invoke()
+                settleTransfer()
             }
             .start()
         return true
     }
+
+    /** 传送落位：写到目标、重摆姿态并回调 [repositionTo] 的 onLanded。 */
+    private fun settleTransfer() {
+        posX = pendingTransferX
+        posY = pendingTransferY
+        view?.translationX = 0f
+        applyWindowBounds()
+        applyVisual()
+        scheduleIdle()
+        pendingTransferLanded?.invoke()
+        pendingTransferLanded = null
+    }
+
+    /** 隐形结算：打断路径只记账（改基准坐标 + 回调落盘），**不写窗口** ——
+     *  窗口此时还全亮，写 LP 会瞬移到新侧闪一帧；真正的落窗推迟到回场动画
+     *  把 alpha 置 0 之后（[animateRestoreIn] 消费 [transferPendingLayout]）。 */
+    private fun settlePendingTransferNow() {
+        if (pendingTransferLanded == null) return
+        visualAnimator?.cancel()
+        transferring = false
+        posX = pendingTransferX
+        posY = pendingTransferY
+        val landed = pendingTransferLanded
+        pendingTransferLanded = null
+        transferPendingLayout = true
+        landed?.invoke()
+    }
+
+    /** 隐形结算后尚未落窗：回场动画置 alpha=0 后消费。 */
+    private var transferPendingLayout = false
 
     /** 气泡在屏时保持球的完整姿态（B 方案不采用）：显示/收起气泡时由 Service 调用。 */
     fun setIdleSuppressed(suppressed: Boolean) {

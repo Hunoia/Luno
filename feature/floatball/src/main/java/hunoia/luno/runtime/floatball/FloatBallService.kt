@@ -1489,7 +1489,8 @@ class FloatBallService : Service() {
     private fun scheduleFollowHandRetry() {
         if (followHandRetryJob?.isActive == true) return
         followHandRetryJob = scope.launch {
-            repeat(FOLLOW_HAND_RETRY_MAX) {
+            var attempts = 0
+            while (attempts < FOLLOW_HAND_RETRY_MAX) {
                 delay(FOLLOW_HAND_RETRY_MS)
                 if (pendingFollowHandSide == null) return@launch
                 if (!settings.followHand || !ballVisible) {
@@ -1501,7 +1502,11 @@ class FloatBallService : Service() {
                     pendingFollowHandSide = null
                     return@launch
                 }
+                // 面板/短态软隐藏在屏时不尝试也不计数：换位淡出会被隐藏路径打断，
+                // 等面板关了再补做（否则触钮弹面板超过重试上限后换边永久丢失）。
+                if (softHidden) continue
                 if (ballWindow.repositionTo(side, followHandAnchorY(side)) { onFollowHandLanded(side) }) return@launch
+                attempts++
             }
             // 长时间被用户按住/拖动：放弃本次补做，避免用户松手后球又自己跑。
             pendingFollowHandSide = null
