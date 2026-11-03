@@ -126,6 +126,10 @@ class GestureSessionPipeline(
 
     // ---- 输入入口（无障碍按钮窗单一来源） ----
 
+    /** 面板/子手势等瞬态 UI 在屏：全屏瞬态触摸窗（source=null）的事件流应喂进管线。 */
+    val isTransientUiActive: Boolean
+        get() = actionPanelState.visible || subGestureState.isActive
+
     fun onDown(offset: Offset, hint: hunoia.luno.gesture.TouchWindowHint? = null) {
         dragInFlight = true
         if (actionPanelState.visible) {
@@ -401,6 +405,7 @@ class GestureSessionPipeline(
             sourceButton = sideGestureState.button,
             decision = resolvedActions.decision,
             panelColor = panelColor,
+            needsPanelOverlay = true,
             onPanelStarted = { sideGestureState.cancel() },
         ) { enteredSubGesture ->
             sideGestureState.cancel()
@@ -420,6 +425,9 @@ class GestureSessionPipeline(
             sourceButton = resolvedActions.button,
             decision = resolvedActions.decision,
             panelColor = resolvedActions.button.color,
+            // 挂全屏触摸窗：滑动类触发在抬手后才弹面板，手指已不在触钮窗里 ——
+            // 后续点选只能靠全屏窗接（不挂的话点哪都落到下面的应用）。
+            needsPanelOverlay = true,
             onPanelStarted = {
                 if (resolvedActions.triggerType == GestureTriggerType.LongPress ||
                     resolvedActions.triggerType == GestureTriggerType.SlideHold ||

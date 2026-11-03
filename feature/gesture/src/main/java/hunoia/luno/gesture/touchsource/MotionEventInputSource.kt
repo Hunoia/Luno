@@ -91,8 +91,17 @@ class MotionEventInputSource(
         lastX = point.x
         lastY = point.y
         if (source == null) {
-            // 自家瞬态窗（面板 / 子手势）接管了这次按下：进行中的触钮会话作废。
-            reset()
+            // 自家瞬态窗（面板/子手势）：面板在屏时这段流是点选操作，要喂进管线
+            // （DOWN 走 onSelectStart、UP 在 onUp 里 done() 执行选中项）；
+            // 面板不在屏的瞬态流（如其它浮层）才作废进行中的触钮会话。
+            if (pipeline.isTransientUiActive) {
+                ownsSession = true
+                activePointerId = event.getPointerId(0)
+                lastEventAtMs = timeProvider()
+                pipeline.onDown(point)
+            } else {
+                reset()
+            }
             return
         }
         if (ownsSession) {
