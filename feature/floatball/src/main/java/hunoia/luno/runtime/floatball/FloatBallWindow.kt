@@ -64,7 +64,7 @@ class FloatBallWindow(
     /** 抬升量变化回调（含动画逐帧）：服务侧转发给镜像窗，事件路径下镜像也能跟随。 */
     private val onImeLiftChanged: (Float) -> Unit = {},
     /** 窗口收到 IME insets 事件：服务侧立即轮询一次绝对值（事件值仅作触发信号，不直接采信）。 */
-    private val onImeInsetsHint: () -> Unit = {},
+    private val onImeInsetsHint: (Int) -> Unit = {},
 ) {
     private val wm: WindowManager get() = context.windowManager()
 
@@ -166,11 +166,23 @@ class FloatBallWindow(
     fun updateSettings(next: FloatBallSettings) {
         val sizeChanged = next.sizeDp != settings.sizeDp
         settings = next
-        if (sizeChanged) {
-            ballPx = sizePx(next)
-            view?.let { lpSize(it) }
-            if (view != null) applyWindowBounds()
+        if (!sizeChanged) return
+        val nextPx = sizePx(next)
+        if (nextPx == ballPx) return
+        if (view == null) {
+            ballPx = nextPx
+            return
         }
+        // 面球尺寸由 Compose 组合驱动，而服务进程托管的 ComposeView 重组不上屏：
+        // 改尺寸只能拆窗重挂（新窗首组合直接按新球径画）。拆前记住纵向落点，
+        // 重挂后按原侧别贴边重吸附（归一 x 乘新窗尺寸会留缝）。
+        val yRatio = if (screenHeightPx > 0) posY / screenHeightPx else settings.position(landscape).y
+        detach()
+        ballPx = nextPx
+        attachAnimated()
+        posY = yRatio * screenHeightPx
+        snapToNearestEdge()
+        applyWindowBounds()
     }
 
     /** 转屏：换用该朝向记忆的落点。返回是否真的换了朝向。 */
@@ -178,9 +190,9 @@ class FloatBallWindow(
         if (this.landscape == landscape) return false
         this.landscape = landscape
         if (view == null) return true
-        val position = settings.position(landscape)
-        posX = position.x * screenWidthPx
-        posY = position.y * screenHeightPx
+        // x 只保留侧别：归一 x 乘新屏宽会留下比例缝隙（球越大缝越大），统一贴边重吸附。
+        posY = settings.position(landscape).y * screenHeightPx
+        snapToNearestEdge()
         applyWindowBounds()
         return true
     }
@@ -284,8 +296,9 @@ class FloatBallWindow(
             // 导航栏高度只在这里拿得到（attach 时 rootWindowInsets 还不存在）。
             updateBottomInset(insets.getInsets(WindowInsets.Type.navigationBars()).bottom)
             // IME 的 insets 值参考系会随窗口位置漂移，只当作「立即复测」的信号；
-            // 隐藏（bottom 归零）同样要触发，否则只能等兜底轮询。
-            onImeInsetsHint()
+            // 隐藏（bottom 归零）同样要触发复测，否则只能等兜底轮询；
+            // 但事件值只作信号，是否代表推播可用由服务侧按 ime>0 判定。
+            onImeInsetsHint(insets.getInsets(WindowInsets.Type.ime()).bottom)
             v.onApplyWindowInsets(insets)
         }
         root.requestApplyInsets()
@@ -305,10 +318,6 @@ class FloatBallWindow(
         // attach 当下 rootWindowInsets 必然为空：等下一次遍历再补一次 best-effort，
         // 主路径是上面的 insets 监听。
         root.post { applySystemInsets() }
-        val position = settings.position(landscape)
-        posX = position.x * screenWidthPx
-        posY = position.y * screenHeightPx
-        applyWindowBounds()
         scheduleIdle()
         // detach 不清 idled：锁屏隐藏规则/总闸这类拆窗重建（enabled false→true），
         // 直接把静置终态摆上（不走 applyVisual 的动画 —— 否则解锁瞬间能看见一次
@@ -317,6 +326,10 @@ class FloatBallWindow(
             root.alpha = FloatBallDefaults.IdleDimAlpha
             root.translationX = idleShiftPx()
         }
+        // x 只保留侧别（同转屏）：贴边重吸附，y 用该朝向记忆的归一落点。
+        posY = settings.position(landscape).y * screenHeightPx
+        snapToNearestEdge()
+        applyWindowBounds()
         // 实测 LP 原点（状态栏高度）：窗口摆出来才知道真实屏幕落点。
         postMeasureLpOriginY({ view }, { lpOriginY }) {
             lpOriginY = it
@@ -616,6 +629,12 @@ class FloatBallWindow(
     /** 主球当前是否在屏左半（按窗口实位、球心判，与静置外移方向同口径）。 */
     fun isOnLeft(): Boolean = posX * 2f + ballPx < screenWidthPx
 
+    /** 贴边重吸附：x 按当前侧别吸到最近边缘（完整球在屏内），y 不动。 */
+    private fun snapToNearestEdge() {
+        if (screenWidthPx <= 0) return
+        posX = if (isOnLeft()) 0f else max(0, screenWidthPx - ballPx).toFloat()
+    }
+
     /** 主球窗实测的 LP 原点（屏幕 y）：胶囊窗复用它，避免两窗各自测量产生偏差。 */
     fun lpOriginYPx(): Int = lpOriginY
 
@@ -730,10 +749,6 @@ class FloatBallWindow(
     // ---- 窗口定位 ----
 
     private fun createLayoutParams() = ballLayoutParams(ballPx)
-
-    private fun lpSize(current: View) {
-        applyBallSize(current, wm, ballPx)
-    }
 
     /** 叠加底栏边界的 best-effort。顶边不用它 —— 由 [lpOriginY] 实测更可靠。 */
     private fun applySystemInsets() {

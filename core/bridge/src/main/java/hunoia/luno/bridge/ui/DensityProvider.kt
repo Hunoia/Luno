@@ -31,6 +31,13 @@ object DensityProvider {
         })
     }
 
+    /** 强制下次读取重测：转屏路径在自身 onConfigurationChanged 里先调，
+     *  避免与应用级回调的失效顺序竞态读到旧朝向尺寸。 */
+    fun invalidateMetrics() {
+        cachedScreenWidthPx = 0
+        cachedScreenHeightPx = 0
+    }
+
     val density: Float get() = displayMetrics?.density ?: 1f
 
     val densityDpi: Int get() = displayMetrics?.densityDpi ?: DisplayMetrics.DENSITY_DEFAULT

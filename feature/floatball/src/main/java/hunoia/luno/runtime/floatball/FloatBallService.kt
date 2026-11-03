@@ -304,6 +304,9 @@ class FloatBallService : Service() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        // 先失效尺寸缓存再刷窗口：应用级失效回调与本回调顺序不定，不显式失效会
+        // 拿旧朝向宽高算落点（转屏后球位置错）。
+        hunoia.luno.bridge.ui.DensityProvider.invalidateMetrics()
         // Service 不会自动重建窗口：转屏后主动切到该朝向的落点。
         refreshWindows()
     }
@@ -1389,18 +1392,22 @@ class FloatBallService : Service() {
         }
     }
 
-    /** insets 事件触发：合并高频派发，延迟一拍立即复测。 */
-    private fun onImeInsetsHinted() {
+    /** insets 事件触发：合并高频派发，延迟一拍立即复测。事件值仅用于判定推播可用性。 */
+    private fun onImeInsetsHinted(imeBottom: Int) {
         if (imeHintJob?.isActive == true) return
         imeHintJob = scope.launch {
             delay(32)
             if (!ballVisible || visibility.isHidden || softHidden) return@launch
             pollImeOnce()
-            imeHintCount++
-            if (!imePushConfirmed && imeHintCount >= IME_PUSH_CONFIRM_HINTS) {
-                imePushConfirmed = true
-                imeJob?.cancel()
-                imeJob = null
+            // 只有事件自身带了键盘重叠才算推播证据：挂窗/导航栏等任意 insets 派发不计数 ——
+            // 否则推播能力被误判、兑底轮询被停，之后键盘弹出再无人测量（避让失效）。
+            if (imeBottom > 0) {
+                imeHintCount++
+                if (!imePushConfirmed && imeHintCount >= IME_PUSH_CONFIRM_HINTS) {
+                    imePushConfirmed = true
+                    imeJob?.cancel()
+                    imeJob = null
+                }
             }
         }
     }
@@ -1464,15 +1471,18 @@ class FloatBallService : Service() {
             pendingFollowHandSide = null
             return
         }
-        val position = settings.position(isLandscapeNow())
-        val anchorY = (if (side) position.leftAnchorY else position.rightAnchorY) ?: position.y
-        val accepted = ballWindow.repositionTo(side, anchorY) { onFollowHandLanded(side) }
-        if (accepted) {
+        if (ballWindow.repositionTo(side, followHandAnchorY(side)) { onFollowHandLanded(side) }) {
             followHandRetryJob?.cancel()
             followHandRetryJob = null
         } else {
             scheduleFollowHandRetry()
         }
+    }
+
+    /** 跟手换边目标高度：该侧记忆锚点，没记过用当前朝向落点的 y。 */
+    private fun followHandAnchorY(side: Boolean): Float {
+        val position = settings.position(isLandscapeNow())
+        return (if (side) position.leftAnchorY else position.rightAnchorY) ?: position.y
     }
 
     /** 球忙（拖动/按压/换位中）时短暂重试：动作已经执行，换位不能因此丢掉。 */
@@ -1491,9 +1501,7 @@ class FloatBallService : Service() {
                     pendingFollowHandSide = null
                     return@launch
                 }
-                val position = settings.position(isLandscapeNow())
-                val anchorY = (if (side) position.leftAnchorY else position.rightAnchorY) ?: position.y
-                if (ballWindow.repositionTo(side, anchorY) { onFollowHandLanded(side) }) return@launch
+                if (ballWindow.repositionTo(side, followHandAnchorY(side)) { onFollowHandLanded(side) }) return@launch
             }
             // 长时间被用户按住/拖动：放弃本次补做，避免用户松手后球又自己跑。
             pendingFollowHandSide = null

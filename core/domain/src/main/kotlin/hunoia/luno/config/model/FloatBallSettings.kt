@@ -133,10 +133,10 @@ object FloatBallDefaults {
     const val IdleDimAlpha = 0.5f
 
     /**
-     * 静置出屏比例：球径的这部分移到屏幕外（语义是横向偏移而非等比缩小）。
-     * 与 ui-guidelines §4.6 一致（1/4）。
+     * 静置出屏比例：球径的一半移到屏幕外（语义是横向偏移而非等比缩小）。
+     * 与 ui-guidelines §4.6 一致（半个球身出屏，只剩半圆）。
      */
-    const val IdleOutRatio = 0.25f
+    const val IdleOutRatio = 0.5f
 
     const val PressScale = 0.9f
 

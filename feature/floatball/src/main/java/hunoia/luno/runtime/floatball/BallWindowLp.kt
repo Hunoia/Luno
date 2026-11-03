@@ -77,15 +77,6 @@ internal fun capsuleLayoutParams(widthPx: Int, heightPx: Int) = WindowManager.La
     y = 0
 }
 
-/** 尺寸变化落到现有窗（updateSettings 的 sizeDp 变更路径）。 */
-internal fun applyBallSize(view: View, wm: WindowManager, ballPx: Int) {
-    (view.layoutParams as? WindowManager.LayoutParams)?.let {
-        it.width = ballPx
-        it.height = ballPx
-        wm.safeUpdateViewLayout(view, it)
-    }
-}
-
 /**
  * 软隐藏第一步：hidden=true 立即置不可点（防误触，视觉淡出由调用方在 view alpha 上播，
  * lp alpha 收底延后到淡出完成）；hidden=false 恢复可点并把 lp alpha 抬回 1（视觉淡入

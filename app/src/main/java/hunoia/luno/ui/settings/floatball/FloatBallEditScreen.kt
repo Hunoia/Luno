@@ -287,7 +287,6 @@ fun FloatBallEditScreen(
             LunoGroup(title = stringResource(R.string.float_ball_capsule_group)) {
                 LunoSwitchRow(
                     title = stringResource(R.string.float_ball_capsule_enabled),
-                    subtitle = stringResource(R.string.float_ball_capsule_enabled_subtitle),
                     checked = capsule.enabled,
                     onCheckedChange = { checked ->
                         update { it.copy(notificationCapsule = it.notificationCapsule.copy(enabled = checked)) }
@@ -334,7 +333,6 @@ fun FloatBallEditScreen(
                 )
                 LunoSwitchRow(
                     title = stringResource(R.string.float_ball_capsule_suppress_dismiss),
-                    subtitle = stringResource(R.string.float_ball_capsule_suppress_dismiss_hint),
                     checked = suppress,
                     onCheckedChange = { checked ->
                         update {
@@ -369,7 +367,6 @@ fun FloatBallEditScreen(
                 }
                 LunoSettingsRow(
                     title = stringResource(R.string.float_ball_capsule_blocklist),
-                    subtitle = stringResource(R.string.float_ball_capsule_blocklist_hint),
                     trailing = {
                         if (capsule.blocklist.isNotEmpty()) {
                             Text(
@@ -404,7 +401,7 @@ fun FloatBallEditScreen(
                             AppGraph.system.setFloatBallEnabled(context, false)
                         }
                     },
-                    shape = segmentedShape(0, 3),
+                    shape = segmentedShape(0, 4),
                 )
                 LunoTextSlider(
                     value = localClipballAutoHide,
@@ -440,7 +437,6 @@ fun FloatBallEditScreen(
                 )
                 LunoSwitchRow(
                     title = stringResource(R.string.float_ball_clipball_images),
-                    subtitle = stringResource(R.string.float_ball_clipball_images_hint),
                     checked = clipball.respondToImages,
                     onCheckedChange = { checked ->
                         update { it.copy(clipboardBall = it.clipboardBall.copy(respondToImages = checked)) }
@@ -462,11 +458,7 @@ fun FloatBallEditScreen(
                     valueDisplay = { "${it.toInt()} 项" },
                     valueRange = FloatBallDefaults.InboxCapacityMin.toFloat()..
                         FloatBallDefaults.InboxCapacityMax.toFloat(),
-                    shape = segmentedShape(0, 2),
-                )
-                LunoSettingsRow(
-                    title = stringResource(R.string.float_ball_inbox_capacity_hint),
-                    shape = segmentedShape(1, 2),
+                    shape = segmentedShape(0, 1),
                 )
             }
         }
