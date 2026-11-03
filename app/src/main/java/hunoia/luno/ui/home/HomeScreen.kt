@@ -418,9 +418,15 @@ fun HomeScreen(
                                     onSubGestureClick = onNavToSubGestureEditor,
                                     onGestureCheckedChange = { button, enabled -> vm.onGestureButtonEnabledChange(button, enabled) },
                                     onSubCheckedChange = { gesture, enabled -> vm.onSubGestureEnabledChange(gesture, enabled) },
-                                    onAddGesture = { vm.addGestureButton() },
+                                    onAddGesture = {
+                                        // 点「+」添加后展开当前列，让新触钮立即可见。
+                                        expandedGestureSection = GesturePanelSection.TouchButton
+                                        vm.addGestureButton()
+                                    },
                                     onAddSub = {
                                         val id = java.util.UUID.randomUUID().toString()
+                                        // 点「+」添加后展开当前列，让新子手势立即可见。
+                                        expandedGestureSection = GesturePanelSection.SubGesture
                                         vm.addSubGesture(id)
                                     },
                                     onMarkColorClick = { target ->
