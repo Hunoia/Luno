@@ -9,12 +9,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
@@ -24,7 +26,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -76,7 +77,6 @@ fun SubGestureAngleContent(
     color: Color = MaterialTheme.colorScheme.primary
 ) {
     DirectionAngleContent(
-        title = stringResource(id = R.string.sub_gesture_angles),
         boundaries = angle.boundaries,
         onDismissRequest = onDismissRequest,
         onConfirm = { onConfirm(SubGestureAngle(boundaries = it)) },
@@ -92,7 +92,6 @@ fun GestureButtonAngleContent(
     color: Color = MaterialTheme.colorScheme.primary
 ) {
     DirectionAngleContent(
-        title = stringResource(id = R.string.gesture_angles),
         boundaries = angle.boundaries,
         onDismissRequest = onDismissRequest,
         onConfirm = { onConfirm(GestureButtonAngle(boundaries = it)) },
@@ -101,20 +100,20 @@ fun GestureButtonAngleContent(
 }
 
 /**
- * 方向角度编辑：方向数（1..8）+ 逐边界拖动 + 扇区中心实时显示方向名/角度。
+ * 方向角度编辑：方向数（1..8）+ 逐边界拖动 + 扇区中心显示方向名/扇区宽度。
  *
  * 方向数变化时保留槽 0 起点并等分圆周；确认后由调用方按「数量是否变化」决定清空动作组。
  * 扇区宽度仍可单独拖动（允许拖成 0° 关闭该方向）。
  */
 @Composable
 private fun DirectionAngleContent(
-    title: String,
     boundaries: List<Float>,
     onDismissRequest: () -> Unit,
     onConfirm: (List<Float>) -> Unit,
     color: Color = MaterialTheme.colorScheme.primary
 ) {
     var draftBoundaries by remember(boundaries) { mutableStateOf(boundaries) }
+    var dragHint by remember { mutableStateOf<DialDragHint?>(null) }
 
     fun changeCount(count: Int) {
         if (count == draftBoundaries.size) return
@@ -127,34 +126,30 @@ private fun DirectionAngleContent(
             .padding(horizontal = PageGutter, vertical = ListItemVerticalPadding)
     ) {
         Row(
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge
-            )
-            TextButton(onClick = {
+            IconButton(onClick = {
                 draftBoundaries = DirectionLayoutDefaults.defaultBoundaries(draftBoundaries.size)
             }) {
-                Icon(Icons.Default.Restore, contentDescription = null)
-                Text(text = stringResource(id = R.string.reset))
+                Icon(
+                    Icons.Default.Restore,
+                    contentDescription = stringResource(id = R.string.reset),
+                )
             }
+            DirectionCountStepper(
+                count = draftBoundaries.size,
+                onCountChange = ::changeCount,
+            )
         }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        DirectionCountStepper(
-            count = draftBoundaries.size,
-            onCountChange = ::changeCount,
-        )
 
         Spacer(modifier = Modifier.height(12.dp))
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 320.dp)
+                .aspectRatio(1f)
                 .background(
                     color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.55f),
                     shape = ExtraLargeShape
@@ -164,39 +159,21 @@ private fun DirectionAngleContent(
                     color = MaterialTheme.colorScheme.outlineVariant,
                     shape = ExtraLargeShape
                 )
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(16.dp)
         ) {
-            Column {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(250.dp)
-                ) {
-                    SubGestureAngleDial(
-                        modifier = Modifier.fillMaxWidth().height(250.dp),
-                        boundaries = draftBoundaries,
-                        onBoundariesChange = { draftBoundaries = it },
-                        color = color
-                    )
-                    SectorLabels(
-                        boundaries = draftBoundaries,
-                        color = color,
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(
-                        R.string.direction_sector_summary,
-                        draftBoundaries.size,
-                    ) + " · " + stringResource(
-                        R.string.direction_sector_custom,
-                        draftBoundaries.indices.joinToString(" / ") {
-                            "${sectorWidthDegrees(draftBoundaries, it).roundToInt()}°"
-                        },
-                    ),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+            Box(modifier = Modifier.fillMaxSize()) {
+                SubGestureAngleDial(
+                    modifier = Modifier.fillMaxSize(),
+                    boundaries = draftBoundaries,
+                    onBoundariesChange = { draftBoundaries = it },
+                    onDragHint = { dragHint = it },
+                    color = color
                 )
+                SectorLabels(
+                    boundaries = draftBoundaries,
+                    color = color,
+                )
+                dragHint?.let { DialDragHintChip(it) }
             }
         }
 
@@ -213,43 +190,33 @@ private fun DirectionCountStepper(
     count: Int,
     onCountChange: (Int) -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            text = stringResource(R.string.direction_count),
-            style = MaterialTheme.typography.bodyLarge,
-        )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(
-                onClick = { onCountChange(count - 1) },
-                enabled = count > DirectionLayoutDefaults.MinCount,
-            ) {
-                Icon(
-                    Icons.Default.Remove,
-                    contentDescription = stringResource(R.string.direction_count_remove),
-                )
-            }
-            Text(
-                text = count.toString(),
-                style = MaterialTheme.typography.titleLarge,
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButton(
+            onClick = { onCountChange(count - 1) },
+            enabled = count > DirectionLayoutDefaults.MinCount,
+        ) {
+            Icon(
+                Icons.Default.Remove,
+                contentDescription = stringResource(R.string.direction_count_remove),
             )
-            IconButton(
-                onClick = { onCountChange(count + 1) },
-                enabled = count < DirectionLayoutDefaults.MaxCount,
-            ) {
-                Icon(
-                    Icons.Default.Add,
-                    contentDescription = stringResource(R.string.direction_count_add),
-                )
-            }
+        }
+        Text(
+            text = count.toString(),
+            style = MaterialTheme.typography.titleMedium,
+        )
+        IconButton(
+            onClick = { onCountChange(count + 1) },
+            enabled = count < DirectionLayoutDefaults.MaxCount,
+        ) {
+            Icon(
+                Icons.Default.Add,
+                contentDescription = stringResource(R.string.direction_count_add),
+            )
         }
     }
 }
 
-/** 扇区中心的方向图标 + 名称 + 角度：跟随拖动实时更新。 */
+/** 扇区中心的方向图标 + 名称 + 扇区宽度：方向数 ≤ 4 时显示宽度，更多时只显示名称。 */
 @Composable
 private fun SectorLabels(
     boundaries: List<Float>,
@@ -257,22 +224,30 @@ private fun SectorLabels(
 ) {
     var size by remember { mutableStateOf(IntSize.Zero) }
     val density = LocalDensity.current
-    // 单方向要放「任意方向」四个字，其余方向是两字罗盘名。
-    val labelWidth = if (boundaries.size == 1) 76.dp else 56.dp
+    val count = boundaries.size
+    val showWidth = count <= MaxSectorWidthLabelCount
+    // 单方向要放「任意方向 360°」，其余方向是两字罗盘名 + 可选宽度。
+    val labelWidth = if (count == 1) 148.dp else 64.dp
     val boxWidthPx = with(density) { labelWidth.toPx() }
     val boxHeightPx = with(density) { SectorLabelHeight.toPx() }
     val radius = minOf(size.width, size.height).toFloat() * 0.30f
     Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(250.dp)
+            .fillMaxSize()
             .onSizeChanged { size = it }
     ) {
         if (size == IntSize.Zero) return@Box
         boundaries.indices.forEach { slot ->
-            // 零宽扇区等于「关闭这个方向」：不在盘面上重复叠一个标签。
-            if (sectorWidthDegrees(boundaries, slot) == 0f) return@forEach
+            val widthDegrees = sectorWidthDegrees(boundaries, slot).roundToInt()
+            val disabled = widthDegrees == 0
             val center = sectorCenterDegrees(boundaries, slot)
+            val name = directionLabel(center, count, withAngle = false)
+            // 0° 宽扇区已等于「关闭」，无论方向数多少都要显式标出来。
+            val widthText = when {
+                disabled -> stringResource(R.string.close)
+                showWidth -> "$widthDegrees°"
+                else -> null
+            }
             val rad = center / 360.0 * 2 * PI
             val x = size.width / 2f + radius * cos(rad).toFloat()
             val y = size.height / 2f - radius * sin(rad).toFloat()
@@ -291,15 +266,23 @@ private fun SectorLabels(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
-                        tint = color,
+                        tint = if (disabled) {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        } else {
+                            color
+                        },
                         modifier = Modifier
                             .size(12.dp)
-                            .graphicsLayer { rotationZ = DirectionLabels.iconRotation(center, boundaries.size) },
+                            .graphicsLayer { rotationZ = DirectionLabels.iconRotation(center, count) },
                     )
                     Text(
-                        text = directionLabel(center, boundaries.size, withAngle = false),
+                        text = if (widthText == null) name else "$name $widthText",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = if (disabled) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
                         maxLines = 1,
                     )
                 }
@@ -308,14 +291,47 @@ private fun SectorLabels(
     }
 }
 
+private const val MaxSectorWidthLabelCount = 4
+
 private val SectorLabelHeight = 18.dp
+
+private data class DialDragHint(val position: Offset, val degrees: Int)
+
+@Composable
+private fun DialDragHintChip(hint: DialDragHint) {
+    val density = LocalDensity.current
+    val chipWidth = 52.dp
+    val chipHeight = 22.dp
+    val widthPx = with(density) { chipWidth.toPx() }
+    val heightPx = with(density) { chipHeight.toPx() }
+    Box(
+        modifier = Modifier
+            .offset {
+                IntOffset(
+                    (hint.position.x - widthPx / 2f).roundToInt(),
+                    (hint.position.y - heightPx / 2f).roundToInt(),
+                )
+            }
+            .size(chipWidth, chipHeight)
+            .background(MaterialTheme.colorScheme.inverseSurface, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "${hint.degrees}°",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.inverseOnSurface,
+            maxLines = 1,
+        )
+    }
+}
 
 @Composable
 private fun SubGestureAngleDial(
     onBoundariesChange: (List<Float>) -> Unit,
     boundaries: List<Float>,
     modifier: Modifier = Modifier,
-    color: Color = MaterialTheme.colorScheme.primary
+    color: Color = MaterialTheme.colorScheme.primary,
+    onDragHint: (DialDragHint?) -> Unit = {},
 ) {
     val dragHandleRadius = CanvasThumbRadius
     val dragHitRadius = CanvasHitRadius
@@ -327,6 +343,7 @@ private fun SubGestureAngleDial(
         modifier = modifier.let {
             val curOnBoundariesChange by rememberUpdatedState(newValue = onBoundariesChange)
             val curBoundaries by rememberUpdatedState(newValue = boundaries)
+            val curOnDragHint by rememberUpdatedState(newValue = onDragHint)
             it.pointerInput(dragHitRadius) {
                 var dragOffset = Offset.Zero
                 var candidates = emptyList<Int>()
@@ -344,6 +361,18 @@ private fun SubGestureAngleDial(
                             Rect(center = pOffset, radius = dragHitRadius.toPx()).contains(offset)
                         }
                         candidateIndex = candidates.singleOrNull()
+                        candidateIndex?.let { index ->
+                            curOnDragHint(
+                                DialDragHint(
+                                    position = handlePosition(
+                                        circleCenter,
+                                        circleRadius,
+                                        curBoundaries[index],
+                                    ),
+                                    degrees = normalizeDegrees(curBoundaries[index] * 360f),
+                                )
+                            )
+                        }
                     },
                     onDrag = onDrag@{ _, dragAmount ->
                         dragOffset += dragAmount
@@ -355,16 +384,24 @@ private fun SubGestureAngleDial(
                         val target = candidateIndex ?: return@onDrag
                         val newBoundaries = copyDirectionAngleBoundary(curBoundaries, target, curNorm)
                         curOnBoundariesChange(newBoundaries)
+                        curOnDragHint(
+                            DialDragHint(
+                                position = handlePosition(circleCenter, circleRadius, curNorm),
+                                degrees = normalizeDegrees(curNorm * 360f),
+                            )
+                        )
                     },
                     onDragEnd = {
                         dragOffset = Offset.Zero
                         candidates = emptyList()
                         candidateIndex = null
+                        curOnDragHint(null)
                     },
                     onDragCancel = {
                         dragOffset = Offset.Zero
                         candidates = emptyList()
                         candidateIndex = null
+                        curOnDragHint(null)
                     }
                 )
             }
@@ -423,6 +460,17 @@ private fun SubGestureAngleDial(
         drawCircle(color = Color.White, radius = 3.dp.toPx(), center = myCenter)
     }
 }
+
+private fun handlePosition(center: Offset, radius: Float, normalized: Float): Offset {
+    val rad = normalized * 2f * PI.toFloat()
+    return Offset(
+        x = center.x + radius * cos(rad),
+        y = center.y - radius * sin(rad),
+    )
+}
+
+private fun normalizeDegrees(degrees: Float): Int =
+    ((degrees.roundToInt() % 360) + 360) % 360
 
 private fun normalizedDiff(a: Float, b: Float): Float {
     val diff = a - b
