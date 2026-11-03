@@ -30,6 +30,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -45,8 +46,9 @@ import hunoia.luno.config.model.LinkDispatchSettings
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.link.Links
 import hunoia.luno.link.LinkPresets
+import hunoia.luno.link.LinkTarget
+import hunoia.luno.link.Links
 import hunoia.luno.ui.component.DragReorderHandle
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.dragReorderPlacement
@@ -59,10 +61,12 @@ import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
+import hunoia.luno.ui.icon.rememberPackageIconBitmap
 import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.ElevationSmall
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.LargeShape
+import hunoia.luno.ui.theme.RowIconSize
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -266,17 +270,39 @@ fun LinkDispatchSettingsScreen(
         },
     ) {
         item {
+            LunoGroup(title = stringResource(R.string.link_dispatch_browser_group)) {
+                LunoSettingsRow(
+                    title = stringResource(R.string.link_dispatch_default_browser),
+                    shape = segmentedShape(0, 1),
+                    onClick = {
+                        val launched = runCatching {
+                            context.startActivity(
+                                Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        }
+                        if (launched.isFailure) {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_SETTINGS)
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                )
+                            }
+                        }
+                    },
+                )
+            }
+        }
+        item {
             LunoGroup(title = stringResource(R.string.link_dispatch_global_group)) {
                 LunoSwitchRow(
                     title = stringResource(R.string.link_dispatch_enabled),
-                    subtitle = stringResource(R.string.link_dispatch_enabled_hint),
                     checked = linkSettings.enabled,
                     onCheckedChange = { checked -> update { it.copy(enabled = checked) } },
                     shape = segmentedShape(0, 3),
                 )
                 ChoiceRow(
                     title = stringResource(R.string.link_dispatch_capsule_tap),
-                    subtitle = stringResource(R.string.link_dispatch_capsule_tap_hint),
                     options = listOf(
                         stringResource(R.string.link_dispatch_tap_dispatch),
                         stringResource(R.string.link_dispatch_tap_share),
@@ -293,7 +319,6 @@ fun LinkDispatchSettingsScreen(
                 )
                 ChoiceRow(
                     title = stringResource(R.string.link_dispatch_miss),
-                    subtitle = stringResource(R.string.link_dispatch_miss_hint),
                     options = listOf(
                         stringResource(R.string.link_dispatch_miss_share),
                         stringResource(R.string.link_dispatch_miss_browser),
@@ -344,7 +369,11 @@ fun LinkDispatchSettingsScreen(
             }
         }
         item {
-            LunoGroup(title = stringResource(R.string.link_dispatch_rules_group)) {
+            val iconPx = with(LocalDensity.current) { RowIconSize.toPx() }.toInt()
+            LunoGroup(
+                title = stringResource(R.string.link_dispatch_rules_group),
+                subtitle = stringResource(R.string.link_dispatch_rules_order),
+            ) {
                 if (rules.isEmpty()) {
                     Surface(
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(ContainerRadius),
@@ -354,22 +383,26 @@ fun LinkDispatchSettingsScreen(
                     }
                 } else {
                     rules.forEachIndexed { index, rule ->
-                        // key 必须带上目标应用/浏览器开关：改完目标返回列表时才能刷新副标题。
-                        val targetLabel by produceState(
-                            initialValue = null as String?,
+                        // key 必须带上目标应用/浏览器开关：改完目标返回列表时才能刷新副标题与图标。
+                        val target by produceState(
+                            initialValue = null as LinkTarget?,
                             rule.id,
                             rule.targetPackage,
                             rule.viaBrowser,
                         ) {
-                            value = Links.targetOf(context, rule)?.label
+                            value = Links.targetOf(context, rule)
                         }
+                        // 有具体目标包名时显示应用图标，否则（浏览器自动/未设目标）降级 Link。
+                        val targetIcon = target?.packageName?.takeIf { it.isNotEmpty() }
+                            ?.let { rememberPackageIconBitmap(it, iconPx) }
                         LunoSettingsRow(
-                            icon = Icons.Default.Link,
+                            icon = if (targetIcon == null) Icons.Default.Link else null,
+                            iconBitmap = targetIcon,
                             title = rule.name.ifBlank { rule.pattern },
                             subtitle = linkRuleSummary(
                                 type = rule.matchType,
                                 pattern = rule.pattern,
-                                targetLabel = targetLabel,
+                                targetLabel = target?.label,
                                 viaBrowser = rule.viaBrowser,
                                 resolveShortLink = rule.resolveShortLink,
                             ),
@@ -388,31 +421,6 @@ fun LinkDispatchSettingsScreen(
                         )
                     }
                 }
-            }
-        }
-        item {
-            LunoGroup(title = stringResource(R.string.link_dispatch_browser_group)) {
-                LunoSettingsRow(
-                    title = stringResource(R.string.link_dispatch_default_browser),
-                    subtitle = stringResource(R.string.link_dispatch_default_browser_hint),
-                    shape = segmentedShape(0, 1),
-                    onClick = {
-                        val launched = runCatching {
-                            context.startActivity(
-                                Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
-                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                            )
-                        }
-                        if (launched.isFailure) {
-                            runCatching {
-                                context.startActivity(
-                                    Intent(Settings.ACTION_SETTINGS)
-                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                                )
-                            }
-                        }
-                    },
-                )
             }
         }
     }

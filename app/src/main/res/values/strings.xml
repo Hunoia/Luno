@@ -497,13 +497,10 @@
     <string name="link_dispatch_no_link">没有识别到链接</string>
     <string name="link_dispatch_global_group">行为</string>
     <string name="link_dispatch_enabled">启用链接分发</string>
-    <string name="link_dispatch_enabled_hint">关闭后胶囊不再识别链接、外部打开也不按规则分发；识屏幽灵卡的「打开链接」仍可用，但回退到打开方式设置</string>
     <string name="link_dispatch_capsule_tap">命中链接时的点击行为</string>
-    <string name="link_dispatch_capsule_tap_hint">剪贴板胶囊里认出链接且命中规则时，点击胶囊做什么</string>
     <string name="link_dispatch_tap_dispatch">直达目标应用</string>
     <string name="link_dispatch_tap_share">系统分享面板</string>
     <string name="link_dispatch_miss">未命中规则时</string>
-    <string name="link_dispatch_miss_hint">胶囊点击与外部打开链接都按这里处理</string>
     <string name="link_dispatch_miss_share">系统分享面板</string>
     <string name="link_dispatch_miss_browser">浏览器打开</string>
     <string name="link_dispatch_miss_picker">选择应用</string>
@@ -512,7 +509,8 @@
     <string name="link_dispatch_presets_available">%1$d 条可添加（按本机已安装的应用生成）</string>
     <string name="link_dispatch_presets_none">已全部添加</string>
     <string name="link_dispatch_presets_added">已添加 %1$d 条规则</string>
-    <string name="link_dispatch_rules_group">规则（按顺序匹配，第一条命中生效）</string>
+    <string name="link_dispatch_rules_group">规则</string>
+    <string name="link_dispatch_rules_order">按顺序匹配，第一条命中生效</string>
     <string name="link_dispatch_rules_empty">暂无规则，点右下角添加。未命中任何规则的链接按上面的「未命中规则时」处理。</string>
     <string name="link_dispatch_rule_add">新增规则</string>
     <string name="link_dispatch_rule_edit">编辑规则</string>
@@ -566,7 +564,6 @@
     <string name="link_dispatch_rule_mini_window">小窗方式打开</string>
     <string name="link_dispatch_browser_group">默认浏览器</string>
     <string name="link_dispatch_default_browser">把 Luno 设为默认浏览器</string>
-    <string name="link_dispatch_default_browser_hint">设置后，其它应用点开的 http(s) 链接会先送到这里，再按上面的规则分发</string>
     <string name="link_dispatch_pick_app_title">选择打开方式</string>
     <string name="link_dispatch_pick_app_hint">选择一个应用打开这条链接</string>
     <string name="link_dispatch_pick_app_empty">没有找到能打开该链接的应用</string>
