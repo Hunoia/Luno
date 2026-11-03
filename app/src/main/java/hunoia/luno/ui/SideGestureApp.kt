@@ -93,10 +93,13 @@ import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
 import hunoia.luno.ui.navigation.LocalGridPanels
+import hunoia.luno.ui.navigation.LocalSubGestures
 import hunoia.luno.ui.navigation.LocalNavController
 import hunoia.luno.ui.navigation.PendingLinkRule
 import hunoia.luno.ui.home.HomeScreen
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.domain.gesture.GestureConfig
+import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.config.model.ActionSettings as ActionTuning
 import kotlin.reflect.KType
 
@@ -110,6 +113,8 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
             .collectAsStateWithLifecycle(initialValue = ActionLibrarySettings())
         val actionSettings by TuneConfig.action
             .collectAsStateWithLifecycle(initialValue = ActionTuning())
+        val subGestureSettings by GestureConfig.subGestures
+            .collectAsStateWithLifecycle(initialValue = SubGestureSettings())
         // 识屏卡片「新建分发规则」：跨进程 Intent → [PendingLinkRule]，消费一次就跳编辑页。
         val pendingRulePattern by PendingLinkRule.pattern.collectAsStateWithLifecycle()
         LaunchedEffect(pendingRulePattern) {
@@ -122,6 +127,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
             LocalActionLibraryEntries provides actionLibrarySettings.entries,
             LocalActionPanels provides actionSettings.actionPanels.panels,
             LocalGridPanels provides actionSettings.actionGridPanels.panels,
+            LocalSubGestures provides subGestureSettings.subGestures,
         ) {
             Surface(modifier = Modifier.fillMaxSize()) {
                 NavHost(

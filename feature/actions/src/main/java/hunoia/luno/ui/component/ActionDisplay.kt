@@ -25,6 +25,7 @@ import hunoia.luno.action.model.shortcutInfo
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
 import hunoia.luno.ui.navigation.LocalGridPanels
+import hunoia.luno.ui.navigation.LocalSubGestures
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import hunoia.luno.action.model.Action
@@ -83,6 +84,11 @@ fun actionText(
         panels.firstOrNull { it.id == panelId }?.let { panel ->
             return panel.name.ifBlank { stringResource(R.string.grid_panel_unnamed) }
         }
+    }
+    if (action.typeId == Action.SubGesture.typeId) {
+        val id = (action.params["id"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+        val name = LocalSubGestures.current.firstOrNull { it.id == id }?.name
+        if (!name.isNullOrBlank()) return name
     }
     if (action.typeId == hunoia.luno.core.domain.AppLaunchAction.TYPE_ID) {
         val context = androidx.compose.ui.platform.LocalContext.current

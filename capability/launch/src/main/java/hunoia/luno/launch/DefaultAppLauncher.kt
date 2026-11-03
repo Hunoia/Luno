@@ -95,14 +95,16 @@ class DefaultAppLauncher(
                 .firstOrNull()
         }
         val className = resolveInfo?.activityInfo?.name
-        if (className.isNullOrEmpty()) return ActionResult.Success()
-        Launcher.launchAppInPopup(
+        if (className.isNullOrEmpty()) return ActionResult.Failed(ActionFailure.ExecutionFailed)
+        val userId = Launcher.currentUserIdForPackage(context, packageName)
+        val launched = Launcher.launchAppInPopup(
             context = context,
             packageName = packageName,
             className = className,
             miniWindowSettings = advancedSettings().miniWindowSettings(),
+            userId = userId,
         )
-        return ActionResult.Success()
+        return if (launched) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
     }
 
     override suspend fun openUrl(

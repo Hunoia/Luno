@@ -120,7 +120,7 @@ object QuickLaunchFacade {
         AppQuery.invalidateLauncherCache()
     }
 
-    fun launchAppInPopup(
+    suspend fun launchAppInPopup(
         context: Context,
         packageName: String,
         className: String,

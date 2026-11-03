@@ -314,33 +314,11 @@ class GestureState(
         )
     }
 
-    /**
-     * 同方向回退：非按住只在滑动俩之间（Slide↔LongSlide），按住先 hold 后滑动。
-     * 返回（动作，实际类型）：震动与面板按实际类型走，不按 decision 类型。
-     */
-    private fun fallbackOrder(primary: GestureTriggerType): List<GestureTriggerType> = when (primary) {
-        GestureTriggerType.Slide -> listOf(GestureTriggerType.Slide, GestureTriggerType.LongSlide)
-        GestureTriggerType.LongSlide -> listOf(GestureTriggerType.LongSlide, GestureTriggerType.Slide)
-        GestureTriggerType.SlideHold -> listOf(
-            GestureTriggerType.SlideHold,
-            GestureTriggerType.LongSlideHold,
-            GestureTriggerType.Slide,
-            GestureTriggerType.LongSlide,
-        )
-        GestureTriggerType.LongSlideHold -> listOf(
-            GestureTriggerType.LongSlideHold,
-            GestureTriggerType.SlideHold,
-            GestureTriggerType.Slide,
-            GestureTriggerType.LongSlide,
-        )
-        else -> listOf(primary)
-    }
-
     private fun actionsFor(
         button: GestureButton,
         decision: GestureDecision.Trigger,
     ): Pair<StoredAction?, GestureTriggerType> {
-        for (type in fallbackOrder(decision.triggerType)) {
+        for (type in decision.triggerType.sameDirectionFallbackOrder()) {
             val action = actionByType(button, type, decision.actionDirection)
             if (action.hasMeaningfulAction()) return action to type
         }
@@ -369,4 +347,28 @@ class GestureState(
 
     private fun StoredAction?.hasMeaningfulAction(): Boolean =
         this != null && typeId != Action.NONE_TYPE_ID
+}
+
+/**
+ * 同方向回退：非按住只在滑动俩之间（Slide↔LongSlide），按住先 hold 后滑动。
+ *
+ * 主手势与子手势共用同一份顺序：子手势没有独立识别机，但动作选择语义必须一致，
+ * 否则「远距离但没配长滑动作」在主手势会回退、在子手势却直接无动作。
+ */
+internal fun GestureTriggerType.sameDirectionFallbackOrder(): List<GestureTriggerType> = when (this) {
+    GestureTriggerType.Slide -> listOf(GestureTriggerType.Slide, GestureTriggerType.LongSlide)
+    GestureTriggerType.LongSlide -> listOf(GestureTriggerType.LongSlide, GestureTriggerType.Slide)
+    GestureTriggerType.SlideHold -> listOf(
+        GestureTriggerType.SlideHold,
+        GestureTriggerType.LongSlideHold,
+        GestureTriggerType.Slide,
+        GestureTriggerType.LongSlide,
+    )
+    GestureTriggerType.LongSlideHold -> listOf(
+        GestureTriggerType.LongSlideHold,
+        GestureTriggerType.SlideHold,
+        GestureTriggerType.Slide,
+        GestureTriggerType.LongSlide,
+    )
+    else -> listOf(this)
 }

@@ -99,10 +99,14 @@ class SubGestureState(
                 longSlideHoldFirstTriggerMs = SystemClock.uptimeMillis()
             } else if (!directTriggered && SystemClock.uptimeMillis() - longSlideHoldFirstTriggerMs >= sg.longSlideHoldTriggerDelayMs) {
                 val direction = sg.angle.directionOf(subGestureAccum)
-                val action = sg.longSlideHoldActionFor(direction)
+                val (action, actualType) = actionsFor(
+                    sg,
+                    GestureTriggerType.LongSlideHold,
+                    direction,
+                )
                 if (action.hasMeaningfulAction()) {
                     directTriggered = true
-                    return resolve(sg, direction, GestureTriggerType.LongSlideHold)
+                    return resolve(sg, direction, actualType)
                 }
             }
         } else {
@@ -113,10 +117,14 @@ class SubGestureState(
                 slideHoldFirstTriggerMs = SystemClock.uptimeMillis()
             } else if (!directTriggered && SystemClock.uptimeMillis() - slideHoldFirstTriggerMs >= sg.slideHoldTriggerDelayMs) {
                 val direction = sg.angle.directionOf(subGestureAccum)
-                val action = sg.slideHoldActionFor(direction)
+                val (action, actualType) = actionsFor(
+                    sg,
+                    GestureTriggerType.SlideHold,
+                    direction,
+                )
                 if (action.hasMeaningfulAction()) {
                     directTriggered = true
-                    return resolve(sg, direction, GestureTriggerType.SlideHold)
+                    return resolve(sg, direction, actualType)
                 }
             }
         } else {
@@ -134,14 +142,19 @@ class SubGestureState(
         val sg = activeSubGesture ?: return null
         val distance = kotlin.math.hypot(subGestureAccum.x, subGestureAccum.y)
         val direction = sg.angle.directionOf(subGestureAccum)
-        if (distance >= sg.effectiveLongSlideTriggerDistance && sg.longSlideActionFor(direction).hasMeaningfulAction()) {
-            return resolve(sg, direction, GestureTriggerType.LongSlide)
-        } else if (distance >= sg.triggerDistance && sg.slideActionFor(direction).hasMeaningfulAction()) {
-            return resolve(sg, direction, GestureTriggerType.Slide)
-        } else {
-            subGestureAccum = Offset.Zero
-            return null
+        val nominalType = when {
+            distance >= sg.effectiveLongSlideTriggerDistance -> GestureTriggerType.LongSlide
+            distance >= sg.triggerDistance -> GestureTriggerType.Slide
+            else -> null
         }
+        if (nominalType != null) {
+            val (action, actualType) = actionsFor(sg, nominalType, direction)
+            if (action.hasMeaningfulAction()) {
+                return resolve(sg, direction, actualType)
+            }
+        }
+        subGestureAccum = Offset.Zero
+        return null
     }
 
     fun onDragCancel() {
@@ -182,13 +195,7 @@ class SubGestureState(
         direction: Int,
         triggerType: GestureTriggerType,
     ): SubGestureResolvedActions {
-        val action = when (triggerType) {
-            GestureTriggerType.Slide -> subGesture.slideActionFor(direction)
-            GestureTriggerType.SlideHold -> subGesture.slideHoldActionFor(direction)
-            GestureTriggerType.LongSlide -> subGesture.longSlideActionFor(direction)
-            GestureTriggerType.LongSlideHold -> subGesture.longSlideHoldActionFor(direction)
-            else -> null
-        }
+        val action = actionByType(subGesture, triggerType, direction)
         lastResolvedActionSubGesture = subGesture
         activeSubGesture = null
         timeoutJob?.cancel()
@@ -214,6 +221,34 @@ class SubGestureState(
         touchPosition,
         GestureDecision.Trigger(triggerType, direction, direction),
     )
+    }
+
+    /**
+     * 同方向回退与主手势一致：返回（动作，实际类型）。
+     * 震动与解析结果按实际类型走，不按名义类型。
+     */
+    private fun actionsFor(
+        subGesture: SubGesture,
+        primary: GestureTriggerType,
+        direction: Int,
+    ): Pair<StoredAction?, GestureTriggerType> {
+        for (type in primary.sameDirectionFallbackOrder()) {
+            val action = actionByType(subGesture, type, direction)
+            if (action.hasMeaningfulAction()) return action to type
+        }
+        return null to primary
+    }
+
+    private fun actionByType(
+        subGesture: SubGesture,
+        type: GestureTriggerType,
+        direction: Int,
+    ): StoredAction? = when (type) {
+        GestureTriggerType.Slide -> subGesture.slideActionFor(direction)
+        GestureTriggerType.SlideHold -> subGesture.slideHoldActionFor(direction)
+        GestureTriggerType.LongSlide -> subGesture.longSlideActionFor(direction)
+        GestureTriggerType.LongSlideHold -> subGesture.longSlideHoldActionFor(direction)
+        else -> null
     }
 
     private fun Offset.hasFiniteCoordinates(): Boolean = x.isFinite() && y.isFinite()

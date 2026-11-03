@@ -21,10 +21,13 @@ import hunoia.luno.core.Events
 import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.domain.gesture.GestureConfig
+import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
 import hunoia.luno.ui.navigation.LocalGridPanels
+import hunoia.luno.ui.navigation.LocalSubGestures
 import hunoia.luno.ui.navigation.LocalNavController
 import hunoia.luno.ui.theme.SideGestureTheme
 
@@ -56,12 +59,15 @@ class ActionSelectHostActivity : ComponentActivity() {
                     .collectAsStateWithLifecycle(initialValue = ActionSettings())
                 val actionLibrarySettings by ActionLibrary.settings
                     .collectAsStateWithLifecycle(initialValue = ActionLibrarySettings())
+                val subGestureSettings by GestureConfig.subGestures
+                    .collectAsStateWithLifecycle(initialValue = SubGestureSettings())
                 val select = actionSelect
                 CompositionLocalProvider(
                     LocalNavController provides navController,
                     LocalActionLibraryEntries provides actionLibrarySettings.entries,
                     LocalActionPanels provides actionSettings.actionPanels.panels,
                     LocalGridPanels provides actionSettings.actionGridPanels.panels,
+                    LocalSubGestures provides subGestureSettings.subGestures,
                 ) {
                     // 参数解不出来（applyIntent 已 finish）时画空壳，别碰选择页内容。
                     if (select != null) {

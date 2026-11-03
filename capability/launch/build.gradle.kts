@@ -28,4 +28,5 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.annotation)
     implementation(libs.jetbrains.kotlin.serialization)
+    testImplementation(libs.junit)
 }

@@ -3,6 +3,7 @@ package hunoia.luno.ui.navigation
 import androidx.compose.runtime.staticCompositionLocalOf
 import hunoia.luno.config.model.ActionPanel
 import hunoia.luno.config.model.GridPanel
+import hunoia.luno.config.model.SubGesture
 import hunoia.luno.core.domain.ActionLibraryEntry
 
 /**
@@ -19,3 +20,6 @@ val LocalActionPanels = staticCompositionLocalOf<List<ActionPanel>> { emptyList(
 
 /** 全局网格面板列表。用于把 `internal.gridPanel` 显示成具名面板而非类型名。 */
 val LocalGridPanels = staticCompositionLocalOf<List<GridPanel>> { emptyList() }
+
+/** 全局子手势列表。用于把 `internal.subGesture` 显示成具名子手势而非类型名。 */
+val LocalSubGestures = staticCompositionLocalOf<List<SubGesture>> { emptyList() }

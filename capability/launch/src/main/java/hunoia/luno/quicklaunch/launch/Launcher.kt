@@ -9,6 +9,7 @@ import android.graphics.Point
 import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.Process
 import android.os.UserHandle
 import hunoia.luno.core.LunoLog as Log
@@ -24,7 +25,9 @@ import hunoia.luno.bridge.system.normalizeOpenAppOrUrl
 import hunoia.luno.bridge.system.AppIcons
 import hunoia.luno.shizuku.ShizukuManager
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 import hunoia.luno.core.LOG_TAG
 
@@ -60,7 +63,7 @@ object Launcher {
             if (AppIcons.hasClone(context, packageName) && ShizukuManager.currentStatus().isReady) {
                 buildLaunchIntent(context, packageName, className, intentAction, data, extras)?.let { intent ->
                     val options = if (miniWindow) {
-                        MiniWindowGeometry.activityOptions(context, miniWindowSettings).toBundle()
+                        MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings)
                     } else {
                         null
                     }
@@ -164,7 +167,7 @@ object Launcher {
             val intent = buildLaunchIntent(context, packageName, className, intentAction, data, extras)
             if (intent != null) {
                 val options = if (miniWindow) {
-                    MiniWindowGeometry.activityOptions(context, miniWindowSettings).toBundle()
+                    MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings)
                 } else {
                     null
                 }
@@ -286,7 +289,7 @@ object Launcher {
             .firstOrNull { className.isBlank() || it.componentName.className == className }
             ?: return false
         val options = if (miniWindow) {
-            MiniWindowGeometry.activityOptions(context, miniWindowSettings).toBundle()
+            MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings)
         } else {
             null
         }
@@ -499,7 +502,11 @@ object Launcher {
         return OpenUrlBuilder.build(normalizedUrl, data)
     }
 
-    fun launchAppInPopup(
+    /**
+     * 「小窗当前应用」：复用普通启动链路，主用户 / 分身 / 有分身的主应用都走同一套
+     * ActivityOptions 与 XSpace 规避逻辑；userId 由 [currentUserIdForPackage] 判定。
+     */
+    suspend fun launchAppInPopup(
         context: Context,
         packageName: String,
         className: String,
@@ -507,15 +514,42 @@ object Launcher {
         intentAction: String = "",
         data: String = "",
         extras: Map<String, String> = emptyMap(),
-    ): Boolean {
-        return MiniWindow.startActivity(
-            context,
-            ComponentName.createRelative(packageName, className),
-            miniWindowSettings,
-            intentAction = intentAction,
-            data = data,
-            extras = extras,
+        userId: Int = 0,
+    ): Boolean = launchApp(
+        context = context,
+        packageName = packageName,
+        className = className,
+        miniWindow = true,
+        miniWindowSettings = miniWindowSettings,
+        intentAction = intentAction,
+        data = data,
+        extras = extras,
+        userId = userId,
+    )
+
+    /**
+     * 当前前台实例的 userId。分身与主应用同包名，只能从系统任务列表确认实例；
+     * 非分身包直接返回 0，避免每次 popup 都走 shell。
+     */
+    suspend fun currentUserIdForPackage(context: Context, packageName: String): Int =
+        withContext(Dispatchers.IO) {
+            if (!AppIcons.hasClone(context, packageName)) return@withContext 0
+            if (!ShizukuManager.currentStatus().isReady) return@withContext 0
+            val output = runCatching {
+                ShizukuManager.executeShell("am stack list", maxChars = 200_000).stdout
+            }.getOrNull() ?: return@withContext 0
+            parseVisibleTaskUserId(output, packageName) ?: 0
+        }
+
+    /**
+     * 从 `am stack list` 里取该包可见任务的 userId。任务按顶层优先输出，第一个命中的
+     * 就是焦点实例；主应用与分身同包名时靠这条区分。
+     */
+    internal fun parseVisibleTaskUserId(output: String, packageName: String): Int? {
+        val regex = Regex(
+            """taskId=\d+:\s+${Regex.escape(packageName)}/\S+.*?\buserId=(\d+)\s+visible=true\b""",
         )
+        return regex.find(output)?.groupValues?.getOrNull(1)?.toIntOrNull()
     }
 
 }
@@ -551,19 +585,26 @@ internal object MiniWindowGeometry {
         return Rect(left, top, left + winW, top + winH)
     }
 
-    fun activityOptions(context: Context, miniWindowSettings: MiniWindowSettings): ActivityOptions {
+    /**
+     * 小窗启动参数。Android 17 起 `ActivityOptions.setLaunchWindowingMode` 是
+     * BLOCKED + TEST-API，普通 release 包反射会被 hiddenapi 拒绝；AOSP 的
+     * `ActivityOptions(Bundle)` 会读取 `android.activity.windowingMode`，直接把
+     * 这个 key 写进 bundle，不再依赖隐藏 API。
+     */
+    fun activityOptionsBundle(context: Context, miniWindowSettings: MiniWindowSettings): Bundle {
         val size = realScreenSize(context)
         val landscape = context.resources.configuration.orientation ==
             android.content.res.Configuration.ORIENTATION_LANDSCAPE
         val settings = miniWindowSettings.forOrientation(landscape)
-        return ActivityOptions.makeBasic().also { opts ->
-            runCatching {
-                opts.javaClass.getMethod("setLaunchWindowingMode", Int::class.javaPrimitiveType)
-                    .invoke(opts, 5)
-            }
-            opts.setLaunchBounds(bounds(settings, size.x, size.y, landscape))
-        }
+        val launchBounds = bounds(settings, size.x, size.y, landscape)
+        return ActivityOptions.makeBasic()
+            .apply { setLaunchBounds(launchBounds) }
+            .toBundle()
+            .apply { putInt(KEY_WINDOWING_MODE, WINDOWING_MODE_FREEFORM) }
     }
+
+    private const val KEY_WINDOWING_MODE = "android.activity.windowingMode"
+    private const val WINDOWING_MODE_FREEFORM = 5
 
     private fun isMiui13Plus(): Boolean {
         val manufacturer = Build.MANUFACTURER.lowercase(Locale.ROOT)
@@ -618,8 +659,8 @@ private object MiniWindow {
         miniWindowSettings: MiniWindowSettings,
     ): Boolean {
         return try {
-            val activityOptions = MiniWindowGeometry.activityOptions(context, miniWindowSettings)
-            context.startActivity(intent, activityOptions.toBundle())
+            val activityOptions = MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings)
+            context.startActivity(intent, activityOptions)
             true
         } catch (e: Exception) {
             Log.e(LOG_TAG, "startActivity in mini window failed", e)

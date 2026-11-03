@@ -30,6 +30,7 @@ import hunoia.luno.runtime.overlay.safeUpdateViewLayout
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
 import hunoia.luno.ui.navigation.LocalGridPanels
+import hunoia.luno.ui.navigation.LocalSubGestures
 import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.core.LOG_TAG
 
@@ -255,6 +256,8 @@ object GridPanelOverlay : OverlayPanelHost(
                 .collectAsStateWithLifecycle(initialValue = null)
             val librarySettings by hunoia.luno.domain.action.ActionLibrary.settings
                 .collectAsStateWithLifecycle(initialValue = null)
+            val subGestureSettings by hunoia.luno.domain.gesture.GestureConfig.subGestures
+                .collectAsStateWithLifecycle(initialValue = hunoia.luno.config.model.SubGestureSettings())
             val settings = actionSettings ?: return@SideGestureTheme
             val library = librarySettings ?: return@SideGestureTheme
             // 拖拽幽灵：跟着手指跨越面板边界，必须画在整个面板之上（格子会被裁剪）。
@@ -264,6 +267,7 @@ object GridPanelOverlay : OverlayPanelHost(
                 LocalActionLibraryEntries provides library.entries,
                 LocalActionPanels provides settings.actionPanels.panels,
                 LocalGridPanels provides settings.actionGridPanels.panels,
+                LocalSubGestures provides subGestureSettings.subGestures,
                 // 自绘小部件里启动外部应用后，用同一个退场动画关掉面板。
                 LocalGridPanelClose provides { (closeAnimated ?: { closeImmediate() }).invoke() },
                 LocalGridPanelDragGhost provides dragGhost,

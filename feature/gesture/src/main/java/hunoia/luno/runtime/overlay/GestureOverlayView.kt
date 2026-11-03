@@ -17,6 +17,7 @@ import hunoia.luno.runtime.gesturepanel.SideGestureContainer
 import hunoia.luno.runtime.settings.SettingsState
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
+import hunoia.luno.ui.navigation.LocalSubGestures
 import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.flow.StateFlow
 
@@ -44,6 +45,7 @@ fun GestureOverlayView(
         CompositionLocalProvider(
             LocalActionLibraryEntries provides state.actionLibrarySettings.entries,
             LocalActionPanels provides state.actionSettings.actionPanels.panels,
+            LocalSubGestures provides state.subGestureSettings.subGestures,
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 SideGestureContainer(
