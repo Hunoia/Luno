@@ -82,6 +82,11 @@ data class LinkDispatchRuleEdit(
 @Serializable
 data object PrivilegedPermissions
 
+/** 无障碍管理：列出设备上全部已安装无障碍服务并就地启停（含本服务状态卡）。 */
+@Keep
+@Serializable
+data object AccessibilityManager
+
 @Keep
 @Serializable
 data object NotificationBlocklist

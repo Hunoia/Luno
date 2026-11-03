@@ -43,6 +43,7 @@ import hunoia.luno.ui.navigation.OcrModelSettings
 import hunoia.luno.ui.navigation.ScreenPickSettings
 import hunoia.luno.ui.navigation.NotificationBlocklist
 import hunoia.luno.ui.navigation.PrivilegedPermissions
+import hunoia.luno.ui.navigation.AccessibilityManager
 import hunoia.luno.ui.navigation.RecentAppsBlocklist
 import hunoia.luno.ui.navigation.LinkDispatchRules
 import hunoia.luno.ui.navigation.LinkDispatchRuleEdit
@@ -69,6 +70,7 @@ import hunoia.luno.ui.actionlibrary.ActionLibraryEditScreen
 import hunoia.luno.ui.settings.action.OcrModelSettingsScreen
 import hunoia.luno.ui.settings.action.ScreenPickSettingsScreen
 import hunoia.luno.ui.settings.action.RecentAppsBlocklistScreen
+import hunoia.luno.ui.settings.accessibility.AccessibilityManagerScreen
 import hunoia.luno.ui.settings.permission.PrivilegedPermissionsScreen
 import hunoia.luno.ui.settings.action.MiniWindowAdjustScreen
 import hunoia.luno.ui.settings.link.LinkDispatchEditScreen
@@ -165,6 +167,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToPrivilegedPermissions = {
                             navController.navigate(PrivilegedPermissions)
                         },
+                        onNavToAccessibilityManager = {
+                            navController.navigate(AccessibilityManager)
+                        },
                         onNavToScreenPickSettings = {
                             navController.navigate(ScreenPickSettings)
                         },
@@ -228,7 +233,15 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                     )
                 }
                 myComposable<PrivilegedPermissions> {
-                    PrivilegedPermissionsScreen(onBack = { navController.popBackStack() })
+                    PrivilegedPermissionsScreen(
+                        onBack = { navController.popBackStack() },
+                        onNavToAccessibilityManager = {
+                            navController.navigate(AccessibilityManager)
+                        },
+                    )
+                }
+                myComposable<AccessibilityManager> {
+                    AccessibilityManagerScreen(onBack = { navController.popBackStack() })
                 }
                 myComposable<MiniWindowAdjust> {
                     MiniWindowAdjustScreen(onBack = { navController.popBackStack() })

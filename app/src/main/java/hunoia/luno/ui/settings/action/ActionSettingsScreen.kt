@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.DocumentScanner
@@ -66,6 +67,7 @@ fun ActionSettingsTab(
     onNavToScreenPickSettings: () -> Unit = {},
     onNavToActionSelect: () -> Unit = {},
     onNavToPrivilegedPermissions: () -> Unit = {},
+    onNavToAccessibilityManager: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var showActionPanelStyle by remember { mutableStateOf(false) }
@@ -187,6 +189,17 @@ fun ActionSettingsTab(
                         title = stringResource(R.string.perm_page_title),
                         shape = segmentedShape(1, 2),
                         onClick = onNavToPrivilegedPermissions,
+                    )
+                }
+            }
+            item(key = "accessibility") {
+                LunoGroup(title = stringResource(R.string.a11y_settings_group)) {
+                    LunoSettingsRow(
+                        icon = Icons.Default.Accessibility,
+                        title = stringResource(R.string.a11y_settings_entry),
+                        subtitle = stringResource(R.string.a11y_settings_entry_hint),
+                        shape = segmentedShape(0, 1),
+                        onClick = onNavToAccessibilityManager,
                     )
                 }
             }

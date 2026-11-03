@@ -99,10 +99,14 @@ private fun PrivilegedPermissionGroup.title(): String = stringResource(
  * 授权总览页：每项一行，右侧「授权」只授该项，点行跳对应系统设置页；顶部一键补齐全部。
  *
  * 与「一键补齐」的区别是**可解释性**：这里能看到每一项当前到底授没授、去哪儿改。
+ *
+ * 例外：`ACCESSIBILITY` 与 `WRITE_SECURE_SETTINGS` 两行改跳**无障碍管理页**——
+ * 前者的系统设置入口移到了该页状态卡，后者本来就没有系统页可跳。
  */
 @Composable
 fun PrivilegedPermissionsScreen(
     onBack: () -> Unit,
+    onNavToAccessibilityManager: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -212,7 +216,12 @@ fun PrivilegedPermissionsScreen(
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
                         shape = segmentedShape(index, groupStatuses.size),
-                        onClick = if (permission.hasSettingsPage) {
+                        onClick = if (
+                            permission == PrivilegedPermission.ACCESSIBILITY ||
+                            permission == PrivilegedPermission.WRITE_SECURE_SETTINGS
+                        ) {
+                            onNavToAccessibilityManager
+                        } else if (permission.hasSettingsPage) {
                             { openSettings(permission) }
                         } else {
                             null

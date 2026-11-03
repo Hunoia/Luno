@@ -681,4 +681,35 @@
 
     <!-- ===== 识屏 OCR 后端 / 模型入口（自 debug APK 资源还原） ===== -->
     <string name="screen_pick_ocr_model">OCR 模型</string>
+
+    <!-- ===== 无障碍管理（列出并启停设备上的全部无障碍服务） ===== -->
+    <string name="a11y_manager_title">无障碍管理</string>
+    <string name="a11y_settings_group">无障碍</string>
+    <string name="a11y_settings_entry">无障碍管理</string>
+    <string name="a11y_settings_entry_hint">查看并启停设备上的全部无障碍服务</string>
+    <string name="a11y_status_group">本应用状态</string>
+    <string name="a11y_status_service_on">本服务已启用</string>
+    <string name="a11y_status_service_off">本服务未启用</string>
+    <string name="a11y_status_service_hint">手势识别、动作执行、面板窗口的宿主；点击去系统设置</string>
+    <string name="a11y_status_write_secure_on">系统设置写入已授权</string>
+    <string name="a11y_status_write_secure_off">系统设置写入未授权</string>
+    <string name="a11y_status_write_secure_hint">启停服务需要它；授权后开关即可用</string>
+    <string name="a11y_status_keep_alive_on">自愈生效中</string>
+    <string name="a11y_status_keep_alive_off">自愈未开启</string>
+    <string name="a11y_status_keep_alive_hint">系统关闭本服务时会自动写回恢复</string>
+    <string name="a11y_banner_shizuku">Shizuku 未运行，无法启停无障碍服务</string>
+    <string name="a11y_banner_shizuku_action">启动 Shizuku</string>
+    <string name="a11y_banner_write_secure">未授予「系统设置写入」，无法启停无障碍服务</string>
+    <string name="a11y_banner_write_secure_action">一键授权</string>
+    <string name="a11y_services_group">已安装服务（%1$d）</string>
+    <string name="a11y_services_empty">未找到已安装的无障碍服务</string>
+    <string name="a11y_state_on">已启用</string>
+    <string name="a11y_state_off">未启用</string>
+    <string name="a11y_own_service_warning">保活开启时，关闭后会被自动恢复</string>
+    <string name="a11y_toggle_failed">更新失败：未获得系统设置写入权限</string>
+    <string name="a11y_detail_title">服务详情</string>
+    <string name="a11y_detail_package">包名</string>
+    <string name="a11y_detail_component">组件</string>
+    <string name="a11y_detail_no_description">该服务未提供描述</string>
+    <string name="a11y_go_system_settings">去系统设置</string>
 </resources>

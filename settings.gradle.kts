@@ -52,4 +52,5 @@ include(":feature:gesture")
 include(":feature:floatball")
 include(":feature:gridpanel")
 include(":feature:annotate")
+include(":feature:a11y")
  

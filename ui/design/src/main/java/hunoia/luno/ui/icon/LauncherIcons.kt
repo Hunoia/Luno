@@ -5,8 +5,12 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.createBitmap
@@ -43,6 +47,46 @@ fun LauncherInfo.getIcon(context: Context): Drawable? {
 }
 
 val LauncherInfo.ShortcutInfo.componentName: ComponentName get() = ComponentName.createRelative(packageName, className)
+
+/**
+ * 按包名取应用图标：无障碍服务列表这类「只有包名」的 PM 枚举场景，
+ * 与 [LauncherInfo.icon] 共用 [rememberAppDrawable] 的缓存与异步加载。
+ */
+@Composable
+fun rememberPackageIcon(packageName: String): Drawable? {
+    val context = LocalContext.current
+    return rememberAppDrawable("pkg/$packageName") {
+        runCatching { context.packageManager.getApplicationIcon(packageName) }.getOrNull()
+    }
+}
+
+/**
+ * [rememberPackageIcon] 的行图标位图版：先等比缩到 [sizePx] 再栅格化，
+ * 取不到图返回 null（调用方按「该行无图标」降级）。
+ */
+@Composable
+fun rememberPackageIconBitmap(packageName: String, sizePx: Int): ImageBitmap? {
+    val drawable = rememberPackageIcon(packageName) ?: return null
+    return remember(drawable, sizePx) { drawable.toIconBitmap(sizePx) }
+}
+
+/**
+ * Drawable → 行首图标位图，只缩不放（同 SearchIconCache 口径）；取不到返回 null。
+ * 位图分配/绘制失败只损失一个行图标，不该带崩整页。
+ */
+fun Drawable.toIconBitmap(sizePx: Int): ImageBitmap? {
+    val intrinsic = maxOf(intrinsicWidth, intrinsicHeight)
+    if (intrinsic <= 0 || sizePx <= 0) return null
+    val side = minOf(sizePx, intrinsic)
+    // 源图不大于目标尺寸：直接共用原位图，不放大重画。
+    if (this is BitmapDrawable && side >= intrinsic) return bitmap?.asImageBitmap()
+    return runCatching {
+        setBounds(0, 0, side, side)
+        Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
+            .also { draw(Canvas(it)) }
+            .asImageBitmap()
+    }.getOrNull()
+}
 
 val LauncherInfo.ShortcutInfo.qualifiedName: String get() = "$packageName/$className"
 
