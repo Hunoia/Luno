@@ -410,13 +410,18 @@
     <!-- 搜索引擎 -->
     <string name="search_engine_settings">搜索引擎</string>
     <string name="search_engine_add">添加搜索引擎</string>
-    <string name="search_engine_export">导出引擎到剪贴板</string>
-    <string name="search_engine_import">从剪贴板导入引擎</string>
+    <string name="search_engine_export">导出到剪贴板</string>
+    <string name="search_engine_import">从剪贴板导入</string>
+    <string name="search_engine_export_file">导出文件</string>
+    <string name="search_engine_import_file">导入文件</string>
+    <string name="search_engine_export_file_done">引擎已导出到文件</string>
+    <string name="search_engine_import_file_empty">文件内容为空</string>
     <string name="search_engine_export_done">引擎已复制到剪贴板</string>
     <string name="search_engine_import_done">引擎已导入</string>
     <string name="search_engine_import_trigger_conflict">引擎已导入，其中 %1$d 个标识与现有重复已清空</string>
     <string name="search_engine_import_empty">剪贴板没有内容</string>
     <string name="search_engine_import_failed">无法识别剪贴板里的引擎 JSON</string>
+    <string name="more_options">更多选项</string>
     <string name="search_engine_edit">编辑搜索引擎</string>
     <string name="search_engine_name">名称</string>
     <string name="search_engine_name_hint">必填</string>
@@ -468,13 +473,27 @@
     <string name="search_engine_drag">拖动排序</string>
     <string name="search_engine_primary">主引擎</string>
     <string name="search_engine_group_title">引擎</string>
-    <string name="search_data_group">数据</string>
+
     <string name="search_engine_empty_hint">暂无搜索引擎，点右下角添加</string>
     <string name="search_engine_missing">引擎不存在或已被删除</string>
     <string name="search_engine_invalid_hint">引擎信息不完整，请补全标红项</string>
 
     <!-- 链接分发 -->
     <string name="link_dispatch">链接分发</string>
+    <string name="link_dispatch_export">导出到剪贴板</string>
+    <string name="link_dispatch_import">从剪贴板导入</string>
+    <string name="link_dispatch_export_file">导出文件</string>
+    <string name="link_dispatch_import_file">导入文件</string>
+    <string name="link_dispatch_export_done">规则已复制到剪贴板</string>
+    <string name="link_dispatch_export_file_done">规则已导出到文件</string>
+    <string name="link_dispatch_import_done">规则已导入</string>
+    <string name="link_dispatch_import_empty">剪贴板没有内容</string>
+    <string name="link_dispatch_import_file_empty">文件内容为空</string>
+    <string name="link_dispatch_import_failed">无法识别剪贴板里的规则 JSON</string>
+    <string name="link_dispatch_import_confirm_title">确认导入</string>
+    <string name="link_dispatch_import_confirm_text">将导入 %1$d 条规则</string>
+    <string name="link_dispatch_export_confirm_title">确认导出</string>
+    <string name="link_dispatch_export_confirm_text">将导出 %1$d 条规则并复制到剪贴板，会覆盖当前剪贴板内容</string>
     <string name="link_dispatch_no_link">没有识别到链接</string>
     <string name="link_dispatch_global_group">行为</string>
     <string name="link_dispatch_enabled">启用链接分发</string>

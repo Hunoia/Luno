@@ -1,5 +1,7 @@
 package hunoia.luno.ui.settings.search
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -9,6 +11,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -27,8 +36,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.bridge.system.copyText
@@ -46,7 +55,9 @@ import hunoia.luno.config.model.effectiveEngines
 import hunoia.luno.config.model.effectiveLaunch
 import hunoia.luno.config.model.effectiveTrigger
 import hunoia.luno.quicklaunch.query.SearchSourceRegistry
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import hunoia.luno.ui.component.DragReorderHandle
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.TextIcon
@@ -59,7 +70,9 @@ import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
+import hunoia.luno.ui.theme.ElevationSmall
 import hunoia.luno.ui.theme.FloatingContentBottom
+import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SegmentedGap
@@ -79,7 +92,6 @@ fun SearchEngineSettingsScreen(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val density = LocalDensity.current
     val settings by SearchCenter.search.collectAsStateWithLifecycle(initialValue = QuickSearchSettings())
     var deleteTarget by remember { mutableStateOf<SearchEngine?>(null) }
     var importPreview by remember { mutableStateOf<ImportPreview?>(null) }
@@ -88,8 +100,7 @@ fun SearchEngineSettingsScreen(
     fun update(transform: (QuickSearchSettings) -> QuickSearchSettings) {
         scope.launch { SearchCenter.updateSearch(transform) }
     }
-    fun parseImport(): ImportPreview? {
-        val raw = readClipboardText(context)?.trim().orEmpty()
+    fun parseImport(raw: String): ImportPreview? {
         if (raw.isEmpty()) {
             showToast(R.string.search_engine_import_empty)
             return null
@@ -143,6 +154,42 @@ fun SearchEngineSettingsScreen(
             )
         }
     }
+    // 文件导入：选 JSON 文件，读内容走同一套解析/确认流程。
+    val importFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            val raw = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openInputStream(uri)
+                        ?.bufferedReader()?.use { it.readText() }
+                }.getOrNull()
+            }?.trim().orEmpty()
+            if (raw.isEmpty()) {
+                showToast(R.string.search_engine_import_file_empty)
+                return@launch
+            }
+            parseImport(raw)?.let { importPreview = it }
+        }
+    }
+    // 文件导出：CreateDocument 让用户选保存位置，直接写引擎 JSON。
+    val fileExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            val json = JsonSerializer.encodeToString(settings.customEngines)
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openOutputStream(uri)?.use {
+                        it.write(json.toByteArray(Charsets.UTF_8))
+                    }
+                }
+            }
+            showToast(R.string.search_engine_export_file_done)
+        }
+    }
     val listState = rememberLazyListState()
     // 拖动排序草稿由 DragReorderState 持有（与动作面板编辑页同一套）：null = 跟随配置，松手才落盘。
     val reorder = rememberDragReorderState<SearchEngine>(
@@ -171,6 +218,58 @@ fun SearchEngineSettingsScreen(
         contentSpacing = SegmentedGap,
         bottomContentPadding = FloatingContentBottom,
         floatingContent = addFab,
+        actions = {
+            var menuOpen by remember { mutableStateOf(false) }
+            IconButton(onClick = { menuOpen = true }) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = stringResource(R.string.more_options),
+                )
+            }
+            DropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false },
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = LargeShape,
+                tonalElevation = ElevationSmall,
+                shadowElevation = 0.dp,
+            ) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.search_engine_export_file)) },
+                    leadingIcon = { Icon(Icons.Default.FileDownload, contentDescription = null) },
+                    onClick = {
+                        menuOpen = false
+                        fileExportLauncher.launch("search-engines.json")
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.search_engine_import_file)) },
+                    leadingIcon = { Icon(Icons.Default.FileOpen, contentDescription = null) },
+                    onClick = {
+                        menuOpen = false
+                        importFileLauncher.launch(
+                            arrayOf("application/json", "text/plain", "application/octet-stream"),
+                        )
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.search_engine_export)) },
+                    leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
+                    onClick = {
+                        menuOpen = false
+                        showExportConfirm = true
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.search_engine_import)) },
+                    leadingIcon = { Icon(Icons.Default.ContentPaste, contentDescription = null) },
+                    onClick = {
+                        menuOpen = false
+                        importPreview = parseImport(readClipboardText(context)?.trim().orEmpty())
+                    },
+                )
+            }
+        },
         dialogs = {
             importPreview?.let { preview ->
                 ConfirmDialog(
@@ -329,22 +428,6 @@ fun SearchEngineSettingsScreen(
                         update { it.copy(asciiEnterSearch = v) }
                     },
                     shape = segmentedShape(2, 3),
-                )
-            }
-        }
-        item(key = "gap-data") { GroupGap() }
-        // 数据组放最后：导出会覆盖剪贴板，先确认再复制；导入维持解析后的预览确认。
-        item(key = "data") {
-            LunoGroup(title = stringResource(R.string.search_data_group)) {
-                LunoSettingsRow(
-                    title = stringResource(R.string.search_engine_export),
-                    shape = segmentedShape(0, 2),
-                    onClick = { showExportConfirm = true },
-                )
-                LunoSettingsRow(
-                    title = stringResource(R.string.search_engine_import),
-                    shape = segmentedShape(1, 2),
-                    onClick = { importPreview = parseImport() },
                 )
             }
         }
