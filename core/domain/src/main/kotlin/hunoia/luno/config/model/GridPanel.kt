@@ -19,7 +19,7 @@ data class GridPanel(
     val name: String = "",
     val portrait: GridPanelOrientation = GridPanelOrientation(),
     val landscape: GridPanelOrientation = GridPanelOrientation(),
-    /** 卡片本体透明度：0.3–1，半透明透出原背景。 */
+    /** 卡片本体透明度：0–1，半透明透出原背景；0 = 纯模糊/完全透明底。 */
     val cardAlpha: Float = GridPanelDefaults.CardAlpha,
     /**
      * 面板与内置部件背景的模糊半径（dp，0 = 关闭）。

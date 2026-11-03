@@ -274,6 +274,14 @@ fun GridPanelCard(
         inIndicatorBand(pointerNow.y)
     // 退场、拖拽隐去时把 blur 一起收掉，避免卡片已经看不见、背景还在糊。
     val blurActive = blurRadiusPx > 0 && !hiddenForDrag && appearance > 0.01f
+    // 模糊关闭（0dp）时透明度完全跟随设置；只有「开了模糊但实际挂不上」才提高不透明度兜底。
+    val blurAttached = remember(panelId) { mutableStateOf(false) }
+    val cardColor = gridPanelCardColor
+    val cardBackgroundAlpha = when {
+        blurRadiusPx <= 0 -> cardAlpha
+        blurAttached.value -> cardAlpha
+        else -> maxOf(cardAlpha, 0.92f)
+    }
 
     Box(
         Modifier
@@ -304,6 +312,7 @@ fun GridPanelCard(
             radiusPx = blurRadiusPx,
             cornerRadiusPx = cornerPx,
             modifier = Modifier.matchParentSize(),
+            onActiveChanged = { blurAttached.value = it },
         )
         // 卡面内容：背景/圆角裁剪放在内层。外层留着给面板缩放手柄，命中区才能伸出
         // 面板外——Modifier.clip 会连子节点的命中测试一起裁，就地偏移会被裁掉。
@@ -311,7 +320,7 @@ fun GridPanelCard(
             Modifier
                 .fillMaxSize()
                 .background(
-                    gridPanelCardColor.copy(alpha = cardAlpha),
+                    cardColor.copy(alpha = cardBackgroundAlpha),
                     RoundedCornerShape(cornerPx),
                 )
                 .clip(RoundedCornerShape(cornerPx)),
@@ -429,8 +438,6 @@ fun GridPanelCard(
                             items = state.renderItems(pageIndex),
                             metrics = pageMetrics,
                             editMode = editMode,
-                            blurRadiusPx = blurRadiusPx,
-                            blurEnabled = blurActive,
                             draggingId = if (dragOnThisPage) state.draggingId else null,
                             hoverCell = if (dragOnThisPage) state.hoverCell else null,
                             dragVisual = if (dragOnThisPage) state.dragVisual else androidx.compose.ui.geometry.Offset.Zero,

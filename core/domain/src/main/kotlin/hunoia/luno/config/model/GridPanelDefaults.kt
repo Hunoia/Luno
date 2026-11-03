@@ -12,7 +12,7 @@ object GridPanelDefaults {
     const val MinCardWidthFraction = 0.20f
     const val MaxCardWidthFraction = 0.90f
     const val CardAlpha = 0.75f
-    const val MinCardAlpha = 0.3f
+    const val MinCardAlpha = 0f
     const val MaxCardAlpha = 1f
 
     /** 面板与内置部件背景模糊：默认开启，0 表示关闭。 */

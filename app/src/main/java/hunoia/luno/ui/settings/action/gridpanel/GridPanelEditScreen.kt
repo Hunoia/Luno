@@ -1,6 +1,5 @@
 package hunoia.luno.ui.settings.action.gridpanel
 
-import hunoia.luno.core.LunoLog as Log
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -11,7 +10,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,11 +22,8 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.GridPanelDefaults
-import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.config.model.withOrientation
-import hunoia.luno.gridpanel.geometry.GridResizePlan
-import hunoia.luno.gridpanel.geometry.planGridResize
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.input.LunoTextSlider
@@ -43,12 +38,9 @@ import hunoia.luno.ui.theme.PageGutter
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-private const val TAG = "GridPanelEdit"
-
 /**
- * 网格面板属性编辑：名称 / 列数 / 透明度 / 离屏边距。项在面板内管理。
- * 页数是派生值（编辑态滑到末尾虚页落项即建页），不在这里设置。
- * 列数走 [resizeGrid]（当场重排；放不下时先弹确认再移除）；透明度/边距是纯外观，
+ * 网格面板属性编辑：名称 / 透明度 / 背景模糊 / 离屏边距。项与列数都在面板内管理。
+ * 页数是派生值（编辑态滑到末尾虚页落项即建页）；列数只在编辑态双指调整；
  * 卡片宽高只在面板内的缩放手柄调整，不在这里重复给数值入口。
  * 装载必须显式 collect：拿到 DataStore 真实值前不能判「面板不存在」，首帧空配置会误报。
  */
@@ -65,11 +57,6 @@ fun GridPanelEditScreen(
     var loaded by remember { mutableStateOf(false) }
     var panel by remember(panelId) { mutableStateOf<GridPanel?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
-    // 列数缩小时会移除项：先预演，有损失就弹确认，确认后才落盘。
-    var pendingShrink by remember { mutableStateOf<PendingShrink?>(null) }
-    // 取消缩列时滑杆要回到已落盘值：换 key 重建，否则 LunoSlider 的本地值会停在
-    // 拖动位置（value 没变，它不会自己复位）。
-    var columnSliderEpoch by remember { mutableStateOf(0) }
     LaunchedEffect(panelId) {
         TuneConfig.action.collect { settings ->
             panel = settings.actionGridPanels.panelById(panelId)
@@ -93,67 +80,6 @@ fun GridPanelEditScreen(
                 val latest = settings.actionGridPanels.panelById(panelId) ?: return@updateAction settings
                 settings.copy(actionGridPanels = settings.actionGridPanels.withPanel(transform(latest)))
             }
-        }
-    }
-
-    /**
-     * 改列数后必须当场重排并落盘：网格变小而项还留在旧坐标会被画到可视区外，
-     * 看起来像「刚加的小部件凭空消失」。
-     *
-     * 先预演 [planGridResize]：有项放不下就弹确认（列出会被移除的项），取消则
-     * 什么都不写（滑块自然回弹）；确认后按最新配置重算一遍再落盘。被丢项的
-     * AppWidget id 由落盘后的 `PanelResources.cleanup()` 回收。
-     */
-    fun resizeGrid(transform: (GridPanel) -> GridPanel, confirmed: Boolean = false) {
-        val cfg = context.resources.configuration
-        val screenWdp = cfg.screenWidthDp.toFloat()
-        val screenHdp = cfg.screenHeightDp.toFloat()
-        val landscape = isLandscape()
-
-        fun plan(panel: GridPanel): Pair<GridResizePlan, Int> {
-            val orientation = panel.orientation(landscape)
-            val geo = orientation.geometry
-            val cols = geo.columnCount
-                .coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
-            return planGridResize(
-                items = orientation.items,
-                columns = cols,
-                cardWidthFraction = geo.cardWidthFraction,
-                cardHeightFraction = geo.cardHeightFraction,
-                screenWdp = screenWdp,
-                screenHdp = screenHdp,
-            ) to cols
-        }
-
-        if (!confirmed) {
-            val (preview, cols) = plan(transform(current))
-            if (preview.dropped.isNotEmpty()) {
-                pendingShrink = PendingShrink(transform, cols, preview.dropped)
-                return
-            }
-        }
-
-        scope.launch {
-            TuneConfig.updateAction { settings ->
-                val latest = settings.actionGridPanels.panelById(panelId) ?: return@updateAction settings
-                val resized = transform(latest)
-                val (result, cols) = plan(resized)
-                if (result.dropped.isNotEmpty()) {
-                    Log.w(TAG, "resizeGrid drops ${result.dropped.size} item(s) at $cols columns")
-                }
-                settings.copy(
-                    actionGridPanels = settings.actionGridPanels.withPanel(
-                        resized.withOrientation(landscape) { orientation ->
-                            orientation.copy(
-                                geometry = orientation.geometry.copy(columnCount = cols),
-                                items = result.items,
-                            )
-                        },
-                    ),
-                )
-            }
-            // 缩列可能丢弃项：落盘完成后统一回收被丢项的图标/宿主 id。
-            hunoia.luno.gridpanel.PanelResources.cleanup()
         }
     }
 
@@ -191,33 +117,6 @@ fun GridPanelEditScreen(
                     },
                 )
             }
-            pendingShrink?.let { pending ->
-                val named = pending.dropped.mapNotNull { it.labelOrNull() }
-                ConfirmDialog(
-                    onDismissRequest = { pendingShrink = null; columnSliderEpoch++ },
-                    title = stringResource(R.string.grid_panel_shrink_title),
-                    text = if (named.isEmpty()) {
-                        stringResource(
-                            R.string.grid_panel_shrink_desc_generic,
-                            pending.columns,
-                            pending.dropped.size,
-                        )
-                    } else {
-                        stringResource(
-                            R.string.grid_panel_shrink_desc_named,
-                            pending.columns,
-                            pending.dropped.size,
-                            named.joinToString("、").take(60),
-                        )
-                    },
-                    destructive = true,
-                    onConfirm = {
-                        val transform = pending.transform
-                        pendingShrink = null
-                        resizeGrid(transform, confirmed = true)
-                    },
-                )
-            }
         },
     ) {
         item {
@@ -231,35 +130,6 @@ fun GridPanelEditScreen(
                     .padding(horizontal = PageGutter, vertical = CardInnerSpacing),
                 shape = LargeShape,
             )
-        }
-        item {
-            LunoGroup {
-                // 列/行是破坏性调整（放不下会挤掉项并回收 widget id），只在松手
-                // （onValueChangeFinished）落盘一次：拖动途中逐刻度 resize 会把经过的
-                // 中间刻度挤掉的项永久删除，再滑回来也回不去。拖动中的值只进 pending。
-                var pendingColumns by remember { mutableStateOf<Int?>(null) }
-                key(columnSliderEpoch) {
-                    LunoTextSlider(
-                        value = current.orientation(isLandscape()).geometry.columnCount.toFloat(),
-                        onValueChange = { value -> pendingColumns = value.toInt() },
-                        onValueChangeFinished = {
-                            pendingColumns?.let { v ->
-                                resizeGrid(transform = {
-                                    it.withOrientation(isLandscape()) { o ->
-                                        o.copy(geometry = o.geometry.copy(columnCount = v))
-                                    }
-                                })
-                            }
-                            pendingColumns = null
-                        },
-                        text = stringResource(R.string.grid_panel_column_count),
-                        valueDisplay = { "${it.toInt()}" },
-                        valueRange = GridPanelDefaults.MinColumnCount.toFloat()..GridPanelDefaults.MaxColumnCount.toFloat(),
-                        steps = GridPanelDefaults.MaxColumnCount - GridPanelDefaults.MinColumnCount - 1,
-                        shape = segmentedShape(0, 1),
-                    )
-                }
-            }
         }
         item {
             LunoGroup {
@@ -319,10 +189,3 @@ fun GridPanelEditScreen(
 
 /** 百分比滑杆：连续拖动、按 1% 量化后落盘。 */
 private fun Float.percentStep(): Float = (this * 100f).roundToInt() / 100f
-
-/** 待确认的列数缩小：`transform` 原样重放，确认后按最新配置重算一次。 */
-private class PendingShrink(
-    val transform: (GridPanel) -> GridPanel,
-    val columns: Int,
-    val dropped: List<GridPanelItem>,
-)

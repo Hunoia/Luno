@@ -33,7 +33,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -69,18 +68,6 @@ import hunoia.luno.bridge.ui.hapticLongPress
 /** 手柄命中区上限；小格按边长比例再缩小，避免盖住半个项。 */
 private val ResizeHandleHit = 32.dp
 
-/**
- * 内置部件的背景底板（左上角 Layers 按钮可切）。
- * 不贴 surfaceVariant：面板卡面是近黑的，一块不透明的主题色糊上去很跳。
- * 改成 onCard 低透明度竖向渐变 + 细描边 —— 压出玻璃质感，托得住内容又不抢填充色。
- */
-private val InternalWidgetBgBrush = Brush.verticalGradient(
-    listOf(
-        gridPanelOnCardColor.copy(alpha = 0.10f),
-        gridPanelOnCardColor.copy(alpha = 0.04f),
-    ),
-)
-private val InternalWidgetBgBorder = gridPanelOnCardColor.copy(alpha = 0.08f)
 
 /** 项的屏幕中心（点按执行时用）。用普通引用而不是 State：滚动时
  *  onGloballyPositioned 每帧触发，写 State 会让整个 Layer 每帧重组。 */
@@ -113,10 +100,6 @@ fun GridPanelLayer(
     items: List<GridPanelItem>,
     metrics: GridMetrics,
     editMode: Boolean,
-    /** 面板/内置部件背景模糊半径（px，0 = 关闭）。 */
-    blurRadiusPx: Int = 0,
-    /** 卡片当前可见（退场/拖拽时关掉 blur，避免背景残留）。 */
-    blurEnabled: Boolean = false,
     draggingId: String?,
     hoverCell: GridCell?,
     dragVisual: Offset,
@@ -133,7 +116,6 @@ fun GridPanelLayer(
     val view = LocalView.current
     val hitPx = with(density) { ResizeHandleHit.toPx() }
     val contentH = with(density) { metrics.contentH.toDp() }
-    val itemCornerPx = with(density) { ItemCorner.toPx() }
 
     // 按住的项（长按尚未成立）：给「预抬起」用。局部状态即可，不参与落盘。
     var pressingItemId by remember { mutableStateOf<String?>(null) }
@@ -333,26 +315,15 @@ fun GridPanelLayer(
                                         }
                                     },
                             ) {
-                                // 背景开关打开时：先画区域模糊，再叠一层低透明度渐变 +
-                                // 细描边。blur 必须在渐变之前，否则会被 Composable 的
-                                // background 盖住。
+                                // 面板已经有一层区域模糊：内置部件背景只补描边，不再二次模糊。
                                 if (kind.showBackground) {
-                                    PanelBlurHost(
-                                        enabled = blurEnabled && blurRadiusPx > 0,
-                                        radiusPx = blurRadiusPx,
-                                        cornerRadiusPx = itemCornerPx,
-                                        modifier = Modifier.matchParentSize(),
-                                    )
                                     Box(
                                         Modifier
                                             .matchParentSize()
-                                            .background(
-                                                InternalWidgetBgBrush,
-                                                RoundedCornerShape(ItemCorner),
-                                            )
                                             .border(
                                                 1.dp,
-                                                InternalWidgetBgBorder,
+                                                MaterialTheme.colorScheme.outlineVariant
+                                                    .copy(alpha = 0.55f),
                                                 RoundedCornerShape(ItemCorner),
                                             ),
                                     )

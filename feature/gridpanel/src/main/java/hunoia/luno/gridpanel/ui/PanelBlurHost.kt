@@ -24,6 +24,8 @@ fun PanelBlurHost(
     cornerRadiusPx: Float,
     modifier: Modifier = Modifier,
     tint: Int = AndroidColor.TRANSPARENT,
+    /** 只有 drawable 真正 attach 成功才回调 true；卡片据此决定底色是否可透。 */
+    onActiveChanged: (Boolean) -> Unit = {},
 ) {
     val controller = remember { BlurHostController() }
     DisposableEffect(controller) {
@@ -39,7 +41,7 @@ fun PanelBlurHost(
                 controller.bind(this)
             }
         },
-        update = { controller.update(enabled, radiusPx, cornerRadiusPx, tint) },
+        update = { controller.update(enabled, radiusPx, cornerRadiusPx, tint, onActiveChanged) },
         modifier = modifier,
     )
 }
@@ -58,6 +60,8 @@ private class BlurHostController {
     private var tint = AndroidColor.TRANSPARENT
     private var attachAttempts = 0
     private var disposed = false
+    private var active = false
+    private var onActiveChanged: (Boolean) -> Unit = {}
 
     fun bind(target: View) {
         view = target
@@ -70,6 +74,7 @@ private class BlurHostController {
             override fun onViewDetachedFromWindow(v: View) {
                 handle?.detach()
                 handle = null
+                setActive(false)
             }
         })
         // 尺寸/位置变化（卡片拖动、面板缩放）时刷新 blur region 的 bounds 与圆角。
@@ -78,11 +83,18 @@ private class BlurHostController {
         }
     }
 
-    fun update(enabled: Boolean, radiusPx: Int, cornerRadiusPx: Float, tint: Int) {
+    fun update(
+        enabled: Boolean,
+        radiusPx: Int,
+        cornerRadiusPx: Float,
+        tint: Int,
+        onActiveChanged: (Boolean) -> Unit,
+    ) {
         this.enabled = enabled
         this.radiusPx = radiusPx
         this.cornerRadiusPx = cornerRadiusPx
         this.tint = tint
+        this.onActiveChanged = onActiveChanged
         apply(force = false)
     }
 
@@ -90,6 +102,8 @@ private class BlurHostController {
         disposed = true
         handle?.detach()
         handle = null
+        active = false
+        onActiveChanged = {}
         view = null
     }
 
@@ -99,6 +113,7 @@ private class BlurHostController {
         if (!enabled || radiusPx <= 0) {
             handle?.detach()
             handle = null
+            setActive(false)
             return
         }
         if (!target.isAttachedToWindow) return
@@ -107,7 +122,18 @@ private class BlurHostController {
             if (!force && attachAttempts >= 3) return
             attachAttempts++
             handle = BackgroundBlur.attach(target, radiusPx, cornerRadiusPx, tint) ?: return
+            setActive(true)
         }
         handle?.update(radiusPx, cornerRadiusPx, tint)
+    }
+
+    /** 模糊状态只在真正变化时回调；post 到下一帧，避免在组合/测量期间写 Compose 状态。 */
+    private fun setActive(next: Boolean) {
+        if (active == next) return
+        active = next
+        val target = view ?: return
+        target.post {
+            if (!disposed && active == next) onActiveChanged(next)
+        }
     }
 }
