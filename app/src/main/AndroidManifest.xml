@@ -165,7 +165,6 @@
             android:launchMode="singleTask"
             android:noHistory="true"
             android:process=":service"
-            android:showWhenLocked="true"
             android:taskAffinity="hunoia.luno.quicksearch"
             android:theme="@style/Theme.SideGesture.Transparent"
             android:windowSoftInputMode="adjustResize" />

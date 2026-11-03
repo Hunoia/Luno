@@ -30,6 +30,7 @@ import hunoia.luno.quicklaunch.query.SearchAction
 import hunoia.luno.quicklaunch.query.SearchResult
 import hunoia.luno.quicklaunch.query.SOURCE_CALC
 import hunoia.luno.runtime.dispatch.ActionDispatch
+import hunoia.luno.runtime.environment.BroadcastObserver
 import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -52,12 +53,32 @@ class QuickSearchActivity : ComponentActivity() {
         lifecycleScope.launch(Dispatchers.IO) { runCatching { index.invalidateApps() } }
     }
 
+    /** 锁屏立即退场：熄屏后退场动画未必播完，直接 finish 并压掉转场。 */
+    private val screenObserver by lazy {
+        BroadcastObserver(context = this, onScreenOff = ::closeForLock)
+    }
+
+    private fun closeForLock() {
+        if (isFinishing || isDestroyed) return
+        closingState.value = true
+        finishAfterExit()
+    }
+
     override fun onStart() {
         super.onStart()
+        // 锁屏兜底：外部 am start / 任务栈复用等入口也可能把面板拉起来。没有 showWhenLocked
+        // 会落到 keyguard 之后、解锁后突然冒出，所以一律直接退场。
+        if (keyguardLocked(this)) {
+            Log.i(LOG_TAG, "QuickSearchActivity finish: keyguard locked")
+            finish()
+            return
+        }
+        screenObserver.register()
         PackageChangeReceiver.register(this, onPackageChanged)
     }
 
     override fun onStop() {
+        screenObserver.unregister()
         PackageChangeReceiver.unregister(this, onPackageChanged)
         super.onStop()
     }
@@ -322,6 +343,12 @@ class QuickSearchActivity : ComponentActivity() {
          * @return 是否成功发起；识屏幽灵卡的「搜索」槽用它决定是否提示失败。
          */
         fun start(context: Context, query: String = ""): Boolean {
+            // 锁屏禁止显示搜索面板：manifest 已去掉 showWhenLocked，这里直接拒绝，
+            // 避免面板落到 keyguard 后面、解锁后突然出现。
+            if (keyguardLocked(context)) {
+                Log.i(LOG_TAG, "QuickSearchActivity start rejected: keyguard locked")
+                return false
+            }
             val intent = Intent(context, QuickSearchActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 if (query.isNotBlank()) putExtra(EXTRA_QUERY, query)
@@ -335,3 +362,10 @@ class QuickSearchActivity : ComponentActivity() {
         }
     }
 }
+
+/** 锁屏（含熄屏未解锁）判定：面板不允许在 keyguard 之上或之后展示。 */
+private fun keyguardLocked(context: Context): Boolean =
+    runCatching {
+        context.getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true
+    }.getOrDefault(false)
+

@@ -177,6 +177,11 @@ class GestureCoordinator(
         onScreenOff = {
             if (BuildConfig.DEBUG) Log.i(LOG_TAG, "screen off")
             environmentTracker.isNowInLockScreenPage = true
+            // 锁屏收口：无障碍 overlay 会盖在 keyguard 上。动作面板的内容画在主 a11y overlay
+            // （MainOverlayController）里，只 closeImmediately 面板窗不够 —— 必须同时取消会话
+            // 并把主窗收回 1x1。解锁不自动恢复，需用户重新触发。
+            closeTransientSurfaces()
+            hunoia.luno.service.SideGestureService.current?.closeOverlaysForLock()
             host.runtimePanelOverlay.closeImmediately()
             refreshGestureButtons()
         },
@@ -674,11 +679,12 @@ class GestureCoordinator(
     }
 
     /**
-     * 总开关关闭：把已展开的会话与浮层全部收口，避免“总闸关了，面板还盖在屏幕上”。
+     * 临时会话收口：总开关关闭 / 锁屏共用。把已展开的会话与浮层全部收口，
+     * 避免“总闸关了或已经锁屏，面板还盖在屏幕上”。
      * 触钮/悬浮球各自的可见性由 ButtonRuntime / FloatBallService 处理；这里只负责
      * 已经打开的临时 Surface 与手势会话。
      */
-    private fun closeSurfacesForMasterOff() {
+    private fun closeTransientSurfaces() {
         gesturePipelineRef?.let { pipeline ->
             pipeline.actionPanelState.cancel()
             pipeline.sideGestureState.cancel()
@@ -950,7 +956,7 @@ class GestureCoordinator(
             runtimeSettingsStore.state.collect { state ->
                 syncGesturePipeline()
                 syncTouchInputSources()
-                if (!state.initialSettings.gestureEnabled) closeSurfacesForMasterOff()
+                if (!state.initialSettings.gestureEnabled) closeTransientSurfaces()
             }
         }
 

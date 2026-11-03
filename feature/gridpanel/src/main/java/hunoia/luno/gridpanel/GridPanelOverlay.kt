@@ -40,7 +40,6 @@ import hunoia.luno.core.LOG_TAG
 object GridPanelOverlay : OverlayPanelHost(
     logTag = LOG_TAG,
     logPrefix = "grid overlay",
-    showWhenLocked = false,
 ) {
 
     override val surfaceId: String = "grid-panel"
@@ -127,6 +126,9 @@ object GridPanelOverlay : OverlayPanelHost(
             mainHandler.post { show(panelId, anchorX, anchorY) }
             return
         }
+        // 锁屏不开面板：TYPE_APPLICATION_OVERLAY 会被 keyguard 盖住，
+        // 开了也只会在解锁后突然冒出；锁屏触发一律拒绝。
+        if (isKeyguardLocked()) return
         // 新一次展示不复用上一轮部件点击留下的拉起候选。
         if (!shownEventPosted) PanelAppWidgetHostView.clearTapCandidate()
         // 面板项里引用自身（旧数据/手改配置）：已经显示的就是这块面板，重复 show 只会
@@ -235,6 +237,11 @@ object GridPanelOverlay : OverlayPanelHost(
             .start()
         current.requestFocus()
     }
+
+    private fun isKeyguardLocked(): Boolean =
+        runCatching {
+            context.getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true
+        }.getOrDefault(false)
 
     @Composable
     override fun panelContent() {

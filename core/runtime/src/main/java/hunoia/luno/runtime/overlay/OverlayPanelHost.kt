@@ -35,8 +35,6 @@ import hunoia.luno.runtime.surface.SurfaceKind
 abstract class OverlayPanelHost(
     private val logTag: String,
     private val logPrefix: String,
-    /** 锁屏上是否可见（仅启动面板开；球窗没有这个 flag，属首次尝试，需真机验证）。 */
-    private val showWhenLocked: Boolean,
 ) : SurfaceHandle {
     override val surfaceKind: SurfaceKind get() = SurfaceKind.PANEL
 
@@ -249,8 +247,7 @@ abstract class OverlayPanelHost(
         format = PixelFormat.TRANSLUCENT
         flags = WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-            if (showWhenLocked) WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED else 0
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
         layoutInDisplayCutoutMode =
             WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
         width = WindowManager.LayoutParams.MATCH_PARENT

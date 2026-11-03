@@ -13,6 +13,7 @@ import hunoia.luno.runtime.GestureCoordinator
 import hunoia.luno.runtime.GestureHost
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
 import hunoia.luno.runtime.overlay.ScreenPickOverlay
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.MainScope
@@ -98,6 +99,9 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     /** 截屏 + 挂窗是异步的；在途时不允许重复开第二层。 */
     private var annotateOpening = false
 
+    /** 标注截屏/挂窗任务：锁屏时连在途任务一起作废，避免锁屏后标注层才挂上来。 */
+    private var annotateOpenJob: Job? = null
+
     /** 标注期间球/面板一直隐藏，避免盖在画布上（关层时恢复）。 */
     private var annotateSurfacesHidden = false
 
@@ -125,9 +129,16 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         // 整段标注期间收起自家球/面板：一来不进截图，二来不会盖在画布上抢触摸。
         hunoia.luno.runtime.surface.SurfaceController.softHideAll()
         annotateSurfacesHidden = true
-        coroutineScope.launch {
+        annotateOpenJob = coroutineScope.launch {
             kotlinx.coroutines.delay(64)
             val bitmap = hunoia.luno.annotate.screenshot.AnnotateScreenshot.capture(this@SideGestureService)
+            // 截屏期间可能已经锁屏：此时不能再把标注层挂到 keyguard 上面。
+            if (isKeyguardLocked()) {
+                bitmap?.recycle()
+                annotateOpening = false
+                restoreAnnotateSurfaces()
+                return@launch
+            }
             if (bitmap == null) {
                 annotateOpening = false
                 restoreAnnotateSurfaces()
@@ -160,6 +171,25 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         if (!annotateSurfacesHidden) return
         annotateSurfacesHidden = false
         hunoia.luno.runtime.surface.SurfaceController.restoreAll()
+    }
+
+    private fun isKeyguardLocked(): Boolean =
+        runCatching {
+            getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true
+        }.getOrDefault(false)
+
+    /**
+     * 锁屏收口：无障碍 overlay 会盖在 keyguard 上，锁屏时全部关闭、在途任务作废。
+     * 解锁不自动恢复，需用户重新触发。
+     */
+    fun closeOverlaysForLock() {
+        annotateOpenJob?.cancel()
+        annotateOpenJob = null
+        annotateOpening = false
+        annotateOverlay?.close()
+        annotateOverlay = null
+        restoreAnnotateSurfaces()
+        screenPickOverlay.close()
     }
 
     /**
@@ -365,6 +395,8 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         // 拾取窗持有全局面板事件订阅，必须显式退订。
         screenPickOverlay.release()
         // 标注浮层不随服务自动回收；关掉它并恢复被隐藏的球/面板。
+        annotateOpenJob?.cancel()
+        annotateOpenJob = null
         annotateOverlay?.close()
         annotateOverlay = null
         // 识别器随服务销毁释放（模型 native 资源）；下次服务重建会重新懒加载。

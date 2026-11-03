@@ -32,7 +32,6 @@ import hunoia.luno.core.LOG_TAG
 object QuickAppLauncherOverlay : OverlayPanelHost(
     logTag = LOG_TAG,
     logPrefix = "quick launcher overlay",
-    showWhenLocked = true,
 ) {
 
     override val surfaceId: String = "quick-launcher"
@@ -59,6 +58,8 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
 
     /** 从手势/Service 上下文唤起（锚点=触发触点）。权限检查在主线程 hop 之前（均线程安全）；未授权时平台 Toast + 跳设置页。 */
     fun show(anchorX: Int, anchorY: Int) {
+        // 锁屏禁止悬浮窗：即使误触也不在 keyguard 之上/之后挂窗。
+        if (isKeyguardLocked()) return
         if (!context.canDrawOverlays()) {
             showPlatformToast(R.string.quick_launcher_need_overlay_permission)
             context.gotoOverlaySettings()
@@ -142,6 +143,11 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
      * 平台 Toast（非 Compose 通道）：引导授权时球必然已 detach，Compose 的 showToast
      * 没有宿主消费会被静默丢弃；addView 失败时窗口没挂上，同样无主题宿主。
      */
+    private fun isKeyguardLocked(): Boolean =
+        runCatching {
+            context.getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true
+        }.getOrDefault(false)
+
     private fun showPlatformToast(@StringRes resId: Int) {
         runCatching {
             Toast.makeText(context.applicationContext, resId, Toast.LENGTH_LONG).show()
