@@ -665,12 +665,6 @@
     <string name="ocr_model_pp_verifying">校验中…</string>
     <string name="ocr_model_refresh">重新检查状态</string>
     <string name="ocr_model_soc">SoC</string>
-    <string name="ocr_model_summary_pp_missing">PP-OCRv6 未导入</string>
-    <string name="ocr_model_summary_pp_ready">PP-OCRv6 已就绪</string>
-    <string name="ocr_model_title">OCR 模型</string>
-
-    <!-- ===== 识屏 OCR 后端 / 模型入口（自 debug APK 资源还原） ===== -->
-    <string name="screen_pick_ocr_model">OCR 模型</string>
 
     <!-- ===== 无障碍管理（列出并启停设备上的全部无障碍服务） ===== -->
     <string name="a11y_manager_title">无障碍管理</string>
