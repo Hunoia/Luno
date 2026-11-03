@@ -272,7 +272,24 @@ fun GridPanelEditScreen(
                     valueDisplay = { "${(it * 100).roundToInt()}%" },
                     valueRange = GridPanelDefaults.MinCardAlpha..GridPanelDefaults.MaxCardAlpha,
                     steps = 0,
-                    shape = segmentedShape(0, 2),
+                    shape = segmentedShape(0, 3),
+                )
+                // 背景模糊：0 = 关闭；无级拖动、按 1dp 落盘。
+                var localBlur by remember(current.blurRadiusDp) {
+                    mutableFloatStateOf(current.blurRadiusDp)
+                }
+                val blurOffLabel = stringResource(R.string.grid_panel_blur_off)
+                LunoTextSlider(
+                    value = localBlur,
+                    onValueChange = { value -> localBlur = value.roundToInt().toFloat() },
+                    onValueChangeFinished = { update { it.copy(blurRadiusDp = localBlur) } },
+                    text = stringResource(R.string.grid_panel_blur_radius),
+                    valueDisplay = { v ->
+                        if (v <= 0f) blurOffLabel else "${v.roundToInt()}dp"
+                    },
+                    valueRange = GridPanelDefaults.MinBlurRadiusDp..GridPanelDefaults.MaxBlurRadiusDp,
+                    steps = 0,
+                    shape = segmentedShape(1, 3),
                 )
                 // 离屏边距：纯外观（clamp + 圆角联动），无级拖动、按 1dp 落盘。
                 var pendingMargin by remember { mutableStateOf<Float?>(null) }
@@ -293,7 +310,7 @@ fun GridPanelEditScreen(
                     valueDisplay = { "${it.roundToInt()}dp" },
                     valueRange = GridPanelDefaults.MinScreenMarginDp..GridPanelDefaults.MaxScreenMarginDp,
                     steps = 0,
-                    shape = segmentedShape(1, 2),
+                    shape = segmentedShape(2, 3),
                 )
             }
         }

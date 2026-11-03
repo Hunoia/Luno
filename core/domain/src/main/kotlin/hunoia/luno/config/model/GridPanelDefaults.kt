@@ -15,6 +15,11 @@ object GridPanelDefaults {
     const val MinCardAlpha = 0.3f
     const val MaxCardAlpha = 1f
 
+    /** 面板与内置部件背景模糊：默认开启，0 表示关闭。 */
+    const val BlurRadiusDp = 48f
+    const val MinBlurRadiusDp = 0f
+    const val MaxBlurRadiusDp = 80f
+
     const val ScreenMarginDp = 12f
     const val MinScreenMarginDp = 0f
     const val MaxScreenMarginDp = 48f

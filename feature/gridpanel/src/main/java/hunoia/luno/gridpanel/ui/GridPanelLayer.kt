@@ -113,6 +113,10 @@ fun GridPanelLayer(
     items: List<GridPanelItem>,
     metrics: GridMetrics,
     editMode: Boolean,
+    /** 面板/内置部件背景模糊半径（px，0 = 关闭）。 */
+    blurRadiusPx: Int = 0,
+    /** 卡片当前可见（退场/拖拽时关掉 blur，避免背景残留）。 */
+    blurEnabled: Boolean = false,
     draggingId: String?,
     hoverCell: GridCell?,
     dragVisual: Offset,
@@ -129,6 +133,7 @@ fun GridPanelLayer(
     val view = LocalView.current
     val hitPx = with(density) { ResizeHandleHit.toPx() }
     val contentH = with(density) { metrics.contentH.toDp() }
+    val itemCornerPx = with(density) { ItemCorner.toPx() }
 
     // 按住的项（长按尚未成立）：给「预抬起」用。局部状态即可，不参与落盘。
     var pressingItemId by remember { mutableStateOf<String?>(null) }
@@ -326,22 +331,32 @@ fun GridPanelLayer(
                                                 }
                                             }
                                         }
-                                    }
-                                    .then(
-                                        if (kind.showBackground) {
-                                            Modifier
-                                                .background(
-                                                    InternalWidgetBgBrush,
-                                                    RoundedCornerShape(ItemCorner),
-                                                )
-                                                .border(
-                                                    1.dp,
-                                                    InternalWidgetBgBorder,
-                                                    RoundedCornerShape(ItemCorner),
-                                                )
-                                        } else Modifier,
-                                    ),
+                                    },
                             ) {
+                                // 背景开关打开时：先画区域模糊，再叠一层低透明度渐变 +
+                                // 细描边。blur 必须在渐变之前，否则会被 Composable 的
+                                // background 盖住。
+                                if (kind.showBackground) {
+                                    PanelBlurHost(
+                                        enabled = blurEnabled && blurRadiusPx > 0,
+                                        radiusPx = blurRadiusPx,
+                                        cornerRadiusPx = itemCornerPx,
+                                        modifier = Modifier.matchParentSize(),
+                                    )
+                                    Box(
+                                        Modifier
+                                            .matchParentSize()
+                                            .background(
+                                                InternalWidgetBgBrush,
+                                                RoundedCornerShape(ItemCorner),
+                                            )
+                                            .border(
+                                                1.dp,
+                                                InternalWidgetBgBorder,
+                                                RoundedCornerShape(ItemCorner),
+                                            ),
+                                    )
+                                }
                                 // 自绘部件自带点击目标，不走整格 combinedClickable；
                                 // 编辑态 enabled=false，否则拖部件会同时改音量/切歌。
                                 val widget = PanelWidgetRegistry.byId(kind.widgetId)

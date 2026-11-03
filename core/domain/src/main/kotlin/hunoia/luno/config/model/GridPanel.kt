@@ -21,6 +21,11 @@ data class GridPanel(
     val landscape: GridPanelOrientation = GridPanelOrientation(),
     /** 卡片本体透明度：0.3–1，半透明透出原背景。 */
     val cardAlpha: Float = GridPanelDefaults.CardAlpha,
+    /**
+     * 面板与内置部件背景的模糊半径（dp，0 = 关闭）。
+     * 默认开启；旧配置没有该字段时按默认值反序列化（不做迁移）。
+     */
+    val blurRadiusDp: Float = GridPanelDefaults.BlurRadiusDp,
 ) {
     fun orientation(landscape: Boolean): GridPanelOrientation =
         if (landscape) this.landscape else this.portrait

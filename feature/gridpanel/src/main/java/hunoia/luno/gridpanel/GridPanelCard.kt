@@ -78,6 +78,7 @@ import hunoia.luno.gridpanel.geometry.GridPadding
 import hunoia.luno.gridpanel.ui.GridItemActions
 import hunoia.luno.gridpanel.ui.GridPageIndicator
 import hunoia.luno.gridpanel.ui.GridPanelLayer
+import hunoia.luno.gridpanel.ui.PanelBlurHost
 import hunoia.luno.gridpanel.ui.PageDotSlot
 import hunoia.luno.gridpanel.ui.ItemResizeHandle
 import hunoia.luno.gridpanel.ui.PageEllipsisDots
@@ -131,6 +132,8 @@ fun GridPanelCard(
     /** 拖拽中把卡面整体隐去（只改 alpha，不改布局：缩放会让行列坐标跟着变）。 */
     hiddenForDrag: Boolean = false,
     cardAlpha: Float,
+    /** 面板/内置部件背景模糊半径（px，0 = 关闭）。 */
+    blurRadiusPx: Int = 0,
     state: GridPanelState,
     itemActions: (pageIndex: Int) -> GridItemActions,
     onSelectPage: (Int) -> Unit,
@@ -269,6 +272,8 @@ fun GridPanelCard(
     val pointerNow = dragPointer
     val pickerVisible = state.draggingId != null && pointerNow != null &&
         inIndicatorBand(pointerNow.y)
+    // 退场、拖拽隐去时把 blur 一起收掉，避免卡片已经看不见、背景还在糊。
+    val blurActive = blurRadiusPx > 0 && !hiddenForDrag && appearance > 0.01f
 
     Box(
         Modifier
@@ -293,6 +298,13 @@ fun GridPanelCard(
                 },
             ),
     ) {
+        // 区域模糊在卡片背景之下：外层不 clip，圆角由 drawable 自己画。
+        PanelBlurHost(
+            enabled = blurActive,
+            radiusPx = blurRadiusPx,
+            cornerRadiusPx = cornerPx,
+            modifier = Modifier.matchParentSize(),
+        )
         // 卡面内容：背景/圆角裁剪放在内层。外层留着给面板缩放手柄，命中区才能伸出
         // 面板外——Modifier.clip 会连子节点的命中测试一起裁，就地偏移会被裁掉。
         Box(
@@ -417,6 +429,8 @@ fun GridPanelCard(
                             items = state.renderItems(pageIndex),
                             metrics = pageMetrics,
                             editMode = editMode,
+                            blurRadiusPx = blurRadiusPx,
+                            blurEnabled = blurActive,
                             draggingId = if (dragOnThisPage) state.draggingId else null,
                             hoverCell = if (dragOnThisPage) state.hoverCell else null,
                             dragVisual = if (dragOnThisPage) state.dragVisual else androidx.compose.ui.geometry.Offset.Zero,

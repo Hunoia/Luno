@@ -283,6 +283,12 @@ fun GridPanelRoot(
     // 提前取渲染几何常量：metrics 声明在 commitPinchColumns 之后，而保持卡高的反推
     // 需要这些不随列数变化的量（screen/gridPad/indicator 固定，gap 随列数另取）。
     val density = LocalDensity.current
+    // 模糊半径按面板配置转 px；0 表示关闭。隐藏 API 不可用时由 UI 层静默降级。
+    val blurRadiusPx = with(density) {
+        panel.blurRadiusDp
+            .coerceIn(GridPanelDefaults.MinBlurRadiusDp, GridPanelDefaults.MaxBlurRadiusDp)
+            .dp.toPx().roundToInt()
+    }
     val renderScreenW = with(density) { configuration.screenWidthDp.dp.toPx() }
     val renderScreenH = with(density) { configuration.screenHeightDp.dp.toPx() }
     val renderGridPad = with(density) { GridPadding.toPx() }
@@ -621,6 +627,7 @@ fun GridPanelRoot(
             appearance = appearance.value,
             hiddenForDrag = dragGhost?.chromeHidden == true,
             cardAlpha = cardAlpha,
+            blurRadiusPx = blurRadiusPx,
             state = state,
             itemActions = { pageIndex ->
                 GridItemActions(
