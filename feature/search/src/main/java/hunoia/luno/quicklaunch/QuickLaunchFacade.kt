@@ -7,7 +7,7 @@ import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.quicklaunch.query.AppCatalog
 import hunoia.luno.quicklaunch.query.AppQuery
-import hunoia.luno.quicklaunch.query.ShortcutQuery
+import hunoia.luno.bridge.launcher.ShortcutQuery
 import hunoia.luno.quicklaunch.query.LauncherIconQuery
 import hunoia.luno.quicklaunch.launch.Launcher
 import hunoia.luno.quicklaunch.launch.QuickAppLaunch
@@ -39,6 +39,10 @@ object QuickLaunchFacade {
 
     fun queryShortcuts(context: Context): List<LauncherInfo> =
         ShortcutQuery.getAllAppsWithShortcut(context)
+
+    /** 按包名 + shortcutId 读取当前安装包里的静态快捷方式定义（用于刷新旧落库数据）。 */
+    fun findShortcut(context: Context, packageName: String, shortcutId: String?): LauncherInfo.ShortcutInfo? =
+        shortcutId?.let { ShortcutQuery.findShortcut(context, packageName, it) }
 
     fun resolveShortcutIconResourceId(context: Context, iconResource: android.content.Intent.ShortcutIconResource): Int =
         LauncherIconQuery.resolveShortcutIconResourceId(context, iconResource)

@@ -3,12 +3,14 @@ package hunoia.luno.launch
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import hunoia.luno.bridge.launcher.ShortcutQuery
 import hunoia.luno.bridge.system.queryIntentActivitiesCompat
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.OpenAppOrUrlData
 import hunoia.luno.config.model.OpenUrlQueryParameter
 import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.core.LOG_TAG
+import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.core.domain.AppLauncher
@@ -53,11 +55,28 @@ class DefaultAppLauncher(
             hunoia.luno.core.domain.JsonSerializer
                 .decodeFromString<ShortcutIntents>(dataJson)
         }.getOrNull() ?: return false
+        // 旧落库数据可能只存了 component（快捷方式定义后来才补 action/data），
+        // 直接启动就会报“参数无效”。启动前按当前安装包刷新一次定义。
+        val freshIntents = withContext(Dispatchers.IO) {
+            ShortcutQuery.findShortcut(
+                context,
+                shortcut.packageName,
+                shortcut.shortcutId.orEmpty(),
+            )?.intents.orEmpty()
+        }
+        val intentUris = freshIntents.ifEmpty { shortcut.intents }
+        if (freshIntents.isNotEmpty() && freshIntents != shortcut.intents) {
+            Log.i(
+                LOG_TAG,
+                "shortcut intents refreshed pkg=${shortcut.packageName} id=${shortcut.shortcutId} " +
+                    "stored=${shortcut.intents.size} fresh=${freshIntents.size}",
+            )
+        }
         return Launcher.launchShortcutWithFallback(
             context = context,
             packageName = shortcut.packageName,
             shortcutId = shortcut.shortcutId,
-            intentUris = shortcut.intents,
+            intentUris = intentUris,
             label = "",
         )
     }

@@ -360,8 +360,12 @@ object Launcher {
     }
 
     /**
-     * 启动快捷方式：优先走 LauncherApps / Shizuku（可启动应用未导出的 shortcut
-     * trampoline），失败再回退到直接 startActivity。
+     * 启动快捷方式：优先直接启动落库的显式 intent，失败再走 LauncherApps / Shizuku
+     * （后者用于启动应用未导出的 shortcut trampoline）。
+     *
+     * 普通快捷方式（如 Bitwarden 密码生成器）的 intent 通常指向可导出 Activity，
+     * 直接启动最稳；LauncherApps 在非默认 launcher 上可能抛权限异常，Shizuku 又依赖
+     * 用户授权，都不该挡在显式 intent 前面。
      *
      * `LauncherInfo.ShortcutInfo` 是查询侧模型（带 Bitmap），不进口契约；调用方负责解码落库 JSON。
      */
@@ -372,11 +376,30 @@ object Launcher {
         intentUris: List<String>,
         label: String,
     ): Boolean {
-        if (packageName.isNotBlank() && !shortcutId.isNullOrBlank()) {
-            if (startShortcutViaLauncherApps(context, packageName, shortcutId)) return true
-            if (hunoia.luno.shizuku.ShizukuManager.startShortcut(packageName, shortcutId)) return true
+        if (intentUris.isNotEmpty() &&
+            launchShortcutIntents(context, intentUris, label, showFailureToast = false)
+        ) {
+            Log.i(LOG_TAG, "shortcut launched via explicit intent pkg=$packageName id=$shortcutId")
+            return true
         }
-        return launchShortcutIntents(context, intentUris, label)
+        if (packageName.isNotBlank() && !shortcutId.isNullOrBlank()) {
+            if (startShortcutViaLauncherApps(context, packageName, shortcutId)) {
+                Log.i(LOG_TAG, "shortcut launched via LauncherApps pkg=$packageName id=$shortcutId")
+                return true
+            }
+            if (ShizukuManager.startShortcut(packageName, shortcutId)) {
+                Log.i(LOG_TAG, "shortcut launched via Shizuku pkg=$packageName id=$shortcutId")
+                return true
+            }
+        }
+        Log.w(
+            LOG_TAG,
+            "shortcut launch failed pkg=$packageName id=$shortcutId intents=${intentUris.size}",
+        )
+        if (intentUris.isNotEmpty()) {
+            showToast(context.getString(R.string.launch_shortcut_info_failed, label))
+        }
+        return false
     }
 
     /**
@@ -402,7 +425,13 @@ object Launcher {
         false
     }
 
-    fun launchShortcutIntents(context: Context, intentUris: List<String>, label: String): Boolean {
+    fun launchShortcutIntents(
+        context: Context,
+        intentUris: List<String>,
+        label: String,
+        /** false 时静默失败，供 fallback 链先试探；全部路径失败后由调用方统一提示。 */
+        showFailureToast: Boolean = true,
+    ): Boolean {
         if (intentUris.isEmpty()) return false
         return try {
             val intents = intentUris.map {
@@ -412,7 +441,9 @@ object Launcher {
             }
             val resolved = intents.filter { context.packageManager.resolveActivity(it, 0) != null }
             if (resolved.isEmpty()) {
-                showToast(context.getString(R.string.launch_shortcut_info_failed, label))
+                if (showFailureToast) {
+                    showToast(context.getString(R.string.launch_shortcut_info_failed, label))
+                }
                 return false
             }
             // 多 intent 快捷方式按顺序建回退栈；若后面的 intent 不可解析（部分应用
@@ -425,7 +456,9 @@ object Launcher {
             true
         } catch (e: Exception) {
             Log.e(LOG_TAG, "launchShortcutInfo failed", e)
-            showToast(context.getString(R.string.launch_shortcut_info_failed, label))
+            if (showFailureToast) {
+                showToast(context.getString(R.string.launch_shortcut_info_failed, label))
+            }
             false
         }
     }

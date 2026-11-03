@@ -1,4 +1,4 @@
-package hunoia.luno.quicklaunch.query
+package hunoia.luno.bridge.launcher
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

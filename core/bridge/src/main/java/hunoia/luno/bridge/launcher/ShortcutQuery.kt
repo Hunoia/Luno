@@ -1,4 +1,4 @@
-package hunoia.luno.quicklaunch.query
+package hunoia.luno.bridge.launcher
 
 import android.content.Context
 import android.content.Intent
@@ -7,8 +7,7 @@ import android.content.pm.PackageManager
 import android.content.res.XmlResourceParser
 import android.net.Uri
 import hunoia.luno.core.LunoLog as Log
-import hunoia.luno.search.BuildConfig
-import hunoia.luno.bridge.launcher.LauncherInfo
+import hunoia.luno.core.bridge.BuildConfig
 import hunoia.luno.bridge.system.queryIntentActivitiesCompat
 import org.xmlpull.v1.XmlPullParser
 import java.util.UUID
@@ -17,6 +16,39 @@ object ShortcutQuery {
 
     private const val TAG = "ShortcutQuery"
     private const val XMLNS_ANDROID = "http://schemas.android.com/apk/res/android"
+
+    /**
+     * 按包名 + shortcutId 重新读取系统里的静态快捷方式定义。
+     *
+     * 落库的快捷方式可能来自旧版本应用（或其 shortcuts.xml 后来补了 action/data），
+     * 只信任落库 intent 会在点击时落入「参数无效」。启动前用当前安装包的定义刷新一次。
+     */
+    fun findShortcut(context: Context, packageName: String, shortcutId: String): LauncherInfo.ShortcutInfo? {
+        if (packageName.isBlank() || shortcutId.isBlank()) return null
+        return runCatching {
+            val intent = Intent(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_LAUNCHER)
+                setPackage(packageName)
+            }
+            val activities = context.packageManager.queryIntentActivitiesCompat(
+                intent,
+                PackageManager.GET_META_DATA,
+            )
+            for (resolveInfo in activities) {
+                val activityInfo = resolveInfo.activityInfo ?: continue
+                val shortcutsMetadata = activityInfo.loadXmlMetaData(
+                    context.packageManager,
+                    "android.app.shortcuts",
+                ) ?: continue
+                shortcutsMetadata.use { parser ->
+                    val found = parseShortcuts(context, activityInfo, parser)
+                        .firstOrNull { it.shortcutId == shortcutId }
+                    if (found != null) return found
+                }
+            }
+            null
+        }.getOrNull()
+    }
 
     fun getAllAppsWithShortcut(context: Context): List<LauncherInfo> {
         val result = arrayListOf<LauncherInfo>()
@@ -70,26 +102,26 @@ object ShortcutQuery {
                     currentIntents = arrayListOf()
                 }
                 eventType == XmlPullParser.END_TAG && parser.name == "intent" && currentIntent != null -> {
-                    currentIntents.add(currentIntent.toUri(Intent.URI_INTENT_SCHEME))
+                    currentIntents.add(currentIntent!!.toUri(Intent.URI_INTENT_SCHEME))
                 }
                 eventType != XmlPullParser.START_TAG -> {}
                 parser.name == "shortcut" && parser.getAttributeBooleanValue(XMLNS_ANDROID, "enabled", true) -> {
-                    currentId = parser.getAttributeValue("shortcutId") ?: UUID.randomUUID().toString()
-                    var labelRes = parser.getAttributeResourceValue("shortcutShortLabel")
-                    if (labelRes == 0) labelRes = parser.getAttributeResourceValue("shortcutLongLabel")
+                    currentId = parser.attr("shortcutId") ?: UUID.randomUUID().toString()
+                    var labelRes = parser.attrResource("shortcutShortLabel")
+                    if (labelRes == 0) labelRes = parser.attrResource("shortcutLongLabel")
                     currentLabel = if (labelRes == 0) null else {
                         val resources = context.packageManager.getResourcesForApplication(actInfo.packageName)
                         resources.getString(labelRes)
                     }
-                    currentIconRes = parser.getAttributeResourceValue("icon")
+                    currentIconRes = parser.attrResource("icon")
                 }
                 parser.name == "intent" && currentId != null -> {
                     try {
                         val shortcutIntent = Intent().apply {
-                            action = parser.getAttributeValue("action")
-                            val pkg = parser.getAttributeValue("targetPackage")
-                            val rawClass = parser.getAttributeValue("targetClass")
-                                ?: parser.getAttributeValue("targetActivity")
+                            action = parser.attr("action")
+                            val pkg = parser.attr("targetPackage")
+                            val rawClass = parser.attr("targetClass")
+                                ?: parser.attr("targetActivity")
                             if (pkg != null && rawClass != null) {
                                 setClassName(pkg, normalizeShortcutClassName(pkg, rawClass))
                             } else if (pkg != null) {
@@ -103,8 +135,18 @@ object ShortcutQuery {
                                 }
                             }
                             currentLabel = currentLabel ?: rawClass?.substringAfterLast('.')
-                            data = parser.getAttributeValue("data")?.let(Uri::parse)
-                            type = parser.getAttributeValue("mimeType")
+                            // Android 的 setType(null) 会清掉 data：两者必须一起设置，
+                            // 否则只有 data、没有 mimeType 的快捷方式会退化成 component-only，
+                            // 点击时落到错误的默认入口（或报“参数无效”）。
+                            val dataUri = parser.attr("data")?.let(Uri::parse)
+                            val mimeType = parser.attr("mimeType")
+                            if (dataUri != null && mimeType != null) {
+                                setDataAndType(dataUri, mimeType)
+                            } else if (dataUri != null) {
+                                data = dataUri
+                            } else if (mimeType != null) {
+                                type = mimeType
+                            }
                         }
                         currentIntent = shortcutIntent
                     } catch (e: Exception) {
@@ -112,12 +154,12 @@ object ShortcutQuery {
                     }
                 }
                 parser.name == "extra" && currentIntent != null -> {
-                    val name = parser.getAttributeValue("name")
-                    val value = parser.getAttributeValue("value")
+                    val name = parser.attr("name")
+                    val value = parser.attr("value")
                     if (name != null && value != null) currentIntent.putExtra(name, value)
                 }
                 parser.name == "categories" && currentIntent != null -> {
-                    val name = parser.getAttributeValue("name")
+                    val name = parser.attr("name")
                     if (name != null) currentIntent.addCategory(name)
                 }
             }
@@ -126,14 +168,27 @@ object ShortcutQuery {
         return result
     }
 
-    private fun XmlResourceParser.getAttributeValue(attribute: String): String? {
-        return getAttributeValue(XMLNS_ANDROID, attribute) ?: getAttributeValue(null, attribute)
+    /**
+     * 优先按 android 命名空间取；部分 ROM / 应用会把快捷方式属性写成无命名空间，
+     * 最后再按属性名遍历兜底，避免 action/data 被静默丢掉（表现为「参数无效」）。
+     */
+    private fun XmlResourceParser.attr(attribute: String): String? {
+        getAttributeValue(XMLNS_ANDROID, attribute)?.let { return it }
+        getAttributeValue(null, attribute)?.let { return it }
+        for (i in 0 until attributeCount) {
+            if (getAttributeName(i) == attribute) return getAttributeValue(i)
+        }
+        return null
     }
 
-    private fun XmlResourceParser.getAttributeResourceValue(attribute: String): Int {
+    private fun XmlResourceParser.attrResource(attribute: String): Int {
         val res = getAttributeResourceValue(XMLNS_ANDROID, attribute, 0)
         if (res != 0) return res
-        return getAttributeResourceValue(null, attribute, 0)
+        getAttributeResourceValue(null, attribute, 0).takeIf { it != 0 }?.let { return it }
+        for (i in 0 until attributeCount) {
+            if (getAttributeName(i) == attribute) return getAttributeResourceValue(i, 0)
+        }
+        return 0
     }
 }
 
