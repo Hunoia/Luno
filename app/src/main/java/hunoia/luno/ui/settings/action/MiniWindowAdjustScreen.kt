@@ -1,31 +1,37 @@
 package hunoia.luno.ui.settings.action
 
 import android.content.res.Configuration
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,21 +45,21 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.DialogWindowProvider
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
-import hunoia.luno.bridge.ui.findActivity
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.config.model.WindowBounds
@@ -62,7 +68,6 @@ import hunoia.luno.config.model.withMiniWindowSettings
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.LargeShape
-import hunoia.luno.ui.theme.SmallShape
 import kotlinx.coroutines.launch
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -92,8 +97,6 @@ fun MiniWindowAdjustContent(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    ImmersiveSystemBars()
-
     val orientation = LocalConfiguration.current.orientation
     val isLandscape = orientation == Configuration.ORIENTATION_LANDSCAPE
     // 命中半径在这里换算成 px：下面的拖拽回调不是 composable，拿不到 Density。
@@ -258,6 +261,8 @@ fun MiniWindowAdjustContent(
                 )
             },
     ) {
+        val handleColor = MaterialTheme.colorScheme.primary
+        val textMeasurer = rememberTextMeasurer()
         Canvas(modifier = Modifier.fillMaxSize()) {
             val px = rectPx(pending)
             drawRoundRect(
@@ -281,65 +286,67 @@ fun MiniWindowAdjustContent(
             )
             for (h in handles) {
                 drawCircle(color = Color.White, radius = HANDLE_RADIUS.toPx() + 2.dp.toPx(), center = h)
-                drawCircle(color = Color(0xFF1A73E8), radius = HANDLE_RADIUS.toPx(), center = h)
+                drawCircle(color = handleColor, radius = HANDLE_RADIUS.toPx(), center = h)
             }
+            // 各边边距：矩形内侧边中点显示到屏幕对应边的距离（dp）。
+            // 方向跟随边：左/右边距竖直（旋转90°），上/下水平；往内放避开边中点拖拽点。
+            val labelStyle = TextStyle(color = Color.White, fontSize = 12.sp)
+            fun edgeLabel(text: String, center: Offset, rotation: Float = 0f) {
+                val layout = textMeasurer.measure(text, labelStyle)
+                val topLeft = Offset(
+                    center.x - layout.size.width / 2f,
+                    center.y - layout.size.height / 2f,
+                )
+                if (rotation == 0f) {
+                    drawText(textLayoutResult = layout, topLeft = topLeft)
+                } else {
+                    rotate(rotation, center) {
+                        drawText(textLayoutResult = layout, topLeft = topLeft)
+                    }
+                }
+            }
+            val inset = 20.dp.toPx()
+            val cx = (px.left + px.right) / 2f
+            val cy = (px.top + px.bottom) / 2f
+            val leftDp = (pending.x * screenPx.width / density).roundToInt()
+            val topDp = (pending.y * screenPx.height / density).roundToInt()
+            val rightDp = ((1f - pending.x - pending.width).coerceAtLeast(0f) * screenPx.width / density).roundToInt()
+            val bottomDp = ((1f - pending.y - pending.height).coerceAtLeast(0f) * screenPx.height / density).roundToInt()
+            edgeLabel("${leftDp}dp", Offset(px.left + inset, cy), rotation = -90f)
+            edgeLabel("${topDp}dp", Offset(cx, px.top + inset))
+            edgeLabel("${rightDp}dp", Offset(px.right - inset, cy), rotation = 90f)
+            edgeLabel("${bottomDp}dp", Offset(cx, px.bottom - inset))
         }
-
-        Text(
-            text = stringResource(
-                if (isLandscape) R.string.mini_window_landscape_hint else R.string.mini_window_portrait_hint,
-            ),
-            style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = 0.75f),
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 24.dp, start = 16.dp, end = 16.dp)
-                .background(Color.Black.copy(alpha = 0.5f), SmallShape)
-                .padding(horizontal = 10.dp, vertical = 4.dp),
-        )
 
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                // 横屏下不限宽会占满整屏，把矩形挤到一边、按钮还压在把手上。封顶后居中。
+                // 卡片背景按按钮实际占用收缩（wrapContent），不再撑满屏宽，横屏也居中贴合。
                 .widthIn(max = 460.dp)
-                .fillMaxWidth()
                 .padding(12.dp)
-                .background(Color.Black.copy(alpha = 0.55f), LargeShape)
+                .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)), LargeShape)
+                .background(Color(0xFF1C1B1F).copy(alpha = 0.92f), LargeShape)
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
         ) {
-            Text(
-                text = stringResource(
-                    R.string.mini_window_adjust_hint,
-                    (pending.x * 100).roundToInt(),
-                    (pending.y * 100).roundToInt(),
-                    (pending.width * 100).roundToInt(),
-                    (pending.height * 100).roundToInt(),
-                ),
-                style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
-                color = Color.White,
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-            )
-
             Column(
                 modifier = Modifier.align(Alignment.CenterHorizontally),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ArrowGroup(title = stringResource(R.string.mini_window_position)) {
+                    ArrowGroup {
                         StepButton(Icons.Default.KeyboardArrowLeft) { nudge(-STEP, 0f, 0f, 0f) }
                         StepButton(Icons.Default.KeyboardArrowRight) { nudge(STEP, 0f, 0f, 0f) }
                         StepButton(Icons.Default.KeyboardArrowUp) { nudge(0f, -STEP, 0f, 0f) }
                         StepButton(Icons.Default.KeyboardArrowDown) { nudge(0f, STEP, 0f, 0f) }
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ArrowGroup(title = stringResource(R.string.width)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    ArrowGroup {
                         StepButton(Icons.Default.Remove) { nudge(0f, 0f, -STEP, 0f) }
                         StepButton(Icons.Default.Add) { nudge(0f, 0f, STEP, 0f) }
                     }
-                    ArrowGroup(title = stringResource(R.string.height)) {
+                    ArrowGroup {
                         StepButton(Icons.Default.Remove) { nudge(0f, 0f, 0f, -STEP) }
                         StepButton(Icons.Default.Add) { nudge(0f, 0f, 0f, STEP) }
                     }
@@ -347,41 +354,29 @@ fun MiniWindowAdjustContent(
             }
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+                horizontalArrangement = Arrangement.Center,
             ) {
-                TextButton(
-                    modifier = Modifier.weight(1f),
+                StepButton(
+                    icon = Icons.Default.Refresh,
+                    contentDescription = stringResource(R.string.mini_window_default),
                     onClick = { pending = defaultBounds() },
-                ) { Text(stringResource(R.string.mini_window_default), color = Color.White) }
-                TextButton(
-                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(8.dp))
+                StepButton(
+                    icon = Icons.Default.Close,
+                    contentDescription = stringResource(R.string.cancel),
                     onClick = onCancel,
-                ) { Text(stringResource(R.string.cancel), color = Color.White) }
-                FilledTonalButton(
-                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(8.dp))
+                StepButton(
+                    icon = Icons.Default.Check,
+                    contentDescription = stringResource(R.string.mini_window_done),
+                    tint = handleColor,
                     onClick = { onCommit(initial.withOrientation(isLandscape, pending)) },
-                ) { Text(stringResource(R.string.mini_window_done)) }
+                )
             }
         }
-    }
-}
-
-/**
- * 藏掉状态栏与导航栏，离开时恢复。取 Window 优先 [DialogWindowProvider]（对话框入口），
- * 退回 Activity；都找不到就跳过 —— 页面仍可用，只是没隐藏系统栏。
- */
-@Composable
-private fun ImmersiveSystemBars() {
-    val view = LocalView.current
-    DisposableEffect(view) {
-        val window = (view as? DialogWindowProvider)?.window
-            ?: view.context.findActivity()?.window
-        val controller = window?.let { WindowInsetsControllerCompat(it, view) }
-        controller?.hide(WindowInsetsCompat.Type.systemBars())
-        controller?.systemBarsBehavior =
-            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        onDispose { controller?.show(WindowInsetsCompat.Type.systemBars()) }
     }
 }
 
@@ -408,24 +403,26 @@ fun MiniWindowAdjustScreen(
 }
 
 @Composable
-private fun ArrowGroup(title: String, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(
-            text = title,
-            style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = 0.75f),
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) { content() }
-    }
+private fun ArrowGroup(content: @Composable () -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) { content() }
 }
 
 @Composable
-private fun StepButton(icon: ImageVector, onClick: () -> Unit) {
-    IconButton(onClick = onClick) {
+private fun StepButton(
+    icon: ImageVector,
+    contentDescription: String? = null,
+    tint: Color = Color.White,
+    onClick: () -> Unit,
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier.background(Color.White.copy(alpha = 0.10f), CircleShape),
+    ) {
         Icon(
             imageVector = icon,
-            contentDescription = null,
-            tint = Color.White,
+            contentDescription = contentDescription,
+            tint = tint,
         )
     }
 }
+

@@ -166,7 +166,7 @@
     <string name="apps_show_system">显示系统应用</string>
     <string name="apps_show_system_hint">在应用列表中加入没有桌面入口的系统应用</string>
     <string name="action_settings_permissions_group">权限</string>
-    <string name="action_settings_mini_window_position">迷你窗位置</string>
+    <string name="action_settings_mini_window_position">小窗设置</string>
     <string name="screen_pick_settings_title">屏幕识别</string>
     <string name="screen_pick_settings_group">全屏长按</string>
     <string name="screen_pick_settings_image_group">图片</string>
@@ -379,12 +379,8 @@
 
     <!-- 主页 -->
     <string name="height">高度</string>
-    <string name="mini_window_portrait_hint">当前编辑竖屏位置，转动屏幕可编辑横屏</string>
-    <string name="mini_window_landscape_hint">当前编辑横屏位置，转回竖屏可编辑竖屏</string>
-    <string name="mini_window_position">位置</string>
     <string name="mini_window_default">默认</string>
     <string name="mini_window_done">完成</string>
-    <string name="mini_window_adjust_hint">横 %1$d%% · 纵 %2$d%% · 宽 %3$d%% · 高 %4$d%%</string>
 
     <!-- 手势设置分组 -->
     <string name="physical_params">物理参数</string>
