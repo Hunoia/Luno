@@ -181,6 +181,9 @@ private fun bottomSlot(
     spanX: Int,
     spanY: Int,
 ): GridCell? {
+    // span 大于列数时 `0..(columns - spanX)` 是空区间，会白扫到行尾才返回 null；
+    // 调用方必须先把 span 夹进面板，这里直接拒绝非法输入。
+    if (spanX > columns || spanY < 1) return null
     var y = items.maxOfOrNull { it.bottom } ?: 0
     val effectiveRows = maxOf(rows, y + spanY)
     while (y + spanY <= effectiveRows) {
@@ -245,7 +248,9 @@ private fun degradeSlot(
     val candidates = buildList {
         for (h in spanY downTo 1) {
             for (w in spanX downTo 1) {
-                add(WidgetSpan(w, h))
+                // firstFreeSlot 内部会把宽度夹到列数，但返回的 span 仍是原值；
+                // 候选本身先夹好，落盘就不会出现 spanX > 列数的坏数据。
+                add(WidgetSpan(w.coerceIn(1, columns.coerceAtLeast(1)), h))
             }
         }
     }.sortedByDescending { it.spanX * it.spanY }.distinct()
@@ -285,9 +290,12 @@ internal suspend fun saveGridPanelWidget(
         }
         val ctx = gridContext(panel, actionSelect.gridPanelPageIndex)
         val pageItems = ctx.items.filter { it.pageIndex == ctx.pageIndex }
+        // 入口再夹一次：即使调用方传来超列 span，也不能落成坏数据。
+        val reqX = spanX.coerceIn(1, ctx.columns)
+        val reqY = spanY.coerceAtLeast(1)
         // 追加优先：原尺寸先试「放到最下面」；实在不行才走降档扫空位兜底。
         // 行数派生且无上限：追加时把 rows 抬到装得下，运行态页面随内容长高。
-        bottomSlot(pageItems, ctx.columns, maxOf(ctx.rows, pageItems.maxOfOrNull { it.bottom } ?: 0), spanX, spanY)?.let { cell ->
+        bottomSlot(pageItems, ctx.columns, maxOf(ctx.rows, pageItems.maxOfOrNull { it.bottom } ?: 0), reqX, reqY)?.let { cell ->
             result = GridPanelSaveResult.Saved
             return@updateAction settings.copy(
                 actionGridPanels = settings.actionGridPanels.withPanel(
@@ -296,14 +304,14 @@ internal suspend fun saveGridPanelWidget(
                             items = orientation.items + GridPanelItem(
                                 x = cell.x,
                                 y = cell.y,
-                                spanX = spanX,
-                                spanY = spanY,
+                                spanX = reqX,
+                                spanY = reqY,
                                 pageIndex = ctx.pageIndex,
                                 kind = GridPanelItem.Kind.AppWidget(
                                     appWidgetId = appWidgetId,
                                     provider = provider,
-                                    minSpanX = spanX,
-                                    minSpanY = spanY,
+                                    minSpanX = reqX,
+                                    minSpanY = reqY,
                                 ),
                             ),
                         )
@@ -311,7 +319,7 @@ internal suspend fun saveGridPanelWidget(
                 ),
             )
         }
-        degradeSlot(pageItems, ctx.columns, ctx.rows, spanX, spanY)?.let { (cell, span) ->
+        degradeSlot(pageItems, ctx.columns, ctx.rows, reqX, reqY)?.let { (cell, span) ->
             result = GridPanelSaveResult.Saved
             // 必须 return copy 的结果本身：return 原 settings 会让落盘形同没写。
             return@updateAction settings.copy(
@@ -369,8 +377,12 @@ internal suspend fun saveGridPanelInternalWidget(
         }
         val ctx = gridContext(panel, actionSelect.gridPanelPageIndex)
         val pageItems = ctx.items.filter { it.pageIndex == ctx.pageIndex }
+        // 内置部件的默认 span 是 4×N，面板列数可能只有 2/3：必须先把宽度夹进面板，
+        // 否则落盘的 spanX > columns，手势层的尺寸/命中/重排全部会跟着坏。
+        val reqX = def.spanX.coerceIn(1, ctx.columns)
+        val reqY = def.spanY.coerceAtLeast(1)
         // 追加优先：原尺寸先试「放到最下面」；行数无上限，追加时同步抬 rows。
-        bottomSlot(pageItems, ctx.columns, maxOf(ctx.rows, pageItems.maxOfOrNull { it.bottom } ?: 0), def.spanX, def.spanY)?.let { cell ->
+        bottomSlot(pageItems, ctx.columns, maxOf(ctx.rows, pageItems.maxOfOrNull { it.bottom } ?: 0), reqX, reqY)?.let { cell ->
             result = GridPanelSaveResult.Saved
             return@updateAction settings.copy(
                 actionGridPanels = settings.actionGridPanels.withPanel(
@@ -379,8 +391,8 @@ internal suspend fun saveGridPanelInternalWidget(
                             items = orientation.items + GridPanelItem(
                                 x = cell.x,
                                 y = cell.y,
-                                spanX = def.spanX,
-                                spanY = def.spanY,
+                                spanX = reqX,
+                                spanY = reqY,
                                 pageIndex = ctx.pageIndex,
                                 kind = GridPanelItem.Kind.Internal(widgetId = widgetId, showBackground = false),
                             ),
@@ -389,7 +401,7 @@ internal suspend fun saveGridPanelInternalWidget(
                 ),
             )
         }
-        degradeSlot(pageItems, ctx.columns, ctx.rows, def.spanX, def.spanY)?.let { (cell, span) ->
+        degradeSlot(pageItems, ctx.columns, ctx.rows, reqX, reqY)?.let { (cell, span) ->
             result = GridPanelSaveResult.Saved
             return@updateAction settings.copy(
                 actionGridPanels = settings.actionGridPanels.withPanel(

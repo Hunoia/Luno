@@ -9,8 +9,16 @@ import org.junit.Test
 /** 列数收敛的落位预演：弹窗告知的「会移除哪些」必须就是实际移除的。 */
 class GridResizePlanTest {
 
-    private fun item(id: String, x: Int, y: Int, spanX: Int = 1, spanY: Int = 1) =
-        GridPanelItem(id = id, x = x, y = y, spanX = spanX, spanY = spanY)
+    private fun item(
+        id: String,
+        x: Int,
+        y: Int,
+        spanX: Int = 1,
+        spanY: Int = 1,
+        pageIndex: Int = 0,
+    ) = GridPanelItem(
+        id = id, x = x, y = y, spanX = spanX, spanY = spanY, pageIndex = pageIndex,
+    )
 
     // 极小屏幕 + 小卡高 → 可见行数压到 1，便于构造「真的没地方放」的场景。
     private fun plan(items: List<GridPanelItem>, columns: Int, expandRows: Boolean = false) = planGridResize(
@@ -90,5 +98,37 @@ class GridResizePlanTest {
         )
         assertTrue(result.dropped.isEmpty())
         assertEquals(3, result.items.size)
+    }
+
+    @Test
+    fun `each page compacts independently`() {
+        // 第 0 页占住 (0,0)(1,0)，第 1 页仍应从 (0,0) 开始：占位集合不能跨页复用。
+        val result = plan(
+            listOf(
+                item("a", 0, 0),
+                item("b", 1, 0),
+                item("c", 3, 2, pageIndex = 1),
+            ),
+            columns = 4,
+            expandRows = true,
+        )
+        assertTrue(result.dropped.isEmpty())
+        val c = result.items.single { it.id == "c" }
+        assertEquals(0, c.x)
+        assertEquals(0, c.y)
+    }
+
+    @Test
+    fun `non expanding path also compacts away holes above`() {
+        // 两项都停在 y=2，上方全空：调列后应被压回左上，而不是原地保留空洞。
+        val result = plan(
+            listOf(item("a", 0, 2), item("b", 1, 2)),
+            columns = 4,
+        )
+        assertTrue(result.dropped.isEmpty())
+        assertEquals(
+            setOf(0 to 0, 1 to 0),
+            result.items.map { it.x to it.y }.toSet(),
+        )
     }
 }

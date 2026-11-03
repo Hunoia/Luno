@@ -17,9 +17,8 @@ data class PanelResizeResult(
  * [minWidthFraction, minOf(maxWidthFraction, 锚点边界)]，**只 clamp 尺寸、不 clamp 位置**
  * —— 位置 = 锚点 − 渲染尺寸，锚点永不被 coerceIn 推走。
  *
- * 高度用 [gridPanelCardHeight] 按可见行数量化（渲染是贴齐格子的），不能按连续
- * [newH] 反推：否则渲染锚点 = top + 量化卡高 ≠ 锚点，拖动时对侧角会被行数取整推走。
- * 宽度不量化（cardW = screenW × fraction 精确）。
+ * 高度连续跟手（[gridPanelCardHeight] 不再量化）：渲染尺寸 === 解析尺寸，
+ * 对侧角不会被行数取整推走，手柄也不会一格格跳。
  */
 fun resolvePanelResize(
     corner: ResizeCorner,
@@ -31,7 +30,7 @@ fun resolvePanelResize(
     insetsTop: Int,
     insetsBottom: Int,
     screenMarginPx: Float,
-    /** 渲染几何（列数与内边距/指示条/格间距 px）：算量化卡高用。 */
+    /** 渲染几何（列数与内边距/指示条/格间距 px）：算最小一行高度用。 */
     columns: Int,
     gridPad: Float,
     indicator: Float,
@@ -53,32 +52,25 @@ fun resolvePanelResize(
     } else {
         (screenW - screenMarginPx) - startPos.x
     }).coerceAtLeast(screenW * minWidthFraction)
-    val maxH = (if (corner.isTop) {
-        anchorBottom - insetsTop - screenMarginPx
-    } else {
-        (screenH - insetsBottom - screenMarginPx) - startPos.y
-    }).coerceAtLeast(screenH * minHeightFraction)
     val newW = (startW + widthDelta).coerceIn(
         screenW * minWidthFraction,
         minOf(screenW * maxWidthFraction, maxW),
     )
-    val newH = (startH + heightDelta).coerceIn(
-        screenH * minHeightFraction,
-        minOf(screenH * maxHeightFraction, maxH),
-    )
-    // 实际渲染卡高（行数量化）：锚点按渲染尺寸反推，对侧角才真正固定。
-    val renderH = gridPanelCardHeight(
-        columns = columns,
-        cardW = newW,
-        cardHeightFraction = newH / screenH,
-        screenH = screenH,
-        gridPad = gridPad,
-        indicator = indicator,
-        gap = gap,
-    )
+    // 最小高度至少装得下一行格子：单靠 heightFraction 下限在大屏上可能比一行还矮。
+    val cellW = ((newW - gridPad * 2) - gap * (columns.coerceAtLeast(1) - 1)) /
+        columns.coerceAtLeast(1)
+    val minRowH = gridPad * 2 + indicator + cellW
+    val minH = maxOf(screenH * minHeightFraction, minRowH)
+    val maxH = (if (corner.isTop) {
+        anchorBottom - insetsTop - screenMarginPx
+    } else {
+        (screenH - insetsBottom - screenMarginPx) - startPos.y
+    }).coerceAtLeast(minH)
+    val upperH = minOf(screenH * maxHeightFraction, maxH)
+    val newH = if (upperH <= minH) upperH else (startH + heightDelta).coerceIn(minH, upperH)
     // 位置 = 锚点 − 渲染尺寸：锚点固定，手柄角随拖拽移动。
     val left = if (corner.isLeft) anchorRight - newW else startPos.x
-    val top = if (corner.isTop) anchorBottom - renderH else startPos.y
+    val top = if (corner.isTop) anchorBottom - newH else startPos.y
     return PanelResizeResult(
         cardWidthFraction = newW / screenW,
         cardHeightFraction = newH / screenH,

@@ -322,8 +322,7 @@ fun GridPanelRoot(
         if (plan.dropped.isNotEmpty()) {
             Log.w(TAG, "pinch columns $cols drops ${plan.dropped.size} item(s)")
         }
-        // 调列数保持视觉卡高：列数变 → cellH/gap 变 → 同一 heightFraction 的量化卡高会漂。
-        // 反推 heightFraction 使新列数下渲染卡高 ≈ 调列数前卡高，用户调列数不会顺带改高度。
+        // 调列数保持视觉卡高：卡高已连续，列数变化只影响行数派生，不顺带改高度。
         val baseCardH = gridPanelCardHeight(
             columns = baseColumns,
             cardW = renderScreenW * geo.cardWidthFraction,
@@ -333,15 +332,7 @@ fun GridPanelRoot(
             indicator = renderIndicator,
             gap = with(density) { gapFor(baseColumns).toPx() },
         )
-        val newFracH = keepCardHeightFraction(
-            columns = cols,
-            cardW = renderScreenW * geo.cardWidthFraction,
-            currentCardH = baseCardH,
-            screenH = renderScreenH,
-            gridPad = renderGridPad,
-            indicator = renderIndicator,
-            gap = with(density) { gapFor(cols).toPx() },
-        )
+        val newFracH = keepCardHeightFraction(baseCardH, renderScreenH)
         localGeometry = localGeometry.copy(columnCount = cols, cardHeightFraction = newFracH)
         localItems = plan.items
         lastWritten = plan.items
@@ -390,9 +381,14 @@ fun GridPanelRoot(
         extraRows = editExtraRows,
     )
     val metricsState = rememberUpdatedState(metrics)
+    // state 在 metricsForPage 之后创建；用 ref 打破循环，拖拽过程中的行数要按
+    // state.resolved 计算，否则项被推到当前行数以下时 planReorder 会因越界返回 null。
+    val stateRef = remember { arrayOfNulls<GridPanelState>(1) }
     val metricsForPage: (Int) -> GridMetrics = { page ->
         val m = metricsState.value
-        val occ = renderItemsState.value.filter { it.pageIndex == page }.maxOfOrNull { it.bottom } ?: 0
+        val pageItemsNow = stateRef[0]?.renderItems(page)
+            ?: renderItemsState.value.filter { it.pageIndex == page }
+        val occ = pageItemsNow.maxOfOrNull { it.bottom } ?: 0
         val rows = maxOf(m.rows, occ + if (editMode) EditRowExtra else 0)
         if (rows == m.rows) m else m.copy(rows = rows)
     }
@@ -518,14 +514,17 @@ fun GridPanelRoot(
         if (targetPage == fromPage) return
         val targetItems = localItems.filter { it.pageIndex == targetPage }
         val m = metricsForPage(targetPage)
+        // 跨页搬项也走归一化：旧坏 span 不跟着搬，目标页的空位扫描也不被越界项挡住。
+        val base = item.normalized(m.columns, m.rows)
+        val normalizedTargets = targetItems.map { it.normalized(m.columns, m.rows) }
         val slot = GridPanelItemLayout.firstFreeSlot(
-            items = targetItems,
+            items = normalizedTargets,
             columns = m.columns,
             rows = m.rows + EditRowExtra,
-            spanX = item.spanX,
-            spanY = item.spanY,
-        ) ?: GridCell(0, targetItems.maxOfOrNull { it.bottom } ?: 0)
-        val moved = item.copy(pageIndex = targetPage, x = slot.x, y = slot.y)
+            spanX = base.spanX,
+            spanY = base.spanY,
+        ) ?: GridCell(0, normalizedTargets.maxOfOrNull { it.bottom } ?: 0)
+        val moved = base.copy(pageIndex = targetPage, x = slot.x, y = slot.y)
         Log.i(TAG, "moveItemToPage id=${item.id} $fromPage -> $targetPage at (${slot.x},${slot.y})")
         commitAllItems(localItems.filterNot { it.id == item.id } + moved)
     }
@@ -555,6 +554,8 @@ fun GridPanelRoot(
             scope = scope,
         )
     }
+    // 供 metricsForPage 读取拖拽中的 resolved 布局（仅读，不参与 state 构造）。
+    stateRef[0] = state
 
     // 返回键优先级：拖拽中 → 取消拖拽；缩放中 → 取消缩放；编辑态 → 退编辑；否则交给浮窗。
     // 注册必须放在 state 之后（处理器要能读到当前拖拽/缩放状态），并且以 state 为 key：

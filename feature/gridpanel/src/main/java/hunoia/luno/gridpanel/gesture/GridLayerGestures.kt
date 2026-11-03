@@ -195,6 +195,8 @@ private fun hitTest(
     m: GridMetrics,
 ): Pair<GridPanelItem, Offset>? {
     for (item in items.asReversed()) {
+        // 必须返回归一化后的项：越界数据（span 大于列数 / 行数）渲染时被夹取，
+        // 若这里返回原值，手柄判定会按原始 span 算尺寸，和真实矩形对不上。
         val n = item.normalized(m.columns, m.rows)
         val topLeft = Offset(n.x * m.stepW, n.y * m.stepH)
         val rect = Rect(
@@ -204,7 +206,7 @@ private fun hitTest(
                 topLeft.y + m.itemH(n.spanY.toFloat()),
             ),
         )
-        if (rect.contains(position)) return item to (position - topLeft)
+        if (rect.contains(position)) return n to (position - topLeft)
     }
     return null
 }

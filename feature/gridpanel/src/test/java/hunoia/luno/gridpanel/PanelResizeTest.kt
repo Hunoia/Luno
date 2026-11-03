@@ -47,8 +47,8 @@ class PanelResizeTest {
         insetsTop = 0,
         insetsBottom = 0,
         screenMarginPx = 10f,
-        // 与渲染同一套几何（GridMetrics 用 columns=4, gap=10, pad=20, indicator=24）：
-        // 高度按可见行数量化，TOP 角 top = 锚点 − 量化卡高，锚点才真正固定。
+        // 与渲染同一套几何（GridMetrics 用 columns=4, gap=10, pad=20, indicator=24）。
+        // 高度连续跟手：top = 锚点 − 连续卡高，不再按行数量化。
         columns = 4,
         gridPad = 20f,
         indicator = 24f,
@@ -72,11 +72,20 @@ class PanelResizeTest {
         // 拖 TOP_END 扩大（向右 + 向上）：左下角（对侧角）固定。
         val r = resolve(ResizeCorner.TOP_END, Offset(30f, -50f))
         assertEquals(100f, r.left, 0.01f) // 对侧左下角 x 固定（非 left 手柄轴）
-        // 高度按行数量化：newH=250 → 4 行（cellH=40, step=50）→ 卡高 254，
-        // top = 锚点(300) − 254 = 46，渲染下边 = 46 + 254 = 300（锚点固定）。
-        assertEquals(46f, r.top, 0.01f)
+        // 高度连续：newH=250 → top = 锚点(300) − 250 = 50，渲染下边 = 50 + 250 = 300。
+        assertEquals(50f, r.top, 0.01f)
         assertEquals(230f / 1000f, r.cardWidthFraction, 0.001f) // 200+30
         assertEquals(250f / 1000f, r.cardHeightFraction, 0.001f) // 200+50
+    }
+
+    @Test
+    fun `small height delta moves card height continuously`() {
+        // 5px 的拖动必须直接反映到卡高，而不是吸附到下一整行。
+        val r = resolve(ResizeCorner.BOTTOM_END, Offset(0f, 5f))
+        assertEquals(100f, r.left, 0.01f)
+        assertEquals(100f, r.top, 0.01f)
+        assertEquals(205f / 1000f, r.cardHeightFraction, 0.001f)
+        assertEquals(100f + 205f, r.top + r.cardHeightFraction * 1000f, 0.01f)
     }
 
     @Test
