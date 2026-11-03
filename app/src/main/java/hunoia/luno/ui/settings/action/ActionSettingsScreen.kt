@@ -181,24 +181,20 @@ fun ActionSettingsTab(
                     LunoSettingsRow(
                         icon = Icons.Default.Link,
                         title = stringResource(R.string.action_deep_links),
-                        shape = segmentedShape(0, 2),
+                        shape = segmentedShape(0, 3),
                         onClick = onNavToActionSelect,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.VerifiedUser,
                         title = stringResource(R.string.perm_page_title),
-                        shape = segmentedShape(1, 2),
+                        shape = segmentedShape(1, 3),
                         onClick = onNavToPrivilegedPermissions,
                     )
-                }
-            }
-            item(key = "accessibility") {
-                LunoGroup(title = stringResource(R.string.a11y_settings_group)) {
                     LunoSettingsRow(
                         icon = Icons.Default.Accessibility,
                         title = stringResource(R.string.a11y_settings_entry),
                         subtitle = stringResource(R.string.a11y_settings_entry_hint),
-                        shape = segmentedShape(0, 1),
+                        shape = segmentedShape(2, 3),
                         onClick = onNavToAccessibilityManager,
                     )
                 }

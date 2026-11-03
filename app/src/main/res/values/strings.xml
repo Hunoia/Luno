@@ -684,7 +684,6 @@
 
     <!-- ===== 无障碍管理（列出并启停设备上的全部无障碍服务） ===== -->
     <string name="a11y_manager_title">无障碍管理</string>
-    <string name="a11y_settings_group">无障碍</string>
     <string name="a11y_settings_entry">无障碍管理</string>
     <string name="a11y_settings_entry_hint">查看并启停设备上的全部无障碍服务</string>
     <string name="a11y_status_group">本应用状态</string>
