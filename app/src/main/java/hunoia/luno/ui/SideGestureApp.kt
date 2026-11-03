@@ -39,8 +39,11 @@ import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.navigation.GestureButtonSettings
 
 import hunoia.luno.ui.navigation.Home
-import hunoia.luno.ui.navigation.ActionSettings
+import hunoia.luno.ui.navigation.LogSettings
+import hunoia.luno.ui.navigation.ScreenPickSettings
 import hunoia.luno.ui.navigation.NotificationBlocklist
+import hunoia.luno.ui.navigation.PrivilegedPermissions
+import hunoia.luno.ui.navigation.AccessibilityManager
 import hunoia.luno.ui.navigation.RecentAppsBlocklist
 import hunoia.luno.ui.navigation.LinkDispatchRules
 import hunoia.luno.ui.navigation.LinkDispatchRuleEdit
@@ -53,19 +56,22 @@ import hunoia.luno.ui.navigation.SearchEngineEdit
 import hunoia.luno.ui.navigation.SearchSourceSettings
 import hunoia.luno.ui.navigation.MiniWindowAdjust
 import hunoia.luno.ui.navigation.FloatBallEdit
+import hunoia.luno.ui.navigation.ButtonVisibility
+import hunoia.luno.ui.navigation.ButtonVisibilityEdit
 import hunoia.luno.ui.settings.floatball.FloatBallEditScreen
+import hunoia.luno.ui.settings.gesture.visibility.ButtonVisibilityEditScreen
+import hunoia.luno.ui.settings.gesture.visibility.ButtonVisibilityScreen
 import hunoia.luno.ui.navigation.SubGestureEditor
-import hunoia.luno.ui.navigation.AutomationEdit
-import hunoia.luno.ui.navigation.AutomationHistory
 
 import hunoia.luno.ui.navigation.ActionLibraryEdit
 
 import hunoia.luno.ui.actionselect.ActionSelectContent
 import hunoia.luno.ui.actionlibrary.ActionLibraryEditScreen
-import hunoia.luno.ui.automation.AutomationEditScreen
-import hunoia.luno.ui.automation.AutomationHistoryScreen
-import hunoia.luno.ui.settings.action.ActionSettingsScreen
+import hunoia.luno.ui.settings.action.LogSettingsScreen
+import hunoia.luno.ui.settings.action.ScreenPickSettingsScreen
 import hunoia.luno.ui.settings.action.RecentAppsBlocklistScreen
+import hunoia.luno.ui.settings.accessibility.AccessibilityManagerScreen
+import hunoia.luno.ui.settings.permission.PrivilegedPermissionsScreen
 import hunoia.luno.ui.settings.action.MiniWindowAdjustScreen
 import hunoia.luno.ui.settings.link.LinkDispatchEditScreen
 import hunoia.luno.ui.settings.link.LinkDispatchSettingsScreen
@@ -147,13 +153,28 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToSubGestureEditor = { subGestureId ->
                             navController.navigate(SubGestureEditor(subGestureId))
                         },
-                        onNavToActionSettings = {
-                            navController.navigate(ActionSettings)
-                        },
                         onNavToSearchEngines = { navController.navigate(SearchEngineSettings) },
                         onNavToFloatBallSettings = { navController.navigate(FloatBallEdit) },
-                        onNavToAutomationEdit = { ruleId ->
-                            navController.navigate(AutomationEdit(ruleId))
+                        onNavToButtonVisibility = { navController.navigate(ButtonVisibility) },
+                        onNavToActionPanels = { navController.navigate(ActionPanelList) },
+                        onNavToGridPanels = { navController.navigate(GridPanelList) },
+                        onNavToRecentAppsBlocklist = { navController.navigate(RecentAppsBlocklist) },
+                        onNavToMiniWindowAdjust = { navController.navigate(MiniWindowAdjust) },
+                        onNavToLinkDispatch = { navController.navigate(LinkDispatchRules) },
+                        onNavToActionSelect = {
+                            navController.navigate(ActionSelect(copyDeepLink = true))
+                        },
+                        onNavToPrivilegedPermissions = {
+                            navController.navigate(PrivilegedPermissions)
+                        },
+                        onNavToAccessibilityManager = {
+                            navController.navigate(AccessibilityManager)
+                        },
+                        onNavToLogSettings = {
+                            navController.navigate(LogSettings)
+                        },
+                        onNavToScreenPickSettings = {
+                            navController.navigate(ScreenPickSettings)
                         },
                         onNavToActionLibraryEdit = { entryId, typeId ->
                             navController.navigate(ActionLibraryEdit(entryId, typeId))
@@ -172,18 +193,11 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         actionSelect = it.toRoute()
                     )
                 }
-                myComposable<ActionSettings> {
-                    ActionSettingsScreen(
-                        onBack = { navController.popBackStack() },
-                        onNavToActionPanels = { navController.navigate(ActionPanelList) },
-                        onNavToGridPanels = { navController.navigate(GridPanelList) },
-                        onNavToRecentAppsBlocklist = { navController.navigate(RecentAppsBlocklist) },
-                        onNavToMiniWindowAdjust = { navController.navigate(MiniWindowAdjust) },
-                        onNavToLinkDispatch = { navController.navigate(LinkDispatchRules) },
-                        onNavToActionSelect = {
-                            navController.navigate(ActionSelect(copyDeepLink = true))
-                        },
-                    )
+                myComposable<ScreenPickSettings> {
+                    ScreenPickSettingsScreen(onBack = { navController.popBackStack() })
+                }
+                myComposable<LogSettings> {
+                    LogSettingsScreen(onBack = { navController.popBackStack() })
                 }
                 myComposable<LinkDispatchRules> {
                     LinkDispatchSettingsScreen(
@@ -218,6 +232,17 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         },
                     )
                 }
+                myComposable<PrivilegedPermissions> {
+                    PrivilegedPermissionsScreen(
+                        onBack = { navController.popBackStack() },
+                        onNavToAccessibilityManager = {
+                            navController.navigate(AccessibilityManager)
+                        },
+                    )
+                }
+                myComposable<AccessibilityManager> {
+                    AccessibilityManagerScreen(onBack = { navController.popBackStack() })
+                }
                 myComposable<MiniWindowAdjust> {
                     MiniWindowAdjustScreen(onBack = { navController.popBackStack() })
                 }
@@ -226,6 +251,20 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onBack = { navController.popBackStack() },
                         onNavToActionSelect = { navController.navigate(it) },
                         onNavToNotificationBlocklist = { navController.navigate(NotificationBlocklist) },
+                    )
+                }
+                myComposable<ButtonVisibility> {
+                    ButtonVisibilityScreen(
+                        onBack = { navController.popBackStack() },
+                        onEdit = { profileId ->
+                            navController.navigate(ButtonVisibilityEdit(profileId))
+                        },
+                    )
+                }
+                myComposable<ButtonVisibilityEdit> {
+                    ButtonVisibilityEditScreen(
+                        profileId = it.toRoute<ButtonVisibilityEdit>().profileId,
+                        onBack = { navController.popBackStack() },
                     )
                 }
                 myComposable<NotificationBlocklist> {
@@ -301,20 +340,6 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                     SubGestureSettingsScreen(
                         onBack = { navController.navigateUp() },
                         onNavToActionSelect = { navController.navigate(it) }
-                    )
-                }
-                myComposable<AutomationEdit> {
-                    AutomationEditScreen(
-                        onBack = { navController.popBackStack() },
-                        ruleId = it.toRoute<AutomationEdit>().ruleId,
-                        onNavToActionSelect = { navController.navigate(it) },
-                        onNavToHistory = { ruleId -> navController.navigate(AutomationHistory(ruleId)) },
-                    )
-                }
-                myComposable<AutomationHistory> {
-                    AutomationHistoryScreen(
-                        onBack = { navController.popBackStack() },
-                        ruleId = it.toRoute<AutomationHistory>().ruleId,
                     )
                 }
                 myComposable<ActionLibraryEdit> {

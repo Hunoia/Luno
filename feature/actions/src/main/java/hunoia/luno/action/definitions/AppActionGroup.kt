@@ -17,10 +17,10 @@ internal object AppActionGroup : ActionGroup {
 
     override fun definitions(): List<ActionDefinition> = listOf(
         ActionDefinition(
-            "app.launch", "启动应用", ActionCategory.APP,
+            hunoia.luno.core.domain.AppLaunchAction.TYPE_ID, "启动应用", ActionCategory.APP,
             Capability.None,
             listOf(
-                ParameterDefinition.AppSelector("packageName", "应用"),
+                ParameterDefinition.AppSelector("packageName", "应用", userIdKey = "userId"),
                 ParameterDefinition.Bool("miniWindow", "小窗模式", "false"),
                 ParameterDefinition.ActivitySelector("className", "Activity", required = false, packageKey = "packageName"),
                 // Intent 覆盖：留空保持默认启动行为，与旧数据/旧交互完全一致。
@@ -28,7 +28,6 @@ internal object AppActionGroup : ActionGroup {
                     "intentAction",
                     "Intent Action",
                     required = false,
-                    allowTemplates = false,
                     placeholder = "如 android.intent.action.VIEW",
                 ),
                 ParameterDefinition.Text("data", "Data URI", required = false),
@@ -39,7 +38,7 @@ internal object AppActionGroup : ActionGroup {
         ActionDefinition(
             "app.details", "应用详情", ActionCategory.APP,
             Capability.None,
-            listOf(ParameterDefinition.AppSelector("packageName", "应用")),
+            listOf(ParameterDefinition.AppSelector("packageName", "应用", userIdKey = "userId")),
             icon = Icons.Default.Info,
         ),
         // 无参定义：动作库自动不显示；小窗尺寸/位置一律用全局小窗设置。
@@ -57,7 +56,7 @@ internal object AppActionGroup : ActionGroup {
     )
 
     override fun installDecoders() {
-        ActionMappingRegistry.register("app.launch") { p ->
+        ActionMappingRegistry.register(hunoia.luno.core.domain.AppLaunchAction.TYPE_ID) { p ->
             Action.LaunchApp(
                 packageName = p.str("packageName"),
                 miniWindow = p.bool("miniWindow"),
@@ -65,9 +64,15 @@ internal object AppActionGroup : ActionGroup {
                 intentAction = p.str("intentAction"),
                 data = p.str("data"),
                 extras = p.mapOfStr("extras"),
+                userId = p.str("userId").toIntOrNull() ?: 0,
             )
         }
-        ActionMappingRegistry.register("app.details") { p -> Action.AppDetails(p.str("packageName")) }
+        ActionMappingRegistry.register("app.details") { p ->
+            Action.AppDetails(
+                packageName = p.str("packageName"),
+                userId = p.str("userId").toIntOrNull() ?: 0,
+            )
+        }
         ActionMappingRegistry.register("app.popup") { Action.Popup }
         ActionMappingRegistry.register("app.launchShortcut") { p -> Action.LaunchShortcut(p.str("data")) }
     }

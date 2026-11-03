@@ -381,9 +381,8 @@ private fun QuickAppLauncherContent(
                                                         KeyboardKey.Letter("CV", "cv"),
                                                         KeyboardKey.Letter("BN", "bn"),
                                                         KeyboardKey.Letter("M", "m"),
-                                                        KeyboardKey.Delete,
+                                                        KeyboardKey.Clear,
                                                     ),
-                                                    onDelete = { state.deleteToken() },
                                                     onClear = { state.clearTokens() },
                                                     onAdjust = { currentPage = Page.Settings },
                                                     keyHeight = keyHeight

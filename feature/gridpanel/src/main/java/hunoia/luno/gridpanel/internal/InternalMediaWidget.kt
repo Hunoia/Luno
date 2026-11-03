@@ -1,13 +1,12 @@
 package hunoia.luno.gridpanel.internal
 
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.media.MediaMetadata
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.provider.Settings
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -58,7 +57,7 @@ import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.LocalGridPanelClose
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
-import hunoia.luno.runtime.automation.AutomationNotificationListener
+import hunoia.luno.bridge.system.NotificationAccess
 
 private const val TAG = "InternalMedia"
 
@@ -88,14 +87,14 @@ fun MediaControlCell(
 ) {
     val context = LocalContext.current
     var granted by remember(rememberResumeTick()) {
-        mutableStateOf(AutomationNotificationListener.isAccessGranted(context))
+        mutableStateOf(NotificationAccess.isGranted(context))
     }
     var sessions by remember { mutableStateOf<List<Pair<android.media.session.MediaController, SessionUiState>>>(emptyList()) }
 
     DisposableEffect(granted) {
         if (!granted) return@DisposableEffect onDispose { }
         val manager = context.getSystemService(MediaSessionManager::class.java)
-        val listenerComponent = ComponentName(context, AutomationNotificationListener::class.java)
+        val listenerComponent = NotificationAccess.listenerComponent(context)
 
         val entries = LinkedHashMap<String, Pair<android.media.session.MediaController, SessionUiState>>()
 

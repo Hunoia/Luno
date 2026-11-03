@@ -33,7 +33,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -69,18 +68,6 @@ import hunoia.luno.bridge.ui.hapticLongPress
 /** 手柄命中区上限；小格按边长比例再缩小，避免盖住半个项。 */
 private val ResizeHandleHit = 32.dp
 
-/**
- * 内置部件的背景底板（左上角 Layers 按钮可切）。
- * 不贴 surfaceVariant：面板卡面是近黑的，一块不透明的主题色糊上去很跳。
- * 改成 onCard 低透明度竖向渐变 + 细描边 —— 压出玻璃质感，托得住内容又不抢填充色。
- */
-private val InternalWidgetBgBrush = Brush.verticalGradient(
-    listOf(
-        gridPanelOnCardColor.copy(alpha = 0.10f),
-        gridPanelOnCardColor.copy(alpha = 0.04f),
-    ),
-)
-private val InternalWidgetBgBorder = gridPanelOnCardColor.copy(alpha = 0.08f)
 
 /** 项的屏幕中心（点按执行时用）。用普通引用而不是 State：滚动时
  *  onGloballyPositioned 每帧触发，写 State 会让整个 Layer 每帧重组。 */
@@ -326,22 +313,21 @@ fun GridPanelLayer(
                                                 }
                                             }
                                         }
-                                    }
-                                    .then(
-                                        if (kind.showBackground) {
-                                            Modifier
-                                                .background(
-                                                    InternalWidgetBgBrush,
-                                                    RoundedCornerShape(ItemCorner),
-                                                )
-                                                .border(
-                                                    1.dp,
-                                                    InternalWidgetBgBorder,
-                                                    RoundedCornerShape(ItemCorner),
-                                                )
-                                        } else Modifier,
-                                    ),
+                                    },
                             ) {
+                                // 面板已经有一层区域模糊：内置部件背景只补描边，不再二次模糊。
+                                if (kind.showBackground) {
+                                    Box(
+                                        Modifier
+                                            .matchParentSize()
+                                            .border(
+                                                1.dp,
+                                                MaterialTheme.colorScheme.outlineVariant
+                                                    .copy(alpha = 0.55f),
+                                                RoundedCornerShape(ItemCorner),
+                                            ),
+                                    )
+                                }
                                 // 自绘部件自带点击目标，不走整格 combinedClickable；
                                 // 编辑态 enabled=false，否则拖部件会同时改音量/切歌。
                                 val widget = PanelWidgetRegistry.byId(kind.widgetId)

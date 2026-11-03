@@ -116,7 +116,20 @@ class GestureButtonSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeV
     }
 
 
-    fun updateGestureButtonAngle(angle: GestureButtonAngle) = updateButton { copy(angle = angle) }
+    fun updateGestureButtonAngle(angle: GestureButtonAngle) = updateButton {
+        if (angle.count != this.angle.count) {
+            // 方向数变了：槽位含义整体改变，整组方向动作清空（避免错位继承）。
+            copy(
+                angle = angle,
+                slideActions = hunoia.luno.config.model.DirectionActions(),
+                slideHoldActions = hunoia.luno.config.model.DirectionActions(),
+                longSlideActions = hunoia.luno.config.model.DirectionActions(),
+                longSlideHoldActions = hunoia.luno.config.model.DirectionActions(),
+            )
+        } else {
+            copy(angle = angle)
+        }
+    }
 
     private fun updateButtonLive(fieldUpdate: GestureButton.() -> GestureButton) {
         updateUiState {
@@ -163,22 +176,13 @@ class GestureButtonSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeV
 
     fun saveSettings() {
         viewModelScope.launch {
-            launch {
-                GestureConfig.updateButtons { uiState.gestureButtons }
+            // 按 id 定向合并：整表覆盖会把执行口（`internal.buttonsVisibility`）在 :service 侧
+            // 改过的 enabled 连同 UI 快照一起写回旧值。
+            GestureConfig.updateButtons { current ->
+                val edited = uiState.gestureButtons.associateBy { it.id }
+                current.map { existing -> edited[existing.id] ?: existing }
             }
         }
-    }
-
-    private fun maxGestureButtonWidth(button: GestureButton): Float {
-        val byBounds = (1f - button.bounds.x).coerceAtLeast(MinGestureButtonLength)
-        val byArea = MaxGestureButtonArea / button.bounds.height.coerceAtLeast(MinGestureButtonLength)
-        return minOf(byBounds, byArea).coerceAtLeast(MinGestureButtonLength)
-    }
-
-    private fun maxGestureButtonHeight(button: GestureButton): Float {
-        val byBounds = (1f - button.bounds.y).coerceAtLeast(MinGestureButtonLength)
-        val byArea = MaxGestureButtonArea / button.bounds.width.coerceAtLeast(MinGestureButtonLength)
-        return minOf(byBounds, byArea).coerceAtLeast(MinGestureButtonLength)
     }
 
     private fun loadData() {
@@ -199,4 +203,18 @@ class GestureButtonSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeV
             }
         }
     }
+}
+
+/** 触钮宽度上限：不出屏 + 面积上限；UI 滑杆与 VM 写入共用同一份。 */
+internal fun maxGestureButtonWidth(button: GestureButton): Float {
+    val byBounds = (1f - button.bounds.x).coerceAtLeast(MinGestureButtonLength)
+    val byArea = MaxGestureButtonArea / button.bounds.height.coerceAtLeast(MinGestureButtonLength)
+    return minOf(byBounds, byArea).coerceAtLeast(MinGestureButtonLength)
+}
+
+/** 触钮高度上限：同 [maxGestureButtonWidth]。 */
+internal fun maxGestureButtonHeight(button: GestureButton): Float {
+    val byBounds = (1f - button.bounds.y).coerceAtLeast(MinGestureButtonLength)
+    val byArea = MaxGestureButtonArea / button.bounds.width.coerceAtLeast(MinGestureButtonLength)
+    return minOf(byBounds, byArea).coerceAtLeast(MinGestureButtonLength)
 }

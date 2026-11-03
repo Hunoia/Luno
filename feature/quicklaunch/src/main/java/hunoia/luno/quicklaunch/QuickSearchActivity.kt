@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -29,7 +29,8 @@ import hunoia.luno.quicklaunch.query.QuickSearchIndexProvider
 import hunoia.luno.quicklaunch.query.SearchAction
 import hunoia.luno.quicklaunch.query.SearchResult
 import hunoia.luno.quicklaunch.query.SOURCE_CALC
-import hunoia.luno.service.DispatchClient
+import hunoia.luno.runtime.dispatch.ActionDispatch
+import hunoia.luno.runtime.environment.BroadcastObserver
 import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -42,6 +43,9 @@ import hunoia.luno.core.LOG_TAG
  */
 class QuickSearchActivity : ComponentActivity() {
 
+    /** 带词打开：识屏幽灵卡「搜索」把识别文本带进来。 */
+    private val initialQuery = mutableStateOf("")
+
     private val index by lazy { QuickSearchIndexProvider.get(applicationContext) }
 
     /** 面板开着时装卸应用：立即重扫，结果经 indexVersion 触发重搜。 */
@@ -49,12 +53,32 @@ class QuickSearchActivity : ComponentActivity() {
         lifecycleScope.launch(Dispatchers.IO) { runCatching { index.invalidateApps() } }
     }
 
+    /** 锁屏立即退场：熄屏后退场动画未必播完，直接 finish 并压掉转场。 */
+    private val screenObserver by lazy {
+        BroadcastObserver(context = this, onScreenOff = ::closeForLock)
+    }
+
+    private fun closeForLock() {
+        if (isFinishing || isDestroyed) return
+        closingState.value = true
+        finishAfterExit()
+    }
+
     override fun onStart() {
         super.onStart()
+        // 锁屏兜底：外部 am start / 任务栈复用等入口也可能把面板拉起来。没有 showWhenLocked
+        // 会落到 keyguard 之后、解锁后突然冒出，所以一律直接退场。
+        if (keyguardLocked(this)) {
+            Log.i(LOG_TAG, "QuickSearchActivity finish: keyguard locked")
+            finish()
+            return
+        }
+        screenObserver.register()
         PackageChangeReceiver.register(this, onPackageChanged)
     }
 
     override fun onStop() {
+        screenObserver.unregister()
         PackageChangeReceiver.unregister(this, onPackageChanged)
         super.onStop()
     }
@@ -97,9 +121,9 @@ class QuickSearchActivity : ComponentActivity() {
             } else {
                 lifecycleScope.launch {
                     runCatching {
-                        val pinned = hunoia.luno.config.ConfigProvider.getQuickSearchSettings().pinnedClips
+                        val pinned = hunoia.luno.domain.search.SearchCenter.getSearch().pinnedClips
                         if (clip in pinned) return@runCatching
-                        hunoia.luno.config.ConfigProvider.updateQuickSearchSettings {
+                        hunoia.luno.domain.search.SearchCenter.updateSearch {
                             it.copy(
                                 clipHistory = (listOf(clip) + it.clipHistory)
                                     .distinct()
@@ -155,6 +179,7 @@ class QuickSearchActivity : ComponentActivity() {
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
         window.attributes.blurBehindRadius = 80
         if (BuildConfig.DEBUG) Log.i(LOG_TAG, "QuickSearchActivity onCreate taskId=$taskId")
+        initialQuery.value = intent?.getStringExtra(EXTRA_QUERY).orEmpty()
         if (!shownEventPosted) {
             shownEventPosted = true
             Events.post(PanelShownEvent())
@@ -163,6 +188,13 @@ class QuickSearchActivity : ComponentActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             index.ensureLoaded()
             runCatching { index.refreshApps() }
+        }
+        // 系统应用开关变化时重扫索引（搜索面板可能在服务进程里长时间存在）。
+        lifecycleScope.launch(Dispatchers.IO) {
+            hunoia.luno.domain.search.SearchCenter.showSystemApps.collect { enabled ->
+                hunoia.luno.quicklaunch.query.AppCatalog.setShowSystemApps(enabled)
+                index.invalidateApps()
+            }
         }
         // 返回键不直接 finish：走退场动画。
         onBackPressedDispatcher.addCallback(
@@ -202,6 +234,7 @@ class QuickSearchActivity : ComponentActivity() {
                             )
                         }
                     },
+                    initialQuery = initialQuery.value,
                 )
             }
         }
@@ -262,7 +295,7 @@ class QuickSearchActivity : ComponentActivity() {
 
     /** 分发 + 未就绪提示 + 成功关面板：点按与长按的 App/详情页共用。 */
     private fun dispatchOrToast(action: StoredAction) {
-        if (DispatchClient.dispatch(action)) {
+        if (ActionDispatch.send(action)) {
             requestClose()
         } else {
             showToast(R.string.dispatch_service_not_ready)
@@ -274,6 +307,9 @@ class QuickSearchActivity : ComponentActivity() {
         // singleTask 重复触发：面板已在前台，保留当前内容；只重扫包列表，避免
         // 上次打开期间装卸的应用在复用时仍按旧索引搜不到。
         if (BuildConfig.DEBUG) Log.i(LOG_TAG, "QuickSearchActivity onNewIntent taskId=$taskId")
+        intent?.getStringExtra(EXTRA_QUERY)?.takeIf { it.isNotBlank() }?.let {
+            initialQuery.value = it
+        }
         lifecycleScope.launch(Dispatchers.IO) { runCatching { index.invalidateApps() } }
     }
 
@@ -296,21 +332,40 @@ class QuickSearchActivity : ComponentActivity() {
     private var shownEventPosted = false
 
     companion object {
+        private const val EXTRA_QUERY = "hunoia.luno.quicklaunch.extra.QUERY"
+
         /**
          * 从手势/Service 上下文启动搜索面板。
          * BAL（后台启动限制）：无障碍服务不在豁免名单，但应用有常驻可见窗口（手势触钮）
          * 时 BAL_ALLOW_VISIBLE_WINDOW 放行——悬浮触钮点开 Activity 是标准路径。
          * 真机若被拦：logcat 会有 "Background activity start ... blocked"。
+         *
+         * @return 是否成功发起；识屏幽灵卡的「搜索」槽用它决定是否提示失败。
          */
-        fun start(context: Context) {
+        fun start(context: Context, query: String = ""): Boolean {
+            // 锁屏禁止显示搜索面板：manifest 已去掉 showWhenLocked，这里直接拒绝，
+            // 避免面板落到 keyguard 后面、解锁后突然出现。
+            if (keyguardLocked(context)) {
+                Log.i(LOG_TAG, "QuickSearchActivity start rejected: keyguard locked")
+                return false
+            }
             val intent = Intent(context, QuickSearchActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (query.isNotBlank()) putExtra(EXTRA_QUERY, query)
             }
             val ok = runCatching { context.startActivity(intent) }.isSuccess
             if (!ok) {
                 Log.w(LOG_TAG, "QuickSearchActivity start failed")
                 showToast(R.string.quick_search_start_failed)
             }
+            return ok
         }
     }
 }
+
+/** 锁屏（含熄屏未解锁）判定：面板不允许在 keyguard 之上或之后展示。 */
+private fun keyguardLocked(context: Context): Boolean =
+    runCatching {
+        context.getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true
+    }.getOrDefault(false)
+

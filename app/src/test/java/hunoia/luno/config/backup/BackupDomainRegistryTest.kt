@@ -42,7 +42,6 @@ class BackupDomainRegistryTest {
             gestureSchemaVersion = BackupVersions.GESTURE,
             tuneSchemaVersion = BackupVersions.TUNE,
             actionSchemaVersion = BackupVersions.ACTION,
-            automationSchemaVersion = BackupVersions.AUTOMATION,
             searchSchemaVersion = BackupVersions.SEARCH,
             initialSettings = InitialSettings(),
         )
@@ -50,7 +49,6 @@ class BackupDomainRegistryTest {
         val gesture = BackupDomainRegistry.snapshot(full, BackupDomain.GESTURE)
         assertNotNull(gesture.initialSettings)
         assertNull(gesture.advancedSettings)
-        assertNull(gesture.automationRules)
 
         val tune = BackupDomainRegistry.snapshot(full, BackupDomain.TUNE)
         assertNull(tune.initialSettings)

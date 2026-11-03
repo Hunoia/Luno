@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import androidx.collection.LruCache
 import hunoia.luno.core.AppContext
-import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.bridge.system.PackageChangeReceiver
 import kotlinx.coroutines.Dispatchers
@@ -105,9 +104,7 @@ object DisabledAppQuery {
     suspend fun queryDisabledApplicationsOnIo(context: Context): List<AppInfo> =
         withContext(Dispatchers.IO) { queryDisabledApplications(context) }
 
-    fun queryQuickAppLauncherApps(context: Context): QuickAppLauncherAppList {
-        val disabledApps = queryDisabledApplications(context)
-        return QuickLaunchFacade.queryCombinedQuickAppList(context, disabledApps)
-    }
+    fun queryQuickAppLauncherApps(context: Context): QuickAppLauncherAppList =
+        AppCatalog.query(context, includeDisabled = true)
 
 }

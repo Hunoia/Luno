@@ -5,11 +5,8 @@ import androidx.lifecycle.viewModelScope
 import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.action.definitions.ParameterDefinition
-import hunoia.luno.action.definitions.hasPointParams
 import hunoia.luno.core.domain.ActionLibraryEntry
-import hunoia.luno.core.domain.POINT_PARAM_KEYS
 import hunoia.luno.core.domain.StoredAction
-import hunoia.luno.core.domain.USE_TRIGGER_POINT_KEY
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.ui.navigation.ACTION_LIBRARY_ENTRY_ID
 import kotlinx.coroutines.NonCancellable
@@ -26,7 +23,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import java.util.UUID
 
-internal const val DEFAULT_ACTION_TYPE_ID = "app.launch"
+internal const val DEFAULT_ACTION_TYPE_ID = hunoia.luno.core.domain.AppLaunchAction.TYPE_ID
 
 internal fun JsonElement?.scalarText(): String? = (this as? JsonPrimitive)?.contentOrNull
 
@@ -157,26 +154,10 @@ data class NewEditDraft(
 ) {
     val definition: ActionDefinition? get() = ActionDefinitions.byTypeId(typeId)
 
-    /** 勾了「使用触发位置坐标」：坐标参数整组不参与校验，也不该显示。 */
-    val useTriggerPoint: Boolean
-        get() = params[USE_TRIGGER_POINT_KEY]?.scalarText()?.toBoolean() == true
-
     val isValid: Boolean
         get() = typeId.isNotBlank() &&
             name.isNotBlank() &&
-            definition?.parameters?.all { p -> !p.required || paramText(p).isNotBlank() } == true &&
-            pointParamsSatisfied()
-
-    /**
-     * 坐标参数的成对校验：带坐标的动作要么勾「使用触发位置坐标」，要么 x/y 都填。
-     * 坐标本身非必填（单填一个无意义），所以成对性只能在类型层兜。
-     */
-    private fun pointParamsSatisfied(): Boolean {
-        val definition = definition ?: return true
-        if (!definition.hasPointParams()) return true
-        if (useTriggerPoint) return true
-        return POINT_PARAM_KEYS.all { params[it]?.scalarText()?.isNotBlank() == true }
-    }
+            definition?.parameters?.all { p -> !p.required || paramText(p).isNotBlank() } == true
 
     private fun paramText(p: ParameterDefinition): String =
         params[p.key]?.scalarText() ?: p.defaultValue ?: ""

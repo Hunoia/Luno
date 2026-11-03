@@ -1,7 +1,7 @@
 package hunoia.luno.quicklaunch.panel
 import android.app.Activity
 import android.os.SystemClock
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -175,15 +175,20 @@ internal fun QuickSearchContent(
     onAction: (SearchAction, String) -> Unit,
     onTogglePin: (String, String) -> Unit,
     onOpenAppSettings: () -> Unit,
+    initialQuery: String = "",
 ) {
-    val libraryFlow = remember { hunoia.luno.config.ConfigProvider.actionLibrarySettings }
+    val libraryFlow = remember { hunoia.luno.domain.search.SearchCenter.actionLibrary }
     val libraryState by libraryFlow.collectAsState(initial = ActionLibrarySettings())
     val entries = libraryState.entries
-    val usageFlow = remember { hunoia.luno.config.ConfigProvider.appUsageStats }
+    val usageFlow = remember { hunoia.luno.domain.search.SearchCenter.appUsage }
     val usageStats by usageFlow.collectAsState(initial = AppUsageStats())
-    val searchSettingsFlow = remember { hunoia.luno.config.ConfigProvider.quickSearchSettings }
+    val searchSettingsFlow = remember { hunoia.luno.domain.search.SearchCenter.search }
     val searchSettings by searchSettingsFlow.collectAsState(initial = QuickSearchSettings())
     var query by remember { mutableStateOf(TextFieldValue("")) }
+    // 带词打开（识屏幽灵卡「搜索」）：预填并触发一次搜索；面板复用时随新词更新。
+    LaunchedEffect(initialQuery) {
+        if (initialQuery.isNotBlank()) query = TextFieldValue(initialQuery)
+    }
     var menuResult by remember { mutableStateOf<SearchResult?>(null) }
     val scope = rememberCoroutineScope()
     // 权限状态 + 媒体授权申请：数据装载效果（QuickSearchDataEffects）与空态授权行共用。
@@ -251,14 +256,14 @@ internal fun QuickSearchContent(
                     // 发射前把 App/快捷方式行的图标 resolve 进同步缓存：UI 线程读到即画，
                     // 结果原子到达。已缓存的零开销，只有新包才解码；只预热首屏上限，
                     // 避免单字母查询把几百个包的图标串行解码后才发射结果。
-                    val pkgs = HashSet<String>()
+                    val icons = HashSet<SearchIconCache.Key>()
                     for (r in outcome.results.asSequence().take(ICON_PREWARM_LIMIT)) {
                         val icon = r.icon
                         if (icon is SearchIcon.AppIcon && icon.bitmap == null) {
-                            pkgs.add(icon.packageName)
+                            icons.add(SearchIconCache.Key(icon.packageName, icon.userId))
                         }
                     }
-                    SearchIconCache.ensureAll(appCtx, pkgs, iconPx)
+                    SearchIconCache.ensureAll(appCtx, icons, iconPx)
                     SearchPacket(text, outcome.results, outcome.directive)
                 }
             }
@@ -273,7 +278,7 @@ internal fun QuickSearchContent(
     val deleteHistory: (String) -> Unit = { h ->
         scope.launch {
             runCatching {
-                hunoia.luno.config.ConfigProvider.updateQuickSearchSettings {
+                hunoia.luno.domain.search.SearchCenter.updateSearch {
                     it.copy(recentQueries = it.recentQueries.filterNot { q -> q == h })
                 }
             }
@@ -283,7 +288,7 @@ internal fun QuickSearchContent(
     val togglePin: (String) -> Unit = { clip ->
         scope.launch {
             runCatching {
-                hunoia.luno.config.ConfigProvider.updateQuickSearchSettings {
+                hunoia.luno.domain.search.SearchCenter.updateSearch {
                     if (clip in it.pinnedClips) {
                         it.copy(
                             pinnedClips = it.pinnedClips.filterNot { c -> c == clip },

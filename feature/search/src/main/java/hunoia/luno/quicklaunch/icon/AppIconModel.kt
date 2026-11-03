@@ -11,7 +11,12 @@ import coil.request.Options
  * 调用方需保证它与 `ImageRequest.Builder.size()` 一致：请求尺寸决定缓存键，[sizePx] 决定栅格化大小，
  * 两者不一致会让键下的图尺寸错配。
  */
-data class AppIconModel(val packageName: String, val sizePx: Int)
+data class AppIconModel(
+    val packageName: String,
+    val sizePx: Int,
+    /** 0 = 主用户；分身走 LauncherApps 的角标图标。 */
+    val userId: Int = 0,
+)
 
 /**
  * 让 Coil 用包名做内存缓存键。只返回包名即可——Coil 会把 size / precision / scale 等 extras
@@ -20,5 +25,6 @@ data class AppIconModel(val packageName: String, val sizePx: Int)
  * 候选行与网格两个尺寸就会互相污染。
  */
 object AppIconKeyer : Keyer<AppIconModel> {
-    override fun key(data: AppIconModel, options: Options): String = data.packageName
+    override fun key(data: AppIconModel, options: Options): String =
+        if (data.userId == 0) data.packageName else "${data.packageName}@user${data.userId}"
 }

@@ -36,13 +36,20 @@ object AppIconCache {
  */
 @Composable
 fun rememberAppDrawable(key: String, load: () -> Drawable?): Drawable? {
-    AppIconCache.get(key)?.let { return it }
-    var loaded by remember(key) { mutableStateOf<Drawable?>(null) }
+    // 缓存命中也要 remember：AppIconCache.get 返回的是新克隆，直接 return 会让
+    // 每次重组都换一个 Drawable 实例，AsyncImage 以 model 身份判断，结果就是反复
+    // 重新加载（面板缩放时逐帧重组 → 图标闪烁）。
+    var loaded by remember(key) { mutableStateOf(AppIconCache.get(key)) }
     LaunchedEffect(key) {
+        if (loaded != null) return@LaunchedEffect
+        AppIconCache.get(key)?.let {
+            loaded = it
+            return@LaunchedEffect
+        }
         val result = withContext(Dispatchers.IO) { runCatching(load).getOrNull() }
         if (result != null) {
             AppIconCache.put(key, result)
-            loaded = result
+            loaded = AppIconCache.get(key)
         }
     }
     return loaded

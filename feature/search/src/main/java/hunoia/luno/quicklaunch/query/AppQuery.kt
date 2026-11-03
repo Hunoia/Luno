@@ -3,7 +3,7 @@ package hunoia.luno.quicklaunch.query
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.search.BuildConfig
 import hunoia.luno.bridge.system.PackageChangeReceiver
 import hunoia.luno.bridge.system.queryIntentActivitiesCompat

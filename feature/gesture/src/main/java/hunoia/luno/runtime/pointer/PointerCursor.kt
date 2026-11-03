@@ -10,7 +10,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,7 +22,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import hunoia.luno.config.model.GestureSettings
 import kotlinx.coroutines.delay
-import kotlin.math.roundToInt
 
 /** 点击涟漪动画时长（旧主题 AnimRipple 常量，内联）。 */
 private const val RIPPLE_MS = 300
@@ -124,102 +122,5 @@ fun PointerCursor(
                 style = Stroke(width = 2.dp.toPx()),
             )
         }
-    }
-}
-
-/** 面板内指针会话的句柄：容器拖动链路按优先级喂给它。 */
-class PointerHandle(
-    val isActiveState: MutableState<Boolean>,
-    val start: (GestureSettings.Pointer, Offset) -> Boolean,
-    val onDrag: (Offset) -> Boolean,
-    val onDragEnd: () -> Unit,
-    val onDragCancel: () -> Unit,
-) {
-    val isActive: Boolean get() = isActiveState.value
-}
-
-/**
- * 按住类触发的指针路径：手势系统仍持有这次触摸，拖动量经 [movePointerCursor]
- * 映射给光标，UP 时在光标落点回调 [onPointerActionAtPosition] 触发点击。
- */
-@Composable
-fun rememberPointerHandle(
-    gestureSettings: GestureSettings,
-    modifier: Modifier = Modifier,
-    onPointerStart: (GestureSettings.Pointer) -> Boolean,
-    onPointerEnd: () -> Unit,
-    shouldPreservePointerCancel: () -> Boolean = { false },
-    onPointerActionAtPosition: (Int, Int) -> Unit,
-): PointerHandle {
-    val isActive = remember { mutableStateOf(false) }
-    val cursorPosition = remember { mutableStateOf(pointerInitialPosition(gestureSettings.pointer)) }
-    val touchPosition = remember { mutableStateOf(Offset.Unspecified) }
-    val clickPulseKey = remember { mutableStateOf(0) }
-    val pSettings = remember { mutableStateOf(gestureSettings.pointer) }
-
-    LaunchedEffect(gestureSettings.pointer) {
-        pSettings.value = gestureSettings.pointer
-    }
-
-    fun clearTouchState() {
-        touchPosition.value = Offset.Unspecified
-    }
-
-    fun dispatchClick(target: Offset) {
-        clickPulseKey.value += 1
-        onPointerActionAtPosition(
-            target.x.roundToInt(),
-            target.y.roundToInt(),
-        )
-    }
-
-    fun finish(click: Boolean) {
-        if (!isActive.value) return
-        if (!click && shouldPreservePointerCancel()) return
-        if (click) {
-            val target = cursorPosition.value
-            isActive.value = false
-            clearTouchState()
-            dispatchClick(target)
-        } else {
-            isActive.value = false
-            clearTouchState()
-            onPointerEnd()
-        }
-    }
-
-    if (isActive.value) {
-        PointerCursor(
-            position = cursorPosition.value,
-            modifier = modifier.fillMaxSize(),
-            settings = pSettings.value,
-            clickPulseKey = clickPulseKey.value,
-        )
-    }
-
-    fun handleStart(pointerSettings: GestureSettings.Pointer, fingerPos: Offset): Boolean {
-        if (isActive.value) return false
-        pSettings.value = pointerSettings
-        if (!onPointerStart(pSettings.value)) return false
-        cursorPosition.value = pointerInitialPosition(pSettings.value)
-        touchPosition.value = fingerPos
-        isActive.value = true
-        return true
-    }
-
-    fun handleOnDrag(dragAmount: Offset): Boolean {
-        touchPosition.value += dragAmount
-        cursorPosition.value = movePointerCursor(cursorPosition.value, dragAmount, pSettings.value)
-        return true
-    }
-
-    return remember {
-        PointerHandle(
-            isActiveState = isActive,
-            start = ::handleStart,
-            onDrag = ::handleOnDrag,
-            onDragEnd = { finish(click = true) },
-            onDragCancel = { finish(click = false) },
-        )
     }
 }

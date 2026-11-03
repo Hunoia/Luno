@@ -6,7 +6,7 @@ import android.content.Intent.ShortcutIconResource
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
 import android.graphics.Bitmap
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import java.io.File
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -34,7 +34,6 @@ import com.aaron.compose.component.UiBaseEvent
 import hunoia.luno.R
 import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.core.Paths
-import hunoia.luno.config.model.effectiveGridRows
 import hunoia.luno.gridpanel.widget.PanelAppWidgetHost
 import hunoia.luno.gridpanel.widget.WidgetProviderGroup
 import hunoia.luno.gridpanel.widget.WidgetSpan
@@ -66,7 +65,7 @@ fun ActionSelectContent(
     onDismissRequest: () -> Unit,
     actionSelect: ActionSelect,
     vm: ActionSelectVM = viewModel(
-        key = "action_select_${actionSelect.gestureButtonId}_${actionSelect.direction}_${actionSelect.triggerType}_${actionSelect.subGestureId}_${actionSelect.automationRuleId}_${actionSelect.actionPanelId}_${actionSelect.gridPanelId}",
+        key = "action_select_${actionSelect.gestureButtonId}_${actionSelect.slot}_${actionSelect.triggerType}_${actionSelect.subGestureId}_${actionSelect.actionPanelId}_${actionSelect.gridPanelId}",
         factory = object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 @Suppress("UNCHECKED_CAST")
@@ -170,7 +169,7 @@ fun ActionSelectContent(
                     // 落盘时 saveGridPanelWidget 会按最新面板尺寸重新降格，不吃这里的近似。
                     val landscape = LocalConfiguration.current.orientation ==
                         android.content.res.Configuration.ORIENTATION_LANDSCAPE
-                    val gridGeo = gridPanel?.geometry(landscape)
+                    val gridGeo = gridPanel?.orientation(landscape)?.geometry
                     val gridColumns = gridGeo?.columnCount ?: GridPanelDefaults.ColumnCount
                     val gridVisibleRows = gridPanelVisibleRows(
                         screenWdp = LocalConfiguration.current.screenWidthDp.toFloat(),
@@ -179,7 +178,7 @@ fun ActionSelectContent(
                         cardWidthFraction = gridGeo?.cardWidthFraction ?: GridPanelDefaults.CardWidthFraction,
                         cardHeightFraction = gridGeo?.cardHeightFraction ?: GridPanelDefaults.CardHeightFraction,
                     )
-                    val gridRows = gridPanel?.effectiveGridRows(
+                    val gridRows = gridPanel?.orientation(landscape)?.effectiveGridRows(
                         actionSelect.gridPanelPageIndex,
                         gridVisibleRows,
                     ) ?: gridVisibleRows
@@ -267,7 +266,6 @@ fun ActionSelectContent(
                             ),
                             actions = uiState.actions,
                             actionLibraryEntries = uiState.actionLibraryEntries,
-                            rules = uiState.rules,
                             actionPanels = uiState.actionPanels,
                             gridPanels = uiState.gridPanels,
                             subGestures = uiState.subGestures,

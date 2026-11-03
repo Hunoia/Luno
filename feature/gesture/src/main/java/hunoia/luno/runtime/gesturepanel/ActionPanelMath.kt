@@ -3,7 +3,6 @@ package hunoia.luno.runtime.gesturepanel
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import hunoia.luno.config.model.GestureDirection
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
@@ -59,8 +58,8 @@ internal data class ActionPanelSector(
     val centerDegrees: Float,
 )
 
-internal fun actionPanelSector(parentSize: Size, origin: Offset, direction: GestureDirection, itemSizePx: Float): ActionPanelSector {
-    if (parentSize.isEmpty()) return ActionPanelSector(180f, direction.angleDegrees())
+internal fun actionPanelSector(parentSize: Size, origin: Offset, centerDegrees: Float, itemSizePx: Float): ActionPanelSector {
+    if (parentSize.isEmpty()) return ActionPanelSector(180f, centerDegrees)
     val edgeThreshold = kotlin.math.max(itemSizePx * 2.2f, 96f)
     val cornerThreshold = kotlin.math.max(itemSizePx * 3.0f, 132f)
     val nearLeftCorner = origin.x <= cornerThreshold
@@ -76,10 +75,7 @@ internal fun actionPanelSector(parentSize: Size, origin: Offset, direction: Gest
         origin.x >= parentSize.width - edgeThreshold -> ActionPanelSector(180f, 180f)
         origin.y <= edgeThreshold -> ActionPanelSector(180f, 90f)
         origin.y >= parentSize.height - edgeThreshold -> ActionPanelSector(180f, 270f)
-        else -> {
-            val center = direction.angleDegrees()
-            ActionPanelSector(180f, center)
-        }
+        else -> ActionPanelSector(180f, centerDegrees)
     }
 }
 
@@ -198,12 +194,6 @@ internal fun actionPanelDisplayIndex(sector: ActionPanelSector, actionCount: Int
     return if (reverse) actionCount - 1 - index else index
 }
 
-private fun GestureDirection.angleDegrees(): Float = when (this) {
-    GestureDirection.Right -> 0f
-    GestureDirection.Down -> 90f
-    GestureDirection.Left -> 180f
-    GestureDirection.Up -> 270f
-}
 
 internal fun actionPanelHitContains(
     finger: Offset,

@@ -46,7 +46,6 @@ class ActionSelectVM(
      * 这里补响应式订阅；只在启用状态 + id + 名字变化时重算，避免重建整份动作列表。
      */
     private fun observeSubGestures() {
-        if (actionSelect.automationRuleId.isNotBlank()) return
         viewModelScope.launch {
             GestureConfig.subGestures.collectLatest { settings ->
                 val excludedId = uiState.excludedSubGestureId
@@ -188,9 +187,6 @@ class ActionSelectVM(
     }
 
     private fun saveSettings() {
-        // 自动化只暂存（编辑页保存键统一落盘），这里不提示已保存，避免误导；
-        // 手势/子手势路径保持直写，提示不变。
-        val isAutomation = actionSelect.automationRuleId.isNotBlank()
         var outcome: SaveOutcome? = null
         viewModelScope.launch {
             outcome = saveSettingsAction(
@@ -208,7 +204,7 @@ class ActionSelectVM(
                     } else {
                         toast(R.string.action_panel_missing)
                     }
-                !isAutomation -> toast(R.string.save_success)
+                else -> toast(R.string.save_success)
             }
             if (it == null) finish()
         }

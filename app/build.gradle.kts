@@ -16,8 +16,8 @@ android {
         applicationId = "hunoia.luno"
         minSdk = 33
         targetSdk = 36
-        versionCode = 10608
-        versionName = "1.6.8"
+        versionCode = 10609
+        versionName = "1.6.9"
 
         ndk {
             abiFilters += listOf("arm64-v8a")
@@ -58,7 +58,7 @@ android {
         }
     }
     testOptions {
-        // JVM 单测直接调用 AutomationEngine 等生产代码，其中 android.util.Log 需返回默认值而非抛 "not mocked"。
+        // JVM 单测直接调用生产代码，其中 android.util.Log 需返回默认值而非抛 "not mocked"。
         unitTests.isReturnDefaultValues = true
     }
     buildTypes {
@@ -99,6 +99,10 @@ android {
     packaging {
         dex {
             // 压缩 dex：下载体积更小、安装后占用更大（有意的体积取舍）。
+            useLegacyPackaging = true
+        }
+        jniLibs {
+            // 压缩 native：APK 15MB。
             useLegacyPackaging = true
         }
         resources {
@@ -144,16 +148,17 @@ dependencies {
     implementation(project(":core:runtime"))
     implementation(project(":feature:execute"))
     implementation(project(":feature:actions"))
-    implementation(project(":feature:conditions"))
-    implementation(project(":feature:automation"))
     implementation(project(":feature:link"))
     implementation(project(":ui:design"))
     implementation(project(":capability:launch"))
+    implementation(project(":capability:ocr"))
     implementation(project(":feature:search"))
     implementation(project(":feature:quicklaunch"))
     implementation(project(":feature:gesture"))
     implementation(project(":feature:floatball"))
     implementation(project(":feature:gridpanel"))
+    implementation(project(":feature:annotate"))
+    implementation(project(":feature:a11y"))
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.compose.foundation)

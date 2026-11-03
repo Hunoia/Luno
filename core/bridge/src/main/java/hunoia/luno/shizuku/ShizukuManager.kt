@@ -1,7 +1,9 @@
 package hunoia.luno.shizuku
 
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import hunoia.luno.core.AppContext
 import hunoia.luno.bridge.system.AccessibilitySettings
@@ -18,6 +20,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.lang.reflect.Method
 import moe.shizuku.server.IShizukuService
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import rikka.shizuku.Shizuku
@@ -94,6 +97,20 @@ object ShizukuManager {
         val stubClass = Class.forName("android.content.pm.ILauncherApps\$Stub")
         val binder = SystemServiceHelper.getSystemService(Context.LAUNCHER_APPS_SERVICE)
         HiddenApiBypass.invoke(stubClass, null, "asInterface", ShizukuBinderWrapper(binder))
+    }
+
+    private val activityTaskProxy by lazy {
+        val stubClass = Class.forName("android.app.IActivityTaskManager\$Stub")
+        val binder = SystemServiceHelper.getSystemService("activity_task")
+        HiddenApiBypass.invoke(stubClass, null, "asInterface", ShizukuBinderWrapper(binder))
+    }
+
+    /** Android 13~17 的签名一致：12 参，最后一个参数是 userId，options 是 Bundle。 */
+    private val startActivityAsUserMethod by lazy {
+        HiddenApiBypass.getDeclaredMethods(Class.forName("android.app.IActivityTaskManager"))
+            .filterIsInstance<Method>()
+            .firstOrNull { it.name == "startActivityAsUser" && it.parameterCount == 12 }
+            ?: throw NoSuchMethodException("IActivityTaskManager.startActivityAsUser not found")
     }
 
     /**
@@ -192,7 +209,7 @@ object ShizukuManager {
         }
     }
 
-    suspend fun executeShell(command: String): ShellResult = withContext(Dispatchers.IO) {
+    suspend fun executeShell(command: String, maxChars: Int = 4096): ShellResult = withContext(Dispatchers.IO) {
         if (command.isBlank()) {
             return@withContext ShellResult(-1, "", "", false, "Command is blank")
         }
@@ -212,7 +229,6 @@ object ShizukuManager {
                 }
                 val stdoutResult = StringBuilder()
                 val stderrResult = StringBuilder()
-                val maxChars = 4096
                 // 必须把管道一直读到 EOF，哪怕已经超上限。半途停止读取会让子进程的
                 // write() 永久阻塞在满管道上，进而 proc.waitFor() 永不返回 —— 输出超过
                 // 管道缓冲（~64KB）的命令（如 dumpsys）会直接把这条协程和 IO 线程挂死。
@@ -268,6 +284,43 @@ object ShizukuManager {
     // ---- Shortcut Operations ----
 
     /**
+     * 以 shell 身份向指定用户启动 Activity，并带上 ActivityOptions（小窗 bounds 在
+     * 首次显示时就生效，避免先按系统记忆尺寸出现再 resize 的闪动）。
+     *
+     * 显式 userId 也用于绕开 MIUI XSpace 对「主应用/分身」的二选一拦截。
+     */
+    suspend fun startActivityAsUser(intent: Intent, userId: Int, options: Bundle? = null): Boolean =
+        withContext(Dispatchers.IO) {
+            if (!isBinderAlive()) return@withContext false
+            if (!hasPermission()) return@withContext false
+            runCatching {
+                val result = startActivityAsUserMethod.invoke(
+                    activityTaskProxy,
+                    null, // caller
+                    "com.android.shell", // callingPackage
+                    null, // callingFeatureId
+                    intent,
+                    null, // resolvedType
+                    null, // resultTo
+                    null, // resultWho
+                    0, // requestCode
+                    intent.flags,
+                    null, // profilerInfo
+                    options,
+                    userId,
+                ) as? Int
+                result != null && result >= 0
+            }.getOrElse { t ->
+                hunoia.luno.core.LunoLog.w(
+                    "ShizukuManager",
+                    "startActivityAsUser failed pkg=${intent.component?.packageName} user=$userId",
+                    t,
+                )
+                false
+            }
+        }
+
+    /**
      * 以 shell 身份启动快捷方式。非默认 launcher 调 `LauncherApps.startShortcut` 会被
      * 「Caller can't access shortcut information」拦住；shell 持有 ACCESS_SHORTCUTS，
      * 通过 Shizuku 代理调用即可启动应用未导出的 shortcut trampoline。
@@ -301,7 +354,7 @@ object ShizukuManager {
             startShortcutMethod.invoke(launcherAppsProxy, *args)
             true
         }.getOrElse { t ->
-            android.util.Log.w("ShizukuManager", "startShortcut failed pkg=$packageName id=$shortcutId", t)
+            hunoia.luno.core.LunoLog.w("ShizukuManager", "startShortcut failed pkg=$packageName id=$shortcutId", t)
             false
         }
     }

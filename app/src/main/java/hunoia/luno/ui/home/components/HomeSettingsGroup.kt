@@ -1,12 +1,12 @@
 package hunoia.luno.ui.home
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.twotone.Link
 import androidx.compose.material.icons.twotone.RadioButtonChecked
 import androidx.compose.material.icons.twotone.RestartAlt
 import androidx.compose.material.icons.twotone.Restore
 import androidx.compose.material.icons.twotone.Save
 import androidx.compose.material.icons.twotone.Search
-import androidx.compose.material.icons.twotone.Tune
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -17,9 +17,9 @@ import hunoia.luno.ui.component.row.segmentedShape
 
 @Composable
 fun HomeSettingsGroup(
-    onActionSettingsClick: () -> Unit,
     onSearchEngineClick: () -> Unit,
     onFloatBallClick: () -> Unit,
+    onLinkDispatchClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LunoGroup(
@@ -27,25 +27,27 @@ fun HomeSettingsGroup(
         modifier = modifier,
     ) {
         LunoSettingsRow(
-            title = stringResource(R.string.action_settings),
-            icon = Icons.TwoTone.Tune,
-            shape = segmentedShape(0, 3),
-            onClick = onActionSettingsClick,
-        )
-        LunoSettingsRow(
             title = stringResource(R.string.search_engine_settings),
             icon = Icons.TwoTone.Search,
-            shape = segmentedShape(1, 3),
+            shape = segmentedShape(0, 3),
             onClick = onSearchEngineClick,
         )
         LunoSettingsRow(
             title = stringResource(R.string.float_ball),
             icon = Icons.TwoTone.RadioButtonChecked,
-            shape = segmentedShape(2, 3),
+            shape = segmentedShape(1, 3),
             onClick = onFloatBallClick,
+        )
+        LunoSettingsRow(
+            title = stringResource(R.string.link_dispatch),
+            icon = Icons.TwoTone.Link,
+            shape = segmentedShape(2, 3),
+            onClick = onLinkDispatchClick,
         )
     }
 }
+
+/** 外部调用与系统授权已移到设置页底部。 */
 
 @Composable
 fun DataTransferGroup(

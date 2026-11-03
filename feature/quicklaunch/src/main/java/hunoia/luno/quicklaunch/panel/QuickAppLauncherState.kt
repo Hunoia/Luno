@@ -79,13 +79,13 @@ class QuickAppLauncherState(
 
     init {
         coroutineScope.launch {
-            hunoia.luno.config.ConfigProvider.quickAppLauncherSettings.collectLatest {
+            hunoia.luno.domain.search.SearchCenter.launcher.collectLatest {
                 launcherSettings = it
                 previewSettings = null
             }
         }
         coroutineScope.launch {
-            hunoia.luno.config.ConfigProvider.appUsageStats.collectLatest { usageStats = it }
+            hunoia.luno.domain.search.SearchCenter.appUsage.collectLatest { usageStats = it }
         }
         // 应用列表走进程级共享仓（与网格面板的抽屉部件同一份，见 AppListRepository）：
         // 扫包与包变更广播只注册一次，面板/启动器各自只订阅结果。
@@ -119,10 +119,6 @@ class QuickAppLauncherState(
 
     fun addToken(token: String) {
         tokens = tokens + token
-    }
-
-    fun deleteToken() {
-        tokens = tokens.dropLast(1)
     }
 
     fun clearTokens() {
@@ -177,7 +173,7 @@ class QuickAppLauncherState(
                     gate.withPermit {
                         runCatching {
                             loader.execute(
-                                QuickLaunchFacade.appIconRequest(context, app.packageName, iconSizePx)
+                                QuickLaunchFacade.appIconRequest(context, app.packageName, iconSizePx, app.userId)
                             )
                         }
                     }
@@ -194,7 +190,7 @@ class QuickAppLauncherState(
             isDisabled = isDisabled,
             miniWindow = miniWindow,
             requestEnableDisabledPackage = requestEnableDisabledPackage,
-            log = { message -> android.util.Log.i(LOG_TAG, message) },
+            log = { message -> hunoia.luno.core.LunoLog.i(LOG_TAG, message) },
             onLaunch = onLaunch,
             onLaunched = closeAnimated
         )

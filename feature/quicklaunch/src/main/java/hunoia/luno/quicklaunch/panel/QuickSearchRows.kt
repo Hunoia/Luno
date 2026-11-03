@@ -189,12 +189,13 @@ internal fun ResultRow(
     val icon = result.icon
     val iconBitmap = when (icon) {
         is SearchIcon.Bitmap -> icon.image
-        is SearchIcon.AppIcon -> icon.bitmap ?: SearchIconCache.get(icon.packageName, sizePx)
+        is SearchIcon.AppIcon -> icon.bitmap ?: SearchIconCache.get(icon.packageName, sizePx, icon.userId)
         else -> null
     }
     val iconModel = when {
         iconBitmap != null -> null
-        icon is SearchIcon.AppIcon -> QuickLaunchFacade.appIconRequest(context, icon.packageName, sizePx)
+        icon is SearchIcon.AppIcon ->
+            QuickLaunchFacade.appIconRequest(context, icon.packageName, sizePx, icon.userId)
         icon is SearchIcon.Request -> icon.model
         else -> null
     }

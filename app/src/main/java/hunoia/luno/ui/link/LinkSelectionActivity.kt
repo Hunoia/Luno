@@ -238,7 +238,7 @@ private fun AppRow(
             runCatching {
                 SearchIconCache.ensureAll(
                     context.applicationContext,
-                    listOf(handler.packageName),
+                    listOf(SearchIconCache.Key(handler.packageName)),
                     sizePx,
                 )
                 SearchIconCache.get(handler.packageName, sizePx)

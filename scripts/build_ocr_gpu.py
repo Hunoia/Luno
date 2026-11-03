@@ -1,0 +1,160 @@
+#!/usr/bin/env python3
+"""把 docs/ppocrv 的 PP-OCRv6 fp32 TFLite 打成 GPU 模型包（识屏 PP-OCRv6 用）。
+
+GPU 方案不需要 AOT：app 端用 LiteRT GPU delegate（OpenCL，Adreno）运行时加载
+原始 fp32 tflite。本脚本只做打包 + 校验（manifest / SHA-256），产物
+`<out>/ppocrv6_gpu.zip` 可直接在「设置 → 屏幕识别 → OCR 模型」里导入。
+
+多档 rec 时，若某档与更大档仅差少量字节（320/640 实测只差 256 字节），
+脚本会用小补丁替代完整文件，包体约减半；app 导入时还原并校验。
+
+用法：
+  python3 scripts/build_ocr_gpu.py --out /tmp/luno-gpu --rec 320,640
+  # 单档：--rec 320 / 640 / 960
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import pathlib
+import zipfile
+
+REPO = pathlib.Path(__file__).resolve().parent.parent
+SRC_DIR = REPO / "docs/ppocrv"
+
+DET = "ppocrv6_small_det_640_fp32.tflite"
+REC_TEMPLATE = "ppocrv6_small_rec_{}_fp32.tflite"
+# rec 输入宽度三档：app 端按行宽自动选“刚好放得下”的最小档（短行 320、宽行升 640/960）。
+# 一个包可以同时放多档（--rec 320,640），运行时最多常驻两档，超出按 LRU 换入换出。
+REC_WIDTHS = (320, 640, 960)
+DEFAULT_REC = "320,640"
+DICT = "characters.json"
+RUNTIME = "litert-gpu-opencl"
+LITERT_VERSION = "2.3.2"
+PACKAGE_DIR = "ppocrv6_gpu"
+
+# 320/640 实测只差 256 字节（输入宽度相关的形状元数据）。包里只带一份完整 rec，
+# 另一档用小补丁表示；导入时 app 端 `RecModelPatch` 还原并做 SHA 校验。
+# 差异过大（模型换版 / 不同训练权重）时自动回退为完整文件，不影响可导入性。
+PATCH_SUFFIX = ".patch.json"
+PATCH_VERSION = 1
+PATCH_MAX_CHANGES = 4096
+PATCH_MAX_RATIO = 0.001
+
+
+def sha256(path: pathlib.Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def build_patches(pkg: pathlib.Path, recs: list[tuple[int, pathlib.Path]]) -> list[str]:
+    """把“与更大档只差少量字节”的 rec 替换成 patch，返回可读的日志行。"""
+    blobs = {width: path.read_bytes() for width, path in recs}
+    kept = set(blobs)
+    logs: list[str] = []
+    for width, path in sorted(recs):
+        if width not in kept:
+            continue
+        data = blobs[width]
+        for base_width in sorted(kept):
+            if base_width <= width:
+                continue
+            base = blobs[base_width]
+            if len(base) != len(data):
+                continue
+            changes = [
+                (offset, target_byte)
+                for offset, (base_byte, target_byte) in enumerate(zip(base, data))
+                if base_byte != target_byte
+            ]
+            if len(changes) > PATCH_MAX_CHANGES or len(changes) > len(data) * PATCH_MAX_RATIO:
+                continue
+            rebuilt = bytearray(base)
+            for offset, target_byte in changes:
+                rebuilt[offset] = target_byte
+            if hashlib.sha256(rebuilt).hexdigest() != hashlib.sha256(data).hexdigest():
+                continue
+            patch_name = path.name + PATCH_SUFFIX
+            payload = {
+                "version": PATCH_VERSION,
+                "base": REC_TEMPLATE.format(base_width),
+                "target": path.name,
+                "size": len(base),
+                "changes": changes,
+            }
+            (pkg / patch_name).write_text(
+                json.dumps(payload, separators=(",", ":")) + "\n",
+                encoding="utf-8",
+            )
+            path.unlink()
+            kept.remove(width)
+            logs.append(
+                f"{path.name} -> {REC_TEMPLATE.format(base_width)}"
+                f"（{len(changes)} 字节，补丁 {len(json.dumps(payload, separators=(',', ':')))} 字节）"
+            )
+            break
+    return logs
+
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--out", default="build/ocr-gpu", help="输出目录（放 zip）")
+    parser.add_argument(
+        "--rec",
+        default=DEFAULT_REC,
+        help=f"rec 输入宽度，逗号分隔，可多选：{','.join(map(str, REC_WIDTHS))}（默认 {DEFAULT_REC}）",
+    )
+    args = parser.parse_args()
+
+    recs = sorted({int(part) for part in args.rec.split(",") if part.strip()})
+    if not recs or any(width not in REC_WIDTHS for width in recs):
+        parser.error(f"--rec 只支持 {REC_WIDTHS}，收到：{args.rec}")
+
+    models = [DET, *[REC_TEMPLATE.format(width) for width in recs]]
+    out = pathlib.Path(args.out).resolve()
+    out.mkdir(parents=True, exist_ok=True)
+    pkg = out / PACKAGE_DIR
+    pkg.mkdir(exist_ok=True)
+
+    # 复用输出目录时先清掉上一次的模型文件：包里出现两个 rec 会直接被 app 拒绝导入。
+    for stale in pkg.iterdir():
+        if stale.is_file() and stale.name != DICT:
+            stale.unlink()
+
+    for name in [*models, DICT]:
+        src = SRC_DIR / name
+        if not src.is_file() or src.stat().st_size == 0:
+            raise SystemExit(f"缺少模型资产：{src}")
+        (pkg / name).write_bytes(src.read_bytes())
+
+    # 先记下完整包的哈希（包含稍后会被补丁替代的 rec），导入端还原后按这些哈希校验。
+    file_shas = {name: sha256(pkg / name) for name in [*models, DICT]}
+    for line in build_patches(
+        pkg,
+        [(width, pkg / REC_TEMPLATE.format(width)) for width in recs],
+    ):
+        print(f"[gpu] dedup: {line}")
+
+    manifest = {
+        "kind": "gpu",
+        "runtime": RUNTIME,
+        "aiEdgeLitert": LITERT_VERSION,
+        "files": dict(sorted(file_shas.items())),
+    }
+    (pkg / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+
+    zip_path = out / f"{PACKAGE_DIR}.zip"
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+        for p in sorted(pkg.iterdir()):
+            z.write(p, f"{PACKAGE_DIR}/{p.name}")
+    print(f"[gpu] package: {zip_path} ({zip_path.stat().st_size} B)")
+
+
+if __name__ == "__main__":
+    main()

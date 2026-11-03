@@ -43,6 +43,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
+import kotlin.math.pow
+import kotlin.math.roundToInt
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -301,12 +303,16 @@ fun BrightnessSliderCell(
         return
     }
     val resolver = remember { context.contentResolver }
+    // SCREEN_BRIGHTNESS int 是伽马空间（AOSP 亮度滑条位置 ↔ 设置值之间过 γ≈2.2 曲线，
+    // 见 AOSP BrightnessUtils）：直写线性分数会被系统解码成偏亮的中段（拖 1/5 ≈ 一半亮度）。
+    // 滑条位置（线性）↔ 设置值：v = 255 * p^γ，p = (v/255)^(1/γ)。
+    val brightnessGamma = 2.2f
+    val systemValue = runCatching { Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS) }
+        .getOrDefault(128)
     var value by remember {
-        mutableStateOf(
-            runCatching { Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS) }
-                .getOrDefault(128),
-        )
+        mutableStateOf(systemValue)
     }
+    val sliderFraction = (value.coerceIn(0, 255) / 255f).pow(1f / brightnessGamma)
     val onCard = gridPanelOnCardColor
     Box(
         modifier = modifier
@@ -315,17 +321,14 @@ fun BrightnessSliderCell(
         contentAlignment = Alignment.Center,
     ) {
         QsSlider(
-            value = (value.coerceIn(0, 255)) / 255f,
+            value = sliderFraction,
             onValueChange = { fraction ->
-                val v = (fraction * 255).toInt().coerceIn(0, 255)
-                // 不动 SCREEN_BRIGHTNESS_MODE：自动亮度的开关交给用户/系统，拖动只写值
-                //（自动模式下系统可能覆盖，属预期）。
+                val v = (255f * fraction.pow(brightnessGamma)).roundToInt().coerceIn(0, 255)
+                // 只写标准 int 键：双写 screen_brightness_float 会打架 —— 部分 ROM 采用
+                // float 键且标度与 0..1 线性不一致。
+                // （自动模式下系统可能覆盖，属预期。）
                 runCatching {
                     Settings.System.putInt(resolver, Settings.System.SCREEN_BRIGHTNESS, v)
-                    // 部分 ROM（MIUI 等）只认 float 档，双写，失败忽略。
-                    runCatching {
-                        Settings.System.putFloat(resolver, "screen_brightness_float", v / 255f)
-                    }
                 }
                 value = v
             },

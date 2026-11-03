@@ -1,7 +1,7 @@
 package hunoia.luno.action.controller
 
 import android.content.Context
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.core.LOG_TAG

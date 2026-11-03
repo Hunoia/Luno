@@ -15,8 +15,10 @@ fun copySensitiveText(
         val clip = ClipData.newPlainText(label, text)
         clip.description.extras = PersistableBundle().apply {
             putBoolean(ClipDescriptionExtras.IS_SENSITIVE, true)
+            putBoolean(ClipDescriptionExtras.SELF_WRITE, true)
         }
         clipboard.setPrimaryClip(clip)
+        SelfWriteGuard.markText(text)
         true
     }.getOrDefault(false)
 }
@@ -29,7 +31,10 @@ fun copyText(
 ): Boolean = runCatching {
     val clipboard = context.getSystemService(ClipboardManager::class.java)
         ?: return@runCatching false
-    clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
+    val clip = ClipData.newPlainText(label, text)
+    clip.description.extras = selfWriteExtras()
+    clipboard.setPrimaryClip(clip)
+    SelfWriteGuard.markText(text)
     true
 }.getOrDefault(false)
 
@@ -37,9 +42,16 @@ fun copyText(
 fun copyImage(context: Context, label: String, uri: android.net.Uri): Boolean = runCatching {
     val clipboard = context.getSystemService(ClipboardManager::class.java)
         ?: return@runCatching false
-    clipboard.setPrimaryClip(ClipData.newUri(context.contentResolver, label, uri))
+    val clip = ClipData.newUri(context.contentResolver, label, uri)
+    clip.description.extras = selfWriteExtras()
+    clipboard.setPrimaryClip(clip)
+    SelfWriteGuard.markImage(uri)
     true
 }.getOrDefault(false)
+
+private fun selfWriteExtras(): PersistableBundle = PersistableBundle().apply {
+    putBoolean(ClipDescriptionExtras.SELF_WRITE, true)
+}
 
 /** 读当前剪贴板文本；无内容/无权限时返回 null。 */
 fun readClipboardText(context: Context): String? = runCatching {
@@ -91,4 +103,5 @@ internal fun ClipData.toClipboardContent(): ClipboardContent? {
 
 private object ClipDescriptionExtras {
     const val IS_SENSITIVE = "android.content.extra.IS_SENSITIVE"
+    const val SELF_WRITE = "luno.self_write"
 }

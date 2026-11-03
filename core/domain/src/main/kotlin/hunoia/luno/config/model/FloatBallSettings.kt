@@ -9,38 +9,58 @@ import kotlinx.serialization.Serializable
  *
  * 挂在 [ActionSettings.floatBall] 下才能顺着 ConfigProvider → SettingsStore →
  * SettingsState 到达 `:service` 进程的 `FloatBallService`；挂到别的域会静默失效。
- * 坐标归一化（0..1），转屏 / 换分辨率不用迁移数据。
+ * 位置坐标归一化（0..1），横竖屏各存一份，转屏后各用各的落点。
  * 按住即拖（无长按门槛），松手落位；点按 = 抬手未超 touchSlop 时执行 [tapAction]。
  */
 @Serializable
 @Keep
-data class FloatBallSettings(
-    val enabled: Boolean = FloatBallDefaults.Enabled,
+data class FloatBallPosition(
     /** 归一化横坐标（球窗顶边 / 屏宽）。 */
     val x: Float = FloatBallDefaults.X,
     /** 归一化纵坐标（球窗顶边 / 屏高）。 */
     val y: Float = FloatBallDefaults.Y,
+    /** 左手侧球高度锚点（归一化 y，手动停靠时记忆）。null = 未记忆。 */
+    val leftAnchorY: Float? = null,
+    /** 右手侧球高度锚点。 */
+    val rightAnchorY: Float? = null,
+)
+
+@Serializable
+@Keep
+data class FloatBallSettings(
+    val enabled: Boolean = FloatBallDefaults.Enabled,
     val sizeDp: Float = FloatBallDefaults.SizeDp,
     val color: Int = FloatBallDefaults.Color,
     /** 单击球执行的动作。为 null 表示单击无响应。 */
     val tapAction: StoredAction? = null,
-    /** 屏幕对侧镜像位置显示描边分身：点击触发动作并换位，拖动可搬球。 */
-    val mirrorBall: Boolean = FloatBallDefaults.MirrorBall,
     /**
      * 静置多久后变暗缩小。0 = 关闭。
      */
     val idleDimDelayMs: Long = FloatBallDefaults.IdleDimDelayMs,
     /** 跟随持机手：手势碰了哪侧，球就即时移到哪侧（试验）。 */
     val followHand: Boolean = FloatBallDefaults.FollowHand,
-    /** 左手侧球高度锚点（归一化 y，手动停靠时记忆）。null = 未记忆。 */
-    val leftAnchorY: Float? = null,
-    /** 右手侧球高度锚点。 */
-    val rightAnchorY: Float? = null,
+    /** 竖屏落点。 */
+    val portrait: FloatBallPosition = FloatBallPosition(),
+    /** 横屏落点。 */
+    val landscape: FloatBallPosition = FloatBallPosition(),
     /** 通知胶囊（独立开关，宿主同为 FloatBallService）：通知到达时底部弹出、自动收起。 */
     val notificationCapsule: NotificationCapsuleSettings = NotificationCapsuleSettings(),
     /** 剪贴板球（独立开关，宿主同为 FloatBallService）：复制文本后弹出、点击分享、自动收起。 */
     val clipboardBall: ClipboardBallSettings = ClipboardBallSettings(),
-)
+    /** 统一收件箱：通知与剪贴板共用队列、TTL 与容量。 */
+    val inbox: BallInboxSettings = BallInboxSettings(),
+) {
+    fun position(landscape: Boolean): FloatBallPosition =
+        if (landscape) this.landscape else portrait
+}
+
+/** 只改当前朝向那份落点。 */
+fun FloatBallSettings.withPosition(
+    landscape: Boolean,
+    transform: (FloatBallPosition) -> FloatBallPosition,
+): FloatBallSettings =
+    if (landscape) copy(landscape = transform(this.landscape))
+    else copy(portrait = transform(portrait))
 
 /**
  * 通知胶囊配置：通知到达时在屏幕底部居中弹出「图标 + 标题 + 正文」胶囊，
@@ -79,24 +99,42 @@ data class ClipboardBallSettings(
     val respondToImages: Boolean = true,
 )
 
+/**
+ * 统一收件箱配置：通知与剪贴板共用容量，按来源分别计时。
+ * 钉住项不参与 TTL；容量包含钉住项。
+ */
+@Serializable
+@Keep
+data class BallInboxSettings(
+    /** 通知在收件箱中的保留时长（ms）。 */
+    val notificationTtlMs: Long = FloatBallDefaults.InboxNotificationTtlMs,
+    /** 剪贴板在收件箱中的保留时长（ms）。 */
+    val clipboardTtlMs: Long = FloatBallDefaults.InboxClipboardTtlMs,
+    /** 收件箱总容量（含钉住项）。 */
+    val capacity: Int = FloatBallDefaults.InboxCapacity,
+)
+
 object FloatBallDefaults {
     const val Enabled = false
     const val X = 0.92f
     const val Y = 0.42f
-    const val SizeDp = 56f
-    const val MinSizeDp = 36f
+    const val SizeDp = 48f
+    /** 视觉尺寸下限 = 命中区硬下限（ui-guidelines §4.6：窗口/命中区 ≥ 48dp）。 */
+    const val MinSizeDp = 48f
     const val MaxSizeDp = 96f
     /** 0 = 透明（与 `android.graphics.Color.TRANSPARENT` 同值）。 */
     val Color: Int = 0
 
-    /** 静置延时（ms），0 = 关。 */
+    /** 静置延时（ms），0 = 关；滑杆上下限与默认值同源。 */
     const val IdleDimDelayMs = 3_000L
+    const val IdleDimDelayMsMin = 0L
+    const val IdleDimDelayMsMax = 8_000L
 
-    const val IdleDimAlpha = 0.4f
+    const val IdleDimAlpha = 0.5f
 
     /**
-     * 静置出屏比例：球径的这部分移到屏幕外（语义是横向偏移而非等比缩小）。
-     * 一半出屏。
+     * 静置出屏比例：球径的一半移到屏幕外（语义是横向偏移而非等比缩小）。
+     * 与 ui-guidelines §4.6 一致（半个球身出屏，只剩半圆）。
      */
     const val IdleOutRatio = 0.5f
 
@@ -111,13 +149,8 @@ object FloatBallDefaults {
 
     const val ImeMarginDp = 8f
 
-    const val MirrorBall = false
-
     /** 跟随持机手（试验）。 */
     const val FollowHand = false
-
-    /** 分身描边的常驻透明度（半圆姿态，比主球 idle 更暗）。 */
-    const val MirrorDimAlpha = 0.1f
 
     /** 通知胶囊：自动收起时长默认值与滑杆上下限（ms）。 */
     const val CapsuleAutoHideMs = 5_000L
@@ -134,4 +167,18 @@ object FloatBallDefaults {
     const val ClipboardBallAutoHideMs = 5_000L
     const val ClipboardBallAutoHideMsMin = 3_000L
     const val ClipboardBallAutoHideMsMax = 10_000L
+
+    /** 统一收件箱：来源 TTL 默认值与滑杆上下限（ms）。 */
+    const val InboxNotificationTtlMs = 120_000L
+    const val InboxNotificationTtlMsMin = 30_000L
+    const val InboxNotificationTtlMsMax = 600_000L
+    const val InboxClipboardTtlMs = 300_000L
+    const val InboxClipboardTtlMsMin = 60_000L
+    const val InboxClipboardTtlMsMax = 1_800_000L
+
+    /** 统一收件箱容量默认值与滑杆上下限。 */
+    const val InboxCapacity = 10
+    const val InboxCapacityMin = 5
+    const val InboxCapacityMax = 20
+
 }

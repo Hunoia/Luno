@@ -18,10 +18,6 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.Drawable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Save
@@ -44,7 +40,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -53,7 +48,7 @@ import hunoia.luno.core.AppContext
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.getIcon
-import hunoia.luno.quicklaunch.model.qualifiedName
+import hunoia.luno.quicklaunch.model.identity
 import hunoia.luno.ui.component.LunoSearchField
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LoadingState
@@ -61,6 +56,7 @@ import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenPlain
+import hunoia.luno.ui.icon.toIconBitmap
 import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.theme.BottomBarHeight
 import hunoia.luno.ui.theme.BottomBarPadding
@@ -200,8 +196,8 @@ fun RecentAppsBlocklistScreen(
                         } else if (filteredApps.isEmpty()) {
                             item { EmptyState(message = stringResource(R.string.no_matching_results)) }
                         } else {
-                            itemsIndexed(filteredApps, key = { _, item -> item.qualifiedName }) { index, item ->
-                                val iconKey = item.qualifiedName
+                            itemsIndexed(filteredApps, key = { _, item -> item.identity }) { index, item ->
+                                val iconKey = item.identity
                                 val icon = appIcons[iconKey]
                                 if (icon == null) {
                                     LaunchedEffect(iconKey) {
@@ -298,19 +294,3 @@ private const val ICON_LOAD_CONCURRENCY = 4
 /** 底部悬浮区让位：FAB + 间距 + 胶囊本高（BottomBarHeight + 2×TileInnerPadding）+ BottomBarPadding。 */
 private val SearchFabCapsuleReservedBottom =
     FabSize + CardInnerSpacing + BottomBarHeight + TileInnerPadding * 2 + BottomBarPadding
-
-/** Drawable → 行首图标位图，只缩不放（同 SearchIconCache 口径）；取不到返回 null，该行无图标。 */
-private fun Drawable.toIconBitmap(sizePx: Int): ImageBitmap? {
-    val intrinsic = maxOf(intrinsicWidth, intrinsicHeight)
-    if (intrinsic <= 0 || sizePx <= 0) return null
-    val side = minOf(sizePx, intrinsic)
-    // 源图不大于目标尺寸：直接共用原位图，不放大重画。
-    if (this is BitmapDrawable && side >= intrinsic) return bitmap?.asImageBitmap()
-    // 位图分配/绘制失败只损失一个行图标，不该带崩整页。
-    return runCatching {
-        setBounds(0, 0, side, side)
-        Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
-            .also { draw(Canvas(it)) }
-            .asImageBitmap()
-    }.getOrNull()
-}

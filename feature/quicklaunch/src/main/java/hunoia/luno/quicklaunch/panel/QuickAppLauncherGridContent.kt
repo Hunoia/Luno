@@ -147,6 +147,8 @@ fun AppGridContent(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(bottom = ContentBottom),
     userScrollEnabled: Boolean = true,
+    /** 编辑态 false：项不挂点击/长按，事件让给层根拖拽/缩放。 */
+    enabled: Boolean = true,
 ) {
     LazyVerticalGrid(
         state = gridState,
@@ -167,6 +169,7 @@ fun AppGridContent(
                 iconSizePx = iconSizePx,
                 onClick = { onClick(app, isDisabled) },
                 onLongPress = { onLongPress(app, isDisabled) },
+                enabled = enabled,
             )
         }
     }

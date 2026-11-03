@@ -43,7 +43,7 @@ class HomeVM : HomeVMBase() {
     fun backup(context: Context, saveTo: Uri) {
         viewModelScope.launchWithLoading(
             Dispatchers.IO + CoroutineExceptionHandler { _, e ->
-                android.util.Log.e(LOG_TAG, "backup failed", e)
+                hunoia.luno.core.LunoLog.e(LOG_TAG, "backup failed", e)
                 toast(R.string.backup_failed)
             },
             cancelable = false
@@ -69,7 +69,7 @@ class HomeVM : HomeVMBase() {
     fun restore(context: Context, restoreFrom: Uri) {
         viewModelScope.launchWithLoading(
             Dispatchers.IO + CoroutineExceptionHandler { _, e ->
-                android.util.Log.e(LOG_TAG, "restore failed", e)
+                hunoia.luno.core.LunoLog.e(LOG_TAG, "restore failed", e)
                 toast(R.string.restore_failed)
             },
             cancelable = false
@@ -224,7 +224,13 @@ class HomeVM : HomeVMBase() {
                 isAccessibilityEnabled = if (enabled) true else it.isAccessibilityEnabled,
             ).withRuntimeStatus()
         }
-        saveGestureSwitchEnabled(enabled)
+        saveGestureSwitchEnabled(enabled) {
+            if (enabled) {
+                // 总闸重新打开：按落盘的球/收件箱配置把共同宿主拉回来。
+                // 关闭方向由 FloatBallService 收到总闸后自行 stopSelf，不需要在这里抢时序。
+                AppGraph.system.restoreFloatBall(AppContext.get())
+            }
+        }
     }
 
     fun onGestureButtonEnabledChange(button: GestureButton, enabled: Boolean) {

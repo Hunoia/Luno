@@ -34,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,23 +58,22 @@ import hunoia.luno.gridpanel.widget.WidgetProviderGroup
 import hunoia.luno.gridpanel.widget.WidgetSpan
 import hunoia.luno.gridpanel.widget.searchBy
 import hunoia.luno.config.model.ActionPanel
-import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.SubGesture
-import hunoia.luno.domain.action.ActionCatalog
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
+import hunoia.luno.quicklaunch.model.identity
 import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.ui.actionselect.UiState.SelectedRecord
 import hunoia.luno.ui.actionselect.components.ActionRowSettingsSheet
 import hunoia.luno.ui.actionselect.components.RowSettingsActionTypeIds
 import hunoia.luno.ui.actionselect.components.rowSettingsSubtitle
+import hunoia.luno.ui.actionlibrary.actionLibraryParamSummary
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.displayNameRes
 import hunoia.luno.ui.theme.*
 import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.SheetGroupHeader
-import hunoia.luno.ui.automation.conditionSummary
 import dev.chrisbanes.haze.HazeState
 /** 动作库与规则合成一颗 chip：两者都是「已保存的动作来源」，分屏会多一层切换。 */
 private const val TYPE_LIBRARY_AND_RULE = "action_library"
@@ -93,7 +93,6 @@ internal fun ActionPage(
     subGestures: List<SubGesture> = emptyList(),
     actions: List<StoredAction>,
     actionLibraryEntries: List<ActionLibraryEntry> = emptyList(),
-    rules: List<AutomationRule> = emptyList(),
     actionPanels: List<ActionPanel> = emptyList(),
     gridPanels: List<GridPanel> = emptyList(),
     appInfos: List<AppInfo>,
@@ -175,7 +174,7 @@ internal fun ActionPage(
             LaunchedEffect(query) {
                 if (listState.firstVisibleItemIndex > 0) listState.scrollToItem(0)
             }
-            val filteredActions = remember(actions, query, type, subGestures, actionLibraryEntries, rules) {
+            val filteredActions = remember(actions, query, type, subGestures, actionLibraryEntries) {
                 when {
                     // 小部件这一屏不列动作：小部件不是 StoredAction，混进来会让选中类型不可证伪。
                     type == TYPE_WIDGET -> emptyList()
@@ -183,7 +182,7 @@ internal fun ActionPage(
                     type == TYPE_LIBRARY_AND_RULE -> emptyList()
                     query.isBlank() -> actions
                     else -> actions.filter {
-                        context.actionTextWithSubGesture(it, subGestures, actionLibraryEntries, rules, actionPanels, gridPanels, emptyIfNone = false)
+                        context.actionTextWithSubGesture(it, subGestures, actionLibraryEntries, actionPanels, gridPanels, emptyIfNone = false)
                             .contains(query, ignoreCase = true)
                     }
                 }
@@ -207,14 +206,17 @@ internal fun ActionPage(
                     actionLibraryEntries.filter { if (query.isNotBlank()) it.matchesQuery(query) else true }
                 } else emptyList()
             }.sortedBy { it.createdAt }
-            // 规则即动作：专属分组（定义表直选不开，ruleId 必填，只能引用已存规则）。
-            val filteredRules = remember(rules, query, type) {
-                if (type == TYPE_WIDGET) emptyList() else if (type == TYPE_LIBRARY_AND_RULE || query.isNotBlank()) {
-                    rules.filter {
-                        if (query.isBlank()) true
-                        else it.name.contains(query, ignoreCase = true)
-                    }
-                } else emptyList()
+            // 「动作库」chip 内按动作类型分组；混合搜索时仍收在单个「动作库」标题下。
+            val groupedLibraryEntries = remember(filteredLibraryEntries, type) {
+                if (type != TYPE_LIBRARY_AND_RULE) {
+                    emptyMap()
+                } else {
+                    filteredLibraryEntries
+                        .groupBy { ActionDefinitions.byTypeId(it.typeId)?.category ?: ActionCategory.ADVANCED }
+                        .toList()
+                        .sortedBy { (category, _) -> ActionDefinitions.categoryOrder(category) }
+                        .toMap(LinkedHashMap())
+                }
             }
             val filteredApps = remember(appInfos, query, type) {
                 if (type == TYPE_WIDGET) emptyList() else if (type == TYPE_APP || query.isNotBlank()) {
@@ -251,191 +253,195 @@ internal fun ActionPage(
                 if (type != TYPE_WIDGET) emptyList()
                 else InternalWidgetDefs.filter { context.getString(it.labelRes).contains(query, ignoreCase = true) || query.isBlank() }
             }
-            val librarySelectionFlags = filteredLibraryEntries.map { selectedRecord.isSelected(it.toStoredAction()) }
             val appSelectionFlags = filteredApps.map { selectedRecord.isSelected(it) }
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(
-                    start = contentPadding.calculateStartPadding(LocalLayoutDirection.current),
-                    end = contentPadding.calculateEndPadding(LocalLayoutDirection.current),
-                    top = contentPadding.calculateTopPadding(),
-                    // 底栏悬浮在列表之上：尾部留出「底栏实测高 + 页底留白」，否则最后几行永远
-                    // 滚不到玻璃上方；底栏高度含导航栏/IME inset，键盘弹起时这里自动跟着让位。
-                    bottom = with(density) { bottomBarHeightPx.toDp() } + ContentBottom,
-                ),
-                verticalArrangement = Arrangement.spacedBy(SegmentedGap),
-            ) {
-                val hasAnyContent = grouped.isNotEmpty() || filteredApps.isNotEmpty() || filteredLibraryEntries.isNotEmpty() || filteredCreateShortcuts.isNotEmpty() || filteredLaunchShortcuts.isNotEmpty() || filteredRules.isNotEmpty() || filteredWidgets.isNotEmpty() || filteredInternalWidgets.isNotEmpty()
-                if ((query.isNotEmpty() || type != null) && !hasAnyContent) {
-                    item {
-                        EmptyState(
-                            message = stringResource(
-                                if (type == TYPE_WIDGET) R.string.grid_panel_no_widgets
-                                else R.string.no_matching_results
+            // 搜索态 ↔ 非搜索态整表切换时直接换一颗 LazyColumn：旧结果行不会带着
+            // animateItem 退场动画和新分类全集同帧叠在一起。普通筛选（type chip）
+            // 不建新列表，仍走同一颗 LazyColumn。
+            key(query.isBlank()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(
+                        start = contentPadding.calculateStartPadding(LocalLayoutDirection.current),
+                        end = contentPadding.calculateEndPadding(LocalLayoutDirection.current),
+                        top = contentPadding.calculateTopPadding(),
+                        // 底栏悬浮在列表之上：尾部留出「底栏实测高 + 页底留白」，否则最后几行永远
+                        // 滚不到玻璃上方；底栏高度含导航栏/IME inset，键盘弹起时这里自动跟着让位。
+                        bottom = with(density) { bottomBarHeightPx.toDp() } + ContentBottom,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(SegmentedGap),
+                ) {
+                    val hasAnyContent = grouped.isNotEmpty() || filteredApps.isNotEmpty() || filteredLibraryEntries.isNotEmpty() || filteredCreateShortcuts.isNotEmpty() || filteredLaunchShortcuts.isNotEmpty() || filteredWidgets.isNotEmpty() || filteredInternalWidgets.isNotEmpty()
+                    if ((query.isNotEmpty() || type != null) && !hasAnyContent) {
+                        item {
+                            EmptyState(
+                                message = stringResource(
+                                    if (type == TYPE_WIDGET) R.string.grid_panel_no_widgets
+                                    else R.string.no_matching_results
+                                )
                             )
-                        )
-                    }
-                } else {
-                    if (filteredInternalWidgets.isNotEmpty()) {
-                        // 内置部件置顶：没有 provider 卡那么多东西，直接一行卡片。
-                        stickyHeader(key = "widget_internal") {
-                            SheetGroupHeader(stringResource(R.string.grid_panel_internal_widgets))
                         }
-                        item(key = "widget_internal_row") {
-                            LazyRow(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
-                            ) {
-                                items(
-                                    items = filteredInternalWidgets,
-                                    key = { def -> "internal_${def.id}" },
-                                ) { def ->
-                                    InternalWidgetCard(def = def, onSelect = { onSelectInternalWidget(def.id) })
-                                }
+                    } else {
+                        if (filteredInternalWidgets.isNotEmpty()) {
+                            // 内置部件置顶：没有 provider 卡那么多东西，直接一行卡片。
+                            stickyHeader(key = "widget_internal") {
+                                SheetGroupHeader(stringResource(R.string.grid_panel_internal_widgets))
                             }
-                        }
-                    }
-                    if (filteredWidgets.isNotEmpty()) {
-                        // 每 app 分区头 + 区内横向滚动的预览卡。
-                        filteredWidgets.forEach { group ->
-                            stickyHeader(key = "widget_${group.appLabel}") {
-                                WidgetGroupHeaderRow(group)
-                            }
-                            item(key = "widget_row_${group.appLabel}") {
+                            item(key = "widget_internal_row") {
                                 LazyRow(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
                                 ) {
                                     items(
-                                        items = group.providers,
-                                        key = { info -> "widget_${info.provider?.flattenToString()}_${info.widgetCategory}" },
-                                    ) { info ->
-                                        WidgetPreviewCard(
-                                            info = info,
-                                            span = widgetSpanOf(info),
-                                            onSelect = { onSelectWidget(info) },
-                                        )
+                                        items = filteredInternalWidgets,
+                                        key = { def -> "internal_${def.id}" },
+                                    ) { def ->
+                                        InternalWidgetCard(def = def, onSelect = { onSelectInternalWidget(def.id) })
                                     }
                                 }
                             }
                         }
-                    }
-                    if (grouped.isNotEmpty()) {
-                        grouped.forEach { (category, categoryActions) ->
-                            val categoryFlags = categoryActions.map { selectedRecord.isSelected(it) }
-                            // 「无」单独置顶，不显示组标题。
-                            if (category != ActionCategory.NONE) {
-                                stickyHeader(key = "cat_${category.name}") {
-                                    SheetGroupHeader(stringResource(id = category.displayNameRes))
+                        if (filteredWidgets.isNotEmpty()) {
+                            // 每 app 分区头 + 区内横向滚动的预览卡。
+                            filteredWidgets.forEach { group ->
+                                stickyHeader(key = "widget_${group.appLabel}") {
+                                    WidgetGroupHeaderRow(group)
                                 }
-                            }
-                            itemsIndexed(
-                                items = categoryActions,
-                                key = { _, it -> "${it.typeId}:${it.params}" }
-                            ) { index, item ->
-                                ActionItem(
-                                    modifier = Modifier.animateItem(),
-                                    action = item,
-                                    actionLabel = context.actionTextWithSubGesture(
-                                        item,
-                                        subGestures,
-                                        actionLibraryEntries,
-                                        rules,
-                                        actionPanels,
-                                        gridPanels,
-                                        emptyIfNone = false,
-                                    ),
-                                    selected = selectedRecord.isSelected(item),
-                                    onSelect = { onSelect(item) },
-                                    subtitle = if (item.typeId in RowSettingsActionTypeIds) rowSettingsSubtitle(item, context) else "",
-                                    shape = selectedSegmentedShape(index, categoryActions.size, categoryFlags),
-                                    trailing = if (item.typeId in RowSettingsActionTypeIds) {{
-                                        IconButton(onClick = { settingsAction = item }) {
-                                            Icon(
-                                                imageVector = Icons.Default.Settings,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                item(key = "widget_row_${group.appLabel}") {
+                                    LazyRow(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
+                                    ) {
+                                        items(
+                                            items = group.providers,
+                                            key = { info -> "widget_${info.provider?.flattenToString()}_${info.widgetCategory}" },
+                                        ) { info ->
+                                            WidgetPreviewCard(
+                                                info = info,
+                                                span = widgetSpanOf(info),
+                                                onSelect = { onSelectWidget(info) },
                                             )
                                         }
-                                    }} else null,
+                                    }
+                                }
+                            }
+                        }
+                        if (grouped.isNotEmpty()) {
+                            grouped.forEach { (category, categoryActions) ->
+                                val categoryFlags = categoryActions.map { selectedRecord.isSelected(it) }
+                                // 「无」单独置顶，不显示组标题。
+                                if (category != ActionCategory.NONE) {
+                                    stickyHeader(key = "cat_${category.name}") {
+                                        SheetGroupHeader(stringResource(id = category.displayNameRes))
+                                    }
+                                }
+                                itemsIndexed(
+                                    items = categoryActions,
+                                    key = { _, it -> "${it.typeId}:${it.params}" }
+                                ) { index, item ->
+                                    ActionItem(
+                                        modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null),
+                                        action = item,
+                                        actionLabel = context.actionTextWithSubGesture(
+                                            item,
+                                            subGestures,
+                                            actionLibraryEntries,
+                                            actionPanels,
+                                            gridPanels,
+                                            emptyIfNone = false,
+                                        ),
+                                        selected = selectedRecord.isSelected(item),
+                                        onSelect = { onSelect(item) },
+                                        subtitle = if (item.typeId in RowSettingsActionTypeIds) rowSettingsSubtitle(item, context) else "",
+                                        shape = selectedSegmentedShape(index, categoryActions.size, categoryFlags),
+                                        trailing = if (item.typeId in RowSettingsActionTypeIds) {{
+                                            IconButton(onClick = { settingsAction = item }) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Settings,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
+                                        }} else null,
+                                    )
+                                }
+                            }
+                        }
+                        if (groupedLibraryEntries.isNotEmpty()) {
+                            groupedLibraryEntries.forEach { (category, entries) ->
+                                stickyHeader(key = "lib_cat_${category.name}") {
+                                    SheetGroupHeader(stringResource(id = category.displayNameRes))
+                                }
+                                val selectionFlags = entries.map { selectedRecord.isSelected(it.toStoredAction()) }
+                                itemsIndexed(items = entries, key = { _, it -> "lib_${it.id}" }) { index, entry ->
+                                    val action = entry.toStoredAction()
+                                    ActionItem(
+                                        modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null),
+                                        action = action,
+                                        actionLabel = entry.name,
+                                        selected = selectedRecord.isSelected(action),
+                                        subtitle = actionLibraryParamSummary(entry, context),
+                                        onSelect = { onSelectLibraryEntry(entry) },
+                                        shape = selectedSegmentedShape(index, entries.size, selectionFlags),
+                                    )
+                                }
+                            }
+                        } else if (filteredLibraryEntries.isNotEmpty()) {
+                            stickyHeader(key = "lib_all") {
+                                SheetGroupHeader(stringResource(R.string.action_library))
+                            }
+                            val selectionFlags = filteredLibraryEntries.map { selectedRecord.isSelected(it.toStoredAction()) }
+                            itemsIndexed(items = filteredLibraryEntries, key = { _, it -> "lib_${it.id}" }) { index, entry ->
+                                val action = entry.toStoredAction()
+                                ActionItem(
+                                    modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null),
+                                    action = action,
+                                    actionLabel = entry.name,
+                                    selected = selectedRecord.isSelected(action),
+                                    subtitle = actionLibraryParamSummary(entry, context),
+                                    onSelect = { onSelectLibraryEntry(entry) },
+                                    shape = selectedSegmentedShape(index, filteredLibraryEntries.size, selectionFlags),
                                 )
                             }
                         }
-                    }
-                    if (filteredLibraryEntries.isNotEmpty()) {
-                        stickyHeader(key = "lib_all") {
-                            SheetGroupHeader(stringResource(R.string.action_library))
+                        if (filteredApps.isNotEmpty()) {
+                            stickyHeader(key = "apps") {
+                                SheetGroupHeader(stringResource(R.string.tab_apps))
+                            }
+                            itemsIndexed(items = filteredApps, key = { _, it -> "app_${it.identity}" }) { index, item ->
+                                AppItem(appInfo = item, selected = selectedRecord.isSelected(item),
+                                    onSelect = { onSelectApp(item) },
+                                    onLongClick = { onAppLongClick(item) },
+                                    modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null),
+                                    shape = selectedSegmentedShape(index, filteredApps.size, appSelectionFlags))
+                            }
                         }
-                        itemsIndexed(items = filteredLibraryEntries, key = { _, it -> "lib_${it.id}" }) { index, entry ->
-                            val action = entry.toStoredAction()
-                            ActionItem(
-                                modifier = Modifier.animateItem(),
-                                action = action,
-                                actionLabel = entry.name,
-                                selected = selectedRecord.isSelected(action),
-                                onSelect = { onSelectLibraryEntry(entry) },
-                                shape = selectedSegmentedShape(index, filteredLibraryEntries.size, librarySelectionFlags),
-                            )
+                        if (filteredCreateShortcuts.isNotEmpty()) {
+                            stickyHeader(key = "create_shortcuts") {
+                                SheetGroupHeader(stringResource(R.string.create_shortcut))
+                            }
+                            items(items = filteredCreateShortcuts, key = { "cs_${it.qualifiedName}" }) { item ->
+                                LauncherInfoItem(launcherInfo = item,
+                                    isShortcutInfoSelected = { selectedRecord.isSelected(it) },
+                                    onSelect = { s, _ -> onSelectShortcut(s) }, onClick = { onShortcutClick(item) },
+                                    modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null))
+                            }
                         }
-                    }
-                    if (filteredRules.isNotEmpty()) {
-                        val ruleFlags = filteredRules.map {
-                            selectedRecord.isSelected(ActionCatalog.ruleStoredAction(it.id))
+                        if (filteredLaunchShortcuts.isNotEmpty()) {
+                            stickyHeader(key = "launch_shortcuts") {
+                                SheetGroupHeader(stringResource(R.string.launch_shortcut))
+                            }
+                            items(items = filteredLaunchShortcuts, key = { "ls_${it.qualifiedName}" }) { item ->
+                                LauncherInfoItem(launcherInfo = item,
+                                    isShortcutInfoSelected = { selectedRecord.isSelected(it) },
+                                    onSelect = { s, _ -> onSelectShortcut(s) }, onClick = {},
+                                    modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null))
+                            }
                         }
-                        stickyHeader(key = "rules_all") {
-                            SheetGroupHeader(stringResource(R.string.action_rule_group))
-                        }
-                        itemsIndexed(items = filteredRules, key = { _, it -> "rule_${it.id}" }) { index, rule ->
-                            val action = ActionCatalog.ruleStoredAction(rule.id)
-                            ActionItem(
-                                modifier = Modifier.animateItem(),
-                                action = action,
-                                actionLabel = rule.name.ifBlank { context.actionTextWithSubGesture(action, subGestures, actionLibraryEntries, rules, actionPanels, gridPanels, emptyIfNone = false) },
-                                subtitle = conditionSummary(context, rule.condition),
-                                selected = selectedRecord.isSelected(action),
-                                onSelect = { onSelect(action) },
-                                shape = selectedSegmentedShape(index, filteredRules.size, ruleFlags),
-                            )
-                        }
-                    }
-                    if (filteredApps.isNotEmpty()) {
-                        stickyHeader(key = "apps") {
-                            SheetGroupHeader(stringResource(R.string.tab_apps))
-                        }
-                        itemsIndexed(items = filteredApps, key = { _, it -> "app_${it.qualifiedName}" }) { index, item ->
-                            AppItem(appInfo = item, selected = selectedRecord.isSelected(item),
-                                onSelect = { onSelectApp(item) },
-                                onLongClick = { onAppLongClick(item) },
-                                modifier = Modifier.animateItem(),
-                                shape = selectedSegmentedShape(index, filteredApps.size, appSelectionFlags))
-                        }
-                    }
-                    if (filteredCreateShortcuts.isNotEmpty()) {
-                        stickyHeader(key = "create_shortcuts") {
-                            SheetGroupHeader(stringResource(R.string.create_shortcut))
-                        }
-                        items(items = filteredCreateShortcuts, key = { "cs_${it.qualifiedName}" }) { item ->
-                            LauncherInfoItem(launcherInfo = item,
-                                isShortcutInfoSelected = { selectedRecord.isSelected(it) },
-                                onSelect = { s, _ -> onSelectShortcut(s) }, onClick = { onShortcutClick(item) },
-                                modifier = Modifier.animateItem())
-                        }
-                    }
-                    if (filteredLaunchShortcuts.isNotEmpty()) {
-                        stickyHeader(key = "launch_shortcuts") {
-                            SheetGroupHeader(stringResource(R.string.launch_shortcut))
-                        }
-                        items(items = filteredLaunchShortcuts, key = { "ls_${it.qualifiedName}" }) { item ->
-                            LauncherInfoItem(launcherInfo = item,
-                                isShortcutInfoSelected = { selectedRecord.isSelected(it) },
-                                onSelect = { s, _ -> onSelectShortcut(s) }, onClick = {},
-                                modifier = Modifier.animateItem())
-                        }
-                    }
                 }
+            }
             }
         }
         ActionSelectBottomBar(

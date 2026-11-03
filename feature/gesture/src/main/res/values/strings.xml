@@ -5,16 +5,22 @@
     <string name="tap">单击</string>
     <string name="cancel">取消</string>
     <string name="confirm">确认</string>
-    <string name="point_pick_empty">未取点</string>
-    <string name="point_pick_hint">轻点目标位置，确定后回填坐标（仍可手改）</string>
-    <string name="point_pick_point">x=%1$d dp，y=%2$d dp</string>
     <string name="quick_search_copied">已复制</string>
-    <string name="screen_pick_close">关闭识屏</string>
-    <string name="screen_pick_copy_image">复制图片</string>
+    <string name="screen_pick_copy_image">复制</string>
     <string name="screen_pick_failed">识别失败，请重试</string>
     <string name="screen_pick_image_copied">图片已复制</string>
     <string name="screen_pick_image_saved">图片已保存到相册</string>
     <string name="screen_pick_no_content">未识别到可复制的内容</string>
-    <string name="screen_pick_save_image">保存到相册</string>
-    <string name="screen_pick_share_image">分享图片</string>
+    <string name="screen_pick_save_image">保存图片</string>
+    <string name="screen_pick_share_image">分享</string>
+    <string name="screen_pick_extract_text">OCR 识别</string>
+    <string name="screen_pick_annotate_image">标注</string>
+    <string name="screen_pick_portal_copy">复制</string>
+    <string name="screen_pick_portal_search">搜索</string>
+    <string name="screen_pick_portal_share">发送到应用</string>
+    <string name="screen_pick_portal_save">保存</string>
+    <string name="screen_pick_portal_open_link">打开链接</string>
+    <string name="screen_pick_portal_ocr">OCR 识别</string>
+    <string name="screen_pick_portal_image">图片</string>
+    <string name="screen_pick_portal_resolving">识别中…</string>
 </resources>

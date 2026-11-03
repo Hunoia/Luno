@@ -2,23 +2,41 @@ package hunoia.luno.ui.settings.link
 
 import android.content.Intent
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
+import hunoia.luno.bridge.system.copyText
+import hunoia.luno.bridge.system.readClipboardText
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.LinkDispatchRule
 import hunoia.luno.config.model.LinkMatchType
@@ -26,9 +44,11 @@ import hunoia.luno.config.model.LinkMissMode
 import hunoia.luno.config.model.LinkTapMode
 import hunoia.luno.config.model.LinkDispatchSettings
 import hunoia.luno.bridge.ui.showToast
+import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.link.Links
 import hunoia.luno.link.LinkPresets
+import hunoia.luno.link.LinkTarget
+import hunoia.luno.link.Links
 import hunoia.luno.ui.component.DragReorderHandle
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.dragReorderPlacement
@@ -40,9 +60,22 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
+import hunoia.luno.ui.component.sheet.ConfirmDialog
+import hunoia.luno.ui.icon.rememberPackageIconBitmap
 import hunoia.luno.ui.theme.ContainerRadius
+import hunoia.luno.ui.theme.ElevationSmall
 import hunoia.luno.ui.theme.FloatingContentBottom
+import hunoia.luno.ui.theme.LargeShape
+import hunoia.luno.ui.theme.RowIconSize
+import java.util.UUID
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+/** 导入预览：解析好待并入的规则，确认后才写库。 */
+private data class ImportPreview(
+    val rules: List<LinkDispatchRule>,
+)
 
 /**
  * 链接分发设置：规则表 + 胶囊/未命中行为 + 默认浏览器入口。
@@ -60,10 +93,75 @@ fun LinkDispatchSettingsScreen(
         .collectAsStateWithLifecycle(initialValue = ActionSettings())
     val linkSettings = actionSettings.linkDispatch
     val listState = rememberLazyListState()
+    var importPreview by remember { mutableStateOf<ImportPreview?>(null) }
+    var showExportConfirm by remember { mutableStateOf(false) }
 
     fun update(transform: (LinkDispatchSettings) -> LinkDispatchSettings) {
         scope.launch {
             TuneConfig.updateAction { it.copy(linkDispatch = transform(it.linkDispatch)) }
+        }
+    }
+    fun parseImport(raw: String): ImportPreview? {
+        if (raw.isEmpty()) {
+            showToast(R.string.link_dispatch_import_empty)
+            return null
+        }
+        val imported = runCatching {
+            JsonSerializer.decodeFromString<List<LinkDispatchRule>>(raw)
+        }.getOrNull()
+        if (imported.isNullOrEmpty()) {
+            showToast(R.string.link_dispatch_import_failed)
+            return null
+        }
+        return ImportPreview(imported)
+    }
+    fun applyImport(preview: ImportPreview) {
+        scope.launch {
+            update { current ->
+                val existingIds = current.rules.mapTo(mutableSetOf()) { it.id }
+                val merged = preview.rules.map { rule ->
+                    // id 撞已有时重发，避免覆盖/重复：规则按 id 匹配，重复 id 会错乱。
+                    if (rule.id in existingIds) rule.copy(id = UUID.randomUUID().toString()) else rule
+                }
+                current.copy(rules = current.rules + merged)
+            }
+            showToast(R.string.link_dispatch_import_done)
+        }
+    }
+    // 文件导入：选 JSON 文件，读内容走同一套解析/确认流程。
+    val importFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            val raw = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openInputStream(uri)
+                        ?.bufferedReader()?.use { it.readText() }
+                }.getOrNull()
+            }?.trim().orEmpty()
+            if (raw.isEmpty()) {
+                showToast(R.string.link_dispatch_import_file_empty)
+                return@launch
+            }
+            parseImport(raw)?.let { importPreview = it }
+        }
+    }
+    // 文件导出：CreateDocument 让用户选保存位置，直接写规则 JSON。
+    val fileExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            val json = JsonSerializer.encodeToString(linkSettings.rules)
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openOutputStream(uri)?.use {
+                        it.write(json.toByteArray(Charsets.UTF_8))
+                    }
+                }
+            }
+            showToast(R.string.link_dispatch_export_file_done)
         }
     }
     // 规则顺序即优先级（第一条命中生效），所以必须能拖；草稿松手才落盘。
@@ -86,19 +184,125 @@ fun LinkDispatchSettingsScreen(
                 contentDescription = stringResource(R.string.link_dispatch_rule_add),
             )
         },
+        actions = {
+            var menuOpen by remember { mutableStateOf(false) }
+            IconButton(onClick = { menuOpen = true }) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = stringResource(R.string.more_options),
+                )
+            }
+            DropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false },
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = LargeShape,
+                tonalElevation = ElevationSmall,
+                shadowElevation = 0.dp,
+            ) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.link_dispatch_export_file)) },
+                    leadingIcon = { Icon(Icons.Default.FileDownload, contentDescription = null) },
+                    onClick = {
+                        menuOpen = false
+                        fileExportLauncher.launch("link-dispatch-rules.json")
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.link_dispatch_import_file)) },
+                    leadingIcon = { Icon(Icons.Default.FileOpen, contentDescription = null) },
+                    onClick = {
+                        menuOpen = false
+                        importFileLauncher.launch(
+                            arrayOf("application/json", "text/plain", "application/octet-stream"),
+                        )
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.link_dispatch_export)) },
+                    leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
+                    onClick = {
+                        menuOpen = false
+                        showExportConfirm = true
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.link_dispatch_import)) },
+                    leadingIcon = { Icon(Icons.Default.ContentPaste, contentDescription = null) },
+                    onClick = {
+                        menuOpen = false
+                        importPreview = parseImport(readClipboardText(context)?.trim().orEmpty())
+                    },
+                )
+            }
+        },
+        dialogs = {
+            importPreview?.let { preview ->
+                ConfirmDialog(
+                    title = stringResource(R.string.link_dispatch_import_confirm_title),
+                    text = stringResource(
+                        R.string.link_dispatch_import_confirm_text,
+                        preview.rules.size,
+                    ),
+                    onDismissRequest = { importPreview = null },
+                    onConfirm = {
+                        importPreview = null
+                        applyImport(preview)
+                    },
+                )
+            }
+            if (showExportConfirm) {
+                ConfirmDialog(
+                    title = stringResource(R.string.link_dispatch_export_confirm_title),
+                    text = stringResource(
+                        R.string.link_dispatch_export_confirm_text,
+                        linkSettings.rules.size,
+                    ),
+                    onDismissRequest = { showExportConfirm = false },
+                    onConfirm = {
+                        showExportConfirm = false
+                        val json = JsonSerializer.encodeToString(linkSettings.rules)
+                        copyText(context, "luno-link-dispatch-rules", json)
+                        showToast(R.string.link_dispatch_export_done)
+                    },
+                )
+            }
+        },
     ) {
+        item {
+            LunoGroup(title = stringResource(R.string.link_dispatch_browser_group)) {
+                LunoSettingsRow(
+                    title = stringResource(R.string.link_dispatch_default_browser),
+                    shape = segmentedShape(0, 1),
+                    onClick = {
+                        val launched = runCatching {
+                            context.startActivity(
+                                Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        }
+                        if (launched.isFailure) {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_SETTINGS)
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                )
+                            }
+                        }
+                    },
+                )
+            }
+        }
         item {
             LunoGroup(title = stringResource(R.string.link_dispatch_global_group)) {
                 LunoSwitchRow(
                     title = stringResource(R.string.link_dispatch_enabled),
-                    subtitle = stringResource(R.string.link_dispatch_enabled_hint),
                     checked = linkSettings.enabled,
                     onCheckedChange = { checked -> update { it.copy(enabled = checked) } },
                     shape = segmentedShape(0, 3),
                 )
                 ChoiceRow(
                     title = stringResource(R.string.link_dispatch_capsule_tap),
-                    subtitle = stringResource(R.string.link_dispatch_capsule_tap_hint),
                     options = listOf(
                         stringResource(R.string.link_dispatch_tap_dispatch),
                         stringResource(R.string.link_dispatch_tap_share),
@@ -115,7 +319,6 @@ fun LinkDispatchSettingsScreen(
                 )
                 ChoiceRow(
                     title = stringResource(R.string.link_dispatch_miss),
-                    subtitle = stringResource(R.string.link_dispatch_miss_hint),
                     options = listOf(
                         stringResource(R.string.link_dispatch_miss_share),
                         stringResource(R.string.link_dispatch_miss_browser),
@@ -166,7 +369,11 @@ fun LinkDispatchSettingsScreen(
             }
         }
         item {
-            LunoGroup(title = stringResource(R.string.link_dispatch_rules_group)) {
+            val iconPx = with(LocalDensity.current) { RowIconSize.toPx() }.toInt()
+            LunoGroup(
+                title = stringResource(R.string.link_dispatch_rules_group),
+                subtitle = stringResource(R.string.link_dispatch_rules_order),
+            ) {
                 if (rules.isEmpty()) {
                     Surface(
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(ContainerRadius),
@@ -176,22 +383,26 @@ fun LinkDispatchSettingsScreen(
                     }
                 } else {
                     rules.forEachIndexed { index, rule ->
-                        // key 必须带上目标应用/浏览器开关：改完目标返回列表时才能刷新副标题。
-                        val targetLabel by produceState(
-                            initialValue = null as String?,
+                        // key 必须带上目标应用/浏览器开关：改完目标返回列表时才能刷新副标题与图标。
+                        val target by produceState(
+                            initialValue = null as LinkTarget?,
                             rule.id,
                             rule.targetPackage,
                             rule.viaBrowser,
                         ) {
-                            value = Links.targetOf(context, rule)?.label
+                            value = Links.targetOf(context, rule)
                         }
+                        // 有具体目标包名时显示应用图标，否则（浏览器自动/未设目标）降级 Link。
+                        val targetIcon = target?.packageName?.takeIf { it.isNotEmpty() }
+                            ?.let { rememberPackageIconBitmap(it, iconPx) }
                         LunoSettingsRow(
-                            icon = Icons.Default.Link,
+                            icon = if (targetIcon == null) Icons.Default.Link else null,
+                            iconBitmap = targetIcon,
                             title = rule.name.ifBlank { rule.pattern },
                             subtitle = linkRuleSummary(
                                 type = rule.matchType,
                                 pattern = rule.pattern,
-                                targetLabel = targetLabel,
+                                targetLabel = target?.label,
                                 viaBrowser = rule.viaBrowser,
                                 resolveShortLink = rule.resolveShortLink,
                             ),
@@ -210,31 +421,6 @@ fun LinkDispatchSettingsScreen(
                         )
                     }
                 }
-            }
-        }
-        item {
-            LunoGroup(title = stringResource(R.string.link_dispatch_browser_group)) {
-                LunoSettingsRow(
-                    title = stringResource(R.string.link_dispatch_default_browser),
-                    subtitle = stringResource(R.string.link_dispatch_default_browser_hint),
-                    shape = segmentedShape(0, 1),
-                    onClick = {
-                        val launched = runCatching {
-                            context.startActivity(
-                                Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
-                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                            )
-                        }
-                        if (launched.isFailure) {
-                            runCatching {
-                                context.startActivity(
-                                    Intent(Settings.ACTION_SETTINGS)
-                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                                )
-                            }
-                        }
-                    },
-                )
             }
         }
     }

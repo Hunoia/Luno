@@ -19,8 +19,8 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.SystemClock
 import android.provider.Settings
-import android.text.TextUtils
 import hunoia.luno.R
+import hunoia.luno.bridge.system.AccessibilitySettings
 import hunoia.luno.ui.MainActivity
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -129,7 +129,7 @@ class DaemonService : Service() {
 
     private fun restoreIfNeeded(serviceComponentName: ComponentName, serviceId: String, current: String) {
         if (!hasWriteSecureSettings()) {
-            android.util.Log.w(LOG_TAG, "restoreIfNeeded skipped: WRITE_SECURE_SETTINGS revoked")
+            hunoia.luno.core.LunoLog.w(LOG_TAG, "restoreIfNeeded skipped: WRITE_SECURE_SETTINGS revoked")
             return
         }
         // 回写节流：无障碍服务启动即崩的场景下，ContentObserver / SCREEN_ON / onStartCommand
@@ -150,7 +150,7 @@ class DaemonService : Service() {
             )
         }
 
-        if (tokenContains(current, serviceComponentName)) {
+        if (AccessibilitySettings.tokenContains(current, serviceComponentName)) {
             selfWroteValue = current
             return
         }
@@ -164,15 +164,6 @@ class DaemonService : Service() {
             newValue
         )
         updateNotification("已恢复无障碍服务", SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()))
-    }
-
-    private fun tokenContains(value: String, componentName: ComponentName): Boolean {
-        val splitter = TextUtils.SimpleStringSplitter(':')
-        splitter.setString(value)
-        while (splitter.hasNext()) {
-            if (ComponentName.unflattenFromString(splitter.next()) == componentName) return true
-        }
-        return false
     }
 
     private fun hasWriteSecureSettings(): Boolean {

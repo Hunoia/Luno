@@ -1,7 +1,7 @@
 package hunoia.luno.config.store
 
 import android.content.Context
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.MultiProcessDataStoreFactory
 import androidx.datastore.core.Serializer

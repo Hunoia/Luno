@@ -35,10 +35,12 @@ fun StoredAction.withoutVariantKey(): StoredAction {
 
 /** app.launch 的应用标识（免 PackageManager 查询，用于去重与比对）。 */
 fun StoredAction.launchQualifiedName(): String? {
-    if (typeId != "app.launch") return null
+    if (typeId != AppLaunchAction.TYPE_ID) return null
     val pkg = (params["packageName"] as? JsonPrimitive)?.contentOrNull ?: return null
     val cls = (params["className"] as? JsonPrimitive)?.contentOrNull.orEmpty()
-    return "$pkg/$cls"
+    val userId = (params["userId"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull() ?: 0
+    // 与 AppInfo.identity 同形：分身动作必须能和主应用动作区分开。
+    return if (userId == 0) "$pkg/$cls" else "$pkg/$cls#$userId"
 }
 
 fun StoredAction.launchMiniWindow(): Boolean =
@@ -49,10 +51,6 @@ fun StoredAction.libraryEntryId(): String? {
     if (typeId != "internal.libraryRef") return null
     return (params["entryId"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
 }
-
-/** 规则即动作的类型与参数 key（定义表注册/映射/引用判断共用，避免字面量漂移）。 */
-const val RUN_RULE_TYPE_ID = "internal.runRule"
-const val RUN_RULE_PARAM_RULE_ID = "ruleId"
 
 /** 动作面板的类型与参数 key（引用全局面板列表里的某个具名面板）。 */
 const val ACTION_PANEL_TYPE_ID = "internal.actionPanel"
@@ -77,67 +75,30 @@ fun StoredAction.gridPanelId(): String? {
     return (params[GRID_PANEL_PARAM_PANEL_ID] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
 }
 
-/** 规则引用 id（internal.runRule），非引用或空 id 返回 null。 */
-fun StoredAction.runRuleId(): String? {
-    if (typeId != RUN_RULE_TYPE_ID) return null
-    return (params[RUN_RULE_PARAM_RULE_ID] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
-}
-
-/** 点击/长按的坐标参数 key（定义表、分发前置校验、库 UI 共用，避免字面量漂移）。 */
-const val PARAM_X_DP = "xDp"
-const val PARAM_Y_DP = "yDp"
-val POINT_PARAM_KEYS = setOf(PARAM_X_DP, PARAM_Y_DP)
-
-/**
- * 点击/长按的「使用触发位置坐标」开关：勾上只认手势触点，固定坐标忽略。
- * 这是「隐藏触钮 + 单击穿透到覆盖层下面界面」那条路的开关，点击要落在手指按下的位置。
- */
-const val USE_TRIGGER_POINT_KEY = "useTriggerPoint"
-
-/** 依赖真实触点的动作类型（tap / longPress / doubleTap）。 */
-val POINT_ACTION_TYPE_IDS = setOf("accessibility.tap", "accessibility.longPress", "accessibility.doubleTap")
-
-/** 点击/长按（含双击）是否勾了「使用触发位置坐标」，非这三种动作恒 false。 */
-fun StoredAction.usesTriggerPoint(): Boolean {
-    if (typeId !in POINT_ACTION_TYPE_IDS) return false
-    return (params[USE_TRIGGER_POINT_KEY] as? JsonPrimitive)?.contentOrNull?.toBoolean() == true
-}
-
-/**
- * 点击/长按是否自带参数坐标（xDp+yDp 双全且合法）：是则不依赖手势触点，
- * 无触点路径（库测试/自动化/搜索/runRule）可直接执行。勾了「使用触发位置坐标」
- * 的一律 false——它按定义依赖触点（与分发器前置校验、自动化选择页过滤同一判据）。
- */
-fun StoredAction.hasPointParams(): Boolean {
-    if (typeId !in POINT_ACTION_TYPE_IDS) return false
-    if (usesTriggerPoint()) return false
-    val x = (params[PARAM_X_DP] as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
-    val y = (params[PARAM_Y_DP] as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
-    return x != null && y != null && x >= 0 && y >= 0
-}
-
 fun StoredAction.launchPackageName(): String? {
-    if (typeId != "app.launch") return null
+    if (typeId != AppLaunchAction.TYPE_ID) return null
     return (params["packageName"] as? JsonPrimitive)?.contentOrNull
 }
 
 /** app.launch 的应用引用（label 用包名兜底，仅供去重与比对）。 */
 fun StoredAction.launchAppRef(): AppInfo? {
-    if (typeId != "app.launch") return null
+    if (typeId != AppLaunchAction.TYPE_ID) return null
     val pkg = (params["packageName"] as? JsonPrimitive)?.contentOrNull ?: return null
     val cls = (params["className"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+    val userId = (params["userId"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull() ?: 0
     return AppInfo(
         packageName = pkg,
         className = cls,
         label = pkg,
         miniWindow = launchMiniWindow(),
+        userId = userId,
     )
 }
 
 fun StoredAction.withLaunchMiniWindow(miniWindow: Boolean): StoredAction {
-    if (typeId != "app.launch") return this
+    if (typeId != AppLaunchAction.TYPE_ID) return this
     return copy(params = buildJsonObject {
         for ((k, v) in this@withLaunchMiniWindow.params) put(k, v)
-        put("miniWindow", JsonPrimitive(miniWindow.toString()))
+        put("miniWindow", JsonPrimitive(miniWindow))
     })
 }

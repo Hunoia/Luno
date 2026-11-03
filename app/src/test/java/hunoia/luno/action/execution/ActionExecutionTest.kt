@@ -21,7 +21,7 @@ import org.junit.Test
 
 /**
  * 执行注册表与参数解析层回归：分发口的三态出口（Unsupported / RequiresCapability /
- * Failed）与必填参数、模板展开语义都在这里收口，执行器本身不做校验。
+ * Failed）与必填参数语义都在这里收口，执行器本身不做校验。
  */
 class ActionExecutionTest {
 
@@ -36,12 +36,9 @@ class ActionExecutionTest {
         }
     }
 
-    private fun executorContext(
-        templateValues: suspend (Set<String>) -> Map<String, String> = { emptyMap() },
-    ) = ExecutorContext(
+    private fun executorContext() = ExecutorContext(
         appContext = ContextWrapper(null),
         scope = CoroutineScope(Job()),
-        templateValues = templateValues,
     )
 
     private fun stored(typeId: String, vararg params: Pair<String, String>) = StoredAction(
@@ -133,18 +130,6 @@ class ActionExecutionTest {
         val resolver = resolver(registry(listOf(executor)))
         resolver.resolveFromLibrary(stored("shell.custom", "command" to "id -u"), executorContext())
         assertEquals("id -u", (executor.executed.single() as Action.CustomCommand).command)
-    }
-
-    @Test
-    fun `template tokens are expanded via context values`() = runBlocking {
-        val executor = FakeExecutor(setOf("shell.custom"))
-        val resolver = resolver(registry(listOf(executor)))
-        val context = executorContext(templateValues = { used ->
-            assertEquals(setOf("name"), used)
-            mapOf("name" to "luno")
-        })
-        resolver.resolveFromLibrary(stored("shell.custom", "command" to "echo hi \${name}"), context)
-        assertEquals("echo hi luno", (executor.executed.single() as Action.CustomCommand).command)
     }
 
     @Test

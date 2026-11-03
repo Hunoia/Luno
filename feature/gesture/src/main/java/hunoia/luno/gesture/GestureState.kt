@@ -9,7 +9,6 @@ import androidx.compose.ui.geometry.Offset
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GestureButton
-import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.isHoldType
@@ -22,8 +21,8 @@ import hunoia.luno.action.model.Action
 
 data class GestureResolvedActions(
     val button: GestureButton,
-    val direction: GestureDirection,
-    val actionDirection: GestureDirection,
+    val direction: Int,
+    val actionDirection: Int,
     val action: StoredAction?,
     val triggerType: GestureTriggerType,
     val touchPosition: Offset,
@@ -63,9 +62,9 @@ class GestureState(
         private set
     var effectiveButton: GestureButton? by mutableStateOf(null)
         private set
-    var triggerDirection: GestureDirection by mutableStateOf(GestureDirection.Right)
+    var triggerDirection: Int by mutableStateOf(0)
         private set
-    var actionDirection: GestureDirection by mutableStateOf(GestureDirection.Right)
+    var actionDirection: Int by mutableStateOf(0)
         private set
 
     var origin = Offset.Unspecified
@@ -128,8 +127,8 @@ class GestureState(
                     onResolved(
                         GestureResolvedActions(
                             button = b,
-                            direction = GestureDirection.Right,
-                            actionDirection = GestureDirection.Right,
+                            direction = 0,
+                            actionDirection = 0,
                             action = b.longPressActions,
                             triggerType = GestureTriggerType.LongPress,
                             touchPosition = finger,
@@ -240,6 +239,9 @@ class GestureState(
         pendingDoubleTapJob?.cancel()
         pendingDoubleTapJob = null
         pendingTapResult = null
+        // 任务取消后没有超时兜底，识别器里的「双击待定」必须一起清，
+        // 否则下一次单击会被当成双击（G-03）。
+        recognizer.clearPendingDoubleTap()
         resetSession()
         isCanceled = false
     }
@@ -263,13 +265,13 @@ class GestureState(
         effectiveButton = null
         sessionConfig = null
         isMirrorTouchTarget = false
-        triggerDirection = GestureDirection.Right
-        actionDirection = GestureDirection.Right
+        triggerDirection = 0
+        actionDirection = 0
     }
 
     private fun resolved(
         button: GestureButton,
-        actionDirection: GestureDirection,
+        actionDirection: Int,
         triggerType: GestureTriggerType,
         action: StoredAction?,
         decision: GestureDecision.Trigger,
@@ -348,7 +350,7 @@ class GestureState(
     private fun actionByType(
         button: GestureButton,
         type: GestureTriggerType,
-        direction: GestureDirection,
+        direction: Int,
     ): StoredAction? {
         return when (type) {
             GestureTriggerType.Tap -> button.tapActions

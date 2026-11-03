@@ -1,27 +1,11 @@
 package hunoia.luno.ui.component
 
 import android.content.Context
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.TextUnit
 import hunoia.luno.actions.R
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
@@ -41,7 +25,6 @@ import hunoia.luno.action.model.shortcutInfo
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
 import hunoia.luno.ui.navigation.LocalGridPanels
-import kotlin.math.min
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import hunoia.luno.action.model.Action
@@ -57,7 +40,7 @@ fun Context.actionText(
             return getString(R.string.action_library_missing)
         }
     }
-    if (action.typeId == "app.launch") {
+    if (action.typeId == hunoia.luno.core.domain.AppLaunchAction.TYPE_ID) {
         return appLabel(action) ?: ""
     }
     if (action.typeId == "app.launchShortcut") {
@@ -101,7 +84,7 @@ fun actionText(
             return panel.name.ifBlank { stringResource(R.string.grid_panel_unnamed) }
         }
     }
-    if (action.typeId == "app.launch") {
+    if (action.typeId == hunoia.luno.core.domain.AppLaunchAction.TYPE_ID) {
         val context = androidx.compose.ui.platform.LocalContext.current
         val packageName = action.launchPackageName()
         return remember(action, packageName) { context.appLabel(action) ?: "" }
@@ -120,7 +103,7 @@ fun actionIcon(action: StoredAction): Any? {
     action.libraryEntryId()?.let { refId ->
         return LocalActionLibraryEntries.current.firstOrNull { it.id == refId }?.resolvedIcon()
     }
-    if (action.typeId == "app.launch") {
+    if (action.typeId == hunoia.luno.core.domain.AppLaunchAction.TYPE_ID) {
         val context = androidx.compose.ui.platform.LocalContext.current
         val packageName = action.launchPackageName()
         val className = (action.params["className"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull.orEmpty()

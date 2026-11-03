@@ -1,6 +1,6 @@
 package hunoia.luno.bridge.ui
 
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import android.view.View
 import android.view.WindowManager
 import androidx.compose.ui.unit.IntSize

@@ -48,13 +48,6 @@ internal fun JsonObject.mapOfStr(key: String): Map<String, String> {
     }.toMap()
 }
 
-/** runRule 参数：只取 `param.` 前缀键，去掉前缀后作为子规则参数名。 */
-internal fun JsonObject.ruleParams(): Map<String, String> =
-    entries.mapNotNull { (key, value) ->
-        if (!key.startsWith("param.")) null
-        else key.removePrefix("param.") to ((value as? JsonPrimitive)?.contentOrNull.orEmpty())
-    }.toMap()
-
 /** Query 参数：存成 JSON 对象 `{key: value}`，空键忽略。 */
 internal fun JsonObject.queryParams(): List<QueryParam> {
     val obj = this["queryParameters"] as? JsonObject ?: return emptyList()

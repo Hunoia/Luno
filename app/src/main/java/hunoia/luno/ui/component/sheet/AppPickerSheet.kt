@@ -33,7 +33,7 @@ import hunoia.luno.core.AppContext
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.quicklaunch.model.AppInfo
 import hunoia.luno.quicklaunch.model.icon
-import hunoia.luno.quicklaunch.model.qualifiedName
+import hunoia.luno.quicklaunch.model.identity
 import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.CardInnerSpacing
@@ -55,6 +55,10 @@ fun AppPickerSheet(
     onConfirm: (List<String>) -> Unit,
     /** 单选场景：点击应用即确认并关闭，不展示底部取消/确认按钮。 */
     confirmOnSelect: Boolean = false,
+    /** 需要保留 userId（分身）时使用：点击行直接把完整 AppInfo 交给调用方。 */
+    onSelectApp: ((AppInfo) -> Unit)? = null,
+    /** 与 [onSelectApp] 搭配：只高亮这个用户下的那一行，避免主应用/分身同时选中。 */
+    selectedUserId: Int? = null,
 ) {
     val scope = rememberCoroutineScope()
     var apps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
@@ -104,7 +108,7 @@ fun AppPickerSheet(
             ) {
                 Text(
                     modifier = Modifier.weight(1f),
-                    text = stringResource(R.string.condition_app_select_title),
+                    text = stringResource(R.string.app_picker_select_title),
                     style = MaterialTheme.typography.titleLarge,
                 )
                 if (permissionState.isGranted) {
@@ -150,14 +154,22 @@ fun AppPickerSheet(
                         if (filteredApps.isEmpty()) {
                             item { EmptyState(message = stringResource(R.string.no_matching_results)) }
                         } else {
-                            itemsIndexed(filteredApps, key = { _, item -> item.qualifiedName }) { index, item ->
+                            itemsIndexed(filteredApps, key = { _, item -> item.identity }) { index, item ->
                                 LunoSelectableRow(
                                     title = item.label,
-                                    subtitle = item.packageName,
+                                    subtitle = if (item.isClone) {
+                                        "${item.packageName} · ${stringResource(R.string.app_clone_label)}"
+                                    } else {
+                                        item.packageName
+                                    },
                                     iconModel = item.icon,
-                                    selected = item.packageName in selected,
+                                    selected = item.packageName in selected &&
+                                        (selectedUserId == null || item.userId == selectedUserId),
                                     onSelectedChange = { isSelected ->
-                                        if (confirmOnSelect) {
+                                        if (onSelectApp != null) {
+                                            onSelectApp(item)
+                                            onDismissRequest()
+                                        } else if (confirmOnSelect) {
                                             onConfirm(listOf(item.packageName))
                                             onDismissRequest()
                                         } else {

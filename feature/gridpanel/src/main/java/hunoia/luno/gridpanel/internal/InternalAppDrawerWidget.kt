@@ -24,8 +24,7 @@ import hunoia.luno.quicklaunch.panel.AppGridContent
 import hunoia.luno.quicklaunch.query.AppListRepository
 import hunoia.luno.quicklaunch.query.AppSearch
 import hunoia.luno.core.domain.DispatchOrigin
-import hunoia.luno.core.domain.StoredAction
-import hunoia.luno.execute.SurfaceDispatch
+import hunoia.luno.runtime.surface.SurfaceDispatch
 import hunoia.luno.ui.theme.AppItemPadding
 import hunoia.luno.ui.theme.GridCellSpacing
 
@@ -55,8 +54,8 @@ fun AppDrawerCell(
 ) {
     val closePanel = LocalGridPanelClose.current
     val appList by AppListRepository.state.collectAsState()
-    val usageStats by hunoia.luno.config.ConfigProvider.appUsageStats.collectAsState(initial = AppUsageStats())
-    val launcherSettings by hunoia.luno.config.ConfigProvider.quickAppLauncherSettings.collectAsState(initial = QuickAppLauncherSettings())
+    val usageStats by hunoia.luno.domain.search.SearchCenter.appUsage.collectAsState(initial = AppUsageStats())
+    val launcherSettings by hunoia.luno.domain.search.SearchCenter.launcher.collectAsState(initial = QuickAppLauncherSettings())
 
     // 引用计数：部件离开组合就退订；多个部件/快速启动器同时在线只维持一份列表。
     DisposableEffect(Unit) {
@@ -75,10 +74,11 @@ fun AppDrawerCell(
     fun launch(app: AppInfo, miniWindow: Boolean) {
         // 走 Surface 统一执行口：部件只构造动作，启动细节与三态由 Dispatcher 负责。
         SurfaceDispatch.dispatch(
-            action = StoredAction.of(
-                "app.launch",
-                "packageName" to app.packageName,
-                "miniWindow" to miniWindow.toString(),
+            action = hunoia.luno.core.domain.AppLaunchAction.stored(
+                packageName = app.packageName,
+                className = app.className,
+                miniWindow = miniWindow,
+                userId = app.userId,
             ),
             origin = DispatchOrigin.PANEL,
         ) { launched ->
@@ -94,10 +94,18 @@ fun AppDrawerCell(
         val iconSizePx = with(LocalDensity.current) {
             (cellWidth - AppItemPadding * 2).toPx().toInt().coerceAtLeast(MinIconPx)
         }
+        val gridState = rememberLazyGridState()
+        // 抽屉每次重新打开都从第一行开始。
+        // 不能只看「空 → 非空」：应用列表打开后还会从「无使用统计」重排成
+        // 「按使用频率」，LazyGrid 会跟着旧首项 key 下移，正表现为从第二行开始。
+        // 所以按整份列表复位，顺序一变就拉回顶部。
+        LaunchedEffect(apps) {
+            if (apps.isNotEmpty()) gridState.scrollToItem(0)
+        }
         AppGridContent(
             apps = apps,
             disabledPkgs = appList.disabledPkgs,
-            gridState = rememberLazyGridState(),
+            gridState = gridState,
             iconSizePx = iconSizePx,
             gridColumns = columns,
             onClick = { app, isDisabled ->
@@ -118,6 +126,7 @@ fun AppDrawerCell(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(DrawerPadding),
             userScrollEnabled = enabled,
+            enabled = enabled,
         )
     }
 }

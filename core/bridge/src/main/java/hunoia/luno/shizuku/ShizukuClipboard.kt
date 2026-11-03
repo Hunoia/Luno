@@ -2,7 +2,7 @@ package hunoia.luno.shizuku
 
 import android.content.ClipData
 import android.os.IBinder
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.bridge.system.ClipboardContent
 import hunoia.luno.bridge.system.toClipboardContent
 import hunoia.luno.core.LOG_TAG

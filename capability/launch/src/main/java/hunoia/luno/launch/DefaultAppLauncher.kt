@@ -3,20 +3,20 @@ package hunoia.luno.launch
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.util.Log
+import hunoia.luno.bridge.launcher.ShortcutQuery
 import hunoia.luno.bridge.system.queryIntentActivitiesCompat
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.OpenAppOrUrlData
 import hunoia.luno.config.model.OpenUrlQueryParameter
 import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.core.LOG_TAG
+import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.core.domain.AppLauncher
 import hunoia.luno.core.domain.AppLaunchSource
 import hunoia.luno.core.domain.LaunchSpec
 import hunoia.luno.core.domain.QueryParam
-import hunoia.luno.quicklaunch.launch.AppLaunchCoordinator
 import hunoia.luno.quicklaunch.launch.Launcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -45,6 +45,7 @@ class DefaultAppLauncher(
         intentAction = spec.intentAction,
         data = spec.data,
         extras = spec.extras,
+        userId = spec.userId,
         source = AppLaunchSource.ACTION_DISPATCH,
         unfreezePackage = { _, pkg -> unfreezePackage(pkg) },
     )
@@ -54,11 +55,28 @@ class DefaultAppLauncher(
             hunoia.luno.core.domain.JsonSerializer
                 .decodeFromString<ShortcutIntents>(dataJson)
         }.getOrNull() ?: return false
+        // 旧落库数据可能只存了 component（快捷方式定义后来才补 action/data），
+        // 直接启动就会报“参数无效”。启动前按当前安装包刷新一次定义。
+        val freshIntents = withContext(Dispatchers.IO) {
+            ShortcutQuery.findShortcut(
+                context,
+                shortcut.packageName,
+                shortcut.shortcutId.orEmpty(),
+            )?.intents.orEmpty()
+        }
+        val intentUris = freshIntents.ifEmpty { shortcut.intents }
+        if (freshIntents.isNotEmpty() && freshIntents != shortcut.intents) {
+            Log.i(
+                LOG_TAG,
+                "shortcut intents refreshed pkg=${shortcut.packageName} id=${shortcut.shortcutId} " +
+                    "stored=${shortcut.intents.size} fresh=${freshIntents.size}",
+            )
+        }
         return Launcher.launchShortcutWithFallback(
             context = context,
             packageName = shortcut.packageName,
             shortcutId = shortcut.shortcutId,
-            intentUris = shortcut.intents,
+            intentUris = intentUris,
             label = "",
         )
     }
@@ -104,18 +122,12 @@ class DefaultAppLauncher(
         miniWindowSettings = advancedSettings().miniWindowSettings(),
     )
 
-    override suspend fun openAppDetails(packageName: String): ActionResult = try {
-        context.startActivity(
-            Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = android.net.Uri.parse("package:$packageName")
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            },
-        )
-        ActionResult.Success()
-    } catch (e: Exception) {
-        Log.e(LOG_TAG, "openAppDetails failed", e)
-        ActionResult.Failed(ActionFailure.ExecutionFailed, e.message ?: e.javaClass.name)
-    }
+    override suspend fun openAppDetails(packageName: String, userId: Int): ActionResult =
+        if (Launcher.openAppDetails(context, packageName, userId)) {
+            ActionResult.Success()
+        } else {
+            ActionResult.Failed(ActionFailure.ExecutionFailed)
+        }
 }
 
 /**

@@ -1,7 +1,6 @@
 package hunoia.luno.gesture
 
 import androidx.compose.ui.geometry.Offset
-import hunoia.luno.config.model.GestureDirection
 
 /**
  * 手势识别器：只推进会话状态并遍历 [GestureStrategyRegistry]。
@@ -14,8 +13,8 @@ class GestureRecognizer {
 
     val origin: Offset get() = session.origin
     val finger: Offset get() = session.finger
-    val triggerDirection: GestureDirection get() = session.triggerDirection
-    val actionDirection: GestureDirection get() = session.actionDirection
+    val triggerDirection: Int get() = session.triggerDirection
+    val actionDirection: Int get() = session.actionDirection
 
     fun onDown(timeMs: Long, position: Offset, config: GestureConfig): GestureDecision {
         session.origin = position
@@ -53,6 +52,9 @@ class GestureRecognizer {
         GestureStrategyRegistry.onTick(timeMs, config, session)
 
     fun onCancel(): GestureDecision {
+        // 取消必须同时结束「双击待定」：否则 pendingButtonId 会活过会话，
+        // 之后的一次单击会被当成双击（执行错误动作）。
+        session.pendingButtonId = null
         session.reset()
         return GestureDecision.Cancel
     }

@@ -1,0 +1,275 @@
+package hunoia.luno.gesture.touchsource
+
+import android.content.Context
+import android.hardware.display.DisplayManager
+import android.os.SystemClock
+import android.view.Display
+import android.view.Surface
+import hunoia.luno.core.LunoLog as Log
+import androidx.compose.ui.geometry.Offset
+import hunoia.luno.bridge.ui.DensityProvider
+import hunoia.luno.core.LOG_TAG
+import hunoia.luno.gesture.BuildConfig
+import hunoia.luno.gesture.touch.GetEventDevice
+import hunoia.luno.gesture.touch.GetEventParser
+import hunoia.luno.gesture.touch.TouchAction
+import hunoia.luno.gesture.touch.TouchFrame
+import hunoia.luno.gesture.touch.TouchPoint
+import hunoia.luno.gesture.touch.TouchTracker
+import hunoia.luno.shizuku.ShizukuManager
+import hunoia.luno.shizuku.ShizukuShellStream
+import hunoia.luno.shizuku.ShizukuShellSession
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+/** Shizuku 触摸源的对外状态：设置页用它解释“现在内核触摸流到底跑没跑起来”。 */
+data class ShizukuTouchStatus(
+    val state: State = State.STOPPED,
+    val detail: String = "",
+    val deviceName: String = "",
+) {
+    enum class State {
+        STOPPED,
+        WAITING_SHIZUKU,
+        SCANNING,
+        STREAMING,
+        ERROR,
+    }
+}
+
+/**
+ * 内核触摸流输入源（Shizuku shell 身份读 `/dev/input/eventX`）。
+ *
+ * 职责边界（路线 A 收敛后）：
+ * - 只产生**全屏触摸帧**并投给 [globalFrameListener]，不做手势识别、不执行动作；
+ * - 唯一消费者是「全屏长按识屏」（`GlobalLongPressTrigger`）；触钮固定走无障碍按钮窗；
+ * - 不摆拦截窗、不消费触摸、不做来源仲裁——视觉与窗口层的东西一概不碰；
+ * - 失败一律降级并暴露在 [status] 上，不静默。
+ *
+ * 降级口径：Shizuku 未就绪 → 等；拿不到触摸设备 → 退避重试；读到事件流结束 → 退避重连。
+ */
+class ShizukuTouchInputSource(
+    private val context: Context,
+    private val scope: CoroutineScope,
+) {
+
+    private val _status = MutableStateFlow(ShizukuTouchStatus())
+    val status: StateFlow<ShizukuTouchStatus> = _status.asStateFlow()
+
+    private val tracker = TouchTracker()
+    private val mapper = TouchScreenMapper(context)
+
+    private var monitorJob: Job? = null
+    private var session: ShizukuShellSession? = null
+
+    /**
+     * 全屏触摸帧监听（坐标已归屏幕像素）：每一帧都会回调，
+     * 由 :app 用来做“全屏任意位置长按取词”等全局手势识别。
+     * 本监听不消费触摸，底层 App 照常收到触摸。
+     */
+    var globalFrameListener: ((screen: Offset, action: TouchAction) -> Unit)? = null
+
+    val isRunning: Boolean get() = monitorJob?.isActive == true
+
+    fun start() {
+        if (isRunning) return
+        // 逐帧解析与手势投递都在主线程：手势会话的 job/震动/面板都按主线程写，
+        // 且文本解析每行只是短正则，主线程成本远低于一次跨线程切上下文。
+        monitorJob = scope.launch(Dispatchers.Main.immediate) { monitorLoop() }
+    }
+
+    fun stop() {
+        monitorJob?.cancel()
+        monitorJob = null
+        closeSession()
+        _status.value = ShizukuTouchStatus()
+    }
+
+    private suspend fun monitorLoop() {
+        var attempt = 0
+        if (BuildConfig.DEBUG) Log.i(LOG_TAG, "touch source monitor start")
+        while (scope.isActive) {
+            _status.value = ShizukuTouchStatus(ShizukuTouchStatus.State.WAITING_SHIZUKU, "等待 Shizuku 授权")
+            if (!awaitShizuku()) {
+                val backoff = backoffMs(attempt++)
+                if (BuildConfig.DEBUG) Log.w(LOG_TAG, "touch source waiting shizuku, retry in ${backoff}ms")
+                _status.value = ShizukuTouchStatus(
+                    ShizukuTouchStatus.State.WAITING_SHIZUKU,
+                    "Shizuku 未运行或未授权，${backoff / 1000}s 后重试",
+                )
+                delay(backoff)
+                continue
+            }
+
+            _status.value = ShizukuTouchStatus(ShizukuTouchStatus.State.SCANNING, "扫描触摸设备")
+            val device = scanTouchDevice()
+            if (device == null) {
+                val backoff = backoffMs(attempt++)
+                if (BuildConfig.DEBUG) Log.w(LOG_TAG, "touch source scan failed, retry in ${backoff}ms")
+                _status.value = ShizukuTouchStatus(
+                    ShizukuTouchStatus.State.ERROR,
+                    "未找到触摸屏设备（检查 getevent 权限），${backoff / 1000}s 后重试",
+                )
+                delay(backoff)
+                continue
+            }
+
+            mapper.device = device
+            if (BuildConfig.DEBUG) {
+                Log.i(LOG_TAG, "touch source streaming device=${device.path} name=${device.name}")
+            }
+            _status.value = ShizukuTouchStatus(
+                state = ShizukuTouchStatus.State.STREAMING,
+                detail = "监听中：仅用于全屏长按识屏，不拦截触摸",
+                deviceName = device.name.ifBlank { device.path },
+            )
+
+            attempt = 0
+            openAndCollect(device)
+            closeSession()
+            if (scope.isActive) delay(1_500)
+        }
+    }
+
+    private suspend fun openAndCollect(device: GetEventDevice) {
+        val opened = ShizukuShellStream.openArgv("/system/bin/getevent", "-lt", device.path)
+        val stream = when (opened) {
+            is ShizukuShellStream.OpenResult.Failure -> {
+                if (BuildConfig.DEBUG) Log.w(LOG_TAG, "touch source open failed: ${opened.reason}")
+                _status.value = ShizukuTouchStatus(
+                    ShizukuTouchStatus.State.ERROR,
+                    "打开 ${device.path} 失败：${opened.reason}",
+                )
+                return
+            }
+            is ShizukuShellStream.OpenResult.Success -> opened.session
+        }
+        session = stream
+        try {
+            tracker.reset()
+            // 解析与聚帧都是纯文本/状态机运算，放在 IO 线程；主线程只接“已成形的帧”，
+            // 避免每行（EV_ABS/EV_SYN 一条一帧）都在主线程正则与排序。
+            stream.lines
+                .mapNotNull { line -> GetEventParser.parseEvent(line)?.let(tracker::feed) }
+                .flowOn(Dispatchers.IO)
+                .collect { frame -> dispatch(frame) }
+            _status.value = ShizukuTouchStatus(
+                ShizukuTouchStatus.State.ERROR,
+                "事件流已结束：${stream.stderrText.ifBlank { "无 stderr" }}",
+            )
+        } catch (t: CancellationException) {
+            throw t
+        } catch (t: Throwable) {
+            _status.value = ShizukuTouchStatus(
+                ShizukuTouchStatus.State.ERROR,
+                "读取事件失败：${t.message ?: t.javaClass.simpleName}",
+            )
+        }
+    }
+
+    /** 全屏帧监听用的屏幕坐标：UP 帧没有触摸点，抬手位置只能沿用最后一次坐标。 */
+    private var lastGlobalScreen: Offset? = null
+
+    private fun dispatch(frame: TouchFrame) {
+        // UP 帧的 points 恒为空（TouchTracker 用“点集变空”表达抬手），
+        // 不能先取 primaryPoint 再转发，否则全局监听永远收不到 Up，
+        // 长按状态机会一直停在“已触发”（表现为只能触发一次）。
+        if (frame.action == TouchAction.Up) {
+            lastGlobalScreen?.let { globalFrameListener?.invoke(it, TouchAction.Up) }
+            lastGlobalScreen = null
+            return
+        }
+
+        val point = primaryPoint(frame) ?: return
+        val screen = mapper.toScreen(point) ?: return
+        lastGlobalScreen = screen
+        // 每帧（含自己窗口上方）都喂给全局监听：长按状态机自己判断是否该忽略，
+        // 本监听不消费触摸、不改变窗口层。
+        globalFrameListener?.invoke(screen, frame.action)
+    }
+
+    /** 多指时锁定第一根落下的手指；其余手指不参与，也不打断会话。 */
+    private fun primaryPoint(frame: TouchFrame): TouchPoint? =
+        frame.points.minByOrNull { it.id }
+
+    private suspend fun awaitShizuku(): Boolean {
+        // 不在主线程忙循环：每次尝试之间让出，让 Shizuku 状态更新有机会落地。
+        repeat(10) {
+            ShizukuManager.updateStatus()
+            if (ShizukuManager.currentStatus().isReady) return true
+            delay(300)
+        }
+        return ShizukuManager.currentStatus().isReady
+    }
+
+    private suspend fun scanTouchDevice(): GetEventDevice? = withContext(Dispatchers.IO) {
+        val result = ShizukuManager.executeShell("getevent -lp", maxChars = 256 * 1024)
+        if (!result.isSuccess) return@withContext null
+        val devices = GetEventParser.parseDevices(result.stdout)
+        devices.filter { it.isTouchscreen }.maxByOrNull { it.score }
+            ?: devices.maxByOrNull { it.score }
+    }
+
+    private fun closeSession() {
+        // 流在按住中途断掉时没有 UP：补一发抬手，避免全局长按状态机永远停在“已触发”。
+        lastGlobalScreen?.let { globalFrameListener?.invoke(it, TouchAction.Up) }
+        lastGlobalScreen = null
+        session?.let { runCatching { it.close() } }
+        session = null
+    }
+
+    private fun backoffMs(attempt: Int): Long {
+        val steps = longArrayOf(2_000L, 4_000L, 8_000L, 15_000L, 30_000L)
+        return steps[attempt.coerceIn(0, steps.lastIndex)]
+    }
+}
+
+/**
+ * 原始触摸设备坐标 → 当前屏幕像素。假设设备原生为竖屏，按当前旋转做行列变换。
+ *
+ * 旋转每 300ms 最多查一次：`getevent` 每帧都来，逐帧绑 binder 不值得。
+ */
+internal class TouchScreenMapper(private val context: Context) {
+
+    var device: GetEventDevice? = null
+
+    private var rotation: Int = Surface.ROTATION_0
+    private var rotationFetchedAt = 0L
+
+    fun toScreen(point: TouchPoint): Offset? {
+        val d = device ?: return null
+        val nx = d.normalizedX(point.x) ?: return null
+        val ny = d.normalizedY(point.y) ?: return null
+        val width = DensityProvider.screenWidthPx.toFloat()
+        val height = DensityProvider.screenHeightPx.toFloat()
+        if (width <= 0f || height <= 0f) return null
+        return when (currentRotation()) {
+            Surface.ROTATION_90 -> Offset((1f - ny) * width, nx * height)
+            Surface.ROTATION_270 -> Offset(ny * width, (1f - nx) * height)
+            Surface.ROTATION_180 -> Offset((1f - nx) * width, (1f - ny) * height)
+            else -> Offset(nx * width, ny * height)
+        }
+    }
+
+    private fun currentRotation(): Int {
+        val now = SystemClock.uptimeMillis()
+        if (now - rotationFetchedAt < 300L) return rotation
+        rotationFetchedAt = now
+        rotation = runCatching {
+            val manager = context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+            manager.getDisplay(Display.DEFAULT_DISPLAY)?.rotation ?: Surface.ROTATION_0
+        }.getOrDefault(Surface.ROTATION_0)
+        return rotation
+    }
+}

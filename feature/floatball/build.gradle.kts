@@ -27,10 +27,6 @@ dependencies {
     api(project(":core:data"))
     api(project(":core:runtime"))
     api(project(":ui:design"))
-    api(project(":feature:execute"))
-    api(project(":feature:actions"))
-    api(project(":feature:conditions"))
-    api(project(":feature:automation"))
     api(project(":feature:gesture"))
     api(project(":feature:link"))
     implementation(libs.androidx.compose.runtime)
@@ -49,4 +45,5 @@ dependencies {
     implementation(libs.androidx.annotation)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.coil.compose)
+    testImplementation(libs.junit)
 }

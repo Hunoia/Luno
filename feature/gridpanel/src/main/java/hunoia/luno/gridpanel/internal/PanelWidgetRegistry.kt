@@ -1,6 +1,5 @@
 package hunoia.luno.gridpanel.internal
 
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import hunoia.luno.gridpanel.R

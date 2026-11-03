@@ -33,4 +33,5 @@ dependencies {
     implementation(libs.rikka.shizuku.api)
     implementation(libs.hiddenapibypass)
     implementation(libs.jetbrains.kotlin.serialization)
+    testImplementation(libs.junit)
 }

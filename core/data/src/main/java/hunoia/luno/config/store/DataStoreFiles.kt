@@ -19,11 +19,6 @@ object DataStoreFiles {
     const val ACTION_SETTINGS = "action_settings"
     const val ACTION_LIBRARY_SETTINGS = "new_action_library"
 
-    // 自动化组
-    const val AUTOMATION_RULES = "automation_rules"
-    /** 自动化全局变量：跨运行持久化，随自动化域备份。 */
-    const val AUTOMATION_VARIABLES = "automation_variables"
-
     // 搜索启动组
     const val QUICK_APP_LAUNCHER = "quick_app_launcher"
     const val QUICK_SEARCH_SETTINGS = "quick_search_settings"
@@ -31,8 +26,6 @@ object DataStoreFiles {
     const val APP_USAGE_STATS = "app_usage_stats"
 
     // 瞬态：不进备份
-    /** 自动化执行历史：调试用，可丢，刻意不进备份。 */
-    const val AUTOMATION_LOG = "automation_log"
     /** 快速启动器应用列表快照。可从系统重建，刻意不进备份。 */
     const val QUICK_APP_SNAPSHOT = "quick_app_snapshot"
     /** 剪贴板历史：设备本地派生数据，刻意不进备份（URI/敏感内容的跨机恢复没有意义）。 */

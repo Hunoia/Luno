@@ -71,11 +71,12 @@ abstract class HomeVMBase : BaseComposeVM<UiState, UiEvent>() {
         }
     }
 
-    protected fun saveGestureSwitchEnabled(enabled: Boolean) {
+    protected fun saveGestureSwitchEnabled(enabled: Boolean, onSaved: suspend () -> Unit = {}) {
         viewModelScope.launch {
             GestureConfig.updateInitial {
                 it.copy(gestureEnabled = enabled)
             }
+            onSaved()
         }
     }
 

@@ -117,9 +117,14 @@ class GridPanelState(
         if (resizingId != null) return
         glideJob?.cancel()
         glideJob = null
-        dragBase = pageItemsProvider(page)
+        val m = metricsProvider(page)
+        // 越界数据（span 大于当前列/行）先归一化再求解：planReorder 的边界校验会把
+        // 原始 span 当非法值直接判负，表现出来就是「拖了但位置不变」。
+        dragBase = pageItemsProvider(page).map { it.normalized(m.columns, m.rows) }
         resolved = dragBase
-        originCell = GridCell(item.x, item.y)
+        val base = dragBase.firstOrNull { it.id == item.id }
+            ?: item.normalized(m.columns, m.rows)
+        originCell = GridCell(base.x, base.y)
         dragVisual = Offset.Zero
         hoverCell = null
         glideFrom = null
@@ -290,9 +295,10 @@ class GridPanelState(
     /** 无障碍「移动一格」：不走手势，直接按同一套落位规则重排并写盘。 */
     fun nudge(page: Int, itemId: String, dx: Int, dy: Int) {
         if (draggingId != null || resizingId != null) return
-        val items = pageItemsProvider(page)
-        val item = items.firstOrNull { it.id == itemId } ?: return
         val m = metricsProvider(page)
+        // 同拖拽：先归一化，旧数据的越界 span 不会让 planReorder 直接判负。
+        val items = pageItemsProvider(page).map { it.normalized(m.columns, m.rows) }
+        val item = items.firstOrNull { it.id == itemId } ?: return
         val plan = GridPanelItemLayout.planReorder(
             items = items,
             movingId = itemId,
@@ -333,10 +339,13 @@ class GridPanelState(
 
     fun beginResize(page: Int, item: GridPanelItem) {
         if (resizingId != null || draggingId != null) return
-        resizingId = item.id
+        val m = metricsProvider(page)
+        // 同拖拽：先归一化，旧数据的越界 span 不会让手柄尺寸与真实矩形错开。
+        val n = item.normalized(m.columns, m.rows)
+        resizingId = n.id
         resizePage = page
-        resizeItem = item
-        resizeStartSpan = Offset(item.spanX.toFloat(), item.spanY.toFloat())
+        resizeItem = n
+        resizeStartSpan = Offset(n.spanX.toFloat(), n.spanY.toFloat())
         resizeSpanF = resizeStartSpan
     }
 
@@ -355,8 +364,10 @@ class GridPanelState(
         val minSpan = (item.kind as? hunoia.luno.config.model.GridPanelItem.Kind.Internal)
             ?.let { hunoia.luno.gridpanel.internal.internalWidgetMinSpan(it.widgetId) }
             ?: (1 to 1)
-        val sx = (resizeStartSpan.x + total.x / m.stepW).coerceIn(minSpan.first.toFloat(), maxX)
-        val sy = (resizeStartSpan.y + total.y / m.stepH).coerceIn(minSpan.second.toFloat(), maxY)
+        val sx = (resizeStartSpan.x + total.x / m.stepW)
+            .coerceIn(minOf(minSpan.first.toFloat(), maxX), maxX)
+        val sy = (resizeStartSpan.y + total.y / m.stepH)
+            .coerceIn(minOf(minSpan.second.toFloat(), maxY), maxY)
         val next = Offset(sx, sy)
         val before = resizeSpanF
         resizeSpanF = next
@@ -375,18 +386,20 @@ class GridPanelState(
         val item = resizeItem ?: run { clearResize(); return }
         val page = resizePage ?: run { clearResize(); return }
         val m = metricsProvider(page)
-        val current = pageItemsProvider(page)
+        // 同一页的其它项也归一化：坏 span 会让 isFree 过度占用，缩放手柄被误判撞墙。
+        val current = pageItemsProvider(page).map { it.normalized(m.columns, m.rows) }
         val raw = resizeSpanF ?: resizeStartSpan
         val startX = resizeStartSpan.x.roundToInt()
         val startY = resizeStartSpan.y.roundToInt()
         val maxX = (m.columns - item.x).coerceAtLeast(1)
         val maxY = (m.rows - item.y).coerceAtLeast(1)
-        val rawX = raw.x.roundToInt().coerceIn(
-            (item.kind as? hunoia.luno.config.model.GridPanelItem.Kind.Internal)
-                ?.let { hunoia.luno.gridpanel.internal.internalWidgetMinSpan(it.widgetId).first } ?: 1,
-            maxX,
-        )
-        val rawY = raw.y.roundToInt().coerceIn(1, maxY)
+        val minSpan = (item.kind as? hunoia.luno.config.model.GridPanelItem.Kind.Internal)
+            ?.let { hunoia.luno.gridpanel.internal.internalWidgetMinSpan(it.widgetId) }
+            ?: (1 to 1)
+        val minW = minOf(minSpan.first, maxX)
+        val minH = minOf(minSpan.second, maxY)
+        val rawX = raw.x.roundToInt().coerceIn(minW, maxX)
+        val rawY = raw.y.roundToInt().coerceIn(minH, maxY)
         // 扩张撞墙时按「raw → 保宽 → 保高 → 原尺寸」降级，取第一个合法布局。
         val candidates = listOf(
             rawX to rawY,

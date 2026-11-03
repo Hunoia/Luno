@@ -27,7 +27,7 @@ import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.component.sheet.OptimizedScrollState
 import hunoia.luno.ui.component.sheet.SheetFooterActions
 import hunoia.luno.ui.component.sheet.SheetHeader
-import hunoia.luno.ui.theme.CardInnerSpacing
+import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -88,7 +88,7 @@ fun ActionRowSettingsSheet(
                 .fillMaxWidth()
                 .verticalScroll(scrollState)
                 .padding(bottom = PageGutter),
-            verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+            verticalArrangement = Arrangement.spacedBy(ListSpacing),
         ) {
             SheetHeader(
                 title = stringResource(descriptor.titleRes),
@@ -98,11 +98,11 @@ fun ActionRowSettingsSheet(
                     }
                 },
             )
+            // 编辑器自己带左右留白：分组标题走 LunoGroup 的 PageGutter，卡片/滑块自己加，
+            // 避免外层再套一层 padding 造成双重缩进。
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = PageGutter),
-                verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(ListSpacing),
             ) {
                 descriptor.editor(scope)
             }

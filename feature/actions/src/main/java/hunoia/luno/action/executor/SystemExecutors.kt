@@ -3,7 +3,6 @@ package hunoia.luno.action.executor
 import hunoia.luno.actions.R
 import hunoia.luno.action.controller.AudioController
 import hunoia.luno.action.controller.ClipboardController
-import hunoia.luno.action.controller.VibrateController
 import hunoia.luno.action.execution.ActionExecutor
 import hunoia.luno.action.execution.ExecutorContext
 import hunoia.luno.action.model.Action
@@ -19,11 +18,10 @@ import hunoia.luno.action.model.SettingsPage
 class SystemExecutors(
     private val audioController: AudioController,
     private val clipboardController: ClipboardController,
-    private val vibrateController: VibrateController,
 ) : ActionExecutor {
 
     override val supportedTypes: Set<String> = setOf(
-        "system.openSettings", "system.volume", "system.vibrate",
+        "system.openSettings", "system.volume",
         "system.clipboardRandomName",
         "system.mediaPlayPause", "system.mediaNext", "system.mediaPrevious", "system.mediaMute",
         "system.flashlight"
@@ -37,10 +35,6 @@ class SystemExecutors(
             }
             is Action.Volume -> {
                 audioController.adjustVolume(action.stream, action.direction)
-                ActionResult.Success()
-            }
-            is Action.Vibrate -> {
-                vibrateController.vibrateWithPattern(action.pattern)
                 ActionResult.Success()
             }
             is Action.ClipboardRandomName -> executeRandomName(context)

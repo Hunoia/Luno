@@ -17,7 +17,7 @@ object WindowLayoutFactory {
 
     /**
      * 主 overlay 的 LayoutParams。[fullScreen] 为 false 时收成 1x1：这个窗口平时什么都不画，
-     * 只带 FLAG_NOT_TOUCHABLE，用途是承载 SideGestureContainer 的 DragGestureHandler 与 ActionPanel
+     * 只带 FLAG_NOT_TOUCHABLE，用途是承载手势会话的动作面板与指针光标
      *（面板隐藏时内容不进组合）。全屏 RGBA_8888 buffer（1200x2670 ≈ 12.2MB）常驻画空白，
      * 面板隐藏时缩到 1x1，组合体不销毁、DisposableEffect 继续挂着，手势不受影响。
      */
@@ -111,6 +111,11 @@ object WindowLayoutFactory {
         lp.y = top
         @SuppressLint("RtlHardcoded")
         lp.gravity = Gravity.LEFT or Gravity.TOP
+    }
+
+    /** 触钮窗的触摸开关：与 [gestureButtonLayoutParams] 共用同一份 flags 组合，避免两套口径。 */
+    fun updateGestureButtonTouch(lp: WindowManager.LayoutParams, touchEnabled: Boolean) {
+        lp.setTouchFlags(touchEnabled)
     }
 
     private fun WindowManager.LayoutParams.setTouchFlags(touchEnabled: Boolean) {

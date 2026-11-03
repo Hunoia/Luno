@@ -1,7 +1,7 @@
 package hunoia.luno.quicklaunch
 
 import android.os.Looper
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
@@ -21,7 +21,6 @@ import hunoia.luno.quicklaunch.panel.QuickAppLauncherState
 import hunoia.luno.runtime.overlay.OverlayPanelHost
 import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.ui.theme.SideGestureTheme
-import kotlinx.coroutines.launch
 import hunoia.luno.core.LOG_TAG
 
 /**
@@ -33,7 +32,6 @@ import hunoia.luno.core.LOG_TAG
 object QuickAppLauncherOverlay : OverlayPanelHost(
     logTag = LOG_TAG,
     logPrefix = "quick launcher overlay",
-    showWhenLocked = true,
 ) {
 
     override val surfaceId: String = "quick-launcher"
@@ -60,6 +58,8 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
 
     /** 从手势/Service 上下文唤起（锚点=触发触点）。权限检查在主线程 hop 之前（均线程安全）；未授权时平台 Toast + 跳设置页。 */
     fun show(anchorX: Int, anchorY: Int) {
+        // 锁屏禁止悬浮窗：即使误触也不在 keyguard 之上/之后挂窗。
+        if (isKeyguardLocked()) return
         if (!context.canDrawOverlays()) {
             showPlatformToast(R.string.quick_launcher_need_overlay_permission)
             context.gotoOverlaySettings()
@@ -143,6 +143,11 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
      * 平台 Toast（非 Compose 通道）：引导授权时球必然已 detach，Compose 的 showToast
      * 没有宿主消费会被静默丢弃；addView 失败时窗口没挂上，同样无主题宿主。
      */
+    private fun isKeyguardLocked(): Boolean =
+        runCatching {
+            context.getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true
+        }.getOrDefault(false)
+
     private fun showPlatformToast(@StringRes resId: Int) {
         runCatching {
             Toast.makeText(context.applicationContext, resId, Toast.LENGTH_LONG).show()
@@ -152,9 +157,9 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
     @Composable
     override fun panelContent() {
         SideGestureTheme {
-            // 直读 hunoia.luno.config.ConfigProvider.launcher（跨进程 DataStore 门面），不依赖 Activity 预读。
+            // 经搜索域门面读启动器配置，不依赖 Activity 预读。
             // initialValue 用 null 而非空配置：null = 还没读到，空配置会让首帧走错分支糊一帧。
-            val settings by hunoia.luno.config.ConfigProvider.quickAppLauncherSettings
+            val settings by hunoia.luno.domain.search.SearchCenter.launcher
                 .collectAsStateWithLifecycle(initialValue = null)
             val s = settings ?: return@SideGestureTheme
             QuickAppLauncherRoot(
@@ -166,11 +171,12 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
                 onClose = { (closeAnimated ?: { closeImmediate() }).invoke() },
                 onLaunch = { appInfo, miniWindow ->
                     // Surface 只构造动作；启动、统计、三态统一由进程级 Dispatcher 负责。
-                    hunoia.luno.execute.SurfaceDispatch.dispatch(
-                        action = hunoia.luno.core.domain.StoredAction.of(
-                            "app.launch",
-                            "packageName" to appInfo.packageName,
-                            "miniWindow" to miniWindow.toString(),
+                    hunoia.luno.runtime.surface.SurfaceDispatch.dispatch(
+                        action = hunoia.luno.core.domain.AppLaunchAction.stored(
+                            packageName = appInfo.packageName,
+                            className = appInfo.className,
+                            miniWindow = miniWindow,
+                            userId = appInfo.userId,
                         ),
                         origin = hunoia.luno.core.domain.DispatchOrigin.PANEL,
                     ) { launched ->

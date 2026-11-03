@@ -12,6 +12,8 @@ import hunoia.luno.core.AppContext
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.core.CrashHandler
 import hunoia.luno.core.Events
+import hunoia.luno.core.LOG_TAG
+import hunoia.luno.core.LunoLog
 import hunoia.luno.bridge.ui.isMainThread
 import hunoia.luno.bridge.vibration.initVibrationContext
 import hunoia.luno.quicklaunch.icon.AppIconFetcherFactory
@@ -65,6 +67,10 @@ class App : Application(), ImageLoaderFactory {
         super.onCreate()
         if (BuildConfig.DEBUG) enableStrictMode()
         AppContext.init(applicationContext, scope)
+        LunoLog.i(
+            LOG_TAG,
+            "app: onCreate process=${Application.getProcessName()} pid=${android.os.Process.myPid()}",
+        )
         val appScope = AppContext.applicationScope ?: error("ApplicationScope not initialized")
         Events.initScope(appScope) { isMainThread() }
         // Surface 动作统一进 Dispatcher：进程级门面不依赖无障碍服务生命周期。
@@ -84,6 +90,8 @@ class App : Application(), ImageLoaderFactory {
         hunoia.luno.service.DispatchClient.bind(applicationContext)
         // 链接分发的应用内导航（规则编辑页 / 选择页）需要 context。
         hunoia.luno.link.AppLinkPorts.context = applicationContext
+        // OCR 模型页要扫模型目录、并在导入/删除后通知 :service 重载引擎。
+        hunoia.luno.domain.ocr.OcrModelCenter.init(applicationContext)
 
         // 启动能力库的协作者注入（ADR-0001 D1/D3）：能力库自己不认识配置流与查询层。
         hunoia.luno.search.SearchCapabilities.actionSearch = hunoia.luno.actions.LunoActionSearchSource

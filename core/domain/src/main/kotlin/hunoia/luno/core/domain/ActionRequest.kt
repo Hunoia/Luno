@@ -20,7 +20,6 @@ enum class DispatchOrigin {
     GESTURE,
     PANEL,
     QUICK_SEARCH,
-    AUTOMATION,
     LINK,
     EXTERNAL_INTENT,
     UNKNOWN,

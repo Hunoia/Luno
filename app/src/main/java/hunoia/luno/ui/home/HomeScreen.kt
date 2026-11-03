@@ -77,7 +77,6 @@ import hunoia.luno.config.model.ThemeColorKey
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.ColorSelection
 import hunoia.luno.ui.actionlibrary.ActionLibraryScreen
-import hunoia.luno.ui.automation.AutomationRulesTabContent
 import hunoia.luno.ui.component.FloatingBottomBar
 import hunoia.luno.ui.component.FloatingBottomBarDefaults
 import hunoia.luno.bridge.ui.showToast
@@ -86,20 +85,20 @@ import androidx.compose.material.icons.filled.Add
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.domain.action.ActionCatalog
 import hunoia.luno.ui.navigation.ACTION_LIBRARY_ENTRY_ID
-import hunoia.luno.ui.navigation.NEW_AUTOMATION_RULE_ID
 import hunoia.luno.ui.theme.resolveColor
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.twotone.LibraryBooks
-import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.twotone.Home
+import androidx.compose.material.icons.twotone.Settings
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.screen.HomeShell
+import hunoia.luno.ui.settings.action.ActionSettingsTab
 
 enum class MainTab(val icon: ImageVector) {
     Home(Icons.TwoTone.Home),
     ActionLibrary(Icons.AutoMirrored.TwoTone.LibraryBooks),
-    Automation(Icons.Filled.AccountTree),
+    Settings(Icons.TwoTone.Settings),
 }
 
 /** tab 的无障碍文案；标题栏标题另有映射（Home 用 home_title 即应用名）。 */
@@ -107,7 +106,7 @@ val MainTab.contentDescriptionRes: Int
     get() = when (this) {
         MainTab.Home -> R.string.home_tab
         MainTab.ActionLibrary -> R.string.action_library
-        MainTab.Automation -> R.string.automation_settings
+        MainTab.Settings -> R.string.settings
     }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -115,16 +114,24 @@ val MainTab.contentDescriptionRes: Int
 fun HomeScreen(
     onNavToGestureButtonSettings: (GestureButton) -> Unit,
     onNavToSubGestureEditor: (String) -> Unit,
-    onNavToActionSettings: () -> Unit = {},
     onNavToSearchEngines: () -> Unit = {},
     onNavToFloatBallSettings: () -> Unit = {},
-    onNavToAutomationEdit: (String) -> Unit = {},
+    onNavToButtonVisibility: () -> Unit = {},
+    onNavToActionPanels: () -> Unit = {},
+    onNavToGridPanels: () -> Unit = {},
+    onNavToRecentAppsBlocklist: () -> Unit = {},
+    onNavToMiniWindowAdjust: () -> Unit = {},
+    onNavToLinkDispatch: () -> Unit = {},
+    onNavToActionSelect: () -> Unit = {},
+    onNavToPrivilegedPermissions: () -> Unit = {},
+    onNavToAccessibilityManager: () -> Unit = {},
+    onNavToLogSettings: () -> Unit = {},
+    onNavToScreenPickSettings: () -> Unit = {},
     onNavToActionLibraryEdit: (String, String?) -> Unit = { _, _ -> },
     vm: HomeVM = viewModel()
 ) {
     val homeListState = rememberLazyListState()
     val libraryListState = rememberLazyListState()
-    val automationListState = rememberLazyListState()
     val navigationWindowInsets = WindowInsets.navigationBars.only(
         WindowInsetsSides.Bottom,
     )
@@ -192,7 +199,7 @@ fun HomeScreen(
             title = when (mainTab) {
                 MainTab.Home -> stringResource(id = R.string.home_title)
                 MainTab.ActionLibrary -> stringResource(id = R.string.action_library)
-                MainTab.Automation -> stringResource(id = R.string.automation_settings)
+                MainTab.Settings -> stringResource(id = R.string.settings)
             },
             sheets = {
                 if (colorPickerTarget != null) {
@@ -264,7 +271,7 @@ fun HomeScreen(
                         .windowInsetsPadding(navigationWindowInsets),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    val showAdd = mainTab == MainTab.ActionLibrary || mainTab == MainTab.Automation
+                    val showAdd = mainTab == MainTab.ActionLibrary
                     // FAB 恒组合，显隐走缩放+淡入淡出：切 tab 时不重新组合/不占位跳变，消除掉帧。
                     val fabProgress by animateFloatAsState(
                         targetValue = if (showAdd) 1f else 0f,
@@ -293,13 +300,7 @@ fun HomeScreen(
                                 FloatingActionButton(
                                     onClick = {
                                         // 隐藏态不吃点击。
-                                        if (showAdd) {
-                                            if (mainTab == MainTab.Automation) {
-                                                onNavToAutomationEdit(NEW_AUTOMATION_RULE_ID)
-                                            } else {
-                                                showLibraryTypeMenu = true
-                                            }
-                                        }
+                                        if (showAdd) showLibraryTypeMenu = true
                                     },
                                     modifier = Modifier
                                         .size(64.dp)
@@ -323,11 +324,7 @@ fun HomeScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Add,
-                                        contentDescription = if (mainTab == MainTab.Automation) {
-                                            stringResource(R.string.automation_new)
-                                        } else {
-                                            stringResource(R.string.action_library_add)
-                                        },
+                                        contentDescription = stringResource(R.string.action_library_add),
                                     )
                                 }
                             }
@@ -405,9 +402,9 @@ fun HomeScreen(
 
                             item(key = "settings_group") {
                                 HomeSettingsGroup(
-                                    onActionSettingsClick = onNavToActionSettings,
                                     onSearchEngineClick = onNavToSearchEngines,
                                     onFloatBallClick = onNavToFloatBallSettings,
+                                    onLinkDispatchClick = onNavToLinkDispatch,
                                 )
                             }
 
@@ -421,9 +418,15 @@ fun HomeScreen(
                                     onSubGestureClick = onNavToSubGestureEditor,
                                     onGestureCheckedChange = { button, enabled -> vm.onGestureButtonEnabledChange(button, enabled) },
                                     onSubCheckedChange = { gesture, enabled -> vm.onSubGestureEnabledChange(gesture, enabled) },
-                                    onAddGesture = { vm.addGestureButton() },
+                                    onAddGesture = {
+                                        // 点「+」添加后展开当前列，让新触钮立即可见。
+                                        expandedGestureSection = GesturePanelSection.TouchButton
+                                        vm.addGestureButton()
+                                    },
                                     onAddSub = {
                                         val id = java.util.UUID.randomUUID().toString()
+                                        // 点「+」添加后展开当前列，让新子手势立即可见。
+                                        expandedGestureSection = GesturePanelSection.SubGesture
                                         vm.addSubGesture(id)
                                     },
                                     onMarkColorClick = { target ->
@@ -461,15 +464,19 @@ fun HomeScreen(
                             onNavToEdit = onNavToActionLibraryEdit,
                             contentPadding = PaddingValues(top = topPadding),
                         )
-                        MainTab.Automation -> AutomationRulesTabContent(
-                            listState = automationListState,
-                            onNavToEdit = onNavToAutomationEdit,
-                            contentPadding = PaddingValues(
-                                start = PageGutter,
-                                top = topPadding,
-                                end = PageGutter,
-                                bottom = FloatingContentBottom,
-                            ),
+
+                        MainTab.Settings -> ActionSettingsTab(
+                            topPadding = topPadding,
+                            onNavToActionPanels = onNavToActionPanels,
+                            onNavToGridPanels = onNavToGridPanels,
+                            onNavToButtonVisibility = onNavToButtonVisibility,
+                            onNavToRecentAppsBlocklist = onNavToRecentAppsBlocklist,
+                            onNavToMiniWindowAdjust = onNavToMiniWindowAdjust,
+                            onNavToScreenPickSettings = onNavToScreenPickSettings,
+                            onNavToActionSelect = onNavToActionSelect,
+                            onNavToPrivilegedPermissions = onNavToPrivilegedPermissions,
+                            onNavToAccessibilityManager = onNavToAccessibilityManager,
+                            onNavToLogSettings = onNavToLogSettings,
                         )
                     }
                 }

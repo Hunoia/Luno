@@ -5,18 +5,15 @@ import android.view.accessibility.AccessibilityEvent
 import com.aaron.composeaccessibility.ComponentAccessibilityService
 import hunoia.luno.action.controller.TextInserter
 import hunoia.luno.config.model.AdvancedSettings
-import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.gridPanelId
 import hunoia.luno.quicklaunch.launch.DisabledPackageEnabler
 import hunoia.luno.quicklaunch.QuickLaunchFacade
 import hunoia.luno.runtime.GestureCoordinator
 import hunoia.luno.runtime.GestureHost
-import hunoia.luno.runtime.automation.RuleTestResult
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
-import hunoia.luno.runtime.overlay.PointPickOverlay
-import hunoia.luno.link.ScreenLinksOverlay
 import hunoia.luno.runtime.overlay.ScreenPickOverlay
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.MainScope
@@ -40,7 +37,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         DisabledPackageEnabler(
             context = this,
             scopeProvider = { coroutineScope },
-            log = { message -> android.util.Log.i(LOG_TAG, message) }
+            log = { message -> hunoia.luno.core.LunoLog.i(LOG_TAG, message) }
         )
     }
 
@@ -48,15 +45,73 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         RuntimePanelOverlay(this)
     }
 
-    /** 屏幕取点窗口。必须住在无障碍服务这一侧 —— 见 DispatchService 的说明。 */
-    override val pointPickOverlay by lazy {
-        PointPickOverlay(this)
-    }
-
-    /** 屏幕内容识别拾取窗。与 pointPickOverlay 同规：必须住在无障碍服务这一侧。
+    /** 屏幕内容识别拾取窗：必须住在无障碍服务这一侧。
      *  非 lazy：构造时就要订阅面板开关事件，否则第一次从面板触发时会错过 Shown。 */
-    private val screenPickOverlay = ScreenPickOverlay(this)
-    private val screenLinksOverlay = ScreenLinksOverlay(this)
+    private val ocrEngine = hunoia.luno.capability.ocr.PpOcrEngine(this)
+
+    private val screenPickOverlay = ScreenPickOverlay(
+        this,
+        ocrEngine = ocrEngine,
+        onSearch = { query ->
+            hunoia.luno.quicklaunch.QuickSearchActivity.start(this, query)
+        },
+        onOcrResult = { ocr, a11y, image, ocrLoader, preferOcr ->
+            hunoia.luno.ui.ocr.OcrResultActivity.start(
+                this,
+                hunoia.luno.ui.ocr.OcrResultPayload(
+                    ocrText = ocr,
+                    a11yText = a11y,
+                    image = image,
+                    ocrLoader = ocrLoader,
+                    preferOcr = preferOcr,
+                ),
+            )
+        },
+        onOpenLink = { url ->
+            val settings = hunoia.luno.domain.link.LinkSettingsCenter.linkDispatch()
+            val rule = if (settings.enabled) {
+                hunoia.luno.link.LinkUrls.firstMatch(url, settings.rules)
+            } else {
+                null
+            }
+            val dispatched = settings.enabled &&
+                hunoia.luno.link.Links.dispatch(this, url, settings)
+            if (!dispatched) {
+                hunoia.luno.link.Links.fallbackFor(this, url, rule, settings)
+            }
+            true
+        },
+        onAnnotate = { bitmap ->
+            hunoia.luno.ui.annotate.ImageAnnotateActivity.startWithBitmap(this, bitmap)
+        },
+        screenPickGesture = {
+            if (::gestureCoordinator.isInitialized) {
+                gestureCoordinator.currentScreenPickGesture()
+            } else {
+                hunoia.luno.config.model.ScreenPickGesture()
+            }
+        },
+    )
+
+    /** 屏幕标注浮层实例；onClosed 时置空。 */
+    private var annotateOverlay: hunoia.luno.annotate.ui.AnnotateOverlay? = null
+
+    /** 截屏 + 挂窗是异步的；在途时不允许重复开第二层。 */
+    private var annotateOpening = false
+
+    /** 标注截屏/挂窗任务：锁屏时连在途任务一起作废，避免锁屏后标注层才挂上来。 */
+    private var annotateOpenJob: Job? = null
+
+    /** 标注期间球/面板一直隐藏，避免盖在画布上（关层时恢复）。 */
+    private var annotateSurfacesHidden = false
+
+    /**
+     * OCR 模型包导入 / 删除后调用：丢弃旧引擎（模型 native 句柄）并重新预热，
+     * 避免设置页换了模型而 `:service` 一直用旧的。
+     */
+    fun refreshOcrEngine() {
+        coroutineScope.launch { runCatching { ocrEngine.reload() } }
+    }
 
     /** 识别屏幕内容动作入口（动作执行已在 :service 进程直连）。返回是否成功弹起。 */
     fun showScreenPick(): Boolean {
@@ -65,12 +120,129 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         return screenPickOverlay.show()
     }
 
-    /** 识屏取链：同样同步挂窗，扫描与分发在 overlay 内部异步完成。 */
-    fun showScreenLinks(): Boolean {
+    /** 屏幕标注浮层（计划 2026-11-04-annotate）。
+     *  截屏是异步的：这里只返回「已接管」；失败 toast，不打开空画布。 */
+    fun showScreenAnnotate(): Boolean {
         if (!isDispatchReady()) return false
-        // 从面板触发时必须先收面板：面板是自家全屏窗，留着就扫不到底下应用的节点。
-        gestureCoordinator.dismissPanelsForScreenAction()
-        return screenLinksOverlay.show()
+        if (annotateOverlay?.isShown == true || annotateOpening) return true
+        annotateOpening = true
+        // 整段标注期间收起自家球/面板：一来不进截图，二来不会盖在画布上抢触摸。
+        hunoia.luno.runtime.surface.SurfaceController.softHideAll()
+        annotateSurfacesHidden = true
+        annotateOpenJob = coroutineScope.launch {
+            kotlinx.coroutines.delay(64)
+            val bitmap = hunoia.luno.annotate.screenshot.AnnotateScreenshot.capture(this@SideGestureService)
+            // 截屏期间可能已经锁屏：此时不能再把标注层挂到 keyguard 上面。
+            if (isKeyguardLocked()) {
+                bitmap?.recycle()
+                annotateOpening = false
+                restoreAnnotateSurfaces()
+                return@launch
+            }
+            if (bitmap == null) {
+                annotateOpening = false
+                restoreAnnotateSurfaces()
+                hunoia.luno.bridge.ui.showToast(hunoia.luno.annotate.R.string.annotate_screenshot_failed)
+                return@launch
+            }
+            val overlay = hunoia.luno.annotate.ui.AnnotateOverlay(
+                service = this@SideGestureService,
+                // 浮层重截前会先隐藏自己两窗；自家 Surface 已在打开时收起，这里只负责抓图。
+                captureScreenshot = {
+                    hunoia.luno.annotate.screenshot.AnnotateScreenshot.capture(this@SideGestureService)
+                },
+                onClosed = {
+                    annotateOverlay = null
+                    restoreAnnotateSurfaces()
+                },
+            )
+            annotateOverlay = overlay
+            annotateOpening = false
+            if (!overlay.open(bitmap)) {
+                annotateOverlay = null
+                restoreAnnotateSurfaces()
+                hunoia.luno.bridge.ui.showToast(hunoia.luno.annotate.R.string.annotate_screenshot_failed)
+            }
+        }
+        return true
+    }
+
+    private fun restoreAnnotateSurfaces() {
+        if (!annotateSurfacesHidden) return
+        annotateSurfacesHidden = false
+        hunoia.luno.runtime.surface.SurfaceController.restoreAll()
+    }
+
+    private fun isKeyguardLocked(): Boolean =
+        runCatching {
+            getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true
+        }.getOrDefault(false)
+
+    /**
+     * 锁屏收口：无障碍 overlay 会盖在 keyguard 上，锁屏时全部关闭、在途任务作废。
+     * 解锁不自动恢复，需用户重新触发。
+     */
+    fun closeOverlaysForLock() {
+        annotateOpenJob?.cancel()
+        annotateOpenJob = null
+        annotateOpening = false
+        annotateOverlay?.close()
+        annotateOverlay = null
+        restoreAnnotateSurfaces()
+        screenPickOverlay.close()
+    }
+
+    /**
+     * 全屏长按识屏入口：落到幽灵卡（不经过轻点取词 / 拖动框选）。
+     * 后续拖动/抬手由 GlobalLongPressTrigger 从同一股内核触摸流转发进来。
+     */
+    fun showScreenPickPortal(
+        x: Int,
+        y: Int,
+        preCapture: hunoia.luno.runtime.overlay.text.ScreenPreCapture? = null,
+    ): Boolean {
+        if (!isDispatchReady()) return false
+        val shown = screenPickOverlay.showPortalAt(x, y, preCapture)
+        if (hunoia.luno.gesture.BuildConfig.DEBUG) {
+            hunoia.luno.core.LunoLog.i(LOG_TAG, "screen pick portal at ($x,$y) shown=$shown")
+        }
+        return shown
+    }
+
+    fun moveScreenPickPortal(x: Int, y: Int) {
+        screenPickOverlay.movePortal(x, y)
+    }
+
+    fun releaseScreenPickPortal(x: Int, y: Int) {
+        screenPickOverlay.releasePortal(x, y)
+    }
+
+    /** 幽灵卡是否正在显示（抬手保留后，下一次按下由 overlay 自己处理）。 */
+    fun isScreenPickPortalVisible(): Boolean = screenPickOverlay.isPortalActive
+
+    /** 识屏拾取层是否在屏（普通框选态也算：此时长按由 overlay 自己处理）。 */
+    fun isScreenPickVisible(): Boolean = screenPickOverlay.isShown
+
+    /** 前台 Activity 是否 Luno 自身界面（设置/搜索/链接选择等）。 */
+    fun isOwnUiForeground(): Boolean =
+        runCatching { rootInActiveWindow?.packageName?.toString() }.getOrNull() == packageName
+
+    /**
+     * 触点是否落在 Luno 自家窗口上（浮球/面板/识屏层）：按 layer 从高到低找第一个
+     * 包含触点的窗口，取它的包名。自家 overlay 的 root 偶发为空时继续往下找，
+     * 交由调用方的面板/Surface 状态兜底。
+     */
+    fun isOwnWindowAt(x: Int, y: Int): Boolean {
+        val own = packageName
+        val currentWindows = runCatching { windows }.getOrNull() ?: return false
+        for (window in currentWindows.sortedByDescending { it.layer }) {
+            val bounds = android.graphics.Rect()
+            window.getBoundsInScreen(bounds)
+            if (!bounds.contains(x, y)) continue
+            val pkg = runCatching { window.root?.packageName?.toString() }.getOrNull()
+            if (pkg != null) return pkg == own
+        }
+        return false
     }
 
     /**
@@ -92,7 +264,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             val panelId = action.gridPanelId() ?: return@launch
             val actionSettings = runCatching { hunoia.luno.domain.tune.TuneConfig.getAction() }
                 .onFailure {
-                    android.util.Log.w(LOG_TAG, "grid panel direct config read failed: ${it.message}")
+                    hunoia.luno.core.LunoLog.w(LOG_TAG, "grid panel direct config read failed: ${it.message}")
                 }
                 .getOrDefault(hunoia.luno.config.model.ActionSettings())
             hunoia.luno.gridpanel.GridPanelOverlay.showIfExists(
@@ -125,34 +297,17 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     /** 分发链就绪：coordinator 已初始化。供 DispatchService 跨进程查询。 */
     fun isDispatchReady(): Boolean = ::gestureCoordinator.isInitialized
 
-    /** 权限变化后让 :service 的条件源重新读取（Wi-Fi SSID/蓝牙设备身份）。 */
-    fun refreshConditionSources(): Boolean {
-        if (!::gestureCoordinator.isInitialized) return false
-        gestureCoordinator.refreshConditionSources()
-        return true
-    }
-
-    /** 运行中的规则 id（规则列表页的「运行中/停止」入口）。 */
-    fun runningRuleIds(): Set<String> =
-        if (::gestureCoordinator.isInitialized) gestureCoordinator.runningRuleIds() else emptySet()
-
-    /** 手动停止一条规则的所有实例。 */
-    fun stopRule(ruleId: String): Boolean =
-        if (::gestureCoordinator.isInitialized) gestureCoordinator.stopRule(ruleId) else false
-
-    /** 编辑页测试运行：条件按当前快照求值，步骤真实执行一次；executeSteps=false 只检查条件。 */
-    fun runRuleTest(
-        rule: AutomationRule,
-        executeSteps: Boolean,
-        onResult: (RuleTestResult) -> Unit,
-    ): Boolean {
-        if (!::gestureCoordinator.isInitialized) return false
-        gestureCoordinator.runRuleTest(rule, executeSteps, onResult)
-        return true
-    }
-
     override fun onSetOverlay() {
         current = this
+        hunoia.luno.core.LunoLog.i(
+            LOG_TAG,
+            "service: onSetOverlay pid=${android.os.Process.myPid()}",
+        )
+        // debug-only 探测入口（app/src/debug 的 ScreenPickProbeReceiver）；release 恒为 null。
+        ScreenPickProbe.hook = { x, y -> probeCapture(x, y) }
+        // 服务起来就把引擎加载 / 预热一次：第一次长按不用再等 GPU delegate 建context，
+        // 加载失败也会在 logcat 留下 w 级日志（见 PpOcrModelRunner）。
+        coroutineScope.launch { runCatching { ocrEngine.warmUp() } }
         if (::gestureCoordinator.isInitialized) gestureCoordinator.onDestroy()
         gestureCoordinator = GestureCoordinator(this)
         // 球侧（:feature:floatball）经注入点下发命令，避免反向依赖宿主服务。
@@ -179,6 +334,40 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         gestureCoordinator.onSetOverlay()
     }
 
+    /** debug 探测：在指定屏幕坐标跑一次快照+命中，把结果打到 logcat（tag 同 LOG_TAG）。 */
+    private fun probeCapture(x: Int, y: Int) {
+        coroutineScope.launch {
+            val snapshot = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                runCatching {
+                    hunoia.luno.runtime.overlay.text.A11yTextSnapshotReader(
+                        this@SideGestureService,
+                        packageName,
+                    ).capture(x, y)
+                }.onFailure { hunoia.luno.core.LunoLog.w(LOG_TAG, "probe capture failed: ${it.message}") }
+                    .getOrNull()
+            } ?: return@launch
+            val tolerance = 8
+            val hit = hunoia.luno.runtime.overlay.text.TextSnapshotOps.hitText(snapshot, x, y, tolerance)
+            val sb = StringBuilder(
+                "probe@($x,$y): leaves=${snapshot.leaves.size} " +
+                    "charLeaves=${snapshot.leaves.count { it.hasCharGeometry }} " +
+                    "images=${snapshot.images.size} layouts=${snapshot.layouts.size} complete=${snapshot.complete} " +
+                    "pkg=${snapshot.targetPackage} hit=${hit?.text?.take(40)}",
+            )
+            snapshot.layouts.take(3).forEach { rect ->
+                sb.append("\n  lay ").append(rect)
+            }
+            snapshot.leaves.forEach { leaf ->
+                sb.append("\n  leaf ").append(leaf.bounds).append(" cd=").append(leaf.fromContentDescription)
+                    .append(' ').append(leaf.text.take(30))
+            }
+            snapshot.images.take(10).forEach { img ->
+                sb.append("\n  img ").append(img.bounds)
+            }
+            hunoia.luno.core.LunoLog.i(LOG_TAG, sb.toString())
+        }
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (!::gestureCoordinator.isInitialized) return
         gestureCoordinator.onAccessibilityEvent(event)
@@ -203,11 +392,15 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         disabledPackageEnabler.release()
         if (::gestureCoordinator.isInitialized) gestureCoordinator.onDestroy()
         runtimePanelOverlay.close()
-        // 与 runtimePanelOverlay 同进退：点拾取全屏窗别指望系统随服务销毁回收。
-        pointPickOverlay.close()
         // 拾取窗持有全局面板事件订阅，必须显式退订。
         screenPickOverlay.release()
-        screenLinksOverlay.release()
+        // 标注浮层不随服务自动回收；关掉它并恢复被隐藏的球/面板。
+        annotateOpenJob?.cancel()
+        annotateOpenJob = null
+        annotateOverlay?.close()
+        annotateOverlay = null
+        // 识别器随服务销毁释放（模型 native 资源）；下次服务重建会重新懒加载。
+        ocrEngine.close()
         coroutineScope.cancel()
     }
 

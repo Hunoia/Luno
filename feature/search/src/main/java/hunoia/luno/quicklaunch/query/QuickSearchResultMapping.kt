@@ -72,19 +72,25 @@ fun QuickSearchResult.toSearchResult(): SearchResult {
         )
 
         is QuickSearchResult.App -> {
-            val details = StoredAction.of("app.details", "packageName" to appInfo.packageName)
+            // 分身详情必须带上 userId：系统设置页按 package: 只认主用户实例，
+            // 不带 userId 长按分身会打开主应用详情（见 AppCatalog：分身与主应用包名相同）。
+            val details = StoredAction.of(
+                "app.details",
+                "packageName" to appInfo.packageName,
+                "userId" to appInfo.userId.takeIf { it != 0 }?.toString(),
+            )
             SearchResult(
                 key = key,
                 source = SRC_APP,
                 title = title,
                 subtitle = subtitle,
-                icon = SearchIcon.AppIcon(appInfo.packageName),
+                icon = SearchIcon.AppIcon(appInfo.packageName, userId = appInfo.userId),
                 primary = SearchAction.Run(
-                    StoredAction.of(
-                        "app.launch",
-                        "packageName" to appInfo.packageName,
-                        "className" to appInfo.className,
-                        "miniWindow" to appInfo.miniWindow.toString(),
+                    hunoia.luno.core.domain.AppLaunchAction.stored(
+                        packageName = appInfo.packageName,
+                        className = appInfo.className,
+                        miniWindow = appInfo.miniWindow,
+                        userId = appInfo.userId,
                     ),
                 ),
                 // 长按始终进应用详情（停用应用也保留该入口）。

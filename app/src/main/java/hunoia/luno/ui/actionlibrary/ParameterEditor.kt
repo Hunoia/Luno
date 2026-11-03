@@ -61,13 +61,12 @@ fun ParameterEditor(
     when (definition) {
         is ParameterDefinition.Text -> {
             val value = currentParams[definition.key]?.scalarText() ?: (definition.defaultValue ?: "")
-            TemplateTextField(
+            LabeledTextField(
                 value = value,
                 onValueChange = { onParamChange(definition.key, it) },
                 label = definition.label,
                 isError = required && value.isBlank(),
                 singleLine = true,
-                allowTemplates = definition.allowTemplates,
                 placeholder = definition.placeholder,
                 modifier = modifier.fillMaxWidth(),
             )
@@ -96,10 +95,17 @@ fun ParameterEditor(
             LaunchedEffect(selected) {
                 appLabel = if (selected.isBlank()) null else resolveAppLabel(selected)
             }
+            val userIdKey = definition.userIdKey
+            val userId = userIdKey?.let { currentParams[it]?.scalarText()?.toIntOrNull() } ?: 0
+            val cloneSuffix = if (userIdKey != null && userId != 0) {
+                " · " + stringResource(R.string.app_clone_label)
+            } else {
+                ""
+            }
             val display = when {
                 selected.isBlank() -> unselected
-                appLabel != null && appLabel != selected -> "$appLabel ($selected)"
-                else -> selected
+                appLabel != null && appLabel != selected -> "$appLabel ($selected)$cloneSuffix"
+                else -> selected + cloneSuffix
             }
             val missing = required && selected.isBlank()
             LunoSettingsRow(
@@ -129,13 +135,12 @@ fun ParameterEditor(
         }
         is ParameterDefinition.TextLarge -> {
             val value = currentParams[definition.key]?.scalarText() ?: (definition.defaultValue ?: "")
-            TemplateTextField(
+            LabeledTextField(
                 value = value,
                 onValueChange = { onParamChange(definition.key, it) },
                 label = definition.label,
                 isError = required && value.isBlank(),
                 singleLine = false,
-                allowTemplates = definition.allowTemplates,
                 modifier = modifier.fillMaxWidth(),
             )
         }

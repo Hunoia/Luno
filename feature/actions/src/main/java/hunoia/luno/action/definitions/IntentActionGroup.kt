@@ -27,7 +27,7 @@ internal object IntentActionGroup : ActionGroup {
             icon = Icons.AutoMirrored.Filled.OpenInNew,
         ),
         ActionDefinition(
-            "intent.shareText", "分享文本", ActionCategory.LINK_SHARE,
+            "intent.shareText", "分享剪贴板文本", ActionCategory.LINK_SHARE,
             Capability.None,
             icon = Icons.Default.Share,
         ),
@@ -52,7 +52,8 @@ internal object IntentActionGroup : ActionGroup {
             )
         }
         ActionMappingRegistry.register("intent.shareText") { p ->
-            Action.ShareText(p.str("text"), p.str("mimeType", "text/plain"))
+            // 搜索的「分享」打开方式会带 text 参数；选择页直接选时无参数，执行期读剪贴板。
+            Action.ShareText(p.str("text"))
         }
         ActionMappingRegistry.register("intent.shareFile") { Action.ShareFile }
         ActionMappingRegistry.register("intent.assist") { Action.Assist }

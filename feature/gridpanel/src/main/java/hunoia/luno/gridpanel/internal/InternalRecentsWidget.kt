@@ -123,11 +123,9 @@ fun RecentAppsCell(
                                 if (enabled) {
                                     Modifier.clickable {
                                         // Surface 只构造动作；解冻、启动、统计统一走进程级 Dispatcher。
-                                        hunoia.luno.execute.SurfaceDispatch.dispatch(
-                                            action = hunoia.luno.core.domain.StoredAction.of(
-                                                "app.launch",
-                                                "packageName" to pkg,
-                                                "miniWindow" to "false",
+                                        hunoia.luno.runtime.surface.SurfaceDispatch.dispatch(
+                                            action = hunoia.luno.core.domain.AppLaunchAction.stored(
+                                                packageName = pkg,
                                             ),
                                             origin = hunoia.luno.core.domain.DispatchOrigin.PANEL,
                                         ) { launched -> if (launched) closePanel() }

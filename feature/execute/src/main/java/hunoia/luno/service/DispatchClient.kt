@@ -5,8 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
-import android.os.Handler
-import android.os.Looper
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.JsonSerializer
 
@@ -104,89 +102,13 @@ object DispatchClient {
         return runCatching { s.releaseOrphanAppWidgets(keepIds.toIntArray()) }.isSuccess
     }
 
-    /** 权限授予/撤销后让 :service 重读 Wi-Fi/蓝牙条件源；false = 未送达。 */
-    fun refreshConditionSources(): Boolean {
+    /** OCR 模型导入/删除后，让 :service 重新加载引擎（未连接返回 false）。 */
+    fun refreshOcrEngine(): Boolean {
         val s = stub ?: run {
             retryBindIfNeeded()
             return false
         }
-        return runCatching { s.refreshConditionSources() }.isSuccess
+        return runCatching { s.refreshOcrEngine() }.isSuccess
     }
 
-    /** 运行中的规则 id；服务未连接时返回空集（列表页按「未运行」展示）。 */
-    fun runningRuleIds(): Set<String> {
-        val s = stub ?: run {
-            retryBindIfNeeded()
-            return emptySet()
-        }
-        return runCatching {
-            JsonSerializer.decodeFromString<List<String>>(s.runningRuleIds()).toSet()
-        }.getOrDefault(emptySet())
-    }
-
-    /** 停止一条规则的所有运行实例；false = 未送达或本来就没在跑。 */
-    fun stopRule(ruleId: String): Boolean {
-        val s = stub ?: run {
-            retryBindIfNeeded()
-            return false
-        }
-        return runCatching { s.stopRule(ruleId) }.getOrDefault(false)
-    }
-
-    /**
-     * 编辑页测试运行：条件按 :service 当前快照求值，[executeSteps] 为 false 时只检查条件。
-     * [onResult] 回到主线程；null 表示服务未就绪或返回不可解析。
-     */
-    fun runRuleTest(
-        ruleJson: String,
-        executeSteps: Boolean,
-        onResult: (String?) -> Unit,
-    ): Boolean {
-        val s = stub ?: run {
-            retryBindIfNeeded()
-            return false
-        }
-        val cb = object : IRuleTestCallback.Stub() {
-            override fun onResult(resultJson: String) {
-                // 结果模型归自动化模块，这里只透传 JSON，避免执行口反向依赖自动化。
-                mainHandler.post { onResult(resultJson) }
-            }
-        }
-        return runCatching {
-            s.runRuleTest(ruleJson, executeSteps, cb)
-        }.getOrDefault(false)
-    }
-
-    private val mainHandler = Handler(Looper.getMainLooper())
-
-    /**
-     * 请求 :service 的无障碍服务展示屏幕取点 overlay。
-     * 结果经跨进程回调发送，[onCommit]/[onDismiss] 回到主线程执行（dp 坐标，直接写 xDp/yDp 参数）。
-     * false = 未送达（服务未连接或未就绪）。
-     */
-    fun showPointPicker(
-        initialXdp: Int?,
-        initialYdp: Int?,
-        onCommit: (Int, Int) -> Unit,
-        onDismiss: () -> Unit,
-        onUnavailable: () -> Unit = {},
-    ): Boolean {
-        val s = stub ?: return false
-        val cb = object : IPointPickCallback.Stub() {
-            override fun onCommit(xDp: Int, yDp: Int) {
-                mainHandler.post { onCommit(xDp, yDp) }
-            }
-
-            override fun onDismiss() {
-                mainHandler.post { onDismiss() }
-            }
-
-            override fun onUnavailable() {
-                mainHandler.post { onUnavailable() }
-            }
-        }
-        return runCatching {
-            s.showPointPicker(initialXdp ?: -1, initialYdp ?: -1, cb)
-        }.isSuccess
-    }
 }

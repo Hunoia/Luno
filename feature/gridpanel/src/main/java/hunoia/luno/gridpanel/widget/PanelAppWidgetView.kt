@@ -4,7 +4,7 @@ import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.graphics.Outline
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import android.view.MotionEvent
 import android.view.VelocityTracker
 import android.view.View

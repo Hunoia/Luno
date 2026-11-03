@@ -27,7 +27,6 @@ dependencies {
     api(project(":core:data"))
     api(project(":core:runtime"))
     api(project(":ui:design"))
-    api(project(":feature:execute"))
     api(project(":feature:search"))
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.ui)
@@ -40,4 +39,6 @@ dependencies {
     implementation(libs.androidx.annotation)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.coil.compose)
+    // QuickSearchKeys 等纯逻辑单测（feature/quicklaunch/src/test）。
+    testImplementation(libs.junit)
 }

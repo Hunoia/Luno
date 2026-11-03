@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Gesture
@@ -50,13 +49,14 @@ import androidx.compose.foundation.layout.Arrangement
 import hunoia.luno.ui.settings.gesture.subgesture.SubGestureSettingsUiEvent
 import hunoia.luno.ui.settings.gesture.subgesture.SubGestureSettingsUiState
 import hunoia.luno.ui.settings.gesture.button.GestureActionGroup
-import hunoia.luno.ui.settings.gesture.button.actionCardDirections
 import hunoia.luno.ui.settings.gesture.button.GestureSlideTriggerDistanceContent
 import hunoia.luno.ui.settings.gesture.button.ExpandableGestureActionCard
 import hunoia.luno.ui.settings.gesture.button.actionContentRowShape
-import hunoia.luno.ui.component.slideToLabel
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.DirectionLabels
+import hunoia.luno.ui.component.directionLabel
+import hunoia.luno.ui.settings.gesture.style.SideGestureSettings
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
@@ -174,23 +174,27 @@ fun SubGestureSettingsScreen(
                                 index = 0,
                                 count = 4,
                             ) {
-                                val directions = actionCardDirections.filterNot { it in gesture.angle.zeroWidthDirections() }
-                                directions.forEachIndexed { index, direction ->
-                                    SubGestureActionRow(
-                                        title = direction.slideToLabel(),
-                                        icon = Icons.AutoMirrored.Filled.ArrowForward,
+                                val slots = DirectionLabels.clockwiseSlots(gesture.angle.boundaries)
+                                    .filterNot { it in gesture.angle.zeroWidthSlots() }
+                                slots.forEachIndexed { index, slot ->
+                                    val center = gesture.angle.slotCenterDegrees(slot)
+                                    val label = directionLabel(center, gesture.angle.count)
+                                    SideGestureSettings(
                                         onClick = {
                                             onNavToActionSelect(
                                                 ActionSelect(
                                                     gestureButtonId = "",
-                                                    direction = direction,
+                                                    slot = slot,
+                                                    directionLabel = label,
                                                     triggerType = GestureTriggerType.Slide,
                                                     subGestureId = gesture.id,
                                                 )
                                             )
                                         },
-                                        subtitle = gesture.slideActionFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
-                                        shape = actionContentRowShape(index, directions.size),
+                                        centerDegrees = center,
+                                        count = gesture.angle.count,
+                                        subtitle = gesture.slideActionFor(slot).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
+                                        shape = actionContentRowShape(index, slots.size),
                                     )
                                 }
                             }
@@ -202,23 +206,27 @@ fun SubGestureSettingsScreen(
                                 index = 1,
                                 count = 4,
                             ) {
-                                val directions = actionCardDirections.filterNot { it in gesture.angle.zeroWidthDirections() }
-                                directions.forEachIndexed { index, direction ->
-                                    SubGestureActionRow(
-                                        title = direction.slideToLabel(),
-                                        icon = Icons.AutoMirrored.Filled.ArrowForward,
+                                val slots = DirectionLabels.clockwiseSlots(gesture.angle.boundaries)
+                                    .filterNot { it in gesture.angle.zeroWidthSlots() }
+                                slots.forEachIndexed { index, slot ->
+                                    val center = gesture.angle.slotCenterDegrees(slot)
+                                    val label = directionLabel(center, gesture.angle.count)
+                                    SideGestureSettings(
                                         onClick = {
                                             onNavToActionSelect(
                                                 ActionSelect(
                                                     gestureButtonId = "",
-                                                    direction = direction,
+                                                    slot = slot,
+                                                    directionLabel = label,
                                                     triggerType = GestureTriggerType.SlideHold,
                                                     subGestureId = gesture.id,
                                                 )
                                             )
                                         },
-                                        subtitle = gesture.slideHoldActionFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
-                                        shape = actionContentRowShape(index, directions.size),
+                                        centerDegrees = center,
+                                        count = gesture.angle.count,
+                                        subtitle = gesture.slideHoldActionFor(slot).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
+                                        shape = actionContentRowShape(index, slots.size),
                                     )
                                 }
                             }
@@ -230,23 +238,27 @@ fun SubGestureSettingsScreen(
                                 index = 2,
                                 count = 4,
                             ) {
-                                val directions = actionCardDirections.filterNot { it in gesture.angle.zeroWidthDirections() }
-                                directions.forEachIndexed { index, direction ->
-                                    SubGestureActionRow(
-                                        title = direction.slideToLabel(),
-                                        icon = Icons.AutoMirrored.Filled.ArrowForward,
+                                val slots = DirectionLabels.clockwiseSlots(gesture.angle.boundaries)
+                                    .filterNot { it in gesture.angle.zeroWidthSlots() }
+                                slots.forEachIndexed { index, slot ->
+                                    val center = gesture.angle.slotCenterDegrees(slot)
+                                    val label = directionLabel(center, gesture.angle.count)
+                                    SideGestureSettings(
                                         onClick = {
                                             onNavToActionSelect(
                                                 ActionSelect(
                                                     gestureButtonId = "",
-                                                    direction = direction,
+                                                    slot = slot,
+                                                    directionLabel = label,
                                                     triggerType = GestureTriggerType.LongSlide,
                                                     subGestureId = gesture.id,
                                                 )
                                             )
                                         },
-                                        subtitle = gesture.longSlideActionFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
-                                        shape = actionContentRowShape(index, directions.size),
+                                        centerDegrees = center,
+                                        count = gesture.angle.count,
+                                        subtitle = gesture.longSlideActionFor(slot).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
+                                        shape = actionContentRowShape(index, slots.size),
                                     )
                                 }
                             }
@@ -258,23 +270,27 @@ fun SubGestureSettingsScreen(
                                 index = 3,
                                 count = 4,
                             ) {
-                                val directions = actionCardDirections.filterNot { it in gesture.angle.zeroWidthDirections() }
-                                directions.forEachIndexed { index, direction ->
-                                    SubGestureActionRow(
-                                        title = direction.slideToLabel(),
-                                        icon = Icons.AutoMirrored.Filled.ArrowForward,
+                                val slots = DirectionLabels.clockwiseSlots(gesture.angle.boundaries)
+                                    .filterNot { it in gesture.angle.zeroWidthSlots() }
+                                slots.forEachIndexed { index, slot ->
+                                    val center = gesture.angle.slotCenterDegrees(slot)
+                                    val label = directionLabel(center, gesture.angle.count)
+                                    SideGestureSettings(
                                         onClick = {
                                             onNavToActionSelect(
                                                 ActionSelect(
                                                     gestureButtonId = "",
-                                                    direction = direction,
+                                                    slot = slot,
+                                                    directionLabel = label,
                                                     triggerType = GestureTriggerType.LongSlideHold,
                                                     subGestureId = gesture.id,
                                                 )
                                             )
                                         },
-                                        subtitle = gesture.longSlideHoldActionFor(direction).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
-                                        shape = actionContentRowShape(index, directions.size),
+                                        centerDegrees = center,
+                                        count = gesture.angle.count,
+                                        subtitle = gesture.longSlideHoldActionFor(slot).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
+                                        shape = actionContentRowShape(index, slots.size),
                                     )
                                 }
                             }
@@ -318,24 +334,6 @@ fun SubGestureSettingsScreen(
                 
     }
 }
-}
-@Composable
-private fun SubGestureActionRow(
-    title: String,
-    icon: ImageVector,
-    onClick: () -> Unit,
-    subtitle: String,
-    shape: Shape = RoundedCornerShape(ContainerRadius),
-        modifier: Modifier = Modifier,
-) {
-    LunoSettingsRow(
-        title = title,
-        icon = icon,
-        onClick = onClick,
-        shape = shape,
-        subtitle = subtitle,
-        leading = { RowIconBadge(icon) },
-    )
 }
 @Composable
 private fun SubGestureVibrationContent(

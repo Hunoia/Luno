@@ -8,7 +8,6 @@ import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionRequest
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.core.domain.Capability
-import hunoia.luno.core.domain.RuntimeSnapshot
 import hunoia.luno.core.domain.StoredAction
 /**
  * 执行口的对外契约（Phase 2 `:feature:execute`）。
@@ -67,7 +66,8 @@ interface SurfaceHost {
     /** 启动已声明的 App Shortcut（入参是落库的快捷方式 JSON）。 */
     suspend fun launchShortcut(dataJson: String): Boolean
 
-    suspend fun openAppDetails(packageName: String): ActionResult
+    /** 打开应用详情页；userId 非 0 时按对应分身用户打开。 */
+    suspend fun openAppDetails(packageName: String, userId: Int = 0): ActionResult
 
     /** 当前应用以小窗打开；包名 / Activity 解析与全局设置由实现侧负责。 */
     suspend fun launchInPopup(packageName: String): ActionResult
@@ -78,8 +78,11 @@ interface SurfaceHost {
     /** 屏幕取点（transient Surface）：挂在无障碍服务窗口上。 */
     fun showScreenPick(): Boolean
 
-    /** 识屏取链（transient Surface）：挂在无障碍服务窗口上。 */
-    fun showScreenLinks(): Boolean
+    /** 屏幕标注：截屏 + 浮层；返回 false = 未接管（服务未就绪 / 窗口被拒）。 */
+    fun showScreenAnnotate(): Boolean
+
+    /** 图片编辑：系统图片选择器 → 全屏标注页；返回 false = 未启动。 */
+    fun openImageAnnotate(): Boolean
 
     /**
      * 悬浮球显隐：`hideForMs > 0` 走临时隐藏（只摘窗口、到期恢复），否则改 enabled 存量。
@@ -133,19 +136,6 @@ class ActionMappingException(
 ) : Exception(message)
 
 /**
- * 嵌套规则执行端口（`internal.runRule` = 规则即动作）。
- *
- * 序列执行器归 `:feature:automation`，执行口不持有它，只声明调用契约。
- */
-interface NestedRuleRunner {
-    suspend fun run(
-        ruleId: String,
-        params: Map<String, String>,
-        snapshot: RuntimeSnapshot?,
-    ): ActionResult
-}
-
-/**
  * 启动参数：契约已下沉 `hunoia.luno.core.domain`（`LaunchSpec`），此处保留同包别名，
  * 供执行口内部与旧调用点引用。
  */
@@ -158,17 +148,13 @@ typealias LaunchSpec = hunoia.luno.core.domain.LaunchSpec
  */
 data class ExecuteCall(
     val request: ActionRequest,
-    /** 本次分发看到的快照；null = 用分发口注入的 provider（触发侧有快照就用自己的）。 */
-    val snapshot: RuntimeSnapshot? = null,
     /** 手势触点（px）：点按类动作没填坐标时的兜底，也是面板锚点。 */
     val touchPosition: Pair<Int, Int>? = null,
     /** 触发按钮 id：`internal.buttonsVisibility` 的临时隐藏作用于它。 */
     val sourceButtonId: String? = null,
-    /** 本次运行已写入的局部变量（自动化 SET_VAR），覆盖同名系统/全局 token。 */
-    val localVariables: Map<String, String> = emptyMap(),
 )
 
-/** 分发落定回执：由调用方决定怎么用（手势侧据此发事件、驱动自动化评估）。 */
+/** 分发落定回执：由调用方决定怎么用（手势侧据此发事件、刷新可见性）。 */
 data class ExecuteSettlement(
     val request: ActionRequest,
     /** 落定的动作 typeId：动作库引用已就地解析为条目动作。 */

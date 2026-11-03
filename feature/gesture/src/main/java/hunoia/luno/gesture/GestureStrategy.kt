@@ -2,7 +2,6 @@ package hunoia.luno.gesture
 
 import androidx.compose.ui.geometry.Offset
 import hunoia.luno.config.model.GestureButtonAngle
-import hunoia.luno.config.model.GestureDirection
 import hunoia.luno.config.model.GestureTriggerType
 import kotlin.math.hypot
 
@@ -15,15 +14,15 @@ data class GestureConfig(
     val hasTapActions: Boolean,
     val hasDoubleTapActions: Boolean,
     val hasLongPressActions: Boolean,
-    val hasActionInDirection: (triggerType: GestureTriggerType, direction: GestureDirection) -> Boolean,
+    val hasActionInDirection: (triggerType: GestureTriggerType, slot: Int) -> Boolean,
 )
 
 /** 一次手势会话的共享状态；策略只读写这里，不持有跨会话状态。 */
 class GestureSession {
     var origin: Offset = Offset.Unspecified
     var finger: Offset = Offset.Unspecified
-    var triggerDirection: GestureDirection = GestureDirection.Right
-    var actionDirection: GestureDirection = GestureDirection.Right
+    var triggerDirection: Int = 0
+    var actionDirection: Int = 0
     var downTimeMs = 0L
     var directTriggered = false
     var isLongPressCanceled = false
@@ -49,8 +48,8 @@ class GestureSession {
     fun reset() {
         origin = Offset.Unspecified
         finger = Offset.Unspecified
-        triggerDirection = GestureDirection.Right
-        actionDirection = GestureDirection.Right
+        triggerDirection = 0
+        actionDirection = 0
         downTimeMs = 0L
         directTriggered = false
         isLongPressCanceled = false
@@ -248,15 +247,15 @@ private object TapDoubleTapStrategy : GestureStrategy {
             session.pendingButtonId = null
             return GestureDecision.Trigger(
                 triggerType = GestureTriggerType.DoubleTap,
-                direction = GestureDirection.Right,
-                actionDirection = GestureDirection.Right,
+                direction = 0,
+                actionDirection = 0,
             )
         }
         if (!config.hasTapActions && !config.hasDoubleTapActions) return GestureDecision.Noop
         val tapDecision = GestureDecision.Trigger(
             triggerType = GestureTriggerType.Tap,
-            direction = GestureDirection.Right,
-            actionDirection = GestureDirection.Right,
+            direction = 0,
+            actionDirection = 0,
         )
         if (config.hasDoubleTapActions) {
             session.pendingButtonId = config.buttonId
@@ -275,8 +274,8 @@ private object LongPressStrategy : GestureStrategy {
         session.directTriggered = true
         return GestureDecision.Trigger(
             triggerType = GestureTriggerType.LongPress,
-            direction = GestureDirection.Right,
-            actionDirection = GestureDirection.Right,
+            direction = 0,
+            actionDirection = 0,
         )
     }
 }

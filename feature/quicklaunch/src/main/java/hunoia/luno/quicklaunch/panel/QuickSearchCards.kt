@@ -498,7 +498,7 @@ private fun ResultIconView(
         )
         is SearchIcon.AppIcon -> {
             val sizePx = with(LocalDensity.current) { size.toPx().toInt() }
-            val cached = icon.bitmap ?: SearchIconCache.get(icon.packageName, sizePx)
+            val cached = icon.bitmap ?: SearchIconCache.get(icon.packageName, sizePx, icon.userId)
             if (cached != null) {
                 Image(
                     bitmap = cached,
@@ -508,7 +508,7 @@ private fun ResultIconView(
                 )
             } else {
                 AsyncImage(
-                    model = QuickLaunchFacade.appIconRequest(context, icon.packageName, sizePx),
+                    model = QuickLaunchFacade.appIconRequest(context, icon.packageName, sizePx, icon.userId),
                     contentDescription = null,
                     modifier = modifier.size(size).clip(SmallShape),
                     imageLoader = context.imageLoader,

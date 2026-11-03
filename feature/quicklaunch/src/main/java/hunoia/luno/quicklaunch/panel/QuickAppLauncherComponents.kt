@@ -22,7 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.ClearAll
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -71,8 +71,8 @@ internal sealed interface KeyboardKey {
         override val longPressDigit: String? = null
     }
 
-    object Delete : KeyboardKey {
-        override val label: String = "删除"
+    object Clear : KeyboardKey {
+        override val label: String = "清空"
         override val longPressDigit: String? = null
     }
 }
@@ -83,7 +83,6 @@ internal fun KeyboardRow(
     view: View,
     keys: List<KeyboardKey>,
     keyHeight: Dp,
-    onDelete: (() -> Unit)? = null,
     onClear: (() -> Unit)? = null,
     onAdjust: (() -> Unit)? = null,
     onToken: (String) -> Unit,
@@ -114,28 +113,28 @@ internal fun KeyboardRow(
                                 view.hapticTap()
                                 when (key) {
                                     is KeyboardKey.Adjust -> onAdjust?.invoke()
-                                    is KeyboardKey.Delete -> onDelete?.invoke()
+                                    is KeyboardKey.Clear -> onClear?.invoke()
                                     is KeyboardKey.Letter -> onToken(key.token)
                                 }
                             },
                             onLongClick = {
                                 view.hapticTap()
                                 when (key) {
-                                    is KeyboardKey.Delete -> onClear?.invoke()
+                                    is KeyboardKey.Clear -> onClear?.invoke()
                                     is KeyboardKey.Adjust -> Unit
                                     is KeyboardKey.Letter -> key.longPressDigit?.let(onToken)
                                 }
                             }
                         ),
                     // 功能键与字母键共用一层底色，不再用 tertiary/secondary 二分：
-                    // 靠图标（Tune / DeleteOutline）和末行首末位置区分。
+                    // 靠图标（Tune / ClearAll）和末行首末位置区分。
                     color = MaterialTheme.colorScheme.secondaryContainer,
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                 ) {
                     Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                         when (key) {
                             is KeyboardKey.Adjust -> Icon(Icons.Outlined.Tune, contentDescription = stringResource(R.string.quick_app_launcher_adjust))
-                            is KeyboardKey.Delete -> Icon(Icons.Outlined.DeleteOutline, contentDescription = stringResource(R.string.quick_app_launcher_delete_input))
+                            is KeyboardKey.Clear -> Icon(Icons.Outlined.ClearAll, contentDescription = stringResource(R.string.quick_app_launcher_clear_input))
                             is KeyboardKey.Letter -> Text(key.label, fontWeight = FontWeight.SemiBold)
                         }
                     }
@@ -159,6 +158,8 @@ internal fun AppItem(
     iconHeight: Dp? = null,
     onClick: () -> Unit,
     onLongPress: () -> Unit,
+    /** 编辑态 false：不挂点击/长按手势，事件让给层根拖拽/缩放。 */
+    enabled: Boolean = true,
 ) {
     val context = LocalContext.current
     val interactionSource = remember { MutableInteractionSource() }
@@ -175,10 +176,16 @@ internal fun AppItem(
                 scaleX = scale
                 scaleY = scale
             }
-            .combinedClickable(
-                interactionSource = interactionSource,
-                onClick = { onClick() },
-                onLongClick = { onLongPress() }
+            .then(
+                if (enabled) {
+                    Modifier.combinedClickable(
+                        interactionSource = interactionSource,
+                        onClick = { onClick() },
+                        onLongClick = { onLongPress() }
+                    )
+                } else {
+                    Modifier
+                }
             )
             .padding(AppItemPadding),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -188,8 +195,8 @@ internal fun AppItem(
         } else {
             Modifier.fillMaxWidth().aspectRatio(1f)
         }.clip(MediumShape)
-        val request = remember(app.packageName, iconSizePx) {
-            QuickLaunchFacade.appIconRequest(context, app.packageName, iconSizePx)
+        val request = remember(app.packageName, iconSizePx, app.userId, app.className) {
+            QuickLaunchFacade.appIconRequest(context, app.packageName, iconSizePx, app.userId)
         }
         // 图标压在面板底色上，不再叠一层占位底色（面板底是唯一的一层底色）。
         // Box 留着是因为图标异步到位时尺寸不能变——用 matchParentSize 而不是 if/else，

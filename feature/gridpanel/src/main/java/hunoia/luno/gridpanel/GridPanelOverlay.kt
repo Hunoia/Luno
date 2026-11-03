@@ -3,7 +3,7 @@ package hunoia.luno.gridpanel
 import android.graphics.Color
 import android.os.Looper
 import android.os.SystemClock
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import androidx.compose.foundation.layout.Box
@@ -40,7 +40,6 @@ import hunoia.luno.core.LOG_TAG
 object GridPanelOverlay : OverlayPanelHost(
     logTag = LOG_TAG,
     logPrefix = "grid overlay",
-    showWhenLocked = false,
 ) {
 
     override val surfaceId: String = "grid-panel"
@@ -127,6 +126,9 @@ object GridPanelOverlay : OverlayPanelHost(
             mainHandler.post { show(panelId, anchorX, anchorY) }
             return
         }
+        // 锁屏不开面板：TYPE_APPLICATION_OVERLAY 会被 keyguard 盖住，
+        // 开了也只会在解锁后突然冒出；锁屏触发一律拒绝。
+        if (isKeyguardLocked()) return
         // 新一次展示不复用上一轮部件点击留下的拉起候选。
         if (!shownEventPosted) PanelAppWidgetHostView.clearTapCandidate()
         // 面板项里引用自身（旧数据/手改配置）：已经显示的就是这块面板，重复 show 只会
@@ -236,6 +238,11 @@ object GridPanelOverlay : OverlayPanelHost(
         current.requestFocus()
     }
 
+    private fun isKeyguardLocked(): Boolean =
+        runCatching {
+            context.getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true
+        }.getOrDefault(false)
+
     @Composable
     override fun panelContent() {
         SideGestureTheme {
@@ -244,9 +251,9 @@ object GridPanelOverlay : OverlayPanelHost(
             // initialValue 必须是 null：空 ActionSettings 会让首帧 panelById 落空，
             // GridPanelRoot 走「面板已删除」分支且不吃 appearance 动画，会糊一帧
             // 32% 黑遮罩；null 表示还没读到，此刻不渲染，出场交给 0→1 淡入。
-            val actionSettings by hunoia.luno.config.ConfigProvider.actionSettings
+            val actionSettings by hunoia.luno.domain.gridpanel.GridPanelCenter.actionSettings
                 .collectAsStateWithLifecycle(initialValue = null)
-            val librarySettings by hunoia.luno.config.ConfigProvider.actionLibrarySettings
+            val librarySettings by hunoia.luno.domain.action.ActionLibrary.settings
                 .collectAsStateWithLifecycle(initialValue = null)
             val settings = actionSettings ?: return@SideGestureTheme
             val library = librarySettings ?: return@SideGestureTheme

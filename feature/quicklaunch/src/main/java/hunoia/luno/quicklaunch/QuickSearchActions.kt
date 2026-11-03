@@ -4,7 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import androidx.compose.material.icons.filled.Settings
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -73,7 +73,7 @@ internal fun QuickSearchActivity.recordQuery(text: String) {
     if (text.length > MAX_QUERY_CHARS) return
     lifecycleScope.launch {
         runCatching {
-            hunoia.luno.config.ConfigProvider.updateQuickSearchSettings {
+            hunoia.luno.domain.search.SearchCenter.updateSearch {
                 it.copy(
                     recentQueries = (listOf(text) + it.recentQueries)
                         .distinct()
@@ -92,7 +92,7 @@ internal fun QuickSearchActivity.toggleResultPin(query: String, key: String) {
     lifecycleScope.launch {
         runCatching {
             var pinned = false
-            hunoia.luno.config.ConfigProvider.updateQuickSearchSettings { current ->
+            hunoia.luno.domain.search.SearchCenter.updateSearch { current ->
                 val existing = current.pinnedResults[normalized].orEmpty()
                 pinned = key !in existing
                 val next = if (pinned) {

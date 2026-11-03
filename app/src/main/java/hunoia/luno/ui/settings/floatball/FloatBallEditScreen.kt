@@ -89,10 +89,19 @@ fun FloatBallEditScreen(
     var localClipballAutoHide by remember(floatBall.clipboardBall.autoHideMs) {
         mutableFloatStateOf(floatBall.clipboardBall.autoHideMs.toFloat())
     }
+    var localNotifTtl by remember(floatBall.inbox.notificationTtlMs) {
+        mutableFloatStateOf(floatBall.inbox.notificationTtlMs.toFloat())
+    }
+    var localClipTtl by remember(floatBall.inbox.clipboardTtlMs) {
+        mutableFloatStateOf(floatBall.inbox.clipboardTtlMs.toFloat())
+    }
+    var localInboxCapacity by remember(floatBall.inbox.capacity) {
+        mutableFloatStateOf(floatBall.inbox.capacity.toFloat())
+    }
 
     var overlayGranted by remember { mutableStateOf(context.canDrawOverlays()) }
     var notifAccessGranted by remember {
-        mutableStateOf(AppGraph.automation.isNotificationAccessGranted(context))
+        mutableStateOf(AppGraph.system.isNotificationAccessGranted(context))
     }
     var showColorPicker by remember { mutableStateOf(false) }
 
@@ -109,7 +118,7 @@ fun FloatBallEditScreen(
                     overlayGranted = granted
                     AppGraph.system.refreshFloatBall(context)
                 }
-                val notifGranted = AppGraph.automation.isNotificationAccessGranted(context)
+                val notifGranted = AppGraph.system.isNotificationAccessGranted(context)
                 if (notifGranted != notifAccessGranted) notifAccessGranted = notifGranted
             }
         }
@@ -232,7 +241,8 @@ fun FloatBallEditScreen(
                     },
                     text = stringResource(R.string.float_ball_idle_dim_delay),
                     valueDisplay = { if (it <= 0f) stringResource(R.string.float_ball_off) else "${it.toInt()} ms" },
-                    valueRange = 0f..8000f,
+                    valueRange = FloatBallDefaults.IdleDimDelayMsMin.toFloat()..
+                        FloatBallDefaults.IdleDimDelayMsMax.toFloat(),
                     shape = segmentedShape(2, 3),
                 )
             }
@@ -245,14 +255,7 @@ fun FloatBallEditScreen(
                     subtitle = stringResource(R.string.float_ball_follow_hand_subtitle),
                     checked = floatBall.followHand,
                     onCheckedChange = { checked -> update { it.copy(followHand = checked) } },
-                    shape = segmentedShape(0, 2),
-                )
-                LunoSwitchRow(
-                    title = stringResource(R.string.float_ball_mirror),
-                    subtitle = stringResource(R.string.float_ball_mirror_subtitle),
-                    checked = floatBall.mirrorBall,
-                    onCheckedChange = { checked -> update { it.copy(mirrorBall = checked) } },
-                    shape = segmentedShape(1, 2),
+                    shape = segmentedShape(0, 1),
                 )
             }
         }
@@ -280,11 +283,10 @@ fun FloatBallEditScreen(
             val capsule = floatBall.notificationCapsule
             val suppress = capsule.dismissSuppressEnabled
             // 抑制时长只在开关打开时出现：条数会变，段形按实际条数算。
-            val rowCount = if (suppress) 5 else 4
+            val rowCount = if (suppress) 6 else 5
             LunoGroup(title = stringResource(R.string.float_ball_capsule_group)) {
                 LunoSwitchRow(
                     title = stringResource(R.string.float_ball_capsule_enabled),
-                    subtitle = stringResource(R.string.float_ball_capsule_enabled_subtitle),
                     checked = capsule.enabled,
                     onCheckedChange = { checked ->
                         update { it.copy(notificationCapsule = it.notificationCapsule.copy(enabled = checked)) }
@@ -315,9 +317,22 @@ fun FloatBallEditScreen(
                         FloatBallDefaults.CapsuleAutoHideMsMax.toFloat(),
                     shape = segmentedShape(1, rowCount),
                 )
+                LunoTextSlider(
+                    value = localNotifTtl,
+                    onValueChange = { value -> localNotifTtl = value },
+                    onValueChangeFinished = {
+                        update {
+                            it.copy(inbox = it.inbox.copy(notificationTtlMs = localNotifTtl.toLong()))
+                        }
+                    },
+                    text = stringResource(R.string.float_ball_capsule_ttl),
+                    valueDisplay = { "${(it / 1000).toInt()} s" },
+                    valueRange = FloatBallDefaults.InboxNotificationTtlMsMin.toFloat()..
+                        FloatBallDefaults.InboxNotificationTtlMsMax.toFloat(),
+                    shape = segmentedShape(2, rowCount),
+                )
                 LunoSwitchRow(
                     title = stringResource(R.string.float_ball_capsule_suppress_dismiss),
-                    subtitle = stringResource(R.string.float_ball_capsule_suppress_dismiss_hint),
                     checked = suppress,
                     onCheckedChange = { checked ->
                         update {
@@ -328,7 +343,7 @@ fun FloatBallEditScreen(
                             )
                         }
                     },
-                    shape = segmentedShape(2, rowCount),
+                    shape = segmentedShape(3, rowCount),
                 )
                 if (suppress) {
                     LunoTextSlider(
@@ -347,12 +362,11 @@ fun FloatBallEditScreen(
                         valueDisplay = { "${(it / 1000).toInt()} s" },
                         valueRange = FloatBallDefaults.CapsuleDismissSuppressMsMin.toFloat()..
                             FloatBallDefaults.CapsuleDismissSuppressMsMax.toFloat(),
-                        shape = segmentedShape(3, rowCount),
+                        shape = segmentedShape(4, rowCount),
                     )
                 }
                 LunoSettingsRow(
                     title = stringResource(R.string.float_ball_capsule_blocklist),
-                    subtitle = stringResource(R.string.float_ball_capsule_blocklist_hint),
                     trailing = {
                         if (capsule.blocklist.isNotEmpty()) {
                             Text(
@@ -365,7 +379,7 @@ fun FloatBallEditScreen(
                             )
                         }
                     },
-                    shape = segmentedShape(if (suppress) 4 else 3, rowCount),
+                    shape = segmentedShape(if (suppress) 5 else 4, rowCount),
                     onClick = onNavToNotificationBlocklist,
                 )
             }
@@ -387,7 +401,7 @@ fun FloatBallEditScreen(
                             AppGraph.system.setFloatBallEnabled(context, false)
                         }
                     },
-                    shape = segmentedShape(0, 3),
+                    shape = segmentedShape(0, 4),
                 )
                 LunoTextSlider(
                     value = localClipballAutoHide,
@@ -405,18 +419,49 @@ fun FloatBallEditScreen(
                     valueDisplay = { "${(it / 1000).toInt()} s" },
                     valueRange = FloatBallDefaults.ClipboardBallAutoHideMsMin.toFloat()..
                         FloatBallDefaults.ClipboardBallAutoHideMsMax.toFloat(),
-                    shape = segmentedShape(1, 3),
+                    shape = segmentedShape(1, 4),
+                )
+                LunoTextSlider(
+                    value = localClipTtl,
+                    onValueChange = { value -> localClipTtl = value },
+                    onValueChangeFinished = {
+                        update {
+                            it.copy(inbox = it.inbox.copy(clipboardTtlMs = localClipTtl.toLong()))
+                        }
+                    },
+                    text = stringResource(R.string.float_ball_clipball_ttl),
+                    valueDisplay = { "${(it / 1000).toInt()} s" },
+                    valueRange = FloatBallDefaults.InboxClipboardTtlMsMin.toFloat()..
+                        FloatBallDefaults.InboxClipboardTtlMsMax.toFloat(),
+                    shape = segmentedShape(2, 4),
                 )
                 LunoSwitchRow(
                     title = stringResource(R.string.float_ball_clipball_images),
-                    subtitle = stringResource(R.string.float_ball_clipball_images_hint),
                     checked = clipball.respondToImages,
                     onCheckedChange = { checked ->
                         update { it.copy(clipboardBall = it.clipboardBall.copy(respondToImages = checked)) }
                     },
-                    shape = segmentedShape(2, 3),
+                    shape = segmentedShape(3, 4),
                 )
             }
         }
+
+        item(key = "inbox") {
+            LunoGroup(title = stringResource(R.string.float_ball_inbox_group)) {
+                LunoTextSlider(
+                    value = localInboxCapacity,
+                    onValueChange = { value -> localInboxCapacity = value },
+                    onValueChangeFinished = {
+                        update { it.copy(inbox = it.inbox.copy(capacity = localInboxCapacity.toInt())) }
+                    },
+                    text = stringResource(R.string.float_ball_inbox_capacity),
+                    valueDisplay = { "${it.toInt()} 项" },
+                    valueRange = FloatBallDefaults.InboxCapacityMin.toFloat()..
+                        FloatBallDefaults.InboxCapacityMax.toFloat(),
+                    shape = segmentedShape(0, 1),
+                )
+            }
+        }
+
     }
 }

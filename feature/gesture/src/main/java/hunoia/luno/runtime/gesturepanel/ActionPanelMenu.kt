@@ -88,7 +88,8 @@ fun ActionPanelMenu(
         var parentSize by remember { mutableStateOf(Size.Zero) }
         val resolvedStyle = actionPanelState.actionPanelStyle ?: actionPanelStyle
         val itemSizePx = (resolvedStyle as? ArcStyle)?.itemSize?.toFloat() ?: 48.dp.toPx()
-        val actionLibrarySettings by hunoia.luno.config.ConfigProvider.actionLibrarySettings.collectAsStateWithLifecycle(initialValue = ActionLibrarySettings())
+        val actionLibrarySettings by hunoia.luno.domain.action.ActionLibrary.settings
+            .collectAsStateWithLifecycle(initialValue = ActionLibrarySettings())
         LaunchedEffect(parentSize, itemSizePx) {
             actionPanelState.setLayoutInfo(parentSize, itemSizePx)
         }
@@ -115,7 +116,7 @@ fun ActionPanelMenu(
                     .align(Alignment.Center)
                     .displayCutoutPadding()
                     .padding(12.dp),
-                visible = selectedAction.typeId == "app.launch",
+                visible = selectedAction.typeId == hunoia.luno.core.domain.AppLaunchAction.TYPE_ID,
                 enter = enter,
                 exit = ExitTransition.None
             ) {
@@ -163,7 +164,7 @@ fun ActionPanelMenu(
                     !parentSize.isEmpty()
             if (canShowPill) {
                 val origin = actionPanelOrigin(parentSize, actionPanelState.origin, itemSizePx)
-                val sector = actionPanelSector(parentSize, origin, actionPanelState.direction, itemSizePx)
+                val sector = actionPanelSector(parentSize, origin, actionPanelState.centerDegrees, itemSizePx)
                 val actionBounds = actionPanelContentBounds(
                     parentSize = parentSize,
                     origin = origin,

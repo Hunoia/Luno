@@ -35,9 +35,6 @@ import hunoia.luno.R
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.core.domain.ActionLibraryEntry
 import hunoia.luno.action.definitions.ActionCategory
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.TextIconGlyph
@@ -128,28 +125,11 @@ private fun ActionLibraryItem(
     onIconClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val def = ActionDefinitions.byTypeId(entry.typeId)
     val icon = entry.resolvedIcon() ?: Icons.Default.Build
     // 副标题 = 已配置的参数值（空值跳过，布尔 false 不喘）；无参数回退类型名。
-    val paramSummary = remember(entry) {
-        entry.params.entries.mapNotNull { (key, value) ->
-            val text = when (value) {
-                // 键值对参数（extras / query）只展键名，值随内容变化不适合放行副标题。
-                is JsonObject -> value.keys
-                    .filter { it.isNotBlank() }
-                    .takeIf { it.isNotEmpty() }
-                    ?.joinToString(" · ")
-                is JsonPrimitive -> value.contentOrNull?.takeIf(String::isNotBlank)
-                else -> null
-            }
-            when {
-                text == null -> null
-                text == "false" -> null
-                key == "useTriggerPoint" -> null
-                else -> text
-            }
-        }.joinToString(" · ")
-    }
+    val paramSummary = remember(entry, context) { actionLibraryParamSummary(entry, context) }
     LunoSettingsRow(
         modifier = modifier,
         title = entry.name.ifBlank { def?.name ?: entry.typeId },

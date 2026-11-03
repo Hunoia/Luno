@@ -185,7 +185,7 @@ object BackupOperator {
         val backupBytes = runCatching { scanZipEntries(zipFile) }
             .getOrElse { e ->
                 // zip bomb 会在这里被 MAX_ENTRY_BYTES 挡下；记一笔具体原因便于排查
-                android.util.Log.w(LOG_TAG, "precheckRestore: ${e::class.simpleName}: ${e.message}")
+                hunoia.luno.core.LunoLog.w(LOG_TAG, "precheckRestore: ${e::class.simpleName}: ${e.message}")
                 return RestorePrecheckResult.Failed(RestorePrecheckFailure.InvalidFormat)
             }
         if (backupBytes == null) {
@@ -377,15 +377,6 @@ object BackupOperator {
             backup.quickAppLauncherSettings?.let { if (verified.quickAppLauncherSettings != it) add("quickAppLauncherSettings") }
             backup.subGestureSettings?.let { if (verified.subGestureSettings != it) add("subGestureSettings") }
             backup.actionLibrarySettings?.let { if (verified.actionLibrarySettings != it) add("actionLibrarySettings") }
-            backup.automationRules?.let {
-                // 恢复时会跑 normalizer（含 schemaVersion 升级/越界夹取），校验必须比归一化后的期望值。
-                if (verified.automationRules != hunoia.luno.config.model.AutomationRuleNormalizer.normalize(it)) {
-                    add("automationRules")
-                }
-            }
-            backup.globalVariables?.let {
-                if (verified.globalVariables != it.normalized()) add("globalVariables")
-            }
             backup.quickSearchSettings?.let { if (verified.quickSearchSettings != it) add("quickSearchSettings") }
         }
         if (mismatched.isNotEmpty()) {
@@ -407,8 +398,6 @@ object BackupOperator {
             quickAppLauncherSettings == null &&
             subGestureSettings == null &&
             actionLibrarySettings == null &&
-            automationRules == null &&
-            globalVariables == null &&
             quickSearchSettings == null
     }
 

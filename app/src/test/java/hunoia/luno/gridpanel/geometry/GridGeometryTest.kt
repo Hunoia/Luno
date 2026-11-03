@@ -59,9 +59,9 @@ class GridGeometryTest {
 
     @Test
     fun `fractions outside defaults are clamped before computing`() {
-        // 宽 0.1 → 夹到 0.35；高 5 → 夹到 0.9。与显式传夹取值结果一致。
+        // 宽 0.1 → 夹到 0.20；高 5 → 夹到 0.9。与显式传夹取值结果一致。
         val clamped = gridPanelVisibleRows(360f, 800f, 4, 0.1f, 5f)
-        val explicit = gridPanelVisibleRows(360f, 800f, 4, 0.35f, 0.9f)
+        val explicit = gridPanelVisibleRows(360f, 800f, 4, 0.20f, 0.9f)
         assertEquals(explicit, clamped)
     }
 

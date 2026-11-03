@@ -2,15 +2,12 @@ package hunoia.luno.runtime
 
 import android.app.KeyguardManager
 import android.app.WallpaperManager
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.res.Configuration
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityWindowInfo
 import androidx.compose.runtime.Composable
@@ -24,51 +21,23 @@ import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.actionPanelId
 import hunoia.luno.core.domain.withoutVariantKey
-import hunoia.luno.runtime.toConditionContext
-import hunoia.luno.runtime.condition.matches
-import hunoia.luno.runtime.condition.ConditionContext
-import hunoia.luno.runtime.automation.RuleTestResult
 import hunoia.luno.runtime.gesturepanel.ACTION_PANEL_FADE_OUT_MS
 import kotlin.math.roundToInt
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import hunoia.luno.bridge.system.isAccessibilitySettingsOn
 import hunoia.luno.config.model.GestureButton
-import hunoia.luno.config.model.GlobalVariables
-import hunoia.luno.config.model.AutomationRule
-import hunoia.luno.config.model.RuleReentry
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.QuickAppSnapshot
 import hunoia.luno.quicklaunch.query.AppSearch
 import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import java.util.Locale
 import hunoia.luno.action.dispatcher.ActionDispatcher
-import hunoia.luno.config.model.ScreenEventType
 import hunoia.luno.runtime.environment.PreviousAppTracker
-import hunoia.luno.runtime.condition.AudioVolumeTracker
-import hunoia.luno.runtime.condition.hasVolumeCondition
-import hunoia.luno.runtime.automation.AutomationEngine
-import hunoia.luno.runtime.automation.AutomationEvent
-import hunoia.luno.runtime.automation.AutomationEventKey
-import hunoia.luno.runtime.automation.AutomationPulseHub
-import hunoia.luno.runtime.automation.AutomationShareBridge
-import hunoia.luno.runtime.automation.AutomationRuntime
-import hunoia.luno.core.domain.ExecutionReason
-import hunoia.luno.runtime.automation.SequenceExecutor
-import hunoia.luno.runtime.automation.SkipReason
 import hunoia.luno.runtime.button.ButtonHideRuntime
 import hunoia.luno.runtime.button.ButtonRefreshCoordinator
-import hunoia.luno.runtime.condition.BatteryTracker
-import hunoia.luno.runtime.condition.DndTracker
-import hunoia.luno.runtime.condition.MusicPlaybackTracker
-import hunoia.luno.runtime.condition.TimeConditionTicker
-import hunoia.luno.runtime.condition.TorchStateTracker
-import hunoia.luno.runtime.condition.hasMusicCondition
-import hunoia.luno.runtime.condition.hasTorchCondition
 import hunoia.luno.runtime.environment.BroadcastObserver
-import hunoia.luno.runtime.environment.ConditionSources
 import hunoia.luno.runtime.environment.EnvironmentTracker
-import hunoia.luno.bridge.system.PackageChangeReceiver
 import hunoia.luno.runtime.overlay.GestureOverlayCallbacks
 import hunoia.luno.runtime.overlay.ButtonWindowController
 import hunoia.luno.runtime.overlay.MainOverlayController
@@ -78,8 +47,6 @@ import hunoia.luno.runtime.volume.VolumeScrubRuntime
 import hunoia.luno.runtime.pointer.PointerRuntime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.collectLatest
@@ -87,9 +54,9 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration.Companion.milliseconds
+import hunoia.luno.gesture.touch.TouchAction
+import hunoia.luno.gesture.touchsource.GlobalLongPressTrigger
 import hunoia.luno.core.LOG_TAG
 
 /** 冷启动/悬浮窗重建期间容器的面板列表未灌满时，揭示事件的等待重试参数。 */
@@ -98,8 +65,6 @@ private const val BALL_PANEL_REVEAL_MAX_ATTEMPTS = 40
 /** 键盘在屏期间的短轮询间隔：捕捉没有 a11y 事件的 IME 收起（如返回键/手势）。 */
 private const val KEYBOARD_WATCH_MS = 600L
 
-/** 跳过诊断节流窗口：同规则同原因窗口内只留一条历史，避免通知风暴写爆历史。 */
-private const val SKIP_LOG_WINDOW_MS = 60_000L
 private val BALL_PANEL_REVEAL_RETRY_MS = 250.milliseconds
 
 class GestureCoordinator(
@@ -134,15 +99,62 @@ class GestureCoordinator(
     val mainOverlayController = MainOverlayController(host)
     val buttonWindowController = ButtonWindowController(host.context)
     val transientOverlayController = TransientOverlayController(host.context)
+
+    /**
+     * 识屏长按配置：跟随手势总开关。总开关关闭时不启动内核触摸流，
+     * 也不接受全屏长按（与侧边手势保持一致）。
+     */
+    private val screenPickGestureConfig: hunoia.luno.config.model.ScreenPickGesture
+        get() = runtimeSettingsStore.snapshot().initialSettings.let { initial ->
+            if (!initial.gestureEnabled) {
+                initial.screenPickGesture.copy(enabled = false)
+            } else {
+                initial.screenPickGesture
+            }
+        }
+
+    /** 供 Surface 层复用同一套长按/拖动阈值。 */
+    fun currentScreenPickGesture(): hunoia.luno.config.model.ScreenPickGesture =
+        screenPickGestureConfig
+
+    /** DOWN 后 100ms 抓一次 a11y 快照，避免应用自己的长按菜单污染取词结果。 */
+    private val screenTextPreCapture by lazy {
+        hunoia.luno.runtime.overlay.text.ScreenTextPreCapture(
+            service = host.accessibilityService,
+            ownPackage = host.context.packageName,
+            scope = host.coroutineScope,
+        )
+    }
+
+    /**
+     * 全屏长按识屏检测器：复用 ADR-0003 内核触摸流（需 Shizuku），不消费触摸。
+     * 触发后由同一股原始触摸流继续喂拖动/抬手，幽灵卡靠它跟随手指。
+     */
+    private val globalScreenPickTrigger = GlobalLongPressTrigger(
+        config = { screenPickGestureConfig },
+        onTrigger = { x, y ->
+            hunoia.luno.service.SideGestureService.current?.showScreenPickPortal(
+                x,
+                y,
+                screenTextPreCapture.peek(),
+            )
+        },
+        onDrag = { x, y ->
+            hunoia.luno.service.SideGestureService.current?.moveScreenPickPortal(x, y)
+        },
+        onRelease = { x, y ->
+            hunoia.luno.service.SideGestureService.current?.releaseScreenPickPortal(x, y)
+        },
+        onPreCapture = { x, y, _ -> screenTextPreCapture.start(x, y) },
+        onPreCaptureCancel = { screenTextPreCapture.cancel() },
+    )
+
+    /** 自家面板（搜索/网格/动作面板）在屏计数：面板上的长按不能当“识屏”。 */
+    private val openPanels = hunoia.luno.runtime.overlay.OpenPanelCounter()
     private var refreshJob: Job? = null
 
     /** 键盘在屏期间的可见性短轮询：IME 可能无 a11y 事件地消失，只靠事件会一直停在「弹出」。 */
     private var keyboardWatchJob: Job? = null
-    /** 待评估事件键累积：100ms 窗口内多次 refresh 取并集一次评估，否则后到的 keyed 评估会顶掉通用评估。 */
-    private val pendingAutomationKeys = mutableSetOf<String>()
-
-    /** 是否已有延迟刷新在等待（与 pendingAutomationKeys 同锁保护），用于「首个事件起算」节流。 */
-    private var refreshPending = false
 
     /** 最近一次窗口状态事件的 Activity 类名：同包内启动新 Activity 也要能收起网格面板。 */
     private var lastWindowClassName: String? = null
@@ -165,93 +177,29 @@ class GestureCoordinator(
         onScreenOff = {
             if (BuildConfig.DEBUG) Log.i(LOG_TAG, "screen off")
             environmentTracker.isNowInLockScreenPage = true
-            environmentTracker.onScreenEvent(ScreenEventType.SCREEN_OFF)
+            // 锁屏收口：无障碍 overlay 会盖在 keyguard 上。动作面板的内容画在主 a11y overlay
+            // （MainOverlayController）里，只 closeImmediately 面板窗不够 —— 必须同时取消会话
+            // 并把主窗收回 1x1。解锁不自动恢复，需用户重新触发。
+            closeTransientSurfaces()
+            hunoia.luno.service.SideGestureService.current?.closeOverlaysForLock()
             host.runtimePanelOverlay.closeImmediately()
-            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.SCREEN))
+            refreshGestureButtons()
         },
         onScreenOn = {
             if (BuildConfig.DEBUG) Log.i(LOG_TAG, "screen on")
-            environmentTracker.onScreenEvent(ScreenEventType.SCREEN_ON)
-            // 无通知访问权限时，勿扰变化没有监听来源；亮屏时补读一次系统值。
-            dndTracker.refreshFromSystem()
-            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.SCREEN))
+            refreshGestureButtons()
         },
         onUserPresent = {
             if (BuildConfig.DEBUG) Log.i(LOG_TAG, "user present")
             environmentTracker.isNowInLockScreenPage = false
-            environmentTracker.onScreenEvent(ScreenEventType.USER_UNLOCK)
-            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.SCREEN))
+            refreshGestureButtons()
         }
-    )
-
-    private val conditionSources = ConditionSources(
-        context = host.context,
-        onStateChanged = { refreshGestureButtons() },
-        onBluetoothPulse = { direction ->
-            environmentTracker.onBluetoothChanged(direction)
-            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.BLUETOOTH))
-        },
-        onHeadphonesPulse = { direction ->
-            environmentTracker.onHeadphonesChanged(direction)
-            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.HEADPHONES))
-        },
-    )
-
-    private val audioVolumeTracker = AudioVolumeTracker(
-        context = host.context,
-        onVolumeChanged = { change ->
-            environmentTracker.onVolumeChanged(change)
-            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.VOLUME))
-        },
-    )
-
-    private val musicTracker = MusicPlaybackTracker(
-        context = host.context,
-        onChanged = { direction ->
-            environmentTracker.onMusicChanged(direction)
-            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.MUSIC))
-        },
-    )
-
-    private val torchTracker = TorchStateTracker(
-        context = host.context,
-        onChanged = { on ->
-            environmentTracker.onTorchChanged(on)
-            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.TORCH))
-        },
-    )
-
-    private val dndTracker = DndTracker(
-        context = host.context,
-        onChanged = { on ->
-            environmentTracker.onDndChanged(on)
-            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.DND))
-        },
     )
 
     private val buttonHideRuntime = ButtonHideRuntime(
         scope = host.coroutineScope,
-        onStateChanged = { refreshGestureButtons() },
-    )
-
-    private val batteryTracker: BatteryTracker = BatteryTracker(
-        context = host.context,
-        onChanged = { chargingChanged, charging, _ ->
-            // 仅充电边沿发脉冲；纯电量变化只重评状态条件（见 BatteryTracker 文档）。
-            if (chargingChanged) environmentTracker.onChargingChanged(charging)
-            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.CHARGING))
-        },
-    )
-
-    private val timeConditionTicker = TimeConditionTicker(
-        scope = host.coroutineScope,
-        rulesProvider = { runtimeSettingsStore.snapshot().automationRules },
-        onTimeSignatureChanged = { refreshGestureButtons(delayMs = 0L, automationKeys = setOf(AutomationEventKey.TIME)) },
-        markScheduledHit = { environmentTracker.onScheduledTimeHit() },
-        markIntervalHit = { keys ->
-            environmentTracker.onIntervalDue(keys)
-            refreshGestureButtons(delayMs = 0L, automationKeys = setOf(AutomationEventKey.INTERVAL))
-        },
+        // 显式动作路径不吃 a11y 事件的 100ms 防抖。
+        onStateChanged = { refreshGestureButtons(delayMs = 0L) },
     )
 
     private val previousAppTracker = PreviousAppTracker(
@@ -344,8 +292,8 @@ class GestureCoordinator(
         override suspend fun launchShortcut(dataJson: String): Boolean =
             appLauncher.launchShortcut(dataJson)
 
-        override suspend fun openAppDetails(packageName: String) =
-            appLauncher.openAppDetails(packageName)
+        override suspend fun openAppDetails(packageName: String, userId: Int) =
+            appLauncher.openAppDetails(packageName, userId)
 
         override suspend fun launchInPopup(packageName: String) =
             appLauncher.launchInPopup(packageName)
@@ -353,8 +301,11 @@ class GestureCoordinator(
         override fun showScreenPick(): Boolean =
             hunoia.luno.service.SideGestureService.current?.showScreenPick() == true
 
-        override fun showScreenLinks(): Boolean =
-            hunoia.luno.service.SideGestureService.current?.showScreenLinks() == true
+        override fun showScreenAnnotate(): Boolean =
+            hunoia.luno.service.SideGestureService.current?.showScreenAnnotate() == true
+
+        override fun openImageAnnotate(): Boolean =
+            hunoia.luno.ui.annotate.ImageAnnotateActivity.startPicker(host.context)
 
         override fun shareFile(): hunoia.luno.core.domain.ActionResult = runCatching {
             host.context.startActivity(
@@ -442,11 +393,6 @@ class GestureCoordinator(
             catalog = hunoia.luno.actions.LunoActionCatalog,
             factory = hunoia.luno.actions.LunoActionFactory,
             scope = host.coroutineScope,
-            snapshot = {
-                buildRuntimeState(peekPulses = true).toConditionContext(
-                    runtimeSettingsStore.snapshot().globalVariables.toTemplateMap(),
-                )
-            },
             libraryEntry = { entryId ->
                 runtimeSettingsStore.snapshot().actionLibrarySettings.entries
                     .find { it.id == entryId }?.storedAction
@@ -459,19 +405,15 @@ class GestureCoordinator(
                 hunoia.luno.action.executor.SystemExecutors(
                     hunoia.luno.action.controller.AudioController(host.context.applicationContext),
                     hunoia.luno.action.controller.ClipboardController(host.context.applicationContext),
-                    hunoia.luno.action.controller.VibrateController(host.context.applicationContext),
                 ),
                 hunoia.luno.action.executor.AccessibilityExecutors(
                     hunoia.luno.action.controller.AccessibilityController(host.accessibilityService),
                 ),
                 hunoia.luno.action.executor.ShellExecutor(hunoia.luno.action.controller.ShellController()),
-                hunoia.luno.action.executor.AutomationActionExecutors(
-                    hunoia.luno.action.controller.ClipboardController(host.context.applicationContext),
-                ),
+                hunoia.luno.action.executor.MiscActionExecutors(),
                 hunoia.luno.action.executor.InternalExecutors(),
             ),
             capabilityGate = hunoia.luno.action.capability.CapabilityGate(
-                appContext = host.context.applicationContext,
                 isAccessibilityAvailable = {
                     runCatching {
                         host.context.isAccessibilitySettingsOn(hunoia.luno.service.SideGestureService::class.java)
@@ -480,373 +422,7 @@ class GestureCoordinator(
                         hunoia.luno.service.SideGestureService.current != null
                 },
             ),
-            nestedRules = AutomationNestedRuleRunner(
-                ruleById = { id -> runtimeSettingsStore.snapshot().automationRules.find { it.id == id } },
-                globalVariables = { runtimeSettingsStore.snapshot().globalVariables.toTemplateMap() },
-                runSingleAction = { action, ctx, vars -> actionDispatcher.runStepAction(action, ctx, vars) },
-                resolveTemplate = { text, ctx, vars -> actionDispatcher.resolveStepTemplate(text, ctx, vars) },
-                refreshSnapshot = {
-                    buildRuntimeState(peekPulses = true).toConditionContext(
-                        runtimeSettingsStore.snapshot().globalVariables.toTemplateMap(),
-                    )
-                },
-                writeGlobalVariable = { name, value ->
-                    // 先等落盘完成再更新运行时快照：DataStore 写失败时本次运行只保留局部变量，
-                    // 不能让引擎误以为全局值已经生效。
-                    ConfigProvider.setGlobalVariable(name, value)
-                    val updated = runtimeSettingsStore.applyGlobalVariable(name, value)
-                    refreshGestureButtons(
-                        delayMs = 0L,
-                        automationKeys = setOf(hunoia.luno.runtime.automation.AutomationEventKey.VARIABLE),
-                        globalVariablesOverride = updated,
-                    )
-                },
-            ),
         )
-    }
-
-    /** 同规则重入控制：规则 id → 正在跑的 Job 列表（ALLOW_PARALLEL 时一个 id 可有多条）。 */
-    private val runningRuleJobs = mutableMapOf<String, MutableList<Job>>()
-
-    /** 跳过诊断节流：同规则同原因 60s 内只落一条，避免通知风暴把历史写爆。 */
-    private val skipLogGate = mutableMapOf<Pair<String, String>, Long>()
-
-    private val sequenceExecutor = SequenceExecutor(
-        runSingleAction = { action, ctx, variables ->
-            actionDispatcher.runStepAction(action, ctx, variables)
-        },
-        resolveTemplate = { text, ctx, variables ->
-            actionDispatcher.resolveStepTemplate(text, ctx, variables)
-        },
-        refreshContext = { buildRuntimeState(peekPulses = true).toConditionContext(
-            runtimeSettingsStore.snapshot().globalVariables.toTemplateMap(),
-        ) },
-        writeGlobalVariable = { name, value ->
-            // 先等落盘完成再更新运行时快照：DataStore 写失败时本次运行只保留局部变量，
-            // 不能让引擎误以为全局值已经生效。
-            ConfigProvider.setGlobalVariable(name, value)
-            val updated = runtimeSettingsStore.applyGlobalVariable(name, value)
-            refreshGestureButtons(
-                delayMs = 0L,
-                automationKeys = setOf(hunoia.luno.runtime.automation.AutomationEventKey.VARIABLE),
-                globalVariablesOverride = updated,
-            )
-        },
-    )
-
-    /** 权限授予/撤销后重读 Wi-Fi/蓝牙条件源；主进程经 Binder 调用。 */
-    fun refreshConditionSources() {
-        if (!started) return
-        conditionSources.refresh()
-    }
-
-    /** 运行中的规则 id：规则列表页展示「运行中」与停止入口。 */
-    fun runningRuleIds(): Set<String> = synchronized(runningRuleJobs) {
-        runningRuleJobs.filterValues { it.isNotEmpty() }.keys.toSet()
-    }
-
-    /** 手动停止一条规则的所有实例；返回是否真的有实例被取消。 */
-    fun stopRule(ruleId: String): Boolean {
-        val jobs = synchronized(runningRuleJobs) {
-            runningRuleJobs[ruleId]?.toList().orEmpty()
-        }
-        jobs.forEach { it.cancel() }
-        return jobs.isNotEmpty()
-    }
-
-    /**
-     * 编辑页「测试运行」：条件/约束按当前快照求值，步骤真实跑一次。
-     * 不经过引擎仲裁/节流，也不占单飞名额；结果经回调回到主线程。
-     */
-    fun runRuleTest(
-        rule: AutomationRule,
-        executeSteps: Boolean = true,
-        onResult: (RuleTestResult) -> Unit,
-    ) {
-        host.coroutineScope.launch {
-            val ctx = try {
-                buildRuntimeState(consumePulses = false, peekPulses = true).toConditionContext(
-                    runtimeSettingsStore.snapshot().globalVariables.toTemplateMap(),
-                )
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                // 快照构建失败也必须回调，否则编辑页会一直停在「测试运行中」。
-                withContext(Dispatchers.Main) {
-                    onResult(
-                        RuleTestResult(
-                            conditionHit = false,
-                            constraintsHit = false,
-                            executed = false,
-                            reason = (e.message ?: e.javaClass.name).take(120),
-                        )
-                    )
-                }
-                return@launch
-            }
-            val conditionHit = try {
-                rule.condition.matches(ctx)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                false
-            }
-            val constraintsEmpty = rule.constraints.items.isEmpty()
-            val constraintsHit = try {
-                constraintsEmpty || rule.constraints.matches(ctx)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                false
-            }
-            if (!executeSteps) {
-                withContext(Dispatchers.Main) {
-                    onResult(
-                        RuleTestResult(
-                            conditionHit = conditionHit,
-                            constraintsHit = constraintsHit,
-                            constraintsEmpty = constraintsEmpty,
-                            executed = false,
-                            reason = RuleTestResult.CONDITION_ONLY,
-                        )
-                    )
-                }
-                return@launch
-            }
-            val result = try {
-                val records = if (rule.maxRunMs > 0L) {
-                    withTimeoutOrNull(rule.maxRunMs) {
-                        sequenceExecutor.runSteps(
-                            rule.effect.steps,
-                            ctx,
-                            runtimeSettingsStore.snapshot().globalVariables.toTemplateMap().toMutableMap(),
-                        )
-                    }
-                } else {
-                    sequenceExecutor.runSteps(
-                        rule.effect.steps,
-                        ctx,
-                        runtimeSettingsStore.snapshot().globalVariables.toTemplateMap().toMutableMap(),
-                    )
-                }
-                if (records == null) {
-                    RuleTestResult(
-                        conditionHit = conditionHit,
-                        constraintsHit = constraintsHit,
-                        constraintsEmpty = constraintsEmpty,
-                        executed = true,
-                        reason = ExecutionReason.TIMEOUT,
-                    )
-                } else {
-                    RuleTestResult(
-                        conditionHit = conditionHit,
-                        constraintsHit = constraintsHit,
-                        constraintsEmpty = constraintsEmpty,
-                        executed = true,
-                        steps = records,
-                        reason = records.firstOrNull { !it.ok && !it.skipped }?.let {
-                            ExecutionReason.INTERRUPTED_PREFIX + it.index
-                        } ?: ExecutionReason.OK,
-                    )
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                RuleTestResult(
-                    conditionHit = conditionHit,
-                    constraintsHit = constraintsHit,
-                    constraintsEmpty = constraintsEmpty,
-                    executed = true,
-                    reason = (e.message ?: e.javaClass.name).take(120),
-                )
-            }
-            withContext(Dispatchers.Main) { onResult(result) }
-        }
-    }
-
-    /** 跳过诊断：同规则同原因窗口内只留一条，内容不含通知原文。 */
-    private fun logSkip(ruleId: String, ruleName: String, nowMs: Long, reason: String) {
-        val at = if (nowMs > 0L) nowMs else SystemClock.uptimeMillis()
-        val shouldLog = synchronized(skipLogGate) {
-            val key = ruleId to reason
-            val lastAt = skipLogGate[key]
-            if (lastAt != null && at - lastAt < SKIP_LOG_WINDOW_MS) {
-                false
-            } else {
-                skipLogGate[key] = at
-                true
-            }
-        }
-        if (!shouldLog) return
-        host.coroutineScope.launch {
-            ConfigProvider.appendAutomationEvent(
-                AutomationEvent(
-                    ruleId = ruleId,
-                    ruleName = ruleName,
-                    timeMs = at,
-                    wallTimeMs = System.currentTimeMillis(),
-                    fired = false,
-                    reason = reason,
-                )
-            )
-        }
-    }
-
-    private val automationEngine = AutomationEngine(
-        onFireRule = { rule, ctx ->
-            if (!launchRuleExecution(rule, ctx)) {
-                logSkip(rule.id, rule.name, ctx.nowMs, SkipReason.RULE_BUSY.code)
-            }
-        },
-        onEvents = { events ->
-            // 一轮求值的跳过事件合成一次写盘（引擎侧已攒批）。
-            // Release 也保留诊断，但同规则同原因 60s 内只留一条：
-            // 既能让用户看到「为什么没触发」，又不会让吵闹通知源把历史写爆。
-            if (events.isNotEmpty()) {
-                val toWrite = if (BuildConfig.DEBUG) {
-                    events
-                } else {
-                    events.filter { logSkipGateAllows(it) }
-                }
-                if (toWrite.isNotEmpty()) {
-                    host.coroutineScope.launch { ConfigProvider.appendAutomationEvents(toWrite) }
-                }
-            }
-        },
-        preflightBlockReason = { rule ->
-            // 权限预检必须在 markFired 之前：缺权限时规则没有执行，不能吃掉冷却/窗口次数。
-            val snapshot = runtimeSettingsStore.snapshot()
-            if (hunoia.luno.action.capability.RuleCapabilityScanner.report(
-                    host.context,
-                    rule,
-                    snapshot.automationRules,
-                    snapshot.actionLibrarySettings,
-                    isAccessibilityAvailable = {
-                        host.context.isAccessibilitySettingsOn(
-                            hunoia.luno.service.SideGestureService::class.java,
-                        ) || hunoia.luno.service.SideGestureService.current != null ||
-                            hunoia.luno.service.DispatchClient.isReady()
-                    },
-                    isNotificationAccessGranted = {
-                        hunoia.luno.runtime.automation.AutomationNotificationListener.isAccessGranted(it)
-                    },
-                ).hasMissing
-            ) {
-                SkipReason.PERMISSION_MISSING
-            } else {
-                null
-            }
-        },
-    )
-
-    /**
-     * 启动一条规则实例：重入判定、运行中集合登记、超时与执行记录都在这里收口。
-     * 返回 false = 被 BLOCK_NEW 拦下（调用方记 RULE_BUSY）。
-     */
-    private fun launchRuleExecution(
-        rule: AutomationRule,
-        ctx: ConditionContext,
-    ): Boolean {
-        // P3-3 触发前预检已前移到 AutomationEngine：缺能力时不会消耗节流窗口。
-        val job = synchronized(runningRuleJobs) {
-            val existing = runningRuleJobs[rule.id]?.toList().orEmpty()
-            if (existing.isNotEmpty() && rule.reentry == RuleReentry.BLOCK_NEW) {
-                null
-            } else {
-                if (existing.isNotEmpty() && rule.reentry == RuleReentry.STOP_CURRENT_AND_RUN_NEW) {
-                    // 取消是协作式的：旧实例若卡在不响应取消的动作里，新旧会短暂重叠。
-                    // 不在这里 join，避免新触发被旧动作拖住。
-                    existing.forEach { it.cancel() }
-                }
-                val newJob = host.coroutineScope.launch(start = CoroutineStart.LAZY) {
-                    try {
-                        val records = if (rule.maxRunMs > 0L) {
-                            withTimeoutOrNull(rule.maxRunMs) {
-                                sequenceExecutor.runSteps(
-                                    rule.effect.steps,
-                                    ctx,
-                                    runtimeSettingsStore.snapshot().globalVariables.toTemplateMap().toMutableMap(),
-                                )
-                            }
-                        } else {
-                            sequenceExecutor.runSteps(
-                                rule.effect.steps,
-                                ctx,
-                                runtimeSettingsStore.snapshot().globalVariables.toTemplateMap().toMutableMap(),
-                            )
-                        }
-                        // STOP_CURRENT_AND_RUN_NEW / 手动停止是协作式取消：动作即使吞掉取消，
-                        // 也不能再落一条“已完成”的历史。
-                        if (!isActive) return@launch
-                        if (records == null) {
-                            ConfigProvider.appendAutomationEvent(
-                                AutomationEvent(
-                                    ruleId = rule.id,
-                                    ruleName = rule.name,
-                                    timeMs = ctx.nowMs, wallTimeMs = System.currentTimeMillis(),
-                                    fired = true,
-                                    reason = ExecutionReason.TIMEOUT,
-                                )
-                            )
-                        } else {
-                            val reason = records.firstOrNull { !it.ok && !it.skipped }?.let {
-                                ExecutionReason.INTERRUPTED_PREFIX + it.index
-                            } ?: ExecutionReason.OK
-                            ConfigProvider.appendAutomationEvent(
-                                AutomationEvent(
-                                    ruleId = rule.id,
-                                    ruleName = rule.name,
-                                    timeMs = ctx.nowMs, wallTimeMs = System.currentTimeMillis(),
-                                    fired = true,
-                                    reason = reason,
-                                    steps = records,
-                                )
-                            )
-                        }
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        // 同上：已取消的实例不再补写历史。
-                        if (!isActive) return@launch
-                        ConfigProvider.appendAutomationEvent(
-                            AutomationEvent(
-                                ruleId = rule.id,
-                                ruleName = rule.name,
-                                timeMs = ctx.nowMs, wallTimeMs = System.currentTimeMillis(),
-                                fired = true,
-                                reason = (e.message ?: e.javaClass.name).take(120),
-                            )
-                        )
-                    }
-                }
-                runningRuleJobs.getOrPut(rule.id) { mutableListOf() }.add(newJob)
-                newJob
-            }
-        } ?: return false
-        // 先登记再挂完成回调：scope 已取消时 LAZY 任务可能在挂回调前就完成，
-        // 先入表能保证回调仍会把它清掉。
-        job.invokeOnCompletion {
-            synchronized(runningRuleJobs) {
-                val list = runningRuleJobs[rule.id] ?: return@invokeOnCompletion
-                list.remove(job)
-                if (list.isEmpty()) runningRuleJobs.remove(rule.id)
-            }
-        }
-        job.start()
-        return true
-    }
-
-    /** onEvents 用：与 [logSkip] 共用窗口，但返回是否应写入。 */
-    private fun logSkipGateAllows(event: AutomationEvent): Boolean = synchronized(skipLogGate) {
-        val at = if (event.timeMs > 0L) event.timeMs else SystemClock.uptimeMillis()
-        val key = event.ruleId to event.reason
-        val lastAt = skipLogGate[key]
-        if (lastAt != null && at - lastAt < SKIP_LOG_WINDOW_MS) {
-            false
-        } else {
-            skipLogGate[key] = at
-            true
-        }
     }
 
     private val buttonRefreshCoordinator = ButtonRefreshCoordinator(
@@ -854,18 +430,19 @@ class GestureCoordinator(
         buttonWindowController = buttonWindowController,
     )
 
-    /** 触钮 Surface：短态只关触摸，恢复按真实显隐策略重算，长态统一 release。 */
+    /** 触钮 Surface：软隐藏只改输入位，恢复按真实显隐策略重算，长态统一 release。 */
     private val buttonSurfaceHandle = object : hunoia.luno.runtime.surface.SurfaceHandle {
         override val surfaceId: String = "gesture-buttons"
         override val surfaceKind: hunoia.luno.runtime.surface.SurfaceKind =
             hunoia.luno.runtime.surface.SurfaceKind.BUTTON
 
         override fun softHide() {
-            buttonWindowController.setTouchable(false)
+            buttonWindowController.setSoftHidden(true)
         }
 
         override fun restore() {
-            buttonRefreshCoordinator.refresh(buildRuntimeState(consumePulses = false))
+            buttonWindowController.setSoftHidden(false)
+            buttonRefreshCoordinator.refresh(buildRuntimeState())
         }
 
         override fun detach() {
@@ -874,13 +451,6 @@ class GestureCoordinator(
         }
     }
 
-    private val automationRuntime = AutomationRuntime(
-        runtimeSettingsStore = runtimeSettingsStore,
-        buildRuntimeState = ::buildRuntimeState,
-        automationEngine = automationEngine,
-        onVisibilityRefresh = { state -> buttonRefreshCoordinator.refresh(state) },
-        discardPulses = { environmentTracker.discardPendingPulses() },
-    )
 
     private val volumeScrubRuntime = VolumeScrubRuntime(
         context = host.context,
@@ -918,6 +488,94 @@ class GestureCoordinator(
     /** 动作面板的 Shown/Dismissed 是否由「visible」路径补发（触钮直发路径）。 */
     private var actionPanelVisibilityEventPosted = false
     private var wallpaperColorsListener: WallpaperManager.OnColorsChangedListener? = null
+
+    /**
+     * 手势会话管线：输入源无关。触钮固定由无障碍按钮窗投喂；
+     * Shizuku 内核触摸流只服务全屏长按识屏，不再参与触钮识别。
+     */
+    private var gesturePipelineRef: hunoia.luno.runtime.gesturepanel.GestureSessionPipeline? = null
+
+    private val gesturePipeline: hunoia.luno.runtime.gesturepanel.GestureSessionPipeline
+        get() = gesturePipelineRef ?: hunoia.luno.runtime.gesturepanel.GestureSessionPipeline(
+            host.coroutineScope,
+            callbacks,
+        ).also { gesturePipelineRef = it }
+
+    /** 触钮的唯一触摸路径：无障碍按钮窗投递的 `MotionEvent`。 */
+    private var motionEventInputRef: hunoia.luno.gesture.touchsource.MotionEventInputSource? = null
+
+    private val motionEventInput: hunoia.luno.gesture.touchsource.MotionEventInputSource
+        get() = motionEventInputRef ?: hunoia.luno.gesture.touchsource.MotionEventInputSource(
+            pipeline = gesturePipeline,
+        ).also { motionEventInputRef = it }
+
+    private var shizukuTouchInputRef: hunoia.luno.gesture.touchsource.ShizukuTouchInputSource? = null
+
+    /**
+     * 内核触摸流输入源：只服务全屏长按识屏（不拦截、不仲裁、不参与触钮）。
+     * 宿主就是无障碍服务本身：手势管线与面板都依赖无障碍窗口。
+     */
+    private val shizukuTouchInput: hunoia.luno.gesture.touchsource.ShizukuTouchInputSource
+        get() = shizukuTouchInputRef ?: hunoia.luno.gesture.touchsource.ShizukuTouchInputSource(
+            context = host.context,
+            scope = host.coroutineScope,
+        ).also { shizukuTouchInputRef = it }
+
+    /** 把配置快照推给管线；按钮/手势参数变化会重建识别状态，此时旧会话作废。 */
+    private fun syncGesturePipeline() {
+        val state = runtimeSettingsStore.snapshot()
+        val recreated = gesturePipeline.update(
+            hunoia.luno.runtime.gesturepanel.GesturePipelineSettings(
+                buttons = state.gestureButtons,
+                actionPanels = state.actionSettings.actionPanels.panels,
+                advancedSettings = state.advancedSettings,
+                gestureSettings = state.gestureSettings,
+                subGestureSettings = state.subGestureSettings,
+                actionPanelStyle = state.actionSettings.actionPanelStyle,
+            ),
+        )
+        if (recreated) motionEventInput.reset()
+    }
+
+    /**
+     * 内核触摸流只为「全屏长按识屏」而启停：手势总开关与识屏开关都开才跑。
+     * 触钮固定走无障碍按钮窗，不再触发内核触摸流。
+     */
+    private fun syncTouchInputSources() {
+        val state = runtimeSettingsStore.snapshot()
+        val gestureEnabled = state.initialSettings.gestureEnabled
+        motionEventInput.start()
+        if (gestureEnabled && state.initialSettings.screenPickGesture.enabled) {
+            shizukuTouchInput.start()
+        } else if (shizukuTouchInput.isRunning) {
+            // 只在真的在跑时停：无谓 stop 会掐断进行中的全局长按会话。
+            shizukuTouchInput.stop()
+        }
+        // 识屏长按复用这一股内核触摸流：把每帧喂给长按检测器。
+        // 触钮固定走无障碍窗，内核流不消费也不仲裁，因此这里只做“自家界面让位”。
+        shizukuTouchInput.globalFrameListener = listener@{ point, action ->
+            if (action == TouchAction.Down) {
+                val service = hunoia.luno.service.SideGestureService.current
+                // Luno 自己的界面不参与“全局长按识屏”：
+                // - 识屏层在屏：长按由窗口自己的手势处理（否则会双触发）；
+                // - 搜索/网格/动作面板在屏：那是面板交互；
+                // - 前台是自家 Activity，或触点落在自家窗口（浮球/面板）上。
+                if (service == null ||
+                    service.isScreenPickVisible() ||
+                    service.isScreenPickPortalVisible()
+                ) {
+                    return@listener
+                }
+                if (openPanels.hasOpenPanels) return@listener
+                if (service.isOwnUiForeground() ||
+                    service.isOwnWindowAt(point.x.toInt(), point.y.toInt())
+                ) {
+                    return@listener
+                }
+            }
+            globalScreenPickTrigger.onFrame(point, action)
+        }
+    }
 
     private val callbacks: GestureOverlayCallbacks = object : GestureOverlayCallbacks {
         override fun onSubGestureModeChanged(inSubGesture: Boolean, center: Offset, radiusPx: Int) {
@@ -1020,6 +678,33 @@ class GestureCoordinator(
         )
     }
 
+    /**
+     * 临时会话收口：总开关关闭 / 锁屏共用。把已展开的会话与浮层全部收口，
+     * 避免“总闸关了或已经锁屏，面板还盖在屏幕上”。
+     * 触钮/悬浮球各自的可见性由 ButtonRuntime / FloatBallService 处理；这里只负责
+     * 已经打开的临时 Surface 与手势会话。
+     */
+    private fun closeTransientSurfaces() {
+        gesturePipelineRef?.let { pipeline ->
+            pipeline.actionPanelState.cancel()
+            pipeline.sideGestureState.cancel()
+            pipeline.subGestureState.clear(notifyService = false)
+        }
+        actionPanelFullscreen = false
+        pointerCursorHosted = false
+        syncMainOverlayFullscreen()
+        transientOverlayController.detachAll()
+        actionPanelDismissGeneration++
+        if (actionPanelOverlayEventPosted || actionPanelVisibilityEventPosted) {
+            actionPanelOverlayEventPosted = false
+            actionPanelVisibilityEventPosted = false
+            Events.post(PanelDismissedEvent())
+        }
+        volumeScrubRuntime.end()
+        pointerRuntime.end()
+        dismissPanelsForScreenAction()
+    }
+
     /** 手势决策唯一入口：记录后立即分发；仲裁/改写只改这里。 */
     private fun onGestureDecision(
         decision: hunoia.luno.gesture.GestureDecision.Trigger?,
@@ -1034,18 +719,17 @@ class GestureCoordinator(
                     "button=${sourceButton?.id} action=${action.typeId}",
             )
         }
-        // 手势触发动作与手势事件进总线是两条独立路径：前者立即执行，后者供自动化规则订阅。
-        environmentTracker.onGesturePerformed(sourceButton?.id ?: "", sourceButton?.name.orEmpty())
         // 真手势按物理触点归侧广播：悬浮球碰哪侧即时跟到哪侧。
-        // 判据包含「有 sourceButton」：触钮上的**点按**动作 decision 可能为空，
-        // 旧实现只认 decision != null，表现为只有会产 decision 的按钮能跟手换位。
-        // 球点按 / 面板点选走 BallTapActionEvent（sourceButton = null），仍不参与。
-        if ((decision != null || sourceButton != null) && touchPosition.x.isFinite()) {
-            Events.post(
-                TouchButtonSideEvent(
-                    leftSide = touchPosition.x < DensityProvider.screenWidthPx / 2f,
-                ),
-            )
+        // 触钮走同步命令口（[FloatBallCommand]），在动作提交**之前**换位；否则异步事件
+        // 晚于动作到达，球已被打开的面板/按压态占用，repositionTo 失败且不重试。
+        // 其他手势仍走事件；球点按 / 面板点选（sourceButton = null 且无 decision）不参与。
+        if (touchPosition.x.isFinite()) {
+            val leftSide = touchPosition.x < DensityProvider.screenWidthPx / 2f
+            if (sourceButton != null) {
+                hunoia.luno.runtime.floatball.FloatBallCommand.requestFollowHandSwap?.invoke(leftSide)
+            } else if (decision != null) {
+                Events.post(TouchButtonSideEvent(leftSide = leftSide))
+            }
         }
         val touch = if (touchPosition.x.isFinite() && touchPosition.y.isFinite()) {
             touchPosition.x.roundToInt() to touchPosition.y.roundToInt()
@@ -1059,9 +743,6 @@ class GestureCoordinator(
                 request = hunoia.luno.core.domain.ActionRequest(
                     stored = action.withoutVariantKey(),
                     origin = hunoia.luno.core.domain.DispatchOrigin.GESTURE,
-                ),
-                snapshot = buildRuntimeState(peekPulses = true).toConditionContext(
-                    runtimeSettingsStore.snapshot().globalVariables.toTemplateMap(),
                 ),
                 touchPosition = touch,
                 sourceButtonId = sourceButton?.id,
@@ -1124,58 +805,10 @@ class GestureCoordinator(
         }
     }
 
-    /** 分发落定后驱动 GESTURE 域评估。 */
+    /** 分发落定后刷新触钮可见性。 */
     private val gestureDispatchSubscriber: (hunoia.luno.gesture.event.GestureDispatchEvent) -> Unit = { event ->
-        if (event.fromGesture) {
-            refreshGestureButtons(delayMs = 0L, automationKeys = setOf(AutomationEventKey.GESTURE))
-        }
+        if (event.fromGesture) refreshGestureButtons(delayMs = 0L)
     }
-
-    /** 通知脉冲：驱动 NOTIFICATION 域评估（Hub 现为多观察者，胶囊悬浮球也订阅同一源）。 */
-    private val notificationObserver: (hunoia.luno.runtime.condition.NotificationPulse) -> Unit = { pulse ->
-        environmentTracker.onNotificationPosted(pulse)
-        refreshGestureButtons(automationKeys = setOf(AutomationEventKey.NOTIFICATION))
-    }
-
-    private val notificationRemovedObserver: (hunoia.luno.runtime.condition.NotificationPulse) -> Unit = { pulse ->
-        environmentTracker.onNotificationRemoved(pulse)
-        refreshGestureButtons(automationKeys = setOf(AutomationEventKey.NOTIFICATION))
-    }
-
-    private val notificationStateObserver: () -> Unit = {
-        refreshGestureButtons(delayMs = 0L, automationKeys = setOf(AutomationEventKey.NOTIFICATION))
-    }
-
-    /** 剪贴板球/面板读到新文本；不承诺后台实时监听。 */
-    private val clipboardObserver: (String) -> Unit = { text ->
-        environmentTracker.onClipboardChanged(
-            hunoia.luno.runtime.condition.ClipboardPulse(text),
-        )
-        refreshGestureButtons(delayMs = 0L, automationKeys = setOf(AutomationEventKey.CLIPBOARD))
-    }
-
-    private val packageChangeListener: (hunoia.luno.bridge.system.PackageChangeEvent) -> Unit = { event ->
-        environmentTracker.onPackageChanged(
-            hunoia.luno.runtime.condition.PackageChangePulse(event.action, event.packageName),
-        )
-        refreshGestureButtons(delayMs = 0L, automationKeys = setOf(AutomationEventKey.PACKAGE))
-    }
-
-    private val shareReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action != AutomationShareBridge.ACTION) return
-            val text = intent.getStringExtra(AutomationShareBridge.EXTRA_TEXT) ?: return
-            val source = intent.getStringExtra(AutomationShareBridge.EXTRA_SOURCE).orEmpty()
-            val url = hunoia.luno.link.LinkUrls.extractUrls(text).firstOrNull()
-            environmentTracker.onShareReceived(
-                hunoia.luno.runtime.condition.SharePulse(text, url, source),
-            )
-            refreshGestureButtons(delayMs = 0L, automationKeys = setOf(AutomationEventKey.SHARE))
-        }
-    }
-
-    /** 勿扰变化由通知监听服务推入（需通知访问权限）。 */
-    private val interruptionObserver: (Boolean) -> Unit = { on -> dndTracker.onSystemChanged(on) }
 
     /**
      * 部件被点后每 40ms 看一次应用窗口列表：新应用窗口一出现就收口，
@@ -1240,7 +873,7 @@ class GestureCoordinator(
 
     private fun onKeyboardStateChanged(active: Boolean) {
         if (BuildConfig.DEBUG) Log.i(LOG_TAG, "keyboard active=$active")
-        refreshGestureButtons(automationKeys = setOf(AutomationEventKey.KEYBOARD))
+        refreshGestureButtons()
         if (active) startKeyboardWatch() else stopKeyboardWatch()
     }
 
@@ -1270,41 +903,25 @@ class GestureCoordinator(
             hunoia.luno.gesture.event.GestureDispatchEvent::class,
             gestureDispatchSubscriber,
         )
-        // 链接分发经执行口启动：本进程内可等待，主进程走 IPC。
-        hunoia.luno.link.LocalDispatch.provider = { action ->
-            actionDispatcher.execute(
-                hunoia.luno.execute.ExecuteCall(
-                    request = hunoia.luno.core.domain.ActionRequest(
-                        stored = action.withoutVariantKey(),
-                        origin = hunoia.luno.core.domain.DispatchOrigin.LINK,
+        // 链接分发经执行口启动：本进程内可等待，主进程走 IPC 回退。
+        hunoia.luno.runtime.dispatch.ActionDispatch.installAwaitable(
+            hunoia.luno.core.domain.AwaitableActionDispatch { request ->
+                actionDispatcher.execute(
+                    hunoia.luno.execute.ExecuteCall(
+                        request = request.copy(stored = request.stored.withoutVariantKey()),
                     ),
-                ),
-            ).succeeded
-        }
+                ).succeeded
+            },
+        )
         runtimeSettingsStore.start()
+        // 先按当前快照把管线和输入源建起来，再挂 overlay：否则首帧渲染时管线还是空配置，
+        // 开局几毫秒内的触摸会解析不到任何触钮。
+        syncGesturePipeline()
+        syncTouchInputSources()
         broadcastObserver.register()
-        batteryTracker.register()
-        audioVolumeTracker.sync(volumePollNeeded())
-        conditionSources.start()
         // 键盘状态无法像 orientation/锁屏那样在构造期播种（rootInActiveWindow 需服务连接后才有），
         // 放这里：早于首评的设置收集器，此刻 root 已可查询。
         environmentTracker.seedKeyboardInputActive()
-        // 通知脉冲：同 :service 进程静态直连；destroy 时移除，避免野回调。
-        AutomationPulseHub.addNotificationObserver(notificationObserver)
-        AutomationPulseHub.addNotificationRemovedObserver(notificationRemovedObserver)
-        AutomationPulseHub.addNotificationStateObserver(notificationStateObserver)
-        AutomationPulseHub.addClipboardObserver(clipboardObserver)
-        PackageChangeReceiver.registerForEvents(host.context, packageChangeListener)
-        runCatching {
-            host.context.registerReceiver(
-                shareReceiver,
-                IntentFilter(AutomationShareBridge.ACTION),
-                Context.RECEIVER_NOT_EXPORTED,
-            )
-        }
-        // 勿扰变化由通知监听服务推入（需通知访问权限）；订阅即回放当前基线。
-        AutomationPulseHub.addInterruptionObserver(interruptionObserver)
-        dndTracker.refreshFromSystem()
         val listener = WallpaperManager.OnColorsChangedListener { _, _ ->
             hunoia.luno.core.Events.post(hunoia.luno.core.WallpaperChangedEvent())
         }
@@ -1319,11 +936,13 @@ class GestureCoordinator(
                 .collectLatest { state ->
                     if (BuildConfig.DEBUG) Log.i(LOG_TAG, "gesture buttons changed: count=${state.gestureButtons.size}")
                     buttonWindowController.replaceGestureButtons(state.gestureButtons)
+                    // 按钮集合变了（窗口增删）：旧会话不可能再收到 UP，先作废再重算。
+                    motionEventInputRef?.reset()
                     refreshGestureButtons(delayMs = 0L)
                 }
         }
 
-        // 总开关（initialSettings.gestureEnabled）翻转时 gestureButtons/automationRules 都不变，
+        // 总开关（initialSettings.gestureEnabled）翻转时 gestureButtons 不变，
         // 上面两个 distinctUntilChangedBy 会过滤掉这次变更、不触发刷新；这里单独订阅兜底。
         scopeJobs += host.coroutineScope.launch {
             runtimeSettingsStore.state
@@ -1331,9 +950,20 @@ class GestureCoordinator(
                 .collect { refreshGestureButtons(delayMs = 0L) }
         }
 
+        // 手势会话管线与输入源跟随配置：按钮、面板、参数、输入模式任一变化都走同一条同步。
+        // 先同步配置再决定输入源，避免用旧快照建拦截窗。
+        scopeJobs += host.coroutineScope.launch {
+            runtimeSettingsStore.state.collect { state ->
+                syncGesturePipeline()
+                syncTouchInputSources()
+                if (!state.initialSettings.gestureEnabled) closeTransientSurfaces()
+            }
+        }
+
         scopeJobs += host.coroutineScope.launch(Dispatchers.IO) {
-            // 用面板真正展示的那份查询（allowRepeatPackage=false，且含禁用应用），
+            // 用面板真正展示的那份查询（allowRepeatPackage=false，含禁用应用/分身/系统包开关），
             // 而不是 queryApps —— 后者列表不同，预热出来的索引对不上。
+            hunoia.luno.quicklaunch.query.AppCatalog.refreshSystemSetting()
             val list = DisabledAppQuery.queryQuickAppLauncherApps(host.context)
             ConfigProvider.writeQuickAppSnapshot(
                 QuickAppSnapshot(
@@ -1345,23 +975,6 @@ class GestureCoordinator(
             AppSearch.warmIndexes(list.apps)
         }
 
-        scopeJobs += host.coroutineScope.launch {
-            var firstRuleEmission = true
-            runtimeSettingsStore.state
-                .distinctUntilChangedBy { it.automationRules }
-                .collect { state ->
-                    timeConditionTicker.sync(state.automationRules)
-                    audioVolumeTracker.sync(volumePollNeeded(state.automationRules))
-                    musicTracker.sync(musicConditionNeeded(state.automationRules))
-                    torchTracker.sync(torchConditionNeeded(state.automationRules))
-                    dndTracker.refreshFromSystem()
-                    if (firstRuleEmission) {
-                        firstRuleEmission = false
-                    } else {
-                        refreshGestureButtons(delayMs = 0L)
-                    }
-                }
-        }
     }
 
     /** 无障碍窗口列表里的应用窗口包名；需要 flagRetrieveInteractiveWindows，失败时返回空集。 */
@@ -1459,7 +1072,7 @@ class GestureCoordinator(
             if (hunoia.luno.gridpanel.widget.PanelAppWidgetHostView.hasRecentTap()) {
                 appWindowPackages = currentAppWindowPackages()
             }
-            refreshGestureButtons(automationKeys = setOf(AutomationEventKey.APP))
+            refreshGestureButtons()
         }
     }
 
@@ -1487,23 +1100,20 @@ class GestureCoordinator(
             hunoia.luno.gesture.event.GestureDispatchEvent::class,
             gestureDispatchSubscriber,
         )
-        hunoia.luno.link.LocalDispatch.provider = null
-        AutomationPulseHub.removeNotificationObserver(notificationObserver)
-        AutomationPulseHub.removeNotificationRemovedObserver(notificationRemovedObserver)
-        AutomationPulseHub.removeNotificationStateObserver(notificationStateObserver)
-        AutomationPulseHub.removeClipboardObserver(clipboardObserver)
-        PackageChangeReceiver.unregisterForEvents(host.context, packageChangeListener)
-        runCatching { host.context.unregisterReceiver(shareReceiver) }
-        AutomationPulseHub.removeInterruptionObserver(interruptionObserver)
+        hunoia.luno.runtime.dispatch.ActionDispatch.installAwaitable(null)
+        openPanels.close()
         runtimeSettingsStore.stop()
-        timeConditionTicker.stop()
-        batteryTracker.unregister()
-        audioVolumeTracker.unregister()
-        musicTracker.unregister()
-        torchTracker.unregister()
-        conditionSources.stop()
         scopeJobs.forEach { it.cancel() }
         scopeJobs.clear()
+        // 只在真的建过时释放：这三个对象是惰性创建的，没建过就不该为了 release 而创建。
+        gesturePipelineRef?.let { pipeline ->
+            motionEventInputRef?.stop()
+            shizukuTouchInputRef?.stop()
+            pipeline.release()
+        }
+        motionEventInputRef = null
+        shizukuTouchInputRef = null
+        gesturePipelineRef = null
         if (BuildConfig.DEBUG) Log.i(LOG_TAG, "GestureCoordinator release")
         mainOverlayController.release()
         hunoia.luno.runtime.surface.SurfaceController.detachAll(
@@ -1512,6 +1122,8 @@ class GestureCoordinator(
         // 销毁不经过 callbacks 的配对隐藏（那里各自发 PanelDismissed）：挂着面板被销毁时
         // 按拆掉的数量补发，否则 FloatBallService 的 panelCount 卡住、球一直隐藏。
         actionPanelDismissGeneration++
+        refreshJob?.cancel()
+        refreshJob = null
         if (actionPanelVisibilityEventPosted) {
             actionPanelVisibilityEventPosted = false
             Events.post(PanelDismissedEvent())
@@ -1533,73 +1145,23 @@ class GestureCoordinator(
         }
     }
 
-    private fun buildRuntimeState(consumePulses: Boolean = true, peekPulses: Boolean = false): GestureRuntimeState =
+    private fun buildRuntimeState(): GestureRuntimeState =
         environmentTracker.buildRuntimeState(
             hiddenGestureButtons = buttonHideRuntime.getSnapshot(),
-            isCharging = batteryTracker.isCharging,
-            batteryLevel = batteryTracker.batteryLevel,
-            networkType = conditionSources.networkType,
-            wifiSsid = conditionSources.wifiSsid,
-            headphonesConnected = conditionSources.headphonesConnected,
-            bluetoothAdapterOn = conditionSources.bluetoothAdapterOn,
-            bluetoothAudioConnected = conditionSources.bluetoothAudioConnected,
-            bluetoothDeviceName = conditionSources.bluetoothDeviceName,
-            bluetoothDeviceAddress = conditionSources.bluetoothDeviceAddress,
-            activeNotifications = hunoia.luno.runtime.automation.AutomationNotificationListener.activePulses(),
-            airplaneMode = conditionSources.airplaneMode,
-            ringerMode = audioVolumeTracker.ringerMode,
-            volumePercent = audioVolumeTracker.volumePercent,
-            isMusicPlaying = musicTracker.isPlaying,
-            isTorchOn = torchTracker.isOn,
-            isDndOn = dndTracker.isOn,
-            consumePulses = consumePulses,
-            peekPulses = peekPulses,
         )
 
-    private fun volumePollNeeded(rules: List<hunoia.luno.config.model.AutomationRule>? = null): Boolean {
-        val list = rules ?: runtimeSettingsStore.snapshot().automationRules
-        // 只看启用规则：纯禁用规则不该让音量轮询空转。
-        return list.any { rule -> rule.enabled && rule.condition.hasVolumeCondition() }
-    }
-
-    private fun musicConditionNeeded(rules: List<hunoia.luno.config.model.AutomationRule>? = null): Boolean {
-        val list = rules ?: runtimeSettingsStore.snapshot().automationRules
-        return list.any { rule -> rule.enabled && rule.condition.hasMusicCondition() }
-    }
-
-    private fun torchConditionNeeded(rules: List<hunoia.luno.config.model.AutomationRule>? = null): Boolean {
-        val list = rules ?: runtimeSettingsStore.snapshot().automationRules
-        return list.any { rule -> rule.enabled && rule.condition.hasTorchCondition() }
-    }
-
-    private fun refreshGestureButtons(
-        delayMs: Long = 100L,
-        automationKeys: Set<String> = emptySet(),
-        globalVariablesOverride: GlobalVariables? = null,
-    ) {
-        synchronized(pendingAutomationKeys) {
-            pendingAutomationKeys.addAll(automationKeys)
-            // 已有延迟刷新在等待：键并进去，不再 cancel 重建。
-            // 不能用 cancel + delay 去抖：事件间隔 <100ms 时刷新会被无限推迟。
-            if (delayMs > 0L && refreshPending) return
-            refreshPending = delayMs > 0L
-        }
+    private fun refreshGestureButtons(delayMs: Long = 100L) {
         refreshJob?.cancel()
         refreshJob = host.coroutineScope.launch {
             if (delayMs > 0L) delay(delayMs)
-            // 空集=通用刷新：累积键为空才走通用分支（evaluate 空集只评估含状态叶子的规则）。
-            val keys = synchronized(pendingAutomationKeys) {
-                refreshPending = false
-                pendingAutomationKeys.toSet().also { pendingAutomationKeys.clear() }
-            }
-            automationRuntime.evaluate(keys, globalVariablesOverride)
+            buttonRefreshCoordinator.refresh(buildRuntimeState())
         }
     }
 
     @Composable
     private fun renderMainOverlay() {
         hunoia.luno.runtime.overlay.GestureOverlayView(
-            callbacks = callbacks,
+            pipeline = gesturePipeline,
             settingsState = runtimeSettingsStore.state,
         )
     }

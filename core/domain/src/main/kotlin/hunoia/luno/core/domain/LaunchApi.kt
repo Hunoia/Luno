@@ -18,6 +18,8 @@ data class LaunchSpec(
     val intentAction: String = "",
     val data: String = "",
     val extras: Map<String, String> = emptyMap(),
+    /** 目标用户：0 = 主用户，其他值 = 分身。 */
+    val userId: Int = 0,
 )
 
 /**
@@ -42,8 +44,8 @@ interface AppLauncher {
         queryParameters: List<QueryParam> = emptyList(),
     ): Boolean
 
-    /** 打开应用详情页（设置页）。 */
-    suspend fun openAppDetails(packageName: String): ActionResult
+    /** 打开应用详情页（设置页）；userId 非 0 时打开对应分身实例的详情。 */
+    suspend fun openAppDetails(packageName: String, userId: Int = 0): ActionResult
 }
 
 /**

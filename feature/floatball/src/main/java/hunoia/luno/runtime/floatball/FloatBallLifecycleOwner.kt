@@ -16,10 +16,10 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
  * 给 `ComposeView` 用的最小生命周期宿主：`ComposeView` 在 `onAttachedToWindow` 时会向上找
  * `ViewTreeLifecycleOwner`/`ViewTreeViewModelStoreOwner`/`ViewTreeSavedStateRegistryOwner`，
  * 三者缺一就抛 `IllegalStateException`；`FloatBallService` 是普通 Service 一个都没有，必须自己补。
- * 生命周期默认只推到 CREATED：推到 RESUMED 会让 `LaunchedEffect`/`snapshotFlow` 真正跑起来，
- * 球不需要活跃期，停在 CREATED 既够用也避免不可见时仍跑协程。
- * 瞬态胶囊例外（[createAndAttachTo] 的 active=true）：它只有几秒寿命，且 `produceState`
- * 加载应用图标、新内容换文案都需要 effects/重组真正运行。
+ * 生命周期默认只推到 CREATED；[createAndAttachTo] 的 active=true 推到 RESUMED。
+ *
+ * CREATED 下重组不会真正上屏：悬浮球的动作图标/颜色、瞬态胶囊的内容更新都需要
+ * 状态驱动重组，所以主球与胶囊一律用 active=true。
  */
 class FloatBallLifecycleOwner private constructor() :
     LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {

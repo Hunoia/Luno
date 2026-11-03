@@ -10,26 +10,34 @@ import hunoia.luno.action.model.Action
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
 import hunoia.luno.bridge.system.copyText
-import kotlin.math.roundToInt
+import hunoia.luno.bridge.system.readClipboardText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import android.view.Choreographer
 import kotlin.coroutines.resume
 
-/** 注入触点前隐藏触钮的时长：要盖住整段注入（tap 100ms / 长按 durationMs）之后再让触钮回来。 */
+/** 注入触点前隐藏触钮的时长：要盖住整段注入（tap 100ms）之后再让触钮回来。 */
 private const val BUTTON_HIDE_MS = 250L
-
 /** 隐藏触钮后等它真正不可触的帧数（WM 事务要等一次 traversal 才落到输入分发）。 */
 private const val BUTTON_HIDE_SETTLE_FRAMES = 2
+
+// shell 兜底用的键码：无障碍不在位时仍要能把导航类动作做完。
+private const val KEYCODE_BACK = 4
+private const val KEYCODE_HOME = 3
+private const val KEYCODE_APP_SWITCH = 187
+private const val KEYCODE_POWER = 26
+private const val KEYCODE_SLEEP = 223
 
 class AccessibilityExecutors(private val controller: AccessibilityController) : ActionExecutor {
 
     override val supportedTypes: Set<String> = setOf(
         "accessibility.back", "accessibility.home", "accessibility.recents",
-        "accessibility.tap", "accessibility.longPress", "accessibility.doubleTap",
-        "accessibility.scroll", "accessibility.swipe",
-        "accessibility.screenshot", "accessibility.screenPick", "accessibility.screenLinks",
+        "accessibility.tap",
+        "accessibility.scrollForward", "accessibility.scrollBackward",
+        "accessibility.scrollToTop", "accessibility.scrollToBottom",
+        "accessibility.screenshot", "accessibility.screenPick",
+        "screen.annotate",
         "accessibility.splitScreen",
         "accessibility.powerButton", "accessibility.notificationPanel",
         "accessibility.quickPanel", "accessibility.lockScreen"
@@ -37,38 +45,27 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
 
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
         return when (action) {
-            is Action.Back -> executionResult(controller.back())
-            is Action.Home -> executionResult(controller.home())
-            is Action.Recents -> executionResult(controller.recents())
+            is Action.Back -> withShellFallback(controller.back()) {
+                hunoia.luno.shizuku.ShizukuInputInjection.keyEvent(KEYCODE_BACK)
+            }
+            is Action.Home -> withShellFallback(controller.home()) {
+                hunoia.luno.shizuku.ShizukuInputInjection.keyEvent(KEYCODE_HOME)
+            }
+            is Action.Recents -> withShellFallback(controller.recents()) {
+                hunoia.luno.shizuku.ShizukuInputInjection.keyEvent(KEYCODE_APP_SWITCH)
+            }
             is Action.Tap -> {
-                val (x, y) = action.targetPoint(context)
+                val (x, y) = context.touchPosition
                     ?: return ActionResult.Failed(ActionFailure.InvalidParameter)
                 hideButtonAndSettle(context)
-                executionResult(controller.click(x, y))
-            }
-            is Action.LongPress -> {
-                val (x, y) = action.targetPoint(context)
-                    ?: return ActionResult.Failed(ActionFailure.InvalidParameter)
-                hideButtonAndSettle(context)
-                executionResult(controller.longPress(x, y, action.durationMs))
-            }
-            is Action.Swipe -> {
-                val performed = when (action.direction) {
-                    hunoia.luno.action.model.SwipeDirection.UP -> controller.swipeUp()
-                    hunoia.luno.action.model.SwipeDirection.DOWN -> controller.swipeDown()
-                    hunoia.luno.action.model.SwipeDirection.LEFT -> controller.swipeLeft()
-                    hunoia.luno.action.model.SwipeDirection.RIGHT -> controller.swipeRight()
-                    hunoia.luno.action.model.SwipeDirection.TO_TOP -> controller.scrollToTop()
+                withShellFallback(controller.click(x, y)) {
+                    hunoia.luno.shizuku.ShizukuInputInjection.tap(x, y)
                 }
-                executionResult(performed)
             }
-            is Action.DoubleTap -> {
-                val (x, y) = action.targetPoint(context)
-                    ?: return ActionResult.Failed(ActionFailure.InvalidParameter)
-                hideButtonAndSettle(context)
-                executionResult(controller.doubleTap(x, y))
-            }
-            is Action.ScrollFocused -> executionResult(controller.scrollFocused(action.forward))
+            is Action.ScrollForward -> executionResult(controller.scrollFocused(true))
+            is Action.ScrollBackward -> executionResult(controller.scrollFocused(false))
+            is Action.ScrollToTop -> executionResult(controller.scrollToTop())
+            is Action.ScrollToBottom -> executionResult(controller.scrollToBottom())
             is Action.Screenshot -> {
                 // fire-and-forget：takeScreenshot 的回调是异步且无失败语义，
                 // 这里拿不到真实成败，统一按成功收口（失败静默）。
@@ -84,16 +81,25 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
                 val shown = context.showScreenPick()
                 if (shown) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
-            is Action.ScreenLinks -> {
-                // 与 screenPick 同款：只在无障碍服务里的 overlay 层上挂窗。
-                val shown = context.showScreenLinks()
+            is Action.ScreenAnnotate -> {
+                // 截屏是异步的：这里只确认「已接管」，失败由宿主 toast，不打开空画布。
+                val shown = context.showScreenAnnotate()
                 if (shown) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.SplitScreen -> executionResult(controller.toggleSplitScreen())
-            is Action.PowerButton -> executionResult(controller.powerDialog())
-            is Action.NotificationPanel -> executionResult(controller.notificationPanel())
-            is Action.QuickPanel -> executionResult(controller.quickPanel())
-            is Action.LockScreen -> executionResult(controller.lockScreen())
+            is Action.PowerButton -> withShellFallback(controller.powerDialog()) {
+                // 短按电源键只会熄屏；电源菜单是长按语义。
+                hunoia.luno.shizuku.ShizukuInputInjection.keyEvent(KEYCODE_POWER, longPress = true)
+            }
+            is Action.NotificationPanel -> withShellFallback(controller.notificationPanel()) {
+                hunoia.luno.shizuku.ShizukuInputInjection.expandNotifications()
+            }
+            is Action.QuickPanel -> withShellFallback(controller.quickPanel()) {
+                hunoia.luno.shizuku.ShizukuInputInjection.expandQuickSettings()
+            }
+            is Action.LockScreen -> withShellFallback(controller.lockScreen()) {
+                hunoia.luno.shizuku.ShizukuInputInjection.keyEvent(KEYCODE_SLEEP)
+            }
             else -> ActionResult.Failed(ActionFailure.Unsupported)
         }
     }
@@ -102,20 +108,16 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
         if (performed) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
 
     /**
-     * 点击/长按落点：勾了「使用触发位置坐标」只认手势触点，否则参数坐标优先再退触点。
-     * 两者都没有判参数无效（分发器已前置拦截，这里兜底直接执行路径）。
+     * 先试无障碍，失败再试 shell。能力闸已放行「无障碍或 Shizuku 任一」，
+     * 所以这里只负责在两条实现里挑一条能成的：无障碍在位时延迟最低，不在位时靠 shell。
      */
-    private fun Action.Tap.targetPoint(context: ExecutorContext): Pair<Int, Int>? =
-        if (useTriggerPoint) context.touchPosition
-        else pointPx(context.appContext) ?: context.touchPosition
-
-    private fun Action.LongPress.targetPoint(context: ExecutorContext): Pair<Int, Int>? =
-        if (useTriggerPoint) context.touchPosition
-        else pointPx(context.appContext) ?: context.touchPosition
-
-    private fun Action.DoubleTap.targetPoint(context: ExecutorContext): Pair<Int, Int>? =
-        if (useTriggerPoint) context.touchPosition
-        else pointPx(context.appContext) ?: context.touchPosition
+    private suspend fun withShellFallback(
+        viaAccessibility: Boolean,
+        shell: suspend () -> Boolean,
+    ): ActionResult {
+        if (viaAccessibility) return ActionResult.Success()
+        return if (shell()) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
+    }
 
     /**
      * 先隐藏触钮并等它真的不可触再注入：`hideGestureButton` 只加 `FLAG_NOT_TOUCHABLE`
@@ -140,22 +142,6 @@ class AccessibilityExecutors(private val controller: AccessibilityController) : 
         choreographer.postFrameCallback(callback)
         cont.invokeOnCancellation { choreographer.removeFrameCallback(callback) }
     }
-
-    /** 参数坐标转屏像素（dp→px，按执行时 density）；任一缺失/为负视为未填，调用方回退触点。 */
-    private fun Action.Tap.pointPx(context: android.content.Context): Pair<Int, Int>? =
-        pointPx(context, xDp, yDp)
-
-    private fun Action.LongPress.pointPx(context: android.content.Context): Pair<Int, Int>? =
-        pointPx(context, xDp, yDp)
-
-    private fun Action.DoubleTap.pointPx(context: android.content.Context): Pair<Int, Int>? =
-        pointPx(context, xDp, yDp)
-
-    private fun pointPx(context: android.content.Context, xDp: Int?, yDp: Int?): Pair<Int, Int>? {
-        if (xDp == null || yDp == null || xDp < 0 || yDp < 0) return null
-        val density = context.resources.displayMetrics.density
-        return (xDp * density).roundToInt() to (yDp * density).roundToInt()
-    }
 }
 
 class IntentExecutors(private val intentController: IntentController) : ActionExecutor {
@@ -170,7 +156,15 @@ class IntentExecutors(private val intentController: IntentController) : ActionEx
                 val ok = context.openUrl(action.url, action.miniWindow, action.queryParameters)
                 if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
-            is Action.ShareText -> intentController.shareText(action.text, action.mimeType)
+            is Action.ShareText -> {
+                // 空参数 = 选择页直接选的「分享剪贴板文本」；非空 = 搜索「分享」打开方式带入的查询文本。
+                val text = action.text.ifBlank { readClipboardText(context.appContext).orEmpty() }
+                if (text.isBlank()) {
+                    ActionResult.Failed(ActionFailure.InvalidParameter)
+                } else {
+                    intentController.shareText(text)
+                }
+            }
             is Action.ShareFile -> context.shareFile()
             is Action.Assist -> intentController.launchAssist()
             else -> ActionResult.Failed(ActionFailure.Unsupported)
@@ -186,7 +180,7 @@ class InternalExecutors : ActionExecutor {
         "internal.quickAppLauncher", "internal.quickSearch", "internal.gridPanel",
         "internal.volumeScrub",
         "internal.pointer",
-        "internal.previousApp", "internal.runRule"
+        "internal.previousApp",
     )
 
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
@@ -224,10 +218,6 @@ class InternalExecutors : ActionExecutor {
             is Action.PreviousApp -> {
                 context.previousApp()
                 ActionResult.Success()
-            }
-            is Action.RunRule -> {
-                context.runRule?.invoke(action.ruleId, action.params, context)
-                    ?: ActionResult.Failed(ActionFailure.Unsupported)
             }
             else -> ActionResult.Failed(ActionFailure.Unsupported)
         }

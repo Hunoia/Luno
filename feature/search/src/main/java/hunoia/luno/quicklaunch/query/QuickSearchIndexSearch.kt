@@ -128,11 +128,35 @@ fun QuickSearchIndex.search(
 
         // 计算器排表头（精确意图，回车直达）；引擎行永远最后，不二次计算。
         val calc = calculatorResult(query.trim())
-        val finalResults = if (calc != null) listOf<QuickSearchResult>(calc) + withEngine else withEngine
+        val grouped = groupCloneApps(withEngine)
+        val finalResults = if (calc != null) listOf<QuickSearchResult>(calc) + grouped else grouped
         return SearchOutcome(finalResults, directive = false)
     }
 
-    /** 排序单元：结果 + 档位 + 紧密度 + 使用分；排序串在构造时取一次，避免比较器反复调 getter。 */
+    /** 分身与主应用标题相同：搜索结果里把副本拉回主应用后面，避免看起来像重复项。 */
+private fun groupCloneApps(results: List<QuickSearchResult>): List<QuickSearchResult> {
+    if (results.none { it is QuickSearchResult.App && it.appInfo.isClone }) return results
+    val clonesByPkg = results.filterIsInstance<QuickSearchResult.App>()
+        .filter { it.appInfo.isClone }
+        .groupBy { it.appInfo.packageName }
+    val emitted = HashSet<String>()
+    val grouped = ArrayList<QuickSearchResult>(results.size)
+    for (result in results) {
+        if (result is QuickSearchResult.App && result.appInfo.isClone) continue
+        grouped.add(result)
+        if (result is QuickSearchResult.App && emitted.add(result.appInfo.packageName)) {
+            clonesByPkg[result.appInfo.packageName]?.let(grouped::addAll)
+        }
+    }
+    for (result in results) {
+        if (result is QuickSearchResult.App && result.appInfo.isClone && emitted.add(result.appInfo.packageName)) {
+            grouped.addAll(clonesByPkg[result.appInfo.packageName].orEmpty())
+        }
+    }
+    return grouped
+}
+
+/** 排序单元：结果 + 档位 + 紧密度 + 使用分；排序串在构造时取一次，避免比较器反复调 getter。 */
 data class RankedHit(
     val result: QuickSearchResult,
     override val tier: Int,

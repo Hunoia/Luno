@@ -10,7 +10,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.floor
-import kotlin.math.roundToInt
 import hunoia.luno.config.model.DynamicRowExtra
 import hunoia.luno.config.model.GridPanelDefaults
 
@@ -65,6 +64,35 @@ fun gapFor(columns: Int): Dp = when {
 }
 
 /**
+ * 卡高连续化后的行数阈值：换算出的余数小于该值就不再多算一行，
+ * 避免一点点余量凭空多出一整行空位。
+ */
+private const val RowRemainderThreshold = 0.25f
+
+/**
+ * 连续卡高 → 可摆放行数。
+ *
+ * 行数不再反过来决定卡高：[cardH] 是用户拖出来的连续高度，这里只回答「能摆几行」。
+ * 用 `(available + gap) / (cellH + gap)` 让最后一行也把格间距算进去，避免末行被 gap 挤出可视区。
+ * 余数小于 [RowRemainderThreshold] 时按整行算（+0），否则向上补一行。
+ */
+fun rowsForCardHeight(
+    cardH: Float,
+    cellH: Float,
+    gap: Float,
+    gridPad: Float,
+    indicator: Float,
+): Int {
+    val available = cardH - gridPad * 2f - indicator
+    if (available <= 0f) return 1
+    val step = (cellH + gap).coerceAtLeast(1f)
+    val exact = (available + gap) / step
+    val whole = floor(exact).toInt()
+    val fraction = exact - floor(exact)
+    return (whole + if (fraction >= RowRemainderThreshold) 1 else 0).coerceAtLeast(1)
+}
+
+/**
  * 卡片高度比例 → 可见行数。渲染与落盘层必须共用这一套公式；
  * 格子是方格（尺寸由列数与卡宽决定），高度只决定能看到几行。
  */
@@ -77,9 +105,7 @@ fun gridPanelVisibleRows(
 ): Int {
     val gap = gapFor(columns).value
     val widthFraction = cardWidthFraction.coerceIn(
-        // 下限取横屏那份（更小）：竖屏存的值不可能小于竖屏下限，横屏值在竖屏调用方
-        // 会被外层 clamp 回去，这里只影响格宽估算，取宽者无妨。
-        GridPanelDefaults.MinCardWidthFractionLandscape,
+        GridPanelDefaults.MinCardWidthFraction,
         GridPanelDefaults.MaxCardWidthFraction,
     )
     val heightFraction = cardHeightFraction.coerceIn(
@@ -91,10 +117,13 @@ fun gridPanelVisibleRows(
     val cellH = cellW
     // 顶部页指示点行 + 底部等高预留恒存在：否则单页面板进编辑态指示点出现时卡高跳变。
     val indicator = 2f * IndicatorHeight.value
-    val visibleH = screenHdp * heightFraction - 2f * GridPadding.value - indicator
-    val stepH = cellH + gap
-    // round 而非 floor：卡高已贴齐行数，floor 会系统性偏矮一行。
-    return ((visibleH + gap) / stepH).roundToInt().coerceAtLeast(1)
+    return rowsForCardHeight(
+        cardH = screenHdp * heightFraction,
+        cellH = cellH,
+        gap = gap,
+        gridPad = GridPadding.value,
+        indicator = indicator,
+    )
 }
 
 /**
@@ -147,6 +176,37 @@ data class GridMetrics(
         cellY(top + cellH / 2f).coerceIn(0, (rows - span).coerceAtLeast(0))
 }
 
+/**
+ * 卡片高度（px）：连续跟手，不再量化到整行。
+ * [cardW] 为卡片宽度 px；[gap]/[gridPad]/[indicator] 均为 px。
+ * 下界是「至少装得下一行格子」；渲染（[rememberGridMetrics]）与面板缩放
+ * （[resolvePanelResize]）共用同一公式，缩放锚点才能和渲染尺寸严格一致。
+ */
+fun gridPanelCardHeight(
+    columns: Int,
+    cardW: Float,
+    cardHeightFraction: Float,
+    screenH: Float,
+    gridPad: Float,
+    indicator: Float,
+    gap: Float,
+): Float {
+    val innerW = cardW - gridPad * 2
+    val cellW = (innerW - gap * (columns - 1)) / columns.coerceAtLeast(1)
+    val minH = gridPad * 2 + indicator + cellW
+    return (screenH * cardHeightFraction).coerceAtLeast(minH)
+}
+
+/**
+ * 调列数后保持视觉卡高：卡高连续后反推退化为直接除法，列数变化只影响行数派生，
+ * 不会顺带改变面板高度。
+ */
+fun keepCardHeightFraction(currentCardH: Float, screenH: Float): Float =
+    (currentCardH / screenH).coerceIn(
+        GridPanelDefaults.MinCardHeightFraction,
+        GridPanelDefaults.MaxCardHeightFraction,
+    )
+
 @Composable
 fun rememberGridMetrics(
     columns: Int,
@@ -166,16 +226,11 @@ fun rememberGridMetrics(
     val gridPad = with(density) { GridPadding.toPx() }
     val indicator = with(density) { (IndicatorHeight * 2).toPx() } // 顶部/底部各指示点行高，对称预留
     val gap = with(density) { gapFor(columns).toPx() }
-    val screenWdp = configuration.screenWidthDp.toFloat()
-    val screenHdp = configuration.screenHeightDp.toFloat()
-    val visibleRows = gridPanelVisibleRows(
-        screenWdp, screenHdp, columns, cardWidthFraction, cardHeightFraction,
-    )
-    val rows = maxOf(visibleRows, occupiedRows.coerceAtLeast(0)) + extraRows
 
     return remember(
         columns,
-        rows,
+        occupiedRows,
+        extraRows,
         cardWidthFraction,
         cardHeightFraction,
         screenW,
@@ -188,12 +243,18 @@ fun rememberGridMetrics(
         val innerW = cardW - gridPad * 2
         val cellW = (innerW - gap * (columns - 1)) / columns
         val cellH = cellW
-        // 卡片底边贴齐最后一行格子：不留高度取整余量（余量曾堆在底部显空）。
-        // 实际行数更多时下半区靠 verticalScroll reach。
-        val cardH = (
-            gridPad * 2 + indicator +
-                visibleRows * cellH + (visibleRows - 1).coerceAtLeast(0) * gap
-            ).coerceAtLeast(gridPad * 2 + indicator + cellH)
+        // 卡高连续跟手（不再量化到整行），行数只作为可摆放范围派生。
+        val cardH = gridPanelCardHeight(
+            columns = columns,
+            cardW = cardW,
+            cardHeightFraction = cardHeightFraction,
+            screenH = screenH,
+            gridPad = gridPad,
+            indicator = indicator,
+            gap = gap,
+        )
+        val visibleRows = rowsForCardHeight(cardH, cellH, gap, gridPad, indicator)
+        val rows = maxOf(visibleRows, occupiedRows.coerceAtLeast(0)) + extraRows
         GridMetrics(
             columns = columns,
             rows = rows,

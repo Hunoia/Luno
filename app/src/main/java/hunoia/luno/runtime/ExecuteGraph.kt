@@ -31,7 +31,6 @@ class LunoExecuteMessages(private val context: Context) : ExecuteMessages {
             Capability.Accessibility -> R.string.toast_accessibility_required
             Capability.Shizuku -> R.string.toast_shizuku_required
             Capability.None -> R.string.toast_execution_failed
-            Capability.Notification -> R.string.toast_notification_required
         }
     )
 

@@ -60,7 +60,7 @@ object Events {
             // 冒泡到广播/协程调用点（服务进程里那是直接崩溃）。
             runCatching { subscriber(event) }
                 .onFailure { error ->
-                    android.util.Log.e(
+                    hunoia.luno.core.LunoLog.e(
                         LOG_TAG,
                         "event subscriber failed: ${event::class.simpleName}",
                         error,

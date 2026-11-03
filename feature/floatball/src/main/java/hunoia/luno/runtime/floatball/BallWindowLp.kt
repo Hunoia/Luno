@@ -17,7 +17,7 @@ import hunoia.luno.ui.theme.SideGestureTheme
 import hunoia.luno.runtime.overlay.safeUpdateViewLayout
 import kotlin.math.roundToInt
 
-/** 主球窗与镜像分身窗共用的窗口装配件：参数全是显式传入，不携带状态。 */
+/** 球窗 / 胶囊窗共用的窗口装配件：参数全是显式传入，不携带状态。 */
 
 /** 球窗 LP：TYPE_APPLICATION_OVERLAY、ballPx 见方、LEFT|TOP。不加 LAYOUT_NO_LIMITS ——
  *  球必须完整在屏内，靠正常窗口边界 + 夹取就够。 */
@@ -49,13 +49,32 @@ internal fun capsuleLayoutParams(bottomOffsetPx: Int) = WindowManager.LayoutPara
     y = bottomOffsetPx
 }
 
-/** 尺寸变化落到现有窗（updateSettings 的 sizeDp 变更路径）。 */
-internal fun applyBallSize(view: View, wm: WindowManager, ballPx: Int) {
-    (view.layoutParams as? WindowManager.LayoutParams)?.let {
-        it.width = ballPx
-        it.height = ballPx
-        wm.safeUpdateViewLayout(view, it)
-    }
+/** 共享气泡窗 LP：TYPE_APPLICATION_OVERLAY、WRAP_CONTENT、LEFT|TOP 手工贴球定位。 */
+@SuppressLint("RtlHardcoded")
+internal fun bubbleLayoutParams() = WindowManager.LayoutParams().apply {
+    type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+    format = PixelFormat.TRANSLUCENT
+    flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+    width = WindowManager.LayoutParams.WRAP_CONTENT
+    height = WindowManager.LayoutParams.WRAP_CONTENT
+    gravity = Gravity.LEFT or Gravity.TOP
+    x = 0
+    y = 0
+}
+
+/** 共享胶囊窗 LP：固定宽高（高 = 球尺寸），LEFT|TOP 手工按球的锚定边贴边。 */
+@SuppressLint("RtlHardcoded")
+internal fun capsuleLayoutParams(widthPx: Int, heightPx: Int) = WindowManager.LayoutParams().apply {
+    type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+    format = PixelFormat.TRANSLUCENT
+    flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+    width = widthPx
+    height = heightPx
+    gravity = Gravity.LEFT or Gravity.TOP
+    x = 0
+    y = 0
 }
 
 /**

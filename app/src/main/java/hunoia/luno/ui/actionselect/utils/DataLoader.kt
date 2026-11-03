@@ -1,47 +1,37 @@
 package hunoia.luno.ui.actionselect
 
-import hunoia.luno.domain.AppGraph
 
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.action.model.ShortcutIconFiles
-import hunoia.luno.core.domain.hasPointParams
 import hunoia.luno.core.domain.launchAppRef
 import hunoia.luno.core.domain.longPressVariant
 import hunoia.luno.core.domain.withoutVariantKey
 import hunoia.luno.core.domain.withLongPressVariant
-import hunoia.luno.domain.action.ActionCatalog
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.domain.tune.TuneConfig
-import hunoia.luno.config.model.AutomationRule
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.GridPanelDefaults
-import hunoia.luno.config.model.derivedPageCount
-import hunoia.luno.config.model.effectiveGridRows
 import hunoia.luno.config.model.GridCell
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.config.model.GridPanelItemLayout
+import hunoia.luno.config.model.withOrientation
 import hunoia.luno.core.AppContext
 import hunoia.luno.gridpanel.geometry.gridPanelVisibleRows
-import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.gridpanel.widget.PanelAppWidgetHost
 import hunoia.luno.gridpanel.widget.WidgetSpan
 import hunoia.luno.bridge.launcher.LauncherInfo
-import hunoia.luno.quicklaunch.query.DisabledAppQuery
 import hunoia.luno.quicklaunch.QuickLaunchFacade
-import hunoia.luno.quicklaunch.model.AppInfo
+import hunoia.luno.quicklaunch.model.identity
 import hunoia.luno.quicklaunch.model.qualifiedName
 import hunoia.luno.quicklaunch.model.qualifiedNameWithIntents
-import hunoia.luno.ui.automation.AutomationDraftHolder
 import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.navigation.FloatBallSlot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.shortcutInfo
 
@@ -81,18 +71,14 @@ internal suspend fun saveSettingsAction(
         saveFloatBallSlot(actionSelect.floatBallSlot, picked)
         return SaveOutcome.Saved
     }
-    if (actionSelect.automationRuleId.isNotBlank()) {
-        saveAutomationEffect(actionSelect, picked)
-        return SaveOutcome.Saved
-    }
     if (actionSelect.subGestureId.isNotBlank()) {
         GestureConfig.updateSubGestures { settings ->
             settings.copy(
                 subGestures = settings.subGestures.map { gesture ->
                     if (gesture.id != actionSelect.subGestureId) return@map gesture
-                    val oldAction = gesture.actionFor(actionSelect.triggerType, actionSelect.direction)
+                    val oldAction = gesture.actionFor(actionSelect.triggerType, actionSelect.slot)
                     tryDeleteShortcutIcons(oldAction, picked)
-                    gesture.withAction(actionSelect.triggerType, actionSelect.direction, picked)
+                    gesture.withAction(actionSelect.triggerType, actionSelect.slot, picked)
                 }
             )
         }
@@ -102,10 +88,10 @@ internal suspend fun saveSettingsAction(
         val mutableList = list.toMutableList()
         val index = mutableList.indexOfFirst { it.id == actionSelect.gestureButtonId }
         if (index < 0) return@updateButtons mutableList
-        val oldAction = mutableList[index].actionFor(actionSelect.triggerType, actionSelect.direction)
+        val oldAction = mutableList[index].actionFor(actionSelect.triggerType, actionSelect.slot)
         tryDeleteShortcutIcons(oldAction, picked)
         mutableList[index] = mutableList[index]
-            .withAction(actionSelect.triggerType, actionSelect.direction, picked)
+            .withAction(actionSelect.triggerType, actionSelect.slot, picked)
         mutableList
     }
     return SaveOutcome.Saved
@@ -154,10 +140,10 @@ private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: Stored
             return@updateAction settings
         }
         val ctx = gridContext(panel, actionSelect.gridPanelPageIndex)
-        val pageOccupied = panel.items.filter { it.pageIndex == ctx.pageIndex }.maxOfOrNull { it.bottom } ?: 0
+        val pageOccupied = ctx.items.filter { it.pageIndex == ctx.pageIndex }.maxOfOrNull { it.bottom } ?: 0
         val rows = ctx.rows.coerceAtLeast(pageOccupied + 1) // 行数无上限：永远多留一行装 1×1 动作项
         val free = GridPanelItemLayout.firstFreeSlot(
-            items = panel.items.filter { it.pageIndex == ctx.pageIndex },
+            items = ctx.items.filter { it.pageIndex == ctx.pageIndex },
             columns = ctx.columns,
             rows = rows,
             spanX = 1,
@@ -166,14 +152,16 @@ private suspend fun saveGridPanelItem(actionSelect: ActionSelect, picked: Stored
         outcome = SaveOutcome.Saved
         settings.copy(
             actionGridPanels = settings.actionGridPanels.withPanel(
-                panel.copy(
-                    items = panel.items + GridPanelItem(
-                        x = free.x,
-                        y = free.y,
-                        pageIndex = ctx.pageIndex,
-                        kind = GridPanelItem.Kind.Action(listOf(picked.withoutVariantKey())),
-                    ),
-                ),
+                panel.withOrientation(ctx.landscape) { orientation ->
+                    orientation.copy(
+                        items = orientation.items + GridPanelItem(
+                            x = free.x,
+                            y = free.y,
+                            pageIndex = ctx.pageIndex,
+                            kind = GridPanelItem.Kind.Action(listOf(picked.withoutVariantKey())),
+                        ),
+                    )
+                },
             ),
         )
     }
@@ -193,6 +181,9 @@ private fun bottomSlot(
     spanX: Int,
     spanY: Int,
 ): GridCell? {
+    // span 大于列数时 `0..(columns - spanX)` 是空区间，会白扫到行尾才返回 null；
+    // 调用方必须先把 span 夹进面板，这里直接拒绝非法输入。
+    if (spanX > columns || spanY < 1) return null
     var y = items.maxOfOrNull { it.bottom } ?: 0
     val effectiveRows = maxOf(rows, y + spanY)
     while (y + spanY <= effectiveRows) {
@@ -208,18 +199,26 @@ private fun bottomSlot(
 }
 
 /** 网格落盘函数共享的落点上下文：横竖屏 → geometry → 列数夹取 → 页码夹取 → 有效行数。 */
-private data class GridContext(val columns: Int, val pageIndex: Int, val rows: Int)
+private data class GridContext(
+    val columns: Int,
+    val pageIndex: Int,
+    val rows: Int,
+    val landscape: Boolean,
+    /** 当前朝向的项列表（横竖屏分开后按朝向取）。 */
+    val items: List<GridPanelItem>,
+)
 
 private fun gridContext(panel: GridPanel, requestedPageIndex: Int): GridContext {
     val configuration = AppContext.get().resources.configuration
     val landscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    val geo = panel.geometry(landscape)
+    val orientation = panel.orientation(landscape)
+    val geo = orientation.geometry
     val columns = geo.columnCount.coerceIn(GridPanelDefaults.MinColumnCount, GridPanelDefaults.MaxColumnCount)
-    val pageIndex = requestedPageIndex.coerceIn(0, panel.derivedPageCount)
+    val pageIndex = requestedPageIndex.coerceIn(0, orientation.derivedPageCount)
     return GridContext(
         columns = columns,
         pageIndex = pageIndex,
-        rows = panel.effectiveGridRows(
+        rows = orientation.effectiveGridRows(
             pageIndex,
             gridPanelVisibleRows(
                 screenWdp = configuration.screenWidthDp.toFloat(),
@@ -229,6 +228,8 @@ private fun gridContext(panel: GridPanel, requestedPageIndex: Int): GridContext 
                 cardHeightFraction = geo.cardHeightFraction,
             ),
         ),
+        landscape = landscape,
+        items = orientation.items,
     )
 }
 
@@ -247,7 +248,9 @@ private fun degradeSlot(
     val candidates = buildList {
         for (h in spanY downTo 1) {
             for (w in spanX downTo 1) {
-                add(WidgetSpan(w, h))
+                // firstFreeSlot 内部会把宽度夹到列数，但返回的 span 仍是原值；
+                // 候选本身先夹好，落盘就不会出现 spanX > 列数的坏数据。
+                add(WidgetSpan(w.coerceIn(1, columns.coerceAtLeast(1)), h))
             }
         }
     }.sortedByDescending { it.spanX * it.spanY }.distinct()
@@ -281,66 +284,73 @@ internal suspend fun saveGridPanelWidget(
     var result = GridPanelSaveResult.NoPanel
     TuneConfig.updateAction { settings ->
         val panel = settings.actionGridPanels.panelById(actionSelect.gridPanelId) ?: run {
-            android.util.Log.w("GridPanelSave", "widget: panel not found requested=${actionSelect.gridPanelId} " +
+            hunoia.luno.core.LunoLog.w("GridPanelSave", "widget: panel not found requested=${actionSelect.gridPanelId} " +
             "available=${settings.actionGridPanels.panels.map { it.id to it.name }} select=${actionSelect}")
             return@updateAction settings
         }
         val ctx = gridContext(panel, actionSelect.gridPanelPageIndex)
-        val pageItems = panel.items.filter { it.pageIndex == ctx.pageIndex }
+        val pageItems = ctx.items.filter { it.pageIndex == ctx.pageIndex }
+        // 入口再夹一次：即使调用方传来超列 span，也不能落成坏数据。
+        val reqX = spanX.coerceIn(1, ctx.columns)
+        val reqY = spanY.coerceAtLeast(1)
         // 追加优先：原尺寸先试「放到最下面」；实在不行才走降档扫空位兜底。
         // 行数派生且无上限：追加时把 rows 抬到装得下，运行态页面随内容长高。
-        bottomSlot(pageItems, ctx.columns, maxOf(ctx.rows, pageItems.maxOfOrNull { it.bottom } ?: 0), spanX, spanY)?.let { cell ->
+        bottomSlot(pageItems, ctx.columns, maxOf(ctx.rows, pageItems.maxOfOrNull { it.bottom } ?: 0), reqX, reqY)?.let { cell ->
             result = GridPanelSaveResult.Saved
             return@updateAction settings.copy(
                 actionGridPanels = settings.actionGridPanels.withPanel(
-                    panel.copy(
-                        items = panel.items + GridPanelItem(
-                            x = cell.x,
-                            y = cell.y,
-                            spanX = spanX,
-                            spanY = spanY,
-                            pageIndex = ctx.pageIndex,
-                            kind = GridPanelItem.Kind.AppWidget(
-                                appWidgetId = appWidgetId,
-                                provider = provider,
-                                minSpanX = spanX,
-                                minSpanY = spanY,
+                    panel.withOrientation(ctx.landscape) { orientation ->
+                        orientation.copy(
+                            items = orientation.items + GridPanelItem(
+                                x = cell.x,
+                                y = cell.y,
+                                spanX = reqX,
+                                spanY = reqY,
+                                pageIndex = ctx.pageIndex,
+                                kind = GridPanelItem.Kind.AppWidget(
+                                    appWidgetId = appWidgetId,
+                                    provider = provider,
+                                    minSpanX = reqX,
+                                    minSpanY = reqY,
+                                ),
                             ),
-                        ),
-                    ),
+                        )
+                    },
                 ),
             )
         }
-        degradeSlot(pageItems, ctx.columns, ctx.rows, spanX, spanY)?.let { (cell, span) ->
+        degradeSlot(pageItems, ctx.columns, ctx.rows, reqX, reqY)?.let { (cell, span) ->
             result = GridPanelSaveResult.Saved
             // 必须 return copy 的结果本身：return 原 settings 会让落盘形同没写。
             return@updateAction settings.copy(
                 actionGridPanels = settings.actionGridPanels.withPanel(
-                    panel.copy(
-                        items = panel.items + GridPanelItem(
-                            x = cell.x,
-                            y = cell.y,
-                            spanX = span.spanX,
-                            spanY = span.spanY,
-                            pageIndex = ctx.pageIndex,
-                            kind = GridPanelItem.Kind.AppWidget(
-                                appWidgetId = appWidgetId,
-                                provider = provider,
-                                // 冻结实际落位的 span（不是 provider 声明的最小值）：
-                                // minSpan 会经 options 传给 provider，必须与真实渲染一致。
-                                // 页满降档低于 provider 声明最小值是本路径的既定权衡。
-                                minSpanX = span.spanX,
-                                minSpanY = span.spanY,
+                    panel.withOrientation(ctx.landscape) { orientation ->
+                        orientation.copy(
+                            items = orientation.items + GridPanelItem(
+                                x = cell.x,
+                                y = cell.y,
+                                spanX = span.spanX,
+                                spanY = span.spanY,
+                                pageIndex = ctx.pageIndex,
+                                kind = GridPanelItem.Kind.AppWidget(
+                                    appWidgetId = appWidgetId,
+                                    provider = provider,
+                                    // 冻结实际落位的 span（不是 provider 声明的最小值）：
+                                    // minSpan 会经 options 传给 provider，必须与真实渲染一致。
+                                    // 页满降档低于 provider 声明最小值是本路径的既定权衡。
+                                    minSpanX = span.spanX,
+                                    minSpanY = span.spanY,
+                                ),
                             ),
-                        ),
-                    ),
+                        )
+                    },
                 ),
             )
         }
         settings
     }
     if (result != GridPanelSaveResult.Saved) {
-        android.util.Log.w("GridPanelSave", "widget not placed: result=$result span=$spanX x $spanY")
+        hunoia.luno.core.LunoLog.w("GridPanelSave", "widget not placed: result=$result span=$spanX x $spanY")
         PanelAppWidgetHost.get().release(appWidgetId)
     }
     return result
@@ -356,49 +366,57 @@ internal suspend fun saveGridPanelInternalWidget(
 ): GridPanelSaveResult {
     val def = hunoia.luno.gridpanel.internal.InternalWidgetDefs.firstOrNull { it.id == widgetId }
     if (def == null) {
-        android.util.Log.w("GridPanelSave", "internal widget: unknown id=$widgetId")
+        hunoia.luno.core.LunoLog.w("GridPanelSave", "internal widget: unknown id=$widgetId")
         return GridPanelSaveResult.NoPanel
     }
     var result = GridPanelSaveResult.NoPanel
     TuneConfig.updateAction { settings ->
         val panel = settings.actionGridPanels.panelById(actionSelect.gridPanelId) ?: run {
-            android.util.Log.w("GridPanelSave", "internal: panel not found id=${actionSelect.gridPanelId}")
+            hunoia.luno.core.LunoLog.w("GridPanelSave", "internal: panel not found id=${actionSelect.gridPanelId}")
             return@updateAction settings
         }
         val ctx = gridContext(panel, actionSelect.gridPanelPageIndex)
-        val pageItems = panel.items.filter { it.pageIndex == ctx.pageIndex }
+        val pageItems = ctx.items.filter { it.pageIndex == ctx.pageIndex }
+        // 内置部件的默认 span 是 4×N，面板列数可能只有 2/3：必须先把宽度夹进面板，
+        // 否则落盘的 spanX > columns，手势层的尺寸/命中/重排全部会跟着坏。
+        val reqX = def.spanX.coerceIn(1, ctx.columns)
+        val reqY = def.spanY.coerceAtLeast(1)
         // 追加优先：原尺寸先试「放到最下面」；行数无上限，追加时同步抬 rows。
-        bottomSlot(pageItems, ctx.columns, maxOf(ctx.rows, pageItems.maxOfOrNull { it.bottom } ?: 0), def.spanX, def.spanY)?.let { cell ->
+        bottomSlot(pageItems, ctx.columns, maxOf(ctx.rows, pageItems.maxOfOrNull { it.bottom } ?: 0), reqX, reqY)?.let { cell ->
             result = GridPanelSaveResult.Saved
             return@updateAction settings.copy(
                 actionGridPanels = settings.actionGridPanels.withPanel(
-                    panel.copy(
-                        items = panel.items + GridPanelItem(
-                            x = cell.x,
-                            y = cell.y,
-                            spanX = def.spanX,
-                            spanY = def.spanY,
-                            pageIndex = ctx.pageIndex,
-                            kind = GridPanelItem.Kind.Internal(widgetId = widgetId, showBackground = false),
-                        ),
-                    ),
+                    panel.withOrientation(ctx.landscape) { orientation ->
+                        orientation.copy(
+                            items = orientation.items + GridPanelItem(
+                                x = cell.x,
+                                y = cell.y,
+                                spanX = reqX,
+                                spanY = reqY,
+                                pageIndex = ctx.pageIndex,
+                                kind = GridPanelItem.Kind.Internal(widgetId = widgetId, showBackground = false),
+                            ),
+                        )
+                    },
                 ),
             )
         }
-        degradeSlot(pageItems, ctx.columns, ctx.rows, def.spanX, def.spanY)?.let { (cell, span) ->
+        degradeSlot(pageItems, ctx.columns, ctx.rows, reqX, reqY)?.let { (cell, span) ->
             result = GridPanelSaveResult.Saved
             return@updateAction settings.copy(
                 actionGridPanels = settings.actionGridPanels.withPanel(
-                    panel.copy(
-                        items = panel.items + GridPanelItem(
-                            x = cell.x,
-                            y = cell.y,
-                            spanX = span.spanX,
-                            spanY = span.spanY,
-                            pageIndex = ctx.pageIndex,
-                            kind = GridPanelItem.Kind.Internal(widgetId = widgetId, showBackground = false),
-                        ),
-                    ),
+                    panel.withOrientation(ctx.landscape) { orientation ->
+                        orientation.copy(
+                            items = orientation.items + GridPanelItem(
+                                x = cell.x,
+                                y = cell.y,
+                                spanX = span.spanX,
+                                spanY = span.spanY,
+                                pageIndex = ctx.pageIndex,
+                                kind = GridPanelItem.Kind.Internal(widgetId = widgetId, showBackground = false),
+                            ),
+                        )
+                    },
                 ),
             )
         }
@@ -417,39 +435,6 @@ private suspend fun saveFloatBallSlot(slot: String, picked: StoredAction?) {
             ),
         )
     }
-}
-
-private suspend fun saveAutomationEffect(actionSelect: ActionSelect, picked: StoredAction?) {
-    val current = loadAutomationAction(actionSelect)
-    tryDeleteShortcutIcons(current, picked)
-    // 动作库条目存的就是引用本身（internal.libraryRef），运行时由分发器就地解析成条目动作。
-    val action = picked?.withoutVariantKey()
-    val path = actionSelect.automationStepPath
-    fun applyTo(rule: AutomationRule): AutomationRule {
-        if (rule.effect.stepAt(path) == null) {
-            android.util.Log.w(
-                "ActionSelect",
-                "automation step path missing, rule=${rule.id} path=$path",
-            )
-        }
-        return rule.copy(effect = rule.effect.withStepAt(path) { step ->
-            step.copy(kind = hunoia.luno.config.model.RuleStepKind.ACTION, action = action)
-        })
-    }
-    // 草稿优先：编辑页跳转时只暂存内存，未保存前不写库。
-    // 无暂存时以库中规则为底新建暂存——选择页永不直写库，落盘统一由编辑页保存键负责。
-    val base = AutomationDraftHolder.take(actionSelect.automationRuleId)
-        ?: AppGraph.automation.getRules().find { it.id == actionSelect.automationRuleId }
-        ?: return
-    AutomationDraftHolder.stage(applyTo(base))
-}
-
-private suspend fun loadAutomationAction(actionSelect: ActionSelect): StoredAction? {
-    // 草稿命中就不读库（getRules 是一次 DataStore 读）。
-    val draft = AutomationDraftHolder.take(actionSelect.automationRuleId)
-    val rule = draft ?: AppGraph.automation.getRules().find { it.id == actionSelect.automationRuleId }
-    ?: return null
-    return rule.effect.stepAt(actionSelect.automationStepPath)?.action
 }
 
 internal suspend fun updateShortcutInfosBody(
@@ -521,21 +506,16 @@ internal suspend fun updateAppInfosBody(
     getUiState: () -> UiState,
     updateUiState: ((UiState) -> UiState) -> Unit
 ) {
-    val appInfos = withContext(Dispatchers.IO) {
-        QuickLaunchFacade.queryApps(AppContext.get())
+    // 统一清单：主用户 + 分身 + 禁用应用 +（按开关）无桌面入口系统包。
+    val mergedApps = withContext(Dispatchers.IO) {
+        QuickLaunchFacade.queryAppsIncludingDisabled(AppContext.get())
     }
-    val disabledApps = DisabledAppQuery.queryDisabledApplicationsOnIo(AppContext.get())
-    val normalPackageNames = appInfos.map { it.packageName }.toSet()
-    val filteredDisabledApps = disabledApps.filter { it.packageName !in normalPackageNames }
-    val mergedApps = mutableListOf<AppInfo>()
-    mergedApps.addAll(appInfos)
-    mergedApps.addAll(filteredDisabledApps)
     val selectedRecord = withContext(Dispatchers.Default) {
         getUiState().selectedRecord.let { record ->
             val selectedApp = record.action?.launchAppRef()
             if (selectedApp == null) {
                 record
-            } else if (mergedApps.any { it.qualifiedName == selectedApp.qualifiedName }) {
+            } else if (mergedApps.any { it.identity == selectedApp.identity }) {
                 record
             } else {
                 UiState.SelectedRecord()   // 已卸载：槽清空
@@ -546,7 +526,7 @@ internal suspend fun updateAppInfosBody(
         // 选中的应用置顶（沿用既有排序），单值下最多只有一个。
         val selectedRef = selectedRecord.action?.launchAppRef()
         val (selected, rest) = mergedApps.partition { appInfo ->
-            selectedRef != null && selectedRef.qualifiedName == appInfo.qualifiedName
+            selectedRef != null && selectedRef.identity == appInfo.identity
         }
         selected.map { it.copy(miniWindow = selectedRef?.miniWindow ?: it.miniWindow) } + rest
     }
@@ -570,35 +550,16 @@ internal suspend fun loadDataBody(
     val actionSettings = TuneConfig.getAction()
     val actionPanels = actionSettings.actionPanels.panels
     val gridPanels = actionSettings.actionGridPanels.panels
-    val isAutomation = actionSelect.automationRuleId.isNotBlank()
-    // 规则即动作：选择页专属分组（只留启用；自动化模式剔除正在编辑的自身，禁自引用）。
-    val rules = ActionCatalog.rulesForPicker(
-        AppGraph.automation.getRules(),
-        excludeRuleId = if (isAutomation) actionSelect.automationRuleId else "",
-    )
-
-    // pickerExcluded 决定「有哪些类型可被选」，必须恒非空（空集让整张定义表都可选）；
-    // libraryExcluded 只过滤动作库已存条目；触钮路径不额外过滤，否则已保存的条目会被藏掉。
-    val pickerExcluded = if (isAutomation) {
-        ActionDefinitions.automationExcludedTypeIds()
-    } else {
-        ActionDefinitions.pickerExcludedTypeIds()
-    }
-    val libraryExcluded = if (isAutomation) ActionDefinitions.automationExcludedTypeIds() else emptySet()
-    val button = if (isAutomation) null else buttons.find { it.id == actionSelect.gestureButtonId }
-    val subGesture = if (isAutomation) null else subGestures.find { it.id == actionSelect.subGestureId }
+    // pickerExcluded 决定「有哪些类型可被选」，必须恒非空（空集让整张定义表都可选）。
+    val pickerExcluded = ActionDefinitions.pickerExcludedTypeIds()
+    val button = buttons.find { it.id == actionSelect.gestureButtonId }
+    val subGesture = subGestures.find { it.id == actionSelect.subGestureId }
     onUpdateState { state ->
         state.copy(
-            isAutomation = isAutomation,
             subGestures = subGestures,
             excludedSubGestureId = actionSelect.subGestureId,
-            actionLibraryEntries = actionLibraryEntries.filter {
-                // 自动化放行带固定坐标的 tap/longPress 条目（参数优先于触点）；
-                // 无坐标的条目在无触点的自动化路径必 InvalidParameter，继续藏。
-                it.typeId !in libraryExcluded || it.storedAction.hasPointParams()
-            },
+            actionLibraryEntries = actionLibraryEntries,
             excludedTypeIds = pickerExcluded,
-            rules = rules,
             actionPanels = actionPanels,
             gridPanels = gridPanels,
             isPanelItemMode = actionSelect.actionPanelId.isNotBlank() || actionSelect.gridPanelId.isNotBlank(),
@@ -617,9 +578,8 @@ internal suspend fun loadDataBody(
         actionSelect.gridPanelId.isNotBlank() -> null
         // 悬浮球槽：与触钮路径互斥，先判它，否则会掉进 button/subGesture 的 null 分支。
         actionSelect.floatBallSlot == FloatBallSlot.TAP -> actionSettings.floatBall.tapAction
-        isAutomation -> loadAutomationAction(actionSelect)
-        subGesture != null -> subGesture.actionFor(actionSelect.triggerType, actionSelect.direction)
-        button != null -> button.actionFor(actionSelect.triggerType, actionSelect.direction)
+        subGesture != null -> subGesture.actionFor(actionSelect.triggerType, actionSelect.slot)
+        button != null -> button.actionFor(actionSelect.triggerType, actionSelect.slot)
         else -> null
     }
     onUpdateState { state ->
@@ -627,57 +587,57 @@ internal suspend fun loadDataBody(
     }
 }
 
-private fun GestureButton.actionFor(triggerType: GestureTriggerType, direction: hunoia.luno.config.model.GestureDirection): StoredAction? {
+private fun GestureButton.actionFor(triggerType: GestureTriggerType, slot: Int): StoredAction? {
     return when (triggerType) {
         GestureTriggerType.Tap -> tapActions
         GestureTriggerType.DoubleTap -> doubleTapActions
         GestureTriggerType.LongPress -> longPressActions
-        GestureTriggerType.Slide -> slideActions.actionBy(direction)
-        GestureTriggerType.SlideHold -> slideHoldActions.actionBy(direction)
-        GestureTriggerType.LongSlide -> longSlideActions.actionBy(direction)
-        GestureTriggerType.LongSlideHold -> longSlideHoldActions.actionBy(direction)
+        GestureTriggerType.Slide -> slideActions.actionBy(slot)
+        GestureTriggerType.SlideHold -> slideHoldActions.actionBy(slot)
+        GestureTriggerType.LongSlide -> longSlideActions.actionBy(slot)
+        GestureTriggerType.LongSlideHold -> longSlideHoldActions.actionBy(slot)
     }
 }
 
 private fun GestureButton.withAction(
     triggerType: GestureTriggerType,
-    direction: hunoia.luno.config.model.GestureDirection,
+    slot: Int,
     action: StoredAction?
 ): GestureButton {
     return when (triggerType) {
         GestureTriggerType.Tap -> copy(tapActions = action)
         GestureTriggerType.DoubleTap -> copy(doubleTapActions = action)
         GestureTriggerType.LongPress -> copy(longPressActions = action)
-        GestureTriggerType.Slide -> copy(slideActions = slideActions.withAction(direction, action))
-        GestureTriggerType.SlideHold -> copy(slideHoldActions = slideHoldActions.withAction(direction, action))
-        GestureTriggerType.LongSlide -> copy(longSlideActions = longSlideActions.withAction(direction, action))
-        GestureTriggerType.LongSlideHold -> copy(longSlideHoldActions = longSlideHoldActions.withAction(direction, action))
+        GestureTriggerType.Slide -> copy(slideActions = slideActions.withAction(slot, action))
+        GestureTriggerType.SlideHold -> copy(slideHoldActions = slideHoldActions.withAction(slot, action))
+        GestureTriggerType.LongSlide -> copy(longSlideActions = longSlideActions.withAction(slot, action))
+        GestureTriggerType.LongSlideHold -> copy(longSlideHoldActions = longSlideHoldActions.withAction(slot, action))
     }
 }
 
 private fun hunoia.luno.config.model.SubGesture.actionFor(
     triggerType: GestureTriggerType,
-    direction: hunoia.luno.config.model.GestureDirection
+    slot: Int
 ): StoredAction? {
     return when (triggerType) {
-        GestureTriggerType.Slide -> slideActionFor(direction)
-        GestureTriggerType.SlideHold -> slideHoldActionFor(direction)
-        GestureTriggerType.LongSlide -> longSlideActionFor(direction)
-        GestureTriggerType.LongSlideHold -> longSlideHoldActionFor(direction)
+        GestureTriggerType.Slide -> slideActionFor(slot)
+        GestureTriggerType.SlideHold -> slideHoldActionFor(slot)
+        GestureTriggerType.LongSlide -> longSlideActionFor(slot)
+        GestureTriggerType.LongSlideHold -> longSlideHoldActionFor(slot)
         else -> null
     }
 }
 
 private fun hunoia.luno.config.model.SubGesture.withAction(
     triggerType: GestureTriggerType,
-    direction: hunoia.luno.config.model.GestureDirection,
+    slot: Int,
     action: StoredAction?
 ): hunoia.luno.config.model.SubGesture {
     return when (triggerType) {
-        GestureTriggerType.Slide -> withSlideAction(direction, action)
-        GestureTriggerType.SlideHold -> withSlideHoldAction(direction, action)
-        GestureTriggerType.LongSlide -> withLongSlideAction(direction, action)
-        GestureTriggerType.LongSlideHold -> withLongSlideHoldAction(direction, action)
+        GestureTriggerType.Slide -> withSlideAction(slot, action)
+        GestureTriggerType.SlideHold -> withSlideHoldAction(slot, action)
+        GestureTriggerType.LongSlide -> withLongSlideAction(slot, action)
+        GestureTriggerType.LongSlideHold -> withLongSlideHoldAction(slot, action)
         else -> this
     }
 }

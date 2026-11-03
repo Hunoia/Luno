@@ -1,9 +1,5 @@
 package hunoia.luno.action.capability
 
-import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
-import androidx.core.app.NotificationManagerCompat
 import hunoia.luno.core.domain.Capability
 
 /**
@@ -14,7 +10,6 @@ import hunoia.luno.core.domain.Capability
  * 执行口不 import `:app` 的服务类。
  */
 class CapabilityGate(
-    private val appContext: Context,
     private val isAccessibilityAvailable: () -> Boolean,
     private val isShizukuAvailable: () -> Boolean = { hunoia.luno.shizuku.ShizukuFacade.isReady() },
 ) {
@@ -22,11 +17,5 @@ class CapabilityGate(
         Capability.None -> true
         Capability.Shizuku -> isShizukuAvailable()
         Capability.Accessibility -> isAccessibilityAvailable()
-        Capability.Notification -> {
-            val permissionOk = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-                appContext.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) ==
-                    PackageManager.PERMISSION_GRANTED
-            permissionOk && NotificationManagerCompat.from(appContext).areNotificationsEnabled()
-        }
     }
 }

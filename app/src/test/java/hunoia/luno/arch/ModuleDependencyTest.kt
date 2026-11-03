@@ -18,10 +18,11 @@ class ModuleDependencyTest {
     /** 模块 → 允许依赖的模块（只允许这些，且必须与声明完全一致）。 */
     private val knownModules: Set<String> = setOf(
         ":core:common", ":core:domain", ":core:bridge", ":core:data", ":core:runtime",
-        ":ui:design", ":capability:launch",
-        ":feature:execute", ":feature:actions", ":feature:conditions", ":feature:automation",
+        ":ui:design", ":capability:launch", ":capability:ocr",
+        ":feature:execute", ":feature:actions",
         ":feature:link", ":feature:search", ":feature:quicklaunch", ":feature:gesture",
-        ":feature:floatball", ":feature:gridpanel", ":app",
+        ":feature:floatball", ":feature:gridpanel", ":feature:annotate", ":feature:a11y",
+        ":app",
     )
 
     private val allowList: Map<String, Set<String>> = mapOf(
@@ -36,22 +37,16 @@ class ModuleDependencyTest {
         ":capability:launch" to setOf(
             ":core:common", ":core:domain", ":core:data", ":core:bridge",
         ),
+        ":capability:ocr" to setOf(":core:common", ":core:domain"),
         ":feature:execute" to setOf(":core:common", ":core:domain", ":core:bridge"),
         // 偏差：动作定义/执行器与展示元数据仍同模块（ActionDefinition 完全二分挂账）。
         ":feature:actions" to setOf(
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
             ":core:runtime", ":feature:execute", ":ui:design",
         ),
-        ":feature:conditions" to setOf(
-            ":core:common", ":core:domain", ":core:bridge",
-        ),
-        ":feature:automation" to setOf(
-            ":core:common", ":core:domain", ":core:bridge",
-            ":core:runtime", ":feature:conditions", ":feature:execute",
-        ),
         ":feature:link" to setOf(
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
-            ":core:runtime", ":feature:execute", ":ui:design",
+            ":core:runtime", ":ui:design",
         ),
         ":feature:search" to setOf(
             ":core:common", ":core:domain", ":core:data", ":core:bridge",
@@ -59,24 +54,30 @@ class ModuleDependencyTest {
         ),
         ":feature:quicklaunch" to setOf(
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
-            ":core:runtime", ":feature:execute", ":feature:search", ":ui:design",
+            ":core:runtime", ":feature:search", ":ui:design",
         ),
         ":feature:gesture" to setOf(
+            ":capability:ocr",
             ":core:common", ":core:domain", ":core:data", ":core:bridge",
-            ":core:runtime", ":feature:actions", ":feature:execute", ":ui:design",
+            ":core:runtime", ":feature:actions", ":feature:link", ":ui:design",
         ),
         ":feature:floatball" to setOf(
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
-            ":core:runtime", ":feature:actions", ":feature:automation",
-            ":feature:conditions", ":feature:execute", ":feature:gesture",
+            ":core:runtime", ":feature:gesture",
             ":feature:link", ":ui:design",
         ),
         ":feature:gridpanel" to setOf(
             ":capability:launch",
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
-            ":core:runtime", ":feature:actions", ":feature:automation",
+            ":core:runtime", ":feature:actions",
             ":feature:execute", ":feature:gesture", ":feature:quicklaunch",
             ":feature:search", ":ui:design",
+        ),
+        ":feature:annotate" to setOf(
+            ":core:common", ":core:domain", ":core:bridge", ":ui:design",
+        ),
+        ":feature:a11y" to setOf(
+            ":core:common", ":core:domain", ":core:bridge", ":ui:design",
         ),
         ":app" to (knownModules - ":app"),
     )

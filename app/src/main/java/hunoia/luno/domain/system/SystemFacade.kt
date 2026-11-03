@@ -18,7 +18,25 @@ interface SystemFacade {
     fun setFloatBallEnabled(context: Context, enabled: Boolean)
     fun refreshFloatBall(context: Context)
 
+    /** 总闸重新打开后按落盘配置恢复悬浮球宿主（球 / 通知 / 剪贴板任一开启才拉起）。 */
+    suspend fun restoreFloatBall(context: Context)
+
+    /** 通知使用权是否已授（通知胶囊 / 媒体控制共用）。 */
+    fun isNotificationAccessGranted(context: Context): Boolean
+
     suspend fun loadHomePermissionState(context: Context): HomePermissionState
+
+    /** 各项特权授权的当前状态（悬浮窗 / 无障碍 / 通知监听 / 系统设置写入 / 电池白名单 / 通知）。 */
+    fun privilegedPermissionStatus(context: Context): List<PrivilegedPermissionStatus>
+
+    /** 该项对应的系统设置页；没有可跳页面时返回 null（如 `WRITE_SECURE_SETTINGS`）。 */
+    fun privilegedPermissionIntent(context: Context, permission: PrivilegedPermission): android.content.Intent?
+
+    /** 用 Shizuku 只授这一项；返回是否真的授上了。 */
+    suspend fun grantPrivilegedPermission(context: Context, permission: PrivilegedPermission): Boolean
+
+    /** 一键补齐：返回成功/失败计数，没拿到 Shizuku 时 total=0。 */
+    suspend fun grantAllPrivilegedPermissions(context: Context): PrivilegedGrantSummary
 }
 
 /** `SystemFacade` 的默认实现：只做委托，不引入新的状态。 */
@@ -38,6 +56,28 @@ object SystemUseCases : SystemFacade {
 
     override fun refreshFloatBall(context: Context) = FloatBallUseCase.refresh(context)
 
+    override suspend fun restoreFloatBall(context: Context) =
+        FloatBallUseCase.restoreIfEnabled(context)
+
+    override fun isNotificationAccessGranted(context: Context): Boolean =
+        hunoia.luno.bridge.system.NotificationAccess.isGranted(context)
+
     override suspend fun loadHomePermissionState(context: Context): HomePermissionState =
         PermissionStateUseCase.loadHomePermissionState(context)
+
+    override fun privilegedPermissionStatus(context: Context): List<PrivilegedPermissionStatus> =
+        PrivilegedPermissionUseCase.status(context)
+
+    override fun privilegedPermissionIntent(
+        context: Context,
+        permission: PrivilegedPermission,
+    ): android.content.Intent? = PrivilegedPermissionUseCase.settingsIntent(context, permission)
+
+    override suspend fun grantPrivilegedPermission(
+        context: Context,
+        permission: PrivilegedPermission,
+    ): Boolean = PrivilegedPermissionUseCase.grant(context, permission)
+
+    override suspend fun grantAllPrivilegedPermissions(context: Context): PrivilegedGrantSummary =
+        PrivilegedPermissionUseCase.grantAll(context)
 }
