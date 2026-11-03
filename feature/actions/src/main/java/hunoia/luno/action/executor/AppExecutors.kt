@@ -38,7 +38,7 @@ class AppExecutors : ActionExecutor {
                 )
                 if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
-            is Action.AppDetails -> context.openAppDetails(action.packageName)
+            is Action.AppDetails -> context.openAppDetails(action.packageName, action.userId)
             is Action.Popup -> context.launchInPopup(context.currentPackageName().orEmpty())
             is Action.LaunchShortcut -> {
                 if (context.launchShortcut(action.data)) {

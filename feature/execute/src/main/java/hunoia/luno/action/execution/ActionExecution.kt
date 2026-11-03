@@ -154,7 +154,7 @@ data class ExecutorContext(
         { _, _, _ -> false },
     /** 启动已声明的 App Shortcut（入参是落库的快捷方式 JSON）。 */
     val launchShortcut: suspend (dataJson: String) -> Boolean = { false },
-    val openAppDetails: suspend (packageName: String) -> ActionResult = {
+    val openAppDetails: suspend (packageName: String, userId: Int) -> ActionResult = { _, _ ->
         ActionResult.Failed(ActionFailure.Unsupported)
     },
     /** 当前应用以小窗打开；包名/Activity 解析与全局设置由实现侧负责。 */

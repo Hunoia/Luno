@@ -287,8 +287,8 @@ class GestureCoordinator(
         override suspend fun launchShortcut(dataJson: String): Boolean =
             appLauncher.launchShortcut(dataJson)
 
-        override suspend fun openAppDetails(packageName: String) =
-            appLauncher.openAppDetails(packageName)
+        override suspend fun openAppDetails(packageName: String, userId: Int) =
+            appLauncher.openAppDetails(packageName, userId)
 
         override suspend fun launchInPopup(packageName: String) =
             appLauncher.launchInPopup(packageName)

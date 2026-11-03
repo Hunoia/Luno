@@ -38,7 +38,7 @@ internal object AppActionGroup : ActionGroup {
         ActionDefinition(
             "app.details", "应用详情", ActionCategory.APP,
             Capability.None,
-            listOf(ParameterDefinition.AppSelector("packageName", "应用")),
+            listOf(ParameterDefinition.AppSelector("packageName", "应用", userIdKey = "userId")),
             icon = Icons.Default.Info,
         ),
         // 无参定义：动作库自动不显示；小窗尺寸/位置一律用全局小窗设置。
@@ -67,7 +67,12 @@ internal object AppActionGroup : ActionGroup {
                 userId = p.str("userId").toIntOrNull() ?: 0,
             )
         }
-        ActionMappingRegistry.register("app.details") { p -> Action.AppDetails(p.str("packageName")) }
+        ActionMappingRegistry.register("app.details") { p ->
+            Action.AppDetails(
+                packageName = p.str("packageName"),
+                userId = p.str("userId").toIntOrNull() ?: 0,
+            )
+        }
         ActionMappingRegistry.register("app.popup") { Action.Popup }
         ActionMappingRegistry.register("app.launchShortcut") { p -> Action.LaunchShortcut(p.str("data")) }
     }

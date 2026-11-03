@@ -44,8 +44,8 @@ interface AppLauncher {
         queryParameters: List<QueryParam> = emptyList(),
     ): Boolean
 
-    /** 打开应用详情页（设置页）。 */
-    suspend fun openAppDetails(packageName: String): ActionResult
+    /** 打开应用详情页（设置页）；userId 非 0 时打开对应分身实例的详情。 */
+    suspend fun openAppDetails(packageName: String, userId: Int = 0): ActionResult
 }
 
 /**

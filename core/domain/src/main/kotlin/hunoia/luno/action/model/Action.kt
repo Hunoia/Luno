@@ -43,7 +43,11 @@ sealed interface Action {
     ) : Action {
         override val typeId: String = hunoia.luno.core.domain.AppLaunchAction.TYPE_ID
     }
-    data class AppDetails(val packageName: String) : Action {
+    data class AppDetails(
+        val packageName: String,
+        /** 0 = 主用户；其他值 = 分身（详情页按用户展示对应实例）。 */
+        val userId: Int = 0,
+    ) : Action {
         override val typeId: String = "app.details"
     }
     /** 弹出当前应用：小窗尺寸/位置一律用全局小窗设置（动作设置→小窗）。 */

@@ -66,7 +66,8 @@ interface SurfaceHost {
     /** 启动已声明的 App Shortcut（入参是落库的快捷方式 JSON）。 */
     suspend fun launchShortcut(dataJson: String): Boolean
 
-    suspend fun openAppDetails(packageName: String): ActionResult
+    /** 打开应用详情页；userId 非 0 时按对应分身用户打开。 */
+    suspend fun openAppDetails(packageName: String, userId: Int = 0): ActionResult
 
     /** 当前应用以小窗打开；包名 / Activity 解析与全局设置由实现侧负责。 */
     suspend fun launchInPopup(packageName: String): ActionResult

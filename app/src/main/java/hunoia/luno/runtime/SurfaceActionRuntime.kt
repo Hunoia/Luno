@@ -172,8 +172,8 @@ object SurfaceActionRuntime {
         override suspend fun launchShortcut(dataJson: String): Boolean =
             launcher.launchShortcut(dataJson)
 
-        override suspend fun openAppDetails(packageName: String): ActionResult =
-            launcher.openAppDetails(packageName)
+        override suspend fun openAppDetails(packageName: String, userId: Int): ActionResult =
+            launcher.openAppDetails(packageName, userId)
 
         override suspend fun launchInPopup(packageName: String): ActionResult =
             launcher.launchInPopup(packageName)

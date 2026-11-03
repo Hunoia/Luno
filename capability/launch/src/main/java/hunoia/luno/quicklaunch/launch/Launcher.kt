@@ -297,19 +297,51 @@ object Launcher {
         false
     }
 
-    /** 打开系统「应用详情」页；无桌面入口的系统包只能这样进入。 */
-    fun openAppDetails(context: Context, packageName: String): Boolean = try {
-        context.startActivity(
-            Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = Uri.parse("package:$packageName")
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            },
-        )
+    /**
+     * 打开系统「应用详情」页；无桌面入口的系统包只能这样进入。
+     *
+     * 分身（userId 非 0 且非当前用户）与主应用包名相同，设置页按 `package:` 只认当前用户的
+     * 实例，直接启动只会显示主应用的详情。MIUI/XSpace 的分身用户里没有系统设置
+     * （`pm list packages --user 999` 不含 com.android.settings），`startActivityAsUser`
+     * 也解析不到；MIUI 的详情页（com.miui.securitycenter 的应用管理）改为读
+     * `package_name` + `miui.intent.extra.USER_ID` 定位实例，所以这条链路只补 extra，
+     * 仍按当前用户启动。非 MIUI（如工作资料）没有这套 extra，仍按目标用户启动。
+     */
+    suspend fun openAppDetails(context: Context, packageName: String, userId: Int = 0): Boolean = try {
+        val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.parse("package:$packageName")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        if (userId != 0 && userId != Process.myUserHandle().hashCode()) {
+            if (!hasMiuiAppManager(context)) {
+                if (ShizukuManager.currentStatus().isReady &&
+                    ShizukuManager.startActivityAsUser(intent, userId, null)
+                ) {
+                    return true
+                }
+            } else {
+                intent.putExtra(MIUI_EXTRA_PACKAGE_NAME, packageName)
+                intent.putExtra(MIUI_EXTRA_USER_ID, userId)
+            }
+        }
+        context.startActivity(intent)
         true
     } catch (e: Exception) {
-        Log.e(LOG_TAG, "openAppDetails failed pkg=$packageName", e)
+        Log.e(LOG_TAG, "openAppDetails failed pkg=$packageName user=$userId", e)
         false
     }
+
+    private const val MIUI_APP_MANAGER_PACKAGE = "com.miui.securitycenter"
+
+    /** MIUI 应用详情页认的实例定位参数；AOSP 设置页没有这两个 extra，会直接忽略。 */
+    private const val MIUI_EXTRA_PACKAGE_NAME = "package_name"
+    private const val MIUI_EXTRA_USER_ID = "miui.intent.extra.USER_ID"
+
+    /** MIUI 的详情页由应用管理（com.miui.securitycenter）承接，只有它认上面的 extra。 */
+    private fun hasMiuiAppManager(context: Context): Boolean = runCatching {
+        context.packageManager.getPackageInfo(MIUI_APP_MANAGER_PACKAGE, 0)
+        true
+    }.getOrDefault(false)
 
     fun launchAppActivity(context: Context, packageName: String, className: String): Boolean {
         return try {

@@ -3,7 +3,6 @@ package hunoia.luno.launch
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.util.Log
 import hunoia.luno.bridge.system.queryIntentActivitiesCompat
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.OpenAppOrUrlData
@@ -104,18 +103,12 @@ class DefaultAppLauncher(
         miniWindowSettings = advancedSettings().miniWindowSettings(),
     )
 
-    override suspend fun openAppDetails(packageName: String): ActionResult = try {
-        context.startActivity(
-            Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = android.net.Uri.parse("package:$packageName")
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            },
-        )
-        ActionResult.Success()
-    } catch (e: Exception) {
-        Log.e(LOG_TAG, "openAppDetails failed", e)
-        ActionResult.Failed(ActionFailure.ExecutionFailed, e.message ?: e.javaClass.name)
-    }
+    override suspend fun openAppDetails(packageName: String, userId: Int): ActionResult =
+        if (Launcher.openAppDetails(context, packageName, userId)) {
+            ActionResult.Success()
+        } else {
+            ActionResult.Failed(ActionFailure.ExecutionFailed)
+        }
 }
 
 /**
