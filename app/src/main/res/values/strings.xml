@@ -166,7 +166,7 @@
     <string name="apps_show_system">显示系统应用</string>
     <string name="apps_show_system_hint">在应用列表中加入没有桌面入口的系统应用</string>
     <string name="action_settings_permissions_group">权限</string>
-    <string name="action_settings_mini_window_position">迷你窗位置</string>
+    <string name="action_settings_mini_window_position">小窗设置</string>
     <string name="screen_pick_settings_title">屏幕识别</string>
     <string name="screen_pick_settings_group">全屏长按</string>
     <string name="screen_pick_settings_image_group">图片</string>
@@ -379,12 +379,8 @@
 
     <!-- 主页 -->
     <string name="height">高度</string>
-    <string name="mini_window_portrait_hint">当前编辑竖屏位置，转动屏幕可编辑横屏</string>
-    <string name="mini_window_landscape_hint">当前编辑横屏位置，转回竖屏可编辑竖屏</string>
-    <string name="mini_window_position">位置</string>
     <string name="mini_window_default">默认</string>
     <string name="mini_window_done">完成</string>
-    <string name="mini_window_adjust_hint">横 %1$d%% · 纵 %2$d%% · 宽 %3$d%% · 高 %4$d%%</string>
 
     <!-- 手势设置分组 -->
     <string name="physical_params">物理参数</string>
@@ -414,13 +410,18 @@
     <!-- 搜索引擎 -->
     <string name="search_engine_settings">搜索引擎</string>
     <string name="search_engine_add">添加搜索引擎</string>
-    <string name="search_engine_export">导出引擎到剪贴板</string>
-    <string name="search_engine_import">从剪贴板导入引擎</string>
+    <string name="search_engine_export">导出到剪贴板</string>
+    <string name="search_engine_import">从剪贴板导入</string>
+    <string name="search_engine_export_file">导出文件</string>
+    <string name="search_engine_import_file">导入文件</string>
+    <string name="search_engine_export_file_done">引擎已导出到文件</string>
+    <string name="search_engine_import_file_empty">文件内容为空</string>
     <string name="search_engine_export_done">引擎已复制到剪贴板</string>
     <string name="search_engine_import_done">引擎已导入</string>
     <string name="search_engine_import_trigger_conflict">引擎已导入，其中 %1$d 个标识与现有重复已清空</string>
     <string name="search_engine_import_empty">剪贴板没有内容</string>
     <string name="search_engine_import_failed">无法识别剪贴板里的引擎 JSON</string>
+    <string name="more_options">更多选项</string>
     <string name="search_engine_edit">编辑搜索引擎</string>
     <string name="search_engine_name">名称</string>
     <string name="search_engine_name_hint">必填</string>
@@ -472,23 +473,34 @@
     <string name="search_engine_drag">拖动排序</string>
     <string name="search_engine_primary">主引擎</string>
     <string name="search_engine_group_title">引擎</string>
-    <string name="search_data_group">数据</string>
+
     <string name="search_engine_empty_hint">暂无搜索引擎，点右下角添加</string>
     <string name="search_engine_missing">引擎不存在或已被删除</string>
     <string name="search_engine_invalid_hint">引擎信息不完整，请补全标红项</string>
 
     <!-- 链接分发 -->
     <string name="link_dispatch">链接分发</string>
+    <string name="link_dispatch_export">导出到剪贴板</string>
+    <string name="link_dispatch_import">从剪贴板导入</string>
+    <string name="link_dispatch_export_file">导出文件</string>
+    <string name="link_dispatch_import_file">导入文件</string>
+    <string name="link_dispatch_export_done">规则已复制到剪贴板</string>
+    <string name="link_dispatch_export_file_done">规则已导出到文件</string>
+    <string name="link_dispatch_import_done">规则已导入</string>
+    <string name="link_dispatch_import_empty">剪贴板没有内容</string>
+    <string name="link_dispatch_import_file_empty">文件内容为空</string>
+    <string name="link_dispatch_import_failed">无法识别剪贴板里的规则 JSON</string>
+    <string name="link_dispatch_import_confirm_title">确认导入</string>
+    <string name="link_dispatch_import_confirm_text">将导入 %1$d 条规则</string>
+    <string name="link_dispatch_export_confirm_title">确认导出</string>
+    <string name="link_dispatch_export_confirm_text">将导出 %1$d 条规则并复制到剪贴板，会覆盖当前剪贴板内容</string>
     <string name="link_dispatch_no_link">没有识别到链接</string>
     <string name="link_dispatch_global_group">行为</string>
     <string name="link_dispatch_enabled">启用链接分发</string>
-    <string name="link_dispatch_enabled_hint">关闭后胶囊不再识别链接、外部打开也不按规则分发；识屏幽灵卡的「打开链接」仍可用，但回退到打开方式设置</string>
     <string name="link_dispatch_capsule_tap">命中链接时的点击行为</string>
-    <string name="link_dispatch_capsule_tap_hint">剪贴板胶囊里认出链接且命中规则时，点击胶囊做什么</string>
     <string name="link_dispatch_tap_dispatch">直达目标应用</string>
     <string name="link_dispatch_tap_share">系统分享面板</string>
     <string name="link_dispatch_miss">未命中规则时</string>
-    <string name="link_dispatch_miss_hint">胶囊点击与外部打开链接都按这里处理</string>
     <string name="link_dispatch_miss_share">系统分享面板</string>
     <string name="link_dispatch_miss_browser">浏览器打开</string>
     <string name="link_dispatch_miss_picker">选择应用</string>
@@ -497,7 +509,8 @@
     <string name="link_dispatch_presets_available">%1$d 条可添加（按本机已安装的应用生成）</string>
     <string name="link_dispatch_presets_none">已全部添加</string>
     <string name="link_dispatch_presets_added">已添加 %1$d 条规则</string>
-    <string name="link_dispatch_rules_group">规则（按顺序匹配，第一条命中生效）</string>
+    <string name="link_dispatch_rules_group">规则</string>
+    <string name="link_dispatch_rules_order">按顺序匹配，第一条命中生效</string>
     <string name="link_dispatch_rules_empty">暂无规则，点右下角添加。未命中任何规则的链接按上面的「未命中规则时」处理。</string>
     <string name="link_dispatch_rule_add">新增规则</string>
     <string name="link_dispatch_rule_edit">编辑规则</string>
@@ -551,7 +564,6 @@
     <string name="link_dispatch_rule_mini_window">小窗方式打开</string>
     <string name="link_dispatch_browser_group">默认浏览器</string>
     <string name="link_dispatch_default_browser">把 Luno 设为默认浏览器</string>
-    <string name="link_dispatch_default_browser_hint">设置后，其它应用点开的 http(s) 链接会先送到这里，再按上面的规则分发</string>
     <string name="link_dispatch_pick_app_title">选择打开方式</string>
     <string name="link_dispatch_pick_app_hint">选择一个应用打开这条链接</string>
     <string name="link_dispatch_pick_app_empty">没有找到能打开该链接的应用</string>
@@ -665,12 +677,6 @@
     <string name="ocr_model_pp_verifying">校验中…</string>
     <string name="ocr_model_refresh">重新检查状态</string>
     <string name="ocr_model_soc">SoC</string>
-    <string name="ocr_model_summary_pp_missing">PP-OCRv6 未导入</string>
-    <string name="ocr_model_summary_pp_ready">PP-OCRv6 已就绪</string>
-    <string name="ocr_model_title">OCR 模型</string>
-
-    <!-- ===== 识屏 OCR 后端 / 模型入口（自 debug APK 资源还原） ===== -->
-    <string name="screen_pick_ocr_model">OCR 模型</string>
 
     <!-- ===== 无障碍管理（列出并启停设备上的全部无障碍服务） ===== -->
     <string name="a11y_manager_title">无障碍管理</string>
