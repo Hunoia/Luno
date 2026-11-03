@@ -11,7 +11,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Process
 import android.os.UserHandle
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import android.view.WindowManager
 import hunoia.luno.capability.launch.R
 import hunoia.luno.config.model.MiniWindowSettings

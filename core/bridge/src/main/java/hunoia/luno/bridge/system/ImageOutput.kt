@@ -8,7 +8,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Environment
 import android.provider.MediaStore
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import androidx.core.content.FileProvider
 import java.io.File
 

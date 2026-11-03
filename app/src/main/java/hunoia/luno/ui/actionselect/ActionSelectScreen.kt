@@ -6,7 +6,7 @@ import android.content.Intent.ShortcutIconResource
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
 import android.graphics.Bitmap
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import java.io.File
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult

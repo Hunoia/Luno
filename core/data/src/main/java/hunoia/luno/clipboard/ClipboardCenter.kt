@@ -1,6 +1,6 @@
 package hunoia.luno.clipboard
 
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.bridge.system.ClipboardContent
 import hunoia.luno.bridge.system.copyImage
 import hunoia.luno.bridge.system.copyText

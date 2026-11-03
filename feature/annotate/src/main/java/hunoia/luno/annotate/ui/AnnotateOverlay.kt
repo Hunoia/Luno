@@ -4,7 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import android.view.Choreographer
 import android.view.Gravity
 import android.view.View

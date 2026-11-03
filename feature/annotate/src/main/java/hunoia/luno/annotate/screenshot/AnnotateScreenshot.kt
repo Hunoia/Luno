@@ -2,7 +2,7 @@ package hunoia.luno.annotate.screenshot
 
 import android.accessibilityservice.AccessibilityService
 import android.graphics.Bitmap
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.bridge.system.ScreenScreenshot
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.shizuku.ShizukuScreenshot

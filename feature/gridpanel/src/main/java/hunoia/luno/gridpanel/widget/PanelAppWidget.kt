@@ -7,7 +7,7 @@ import android.appwidget.AppWidgetProviderInfo
 import android.app.PendingIntent
 import android.content.Context
 import android.os.Bundle
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration

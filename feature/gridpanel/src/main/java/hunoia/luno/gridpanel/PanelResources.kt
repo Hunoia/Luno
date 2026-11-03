@@ -50,7 +50,7 @@ object PanelResources {
                     DispatchClient.releaseOrphanAppWidgets(referencedWidgetIds)
                 }
             }.onFailure { error ->
-                android.util.Log.w("LunoResources", "panel resource cleanup failed", error)
+                hunoia.luno.core.LunoLog.w("LunoResources", "panel resource cleanup failed", error)
             }
         }
     }

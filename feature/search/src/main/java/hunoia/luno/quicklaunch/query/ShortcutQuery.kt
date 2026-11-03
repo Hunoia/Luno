@@ -6,7 +6,7 @@ import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.content.res.XmlResourceParser
 import android.net.Uri
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.search.BuildConfig
 import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.bridge.system.queryIntentActivitiesCompat

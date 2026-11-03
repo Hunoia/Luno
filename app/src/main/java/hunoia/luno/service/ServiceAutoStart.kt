@@ -2,7 +2,7 @@ package hunoia.luno.service
 
 import android.content.Context
 import android.content.Intent
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.InitialSettings

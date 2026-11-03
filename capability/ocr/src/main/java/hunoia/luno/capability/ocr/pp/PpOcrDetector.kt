@@ -123,6 +123,11 @@ class PpOcrDetector(context: Context, modelFile: File) : Closeable {
         return prob
     }
 
+    /** 预热：跑一次空白检测，强制 GPU delegate 完成设备端编译。 */
+    fun warmUp() {
+        probMap(FloatArray(SIZE * SIZE * 3) { 255f })
+    }
+
     override fun close() {
         det.close()
     }

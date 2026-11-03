@@ -4,7 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.link.R
 import hunoia.luno.config.model.LinkDispatchRule
 import hunoia.luno.config.model.LinkDispatchSettings

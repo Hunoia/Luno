@@ -1,7 +1,7 @@
 package hunoia.luno.runtime.button
 
 import android.os.SystemClock
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.gesture.BuildConfig
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.InitialSettings

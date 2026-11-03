@@ -190,7 +190,7 @@ class QuickAppLauncherState(
             isDisabled = isDisabled,
             miniWindow = miniWindow,
             requestEnableDisabledPackage = requestEnableDisabledPackage,
-            log = { message -> android.util.Log.i(LOG_TAG, message) },
+            log = { message -> hunoia.luno.core.LunoLog.i(LOG_TAG, message) },
             onLaunch = onLaunch,
             onLaunched = closeAnimated
         )

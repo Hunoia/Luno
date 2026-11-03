@@ -7,7 +7,7 @@ import android.content.res.Configuration
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityWindowInfo
 import androidx.compose.runtime.Composable

@@ -1,6 +1,6 @@
 package hunoia.luno.action.dispatcher
 
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.action.capability.CapabilityGate
 import hunoia.luno.action.execution.ActionExecutor
 import hunoia.luno.action.execution.ActionExecutorRegistry

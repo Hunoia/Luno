@@ -1,6 +1,6 @@
 package hunoia.luno.ui.settings.action.gridpanel
 
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState

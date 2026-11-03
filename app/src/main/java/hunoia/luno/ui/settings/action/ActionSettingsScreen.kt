@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.Android
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.Gesture
@@ -68,6 +69,7 @@ fun ActionSettingsTab(
     onNavToActionSelect: () -> Unit = {},
     onNavToPrivilegedPermissions: () -> Unit = {},
     onNavToAccessibilityManager: () -> Unit = {},
+    onNavToLogSettings: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var showActionPanelStyle by remember { mutableStateOf(false) }
@@ -196,6 +198,17 @@ fun ActionSettingsTab(
                         subtitle = stringResource(R.string.a11y_settings_entry_hint),
                         shape = segmentedShape(2, 3),
                         onClick = onNavToAccessibilityManager,
+                    )
+                }
+            }
+            item(key = "logs") {
+                LunoGroup(title = stringResource(R.string.log_settings_group)) {
+                    LunoSettingsRow(
+                        icon = Icons.Default.BugReport,
+                        title = stringResource(R.string.log_settings_title),
+                        subtitle = stringResource(R.string.log_settings_entry_hint),
+                        shape = segmentedShape(0, 1),
+                        onClick = onNavToLogSettings,
                     )
                 }
             }

@@ -8,4 +8,8 @@
     <cache-path
         name="screen_pick_internal"
         path="screen_pick/" />
+    <!-- 运行日志导出 zip：只放缓存，经 FileProvider 分享。 -->
+    <cache-path
+        name="logs_export"
+        path="logs_export/" />
 </paths>

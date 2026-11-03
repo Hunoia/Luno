@@ -1,6 +1,6 @@
 package hunoia.luno.runtime.overlay
 
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import android.view.View
 import android.view.WindowManager
 import hunoia.luno.core.LOG_TAG

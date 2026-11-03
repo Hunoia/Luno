@@ -2,7 +2,7 @@ package hunoia.luno.quicklaunch.query
 
 
 import android.content.Context
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.config.model.SearchLaunch
 import hunoia.luno.config.model.effectiveLaunch

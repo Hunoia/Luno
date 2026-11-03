@@ -279,7 +279,7 @@ internal suspend fun saveGridPanelWidget(
     var result = GridPanelSaveResult.NoPanel
     TuneConfig.updateAction { settings ->
         val panel = settings.actionGridPanels.panelById(actionSelect.gridPanelId) ?: run {
-            android.util.Log.w("GridPanelSave", "widget: panel not found requested=${actionSelect.gridPanelId} " +
+            hunoia.luno.core.LunoLog.w("GridPanelSave", "widget: panel not found requested=${actionSelect.gridPanelId} " +
             "available=${settings.actionGridPanels.panels.map { it.id to it.name }} select=${actionSelect}")
             return@updateAction settings
         }
@@ -342,7 +342,7 @@ internal suspend fun saveGridPanelWidget(
         settings
     }
     if (result != GridPanelSaveResult.Saved) {
-        android.util.Log.w("GridPanelSave", "widget not placed: result=$result span=$spanX x $spanY")
+        hunoia.luno.core.LunoLog.w("GridPanelSave", "widget not placed: result=$result span=$spanX x $spanY")
         PanelAppWidgetHost.get().release(appWidgetId)
     }
     return result
@@ -358,13 +358,13 @@ internal suspend fun saveGridPanelInternalWidget(
 ): GridPanelSaveResult {
     val def = hunoia.luno.gridpanel.internal.InternalWidgetDefs.firstOrNull { it.id == widgetId }
     if (def == null) {
-        android.util.Log.w("GridPanelSave", "internal widget: unknown id=$widgetId")
+        hunoia.luno.core.LunoLog.w("GridPanelSave", "internal widget: unknown id=$widgetId")
         return GridPanelSaveResult.NoPanel
     }
     var result = GridPanelSaveResult.NoPanel
     TuneConfig.updateAction { settings ->
         val panel = settings.actionGridPanels.panelById(actionSelect.gridPanelId) ?: run {
-            android.util.Log.w("GridPanelSave", "internal: panel not found id=${actionSelect.gridPanelId}")
+            hunoia.luno.core.LunoLog.w("GridPanelSave", "internal: panel not found id=${actionSelect.gridPanelId}")
             return@updateAction settings
         }
         val ctx = gridContext(panel, actionSelect.gridPanelPageIndex)

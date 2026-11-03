@@ -40,4 +40,17 @@ class OcrResultSourceTest {
             defaultResultSource(ocrText = "", hasLazyOcr = true, a11yText = null),
         )
     }
+
+    @Test
+    fun `frame pick prefers ocr even when a11y is present`() {
+        assertEquals(
+            ResultSource.Ocr,
+            defaultResultSource(
+                ocrText = "",
+                hasLazyOcr = true,
+                a11yText = "无障碍",
+                preferOcr = true,
+            ),
+        )
+    }
 }

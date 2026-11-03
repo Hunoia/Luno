@@ -36,7 +36,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         DisabledPackageEnabler(
             context = this,
             scopeProvider = { coroutineScope },
-            log = { message -> android.util.Log.i(LOG_TAG, message) }
+            log = { message -> hunoia.luno.core.LunoLog.i(LOG_TAG, message) }
         )
     }
 
@@ -54,7 +54,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         onSearch = { query ->
             hunoia.luno.quicklaunch.QuickSearchActivity.start(this, query)
         },
-        onOcrResult = { ocr, a11y, image, ocrLoader ->
+        onOcrResult = { ocr, a11y, image, ocrLoader, preferOcr ->
             hunoia.luno.ui.ocr.OcrResultActivity.start(
                 this,
                 hunoia.luno.ui.ocr.OcrResultPayload(
@@ -62,6 +62,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
                     a11yText = a11y,
                     image = image,
                     ocrLoader = ocrLoader,
+                    preferOcr = preferOcr,
                 ),
             )
         },
@@ -173,7 +174,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         if (!isDispatchReady()) return false
         val shown = screenPickOverlay.showPortalAt(x, y, preCapture)
         if (hunoia.luno.gesture.BuildConfig.DEBUG) {
-            android.util.Log.i(LOG_TAG, "screen pick portal at ($x,$y) shown=$shown")
+            hunoia.luno.core.LunoLog.i(LOG_TAG, "screen pick portal at ($x,$y) shown=$shown")
         }
         return shown
     }
@@ -233,7 +234,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             val panelId = action.gridPanelId() ?: return@launch
             val actionSettings = runCatching { hunoia.luno.domain.tune.TuneConfig.getAction() }
                 .onFailure {
-                    android.util.Log.w(LOG_TAG, "grid panel direct config read failed: ${it.message}")
+                    hunoia.luno.core.LunoLog.w(LOG_TAG, "grid panel direct config read failed: ${it.message}")
                 }
                 .getOrDefault(hunoia.luno.config.model.ActionSettings())
             hunoia.luno.gridpanel.GridPanelOverlay.showIfExists(
@@ -268,6 +269,10 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
 
     override fun onSetOverlay() {
         current = this
+        hunoia.luno.core.LunoLog.i(
+            LOG_TAG,
+            "service: onSetOverlay pid=${android.os.Process.myPid()}",
+        )
         // debug-only 探测入口（app/src/debug 的 ScreenPickProbeReceiver）；release 恒为 null。
         ScreenPickProbe.hook = { x, y -> probeCapture(x, y) }
         // 服务起来就把引擎加载 / 预热一次：第一次长按不用再等 GPU delegate 建context，
@@ -308,7 +313,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
                         this@SideGestureService,
                         packageName,
                     ).capture(x, y)
-                }.onFailure { android.util.Log.w(LOG_TAG, "probe capture failed: ${it.message}") }
+                }.onFailure { hunoia.luno.core.LunoLog.w(LOG_TAG, "probe capture failed: ${it.message}") }
                     .getOrNull()
             } ?: return@launch
             val tolerance = 8
@@ -329,7 +334,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             snapshot.images.take(10).forEach { img ->
                 sb.append("\n  img ").append(img.bounds)
             }
-            android.util.Log.i(LOG_TAG, sb.toString())
+            hunoia.luno.core.LunoLog.i(LOG_TAG, sb.toString())
         }
     }
 

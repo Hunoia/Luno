@@ -349,10 +349,12 @@ internal fun defaultResultSource(
     ocrText: String,
     hasLazyOcr: Boolean,
     a11yText: String?,
+    preferOcr: Boolean = false,
 ): ResultSource {
     val ocrAvailable = ocrText.isNotBlank() || hasLazyOcr
     val a11yAvailable = !a11yText.isNullOrBlank()
     return when {
+        preferOcr && ocrAvailable -> ResultSource.Ocr
         a11yAvailable && ocrText.isBlank() -> ResultSource.A11y
         ocrAvailable -> ResultSource.Ocr
         a11yAvailable -> ResultSource.A11y
@@ -409,6 +411,7 @@ private fun OcrResultScreen(
                 ocrText = payload.ocrText,
                 hasLazyOcr = ocrLoader != null,
                 a11yText = payload.a11yText,
+                preferOcr = payload.preferOcr,
             ),
         )
     }
@@ -435,6 +438,11 @@ private fun OcrResultScreen(
                 ocrLoading = false
             }
         }
+    }
+    // 初始来源就是 OCR（框选 / 幽灵卡无 a11y）时也要触发懒加载；
+    // 原先只在用户切换来源时调用 loadOcr，先开页后会停在空列表而不是 loading。
+    LaunchedEffect(source) {
+        if (source == ResultSource.Ocr) loadOcr()
     }
     val text = if (source == ResultSource.Ocr) ocrText else a11yText
 

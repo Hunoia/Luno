@@ -5,7 +5,7 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View

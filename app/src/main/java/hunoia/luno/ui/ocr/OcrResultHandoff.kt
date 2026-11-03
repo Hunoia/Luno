@@ -19,6 +19,11 @@ data class OcrResultPayload(
      * 返回 null / 空串表示识别失败或没有文字；入参位图由调用方持有与回收。
      */
     val ocrLoader: (suspend (Bitmap) -> String?)? = null,
+    /**
+     * 初始来源偏好：框选菜单点 OCR 时应先展示 OCR（即使还在懒加载），
+     * 幽灵卡命中 a11y 文本时仍先展示无障碍。
+     */
+    val preferOcr: Boolean = false,
 ) {
     /** 有没有可用的 OCR 来源：已识别文本或可懒加载的识别入口。 */
     val hasOcrSource: Boolean

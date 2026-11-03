@@ -1,7 +1,7 @@
 package hunoia.luno.runtime.overlay
 
 import android.graphics.Rect
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager

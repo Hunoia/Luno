@@ -15,7 +15,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.os.SystemClock
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import androidx.core.content.getSystemService
 import hunoia.luno.floatball.R
 import hunoia.luno.core.domain.AppLaunchAction

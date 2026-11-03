@@ -1,7 +1,7 @@
 package hunoia.luno.capability.ocr.pp
 
 import android.content.Context
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import com.google.ai.edge.litert.Accelerator
 import com.google.ai.edge.litert.CompiledModel
 import com.google.ai.edge.litert.Environment

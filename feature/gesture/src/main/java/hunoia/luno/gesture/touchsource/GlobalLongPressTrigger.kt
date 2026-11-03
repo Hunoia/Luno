@@ -3,7 +3,7 @@ package hunoia.luno.gesture.touchsource
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import androidx.compose.ui.geometry.Offset
 import hunoia.luno.config.model.ScreenPickGesture
 import hunoia.luno.core.LOG_TAG

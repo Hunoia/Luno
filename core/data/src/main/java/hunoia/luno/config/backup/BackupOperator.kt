@@ -185,7 +185,7 @@ object BackupOperator {
         val backupBytes = runCatching { scanZipEntries(zipFile) }
             .getOrElse { e ->
                 // zip bomb 会在这里被 MAX_ENTRY_BYTES 挡下；记一笔具体原因便于排查
-                android.util.Log.w(LOG_TAG, "precheckRestore: ${e::class.simpleName}: ${e.message}")
+                hunoia.luno.core.LunoLog.w(LOG_TAG, "precheckRestore: ${e::class.simpleName}: ${e.message}")
                 return RestorePrecheckResult.Failed(RestorePrecheckFailure.InvalidFormat)
             }
         if (backupBytes == null) {

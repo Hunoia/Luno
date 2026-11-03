@@ -1,7 +1,7 @@
 package hunoia.luno.quicklaunch
 
 import android.os.Looper
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable

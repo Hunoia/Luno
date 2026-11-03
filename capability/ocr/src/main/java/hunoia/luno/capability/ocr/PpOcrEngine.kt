@@ -4,12 +4,12 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.util.Log
 import hunoia.luno.capability.ocr.pp.PpOcrDetector
 import hunoia.luno.capability.ocr.pp.PpOcrRecognizer
 import hunoia.luno.capability.ocr.pp.RecModelChoice
 import hunoia.luno.config.model.OcrScript
 import hunoia.luno.core.LOG_TAG
+import hunoia.luno.core.LunoLog as Log
 import java.io.File
 import kotlin.math.min
 import kotlinx.coroutines.Dispatchers
@@ -42,6 +42,9 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
 
     private val mutex = Mutex()
     private var detector: PpOcrDetector? = null
+
+    /** 是否已完成 det + rec 预热；reload / close 后失效。 */
+    private var warmed = false
 
     /** 已加载的 rec 模型，按输入宽度索引；访问顺序即 LRU（最多常驻两档，防显存堆积）。 */
     private val recognizers = LinkedHashMap<Int, PpOcrRecognizer>(4, 0.75f, true)
@@ -159,17 +162,59 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
             }
         }
 
-    /** 预热：导入模型后由 `:service` 触发，确认 GPU 包可加载 / 可执行。失败只记日志。 */
-    suspend fun warmUp() {
-        val probe = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
-        Canvas(probe).drawColor(Color.WHITE)
+    /**
+     * 预热：加载 det 与已安装的 rec 档位，并各跑一次 dummy 推理。
+     *
+     * 只开页不预热会漏掉 rec：纯白 64×64 图检测不出文字框，`recognizerForLine()` 不会
+     * 被调用，首次真实识别仍要现加载 rec + 设备端编译。这里显式逐档打开，失败只记日志。
+     */
+    override suspend fun warmUp() {
+        withContext(Dispatchers.Default) {
+            mutex.withLock { warmLocked(force = true) }
+        }
+    }
+
+    /** 打开识屏层时调用：已预热则直接返回，避免每次框选都重复推理。 */
+    override suspend fun ensureWarm() {
+        withContext(Dispatchers.Default) {
+            mutex.withLock { warmLocked(force = false) }
+        }
+    }
+
+    private fun warmLocked(force: Boolean) {
+        if (warmed && !force) return
+        if (!OcrModelStore.isReady(context)) {
+            Log.i(LOG_TAG, "ppocr: 预热跳过（模型未就绪）")
+            return
+        }
+        val totalStart = System.nanoTime()
         try {
-            val result = recognize(probe, listOf(OcrScript.Chinese))
-            Log.i(LOG_TAG, "ppocr: 预热完成 blocks=${result.blocks.size}")
+            val detStart = System.nanoTime()
+            val det = detector ?: openDetector().also { detector = it }
+            det.warmUp()
+            val detMs = (System.nanoTime() - detStart) / 1_000_000.0
+
+            val recReport = StringBuilder()
+            // 只预热运行时常驻上限内的档位：默认包 320+640 全热，960 首次用时再换入。
+            for ((width, file) in recModelFiles().take(MAX_RESIDENT_RECOGNIZERS)) {
+                val recStart = System.nanoTime()
+                try {
+                    recognizerFor(width, file).warmUp()
+                    val ms = (System.nanoTime() - recStart) / 1_000_000.0
+                    if (recReport.isNotEmpty()) recReport.append(' ')
+                    recReport.append("rec${width}=${ms}ms")
+                } catch (failure: Throwable) {
+                    Log.w(LOG_TAG, "ppocr: rec($width) 预热失败：${failure.message}")
+                }
+            }
+            warmed = true
+            val totalMs = (System.nanoTime() - totalStart) / 1_000_000.0
+            Log.i(
+                LOG_TAG,
+                "ppocr: 预热完成 det=${detMs}ms $recReport 总计=${totalMs}ms",
+            )
         } catch (failure: Throwable) {
             Log.w(LOG_TAG, "ppocr: 预热失败：${failure.message}")
-        } finally {
-            if (!probe.isRecycled) probe.recycle()
         }
     }
 
@@ -183,6 +228,7 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
             mutex.withLock {
                 val d = detector
                 detector = null
+                warmed = false
                 releaseRecognizers()
                 runCatching { d?.close() }
             }
@@ -193,6 +239,7 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
     override fun close() {
         val d = detector
         detector = null
+        warmed = false
         releaseRecognizers()
         runCatching { d?.close() }
     }

@@ -1,7 +1,7 @@
 package hunoia.luno.quicklaunch.panel
 import android.app.Activity
 import android.os.SystemClock
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween

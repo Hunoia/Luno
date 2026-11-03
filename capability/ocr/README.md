@@ -30,6 +30,9 @@ NPU（QNN / HTP）方案因社区反馈 v6 算子覆盖问题弃用，切换为 
   （LRU 换入换出，避免三档同时占显存）；单档包行为与以前一致。
 - 运行时 GPU delegate 优先（`Accelerator.GPU + CPU`）；GPU 首次加载有设备端编译 warmup，
   delegate 不可用自动回落 CPU。
+- 预热必须显式处理 det 与 rec：白图检测不出文字框，只跑 `recognize()` 不会加载 rec。
+  `PpOcrEngine.warmUp()` 逐档打开已安装的 rec（最多 `MAX_RESIDENT_RECOGNIZERS` 档）并各跑
+  一次 dummy 推理；`ensureWarm()` 供识屏层打开时复用，已预热直接返回。
 - v6 det 输出为 fp32 sigmoid（0..1），无需 v5 int8 的概率还原系数。
 - 正 / 反两遍检测取并集，覆盖暗色模式与彩底白字。
 - rec 用**原图**裁剪（不是 640 检测图）：宽高比超过 `模型输入宽/高` 的行走切段识别，
@@ -49,3 +52,5 @@ NPU（QNN / HTP）方案因社区反馈 v6 算子覆盖问题弃用，切换为 
   长按取词走 a11y 字符级快照，不再调用 OCR（见 [ADR-0006](../../docs/adr/0006-screen-text-acquisition.md)）。
 - 组装根 `:app`（`SideGestureService`）持有 `PpOcrEngine`，服务销毁时 `close()`；
   模型导入 / 删除后经 `DispatchClient.refreshOcrEngine()` 让 `:service` 重载并预热。
+- 识屏层打开时调用 `ensureWarm()`，把模型加载 / 设备端编译藏在用户框选期间。
+- 结果页不等待 OCR：框选 / 幽灵卡只做裁剪并立即交接，OCR 由结果页的 `ocrLoader` 懒加载。

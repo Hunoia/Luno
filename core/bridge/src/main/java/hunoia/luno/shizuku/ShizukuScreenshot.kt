@@ -2,7 +2,7 @@ package hunoia.luno.shizuku
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.core.LOG_TAG
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

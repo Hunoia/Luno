@@ -3,7 +3,7 @@ package hunoia.luno.runtime
 import android.app.Application
 import android.content.Context
 import android.content.Intent
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.action.dispatcher.ActionDispatcher
 import hunoia.luno.action.model.QueryParam
 import hunoia.luno.action.model.resolveButtonTargetIds

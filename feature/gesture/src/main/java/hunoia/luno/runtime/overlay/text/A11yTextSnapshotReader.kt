@@ -5,7 +5,7 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.os.Bundle
 import android.os.SystemClock
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import hunoia.luno.core.LOG_TAG

@@ -12,6 +12,8 @@ import hunoia.luno.core.AppContext
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.core.CrashHandler
 import hunoia.luno.core.Events
+import hunoia.luno.core.LOG_TAG
+import hunoia.luno.core.LunoLog
 import hunoia.luno.bridge.ui.isMainThread
 import hunoia.luno.bridge.vibration.initVibrationContext
 import hunoia.luno.quicklaunch.icon.AppIconFetcherFactory
@@ -65,6 +67,10 @@ class App : Application(), ImageLoaderFactory {
         super.onCreate()
         if (BuildConfig.DEBUG) enableStrictMode()
         AppContext.init(applicationContext, scope)
+        LunoLog.i(
+            LOG_TAG,
+            "app: onCreate process=${Application.getProcessName()} pid=${android.os.Process.myPid()}",
+        )
         val appScope = AppContext.applicationScope ?: error("ApplicationScope not initialized")
         Events.initScope(appScope) { isMainThread() }
         // Surface 动作统一进 Dispatcher：进程级门面不依赖无障碍服务生命周期。

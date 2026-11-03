@@ -39,6 +39,7 @@ import hunoia.luno.ui.navigation.ActionSelect
 import hunoia.luno.ui.navigation.GestureButtonSettings
 
 import hunoia.luno.ui.navigation.Home
+import hunoia.luno.ui.navigation.LogSettings
 import hunoia.luno.ui.navigation.OcrModelSettings
 import hunoia.luno.ui.navigation.ScreenPickSettings
 import hunoia.luno.ui.navigation.NotificationBlocklist
@@ -68,6 +69,7 @@ import hunoia.luno.ui.navigation.ActionLibraryEdit
 import hunoia.luno.ui.actionselect.ActionSelectContent
 import hunoia.luno.ui.actionlibrary.ActionLibraryEditScreen
 import hunoia.luno.ui.settings.action.OcrModelSettingsScreen
+import hunoia.luno.ui.settings.action.LogSettingsScreen
 import hunoia.luno.ui.settings.action.ScreenPickSettingsScreen
 import hunoia.luno.ui.settings.action.RecentAppsBlocklistScreen
 import hunoia.luno.ui.settings.accessibility.AccessibilityManagerScreen
@@ -170,6 +172,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToAccessibilityManager = {
                             navController.navigate(AccessibilityManager)
                         },
+                        onNavToLogSettings = {
+                            navController.navigate(LogSettings)
+                        },
                         onNavToScreenPickSettings = {
                             navController.navigate(ScreenPickSettings)
                         },
@@ -198,6 +203,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 }
                 myComposable<OcrModelSettings> {
                     OcrModelSettingsScreen(onBack = { navController.popBackStack() })
+                }
+                myComposable<LogSettings> {
+                    LogSettingsScreen(onBack = { navController.popBackStack() })
                 }
                 myComposable<LinkDispatchRules> {
                     LinkDispatchSettingsScreen(

@@ -3,7 +3,7 @@ package hunoia.luno.domain.ocr
 import android.content.Context
 import android.net.Uri
 import android.os.Build
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.capability.ocr.OcrModelInfo
 import hunoia.luno.capability.ocr.OcrModelPack
 import hunoia.luno.capability.ocr.OcrModelStatus

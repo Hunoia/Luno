@@ -311,7 +311,7 @@ object ShizukuManager {
                 ) as? Int
                 result != null && result >= 0
             }.getOrElse { t ->
-                android.util.Log.w(
+                hunoia.luno.core.LunoLog.w(
                     "ShizukuManager",
                     "startActivityAsUser failed pkg=${intent.component?.packageName} user=$userId",
                     t,
@@ -354,7 +354,7 @@ object ShizukuManager {
             startShortcutMethod.invoke(launcherAppsProxy, *args)
             true
         }.getOrElse { t ->
-            android.util.Log.w("ShizukuManager", "startShortcut failed pkg=$packageName id=$shortcutId", t)
+            hunoia.luno.core.LunoLog.w("ShizukuManager", "startShortcut failed pkg=$packageName id=$shortcutId", t)
             false
         }
     }

@@ -1,7 +1,7 @@
 package hunoia.luno.gridpanel
 
 import android.os.SystemClock
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import android.view.WindowInsets
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween

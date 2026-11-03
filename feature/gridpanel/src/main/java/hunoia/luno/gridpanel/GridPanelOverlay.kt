@@ -3,7 +3,7 @@ package hunoia.luno.gridpanel
 import android.graphics.Color
 import android.os.Looper
 import android.os.SystemClock
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import androidx.compose.foundation.layout.Box

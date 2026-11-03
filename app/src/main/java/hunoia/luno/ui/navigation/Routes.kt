@@ -140,6 +140,11 @@ data object MiniWindowAdjust
 @Serializable
 data object FloatBallEdit
 
+/** 运行日志：开关、最近日志预览、清空与导出。 */
+@Keep
+@Serializable
+data object LogSettings
+
 /** 触钮显隐场景列表。 */
 @Keep
 @Serializable

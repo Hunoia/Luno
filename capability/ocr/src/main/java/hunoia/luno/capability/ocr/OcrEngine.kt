@@ -22,6 +22,16 @@ interface OcrEngine {
      */
     suspend fun recognize(bitmap: Bitmap, scripts: List<OcrScript>): OcrResult
 
+    /**
+     * 预热：加载模型并跑一次 dummy 推理，把 GPU delegate 的设备端编译提前到用户等待之外。
+     *
+     * 幂等，实现应在已预热时直接返回；默认实现什么也不做，便于测试替身。
+     */
+    suspend fun warmUp() = Unit
+
+    /** 需要时预热；已预热时实现应直接返回。 */
+    suspend fun ensureWarm() = warmUp()
+
     /** 释放识别器。服务销毁时调用一次；调用后 [recognize] 仍会按需重新初始化。 */
     fun close()
 }

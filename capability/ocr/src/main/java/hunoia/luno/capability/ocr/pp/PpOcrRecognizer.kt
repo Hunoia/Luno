@@ -202,6 +202,11 @@ class PpOcrRecognizer(
     fun recognizeDetailed(crop: FloatArray): List<CtcChar> =
         decodeSteps(runCtc(crop), chars, inputWidth)
 
+    /** 预热：跑一次空白行识别，强制 GPU delegate 完成设备端编译。 */
+    fun warmUp() {
+        runCtc(FloatArray(inputHeight * inputWidth * 3) { 255f })
+    }
+
     override fun close() {
         rec.close()
     }

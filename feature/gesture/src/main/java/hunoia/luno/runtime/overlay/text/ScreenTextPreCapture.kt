@@ -6,7 +6,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import android.view.accessibility.AccessibilityWindowInfo
 import hunoia.luno.core.LOG_TAG
 import hunoia.luno.runtime.overlay.PickCapture

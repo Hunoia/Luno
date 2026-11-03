@@ -1,7 +1,7 @@
 package hunoia.luno.action.execution
 
 import android.content.Context
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ButtonTarget
 import hunoia.luno.action.model.QueryParam

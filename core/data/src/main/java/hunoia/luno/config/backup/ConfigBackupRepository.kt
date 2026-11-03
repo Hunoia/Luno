@@ -1,6 +1,6 @@
 package hunoia.luno.config.backup
 
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.config.store.SettingsStores
 import hunoia.luno.config.model.ActionSettings

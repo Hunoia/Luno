@@ -3,7 +3,7 @@ package hunoia.luno.ui.link
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import hunoia.luno.R

@@ -125,6 +125,7 @@ fun HomeScreen(
     onNavToActionSelect: () -> Unit = {},
     onNavToPrivilegedPermissions: () -> Unit = {},
     onNavToAccessibilityManager: () -> Unit = {},
+    onNavToLogSettings: () -> Unit = {},
     onNavToScreenPickSettings: () -> Unit = {},
     onNavToActionLibraryEdit: (String, String?) -> Unit = { _, _ -> },
     vm: HomeVM = viewModel()
@@ -469,6 +470,7 @@ fun HomeScreen(
                             onNavToActionSelect = onNavToActionSelect,
                             onNavToPrivilegedPermissions = onNavToPrivilegedPermissions,
                             onNavToAccessibilityManager = onNavToAccessibilityManager,
+                            onNavToLogSettings = onNavToLogSettings,
                         )
                     }
                 }

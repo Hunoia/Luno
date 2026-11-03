@@ -106,7 +106,7 @@ object QuickLaunchFacade {
             isDisabled = isDisabled,
             miniWindow = miniWindow,
             requestEnableDisabledPackage = requestEnableDisabledPackage ?: { _, callback -> callback(true) },
-            log = log ?: { message -> android.util.Log.i(LOG_TAG, message); Unit },
+            log = log ?: { message -> hunoia.luno.core.LunoLog.i(LOG_TAG, message); Unit },
             onLaunch = onLaunch ?: { _, _ -> true },
             onLaunched = onLaunched ?: {}
         )

@@ -3,7 +3,7 @@ package hunoia.luno.service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.core.LOG_TAG
 
 /**

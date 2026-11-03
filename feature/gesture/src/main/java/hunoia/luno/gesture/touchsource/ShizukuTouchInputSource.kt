@@ -5,7 +5,7 @@ import android.hardware.display.DisplayManager
 import android.os.SystemClock
 import android.view.Display
 import android.view.Surface
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import androidx.compose.ui.geometry.Offset
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.core.LOG_TAG

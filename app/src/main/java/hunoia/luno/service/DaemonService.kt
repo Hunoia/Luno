@@ -129,7 +129,7 @@ class DaemonService : Service() {
 
     private fun restoreIfNeeded(serviceComponentName: ComponentName, serviceId: String, current: String) {
         if (!hasWriteSecureSettings()) {
-            android.util.Log.w(LOG_TAG, "restoreIfNeeded skipped: WRITE_SECURE_SETTINGS revoked")
+            hunoia.luno.core.LunoLog.w(LOG_TAG, "restoreIfNeeded skipped: WRITE_SECURE_SETTINGS revoked")
             return
         }
         // 回写节流：无障碍服务启动即崩的场景下，ContentObserver / SCREEN_ON / onStartCommand

@@ -10,7 +10,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
+import hunoia.luno.core.LunoLog as Log
 import android.view.Display
 import android.view.Gravity
 import android.view.View
@@ -90,6 +90,8 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -148,7 +150,8 @@ class ScreenPickOverlay(
         a11y: String?,
         image: Bitmap?,
         ocrLoader: (suspend (Bitmap) -> String?)?,
-    ) -> Boolean = { _, _, _, _ -> false },
+        preferOcr: Boolean,
+    ) -> Boolean = { _, _, _, _, _ -> false },
     /** 「标注」落点（`:app` 注入）：把裁剪图交给图片编辑页；true = 已接管。 */
     private val onAnnotate: (Bitmap) -> Boolean = { false },
     /** 幽灵卡「打开链接」的落点（`:app` 注入链接分发，本模块不依赖链接分发实现）。 */    private val onOpenLink: suspend (String) -> Boolean = { false },
@@ -260,6 +263,10 @@ class ScreenPickOverlay(
         val keyguard = host.context.getSystemService(android.app.KeyguardManager::class.java)
         if (keyguard?.isKeyguardLocked == true) return false
         session++
+        // 用户已经决定要识屏：把模型加载/GPU 编译藏在框选期间，而不是等到点 OCR 才开始。
+        host.coroutineScope.launch(Dispatchers.Default) {
+            runCatching { ocrEngine.ensureWarm() }
+        }
         textSnapshot = null
         captureSignal = CompletableDeferred()
         originCorrected = false
@@ -986,9 +993,9 @@ class ScreenPickOverlay(
 
     /**
      * 幽灵卡「OCR」：命中文本节点时直接用 a11y 文本，OCR 作为结果页里的按需来源；
-     * 没有 a11y 文本时才先跑 OCR，再把「OCR 文本 + 节点 a11y 文本 + 裁剪图」交给结果页。
+     * 没有 a11y 文本但有裁剪图时同样先开页，由结果页懒加载 OCR。
      *
-     * 不立即关层：识别要用本次截屏，关层会回收位图。识别完再交接并关层。
+     * 不立即关层：裁剪要用本次截屏，交接完再关层。
      */
     private fun openOcrResultForPortal(content: PortalContent) {
         val rect = content.nodeBounds
@@ -1002,10 +1009,17 @@ class ScreenPickOverlay(
         val pickToken = portalSession
         host.coroutineScope.launch {
             val a11y = content.text?.takeIf { it.isNotBlank() }
-            // 命中文本节点：a11y 文本已经是现成全文，先不跑 OCR；
-            // 结果页切到 OCR 来源时再按需识别，避免默认路径白跑一次模型。
-            val ocr = if (a11y == null) ocrTextIn(token, pickToken, rect) else ""
             val image = croppedForResult(rect)
+            if (token != session) {
+                image?.recycle()
+                return@launch
+            }
+            // 有裁剪图就让结果页自己懒加载 OCR；没有图才退回同步识别。
+            val ocr = if (a11y == null && image == null) {
+                ocrTextIn(token, pickToken, rect)
+            } else {
+                ""
+            }
             if (token != session) {
                 image?.recycle()
                 return@launch
@@ -1015,13 +1029,9 @@ class ScreenPickOverlay(
                 close()
                 return@launch
             }
-            val ocrLoader = if (image != null) {
-                ocrLoader()
-            } else {
-                null
-            }
+            val ocrLoader = if (image != null) ocrLoader() else null
             val ok = runCatching {
-                onOcrResult(ocr.orEmpty(), a11y, image, ocrLoader)
+                onOcrResult(ocr.orEmpty(), a11y, image, ocrLoader, false)
             }.getOrDefault(false)
             if (!ok) {
                 image?.recycle()
@@ -1060,30 +1070,46 @@ class ScreenPickOverlay(
     }
 
     /**
-     * 框选菜单点 OCR：识别完成后交结果页 Activity，附带同一区域的 a11y 文本与裁剪图
-     *（结果页可切「无障碍 / OCR」与「文本 / 图片」）。
+     * 框选菜单点 OCR：先裁剪并立即交结果页，OCR 由结果页按需识别；
+     * 只有拿不到裁剪图时才退回同步 OCR。
      *
      * 失败只提示并收层：旧的浮层结果面板已删除，不维护第二条 UI 路径。
      */
     private fun openOcrPanel(rect: AndroidRect) {
         val token = session
         host.coroutineScope.launch {
-            val text = ocrTextIn(session, portalSession, rect)
-            val a11y = selectionText(rect)
-            val image = croppedForResult(rect)
+            // a11y 取词与裁剪互不依赖，并行做，别让实时无障碍快照拖慢开页。
+            val (a11y, image) = coroutineScope {
+                val a11yJob = async { selectionText(rect) }
+                val image = croppedForResult(rect)
+                a11yJob.await() to image
+            }
             if (token != session) {
                 image?.recycle()
                 return@launch
             }
+            if (image != null) {
+                // 页面立即出现，模型加载/识别在结果页里跑，loading 不阻塞开页。
+                val ok = runCatching {
+                    onOcrResult("", a11y, image, ocrLoader(), true)
+                }.getOrDefault(false)
+                if (!ok) {
+                    image.recycle()
+                    showToast(R.string.screen_pick_failed)
+                }
+                close()
+                return@launch
+            }
+            val text = ocrTextIn(token, portalSession, rect)
+            if (token != session) return@launch
             when {
-                text.isNullOrBlank() && a11y.isNullOrBlank() && image == null -> {
+                text.isNullOrBlank() && a11y.isNullOrBlank() -> {
                     showToast(R.string.screen_pick_no_content)
                     close()
                 }
-                runCatching { onOcrResult(text.orEmpty(), a11y, image, image?.let { ocrLoader() }) }.getOrDefault(false) ->
+                runCatching { onOcrResult(text.orEmpty(), a11y, null, null, true) }.getOrDefault(false) ->
                     close()
                 else -> {
-                    image?.recycle()
                     showToast(R.string.screen_pick_failed)
                     close()
                 }
