@@ -10,6 +10,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -17,10 +18,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.imageLoader
+import coil.request.ImageRequest
 import androidx.compose.ui.platform.LocalContext
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.gridpanel.geometry.ItemCorner
@@ -30,6 +33,12 @@ import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.component.actionIcon
 import hunoia.luno.gridpanel.R
 import androidx.compose.ui.res.stringResource
+
+/**
+ * 网格图标固定解码上限：面板拖拽/缩放只改布局尺寸，不再让 Coil 按每个像素尺寸
+ * 重新生成请求。图标源最多按这个上限解码，再交给 Compose 缩放到实际格子大小。
+ */
+private val GridIconDecodeSize = 96.dp
 
 /**
  * 动作格内容：应用图标（图片型）不铺底色、占满整格（自带圆角/形状）；
@@ -81,12 +90,26 @@ fun GridItemIcon(model: Any?, iconSize: Dp) {
             color = gridPanelOnCardColor,
         )
 
-        else -> AsyncImage(
-            model = model,
-            contentDescription = null,
-            modifier = Modifier.size(iconSize),
-            imageLoader = LocalContext.current.imageLoader,
-        )
+        else -> {
+            val context = LocalContext.current
+            val density = LocalDensity.current
+            val decodePx = with(density) { GridIconDecodeSize.roundToPx() }
+            // 请求只随图标源变化，不随面板尺寸变化；crossfade 关闭：图标重新呈现时
+            // 不再叠一层淡入，拖拽缩放期间不会逐帧闪烁。
+            val request = remember(model, decodePx) {
+                ImageRequest.Builder(context)
+                    .data(model)
+                    .size(decodePx)
+                    .crossfade(false)
+                    .build()
+            }
+            AsyncImage(
+                model = request,
+                contentDescription = null,
+                modifier = Modifier.size(iconSize),
+                imageLoader = context.imageLoader,
+            )
+        }
     }
 }
 

@@ -548,7 +548,11 @@ fun GridPanelCard(
                     onPanelResizeStart.invoke(resizeCorner, drawX, drawY)
                 },
                 onDelta = { delta -> onPanelResizeDelta?.invoke(delta) },
-                onEnd = { onPanelResizeEnd?.invoke() },
+                onEnd = {
+                    onPanelResizeEnd?.invoke()
+                    // 只冻结「拖动期间」的起手角；松手后重新按当前几何选角。
+                    resizeCornerOverride = null
+                },
             )
         }
     }
@@ -646,6 +650,12 @@ private fun PanelResizeHandle(
     val hitOutX = (if (corner.isLeft) -1f else 1f) * hitSizePx / 2f
     val hitOutY = (if (corner.isTop) -1f else 1f) * hitSizePx / 2f
     var handleCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    // pointerInput 的 key 只有 corner，协程不会随每次重组重启；必须通过
+    // rememberUpdatedState 取最新的回调，否则第二次拖动拿到首帧的 metrics，
+    // 起手尺寸会回到面板初始大小（看起来像「第二次拖回原大小」）。
+    val currentOnStart by rememberUpdatedState(onStart)
+    val currentOnDelta by rememberUpdatedState(onDelta)
+    val currentOnEnd by rememberUpdatedState(onEnd)
     Box(modifier) {
         // 命中盒：外移半盒到面板外（在无 clip 的外层 Box 里才不被裁）。
         Box(
@@ -664,7 +674,7 @@ private fun PanelResizeHandle(
                             handleCoords?.localToRoot(position) ?: position
                         val start = toRoot(down.position)
                         view.hapticTick()
-                        onStart()
+                        currentOnStart()
                         try {
                             while (true) {
                                 val event = awaitPointerEvent()
@@ -674,10 +684,10 @@ private fun PanelResizeHandle(
                                     break
                                 }
                                 change.consume()
-                                onDelta(toRoot(change.position) - start)
+                                currentOnDelta(toRoot(change.position) - start)
                             }
                         } finally {
-                            onEnd()
+                            currentOnEnd()
                         }
                     }
                 },
