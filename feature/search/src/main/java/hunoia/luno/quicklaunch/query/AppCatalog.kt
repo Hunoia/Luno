@@ -29,14 +29,15 @@ object AppCatalog {
         includeDisabled: Boolean = true,
         includeSystem: Boolean = showSystemApps(),
     ): QuickAppLauncherAppList {
+        // 清单**包含 Luno 自己**：搜索 / 抽屉 / 选择弹层都要能搜到本应用，
+        // 这里一旦排除，用户就永远搜不到 Luno。
         val mainApps = AppQuery.queryLauncherActivities(context, allowRepeatPackage = false)
-            .filter { it.packageName != context.packageName }
         val normalPkgs = mainApps.mapTo(mutableSetOf()) { it.packageName }
 
         val clones = queryCloneApps(context)
         val disabled = if (includeDisabled) {
             DisabledAppQuery.queryDisabledApplications(context)
-                .filter { it.packageName !in normalPkgs && it.packageName != context.packageName }
+                .filter { it.packageName !in normalPkgs }
         } else {
             emptyList()
         }
@@ -93,7 +94,7 @@ object AppCatalog {
         val result = mutableListOf<AppInfo>()
         for (app in installed) {
             val pkg = app.packageName
-            if (pkg.isBlank() || pkg == context.packageName || pkg in excludePkgs) continue
+            if (pkg.isBlank() || pkg in excludePkgs) continue
             val isSystem = app.flags and (
                 ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP
                 ) != 0
