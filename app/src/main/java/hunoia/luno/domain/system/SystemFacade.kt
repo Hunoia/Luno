@@ -37,6 +37,15 @@ interface SystemFacade {
 
     /** 一键补齐：返回成功/失败计数，没拿到 Shizuku 时 total=0。 */
     suspend fun grantAllPrivilegedPermissions(context: Context): PrivilegedGrantSummary
+
+    /** 系统字号（`font_scale`），范围 [hunoia.luno.bridge.system.SystemFontScale.MIN]..[hunoia.luno.bridge.system.SystemFontScale.MAX]。 */
+    fun fontScale(context: Context): Float
+
+    /** `WRITE_SETTINGS` 是否已授权；未授权时只能先跳系统设置页。 */
+    fun canWriteSystemSettings(context: Context): Boolean
+
+    /** 写入系统字号；失败返回 false，系统值保持不变。 */
+    fun setFontScale(context: Context, scale: Float): Boolean
 }
 
 /** `SystemFacade` 的默认实现：只做委托，不引入新的状态。 */
@@ -80,4 +89,13 @@ object SystemUseCases : SystemFacade {
 
     override suspend fun grantAllPrivilegedPermissions(context: Context): PrivilegedGrantSummary =
         PrivilegedPermissionUseCase.grantAll(context)
+
+    override fun fontScale(context: Context): Float =
+        hunoia.luno.bridge.system.SystemFontScale.get(context)
+
+    override fun canWriteSystemSettings(context: Context): Boolean =
+        hunoia.luno.bridge.system.SystemFontScale.canWrite(context)
+
+    override fun setFontScale(context: Context, scale: Float): Boolean =
+        hunoia.luno.bridge.system.SystemFontScale.set(context, scale)
 }

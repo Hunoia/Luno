@@ -20,27 +20,39 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.RadioButtonChecked
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
+import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.InitialSettings
+import hunoia.luno.domain.AppGraph
 import hunoia.luno.domain.gesture.GestureConfig
+import hunoia.luno.domain.system.PrivilegedPermission
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoGroup
@@ -74,11 +86,64 @@ fun ActionSettingsTab(
     onNavToLogSettings: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var showActionPanelStyle by remember { mutableStateOf(false) }
     var showPointer by remember { mutableStateOf(false) }
+    var showFontScale by remember { mutableStateOf(false) }
+    var fontScale by remember { mutableFloatStateOf(AppGraph.system.fontScale(context)) }
+    var canWriteSystemSettings by remember {
+        mutableStateOf(AppGraph.system.canWriteSystemSettings(context))
+    }
+    var fontScalePermissionPending by remember { mutableStateOf(false) }
+    var resumeTick by remember { mutableIntStateOf(0) }
     val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = ActionSettings())
     val gestureSettings by TuneConfig.gesture.collectAsStateWithLifecycle(initialValue = GestureSettings())
     val initialSettings by GestureConfig.initial.collectAsStateWithLifecycle(initialValue = InitialSettings())
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) resumeTick++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(resumeTick) {
+        fontScale = AppGraph.system.fontScale(context)
+        canWriteSystemSettings = AppGraph.system.canWriteSystemSettings(context)
+        if (fontScalePermissionPending) {
+            fontScalePermissionPending = false
+            if (canWriteSystemSettings) showFontScale = true
+        }
+    }
+
+    fun openFontScale() {
+        if (canWriteSystemSettings) {
+            showFontScale = true
+            return
+        }
+        fontScalePermissionPending = true
+        val intent = AppGraph.system.privilegedPermissionIntent(
+            context,
+            PrivilegedPermission.WRITE_SYSTEM_SETTINGS,
+        ) ?: run {
+            fontScalePermissionPending = false
+            return
+        }
+        runCatching { context.startActivity(intent) }
+            .onFailure { fontScalePermissionPending = false }
+    }
+
+    fun commitFontScale(value: Float): Boolean {
+        val ok = AppGraph.system.setFontScale(context, value)
+        if (ok) {
+            fontScale = AppGraph.system.fontScale(context)
+        } else {
+            showToast(R.string.font_scale_write_failed)
+        }
+        return ok
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -163,7 +228,7 @@ fun ActionSettingsTab(
                     LunoSettingsRow(
                         icon = Icons.Default.Visibility,
                         title = stringResource(R.string.button_visibility),
-                        shape = segmentedShape(0, 2),
+                        shape = segmentedShape(0, 3),
                         onClick = onNavToButtonVisibility,
                     )
                     LunoSwitchRow(
@@ -176,7 +241,21 @@ fun ActionSettingsTab(
                                 TuneConfig.updateAction { it.copy(showSystemAppsInAppList = enabled) }
                             }
                         },
-                        shape = segmentedShape(1, 2),
+                        shape = segmentedShape(1, 3),
+                    )
+                    LunoSettingsRow(
+                        icon = Icons.Default.TextFields,
+                        title = stringResource(R.string.font_scale_entry),
+                        subtitle = if (canWriteSystemSettings) {
+                            stringResource(
+                                R.string.font_scale_entry_summary,
+                                (fontScale * 100f).roundToInt(),
+                            )
+                        } else {
+                            stringResource(R.string.font_scale_need_permission)
+                        },
+                        shape = segmentedShape(2, 3),
+                        onClick = ::openFontScale,
                     )
                 }
             }
@@ -240,6 +319,14 @@ fun ActionSettingsTab(
                     onCommit = { next ->
                         scope.launch { TuneConfig.updateGesture { it.copy(pointer = next) } }
                     },
+                )
+            }
+        }
+        if (showFontScale) {
+            LunoSheet(onDismissRequest = { showFontScale = false }, showDragHandle = true) {
+                FontScaleControls(
+                    current = fontScale,
+                    onCommit = ::commitFontScale,
                 )
             }
         }
