@@ -2,6 +2,7 @@ package hunoia.luno.domain.log
 
 import android.content.Context
 import hunoia.luno.bridge.system.FileOutput
+import hunoia.luno.core.LogLevel
 import hunoia.luno.core.LunoLog
 import java.io.BufferedOutputStream
 import java.io.File
@@ -26,12 +27,15 @@ object LogCenter : LogFacade {
 
     override fun stats(): LogStats = LogStats(
         enabled = LunoLog.isRecordingEnabled(),
+        level = LunoLog.minLevel(),
         files = LunoLog.files().map { file ->
             LogFileInfo(name = file.name, sizeBytes = file.length())
         },
     )
 
     override fun setRecordingEnabled(enabled: Boolean) = LunoLog.setRecordingEnabled(enabled)
+
+    override fun setLevel(level: LogLevel) = LunoLog.setMinLevel(level)
 
     override fun readTail(maxLines: Int): String = LunoLog.readTail(maxLines)
 

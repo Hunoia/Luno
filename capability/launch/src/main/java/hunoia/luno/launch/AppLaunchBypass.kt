@@ -28,6 +28,7 @@ object AppLaunchBypass {
         data: String = "",
         extras: Map<String, String> = emptyMap(),
         userId: Int = 0,
+        anchor: Pair<Int, Int>? = null,
         source: AppLaunchSource = AppLaunchSource.ACTION_DISPATCH,
         unfreezePackage: suspend (context: Context, packageName: String) -> Boolean = { _, _ -> true },
     ): Boolean {
@@ -42,6 +43,7 @@ object AppLaunchBypass {
             data = data,
             extras = extras,
             userId = userId,
+            anchor = anchor,
             source = source,
         )
     }

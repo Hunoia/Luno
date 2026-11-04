@@ -287,7 +287,8 @@ class GestureCoordinator(
             url: String,
             miniWindow: Boolean,
             queryParameters: List<hunoia.luno.action.model.QueryParam>,
-        ): Boolean = appLauncher.openUrl(url, miniWindow, queryParameters)
+            anchor: Pair<Int, Int>?,
+        ): Boolean = appLauncher.openUrl(url, miniWindow, queryParameters, anchor)
 
         override suspend fun launchShortcut(dataJson: String): Boolean =
             appLauncher.launchShortcut(dataJson)
@@ -295,8 +296,8 @@ class GestureCoordinator(
         override suspend fun openAppDetails(packageName: String, userId: Int) =
             appLauncher.openAppDetails(packageName, userId)
 
-        override suspend fun launchInPopup(packageName: String) =
-            appLauncher.launchInPopup(packageName)
+        override suspend fun launchInPopup(packageName: String, anchor: Pair<Int, Int>?) =
+            appLauncher.launchInPopup(packageName, anchor)
 
         override fun showScreenPick(): Boolean =
             hunoia.luno.service.SideGestureService.current?.showScreenPick() == true

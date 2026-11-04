@@ -20,6 +20,9 @@ object AdvancedSettingsDefaults {
     const val MiniWindowLandscapeY = 0.11f
     const val MiniWindowLandscapeWidth = 0.24f
     const val MiniWindowLandscapeHeight = 0.79f
+
+    /** 「跟随触发位置」时窗口与屏幕边缘的最小间距。 */
+    const val MiniWindowFollowGapDp = 12
 }
 
 object GestureSettingsDefaults {

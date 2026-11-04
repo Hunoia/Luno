@@ -46,6 +46,7 @@ class DefaultAppLauncher(
         data = spec.data,
         extras = spec.extras,
         userId = spec.userId,
+        anchor = spec.anchor,
         source = AppLaunchSource.ACTION_DISPATCH,
         unfreezePackage = { _, pkg -> unfreezePackage(pkg) },
     )
@@ -81,7 +82,7 @@ class DefaultAppLauncher(
         )
     }
 
-    override suspend fun launchInPopup(packageName: String): ActionResult {
+    override suspend fun launchInPopup(packageName: String, anchor: Pair<Int, Int>?): ActionResult {
         if (packageName.isBlank()) return ActionResult.Failed(ActionFailure.ExecutionFailed)
         val intent = Intent().apply {
             setPackage(packageName)
@@ -103,6 +104,7 @@ class DefaultAppLauncher(
             className = className,
             miniWindowSettings = advancedSettings().miniWindowSettings(),
             userId = userId,
+            anchor = anchor,
         )
         return if (launched) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
     }
@@ -111,6 +113,7 @@ class DefaultAppLauncher(
         url: String,
         miniWindow: Boolean,
         queryParameters: List<QueryParam>,
+        anchor: Pair<Int, Int>?,
     ): Boolean = Launcher.launchUrl(
         context = context,
         data = OpenAppOrUrlData(
@@ -122,6 +125,7 @@ class DefaultAppLauncher(
             },
         ),
         miniWindowSettings = advancedSettings().miniWindowSettings(),
+        anchor = anchor,
     )
 
     override suspend fun openAppDetails(packageName: String, userId: Int): ActionResult =

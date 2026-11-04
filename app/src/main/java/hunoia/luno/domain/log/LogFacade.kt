@@ -1,6 +1,7 @@
 package hunoia.luno.domain.log
 
 import android.content.Context
+import hunoia.luno.core.LogLevel
 
 /**
  * 运行日志门面（UI 唯一入口）。
@@ -12,6 +13,9 @@ interface LogFacade {
     fun stats(): LogStats
 
     fun setRecordingEnabled(enabled: Boolean)
+
+    /** 写入文件的日志级别；logcat 不受影响。 */
+    fun setLevel(level: LogLevel)
 
     /** 最近日志文本；没有日志时为空串。 */
     fun readTail(maxLines: Int): String
@@ -32,6 +36,7 @@ data class LogFileInfo(
 
 data class LogStats(
     val enabled: Boolean = true,
+    val level: LogLevel = LogLevel.DEFAULT,
     val files: List<LogFileInfo> = emptyList(),
 ) {
     val totalBytes: Long get() = files.sumOf { it.sizeBytes }

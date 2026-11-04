@@ -10,11 +10,14 @@ import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
 /**
- * 统一日志入口：仍写 logcat，同时把 INFO 及以上异步落盘，供设置页长期回看与导出。
+ * 统一日志入口：仍写 logcat，同时把「当前级别及以上」异步落盘，供设置页长期回看与导出。
  *
  * 落盘按进程分文件（`luno-main.log` / `luno-service.log`），避免两个进程并发写同一文件；
  * 单文件 1MB，保留当前 + 3 份轮转。写入走单线程有界队列，磁盘慢时丢弃最旧任务，
  * 绝不阻塞调用线程。日志目录位于 `filesDir/logs`，不随缓存清理消失。
+ *
+ * 级别与记录开关都用日志目录里的标记文件表达，主进程与 `:service` 共享同一份状态；
+ * logcat 不受级别影响，始终输出调用方传入的全部级别。
  *
  * 页面不要直接使用本对象：UI 通过 `AppGraph.logs` 门面读取/导出。
  */
@@ -24,6 +27,7 @@ object LunoLog {
     private const val MAX_BACKUPS = 3
     private const val QUEUE_CAPACITY = 2048
     private const val DISABLED_MARKER = "disabled"
+    private const val LEVEL_MARKER = "level"
 
     private val timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
@@ -44,6 +48,12 @@ object LunoLog {
 
     @Volatile
     private var enabledCached = true
+
+    @Volatile
+    private var levelCheckedAt = 0L
+
+    @Volatile
+    private var levelCached = LogLevel.DEFAULT
 
     // ---- android.util.Log 兼容入口 ----
 
@@ -113,6 +123,31 @@ object LunoLog {
         enabledCheckedAt = System.currentTimeMillis()
     }
 
+    /** 当前落盘级别；文件缺失或内容非法时回落到 [LogLevel.DEFAULT]。 */
+    fun minLevel(): LogLevel {
+        val now = System.currentTimeMillis()
+        if (now - levelCheckedAt < 1_000L) return levelCached
+        val dir = directory()
+        levelCached = if (dir == null) {
+            LogLevel.DEFAULT
+        } else {
+            runCatching { LogLevel.fromName(File(dir, LEVEL_MARKER).readText()) }
+                .getOrDefault(LogLevel.DEFAULT)
+        }
+        levelCheckedAt = now
+        return levelCached
+    }
+
+    fun setMinLevel(level: LogLevel) {
+        val dir = directory() ?: return
+        runCatching {
+            dir.mkdirs()
+            File(dir, LEVEL_MARKER).writeText(level.name)
+        }
+        levelCached = level
+        levelCheckedAt = System.currentTimeMillis()
+    }
+
     /** 等待当前进程已入队日志写完；导出/查看前调用。 */
     fun flush(timeoutMs: Long = 800L) {
         runCatching { writer.submit {} }.getOrNull()
@@ -151,8 +186,8 @@ object LunoLog {
         val stack = tr?.let { AndroidLog.getStackTraceString(it) }
         val result = AndroidLog.println(priority, tag, msg)
         if (tr != null) AndroidLog.println(priority, tag, stack.orEmpty())
-        // 文件只保留 INFO 及以上：debug/verbose 在 release 中价值低且容易放大高频日志。
-        if (priority >= AndroidLog.INFO) {
+        // 文件阈值由设置页控制；默认 INFO，避免 release 下高频日志放大文件。
+        if (priority >= minLevel().priority) {
             val line = buildString {
                 append(LocalDateTime.now().format(timeFormatter))
                 append(' ')

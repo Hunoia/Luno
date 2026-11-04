@@ -167,7 +167,8 @@ object SurfaceActionRuntime {
             url: String,
             miniWindow: Boolean,
             queryParameters: List<QueryParam>,
-        ): Boolean = launcher.openUrl(url, miniWindow, queryParameters)
+            anchor: Pair<Int, Int>?,
+        ): Boolean = launcher.openUrl(url, miniWindow, queryParameters, anchor)
 
         override suspend fun launchShortcut(dataJson: String): Boolean =
             launcher.launchShortcut(dataJson)
@@ -175,8 +176,8 @@ object SurfaceActionRuntime {
         override suspend fun openAppDetails(packageName: String, userId: Int): ActionResult =
             launcher.openAppDetails(packageName, userId)
 
-        override suspend fun launchInPopup(packageName: String): ActionResult =
-            launcher.launchInPopup(packageName)
+        override suspend fun launchInPopup(packageName: String, anchor: Pair<Int, Int>?): ActionResult =
+            launcher.launchInPopup(packageName, anchor)
 
         override fun shareFile(): ActionResult = runCatching {
             context.startActivity(

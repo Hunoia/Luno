@@ -64,7 +64,7 @@ fun ActionSettingsTab(
     onNavToGridPanels: () -> Unit = {},
     onNavToButtonVisibility: () -> Unit = {},
     onNavToRecentAppsBlocklist: () -> Unit = {},
-    onNavToMiniWindowAdjust: () -> Unit = {},
+    onNavToMiniWindowSettings: () -> Unit = {},
     onNavToScreenPickSettings: () -> Unit = {},
     onNavToActionSelect: () -> Unit = {},
     onNavToPrivilegedPermissions: () -> Unit = {},
@@ -141,7 +141,7 @@ fun ActionSettingsTab(
                         icon = Icons.Default.Crop,
                         title = stringResource(R.string.action_settings_mini_window_position),
                         shape = segmentedShape(2, 4),
-                        onClick = onNavToMiniWindowAdjust,
+                        onClick = onNavToMiniWindowSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.History,

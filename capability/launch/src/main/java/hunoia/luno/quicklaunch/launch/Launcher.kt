@@ -17,6 +17,7 @@ import android.view.WindowManager
 import hunoia.luno.capability.launch.R
 import hunoia.luno.config.model.MiniWindowSettings
 import hunoia.luno.config.model.WindowBounds
+import hunoia.luno.config.model.centeredOnTrigger
 import hunoia.luno.config.model.OpenAppOrUrlData
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.bridge.system.buildViewIntent
@@ -43,6 +44,7 @@ object Launcher {
         data: String = "",
         extras: Map<String, String> = emptyMap(),
         userId: Int = 0,
+        anchor: Pair<Int, Int>? = null,
     ): Boolean {
         if (userId != 0 && userId != Process.myUserHandle().hashCode()) {
             return launchCloneApp(
@@ -55,6 +57,7 @@ object Launcher {
                 data = data,
                 extras = extras,
                 userId = userId,
+                anchor = anchor,
             )
         }
         return try {
@@ -63,7 +66,7 @@ object Launcher {
             if (AppIcons.hasClone(context, packageName) && ShizukuManager.currentStatus().isReady) {
                 buildLaunchIntent(context, packageName, className, intentAction, data, extras)?.let { intent ->
                     val options = if (miniWindow) {
-                        MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings)
+                        MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings, anchor)
                     } else {
                         null
                     }
@@ -81,7 +84,7 @@ object Launcher {
                     return openAppDetails(context, packageName)
                 }
             if (miniWindow) {
-                MiniWindow.startActivity(context, intent, miniWindowSettings)
+                MiniWindow.startActivity(context, intent, miniWindowSettings, anchor)
             } else {
                 context.startActivity(intent)
                 true
@@ -162,12 +165,13 @@ object Launcher {
         data: String,
         extras: Map<String, String>,
         userId: Int,
+        anchor: Pair<Int, Int>?,
     ): Boolean {
         if (ShizukuManager.currentStatus().isReady) {
             val intent = buildLaunchIntent(context, packageName, className, intentAction, data, extras)
             if (intent != null) {
                 val options = if (miniWindow) {
-                    MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings)
+                    MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings, anchor)
                 } else {
                     null
                 }
@@ -185,6 +189,7 @@ object Launcher {
                     data = data,
                     extras = extras,
                     userId = userId,
+                    anchor = anchor,
                 )
             ) {
                 return true
@@ -197,6 +202,7 @@ object Launcher {
             miniWindow = miniWindow,
             miniWindowSettings = miniWindowSettings,
             userId = userId,
+            anchor = anchor,
         )
     }
 
@@ -210,6 +216,7 @@ object Launcher {
         data: String,
         extras: Map<String, String>,
         userId: Int,
+        anchor: Pair<Int, Int>?,
     ): Boolean {
         val cmd = buildString {
             append("am start --user ").append(userId)
@@ -234,7 +241,7 @@ object Launcher {
             return false
         }
         if (miniWindow) {
-            applyMiniWindowBounds(context, packageName, userId, miniWindowSettings)
+            applyMiniWindowBounds(context, packageName, userId, miniWindowSettings, anchor)
         }
         return true
     }
@@ -245,6 +252,7 @@ object Launcher {
         packageName: String,
         userId: Int,
         settings: MiniWindowSettings,
+        anchor: Pair<Int, Int>?,
     ) {
         var taskId: Int? = null
         for (attempt in 0 until 6) {
@@ -254,15 +262,7 @@ object Launcher {
             if (taskId != null) break
         }
         val id = taskId ?: return
-        val metrics = MiniWindowGeometry.realScreenSize(context)
-        val landscape = context.resources.configuration.orientation ==
-            android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        val bounds = MiniWindowGeometry.bounds(
-            settings = settings.forOrientation(landscape),
-            realSw = metrics.x,
-            realSh = metrics.y,
-            landscape = landscape,
-        )
+        val bounds = MiniWindowGeometry.resolveBounds(context, settings, anchor)
         ShizukuManager.executeShell(
             "am task resize $id ${bounds.left} ${bounds.top} ${bounds.right} ${bounds.bottom}",
         )
@@ -282,6 +282,7 @@ object Launcher {
         miniWindow: Boolean,
         miniWindowSettings: MiniWindowSettings,
         userId: Int,
+        anchor: Pair<Int, Int>?,
     ): Boolean = try {
         val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
         val user: UserHandle = AppIcons.userHandle(userId) ?: return false
@@ -289,7 +290,7 @@ object Launcher {
             .firstOrNull { className.isBlank() || it.componentName.className == className }
             ?: return false
         val options = if (miniWindow) {
-            MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings)
+            MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings, anchor)
         } else {
             null
         }
@@ -474,6 +475,7 @@ object Launcher {
         context: Context,
         data: OpenAppOrUrlData,
         miniWindowSettings: MiniWindowSettings = MiniWindowSettings(),
+        anchor: Pair<Int, Int>? = null,
     ): Boolean {
         return try {
             val normalizedUrl = buildOpenUrl(data) ?: run {
@@ -486,7 +488,7 @@ object Launcher {
                 return false
             }
             if (data.miniWindow) {
-                return MiniWindow.startActivity(context, intent, miniWindowSettings)
+                return MiniWindow.startActivity(context, intent, miniWindowSettings, anchor)
             }
             context.startActivity(intent)
             true
@@ -515,6 +517,7 @@ object Launcher {
         data: String = "",
         extras: Map<String, String> = emptyMap(),
         userId: Int = 0,
+        anchor: Pair<Int, Int>? = null,
     ): Boolean = launchApp(
         context = context,
         packageName = packageName,
@@ -525,6 +528,7 @@ object Launcher {
         data = data,
         extras = extras,
         userId = userId,
+        anchor = anchor,
     )
 
     /**
@@ -586,17 +590,43 @@ internal object MiniWindowGeometry {
     }
 
     /**
+     * 选方向、按跟随开关把窗口中心挪到触发点、再换算成像素 bounds。
+     * 无触点或未开启跟随时保持配置里的固定位置。
+     */
+    fun resolveBounds(
+        context: Context,
+        miniWindowSettings: MiniWindowSettings,
+        anchor: Pair<Int, Int>?,
+    ): Rect {
+        val size = realScreenSize(context)
+        val landscape = context.resources.configuration.orientation ==
+            android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        var settings = miniWindowSettings.forOrientation(landscape)
+        if (miniWindowSettings.followTrigger && anchor != null && size.x > 0 && size.y > 0) {
+            val gapPx = (miniWindowSettings.followTriggerGapDp * context.resources.displayMetrics.density)
+                .roundToInt()
+            settings = settings.centeredOnTrigger(
+                anchorXRatio = anchor.first.toFloat() / size.x,
+                anchorYRatio = anchor.second.toFloat() / size.y,
+                gapXRatio = gapPx.toFloat() / size.x,
+                gapYRatio = gapPx.toFloat() / size.y,
+            )
+        }
+        return bounds(settings, size.x, size.y, landscape)
+    }
+
+    /**
      * 小窗启动参数。Android 17 起 `ActivityOptions.setLaunchWindowingMode` 是
      * BLOCKED + TEST-API，普通 release 包反射会被 hiddenapi 拒绝；AOSP 的
      * `ActivityOptions(Bundle)` 会读取 `android.activity.windowingMode`，直接把
      * 这个 key 写进 bundle，不再依赖隐藏 API。
      */
-    fun activityOptionsBundle(context: Context, miniWindowSettings: MiniWindowSettings): Bundle {
-        val size = realScreenSize(context)
-        val landscape = context.resources.configuration.orientation ==
-            android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        val settings = miniWindowSettings.forOrientation(landscape)
-        val launchBounds = bounds(settings, size.x, size.y, landscape)
+    fun activityOptionsBundle(
+        context: Context,
+        miniWindowSettings: MiniWindowSettings,
+        anchor: Pair<Int, Int>? = null,
+    ): Bundle {
+        val launchBounds = resolveBounds(context, miniWindowSettings, anchor)
         return ActivityOptions.makeBasic()
             .apply { setLaunchBounds(launchBounds) }
             .toBundle()
@@ -636,6 +666,7 @@ private object MiniWindow {
         intentAction: String = "",
         data: String = "",
         extras: Map<String, String> = emptyMap(),
+        anchor: Pair<Int, Int>? = null,
     ): Boolean = startActivity(
         context = context,
         intent = Intent().apply {
@@ -651,15 +682,17 @@ private object MiniWindow {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         },
         miniWindowSettings = miniWindowSettings,
+        anchor = anchor,
     )
 
     fun startActivity(
         context: Context,
         intent: Intent,
         miniWindowSettings: MiniWindowSettings,
+        anchor: Pair<Int, Int>? = null,
     ): Boolean {
         return try {
-            val activityOptions = MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings)
+            val activityOptions = MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings, anchor)
             context.startActivity(intent, activityOptions)
             true
         } catch (e: Exception) {

@@ -20,6 +20,8 @@ data class LaunchSpec(
     val extras: Map<String, String> = emptyMap(),
     /** 目标用户：0 = 主用户，其他值 = 分身。 */
     val userId: Int = 0,
+    /** 触发触点（屏幕像素）；小窗据此把窗口中心放到触发位置。无触点路径为空。 */
+    val anchor: Pair<Int, Int>? = null,
 )
 
 /**
@@ -35,13 +37,14 @@ interface AppLauncher {
     suspend fun launchShortcut(dataJson: String): Boolean
 
     /** 当前应用以小窗打开；包名/Activity 解析与全局设置由实现侧负责。 */
-    suspend fun launchInPopup(packageName: String): ActionResult
+    suspend fun launchInPopup(packageName: String, anchor: Pair<Int, Int>? = null): ActionResult
 
     /** 打开链接（含 Query 参数与小窗）。 */
     suspend fun openUrl(
         url: String,
         miniWindow: Boolean,
         queryParameters: List<QueryParam> = emptyList(),
+        anchor: Pair<Int, Int>? = null,
     ): Boolean
 
     /** 打开应用详情页（设置页）；userId 非 0 时打开对应分身实例的详情。 */

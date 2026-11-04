@@ -24,6 +24,7 @@ object AppLaunchCoordinator {
         data: String = "",
         extras: Map<String, String> = emptyMap(),
         userId: Int = 0,
+        anchor: Pair<Int, Int>? = null,
         source: AppLaunchSource = AppLaunchSource.UNKNOWN,
     ): Boolean {
         val launched = Launcher.launchApp(
@@ -36,6 +37,7 @@ object AppLaunchCoordinator {
             data = data,
             extras = extras,
             userId = userId,
+            anchor = anchor,
         )
         if (launched) LaunchCapability.recordLaunch(packageName, source)
         return launched

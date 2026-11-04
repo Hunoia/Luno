@@ -124,6 +124,13 @@ data class SearchEngineEdit(
 data object SearchSourceSettings
 
 /**
+ * 小窗设置列表：跟随触发位置与固定位置入口。
+ */
+@Keep
+@Serializable
+data object MiniWindowSettings
+
+/**
  * 小窗位置/大小调整页。独立页面而非全屏 overlay：纯配置任务，不需看见真实屏幕，
  * 页内画示意图即可（见 ui/settings/action/MiniWindowAdjustScreen.kt）。
  */

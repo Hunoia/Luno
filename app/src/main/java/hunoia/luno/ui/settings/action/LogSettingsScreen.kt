@@ -1,6 +1,7 @@
 package hunoia.luno.ui.settings.action
 
 import android.widget.Toast
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -10,6 +11,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -19,12 +21,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
 import hunoia.luno.R
+import hunoia.luno.core.LogLevel
 import hunoia.luno.domain.AppGraph
 import hunoia.luno.domain.log.LogStats
+import hunoia.luno.ui.component.CheckDropdownMenuItem
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
@@ -32,6 +38,8 @@ import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.sheet.LunoSheet
+import hunoia.luno.ui.theme.ElevationSmall
+import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SheetListMaxHeight
 import kotlinx.coroutines.Dispatchers
@@ -53,6 +61,7 @@ fun LogSettingsScreen(onBack: () -> Unit) {
     var stats by remember { mutableStateOf(LogStats()) }
     var showPreview by remember { mutableStateOf(false) }
     var showClearConfirm by remember { mutableStateOf(false) }
+    var levelMenuOpen by remember { mutableStateOf(false) }
     var preview by remember { mutableStateOf("") }
 
     LaunchedEffect(tick) {
@@ -78,8 +87,42 @@ fun LogSettingsScreen(onBack: () -> Unit) {
                         tick++
                     }
                 },
-                shape = segmentedShape(0, 1),
+                shape = segmentedShape(0, 2),
             )
+            Box(modifier = Modifier.fillMaxWidth()) {
+                LunoSettingsRow(
+                    title = stringResource(R.string.log_settings_level),
+                    subtitle = levelSummary(stats),
+                    shape = segmentedShape(1, 2),
+                    onClick = { levelMenuOpen = true },
+                )
+                Box(modifier = Modifier.align(Alignment.BottomEnd)) {
+                    DropdownMenu(
+                        expanded = levelMenuOpen,
+                        onDismissRequest = { levelMenuOpen = false },
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        shape = LargeShape,
+                        tonalElevation = ElevationSmall,
+                        shadowElevation = 0.dp,
+                    ) {
+                        LogLevel.entries.forEach { level ->
+                            CheckDropdownMenuItem(
+                                label = stringResource(level.labelRes()),
+                                selected = stats.level == level,
+                                onClick = {
+                                    levelMenuOpen = false
+                                    scope.launch {
+                                        withContext(Dispatchers.IO) {
+                                            AppGraph.logs.setLevel(level)
+                                        }
+                                        tick++
+                                    }
+                                },
+                            )
+                        }
+                    }
+                }
+            }
         }
         LunoGroup(title = stringResource(R.string.log_settings_files)) {
             if (stats.files.isEmpty()) {
@@ -189,6 +232,24 @@ fun LogSettingsScreen(onBack: () -> Unit) {
             },
         )
     }
+}
+
+@Composable
+private fun levelSummary(stats: LogStats): String {
+    val level = stringResource(stats.level.labelRes())
+    val hint = stringResource(
+        if (stats.enabled) R.string.log_settings_level_hint
+        else R.string.log_settings_level_recording_off,
+    )
+    return "$level · $hint"
+}
+
+private fun LogLevel.labelRes(): Int = when (this) {
+    LogLevel.VERBOSE -> R.string.log_settings_level_verbose
+    LogLevel.DEBUG -> R.string.log_settings_level_debug
+    LogLevel.INFO -> R.string.log_settings_level_info
+    LogLevel.WARN -> R.string.log_settings_level_warn
+    LogLevel.ERROR -> R.string.log_settings_level_error
 }
 
 private fun formatBytes(bytes: Long): String {

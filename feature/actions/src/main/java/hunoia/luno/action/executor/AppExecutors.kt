@@ -34,12 +34,16 @@ class AppExecutors : ActionExecutor {
                         data = action.data,
                         extras = action.extras,
                         userId = action.userId,
+                        anchor = context.touchPosition,
                     )
                 )
                 if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.AppDetails -> context.openAppDetails(action.packageName, action.userId)
-            is Action.Popup -> context.launchInPopup(context.currentPackageName().orEmpty())
+            is Action.Popup -> context.launchInPopup(
+                context.currentPackageName().orEmpty(),
+                context.touchPosition,
+            )
             is Action.LaunchShortcut -> {
                 if (context.launchShortcut(action.data)) {
                     ActionResult.Success()

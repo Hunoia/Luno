@@ -61,7 +61,12 @@ interface SurfaceHost {
     suspend fun launchApp(spec: LaunchSpec): Boolean
 
     /** 打开链接（Query 参数与小窗设置由实现侧处理）。 */
-    suspend fun openUrl(url: String, miniWindow: Boolean, queryParameters: List<QueryParam>): Boolean
+    suspend fun openUrl(
+        url: String,
+        miniWindow: Boolean,
+        queryParameters: List<QueryParam>,
+        anchor: Pair<Int, Int>? = null,
+    ): Boolean
 
     /** 启动已声明的 App Shortcut（入参是落库的快捷方式 JSON）。 */
     suspend fun launchShortcut(dataJson: String): Boolean
@@ -70,7 +75,7 @@ interface SurfaceHost {
     suspend fun openAppDetails(packageName: String, userId: Int = 0): ActionResult
 
     /** 当前应用以小窗打开；包名 / Activity 解析与全局设置由实现侧负责。 */
-    suspend fun launchInPopup(packageName: String): ActionResult
+    suspend fun launchInPopup(packageName: String, anchor: Pair<Int, Int>? = null): ActionResult
 
     /** 分享文件：挑文件页（Activity）归 Surface 层。 */
     fun shareFile(): ActionResult

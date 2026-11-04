@@ -15,4 +15,5 @@ kotlin {
 dependencies {
     api(libs.jetbrains.kotlin.serialization)
     api(libs.androidx.annotation)
+    testImplementation(libs.junit)
 }

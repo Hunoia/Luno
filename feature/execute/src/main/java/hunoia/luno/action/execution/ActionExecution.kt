@@ -150,15 +150,15 @@ data class ExecutorContext(
     /** 启动应用（小窗等全局设置由实现侧读）。 */
     val launchApp: suspend (LaunchSpec) -> Boolean = { false },
     /** 打开链接（含 Query 参数与小窗）。 */
-    val openUrl: suspend (url: String, miniWindow: Boolean, queryParameters: List<QueryParam>) -> Boolean =
-        { _, _, _ -> false },
+    val openUrl: suspend (url: String, miniWindow: Boolean, queryParameters: List<QueryParam>, anchor: Pair<Int, Int>?) -> Boolean =
+        { _, _, _, _ -> false },
     /** 启动已声明的 App Shortcut（入参是落库的快捷方式 JSON）。 */
     val launchShortcut: suspend (dataJson: String) -> Boolean = { false },
     val openAppDetails: suspend (packageName: String, userId: Int) -> ActionResult = { _, _ ->
         ActionResult.Failed(ActionFailure.Unsupported)
     },
     /** 当前应用以小窗打开；包名/Activity 解析与全局设置由实现侧负责。 */
-    val launchInPopup: suspend (packageName: String) -> ActionResult = {
+    val launchInPopup: suspend (packageName: String, anchor: Pair<Int, Int>?) -> ActionResult = { _, _ ->
         ActionResult.Failed(ActionFailure.Unsupported)
     },
     /** 分享文件：挑文件页（Activity）归 `:app`，执行口只声明「要分享文件」。 */

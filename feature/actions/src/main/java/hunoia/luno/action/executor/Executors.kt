@@ -153,7 +153,12 @@ class IntentExecutors(private val intentController: IntentController) : ActionEx
     override suspend fun execute(action: Action, context: ExecutorContext): ActionResult {
         return when (action) {
             is Action.OpenUrl -> {
-                val ok = context.openUrl(action.url, action.miniWindow, action.queryParameters)
+                val ok = context.openUrl(
+                    action.url,
+                    action.miniWindow,
+                    action.queryParameters,
+                    context.touchPosition,
+                )
                 if (ok) ActionResult.Success() else ActionResult.Failed(ActionFailure.ExecutionFailed)
             }
             is Action.ShareText -> {

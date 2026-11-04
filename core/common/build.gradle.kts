@@ -19,4 +19,5 @@ android {
 dependencies {
     api(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.annotation)
+    testImplementation(libs.junit)
 }

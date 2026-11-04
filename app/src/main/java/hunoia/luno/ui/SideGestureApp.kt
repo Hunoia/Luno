@@ -54,6 +54,7 @@ import hunoia.luno.ui.navigation.GridPanelEdit
 import hunoia.luno.ui.navigation.SearchEngineSettings
 import hunoia.luno.ui.navigation.SearchEngineEdit
 import hunoia.luno.ui.navigation.SearchSourceSettings
+import hunoia.luno.ui.navigation.MiniWindowSettings
 import hunoia.luno.ui.navigation.MiniWindowAdjust
 import hunoia.luno.ui.navigation.FloatBallEdit
 import hunoia.luno.ui.navigation.ButtonVisibility
@@ -73,6 +74,7 @@ import hunoia.luno.ui.settings.action.RecentAppsBlocklistScreen
 import hunoia.luno.ui.settings.accessibility.AccessibilityManagerScreen
 import hunoia.luno.ui.settings.permission.PrivilegedPermissionsScreen
 import hunoia.luno.ui.settings.action.MiniWindowAdjustScreen
+import hunoia.luno.ui.settings.action.MiniWindowSettingsScreen
 import hunoia.luno.ui.settings.link.LinkDispatchEditScreen
 import hunoia.luno.ui.settings.link.LinkDispatchSettingsScreen
 import hunoia.luno.ui.settings.floatball.FloatBallEditScreen
@@ -165,7 +167,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToActionPanels = { navController.navigate(ActionPanelList) },
                         onNavToGridPanels = { navController.navigate(GridPanelList) },
                         onNavToRecentAppsBlocklist = { navController.navigate(RecentAppsBlocklist) },
-                        onNavToMiniWindowAdjust = { navController.navigate(MiniWindowAdjust) },
+                        onNavToMiniWindowSettings = { navController.navigate(MiniWindowSettings) },
                         onNavToLinkDispatch = { navController.navigate(LinkDispatchRules) },
                         onNavToActionSelect = {
                             navController.navigate(ActionSelect(copyDeepLink = true))
@@ -248,6 +250,12 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 }
                 myComposable<AccessibilityManager> {
                     AccessibilityManagerScreen(onBack = { navController.popBackStack() })
+                }
+                myComposable<MiniWindowSettings> {
+                    MiniWindowSettingsScreen(
+                        onBack = { navController.popBackStack() },
+                        onAdjustBounds = { navController.navigate(MiniWindowAdjust) },
+                    )
                 }
                 myComposable<MiniWindowAdjust> {
                     MiniWindowAdjustScreen(onBack = { navController.popBackStack() })
