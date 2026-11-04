@@ -17,7 +17,7 @@ interface LogFacade {
     /** 写入文件的日志级别；logcat 不受影响。 */
     fun setLevel(level: LogLevel)
 
-    /** 最近日志文本；没有日志时为空串。 */
+    /** 最近日志文本，按时间倒序（最新在前）；没有日志时为空串。 */
     fun readTail(maxLines: Int): String
 
     fun clear()

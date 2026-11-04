@@ -159,7 +159,7 @@ object LunoLog {
         files().forEach { runCatching { it.delete() } }
     }
 
-    /** 读取全部进程日志的末尾 [maxLines] 行；用于设置页预览。 */
+    /** 读取全部进程日志的末尾 [maxLines] 行，按时间倒序（最新在前）；用于设置页预览。 */
     fun readTail(maxLines: Int): String {
         if (maxLines <= 0) return ""
         flush()
@@ -176,7 +176,7 @@ object LunoLog {
                     }
                 }
             }
-        return tail.joinToString("\n")
+        return tail.reversed().joinToString("\n")
     }
 
     // ---- 实现 ----
