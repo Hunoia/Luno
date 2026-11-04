@@ -41,6 +41,8 @@ interface ExecuteEnvironment {
 interface SurfaceHost {
     fun toggleQuickAppLauncher(anchorX: Int, anchorY: Int)
     fun showQuickSearch()
+    /** 调起系统语音识别弹窗；结果由 Surface Activity 处理。 */
+    fun showSpeechRecognition(): Boolean
     fun showGridPanel(panelId: String, anchorX: Int, anchorY: Int)
 
     /** 网格面板是否还存在（面板被删时按无动作静默收口）。 */

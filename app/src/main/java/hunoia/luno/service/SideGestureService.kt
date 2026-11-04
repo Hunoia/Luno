@@ -1,9 +1,13 @@
 package hunoia.luno.service
 
 import android.content.res.Configuration
+import android.content.BroadcastReceiver
+import android.content.Intent
+import android.content.IntentFilter
 import android.view.accessibility.AccessibilityEvent
 import com.aaron.composeaccessibility.ComponentAccessibilityService
 import hunoia.luno.action.controller.TextInserter
+import hunoia.luno.bridge.system.copyText
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.gridPanelId
@@ -33,6 +37,18 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     override val coroutineScope = MainScope()
 
     private lateinit var gestureCoordinator: GestureCoordinator
+    private val speechResultReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context, intent: Intent) {
+            val text = intent.getStringExtra("text")?.takeIf { it.isNotEmpty() } ?: return
+            val result = TextInserter.insertFocused(this@SideGestureService, text)
+            if (result != TextInserter.Result.Inserted &&
+                result != TextInserter.Result.InsertedViaClipboard
+            ) {
+                copyText(this@SideGestureService, "speech_recognition", text)
+            }
+        }
+    }
+    private var speechReceiverRegistered = false
     private val disabledPackageEnabler by lazy {
         DisabledPackageEnabler(
             context = this,
@@ -299,6 +315,14 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
 
     override fun onSetOverlay() {
         current = this
+        if (!speechReceiverRegistered) {
+            registerReceiver(
+                speechResultReceiver,
+                IntentFilter(hunoia.luno.quicklaunch.SpeechRecognitionActivity.ACTION_SPEECH_RESULT),
+                RECEIVER_NOT_EXPORTED,
+            )
+            speechReceiverRegistered = true
+        }
         hunoia.luno.core.LunoLog.i(
             LOG_TAG,
             "service: onSetOverlay pid=${android.os.Process.myPid()}",
@@ -387,6 +411,10 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     }
 
     override fun onDestroy() {
+        if (speechReceiverRegistered) {
+            unregisterReceiver(speechResultReceiver)
+            speechReceiverRegistered = false
+        }
         super.onDestroy()
         if (current === this) currentRef = null
         disabledPackageEnabler.release()

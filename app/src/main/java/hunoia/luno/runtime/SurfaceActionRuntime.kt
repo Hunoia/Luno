@@ -143,6 +143,11 @@ object SurfaceActionRuntime {
             hunoia.luno.quicklaunch.QuickSearchActivity.start(context)
         }
 
+        override fun showSpeechRecognition(): Boolean {
+            hunoia.luno.quicklaunch.SpeechRecognitionActivity.start(context)
+            return true
+        }
+
         override fun showGridPanel(panelId: String, anchorX: Int, anchorY: Int) {
             hunoia.luno.gridpanel.GridPanelOverlay.show(panelId, anchorX, anchorY)
         }

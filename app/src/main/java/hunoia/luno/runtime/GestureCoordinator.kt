@@ -244,6 +244,11 @@ class GestureCoordinator(
             hunoia.luno.quicklaunch.QuickSearchActivity.start(host.context)
         }
 
+        override fun showSpeechRecognition(): Boolean {
+            hunoia.luno.quicklaunch.SpeechRecognitionActivity.start(host.context)
+            return true
+        }
+
         override fun showGridPanel(panelId: String, anchorX: Int, anchorY: Int) {
             hunoia.luno.gridpanel.GridPanelOverlay.show(panelId, anchorX, anchorY)
         }

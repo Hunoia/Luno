@@ -169,6 +169,16 @@
             android:theme="@style/Theme.SideGesture.Transparent"
             android:windowSoftInputMode="adjustResize" />
 
+        <activity
+            android:name=".quicklaunch.SpeechRecognitionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:noHistory="true"
+            android:process=":service"
+            android:taskAffinity="hunoia.luno.speech"
+            android:theme="@style/Theme.SideGesture.Transparent" />
+
         <!-- OCR 结果页：与识屏浮窗、OCR 引擎同住 :service，透明 Activity 承载
              选词、编辑、IME 与分享；由 ScreenPickOverlay 识别完成后拉起，拉起失败只提示。 -->        <activity
             android:name=".ui.ocr.OcrResultActivity"

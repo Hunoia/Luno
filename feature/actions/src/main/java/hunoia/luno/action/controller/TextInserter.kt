@@ -56,6 +56,19 @@ object TextInserter {
     private const val FindAttempts = 4
     private const val FindRetryMs = 120L
 
+    /** 把文本写入当前焦点输入框。 */
+    fun insertFocused(service: AccessibilityService, text: String): Result {
+        if (text.isEmpty()) return Result.Failed
+        repeat(FindAttempts) { attempt ->
+            val node = focusedInput(service)
+                ?: activeRootInput(service, 0, 0)
+                ?: singleInputInTopWindow(service)
+            if (node != null) return writeText(service, node, text)
+            if (attempt < FindAttempts - 1) SystemClock.sleep(FindRetryMs)
+        }
+        return Result.NoTarget
+    }
+
     fun insertAt(service: AccessibilityService, text: String, x: Int, y: Int): Result {
         if (text.isEmpty()) return Result.Failed
         repeat(FindAttempts) { attempt ->

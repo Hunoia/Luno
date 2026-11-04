@@ -135,6 +135,7 @@ data class ExecutorContext(
     /** 快速启动面板：锚点为触发触点（无触点路径由执行器退屏幕中心），面板侧再夹取屏内。 */
     val toggleQuickAppLauncher: (anchorX: Int, anchorY: Int) -> Unit = { _, _ -> },
     val showQuickSearch: () -> Unit = {},
+    val showSpeechRecognition: () -> Boolean = { false },
     /** 网格面板：锚点为触发触点（无触点路径由执行器退屏幕中心），Activity 侧再夹取屏内。 */
     val showGridPanel: (panelId: String, anchorX: Int, anchorY: Int) -> Unit = { _, _, _ -> },
     /** 网格面板是否还存在（面板被删时按无动作静默收口）。 */

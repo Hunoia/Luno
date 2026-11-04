@@ -91,6 +91,10 @@ sealed interface Action {
     data object ClipboardRandomName : Action {
         override val typeId: String = "system.clipboardRandomName"
     }
+    /** 调起系统语音识别弹窗，优先写入当前输入框，失败后写入剪贴板。 */
+    data object SpeechRecognize : Action {
+        override val typeId: String = "system.speechRecognize"
+    }
     data object MediaPlayPause : Action {
         override val typeId: String = "system.mediaPlayPause"
     }

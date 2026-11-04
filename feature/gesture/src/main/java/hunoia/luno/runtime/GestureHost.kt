@@ -13,6 +13,7 @@ interface GestureHost : hunoia.luno.runtime.RuntimeHost, PointerOverlayHost {
     fun requestEnableDisabledPackage(packageName: String, onResult: (Boolean) -> Unit)
     fun getCurrentPackageName(): String
 
+
     /** 供 overlay 等场景直接执行一个已构造好的动作。 */
     fun dispatchAction(action: StoredAction)
 }

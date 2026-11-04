@@ -3,6 +3,7 @@ package hunoia.luno.action.definitions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.FlashlightOn
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SkipNext
@@ -36,6 +37,11 @@ internal object SystemActionGroup : ActionGroup {
             "system.clipboardRandomName", "剪贴板随机名称", ActionCategory.CLIPBOARD,
             Capability.None,
             icon = Icons.Default.ContentCopy,
+        ),
+        ActionDefinition(
+            "system.speechRecognize", "语音识别", ActionCategory.CLIPBOARD,
+            Capability.None,
+            icon = Icons.Default.Mic,
         ),
         ActionDefinition(
             "system.mediaPlayPause", "播放/暂停", ActionCategory.MEDIA,
@@ -75,6 +81,7 @@ internal object SystemActionGroup : ActionGroup {
             )
         }
         ActionMappingRegistry.register("system.clipboardRandomName") { Action.ClipboardRandomName }
+        ActionMappingRegistry.register("system.speechRecognize") { Action.SpeechRecognize }
         ActionMappingRegistry.register("system.mediaPlayPause") { Action.MediaPlayPause }
         ActionMappingRegistry.register("system.mediaNext") { Action.MediaNext }
         ActionMappingRegistry.register("system.mediaPrevious") { Action.MediaPrevious }

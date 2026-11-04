@@ -23,6 +23,7 @@ class SystemExecutors(
     override val supportedTypes: Set<String> = setOf(
         "system.openSettings", "system.volume",
         "system.clipboardRandomName",
+        "system.speechRecognize",
         "system.mediaPlayPause", "system.mediaNext", "system.mediaPrevious", "system.mediaMute",
         "system.flashlight"
     )
@@ -38,6 +39,10 @@ class SystemExecutors(
                 ActionResult.Success()
             }
             is Action.ClipboardRandomName -> executeRandomName(context)
+            is Action.SpeechRecognize -> {
+                if (context.showSpeechRecognition()) ActionResult.Success()
+                else ActionResult.Failed(ActionFailure.Unsupported)
+            }
             is Action.MediaPlayPause -> {
                 audioController.mediaCommand(MediaCommand.PLAY_PAUSE)
                 ActionResult.Success()

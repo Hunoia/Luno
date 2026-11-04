@@ -132,6 +132,7 @@ class ActionDispatcher(
             },
             toggleQuickAppLauncher = surfaces::toggleQuickAppLauncher,
             showQuickSearch = surfaces::showQuickSearch,
+            showSpeechRecognition = surfaces::showSpeechRecognition,
             showGridPanel = surfaces::showGridPanel,
             gridPanelExists = surfaces::gridPanelExists,
             showVolumeScrub = surfaces::showVolumeScrub,
@@ -156,4 +157,3 @@ class ActionDispatcher(
         )
     }
 }
-
