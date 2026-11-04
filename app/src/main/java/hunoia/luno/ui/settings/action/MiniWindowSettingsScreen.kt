@@ -17,9 +17,9 @@ import hunoia.luno.config.model.withMiniWindowSettings
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoSegmentedGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
-import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreen
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
@@ -41,7 +41,8 @@ fun MiniWindowSettingsScreen(
 
     LunoScreen(title = stringResource(R.string.mini_window_settings_title), onBack = onBack) {
         LunoGroup(title = stringResource(R.string.mini_window_settings_group)) {
-            LunoSwitchRow(
+            LunoSegmentedGroup {
+                item { shape -> LunoSwitchRow(
                 title = stringResource(R.string.mini_window_follow_trigger),
                 subtitle = stringResource(R.string.mini_window_follow_trigger_hint),
                 checked = settings.followTrigger,
@@ -54,9 +55,9 @@ fun MiniWindowSettingsScreen(
                         }
                     }
                 },
-                shape = segmentedShape(0, 2),
-            )
-            LunoTextSlider(
+                shape = shape,
+                ) }
+                item { shape -> LunoTextSlider(
                 value = gapDp,
                 onValueChange = { gapDp = it },
                 onValueChangeFinished = {
@@ -76,17 +77,20 @@ fun MiniWindowSettingsScreen(
                 },
                 valueRange = 0f..48f,
                 enabled = settings.followTrigger,
-                shape = segmentedShape(1, 2),
-            )
+                shape = shape,
+                ) }
+            }
         }
         LunoGroup {
-            LunoSettingsRow(
+            LunoSegmentedGroup {
+                item { shape -> LunoSettingsRow(
                 icon = Icons.Default.Crop,
                 title = stringResource(R.string.mini_window_position_size),
                 subtitle = stringResource(R.string.mini_window_position_size_hint),
-                shape = segmentedShape(0, 1),
+                shape = shape,
                 onClick = onAdjustBounds,
-            )
+                ) }
+            }
         }
     }
 }

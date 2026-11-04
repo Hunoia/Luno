@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.Density
 import hunoia.luno.R
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoSegmentedGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.theme.ContentBottom
@@ -47,7 +48,8 @@ internal fun FontScaleControls(
         verticalArrangement = Arrangement.spacedBy(ListSpacing),
     ) {
         LunoGroup(title = stringResource(R.string.font_scale_sheet_group)) {
-            LunoTextSlider(
+            LunoSegmentedGroup {
+                item { shape -> LunoTextSlider(
                 value = draft,
                 onValueChange = { draft = it },
                 onValueChangeFinished = {
@@ -60,15 +62,16 @@ internal fun FontScaleControls(
                     stringResource(R.string.font_scale_percent, (it * 100f).roundToInt())
                 },
                 valueRange = 0.5f..2.0f,
-                shape = segmentedShape(0, 2),
-            )
-            LunoSettingsRow(
+                shape = shape,
+                ) }
+                item { shape -> LunoSettingsRow(
                 title = stringResource(R.string.font_scale_reset),
-                shape = segmentedShape(1, 2),
+                shape = shape,
                 onClick = {
                     draft = if (onCommit(1.0f)) 1.0f else current
                 },
-            )
+                ) }
+            }
         }
 
         LunoGroup(
@@ -100,7 +103,7 @@ internal fun FontScaleControls(
                         )
                     }
                 }
+                }
             }
         }
     }
-}

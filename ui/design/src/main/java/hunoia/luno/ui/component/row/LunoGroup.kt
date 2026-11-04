@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ConnectionRadius
@@ -43,6 +44,38 @@ fun segmentedShape(index: Int, count: Int): RoundedCornerShape {
         bottomStart = bottom,
         bottomEnd = bottom,
     )
+}
+
+/**
+ * 由容器自动计算分段圆角的静态内容组。
+ *
+ * 子项通过 [SegmentedGroupScope.item] 注册，只有实际执行到的 item 才会计数。
+ * 子项接收容器按最终数量计算出的 shape，因此不需要手动维护总数。
+ */
+@Composable
+fun LunoSegmentedGroup(
+    modifier: Modifier = Modifier,
+    contentSpacing: Dp = SegmentedGap,
+    content: @Composable SegmentedGroupScope.() -> Unit,
+) {
+    val scope = SegmentedGroupScope()
+    scope.content()
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(contentSpacing),
+    ) {
+        scope.items.forEachIndexed { index, item ->
+            item(segmentedShape(index, scope.items.size))
+        }
+    }
+}
+
+class SegmentedGroupScope internal constructor() {
+    internal val items = mutableListOf<@Composable (Shape) -> Unit>()
+
+    fun item(content: @Composable (Shape) -> Unit) {
+        items += content
+    }
 }
 
 /**

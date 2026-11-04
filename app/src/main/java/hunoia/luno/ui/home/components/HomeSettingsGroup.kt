@@ -12,8 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoSegmentedGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.component.row.segmentedShape
 
 @Composable
 fun HomeSettingsGroup(
@@ -26,24 +26,26 @@ fun HomeSettingsGroup(
         title = stringResource(R.string.home_section_settings),
         modifier = modifier,
     ) {
-        LunoSettingsRow(
+        LunoSegmentedGroup {
+            item { shape -> LunoSettingsRow(
             title = stringResource(R.string.search_engine_settings),
             icon = Icons.TwoTone.Search,
-            shape = segmentedShape(0, 3),
+            shape = shape,
             onClick = onSearchEngineClick,
-        )
-        LunoSettingsRow(
+            ) }
+            item { shape -> LunoSettingsRow(
             title = stringResource(R.string.float_ball),
             icon = Icons.TwoTone.RadioButtonChecked,
-            shape = segmentedShape(1, 3),
+            shape = shape,
             onClick = onFloatBallClick,
-        )
-        LunoSettingsRow(
+            ) }
+            item { shape -> LunoSettingsRow(
             title = stringResource(R.string.link_dispatch),
             icon = Icons.TwoTone.Link,
-            shape = segmentedShape(2, 3),
+            shape = shape,
             onClick = onLinkDispatchClick,
-        )
+            ) }
+        }
     }
 }
 
@@ -60,23 +62,25 @@ fun DataTransferGroup(
         title = stringResource(R.string.home_section_data),
         modifier = modifier,
     ) {
-        LunoSettingsRow(
+        LunoSegmentedGroup {
+            item { shape -> LunoSettingsRow(
             title = stringResource(R.string.backup),
             icon = Icons.TwoTone.Save,
-            shape = segmentedShape(0, 3),
+            shape = shape,
             onClick = onBackupClick,
-        )
-        LunoSettingsRow(
+            ) }
+            item { shape -> LunoSettingsRow(
             title = stringResource(R.string.restore),
             icon = Icons.TwoTone.Restore,
-            shape = segmentedShape(1, 3),
+            shape = shape,
             onClick = onRestoreClick,
-        )
-        LunoSettingsRow(
+            ) }
+            item { shape -> LunoSettingsRow(
             title = stringResource(R.string.reset),
             icon = Icons.TwoTone.RestartAlt,
-            shape = segmentedShape(2, 3),
+            shape = shape,
             onClick = onResetClick,
-        )
+            ) }
+        }
     }
 }
