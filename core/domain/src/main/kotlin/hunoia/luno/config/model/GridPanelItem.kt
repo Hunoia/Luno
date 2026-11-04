@@ -51,6 +51,9 @@ data class GridPanelItem(
         /**
          * Luno 内置小部件（Compose 自绘，不依赖 AppWidgetHost）：[widgetId] 见 `InternalWidgetIds`。
          * 不走 AppWidget：跨进程宿主、常驻、授权对自家部件是纯开销。
+         *
+         * [params] 是每实例配置（JSON 串，见 ADR-0008）：无参部件保持 null，
+         * 有参部件（如习惯部件存 `HabitWidgetParams`）按需解析；注册表不感知具体字段。
          */
         @Serializable
         @Keep
@@ -58,6 +61,7 @@ data class GridPanelItem(
             val widgetId: String,
             /** 是否在自绘内容下垫一层底色（左上角按钮可切，默认关）。 */
             val showBackground: Boolean = false,
+            val params: String? = null,
         ) : Kind
     }
 

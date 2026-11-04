@@ -18,6 +18,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import hunoia.luno.link.LinkExtras
+import hunoia.luno.gridpanel.HabitExtras
+import hunoia.luno.ui.navigation.PendingHabitEdit
 import hunoia.luno.ui.navigation.PendingLinkRule
 import hunoia.luno.ui.SideGestureApp
 import kotlinx.coroutines.launch
@@ -46,6 +48,7 @@ class MainActivity : ComponentActivity() {
         AppGraph.runtime.restoreServicesOnce(applicationContext)
 
         handleLinkRuleIntent(intent)
+        handleHabitEditIntent(intent)
 
         setContent {
             val created = rememberNavController()
@@ -67,6 +70,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleLinkRuleIntent(intent)
+        handleHabitEditIntent(intent)
     }
 
     /**
@@ -78,6 +82,16 @@ class MainActivity : ComponentActivity() {
         val pattern = intent?.getStringExtra(LinkExtras.EXTRA_RULE_PATTERN) ?: return
         intent.removeExtra(LinkExtras.EXTRA_RULE_PATTERN)
         PendingLinkRule.request(pattern)
+    }
+
+    /**
+     * 习惯面板部件的「打开编辑页」：`HabitExtras.EXTRA_EDIT_HABIT_ID` 带 habit id。
+     * 导航由 [SideGestureApp] 消费 [PendingHabitEdit] 完成；这里只负责收件。
+     */
+    private fun handleHabitEditIntent(intent: Intent?) {
+        val habitId = intent?.getStringExtra(HabitExtras.EXTRA_EDIT_HABIT_ID) ?: return
+        intent.removeExtra(HabitExtras.EXTRA_EDIT_HABIT_ID)
+        PendingHabitEdit.request(habitId)
     }
 
     private fun requestNotificationPermissionIfNeeded() {

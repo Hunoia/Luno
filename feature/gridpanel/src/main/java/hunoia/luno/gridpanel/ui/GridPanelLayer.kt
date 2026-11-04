@@ -342,6 +342,7 @@ fun GridPanelLayer(
                                             itemSpanX = item.spanX,
                                             itemSpanY = item.spanY,
                                             enabled = !editMode,
+                                            params = kind.params,
                                         ),
                                     )
                                 }

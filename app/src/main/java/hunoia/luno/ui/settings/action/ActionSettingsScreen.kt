@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.Gesture
@@ -86,6 +87,7 @@ fun ActionSettingsTab(
     onNavToPersistentNotificationSettings: () -> Unit = {},
     onNavToStatusBarIconSettings: () -> Unit = {},
     onNavToLogSettings: () -> Unit = {},
+    onNavToHabits: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -183,6 +185,16 @@ fun ActionSettingsTab(
                         subtitle = actionPanelStyleSummary(actionSettings.actionPanelStyle),
                         shape = segmentedShape(2, 3),
                         onClick = { showActionPanelStyle = true },
+                    )
+                }
+            }
+            item(key = "habits") {
+                LunoGroup(title = stringResource(R.string.action_settings_habit_group)) {
+                    LunoSettingsRow(
+                        icon = Icons.Default.CheckCircle,
+                        title = stringResource(R.string.habit_list_title),
+                        shape = segmentedShape(0, 1),
+                        onClick = onNavToHabits,
                     )
                 }
             }

@@ -25,6 +25,9 @@ object DataStoreFiles {
     /** Luno 触发的应用启动统计：设备本地派生数据，不进备份。 */
     const val APP_USAGE_STATS = "app_usage_stats"
 
+    // 习惯组（独立于手势/动作/搜索，按 §11.1 语义分组）
+    const val HABITS = "habits"
+
     // 瞬态：不进备份
     /** 快速启动器应用列表快照。可从系统重建，刻意不进备份。 */
     const val QUICK_APP_SNAPSHOT = "quick_app_snapshot"

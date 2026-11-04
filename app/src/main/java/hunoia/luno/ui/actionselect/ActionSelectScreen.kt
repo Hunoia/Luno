@@ -33,7 +33,12 @@ import com.aaron.compose.component.UDFComponent
 import com.aaron.compose.component.UiBaseEvent
 import hunoia.luno.R
 import hunoia.luno.config.model.GridPanelDefaults
+import hunoia.luno.config.model.HabitConfig
+import hunoia.luno.config.model.HabitWidgetParams
+import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.core.Paths
+import hunoia.luno.domain.gridpanel.HabitCenter
+import hunoia.luno.gridpanel.internal.InternalWidgetIds
 import hunoia.luno.gridpanel.widget.PanelAppWidgetHost
 import hunoia.luno.gridpanel.widget.WidgetProviderGroup
 import hunoia.luno.gridpanel.widget.WidgetSpan
@@ -51,6 +56,8 @@ import kotlinx.coroutines.withContext
 import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.theme.*
 import hunoia.luno.ui.component.screen.LunoScreenPlain
+import hunoia.luno.ui.settings.habit.HabitPickerDialog
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /** 已分配 id、等着某个 Activity 回话的小部件。 */
 private class PendingWidget(
@@ -88,10 +95,32 @@ fun ActionSelectContent(
     ) { uiState ->
         val coroutineScope = rememberCoroutineScope()
 
+        // 习惯部件选择：指定目标习惯后落盘（params 见 ADR-0008）。
+        var pendingHabitWidgetId by remember { mutableStateOf<String?>(null) }
+        val habitConfig by HabitCenter.habitConfig
+            .collectAsStateWithLifecycle(initialValue = HabitConfig())
+
         // 内容是自带 weight(1f) 的嵌套列表，内容容器自拼（Scaffold/TopBar/backdrop 由模板提供）
         LunoScreenPlain(
             title = uiState.title,
             onBack = onDismissRequest,
+            dialogs = {
+                // 习惯部件：选目标习惯后把 habitId 写进 Kind.Internal.params（ADR-0008）。
+                val pending = pendingHabitWidgetId
+                if (pending != null) {
+                    HabitPickerDialog(
+                        habits = habitConfig.habits,
+                        onSelect = { habit ->
+                            pendingHabitWidgetId = null
+                            vm.commitInternalWidget(
+                                pending,
+                                JsonSerializer.encodeToString(HabitWidgetParams(habit.id)),
+                            )
+                        },
+                        onDismiss = { pendingHabitWidgetId = null },
+                    )
+                }
+            },
         ) { topPadding, hazeState ->
             Column(modifier = Modifier.fillMaxSize()) {
                     val permissionState = rememberGetInstalledAppsPermissionState { granted ->
@@ -299,7 +328,15 @@ fun ActionSelectContent(
                             widgetGroups = widgetGroups,
                             widgetSpanOf = { info -> widgetSpanFor(info, gridColumns, gridRows) },
                             onSelectWidget = ::pickWidget,
-                            onSelectInternalWidget = { id -> vm.commitInternalWidget(id) },
+                            onSelectInternalWidget = { id ->
+                                if (id == InternalWidgetIds.HABIT_CHECK ||
+                                    id == InternalWidgetIds.HABIT_HISTORY
+                                ) {
+                                    pendingHabitWidgetId = id
+                                } else {
+                                    vm.commitInternalWidget(id)
+                                }
+                            },
                         )
                     }
                 }

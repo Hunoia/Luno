@@ -359,10 +359,12 @@ internal suspend fun saveGridPanelWidget(
 /**
  * 内置小部件落盘：同款「只填空 + 放不下降档」，无宿主 id 可回收。
  * 默认 span 4×1（def 声明），列数不够时逐档降到 1×1。
+ * [params] 是每实例配置（见 ADR-0008）：习惯部件传 `HabitWidgetParams` JSON，无参部件传 null。
  */
 internal suspend fun saveGridPanelInternalWidget(
     actionSelect: ActionSelect,
     widgetId: String,
+    params: String? = null,
 ): GridPanelSaveResult {
     val def = hunoia.luno.gridpanel.internal.InternalWidgetDefs.firstOrNull { it.id == widgetId }
     if (def == null) {
@@ -394,7 +396,7 @@ internal suspend fun saveGridPanelInternalWidget(
                                 spanX = reqX,
                                 spanY = reqY,
                                 pageIndex = ctx.pageIndex,
-                                kind = GridPanelItem.Kind.Internal(widgetId = widgetId, showBackground = false),
+                                kind = GridPanelItem.Kind.Internal(widgetId = widgetId, showBackground = false, params = params),
                             ),
                         )
                     },
@@ -413,7 +415,7 @@ internal suspend fun saveGridPanelInternalWidget(
                                 spanX = span.spanX,
                                 spanY = span.spanY,
                                 pageIndex = ctx.pageIndex,
-                                kind = GridPanelItem.Kind.Internal(widgetId = widgetId, showBackground = false),
+                                kind = GridPanelItem.Kind.Internal(widgetId = widgetId, showBackground = false, params = params),
                             ),
                         )
                     },

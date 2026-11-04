@@ -117,6 +117,18 @@ data class GridPanelEdit(
     val panelId: String,
 )
 
+/** 习惯管理列表（主设置 → 习惯）。 */
+@Keep
+@Serializable
+data object HabitList
+
+/** 习惯编辑；habitId 空 = 新增。 */
+@Keep
+@Serializable
+data class HabitEdit(
+    val habitId: String = "",
+)
+
 @Keep
 @Serializable
 data object SearchEngineSettings

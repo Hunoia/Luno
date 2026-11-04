@@ -128,6 +128,7 @@ fun HomeScreen(
     onNavToPersistentNotificationSettings: () -> Unit = {},
     onNavToStatusBarIconSettings: () -> Unit = {},
     onNavToLogSettings: () -> Unit = {},
+    onNavToHabits: () -> Unit = {},
     onNavToScreenPickSettings: () -> Unit = {},
     onNavToActionLibraryEdit: (String, String?) -> Unit = { _, _ -> },
     vm: HomeVM = viewModel()
@@ -481,6 +482,7 @@ fun HomeScreen(
                             onNavToPersistentNotificationSettings = onNavToPersistentNotificationSettings,
                             onNavToStatusBarIconSettings = onNavToStatusBarIconSettings,
                             onNavToLogSettings = onNavToLogSettings,
+                            onNavToHabits = onNavToHabits,
                         )
                     }
                 }

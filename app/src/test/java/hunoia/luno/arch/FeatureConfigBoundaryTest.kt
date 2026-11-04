@@ -18,6 +18,7 @@ class FeatureConfigBoundaryTest {
         "actions/src/main/java/hunoia/luno/domain/action/ActionLibrary.kt",
         "floatball/src/main/java/hunoia/luno/domain/floatball/FloatBallSettingsCenter.kt",
         "gridpanel/src/main/java/hunoia/luno/domain/gridpanel/GridPanelCenter.kt",
+        "gridpanel/src/main/java/hunoia/luno/domain/gridpanel/HabitCenter.kt",
         "gridpanel/src/main/java/hunoia/luno/gridpanel/PanelResources.kt",
         "link/src/main/java/hunoia/luno/domain/link/LinkSettingsCenter.kt",
         "search/src/main/java/hunoia/luno/domain/search/SearchCenter.kt",

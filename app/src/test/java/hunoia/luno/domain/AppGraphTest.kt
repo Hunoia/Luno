@@ -6,6 +6,8 @@ import hunoia.luno.domain.system.PrivilegedGrantSummary
 import hunoia.luno.domain.system.PrivilegedPermission
 import hunoia.luno.domain.system.PrivilegedPermissionStatus
 import hunoia.luno.domain.system.SystemFacade
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import org.junit.Assert.assertSame
 import org.junit.Test
 
@@ -51,6 +53,18 @@ class AppGraphTest {
         override suspend fun grantAllPrivilegedPermissions(
             context: Context,
         ): PrivilegedGrantSummary = PrivilegedGrantSummary(total = 0)
+
+        override fun fontScale(context: Context): Float = 1.0f
+
+        override fun canWriteSystemSettings(context: Context): Boolean = false
+
+        override fun setFontScale(context: Context, scale: Float): Boolean = true
+
+        override val hideLunoFromRecents: Flow<Boolean> = flowOf(true)
+
+        override suspend fun setHideLunoFromRecents(hidden: Boolean) = Unit
+
+        override fun applyHideLunoFromRecents(context: Context, taskId: Int, hidden: Boolean): Boolean = true
     }
 
     @Test

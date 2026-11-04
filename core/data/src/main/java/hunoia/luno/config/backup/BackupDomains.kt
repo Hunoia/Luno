@@ -93,6 +93,7 @@ internal fun Backup.schemaVersionOf(domain: BackupDomain): Int = when (domain) {
     BackupDomain.TUNE -> tuneSchemaVersion
     BackupDomain.ACTION -> actionSchemaVersion
     BackupDomain.SEARCH -> searchSchemaVersion
+    BackupDomain.HABIT -> habitSchemaVersion
 }
 
 /** 内置备份域：整机备份的五组。 */
@@ -165,6 +166,18 @@ internal object BuiltinBackupDomains {
                 )
             },
             isEmpty = { it.quickAppLauncherSettings == null && it.quickSearchSettings == null },
+        )
+        register(
+            domain = BackupDomain.HABIT,
+            schemaVersion = BackupVersions.HABIT,
+            snapshot = { full ->
+                Backup(
+                    backupFormatVersion = full.backupFormatVersion,
+                    habitSchemaVersion = full.habitSchemaVersion,
+                    habitConfig = full.habitConfig,
+                )
+            },
+            isEmpty = { it.habitConfig == null },
         )
     }
 

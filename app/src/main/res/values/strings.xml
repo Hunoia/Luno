@@ -185,6 +185,40 @@
     <string name="hide_luno_from_recents_hint">只隐藏主页面，图片标注等页面仍保留在最近任务</string>
     <string name="action_settings_permissions_group">权限</string>
     <string name="action_settings_notification_group">通知与状态栏</string>
+    <string name="action_settings_habit_group">习惯</string>
+    <string name="habit_list_title">习惯</string>
+    <string name="habit_add">新建习惯</string>
+    <string name="habit_edit_title">编辑习惯</string>
+    <string name="habit_create_title">新建习惯</string>
+    <string name="habit_name">习惯名</string>
+    <string name="habit_name_hint">如：跑步、喝水</string>
+    <string name="habit_color">颜色</string>
+    <string name="habit_interval">打卡频率</string>
+    <string name="habit_interval_daily">每天</string>
+    <string name="habit_interval_every">每 %1$d 天</string>
+    <string name="habit_interval_summary">每 %1$d 天打卡一次</string>
+    <string name="habit_streak_summary">连续 %1$d 天</string>
+    <string name="habit_empty">还没有习惯，点右上角新建</string>
+    <string name="habit_delete">删除习惯</string>
+    <string name="habit_delete_confirm">将删除该习惯及其全部打卡记录，无法恢复</string>
+    <string name="habit_save">保存</string>
+    <string name="habit_recent_checks">近 30 天</string>
+    <string name="habit_recent_checks_hint">点按切换当天是否已打卡（可补/改）</string>
+    <string-array name="habit_weekdays">
+        <item>一</item>
+        <item>二</item>
+        <item>三</item>
+        <item>四</item>
+        <item>五</item>
+        <item>六</item>
+        <item>日</item>
+    </string-array>
+    <string name="habit_check_today">今天</string>
+    <string name="habit_check_yesterday">昨天</string>
+    <string name="habit_check_days_ago">%1$d 天前</string>
+    <string name="habit_check_date">%1$d月%2$d日</string>
+    <string name="habit_pick_title">选择习惯</string>
+    <string name="habit_pick_empty">还没有习惯，请先到「设置 → 习惯」新建</string>
     <string name="action_settings_mini_window_position">小窗设置</string>
     <string name="mini_window_settings_title">小窗设置</string>
     <string name="mini_window_settings_group">跟随触发位置</string>

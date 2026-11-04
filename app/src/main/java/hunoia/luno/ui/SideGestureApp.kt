@@ -53,6 +53,8 @@ import hunoia.luno.ui.navigation.ActionPanelList
 import hunoia.luno.ui.navigation.ActionPanelEdit
 import hunoia.luno.ui.navigation.GridPanelList
 import hunoia.luno.ui.navigation.GridPanelEdit
+import hunoia.luno.ui.navigation.HabitList
+import hunoia.luno.ui.navigation.HabitEdit
 import hunoia.luno.ui.navigation.SearchEngineSettings
 import hunoia.luno.ui.navigation.SearchEngineEdit
 import hunoia.luno.ui.navigation.SearchSourceSettings
@@ -86,6 +88,8 @@ import hunoia.luno.ui.settings.action.panel.ActionPanelEditScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelListScreen
 import hunoia.luno.ui.settings.action.gridpanel.GridPanelEditScreen
 import hunoia.luno.ui.settings.action.gridpanel.GridPanelListScreen
+import hunoia.luno.ui.settings.habit.HabitEditScreen
+import hunoia.luno.ui.settings.habit.HabitListScreen
 import hunoia.luno.ui.settings.search.SearchEngineSettingsScreen
 import hunoia.luno.ui.settings.search.SearchEngineEditScreen
 import hunoia.luno.ui.settings.search.SearchSourceSettingsScreen
@@ -101,6 +105,7 @@ import hunoia.luno.ui.navigation.LocalActionPanels
 import hunoia.luno.ui.navigation.LocalGridPanels
 import hunoia.luno.ui.navigation.LocalSubGestures
 import hunoia.luno.ui.navigation.LocalNavController
+import hunoia.luno.ui.navigation.PendingHabitEdit
 import hunoia.luno.ui.navigation.PendingLinkRule
 import hunoia.luno.ui.home.HomeScreen
 import hunoia.luno.domain.tune.TuneConfig
@@ -127,6 +132,13 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
             val pattern = pendingRulePattern ?: return@LaunchedEffect
             PendingLinkRule.consume()
             navController.navigate(LinkDispatchRuleEdit("", pattern)) { launchSingleTop = true }
+        }
+        // 习惯面板部件「打开编辑页」：跨进程 Intent → [PendingHabitEdit]，消费一次就跳对应编辑页。
+        val pendingHabitEditId by PendingHabitEdit.habitId.collectAsStateWithLifecycle()
+        LaunchedEffect(pendingHabitEditId) {
+            val habitId = pendingHabitEditId ?: return@LaunchedEffect
+            PendingHabitEdit.consume()
+            navController.navigate(HabitEdit(habitId)) { launchSingleTop = true }
         }
         CompositionLocalProvider(
             LocalNavController provides navController,
@@ -190,6 +202,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         },
                         onNavToLogSettings = {
                             navController.navigate(LogSettings)
+                        },
+                        onNavToHabits = {
+                            navController.navigate(HabitList)
                         },
                         onNavToScreenPickSettings = {
                             navController.navigate(ScreenPickSettings)
@@ -343,6 +358,20 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 myComposable<GridPanelEdit> {
                     GridPanelEditScreen(
                         panelId = it.toRoute<GridPanelEdit>().panelId,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                myComposable<HabitList> {
+                    HabitListScreen(
+                        onBack = { navController.popBackStack() },
+                        onEditHabit = { habitId ->
+                            navController.navigate(HabitEdit(habitId ?: ""))
+                        },
+                    )
+                }
+                myComposable<HabitEdit> {
+                    HabitEditScreen(
+                        habitId = it.toRoute<HabitEdit>().habitId.takeIf { h -> h.isNotBlank() },
                         onBack = { navController.popBackStack() },
                     )
                 }

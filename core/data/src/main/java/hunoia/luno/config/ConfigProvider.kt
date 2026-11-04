@@ -14,6 +14,9 @@ import hunoia.luno.config.model.remove
 import hunoia.luno.config.model.cleared
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
+import hunoia.luno.config.model.Habit
+import hunoia.luno.config.model.HabitConfig
+import hunoia.luno.config.model.HabitHistoryRetentionDays
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.QuickAppSnapshot
@@ -25,6 +28,7 @@ import hunoia.luno.config.model.withUniqueEngineTriggers
 import hunoia.luno.config.repository.AppUsageRepository
 import hunoia.luno.config.repository.QuickLauncherRepository
 import hunoia.luno.config.store.SettingsStores
+import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -49,6 +53,9 @@ object ConfigProvider {
     val quickSearchSettings: Flow<QuickSearchSettings> = stores.quickSearchSettings
     /** 剪贴板历史：设备本地派生数据，只供剪贴板页面部件订阅。 */
     val clipboardHistory: Flow<ClipboardHistory> = stores.clipboardHistory
+
+    /** 习惯配置：习惯定义 + 打卡记录。部件与管理页都订阅它。 */
+    val habitConfig: Flow<HabitConfig> = stores.habitConfig
 
     suspend fun getInitialSettings(): InitialSettings = stores._initialSettings.data.first()
     suspend fun getAdvancedSettings(): AdvancedSettings = stores._advancedSettings.data.first()
@@ -124,6 +131,42 @@ object ConfigProvider {
 
     suspend fun clearClipboardHistory() {
         runCatching { stores._clipboardHistory.updateData { it.cleared() } }
+    }
+
+    // ---------- 习惯域 ----------
+    // 打卡 / 增删改是应用内状态变更（配置写入），走 domain 门面写回；
+    // 不走 Dispatcher / SurfaceDispatch（architecture §1.3 配置写入不是 Action）。
+
+    suspend fun getHabitConfig(): HabitConfig = stores._habitConfig.data.first()
+
+    suspend fun updateHabitConfig(transform: suspend (HabitConfig) -> HabitConfig) {
+        stores._habitConfig.updateData(transform)
+    }
+
+    /** 部件打卡：只打卡不可取消；今天已打再调是幂等。写后按保留天数惰性裁剪。 */
+    suspend fun toggleHabit(habitId: String, day: Long) {
+        updateHabitConfig {
+            it.withCheck(habitId, day).pruneChecks(LocalDate.now().toEpochDay(), HabitHistoryRetentionDays)
+        }
+    }
+
+    /** 管理页补 / 改历史（近 30 天）：统一写入 / 清除。写后按保留天数惰性裁剪。 */
+    suspend fun setHabitCheck(habitId: String, day: Long, checked: Boolean) {
+        updateHabitConfig {
+            it.setChecked(habitId, day, checked).pruneChecks(LocalDate.now().toEpochDay(), HabitHistoryRetentionDays)
+        }
+    }
+
+    suspend fun addHabit(habit: Habit) {
+        updateHabitConfig { it.addHabit(habit) }
+    }
+
+    suspend fun updateHabit(habit: Habit) {
+        updateHabitConfig { it.updateHabit(habit) }
+    }
+
+    suspend fun deleteHabit(habitId: String) {
+        updateHabitConfig { it.deleteHabit(habitId) }
     }
 
     /**

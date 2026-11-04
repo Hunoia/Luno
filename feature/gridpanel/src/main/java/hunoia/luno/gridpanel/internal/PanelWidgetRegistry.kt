@@ -14,6 +14,8 @@ data class PanelWidgetContentScope(
     val itemSpanX: Int,
     val itemSpanY: Int,
     val enabled: Boolean,
+    /** 每实例配置（JSON 串，见 ADR-0008）：无参部件为 null，有参部件自行解析。 */
+    val params: String? = null,
 )
 
 /**
@@ -146,6 +148,42 @@ object PanelWidgetRegistry {
                     spanX = scope.spanX,
                     spanY = scope.spanY,
                     enabled = scope.enabled,
+                )
+            },
+        )
+        register(
+            PanelWidget(
+                id = InternalWidgetIds.HABIT_CHECK,
+                labelRes = R.string.grid_panel_internal_habit_check,
+                defaultSpanX = 2,
+                defaultSpanY = 2,
+                minSpanX = 1,
+                minSpanY = 1,
+            ) { scope ->
+                HabitCheckCell(
+                    modifier = scope.modifier,
+                    spanX = scope.spanX,
+                    spanY = scope.spanY,
+                    enabled = scope.enabled,
+                    params = scope.params,
+                )
+            },
+        )
+        register(
+            PanelWidget(
+                id = InternalWidgetIds.HABIT_HISTORY,
+                labelRes = R.string.grid_panel_internal_habit_history,
+                defaultSpanX = 2,
+                defaultSpanY = 2,
+                minSpanX = 2,
+                minSpanY = 2,
+            ) { scope ->
+                HabitHistoryCell(
+                    modifier = scope.modifier,
+                    spanX = scope.spanX,
+                    spanY = scope.spanY,
+                    enabled = scope.enabled,
+                    params = scope.params,
                 )
             },
         )
