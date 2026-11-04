@@ -3,8 +3,6 @@ package hunoia.luno.ui
 import hunoia.luno.domain.AppGraph
 
 import android.Manifest
-import android.app.ActivityManager
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -16,11 +14,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.remember
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import hunoia.luno.link.LinkExtras
 import hunoia.luno.ui.navigation.PendingLinkRule
 import hunoia.luno.ui.SideGestureApp
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -54,8 +54,13 @@ class MainActivity : ComponentActivity() {
             SideGestureApp(navController)
         }
 
-        val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        am.appTasks.firstOrNull()?.setExcludeFromRecents(true)
+        // 只隐藏启动器拉起的主 task；图片标注等独立 task 不受影响。开关变化即时生效。
+        val ownTaskId = taskId
+        lifecycleScope.launch {
+            AppGraph.system.hideLunoFromRecents.collect { hidden ->
+                AppGraph.system.applyHideLunoFromRecents(this@MainActivity, ownTaskId, hidden)
+            }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

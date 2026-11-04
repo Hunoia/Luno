@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -99,6 +100,8 @@ fun ActionSettingsTab(
     val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = ActionSettings())
     val gestureSettings by TuneConfig.gesture.collectAsStateWithLifecycle(initialValue = GestureSettings())
     val initialSettings by GestureConfig.initial.collectAsStateWithLifecycle(initialValue = InitialSettings())
+    val hideLunoFromRecents by AppGraph.system.hideLunoFromRecents
+        .collectAsStateWithLifecycle(initialValue = true)
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -228,7 +231,7 @@ fun ActionSettingsTab(
                     LunoSettingsRow(
                         icon = Icons.Default.Visibility,
                         title = stringResource(R.string.button_visibility),
-                        shape = segmentedShape(0, 3),
+                        shape = segmentedShape(0, 4),
                         onClick = onNavToButtonVisibility,
                     )
                     LunoSwitchRow(
@@ -241,7 +244,7 @@ fun ActionSettingsTab(
                                 TuneConfig.updateAction { it.copy(showSystemAppsInAppList = enabled) }
                             }
                         },
-                        shape = segmentedShape(1, 3),
+                        shape = segmentedShape(1, 4),
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.TextFields,
@@ -254,8 +257,18 @@ fun ActionSettingsTab(
                         } else {
                             stringResource(R.string.font_scale_need_permission)
                         },
-                        shape = segmentedShape(2, 3),
+                        shape = segmentedShape(2, 4),
                         onClick = ::openFontScale,
+                    )
+                    LunoSwitchRow(
+                        icon = Icons.Default.VisibilityOff,
+                        title = stringResource(R.string.hide_luno_from_recents),
+                        subtitle = stringResource(R.string.hide_luno_from_recents_hint),
+                        checked = hideLunoFromRecents,
+                        onCheckedChange = { hidden ->
+                            scope.launch { AppGraph.system.setHideLunoFromRecents(hidden) }
+                        },
+                        shape = segmentedShape(3, 4),
                     )
                 }
             }

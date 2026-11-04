@@ -189,7 +189,6 @@
         <activity
             android:name=".ui.annotate.ImageAnnotateActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|density|fontScale|uiMode|layoutDirection|locale"
-            android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTask"
             android:process=":service"

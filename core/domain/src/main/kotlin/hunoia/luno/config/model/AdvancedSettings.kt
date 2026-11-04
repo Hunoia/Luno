@@ -14,4 +14,6 @@ data class AdvancedSettings(
     /** 固定通知隐藏：常驻 / 前台服务通知从通知栏隐藏。 */
     val persistentNotificationHiding: PersistentNotificationHidingSettings =
         PersistentNotificationHidingSettings(),
+    /** 是否把 Luno 主页面 task 从最近任务隐藏；图片标注等独立页面不受影响。 */
+    val hideLunoFromRecents: Boolean = true,
 )

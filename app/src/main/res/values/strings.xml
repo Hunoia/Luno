@@ -178,6 +178,8 @@
     <string name="font_scale_sample_title">字体缩放预览 Aa 123</string>
     <string name="font_scale_sample_body">正文示例：拖动滑杆预览实际字体大小。</string>
     <string name="font_scale_write_failed">当前系统不支持该字号</string>
+    <string name="hide_luno_from_recents">隐藏 Luno 后台</string>
+    <string name="hide_luno_from_recents_hint">只隐藏主页面，图片标注等页面仍保留在最近任务</string>
     <string name="action_settings_permissions_group">权限</string>
     <string name="action_settings_mini_window_position">小窗设置</string>
     <string name="mini_window_settings_title">小窗设置</string>

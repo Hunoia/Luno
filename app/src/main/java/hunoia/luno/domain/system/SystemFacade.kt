@@ -1,6 +1,7 @@
 package hunoia.luno.domain.system
 
 import android.content.Context
+import kotlinx.coroutines.flow.Flow
 
 /**
  * 系统能力门面契约：权限、保活、悬浮球服务启停（UI 唯一入口）。
@@ -46,6 +47,15 @@ interface SystemFacade {
 
     /** 写入系统字号；失败返回 false，系统值保持不变。 */
     fun setFontScale(context: Context, scale: Float): Boolean
+
+    /** Luno 主页面是否从最近任务隐藏；图片标注等独立页面不受影响。 */
+    val hideLunoFromRecents: Flow<Boolean>
+
+    /** 落盘「隐藏 Luno 后台」开关。 */
+    suspend fun setHideLunoFromRecents(hidden: Boolean)
+
+    /** 把当前主 task 立即设为隐藏 / 显示。 */
+    fun applyHideLunoFromRecents(context: Context, taskId: Int, hidden: Boolean): Boolean
 }
 
 /** `SystemFacade` 的默认实现：只做委托，不引入新的状态。 */
@@ -98,4 +108,12 @@ object SystemUseCases : SystemFacade {
 
     override fun setFontScale(context: Context, scale: Float): Boolean =
         hunoia.luno.bridge.system.SystemFontScale.set(context, scale)
+
+    override val hideLunoFromRecents: Flow<Boolean> = LunoRecentsUseCase.hideFromRecents
+
+    override suspend fun setHideLunoFromRecents(hidden: Boolean) =
+        LunoRecentsUseCase.setHidden(hidden)
+
+    override fun applyHideLunoFromRecents(context: Context, taskId: Int, hidden: Boolean): Boolean =
+        LunoRecentsUseCase.apply(context, taskId, hidden)
 }
