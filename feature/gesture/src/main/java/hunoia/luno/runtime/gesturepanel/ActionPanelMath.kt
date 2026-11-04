@@ -88,6 +88,7 @@ internal fun actionPanelItemOffset(
     itemSizePx: Float,
     spreadSpacing: Float,
     itemGapPx: Float,
+    maxAngleDegrees: Float = 180f,
 ): Offset {
     if (parentSize.isEmpty() || actionCount <= 0) return Offset.Zero
     val spacing = spreadSpacing.coerceIn(0.85f, 1.6f)
@@ -95,30 +96,33 @@ internal fun actionPanelItemOffset(
     // 中心距 = 图标直径 + 净间距。角步长由它反推，所以 spreadSpacing（只改半径）
     // 不再像以前那样和步长互相抵消 —— 净间距完全由 itemGapPx 决定。
     val centerDistance = itemSizePx + gap
-    val baseRadius = itemSizePx * when (actionCount) {
-        1 -> 1.55f
-        2 -> 1.75f
-        3 -> 1.95f
-        else -> 2.15f
-    } * spacing
-    val maxItemsPerLayer = arcLayerCapacity(
-        radius = baseRadius,
+    val plan = adaptiveLayerPlan(
+        parentSize = parentSize,
+        origin = origin,
+        sector = sector,
+        actionCount = actionCount,
+        itemSizePx = itemSizePx,
         centerDistance = centerDistance,
-        arcLength = sector.sweepDegrees.toInt(),
+        spacing = spacing,
+        maxAngleDegrees = maxAngleDegrees,
     )
-    // 按占用来分层：每层先铺满 maxItemsPerLayer（由半径/净间距/扇区弧长决定）再往外扩一层。
-    // 不用 ceil(count/layerCount) 均分 —— 那会让内层没铺满就把外层开出来。
-    val layer = index / maxItemsPerLayer
-    val indexInLayer = index % maxItemsPerLayer
-    val firstIndexInLayer = layer * maxItemsPerLayer
-    val countInLayer = min(maxItemsPerLayer, actionCount - firstIndexInLayer).coerceAtLeast(1)
-    // 层间距与层内角间距用同一个净间距，避免两层贴在一起
-    val radius = baseRadius + layer * centerDistance
-    val arcDegrees = sector.sweepDegrees.coerceIn(90f, 180f)
+    val layer = plan.layerForIndex(index)
+    val indexInLayer = plan.indexInLayer(index)
+    val countInLayer = plan.counts[layer]
+    val radius = plan.radii[layer]
+    val range = plan.ranges[layer]
     val stepDegree = arcStepDegrees(radius, centerDistance)
-    val sweepDegree = if (countInLayer == 1) 0f else min(arcDegrees, stepDegree * (countInLayer - 1))
-    val angleDegree = if (countInLayer == 1) sector.centerDegrees else {
-        sector.centerDegrees - sweepDegree / 2f + sweepDegree * indexInLayer / (countInLayer - 1)
+    val normalizedCenter = ((sector.centerDegrees % 360f) + 360f) % 360f
+    val radiansCenter = Math.toRadians(normalizedCenter.toDouble())
+    val horizontal = kotlin.math.abs(kotlin.math.cos(radiansCenter)) >= kotlin.math.abs(kotlin.math.sin(radiansCenter))
+    val leftSide = horizontal && kotlin.math.cos(radiansCenter) < 0f
+    val angleDegree = if (countInLayer == 1) {
+        sector.centerDegrees
+    } else if (leftSide) {
+        // 水平镜像：左侧从上到下排布，但不改变配置索引的内外层顺序。
+        range.endDegrees - range.sweepDegrees * indexInLayer / (countInLayer - 1)
+    } else {
+        range.startDegrees + range.sweepDegrees * indexInLayer / (countInLayer - 1)
     }
     val radians = Math.toRadians(angleDegree.toDouble())
     val targetCenter = Offset(
@@ -126,6 +130,146 @@ internal fun actionPanelItemOffset(
         y = origin.y + sin(radians).toFloat() * radius,
     ).coerceInside(parentSize, itemSizePx)
     return targetCenter - origin
+}
+
+private data class AdaptiveLayerPlan(
+    val counts: List<Int>,
+    val radii: List<Float>,
+    val ranges: List<ActionPanelArcRange>,
+) {
+    fun layerForIndex(index: Int): Int {
+        var start = 0
+        counts.forEachIndexed { layer, count ->
+            if (index < start + count) return layer
+            start += count
+        }
+        return counts.lastIndex
+    }
+
+    fun indexInLayer(index: Int): Int {
+        var start = 0
+        counts.forEach { count ->
+            if (index < start + count) return index - start
+            start += count
+        }
+        return 0
+    }
+}
+
+private data class ActionPanelArcRange(
+    val startDegrees: Float,
+    val endDegrees: Float,
+) {
+    val sweepDegrees: Float get() = (endDegrees - startDegrees).coerceIn(0f, 360f)
+}
+
+private fun adaptiveLayerPlan(
+    parentSize: Size,
+    origin: Offset,
+    sector: ActionPanelSector,
+    actionCount: Int,
+    itemSizePx: Float,
+    centerDistance: Float,
+    spacing: Float,
+    maxAngleDegrees: Float,
+): AdaptiveLayerPlan {
+    val radiusFloor = itemSizePx * 1.35f * spacing
+    val capacities = mutableListOf<Int>()
+    val radii = mutableListOf<Float>()
+    val ranges = mutableListOf<ActionPanelArcRange>()
+    var capacityTotal = 0
+    var layer = 0
+    while (capacityTotal < actionCount && layer < 8) {
+        val radius = radiusFloor + layer * centerDistance
+        val range = actionPanelAvailableArcRange(
+            parentSize = parentSize,
+            origin = origin,
+            centerDegrees = sector.centerDegrees,
+            radius = radius,
+            itemSizePx = itemSizePx,
+            maxAngleDegrees = maxAngleDegrees,
+        )
+        val capacity = arcLayerCapacity(
+            radius = radius,
+            centerDistance = centerDistance,
+            arcLength = range.sweepDegrees.toInt(),
+        )
+        capacities += capacity
+        radii += radius
+        ranges += range
+        capacityTotal += capacity
+        layer++
+    }
+
+    var layerCount = 1
+    var total = capacities.firstOrNull() ?: 1
+    while (total < actionCount && layerCount < capacities.size) {
+        total += capacities[layerCount]
+        layerCount++
+    }
+    val selectedCapacities = capacities.take(layerCount)
+    val selectedRadii = radii.take(layerCount)
+    val counts = MutableList(layerCount) { 0 }
+    var remaining = actionCount
+    selectedCapacities.forEachIndexed { index, capacity ->
+        // 严格先填满当前层的实际可用容量，再开启下一层；不再为了均衡而提前外扩。
+        val count = min(capacity, remaining).coerceAtLeast(1)
+        counts[index] = count
+        remaining -= count
+    }
+    return AdaptiveLayerPlan(counts, selectedRadii, ranges.take(layerCount))
+}
+
+private fun actionPanelAvailableArcRange(
+    parentSize: Size,
+    origin: Offset,
+    centerDegrees: Float,
+    radius: Float,
+    itemSizePx: Float,
+    maxAngleDegrees: Float,
+): ActionPanelArcRange {
+    val maximumSweep = maxAngleDegrees.coerceIn(90f, 360f)
+    if (parentSize.isEmpty()) {
+        return ActionPanelArcRange(
+            centerDegrees - maximumSweep / 2f,
+            centerDegrees + maximumSweep / 2f,
+        )
+    }
+    val positive = availableAngleSide(parentSize, origin, centerDegrees, radius, itemSizePx, 1f)
+    val negative = availableAngleSide(parentSize, origin, centerDegrees, radius, itemSizePx, -1f)
+    val availableTotal = (positive + negative).coerceAtLeast(0.001f)
+    val availableSweep = min(positive + negative, maximumSweep)
+    val negativeShare = negative / availableTotal
+    return ActionPanelArcRange(
+        startDegrees = centerDegrees - availableSweep * negativeShare,
+        endDegrees = centerDegrees + availableSweep * (1f - negativeShare),
+    )
+}
+
+private fun availableAngleSide(
+    parentSize: Size,
+    origin: Offset,
+    centerDegrees: Float,
+    radius: Float,
+    itemSizePx: Float,
+    direction: Float,
+): Float {
+    fun fits(offset: Float): Boolean {
+        val radians = Math.toRadians((centerDegrees + direction * offset).toDouble())
+        val x = origin.x + cos(radians).toFloat() * radius
+        val y = origin.y + sin(radians).toFloat() * radius
+        val padding = itemSizePx / 2f
+        return x in padding..(parentSize.width - padding) &&
+            y in padding..(parentSize.height - padding)
+    }
+    if (fits(180f)) return 180f
+    var low = 0f
+    var high = 180f
+    repeat(18) {
+        val middle = (low + high) / 2f
+        if (fits(middle)) low = middle else high = middle
+    }
+    return low
 }
 
 internal fun actionPanelContentBounds(
@@ -136,6 +280,7 @@ internal fun actionPanelContentBounds(
     itemSizePx: Float,
     spreadSpacing: Float,
     itemGapPx: Float,
+    maxAngleDegrees: Float = 180f,
 ): Rect {
     if (parentSize.isEmpty() || actionCount <= 0) return Rect(origin, Size.Zero)
     val halfItem = itemSizePx * 0.62f
@@ -154,6 +299,7 @@ internal fun actionPanelContentBounds(
             itemSizePx = itemSizePx,
             spreadSpacing = spreadSpacing,
             itemGapPx = itemGapPx,
+            maxAngleDegrees = maxAngleDegrees,
         )
         left = min(left, center.x - halfItem)
         top = min(top, center.y - halfItem)
@@ -190,7 +336,11 @@ internal fun actionPanelPillPosition(parentSize: Size, actionBounds: Rect, itemS
 internal fun actionPanelDisplayIndex(sector: ActionPanelSector, actionCount: Int, index: Int): Int {
     if (actionCount <= 2) return index
     val normalizedCenter = ((sector.centerDegrees % 360f) + 360f) % 360f
-    val reverse = normalizedCenter in 90f..270f
+    // 左右触发时保持配置顺序，只镜像几何位置；否则左侧会把内外层顺序反转。
+    // 上下触发保留原有的层次方向。
+    val radians = Math.toRadians(normalizedCenter.toDouble())
+    val horizontal = kotlin.math.abs(kotlin.math.cos(radians)) >= kotlin.math.abs(kotlin.math.sin(radians))
+    val reverse = !horizontal
     return if (reverse) actionCount - 1 - index else index
 }
 

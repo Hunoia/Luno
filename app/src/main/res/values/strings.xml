@@ -73,8 +73,11 @@
     <string name="pointer_cursor_size">%1$d dp</string>
     <string name="pointer_cursor_alpha">%1$d%%</string>
     <string name="action_panel_item_size">动作图标大小</string>
+    <string name="action_panel_app_icon_size">应用图标大小</string>
+    <string name="action_panel_max_angle">最大展开角度</string>
     <string name="action_panel_item_gap">图标间距</string>
     <string name="action_panel_spread_spacing">展开间距</string>
+    <string name="action_panel_vibration">选中动作时振动</string>
     <!-- 动作面板（显式动作类型 internal.actionPanel）全局列表与编辑器 -->
     <string name="action_panels">动作面板</string>
     <string name="add_action_panel">添加面板</string>

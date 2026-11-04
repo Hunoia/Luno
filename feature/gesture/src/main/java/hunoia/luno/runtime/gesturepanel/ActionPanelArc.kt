@@ -74,6 +74,7 @@ internal fun AnimatedVisibilityScope.ArcActionPanel(
                     val targetAnimOffset = remember(
                         parentSize, panelOrigin, sector, actionPanelState.actions.size,
                         displayIndex, actionPanelStyle.spreadSpacing, actionPanelStyle.itemGapPx,
+                        actionPanelStyle.maxAngleDegrees,
                     ) {
                         actionPanelItemOffset(
                             parentSize = parentSize,
@@ -84,6 +85,7 @@ internal fun AnimatedVisibilityScope.ArcActionPanel(
                             itemSizePx = itemSizePx,
                             spreadSpacing = actionPanelStyle.spreadSpacing,
                             itemGapPx = actionPanelStyle.itemGapPx.toFloat(),
+                            maxAngleDegrees = actionPanelStyle.maxAngleDegrees,
                         )
                     }
                     ActionPanelSelectableItem(
@@ -111,7 +113,15 @@ internal fun AnimatedVisibilityScope.ArcActionPanel(
                             .fillMaxSize(),
                         shape = CircleShape
                     ) {
-                        ActionPanelIcon(action = action, iconSize = itemSize * 0.65f, bitmapIconSize = itemSize * 0.82f)
+                        val iconScale = if (actionPanelState.isSelected(action)) 1.15f else 1f
+                        ActionPanelIcon(
+                            action = action,
+                            iconSize = itemSize * 0.68f,
+                            // 应用 Drawable 通常自带透明留白；无圆底时放大绘制框，
+                            // 使实际图形面积与彩色圆钮里的系统图标接近。
+                            bitmapIconSize = itemSize * actionPanelStyle.appIconScale.coerceIn(0.6f, 1.2f),
+                            scale = iconScale,
+                        )
                     }
                 }
             }

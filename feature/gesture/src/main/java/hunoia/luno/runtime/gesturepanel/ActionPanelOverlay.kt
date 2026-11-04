@@ -65,6 +65,7 @@ internal fun SelectedActionPill(
     modifier: Modifier = Modifier,
 ) {
     val longPress = triggerType == TriggerType.LongPress
+    val applicationIcon = isApplicationIconAction(action)
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(24.dp),
@@ -81,7 +82,11 @@ internal fun SelectedActionPill(
             Surface(
                 modifier = Modifier.size(32.dp),
                 shape = CircleShape,
-                color = if (longPress) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f) else accentColor,
+                color = when {
+                    applicationIcon -> Color.Transparent
+                    longPress -> MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f)
+                    else -> accentColor
+                },
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     ActionPanelIcon(action = action, iconSize = 20.dp, bitmapIconSize = 24.dp)

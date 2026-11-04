@@ -173,6 +173,7 @@ fun ActionPanelMenu(
                     itemSizePx = itemSizePx,
                     spreadSpacing = resolvedStyle.spreadSpacing,
                     itemGapPx = resolvedStyle.itemGapPx.toFloat(),
+                    maxAngleDegrees = resolvedStyle.maxAngleDegrees,
                 )
                 val pillPosition = actionPanelPillPosition(parentSize, actionBounds, itemSizePx)
                 val accentColor = actionPanelAccentColor(actionPanelState.buttonColor)
@@ -213,11 +214,9 @@ internal fun AnimatedVisibilityScope.ActionPanelSelectableItem(
     content: @Composable () -> Unit
 ) {
     val transition = transition
-    var isHovered by remember { mutableStateOf(false) }
     val selected = actionPanelState.isSelected(action)
     val hasSelection = actionPanelState.selectedAction.typeId != Action.NONE_TYPE_ID
     val accentColor = actionPanelAccentColor(actionPanelState.buttonColor)
-    val scale by animateFloatAsState(if (selected || isHovered) 1.18f else 1f, spring(stiffness = Spring.StiffnessHigh), label = "actionScale")
     val itemAlpha by animateFloatAsState(if (!hasSelection || selected) 1f else 0.72f, tween(AnimNormal.toInt()), label = "actionAlpha")
     LaunchedEffect(transition, actionPanelState, index, action, panelOrigin, targetAnimOffset) {
         snapshotFlow { actionPanelState.finger }
@@ -225,26 +224,26 @@ internal fun AnimatedVisibilityScope.ActionPanelSelectableItem(
             .collect { finger ->
                 if (actionPanelHitContains(finger, panelOrigin, targetAnimOffset, itemSizePx)) {
                     if (!actionPanelState.isSelected(action)) {
-                        isHovered = true
                         actionPanelState.select(index, action)
                         gestureSettings?.let { vibrateForActionPanel(it) }
                     }
                 } else if (actionPanelState.isSelected(action)) {
-                    isHovered = false
                     actionPanelState.select(index, StoredAction.of(Action.NONE_TYPE_ID))
                 }
             }
     }
+    val applicationIcon = isApplicationIconAction(action)
     Box(
         modifier = modifier
             .graphicsLayer {
                 translationX = targetAnimOffset.x
                 translationY = targetAnimOffset.y
-                scaleX = scale
-                scaleY = scale
                 alpha = itemAlpha
             }
-            .clipToBackground(color = actionPanelItemColor(accentColor), shape = shape)
+            .clipToBackground(
+                color = if (applicationIcon) Color.Transparent else actionPanelItemColor(accentColor),
+                shape = shape,
+            )
             .border(
                 width = if (selected) 2.dp else 0.dp,
                 color = if (selected) accentColor.copy(alpha = 0.88f) else Color.Transparent,
@@ -257,11 +256,20 @@ internal fun AnimatedVisibilityScope.ActionPanelSelectableItem(
 }
 
 @Composable
-internal fun ActionPanelIcon(action: StoredAction, iconSize: Dp, bitmapIconSize: Dp = iconSize) {
+internal fun ActionPanelIcon(
+    action: StoredAction,
+    iconSize: Dp,
+    bitmapIconSize: Dp = iconSize,
+    scale: Float = 1f,
+) {
     val actionIcon = actionIcon(action = action)
+    val iconModifier = Modifier.graphicsLayer {
+        scaleX = scale
+        scaleY = scale
+    }
     when (actionIcon) {
         is ImageVector -> Image(
-            modifier = Modifier.size(iconSize),
+            modifier = iconModifier.size(iconSize),
             imageVector = actionIcon,
             contentDescription = null,
             colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary)
@@ -270,9 +278,10 @@ internal fun ActionPanelIcon(action: StoredAction, iconSize: Dp, bitmapIconSize:
             text = actionIcon.text,
             size = iconSize,
             color = MaterialTheme.colorScheme.onPrimary,
+            modifier = iconModifier,
         )
         else -> AsyncImage(
-            modifier = Modifier
+            modifier = iconModifier
                 .size(bitmapIconSize),
             model = actionIcon,
             contentDescription = null,
@@ -280,6 +289,11 @@ internal fun ActionPanelIcon(action: StoredAction, iconSize: Dp, bitmapIconSize:
         )
     }
 }
+
+internal fun isApplicationIconAction(action: StoredAction): Boolean =
+    action.typeId == hunoia.luno.core.domain.AppLaunchAction.TYPE_ID ||
+        action.typeId == "app.launchShortcut" ||
+        action.typeId == "internal.previousApp"
 
 @Composable
 internal fun actionPanelItemColor(accentColor: Color): Color = accentColor

@@ -331,8 +331,12 @@ fun ActionSettingsTab(
             LunoSheet(onDismissRequest = { showActionPanelStyle = false }, showDragHandle = true) {
                 ActionPanelStyleConfigContent(
                     currentStyle = actionSettings.actionPanelStyle,
+                    actionPanelVibrate = gestureSettings.actionPanelVibrate,
                     onStyleChanged = { next ->
                         scope.launch { TuneConfig.updateAction { it.copy(actionPanelStyle = next) } }
+                    },
+                    onActionPanelVibrateChanged = { enabled ->
+                        scope.launch { TuneConfig.updateGesture { it.copy(actionPanelVibrate = enabled) } }
                     },
                 )
             }
@@ -434,5 +438,5 @@ private fun actionPanelStyleSummary(style: ArcStyle): String {
     val density = LocalDensity.current
     val itemDp = with(density) { style.itemSize.toDp().value }.roundToInt()
     val gapDp = with(density) { style.itemGapPx.toDp().value }.roundToInt()
-    return "$itemDp dp · $gapDp dp · ${(style.spreadSpacing * 100).roundToInt()}%"
+    return "$itemDp dp · ${(style.appIconScale * 100).roundToInt()}% · $gapDp dp · ${(style.spreadSpacing * 100).roundToInt()}% · ${style.maxAngleDegrees.roundToInt()}°"
 }

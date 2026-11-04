@@ -9,6 +9,8 @@ object ActionPanelStylesDefaults {
     val ArcStyleItemSize = DensityProvider.dp2px(48f)
     val ArcStyleItemGap = DensityProvider.dp2px(6f)
     const val ArcStyleSpreadSpacing = 1.12f
+    const val ArcStyleAppIconScale = 1f
+    const val ArcStyleMaxAngleDegrees = 180f
 }
 
 sealed interface ActionPanelStyle
@@ -21,6 +23,10 @@ sealed interface ActionPanelStyle
 @Keep
 data class ArcStyle(
     val itemSize: Int = ActionPanelStylesDefaults.ArcStyleItemSize,
+    /** 无圆底应用图标的绘制比例；应用 Drawable 常带透明留白，因此允许单独调节。 */
+    val appIconScale: Float = ActionPanelStylesDefaults.ArcStyleAppIconScale,
+    /** 动作面板允许展开的最大角度，实际布局仍会受屏幕可用空间限制。 */
+    val maxAngleDegrees: Float = ActionPanelStylesDefaults.ArcStyleMaxAngleDegrees,
     /** 图标之间的净间距（相邻两个图标边缘之间的空隙）。0 = 完全贴合。 */
     val itemGapPx: Int = ActionPanelStylesDefaults.ArcStyleItemGap,
     /** 弧线离原点的远近 / 铺开程度。不影响净间距。 */
