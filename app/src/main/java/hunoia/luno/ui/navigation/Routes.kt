@@ -82,6 +82,11 @@ data object PrivilegedPermissions
 @Serializable
 data object AccessibilityManager
 
+/** 固定通知隐藏：Luno 常驻通知与通知栏里其他应用的常驻通知。 */
+@Keep
+@Serializable
+data object PersistentNotificationSettings
+
 @Keep
 @Serializable
 data object NotificationBlocklist

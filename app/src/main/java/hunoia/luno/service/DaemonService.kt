@@ -21,11 +21,18 @@ import android.os.SystemClock
 import android.provider.Settings
 import hunoia.luno.R
 import hunoia.luno.bridge.system.AccessibilitySettings
+import hunoia.luno.bridge.system.PersistentNotificationShell
+import hunoia.luno.config.ConfigProvider
+import hunoia.luno.core.LOG_TAG
 import hunoia.luno.ui.MainActivity
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import hunoia.luno.core.LOG_TAG
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 class DaemonService : Service() {
 
@@ -48,6 +55,7 @@ class DaemonService : Service() {
     private var selfWroteValue = ""
     private var lastRestoreWriteAtMs = 0L
     private val serviceClassName = SideGestureService::class.java.name
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
@@ -198,6 +206,23 @@ class DaemonService : Service() {
             .build()
 
         startAsForeground(notification)
+        snoozeOwnIfNeeded()
+    }
+
+    /** 通知监听未连接时用 Shizuku 兜底；监听器连接后会在通知重投时续 snooze。 */
+    private fun snoozeOwnIfNeeded() {
+        scope.launch {
+            val hiding = runCatching { ConfigProvider.getAdvancedSettings() }
+                .getOrNull()
+                ?.persistentNotificationHiding
+                ?: return@launch
+            if (hiding.enabled && hiding.hideLunoNotifications) {
+                PersistentNotificationShell.snoozeOwn(
+                    packageName = packageName,
+                    notificationId = NOTIFICATION_ID,
+                )
+            }
+        }
     }
 
     private fun startAsForeground(notification: Notification) {
@@ -226,12 +251,14 @@ class DaemonService : Service() {
             .setOngoing(true)
             .build()
         (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIFICATION_ID, notification)
+        snoozeOwnIfNeeded()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
         super.onDestroy()
+        scope.cancel()
         contentObserver?.let { contentResolver.unregisterContentObserver(it) }
         screenReceiver?.let { unregisterReceiver(it) }
     }

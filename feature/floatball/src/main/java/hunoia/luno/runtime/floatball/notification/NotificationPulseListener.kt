@@ -3,8 +3,17 @@ package hunoia.luno.runtime.floatball.notification
 import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import hunoia.luno.bridge.system.PersistentNotificationShell
+import hunoia.luno.config.model.PersistentNotificationHidingSettings
+import hunoia.luno.config.model.shouldHide
 import hunoia.luno.core.domain.NotificationPulse
+import hunoia.luno.domain.floatball.FloatBallSettingsCenter
 import hunoia.luno.runtime.notification.NotificationPulseHub
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 /**
  * 通知监听：供通知胶囊使用，取包名 / 标题 / 正文 / 标记，附带 contentIntent 供点击直达。
@@ -26,10 +35,26 @@ class NotificationPulseListener : NotificationListenerService() {
         ): Boolean = size > RECENT_KEYS
     }
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    @Volatile
+    private var hiding = PersistentNotificationHidingSettings()
+
+    @Volatile
+    private var hidingLoaded = false
+
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
-        val pulse = sbn?.toPulse() ?: return
-        // 自家通知（前台服务常驻等）不进胶囊。
-        if (pulse.packageName == packageName) return
+        sbn ?: return
+        // 自家通知（前台服务常驻等）不进胶囊，但命中隐藏配置时要续 snooze。
+        if (sbn.packageName == packageName) {
+            if (shouldHide(sbn)) snooze(sbn.key)
+            return
+        }
+        val pulse = sbn.toPulse()
+        if (shouldHide(sbn)) {
+            snooze(sbn.key)
+            return
+        }
         updateActiveCache(add = pulse)
         val key = pulse.key
         // 无标题 / 正文的通知仍会改变「当前是否存在」，胶囊不弹但要刷新快照。
@@ -55,16 +80,29 @@ class NotificationPulseListener : NotificationListenerService() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        scope.launch {
+            FloatBallSettingsCenter.advancedSettings.collect { advanced ->
+                val next = advanced.persistentNotificationHiding
+                val previous = hiding
+                val first = !hidingLoaded
+                if (!first && next == previous) return@collect
+                hiding = next
+                hidingLoaded = true
+                if (first) reapplyHiding() else applyHidingChange(previous, next)
+            }
+        }
     }
 
     override fun onDestroy() {
+        scope.cancel()
         if (instance === this) instance = null
         super.onDestroy()
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
-        val pulse = sbn?.toPulse() ?: return
-        if (pulse.packageName == packageName) return
+        sbn ?: return
+        if (sbn.packageName == packageName) return
+        val pulse = sbn.toPulse()
         updateActiveCache(removeKey = pulse.key)
         NotificationContentIntents.forget(pulse.key)
         NotificationPulseHub.fireRemoved(pulse)
@@ -80,6 +118,91 @@ class NotificationPulseListener : NotificationListenerService() {
         super.onListenerConnected()
         refreshActiveCache()
         NotificationPulseHub.fireStateChanged()
+        reapplyHiding()
+    }
+
+    private suspend fun applyHidingChange(
+        previous: PersistentNotificationHidingSettings,
+        next: PersistentNotificationHidingSettings,
+    ) {
+        if (!next.enabled) {
+            unsnooze(previous)
+            return
+        }
+        if (previous.hideLunoNotifications && !next.hideLunoNotifications) {
+            unsnoozeSnoozedOwn()
+        }
+        previous.hiddenTargets
+            .filterNot { it in next.hiddenTargets }
+            .forEach { unsnoozeSnoozedTarget(it) }
+        reapplyHiding()
+    }
+
+    private fun reapplyHiding() {
+        val config = hiding
+        if (!config.enabled) return
+        val active = runCatching { activeNotifications }.getOrNull() ?: return
+        active.forEach { sbn ->
+            if (shouldHide(sbn, config)) snooze(sbn.key)
+        }
+    }
+
+    private suspend fun unsnooze(config: PersistentNotificationHidingSettings) {
+        if (config.hideLunoNotifications) unsnoozeSnoozedOwn()
+        config.hiddenTargets.forEach { unsnoozeSnoozedTarget(it) }
+    }
+
+    private suspend fun unsnoozeSnoozedOwn() {
+        val keys = runCatching {
+            snoozedNotifications
+                ?.filter { it.packageName == packageName }
+                ?.map { it.key }
+        }.getOrNull().orEmpty()
+        keys.forEach { unsnoozeKey(it) }
+    }
+
+    private suspend fun unsnoozeSnoozedTarget(
+        target: hunoia.luno.config.model.HiddenNotificationTarget,
+    ) {
+        val key = runCatching {
+            snoozedNotifications
+                ?.firstOrNull { sbn ->
+                    sbn.packageName == target.packageName &&
+                        sbn.id == target.notificationId &&
+                        sbn.tag == target.tag
+                }
+                ?.key
+        }.getOrNull()
+        if (key != null) unsnoozeKey(key)
+    }
+
+    /** Shizuku 不可用时用 1ms snooze 让系统自己把通知放回来。 */
+    private suspend fun unsnoozeKey(key: String) {
+        if (PersistentNotificationShell.unsnooze(key)) return
+        runCatching { snoozeNotification(key, 1L) }
+    }
+
+    private fun shouldHide(
+        sbn: StatusBarNotification,
+        config: PersistentNotificationHidingSettings = hiding,
+    ): Boolean {
+        if (!hidingLoaded) return false
+        val flags = sbn.notification.flags
+        val persistent = sbn.isOngoing ||
+            (flags and (Notification.FLAG_ONGOING_EVENT or
+                Notification.FLAG_FOREGROUND_SERVICE or
+                Notification.FLAG_NO_CLEAR)) != 0
+        return config.shouldHide(
+            ownPackage = packageName,
+            packageName = sbn.packageName.orEmpty(),
+            notificationId = sbn.id,
+            tag = sbn.tag,
+            isPersistent = persistent,
+        )
+    }
+
+    private fun snooze(key: String) {
+        runCatching { snoozeNotification(key, PersistentNotificationShell.SNOOZE_DURATION_MS) }
     }
 
     private fun refreshActiveCache() {
@@ -150,6 +273,16 @@ class NotificationPulseListener : NotificationListenerService() {
             return runCatching {
                 live.activeNotifications?.any { it.key == key } == true
             }.getOrDefault(true)
+        }
+
+        /** 胶囊滑掉通知项时同步撤销系统通知；失败返回 false，调用方保留收件箱项。 */
+        fun cancelPosted(key: String?): Boolean {
+            if (key.isNullOrBlank()) return false
+            val live = instance ?: return false
+            return runCatching {
+                live.cancelNotification(key)
+                true
+            }.getOrDefault(false)
         }
 
         /** 同 key 重投的去重窗口（ms）。 */

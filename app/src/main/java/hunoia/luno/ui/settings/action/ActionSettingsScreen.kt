@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.VerifiedUser
@@ -69,6 +70,7 @@ fun ActionSettingsTab(
     onNavToActionSelect: () -> Unit = {},
     onNavToPrivilegedPermissions: () -> Unit = {},
     onNavToAccessibilityManager: () -> Unit = {},
+    onNavToPersistentNotificationSettings: () -> Unit = {},
     onNavToLogSettings: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
@@ -183,21 +185,28 @@ fun ActionSettingsTab(
                     LunoSettingsRow(
                         icon = Icons.Default.Link,
                         title = stringResource(R.string.action_deep_links),
-                        shape = segmentedShape(0, 3),
+                        shape = segmentedShape(0, 4),
                         onClick = onNavToActionSelect,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.VerifiedUser,
                         title = stringResource(R.string.perm_page_title),
-                        shape = segmentedShape(1, 3),
+                        shape = segmentedShape(1, 4),
                         onClick = onNavToPrivilegedPermissions,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Accessibility,
                         title = stringResource(R.string.a11y_settings_entry),
                         subtitle = stringResource(R.string.a11y_settings_entry_hint),
-                        shape = segmentedShape(2, 3),
+                        shape = segmentedShape(2, 4),
                         onClick = onNavToAccessibilityManager,
+                    )
+                    LunoSettingsRow(
+                        icon = Icons.Default.NotificationsOff,
+                        title = stringResource(R.string.persistent_notification_settings_entry),
+                        subtitle = stringResource(R.string.persistent_notification_settings_entry_hint),
+                        shape = segmentedShape(3, 4),
+                        onClick = onNavToPersistentNotificationSettings,
                     )
                 }
             }

@@ -2,6 +2,7 @@ package hunoia.luno.domain.floatball
 
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.InitialSettings
 import kotlinx.coroutines.flow.Flow
 
@@ -10,6 +11,9 @@ object FloatBallSettingsCenter {
 
     val actionSettings: Flow<ActionSettings> = ConfigProvider.actionSettings
     val initialSettings: Flow<InitialSettings> = ConfigProvider.initialSettings
+    val advancedSettings: Flow<AdvancedSettings> = ConfigProvider.advancedSettings
+
+    suspend fun getAdvancedSettings(): AdvancedSettings = ConfigProvider.getAdvancedSettings()
 
     suspend fun updateActionSettings(
         transform: suspend (ActionSettings) -> ActionSettings,

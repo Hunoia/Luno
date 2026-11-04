@@ -22,6 +22,7 @@ import hunoia.luno.core.domain.AppLaunchAction
 import hunoia.luno.core.domain.GRID_PANEL_TYPE_ID
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.bridge.system.ClipboardContent
+import hunoia.luno.bridge.system.PersistentNotificationShell
 import hunoia.luno.bridge.system.SelfWriteGuard
 import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.ui.DensityProvider
@@ -822,7 +823,7 @@ class FloatBallService : Service() {
         if (capsuleShowing && !currentCapsuleAllowed()) hideCapsule()
     }
 
-    /** 用户下滑关闭：未钉住移除当前项并收起；已钉住只收起、项保留（决策 10）。 */
+    /** 用户滑掉：通知项同步撤销系统通知；剪贴板项只移除本地；已钉住只收起。 */
     private fun onCapsuleSwipedAway() {
         val item = inboxState.current
         if (item?.pinned == true) {
@@ -830,7 +831,26 @@ class FloatBallService : Service() {
             updateBadge()
             return
         }
-        markCapsuleDismissed((item as? NotificationItem)?.notificationKey)
+        if (item is NotificationItem) {
+            val key = item.notificationKey
+            hideCapsule()
+            if (!NotificationPulseListener.cancelPosted(key)) {
+                // 撤销失败：保留收件箱项与徽标，等下次点击/重试用；不假装同步成功。
+                Log.w(TAG, "capsule cancel failed pkg=${item.packageName} key=$key")
+                updateBadge()
+                return
+            }
+            markCapsuleDismissed(key)
+            // onNotificationRemoved 正常会移除；回调丢失时兜底本地清一次，避免徽标卡住。
+            scope.launch {
+                delay(CAPSULE_SYNC_FALLBACK_MS)
+                if (inboxState.items.any { it.id == item.id }) {
+                    removeInboxItem(item.id)
+                    updateBadge()
+                }
+            }
+            return
+        }
         if (item != null) removeInboxItem(item.id)
         hideCapsule()
     }
@@ -1630,6 +1650,19 @@ class FloatBallService : Service() {
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
+        // 通知监听未连接时用 Shizuku 兜底；监听器连接后会在 onNotificationPosted/onListenerConnected 续。
+        scope.launch {
+            val hiding = runCatching { hunoia.luno.domain.floatball.FloatBallSettingsCenter.getAdvancedSettings() }
+                .getOrNull()
+                ?.persistentNotificationHiding
+                ?: return@launch
+            if (hiding.enabled && hiding.hideLunoNotifications) {
+                PersistentNotificationShell.snoozeOwn(
+                    packageName = packageName,
+                    notificationId = NOTIFICATION_ID,
+                )
+            }
+        }
     }
 
     companion object {
@@ -1656,6 +1689,9 @@ class FloatBallService : Service() {
 
         /** 通知胶囊的「仍在通知栏」确认延时：一次性/立即撤回的通知不弹。 */
         private const val CAPSULE_SETTLE_MS = 300L
+
+        /** 胶囊划掉后等 onNotificationRemoved 的兜底时长。 */
+        private const val CAPSULE_SYNC_FALLBACK_MS = 600L
 
         /** 用户滑掉后同 key 更新不再弹出的 LRU 容量（时间窗见设置）。 */
         private const val CAPSULE_DISMISSED_KEYS_MAX = 8

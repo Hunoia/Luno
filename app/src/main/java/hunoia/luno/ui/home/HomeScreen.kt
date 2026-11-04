@@ -125,6 +125,7 @@ fun HomeScreen(
     onNavToActionSelect: () -> Unit = {},
     onNavToPrivilegedPermissions: () -> Unit = {},
     onNavToAccessibilityManager: () -> Unit = {},
+    onNavToPersistentNotificationSettings: () -> Unit = {},
     onNavToLogSettings: () -> Unit = {},
     onNavToScreenPickSettings: () -> Unit = {},
     onNavToActionLibraryEdit: (String, String?) -> Unit = { _, _ -> },
@@ -476,6 +477,7 @@ fun HomeScreen(
                             onNavToActionSelect = onNavToActionSelect,
                             onNavToPrivilegedPermissions = onNavToPrivilegedPermissions,
                             onNavToAccessibilityManager = onNavToAccessibilityManager,
+                            onNavToPersistentNotificationSettings = onNavToPersistentNotificationSettings,
                             onNavToLogSettings = onNavToLogSettings,
                         )
                     }
