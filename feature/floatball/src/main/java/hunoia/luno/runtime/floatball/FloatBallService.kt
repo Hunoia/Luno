@@ -830,36 +830,53 @@ class FloatBallService : Service() {
         if (capsuleShowing && !currentCapsuleAllowed()) hideCapsule()
     }
 
-    /** 用户滑掉：通知项同步撤销系统通知；剪贴板项只移除本地；已钉住只收起。 */
+    /**
+     * 用户滑掉（朝球对侧横滑）：移除当前项并前进，多条不关窗、直接显示下一条；
+     * 末条/单条移除后收起。通知项同步撤销系统通知；剪贴板项只移除本地；已钉住只收起。
+     */
     private fun onCapsuleSwipedAway() {
-        val item = inboxState.current
-        if (item?.pinned == true) {
+        val item = inboxState.current ?: return
+        if (item.pinned) {
             hideCapsule()
             updateBadge()
             return
         }
         if (item is NotificationItem) {
             val key = item.notificationKey
-            hideCapsule()
             if (!NotificationPulseListener.cancelPosted(key)) {
                 // 撤销失败：保留收件箱项与徽标，等下次点击/重试用；不假装同步成功。
                 Log.w(TAG, "capsule cancel failed pkg=${item.packageName} key=$key")
-                updateBadge()
                 return
             }
             markCapsuleDismissed(key)
-            // onNotificationRemoved 正常会移除；回调丢失时兜底本地清一次，避免徽标卡住。
-            scope.launch {
-                delay(CAPSULE_SYNC_FALLBACK_MS)
-                if (inboxState.items.any { it.id == item.id }) {
-                    removeInboxItem(item.id)
-                    updateBadge()
-                }
-            }
-            return
         }
-        if (item != null) removeInboxItem(item.id)
-        hideCapsule()
+        // 多条翻下一条、末条/单条收起；通知的系统移除回调幂等（项已本地移除时 no-op）。
+        removeAndAdvance(item.id)
+    }
+
+    /**
+     * 移除当前项并按「下一条」语义前进。多条且当前非末条：胶囊不关窗、直接显示下一条；
+     * 末条/单条：移除后收起（剩余项留徽标）。reducer 的 [BallInboxReducer.selectAfterRemoval]
+     * 在非末条时正好把「下一条」移到同位置成为当前项，符合「翻到下一条」。
+     */
+    private fun removeAndAdvance(id: String) {
+        val wasLast = inboxState.currentId == id &&
+            inboxState.currentIndex == inboxState.items.lastIndex
+        val change = BallInboxReducer.reduce(
+            inboxState,
+            BallInboxAction.Remove(id),
+            SystemClock.elapsedRealtime(),
+            inboxConfig,
+        )
+        inboxState = change.state
+        when {
+            // 末条/单条：收起胶囊（队列清空或只剩先前项，徽标展示剩余）。
+            wasLast || inboxState.items.isEmpty() -> hideCapsule()
+            // 多条且非末条：翻到下一条，不关窗。
+            capsuleShowing -> showBubbleForCurrent()
+            else -> updateBadge()
+        }
+        scheduleInboxTtl()
     }
 
     /** 朝球侧横滑收起：只隐藏气泡，保留队列与当前项，不标记 dismissed（决策 5）。 */
@@ -1696,9 +1713,6 @@ class FloatBallService : Service() {
 
         /** 通知胶囊的「仍在通知栏」确认延时：一次性/立即撤回的通知不弹。 */
         private const val CAPSULE_SETTLE_MS = 300L
-
-        /** 胶囊划掉后等 onNotificationRemoved 的兜底时长。 */
-        private const val CAPSULE_SYNC_FALLBACK_MS = 600L
 
         /** 用户滑掉后同 key 更新不再弹出的 LRU 容量（时间窗见设置）。 */
         private const val CAPSULE_DISMISSED_KEYS_MAX = 8

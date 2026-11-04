@@ -84,7 +84,8 @@ import kotlin.math.roundToInt
  * - 收起时由 [FloatBallWindow] 显示球；展开时球窗隐藏，本窗从球的矩形原地“长”成胶囊。
  * - 胶囊宽固定（< 屏宽 50%），高 = 球尺寸；内容为一张卡片。
  * - 上下滑是连续轮播：拖动时内容跟手，可连续跨多条；松手按位移/速度吸附，两端停住。
- * - 横滑朝球侧 = 收起；反向 = 移除当前项。点按 = 执行；长按 = 钉住（剪贴板）。
+ * - 横滑朝球侧 = 收起；反向 = 移除当前项并翻下一条（多条）/ 收起（末条/单条）。
+ *   点按 = 执行；长按 = 钉住（剪贴板）。
  */
 internal class SmartBubbleWindow(private val context: android.content.Context) {
 
@@ -161,7 +162,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
     /** 朝球所在侧横滑：只收起，保留队列项、不标记 dismissed。 */
     var onCollapsed: (() -> Unit)? = null
 
-    /** 反向横滑：移除当前项（钉住项只收起）。 */
+    /** 反向横滑：移除当前项并翻下一条（多条）/ 收起（末条/单条；钉住项只收起）。 */
     var onSwipedAway: (() -> Unit)? = null
 
     /** 按住状态：暂停 / 恢复自动收起。 */
