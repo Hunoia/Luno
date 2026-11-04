@@ -2,18 +2,12 @@ package hunoia.luno.ui.settings.accessibility
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Warning
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -23,7 +17,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -42,6 +35,7 @@ import hunoia.luno.domain.AppGraph
 import hunoia.luno.domain.system.PrivilegedPermission
 import hunoia.luno.shizuku.ShizukuManager
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.feedback.NoticeBanner
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
@@ -51,7 +45,6 @@ import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.icon.rememberPackageIconBitmap
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.FloatingContentBottom
-import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.RowIconSize
@@ -143,7 +136,7 @@ fun AccessibilityManagerScreen(
         },
     ) {
         when {
-            !shizukuStatus.isReady -> A11yBanner(
+            !shizukuStatus.isReady -> NoticeBanner(
                 message = stringResource(R.string.a11y_banner_shizuku),
                 actionLabel = stringResource(R.string.a11y_banner_shizuku_action),
                 onAction = {
@@ -154,7 +147,7 @@ fun AccessibilityManagerScreen(
                     }
                 },
             )
-            !hasWriteSecure -> A11yBanner(
+            !hasWriteSecure -> NoticeBanner(
                 message = stringResource(R.string.a11y_banner_write_secure),
                 actionLabel = stringResource(R.string.a11y_banner_write_secure_action),
                 onAction = {
@@ -242,50 +235,6 @@ fun AccessibilityManagerScreen(
                         shape = segmentedShape(index, services.size),
                     )
                 }
-            }
-        }
-    }
-}
-
-/** 顶部降级提示条：只有原因与动作，不承担状态展示（状态在下方状态卡）。 */
-@Composable
-private fun A11yBanner(
-    message: String,
-    actionLabel: String,
-    onAction: () -> Unit,
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = LargeShape,
-        color = MaterialTheme.colorScheme.errorContainer,
-    ) {
-        Row(
-            modifier = Modifier.padding(
-                start = PageGutter,
-                end = CardInnerSpacing,
-                top = CardInnerSpacing,
-                bottom = CardInnerSpacing,
-            ),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Warning,
-                contentDescription = null,
-                modifier = Modifier.size(RowIconSize),
-                tint = MaterialTheme.colorScheme.onErrorContainer,
-            )
-            Spacer(modifier = Modifier.size(CardInnerSpacing))
-            Text(
-                text = message,
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-            )
-            TextButton(onClick = onAction) {
-                Text(
-                    text = actionLabel,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                )
             }
         }
     }

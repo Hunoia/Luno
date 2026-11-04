@@ -87,6 +87,11 @@ data object AccessibilityManager
 @Serializable
 data object PersistentNotificationSettings
 
+/** 状态栏图标隐藏：读写 `Settings.Secure.icon_blacklist`。 */
+@Keep
+@Serializable
+data object StatusBarIconSettings
+
 @Keep
 @Serializable
 data object NotificationBlocklist

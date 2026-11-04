@@ -84,6 +84,7 @@ fun ActionSettingsTab(
     onNavToPrivilegedPermissions: () -> Unit = {},
     onNavToAccessibilityManager: () -> Unit = {},
     onNavToPersistentNotificationSettings: () -> Unit = {},
+    onNavToStatusBarIconSettings: () -> Unit = {},
     onNavToLogSettings: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
@@ -272,33 +273,44 @@ fun ActionSettingsTab(
                     )
                 }
             }
+            item(key = "notification_status") {
+                LunoGroup(title = stringResource(R.string.action_settings_notification_group)) {
+                    LunoSettingsRow(
+                        icon = Icons.Default.NotificationsOff,
+                        title = stringResource(R.string.persistent_notification_settings_entry),
+                        subtitle = stringResource(R.string.persistent_notification_settings_entry_hint),
+                        shape = segmentedShape(0, 2),
+                        onClick = onNavToPersistentNotificationSettings,
+                    )
+                    LunoSettingsRow(
+                        icon = Icons.Default.VisibilityOff,
+                        title = stringResource(R.string.status_bar_icons_entry),
+                        subtitle = stringResource(R.string.status_bar_icons_entry_hint),
+                        shape = segmentedShape(1, 2),
+                        onClick = onNavToStatusBarIconSettings,
+                    )
+                }
+            }
             item(key = "permissions") {
                 LunoGroup(title = stringResource(R.string.action_settings_permissions_group)) {
                     LunoSettingsRow(
                         icon = Icons.Default.Link,
                         title = stringResource(R.string.action_deep_links),
-                        shape = segmentedShape(0, 4),
+                        shape = segmentedShape(0, 3),
                         onClick = onNavToActionSelect,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.VerifiedUser,
                         title = stringResource(R.string.perm_page_title),
-                        shape = segmentedShape(1, 4),
+                        shape = segmentedShape(1, 3),
                         onClick = onNavToPrivilegedPermissions,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Accessibility,
                         title = stringResource(R.string.a11y_settings_entry),
                         subtitle = stringResource(R.string.a11y_settings_entry_hint),
-                        shape = segmentedShape(2, 4),
+                        shape = segmentedShape(2, 3),
                         onClick = onNavToAccessibilityManager,
-                    )
-                    LunoSettingsRow(
-                        icon = Icons.Default.NotificationsOff,
-                        title = stringResource(R.string.persistent_notification_settings_entry),
-                        subtitle = stringResource(R.string.persistent_notification_settings_entry_hint),
-                        shape = segmentedShape(3, 4),
-                        onClick = onNavToPersistentNotificationSettings,
                     )
                 }
             }
