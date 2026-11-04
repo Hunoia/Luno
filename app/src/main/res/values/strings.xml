@@ -624,15 +624,12 @@
     <string name="perm_battery_hint">避免后台被冻结导致触钮延迟</string>
     <string name="perm_notifications">通知权限</string>
     <string name="perm_notifications_hint">保活前台服务的通知需要它</string>
-    <string name="perm_group_location">定位</string>
     <string name="perm_manage_files">所有文件访问</string>
     <string name="perm_manage_files_hint">读写全部存储文件，导出 / 备份需要它</string>
     <string name="perm_write_system">修改系统设置</string>
     <string name="perm_write_system_hint">部分系统开关（如屏幕超时）需要，只能手动开</string>
     <string name="perm_notification_policy">勿扰访问</string>
     <string name="perm_notification_policy_hint">自动切换勿扰等动作需要</string>
-    <string name="perm_location">定位权限</string>
-    <string name="perm_location_hint">基于位置的动作 / 条件需要，需手动授权</string>
     <string name="perm_camera">相机</string>
     <string name="perm_camera_hint">扫码 / 截图识别等用到</string>
     <string name="perm_read_contacts">读取联系人</string>

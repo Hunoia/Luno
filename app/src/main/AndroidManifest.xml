@@ -17,22 +17,17 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="com.android.permission.GET_INSTALLED_APPS" />
     <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.FLASHLIGHT" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission
         android:name="android.permission.NEARBY_WIFI_DEVICES"
         android:usesPermissionFlags="neverForLocation"
         tools:targetApi="tiramisu" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- 短链解析：规则开启「解析短链」时跟随后（仅 http(s)、3s 超时）。其余功能全程离线。 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <!-- 悬浮球窗口（TYPE_APPLICATION_OVERLAY）。球住在独立 :service 前台服务，
          无障碍关闭时仍可显示；需用户手动授权，拒绝则不显示。 -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" tools:ignore="ProtectedPermissions" />
     <!-- 快速搜索联系人：运行时申请，拒绝则该来源无行 -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <!-- 音乐/图片/视频：运行时一次申请，部分授权也认 -->

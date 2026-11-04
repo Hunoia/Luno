@@ -23,9 +23,20 @@ object NotificationAccess {
                 "enabled_notification_listeners",
             )
         }.getOrNull().orEmpty()
-        if (flat.isBlank()) return false
-        return flat.split(":").any { component ->
-            component.split("/").firstOrNull() == context.packageName
+        return isListenerEnabled(flat, listenerComponent(context).flattenToString())
+    }
+
+    /**
+     * Checks the exact listener component instead of only the package name.
+     *
+     * The secure setting can retain another listener from the same package (or
+     * a stale component after an update). Treating the package alone as granted
+     * makes the permission page report success while this listener is disabled.
+     */
+    internal fun isListenerEnabled(value: String?, expected: String): Boolean {
+        if (value.isNullOrBlank()) return false
+        return value.split(':').any { raw ->
+            raw.trim() == expected
         }
     }
 }

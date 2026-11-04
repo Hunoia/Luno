@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.content.pm.PermissionInfo
 import android.provider.Settings
+import hunoia.luno.bridge.system.NotificationAccess
+import hunoia.luno.core.LunoLog
 
 /**
  * 用 Shizuku 的 shell 身份把「用户本来要手动去设置页点一遍」的授权一次性办掉。
@@ -14,6 +16,8 @@ import android.provider.Settings
  * 全部幂等：已授权的项不发命令，直接返回成功。
  */
 object PrivilegedGrants {
+
+    private const val LOG_TAG = "PrivilegedGrants"
 
     sealed interface Item {
         data object Overlay : Item
@@ -107,14 +111,27 @@ object PrivilegedGrants {
                 "enabled_notification_listeners",
             )
         }.getOrNull().orEmpty()
-        if (current.split(':').any { it.equals(component, ignoreCase = true) }) {
-            return Result(Item.NotificationListener, true, "已启用")
-        }
-        val next = if (current.isBlank()) component else "$component:$current"
+        LunoLog.i(LOG_TAG, "notification before pkg=${context.packageName} expected=$component enabled=$current")
+        // 写 secure setting alone only changes the preference text on some ROMs;
+        // the notification manager's approved-list is what actually enables the listener.
         val result = ShizukuManager.executeShell(
-            "settings put secure enabled_notification_listeners '$next'",
+            "cmd notification allow_listener '$component'",
         )
-        return Result(Item.NotificationListener, result.isSuccess, result.errorMessage)
+        val updated = runCatching {
+            Settings.Secure.getString(
+                context.contentResolver,
+                "enabled_notification_listeners",
+            )
+        }.getOrNull()
+        val ok = result.isSuccess && NotificationAccess.isListenerEnabled(updated, component)
+        LunoLog.i(
+            LOG_TAG,
+            "notification grant exit=${result.exitCode} success=${result.isSuccess} " +
+                "after=$updated verified=$ok error=${result.errorMessage}",
+        )
+        return Result(Item.NotificationListener, ok, result.errorMessage.ifBlank {
+            if (ok) "已启用" else "系统未接受该通知监听组件"
+        })
     }
 
     /** 通知权限（13+ 的 POST_NOTIFICATIONS，用 `pm grant` 走 Shizuku）。 */
@@ -127,7 +144,10 @@ object PrivilegedGrants {
             return Result(Item.Notifications, true, "已授权")
         }
         val result = ShizukuManager.executeShell("pm grant ${context.packageName} $permission")
-        return Result(Item.Notifications, result.isSuccess, result.errorMessage)
+        val granted = context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+        return Result(Item.Notifications, granted, result.errorMessage.ifBlank {
+            if (granted) "已授权" else "系统未授予通知权限"
+        })
     }
 
     /** 电池优化白名单：`deviceidle whitelist +pkg` 幂等，重复执行无副作用。 */
@@ -135,7 +155,13 @@ object PrivilegedGrants {
         val result = ShizukuManager.executeShell(
             "dumpsys deviceidle whitelist +${context.packageName}",
         )
-        return Result(Item.BatteryWhitelist, result.isSuccess, result.errorMessage)
+        val granted = runCatching {
+            context.getSystemService(android.os.PowerManager::class.java)
+                ?.isIgnoringBatteryOptimizations(context.packageName) == true
+        }.getOrDefault(false)
+        return Result(Item.BatteryWhitelist, granted, result.errorMessage.ifBlank {
+            if (granted) "已授权" else "系统未加入电池白名单"
+        })
     }
 
     /** 授予单个标准运行期权限（`pm grant`）；已授权直接返回成功。 */
@@ -144,7 +170,10 @@ object PrivilegedGrants {
             return Result(Item.Permission(name), true, "已授权")
         }
         val result = ShizukuManager.executeShell("pm grant ${context.packageName} $name")
-        return Result(Item.Permission(name), result.isSuccess, result.errorMessage)
+        val granted = context.checkSelfPermission(name) == PackageManager.PERMISSION_GRANTED
+        return Result(Item.Permission(name), granted, result.errorMessage.ifBlank {
+            if (granted) "已授权" else "系统未授予该权限"
+        })
     }
 
     /**
@@ -166,9 +195,6 @@ object PrivilegedGrants {
         }
         declared
             .filter { it.startsWith("android.permission.") }
-            // 定位是隐私敏感授权，不给"顺手全授"的路径：需要时由用户自己去系统设置开。
-            .filterNot { it == android.Manifest.permission.ACCESS_FINE_LOCATION }
-            .filterNot { it == android.Manifest.permission.ACCESS_COARSE_LOCATION }
             // 只处理运行期（dangerous）权限：WRITE_SETTINGS / BIND_APPWIDGET 等
             // 属于 appop 或 signature，pm grant 必然失败，不能计入一键补齐的失败数。
             .filter { permission ->

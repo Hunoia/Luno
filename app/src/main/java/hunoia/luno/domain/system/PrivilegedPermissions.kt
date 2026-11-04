@@ -14,6 +14,7 @@ import hunoia.luno.bridge.system.AccessibilitySettings
 import hunoia.luno.bridge.system.NotificationAccess
 import hunoia.luno.service.SideGestureService
 import hunoia.luno.shizuku.PrivilegedGrants
+import hunoia.luno.core.LunoLog
 
 /** 授权项的分组：按功能域归类，UI 据此把权限列拆成多个组展示。 */
 enum class PrivilegedPermissionGroup {
@@ -23,8 +24,6 @@ enum class PrivilegedPermissionGroup {
     NOTIFICATION,
     /** 系统增强：系统设置写入、电池白名单、存储与改系统设置。 */
     SYSTEM,
-    /** 定位：位置权限，只能手动开。 */
-    LOCATION,
     /** 应用权限：普通运行期危险权限（相机 / 媒体 / 联系人等），Shizuku 可 `pm grant`。 */
     APP,
 }
@@ -54,7 +53,6 @@ enum class PrivilegedPermission(
     MANAGE_FILES(hasSettingsPage = true, group = PrivilegedPermissionGroup.SYSTEM, shizukuGrantable = false),
     WRITE_SYSTEM_SETTINGS(hasSettingsPage = true, group = PrivilegedPermissionGroup.SYSTEM, shizukuGrantable = false),
     NOTIFICATION_POLICY(hasSettingsPage = true, group = PrivilegedPermissionGroup.NOTIFICATION, shizukuGrantable = false),
-    LOCATION(hasSettingsPage = true, group = PrivilegedPermissionGroup.LOCATION, shizukuGrantable = false),
     // 普通运行期危险权限：清单已声明，Shizuku 可一键 `pm grant`，未授权也能点行去应用设置开。
     CAMERA(hasSettingsPage = true, group = PrivilegedPermissionGroup.APP, shizukuGrantable = true, androidPermission = Manifest.permission.CAMERA),
     READ_CONTACTS(hasSettingsPage = true, group = PrivilegedPermissionGroup.APP, shizukuGrantable = true, androidPermission = Manifest.permission.READ_CONTACTS),
@@ -81,6 +79,8 @@ data class PrivilegedGrantSummary(
 
 object PrivilegedPermissionUseCase {
 
+    private const val LOG_TAG = "PrivilegedPermissions"
+
     fun status(context: Context): List<PrivilegedPermissionStatus> =
         PrivilegedPermission.entries.map { permission ->
             PrivilegedPermissionStatus(permission, isGranted(context, permission))
@@ -105,11 +105,6 @@ object PrivilegedPermissionUseCase {
         PrivilegedPermission.WRITE_SYSTEM_SETTINGS -> Settings.System.canWrite(context)
         PrivilegedPermission.NOTIFICATION_POLICY ->
             context.getSystemService(NotificationManager::class.java).isNotificationPolicyAccessGranted
-        PrivilegedPermission.LOCATION ->
-            context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) ==
-                android.content.pm.PackageManager.PERMISSION_GRANTED ||
-                context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) ==
-                    android.content.pm.PackageManager.PERMISSION_GRANTED
         // 其余标准运行期权限：直接查 checkSelfPermission。
         else -> permission.androidPermission?.let {
             context.checkSelfPermission(it) == android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -142,9 +137,6 @@ object PrivilegedPermissionUseCase {
             )
         PrivilegedPermission.NOTIFICATION_POLICY ->
             Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
-        PrivilegedPermission.LOCATION ->
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                .setData(Uri.parse("package:${context.packageName}"))
         // 其余标准运行期权限：去应用设置页手动开（无直达 intent）。
         else -> Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
             .setData(Uri.parse("package:${context.packageName}"))
@@ -156,12 +148,12 @@ object PrivilegedPermissionUseCase {
             PrivilegedPermission.OVERLAY -> PrivilegedGrants.ensureOverlay(context).ok
             PrivilegedPermission.ACCESSIBILITY -> PrivilegedGrants.ensureAccessibilityService(
                 context,
-                ComponentName(context, SideGestureService::class.java).flattenToShortString(),
+                ComponentName(context, SideGestureService::class.java).flattenToString(),
             ).ok
             PrivilegedPermission.NOTIFICATION_LISTENER ->
                 PrivilegedGrants.ensureNotificationListener(
                     context,
-                    NotificationAccess.listenerComponent(context).flattenToShortString(),
+                    NotificationAccess.listenerComponent(context).flattenToString(),
                 ).ok
             PrivilegedPermission.WRITE_SECURE_SETTINGS ->
                 PrivilegedGrants.ensureWriteSecureSettings(context).ok
@@ -170,8 +162,7 @@ object PrivilegedPermissionUseCase {
             // 以下 Shizuku 授不了，只能手动去系统设置开，UI 走「去设置」。
             PrivilegedPermission.MANAGE_FILES,
             PrivilegedPermission.WRITE_SYSTEM_SETTINGS,
-            PrivilegedPermission.NOTIFICATION_POLICY,
-            PrivilegedPermission.LOCATION -> false
+            PrivilegedPermission.NOTIFICATION_POLICY -> false
             // 标准运行期权限：Shizuku `pm grant`。
             else -> permission.androidPermission?.let {
                 PrivilegedGrants.ensurePermission(context, it).ok
@@ -183,15 +174,21 @@ object PrivilegedPermissionUseCase {
             PrivilegedGrants.grantAll(
                 context = context,
                 accessibilityComponent = ComponentName(context, SideGestureService::class.java)
-                    .flattenToShortString(),
+                    .flattenToString(),
                 notificationListenerComponent = NotificationAccess
                     .listenerComponent(context)
-                    .flattenToShortString(),
+                    .flattenToString(),
             )
         }.getOrNull() ?: return PrivilegedGrantSummary()
         return PrivilegedGrantSummary(
             total = results.size,
             failed = results.count { !it.ok },
-        )
+        ).also { summary ->
+            LunoLog.i(
+                LOG_TAG,
+                "grantAll pkg=${context.packageName} total=${summary.total} failed=${summary.failed} " +
+                    "results=${results.joinToString { "${it.item}:${it.ok}:${it.detail}" }}",
+            )
+        }
     }
 }

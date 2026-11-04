@@ -48,7 +48,6 @@ private fun PrivilegedPermission.title(): String = stringResource(
         PrivilegedPermission.MANAGE_FILES -> R.string.perm_manage_files
         PrivilegedPermission.WRITE_SYSTEM_SETTINGS -> R.string.perm_write_system
         PrivilegedPermission.NOTIFICATION_POLICY -> R.string.perm_notification_policy
-        PrivilegedPermission.LOCATION -> R.string.perm_location
         PrivilegedPermission.CAMERA -> R.string.perm_camera
         PrivilegedPermission.READ_CONTACTS -> R.string.perm_read_contacts
         PrivilegedPermission.READ_CALENDAR -> R.string.perm_read_calendar
@@ -72,7 +71,6 @@ private fun PrivilegedPermission.hint(): String = stringResource(
         PrivilegedPermission.MANAGE_FILES -> R.string.perm_manage_files_hint
         PrivilegedPermission.WRITE_SYSTEM_SETTINGS -> R.string.perm_write_system_hint
         PrivilegedPermission.NOTIFICATION_POLICY -> R.string.perm_notification_policy_hint
-        PrivilegedPermission.LOCATION -> R.string.perm_location_hint
         PrivilegedPermission.CAMERA -> R.string.perm_camera_hint
         PrivilegedPermission.READ_CONTACTS -> R.string.perm_read_contacts_hint
         PrivilegedPermission.READ_CALENDAR -> R.string.perm_read_calendar_hint
@@ -90,7 +88,6 @@ private fun PrivilegedPermissionGroup.title(): String = stringResource(
         PrivilegedPermissionGroup.CORE -> R.string.perm_group_core
         PrivilegedPermissionGroup.NOTIFICATION -> R.string.perm_group_notification
         PrivilegedPermissionGroup.SYSTEM -> R.string.perm_group_system
-        PrivilegedPermissionGroup.LOCATION -> R.string.perm_group_location
         PrivilegedPermissionGroup.APP -> R.string.perm_group_app
     },
 )
