@@ -522,14 +522,21 @@ class FloatBallService : Service() {
     }
 
     /**
-     * 瞬态浮层共用门控：悬浮窗权限 / 总闸 / 非锁屏。
-     * 面板、勿扰、临时隐藏（`internal.floatBallVisibility` 的 hideForMs）都不参与：
-     * 那些是主悬浮球的语义，套到几秒就消失的胶囊/剪贴板球上只会误伤（还会丢 pin）。
+     * 瞬态浮层共用门控：悬浮窗权限 / 总闸 / 非锁屏 / 非面板占用。
+     *
+     * 面板占用必须参与：主球侧的面板开合走 [refreshWindowsLocked] 的 `shouldShow=false`
+     * 收起路径（含 `hideCapsule`），若此处不看面板，通知/剪贴板胶囊会在面板开着时被弹起，
+     * 随后又被同一份 `shouldShow` 收起 —— 表现为「闪一下然后隐藏」。面板期间只入队不探头
+     * （决策 9），面板关后由 `panelDismissedSubscriber → refreshWindows` 统一恢复球与徽标。
+     *
+     * 勿扰、临时隐藏（`internal.floatBallVisibility` 的 hideForMs）不参与：那是主悬浮球的
+     * 语义，套到几秒就消失的胶囊/剪贴板球上只会误伤（还会丢 pin）。
      */
     private fun transientOverlayAllowed(): Boolean =
         canDrawOverlays() &&
             gestureEnabledSnapshot &&
-            !isScreenLocked()
+            !isScreenLocked() &&
+            !visibility.isPanelHidden
 
     /** 当前运行态是否允许某块 Surface（显隐场景）。 */
     private fun sceneAllows(targetId: String): Boolean = shouldShowSurface(
