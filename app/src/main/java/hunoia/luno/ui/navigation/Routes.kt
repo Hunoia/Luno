@@ -134,13 +134,6 @@ data class HabitEdit(
 @Serializable
 data object TodoList
 
-/** 代办编辑；todoId 空 = 新增。 */
-@Keep
-@Serializable
-data class TodoEdit(
-    val todoId: String = "",
-)
-
 @Keep
 @Serializable
 data object SearchEngineSettings

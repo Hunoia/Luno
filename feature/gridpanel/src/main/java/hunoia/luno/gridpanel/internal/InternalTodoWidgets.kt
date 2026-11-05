@@ -20,8 +20,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,7 +39,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -51,6 +55,7 @@ import androidx.compose.ui.unit.sp
 import hunoia.luno.config.model.TodoConfig
 import hunoia.luno.config.model.TodoItem
 import hunoia.luno.domain.gridpanel.TodoCenter
+import hunoia.luno.gridpanel.LocalGridPanelClose
 import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.TodoExtras
 import hunoia.luno.gridpanel.geometry.ItemCorner
@@ -58,21 +63,19 @@ import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
 import kotlinx.coroutines.launch
 
 /**
- * 代办部件：待办列表（未完成项可勾选 + 未完成数）。
+ * 代办部件：待办列表（仅未完成，可滚动）。
  *
  * 数据源 [TodoCenter.todoConfig]（JSON DataStore，MultiProcess），经 domain 门面订阅。
  * 完成写回走 [TodoCenter.toggleTodo]——应用内状态变更，不走 Dispatcher（architecture §1.3）。
- * 编辑态 [enabled] = false：部件点按让给层根拖拽；非编辑态点条目拉起主应用对应编辑页。
+ * 完成即从部件消失（管理页仍可见、可撤销）；「+」/点条目拉起代办列表页
+ * （添加 / 编辑弹窗在列表页完成，overlay 内不能安全弹系统 Dialog）。
  */
 
 /** 双击确认倒计时时长：单点出现圆环，倒计时内再点才标记完成。 */
 private const val TodoConfirmCountdownMs = 1200
 
-/** 行最小高：小于该值不显示行（按可用高度自适应行数）。 */
-private val TodoMinRowH = 30.dp
-
-/** 行数上限：避免小部件里塞太多行。 */
-private const val TodoMaxRows = 8
+/** 行高：固定高度，列表用 verticalScroll 滚动（不再截断 +M）。 */
+private val TodoRowH = 32.dp
 
 @Composable
 internal fun TodoListCell(
@@ -87,8 +90,24 @@ internal fun TodoListCell(
     val accent = MaterialTheme.colorScheme.primary
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val closePanel = LocalGridPanelClose.current
 
+    // 只展示未完成：完成即从部件消失（管理页仍可见、可撤销）。
     val pending = config.todos.filter { !it.done }
+
+    // 打开代办列表页（添加/编辑弹窗都在这）。overlay 内不能弹系统 Dialog，故跳页面。
+    // todoId 为空 = 新增；非空 = 编辑该条（列表页据 EXTRA_TODO_ID 自动开对应弹窗）。
+    fun openTodoList(todoId: String? = null) {
+        context.startActivity(
+            Intent().apply {
+                component = ComponentName(context.packageName, TodoExtras.ACTIVITY_MAIN)
+                putExtra(TodoExtras.EXTRA_OPEN_TODO_LIST, true)
+                if (todoId != null) putExtra(TodoExtras.EXTRA_TODO_ID, todoId)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            },
+        )
+        closePanel()
+    }
 
     // 双击确认：单点起圆环倒计时，倒计时内再点标记完成；超时取消。同一时刻只一条倒计时。
     var pendingId by remember { mutableStateOf<String?>(null) }
@@ -106,6 +125,7 @@ internal fun TodoListCell(
     }
 
     val cellDesc = stringResource(R.string.grid_panel_todo_desc, pending.size)
+    val addDesc = stringResource(R.string.grid_panel_todo_add)
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
@@ -113,18 +133,13 @@ internal fun TodoListCell(
             .semantics { contentDescription = cellDesc },
     ) {
         val contentW = (maxWidth - 20.dp).coerceAtLeast(24.dp)
-        val contentH = (maxHeight - 20.dp).coerceAtLeast(24.dp)
-        val titleH = 20.dp
-        val gap = 6.dp
-        val listH = (contentH - titleH - gap).coerceAtLeast(24.dp)
-        val rows = (listH / TodoMinRowH).toInt().coerceIn(1, TodoMaxRows)
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(10.dp),
         ) {
-            // 标题行：主色点 + 「待办 · N」（N = 未完成数）。
+            // 标题行：主色点 + 「待办 · N」（N = 未完成数）+ 右侧「+」添加按钮。
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -138,35 +153,53 @@ internal fun TodoListCell(
                 Spacer(Modifier.width(6.dp))
                 Text(
                     text = stringResource(R.string.grid_panel_todo_title, pending.size),
+                    modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.titleSmall,
                     color = onCard,
                     fontSize = (contentW.value * 0.11f).coerceIn(10f, 14f).sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                if (enabled) {
+                    Box(
+                        modifier = Modifier
+                            .size(26.dp)
+                            .clip(CircleShape)
+                            .clickable(onClick = { openTodoList() })
+                            .semantics { contentDescription = addDesc },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            tint = onCard.copy(alpha = 0.8f),
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
             }
-            Spacer(Modifier.height(gap))
+            Spacer(Modifier.height(6.dp))
             if (pending.isEmpty()) {
-                // 空态：无代办或全部完成。
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = stringResource(
-                            if (config.todos.isEmpty()) R.string.grid_panel_todo_empty
-                            else R.string.grid_panel_todo_all_done,
-                        ),
+                        text = stringResource(R.string.grid_panel_todo_empty),
                         style = MaterialTheme.typography.bodySmall,
                         color = onCard.copy(alpha = 0.5f),
                     )
                 }
             } else {
+                // 滚动只在运行态启用：编辑态滚动让给层根拖拽（镜像 clipboard userScrollEnabled）。
+                val scrollState = rememberScrollState()
                 Column(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(if (enabled) Modifier.verticalScroll(scrollState) else Modifier),
                     verticalArrangement = Arrangement.spacedBy(1.dp),
                 ) {
-                    pending.take(rows).forEach { todo ->
+                    pending.forEach { todo ->
                         TodoRow(
                             todo = todo,
                             pending = pendingId == todo.id,
@@ -176,37 +209,17 @@ internal fun TodoListCell(
                             enabled = enabled,
                             onCircleTap = {
                                 if (pendingId == todo.id) {
+                                    // 双击确认完成。
                                     pendingId = null
                                     scope.launch { TodoCenter.toggleTodo(todo.id, true) }
                                 } else {
                                     pendingId = todo.id
                                 }
                             },
-                            onOpen = {
-                                context.startActivity(
-                                    Intent().apply {
-                                        component = ComponentName(context.packageName, TodoExtras.ACTIVITY_MAIN)
-                                        putExtra(TodoExtras.EXTRA_EDIT_TODO_ID, todo.id)
-                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                                    },
-                                )
-                            },
+                            onOpen = { openTodoList(todo.id) },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(1f),
-                        )
-                    }
-                    if (pending.size > rows) {
-                        val more = pending.size - rows
-                        Text(
-                            text = stringResource(R.string.grid_panel_todo_more, more),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = onCard.copy(alpha = 0.5f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                                .height(TodoRowH),
                         )
                     }
                 }
@@ -215,7 +228,7 @@ internal fun TodoListCell(
     }
 }
 
-/** 一行待办：左圆点（双击确认完成）+ 右文字（点条目跳编辑页），两目标分离。 */
+/** 一行待办：左圆点（双击确认完成）+ 右文字（点条目进列表页），两目标分离。 */
 @Composable
 private fun TodoRow(
     todo: TodoItem,
@@ -263,7 +276,7 @@ private fun TodoRow(
     }
 }
 
-/** 圆点：未确认 = 空心描边；倒计时 = 主色进度环（主圆变倒计时，不另叠一层）。 */
+/** 圆点：空心描边（双击确认，倒计时 = 主色进度环）。 */
 @Composable
 private fun TodoCheckCircle(
     pending: Boolean,
@@ -281,7 +294,6 @@ private fun TodoCheckCircle(
         modifier = modifier
             .size(circleSize)
             .clip(CircleShape)
-            // 始终可点（enabled 时）：点击处理器区分「arm / confirm」，pending 只换样式。
             .then(
                 if (enabled) {
                     Modifier
@@ -289,13 +301,6 @@ private fun TodoCheckCircle(
                         .semantics { contentDescription = completeDesc }
                 } else {
                     Modifier
-                },
-            )
-            .then(
-                if (pending) {
-                    Modifier
-                } else {
-                    Modifier.border(width = strokeWidth, color = onCard.copy(alpha = 0.4f), shape = CircleShape)
                 },
             ),
         contentAlignment = Alignment.Center,
@@ -323,6 +328,12 @@ private fun TodoCheckCircle(
                     style = Stroke(width = w, cap = StrokeCap.Round),
                 )
             }
+        } else {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .border(strokeWidth, onCard.copy(alpha = 0.4f), CircleShape),
+            )
         }
     }
 }

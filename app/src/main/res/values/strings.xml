@@ -223,13 +223,9 @@
     <string name="todo_add">新建待办</string>
     <string name="todo_edit_title">编辑待办</string>
     <string name="todo_create_title">新建待办</string>
-    <string name="todo_text">待办内容</string>
     <string name="todo_text_hint">如：买牛奶、交电费</string>
     <string name="todo_empty">还没有待办，点右上角新建</string>
-    <string name="todo_group_pending">未完成</string>
-    <string name="todo_group_done">已完成</string>
     <string name="todo_delete">删除待办</string>
-    <string name="todo_delete_confirm">将删除该待办，无法恢复</string>
     <string name="todo_save">保存</string>
     <string name="action_settings_mini_window_position">小窗设置</string>
     <string name="mini_window_settings_title">小窗设置</string>

@@ -63,6 +63,7 @@ import hunoia.luno.config.model.lastNDaysDots
 import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.domain.gridpanel.HabitCenter
 import hunoia.luno.gridpanel.HabitExtras
+import hunoia.luno.gridpanel.LocalGridPanelClose
 import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
@@ -263,6 +264,8 @@ internal fun HabitHistoryCell(
     val streak = currentStreak(checks, today, habit.interval)
     val habitColor = Color(habit.color)
     val context = LocalContext.current
+    // 点条目进编辑页后把面板一起关掉（镜像 InternalRecentsWidget 的 closePanel）。
+    val closePanel = LocalGridPanelClose.current
 
     BoxWithConstraints(
         modifier = modifier
@@ -278,6 +281,7 @@ internal fun HabitHistoryCell(
                                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                             },
                         )
+                        closePanel()
                     }
                 } else {
                     Modifier

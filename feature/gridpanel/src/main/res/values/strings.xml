@@ -20,8 +20,7 @@
     <string name="grid_panel_todo_title">待办 · %1$d</string>
     <string name="grid_panel_todo_desc">待办 %1$d 项</string>
     <string name="grid_panel_todo_empty">暂无待办</string>
-    <string name="grid_panel_todo_all_done">全部完成</string>
-    <string name="grid_panel_todo_more">+%1$d 更多</string>
+    <string name="grid_panel_todo_add">新建待办</string>
     <string name="grid_panel_todo_complete">标记完成</string>
     <string name="grid_panel_todo_open">打开：%1$s</string>
     <string name="grid_panel_clipboard_current">当前</string>
