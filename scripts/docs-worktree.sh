@@ -7,9 +7,15 @@
 # - 主 worktree 继续用 dev/main；docs/ 通过软链接指向 docs worktree。
 # - pre-push 只允许 dev/main；pre-merge-commit 拒绝把 docs 合入 dev/main。
 #
+# - docs 分支永远只有 1 个提交：每次保存用 amend，rebase 只重放 1 个提交。
+#   需要保留历史时打快照 tag（docs/snapshot-<时间>），分支本身不堆提交。
+#
 # 用法：
 #   scripts/docs-worktree.sh init     # 首次创建 worktree + 安装 hooks
 #   scripts/docs-worktree.sh sync     # 拉取并 rebase docs 到基础分支
+#   scripts/docs-worktree.sh commit -m "docs: ..."   # 提交（单提交：已有则 amend）
+#   scripts/docs-worktree.sh snapshot [name]         # 给当前文档打快照 tag
+#   scripts/docs-worktree.sh squash   # 把已有多个 docs 提交压成 1 个
 #   scripts/docs-worktree.sh status
 #   scripts/docs-worktree.sh hooks    # 只重新安装 hooks
 set -euo pipefail
@@ -199,6 +205,85 @@ cmd_sync() {
     echo "docs rebased onto $base"
 }
 
+# docs 分支上相对 base 的提交数。
+docs_commit_count() {
+    local base
+    base="$(base_ref)"
+    git -C "$DOCS_WT" rev-list --count "$base..$DOCS_BRANCH" 2>/dev/null || echo 0
+}
+
+cmd_snapshot() {
+    [ -d "$DOCS_WT" ] || die "docs worktree 不存在，先运行 init"
+    local name="${1:-snapshot-$(date +%Y%m%d-%H%M%S)}"
+    local tag="docs/$name"
+    git -C "$DOCS_WT" tag -f "$tag" HEAD >/dev/null
+    echo "snapshot tag: $tag -> $(git -C "$DOCS_WT" rev-parse --short HEAD)"
+}
+
+# 把 docs 分支上相对 base 的所有提交压成 1 个（保留工作树内容）。
+squash_onto_base() {
+    local base count
+    base="$(base_ref)"
+    count="$(docs_commit_count)"
+    [ "$count" -le 1 ] && return 0
+    git -C "$DOCS_WT" reset --soft "$base"
+    git -C "$DOCS_WT" commit -q -m "docs: Luno 规范文档（单提交，快照见 docs/snapshot-* tag）"
+    echo "docs squashed: $count -> 1 commit"
+}
+
+cmd_squash() {
+    [ -d "$DOCS_WT" ] || die "docs worktree 不存在，先运行 init"
+    if [ -n "$(git -C "$DOCS_WT" status --porcelain)" ]; then
+        die "docs worktree 有未提交改动，先运行 $0 commit 或 stash"
+    fi
+    local count
+    count="$(docs_commit_count)"
+    if [ "$count" -le 1 ]; then
+        echo "docs 已经是 $count 个提交，无需 squash"
+        return 0
+    fi
+    cmd_snapshot "pre-squash-$(date +%Y%m%d-%H%M%S)"
+    squash_onto_base
+}
+
+cmd_commit() {
+    [ -d "$DOCS_WT" ] || die "docs worktree 不存在，先运行 init"
+    local msg=""
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            -m|--message) msg="${2:-}"; shift 2 ;;
+            *) die "未知参数：$1（用法：commit -m \"docs: ...\"）" ;;
+        esac
+    done
+
+    (
+        cd "$DOCS_WT"
+        git add -A docs .gitignore
+
+        if [ -z "$msg" ]; then
+            msg="docs: update specs ($(date +%Y-%m-%d\ %H:%M))"
+        fi
+
+        local base count
+        base="$(base_ref)"
+        count="$(git rev-list --count "$base..HEAD" 2>/dev/null || echo 0)"
+
+        if [ "$count" -eq 0 ]; then
+            git commit -q -m "$msg"
+            echo "docs: 新建提交（分支保持单提交）"
+        else
+            # 单提交策略：内容变了就 amend，不再新增提交。
+            if git diff --cached --quiet HEAD; then
+                git commit -q --amend --no-edit
+                echo "docs: 已 amend（内容无变化或仅元信息更新）"
+            else
+                git commit -q --amend -m "$msg"
+                echo "docs: 已 amend 到单提交（$count 个提交压成 1 个）"
+            fi
+        fi
+    )
+}
+
 cmd_status() {
     local base
     base="$(base_ref)"
@@ -208,7 +293,9 @@ cmd_status() {
     echo "base:          $base"
     if [ -d "$DOCS_WT" ]; then
         git -C "$DOCS_WT" status --short --branch
-        git -C "$DOCS_WT" log --oneline -3
+        echo "commits ahead of $base: $(docs_commit_count)（约定为 1）"
+        git -C "$DOCS_WT" log --oneline -1
+        git -C "$DOCS_WT" tag -l 'docs/*' | tail -3
     else
         echo "docs worktree 尚未创建"
     fi
@@ -223,7 +310,10 @@ cmd_status() {
 case "${1:-status}" in
     init) cmd_init ;;
     sync) cmd_sync ;;
+    commit) shift; cmd_commit "$@" ;;
+    snapshot) shift; cmd_snapshot "$@" ;;
+    squash) cmd_squash ;;
     status) cmd_status ;;
     hooks) install_hooks ;;
-    *) echo "usage: $0 {init|sync|status|hooks}" >&2; exit 2 ;;
+    *) echo "usage: $0 {init|sync|commit -m <msg>|snapshot [name]|squash|status|hooks}" >&2; exit 2 ;;
 esac
