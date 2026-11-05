@@ -24,12 +24,15 @@ import hunoia.luno.annotate.model.AnnotateState
 import hunoia.luno.annotate.model.ContainFit
 import hunoia.luno.annotate.model.ElementKind
 import hunoia.luno.annotate.model.MosaicElement
+import hunoia.luno.annotate.model.NumberElement
 import hunoia.luno.annotate.model.Pt
 import hunoia.luno.annotate.model.PxRect
 import hunoia.luno.annotate.model.ShapeElement
 import hunoia.luno.annotate.model.StrokeElement
 import hunoia.luno.annotate.model.TextElement
 import hunoia.luno.annotate.model.bounds
+import hunoia.luno.annotate.model.shapeCrossSegments
+import hunoia.luno.annotate.model.shapeOutlinePoints
 import java.util.IdentityHashMap
 import kotlin.math.ceil
 import kotlin.math.cos
@@ -67,6 +70,13 @@ object AnnotateVisuals {
     const val SelectionHandleSizePx = 12f
     const val SelectionDashPx = 8f
     const val SelectionGapPx = 6f
+
+    /** 元素（图形/文字/序号）选中框双色：深色外描边 + 白内芯，白底/深底都可见。 */
+    val ElementSelectionOuter: Color = Color.Black.copy(alpha = 0.55f)
+    val ElementSelectionInner: Color = Color.White
+    /** 角柄/边中柄/旋转柄：白方块 + 深色描边（与选区框同一对比策略）。 */
+    val ElementHandleFill: Color = Color.White
+    val ElementHandleStroke: Color = Color.Black.copy(alpha = 0.62f)
 
     /** 单点笔迹的最小可视化直径（图片像素）。 */
     const val MinDotDiameterPx = 2f
@@ -122,6 +132,35 @@ class AnnotateGeometryCache {
                 path.lineTo(element.end.x, element.end.y)
                 if (element.kind == ElementKind.ARROW) {
                     addArrowWings(path, element.start, element.end, element.width)
+                }
+            }
+
+            ElementKind.CROSS -> {
+                // 叉：两条对角线，各自一段子路径。
+                shapeCrossSegments(element.start, element.end).forEach { (a, b) ->
+                    path.moveTo(a.x, a.y)
+                    path.lineTo(b.x, b.y)
+                }
+            }
+
+            ElementKind.CHECK -> {
+                // 对勾：开放折线（3 点）。
+                val pts = shapeOutlinePoints(element.kind, element.start, element.end)
+                if (pts.isNotEmpty()) {
+                    path.moveTo(pts[0].x, pts[0].y)
+                    for (i in 1 until pts.size) path.lineTo(pts[i].x, pts[i].y)
+                }
+            }
+
+            // 闭合形状：轮廓顶点连成闭合路径。
+            ElementKind.ELLIPSE, ElementKind.TRIANGLE,
+            ElementKind.STAR, ElementKind.ROUND_RECT, ElementKind.HEART,
+            -> {
+                val pts = shapeOutlinePoints(element.kind, element.start, element.end)
+                if (pts.isNotEmpty()) {
+                    path.moveTo(pts[0].x, pts[0].y)
+                    for (i in 1 until pts.size) path.lineTo(pts[i].x, pts[i].y)
+                    path.close()
                 }
             }
 
@@ -265,6 +304,7 @@ private fun DrawScope.drawAnnotationLayer(
             right = imageRect.right,
             bottom = imageRect.bottom,
         ) {
+            var numberCount = 0
             for (element in state.elements) {
                 when (element) {
                     // 文字保持视图坐标绘制（量字宽依赖 fit.scale），不进几何缓存。
@@ -274,10 +314,13 @@ private fun DrawScope.drawAnnotationLayer(
                             is StrokeElement -> drawStrokeNative(canvas, element, cache)
                             is ShapeElement -> drawShapeNative(canvas, element, cache)
                             is MosaicElement -> drawMosaicNative(canvas, element, base, cache)
+                            // 序号编号按列表顺序推导：删除/撤销后自动 1,2,3… 连续。
+                            is NumberElement -> drawNumberNative(canvas, element, numberCount + 1)
                             is TextElement -> Unit
                         }
                     }
                 }
+                if (element is NumberElement) numberCount++
             }
         }
     } finally {
@@ -362,7 +405,56 @@ private fun drawShapeNative(
         strokeWidth = element.width
         color = element.colorArgb.toInt()
     }
+    val center = element.bounds.center
+    val checkpoint = canvas.save()
+    if (element.rotationRad != 0f) {
+        canvas.rotate(rotationRadToDegrees(element.rotationRad), center.x, center.y)
+    }
     canvas.drawPath(cache.shapePath(element), paint)
+    canvas.restoreToCount(checkpoint)
+}
+
+/** 序号：填充圆底（元素色）+ 白色居中数字；旋转绕圆底中心。 */
+private fun drawNumberNative(
+    canvas: AndroidCanvas,
+    element: NumberElement,
+    number: Int,
+) {
+    if (number <= 0) return
+    val radius = (element.textSize / 2f).coerceAtLeast(1f)
+    val badge = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+        style = AndroidPaint.Style.FILL
+        color = element.colorArgb.toInt()
+    }
+    val textPaint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+        style = AndroidPaint.Style.FILL
+        // 浅色底用深字、深色底用白字：调色板首位是白，白底白字会看不见。
+        color = if (isLightColor(element.colorArgb)) android.graphics.Color.BLACK
+        else android.graphics.Color.WHITE
+        // 数字字号占圆底约 60%，保持高对比。
+        textSize = (element.textSize * 0.6f).coerceAtLeast(1f)
+        typeface = Typeface.DEFAULT_BOLD
+        textAlign = AndroidPaint.Align.CENTER
+    }
+    val checkpoint = canvas.save()
+    if (element.rotationRad != 0f) {
+        canvas.rotate(rotationRadToDegrees(element.rotationRad), element.position.x, element.position.y)
+    }
+    canvas.drawCircle(element.position.x, element.position.y, radius, badge)
+    val baseline = element.position.y - (textPaint.ascent() + textPaint.descent()) / 2f
+    canvas.drawText(number.toString(), element.position.x, baseline, textPaint)
+    canvas.restoreToCount(checkpoint)
+}
+
+private fun rotationRadToDegrees(rad: Float): Float = Math.toDegrees(rad.toDouble()).toFloat()
+
+/** ARGB 亮度（Rec.601）：浅色返回 true（数字用深字），深色返回 false（用白字）。 */
+private fun isLightColor(argb: Long): Boolean {
+    val r = (argb shr 16) and 0xFF
+    val g = (argb shr 8) and 0xFF
+    val b = argb and 0xFF
+    val lum = 0.299 * r + 0.587 * g + 0.114 * b
+    return lum > 150.0
 }
 
 private fun drawMosaicNative(
@@ -419,11 +511,25 @@ private fun DrawScope.drawTextElement(element: TextElement, fit: ContainFit) {
         style = AndroidPaint.Style.FILL
     }
     val canvas = drawContext.canvas.nativeCanvas
-    val baselineOffset = -paint.fontMetrics.ascent
-    val lineHeight = (paint.fontMetrics.descent - paint.fontMetrics.ascent)
-    element.text.split('\n').forEachIndexed { index, line ->
+    val lines = element.text.split('\n')
+    val metrics = paint.fontMetrics
+    val lineHeight = metrics.descent - metrics.ascent
+    // 旋转绕真实文本框中心（与画布选中框 `realHitBounds` 同一枢轴），
+    // 避免全角/半角混排时模型估算中心偏移导致视觉旋转轴错位。
+    val checkpoint = canvas.save()
+    if (element.rotationRad != 0f) {
+        val width = lines.maxOfOrNull { paint.measureText(it) } ?: 0f
+        canvas.rotate(
+            rotationRadToDegrees(element.rotationRad),
+            p.x + width / 2f,
+            p.y + lineHeight * lines.size / 2f,
+        )
+    }
+    val baselineOffset = -metrics.ascent
+    lines.forEachIndexed { index, line ->
         canvas.drawText(line, p.x, p.y + baselineOffset + index * lineHeight, paint)
     }
+    canvas.restoreToCount(checkpoint)
 }
 
 /** 只出现在预览：选区裁剪范围提示 + 四角手柄；导出不调这个函数。 */

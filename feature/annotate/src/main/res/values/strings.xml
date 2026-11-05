@@ -9,6 +9,14 @@
     <string name="annotate_tool_text">文字</string>
     <string name="annotate_tool_mosaic">马赛克</string>
     <string name="annotate_tool_select">选区</string>
+    <string name="annotate_tool_ellipse">圆形</string>
+    <string name="annotate_tool_triangle">三角形</string>
+    <string name="annotate_tool_check">对勾</string>
+    <string name="annotate_tool_cross">叉</string>
+    <string name="annotate_tool_star">五角星</string>
+    <string name="annotate_tool_round_rect">圆角矩形</string>
+    <string name="annotate_tool_heart">心形</string>
+    <string name="annotate_tool_number">序号</string>
     <string name="annotate_undo">撤销</string>
     <string name="annotate_redo">重做</string>
     <string name="annotate_clear_selection">清除选区</string>

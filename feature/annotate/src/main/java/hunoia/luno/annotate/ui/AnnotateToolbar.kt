@@ -17,24 +17,30 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Redo
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.ArrowOutward
 import androidx.compose.material.icons.filled.AutoFixOff
 import androidx.compose.material.icons.filled.BlurOn
+import androidx.compose.material.icons.filled.ChangeHistory
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Crop32
 import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Filter9Plus
 import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.HorizontalRule
 import androidx.compose.material.icons.filled.LayersClear
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Rectangle
-import androidx.compose.material.icons.automirrored.filled.Redo
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.TextFields
-import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -106,7 +112,7 @@ fun AnnotateToolbar(
                     // 主工具在前、次级（荧光笔/直线/箭头）在后，中间加细分隔线；
                     // 窄屏仍可整行横向滚动（P1 可发现性）。
                     ToolDisplayOrder.forEachIndexed { index, kind ->
-                        if (index == PrimaryToolCount) {
+                        if (index in GroupBoundaries) {
                             Box(
                                 modifier = Modifier
                                     .padding(horizontal = 3.dp)
@@ -293,7 +299,7 @@ fun StylePanel(
                 }
                 SizeSlider(
                     label = stringResource(
-                        if (tool == ToolKind.TEXT) R.string.annotate_text_size
+                        if (tool == ToolKind.TEXT || tool == ToolKind.NUMBER) R.string.annotate_text_size
                         else R.string.annotate_stroke_width,
                     ),
                     value = style.primarySize(tool),
@@ -400,6 +406,14 @@ private fun iconFor(kind: ToolKind): ImageVector = when (kind) {
     ToolKind.TEXT -> Icons.Default.TextFields
     ToolKind.MOSAIC -> Icons.Default.BlurOn
     ToolKind.SELECT -> Icons.Default.CropFree
+    ToolKind.ELLIPSE -> Icons.Default.RadioButtonUnchecked
+    ToolKind.TRIANGLE -> Icons.Default.ChangeHistory
+    ToolKind.CHECK -> Icons.Default.Check
+    ToolKind.CROSS -> Icons.Default.Close
+    ToolKind.STAR -> Icons.Default.StarBorder
+    ToolKind.ROUND_RECT -> Icons.Default.Crop32
+    ToolKind.HEART -> Icons.Default.FavoriteBorder
+    ToolKind.NUMBER -> Icons.Default.Filter9Plus
 }
 
 private fun labelFor(kind: ToolKind): Int = when (kind) {
@@ -412,23 +426,45 @@ private fun labelFor(kind: ToolKind): Int = when (kind) {
     ToolKind.TEXT -> R.string.annotate_tool_text
     ToolKind.MOSAIC -> R.string.annotate_tool_mosaic
     ToolKind.SELECT -> R.string.annotate_tool_select
+    ToolKind.ELLIPSE -> R.string.annotate_tool_ellipse
+    ToolKind.TRIANGLE -> R.string.annotate_tool_triangle
+    ToolKind.CHECK -> R.string.annotate_tool_check
+    ToolKind.CROSS -> R.string.annotate_tool_cross
+    ToolKind.STAR -> R.string.annotate_tool_star
+    ToolKind.ROUND_RECT -> R.string.annotate_tool_round_rect
+    ToolKind.HEART -> R.string.annotate_tool_heart
+    ToolKind.NUMBER -> R.string.annotate_tool_number
 }
 
-/** 工具显示顺序：主工具在前（PEN…SELECT），次级（荧光笔/直线/箭头）在分隔线后。 */
+/**
+ * 工具显示顺序：核心组（画笔/橡皮/选择/文字/序号）+ 形状组 + 标注辅助（荧光笔/直线/箭头/马赛克）。
+ * 组间用分隔线（[GroupBoundaries]），窄屏可横向滚动。
+ */
 private val ToolDisplayOrder: List<ToolKind> = listOf(
+    // 核心
     ToolKind.PEN,
     ToolKind.ERASER,
-    ToolKind.RECT,
-    ToolKind.TEXT,
-    ToolKind.MOSAIC,
     ToolKind.SELECT,
-    ToolKind.HIGHLIGHT,
+    ToolKind.TEXT,
+    ToolKind.NUMBER,
+    // 形状
+    ToolKind.RECT,
+    ToolKind.ELLIPSE,
+    ToolKind.ROUND_RECT,
+    ToolKind.TRIANGLE,
     ToolKind.LINE,
     ToolKind.ARROW,
+    ToolKind.CHECK,
+    ToolKind.CROSS,
+    ToolKind.STAR,
+    ToolKind.HEART,
+    // 辅助
+    ToolKind.HIGHLIGHT,
+    ToolKind.MOSAIC,
 )
 
-/** 分隔线前的工具数量（主工具区）。 */
-private const val PrimaryToolCount = 6
+/** 每个分隔线前累计的工具数量（组尾）。 */
+private val GroupBoundaries: List<Int> = listOf(5, 15)
 
 /** 固定调色板：标注颜色属于“内容”，不跟主题动态取色。 */
 val AnnotatePalette: List<Long> = listOf(
@@ -443,18 +479,22 @@ val AnnotatePalette: List<Long> = listOf(
 
 private fun ToolStyle.primarySize(tool: ToolKind): Float = when (tool) {
     ToolKind.TEXT -> textSize
+    ToolKind.NUMBER -> textSize
     ToolKind.MOSAIC -> mosaicCell
     else -> strokeWidth
 }
 
 private fun ToolStyle.withPrimarySize(tool: ToolKind, value: Float): ToolStyle = when (tool) {
     ToolKind.TEXT -> copy(textSize = value)
+    ToolKind.NUMBER -> copy(textSize = value)
     ToolKind.MOSAIC -> copy(mosaicCell = value)
     else -> copy(strokeWidth = value)
 }
 
 private fun ToolKind.sizeRange(): ClosedFloatingPointRange<Float> = when (this) {
     ToolKind.TEXT -> 24f..96f
+    // 序号圆底直径。
+    ToolKind.NUMBER -> 20f..80f
     ToolKind.MOSAIC -> 8f..48f
     ToolKind.HIGHLIGHT -> 4f..24f
     // 其余线宽都是屏幕 dp（B9）。

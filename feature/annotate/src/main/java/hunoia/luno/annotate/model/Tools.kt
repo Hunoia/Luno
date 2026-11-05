@@ -11,6 +11,15 @@ enum class ToolKind {
     TEXT,
     MOSAIC,
     SELECT,
+    // 快速标注器扩展：更多形状 + 序号（自动递增圆底，删除自动重排）。
+    ELLIPSE,
+    TRIANGLE,
+    CHECK,
+    CROSS,
+    STAR,
+    ROUND_RECT,
+    HEART,
+    NUMBER,
 }
 
 /**
