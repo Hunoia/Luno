@@ -180,6 +180,100 @@ def build_files() -> dict[str, str]:
     }
 
 
+STRING_KEY_RE = re.compile(r'<string\s+name="([^"]+)"')
+QUALIFIED_REF_RE = re.compile(r"([\w.]+?)\.R\.string\.([A-Za-z0-9_]+)")
+PLAIN_REF_RE = re.compile(r"(?<![\w.])R\.string\.([A-Za-z0-9_]+)")
+ALIAS_IMPORT_RE = re.compile(r"import\s+([\w.]+)\.R\s+as\s+(\w+)")
+AT_STRING_RE = re.compile(r"@string/([A-Za-z0-9_]+)")
+
+MODULE_NAMESPACES = {
+    "app": "hunoia.luno",
+    "core:common": "hunoia.luno.core.common",
+    "core:domain": "hunoia.luno.core.domain",
+    "core:bridge": "hunoia.luno.core.bridge",
+    "core:data": "hunoia.luno.core.data",
+    "core:runtime": "hunoia.luno.core.runtime",
+    "core:facade": "hunoia.luno.core.facade",
+    "ui:design": "hunoia.luno.design",
+    "capability:launch": "hunoia.luno.quicklaunch",
+    "capability:ocr": "hunoia.luno.ocr",
+    "feature:execute": "hunoia.luno.feature.execute",
+    "feature:actions": "hunoia.luno.actions",
+    "feature:link": "hunoia.luno.link",
+    "feature:search": "hunoia.luno.search",
+    "feature:quicklaunch": "hunoia.luno.quicklaunch.app",
+    "feature:gesture": "hunoia.luno.gesture",
+    "feature:floatball": "hunoia.luno.floatball",
+    "feature:gridpanel": "hunoia.luno.gridpanel",
+    "feature:annotate": "hunoia.luno.annotate",
+    "feature:a11y": "hunoia.luno.a11y",
+    "feature:picker": "hunoia.luno.picker",
+}
+
+
+def _module_namespace(module: Path) -> str | None:
+    build = module / "build.gradle.kts"
+    if not build.is_file():
+        return None
+    match = re.search(r'namespace\s*=\s*"([^"]+)"', read(build))
+    return match.group(1) if match else None
+
+
+def _string_keys(path: Path) -> set[str]:
+    return set(STRING_KEY_RE.findall(read(path))) if path.is_file() else set()
+
+
+def _string_refs_by_namespace() -> dict[str, set[str]]:
+    """namespace -> 被引用到的 string key。
+
+    三种引用形式都要认：
+    - 本模块的 `R.string.x`（`AnnotateR.string.x` 这种别名不算本模块）
+    - `import <ns>.R as Foo` 之后写的 `Foo.string.x`
+    - XML 里的 `@string/x`（归属所在模块）
+    """
+    modules = [ROOT / "app"] + [
+        p for group in ("core", "feature", "ui", "capability")
+        for p in sorted((ROOT / group).glob("*")) if (p / "build.gradle.kts").is_file()
+    ]
+    namespace_of_file: dict[Path, str] = {}
+    for module in modules:
+        ns = _module_namespace(module)
+        if ns is None:
+            continue
+        for path in (module / "src/main").rglob("*"):
+            if path.is_file() and path.suffix in {".kt", ".xml"} and "/build/" not in path.as_posix():
+                namespace_of_file.setdefault(path, ns)
+
+    refs: dict[str, set[str]] = {}
+    known = set(namespace_of_file.values())
+    for path, own_ns in namespace_of_file.items():
+        text = read(path)
+        aliases = {alias: ns for ns, alias in ALIAS_IMPORT_RE.findall(text)}
+        bucket = refs.setdefault(own_ns, set())
+        for qualifier, key in QUALIFIED_REF_RE.findall(text):
+            if qualifier in aliases:
+                refs.setdefault(aliases[qualifier], set()).add(key)
+            elif qualifier in known:
+                refs.setdefault(qualifier, set()).add(key)
+        for alias, ns in aliases.items():
+            if alias.endswith("R"):
+                refs.setdefault(ns, set()).update(
+                    re.findall(re.escape(alias) + r"\.string\.([A-Za-z0-9_]+)", text),
+                )
+        bucket.update(PLAIN_REF_RE.findall(text))
+        bucket.update(AT_STRING_RE.findall(text))
+    return refs
+
+
+def _unused_strings(module: Path, refs: dict[str, set[str]]) -> list[str]:
+    """模块自己的 string 必须被全仓引用，否则就是搬迁后没删的旧副本。"""
+    ns = _module_namespace(module)
+    if ns is None:
+        return []
+    keys = _string_keys(module / "src/main/res/values/strings.xml")
+    return sorted(keys - refs.get(ns, set()))
+
+
 def generate() -> int:
     REF.mkdir(parents=True, exist_ok=True)
     for name, content in build_files().items():
@@ -209,6 +303,21 @@ def check() -> int:
             relative = target.split("#", 1)[0]
             if relative and not (path.parent / relative).exists():
                 errors.append(f"{rel(path)}：链接不存在 -> {target}")
+
+
+    # 资源去重：字符串只在真正使用它的模块里定义。
+    # 页面搬到 feature 后，app 里那份必须删掉，否则改一处漏一处。
+    modules = [ROOT / "app"]
+    for group in ("core", "feature", "ui", "capability"):
+        modules += sorted(p for p in (ROOT / group).glob("*") if (p / "build.gradle.kts").is_file())
+    string_refs = _string_refs_by_namespace()
+    for module in modules:
+        unused = _unused_strings(module, string_refs)
+        if unused:
+            errors.append(
+                f"{rel(module)}：strings.xml 里有未被本模块引用的条目 {len(unused)} 个"
+                f"（示例：{', '.join(unused[:5])}）——搬到 feature 后 app 的旧副本要删掉",
+            )
 
     if errors:
         print("\n".join(errors))
