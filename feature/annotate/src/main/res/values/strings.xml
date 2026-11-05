@@ -34,6 +34,7 @@
     <string name="annotate_discard_confirm">放弃</string>
     <string name="annotate_cancel">取消</string>
     <string name="annotate_export_failed">导出失败</string>
+    <string name="annotate_export_capped">原图过大，已按 8192 像素上限导出</string>
     <string name="annotate_saved">已保存</string>
     <string name="annotate_copied">已复制</string>
     <string name="annotate_pick_image">选择图片</string>

@@ -100,6 +100,8 @@ class ImageAnnotateActivity : ComponentActivity() {
         private const val FEATURE_PICKER = "picker"
         private const val FEATURE_PAYLOAD = "payload"
         private const val MAX_DECODE_PX = 4096
+        /** 原图导出上限（P1）：超过则降采样，避免超大照片导出 OOM。 */
+        private const val MAX_FULL_DECODE_PX = 8192
 
         private fun start(context: Context, feature: String, id: Long = -1L): Boolean {
             val intent = Intent(context, ImageAnnotateActivity::class.java).apply {
@@ -275,23 +277,30 @@ class ImageAnnotateActivity : ComponentActivity() {
             try {
                 // B8：picker 模式按原图全分辨率重解码，坐标从预览尺寸映射过去；
                 // payload 模式交接位图就是原始尺寸，直接导出。
-                val full = if (uri != null) {
+                val decodeResult = if (uri != null && !isPreviewFullResolution(uri)) {
                     withContext(Dispatchers.IO) { decodeFull(uri) }
                 } else {
                     null
                 }
-                if (full != null && !full.isRecycled) {
+                if (decodeResult != null && !decodeResult.bitmap.isRecycled) {
+                    val full = decodeResult.bitmap
                     try {
                         val fullBase = BaseImage(full)
                         val scaled = AnnotateOps.scaleImage(doc.state, full.width, full.height)
+                        if (decodeResult.capped) {
+                            showToast(AnnotateR.string.annotate_export_capped)
+                        }
                         exportAnnotated(scaled, fullBase, kind)
                     } finally {
                         // 导出已同步完成（render / 落盘都在 exportAnnotated 内等待），
                         // 原图副本不再有人引用，立即回收整张大图。
                         if (!full.isRecycled) full.recycle()
                     }
+                } else if (uri != null) {
+                    // 原图 ≤ 4096：预览位图就是全图（含 EXIF 方向），直接导出，省一次解码。
+                    exportAnnotated(doc.state, currentBase, kind)
                 } else {
-                    // 原图解码失败 / payload 模式：回退预览底图，至少能导出。
+                    // 原图解码失败：回退预览底图，至少能导出。
                     exportAnnotated(doc.state, currentBase, kind)
                 }
             } finally {
@@ -346,23 +355,57 @@ class ImageAnnotateActivity : ComponentActivity() {
     }.getOrNull()
 
     /**
-     * 原分辨率解码（B8）：导出时用，不采样。
+     * 原分辨率解码（B8）：导出时用。
      *
      * 与 [decode] 走同一套 ImageDecoder（EXIF 方向一致，坐标映射才对得上），
-     * 失败再回退 BitmapFactory 全量解码。调用方负责在 IO 线程执行并回收。
+     * 失败再回退 BitmapFactory 全量解码。超过 [MAX_FULL_DECODE_PX] 长边时降采样，
+     * 并置 [DecodedFull.capped] 供调用方提示。
      */
-    private fun decodeFull(uri: Uri): Bitmap? = runCatching {
+    private fun decodeFull(uri: Uri): DecodedFull? = runCatching {
         val source = ImageDecoder.createSource(contentResolver, uri)
-        val drawable = ImageDecoder.decodeDrawable(source) { decoder, _, _ ->
+        var capped = false
+        val drawable = ImageDecoder.decodeDrawable(source) { decoder, info, _ ->
+            val longest = maxOf(info.size.width, info.size.height)
+            var sample = 1
+            while (longest / sample > MAX_FULL_DECODE_PX) {
+                sample *= 2
+                capped = true
+            }
+            decoder.setTargetSampleSize(sample)
             decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE)
         }
-        (drawable as? BitmapDrawable)?.bitmap ?: decodeFullWithBitmapFactory(uri)
+        (drawable as? BitmapDrawable)?.bitmap?.let { DecodedFull(it, capped) }
+            ?: decodeFullWithBitmapFactory(uri)
     }.getOrElse { decodeFullWithBitmapFactory(uri) }
 
-    private fun decodeFullWithBitmapFactory(uri: Uri): Bitmap? = runCatching {
-        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+    private fun decodeFullWithBitmapFactory(uri: Uri): DecodedFull? = runCatching {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        var sample = 1
+        var capped = false
+        val longest = maxOf(bounds.outWidth, bounds.outHeight)
+        while (longest / sample > MAX_FULL_DECODE_PX) {
+            sample *= 2
+            capped = true
+        }
+        val options = BitmapFactory.Options().apply { inSampleSize = sample }
+        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+            ?.let { DecodedFull(it, capped) }
     }.getOrNull()
+
+    /**
+     * 预览是否已是全分辨率：原图长边 ≤ [MAX_DECODE_PX] 时 [decode] 不采样，
+     * 导出无需再解码（P1）。EXIF 旋转只交换长宽，不影响「≤ 上限」的判断。
+     */
+    private fun isPreviewFullResolution(uri: Uri): Boolean = runCatching {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        bounds.outWidth > 0 && bounds.outHeight > 0 &&
+            maxOf(bounds.outWidth, bounds.outHeight) <= MAX_DECODE_PX
+    }.getOrDefault(false)
 }
+
+private data class DecodedFull(val bitmap: Bitmap, val capped: Boolean)
 
 internal enum class Dialog { None, Exit, Export, Replace }
 

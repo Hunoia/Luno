@@ -4,13 +4,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -39,6 +42,7 @@ import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
@@ -52,6 +56,7 @@ import hunoia.luno.annotate.R
 import hunoia.luno.annotate.model.AnnotateDocument
 import hunoia.luno.annotate.model.ToolKind
 import hunoia.luno.annotate.model.ToolStyle
+import hunoia.luno.annotate.render.exportPixelSize
 import hunoia.luno.ui.theme.CompactControlIconSize
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.SubMinInteractiveSize
@@ -96,7 +101,18 @@ fun AnnotateToolbar(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    ToolKind.entries.forEach { kind ->
+                    // 主工具在前、次级（荧光笔/直线/箭头）在后，中间加细分隔线；
+                    // 窄屏仍可整行横向滚动（P1 可发现性）。
+                    ToolDisplayOrder.forEachIndexed { index, kind ->
+                        if (index == PrimaryToolCount) {
+                            Box(
+                                modifier = Modifier
+                                    .padding(horizontal = 3.dp)
+                                    .width(1.dp)
+                                    .height(22.dp)
+                                    .background(MaterialTheme.colorScheme.outlineVariant),
+                            )
+                        }
                         ToolButton(
                             kind = kind,
                             selected = kind == tool,
@@ -123,6 +139,14 @@ fun AnnotateToolbar(
                             )
                         }
                         if (state.selection != null) {
+                            // 选区导出尺寸（P1）：导出前就能知道会得到多大图。
+                            val px = state.exportPixelSize()
+                            Text(
+                                text = "${px.width}×${px.height}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 6.dp),
+                            )
                             // 选区填充马赛克（B6）：整块铺块，作为普通元素可撤销/选中/删除。
                             CompactIconButton(
                                 icon = Icons.Default.BlurOn,
@@ -303,6 +327,22 @@ private fun labelFor(kind: ToolKind): Int = when (kind) {
     ToolKind.MOSAIC -> R.string.annotate_tool_mosaic
     ToolKind.SELECT -> R.string.annotate_tool_select
 }
+
+/** 工具显示顺序：主工具在前（PEN…SELECT），次级（荧光笔/直线/箭头）在分隔线后。 */
+private val ToolDisplayOrder: List<ToolKind> = listOf(
+    ToolKind.PEN,
+    ToolKind.ERASER,
+    ToolKind.RECT,
+    ToolKind.TEXT,
+    ToolKind.MOSAIC,
+    ToolKind.SELECT,
+    ToolKind.HIGHLIGHT,
+    ToolKind.LINE,
+    ToolKind.ARROW,
+)
+
+/** 分隔线前的工具数量（主工具区）。 */
+private const val PrimaryToolCount = 6
 
 /** 固定调色板：标注颜色属于“内容”，不跟主题动态取色。 */
 val AnnotatePalette: List<Long> = listOf(

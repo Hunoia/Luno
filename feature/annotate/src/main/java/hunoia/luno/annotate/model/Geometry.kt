@@ -52,6 +52,14 @@ data class PxRect(
     fun inset(dx: Float, dy: Float = dx): PxRect =
         PxRect(left + dx, top + dy, right - dx, bottom - dy)
 
+    /** 两矩形并集（用于图层/选中态合成）。 */
+    fun union(other: PxRect): PxRect = PxRect(
+        left = minOf(left, other.left),
+        top = minOf(top, other.top),
+        right = maxOf(right, other.right),
+        bottom = maxOf(bottom, other.bottom),
+    )
+
     companion object {
         /** 小于这个像素尺寸的拖动不当作选区（防误触，同计划 §8）。 */
         const val MIN_SELECTION_PX = 8f

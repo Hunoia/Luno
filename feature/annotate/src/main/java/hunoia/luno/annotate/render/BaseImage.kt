@@ -33,7 +33,8 @@ class BaseImage(source: Bitmap) {
     private val mosaicCache = LinkedHashMap<Int, Bitmap>()
 
     fun mosaicImage(cellSize: Float): Bitmap {
-        val cell = cellSize.roundToInt().coerceIn(4, 96)
+        // 量化到 4px 步进：滑杆连续拖动时缓存键稳定，避免反复重建缩略图。
+        val cell = ((cellSize / 4f).roundToInt() * 4).coerceIn(4, 96)
         mosaicCache.remove(cell)?.let { cached ->
             // 命中后重新插入，维持 LinkedHashMap 的访问顺序（真 LRU）。
             mosaicCache[cell] = cached
@@ -51,6 +52,6 @@ class BaseImage(source: Bitmap) {
     }
 
     private companion object {
-        const val MOSAIC_CACHE_LIMIT = 3
+        const val MOSAIC_CACHE_LIMIT = 6
     }
 }

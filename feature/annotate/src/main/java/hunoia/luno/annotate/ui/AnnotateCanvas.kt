@@ -3,6 +3,7 @@ package hunoia.luno.annotate.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -62,14 +63,20 @@ import hunoia.luno.annotate.model.ShapeElement
 import hunoia.luno.annotate.model.StrokeElement
 import hunoia.luno.annotate.model.TextElement
 import hunoia.luno.annotate.model.ToolKind
+import hunoia.luno.annotate.model.adjustCorner
 import hunoia.luno.annotate.model.bounds
+import hunoia.luno.annotate.model.cornerAt
+import hunoia.luno.annotate.model.mosaicBrushWidth
 import hunoia.luno.annotate.model.pointNearSegment
+import hunoia.luno.annotate.model.selectionHolds
+import hunoia.luno.annotate.model.strokeWidthInImagePx
 import hunoia.luno.annotate.model.transformed
+import hunoia.luno.annotate.model.translateSelection
 import hunoia.luno.annotate.model.translated
+import hunoia.luno.annotate.render.AnnotateGeometryCache
 import hunoia.luno.annotate.render.AnnotateVisuals
 import hunoia.luno.annotate.render.BaseImage
 import hunoia.luno.annotate.render.drawAnnotate
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -135,6 +142,9 @@ fun AnnotateCanvas(
     var textValue by remember { mutableStateOf("") }
     // 双指开始时递增：进行中的单指绘制据此丢弃草稿，避免缩放时留下半截笔迹。
     var viewTransformGeneration by remember { mutableStateOf(0) }
+    // 元素几何缓存（图片坐标）：缩放/平移时不重算每个点，元素增删/撤销时清空。
+    val geometryCache = remember { AnnotateGeometryCache() }
+    LaunchedEffect(state.elements) { geometryCache.clear() }
 
     val displayState by remember {
         derivedStateOf {
@@ -157,8 +167,8 @@ fun AnnotateCanvas(
         if (text.isNotEmpty()) {
             val existing = currentEditor.existing
             if (existing != null) {
-                // 只改文字本身：编辑旧文字不应被当前文字工具的风格覆写（审计 D4）。
-                document.replace(existing.copy(text = text))
+                // 只改文字本身与位置：编辑旧文字不应被当前文字工具的风格覆写（审计 D4）。
+                document.replace(existing.copy(text = text, position = currentEditor.position))
             } else {
                 document.add(
                     TextElement(
@@ -184,6 +194,7 @@ fun AnnotateCanvas(
         editor = null
         textValue = ""
         viewTransformGeneration = 0
+        geometryCache.clear()
     }
 
     LaunchedEffect(tool) {
@@ -303,10 +314,10 @@ fun AnnotateCanvas(
                                 ?.let { id -> document.state.elements.firstOrNull { it.id == id } }
                             val selectedBounds = selectedElement?.let { elementBounds(it, currentFit) }
                             val elementCorner = selectedBounds
-                                ?.let { cornerAt(it, currentFit, down.position, threshold) }
+                                ?.let { cornerAt(it, currentFit, down.position.asPt(), threshold) }
                             val existingSelection = document.state.selection?.normalized()
                             val selectionCorner = existingSelection
-                                ?.let { cornerAt(it, currentFit, down.position, threshold) }
+                                ?.let { cornerAt(it, currentFit, down.position.asPt(), threshold) }
                             val hovered = if (elementCorner == null && selectionCorner == null) {
                                 hitElementAt(document, startImage, currentFit)
                             } else {
@@ -374,7 +385,7 @@ fun AnnotateCanvas(
                                 existingSelection != null && selectionHolds(
                                     existingSelection,
                                     currentFit,
-                                    down.position,
+                                    down.position.asPt(),
                                 ) -> {
                                     if (document.state.selectedElementId != null) {
                                         document.selectElement(null)
@@ -586,6 +597,7 @@ fun AnnotateCanvas(
                 showSelection = showSelection,
                 selectionOverride = draftSelection,
                 scrimAroundImage = base != null,
+                geometryCache = geometryCache,
             )
             // 矩形擦拖拽预览（C1）：白色虚线框，抬起即消失。
             draftErase?.let { rect ->
@@ -642,10 +654,45 @@ fun AnnotateCanvas(
             val viewPos = fit.imageToView(currentEditor.position)
             val focusRequester = remember { FocusRequester() }
             var hadFocus by remember { mutableStateOf(false) }
+            // 编辑器位置由 handle 拖动维护：editor 状态每次 move 更新，
+            // pointerInput 用 Unit 键避免拖动中重启。
+            val editorState = rememberUpdatedState(editor)
             Row(
                 modifier = Modifier.offset { IntOffset(viewPos.x.roundToInt(), viewPos.y.roundToInt()) },
                 verticalAlignment = Alignment.Top,
             ) {
+                // 拖动把手：编辑中直接挪文字位置（P1），不改变文字内容。
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .pointerInput(Unit) {
+                            var startPos = Pt(0f, 0f)
+                            var accX = 0f
+                            var accY = 0f
+                            detectDragGestures(
+                                onDragStart = {
+                                    startPos = editorState.value?.position ?: Pt(0f, 0f)
+                                    accX = 0f
+                                    accY = 0f
+                                },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    accX += dragAmount.x
+                                    accY += dragAmount.y
+                                    val currentEditorNow = editorState.value ?: return@detectDragGestures
+                                    val currentFitNow = latestFit ?: return@detectDragGestures
+                                    editor = currentEditorNow.copy(
+                                        position = Pt(
+                                            x = (startPos.x + accX / currentFitNow.scale)
+                                                .coerceIn(0f, document.imageWidth.toFloat()),
+                                            y = (startPos.y + accY / currentFitNow.scale)
+                                                .coerceIn(0f, document.imageHeight.toFloat()),
+                                        ),
+                                    )
+                                },
+                            )
+                        },
+                )
                 BasicTextField(
                     value = textValue,
                     onValueChange = { textValue = it },
@@ -704,67 +751,10 @@ private data class TextEditor(
     val existing: TextElement?,
 )
 
-private enum class Corner { TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT }
-
-private fun cornerAt(
-    rect: PxRect,
-    fit: ContainFit,
-    viewPoint: Offset,
-    threshold: Float,
-): Corner? {
-    val view = fit.imageRectToView(rect.normalized())
-    val corners = listOf(
-        Corner.TOP_LEFT to Offset(view.left, view.top),
-        Corner.TOP_RIGHT to Offset(view.right, view.top),
-        Corner.BOTTOM_LEFT to Offset(view.left, view.bottom),
-        Corner.BOTTOM_RIGHT to Offset(view.right, view.bottom),
-    )
-    return corners.firstOrNull { (_, p) ->
-        abs(p.x - viewPoint.x) <= threshold && abs(p.y - viewPoint.y) <= threshold
-    }?.first
-}
-
-private fun adjustCorner(rect: PxRect, corner: Corner, p: Pt): PxRect = when (corner) {
-    Corner.TOP_LEFT -> PxRect(p.x, p.y, rect.right, rect.bottom)
-    Corner.TOP_RIGHT -> PxRect(rect.left, p.y, p.x, rect.bottom)
-    Corner.BOTTOM_LEFT -> PxRect(p.x, rect.top, rect.right, p.y)
-    Corner.BOTTOM_RIGHT -> PxRect(rect.left, rect.top, p.x, p.y)
-}
-
-/** 选区整体平移，保持尺寸不缩放：位移按图边夹取。 */
-private fun translateSelection(
-    rect: PxRect,
-    dx: Float,
-    dy: Float,
-    imageWidth: Float,
-    imageHeight: Float,
-): PxRect {
-    val clampedDx = dx.coerceIn(-rect.left, (imageWidth - rect.right).coerceAtLeast(-rect.left))
-    val clampedDy = dy.coerceIn(-rect.top, (imageHeight - rect.bottom).coerceAtLeast(-rect.top))
-    return PxRect(
-        left = rect.left + clampedDx,
-        top = rect.top + clampedDy,
-        right = rect.right + clampedDx,
-        bottom = rect.bottom + clampedDy,
-    )
-}
-
-private fun selectionHolds(rect: PxRect, fit: ContainFit, viewPoint: Offset): Boolean =
-    fit.imageRectToView(rect.normalized()).contains(viewPoint.asPt())
-
 private fun Pt.clampToImage(document: AnnotateDocument): Pt = Pt(
     x = x.coerceIn(0f, document.imageWidth.toFloat()),
     y = y.coerceIn(0f, document.imageHeight.toFloat()),
 )
-
-/**
- * 屏幕 dp 线宽 → 图片像素（B9）。落笔瞬间换算，元素里只存图片像素。
- */
-private fun strokeWidthInImagePx(
-    styleDp: Float,
-    density: Float,
-    fit: ContainFit,
-): Float = (styleDp * density / fit.scale).coerceIn(0.5f, 512f)
 
 /**
  * 元素命中框（图片像素）。文字用真实测量框；其余走模型层包围盒。
@@ -830,14 +820,5 @@ private fun AnnotationElement.withId(id: Long): AnnotationElement = when (this) 
     is TextElement -> copy(id = id)
     is MosaicElement -> copy(id = id)
 }
-
-/**
- * 马赛克涂抹笔刷直径（图片像素）。
- *
- * 不单独给笔刷滑杆：颗粒越大笔刷越粗，视觉上「一把刷过去」的效果稳定；
- * 下限 40 图片像素保证高分辨率截图上也有可见笔触。
- */
-private fun mosaicBrushWidth(cellSize: Float): Float =
-    maxOf(cellSize * 5f, 40f).coerceAtMost(256f)
 
 private fun Offset.asPt(): Pt = Pt(x, y)
