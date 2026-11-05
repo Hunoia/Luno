@@ -17,6 +17,7 @@ import hunoia.luno.execute.ExecuteCall
 import hunoia.luno.execute.ExecuteEnvironment
 import hunoia.luno.execute.LaunchSpec
 import hunoia.luno.core.domain.ActionDispatchPort
+import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.core.domain.SurfaceActionDispatch
 import hunoia.luno.execute.SurfaceHost
 import hunoia.luno.runtime.dispatch.ActionDispatch
@@ -47,6 +48,12 @@ object SurfaceActionRuntime {
     @Volatile
     private var advanced = AdvancedSettings()
 
+    /** 动作库快照：`internal.libraryRef` 需要同步解析，不能每次 await 配置流。 */
+    @Volatile
+    private var actionLibrary = ActionLibrarySettings()
+
+    private var appContextRef: Context? = null
+
     private var installed = false
 
     /**
@@ -66,13 +73,21 @@ object SurfaceActionRuntime {
             hunoia.luno.service.DispatchClient.dispatch(action)
         })
         if (serviceProcess) {
+            appContextRef = appContext
             AppContext.applicationScope?.launch(Dispatchers.IO) {
                 runCatching { ConfigProvider.getAdvancedSettings() }
                     .onSuccess { advanced = it }
                 ConfigProvider.advancedSettings.collect { advanced = it }
             }
+            // 动作库引用（internal.libraryRef）在 Surface 侧同样要能解析。
+            AppContext.applicationScope?.launch(Dispatchers.IO) {
+                runCatching { ConfigProvider.getActionLibrarySettings() }
+                    .onSuccess { actionLibrary = it }
+                ConfigProvider.actionLibrarySettings.collect { actionLibrary = it }
+            }
             SurfaceDispatch.install(SurfaceActionDispatch { request, onSettled ->
-                dispatcher(appContext).submit(
+                // 单例复用：执行器与能力闸不应每次点击重建（见 ExecutionSinglePortTest）。
+                dispatcher.submit(
                     ExecuteCall(request = request),
                     onSettled = { settlement -> onSettled(settlement.succeeded) },
                 )
@@ -89,14 +104,25 @@ object SurfaceActionRuntime {
     private fun isServiceProcess(): Boolean =
         Application.getProcessName()?.endsWith(":service") == true
 
-    private fun dispatcher(context: Context): ActionDispatcher = ActionDispatcher(
+    /**
+     * 进程级执行口：整个 `:service` 进程共用一个实例（执行器 / 能力闸只建一次）。
+     * 与手势链路各自持有一个 Dispatcher，但两者都走同一套
+     * `ActionRequest → Dispatcher → Capability Gate → Executor`，不构成旁路。
+     */
+    private val dispatcher: ActionDispatcher by lazy {
+        buildDispatcher(requireNotNull(appContextRef) { "SurfaceActionRuntime.install 未调用" })
+    }
+
+    private fun buildDispatcher(context: Context): ActionDispatcher = ActionDispatcher(
         environment = environment(context),
         surfaces = surfaces(context),
         messages = LunoExecuteMessages(context),
         catalog = hunoia.luno.actions.LunoActionCatalog,
         factory = hunoia.luno.actions.LunoActionFactory,
         scope = scope,
-        libraryEntry = { null },
+        libraryEntry = { entryId ->
+            actionLibrary.entries.find { it.id == entryId }?.storedAction
+        },
         executors = listOf(
             hunoia.luno.action.executor.AppExecutors(),
             hunoia.luno.action.executor.IntentExecutors(
