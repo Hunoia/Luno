@@ -74,7 +74,6 @@ import hunoia.luno.ui.navigation.ActionLibraryEdit
 
 import hunoia.luno.picker.ActionSelectContent
 import hunoia.luno.actions.library.ActionLibraryEditScreen
-import hunoia.luno.ui.component.sheet.AppPickerSheet
 import hunoia.luno.ui.settings.action.LogSettingsScreen
 import hunoia.luno.ui.settings.action.ScreenPickSettingsScreen
 import hunoia.luno.ui.settings.action.RecentAppsBlocklistScreen
@@ -118,6 +117,7 @@ import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.config.model.ActionSettings as ActionTuning
 import kotlin.reflect.KType
+import hunoia.luno.ui.component.sheet.LunoAppPicker
 
 
 
@@ -273,14 +273,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         ruleId = it.toRoute<LinkDispatchRuleEdit>().ruleId,
                         prefillPattern = it.toRoute<LinkDispatchRuleEdit>().pattern,
                         onBack = { navController.popBackStack() },
-                        appPicker = { request ->
-                            AppPickerSheet(
-                                onDismissRequest = request.onDismiss,
-                                selectedPackageNames = request.selectedPackageNames,
-                                confirmOnSelect = true,
-                                onConfirm = request.onConfirm,
-                            )
-                        },
+                        appPicker = { request -> LunoAppPicker(request) },
                     )
                 }
                 myComposable<RecentAppsBlocklist> {
@@ -345,13 +338,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                     ButtonVisibilityEditScreen(
                         profileId = it.toRoute<ButtonVisibilityEdit>().profileId,
                         onBack = { navController.popBackStack() },
-                        appPicker = { request ->
-                            AppPickerSheet(
-                                onDismissRequest = request.onDismiss,
-                                selectedPackageNames = request.selectedPackageNames,
-                                onConfirm = request.onConfirm,
-                            )
-                        },
+                        appPicker = { request -> LunoAppPicker(request) },
                     )
                 }
                 myComposable<NotificationBlocklist> {
@@ -440,14 +427,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                     SearchEngineEditScreen(
                         engineId = it.toRoute<SearchEngineEdit>().engineId,
                         onBack = { navController.popBackStack() },
-                        appPicker = { request ->
-                            AppPickerSheet(
-                                onDismissRequest = request.onDismiss,
-                                selectedPackageNames = request.selectedPackageNames,
-                                confirmOnSelect = true,
-                                onConfirm = request.onConfirm,
-                            )
-                        },
+                        appPicker = { request -> LunoAppPicker(request) },
                     )
                 }
                 myComposable<SubGestureEditor> {
@@ -471,18 +451,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onBack = { navController.popBackStack() },
                         entryId = it.toRoute<ActionLibraryEdit>().entryId,
                         typeId = it.toRoute<ActionLibraryEdit>().typeId,
-                        appPicker = { request ->
-                            AppPickerSheet(
-                                onDismissRequest = request.onDismiss,
-                                selectedPackageNames = request.selectedPackageNames,
-                                confirmOnSelect = true,
-                                onSelectApp = request.onSelect?.let { select ->
-                                    { app -> select(app.packageName, app.userId) }
-                                },
-                                selectedUserId = request.selectedUserId,
-                                onConfirm = request.onConfirm,
-                            )
-                        },
+                        appPicker = { request -> LunoAppPicker(request) },
                     )
                 }
             }

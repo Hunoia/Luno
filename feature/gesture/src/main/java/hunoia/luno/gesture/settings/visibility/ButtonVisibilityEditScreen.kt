@@ -182,6 +182,8 @@ fun ButtonVisibilityEditScreen(
                         AppPickerRequest(
                             selectedPackageNames = current.packageNames.toList(),
                             selectedUserId = null,
+                            // 可见性规则是多选，需要底部确认按钮
+                            confirmOnSelect = false,
                             onDismiss = { showAppPicker = false },
                             onConfirm = { selected ->
                                 draft = current.copy(packageNames = selected.toSet())

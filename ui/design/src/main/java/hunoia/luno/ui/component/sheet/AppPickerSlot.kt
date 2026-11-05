@@ -11,6 +11,8 @@ import androidx.compose.runtime.Composable
 class AppPickerRequest(
     val selectedPackageNames: List<String>,
     val selectedUserId: Int?,
+    /** 单选场景点击即确认；多选（如可见性规则）需要底部确认按钮。 */
+    val confirmOnSelect: Boolean = true,
     val onDismiss: () -> Unit,
     val onConfirm: (List<String>) -> Unit,
     /** 单选（含分身 userId）：点击即确认。 */
