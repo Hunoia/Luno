@@ -56,7 +56,7 @@ import kotlinx.coroutines.withContext
 import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.theme.*
 import hunoia.luno.ui.component.screen.LunoScreenPlain
-import hunoia.luno.ui.settings.habit.HabitPickerDialog
+import hunoia.luno.gridpanel.habit.HabitPickerDialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /** 已分配 id、等着某个 Activity 回话的小部件。 */

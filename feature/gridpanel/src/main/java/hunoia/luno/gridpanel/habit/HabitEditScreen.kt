@@ -1,4 +1,4 @@
-package hunoia.luno.ui.settings.habit
+package hunoia.luno.gridpanel.habit
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -49,7 +49,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.R
+import hunoia.luno.gridpanel.R
 import hunoia.luno.config.model.Habit
 import hunoia.luno.config.model.HabitConfig
 import hunoia.luno.config.model.ThemeColorKey

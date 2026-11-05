@@ -83,15 +83,15 @@ import hunoia.luno.ui.settings.statusbar.StatusBarIconSettingsScreen
 import hunoia.luno.ui.settings.permission.PrivilegedPermissionsScreen
 import hunoia.luno.ui.settings.action.MiniWindowAdjustScreen
 import hunoia.luno.ui.settings.action.MiniWindowSettingsScreen
-import hunoia.luno.ui.settings.link.LinkDispatchEditScreen
-import hunoia.luno.ui.settings.link.LinkDispatchSettingsScreen
+import hunoia.luno.link.settings.LinkDispatchEditScreen
+import hunoia.luno.link.settings.LinkDispatchSettingsScreen
 import hunoia.luno.ui.settings.floatball.FloatBallEditScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelEditScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelListScreen
 import hunoia.luno.ui.settings.action.gridpanel.GridPanelEditScreen
 import hunoia.luno.ui.settings.action.gridpanel.GridPanelListScreen
-import hunoia.luno.ui.settings.habit.HabitEditScreen
-import hunoia.luno.ui.settings.habit.HabitListScreen
+import hunoia.luno.gridpanel.habit.HabitEditScreen
+import hunoia.luno.gridpanel.habit.HabitListScreen
 import hunoia.luno.gridpanel.todo.TodoListScreen
 import hunoia.luno.ui.settings.search.SearchEngineSettingsScreen
 import hunoia.luno.ui.settings.search.SearchEngineEditScreen
@@ -262,6 +262,14 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         ruleId = it.toRoute<LinkDispatchRuleEdit>().ruleId,
                         prefillPattern = it.toRoute<LinkDispatchRuleEdit>().pattern,
                         onBack = { navController.popBackStack() },
+                        appPicker = { request ->
+                            AppPickerSheet(
+                                onDismissRequest = request.onDismiss,
+                                selectedPackageNames = request.selectedPackageNames,
+                                confirmOnSelect = true,
+                                onConfirm = request.onConfirm,
+                            )
+                        },
                     )
                 }
                 myComposable<RecentAppsBlocklist> {

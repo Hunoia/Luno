@@ -62,4 +62,32 @@
     <string name="todo_list_title">待办</string>
     <string name="todo_save">保存</string>
     <string name="todo_text_hint">如：买牛奶、交电费</string>
+    <string name="action_settings_habit_group">习惯</string>
+    <string name="habit_add">新建习惯</string>
+    <string name="habit_color">颜色</string>
+    <string name="habit_create_title">新建习惯</string>
+    <string name="habit_delete">删除习惯</string>
+    <string name="habit_delete_confirm">将删除该习惯及其全部打卡记录，无法恢复</string>
+    <string name="habit_edit_title">编辑习惯</string>
+    <string name="habit_empty">还没有习惯，点右上角新建</string>
+    <string name="habit_interval">打卡频率</string>
+    <string name="habit_interval_summary">每 %1$d 天打卡一次</string>
+    <string name="habit_list_title">习惯</string>
+    <string name="habit_name">习惯名</string>
+    <string name="habit_name_hint">如：跑步、喝水</string>
+    <string name="habit_pick_empty">还没有习惯，请先到「设置 → 习惯」新建</string>
+    <string name="habit_pick_title">选择习惯</string>
+    <string name="habit_recent_checks">近 30 天</string>
+    <string name="habit_save">保存</string>
+    <string name="habit_streak_summary">连续 %1$d 天</string>
+
+    <string-array name="habit_weekdays">
+        <item>一</item>
+        <item>二</item>
+        <item>三</item>
+        <item>四</item>
+        <item>五</item>
+        <item>六</item>
+        <item>日</item>
+    </string-array>
 </resources>

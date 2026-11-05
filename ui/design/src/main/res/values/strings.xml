@@ -6,4 +6,21 @@
     <string name="go_back">返回</string>
     <string name="search_clear_cd">清除</string>
     <string name="search_hint_all">搜索</string>
+    <string name="color_picker_theme_tab">主题色</string>
+    <string name="custom">自定义</string>
+    <string name="theme_color_on_surface">文字色</string>
+    <string name="theme_color_on_surface_variant">辅助文字</string>
+    <string name="theme_color_outline">轮廓色</string>
+    <string name="theme_color_outline_variant">轮廓变体</string>
+    <string name="theme_color_primary">主要色</string>
+    <string name="theme_color_primary_container">主要容器</string>
+    <string name="theme_color_secondary">次要色</string>
+    <string name="theme_color_secondary_container">次要容器</string>
+    <string name="theme_color_surface">表面色</string>
+    <string name="theme_color_surface_container">中层表面</string>
+    <string name="theme_color_surface_container_high">高层表面</string>
+    <string name="theme_color_surface_container_low">低层表面</string>
+    <string name="theme_color_surface_variant">表面变体</string>
+    <string name="theme_color_tertiary">第三色</string>
+    <string name="theme_color_tertiary_container">第三容器</string>
 </resources>

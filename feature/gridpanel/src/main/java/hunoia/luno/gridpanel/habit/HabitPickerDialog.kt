@@ -1,4 +1,4 @@
-package hunoia.luno.ui.settings.habit
+package hunoia.luno.gridpanel.habit
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,7 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import hunoia.luno.R
+import hunoia.luno.gridpanel.R
 import hunoia.luno.config.model.Habit
 
 /**

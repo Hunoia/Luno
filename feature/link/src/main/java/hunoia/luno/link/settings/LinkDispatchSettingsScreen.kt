@@ -1,4 +1,4 @@
-package hunoia.luno.ui.settings.link
+package hunoia.luno.link.settings
 
 import android.content.Intent
 import android.provider.Settings
@@ -34,7 +34,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.R
+import hunoia.luno.link.R
 import hunoia.luno.bridge.system.copyText
 import hunoia.luno.bridge.system.readClipboardText
 import hunoia.luno.config.model.ActionSettings

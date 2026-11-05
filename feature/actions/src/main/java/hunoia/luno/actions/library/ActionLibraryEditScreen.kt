@@ -49,6 +49,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.lifecycle.viewmodel.compose.viewModel
 import hunoia.luno.actions.R
+import hunoia.luno.ui.component.sheet.AppPickerRequest
+import hunoia.luno.ui.component.sheet.AppPickerSlot
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.action.controller.ShellController

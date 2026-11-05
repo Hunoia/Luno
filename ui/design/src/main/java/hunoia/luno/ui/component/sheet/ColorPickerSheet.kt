@@ -62,7 +62,7 @@ import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.SheetTopShape
 import hunoia.luno.ui.theme.ExtraSmallShape
 import hunoia.luno.ui.theme.LargeShape
-import hunoia.luno.R
+import hunoia.luno.design.R
 import hunoia.luno.config.model.ThemeColorKey
 import hunoia.luno.ui.theme.displayNameRes
 import hunoia.luno.ui.theme.resolveColor

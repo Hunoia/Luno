@@ -204,15 +204,6 @@
     <string name="habit_save">保存</string>
     <string name="habit_recent_checks">近 30 天</string>
     <string name="habit_recent_checks_hint">点按切换当天是否已打卡（可补/改）</string>
-    <string-array name="habit_weekdays">
-        <item>一</item>
-        <item>二</item>
-        <item>三</item>
-        <item>四</item>
-        <item>五</item>
-        <item>六</item>
-        <item>日</item>
-    </string-array>
     <string name="habit_check_today">今天</string>
     <string name="habit_check_yesterday">昨天</string>
     <string name="habit_check_days_ago">%1$d 天前</string>

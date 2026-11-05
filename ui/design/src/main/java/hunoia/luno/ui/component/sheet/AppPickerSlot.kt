@@ -1,4 +1,4 @@
-package hunoia.luno.actions.library
+package hunoia.luno.ui.component.sheet
 
 import androidx.compose.runtime.Composable
 
