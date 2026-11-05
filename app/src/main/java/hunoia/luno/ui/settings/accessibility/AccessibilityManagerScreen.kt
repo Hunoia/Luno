@@ -31,9 +31,9 @@ import hunoia.luno.R
 import hunoia.luno.a11y.A11yManagerFacade
 import hunoia.luno.a11y.A11yServiceEntry
 import hunoia.luno.bridge.system.hasWriteSecureSettingsPermission
-import hunoia.luno.domain.AppGraph
-import hunoia.luno.domain.system.PrivilegedPermission
+import hunoia.luno.facade.PrivilegedPermission
 import hunoia.luno.shizuku.ShizukuManager
+import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.NoticeBanner
 import hunoia.luno.ui.component.row.LunoGroup
@@ -66,6 +66,7 @@ import kotlinx.coroutines.withContext
 fun AccessibilityManagerScreen(
     onBack: () -> Unit,
 ) {
+    val facades = LocalFacades.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var tick by remember { mutableIntStateOf(0) }
@@ -92,13 +93,13 @@ fun AccessibilityManagerScreen(
     // isKeepAliveEnabled = 保活开关 && WRITE_SECURE_SETTINGS：两者齐备守护才写得回去。
     LaunchedEffect(tick) {
         keepAliveOn = runCatching {
-            AppGraph.system.loadHomePermissionState(context).isKeepAliveEnabled
+            facades.system.loadHomePermissionState(context).isKeepAliveEnabled
         }.getOrDefault(false)
     }
 
     val hasWriteSecure = remember(tick) { context.hasWriteSecureSettingsPermission() }
     val serviceOn = remember(tick) {
-        AppGraph.system.privilegedPermissionStatus(context)
+        facades.system.privilegedPermissionStatus(context)
             .firstOrNull { it.permission == PrivilegedPermission.ACCESSIBILITY }
             ?.granted == true
     }
@@ -173,7 +174,7 @@ fun AccessibilityManagerScreen(
                 },
                 shape = segmentedShape(0, 3),
                 onClick = {
-                    AppGraph.system
+                    facades.system
                         .privilegedPermissionIntent(context, PrivilegedPermission.ACCESSIBILITY)
                         ?.let { intent -> runCatching { context.startActivity(intent) } }
                 },

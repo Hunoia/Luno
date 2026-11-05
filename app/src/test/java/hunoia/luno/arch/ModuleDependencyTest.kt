@@ -17,7 +17,7 @@ class ModuleDependencyTest {
 
     /** 模块 → 允许依赖的模块（只允许这些，且必须与声明完全一致）。 */
     private val knownModules: Set<String> = setOf(
-        ":core:common", ":core:domain", ":core:bridge", ":core:data", ":core:runtime",
+        ":core:common", ":core:domain", ":core:bridge", ":core:data", ":core:runtime", ":core:facade",
         ":ui:design", ":capability:launch", ":capability:ocr",
         ":feature:execute", ":feature:actions",
         ":feature:link", ":feature:search", ":feature:quicklaunch", ":feature:gesture",
@@ -33,7 +33,9 @@ class ModuleDependencyTest {
         ":core:runtime" to setOf(
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
         ),
-        ":ui:design" to setOf(":core:common", ":core:domain", ":core:bridge"),
+        // 门面契约（UI 可见）：只放契约与 DTO，实现留在 :app
+        ":core:facade" to setOf(":core:common", ":core:domain", ":core:data"),
+        ":ui:design" to setOf(":core:common", ":core:domain", ":core:bridge", ":core:facade"),
         ":capability:launch" to setOf(
             ":core:common", ":core:domain", ":core:data", ":core:bridge",
         ),

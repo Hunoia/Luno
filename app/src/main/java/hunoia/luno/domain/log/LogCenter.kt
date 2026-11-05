@@ -13,6 +13,9 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import hunoia.luno.facade.LogFacade
+import hunoia.luno.facade.LogFileInfo
+import hunoia.luno.facade.LogStats
 
 /**
  * 运行日志默认实现：读写 `:core:common` 的 [LunoLog]，导出到缓存后走系统分享。

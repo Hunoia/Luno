@@ -1,6 +1,8 @@
 package hunoia.luno.ui
 
 import hunoia.luno.domain.AppGraph
+import androidx.compose.runtime.CompositionLocalProvider
+import hunoia.luno.ui.facade.LocalFacades
 
 import android.Manifest
 import android.content.Intent
@@ -54,10 +56,13 @@ class MainActivity : ComponentActivity() {
         handleTodoListIntent(intent)
 
         setContent {
-            val created = rememberNavController()
-            // 无 key 的 remember：重建时重新求值，但 cached 已非 null，稳定返回同一实例。
-            val navController = remember { cachedNavController ?: created.also { cachedNavController = it } }
-            SideGestureApp(navController)
+            // 门面注入点（architecture §8.4）：页面与状态持有者只读 LocalFacades。
+            CompositionLocalProvider(LocalFacades provides AppGraph) {
+                val created = rememberNavController()
+                // 无 key 的 remember：重建时重新求值，但 cached 已非 null，稳定返回同一实例。
+                val navController = remember { cachedNavController ?: created.also { cachedNavController = it } }
+                SideGestureApp(navController)
+            }
         }
 
         // 只隐藏启动器拉起的主 task；图片标注等独立 task 不受影响。开关变化即时生效。

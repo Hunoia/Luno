@@ -1,17 +1,12 @@
 package hunoia.luno.domain.system
 
 import android.content.Context
+import hunoia.luno.facade.HomePermissionState
 import hunoia.luno.bridge.system.hasWriteSecureSettingsPermission
 import hunoia.luno.bridge.system.isAccessibilitySettingsOn
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.service.DispatchClient
 import hunoia.luno.service.SideGestureService
-
-data class HomePermissionState(
-    val isGestureEnabled: Boolean,
-    val isAccessibilityEnabled: Boolean,
-    val isKeepAliveEnabled: Boolean,
-)
 
 object PermissionStateUseCase {
 

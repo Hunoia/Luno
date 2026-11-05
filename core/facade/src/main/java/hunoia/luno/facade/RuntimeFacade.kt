@@ -1,4 +1,4 @@
-package hunoia.luno.domain.runtime
+package hunoia.luno.facade
 
 import android.content.Context
 import hunoia.luno.core.domain.StoredAction
@@ -16,11 +16,3 @@ interface RuntimeFacade {
 }
 
 /** `RuntimeFacade` 的默认实现：只做委托，不新增状态。 */
-object RuntimeActions : RuntimeFacade {
-
-    override fun dispatch(action: StoredAction): Boolean =
-        hunoia.luno.service.DispatchClient.dispatch(action)
-
-    override fun restoreServicesOnce(context: Context) =
-        hunoia.luno.service.ServiceAutoStart.restoreOnce(context)
-}

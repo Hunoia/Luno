@@ -1,4 +1,4 @@
-package hunoia.luno.domain.log
+package hunoia.luno.facade
 
 import android.content.Context
 import hunoia.luno.core.LogLevel

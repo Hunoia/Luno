@@ -53,10 +53,10 @@ import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.InitialSettings
-import hunoia.luno.domain.AppGraph
 import hunoia.luno.domain.gesture.GestureConfig
-import hunoia.luno.domain.system.PrivilegedPermission
+import hunoia.luno.facade.PrivilegedPermission
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -91,21 +91,22 @@ fun ActionSettingsTab(
     onNavToHabits: () -> Unit = {},
     onNavToTodos: () -> Unit = {},
 ) {
+    val facades = LocalFacades.current
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var showActionPanelStyle by remember { mutableStateOf(false) }
     var showPointer by remember { mutableStateOf(false) }
     var showFontScale by remember { mutableStateOf(false) }
-    var fontScale by remember { mutableFloatStateOf(AppGraph.system.fontScale(context)) }
+    var fontScale by remember { mutableFloatStateOf(facades.system.fontScale(context)) }
     var canWriteSystemSettings by remember {
-        mutableStateOf(AppGraph.system.canWriteSystemSettings(context))
+        mutableStateOf(facades.system.canWriteSystemSettings(context))
     }
     var fontScalePermissionPending by remember { mutableStateOf(false) }
     var resumeTick by remember { mutableIntStateOf(0) }
     val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = ActionSettings())
     val gestureSettings by TuneConfig.gesture.collectAsStateWithLifecycle(initialValue = GestureSettings())
     val initialSettings by GestureConfig.initial.collectAsStateWithLifecycle(initialValue = InitialSettings())
-    val hideLunoFromRecents by AppGraph.system.hideLunoFromRecents
+    val hideLunoFromRecents by facades.system.hideLunoFromRecents
         .collectAsStateWithLifecycle(initialValue = true)
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -118,8 +119,8 @@ fun ActionSettingsTab(
     }
 
     LaunchedEffect(resumeTick) {
-        fontScale = AppGraph.system.fontScale(context)
-        canWriteSystemSettings = AppGraph.system.canWriteSystemSettings(context)
+        fontScale = facades.system.fontScale(context)
+        canWriteSystemSettings = facades.system.canWriteSystemSettings(context)
         if (fontScalePermissionPending) {
             fontScalePermissionPending = false
             if (canWriteSystemSettings) showFontScale = true
@@ -132,7 +133,7 @@ fun ActionSettingsTab(
             return
         }
         fontScalePermissionPending = true
-        val intent = AppGraph.system.privilegedPermissionIntent(
+        val intent = facades.system.privilegedPermissionIntent(
             context,
             PrivilegedPermission.WRITE_SYSTEM_SETTINGS,
         ) ?: run {
@@ -144,9 +145,9 @@ fun ActionSettingsTab(
     }
 
     fun commitFontScale(value: Float): Boolean {
-        val ok = AppGraph.system.setFontScale(context, value)
+        val ok = facades.system.setFontScale(context, value)
         if (ok) {
-            fontScale = AppGraph.system.fontScale(context)
+            fontScale = facades.system.fontScale(context)
         } else {
             showToast(R.string.font_scale_write_failed)
         }
@@ -287,7 +288,7 @@ fun ActionSettingsTab(
                         subtitle = stringResource(R.string.hide_luno_from_recents_hint),
                         checked = hideLunoFromRecents,
                         onCheckedChange = { hidden ->
-                            scope.launch { AppGraph.system.setHideLunoFromRecents(hidden) }
+                            scope.launch { facades.system.setHideLunoFromRecents(hidden) }
                         },
                         shape = segmentedShape(3, 4),
                     )

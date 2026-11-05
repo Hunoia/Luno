@@ -1,6 +1,6 @@
 package hunoia.luno.ui.home
 
-import hunoia.luno.domain.AppGraph
+import hunoia.luno.facade.Facades
 
 import android.content.Context
 import android.net.Uri
@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import hunoia.luno.core.LOG_TAG
 
-class HomeVM : HomeVMBase() {
+class HomeVM(facades: Facades) : HomeVMBase(facades) {
 
     override val initialState: UiState = UiState()
 
@@ -48,7 +48,8 @@ class HomeVM : HomeVMBase() {
             },
             cancelable = false
         ) {
-            BackupService.backup(context, saveTo) { toast(it) }
+            facades.backup.backup(context, saveTo)
+            toast(hunoia.luno.R.string.backup_success)
         }
     }
 
@@ -59,7 +60,7 @@ class HomeVM : HomeVMBase() {
             },
             cancelable = false
         ) {
-            when (val result = BackupService.precheckRestore(context, restoreFrom)) {
+            when (val result = facades.backup.precheckRestore(context, restoreFrom)) {
                 RestorePrecheckResult.Passed -> withContext(Dispatchers.Main) { onPassed() }
                 is RestorePrecheckResult.Failed -> toast(result.reason.stringRes)
             }
@@ -74,7 +75,8 @@ class HomeVM : HomeVMBase() {
             },
             cancelable = false
         ) {
-            BackupService.restore(context, restoreFrom) { toast(it) }
+            facades.backup.restore(context, restoreFrom)
+            toast(hunoia.luno.R.string.restore_success)
             updatePermissionState()
             refreshShizukuStatus()
         }
@@ -160,7 +162,7 @@ class HomeVM : HomeVMBase() {
             }
             saveGestureSwitchEnabled(false)
             viewModelScope.launch {
-                runCatching { AppGraph.system.setKeepAliveEnabled(AppContext.get(), false) { _ -> } }
+                runCatching { facades.system.setKeepAliveEnabled(AppContext.get(), false) { _ -> } }
             }
             return
         }
@@ -181,8 +183,8 @@ class HomeVM : HomeVMBase() {
                 }
             }
             if (wss) {
-                runCatching { AppGraph.system.setKeepAliveEnabled(context, true) { _ -> } }
-                val ok = runCatching { AppGraph.system.enableAccessibility(context) }.getOrDefault(false)
+                runCatching { facades.system.setKeepAliveEnabled(context, true) { _ -> } }
+                val ok = runCatching { facades.system.enableAccessibility(context) }.getOrDefault(false)
                 if (ok) {
                     pendingEnableByAccessibility = false
                     commitGestureSwitch(true)
@@ -201,13 +203,13 @@ class HomeVM : HomeVMBase() {
         pendingEnableByAccessibility = false
         viewModelScope.launch {
             val context = AppContext.get()
-            val state = AppGraph.system.loadHomePermissionState(context)
+            val state = facades.system.loadHomePermissionState(context)
             if (!state.isAccessibilityEnabled) {
                 updateUiState { it.copy(isGestureSwitchEnabled = false).withRuntimeStatus() }
                 withContext(Dispatchers.Main) { onRetryFailed() }
                 return@launch
             }
-            runCatching { AppGraph.system.setKeepAliveEnabled(context, true) { _ -> } }
+            runCatching { facades.system.setKeepAliveEnabled(context, true) { _ -> } }
             commitGestureSwitch(true)
         }
     }
@@ -228,7 +230,7 @@ class HomeVM : HomeVMBase() {
             if (enabled) {
                 // 总闸重新打开：按落盘的球/收件箱配置把共同宿主拉回来。
                 // 关闭方向由 FloatBallService 收到总闸后自行 stopSelf，不需要在这里抢时序。
-                AppGraph.system.restoreFloatBall(AppContext.get())
+                facades.system.restoreFloatBall(AppContext.get())
             }
         }
     }

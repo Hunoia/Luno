@@ -1,11 +1,11 @@
 package hunoia.luno.domain
 
 import android.content.Context
-import hunoia.luno.domain.system.HomePermissionState
-import hunoia.luno.domain.system.PrivilegedGrantSummary
-import hunoia.luno.domain.system.PrivilegedPermission
-import hunoia.luno.domain.system.PrivilegedPermissionStatus
-import hunoia.luno.domain.system.SystemFacade
+import hunoia.luno.facade.HomePermissionState
+import hunoia.luno.facade.PrivilegedGrantSummary
+import hunoia.luno.facade.PrivilegedPermission
+import hunoia.luno.facade.PrivilegedPermissionStatus
+import hunoia.luno.facade.SystemFacade
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import org.junit.Assert.assertSame

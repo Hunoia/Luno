@@ -146,6 +146,7 @@ dependencies {
     implementation(project(":core:bridge"))
     implementation(project(":core:data"))
     implementation(project(":core:runtime"))
+    implementation(project(":core:facade"))
     implementation(project(":feature:execute"))
     implementation(project(":feature:actions"))
     implementation(project(":feature:link"))

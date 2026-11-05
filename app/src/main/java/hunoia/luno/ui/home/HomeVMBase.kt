@@ -1,6 +1,6 @@
 package hunoia.luno.ui.home
 
-import hunoia.luno.domain.AppGraph
+import hunoia.luno.facade.Facades
 
 import androidx.lifecycle.viewModelScope
 import com.aaron.compose.base.BaseComposeVM
@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
-abstract class HomeVMBase : BaseComposeVM<UiState, UiEvent>() {
+abstract class HomeVMBase(protected val facades: Facades) : BaseComposeVM<UiState, UiEvent>() {
 
     /**
      * 配置流是否已完成首次同步。首帧之后不再用持久化值覆盖内存中的手势开关，
@@ -28,7 +28,7 @@ abstract class HomeVMBase : BaseComposeVM<UiState, UiEvent>() {
 
     fun updatePermissionState() {
         viewModelScope.launch {
-            val state = AppGraph.system.loadHomePermissionState(AppContext.get())
+            val state = facades.system.loadHomePermissionState(AppContext.get())
             updateUiState {
                 it.copy(
                     isGestureSwitchEnabled = state.isGestureEnabled,
@@ -46,7 +46,7 @@ abstract class HomeVMBase : BaseComposeVM<UiState, UiEvent>() {
 
     fun reset() {
         viewModelScope.launch {
-            AppGraph.backup.resetAll()
+            facades.backup.resetAll()
         }
     }
 

@@ -24,10 +24,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import hunoia.luno.R
-import hunoia.luno.domain.AppGraph
-import hunoia.luno.domain.system.PrivilegedPermission
-import hunoia.luno.domain.system.PrivilegedPermissionGroup
+import hunoia.luno.facade.PrivilegedPermission
+import hunoia.luno.facade.PrivilegedPermissionGroup
 import hunoia.luno.shizuku.ShizukuManager
+import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
@@ -105,6 +105,7 @@ fun PrivilegedPermissionsScreen(
     onBack: () -> Unit,
     onNavToAccessibilityManager: () -> Unit = {},
 ) {
+    val facades = LocalFacades.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var tick by remember { mutableIntStateOf(0) }
@@ -128,7 +129,7 @@ fun PrivilegedPermissionsScreen(
     }
 
     fun openSettings(permission: PrivilegedPermission) {
-        AppGraph.system.privilegedPermissionIntent(context, permission)
+        facades.system.privilegedPermissionIntent(context, permission)
             ?.let { intent -> runCatching { context.startActivity(intent) } }
     }
 
@@ -139,7 +140,7 @@ fun PrivilegedPermissionsScreen(
             if (!ShizukuManager.currentStatus().isReady) {
                 runCatching { ShizukuManager.autoRequestPermissionIfNeeded() }
             }
-            val ok = runCatching { AppGraph.system.grantPrivilegedPermission(context, permission) }
+            val ok = runCatching { facades.system.grantPrivilegedPermission(context, permission) }
                 .getOrDefault(false)
             busy = null
             // 成功不提示，只靠行内状态色变化；失败用 toast 提示原因。
@@ -157,7 +158,7 @@ fun PrivilegedPermissionsScreen(
             if (!ShizukuManager.currentStatus().isReady) {
                 runCatching { ShizukuManager.autoRequestPermissionIfNeeded() }
             }
-            val summary = runCatching { AppGraph.system.grantAllPrivilegedPermissions(context) }
+            val summary = runCatching { facades.system.grantAllPrivilegedPermissions(context) }
                 .getOrNull()
             bulkBusy = false
             when {
@@ -173,7 +174,7 @@ fun PrivilegedPermissionsScreen(
         }
     }
 
-    val statuses = remember(tick) { AppGraph.system.privilegedPermissionStatus(context) }
+    val statuses = remember(tick) { facades.system.privilegedPermissionStatus(context) }
     // 按功能域分组：组顺序取枚举声明顺序，组内取 status 顺序。
     val grouped = remember(statuses) {
         PrivilegedPermissionGroup.entries.mapNotNull { g ->

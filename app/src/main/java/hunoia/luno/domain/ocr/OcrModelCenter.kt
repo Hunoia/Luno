@@ -18,6 +18,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import hunoia.luno.facade.OcrModelFacade
+import hunoia.luno.facade.OcrModelState
+import hunoia.luno.facade.OcrModelUiState
+import hunoia.luno.facade.PpModelUiState
 
 /**
  * OCR 模型管理实现（主进程）。

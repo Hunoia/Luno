@@ -21,6 +21,7 @@ dependencies {
     implementation(project(":core:common"))
     // 只依赖契约（TextIcon 等展示数据），不依赖任何 feature。
     implementation(project(":core:domain"))
+    api(project(":core:facade"))
     // 图标原子组件要读系统/启动器信息（只读查询，无业务）。
     implementation(project(":core:bridge"))
     implementation(libs.androidx.compose.runtime)

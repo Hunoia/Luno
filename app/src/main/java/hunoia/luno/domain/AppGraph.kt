@@ -1,14 +1,15 @@
 package hunoia.luno.domain
 
 import hunoia.luno.domain.backup.BackupCenter
-import hunoia.luno.domain.backup.BackupFacade
+import hunoia.luno.facade.Facades
+import hunoia.luno.facade.BackupFacade
 import hunoia.luno.domain.log.LogCenter
-import hunoia.luno.domain.log.LogFacade
+import hunoia.luno.facade.LogFacade
 import hunoia.luno.domain.ocr.OcrModelCenter
-import hunoia.luno.domain.ocr.OcrModelFacade
-import hunoia.luno.domain.system.SystemFacade
+import hunoia.luno.facade.OcrModelFacade
+import hunoia.luno.facade.SystemFacade
 import hunoia.luno.domain.runtime.RuntimeActions
-import hunoia.luno.domain.runtime.RuntimeFacade
+import hunoia.luno.facade.RuntimeFacade
 import hunoia.luno.domain.system.SystemUseCases
 
 /**
@@ -17,7 +18,7 @@ import hunoia.luno.domain.system.SystemUseCases
  * 不引入第三方 DI；默认实现按需解析（getter），避免仅引用组装根就提前初始化
  * DataStore / 运行态。测试可用 `overrideXxx` 注入替身。
  */
-object AppGraph {
+object AppGraph : Facades {
 
     private var backupOverride: BackupFacade? = null
     private var systemOverride: SystemFacade? = null
@@ -25,21 +26,21 @@ object AppGraph {
     private var ocrModelsOverride: OcrModelFacade? = null
     private var logsOverride: LogFacade? = null
 
-    val backup: BackupFacade
+    override val backup: BackupFacade
         get() = backupOverride ?: BackupCenter
 
-    val system: SystemFacade
+    override val system: SystemFacade
         get() = systemOverride ?: SystemUseCases
 
-    val runtime: RuntimeFacade
+    override val runtime: RuntimeFacade
         get() = runtimeOverride ?: RuntimeActions
 
     /** OCR 模型管理（PP-OCRv6 GPU 包的导入/删除/状态）。 */
-    val ocrModels: OcrModelFacade
+    override val ocrModels: OcrModelFacade
         get() = ocrModelsOverride ?: OcrModelCenter
 
     /** 运行日志：设置页读取/导出，不暴露文件实现。 */
-    val logs: LogFacade
+    override val logs: LogFacade
         get() = logsOverride ?: LogCenter
 
     fun overrideBackup(facade: BackupFacade?) {

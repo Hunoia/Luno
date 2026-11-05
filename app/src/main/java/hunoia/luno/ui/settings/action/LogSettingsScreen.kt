@@ -28,8 +28,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.core.LogLevel
-import hunoia.luno.domain.AppGraph
-import hunoia.luno.domain.log.LogStats
+import hunoia.luno.facade.LogStats
+import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.component.CheckDropdownMenuItem
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -51,10 +51,11 @@ private const val PREVIEW_LINES = 200
 /**
  * 运行日志页：记录开关、文件大小、最近日志预览、清空与导出。
  *
- * 只调 `AppGraph.logs`；不直接读文件。日志导出走系统分享，可另存到本地。
+ * 只调 `facades.logs`；不直接读文件。日志导出走系统分享，可另存到本地。
  */
 @Composable
 fun LogSettingsScreen(onBack: () -> Unit) {
+    val facades = LocalFacades.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var tick by remember { mutableIntStateOf(0) }
@@ -65,11 +66,11 @@ fun LogSettingsScreen(onBack: () -> Unit) {
     var preview by remember { mutableStateOf("") }
 
     LaunchedEffect(tick) {
-        stats = withContext(Dispatchers.IO) { AppGraph.logs.stats() }
+        stats = withContext(Dispatchers.IO) { facades.logs.stats() }
     }
     LaunchedEffect(showPreview) {
         if (showPreview) {
-            preview = withContext(Dispatchers.IO) { AppGraph.logs.readTail(PREVIEW_LINES) }
+            preview = withContext(Dispatchers.IO) { facades.logs.readTail(PREVIEW_LINES) }
         }
     }
 
@@ -82,7 +83,7 @@ fun LogSettingsScreen(onBack: () -> Unit) {
                 onCheckedChange = { enabled ->
                     scope.launch {
                         withContext(Dispatchers.IO) {
-                            AppGraph.logs.setRecordingEnabled(enabled)
+                            facades.logs.setRecordingEnabled(enabled)
                         }
                         tick++
                     }
@@ -113,7 +114,7 @@ fun LogSettingsScreen(onBack: () -> Unit) {
                                     levelMenuOpen = false
                                     scope.launch {
                                         withContext(Dispatchers.IO) {
-                                            AppGraph.logs.setLevel(level)
+                                            facades.logs.setLevel(level)
                                         }
                                         tick++
                                     }
@@ -156,7 +157,7 @@ fun LogSettingsScreen(onBack: () -> Unit) {
                 shape = segmentedShape(1, 3),
                 onClick = {
                     scope.launch {
-                        val ok = AppGraph.logs.exportAndShare(context)
+                        val ok = facades.logs.exportAndShare(context)
                         if (!ok) {
                             Toast.makeText(
                                 context,
@@ -225,7 +226,7 @@ fun LogSettingsScreen(onBack: () -> Unit) {
             onConfirm = {
                 showClearConfirm = false
                 scope.launch {
-                    withContext(Dispatchers.IO) { AppGraph.logs.clear() }
+                    withContext(Dispatchers.IO) { facades.logs.clear() }
                     tick++
                     Toast.makeText(context, R.string.log_settings_cleared, Toast.LENGTH_SHORT).show()
                 }

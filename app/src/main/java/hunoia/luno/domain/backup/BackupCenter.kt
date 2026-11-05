@@ -11,6 +11,7 @@ import hunoia.luno.gridpanel.PanelResources
 import hunoia.luno.service.ServiceAutoStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import hunoia.luno.facade.BackupFacade
 
 /** 备份域门面（ui 层唯一入口，整机 + 单域两级）。 */
 object BackupCenter : BackupFacade {

@@ -74,6 +74,7 @@ import hunoia.luno.bridge.system.gotoAccessibilitySettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.ThemeColorKey
+import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.ColorSelection
 import hunoia.luno.actions.library.ActionLibraryScreen
@@ -132,8 +133,10 @@ fun HomeScreen(
     onNavToTodos: () -> Unit = {},
     onNavToScreenPickSettings: () -> Unit = {},
     onNavToActionLibraryEdit: (String, String?) -> Unit = { _, _ -> },
-    vm: HomeVM = viewModel()
+    vmFactory: (hunoia.luno.facade.Facades) -> HomeVM = { HomeVM(it) },
 ) {
+    val facades = LocalFacades.current
+    val vm: HomeVM = viewModel { vmFactory(facades) }
     val homeListState = rememberLazyListState()
     val libraryListState = rememberLazyListState()
     val navigationWindowInsets = WindowInsets.navigationBars.only(

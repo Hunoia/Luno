@@ -19,11 +19,11 @@ import hunoia.luno.R
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.ScreenPickGesture
-import hunoia.luno.domain.AppGraph
 import hunoia.luno.domain.gesture.GestureConfig
-import hunoia.luno.domain.ocr.OcrModelState
-import hunoia.luno.domain.ocr.PpModelUiState
+import hunoia.luno.facade.OcrModelState
+import hunoia.luno.facade.PpModelUiState
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -44,8 +44,9 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun ScreenPickSettingsScreen(onBack: () -> Unit) {
+    val facades = LocalFacades.current
     val scope = rememberCoroutineScope()
-    val ocrModels by AppGraph.ocrModels.state.collectAsStateWithLifecycle()
+    val ocrModels by facades.ocrModels.state.collectAsStateWithLifecycle()
     val initialSettings by GestureConfig.initial.collectAsStateWithLifecycle(
         initialValue = InitialSettings(),
     )
@@ -61,7 +62,7 @@ fun ScreenPickSettingsScreen(onBack: () -> Unit) {
         contract = ActivityResultContracts.OpenDocument(),
     ) { uri ->
         uri ?: return@rememberLauncherForActivityResult
-        scope.launch { AppGraph.ocrModels.importPp(uri) }
+        scope.launch { facades.ocrModels.importPp(uri) }
     }
 
     LunoScreen(title = stringResource(R.string.screen_pick_settings_title), onBack = onBack) {
@@ -170,7 +171,7 @@ fun ScreenPickSettingsScreen(onBack: () -> Unit) {
             )
             LunoSettingsRow(
                 title = stringResource(R.string.ocr_model_refresh),
-                onClick = { scope.launch { AppGraph.ocrModels.refresh() } },
+                onClick = { scope.launch { facades.ocrModels.refresh() } },
                 shape = segmentedShape(3, 4),
             )
         }
@@ -185,7 +186,7 @@ fun ScreenPickSettingsScreen(onBack: () -> Unit) {
                 TextButton(
                     onClick = {
                         confirmDelete = false
-                        scope.launch { AppGraph.ocrModels.deletePp() }
+                        scope.launch { facades.ocrModels.deletePp() }
                     },
                 ) {
                     Text(stringResource(R.string.ocr_model_delete))

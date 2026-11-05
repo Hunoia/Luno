@@ -1,4 +1,4 @@
-package hunoia.luno.domain.ocr
+package hunoia.luno.facade
 
 import android.net.Uri
 import kotlinx.coroutines.flow.StateFlow

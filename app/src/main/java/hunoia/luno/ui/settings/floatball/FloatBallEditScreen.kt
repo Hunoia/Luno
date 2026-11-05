@@ -1,6 +1,5 @@
 package hunoia.luno.ui.settings.floatball
 
-import hunoia.luno.domain.AppGraph
 
 import android.content.Intent
 import android.provider.Settings
@@ -41,6 +40,7 @@ import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.FloatBallDefaults
 import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.component.actionTextCompose
 import hunoia.luno.ui.component.gestureButtonMarkColor
 import hunoia.luno.ui.component.input.LunoTextSlider
@@ -68,6 +68,7 @@ fun FloatBallEditScreen(
     onNavToActionSelect: (ActionSelect) -> Unit = {},
     onNavToNotificationBlocklist: () -> Unit = {},
 ) {
+    val facades = LocalFacades.current
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val listState = rememberLazyListState()
@@ -101,7 +102,7 @@ fun FloatBallEditScreen(
 
     var overlayGranted by remember { mutableStateOf(context.canDrawOverlays()) }
     var notifAccessGranted by remember {
-        mutableStateOf(AppGraph.system.isNotificationAccessGranted(context))
+        mutableStateOf(facades.system.isNotificationAccessGranted(context))
     }
     var showColorPicker by remember { mutableStateOf(false) }
 
@@ -116,9 +117,9 @@ fun FloatBallEditScreen(
                 val granted = context.canDrawOverlays()
                 if (granted != overlayGranted) {
                     overlayGranted = granted
-                    AppGraph.system.refreshFloatBall(context)
+                    facades.system.refreshFloatBall(context)
                 }
-                val notifGranted = AppGraph.system.isNotificationAccessGranted(context)
+                val notifGranted = facades.system.isNotificationAccessGranted(context)
                 if (notifGranted != notifAccessGranted) notifAccessGranted = notifGranted
             }
         }
@@ -139,7 +140,7 @@ fun FloatBallEditScreen(
             runCatching {
                 TuneConfig.updateAction { it.copy(floatBall = it.floatBall.copy(enabled = enabled)) }
             }
-            if (enabled) AppGraph.system.setFloatBallEnabled(context, true) else AppGraph.system.setFloatBallEnabled(context, false)
+            if (enabled) facades.system.setFloatBallEnabled(context, true) else facades.system.setFloatBallEnabled(context, false)
         }
     }
 
@@ -292,9 +293,9 @@ fun FloatBallEditScreen(
                         update { it.copy(notificationCapsule = it.notificationCapsule.copy(enabled = checked)) }
                         // 胶囊开关也要服务在跑：开 = 拉起；关 = nudge 重评（服务自决定去留）。
                         if (checked) {
-                            AppGraph.system.setFloatBallEnabled(context, true)
+                            facades.system.setFloatBallEnabled(context, true)
                         } else {
-                            AppGraph.system.setFloatBallEnabled(context, false)
+                            facades.system.setFloatBallEnabled(context, false)
                         }
                     },
                     shape = segmentedShape(0, rowCount),
@@ -396,9 +397,9 @@ fun FloatBallEditScreen(
                         update { it.copy(clipboardBall = it.clipboardBall.copy(enabled = checked)) }
                         // 同胶囊：开关也要服务在跑；关 = nudge 重评（服务自决定去留）。
                         if (checked) {
-                            AppGraph.system.setFloatBallEnabled(context, true)
+                            facades.system.setFloatBallEnabled(context, true)
                         } else {
-                            AppGraph.system.setFloatBallEnabled(context, false)
+                            facades.system.setFloatBallEnabled(context, false)
                         }
                     },
                     shape = segmentedShape(0, 4),
