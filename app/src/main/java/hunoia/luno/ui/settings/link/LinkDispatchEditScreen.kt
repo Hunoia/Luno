@@ -33,7 +33,7 @@ import hunoia.luno.config.model.upsert
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.link.Links
 import hunoia.luno.link.LinkUrls
-import hunoia.luno.ui.actionlibrary.LabeledTextField
+import hunoia.luno.ui.component.LabeledTextField
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.row.ChoiceRow

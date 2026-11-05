@@ -1,4 +1,4 @@
-package hunoia.luno.ui.actionlibrary
+package hunoia.luno.actions.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -14,6 +14,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+
+/** 新建动作库条目时占位用的 entryId（与 app 导航层共用同一常量）。 */
+const val ACTION_LIBRARY_NEW_ENTRY_ID = "new"
 
 class ActionLibraryVM : ViewModel() {
     private val _uiState = MutableStateFlow(NewLibraryUiState())

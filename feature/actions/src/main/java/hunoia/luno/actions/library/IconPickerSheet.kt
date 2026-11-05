@@ -1,4 +1,4 @@
-package hunoia.luno.ui.actionlibrary
+package hunoia.luno.actions.library
 
 import hunoia.luno.actions.icon.IconPalette
 
@@ -33,7 +33,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import hunoia.luno.R
+import hunoia.luno.actions.R
 import hunoia.luno.ui.component.SheetGroupHeader
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.PageGutter

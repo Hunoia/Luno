@@ -1,4 +1,4 @@
-package hunoia.luno.ui.actionlibrary
+package hunoia.luno.ui.component
 
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField

@@ -76,7 +76,7 @@ import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.ThemeColorKey
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.ColorSelection
-import hunoia.luno.ui.actionlibrary.ActionLibraryScreen
+import hunoia.luno.actions.library.ActionLibraryScreen
 import hunoia.luno.ui.component.FloatingBottomBar
 import hunoia.luno.ui.component.FloatingBottomBarDefaults
 import hunoia.luno.bridge.ui.showToast

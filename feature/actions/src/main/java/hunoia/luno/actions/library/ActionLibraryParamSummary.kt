@@ -1,14 +1,14 @@
-package hunoia.luno.ui.actionlibrary
+package hunoia.luno.actions.library
 
 import android.content.Context
-import hunoia.luno.R
+import hunoia.luno.actions.R
 import hunoia.luno.core.domain.ActionLibraryEntry
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
 /** 动作库条目的副标题：已配置参数值；键值对只展键名，空值与 false 跳过。 */
-internal fun actionLibraryParamSummary(entry: ActionLibraryEntry, context: Context): String =
+fun actionLibraryParamSummary(entry: ActionLibraryEntry, context: Context): String =
     entry.params.entries.mapNotNull { (key, value) ->
         val text = when (value) {
             is JsonObject -> value.keys

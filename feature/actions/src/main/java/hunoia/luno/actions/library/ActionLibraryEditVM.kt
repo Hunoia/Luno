@@ -1,4 +1,4 @@
-package hunoia.luno.ui.actionlibrary
+package hunoia.luno.actions.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,7 +8,6 @@ import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.core.domain.ActionLibraryEntry
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.domain.action.ActionLibrary
-import hunoia.luno.ui.navigation.ACTION_LIBRARY_ENTRY_ID
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,7 +31,7 @@ class ActionLibraryEditVM : ViewModel() {
     val uiState: StateFlow<NewEditState> = _uiState
 
     suspend fun load(entryId: String, typeId: String?) {
-        val isNewEntry = entryId == ACTION_LIBRARY_ENTRY_ID
+        val isNewEntry = entryId == ACTION_LIBRARY_NEW_ENTRY_ID
         val draft = if (isNewEntry) {
             buildNewDraft(typeId)
         } else {

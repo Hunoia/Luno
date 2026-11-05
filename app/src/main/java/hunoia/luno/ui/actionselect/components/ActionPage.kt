@@ -68,9 +68,9 @@ import hunoia.luno.ui.actionselect.UiState.SelectedRecord
 import hunoia.luno.ui.actionselect.components.ActionRowSettingsSheet
 import hunoia.luno.ui.actionselect.components.RowSettingsActionTypeIds
 import hunoia.luno.ui.actionselect.components.rowSettingsSubtitle
-import hunoia.luno.ui.actionlibrary.actionLibraryParamSummary
+import hunoia.luno.actions.library.actionLibraryParamSummary
 import hunoia.luno.ui.component.feedback.EmptyState
-import hunoia.luno.ui.component.displayNameRes
+import hunoia.luno.actions.library.displayNameRes
 import hunoia.luno.ui.theme.*
 import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.SheetGroupHeader

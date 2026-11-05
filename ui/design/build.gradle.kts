@@ -35,5 +35,6 @@ dependencies {
     implementation(libs.androidx.annotation)
     implementation(libs.androidx.collection)
     implementation(libs.coil.compose)
-    implementation(libs.haze)
+    // LunoScreen/LunoSheet 的公开参数含 HazeState：属于契约性再导出
+    api(libs.haze)
 }

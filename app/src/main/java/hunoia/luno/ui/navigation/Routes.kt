@@ -200,4 +200,4 @@ data class ActionLibraryEdit(
 )
 
 
-const val ACTION_LIBRARY_ENTRY_ID = "new"
+const val ACTION_LIBRARY_ENTRY_ID = hunoia.luno.actions.library.ACTION_LIBRARY_NEW_ENTRY_ID

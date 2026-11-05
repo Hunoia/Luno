@@ -75,6 +75,10 @@ class App : Application(), ImageLoaderFactory {
         Events.initScope(appScope) { isMainThread() }
         // Surface 动作统一进 Dispatcher：进程级门面不依赖无障碍服务生命周期。
         hunoia.luno.runtime.SurfaceActionRuntime.install(applicationContext)
+        // 动作编辑页的 Activity 选择器：契约在 :core:domain，实现在 :app。
+        hunoia.luno.runtime.dispatch.ActivityOptions.install(
+            hunoia.luno.runtime.QuickLaunchActivityOptionsSource(applicationContext),
+        )
         initVibrationContext(applicationContext)
         DensityProvider.init(applicationContext)
 

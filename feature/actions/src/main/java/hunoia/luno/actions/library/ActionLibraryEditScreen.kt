@@ -1,6 +1,6 @@
-package hunoia.luno.ui.actionlibrary
+package hunoia.luno.actions.library
 
-import hunoia.luno.domain.AppGraph
+import hunoia.luno.runtime.dispatch.ActionDispatch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -48,18 +48,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.lifecycle.viewmodel.compose.viewModel
-import hunoia.luno.R
+import hunoia.luno.actions.R
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.action.controller.ShellController
 import hunoia.luno.action.controller.ShellResult
-import hunoia.luno.quicklaunch.QuickLaunchFacade
-import hunoia.luno.quicklaunch.query.ActivityOption
-import hunoia.luno.ui.component.sheet.AppPickerSheet
+import hunoia.luno.runtime.dispatch.ActivityOptions
+import hunoia.luno.core.domain.ActivityOptionItem
 import hunoia.luno.ui.component.AppSearchBar
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
-import hunoia.luno.core.AppContext
 import hunoia.luno.shizuku.ShizukuFacade
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -78,6 +76,8 @@ fun ActionLibraryEditScreen(
     entryId: String,
     typeId: String?,
     onBack: () -> Unit,
+    /** 应用选择器由 `:app` 注入（含分身 userId 语义）。 */
+    appPicker: AppPickerSlot? = null,
     vm: ActionLibraryEditVM = viewModel(),
 ) {
     val state by vm.uiState.collectAsState()
@@ -158,7 +158,7 @@ fun ActionLibraryEditScreen(
                                     }
                                 }
                             }
-                        } else if (!AppGraph.runtime.dispatch(draft.toStoredAction())) {
+                        } else if (!ActionDispatch.send(draft.toStoredAction())) {
                             // 分发失败才提示；成功不给 toast（动作本身会在屏幕上有反馈，多一个弹窗是噪音）。
                             showToast(R.string.dispatch_service_not_ready)
                         }
@@ -196,38 +196,44 @@ fun ActionLibraryEditScreen(
                 )
             }
             showAppPicker?.let { paramDef ->
-                AppPickerSheet(
-                    onDismissRequest = { showAppPicker = null },
-                    selectedPackageNames = listOfNotNull(
-                        draft?.params?.get(paramDef.key)?.scalarText()?.takeIf(String::isNotBlank),
-                    ),
-                    confirmOnSelect = true,
-                    onSelectApp = (paramDef as? ParameterDefinition.AppSelector)
-                        ?.takeIf { it.userIdKey != null }
-                        ?.let { selector ->
-                            { app ->
-                                vm.updateParam(selector.key, app.packageName)
-                                selector.userIdKey?.let {
-                                    vm.updateParam(it, if (app.userId == 0) "" else app.userId.toString())
-                                }
+                val picker = appPicker
+                if (picker == null) {
+                    showAppPicker = null
+                } else {
+                    picker(
+                        AppPickerRequest(
+                            selectedPackageNames = listOfNotNull(
+                                draft?.params?.get(paramDef.key)?.scalarText()?.takeIf(String::isNotBlank),
+                            ),
+                            selectedUserId = (paramDef as? ParameterDefinition.AppSelector)
+                                ?.takeIf { it.userIdKey != null }
+                                ?.let {
+                                    draft?.params?.get("userId")?.scalarText()?.toIntOrNull() ?: 0
+                                },
+                            onDismiss = { showAppPicker = null },
+                            onConfirm = { selected ->
+                                val current = draft?.params?.get(paramDef.key)?.scalarText()
+                                val picked = selected.lastOrNull { it != current }
+                                vm.updateParam(
+                                    paramDef.key,
+                                    picked ?: if (selected.isEmpty()) "" else current.orEmpty(),
+                                )
                                 showAppPicker = null
-                            }
-                        },
-                    selectedUserId = (paramDef as? ParameterDefinition.AppSelector)
-                        ?.takeIf { it.userIdKey != null }
-                        ?.let {
-                            draft?.params?.get("userId")?.scalarText()?.toIntOrNull() ?: 0
-                        },
-                    onConfirm = { selected ->
-                        val current = draft?.params?.get(paramDef.key)?.scalarText()
-                        val picked = selected.lastOrNull { it != current }
-                        vm.updateParam(
-                            paramDef.key,
-                            picked ?: if (selected.isEmpty()) "" else current.orEmpty(),
-                        )
-                        showAppPicker = null
-                    },
-                )
+                            },
+                            onSelect = (paramDef as? ParameterDefinition.AppSelector)
+                                ?.takeIf { it.userIdKey != null }
+                                ?.let { selector ->
+                                    { packageName, userId ->
+                                        vm.updateParam(selector.key, packageName)
+                                        selector.userIdKey?.let {
+                                            vm.updateParam(it, if (userId == 0) "" else userId.toString())
+                                        }
+                                        showAppPicker = null
+                                    }
+                                },
+                        ),
+                    )
+                }
             }
             showActivityPicker?.let { paramDef ->
                 val activityDef = paramDef as? ParameterDefinition.ActivitySelector ?: return@let
@@ -312,19 +318,16 @@ private fun ActivityPickerSheet(
     LaunchedEffect(packageName) {
         if (packageName.isBlank()) onDismissRequest()
     }
-    val activities by produceState<List<ActivityOption>>(emptyList(), packageName) {
-        if (packageName.isBlank()) {
+    val activities by produceState<List<ActivityOptionItem>>(emptyList(), packageName) {
+        val source = ActivityOptions.current
+        if (packageName.isBlank() || source == null) {
             value = emptyList()
             return@produceState
         }
         value = withContext(Dispatchers.IO) {
-            val context = AppContext.get()
-            QuickLaunchFacade.queryActivityOptions(
-                context = context,
+            source.activities(
                 packageName = packageName,
-                selectedActivityClassName = "",
-                launcherClassName = QuickLaunchFacade.queryLauncherAppOptions(context)
-                    .firstOrNull { it.packageName == packageName }?.launcherClassName ?: ""
+                launcherActivity = source.launcherPackageActivity(packageName),
             )
         }
     }
@@ -332,7 +335,7 @@ private fun ActivityPickerSheet(
     val filtered = if (query.isBlank()) activities
     else activities.filter {
         it.className.contains(query, ignoreCase = true) ||
-            QuickLaunchFacade.formatActivityOptionText(it, packageName).contains(query, ignoreCase = true)
+            it.label.contains(query, ignoreCase = true)
     }
     LunoSheet(onDismissRequest = onDismissRequest) {
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = PageGutter)) {
@@ -363,7 +366,7 @@ private fun ActivityPickerSheet(
                 ) {
                     itemsIndexed(filtered) { index, activity ->
                         LunoSelectableRow(
-                            title = QuickLaunchFacade.formatActivityOptionText(activity, packageName),
+                            title = activity.label,
                             subtitle = activity.className,
                             selected = activity.className == selectedActivity,
                             onSelectedChange = { onSelect(activity.className) },

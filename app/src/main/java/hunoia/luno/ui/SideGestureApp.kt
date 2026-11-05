@@ -72,7 +72,8 @@ import hunoia.luno.ui.navigation.SubGestureEditor
 import hunoia.luno.ui.navigation.ActionLibraryEdit
 
 import hunoia.luno.ui.actionselect.ActionSelectContent
-import hunoia.luno.ui.actionlibrary.ActionLibraryEditScreen
+import hunoia.luno.actions.library.ActionLibraryEditScreen
+import hunoia.luno.ui.component.sheet.AppPickerSheet
 import hunoia.luno.ui.settings.action.LogSettingsScreen
 import hunoia.luno.ui.settings.action.ScreenPickSettingsScreen
 import hunoia.luno.ui.settings.action.RecentAppsBlocklistScreen
@@ -424,6 +425,18 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onBack = { navController.popBackStack() },
                         entryId = it.toRoute<ActionLibraryEdit>().entryId,
                         typeId = it.toRoute<ActionLibraryEdit>().typeId,
+                        appPicker = { request ->
+                            AppPickerSheet(
+                                onDismissRequest = request.onDismiss,
+                                selectedPackageNames = request.selectedPackageNames,
+                                confirmOnSelect = true,
+                                onSelectApp = request.onSelect?.let { select ->
+                                    { app -> select(app.packageName, app.userId) }
+                                },
+                                selectedUserId = request.selectedUserId,
+                                onConfirm = request.onConfirm,
+                            )
+                        },
                     )
                 }
             }

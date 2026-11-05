@@ -1,4 +1,4 @@
-package hunoia.luno.ui.actionlibrary
+package hunoia.luno.actions.library
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,7 +26,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import hunoia.luno.R
+import hunoia.luno.actions.R
+import hunoia.luno.ui.component.LabeledTextField
 import hunoia.luno.action.definitions.ParameterDefinition
 import hunoia.luno.core.AppContext
 import hunoia.luno.ui.theme.ContainerRadius

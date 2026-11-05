@@ -38,6 +38,8 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.material3)
     implementation(libs.material.icons.extended)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.coil)
     implementation(libs.coil.compose)
 }
