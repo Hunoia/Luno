@@ -3,8 +3,10 @@ package hunoia.luno.annotate.model
 /** 工具类型。序号即工具条顺序，持久化只存风格，不存笔迹。 */
 enum class ToolKind {
     PEN,
+    HIGHLIGHT,
     ERASER,
     RECT,
+    LINE,
     ARROW,
     TEXT,
     MOSAIC,
@@ -17,8 +19,11 @@ enum class ToolKind {
  */
 data class ToolStyle(
     val colorArgb: Long = 0xFFFF3B30,
-    /** 笔迹宽度 / 线框宽度，图片像素。 */
-    val strokeWidth: Float = 6f,
+    /**
+     * 笔迹 / 线框宽度，**屏幕 dp**（B9）：落笔瞬间按 `dp × density ÷ fit.scale`
+     * 换算成图片像素存进元素，所以在不同分辨率底图上手感一致。
+     */
+    val strokeWidth: Float = 3f,
     /** 文字大小，图片像素。 */
     val textSize: Float = 48f,
     /** 马赛克单元边长，图片像素。 */

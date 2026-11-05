@@ -10,8 +10,10 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +27,7 @@ import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.res.stringResource
@@ -45,10 +49,14 @@ import androidx.compose.ui.unit.dp
 import hunoia.luno.annotate.R
 import hunoia.luno.annotate.model.AnnotateDocument
 import hunoia.luno.annotate.model.AnnotateState
-import hunoia.luno.annotate.render.AnnotateExporter
+import hunoia.luno.annotate.model.ToolbarAnchor
 import hunoia.luno.annotate.render.BaseImage
-import hunoia.luno.bridge.system.ImageOutput
-import hunoia.luno.bridge.system.copyImage
+import hunoia.luno.annotate.render.ExportKind
+import hunoia.luno.annotate.render.exportAnnotated
+import hunoia.luno.annotate.store.AnnotateSettingsStore
+import hunoia.luno.annotate.store.flushAnnotateSettings
+import hunoia.luno.annotate.store.observeAnnotateSettings
+import hunoia.luno.annotate.store.restoreAnnotateSettings
 import hunoia.luno.bridge.ui.applyOverlayViewTreeOwners
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.core.LOG_TAG
@@ -62,13 +70,10 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 
 /** 工具条内联面板：浮层窗口是 NOT_FOCUSABLE，独立 Dialog 会抢焦点，只能同窗内联。 */
-private enum class OverlayPanel { None, Export, ConfirmExit, ConfirmRescreenshot }
-
-private enum class ExportKind { Save, Copy, Share }
+private enum class OverlayPanel { None, Export, ConfirmExit }
 
 /**
  * 屏幕标注浮层（计划 D1 / D5–D8 / §3.1）。
@@ -77,7 +82,7 @@ private enum class ExportKind { Save, Copy, Share }
  * - 默认态：画布画冻结截图，触摸被画布拦截；
  * - 穿透态：撤掉底图（透明）、画布 `NOT_TOUCHABLE | NOT_FOCUSABLE`，工具条仍可点；
  * - 关闭穿透：隐藏两窗 → 重新截屏（由注入的 [captureScreenshot] 负责，含 Shizuku → a11y
- *   回退）→ 换底图；有笔迹时先内联确认；
+ *   回退）→ 换底图；笔迹默认保留（清空走工具条「清除全部」）；
  * - 导出：不截屏，按原分辨率重放矢量再按选区裁剪。
  *
  * 宿主只负责「取图」和「软隐藏自家浮层」；这里不碰 SurfaceController，也不依赖 `:app`。
@@ -87,6 +92,8 @@ class AnnotateOverlay(
     /** 重新截屏入口；调用前本层窗口已隐藏。null = 失败。 */
     private val captureScreenshot: suspend () -> Bitmap?,
     private val onClosed: () -> Unit = {},
+    /** 偏好持久化端口；由宿主注入，feature 不直连配置层。 */
+    private val settingsStore: AnnotateSettingsStore? = null,
 ) {
 
     private companion object {
@@ -110,17 +117,20 @@ class AnnotateOverlay(
     private var panel by mutableStateOf(OverlayPanel.None)
 
     private var toolbarX = 0
-    private var toolbarY = 0
+    /** 窗口底边屏幕 Y（工具条贴在窗口底部：面板向上弹时工具条不动）。 */
+    private var toolbarBottomY = 0
     private var toolbarDragged = false
 
     val isShown: Boolean get() = document != null
 
     /** 打开浮层；重复调用只保留第一张底图（避免连点动作覆盖正在编辑的内容）。 */
-    fun open(bitmap: Bitmap): Boolean {
+    suspend fun open(bitmap: Bitmap): Boolean {
         if (document != null) return true
         if (bitmap.isRecycled || bitmap.width <= 0 || bitmap.height <= 0) return false
 
         val doc = AnnotateDocument(AnnotateState.of(bitmap.width, bitmap.height))
+        // 先恢复偏好再挂窗：工具条首个位置就是持久化位置，避免打开后跳一下。
+        restoreAnnotateSettings(doc, settingsStore)
         document = doc
         base = BaseImage(bitmap)
         penetrating = false
@@ -136,6 +146,7 @@ class AnnotateOverlay(
             cleanup(bitmap)
             return false
         }
+        scope.observeAnnotateSettings(doc, settingsStore)
         Log.i(LOG_TAG, "annotate overlay shown image=${bitmap.width}x${bitmap.height}")
         return true
     }
@@ -143,6 +154,8 @@ class AnnotateOverlay(
     fun close() {
         document?.commitPendingText()
         hideIme()
+        // 防抖窗口内退出不丢偏好：立即补一次落盘（独立于本层 scope）。
+        document?.let { flushAnnotateSettings(it, settingsStore) }
         val wm = service.getSystemService(WindowManager::class.java)
         val canvas = canvasView
         val toolbar = toolbarView
@@ -196,16 +209,30 @@ class AnnotateOverlay(
                     val doc = document
                     val currentBase = base
                     if (doc != null) {
-                        AnnotateCanvas(
-                            document = doc,
-                            base = currentBase,
-                            modifier = Modifier.fillMaxSize(),
-                            // 编辑文字时收起工具条：无障碍浮层的工具条窗口固定在屏幕底部，
-                            // 不随键盘上移，会整个压在键盘上挡住按键；键盘的「完成」会提交。
-                            onTextEditingChanged = { editing ->
-                                toolbarView?.visibility = if (editing) View.INVISIBLE else View.VISIBLE
-                            },
-                        )
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            AnnotateCanvas(
+                                document = doc,
+                                base = currentBase,
+                                modifier = Modifier.fillMaxSize(),
+                                // 编辑文字时收起工具条：无障碍浮层的工具条窗口固定在屏幕底部，
+                                // 不随键盘上移，会整个压在键盘上挡住按键；键盘的「完成」会提交。
+                                onTextEditingChanged = { editing ->
+                                    toolbarView?.visibility = if (editing) View.INVISIBLE else View.VISIBLE
+                                },
+                            )
+                            // 导出/重截有实际耗时：给可见进度（与图片编辑宿主的遮罩+转圈一致）。
+                            // 重截抓图前画布窗会短暂 INVISIBLE，进度不会进截图。
+                            if (busy) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(Color.Black.copy(alpha = 0.25f)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    CircularProgressIndicator()
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -261,15 +288,20 @@ class AnnotateOverlay(
                             onCopy = { startExport(ExportKind.Copy) },
                             onShare = { startExport(ExportKind.Share) },
                             onConfirmExit = ::close,
-                            onRescreenshotKeep = { recapture(clearElements = false) },
-                            onRescreenshotClear = { recapture(clearElements = true) },
                             onDrag = { delta -> dragToolbar(wm, delta) },
+                            onDragEnd = ::dragToolbarEnd,
                         )
                     }
                 }
             }
             addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
-                if (!toolbarDragged) positionToolbarInitial(wm, v) else clampToolbar(wm, v)
+                // 有持久化锚点（拖动过或上次会话存过）就按比例重算，旋转/分辨率变化后
+                // 仍落在相对位置；否则首次居中贴底。无锚点的会话内拖动走夹取。
+                if (document?.state?.toolbarAnchor != null || !toolbarDragged) {
+                    positionToolbarInitial(wm, v)
+                } else {
+                    clampToolbar(wm, v)
+                }
             }
         }
         toolbarLp = lp
@@ -289,10 +321,30 @@ class AnnotateOverlay(
         val lp = toolbarLp ?: return
         if (view.width <= 0 || view.height <= 0) return
         lp.gravity = Gravity.TOP or Gravity.LEFT
-        toolbarX = ((screenWidthPx() - view.width) / 2).coerceAtLeast(0)
-        toolbarY = (screenHeightPx() - view.height - margin).coerceAtLeast(0)
+        val anchor = document?.state?.toolbarAnchor
+        if (anchor != null) {
+            // 恢复上次拖动位置：按屏比例换算，跨分辨率/旋转都落在相对位置。
+            toolbarX = (anchor.xFraction * screenWidthPx()).toInt()
+            toolbarBottomY = (anchor.yFraction * screenHeightPx()).toInt()
+        } else {
+            toolbarX = ((screenWidthPx() - view.width) / 2).coerceAtLeast(0)
+            toolbarBottomY = screenHeightPx() - margin
+        }
+        applyToolbarPosition(wm, view, lp)
+    }
+
+    /**
+     * 统一按「窗口底边」定位：面板加在工具条上方，窗口变高只向上长，工具条不动。
+     * 拖动过（[toolbarDragged]）与恢复持久化位置都走这里夹回屏内。
+     */
+    private fun applyToolbarPosition(wm: WindowManager, view: View, lp: WindowManager.LayoutParams) {
+        val sw = screenWidthPx()
+        val sh = screenHeightPx()
+        toolbarX = toolbarX.coerceIn(0, (sw - view.width).coerceAtLeast(0))
+        // 底边至少留出整个窗口高（否则窗口顶会到屏外），最多贴屏幕底。
+        toolbarBottomY = toolbarBottomY.coerceIn(view.height.coerceAtMost(sh), sh)
         lp.x = toolbarX
-        lp.y = toolbarY
+        lp.y = (toolbarBottomY - view.height).coerceAtLeast(0)
         runCatching { wm.updateViewLayout(view, lp) }
     }
 
@@ -303,26 +355,35 @@ class AnnotateOverlay(
             val loc = IntArray(2)
             view.getLocationOnScreen(loc)
             toolbarX = loc[0]
-            toolbarY = loc[1]
+            toolbarBottomY = loc[1] + view.height
             toolbarDragged = true
             lp.gravity = Gravity.TOP or Gravity.LEFT
         }
-        toolbarX = (toolbarX + delta.x.toInt()).coerceIn(0, (screenWidthPx() - view.width).coerceAtLeast(0))
-        toolbarY = (toolbarY + delta.y.toInt()).coerceIn(0, (screenHeightPx() - view.height).coerceAtLeast(0))
-        lp.x = toolbarX
-        lp.y = toolbarY
-        runCatching { wm.updateViewLayout(view, lp) }
+        toolbarX += delta.x.toInt()
+        toolbarBottomY += delta.y.toInt()
+        applyToolbarPosition(wm, view, lp)
     }
 
     private fun clampToolbar(wm: WindowManager, view: View) {
         val lp = toolbarLp ?: return
         if (view.width <= 0 || view.height <= 0) return
         lp.gravity = Gravity.TOP or Gravity.LEFT
-        toolbarX = toolbarX.coerceIn(0, (screenWidthPx() - view.width).coerceAtLeast(0))
-        toolbarY = toolbarY.coerceIn(0, (screenHeightPx() - view.height).coerceAtLeast(0))
-        lp.x = toolbarX
-        lp.y = toolbarY
-        runCatching { wm.updateViewLayout(view, lp) }
+        applyToolbarPosition(wm, view, lp)
+    }
+
+    /**
+     * 拖动结束把位置写回模型（比例锚定：窗口左边 / 屏宽、窗口底边 / 屏高）。
+     * 底边锚定 → 面板开合不影响工具条位置，恢复时也不会因面板高度不同而偏。
+     */
+    private fun dragToolbarEnd() {
+        if (!toolbarDragged) return
+        val doc = document ?: return
+        doc.moveToolbar(
+            ToolbarAnchor(
+                xFraction = toolbarX.toFloat() / screenWidthPx(),
+                yFraction = toolbarBottomY.toFloat() / screenHeightPx(),
+            ),
+        )
     }
 
     private fun screenWidthPx(): Int = service.resources.displayMetrics.widthPixels
@@ -343,8 +404,9 @@ class AnnotateOverlay(
                 applyCanvasFlags()
             }
 
-            document?.state?.hasElements == true -> panel = OverlayPanel.ConfirmRescreenshot
-            else -> recapture(clearElements = false)
+            // 关穿透直接保留笔迹（F1）：不再弹确认框。清空交给工具条「清除全部」，
+            // 那条路是可撤销的，误清一步就能回来。
+            else -> recapture()
         }
     }
 
@@ -389,7 +451,7 @@ class AnnotateOverlay(
         panel = OverlayPanel.None
         // D7：穿透态导出先自动关穿透，否则底图是空的。
         if (penetrating) {
-            recapture(clearElements = false) { performExport(kind) }
+            recapture() { performExport(kind) }
         } else {
             performExport(kind)
         }
@@ -402,47 +464,17 @@ class AnnotateOverlay(
         doc.commitPendingText()
         busy = true
         scope.launch {
-            val rendered = runCatching {
-                withContext(Dispatchers.Default) {
-                    AnnotateExporter.renderCropped(doc.state, currentBase)
-                }
-            }.getOrNull()
-            if (rendered == null) {
-                busy = false
-                showToast(R.string.annotate_export_failed)
-                return@launch
-            }
-            val ok = withContext(Dispatchers.IO) {
-                try {
-                    when (kind) {
-                        ExportKind.Save ->
-                            ImageOutput.saveToGallery(service, rendered, "annotate") != null
-                        // 复制需要一个可被粘贴方读取的 URI：先落图库再写剪贴板。
-                        ExportKind.Copy ->
-                            ImageOutput.saveToGallery(service, rendered, "annotate")
-                                ?.let { uri -> copyImage(service, "annotate", uri) } ?: false
-                        ExportKind.Share ->
-                            ImageOutput.saveToCache(service, rendered, "annotate")
-                                ?.let { uri -> ImageOutput.share(service, uri, "annotate") } ?: false
-                    }
-                } finally {
-                    if (!rendered.isRecycled) rendered.recycle()
-                }
-            }
+            // 渲染 / 落盘 / 提示都在 exportAnnotated 内部，这里只管 busy。
+            service.exportAnnotated(doc.state, currentBase, kind)
             busy = false
-            when {
-                !ok -> showToast(R.string.annotate_export_failed)
-                kind == ExportKind.Save -> showToast(R.string.annotate_saved)
-                kind == ExportKind.Copy -> showToast(R.string.annotate_copied)
-            }
         }
     }
 
     /**
      * 关闭穿透后重截（D6）：隐藏两窗 → 等两帧 → 取图 → 换底图。
-     * [clearElements] 为 true 时是破坏性清空（不进撤销栈）。
+     * 笔迹始终保留（F1「默认保留」）；要清空走工具条「清除全部」（可撤销）。
      */
-    private fun recapture(clearElements: Boolean, onDone: () -> Unit = {}) {
+    private fun recapture(onDone: () -> Unit = {}) {
         if (busy) return
         document?.commitPendingText()
         busy = true
@@ -472,12 +504,7 @@ class AnnotateOverlay(
                 return@launch
             }
             val old = base?.bitmap
-            if (clearElements) {
-                doc.clearElements()
-                doc.replaceImage(newBitmap.width, newBitmap.height, keepElements = false)
-            } else {
-                doc.replaceImage(newBitmap.width, newBitmap.height, keepElements = true)
-            }
+            doc.replaceImage(newBitmap.width, newBitmap.height, keepElements = true)
             base = BaseImage(newBitmap)
             // 旧底图可能还被上一帧的 RenderThread 引用；等两帧再回收，避免用已回收位图。
             if (old != null && old !== newBitmap) {
@@ -518,16 +545,18 @@ private fun AnnotateOverlayChrome(
     onCopy: () -> Unit,
     onShare: () -> Unit,
     onConfirmExit: () -> Unit,
-    onRescreenshotKeep: () -> Unit,
-    onRescreenshotClear: () -> Unit,
     onDrag: (Offset) -> Unit,
+    onDragEnd: () -> Unit,
 ) {
     Column(
         modifier = Modifier
             .padding(horizontal = 8.dp)
             // 长按工具条空白处拖动：贴边停靠由窗口坐标夹取保证。
             .pointerInput(Unit) {
-                detectDragGesturesAfterLongPress { change, dragAmount ->
+                detectDragGesturesAfterLongPress(
+                    onDragEnd = onDragEnd,
+                    onDragCancel = onDragEnd,
+                ) { change, dragAmount ->
                     change.consume()
                     onDrag(dragAmount)
                 }
@@ -535,34 +564,7 @@ private fun AnnotateOverlayChrome(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        AnnotateToolbar(
-            document = document,
-            onExit = onExit,
-            onExport = onExport,
-            exportLabel = stringResource(R.string.annotate_export),
-            modifier = Modifier.widthIn(max = 560.dp),
-            extraActions = {
-                IconButton(
-                    onClick = onTogglePenetrate,
-                    enabled = !busy,
-                    modifier = Modifier.size(SubMinInteractiveSize),
-                ) {
-                    Icon(
-                        imageVector = if (penetrating) {
-                            Icons.Default.VisibilityOff
-                        } else {
-                            Icons.Default.Visibility
-                        },
-                        contentDescription = stringResource(
-                            if (penetrating) R.string.annotate_penetrate_on
-                            else R.string.annotate_penetrate,
-                        ),
-                        modifier = Modifier.size(CompactControlIconSize),
-                    )
-                }
-            },
-        )
-
+        // 面板放在工具条上方：窗口按底边锚定，面板开合只向上长，工具条不动。
         if (panel != OverlayPanel.None) {
             Surface(
                 shape = MaterialTheme.shapes.large,
@@ -611,31 +613,39 @@ private fun AnnotateOverlayChrome(
                             }
                         }
 
-                        OverlayPanel.ConfirmRescreenshot -> {
-                            ConfirmPanel(
-                                title = stringResource(R.string.annotate_rescreenshot_title),
-                                onCancel = { onPanel(OverlayPanel.None) },
-                            ) {
-                                TextButton(
-                                    onClick = onRescreenshotKeep,
-                                    modifier = Modifier.fillMaxWidth(),
-                                ) {
-                                    Text(stringResource(R.string.annotate_rescreenshot_keep))
-                                }
-                                TextButton(
-                                    onClick = onRescreenshotClear,
-                                    modifier = Modifier.fillMaxWidth(),
-                                ) {
-                                    Text(stringResource(R.string.annotate_rescreenshot_clear))
-                                }
-                            }
-                        }
-
                         OverlayPanel.None -> Unit
                     }
                 }
             }
         }
+
+        AnnotateToolbar(
+            document = document,
+            onExit = onExit,
+            onExport = onExport,
+            exportLabel = stringResource(R.string.annotate_export),
+            modifier = Modifier.widthIn(max = 560.dp),
+            extraActions = {
+                IconButton(
+                    onClick = onTogglePenetrate,
+                    enabled = !busy,
+                    modifier = Modifier.size(SubMinInteractiveSize),
+                ) {
+                    Icon(
+                        imageVector = if (penetrating) {
+                            Icons.Default.VisibilityOff
+                        } else {
+                            Icons.Default.Visibility
+                        },
+                        contentDescription = stringResource(
+                            if (penetrating) R.string.annotate_penetrate_on
+                            else R.string.annotate_penetrate,
+                        ),
+                        modifier = Modifier.size(CompactControlIconSize),
+                    )
+                }
+            },
+        )
     }
 }
 

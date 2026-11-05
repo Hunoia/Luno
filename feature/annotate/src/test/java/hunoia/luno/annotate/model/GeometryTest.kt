@@ -64,4 +64,22 @@ class GeometryTest {
         assertTrue(PxRect(0f, 0f, 4f, 400f).isEmpty())
         assertFalse(PxRect(0f, 0f, 8f, 400f).isEmpty())
     }
+
+    @Test
+    fun `segment intersects rect when crossing, containing or disjoint`() {
+        // 横穿：端点都在框外。
+        assertTrue(segmentIntersectsRect(Pt(0f, 50f), Pt(100f, 50f), PxRect(40f, 40f, 60f, 60f)))
+        // 端点在框内。
+        assertTrue(segmentIntersectsRect(Pt(45f, 45f), Pt(200f, 200f), PxRect(40f, 40f, 60f, 60f)))
+        // 完全错开。
+        assertFalse(segmentIntersectsRect(Pt(0f, 0f), Pt(10f, 10f), PxRect(40f, 40f, 60f, 60f)))
+        // 反向矩形也能判（先 normalize）。
+        assertTrue(segmentIntersectsRect(Pt(0f, 50f), Pt(100f, 50f), PxRect(60f, 60f, 40f, 40f)))
+    }
+
+    @Test
+    fun `collinear overlap counts as intersection`() {
+        assertTrue(segmentsIntersect(Pt(0f, 0f), Pt(100f, 0f), Pt(50f, 0f), Pt(150f, 0f)))
+        assertFalse(segmentsIntersect(Pt(0f, 0f), Pt(40f, 0f), Pt(50f, 0f), Pt(150f, 0f)))
+    }
 }

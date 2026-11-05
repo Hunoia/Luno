@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
+import hunoia.luno.config.model.AnnotateSettings
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.ClipboardHistory
 import hunoia.luno.config.model.GestureButton
@@ -32,6 +33,7 @@ class SettingsStores(
     internal val _quickSearchSettings: DataStore<QuickSearchSettings>,
     internal val _appUsageStats: DataStore<AppUsageStats>,
     internal val _clipboardHistory: DataStore<ClipboardHistory>,
+    internal val _annotateSettings: DataStore<AnnotateSettings>,
 ) {
     val initialSettings: Flow<InitialSettings> = _initialSettings.data
     val advancedSettings: Flow<AdvancedSettings> = _advancedSettings.data
@@ -45,6 +47,7 @@ class SettingsStores(
         _quickSearchSettings.data.map { it.withUniqueEngineTriggers() }
     val appUsageStats: Flow<AppUsageStats> = _appUsageStats.data
     val clipboardHistory: Flow<ClipboardHistory> = _clipboardHistory.data
+    val annotateSettings: Flow<AnnotateSettings> = _annotateSettings.data
 
     /** 只读不订阅：面板首开同步取一次就够，不需要一条常驻的 flow。 */
     suspend fun readQuickAppSnapshot(): QuickAppSnapshot = _quickAppSnapshot.data.first()
@@ -65,6 +68,7 @@ class SettingsStores(
                 _quickSearchSettings = ctx.dataStore(DataStoreFiles.QUICK_SEARCH_SETTINGS, QuickSearchSettings()),
                 _appUsageStats = ctx.dataStore(DataStoreFiles.APP_USAGE_STATS, AppUsageStats()),
                 _clipboardHistory = ctx.dataStore(DataStoreFiles.CLIPBOARD_HISTORY, ClipboardHistory()),
+                _annotateSettings = ctx.dataStore(DataStoreFiles.ANNOTATE_SETTINGS, AnnotateSettings()),
             )
         }
     }

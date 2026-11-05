@@ -5,6 +5,7 @@ import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.config.store.SettingsStores
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
+import hunoia.luno.config.model.AnnotateSettings
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.Backup
 import hunoia.luno.config.model.BackupDomain
@@ -35,12 +36,14 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         val subGestureDeferred = async { stores._subGestureSettings.data.first() }
         val actionLibraryDeferred = async { stores._actionLibrarySettings.data.first() }
         val quickSearchDeferred = async { stores._quickSearchSettings.data.first() }
+        val annotateDeferred = async { stores._annotateSettings.data.first() }
         Backup(
             backupFormatVersion = BackupVersions.FORMAT,
             gestureSchemaVersion = BackupVersions.GESTURE,
             tuneSchemaVersion = BackupVersions.TUNE,
             actionSchemaVersion = BackupVersions.ACTION,
             searchSchemaVersion = BackupVersions.SEARCH,
+            annotateSchemaVersion = BackupVersions.ANNOTATE,
             initialSettings = initialDeferred.await(),
             advancedSettings = advancedDeferred.await(),
             gestureSettings = gestureDeferred.await(),
@@ -50,6 +53,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
             subGestureSettings = subGestureDeferred.await(),
             actionLibrarySettings = actionLibraryDeferred.await(),
             quickSearchSettings = quickSearchDeferred.await(),
+            annotateSettings = annotateDeferred.await(),
         )
     }
 
@@ -69,6 +73,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         // 恢复的搜索设置先归一化：旧备份缺引擎 id / 标识重复，落库前补齐，
         // 否则顺序、隐藏、打开方式覆盖会指向不存在的引擎。
         launch { backup.quickSearchSettings?.let { v -> writeSection("quickSearchSettings") { stores._quickSearchSettings.updateData { v.withUniqueEngineTriggers() } } } }
+        launch { backup.annotateSettings?.let { v -> writeSection("annotateSettings") { stores._annotateSettings.updateData { v } } } }
     }
 
     /**
@@ -121,5 +126,6 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { stores._subGestureSettings.updateData { SubGestureSettings() } }
         launch { stores._actionLibrarySettings.updateData { ActionLibrarySettings() } }
         launch { stores._quickSearchSettings.updateData { QuickSearchSettings() } }
+        launch { stores._annotateSettings.updateData { AnnotateSettings() } }
     }
 }
