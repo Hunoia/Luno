@@ -27,7 +27,7 @@ import hunoia.luno.R
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.gesture.bounds
 import hunoia.luno.gesture.mirroredButton
-import hunoia.luno.ui.navigation.ActionSelect
+import hunoia.luno.picker.ActionSelect
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsUiEvent
 import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsUiState

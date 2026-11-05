@@ -42,7 +42,7 @@ import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
-import hunoia.luno.ui.navigation.ActionSelect
+import hunoia.luno.picker.ActionSelect
 import hunoia.luno.ui.theme.*
 import kotlinx.coroutines.launch
 

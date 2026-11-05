@@ -356,7 +356,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         hunoia.luno.gridpanel.GridPanelCommand.openItemPicker = { pick ->
             hunoia.luno.ui.actionselect.ActionSelectHostActivity.start(
                 this,
-                hunoia.luno.ui.navigation.ActionSelect(
+                hunoia.luno.picker.ActionSelect(
                     gridPanelId = pick.gridPanelId,
                     gridPanelPageIndex = pick.pageIndex,
                 ),

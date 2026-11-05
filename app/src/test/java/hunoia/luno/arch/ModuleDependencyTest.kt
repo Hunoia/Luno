@@ -22,6 +22,7 @@ class ModuleDependencyTest {
         ":feature:execute", ":feature:actions",
         ":feature:link", ":feature:search", ":feature:quicklaunch", ":feature:gesture",
         ":feature:floatball", ":feature:gridpanel", ":feature:annotate", ":feature:a11y",
+        ":feature:picker",
         ":app",
     )
 
@@ -53,6 +54,12 @@ class ModuleDependencyTest {
         ":feature:search" to setOf(
             ":core:common", ":core:domain", ":core:data", ":core:bridge",
             ":ui:design", ":capability:launch",
+        ),
+        // 跨 feature 的聚合页面：只读别人，不被别人依赖
+        ":feature:picker" to setOf(
+            ":core:common", ":core:domain", ":core:bridge", ":core:data",
+            ":core:runtime", ":core:facade", ":ui:design",
+            ":feature:actions", ":feature:gridpanel", ":feature:quicklaunch", ":feature:search",
         ),
         ":feature:quicklaunch" to setOf(
             // 动作启动走 :capability:launch（原先靠 :feature:search 的 api 透传）

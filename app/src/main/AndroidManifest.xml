@@ -144,7 +144,7 @@
             android:theme="@style/Theme.SideGesture" />
 
         <activity
-            android:name=".ui.actionselect.ActionSelectHostActivity"
+            android:name="hunoia.luno.ui.actionselect.ActionSelectHostActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|density|fontScale|uiMode|layoutDirection|locale"
             android:excludeFromRecents="true"
             android:exported="false"

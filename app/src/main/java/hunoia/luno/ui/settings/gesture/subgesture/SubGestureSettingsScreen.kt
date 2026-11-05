@@ -40,7 +40,7 @@ import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.ui.component.actionTextCompose
 import hunoia.luno.ui.component.gestureButtonMarkColor
-import hunoia.luno.ui.navigation.ActionSelect
+import hunoia.luno.picker.ActionSelect
 import hunoia.luno.ui.component.LunoColumn
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.component.RowIconBadge

@@ -34,7 +34,8 @@ import hunoia.luno.R
 import hunoia.luno.ui.theme.AnimNavTransition
 import kotlinx.coroutines.launch
 
-import hunoia.luno.ui.navigation.ActionSelect
+import hunoia.luno.picker.ActionSelect
+import hunoia.luno.picker.FloatBallSlot
 
 import hunoia.luno.ui.navigation.GestureButtonSettings
 
@@ -64,14 +65,14 @@ import hunoia.luno.ui.navigation.MiniWindowAdjust
 import hunoia.luno.ui.navigation.FloatBallEdit
 import hunoia.luno.ui.navigation.ButtonVisibility
 import hunoia.luno.ui.navigation.ButtonVisibilityEdit
-import hunoia.luno.ui.settings.floatball.FloatBallEditScreen
+import hunoia.luno.floatball.settings.FloatBallEditScreen
 import hunoia.luno.ui.settings.gesture.visibility.ButtonVisibilityEditScreen
 import hunoia.luno.ui.settings.gesture.visibility.ButtonVisibilityScreen
 import hunoia.luno.ui.navigation.SubGestureEditor
 
 import hunoia.luno.ui.navigation.ActionLibraryEdit
 
-import hunoia.luno.ui.actionselect.ActionSelectContent
+import hunoia.luno.picker.ActionSelectContent
 import hunoia.luno.actions.library.ActionLibraryEditScreen
 import hunoia.luno.ui.component.sheet.AppPickerSheet
 import hunoia.luno.ui.settings.action.LogSettingsScreen
@@ -85,7 +86,7 @@ import hunoia.luno.ui.settings.action.MiniWindowAdjustScreen
 import hunoia.luno.ui.settings.action.MiniWindowSettingsScreen
 import hunoia.luno.link.settings.LinkDispatchEditScreen
 import hunoia.luno.link.settings.LinkDispatchSettingsScreen
-import hunoia.luno.ui.settings.floatball.FloatBallEditScreen
+import hunoia.luno.floatball.settings.FloatBallEditScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelEditScreen
 import hunoia.luno.ui.settings.action.panel.ActionPanelListScreen
 import hunoia.luno.ui.settings.action.gridpanel.GridPanelEditScreen
@@ -316,7 +317,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 myComposable<FloatBallEdit> {
                     FloatBallEditScreen(
                         onBack = { navController.popBackStack() },
-                        onNavToActionSelect = { navController.navigate(it) },
+                        onEditTapAction = {
+                            navController.navigate(ActionSelect(floatBallSlot = FloatBallSlot.TAP))
+                        },
                         onNavToNotificationBlocklist = { navController.navigate(NotificationBlocklist) },
                     )
                 }

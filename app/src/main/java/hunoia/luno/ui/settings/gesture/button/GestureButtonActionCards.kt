@@ -35,7 +35,7 @@ import hunoia.luno.ui.component.DirectionLabels
 import hunoia.luno.ui.component.RowIconBadge
 import hunoia.luno.ui.component.directionLabel
 import hunoia.luno.ui.component.actionTextCompose
-import hunoia.luno.ui.navigation.ActionSelect
+import hunoia.luno.picker.ActionSelect
 import hunoia.luno.ui.settings.gesture.style.SideGestureSettings
 import hunoia.luno.ui.theme.ConnectionRadius
 import hunoia.luno.ui.theme.ContainerRadius

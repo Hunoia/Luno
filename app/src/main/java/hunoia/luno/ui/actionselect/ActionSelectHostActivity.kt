@@ -23,7 +23,8 @@ import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.config.model.SubGestureSettings
-import hunoia.luno.ui.navigation.ActionSelect
+import hunoia.luno.picker.ActionSelect
+import hunoia.luno.picker.ActionSelectContent
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
 import hunoia.luno.ui.navigation.LocalGridPanels
