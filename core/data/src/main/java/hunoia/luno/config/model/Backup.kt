@@ -3,6 +3,8 @@ package hunoia.luno.config.model
 import androidx.annotation.Keep
 import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.config.model.GestureButton
+import hunoia.luno.config.model.HabitConfig
+import hunoia.luno.config.model.TodoConfig
 import kotlinx.serialization.Serializable
 
 /** 备份格式版本与各域 Schema 版本（改某域模型只升对应域版本，不动备份格式）。 */
@@ -13,6 +15,7 @@ object BackupVersions {
     const val ACTION = 2
     const val SEARCH = 1
     const val HABIT = 1
+    const val TODO = 1
     const val ANNOTATE = 1
 }
 
@@ -23,6 +26,7 @@ enum class BackupDomain {
     ACTION,
     SEARCH,
     HABIT,
+    TODO,
     ANNOTATE,
 }
 
@@ -36,6 +40,7 @@ data class Backup(
     val actionSchemaVersion: Int = 1,
     val searchSchemaVersion: Int = 1,
     val habitSchemaVersion: Int = 1,
+    val todoSchemaVersion: Int = 1,
     val annotateSchemaVersion: Int = 1,
     val initialSettings: InitialSettings? = null,
     val advancedSettings: AdvancedSettings? = null,
@@ -47,6 +52,7 @@ data class Backup(
     val actionLibrarySettings: ActionLibrarySettings? = null,
     val quickSearchSettings: QuickSearchSettings? = null,
     val habitConfig: HabitConfig? = null,
+    val todoConfig: TodoConfig? = null,
     val annotateSettings: AnnotateSettings? = null,
 )
 

@@ -129,6 +129,18 @@ data class HabitEdit(
     val habitId: String = "",
 )
 
+/** 代办管理列表（主设置 → 代办）。 */
+@Keep
+@Serializable
+data object TodoList
+
+/** 代办编辑；todoId 空 = 新增。 */
+@Keep
+@Serializable
+data class TodoEdit(
+    val todoId: String = "",
+)
+
 @Keep
 @Serializable
 data object SearchEngineSettings

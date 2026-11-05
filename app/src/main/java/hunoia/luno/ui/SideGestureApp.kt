@@ -55,6 +55,8 @@ import hunoia.luno.ui.navigation.GridPanelList
 import hunoia.luno.ui.navigation.GridPanelEdit
 import hunoia.luno.ui.navigation.HabitList
 import hunoia.luno.ui.navigation.HabitEdit
+import hunoia.luno.ui.navigation.TodoList
+import hunoia.luno.ui.navigation.TodoEdit
 import hunoia.luno.ui.navigation.SearchEngineSettings
 import hunoia.luno.ui.navigation.SearchEngineEdit
 import hunoia.luno.ui.navigation.SearchSourceSettings
@@ -90,6 +92,8 @@ import hunoia.luno.ui.settings.action.gridpanel.GridPanelEditScreen
 import hunoia.luno.ui.settings.action.gridpanel.GridPanelListScreen
 import hunoia.luno.ui.settings.habit.HabitEditScreen
 import hunoia.luno.ui.settings.habit.HabitListScreen
+import hunoia.luno.ui.settings.todo.TodoEditScreen
+import hunoia.luno.ui.settings.todo.TodoListScreen
 import hunoia.luno.ui.settings.search.SearchEngineSettingsScreen
 import hunoia.luno.ui.settings.search.SearchEngineEditScreen
 import hunoia.luno.ui.settings.search.SearchSourceSettingsScreen
@@ -107,6 +111,7 @@ import hunoia.luno.ui.navigation.LocalSubGestures
 import hunoia.luno.ui.navigation.LocalNavController
 import hunoia.luno.ui.navigation.PendingHabitEdit
 import hunoia.luno.ui.navigation.PendingLinkRule
+import hunoia.luno.ui.navigation.PendingTodoEdit
 import hunoia.luno.ui.home.HomeScreen
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.domain.gesture.GestureConfig
@@ -139,6 +144,13 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
             val habitId = pendingHabitEditId ?: return@LaunchedEffect
             PendingHabitEdit.consume()
             navController.navigate(HabitEdit(habitId)) { launchSingleTop = true }
+        }
+        // 代办面板部件「打开编辑页」：跨进程 Intent → [PendingTodoEdit]，消费一次就跳对应编辑页。
+        val pendingTodoEditId by PendingTodoEdit.todoId.collectAsStateWithLifecycle()
+        LaunchedEffect(pendingTodoEditId) {
+            val todoId = pendingTodoEditId ?: return@LaunchedEffect
+            PendingTodoEdit.consume()
+            navController.navigate(TodoEdit(todoId)) { launchSingleTop = true }
         }
         CompositionLocalProvider(
             LocalNavController provides navController,
@@ -205,6 +217,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         },
                         onNavToHabits = {
                             navController.navigate(HabitList)
+                        },
+                        onNavToTodos = {
+                            navController.navigate(TodoList)
                         },
                         onNavToScreenPickSettings = {
                             navController.navigate(ScreenPickSettings)
@@ -372,6 +387,20 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 myComposable<HabitEdit> {
                     HabitEditScreen(
                         habitId = it.toRoute<HabitEdit>().habitId.takeIf { h -> h.isNotBlank() },
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                myComposable<TodoList> {
+                    TodoListScreen(
+                        onBack = { navController.popBackStack() },
+                        onEditTodo = { todoId ->
+                            navController.navigate(TodoEdit(todoId ?: ""))
+                        },
+                    )
+                }
+                myComposable<TodoEdit> {
+                    TodoEditScreen(
+                        todoId = it.toRoute<TodoEdit>().todoId.takeIf { t -> t.isNotBlank() },
                         onBack = { navController.popBackStack() },
                     )
                 }

@@ -94,6 +94,7 @@ internal fun Backup.schemaVersionOf(domain: BackupDomain): Int = when (domain) {
     BackupDomain.ACTION -> actionSchemaVersion
     BackupDomain.SEARCH -> searchSchemaVersion
     BackupDomain.HABIT -> habitSchemaVersion
+    BackupDomain.TODO -> todoSchemaVersion
     BackupDomain.ANNOTATE -> annotateSchemaVersion
 }
 
@@ -179,6 +180,18 @@ internal object BuiltinBackupDomains {
                 )
             },
             isEmpty = { it.habitConfig == null },
+        )
+        register(
+            domain = BackupDomain.TODO,
+            schemaVersion = BackupVersions.TODO,
+            snapshot = { full ->
+                Backup(
+                    backupFormatVersion = full.backupFormatVersion,
+                    todoSchemaVersion = full.todoSchemaVersion,
+                    todoConfig = full.todoConfig,
+                )
+            },
+            isEmpty = { it.todoConfig == null },
         )
         register(
             domain = BackupDomain.ANNOTATE,

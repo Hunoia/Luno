@@ -19,8 +19,10 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import hunoia.luno.link.LinkExtras
 import hunoia.luno.gridpanel.HabitExtras
+import hunoia.luno.gridpanel.TodoExtras
 import hunoia.luno.ui.navigation.PendingHabitEdit
 import hunoia.luno.ui.navigation.PendingLinkRule
+import hunoia.luno.ui.navigation.PendingTodoEdit
 import hunoia.luno.ui.SideGestureApp
 import kotlinx.coroutines.launch
 
@@ -49,6 +51,7 @@ class MainActivity : ComponentActivity() {
 
         handleLinkRuleIntent(intent)
         handleHabitEditIntent(intent)
+        handleTodoEditIntent(intent)
 
         setContent {
             val created = rememberNavController()
@@ -71,6 +74,7 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         handleLinkRuleIntent(intent)
         handleHabitEditIntent(intent)
+        handleTodoEditIntent(intent)
     }
 
     /**
@@ -92,6 +96,16 @@ class MainActivity : ComponentActivity() {
         val habitId = intent?.getStringExtra(HabitExtras.EXTRA_EDIT_HABIT_ID) ?: return
         intent.removeExtra(HabitExtras.EXTRA_EDIT_HABIT_ID)
         PendingHabitEdit.request(habitId)
+    }
+
+    /**
+     * 代办面板部件的「打开编辑页」：`TodoExtras.EXTRA_EDIT_TODO_ID` 带 todo id。
+     * 导航由 [SideGestureApp] 消费 [PendingTodoEdit] 完成；这里只负责收件。
+     */
+    private fun handleTodoEditIntent(intent: Intent?) {
+        val todoId = intent?.getStringExtra(TodoExtras.EXTRA_EDIT_TODO_ID) ?: return
+        intent.removeExtra(TodoExtras.EXTRA_EDIT_TODO_ID)
+        PendingTodoEdit.request(todoId)
     }
 
     private fun requestNotificationPermissionIfNeeded() {

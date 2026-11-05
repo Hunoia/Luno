@@ -16,6 +16,7 @@ import hunoia.luno.config.model.QuickAppSnapshot
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.withUniqueEngineTriggers
 import hunoia.luno.config.model.SubGestureSettings
+import hunoia.luno.config.model.TodoConfig
 import hunoia.luno.core.AppContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -35,6 +36,7 @@ class SettingsStores(
     internal val _appUsageStats: DataStore<AppUsageStats>,
     internal val _clipboardHistory: DataStore<ClipboardHistory>,
     internal val _habitConfig: DataStore<HabitConfig>,
+    internal val _todoConfig: DataStore<TodoConfig>,
     internal val _annotateSettings: DataStore<AnnotateSettings>,
 ) {
     val initialSettings: Flow<InitialSettings> = _initialSettings.data
@@ -50,6 +52,7 @@ class SettingsStores(
     val appUsageStats: Flow<AppUsageStats> = _appUsageStats.data
     val clipboardHistory: Flow<ClipboardHistory> = _clipboardHistory.data
     val habitConfig: Flow<HabitConfig> = _habitConfig.data
+    val todoConfig: Flow<TodoConfig> = _todoConfig.data
     val annotateSettings: Flow<AnnotateSettings> = _annotateSettings.data
 
     /** 只读不订阅：面板首开同步取一次就够，不需要一条常驻的 flow。 */
@@ -72,6 +75,7 @@ class SettingsStores(
                 _appUsageStats = ctx.dataStore(DataStoreFiles.APP_USAGE_STATS, AppUsageStats()),
                 _clipboardHistory = ctx.dataStore(DataStoreFiles.CLIPBOARD_HISTORY, ClipboardHistory()),
                 _habitConfig = ctx.dataStore(DataStoreFiles.HABITS, HabitConfig()),
+                _todoConfig = ctx.dataStore(DataStoreFiles.TODOS, TodoConfig()),
                 _annotateSettings = ctx.dataStore(DataStoreFiles.ANNOTATE_SETTINGS, AnnotateSettings()),
             )
         }

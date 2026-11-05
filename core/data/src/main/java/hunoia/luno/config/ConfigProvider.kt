@@ -24,6 +24,9 @@ import hunoia.luno.config.model.QuickAppSnapshot
 import hunoia.luno.config.model.QuickLauncherGeometry
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SubGestureSettings
+import hunoia.luno.config.model.TodoConfig
+import hunoia.luno.config.model.TodoDoneRetentionDays
+import hunoia.luno.config.model.TodoItem
 import hunoia.luno.config.model.withResolvedName
 import hunoia.luno.config.model.withUniqueEngineTriggers
 import hunoia.luno.config.repository.AppUsageRepository
@@ -59,6 +62,9 @@ object ConfigProvider {
 
     /** 习惯配置：习惯定义 + 打卡记录。部件与管理页都订阅它。 */
     val habitConfig: Flow<HabitConfig> = stores.habitConfig
+
+    /** 代办配置：代办列表（一次性任务）。部件与管理页都订阅它。 */
+    val todoConfig: Flow<TodoConfig> = stores.todoConfig
 
     suspend fun getInitialSettings(): InitialSettings = stores._initialSettings.data.first()
     suspend fun getAdvancedSettings(): AdvancedSettings = stores._advancedSettings.data.first()
@@ -175,6 +181,35 @@ object ConfigProvider {
 
     suspend fun deleteHabit(habitId: String) {
         updateHabitConfig { it.deleteHabit(habitId) }
+    }
+
+    // ---------- 代办域 ----------
+    // 切换 / 增删改是应用内状态变更（配置写入），走 domain 门面写回；
+    // 不走 Dispatcher / SurfaceDispatch（architecture §1.3 配置写入不是 Action）。
+
+    suspend fun getTodoConfig(): TodoConfig = stores._todoConfig.data.first()
+
+    suspend fun updateTodoConfig(transform: suspend (TodoConfig) -> TodoConfig) {
+        stores._todoConfig.updateData(transform)
+    }
+
+    /** 切换完成态：done=true 记完成时刻。写后按保留天数惰性裁剪已完成代办。 */
+    suspend fun toggleTodo(todoId: String, done: Boolean) {
+        updateTodoConfig {
+            it.toggleTodo(todoId, done).pruneDone(System.currentTimeMillis(), TodoDoneRetentionDays)
+        }
+    }
+
+    suspend fun addTodo(todo: TodoItem) {
+        updateTodoConfig { it.addTodo(todo) }
+    }
+
+    suspend fun updateTodo(todo: TodoItem) {
+        updateTodoConfig { it.updateTodo(todo) }
+    }
+
+    suspend fun deleteTodo(todoId: String) {
+        updateTodoConfig { it.deleteTodo(todoId) }
     }
 
     /**

@@ -30,6 +30,7 @@ object DataStoreFiles {
 
     // 习惯组（独立于手势/动作/搜索，按 §11.1 语义分组）
     const val HABITS = "habits"
+    const val TODOS = "todos"
 
     // 瞬态：不进备份
     /** 快速启动器应用列表快照。可从系统重建，刻意不进备份。 */

@@ -129,6 +129,7 @@ fun HomeScreen(
     onNavToStatusBarIconSettings: () -> Unit = {},
     onNavToLogSettings: () -> Unit = {},
     onNavToHabits: () -> Unit = {},
+    onNavToTodos: () -> Unit = {},
     onNavToScreenPickSettings: () -> Unit = {},
     onNavToActionLibraryEdit: (String, String?) -> Unit = { _, _ -> },
     vm: HomeVM = viewModel()
@@ -483,6 +484,7 @@ fun HomeScreen(
                             onNavToStatusBarIconSettings = onNavToStatusBarIconSettings,
                             onNavToLogSettings = onNavToLogSettings,
                             onNavToHabits = onNavToHabits,
+                            onNavToTodos = onNavToTodos,
                         )
                     }
                 }

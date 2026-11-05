@@ -17,6 +17,7 @@ import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SubGestureSettings
+import hunoia.luno.config.model.TodoConfig
 import hunoia.luno.config.model.withUniqueEngineTriggers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -38,6 +39,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         val actionLibraryDeferred = async { stores._actionLibrarySettings.data.first() }
         val quickSearchDeferred = async { stores._quickSearchSettings.data.first() }
         val habitDeferred = async { stores._habitConfig.data.first() }
+        val todoDeferred = async { stores._todoConfig.data.first() }
         val annotateDeferred = async { stores._annotateSettings.data.first() }
         Backup(
             backupFormatVersion = BackupVersions.FORMAT,
@@ -46,6 +48,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
             actionSchemaVersion = BackupVersions.ACTION,
             searchSchemaVersion = BackupVersions.SEARCH,
             habitSchemaVersion = BackupVersions.HABIT,
+            todoSchemaVersion = BackupVersions.TODO,
             annotateSchemaVersion = BackupVersions.ANNOTATE,
             initialSettings = initialDeferred.await(),
             advancedSettings = advancedDeferred.await(),
@@ -57,6 +60,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
             actionLibrarySettings = actionLibraryDeferred.await(),
             quickSearchSettings = quickSearchDeferred.await(),
             habitConfig = habitDeferred.await(),
+            todoConfig = todoDeferred.await(),
             annotateSettings = annotateDeferred.await(),
         )
     }
@@ -78,6 +82,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         // 否则顺序、隐藏、打开方式覆盖会指向不存在的引擎。
         launch { backup.quickSearchSettings?.let { v -> writeSection("quickSearchSettings") { stores._quickSearchSettings.updateData { v.withUniqueEngineTriggers() } } } }
         launch { backup.habitConfig?.let { v -> writeSection("habitConfig") { stores._habitConfig.updateData { v } } } }
+        launch { backup.todoConfig?.let { v -> writeSection("todoConfig") { stores._todoConfig.updateData { v } } } }
         launch { backup.annotateSettings?.let { v -> writeSection("annotateSettings") { stores._annotateSettings.updateData { v } } } }
     }
 
@@ -132,6 +137,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { stores._actionLibrarySettings.updateData { ActionLibrarySettings() } }
         launch { stores._quickSearchSettings.updateData { QuickSearchSettings() } }
         launch { stores._habitConfig.updateData { HabitConfig() } }
+        launch { stores._todoConfig.updateData { TodoConfig() } }
         launch { stores._annotateSettings.updateData { AnnotateSettings() } }
     }
 }

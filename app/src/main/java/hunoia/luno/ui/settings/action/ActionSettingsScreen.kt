@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.Gesture
@@ -88,6 +89,7 @@ fun ActionSettingsTab(
     onNavToStatusBarIconSettings: () -> Unit = {},
     onNavToLogSettings: () -> Unit = {},
     onNavToHabits: () -> Unit = {},
+    onNavToTodos: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -193,8 +195,14 @@ fun ActionSettingsTab(
                     LunoSettingsRow(
                         icon = Icons.Default.CheckCircle,
                         title = stringResource(R.string.habit_list_title),
-                        shape = segmentedShape(0, 1),
+                        shape = segmentedShape(0, 2),
                         onClick = onNavToHabits,
+                    )
+                    LunoSettingsRow(
+                        icon = Icons.Default.Checklist,
+                        title = stringResource(R.string.todo_list_title),
+                        shape = segmentedShape(1, 2),
+                        onClick = onNavToTodos,
                     )
                 }
             }

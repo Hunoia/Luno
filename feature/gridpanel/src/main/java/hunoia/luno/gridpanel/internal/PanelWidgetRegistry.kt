@@ -187,5 +187,23 @@ object PanelWidgetRegistry {
                 )
             },
         )
+        register(
+            PanelWidget(
+                id = InternalWidgetIds.TODO,
+                labelRes = R.string.grid_panel_internal_todo,
+                defaultSpanX = 2,
+                defaultSpanY = 2,
+                minSpanX = 1,
+                minSpanY = 1,
+            ) { scope ->
+                TodoListCell(
+                    modifier = scope.modifier,
+                    spanX = scope.spanX,
+                    spanY = scope.spanY,
+                    enabled = scope.enabled,
+                    params = scope.params,
+                )
+            },
+        )
     }
 }

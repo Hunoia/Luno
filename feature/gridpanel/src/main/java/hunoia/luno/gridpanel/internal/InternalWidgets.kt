@@ -28,6 +28,8 @@ object InternalWidgetIds {
     const val HABIT_CHECK = "internal.habitCheck"
     /** 习惯历史：近 14 天点阵 + 连续天数（params 存 HabitWidgetParams）。 */
     const val HABIT_HISTORY = "internal.habitHistory"
+    /** 代办列表：未完成项可勾选 + 未完成数（无 params）。 */
+    const val TODO = "internal.todo"
 }
 
 /** 一个内置小部件的选择页条目与落格默认值。 */
