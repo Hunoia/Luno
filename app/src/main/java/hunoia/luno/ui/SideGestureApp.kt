@@ -37,7 +37,7 @@ import kotlinx.coroutines.launch
 import hunoia.luno.picker.ActionSelect
 import hunoia.luno.picker.FloatBallSlot
 
-import hunoia.luno.ui.navigation.GestureButtonSettings
+import hunoia.luno.gesture.settings.GestureButtonSettings
 
 import hunoia.luno.ui.navigation.Home
 import hunoia.luno.ui.navigation.LogSettings
@@ -66,9 +66,9 @@ import hunoia.luno.ui.navigation.FloatBallEdit
 import hunoia.luno.ui.navigation.ButtonVisibility
 import hunoia.luno.ui.navigation.ButtonVisibilityEdit
 import hunoia.luno.floatball.settings.FloatBallEditScreen
-import hunoia.luno.ui.settings.gesture.visibility.ButtonVisibilityEditScreen
-import hunoia.luno.ui.settings.gesture.visibility.ButtonVisibilityScreen
-import hunoia.luno.ui.navigation.SubGestureEditor
+import hunoia.luno.gesture.settings.visibility.ButtonVisibilityEditScreen
+import hunoia.luno.gesture.settings.visibility.ButtonVisibilityScreen
+import hunoia.luno.gesture.settings.SubGestureEditor
 
 import hunoia.luno.ui.navigation.ActionLibraryEdit
 
@@ -98,9 +98,9 @@ import hunoia.luno.ui.settings.search.SearchEngineSettingsScreen
 import hunoia.luno.ui.settings.search.SearchEngineEditScreen
 import hunoia.luno.ui.settings.search.SearchSourceSettingsScreen
 
-import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsScreen
+import hunoia.luno.gesture.settings.button.GestureButtonSettingsScreen
 
-import hunoia.luno.ui.settings.gesture.subgesture.SubGestureSettingsScreen
+import hunoia.luno.gesture.settings.subgesture.SubGestureSettingsScreen
 import hunoia.luno.domain.action.ActionLibrary
 import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.ui.theme.SideGestureTheme
@@ -232,7 +232,17 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 myComposable<GestureButtonSettings> {
                     GestureButtonSettingsScreen(
                         onBack = { navController.navigateUp() },
-                        onNavToActionSelect = { navController.navigate(it) }
+                        onNavToActionSelect = { target ->
+                            navController.navigate(
+                                ActionSelect(
+                                    gestureButtonId = target.gestureButtonId,
+                                    slot = target.slot,
+                                    directionLabel = target.directionLabel,
+                                    triggerType = target.triggerType,
+                                    subGestureId = target.subGestureId,
+                                ),
+                            )
+                        },
                     )
                 }
                 myComposable<ActionSelect> {
@@ -335,6 +345,13 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                     ButtonVisibilityEditScreen(
                         profileId = it.toRoute<ButtonVisibilityEdit>().profileId,
                         onBack = { navController.popBackStack() },
+                        appPicker = { request ->
+                            AppPickerSheet(
+                                onDismissRequest = request.onDismiss,
+                                selectedPackageNames = request.selectedPackageNames,
+                                onConfirm = request.onConfirm,
+                            )
+                        },
                     )
                 }
                 myComposable<NotificationBlocklist> {
@@ -428,7 +445,17 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 myComposable<SubGestureEditor> {
                     SubGestureSettingsScreen(
                         onBack = { navController.navigateUp() },
-                        onNavToActionSelect = { navController.navigate(it) }
+                        onNavToActionSelect = { target ->
+                            navController.navigate(
+                                ActionSelect(
+                                    gestureButtonId = target.gestureButtonId,
+                                    slot = target.slot,
+                                    directionLabel = target.directionLabel,
+                                    triggerType = target.triggerType,
+                                    subGestureId = target.subGestureId,
+                                ),
+                            )
+                        },
                     )
                 }
                 myComposable<ActionLibraryEdit> {

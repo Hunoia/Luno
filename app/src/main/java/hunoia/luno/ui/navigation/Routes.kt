@@ -6,12 +6,6 @@ import kotlinx.serialization.Serializable
 
 
 
-@Serializable
-@Keep
-data class GestureButtonSettings(
-    val buttonId: String,
-)
-
 @Keep
 @Serializable
 data object Home
@@ -150,12 +144,6 @@ data object ButtonVisibility
 @Serializable
 data class ButtonVisibilityEdit(
     val profileId: String,
-)
-
-@Keep
-@Serializable
-data class SubGestureEditor(
-    val subGestureId: String
 )
 
 @Keep

@@ -1,4 +1,4 @@
-package hunoia.luno.ui.settings.gesture.subgesture
+package hunoia.luno.gesture.settings.subgesture
 import hunoia.luno.ui.theme.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -29,7 +29,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aaron.compose.component.UDFComponent
-import hunoia.luno.R
+import hunoia.luno.gesture.R
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxSubGestureLongSlideTriggerDistance
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxSubGestureTimeoutMs
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxSubGestureTriggerDistance
@@ -40,33 +40,33 @@ import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.ui.component.actionTextCompose
 import hunoia.luno.ui.component.gestureButtonMarkColor
-import hunoia.luno.picker.ActionSelect
 import hunoia.luno.ui.component.LunoColumn
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.component.RowIconBadge
 import hunoia.luno.ui.component.input.LunoTextSlider
 import androidx.compose.foundation.layout.Arrangement
-import hunoia.luno.ui.settings.gesture.subgesture.SubGestureSettingsUiEvent
-import hunoia.luno.ui.settings.gesture.subgesture.SubGestureSettingsUiState
-import hunoia.luno.ui.settings.gesture.button.GestureActionGroup
-import hunoia.luno.ui.settings.gesture.button.GestureSlideTriggerDistanceContent
-import hunoia.luno.ui.settings.gesture.button.ExpandableGestureActionCard
-import hunoia.luno.ui.settings.gesture.button.actionContentRowShape
+import hunoia.luno.gesture.settings.subgesture.SubGestureSettingsUiEvent
+import hunoia.luno.gesture.settings.subgesture.SubGestureSettingsUiState
+import hunoia.luno.gesture.settings.button.GestureActionGroup
+import hunoia.luno.gesture.settings.button.GestureSlideTriggerDistanceContent
+import hunoia.luno.gesture.settings.button.ExpandableGestureActionCard
+import hunoia.luno.gesture.settings.button.actionContentRowShape
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.DirectionLabels
 import hunoia.luno.ui.component.directionLabel
-import hunoia.luno.ui.settings.gesture.style.SideGestureSettings
+import hunoia.luno.gesture.settings.style.SideGestureSettings
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.feedback.LunoIconButton
+import hunoia.luno.gesture.settings.GestureActionTarget
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubGestureSettingsScreen(
     onBack: () -> Unit,
-    onNavToActionSelect: (ActionSelect) -> Unit = {},
+    onNavToActionSelect: (GestureActionTarget) -> Unit = {},
     vm: SubGestureSettingsVM = viewModel()
 ) {
     var showGestureAngles by remember { mutableStateOf(false) }
@@ -182,7 +182,7 @@ fun SubGestureSettingsScreen(
                                     SideGestureSettings(
                                         onClick = {
                                             onNavToActionSelect(
-                                                ActionSelect(
+                                                GestureActionTarget(
                                                     gestureButtonId = "",
                                                     slot = slot,
                                                     directionLabel = label,
@@ -214,7 +214,7 @@ fun SubGestureSettingsScreen(
                                     SideGestureSettings(
                                         onClick = {
                                             onNavToActionSelect(
-                                                ActionSelect(
+                                                GestureActionTarget(
                                                     gestureButtonId = "",
                                                     slot = slot,
                                                     directionLabel = label,
@@ -246,7 +246,7 @@ fun SubGestureSettingsScreen(
                                     SideGestureSettings(
                                         onClick = {
                                             onNavToActionSelect(
-                                                ActionSelect(
+                                                GestureActionTarget(
                                                     gestureButtonId = "",
                                                     slot = slot,
                                                     directionLabel = label,
@@ -278,7 +278,7 @@ fun SubGestureSettingsScreen(
                                     SideGestureSettings(
                                         onClick = {
                                             onNavToActionSelect(
-                                                ActionSelect(
+                                                GestureActionTarget(
                                                     gestureButtonId = "",
                                                     slot = slot,
                                                     directionLabel = label,

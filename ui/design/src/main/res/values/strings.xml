@@ -23,4 +23,13 @@
     <string name="theme_color_surface_variant">表面变体</string>
     <string name="theme_color_tertiary">第三色</string>
     <string name="theme_color_tertiary_container">第三容器</string>
+    <string name="bottom">下</string>
+    <string name="bottom_left">左下</string>
+    <string name="bottom_right">右下</string>
+    <string name="direction_any">任意方向</string>
+    <string name="left">左</string>
+    <string name="right">右</string>
+    <string name="top">上</string>
+    <string name="top_left">左上</string>
+    <string name="top_right">右上</string>
 </resources>

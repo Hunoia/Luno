@@ -1,4 +1,4 @@
-package hunoia.luno.ui.settings.gesture.style
+package hunoia.luno.gesture.settings.style
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,7 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import hunoia.luno.R
+import hunoia.luno.gesture.R
 import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoSegmentedGroup

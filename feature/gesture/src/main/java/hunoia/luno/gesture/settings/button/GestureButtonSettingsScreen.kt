@@ -1,4 +1,4 @@
-package hunoia.luno.ui.settings.gesture.button
+package hunoia.luno.gesture.settings.button
 import hunoia.luno.ui.theme.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -23,26 +23,26 @@ import androidx.compose.ui.util.fastForEach
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aaron.compose.component.UDFComponent
-import hunoia.luno.R
+import hunoia.luno.gesture.R
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.gesture.bounds
 import hunoia.luno.gesture.mirroredButton
-import hunoia.luno.picker.ActionSelect
 import hunoia.luno.ui.component.sheet.LunoSheet
-import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsUiEvent
-import hunoia.luno.ui.settings.gesture.button.GestureButtonSettingsUiState
-import hunoia.luno.ui.settings.gesture.subgesture.GestureButtonAngleContent
+import hunoia.luno.gesture.settings.button.GestureButtonSettingsUiEvent
+import hunoia.luno.gesture.settings.button.GestureButtonSettingsUiState
+import hunoia.luno.gesture.settings.subgesture.GestureButtonAngleContent
 import hunoia.luno.ui.theme.MarkColorSize
 import hunoia.luno.ui.component.gestureButtonMarkColor
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.feedback.LunoIconButton
+import hunoia.luno.gesture.settings.GestureActionTarget
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GestureButtonSettingsScreen(
     onBack: () -> Unit,
-    onNavToActionSelect: (ActionSelect) -> Unit = {},
+    onNavToActionSelect: (GestureActionTarget) -> Unit = {},
     vm: GestureButtonSettingsVM = viewModel()
 ) {
     var showVibrationSettings by remember { mutableStateOf(false) }

@@ -1,9 +1,9 @@
-package hunoia.luno.ui.settings.gesture.button
+package hunoia.luno.gesture.settings.button
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
-import hunoia.luno.R
+import hunoia.luno.gesture.R
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.ui.component.LunoColumn
 import hunoia.luno.ui.component.row.LunoGroup

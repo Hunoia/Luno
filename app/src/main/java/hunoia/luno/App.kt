@@ -79,6 +79,11 @@ class App : Application(), ImageLoaderFactory {
         hunoia.luno.runtime.dispatch.ActivityOptions.install(
             hunoia.luno.runtime.QuickLaunchActivityOptionsSource(applicationContext),
         )
+        // 手势/子手势删除后的孤儿资源回收：实现在 :feature:gridpanel，调用点在 :feature:gesture，
+        // 直接依赖会成环，经 :core:runtime 的钩子注入。
+        hunoia.luno.runtime.maintenance.PanelMaintenance.cleanupOrphanResources = {
+            hunoia.luno.gridpanel.PanelResources.cleanup()
+        }
         initVibrationContext(applicationContext)
         DensityProvider.init(applicationContext)
 

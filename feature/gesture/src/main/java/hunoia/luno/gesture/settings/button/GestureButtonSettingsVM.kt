@@ -1,4 +1,4 @@
-package hunoia.luno.ui.settings.gesture.button
+package hunoia.luno.gesture.settings.button
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
@@ -13,7 +13,7 @@ import hunoia.luno.config.defaults.SettingsUiDefaults.MinGestureButtonLength
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxGestureButtonArea
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureButtonAngle
-import hunoia.luno.ui.navigation.GestureButtonSettings
+import hunoia.luno.gesture.settings.GestureButtonSettings
 
 import hunoia.luno.domain.gesture.GestureConfig
 import kotlinx.coroutines.Job
@@ -69,7 +69,7 @@ class GestureButtonSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeV
                     }
                 }
             }
-            hunoia.luno.gridpanel.PanelResources.cleanup()
+            hunoia.luno.runtime.maintenance.PanelMaintenance.cleanupOrphanResources?.invoke()
         }.invokeOnCompletion {
             finish()
         }

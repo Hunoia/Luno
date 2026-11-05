@@ -1,4 +1,4 @@
-package hunoia.luno.ui.settings.gesture.visibility
+package hunoia.luno.gesture.settings.visibility
 
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -10,7 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.R
+import hunoia.luno.gesture.R
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.VisibilityProfile
 import hunoia.luno.config.model.VisibilityScreen
@@ -21,7 +21,7 @@ import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
-import hunoia.luno.ui.settings.gesture.visibility.ButtonVisibilityText.summary
+import hunoia.luno.gesture.settings.visibility.ButtonVisibilityText.summary
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.SegmentedGap
 import kotlinx.coroutines.launch

@@ -1,4 +1,4 @@
-package hunoia.luno.ui.settings.gesture.subgesture
+package hunoia.luno.gesture.settings.subgesture
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -46,7 +46,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import hunoia.luno.R
+import hunoia.luno.gesture.R
 import hunoia.luno.config.model.DirectionLayoutDefaults
 import hunoia.luno.config.model.GestureButtonAngle
 import hunoia.luno.config.model.SubGestureAngle

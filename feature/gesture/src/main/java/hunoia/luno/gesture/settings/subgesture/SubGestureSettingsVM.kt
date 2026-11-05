@@ -1,18 +1,18 @@
-package hunoia.luno.ui.settings.gesture.subgesture
+package hunoia.luno.gesture.settings.subgesture
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.aaron.compose.base.BaseComposeVM
-import hunoia.luno.R
-import hunoia.luno.ui.settings.gesture.button.GestureActionGroup
+import hunoia.luno.gesture.R
+import hunoia.luno.gesture.settings.button.GestureActionGroup
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxSubGestureLongSlideTriggerDistance
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxSubGestureTriggerDistance
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinGestureSlideDistanceGap
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinSubGestureLongSlideTriggerDistance
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinSubGestureTriggerDistance
 import hunoia.luno.core.AppContext
-import hunoia.luno.ui.navigation.SubGestureEditor
+import hunoia.luno.gesture.settings.SubGestureEditor
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.SubGestureAngle
@@ -85,7 +85,7 @@ class SubGestureSettingsVM(savedStateHandle: SavedStateHandle) : BaseComposeVM<S
                 )
             }
             cleanReferences(subGestureEditor.subGestureId)
-            hunoia.luno.gridpanel.PanelResources.cleanup()
+            hunoia.luno.runtime.maintenance.PanelMaintenance.cleanupOrphanResources?.invoke()
         }.invokeOnCompletion {
             finish()
         }

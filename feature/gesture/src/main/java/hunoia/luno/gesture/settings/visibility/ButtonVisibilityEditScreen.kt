@@ -1,4 +1,4 @@
-package hunoia.luno.ui.settings.gesture.visibility
+package hunoia.luno.gesture.settings.visibility
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,7 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.R
+import hunoia.luno.gesture.R
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.config.model.VisibilityProfile
@@ -41,10 +41,11 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
-import hunoia.luno.ui.component.sheet.AppPickerSheet
+import hunoia.luno.ui.component.sheet.AppPickerRequest
+import hunoia.luno.ui.component.sheet.AppPickerSlot
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.sheet.LunoSheet
-import hunoia.luno.ui.settings.gesture.visibility.ButtonVisibilityText.label
+import hunoia.luno.gesture.settings.visibility.ButtonVisibilityText.label
 import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SegmentedGap
@@ -55,6 +56,8 @@ import java.util.UUID
 fun ButtonVisibilityEditScreen(
     profileId: String,
     onBack: () -> Unit,
+    /** 应用选择器由 `:app` 注入（与动作库 / 链接设置同一插槽）。 */
+    appPicker: AppPickerSlot? = null,
 ) {
     val initial by GestureConfig.initial.collectAsStateWithLifecycle(initialValue = InitialSettings())
     val buttons by GestureConfig.buttons.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -171,14 +174,23 @@ fun ButtonVisibilityEditScreen(
         },
         sheets = {
             if (showAppPicker) {
-                AppPickerSheet(
-                    selectedPackageNames = current.packageNames.toList(),
-                    onDismissRequest = { showAppPicker = false },
-                    onConfirm = { selected ->
-                        draft = current.copy(packageNames = selected.toSet())
-                        showAppPicker = false
-                    },
-                )
+                val picker = appPicker
+                if (picker == null) {
+                    showAppPicker = false
+                } else {
+                    picker(
+                        AppPickerRequest(
+                            selectedPackageNames = current.packageNames.toList(),
+                            selectedUserId = null,
+                            onDismiss = { showAppPicker = false },
+                            onConfirm = { selected ->
+                                draft = current.copy(packageNames = selected.toSet())
+                                showAppPicker = false
+                            },
+                            onSelect = null,
+                        ),
+                    )
+                }
             }
             if (showScreenPicker) {
                 LunoSheet(onDismissRequest = { showScreenPicker = false }) {

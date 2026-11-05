@@ -1,4 +1,4 @@
-package hunoia.luno.ui.settings.gesture.style
+package hunoia.luno.gesture.settings.style
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -7,7 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
-import hunoia.luno.R
+import hunoia.luno.gesture.R
 import hunoia.luno.ui.component.DirectionLabels
 import hunoia.luno.ui.component.RowIconBadge
 import hunoia.luno.ui.component.directionLabel

@@ -1,4 +1,4 @@
-package hunoia.luno.ui.settings.gesture.button
+package hunoia.luno.gesture.settings.button
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Straighten
@@ -9,7 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
-import hunoia.luno.R
+import hunoia.luno.gesture.R
 import hunoia.luno.config.defaults.SettingsUiDefaults.MinGestureButtonLength
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.ui.component.input.LunoTextSlider

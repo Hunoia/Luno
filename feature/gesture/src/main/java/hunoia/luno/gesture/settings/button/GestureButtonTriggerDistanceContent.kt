@@ -1,4 +1,4 @@
-package hunoia.luno.ui.settings.gesture.button
+package hunoia.luno.gesture.settings.button
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
@@ -16,7 +16,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import hunoia.luno.R
+import hunoia.luno.gesture.R
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxDoubleTapTriggerDelayMs
 import hunoia.luno.config.defaults.SettingsUiDefaults.MaxHoldTriggerDelayMs

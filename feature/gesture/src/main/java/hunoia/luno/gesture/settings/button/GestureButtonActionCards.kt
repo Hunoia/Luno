@@ -1,4 +1,4 @@
-package hunoia.luno.ui.settings.gesture.button
+package hunoia.luno.gesture.settings.button
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -26,7 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import hunoia.luno.R
+import hunoia.luno.gesture.R
 import hunoia.luno.config.model.DirectionActions
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureTriggerType
@@ -35,13 +35,13 @@ import hunoia.luno.ui.component.DirectionLabels
 import hunoia.luno.ui.component.RowIconBadge
 import hunoia.luno.ui.component.directionLabel
 import hunoia.luno.ui.component.actionTextCompose
-import hunoia.luno.picker.ActionSelect
-import hunoia.luno.ui.settings.gesture.style.SideGestureSettings
+import hunoia.luno.gesture.settings.style.SideGestureSettings
 import hunoia.luno.ui.theme.ConnectionRadius
 import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SegmentedGap
 import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.gesture.settings.GestureActionTarget
 
 /** 展开内容内部行的圆角：首行接标题用小圆角，最后一行统一收回大圆角。 */
 fun actionContentRowShape(index: Int, count: Int): RoundedCornerShape {
@@ -142,7 +142,7 @@ fun ExpandableGestureActionCard(
 @Composable
 private fun DirectionalActionCard(
     gestureButton: GestureButton,
-    onNavToActionSelect: (ActionSelect) -> Unit,
+    onNavToActionSelect: (GestureActionTarget) -> Unit,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     icon: ImageVector,
@@ -164,7 +164,7 @@ private fun DirectionalActionCard(
             actionsText = { slot -> actions.actionBy(slot).actionTextCompose() },
             onSlotClick = { slot, label ->
                 onNavToActionSelect(
-                    ActionSelect(
+                    GestureActionTarget(
                         gestureButtonId = gestureButton.id,
                         slot = slot,
                         directionLabel = label,
@@ -179,7 +179,7 @@ private fun DirectionalActionCard(
 @Composable
 fun GestureButtonSlideActionsCard(
     gestureButton: GestureButton,
-    onNavToActionSelect: (ActionSelect) -> Unit,
+    onNavToActionSelect: (GestureActionTarget) -> Unit,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
 ) = DirectionalActionCard(
@@ -197,7 +197,7 @@ fun GestureButtonSlideActionsCard(
 @Composable
 fun GestureButtonLongSlideActionsCard(
     gestureButton: GestureButton,
-    onNavToActionSelect: (ActionSelect) -> Unit,
+    onNavToActionSelect: (GestureActionTarget) -> Unit,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
 ) = DirectionalActionCard(
@@ -249,7 +249,7 @@ private fun DirectionalActionRows(
 @Composable
 fun GestureButtonTapActionsCard(
     gestureButton: GestureButton,
-    onNavToActionSelect: (ActionSelect) -> Unit,
+    onNavToActionSelect: (GestureActionTarget) -> Unit,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
 ) {
@@ -270,7 +270,7 @@ fun GestureButtonTapActionsCard(
             LunoSettingsRow(
                 onClick = {
                     onNavToActionSelect(
-                        ActionSelect(
+                        GestureActionTarget(
                             gestureButtonId = gestureButton.id,
                             slot = 0,
                             triggerType = triggerType,
@@ -291,7 +291,7 @@ fun GestureButtonTapActionsCard(
 @Composable
 fun GestureButtonSlideHoldActionsCard(
     gestureButton: GestureButton,
-    onNavToActionSelect: (ActionSelect) -> Unit,
+    onNavToActionSelect: (GestureActionTarget) -> Unit,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
 ) = DirectionalActionCard(
@@ -309,7 +309,7 @@ fun GestureButtonSlideHoldActionsCard(
 @Composable
 fun GestureButtonLongSlideHoldActionsCard(
     gestureButton: GestureButton,
-    onNavToActionSelect: (ActionSelect) -> Unit,
+    onNavToActionSelect: (GestureActionTarget) -> Unit,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
 ) = DirectionalActionCard(
