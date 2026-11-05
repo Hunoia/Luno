@@ -1,20 +1,11 @@
 plugins {
-    alias(libs.plugins.android.library)
+    id("luno.android.library")
     alias(libs.plugins.jetbrains.kotlin.compose)
 }
 
 android {
     namespace = "hunoia.luno.gesture"
-    compileSdk = 37
-    buildToolsVersion = "37.0.0"
 
-    defaultConfig {
-        minSdk = 33
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
     testOptions {
         // JVM 单测直接调用生产代码，其中 android.util.Log 需返回默认值而非抛 "not mocked"。
         unitTests.isReturnDefaultValues = true

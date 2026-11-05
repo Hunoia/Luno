@@ -1,4 +1,5 @@
 pluginManagement {
+    includeBuild("build-logic")
     repositories {
         // 国内镜像优先，原仓库兜底
         maven {

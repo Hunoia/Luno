@@ -1,7 +1,7 @@
 import java.util.Properties
 
 plugins {
-    alias(libs.plugins.android.application)
+    id("luno.android.application")
     alias(libs.plugins.jetbrains.kotlin.compose)
     alias(libs.plugins.jetbrains.kotlin.serialization)
     id("kotlin-parcelize")
@@ -9,12 +9,9 @@ plugins {
 
 android {
     namespace = "hunoia.luno"
-    compileSdk = 37
-    buildToolsVersion = "37.0.0"
 
     defaultConfig {
         applicationId = "hunoia.luno"
-        minSdk = 33
         targetSdk = 36
         versionCode = 10609
         versionName = "1.6.9"
@@ -22,7 +19,6 @@ android {
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
-
     }
     signingConfigs {
         val localProperties = project.rootProject.file("local.properties")
@@ -77,10 +73,6 @@ android {
             isMinifyEnabled = false
             applicationIdSuffix = ".debug"
         }
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
     }
     lint {
         abortOnError = false

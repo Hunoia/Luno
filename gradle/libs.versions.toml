@@ -78,6 +78,9 @@ litert-gpu = { group = "com.google.ai.edge.litert", name = "litert-gpu", version
 # JVM 单测里需要真实 org.json（Android 的实现是空炮）。
 org-json = { module = "org.json:json", version.ref = "orgJson" }
 
+# build-logic 的 convention plugin 需要 AGP 本体（不只是 plugin marker）
+android-gradlePlugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }

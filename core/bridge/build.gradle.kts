@@ -1,21 +1,12 @@
 plugins {
-    alias(libs.plugins.android.library)
+    id("luno.android.library")
     alias(libs.plugins.jetbrains.kotlin.serialization)
     id("kotlin-parcelize")
 }
 
 android {
     namespace = "hunoia.luno.core.bridge"
-    compileSdk = 37
-    buildToolsVersion = "37.0.0"
 
-    defaultConfig {
-        minSdk = 33
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
     buildFeatures {
         buildConfig = true
     }
