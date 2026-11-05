@@ -17,9 +17,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,9 +31,13 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -44,7 +51,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.SaveAlt
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalDensity
@@ -53,6 +65,7 @@ import androidx.lifecycle.lifecycleScope
 import hunoia.luno.annotate.model.AnnotateDocument
 import hunoia.luno.annotate.model.AnnotateOps
 import hunoia.luno.annotate.model.AnnotateState
+import hunoia.luno.annotate.model.ToolKind
 import hunoia.luno.annotate.R as AnnotateR
 import hunoia.luno.annotate.render.BaseImage
 import hunoia.luno.annotate.render.ExportKind
@@ -62,10 +75,13 @@ import hunoia.luno.annotate.store.observeAnnotateSettings
 import hunoia.luno.annotate.store.restoreAnnotateSettings
 import hunoia.luno.annotate.ui.AnnotateCanvas
 import hunoia.luno.annotate.ui.AnnotateToolbar
+import hunoia.luno.annotate.ui.StylePanel
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.domain.annotate.AnnotateSettingsCenter
+import hunoia.luno.ui.theme.CompactControlIconSize
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.SideGestureTheme
+import hunoia.luno.ui.theme.SubMinInteractiveSize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -100,6 +116,8 @@ class ImageAnnotateActivity : ComponentActivity() {
         private const val FEATURE_PICKER = "picker"
         private const val FEATURE_PAYLOAD = "payload"
         private const val MAX_DECODE_PX = 4096
+        /** 原图导出上限（P1）：超过则降采样，避免超大照片导出 OOM。 */
+        private const val MAX_FULL_DECODE_PX = 8192
 
         private fun start(context: Context, feature: String, id: Long = -1L): Boolean {
             val intent = Intent(context, ImageAnnotateActivity::class.java).apply {
@@ -116,6 +134,8 @@ class ImageAnnotateActivity : ComponentActivity() {
     private var document by mutableStateOf<AnnotateDocument?>(null)
     private var base by mutableStateOf<BaseImage?>(null)
     private var dialog by mutableStateOf<Dialog?>(null)
+    /** 当前展开样式面板的工具；null = 无。与 [dialog] 互斥。 */
+    private var stylePanelTool by mutableStateOf<ToolKind?>(null)
     private var busy by mutableStateOf(false)
     private var pickerLaunched = false
     /** 偏好恢复/落盘协程：换底图或退出时取消，避免旧文档继续写。 */
@@ -226,6 +246,7 @@ class ImageAnnotateActivity : ComponentActivity() {
         document = null
         base = null
         dialog = Dialog.None
+        stylePanelTool = null
         // payload 模式没有可重解码的源：传 null 时导出直接用交接位图原尺寸。
         sourceUri = uri
         val doc = AnnotateDocument(AnnotateState.of(owned.width, owned.height))
@@ -240,11 +261,18 @@ class ImageAnnotateActivity : ComponentActivity() {
                         document = currentDocument,
                         base = currentBase,
                         dialog = dialog ?: Dialog.None,
+                        stylePanelTool = stylePanelTool,
                         busy = busy,
                         onDialog = { next ->
                             // 关掉替换确认 = 取消：暂存的新图没人接走，回收掉。
                             if (next == Dialog.None && dialog == Dialog.Replace) discardPendingReplace()
+                            if (next != Dialog.None) stylePanelTool = null
                             dialog = next
+                        },
+                        onToolClick = { tool ->
+                            // 点工具：选中由工具条完成，这里管理样式卡开合（与弹出卡互斥）。
+                            if (dialog != Dialog.None) dialog = Dialog.None
+                            stylePanelTool = if (stylePanelTool == tool) null else tool
                         },
                         onClose = { finish() },
                         onExport = { kind -> export(kind) },
@@ -275,23 +303,30 @@ class ImageAnnotateActivity : ComponentActivity() {
             try {
                 // B8：picker 模式按原图全分辨率重解码，坐标从预览尺寸映射过去；
                 // payload 模式交接位图就是原始尺寸，直接导出。
-                val full = if (uri != null) {
+                val decodeResult = if (uri != null && !isPreviewFullResolution(uri)) {
                     withContext(Dispatchers.IO) { decodeFull(uri) }
                 } else {
                     null
                 }
-                if (full != null && !full.isRecycled) {
+                if (decodeResult != null && !decodeResult.bitmap.isRecycled) {
+                    val full = decodeResult.bitmap
                     try {
                         val fullBase = BaseImage(full)
                         val scaled = AnnotateOps.scaleImage(doc.state, full.width, full.height)
+                        if (decodeResult.capped) {
+                            showToast(AnnotateR.string.annotate_export_capped)
+                        }
                         exportAnnotated(scaled, fullBase, kind)
                     } finally {
                         // 导出已同步完成（render / 落盘都在 exportAnnotated 内等待），
                         // 原图副本不再有人引用，立即回收整张大图。
                         if (!full.isRecycled) full.recycle()
                     }
+                } else if (uri != null) {
+                    // 原图 ≤ 4096：预览位图就是全图（含 EXIF 方向），直接导出，省一次解码。
+                    exportAnnotated(doc.state, currentBase, kind)
                 } else {
-                    // 原图解码失败 / payload 模式：回退预览底图，至少能导出。
+                    // 原图解码失败：回退预览底图，至少能导出。
                     exportAnnotated(doc.state, currentBase, kind)
                 }
             } finally {
@@ -346,23 +381,57 @@ class ImageAnnotateActivity : ComponentActivity() {
     }.getOrNull()
 
     /**
-     * 原分辨率解码（B8）：导出时用，不采样。
+     * 原分辨率解码（B8）：导出时用。
      *
      * 与 [decode] 走同一套 ImageDecoder（EXIF 方向一致，坐标映射才对得上），
-     * 失败再回退 BitmapFactory 全量解码。调用方负责在 IO 线程执行并回收。
+     * 失败再回退 BitmapFactory 全量解码。超过 [MAX_FULL_DECODE_PX] 长边时降采样，
+     * 并置 [DecodedFull.capped] 供调用方提示。
      */
-    private fun decodeFull(uri: Uri): Bitmap? = runCatching {
+    private fun decodeFull(uri: Uri): DecodedFull? = runCatching {
         val source = ImageDecoder.createSource(contentResolver, uri)
-        val drawable = ImageDecoder.decodeDrawable(source) { decoder, _, _ ->
+        var capped = false
+        val drawable = ImageDecoder.decodeDrawable(source) { decoder, info, _ ->
+            val longest = maxOf(info.size.width, info.size.height)
+            var sample = 1
+            while (longest / sample > MAX_FULL_DECODE_PX) {
+                sample *= 2
+                capped = true
+            }
+            decoder.setTargetSampleSize(sample)
             decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE)
         }
-        (drawable as? BitmapDrawable)?.bitmap ?: decodeFullWithBitmapFactory(uri)
+        (drawable as? BitmapDrawable)?.bitmap?.let { DecodedFull(it, capped) }
+            ?: decodeFullWithBitmapFactory(uri)
     }.getOrElse { decodeFullWithBitmapFactory(uri) }
 
-    private fun decodeFullWithBitmapFactory(uri: Uri): Bitmap? = runCatching {
-        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+    private fun decodeFullWithBitmapFactory(uri: Uri): DecodedFull? = runCatching {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        var sample = 1
+        var capped = false
+        val longest = maxOf(bounds.outWidth, bounds.outHeight)
+        while (longest / sample > MAX_FULL_DECODE_PX) {
+            sample *= 2
+            capped = true
+        }
+        val options = BitmapFactory.Options().apply { inSampleSize = sample }
+        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+            ?.let { DecodedFull(it, capped) }
     }.getOrNull()
+
+    /**
+     * 预览是否已是全分辨率：原图长边 ≤ [MAX_DECODE_PX] 时 [decode] 不采样，
+     * 导出无需再解码（P1）。EXIF 旋转只交换长宽，不影响「≤ 上限」的判断。
+     */
+    private fun isPreviewFullResolution(uri: Uri): Boolean = runCatching {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        bounds.outWidth > 0 && bounds.outHeight > 0 &&
+            maxOf(bounds.outWidth, bounds.outHeight) <= MAX_DECODE_PX
+    }.getOrDefault(false)
 }
+
+private data class DecodedFull(val bitmap: Bitmap, val capped: Boolean)
 
 internal enum class Dialog { None, Exit, Export, Replace }
 
@@ -371,8 +440,10 @@ private fun ImageAnnotateScreen(
     document: AnnotateDocument,
     base: BaseImage,
     dialog: Dialog,
+    stylePanelTool: ToolKind?,
     busy: Boolean,
     onDialog: (Dialog) -> Unit,
+    onToolClick: (ToolKind) -> Unit,
     onClose: () -> Unit,
     onExport: (ExportKind) -> Unit,
     onReplace: () -> Unit,
@@ -382,8 +453,12 @@ private fun ImageAnnotateScreen(
         if (document.state.hasElements) onDialog(Dialog.Exit) else onClose()
     }
     BackHandler {
-        // 面板优先：返回键先关面板，不直接弹放弃确认。
-        if (dialog != Dialog.None) onDialog(Dialog.None) else requestClose()
+        // 面板优先：返回键先关样式卡/弹出卡，不直接弹放弃确认。
+        when {
+            stylePanelTool != null -> onToolClick(stylePanelTool!!)
+            dialog != Dialog.None -> onDialog(Dialog.None)
+            else -> requestClose()
+        }
     }
 
     // 工具条区域：量「容器」而不是工具条本体——容器还叠了导航栏 inset，只量工具条
@@ -405,6 +480,11 @@ private fun ImageAnnotateScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(bottom = with(density) { toolbarAreaPx.toDp() }),
+            // 落笔即交互开始：收起样式卡/弹出卡。
+            onPointerDown = {
+                if (dialog != Dialog.None) onDialog(Dialog.None)
+                stylePanelTool?.let { onToolClick(it) }
+            },
         )
 
         Box(
@@ -417,17 +497,88 @@ private fun ImageAnnotateScreen(
                         .only(WindowInsetsSides.Bottom)
                         .union(WindowInsets.ime.only(WindowInsetsSides.Bottom)),
                 )
-                .onSizeChanged { if (imeBottomPx == 0) toolbarAreaPx = it.height },
+                // 卡片/样式卡弹出时容器变高，但画布让位保持工具条高度：图片不上移。
+                .onSizeChanged {
+                    if (imeBottomPx == 0 && dialog == Dialog.None && stylePanelTool == null) {
+                        toolbarAreaPx = it.height
+                    }
+                },
         ) {
-            AnnotateToolbar(
-                document = document,
-                onExit = requestClose,
-                onExport = { onDialog(Dialog.Export) },
-                exportLabel = stringResource(AnnotateR.string.annotate_export),
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 6.dp),
-            )
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                // 样式二层卡/退出/导出确认从工具卡上方弹出（无遮罩、无阴影）；
+                // 替换图片是破坏性操作，仍走模态面板。样式卡与弹出卡互斥。
+                when {
+                    stylePanelTool != null -> AnnotateInlineCard {
+                        StylePanel(
+                            tool = stylePanelTool!!,
+                            document = document,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                        )
+                    }
+
+                    dialog == Dialog.Exit -> AnnotateInlineCard {
+                        ConfirmPanel(
+                            title = stringResource(AnnotateR.string.annotate_discard_title),
+                            onCancel = { onDialog(Dialog.None) },
+                        ) {
+                            TextButton(
+                                onClick = onClose,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(stringResource(AnnotateR.string.annotate_discard_confirm))
+                            }
+                        }
+                    }
+
+                    dialog == Dialog.Export -> AnnotateInlineCard {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            ExportAction(
+                                icon = Icons.Default.SaveAlt,
+                                label = stringResource(AnnotateR.string.annotate_save_to_gallery),
+                            ) {
+                                onDialog(Dialog.None)
+                                onExport(ExportKind.Save)
+                            }
+                            ExportAction(
+                                icon = Icons.Default.ContentCopy,
+                                label = stringResource(AnnotateR.string.annotate_copy),
+                            ) {
+                                onDialog(Dialog.None)
+                                onExport(ExportKind.Copy)
+                            }
+                            ExportAction(
+                                icon = Icons.Default.Share,
+                                label = stringResource(AnnotateR.string.annotate_share),
+                            ) {
+                                onDialog(Dialog.None)
+                                onExport(ExportKind.Share)
+                            }
+                            TextButton(onClick = { onDialog(Dialog.None) }) {
+                                Text(stringResource(AnnotateR.string.annotate_cancel))
+                            }
+                        }
+                    }
+                }
+
+                AnnotateToolbar(
+                    document = document,
+                    onExit = requestClose,
+                    onExport = { onDialog(Dialog.Export) },
+                    exportLabel = stringResource(AnnotateR.string.annotate_export),
+                    modifier = Modifier.fillMaxWidth(),
+                    onToolClick = onToolClick,
+                )
+            }
         }
 
         if (busy) {
@@ -441,16 +592,10 @@ private fun ImageAnnotateScreen(
             }
         }
 
-        if (dialog != Dialog.None) {
+        if (dialog == Dialog.Replace) {
             ActionPanel(
-                dialog = dialog,
                 onDismiss = { onDialog(Dialog.None) },
-                onClose = onClose,
                 onReplace = onReplace,
-                onExport = { kind ->
-                    onDialog(Dialog.None)
-                    onExport(kind)
-                },
             )
         }
     }
@@ -461,13 +606,11 @@ private fun ImageAnnotateScreen(
  * 本 Activity 用平台 Material 主题（非 AppCompat/M3 XML 主题），Compose `Dialog`
  * 的窗口在这里会丢背景与遮罩；改用同层 Box + Surface，样式与宿主可控。
  */
+/** 仅替换图片确认维持模态面板（破坏性操作）；导出/退出已改为工具卡上方内联卡。 */
 @Composable
 private fun ActionPanel(
-    dialog: Dialog,
     onDismiss: () -> Unit,
-    onClose: () -> Unit,
     onReplace: () -> Unit,
-    onExport: (ExportKind) -> Unit,
 ) {
     Box(
         modifier = Modifier
@@ -492,65 +635,26 @@ private fun ActionPanel(
             shape = LargeShape,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             tonalElevation = 3.dp,
-            shadowElevation = 8.dp,
+            // 全部去阴影（计划）：模态面板也不留投影，层次靠色差与遮罩。
+            shadowElevation = 0.dp,
         ) {
             Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
                 Text(
-                    text = when (dialog) {
-                        Dialog.Exit -> stringResource(AnnotateR.string.annotate_discard_title)
-                        Dialog.Export -> stringResource(AnnotateR.string.annotate_export)
-                        Dialog.Replace -> stringResource(AnnotateR.string.annotate_replace_title)
-                        Dialog.None -> ""
-                    },
+                    text = stringResource(AnnotateR.string.annotate_replace_title),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 )
-                if (dialog == Dialog.Exit || dialog == Dialog.Replace) {
-                    Text(
-                        text = stringResource(
-                            if (dialog == Dialog.Exit) {
-                                AnnotateR.string.annotate_discard_message
-                            } else {
-                                AnnotateR.string.annotate_replace_message
-                            },
-                        ),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                    )
-                }
-                when (dialog) {
-                    Dialog.Export -> {
-                        PanelAction(stringResource(AnnotateR.string.annotate_save_to_gallery)) {
-                            onExport(ExportKind.Save)
-                        }
-                        PanelAction(stringResource(AnnotateR.string.annotate_copy)) {
-                            onExport(ExportKind.Copy)
-                        }
-                        PanelAction(stringResource(AnnotateR.string.annotate_share)) {
-                            onExport(ExportKind.Share)
-                        }
-                    }
-
-                    Dialog.Exit -> {
-                        PanelAction(
-                            label = stringResource(AnnotateR.string.annotate_discard_confirm),
-                            destructive = true,
-                        ) {
-                            onClose()
-                        }
-                    }
-
-                    Dialog.Replace -> {
-                        PanelAction(
-                            label = stringResource(AnnotateR.string.annotate_replace_confirm),
-                            destructive = true,
-                        ) {
-                            onReplace()
-                        }
-                    }
-
-                    Dialog.None -> Unit
+                Text(
+                    text = stringResource(AnnotateR.string.annotate_replace_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                )
+                PanelAction(
+                    label = stringResource(AnnotateR.string.annotate_replace_confirm),
+                    destructive = true,
+                ) {
+                    onReplace()
                 }
                 PanelAction(stringResource(AnnotateR.string.annotate_cancel), onClick = onDismiss)
             }
@@ -575,5 +679,59 @@ private fun PanelAction(
             textAlign = TextAlign.Start,
             color = if (destructive) MaterialTheme.colorScheme.error else Color.Unspecified,
         )
+    }
+}
+
+/** 工具卡上方弹出的内联卡：无遮罩、无阴影，同层叠在工具条上方。 */
+@Composable
+private fun AnnotateInlineCard(
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Surface(
+        shape = LargeShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 3.dp,
+        // 无投影：弹出卡与工具卡同一视觉层次（全部去阴影计划）。
+        shadowElevation = 0.dp,
+    ) {
+        Column(content = content)
+    }
+}
+
+/** 确认卡：标题 + 动作区 + 「取消」，与浮层 ConfirmPanel 同款。 */
+@Composable
+private fun ConfirmPanel(
+    title: String,
+    onCancel: () -> Unit,
+    actions: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .widthIn(min = 180.dp)
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge,
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+        )
+        actions()
+        TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(AnnotateR.string.annotate_cancel))
+        }
+    }
+}
+
+/** 导出动作图标按钮：内容描述即标签，触达区/图标尺寸用紧凑常量。 */
+@Composable
+private fun ExportAction(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+) {
+    IconButton(onClick = onClick, modifier = Modifier.size(SubMinInteractiveSize)) {
+        Icon(icon, contentDescription = label, modifier = Modifier.size(CompactControlIconSize))
     }
 }

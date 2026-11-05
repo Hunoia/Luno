@@ -11,7 +11,11 @@ sealed interface AnnotationElement {
     val kind: ElementKind
 }
 
-enum class ElementKind { STROKE, ERASER, RECT, LINE, ARROW, TEXT, MOSAIC }
+enum class ElementKind {
+    STROKE, ERASER, RECT, LINE, ARROW, TEXT, MOSAIC,
+    // 快速标注器扩展形状 + 序号。
+    ELLIPSE, TRIANGLE, CHECK, CROSS, STAR, ROUND_RECT, HEART, NUMBER,
+}
 
 /** 自由笔迹。 [erase] 为 true 时是橡皮：只擦标注层，不擦底图（导出时 saveLayer + CLEAR）。 */
 data class StrokeElement(
@@ -33,6 +37,8 @@ data class ShapeElement(
     val colorArgb: Long,
     val width: Float,
     override val kind: ElementKind,
+    /** 绕元素中心旋转（弧度，绕 [bounds] 中心）。默认 0 = 不旋转。 */
+    val rotationRad: Float = 0f,
 ) : AnnotationElement {
     val bounds: PxRect get() = PxRect.fromPoints(start, end)
 }
@@ -44,8 +50,32 @@ data class TextElement(
     val text: String,
     val colorArgb: Long,
     val textSize: Float,
+    /** 绕文本框中心旋转（弧度）。默认 0 = 不旋转。 */
+    val rotationRad: Float = 0f,
 ) : AnnotationElement {
     override val kind: ElementKind = ElementKind.TEXT
+}
+
+/**
+ * 序号标注（快速标注器）：自动递增数字 + 圆形底。
+ *
+ * 编号**不存**在元素里，渲染/导出时按元素列表顺序推导（本元素之前有多少个
+ * [NumberElement] + 1），删除 / 撤销 / 重做后自动保持 1,2,3… 连续。
+ * [position] 是圆形底的中心（图片像素）。
+ */
+data class NumberElement(
+    override val id: Long,
+    val position: Pt,
+    val colorArgb: Long,
+    /** 圆形底直径（图片像素）。 */
+    val textSize: Float,
+    /** 绕圆形底中心旋转（弧度）。默认 0。 */
+    val rotationRad: Float = 0f,
+) : AnnotationElement {
+    override val kind: ElementKind = ElementKind.NUMBER
+
+    /** 圆形底外接包围盒（图片像素），用于命中/选中/移动。 */
+    val badgeBounds: PxRect get() = PxRect.squareAround(position, textSize)
 }
 
 /**
@@ -82,6 +112,7 @@ fun AnnotationElement.bounds(): PxRect = when (this) {
     is StrokeElement -> pointsBounds(points, width / 2f)
     is ShapeElement -> bounds.let { it.inset(-width / 2f) }
     is TextElement -> PxRect(position.x, position.y, position.x + textSize * text.length, position.y + textSize)
+    is NumberElement -> badgeBounds
     is MosaicElement -> {
         val stroke = pointsBounds(points, width / 2f)
         val fill = rect?.normalized()
@@ -135,23 +166,40 @@ fun AnnotationElement.erasedBy(rect: PxRect): Boolean = when (this) {
     }
 
     is ShapeElement -> {
-        // 矩形形状按四条边判（对角线判会漏掉「框碰到边、没碰到对角线」）；
-        // 直线/箭头按主干线判，箭头翼的尺寸随线宽走，忽略不计。
-        if (kind == ElementKind.RECT) {
-            val b = bounds
-            val tl = Pt(b.left, b.top)
-            val tr = Pt(b.right, b.top)
-            val br = Pt(b.right, b.bottom)
-            val bl = Pt(b.left, b.bottom)
-            segmentIntersectsRect(tl, tr, rect) ||
-                segmentIntersectsRect(tr, br, rect) ||
-                segmentIntersectsRect(br, bl, rect) ||
-                segmentIntersectsRect(bl, tl, rect)
-        } else {
-            segmentIntersectsRect(start, end, rect)
+        // 按「实际画出来的边段」判：矩形/圆/三角等闭合形状用轮廓边段，直线/箭头用主干，
+        // 箭头翼尺寸随线宽走忽略不计。旋转元素先绕中心旋转回实际位置再判。
+        val center = bounds.center
+        val rot = rotationRad
+        fun seg(a: Pt, b: Pt): Boolean =
+            segmentIntersectsRect(rotateAround(a, center, rot), rotateAround(b, center, rot), rect)
+        when (kind) {
+            ElementKind.RECT -> {
+                val b = bounds
+                val tl = Pt(b.left, b.top)
+                val tr = Pt(b.right, b.top)
+                val br = Pt(b.right, b.bottom)
+                val bl = Pt(b.left, b.bottom)
+                seg(tl, tr) || seg(tr, br) || seg(br, bl) || seg(bl, tl)
+            }
+
+            ElementKind.LINE, ElementKind.ARROW -> seg(start, end)
+
+            ElementKind.CROSS -> shapeCrossSegments(start, end).any { seg(it.first, it.second) }
+
+            ElementKind.CHECK -> {
+                val pts = shapeOutlinePoints(kind, start, end)
+                pts.zipWithNext().any { seg(it.first, it.second) }
+            }
+
+            else -> {
+                val pts = shapeOutlinePoints(kind, start, end)
+                pts.size >= 2 &&
+                    (pts.zipWithNext().any { seg(it.first, it.second) } || seg(pts.last(), pts.first()))
+            }
         }
     }
     is TextElement -> false
+    is NumberElement -> false
     is MosaicElement -> false
 }
 
@@ -173,6 +221,7 @@ fun AnnotationElement.transformed(from: PxRect, to: PxRect): AnnotationElement {
         is StrokeElement -> copy(points = points.map(::map), width = (width * s).coerceAtLeast(0.5f))
         is ShapeElement -> copy(start = map(start), end = map(end), width = (width * s).coerceAtLeast(0.5f))
         is TextElement -> copy(position = map(position), textSize = (textSize * s).coerceAtLeast(4f))
+        is NumberElement -> copy(position = map(position), textSize = (textSize * s).coerceAtLeast(4f))
         is MosaicElement -> copy(
             points = points.map(::map),
             width = (width * s).coerceAtLeast(2f),
@@ -192,8 +241,25 @@ fun AnnotationElement.translated(dx: Float, dy: Float): AnnotationElement =
         is StrokeElement -> copy(points = points.map { Pt(it.x + dx, it.y + dy) })
         is ShapeElement -> copy(start = Pt(start.x + dx, start.y + dy), end = Pt(end.x + dx, end.y + dy))
         is TextElement -> copy(position = Pt(position.x + dx, position.y + dy))
+        is NumberElement -> copy(position = Pt(position.x + dx, position.y + dy))
         is MosaicElement -> copy(
             points = points.map { Pt(it.x + dx, it.y + dy) },
             rect = rect?.let { PxRect(it.left + dx, it.top + dy, it.right + dx, it.bottom + dy) },
         )
     }
+
+/** 元素当前旋转角（弧度）。不可旋转的元素恒为 0。 */
+fun AnnotationElement.rotationRadOf(): Float = when (this) {
+    is ShapeElement -> rotationRad
+    is TextElement -> rotationRad
+    is NumberElement -> rotationRad
+    else -> 0f
+}
+
+/** 设置元素旋转角（弧度）。不可旋转的元素原样返回。 */
+fun AnnotationElement.withRotation(rad: Float): AnnotationElement = when (this) {
+    is ShapeElement -> copy(rotationRad = rad)
+    is TextElement -> copy(rotationRad = rad)
+    is NumberElement -> copy(rotationRad = rad)
+    else -> this
+}

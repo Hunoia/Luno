@@ -1,20 +1,19 @@
 package hunoia.luno.annotate.render
 
+import android.graphics.Canvas as AndroidCanvas
 import android.graphics.Paint as AndroidPaint
 import android.graphics.Path as AndroidPath
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
 import android.graphics.RectF as AndroidRectF
 import android.graphics.Typeface
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -23,15 +22,24 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import hunoia.luno.annotate.model.AnnotateState
 import hunoia.luno.annotate.model.ContainFit
+import hunoia.luno.annotate.model.ElementKind
 import hunoia.luno.annotate.model.MosaicElement
+import hunoia.luno.annotate.model.NumberElement
 import hunoia.luno.annotate.model.Pt
 import hunoia.luno.annotate.model.PxRect
 import hunoia.luno.annotate.model.ShapeElement
 import hunoia.luno.annotate.model.StrokeElement
 import hunoia.luno.annotate.model.TextElement
+import hunoia.luno.annotate.model.bounds
+import hunoia.luno.annotate.model.shapeCrossSegments
+import hunoia.luno.annotate.model.shapeOutlinePoints
+import java.util.IdentityHashMap
 import kotlin.math.ceil
+import kotlin.math.cos
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
@@ -42,6 +50,10 @@ import kotlin.math.sqrt
  *
  * 所有元素几何都是图片像素坐标，[fit] 负责映射到当前画布坐标；
  * 导出时 `fit = ContainFit.identity(...)`，scale 恒为 1。
+ *
+ * 笔迹/形状/马赛克几何在**图片坐标**缓存（[AnnotateGeometryCache]），
+ * 绘制时对 native canvas 做一次 translate+scale，避免每帧把所有点重算到视图坐标；
+ * 双指缩放/平移的成本因此与笔迹总点数无关。
  */
 /** 常量集中在渲染层，宿主与导出共用。 */
 object AnnotateVisuals {
@@ -59,8 +71,162 @@ object AnnotateVisuals {
     const val SelectionDashPx = 8f
     const val SelectionGapPx = 6f
 
+    /** 元素（图形/文字/序号）选中框双色：深色外描边 + 白内芯，白底/深底都可见。 */
+    val ElementSelectionOuter: Color = Color.Black.copy(alpha = 0.55f)
+    val ElementSelectionInner: Color = Color.White
+    /** 角柄/边中柄/旋转柄：白方块 + 深色描边（与选区框同一对比策略）。 */
+    val ElementHandleFill: Color = Color.White
+    val ElementHandleStroke: Color = Color.Black.copy(alpha = 0.62f)
+
     /** 单点笔迹的最小可视化直径（图片像素）。 */
     const val MinDotDiameterPx = 2f
+}
+
+/**
+ * 元素几何缓存（图片坐标）。
+ *
+ * 键是元素对象引用（`IdentityHashMap`）：元素不可变，撤销/替换会产生新实例，
+ * 旧条目自然成为垃圾；草稿元素引用不变但点数在涨，按 `点数` 判失效重建。
+ * 条目数有上限，超了整体清空（极端场景退化为每帧重建，安全）。
+ */
+class AnnotateGeometryCache {
+
+    private class StrokeEntry(val path: AndroidPath, val builtPoints: Int)
+    private class ShapeEntry(val path: AndroidPath)
+    private class MosaicEntry(val mask: AndroidPath, val builtPoints: Int, val builtRect: PxRect?)
+
+    private val strokes = IdentityHashMap<StrokeElement, StrokeEntry>()
+    private val shapes = IdentityHashMap<ShapeElement, ShapeEntry>()
+    private val mosaics = IdentityHashMap<MosaicElement, MosaicEntry>()
+
+    fun strokePath(element: StrokeElement): AndroidPath {
+        val size = element.points.size
+        val existing = strokes[element]
+        if (existing != null && existing.builtPoints == size) return existing.path
+        ensureCapacity(strokes)
+        val path = AndroidPath()
+        if (size > 0) {
+            val first = element.points.first()
+            path.moveTo(first.x, first.y)
+            for (i in 1 until size) {
+                val p = element.points[i]
+                path.lineTo(p.x, p.y)
+            }
+        }
+        strokes[element] = StrokeEntry(path, size)
+        return path
+    }
+
+    fun shapePath(element: ShapeElement): AndroidPath {
+        shapes[element]?.let { return it.path }
+        ensureCapacity(shapes)
+        val path = AndroidPath()
+        when (element.kind) {
+            ElementKind.RECT -> {
+                val r = PxRect.fromPoints(element.start, element.end)
+                path.addRect(r.left, r.top, r.right, r.bottom, AndroidPath.Direction.CW)
+            }
+
+            ElementKind.LINE, ElementKind.ARROW -> {
+                path.moveTo(element.start.x, element.start.y)
+                path.lineTo(element.end.x, element.end.y)
+                if (element.kind == ElementKind.ARROW) {
+                    addArrowWings(path, element.start, element.end, element.width)
+                }
+            }
+
+            ElementKind.CROSS -> {
+                // 叉：两条对角线，各自一段子路径。
+                shapeCrossSegments(element.start, element.end).forEach { (a, b) ->
+                    path.moveTo(a.x, a.y)
+                    path.lineTo(b.x, b.y)
+                }
+            }
+
+            ElementKind.CHECK -> {
+                // 对勾：开放折线（3 点）。
+                val pts = shapeOutlinePoints(element.kind, element.start, element.end)
+                if (pts.isNotEmpty()) {
+                    path.moveTo(pts[0].x, pts[0].y)
+                    for (i in 1 until pts.size) path.lineTo(pts[i].x, pts[i].y)
+                }
+            }
+
+            // 闭合形状：轮廓顶点连成闭合路径。
+            ElementKind.ELLIPSE, ElementKind.TRIANGLE,
+            ElementKind.STAR, ElementKind.ROUND_RECT, ElementKind.HEART,
+            -> {
+                val pts = shapeOutlinePoints(element.kind, element.start, element.end)
+                if (pts.isNotEmpty()) {
+                    path.moveTo(pts[0].x, pts[0].y)
+                    for (i in 1 until pts.size) path.lineTo(pts[i].x, pts[i].y)
+                    path.close()
+                }
+            }
+
+            else -> Unit
+        }
+        shapes[element] = ShapeEntry(path)
+        return path
+    }
+
+    fun mosaicMask(element: MosaicElement, sanitized: MosaicElement): AndroidPath {
+        val pointsSize = sanitized.points.size
+        val rect = sanitized.rect?.normalized()
+        val existing = mosaics[element]
+        if (existing != null && existing.builtPoints == pointsSize && existing.builtRect == rect) {
+            return existing.mask
+        }
+        ensureCapacity(mosaics)
+        val mask = AndroidPath()
+        if (sanitized.points.isNotEmpty()) {
+            val width = sanitized.width
+            if (sanitized.points.size == 1) {
+                val p = sanitized.points.first()
+                mask.addCircle(p.x, p.y, width / 2f, AndroidPath.Direction.CW)
+            } else {
+                val trail = AndroidPath().apply {
+                    val first = sanitized.points.first()
+                    moveTo(first.x, first.y)
+                    for (i in 1 until sanitized.points.size) {
+                        val p = sanitized.points[i]
+                        lineTo(p.x, p.y)
+                    }
+                }
+                val stroke = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+                    style = AndroidPaint.Style.STROKE
+                    strokeCap = AndroidPaint.Cap.ROUND
+                    strokeJoin = AndroidPaint.Join.ROUND
+                    strokeWidth = width
+                }
+                val filled = AndroidPath()
+                stroke.getFillPath(trail, filled)
+                mask.op(filled, AndroidPath.Op.UNION)
+            }
+        }
+        rect?.let { r ->
+            val fill = AndroidPath().apply {
+                addRect(r.left, r.top, r.right, r.bottom, AndroidPath.Direction.CW)
+            }
+            mask.op(fill, AndroidPath.Op.UNION)
+        }
+        mosaics[element] = MosaicEntry(mask, pointsSize, rect)
+        return mask
+    }
+
+    fun clear() {
+        strokes.clear()
+        shapes.clear()
+        mosaics.clear()
+    }
+
+    private fun <T> ensureCapacity(map: IdentityHashMap<T, *>) {
+        if (map.size >= MAX_ENTRIES) map.clear()
+    }
+
+    private companion object {
+        const val MAX_ENTRIES = 512
+    }
 }
 
 fun DrawScope.drawAnnotate(
@@ -70,13 +236,14 @@ fun DrawScope.drawAnnotate(
     showSelection: Boolean = false,
     selectionOverride: PxRect? = null,
     scrimAroundImage: Boolean = false,
+    geometryCache: AnnotateGeometryCache? = null,
 ) {
     val imageRect = fit.imageRectToView(PxRect.full(state.imageWidth, state.imageHeight))
     if (scrimAroundImage) {
         drawRect(color = AnnotateVisuals.CanvasGutter, size = size)
     }
     drawBaseImage(base, fit, imageRect)
-    drawAnnotationLayer(state, base, fit, imageRect)
+    drawAnnotationLayer(state, base, fit, imageRect, geometryCache ?: AnnotateGeometryCache())
     if (showSelection) {
         val selection = selectionOverride ?: state.selection
         if (selection != null) drawSelectionOverlay(selection, fit, imageRect)
@@ -105,25 +272,31 @@ private fun DrawScope.drawBaseImage(
 /**
  * 标注层渲染。
  *
- * 橡皮用 [BlendMode.Clear]，必须隔离层才不会把底图擦成透明（计划 D4 / 验收「橡皮只擦笔迹」）；
- * 但**没有橡皮时省掉整帧的全屏 `saveLayer`**——图层缓冲区分配是这里的主要开销，
- * 无橡皮路径全部是 SrcOver，直接画到画布与先建层再合成结果完全一致。
+ * 橡皮用 `PorterDuff.Mode.CLEAR`，必须隔离层才不会把底图擦成透明（计划 D4）；
+ * 但**没有橡皮时省掉整帧的 `saveLayer`**。有橡皮时图层范围取所有元素包围盒的并集
+ * （夹到图片内），比整图小；元素集中在局部时能省下可观的缓冲区分配。
  */
 private fun DrawScope.drawAnnotationLayer(
     state: AnnotateState,
     base: BaseImage?,
     fit: ContainFit,
     imageRect: PxRect,
+    cache: AnnotateGeometryCache,
 ) {
     if (state.elements.isEmpty()) return
     val needsLayer = state.elements.any { it is StrokeElement && it.erase }
-    val bounds = Rect(
-        left = imageRect.left,
-        top = imageRect.top,
-        right = imageRect.right,
-        bottom = imageRect.bottom,
-    )
-    if (needsLayer) drawContext.canvas.saveLayer(bounds, Paint())
+    // 文字用真实字宽绘制，模型层包围盒只是估算（多行高度可能超出），
+    // 有文字时退回避险：图层边界取整图，避免文字被 saveLayer 裁剪。
+    val layerBounds = if (needsLayer) {
+        if (state.elements.any { it is TextElement }) {
+            Rect(imageRect.left, imageRect.top, imageRect.right, imageRect.bottom)
+        } else {
+            annotationLayerBounds(state, fit, imageRect)
+        }
+    } else {
+        null
+    }
+    if (layerBounds != null) drawContext.canvas.saveLayer(layerBounds, Paint())
     try {
         clipRect(
             left = imageRect.left,
@@ -131,97 +304,181 @@ private fun DrawScope.drawAnnotationLayer(
             right = imageRect.right,
             bottom = imageRect.bottom,
         ) {
+            var numberCount = 0
             for (element in state.elements) {
                 when (element) {
-                    is StrokeElement -> drawStrokeElement(element, fit)
-                    is ShapeElement -> drawShapeElement(element, fit)
+                    // 文字保持视图坐标绘制（量字宽依赖 fit.scale），不进几何缓存。
                     is TextElement -> drawTextElement(element, fit)
-                    is MosaicElement -> drawMosaicElement(element, base, fit)
+                    else -> drawWithImageTransform(fit) { canvas ->
+                        when (element) {
+                            is StrokeElement -> drawStrokeNative(canvas, element, cache)
+                            is ShapeElement -> drawShapeNative(canvas, element, cache)
+                            is MosaicElement -> drawMosaicNative(canvas, element, base, cache)
+                            // 序号编号按列表顺序推导：删除/撤销后自动 1,2,3… 连续。
+                            is NumberElement -> drawNumberNative(canvas, element, numberCount + 1)
+                            is TextElement -> Unit
+                        }
+                    }
                 }
+                if (element is NumberElement) numberCount++
             }
         }
     } finally {
-        if (needsLayer) drawContext.canvas.restore()
+        if (layerBounds != null) drawContext.canvas.restore()
     }
 }
 
-private fun DrawScope.drawStrokeElement(element: StrokeElement, fit: ContainFit) {
-    // 荧光笔：内容型高亮，半透明宽笔迹（颜色已由工具风格给成高亮色）。
-    val highlighter = element.highlight
-    val width = max(element.width * fit.scale, 0.75f) * if (highlighter) 1.6f else 1f
-    val baseColor = Color(element.colorArgb)
-    val color = if (highlighter) baseColor.copy(alpha = 0.38f) else baseColor
+/** 把所有元素包围盒合成一个视图坐标矩形，夹到图片范围内，作为 saveLayer 的边界。 */
+private fun annotationLayerBounds(
+    state: AnnotateState,
+    fit: ContainFit,
+    imageRect: PxRect,
+): Rect {
+    val union = state.elements
+        .map { it.bounds() }
+        .reduceOrNull { a, b -> a.union(b) }
+    val clamped = union?.let { u ->
+        PxRect(
+            left = maxOf(u.left, imageRect.left),
+            top = maxOf(u.top, imageRect.top),
+            right = minOf(u.right, imageRect.right),
+            bottom = minOf(u.bottom, imageRect.bottom),
+        )
+    }
+    if (clamped == null || clamped.right <= clamped.left || clamped.bottom <= clamped.top) {
+        return Rect(imageRect.left, imageRect.top, imageRect.right, imageRect.bottom)
+    }
+    val view = fit.imageRectToView(clamped)
+    return Rect(view.left, view.top, view.right, view.bottom)
+}
+
+/** 进入图片坐标系绘制，画完恢复（保证后续 Compose 绘制不受影响）。 */
+private inline fun DrawScope.drawWithImageTransform(fit: ContainFit, block: (AndroidCanvas) -> Unit) {
+    val canvas = drawContext.canvas.nativeCanvas
+    val checkpoint = canvas.save()
+    canvas.translate(fit.offsetX, fit.offsetY)
+    canvas.scale(fit.scale, fit.scale)
+    try {
+        block(canvas)
+    } finally {
+        canvas.restoreToCount(checkpoint)
+    }
+}
+
+private fun drawStrokeNative(
+    canvas: AndroidCanvas,
+    element: StrokeElement,
+    cache: AnnotateGeometryCache,
+) {
     if (element.points.isEmpty()) return
+    val width = element.width * if (element.highlight) 1.6f else 1f
+    val paint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+        style = AndroidPaint.Style.STROKE
+        strokeCap = AndroidPaint.Cap.ROUND
+        strokeJoin = AndroidPaint.Join.ROUND
+        strokeWidth = width
+        if (element.erase) {
+            xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
+        } else {
+            color = element.colorArgb.toInt()
+            if (element.highlight) alpha = (255 * 0.38f).toInt()
+        }
+    }
     if (element.points.size == 1) {
         if (element.erase) return
-        val p = fit.imageToView(element.points[0])
-        drawCircle(color = color, radius = max(width / 2f, AnnotateVisuals.MinDotDiameterPx / 2f), center = p.asOffset())
+        val p = element.points.first()
+        canvas.drawCircle(p.x, p.y, max(width / 2f, AnnotateVisuals.MinDotDiameterPx / 2f), paint)
         return
     }
-    val path = Path().apply {
-        val first = fit.imageToView(element.points[0])
-        moveTo(first.x, first.y)
-        for (i in 1 until element.points.size) {
-            val p = fit.imageToView(element.points[i])
-            lineTo(p.x, p.y)
-        }
-    }
-    drawPath(
-        path = path,
-        color = color,
-        style = Stroke(
-            width = width,
-            cap = StrokeCap.Round,
-            join = StrokeJoin.Round,
-        ),
-        blendMode = if (element.erase) BlendMode.Clear else BlendMode.SrcOver,
-    )
+    canvas.drawPath(cache.strokePath(element), paint)
 }
 
-private fun DrawScope.drawShapeElement(element: ShapeElement, fit: ContainFit) {
-    val width = max(element.width * fit.scale, 0.75f)
-    val color = Color(element.colorArgb)
-    val start = fit.imageToView(element.start)
-    val end = fit.imageToView(element.end)
-
-    when (element.kind) {
-        hunoia.luno.annotate.model.ElementKind.RECT -> {
-            val rect = PxRect.fromPoints(start, end)
-            drawRect(
-                color = color,
-                topLeft = Offset(rect.left, rect.top),
-                size = Size(rect.width, rect.height),
-                style = Stroke(width = width, join = StrokeJoin.Round),
-            )
-        }
-
-        hunoia.luno.annotate.model.ElementKind.ARROW -> {
-            drawLine(
-                color = color,
-                start = Offset(start.x, start.y),
-                end = Offset(end.x, end.y),
-                strokeWidth = width,
-                cap = StrokeCap.Round,
-            )
-            drawArrowHead(start, end, color, width)
-        }
-
-        hunoia.luno.annotate.model.ElementKind.LINE -> {
-            drawLine(
-                color = color,
-                start = Offset(start.x, start.y),
-                end = Offset(end.x, end.y),
-                strokeWidth = width,
-                cap = StrokeCap.Round,
-            )
-        }
-
-        else -> Unit
+private fun drawShapeNative(
+    canvas: AndroidCanvas,
+    element: ShapeElement,
+    cache: AnnotateGeometryCache,
+) {
+    val paint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+        style = AndroidPaint.Style.STROKE
+        strokeCap = AndroidPaint.Cap.ROUND
+        strokeJoin = AndroidPaint.Join.ROUND
+        strokeWidth = element.width
+        color = element.colorArgb.toInt()
     }
+    val center = element.bounds.center
+    val checkpoint = canvas.save()
+    if (element.rotationRad != 0f) {
+        canvas.rotate(rotationRadToDegrees(element.rotationRad), center.x, center.y)
+    }
+    canvas.drawPath(cache.shapePath(element), paint)
+    canvas.restoreToCount(checkpoint)
 }
 
-/** 箭头两翼：长度随线宽收敛，终点方向为轴向。 */
-private fun DrawScope.drawArrowHead(start: Pt, end: Pt, color: Color, width: Float) {
+/** 序号：填充圆底（元素色）+ 白色居中数字；旋转绕圆底中心。 */
+private fun drawNumberNative(
+    canvas: AndroidCanvas,
+    element: NumberElement,
+    number: Int,
+) {
+    if (number <= 0) return
+    val radius = (element.textSize / 2f).coerceAtLeast(1f)
+    val badge = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+        style = AndroidPaint.Style.FILL
+        color = element.colorArgb.toInt()
+    }
+    val textPaint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+        style = AndroidPaint.Style.FILL
+        // 浅色底用深字、深色底用白字：调色板首位是白，白底白字会看不见。
+        color = if (isLightColor(element.colorArgb)) android.graphics.Color.BLACK
+        else android.graphics.Color.WHITE
+        // 数字字号占圆底约 60%，保持高对比。
+        textSize = (element.textSize * 0.6f).coerceAtLeast(1f)
+        typeface = Typeface.DEFAULT_BOLD
+        textAlign = AndroidPaint.Align.CENTER
+    }
+    val checkpoint = canvas.save()
+    if (element.rotationRad != 0f) {
+        canvas.rotate(rotationRadToDegrees(element.rotationRad), element.position.x, element.position.y)
+    }
+    canvas.drawCircle(element.position.x, element.position.y, radius, badge)
+    val baseline = element.position.y - (textPaint.ascent() + textPaint.descent()) / 2f
+    canvas.drawText(number.toString(), element.position.x, baseline, textPaint)
+    canvas.restoreToCount(checkpoint)
+}
+
+private fun rotationRadToDegrees(rad: Float): Float = Math.toDegrees(rad.toDouble()).toFloat()
+
+/** ARGB 亮度（Rec.601）：浅色返回 true（数字用深字），深色返回 false（用白字）。 */
+private fun isLightColor(argb: Long): Boolean {
+    val r = (argb shr 16) and 0xFF
+    val g = (argb shr 8) and 0xFF
+    val b = argb and 0xFF
+    val lum = 0.299 * r + 0.587 * g + 0.114 * b
+    return lum > 150.0
+}
+
+private fun drawMosaicNative(
+    canvas: AndroidCanvas,
+    element: MosaicElement,
+    base: BaseImage?,
+    cache: AnnotateGeometryCache,
+) {
+    if (base == null) return
+    val sanitized = element.sanitized()
+    val mask = cache.mosaicMask(element, sanitized)
+    if (mask.isEmpty) return
+    val mosaic = base.mosaicImage(sanitized.cellSize)
+    val paint = AndroidPaint().apply {
+        isAntiAlias = false
+        isFilterBitmap = false
+        isDither = false
+    }
+    canvas.clipPath(mask)
+    canvas.drawBitmap(mosaic, null, AndroidRectF(0f, 0f, base.width.toFloat(), base.height.toFloat()), paint)
+}
+
+/** 箭头两翼（图片坐标）：长度随线宽收敛，终点方向为轴向。 */
+private fun addArrowWings(path: AndroidPath, start: Pt, end: Pt, width: Float) {
     val dx = end.x - start.x
     val dy = end.y - start.y
     val length = sqrt(dx * dx + dy * dy)
@@ -230,17 +487,18 @@ private fun DrawScope.drawArrowHead(start: Pt, end: Pt, color: Color, width: Flo
     val uy = dy / length
     val head = max(width * 3.5f, 8f).coerceAtMost(length * 0.6f)
     val spread = 0.45f
-    fun wing(sign: Float): Offset {
-        val cos = kotlin.math.cos(spread * sign)
-        val sin = kotlin.math.sin(spread * sign)
+    fun wing(sign: Float): Pt {
+        val cos = cos(spread * sign)
+        val sin = sin(spread * sign)
         val wx = (ux * cos - uy * sin) * head
         val wy = (ux * sin + uy * cos) * head
-        return Offset(end.x - wx, end.y - wy)
+        return Pt(end.x - wx, end.y - wy)
     }
     val a = wing(1f)
     val b = wing(-1f)
-    drawLine(color = color, start = Offset(end.x, end.y), end = a, strokeWidth = width, cap = StrokeCap.Round)
-    drawLine(color = color, start = Offset(end.x, end.y), end = b, strokeWidth = width, cap = StrokeCap.Round)
+    path.moveTo(a.x, a.y)
+    path.lineTo(end.x, end.y)
+    path.lineTo(b.x, b.y)
 }
 
 private fun DrawScope.drawTextElement(element: TextElement, fit: ContainFit) {
@@ -253,92 +511,25 @@ private fun DrawScope.drawTextElement(element: TextElement, fit: ContainFit) {
         style = AndroidPaint.Style.FILL
     }
     val canvas = drawContext.canvas.nativeCanvas
-    val baselineOffset = -paint.fontMetrics.ascent
-    val lineHeight = (paint.fontMetrics.descent - paint.fontMetrics.ascent)
-    element.text.split('\n').forEachIndexed { index, line ->
+    val lines = element.text.split('\n')
+    val metrics = paint.fontMetrics
+    val lineHeight = metrics.descent - metrics.ascent
+    // 旋转绕真实文本框中心（与画布选中框 `realHitBounds` 同一枢轴），
+    // 避免全角/半角混排时模型估算中心偏移导致视觉旋转轴错位。
+    val checkpoint = canvas.save()
+    if (element.rotationRad != 0f) {
+        val width = lines.maxOfOrNull { paint.measureText(it) } ?: 0f
+        canvas.rotate(
+            rotationRadToDegrees(element.rotationRad),
+            p.x + width / 2f,
+            p.y + lineHeight * lines.size / 2f,
+        )
+    }
+    val baselineOffset = -metrics.ascent
+    lines.forEachIndexed { index, line ->
         canvas.drawText(line, p.x, p.y + baselineOffset + index * lineHeight, paint)
     }
-}
-
-/**
- * 马赛克：涂抹轨迹（圆头粗笔刷）或选区矩形，从**冻结底图**的预栅格化小块取样，
- * 预览与导出像素一致。
- *
- * 遮罩在图片坐标里生成（描边路径 + 矩形并集），再整体变换到视图坐标裁剪一次；
- * 相比逐格绘制，绘制成本与面积无关，只跟路径点数相关。
- */
-private fun DrawScope.drawMosaicElement(
-    element: MosaicElement,
-    base: BaseImage?,
-    fit: ContainFit,
-) {
-    if (base == null) return
-    val sanitized = element.sanitized()
-    val mask = AndroidPath()
-
-    if (sanitized.points.isNotEmpty()) {
-        val width = sanitized.width
-        if (sanitized.points.size == 1) {
-            val p = sanitized.points.first()
-            mask.addCircle(p.x, p.y, width / 2f, AndroidPath.Direction.CW)
-        } else {
-            val trail = AndroidPath().apply {
-                val first = sanitized.points.first()
-                moveTo(first.x, first.y)
-                for (i in 1 until sanitized.points.size) {
-                    val p = sanitized.points[i]
-                    lineTo(p.x, p.y)
-                }
-            }
-            val stroke = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
-                style = AndroidPaint.Style.STROKE
-                strokeCap = AndroidPaint.Cap.ROUND
-                strokeJoin = AndroidPaint.Join.ROUND
-                strokeWidth = width
-            }
-            val filled = AndroidPath()
-            stroke.getFillPath(trail, filled)
-            mask.op(filled, AndroidPath.Op.UNION)
-        }
-    }
-
-    sanitized.rect?.normalized()?.let { r ->
-        val fill = AndroidPath().apply {
-            addRect(r.left, r.top, r.right, r.bottom, AndroidPath.Direction.CW)
-        }
-        mask.op(fill, AndroidPath.Op.UNION)
-    }
-
-    if (mask.isEmpty) return
-
-    // 图片坐标 → 视图坐标：缩放后平移到绘制区左上角。
-    mask.transform(
-        android.graphics.Matrix().apply {
-            setScale(fit.scale, fit.scale)
-            postTranslate(fit.offsetX, fit.offsetY)
-        },
-    )
-
-    val mosaic = base.mosaicImage(sanitized.cellSize)
-    val dst = AndroidRectF(
-        fit.offsetX,
-        fit.offsetY,
-        fit.offsetX + fit.drawnWidth,
-        fit.offsetY + fit.drawnHeight,
-    )
-    val paint = AndroidPaint().apply {
-        isAntiAlias = false
-        isFilterBitmap = false
-        isDither = false
-    }
-    val canvas = drawContext.canvas.nativeCanvas
-    val checkpoint = canvas.save()
-    try {
-        canvas.clipPath(mask)
-        canvas.drawBitmap(mosaic, null, dst, paint)
-    } finally {
-        canvas.restoreToCount(checkpoint)
-    }
+    canvas.restoreToCount(checkpoint)
 }
 
 /** 只出现在预览：选区裁剪范围提示 + 四角手柄；导出不调这个函数。 */
@@ -404,7 +595,7 @@ private fun DrawScope.drawSelectionOverlay(
 
 private fun Pt.asOffset(): Offset = Offset(x, y)
 
-/** 导出时按选区裁剪的像素尺寸，供宿主预分配位图。 */
+/** 导出时按选区裁剪的像素尺寸，供宿主预分配位图 / 工具条显示。 */
 fun AnnotateState.exportPixelSize(): IntSize {
     val crop = hunoia.luno.annotate.model.AnnotateOps.exportCropRect(this)
     return IntSize(

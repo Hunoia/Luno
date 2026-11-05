@@ -37,6 +37,8 @@ data class AnnotateState(
                 ToolKind.MOSAIC -> ToolStyle(colorArgb = 0xFF000000, mosaicCell = 24f)
                 ToolKind.TEXT -> ToolStyle(textSize = 48f, strokeWidth = 4f)
                 ToolKind.HIGHLIGHT -> ToolStyle(colorArgb = 0xFFFFCC00, strokeWidth = 10f)
+                // 序号圆底：默认红色，直径默认 40 图片像素。
+                ToolKind.NUMBER -> ToolStyle(colorArgb = 0xFFFF3B30, textSize = 40f, strokeWidth = 3f)
                 else -> ToolStyle()
             }
         }

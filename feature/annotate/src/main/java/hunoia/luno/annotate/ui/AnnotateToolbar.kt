@@ -4,34 +4,43 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Redo
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.ArrowOutward
 import androidx.compose.material.icons.filled.AutoFixOff
 import androidx.compose.material.icons.filled.BlurOn
+import androidx.compose.material.icons.filled.ChangeHistory
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Crop32
 import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Filter9Plus
 import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.HorizontalRule
 import androidx.compose.material.icons.filled.LayersClear
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Rectangle
-import androidx.compose.material.icons.automirrored.filled.Redo
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.TextFields
-import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -39,6 +48,7 @@ import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
@@ -52,6 +62,7 @@ import hunoia.luno.annotate.R
 import hunoia.luno.annotate.model.AnnotateDocument
 import hunoia.luno.annotate.model.ToolKind
 import hunoia.luno.annotate.model.ToolStyle
+import hunoia.luno.annotate.render.exportPixelSize
 import hunoia.luno.ui.theme.CompactControlIconSize
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.SubMinInteractiveSize
@@ -74,11 +85,11 @@ fun AnnotateToolbar(
     onExport: () -> Unit,
     exportLabel: String,
     modifier: Modifier = Modifier,
+    onToolClick: (ToolKind) -> Unit = {},
     extraActions: @Composable RowScope.() -> Unit = {},
 ) {
     val state = document.state
     val tool = state.activeTool
-    val style = state.styleFor(tool)
 
     // 紧凑工具条：关掉 M3 的 48dp 强制触控区，否则 7 个工具在窄屏（dp 宽度 ~300）上放不下。
     // 36dp 仍高于 ui-guidelines §4.8 允许的 32dp 下限。
@@ -88,70 +99,40 @@ fun AnnotateToolbar(
             shape = LargeShape,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             tonalElevation = 3.dp,
-            shadowElevation = 6.dp,
+            // 无投影（P：工具卡去阴影），层次靠色差。
+            shadowElevation = 0.dp,
         ) {
             Column(modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
+                // 工具行：点工具选中并通知宿主弹样式二层卡（再点同一工具收起）。
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    ToolKind.entries.forEach { kind ->
+                    // 主工具在前、次级（荧光笔/直线/箭头）在后，中间加细分隔线；
+                    // 窄屏仍可整行横向滚动（P1 可发现性）。
+                    ToolDisplayOrder.forEachIndexed { index, kind ->
+                        if (index in GroupBoundaries) {
+                            Box(
+                                modifier = Modifier
+                                    .padding(horizontal = 3.dp)
+                                    .width(1.dp)
+                                    .height(22.dp)
+                                    .background(MaterialTheme.colorScheme.outlineVariant),
+                            )
+                        }
                         ToolButton(
                             kind = kind,
                             selected = kind == tool,
-                            onClick = { document.selectTool(kind) },
+                            onClick = {
+                                document.selectTool(kind)
+                                onToolClick(kind)
+                            },
                         )
                     }
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .weight(1f)
-                            .horizontalScroll(rememberScrollState()),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        AnnotatePalette.forEach { color ->
-                            ColorSwatch(
-                                color = Color(color),
-                                selected = style.colorArgb == color,
-                                onClick = { document.updateStyle(tool, style.copy(colorArgb = color)) },
-                            )
-                        }
-                        if (state.selection != null) {
-                            // 选区填充马赛克（B6）：整块铺块，作为普通元素可撤销/选中/删除。
-                            CompactIconButton(
-                                icon = Icons.Default.BlurOn,
-                                label = stringResource(R.string.annotate_fill_mosaic),
-                                onClick = {
-                                    document.fillSelectionMosaic(
-                                        state.styleFor(ToolKind.MOSAIC).mosaicCell,
-                                    )
-                                },
-                            )
-                            CompactIconButton(
-                                icon = Icons.Default.LayersClear,
-                                label = stringResource(R.string.annotate_clear_selection),
-                                onClick = { document.clearSelection() },
-                            )
-                        }
-                    }
-                    CompactIconButton(
-                        icon = Icons.Default.Close,
-                        label = stringResource(R.string.annotate_exit),
-                        onClick = onExit,
-                    )
-                    CompactIconButton(
-                        icon = Icons.Default.Check,
-                        label = exportLabel,
-                        onClick = onExport,
-                    )
-                }
-
+                // 底部操作行：样式（颜色/大小等）全部进二层卡，这里只留全局操作。
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -185,37 +166,172 @@ fun AnnotateToolbar(
                         )
                     }
                     extraActions()
-                    if (tool != ToolKind.ERASER) {
-                        Slider(
-                            value = style.primarySize(tool),
-                            onValueChange = {
-                                document.updateStyle(tool, style.withPrimarySize(tool, it))
-                            },
-                            valueRange = tool.sizeRange(),
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 6.dp),
-                        )
-                    } else {
-                        // 橡皮次级动作（C1）：矩形擦模式开关 + 清除全部。
-                        // 只在橡皮激活时出现，不占其它工具的行宽。
-                        CompactIconButton(
-                            icon = Icons.Default.Rectangle,
-                            label = stringResource(R.string.annotate_eraser_rect),
-                            selected = state.eraserRect,
-                            onClick = { document.setEraserRect(!state.eraserRect) },
-                        )
-                        CompactIconButton(
-                            icon = Icons.Default.DeleteSweep,
-                            label = stringResource(R.string.annotate_clear_all),
-                            enabled = state.hasElements,
-                            onClick = { document.clearAll() },
-                        )
-                        Spacer(Modifier.weight(1f))
-                    }
+                    Spacer(Modifier.weight(1f))
+                    CompactIconButton(
+                        icon = Icons.Default.Close,
+                        label = stringResource(R.string.annotate_exit),
+                        onClick = onExit,
+                    )
+                    CompactIconButton(
+                        icon = Icons.Default.Check,
+                        label = exportLabel,
+                        onClick = onExport,
+                    )
                 }
             }
         }
+    }
+}
+
+/**
+ * 样式二层卡（B：点工具从工具卡上方弹出）：按工具展示该工具的样式/操作。
+ *
+ * 内容按工具分类：
+ * - 绘画类（画笔/荧光笔/矩形/直线/箭头）与文字：色板 + 尺寸滑杆（线宽/字号）；
+ * - 马赛克：颗粒大小滑杆（无颜色）；
+ * - 橡皮：矩形擦开关 + 清除全部；
+ * - 选区：清选区 + 选区填充马赛克 + 导出尺寸。
+ *
+ * 宿主负责把 [StylePanel] 叠在工具卡上方（浮层窗口内 Column 顶部 / 图片编辑底部 Column），
+ * 以及管理「再点同一工具收起、点另一工具换内容」。
+ */
+@Composable
+fun StylePanel(
+    tool: ToolKind,
+    document: AnnotateDocument,
+    modifier: Modifier = Modifier,
+) {
+    val state = document.state
+    val style = state.styleFor(tool)
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        when (tool) {
+            ToolKind.ERASER -> {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    CompactIconButton(
+                        icon = Icons.Default.Rectangle,
+                        label = stringResource(R.string.annotate_eraser_rect),
+                        selected = state.eraserRect,
+                        onClick = { document.setEraserRect(!state.eraserRect) },
+                    )
+                    CompactIconButton(
+                        icon = Icons.Default.DeleteSweep,
+                        label = stringResource(R.string.annotate_clear_all),
+                        enabled = state.hasElements,
+                        onClick = { document.clearAll() },
+                    )
+                }
+            }
+
+            ToolKind.SELECT -> {
+                if (state.selection != null) {
+                    val px = state.exportPixelSize()
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        // 选区导出尺寸（P1）：导出前就能知道会得到多大图。
+                        Text(
+                            text = "${px.width}×${px.height}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 6.dp),
+                        )
+                        // 选区填充马赛克（B6）：整块铺块，作为普通元素可撤销/选中/删除。
+                        CompactIconButton(
+                            icon = Icons.Default.BlurOn,
+                            label = stringResource(R.string.annotate_fill_mosaic),
+                            onClick = {
+                                document.fillSelectionMosaic(
+                                    state.styleFor(ToolKind.MOSAIC).mosaicCell,
+                                )
+                            },
+                        )
+                        CompactIconButton(
+                            icon = Icons.Default.LayersClear,
+                            label = stringResource(R.string.annotate_clear_selection),
+                            onClick = { document.clearSelection() },
+                        )
+                    }
+                } else {
+                    Text(
+                        text = stringResource(R.string.annotate_select_empty_hint),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    )
+                }
+            }
+
+            ToolKind.MOSAIC -> {
+                // 颗粒大小（B6）：滑杆直接绑 styleFor(MOSAIC).mosaicCell。
+                SizeSlider(
+                    label = stringResource(R.string.annotate_mosaic_size),
+                    value = style.mosaicCell,
+                    valueRange = tool.sizeRange(),
+                    onValueChange = {
+                        document.updateStyle(tool, style.copy(mosaicCell = it))
+                    },
+                )
+            }
+
+            // 绘画类 + 文字：色板 + 尺寸滑杆。
+            else -> {
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    AnnotatePalette.forEach { color ->
+                        ColorSwatch(
+                            color = Color(color),
+                            selected = style.colorArgb == color,
+                            onClick = {
+                                document.updateStyle(tool, style.copy(colorArgb = color))
+                            },
+                        )
+                    }
+                }
+                SizeSlider(
+                    label = stringResource(
+                        if (tool == ToolKind.TEXT || tool == ToolKind.NUMBER) R.string.annotate_text_size
+                        else R.string.annotate_stroke_width,
+                    ),
+                    value = style.primarySize(tool),
+                    valueRange = tool.sizeRange(),
+                    onValueChange = {
+                        document.updateStyle(tool, style.withPrimarySize(tool, it))
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SizeSlider(
+    label: String,
+    value: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    onValueChange: (Float) -> Unit,
+) {
+    Column(modifier = Modifier.padding(horizontal = 8.dp)) {
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = valueRange,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -290,6 +406,14 @@ private fun iconFor(kind: ToolKind): ImageVector = when (kind) {
     ToolKind.TEXT -> Icons.Default.TextFields
     ToolKind.MOSAIC -> Icons.Default.BlurOn
     ToolKind.SELECT -> Icons.Default.CropFree
+    ToolKind.ELLIPSE -> Icons.Default.RadioButtonUnchecked
+    ToolKind.TRIANGLE -> Icons.Default.ChangeHistory
+    ToolKind.CHECK -> Icons.Default.Check
+    ToolKind.CROSS -> Icons.Default.Close
+    ToolKind.STAR -> Icons.Default.StarBorder
+    ToolKind.ROUND_RECT -> Icons.Default.Crop32
+    ToolKind.HEART -> Icons.Default.FavoriteBorder
+    ToolKind.NUMBER -> Icons.Default.Filter9Plus
 }
 
 private fun labelFor(kind: ToolKind): Int = when (kind) {
@@ -302,7 +426,45 @@ private fun labelFor(kind: ToolKind): Int = when (kind) {
     ToolKind.TEXT -> R.string.annotate_tool_text
     ToolKind.MOSAIC -> R.string.annotate_tool_mosaic
     ToolKind.SELECT -> R.string.annotate_tool_select
+    ToolKind.ELLIPSE -> R.string.annotate_tool_ellipse
+    ToolKind.TRIANGLE -> R.string.annotate_tool_triangle
+    ToolKind.CHECK -> R.string.annotate_tool_check
+    ToolKind.CROSS -> R.string.annotate_tool_cross
+    ToolKind.STAR -> R.string.annotate_tool_star
+    ToolKind.ROUND_RECT -> R.string.annotate_tool_round_rect
+    ToolKind.HEART -> R.string.annotate_tool_heart
+    ToolKind.NUMBER -> R.string.annotate_tool_number
 }
+
+/**
+ * 工具显示顺序：核心组（画笔/橡皮/选择/文字/序号）+ 形状组 + 标注辅助（荧光笔/直线/箭头/马赛克）。
+ * 组间用分隔线（[GroupBoundaries]），窄屏可横向滚动。
+ */
+private val ToolDisplayOrder: List<ToolKind> = listOf(
+    // 核心
+    ToolKind.PEN,
+    ToolKind.ERASER,
+    ToolKind.SELECT,
+    ToolKind.TEXT,
+    ToolKind.NUMBER,
+    // 形状
+    ToolKind.RECT,
+    ToolKind.ELLIPSE,
+    ToolKind.ROUND_RECT,
+    ToolKind.TRIANGLE,
+    ToolKind.LINE,
+    ToolKind.ARROW,
+    ToolKind.CHECK,
+    ToolKind.CROSS,
+    ToolKind.STAR,
+    ToolKind.HEART,
+    // 辅助
+    ToolKind.HIGHLIGHT,
+    ToolKind.MOSAIC,
+)
+
+/** 每个分隔线前累计的工具数量（组尾）。 */
+private val GroupBoundaries: List<Int> = listOf(5, 15)
 
 /** 固定调色板：标注颜色属于“内容”，不跟主题动态取色。 */
 val AnnotatePalette: List<Long> = listOf(
@@ -317,18 +479,22 @@ val AnnotatePalette: List<Long> = listOf(
 
 private fun ToolStyle.primarySize(tool: ToolKind): Float = when (tool) {
     ToolKind.TEXT -> textSize
+    ToolKind.NUMBER -> textSize
     ToolKind.MOSAIC -> mosaicCell
     else -> strokeWidth
 }
 
 private fun ToolStyle.withPrimarySize(tool: ToolKind, value: Float): ToolStyle = when (tool) {
     ToolKind.TEXT -> copy(textSize = value)
+    ToolKind.NUMBER -> copy(textSize = value)
     ToolKind.MOSAIC -> copy(mosaicCell = value)
     else -> copy(strokeWidth = value)
 }
 
 private fun ToolKind.sizeRange(): ClosedFloatingPointRange<Float> = when (this) {
     ToolKind.TEXT -> 24f..96f
+    // 序号圆底直径。
+    ToolKind.NUMBER -> 20f..80f
     ToolKind.MOSAIC -> 8f..48f
     ToolKind.HIGHLIGHT -> 4f..24f
     // 其余线宽都是屏幕 dp（B9）。

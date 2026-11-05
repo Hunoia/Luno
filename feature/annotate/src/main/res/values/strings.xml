@@ -9,10 +9,19 @@
     <string name="annotate_tool_text">文字</string>
     <string name="annotate_tool_mosaic">马赛克</string>
     <string name="annotate_tool_select">选区</string>
+    <string name="annotate_tool_ellipse">圆形</string>
+    <string name="annotate_tool_triangle">三角形</string>
+    <string name="annotate_tool_check">对勾</string>
+    <string name="annotate_tool_cross">叉</string>
+    <string name="annotate_tool_star">五角星</string>
+    <string name="annotate_tool_round_rect">圆角矩形</string>
+    <string name="annotate_tool_heart">心形</string>
+    <string name="annotate_tool_number">序号</string>
     <string name="annotate_undo">撤销</string>
     <string name="annotate_redo">重做</string>
     <string name="annotate_clear_selection">清除选区</string>
     <string name="annotate_fill_mosaic">选区填充马赛克</string>
+    <string name="annotate_select_empty_hint">先在画布上框选区域</string>
     <string name="annotate_delete_element">删除选中元素</string>
     <string name="annotate_reset_zoom">适应屏幕</string>
     <string name="annotate_eraser_rect">矩形擦</string>
@@ -27,6 +36,8 @@
     <string name="annotate_penetrate">穿透</string>
     <string name="annotate_penetrate_on">关闭穿透</string>
     <string name="annotate_stroke_width">线宽</string>
+    <string name="annotate_text_size">字号</string>
+    <string name="annotate_mosaic_size">颗粒大小</string>
     <string name="annotate_color">颜色</string>
     <string name="annotate_screenshot_failed">截屏失败</string>
     <string name="annotate_discard_title">放弃标注？</string>
@@ -34,6 +45,7 @@
     <string name="annotate_discard_confirm">放弃</string>
     <string name="annotate_cancel">取消</string>
     <string name="annotate_export_failed">导出失败</string>
+    <string name="annotate_export_capped">原图过大，已按 8192 像素上限导出</string>
     <string name="annotate_saved">已保存</string>
     <string name="annotate_copied">已复制</string>
     <string name="annotate_pick_image">选择图片</string>

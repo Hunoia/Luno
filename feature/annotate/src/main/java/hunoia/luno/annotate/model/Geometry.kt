@@ -1,8 +1,10 @@
 package hunoia.luno.annotate.model
 
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sin
 
 /** 图片像素坐标系里的一个点。整个标注子系统只认这一套坐标，不存屏幕坐标。 */
 data class Pt(val x: Float, val y: Float) {
@@ -22,6 +24,8 @@ data class PxRect(
 ) {
     val width: Float get() = right - left
     val height: Float get() = bottom - top
+
+    val center: Pt get() = Pt((left + right) / 2f, (top + bottom) / 2f)
 
     val isReversed: Boolean get() = right < left || bottom < top
 
@@ -52,6 +56,14 @@ data class PxRect(
     fun inset(dx: Float, dy: Float = dx): PxRect =
         PxRect(left + dx, top + dy, right - dx, bottom - dy)
 
+    /** 两矩形并集（用于图层/选中态合成）。 */
+    fun union(other: PxRect): PxRect = PxRect(
+        left = minOf(left, other.left),
+        top = minOf(top, other.top),
+        right = maxOf(right, other.right),
+        bottom = maxOf(bottom, other.bottom),
+    )
+
     companion object {
         /** 小于这个像素尺寸的拖动不当作选区（防误触，同计划 §8）。 */
         const val MIN_SELECTION_PX = 8f
@@ -68,6 +80,16 @@ data class PxRect(
             return PxRect(center.x - half, center.y - half, center.x + half, center.y + half)
         }
     }
+}
+
+/** 绕 [center] 旋转 [angle] 弧度（图片像素坐标，正角为顺时针屏幕方向）。 */
+fun rotateAround(p: Pt, center: Pt, angle: Float): Pt {
+    if (angle == 0f) return p
+    val c = cos(angle)
+    val s = sin(angle)
+    val dx = p.x - center.x
+    val dy = p.y - center.y
+    return Pt(center.x + dx * c - dy * s, center.y + dx * s + dy * c)
 }
 
 /** 线段 [a]→[b] 是否与矩形 [r] 相交（任一端点在内，或与任一边相交）。 */
@@ -102,6 +124,26 @@ fun segmentsIntersect(p1: Pt, p2: Pt, p3: Pt, p4: Pt): Boolean {
     if (o3 == 0f && onSegment(p3, p4, p1)) return true
     if (o4 == 0f && onSegment(p3, p4, p2)) return true
     return false
+}
+
+/**
+ * 点是否在闭合多边形内（偶-奇规则；凹多边形如五角星/心形也正确）。
+ * [pts] 为多边形顶点，首尾不要求闭合。
+ */
+fun pointInPolygon(p: Pt, pts: List<Pt>): Boolean {
+    if (pts.size < 3) return false
+    var inside = false
+    var j = pts.size - 1
+    for (i in pts.indices) {
+        val a = pts[i]
+        val b = pts[j]
+        if ((a.y > p.y) != (b.y > p.y)) {
+            val xCross = a.x + (p.y - a.y) * (b.x - a.x) / (b.y - a.y)
+            if (p.x < xCross) inside = !inside
+        }
+        j = i
+    }
+    return inside
 }
 
 /**
