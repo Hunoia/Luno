@@ -18,9 +18,9 @@ android {
 }
 
 dependencies {
-    api(project(":core:common"))
-    api(project(":core:domain"))
-    api(project(":core:bridge"))
+    implementation(project(":core:common"))
+    implementation(project(":core:domain"))
+    implementation(project(":core:bridge"))
     implementation(libs.androidx.datastore)
     implementation(libs.androidx.collection)
     implementation(libs.androidx.compose.ui.geometry)

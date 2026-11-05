@@ -19,15 +19,15 @@ android {
 }
 
 dependencies {
-    api(project(":core:common"))
-    api(project(":core:domain"))
-    api(project(":core:bridge"))
+    implementation(project(":core:common"))
+    implementation(project(":core:domain"))
+    implementation(project(":core:bridge"))
     // 偏差（同 link）：音量刮擦默认值等配置模型在 :core:data。
-    api(project(":core:data"))
-    api(project(":feature:execute"))
+    implementation(project(":core:data"))
+    implementation(project(":feature:execute"))
     // 动作展示 UI（图标/标题/行内组件）：动作扩展面自带的展示能力。
-    api(project(":ui:design"))
-    api(project(":core:runtime"))
+    implementation(project(":ui:design"))
+    implementation(project(":core:runtime"))
     implementation(libs.jetbrains.kotlin.serialization)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.core.ktx)

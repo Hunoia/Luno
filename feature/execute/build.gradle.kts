@@ -22,9 +22,9 @@ android {
 }
 
 dependencies {
-    api(project(":core:common"))
-    api(project(":core:domain"))
-    api(project(":core:bridge"))
+    implementation(project(":core:common"))
+    implementation(project(":core:domain"))
+    implementation(project(":core:bridge"))
     implementation(libs.jetbrains.kotlin.serialization)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.core.ktx)

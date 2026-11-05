@@ -53,6 +53,8 @@ class ModuleDependencyTest {
             ":ui:design", ":capability:launch",
         ),
         ":feature:quicklaunch" to setOf(
+            // 动作启动走 :capability:launch（原先靠 :feature:search 的 api 透传）
+            ":capability:launch",
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
             ":core:runtime", ":feature:search", ":ui:design",
         ),
@@ -64,6 +66,8 @@ class ModuleDependencyTest {
         ":feature:floatball" to setOf(
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
             ":core:runtime", ":feature:gesture",
+            // 动作图标解析用 :feature:actions 的 actionIcon（原先靠 gesture 的 api 透传）
+            ":feature:actions",
             ":feature:link", ":ui:design",
         ),
         ":feature:gridpanel" to setOf(

@@ -21,10 +21,10 @@ android {
 }
 
 dependencies {
-    api(project(":core:common"))
-    api(project(":core:domain"))
-    api(project(":core:bridge"))
-    api(project(":ui:design"))
+    implementation(project(":core:common"))
+    implementation(project(":core:domain"))
+    implementation(project(":core:bridge"))
+    implementation(project(":ui:design"))
 
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.foundation)

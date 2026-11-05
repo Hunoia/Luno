@@ -19,14 +19,14 @@ android {
 }
 
 dependencies {
-    api(project(":core:common"))
-    api(project(":core:domain"))
-    api(project(":core:bridge"))
-    api(project(":core:runtime"))
-    api(project(":ui:design"))
+    implementation(project(":core:common"))
+    implementation(project(":core:domain"))
+    implementation(project(":core:bridge"))
+    implementation(project(":core:runtime"))
+    implementation(project(":ui:design"))
     // 偏差（记录在 docs/archive.md §1 挂账）：链接分发仍通过 ConfigProvider 读写配置；
     // 纯规则模型已在 :core:domain，等存储门面端口化后删除这条边。
-    api(project(":core:data"))
+    implementation(project(":core:data"))
     implementation(libs.jetbrains.kotlin.serialization)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.core.ktx)

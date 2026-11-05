@@ -17,8 +17,8 @@ android {
 }
 
 dependencies {
-    api(project(":core:common"))
-    api(project(":core:domain"))
+    implementation(project(":core:common"))
+    implementation(project(":core:domain"))
     implementation(libs.androidx.annotation)
     implementation(libs.kotlinx.coroutines.core)
     // PP-OCRv6：LiteRT CompiledModel + GPU delegate（OpenCL）；fp32 tflite 原始包，用户导入。

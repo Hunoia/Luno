@@ -25,13 +25,13 @@ android {
 }
 
 dependencies {
-    api(project(":core:common"))
-    api(project(":core:domain"))
-    api(project(":core:bridge"))
-    api(project(":core:data"))
+    implementation(project(":core:common"))
+    implementation(project(":core:domain"))
+    implementation(project(":core:bridge"))
+    implementation(project(":core:data"))
     // 图标原子组件（TextIconGlyph 等）；搜索本身不依赖动作模块，动作条目走 ActionSearchSource 契约。
-    api(project(":ui:design"))
-    api(project(":capability:launch"))
+    implementation(project(":ui:design"))
+    implementation(project(":capability:launch"))
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)
