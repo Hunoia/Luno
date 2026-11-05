@@ -94,6 +94,8 @@ fun AnnotateCanvas(
     showSelection: Boolean = true,
     /** 文字编辑器开关：浮层宿主据此隐藏工具条，避免工具条浮在键盘上挡住按键。 */
     onTextEditingChanged: ((Boolean) -> Unit)? = null,
+    /** 画布任意落笔（含绘制/拖选/缩放开始）：宿主据此收起样式面板/弹出卡。 */
+    onPointerDown: (() -> Unit)? = null,
 ) {
     val density = LocalDensity.current.density
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
@@ -289,6 +291,8 @@ fun AnnotateCanvas(
                     // consumed 的 down（落在文字输入框上）不再当作画布手势，
                     // 否则点输入框内部会被父层当成新的落字点。
                     val down = awaitFirstDown(requireUnconsumed = true)
+                    // 宿主收面板/弹出卡：落笔即交互开始（样式面板不再遮挡画布）。
+                    onPointerDown?.invoke()
                     // 起手前先交卷：画布上旧文字编辑器如果还开着，这次落点应先提交，
                     // 否则会被下面的 TEXT 分支直接覆盖，已输入内容丢失。
                     if (editor != null) commitText()
