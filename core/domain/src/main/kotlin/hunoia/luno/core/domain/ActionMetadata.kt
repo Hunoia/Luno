@@ -3,7 +3,7 @@ package hunoia.luno.core.domain
 /**
  * 动作的纯契约元数据：执行口做参数校验与能力闸所需的最小信息。
  *
- * 这是 ADR-0001 D4 的「纯契约 / 展示投影」二分之一：
+ * 这是 architecture §1.4 的「纯契约 / 展示投影」二分之一：
  * - `ActionMetadata`（本接口，`:core:domain`）：能力需求、必填文本键；
  * - `ActionDefinition`（`:feature:actions`）：名称、图标、参数编辑器等展示投影。
  *

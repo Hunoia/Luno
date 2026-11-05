@@ -122,7 +122,7 @@ interface ExecuteMessages {
 }
 
 /**
- * 动作元数据视图：契约已下沉 `hunoia.luno.core.domain.ActionMetadata`（ADR-0001 D4），
+ * 动作元数据视图：契约已下沉 `hunoia.luno.core.domain.ActionMetadata`（architecture §1.4），
  * 这里保留同包别名，供执行口内部与旧调用点引用。
  *
  * 展示元件（名称、图标、参数编辑器）仍在 `:feature:actions`，不进执行口。

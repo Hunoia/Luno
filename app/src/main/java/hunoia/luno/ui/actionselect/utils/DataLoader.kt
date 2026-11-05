@@ -359,7 +359,7 @@ internal suspend fun saveGridPanelWidget(
 /**
  * 内置小部件落盘：同款「只填空 + 放不下降档」，无宿主 id 可回收。
  * 默认 span 4×1（def 声明），列数不够时逐档降到 1×1。
- * [params] 是每实例配置（见 ADR-0008）：习惯部件传 `HabitWidgetParams` JSON，无参部件传 null。
+ * [params] 是每实例配置（见 architecture §9.2）：习惯部件传 `HabitWidgetParams` JSON，无参部件传 null。
  */
 internal suspend fun saveGridPanelInternalWidget(
     actionSelect: ActionSelect,

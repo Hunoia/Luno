@@ -93,7 +93,7 @@ class App : Application(), ImageLoaderFactory {
         // OCR 模型页要扫模型目录、并在导入/删除后通知 :service 重载引擎。
         hunoia.luno.domain.ocr.OcrModelCenter.init(applicationContext)
 
-        // 启动能力库的协作者注入（ADR-0001 D1/D3）：能力库自己不认识配置流与查询层。
+        // 启动能力库的协作者注入（architecture §9.4）：能力库自己不认识配置流与查询层。
         hunoia.luno.search.SearchCapabilities.actionSearch = hunoia.luno.actions.LunoActionSearchSource
         hunoia.luno.launch.LaunchCapability.telemetry = hunoia.luno.config.DataLaunchTelemetry
         hunoia.luno.launch.LaunchCapability.targetResolver =

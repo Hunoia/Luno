@@ -2,7 +2,7 @@
 
 PP-OCRv6（LiteRT `CompiledModel` + GPU delegate / OpenCL）的本地离线识别。
 NPU（QNN / HTP）方案因社区反馈 v6 算子覆盖问题弃用，切换为 GPU 运行时 delegate
-（历史方案见 [ADR-0005](../../docs/adr/0005-ocr-npu-model-management.md)）。
+（历史方案见 [architecture.md](../../docs/architecture.md) §9.4）。
 
 ## 契约
 
@@ -49,7 +49,7 @@ NPU（QNN / HTP）方案因社区反馈 v6 算子覆盖问题弃用，切换为 
 ## 使用方
 
 - `:feature:gesture` 的 `ScreenPickOverlay`：**仅框选菜单的 OCR 动作 / 图片文字**。
-  长按取词走 a11y 字符级快照，不再调用 OCR（见 [ADR-0006](../../docs/adr/0006-screen-text-acquisition.md)）。
+  长按取词走 a11y 字符级快照，不再调用 OCR（见 [architecture.md](../../docs/architecture.md) §7.4）。
 - 组装根 `:app`（`SideGestureService`）持有 `PpOcrEngine`，服务销毁时 `close()`；
   模型导入 / 删除后经 `DispatchClient.refreshOcrEngine()` 让 `:service` 重载并预热。
 - 识屏层打开时调用 `ensureWarm()`，把模型加载 / 设备端编译藏在用户框选期间。

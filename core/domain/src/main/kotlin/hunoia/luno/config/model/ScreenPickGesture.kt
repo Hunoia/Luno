@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 /**
  * 识屏的长按手势（全屏任意位置按住 → 幽灵卡 → 拖到动作上松手执行）。
  *
- * - [enabled]：是否在全屏任意位置监听长按。复用 ADR-0003 的内核触摸流
+ * - [enabled]：是否在全屏任意位置监听长按。复用 architecture §2.3 的内核触摸流
  *   （[hunoia.luno.gesture.touchsource.ShizukuTouchInputSource]），因此需要 Shizuku；
  *   默认关闭，用户显式打开才启动这条常驻读取（无事件不做功）。
  * - [longPressDelayMs] / [slopDp]：按住 ≥ 阈值即触发；长按前位移超 slop 视为滚动，本次作废。

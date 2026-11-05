@@ -495,7 +495,7 @@ private fun QuickSearchIndex.formatSize(bytes: Long): String {
 
     /** 设置页 label 同源：SettingsPage.labelRes（原 Enum 参数已改为选择页行尾设置）。 */
 fun QuickSearchIndex.systemSettingsPages(): List<QuickSearchResult.Settings> =
-    // 设置页条目由动作模块的契约提供（ADR-0001 D2）：搜索不持有页面文案与枚举含义。
+    // 设置页条目由动作模块的契约提供（architecture §9.4）：搜索不持有页面文案与枚举含义。
     hunoia.luno.search.SearchCapabilities.actionSearch
         .settingsPages { context.getString(it) }
         .mapNotNull { entry ->

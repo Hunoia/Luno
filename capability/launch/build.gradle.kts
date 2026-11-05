@@ -22,7 +22,7 @@ dependencies {
     api(project(":core:domain"))
     api(project(":core:bridge"))
     // 启动参数模型（MiniWindowSettings / OpenAppOrUrlData）当前在 :core:data；
-    // ADR-0001 D4 把契约部分归位 domain 后，这里只留实现侧依赖。
+    // architecture §1.4 把契约部分归位 domain 后，这里只留实现侧依赖。
     api(project(":core:data"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.core)

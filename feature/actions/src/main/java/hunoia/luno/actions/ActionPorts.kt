@@ -38,7 +38,7 @@ object LunoActionFactory : ActionFactory {
 }
 
 /**
- * 搜索动作源（ADR-0001 D2）：把动作模块的「可搜动作」投影成契约条目。
+ * 搜索动作源（architecture §9.4）：把动作模块的「可搜动作」投影成契约条目。
  *
  * 搜索侧只依赖 `hunoia.luno.core.domain.ActionSearchSource`，看不到
  * `ActionDefinitions` / 图标实现 / 资源 id；`:app` 组装时把本实现注入搜索。
@@ -73,7 +73,7 @@ object LunoActionSearchSource : hunoia.luno.core.domain.ActionSearchSource {
     )
 }
 
-/** 设置页与动作库条目的搜索投影（ADR-0001 D2）。 */
+/** 设置页与动作库条目的搜索投影（architecture §9.4）。 */
 object LunoActionSearchExtras : hunoia.luno.core.domain.ActionSearchSource {
     override fun index(): List<hunoia.luno.core.domain.ActionSearchEntry> = emptyList()
 

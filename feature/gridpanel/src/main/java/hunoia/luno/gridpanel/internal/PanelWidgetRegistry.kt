@@ -14,7 +14,7 @@ data class PanelWidgetContentScope(
     val itemSpanX: Int,
     val itemSpanY: Int,
     val enabled: Boolean,
-    /** 每实例配置（JSON 串，见 ADR-0008）：无参部件为 null，有参部件自行解析。 */
+    /** 每实例配置（JSON 串，见 architecture §9.2）：无参部件为 null，有参部件自行解析。 */
     val params: String? = null,
 )
 

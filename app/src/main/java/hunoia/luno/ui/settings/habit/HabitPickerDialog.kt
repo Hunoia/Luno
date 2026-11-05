@@ -30,7 +30,7 @@ import hunoia.luno.config.model.Habit
 
 /**
  * 习惯选择弹窗：给面板「习惯部件」添加时指定目标习惯。
- * 选中即回调，由调用方把 habitId 写进 `Kind.Internal.params`（ADR-0008）。
+ * 选中即回调，由调用方把 habitId 写进 `Kind.Internal.params`（architecture §9.2）。
  */
 @Composable
 fun HabitPickerDialog(

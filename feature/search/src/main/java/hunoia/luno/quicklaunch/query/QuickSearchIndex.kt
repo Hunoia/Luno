@@ -100,7 +100,7 @@ class QuickSearchIndex(internal val context: Context) {
         if (defsLoaded) return
         // 先在局部变量里建好，再一次性发布：并发下不能出现「已加载但 actions 还是空」，
         // 否则搜应用名直接整表丢失。
-        // 动作条目来自契约端口（ADR-0001 D2）：搜索不认识 ActionDefinitions。
+        // 动作条目来自契约端口（architecture §9.4）：搜索不认识 ActionDefinitions。
         val builtActions = hunoia.luno.search.SearchCapabilities.actionSearch.index().map { entry ->
             QuickSearchResult.ActionDef(entry.action, entry.label, entry.icon)
         }

@@ -131,7 +131,7 @@ class ActionSelectVM(
         }
     }
 
-    /** 内置小部件选定 → 落盘 → 收页（无宿主/授权流程，直接存条目）。[params] 见 ADR-0008。 */
+    /** 内置小部件选定 → 落盘 → 收页（无宿主/授权流程，直接存条目）。[params] 见 architecture §9.2。 */
     fun commitInternalWidget(widgetId: String, params: String? = null) {
         var result: GridPanelSaveResult? = null
         viewModelScope.launch {

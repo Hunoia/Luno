@@ -95,7 +95,7 @@ fun ActionSelectContent(
     ) { uiState ->
         val coroutineScope = rememberCoroutineScope()
 
-        // 习惯部件选择：指定目标习惯后落盘（params 见 ADR-0008）。
+        // 习惯部件选择：指定目标习惯后落盘（params 见 architecture §9.2）。
         var pendingHabitWidgetId by remember { mutableStateOf<String?>(null) }
         val habitConfig by HabitCenter.habitConfig
             .collectAsStateWithLifecycle(initialValue = HabitConfig())
@@ -105,7 +105,7 @@ fun ActionSelectContent(
             title = uiState.title,
             onBack = onDismissRequest,
             dialogs = {
-                // 习惯部件：选目标习惯后把 habitId 写进 Kind.Internal.params（ADR-0008）。
+                // 习惯部件：选目标习惯后把 habitId 写进 Kind.Internal.params（architecture §9.2）。
                 val pending = pendingHabitWidgetId
                 if (pending != null) {
                     HabitPickerDialog(

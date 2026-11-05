@@ -127,7 +127,7 @@ class GestureCoordinator(
     }
 
     /**
-     * 全屏长按识屏检测器：复用 ADR-0003 内核触摸流（需 Shizuku），不消费触摸。
+     * 全屏长按识屏检测器：复用 architecture §2.3 内核触摸流（需 Shizuku），不消费触摸。
      * 触发后由同一股原始触摸流继续喂拖动/抬手，幽灵卡靠它跟随手指。
      */
     private val globalScreenPickTrigger = GlobalLongPressTrigger(
