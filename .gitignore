@@ -31,7 +31,7 @@ signing.properties
 google-services.json
 
 # Docs & agent notes (local only)
-docs/
+docs
 AGENTS.md
 
 # Python helper caches
