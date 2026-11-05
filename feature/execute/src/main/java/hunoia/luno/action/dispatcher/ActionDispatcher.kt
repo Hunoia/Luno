@@ -46,6 +46,8 @@ class ActionDispatcher(
     private val libraryEntry: (String) -> StoredAction?,
     executors: List<ActionExecutor>,
     capabilityGate: CapabilityGate,
+    /** 幂等窗口：同键重放返回上次落定，失败不缓存（architecture §4.7）。 */
+    private val idempotency: IdempotencyCache = IdempotencyCache(),
 ) {
     private val registry: ActionExecutorRegistry = ActionExecutorRegistry(
         executors = executors,
@@ -67,7 +69,10 @@ class ActionDispatcher(
         }
     }
 
-    private suspend fun dispatchAwait(call: ExecuteCall): ExecuteSettlement {
+    private suspend fun dispatchAwait(call: ExecuteCall): ExecuteSettlement =
+        idempotency.run(call.request.idempotencyKey) { dispatchOnce(call) }
+
+    private suspend fun dispatchOnce(call: ExecuteCall): ExecuteSettlement {
         val stored = call.request.stored
         try {
             // 动作库引用就地解析为条目动作（单轨：引用本身也是 StoredAction）。

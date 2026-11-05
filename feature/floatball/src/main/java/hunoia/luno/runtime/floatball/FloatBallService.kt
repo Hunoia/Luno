@@ -984,6 +984,8 @@ class FloatBallService : Service() {
             SurfaceDispatch.dispatch(
                 action = AppLaunchAction.stored(packageName = item.packageName),
                 origin = hunoia.luno.core.domain.DispatchOrigin.PANEL,
+                // 同一条收件箱项重试复用同键：上次其实已成功时不再重复启动。
+                idempotencyKey = "inbox.notification:${item.id}",
             ) { launched ->
                 if (launched) removeInboxItem(item.id)
                 else Log.w(TAG, "capsule app launch failed: package=${item.packageName}")
@@ -1320,7 +1322,9 @@ class FloatBallService : Service() {
             // Trigger 只产出意图：链接模块负责选路，返回 ActionRequest 后再交给执行口。
             val resolution = Links.resolve(this@FloatBallService, url, linkDispatch, rule)
             val dispatched = resolution?.let {
-                runCatching { ActionDispatch.dispatchAwait(it.request) }
+                // 同一条剪贴板项的重试复用同键（失败不缓存，仍是真重试）。
+                val request = it.request.copy(idempotencyKey = "inbox.link:$itemId")
+                runCatching { ActionDispatch.dispatchAwait(request) }
                     .onFailure { error -> Log.w(TAG, "link dispatch threw: ${url.take(80)}", error) }
                     .getOrDefault(false)
             } ?: false

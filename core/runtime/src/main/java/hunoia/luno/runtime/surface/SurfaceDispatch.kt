@@ -33,9 +33,11 @@ object SurfaceDispatch {
     fun dispatch(
         action: StoredAction,
         origin: DispatchOrigin = DispatchOrigin.PANEL,
+        /** 同一用户意图重放时复用（如收件箱项重试），null = 不去重。 */
+        idempotencyKey: String? = null,
         onSettled: (Boolean) -> Unit = {},
     ) {
-        val request = ActionRequest(stored = action, origin = origin)
+        val request = ActionRequest(stored = action, origin = origin, idempotencyKey = idempotencyKey)
         val current = dispatcher
         if (current == null) {
             onSettled(false)
