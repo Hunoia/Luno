@@ -173,10 +173,15 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
                     annotateOverlay = null
                     restoreAnnotateSurfaces()
                 },
+                // 偏好落库走 app 的配置门面，feature 只依赖端口。
+                settingsStore = hunoia.luno.domain.annotate.AnnotateSettingsCenter,
             )
             annotateOverlay = overlay
+            // open() 现在是 suspend（先读偏好再挂窗）：保持 annotateOpening 到真正挂完，
+            // 否则读盘这几毫秒内再触发动作会建出第二个浮层。
+            val opened = overlay.open(bitmap)
             annotateOpening = false
-            if (!overlay.open(bitmap)) {
+            if (!opened) {
                 annotateOverlay = null
                 restoreAnnotateSurfaces()
                 hunoia.luno.bridge.ui.showToast(hunoia.luno.annotate.R.string.annotate_screenshot_failed)

@@ -4,6 +4,7 @@ import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.config.backup.ConfigBackupRepository
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.AdvancedSettings
+import hunoia.luno.config.model.AnnotateSettings
 import hunoia.luno.config.model.AppLaunchSource
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.Backup
@@ -51,6 +52,8 @@ object ConfigProvider {
     val subGestureSettings: Flow<SubGestureSettings> = stores.subGestureSettings
     val actionLibrarySettings: Flow<ActionLibrarySettings> = stores.actionLibrarySettings
     val quickSearchSettings: Flow<QuickSearchSettings> = stores.quickSearchSettings
+    /** 标注偏好（每工具风格 + 工具条位置）：两宿主共用，笔迹不落盘。 */
+    val annotateSettings: Flow<AnnotateSettings> = stores.annotateSettings
     /** 剪贴板历史：设备本地派生数据，只供剪贴板页面部件订阅。 */
     val clipboardHistory: Flow<ClipboardHistory> = stores.clipboardHistory
 
@@ -67,6 +70,7 @@ object ConfigProvider {
     suspend fun getActionLibrarySettings(): ActionLibrarySettings = stores._actionLibrarySettings.data.first()
     suspend fun getQuickSearchSettings(): QuickSearchSettings =
         stores._quickSearchSettings.data.first().withUniqueEngineTriggers()
+    suspend fun getAnnotateSettings(): AnnotateSettings = stores._annotateSettings.data.first()
 
     suspend fun updateInitialSettings(transform: suspend (InitialSettings) -> InitialSettings) {
         stores._initialSettings.updateData(transform)
@@ -99,6 +103,10 @@ object ConfigProvider {
             // 拿到的必须是界面看到的那份（空 id 在归一化里补齐），否则改不动。
             transform(current.withUniqueEngineTriggers()).withUniqueEngineTriggers()
         }
+    }
+
+    suspend fun updateAnnotateSettings(transform: suspend (AnnotateSettings) -> AnnotateSettings) {
+        stores._annotateSettings.updateData(transform)
     }
 
     suspend fun updateQuickAppLauncherLayout(layout: QuickLauncherGeometry, landscape: Boolean) {

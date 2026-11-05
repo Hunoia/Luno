@@ -1,7 +1,7 @@
 package hunoia.luno.config.store
 
 /**
- * DataStore 文件名：语义化命名，按五组域划分。
+ * DataStore 文件名：语义化命名，按备份域分组。
  * 改某域模型只升对应 Schema 版本（见 BackupVersions），不改文件名。
  */
 object DataStoreFiles {
@@ -18,6 +18,9 @@ object DataStoreFiles {
     // 动作库组
     const val ACTION_SETTINGS = "action_settings"
     const val ACTION_LIBRARY_SETTINGS = "new_action_library"
+
+    // 标注组
+    const val ANNOTATE_SETTINGS = "annotate_settings"
 
     // 搜索启动组
     const val QUICK_APP_LAUNCHER = "quick_app_launcher"

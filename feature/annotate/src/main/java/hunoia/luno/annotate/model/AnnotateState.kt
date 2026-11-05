@@ -11,8 +11,19 @@ data class AnnotateState(
     /** 导出裁剪区；null 表示全图。永远存图片像素坐标。 */
     val selection: PxRect? = null,
     val activeTool: ToolKind = ToolKind.PEN,
+    /** 橡皮的矩形擦模式（审计 C1）：仅 ERASER 下生效，切走工具时复位。 */
+    val eraserRect: Boolean = false,
     val styles: Map<ToolKind, ToolStyle> = DEFAULT_STYLES,
     val toolbarAnchor: ToolbarAnchor? = null,
+    /**
+     * SELECT 工具当前点中的元素（B5）。只影响画布上的选中框与工具条删除按钮，
+     * 不是笔迹内容，不进撤销历史；元素被删/撤销掉时自动失效。
+     */
+    val selectedElementId: Long? = null,
+    /** 双指缩放倍数（B7）：1 = 适应屏幕，不持久化、不进撤销。 */
+    val viewZoom: Float = 1f,
+    /** 缩放后的视图平移，单位是视图像素；已按可移动范围夹取。 */
+    val viewPan: Pt = Pt(0f, 0f),
     val undoStack: List<List<AnnotationElement>> = emptyList(),
     val redoStack: List<List<AnnotationElement>> = emptyList(),
 ) {
@@ -25,6 +36,7 @@ data class AnnotateState(
             when (tool) {
                 ToolKind.MOSAIC -> ToolStyle(colorArgb = 0xFF000000, mosaicCell = 24f)
                 ToolKind.TEXT -> ToolStyle(textSize = 48f, strokeWidth = 4f)
+                ToolKind.HIGHLIGHT -> ToolStyle(colorArgb = 0xFFFFCC00, strokeWidth = 10f)
                 else -> ToolStyle()
             }
         }
@@ -45,6 +57,10 @@ data class AnnotateState(
 object AnnotateOps {
 
     const val UNDO_LIMIT = 30
+
+    /** 双指缩放范围（B7）：1 = 适应屏幕，最大 5 倍。 */
+    const val MIN_VIEW_ZOOM = 1f
+    const val MAX_VIEW_ZOOM = 5f
 
     fun addElement(state: AnnotateState, element: AnnotationElement): AnnotateState {
         val undo = (state.undoStack + listOf(state.elements)).takeLast(UNDO_LIMIT)
@@ -70,6 +86,7 @@ object AnnotateOps {
         val prev = state.undoStack.lastOrNull() ?: return state
         return state.copy(
             elements = prev,
+            selectedElementId = state.selectedElementId?.takeIf { id -> prev.any { it.id == id } },
             undoStack = state.undoStack.dropLast(1),
             redoStack = (state.redoStack + listOf(state.elements)).takeLast(UNDO_LIMIT),
         )
@@ -79,6 +96,7 @@ object AnnotateOps {
         val next = state.redoStack.lastOrNull() ?: return state
         return state.copy(
             elements = next,
+            selectedElementId = state.selectedElementId?.takeIf { id -> next.any { it.id == id } },
             undoStack = (state.undoStack + listOf(state.elements)).takeLast(UNDO_LIMIT),
             redoStack = state.redoStack.dropLast(1),
         )
@@ -86,7 +104,101 @@ object AnnotateOps {
 
     /** 破坏性清空：同时丢弃历史，杜绝撤销回到重截前的错位笔迹。 */
     fun clearElements(state: AnnotateState): AnnotateState =
-        state.copy(elements = emptyList(), undoStack = emptyList(), redoStack = emptyList())
+        state.copy(
+            elements = emptyList(),
+            selectedElementId = null,
+            undoStack = emptyList(),
+            redoStack = emptyList(),
+        )
+
+    /**
+     * 清除全部（工具条按钮）：**可撤销**——与重截路径的破坏性 [clearElements] 不同，
+     * 这是用户主动清空，撤销一步就该回来。空文档不进历史。
+     */
+    fun clearAll(state: AnnotateState): AnnotateState {
+        if (state.elements.isEmpty()) return state
+        val undo = (state.undoStack + listOf(state.elements)).takeLast(UNDO_LIMIT)
+        return state.copy(
+            elements = emptyList(),
+            selectedElementId = null,
+            undoStack = undo,
+            redoStack = emptyList(),
+        )
+    }
+
+    /**
+     * 矩形橡皮：移除与 [rect] 相交的笔迹 / 形状（判定在 [erasedBy]，文字与马赛克不动）。
+     * 一步撤销；没有命中时原样返回，不产生空历史。
+     */
+    fun eraseInRect(state: AnnotateState, rect: PxRect): AnnotateState {
+        val normalized = rect.normalized()
+        val remaining = state.elements.filterNot { it.erasedBy(normalized) }
+        if (remaining.size == state.elements.size) return state
+        val undo = (state.undoStack + listOf(state.elements)).takeLast(UNDO_LIMIT)
+        return state.copy(
+            elements = remaining,
+            selectedElementId = state.selectedElementId?.takeIf { id -> remaining.any { it.id == id } },
+            undoStack = undo,
+            redoStack = emptyList(),
+        )
+    }
+
+    /** 单点橡皮 / 删除：移除 [id] 对应元素，一步撤销。找不到时原样返回。 */
+    fun removeElement(state: AnnotateState, id: Long): AnnotateState {
+        if (state.elements.none { it.id == id }) return state
+        val undo = (state.undoStack + listOf(state.elements)).takeLast(UNDO_LIMIT)
+        return state.copy(
+            elements = state.elements.filterNot { it.id == id },
+            selectedElementId = state.selectedElementId?.takeIf { it != id },
+            undoStack = undo,
+            redoStack = emptyList(),
+        )
+    }
+
+    /**
+     * SELECT 工具点选元素（B5）。[id] 不在文档里按「取消选中」处理；
+     * 选中态不是内容，不进撤销历史。
+     */
+    fun selectElement(state: AnnotateState, id: Long?): AnnotateState {
+        val valid = id?.takeIf { wanted -> state.elements.any { it.id == wanted } }
+        if (valid == state.selectedElementId) return state
+        return state.copy(selectedElementId = valid)
+    }
+
+    /** 删除当前选中的元素（工具条删除按钮），一步撤销。 */
+    fun removeSelected(state: AnnotateState): AnnotateState =
+        state.selectedElementId?.let { removeElement(state, it) } ?: state
+
+    /**
+     * 选区填充马赛克（B6）：把整个选区铺成马赛克块，作为普通元素参与撤销 /
+     * 选中 / 删除。没有有效选区时原样返回。
+     */
+    fun fillSelectionMosaic(state: AnnotateState, id: Long, cellSize: Float): AnnotateState {
+        val sel = state.selection
+            ?.normalized()
+            ?.clampTo(state.imageWidth.toFloat(), state.imageHeight.toFloat())
+            ?.takeUnless { it.isEmpty() }
+            ?: return state
+        return addElement(
+            state,
+            MosaicElement(
+                id = id,
+                cellSize = cellSize.coerceIn(4f, 96f),
+                rect = sel,
+            ),
+        )
+    }
+
+    /** 双指缩放/平移（B7）。只改视图，不动元素、不进撤销历史。 */
+    fun setViewTransform(state: AnnotateState, zoom: Float, pan: Pt): AnnotateState =
+        state.copy(
+            viewZoom = zoom.coerceIn(MIN_VIEW_ZOOM, MAX_VIEW_ZOOM),
+            viewPan = pan,
+        )
+
+    /** 「适应屏幕」：重置缩放与平移。 */
+    fun resetViewTransform(state: AnnotateState): AnnotateState =
+        state.copy(viewZoom = MIN_VIEW_ZOOM, viewPan = Pt(0f, 0f))
 
     /** 选区先归一化再 clamp；过小视为清除。 */
     fun setSelection(state: AnnotateState, rect: PxRect?): AnnotateState {
@@ -100,13 +212,30 @@ object AnnotateOps {
     fun clearSelection(state: AnnotateState): AnnotateState = state.copy(selection = null)
 
     fun selectTool(state: AnnotateState, tool: ToolKind): AnnotateState =
-        state.copy(activeTool = tool)
+        // 切走橡皮（或重选工具）时退出矩形擦，避免下次进橡皮还是框选模式。
+        state.copy(activeTool = tool, eraserRect = false)
+
+    fun setEraserRect(state: AnnotateState, enabled: Boolean): AnnotateState =
+        state.copy(eraserRect = enabled)
 
     fun updateStyle(state: AnnotateState, tool: ToolKind, style: ToolStyle): AnnotateState =
         state.copy(styles = state.styles + (tool to style))
 
     fun moveToolbar(state: AnnotateState, anchor: ToolbarAnchor): AnnotateState =
         state.copy(toolbarAnchor = anchor.sanitized())
+
+    /**
+     * 应用持久化偏好（打开标注时）：只覆盖传入的工具风格与工具条位置。
+     * 偏好不是笔迹，不进撤销历史；位置为 null 时保留当前值。
+     */
+    fun applySettings(
+        state: AnnotateState,
+        styles: Map<ToolKind, ToolStyle>,
+        anchor: ToolbarAnchor?,
+    ): AnnotateState = state.copy(
+        styles = state.styles + styles,
+        toolbarAnchor = anchor?.sanitized() ?: state.toolbarAnchor,
+    )
 
     /**
      * 关闭穿透后换底图。笔迹坐标不变（D6「保留」路径）；选区按新尺寸重新 clamp。
@@ -131,6 +260,10 @@ object AnnotateOps {
             imageHeight = imageHeight,
             elements = kept,
             selection = newSelection,
+            selectedElementId = state.selectedElementId?.takeIf { id -> kept.any { it.id == id } },
+            // 换底图后旧视口没有意义，回到适应屏幕。
+            viewZoom = MIN_VIEW_ZOOM,
+            viewPan = Pt(0f, 0f),
             undoStack = if (keepElements) state.undoStack else emptyList(),
             redoStack = if (keepElements) state.redoStack else emptyList(),
         )
@@ -141,5 +274,35 @@ object AnnotateOps {
         val full = PxRect.full(state.imageWidth, state.imageHeight)
         val sel = state.selection?.normalized()?.clampTo(full.right, full.bottom) ?: return full
         return if (sel.isEmpty()) full else sel
+    }
+
+    /**
+     * 图片编辑原分辨率导出（B8）：把预览坐标系里的全部元素 / 选区按比例映射到
+     * 原图尺寸，返回一份**不修改宿主文档**的副本。
+     *
+     * 线宽、文字大小、马赛克单元随两轴平均比例缩放，导出视觉与预览一致；
+     * 撤销历史不参与（导出的副本不会被撤销）。
+     */
+    fun scaleImage(state: AnnotateState, newWidth: Int, newHeight: Int): AnnotateState {
+        if (newWidth <= 0 || newHeight <= 0) return state
+        if (newWidth == state.imageWidth && newHeight == state.imageHeight) return state
+        val sx = newWidth.toFloat() / state.imageWidth.coerceAtLeast(1)
+        val sy = newHeight.toFloat() / state.imageHeight.coerceAtLeast(1)
+        val from = PxRect.full(state.imageWidth, state.imageHeight)
+        val to = PxRect.full(newWidth, newHeight)
+        return state.copy(
+            imageWidth = newWidth,
+            imageHeight = newHeight,
+            elements = state.elements.map { it.transformed(from, to) },
+            selection = state.selection?.let { sel ->
+                val n = sel.normalized()
+                PxRect(
+                    left = n.left * sx,
+                    top = n.top * sy,
+                    right = n.right * sx,
+                    bottom = n.bottom * sy,
+                ).clampTo(newWidth.toFloat(), newHeight.toFloat())
+            },
+        )
     }
 }

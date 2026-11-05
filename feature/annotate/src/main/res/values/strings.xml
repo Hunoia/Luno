@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="annotate_tool_pen">画笔</string>
+    <string name="annotate_tool_highlight">荧光笔</string>
     <string name="annotate_tool_eraser">橡皮</string>
     <string name="annotate_tool_rect">矩形</string>
+    <string name="annotate_tool_line">直线</string>
     <string name="annotate_tool_arrow">箭头</string>
     <string name="annotate_tool_text">文字</string>
     <string name="annotate_tool_mosaic">马赛克</string>
@@ -10,6 +12,12 @@
     <string name="annotate_undo">撤销</string>
     <string name="annotate_redo">重做</string>
     <string name="annotate_clear_selection">清除选区</string>
+    <string name="annotate_fill_mosaic">选区填充马赛克</string>
+    <string name="annotate_delete_element">删除选中元素</string>
+    <string name="annotate_reset_zoom">适应屏幕</string>
+    <string name="annotate_eraser_rect">矩形擦</string>
+    <string name="annotate_clear_all">清除全部</string>
+    <string name="annotate_text_done">完成文字输入</string>
     <string name="annotate_exit">退出标注</string>
     <string name="annotate_save">保存</string>
     <string name="annotate_export">导出</string>
@@ -25,13 +33,13 @@
     <string name="annotate_discard_message">当前标注不会保存。</string>
     <string name="annotate_discard_confirm">放弃</string>
     <string name="annotate_cancel">取消</string>
-    <string name="annotate_rescreenshot_title">内容可能已变化</string>
-    <string name="annotate_rescreenshot_keep">保留笔迹</string>
-    <string name="annotate_rescreenshot_clear">清空笔迹</string>
     <string name="annotate_export_failed">导出失败</string>
     <string name="annotate_saved">已保存</string>
     <string name="annotate_copied">已复制</string>
     <string name="annotate_pick_image">选择图片</string>
     <string name="annotate_image_load_failed">图片读取失败</string>
     <string name="annotate_toolbar_drag_hint">长按拖动</string>
+    <string name="annotate_replace_title">替换图片？</string>
+    <string name="annotate_replace_message">当前图片上的标注将被丢弃。</string>
+    <string name="annotate_replace_confirm">替换</string>
 </resources>

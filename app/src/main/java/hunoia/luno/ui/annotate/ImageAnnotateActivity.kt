@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
+import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -37,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,18 +51,23 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import hunoia.luno.annotate.model.AnnotateDocument
+import hunoia.luno.annotate.model.AnnotateOps
 import hunoia.luno.annotate.model.AnnotateState
 import hunoia.luno.annotate.R as AnnotateR
-import hunoia.luno.annotate.render.AnnotateExporter
 import hunoia.luno.annotate.render.BaseImage
+import hunoia.luno.annotate.render.ExportKind
+import hunoia.luno.annotate.render.exportAnnotated
+import hunoia.luno.annotate.store.flushAnnotateSettings
+import hunoia.luno.annotate.store.observeAnnotateSettings
+import hunoia.luno.annotate.store.restoreAnnotateSettings
 import hunoia.luno.annotate.ui.AnnotateCanvas
 import hunoia.luno.annotate.ui.AnnotateToolbar
-import hunoia.luno.bridge.system.ImageOutput
-import hunoia.luno.bridge.system.copyImage
 import hunoia.luno.bridge.ui.showToast
+import hunoia.luno.domain.annotate.AnnotateSettingsCenter
 import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -110,6 +118,12 @@ class ImageAnnotateActivity : ComponentActivity() {
     private var dialog by mutableStateOf<Dialog?>(null)
     private var busy by mutableStateOf(false)
     private var pickerLaunched = false
+    /** 偏好恢复/落盘协程：换底图或退出时取消，避免旧文档继续写。 */
+    private var settingsJob: Job? = null
+    /** picker 模式保留原始 Uri（B8）：预览用采样图，导出时重新解码原分辨率。 */
+    private var sourceUri: Uri? = null
+    /** 待确认的替换底图：已有笔迹时新位图先存这里，用户确认才换（审计 H3）。 */
+    private var pendingReplace: Bitmap? = null
 
     private val picker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri == null) {
@@ -122,7 +136,7 @@ class ImageAnnotateActivity : ComponentActivity() {
                 showToast(AnnotateR.string.annotate_image_load_failed)
                 finish()
             } else {
-                install(bitmap)
+                install(bitmap, uri)
             }
         }
     }
@@ -150,14 +164,36 @@ class ImageAnnotateActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        // singleTask 复用：再次从识屏/OCR 页交接位图时直接换底图。
+        // singleTask 复用：再次从识屏/OCR 页交接位图时换底图；
+        // 已有笔迹则先确认，避免把正在编辑的内容静默丢掉（审计 H3）。
         val id = intent.getLongExtra(EXTRA_SESSION, -1L)
         val handed = ImageAnnotateHandoff.take(id)
         if (handed != null && !handed.isRecycled) {
-            install(handed)
+            if (document?.state?.hasElements == true) {
+                pendingReplace?.let { if (!it.isRecycled) it.recycle() }
+                pendingReplace = handed
+                dialog = Dialog.Replace
+            } else {
+                install(handed)
+            }
         } else if (document == null && intent.getStringExtra(EXTRA_FEATURE) == FEATURE_PICKER) {
             launchPicker()
         }
+    }
+
+    /** 用户确认替换：装新图（旧文档由 install 丢弃）。 */
+    private fun confirmReplace() {
+        val next = pendingReplace ?: return
+        pendingReplace = null
+        dialog = Dialog.None
+        install(next)
+    }
+
+    /** 取消替换 / 面板被其它路径关掉：暂存位图没人接走，回收避免泄漏大图。 */
+    private fun discardPendingReplace() {
+        val pending = pendingReplace ?: return
+        pendingReplace = null
+        if (!pending.isRecycled) pending.recycle()
     }
 
     private fun launchPicker() {
@@ -169,7 +205,7 @@ class ImageAnnotateActivity : ComponentActivity() {
         }
     }
 
-    private fun install(source: Bitmap) {
+    private fun install(source: Bitmap, uri: Uri? = null) {
         if (source.isRecycled) {
             finish()
             return
@@ -183,10 +219,15 @@ class ImageAnnotateActivity : ComponentActivity() {
             return
         }
         if (owned !== source && !source.isRecycled) source.recycle()
+        // 换图前把旧文档的偏好补一次落盘（防抖窗口内换图不丢），再取消旧观察协程。
+        document?.let { flushAnnotateSettings(it, AnnotateSettingsCenter) }
         // 上一份底图交给 GC：可能还有一帧在 RenderThread 上绘制，立即回收会崩。
+        settingsJob?.cancel()
         document = null
         base = null
         dialog = Dialog.None
+        // payload 模式没有可重解码的源：传 null 时导出直接用交接位图原尺寸。
+        sourceUri = uri
         val doc = AnnotateDocument(AnnotateState.of(owned.width, owned.height))
         document = doc
         base = BaseImage(owned)
@@ -200,12 +241,25 @@ class ImageAnnotateActivity : ComponentActivity() {
                         base = currentBase,
                         dialog = dialog ?: Dialog.None,
                         busy = busy,
-                        onDialog = { dialog = it },
+                        onDialog = { next ->
+                            // 关掉替换确认 = 取消：暂存的新图没人接走，回收掉。
+                            if (next == Dialog.None && dialog == Dialog.Replace) discardPendingReplace()
+                            dialog = next
+                        },
                         onClose = { finish() },
                         onExport = { kind -> export(kind) },
+                        onReplace = ::confirmReplace,
                     )
                 }
             }
+        }
+        // 偏好异步读取：本宿主的工具条位置固定，只让样式生效（工具条位置对这里无意义）。
+        // 读盘通常 <100ms；期间用户改样式被覆盖的概率可忽略。文档一致性保护避免
+        // 换图后旧协程把旧文档的样式写进新文档。
+        settingsJob = lifecycleScope.launch {
+            restoreAnnotateSettings(doc, AnnotateSettingsCenter)
+            if (document !== doc) return@launch
+            observeAnnotateSettings(doc, AnnotateSettingsCenter)
         }
     }
 
@@ -215,41 +269,33 @@ class ImageAnnotateActivity : ComponentActivity() {
         if (busy) return
         // 导出前提交画布里正在编辑、尚未失焦的文字。
         doc.commitPendingText()
+        val uri = sourceUri
         busy = true
         lifecycleScope.launch {
-            val rendered = runCatching {
-                withContext(Dispatchers.Default) {
-                    AnnotateExporter.renderCropped(doc.state, currentBase)
+            try {
+                // B8：picker 模式按原图全分辨率重解码，坐标从预览尺寸映射过去；
+                // payload 模式交接位图就是原始尺寸，直接导出。
+                val full = if (uri != null) {
+                    withContext(Dispatchers.IO) { decodeFull(uri) }
+                } else {
+                    null
                 }
-            }.getOrNull()
-            if (rendered == null) {
-                busy = false
-                showToast(AnnotateR.string.annotate_export_failed)
-                return@launch
-            }
-            val ok = withContext(Dispatchers.IO) {
-                try {
-                    when (kind) {
-                        ExportKind.Save ->
-                            ImageOutput.saveToGallery(this@ImageAnnotateActivity, rendered, "annotate") != null
-                        ExportKind.Copy ->
-                            ImageOutput.saveToGallery(this@ImageAnnotateActivity, rendered, "annotate")
-                                ?.let { uri -> copyImage(this@ImageAnnotateActivity, "annotate", uri) }
-                                ?: false
-                        ExportKind.Share ->
-                            ImageOutput.saveToCache(this@ImageAnnotateActivity, rendered, "annotate")
-                                ?.let { uri -> ImageOutput.share(this@ImageAnnotateActivity, uri, "annotate") }
-                                ?: false
+                if (full != null && !full.isRecycled) {
+                    try {
+                        val fullBase = BaseImage(full)
+                        val scaled = AnnotateOps.scaleImage(doc.state, full.width, full.height)
+                        exportAnnotated(scaled, fullBase, kind)
+                    } finally {
+                        // 导出已同步完成（render / 落盘都在 exportAnnotated 内等待），
+                        // 原图副本不再有人引用，立即回收整张大图。
+                        if (!full.isRecycled) full.recycle()
                     }
-                } finally {
-                    if (!rendered.isRecycled) rendered.recycle()
+                } else {
+                    // 原图解码失败 / payload 模式：回退预览底图，至少能导出。
+                    exportAnnotated(doc.state, currentBase, kind)
                 }
-            }
-            busy = false
-            when {
-                !ok -> showToast(AnnotateR.string.annotate_export_failed)
-                kind == ExportKind.Save -> showToast(AnnotateR.string.annotate_saved)
-                kind == ExportKind.Copy -> showToast(AnnotateR.string.annotate_copied)
+            } finally {
+                busy = false
             }
         }
     }
@@ -257,12 +303,39 @@ class ImageAnnotateActivity : ComponentActivity() {
     override fun onDestroy() {
         // 不在 onDestroy 里 recycle 底图：窗口拆除与最后一帧绘制存在竞争，
         // 回收已显示位图会提升 "trying to use a recycled bitmap" 崩溃风险；交给 GC。
+        settingsJob?.cancel()
+        settingsJob = null
+        // 防抖窗口内退出不丢偏好：立即补一次落盘。
+        document?.let { flushAnnotateSettings(it, AnnotateSettingsCenter) }
         base = null
         document = null
+        sourceUri = null
         super.onDestroy()
     }
 
+    /**
+     * 解码选中图片。
+     *
+     * 走 `ImageDecoder`：它按 EXIF 方向旋转（`BitmapFactory` 不会，竖拍照片会横着进编辑器），
+     * 原生支持 HEIF/WebP，采样也只需一次解码。返回非位图（动图等）或抛错时回退老路径。
+     */
     private fun decode(uri: Uri): Bitmap? = runCatching {
+        val source = ImageDecoder.createSource(contentResolver, uri)
+        val drawable = ImageDecoder.decodeDrawable(source) { decoder, info, _ ->
+            val longest = maxOf(info.size.width, info.size.height)
+            var sample = 1
+            while (longest / sample > MAX_DECODE_PX) sample *= 2
+            decoder.setTargetSampleSize(sample)
+            // 恒用软件位图：与老路径一致，马赛克要 getPixel，HARDWARE 位图不支持。
+            // （SDK 37 起常量扁平化为 ALLOCATOR_SOFTWARE=1，与 API 33 的 MEMORY=1 同义，
+            //   static final int 编译期内联，运行时不存在字段兼容问题。）
+            decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE)
+        }
+        (drawable as? BitmapDrawable)?.bitmap ?: decodeWithBitmapFactory(uri)
+    }.getOrElse { decodeWithBitmapFactory(uri) }
+
+    /** 老路径兜底（不处理 EXIF）：仅在 ImageDecoder 不可用时保底出图。 */
+    private fun decodeWithBitmapFactory(uri: Uri): Bitmap? = runCatching {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
         var sample = 1
@@ -271,11 +344,27 @@ class ImageAnnotateActivity : ComponentActivity() {
         val options = BitmapFactory.Options().apply { inSampleSize = sample }
         contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
     }.getOrNull()
+
+    /**
+     * 原分辨率解码（B8）：导出时用，不采样。
+     *
+     * 与 [decode] 走同一套 ImageDecoder（EXIF 方向一致，坐标映射才对得上），
+     * 失败再回退 BitmapFactory 全量解码。调用方负责在 IO 线程执行并回收。
+     */
+    private fun decodeFull(uri: Uri): Bitmap? = runCatching {
+        val source = ImageDecoder.createSource(contentResolver, uri)
+        val drawable = ImageDecoder.decodeDrawable(source) { decoder, _, _ ->
+            decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE)
+        }
+        (drawable as? BitmapDrawable)?.bitmap ?: decodeFullWithBitmapFactory(uri)
+    }.getOrElse { decodeFullWithBitmapFactory(uri) }
+
+    private fun decodeFullWithBitmapFactory(uri: Uri): Bitmap? = runCatching {
+        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+    }.getOrNull()
 }
 
-internal enum class ExportKind { Save, Copy, Share }
-
-internal enum class Dialog { None, Exit, Export }
+internal enum class Dialog { None, Exit, Export, Replace }
 
 @Composable
 private fun ImageAnnotateScreen(
@@ -286,6 +375,7 @@ private fun ImageAnnotateScreen(
     onDialog: (Dialog) -> Unit,
     onClose: () -> Unit,
     onExport: (ExportKind) -> Unit,
+    onReplace: () -> Unit,
 ) {
     val requestClose = {
         document.commitPendingText()
@@ -296,10 +386,13 @@ private fun ImageAnnotateScreen(
         if (dialog != Dialog.None) onDialog(Dialog.None) else requestClose()
     }
 
-    // 工具条高度：只量工具条本体（不含 IME inset），画布据此让出底部，整图可见。
-    // IME 弹起时工具条上移而高度不变，画布尺寸不变，正在落的文字不会跟着 fit 重算跳位。
+    // 工具条区域：量「容器」而不是工具条本体——容器还叠了导航栏 inset，只量工具条
+    // 会让画布底部少让出一个导航栏高度，竖图底部被工具条盖住（审计 H4）。
+    // IME 弹起时容器会长出键盘高度，那一刻冻结旧值：画布尺寸不随键盘重排，
+    // 正在落的文字才不会跟着 fit 重新计算跳位。
     val density = LocalDensity.current
-    var toolbarHeightPx by remember { mutableStateOf(0) }
+    var toolbarAreaPx by remember { mutableStateOf(0) }
+    val imeBottomPx by rememberUpdatedState(WindowInsets.ime.getBottom(density))
 
     Box(
         modifier = Modifier
@@ -311,7 +404,7 @@ private fun ImageAnnotateScreen(
             base = base,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = with(density) { toolbarHeightPx.toDp() }),
+                .padding(bottom = with(density) { toolbarAreaPx.toDp() }),
         )
 
         Box(
@@ -323,7 +416,8 @@ private fun ImageAnnotateScreen(
                     WindowInsets.navigationBars
                         .only(WindowInsetsSides.Bottom)
                         .union(WindowInsets.ime.only(WindowInsetsSides.Bottom)),
-                ),
+                )
+                .onSizeChanged { if (imeBottomPx == 0) toolbarAreaPx = it.height },
         ) {
             AnnotateToolbar(
                 document = document,
@@ -332,7 +426,6 @@ private fun ImageAnnotateScreen(
                 exportLabel = stringResource(AnnotateR.string.annotate_export),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .onSizeChanged { toolbarHeightPx = it.height }
                     .padding(horizontal = 8.dp, vertical = 6.dp),
             )
         }
@@ -353,6 +446,7 @@ private fun ImageAnnotateScreen(
                 dialog = dialog,
                 onDismiss = { onDialog(Dialog.None) },
                 onClose = onClose,
+                onReplace = onReplace,
                 onExport = { kind ->
                     onDialog(Dialog.None)
                     onExport(kind)
@@ -372,6 +466,7 @@ private fun ActionPanel(
     dialog: Dialog,
     onDismiss: () -> Unit,
     onClose: () -> Unit,
+    onReplace: () -> Unit,
     onExport: (ExportKind) -> Unit,
 ) {
     Box(
@@ -404,14 +499,21 @@ private fun ActionPanel(
                     text = when (dialog) {
                         Dialog.Exit -> stringResource(AnnotateR.string.annotate_discard_title)
                         Dialog.Export -> stringResource(AnnotateR.string.annotate_export)
+                        Dialog.Replace -> stringResource(AnnotateR.string.annotate_replace_title)
                         Dialog.None -> ""
                     },
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 )
-                if (dialog == Dialog.Exit) {
+                if (dialog == Dialog.Exit || dialog == Dialog.Replace) {
                     Text(
-                        text = stringResource(AnnotateR.string.annotate_discard_message),
+                        text = stringResource(
+                            if (dialog == Dialog.Exit) {
+                                AnnotateR.string.annotate_discard_message
+                            } else {
+                                AnnotateR.string.annotate_replace_message
+                            },
+                        ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
@@ -436,6 +538,15 @@ private fun ActionPanel(
                             destructive = true,
                         ) {
                             onClose()
+                        }
+                    }
+
+                    Dialog.Replace -> {
+                        PanelAction(
+                            label = stringResource(AnnotateR.string.annotate_replace_confirm),
+                            destructive = true,
+                        ) {
+                            onReplace()
                         }
                     }
 

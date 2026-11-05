@@ -36,8 +36,46 @@ class AnnotateDocument(initial: AnnotateState) {
         state = AnnotateOps.redo(state)
     }
 
-    fun clearElements() {
-        state = AnnotateOps.clearElements(state)
+    /**
+     * 清除全部（工具条按钮，可撤销）。
+     * 破坏性清空（重截换图）走 `replaceImage(keepElements = false)`，语义不同。
+     */
+    fun clearAll() {
+        state = AnnotateOps.clearAll(state)
+    }
+
+    /** 矩形橡皮：擦除与矩形相交的笔迹/形状，一步撤销。 */
+    fun eraseInRect(rect: PxRect) {
+        state = AnnotateOps.eraseInRect(state, rect)
+    }
+
+    /** 单点橡皮：移除点中的那一个元素，一步撤销。 */
+    fun removeElement(id: Long) {
+        state = AnnotateOps.removeElement(state, id)
+    }
+
+    /** SELECT 工具点选 / 取消选中元素（不产生撤销步）。 */
+    fun selectElement(id: Long?) {
+        state = AnnotateOps.selectElement(state, id)
+    }
+
+    /** 工具条删除按钮：删除当前选中的元素，一步撤销。 */
+    fun removeSelected() {
+        state = AnnotateOps.removeSelected(state)
+    }
+
+    /** 选区填充马赛克（B6），一步撤销。 */
+    fun fillSelectionMosaic(cellSize: Float) {
+        state = AnnotateOps.fillSelectionMosaic(state, nextElementId(), cellSize)
+    }
+
+    /** 双指缩放/平移（B7），不进撤销。 */
+    fun setViewTransform(zoom: Float, pan: Pt) {
+        state = AnnotateOps.setViewTransform(state, zoom, pan)
+    }
+
+    fun resetViewTransform() {
+        state = AnnotateOps.resetViewTransform(state)
     }
 
     fun setSelection(rect: PxRect?) {
@@ -52,12 +90,22 @@ class AnnotateDocument(initial: AnnotateState) {
         state = AnnotateOps.selectTool(state, tool)
     }
 
+    /** 橡皮的矩形擦开关（工具条次级按钮）。 */
+    fun setEraserRect(enabled: Boolean) {
+        state = AnnotateOps.setEraserRect(state, enabled)
+    }
+
     fun updateStyle(tool: ToolKind, style: ToolStyle) {
         state = AnnotateOps.updateStyle(state, tool, style)
     }
 
     fun moveToolbar(anchor: ToolbarAnchor) {
         state = AnnotateOps.moveToolbar(state, anchor)
+    }
+
+    /** 打开标注时应用持久化偏好（每工具风格 + 工具条位置）；不进撤销历史。 */
+    fun applySettings(styles: Map<ToolKind, ToolStyle>, anchor: ToolbarAnchor?) {
+        state = AnnotateOps.applySettings(state, styles, anchor)
     }
 
     fun replaceImage(width: Int, height: Int, keepElements: Boolean) {

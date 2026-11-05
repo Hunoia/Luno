@@ -1,6 +1,8 @@
 package hunoia.luno.annotate.render
 
 import android.graphics.Paint as AndroidPaint
+import android.graphics.Path as AndroidPath
+import android.graphics.RectF as AndroidRectF
 import android.graphics.Typeface
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -57,9 +59,6 @@ object AnnotateVisuals {
     const val SelectionDashPx = 8f
     const val SelectionGapPx = 6f
 
-    /** 单个马赛克元素最多绘制的格子数，超过则自动放大单元。 */
-    const val MosaicMaxCells = 12_000
-
     /** 单点笔迹的最小可视化直径（图片像素）。 */
     const val MinDotDiameterPx = 2f
 }
@@ -104,8 +103,11 @@ private fun DrawScope.drawBaseImage(
 }
 
 /**
- * 标注层单独 `saveLayer`：橡皮用 [BlendMode.Clear] 只清这一层，
- * 不会把底图擦成透明（计划 D4 / 验收「橡皮只擦笔迹」）。
+ * 标注层渲染。
+ *
+ * 橡皮用 [BlendMode.Clear]，必须隔离层才不会把底图擦成透明（计划 D4 / 验收「橡皮只擦笔迹」）；
+ * 但**没有橡皮时省掉整帧的全屏 `saveLayer`**——图层缓冲区分配是这里的主要开销，
+ * 无橡皮路径全部是 SrcOver，直接画到画布与先建层再合成结果完全一致。
  */
 private fun DrawScope.drawAnnotationLayer(
     state: AnnotateState,
@@ -114,13 +116,14 @@ private fun DrawScope.drawAnnotationLayer(
     imageRect: PxRect,
 ) {
     if (state.elements.isEmpty()) return
+    val needsLayer = state.elements.any { it is StrokeElement && it.erase }
     val bounds = Rect(
         left = imageRect.left,
         top = imageRect.top,
         right = imageRect.right,
         bottom = imageRect.bottom,
     )
-    drawContext.canvas.saveLayer(bounds, Paint())
+    if (needsLayer) drawContext.canvas.saveLayer(bounds, Paint())
     try {
         clipRect(
             left = imageRect.left,
@@ -138,13 +141,16 @@ private fun DrawScope.drawAnnotationLayer(
             }
         }
     } finally {
-        drawContext.canvas.restore()
+        if (needsLayer) drawContext.canvas.restore()
     }
 }
 
 private fun DrawScope.drawStrokeElement(element: StrokeElement, fit: ContainFit) {
-    val width = max(element.width * fit.scale, 0.75f)
-    val color = Color(element.colorArgb)
+    // 荧光笔：内容型高亮，半透明宽笔迹（颜色已由工具风格给成高亮色）。
+    val highlighter = element.highlight
+    val width = max(element.width * fit.scale, 0.75f) * if (highlighter) 1.6f else 1f
+    val baseColor = Color(element.colorArgb)
+    val color = if (highlighter) baseColor.copy(alpha = 0.38f) else baseColor
     if (element.points.isEmpty()) return
     if (element.points.size == 1) {
         if (element.erase) return
@@ -200,6 +206,16 @@ private fun DrawScope.drawShapeElement(element: ShapeElement, fit: ContainFit) {
             drawArrowHead(start, end, color, width)
         }
 
+        hunoia.luno.annotate.model.ElementKind.LINE -> {
+            drawLine(
+                color = color,
+                start = Offset(start.x, start.y),
+                end = Offset(end.x, end.y),
+                strokeWidth = width,
+                cap = StrokeCap.Round,
+            )
+        }
+
         else -> Unit
     }
 }
@@ -245,8 +261,11 @@ private fun DrawScope.drawTextElement(element: TextElement, fit: ContainFit) {
 }
 
 /**
- * 马赛克：按单元采样**冻结底图**的真实像素，预览与导出一致。
- * 单元数超过上限时自动放大单元，避免大图卡死。
+ * 马赛克：涂抹轨迹（圆头粗笔刷）或选区矩形，从**冻结底图**的预栅格化小块取样，
+ * 预览与导出像素一致。
+ *
+ * 遮罩在图片坐标里生成（描边路径 + 矩形并集），再整体变换到视图坐标裁剪一次；
+ * 相比逐格绘制，绘制成本与面积无关，只跟路径点数相关。
  */
 private fun DrawScope.drawMosaicElement(
     element: MosaicElement,
@@ -255,49 +274,70 @@ private fun DrawScope.drawMosaicElement(
 ) {
     if (base == null) return
     val sanitized = element.sanitized()
-    val rect = sanitized.rect
-        .normalized()
-        .clampTo(fit.imageWidth, fit.imageHeight)
-    if (rect.isEmpty(minSize = 0.5f)) return
+    val mask = AndroidPath()
 
-    val requestedCell = sanitized.cellSize
-    val cells = (rect.width / requestedCell) * (rect.height / requestedCell)
-    val cell = if (cells > AnnotateVisuals.MosaicMaxCells) {
-        sqrt((rect.width * rect.height) / AnnotateVisuals.MosaicMaxCells)
-    } else {
-        requestedCell
-    }.coerceAtLeast(1f)
-
-    clipRect(
-        left = fit.offsetX,
-        top = fit.offsetY,
-        right = fit.offsetX + fit.drawnWidth,
-        bottom = fit.offsetY + fit.drawnHeight,
-    ) {
-        var y = rect.top
-        while (y < rect.bottom) {
-            val cellBottom = (y + cell).coerceAtMost(rect.bottom)
-            var x = rect.left
-            while (x < rect.right) {
-                val cellRight = (x + cell).coerceAtMost(rect.right)
-                val sampleX = ((x + cellRight) / 2f).roundToInt()
-                val sampleY = ((y + cellBottom) / 2f).roundToInt()
-                val sampled = base.sampleColor(sampleX, sampleY)
-                val viewLeft = fit.imageToView(Pt(x, y))
-                val viewRight = fit.imageToView(Pt(cellRight, cellBottom))
-                drawRect(
-                    color = Color(sampled),
-                    topLeft = Offset(viewLeft.x, viewLeft.y),
-                    // +0.5px 消除相邻格之间的缝。
-                    size = Size(
-                        width = (viewRight.x - viewLeft.x) + 0.5f,
-                        height = (viewRight.y - viewLeft.y) + 0.5f,
-                    ),
-                )
-                x = cellRight
+    if (sanitized.points.isNotEmpty()) {
+        val width = sanitized.width
+        if (sanitized.points.size == 1) {
+            val p = sanitized.points.first()
+            mask.addCircle(p.x, p.y, width / 2f, AndroidPath.Direction.CW)
+        } else {
+            val trail = AndroidPath().apply {
+                val first = sanitized.points.first()
+                moveTo(first.x, first.y)
+                for (i in 1 until sanitized.points.size) {
+                    val p = sanitized.points[i]
+                    lineTo(p.x, p.y)
+                }
             }
-            y = cellBottom
+            val stroke = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+                style = AndroidPaint.Style.STROKE
+                strokeCap = AndroidPaint.Cap.ROUND
+                strokeJoin = AndroidPaint.Join.ROUND
+                strokeWidth = width
+            }
+            val filled = AndroidPath()
+            stroke.getFillPath(trail, filled)
+            mask.op(filled, AndroidPath.Op.UNION)
         }
+    }
+
+    sanitized.rect?.normalized()?.let { r ->
+        val fill = AndroidPath().apply {
+            addRect(r.left, r.top, r.right, r.bottom, AndroidPath.Direction.CW)
+        }
+        mask.op(fill, AndroidPath.Op.UNION)
+    }
+
+    if (mask.isEmpty) return
+
+    // 图片坐标 → 视图坐标：缩放后平移到绘制区左上角。
+    mask.transform(
+        android.graphics.Matrix().apply {
+            setScale(fit.scale, fit.scale)
+            postTranslate(fit.offsetX, fit.offsetY)
+        },
+    )
+
+    val mosaic = base.mosaicImage(sanitized.cellSize)
+    val dst = AndroidRectF(
+        fit.offsetX,
+        fit.offsetY,
+        fit.offsetX + fit.drawnWidth,
+        fit.offsetY + fit.drawnHeight,
+    )
+    val paint = AndroidPaint().apply {
+        isAntiAlias = false
+        isFilterBitmap = false
+        isDither = false
+    }
+    val canvas = drawContext.canvas.nativeCanvas
+    val checkpoint = canvas.save()
+    try {
+        canvas.clipPath(mask)
+        canvas.drawBitmap(mosaic, null, dst, paint)
+    } finally {
+        canvas.restoreToCount(checkpoint)
     }
 }
 

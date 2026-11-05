@@ -13,6 +13,7 @@ object BackupVersions {
     const val ACTION = 2
     const val SEARCH = 1
     const val HABIT = 1
+    const val ANNOTATE = 1
 }
 
 /** 备份域：整机备份含全部，单域导出一次一域。 */
@@ -22,6 +23,7 @@ enum class BackupDomain {
     ACTION,
     SEARCH,
     HABIT,
+    ANNOTATE,
 }
 
 @Serializable
@@ -34,6 +36,7 @@ data class Backup(
     val actionSchemaVersion: Int = 1,
     val searchSchemaVersion: Int = 1,
     val habitSchemaVersion: Int = 1,
+    val annotateSchemaVersion: Int = 1,
     val initialSettings: InitialSettings? = null,
     val advancedSettings: AdvancedSettings? = null,
     val gestureSettings: GestureSettings? = null,
@@ -44,6 +47,7 @@ data class Backup(
     val actionLibrarySettings: ActionLibrarySettings? = null,
     val quickSearchSettings: QuickSearchSettings? = null,
     val habitConfig: HabitConfig? = null,
+    val annotateSettings: AnnotateSettings? = null,
 )
 
 /**

@@ -94,9 +94,10 @@ internal fun Backup.schemaVersionOf(domain: BackupDomain): Int = when (domain) {
     BackupDomain.ACTION -> actionSchemaVersion
     BackupDomain.SEARCH -> searchSchemaVersion
     BackupDomain.HABIT -> habitSchemaVersion
+    BackupDomain.ANNOTATE -> annotateSchemaVersion
 }
 
-/** 内置备份域：整机备份的五组。 */
+/** 内置备份域：按语义分组的全部可备份配置。 */
 internal object BuiltinBackupDomains {
 
     private var installed = false
@@ -178,6 +179,18 @@ internal object BuiltinBackupDomains {
                 )
             },
             isEmpty = { it.habitConfig == null },
+        )
+        register(
+            domain = BackupDomain.ANNOTATE,
+            schemaVersion = BackupVersions.ANNOTATE,
+            snapshot = { full ->
+                Backup(
+                    backupFormatVersion = full.backupFormatVersion,
+                    annotateSchemaVersion = full.annotateSchemaVersion,
+                    annotateSettings = full.annotateSettings,
+                )
+            },
+            isEmpty = { it.annotateSettings?.isEmpty() != false },
         )
     }
 
