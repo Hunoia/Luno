@@ -1,4 +1,4 @@
-package hunoia.luno.ui.settings.search
+package hunoia.luno.quicklaunch.settings
 
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
@@ -9,7 +9,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.R
+import hunoia.luno.quicklaunch.R
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SRC_ACTION
 import hunoia.luno.config.model.SRC_APP

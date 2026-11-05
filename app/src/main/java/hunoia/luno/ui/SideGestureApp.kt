@@ -94,9 +94,9 @@ import hunoia.luno.ui.settings.action.gridpanel.GridPanelListScreen
 import hunoia.luno.gridpanel.habit.HabitEditScreen
 import hunoia.luno.gridpanel.habit.HabitListScreen
 import hunoia.luno.gridpanel.todo.TodoListScreen
-import hunoia.luno.ui.settings.search.SearchEngineSettingsScreen
-import hunoia.luno.ui.settings.search.SearchEngineEditScreen
-import hunoia.luno.ui.settings.search.SearchSourceSettingsScreen
+import hunoia.luno.quicklaunch.settings.SearchEngineSettingsScreen
+import hunoia.luno.quicklaunch.settings.SearchEngineEditScreen
+import hunoia.luno.quicklaunch.settings.SearchSourceSettingsScreen
 
 import hunoia.luno.gesture.settings.button.GestureButtonSettingsScreen
 
@@ -440,6 +440,14 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                     SearchEngineEditScreen(
                         engineId = it.toRoute<SearchEngineEdit>().engineId,
                         onBack = { navController.popBackStack() },
+                        appPicker = { request ->
+                            AppPickerSheet(
+                                onDismissRequest = request.onDismiss,
+                                selectedPackageNames = request.selectedPackageNames,
+                                confirmOnSelect = true,
+                                onConfirm = request.onConfirm,
+                            )
+                        },
                     )
                 }
                 myComposable<SubGestureEditor> {

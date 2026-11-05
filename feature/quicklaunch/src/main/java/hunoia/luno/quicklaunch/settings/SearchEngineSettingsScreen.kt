@@ -1,4 +1,4 @@
-package hunoia.luno.ui.settings.search
+package hunoia.luno.quicklaunch.settings
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -39,7 +39,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.R
+import hunoia.luno.quicklaunch.R
 import hunoia.luno.bridge.system.copyText
 import hunoia.luno.bridge.system.readClipboardText
 import hunoia.luno.bridge.ui.showToast

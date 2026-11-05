@@ -1,4 +1,4 @@
-package hunoia.luno.ui.settings.search
+package hunoia.luno.quicklaunch.settings
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
@@ -30,7 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import hunoia.luno.R
+import hunoia.luno.quicklaunch.R
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.SearchLaunch
 import hunoia.luno.config.model.effectiveLaunch

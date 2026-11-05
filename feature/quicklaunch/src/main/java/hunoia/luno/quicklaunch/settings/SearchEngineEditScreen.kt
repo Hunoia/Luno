@@ -1,4 +1,4 @@
-package hunoia.luno.ui.settings.search
+package hunoia.luno.quicklaunch.settings
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
@@ -15,7 +15,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import hunoia.luno.R
+import hunoia.luno.quicklaunch.R
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.SearchLaunch
@@ -30,7 +30,8 @@ import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LunoIconButton
 import hunoia.luno.ui.component.screen.LunoScreen
-import hunoia.luno.ui.component.sheet.AppPickerSheet
+import hunoia.luno.ui.component.sheet.AppPickerRequest
+import hunoia.luno.ui.component.sheet.AppPickerSlot
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.FloatingContentBottom
 import kotlinx.coroutines.launch
@@ -54,6 +55,8 @@ private data class EngineEditSnapshot(
 fun SearchEngineEditScreen(
     engineId: String,
     onBack: () -> Unit,
+    /** 应用选择器由 `:app` 注入（与动作库 / 链接设置同一插槽）。 */
+    appPicker: AppPickerSlot? = null,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -189,15 +192,23 @@ fun SearchEngineEditScreen(
         },
         sheets = {
             if (showAppPicker) {
-                AppPickerSheet(
-                    onDismissRequest = { showAppPicker = false },
-                    selectedPackageNames = listOf(targetPackage),
-                    confirmOnSelect = true,
-                    onConfirm = { packages ->
-                        targetPackage = packages.firstOrNull().orEmpty()
-                        showAppPicker = false
-                    },
-                )
+                val picker = appPicker
+                if (picker == null) {
+                    showAppPicker = false
+                } else {
+                    picker(
+                        AppPickerRequest(
+                            selectedPackageNames = listOf(targetPackage),
+                            selectedUserId = null,
+                            onDismiss = { showAppPicker = false },
+                            onConfirm = { packages ->
+                                targetPackage = packages.firstOrNull().orEmpty()
+                                showAppPicker = false
+                            },
+                            onSelect = null,
+                        ),
+                    )
+                }
             }
         },
     ) {
