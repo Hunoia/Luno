@@ -1,4 +1,4 @@
-package hunoia.luno.ui.settings.todo
+package hunoia.luno.gridpanel.todo
 
 import android.view.WindowManager
 import androidx.compose.foundation.background
@@ -58,7 +58,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.R
+import hunoia.luno.gridpanel.R
 import hunoia.luno.config.model.TodoConfig
 import hunoia.luno.config.model.TodoItem
 import hunoia.luno.domain.gridpanel.TodoCenter
@@ -67,7 +67,6 @@ import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
-import hunoia.luno.ui.navigation.PendingTodoList
 import hunoia.luno.ui.theme.ExtraLargeShape
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.LargeGutter
@@ -96,10 +95,10 @@ fun TodoListScreen(
 
     // 代办面板部件的「添加/编辑」请求：进入列表页后自动开对应弹窗（消费一次即清）。
     // 已在列表页时收到新请求（open 从 null 变非空）也会再次触发。
-    val pendingOpen by PendingTodoList.open.collectAsStateWithLifecycle()
+    val pendingOpen by TodoListRequests.open.collectAsStateWithLifecycle()
     LaunchedEffect(pendingOpen) {
         val open = pendingOpen ?: return@LaunchedEffect
-        PendingTodoList.consume()
+        TodoListRequests.consume()
         if (open.todoId == null) {
             // 新增。
             creating = true

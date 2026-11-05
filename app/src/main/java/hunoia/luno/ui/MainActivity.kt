@@ -22,7 +22,7 @@ import hunoia.luno.gridpanel.HabitExtras
 import hunoia.luno.gridpanel.TodoExtras
 import hunoia.luno.ui.navigation.PendingHabitEdit
 import hunoia.luno.ui.navigation.PendingLinkRule
-import hunoia.luno.ui.navigation.PendingTodoList
+import hunoia.luno.gridpanel.todo.TodoListRequests
 import hunoia.luno.ui.SideGestureApp
 import kotlinx.coroutines.launch
 
@@ -101,14 +101,14 @@ class MainActivity : ComponentActivity() {
     /**
      * 代办面板部件的「打开代办列表页」：`TodoExtras.EXTRA_OPEN_TODO_LIST` 标记存在即触发。
      * `TodoExtras.EXTRA_TODO_ID` 存在 = 编辑该条；不存在 = 新增。
-     * 导航由 [SideGestureApp] 消费 [PendingTodoList] 完成；这里只负责收件。
+     * 导航由 [SideGestureApp] 消费 [TodoListRequests] 完成；这里只负责收件。
      */
     private fun handleTodoListIntent(intent: Intent?) {
         if (intent?.getBooleanExtra(TodoExtras.EXTRA_OPEN_TODO_LIST, false) != true) return
         val todoId = intent.getStringExtra(TodoExtras.EXTRA_TODO_ID)
         intent.removeExtra(TodoExtras.EXTRA_OPEN_TODO_LIST)
         intent.removeExtra(TodoExtras.EXTRA_TODO_ID)
-        PendingTodoList.request(todoId)
+        TodoListRequests.request(todoId)
     }
 
     private fun requestNotificationPermissionIfNeeded() {

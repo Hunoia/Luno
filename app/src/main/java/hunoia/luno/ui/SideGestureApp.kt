@@ -92,7 +92,7 @@ import hunoia.luno.ui.settings.action.gridpanel.GridPanelEditScreen
 import hunoia.luno.ui.settings.action.gridpanel.GridPanelListScreen
 import hunoia.luno.ui.settings.habit.HabitEditScreen
 import hunoia.luno.ui.settings.habit.HabitListScreen
-import hunoia.luno.ui.settings.todo.TodoListScreen
+import hunoia.luno.gridpanel.todo.TodoListScreen
 import hunoia.luno.ui.settings.search.SearchEngineSettingsScreen
 import hunoia.luno.ui.settings.search.SearchEngineEditScreen
 import hunoia.luno.ui.settings.search.SearchSourceSettingsScreen
@@ -110,7 +110,7 @@ import hunoia.luno.ui.navigation.LocalSubGestures
 import hunoia.luno.ui.navigation.LocalNavController
 import hunoia.luno.ui.navigation.PendingHabitEdit
 import hunoia.luno.ui.navigation.PendingLinkRule
-import hunoia.luno.ui.navigation.PendingTodoList
+import hunoia.luno.gridpanel.todo.TodoListRequests
 import hunoia.luno.ui.home.HomeScreen
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.domain.gesture.GestureConfig
@@ -144,9 +144,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
             PendingHabitEdit.consume()
             navController.navigate(HabitEdit(habitId)) { launchSingleTop = true }
         }
-        // 代办面板部件「打开代办列表页」：跨进程 Intent → [PendingTodoList]，导航到列表页。
+        // 代办面板部件「打开代办列表页」：跨进程 Intent → [TodoListRequests]，导航到列表页。
         // consume 由列表页完成（它读 todoId 决定开添加/编辑弹窗）；这里只负责导航。
-        val pendingTodoList by PendingTodoList.open.collectAsStateWithLifecycle()
+        val pendingTodoList by TodoListRequests.open.collectAsStateWithLifecycle()
         LaunchedEffect(pendingTodoList) {
             if (pendingTodoList == null) return@LaunchedEffect
             navController.navigate(TodoList) { launchSingleTop = true }
