@@ -34,6 +34,8 @@ class SubGestureState(
     private val scope: CoroutineScope,
     private val subGestureSettings: SubGestureSettings,
     private val onModeChanged: (Boolean, Offset, Int) -> Unit,
+    /** 单调时间源；默认 `SystemClock.uptimeMillis`，单测注入假时钟以验证按住类触发。 */
+    private val nowMs: () -> Long = SystemClock::uptimeMillis,
 ) {
     var activeSubGesture by mutableStateOf<SubGesture?>(null)
         private set
@@ -48,8 +50,9 @@ class SubGestureState(
     var lastResolvedActionSubGesture by mutableStateOf<SubGesture?>(null)
         private set
     private var timeoutJob by mutableStateOf<Job?>(null)
-    private var slideHoldFirstTriggerMs = 0L
-    private var longSlideHoldFirstTriggerMs = 0L
+    /** null = 未开始计时（不用 0 作哨兵：注入时钟可能从 0 开始）。 */
+    private var slideHoldFirstTriggerMs: Long? = null
+    private var longSlideHoldFirstTriggerMs: Long? = null
     private var directTriggered = false
 
     val isActive: Boolean get() = activeSubGesture != null
@@ -65,8 +68,8 @@ class SubGestureState(
         origin = validOrUnspecified(touchPosition)
         finger = origin
         subGestureAccum = Offset.Zero
-        slideHoldFirstTriggerMs = 0L
-        longSlideHoldFirstTriggerMs = 0L
+        slideHoldFirstTriggerMs = null
+        longSlideHoldFirstTriggerMs = null
         directTriggered = false
         subGestureDepth += 1
         scheduleTimeout()
@@ -79,8 +82,8 @@ class SubGestureState(
         origin = validOrUnspecified(offset)
         finger = origin
         subGestureAccum = Offset.Zero
-        slideHoldFirstTriggerMs = 0L
-        longSlideHoldFirstTriggerMs = 0L
+        slideHoldFirstTriggerMs = null
+        longSlideHoldFirstTriggerMs = null
         directTriggered = false
         restartTimeout()
         return true
@@ -95,9 +98,9 @@ class SubGestureState(
         val canReachLongSlide = distance >= sg.effectiveLongSlideTriggerDistance
         val canReachSlide = distance >= sg.triggerDistance
         if (canReachLongSlide) {
-            if (longSlideHoldFirstTriggerMs == 0L) {
-                longSlideHoldFirstTriggerMs = SystemClock.uptimeMillis()
-            } else if (!directTriggered && SystemClock.uptimeMillis() - longSlideHoldFirstTriggerMs >= sg.longSlideHoldTriggerDelayMs) {
+            if (longSlideHoldFirstTriggerMs == null) {
+                longSlideHoldFirstTriggerMs = nowMs()
+            } else if (!directTriggered && nowMs() - longSlideHoldFirstTriggerMs!! >= sg.longSlideHoldTriggerDelayMs) {
                 val direction = sg.angle.directionOf(subGestureAccum)
                 val (action, actualType) = actionsFor(
                     sg,
@@ -110,12 +113,12 @@ class SubGestureState(
                 }
             }
         } else {
-            longSlideHoldFirstTriggerMs = 0L
+            longSlideHoldFirstTriggerMs = null
         }
         if (canReachSlide && !canReachLongSlide) {
-            if (slideHoldFirstTriggerMs == 0L) {
-                slideHoldFirstTriggerMs = SystemClock.uptimeMillis()
-            } else if (!directTriggered && SystemClock.uptimeMillis() - slideHoldFirstTriggerMs >= sg.slideHoldTriggerDelayMs) {
+            if (slideHoldFirstTriggerMs == null) {
+                slideHoldFirstTriggerMs = nowMs()
+            } else if (!directTriggered && nowMs() - slideHoldFirstTriggerMs!! >= sg.slideHoldTriggerDelayMs) {
                 val direction = sg.angle.directionOf(subGestureAccum)
                 val (action, actualType) = actionsFor(
                     sg,
@@ -128,7 +131,7 @@ class SubGestureState(
                 }
             }
         } else {
-            slideHoldFirstTriggerMs = 0L
+            slideHoldFirstTriggerMs = null
         }
         return null
     }
@@ -168,8 +171,8 @@ class SubGestureState(
         origin = Offset.Unspecified
         subGestureAccum = Offset.Zero
         finger = Offset.Unspecified
-        slideHoldFirstTriggerMs = 0L
-        longSlideHoldFirstTriggerMs = 0L
+        slideHoldFirstTriggerMs = null
+        longSlideHoldFirstTriggerMs = null
         directTriggered = false
         subGestureDepth = 0
         timeoutJob?.cancel()
@@ -208,8 +211,8 @@ class SubGestureState(
         origin = Offset.Unspecified
         subGestureAccum = Offset.Zero
         finger = Offset.Unspecified
-        slideHoldFirstTriggerMs = 0L
-        longSlideHoldFirstTriggerMs = 0L
+        slideHoldFirstTriggerMs = null
+        longSlideHoldFirstTriggerMs = null
         subGesture.tryVibrateFor(triggerType)
         directTriggered = false
         onModeChanged(false, Offset.Unspecified, 0)

@@ -9,8 +9,8 @@ import org.junit.Test
  * 模块依赖门禁（Phase 4）。
  *
  * 以 `build.gradle.kts` 的 `project(":...")` 声明为事实源，对照本文件的 allow-list。
- * 附录 B 的目标形态尚未完全收敛（actions / gesture 等仍有记录在 refactor-progress
- * 的横向边），这里先锁住当前已评审的依赖图：新增未列出的边会失败，收缩时同步删条目。
+ * 目标形态尚未完全收敛（actions / gesture 等仍有横向边，挂账见 docs/archive.md §1），
+ * 这里先锁住当前已评审的依赖图：新增未列出的边会失败，收缩时同步删条目。
  * 包级 `PackageDependencyTest` 在模块化完成后退化为重复信息，已由本测试取代。
  */
 class ModuleDependencyTest {
