@@ -1,6 +1,7 @@
 package hunoia.luno.execute
 
 import android.content.Context
+import android.net.Uri
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ButtonTarget
 import hunoia.luno.action.model.QueryParam
@@ -90,6 +91,12 @@ interface SurfaceHost {
 
     /** 图片编辑：系统图片选择器 → 全屏标注页；返回 false = 未启动。 */
     fun openImageAnnotate(): Boolean
+
+    /** 剪贴板分词：把文本送进 OCR 结果页做分词视图；返回是否成功弹起。 */
+    fun showOcrSegmentText(text: String): Boolean
+
+    /** 剪贴板 OCR：解码图片并送 OCR 结果页识别；失败返回带因结果（含模型未就绪）。 */
+    suspend fun showClipboardOcr(uri: Uri, mimeType: String): ActionResult
 
     /**
      * 悬浮球显隐：`hideForMs > 0` 走临时隐藏（只摘窗口、到期恢复），否则改 enabled 存量。

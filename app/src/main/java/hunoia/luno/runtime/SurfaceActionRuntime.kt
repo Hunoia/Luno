@@ -205,6 +205,15 @@ object SurfaceActionRuntime {
         override fun openImageAnnotate(): Boolean =
             hunoia.luno.ui.annotate.ImageAnnotateActivity.startPicker(context)
 
+        override fun showOcrSegmentText(text: String): Boolean =
+            hunoia.luno.domain.ocr.ClipboardOcrLauncher.launchSegmentText(context, text)
+
+        override suspend fun showClipboardOcr(
+            uri: android.net.Uri,
+            mimeType: String,
+        ): hunoia.luno.core.domain.ActionResult =
+            hunoia.luno.domain.ocr.ClipboardOcrLauncher.launchImage(context, uri, mimeType)
+
         override suspend fun setFloatBallVisible(
             visible: Boolean?,
             hideForMs: Long,

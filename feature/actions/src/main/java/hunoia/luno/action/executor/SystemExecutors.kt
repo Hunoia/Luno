@@ -83,16 +83,25 @@ class SystemExecutors(
     private suspend fun executeFlashlight(context: ExecutorContext): ActionResult {
         val appContext = context.appContext
         if (!FlashlightController.isSupported(appContext)) {
-            return ActionResult.Failed(ActionFailure.ExecutionFailed, appContext.getString(R.string.flashlight_failed))
+            return ActionResult.Failed(
+                reason = ActionFailure.ExecutionFailed,
+                userMessage = appContext.getString(R.string.flashlight_failed),
+            )
         }
         if (!FlashlightController.hasPermission(appContext)) {
             appContext.gotoAppDetailSettings()
-            return ActionResult.Failed(ActionFailure.PermissionDenied, appContext.getString(R.string.grant_camera_permission))
+            return ActionResult.Failed(
+                reason = ActionFailure.PermissionDenied,
+                userMessage = appContext.getString(R.string.grant_camera_permission),
+            )
         }
         return if (FlashlightController.toggle(appContext)) {
             ActionResult.Success()
         } else {
-            ActionResult.Failed(ActionFailure.ExecutionFailed, appContext.getString(R.string.flashlight_failed))
+            ActionResult.Failed(
+                reason = ActionFailure.ExecutionFailed,
+                userMessage = appContext.getString(R.string.flashlight_failed),
+            )
         }
     }
 

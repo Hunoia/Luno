@@ -415,7 +415,14 @@ private fun OcrResultScreen(
             ),
         )
     }
-    var pane by rememberSaveable { mutableStateOf(ResultPane.Text) }
+    // 剪贴板 OCR 动作：先展示图片，懒加载 OCR 完成后自动切回文本。
+    // 用户手动切过形态后不再自动切换，避免打断核对图片 / 调整选区。
+    var pane by rememberSaveable {
+        mutableStateOf(
+            if (payload.preferImage && image != null) ResultPane.Image else ResultPane.Text,
+        )
+    }
+    var userSwitchedPane by rememberSaveable { mutableStateOf(false) }
     var editing by rememberSaveable { mutableStateOf(false) }
     // 两份文本各自的当前值：编辑只改「当前来源」那一份，切回来还在。
     var ocrText by rememberSaveable { mutableStateOf(payload.ocrText) }
@@ -443,6 +450,12 @@ private fun OcrResultScreen(
     // 原先只在用户切换来源时调用 loadOcr，先开页后会停在空列表而不是 loading。
     LaunchedEffect(source) {
         if (source == ResultSource.Ocr) loadOcr()
+    }
+    // 剪贴板 OCR 动作：懒加载完成后自动从图片视图切回文本（用户手动切过形态则不切）。
+    LaunchedEffect(ocrLoaded) {
+        if (ocrLoaded && !userSwitchedPane && pane == ResultPane.Image) {
+            pane = ResultPane.Text
+        }
     }
     val text = if (source == ResultSource.Ocr) ocrText else a11yText
 
@@ -619,6 +632,7 @@ private fun OcrResultScreen(
                                 pane = pane,
                                 onPane = {
                                     if (it != pane) {
+                                        userSwitchedPane = true
                                         if (editing) {
                                             pendingPane = it
                                             exitEdit()

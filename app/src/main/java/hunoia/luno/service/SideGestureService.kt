@@ -62,8 +62,10 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     }
 
     /** 屏幕内容识别拾取窗：必须住在无障碍服务这一侧。
-     *  非 lazy：构造时就要订阅面板开关事件，否则第一次从面板触发时会错过 Shown。 */
-    private val ocrEngine = hunoia.luno.capability.ocr.PpOcrEngine(this)
+     *  非 lazy：构造时就要订阅面板开关事件，否则第一次从面板触发时会错过 Shown。
+     *  引擎走进程内单例，SurfaceActionRuntime（悬浮球/网格面板）共享同一实例。 */
+    private val ocrEngine: hunoia.luno.capability.ocr.PpOcrEngine =
+        hunoia.luno.domain.ocr.OcrEngineHolder.get(this)
 
     private val screenPickOverlay = ScreenPickOverlay(
         this,

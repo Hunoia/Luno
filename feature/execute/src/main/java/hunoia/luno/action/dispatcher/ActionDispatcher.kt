@@ -99,7 +99,9 @@ class ActionDispatcher(
             val result = resolver.resolveFromLibrary(effective, ctx)
             if (hunoia.luno.execute.BuildConfig.DEBUG) Log.i(LOG_TAG, "result=$result")
             when (result) {
-                is ActionResult.Failed -> ctx.showToast(messages.failureText(result.reason))
+                is ActionResult.Failed -> ctx.showToast(
+                    result.userMessage ?: messages.failureText(result.reason),
+                )
                 is ActionResult.RequiresCapability -> ctx.showToast(messages.capabilityText(result.capability))
                 is ActionResult.Success -> result.message?.let { msg -> ctx.showToast(msg) }
             }
@@ -152,6 +154,8 @@ class ActionDispatcher(
             showScreenPick = surfaces::showScreenPick,
             showScreenAnnotate = surfaces::showScreenAnnotate,
             openImageAnnotate = surfaces::openImageAnnotate,
+            showOcrSegmentText = surfaces::showOcrSegmentText,
+            showClipboardOcr = surfaces::showClipboardOcr,
             setFloatBallVisible = surfaces::setFloatBallVisible,
             setButtonsVisible = surfaces::setButtonsVisible,
         )

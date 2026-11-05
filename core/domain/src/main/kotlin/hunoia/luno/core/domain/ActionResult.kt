@@ -14,7 +14,13 @@ sealed interface ActionResult {
         val message: String? = null,
         val outputs: Map<String, String> = emptyMap(),
     ) : ActionResult
-    data class Failed(val reason: ActionFailure, val message: String? = null) : ActionResult
+    data class Failed(
+        val reason: ActionFailure,
+        /** 诊断/结构化错误信息（如异常消息、内部 key）；不直接展示给用户。 */
+        val message: String? = null,
+        /** 用户可见的失败文案（本地化）；null 时由 reason 映射到通用文案。 */
+        val userMessage: String? = null,
+    ) : ActionResult
     data class RequiresCapability(val capability: Capability) : ActionResult
 }
 

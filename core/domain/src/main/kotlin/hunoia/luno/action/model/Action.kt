@@ -239,6 +239,16 @@ sealed interface Action {
         override val typeId: String = "internal.previousApp"
     }
 
+    /** 剪贴板分词：读剪贴板文本，送 OCR 结果页做分词视图。 */
+    data object ClipboardSegment : Action {
+        override val typeId: String = "internal.clipboardSegment"
+    }
+
+    /** 剪贴板 OCR：读剪贴板图片，送 OCR 结果页识别（懒加载，先看图片后出文本）。 */
+    data object ClipboardOcr : Action {
+        override val typeId: String = "internal.clipboardOcr"
+    }
+
     companion object {
         /** 「无动作」的 typeId：判断/构造无动作时的命名常量，散落字面量已全部收口于此。 */
         const val NONE_TYPE_ID = "internal.none"

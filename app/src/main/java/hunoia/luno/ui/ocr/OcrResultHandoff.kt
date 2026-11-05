@@ -24,6 +24,11 @@ data class OcrResultPayload(
      * 幽灵卡命中 a11y 文本时仍先展示无障碍。
      */
     val preferOcr: Boolean = false,
+    /**
+     * 初始形态偏好：有图片时先展示图片视图（懒加载 OCR 完成后自动切回文本）。
+     * 剪贴板 OCR 动作使用，让用户先看到被识别的内容再等文本。
+     */
+    val preferImage: Boolean = false,
 ) {
     /** 有没有可用的 OCR 来源：已识别文本或可懒加载的识别入口。 */
     val hasOcrSource: Boolean

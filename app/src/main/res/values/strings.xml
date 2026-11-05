@@ -695,6 +695,8 @@
     <string name="ocr_result_share">分享</string>
     <string name="ocr_result_empty">未识别到文字</string>
     <string name="ocr_result_failed">操作失败，请重试</string>
+    <string name="ocr_result_image_decode_failed">图片解码失败</string>
+    <string name="ocr_model_missing_hint">OCR模型未安装，请到识屏设置导入</string>
     <string name="ocr_result_copied">已复制</string>
     <string name="ocr_result_source_a11y">无障碍</string>
     <string name="ocr_result_source_ocr">OCR</string>

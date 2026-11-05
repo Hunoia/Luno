@@ -1,6 +1,7 @@
 package hunoia.luno.action.execution
 
 import android.content.Context
+import android.net.Uri
 import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ButtonTarget
@@ -173,6 +174,14 @@ data class ExecutorContext(
 
     /** 图片编辑（系统图片选择器 → 全屏标注页）。 */
     val openImageAnnotate: () -> Boolean = { false },
+
+    /** 剪贴板分词：把文本送进 OCR 结果页做分词视图。 */
+    val showOcrSegmentText: (String) -> Boolean = { false },
+
+    /** 剪贴板 OCR：解码图片并送 OCR 结果页识别；失败返回带因结果（含模型未就绪）。 */
+    val showClipboardOcr: suspend (Uri, String) -> ActionResult = { _, _ ->
+        ActionResult.Failed(ActionFailure.Unsupported)
+    },
     /**
      * 悬浮球显隐：`hideForMs > 0` 走临时隐藏（只摘窗口、到期恢复），否则改 enabled 存量。
      * 配置写入与 FloatBallService 都归 `:app`。

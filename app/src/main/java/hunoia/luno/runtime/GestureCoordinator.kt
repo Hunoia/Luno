@@ -313,6 +313,15 @@ class GestureCoordinator(
         override fun openImageAnnotate(): Boolean =
             hunoia.luno.ui.annotate.ImageAnnotateActivity.startPicker(host.context)
 
+        override fun showOcrSegmentText(text: String): Boolean =
+            hunoia.luno.domain.ocr.ClipboardOcrLauncher.launchSegmentText(host.context, text)
+
+        override suspend fun showClipboardOcr(
+            uri: android.net.Uri,
+            mimeType: String,
+        ): hunoia.luno.core.domain.ActionResult =
+            hunoia.luno.domain.ocr.ClipboardOcrLauncher.launchImage(host.context, uri, mimeType)
+
         override fun shareFile(): hunoia.luno.core.domain.ActionResult = runCatching {
             host.context.startActivity(
                 Intent(host.context, hunoia.luno.ui.share.ShareFilePickActivity::class.java).apply {

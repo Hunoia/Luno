@@ -6,6 +6,8 @@
     <string name="flashlight_failed">无法使用手电筒，请检查设备是否支持。</string>
     <string name="random_name_generate_failed">生成失败</string>
     <string name="random_name_copy_failed">复制失败</string>
+    <string name="clipboard_no_text">剪贴板无文本</string>
+    <string name="clipboard_no_image">剪贴板无图片</string>
     <string name="action_shell_clipboard_label">Shell 输出</string>
     <string name="settings_page_wifi">Wi-Fi</string>
     <string name="settings_page_bluetooth">蓝牙</string>
