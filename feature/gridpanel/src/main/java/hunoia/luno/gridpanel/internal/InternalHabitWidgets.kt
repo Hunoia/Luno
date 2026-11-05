@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -45,6 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -179,7 +181,14 @@ internal fun HabitCheckCell(
                         .size(circleSize)
                         .clip(CircleShape)
                         .background(fillColor)
-                        .border(width = strokeWidth, color = borderColor, shape = CircleShape),
+                        .then(
+                            // 倒计时时无静态描边：主圆描边由 Canvas 进度环代替（主圆变倒计时）。
+                            if (pending) {
+                                Modifier
+                            } else {
+                                Modifier.border(width = strokeWidth, color = borderColor, shape = CircleShape)
+                            },
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
                     if (checked) {
@@ -191,12 +200,21 @@ internal fun HabitCheckCell(
                         )
                     }
                 }
-                // 倒计时画在主圆边缘（同尺寸 Canvas，不再另画大圆）。
+                // 倒计时 = 主圆描边本身：弱色轨道 + 主色进度弧（从 -90° 扫），不另叠一层。
                 if (pending) {
-                    val ring = strokeWidth * 0.8f
+                    val ring = strokeWidth
                     Canvas(Modifier.size(circleSize)) {
                         val w = ring.toPx()
                         val inset = w / 2f
+                        drawArc(
+                            color = onCard.copy(alpha = 0.25f),
+                            startAngle = 0f,
+                            sweepAngle = 360f,
+                            useCenter = false,
+                            topLeft = Offset(inset, inset),
+                            size = Size(size.width - w, size.height - w),
+                            style = Stroke(width = w, cap = StrokeCap.Round),
+                        )
                         drawArc(
                             color = habitColor,
                             startAngle = -90f,
@@ -272,11 +290,13 @@ internal fun HabitHistoryCell(
         val titleH = 20.dp
         val gap = 6.dp
         val gridH = (contentH - titleH - gap).coerceAtLeast(20.dp)
-        val minCellW = 26.dp
+        val minCellW = 22.dp
         val minCellH = 30.dp
         val cols = (contentW / minCellW).toInt().coerceIn(3, 8)
         val rows = (gridH / minCellH).toInt().coerceIn(1, 4)
-        val cellW = contentW / cols
+        // 实际格宽 / 行高（扣除 1dp 间距），供点径按宽高双限取小、不裁剪。
+        val cellW = ((contentW - (cols - 1).dp) / cols).coerceAtLeast(12.dp)
+        val cellH = ((gridH - (rows - 1).dp) / rows).coerceAtLeast(16.dp)
         val dots = lastNDaysDots(checks, today, habit.interval, cols * rows)
 
         Column(
@@ -329,6 +349,7 @@ internal fun HabitHistoryCell(
                                     onCard = onCard,
                                     day = LocalDate.ofEpochDay(dot.day).dayOfMonth,
                                     cellWidth = cellW,
+                                    cellHeight = cellH,
                                     modifier = Modifier.weight(1f),
                                 )
                             } else {
@@ -351,10 +372,19 @@ private fun HabitDotView(
     onCard: Color,
     day: Int,
     cellWidth: Dp,
+    cellHeight: Dp,
     modifier: Modifier = Modifier,
 ) {
-    val dotSize = (cellWidth * 0.46f).coerceIn(6.dp, 14.dp)
-    val dateSize = (cellWidth.value * 0.30f).coerceIn(6f, 9f).sp
+    val dateSize = (cellWidth.value * 0.28f).coerceIn(6f, 9f).sp
+    // 文字框紧排：lineHeight = dateSize，框高 ≈ dateSize，消除大空隙与裁剪。
+    val textH = with(LocalDensity.current) { dateSize.toDp() }
+    val gap = 1.dp
+    val safety = 2.dp
+    // 点径按宽高双限取小：宽限（cellW·0.60，填满格宽减小左右空距）与高限
+    // （cellH − 文字 − 间距 − 安全边距），保证 textH + gap + dotSize ≤ cellH，任意尺寸不裁剪。
+    val maxDotByW = (cellWidth * 0.60f).coerceIn(6.dp, 18.dp)
+    val maxDotByH = (cellHeight - textH - gap - safety).coerceAtLeast(4.dp)
+    val dotSize = minOf(maxDotByW, maxDotByH)
     // 点色四态：已打 = 实心主色；今天未打 = 空心主色描边（需打卡）；
     // 跳过（due 未打非今天）= 主色半透明；非 due = 弱灰。
     val dotColor = when {
@@ -365,7 +395,7 @@ private fun HabitDotView(
     }
     val outlined = isToday && !checked
     Column(
-        modifier = modifier,
+        modifier = modifier.fillMaxHeight(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -373,10 +403,11 @@ private fun HabitDotView(
         Text(
             text = day.toString(),
             fontSize = dateSize,
+            lineHeight = dateSize,
             color = onCard.copy(alpha = 0.5f),
             maxLines = 1,
         )
-        Spacer(Modifier.height(1.dp))
+        Spacer(Modifier.height(gap))
         Box(
             Modifier
                 .size(dotSize)
