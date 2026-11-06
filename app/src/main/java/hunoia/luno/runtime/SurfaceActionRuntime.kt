@@ -18,7 +18,9 @@ import hunoia.luno.execute.ExecuteEnvironment
 import hunoia.luno.execute.LaunchSpec
 import hunoia.luno.core.domain.ActionDispatchPort
 import hunoia.luno.core.domain.ActionLibrarySettings
+import hunoia.luno.core.domain.AwaitableActionDispatch
 import hunoia.luno.core.domain.SurfaceActionDispatch
+import hunoia.luno.service.SendOutcome
 import hunoia.luno.execute.SurfaceHost
 import hunoia.luno.runtime.dispatch.ActionDispatch
 import hunoia.luno.runtime.surface.SurfaceDispatch
@@ -67,13 +69,20 @@ object SurfaceActionRuntime {
         if (installed) return
         val appContext = context.applicationContext
         val serviceProcess = isServiceProcess()
-        // 同步送达口给搜索面板等只需要「是否交给 Dispatcher」的调用方；
-        // 真实执行结果仍由 Surface 回调或链接侧可等待端口返回。
-        ActionDispatch.installSender(ActionDispatchPort { action ->
-            hunoia.luno.service.DispatchClient.dispatch(action)
-        })
         if (serviceProcess) {
             appContextRef = appContext
+            // 本进程有 Dispatcher：提交即视为送达，执行结果由 Surface/调用方另行处理。
+            ActionDispatch.installSender(ActionDispatchPort { action, origin ->
+                dispatcher.submit(
+                    ExecuteCall(
+                        request = hunoia.luno.core.domain.ActionRequest(
+                            stored = action,
+                            origin = origin,
+                        ),
+                    ),
+                )
+                true
+            })
             AppContext.applicationScope?.launch(Dispatchers.IO) {
                 runCatching { ConfigProvider.getAdvancedSettings() }
                     .onSuccess { advanced = it }
@@ -93,9 +102,28 @@ object SurfaceActionRuntime {
                 )
             })
         } else {
-            // 主进程没有本地 Dispatcher：只确认是否交给 :service，不伪装成执行结果。
+            // 主进程没有本地 Dispatcher：提交走 IPC，最多等 500ms 的“已受理”。
+            ActionDispatch.installSender(ActionDispatchPort { action, origin ->
+                hunoia.luno.service.DispatchClient.send(action, origin = origin) == SendOutcome.Delivered
+            })
+            // 链接等需要真实结果的入口：等待 :service 回推三态（最长 10s）。
+            ActionDispatch.installAwaitable(AwaitableActionDispatch { request ->
+                hunoia.luno.service.DispatchClient.await(
+                    action = request.stored,
+                    idempotencyKey = request.idempotencyKey,
+                    origin = request.origin,
+                ) is ActionResult.Success
+            })
+            // Surface 入口：先受理，再异步等执行结果；超时 / 未送达按失败回调。
             SurfaceDispatch.install(SurfaceActionDispatch { request, onSettled ->
-                onSettled(hunoia.luno.service.DispatchClient.dispatch(request.stored, request.idempotencyKey))
+                scope.launch {
+                    val result = hunoia.luno.service.DispatchClient.await(
+                        action = request.stored,
+                        idempotencyKey = request.idempotencyKey,
+                        origin = request.origin,
+                    )
+                    onSettled(result is ActionResult.Success)
+                }
             })
         }
         installed = true

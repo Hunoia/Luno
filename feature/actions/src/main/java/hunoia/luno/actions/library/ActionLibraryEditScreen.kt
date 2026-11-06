@@ -160,9 +160,13 @@ fun ActionLibraryEditScreen(
                                     }
                                 }
                             }
-                        } else if (!ActionDispatch.send(draft.toStoredAction())) {
-                            // 分发失败才提示；成功不给 toast（动作本身会在屏幕上有反馈，多一个弹窗是噪音）。
-                            showToast(hunoia.luno.design.R.string.dispatch_service_not_ready)
+                        } else {
+                            scope.launch {
+                                if (!ActionDispatch.send(draft.toStoredAction())) {
+                                    // 分发失败才提示；成功不给 toast（动作本身会在屏幕上有反馈，多一个弹窗是噪音）。
+                                    showToast(hunoia.luno.design.R.string.dispatch_service_not_ready)
+                                }
+                            }
                         }
                     },
                 )

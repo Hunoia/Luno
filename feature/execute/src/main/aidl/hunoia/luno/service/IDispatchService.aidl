@@ -1,9 +1,14 @@
 package hunoia.luno.service;
 
+import hunoia.luno.service.IDispatchCallback;
+
 /** 跨进程分发口：主进程经 Binder 转发，分发仍只在 :service 的单 Dispatcher 执行。 */
 interface IDispatchService {
-    /** actionJson 为 StoredAction 的 JSON；idempotencyKey 原样透传给 :service 的 Dispatcher。 */
-    boolean dispatchAction(String actionJson, String idempotencyKey);
+    /**
+     * 提交动作；返回 true = 已交给 :service 执行，最终三态经 callback 回推。
+     * origin 为 DispatchOrigin 枚举名；idempotencyKey 原样透传。
+     */
+    boolean dispatchAction(String actionJson, String idempotencyKey, String origin, IDispatchCallback callback);
     /** 分发链就绪（无障碍服务存活且 coordinator 已初始化）。 */
     boolean isReady();
     /** 主进程删除面板后，让 :service 的 AppWidgetHost 回收未引用的 widget id。 */

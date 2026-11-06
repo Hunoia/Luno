@@ -3,6 +3,7 @@ package hunoia.luno.runtime.dispatch
 import hunoia.luno.core.domain.ActionDispatchPort
 import hunoia.luno.core.domain.ActionRequest
 import hunoia.luno.core.domain.AwaitableActionDispatch
+import hunoia.luno.core.domain.DispatchOrigin
 import hunoia.luno.core.domain.StoredAction
 
 /**
@@ -12,7 +13,7 @@ import hunoia.luno.core.domain.StoredAction
  * 不需要反向依赖 `:feature:execute` 或 `:app`。Surface 的异步入口在
  * [hunoia.luno.runtime.surface.SurfaceDispatch]。
  *
- * - [ActionDispatchPort]：同步提交，返回是否送达；
+ * - [ActionDispatchPort]：挂起提交，返回是否送达（不阻塞主线程）；
  * - [AwaitableActionDispatch]：链接等需要等待实际执行结果的入口。
  */
 object ActionDispatch {
@@ -34,12 +35,15 @@ object ActionDispatch {
         awaitable = dispatcher
     }
 
-    /** 同步提交；`false` = 未送达（未安装或对端未就绪）。 */
-    fun send(action: StoredAction): Boolean = sender?.dispatch(action) ?: false
+    /** 同步提交；`false` = 未送达（未安装或对端未就绪 / 超时）。 */
+    suspend fun send(
+        action: StoredAction,
+        origin: DispatchOrigin = DispatchOrigin.PANEL,
+    ): Boolean = sender?.dispatch(action, origin) ?: false
 
     /**
      * 等待执行结果：优先使用本进程 Dispatcher；没有则退回同步提交（只能确认送达）。
      */
     suspend fun dispatchAwait(request: ActionRequest): Boolean =
-        awaitable?.dispatch(request) ?: sender?.dispatch(request.stored) ?: false
+        awaitable?.dispatch(request) ?: sender?.dispatch(request.stored, request.origin) ?: false
 }

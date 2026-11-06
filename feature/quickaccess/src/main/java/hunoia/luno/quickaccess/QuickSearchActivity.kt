@@ -17,6 +17,7 @@ import hunoia.luno.quickaccess.R
 import hunoia.luno.bridge.system.PackageChangeReceiver
 import hunoia.luno.bridge.system.readClipboardText
 import hunoia.luno.bridge.ui.showToast
+import hunoia.luno.core.domain.DispatchOrigin
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelDismissedEvent
@@ -295,10 +296,12 @@ class QuickSearchActivity : ComponentActivity() {
 
     /** 分发 + 未就绪提示 + 成功关面板：点按与长按的 App/详情页共用。 */
     private fun dispatchOrToast(action: StoredAction) {
-        if (ActionDispatch.send(action)) {
-            requestClose()
-        } else {
-            showToast(hunoia.luno.design.R.string.dispatch_service_not_ready)
+        lifecycleScope.launch {
+            if (ActionDispatch.send(action, DispatchOrigin.QUICK_SEARCH)) {
+                requestClose()
+            } else {
+                showToast(hunoia.luno.design.R.string.dispatch_service_not_ready)
+            }
         }
     }
 

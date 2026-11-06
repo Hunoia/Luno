@@ -1,13 +1,13 @@
 package hunoia.luno.core.domain
 
 /**
- * 动作分发的同步提交端口。
+ * 动作分发的提交端口（挂起：调用方可在不阻塞主线程的前提下等待送达）。
  *
  * 返回值只表示「是否送达」，不表示执行成功；执行三态由 [SurfaceActionDispatch]
  * 的 `onSettled` 或具体调用方另行处理。实现方负责选择本进程 Dispatcher 或跨进程 IPC。
  */
 fun interface ActionDispatchPort {
-    fun dispatch(action: StoredAction): Boolean
+    suspend fun dispatch(action: StoredAction, origin: DispatchOrigin): Boolean
 }
 
 /**

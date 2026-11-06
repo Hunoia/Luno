@@ -435,9 +435,7 @@ class GestureCoordinator(
                 isAccessibilityAvailable = {
                     runCatching {
                         host.context.isAccessibilitySettingsOn(hunoia.luno.service.SideGestureService::class.java)
-                    }.getOrDefault(false) ||
-                        hunoia.luno.service.DispatchClient.isReady() ||
-                        hunoia.luno.service.SideGestureService.current != null
+                    }.getOrDefault(false) || hunoia.luno.service.SideGestureService.current != null
                 },
             ),
         )
@@ -784,15 +782,20 @@ class GestureCoordinator(
     fun dispatchAction(
         action: hunoia.luno.action.model.StoredAction,
         idempotencyKey: String? = null,
+        origin: hunoia.luno.core.domain.DispatchOrigin = hunoia.luno.core.domain.DispatchOrigin.PANEL,
+        onSettled: ((typeId: String, result: hunoia.luno.core.domain.ActionResult) -> Unit)? = null,
     ) {
         actionDispatcher.submit(
             hunoia.luno.execute.ExecuteCall(
                 request = hunoia.luno.core.domain.ActionRequest(
                     stored = action.withoutVariantKey(),
-                    origin = hunoia.luno.core.domain.DispatchOrigin.PANEL,
+                    origin = origin,
                     idempotencyKey = idempotencyKey ?: nextIntentKey("panel"),
                 ),
             ),
+            onSettled = { settlement ->
+                onSettled?.invoke(settlement.typeId, settlement.result)
+            },
         )
     }
 

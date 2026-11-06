@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import hunoia.luno.core.domain.DispatchOrigin
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.JsonSerializer
 
@@ -15,13 +16,32 @@ import hunoia.luno.core.domain.JsonSerializer
 class DispatchService : Service() {
 
     private val binder = object : IDispatchService.Stub() {
-        override fun dispatchAction(actionJson: String, idempotencyKey: String?): Boolean {
+        override fun dispatchAction(
+            actionJson: String,
+            idempotencyKey: String?,
+            origin: String?,
+            callback: IDispatchCallback?,
+        ): Boolean {
             val action = runCatching {
                 JsonSerializer.decodeFromString<StoredAction>(actionJson)
             }.getOrNull() ?: return false
             val svc = SideGestureService.current ?: return false
             if (!svc.isDispatchReady()) return false
-            svc.dispatchAction(action, idempotencyKey)
+            val parsedOrigin = runCatching { DispatchOrigin.valueOf(origin.orEmpty()) }
+                .getOrDefault(DispatchOrigin.PANEL)
+            svc.dispatchAction(action, idempotencyKey, parsedOrigin) { typeId, result ->
+                val wire = DispatchSettlementCodec.encode(typeId, result)
+                runCatching {
+                    callback?.onSettled(
+                        wire.typeId,
+                        wire.status,
+                        wire.reason,
+                        wire.capability,
+                        wire.message,
+                        wire.userMessage,
+                    )
+                }
+            }
             return true
         }
 

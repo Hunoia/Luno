@@ -26,6 +26,8 @@ class ActionBoundaryTest {
         "app/src/main/java/hunoia/luno/runtime/GestureCoordinator.kt",
         // Surface 已持有明确 StoredAction：直接产出请求
         "core/runtime/src/main/java/hunoia/luno/runtime/surface/SurfaceDispatch.kt",
+        // 服务进程本地送达口：ActionDispatchPort → 本地 Dispatcher
+        "app/src/main/java/hunoia/luno/runtime/SurfaceActionRuntime.kt",
         // 链接分发：外部入口映射到动作库条目
         "feature/link/src/main/java/hunoia/luno/link/LinkDispatcher.kt",
     )

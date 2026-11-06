@@ -1,6 +1,7 @@
 package hunoia.luno.facade
 
 import android.content.Context
+import hunoia.luno.core.domain.DispatchOrigin
 import hunoia.luno.core.domain.StoredAction
 
 /**
@@ -8,8 +9,11 @@ import hunoia.luno.core.domain.StoredAction
  */
 interface RuntimeFacade {
 
-    /** 把明确动作转交 `:service` 执行；false = 未送达。 */
-    fun dispatch(action: StoredAction): Boolean
+    /** 把明确动作转交 `:service` 执行；false = 未送达（未就绪 / 超时）。 */
+    suspend fun dispatch(
+        action: StoredAction,
+        origin: DispatchOrigin = DispatchOrigin.EXTERNAL_INTENT,
+    ): Boolean
 
     /** 冷启动按落盘配置恢复常驻服务。 */
     fun restoreServicesOnce(context: Context)

@@ -5,14 +5,27 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
+import hunoia.luno.core.domain.ActionResult
+import hunoia.luno.core.domain.DispatchOrigin
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.JsonSerializer
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
+
+/** 跨进程提交结果：送达 / 未就绪 / 超时。 */
+enum class SendOutcome { Delivered, NotReady, Timeout }
 
 /**
  * 分发 IPC 客户端（主进程 / :service 进程通用）。
  *
  * [bind] 由 Application.onCreate 调用，两进程都连。bind 是异步的，
- * 未连上时 [dispatch]/[isReady] 直接返回 false，调用方负责提示。
+ * 未连上时 [send]/[await]/[isReady] 返回未就绪或 null，调用方负责提示。
  */
 object DispatchClient {
 
@@ -27,6 +40,23 @@ object DispatchClient {
 
     /** 未连上时的重试间隔。 */
     private const val RETRY_INTERVAL_MS = 2_000L
+
+    /** 提交（把动作交给 :service）的硬上限；正常是毫秒级。 */
+    private const val HANDOFF_TIMEOUT_MS = 500L
+
+    /** 等待执行三态的上限；执行本身可能启动应用 / 跑 shell，不能按 500ms 算。 */
+    private const val RESULT_TIMEOUT_MS = 10_000L
+
+    private val noopCallback = object : IDispatchCallback.Stub() {
+        override fun onSettled(
+            typeId: String?,
+            status: Int,
+            reason: Int,
+            capability: Int,
+            message: String?,
+            userMessage: String?,
+        ) = Unit
+    }
 
     @Volatile private var stub: IDispatchService? = null
     @Volatile private var appCtx: Context? = null
@@ -82,23 +112,100 @@ object DispatchClient {
         bind(ctx)
     }
 
-    /** 分发链就绪。跨进程走 Binder，同进程 bind 未完成时兜底直查。 */
-    fun isReady(): Boolean {
-        val viaBinder = runCatching { stub?.isReady() == true }.getOrDefault(false)
-        if (viaBinder || localReady()) return true
-        retryBindIfNeeded()
-        return false
-    }
-
-    /** 转交 :service 分发。false = 未送达（未连接或对端未就绪）。键原样透传，不在转发层补键。 */
-    fun dispatch(action: StoredAction, idempotencyKey: String? = null): Boolean {
+    /** 分发链就绪。跨进程走 Binder（有界等待），同进程绑完成时兜底直查。 */
+    suspend fun isReady(): Boolean {
+        if (localReady()) return true
         val s = stub ?: run {
             retryBindIfNeeded()
             return false
         }
-        return runCatching {
-            s.dispatchAction(JsonSerializer.encodeToString(action), idempotencyKey)
-        }.getOrDefault(false)
+        val viaBinder = try {
+            withContext(Dispatchers.IO) {
+                withTimeout(HANDOFF_TIMEOUT_MS) {
+                    runInterruptible { s.isReady() }
+                }
+            }
+        } catch (_: TimeoutCancellationException) {
+            false
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            false
+        }
+        if (!viaBinder) retryBindIfNeeded()
+        return viaBinder
+    }
+
+    /**
+     * 转交 :service 分发，只等“已受理”，不等执行结果。
+     * 超时 = 我们停止等待，不保证 :service 没收到；不自动重试。
+     */
+    suspend fun send(
+        action: StoredAction,
+        idempotencyKey: String? = null,
+        origin: DispatchOrigin = DispatchOrigin.PANEL,
+    ): SendOutcome {
+        val delivered = handoff(action, idempotencyKey, origin, noopCallback)
+            ?: return SendOutcome.Timeout
+        return if (delivered) SendOutcome.Delivered else SendOutcome.NotReady
+    }
+
+    /**
+     * 转交并等待真实三态。null = 未送达 / 超时 / 取消；调用方按失败处理，不自动重试。
+     * 取消当前协程会立即停止等待，:service 侧已开始的执行不会被强制打断。
+     */
+    suspend fun await(
+        action: StoredAction,
+        idempotencyKey: String? = null,
+        origin: DispatchOrigin = DispatchOrigin.PANEL,
+    ): ActionResult? {
+        val deferred = CompletableDeferred<ActionResult>()
+        val callback = object : IDispatchCallback.Stub() {
+            override fun onSettled(
+                typeId: String?,
+                status: Int,
+                reason: Int,
+                capability: Int,
+                message: String?,
+                userMessage: String?,
+            ) {
+                deferred.complete(
+                    DispatchSettlementCodec.decode(status, reason, capability, message, userMessage),
+                )
+            }
+        }
+        val delivered = handoff(action, idempotencyKey, origin, callback) ?: return null
+        if (!delivered) return null
+        return withTimeoutOrNull(RESULT_TIMEOUT_MS) { deferred.await() }
+    }
+
+    /** true = 已受理，false = 未就绪，null = 提交超时。 */
+    private suspend fun handoff(
+        action: StoredAction,
+        idempotencyKey: String?,
+        origin: DispatchOrigin,
+        callback: IDispatchCallback,
+    ): Boolean? {
+        val s = stub ?: run {
+            retryBindIfNeeded()
+            return false
+        }
+        val json = JsonSerializer.encodeToString(action)
+        return try {
+            withContext(Dispatchers.IO) {
+                withTimeout(HANDOFF_TIMEOUT_MS) {
+                    runInterruptible {
+                        s.dispatchAction(json, idempotencyKey, origin.name, callback)
+                    }
+                }
+            }
+        } catch (_: TimeoutCancellationException) {
+            null
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            false
+        }
     }
 
     /**

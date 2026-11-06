@@ -1,5 +1,7 @@
 package hunoia.luno.runtime
 
+import hunoia.luno.core.domain.ActionResult
+import hunoia.luno.core.domain.DispatchOrigin
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
 import hunoia.luno.runtime.pointer.PointerOverlayHost
@@ -15,5 +17,10 @@ interface GestureHost : hunoia.luno.runtime.RuntimeHost, PointerOverlayHost {
 
 
     /** 供 overlay 等场景直接执行一个已构造好的动作；key 由意图产生方提供，转发层不补键。 */
-    fun dispatchAction(action: StoredAction, idempotencyKey: String? = null)
+    fun dispatchAction(
+        action: StoredAction,
+        idempotencyKey: String? = null,
+        origin: DispatchOrigin = DispatchOrigin.PANEL,
+        onSettled: ((typeId: String, result: ActionResult) -> Unit)? = null,
+    )
 }

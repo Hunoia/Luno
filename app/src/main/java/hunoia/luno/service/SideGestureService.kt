@@ -296,8 +296,15 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         }
     }
 
-    override fun dispatchAction(action: StoredAction, idempotencyKey: String?) {
-        if (::gestureCoordinator.isInitialized) gestureCoordinator.dispatchAction(action, idempotencyKey)
+    override fun dispatchAction(
+        action: StoredAction,
+        idempotencyKey: String?,
+        origin: hunoia.luno.core.domain.DispatchOrigin,
+        onSettled: ((typeId: String, result: hunoia.luno.core.domain.ActionResult) -> Unit)?,
+    ) {
+        if (::gestureCoordinator.isInitialized) {
+            gestureCoordinator.dispatchAction(action, idempotencyKey, origin, onSettled)
+        }
     }
 
     /**
