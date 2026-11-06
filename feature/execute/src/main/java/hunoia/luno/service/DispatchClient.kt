@@ -210,23 +210,39 @@ object DispatchClient {
 
     /**
      * 让 :service 的 AppWidgetHost 回收未引用的 widget id。
-     * false = 未送达（只影响资源回收时机，不影响功能）。
+     * false = 未送达 / 超时（只影响资源回收时机，不影响功能）。
      */
-    fun releaseOrphanAppWidgets(keepIds: Set<Int>): Boolean {
+    suspend fun releaseOrphanAppWidgets(keepIds: Set<Int>): Boolean {
         val s = stub ?: run {
             retryBindIfNeeded()
             return false
         }
-        return runCatching { s.releaseOrphanAppWidgets(keepIds.toIntArray()) }.isSuccess
+        return oneway { s.releaseOrphanAppWidgets(keepIds.toIntArray()) }
     }
 
-    /** OCR 模型导入/删除后，让 :service 重新加载引擎（未连接返回 false）。 */
-    fun refreshOcrEngine(): Boolean {
+    /** OCR 模型导入/删除后，让 :service 重新加载引擎（未连接 / 超时返回 false）。 */
+    suspend fun refreshOcrEngine(): Boolean {
         val s = stub ?: run {
             retryBindIfNeeded()
             return false
         }
-        return runCatching { s.refreshOcrEngine() }.isSuccess
+        return oneway { s.refreshOcrEngine() }
+    }
+
+    /** oneway Binder 调用的有界等待；超时只停止等待，不保证对端没收到。 */
+    private suspend fun oneway(call: () -> Unit): Boolean = try {
+        withContext(Dispatchers.IO) {
+            withTimeout(HANDOFF_TIMEOUT_MS) {
+                runInterruptible { call() }
+            }
+        }
+        true
+    } catch (_: TimeoutCancellationException) {
+        false
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        false
     }
 
 }
