@@ -5,7 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.ui.component.sheet.TextInputDialog
 
-/** 重命名：单字段输入，自动聚焦，回车即确认。 */
+/** 重命名：单字段输入（预填原名），自动聚焦，回车即确认。 */
 @Composable
 fun RenameDialog(
     target: RenameTarget?,
@@ -16,7 +16,7 @@ fun RenameDialog(
     TextInputDialog(
         title = stringResource(R.string.rename),
         label = "",
-        initialValue = "",
+        initialValue = target.name,
         onDismissRequest = onDismissRequest,
         onConfirm = { onConfirm(target, it) },
     )

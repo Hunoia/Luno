@@ -10,7 +10,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -38,7 +41,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
@@ -137,14 +142,17 @@ fun TextInputDialog(
     supportingText: String = "",
     keyboardOptions: KeyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
 ) {
-    // Dialog 是独立窗口，不吃 adjustResize：手动改成 resize，
-    // 键盘弹起时对话框上移，输入框不会被键盘挡住。
+    // Dialog 是独立窗口且半透明：adjustResize 在这种窗口上不可靠（键盘盖住内容）。
+    // 改 ADJUST_NOTHING 让窗口不自动缩放/平移，改由 imePadding() 把内容顶到键盘上方。
     val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
     SideEffect {
-        dialogWindow?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        dialogWindow?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
     }
-    // 按 initialValue 复位：同一调用点切换目标（换引擎/换重命名对象）时不能残留上次的输入
-    var text by rememberSaveable(initialValue) { mutableStateOf(initialValue) }
+    // 按 initialValue 复位：同一调用点切换目标（换引擎/换重命名对象）时不能残留上次的输入。
+    // 光标放末尾（编辑预填后直接续写，而不是从最前插入）。
+    var textValue by rememberSaveable(initialValue, stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(initialValue, selection = TextRange(initialValue.length)))
+    }
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val curOnConfirm by rememberUpdatedState(onConfirm)
@@ -152,25 +160,62 @@ fun TextInputDialog(
     fun submit() {
         if (!confirmEnabled) return
         keyboard?.hide()
-        curOnConfirm(text)
+        curOnConfirm(textValue.text)
     }
 
+    // 自动聚焦：键盘随之弹出。
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
-    AlertDialog(
-        containerColor = MaterialTheme.colorScheme.surface,
+    Dialog(
         onDismissRequest = onDismissRequest,
-        title = { Text(title) },
-        text = {
-            Column {
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            // 边到边：内容延伸到状态栏/导航栏区域，IME inset 才会派发下来（imePadding 才有值）。
+            decorFitsSystemWindows = false,
+        ),
+    ) {
+        // 遮罩点按关闭；卡片本体不响应遮罩点击（镜像 ConfirmDialog）。
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                // 键盘上方：IME inset 撑开内容底边，卡片（BottomCenter）贴住键盘上沿。
+                .imePadding()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismissRequest,
+                ),
+            contentAlignment = Alignment.BottomCenter,
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = PageGutter, vertical = PageGutter)
+                    .fillMaxWidth()
+                    .clip(ExtraLargeShape)
+                    .background(MaterialTheme.colorScheme.surface, ExtraLargeShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {},
+                    )
+                    .padding(LargeGutter),
+                verticalArrangement = Arrangement.spacedBy(ListSpacing),
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
                 OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = it },
+                    value = textValue,
+                    onValueChange = { textValue = it },
                     label = label.takeIf { it.isNotEmpty() }?.let { l -> { Text(l) } },
                     singleLine = true,
                     isError = isError,
                     shape = LargeShape,
-                    modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester),
                     keyboardOptions = keyboardOptions,
                     keyboardActions = KeyboardActions(onDone = { submit() }),
                 )
@@ -183,15 +228,25 @@ fun TextInputDialog(
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(ListSpacing),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = onDismissRequest) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                    TextButton(
+                        onClick = { submit() },
+                        enabled = confirmEnabled,
+                    ) {
+                        Text(stringResource(R.string.confirm))
+                    }
+                }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = { submit() }, enabled = confirmEnabled) { Text(stringResource(R.string.confirm)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismissRequest) { Text(stringResource(R.string.cancel)) }
-        },
-    )
+        }
+    }
 }
 
 @Composable
