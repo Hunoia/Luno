@@ -35,7 +35,9 @@ import sv.lib.squircleshape.SquircleShape
 /**
  * 形状软度画廊（**仅 debug 源集，不进产品代码**）。
  *
- * 目的：在定规范之前先肉眼比 3 档平滑度，对应 ui-guidelines §2.1.3 的标定项。
+ * 定档记录（ui-guidelines §2.1.3）：容器 0.48（Medium）、胶囊 0.2（Small）。
+ * 这里的第三列 High 0.67 是**落选对照**，留着当回归参照：改档位 / 改半径档位时，
+ * 先在这里看越界与端部形态，再动 `Dimension.kt`。
  * 三列 = Small 0.2 / Medium 0.48 / High 0.67；每格标注该档下**实际使用**的几何半径。
  *
  * 判定四件事：
@@ -44,8 +46,8 @@ import sv.lib.squircleshape.SquircleShape
  * 3. 小元素（32dp chip / 图标底）有没有变方或变肿；
  * 4. 弧上有没有 1px 毛刺（越界时会出现）。
  *
- * 注意：预览里没有 haze、阴影和动态取色，玻璃面观感只能上真机看（方案 A 的 trial 分支）。
- * 定完档位就删掉这个文件与 build.gradle.kts 里的两条 debugImplementation。
+ * 注意：预览里没有 haze、阴影和动态取色，玻璃面观感只能上真机看。
+ * 真机入口：`adb shell am start -n hunoia.luno.debug/hunoia.luno.ui.theme.ShapeGalleryActivity`。
  */
 
 private val Trials = listOf(
