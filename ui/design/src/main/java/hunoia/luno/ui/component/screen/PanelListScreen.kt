@@ -21,6 +21,8 @@ data class PanelListRow(
 /**
  * 面板列表屏骨架：网格面板与动作面板两页只有数据与文案不同。
  * 行级只管进入属性编辑；新增走右下角 FAB，删除在编辑页右上角。
+ * [header] 渲染在列表顶部（空态时也保留），供调用方挂全局配置入口；
+ * [listTitle] 为面板列表组的标题（空则无标题）。
  */
 @Composable
 fun PanelListScreen(
@@ -32,6 +34,8 @@ fun PanelListScreen(
     rows: List<PanelListRow>,
     onEditPanel: (String) -> Unit,
     onCreate: () -> Unit,
+    header: (@Composable () -> Unit)? = null,
+    listTitle: String = "",
 ) {
     val listState = rememberLazyListState()
     val addFab: @Composable () -> Unit = {
@@ -45,6 +49,7 @@ fun PanelListScreen(
             bottomContentPadding = FloatingContentBottom,
             floatingContent = { addFab() },
         ) {
+            header?.invoke()
             EmptyState(message = emptyHint)
         }
         return
@@ -57,8 +62,11 @@ fun PanelListScreen(
         bottomContentPadding = FloatingContentBottom,
         floatingContent = addFab,
     ) {
+        header?.let { h ->
+            item(key = "header") { h() }
+        }
         item {
-            LunoGroup {
+            LunoGroup(title = listTitle) {
                 rows.forEach { row ->
                     LunoSettingsRow(
                         icon = rowIcon,

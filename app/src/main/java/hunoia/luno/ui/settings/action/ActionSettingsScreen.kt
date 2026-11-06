@@ -10,13 +10,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Accessibility
-import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.DocumentScanner
-import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Link
@@ -40,7 +38,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.lifecycle.Lifecycle
@@ -50,7 +47,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ActionSettings
-import hunoia.luno.config.model.ArcStyle
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.InitialSettings
 import hunoia.luno.domain.gesture.GestureConfig
@@ -63,7 +59,6 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.sheet.LunoSheet
-import hunoia.luno.gesture.settings.style.ActionPanelStyleConfigContent
 import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.ListSpacing
@@ -94,7 +89,6 @@ fun ActionSettingsTab(
     val facades = LocalFacades.current
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    var showActionPanelStyle by remember { mutableStateOf(false) }
     var showPointer by remember { mutableStateOf(false) }
     var showFontScale by remember { mutableStateOf(false) }
     var fontScale by remember { mutableFloatStateOf(facades.system.fontScale(context)) }
@@ -106,8 +100,6 @@ fun ActionSettingsTab(
     val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = ActionSettings())
     val gestureSettings by TuneConfig.gesture.collectAsStateWithLifecycle(initialValue = GestureSettings())
     val initialSettings by GestureConfig.initial.collectAsStateWithLifecycle(initialValue = InitialSettings())
-    val hideLunoFromRecents by facades.system.hideLunoFromRecents
-        .collectAsStateWithLifecycle(initialValue = true)
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -172,22 +164,15 @@ fun ActionSettingsTab(
                         icon = Icons.Default.RadioButtonChecked,
                         title = stringResource(R.string.action_panels),
                         subtitle = stringResource(R.string.action_panel_count, actionSettings.actionPanels.panels.size),
-                        shape = segmentedShape(0, 3),
+                        shape = segmentedShape(0, 2),
                         onClick = onNavToActionPanels,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.GridView,
                         title = stringResource(R.string.grid_panels),
                         subtitle = stringResource(R.string.action_panel_count, actionSettings.actionGridPanels.panels.size),
-                        shape = segmentedShape(1, 3),
+                        shape = segmentedShape(1, 2),
                         onClick = onNavToGridPanels,
-                    )
-                    LunoSettingsRow(
-                        icon = Icons.Default.Gesture,
-                        title = stringResource(R.string.action_panel_style),
-                        subtitle = actionPanelStyleSummary(actionSettings.actionPanelStyle),
-                        shape = segmentedShape(2, 3),
-                        onClick = { showActionPanelStyle = true },
                     )
                 }
             }
@@ -213,7 +198,7 @@ fun ActionSettingsTab(
                         icon = Icons.Default.TouchApp,
                         title = stringResource(R.string.pointer),
                         subtitle = stringResource(R.string.pointer_hint),
-                        shape = segmentedShape(0, 4),
+                        shape = segmentedShape(0, 5),
                         onClick = { showPointer = true },
                     )
                     LunoSettingsRow(
@@ -226,13 +211,13 @@ fun ActionSettingsTab(
                                 R.string.screen_pick_settings_disabled
                             },
                         ),
-                        shape = segmentedShape(1, 4),
+                        shape = segmentedShape(1, 5),
                         onClick = onNavToScreenPickSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Crop,
                         title = stringResource(R.string.action_settings_mini_window_position),
-                        shape = segmentedShape(2, 4),
+                        shape = segmentedShape(2, 5),
                         onClick = onNavToMiniWindowSettings,
                     )
                     LunoSettingsRow(
@@ -243,31 +228,19 @@ fun ActionSettingsTab(
                         } else {
                             stringResource(R.string.action_param_multi_selected, actionSettings.recentAppsBlocklist.size)
                         },
-                        shape = segmentedShape(3, 4),
+                        shape = segmentedShape(3, 5),
                         onClick = onNavToRecentAppsBlocklist,
                     )
-                }
-            }
-            item(key = "other") {
-                LunoGroup(title = stringResource(R.string.action_settings_other_group)) {
                     LunoSettingsRow(
                         icon = Icons.Default.Visibility,
                         title = stringResource(hunoia.luno.gesture.R.string.button_visibility),
-                        shape = segmentedShape(0, 4),
+                        shape = segmentedShape(4, 5),
                         onClick = onNavToButtonVisibility,
                     )
-                    LunoSwitchRow(
-                        icon = Icons.Default.Android,
-                        title = stringResource(R.string.apps_show_system),
-                        subtitle = stringResource(R.string.apps_show_system_hint),
-                        checked = actionSettings.showSystemAppsInAppList,
-                        onCheckedChange = { enabled ->
-                            scope.launch {
-                                TuneConfig.updateAction { it.copy(showSystemAppsInAppList = enabled) }
-                            }
-                        },
-                        shape = segmentedShape(1, 4),
-                    )
+                }
+            }
+            item(key = "system") {
+                LunoGroup(title = stringResource(R.string.action_settings_system_group)) {
                     LunoSettingsRow(
                         icon = Icons.Default.TextFields,
                         title = stringResource(R.string.font_scale_entry),
@@ -279,36 +252,29 @@ fun ActionSettingsTab(
                         } else {
                             stringResource(R.string.font_scale_need_permission)
                         },
-                        shape = segmentedShape(2, 4),
+                        shape = segmentedShape(0, 4),
                         onClick = ::openFontScale,
                     )
-                    LunoSwitchRow(
-                        icon = Icons.Default.VisibilityOff,
-                        title = stringResource(R.string.hide_luno_from_recents),
-                        subtitle = stringResource(R.string.hide_luno_from_recents_hint),
-                        checked = hideLunoFromRecents,
-                        onCheckedChange = { hidden ->
-                            scope.launch { facades.system.setHideLunoFromRecents(hidden) }
-                        },
-                        shape = segmentedShape(3, 4),
-                    )
-                }
-            }
-            item(key = "notification_status") {
-                LunoGroup(title = stringResource(R.string.action_settings_notification_group)) {
                     LunoSettingsRow(
                         icon = Icons.Default.NotificationsOff,
                         title = stringResource(R.string.persistent_notification_settings_entry),
                         subtitle = stringResource(R.string.persistent_notification_settings_entry_hint),
-                        shape = segmentedShape(0, 2),
+                        shape = segmentedShape(1, 4),
                         onClick = onNavToPersistentNotificationSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.VisibilityOff,
                         title = stringResource(R.string.status_bar_icons_entry),
                         subtitle = stringResource(R.string.status_bar_icons_entry_hint),
-                        shape = segmentedShape(1, 2),
+                        shape = segmentedShape(2, 4),
                         onClick = onNavToStatusBarIconSettings,
+                    )
+                    LunoSettingsRow(
+                        icon = Icons.Default.Accessibility,
+                        title = stringResource(R.string.a11y_settings_entry),
+                        subtitle = stringResource(R.string.a11y_settings_entry_hint),
+                        shape = segmentedShape(3, 4),
+                        onClick = onNavToAccessibilityManager,
                     )
                 }
             }
@@ -327,41 +293,16 @@ fun ActionSettingsTab(
                         onClick = onNavToPrivilegedPermissions,
                     )
                     LunoSettingsRow(
-                        icon = Icons.Default.Accessibility,
-                        title = stringResource(R.string.a11y_settings_entry),
-                        subtitle = stringResource(R.string.a11y_settings_entry_hint),
-                        shape = segmentedShape(2, 3),
-                        onClick = onNavToAccessibilityManager,
-                    )
-                }
-            }
-            item(key = "logs") {
-                LunoGroup(title = stringResource(R.string.log_settings_group)) {
-                    LunoSettingsRow(
                         icon = Icons.Default.BugReport,
                         title = stringResource(R.string.log_settings_title),
                         subtitle = stringResource(R.string.log_settings_entry_hint),
-                        shape = segmentedShape(0, 1),
+                        shape = segmentedShape(2, 3),
                         onClick = onNavToLogSettings,
                     )
                 }
             }
         }
 
-        if (showActionPanelStyle) {
-            LunoSheet(onDismissRequest = { showActionPanelStyle = false }, showDragHandle = true) {
-                ActionPanelStyleConfigContent(
-                    currentStyle = actionSettings.actionPanelStyle,
-                    actionPanelVibrate = gestureSettings.actionPanelVibrate,
-                    onStyleChanged = { next ->
-                        scope.launch { TuneConfig.updateAction { it.copy(actionPanelStyle = next) } }
-                    },
-                    onActionPanelVibrateChanged = { enabled ->
-                        scope.launch { TuneConfig.updateGesture { it.copy(actionPanelVibrate = enabled) } }
-                    },
-                )
-            }
-        }
         if (showPointer) {
             LunoSheet(onDismissRequest = { showPointer = false }, showDragHandle = true) {
                 PointerControls(
@@ -453,11 +394,4 @@ private fun PointerControls(
             )
         }
     }
-}
-@Composable
-private fun actionPanelStyleSummary(style: ArcStyle): String {
-    val density = LocalDensity.current
-    val itemDp = with(density) { style.itemSize.toDp().value }.roundToInt()
-    val gapDp = with(density) { style.itemGapPx.toDp().value }.roundToInt()
-    return "$itemDp dp · ${(style.appIconScale * 100).roundToInt()}% · $gapDp dp · ${(style.spreadSpacing * 100).roundToInt()}% · ${style.maxAngleDegrees.roundToInt()}°"
 }
