@@ -57,8 +57,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import coil.imageLoader
-import coil.compose.AsyncImage
+import coil3.imageLoader
+import coil3.compose.AsyncImage
 import hunoia.luno.quickaccess.R
 import hunoia.luno.config.model.SRC_ACTION
 import hunoia.luno.config.model.SRC_APP

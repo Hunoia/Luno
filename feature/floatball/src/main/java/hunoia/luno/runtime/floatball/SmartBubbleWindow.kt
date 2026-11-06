@@ -55,7 +55,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.CircleShape
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.removeWindow
 import hunoia.luno.bridge.ui.windowManager

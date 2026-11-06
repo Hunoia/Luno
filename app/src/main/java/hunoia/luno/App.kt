@@ -3,9 +3,9 @@ package hunoia.luno
 import android.app.Application
 import android.content.Context
 import android.os.StrictMode
-import coil.ImageLoader
-import coil.ImageLoaderFactory
-import coil.memory.MemoryCache
+import coil3.ImageLoader
+import coil3.SingletonImageLoader
+import coil3.memory.MemoryCache
 import com.aaron.compose.component.UDFComponentDefaults
 import hunoia.luno.ui.UDFComponentDefaultsImpl
 import hunoia.luno.core.AppContext
@@ -18,28 +18,27 @@ import hunoia.luno.bridge.ui.isMainThread
 import hunoia.luno.bridge.vibration.initVibrationContext
 import hunoia.luno.quickaccess.icon.AppIconFetcherFactory
 import hunoia.luno.quickaccess.icon.AppIconKeyer
-import hunoia.luno.quickaccess.icon.AppIconModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import me.weishu.reflection.Reflection
 import rikka.shizuku.ShizukuProvider
 
-class App : Application(), ImageLoaderFactory {
+class App : Application(), SingletonImageLoader.Factory {
 
-    override fun newImageLoader(): ImageLoader {
-        return ImageLoader.Builder(this)
-            // 150ms 足够掩盖解码；几十张图标同时淡入时，再长会掉帧。
-            .crossfade(150)
+    override fun newImageLoader(context: android.content.Context): ImageLoader {
+        return ImageLoader.Builder(context)
+            // Coil 3 去掉了 ImageLoader 级别的全局 crossfade（改成按请求配置）；
+            // 应用图标本来就是同步命中内存缓存，淡入收益不大，这里不再全局开。
             // 应用图标交给 Coil 缓存，不另设常驻 Drawable 缓存。
             .components {
-                add(AppIconFetcherFactory(), AppIconModel::class.java)
-                add(AppIconKeyer, AppIconModel::class.java)
+                add(AppIconFetcherFactory())
+                add(AppIconKeyer)
             }
             .memoryCache {
-                MemoryCache.Builder(this)
+                MemoryCache.Builder()
                     // 暂无图标位图常驻缓存，先留 10%，待 meminfo 实测调整。
-                    .maxSizePercent(0.10)
+                    .maxSizePercent(context, 0.10)
                     .build()
             }
             .build()

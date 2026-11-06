@@ -2,7 +2,8 @@ package hunoia.luno.quickaccess
 
 import android.content.Context
 import androidx.collection.LruCache
-import coil.request.ImageRequest
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import hunoia.luno.quickaccess.model.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
 import hunoia.luno.quickaccess.query.AppCatalog

@@ -5,12 +5,13 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
-import coil.ImageLoader
-import coil.decode.DataSource
-import coil.fetch.DrawableResult
-import coil.fetch.FetchResult
-import coil.fetch.Fetcher
-import coil.request.Options
+import coil3.asImage
+import coil3.ImageLoader
+import coil3.decode.DataSource
+import coil3.fetch.FetchResult
+import coil3.fetch.Fetcher
+import coil3.fetch.ImageFetchResult
+import coil3.request.Options
 import hunoia.luno.bridge.system.AppIcons
 
 /**
@@ -41,12 +42,16 @@ class AppIconFetcher(
             source.setBounds(0, 0, side, side)
 
             if (side >= intrinsic) {
-                DrawableResult(source, isSampled = false, dataSource = DataSource.DISK)
+                ImageFetchResult(
+                    image = source.asImage(shareable = false),
+                    isSampled = false,
+                    dataSource = DataSource.DISK,
+                )
             } else {
                 val bitmap = Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
                 source.draw(Canvas(bitmap))
-                DrawableResult(
-                    drawable = BitmapDrawable(context.resources, bitmap),
+                ImageFetchResult(
+                    image = bitmap.asImage(shareable = false),
                     isSampled = true,
                     dataSource = DataSource.DISK,
                 )

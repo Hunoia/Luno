@@ -47,7 +47,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
 import hunoia.luno.ui.theme.MediumShape
 import hunoia.luno.quickaccess.R
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 import hunoia.luno.quickaccess.QuickLaunchFacade
 import hunoia.luno.quickaccess.model.AppInfo
 import hunoia.luno.bridge.ui.hapticTap

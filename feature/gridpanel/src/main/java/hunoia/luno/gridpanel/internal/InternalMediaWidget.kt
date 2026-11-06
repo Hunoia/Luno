@@ -50,8 +50,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import coil.imageLoader
+import coil3.compose.AsyncImage
+import coil3.imageLoader
 import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.LocalGridPanelClose
 import hunoia.luno.gridpanel.geometry.ItemCorner

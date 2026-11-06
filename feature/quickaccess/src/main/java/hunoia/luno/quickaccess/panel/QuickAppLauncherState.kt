@@ -5,7 +5,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import coil.imageLoader
+import coil3.imageLoader
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.quickaccess.query.AppListRepository

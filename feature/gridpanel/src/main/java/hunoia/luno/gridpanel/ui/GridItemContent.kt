@@ -20,9 +20,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import coil.imageLoader
-import coil.request.ImageRequest
+import coil3.compose.AsyncImage
+import coil3.imageLoader
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import androidx.compose.ui.platform.LocalContext
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.gridpanel.geometry.ItemCorner

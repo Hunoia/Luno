@@ -53,8 +53,8 @@ import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import coil.imageLoader
+import coil3.compose.AsyncImage
+import coil3.imageLoader
 import hunoia.luno.gridpanel.R
 import hunoia.luno.action.controller.TextInserter
 import hunoia.luno.bridge.system.ClipboardContent

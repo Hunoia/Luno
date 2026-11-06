@@ -1,7 +1,7 @@
 package hunoia.luno.quickaccess.icon
 
-import coil.key.Keyer
-import coil.request.Options
+import coil3.key.Keyer
+import coil3.request.Options
 
 /**
  * 快速启动器图标的 Coil 数据模型。把 packageName 交给 Coil 按目标像素出图并缓存，

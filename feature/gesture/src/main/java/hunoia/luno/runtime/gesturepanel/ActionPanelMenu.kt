@@ -44,8 +44,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
-import coil.compose.AsyncImage
-import coil.imageLoader
+import coil3.compose.AsyncImage
+import coil3.imageLoader
 import com.aaron.compose.ktx.clipToBackground
 import com.aaron.compose.ktx.toPx
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
