@@ -133,6 +133,11 @@ composeCompiler {
 }
 
 dependencies {
+    constraints {
+        // 传递依赖不得把 M3 抬到 alpha：1.5.0-alpha17 与 foundation 1.12.1 的 CustomStyle
+        // 二进制不兼容，OutlinedTextField 一渲染就 AbstractMethodError。
+        implementation("androidx.compose.material3:material3:${libs.versions.material3.get()}")
+    }
     implementation(project(":core:common"))
     implementation(project(":core:domain"))
     implementation(project(":core:bridge"))
