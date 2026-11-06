@@ -102,6 +102,10 @@ branch=$(git branch --show-current 2>/dev/null || true)
 wt="${LUNO_DOCS_WORKTREE:-$(dirname "$(git rev-parse --show-toplevel)")/Luno-docs}"
 [ -d "$wt" ] || exit 0
 
+# git 在 hook 里会继承主 worktree 的 GIT_DIR（相对路径 .git）；
+# 不 unset 的话 `git -C <docs worktree>` 会去读 docs/.git/index，而那里是 gitdir 指针文件。
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+
 if [ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]; then
     echo "docs worktree 有未提交改动，跳过自动 rebase：$wt" >&2
     exit 0
@@ -109,9 +113,10 @@ fi
 
 base="${LUNO_DOCS_BASE:-dev}"
 git -C "$wt" rev-parse --verify --quiet "$base" >/dev/null || base=main
-if ! git -C "$wt" rebase "$base" >/dev/null 2>&1; then
+if ! git -C "$wt" rebase "$base" >/dev/null 2>/tmp/luno-docs-rebase.err; then
     git -C "$wt" rebase --abort >/dev/null 2>&1 || true
-    echo "docs 自动 rebase 失败（可能冲突），请在 $wt 手动处理" >&2
+    echo "docs 自动 rebase 失败，日志：/tmp/luno-docs-rebase.err" >&2
+    cat /tmp/luno-docs-rebase.err >&2
 fi
 exit 0
 HOOK
