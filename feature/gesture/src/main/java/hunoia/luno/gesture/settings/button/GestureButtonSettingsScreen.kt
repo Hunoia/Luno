@@ -32,7 +32,7 @@ import hunoia.luno.gesture.settings.button.GestureButtonSettingsUiEvent
 import hunoia.luno.gesture.settings.button.GestureButtonSettingsUiState
 import hunoia.luno.gesture.settings.subgesture.GestureButtonAngleContent
 import hunoia.luno.ui.theme.MarkColorSize
-import hunoia.luno.ui.component.gestureButtonMarkColor
+import hunoia.luno.ui.theme.toMarkColor
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
@@ -70,7 +70,7 @@ fun GestureButtonSettingsScreen(
                                         .padding(start = CardInnerSpacing)
                                         .size(MarkColorSize)
                                         .background(
-                                            color = gestureButtonMarkColor(uiState.gestureButton.color),
+                                            color = uiState.gestureButton.colorSpec.toMarkColor(),
                                             shape = CircleShape
                                         )
                                 )
@@ -182,7 +182,7 @@ fun GestureButtonSettingsScreen(
  */
 @Composable
 private fun GestureButtonBoundsOverlay(uiState: GestureButtonSettingsUiState) {
-    val primary = MaterialTheme.colorScheme.primary
+    val scheme = MaterialTheme.colorScheme
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -190,7 +190,7 @@ private fun GestureButtonBoundsOverlay(uiState: GestureButtonSettingsUiState) {
                 uiState.gestureButtons.fastForEach { button ->
                     fun drawTarget(targetButton: GestureButton) {
                         val bounds = targetButton.bounds()
-                        val color = gestureButtonMarkColor(targetButton.color, primary)
+                        val color = targetButton.colorSpec.toMarkColor(scheme)
                         val highlight = uiState.isGestureButtonAdjusting &&
                                 button.id == uiState.gestureButton?.id
                         drawRect(

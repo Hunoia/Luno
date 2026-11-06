@@ -67,6 +67,7 @@ import hunoia.luno.gridpanel.LocalGridPanelClose
 import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
+import hunoia.luno.ui.theme.toColor
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -115,7 +116,7 @@ internal fun HabitCheckCell(
     // 跳过日 = 非 due 且今天未打：半透明主色、不可点，改历史只走编辑页。
     val dueToday = checks.isEmpty() || isDueDay(checks, today, habit.interval)
     val clickable = enabled && !checked && dueToday
-    val habitColor = Color(habit.color)
+    val habitColor = habit.colorSpec.toColor()
     val scope = rememberCoroutineScope()
 
     // 双击确认：单点起主圆边缘倒计时，倒计时内再点确认；超时取消。
@@ -262,7 +263,7 @@ internal fun HabitHistoryCell(
     val today = rememberToday()
     val checks = config.checks[habit.id].orEmpty()
     val streak = currentStreak(checks, today, habit.interval)
-    val habitColor = Color(habit.color)
+    val habitColor = habit.colorSpec.toColor()
     val context = LocalContext.current
     // 点条目进编辑页后把面板一起关掉（镜像 InternalRecentsWidget 的 closePanel）。
     val closePanel = LocalGridPanelClose.current

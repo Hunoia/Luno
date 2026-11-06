@@ -49,7 +49,7 @@ import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.component.actionIcon
-import hunoia.luno.ui.component.gestureButtonMarkColor
+import hunoia.luno.ui.theme.toMarkColor
 import kotlin.math.max
 import kotlin.math.roundToInt
 import hunoia.luno.core.LOG_TAG
@@ -851,7 +851,7 @@ class FloatBallWindow(
     @Composable
     private fun BallFace(modifier: Modifier = Modifier) {
         val size = with(LocalDensity.current) { ballPx.toDp() }
-        val accent = gestureButtonMarkColor(settings.color)
+        val accent = settings.colorSpec.toMarkColor()
         Box(
             modifier = modifier.size(size),
             contentAlignment = Alignment.Center,

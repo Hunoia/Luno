@@ -10,7 +10,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -25,6 +24,7 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.theme.FloatingContentBottom
+import hunoia.luno.ui.theme.toColor
 import java.time.LocalDate
 
 /**
@@ -71,7 +71,7 @@ fun HabitListScreen(
                                     Modifier
                                         .size(16.dp)
                                         .clip(CircleShape)
-                                        .background(Color(habit.color)),
+                                        .background(habit.colorSpec.toColor()),
                                 )
                             },
                             shape = segmentedShape(index, config.habits.size),

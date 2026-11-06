@@ -22,11 +22,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.gridpanel.R
 import hunoia.luno.config.model.Habit
+import hunoia.luno.ui.theme.toColor
 
 /**
  * 习惯选择弹窗：给面板「习惯部件」添加时指定目标习惯。
@@ -66,7 +66,7 @@ fun HabitPickerDialog(
                                 Modifier
                                     .size(16.dp)
                                     .clip(CircleShape)
-                                    .background(Color(habit.color)),
+                                    .background(habit.colorSpec.toColor()),
                             )
                             Spacer(Modifier.width(12.dp))
                             Text(

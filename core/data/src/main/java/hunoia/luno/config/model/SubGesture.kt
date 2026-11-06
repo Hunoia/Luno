@@ -18,6 +18,8 @@ data class SubGesture(
     val longSlideHoldActions: DirectionActions = DirectionActions(),
     val enabled: Boolean = true,
     val color: Int = 0,
+    val colorSource: ColorSource = ColorSource.Custom,
+    val colorThemeKey: ThemeColorKey = ThemeColorKey.Primary,
     val slideVibrate: Boolean = true,
     val longSlideVibrate: Boolean = true,
     val slideHoldVibrate: Boolean = true,
@@ -30,6 +32,9 @@ data class SubGesture(
 ) {
     val effectiveLongSlideTriggerDistance: Int
         get() = longSlideTriggerDistance.coerceAtLeast(triggerDistance)
+
+    val colorSpec: ColorSpec
+        get() = ColorSpec(colorSource, colorThemeKey, color)
 
     val captureRadius: Int
         get() = (effectiveLongSlideTriggerDistance + DensityProvider.dp2px(24f))

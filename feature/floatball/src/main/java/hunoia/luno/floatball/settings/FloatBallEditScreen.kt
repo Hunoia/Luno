@@ -24,8 +24,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -42,17 +40,17 @@ import hunoia.luno.config.model.FloatBallSettings
 import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.component.actionTextCompose
-import hunoia.luno.ui.component.gestureButtonMarkColor
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
-import hunoia.luno.ui.component.sheet.ColorSelection
+import hunoia.luno.ui.component.sheet.toColorSpec
+import hunoia.luno.ui.component.sheet.toInitialSelection
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.theme.MarkColorSize
-import hunoia.luno.ui.theme.resolveColor
+import hunoia.luno.ui.theme.toMarkColor
 import kotlinx.coroutines.launch
 
 /**
@@ -152,12 +150,18 @@ fun FloatBallEditScreen(
                 val scheme = MaterialTheme.colorScheme
                 ColorPickerBottomSheet(
                     onDismissRequest = { showColorPicker = false },
-                    initialColor = Color(floatBall.color),
+                    initialSelection = floatBall.colorSpec.toInitialSelection(
+                        scheme = scheme,
+                        primaryFallback = true,
+                    ),
                     onColorSelected = { selection ->
-                        when (selection) {
-                            is ColorSelection.Custom -> update { it.copy(color = selection.color.toArgb()) }
-                            is ColorSelection.Theme ->
-                                update { it.copy(color = selection.key.resolveColor(scheme).toArgb()) }
+                        val colorSpec = selection.toColorSpec(scheme)
+                        update {
+                            it.copy(
+                                color = colorSpec.customColor,
+                                colorSource = colorSpec.source,
+                                colorThemeKey = colorSpec.themeKey,
+                            )
                         }
                         showColorPicker = false
                     },
@@ -217,7 +221,7 @@ fun FloatBallEditScreen(
                             modifier = Modifier
                                 .size(MarkColorSize)
                                 .background(
-                                    color = gestureButtonMarkColor(floatBall.color),
+                                    color = floatBall.colorSpec.toMarkColor(),
                                     shape = CircleShape,
                                 ),
                         )

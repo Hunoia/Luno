@@ -79,6 +79,8 @@ data class GestureButton(
     val doubleTapActions: StoredAction? = null,
     val longPressActions: StoredAction? = null,
     val color: Int = GestureButtonDefaults.Color,
+    val colorSource: ColorSource = ColorSource.Custom,
+    val colorThemeKey: ThemeColorKey = ThemeColorKey.Primary,
     val mirrorHorizontal: Boolean = GestureButtonDefaults.MirrorHorizontal,
     val slideVibrate: Boolean = GestureButtonDefaults.SlideVibrate,
     val longSlideVibrate: Boolean = GestureButtonDefaults.LongSlideVibrate,
@@ -100,6 +102,9 @@ data class GestureButton(
      */
     val effectiveLongSlideTriggerDistance: Int
         get() = longSlideTriggerDistance.coerceAtLeast(slideTriggerDistance)
+
+    val colorSpec: ColorSpec
+        get() = ColorSpec(colorSource, colorThemeKey, color)
 
     companion object {
         const val ID_DEFAULT = GestureButtonDefaults.ID_DEFAULT

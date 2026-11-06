@@ -43,13 +43,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.gridpanel.R
+import hunoia.luno.config.model.ColorSource
+import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.config.model.Habit
 import hunoia.luno.config.model.HabitConfig
 import hunoia.luno.config.model.ThemeColorKey
@@ -59,12 +60,13 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
-import hunoia.luno.ui.component.sheet.ColorSelection
+import hunoia.luno.ui.component.sheet.toColorSpec
+import hunoia.luno.ui.component.sheet.toInitialSelection
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.PageGutter
-import hunoia.luno.ui.theme.resolveColor
+import hunoia.luno.ui.theme.toColor
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import kotlin.math.roundToInt
@@ -89,9 +91,17 @@ fun HabitEditScreen(
 
     var name by rememberSaveable(habitId) { mutableStateOf<String?>(null) }
     var colorArgb by rememberSaveable(habitId) { mutableStateOf<Int?>(null) }
+    var colorSourceName by rememberSaveable(habitId) { mutableStateOf<String?>(null) }
+    var colorThemeKeyName by rememberSaveable(habitId) { mutableStateOf<String?>(null) }
     var interval by rememberSaveable(habitId) { mutableStateOf<Int?>(null) }
     val shownName = name ?: habit?.name.orEmpty()
     val shownColor = colorArgb ?: habit?.color ?: Habit().color
+    val shownColorSpec = ColorSpec(
+        source = colorSourceName?.let { ColorSource.valueOf(it) } ?: habit?.colorSource ?: ColorSource.Custom,
+        themeKey = colorThemeKeyName?.let { ThemeColorKey.valueOf(it) } ?: habit?.colorThemeKey
+        ?: ThemeColorKey.Primary,
+        customColor = shownColor,
+    )
     val shownInterval = interval ?: habit?.interval ?: 1
 
     var showColorPicker by remember { mutableStateOf(false) }
@@ -105,14 +115,22 @@ fun HabitEditScreen(
                 HabitCenter.addHabit(
                     Habit(
                         name = trimmed,
-                        color = shownColor,
+                        color = shownColorSpec.customColor,
+                        colorSource = shownColorSpec.source,
+                        colorThemeKey = shownColorSpec.themeKey,
                         interval = shownInterval,
                         createdAt = System.currentTimeMillis(),
                     ),
                 )
             } else {
                 HabitCenter.updateHabit(
-                    habit.copy(name = trimmed, color = shownColor, interval = shownInterval),
+                    habit.copy(
+                        name = trimmed,
+                        color = shownColorSpec.customColor,
+                        colorSource = shownColorSpec.source,
+                        colorThemeKey = shownColorSpec.themeKey,
+                        interval = shownInterval,
+                    ),
                 )
             }
             onBack()
@@ -120,9 +138,6 @@ fun HabitEditScreen(
     }
 
     val scheme = MaterialTheme.colorScheme
-    val themeColorArgb = remember(scheme) {
-        ThemeColorKey.entries.associateWith { it.resolveColor(scheme).toArgb() }
-    }
 
     LunoScreen(
         title = stringResource(
@@ -180,12 +195,12 @@ fun HabitEditScreen(
             if (showColorPicker) {
                 ColorPickerBottomSheet(
                     onDismissRequest = { showColorPicker = false },
-                    initialColor = Color(shownColor),
+                    initialSelection = shownColorSpec.toInitialSelection(scheme),
                     onColorSelected = { selection ->
-                        colorArgb = when (selection) {
-                            is ColorSelection.Custom -> selection.color.toArgb()
-                            is ColorSelection.Theme -> themeColorArgb[selection.key] ?: colorArgb
-                        }
+                        val colorSpec = selection.toColorSpec(scheme)
+                        colorArgb = colorSpec.customColor
+                        colorSourceName = colorSpec.source.name
+                        colorThemeKeyName = colorSpec.themeKey.name
                         showColorPicker = false
                     },
                 )
@@ -212,7 +227,7 @@ fun HabitEditScreen(
                         Modifier
                             .size(20.dp)
                             .clip(CircleShape)
-                            .background(Color(shownColor)),
+                            .background(shownColorSpec.toColor()),
                     )
                 },
                 onClick = { showColorPicker = true },
@@ -230,7 +245,7 @@ fun HabitEditScreen(
         if (habit != null) {
             RecentChecksGrid(
                 habitId = habit.id,
-                color = Color(shownColor),
+                color = shownColorSpec.toColor(),
                 config = config,
                 today = today,
             )

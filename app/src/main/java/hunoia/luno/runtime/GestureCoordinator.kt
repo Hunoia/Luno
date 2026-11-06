@@ -810,12 +810,12 @@ class GestureCoordinator(
         action: hunoia.luno.action.model.StoredAction,
         anchorX: Int,
         anchorY: Int,
-        color: Int,
+        colorSpec: hunoia.luno.config.model.ColorSpec,
     ) {
         val panelId = action.actionPanelId()
         if (panelId == null) {
             hunoia.luno.core.Events.post(
-                hunoia.luno.core.BallTapActionEvent(action, anchorX, anchorY, color),
+                hunoia.luno.core.BallTapActionEvent(action, anchorX, anchorY, colorSpec),
             )
             return
         }
@@ -824,7 +824,7 @@ class GestureCoordinator(
                 val panels = runtimeSettingsStore.snapshot().actionSettings.actionPanels.panels
                 if (panels.any { it.id == panelId } || attempt == BALL_PANEL_REVEAL_MAX_ATTEMPTS) {
                     hunoia.luno.core.Events.post(
-                        hunoia.luno.core.BallTapActionEvent(action, anchorX, anchorY, color),
+                        hunoia.luno.core.BallTapActionEvent(action, anchorX, anchorY, colorSpec),
                     )
                     return@launch
                 }

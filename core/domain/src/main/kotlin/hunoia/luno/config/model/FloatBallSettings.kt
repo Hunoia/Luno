@@ -31,6 +31,8 @@ data class FloatBallSettings(
     val enabled: Boolean = FloatBallDefaults.Enabled,
     val sizeDp: Float = FloatBallDefaults.SizeDp,
     val color: Int = FloatBallDefaults.Color,
+    val colorSource: ColorSource = ColorSource.Custom,
+    val colorThemeKey: ThemeColorKey = ThemeColorKey.Primary,
     /** 单击球执行的动作。为 null 表示单击无响应。 */
     val tapAction: StoredAction? = null,
     /**
@@ -52,6 +54,9 @@ data class FloatBallSettings(
 ) {
     fun position(landscape: Boolean): FloatBallPosition =
         if (landscape) this.landscape else portrait
+
+    val colorSpec: ColorSpec
+        get() = ColorSpec(colorSource, colorThemeKey, color)
 }
 
 /** 只改当前朝向那份落点。 */
