@@ -15,14 +15,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
+import hunoia.luno.ui.theme.CapsuleShape
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ConnectionRadius
 import hunoia.luno.ui.theme.ContainerRadius
-import hunoia.luno.ui.theme.ContainerSmoothing
+import hunoia.luno.ui.theme.containerShape
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SegmentedGap
-import sv.lib.squircleshape.SquircleShape
 
 private val GroupSubtitlePadding =
     PaddingValues(start = PageGutter, end = PageGutter, bottom = CardInnerSpacing)
@@ -39,12 +39,11 @@ fun segmentedShape(index: Int, count: Int): Shape {
     val isSingle = count <= 1
     val top = if (isSingle || index == 0) ContainerRadius else ConnectionRadius
     val bottom = if (isSingle || index == count - 1) ContainerRadius else ConnectionRadius
-    return SquircleShape(
+    return containerShape(
         topStart = top,
         topEnd = top,
         bottomStart = bottom,
         bottomEnd = bottom,
-        smoothing = ContainerSmoothing,
     )
 }
 
@@ -93,12 +92,11 @@ fun selectedSegmentedShape(index: Int, count: Int, flags: List<Boolean>?): Shape
         neighbor in 0 until count && flags.getOrElse(neighbor) { false } == flags.getOrElse(index) { false }
     val top = if (index == 0 || !sameAsNeighbor(index - 1)) ContainerRadius else ConnectionRadius
     val bottom = if (index == count - 1 || !sameAsNeighbor(index + 1)) ContainerRadius else ConnectionRadius
-    return SquircleShape(
+    return containerShape(
         topStart = top,
         topEnd = top,
         bottomStart = bottom,
         bottomEnd = bottom,
-        smoothing = ContainerSmoothing,
     )
 }
 
@@ -166,7 +164,8 @@ fun SectionBadge(
 ) {
     Surface(
         modifier = modifier,
-        shape = SquircleShape(ContainerRadius),
+        // 组头徽标是文字胶囊：高度随字体变，用百分比胶囊角色。
+        shape = CapsuleShape,
         color = if (error) MaterialTheme.colorScheme.errorContainer
         else MaterialTheme.colorScheme.primaryContainer,
     ) {
