@@ -32,6 +32,8 @@ dependencies {
     implementation(libs.androidx.annotation)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.coil.compose)
+    // coil3.imageLoader / Keyer / ImageLoader 在单例包（coil），coil-compose 不带
+    implementation(libs.coil)
     // QuickSearchKeys 等纯逻辑单测（feature/quickaccess/src/test）。
     testImplementation(libs.junit)
 }

@@ -64,3 +64,11 @@
 -dontwarn com.qualcomm.qti.**
 -dontwarn com.google.ai.edge.litert.**
 
+
+# Compose Styles API（foundation 1.12 的 Modifier.style / Style.applyStyle）：
+# R8 full mode 会把 androidx.compose.foundation.style 里的类做类合并，material3 1.4.0
+# 的 SAM lambda 到运行时已不再实现 Style，release 首帧就在 ResolvedStyle.build 抛
+# ClassCastException（debug 不裁剪所以正常）。整包保留并保住实现类。
+-keep class androidx.compose.foundation.style.** { *; }
+-keep class * implements androidx.compose.foundation.style.Style { *; }
+-keep class * implements androidx.compose.foundation.style.CustomStyleScope { *; }

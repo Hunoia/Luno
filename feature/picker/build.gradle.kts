@@ -41,6 +41,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.coil.compose)
+    // coil3.imageLoader / Keyer / ImageLoader 在单例包（coil），coil-compose 不带
+    implementation(libs.coil)
     implementation(libs.com.aaronzzx.fastcompose.compose) {
         exclude(group = "androidx.hilt")
         exclude(group = "com.google.dagger")
