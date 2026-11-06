@@ -5,6 +5,7 @@ import hunoia.luno.bridge.system.ClipboardContent
 import hunoia.luno.bridge.system.copyImage
 import hunoia.luno.bridge.system.copyText
 import hunoia.luno.bridge.system.readClipboardContentDetailed
+import hunoia.luno.bridge.ui.assertNotMainThread
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.ClipboardHistory
 import hunoia.luno.core.AppContext
@@ -48,6 +49,7 @@ object ClipboardCenter {
 
     /** 读当前主剪贴项：Shizuku 可用走 shell 桥，否则应用内直读。 */
     suspend fun readCurrent(): ClipboardContent? = withContext(Dispatchers.IO) {
+        assertNotMainThread("clipboard.readCurrent")
         val status = runCatching { ShizukuManager.currentStatus() }.getOrNull()
         if (status?.binderAlive == true && status.permissionGranted) {
             val viaShizuku = runCatching { ShizukuClipboard.readContent() }

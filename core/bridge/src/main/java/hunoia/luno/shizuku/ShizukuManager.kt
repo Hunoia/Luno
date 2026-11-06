@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import hunoia.luno.core.AppContext
 import hunoia.luno.bridge.system.AccessibilitySettings
+import hunoia.luno.bridge.ui.assertNotMainThread
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -189,6 +190,7 @@ object ShizukuManager {
     // ---- Shell Execution ----
 
     private suspend fun grantWriteSecureSettings() = withContext(Dispatchers.IO) {
+        assertNotMainThread("shizuku.grantWriteSecureSettings")
         runCatching {
             val svc = IShizukuService.Stub.asInterface(Shizuku.getBinder())
             val proc = svc.newProcess(arrayOf("sh"), null, null)
@@ -210,6 +212,7 @@ object ShizukuManager {
     }
 
     suspend fun executeShell(command: String, maxChars: Int = 4096): ShellResult = withContext(Dispatchers.IO) {
+        assertNotMainThread("shizuku.executeShell")
         if (command.isBlank()) {
             return@withContext ShellResult(-1, "", "", false, "Command is blank")
         }

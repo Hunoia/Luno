@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.hardware.camera2.CameraManager
 import androidx.core.content.ContextCompat
+import hunoia.luno.bridge.ui.assertNotMainThread
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -27,6 +28,7 @@ object FlashlightController {
     }
 
     suspend fun toggle(context: Context): Boolean = withContext(Dispatchers.Default) {
+        assertNotMainThread("flashlight.toggle")
         try {
             val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
             val cameraId = manager.cameraIdList.firstOrNull() ?: return@withContext false
@@ -41,6 +43,7 @@ object FlashlightController {
     }
 
     suspend fun set(context: Context, on: Boolean): Boolean = withContext(Dispatchers.Default) {
+        assertNotMainThread("flashlight.set")
         try {
             val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
             val cameraId = manager.cameraIdList.firstOrNull() ?: return@withContext false

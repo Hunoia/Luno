@@ -1,6 +1,7 @@
 package hunoia.luno.shizuku
 
 import android.os.Parcelable
+import hunoia.luno.bridge.ui.assertNotMainThread
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.parcelize.Parcelize
@@ -10,6 +11,7 @@ object ShizukuFacade {
     fun isReady(): Boolean = ShizukuManager.currentStatus().isReady
 
     suspend fun runShellCommand(command: String): ShellCommandResult = withContext(Dispatchers.IO) {
+        assertNotMainThread("shizuku.shell")
         val startMs = System.currentTimeMillis()
         val result = ShizukuManager.executeShell(command)
         ShellCommandResult(

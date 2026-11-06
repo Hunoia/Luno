@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.core.LOG_TAG
+import hunoia.luno.bridge.ui.assertNotMainThread
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -16,6 +17,7 @@ import kotlinx.coroutines.withContext
 object ShizukuScreenshot {
 
     suspend fun capture(): Bitmap? = withContext(Dispatchers.IO) {
+        assertNotMainThread("shizuku.screenshot")
         if (!ShizukuManager.currentStatus().isReady) return@withContext null
         when (val opened = ShizukuShellStream.openArgv("screencap", "-p")) {
             is ShizukuShellStream.OpenResult.Failure -> {
