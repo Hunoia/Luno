@@ -1,6 +1,5 @@
 package hunoia.luno.arch
 
-import java.io.File
 import hunoia.luno.core.domain.StoredAction
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -19,8 +18,6 @@ import org.junit.Test
  */
 class ActionBoundaryTest {
 
-    private val repoRoot = File("..")
-
     /** 允许构造 `ActionRequest(...)` 的文件（相对仓库根）。新增必须过架构评审。 */
     private val actionRequestSites = setOf(
         // 定义处
@@ -33,17 +30,16 @@ class ActionBoundaryTest {
         "feature/link/src/main/java/hunoia/luno/link/LinkDispatcher.kt",
     )
 
+    private val actionRequestCall = Regex("""\bActionRequest\s*\(""")
+
     @Test
     fun `ActionRequest 只在已评审的触发侧构造`() {
-        val pattern = Regex("""\bActionRequest\s*\(""")
-        val offenders = repoRoot.walkTopDown()
-            .onEnter { it.name !in setOf("build", ".git", ".gradle") }
-            .filter { it.isFile && it.extension == "kt" }
-            .filter { "/src/test/" !in it.invariantSeparatorsPath }
-            .filter { file -> file.readLines().any { pattern.containsMatchIn(it) } }
-            .map { it.relativeTo(repoRoot).invariantSeparatorsPath }
+        assertTrue("生产源码为空，Konsist scope 解析失败", productionFiles.isNotEmpty())
+
+        val offenders = productionFiles
+            .filter { actionRequestCall.containsMatchIn(it.codeText()) }
+            .map { it.repoPath() }
             .filterNot { it in actionRequestSites }
-            .toList()
 
         assertTrue(
             "以下文件新增了 ActionRequest 构造点；配置写入 / 页面导航不得进执行口（architecture §1.3）：\n" +
@@ -55,10 +51,10 @@ class ActionBoundaryTest {
     @Test
     fun `白名单里的构造点仍然存在`() {
         // 防止门禁退化成“永远通过”：白名单文件改名 / 构造点消失时必须有人来改这里。
-        val pattern = Regex("""\bActionRequest\s*\(""")
         val missing = actionRequestSites.filterNot { site ->
-            val file = File(repoRoot, site)
-            file.isFile && file.readLines().any { pattern.containsMatchIn(it) }
+            productionFiles.any { file ->
+                file.repoPath() == site && actionRequestCall.containsMatchIn(file.codeText())
+            }
         }
         assertTrue(
             "白名单文件不存在或已无 ActionRequest 构造点，请同步本测试：${missing.joinToString()}",

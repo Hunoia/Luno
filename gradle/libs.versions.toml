@@ -21,6 +21,7 @@ coil = "2.7.0"
 navigationCompose = "2.8.4"
 activityCompose = "1.9.3"
 junit = "4.13.2"
+konsist = "0.18.1"
 coroutines = "1.10.2"
 androidxAnnotation = "1.9.1"
 
@@ -36,6 +37,7 @@ androidx-navigation-compose = { group = "androidx.navigation", name = "navigatio
 coil = { group = "io.coil-kt", name = "coil", version.ref = "coil" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+konsist = { group = "com.lemonappdev", name = "konsist", version.ref = "konsist" }
 androidx-annotation = { group = "androidx.annotation", name = "annotation", version.ref = "androidxAnnotation" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 com-aaronzzx-fastcompose-compose = { group = "com.github.aaronzzx.fastcompose", name = "compose", version.ref = "fastCompose" }

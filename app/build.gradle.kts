@@ -197,4 +197,5 @@ dependencies {
     implementation(libs.rikka.shizuku.provider)
     implementation(libs.hiddenapibypass)
     testImplementation(libs.junit)
+    testImplementation(libs.konsist)
 }

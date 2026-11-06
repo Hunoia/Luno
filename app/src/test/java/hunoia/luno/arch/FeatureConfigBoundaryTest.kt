@@ -1,6 +1,5 @@
 package hunoia.luno.arch
 
-import java.io.File
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -12,33 +11,28 @@ import org.junit.Test
  */
 class FeatureConfigBoundaryTest {
 
-    private val featureRoot = File("../feature")
+    private val featureRoot = "feature/"
 
     private val facadeFiles = setOf(
-        "actions/src/main/java/hunoia/luno/domain/action/ActionLibrary.kt",
-        "floatball/src/main/java/hunoia/luno/domain/floatball/FloatBallSettingsCenter.kt",
-        "gridpanel/src/main/java/hunoia/luno/domain/gridpanel/GridPanelCenter.kt",
-        "gridpanel/src/main/java/hunoia/luno/domain/gridpanel/HabitCenter.kt",
-        "gridpanel/src/main/java/hunoia/luno/domain/gridpanel/TodoCenter.kt",
-        "gridpanel/src/main/java/hunoia/luno/gridpanel/PanelResources.kt",
-        "link/src/main/java/hunoia/luno/domain/link/LinkSettingsCenter.kt",
-        "search/src/main/java/hunoia/luno/domain/search/SearchCenter.kt",
+        "feature/actions/src/main/java/hunoia/luno/domain/action/ActionLibrary.kt",
+        "feature/floatball/src/main/java/hunoia/luno/domain/floatball/FloatBallSettingsCenter.kt",
+        "feature/gridpanel/src/main/java/hunoia/luno/domain/gridpanel/GridPanelCenter.kt",
+        "feature/gridpanel/src/main/java/hunoia/luno/domain/gridpanel/HabitCenter.kt",
+        "feature/gridpanel/src/main/java/hunoia/luno/domain/gridpanel/TodoCenter.kt",
+        "feature/gridpanel/src/main/java/hunoia/luno/gridpanel/PanelResources.kt",
+        "feature/link/src/main/java/hunoia/luno/domain/link/LinkSettingsCenter.kt",
+        "feature/search/src/main/java/hunoia/luno/domain/search/SearchCenter.kt",
     )
 
     @Test
     fun `feature ui only touches config through domain facades`() {
-        assertTrue("feature source root not found: ${featureRoot.absolutePath}", featureRoot.isDirectory)
-        val offenders = featureRoot.walkTopDown()
-            .filter {
-                it.isFile &&
-                    it.extension == "kt" &&
-                    "/src/main/" in it.path &&
-                    "/build/" !in it.path
-            }
-            .filter { it.readText().contains("ConfigProvider") }
-            .map { it.relativeTo(featureRoot).invariantSeparatorsPath }
+        val featureFiles = productionFiles.filter { it.repoPath().startsWith(featureRoot) }
+        assertTrue("feature 生产源码为空，Konsist scope 解析失败", featureFiles.isNotEmpty())
+
+        val offenders = featureFiles
+            .filter { "ConfigProvider" in it.codeText() }
+            .map { it.repoPath() }
             .filterNot { it in facadeFiles }
-            .toList()
 
         assertTrue(
             "feature 代码绕过配置门面：\n" + offenders.joinToString("\n"),

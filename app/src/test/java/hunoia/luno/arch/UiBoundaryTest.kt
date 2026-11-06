@@ -1,6 +1,6 @@
 package hunoia.luno.arch
 
-import java.io.File
+import com.lemonappdev.konsist.api.declaration.KoFileDeclaration
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -12,53 +12,54 @@ import org.junit.Test
  */
 class UiBoundaryTest {
 
-    private val uiRoot = File("src/main/java/hunoia/luno/ui")
+    private val uiRoot = "app/src/main/java/hunoia/luno/ui/"
 
-    private val forbidden = listOf(
+    private val forbiddenImportPrefixes = listOf(
         "hunoia.luno.config.ConfigProvider",
         "hunoia.luno.config.store",
         "hunoia.luno.config.repository",
-        "import hunoia.luno.runtime.",
-        "import hunoia.luno.service.",
+        "hunoia.luno.runtime",
+        "hunoia.luno.service",
     )
+
+    private val uiFiles get() = productionFiles.filter { it.repoPath().startsWith(uiRoot) }
 
     @Test
     fun `no bare tween literals in ui code`() {
-        val roots = listOf(
-            File("src/main/java/hunoia/luno/ui"),
-            File("../feature"),
-            File("../ui"),
-        )
-        val problems = roots.flatMap { root ->
-            if (!root.isDirectory) return@flatMap emptyList()
-            root.walkTopDown()
-                .filter { it.isFile && it.extension == "kt" && "/build/" !in it.path }
-                .flatMap { file ->
-                    file.readLines().mapIndexedNotNull { index, line ->
-                        val marker = "tween("
-                        val at = line.indexOf(marker)
-                        val bare = at >= 0 &&
-                            line.getOrNull(at + marker.length)?.isDigit() == true
-                        if (bare) "${file.path}:${index + 1} 使用了裸 tween 数字" else null
-                    }
+        val problems = productionFiles
+            .filter(::isUiCode)
+            .flatMap { file ->
+                file.text.lines().mapIndexedNotNull { index, line ->
+                    val at = line.indexOf("tween(")
+                    val bare = at >= 0 && line.getOrNull(at + "tween(".length)?.isDigit() == true
+                    if (bare) "${file.repoPath()}:${index + 1} 使用了裸 tween 数字" else null
                 }
-                .toList()
-        }
+            }
         assertTrue(problems.joinToString("\n"), problems.isEmpty())
     }
 
     @Test
     fun `ui does not reach into storage runtime or service`() {
-        assertTrue("缺少 UI 目录：${uiRoot.absolutePath}", uiRoot.isDirectory)
-        val problems = uiRoot.walkTopDown()
-            .filter { it.isFile && it.extension == "kt" }
-            .flatMap { file ->
-                val text = file.readText()
-                forbidden.filter { text.contains(it) }.map { token ->
-                    "${file.relativeTo(uiRoot).path} 引用了 $token"
-                }.asSequence()
-            }
-            .toList()
+        assertTrue("缺少 UI 目录：$uiRoot", uiFiles.isNotEmpty())
+
+        val problems = uiFiles.flatMap { file ->
+            file.imports
+                .map { it.name }
+                .filter { name -> forbiddenImportPrefixes.any { matchesImport(name, it) } }
+                .map { name -> "${file.repoPath()} 引用了 $name" }
+        }
         assertTrue(problems.joinToString("\n"), problems.isEmpty())
     }
+
+    /** 与搬迁前一致：app 只看 ui 包，feature / ui 模块全量。 */
+    private fun isUiCode(file: KoFileDeclaration): Boolean =
+        when {
+            file.moduleName == "app" -> file.repoPath().startsWith(uiRoot)
+            file.moduleName.startsWith("feature/") -> true
+            file.moduleName.startsWith("ui/") -> true
+            else -> false
+        }
+
+    private fun matchesImport(name: String, prefix: String): Boolean =
+        name == prefix || name.startsWith("$prefix.")
 }

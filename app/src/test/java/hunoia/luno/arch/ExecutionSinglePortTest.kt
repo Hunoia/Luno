@@ -1,6 +1,5 @@
 package hunoia.luno.arch
 
-import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -18,10 +17,8 @@ import org.junit.Test
  */
 class ExecutionSinglePortTest {
 
-    private val repoRoot = File("..")
-
     /** 除内核与组装根外，动作库需要实现 `ActionExecutor` 契约。 */
-    private val kernelImporters = setOf("feature/execute", "app", "feature/actions")
+    private val kernelModules = setOf("app", "feature/execute", "feature/actions")
 
     /** 允许构造 `ActionDispatcher` 的装配点（相对仓库根）。 */
     private val dispatcherSites = setOf(
@@ -32,16 +29,19 @@ class ExecutionSinglePortTest {
         "app/src/main/java/hunoia/luno/runtime/SurfaceActionRuntime.kt",
     )
 
+    private val dispatcherCall = Regex("""\bActionDispatcher\s*\(""")
+
     @Test
     fun `执行内核只被允许的模块引用`() {
-        val offenders = sourceFiles()
-            .filterNot { file -> kernelImporters.any { file.relativePath().startsWith("$it/") } }
+        val offenders = productionFiles
+            .filterNot { it.moduleName in kernelModules }
             .filter { file ->
-                val text = file.readText()
-                text.contains("import hunoia.luno.action.execution.") ||
-                    text.contains("import hunoia.luno.action.dispatcher.")
+                file.importsName { name ->
+                    name.startsWith("hunoia.luno.action.execution.") ||
+                        name.startsWith("hunoia.luno.action.dispatcher.")
+                }
             }
-            .map { it.relativePath() }
+            .map { it.repoPath() }
 
         assertTrue(
             "以下文件绕过端口直接依赖执行内核（architecture §1.5 第 1 条）；" +
@@ -53,10 +53,10 @@ class ExecutionSinglePortTest {
 
     @Test
     fun `动作库不直接依赖分发口`() {
-        val offenders = sourceFiles()
-            .filter { it.relativePath().startsWith("feature/actions/") }
-            .filter { it.readText().contains("import hunoia.luno.action.dispatcher.") }
-            .map { it.relativePath() }
+        val offenders = productionFiles
+            .filter { it.moduleName == "feature/actions" }
+            .filter { file -> file.importsName { it.startsWith("hunoia.luno.action.dispatcher.") } }
+            .map { it.repoPath() }
 
         assertTrue(
             "动作库只应实现 ActionExecutor，不应持有分发口：\n" + offenders.joinToString("\n"),
@@ -66,11 +66,13 @@ class ExecutionSinglePortTest {
 
     @Test
     fun `ActionExecutor 实现只在动作库模块`() {
-        val implPattern = Regex("""class\s+\w+[^\n]*:\s*[^\n]*\bActionExecutor\b""")
-        val offenders = sourceFiles()
-            .filterNot { it.relativePath().startsWith("feature/actions/") }
-            .filter { implPattern.containsMatchIn(it.readText()) }
-            .map { it.relativePath() }
+        val offenders = productionFiles
+            .filterNot { it.moduleName == "feature/actions" }
+            .flatMap { file ->
+                file.classes()
+                    .filter { it.hasParentWithName("ActionExecutor") }
+                    .map { "${file.repoPath()}:${it.name}" }
+            }
 
         assertTrue(
             "ActionExecutor 实现应留在 :feature:actions（动作库），实际出现在：\n" +
@@ -81,10 +83,9 @@ class ExecutionSinglePortTest {
 
     @Test
     fun `ActionDispatcher 只在已评审的装配点构造`() {
-        val pattern = Regex("""\bActionDispatcher\s*\(""")
-        val sites = sourceFiles()
-            .filter { pattern.containsMatchIn(it.readText()) }
-            .map { it.relativePath() }
+        val sites = productionFiles
+            .filter { dispatcherCall.containsMatchIn(it.codeText()) }
+            .map { it.repoPath() }
             .toSet()
 
         assertEquals(
@@ -96,11 +97,11 @@ class ExecutionSinglePortTest {
 
     @Test
     fun `装配点各自只构造一个 Dispatcher`() {
-        val pattern = Regex("""\bActionDispatcher\s*\(""")
         val offenders = dispatcherSites
             .filter { it.startsWith("app/") }
             .filter { site ->
-                pattern.findAll(File(repoRoot, site).readText()).count() != 1
+                val file = productionFiles.firstOrNull { it.repoPath() == site }
+                file == null || dispatcherCall.findAll(file.codeText()).count() != 1
             }
 
         assertTrue(
@@ -109,16 +110,4 @@ class ExecutionSinglePortTest {
             offenders.isEmpty(),
         )
     }
-
-    /** 仓库源码文件；排除构建产物、依赖缓存与工具目录（`.direnv` 里有仓库副本）。 */
-    private fun sourceFiles(): List<File> =
-        repoRoot.walkTopDown()
-            .onEnter { dir ->
-                dir.name !in setOf("build", ".git", ".gradle", ".direnv", ".workbuddy", ".opencode", "node_modules")
-            }
-            .filter { it.isFile && it.extension == "kt" }
-            .filter { "/src/main/" in it.invariantSeparatorsPath }
-            .toList()
-
-    private fun File.relativePath(): String = relativeTo(repoRoot).invariantSeparatorsPath
 }
