@@ -87,6 +87,8 @@ import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.domain.action.ActionCatalog
 import hunoia.luno.ui.navigation.ACTION_LIBRARY_ENTRY_ID
 import hunoia.luno.ui.theme.resolveColor
+import hunoia.luno.service.DispatchClient
+import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.twotone.LibraryBooks
 import androidx.compose.material.icons.twotone.Home
@@ -193,6 +195,12 @@ fun HomeScreen(
         }
         val lifecycleOwner = LocalLifecycleOwner.current
         LaunchedEffect(key1 = lifecycleOwner) {
+            // 服务连接就绪/断开时主动刷新状态卡：冷启动时 bind 是异步的，
+            // 首次读取会误报「暂不可用」，不能等下次 ON_RESUME 才纠正。
+            // repeatOnLifecycle 是挂起阻塞的，必须并行 launch 才不会饿死订阅。
+            launch {
+                DispatchClient.readyFlow.collect { vm.updatePermissionState() }
+            }
             lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 vm.updatePermissionState()
                 vm.refreshShizukuStatus()

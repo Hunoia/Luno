@@ -13,6 +13,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -61,27 +64,36 @@ object DispatchClient {
     @Volatile private var stub: IDispatchService? = null
     @Volatile private var appCtx: Context? = null
 
+    /** 分发连接就绪的观察点：服务连上 / 断开时翻转，供状态卡等 UI 主动刷新。
+     *  只代表 Binder 连接，不代表 :service 内部已就绪（[isReady] 才是权威判断）。 */
+    private val _readyFlow = MutableStateFlow(false)
+    val readyFlow: StateFlow<Boolean> = _readyFlow.asStateFlow()
+
     private val connection = DispatchConnection(retryIntervalMs = RETRY_INTERVAL_MS)
 
     private val conn: ServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
             stub = runCatching { IDispatchService.Stub.asInterface(binder) }.getOrNull()
+            _readyFlow.value = true
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
             stub = null
+            _readyFlow.value = false
             connection.onServiceDisconnected()
         }
 
         override fun onBindingDied(name: ComponentName?) {
             // 宿主进程已死：必须 unbind 后重新 bind，系统不会复用这个连接。
             stub = null
+            _readyFlow.value = false
             connection.onBindingDied()
             appCtx?.let { runCatching { it.unbindService(conn) } }
         }
 
         override fun onNullBinding(name: ComponentName?) {
             stub = null
+            _readyFlow.value = false
             connection.onNullBinding()
             appCtx?.let { runCatching { it.unbindService(conn) } }
         }
