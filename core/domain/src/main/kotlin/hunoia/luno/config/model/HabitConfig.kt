@@ -14,7 +14,8 @@ const val HabitHistoryRetentionDays = 90
 enum class HabitType { BOOLEAN }
 
 /**
- * 一个习惯。打卡频率按「每 [interval] 日」滑动式判定（见 [currentStreak] / [isDueDay]）。
+ * 一个习惯。打卡频率按「每 [interval] 日」滑动式判定（见 [habitDayState] / [currentStreak]）：
+ * 上次打卡日之后，隔满 [interval] 日才是下一个应打卡日，中间是跳过日。
  *
  * 字段：
  * - [color]：ARGB 整数，来自 UI 的 `ColorSelection`（Theme 预设 / Custom）。
@@ -54,12 +55,6 @@ data class HabitConfig(
 
     /** 某习惯是否已在 [day] 打卡。 */
     fun isChecked(habitId: String, day: Long): Boolean = checks[habitId]?.contains(day) == true
-
-    /**
-     * 部件层面可否打卡：只打卡不可取消——今天已打就不能再点；
-     * 取消 / 改历史走管理页（[setChecked]）。
-     */
-    fun canCheckToday(habitId: String, today: Long): Boolean = !isChecked(habitId, today)
 
     /** 写入一次打卡（幂等：已在集合则原样返回，避免无意义写盘）。 */
     fun withCheck(habitId: String, day: Long): HabitConfig {
@@ -114,12 +109,14 @@ data class HabitConfig(
 data class HabitWidgetParams(val habitId: String)
 
 /**
- * 连续自然天数（习惯当前 streak）。算法见方案文档 §1.3：
+ * 连续自然天数（习惯当前 streak）。与 [habitDayState] 同一套「每 x 日」语义：
  *
  * - [checks] 为空 → 0；
- * - 今天未打且距最近打卡日已超过 [interval] 天（错过即断）→ 0；
- * - 否则从最近打卡日往前找「相邻打卡间隔 ≤ [interval]」的最长连续链，
- *   连续自然天数 = 今天 − 链起点 + 1（今天未打但在截止覆盖内仍计，今天尚未结束）。
+ * - 今天未打且已过最近打卡日 c 的应打卡日 c + x（即 today > c + x，逾期）→ streak 断为 0；
+ * - 否则从最近打卡日往前找「相邻打卡间隔 ≤ x」的最长连续链，
+ *   连续自然天数 = 今天 − 链起点 + 1（今天未打但尚未逾期仍计，今天尚未结束）。
+ *
+ * 逾期日仍可补打，但补打前这一段的 streak 已归零。
  */
 fun currentStreak(checks: Set<Long>, today: Long, interval: Int): Long {
     if (checks.isEmpty()) return 0
@@ -140,21 +137,66 @@ fun currentStreak(checks: Set<Long>, today: Long, interval: Int): Long {
 }
 
 /**
- * [day] 是否是「应打卡日」：∃ 打卡日 c 使 `0 ≤ day − c ≤ interval`（打卡日向后覆盖一个周期）。
- * 用于近 N 天点阵的「弱灰 = 非 due」标注。
+ * 习惯日历里一天的状态。由 [habitDayState] 唯一派生；部件打卡圆、历史点阵与编辑页
+ * 近 30 天日历都消费它，避免同一语义在多处被反向解释（ui-guidelines §1.1）。
+ *
+ * 「每 x 日」= 以最近一次打卡日 c 为锚：c+1 .. c+x−1 是跳过日，c+x 是下一个应打卡日；
+ * 过了 c+x 仍没打就是逾期（可补打，但 streak 已断）。
  */
-fun isDueDay(checks: Set<Long>, day: Long, interval: Int): Boolean {
-    val safeInterval = interval.coerceAtLeast(1)
-    return checks.any { day - it in 0..safeInterval }
+@Keep
+enum class HabitDayState {
+    /** 当天已打卡。 */
+    CHECKED,
+
+    /** 两个应打卡日之间的休整日：主色半透明，部件不可点。 */
+    SKIPPED,
+
+    /** 应打卡日：空心主色描边，部件可点。 */
+    DUE,
+
+    /** 错过应打卡日：弱灰 + 断签描边，仍可补打，但 streak 断。 */
+    OVERDUE,
+
+    /** 该日之前没有任何打卡记录（习惯尚未开始）。部件上视为可随时开始。 */
+    INACTIVE,
 }
+
+/**
+ * [day] 的状态：取 `≤ day` 的最近打卡日 c，按 `day − c` 与 [interval] 比较。
+ * 只向后看，因为历史可以补卡，未来的记录不该倒推历史；[today] 用于把「已过去的应打卡日」
+ * 判为逾期（那天没打就是断签，不该在点阵里继续显示成待打卡）。
+ */
+fun habitDayState(checks: Set<Long>, day: Long, interval: Int, today: Long): HabitDayState {
+    val safeInterval = interval.coerceAtLeast(1).toLong()
+    var anchor: Long? = null
+    for (c in checks) {
+        if (c <= day && (anchor == null || c > anchor!!)) anchor = c
+    }
+    val last = anchor ?: return HabitDayState.INACTIVE
+    val delta = day - last
+    return when {
+        delta == 0L -> HabitDayState.CHECKED
+        delta < safeInterval -> HabitDayState.SKIPPED
+        delta == safeInterval && day >= today -> HabitDayState.DUE
+        else -> HabitDayState.OVERDUE
+    }
+}
+
+/**
+ * 部件层面某日可否打卡：已打 / 跳过日（提前打卡）不可点；应打卡、逾期（补打）与尚未开始可点。
+ * 取消打卡与改历史不走这里，统一走编辑页（[HabitConfig.setChecked]）。
+ */
+fun canCheck(checks: Set<Long>, day: Long, interval: Int, today: Long): Boolean =
+    when (habitDayState(checks, day, interval, today)) {
+        HabitDayState.DUE, HabitDayState.OVERDUE, HabitDayState.INACTIVE -> true
+        HabitDayState.CHECKED, HabitDayState.SKIPPED -> false
+    }
 
 /** 点阵里一个格子的状态。 */
 @Keep
 data class HabitDot(
     val day: Long,
-    val checked: Boolean,
-    /** 是否处于某个打卡日后的覆盖周期内；false 表示「非 due」弱灰。 */
-    val due: Boolean,
+    val state: HabitDayState,
 )
 
 /** 最近 [n] 个自然日（含今天）的点阵，旧 → 新。 */
@@ -164,8 +206,7 @@ fun lastNDaysDots(checks: Set<Long>, today: Long, interval: Int, n: Int): List<H
         val day = today - off
         HabitDot(
             day = day,
-            checked = day in checks,
-            due = isDueDay(checks, day, interval),
+            state = habitDayState(checks, day, interval, today),
         )
     }
 }

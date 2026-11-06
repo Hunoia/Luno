@@ -162,3 +162,21 @@ const val MotionCellIn = 120
 const val MotionCellOut = 100
 const val MotionPanelIn = 170
 const val MotionPanelOut = 140
+/** 双击确认窗口（ms）：部件打卡 / 代办完成共用的倒计时时长，不随系统动画缩放改变。 */
+const val MotionConfirmCountdown = 1200
+
+// 编辑页底部保存 FAB 的边长（大字体下仍可点，命中区见 MinInteractiveSize）。
+val FabSize = 64.dp
+
+// 习惯日历点阵：编辑页近 30 天日历与网格面板部件共用语义（命中区 48dp 见 §1.6）。
+val HabitDayCellMinHeight = 48.dp
+val HabitDayCellPaddingVertical = 3.dp
+val HabitDayDotSize = 14.dp
+val HabitDayDotStroke = 1.5.dp
+val HabitDayCheckIconSize = 9.dp
+val HabitDayTextDotGap = 2.dp
+val HabitCalendarCellGap = 2.dp
+val HabitCalendarHeaderGap = 6.dp
+val HabitCalendarPaddingVertical = 12.dp
+val HabitDayTextAlpha = 0.6f
+val HabitWeekdayAlpha = 0.7f

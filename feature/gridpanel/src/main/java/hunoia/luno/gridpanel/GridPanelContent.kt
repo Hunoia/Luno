@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -72,6 +73,14 @@ import kotlinx.coroutines.launch
 
 /** 点空白退出编辑后，这段时间内的项点按不执行（防连点误触）。 */
 private const val ExitEditTapGuardMillis = 150L
+
+/**
+ * 面板入场期间的点击抑制窗口：打开面板的那次触摸抬手会落在新出现的 overlay 窗口上，
+ * 整格 clickable 的内置部件（习惯历史等）会把它当成一次点击并跨进程拉起编辑页。
+ * 覆盖入场动画 MotionPanelIn + 余量；与退出编辑态共用同一个截止时间，动作项 onTap
+ * 与内置部件自带 clickable 不再各写一套抑制口径。
+ */
+internal val PanelOpenTapGuardMillis = (hunoia.luno.ui.theme.MotionPanelIn + 100).toLong()
 
 private const val TAG = "GridPanel"
 
@@ -577,7 +586,10 @@ fun GridPanelRoot(
         }
     }
 
-    var suppressItemTapUntil by remember(panel.id) { mutableStateOf(0L) }
+    // 组合创建 = 面板本次出场：先吞掉入场窗口内的指针事件，退出编辑态时再续期。
+    var suppressItemTapUntil by remember(panel.id) {
+        mutableStateOf(SystemClock.elapsedRealtime() + PanelOpenTapGuardMillis)
+    }
 
     // 拖拽幽灵提供在更外层（见 GridPanelOverlay）：拖拽时这里只负责把卡片本体淡出，
     // 让下面的应用露出来；窗口不摘，手势才接得上。
@@ -589,6 +601,18 @@ fun GridPanelRoot(
     Box(
         Modifier
             .fillMaxSize()
+            // Initial pass 先消费：抑制窗口内子项的 combinedClickable 与内置部件自带的
+            // clickable 都拿不到完整的 down/up，打开面板时的穿透抬手不会误执行。
+            .pointerInput(suppressItemTapUntil) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        if (SystemClock.elapsedRealtime() < suppressItemTapUntil) {
+                            event.changes.forEach { it.consume() }
+                        }
+                    }
+                }
+            }
             .pointerInput(editMode) {
                 detectTapGestures(
                     onTap = {

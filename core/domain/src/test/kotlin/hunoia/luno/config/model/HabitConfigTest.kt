@@ -19,7 +19,7 @@ class HabitConfigTest {
 
     @Test
     fun `daily habit consecutive days`() {
-        // 昨天、前天都打了，今天没打：今天仍在覆盖内（x=1），连续 = 今天 - 前天 + 1 = 3
+        // 昨天、前天都打了，今天没打：今天仍是应打卡日（x=1），连续 = 今天 - 前天 + 1 = 3
         val checks = setOf(today - 1, today - 2)
         assertEquals(3L, currentStreak(checks, today, 1))
     }
@@ -46,9 +46,8 @@ class HabitConfigTest {
 
     @Test
     fun `interval habit within window is consecutive`() {
-        // x=3：11/1 与 11/4 间隔 3 ≤ 3 → 连续；今天未打但仍在 d0+3 覆盖内
+        // x=3：11/1 与 11/4 间隔 3 ≤ 3 → 连续；今天打了，链 11/1..11/4 = 4 天
         val checks = setOf(today - 3, today)
-        // 今天打了（today in checks）：链 11/1..11/4，连续自然天数 = today - (today-3) + 1 = 4
         assertEquals(4L, currentStreak(checks, today, 3))
     }
 
@@ -61,7 +60,7 @@ class HabitConfigTest {
 
     @Test
     fun `interval habit not yet missed deadline`() {
-        // x=3：today-2 打卡，今天未打，d0+3 = today+1 ≥ today → 未断，连续 = today - (today-2) + 1 = 3
+        // x=3：today-2 打卡，今天未打，d0+3 = today+1 ≥ today → 未断，连续 = 3
         val checks = setOf(today - 2)
         assertEquals(3L, currentStreak(checks, today, 3))
     }
@@ -82,28 +81,109 @@ class HabitConfigTest {
         assertEquals(3L, currentStreak(backfilled, today, 1))
     }
 
-    // ---------- isDueDay / dots ----------
+    // ---------- habitDayState / canCheck ----------
 
     @Test
-    fun `due day is within interval after a check`() {
-        val checks = setOf(today - 5)
-        assertTrue(isDueDay(checks, today - 5, 3)) // 打卡日当天
-        assertTrue(isDueDay(checks, today - 4, 3)) // 覆盖内
-        assertTrue(isDueDay(checks, today - 2, 3)) // 边界 day-c == interval
-        assertFalse(isDueDay(checks, today - 1, 3)) // 超出周期 day-c == interval+1
-        assertFalse(isDueDay(checks, today - 9, 3)) // 覆盖前
+    fun `every two days has skip day then due day`() {
+        // 用户报告的场景：x=2，昨天打卡，今天必须是「跳过」，明天才是「应打卡」。
+        val checks = setOf(today - 1)
+        assertEquals(HabitDayState.CHECKED, habitDayState(checks, today - 1, 2, today))
+        assertEquals(HabitDayState.SKIPPED, habitDayState(checks, today, 2, today))
+        assertEquals(HabitDayState.DUE, habitDayState(checks, today + 1, 2, today + 1))
+        assertFalse(canCheck(checks, today, 2, today))
+        assertTrue(canCheck(checks, today + 1, 2, today + 1))
     }
 
     @Test
-    fun `dots reflect check and due`() {
+    fun `overdue is still checkable but breaks streak`() {
+        // 逾期（补打）仍可点，但 currentStreak 已归零。
+        val checks = setOf(today - 3)
+        assertEquals(HabitDayState.OVERDUE, habitDayState(checks, today, 2, today))
+        assertTrue(canCheck(checks, today, 2, today))
+        assertEquals(0L, currentStreak(checks, today, 2))
+    }
+
+    @Test
+    fun `past due day without a check is overdue`() {
+        // 点阵里已过去的应打卡日不该继续显示成「待打卡」。
+        val checks = setOf(today - 4)
+        assertEquals(HabitDayState.SKIPPED, habitDayState(checks, today - 3, 2, today))
+        assertEquals(HabitDayState.OVERDUE, habitDayState(checks, today - 2, 2, today))
+        assertEquals(HabitDayState.OVERDUE, habitDayState(checks, today, 2, today))
+    }
+
+    @Test
+    fun `daily habit has no skip days`() {
         val checks = setOf(today - 1)
-        val dots = lastNDaysDots(checks, today, 1, 4)
-        assertEquals(4, dots.size)
-        // 旧→新：today-3, today-2, today-1, today
-        assertFalse(dots[0].checked); assertFalse(dots[0].due)
-        assertFalse(dots[1].checked); assertFalse(dots[1].due)
-        assertTrue(dots[2].checked); assertTrue(dots[2].due)
-        assertFalse(dots[3].checked); assertTrue(dots[3].due) // 今天未打但在覆盖内
+        assertEquals(HabitDayState.CHECKED, habitDayState(checks, today - 1, 1, today))
+        assertEquals(HabitDayState.DUE, habitDayState(checks, today, 1, today))
+        assertTrue(canCheck(checks, today, 1, today))
+    }
+
+    @Test
+    fun `no prior check means inactive and startable`() {
+        val checks = emptySet<Long>()
+        assertEquals(HabitDayState.INACTIVE, habitDayState(checks, today - 2, 2, today))
+        assertEquals(HabitDayState.INACTIVE, habitDayState(checks, today, 2, today))
+        assertTrue(canCheck(checks, today, 2, today))
+    }
+
+    @Test
+    fun `backfill re-anchors the next due day`() {
+        // x=3：在跳过日补卡后，周期从补卡日重新起算。
+        val checks = setOf(today - 4)
+        assertEquals(HabitDayState.SKIPPED, habitDayState(checks, today - 2, 3, today))
+        val backfilled = checks + (today - 2)
+        assertEquals(HabitDayState.CHECKED, habitDayState(backfilled, today - 2, 3, today))
+        assertEquals(HabitDayState.SKIPPED, habitDayState(backfilled, today, 3, today))
+        assertEquals(HabitDayState.DUE, habitDayState(backfilled, today + 1, 3, today + 1))
+        assertEquals(0L, currentStreak(checks, today, 3))
+        // 补卡后链重新连上：today-4 .. today 共 5 个自然日
+        assertEquals(5L, currentStreak(backfilled, today, 3))
+    }
+
+    @Test
+    fun `checked and skipped days are not checkable`() {
+        val checks = setOf(today - 1)
+        assertFalse(canCheck(checks, today - 1, 2, today))
+        assertFalse(canCheck(checks, today, 2, today))
+    }
+
+    @Test
+    fun `interval is clamped to at least one`() {
+        val checks = setOf(today - 1)
+        assertEquals(HabitDayState.DUE, habitDayState(checks, today, 0, today))
+        assertEquals(HabitDayState.DUE, habitDayState(checks, today, -5, today))
+    }
+
+    // ---------- dots ----------
+
+    @Test
+    fun `dots reflect the day state in order`() {
+        // x=2，昨天打卡：旧→新 = 未开始, 未开始, 已打, 跳过(今天)
+        val checks = setOf(today - 1)
+        val dots = lastNDaysDots(checks, today, 2, 4)
+        assertEquals(listOf(today - 3, today - 2, today - 1, today), dots.map { it.day })
+        assertEquals(
+            listOf(
+                HabitDayState.INACTIVE,
+                HabitDayState.INACTIVE,
+                HabitDayState.CHECKED,
+                HabitDayState.SKIPPED,
+            ),
+            dots.map { it.state },
+        )
+    }
+
+    @Test
+    fun `dots show today as due when it is the next due day`() {
+        // x=2，前天打卡：旧→新 = 已打, 跳过, 待打卡(今天)
+        val checks = setOf(today - 2)
+        val dots = lastNDaysDots(checks, today, 2, 3)
+        assertEquals(
+            listOf(HabitDayState.CHECKED, HabitDayState.SKIPPED, HabitDayState.DUE),
+            dots.map { it.state },
+        )
     }
 
     // ---------- HabitConfig 操作 ----------

@@ -2,8 +2,6 @@ package hunoia.luno.gridpanel.internal
 
 import android.content.ComponentName
 import android.content.Intent
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -71,9 +69,6 @@ import kotlinx.coroutines.launch
  * （添加 / 编辑弹窗在列表页完成，overlay 内不能安全弹系统 Dialog）。
  */
 
-/** 双击确认倒计时时长：单点出现圆环，倒计时内再点才标记完成。 */
-private const val TodoConfirmCountdownMs = 1200
-
 /** 行高：固定高度，列表用 verticalScroll 滚动（不再截断 +M）。 */
 private val TodoRowH = 32.dp
 
@@ -111,14 +106,10 @@ internal fun TodoListCell(
 
     // 双击确认：单点起圆环倒计时，倒计时内再点标记完成；超时取消。同一时刻只一条倒计时。
     var pendingId by remember { mutableStateOf<String?>(null) }
-    val progress = remember { Animatable(0f) }
-    LaunchedEffect(pendingId) {
-        if (pendingId != null) {
-            progress.snapTo(0f)
-            progress.animateTo(1f, tween(TodoConfirmCountdownMs))
-            pendingId = null
-        }
-    }
+    val progress = rememberConfirmProgress(
+        key = pendingId,
+        onTimeout = { pendingId = null },
+    )
     // 进入编辑态（enabled=false）时取消未完成的确认。
     LaunchedEffect(enabled) {
         if (!enabled) pendingId = null
@@ -203,7 +194,7 @@ internal fun TodoListCell(
                         TodoRow(
                             todo = todo,
                             pending = pendingId == todo.id,
-                            progress = progress.value,
+                            progress = progress,
                             accent = accent,
                             onCard = onCard,
                             enabled = enabled,

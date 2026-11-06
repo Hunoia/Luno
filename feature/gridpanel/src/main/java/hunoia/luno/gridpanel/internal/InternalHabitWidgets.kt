@@ -2,8 +2,7 @@ package hunoia.luno.gridpanel.internal
 
 import android.content.ComponentName
 import android.content.Intent
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
+import android.os.SystemClock
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,9 +22,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -56,17 +52,29 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import hunoia.luno.config.model.HabitConfig
+import hunoia.luno.config.model.HabitDayState
 import hunoia.luno.config.model.HabitWidgetParams
+import hunoia.luno.config.model.canCheck
 import hunoia.luno.config.model.currentStreak
-import hunoia.luno.config.model.isDueDay
+import hunoia.luno.config.model.habitDayState
 import hunoia.luno.config.model.lastNDaysDots
 import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.domain.gridpanel.HabitCenter
 import hunoia.luno.gridpanel.HabitExtras
 import hunoia.luno.gridpanel.LocalGridPanelClose
+import hunoia.luno.gridpanel.PanelOpenTapGuardMillis
 import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.geometry.ItemCorner
+import hunoia.luno.gridpanel.habit.HabitDayMarkIcon
+import hunoia.luno.gridpanel.habit.HabitDayPalette
+import hunoia.luno.gridpanel.habit.borderColor
+import hunoia.luno.gridpanel.habit.fillColor
+import hunoia.luno.gridpanel.habit.habitDayPalette
+import hunoia.luno.gridpanel.habit.label
+import hunoia.luno.gridpanel.habit.markTint
+import hunoia.luno.gridpanel.habit.visual
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
+import hunoia.luno.ui.theme.HabitDayDotStroke
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -78,9 +86,6 @@ import java.time.LocalDate
  * 编辑态 [enabled] = false：部件点按让给层根拖拽；历史部件非编辑态点击拉起主应用对应编辑页。
  */
 
-/** 双击确认倒计时时长：单点出现圆环，倒计时内再点才打卡。 */
-private const val HabitConfirmCountdownMs = 1200
-
 /** 打卡部件只留圆的最小边长：小于该值不显示习惯名（如 1×1）。 */
 private val HabitCompactThreshold = 80.dp
 
@@ -89,9 +94,6 @@ internal fun parseHabitWidgetParams(params: String?): HabitWidgetParams? {
     if (params.isNullOrBlank()) return null
     return runCatching { JsonSerializer.decodeFromString<HabitWidgetParams>(params) }.getOrNull()
 }
-
-@Composable
-private fun rememberToday(): Long = remember { LocalDate.now().toEpochDay() }
 
 @Composable
 internal fun HabitCheckCell(
@@ -108,38 +110,43 @@ internal fun HabitCheckCell(
         EmptyHabitCell(modifier = modifier, configHasHabits = config.hasHabits)
         return
     }
-    val today = rememberToday()
+    val today = rememberTodayEpochDay()
     val checks = config.checks[habit.id].orEmpty()
-    val checked = config.isChecked(habit.id, today)
-    // 打卡日 = 今天可打卡（已有记录的覆盖周期内，或尚无记录可随时开始）；
-    // 跳过日 = 非 due 且今天未打：半透明主色、不可点，改历史只走编辑页。
-    val dueToday = checks.isEmpty() || isDueDay(checks, today, habit.interval)
-    val clickable = enabled && !checked && dueToday
+    val state = habitDayState(checks, today, habit.interval, today)
+    // 尚未开始：部件允许随时开始，视觉与「待打卡」一致；编辑页日历仍显示未开始。
+    val shownState = if (state == HabitDayState.INACTIVE) HabitDayState.DUE else state
+    // 跳过日不可提前打卡，已打不可重复；逾期（补打）与未开始都仍可点。
+    val clickable = enabled && canCheck(checks, today, habit.interval, today)
     val habitColor = Color(habit.color)
+    val palette = habitDayPalette(primary = habitColor, neutral = onCard)
+    val visual = shownState.visual()
+    val fillColor = visual.fillColor(palette)
+    val borderColor = visual.borderColor(palette)
+    val stateLabel = shownState.label()
+    val confirmHint = stringResource(R.string.grid_panel_habit_confirm_hint)
     val scope = rememberCoroutineScope()
 
     // 双击确认：单点起主圆边缘倒计时，倒计时内再点确认；超时取消。
     var pending by remember { mutableStateOf(false) }
-    val progress = remember { Animatable(0f) }
-    LaunchedEffect(pending) {
-        if (pending) {
-            progress.snapTo(0f)
-            progress.animateTo(1f, tween(HabitConfirmCountdownMs))
-            pending = false
-        }
-    }
+    val progress = rememberConfirmProgress(
+        key = true.takeIf { pending },
+        onTimeout = { pending = false },
+    )
     // 进入编辑态（enabled=false）时取消未完成的确认。
     LaunchedEffect(enabled) {
         if (!enabled) pending = false
     }
 
-    val checkDesc = stringResource(R.string.grid_panel_habit_check_desc)
-    val checkedDesc = stringResource(R.string.grid_panel_habit_checked)
+    val cellDesc = stringResource(
+        R.string.grid_panel_habit_state_desc,
+        habit.name,
+        if (pending) confirmHint else stateLabel,
+    )
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .clip(RoundedCornerShape(ItemCorner))
-            .semantics { contentDescription = if (checked) checkedDesc else "${habit.name} $checkDesc" }
+            .semantics { contentDescription = cellDesc }
             .then(
                 if (clickable) {
                     Modifier.clickable {
@@ -160,17 +167,8 @@ internal fun HabitCheckCell(
         val compact = side < HabitCompactThreshold
         val circleSize = (side * 0.56f).coerceIn(24.dp, 72.dp)
         val strokeWidth = (circleSize * 0.07f).coerceIn(2.dp, 4.dp)
-        // 已打 = 实心主色 + 勾；打卡日（due 未打）= 空心主色描边（待打卡感）；
-        // 跳过日（非 due 未打）= 半透明主色（不可点，改历史只走编辑页）。
-        val fillColor = when {
-            checked -> habitColor
-            dueToday -> Color.Transparent
-            else -> habitColor.copy(alpha = 0.3f)
-        }
-        val borderColor = when {
-            checked || dueToday -> habitColor
-            else -> habitColor.copy(alpha = 0.15f)
-        }
+        // 视觉语义由 shownState.visual() 统一派生（HabitDayVisual.kt）：
+        // 已打 = 实心 + 勾；待打 = 空心描边；跳过 = 半透明主色 + 横杠；断签 = 弱灰 + 错误色描边。
         Column(
             modifier = Modifier.padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -192,14 +190,11 @@ internal fun HabitCheckCell(
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (checked) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(circleSize * 0.5f),
-                        )
-                    }
+                    HabitDayMarkIcon(
+                        mark = visual.mark,
+                        color = visual.markTint(palette),
+                        modifier = Modifier.size(circleSize * 0.5f),
+                    )
                 }
                 // 倒计时 = 主圆描边本身：弱色轨道 + 主色进度弧（从 -90° 扫），不另叠一层。
                 if (pending) {
@@ -219,7 +214,7 @@ internal fun HabitCheckCell(
                         drawArc(
                             color = habitColor,
                             startAngle = -90f,
-                            sweepAngle = 360f * progress.value,
+                            sweepAngle = 360f * progress,
                             useCenter = false,
                             topLeft = Offset(inset, inset),
                             size = Size(size.width - w, size.height - w),
@@ -259,11 +254,15 @@ internal fun HabitHistoryCell(
         EmptyHabitCell(modifier = modifier, configHasHabits = config.hasHabits)
         return
     }
-    val today = rememberToday()
+    val today = rememberTodayEpochDay()
     val checks = config.checks[habit.id].orEmpty()
     val streak = currentStreak(checks, today, habit.interval)
     val habitColor = Color(habit.color)
+    val palette = habitDayPalette(primary = habitColor, neutral = onCard)
     val context = LocalContext.current
+    // 部件组合创建 = 面板本次出场：打开瞬间的穿透抬手不算一次点击。
+    // 跳编辑页是跨进程 startActivity，副作用最重，除了面板根的指针抑制再挡一层。
+    val openedAt = remember { SystemClock.elapsedRealtime() }
     // 点条目进编辑页后把面板一起关掉（镜像 InternalRecentsWidget 的 closePanel）。
     val closePanel = LocalGridPanelClose.current
 
@@ -274,6 +273,9 @@ internal fun HabitHistoryCell(
             .then(
                 if (enabled) {
                     Modifier.clickable {
+                        if (SystemClock.elapsedRealtime() - openedAt < PanelOpenTapGuardMillis) {
+                            return@clickable
+                        }
                         context.startActivity(
                             Intent().apply {
                                 component = ComponentName(context.packageName, HabitExtras.ACTIVITY_MAIN)
@@ -346,11 +348,8 @@ internal fun HabitHistoryCell(
                             val dot = dots.getOrNull(row * cols + col)
                             if (dot != null) {
                                 HabitDotView(
-                                    checked = dot.checked,
-                                    due = dot.due,
-                                    isToday = dot.day == today,
-                                    color = habitColor,
-                                    onCard = onCard,
+                                    state = dot.state,
+                                    palette = palette,
                                     day = LocalDate.ofEpochDay(dot.day).dayOfMonth,
                                     cellWidth = cellW,
                                     cellHeight = cellH,
@@ -369,16 +368,15 @@ internal fun HabitHistoryCell(
 
 @Composable
 private fun HabitDotView(
-    checked: Boolean,
-    due: Boolean,
-    isToday: Boolean,
-    color: Color,
-    onCard: Color,
+    state: HabitDayState,
+    palette: HabitDayPalette,
     day: Int,
     cellWidth: Dp,
     cellHeight: Dp,
     modifier: Modifier = Modifier,
 ) {
+    val visual = state.visual()
+    val stateLabel = state.label()
     val dateSize = (cellWidth.value * 0.28f).coerceIn(6f, 9f).sp
     // 文字框紧排：lineHeight = dateSize，框高 ≈ dateSize，消除大空隙与裁剪。
     val textH = with(LocalDensity.current) { dateSize.toDp() }
@@ -389,15 +387,8 @@ private fun HabitDotView(
     val maxDotByW = (cellWidth * 0.60f).coerceIn(6.dp, 18.dp)
     val maxDotByH = (cellHeight - textH - gap - safety).coerceAtLeast(4.dp)
     val dotSize = minOf(maxDotByW, maxDotByH)
-    // 点色四态：已打 = 实心主色；今天未打 = 空心主色描边（需打卡）；
-    // 跳过（due 未打非今天）= 主色半透明；非 due = 弱灰。
-    val dotColor = when {
-        checked -> color
-        isToday -> Color.Transparent
-        due -> color.copy(alpha = 0.3f)
-        else -> onCard.copy(alpha = 0.12f)
-    }
-    val outlined = isToday && !checked
+    val dotColor = visual.fillColor(palette)
+    val borderColor = visual.borderColor(palette)
     Column(
         modifier = modifier.fillMaxHeight(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -408,7 +399,7 @@ private fun HabitDotView(
             text = day.toString(),
             fontSize = dateSize,
             lineHeight = dateSize,
-            color = onCard.copy(alpha = 0.5f),
+            color = palette.neutral.copy(alpha = 0.5f),
             maxLines = 1,
         )
         Spacer(Modifier.height(gap))
@@ -417,14 +408,17 @@ private fun HabitDotView(
                 .size(dotSize)
                 .clip(CircleShape)
                 .background(dotColor)
-                .then(
-                    if (outlined) {
-                        Modifier.border(width = 1.5.dp, color = color, shape = CircleShape)
-                    } else {
-                        Modifier
-                    },
-                ),
-        )
+                .border(width = HabitDayDotStroke, color = borderColor, shape = CircleShape)
+                .semantics { contentDescription = "$day 日 · $stateLabel" },
+            contentAlignment = Alignment.Center,
+        ) {
+            // 点阵与打卡圆、编辑页日历共用同一套「勾 / 横杠」标记。
+            HabitDayMarkIcon(
+                mark = visual.mark,
+                color = visual.markTint(palette),
+                modifier = Modifier.size(dotSize * 0.7f),
+            )
+        }
     }
 }
 
