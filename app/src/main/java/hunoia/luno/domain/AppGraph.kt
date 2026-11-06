@@ -5,6 +5,8 @@ import hunoia.luno.facade.Facades
 import hunoia.luno.facade.BackupFacade
 import hunoia.luno.domain.log.LogCenter
 import hunoia.luno.facade.LogFacade
+import hunoia.luno.domain.link.LinkSettingsActions
+import hunoia.luno.facade.LinkSettingsFacade
 import hunoia.luno.domain.ocr.OcrModelCenter
 import hunoia.luno.facade.OcrModelFacade
 import hunoia.luno.facade.SystemFacade
@@ -25,6 +27,7 @@ object AppGraph : Facades {
     private var runtimeOverride: RuntimeFacade? = null
     private var ocrModelsOverride: OcrModelFacade? = null
     private var logsOverride: LogFacade? = null
+    private var linkSettingsOverride: LinkSettingsFacade? = null
 
     override val backup: BackupFacade
         get() = backupOverride ?: BackupCenter
@@ -42,6 +45,10 @@ object AppGraph : Facades {
     /** 运行日志：设置页读取/导出，不暴露文件实现。 */
     override val logs: LogFacade
         get() = logsOverride ?: LogCenter
+
+    /** 链接分发配置：页面只读快照流、只提交规则变换。 */
+    override val linkSettings: LinkSettingsFacade
+        get() = linkSettingsOverride ?: LinkSettingsActions
 
     fun overrideBackup(facade: BackupFacade?) {
         backupOverride = facade
@@ -61,5 +68,9 @@ object AppGraph : Facades {
 
     fun overrideLogs(facade: LogFacade?) {
         logsOverride = facade
+    }
+
+    fun overrideLinkSettings(facade: LinkSettingsFacade?) {
+        linkSettingsOverride = facade
     }
 }

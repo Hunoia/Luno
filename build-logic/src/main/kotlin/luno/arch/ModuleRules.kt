@@ -38,7 +38,7 @@ object ModuleRules {
             ":core:runtime", ":feature:execute", ":ui:design",
         ),
         ":feature:link" to setOf(
-            ":core:common", ":core:domain", ":core:bridge", ":core:data",
+            ":core:common", ":core:domain", ":core:bridge", ":core:facade",
             ":core:runtime", ":ui:design", ":feature:actions",
         ),
         ":feature:search" to setOf(

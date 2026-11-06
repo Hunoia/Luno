@@ -45,7 +45,7 @@ import hunoia.luno.config.model.LinkTapMode
 import hunoia.luno.config.model.LinkDispatchSettings
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.core.domain.JsonSerializer
-import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.link.LinkPresets
 import hunoia.luno.link.LinkTarget
 import hunoia.luno.link.Links
@@ -89,7 +89,8 @@ fun LinkDispatchSettingsScreen(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val actionSettings by TuneConfig.action
+    val linkFacade = LocalFacades.current.linkSettings
+    val actionSettings by linkFacade.actionSettings
         .collectAsStateWithLifecycle(initialValue = ActionSettings())
     val linkSettings = actionSettings.linkDispatch
     val listState = rememberLazyListState()
@@ -98,7 +99,7 @@ fun LinkDispatchSettingsScreen(
 
     fun update(transform: (LinkDispatchSettings) -> LinkDispatchSettings) {
         scope.launch {
-            TuneConfig.updateAction { it.copy(linkDispatch = transform(it.linkDispatch)) }
+            linkFacade.updateLinkDispatch(transform)
         }
     }
     fun parseImport(raw: String): ImportPreview? {

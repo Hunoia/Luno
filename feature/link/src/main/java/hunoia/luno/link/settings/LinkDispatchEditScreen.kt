@@ -30,7 +30,7 @@ import hunoia.luno.config.model.LinkMatchType
 import hunoia.luno.config.model.LinkMissMode
 import hunoia.luno.config.model.remove
 import hunoia.luno.config.model.upsert
-import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.link.Links
 import hunoia.luno.link.LinkUrls
 import hunoia.luno.ui.component.LabeledTextField
@@ -64,11 +64,12 @@ fun LinkDispatchEditScreen(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val linkFacade = LocalFacades.current.linkSettings
     val addMode = ruleId.isBlank()
     var snapshot by remember(ruleId) { mutableStateOf<LinkDispatchRule?>(null) }
     var missing by remember(ruleId) { mutableStateOf(false) }
     LaunchedEffect(ruleId) {
-        val settings = TuneConfig.action.first()
+        val settings = linkFacade.actionSettings.first()
         val existing = settings.linkDispatch.rules.firstOrNull { it.id == ruleId }
         if (!addMode && existing == null) {
             missing = true
@@ -104,7 +105,7 @@ fun LinkDispatchEditScreen(
     // 规则表的其他条目（测试匹配要把整张表按顺序跑一遍）。
     var otherRules by remember(ruleId) { mutableStateOf<List<LinkDispatchRule>>(emptyList()) }
     LaunchedEffect(ruleId) {
-        otherRules = TuneConfig.action.first().linkDispatch.rules
+        otherRules = linkFacade.actionSettings.first().linkDispatch.rules
     }
     var showAppPicker by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
@@ -151,7 +152,7 @@ fun LinkDispatchEditScreen(
             missAction = ruleMiss,
         )
         scope.launch {
-            TuneConfig.updateAction { it.copy(linkDispatch = it.linkDispatch.upsert(rule)) }
+            linkFacade.updateLinkDispatch { it.upsert(rule) }
             onBack()
         }
     }
@@ -193,9 +194,7 @@ fun LinkDispatchEditScreen(
                     onConfirm = {
                         showDeleteConfirm = false
                         scope.launch {
-                            TuneConfig.updateAction {
-                                it.copy(linkDispatch = it.linkDispatch.remove(ruleId))
-                            }
+                            linkFacade.updateLinkDispatch { it.remove(ruleId) }
                             onBack()
                         }
                     },

@@ -20,7 +20,6 @@ class FeatureConfigBoundaryTest {
         "feature/gridpanel/src/main/java/hunoia/luno/domain/gridpanel/HabitCenter.kt",
         "feature/gridpanel/src/main/java/hunoia/luno/domain/gridpanel/TodoCenter.kt",
         "feature/gridpanel/src/main/java/hunoia/luno/gridpanel/PanelResources.kt",
-        "feature/link/src/main/java/hunoia/luno/domain/link/LinkSettingsCenter.kt",
         "feature/search/src/main/java/hunoia/luno/domain/search/SearchCenter.kt",
     )
 

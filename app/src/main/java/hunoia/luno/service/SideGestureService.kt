@@ -86,7 +86,9 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             )
         },
         onOpenLink = { url ->
-            val settings = hunoia.luno.domain.link.LinkSettingsCenter.linkDispatch()
+            val settings = runCatching {
+                hunoia.luno.config.ConfigProvider.getActionSettings().linkDispatch
+            }.getOrDefault(hunoia.luno.config.model.LinkDispatchSettings())
             val rule = if (settings.enabled) {
                 hunoia.luno.link.LinkUrls.firstMatch(url, settings.rules)
             } else {
