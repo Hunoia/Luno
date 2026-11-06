@@ -722,7 +722,7 @@ private fun OcrResultScreen(
                                         contentPadding = PaddingValues(vertical = 2.dp),
                                         verticalArrangement = Arrangement.spacedBy(CardInnerSpacing),
                                     ) {
-                                        itemsIndexed(lines) { index, line ->
+                                        itemsIndexed(lines, key = { index, _ -> index }) { index, line ->
                                             WordChips(
                                                 line = line,
                                                 startIndex = lineStarts[index],
