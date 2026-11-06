@@ -72,12 +72,13 @@ object SurfaceActionRuntime {
         if (serviceProcess) {
             appContextRef = appContext
             // 本进程有 Dispatcher：提交即视为送达，执行结果由 Surface/调用方另行处理。
-            ActionDispatch.installSender(ActionDispatchPort { action, origin ->
+            ActionDispatch.installSender(ActionDispatchPort { action, origin, idempotencyKey ->
                 dispatcher.submit(
                     ExecuteCall(
                         request = hunoia.luno.core.domain.ActionRequest(
                             stored = action,
                             origin = origin,
+                            idempotencyKey = idempotencyKey,
                         ),
                     ),
                 )
@@ -103,8 +104,12 @@ object SurfaceActionRuntime {
             })
         } else {
             // 主进程没有本地 Dispatcher：提交走 IPC，最多等 500ms 的“已受理”。
-            ActionDispatch.installSender(ActionDispatchPort { action, origin ->
-                hunoia.luno.service.DispatchClient.send(action, origin = origin) == SendOutcome.Delivered
+            ActionDispatch.installSender(ActionDispatchPort { action, origin, idempotencyKey ->
+                hunoia.luno.service.DispatchClient.send(
+                    action = action,
+                    idempotencyKey = idempotencyKey,
+                    origin = origin,
+                ) == SendOutcome.Delivered
             })
             // 链接等需要真实结果的入口：等待 :service 回推三态（最长 10s）。
             ActionDispatch.installAwaitable(AwaitableActionDispatch { request ->

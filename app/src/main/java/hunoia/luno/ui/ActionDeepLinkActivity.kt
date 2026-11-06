@@ -37,8 +37,10 @@ class ActionDeepLinkActivity : ComponentActivity() {
 
     /** App.onCreate 的 bindService 是异步的，首次联动可能还没连上，短轮询兜一下。 */
     private suspend fun dispatchWithRetry(action: hunoia.luno.action.model.StoredAction): Boolean {
+        // 同一次外部调用只生成一个键：超时后重试复用，避免 :service 收到两次执行两次。
+        val idempotencyKey = "deeplink:${java.util.UUID.randomUUID()}"
         repeat(10) {
-            if (AppGraph.runtime.dispatch(action)) return true
+            if (AppGraph.runtime.dispatch(action, idempotencyKey = idempotencyKey)) return true
             delay(100)
         }
         return false

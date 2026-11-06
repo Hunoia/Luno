@@ -7,7 +7,11 @@ package hunoia.luno.core.domain
  * 的 `onSettled` 或具体调用方另行处理。实现方负责选择本进程 Dispatcher 或跨进程 IPC。
  */
 fun interface ActionDispatchPort {
-    suspend fun dispatch(action: StoredAction, origin: DispatchOrigin): Boolean
+    suspend fun dispatch(
+        action: StoredAction,
+        origin: DispatchOrigin,
+        idempotencyKey: String?,
+    ): Boolean
 }
 
 /**

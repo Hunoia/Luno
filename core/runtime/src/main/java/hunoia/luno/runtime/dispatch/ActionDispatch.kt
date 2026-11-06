@@ -39,11 +39,14 @@ object ActionDispatch {
     suspend fun send(
         action: StoredAction,
         origin: DispatchOrigin = DispatchOrigin.PANEL,
-    ): Boolean = sender?.dispatch(action, origin) ?: false
+        idempotencyKey: String? = null,
+    ): Boolean = sender?.dispatch(action, origin, idempotencyKey) ?: false
 
     /**
      * 等待执行结果：优先使用本进程 Dispatcher；没有则退回同步提交（只能确认送达）。
      */
     suspend fun dispatchAwait(request: ActionRequest): Boolean =
-        awaitable?.dispatch(request) ?: sender?.dispatch(request.stored, request.origin) ?: false
+        awaitable?.dispatch(request)
+            ?: sender?.dispatch(request.stored, request.origin, request.idempotencyKey)
+            ?: false
 }

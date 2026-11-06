@@ -13,6 +13,7 @@ interface RuntimeFacade {
     suspend fun dispatch(
         action: StoredAction,
         origin: DispatchOrigin = DispatchOrigin.EXTERNAL_INTENT,
+        idempotencyKey: String? = null,
     ): Boolean
 
     /** 冷启动按落盘配置恢复常驻服务。 */
