@@ -56,7 +56,6 @@ import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.theme.ContentBottom
