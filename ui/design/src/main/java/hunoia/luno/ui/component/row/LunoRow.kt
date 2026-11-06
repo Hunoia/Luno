@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -57,6 +56,7 @@ import hunoia.luno.ui.theme.DisabledAlpha
 import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SmallShape
+import sv.lib.squircleshape.SquircleShape
 
 /**
  * 列表行的唯一实现，三种预设共用：内边距由页面 gutter 或 [LunoGroup] 提供，
@@ -68,7 +68,7 @@ import hunoia.luno.ui.theme.SmallShape
 internal fun LunoRowBase(
     title: String = "",
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(ContainerRadius),
+    shape: Shape = SquircleShape(ContainerRadius),
     enabled: Boolean = true,
     subtitle: String = "",
     subtitleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -225,7 +225,7 @@ fun LunoSettingsRow(
     onLongClick: (() -> Unit)? = null,
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
-    shape: Shape = RoundedCornerShape(ContainerRadius),
+    shape: Shape = SquircleShape(ContainerRadius),
     enabled: Boolean = true,
 ) {
     LunoRowBase(
@@ -264,7 +264,7 @@ fun LunoSelectableRow(
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
-    shape: Shape = RoundedCornerShape(ContainerRadius),
+    shape: Shape = SquircleShape(ContainerRadius),
     enabled: Boolean = true,
     /** true=单选（语义 role 用 RadioButton），false=多选（Checkbox）。 */
     singleSelect: Boolean = false,
@@ -314,7 +314,7 @@ fun LunoSwitchRow(
     subtitleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     onClick: (() -> Unit)? = null,
     leading: (@Composable () -> Unit)? = null,
-    shape: Shape = RoundedCornerShape(ContainerRadius),
+    shape: Shape = SquircleShape(ContainerRadius),
     enabled: Boolean = true,
 ) {
     LunoRowBase(
@@ -356,7 +356,7 @@ fun LunoInputRow(
     subtitleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     isError: Boolean = false,
     singleLine: Boolean = true,
-    shape: Shape = RoundedCornerShape(ContainerRadius),
+    shape: Shape = SquircleShape(ContainerRadius),
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -432,7 +432,7 @@ fun LunoCardInput(
     supportingText: String = "",
     isError: Boolean = false,
     singleLine: Boolean = true,
-    shape: Shape = RoundedCornerShape(ContainerRadius),
+    shape: Shape = SquircleShape(ContainerRadius),
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
 ) {
     val colorScheme = MaterialTheme.colorScheme

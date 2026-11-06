@@ -1,6 +1,6 @@
 package hunoia.luno.gesture.settings.style
 
-import androidx.compose.foundation.shape.RoundedCornerShape
+import sv.lib.squircleshape.SquircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.MaterialTheme
@@ -24,7 +24,7 @@ fun SideGestureSettings(
     centerDegrees: Float,
     count: Int,
     subtitle: String,
-    shape: Shape = RoundedCornerShape(ContainerRadius),
+    shape: Shape = SquircleShape(ContainerRadius),
 ) {
     LunoSettingsRow(
         onClick = onClick,

@@ -84,6 +84,7 @@ import hunoia.luno.quickaccess.query.SOURCE_URL
 import hunoia.luno.ui.component.TextIconGlyph
 
 import hunoia.luno.ui.theme.ContainerRadius
+import sv.lib.squircleshape.SquircleShape
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SmallShape
 import androidx.compose.material.icons.filled.PushPin
@@ -301,7 +302,7 @@ private fun GroupCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(ContainerRadius))
+            .clip(SquircleShape(ContainerRadius))
             .background(searchRowContainer()),
     ) {
         Row(

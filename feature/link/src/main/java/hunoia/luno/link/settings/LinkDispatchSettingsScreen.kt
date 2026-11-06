@@ -66,6 +66,7 @@ import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.ElevationSmall
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.LargeShape
+import sv.lib.squircleshape.SquircleShape
 import hunoia.luno.ui.theme.RowIconSize
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
@@ -377,7 +378,7 @@ fun LinkDispatchSettingsScreen(
             ) {
                 if (rules.isEmpty()) {
                     Surface(
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(ContainerRadius),
+                        shape = SquircleShape(ContainerRadius),
                         color = MaterialTheme.colorScheme.surfaceBright,
                     ) {
                         EmptyState(message = stringResource(R.string.link_dispatch_rules_empty))

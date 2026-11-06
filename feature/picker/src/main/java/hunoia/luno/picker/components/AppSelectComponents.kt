@@ -2,7 +2,7 @@ package hunoia.luno.picker
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import sv.lib.squircleshape.SquircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Window
 import androidx.compose.material3.Icon
@@ -28,7 +28,7 @@ internal fun AppItem(
     selected: Boolean,
     appInfo: AppInfo,
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(ContainerRadius),
+    shape: Shape = SquircleShape(ContainerRadius),
 ) {
     LunoSelectableRow(
         selected = selected,

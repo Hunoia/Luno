@@ -2,7 +2,7 @@ package hunoia.luno.ui.component
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import sv.lib.squircleshape.SquircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -24,7 +24,7 @@ fun RowIconBadge(
     val colorScheme = MaterialTheme.colorScheme
     Surface(
         modifier = modifier.size(RowIconBadgeSize),
-        shape = RoundedCornerShape(ContainerRadius),
+        shape = SquircleShape(ContainerRadius),
         color = colorScheme.primaryContainer,
     ) {
         Box(contentAlignment = Alignment.Center) {

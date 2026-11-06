@@ -1,5 +1,5 @@
 package hunoia.luno.picker
-import androidx.compose.foundation.shape.RoundedCornerShape
+import sv.lib.squircleshape.SquircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
@@ -16,7 +16,7 @@ fun ActionItem(
     action: StoredAction,
     actionLabel: String,
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(ContainerRadius),
+    shape: Shape = SquircleShape(ContainerRadius),
     subtitle: String = "",
     trailing: (@Composable () -> Unit)? = null,
 ) {

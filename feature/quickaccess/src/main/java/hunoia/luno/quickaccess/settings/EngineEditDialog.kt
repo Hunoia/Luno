@@ -47,6 +47,7 @@ import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SegmentedGap
+import sv.lib.squircleshape.SquircleShape
 
 internal enum class EngineOpenMode { Default, App, Chooser, Share, ShareImage }
 
@@ -212,7 +213,7 @@ internal fun EngineEditFields(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(ContainerRadius))
+                    .clip(SquircleShape(ContainerRadius))
                     .background(MaterialTheme.colorScheme.surfaceBright),
             ) {
                 LunoInputRow(
@@ -327,13 +328,13 @@ private fun OpenModeCard(state: EngineEditState) {
         targetValue = if (expanded) ConnectionRadius else ContainerRadius,
         label = "engineModeHeaderRadius",
     )
-    val headerShape = RoundedCornerShape(
+    val headerShape = SquircleShape(
         topStart = ContainerRadius,
         topEnd = ContainerRadius,
         bottomStart = headerBottomRadius,
         bottomEnd = headerBottomRadius,
     )
-    val contentShape = RoundedCornerShape(
+    val contentShape = SquircleShape(
         topStart = ConnectionRadius,
         topEnd = ConnectionRadius,
         bottomStart = ContainerRadius,
@@ -343,7 +344,7 @@ private fun OpenModeCard(state: EngineEditState) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(ContainerRadius)),
+                .clip(SquircleShape(ContainerRadius)),
             verticalArrangement = Arrangement.spacedBy(SegmentedGap),
         ) {
             LunoSettingsRow(
@@ -383,7 +384,7 @@ private fun OpenModeCard(state: EngineEditState) {
                                 expanded = false
                             },
                             singleSelect = true,
-                            shape = RoundedCornerShape(
+                            shape = SquircleShape(
                                 topStart = ConnectionRadius,
                                 topEnd = ConnectionRadius,
                                 bottomStart = bottom,

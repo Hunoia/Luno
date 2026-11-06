@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -22,6 +21,7 @@ import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SegmentedGap
+import sv.lib.squircleshape.SquircleShape
 
 private val GroupSubtitlePadding =
     PaddingValues(start = PageGutter, end = PageGutter, bottom = CardInnerSpacing)
@@ -34,11 +34,11 @@ private val GroupSubtitlePadding =
  * 插槽，拿不到子项数量与下标，子项还可能是卡/编辑器/`AnimatedVisibility`。
  * 行列表用 `forEachIndexed` 配 `segmentedShape(index, count)`。
  */
-fun segmentedShape(index: Int, count: Int): RoundedCornerShape {
+fun segmentedShape(index: Int, count: Int): SquircleShape {
     val isSingle = count <= 1
     val top = if (isSingle || index == 0) ContainerRadius else ConnectionRadius
     val bottom = if (isSingle || index == count - 1) ContainerRadius else ConnectionRadius
-    return RoundedCornerShape(
+    return SquircleShape(
         topStart = top,
         topEnd = top,
         bottomStart = bottom,
@@ -85,13 +85,13 @@ class SegmentedGroupScope internal constructor() {
  * [ContainerRadius]，避免选中底色以方角渗进未选邻居。
  * `flags` 为 null 时退化为 [segmentedShape]。
  */
-fun selectedSegmentedShape(index: Int, count: Int, flags: List<Boolean>?): RoundedCornerShape {
+fun selectedSegmentedShape(index: Int, count: Int, flags: List<Boolean>?): SquircleShape {
     if (flags == null) return segmentedShape(index, count)
     fun sameAsNeighbor(neighbor: Int): Boolean =
         neighbor in 0 until count && flags.getOrElse(neighbor) { false } == flags.getOrElse(index) { false }
     val top = if (index == 0 || !sameAsNeighbor(index - 1)) ContainerRadius else ConnectionRadius
     val bottom = if (index == count - 1 || !sameAsNeighbor(index + 1)) ContainerRadius else ConnectionRadius
-    return RoundedCornerShape(
+    return SquircleShape(
         topStart = top,
         topEnd = top,
         bottomStart = bottom,
@@ -163,7 +163,7 @@ fun SectionBadge(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(ContainerRadius),
+        shape = SquircleShape(ContainerRadius),
         color = if (error) MaterialTheme.colorScheme.errorContainer
         else MaterialTheme.colorScheme.primaryContainer,
     ) {

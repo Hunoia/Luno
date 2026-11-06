@@ -2,6 +2,7 @@ package hunoia.luno.ui.theme
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
+import sv.lib.squircleshape.SquircleShape
 
 // Component sizes
 val MarkColorSize = 20.dp
@@ -34,21 +35,33 @@ val ShapeExtraSmall = 4.dp
 val TileInnerPadding = ShapeExtraSmall
 val ShapeSmall = 8.dp
 val ShapeMedium = 12.dp
-val ShapeLarge = 16.dp
-val ShapeExtraLarge = 28.dp
+val ShapeLarge = 20.dp
+val ShapeExtraLarge = 32.dp
 
 // Shape instances
+// 小圆角（4/8/12dp）保持圆弧：与连续曲率差异无视觉意义，避免"为改而改"。
 val ExtraSmallShape = RoundedCornerShape(ShapeExtraSmall)
 val SmallShape = RoundedCornerShape(ShapeSmall)
 val MediumShape = RoundedCornerShape(ShapeMedium)
-val LargeShape = RoundedCornerShape(ShapeLarge)
-val ExtraLargeShape = RoundedCornerShape(ShapeExtraLarge)
-val SheetTopShape = RoundedCornerShape(topStart = ShapeExtraLarge, topEnd = ShapeExtraLarge)
+// 大圆角（20/32dp）用连续曲率（squircle），收益最明显。
+// 连续曲率视觉上比同值圆弧更小，故标称半径已加大补偿（16→20、28→32）。
+val LargeShape = SquircleShape(ShapeLarge)
+val ExtraLargeShape = SquircleShape(ShapeExtraLarge)
+val SheetTopShape = SquircleShape(
+    topStart = ShapeExtraLarge,
+    topEnd = ShapeExtraLarge,
+    bottomStart = 0.dp,
+    bottomEnd = 0.dp,
+)
 
 // Bottom bar
 val BottomBarPadding = 12.dp
 val BottomBarHeight = 56.dp
 val BottomBarIconSize = 30.dp
+// 底栏角半径：各取半高上限（容器 64dp 半高 32、指示 pill 56dp 半高 28），
+// 保留胶囊感且用连续曲率（squircle）消除半圆-直边相切处的曲率突变突起。
+val BottomBarCornerRadius = 32.dp
+val BottomBarPillCornerRadius = 28.dp
 // 主页底栏 Tab 格宽，指示 pill 同宽
 val BottomBarTabWidth = 76.dp
 

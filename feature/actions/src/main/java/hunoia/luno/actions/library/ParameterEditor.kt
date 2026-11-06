@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import sv.lib.squircleshape.SquircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -53,7 +53,7 @@ fun ParameterEditor(
     onPickApp: (String) -> Unit = {},
     onPickActivity: (String, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(ContainerRadius),
+    shape: Shape = SquircleShape(ContainerRadius),
 ) {
     val required = definition.required
     val errorColor = MaterialTheme.colorScheme.error

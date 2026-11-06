@@ -8,6 +8,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import sv.lib.squircleshape.SquircleShape
 
 @Composable
 fun AppTheme(
@@ -28,8 +29,8 @@ fun AppTheme(
             extraSmall = RoundedCornerShape(ShapeExtraSmall),
             small = RoundedCornerShape(ShapeSmall),
             medium = RoundedCornerShape(ShapeMedium),
-            large = RoundedCornerShape(ShapeLarge),
-            extraLarge = RoundedCornerShape(ShapeExtraLarge)
+            large = SquircleShape(ShapeLarge),
+            extraLarge = SquircleShape(ShapeExtraLarge)
         ),
         content = content
     )

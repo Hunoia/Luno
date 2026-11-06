@@ -80,6 +80,7 @@ import hunoia.luno.ui.component.LunoSearchField
 import hunoia.luno.ui.theme.BottomBarHeight
 import hunoia.luno.ui.theme.BottomBarIconSize
 import hunoia.luno.ui.theme.BottomBarPadding
+import hunoia.luno.ui.theme.BottomBarPillCornerRadius
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.TileInnerPadding
 import hunoia.luno.ui.theme.glassCapsule
@@ -87,6 +88,8 @@ import kotlin.math.abs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import sv.lib.squircleshape.CornerSmoothing
+import sv.lib.squircleshape.SquircleShape
 
 /** 底栏一颗类型 chip：图标 + 无障碍文案，key 为 null 表示「全部」。 */
 internal data class ActionTypeChip(
@@ -379,7 +382,7 @@ private fun TypeChipStrip(
                         scaleX /= 1f - velocity * 0.75f
                         scaleY *= 1f - velocity * 0.25f
                     }
-                    .clip(CircleShape)
+                    .clip(SquircleShape(BottomBarPillCornerRadius, CornerSmoothing.Small))
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
             )
             Row(modifier = Modifier.fillMaxSize()) {

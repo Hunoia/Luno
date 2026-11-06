@@ -3,7 +3,6 @@ package hunoia.luno.ui.theme
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -21,6 +20,8 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
+import sv.lib.squircleshape.CornerSmoothing
+import sv.lib.squircleshape.SquircleShape
 
 val HazeBlurRadius: Dp = 25.dp
 
@@ -73,29 +74,30 @@ fun Modifier.appGlassOutline(shape: Shape): Modifier = border(
 const val GlassCapsuleHazeAlpha = 0.65f
 
 /**
- * 悬浮玻璃胶囊容器（CircleShape）：阴影 + 裁形 + 毛玻璃 + 发丝描边 + 内边距一条龙。
+ * 悬浮玻璃胶囊容器（连续曲率）：阴影 + 裁形 + 毛玻璃 + 发丝描边 + 内边距一条龙。
  * hazeEffect 必须画在 hazeSource 的**兄弟**节点上（调用方保证层级，见 ui-guidelines §5）。
  * 动作选择页底栏与页面级悬浮搜索胶囊共用，两处观感由同一份代码渲染。
  */
 @Composable
 fun Modifier.glassCapsule(hazeState: HazeState?): Modifier {
+    val capsuleShape = SquircleShape(BottomBarCornerRadius, CornerSmoothing.Small)
     return dropShadow(
-        shape = CircleShape,
+        shape = capsuleShape,
         shadow = Shadow(
             radius = TileInnerPadding * 2.5f,
             color = Color.Black,
             alpha = if (isSystemInDarkTheme()) 0.2f else 0.1f,
         ),
     )
-        // clip 在 haze 之外：方形糊输出裁成胶囊（只裁绘制，不影响采样）。
-        .clip(CircleShape)
+        // clip 在 haze 之外：方形糊输出裁成连续曲率胶囊（只裁绘制，不影响采样）。
+        .clip(capsuleShape)
         // 底色/透明度对齐主页底栏；用 surfaceContainerHighest 而不是 surfaceContainer，
         // 否则叠在列表上过淡，看起来像内容自己浮着、没有胶囊容器。
         .appHazeEffect(
             hazeState,
             MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = GlassCapsuleHazeAlpha),
         )
-        .appGlassOutline(CircleShape)
+        .appGlassOutline(capsuleShape)
         .padding(TileInnerPadding)
 }
 

@@ -27,6 +27,7 @@ import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.gesture.R
 import hunoia.luno.action.model.TriggerType
 import hunoia.luno.core.domain.StoredAction
+import sv.lib.squircleshape.SquircleShape
 
 @Composable
 internal fun ActionPanelBackdrop(
@@ -102,7 +103,7 @@ internal fun SelectedActionPill(
             )
             Spacer(Modifier.width(8.dp))
             Surface(
-                shape = RoundedCornerShape(ContainerRadius),
+                shape = SquircleShape(ContainerRadius),
                 color = if (longPress) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f) else accentColor.copy(alpha = 0.18f),
             ) {
                 Text(

@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import sv.lib.squircleshape.SquircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.ExpandMore
@@ -44,9 +44,9 @@ import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.gesture.settings.GestureActionTarget
 
 /** 展开内容内部行的圆角：首行接标题用小圆角，最后一行统一收回大圆角。 */
-fun actionContentRowShape(index: Int, count: Int): RoundedCornerShape {
+fun actionContentRowShape(index: Int, count: Int): SquircleShape {
     val bottom = if (index == count - 1) ContainerRadius else ConnectionRadius
-    return RoundedCornerShape(
+    return SquircleShape(
         topStart = ConnectionRadius,
         topEnd = ConnectionRadius,
         bottomStart = bottom,
@@ -72,7 +72,7 @@ fun ExpandableGestureActionCard(
 ) {
     val topRadius = if (index == 0 || count <= 1) ContainerRadius else ConnectionRadius
     val bottomRadius = if (index == count - 1 || count <= 1) ContainerRadius else ConnectionRadius
-    val outerShape = RoundedCornerShape(
+    val outerShape = SquircleShape(
         topStart = topRadius,
         topEnd = topRadius,
         bottomStart = bottomRadius,
@@ -86,13 +86,13 @@ fun ExpandableGestureActionCard(
         targetValue = if (expanded) ConnectionRadius else bottomRadius,
         label = "GestureActionCardHeaderBottomRadius",
     )
-    val headerShape = RoundedCornerShape(
+    val headerShape = SquircleShape(
         topStart = topRadius,
         topEnd = topRadius,
         bottomStart = headerBottomRadius,
         bottomEnd = headerBottomRadius,
     )
-    val contentShape = RoundedCornerShape(
+    val contentShape = SquircleShape(
         topStart = ConnectionRadius,
         topEnd = ConnectionRadius,
         bottomStart = ContainerRadius,

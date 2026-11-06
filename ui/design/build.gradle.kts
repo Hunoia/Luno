@@ -28,4 +28,6 @@ dependencies {
     implementation(libs.coil.compose)
     // LunoScreen/LunoSheet 的公开参数含 HazeState：属于契约性再导出
     api(libs.haze)
+    // 连续曲率圆角：Dimension.kt 公开 token 的类型是 SquircleShape，需再导出
+    api(libs.squircle.shape)
 }
