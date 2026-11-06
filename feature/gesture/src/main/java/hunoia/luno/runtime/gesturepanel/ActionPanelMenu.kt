@@ -55,6 +55,7 @@ import hunoia.luno.core.domain.launchMiniWindow
 import hunoia.luno.core.domain.ActionLibrarySettings
 import hunoia.luno.config.model.ActionPanelStyle
 import hunoia.luno.config.model.ArcStyle
+import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.ui.theme.AnimNormal
 import hunoia.luno.ui.theme.AnimPanelResize
@@ -63,7 +64,7 @@ import hunoia.luno.ui.theme.MiniWindowWidth
 import hunoia.luno.ui.theme.LargeShape
 import kotlinx.coroutines.flow.filter
 import hunoia.luno.gesture.vibrateForActionPanel
-import hunoia.luno.ui.component.gestureButtonMarkColor
+import hunoia.luno.ui.theme.toMarkColor
 import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.actionIcon
@@ -299,4 +300,4 @@ internal fun isApplicationIconAction(action: StoredAction): Boolean =
 internal fun actionPanelItemColor(accentColor: Color): Color = accentColor
 
 @Composable
-internal fun actionPanelAccentColor(buttonColor: Int): Color = gestureButtonMarkColor(buttonColor)
+internal fun actionPanelAccentColor(buttonColor: ColorSpec): Color = buttonColor.toMarkColor()

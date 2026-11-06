@@ -9,6 +9,7 @@ import com.aaron.composeaccessibility.ComponentAccessibilityService
 import hunoia.luno.action.controller.TextInserter
 import hunoia.luno.bridge.system.copyText
 import hunoia.luno.config.model.AdvancedSettings
+import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.gridPanelId
 import hunoia.luno.quickaccess.launch.DisabledPackageEnabler
@@ -312,9 +313,14 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     /**
      * 悬浮球点按动作统一转发入口：动作分类在容器（见 GestureCoordinator.forwardBallTap）。
      */
-    fun forwardBallTap(action: StoredAction, anchorX: Int, anchorY: Int, color: Int): Boolean {
+    fun forwardBallTap(
+        action: StoredAction,
+        anchorX: Int,
+        anchorY: Int,
+        colorSpec: ColorSpec,
+    ): Boolean {
         if (!::gestureCoordinator.isInitialized) return false
-        gestureCoordinator.forwardBallTap(action, anchorX, anchorY, color)
+        gestureCoordinator.forwardBallTap(action, anchorX, anchorY, colorSpec)
         return true
     }
 
@@ -323,8 +329,12 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
      * runGestureActions 分类），子手势/音量刮擦/嵌套弧形面板项因此自动获得正确语义。
      * 面板浮窗自身没有手势会话（SAW 窗口，宿主是 a11y 服务），绝不能绕过容器直发。
      */
-    fun forwardPanelTap(action: StoredAction, anchorX: Int, anchorY: Int, color: Int): Boolean =
-        forwardBallTap(action, anchorX, anchorY, color)
+    fun forwardPanelTap(
+        action: StoredAction,
+        anchorX: Int,
+        anchorY: Int,
+        colorSpec: ColorSpec,
+    ): Boolean = forwardBallTap(action, anchorX, anchorY, colorSpec)
 
     /** 分发链就绪：coordinator 已初始化。供 DispatchService 跨进程查询。 */
     fun isDispatchReady(): Boolean = ::gestureCoordinator.isInitialized
@@ -354,11 +364,11 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         hunoia.luno.gesture.GestureCommand.showGridPanel = { action, anchorX, anchorY ->
             showGridPanelDirect(action, anchorX, anchorY)
         }
-        hunoia.luno.gesture.GestureCommand.forwardBallTap = { action, anchorX, anchorY, color ->
-            forwardBallTap(action, anchorX, anchorY, color)
+        hunoia.luno.gesture.GestureCommand.forwardBallTap = { action, anchorX, anchorY, colorSpec ->
+            forwardBallTap(action, anchorX, anchorY, colorSpec)
         }
-        hunoia.luno.gesture.GestureCommand.forwardPanelTap = { action, x, y, color ->
-            forwardPanelTap(action, x, y, color)
+        hunoia.luno.gesture.GestureCommand.forwardPanelTap = { action, x, y, colorSpec ->
+            forwardPanelTap(action, x, y, colorSpec)
         }
         hunoia.luno.gesture.GestureCommand.insertText = { text, x, y -> insertTextAt(text, x, y) }
         // 网格面板「加项」要起选择页：路由与宿主 Activity 都在 :app，面板模块只发中性请求。

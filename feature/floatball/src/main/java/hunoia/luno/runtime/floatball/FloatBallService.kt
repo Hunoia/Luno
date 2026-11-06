@@ -1416,7 +1416,7 @@ class FloatBallService : Service() {
             hunoia.luno.gesture.GestureCommand.showGridPanel?.invoke(action, anchorX, anchorY)
             return
         }
-        hunoia.luno.gesture.GestureCommand.forwardBallTap?.invoke(action, anchorX, anchorY, settings.color)
+        hunoia.luno.gesture.GestureCommand.forwardBallTap?.invoke(action, anchorX, anchorY, settings.colorSpec)
     }
 
     // ---- 键盘让位 ----

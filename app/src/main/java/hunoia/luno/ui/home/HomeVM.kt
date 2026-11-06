@@ -7,6 +7,7 @@ import android.net.Uri
 import androidx.lifecycle.viewModelScope
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.config.backup.RestorePrecheckResult
+import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.config.model.resolveDisplayName
@@ -130,23 +131,30 @@ class HomeVM(facades: Facades) : HomeVMBase(facades) {
         }
     }
 
-    fun updateGestureButtonColor(button: GestureButton, color: Int) {
+    fun updateGestureButtonColor(button: GestureButton, colorSpec: ColorSpec) {
         viewModelScope.launch {
             GestureConfig.updateButtons { buttons ->
                 buttons.map {
-                    if (it.id == button.id) it.copy(color = color)
-                    else it
+                    if (it.id == button.id) it.copy(
+                        color = colorSpec.customColor,
+                        colorSource = colorSpec.source,
+                        colorThemeKey = colorSpec.themeKey,
+                    ) else it
                 }
             }
         }
     }
 
-    fun updateSubGestureColor(gesture: SubGesture, color: Int) {
+    fun updateSubGestureColor(gesture: SubGesture, colorSpec: ColorSpec) {
         viewModelScope.launch {
             GestureConfig.updateSubGestures { settings ->
                 settings.copy(
                     subGestures = settings.subGestures.map {
-                        if (it.id == gesture.id) it.copy(color = color) else it
+                        if (it.id == gesture.id) it.copy(
+                            color = colorSpec.customColor,
+                            colorSource = colorSpec.source,
+                            colorThemeKey = colorSpec.themeKey,
+                        ) else it
                     }
                 )
             }

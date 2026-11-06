@@ -28,10 +28,17 @@ data class Habit(
     val id: String = UUID.randomUUID().toString(),
     val name: String = "",
     val color: Int = 0xFF4CAF50.toInt(),
+    /** 颜色来源：自定义 / 跟随主题；与 [color] 一起持久化。 */
+    val colorSource: ColorSource = ColorSource.Custom,
+    val colorThemeKey: ThemeColorKey = ThemeColorKey.Primary,
     val type: HabitType = HabitType.BOOLEAN,
     val interval: Int = 1,
     val createdAt: Long = 0L,
-)
+) {
+    /** 渲染端统一入口：按 [colorSource] 解析，主题切换时实时跟随。 */
+    val colorSpec: ColorSpec
+        get() = ColorSpec(colorSource, colorThemeKey, color)
+}
 
 /**
  * 习惯配置域：习惯列表 + 打卡记录（布尔）。

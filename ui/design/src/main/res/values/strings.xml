@@ -8,6 +8,11 @@
     <string name="search_hint_all">搜索</string>
     <string name="color_picker_theme_tab">主题色</string>
     <string name="custom">自定义</string>
+    <string name="color_picker_wheel">色相与饱和度</string>
+    <string name="color_picker_value">明度</string>
+    <string name="color_picker_alpha">透明度</string>
+    <string name="color_picker_copy">复制色值</string>
+    <string name="color_picker_copied">已复制</string>
     <string name="theme_color_on_surface">文字色</string>
     <string name="theme_color_on_surface_variant">辅助文字</string>
     <string name="theme_color_outline">轮廓色</string>

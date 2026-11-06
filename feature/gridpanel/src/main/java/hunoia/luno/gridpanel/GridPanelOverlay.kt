@@ -1,6 +1,5 @@
 package hunoia.luno.gridpanel
 
-import android.graphics.Color
 import android.os.Looper
 import android.os.SystemClock
 import hunoia.luno.core.LunoLog as Log
@@ -280,7 +279,7 @@ object GridPanelOverlay : OverlayPanelHost(
                     anchorY = anchorYState,
                     dispatch = { action, x, y ->
                         val handled = hunoia.luno.gesture.GestureCommand.forwardPanelTap
-                            ?.invoke(action, x, y, Color.TRANSPARENT) == true
+                            ?.invoke(action, x, y, hunoia.luno.config.model.ColorSpec.Unset) == true
                         // 动作面板（弧形菜单）是另一扇浮窗：网格面板先退场，
                         // 否则两层浮层叠在一起，点选也会落在被盖住的那一层上。
                         if (handled && action.actionPanelId() != null) {

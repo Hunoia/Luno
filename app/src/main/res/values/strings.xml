@@ -17,6 +17,8 @@
     <string name="keep_alive_need_permission">保活需要授予「修改系统设置」权限，请先在 Shizuku 中授权或通过 ADB 执行：adb shell pm grant hunoia.luno android.permission.WRITE_SECURE_SETTINGS</string>
     <string name="refresh">刷新</string>
     <string name="action_panel_style">动作面板样式</string>
+    <string name="action_panel_style_group">样式</string>
+    <string name="action_panel_list_group">面板</string>
     <!-- 指针（internal.pointer）：设置行 + 滑杆 -->
     <string name="pointer">指针</string>
     <string name="pointer_hint">灵敏度 · 加速曲线 · 光标样式</string>
@@ -49,9 +51,7 @@
     <!-- 行尾设置弹窗标题 -->
     <string name="action_settings_panel_group">面板</string>
     <string name="action_settings_action_group">动作</string>
-    <string name="action_settings_other_group">其他</string>
-    <string name="apps_show_system">显示系统应用</string>
-    <string name="apps_show_system_hint">在应用列表中加入没有桌面入口的系统应用</string>
+    <string name="action_settings_system_group">系统</string>
     <!-- 字体缩放（系统 font_scale） -->
     <string name="font_scale_entry">字体缩放</string>
     <string name="font_scale_entry_summary">系统字号 · %1$d%%</string>
@@ -65,10 +65,7 @@
     <string name="font_scale_sample_title">字体缩放预览 Aa 123</string>
     <string name="font_scale_sample_body">正文示例：拖动滑杆预览实际字体大小。</string>
     <string name="font_scale_write_failed">当前系统不支持该字号</string>
-    <string name="hide_luno_from_recents">隐藏 Luno 后台</string>
-    <string name="hide_luno_from_recents_hint">只隐藏主页面，图片标注等页面仍保留在最近任务</string>
     <string name="action_settings_permissions_group">权限</string>
-    <string name="action_settings_notification_group">通知与状态栏</string>
     <string name="action_settings_mini_window_position">小窗设置</string>
     <string name="mini_window_settings_title">小窗设置</string>
     <string name="mini_window_settings_group">跟随触发位置</string>

@@ -7,6 +7,7 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import hunoia.luno.design.R
 import hunoia.luno.config.model.ColorSource
+import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.config.model.ThemeColorKey
 
 @get:StringRes
@@ -71,3 +72,23 @@ fun resolveColor(source: ColorSource, themeKey: ThemeColorKey, customColor: Int)
     ColorSource.Custom -> Color(customColor)
     ColorSource.Theme -> themeKey.resolveColor()
 }
+
+/** 按颜色来源解析为具体颜色；主题色用传入的 [scheme] 实时解析。 */
+fun ColorSpec.toColor(scheme: ColorScheme): Color = when (source) {
+    ColorSource.Custom -> Color(customColor)
+    ColorSource.Theme -> themeKey.resolveColor(scheme)
+}
+
+@Composable
+fun ColorSpec.toColor(): Color = toColor(MaterialTheme.colorScheme)
+
+/**
+ * 触钮 / 子手势 / 悬浮球的标记色：未设置（透明）时跟随主题主色，
+ * 与历史 `GestureButton.color == 0` 的语义一致。
+ */
+fun ColorSpec.toMarkColor(scheme: ColorScheme, alpha: Float = 1f): Color =
+    if (isUnset) scheme.primary.copy(alpha = alpha) else toColor(scheme)
+
+@Composable
+fun ColorSpec.toMarkColor(alpha: Float = 1f): Color =
+    toMarkColor(MaterialTheme.colorScheme, alpha)

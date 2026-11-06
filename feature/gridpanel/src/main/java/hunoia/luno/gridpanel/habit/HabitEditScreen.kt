@@ -45,13 +45,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import hunoia.luno.config.model.ColorSource
+import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.config.model.Habit
 import hunoia.luno.config.model.HabitConfig
 import hunoia.luno.config.model.HabitDayState
@@ -65,7 +66,8 @@ import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
-import hunoia.luno.ui.component.sheet.ColorSelection
+import hunoia.luno.ui.component.sheet.toColorSpec
+import hunoia.luno.ui.component.sheet.toInitialSelection
 import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ContentBottom
@@ -85,7 +87,7 @@ import hunoia.luno.ui.theme.HabitWeekdayAlpha
 import hunoia.luno.ui.theme.MarkColorSize
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SmallShape
-import hunoia.luno.ui.theme.resolveColor
+import hunoia.luno.ui.theme.toColor
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import kotlin.math.roundToInt
@@ -110,6 +112,13 @@ fun HabitEditScreen(
     val state = rememberSaveable(habitId, saver = HabitEditStateSaver) { HabitEditState() }
     val shownName = state.name ?: habit?.name.orEmpty()
     val shownColor = state.colorArgb ?: habit?.color ?: Habit().color
+    val shownColorSpec = ColorSpec(
+        source = state.colorSourceName?.let { ColorSource.valueOf(it) }
+            ?: habit?.colorSource ?: ColorSource.Custom,
+        themeKey = state.colorThemeKeyName?.let { ThemeColorKey.valueOf(it) }
+            ?: habit?.colorThemeKey ?: ThemeColorKey.Primary,
+        customColor = shownColor,
+    )
     // 日历点阵用「当前编辑中的间隔」即时预览，保存前所见即所得。
     val shownInterval = state.interval ?: habit?.interval ?: 1
 
@@ -121,14 +130,22 @@ fun HabitEditScreen(
                 HabitCenter.addHabit(
                     Habit(
                         name = trimmed,
-                        color = shownColor,
+                        color = shownColorSpec.customColor,
+                        colorSource = shownColorSpec.source,
+                        colorThemeKey = shownColorSpec.themeKey,
                         interval = shownInterval,
                         createdAt = System.currentTimeMillis(),
                     ),
                 )
             } else {
                 HabitCenter.updateHabit(
-                    habit.copy(name = trimmed, color = shownColor, interval = shownInterval),
+                    habit.copy(
+                        name = trimmed,
+                        color = shownColorSpec.customColor,
+                        colorSource = shownColorSpec.source,
+                        colorThemeKey = shownColorSpec.themeKey,
+                        interval = shownInterval,
+                    ),
                 )
             }
             onBack()
@@ -136,9 +153,6 @@ fun HabitEditScreen(
     }
 
     val scheme = MaterialTheme.colorScheme
-    val themeColorArgb = remember(scheme) {
-        ThemeColorKey.entries.associateWith { it.resolveColor(scheme).toArgb() }
-    }
 
     LunoScreen(
         title = stringResource(
@@ -248,12 +262,12 @@ fun HabitEditScreen(
             if (state.showColorPicker) {
                 ColorPickerBottomSheet(
                     onDismissRequest = { state.showColorPicker = false },
-                    initialColor = Color(shownColor),
+                    initialSelection = shownColorSpec.toInitialSelection(scheme),
                     onColorSelected = { selection ->
-                        state.colorArgb = when (selection) {
-                            is ColorSelection.Custom -> selection.color.toArgb()
-                            is ColorSelection.Theme -> themeColorArgb[selection.key] ?: state.colorArgb
-                        }
+                        val colorSpec = selection.toColorSpec(scheme)
+                        state.colorArgb = colorSpec.customColor
+                        state.colorSourceName = colorSpec.source.name
+                        state.colorThemeKeyName = colorSpec.themeKey.name
                         state.showColorPicker = false
                     },
                 )
@@ -280,7 +294,7 @@ fun HabitEditScreen(
                         Modifier
                             .size(MarkColorSize)
                             .clip(CircleShape)
-                            .background(Color(shownColor)),
+                            .background(shownColorSpec.toColor()),
                     )
                 },
                 onClick = {
@@ -301,7 +315,7 @@ fun HabitEditScreen(
         if (habit != null) {
             RecentChecksGrid(
                 habitId = habit.id,
-                color = Color(shownColor),
+                color = shownColorSpec.toColor(),
                 config = config,
                 today = today,
                 interval = shownInterval,
@@ -319,10 +333,14 @@ fun HabitEditScreen(
 internal class HabitEditState(
     name: String? = null,
     colorArgb: Int? = null,
+    colorSourceName: String? = null,
+    colorThemeKeyName: String? = null,
     interval: Int? = null,
 ) {
     var name by mutableStateOf(name)
     var colorArgb by mutableStateOf(colorArgb)
+    var colorSourceName by mutableStateOf(colorSourceName)
+    var colorThemeKeyName by mutableStateOf(colorThemeKeyName)
     var interval by mutableStateOf(interval)
     var showColorPicker by mutableStateOf(false)
     var dialog by mutableStateOf<HabitEditDialog?>(null)
@@ -342,6 +360,8 @@ private val HabitEditStateSaver: Saver<HabitEditState, Bundle> = Saver(
         Bundle().apply {
             putString("name", state.name)
             state.colorArgb?.let { putInt("color", it) }
+            putString("colorSource", state.colorSourceName)
+            putString("colorThemeKey", state.colorThemeKeyName)
             state.interval?.let { putInt("interval", it) }
         }
     },
@@ -349,6 +369,8 @@ private val HabitEditStateSaver: Saver<HabitEditState, Bundle> = Saver(
         HabitEditState(
             name = bundle.getString("name"),
             colorArgb = if (bundle.containsKey("color")) bundle.getInt("color") else null,
+            colorSourceName = bundle.getString("colorSource"),
+            colorThemeKeyName = bundle.getString("colorThemeKey"),
             interval = if (bundle.containsKey("interval")) bundle.getInt("interval") else null,
         )
     },

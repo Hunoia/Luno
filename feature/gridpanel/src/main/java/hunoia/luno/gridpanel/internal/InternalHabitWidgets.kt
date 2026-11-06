@@ -75,6 +75,7 @@ import hunoia.luno.gridpanel.habit.markTint
 import hunoia.luno.gridpanel.habit.visual
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
 import hunoia.luno.ui.theme.HabitDayDotStroke
+import hunoia.luno.ui.theme.toColor
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -117,7 +118,7 @@ internal fun HabitCheckCell(
     val shownState = if (state == HabitDayState.INACTIVE) HabitDayState.DUE else state
     // 跳过日不可提前打卡，已打不可重复；逾期（补打）与未开始都仍可点。
     val clickable = enabled && canCheck(checks, today, habit.interval, today)
-    val habitColor = Color(habit.color)
+    val habitColor = habit.colorSpec.toColor()
     val palette = habitDayPalette(primary = habitColor, neutral = onCard)
     val visual = shownState.visual()
     val fillColor = visual.fillColor(palette)
@@ -257,7 +258,7 @@ internal fun HabitHistoryCell(
     val today = rememberTodayEpochDay()
     val checks = config.checks[habit.id].orEmpty()
     val streak = currentStreak(checks, today, habit.interval)
-    val habitColor = Color(habit.color)
+    val habitColor = habit.colorSpec.toColor()
     val palette = habitDayPalette(primary = habitColor, neutral = onCard)
     val context = LocalContext.current
     // 部件组合创建 = 面板本次出场：打开瞬间的穿透抬手不算一次点击。

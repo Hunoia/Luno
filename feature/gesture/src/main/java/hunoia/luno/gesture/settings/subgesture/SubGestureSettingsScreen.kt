@@ -23,7 +23,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -39,7 +38,6 @@ import hunoia.luno.config.defaults.SettingsUiDefaults.MinSubGestureTriggerDistan
 import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.SubGesture
 import hunoia.luno.ui.component.actionTextCompose
-import hunoia.luno.ui.component.gestureButtonMarkColor
 import hunoia.luno.ui.component.LunoColumn
 import hunoia.luno.ui.component.sheet.LunoSheet
 import hunoia.luno.ui.component.RowIconBadge
@@ -105,7 +103,7 @@ fun SubGestureSettingsScreen(
                         vm.updateAngle(newAngle)
                         showGestureAngles = false
                     },
-                    color = Color(gesture.color)
+                    color = gesture.colorSpec.toColor()
                 )
             }
         }
@@ -140,7 +138,7 @@ fun SubGestureSettingsScreen(
                                 .padding(start = CardInnerSpacing)
                                 .size(MarkColorSize)
                                 .background(
-                                    color = gestureButtonMarkColor(gesture.color),
+                                    color = gesture.colorSpec.toMarkColor(),
                                     shape = CircleShape
                                 )
                             )

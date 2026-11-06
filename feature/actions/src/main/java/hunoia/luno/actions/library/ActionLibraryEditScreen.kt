@@ -370,7 +370,7 @@ private fun ActivityPickerSheet(
                     contentPadding = PaddingValues(start = PageGutter, end = PageGutter, bottom = CardInnerSpacing),
                     verticalArrangement = Arrangement.spacedBy(SegmentedGap),
                 ) {
-                    itemsIndexed(filtered) { index, activity ->
+                    itemsIndexed(filtered, key = { _, activity -> activity.className }) { index, activity ->
                         LunoSelectableRow(
                             title = activity.label,
                             subtitle = activity.className,

@@ -13,6 +13,7 @@ import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.longPressVariant
 import hunoia.luno.core.domain.withoutVariantKey
 import hunoia.luno.config.model.ActionPanelStyle
+import hunoia.luno.config.model.ColorSpec
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -38,7 +39,7 @@ class ActionPanelState(private val coroutineScope: CoroutineScope) : LongSlideSt
         private set
     var actionPanelStyle: ActionPanelStyle? by mutableStateOf(null)
         private set
-    var buttonColor: Int by mutableStateOf(android.graphics.Color.TRANSPARENT)
+    var buttonColor: ColorSpec by mutableStateOf(ColorSpec.Unset)
         private set
     var parentSize: Size by mutableStateOf(Size.Zero)
         private set
@@ -62,7 +63,7 @@ class ActionPanelState(private val coroutineScope: CoroutineScope) : LongSlideSt
         visible = true
     }
 
-    fun ready(centerDegrees: Float, actions: List<StoredAction>, actionPanelStyle: ActionPanelStyle, buttonColor: Int) {
+    fun ready(centerDegrees: Float, actions: List<StoredAction>, actionPanelStyle: ActionPanelStyle, buttonColor: ColorSpec) {
         this.centerDegrees = centerDegrees
         this.actions = actions
         this.actionPanelStyle = actionPanelStyle
@@ -107,7 +108,7 @@ class ActionPanelState(private val coroutineScope: CoroutineScope) : LongSlideSt
     override fun reset() {
         visible = false
         actionPanelStyle = null
-        buttonColor = android.graphics.Color.TRANSPARENT
+        buttonColor = ColorSpec.Unset
         selectedIndex = -1
         selectedBaseAction = StoredAction.of(Action.NONE_TYPE_ID)
         origin = Offset.Unspecified

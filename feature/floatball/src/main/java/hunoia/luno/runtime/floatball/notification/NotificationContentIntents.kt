@@ -23,4 +23,9 @@ object NotificationContentIntents {
     }
 
     fun get(key: String?): PendingIntent? = key?.let(intents::get)
+
+    /** 监听断开 / 服务销毁时清空：通知快照已失效，避免 PendingIntent 残留累积。 */
+    fun clear() {
+        intents.clear()
+    }
 }

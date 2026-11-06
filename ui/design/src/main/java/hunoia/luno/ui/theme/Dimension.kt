@@ -130,8 +130,11 @@ val CanvasThumbRadius = 10.dp
 /** 画布拖拽把手的热区半径（大于可视半径，手指好命中；角度盘与取色器共用）。 */
 val CanvasHitRadius = 26.dp
 val CanvasStrokeWidth = 2.dp
-val HueBarHeight = 24.dp
+/** 透明度/明度滑块的触达高度（轨道可视高度更小，整行是热区）。 */
 val HueBarTouchHeight = 32.dp
+
+// 颜色选择器：色相 + 饱和度圆盘直径
+val ColorWheelSize = 260.dp
 
 // Trigger-distance canvas geometry
 val DistanceTrackHeight = 16.dp

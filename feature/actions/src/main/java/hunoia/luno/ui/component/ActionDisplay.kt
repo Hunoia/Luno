@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.actions.R
 import androidx.compose.material.icons.Icons
@@ -21,6 +20,7 @@ import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.config.model.DirectionActions
 import hunoia.luno.ui.icon.icon
 import hunoia.luno.ui.icon.rememberAppDrawable
+import hunoia.luno.ui.icon.rememberAppLabel
 import hunoia.luno.action.model.shortcutInfo
 import hunoia.luno.ui.navigation.LocalActionLibraryEntries
 import hunoia.luno.ui.navigation.LocalActionPanels
@@ -93,7 +93,14 @@ fun actionText(
     if (action.typeId == hunoia.luno.core.domain.AppLaunchAction.TYPE_ID) {
         val context = androidx.compose.ui.platform.LocalContext.current
         val packageName = action.launchPackageName()
-        return remember(action, packageName) { context.appLabel(action) ?: "" }
+        // 与 actionIcon 的 rememberAppDrawable 同策略：首帧吃缓存，未命中 IO 异步补载，组合期零 Binder。
+        if (packageName == null) return ""
+        return rememberAppLabel(
+            key = "launchLabel/$packageName",
+            fallback = "",
+        ) {
+            context.appLabel(action) ?: ""
+        }
     }
     if (action.typeId == "app.launchShortcut") {
         return action.shortcutInfo()?.label ?: ""

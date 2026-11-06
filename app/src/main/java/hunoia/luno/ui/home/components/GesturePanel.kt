@@ -41,7 +41,7 @@ import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.BadgeIconSize
-import hunoia.luno.ui.component.gestureButtonMarkColor
+import hunoia.luno.ui.theme.toMarkColor
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
@@ -86,7 +86,7 @@ fun GesturePanel(
         ) {
             gestureButtons.fastForEachIndexed { index, button ->
                 key(button.id) {
-                    val markColor = gestureButtonMarkColor(button.color)
+                    val markColor = button.colorSpec.toMarkColor()
                     LunoSwitchRow(
                         title = button.buttonTextCompose(),
                         checked = button.enabled,
@@ -147,7 +147,7 @@ fun GesturePanel(
                                     modifier = Modifier
                                         .size(MarkColorSize)
                                         .background(
-                                            color = gestureButtonMarkColor(gesture.color),
+                                            color = gesture.colorSpec.toMarkColor(),
                                             shape = CircleShape,
                                         )
                                         .clickable(

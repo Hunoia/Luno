@@ -50,10 +50,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.util.fastCoerceIn
@@ -73,10 +71,11 @@ import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.bridge.system.gotoAccessibilitySettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.SubGesture
-import hunoia.luno.config.model.ThemeColorKey
 import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.ColorSelection
+import hunoia.luno.ui.component.sheet.toColorSpec
+import hunoia.luno.ui.component.sheet.toInitialSelection
 import hunoia.luno.actions.library.ActionLibraryScreen
 import hunoia.luno.ui.component.FloatingBottomBar
 import hunoia.luno.ui.component.FloatingBottomBarDefaults
@@ -86,8 +85,7 @@ import androidx.compose.material.icons.filled.Add
 import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.domain.action.ActionCatalog
 import hunoia.luno.ui.navigation.ACTION_LIBRARY_ENTRY_ID
-import hunoia.luno.ui.theme.resolveColor
-import hunoia.luno.service.DispatchClient
+import hunoia.luno.domain.system.PermissionStateUseCase
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.twotone.LibraryBooks
@@ -155,7 +153,6 @@ fun HomeScreen(
     var showRestoreConfirm by remember { mutableStateOf(false) }
     var pendingRestoreUri by remember { mutableStateOf<Uri?>(null) }
     var colorPickerTarget by remember { mutableStateOf<Any?>(null) }
-    var colorPickerColor by remember { mutableStateOf(Color.Transparent) }
     val context = LocalContext.current
 
     DisposableEffect(Unit) {
@@ -199,7 +196,7 @@ fun HomeScreen(
             // 首次读取会误报「暂不可用」，不能等下次 ON_RESUME 才纠正。
             // repeatOnLifecycle 是挂起阻塞的，必须并行 launch 才不会饿死订阅。
             launch {
-                DispatchClient.readyFlow.collect { vm.updatePermissionState() }
+                PermissionStateUseCase.dispatchReadyFlow.collect { vm.updatePermissionState() }
             }
             lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 vm.updatePermissionState()
@@ -219,31 +216,27 @@ fun HomeScreen(
             sheets = {
                 if (colorPickerTarget != null) {
                 val scheme = MaterialTheme.colorScheme
-                val themeColorArgb = remember(scheme) {
-                    ThemeColorKey.entries.associateWith { it.resolveColor(scheme).toArgb() }
-                }
                 ColorPickerBottomSheet(
                     onDismissRequest = { colorPickerTarget = null },
                     onColorSelected = { selection ->
-                        when (selection) {
-                            is ColorSelection.Custom -> {
-                                when (val target = colorPickerTarget) {
-                                    is GestureButton -> vm.updateGestureButtonColor(target, selection.color.toArgb())
-                                    is SubGesture -> vm.updateSubGestureColor(target, selection.color.toArgb())
-                                }
-                            }
-                            is ColorSelection.Theme -> {
-                                themeColorArgb[selection.key]?.let { resolvedArgb ->
-                                    when (val target = colorPickerTarget) {
-                                        is GestureButton -> vm.updateGestureButtonColor(target, resolvedArgb)
-                                        is SubGesture -> vm.updateSubGestureColor(target, resolvedArgb)
-                                    }
-                                }
-                            }
+                        val colorSpec = selection.toColorSpec(scheme)
+                        when (val target = colorPickerTarget) {
+                            is GestureButton -> vm.updateGestureButtonColor(target, colorSpec)
+                            is SubGesture -> vm.updateSubGestureColor(target, colorSpec)
                         }
                         colorPickerTarget = null
                     },
-                    initialColor = colorPickerColor,
+                    initialSelection = when (val target = colorPickerTarget) {
+                        is GestureButton -> target.colorSpec.toInitialSelection(
+                            scheme = scheme,
+                            primaryFallback = true,
+                        )
+                        is SubGesture -> target.colorSpec.toInitialSelection(
+                            scheme = scheme,
+                            primaryFallback = true,
+                        )
+                        else -> ColorSelection.Custom(MaterialTheme.colorScheme.primary)
+                    },
                 )
                 }
             },
@@ -446,11 +439,6 @@ fun HomeScreen(
                                     },
                                     onMarkColorClick = { target ->
                                         colorPickerTarget = target
-                                        colorPickerColor = when (target) {
-                                            is GestureButton -> Color(target.color)
-                                            is SubGesture -> Color(target.color)
-                                            else -> Color.Transparent
-                                        }
                                     },
                                     onGestureButtonRename = { button ->
                                         vm.showRenameDialog(RenameTarget.GestureButton(button = button))

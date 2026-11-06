@@ -96,6 +96,7 @@ class NotificationPulseListener : NotificationListenerService() {
     override fun onDestroy() {
         scope.cancel()
         if (instance === this) instance = null
+        NotificationContentIntents.clear()
         super.onDestroy()
     }
 
@@ -110,6 +111,7 @@ class NotificationPulseListener : NotificationListenerService() {
 
     override fun onListenerDisconnected() {
         synchronized(activeLock) { activeCache = emptyList() }
+        NotificationContentIntents.clear()
         NotificationPulseHub.fireStateChanged()
         super.onListenerDisconnected()
     }

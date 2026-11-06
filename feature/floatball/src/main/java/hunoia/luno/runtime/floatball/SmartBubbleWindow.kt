@@ -68,7 +68,7 @@ import hunoia.luno.runtime.floatball.inbox.ClipboardTextItem
 import hunoia.luno.runtime.floatball.inbox.NotificationItem
 import hunoia.luno.runtime.overlay.safeAddView
 import hunoia.luno.runtime.overlay.safeUpdateViewLayout
-import hunoia.luno.ui.component.gestureButtonMarkColor
+import hunoia.luno.ui.theme.toMarkColor
 import hunoia.luno.ui.icon.SearchIconCache
 import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.Dispatchers
@@ -758,7 +758,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         pageHeight: androidx.compose.ui.unit.Dp,
         modifier: Modifier = Modifier,
     ) {
-        val accent = gestureButtonMarkColor(settings.color)
+        val accent = settings.colorSpec.toMarkColor()
         val contentColor = if (accent.luminance() > 0.5f) Color.Black else Color.White
         val density = LocalDensity.current
         val iconSize = with(density) {

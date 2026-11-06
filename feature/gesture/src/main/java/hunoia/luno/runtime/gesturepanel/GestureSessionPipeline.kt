@@ -7,6 +7,7 @@ import hunoia.luno.config.model.ActionPanel
 import hunoia.luno.config.model.ActionPanelStyle
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.ArcStyle
+import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.GestureTriggerType
@@ -294,7 +295,7 @@ class GestureSessionPipeline(
         touchPosition: Offset,
         sourceButton: GestureButton?,
         panelStyle: ActionPanelStyle = settings.actionPanelStyle,
-        panelColor: Int = sourceButton?.color ?: android.graphics.Color.TRANSPARENT,
+        panelColor: ColorSpec = sourceButton?.colorSpec ?: ColorSpec.Unset,
         onPanelStarted: () -> Unit = {},
         needsPanelOverlay: Boolean = false,
         decision: GestureDecision.Trigger? = null,
@@ -382,17 +383,17 @@ class GestureSessionPipeline(
             centerDegrees = angleDegreesTowardCenter(anchor),
             touchPosition = anchor,
             sourceButton = null,
-            panelColor = event.color,
+            panelColor = event.colorSpec,
             needsPanelOverlay = true,
             onPanelStarted = { actionPanelSourceButton = null },
         )
     }
 
     fun handleSubGestureResolvedActions(resolvedActions: SubGestureResolvedActions) {
-        val panelColor = resolvedActions.subGesture.color
-            .takeUnless { it == android.graphics.Color.TRANSPARENT }
-            ?: sideGestureState.button?.color
-            ?: android.graphics.Color.TRANSPARENT
+        val panelColor = resolvedActions.subGesture.colorSpec
+            .takeUnless { it.isUnset }
+            ?: sideGestureState.button?.colorSpec
+            ?: ColorSpec.Unset
         val touchPosition = resolvedActions.touchPosition.takeIf { it.x.isFinite() && it.y.isFinite() }
             ?: sideGestureState.finger.takeIf { it.x.isFinite() && it.y.isFinite() }
             ?: Offset.Zero
@@ -424,7 +425,7 @@ class GestureSessionPipeline(
             touchPosition = resolvedActions.touchPosition,
             sourceButton = resolvedActions.button,
             decision = resolvedActions.decision,
-            panelColor = resolvedActions.button.color,
+            panelColor = resolvedActions.button.colorSpec,
             // 挂全屏触摸窗：滑动类触发在抬手后才弹面板，手指已不在触钮窗里 ——
             // 后续点选只能靠全屏窗接（不挂的话点哪都落到下面的应用）。
             needsPanelOverlay = true,
