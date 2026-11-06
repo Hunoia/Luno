@@ -29,17 +29,31 @@ object DispatchClient {
     private const val RETRY_INTERVAL_MS = 2_000L
 
     @Volatile private var stub: IDispatchService? = null
-    @Volatile private var bindRequested = false
     @Volatile private var appCtx: Context? = null
-    private var lastBindRetryMs = 0L
 
-    private val conn = object : ServiceConnection {
+    private val connection = DispatchConnection(retryIntervalMs = RETRY_INTERVAL_MS)
+
+    private val conn: ServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
             stub = runCatching { IDispatchService.Stub.asInterface(binder) }.getOrNull()
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
             stub = null
+            connection.onServiceDisconnected()
+        }
+
+        override fun onBindingDied(name: ComponentName?) {
+            // 宿主进程已死：必须 unbind 后重新 bind，系统不会复用这个连接。
+            stub = null
+            connection.onBindingDied()
+            appCtx?.let { runCatching { it.unbindService(conn) } }
+        }
+
+        override fun onNullBinding(name: ComponentName?) {
+            stub = null
+            connection.onNullBinding()
+            appCtx?.let { runCatching { it.unbindService(conn) } }
         }
     }
 
@@ -49,7 +63,7 @@ object DispatchClient {
      */
     fun bind(appContext: Context) {
         appCtx = appContext.applicationContext
-        if (bindRequested) return
+        if (connection.bindRequested) return
         val component = serviceClass ?: return
         val bound = runCatching {
             appContext.bindService(
@@ -58,16 +72,13 @@ object DispatchClient {
                 Context.BIND_AUTO_CREATE,
             )
         }.getOrDefault(false)
-        if (bound) bindRequested = true
+        connection.onBindAttempt(bound)
     }
 
     /** 未连上时的轻量重试（限频），避免每次查状态都 bindService。 */
     private fun retryBindIfNeeded() {
-        if (bindRequested) return
+        if (!connection.shouldRetryBind()) return
         val ctx = appCtx ?: return
-        val now = android.os.SystemClock.uptimeMillis()
-        if (now - lastBindRetryMs < RETRY_INTERVAL_MS) return
-        lastBindRetryMs = now
         bind(ctx)
     }
 
