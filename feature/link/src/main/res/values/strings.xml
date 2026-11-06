@@ -1,10 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="link_dispatch_open_failed">没有可打开该链接的应用</string>
-    <string name="action_library_discard_desc">返回后本次修改将丢失。</string>
-    <string name="action_library_discard_title">放弃未保存的修改？</string>
-    <string name="action_param_unselected">未选择</string>
-    <string name="delete">删除</string>
     <string name="link_dispatch">链接分发</string>
     <string name="link_dispatch_browser_group">默认浏览器</string>
     <string name="link_dispatch_capsule_tap">命中链接时的点击行为</string>
@@ -89,6 +85,4 @@
     <string name="link_dispatch_rule_via_browser_hint">适合 xhslink.com 这类应用没有声明的短链：交给另一个浏览器跟随后跳回应用</string>
     <string name="link_dispatch_tap_dispatch">直达目标应用</string>
     <string name="link_dispatch_tap_share">系统分享面板</string>
-    <string name="more_options">更多选项</string>
-    <string name="save">保存</string>
 </resources>

@@ -277,7 +277,7 @@ internal fun ActionPage(
                             EmptyState(
                                 message = stringResource(
                                     if (type == TYPE_WIDGET) R.string.grid_panel_no_widgets
-                                    else R.string.no_matching_results
+                                    else hunoia.luno.design.R.string.no_matching_results
                                 )
                             )
                         }
@@ -390,7 +390,7 @@ internal fun ActionPage(
                             }
                         } else if (filteredLibraryEntries.isNotEmpty()) {
                             stickyHeader(key = "lib_all") {
-                                SheetGroupHeader(stringResource(R.string.action_library))
+                                SheetGroupHeader(stringResource(hunoia.luno.actions.R.string.action_library))
                             }
                             val selectionFlags = filteredLibraryEntries.map { selectedRecord.isSelected(it.toStoredAction()) }
                             itemsIndexed(items = filteredLibraryEntries, key = { _, it -> "lib_${it.id}" }) { index, entry ->

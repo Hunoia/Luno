@@ -106,7 +106,7 @@ enum class MainTab(val icon: ImageVector) {
 val MainTab.contentDescriptionRes: Int
     get() = when (this) {
         MainTab.Home -> R.string.home_tab
-        MainTab.ActionLibrary -> R.string.action_library
+        MainTab.ActionLibrary -> hunoia.luno.actions.R.string.action_library
         MainTab.Settings -> R.string.settings
     }
 
@@ -205,7 +205,7 @@ fun HomeScreen(
         HomeShell(
             title = when (mainTab) {
                 MainTab.Home -> stringResource(id = R.string.home_title)
-                MainTab.ActionLibrary -> stringResource(id = R.string.action_library)
+                MainTab.ActionLibrary -> stringResource(id = hunoia.luno.actions.R.string.action_library)
                 MainTab.Settings -> stringResource(id = R.string.settings)
             },
             sheets = {
@@ -331,7 +331,7 @@ fun HomeScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Add,
-                                        contentDescription = stringResource(R.string.action_library_add),
+                                        contentDescription = stringResource(hunoia.luno.actions.R.string.action_library_add),
                                     )
                                 }
                             }

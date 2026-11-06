@@ -45,7 +45,7 @@ fun GridPanelListScreen(
         rows = panels.map { panel ->
             PanelListRow(
                 id = panel.id,
-                title = panel.name.ifBlank { stringResource(R.string.grid_panel_unnamed) },
+                title = panel.name.ifBlank { stringResource(hunoia.luno.actions.R.string.grid_panel_unnamed) },
                 subtitle = stringResource(
                     R.string.grid_panel_summary,
                     panel.portrait.items.size, panel.portrait.geometry.columnCount,

@@ -101,7 +101,7 @@ object TextInserter {
         }
         if (setTextInserting(node, text)) return Result.Inserted
         // 仅剩「目标只认粘贴」的编辑器（WebView/自定义）才动剪贴板。
-        if (!copyText(service, service.getString(R.string.app_name), text)) return Result.Failed
+        if (!copyText(service, service.getString(R.string.clipboard_label), text)) return Result.Failed
         repeat(2) { attempt ->
             if (node.performAction(AccessibilityNodeInfo.ACTION_PASTE)) return Result.InsertedViaClipboard
             if (attempt == 0) SystemClock.sleep(PasteRetryMs)

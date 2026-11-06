@@ -82,7 +82,7 @@ fun actionText(
     action.gridPanelId()?.let { panelId ->
         val panels = LocalGridPanels.current
         panels.firstOrNull { it.id == panelId }?.let { panel ->
-            return panel.name.ifBlank { stringResource(R.string.grid_panel_unnamed) }
+            return panel.name.ifBlank { stringResource(hunoia.luno.actions.R.string.grid_panel_unnamed) }
         }
     }
     if (action.typeId == Action.SubGesture.typeId) {

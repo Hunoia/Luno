@@ -118,7 +118,7 @@ fun ActionLibraryEditScreen(
                         }
                     },
                     icon = Icons.Default.Save,
-                    contentDescription = stringResource(R.string.save),
+                    contentDescription = stringResource(hunoia.luno.design.R.string.save),
                     containerColor = if (draft.isValid) MaterialTheme.colorScheme.primaryContainer
                     else MaterialTheme.colorScheme.surfaceContainerHighest,
                 )
@@ -162,7 +162,7 @@ fun ActionLibraryEditScreen(
                             }
                         } else if (!ActionDispatch.send(draft.toStoredAction())) {
                             // 分发失败才提示；成功不给 toast（动作本身会在屏幕上有反馈，多一个弹窗是噪音）。
-                            showToast(R.string.dispatch_service_not_ready)
+                            showToast(hunoia.luno.design.R.string.dispatch_service_not_ready)
                         }
                     },
                 )
@@ -170,7 +170,7 @@ fun ActionLibraryEditScreen(
             if (draft?.id != null) {
                 LunoIconButton(
                     icon = Icons.Outlined.Delete,
-                    contentDescription = stringResource(R.string.delete),
+                    contentDescription = stringResource(hunoia.luno.design.R.string.delete),
                     onClick = { showDeleteConfirm = true },
                 )
             }
@@ -355,7 +355,7 @@ private fun ActivityPickerSheet(
                     .padding(horizontal = PageGutter, vertical = CardInnerSpacing),
             )
             if (filtered.isEmpty()) {
-                EmptyState(message = stringResource(R.string.no_matching_results))
+                EmptyState(message = stringResource(hunoia.luno.design.R.string.no_matching_results))
             } else {
                 val selectionFlags = filtered.map { it.className == selectedActivity }
                 LazyColumn(
@@ -411,7 +411,7 @@ private fun ShellResultCard(
                 )
                 LunoIconButton(
                     icon = Icons.Default.Close,
-                    contentDescription = stringResource(R.string.close),
+                    contentDescription = stringResource(hunoia.luno.design.R.string.close),
                     onClick = onDismiss,
                 )
             }

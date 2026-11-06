@@ -81,7 +81,7 @@ fun HabitPickerDialog(
         confirmButton = {},
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
+                Text(stringResource(hunoia.luno.design.R.string.cancel))
             }
         },
     )

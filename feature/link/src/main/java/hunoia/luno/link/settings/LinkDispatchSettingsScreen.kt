@@ -189,7 +189,7 @@ fun LinkDispatchSettingsScreen(
             IconButton(onClick = { menuOpen = true }) {
                 Icon(
                     imageVector = Icons.Default.MoreVert,
-                    contentDescription = stringResource(R.string.more_options),
+                    contentDescription = stringResource(hunoia.luno.design.R.string.more_options),
                 )
             }
             DropdownMenu(

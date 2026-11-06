@@ -19,6 +19,7 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:runtime"))
     implementation(project(":ui:design"))
+    implementation(project(":feature:actions"))
     implementation(project(":feature:search"))
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.ui)

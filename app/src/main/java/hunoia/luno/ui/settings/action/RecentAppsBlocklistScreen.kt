@@ -151,7 +151,7 @@ fun RecentAppsBlocklistScreen(
             if (permissionState.isGranted) {
                 LunoIconButton(
                     icon = Icons.Default.RestartAlt,
-                    contentDescription = stringResource(R.string.reset),
+                    contentDescription = stringResource(hunoia.luno.design.R.string.reset),
                     onClick = { selected = emptySet() },
                 )
             }
@@ -194,7 +194,7 @@ fun RecentAppsBlocklistScreen(
                         if (loading) {
                             item { LoadingState(message = stringResource(R.string.loading)) }
                         } else if (filteredApps.isEmpty()) {
-                            item { EmptyState(message = stringResource(R.string.no_matching_results)) }
+                            item { EmptyState(message = stringResource(hunoia.luno.design.R.string.no_matching_results)) }
                         } else {
                             itemsIndexed(filteredApps, key = { _, item -> item.identity }) { index, item ->
                                 val iconKey = item.identity
@@ -256,7 +256,7 @@ fun RecentAppsBlocklistScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Save,
-                                    contentDescription = stringResource(R.string.confirm),
+                                    contentDescription = stringResource(hunoia.luno.design.R.string.confirm),
                                 )
                             }
                         }

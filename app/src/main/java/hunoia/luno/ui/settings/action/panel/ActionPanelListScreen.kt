@@ -48,7 +48,7 @@ fun ActionPanelListScreen(
         rows = panels.map { panel ->
             PanelListRow(
                 id = panel.id,
-                title = panel.name.ifBlank { stringResource(R.string.action_panel_unnamed) },
+                title = panel.name.ifBlank { stringResource(hunoia.luno.actions.R.string.action_panel_unnamed) },
                 subtitle = stringResource(R.string.action_panel_items_count, panel.items.size),
             )
         },

@@ -28,19 +28,19 @@ fun HomeSettingsGroup(
     ) {
         LunoSegmentedGroup {
             item { shape -> LunoSettingsRow(
-            title = stringResource(R.string.search_engine_settings),
+            title = stringResource(hunoia.luno.quicklaunch.R.string.search_engine_settings),
             icon = Icons.TwoTone.Search,
             shape = shape,
             onClick = onSearchEngineClick,
             ) }
             item { shape -> LunoSettingsRow(
-            title = stringResource(R.string.float_ball),
+            title = stringResource(hunoia.luno.floatball.R.string.float_ball),
             icon = Icons.TwoTone.RadioButtonChecked,
             shape = shape,
             onClick = onFloatBallClick,
             ) }
             item { shape -> LunoSettingsRow(
-            title = stringResource(R.string.link_dispatch),
+            title = stringResource(hunoia.luno.link.R.string.link_dispatch),
             icon = Icons.TwoTone.Link,
             shape = shape,
             onClick = onLinkDispatchClick,
@@ -76,7 +76,7 @@ fun DataTransferGroup(
             onClick = onRestoreClick,
             ) }
             item { shape -> LunoSettingsRow(
-            title = stringResource(R.string.reset),
+            title = stringResource(hunoia.luno.design.R.string.reset),
             icon = Icons.TwoTone.RestartAlt,
             shape = shape,
             onClick = onResetClick,

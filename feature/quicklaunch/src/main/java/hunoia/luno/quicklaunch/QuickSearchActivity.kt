@@ -298,7 +298,7 @@ class QuickSearchActivity : ComponentActivity() {
         if (ActionDispatch.send(action)) {
             requestClose()
         } else {
-            showToast(R.string.dispatch_service_not_ready)
+            showToast(hunoia.luno.design.R.string.dispatch_service_not_ready)
         }
     }
 

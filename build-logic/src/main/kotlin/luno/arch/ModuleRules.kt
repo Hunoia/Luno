@@ -39,7 +39,7 @@ object ModuleRules {
         ),
         ":feature:link" to setOf(
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
-            ":core:runtime", ":ui:design",
+            ":core:runtime", ":ui:design", ":feature:actions",
         ),
         ":feature:search" to setOf(
             ":core:common", ":core:domain", ":core:data", ":core:bridge",
@@ -50,11 +50,12 @@ object ModuleRules {
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
             ":core:runtime", ":core:facade", ":ui:design",
             ":feature:actions", ":feature:gridpanel", ":feature:quicklaunch", ":feature:search",
+            ":feature:gesture", ":feature:floatball",
         ),
         ":feature:quicklaunch" to setOf(
             ":capability:launch",
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
-            ":core:runtime", ":feature:search", ":ui:design",
+            ":core:runtime", ":feature:search", ":ui:design", ":feature:actions",
         ),
         ":feature:gesture" to setOf(
             ":capability:ocr",

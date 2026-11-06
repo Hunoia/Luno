@@ -161,14 +161,14 @@ fun ButtonVisibilityEditScreen(
             if (!isNew) {
                 LunoIconButton(
                     icon = Icons.Default.Delete,
-                    contentDescription = stringResource(R.string.delete),
+                    contentDescription = stringResource(hunoia.luno.design.R.string.delete),
                     tint = MaterialTheme.colorScheme.error,
                     onClick = { showDeleteConfirm = true },
                 )
             }
             LunoIconButton(
                 icon = Icons.Default.Check,
-                contentDescription = stringResource(R.string.save),
+                contentDescription = stringResource(hunoia.luno.design.R.string.save),
                 onClick = { save() },
             )
         },

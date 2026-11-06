@@ -64,19 +64,19 @@ fun Context.actionTextWithSubGesture(
     if (action.typeId == "internal.libraryRef") {
         val id = (action.params["entryId"] as? JsonPrimitive)?.contentOrNull.orEmpty()
         return actionLibraryEntries.firstOrNull { it.id == id }?.name
-            ?: getString(R.string.action_library_missing)
+            ?: getString(hunoia.luno.actions.R.string.action_library_missing)
     }
     // 面板行显示具名面板而不是类型名；面板存在但没起名时给「未命名」，与设置页列表兜底一致。
     action.gridPanelId()?.let { panelId ->
         val panel = gridPanels.firstOrNull { it.id == panelId }
         if (panel != null) {
-            return panel.name.ifBlank { getString(R.string.grid_panel_unnamed) }
+            return panel.name.ifBlank { getString(hunoia.luno.actions.R.string.grid_panel_unnamed) }
         }
     }
     action.actionPanelId()?.let { panelId ->
         val panel = actionPanels.firstOrNull { it.id == panelId }
         if (panel != null) {
-            return panel.name.ifBlank { getString(R.string.action_panel_unnamed) }
+            return panel.name.ifBlank { getString(hunoia.luno.actions.R.string.action_panel_unnamed) }
         }
     }
     if (action.typeId != "internal.subGesture") {
@@ -96,31 +96,31 @@ internal fun createTitle(actionSelect: ActionSelect): String {
         return context.getString(R.string.action_deep_links_pick_title)
     }
     if (actionSelect.floatBallSlot == FloatBallSlot.TAP) {
-        return context.getString(R.string.float_ball_tap_action)
+        return context.getString(hunoia.luno.floatball.R.string.float_ball_tap_action)
     }
     if (actionSelect.actionPanelId.isNotBlank()) {
         return if (actionSelect.actionPanelItemIndex >= 0) {
             context.getString(R.string.action_panel_item_long_press)
         } else {
-            context.getString(R.string.action_panel_add_item)
+            context.getString(hunoia.luno.actions.R.string.action_panel_add_item)
         }
     }
     if (actionSelect.gridPanelId.isNotBlank()) {
         // 面板项只进不出（想换动作就删了重加），进这页只会是加项。
-        return context.getString(R.string.grid_panel_add_item)
+        return context.getString(hunoia.luno.gridpanel.R.string.grid_panel_add_item)
     }
     when (actionSelect.triggerType) {
-        GestureTriggerType.Tap -> return context.getString(R.string.tap_action)
-        GestureTriggerType.DoubleTap -> return context.getString(R.string.double_tap_action)
-        GestureTriggerType.LongPress -> return context.getString(R.string.long_press)
+        GestureTriggerType.Tap -> return context.getString(hunoia.luno.gesture.R.string.tap_action)
+        GestureTriggerType.DoubleTap -> return context.getString(hunoia.luno.gesture.R.string.double_tap_action)
+        GestureTriggerType.LongPress -> return context.getString(hunoia.luno.gesture.R.string.long_press)
         else -> Unit
     }
     val str1 = actionSelect.directionLabel.ifBlank { context.getString(R.string.action_select_slide) }
     val str2 = when (actionSelect.triggerType) {
         GestureTriggerType.Slide -> context.getString(R.string.short1)
-        GestureTriggerType.SlideHold -> context.getString(R.string.slide_hold_action)
+        GestureTriggerType.SlideHold -> context.getString(hunoia.luno.gesture.R.string.slide_hold_action)
         GestureTriggerType.LongSlide -> context.getString(R.string.long1)
-        GestureTriggerType.LongSlideHold -> context.getString(R.string.long_slide_hold_action)
+        GestureTriggerType.LongSlideHold -> context.getString(hunoia.luno.gesture.R.string.long_slide_hold_action)
     }
     return "$str1($str2)"
 }

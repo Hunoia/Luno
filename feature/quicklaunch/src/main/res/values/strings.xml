@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- 快速启动/搜索面板文案。 -->
-    <string name="confirm">确认</string>
-    <string name="dispatch_service_not_ready">手势服务未就绪，动作未执行</string>
     <string name="more">更多</string>
     <string name="quick_app_launcher_adjust">调整面板</string>
     <string name="quick_app_launcher_candidate_rows">候选应用行数</string>
@@ -17,7 +15,6 @@
     <string name="quick_search_app_disabled">已停用</string>
     <string name="quick_search_clear">清空</string>
     <string name="quick_search_clipboard_locked">已锁定，解锁后显示剪贴板</string>
-    <string name="quick_search_copied">已复制</string>
     <string name="quick_search_grant_calendar">授予日历权限</string>
     <string name="quick_search_grant_calls">授予通话记录权限</string>
     <string name="quick_search_grant_contacts">授予联系人权限</string>
@@ -38,13 +35,8 @@
     <string name="search_result_pinned">已固定</string>
     <string name="search_result_unpinned">已取消固定</string>
     <string name="tap_mini_window">短按小窗</string>
-    <string name="action_library_discard_desc">返回后本次修改将丢失。</string>
-    <string name="action_library_discard_title">放弃未保存的修改？</string>
-    <string name="delete">删除</string>
-    <string name="more_options">更多选项</string>
     <string name="quick_search_trigger_closed">标识已关闭</string>
     <string name="quick_search_trigger_off">留空则关闭该来源标识</string>
-    <string name="save">保存</string>
     <string name="search_ascii_enter">英文键盘</string>
     <string name="search_ascii_enter_subtitle">输入法锁定英文，回车直接搜索</string>
     <string name="search_engine_add">添加搜索引擎</string>

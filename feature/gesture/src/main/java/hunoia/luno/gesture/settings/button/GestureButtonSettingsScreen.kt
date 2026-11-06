@@ -80,7 +80,7 @@ fun GestureButtonSettingsScreen(
                             if (uiState.gestureButton != null && !uiState.gestureButton.isDefault) {
                                 LunoIconButton(
                                     icon = Icons.Default.Delete,
-                                    contentDescription = stringResource(R.string.delete),
+                                    contentDescription = stringResource(hunoia.luno.design.R.string.delete),
                                     onClick = { vm.showDeleteWarningDialog(true) },
                                 )
                             }

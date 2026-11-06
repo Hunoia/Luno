@@ -14,6 +14,7 @@ dependencies {
     implementation(project(":core:bridge"))
     implementation(project(":core:runtime"))
     implementation(project(":ui:design"))
+    implementation(project(":feature:actions"))
     // 偏差（记录在 docs/archive.md §1 挂账）：链接分发仍通过 ConfigProvider 读写配置；
     // 纯规则模型已在 :core:domain，等存储门面端口化后删除这条边。
     implementation(project(":core:data"))

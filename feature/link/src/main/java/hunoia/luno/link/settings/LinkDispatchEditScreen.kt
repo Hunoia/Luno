@@ -167,7 +167,7 @@ fun LinkDispatchEditScreen(
                 IconButton(onClick = { showDeleteConfirm = true }) {
                     Icon(
                         imageVector = Icons.Default.Delete,
-                        contentDescription = stringResource(R.string.delete),
+                        contentDescription = stringResource(hunoia.luno.design.R.string.delete),
                         tint = MaterialTheme.colorScheme.error,
                     )
                 }
@@ -179,7 +179,7 @@ fun LinkDispatchEditScreen(
                     if (valid) save() else showToast(R.string.link_dispatch_rule_invalid)
                 },
                 icon = Icons.Default.Save,
-                contentDescription = stringResource(R.string.save),
+                contentDescription = stringResource(hunoia.luno.design.R.string.save),
                 containerColor = if (valid) MaterialTheme.colorScheme.primaryContainer
                 else MaterialTheme.colorScheme.surfaceContainerHighest,
             )
@@ -204,8 +204,8 @@ fun LinkDispatchEditScreen(
             if (showDiscardConfirm) {
                 ConfirmDialog(
                     onDismissRequest = { showDiscardConfirm = false },
-                    title = stringResource(R.string.action_library_discard_title),
-                    text = stringResource(R.string.action_library_discard_desc),
+                    title = stringResource(hunoia.luno.actions.R.string.action_library_discard_title),
+                    text = stringResource(hunoia.luno.actions.R.string.action_library_discard_desc),
                     onConfirm = {
                         showDiscardConfirm = false
                         onBack()
@@ -358,7 +358,7 @@ fun LinkDispatchEditScreen(
                 LunoSettingsRow(
                     title = stringResource(R.string.link_dispatch_rule_target_app),
                     subtitle = when {
-                        targetPackage.isBlank() -> stringResource(R.string.action_param_unselected)
+                        targetPackage.isBlank() -> stringResource(hunoia.luno.actions.R.string.action_param_unselected)
                         appLabel != null && appLabel != targetPackage -> "$appLabel ($targetPackage)"
                         else -> targetPackage
                     },

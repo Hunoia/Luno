@@ -3,7 +3,6 @@
     <!-- 手势面板/触钮文案。 -->
     <string name="long_press">长按</string>
     <string name="tap">单击</string>
-    <string name="quick_search_copied">已复制</string>
     <string name="screen_pick_copy_image">复制</string>
     <string name="screen_pick_failed">识别失败，请重试</string>
     <string name="screen_pick_image_copied">图片已复制</string>
@@ -21,7 +20,6 @@
     <string name="screen_pick_portal_ocr">OCR 识别</string>
     <string name="screen_pick_portal_image">图片</string>
     <string name="screen_pick_portal_resolving">识别中…</string>
-    <string name="action_none">无</string>
     <string name="action_panel_app_icon_size">应用图标大小</string>
     <string name="action_panel_item_gap">图标间距</string>
     <string name="action_panel_item_size">动作图标大小</string>
@@ -61,8 +59,6 @@
     <string name="button_visibility_target_only">仅选中的元素</string>
     <string name="button_visibility_visible">显示触钮</string>
     <string name="button_visibility_visible_desc">关闭则隐藏触钮</string>
-    <string name="close">关闭</string>
-    <string name="delete">删除</string>
     <string name="delete_gesture_button_warning">删除触钮</string>
     <string name="delete_gesture_button_warning_desc">将删除触钮，是否继续？</string>
     <string name="delete_sub_gesture_warning">删除子手势？</string>
@@ -84,8 +80,6 @@
     <string name="mirror_sub_gesture_desc">将当前子手势方向做镜像复制（左↔右、左上↔右上、左下↔右下）。</string>
     <string name="mirror_sub_gesture_name">镜像·%1$s</string>
     <string name="physical_params">物理参数</string>
-    <string name="reset">重置</string>
-    <string name="save">保存</string>
     <string name="slide_action">短滑</string>
     <string name="slide_hold_action">短滑停留</string>
     <string name="sub_gesture">子手势</string>

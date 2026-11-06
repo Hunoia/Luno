@@ -226,7 +226,7 @@ private fun KeyValueMapEditor(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = stringResource(R.string.delete),
+                            contentDescription = stringResource(hunoia.luno.design.R.string.delete),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }

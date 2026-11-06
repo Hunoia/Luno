@@ -5,7 +5,6 @@
     <string name="home_tab">主页</string>
     <string name="settings">设置</string>
     <string name="accessibility_description">辅助服务用于模拟返回、主页、等按键操作，实现侧滑手势的各种自定义操控，不会收集任何数据。</string>
-    <string name="delete">删除</string>
     <string name="add_gesture_button">添加触钮</string>
     <string name="reset_default_settings_warning">恢复默认设置</string>
     <string name="reset_default_settings_warning_desc">将重置为初始默认设置并彻底删除所有数据。</string>
@@ -15,7 +14,6 @@
     <string name="backup_failed">备份失败</string>
     <string name="restore_success">恢复成功</string>
     <string name="restore_failed">恢复失败</string>
-    <string name="dispatch_service_not_ready">手势服务未就绪，动作未执行</string>
     <string name="keep_alive_need_permission">保活需要授予「修改系统设置」权限，请先在 Shizuku 中授权或通过 ADB 执行：adb shell pm grant hunoia.luno android.permission.WRITE_SECURE_SETTINGS</string>
     <string name="refresh">刷新</string>
     <string name="action_panel_style">动作面板样式</string>
@@ -39,24 +37,19 @@
     <string name="add_action_panel">添加面板</string>
     <string name="action_panel_name_hint">面板名称</string>
     <string name="action_panel_items">面板内容</string>
-    <string name="action_panel_add_item">添加面板项</string>
     <string name="action_panel_empty_hint">还没有面板项。添加后，触钮上选「动作面板」即可触发时弹出。</string>
     <string name="action_panel_item_drag">拖动排序</string>
     <string name="action_panel_delete_title">删除面板</string>
     <string name="action_panel_delete_desc">删除面板「%1$s」？引用它的触钮动作将变为「无动作」。</string>
-    <string name="action_panel_unnamed">未命名面板</string>
 
     <!-- 悬浮球（2038 悬浮球触发方式） -->
-    <string name="float_ball">悬浮球</string>
     <string name="recent_apps_blocklist">最近应用黑名单</string>
-    <string name="button_visibility">显隐设置</string>
     <!-- 设置页（动作/快速搜索共用） -->
     <!-- 动作选择页行尾设置弹窗 -->
     <!-- 行尾设置弹窗标题 -->
     <string name="action_settings_panel_group">面板</string>
     <string name="action_settings_action_group">动作</string>
     <string name="action_settings_other_group">其他</string>
-    <string name="app_clone_label">分身</string>
     <string name="apps_show_system">显示系统应用</string>
     <string name="apps_show_system_hint">在应用列表中加入没有桌面入口的系统应用</string>
     <!-- 字体缩放（系统 font_scale） -->
@@ -76,9 +69,6 @@
     <string name="hide_luno_from_recents_hint">只隐藏主页面，图片标注等页面仍保留在最近任务</string>
     <string name="action_settings_permissions_group">权限</string>
     <string name="action_settings_notification_group">通知与状态栏</string>
-    <string name="action_settings_habit_group">习惯</string>
-    <string name="habit_list_title">习惯</string>
-    <string name="todo_list_title">待办</string>
     <string name="action_settings_mini_window_position">小窗设置</string>
     <string name="mini_window_settings_title">小窗设置</string>
     <string name="mini_window_settings_group">跟随触发位置</string>
@@ -107,13 +97,11 @@
     <string name="screen_pick_save_to_gallery">识屏图片保存到相册</string>
     <string name="screen_pick_save_to_gallery_hint">关闭时分享只写缓存；复制图片仍需写一份到相册以保证粘贴兼容</string>
     <string name="notification_blocklist">通知黑名单</string>
-    <string name="action_panel_missing">面板已不存在，请返回重新添加</string>
     <string name="action_panel_items_count">%1$d 项</string>
     <string name="action_panel_count">%1$d 个面板</string>
     <string name="action_panel_item_no_long_press">长按：同短按</string>
     <string name="grid_panels">网格面板</string>
     <string name="grid_panel_add">添加网格面板</string>
-    <string name="grid_panel_unnamed">未命名网格面板</string>
     <string name="grid_panel_empty_hint">还没有网格面板。添加后，动作里选「网格面板」即可在触点附近弹出。</string>
     <string name="grid_panel_summary">%1$d 项 · %2$d 列</string>
     <string name="grid_panel_delete_title">删除网格面板</string>
@@ -121,9 +109,6 @@
     <string name="grid_panel_card_alpha">卡片透明度</string>
     <string name="grid_panel_blur_radius">背景模糊</string>
     <string name="grid_panel_blur_off">关闭</string>
-    <string name="cancel">取消</string>
-    <string name="confirm">确认</string>
-    <string name="reset">重置</string>
     <string name="gesture_button_name">触钮 %1$d</string>
     <string name="gesture_button_size_max">已达到最大触钮数量</string>
     <string name="request_get_apps_permission">获取应用列表</string>
@@ -141,17 +126,11 @@
     <!-- 数据模型默认值 -->
     <string name="sub_gesture_default_name">子手势 %1$d</string>
 
-    <string name="action_none">无</string>
     <string name="search_app_hint">搜索应用</string>
-    <string name="no_matching_results">无匹配结果</string>
-    <string name="sub_gesture">子手势</string>
     <string name="add_sub_gesture">添加子手势</string>
     <string name="home_section_settings">配置</string>
     <string name="home_section_data">数据管理</string>
-    <string name="action_library">动作库</string>
-    <string name="action_deep_links">外部调用</string>
     <string name="action_deep_link_not_found">动作不存在或已删除</string>
-    <string name="action_library_add">新增动作库条目</string>
 
     <!-- 动作编辑器 -->
     <string name="action_param_multi_selected">已选 %1$d 个</string>
@@ -174,8 +153,6 @@
     <string name="toast_execution_failed">执行失败</string>
     <string name="toast_permission_denied">权限不足</string>
     <string name="toast_unsupported_action">不支持的动作类型</string>
-    <string name="toast_accessibility_required">需要无障碍服务</string>
-    <string name="toast_shizuku_required">需要 Shizuku 权限</string>
 
     <!-- 自动化规则 -->
 
@@ -183,11 +160,9 @@
     <!-- 快速搜索 -->
 
     <!-- 搜索引擎 -->
-    <string name="search_engine_settings">搜索引擎</string>
 
 
     <!-- 链接分发 -->
-    <string name="link_dispatch">链接分发</string>
     <string name="link_dispatch_no_link">没有识别到链接</string>
     <string name="link_dispatch_pick_app_title">选择打开方式</string>
     <string name="link_dispatch_pick_app_hint">选择一个应用打开这条链接</string>

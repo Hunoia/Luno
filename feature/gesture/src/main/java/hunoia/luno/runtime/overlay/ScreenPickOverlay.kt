@@ -724,7 +724,7 @@ class ScreenPickOverlay(
                         val text = content.text
                         if (!text.isNullOrBlank()) {
                             copyText(host.context, SCREEN_PICK_LABEL, text)
-                            showToast(R.string.quick_search_copied)
+                            showToast(hunoia.luno.design.R.string.copied)
                         } else if (imageBounds != null) {
                             if (!copyImageRegion(AndroidRect(imageBounds), capture)) {
                                 showToast(R.string.screen_pick_failed)
@@ -921,7 +921,7 @@ class ScreenPickOverlay(
                     val text = selectionText(screenRect)
                     if (!text.isNullOrBlank()) {
                         copyText(host.context, SCREEN_PICK_LABEL, text)
-                        showToast(R.string.quick_search_copied)
+                        showToast(hunoia.luno.design.R.string.copied)
                         true
                     } else {
                         copyImageRegion(screenRect)

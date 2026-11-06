@@ -192,16 +192,16 @@ fun ActionSettingsTab(
                 }
             }
             item(key = "habits") {
-                LunoGroup(title = stringResource(R.string.action_settings_habit_group)) {
+                LunoGroup(title = stringResource(hunoia.luno.gridpanel.R.string.action_settings_habit_group)) {
                     LunoSettingsRow(
                         icon = Icons.Default.CheckCircle,
-                        title = stringResource(R.string.habit_list_title),
+                        title = stringResource(hunoia.luno.gridpanel.R.string.habit_list_title),
                         shape = segmentedShape(0, 2),
                         onClick = onNavToHabits,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Checklist,
-                        title = stringResource(R.string.todo_list_title),
+                        title = stringResource(hunoia.luno.gridpanel.R.string.todo_list_title),
                         shape = segmentedShape(1, 2),
                         onClick = onNavToTodos,
                     )
@@ -252,7 +252,7 @@ fun ActionSettingsTab(
                 LunoGroup(title = stringResource(R.string.action_settings_other_group)) {
                     LunoSettingsRow(
                         icon = Icons.Default.Visibility,
-                        title = stringResource(R.string.button_visibility),
+                        title = stringResource(hunoia.luno.gesture.R.string.button_visibility),
                         shape = segmentedShape(0, 4),
                         onClick = onNavToButtonVisibility,
                     )
@@ -316,7 +316,7 @@ fun ActionSettingsTab(
                 LunoGroup(title = stringResource(R.string.action_settings_permissions_group)) {
                     LunoSettingsRow(
                         icon = Icons.Default.Link,
-                        title = stringResource(R.string.action_deep_links),
+                        title = stringResource(hunoia.luno.actions.R.string.action_deep_links),
                         shape = segmentedShape(0, 3),
                         onClick = onNavToActionSelect,
                     )

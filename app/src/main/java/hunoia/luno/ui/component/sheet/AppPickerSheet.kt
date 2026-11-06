@@ -152,13 +152,13 @@ fun AppPickerSheet(
                         verticalArrangement = Arrangement.spacedBy(SegmentedGap),
                     ) {
                         if (filteredApps.isEmpty()) {
-                            item { EmptyState(message = stringResource(R.string.no_matching_results)) }
+                            item { EmptyState(message = stringResource(hunoia.luno.design.R.string.no_matching_results)) }
                         } else {
                             itemsIndexed(filteredApps, key = { _, item -> item.identity }) { index, item ->
                                 LunoSelectableRow(
                                     title = item.label,
                                     subtitle = if (item.isClone) {
-                                        "${item.packageName} · ${stringResource(R.string.app_clone_label)}"
+                                        "${item.packageName} · ${stringResource(hunoia.luno.actions.R.string.app_clone_label)}"
                                     } else {
                                         item.packageName
                                     },

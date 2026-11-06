@@ -223,7 +223,7 @@ fun SearchEngineSettingsScreen(
             IconButton(onClick = { menuOpen = true }) {
                 Icon(
                     imageVector = Icons.Default.MoreVert,
-                    contentDescription = stringResource(R.string.more_options),
+                    contentDescription = stringResource(hunoia.luno.design.R.string.more_options),
                 )
             }
             DropdownMenu(
@@ -369,7 +369,7 @@ fun SearchEngineSettingsScreen(
                                     IconButton(onClick = { deleteTarget = engine }) {
                                         Icon(
                                             imageVector = Icons.Default.Close,
-                                            contentDescription = stringResource(R.string.delete),
+                                            contentDescription = stringResource(hunoia.luno.design.R.string.delete),
                                             tint = MaterialTheme.colorScheme.error,
                                             modifier = Modifier.size(RowIconSize),
                                         )

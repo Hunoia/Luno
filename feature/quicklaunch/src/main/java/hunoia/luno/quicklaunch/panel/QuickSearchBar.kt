@@ -153,7 +153,7 @@ internal fun QuickSearchField(
                     // 注意列表是反转的：firstOrNull 是视觉底部（离胶囊最近），与显示顺序相反。
                     LunoIconButton(
                         icon = Icons.Default.Check,
-                        contentDescription = stringResource(R.string.confirm),
+                        contentDescription = stringResource(hunoia.luno.design.R.string.confirm),
                         onClick = onConfirm,
                     )
                 }

@@ -1,7 +1,6 @@
 package hunoia.luno.ui.navigation
 
 import androidx.annotation.Keep
-import hunoia.luno.config.model.GestureTriggerType
 import kotlinx.serialization.Serializable
 
 

@@ -91,7 +91,7 @@ class ActionSelectVM(
                 ActionDeepLink.ofAction(obj.toStoredAction())
             }
             val context = AppContext.get()
-            copyText(context, context.getString(R.string.action_deep_links), link)
+            copyText(context, context.getString(hunoia.luno.actions.R.string.action_deep_links), link)
             toast(R.string.action_deep_link_copied)
             done()
             return
@@ -202,7 +202,7 @@ class ActionSelectVM(
                     if (actionSelect.gridPanelId.isNotBlank()) {
                         toast(R.string.grid_panel_missing)
                     } else {
-                        toast(R.string.action_panel_missing)
+                        toast(hunoia.luno.gridpanel.R.string.action_panel_missing)
                     }
                 else -> toast(R.string.save_success)
             }

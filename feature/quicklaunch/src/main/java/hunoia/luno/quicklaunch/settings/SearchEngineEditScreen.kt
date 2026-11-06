@@ -172,7 +172,7 @@ fun SearchEngineEditScreen(
                     if (valid) save() else showToast(R.string.search_engine_invalid_hint)
                 },
                 icon = Icons.Default.Save,
-                contentDescription = stringResource(R.string.save),
+                contentDescription = stringResource(hunoia.luno.design.R.string.save),
                 containerColor = if (valid) MaterialTheme.colorScheme.primaryContainer
                 else MaterialTheme.colorScheme.surfaceContainerHighest,
             )
@@ -181,8 +181,8 @@ fun SearchEngineEditScreen(
             if (showDiscardConfirm) {
                 ConfirmDialog(
                     onDismissRequest = { showDiscardConfirm = false },
-                    title = stringResource(R.string.action_library_discard_title),
-                    text = stringResource(R.string.action_library_discard_desc),
+                    title = stringResource(hunoia.luno.actions.R.string.action_library_discard_title),
+                    text = stringResource(hunoia.luno.actions.R.string.action_library_discard_desc),
                     onConfirm = {
                         showDiscardConfirm = false
                         onBack()

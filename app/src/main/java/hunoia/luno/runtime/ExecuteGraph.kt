@@ -28,8 +28,8 @@ class LunoExecuteMessages(private val context: Context) : ExecuteMessages {
 
     override fun capabilityText(capability: Capability): String = context.getString(
         when (capability) {
-            Capability.Accessibility -> R.string.toast_accessibility_required
-            Capability.Shizuku -> R.string.toast_shizuku_required
+            Capability.Accessibility -> hunoia.luno.gridpanel.R.string.toast_accessibility_required
+            Capability.Shizuku -> hunoia.luno.actions.R.string.toast_shizuku_required
             Capability.None -> R.string.toast_execution_failed
         }
     )

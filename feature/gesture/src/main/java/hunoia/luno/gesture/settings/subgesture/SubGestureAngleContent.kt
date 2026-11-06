@@ -135,7 +135,7 @@ private fun DirectionAngleContent(
             }) {
                 Icon(
                     Icons.Default.Restore,
-                    contentDescription = stringResource(id = R.string.reset),
+                    contentDescription = stringResource(id = hunoia.luno.design.R.string.reset),
                 )
             }
             DirectionCountStepper(
@@ -244,7 +244,7 @@ private fun SectorLabels(
             val name = directionLabel(center, count, withAngle = false)
             // 0° 宽扇区已等于「关闭」，无论方向数多少都要显式标出来。
             val widthText = when {
-                disabled -> stringResource(R.string.close)
+                disabled -> stringResource(hunoia.luno.design.R.string.close)
                 showWidth -> "$widthDegrees°"
                 else -> null
             }

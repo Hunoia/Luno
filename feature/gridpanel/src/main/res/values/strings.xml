@@ -53,7 +53,6 @@
     <string name="grid_panel_widget_failed">小部件加载失败</string>
     <string name="grid_panel_empty_items">空面板。长按空白处进入编辑添加项。</string>
     <string name="grid_panel_empty_items_edit">这一页还是空的。点右上角「+」添加动作或小部件。</string>
-    <string name="cancel">取消</string>
     <string name="todo_add">新建待办</string>
     <string name="todo_create_title">新建待办</string>
     <string name="todo_delete">删除待办</string>

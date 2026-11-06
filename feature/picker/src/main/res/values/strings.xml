@@ -1,14 +1,8 @@
 <resources>
     <string name="action_deep_link_copied">Deep Link 已复制</string>
-    <string name="action_deep_links">外部调用</string>
     <string name="action_deep_links_pick_title">选择动作</string>
-    <string name="action_library">动作库</string>
     <string name="action_library_and_rules">库与规则</string>
-    <string name="action_library_missing">动作库条目已移除</string>
-    <string name="action_panel_add_item">添加面板项</string>
     <string name="action_panel_item_long_press">长按动作</string>
-    <string name="action_panel_missing">面板已不存在，请返回重新添加</string>
-    <string name="action_panel_unnamed">未命名面板</string>
     <string name="action_select_slide">滑动</string>
     <string name="action_sub_gesture">子手势</string>
     <string name="all_categories">全部</string>
@@ -21,23 +15,16 @@
     <string name="create_shortcut">创建快捷方式</string>
     <string name="create_shortcut_failed">创建快捷方式失败：应用没有返回可启动的 Intent。</string>
     <string name="disable_mini_window">已取消小窗启动</string>
-    <string name="double_tap_action">双击</string>
     <string name="enable_mini_window">已标记为小窗启动</string>
-    <string name="float_ball_tap_action">悬浮球单击动作</string>
-    <string name="grid_panel_add_item">添加面板项</string>
     <string name="grid_panel_add_widget">桌面小部件</string>
     <string name="grid_panel_internal_widgets">Luno 内置</string>
     <string name="grid_panel_missing">面板不存在，可能已被删除</string>
     <string name="grid_panel_no_widgets">设备上没有可用的小部件</string>
     <string name="grid_panel_page_full">这一页放不下了，已取消添加</string>
-    <string name="grid_panel_unnamed">未命名网格面板</string>
     <string name="grid_panel_widget_pick_failed">无法打开小部件选择器</string>
     <string name="launch_shortcut">启动快捷方式</string>
     <string name="long1">长滑</string>
-    <string name="long_press">长按</string>
-    <string name="long_slide_hold_action">长滑停留</string>
     <string name="mini_window_position_short">小窗</string>
-    <string name="no_matching_results">无匹配结果</string>
     <string name="ok">确定</string>
     <string name="row_dialog_buttons_visibility">触钮显隐</string>
     <string name="row_dialog_float_ball">悬浮球显隐</string>
@@ -65,10 +52,7 @@
     <string name="save_failure">保存失败</string>
     <string name="save_success">保存成功</string>
     <string name="search_collapse_cd">收起搜索</string>
-    <string name="search_hint_all">搜索</string>
     <string name="short1">短滑</string>
-    <string name="slide_hold_action">短滑停留</string>
     <string name="tab_apps">应用</string>
     <string name="tab_shortcuts">快捷</string>
-    <string name="tap_action">单击</string>
 </resources>

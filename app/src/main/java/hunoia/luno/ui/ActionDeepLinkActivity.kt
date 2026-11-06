@@ -29,7 +29,7 @@ class ActionDeepLinkActivity : ComponentActivity() {
             when {
                 action == null -> showToast(R.string.action_deep_link_not_found)
                 !dispatchWithRetry(action) ->
-                    showToast(R.string.dispatch_service_not_ready)
+                    showToast(hunoia.luno.design.R.string.dispatch_service_not_ready)
             }
             finish()
         }

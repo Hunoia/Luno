@@ -367,7 +367,7 @@ private fun TodoEditDialog(
                     }
                     Spacer(Modifier.weight(1f))
                     TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.cancel))
+                        Text(stringResource(hunoia.luno.design.R.string.cancel))
                     }
                     TextButton(
                         onClick = { submit() },

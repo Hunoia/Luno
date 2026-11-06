@@ -99,8 +99,8 @@ fun ActionPanelEditScreen(
     if (current == null) {
         // 数据未到：本帧什么都不画（一次闪烁）。数据到了还不存在：给明确落点，不静默弹回。
         if (loaded) {
-            LunoScreen(title = stringResource(R.string.action_panel_unnamed), onBack = onBack) {
-                EmptyState(message = stringResource(R.string.action_panel_missing))
+            LunoScreen(title = stringResource(hunoia.luno.actions.R.string.action_panel_unnamed), onBack = onBack) {
+                EmptyState(message = stringResource(hunoia.luno.gridpanel.R.string.action_panel_missing))
             }
         }
         return
@@ -117,7 +117,7 @@ fun ActionPanelEditScreen(
     }
 
     LunoScreenLazy(
-        title = current.name.ifBlank { stringResource(R.string.action_panel_unnamed) },
+        title = current.name.ifBlank { stringResource(hunoia.luno.actions.R.string.action_panel_unnamed) },
         onBack = onBack,
         state = listState,
         bottomContentPadding = FloatingContentBottom,
@@ -125,7 +125,7 @@ fun ActionPanelEditScreen(
             // 删除从列表页移到编辑页右上角：带确认，删后返回。
             LunoIconButton(
                 icon = Icons.Outlined.Delete,
-                contentDescription = stringResource(R.string.delete),
+                contentDescription = stringResource(hunoia.luno.design.R.string.delete),
                 onClick = { showDeleteConfirm = true },
             )
         },
@@ -133,7 +133,7 @@ fun ActionPanelEditScreen(
             LunoFab(
                 onClick = { onPickItem(ActionSelect(actionPanelId = panelId)) },
                 icon = Icons.Default.Add,
-                contentDescription = stringResource(R.string.action_panel_add_item),
+                contentDescription = stringResource(hunoia.luno.actions.R.string.action_panel_add_item),
             )
         },
         dialogs = {
@@ -143,7 +143,7 @@ fun ActionPanelEditScreen(
                     title = stringResource(R.string.action_panel_delete_title),
                     text = stringResource(
                         R.string.action_panel_delete_desc,
-                        current.name.ifBlank { stringResource(R.string.action_panel_unnamed) },
+                        current.name.ifBlank { stringResource(hunoia.luno.actions.R.string.action_panel_unnamed) },
                     ),
                     destructive = true,
                     onConfirm = {
@@ -213,7 +213,7 @@ fun ActionPanelEditScreen(
                                     ) {
                                         Icon(
                                             Icons.Default.Close,
-                                            contentDescription = stringResource(R.string.delete),
+                                            contentDescription = stringResource(hunoia.luno.design.R.string.delete),
                                             tint = MaterialTheme.colorScheme.error,
                                             modifier = Modifier.size(RowIconSize),
                                         )

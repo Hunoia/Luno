@@ -13,7 +13,7 @@ val Capability.displayNameRes: Int
     get() = when (this) {
         Capability.Accessibility -> R.string.action_capability_accessibility
         Capability.Shizuku -> R.string.action_capability_shizuku
-        Capability.None -> R.string.action_none
+        Capability.None -> hunoia.luno.actions.R.string.action_none
     }
 
 @Composable

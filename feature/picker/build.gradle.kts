@@ -24,6 +24,8 @@ dependencies {
     implementation(project(":ui:design"))
     implementation(project(":feature:actions"))
     implementation(project(":feature:gridpanel"))
+    implementation(project(":feature:gesture"))
+    implementation(project(":feature:floatball"))
     implementation(project(":feature:quicklaunch"))
     implementation(project(":feature:search"))
     implementation(libs.jetbrains.kotlin.serialization)

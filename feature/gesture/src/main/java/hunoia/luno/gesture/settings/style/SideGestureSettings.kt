@@ -29,7 +29,7 @@ fun SideGestureSettings(
     LunoSettingsRow(
         onClick = onClick,
         title = directionLabel(centerDegrees, count),
-        subtitle = if (subtitle.isNotEmpty()) subtitle else stringResource(id = R.string.action_none),
+        subtitle = if (subtitle.isNotEmpty()) subtitle else stringResource(id = hunoia.luno.actions.R.string.action_none),
         subtitleColor = MaterialTheme.colorScheme.primary,
         shape = shape,
         leading = {

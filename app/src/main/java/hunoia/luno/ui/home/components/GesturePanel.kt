@@ -117,7 +117,7 @@ fun GesturePanel(
             }
         }
         GestureSection(
-            title = stringResource(id = R.string.sub_gesture),
+            title = stringResource(id = hunoia.luno.gesture.R.string.sub_gesture),
             addContentDescription = stringResource(id = R.string.add_sub_gesture),
             expanded = expandedSection == GesturePanelSection.SubGesture,
             itemCount = subGestures.size,

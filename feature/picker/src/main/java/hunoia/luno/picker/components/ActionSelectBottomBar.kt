@@ -206,7 +206,7 @@ internal fun ActionSelectBottomBar(
                         LunoSearchField(
                             query = query,
                             onQueryChange = onQueryChange,
-                            placeholder = stringResource(R.string.search_hint_all),
+                            placeholder = stringResource(hunoia.luno.design.R.string.search_hint_all),
                             focusRequester = focusRequester,
                             modifier = Modifier.fillMaxSize(),
                         )
@@ -235,7 +235,7 @@ internal fun ActionSelectBottomBar(
                     Icon(
                         imageVector = if (searchExpanded) Icons.Default.Close else Icons.Default.Search,
                         contentDescription = stringResource(
-                            if (searchExpanded) R.string.search_collapse_cd else R.string.search_hint_all
+                            if (searchExpanded) R.string.search_collapse_cd else hunoia.luno.design.R.string.search_hint_all
                         ),
                         tint = if (searchExpanded) {
                             MaterialTheme.colorScheme.primary

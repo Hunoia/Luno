@@ -153,7 +153,7 @@ fun SubGestureSettingsScreen(
                         )
                         LunoIconButton(
                             icon = Icons.Default.Delete,
-                            contentDescription = stringResource(R.string.delete),
+                            contentDescription = stringResource(hunoia.luno.design.R.string.delete),
                             onClick = { vm.showDeleteWarningDialog(true) },
                         )                    },
         state = listState,
@@ -193,7 +193,7 @@ fun SubGestureSettingsScreen(
                                         },
                                         centerDegrees = center,
                                         count = gesture.angle.count,
-                                        subtitle = gesture.slideActionFor(slot).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
+                                        subtitle = gesture.slideActionFor(slot).actionTextCompose().ifEmpty { stringResource(id = hunoia.luno.actions.R.string.action_none) },
                                         shape = actionContentRowShape(index, slots.size),
                                     )
                                 }
@@ -225,7 +225,7 @@ fun SubGestureSettingsScreen(
                                         },
                                         centerDegrees = center,
                                         count = gesture.angle.count,
-                                        subtitle = gesture.slideHoldActionFor(slot).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
+                                        subtitle = gesture.slideHoldActionFor(slot).actionTextCompose().ifEmpty { stringResource(id = hunoia.luno.actions.R.string.action_none) },
                                         shape = actionContentRowShape(index, slots.size),
                                     )
                                 }
@@ -257,7 +257,7 @@ fun SubGestureSettingsScreen(
                                         },
                                         centerDegrees = center,
                                         count = gesture.angle.count,
-                                        subtitle = gesture.longSlideActionFor(slot).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
+                                        subtitle = gesture.longSlideActionFor(slot).actionTextCompose().ifEmpty { stringResource(id = hunoia.luno.actions.R.string.action_none) },
                                         shape = actionContentRowShape(index, slots.size),
                                     )
                                 }
@@ -289,7 +289,7 @@ fun SubGestureSettingsScreen(
                                         },
                                         centerDegrees = center,
                                         count = gesture.angle.count,
-                                        subtitle = gesture.longSlideHoldActionFor(slot).actionTextCompose().ifEmpty { stringResource(id = R.string.action_none) },
+                                        subtitle = gesture.longSlideHoldActionFor(slot).actionTextCompose().ifEmpty { stringResource(id = hunoia.luno.actions.R.string.action_none) },
                                         shape = actionContentRowShape(index, slots.size),
                                     )
                                 }
