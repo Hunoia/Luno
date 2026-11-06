@@ -274,6 +274,53 @@ def _unused_strings(module: Path, refs: dict[str, set[str]]) -> list[str]:
     return sorted(keys - refs.get(ns, set()))
 
 
+def _settings_modules() -> set[str]:
+    text = read(ROOT / "settings.gradle.kts")
+    return set(re.findall(r'include\("(:[^"]+)"\)', text))
+
+
+def _test_class_names() -> set[str]:
+    names: set[str] = set()
+    for group in ("app", "core", "feature", "ui", "capability"):
+        base = ROOT / group
+        if not base.is_dir():
+            continue
+        for path in base.rglob("*.kt"):
+            posix = path.as_posix()
+            if "/src/test/" in posix and "/build/" not in posix:
+                names.add(path.stem)
+    return names
+
+
+def check_architecture_drift() -> list[str]:
+    """规范正文漂移检查：实现路径、模块名、门禁类、章节引用。"""
+    path = DOCS / "architecture.md"
+    text = read(path)
+    errors: list[str] = []
+
+    # 正文不写实现文件路径；事实源用模块名 / 链接指代。
+    for match in sorted(set(re.findall(r"`([^`]+\.kts?)`", text))):
+        errors.append(f"{rel(path)}：正文出现实现文件路径 `{match}`")
+
+    modules = _settings_modules()
+    # 只校验真实模块组，避免把进程名（:service）和反例（:shared:*）当模块。
+    module_re = re.compile(r":(?:core|feature|capability|ui|app)(?::[a-z][a-z0-9-]*)?(?![\w*:])")
+    for module in sorted(set(module_re.findall(text))):
+        if module not in modules:
+            errors.append(f"{rel(path)}：引用了不存在的模块 {module}")
+
+    tests = _test_class_names()
+    for name in sorted(set(re.findall(r"\b([A-Z][A-Za-z0-9]*Test)\b", text))):
+        if name not in tests:
+            errors.append(f"{rel(path)}：门禁测试不存在 {name}")
+
+    headings = set(re.findall(r"^#{2,3}\s+(\d+(?:\.\d+)?)", text, re.M))
+    for ref in sorted(set(re.findall(r"§(\d+(?:\.\d+)?)", text))):
+        if ref not in headings:
+            errors.append(f"{rel(path)}：引用了不存在的章节 §{ref}")
+    return errors
+
+
 def generate() -> int:
     REF.mkdir(parents=True, exist_ok=True)
     for name, content in build_files().items():
@@ -321,6 +368,12 @@ def check() -> int:
 
     if errors:
         print("\n".join(errors))
+        print("\nspec docs check FAILED")
+        return 1
+
+    drift = check_architecture_drift()
+    if drift:
+        print("\n".join(drift))
         print("\nspec docs check FAILED")
         return 1
     print("spec docs check OK")
