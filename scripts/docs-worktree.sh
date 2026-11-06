@@ -64,6 +64,12 @@ while read -r local_ref local_sha remote_ref remote_sha; do
             ;;
     esac
 done
+
+# 本地 CI：远程只做备份，门禁在 push 前跑。
+# 紧急跳过：SKIP_CI=1 git push
+if [ "${SKIP_CI:-0}" != "1" ]; then
+    ./scripts/ci.sh || exit 1
+fi
 exit 0
 HOOK
 
