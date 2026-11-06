@@ -15,9 +15,11 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.chrisbanes.haze.HazeInput
 import dev.chrisbanes.haze.HazeProgressive
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.blur.HazeBlurStyle
+import dev.chrisbanes.haze.blur.hazeBlur
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import hunoia.luno.ui.theme.CapsuleShape
@@ -50,12 +52,22 @@ fun Modifier.appHazeEffect(
     mask: Brush? = null,
 ): Modifier {
     if (state == null) return this
-    return hazeEffect(state) {
-        this.blurRadius = blurRadius
-        backgroundColor = background
-        this.progressive = progressive
-        this.mask = mask
-    }
+    // Haze 2.x：effect 由「输入 + 模糊样式」组成，Backdrop 表示采当前窗口的 source 快照。
+    // 样式 scope 里 blurRadius / backgroundColor / progressive / mask 都是函数，
+    // 与入参同名，先取到局部值避免调用歧义。
+    val radius = blurRadius
+    val tint = background
+    val blend = progressive
+    val brush = mask
+    return hazeBlur(
+        HazeInput.Sources(state),
+        HazeBlurStyle {
+            blurRadius(radius)
+            backgroundColor(tint)
+            progressive(blend)
+            mask(brush)
+        },
+    )
 }
 
 /**
