@@ -71,6 +71,9 @@ class GestureCoordinator(
     private val host: GestureHost,
 ) {
     val runtimeSettingsStore = SettingsStore(host.coroutineScope)
+
+    /** 用户意图序号：同一进程内保证幂等键唯一，重放同一请求时由调用方复用原键。 */
+    private val intentSeq = java.util.concurrent.atomic.AtomicLong()
     val environmentTracker = EnvironmentTracker(
         getCurrentPackageName = { host.getCurrentPackageName() },
         nowInLauncher = { host.nowInLauncher() },
@@ -758,6 +761,7 @@ class GestureCoordinator(
                 request = hunoia.luno.core.domain.ActionRequest(
                     stored = action.withoutVariantKey(),
                     origin = hunoia.luno.core.domain.DispatchOrigin.GESTURE,
+                    idempotencyKey = nextIntentKey("gesture:${sourceButton?.id ?: "surface"}"),
                 ),
                 touchPosition = touch,
                 sourceButtonId = sourceButton?.id,
@@ -776,17 +780,23 @@ class GestureCoordinator(
         )
     }
 
-    /** 供 overlay 等场景直接执行一个已构造好的动作。 */
-    fun dispatchAction(action: hunoia.luno.action.model.StoredAction) {
+    /** 供 overlay 等场景直接执行一个已构造好的动作；key 原样透传，null = 生成新意图键。 */
+    fun dispatchAction(
+        action: hunoia.luno.action.model.StoredAction,
+        idempotencyKey: String? = null,
+    ) {
         actionDispatcher.submit(
             hunoia.luno.execute.ExecuteCall(
                 request = hunoia.luno.core.domain.ActionRequest(
                     stored = action.withoutVariantKey(),
                     origin = hunoia.luno.core.domain.DispatchOrigin.PANEL,
+                    idempotencyKey = idempotencyKey ?: nextIntentKey("panel"),
                 ),
             ),
         )
     }
+
+    private fun nextIntentKey(prefix: String): String = "$prefix:${intentSeq.incrementAndGet()}"
 
     /**
      * 悬浮球点按动作统一转发：所有动作广播进容器，由容器 `runGestureActions` 分类执行（与触钮同链路）。

@@ -15,13 +15,13 @@ import hunoia.luno.core.domain.JsonSerializer
 class DispatchService : Service() {
 
     private val binder = object : IDispatchService.Stub() {
-        override fun dispatchAction(actionJson: String): Boolean {
+        override fun dispatchAction(actionJson: String, idempotencyKey: String?): Boolean {
             val action = runCatching {
                 JsonSerializer.decodeFromString<StoredAction>(actionJson)
             }.getOrNull() ?: return false
             val svc = SideGestureService.current ?: return false
             if (!svc.isDispatchReady()) return false
-            svc.dispatchAction(action)
+            svc.dispatchAction(action, idempotencyKey)
             return true
         }
 

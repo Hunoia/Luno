@@ -95,7 +95,7 @@ object SurfaceActionRuntime {
         } else {
             // 主进程没有本地 Dispatcher：只确认是否交给 :service，不伪装成执行结果。
             SurfaceDispatch.install(SurfaceActionDispatch { request, onSettled ->
-                onSettled(hunoia.luno.service.DispatchClient.dispatch(request.stored))
+                onSettled(hunoia.luno.service.DispatchClient.dispatch(request.stored, request.idempotencyKey))
             })
         }
         installed = true

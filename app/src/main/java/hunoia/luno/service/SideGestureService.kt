@@ -296,8 +296,8 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         }
     }
 
-    override fun dispatchAction(action: StoredAction) {
-        if (::gestureCoordinator.isInitialized) gestureCoordinator.dispatchAction(action)
+    override fun dispatchAction(action: StoredAction, idempotencyKey: String?) {
+        if (::gestureCoordinator.isInitialized) gestureCoordinator.dispatchAction(action, idempotencyKey)
     }
 
     /**

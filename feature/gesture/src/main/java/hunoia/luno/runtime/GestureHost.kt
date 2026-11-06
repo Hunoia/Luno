@@ -14,6 +14,6 @@ interface GestureHost : hunoia.luno.runtime.RuntimeHost, PointerOverlayHost {
     fun getCurrentPackageName(): String
 
 
-    /** 供 overlay 等场景直接执行一个已构造好的动作。 */
-    fun dispatchAction(action: StoredAction)
+    /** 供 overlay 等场景直接执行一个已构造好的动作；key 由意图产生方提供，转发层不补键。 */
+    fun dispatchAction(action: StoredAction, idempotencyKey: String? = null)
 }

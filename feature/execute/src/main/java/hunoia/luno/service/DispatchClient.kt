@@ -79,14 +79,14 @@ object DispatchClient {
         return false
     }
 
-    /** 转交 :service 分发。false = 未送达（未连接或对端未就绪）。 */
-    fun dispatch(action: StoredAction): Boolean {
+    /** 转交 :service 分发。false = 未送达（未连接或对端未就绪）。键原样透传，不在转发层补键。 */
+    fun dispatch(action: StoredAction, idempotencyKey: String? = null): Boolean {
         val s = stub ?: run {
             retryBindIfNeeded()
             return false
         }
         return runCatching {
-            s.dispatchAction(JsonSerializer.encodeToString(action))
+            s.dispatchAction(JsonSerializer.encodeToString(action), idempotencyKey)
         }.getOrDefault(false)
     }
 
