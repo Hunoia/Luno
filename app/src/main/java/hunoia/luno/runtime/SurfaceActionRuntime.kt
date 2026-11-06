@@ -23,7 +23,7 @@ import hunoia.luno.execute.SurfaceHost
 import hunoia.luno.runtime.dispatch.ActionDispatch
 import hunoia.luno.runtime.surface.SurfaceDispatch
 import hunoia.luno.launch.DefaultAppLauncher
-import hunoia.luno.quicklaunch.launch.DisabledPackageEnabler
+import hunoia.luno.quickaccess.launch.DisabledPackageEnabler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -162,15 +162,15 @@ object SurfaceActionRuntime {
         private val launcher by lazy { appLauncher(context) }
 
         override fun toggleQuickAppLauncher(anchorX: Int, anchorY: Int) {
-            hunoia.luno.quicklaunch.QuickAppLauncherOverlay.show(anchorX, anchorY)
+            hunoia.luno.quickaccess.QuickAppLauncherOverlay.show(anchorX, anchorY)
         }
 
         override fun showQuickSearch() {
-            hunoia.luno.quicklaunch.QuickSearchActivity.start(context)
+            hunoia.luno.quickaccess.QuickSearchActivity.start(context)
         }
 
         override fun showSpeechRecognition(): Boolean {
-            hunoia.luno.quicklaunch.SpeechRecognitionActivity.start(context)
+            hunoia.luno.quickaccess.SpeechRecognitionActivity.start(context)
             return true
         }
 

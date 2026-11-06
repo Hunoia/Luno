@@ -16,9 +16,9 @@ import hunoia.luno.core.LOG_TAG
 import hunoia.luno.core.LunoLog
 import hunoia.luno.bridge.ui.isMainThread
 import hunoia.luno.bridge.vibration.initVibrationContext
-import hunoia.luno.quicklaunch.icon.AppIconFetcherFactory
-import hunoia.luno.quicklaunch.icon.AppIconKeyer
-import hunoia.luno.quicklaunch.icon.AppIconModel
+import hunoia.luno.quickaccess.icon.AppIconFetcherFactory
+import hunoia.luno.quickaccess.icon.AppIconKeyer
+import hunoia.luno.quickaccess.icon.AppIconModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -107,22 +107,22 @@ class App : Application(), ImageLoaderFactory {
         hunoia.luno.launch.LaunchCapability.telemetry = hunoia.luno.config.DataLaunchTelemetry
         hunoia.luno.launch.LaunchCapability.targetResolver =
             hunoia.luno.core.domain.LaunchTargetResolver { packageName ->
-                hunoia.luno.quicklaunch.query.AppQuery
+                hunoia.luno.quickaccess.query.AppQuery
                     .findLauncherActivity(applicationContext, packageName)
                     ?.let { hunoia.luno.core.domain.LaunchTarget(it.packageName, it.className) }
             }
         hunoia.luno.launch.LaunchCapability.disabledApps =
             object : hunoia.luno.core.domain.DisabledAppState {
                 override fun isDisabled(packageName: String): Boolean =
-                    hunoia.luno.quicklaunch.query.DisabledAppQuery
+                    hunoia.luno.quickaccess.query.DisabledAppQuery
                         .isDisabled(applicationContext, packageName)
 
                 override fun markEnabled(packageName: String) {
-                    hunoia.luno.quicklaunch.query.DisabledAppQuery.markEnabled(packageName)
+                    hunoia.luno.quickaccess.query.DisabledAppQuery.markEnabled(packageName)
                 }
 
                 override fun invalidateLauncherCache() {
-                    hunoia.luno.quicklaunch.query.AppQuery.invalidateLauncherCache()
+                    hunoia.luno.quickaccess.query.AppQuery.invalidateLauncherCache()
                 }
             }
 
@@ -133,7 +133,7 @@ class App : Application(), ImageLoaderFactory {
         super.onTrimMemory(level)
         if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
             // 进程级搜索索引保留，但拼音索引/图标位图是大头；内存吃紧时退回小上限。
-            hunoia.luno.quicklaunch.query.AppSearch.trimPinyinCache(1_000)
+            hunoia.luno.quickaccess.query.AppSearch.trimPinyinCache(1_000)
             hunoia.luno.ui.icon.SearchIconCache.clear()
         }
     }

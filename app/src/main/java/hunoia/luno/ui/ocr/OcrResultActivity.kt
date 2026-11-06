@@ -131,7 +131,7 @@ import hunoia.luno.bridge.system.copyText
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.capability.ocr.OcrLine
 import hunoia.luno.capability.ocr.OcrTokenizer
-import hunoia.luno.quicklaunch.QuickSearchActivity
+import hunoia.luno.quickaccess.QuickSearchActivity
 import hunoia.luno.ui.component.selection.handleAt
 import hunoia.luno.ui.component.selection.moved
 import hunoia.luno.ui.component.selection.resized

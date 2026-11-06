@@ -15,8 +15,8 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import hunoia.luno.picker.R
-import hunoia.luno.quicklaunch.model.AppInfo
-import hunoia.luno.quicklaunch.model.icon
+import hunoia.luno.quickaccess.model.AppInfo
+import hunoia.luno.quickaccess.model.icon
 import hunoia.luno.ui.theme.BadgeIconSize
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ContainerRadius

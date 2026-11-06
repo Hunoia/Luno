@@ -19,10 +19,10 @@ import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.gridpanel.LocalGridPanelClose
-import hunoia.luno.quicklaunch.model.AppInfo
-import hunoia.luno.quicklaunch.panel.AppGridContent
-import hunoia.luno.quicklaunch.query.AppListRepository
-import hunoia.luno.quicklaunch.query.AppSearch
+import hunoia.luno.quickaccess.model.AppInfo
+import hunoia.luno.quickaccess.panel.AppGridContent
+import hunoia.luno.quickaccess.query.AppListRepository
+import hunoia.luno.quickaccess.query.AppSearch
 import hunoia.luno.core.domain.DispatchOrigin
 import hunoia.luno.runtime.surface.SurfaceDispatch
 import hunoia.luno.ui.theme.AppItemPadding

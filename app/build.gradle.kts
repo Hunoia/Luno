@@ -146,7 +146,7 @@ dependencies {
     implementation(project(":capability:launch"))
     implementation(project(":capability:ocr"))
     implementation(project(":feature:search"))
-    implementation(project(":feature:quicklaunch"))
+    implementation(project(":feature:quickaccess"))
     implementation(project(":feature:picker"))
     implementation(project(":feature:gesture"))
     implementation(project(":feature:floatball"))

@@ -26,9 +26,9 @@ import hunoia.luno.core.AppContext
 import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.picker.UiState
 import hunoia.luno.ui.component.actionText
-import hunoia.luno.quicklaunch.model.AppInfo
+import hunoia.luno.quickaccess.model.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
-import hunoia.luno.quicklaunch.model.identity
+import hunoia.luno.quickaccess.model.identity
 import hunoia.luno.action.model.Action
 
 fun Context.selectedItemLabel(item: Any, subGestures: List<SubGesture>): String {

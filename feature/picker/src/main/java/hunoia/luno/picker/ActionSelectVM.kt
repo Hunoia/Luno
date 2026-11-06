@@ -9,9 +9,9 @@ import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.bridge.system.copyText
 import hunoia.luno.core.AppContext
 import hunoia.luno.domain.gesture.GestureConfig
-import hunoia.luno.quicklaunch.model.AppInfo
+import hunoia.luno.quickaccess.model.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
-import hunoia.luno.quicklaunch.model.qualifiedName
+import hunoia.luno.quickaccess.model.qualifiedName
 import hunoia.luno.picker.SaveOutcome
 import hunoia.luno.picker.updateActionParamsTransform
 import kotlinx.coroutines.flow.collectLatest

@@ -2,7 +2,7 @@ package hunoia.luno.search
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
-import hunoia.luno.quicklaunch.query.SearchSourceRegistry
+import hunoia.luno.quickaccess.query.SearchSourceRegistry
 
 /**
  * 搜索来源显示名：来源 key → 资源 id → 文案。

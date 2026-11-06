@@ -26,7 +26,7 @@ dependencies {
     implementation(project(":feature:gridpanel"))
     implementation(project(":feature:gesture"))
     implementation(project(":feature:floatball"))
-    implementation(project(":feature:quicklaunch"))
+    implementation(project(":feature:quickaccess"))
     implementation(project(":feature:search"))
     implementation(libs.jetbrains.kotlin.serialization)
     implementation(libs.kotlinx.coroutines.core)

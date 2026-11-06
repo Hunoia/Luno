@@ -142,7 +142,7 @@ class ScreenPickOverlay(
     private val host: GestureHost,
     /** OCR 能力（`:app` 注入）：默认 ML Kit；本模块只依赖契约，不直接引第三方 SDK。 */
     private val ocrEngine: OcrEngine,
-    /** 幽灵卡「搜索」的落点（`:app` 注入快速搜索，本模块不依赖 `:feature:quicklaunch`）。 */
+    /** 幽灵卡「搜索」的落点（`:app` 注入快速搜索，本模块不依赖 `:feature:quickaccess`）。 */
     private val onSearch: (String) -> Boolean = { false },
     /** 结果页落点（`:app` 注入）：OCR 文本 + a11y 文本 + 裁剪图；true = 已接管，浮层关闭。 */
     private val onOcrResult: (

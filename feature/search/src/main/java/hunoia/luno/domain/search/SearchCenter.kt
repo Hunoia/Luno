@@ -20,7 +20,7 @@ object SearchCenter {
     val showSystemApps: Flow<Boolean> =
         ConfigProvider.actionSettings.map { it.showSystemAppsInAppList }
 
-    /** 搜索面板展示动作库条目所需的只读投影，避免 quicklaunch 直连配置存储。 */
+    /** 搜索面板展示动作库条目所需的只读投影，避免 quickaccess 直连配置存储。 */
     val actionLibrary: Flow<ActionLibrarySettings> = ConfigProvider.actionLibrarySettings
 
     suspend fun getSearch(): QuickSearchSettings = ConfigProvider.getQuickSearchSettings()

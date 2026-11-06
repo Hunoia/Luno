@@ -45,7 +45,7 @@ import hunoia.luno.gridpanel.widget.WidgetSpan
 import hunoia.luno.gridpanel.widget.loadWidgetProviderGroups
 import hunoia.luno.gridpanel.geometry.gridPanelVisibleRows
 import hunoia.luno.gridpanel.widget.widgetSpanFor
-import hunoia.luno.quicklaunch.QuickLaunchFacade
+import hunoia.luno.quickaccess.QuickLaunchFacade
 import hunoia.luno.bridge.launcher.LauncherInfo
 import androidx.compose.ui.platform.LocalConfiguration
 import hunoia.luno.bridge.ui.showToast

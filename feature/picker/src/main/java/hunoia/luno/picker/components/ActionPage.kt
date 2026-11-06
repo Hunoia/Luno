@@ -60,10 +60,10 @@ import hunoia.luno.gridpanel.widget.searchBy
 import hunoia.luno.config.model.ActionPanel
 import hunoia.luno.config.model.GridPanel
 import hunoia.luno.config.model.SubGesture
-import hunoia.luno.quicklaunch.model.AppInfo
+import hunoia.luno.quickaccess.model.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
-import hunoia.luno.quicklaunch.model.identity
-import hunoia.luno.quicklaunch.model.qualifiedName
+import hunoia.luno.quickaccess.model.identity
+import hunoia.luno.quickaccess.model.qualifiedName
 import hunoia.luno.picker.UiState.SelectedRecord
 import hunoia.luno.picker.components.ActionRowSettingsSheet
 import hunoia.luno.picker.components.RowSettingsActionTypeIds

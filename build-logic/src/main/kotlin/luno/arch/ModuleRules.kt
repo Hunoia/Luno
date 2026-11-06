@@ -13,7 +13,7 @@ object ModuleRules {
         ":core:common", ":core:domain", ":core:bridge", ":core:data", ":core:runtime", ":core:facade",
         ":ui:design", ":capability:launch", ":capability:ocr",
         ":feature:execute", ":feature:actions",
-        ":feature:link", ":feature:search", ":feature:quicklaunch", ":feature:gesture",
+        ":feature:link", ":feature:search", ":feature:quickaccess", ":feature:gesture",
         ":feature:floatball", ":feature:gridpanel", ":feature:annotate", ":feature:a11y",
         ":feature:picker",
         ":app",
@@ -49,10 +49,10 @@ object ModuleRules {
         ":feature:picker" to setOf(
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
             ":core:runtime", ":core:facade", ":ui:design",
-            ":feature:actions", ":feature:gridpanel", ":feature:quicklaunch", ":feature:search",
+            ":feature:actions", ":feature:gridpanel", ":feature:quickaccess", ":feature:search",
             ":feature:gesture", ":feature:floatball",
         ),
-        ":feature:quicklaunch" to setOf(
+        ":feature:quickaccess" to setOf(
             ":capability:launch",
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
             ":core:runtime", ":feature:search", ":ui:design", ":feature:actions",
@@ -71,7 +71,7 @@ object ModuleRules {
             ":capability:launch",
             ":core:common", ":core:domain", ":core:bridge", ":core:data",
             ":core:runtime", ":feature:actions",
-            ":feature:execute", ":feature:gesture", ":feature:quicklaunch",
+            ":feature:execute", ":feature:gesture", ":feature:quickaccess",
             ":feature:search", ":ui:design",
         ),
         ":feature:annotate" to setOf(":core:common", ":core:domain", ":core:bridge", ":ui:design"),

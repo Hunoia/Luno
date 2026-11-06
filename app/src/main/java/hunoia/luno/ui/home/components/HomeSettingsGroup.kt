@@ -28,7 +28,7 @@ fun HomeSettingsGroup(
     ) {
         LunoSegmentedGroup {
             item { shape -> LunoSettingsRow(
-            title = stringResource(hunoia.luno.quicklaunch.R.string.search_engine_settings),
+            title = stringResource(hunoia.luno.quickaccess.R.string.search_engine_settings),
             icon = Icons.TwoTone.Search,
             shape = shape,
             onClick = onSearchEngineClick,

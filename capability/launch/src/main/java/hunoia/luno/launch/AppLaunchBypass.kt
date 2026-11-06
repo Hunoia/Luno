@@ -5,16 +5,16 @@ import hunoia.luno.capability.launch.R
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.AppLaunchSource
 import hunoia.luno.config.model.MiniWindowSettings
-import hunoia.luno.quicklaunch.launch.AppLaunchCoordinator
+import hunoia.luno.quickaccess.launch.AppLaunchCoordinator
 
 /**
  * 启动动作的共享门面：解冻被禁用应用后再启动。
  *
  * 归在中性 `hunoia.luno.launch` 包：动作执行器、链接分发、搜索都要用，
- * 不能各自依赖 quicklaunch。Phase 2 会随启动基础设施一起并入 `:feature:execute`。
+ * 不能各自依赖 quickaccess。Phase 2 会随启动基础设施一起并入 `:feature:execute`。
  *
- * 目前仍转调 `quicklaunch.launch.AppLaunchCoordinator`；启动机制整体上收是 Phase 2 的事，
- * 这里先切断「link → quicklaunch」的直接依赖。
+ * 目前仍转调 `quickaccess.launch.AppLaunchCoordinator`；启动机制整体上收是 Phase 2 的事，
+ * 这里先切断「link → quickaccess」的直接依赖。
  */
 object AppLaunchBypass {
 

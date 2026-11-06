@@ -11,7 +11,7 @@ import hunoia.luno.core.domain.SurfaceActionDispatch
  * Surface 不直接持启动协调器，也不自行执行动作：它只构造 `StoredAction` 并交给这里，
  * 由 `:app` 在进程启动时注入的 Dispatcher 完成 `ActionRequest → Capability Gate → Executor`。
  *
- * 契约在 `:core:domain`，安装点在这里，因此 `floatball` / `gridpanel` / `quicklaunch`
+ * 契约在 `:core:domain`，安装点在这里，因此 `floatball` / `gridpanel` / `quickaccess`
  * 都不需要依赖 `:app` 或 `:feature:execute`；未注入时按「未送达」返回，调用方给失败反馈。
  */
 object SurfaceDispatch {

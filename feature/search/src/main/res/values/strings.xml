@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 搜索模块文案（召回/行文案）。面板文案归 :feature:quicklaunch。 -->
+    <!-- 搜索模块文案（召回/行文案）。面板文案归 :feature:quickaccess。 -->
     <string name="quick_search_calendar">日历</string>
     <string name="quick_search_calls">通话记录</string>
     <string name="quick_search_clipboard">剪贴板</string>

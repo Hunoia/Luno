@@ -24,10 +24,10 @@ import hunoia.luno.gridpanel.geometry.gridPanelVisibleRows
 import hunoia.luno.gridpanel.widget.PanelAppWidgetHost
 import hunoia.luno.gridpanel.widget.WidgetSpan
 import hunoia.luno.bridge.launcher.LauncherInfo
-import hunoia.luno.quicklaunch.QuickLaunchFacade
-import hunoia.luno.quicklaunch.model.identity
-import hunoia.luno.quicklaunch.model.qualifiedName
-import hunoia.luno.quicklaunch.model.qualifiedNameWithIntents
+import hunoia.luno.quickaccess.QuickLaunchFacade
+import hunoia.luno.quickaccess.model.identity
+import hunoia.luno.quickaccess.model.qualifiedName
+import hunoia.luno.quickaccess.model.qualifiedNameWithIntents
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import hunoia.luno.action.model.Action

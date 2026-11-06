@@ -22,7 +22,7 @@ dependencies {
     implementation(project(":feature:actions"))
     implementation(project(":feature:gesture"))
     implementation(project(":feature:search"))
-    implementation(project(":feature:quicklaunch"))
+    implementation(project(":feature:quickaccess"))
     implementation(project(":capability:launch"))
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.ui)

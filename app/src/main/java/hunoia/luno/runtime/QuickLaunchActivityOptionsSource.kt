@@ -3,7 +3,7 @@ package hunoia.luno.runtime
 import android.content.Context
 import hunoia.luno.core.domain.ActivityOptionItem
 import hunoia.luno.core.domain.ActivityOptionsSource
-import hunoia.luno.quicklaunch.QuickLaunchFacade
+import hunoia.luno.quickaccess.QuickLaunchFacade
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

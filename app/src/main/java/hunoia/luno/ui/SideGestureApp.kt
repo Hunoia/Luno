@@ -93,9 +93,9 @@ import hunoia.luno.ui.settings.action.gridpanel.GridPanelListScreen
 import hunoia.luno.gridpanel.habit.HabitEditScreen
 import hunoia.luno.gridpanel.habit.HabitListScreen
 import hunoia.luno.gridpanel.todo.TodoListScreen
-import hunoia.luno.quicklaunch.settings.SearchEngineSettingsScreen
-import hunoia.luno.quicklaunch.settings.SearchEngineEditScreen
-import hunoia.luno.quicklaunch.settings.SearchSourceSettingsScreen
+import hunoia.luno.quickaccess.settings.SearchEngineSettingsScreen
+import hunoia.luno.quickaccess.settings.SearchEngineEditScreen
+import hunoia.luno.quickaccess.settings.SearchSourceSettingsScreen
 
 import hunoia.luno.gesture.settings.button.GestureButtonSettingsScreen
 

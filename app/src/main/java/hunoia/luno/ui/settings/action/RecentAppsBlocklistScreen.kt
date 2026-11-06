@@ -45,10 +45,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
 import hunoia.luno.core.AppContext
-import hunoia.luno.quicklaunch.QuickLaunchFacade
-import hunoia.luno.quicklaunch.model.AppInfo
-import hunoia.luno.quicklaunch.model.getIcon
-import hunoia.luno.quicklaunch.model.identity
+import hunoia.luno.quickaccess.QuickLaunchFacade
+import hunoia.luno.quickaccess.model.AppInfo
+import hunoia.luno.quickaccess.model.getIcon
+import hunoia.luno.quickaccess.model.identity
 import hunoia.luno.ui.component.LunoSearchField
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LoadingState

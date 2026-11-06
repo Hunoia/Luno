@@ -11,8 +11,8 @@ import hunoia.luno.bridge.system.copyText
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.gridPanelId
-import hunoia.luno.quicklaunch.launch.DisabledPackageEnabler
-import hunoia.luno.quicklaunch.QuickLaunchFacade
+import hunoia.luno.quickaccess.launch.DisabledPackageEnabler
+import hunoia.luno.quickaccess.QuickLaunchFacade
 import hunoia.luno.runtime.GestureCoordinator
 import hunoia.luno.runtime.GestureHost
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
@@ -71,7 +71,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         this,
         ocrEngine = ocrEngine,
         onSearch = { query ->
-            hunoia.luno.quicklaunch.QuickSearchActivity.start(this, query)
+            hunoia.luno.quickaccess.QuickSearchActivity.start(this, query)
         },
         onOcrResult = { ocr, a11y, image, ocrLoader, preferOcr ->
             hunoia.luno.ui.ocr.OcrResultActivity.start(
@@ -325,7 +325,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         if (!speechReceiverRegistered) {
             registerReceiver(
                 speechResultReceiver,
-                IntentFilter(hunoia.luno.quicklaunch.SpeechRecognitionActivity.ACTION_SPEECH_RESULT),
+                IntentFilter(hunoia.luno.quickaccess.SpeechRecognitionActivity.ACTION_SPEECH_RESULT),
                 RECEIVER_NOT_EXPORTED,
             )
             speechReceiverRegistered = true

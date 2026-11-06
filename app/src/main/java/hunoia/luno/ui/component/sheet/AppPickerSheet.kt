@@ -30,10 +30,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
 import hunoia.luno.core.AppContext
-import hunoia.luno.quicklaunch.QuickLaunchFacade
-import hunoia.luno.quicklaunch.model.AppInfo
-import hunoia.luno.quicklaunch.model.icon
-import hunoia.luno.quicklaunch.model.identity
+import hunoia.luno.quickaccess.QuickLaunchFacade
+import hunoia.luno.quickaccess.model.AppInfo
+import hunoia.luno.quickaccess.model.icon
+import hunoia.luno.quickaccess.model.identity
 import hunoia.luno.ui.permission.rememberGetInstalledAppsPermissionState
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.CardInnerSpacing

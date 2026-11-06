@@ -29,8 +29,8 @@ import hunoia.luno.bridge.system.isAccessibilitySettingsOn
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.QuickAppSnapshot
-import hunoia.luno.quicklaunch.query.AppSearch
-import hunoia.luno.quicklaunch.query.DisabledAppQuery
+import hunoia.luno.quickaccess.query.AppSearch
+import hunoia.luno.quickaccess.query.DisabledAppQuery
 import java.util.Locale
 import hunoia.luno.action.dispatcher.ActionDispatcher
 import hunoia.luno.runtime.environment.PreviousAppTracker
@@ -237,15 +237,15 @@ class GestureCoordinator(
     /** 执行口的 Surface 副作用端口：执行口只说要弹哪个面，窗口控制留在这里。 */
     private val executeSurfaces = object : hunoia.luno.execute.SurfaceHost {
         override fun toggleQuickAppLauncher(anchorX: Int, anchorY: Int) {
-            hunoia.luno.quicklaunch.QuickAppLauncherOverlay.show(anchorX, anchorY)
+            hunoia.luno.quickaccess.QuickAppLauncherOverlay.show(anchorX, anchorY)
         }
 
         override fun showQuickSearch() {
-            hunoia.luno.quicklaunch.QuickSearchActivity.start(host.context)
+            hunoia.luno.quickaccess.QuickSearchActivity.start(host.context)
         }
 
         override fun showSpeechRecognition(): Boolean {
-            hunoia.luno.quicklaunch.SpeechRecognitionActivity.start(host.context)
+            hunoia.luno.quickaccess.SpeechRecognitionActivity.start(host.context)
             return true
         }
 
@@ -978,7 +978,7 @@ class GestureCoordinator(
         scopeJobs += host.coroutineScope.launch(Dispatchers.IO) {
             // 用面板真正展示的那份查询（allowRepeatPackage=false，含禁用应用/分身/系统包开关），
             // 而不是 queryApps —— 后者列表不同，预热出来的索引对不上。
-            hunoia.luno.quicklaunch.query.AppCatalog.refreshSystemSetting()
+            hunoia.luno.quickaccess.query.AppCatalog.refreshSystemSetting()
             val list = DisabledAppQuery.queryQuickAppLauncherApps(host.context)
             ConfigProvider.writeQuickAppSnapshot(
                 QuickAppSnapshot(

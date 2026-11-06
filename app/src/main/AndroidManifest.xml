@@ -154,7 +154,7 @@
             android:windowSoftInputMode="adjustNothing" />
 
         <activity
-            android:name=".quicklaunch.QuickSearchActivity"
+            android:name=".quickaccess.QuickSearchActivity"
             android:excludeFromRecents="true"
             android:exported="true"
             android:launchMode="singleTask"
@@ -165,7 +165,7 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
-            android:name=".quicklaunch.SpeechRecognitionActivity"
+            android:name=".quickaccess.SpeechRecognitionActivity"
             android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTop"
