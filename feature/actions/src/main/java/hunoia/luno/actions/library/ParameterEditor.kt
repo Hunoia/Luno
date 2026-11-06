@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import sv.lib.squircleshape.SquircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -26,11 +25,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import hunoia.luno.actions.R
-import hunoia.luno.ui.component.LabeledTextField
 import hunoia.luno.action.definitions.ParameterDefinition
+import hunoia.luno.actions.R
 import hunoia.luno.core.AppContext
-import hunoia.luno.ui.theme.ContainerRadius
+import hunoia.luno.ui.component.LabeledTextField
+import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.theme.LargeShape
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -38,8 +38,6 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
-import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.ui.component.row.LunoSwitchRow
 val ParameterDefinition.isCardRowType: Boolean
     get() = this is ParameterDefinition.Bool ||
         this is ParameterDefinition.AppSelector ||
@@ -53,7 +51,7 @@ fun ParameterEditor(
     onPickApp: (String) -> Unit = {},
     onPickActivity: (String, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
-    shape: Shape = SquircleShape(ContainerRadius),
+    shape: Shape = LargeShape,
 ) {
     val required = definition.required
     val errorColor = MaterialTheme.colorScheme.error

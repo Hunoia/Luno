@@ -25,5 +25,11 @@
                 <action android:name="hunoia.luno.debug.ANNOTATE_SCREEN" />
             </intent-filter>
         </receiver>
+
+        <!-- 形状软度画廊：adbd 拉起即可，不挂任何入口 UI。 -->
+        <activity
+            android:name="hunoia.luno.ui.theme.ShapeGalleryActivity"
+            android:exported="true"
+            android:theme="@style/Theme.SideGesture" />
     </application>
 </manifest>

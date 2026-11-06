@@ -1,7 +1,7 @@
 package hunoia.luno.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -20,8 +20,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
-import sv.lib.squircleshape.CornerSmoothing
-import sv.lib.squircleshape.SquircleShape
+import hunoia.luno.ui.theme.CapsuleShape
 
 val HazeBlurRadius: Dp = 25.dp
 
@@ -80,7 +79,7 @@ const val GlassCapsuleHazeAlpha = 0.65f
  */
 @Composable
 fun Modifier.glassCapsule(hazeState: HazeState?): Modifier {
-    val capsuleShape = SquircleShape(BottomBarCornerRadius, CornerSmoothing.Small)
+    val capsuleShape = CapsuleShape
     return dropShadow(
         shape = capsuleShape,
         shadow = Shadow(

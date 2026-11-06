@@ -15,8 +15,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import hunoia.luno.ui.theme.ExtraLargeShape
 import hunoia.luno.design.R
+import hunoia.luno.ui.theme.CapsuleShape
+import hunoia.luno.ui.theme.ExtraLargeShape
 
 @Composable
 fun AppSearchBar(
@@ -39,7 +40,8 @@ fun AppSearchBar(
                 }
             }
         },
-        shape = ExtraLargeShape,
+        // 固定高度单行输入：胶囊角色，半径随行高自适应（§2.1.1）。
+        shape = CapsuleShape,
         colors = OutlinedTextFieldDefaults.colors(
             unfocusedBorderColor = Color.Transparent,
             focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,

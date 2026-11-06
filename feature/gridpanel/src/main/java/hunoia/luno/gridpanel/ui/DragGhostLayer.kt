@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -23,6 +22,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import hunoia.luno.gridpanel.GridPanelDragGhost
 import kotlin.math.roundToInt
+import hunoia.luno.ui.theme.containerShape
 
 /**
  * 面板根层的拖拽幽灵：**中心**对准手指、不被格子裁剪。不吃触摸（没有 pointerInput），
@@ -45,7 +45,7 @@ fun GridPanelDragGhostLayer(ghost: GridPanelDragGhost, modifier: Modifier = Modi
                 .widthIn(max = 240.dp)
                 .alpha(0.94f)
                 .onSizeChanged { size = it },
-            shape = RoundedCornerShape(12.dp),
+            shape = containerShape(12.dp),
             color = MaterialTheme.colorScheme.surfaceVariant,
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             shadowElevation = 8.dp,

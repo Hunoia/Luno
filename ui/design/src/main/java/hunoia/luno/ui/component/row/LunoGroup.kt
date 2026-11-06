@@ -17,8 +17,9 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ConnectionRadius
-import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.ContainerRadius
+import hunoia.luno.ui.theme.ContainerSmoothing
+import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SegmentedGap
 import sv.lib.squircleshape.SquircleShape
@@ -34,7 +35,7 @@ private val GroupSubtitlePadding =
  * 插槽，拿不到子项数量与下标，子项还可能是卡/编辑器/`AnimatedVisibility`。
  * 行列表用 `forEachIndexed` 配 `segmentedShape(index, count)`。
  */
-fun segmentedShape(index: Int, count: Int): SquircleShape {
+fun segmentedShape(index: Int, count: Int): Shape {
     val isSingle = count <= 1
     val top = if (isSingle || index == 0) ContainerRadius else ConnectionRadius
     val bottom = if (isSingle || index == count - 1) ContainerRadius else ConnectionRadius
@@ -43,6 +44,7 @@ fun segmentedShape(index: Int, count: Int): SquircleShape {
         topEnd = top,
         bottomStart = bottom,
         bottomEnd = bottom,
+        smoothing = ContainerSmoothing,
     )
 }
 
@@ -85,7 +87,7 @@ class SegmentedGroupScope internal constructor() {
  * [ContainerRadius]，避免选中底色以方角渗进未选邻居。
  * `flags` 为 null 时退化为 [segmentedShape]。
  */
-fun selectedSegmentedShape(index: Int, count: Int, flags: List<Boolean>?): SquircleShape {
+fun selectedSegmentedShape(index: Int, count: Int, flags: List<Boolean>?): Shape {
     if (flags == null) return segmentedShape(index, count)
     fun sameAsNeighbor(neighbor: Int): Boolean =
         neighbor in 0 until count && flags.getOrElse(neighbor) { false } == flags.getOrElse(index) { false }
@@ -96,6 +98,7 @@ fun selectedSegmentedShape(index: Int, count: Int, flags: List<Boolean>?): Squir
         topEnd = top,
         bottomStart = bottom,
         bottomEnd = bottom,
+        smoothing = ContainerSmoothing,
     )
 }
 

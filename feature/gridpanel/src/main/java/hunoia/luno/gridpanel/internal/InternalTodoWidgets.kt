@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -59,6 +58,7 @@ import hunoia.luno.gridpanel.TodoExtras
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
 import kotlinx.coroutines.launch
+import hunoia.luno.ui.theme.containerShape
 
 /**
  * 代办部件：待办列表（仅未完成，可滚动）。
@@ -120,7 +120,7 @@ internal fun TodoListCell(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .clip(RoundedCornerShape(ItemCorner))
+            .clip(containerShape(ItemCorner))
             .semantics { contentDescription = cellDesc },
     ) {
         val contentW = (maxWidth - 20.dp).coerceAtLeast(24.dp)

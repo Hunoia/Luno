@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -76,6 +75,7 @@ import hunoia.luno.gridpanel.habit.visual
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
 import hunoia.luno.ui.theme.HabitDayDotStroke
 import hunoia.luno.ui.theme.toColor
+import hunoia.luno.ui.theme.containerShape
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -146,7 +146,7 @@ internal fun HabitCheckCell(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .clip(RoundedCornerShape(ItemCorner))
+            .clip(containerShape(ItemCorner))
             .semantics { contentDescription = cellDesc }
             .then(
                 if (clickable) {
@@ -270,7 +270,7 @@ internal fun HabitHistoryCell(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .clip(RoundedCornerShape(ItemCorner))
+            .clip(containerShape(ItemCorner))
             .then(
                 if (enabled) {
                     Modifier.clickable {
@@ -430,7 +430,7 @@ private fun EmptyHabitCell(modifier: Modifier, configHasHabits: Boolean) {
     Box(
         modifier = modifier
             .fillMaxSize()
-            .clip(RoundedCornerShape(ItemCorner))
+            .clip(containerShape(ItemCorner))
             .alpha(0.5f),
         contentAlignment = Alignment.Center,
     ) {

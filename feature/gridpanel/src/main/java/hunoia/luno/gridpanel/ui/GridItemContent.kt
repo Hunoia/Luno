@@ -4,7 +4,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +32,7 @@ import hunoia.luno.ui.component.TextIconGlyph
 import hunoia.luno.ui.component.actionIcon
 import hunoia.luno.gridpanel.R
 import androidx.compose.ui.res.stringResource
+import hunoia.luno.ui.theme.containerShape
 
 /**
  * 网格图标固定解码上限：面板拖拽/缩放只改布局尺寸，不再让 Coil 按每个像素尺寸
@@ -63,7 +63,7 @@ fun ActionItemCell(
                 } else {
                     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
                 },
-                shape = RoundedCornerShape(ItemCorner),
+                shape = containerShape(ItemCorner),
             ),
         contentAlignment = Alignment.Center,
     ) {
@@ -119,7 +119,7 @@ fun BrokenItemCell(modifier: Modifier = Modifier) {
     Box(
         modifier.background(
             MaterialTheme.colorScheme.errorContainer,
-            RoundedCornerShape(ItemCorner),
+            containerShape(ItemCorner),
         ),
     )
 }
@@ -137,9 +137,9 @@ fun WidgetStateOverlay(state: WidgetLoadState, modifier: Modifier = Modifier) {
                 } else {
                     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                 },
-                RoundedCornerShape(ItemCorner),
+                containerShape(ItemCorner),
             )
-            .clip(RoundedCornerShape(ItemCorner)),
+            .clip(containerShape(ItemCorner)),
         contentAlignment = Alignment.Center,
     ) {
         if (failed) {

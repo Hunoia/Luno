@@ -1,7 +1,12 @@
 package hunoia.luno.ui.theme
 
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
+import hunoia.luno.ui.theme.CapsuleShape
+import hunoia.luno.ui.theme.ContainerSmoothing
+import hunoia.luno.ui.theme.LargeShape
+import sv.lib.squircleshape.CornerSmoothing
 import sv.lib.squircleshape.SquircleShape
 
 // Component sizes
@@ -35,33 +40,42 @@ val ShapeExtraSmall = 4.dp
 val TileInnerPadding = ShapeExtraSmall
 val ShapeSmall = 8.dp
 val ShapeMedium = 12.dp
-val ShapeLarge = 20.dp
+val ShapeLarge = 16.dp
 val ShapeExtraLarge = 32.dp
 
-// Shape instances
-// 小圆角（4/8/12dp）保持圆弧：与连续曲率差异无视觉意义，避免"为改而改"。
-val ExtraSmallShape = RoundedCornerShape(ShapeExtraSmall)
-val SmallShape = RoundedCornerShape(ShapeSmall)
-val MediumShape = RoundedCornerShape(ShapeMedium)
-// 大圆角（20/32dp）用连续曲率（squircle），收益最明显。
-// 连续曲率视觉上比同值圆弧更小，故标称半径已加大补偿（16→20、28→32）。
-val LargeShape = SquircleShape(ShapeLarge)
-val ExtraLargeShape = SquircleShape(ShapeExtraLarge)
-val SheetTopShape = SquircleShape(
+// 连续曲率平滑度（ui-guidelines §2.1.3）：全仓只有两个值，页面不得覆盖。
+// 容器 0.48（Medium）；胶囊 0.2（Small）——胶囊端部本来就是弧，档位一大就读作圆角矩形。
+//
+// 半径上限：容器必须满足 r ≤ h / (2(1+s))，s = 0.48 时 r ≤ h / 2.96。
+// 50dp 行取 16dp（上限 16.9）、96dp 卡取 32dp（上限 32.4）；改档位必须重算（§2.1.2 第 3 条）。
+val ContainerSmoothing = CornerSmoothing.Medium
+val CapsuleSmoothing = CornerSmoothing.Small
+
+// Shape instances（四角色见 §2.1.1）
+// 小角也用同一几何家族，只换档位，不另开一套圆弧形状。
+val ExtraSmallShape: Shape = SquircleShape(ShapeExtraSmall, ContainerSmoothing)
+val SmallShape: Shape = SquircleShape(ShapeSmall, ContainerSmoothing)
+val MediumShape: Shape = SquircleShape(ShapeMedium, ContainerSmoothing)
+val LargeShape: Shape = SquircleShape(ShapeLarge, ContainerSmoothing)
+val ExtraLargeShape: Shape = SquircleShape(ShapeExtraLarge, ContainerSmoothing)
+val SheetTopShape: Shape = SquircleShape(
     topStart = ShapeExtraLarge,
     topEnd = ShapeExtraLarge,
     bottomStart = 0.dp,
     bottomEnd = 0.dp,
+    smoothing = ContainerSmoothing,
 )
+
+// 胶囊：零直边百分比 50/(1+s)，随高度自适应，不写 dp（§2.1.2 第 2 条）。
+// 底栏、指示 pill、chip、玻璃胶囊、固定高度单行输入都用它，不再按尺寸开 dp token。
+val CapsuleCornerPercent = 50f / (1f + CapsuleSmoothing / 100f)
+val CapsuleShape: Shape = PercentSquircleShape(CapsuleCornerPercent, CapsuleSmoothing)
 
 // Bottom bar
 val BottomBarPadding = 12.dp
 val BottomBarHeight = 56.dp
 val BottomBarIconSize = 30.dp
-// 底栏角半径：各取半高上限（容器 64dp 半高 32、指示 pill 56dp 半高 28），
-// 保留胶囊感且用连续曲率（squircle）消除半圆-直边相切处的曲率突变突起。
-val BottomBarCornerRadius = 32.dp
-val BottomBarPillCornerRadius = 28.dp
+// 底栏与指示 pill 都用胶囊角色（§2.1.1），半径由 CapsuleShape 按各自高度算出。
 // 主页底栏 Tab 格宽，指示 pill 同宽
 val BottomBarTabWidth = 76.dp
 

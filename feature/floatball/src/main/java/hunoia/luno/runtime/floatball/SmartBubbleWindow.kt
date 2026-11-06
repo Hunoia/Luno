@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.PushPin
@@ -55,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.CircleShape
 import coil.compose.AsyncImage
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.removeWindow
@@ -71,6 +71,7 @@ import hunoia.luno.runtime.overlay.safeUpdateViewLayout
 import hunoia.luno.ui.theme.toMarkColor
 import hunoia.luno.ui.icon.SearchIconCache
 import hunoia.luno.ui.theme.SideGestureTheme
+import hunoia.luno.ui.theme.containerShape
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
@@ -764,7 +765,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         val iconSize = with(density) {
             min(pageHeight.value - 16f, 24f).coerceAtLeast(16f).dp
         }
-        val shape = RoundedCornerShape(percent = 50)
+        val shape = CircleShape
         val link = if (item.id == linkItemId) linkInfo else null
         Row(
             modifier = modifier
@@ -821,7 +822,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                     color = contentColor.copy(alpha = 0.9f),
                     maxLines = 1,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(percent = 50))
+                        .clip(CircleShape)
                         .background(contentColor.copy(alpha = 0.16f))
                         .padding(horizontal = 5.dp, vertical = 1.dp),
                 )
@@ -843,7 +844,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(size)
-                    .clip(RoundedCornerShape(6.dp)),
+                    .clip(containerShape(6.dp)),
             )
 
             is NotificationItem -> AppIcon(

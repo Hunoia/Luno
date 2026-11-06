@@ -7,12 +7,12 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.HorizontalDivider
@@ -24,16 +24,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.foundation.background
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import hunoia.luno.quickaccess.R
+import androidx.compose.ui.graphics.RectangleShape
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.SearchLaunch
 import hunoia.luno.config.model.effectiveLaunch
+import hunoia.luno.quickaccess.R
 import hunoia.luno.ui.component.row.LunoCardInput
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoInputRow
@@ -43,11 +43,12 @@ import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.sheet.TextInputDialog
 import hunoia.luno.ui.theme.ConnectionRadius
 import hunoia.luno.ui.theme.ContainerRadius
+import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SegmentedGap
-import sv.lib.squircleshape.SquircleShape
+import hunoia.luno.ui.theme.containerShape
 
 internal enum class EngineOpenMode { Default, App, Chooser, Share, ShareImage }
 
@@ -213,7 +214,7 @@ internal fun EngineEditFields(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(SquircleShape(ContainerRadius))
+                    .clip(LargeShape)
                     .background(MaterialTheme.colorScheme.surfaceBright),
             ) {
                 LunoInputRow(
@@ -221,7 +222,7 @@ internal fun EngineEditFields(
                     value = state.name,
                     onValueChange = { state.name = it },
                     placeholder = stringResource(R.string.search_engine_name_hint),
-                    shape = RoundedCornerShape(0.dp),
+                    shape = RectangleShape,
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = PageGutter))
                 LunoInputRow(
@@ -229,7 +230,7 @@ internal fun EngineEditFields(
                     value = state.iconText,
                     onValueChange = { state.iconText = it.take(2) },
                     placeholder = stringResource(R.string.search_engine_icon_text_hint),
-                    shape = RoundedCornerShape(0.dp),
+                    shape = RectangleShape,
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = PageGutter))
                 LunoInputRow(
@@ -239,7 +240,7 @@ internal fun EngineEditFields(
                     placeholder = "bb",
                     subtitle = state.triggerError?.let { stringResource(it) }.orEmpty(),
                     isError = state.triggerError != null,
-                    shape = RoundedCornerShape(0.dp),
+                    shape = RectangleShape,
                 )
             }
         }
@@ -328,13 +329,13 @@ private fun OpenModeCard(state: EngineEditState) {
         targetValue = if (expanded) ConnectionRadius else ContainerRadius,
         label = "engineModeHeaderRadius",
     )
-    val headerShape = SquircleShape(
+    val headerShape = containerShape(
         topStart = ContainerRadius,
         topEnd = ContainerRadius,
         bottomStart = headerBottomRadius,
         bottomEnd = headerBottomRadius,
     )
-    val contentShape = SquircleShape(
+    val contentShape = containerShape(
         topStart = ConnectionRadius,
         topEnd = ConnectionRadius,
         bottomStart = ContainerRadius,
@@ -344,7 +345,7 @@ private fun OpenModeCard(state: EngineEditState) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(SquircleShape(ContainerRadius)),
+                .clip(LargeShape),
             verticalArrangement = Arrangement.spacedBy(SegmentedGap),
         ) {
             LunoSettingsRow(
@@ -384,7 +385,7 @@ private fun OpenModeCard(state: EngineEditState) {
                                 expanded = false
                             },
                             singleSelect = true,
-                            shape = SquircleShape(
+                            shape = containerShape(
                                 topStart = ConnectionRadius,
                                 topEnd = ConnectionRadius,
                                 bottomStart = bottom,

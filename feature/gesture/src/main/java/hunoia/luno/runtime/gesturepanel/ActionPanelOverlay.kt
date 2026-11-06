@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -23,11 +22,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import hunoia.luno.ui.theme.ContainerRadius
-import hunoia.luno.gesture.R
 import hunoia.luno.action.model.TriggerType
 import hunoia.luno.core.domain.StoredAction
-import sv.lib.squircleshape.SquircleShape
+import hunoia.luno.gesture.R
+import hunoia.luno.ui.theme.LargeShape
+import hunoia.luno.ui.theme.containerShape
 
 @Composable
 internal fun ActionPanelBackdrop(
@@ -69,7 +68,7 @@ internal fun SelectedActionPill(
     val applicationIcon = isApplicationIconAction(action)
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
+        shape = containerShape(24.dp),
         color = if (longPress) accentColor else MaterialTheme.colorScheme.surfaceContainerHigh,
         shadowElevation = 8.dp,
         tonalElevation = 4.dp,
@@ -103,7 +102,7 @@ internal fun SelectedActionPill(
             )
             Spacer(Modifier.width(8.dp))
             Surface(
-                shape = SquircleShape(ContainerRadius),
+                shape = LargeShape,
                 color = if (longPress) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f) else accentColor.copy(alpha = 0.18f),
             ) {
                 Text(

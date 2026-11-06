@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.MoreVert
@@ -74,6 +73,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.roundToInt
+import hunoia.luno.ui.theme.containerShape
 
 /** 拖拽落点后等面板窗口真正摘掉的时间（退场动画 + 移除）。 */
 private const val PanelCloseSettleMs = 260L
@@ -179,7 +179,7 @@ fun ClipboardPageCell(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .clip(RoundedCornerShape(ItemCorner))
+            .clip(containerShape(ItemCorner))
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -245,7 +245,7 @@ private fun CurrentClipCard(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(ItemCorner * 0.6f))
+            .clip(containerShape(ItemCorner * 0.6f))
             .background(onCard.copy(alpha = 0.12f))
             // 当前主剪贴项也能长按拖进输入框（与历史行同一套手势）。
             .then(
@@ -288,7 +288,7 @@ private fun CurrentClipCard(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .size(28.dp)
-                        .clip(RoundedCornerShape(ItemCorner * 0.4f)),
+                        .clip(containerShape(ItemCorner * 0.4f)),
                     imageLoader = context.imageLoader,
                 )
             }
@@ -317,7 +317,7 @@ private fun HistoryRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(ItemCorner * 0.5f))
+            .clip(containerShape(ItemCorner * 0.5f))
             .then(
                 if (enabled) {
                     Modifier.clipDrag(

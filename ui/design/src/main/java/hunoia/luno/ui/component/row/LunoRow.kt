@@ -51,12 +51,11 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.imageLoader
 import hunoia.luno.ui.theme.AnimNormal
-import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.DisabledAlpha
+import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.MinInteractiveSize
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SmallShape
-import sv.lib.squircleshape.SquircleShape
 
 /**
  * 列表行的唯一实现，三种预设共用：内边距由页面 gutter 或 [LunoGroup] 提供，
@@ -68,7 +67,7 @@ import sv.lib.squircleshape.SquircleShape
 internal fun LunoRowBase(
     title: String = "",
     modifier: Modifier = Modifier,
-    shape: Shape = SquircleShape(ContainerRadius),
+    shape: Shape = LargeShape,
     enabled: Boolean = true,
     subtitle: String = "",
     subtitleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -225,7 +224,7 @@ fun LunoSettingsRow(
     onLongClick: (() -> Unit)? = null,
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
-    shape: Shape = SquircleShape(ContainerRadius),
+    shape: Shape = LargeShape,
     enabled: Boolean = true,
 ) {
     LunoRowBase(
@@ -264,7 +263,7 @@ fun LunoSelectableRow(
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
-    shape: Shape = SquircleShape(ContainerRadius),
+    shape: Shape = LargeShape,
     enabled: Boolean = true,
     /** true=单选（语义 role 用 RadioButton），false=多选（Checkbox）。 */
     singleSelect: Boolean = false,
@@ -314,7 +313,7 @@ fun LunoSwitchRow(
     subtitleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     onClick: (() -> Unit)? = null,
     leading: (@Composable () -> Unit)? = null,
-    shape: Shape = SquircleShape(ContainerRadius),
+    shape: Shape = LargeShape,
     enabled: Boolean = true,
 ) {
     LunoRowBase(
@@ -356,7 +355,7 @@ fun LunoInputRow(
     subtitleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     isError: Boolean = false,
     singleLine: Boolean = true,
-    shape: Shape = SquircleShape(ContainerRadius),
+    shape: Shape = LargeShape,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -432,7 +431,7 @@ fun LunoCardInput(
     supportingText: String = "",
     isError: Boolean = false,
     singleLine: Boolean = true,
-    shape: Shape = SquircleShape(ContainerRadius),
+    shape: Shape = LargeShape,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
 ) {
     val colorScheme = MaterialTheme.colorScheme

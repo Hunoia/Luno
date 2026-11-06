@@ -25,25 +25,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import hunoia.luno.R
+import hunoia.luno.config.model.ActionPanel
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.longPressVariant
-import hunoia.luno.config.model.ActionPanel
 import hunoia.luno.domain.tune.TuneConfig
+import hunoia.luno.picker.ActionSelect
 import hunoia.luno.ui.component.DragReorderHandle
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.actionTextCompose
 import hunoia.luno.ui.component.dragReorderPlacement
-import hunoia.luno.ui.component.rememberDragReorderState
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.feedback.LunoIconButton
+import hunoia.luno.ui.component.rememberDragReorderState
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.selectedSegmentedShape
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
-import hunoia.luno.picker.ActionSelect
 import hunoia.luno.ui.theme.*
+import hunoia.luno.ui.theme.LargeShape
 import kotlinx.coroutines.launch
 
 /**

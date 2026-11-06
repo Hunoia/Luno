@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
@@ -58,6 +57,7 @@ import hunoia.luno.gridpanel.LocalGridPanelClose
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
 import hunoia.luno.bridge.system.NotificationAccess
+import hunoia.luno.ui.theme.containerShape
 
 private const val TAG = "InternalMedia"
 
@@ -362,7 +362,7 @@ private fun SessionArtworkBox(
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(ItemCorner * cornerScale))
+            .clip(containerShape(ItemCorner * cornerScale))
             // 封面缺失时的占位底衬：0.09 淡到几乎看不见，音符图标形同悬空；
             // 提到 0.18 才是一块「托得住」的底板。
             .background(gridPanelOnCardColor.copy(alpha = 0.18f))
@@ -508,7 +508,7 @@ private fun SessionBlock(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .clip(RoundedCornerShape(ItemCorner))
+            .clip(containerShape(ItemCorner))
             .padding(horizontal = MediaPadH, vertical = MediaPadV),
     ) {
         val m = mediaMetrics(maxWidth, maxHeight, vertical = false, thumbOnly = true)
@@ -571,7 +571,7 @@ private fun SingleSessionCell(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .clip(RoundedCornerShape(ItemCorner))
+            .clip(containerShape(ItemCorner))
             .padding(horizontal = MediaPadH, vertical = MediaPadV),
     ) {
         val m = mediaMetrics(maxWidth, maxHeight, vertical, thumbOnly = false)
@@ -661,7 +661,7 @@ internal fun GrantHintCell(
     }
     val base = modifier
         .fillMaxSize()
-        .clip(RoundedCornerShape(ItemCorner))
+        .clip(containerShape(ItemCorner))
         .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
     if (vertical) {
         Column(

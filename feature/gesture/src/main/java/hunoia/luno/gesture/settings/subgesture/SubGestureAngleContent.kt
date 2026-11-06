@@ -46,7 +46,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import hunoia.luno.gesture.R
 import hunoia.luno.config.model.DirectionLayoutDefaults
 import hunoia.luno.config.model.GestureButtonAngle
 import hunoia.luno.config.model.SubGestureAngle
@@ -55,6 +54,7 @@ import hunoia.luno.config.model.evenBoundaries
 import hunoia.luno.config.model.normalizedAngle
 import hunoia.luno.config.model.sectorCenterDegrees
 import hunoia.luno.config.model.sectorWidthDegrees
+import hunoia.luno.gesture.R
 import hunoia.luno.ui.component.DirectionLabels
 import hunoia.luno.ui.component.directionLabel
 import hunoia.luno.ui.component.sheet.SheetActionButtons

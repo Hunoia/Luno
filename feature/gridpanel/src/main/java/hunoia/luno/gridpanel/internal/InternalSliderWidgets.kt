@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
@@ -42,6 +41,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.CircleShape
 import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.roundToInt
@@ -78,12 +78,12 @@ private fun QsSlider(
     val isVertical by rememberUpdatedState(vertical)
     BoxWithConstraints(
         modifier = modifier
-            .clip(RoundedCornerShape(percent = 50))
+            .clip(CircleShape)
             // 轨道底衬半透明 + 细描边：全透明的话 0% 时整条轨道消失，只剩填充
             // 一截悬在卡面上；半透既托住滑条形状，又不抢填充的 primary。描边勾出
             // 胶囊边缘，背景关掉时轨道也有清晰的轮廓。
             .background(onCard.copy(alpha = 0.12f))
-            .border(1.dp, onCard.copy(alpha = 0.14f), RoundedCornerShape(percent = 50))
+            .border(1.dp, onCard.copy(alpha = 0.14f), CircleShape)
             .then(
                 // enabled=false（编辑态）时不挂手势：事件落到层根的拖拽/缩放上，
                 // 不然编辑态拖滑条 = 既改音量又拖部件。

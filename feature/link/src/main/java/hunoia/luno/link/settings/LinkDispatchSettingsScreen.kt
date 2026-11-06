@@ -34,26 +34,25 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.link.R
 import hunoia.luno.bridge.system.copyText
 import hunoia.luno.bridge.system.readClipboardText
+import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.LinkDispatchRule
+import hunoia.luno.config.model.LinkDispatchSettings
 import hunoia.luno.config.model.LinkMatchType
 import hunoia.luno.config.model.LinkMissMode
 import hunoia.luno.config.model.LinkTapMode
-import hunoia.luno.config.model.LinkDispatchSettings
-import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.core.domain.JsonSerializer
-import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.link.LinkPresets
 import hunoia.luno.link.LinkTarget
 import hunoia.luno.link.Links
+import hunoia.luno.link.R
 import hunoia.luno.ui.component.DragReorderHandle
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.dragReorderPlacement
-import hunoia.luno.ui.component.rememberDragReorderState
 import hunoia.luno.ui.component.feedback.EmptyState
+import hunoia.luno.ui.component.rememberDragReorderState
 import hunoia.luno.ui.component.row.ChoiceRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
@@ -61,12 +60,11 @@ import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
 import hunoia.luno.ui.component.sheet.ConfirmDialog
+import hunoia.luno.ui.facade.LocalFacades
 import hunoia.luno.ui.icon.rememberPackageIconBitmap
-import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.ElevationSmall
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.LargeShape
-import sv.lib.squircleshape.SquircleShape
 import hunoia.luno.ui.theme.RowIconSize
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
@@ -378,7 +376,7 @@ fun LinkDispatchSettingsScreen(
             ) {
                 if (rules.isEmpty()) {
                     Surface(
-                        shape = SquircleShape(ContainerRadius),
+                        shape = LargeShape,
                         color = MaterialTheme.colorScheme.surfaceBright,
                     ) {
                         EmptyState(message = stringResource(R.string.link_dispatch_rules_empty))

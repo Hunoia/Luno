@@ -37,6 +37,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import hunoia.luno.R
+import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.PageGutter
 
 private fun statusIcon(level: HomeRuntimeStatusLevel): ImageVector = when (level) {

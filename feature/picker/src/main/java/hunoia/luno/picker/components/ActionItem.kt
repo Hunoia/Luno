@@ -1,5 +1,4 @@
 package hunoia.luno.picker
-import sv.lib.squircleshape.SquircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
@@ -7,8 +6,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.ui.component.TextIcon
 import hunoia.luno.ui.component.actionIcon
-import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.component.row.LunoSelectableRow
+import hunoia.luno.ui.theme.LargeShape
 @Composable
 fun ActionItem(
     onSelect: (Boolean) -> Unit,
@@ -16,7 +15,7 @@ fun ActionItem(
     action: StoredAction,
     actionLabel: String,
     modifier: Modifier = Modifier,
-    shape: Shape = SquircleShape(ContainerRadius),
+    shape: Shape = LargeShape,
     subtitle: String = "",
     trailing: (@Composable () -> Unit)? = null,
 ) {

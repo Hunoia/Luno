@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.ContentCopy
@@ -61,6 +60,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.CircleShape
 import hunoia.luno.gesture.R
 import hunoia.luno.gesture.BuildConfig
 import hunoia.luno.bridge.system.ImageOutput
@@ -1828,7 +1828,7 @@ private fun SelectionActionBar(
     Row(
         modifier = Modifier
             .offset { IntOffset(x.roundToInt(), y.roundToInt()) }
-            .clip(RoundedCornerShape(50))
+            .clip(CircleShape)
             .background(Color.Black.copy(alpha = 0.72f))
             .padding(pad),
         horizontalArrangement = Arrangement.spacedBy(gap),
@@ -1869,7 +1869,7 @@ private fun PickActionIcon(
 ) {
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(50),
+        shape = CircleShape,
         color = Color.White.copy(alpha = 0.12f),
         contentColor = Color.White,
         modifier = Modifier.size(40.dp),

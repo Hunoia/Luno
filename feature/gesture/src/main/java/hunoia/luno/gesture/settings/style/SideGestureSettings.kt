@@ -1,6 +1,5 @@
 package hunoia.luno.gesture.settings.style
 
-import sv.lib.squircleshape.SquircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.MaterialTheme
@@ -11,8 +10,8 @@ import hunoia.luno.gesture.R
 import hunoia.luno.ui.component.DirectionLabels
 import hunoia.luno.ui.component.RowIconBadge
 import hunoia.luno.ui.component.directionLabel
-import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.theme.LargeShape
 
 /**
  * 方向动作行：标题/图标都由扇区中心角派生（罗盘名 + 角度、箭头按角度旋转），
@@ -24,7 +23,7 @@ fun SideGestureSettings(
     centerDegrees: Float,
     count: Int,
     subtitle: String,
-    shape: Shape = SquircleShape(ContainerRadius),
+    shape: Shape = LargeShape,
 ) {
     LunoSettingsRow(
         onClick = onClick,

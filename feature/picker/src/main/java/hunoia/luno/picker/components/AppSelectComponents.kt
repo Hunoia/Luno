@@ -2,7 +2,6 @@ package hunoia.luno.picker
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
-import sv.lib.squircleshape.SquircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Window
 import androidx.compose.material3.Icon
@@ -17,10 +16,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import hunoia.luno.picker.R
 import hunoia.luno.quickaccess.model.AppInfo
 import hunoia.luno.quickaccess.model.icon
+import hunoia.luno.ui.component.row.LunoSelectableRow
 import hunoia.luno.ui.theme.BadgeIconSize
 import hunoia.luno.ui.theme.CardInnerSpacing
-import hunoia.luno.ui.theme.ContainerRadius
-import hunoia.luno.ui.component.row.LunoSelectableRow
+import hunoia.luno.ui.theme.LargeShape
 @Composable
 internal fun AppItem(
     onLongClick: () -> Unit,
@@ -28,7 +27,7 @@ internal fun AppItem(
     selected: Boolean,
     appInfo: AppInfo,
     modifier: Modifier = Modifier,
-    shape: Shape = SquircleShape(ContainerRadius),
+    shape: Shape = LargeShape,
 ) {
     LunoSelectableRow(
         selected = selected,

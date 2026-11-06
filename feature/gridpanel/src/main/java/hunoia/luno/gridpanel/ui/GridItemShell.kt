@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
@@ -33,6 +32,7 @@ import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.geometry.ResizeCorner
 import hunoia.luno.ui.theme.SmallShape
+import hunoia.luno.ui.theme.containerShape
 
 /**
  * 编辑态的删除角标（右上）。是项的子层且排在最后：子层先拿到指针事件，
@@ -97,10 +97,10 @@ fun ItemResizeHandle(
                 .fillMaxSize()
                 .clip(
                     when (corner) {
-                        ResizeCorner.TOP_START -> RoundedCornerShape(topStart = cornerRadius)
-                        ResizeCorner.TOP_END -> RoundedCornerShape(topEnd = cornerRadius)
-                        ResizeCorner.BOTTOM_START -> RoundedCornerShape(bottomStart = cornerRadius)
-                        ResizeCorner.BOTTOM_END -> RoundedCornerShape(bottomEnd = cornerRadius)
+                        ResizeCorner.TOP_START -> containerShape(topStart = cornerRadius)
+                        ResizeCorner.TOP_END -> containerShape(topEnd = cornerRadius)
+                        ResizeCorner.BOTTOM_START -> containerShape(bottomStart = cornerRadius)
+                        ResizeCorner.BOTTOM_END -> containerShape(bottomEnd = cornerRadius)
                     },
                 ),
         ) {

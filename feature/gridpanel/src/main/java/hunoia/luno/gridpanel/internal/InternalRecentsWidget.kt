@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material3.Icon
@@ -39,6 +38,7 @@ import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
 import hunoia.luno.ui.icon.rememberAppDrawable
 import hunoia.luno.ui.icon.rememberAppLabel
+import hunoia.luno.ui.theme.containerShape
 
 /**
  * 最近应用：一排图标（旧 → 新，最多 6 个，不含当前前台），点按直达。
@@ -86,7 +86,7 @@ fun RecentAppsCell(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .clip(RoundedCornerShape(ItemCorner))
+            .clip(containerShape(ItemCorner))
             .padding(horizontal = 6.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
     ) {
@@ -117,7 +117,7 @@ fun RecentAppsCell(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .clip(RoundedCornerShape(ItemCorner * 0.5f))
+                            .clip(containerShape(ItemCorner * 0.5f))
                             .semantics { contentDescription = appLabel }
                             .then(
                                 if (enabled) {

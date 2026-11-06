@@ -58,10 +58,10 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.gridpanel.R
 import hunoia.luno.config.model.TodoConfig
 import hunoia.luno.config.model.TodoItem
 import hunoia.luno.domain.gridpanel.TodoCenter
+import hunoia.luno.gridpanel.R
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.row.LunoGroup

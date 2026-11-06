@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Image
@@ -41,10 +40,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.CircleShape
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.gesture.R
 import java.util.Locale
 import kotlin.math.roundToInt
+import hunoia.luno.ui.theme.containerShape
 
 /**
  * 幽灵卡底部动作槽的动作。
@@ -223,7 +224,7 @@ internal fun PortalLayer(
                 .wrapContentWidth(Alignment.Start)
                 .heightIn(max = PortalLayout.CardMaxHeightDp.dp)
                 .onSizeChanged(onCardSize)
-                .background(cardBackground, RoundedCornerShape(PortalLayout.CardRadiusDp.dp))
+                .background(cardBackground, containerShape(PortalLayout.CardRadiusDp.dp))
                 .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
             horizontalAlignment = if (content.isImage) Alignment.CenterHorizontally else Alignment.Start,
@@ -242,7 +243,7 @@ internal fun PortalLayer(
                         modifier = Modifier
                             .widthIn(max = 180.dp)
                             .heightIn(max = 96.dp)
-                            .clip(RoundedCornerShape(12.dp)),
+                            .clip(containerShape(12.dp)),
                     )
                 } else {
                     Row(
@@ -312,7 +313,7 @@ private fun PortalCardActionIcon(
 ) {
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(50),
+        shape = CircleShape,
         color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.12f),
         contentColor = MaterialTheme.colorScheme.inverseOnSurface,
         modifier = Modifier.size(40.dp),

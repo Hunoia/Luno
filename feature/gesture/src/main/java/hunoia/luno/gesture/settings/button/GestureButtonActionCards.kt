@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import sv.lib.squircleshape.SquircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.ExpandMore
@@ -26,27 +25,29 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import hunoia.luno.gesture.R
+import androidx.compose.ui.graphics.Shape
 import hunoia.luno.config.model.DirectionActions
 import hunoia.luno.config.model.GestureButton
-import hunoia.luno.config.model.GestureTriggerType
 import hunoia.luno.config.model.GestureButtonAngle
+import hunoia.luno.config.model.GestureTriggerType
+import hunoia.luno.gesture.R
+import hunoia.luno.gesture.settings.GestureActionTarget
+import hunoia.luno.gesture.settings.style.SideGestureSettings
 import hunoia.luno.ui.component.DirectionLabels
 import hunoia.luno.ui.component.RowIconBadge
-import hunoia.luno.ui.component.directionLabel
 import hunoia.luno.ui.component.actionTextCompose
-import hunoia.luno.gesture.settings.style.SideGestureSettings
+import hunoia.luno.ui.component.directionLabel
+import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.theme.ConnectionRadius
 import hunoia.luno.ui.theme.ContainerRadius
 import hunoia.luno.ui.theme.RowIconSize
 import hunoia.luno.ui.theme.SegmentedGap
-import hunoia.luno.ui.component.row.LunoSettingsRow
-import hunoia.luno.gesture.settings.GestureActionTarget
+import hunoia.luno.ui.theme.containerShape
 
 /** 展开内容内部行的圆角：首行接标题用小圆角，最后一行统一收回大圆角。 */
-fun actionContentRowShape(index: Int, count: Int): SquircleShape {
+fun actionContentRowShape(index: Int, count: Int): Shape {
     val bottom = if (index == count - 1) ContainerRadius else ConnectionRadius
-    return SquircleShape(
+    return containerShape(
         topStart = ConnectionRadius,
         topEnd = ConnectionRadius,
         bottomStart = bottom,
@@ -72,7 +73,7 @@ fun ExpandableGestureActionCard(
 ) {
     val topRadius = if (index == 0 || count <= 1) ContainerRadius else ConnectionRadius
     val bottomRadius = if (index == count - 1 || count <= 1) ContainerRadius else ConnectionRadius
-    val outerShape = SquircleShape(
+    val outerShape = containerShape(
         topStart = topRadius,
         topEnd = topRadius,
         bottomStart = bottomRadius,
@@ -86,13 +87,13 @@ fun ExpandableGestureActionCard(
         targetValue = if (expanded) ConnectionRadius else bottomRadius,
         label = "GestureActionCardHeaderBottomRadius",
     )
-    val headerShape = SquircleShape(
+    val headerShape = containerShape(
         topStart = topRadius,
         topEnd = topRadius,
         bottomStart = headerBottomRadius,
         bottomEnd = headerBottomRadius,
     )
-    val contentShape = SquircleShape(
+    val contentShape = containerShape(
         topStart = ConnectionRadius,
         topEnd = ConnectionRadius,
         bottomStart = ContainerRadius,

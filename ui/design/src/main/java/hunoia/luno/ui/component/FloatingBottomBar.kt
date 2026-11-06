@@ -51,17 +51,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.util.fastCoerceIn
 import androidx.compose.ui.util.fastRoundToInt
+import dev.chrisbanes.haze.HazeState
 import hunoia.luno.ui.animation.DampedDragAnimation
 import hunoia.luno.ui.theme.BottomBarHeight
-import hunoia.luno.ui.theme.BottomBarCornerRadius
-import hunoia.luno.ui.theme.BottomBarPillCornerRadius
 import hunoia.luno.ui.theme.BottomBarTabWidth
+import hunoia.luno.ui.theme.CapsuleShape
 import hunoia.luno.ui.theme.TileInnerPadding
 import hunoia.luno.ui.theme.appGlassOutline
 import hunoia.luno.ui.theme.appHazeEffect
-import dev.chrisbanes.haze.HazeState
-import sv.lib.squircleshape.CornerSmoothing
-import sv.lib.squircleshape.SquircleShape
 import kotlin.math.abs
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -100,10 +97,9 @@ fun <T> FloatingBottomBar(
     iconContent: @Composable (item: T, index: Int) -> Unit,
 ) {
     val isInDark = androidx.compose.foundation.isSystemInDarkTheme()
-    // 连续曲率胶囊：容器与指示 pill 各取半高上限（32/28dp），
-    // 用 Small 平滑（接近半圆）保留药丸感，超椭圆曲率连续消除半圆-直边接缝突起。
-    val containerShape = remember { SquircleShape(BottomBarCornerRadius, CornerSmoothing.Small) }
-    val indicatorShape = remember { SquircleShape(BottomBarPillCornerRadius, CornerSmoothing.Small) }
+    // 容器与指示 pill 同走胶囊角色（ui-guidelines §4.2）：半径由高度按零直边条件推出，
+    // 容器 64dp → ~26.7dp、指示 pill 56dp → ~23.3dp，不再按尺寸各开一个 dp token。
+    val capsuleShape = CapsuleShape
     // Haze 单层底：blur + 0.65 底色。tint 只放 Haze 一层，组件自身不再画底色，
     // 否则双层叠加发白。
     val hazeBackground = colors.containerColor.copy(alpha = 0.65f)
@@ -259,7 +255,7 @@ fun <T> FloatingBottomBar(
             Row(
                 Modifier
                     .dropShadow(
-                        shape = containerShape,
+                        shape = capsuleShape,
                         shadow = Shadow(
                             radius = TileInnerPadding * 2.5f,
                             color = Color.Black,
@@ -267,9 +263,9 @@ fun <T> FloatingBottomBar(
                         ),
                     )
                     // clip 在 haze 之外：方形糊输出裁成连续曲率胶囊（只裁绘制，不影响采样）。
-                    .clip(containerShape)
+                    .clip(capsuleShape)
                     .appHazeEffect(hazeState, hazeBackground)
-                    .appGlassOutline(containerShape)
+                    .appGlassOutline(capsuleShape)
                     .then(dampedDragAnimation.modifier)
                     .height(BottomBarHeight + TileInnerPadding * 2)
                     .padding(TileInnerPadding),
@@ -291,8 +287,8 @@ fun <T> FloatingBottomBar(
                         scaleX /= 1f - velocity * 0.75f
                         scaleY *= 1f - velocity * 0.25f
                     }
-                    .clip(indicatorShape)
-                    .background(colors.indicatorColor.copy(alpha = 0.15f), indicatorShape)
+                    .clip(capsuleShape)
+                    .background(colors.indicatorColor.copy(alpha = 0.15f), capsuleShape)
                     .height(BottomBarHeight)
                     .width(BottomBarTabWidth),
             )

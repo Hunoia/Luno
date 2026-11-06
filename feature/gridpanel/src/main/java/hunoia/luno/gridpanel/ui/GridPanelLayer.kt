@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material3.IconButton
@@ -30,10 +29,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionOnScreen
@@ -55,6 +57,7 @@ import hunoia.luno.config.model.GridCell
 import hunoia.luno.config.model.GridPanelItem
 import hunoia.luno.gridpanel.geometry.GridMetrics
 import hunoia.luno.gridpanel.geometry.ItemCorner
+import hunoia.luno.ui.theme.containerShape
 import hunoia.luno.gridpanel.gesture.gridItemPressFeedback
 import hunoia.luno.gridpanel.gesture.gridLayerGestures
 import hunoia.luno.gridpanel.internal.PanelWidgetContentScope
@@ -324,7 +327,7 @@ fun GridPanelLayer(
                                                 1.dp,
                                                 MaterialTheme.colorScheme.outlineVariant
                                                     .copy(alpha = 0.55f),
-                                                RoundedCornerShape(ItemCorner),
+                                                containerShape(ItemCorner),
                                             ),
                                     )
                                 }
@@ -406,7 +409,7 @@ fun GridPanelLayer(
                                 // 回收点只有 onDeleteItem 与设置页丢弃。
                                 modifier = Modifier
                                     .size(sizeDp, heightDp)
-                                    .clip(RoundedCornerShape(ItemCorner)),
+                                    .clip(containerShape(ItemCorner)),
                             )
                             WidgetStateOverlay(
                                 state = widgetState,
@@ -458,12 +461,12 @@ fun GridPanelLayer(
                     // 动态取色在面板里只剩黑白灰。
                     .background(
                         MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
-                        RoundedCornerShape(ItemCorner),
+                        containerShape(ItemCorner),
                     )
                     .border(
                         2.dp,
                         MaterialTheme.colorScheme.primary.copy(alpha = 0.55f),
-                        RoundedCornerShape(ItemCorner),
+                        containerShape(ItemCorner),
                     ),
             )
         }
@@ -487,7 +490,19 @@ private fun GridBackground(items: List<GridPanelItem>, metrics: GridMetrics) {
     val idleColor = gridPanelOnCardColor.copy(alpha = 0.06f)
     val lineColor = gridPanelOnCardColor.copy(alpha = 0.08f)
     val hairline = with(density) { 1.dp.toPx() }
-    val corner = with(density) { ItemCorner.toPx() }
+    // 空位占位与卡片同族形状：连续曲率，和格子里的 squircle 对齐（§2.1.1）。
+    val cellShape = remember { containerShape(ItemCorner) }
+    val cellPath = remember(metrics.cellW, metrics.cellH, cellShape) {
+        when (val outline = cellShape.createOutline(
+            Size(metrics.cellW, metrics.cellH),
+            LayoutDirection.Ltr,
+            density,
+        )) {
+            is Outline.Generic -> outline.path
+            is Outline.Rounded -> Path().apply { addRoundRect(outline.roundRect) }
+            is Outline.Rectangle -> Path().apply { addRect(outline.rect) }
+        }
+    }
     Canvas(
         Modifier
             .fillMaxWidth()
@@ -499,27 +514,20 @@ private fun GridBackground(items: List<GridPanelItem>, metrics: GridMetrics) {
         for (gy in 0 until metrics.rows) {
             for (gx in 0 until metrics.columns) {
                 if (gy * metrics.columns + gx in occupied) continue
-                drawRoundRect(
-                    color = idleColor,
-                    size = Size(metrics.cellW, metrics.cellH),
-                    topLeft = Offset(gx * metrics.stepW, gy * metrics.stepH),
-                    cornerRadius = CornerRadius(corner, corner),
-                )
+                translate(gx * metrics.stepW, gy * metrics.stepH) {
+                    drawPath(cellPath, idleColor)
+                }
             }
         }
         for (gy in 0 until metrics.rows) {
             for (gx in 0 until metrics.columns) {
                 if (gy * metrics.columns + gx in occupied) continue
-                drawRoundRect(
-                    color = lineColor,
-                    size = Size(metrics.cellW, metrics.cellH),
-                    topLeft = Offset(
-                        gx * metrics.stepW + hairline / 2f,
-                        gy * metrics.stepH + hairline / 2f,
-                    ),
-                    cornerRadius = CornerRadius(corner, corner),
-                    style = Stroke(width = hairline),
-                )
+                translate(
+                    gx * metrics.stepW + hairline / 2f,
+                    gy * metrics.stepH + hairline / 2f,
+                ) {
+                    drawPath(cellPath, lineColor, style = Stroke(width = hairline))
+                }
             }
         }
     }

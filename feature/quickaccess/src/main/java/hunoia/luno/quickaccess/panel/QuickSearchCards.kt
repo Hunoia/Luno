@@ -22,7 +22,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.Apps
@@ -83,10 +82,10 @@ import hunoia.luno.quickaccess.query.SOURCE_ENGINE
 import hunoia.luno.quickaccess.query.SOURCE_URL
 import hunoia.luno.ui.component.TextIconGlyph
 
-import hunoia.luno.ui.theme.ContainerRadius
-import sv.lib.squircleshape.SquircleShape
+import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SmallShape
+import hunoia.luno.ui.theme.containerShape
 import androidx.compose.material.icons.filled.PushPin
 
 /** 卡内条数上限：排序靠前的胜出（Pin 已被置顶排在桶首）。 */
@@ -302,7 +301,7 @@ private fun GroupCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(SquircleShape(ContainerRadius))
+            .clip(LargeShape)
             .background(searchRowContainer()),
     ) {
         Row(
@@ -340,7 +339,7 @@ private fun HistoryChip(
     Row(
         modifier = Modifier
             .heightIn(min = 36.dp)
-            .clip(RoundedCornerShape(18.dp))
+            .clip(containerShape(18.dp))
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -375,7 +374,7 @@ private fun ClipChip(
     Row(
         modifier = Modifier
             .heightIn(min = 36.dp)
-            .clip(RoundedCornerShape(18.dp))
+            .clip(containerShape(18.dp))
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -398,7 +397,7 @@ private fun ClipChip(
         Box(
             modifier = Modifier
                 .size(28.dp)
-                .clip(RoundedCornerShape(14.dp))
+                .clip(containerShape(14.dp))
                 .clickable(onClick = onTogglePin),
             contentAlignment = Alignment.Center,
         ) {
@@ -428,7 +427,7 @@ private fun ResultChip(
     Row(
         modifier = Modifier
             .heightIn(min = 36.dp)
-            .clip(RoundedCornerShape(18.dp))
+            .clip(containerShape(18.dp))
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,

@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -63,6 +62,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.CircleShape
 import hunoia.luno.gridpanel.R
 import hunoia.luno.config.model.GridPanelDefaults
 import hunoia.luno.gridpanel.core.EdgeAutoScroll
@@ -91,6 +91,7 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import hunoia.luno.ui.theme.containerShape
 
 
 /** 拖拽到距可视区上下沿这么多 dp 内开始自动滚动。 */
@@ -316,14 +317,15 @@ fun GridPanelCard(
         )
         // 卡面内容：背景/圆角裁剪放在内层。外层留着给面板缩放手柄，命中区才能伸出
         // 面板外——Modifier.clip 会连子节点的命中测试一起裁，就地偏移会被裁掉。
+        val density = LocalDensity.current
+        val cardShape = remember(cornerPx, density) {
+            containerShape(with(density) { cornerPx.toDp() })
+        }
         Box(
             Modifier
                 .fillMaxSize()
-                .background(
-                    cardColor.copy(alpha = cardBackgroundAlpha),
-                    RoundedCornerShape(cornerPx),
-                )
-                .clip(RoundedCornerShape(cornerPx)),
+                .background(cardColor.copy(alpha = cardBackgroundAlpha), cardShape)
+                .clip(cardShape),
         ) {
         // 多页指示点固定在顶部，高度预算 IndicatorHeight 在 metrics 里；页切换靠点/横滑。
         Column(Modifier.fillMaxSize()) {
@@ -476,7 +478,7 @@ fun GridPanelCard(
         }
         // 双指调列数：列的实时数值浮在卡面中央，松手后按该值重排并落盘。
         if (pinchColumns != null) {
-            val shape = RoundedCornerShape(50)
+            val shape = CircleShape
             Box(
                 Modifier
                     .align(Alignment.Center)
@@ -718,7 +720,7 @@ private fun PageDropPicker(
     target: PageDrop?,
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(50)
+    val shape = CircleShape
     Box(
         modifier
             .clip(shape)
@@ -757,7 +759,7 @@ private fun PageDropPicker(
                         Box(
                             Modifier
                                 .size(18.dp)
-                                .border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(50)),
+                                .border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape),
                         )
                     }
                     val dotSize = if (isVirtual) 12.dp else 10.dp
@@ -765,13 +767,13 @@ private fun PageDropPicker(
                         Box(
                             Modifier
                                 .size(dotSize)
-                                .border(1.5.dp, color, RoundedCornerShape(50)),
+                                .border(1.5.dp, color, CircleShape),
                         )
                     } else {
                         Box(
                             Modifier
                                 .size(dotSize)
-                                .clip(RoundedCornerShape(50))
+                                .clip(CircleShape)
                                 .background(color),
                         )
                     }
