@@ -16,6 +16,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +31,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.union
@@ -46,21 +48,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.lifecycle.lifecycleScope
 import hunoia.luno.annotate.model.AnnotateDocument
 import hunoia.luno.annotate.model.AnnotateOps
@@ -86,6 +88,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 /**
  * 图片编辑页（计划 §3.2）：透明 `:service` Activity，顶部 contain 图片、底部固定工具条。
@@ -461,53 +464,62 @@ private fun ImageAnnotateScreen(
         }
     }
 
-    // 工具条区域：量「容器」而不是工具条本体——容器还叠了导航栏 inset，只量工具条
-    // 会让画布底部少让出一个导航栏高度，竖图底部被工具条盖住（审计 H4）。
-    // IME 弹起时容器会长出键盘高度，那一刻冻结旧值：画布尺寸不随键盘重排，
-    // 正在落的文字才不会跟着 fit 重新计算跳位。
-    val density = LocalDensity.current
-    var toolbarAreaPx by remember { mutableStateOf(0) }
-    val imeBottomPx by rememberUpdatedState(WindowInsets.ime.getBottom(density))
+    // 工具条位置只在本次会话内有效；初始底部居中，长按空白处可拖动。
+    // 画布始终保持全屏，面板展开不会改变图片坐标或 fit。
+    var toolbarOffset by remember { mutableStateOf(IntOffset.Zero) }
+    var rootSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
+    var toolbarSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
+    var cropResetToken by remember { mutableStateOf(0) }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .onSizeChanged { rootSize = it }
             .background(MaterialTheme.colorScheme.surface),
     ) {
         AnnotateCanvas(
-            document = document,
-            base = base,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = with(density) { toolbarAreaPx.toDp() }),
+                document = document,
+                base = base,
+                modifier = Modifier
+                    .fillMaxSize(),
             // 落笔即交互开始：收起样式卡/弹出卡。
             onPointerDown = {
                 if (dialog != Dialog.None) onDialog(Dialog.None)
                 stylePanelTool?.let { onToolClick(it) }
             },
+            cropResetToken = cropResetToken,
         )
 
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                // 导航栏 ∪ 键盘：IME 可见时 inset 已含导航栏，相加会多顶一截。
+                .fillMaxWidth(0.8f)
                 .windowInsetsPadding(
                     WindowInsets.navigationBars
                         .only(WindowInsetsSides.Bottom)
                         .union(WindowInsets.ime.only(WindowInsetsSides.Bottom)),
                 )
-                // 卡片/样式卡弹出时容器变高，但画布让位保持工具条高度：图片不上移。
-                .onSizeChanged {
-                    if (imeBottomPx == 0 && dialog == Dialog.None && stylePanelTool == null) {
-                        toolbarAreaPx = it.height
-                    }
-                },
+                .offset { toolbarOffset },
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                .onSizeChanged { toolbarSize = it }
+                .pointerInput(Unit) {
+                    detectDragGesturesAfterLongPress(
+                        onDragEnd = {},
+                        onDragCancel = {},
+                    ) { change, dragAmount ->
+                        change.consume()
+                        val maxX = ((rootSize.width - toolbarSize.width) / 2).coerceAtLeast(0)
+                        val minY = -(rootSize.height - toolbarSize.height).coerceAtLeast(0)
+                        toolbarOffset = IntOffset(
+                            x = (toolbarOffset.x + dragAmount.x.roundToInt()).coerceIn(-maxX, maxX),
+                            y = (toolbarOffset.y + dragAmount.y.roundToInt()).coerceIn(minY, 0),
+                        )
+                    }
+                },
                 verticalArrangement = Arrangement.spacedBy(6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -519,6 +531,7 @@ private fun ImageAnnotateScreen(
                             tool = stylePanelTool!!,
                             document = document,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                            onCropReset = { cropResetToken++ },
                         )
                     }
 
@@ -577,6 +590,7 @@ private fun ImageAnnotateScreen(
                     exportLabel = stringResource(AnnotateR.string.annotate_export),
                     modifier = Modifier.fillMaxWidth(),
                     onToolClick = onToolClick,
+                    onCropReset = { cropResetToken++ },
                 )
             }
         }

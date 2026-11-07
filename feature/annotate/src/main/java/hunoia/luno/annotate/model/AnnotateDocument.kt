@@ -13,6 +13,10 @@ class AnnotateDocument(initial: AnnotateState) {
     var state by mutableStateOf(initial)
         private set
 
+    /** 当前画布安全区域对应的适配缩放，仅用于工具条的适应按钮，不落入文档状态。 */
+    var safeViewZoom by mutableStateOf(1f)
+        private set
+
     private var nextId: Long = (initial.elements.maxOfOrNull { it.id } ?: 0L) + 1L
 
     val imageWidth: Int get() = state.imageWidth
@@ -76,6 +80,15 @@ class AnnotateDocument(initial: AnnotateState) {
 
     fun resetViewTransform() {
         state = AnnotateOps.resetViewTransform(state)
+    }
+
+    fun updateSafeViewZoom(zoom: Float) {
+        safeViewZoom = zoom.coerceIn(AnnotateOps.MIN_VIEW_ZOOM, 1f)
+    }
+
+    /** 适应按钮：安全区域适配 ↔ 全屏适配。 */
+    fun toggleViewZoom() {
+        state = AnnotateOps.toggleViewZoom(state, safeViewZoom)
     }
 
     fun setSelection(rect: PxRect?) {

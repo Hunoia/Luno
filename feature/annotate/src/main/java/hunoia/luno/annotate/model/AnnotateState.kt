@@ -64,8 +64,8 @@ object AnnotateOps {
 
     const val UNDO_LIMIT = 30
 
-    /** 双指缩放范围（B7）：1 = 适应屏幕，最大 5 倍。 */
-    const val MIN_VIEW_ZOOM = 1f
+    /** 双指缩放范围（B7）：1 = 全屏适应，最大 5 倍；裁剪态会使用动态安全区域下限。 */
+    const val MIN_VIEW_ZOOM = 0.25f
     const val MAX_VIEW_ZOOM = 5f
 
     fun addElement(state: AnnotateState, element: AnnotationElement): AnnotateState {
@@ -204,7 +204,14 @@ object AnnotateOps {
 
     /** 「适应屏幕」：重置缩放与平移。 */
     fun resetViewTransform(state: AnnotateState): AnnotateState =
-        state.copy(viewZoom = MIN_VIEW_ZOOM, viewPan = Pt(0f, 0f))
+        state.copy(viewZoom = 1f, viewPan = Pt(0f, 0f))
+
+    /** 适应按钮循环：安全区域适配 ↔ 全屏适配。 */
+    fun toggleViewZoom(state: AnnotateState, safeZoom: Float = MIN_VIEW_ZOOM): AnnotateState {
+        val safe = safeZoom.coerceIn(MIN_VIEW_ZOOM, 1f)
+        val target = if (state.viewZoom <= safe + 0.001f) 1f else safe
+        return state.copy(viewZoom = target, viewPan = Pt(0f, 0f))
+    }
 
     /** 选区先归一化再 clamp；过小视为清除。 */
     fun setSelection(state: AnnotateState, rect: PxRect?): AnnotateState {
@@ -272,7 +279,7 @@ object AnnotateOps {
             selection = newSelection,
             selectedElementId = state.selectedElementId?.takeIf { id -> kept.any { it.id == id } },
             // 换底图后旧视口没有意义，回到适应屏幕。
-            viewZoom = MIN_VIEW_ZOOM,
+            viewZoom = 1f,
             viewPan = Pt(0f, 0f),
             undoStack = if (keepElements) state.undoStack else emptyList(),
             redoStack = if (keepElements) state.redoStack else emptyList(),

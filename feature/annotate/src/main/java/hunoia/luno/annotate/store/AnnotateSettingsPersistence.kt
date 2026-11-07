@@ -27,7 +27,8 @@ private val flushScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 /** 读取持久化偏好并应用到文档；没有 store / 读取失败都按默认值打开（不影响标注本身）。 */
 suspend fun restoreAnnotateSettings(document: AnnotateDocument, store: AnnotateSettingsStore?) {
     val preferences = store?.let { runCatching { it.load() }.getOrNull() } ?: AnnotatePreferences()
-    document.applySettings(styles = preferences.styles, anchor = preferences.anchor)
+    // 工具条位置只在当前会话内有效；旧版本保存的 anchor 不再恢复。
+    document.applySettings(styles = preferences.styles, anchor = null)
 }
 
 /** 立即把文档当前偏好写回 store（关闭 / 换底图时调用）。 */
@@ -35,7 +36,6 @@ fun flushAnnotateSettings(document: AnnotateDocument, store: AnnotateSettingsSto
     if (store == null) return
     val preferences = AnnotatePreferences(
         styles = document.state.styles,
-        anchor = document.state.toolbarAnchor,
     )
     flushScope.launch { runCatching { store.save(preferences) } }
 }
@@ -43,7 +43,7 @@ fun flushAnnotateSettings(document: AnnotateDocument, store: AnnotateSettingsSto
 /**
  * 把文档里的偏好变化写回 store，挂在宿主 scope 上随宿主/文档取消。
  *
- * 首次发射是打开时刚恢复的偏好，跳过不写；之后样式或工具条位置一变就防抖落盘。
+ * 首次发射是打开时刚恢复的偏好，跳过不写；之后样式变化就防抖落盘。
  * scope 取消会中断防抖中的等待，因此关闭路径必须再调用一次 [flushAnnotateSettings]，
  * 否则防抖窗口内退出会丢掉最后一次修改。
  */
@@ -56,7 +56,6 @@ fun CoroutineScope.observeAnnotateSettings(
         snapshotFlow {
             AnnotatePreferences(
                 styles = document.state.styles,
-                anchor = document.state.toolbarAnchor,
             )
         }
             .distinctUntilChanged()

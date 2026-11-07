@@ -68,9 +68,7 @@ import hunoia.luno.annotate.model.StrokeElement
 import hunoia.luno.annotate.model.TextElement
 import hunoia.luno.annotate.model.ToolKind
 import hunoia.luno.annotate.model.adjustByHandle
-import hunoia.luno.annotate.model.adjustCorner
 import hunoia.luno.annotate.model.bounds
-import hunoia.luno.annotate.model.cornerAt
 import hunoia.luno.annotate.model.hitElementHandle
 import hunoia.luno.annotate.model.mosaicBrushWidth
 import hunoia.luno.annotate.model.orientedGeometry
@@ -78,12 +76,10 @@ import hunoia.luno.annotate.model.pointInPolygon
 import hunoia.luno.annotate.model.pointNearSegment
 import hunoia.luno.annotate.model.rotateAround
 import hunoia.luno.annotate.model.rotationRadOf
-import hunoia.luno.annotate.model.selectionHolds
 import hunoia.luno.annotate.model.shapeCrossSegments
 import hunoia.luno.annotate.model.shapeOutlinePoints
 import hunoia.luno.annotate.model.strokeWidthInImagePx
 import hunoia.luno.annotate.model.transformed
-import hunoia.luno.annotate.model.translateSelection
 import hunoia.luno.annotate.model.translated
 import hunoia.luno.annotate.model.withRotation
 import hunoia.luno.annotate.render.AnnotateGeometryCache
@@ -94,6 +90,7 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
@@ -114,6 +111,8 @@ fun AnnotateCanvas(
     onTextEditingChanged: ((Boolean) -> Unit)? = null,
     /** 画布任意落笔（含绘制/拖选/缩放开始）：宿主据此收起样式面板/弹出卡。 */
     onPointerDown: (() -> Unit)? = null,
+    /** 裁剪态“恢复整图”请求：宿主自增 token，画布据此重置裁剪窗口。 */
+    cropResetToken: Int = 0,
 ) {
     val density = LocalDensity.current.density
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
@@ -155,7 +154,14 @@ fun AnnotateCanvas(
     // GC 压力直接掉帧（审计 B1）。StrokeElement 挂的是这份活列表，
     // 追加触发绘制快照失效 → 重绘；抬手才 toList() 冻结进文档。
     val draftPoints = remember { mutableStateListOf<Pt>() }
+    // SELECT 的临时导出选区；抬手后才写入文档。
     var draftSelection by remember { mutableStateOf<PxRect?>(null) }
+    /** CROP 的裁剪框（视图坐标）；调整边/角期间底图保持不动。 */
+    var cropWindow by remember { mutableStateOf<PxRect?>(null) }
+    /** CROP 的安全区域；裁剪框始终限制在此范围内。 */
+    var cropBounds by remember { mutableStateOf<PxRect?>(null) }
+    /** CROP 下使图片完整落入安全区域所需的动态最小缩放。 */
+    var cropMinZoom by remember { mutableStateOf(AnnotateOps.MIN_VIEW_ZOOM) }
     // 矩形擦的拖拽草稿（图片像素）；抬起即清，只用于画布上的选框预览。
     var draftErase by remember { mutableStateOf<PxRect?>(null) }
     var editor by remember { mutableStateOf<TextEditor?>(null) }
@@ -211,6 +217,9 @@ fun AnnotateCanvas(
         draft = null
         draftPoints.clear()
         draftSelection = null
+        cropWindow = null
+        cropBounds = null
+        cropMinZoom = AnnotateOps.MIN_VIEW_ZOOM
         draftErase = null
         editor = null
         textValue = ""
@@ -222,6 +231,55 @@ fun AnnotateCanvas(
         // 切到非文字工具时先交卷：否则编辑器会在别的工具下飘着，
         // 后续落笔提交时用的是新工具的风格。
         if (tool != ToolKind.TEXT && editor != null) commitText()
+    }
+
+    LaunchedEffect(baseFit, canvasSize, density) {
+        if (baseFit != null) {
+            document.updateSafeViewZoom(
+                zoomToFitBounds(baseFit, cropSafeBounds(canvasSize, density)),
+            )
+        }
+    }
+
+    LaunchedEffect(tool, baseFit, canvasSize, cropResetToken) {
+        if (tool == ToolKind.CROP && baseFit != null) {
+            // 裁剪框使用固定安全边距，不依赖工具条当前位置；图片按安全区域动态适配。
+            val safeBounds = cropSafeBounds(canvasSize, density)
+            val safeZoom = zoomToFitBounds(baseFit, safeBounds)
+            cropMinZoom = safeZoom
+            document.setViewTransform(safeZoom, Pt(0f, 0f))
+            document.clearSelection()
+            val safeFit = baseFit.withViewTransform(safeZoom, Pt(0f, 0f))
+            val imageWindow = safeFit.imageRectToView(
+                PxRect.full(document.imageWidth, document.imageHeight),
+            )
+            cropBounds = safeBounds
+            cropWindow = imageWindow
+            document.setSelection(safeFit.viewRectToImage(imageWindow))
+        } else if (tool != ToolKind.CROP) {
+            cropWindow = null
+            cropBounds = null
+            cropMinZoom = AnnotateOps.MIN_VIEW_ZOOM
+        }
+    }
+
+    // 裁剪窗口是视图坐标；图片缩放/平移时，导出 selection 必须跟随窗口同步。
+    // cropWindow 在调整大小时只是临时预览，因此不把它作为 effect key，避免拖动中提交 selection。
+    LaunchedEffect(tool, state.viewZoom, state.viewPan) {
+        if (tool == ToolKind.CROP) {
+            if (state.viewZoom < cropMinZoom) {
+                document.setViewTransform(cropMinZoom, Pt(0f, 0f))
+                return@LaunchedEffect
+            }
+            val currentBase = baseFit
+            val window = cropWindow
+            if (currentBase != null && window != null) {
+                document.setSelection(
+                    currentBase.withViewTransform(state.viewZoom, state.viewPan)
+                        .viewRectToImage(window),
+                )
+            }
+        }
     }
 
     val editingText = editor != null
@@ -250,7 +308,7 @@ fun AnnotateCanvas(
         val oldFit = base.withViewTransform(current.viewZoom, current.viewPan)
         val focus = oldFit.viewToImage(previousCentroid.asPt())
         val newZoom = (current.viewZoom * zoomFactor)
-            .coerceIn(AnnotateOps.MIN_VIEW_ZOOM, AnnotateOps.MAX_VIEW_ZOOM)
+            .coerceIn(if (tool == ToolKind.CROP) cropMinZoom else AnnotateOps.MIN_VIEW_ZOOM, AnnotateOps.MAX_VIEW_ZOOM)
         val newScale = base.scale * newZoom
         // 让双指中心下的图片点跟住当前双指中心：同时完成缩放与平移。
         val centeredX = (base.viewWidth - base.imageWidth * newScale) / 2f
@@ -259,7 +317,19 @@ fun AnnotateCanvas(
             x = centroid.x - focus.x * newScale - centeredX,
             y = centroid.y - focus.y * newScale - centeredY,
         )
-        document.setViewTransform(newZoom, base.clampPan(newZoom, pan))
+        val clamped = if (tool == ToolKind.CROP) {
+            clampPanToCropWindow(base, newZoom, pan, cropWindow)
+        } else {
+            base.clampPan(newZoom, pan)
+        }
+        document.setViewTransform(newZoom, clamped)
+        if (tool == ToolKind.CROP) {
+            cropWindow?.let { window ->
+                document.setSelection(
+                    base.withViewTransform(newZoom, clamped).viewRectToImage(window),
+                )
+            }
+        }
     }
 
     Box(
@@ -287,7 +357,6 @@ fun AnnotateCanvas(
                                 // 丢掉正在进行的单指草稿：缩放不应留下半截笔迹。
                                 draft = null
                                 draftPoints.clear()
-                                draftSelection = null
                                 draftErase = null
                                 lastCentroid = centroid
                                 lastDistance = distance
@@ -439,76 +508,134 @@ fun AnnotateCanvas(
                                     draft = null
                                     if (moved && finished != null) document.replace(finished)
                                 }
+
+                                // 3) 空白处拖出导出选区；SELECT 不是多标注框选工具。
+                                else -> {
+                                    document.selectElement(null)
+                                    var rect = PxRect.fromPoints(startImage, startImage)
+                                    var current = startImage
+                                    val completed = drag(down.id) { change ->
+                                        moved = true
+                                        current = currentFit.viewToImage(change.position.asPt())
+                                            .clampToImage(document)
+                                        rect = PxRect.fromPoints(startImage, current).normalized()
+                                        draftSelection = rect
+                                        change.consume()
+                                    }
+                                    val finalRect = if (completed) rect else {
+                                        PxRect.fromPoints(startImage, current).normalized()
+                                    }
+                                    document.setSelection(finalRect)
+                                    draftSelection = null
+                                }
                             }
                         }
 
                         ToolKind.CROP -> {
-                            // 裁剪工具：只管理导出裁剪框（复用 SELECT 的框选逻辑）。
+                            // 标准图片编辑器式裁剪：窗口固定，图片在窗口下移动/缩放。
                             document.selectElement(null)
-                            val threshold = 28f * density
-                            val existingSelection = document.state.selection?.normalized()
-                            val selectionCorner = existingSelection
-                                ?.let { cornerAt(it, currentFit, down.position.asPt(), threshold) }
+                            val base = baseFit ?: return@awaitEachGesture
+                            val window = cropWindow ?: currentFit.imageRectToView(
+                                PxRect.full(document.imageWidth, document.imageHeight),
+                            )
+                            // 裁剪框只受固定安全区域限制；图片像素选区在提交时统一 clamp。
+                            val imageBounds = cropBounds ?: currentFit.imageRectToView(
+                                PxRect.full(document.imageWidth, document.imageHeight),
+                            )
+                            val handle = hitCropHandle(window, down.position, 28f * density)
+                            val minSize = (48f * density).coerceAtMost(
+                                min(imageBounds.width, imageBounds.height),
+                            )
 
-                            when {
-                                // 1) 选区四角调整（B2 既有行为）。
-                                existingSelection != null && selectionCorner != null -> {
-                                    val rect0 = existingSelection!!
-                                    val corner0 = selectionCorner!!
-                                    var rect = rect0
-                                    drag(down.id) { change ->
-                                        moved = true
-                                        val p = currentFit.viewToImage(change.position.asPt())
-                                        rect = adjustCorner(rect, corner0, p)
-                                        draftSelection = rect.normalized()
-                                        change.consume()
-                                    }
-                                    document.setSelection(rect)
-                                    draftSelection = null
+                            if (handle != null) {
+                                val oldWindow = window
+                                val startZoom = document.state.viewZoom
+                                val startFit = currentFit
+                                var nextWindow = oldWindow
+                                val released = drag(down.id) { change ->
+                                    moved = true
+                                    // 调整期间只更新临时窗口预览；selection、zoom、pan 在抬手后一次性提交。
+                                    nextWindow = adjustCropWindow(
+                                        oldWindow,
+                                        handle,
+                                        change.position,
+                                        imageBounds,
+                                        minSize,
+                                    )
+                                    cropWindow = nextWindow
+                                    change.consume()
                                 }
 
-                                // 2) 选区内拖动：整体平移选区（B6）。
-                                existingSelection != null && selectionHolds(
-                                    existingSelection,
-                                    currentFit,
-                                    down.position.asPt(),
-                                ) -> {
-                                    val rect0 = existingSelection!!
-                                    var rect = rect0
-                                    drag(down.id) { change ->
-                                        moved = true
-                                        val p = currentFit.viewToImage(change.position.asPt())
-                                        rect = translateSelection(
-                                            rect0,
-                                            p.x - startImage.x,
-                                            p.y - startImage.y,
+                                if (released && moved) {
+                                    // 拖动期间图片保持不动；抬手后把选区与框作为整体同步放大。
+                                    val factor = maxOf(
+                                        oldWindow.width / nextWindow.width,
+                                        oldWindow.height / nextWindow.height,
+                                    )
+                                    val zoom = (startZoom * factor)
+                                        .coerceIn(cropMinZoom, AnnotateOps.MAX_VIEW_ZOOM)
+                                    val desiredFactor = zoom / startZoom
+                                    // 框与图片的几何一律用「未夹取」的图片区域计算：拖动到图片外时
+                                    // 该区域中心仍与拖动位置一致，抬手后框与图片保持同步放大，
+                                    // 不会因选区被夹取到图片边缘而中心跳变、产生上下偏移。
+                                    // 导出用的选区在下方 setSelection 时才夹取到图片范围。
+                                    val cropImg = startFit.viewRectToImage(nextWindow).normalized()
+                                    val cropCenter = startFit.imageToView(cropImg.center)
+                                    val appliedFactor = desiredFactor.coerceAtMost(
+                                        maxCropScale(nextWindow, cropCenter, imageBounds),
+                                    )
+                                    val appliedZoom = (startZoom * appliedFactor)
+                                        .coerceIn(cropMinZoom, AnnotateOps.MAX_VIEW_ZOOM)
+                                    val finalWindow = scaleCropWindow(
+                                        nextWindow,
+                                        cropCenter,
+                                        appliedFactor,
+                                    )
+                                    // 平移保持图片区域中心与裁剪框中心一致。
+                                    val transformed = base.withViewTransform(appliedZoom, Pt(0f, 0f))
+                                    val target = transformed.imageToView(cropImg.center)
+                                    val requestedPan = Pt(
+                                        x = finalWindow.center.x - target.x,
+                                        y = finalWindow.center.y - target.y,
+                                    )
+                                    // 裁剪态允许图片移出屏幕；只能保证裁剪框内仍由图片覆盖，
+                                    // 不能再用屏幕边界二次夹取，否则会改变框内图片区域。
+                                    val pan = requestedPan
+                                    cropWindow = finalWindow
+                                    document.setViewTransform(appliedZoom, pan)
+                                    document.setSelection(
+                                        cropImg.clampTo(
                                             document.imageWidth.toFloat(),
                                             document.imageHeight.toFloat(),
-                                        )
-                                        draftSelection = rect
-                                        change.consume()
-                                    }
-                                    if (moved) document.setSelection(rect)
-                                    draftSelection = null
+                                        ),
+                                    )
                                 }
-
-                                // 3) 空白处拖新选区（B2 既有行为）。
-                                else -> {
-                                    var rect = PxRect.fromPoints(startImage, startImage)
-                                    var current = startImage
-                                    val ok = drag(down.id) { change ->
+                            } else if (window.contains(down.position.asPt())) {
+                                // 裁剪框内单指拖动图片；裁剪框本身保持在安全区域内。
+                                var last = down.position
+                                val generation = viewTransformGeneration
+                                drag(down.id) { change ->
+                                    if (generation == viewTransformGeneration) {
                                         moved = true
-                                        current = currentFit.viewToImage(change.position.asPt())
-                                            .clampToImage(document)
-                                        rect = PxRect.fromPoints(startImage, current)
-                                        draftSelection = rect.normalized()
+                                        val dx = change.position.x - last.x
+                                        val dy = change.position.y - last.y
+                                        val pan = document.state.viewPan + Pt(dx, dy)
+                                        val clamped = clampPanToCropWindow(
+                                            base,
+                                            document.state.viewZoom,
+                                            pan,
+                                            window,
+                                        )
+                                        document.setViewTransform(document.state.viewZoom, clamped)
+                                        document.setSelection(
+                                            base.withViewTransform(
+                                                document.state.viewZoom,
+                                                clamped,
+                                            ).viewRectToImage(window),
+                                        )
+                                        last = change.position
                                         change.consume()
                                     }
-                                    val finalRect = if (ok) rect else {
-                                        PxRect.fromPoints(startImage, current)
-                                    }
-                                    document.setSelection(finalRect)
-                                    draftSelection = null
                                 }
                             }
                         }
@@ -593,7 +720,8 @@ fun AnnotateCanvas(
                                     cellSize = currentStyle.mosaicCell,
                                 )
 
-                                ToolKind.TEXT, ToolKind.SELECT, ToolKind.CROP, ToolKind.NUMBER -> null
+                                    ToolKind.TEXT, ToolKind.SELECT, ToolKind.CROP,
+                                    ToolKind.NUMBER -> null
                             }
                             var lastPt = startImage
                             drag(down.id) { change ->
@@ -680,6 +808,50 @@ fun AnnotateCanvas(
                 scrimAroundImage = base != null,
                 geometryCache = geometryCache,
             )
+            if (tool == ToolKind.CROP) {
+                cropWindow?.let { window ->
+                    // 裁剪框外压暗；调整完成后裁剪框与选区内容同步放大。
+                    drawRect(
+                        color = Color.Black.copy(alpha = 0.42f),
+                        topLeft = Offset.Zero,
+                        size = Size(size.width, window.top.coerceAtLeast(0f)),
+                    )
+                    drawRect(
+                        color = Color.Black.copy(alpha = 0.42f),
+                        topLeft = Offset(0f, window.bottom),
+                        size = Size(size.width, (size.height - window.bottom).coerceAtLeast(0f)),
+                    )
+                    drawRect(
+                        color = Color.Black.copy(alpha = 0.42f),
+                        topLeft = Offset(0f, window.top),
+                        size = Size(window.left.coerceAtLeast(0f), window.height),
+                    )
+                    drawRect(
+                        color = Color.Black.copy(alpha = 0.42f),
+                        topLeft = Offset(window.right, window.top),
+                        size = Size((size.width - window.right).coerceAtLeast(0f), window.height),
+                    )
+                    drawRect(
+                        color = Color.White,
+                        topLeft = Offset(window.left, window.top),
+                        size = Size(window.width, window.height),
+                        style = Stroke(width = 2.dp.toPx()),
+                    )
+                    val handle = 12.dp.toPx()
+                    listOf(
+                        Offset(window.left, window.top),
+                        Offset(window.right, window.top),
+                        Offset(window.left, window.bottom),
+                        Offset(window.right, window.bottom),
+                    ).forEach { point ->
+                        drawRect(
+                            color = Color.White,
+                            topLeft = Offset(point.x - handle / 2f, point.y - handle / 2f),
+                            size = Size(handle, handle),
+                        )
+                    }
+                }
+            }
             // 矩形擦拖拽预览（C1）：白色虚线框，抬起即消失。
             draftErase?.let { rect ->
                 val view = currentFit.imageRectToView(rect.normalized())
@@ -836,6 +1008,126 @@ fun AnnotateCanvas(
             }
         }
     }
+}
+
+private enum class CropHandle {
+    LEFT, RIGHT, TOP, BOTTOM,
+    TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT,
+}
+
+private fun hitCropHandle(rect: PxRect, point: Offset, radius: Float): CropHandle? {
+    val x = point.x
+    val y = point.y
+    fun near(a: Float, b: Float): Boolean = abs(a - b) <= radius
+    return when {
+        near(x, rect.left) && near(y, rect.top) -> CropHandle.TOP_LEFT
+        near(x, rect.right) && near(y, rect.top) -> CropHandle.TOP_RIGHT
+        near(x, rect.left) && near(y, rect.bottom) -> CropHandle.BOTTOM_LEFT
+        near(x, rect.right) && near(y, rect.bottom) -> CropHandle.BOTTOM_RIGHT
+        near(x, rect.left) && y in rect.top..rect.bottom -> CropHandle.LEFT
+        near(x, rect.right) && y in rect.top..rect.bottom -> CropHandle.RIGHT
+        near(y, rect.top) && x in rect.left..rect.right -> CropHandle.TOP
+        near(y, rect.bottom) && x in rect.left..rect.right -> CropHandle.BOTTOM
+        else -> null
+    }
+}
+
+private fun adjustCropWindow(
+    original: PxRect,
+    handle: CropHandle,
+    point: Offset,
+    bounds: PxRect,
+    minSize: Float,
+): PxRect {
+    var left = original.left
+    var top = original.top
+    var right = original.right
+    var bottom = original.bottom
+    val minWidth = minSize.coerceAtMost(bounds.width)
+    val minHeight = minSize.coerceAtMost(bounds.height)
+    when (handle) {
+        CropHandle.LEFT, CropHandle.TOP_LEFT, CropHandle.BOTTOM_LEFT ->
+            left = point.x.coerceIn(bounds.left, right - minWidth)
+        CropHandle.RIGHT, CropHandle.TOP_RIGHT, CropHandle.BOTTOM_RIGHT ->
+            right = point.x.coerceIn(left + minWidth, bounds.right)
+        else -> Unit
+    }
+    when (handle) {
+        CropHandle.TOP, CropHandle.TOP_LEFT, CropHandle.TOP_RIGHT ->
+            top = point.y.coerceIn(bounds.top, bottom - minHeight)
+        CropHandle.BOTTOM, CropHandle.BOTTOM_LEFT, CropHandle.BOTTOM_RIGHT ->
+            bottom = point.y.coerceIn(top + minHeight, bounds.bottom)
+        else -> Unit
+    }
+    return PxRect(left, top, right, bottom)
+}
+
+/** 按同一比例放大裁剪框，并以 [anchor] 为中心。 */
+private fun scaleCropWindow(rect: PxRect, anchor: Pt, factor: Float): PxRect {
+    val width = rect.width * factor
+    val height = rect.height * factor
+    return PxRect(
+        left = anchor.x - width / 2f,
+        top = anchor.y - height / 2f,
+        right = anchor.x + width / 2f,
+        bottom = anchor.y + height / 2f,
+    )
+}
+
+/** 计算以固定锚点放大后仍落在安全区域内的最大倍数。 */
+private fun maxCropScale(rect: PxRect, anchor: Pt, bounds: PxRect): Float {
+    var result = Float.POSITIVE_INFINITY
+    if (rect.left < anchor.x) {
+        result = minOf(result, (anchor.x - bounds.left) / (anchor.x - rect.left))
+    }
+    if (rect.right > anchor.x) {
+        result = minOf(result, (bounds.right - anchor.x) / (rect.right - anchor.x))
+    }
+    if (rect.top < anchor.y) {
+        result = minOf(result, (anchor.y - bounds.top) / (anchor.y - rect.top))
+    }
+    if (rect.bottom > anchor.y) {
+        result = minOf(result, (bounds.bottom - anchor.y) / (rect.bottom - anchor.y))
+    }
+    return result.takeIf { it.isFinite() }?.coerceAtLeast(1f) ?: 1f
+}
+
+/** 裁剪框的固定安全区域：左右/顶部 48dp，底部 96dp。 */
+private fun cropSafeBounds(size: IntSize, density: Float): PxRect {
+    val horizontal = 48f * density
+    val top = 48f * density
+    val bottom = 96f * density
+    return PxRect(
+        left = horizontal,
+        top = top,
+        right = (size.width - horizontal).coerceAtLeast(horizontal),
+        bottom = (size.height - bottom).coerceAtLeast(top),
+    )
+}
+
+/** 计算让整张图片落入安全区域所需的 contain 缩放倍数。 */
+private fun zoomToFitBounds(base: ContainFit, bounds: PxRect): Float = minOf(
+    bounds.width / (base.imageWidth * base.scale).coerceAtLeast(1f),
+    bounds.height / (base.imageHeight * base.scale).coerceAtLeast(1f),
+).coerceIn(0.25f, 1f)
+
+/** 使图片始终覆盖裁剪框；裁剪态允许图片移出屏幕。 */
+private fun clampPanToCropWindow(
+    base: ContainFit,
+    zoom: Float,
+    pan: Pt,
+    window: PxRect?,
+): Pt {
+    if (window == null) return pan
+    val centered = base.withViewTransform(zoom, Pt(0f, 0f))
+    val lowX = window.right - (centered.offsetX + centered.imageWidth * centered.scale)
+    val highX = window.left - centered.offsetX
+    val lowY = window.bottom - (centered.offsetY + centered.imageHeight * centered.scale)
+    val highY = window.top - centered.offsetY
+    return Pt(
+        x = if (lowX <= highX) pan.x.coerceIn(lowX, highX) else (lowX + highX) / 2f,
+        y = if (lowY <= highY) pan.y.coerceIn(lowY, highY) else (lowY + highY) / 2f,
+    )
 }
 
 private const val DRAFT_ID = -1L
