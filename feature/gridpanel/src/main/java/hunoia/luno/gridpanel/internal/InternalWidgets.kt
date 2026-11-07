@@ -24,9 +24,7 @@ object InternalWidgetIds {
     const val CLIPBOARD = "internal.clipboardPage"
     /** 页面类部件：整块可滚动的应用抽屉（与快速启动器共用应用列表）。 */
     const val APP_DRAWER = "internal.appDrawer"
-    /** 习惯打卡：指向一个习惯（params 存 HabitWidgetParams）。 */
-    const val HABIT_CHECK = "internal.habitCheck"
-    /** 习惯历史：近 14 天点阵 + 连续天数（params 存 HabitWidgetParams）。 */
+    /** 习惯历史：近 N 天点阵 + 连续天数（params 存 HabitWidgetParams）。 */
     const val HABIT_HISTORY = "internal.habitHistory"
     /** 代办列表：未完成项可勾选 + 未完成数（无 params）。 */
     const val TODO = "internal.todo"

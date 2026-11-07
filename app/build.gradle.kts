@@ -156,6 +156,7 @@ dependencies {
     implementation(project(":feature:gesture"))
     implementation(project(":feature:floatball"))
     implementation(project(":feature:gridpanel"))
+    implementation(project(":feature:widget"))
     implementation(project(":feature:annotate"))
     implementation(project(":feature:a11y"))
     implementation(libs.androidx.compose.runtime)

@@ -15,6 +15,7 @@ object ModuleRules {
         ":feature:execute", ":feature:actions",
         ":feature:link", ":feature:search", ":feature:quickaccess", ":feature:gesture",
         ":feature:floatball", ":feature:gridpanel", ":feature:annotate", ":feature:a11y",
+        ":feature:widget",
         ":feature:picker",
         ":app",
     )
@@ -76,6 +77,9 @@ object ModuleRules {
         ),
         ":feature:annotate" to setOf(":core:common", ":core:domain", ":core:bridge", ":ui:design"),
         ":feature:a11y" to setOf(":core:common", ":core:domain", ":core:bridge", ":ui:design"),
+        // 桌面小部件（Glance）：主进程运行，直读 MultiProcess DataStore；复用 gridpanel 域门面
+        // 与跳转 extras（HabitExtras/TodoExtras），不触碰 app 层。
+        ":feature:widget" to setOf(":core:common", ":core:domain", ":feature:gridpanel"),
         ":app" to (knownModules - ":app"),
     )
 

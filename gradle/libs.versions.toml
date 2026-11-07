@@ -25,6 +25,7 @@ junit = "4.13.2"
 konsist = "0.18.1"
 coroutines = "1.11.0"
 androidxAnnotation = "1.11.0"
+glance = "1.2.0"
 
 
 [libraries]
@@ -65,6 +66,8 @@ androidx-compose-material-ripple = { group = "androidx.compose.material", name =
 
 material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "materialIcons" }
 material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
+
+glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
 
 haze = { group = "dev.chrisbanes.haze", name = "haze-android", version.ref = "haze" }
 haze-blur = { group = "dev.chrisbanes.haze", name = "haze-blur", version.ref = "haze" }

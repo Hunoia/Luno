@@ -72,6 +72,9 @@ class App : Application(), SingletonImageLoader.Factory {
         )
         val appScope = AppContext.applicationScope ?: error("ApplicationScope not initialized")
         Events.initScope(appScope) { isMainThread() }
+        // 桌面小部件实时同步（architecture §7.5）：进程启动即订阅配置流。
+        // receiver onUpdate 只在放置/周期更新触发，进程重启后不保证重发，故在此兜底。
+        hunoia.luno.widget.WidgetSync.ensureStarted(applicationContext)
         // Surface 动作统一进 Dispatcher：进程级门面不依赖无障碍服务生命周期。
         hunoia.luno.runtime.SurfaceActionRuntime.install(applicationContext)
         // 动作编辑页的 Activity 选择器：契约在 :core:domain，实现在 :app。

@@ -65,8 +65,8 @@ import hunoia.luno.ui.theme.containerShape
  *
  * 数据源 [TodoCenter.todoConfig]（JSON DataStore，MultiProcess），经 domain 门面订阅。
  * 完成写回走 [TodoCenter.toggleTodo]——应用内状态变更，不走 Dispatcher（architecture §1.3）。
- * 完成即从部件消失（管理页仍可见、可撤销）；「+」/点条目拉起代办列表页
- * （添加 / 编辑弹窗在列表页完成，overlay 内不能安全弹系统 Dialog）。
+ * 完成即从部件消失（管理页仍可见、可撤销）；「+」/点条目直达待办编辑弹窗 Activity
+ * （[TodoExtras.ACTIVITY_TODO_EDIT]，与桌面部件同一入口，行为一致）。
  */
 
 /** 行高：固定高度，列表用 verticalScroll 滚动（不再截断 +M）。 */
@@ -90,13 +90,11 @@ internal fun TodoListCell(
     // 只展示未完成：完成即从部件消失（管理页仍可见、可撤销）。
     val pending = config.todos.filter { !it.done }
 
-    // 打开代办列表页（添加/编辑弹窗都在这）。overlay 内不能弹系统 Dialog，故跳页面。
-    // todoId 为空 = 新增；非空 = 编辑该条（列表页据 EXTRA_TODO_ID 自动开对应弹窗）。
-    fun openTodoList(todoId: String? = null) {
+    // 打开待办编辑弹窗 Activity（与桌面部件同一入口）：todoId 空 = 新增；非空 = 编辑该条。
+    fun openTodoDialog(todoId: String? = null) {
         context.startActivity(
             Intent().apply {
-                component = ComponentName(context.packageName, TodoExtras.ACTIVITY_MAIN)
-                putExtra(TodoExtras.EXTRA_OPEN_TODO_LIST, true)
+                component = ComponentName(context.packageName, TodoExtras.ACTIVITY_TODO_EDIT)
                 if (todoId != null) putExtra(TodoExtras.EXTRA_TODO_ID, todoId)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             },
@@ -156,7 +154,7 @@ internal fun TodoListCell(
                         modifier = Modifier
                             .size(26.dp)
                             .clip(CircleShape)
-                            .clickable(onClick = { openTodoList() })
+                            .clickable(onClick = { openTodoDialog() })
                             .semantics { contentDescription = addDesc },
                         contentAlignment = Alignment.Center,
                     ) {
@@ -207,7 +205,7 @@ internal fun TodoListCell(
                                     pendingId = todo.id
                                 }
                             },
-                            onOpen = { openTodoList(todo.id) },
+                            onOpen = { openTodoDialog(todo.id) },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(TodoRowH),
@@ -219,7 +217,7 @@ internal fun TodoListCell(
     }
 }
 
-/** 一行待办：左圆点（双击确认完成）+ 右文字（点条目进列表页），两目标分离。 */
+/** 一行待办：左圆点（双击确认完成）+ 右文字（点条目进编辑弹窗），两目标分离。 */
 @Composable
 private fun TodoRow(
     todo: TodoItem,
