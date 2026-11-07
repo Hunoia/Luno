@@ -49,6 +49,9 @@ private val TodoRowH = 32.dp
 /** 待办行圆点直径：镜像内置 TodoCheckCircle 的 `circleSize`。 */
 private val TodoDotSize = 22.dp
 
+/** 底部内边距比左右/顶部少 2dp，和顶部 14dp 外边距配合收紧底部。 */
+private val TodoBottomPadding = WidgetInnerPadding - 2.dp
+
 /**
  * 待办桌面小部件（Glance）：未完成列表（可滚动 LazyColumn，不截断不计数） +
  * 「待办 · N」标题 + 「+」新增。
@@ -75,11 +78,15 @@ class TodoWidget : GlanceAppWidget() {
             if (loaded == null) {
                 // 首帧数据流未到：只画底，避免先闪一下「暂无待办」。
                 Box(
-                    modifier = GlanceModifier
-                        .fillMaxSize()
-                        .cornerRadius(ItemCorner)
-                        .background(GlanceTheme.colors.surface),
-                ) {}
+                    modifier = GlanceModifier.fillMaxSize().padding(top = WidgetOuterTop),
+                ) {
+                    Box(
+                        modifier = GlanceModifier
+                            .fillMaxSize()
+                            .cornerRadius(ItemCorner)
+                            .background(GlanceTheme.colors.surface),
+                    ) {}
+                }
             } else {
                 val pending = loaded.todos.filter { !it.done }
 
@@ -105,66 +112,76 @@ private fun TodoContent(
     val accent = colors.primary
     val onSurface = colors.onSurface
     val onSurfaceVariant = colors.onSurfaceVariant
-    Column(
-        modifier = GlanceModifier
-            .fillMaxSize()
-            .cornerRadius(ItemCorner)
-            .background(colors.surface)
-            .padding(WidgetInnerPadding),
+    // 外层只负责顶部外边距（透明），卡片背景放在内层。
+    Box(
+        modifier = GlanceModifier.fillMaxSize().padding(top = WidgetOuterTop),
     ) {
-        // 标题行：主色点 + 「待办 · N」（点击进 Luno 待办页） + 「+」新增弹窗。
-        Row(
-            modifier = GlanceModifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = GlanceModifier.size(9.dp).cornerRadius(4.5.dp).background(accent),
-            ) {}
-            Spacer(GlanceModifier.width(6.dp))
-            Text(
-                text = title,
-                modifier = GlanceModifier
-                    .defaultWeight()
-                    .semantics {
-                        contentDescription = context.getString(R.string.widget_todo_open_list)
-                    }
-                    .clickable(onClick = actionStartActivity(TodoExtras.openListIntent(context))),
-                style = TextStyle(
-                    color = onSurface,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
+        Column(
+            modifier = GlanceModifier
+                .fillMaxSize()
+                .cornerRadius(ItemCorner)
+                .background(colors.surface)
+                .padding(
+                    start = WidgetInnerPadding,
+                    top = WidgetInnerPadding,
+                    end = WidgetInnerPadding,
+                    bottom = TodoBottomPadding,
                 ),
-                maxLines = 1,
-            )
-            Spacer(GlanceModifier.width(4.dp))
-            Image(
-                provider = ImageProvider(R.drawable.widget_add),
-                contentDescription = context.getString(R.string.widget_todo_add),
-                modifier = GlanceModifier
-                    .size(26.dp)
-                    .cornerRadius(13.dp)
-                    .background(accent)
-                    .clickable(onClick = actionStartActivity(TodoExtras.editIntent(context))),
-                colorFilter = ColorFilter.tint(ColorProvider(Color.White)),
-            )
-        }
-        Spacer(GlanceModifier.height(6.dp))
-        if (pending.isEmpty()) {
-            Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        ) {
+            // 标题行：主色点 + 「待办 · N」（点击进 Luno 待办页） + 「+」新增弹窗。
+            Row(
+                modifier = GlanceModifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = GlanceModifier.size(9.dp).cornerRadius(4.5.dp).background(accent),
+                ) {}
+                Spacer(GlanceModifier.width(6.dp))
                 Text(
-                    text = emptyText,
-                    style = TextStyle(color = onSurfaceVariant, fontSize = 12.sp),
+                    text = title,
+                    modifier = GlanceModifier
+                        .defaultWeight()
+                        .semantics {
+                            contentDescription = context.getString(R.string.widget_todo_open_list)
+                        }
+                        .clickable(onClick = actionStartActivity(TodoExtras.openListIntent(context))),
+                    style = TextStyle(
+                        color = onSurface,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
+                    maxLines = 1,
+                )
+                Spacer(GlanceModifier.width(4.dp))
+                Image(
+                    provider = ImageProvider(R.drawable.widget_add),
+                    contentDescription = context.getString(R.string.widget_todo_add),
+                    modifier = GlanceModifier
+                        .size(26.dp)
+                        .cornerRadius(13.dp)
+                        .background(accent)
+                        .clickable(onClick = actionStartActivity(TodoExtras.editIntent(context))),
+                    colorFilter = ColorFilter.tint(ColorProvider(Color.White)),
                 )
             }
-        } else {
-            // 可滚动列表：超出可视高度的行由宿主 ListView 滚动可达，不截断不计数。
-            LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
-                items(pending, itemId = { it.id.hashCode().toLong() }) { todo ->
-                    TodoRowContent(
-                        context = context,
-                        todo = todo,
-                        onSurface = onSurface,
+            Spacer(GlanceModifier.height(6.dp))
+            if (pending.isEmpty()) {
+                Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = emptyText,
+                        style = TextStyle(color = onSurfaceVariant, fontSize = 12.sp),
                     )
+                }
+            } else {
+                // 可滚动列表：超出可视高度的行由宿主 ListView 滚动可达，不截断不计数。
+                LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
+                    items(pending, itemId = { it.id.hashCode().toLong() }) { todo ->
+                        TodoRowContent(
+                            context = context,
+                            todo = todo,
+                            onSurface = onSurface,
+                        )
+                    }
                 }
             }
         }

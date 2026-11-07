@@ -73,6 +73,9 @@ internal val ItemCorner = 14.dp
 /** 部件内边距：镜像内置 HabitHistoryCell 的 10dp。 */
 internal val WidgetInnerPadding = 10.dp
 
+/** 部件外边距（仅顶部）：习惯 / 待办共用；底部保持贴 cell 底。 */
+internal val WidgetOuterTop = 14.dp
+
 /**
  * 习惯桌面小部件（Glance）：复刻内置历史部件（HabitHistoryCell）——
  * 标题「名 · 连续 N 天」+ 历史点阵网格（近 N 天勾/横杠/空）。
@@ -106,11 +109,15 @@ class HabitWidget : GlanceAppWidget() {
             val loaded = config
             if (loaded == null) {
                 Box(
-                    modifier = GlanceModifier
-                        .fillMaxSize()
-                        .cornerRadius(ItemCorner)
-                        .background(GlanceTheme.colors.surface),
-                ) {}
+                    modifier = GlanceModifier.fillMaxSize().padding(top = WidgetOuterTop),
+                ) {
+                    Box(
+                        modifier = GlanceModifier
+                            .fillMaxSize()
+                            .cornerRadius(ItemCorner)
+                            .background(GlanceTheme.colors.surface),
+                    ) {}
+                }
             } else {
                 val habitId = prefs[WidgetStateKeys.HABIT_ID].orEmpty()
                 val habit = loaded.habitById(habitId)
@@ -181,37 +188,46 @@ private fun HabitContent(
     emptyText: String,
 ) {
     val colors = GlanceTheme.colors
+    // 外层只负责顶部外边距（透明），卡片背景放在内层，才能真的从外边距下方开始。
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
-            .cornerRadius(ItemCorner)
-            .background(colors.surface)
-            .padding(WidgetInnerPadding),
+            .padding(top = WidgetOuterTop),
     ) {
-        if (habit == null) {
-            Box(
-                modifier = GlanceModifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = emptyText,
-                    modifier = GlanceModifier.clickable(onClick = actionStartActivity(openAppIntent(context))),
-                    style = TextStyle(
-                        color = colors.onSurfaceVariant,
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Center,
-                    ),
+        Box(
+            modifier = GlanceModifier
+                .fillMaxSize()
+                .cornerRadius(ItemCorner)
+                .background(colors.surface)
+                .padding(WidgetInnerPadding),
+        ) {
+            if (habit == null) {
+                Box(
+                    modifier = GlanceModifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = emptyText,
+                        modifier = GlanceModifier.clickable(
+                            onClick = actionStartActivity(openAppIntent(context)),
+                        ),
+                        style = TextStyle(
+                            color = colors.onSurfaceVariant,
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center,
+                        ),
+                    )
+                }
+            } else {
+                HabitBody(
+                    context = context,
+                    habit = habit,
+                    checks = checks,
+                    interval = interval,
+                    today = today,
+                    titleText = titleText,
                 )
             }
-        } else {
-            HabitBody(
-                context = context,
-                habit = habit,
-                checks = checks,
-                interval = interval,
-                today = today,
-                titleText = titleText,
-            )
         }
     }
 }
@@ -227,9 +243,9 @@ private fun HabitBody(
 ) {
     val colors = GlanceTheme.colors
     val size = LocalSize.current
-    // 几何与内置历史部件共用（HabitGridGeometry），这里只扣除 10dp 内边距。
-    val innerW = (size.width - 20.dp).coerceAtLeast(24.dp)
-    val innerH = (size.height - 20.dp).coerceAtLeast(24.dp)
+    // 几何与内置历史部件共用（HabitGridGeometry），这里扣除顶部外边距 + 内边距。
+    val innerW = (size.width - WidgetInnerPadding * 2).coerceAtLeast(24.dp)
+    val innerH = (size.height - WidgetOuterTop - WidgetInnerPadding * 2).coerceAtLeast(24.dp)
     val titleSizeSp = (innerW.value * 0.11f).coerceIn(10f, 14f)
     // 标题行实际高度按 TextView 字体度量算（可能 > 20dp），避免把点阵区算高后底部裁切。
     val titleHeight = maxOf(singleLineTextHeight(context, titleSizeSp), 9.dp)
@@ -374,10 +390,21 @@ private fun HabitDotCell(
     modifier: GlanceModifier = GlanceModifier,
 ) {
     val visual = dot.state.visual()
-    val fill = roleColor(visual.fillRole, habitColor, neutral, error)
-        .withAlpha(context, visual.fillAlpha)
-    val ring = roleColor(visual.borderRole, habitColor, neutral, error)
-        .withAlpha(context, visual.borderAlpha)
+    // DUE（今日待打卡）用「填充圆 + 内部主色环」：外缘是平滑的 20% 主色填充圆，
+    // 环收在填充内部（83% 外径）且提高到 80%，既看得清，也不让环的弧线成为最外轮廓。
+    val isDue = dot.state == HabitDayState.DUE
+    val fill = if (isDue) {
+        habitColor.alpha(context, 0.20f)
+    } else {
+        roleColor(visual.fillRole, habitColor, neutral, error)
+            .withAlpha(context, visual.fillAlpha)
+    }
+    val ring = if (isDue) {
+        habitColor.alpha(context, 0.80f)
+    } else {
+        roleColor(visual.borderRole, habitColor, neutral, error)
+            .withAlpha(context, visual.borderAlpha)
+    }
     val markTint = when (visual.markTint) {
         HabitDayMarkTint.WHITE -> ColorProvider(Color.White)
         HabitDayMarkTint.PRIMARY -> habitColor
@@ -404,7 +431,7 @@ private fun HabitDotCell(
                 .semantics { contentDescription = "$day 日 · $stateLabel" },
             contentAlignment = Alignment.Center,
         ) {
-            // 描边环：空心描边近似（内置 border 1.5dp）。
+            // 描边环：空心描边近似（内置 border 1.5dp）；不再缩放，保持之前的小环。
             if (visual.borderRole != null) {
                 Image(
                     provider = ImageProvider(R.drawable.widget_ring),
