@@ -52,6 +52,7 @@ import hunoia.luno.config.model.SRC_SMS
 import hunoia.luno.config.model.SRC_TOGGLE
 import hunoia.luno.config.model.effectiveEngines
 import hunoia.luno.config.model.effectiveTrigger
+import hunoia.luno.quickaccess.query.ClipPools
 import hunoia.luno.quickaccess.query.QuickSearchResult
 import hunoia.luno.quickaccess.query.SearchAction
 import hunoia.luno.quickaccess.query.SearchResult
@@ -73,6 +74,7 @@ import hunoia.luno.ui.permission.PermissionState
 internal fun QuickSearchEmptyList(
     settings: QuickSearchSettings,
     clipboardText: String?,
+    clips: ClipPools,
     locked: Boolean,
     used: List<SearchResult>,
     queryText: String,
@@ -100,16 +102,16 @@ internal fun QuickSearchEmptyList(
     val history = settings.recentQueries
         .filter { it.trim().length >= MIN_HISTORY_CHARS }
         .take(BLANK_RECENT_LIMIT)
-    val clips = if (settings.searchClipboard && !locked) {
-        // 当前剪贴优先（焦点刚读到的），后面跟历史去重，空页只展 3 条。
-        (listOfNotNull(clipboardText) + settings.clipHistory).distinct().take(3)
+    val clipTexts = if (settings.searchClipboard && !locked) {
+        // 当前剪贴优先（焦点刚读到的），固定项其次，最后普通历史，去重后空页只展 3 条。
+        (listOfNotNull(clipboardText) + clips.pinned + clips.history).distinct().take(3)
     } else {
         emptyList()
     }
     // 锁屏占位：剪贴内容不展，只留一行提示。
     val showClipPlaceholder = settings.searchClipboard && locked
     val clipPlaceholderCount = if (showClipPlaceholder) 1 else 0
-    val clipCount = clips.size
+    val clipCount = clipTexts.size
     // 锁屏占位占 clips 段的首位：后续 pos 统一按槽位（clips+占位）偏移。
     val clipSlotCount = clipCount + clipPlaceholderCount
     // 联系人未授权：顶部给一行授权入口（点申请，永久拒绝跳设置页）。
@@ -128,7 +130,7 @@ internal fun QuickSearchEmptyList(
     val calendarGrantCount = if (showCalendarGrant) 1 else 0
     val smsGrantCount = if (showSmsGrant) 1 else 0
     val callsGrantCount = if (showCallsGrant) 1 else 0
-    if (history.isNotEmpty() || clips.isNotEmpty() || showClipPlaceholder || used.isNotEmpty() ||
+    if (history.isNotEmpty() || clipTexts.isNotEmpty() || showClipPlaceholder || used.isNotEmpty() ||
         showGrant || showMediaGrant || showFilesGrant ||
         showCalendarGrant || showSmsGrant || showCallsGrant
     ) {
@@ -141,8 +143,8 @@ internal fun QuickSearchEmptyList(
         val blankListState = rememberLazyListState()
         // 内容签名同搜索态：数量变不再抢滚动，只有内容身份变才钉回首项。
         val blankSig = signatureOf(
-            listOf(clips.firstOrNull(), history.firstOrNull(), used.firstOrNull()),
-            listOf(clips.lastOrNull(), history.lastOrNull(), used.lastOrNull()),
+            listOf(clipTexts.firstOrNull(), history.firstOrNull(), used.firstOrNull()),
+            listOf(clipTexts.lastOrNull(), history.lastOrNull(), used.lastOrNull()),
             total,
         )
         LaunchedEffect(blankSig) { blankListState.scrollToItem(0) }
@@ -168,7 +170,7 @@ internal fun QuickSearchEmptyList(
                     )
                 }
             }
-            itemsIndexed(clips, key = { _, c -> "c#$c" }) { pos, clipText ->
+            itemsIndexed(clipTexts, key = { _, c -> "c#$c" }) { pos, clipText ->
                 val clipResult = QuickSearchResult.ClipEntry(clipText).toSearchResult()
                 ClipboardRow(
                     text = clipText,

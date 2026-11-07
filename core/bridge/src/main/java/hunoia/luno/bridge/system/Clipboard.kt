@@ -3,57 +3,24 @@ package hunoia.luno.bridge.system
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.net.Uri
 import android.os.PersistableBundle
 
-fun copySensitiveText(
-    context: Context,
-    label: String,
-    text: String,
-): Boolean {
-    return runCatching {
-        val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return false
-        val clip = ClipData.newPlainText(label, text)
-        clip.description.extras = PersistableBundle().apply {
-            putBoolean(ClipDescriptionExtras.IS_SENSITIVE, true)
-            putBoolean(ClipDescriptionExtras.SELF_WRITE, true)
-        }
-        clipboard.setPrimaryClip(clip)
-        SelfWriteGuard.markText(text)
-        true
-    }.getOrDefault(false)
-}
-
-/** 普通剪贴板文本（带预览），用于命令输出等非敏感内容。 */
-fun copyText(
-    context: Context,
-    label: String,
-    text: String,
-): Boolean = runCatching {
+/**
+ * 系统剪贴板的平台原语。
+ *
+ * **单一入口约定**：业务代码不直接调用本文件的读写函数，一律经
+ * `hunoia.luno.clipboard.ClipboardCenter`（读取要 Shizuku 回退、写入要打自写标记、
+ * 记录要按规则入库）。`ClipboardSinglePortTest` 守着这条边界。
+ */
+fun readClipboardContentDetailed(context: Context): ClipboardContent? = runCatching {
     val clipboard = context.getSystemService(ClipboardManager::class.java)
-        ?: return@runCatching false
-    val clip = ClipData.newPlainText(label, text)
-    clip.description.extras = selfWriteExtras()
-    clipboard.setPrimaryClip(clip)
-    SelfWriteGuard.markText(text)
-    true
-}.getOrDefault(false)
+        ?: return@runCatching null
+    if (!clipboard.hasPrimaryClip()) return@runCatching null
+    clipboard.primaryClip?.toClipboardContent()
+}.getOrNull()
 
-/** 复制图片（content URI，现为 MediaStore 图库 URI）：聊天/笔记等支持粘贴图片的应用直接用。 */
-fun copyImage(context: Context, label: String, uri: android.net.Uri): Boolean = runCatching {
-    val clipboard = context.getSystemService(ClipboardManager::class.java)
-        ?: return@runCatching false
-    val clip = ClipData.newUri(context.contentResolver, label, uri)
-    clip.description.extras = selfWriteExtras()
-    clipboard.setPrimaryClip(clip)
-    SelfWriteGuard.markImage(uri)
-    true
-}.getOrDefault(false)
-
-private fun selfWriteExtras(): PersistableBundle = PersistableBundle().apply {
-    putBoolean(ClipDescriptionExtras.SELF_WRITE, true)
-}
-
-/** 读当前剪贴板文本；无内容/无权限时返回 null。 */
+/** 直接读纯文本（旧 API 形态，仅用于给 [ClipboardContent] 之外的历史导入场景兜底）。 */
 fun readClipboardText(context: Context): String? = runCatching {
     val clipboard = context.getSystemService(ClipboardManager::class.java)
         ?: return@runCatching null
@@ -61,7 +28,49 @@ fun readClipboardText(context: Context): String? = runCatching {
     clipboard.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString()
 }.getOrNull()
 
-/** 剪贴板内容：剪贴板球只处理纯文本与图片，其余（URI/Intent 等）不弹。 */
+/**
+ * 写文本到系统剪贴板。
+ *
+ * [sensitive] 为 true 时打系统敏感标记，并让 `ClipboardManager` 预遮蔽预览；
+ * 无论敏感与否都打 Luno 自写标记（`SelfWriteGuard`），避免复制动作自己弹气泡。
+ * 返回是否写入成功。
+ */
+fun writeTextToClipboard(
+    context: Context,
+    label: String,
+    text: String,
+    sensitive: Boolean,
+): Boolean = runCatching {
+    val clipboard = context.getSystemService(ClipboardManager::class.java)
+        ?: return@runCatching false
+    val clip = ClipData.newPlainText(label, text)
+    clip.description.extras = writeExtras(sensitive)
+    clipboard.setPrimaryClip(clip)
+    SelfWriteGuard.markText(text)
+    true
+}.getOrDefault(false)
+
+/** 写图片（content URI）到系统剪贴板：聊天 / 笔记等支持粘贴图片的应用可直接使用。 */
+fun writeImageToClipboard(
+    context: Context,
+    label: String,
+    uri: Uri,
+): Boolean = runCatching {
+    val clipboard = context.getSystemService(ClipboardManager::class.java)
+        ?: return@runCatching false
+    val clip = ClipData.newUri(context.contentResolver, label, uri)
+    clip.description.extras = writeExtras(sensitive = false)
+    clipboard.setPrimaryClip(clip)
+    SelfWriteGuard.markImage(uri)
+    true
+}.getOrDefault(false)
+
+private fun writeExtras(sensitive: Boolean): PersistableBundle = PersistableBundle().apply {
+    putBoolean(ClipDescriptionExtras.SELF_WRITE, true)
+    if (sensitive) putBoolean(ClipDescriptionExtras.IS_SENSITIVE, true)
+}
+
+/** 剪贴板内容：只处理纯文本与图片，其余（URI / Intent 等）不参与捕获。 */
 sealed interface ClipboardContent {
     data class Text(
         val text: String,
@@ -69,18 +78,10 @@ sealed interface ClipboardContent {
     ) : ClipboardContent
 
     data class Image(
-        val uri: android.net.Uri,
+        val uri: Uri,
         val mimeType: String,
     ) : ClipboardContent
 }
-
-/** 读当前剪贴板内容（文本或图片），一次带出敏感标记；不支持的类型返回 null。 */
-fun readClipboardContentDetailed(context: Context): ClipboardContent? = runCatching {
-    val clipboard = context.getSystemService(ClipboardManager::class.java)
-        ?: return@runCatching null
-    if (!clipboard.hasPrimaryClip()) return@runCatching null
-    clipboard.primaryClip?.toClipboardContent()
-}.getOrNull()
 
 /** ClipData → 剪贴板内容；文本优先，其次图片 URI（按 MIME 判定）。 */
 internal fun ClipData.toClipboardContent(): ClipboardContent? {
@@ -100,8 +101,7 @@ internal fun ClipData.toClipboardContent(): ClipboardContent? {
     return ClipboardContent.Image(uri = uri, mimeType = mime)
 }
 
-
-private object ClipDescriptionExtras {
+internal object ClipDescriptionExtras {
     const val IS_SENSITIVE = "android.content.extra.IS_SENSITIVE"
     const val SELF_WRITE = "luno.self_write"
 }

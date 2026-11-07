@@ -40,8 +40,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.quickaccess.R
-import hunoia.luno.bridge.system.copyText
-import hunoia.luno.bridge.system.readClipboardText
+import hunoia.luno.bridge.system.ClipboardContent
+import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.domain.search.SearchCenter
@@ -265,7 +265,12 @@ fun SearchEngineSettingsScreen(
                     leadingIcon = { Icon(Icons.Default.ContentPaste, contentDescription = null) },
                     onClick = {
                         menuOpen = false
-                        importPreview = parseImport(readClipboardText(context)?.trim().orEmpty())
+                        scope.launch {
+                            val text = runCatching {
+                                (ClipboardCenter.read() as? ClipboardContent.Text)?.text
+                            }.getOrNull().orEmpty().trim()
+                            importPreview = parseImport(text)
+                        }
                     },
                 )
             }
@@ -318,7 +323,7 @@ fun SearchEngineSettingsScreen(
                     onConfirm = {
                         showExportConfirm = false
                         val json = JsonSerializer.encodeToString(settings.customEngines)
-                        copyText(context, "luno-search-engines", json)
+                        ClipboardCenter.writeTextImmediate(json, "luno-search-engines")
                         showToast(R.string.search_engine_export_done)
                     },
                 )

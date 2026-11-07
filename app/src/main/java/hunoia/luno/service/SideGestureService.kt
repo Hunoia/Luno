@@ -7,7 +7,8 @@ import android.content.IntentFilter
 import android.view.accessibility.AccessibilityEvent
 import com.aaron.composeaccessibility.ComponentAccessibilityService
 import hunoia.luno.action.controller.TextInserter
-import hunoia.luno.bridge.system.copyText
+import hunoia.luno.clipboard.ClipboardCapture
+import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.core.domain.StoredAction
@@ -45,7 +46,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
             if (result != TextInserter.Result.Inserted &&
                 result != TextInserter.Result.InsertedViaClipboard
             ) {
-                copyText(this@SideGestureService, "speech_recognition", text)
+                ClipboardCenter.writeTextImmediate(text, "speech_recognition")
             }
         }
     }
@@ -355,6 +356,8 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         )
         // debug-only 探测入口（app/src/debug 的 ScreenPickProbeReceiver）；release 恒为 null。
         ScreenPickProbe.hook = { x, y -> probeCapture(x, y) }
+        // 剪贴板捕获的唯一监听点：常驻无障碍服务覆盖面大于球/面板，且不受应用窗口可见性限制。
+        ClipboardCapture.start(coroutineScope)
         // 服务起来就把引擎加载 / 预热一次：第一次长按不用再等 GPU delegate 建context，
         // 加载失败也会在 logcat 留下 w 级日志（见 PpOcrModelRunner）。
         coroutineScope.launch { runCatching { ocrEngine.warmUp() } }
@@ -443,6 +446,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         }
         super.onDestroy()
         if (current === this) currentRef = null
+        ClipboardCapture.stop()
         disabledPackageEnabler.release()
         if (::gestureCoordinator.isInitialized) gestureCoordinator.onDestroy()
         runtimePanelOverlay.close()

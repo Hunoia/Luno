@@ -6,7 +6,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -131,7 +130,6 @@ class FloatBallService : Service() {
     private val dismissedCapsuleKeys = LinkedHashMap<String, Long>()
 
     /** 剪贴板来源开关与门控沿用 clipboardBall 设置；展示统一走共享气泡，无独立窗口态。 */
-    private var clipboardListenerRegistered = false
 
     /**
      * 轮询兜底：HyperOS 不向后台应用投递 OnPrimaryClipChangedListener（实测复制零回调），
@@ -329,7 +327,6 @@ class FloatBallService : Service() {
         RuntimeStateHub.removeObserver(runtimeStateObserver)
         NotificationPulseHub.removePostedObserver(notificationObserver)
         NotificationPulseHub.removeRemovedObserver(notificationRemovedObserver)
-        unregisterClipboardListener()
         tempHideJob?.cancel()
         tempHideJob = null
         capsuleTimerJob?.cancel()
@@ -371,7 +368,7 @@ class FloatBallService : Service() {
                     ballWindow.updateSettings(config.action.floatBall)
                     smartBubble.updateSettings(config.action.floatBall)
                     applyInboxSettings()
-                    applyClipboardListener()
+                    applyClipboardSourceEnabled()
                     refreshWindows()
                     // 自停不变式：总闸关，或悬浮球与两个收件箱来源全关，前台服务没有存在意义。
                     if (!gestureEnabledSnapshot ||
@@ -1012,27 +1009,16 @@ class FloatBallService : Service() {
 
     // ---- 剪贴板球 ----
 
-    private val clipboardListener = ClipboardManager.OnPrimaryClipChangedListener {
-        // 读剪贴板可能走 Shizuku/IO：回调线程只做转发。
-        scope.launch { onClipboardChanged() }
-    }
-
-    /** 监听器随开关/总闸注册与注销（注册有旗标防重复；关闭即收在屏的球）。 */
-    private fun applyClipboardListener() {
-        val manager = getSystemService<ClipboardManager>()
-        val shouldListen = gestureEnabledSnapshot && settings.clipboardBall.enabled
-        if (shouldListen && !clipboardListenerRegistered) {
-            // 刚开启：清空基线，首次读取只对齐基线不补弹（开关前就有的旧内容不弹）。
-            lastSeenClip = null
-            if (manager != null) {
-                runCatching { manager.addPrimaryClipChangedListener(clipboardListener) }
-                    .onFailure { Log.w(TAG, "register clipboard listener failed: ${it.message}") }
-                clipboardListenerRegistered = true
-                Log.i(TAG, "clipboard listener registered")
-            }
-        } else if (!shouldListen && clipboardListenerRegistered) {
-            unregisterClipboardListener()
+    /**
+     * 剪贴板球开关变化：球侧不再注册 `OnPrimaryClipChangedListener`。
+     *
+     * 入库捕获由常驻服务里的 `ClipboardCapture` 统一做（一处监听，避免两条监听各自
+     * 触发一次 Shizuku 读）；球只负责自己的功能面 —— 按开关启停兜底轮询、关闭时清收件箱。
+     */
+    private fun applyClipboardSourceEnabled() {
+        if (!gestureEnabledSnapshot || !settings.clipboardBall.enabled) {
             // 功能关闭：清空收件箱里的剪贴板来源（含钉住项），在屏气泡随当前项清空收起。
+            lastSeenClip = null
             inboxState = BallInboxReducer.reduce(
                 inboxState,
                 BallInboxAction.ClearSource(BallSource.CLIPBOARD),
@@ -1045,14 +1031,6 @@ class FloatBallService : Service() {
             }
         }
         ensureClipboardPoller()
-    }
-
-    private fun unregisterClipboardListener() {
-        if (!clipboardListenerRegistered) return
-        runCatching {
-            getSystemService<ClipboardManager>()?.removePrimaryClipChangedListener(clipboardListener)
-        }
-        clipboardListenerRegistered = false
     }
 
     /** 剪贴板气泡可见条件：自身开关 + 瞬态门控 + 独立显隐场景。 */
@@ -1090,7 +1068,7 @@ class FloatBallService : Service() {
     private suspend fun readClipForBall(): ClipboardContent? = ClipboardCenter.readCurrent()
 
     /** 变化处理共用入口（监听器即时路径 + 轮询兜底路径）。返回值 = 这次变化已处理（可推进已读基线）。 */
-    private fun onClipboardContent(content: ClipboardContent): Boolean {
+    private suspend fun onClipboardContent(content: ClipboardContent): Boolean {
         if (!gestureEnabledSnapshot || !settings.clipboardBall.enabled) return false
         // 敏感文本 / 空文本 / 关掉图片开关时的图片：当作已处理，不弹也不入库。
         if (content is ClipboardContent.Text && (content.sensitive || content.text.isBlank())) {
@@ -1104,8 +1082,6 @@ class FloatBallService : Service() {
             Log.i(TAG, "clipboard self-write suppressed (${contentLogLabel(content)})")
             return true
         }
-        // 剪贴板页面部件的历史捕获时机（另一处是部件打开时自读）：这里只记非敏感文本。
-        ClipboardCenter.record(content)
         val item = clipboardItemOf(content) ?: return true
         val now = SystemClock.elapsedRealtime()
         val change = BallInboxReducer.reduce(

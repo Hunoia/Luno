@@ -64,8 +64,7 @@ import androidx.compose.foundation.shape.CircleShape
 import hunoia.luno.gesture.R
 import hunoia.luno.gesture.BuildConfig
 import hunoia.luno.bridge.system.ImageOutput
-import hunoia.luno.bridge.system.copyImage
-import hunoia.luno.bridge.system.copyText
+import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.bridge.ui.DensityProvider
 import hunoia.luno.bridge.ui.applyOverlayViewTreeOwners
 import hunoia.luno.bridge.ui.showToast
@@ -723,7 +722,7 @@ class ScreenPickOverlay(
                     PortalAction.Copy -> {
                         val text = content.text
                         if (!text.isNullOrBlank()) {
-                            copyText(host.context, SCREEN_PICK_LABEL, text)
+                            ClipboardCenter.writeTextImmediate(text, SCREEN_PICK_LABEL)
                             showToast(hunoia.luno.design.R.string.copied)
                         } else if (imageBounds != null) {
                             if (!copyImageRegion(AndroidRect(imageBounds), capture)) {
@@ -920,7 +919,7 @@ class ScreenPickOverlay(
                 PickSelectionAction.Copy -> {
                     val text = selectionText(screenRect)
                     if (!text.isNullOrBlank()) {
-                        copyText(host.context, SCREEN_PICK_LABEL, text)
+                        ClipboardCenter.writeTextImmediate(text, SCREEN_PICK_LABEL)
                         showToast(hunoia.luno.design.R.string.copied)
                         true
                     } else {
@@ -1161,7 +1160,7 @@ class ScreenPickOverlay(
         capture: PickCapture? = null,
     ): Boolean = withCropped(rect, capture) { bitmap ->
         val uri = withContext(Dispatchers.IO) { saveImageToGallery(bitmap) } ?: return@withCropped false
-        if (!copyImage(host.context, SCREEN_PICK_LABEL, uri)) return@withCropped false
+        if (!ClipboardCenter.copyImage(uri, label = SCREEN_PICK_LABEL)) return@withCropped false
         showToast(R.string.screen_pick_image_copied)
         true
     }
@@ -1185,7 +1184,7 @@ class ScreenPickOverlay(
         capture: PickCapture? = null,
     ): Boolean = withCropped(rect, capture) { bitmap ->
         val uri = withContext(Dispatchers.IO) { saveImageToGallery(bitmap) } ?: return@withCropped false
-        copyImage(host.context, SCREEN_PICK_LABEL, uri)
+        ClipboardCenter.copyImage(uri, label = SCREEN_PICK_LABEL)
         showToast(R.string.screen_pick_image_saved)
         true
     }

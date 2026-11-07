@@ -55,5 +55,6 @@ include(":feature:gesture")
 include(":feature:floatball")
 include(":feature:gridpanel")
 include(":feature:annotate")
+include(":feature:clipboard")
 include(":feature:a11y")
  

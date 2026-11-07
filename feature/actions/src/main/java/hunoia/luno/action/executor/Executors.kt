@@ -9,8 +9,7 @@ import hunoia.luno.action.execution.ExecutorContext
 import hunoia.luno.action.model.Action
 import hunoia.luno.core.domain.ActionFailure
 import hunoia.luno.core.domain.ActionResult
-import hunoia.luno.bridge.system.copyText
-import hunoia.luno.bridge.system.readClipboardText
+import hunoia.luno.clipboard.ClipboardCenter
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -163,7 +162,9 @@ class IntentExecutors(private val intentController: IntentController) : ActionEx
             }
             is Action.ShareText -> {
                 // 空参数 = 选择页直接选的「分享剪贴板文本」；非空 = 搜索「分享」打开方式带入的查询文本。
-                val text = action.text.ifBlank { readClipboardText(context.appContext).orEmpty() }
+                val text = action.text.ifBlank {
+                    (ClipboardCenter.read() as? hunoia.luno.bridge.system.ClipboardContent.Text)?.text.orEmpty()
+                }
                 if (text.isBlank()) {
                     ActionResult.Failed(ActionFailure.InvalidParameter)
                 } else {
@@ -276,10 +277,9 @@ class ShellExecutor(private val shellController: ShellController) : ActionExecut
                 val command = action.command.trim()
                 val result = shellController.runCommand(command)
                 if (action.copyOutput && result.output.isNotBlank()) {
-                    copyText(
-                        context.appContext,
-                        context.appContext.getString(R.string.action_shell_clipboard_label),
+                    ClipboardCenter.copy(
                         result.output,
+                        label = context.appContext.getString(R.string.action_shell_clipboard_label),
                     )
                 }
                 val message = if (action.showToast) {

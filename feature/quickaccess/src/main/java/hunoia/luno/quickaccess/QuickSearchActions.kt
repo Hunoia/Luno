@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
 
 /** 直拷文本 + 已复制 toast：计算器/网址/引擎长按共用。 */
 internal fun QuickSearchActivity.copyText(text: String) {
-    hunoia.luno.bridge.system.copyText(this, "quicksearch", text)
+    hunoia.luno.clipboard.ClipboardCenter.writeTextImmediate(text, "quicksearch")
     showToast(hunoia.luno.design.R.string.copied)
 }
 

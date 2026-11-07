@@ -21,6 +21,7 @@ import hunoia.luno.quickaccess.icon.AppIconKeyer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import me.weishu.reflection.Reflection
 import rikka.shizuku.ShizukuProvider
 
@@ -71,6 +72,10 @@ class App : Application(), SingletonImageLoader.Factory {
             "app: onCreate process=${Application.getProcessName()} pid=${android.os.Process.myPid()}",
         )
         val appScope = AppContext.applicationScope ?: error("ApplicationScope not initialized")
+        // 剪贴板历史上次进程崩溃可能留下无条目引用的图片副本：启动时清一次。
+        appScope.launch(Dispatchers.IO) {
+            runCatching { hunoia.luno.clipboard.ClipboardCenter.onProcessStart() }
+        }
         Events.initScope(appScope) { isMainThread() }
         // Surface 动作统一进 Dispatcher：进程级门面不依赖无障碍服务生命周期。
         hunoia.luno.runtime.SurfaceActionRuntime.install(applicationContext)

@@ -125,8 +125,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import hunoia.luno.R
 import hunoia.luno.bridge.system.ImageOutput
-import hunoia.luno.bridge.system.copyImage
-import hunoia.luno.bridge.system.copyText
+import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.capability.ocr.OcrLine
 import hunoia.luno.capability.ocr.OcrTokenizer
@@ -190,7 +189,7 @@ class OcrResultActivity : ComponentActivity() {
                         if (value.isBlank()) {
                             showToast(R.string.ocr_result_empty)
                         } else {
-                            copyText(this, "ocr_result", value)
+                            ClipboardCenter.writeTextImmediate(value, "ocr_result")
                             showToast(R.string.ocr_result_copied)
                         }
                     },
@@ -281,7 +280,7 @@ class OcrResultActivity : ComponentActivity() {
                         OcrImageAction.Copy ->
                             ImageOutput.saveToGallery(this@OcrResultActivity, cropped, "ocr_result")
                                 ?.let { uri ->
-                                    copyImage(this@OcrResultActivity, "ocr_result", uri)
+                                    ClipboardCenter.copyImage(uri, label = "ocr_result")
                                 } ?: false
                         // 保存只写图库：不额外改剪贴板，避免「保存」带出看不见的副作用。
                         OcrImageAction.Save ->

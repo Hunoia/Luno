@@ -262,6 +262,9 @@ fun HabitEditScreen(
             if (state.showColorPicker) {
                 ColorPickerBottomSheet(
                     onDismissRequest = { state.showColorPicker = false },
+                    onCopyColor = { hex ->
+                        hunoia.luno.clipboard.ClipboardCenter.writeTextImmediate(hex, "Luno color")
+                    },
                     initialSelection = shownColorSpec.toInitialSelection(scheme),
                     onColorSelected = { selection ->
                         val colorSpec = selection.toColorSpec(scheme)

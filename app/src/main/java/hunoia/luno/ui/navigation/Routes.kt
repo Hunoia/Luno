@@ -133,6 +133,11 @@ data object FloatBallEdit
 @Serializable
 data object LogSettings
 
+/** 剪贴板管理页：历史 / 固定 / 批量 / 导入导出 / 记录设置。 */
+@Keep
+@Serializable
+data object Clipboard
+
 /** 触钮显隐场景列表。 */
 @Keep
 @Serializable

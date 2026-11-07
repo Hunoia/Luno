@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.GridView
@@ -82,6 +83,7 @@ fun ActionSettingsTab(
     onNavToPersistentNotificationSettings: () -> Unit = {},
     onNavToStatusBarIconSettings: () -> Unit = {},
     onNavToLogSettings: () -> Unit = {},
+    onNavToClipboard: () -> Unit = {},
     onNavToHabits: () -> Unit = {},
     onNavToTodos: () -> Unit = {},
 ) {
@@ -163,15 +165,22 @@ fun ActionSettingsTab(
                         icon = Icons.Default.RadioButtonChecked,
                         title = stringResource(R.string.action_panels),
                         subtitle = stringResource(R.string.action_panel_count, actionSettings.actionPanels.panels.size),
-                        shape = segmentedShape(0, 2),
+                        shape = segmentedShape(0, 3),
                         onClick = onNavToActionPanels,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.GridView,
                         title = stringResource(R.string.grid_panels),
                         subtitle = stringResource(R.string.action_panel_count, actionSettings.actionGridPanels.panels.size),
-                        shape = segmentedShape(1, 2),
+                        shape = segmentedShape(1, 3),
                         onClick = onNavToGridPanels,
+                    )
+                    LunoSettingsRow(
+                        icon = Icons.Default.ContentPaste,
+                        title = stringResource(R.string.clipboard_settings_entry),
+                        subtitle = stringResource(R.string.clipboard_settings_entry_hint),
+                        shape = segmentedShape(2, 3),
+                        onClick = onNavToClipboard,
                     )
                 }
             }

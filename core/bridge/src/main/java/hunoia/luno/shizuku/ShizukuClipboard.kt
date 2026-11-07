@@ -4,9 +4,13 @@ import android.content.ClipData
 import android.os.IBinder
 import hunoia.luno.core.LunoLog as Log
 import hunoia.luno.bridge.system.ClipboardContent
+import hunoia.luno.bridge.system.ClipDescriptionExtras
+import hunoia.luno.bridge.system.SelfWriteGuard
 import hunoia.luno.bridge.system.toClipboardContent
 import hunoia.luno.core.LOG_TAG
 import java.lang.reflect.Method
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import rikka.shizuku.ShizukuBinderWrapper
 import rikka.shizuku.SystemServiceHelper
@@ -31,6 +35,7 @@ object ShizukuClipboard {
         val proxy: Any,
         val binder: IBinder,
         val method: Method,
+        val writeMethod: Method?,
     )
 
     @Volatile
@@ -52,8 +57,16 @@ object ShizukuClipboard {
         ) { "IClipboard.asInterface returned null" }
         val method = pickGetPrimaryClip()
         Log.i(TAG, "shizuku clipboard session ready (${method.parameterCount}-arg signature)")
-        return Session(proxy, binder, method)
+        return Session(proxy, binder, method, pickSetPrimaryClip())
     }
+
+    /** `setPrimaryClip` 同样有多个签名（带 attributionTag / userId）；找不到就不支持 shell 写。 */
+    private fun pickSetPrimaryClip(): Method? = runCatching {
+        HiddenApiBypass.getDeclaredMethods(iclass)
+            .filterIsInstance<Method>()
+            .filter { it.name == "setPrimaryClip" }
+            .maxByOrNull { it.parameterCount }
+    }.getOrNull()
 
     private fun pickGetPrimaryClip(): Method {
         val candidates = HiddenApiBypass.getDeclaredMethods(iclass)
@@ -117,4 +130,78 @@ object ShizukuClipboard {
         }
         return content
     }
+
+    /**
+     * 以 shell 身份写剪贴板（应用直写失败时的兜底）。
+     *
+     * 注意语义差异：写入后剪贴板 owner 是 `com.android.shell`，个别应用会拒绝粘贴
+     * 非前台应用来源的内容。所以调用方必须「直写优先」，这里只兜底。
+     */
+    fun writeContent(content: ClipboardContent): Boolean {
+        val clip = when (content) {
+            is ClipboardContent.Text -> runCatching {
+                ClipData.newPlainText("Luno", content.text).also { data ->
+                    data.description.extras = android.os.PersistableBundle().apply {
+                        putBoolean(ClipDescriptionExtras.SELF_WRITE, true)
+                        if (content.sensitive) {
+                            putBoolean(ClipDescriptionExtras.IS_SENSITIVE, true)
+                        }
+                    }
+                }
+            }.getOrNull()
+            // 图片写入要求 URI 授权在 shell 侧，跨 uid 不可靠；这里只兜底文本。
+            is ClipboardContent.Image -> null
+        } ?: return false
+        repeat(2) { attempt ->
+            try {
+                val active = currentSession()
+                val method = active.writeMethod ?: return false
+                val args = when (method.parameterCount) {
+                    4 -> arrayOf(clip, SHELL_PACKAGE, null, 0)
+                    3 -> arrayOf(clip, SHELL_PACKAGE, 0)
+                    else -> arrayOf(clip, SHELL_PACKAGE)
+                }
+                method.invoke(active.proxy, *args)
+                // shell 写入同样要打自写标记：否则监听读回这条内容会当成外部复制。
+                (content as? ClipboardContent.Text)?.let { SelfWriteGuard.markText(it.text) }
+                return true
+            } catch (t: Throwable) {
+                session = null
+                if (attempt == 1) {
+                    Log.w(TAG, "shizuku clipboard write failed: ${t::class.simpleName} ${t.message}")
+                }
+            }
+        }
+        return false
+    }
+
+    /**
+     * 以 shell 身份读取剪贴板图片的字节。
+     *
+     * 后台路径的 `ClipData` 是 shell uid 读出来的，URI 读授权落在 shell 侧，本进程
+     * `contentResolver` 打不开；这里用 `content read` 把字节要回来，才能存成私有副本。
+     */
+    suspend fun readUriBytes(uri: android.net.Uri, maxBytes: Int): ByteArray? =
+        withContext(Dispatchers.IO) {
+            val quoted = uri.toString().replace("'", "'\\''")
+            when (
+                val opened = ShizukuShellStream.openArgv(
+                    "sh",
+                    "-c",
+                    "content read --uri '$quoted' 2>/dev/null",
+                )
+            ) {
+                is ShizukuShellStream.OpenResult.Failure -> {
+                    Log.w(TAG, "shizuku read uri failed: ${opened.reason}")
+                    null
+                }
+                is ShizukuShellStream.OpenResult.Success -> opened.session.use { session ->
+                    runCatching { session.readBytes(maxBytes) }
+                        .onFailure {
+                            Log.w(TAG, "shizuku read uri bytes failed: ${it.message}")
+                        }
+                        .getOrNull()
+                }
+            }
+        }
 }

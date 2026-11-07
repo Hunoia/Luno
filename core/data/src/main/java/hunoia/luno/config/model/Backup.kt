@@ -17,6 +17,7 @@ object BackupVersions {
     const val HABIT = 1
     const val TODO = 1
     const val ANNOTATE = 1
+    const val CLIPBOARD = 1
 }
 
 /** 备份域：整机备份含全部，单域导出一次一域。 */
@@ -28,6 +29,7 @@ enum class BackupDomain {
     HABIT,
     TODO,
     ANNOTATE,
+    CLIPBOARD,
 }
 
 @Serializable
@@ -42,6 +44,7 @@ data class Backup(
     val habitSchemaVersion: Int = 1,
     val todoSchemaVersion: Int = 1,
     val annotateSchemaVersion: Int = 1,
+    val clipboardSchemaVersion: Int = 1,
     val initialSettings: InitialSettings? = null,
     val advancedSettings: AdvancedSettings? = null,
     val gestureSettings: GestureSettings? = null,
@@ -54,6 +57,10 @@ data class Backup(
     val habitConfig: HabitConfig? = null,
     val todoConfig: TodoConfig? = null,
     val annotateSettings: AnnotateSettings? = null,
+    /** 剪贴板设置（记录开关 / 未固定上限）：随备份走。 */
+    val clipboardSettings: ClipboardSettings? = null,
+    /** 仅固定项：普通历史与图片是设备本地派生数据，刻意不进备份。 */
+    val clipboardPinned: List<ClipboardEntry>? = null,
 )
 
 /**

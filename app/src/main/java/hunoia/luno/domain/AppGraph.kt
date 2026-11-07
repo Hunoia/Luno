@@ -3,6 +3,8 @@ package hunoia.luno.domain
 import hunoia.luno.domain.backup.BackupCenter
 import hunoia.luno.facade.Facades
 import hunoia.luno.facade.BackupFacade
+import hunoia.luno.facade.ClipboardFacade
+import hunoia.luno.domain.clipboard.ClipboardUseCases
 import hunoia.luno.domain.log.LogCenter
 import hunoia.luno.facade.LogFacade
 import hunoia.luno.domain.link.LinkSettingsActions
@@ -28,6 +30,7 @@ object AppGraph : Facades {
     private var ocrModelsOverride: OcrModelFacade? = null
     private var logsOverride: LogFacade? = null
     private var linkSettingsOverride: LinkSettingsFacade? = null
+    private var clipboardOverride: ClipboardFacade? = null
 
     override val backup: BackupFacade
         get() = backupOverride ?: BackupCenter
@@ -49,6 +52,10 @@ object AppGraph : Facades {
     /** 链接分发配置：页面只读快照流、只提交规则变换。 */
     override val linkSettings: LinkSettingsFacade
         get() = linkSettingsOverride ?: LinkSettingsActions
+
+    /** 剪贴板写入敏感口径 + 图片 OCR 结果页。 */
+    override val clipboard: ClipboardFacade
+        get() = clipboardOverride ?: ClipboardUseCases
 
     fun overrideBackup(facade: BackupFacade?) {
         backupOverride = facade
@@ -72,5 +79,9 @@ object AppGraph : Facades {
 
     fun overrideLinkSettings(facade: LinkSettingsFacade?) {
         linkSettingsOverride = facade
+    }
+
+    fun overrideClipboard(facade: ClipboardFacade?) {
+        clipboardOverride = facade
     }
 }

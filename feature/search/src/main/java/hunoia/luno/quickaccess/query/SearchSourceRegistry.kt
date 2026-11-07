@@ -39,6 +39,7 @@ data class SearchContext(
     val plan: SearchQueryPlan,
     val now: Long,
     val torchOn: Boolean,
+    val clips: ClipPools = ClipPools(),
 )
 
 object SearchSourceRegistry {
@@ -66,7 +67,7 @@ object SearchSourceRegistry {
         match: (SearchContext) -> List<RankedHit>,
         // 默认裸标识列表就是本来源的近项列表：key 由 source() 注入，避免每个来源手抄 SRC_X。
         bare: (SearchContext) -> List<QuickSearchResult>? = { c ->
-            c.index.bareSource(key, c.usage, c.settings)
+            c.index.bareSource(key, c.usage, c.settings, c.clips)
         },
     ) = SearchSource(
         key = key,
@@ -161,7 +162,7 @@ object SearchSourceRegistry {
             SRC_CLIP,
             R.string.quick_search_clipboard,
             enabled = { it.searchClipboard },
-            match = { c -> c.index.matchClips(c.plan, c.settings) },
+            match = { c -> c.index.matchClips(c.plan, c.settings, c.clips) },
         )
     }
 

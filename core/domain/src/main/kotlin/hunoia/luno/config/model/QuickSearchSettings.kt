@@ -65,10 +65,6 @@ data class QuickSearchSettings(
     val searchActions: Boolean = true,
     /** 设置页：Luno 自身设置项匹配。 */
     val searchSettingsPages: Boolean = true,
-    /** 剪贴板历史（去重 cap 50）：空输入时多行展示，点回填、长按写回；总开关复用 searchClipboard。 */
-    val clipHistory: List<String> = emptyList(),
-    /** 固定剪贴（无上限，存全文）：空页标识页最贴胶囊、搜索态固定源内置顶；和 clipHistory 互不交叉。 */
-    val pinnedClips: List<String> = emptyList(),
     /**
      * 来源标识自定义（源 key → 标识，如 "sms" → "duanxin"）：缺 key 用内置默认，
      * 空串 = 关闭该源标识（只走全源搜）。跟引擎标识同规则，保存时判重。
@@ -94,19 +90,11 @@ const val MAX_RECENT_QUERIES = 50
 const val BLANK_RECENT_LIMIT = 3
 /** 历史只记 trim 后长度达标的：短词（指令缩写/单字）不进历史，展示侧同样过滤。 */
 const val MIN_HISTORY_CHARS = 6
-/** 剪贴板历史上限（聚焦读到新文本才记，去重）。 */
-const val MAX_CLIP_HISTORY = 50
 /**
  * 搜索框/历史入库上限：MB 级文本进 TextField 会在主线程量数秒（ANR）。
  * 输入框超长直接拦，回填截断到此，历史超长丢弃。
  */
 const val MAX_QUERY_CHARS = 2000
-/**
- * 剪贴入库上限：富文本 clip（HTML 内嵌 base64 图片）转文本可达 MB 级，
- * 记历史纯占 DataStore 且无法匹配（匹配只看前 64 字），超长直接跳过；
- * 固定是用户显式动作，保留全文（长按原样复制语义不断）。
- */
-const val MAX_CLIP_STORE_CHARS = 100 * 1024
 
 /** 引擎图标文字；空 = 取名称首字。引擎条/引擎行/选择 Sheet 共用同一取值。 */
 val SearchEngine.badgeText: String

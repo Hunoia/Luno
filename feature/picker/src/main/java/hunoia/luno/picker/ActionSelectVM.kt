@@ -6,7 +6,7 @@ import hunoia.luno.picker.R
 import hunoia.luno.action.model.ActionDeepLink
 import hunoia.luno.core.domain.ActionLibraryEntry
 import hunoia.luno.core.domain.StoredAction
-import hunoia.luno.bridge.system.copyText
+import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.core.AppContext
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.quickaccess.model.AppInfo
@@ -91,7 +91,7 @@ class ActionSelectVM(
                 ActionDeepLink.ofAction(obj.toStoredAction())
             }
             val context = AppContext.get()
-            copyText(context, context.getString(hunoia.luno.actions.R.string.action_deep_links), link)
+            ClipboardCenter.writeTextImmediate(link, context.getString(hunoia.luno.actions.R.string.action_deep_links))
             toast(R.string.action_deep_link_copied)
             done()
             return

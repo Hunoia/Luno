@@ -13,4 +13,5 @@ interface Facades {
     val logs: LogFacade
     val backup: BackupFacade
     val linkSettings: LinkSettingsFacade
+    val clipboard: ClipboardFacade
 }

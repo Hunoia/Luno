@@ -7,6 +7,7 @@ import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.AnnotateSettings
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.ClipboardHistory
+import hunoia.luno.config.model.ClipboardSettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.HabitConfig
@@ -35,6 +36,7 @@ class SettingsStores(
     internal val _quickSearchSettings: DataStore<QuickSearchSettings>,
     internal val _appUsageStats: DataStore<AppUsageStats>,
     internal val _clipboardHistory: DataStore<ClipboardHistory>,
+    internal val _clipboardSettings: DataStore<ClipboardSettings>,
     internal val _habitConfig: DataStore<HabitConfig>,
     internal val _todoConfig: DataStore<TodoConfig>,
     internal val _annotateSettings: DataStore<AnnotateSettings>,
@@ -51,6 +53,7 @@ class SettingsStores(
         _quickSearchSettings.data.map { it.withUniqueEngineTriggers() }
     val appUsageStats: Flow<AppUsageStats> = _appUsageStats.data
     val clipboardHistory: Flow<ClipboardHistory> = _clipboardHistory.data
+    val clipboardSettings: Flow<ClipboardSettings> = _clipboardSettings.data
     val habitConfig: Flow<HabitConfig> = _habitConfig.data
     val todoConfig: Flow<TodoConfig> = _todoConfig.data
     val annotateSettings: Flow<AnnotateSettings> = _annotateSettings.data
@@ -74,6 +77,7 @@ class SettingsStores(
                 _quickSearchSettings = ctx.dataStore(DataStoreFiles.QUICK_SEARCH_SETTINGS, QuickSearchSettings()),
                 _appUsageStats = ctx.dataStore(DataStoreFiles.APP_USAGE_STATS, AppUsageStats()),
                 _clipboardHistory = ctx.dataStore(DataStoreFiles.CLIPBOARD_HISTORY, ClipboardHistory()),
+                _clipboardSettings = ctx.dataStore(DataStoreFiles.CLIPBOARD_SETTINGS, ClipboardSettings()),
                 _habitConfig = ctx.dataStore(DataStoreFiles.HABITS, HabitConfig()),
                 _todoConfig = ctx.dataStore(DataStoreFiles.TODOS, TodoConfig()),
                 _annotateSettings = ctx.dataStore(DataStoreFiles.ANNOTATE_SETTINGS, AnnotateSettings()),

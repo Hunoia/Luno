@@ -73,6 +73,7 @@ fun QuickSearchIndex.search(
         usageStats: AppUsageStats = AppUsageStats(),
         searchSettings: QuickSearchSettings = QuickSearchSettings(),
         torchOn: Boolean = false,
+        clips: ClipPools = ClipPools(),
         isActive: () -> Boolean = { true },
     ): SearchOutcome {
         ensureLoaded()
@@ -83,7 +84,7 @@ fun QuickSearchIndex.search(
         val engines = searchSettings.effectiveEngines()
         // 标识指令优先（bb 新闻 / sms 138 / 裸 sms）：命中只回目标类，
         // 纯目标结果（无引擎兜底、无计算器、无历史参展）。null = 无指令，走全源。
-        parseDirective(query.trim(), libraryEntries, usageStats, searchSettings, engines)?.let {
+        parseDirective(query.trim(), libraryEntries, usageStats, searchSettings, engines, clips)?.let {
             return SearchOutcome(it, directive = true)
         }
         val tokens = tokenize(query)
@@ -102,6 +103,7 @@ fun QuickSearchIndex.search(
             now = now,
             torchOn = torchOn,
             usage = usageStats,
+            clips = clips,
         )
         val results = mutableListOf<RankedHit>()
         // 来源匹配统一走注册表；新增来源不再改这里。
@@ -369,9 +371,10 @@ fun QuickSearchIndex.matchCalls(
 fun QuickSearchIndex.matchClips(
     plan: SearchQueryPlan,
     searchSettings: QuickSearchSettings,
+    clips: ClipPools,
 ): List<RankedHit> {
     if (!searchSettings.searchClipboard) return emptyList()
-    return matchClipPool(searchSettings.pinnedClips, searchSettings.clipHistory, plan)
+    return matchClipPool(clips.pinned, clips.history, plan)
 }
 
 /** 剪贴匹配核心：不依赖索引实例（池=固定+历史），供 matchClips 与单测共用。 */
@@ -425,6 +428,7 @@ private fun QuickSearchIndex.parseDirective(
         usageStats: AppUsageStats,
         searchSettings: QuickSearchSettings,
         engines: List<SearchEngine>,
+        clips: ClipPools,
     ): List<QuickSearchResult>? {
         if (trimmed.isEmpty()) return null
         val hasSpace = trimmed.contains(' ')
@@ -438,15 +442,16 @@ private fun QuickSearchIndex.parseDirective(
         // 来源标识：开关关了、标识被清空（关闭）都回落全源。
         val source = SearchSourceRegistry.byTrigger(headLower, searchSettings)?.key ?: return null
         if (!SearchSourceRegistry.enabled(source, searchSettings)) return null
-        val context = contextOf(usageStats, searchSettings)
+        val context = contextOf(usageStats, searchSettings, clips = clips)
         if (rest.isEmpty()) return SearchSourceRegistry.bare(source, context)
-        return searchInSource(source, rest, libraryEntries, usageStats, searchSettings)
+        return searchInSource(source, rest, libraryEntries, usageStats, searchSettings, clips)
     }
 
     private fun QuickSearchIndex.contextOf(
         usageStats: AppUsageStats,
         searchSettings: QuickSearchSettings,
         raw: String = "",
+        clips: ClipPools = ClipPools(),
     ): SearchContext = SearchContext(
         index = this,
         settings = searchSettings,
@@ -458,6 +463,7 @@ private fun QuickSearchIndex.parseDirective(
         now = System.currentTimeMillis(),
         torchOn = torchOn,
         usage = usageStats,
+        clips = clips,
     )
 
     /** 定向搜：只在该源内匹配内容，排序与全源同一套。 */
@@ -467,10 +473,11 @@ private fun QuickSearchIndex.searchInSource(
         libraryEntries: List<ActionLibraryEntry>,
         usageStats: AppUsageStats,
         searchSettings: QuickSearchSettings,
+        clips: ClipPools,
     ): List<QuickSearchResult> {
         val tokens = tokenize(rest)
-        if (tokens.isEmpty()) return SearchSourceRegistry.bare(source, contextOf(usageStats, searchSettings)) ?: emptyList()
-        val context = contextOf(usageStats, searchSettings, raw = rest).copy(
+        if (tokens.isEmpty()) return SearchSourceRegistry.bare(source, contextOf(usageStats, searchSettings, clips = clips)) ?: emptyList()
+        val context = contextOf(usageStats, searchSettings, raw = rest, clips = clips).copy(
             libraryEntries = libraryEntries,
         )
         // 开关关了但标识还在（极少）：注册表已 gate，空结果直接回（不回落全源，
@@ -483,6 +490,7 @@ fun QuickSearchIndex.bareSource(
         source: String,
         usageStats: AppUsageStats,
         searchSettings: QuickSearchSettings,
+        clips: ClipPools,
     ): List<QuickSearchResult>? {
         val out: List<QuickSearchResult> = when (source) {
             SRC_APP -> topUsed(usageStats)
@@ -507,8 +515,8 @@ fun QuickSearchIndex.bareSource(
             SRC_TOGGLE -> toggleRows()
             SRC_CLIP -> {
                 // 标识页：固定全列打头，历史去重补到上限。
-                val pinned = searchSettings.pinnedClips.map { QuickSearchResult.ClipEntry(it) }
-                val rest = searchSettings.clipHistory.filter { it !in searchSettings.pinnedClips }
+                val pinned = clips.pinned.map { QuickSearchResult.ClipEntry(it) }
+                val rest = clips.history.filter { it !in clips.pinned }
                     .take((BARE_LIST_LIMIT - pinned.size).coerceAtLeast(0))
                     .map { QuickSearchResult.ClipEntry(it) }
                 pinned + rest

@@ -44,8 +44,11 @@ import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.core.domain.ActionLibrarySettings
-import hunoia.luno.config.model.MAX_CLIP_HISTORY
+import hunoia.luno.config.model.ClipboardHistory
 import hunoia.luno.config.model.MIN_HISTORY_CHARS
+import hunoia.luno.config.model.searchPool
+import hunoia.luno.clipboard.ClipboardCenter
+import hunoia.luno.quickaccess.query.ClipPools
 import hunoia.luno.config.model.SRC_CLIP
 import hunoia.luno.config.model.effectiveEngines
 import hunoia.luno.quickaccess.query.QuickSearchIndex
@@ -90,6 +93,7 @@ private data class SearchSnapshot(
     val smsTick: Int,
     val callsTick: Int,
     val torchOn: Boolean,
+    val clips: ClipPools,
 )
 /** 影响搜索结果的设置子集（纯值投影）：直接拿 QuickSearchSettings 当依赖会让改外观/删历史都触发全量重搜；recentQueries 有意排除。 */
 private data class SearchInputs(
@@ -107,8 +111,6 @@ private data class SearchInputs(
     val searchShortcuts: Boolean,
     val searchActions: Boolean,
     val searchSettingsPages: Boolean,
-    val clipHistory: List<String>,
-    val pinnedClips: List<String>,
     val engineOrder: List<String>,
     val pinnedResults: Map<String, List<String>>,
     val pinnedQueryOrder: List<String>,
@@ -129,8 +131,6 @@ private data class SearchInputs(
         searchShortcuts = searchShortcuts,
         searchActions = searchActions,
         searchSettingsPages = searchSettingsPages,
-        clipHistory = clipHistory,
-        pinnedClips = pinnedClips,
         engineOrder = engineOrder,
         pinnedResults = pinnedResults,
         pinnedQueryOrder = pinnedQueryOrder,
@@ -152,8 +152,6 @@ private data class SearchInputs(
             searchShortcuts = s.searchShortcuts,
             searchActions = s.searchActions,
             searchSettingsPages = s.searchSettingsPages,
-            clipHistory = s.clipHistory,
-            pinnedClips = s.pinnedClips,
             engineOrder = s.engineOrder,
             pinnedResults = s.pinnedResults,
             pinnedQueryOrder = s.pinnedQueryOrder,
@@ -184,6 +182,12 @@ internal fun QuickSearchContent(
     val usageStats by usageFlow.collectAsState(initial = AppUsageStats())
     val searchSettingsFlow = remember { hunoia.luno.domain.search.SearchCenter.search }
     val searchSettings by searchSettingsFlow.collectAsState(initial = QuickSearchSettings())
+    // 剪贴板池：唯一来源是 ClipboardCenter 历史流；搜索层只吃投影，不再自己存一份。
+    val clipHistoryState by ClipboardCenter.history.collectAsState(initial = ClipboardHistory())
+    val clips = remember(clipHistoryState) {
+        val (pinned, history) = clipHistoryState.searchPool()
+        ClipPools(pinned = pinned, history = history)
+    }
     var query by remember { mutableStateOf(TextFieldValue("")) }
     // 带词打开（识屏幽灵卡「搜索」）：预填并触发一次搜索；面板复用时随新词更新。
     LaunchedEffect(initialQuery) {
@@ -225,6 +229,8 @@ internal fun QuickSearchContent(
     // 启动统计是搜索输入但不重建流：用 rememberUpdatedState 包一层，由块内 snapshotFlow
     // 读取，统计变了会自动重发一次快照，下一次搜索自然带上新分，不用重建整条管道。
     val usageState = rememberUpdatedState(usageStats)
+    // 剪贴板池同理：内容变了由 snapshotFlow 自动重发一次快照，不用重建整条搜索管道。
+    val clipsState = rememberUpdatedState(clips)
     // 应用索引版本：普通 @Volatile 字段 Compose 看不见，必须经 StateFlow 收集。
     val indexVersion by index.indexVersion.collectAsState()
     // dataVersion：数据源 tick / 索引版本，任一变化就重建搜索流并重搜一次。
@@ -240,7 +246,7 @@ internal fun QuickSearchContent(
             // tick 已由 remember 的 key 带进闭包。
             SearchSnapshot(
                 query.text, entries, usageState.value, effectiveSearchSettings,
-                0, 0, 0, 0, 0, torchOn,
+                0, 0, 0, 0, 0, torchOn, clipsState.value,
             )
         }.mapLatest { s ->
             val text = s.text
@@ -250,7 +256,7 @@ internal fun QuickSearchContent(
                 withContext(Dispatchers.Default) {
                     val job = currentCoroutineContext()[Job]
                     val outcome = index.searchOutcome(
-                        text, s.entries, s.usage, s.search, s.torchOn,
+                        text, s.entries, s.usage, s.search, s.torchOn, s.clips,
                         isActive = { job?.isActive != false },
                     )
                     // 发射前把 App/快捷方式行的图标 resolve 进同步缓存：UI 线程读到即画，
@@ -284,29 +290,16 @@ internal fun QuickSearchContent(
             }
         }
     }
-    // 固定切换：pin 时从历史摘除（不占 50 名额），unpin 写回历史头部；固定无上限存全文。
+    // 固定切换：写回唯一一份剪贴板历史（固定项不占未固定名额，取消固定回普通历史）。
     val togglePin: (String) -> Unit = { clip ->
         scope.launch {
-            runCatching {
-                hunoia.luno.domain.search.SearchCenter.updateSearch {
-                    if (clip in it.pinnedClips) {
-                        it.copy(
-                            pinnedClips = it.pinnedClips.filterNot { c -> c == clip },
-                            clipHistory = (listOf(clip) + it.clipHistory)
-                                .distinct()
-                                .take(MAX_CLIP_HISTORY),
-                        )
-                    } else {
-                        it.copy(
-                            pinnedClips = listOf(clip) + it.pinnedClips.filterNot { c -> c == clip },
-                            clipHistory = it.clipHistory.filterNot { c -> c == clip },
-                        )
-                    }
-                }
-            }
+            val entry = clipHistoryState.entries.firstOrNull {
+                it.kind == hunoia.luno.config.model.ClipKind.TEXT && it.text.trim() == clip.trim()
+            } ?: return@launch
+            runCatching { ClipboardCenter.setPinned(entry.id, !entry.pinned) }
         }
     }
-    val pinnedSet = remember(searchSettings.pinnedClips) { searchSettings.pinnedClips.toSet() }
+    val pinnedSet = remember(clips.pinned) { clips.pinned.toSet() }
     val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) {
@@ -459,6 +452,7 @@ internal fun QuickSearchContent(
                 QuickSearchEmptyList(
                     settings = searchSettings,
                     clipboardText = clipboardText,
+                    clips = clips,
                     locked = locked,
                     used = topUsedApps,
                     queryText = query.text,

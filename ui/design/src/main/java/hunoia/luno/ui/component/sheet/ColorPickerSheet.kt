@@ -1,8 +1,5 @@
 package hunoia.luno.ui.component.sheet
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.graphics.Color as AndroidColor
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
@@ -89,6 +86,11 @@ fun ColorPickerBottomSheet(
     onDismissRequest: () -> Unit,
     onColorSelected: (ColorSelection) -> Unit,
     initialSelection: ColorSelection = ColorSelection.Custom(MaterialTheme.colorScheme.primary),
+    /**
+     * 复制色值：由调用方注入剪贴板写入（组件库不直接碰平台剪贴板 API，
+     * 也不依赖数据层的单口）。为 null 时不展示复制按钮。
+     */
+    onCopyColor: ((String) -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
     val startColor = when (initialSelection) {
@@ -231,21 +233,19 @@ fun ColorPickerBottomSheet(
                             }
                         },
                     )
-                    IconButton(
-                        onClick = {
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE)
-                                as? ClipboardManager
-                            clipboard?.setPrimaryClip(
-                                ClipData.newPlainText("Luno color", previewHex),
+                    if (onCopyColor != null) {
+                        IconButton(
+                            onClick = {
+                                onCopyColor.invoke(previewHex)
+                                Toast.makeText(context, copiedHint, Toast.LENGTH_SHORT).show()
+                            },
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = stringResource(R.string.color_picker_copy),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            Toast.makeText(context, copiedHint, Toast.LENGTH_SHORT).show()
-                        },
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ContentCopy,
-                            contentDescription = stringResource(R.string.color_picker_copy),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        }
                     }
                 }
 

@@ -15,15 +15,14 @@ import androidx.lifecycle.lifecycleScope
 import hunoia.luno.quickaccess.BuildConfig
 import hunoia.luno.quickaccess.R
 import hunoia.luno.bridge.system.PackageChangeReceiver
-import hunoia.luno.bridge.system.readClipboardText
+import hunoia.luno.bridge.system.ClipboardContent
+import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.core.domain.DispatchOrigin
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelDismissedEvent
 import hunoia.luno.core.PanelShownEvent
-import hunoia.luno.config.model.MAX_CLIP_HISTORY
-import hunoia.luno.config.model.MAX_CLIP_STORE_CHARS
 import hunoia.luno.quickaccess.panel.QuickSearchContent
 import hunoia.luno.quickaccess.query.AppSearch
 import hunoia.luno.quickaccess.query.QuickSearchIndexProvider
@@ -89,8 +88,6 @@ class QuickSearchActivity : ComponentActivity() {
      * 只记长度不记内容。
      */
     private val clipState = mutableStateOf<String?>(null)
-    /** 上次已记入剪贴板历史的文本：内存去重，焦点反复进出不重复写 DataStore。 */
-    private var lastClipRecorded: String? = null
     /** 锁屏态：锁屏时空页/搜索都不展剪贴内容（KeyguardManager 实时读，随焦点一起更新）。 */
     private val lockedState = mutableStateOf(false)
 
@@ -104,36 +101,15 @@ class QuickSearchActivity : ComponentActivity() {
         // singleTask 复用：requestClose 里摘的 blur 在这里补回，
         // 否则 200ms 内重开的面板没糊。新鲜 onCreate 走默认值，不受影响。
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-        clipState.value = readClipboardText(this)
-            ?.trim()
-            ?.takeIf { it.isNotEmpty() }
-            .also {
-            if (BuildConfig.DEBUG) Log.i("LunoQuickSearch", "clipLen=${it?.length}")
-        }
-        // 剪贴板历史：读到新文本才记（去重 cap 50），空态多行展示。
-        // 已固定的不进历史（不占 50 名额；固定和历史互不交叉）。
-        val clip = clipState.value
-        if (clip != null && clip != lastClipRecorded) {
-            lastClipRecorded = clip
-            // 超长剪贴（富文本 clip 转出的 MB 级 base64 等）不进历史：匹配只看前 64 字，
-            // 记着纯占 DataStore。固定路径不受限（见 togglePin，保留全文供长按复制）。
-            if (clip.length > MAX_CLIP_STORE_CHARS) {
-                if (BuildConfig.DEBUG) Log.i("LunoQuickSearch", "clipTooLong=${clip.length}")
-            } else {
-                lifecycleScope.launch {
-                    runCatching {
-                        val pinned = hunoia.luno.domain.search.SearchCenter.getSearch().pinnedClips
-                        if (clip in pinned) return@runCatching
-                        hunoia.luno.domain.search.SearchCenter.updateSearch {
-                            it.copy(
-                                clipHistory = (listOf(clip) + it.clipHistory)
-                                    .distinct()
-                                    .take(MAX_CLIP_HISTORY),
-                            )
-                        }
-                    }
-                }
-            }
+        // 剪贴板读取与入库都走唯一入口 ClipboardCenter（Shizuku 优先 + 自写抑制 + 入库规则），
+        // 且必须离开主线程：主线程读剪贴板在部分 ROM 上是 binder 同步等待。
+        lifecycleScope.launch {
+            // 一次读取同时完成入库：refresh 返回同一份内容，不再 read 一次再 refresh 一次。
+            val content = runCatching { ClipboardCenter.refresh() }.getOrNull()
+            val text = (content as? ClipboardContent.Text)
+                ?.text?.trim()?.takeIf { it.isNotEmpty() }
+            clipState.value = text
+            if (BuildConfig.DEBUG) Log.i("LunoQuickSearch", "clipLen=${text?.length}")
         }
     }
 

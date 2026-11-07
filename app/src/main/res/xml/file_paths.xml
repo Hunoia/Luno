@@ -12,4 +12,8 @@
     <cache-path
         name="logs_export"
         path="logs_export/" />
+    <!-- 剪贴板图片副本：filesDir/clipboard_images/，页面预览与 OCR 经 FileProvider 读取。 -->
+    <files-path
+        name="clipboard_images"
+        path="clipboard_images/" />
 </paths>

@@ -10,6 +10,8 @@ import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.Backup
 import hunoia.luno.config.model.BackupDomain
 import hunoia.luno.config.model.BackupVersions
+import hunoia.luno.config.model.ClipboardHistory
+import hunoia.luno.config.model.ClipboardSettings
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.HabitConfig
@@ -18,6 +20,8 @@ import hunoia.luno.config.model.QuickAppLauncherSettings
 import hunoia.luno.config.model.QuickSearchSettings
 import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.config.model.TodoConfig
+import hunoia.luno.config.model.exportablePinned
+import hunoia.luno.config.model.mergePinned
 import hunoia.luno.config.model.withUniqueEngineTriggers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -41,6 +45,8 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         val habitDeferred = async { stores._habitConfig.data.first() }
         val todoDeferred = async { stores._todoConfig.data.first() }
         val annotateDeferred = async { stores._annotateSettings.data.first() }
+        val clipboardSettingsDeferred = async { stores._clipboardSettings.data.first() }
+        val clipboardHistoryDeferred = async { stores._clipboardHistory.data.first() }
         Backup(
             backupFormatVersion = BackupVersions.FORMAT,
             gestureSchemaVersion = BackupVersions.GESTURE,
@@ -50,6 +56,7 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
             habitSchemaVersion = BackupVersions.HABIT,
             todoSchemaVersion = BackupVersions.TODO,
             annotateSchemaVersion = BackupVersions.ANNOTATE,
+            clipboardSchemaVersion = BackupVersions.CLIPBOARD,
             initialSettings = initialDeferred.await(),
             advancedSettings = advancedDeferred.await(),
             gestureSettings = gestureDeferred.await(),
@@ -62,6 +69,8 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
             habitConfig = habitDeferred.await(),
             todoConfig = todoDeferred.await(),
             annotateSettings = annotateDeferred.await(),
+            clipboardSettings = clipboardSettingsDeferred.await(),
+            clipboardPinned = clipboardHistoryDeferred.await().exportablePinned().ifEmpty { null },
         )
     }
 
@@ -84,6 +93,9 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { backup.habitConfig?.let { v -> writeSection("habitConfig") { stores._habitConfig.updateData { v } } } }
         launch { backup.todoConfig?.let { v -> writeSection("todoConfig") { stores._todoConfig.updateData { v } } } }
         launch { backup.annotateSettings?.let { v -> writeSection("annotateSettings") { stores._annotateSettings.updateData { v } } } }
+        launch { backup.clipboardSettings?.let { v -> writeSection("clipboardSettings") { stores._clipboardSettings.updateData { v.coerced() } } } }
+        // 固定项合并而不是覆盖：备份里的固定项是用户资产，不能顺手抹掉本机现有历史。
+        launch { backup.clipboardPinned?.let { v -> writeSection("clipboardPinned") { stores._clipboardHistory.updateData { it.mergePinned(v) } } } }
     }
 
     /**
@@ -132,7 +144,8 @@ internal class ConfigBackupRepository(private val stores: SettingsStores) {
         launch { stores._gestureButtons.updateData { GestureButton.Defaults } }
         launch { stores._quickAppLauncherSettings.updateData { QuickAppLauncherSettings() } }
         launch { stores._appUsageStats.updateData { AppUsageStats() } }
-        launch { stores._clipboardHistory.updateData { hunoia.luno.config.model.ClipboardHistory() } }
+        launch { stores._clipboardHistory.updateData { ClipboardHistory() } }
+        launch { stores._clipboardSettings.updateData { ClipboardSettings() } }
         launch { stores._subGestureSettings.updateData { SubGestureSettings() } }
         launch { stores._actionLibrarySettings.updateData { ActionLibrarySettings() } }
         launch { stores._quickSearchSettings.updateData { QuickSearchSettings() } }

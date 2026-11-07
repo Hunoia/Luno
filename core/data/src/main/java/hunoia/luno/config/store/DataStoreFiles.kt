@@ -35,7 +35,9 @@ object DataStoreFiles {
     // 瞬态：不进备份
     /** 快速启动器应用列表快照。可从系统重建，刻意不进备份。 */
     const val QUICK_APP_SNAPSHOT = "quick_app_snapshot"
-    /** 剪贴板历史：设备本地派生数据，刻意不进备份（URI/敏感内容的跨机恢复没有意义）。 */
+    /** 剪贴板历史：设备本地派生数据；只有固定项随 `BackupDomain.CLIPBOARD` 导出。 */
     const val CLIPBOARD_HISTORY = "clipboard_history"
+    /** 剪贴板设置（记录开关 / 未固定上限）：随 `BackupDomain.CLIPBOARD` 导出。 */
+    const val CLIPBOARD_SETTINGS = "clipboard_settings"
 }
 

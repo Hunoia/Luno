@@ -34,8 +34,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import hunoia.luno.bridge.system.copyText
-import hunoia.luno.bridge.system.readClipboardText
+import hunoia.luno.bridge.system.ClipboardContent
+import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ActionSettings
 import hunoia.luno.config.model.LinkDispatchRule
@@ -231,7 +231,12 @@ fun LinkDispatchSettingsScreen(
                     leadingIcon = { Icon(Icons.Default.ContentPaste, contentDescription = null) },
                     onClick = {
                         menuOpen = false
-                        importPreview = parseImport(readClipboardText(context)?.trim().orEmpty())
+                        scope.launch {
+                            val text = runCatching {
+                                (ClipboardCenter.read() as? ClipboardContent.Text)?.text
+                            }.getOrNull().orEmpty().trim()
+                            importPreview = parseImport(text)
+                        }
                     },
                 )
             }
@@ -262,7 +267,7 @@ fun LinkDispatchSettingsScreen(
                     onConfirm = {
                         showExportConfirm = false
                         val json = JsonSerializer.encodeToString(linkSettings.rules)
-                        copyText(context, "luno-link-dispatch-rules", json)
+                        ClipboardCenter.writeTextImmediate(json, "luno-link-dispatch-rules")
                         showToast(R.string.link_dispatch_export_done)
                     },
                 )

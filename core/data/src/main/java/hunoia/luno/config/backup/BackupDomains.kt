@@ -96,6 +96,7 @@ internal fun Backup.schemaVersionOf(domain: BackupDomain): Int = when (domain) {
     BackupDomain.HABIT -> habitSchemaVersion
     BackupDomain.TODO -> todoSchemaVersion
     BackupDomain.ANNOTATE -> annotateSchemaVersion
+    BackupDomain.CLIPBOARD -> clipboardSchemaVersion
 }
 
 /** 内置备份域：按语义分组的全部可备份配置。 */
@@ -204,6 +205,19 @@ internal object BuiltinBackupDomains {
                 )
             },
             isEmpty = { it.annotateSettings?.isEmpty() != false },
+        )
+        register(
+            domain = BackupDomain.CLIPBOARD,
+            schemaVersion = BackupVersions.CLIPBOARD,
+            snapshot = { full ->
+                Backup(
+                    backupFormatVersion = full.backupFormatVersion,
+                    clipboardSchemaVersion = full.clipboardSchemaVersion,
+                    clipboardSettings = full.clipboardSettings,
+                    clipboardPinned = full.clipboardPinned,
+                )
+            },
+            isEmpty = { it.clipboardSettings == null && it.clipboardPinned.isNullOrEmpty() },
         )
     }
 

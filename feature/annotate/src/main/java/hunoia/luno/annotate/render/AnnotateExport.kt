@@ -4,8 +4,8 @@ import android.content.Context
 import hunoia.luno.annotate.R
 import hunoia.luno.annotate.model.AnnotateState
 import hunoia.luno.bridge.system.ImageOutput
-import hunoia.luno.bridge.system.copyImage
 import hunoia.luno.bridge.ui.showToast
+import hunoia.luno.clipboard.ClipboardCenter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -48,7 +48,7 @@ suspend fun Context.exportAnnotated(
                 // 复制需要一个可被粘贴方读取的 URI：先落图库再写剪贴板。
                 ExportKind.Copy ->
                     ImageOutput.saveToGallery(app, rendered, "annotate")
-                        ?.let { uri -> copyImage(app, "annotate", uri) } ?: false
+                        ?.let { uri -> ClipboardCenter.copyImage(uri, label = "annotate") } ?: false
 
                 ExportKind.Share ->
                     ImageOutput.saveToCache(app, rendered, "annotate")

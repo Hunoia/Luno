@@ -8,7 +8,7 @@ import hunoia.luno.core.LunoLog as Log
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import hunoia.luno.actions.R
-import hunoia.luno.bridge.system.copyText
+import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.core.LOG_TAG
 
 /**
@@ -101,7 +101,7 @@ object TextInserter {
         }
         if (setTextInserting(node, text)) return Result.Inserted
         // 仅剩「目标只认粘贴」的编辑器（WebView/自定义）才动剪贴板。
-        if (!copyText(service, service.getString(R.string.clipboard_label), text)) return Result.Failed
+        if (!ClipboardCenter.writeTextImmediate(text, service.getString(R.string.clipboard_label))) return Result.Failed
         repeat(2) { attempt ->
             if (node.performAction(AccessibilityNodeInfo.ACTION_PASTE)) return Result.InsertedViaClipboard
             if (attempt == 0) SystemClock.sleep(PasteRetryMs)

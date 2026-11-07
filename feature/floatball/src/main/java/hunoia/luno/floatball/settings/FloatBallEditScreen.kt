@@ -150,6 +150,9 @@ fun FloatBallEditScreen(
                 val scheme = MaterialTheme.colorScheme
                 ColorPickerBottomSheet(
                     onDismissRequest = { showColorPicker = false },
+                    onCopyColor = { hex ->
+                        hunoia.luno.clipboard.ClipboardCenter.writeTextImmediate(hex, "Luno color")
+                    },
                     initialSelection = floatBall.colorSpec.toInitialSelection(
                         scheme = scheme,
                         primaryFallback = true,

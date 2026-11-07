@@ -387,6 +387,8 @@
     <string name="a11y_detail_no_description">该服务未提供描述</string>
 
     <string name="log_settings_group">记录设置</string>
+    <string name="clipboard_settings_entry">剪贴板</string>
+    <string name="clipboard_settings_entry_hint">历史、固定、批量管理与导入导出</string>
     <string name="log_settings_title">运行日志</string>
     <string name="log_settings_entry_hint">查看、清空或导出持久日志</string>
     <string name="log_settings_recording">记录到文件</string>

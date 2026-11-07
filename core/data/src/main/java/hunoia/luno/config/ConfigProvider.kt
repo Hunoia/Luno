@@ -9,7 +9,9 @@ import hunoia.luno.config.model.AppLaunchSource
 import hunoia.luno.config.model.AppUsageStats
 import hunoia.luno.config.model.Backup
 import hunoia.luno.config.model.BackupDomain
+import hunoia.luno.config.model.ClipboardEntry
 import hunoia.luno.config.model.ClipboardHistory
+import hunoia.luno.config.model.ClipboardSettings
 import hunoia.luno.config.model.record
 import hunoia.luno.config.model.remove
 import hunoia.luno.config.model.cleared
@@ -57,8 +59,9 @@ object ConfigProvider {
     val quickSearchSettings: Flow<QuickSearchSettings> = stores.quickSearchSettings
     /** 标注偏好（每工具风格 + 工具条位置）：两宿主共用，笔迹不落盘。 */
     val annotateSettings: Flow<AnnotateSettings> = stores.annotateSettings
-    /** 剪贴板历史：设备本地派生数据，只供剪贴板页面部件订阅。 */
+    /** 剪贴板历史：设备本地派生数据；固定项随备份导出，普通历史不导出。 */
     val clipboardHistory: Flow<ClipboardHistory> = stores.clipboardHistory
+    val clipboardSettings: Flow<ClipboardSettings> = stores.clipboardSettings
 
     /** 习惯配置：习惯定义 + 打卡记录。部件与管理页都订阅它。 */
     val habitConfig: Flow<HabitConfig> = stores.habitConfig
@@ -77,6 +80,7 @@ object ConfigProvider {
     suspend fun getQuickSearchSettings(): QuickSearchSettings =
         stores._quickSearchSettings.data.first().withUniqueEngineTriggers()
     suspend fun getAnnotateSettings(): AnnotateSettings = stores._annotateSettings.data.first()
+    suspend fun getClipboardSettings(): ClipboardSettings = stores._clipboardSettings.data.first()
 
     suspend fun updateInitialSettings(transform: suspend (InitialSettings) -> InitialSettings) {
         stores._initialSettings.updateData(transform)
@@ -119,6 +123,10 @@ object ConfigProvider {
         quickLauncherRepository.updateQuickAppLauncherLayout(layout, landscape)
     }
 
+    suspend fun updateClipboardSettings(transform: suspend (ClipboardSettings) -> ClipboardSettings) {
+        stores._clipboardSettings.updateData { current -> transform(current).coerced() }
+    }
+
     /** 记录一次成功的 Luno 触发应用启动（包名维度）。 */
     suspend fun recordAppLaunch(packageName: String, source: AppLaunchSource) {
         appUsageRepository.recordLaunch(packageName, source)
@@ -128,15 +136,24 @@ object ConfigProvider {
     suspend fun getQuickAppSnapshot(): QuickAppSnapshot = stores.readQuickAppSnapshot()
 
     /**
-     * 记一条剪贴板文本历史（去重置顶 + 环形裁剪）。
+     * 记一条剪贴板条目（去重置顶 + 只裁未固定项）。
      * 失败静默：历史是辅助数据，写盘失败不能影响复制/粘贴本身。
+     *
+     * 返回写入后的历史（失败时 null），调用方据此清理不再被引用的图片副本。
      */
-    suspend fun recordClipboardText(text: String) {
-        if (text.isBlank()) return
-        runCatching {
-            stores._clipboardHistory.updateData { it.record(text, System.currentTimeMillis()) }
-        }
-    }
+    suspend fun recordClipboardEntry(
+        entry: ClipboardEntry,
+        maxEntries: Int,
+    ): ClipboardHistory? = runCatching {
+        stores._clipboardHistory.updateData { it.record(entry, System.currentTimeMillis(), maxEntries) }
+    }.getOrNull()
+
+    /** 原子改历史；返回写入后的值（失败时 null）。 */
+    suspend fun updateClipboardHistory(
+        transform: suspend (ClipboardHistory) -> ClipboardHistory,
+    ): ClipboardHistory? = runCatching {
+        stores._clipboardHistory.updateData(transform)
+    }.getOrNull()
 
     suspend fun removeClipboardEntry(id: String) {
         if (id.isBlank()) return

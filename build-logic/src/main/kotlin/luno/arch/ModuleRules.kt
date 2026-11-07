@@ -15,6 +15,7 @@ object ModuleRules {
         ":feature:execute", ":feature:actions",
         ":feature:link", ":feature:search", ":feature:quickaccess", ":feature:gesture",
         ":feature:floatball", ":feature:gridpanel", ":feature:annotate", ":feature:a11y",
+        ":feature:clipboard",
         ":feature:picker",
         ":app",
     )
@@ -75,6 +76,11 @@ object ModuleRules {
             ":feature:search", ":ui:design",
         ),
         ":feature:annotate" to setOf(":core:common", ":core:domain", ":core:bridge", ":ui:design"),
+        // 剪贴板管理页：读写唯一入口在 :core:data，OCR 结果页经 :core:facade 注入
+        ":feature:clipboard" to setOf(
+            ":core:common", ":core:domain", ":core:bridge", ":core:data",
+            ":core:facade", ":ui:design",
+        ),
         ":feature:a11y" to setOf(":core:common", ":core:domain", ":core:bridge", ":ui:design"),
         ":app" to (knownModules - ":app"),
     )

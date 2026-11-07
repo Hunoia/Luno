@@ -129,6 +129,7 @@ fun HomeScreen(
     onNavToPersistentNotificationSettings: () -> Unit = {},
     onNavToStatusBarIconSettings: () -> Unit = {},
     onNavToLogSettings: () -> Unit = {},
+    onNavToClipboard: () -> Unit = {},
     onNavToHabits: () -> Unit = {},
     onNavToTodos: () -> Unit = {},
     onNavToScreenPickSettings: () -> Unit = {},
@@ -218,6 +219,9 @@ fun HomeScreen(
                 val scheme = MaterialTheme.colorScheme
                 ColorPickerBottomSheet(
                     onDismissRequest = { colorPickerTarget = null },
+                    onCopyColor = { hex ->
+                        hunoia.luno.clipboard.ClipboardCenter.writeTextImmediate(hex, "Luno color")
+                    },
                     onColorSelected = { selection ->
                         val colorSpec = selection.toColorSpec(scheme)
                         when (val target = colorPickerTarget) {
@@ -482,6 +486,7 @@ fun HomeScreen(
                             onNavToPersistentNotificationSettings = onNavToPersistentNotificationSettings,
                             onNavToStatusBarIconSettings = onNavToStatusBarIconSettings,
                             onNavToLogSettings = onNavToLogSettings,
+                            onNavToClipboard = onNavToClipboard,
                             onNavToHabits = onNavToHabits,
                             onNavToTodos = onNavToTodos,
                         )
