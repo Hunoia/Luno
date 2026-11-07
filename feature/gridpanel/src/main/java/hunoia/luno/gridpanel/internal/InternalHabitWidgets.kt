@@ -2,7 +2,6 @@ package hunoia.luno.gridpanel.internal
 
 import android.content.ComponentName
 import android.content.Intent
-import android.os.SystemClock
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -61,7 +60,6 @@ import hunoia.luno.core.domain.JsonSerializer
 import hunoia.luno.domain.gridpanel.HabitCenter
 import hunoia.luno.gridpanel.HabitExtras
 import hunoia.luno.gridpanel.LocalGridPanelClose
-import hunoia.luno.gridpanel.PanelOpenTapGuardMillis
 import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.habit.HabitDayMarkIcon
@@ -261,9 +259,6 @@ internal fun HabitHistoryCell(
     val habitColor = habit.colorSpec.toColor()
     val palette = habitDayPalette(primary = habitColor, neutral = onCard)
     val context = LocalContext.current
-    // 部件组合创建 = 面板本次出场：打开瞬间的穿透抬手不算一次点击。
-    // 跳编辑页是跨进程 startActivity，副作用最重，除了面板根的指针抑制再挡一层。
-    val openedAt = remember { SystemClock.elapsedRealtime() }
     // 点条目进编辑页后把面板一起关掉（镜像 InternalRecentsWidget 的 closePanel）。
     val closePanel = LocalGridPanelClose.current
 
@@ -274,9 +269,6 @@ internal fun HabitHistoryCell(
             .then(
                 if (enabled) {
                     Modifier.clickable {
-                        if (SystemClock.elapsedRealtime() - openedAt < PanelOpenTapGuardMillis) {
-                            return@clickable
-                        }
                         context.startActivity(
                             Intent().apply {
                                 component = ComponentName(context.packageName, HabitExtras.ACTIVITY_MAIN)
