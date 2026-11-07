@@ -1,6 +1,7 @@
 package hunoia.luno.annotate.render
 
 import android.graphics.Canvas as AndroidCanvas
+import android.graphics.DashPathEffect
 import android.graphics.Paint as AndroidPaint
 import android.graphics.Path as AndroidPath
 import android.graphics.PorterDuff
@@ -127,7 +128,7 @@ class AnnotateGeometryCache {
                 path.addRect(r.left, r.top, r.right, r.bottom, AndroidPath.Direction.CW)
             }
 
-            ElementKind.LINE, ElementKind.ARROW -> {
+            ElementKind.LINE, ElementKind.ARROW, ElementKind.DASHED_LINE -> {
                 path.moveTo(element.start.x, element.start.y)
                 path.lineTo(element.end.x, element.end.y)
                 if (element.kind == ElementKind.ARROW) {
@@ -398,6 +399,38 @@ private fun drawShapeNative(
     element: ShapeElement,
     cache: AnnotateGeometryCache,
 ) {
+    val path = cache.shapePath(element)
+    val center = element.bounds.center
+    val checkpoint = canvas.save()
+    if (element.rotationRad != 0f) {
+        canvas.rotate(rotationRadToDegrees(element.rotationRad), center.x, center.y)
+    }
+    // 虚线（DASHED_LINE）：用虚线描边。
+    if (element.kind == ElementKind.DASHED_LINE) {
+        val dashed = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+            style = AndroidPaint.Style.STROKE
+            strokeCap = AndroidPaint.Cap.ROUND
+            strokeWidth = element.width
+            color = element.colorArgb.toInt()
+            // 间距 = 5×线宽，间隙 = 线宽（与 moting 视觉一致）。
+            pathEffect = DashPathEffect(
+                floatArrayOf(element.width * 5f, element.width),
+                0f,
+            )
+        }
+        canvas.drawPath(path, dashed)
+        canvas.restoreToCount(checkpoint)
+        return
+    }
+    // 半透明填充（alpha ≈ 14%）：仅闭合形状（开放路径填充会闭合产生错误图形）。
+    if (element.filled && element.kind.isClosedShape()) {
+        val fill = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+            style = AndroidPaint.Style.FILL
+            color = element.colorArgb.toInt()
+            alpha = (255 * 0.14f).toInt()
+        }
+        canvas.drawPath(path, fill)
+    }
     val paint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
         style = AndroidPaint.Style.STROKE
         strokeCap = AndroidPaint.Cap.ROUND
@@ -405,12 +438,7 @@ private fun drawShapeNative(
         strokeWidth = element.width
         color = element.colorArgb.toInt()
     }
-    val center = element.bounds.center
-    val checkpoint = canvas.save()
-    if (element.rotationRad != 0f) {
-        canvas.rotate(rotationRadToDegrees(element.rotationRad), center.x, center.y)
-    }
-    canvas.drawPath(cache.shapePath(element), paint)
+    canvas.drawPath(path, paint)
     canvas.restoreToCount(checkpoint)
 }
 
@@ -475,6 +503,14 @@ private fun drawMosaicNative(
     }
     canvas.clipPath(mask)
     canvas.drawBitmap(mosaic, null, AndroidRectF(0f, 0f, base.width.toFloat(), base.height.toFloat()), paint)
+}
+
+/** 闭合形状（可填充）：矩形/椭圆/圆角矩形/三角/星/心。 */
+private fun ElementKind.isClosedShape(): Boolean = when (this) {
+    ElementKind.RECT, ElementKind.ELLIPSE, ElementKind.ROUND_RECT,
+    ElementKind.TRIANGLE, ElementKind.STAR, ElementKind.HEART,
+    -> true
+    else -> false
 }
 
 /** 箭头两翼（图片坐标）：长度随线宽收敛，终点方向为轴向。 */

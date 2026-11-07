@@ -5,21 +5,46 @@ enum class ToolKind {
     PEN,
     HIGHLIGHT,
     ERASER,
-    RECT,
-    LINE,
-    ARROW,
     TEXT,
     MOSAIC,
     SELECT,
-    // 快速标注器扩展：更多形状 + 序号（自动递增圆底，删除自动重排）。
+    // 形状已合并为单个工具（子类型见 [ShapeKind]），裁剪接管导出选区。
+    SHAPE,
+    CROP,
+    NUMBER,
+}
+
+/**
+ * 形状工具的子类型。选择 SHAPE 工具后在样式面板里切换，
+ * 实际元素类型映射到 [elementKind]。
+ */
+enum class ShapeKind {
+    RECT,
     ELLIPSE,
+    ROUND_RECT,
     TRIANGLE,
+    LINE,
+    DASHED_LINE,
+    ARROW,
     CHECK,
     CROSS,
     STAR,
-    ROUND_RECT,
     HEART,
-    NUMBER,
+    ;
+
+    val elementKind: ElementKind get() = when (this) {
+        RECT -> ElementKind.RECT
+        ELLIPSE -> ElementKind.ELLIPSE
+        ROUND_RECT -> ElementKind.ROUND_RECT
+        TRIANGLE -> ElementKind.TRIANGLE
+        LINE -> ElementKind.LINE
+        DASHED_LINE -> ElementKind.DASHED_LINE
+        ARROW -> ElementKind.ARROW
+        CHECK -> ElementKind.CHECK
+        CROSS -> ElementKind.CROSS
+        STAR -> ElementKind.STAR
+        HEART -> ElementKind.HEART
+    }
 }
 
 /**
@@ -37,6 +62,8 @@ data class ToolStyle(
     val textSize: Float = 48f,
     /** 马赛克单元边长，图片像素。 */
     val mosaicCell: Float = 24f,
+    /** 形状是否半透明填充（SHAPE 工具）：新画的形状带填充 + 描边。 */
+    val shapeFilled: Boolean = false,
 )
 
 /** 工具条位置：按屏幕比例存，跨分辨率恢复（同 Surface 位置规则）。 */

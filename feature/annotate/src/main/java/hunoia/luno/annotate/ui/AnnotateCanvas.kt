@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
@@ -92,7 +93,9 @@ import hunoia.luno.annotate.render.drawAnnotate
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 /**
  * 两个宿主共用的标注画布：手势 → 文档，渲染 → [drawAnnotate]。
@@ -159,9 +162,10 @@ fun AnnotateCanvas(
     var textValue by remember { mutableStateOf("") }
     // 双指开始时递增：进行中的单指绘制据此丢弃草稿，避免缩放时留下半截笔迹。
     var viewTransformGeneration by remember { mutableStateOf(0) }
-    // 元素几何缓存（图片坐标）：缩放/平移时不重算每个点，元素增删/撤销时清空。
+    // 元素几何缓存（图片坐标）：缩放/平移时不重算每个点。
+    // 缓存以元素对象引用为键（IdentityHashMap），撤销/重做时未变元素缓存仍有效，
+    // 容量由 AnnotateGeometryCache.MAX_ENTRIES 上限自动管理，不再全量清空。
     val geometryCache = remember { AnnotateGeometryCache() }
-    LaunchedEffect(state.elements) { geometryCache.clear() }
 
     val displayState by remember {
         derivedStateOf {
@@ -346,14 +350,12 @@ fun AnnotateCanvas(
                         }
 
                         ToolKind.SELECT -> {
+                            // 纯元素选择：点选/拖动/缩放/旋转，不再管理导出裁剪框（CROP 接管）。
                             val threshold = 28f * density
                             val selectedElement = document.state.selectedElementId
                                 ?.let { id -> document.state.elements.firstOrNull { it.id == id } }
-                            val existingSelection = document.state.selection?.normalized()
-                            val selectionCorner = existingSelection
-                                ?.let { cornerAt(it, currentFit, down.position.asPt(), threshold) }
 
-                            // 选中元素的有向几何（角/边/旋转柄），用于缩放/旋转命中。
+                            // 选中元素的有向几何（四角 + 旋转柄），用于缩放/旋转命中。
                             var selectedHandle: ElementHandle? = null
                             var selectedBox: PxRect? = null
                             var selectedCenter: Pt? = null
@@ -372,14 +374,14 @@ fun AnnotateCanvas(
                                     threshold,
                                 )
                             }
-                            val hovered = if (selectedHandle == null && selectionCorner == null) {
+                            val hovered = if (selectedHandle == null) {
                                 hitElementAt(document, startImage, currentFit)
                             } else {
                                 null
                             }
 
                             when {
-                                // 1) 选中元素角/边缩放 + 旋转（有向柄）。
+                                // 1) 选中元素四角缩放 + 旋转（有向柄）。
                                 selectedElement != null && selectedHandle != null &&
                                     selectedBox != null && selectedCenter != null -> {
                                     val box = selectedBox
@@ -405,7 +407,7 @@ fun AnnotateCanvas(
                                             val p = currentFit.viewToImage(change.position.asPt())
                                                 .clampToImage(document)
                                             if (p.x == p.x && p.y == p.y) {
-                                                // 指针逆旋回局部坐标，按角/边柄调整包围盒。
+                                                // 指针逆旋回局部坐标，按角柄调整包围盒。
                                                 val local = rotateAround(p, center, -rot)
                                                 val to = adjustByHandle(box, selectedHandle, local)
                                                 if (to.width >= 4f || to.height >= 4f) {
@@ -437,17 +439,27 @@ fun AnnotateCanvas(
                                     draft = null
                                     if (moved && finished != null) document.replace(finished)
                                 }
+                            }
+                        }
 
-                                // 3) 选区四角调整（B2 既有行为）。
+                        ToolKind.CROP -> {
+                            // 裁剪工具：只管理导出裁剪框（复用 SELECT 的框选逻辑）。
+                            document.selectElement(null)
+                            val threshold = 28f * density
+                            val existingSelection = document.state.selection?.normalized()
+                            val selectionCorner = existingSelection
+                                ?.let { cornerAt(it, currentFit, down.position.asPt(), threshold) }
+
+                            when {
+                                // 1) 选区四角调整（B2 既有行为）。
                                 existingSelection != null && selectionCorner != null -> {
-                                    if (document.state.selectedElementId != null) {
-                                        document.selectElement(null)
-                                    }
-                                    var rect = existingSelection!!
+                                    val rect0 = existingSelection!!
+                                    val corner0 = selectionCorner!!
+                                    var rect = rect0
                                     drag(down.id) { change ->
                                         moved = true
                                         val p = currentFit.viewToImage(change.position.asPt())
-                                        rect = adjustCorner(rect, selectionCorner, p)
+                                        rect = adjustCorner(rect, corner0, p)
                                         draftSelection = rect.normalized()
                                         change.consume()
                                     }
@@ -455,21 +467,19 @@ fun AnnotateCanvas(
                                     draftSelection = null
                                 }
 
-                                // 4) 选区内拖动：整体平移选区（B6）。
+                                // 2) 选区内拖动：整体平移选区（B6）。
                                 existingSelection != null && selectionHolds(
                                     existingSelection,
                                     currentFit,
                                     down.position.asPt(),
                                 ) -> {
-                                    if (document.state.selectedElementId != null) {
-                                        document.selectElement(null)
-                                    }
-                                    var rect = existingSelection!!
+                                    val rect0 = existingSelection!!
+                                    var rect = rect0
                                     drag(down.id) { change ->
                                         moved = true
                                         val p = currentFit.viewToImage(change.position.asPt())
                                         rect = translateSelection(
-                                            existingSelection,
+                                            rect0,
                                             p.x - startImage.x,
                                             p.y - startImage.y,
                                             document.imageWidth.toFloat(),
@@ -482,11 +492,8 @@ fun AnnotateCanvas(
                                     draftSelection = null
                                 }
 
-                                // 5) 空白处拖新选区（B2 既有行为）。
+                                // 3) 空白处拖新选区（B2 既有行为）。
                                 else -> {
-                                    if (document.state.selectedElementId != null) {
-                                        document.selectElement(null)
-                                    }
                                     var rect = PxRect.fromPoints(startImage, startImage)
                                     var current = startImage
                                     val ok = drag(down.id) { change ->
@@ -566,28 +573,15 @@ fun AnnotateCanvas(
                                     highlight = tool == ToolKind.HIGHLIGHT,
                                 )
 
-                                ToolKind.RECT, ToolKind.LINE, ToolKind.ARROW,
-                                ToolKind.ELLIPSE, ToolKind.TRIANGLE, ToolKind.CHECK,
-                                ToolKind.CROSS, ToolKind.STAR, ToolKind.ROUND_RECT,
-                                ToolKind.HEART,
-                                -> ShapeElement(
+                                // 形状已合并：子类型读 activeShape，填充读 SHAPE 风格。
+                                ToolKind.SHAPE -> ShapeElement(
                                     id = DRAFT_ID,
                                     start = startImage,
                                     end = startImage,
                                     colorArgb = currentStyle.colorArgb,
                                     width = strokeImageWidth,
-                                    kind = when (tool) {
-                                        ToolKind.RECT -> ElementKind.RECT
-                                        ToolKind.LINE -> ElementKind.LINE
-                                        ToolKind.ARROW -> ElementKind.ARROW
-                                        ToolKind.ELLIPSE -> ElementKind.ELLIPSE
-                                        ToolKind.TRIANGLE -> ElementKind.TRIANGLE
-                                        ToolKind.CHECK -> ElementKind.CHECK
-                                        ToolKind.CROSS -> ElementKind.CROSS
-                                        ToolKind.STAR -> ElementKind.STAR
-                                        ToolKind.ROUND_RECT -> ElementKind.ROUND_RECT
-                                        else -> ElementKind.HEART
-                                    },
+                                    kind = document.state.activeShape.elementKind,
+                                    filled = currentStyle.shapeFilled,
                                 )
 
                                 // 马赛克是涂抹笔刷：笔刷宽度随颗粒比例走，
@@ -599,7 +593,7 @@ fun AnnotateCanvas(
                                     cellSize = currentStyle.mosaicCell,
                                 )
 
-                                ToolKind.TEXT, ToolKind.SELECT, ToolKind.NUMBER -> null
+                                ToolKind.TEXT, ToolKind.SELECT, ToolKind.CROP, ToolKind.NUMBER -> null
                             }
                             var lastPt = startImage
                             drag(down.id) { change ->
@@ -727,10 +721,10 @@ fun AnnotateCanvas(
                             color = AnnotateVisuals.ElementSelectionInner,
                             style = Stroke(width = ELEMENT_SELECTION_INNER_DP.dp.toPx()),
                         )
-                        // 角柄 + 边中柄（方块）+ 旋转柄（圆），白芯深边。
+                        // 角柄（方块）+ 旋转柄（弧形箭头），白芯深边。
                         val handle = ELEMENT_HANDLE_DP.dp.toPx()
                         val border = ELEMENT_HANDLE_BORDER_DP.dp.toPx()
-                        (geom.corners + geom.edges).forEach { world ->
+                        geom.corners.forEach { world ->
                             val v = currentFit.imageToView(world)
                             drawRect(
                                 color = AnnotateVisuals.ElementHandleStroke,
@@ -743,17 +737,8 @@ fun AnnotateCanvas(
                                 size = Size(handle, handle),
                             )
                         }
-                        val rv = currentFit.imageToView(geom.rotate)
-                        drawCircle(
-                            color = AnnotateVisuals.ElementHandleStroke,
-                            radius = handle / 2f + border,
-                            center = Offset(rv.x, rv.y),
-                        )
-                        drawCircle(
-                            color = AnnotateVisuals.ElementHandleFill,
-                            radius = handle / 2f,
-                            center = Offset(rv.x, rv.y),
-                        )
+                        // 旋转柄：弧形箭头（不再是圆点），旋转语义直观。
+                        drawRotateHandle(geom.rotate, currentFit, handle, border)
                     }
                 }
         }
@@ -941,7 +926,7 @@ private fun hitElementLocal(
                     .any { (a, c) -> pointNearSegment(at, a, c, el.width / 2f) }
         }
 
-        ElementKind.LINE, ElementKind.ARROW ->
+        ElementKind.LINE, ElementKind.ARROW, ElementKind.DASHED_LINE ->
             pointNearSegment(at, el.start, el.end, el.width / 2f)
 
         ElementKind.CROSS ->
@@ -991,3 +976,69 @@ private fun AnnotationElement.withId(id: Long): AnnotationElement = when (this) 
 }
 
 private fun Offset.asPt(): Pt = Pt(x, y)
+
+/**
+ * 旋转柄：弧形箭头（白芯深边），替代圆点图标。
+ * 弧长约 120°，末端小三角箭头指示顺时针旋转方向。
+ */
+private fun DrawScope.drawRotateHandle(
+    world: Pt,
+    fit: ContainFit,
+    handle: Float,
+    border: Float,
+) {
+    val v = fit.imageToView(world)
+    val center = Offset(v.x, v.y)
+    val radius = handle / 2f
+    val strokeWidth = 2.dp.toPx()
+    val arcStart = -60f
+    val arcSweep = 120f
+
+    // 深色外弧 + 白内弧（与角柄同一对比策略）。
+    fun arc(color: androidx.compose.ui.graphics.Color, r: Float) {
+        drawArc(
+            color = color,
+            startAngle = arcStart,
+            sweepAngle = arcSweep,
+            useCenter = false,
+            topLeft = Offset(center.x - r, center.y - r),
+            size = Size(2f * r, 2f * r),
+            style = Stroke(width = strokeWidth),
+        )
+    }
+    arc(AnnotateVisuals.ElementHandleStroke, radius + border)
+    arc(AnnotateVisuals.ElementHandleFill, radius)
+
+    // 箭头：弧末端（60°）处的小三角，指向顺时针切线方向。
+    val endRad = Math.toRadians((arcStart + arcSweep).toDouble())
+    val tip = Offset(
+        center.x + (radius + border) * cos(endRad).toFloat(),
+        center.y + (radius + border) * sin(endRad).toFloat(),
+    )
+    // 切线方向 = 径向顺时针转 90°（y 向下，正 sweep 即顺时针，箭头指向继续旋转方向）。
+    val tangent = Offset(
+        x = -sin(endRad).toFloat(),
+        y = cos(endRad).toFloat(),
+    )
+    val arrowSize = handle * 0.5f
+    val base = Offset(tip.x - tangent.x * arrowSize, tip.y - tangent.y * arrowSize)
+    val normal = Offset(-tangent.y, tangent.x)
+    val left = Offset(base.x + normal.x * arrowSize * 0.5f, base.y + normal.y * arrowSize * 0.5f)
+    val right = Offset(base.x - normal.x * arrowSize * 0.5f, base.y - normal.y * arrowSize * 0.5f)
+    val arrow = Path().apply {
+        moveTo(tip.x, tip.y)
+        lineTo(left.x, left.y)
+        lineTo(right.x, right.y)
+        close()
+    }
+    drawPath(arrow, AnnotateVisuals.ElementHandleStroke)
+    // 内芯箭头略小，留深色边。
+    val innerScale = (radius) / (radius + border)
+    val inner = Path().apply {
+        moveTo(center.x + (tip.x - center.x) * innerScale, center.y + (tip.y - center.y) * innerScale)
+        lineTo(center.x + (left.x - center.x) * innerScale, center.y + (left.y - center.y) * innerScale)
+        lineTo(center.x + (right.x - center.x) * innerScale, center.y + (right.y - center.y) * innerScale)
+        close()
+    }
+    drawPath(inner, AnnotateVisuals.ElementHandleFill)
+}

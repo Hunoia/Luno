@@ -11,6 +11,8 @@ data class AnnotateState(
     /** 导出裁剪区；null 表示全图。永远存图片像素坐标。 */
     val selection: PxRect? = null,
     val activeTool: ToolKind = ToolKind.PEN,
+    /** SHAPE 工具当前形状子类型（不持久化，每次打开默认 RECT）。 */
+    val activeShape: ShapeKind = ShapeKind.RECT,
     /** 橡皮的矩形擦模式（审计 C1）：仅 ERASER 下生效，切走工具时复位。 */
     val eraserRect: Boolean = false,
     val styles: Map<ToolKind, ToolStyle> = DEFAULT_STYLES,
@@ -39,6 +41,8 @@ data class AnnotateState(
                 ToolKind.HIGHLIGHT -> ToolStyle(colorArgb = 0xFFFFCC00, strokeWidth = 10f)
                 // 序号圆底：默认红色，直径默认 40 图片像素。
                 ToolKind.NUMBER -> ToolStyle(colorArgb = 0xFFFF3B30, textSize = 40f, strokeWidth = 3f)
+                // 形状默认仅描边，不填充。
+                ToolKind.SHAPE -> ToolStyle(shapeFilled = false)
                 else -> ToolStyle()
             }
         }
@@ -216,6 +220,10 @@ object AnnotateOps {
     fun selectTool(state: AnnotateState, tool: ToolKind): AnnotateState =
         // 切走橡皮（或重选工具）时退出矩形擦，避免下次进橡皮还是框选模式。
         state.copy(activeTool = tool, eraserRect = false)
+
+    /** SHAPE 工具的形状子类型切换（不进撤销历史）。 */
+    fun setActiveShape(state: AnnotateState, shape: ShapeKind): AnnotateState =
+        if (shape == state.activeShape) state else state.copy(activeShape = shape)
 
     fun setEraserRect(state: AnnotateState, enabled: Boolean): AnnotateState =
         state.copy(eraserRect = enabled)

@@ -15,6 +15,8 @@ enum class ElementKind {
     STROKE, ERASER, RECT, LINE, ARROW, TEXT, MOSAIC,
     // 快速标注器扩展形状 + 序号。
     ELLIPSE, TRIANGLE, CHECK, CROSS, STAR, ROUND_RECT, HEART, NUMBER,
+    // 虚线直线（与 moting DASHED_LINE 对齐）。
+    DASHED_LINE,
 }
 
 /** 自由笔迹。 [erase] 为 true 时是橡皮：只擦标注层，不擦底图（导出时 saveLayer + CLEAR）。 */
@@ -39,6 +41,8 @@ data class ShapeElement(
     override val kind: ElementKind,
     /** 绕元素中心旋转（弧度，绕 [bounds] 中心）。默认 0 = 不旋转。 */
     val rotationRad: Float = 0f,
+    /** 半透明填充（alpha ≈ 14%）：先填后描边，与主流标注工具一致。 */
+    val filled: Boolean = false,
 ) : AnnotationElement {
     val bounds: PxRect get() = PxRect.fromPoints(start, end)
 }
@@ -182,7 +186,7 @@ fun AnnotationElement.erasedBy(rect: PxRect): Boolean = when (this) {
                 seg(tl, tr) || seg(tr, br) || seg(br, bl) || seg(bl, tl)
             }
 
-            ElementKind.LINE, ElementKind.ARROW -> seg(start, end)
+            ElementKind.LINE, ElementKind.ARROW, ElementKind.DASHED_LINE -> seg(start, end)
 
             ElementKind.CROSS -> shapeCrossSegments(start, end).any { seg(it.first, it.second) }
 
