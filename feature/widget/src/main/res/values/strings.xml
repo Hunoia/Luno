@@ -21,7 +21,6 @@
     <!-- 待办部件 -->
     <string name="widget_todo_title">待办 · %1$d</string>
     <string name="widget_todo_empty">暂无待办</string>
-    <string name="widget_todo_more">还有 %1$d 件未显示</string>
     <string name="widget_todo_add">新增待办</string>
     <string name="widget_todo_open">打开「%1$s」</string>
     <string name="widget_todo_complete">完成「%1$s」</string>
