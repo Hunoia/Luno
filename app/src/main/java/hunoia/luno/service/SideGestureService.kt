@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Intent
 import android.content.IntentFilter
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityWindowInfo
 import com.aaron.composeaccessibility.ComponentAccessibilityService
 import hunoia.luno.action.controller.TextInserter
 import hunoia.luno.bridge.system.copyText
@@ -16,6 +17,7 @@ import hunoia.luno.quickaccess.launch.DisabledPackageEnabler
 import hunoia.luno.quickaccess.QuickLaunchFacade
 import hunoia.luno.runtime.GestureCoordinator
 import hunoia.luno.runtime.GestureHost
+import hunoia.luno.runtime.environment.RecentAppsHub
 import hunoia.luno.runtime.overlay.RuntimePanelOverlay
 import hunoia.luno.runtime.overlay.ScreenPickOverlay
 import kotlinx.coroutines.Job
@@ -467,6 +469,38 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
     }
 
     override fun getCurrentPackageName(): String {
-        return rootInActiveWindow?.packageName?.toString() ?: ""
+        val top = runCatching { rootInActiveWindow?.packageName?.toString() }.getOrNull()
+        if (!top.isNullOrBlank() && top != packageName) return top
+
+        // 面板/浮层是自身 overlay 窗口：打开时「活动窗口」就是 Luno，
+        // 会把「当前应用」污染成自身（小窗当前应用会小窗 Luno）。
+        // 从窗口列表按层级找第一个非自身应用窗口（面板下的真实应用）；
+        // 扫不到（如停在 Luno 主页、底层应用窗口已停止）再退回最近应用历史
+        // （PreviousAppTracker 维护，已过滤自身 + 黑名单 + 不可启动）。
+        val fromWindows = runCatching {
+            windows
+                .sortedByDescending { it.layer }
+                .firstOrNull { w ->
+                    w.type == AccessibilityWindowInfo.TYPE_APPLICATION &&
+                        runCatching { w.root?.packageName?.toString() }.getOrNull() != packageName
+                }
+                ?.root?.packageName?.toString()
+        }.getOrNull()
+        if (!fromWindows.isNullOrBlank()) {
+            if (hunoia.luno.gesture.BuildConfig.DEBUG) {
+                hunoia.luno.core.LunoLog.i(LOG_TAG, "currentPackage: window fallback=$fromWindows")
+            }
+            return fromWindows
+        }
+
+        val history = RecentAppsHub.history.value.lastOrNull()
+            ?: RecentAppsHub.foreground.value.takeIf { it.isNotBlank() }
+        if (hunoia.luno.gesture.BuildConfig.DEBUG) {
+            hunoia.luno.core.LunoLog.i(
+                LOG_TAG,
+                "currentPackage: own overlay -> history/foreground=${history.orEmpty()}",
+            )
+        }
+        return history.orEmpty()
     }
 }

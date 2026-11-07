@@ -43,6 +43,10 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel)
     implementation(libs.androidx.savedstate)
+    // 显式声明 navigation：此前仅靠 fastcompose 传递（2.8.4），与 :app 的 2.10.2
+    // 不一致导致 SavedStateHandle.toRoute 内联的 internalToRoute 在运行期 NoSuchMethodError
+    // （触钮编辑页构造 GestureButtonSettingsVM 闪退）。2.10.2 atomic-group 约束会统一全链。
+    implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.annotation)
     implementation(libs.kotlinx.coroutines.core)
     testImplementation(libs.junit)
