@@ -9,6 +9,8 @@
 #
 # - docs 分支永远只有 1 个提交：每次保存用 amend，rebase 只重放 1 个提交。
 #   需要保留历史时打快照 tag（docs/snapshot-<时间>），分支本身不堆提交。
+# - docs 分支上直接 `git commit` 会被 pre-commit 拦下：只允许 `commit -m` 子命令
+#   （内部用 LUNO_DOCS_COMMIT=1 放行），避免单提交约束被绕过。
 #
 # 用法：
 #   scripts/docs-worktree.sh init     # 首次创建 worktree + 安装 hooks
@@ -48,6 +50,40 @@ install_hooks() {
     local hook_dir
     hook_dir="$(git -C "$MAIN_ROOT" rev-parse --git-common-dir)/hooks"
     mkdir -p "$hook_dir"
+
+    # pre-commit 同时守两条：main 不许直提；docs 只许走 docs-worktree.sh commit。
+    # 原 main 守卫本来就只存在于 .git/hooks 里，由本脚本接管后不再手工维护。
+    cat > "$hook_dir/pre-commit" <<'HOOK'
+#!/bin/sh
+# main：禁止直接提交，仅放行合并提交。
+#
+# git merge --no-ff 创建合并提交时会先跑 pre-merge-commit（其默认实现调用
+# pre-commit）；冲突后手工 git commit 时直接跑 pre-commit。两种情况都存在
+# MERGE_HEAD，据此放行。revert / cherry-pick 没有 MERGE_HEAD，会被拦下。
+
+branch=$(git branch --show-current 2>/dev/null)
+case "$branch" in
+    main)
+        if [ -f "$(git rev-parse --git-dir)/MERGE_HEAD" ]; then
+            exit 0
+        fi
+        echo "error: 禁止直接提交到 main 分支" >&2
+        echo "  开发:  git switch dev" >&2
+        echo "  合入:  git switch main && git merge --no-ff dev" >&2
+        echo "  绕过:  git commit --no-verify" >&2
+        exit 1
+        ;;
+    docs)
+        # 单提交约束靠 amend 维持；直接 commit 会堆出第 2 个提交。
+        [ "${LUNO_DOCS_COMMIT:-0}" = "1" ] && exit 0
+        echo "error: docs 分支不允许直接 git commit（会破坏单提交约束）" >&2
+        echo "  保存:  scripts/docs-worktree.sh commit -m \"docs: ...\"" >&2
+        echo "  已有多个提交: scripts/docs-worktree.sh squash" >&2
+        exit 1
+        ;;
+esac
+exit 0
+HOOK
 
     cat > "$hook_dir/pre-push" <<'HOOK'
 #!/bin/sh
@@ -124,7 +160,8 @@ HOOK
     cp "$hook_dir/post-merge" "$hook_dir/post-commit"
     cp "$hook_dir/post-merge" "$hook_dir/post-rewrite"
 
-    chmod +x "$hook_dir/pre-push" "$hook_dir/pre-merge-commit" "$hook_dir/post-merge" "$hook_dir/post-commit" "$hook_dir/post-rewrite"
+    chmod +x "$hook_dir/pre-commit" "$hook_dir/pre-push" "$hook_dir/pre-merge-commit" \
+        "$hook_dir/post-merge" "$hook_dir/post-commit" "$hook_dir/post-rewrite"
     echo "hooks installed: $hook_dir"
 }
 
@@ -190,7 +227,7 @@ if "/docs/ppocrv/" not in out:
 open(p, "w", encoding="utf-8").write("\n".join(out) + "\n")
 PY
         git -C "$DOCS_WT" add -A .gitignore docs
-        git -C "$DOCS_WT" commit -m "docs: track documentation without model assets"
+        LUNO_DOCS_COMMIT=1 git -C "$DOCS_WT" commit -m "docs: track documentation without model assets"
     else
         worktree_exists || git -C "$MAIN_ROOT" worktree add "$DOCS_WT" "$DOCS_BRANCH"
     fi
@@ -238,7 +275,7 @@ squash_onto_base() {
     count="$(docs_commit_count)"
     [ "$count" -le 1 ] && return 0
     git -C "$DOCS_WT" reset --soft "$base"
-    git -C "$DOCS_WT" commit -q -m "docs: Luno 规范文档（单提交，快照见 docs/snapshot-* tag）"
+    LUNO_DOCS_COMMIT=1 git -C "$DOCS_WT" commit -q -m "docs: Luno 规范文档（单提交，快照见 docs/snapshot-* tag）"
     echo "docs squashed: $count -> 1 commit"
 }
 
@@ -269,6 +306,8 @@ cmd_commit() {
 
     (
         cd "$DOCS_WT"
+        # 放行本子命令触发的 commit/amend：pre-commit 只认这一个开关。
+        export LUNO_DOCS_COMMIT=1
         git add -A docs .gitignore
 
         if [ -z "$msg" ]; then
