@@ -93,6 +93,8 @@ fun AnnotateToolbar(
     modifier: Modifier = Modifier,
     onToolClick: (ToolKind) -> Unit = {},
     extraActions: @Composable RowScope.() -> Unit = {},
+    /** 裁剪面板“恢复整图”按钮；null = 不显示该按钮。 */
+    onCropReset: (() -> Unit)? = null,
 ) {
     val state = document.state
     val tool = state.activeTool
@@ -163,14 +165,12 @@ fun AnnotateToolbar(
                             onClick = { document.removeSelected() },
                         )
                     }
-                    if (state.viewZoom > 1.001f) {
-                        // 双指放大后出现「适应屏幕」（B7），退出缩放不影响笔迹。
-                        CompactIconButton(
-                            icon = Icons.Default.FitScreen,
-                            label = stringResource(R.string.annotate_reset_zoom),
-                            onClick = { document.resetViewTransform() },
-                        )
-                    }
+                    // 适应按钮：当前 0.75x 时点击变 1x，其它时回到 0.75x。
+                    CompactIconButton(
+                        icon = Icons.Default.FitScreen,
+                        label = stringResource(R.string.annotate_reset_zoom),
+                        onClick = { document.toggleViewZoom() },
+                    )
                     extraActions()
                     Spacer(Modifier.weight(1f))
                     CompactIconButton(
@@ -206,6 +206,7 @@ fun StylePanel(
     tool: ToolKind,
     document: AnnotateDocument,
     modifier: Modifier = Modifier,
+    onCropReset: (() -> Unit)? = null,
 ) {
     val state = document.state
     val style = state.styleFor(tool)
@@ -238,6 +239,13 @@ fun StylePanel(
             // SELECT 与 CROP 都显示选区操作（用户确认两面板共享）。
             ToolKind.SELECT, ToolKind.CROP -> {
                 SelectionPanelContent(state = state, document = document)
+                if (tool == ToolKind.CROP && onCropReset != null) {
+                    CompactIconButton(
+                        icon = Icons.Default.FitScreen,
+                        label = stringResource(R.string.annotate_crop_reset),
+                        onClick = onCropReset,
+                    )
+                }
             }
 
             ToolKind.SHAPE -> {

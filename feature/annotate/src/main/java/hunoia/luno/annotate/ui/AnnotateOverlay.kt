@@ -56,7 +56,6 @@ import hunoia.luno.annotate.R
 import hunoia.luno.annotate.model.AnnotateDocument
 import hunoia.luno.annotate.model.AnnotateState
 import hunoia.luno.annotate.model.ToolKind
-import hunoia.luno.annotate.model.ToolbarAnchor
 import hunoia.luno.annotate.render.BaseImage
 import hunoia.luno.annotate.render.ExportKind
 import hunoia.luno.annotate.render.exportAnnotated
@@ -109,10 +108,6 @@ class AnnotateOverlay(
         const val TRUSTED_OVERLAY_FLAG = 0x300000
         const val SURFACE_ID = "annotate.overlay"
         const val TOOLBAR_MARGIN_DP = 28
-        /** 工具条窗口宽度上限（面板/样式卡不撑宽窗口，避免工具条横移）。 */
-        const val TOOLBAR_MAX_WIDTH_DP = 560
-        /** 工具条窗口距屏左右最小边距。 */
-        const val TOOLBAR_SIDE_MARGIN_DP = 8
         /** 面板窗口与工具条窗口的间距（与 Chrome 内 6dp 间距一致）。 */
         const val PANEL_GAP_DP = 6
         /** 面板窗口固定高度：进出场只做原地淡入淡出，不随内容 resize / 遮挡工具条。 */
@@ -137,6 +132,8 @@ class AnnotateOverlay(
     private var panel by mutableStateOf(OverlayPanel.None)
     /** 当前展开样式面板的工具；null = 无。与 [panel] 互斥。 */
     private var stylePanelTool by mutableStateOf<ToolKind?>(null)
+    /** 裁剪态“恢复整图”请求令牌。 */
+    private var cropResetToken by mutableStateOf(0)
 
     private var toolbarX = 0
     /** 窗口底边屏幕 Y（工具条贴在窗口底部：面板向上弹时工具条不动）。 */
@@ -258,6 +255,7 @@ class AnnotateOverlay(
                                     panel = OverlayPanel.None
                                     stylePanelTool = null
                                 },
+                                cropResetToken = cropResetToken,
                             )
                             // 导出/重截有实际耗时：给可见进度（与图片编辑宿主的遮罩+转圈一致）。
                             // 重截抓图前画布窗会短暂 INVISIBLE，进度不会进截图。
@@ -303,11 +301,8 @@ class AnnotateOverlay(
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 TRUSTED_OVERLAY_FLAG
-            // 固定宽度：面板/样式卡开合只变高度，不撑宽窗口（工具条不横移）。
-            width = min(
-                (TOOLBAR_MAX_WIDTH_DP * density).toInt(),
-                screenWidthPx() - (TOOLBAR_SIDE_MARGIN_DP * density).toInt() * 2,
-            ).coerceAtLeast(1)
+            // 工具条宽度统一为屏幕约 80%，面板/样式卡开合只变高度，不撑宽窗口。
+            width = (screenWidthPx() * 0.8f).toInt().coerceAtLeast(1)
             height = WindowManager.LayoutParams.WRAP_CONTENT
             x = 0
             // 首次就按底边距定位（BOTTOM 锚定），避免 onLayoutChange 后再跳一帧。
@@ -334,6 +329,7 @@ class AnnotateOverlay(
                             onToolClick = ::onToolClick,
                             onDrag = { delta -> dragToolbar(wm, delta) },
                             onDragEnd = ::dragToolbarEnd,
+                            onCropReset = { cropResetToken++ },
                         )
                         // 面板独立窗口：样式卡/导出/确认卡显隐与位置跟随状态。
                         LaunchedEffect(panel, stylePanelTool) { updatePanelVisibility() }
@@ -452,6 +448,7 @@ class AnnotateOverlay(
                                 onCopy = { startExport(ExportKind.Copy) },
                                 onShare = { startExport(ExportKind.Share) },
                                 onConfirmExit = ::close,
+                                onCropReset = { cropResetToken++ },
                             )
                         }
                     }
@@ -519,15 +516,9 @@ class AnnotateOverlay(
         if (view.width <= 0 || view.height <= 0) return
         // 底边锚定：面板/样式卡向上弹时窗口只变高，工具条（窗口底部）不动。
         lp.gravity = Gravity.BOTTOM or Gravity.LEFT
-        val anchor = document?.state?.toolbarAnchor
-        if (anchor != null) {
-            // 恢复上次拖动位置：按屏比例换算，跨分辨率/旋转都落在相对位置。
-            toolbarX = (anchor.xFraction * screenWidthPx()).toInt()
-            toolbarBottomY = (anchor.yFraction * screenHeightPx()).toInt()
-        } else {
-            toolbarX = ((screenWidthPx() - view.width) / 2).coerceAtLeast(0)
-            toolbarBottomY = screenHeightPx() - margin
-        }
+        // 工具条位置只在本次会话内有效，每次打开都从底部居中开始。
+        toolbarX = ((screenWidthPx() - view.width) / 2).coerceAtLeast(0)
+        toolbarBottomY = screenHeightPx() - margin
         applyToolbarPosition(wm, view, lp)
         // 面板跟随工具条重定位（旋转/首次定位；面板未显示时 positionPanel 提前返回）。
         positionPanel(wm)
@@ -572,13 +563,7 @@ class AnnotateOverlay(
      */
     private fun dragToolbarEnd() {
         if (!toolbarDragged) return
-        val doc = document ?: return
-        doc.moveToolbar(
-            ToolbarAnchor(
-                xFraction = toolbarX.toFloat() / screenWidthPx(),
-                yFraction = toolbarBottomY.toFloat() / screenHeightPx(),
-            ),
-        )
+        // 不持久化工具条位置；样式偏好仍由 observeAnnotateSettings 保存。
     }
 
     private fun screenWidthPx(): Int = service.resources.displayMetrics.widthPixels
@@ -745,6 +730,7 @@ private fun AnnotateOverlayChrome(
     onToolClick: (ToolKind) -> Unit,
     onDrag: (Offset) -> Unit,
     onDragEnd: () -> Unit,
+    onCropReset: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -770,6 +756,7 @@ private fun AnnotateOverlayChrome(
             exportLabel = stringResource(R.string.annotate_export),
             modifier = Modifier.fillMaxWidth(),
             onToolClick = onToolClick,
+            onCropReset = onCropReset,
             extraActions = {
                 IconButton(
                     onClick = onTogglePenetrate,
@@ -808,6 +795,7 @@ private fun AnnotatePanelContent(
     onCopy: () -> Unit,
     onShare: () -> Unit,
     onConfirmExit: () -> Unit,
+    onCropReset: () -> Unit = {},
 ) {
     Surface(
         shape = MaterialTheme.shapes.large,
@@ -823,6 +811,7 @@ private fun AnnotatePanelContent(
                     tool = stylePanelTool,
                     document = document,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                    onCropReset = onCropReset,
                 )
             }
 
