@@ -52,6 +52,11 @@
     <string name="action_settings_panel_group">面板</string>
     <string name="action_settings_action_group">动作</string>
     <string name="action_settings_system_group">系统</string>
+    <string name="action_settings_appearance_group">外观</string>
+    <string name="action_settings_list_style">列表风格</string>
+    <string name="action_settings_list_style_hint">整组一张大卡，行间细线分割</string>
+    <string name="list_style_segmented">分段式</string>
+    <string name="list_style_card_divided">大卡分割线</string>
     <!-- 字体缩放（系统 font_scale） -->
     <string name="font_scale_entry">字体缩放</string>
     <string name="font_scale_entry_summary">系统字号 · %1$d%%</string>

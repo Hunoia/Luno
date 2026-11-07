@@ -11,10 +11,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
+import hunoia.luno.config.model.ListStyle
 import hunoia.luno.ui.theme.CapsuleShape
 import hunoia.luno.ui.theme.CardInnerSpacing
 import hunoia.luno.ui.theme.ConnectionRadius
@@ -23,6 +26,7 @@ import hunoia.luno.ui.theme.containerShape
 import hunoia.luno.ui.theme.ListSpacing
 import hunoia.luno.ui.theme.PageGutter
 import hunoia.luno.ui.theme.SegmentedGap
+import androidx.compose.foundation.background
 
 private val GroupSubtitlePadding =
     PaddingValues(start = PageGutter, end = PageGutter, bottom = CardInnerSpacing)
@@ -150,10 +154,39 @@ fun LunoGroup(
                 modifier = Modifier.padding(GroupSubtitlePadding),
             )
         }
-        Column(verticalArrangement = Arrangement.spacedBy(contentSpacing)) {
-            content()
+        // 大卡分割线风格：整组一张大圆角卡片，行间由行组件顶部画分割线
+        // （LocalInDividedCard 让行忽略自身 shape/底色，由卡片统一托底）。
+        if (LocalListStyle.current == ListStyle.CardDivided) {
+            CompositionLocalProvider(LocalInDividedCard provides true) {
+                Column(
+                    modifier = modifier
+                        .fillMaxWidth()
+                        .clip(containerShape(ContainerRadius))
+                        .background(MaterialTheme.colorScheme.surfaceBright),
+                ) {
+                    content()
+                }
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(contentSpacing)) {
+                content()
+            }
         }
     }
+}
+
+/**
+ * 大卡分割线风格下，行是否应在自身顶部画分割线（首行 / 单项除外）。
+ *
+ * 依据行传入的分段形状判定：顶角为 [ConnectionRadius] 说明不是组首，
+ * 需在其上画线。覆盖 `segmentedShape` 的中段与尾段两种组合；
+ * `selectedSegmentedShape` 的选中段边界行会少画一条线，属可接受的视觉近似。
+ */
+internal fun showsDividedCardTopLine(shape: Shape): Boolean {
+    val connection = ConnectionRadius
+    val middle = containerShape(connection, connection, connection, connection)
+    val last = containerShape(connection, connection, ContainerRadius, ContainerRadius)
+    return shape == middle || shape == last
 }
 
 @Composable

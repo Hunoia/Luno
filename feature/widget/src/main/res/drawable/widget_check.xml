@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- 勾：镜像内置 HabitDayMarkIcon.CHECK 几何（M0.20,0.52 → 0.43,0.74 → 0.80,0.27），
+         stroke = 0.16×min(w,h)，圆头圆角。 -->
+    <path
+        android:pathData="M4.8,12.5 L10.3,17.8 L19.2,6.5"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3.84"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

@@ -9,7 +9,6 @@
     <string name="grid_panel_internal_recents">最近应用</string>
     <string name="grid_panel_internal_clipboard">剪贴板</string>
     <string name="grid_panel_internal_app_drawer">应用抽屉</string>
-    <string name="grid_panel_internal_habit_check">习惯打卡</string>
     <string name="grid_panel_internal_habit_history">习惯历史</string>
     <string name="grid_panel_internal_todo">待办</string>
     <string name="grid_panel_habit_empty">未配置习惯</string>

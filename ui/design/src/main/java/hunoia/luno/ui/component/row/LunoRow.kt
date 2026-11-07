@@ -36,7 +36,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -90,10 +93,19 @@ internal fun LunoRowBase(
     val colorScheme = MaterialTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
     val selectable = onSelectedChange != null
+    // 大卡分割线风格：行不画自身底色/圆角，由 LunoGroup 的卡片统一托底；
+    // 仅顶部画分割线（首行除外）。选中色保留，保证多选态可见。
+    val inDividedCard = LocalInDividedCard.current
+    // 分割线左起点：有 leading 时越过图标（对齐文字列），否则对齐行内边距
+    // （ListItemStartPadding + 图标 + LeadingContentEndPadding，均为 16dp）。
+    val hasLeading = leading != null || textIcon != null || icon != null || iconBitmap != null
+    val dividerStartInset = RowInnerPadding + (if (hasLeading) RowIconSize + 16.dp else 0.dp)
 
     val background by animateColorAsState(
         targetValue = if (selectable && selected) {
             selectedContainerColor ?: colorScheme.primaryContainer
+        } else if (inDividedCard) {
+            Color.Transparent
         } else {
             containerColor ?: colorScheme.surfaceBright
         },
@@ -131,8 +143,24 @@ internal fun LunoRowBase(
             .heightIn(min = MinInteractiveSize)
             .alpha(if (enabled) 1f else DisabledAlpha)
             .then(clickableModifier)
-            .clip(shape)
+            .clip(if (inDividedCard) RectangleShape else shape)
             .background(background)
+            .then(
+                if (inDividedCard && showsDividedCardTopLine(shape)) {
+                    Modifier.drawBehind {
+                        val start = dividerStartInset.toPx()
+                        val end = size.width - RowInnerPadding.toPx()
+                        drawLine(
+                            color = colorScheme.outlineVariant.copy(alpha = 0.6f),
+                            start = Offset(start, 0f),
+                            end = Offset(end, 0f),
+                            strokeWidth = 1.dp.toPx(),
+                        )
+                    }
+                } else {
+                    Modifier
+                },
+            )
             .semantics(mergeDescendants = true) {
                 if (selectable) this.selected = selected
             },

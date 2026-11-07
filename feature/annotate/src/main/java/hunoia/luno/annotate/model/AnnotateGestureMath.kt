@@ -61,23 +61,20 @@ internal fun translateSelection(
     )
 }
 
-/** 元素选中柄：四角（双向缩放）、四边中点（单向缩放）、旋转柄。 */
+/** 元素选中柄：四角（双向缩放）+ 旋转柄。边中点柄已删除（4 角拖拽语义）。 */
 internal enum class ElementHandle {
     TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT,
-    TOP, RIGHT, BOTTOM, LEFT,
     ROTATE,
 }
 
 /**
  * 旋转元素的有向选中几何（图片像素坐标）。
- * [corners] 顺序 = TL, TR, BR, BL；[edges] 顺序 = TOP, RIGHT, BOTTOM, LEFT；
- * [rotate] 在顶边中点外法线方向 [rotateGap] 处。
+ * [corners] 顺序 = TL, TR, BR, BL；[rotate] 在顶边中点外法线方向 [rotateGap] 处。
  */
 internal data class OrientedGeometry(
     val center: Pt,
     val rot: Float,
     val corners: List<Pt>,
-    val edges: List<Pt>,
     val rotate: Pt,
 )
 
@@ -92,15 +89,11 @@ internal fun orientedGeometry(box: PxRect, rot: Float, rotateGap: Float): Orient
             r(Pt(box.left, box.top)), r(Pt(box.right, box.top)),
             r(Pt(box.right, box.bottom)), r(Pt(box.left, box.bottom)),
         ),
-        edges = listOf(
-            r(Pt(c.x, box.top)), r(Pt(box.right, c.y)),
-            r(Pt(c.x, box.bottom)), r(Pt(box.left, c.y)),
-        ),
         rotate = r(Pt(c.x, box.top - rotateGap)),
     )
 }
 
-/** 视图坐标点命中的选中柄（角 > 边 > 旋转），未命中返回 null。 */
+/** 视图坐标点命中的选中柄（角 > 旋转），未命中返回 null。 */
 internal fun hitElementHandle(
     geom: OrientedGeometry,
     fit: ContainFit,
@@ -111,30 +104,22 @@ internal fun hitElementHandle(
         val v = fit.imageToView(p)
         return abs(v.x - viewPoint.x) <= threshold && abs(v.y - viewPoint.y) <= threshold
     }
+    // corners 顺序 = TL, TR, BR, BL（与 [orientedGeometry] 一致）。
     val corners = listOf(
         ElementHandle.TOP_LEFT, ElementHandle.TOP_RIGHT,
-        ElementHandle.BOTTOM_LEFT, ElementHandle.BOTTOM_RIGHT,
+        ElementHandle.BOTTOM_RIGHT, ElementHandle.BOTTOM_LEFT,
     )
     corners.forEachIndexed { i, h -> if (hit(geom.corners[i])) return h }
-    val edges = listOf(
-        ElementHandle.TOP, ElementHandle.RIGHT,
-        ElementHandle.BOTTOM, ElementHandle.LEFT,
-    )
-    edges.forEachIndexed { i, h -> if (hit(geom.edges[i])) return h }
     if (hit(geom.rotate)) return ElementHandle.ROTATE
     return null
 }
 
-/** 按角/边柄把 [box] 调整到 [p]（[p] 已转进局部未旋转坐标系）。 */
+/** 按角柄把 [box] 调整到 [p]（[p] 已转进局部未旋转坐标系）。 */
 internal fun adjustByHandle(box: PxRect, handle: ElementHandle, p: Pt): PxRect = when (handle) {
     ElementHandle.TOP_LEFT -> PxRect(p.x, p.y, box.right, box.bottom)
     ElementHandle.TOP_RIGHT -> PxRect(box.left, p.y, p.x, box.bottom)
     ElementHandle.BOTTOM_LEFT -> PxRect(p.x, box.top, box.right, p.y)
     ElementHandle.BOTTOM_RIGHT -> PxRect(box.left, box.top, p.x, p.y)
-    ElementHandle.TOP -> PxRect(box.left, p.y, box.right, box.bottom)
-    ElementHandle.BOTTOM -> PxRect(box.left, box.top, box.right, p.y)
-    ElementHandle.LEFT -> PxRect(p.x, box.top, box.right, box.bottom)
-    ElementHandle.RIGHT -> PxRect(box.left, box.top, p.x, box.bottom)
     ElementHandle.ROTATE -> box
 }
 

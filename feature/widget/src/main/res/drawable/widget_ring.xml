@@ -1,0 +1,12 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- 空心圆环：evenOdd 内孔，供待办行圆点 / 点阵「空心描边」近似。
+         环厚 = (10−8)/24 ≈ 8.3%（22dp 点 ≈ 1.8dp，14dp 点 ≈ 1.2dp，接近内置 2dp / 1.5dp 描边）。 -->
+    <path
+        android:fillType="evenOdd"
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,2A10,10 0 1,0 12,22A10,10 0 1,0 12,2ZM12,4A8,8 0 1,1 12,20A8,8 0 1,1 12,4Z" />
+</vector>

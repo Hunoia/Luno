@@ -90,6 +90,11 @@ class AnnotateDocument(initial: AnnotateState) {
         state = AnnotateOps.selectTool(state, tool)
     }
 
+    /** SHAPE 工具的形状子类型切换。 */
+    fun setActiveShape(shape: ShapeKind) {
+        state = AnnotateOps.setActiveShape(state, shape)
+    }
+
     /** 橡皮的矩形擦开关（工具条次级按钮）。 */
     fun setEraserRect(enabled: Boolean) {
         state = AnnotateOps.setEraserRect(state, enabled)

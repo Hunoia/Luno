@@ -69,40 +69,37 @@ class ShapeAndRotationTest {
         val g0 = orientedGeometry(box, 0f, 20f)
         assertEquals(Pt(0f, 0f), g0.corners[0])
         assertEquals(Pt(10f, 0f), g0.corners[1])
-        assertEquals(Pt(5f, 0f), g0.edges[0])
         assertEquals(Pt(5f, -20f), g0.rotate)
 
         val g90 = orientedGeometry(box, (PI / 2).toFloat(), 20f)
         // 绕中心 (5,5) +90°：TL(0,0) → (10,0)。
         assertEquals(10f, g90.corners[0].x, 0.01f)
         assertEquals(0f, g90.corners[0].y, 0.01f)
-        // 顶边中点 → 右边中点。
-        assertEquals(10f, g90.edges[0].x, 0.01f)
-        assertEquals(5f, g90.edges[0].y, 0.01f)
     }
 
     @Test
-    fun `handle hit detects corner edge and rotate`() {
+    fun `handle hit detects corner and rotate`() {
         val fit = ContainFit.identity(100, 100)
         val box = PxRect(50f, 50f, 100f, 100f)
         val geom = orientedGeometry(box, 0f, 20f)
         val t = 5f
         // 角：TL(50,50)。
         assertEquals(ElementHandle.TOP_LEFT, hitElementHandle(geom, fit, Pt(52f, 52f), t))
-        // 边：TOP(75,50)。
-        assertEquals(ElementHandle.TOP, hitElementHandle(geom, fit, Pt(75f, 51f), t))
+        // 角：BR(100,100)。
+        assertEquals(ElementHandle.BOTTOM_RIGHT, hitElementHandle(geom, fit, Pt(99f, 99f), t))
         // 旋转柄：TOP 外 20 → (75,30)。
         assertEquals(ElementHandle.ROTATE, hitElementHandle(geom, fit, Pt(75f, 30f), t))
-        // 空白。
+        // 空白（原来的边中点现在不算柄）。
+        assertNull(hitElementHandle(geom, fit, Pt(75f, 51f), t))
         assertNull(hitElementHandle(geom, fit, Pt(200f, 200f), t))
     }
 
     @Test
-    fun `adjust by corner and edge handle`() {
+    fun `adjust by corner handle`() {
         val box = PxRect(0f, 0f, 10f, 10f)
         assertEquals(PxRect(0f, 3f, 12f, 10f), adjustByHandle(box, ElementHandle.TOP_RIGHT, Pt(12f, 3f)))
-        assertEquals(PxRect(-2f, 0f, 10f, 10f), adjustByHandle(box, ElementHandle.LEFT, Pt(-2f, 0f)))
-        assertEquals(PxRect(0f, 0f, 10f, 14f), adjustByHandle(box, ElementHandle.BOTTOM, Pt(5f, 14f)))
+        assertEquals(PxRect(-2f, 0f, 10f, 14f), adjustByHandle(box, ElementHandle.BOTTOM_LEFT, Pt(-2f, 14f)))
+        assertEquals(PxRect(0f, 0f, 14f, 14f), adjustByHandle(box, ElementHandle.BOTTOM_RIGHT, Pt(14f, 14f)))
     }
 
     @Test

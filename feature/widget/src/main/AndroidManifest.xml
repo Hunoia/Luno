@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+
+        <!-- 习惯桌面小部件（Glance）：放置时经 configure 弹窗挑习惯。 -->
+        <receiver
+            android:name=".HabitWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_habit_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/habit_widget_info" />
+        </receiver>
+
+        <activity
+            android:name=".HabitWidgetConfigActivity"
+            android:exported="true"
+            android:label="@string/widget_habit_title"
+            android:theme="@style/WidgetDialogTheme" />
+
+        <!-- 待办编辑弹窗（「+」/点行直达，不进应用页面）。 -->
+        <activity
+            android:name=".TodoEditDialogActivity"
+            android:exported="true"
+            android:label="@string/widget_todo_title"
+            android:theme="@style/WidgetDialogTheme" />
+
+        <!-- 待办桌面小部件（Glance）：无需配置，直接显示待办。 -->
+        <receiver
+            android:name=".TodoWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_todo_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/todo_widget_info" />
+        </receiver>
+
+    </application>
+
+</manifest>

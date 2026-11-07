@@ -328,9 +328,7 @@ fun ActionSelectContent(
                             widgetSpanOf = { info -> widgetSpanFor(info, gridColumns, gridRows) },
                             onSelectWidget = ::pickWidget,
                             onSelectInternalWidget = { id ->
-                                if (id == InternalWidgetIds.HABIT_CHECK ||
-                                    id == InternalWidgetIds.HABIT_HISTORY
-                                ) {
+                                if (id == InternalWidgetIds.HABIT_HISTORY) {
                                     pendingHabitWidgetId = id
                                 } else {
                                     vm.commitInternalWidget(id)

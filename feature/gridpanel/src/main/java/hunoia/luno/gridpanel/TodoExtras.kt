@@ -14,6 +14,12 @@ object TodoExtras {
     /** 主界面 Activity（显式组件名，跨进程可用）。 */
     const val ACTIVITY_MAIN = "hunoia.luno.ui.MainActivity"
 
+    /**
+     * 待办编辑弹窗 Activity（Glance 部件「+」/点行直达，不进应用页面）。
+     * 显式组件名，跨进程可用；`EXTRA_TODO_ID` 空 = 新增，非空 = 编辑。
+     */
+    const val ACTIVITY_TODO_EDIT = "hunoia.luno.widget.TodoEditDialogActivity"
+
     /** 打开代办列表页（`Boolean`，存在即触发）。 */
     const val EXTRA_OPEN_TODO_LIST = "hunoia.luno.extra.OPEN_TODO_LIST"
 
