@@ -15,10 +15,13 @@ import hunoia.luno.config.model.HabitDayState
 import hunoia.luno.gridpanel.R
 
 /** 点阵配色角色：实际色由部件 / 页面提供，视觉语义只在这里定义。 */
-internal enum class HabitDayRole { PRIMARY, NEUTRAL, ERROR }
+enum class HabitDayRole { PRIMARY, NEUTRAL, ERROR }
 
 /** 点内标记：已打 = 勾、跳过 = 横杠；部件打卡圆、历史点阵与编辑页日历共用。 */
-internal enum class HabitDayMark { NONE, CHECK, MINUS }
+enum class HabitDayMark { NONE, CHECK, MINUS }
+
+/** 标记颜色角色：勾固定白色，横杠跟随主色，无标记透明。 */
+enum class HabitDayMarkTint { WHITE, PRIMARY, NONE }
 
 /**
  * 一天的状态 → 视觉语义的**唯一**映射。部件打卡圆、历史点阵与编辑页近 30 天日历共用，
@@ -30,21 +33,23 @@ internal enum class HabitDayMark { NONE, CHECK, MINUS }
  * - 断签 = 弱灰 + 错误色描边（仍可补打，但 streak 已断）；
  * - 未开始 = 弱灰。
  */
-internal data class HabitDayVisual(
+data class HabitDayVisual(
     val fillRole: HabitDayRole?,
     val fillAlpha: Float,
     val borderRole: HabitDayRole?,
     val borderAlpha: Float,
     val mark: HabitDayMark,
+    val markTint: HabitDayMarkTint,
 )
 
-internal fun HabitDayState.visual(): HabitDayVisual = when (this) {
+fun HabitDayState.visual(): HabitDayVisual = when (this) {
     HabitDayState.CHECKED -> HabitDayVisual(
         fillRole = HabitDayRole.PRIMARY,
         fillAlpha = 1f,
         borderRole = HabitDayRole.PRIMARY,
         borderAlpha = 1f,
         mark = HabitDayMark.CHECK,
+        markTint = HabitDayMarkTint.WHITE,
     )
     HabitDayState.DUE -> HabitDayVisual(
         fillRole = null,
@@ -52,6 +57,7 @@ internal fun HabitDayState.visual(): HabitDayVisual = when (this) {
         borderRole = HabitDayRole.PRIMARY,
         borderAlpha = 1f,
         mark = HabitDayMark.NONE,
+        markTint = HabitDayMarkTint.NONE,
     )
     HabitDayState.SKIPPED -> HabitDayVisual(
         fillRole = HabitDayRole.PRIMARY,
@@ -59,6 +65,7 @@ internal fun HabitDayState.visual(): HabitDayVisual = when (this) {
         borderRole = HabitDayRole.PRIMARY,
         borderAlpha = 0.15f,
         mark = HabitDayMark.MINUS,
+        markTint = HabitDayMarkTint.PRIMARY,
     )
     HabitDayState.OVERDUE -> HabitDayVisual(
         fillRole = HabitDayRole.NEUTRAL,
@@ -66,6 +73,7 @@ internal fun HabitDayState.visual(): HabitDayVisual = when (this) {
         borderRole = HabitDayRole.ERROR,
         borderAlpha = 0.7f,
         mark = HabitDayMark.NONE,
+        markTint = HabitDayMarkTint.NONE,
     )
     HabitDayState.INACTIVE -> HabitDayVisual(
         fillRole = HabitDayRole.NEUTRAL,
@@ -73,6 +81,7 @@ internal fun HabitDayState.visual(): HabitDayVisual = when (this) {
         borderRole = HabitDayRole.NEUTRAL,
         borderAlpha = 0.15f,
         mark = HabitDayMark.NONE,
+        markTint = HabitDayMarkTint.NONE,
     )
 }
 
@@ -90,10 +99,10 @@ internal fun HabitDayVisual.borderColor(palette: HabitDayPalette): Color =
     borderRole?.color(palette)?.copy(alpha = borderAlpha) ?: Color.Transparent
 
 /** 标记色：勾压在实心主色上用白色；横杠压在半透明主色上用不透明主色，保证对比度（§6）。 */
-internal fun HabitDayVisual.markTint(palette: HabitDayPalette): Color = when (mark) {
-    HabitDayMark.CHECK -> Color.White
-    HabitDayMark.MINUS -> palette.primary
-    HabitDayMark.NONE -> Color.Transparent
+internal fun HabitDayVisual.markTint(palette: HabitDayPalette): Color = when (markTint) {
+    HabitDayMarkTint.WHITE -> Color.White
+    HabitDayMarkTint.PRIMARY -> palette.primary
+    HabitDayMarkTint.NONE -> Color.Transparent
 }
 
 /**

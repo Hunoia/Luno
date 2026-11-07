@@ -192,7 +192,7 @@ const val MotionCellIn = 120
 const val MotionCellOut = 100
 const val MotionPanelIn = 170
 const val MotionPanelOut = 140
-/** 双击确认窗口（ms）：部件打卡 / 代办完成共用的倒计时时长，不随系统动画缩放改变。 */
+/** 双击确认窗口（ms）：面板内置习惯打卡 / 待办完成的倒计时时长，不随系统动画缩放改变。 */
 const val MotionConfirmCountdown = 1200
 
 // 编辑页底部保存 FAB 的边长（大字体下仍可点，命中区见 MinInteractiveSize）。

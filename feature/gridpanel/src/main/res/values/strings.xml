@@ -14,6 +14,7 @@
     <string name="grid_panel_habit_empty">未配置习惯</string>
     <string name="grid_panel_habit_missing">习惯已删除</string>
     <string name="grid_panel_habit_confirm_hint">再点一次确认打卡</string>
+    <string name="grid_panel_habit_edit_hint">编辑习惯</string>
     <string name="grid_panel_habit_title">%1$s · %2$d 天</string>
     <string name="habit_day_checked">已打卡</string>
     <string name="habit_day_due">待打卡</string>
@@ -25,6 +26,7 @@
     <string name="grid_panel_todo_desc">待办 %1$d 项</string>
     <string name="grid_panel_todo_empty">暂无待办</string>
     <string name="grid_panel_todo_add">新建待办</string>
+    <string name="grid_panel_todo_open_list">打开待办列表</string>
     <string name="grid_panel_todo_complete">标记完成</string>
     <string name="grid_panel_todo_open">打开：%1$s</string>
     <string name="app_drawer_disabled_app">该应用已被禁用</string>

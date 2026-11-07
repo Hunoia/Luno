@@ -73,57 +73,82 @@ fun ConfirmDialog(
         onDismissRequest = onDismissRequest,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        Box(
+        ConfirmDialogContent(
+            title = title,
+            text = text,
+            confirmLabel = confirmLabel,
+            dismissLabel = dismissLabel,
+            destructive = destructive,
+            onDismiss = onDismissRequest,
+            onConfirm = {
+                onDismissRequest()
+                onConfirm()
+            },
+        )
+    }
+}
+
+/**
+ * 确认弹窗内容（底部锚定卡片 + 取消/确认）：[ConfirmDialog] 与 desktop 部件确认 Activity
+ * 共用，避免 Activity 里再套一层 Dialog 产生双窗口/双遮罩。
+ */
+@Composable
+fun ConfirmDialogContent(
+    title: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+    text: String? = null,
+    confirmLabel: String = stringResource(R.string.confirm),
+    dismissLabel: String = stringResource(R.string.cancel),
+    destructive: Boolean = false,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onDismiss,
+            ),
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        Column(
             modifier = Modifier
-                .fillMaxSize()
+                .padding(horizontal = PageGutter, vertical = PageGutter)
+                .fillMaxWidth()
+                .clip(ExtraLargeShape)
+                .background(MaterialTheme.colorScheme.surface, ExtraLargeShape)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    onClick = onDismissRequest,
-                ),
-            contentAlignment = Alignment.BottomCenter,
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = PageGutter, vertical = PageGutter)
-                    .fillMaxWidth()
-                    .clip(ExtraLargeShape)
-                    .background(MaterialTheme.colorScheme.surface, ExtraLargeShape)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = {},
-                    )
-                    .padding(LargeGutter),
-                verticalArrangement = Arrangement.spacedBy(ListSpacing),
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    onClick = {},
                 )
-                text?.let { body ->
-                    // 多行正文（如“无法保存”的原因清单）超长时内部滚动
-                    Text(
-                        text = body,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .heightIn(max = SheetListMaxHeight)
-                            .verticalScroll(rememberScrollState()),
-                    )
-                }
-                SheetActionButtons(
-                    onDismiss = onDismissRequest,
-                    onConfirm = {
-                        onDismissRequest()
-                        onConfirm()
-                    },
-                    confirmLabel = confirmLabel,
-                    dismissLabel = dismissLabel,
-                    destructive = destructive,
+                .padding(LargeGutter),
+            verticalArrangement = Arrangement.spacedBy(ListSpacing),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            text?.let { body ->
+                // 多行正文（如“无法保存”的原因清单）超长时内部滚动
+                Text(
+                    text = body,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .heightIn(max = SheetListMaxHeight)
+                        .verticalScroll(rememberScrollState()),
                 )
             }
+            SheetActionButtons(
+                onDismiss = onDismiss,
+                onConfirm = onConfirm,
+                confirmLabel = confirmLabel,
+                dismissLabel = dismissLabel,
+                destructive = destructive,
+            )
         }
     }
 }

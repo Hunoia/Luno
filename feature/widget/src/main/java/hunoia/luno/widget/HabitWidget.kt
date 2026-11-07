@@ -2,12 +2,14 @@ package hunoia.luno.widget
 
 import android.content.ComponentName
 import android.content.Context
+import android.util.TypedValue
 import android.content.Intent
+import android.graphics.Paint
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
-import androidx.glance.text.FontWeight
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
@@ -18,19 +20,15 @@ import androidx.glance.GlanceTheme
 import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.LocalSize
-import androidx.glance.action.ActionParameters
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.SizeMode
-import androidx.glance.appwidget.action.ActionCallback
-import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
-import androidx.glance.appwidget.state.getAppWidgetState
-import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.background
 import androidx.glance.color.ColorProviders
+import androidx.glance.currentState
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
@@ -59,6 +57,14 @@ import hunoia.luno.config.model.currentStreak
 import hunoia.luno.config.model.lastNDaysDots
 import hunoia.luno.domain.gridpanel.HabitCenter
 import hunoia.luno.gridpanel.HabitExtras
+import hunoia.luno.gridpanel.habit.HabitDayMark
+import hunoia.luno.gridpanel.habit.HabitDayMarkTint
+import hunoia.luno.gridpanel.habit.HabitDayRole
+import hunoia.luno.gridpanel.habit.HabitDayVisual
+import hunoia.luno.gridpanel.habit.HabitTitleGap
+import hunoia.luno.gridpanel.habit.dotSize
+import hunoia.luno.gridpanel.habit.habitGridGeometry
+import hunoia.luno.gridpanel.habit.visual
 import java.time.LocalDate
 
 /** 部件圆角：镜像内置 `ItemCorner`（gridpanel geometry = 14dp）。 */
@@ -72,56 +78,64 @@ internal val WidgetInnerPadding = 10.dp
  * 标题「名 · 连续 N 天」+ 历史点阵网格（近 N 天勾/横杠/空）。
  *
  * 绑定：放置时经 [HabitWidgetConfigActivity] 挑一个习惯，写进每实例 state。
- * 交互：标题点击打开该习惯编辑页；点阵区点击进入打卡确认（中央多帧倒计时环，
- * 1200ms 窗口内再点才打卡；超时取消）。今日已打 / 跳过日点阵不可点（canCheck 门控）。
+ * 交互：标题点击打开该习惯编辑页；点阵区今天可打卡时 → 普通确认弹窗（[WidgetConfirmDialogActivity]），
+ * 已打卡 / 跳过时 → 直接打开编辑页。
  *
  * 配色：主色 = `habit.colorSpec` 实时解析（自定义 ARGB / 主题角色，镜像 ui/design
  * `ColorSpec.toColor`），文字/背景走 `GlanceTheme.colors`（Material You 动态主题），
- * 点阵状态色复刻内置 `HabitDayVisual`（fill / border / mark），见 [dotVisual]。
+ * 点阵状态色复刻内置 `HabitDayVisual`（fill / border / mark），见 [HabitDayVisual]。
  * 数据源 [HabitCenter.habitConfig]（MultiProcess DataStore），经 domain 门面订阅；
  * 写回走 [HabitCenter.toggleHabit]（应用内状态变更，不走 Dispatcher，architecture §7.5）。
  */
 class HabitWidget : GlanceAppWidget() {
 
-    override val sizeMode: SizeMode = SizeMode.Responsive(
-        setOf(DpSize(110.dp, 110.dp), DpSize(180.dp, 180.dp), DpSize(260.dp, 260.dp), DpSize(340.dp, 340.dp)),
-    )
+    // Exact：LocalSize = 实际绑定尺寸。Responsive 下 LocalSize 只是最接近的尺寸桶，
+    // 但 RemoteViews 会按真实尺寸拉伸，几何按桶算会让点阵留白偏大（内置部件用实际约束则正常）。
+    override val sizeMode: SizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val prefs: Preferences = getAppWidgetState(context, id)
-        val config = HabitCenter.getHabitConfig()
-        val habit = config.habitById(prefs[WidgetStateKeys.HABIT_ID] ?: "")
-        val today = LocalDate.now().toEpochDay()
-        val checks = habit?.let { config.checks[it.id].orEmpty() }.orEmpty()
-        val interval = habit?.interval ?: 1
-        val streak = habit?.let { currentStreak(checks, today, it.interval) } ?: 0L
-        // 待确认态：超时即无意义（下次交互当新起点）。
-        val now = System.currentTimeMillis()
-        val pendingAt = prefs[WidgetStateKeys.HABIT_PENDING_AT] ?: 0L
-        val pending = habit != null &&
-            prefs[WidgetStateKeys.HABIT_PENDING] == true &&
-            now - pendingAt < ConfirmWindowMillis
-        val emptyText = context.getString(
-            if (config.hasHabits) R.string.widget_habit_missing else R.string.widget_habit_empty,
-        )
-        val titleText = habit?.let {
-            context.getString(R.string.widget_habit_streak, it.name, streak)
-        } ?: ""
-        val confirmHint = context.getString(R.string.widget_habit_confirm)
-
         provideContent {
-            HabitContent(
-                context = context,
-                habit = habit,
-                checks = checks,
-                interval = interval,
-                today = today,
-                titleText = titleText,
-                emptyText = emptyText,
-                confirmHint = confirmHint,
-                pending = pending,
-                clickable = habit != null && canCheck(checks, today, interval, today),
-            )
+            // 数据与每实例状态必须在**组合内**读取：Glance 的 session 在 45s 内是复用的，
+            // update() 只重跑 provideContent 的组合，不会再次执行 provideGlance。
+            // 在外面读一次再当参数传进来，部件会一直显示 session 创建时的旧数据
+            // （打卡后仍停在旧点阵 / 待办完成后行不消失）。
+            // 首帧用 null 表示「数据流还没到」，不能拿默认空配置冒充已加载：
+            // 否则已绑定的部件会先闪一下「习惯已删除」。
+            val config by HabitCenter.habitConfig.collectAsState(initial = null)
+            val prefs = currentState<Preferences>()
+            val loaded = config
+            if (loaded == null) {
+                Box(
+                    modifier = GlanceModifier
+                        .fillMaxSize()
+                        .cornerRadius(ItemCorner)
+                        .background(GlanceTheme.colors.surface),
+                ) {}
+            } else {
+                val habitId = prefs[WidgetStateKeys.HABIT_ID].orEmpty()
+                val habit = loaded.habitById(habitId)
+                val today = LocalDate.now().toEpochDay()
+                val checks = habit?.let { loaded.checks[it.id].orEmpty() }.orEmpty()
+                val interval = habit?.interval ?: 1
+                val streak = habit?.let { currentStreak(checks, today, it.interval) } ?: 0L
+                // 未绑定（放置配置被取消 / 旧版本没写入 id）不能报「习惯已删除」。
+                val emptyText = context.getString(
+                    if (habitId.isNotEmpty()) R.string.widget_habit_missing else R.string.widget_habit_unconfigured,
+                )
+                val titleText = habit?.let {
+                    context.getString(R.string.widget_habit_streak, it.name, streak)
+                } ?: ""
+
+                HabitContent(
+                    context = context,
+                    habit = habit,
+                    checks = checks,
+                    interval = interval,
+                    today = today,
+                    titleText = titleText,
+                    emptyText = emptyText,
+                )
+            }
         }
     }
 }
@@ -165,9 +179,6 @@ private fun HabitContent(
     today: Long,
     titleText: String,
     emptyText: String,
-    confirmHint: String,
-    pending: Boolean,
-    clickable: Boolean,
 ) {
     val colors = GlanceTheme.colors
     Box(
@@ -178,15 +189,20 @@ private fun HabitContent(
             .padding(WidgetInnerPadding),
     ) {
         if (habit == null) {
-            Text(
-                text = emptyText,
-                modifier = GlanceModifier.clickable(onClick = actionStartActivity(openAppIntent(context))),
-                style = TextStyle(
-                    color = colors.onSurfaceVariant,
-                    fontSize = 12.sp,
-                    textAlign = TextAlign.Center,
-                ),
-            )
+            Box(
+                modifier = GlanceModifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = emptyText,
+                    modifier = GlanceModifier.clickable(onClick = actionStartActivity(openAppIntent(context))),
+                    style = TextStyle(
+                        color = colors.onSurfaceVariant,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center,
+                    ),
+                )
+            }
         } else {
             HabitBody(
                 context = context,
@@ -195,9 +211,6 @@ private fun HabitContent(
                 interval = interval,
                 today = today,
                 titleText = titleText,
-                confirmHint = confirmHint,
-                pending = pending,
-                clickable = habit != null && canCheck(checks, today, interval, today),
             )
         }
     }
@@ -211,31 +224,25 @@ private fun HabitBody(
     interval: Int,
     today: Long,
     titleText: String,
-    confirmHint: String,
-    pending: Boolean,
-    clickable: Boolean,
 ) {
     val colors = GlanceTheme.colors
     val size = LocalSize.current
-    // 点阵自适应（镜像内置 HabitHistoryCell 公式）：标题 20dp + 间距 6dp + 内边距 10dp×2。
-    val contentW = (size.width - 20.dp).coerceAtLeast(24.dp)
-    val contentH = (size.height - 20.dp).coerceAtLeast(24.dp)
-    val titleH = 20.dp
-    val gap = 6.dp
-    val gridH = (contentH - titleH - gap).coerceAtLeast(20.dp)
-    val minCellW = 22.dp
-    val minCellH = 30.dp
-    val cols = (contentW / minCellW).toInt().coerceIn(3, 8)
-    val rows = (gridH / minCellH).toInt().coerceIn(1, 4)
-    val cellW = ((contentW - (cols - 1).dp) / cols).coerceAtLeast(12.dp)
-    val cellH = ((gridH - (rows - 1).dp) / rows).coerceAtLeast(16.dp)
-    val dots = lastNDaysDots(checks, today, interval, cols * rows)
-    // 点阵配色：习惯色实时解析 + 中性/错误角色按 onSurface / error 缩放 alpha（镜像 HabitDayVisual）。
+    // 几何与内置历史部件共用（HabitGridGeometry），这里只扣除 10dp 内边距。
+    val innerW = (size.width - 20.dp).coerceAtLeast(24.dp)
+    val innerH = (size.height - 20.dp).coerceAtLeast(24.dp)
+    val titleSizeSp = (innerW.value * 0.11f).coerceIn(10f, 14f)
+    // 标题行实际高度按 TextView 字体度量算（可能 > 20dp），避免把点阵区算高后底部裁切。
+    val titleHeight = maxOf(singleLineTextHeight(context, titleSizeSp), 9.dp)
+    val grid = habitGridGeometry(innerW, innerH, titleHeight)
+    val dots = lastNDaysDots(checks, today, interval, grid.cols * grid.rows)
+    // Glance 的 TextView 没有 lineHeight 控制，单行高度 ≈ fontMetrics(top..bottom)，
+    // 比 fontSize 大；按这个高度留位，避免点阵圆点底部被裁。
+    val dateTextHeight = singleLineTextHeight(context, grid.dateSizeSp)
+    val dotSize = grid.dotSize(dateTextHeight)
+    // 点阵配色：角色 → 实际色；状态 → 角色的映射由内置 HabitDayVisual 唯一提供。
     val habitColor = habitColor(habit, colors)
     val neutral = colors.onSurface
-    val errorDim = colors.error.alpha(context, 0.70f)
-    val neutralRing = neutral.alpha(context, 0.15f)
-    val neutralFill = neutral.alpha(context, 0.12f)
+    val error = colors.error
     val dateColor = neutral.alpha(context, 0.50f)
 
     Column(
@@ -245,7 +252,7 @@ private fun HabitBody(
         Row(
             modifier = GlanceModifier
                 .fillMaxWidth()
-                .clickable(onClick = actionStartActivity(editHabitIntent(context, habit.id))),
+                .clickable(onClick = actionStartActivity(HabitExtras.editIntent(context, habit.id))),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
@@ -260,51 +267,61 @@ private fun HabitBody(
                 modifier = GlanceModifier.defaultWeight(),
                 style = TextStyle(
                     color = colors.onSurface,
-                    fontSize = (contentW.value * 0.11f).coerceIn(10f, 14f).sp,
+                    fontSize = titleSizeSp.sp,
                 ),
                 maxLines = 1,
             )
         }
-        Spacer(GlanceModifier.height(gap))
-        // 点阵区域：点击进入打卡确认（中央倒计时环）；倒计时内再点打卡今天。
+        Spacer(GlanceModifier.height(HabitTitleGap))
+        // 点阵区域：今天可打卡 → 普通确认弹窗；已打卡 / 跳过 → 跳转习惯编辑页。
+        val canCheckToday = canCheck(checks, today, interval, today)
+        val gridDescription = context.getString(
+            if (canCheckToday) R.string.widget_habit_check else R.string.widget_habit_edit,
+            habit.name,
+        )
+        val gridAction = if (canCheckToday) {
+            actionStartActivity(
+                WidgetConfirmDialogActivity.intent(
+                    context,
+                    WidgetConfirmDialogActivity.ConfirmKind.HABIT_CHECK,
+                    habit.id,
+                    habit.name,
+                ),
+            )
+        } else {
+            actionStartActivity(HabitExtras.editIntent(context, habit.id))
+        }
         Box(
             modifier = GlanceModifier
                 .fillMaxSize()
                 .defaultWeight()
-                .semantics { contentDescription = confirmHint }
-                .then(
-                    if (clickable) {
-                        GlanceModifier.clickable(onClick = actionRunCallback<HabitCheckCallback>())
-                    } else {
-                        GlanceModifier
-                    },
-                ),
+                .semantics { contentDescription = gridDescription }
+                .clickable(onClick = gridAction),
             contentAlignment = Alignment.Center,
         ) {
             Column(
                 modifier = GlanceModifier.fillMaxSize(),
                 verticalAlignment = Alignment.Top,
             ) {
-                for (row in 0 until rows) {
+                for (row in 0 until grid.rows) {
                     Row(
                         modifier = GlanceModifier
                             .fillMaxWidth()
                             .defaultWeight(),
                         horizontalAlignment = Alignment.Start,
                     ) {
-                        for (col in 0 until cols) {
-                            val dot = dots.getOrNull(row * cols + col)
+                        for (col in 0 until grid.cols) {
+                            val dot = dots.getOrNull(row * grid.cols + col)
                             if (dot != null) {
                                 HabitDotCell(
                                     context = context,
                                     dot = dot,
                                     habitColor = habitColor,
-                                    errorDim = errorDim,
-                                    neutralRing = neutralRing,
-                                    neutralFill = neutralFill,
+                                    neutral = neutral,
+                                    error = error,
                                     dateColor = dateColor,
-                                    cellWidth = cellW,
-                                    cellHeight = cellH,
+                                    dateSizeSp = grid.dateSizeSp,
+                                    dotSize = dotSize,
                                     modifier = GlanceModifier.defaultWeight(),
                                 )
                             } else {
@@ -314,104 +331,58 @@ private fun HabitBody(
                     }
                 }
             }
-            // 待确认胶囊：主色实底 + 确认提示（无 scrim，不遮点阵；替换原黑色遮罩 + 位图进度环）。
-            if (pending) {
-                Box(
-                    modifier = GlanceModifier
-                        .background(habitColor)
-                        .cornerRadius(16.dp)
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = confirmHint,
-                        style = TextStyle(
-                            color = ColorProvider(Color.White),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                        ),
-                        maxLines = 1,
-                    )
-                }
-            }
         }
     }
 }
 
-/** 点阵单格视觉：镜像内置 HabitDayVisual（fill + border + mark）；Glance 无 border → ring 矢量近似。 */
-private data class DotVisual(
-    val fill: ColorProvider,
-    val ring: ColorProvider?,
-    val mark: DotMark,
-    val markTint: ColorProvider,
-)
-
-private enum class DotMark { NONE, CHECK, MINUS }
-
-/** 状态 → 视觉：与内置 `HabitDayVisual` 同口径（DUE=空心描边、OVERDUE=中性底+错误描边）。 */
-private fun dotVisual(
-    context: Context,
-    state: HabitDayState,
-    habitColor: ColorProvider,
-    errorDim: ColorProvider,
-    neutralRing: ColorProvider,
-    neutralFill: ColorProvider,
-): DotVisual {
-    val transparent = ColorProvider(Color.Transparent)
-    return when (state) {
-        // 已打 = 实心主色 + 白勾（border 同色不可见）。
-        HabitDayState.CHECKED -> DotVisual(habitColor, null, DotMark.CHECK, ColorProvider(Color.White))
-        // 待打 = 空心：透明底 + 主色描边。
-        HabitDayState.DUE -> DotVisual(transparent, habitColor, DotMark.NONE, transparent)
-        // 跳过 = 主色 30% 底 + 主色 15% 描边 + 主色横杠（标记用不透明主色，保证对比度）。
-        HabitDayState.SKIPPED -> DotVisual(
-            habitColor.alpha(context, 0.30f),
-            habitColor.alpha(context, 0.15f),
-            DotMark.MINUS,
-            habitColor,
-        )
-        // 断签 = 中性 12% 底 + 错误 70% 描边（红圈）。
-        HabitDayState.OVERDUE -> DotVisual(neutralFill, errorDim, DotMark.NONE, transparent)
-        // 未开始 = 中性 12% 底 + 中性 15% 描边。
-        HabitDayState.INACTIVE -> DotVisual(neutralFill, neutralRing, DotMark.NONE, transparent)
-    }
+/** 角色 → Glance 色；状态 → 角色由内置 [HabitDayVisual] 唯一提供，这里只做宿主色解析。 */
+private fun roleColor(
+    role: HabitDayRole?,
+    primary: ColorProvider,
+    neutral: ColorProvider,
+    error: ColorProvider,
+): ColorProvider? = when (role) {
+    HabitDayRole.PRIMARY -> primary
+    HabitDayRole.NEUTRAL -> neutral
+    HabitDayRole.ERROR -> error
+    null -> null
 }
 
-private fun DotMark.drawableRes(): Int = when (this) {
-    DotMark.CHECK -> R.drawable.widget_check
-    DotMark.MINUS -> R.drawable.widget_minus
-    DotMark.NONE -> 0
+private fun ColorProvider?.withAlpha(context: Context, a: Float): ColorProvider = when {
+    this == null -> ColorProvider(Color.Transparent)
+    a >= 1f -> this
+    else -> this.alpha(context, a)
 }
 
-/** 点阵单格：日期文本 + 圆点（勾 / 横杠 / 空），镜像内置 HabitDotView（含描边与无障碍描述）。 */
+private fun HabitDayMark.drawableRes(): Int = when (this) {
+    HabitDayMark.CHECK -> R.drawable.widget_check
+    HabitDayMark.MINUS -> R.drawable.widget_minus
+    HabitDayMark.NONE -> 0
+}
+
+/** 点阵单格：日期文本 + 圆点，颜色/标记全部来自共享 [HabitDayVisual]。 */
 @Composable
 private fun HabitDotCell(
     context: Context,
     dot: HabitDot,
     habitColor: ColorProvider,
-    errorDim: ColorProvider,
-    neutralRing: ColorProvider,
-    neutralFill: ColorProvider,
+    neutral: ColorProvider,
+    error: ColorProvider,
     dateColor: ColorProvider,
-    cellWidth: Dp,
-    cellHeight: Dp,
+    dateSizeSp: Float,
+    dotSize: Dp,
     modifier: GlanceModifier = GlanceModifier,
 ) {
-    val dateSize = (cellWidth.value * 0.28f).coerceIn(6f, 9f)
-    val dateSizeDp = dateSize.dp
-    val gap = 1.dp
-    val safety = 1.dp
-    val maxDotByW = (cellWidth * 0.75f).coerceIn(6.dp, 18.dp)
-    val maxDotByH = (cellHeight - dateSizeDp - gap - safety).coerceAtLeast(4.dp)
-    val dotSize = minOf(maxDotByW, maxDotByH)
-    val visual = dotVisual(
-        context = context,
-        state = dot.state,
-        habitColor = habitColor,
-        errorDim = errorDim,
-        neutralRing = neutralRing,
-        neutralFill = neutralFill,
-    )
+    val visual = dot.state.visual()
+    val fill = roleColor(visual.fillRole, habitColor, neutral, error)
+        .withAlpha(context, visual.fillAlpha)
+    val ring = roleColor(visual.borderRole, habitColor, neutral, error)
+        .withAlpha(context, visual.borderAlpha)
+    val markTint = when (visual.markTint) {
+        HabitDayMarkTint.WHITE -> ColorProvider(Color.White)
+        HabitDayMarkTint.PRIMARY -> habitColor
+        HabitDayMarkTint.NONE -> null
+    }
     val stateLabel = dot.state.label(context)
     val day = dayOfMonthOf(dot.day)
     Column(
@@ -421,36 +392,33 @@ private fun HabitDotCell(
     ) {
         Text(
             text = day.toString(),
-            style = TextStyle(
-                color = dateColor,
-                fontSize = dateSize.sp,
-            ),
+            style = TextStyle(color = dateColor, fontSize = dateSizeSp.sp),
             maxLines = 1,
         )
-        Spacer(GlanceModifier.height(gap))
+        Spacer(GlanceModifier.height(1.dp))
         Box(
             modifier = GlanceModifier
                 .size(dotSize)
                 .cornerRadius(dotSize / 2)
-                .background(visual.fill)
+                .background(fill)
                 .semantics { contentDescription = "$day 日 · $stateLabel" },
             contentAlignment = Alignment.Center,
         ) {
             // 描边环：空心描边近似（内置 border 1.5dp）。
-            if (visual.ring != null) {
+            if (visual.borderRole != null) {
                 Image(
                     provider = ImageProvider(R.drawable.widget_ring),
                     contentDescription = null,
                     modifier = GlanceModifier.fillMaxSize(),
-                    colorFilter = ColorFilter.tint(visual.ring),
+                    colorFilter = ColorFilter.tint(ring),
                 )
             }
-            if (visual.mark != DotMark.NONE) {
+            if (visual.mark != HabitDayMark.NONE && markTint != null) {
                 Image(
                     provider = ImageProvider(visual.mark.drawableRes()),
                     contentDescription = null,
                     modifier = GlanceModifier.size(dotSize * 0.7f),
-                    colorFilter = ColorFilter.tint(visual.markTint),
+                    colorFilter = ColorFilter.tint(markTint),
                 )
             }
         }
@@ -470,6 +438,16 @@ private fun HabitDayState.label(context: Context): String = context.getString(
     },
 )
 
+/** 单行 TextView 高度（dp）：用 fontMetrics 的 top/bottom，含字体上下留白，比 fontSize 保守。 */
+private fun singleLineTextHeight(context: Context, sizeSp: Float): Dp {
+    val metrics = context.resources.displayMetrics
+    val paint = Paint().apply {
+        textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sizeSp, metrics)
+    }
+    val fm = paint.fontMetrics
+    return ((fm.bottom - fm.top) / metrics.density).dp
+}
+
 /** epochDay → 月内日（与内置 HabitDotView 一致）。 */
 private fun dayOfMonthOf(epochDay: Long): Int = LocalDate.ofEpochDay(epochDay).dayOfMonth
 
@@ -477,45 +455,4 @@ private fun dayOfMonthOf(epochDay: Long): Int = LocalDate.ofEpochDay(epochDay).d
 private fun openAppIntent(context: Context): Intent = Intent().apply {
     component = ComponentName(context.packageName, HabitExtras.ACTIVITY_MAIN)
     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-}
-
-/** 打开 Luno 主界面并进 [habitId] 的编辑页。 */
-private fun editHabitIntent(context: Context, habitId: String): Intent = openAppIntent(context).apply {
-    putExtra(HabitExtras.EXTRA_EDIT_HABIT_ID, habitId)
-}
-
-/**
- * 点阵区打卡双击确认回调：首点置待确认态，窗口内再点完成打卡，
- * 窗口内再点才真正打卡；超时/再次首点都从新起点开始。
- * 已打 / 跳过（clickable=false）时点阵不可点，不会走到这里。
- */
-class HabitCheckCallback : ActionCallback {
-    override suspend fun onAction(
-        context: Context,
-        glanceId: GlanceId,
-        parameters: ActionParameters,
-    ) {
-        val widget = HabitWidget()
-        val prefs: Preferences = widget.getAppWidgetState(context, glanceId)
-        val now = System.currentTimeMillis()
-        val pending = prefs[WidgetStateKeys.HABIT_PENDING] == true
-        val pendingAt = prefs[WidgetStateKeys.HABIT_PENDING_AT] ?: 0L
-        if (pending && now - pendingAt < ConfirmWindowMillis) {
-            val habitId = prefs[WidgetStateKeys.HABIT_ID]
-            val config = HabitCenter.getHabitConfig()
-            val habit = config.habitById(habitId ?: "")
-            if (habit != null) HabitCenter.toggleHabit(habit.id, LocalDate.now().toEpochDay())
-            updateAppWidgetState(context, glanceId) {
-                it[WidgetStateKeys.HABIT_PENDING] = false
-                it.remove(WidgetStateKeys.HABIT_PENDING_AT)
-            }
-            widget.update(context, glanceId)
-        } else {
-            updateAppWidgetState(context, glanceId) {
-                it[WidgetStateKeys.HABIT_PENDING] = true
-                it[WidgetStateKeys.HABIT_PENDING_AT] = now
-            }
-            widget.update(context, glanceId)
-        }
-    }
 }

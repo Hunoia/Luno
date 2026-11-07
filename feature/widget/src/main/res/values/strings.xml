@@ -3,10 +3,15 @@
     <!-- 习惯部件 -->
     <string name="widget_habit_title">习惯</string>
     <string name="widget_habit_streak">%1$s · %2$d 天</string>
-    <!-- 空态 / 缺失态：措辞与内置面板一致（grid_panel_habit_empty / grid_panel_habit_missing）。 -->
-    <string name="widget_habit_empty">未配置习惯</string>
+    <!-- 未绑定（配置被取消 / 旧版本无 id）与已删除分开：缺失态沿用内置面板同词（grid_panel_habit_missing），
+         未绑定不能说成「已删除」。 -->
+    <string name="widget_habit_unconfigured">未选择习惯</string>
     <string name="widget_habit_missing">习惯已删除</string>
-    <string name="widget_habit_confirm">再点一次确认打卡</string>
+    <string name="widget_habit_check">打卡「%1$s」</string>
+    <string name="widget_habit_edit">编辑「%1$s」</string>
+    <!-- 部件确认弹窗 -->
+    <string name="widget_habit_check_title">确认打卡</string>
+    <string name="widget_habit_check_message">今天打卡「%1$s」？</string>
     <!-- 点阵状态文案：与内置 habit_day_* 一致。 -->
     <string name="widget_habit_day_checked">已打卡</string>
     <string name="widget_habit_day_due">待打卡</string>
@@ -21,8 +26,11 @@
     <!-- 待办部件 -->
     <string name="widget_todo_title">待办 · %1$d</string>
     <string name="widget_todo_empty">暂无待办</string>
+    <string name="widget_todo_open_list">打开待办列表</string>
     <string name="widget_todo_add">新增待办</string>
     <string name="widget_todo_open">打开「%1$s」</string>
     <string name="widget_todo_complete">完成「%1$s」</string>
+    <string name="widget_todo_complete_title">完成待办</string>
+    <string name="widget_todo_complete_message">把「%1$s」标记为完成？</string>
     <string name="widget_todo_cancel">取消</string>
 </resources>

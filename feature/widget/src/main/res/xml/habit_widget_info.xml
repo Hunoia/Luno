@@ -11,4 +11,6 @@
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
     android:configure="hunoia.luno.widget.HabitWidgetConfigActivity"
+    android:widgetFeatures="reconfigurable"
+    android:previewImage="@drawable/widget_preview_habit"
     android:initialLayout="@layout/widget_initial" />

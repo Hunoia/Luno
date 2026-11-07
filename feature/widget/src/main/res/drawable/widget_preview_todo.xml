@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 待办部件放置预览：圆角卡片 + 标题（色点 + 横条 + 主色圆形按钮）+ 3 行列表示意。 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 背景圆角卡片 -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#F5F4F6" />
+            <corners android:radius="14dp" />
+        </shape>
+    </item>
+
+    <!-- 标题：主色点 -->
+    <item
+        android:width="9dp"
+        android:height="9dp"
+        android:gravity="top|start"
+        android:left="12dp"
+        android:top="12dp">
+        <shape android:shape="oval">
+            <solid android:color="#6750A4" />
+        </shape>
+    </item>
+
+    <!-- 标题：横条 -->
+    <item
+        android:height="4dp"
+        android:gravity="top|start"
+        android:left="27dp"
+        android:top="15dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#49454F" />
+            <corners android:radius="2dp" />
+        </shape>
+    </item>
+
+    <!-- 标题右侧：主色圆形「+」按钮 -->
+    <item
+        android:width="16dp"
+        android:height="16dp"
+        android:gravity="top|end"
+        android:right="12dp"
+        android:top="8dp">
+        <shape android:shape="oval">
+            <solid android:color="#6750A4" />
+        </shape>
+    </item>
+
+    <!-- 行 1：主色实心圆（确认态） + 横条 -->
+    <item android:width="14dp" android:height="14dp" android:gravity="top|start" android:left="14dp" android:top="38dp">
+        <shape android:shape="oval"><solid android:color="#6750A4" /></shape>
+    </item>
+    <item android:height="4dp" android:gravity="top|start" android:left="36dp" android:right="12dp" android:top="43dp">
+        <shape android:shape="rectangle"><solid android:color="#49454F" /><corners android:radius="2dp" /></shape>
+    </item>
+
+    <!-- 行 2：圆环（未完成） + 横条 -->
+    <item android:width="14dp" android:height="14dp" android:gravity="top|start" android:left="14dp" android:top="58dp">
+        <shape android:shape="oval">
+            <stroke android:width="1.5dp" android:color="#CAC4D0" />
+        </shape>
+    </item>
+    <item android:height="4dp" android:gravity="top|start" android:left="36dp" android:right="40dp" android:top="63dp">
+        <shape android:shape="rectangle"><solid android:color="#CAC4D0" /><corners android:radius="2dp" /></shape>
+    </item>
+
+    <!-- 行 3：圆环（未完成） + 横条 -->
+    <item android:width="14dp" android:height="14dp" android:gravity="top|start" android:left="14dp" android:top="78dp">
+        <shape android:shape="oval">
+            <stroke android:width="1.5dp" android:color="#CAC4D0" />
+        </shape>
+    </item>
+    <item android:height="4dp" android:gravity="top|start" android:left="36dp" android:right="12dp" android:top="83dp">
+        <shape android:shape="rectangle"><solid android:color="#CAC4D0" /><corners android:radius="2dp" /></shape>
+    </item>
+</layer-list>

@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 桌面部件弹窗（放置配置 / 待办编辑）：透明背景 + 浮动窗口，无标题栏。 -->
+    <!-- 桌面部件弹窗（放置配置 / 待办编辑）：与应用内 Compose Dialog 同窗口约束。
+         全屏透明 + 无窗口动画 + 禁用启动预览，避免 floating Dialog 窗口的最小宽度
+         使左右边距大于应用内弹窗，以及打开时缩放/预览造成的「弹一下」。 -->
     <style name="WidgetDialogTheme" parent="@android:style/Theme.DeviceDefault.Dialog">
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
-        <item name="android:windowIsFloating">true</item>
         <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowDisablePreview">true</item>
     </style>
 </resources>

@@ -1,7 +1,5 @@
 package hunoia.luno.gridpanel.internal
 
-import android.content.ComponentName
-import android.content.Intent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -90,15 +88,15 @@ internal fun TodoListCell(
     // 只展示未完成：完成即从部件消失（管理页仍可见、可撤销）。
     val pending = config.todos.filter { !it.done }
 
-    // 打开待办编辑弹窗 Activity（与桌面部件同一入口）：todoId 空 = 新增；非空 = 编辑该条。
+    // 新建 / 编辑都直达待办编辑弹窗 Activity（与桌面部件同一入口、同一 Intent 构造）。
     fun openTodoDialog(todoId: String? = null) {
-        context.startActivity(
-            Intent().apply {
-                component = ComponentName(context.packageName, TodoExtras.ACTIVITY_TODO_EDIT)
-                if (todoId != null) putExtra(TodoExtras.EXTRA_TODO_ID, todoId)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            },
-        )
+        context.startActivity(TodoExtras.editIntent(context, todoId))
+        closePanel()
+    }
+
+    // 标题点击：只进 Luno 待办列表页，不自动开弹窗。
+    fun openTodoList() {
+        context.startActivity(TodoExtras.openListIntent(context))
         closePanel()
     }
 
@@ -115,6 +113,7 @@ internal fun TodoListCell(
 
     val cellDesc = stringResource(R.string.grid_panel_todo_desc, pending.size)
     val addDesc = stringResource(R.string.grid_panel_todo_add)
+    val openListDesc = stringResource(R.string.grid_panel_todo_open_list)
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
@@ -142,7 +141,17 @@ internal fun TodoListCell(
                 Spacer(Modifier.width(6.dp))
                 Text(
                     text = stringResource(R.string.grid_panel_todo_title, pending.size),
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .then(
+                            if (enabled) {
+                                Modifier
+                                    .clickable { openTodoList() }
+                                    .semantics { contentDescription = openListDesc }
+                            } else {
+                                Modifier
+                            },
+                        ),
                     style = MaterialTheme.typography.titleSmall,
                     color = onCard,
                     fontSize = (contentW.value * 0.11f).coerceIn(10f, 14f).sp,

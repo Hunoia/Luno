@@ -93,25 +93,16 @@ fun TodoListScreen(
     var creating by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<TodoItem?>(null) }
 
-    // 代办面板部件的「添加/编辑」请求：进入列表页后自动开对应弹窗（消费一次即清）。
-    // 已在列表页时收到新请求（open 从 null 变非空）也会再次触发。
+    // 待办部件的「标题 → 列表页」或「某条 → 编辑」请求：进入列表页后消费一次。
+    // todoId 为空 = 只进列表页（不自动开弹窗）；非空 = 再打开该条编辑。
     val pendingOpen by TodoListRequests.open.collectAsStateWithLifecycle()
     LaunchedEffect(pendingOpen) {
         val open = pendingOpen ?: return@LaunchedEffect
         TodoListRequests.consume()
-        if (open.todoId == null) {
-            // 新增。
-            creating = true
-        } else {
-            // 编辑：从持久层读最新配置（collectAsState 初始为空，find 会落空 → 误判新增）。
-            val target = TodoCenter.getTodoConfig().todoById(open.todoId)
-            if (target != null) {
-                editing = target
-            } else {
-                // 指定 id 已不存在（被删）→ 回退为新增。
-                creating = true
-            }
-        }
+        val todoId = open.todoId ?: return@LaunchedEffect
+        // 从持久层读最新配置（collectAsState 初始为空，find 会落空 → 误判新建）。
+        val target = TodoCenter.getTodoConfig().todoById(todoId)
+        if (target != null) editing = target
     }
 
     LunoScreenLazy(

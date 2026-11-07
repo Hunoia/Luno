@@ -85,7 +85,7 @@ object ModuleRules {
         ":feature:a11y" to setOf(":core:common", ":core:domain", ":core:bridge", ":ui:design"),
         // 桌面小部件（Glance）：主进程运行，直读 MultiProcess DataStore；复用 gridpanel 域门面
         // 与跳转 extras（HabitExtras/TodoExtras），不触碰 app 层。
-        ":feature:widget" to setOf(":core:common", ":core:domain", ":feature:gridpanel"),
+        ":feature:widget" to setOf(":core:common", ":core:domain", ":feature:gridpanel", ":ui:design"),
         ":app" to (knownModules - ":app"),
     )
 

@@ -20,13 +20,21 @@
             android:name=".HabitWidgetConfigActivity"
             android:exported="true"
             android:label="@string/widget_habit_title"
-            android:theme="@style/WidgetDialogTheme" />
+            android:theme="@style/WidgetDialogTheme"
+            android:windowSoftInputMode="adjustNothing" />
 
         <!-- 待办编辑弹窗（「+」/点行直达，不进应用页面）。 -->
         <activity
             android:name=".TodoEditDialogActivity"
             android:exported="true"
             android:label="@string/widget_todo_title"
+            android:theme="@style/WidgetDialogTheme"
+            android:windowSoftInputMode="adjustNothing" />
+
+        <!-- 桌面部件确认弹窗（习惯打卡 / 待办完成）：普通确认弹窗，不再在 RemoteViews 内维护 pending。 -->
+        <activity
+            android:name=".WidgetConfirmDialogActivity"
+            android:exported="true"
             android:theme="@style/WidgetDialogTheme" />
 
         <!-- 待办桌面小部件（Glance）：无需配置，直接显示待办。 -->

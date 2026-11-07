@@ -104,8 +104,8 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * 代办面板部件的「打开代办列表页」：`TodoExtras.EXTRA_OPEN_TODO_LIST` 标记存在即触发。
-     * `TodoExtras.EXTRA_TODO_ID` 存在 = 编辑该条；不存在 = 新增。
+     * 代办部件的「打开代办列表页」：`TodoExtras.EXTRA_OPEN_TODO_LIST` 标记存在即触发。
+     * `TodoExtras.EXTRA_TODO_ID` 存在 = 列表页再打开该条编辑；不存在 = 只进列表页。
      * 导航由 [SideGestureApp] 消费 [TodoListRequests] 完成；这里只负责收件。
      */
     private fun handleTodoListIntent(intent: Intent?) {

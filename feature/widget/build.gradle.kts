@@ -12,6 +12,8 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:domain"))
     implementation(project(":feature:gridpanel"))
+    // 弹窗 Activity 用 Luno 主题（SideGestureTheme），与页面内弹窗视觉一致。
+    implementation(project(":ui:design"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.annotation)
     implementation(libs.androidx.activity.compose)

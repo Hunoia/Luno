@@ -38,14 +38,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.updateAppWidgetState
-import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.lifecycleScope
-import hunoia.luno.config.model.ColorSource
 import hunoia.luno.config.model.Habit
 import hunoia.luno.config.model.HabitConfig
-import hunoia.luno.config.model.ThemeColorKey
 import hunoia.luno.core.LunoLog
 import hunoia.luno.domain.gridpanel.HabitCenter
+import hunoia.luno.ui.theme.SideGestureTheme
+import hunoia.luno.ui.theme.toColor
 import kotlinx.coroutines.launch
 
 private const val TAG = "HabitWidgetConfig"
@@ -64,7 +63,8 @@ class HabitWidgetConfigActivity : ComponentActivity() {
             AppWidgetManager.INVALID_APPWIDGET_ID,
         )
         setContent {
-            MaterialTheme {
+            // 套 Luno 主题：与页面内弹窗视觉一致（动态色/字体/形状）。
+            SideGestureTheme {
                 HabitPickerDialog(
                     appWidgetId = appWidgetId,
                     onSelect = { habitId -> commit(habitId, appWidgetId) },
@@ -81,11 +81,10 @@ class HabitWidgetConfigActivity : ComponentActivity() {
             val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
             updateAppWidgetState(context, glanceId) {
                 it[WidgetStateKeys.HABIT_ID] = habitId
-                it[WidgetStateKeys.HABIT_PENDING] = false
             }
-            // 写后直更：不依赖 WidgetSync 订阅者（与待办弹窗同一策略）。
-            runCatching { HabitWidget().updateAll(context) }
-                .onFailure { LunoLog.w(TAG, "updateAll after config failed: ${it.message}") }
+            // 写后直刷：不依赖 WidgetSync 订阅者（与待办弹窗同一策略）。
+            runCatching { WidgetSync.updateHabitWidgets(context) }
+                .onFailure { LunoLog.w(TAG, "update after config failed: ${it.message}") }
             setResult(
                 Activity.RESULT_OK,
                 Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId),
@@ -155,7 +154,7 @@ private fun HabitRow(habit: Habit, unnamed: String, onClick: () -> Unit) {
             modifier = Modifier
                 .size(16.dp)
                 .clip(CircleShape)
-                .background(habitColor(habit)),
+                .background(habit.colorSpec.toColor()),
         )
         Spacer(Modifier.width(12.dp))
         Text(
@@ -164,30 +163,4 @@ private fun HabitRow(habit: Habit, unnamed: String, onClick: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurface,
         )
     }
-}
-
-/** 习惯色解析：镜像 ui/design `ColorSpec.toColor`（widget 不依赖 ui:design，主题角色映射 MaterialTheme）。 */
-@Composable
-private fun habitColor(habit: Habit): Color = when (habit.colorSpec.source) {
-    ColorSource.Custom -> Color(habit.colorSpec.customColor)
-    ColorSource.Theme -> themeColor(habit.colorSpec.themeKey)
-}
-
-@Composable
-private fun themeColor(key: ThemeColorKey): Color = when (key) {
-    ThemeColorKey.Primary -> MaterialTheme.colorScheme.primary
-    ThemeColorKey.PrimaryContainer -> MaterialTheme.colorScheme.primaryContainer
-    ThemeColorKey.Secondary -> MaterialTheme.colorScheme.secondary
-    ThemeColorKey.SecondaryContainer -> MaterialTheme.colorScheme.secondaryContainer
-    ThemeColorKey.Tertiary -> MaterialTheme.colorScheme.tertiary
-    ThemeColorKey.TertiaryContainer -> MaterialTheme.colorScheme.tertiaryContainer
-    ThemeColorKey.Surface -> MaterialTheme.colorScheme.surface
-    ThemeColorKey.SurfaceVariant -> MaterialTheme.colorScheme.surfaceVariant
-    ThemeColorKey.OnSurface -> MaterialTheme.colorScheme.onSurface
-    ThemeColorKey.OnSurfaceVariant -> MaterialTheme.colorScheme.onSurfaceVariant
-    ThemeColorKey.Outline -> MaterialTheme.colorScheme.outline
-    ThemeColorKey.OutlineVariant -> MaterialTheme.colorScheme.outlineVariant
-    ThemeColorKey.SurfaceContainerLow -> MaterialTheme.colorScheme.surfaceContainerLow
-    ThemeColorKey.SurfaceContainer -> MaterialTheme.colorScheme.surfaceContainer
-    ThemeColorKey.SurfaceContainerHigh -> MaterialTheme.colorScheme.surfaceContainerHigh
 }

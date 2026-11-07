@@ -1,5 +1,9 @@
 package hunoia.luno.gridpanel
 
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+
 /**
  * 习惯面板部件 → 主应用跳转链路的跨层常量。
  *
@@ -15,4 +19,11 @@ object HabitExtras {
 
     /** 要打开的编辑页习惯 id（`String`）。 */
     const val EXTRA_EDIT_HABIT_ID = "hunoia.luno.extra.EDIT_HABIT_ID"
+
+    /** 拉起主界面并进指定习惯编辑页；内置部件与桌面部件共用同一个 Intent 口径。 */
+    fun editIntent(context: Context, habitId: String): Intent = Intent().apply {
+        component = ComponentName(context.packageName, ACTIVITY_MAIN)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        putExtra(EXTRA_EDIT_HABIT_ID, habitId)
+    }
 }

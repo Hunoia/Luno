@@ -72,3 +72,27 @@
 -keep class androidx.compose.foundation.style.** { *; }
 -keep class * implements androidx.compose.foundation.style.Style { *; }
 -keep class * implements androidx.compose.foundation.style.CustomStyleScope { *; }
+
+# WorkManager：Glance 部件更新经 WorkManager 反射实例化 InputMerger（OverwritingInputMerger）
+# 与 ListenableWorker 子类；R8 会裁掉无参构造导致部件更新失败、桌面部件空白
+# （debug 不裁剪所以正常）。work-runtime 官方 consumer 规则不足以覆盖
+# LiteRT→play:asset-delivery→work-runtime 传递引入的场景，显式补 keep。
+-keep class androidx.work.OverwritingInputMerger { <init>(); }
+-keep class * extends androidx.work.ListenableWorker {
+    <init>(android.content.Context, androidx.work.WorkerParameters);
+}
+-keep class androidx.work.impl.** { *; }
+
+# Glance ActionCallback：部件点击回调（TodoToggleCallback / HabitCheckCallback）经反射
+# 实例化，需保公开无参构造；R8 会裁掉导致 NoSuchMethodException、部件点击无响应。
+-keep class * extends androidx.glance.appwidget.action.ActionCallback { <init>(); }
+
+# Glance 部件 provider 类：Glance 用 `Class.canonicalName` 建立「provider 类 → receiver」
+# 映射（并持久化到 DataStore）。R8 full mode 会把 HabitWidget 与 TodoWidget 做垂直类合并：
+# release mapping 里两个类的 `provideGlance` 被折进同一个混淆类（`h12`），两个 Receiver
+# 拿到的其实是同一个类实例——实测表现为习惯部件自己变成待办、待办部件显示习惯内容。
+# 必须整类保留（禁止合并/改名），只保构造或只保 ActionCallback 都不够。
+-keep class * extends androidx.glance.appwidget.GlanceAppWidget { *; }
+
+# Receiver 由清单声明、框架回调，类名也参与上述映射；保住类名与入口方法。
+-keep class * extends androidx.glance.appwidget.GlanceAppWidgetReceiver { *; }

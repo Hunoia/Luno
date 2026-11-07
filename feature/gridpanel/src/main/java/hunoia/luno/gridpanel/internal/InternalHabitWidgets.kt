@@ -1,7 +1,5 @@
 package hunoia.luno.gridpanel.internal
 
-import android.content.ComponentName
-import android.content.Intent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -64,13 +62,15 @@ import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.geometry.ItemCorner
 import hunoia.luno.gridpanel.habit.HabitDayMarkIcon
 import hunoia.luno.gridpanel.habit.HabitDayPalette
+import hunoia.luno.gridpanel.habit.HabitTitleGap
 import hunoia.luno.gridpanel.habit.borderColor
+import hunoia.luno.gridpanel.habit.dotSize
 import hunoia.luno.gridpanel.habit.fillColor
 import hunoia.luno.gridpanel.habit.habitDayPalette
+import hunoia.luno.gridpanel.habit.habitGridGeometry
 import hunoia.luno.gridpanel.habit.label
 import hunoia.luno.gridpanel.habit.markTint
 import hunoia.luno.gridpanel.habit.visual
-import hunoia.luno.gridpanel.ui.gridPanelCardColor
 import hunoia.luno.gridpanel.ui.gridPanelOnCardColor
 import hunoia.luno.ui.theme.HabitDayDotStroke
 import hunoia.luno.ui.theme.toColor
@@ -84,7 +84,8 @@ import java.time.LocalDate
  * 数据源 [HabitCenter.habitConfig]（JSON DataStore，MultiProcess），经 domain 门面订阅。
  * 打卡写回走 [HabitCenter.toggleHabit]——应用内状态变更，不走 Dispatcher（architecture §1.3）。
  * 编辑态 [enabled] = false：部件点按让给层根拖拽。
- * 交互：标题点击拉起主应用对应编辑页；点阵区点击进入打卡确认（中央倒计时环，窗口内再点打卡）。
+ * 交互：标题点击拉起主应用对应编辑页；点阵区点击进入打卡确认（确认态隐藏点阵、
+ * 只留中央倒计时环，窗口内再点打卡）。
  */
 
 /** 解析每实例 params（JSON），失败 / 未配置返回 null。 */
@@ -116,8 +117,8 @@ internal fun HabitHistoryCell(
     val context = LocalContext.current
     // 点标题进编辑页后把面板一起关掉（镜像 InternalRecentsWidget 的 closePanel）。
     val closePanel = LocalGridPanelClose.current
-    // 点阵区打卡确认：单点起中央倒计时环，倒计时内再点确认；超时取消。跳过 / 已打不可点。
-    val clickable = enabled && canCheck(checks, today, habit.interval, today)
+    // 点阵区：今天可打卡 → 内联倒计时环确认；已打 / 跳过 → 打开编辑页（与桌面部件同口径）。
+    val canCheckToday = canCheck(checks, today, habit.interval, today)
     var pending by remember { mutableStateOf(false) }
     val progress = rememberConfirmProgress(
         key = true.takeIf { pending },
@@ -128,27 +129,23 @@ internal fun HabitHistoryCell(
         if (!enabled) pending = false
     }
     val scope = rememberCoroutineScope()
-    val confirmHint = stringResource(R.string.grid_panel_habit_confirm_hint)
+    val confirmHint = stringResource(
+        if (canCheckToday) R.string.grid_panel_habit_confirm_hint else R.string.grid_panel_habit_edit_hint,
+    )
 
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .clip(containerShape(ItemCorner)),
     ) {
-        // 自适应列数行数：格宽/格高按可用空间决定，内容用 weight(1f) 均分填满、不裁剪。
+        // 自适应列数行数：几何公式与桌面部件共用（HabitGridGeometry），只在这里扣除 10dp 内边距。
         val contentW = (maxWidth - 20.dp).coerceAtLeast(24.dp)
         val contentH = (maxHeight - 20.dp).coerceAtLeast(24.dp)
-        val titleH = 20.dp
-        val gap = 6.dp
-        val gridH = (contentH - titleH - gap).coerceAtLeast(20.dp)
-        val minCellW = 22.dp
-        val minCellH = 30.dp
-        val cols = (contentW / minCellW).toInt().coerceIn(3, 8)
-        val rows = (gridH / minCellH).toInt().coerceIn(1, 4)
-        // 实际格宽 / 行高（扣除 1dp 间距），供点径按宽高双限取小、不裁剪。
-        val cellW = ((contentW - (cols - 1).dp) / cols).coerceAtLeast(12.dp)
-        val cellH = ((gridH - (rows - 1).dp) / rows).coerceAtLeast(16.dp)
-        val dots = lastNDaysDots(checks, today, habit.interval, cols * rows)
+        val grid = habitGridGeometry(contentW, contentH)
+        val dots = lastNDaysDots(checks, today, habit.interval, grid.cols * grid.rows)
+        // sp → dp 需要 fontScale；圆点高度限制用实际日期文本高度，避免大字体下裁剪。
+        val dateTextHeight = with(LocalDensity.current) { grid.dateSizeSp.sp.toDp() }
+        val dotSize = grid.dotSize(dateTextHeight)
 
         Column(
             modifier = Modifier
@@ -162,13 +159,7 @@ internal fun HabitHistoryCell(
                     .then(
                         if (enabled) {
                             Modifier.clickable {
-                                context.startActivity(
-                                    Intent().apply {
-                                        component = ComponentName(context.packageName, HabitExtras.ACTIVITY_MAIN)
-                                        putExtra(HabitExtras.EXTRA_EDIT_HABIT_ID, habit.id)
-                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                                    },
-                                )
+                                context.startActivity(HabitExtras.editIntent(context, habit.id))
                                 closePanel()
                             }
                         } else {
@@ -193,25 +184,31 @@ internal fun HabitHistoryCell(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Spacer(Modifier.height(gap))
-            // 点阵区域：点击进入打卡确认（倒计时环浮中央 + scrim 遮暗点阵）；
-            // 倒计时内再点打卡今天。点击不加高亮（indication = null，纯状态反馈）。
+            Spacer(Modifier.height(HabitTitleGap))
+            // 点阵区域：点击进入打卡确认（倒计时环浮中央）；倒计时内再点打卡今天。
+            // 确认态隐藏点阵、不加遮罩背景，只留中央进度环（与桌面部件同口径）。
+            // 点击不加高亮（indication = null，纯状态反馈）。
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .weight(1f)
                     .semantics { contentDescription = confirmHint }
                     .then(
-                        if (clickable) {
+                        if (enabled) {
                             Modifier.clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
                             ) {
-                                if (pending) {
-                                    pending = false
-                                    scope.launch { HabitCenter.toggleHabit(habit.id, today) }
-                                } else {
-                                    pending = true
+                                when {
+                                    !canCheckToday -> {
+                                        context.startActivity(HabitExtras.editIntent(context, habit.id))
+                                        closePanel()
+                                    }
+                                    pending -> {
+                                        pending = false
+                                        scope.launch { HabitCenter.toggleHabit(habit.id, today) }
+                                    }
+                                    else -> pending = true
                                 }
                             }
                         } else {
@@ -220,43 +217,37 @@ internal fun HabitHistoryCell(
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(1.dp),
-                ) {
-                    for (row in 0 until rows) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                            horizontalArrangement = Arrangement.spacedBy(1.dp),
-                        ) {
-                            for (col in 0 until cols) {
-                                val dot = dots.getOrNull(row * cols + col)
-                                if (dot != null) {
-                                    HabitDotView(
-                                        state = dot.state,
-                                        palette = palette,
-                                        day = LocalDate.ofEpochDay(dot.day).dayOfMonth,
-                                        cellWidth = cellW,
-                                        cellHeight = cellH,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                } else {
-                                    Spacer(Modifier.weight(1f))
+                if (!pending) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        for (row in 0 until grid.rows) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                            ) {
+                                for (col in 0 until grid.cols) {
+                                    val dot = dots.getOrNull(row * grid.cols + col)
+                                    if (dot != null) {
+                                        HabitDotView(
+                                            state = dot.state,
+                                            palette = palette,
+                                            day = LocalDate.ofEpochDay(dot.day).dayOfMonth,
+                                            dateSizeSp = grid.dateSizeSp,
+                                            dotSize = dotSize,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                    } else {
+                                        Spacer(Modifier.weight(1f))
+                                    }
                                 }
                             }
                         }
                     }
                 }
-                // 倒计时：scrim 遮暗点阵 + 中央进度环（弱色轨道 + 主色进度弧，从 -90° 扫）。
-                // scrim 用卡片同色（surfaceContainerHigh）而非 onSurface 近黑，亮色模式不发黑。
+                // 倒计时：隐藏点阵、不加遮罩，只留中央进度环（弱色轨道 + 主色进度弧，从 -90° 扫）。
                 if (pending) {
-                    Box(
-                        Modifier
-                            .matchParentSize()
-                            .background(gridPanelCardColor.copy(alpha = 0.92f)),
-                    )
                     val ring = (minOf(contentW, contentH) * 0.5f).coerceIn(40.dp, 64.dp)
                     val stroke = (ring.value * 0.07f).dp.coerceIn(3.dp, 5.dp)
                     Canvas(Modifier.size(ring)) {
@@ -292,24 +283,12 @@ private fun HabitDotView(
     state: HabitDayState,
     palette: HabitDayPalette,
     day: Int,
-    cellWidth: Dp,
-    cellHeight: Dp,
+    dateSizeSp: Float,
+    dotSize: Dp,
     modifier: Modifier = Modifier,
 ) {
     val visual = state.visual()
     val stateLabel = state.label()
-    val dateSize = (cellWidth.value * 0.28f).coerceIn(6f, 9f).sp
-    // 文字框紧排：lineHeight = dateSize，框高 ≈ dateSize，消除大空隙与裁剪。
-    val textH = with(LocalDensity.current) { dateSize.toDp() }
-    val gap = 1.dp
-    val safety = 1.dp
-    // 点径按宽高双限取小：宽限（cellW·0.75，填满格宽收紧左右边距）与高限
-    // （cellH − 文字 − 间距 − 安全边距），保证 textH + gap + dotSize ≤ cellH，任意尺寸不裁剪。
-    val maxDotByW = (cellWidth * 0.75f).coerceIn(6.dp, 18.dp)
-    val maxDotByH = (cellHeight - textH - gap - safety).coerceAtLeast(4.dp)
-    val dotSize = minOf(maxDotByW, maxDotByH)
-    val dotColor = visual.fillColor(palette)
-    val borderColor = visual.borderColor(palette)
     Column(
         modifier = modifier.fillMaxHeight(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -318,18 +297,18 @@ private fun HabitDotView(
         // 日期文本在上、点在下（与近 30 天网格一致）。
         Text(
             text = day.toString(),
-            fontSize = dateSize,
-            lineHeight = dateSize,
+            fontSize = dateSizeSp.sp,
+            lineHeight = dateSizeSp.sp,
             color = palette.neutral.copy(alpha = 0.5f),
             maxLines = 1,
         )
-        Spacer(Modifier.height(gap))
+        Spacer(Modifier.height(1.dp))
         Box(
             Modifier
                 .size(dotSize)
                 .clip(CircleShape)
-                .background(dotColor)
-                .border(width = HabitDayDotStroke, color = borderColor, shape = CircleShape)
+                .background(visual.fillColor(palette))
+                .border(width = HabitDayDotStroke, color = visual.borderColor(palette), shape = CircleShape)
                 .semantics { contentDescription = "$day 日 · $stateLabel" },
             contentAlignment = Alignment.Center,
         ) {

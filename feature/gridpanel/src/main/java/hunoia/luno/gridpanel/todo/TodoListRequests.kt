@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 object TodoListRequests {
 
-    /** 待处理请求：[todoId] 为空 = 新增，非空 = 编辑该条。 */
+    /** 待处理请求：[todoId] 为空 = 只打开列表页；非空 = 再打开该条编辑弹窗。 */
     data class PendingTodoOpen(val todoId: String? = null)
 
     private val _open = MutableStateFlow<PendingTodoOpen?>(null)

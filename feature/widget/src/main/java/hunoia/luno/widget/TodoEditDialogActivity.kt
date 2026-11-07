@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
@@ -48,16 +47,19 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
-import androidx.glance.appwidget.updateAll
 import hunoia.luno.config.model.TodoConfig
 import hunoia.luno.config.model.TodoItem
 import hunoia.luno.core.LunoLog
 import hunoia.luno.domain.gridpanel.TodoCenter
 import hunoia.luno.gridpanel.TodoExtras
 import hunoia.luno.gridpanel.R as GridR
+import hunoia.luno.ui.theme.ExtraLargeShape
+import hunoia.luno.ui.theme.LargeGutter
+import hunoia.luno.ui.theme.ListSpacing
+import hunoia.luno.ui.theme.PageGutter
+import hunoia.luno.ui.theme.SideGestureTheme
 import kotlinx.coroutines.launch
 
 /**
@@ -66,7 +68,7 @@ import kotlinx.coroutines.launch
  * 经 [TodoExtras.EXTRA_TODO_ID] 区分：空 = 新增，非空 = 编辑（预填文本 + 删除）。
  * 样式 / 行为 1:1 镜像应用内 `TodoListScreen.TodoEditDialog`：底部锚定贴键盘、
  * 自动聚焦弹键盘、Done 提交、遮罩点按关闭；删除为直删（与应用内一致，无二次确认）。
- * 写回 [TodoCenter] 后直接 `TodoWidget().updateAll`（自闭环，不依赖 WidgetSync 订阅者）。
+ * 写回 [TodoCenter] 后直接刷新全部待办部件（自闭环，不依赖 WidgetSync 订阅者）。
  */
 class TodoEditDialogActivity : ComponentActivity() {
 
@@ -77,7 +79,8 @@ class TodoEditDialogActivity : ComponentActivity() {
         // 让 IME inset 派发下来（imePadding 生效），内容顶到键盘上方。
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
-            MaterialTheme {
+            // 套 Luno 主题：与页面内 TodoEditDialog（SideGestureTheme 下）视觉一致。
+            SideGestureTheme {
                 TodoEditDialog(todoId = todoId) { finish() }
             }
         }
@@ -125,8 +128,8 @@ private fun TodoEditDialog(todoId: String?, onFinished: () -> Unit) {
             } else {
                 TodoCenter.updateTodo(existing.copy(text = text))
             }
-            runCatching { TodoWidget().updateAll(appContext) }
-                .onFailure { LunoLog.w(TAG, "updateAll after save failed: ${it.message}") }
+            runCatching { WidgetSync.updateTodoWidgets(appContext) }
+                .onFailure { LunoLog.w(TAG, "update after save failed: ${it.message}") }
             curOnFinished()
         }
     }
@@ -147,17 +150,17 @@ private fun TodoEditDialog(todoId: String?, onFinished: () -> Unit) {
     ) {
         Column(
             modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .padding(horizontal = PageGutter, vertical = PageGutter)
                 .fillMaxWidth()
-                .clip(MaterialTheme.shapes.extraLarge)
-                .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.extraLarge)
+                .clip(ExtraLargeShape)
+                .background(MaterialTheme.colorScheme.surface, ExtraLargeShape)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = {},
                 )
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(LargeGutter),
+            verticalArrangement = Arrangement.spacedBy(ListSpacing),
         ) {
             Text(
                 text = stringResource(if (isEdit) GridR.string.todo_edit_title else GridR.string.todo_create_title),
@@ -178,6 +181,7 @@ private fun TodoEditDialog(todoId: String?, onFinished: () -> Unit) {
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(ListSpacing),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (isEdit) {
@@ -185,8 +189,8 @@ private fun TodoEditDialog(todoId: String?, onFinished: () -> Unit) {
                     TextButton(onClick = {
                         scope.launch {
                             TodoCenter.deleteTodo(existing.id)
-                            runCatching { TodoWidget().updateAll(appContext) }
-                                .onFailure { LunoLog.w(TAG, "updateAll after delete failed: ${it.message}") }
+                            runCatching { WidgetSync.updateTodoWidgets(appContext) }
+                                .onFailure { LunoLog.w(TAG, "update after delete failed: ${it.message}") }
                             curOnFinished()
                         }
                     }) {
@@ -195,7 +199,6 @@ private fun TodoEditDialog(todoId: String?, onFinished: () -> Unit) {
                             color = MaterialTheme.colorScheme.error,
                         )
                     }
-                    Spacer(Modifier.width(4.dp))
                 }
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = onFinished) {
