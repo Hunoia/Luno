@@ -118,6 +118,8 @@ import hunoia.luno.config.model.SubGestureSettings
 import hunoia.luno.config.model.ActionSettings as ActionTuning
 import kotlin.reflect.KType
 import hunoia.luno.ui.component.sheet.LunoAppPicker
+import hunoia.luno.ui.component.row.LocalListStyle
+import hunoia.luno.config.model.AdvancedSettings
 
 
 
@@ -131,6 +133,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
             .collectAsStateWithLifecycle(initialValue = ActionTuning())
         val subGestureSettings by GestureConfig.subGestures
             .collectAsStateWithLifecycle(initialValue = SubGestureSettings())
+        // 设置列表视觉风格：全局开关，LunoGroup 读取后决定分段式 / 大卡分割线。
+        val advancedSettings by TuneConfig.advanced
+            .collectAsStateWithLifecycle(initialValue = AdvancedSettings())
         // 识屏卡片「新建分发规则」：跨进程 Intent → [PendingLinkRule]，消费一次就跳编辑页。
         val pendingRulePattern by PendingLinkRule.pattern.collectAsStateWithLifecycle()
         LaunchedEffect(pendingRulePattern) {
@@ -158,6 +163,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
             LocalActionPanels provides actionSettings.actionPanels.panels,
             LocalGridPanels provides actionSettings.actionGridPanels.panels,
             LocalSubGestures provides subGestureSettings.subGestures,
+            LocalListStyle provides advancedSettings.listStyle,
         ) {
             Surface(modifier = Modifier.fillMaxSize()) {
                 NavHost(

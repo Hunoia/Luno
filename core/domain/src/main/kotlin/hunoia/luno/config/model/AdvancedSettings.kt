@@ -16,4 +16,6 @@ data class AdvancedSettings(
         PersistentNotificationHidingSettings(),
     /** 是否把 Luno 主页面 task 从最近任务隐藏；图片标注等独立页面不受影响。 */
     val hideLunoFromRecents: Boolean = true,
+    /** 设置列表视觉风格：分段式（默认）/ 大卡分割线。 */
+    val listStyle: ListStyle = ListStyle.Segmented,
 )

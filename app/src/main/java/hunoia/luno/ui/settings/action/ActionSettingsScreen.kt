@@ -47,8 +47,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hunoia.luno.R
 import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ActionSettings
+import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.GestureSettings
 import hunoia.luno.config.model.InitialSettings
+import hunoia.luno.config.model.ListStyle
+import hunoia.luno.ui.component.row.ChoiceRow
 import hunoia.luno.domain.gesture.GestureConfig
 import hunoia.luno.facade.PrivilegedPermission
 import hunoia.luno.domain.tune.TuneConfig
@@ -98,6 +101,7 @@ fun ActionSettingsTab(
     var resumeTick by remember { mutableIntStateOf(0) }
     val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = ActionSettings())
     val gestureSettings by TuneConfig.gesture.collectAsStateWithLifecycle(initialValue = GestureSettings())
+    val advancedSettings by TuneConfig.advanced.collectAsStateWithLifecycle(initialValue = AdvancedSettings())
     val initialSettings by GestureConfig.initial.collectAsStateWithLifecycle(initialValue = InitialSettings())
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -274,6 +278,27 @@ fun ActionSettingsTab(
                         subtitle = stringResource(R.string.a11y_settings_entry_hint),
                         shape = segmentedShape(3, 4),
                         onClick = onNavToAccessibilityManager,
+                    )
+                }
+            }
+            item(key = "appearance") {
+                LunoGroup(title = stringResource(R.string.action_settings_appearance_group)) {
+                    ChoiceRow(
+                        title = stringResource(R.string.action_settings_list_style),
+                        subtitle = stringResource(R.string.action_settings_list_style_hint),
+                        options = listOf(
+                            stringResource(R.string.list_style_segmented),
+                            stringResource(R.string.list_style_card_divided),
+                        ),
+                        selectedIndex = advancedSettings.listStyle.ordinal,
+                        onSelect = { index ->
+                            scope.launch {
+                                TuneConfig.updateAdvanced {
+                                    it.copy(listStyle = ListStyle.entries[index])
+                                }
+                            }
+                        },
+                        shape = segmentedShape(0, 1),
                     )
                 }
             }
