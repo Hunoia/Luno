@@ -13,10 +13,8 @@ import hunoia.luno.config.model.SRC_CLIP
 import hunoia.luno.config.model.SRC_CONTACT
 import hunoia.luno.config.model.SRC_FILE
 import hunoia.luno.config.model.SRC_MUSIC
-import hunoia.luno.config.model.SRC_SETTINGS
 import hunoia.luno.config.model.SRC_SHORTCUT
 import hunoia.luno.config.model.SRC_SMS
-import hunoia.luno.config.model.SRC_TOGGLE
 import hunoia.luno.config.model.effectiveEngines
 import java.util.PriorityQueue
 import kotlinx.coroutines.CancellationException
@@ -72,14 +70,13 @@ fun QuickSearchIndex.search(
         libraryEntries: List<ActionLibraryEntry>,
         usageStats: AppUsageStats = AppUsageStats(),
         searchSettings: QuickSearchSettings = QuickSearchSettings(),
-        torchOn: Boolean = false,
         clips: ClipPools = ClipPools(),
         isActive: () -> Boolean = { true },
     ): SearchOutcome {
         ensureLoaded()
         // 这里不再 refreshApps() 兜底：全量查包几十~几百毫秒，会把首字搜索堵在 Dispatchers.Default
         // 上。应用索引由 Activity 在 IO 线程预加载，就绪后 appsLoaded 翻转 → 面板 appsTick 补搜。
-        this.torchOn = torchOn
+        // 应用索引由 Activity 在 IO 线程预加载，就绪后 appsLoaded 翻转 → 面板 appsTick 补搜。
         // 引擎列表一次解析：标识直达、默认兜底、引擎行都复用同一份顺序，避免每次现拼。
         val engines = searchSettings.effectiveEngines()
         // 标识指令优先（bb 新闻 / sms 138 / 裸 sms）：命中只回目标类，
@@ -101,7 +98,6 @@ fun QuickSearchIndex.search(
             libraryEntries = libraryEntries,
             plan = plan,
             now = now,
-            torchOn = torchOn,
             usage = usageStats,
             clips = clips,
         )
@@ -324,20 +320,6 @@ fun QuickSearchIndex.matchDocs(
     return matchEach(docs, plan, result = { it }) { tierOf(it.name, plan) }
 }
 
-fun QuickSearchIndex.matchToggles(
-    plan: SearchQueryPlan,
-    searchSettings: QuickSearchSettings,
-): List<RankedHit> {
-    if (!searchSettings.searchToggles) return emptyList()
-    // 先用静态元数据（标题/关键词）匹配，只有命中的行才去读系统状态：否则一条 "w"
-    // 就白读 4 次系统服务（每行一次 binder IPC）。
-    return matchEach(toggleSpecs(), plan, result = { spec ->
-        QuickSearchResult.PhoneToggle(spec.kind, spec.title, spec.keywords, toggleSubtitle(spec.kind))
-    }) { spec ->
-        bestOfFirst(tierOf(spec.title, plan)) { tierOf(spec.keywords, plan) }
-    }
-}
-
 fun QuickSearchIndex.matchCalendar(
     plan: SearchQueryPlan,
     searchSettings: QuickSearchSettings,
@@ -405,12 +387,6 @@ fun matchClipPool(
 }
 
 
-fun QuickSearchIndex.matchSettingsPages(
-    plan: SearchQueryPlan,
-): List<RankedHit> {
-    return matchEach(settingsPages, plan, result = { it }) { tierOf(it.title, plan) }
-}
-
     /** 同一套排序：连续块语义下 tier → offset → 使用分 → 长度 → 字典序。
      *  不同类型只比匹配度，稀疏子序列不出局外无命中。 */
 private fun QuickSearchIndex.sortTriples(results: List<RankedHit>): List<QuickSearchResult> =
@@ -461,7 +437,6 @@ private fun QuickSearchIndex.parseDirective(
             foldedTokens = tokenize(AppSearch.foldPinyin(raw)),
         ),
         now = System.currentTimeMillis(),
-        torchOn = torchOn,
         usage = usageStats,
         clips = clips,
     )
@@ -496,7 +471,6 @@ fun QuickSearchIndex.bareSource(
             SRC_APP -> topUsed(usageStats)
             SRC_SHORTCUT -> appData.shortcuts.map { QuickSearchResult.Shortcut(it) }.take(BARE_LIST_LIMIT)
             SRC_ACTION -> actions.take(BARE_LIST_LIMIT)
-            SRC_SETTINGS -> settingsPages.take(BARE_LIST_LIMIT)
             SRC_CONTACT -> if (contactsReady()) contacts.take(BARE_LIST_LIMIT) else return null
             SRC_MUSIC -> if (mediaPermissionCached(android.Manifest.permission.READ_MEDIA_AUDIO)) {
                 tracks.take(BARE_LIST_LIMIT)
@@ -512,7 +486,6 @@ fun QuickSearchIndex.bareSource(
             }
             SRC_SMS -> if (smsReady() && smsList.isNotEmpty()) smsList.take(BARE_LIST_LIMIT) else return null
             SRC_CALL -> if (callsReady() && callList.isNotEmpty()) callList.take(BARE_LIST_LIMIT) else return null
-            SRC_TOGGLE -> toggleRows()
             SRC_CLIP -> {
                 // 标识页：固定全列打头，历史去重补到上限。
                 val pinned = clips.pinned.map { QuickSearchResult.ClipEntry(it) }

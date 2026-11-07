@@ -16,7 +16,6 @@ object RowSettingsDefaults {
     const val FloatBallVisible = "toggle"
     const val ButtonsVisible = false
     const val ButtonsTarget = "ALL"
-    const val SettingsPage = "MAIN"
     const val AudioStream = "MUSIC"
     const val VolumeDirection = "UP"
 }
@@ -32,6 +31,8 @@ class RowSettingsEditorScope(
     val setInt: (String, Int) -> Unit,
     val setLong: (String, Long) -> Unit,
     val setStringArray: (String, List<String>) -> Unit,
+    /** 一次性写入一组键值（合并式动作的变体预设）：已存在的键覆盖，未列出的键保留。 */
+    val setParams: (Map<String, String>) -> Unit,
 )
 
 typealias RowSettingsEditor = @Composable (RowSettingsEditorScope) -> Unit

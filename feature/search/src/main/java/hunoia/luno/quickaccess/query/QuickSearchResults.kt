@@ -32,11 +32,10 @@ fun QuickSearchIndex.searchOutcome(
     libraryEntries: List<ActionLibraryEntry>,
     usageStats: AppUsageStats = AppUsageStats(),
     searchSettings: QuickSearchSettings = QuickSearchSettings(),
-    torchOn: Boolean = false,
     clips: ClipPools = ClipPools(),
     isActive: () -> Boolean = { true },
 ): SearchResults {
-    val outcome = search(query, libraryEntries, usageStats, searchSettings, torchOn, clips, isActive)
+    val outcome = search(query, libraryEntries, usageStats, searchSettings, clips, isActive)
     if (outcome.results.isEmpty()) return SearchResults(emptyList(), outcome.directive)
     return SearchResults(
         results = outcome.results

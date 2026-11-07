@@ -2,7 +2,6 @@ package hunoia.luno.actions
 
 import hunoia.luno.action.definitions.ActionDefinition
 import hunoia.luno.action.definitions.ActionDefinitions
-import hunoia.luno.action.model.labelRes
 import hunoia.luno.action.model.Action
 import hunoia.luno.action.model.ActionMapper
 import hunoia.luno.action.model.InvalidActionParameterException
@@ -45,56 +44,40 @@ object LunoActionFactory : ActionFactory {
  */
 object LunoActionSearchSource : hunoia.luno.core.domain.ActionSearchSource {
     override fun index(): List<hunoia.luno.core.domain.ActionSearchEntry> =
-        ActionDefinitions.pickerDefinitions().map { def ->
-            hunoia.luno.core.domain.ActionSearchEntry(
-                key = "action:${def.typeId}",
-                group = "action",
-                label = def.name,
-                typeId = def.typeId,
-                icon = def.icon,
-                action = StoredAction(def.typeId),
-            )
-        }
+        ActionDefinitions.pickerDefinitions().flatMap { def -> def.searchEntries() }
 
-    override fun definitionName(typeId: String): String? =
-        ActionDefinitions.byTypeId(typeId)?.name
-
-    override fun resolveLibraryEntry(
-        entry: hunoia.luno.core.domain.ActionLibraryEntry,
-    ): hunoia.luno.core.domain.ActionSearchEntry = hunoia.luno.core.domain.ActionSearchEntry(
-        key = "library:${entry.id}",
-        group = "action",
-        label = entry.name.ifBlank {
-            ActionDefinitions.byTypeId(entry.typeId)?.name ?: entry.typeId
-        },
-        typeId = entry.typeId,
-        icon = entry.resolvedIcon(),
-        action = StoredAction.of("internal.libraryRef", "entryId" to entry.id),
-    )
-}
-
-/** 设置页与动作库条目的搜索投影（architecture §9.4）。 */
-object LunoActionSearchExtras : hunoia.luno.core.domain.ActionSearchSource {
-    override fun index(): List<hunoia.luno.core.domain.ActionSearchEntry> = emptyList()
-
-    override fun settingsPages(
-        label: (resId: Int) -> String,
-    ): List<hunoia.luno.core.domain.ActionSearchEntry> =
-        hunoia.luno.action.model.SettingsPage.entries.map { page ->
-            hunoia.luno.core.domain.ActionSearchEntry(
-                key = "settings:${page.name}",
-                group = "settings",
-                label = label(page.labelRes),
-                typeId = "system.openSettings",
-                icon = null,
-                action = StoredAction(
-                    "system.openSettings",
-                    kotlinx.serialization.json.JsonObject(
-                        mapOf("page" to kotlinx.serialization.json.JsonPrimitive(page.name)),
-                    ),
+    /**
+     * 合并式动作（[ActionDefinition.variants] 非空）按变体展开成独立条目：一个「快捷开关」
+     * 在搜索里就是 10 行独立开关，和合并前的体验一致。普通动作仍是一行。
+     * 变体 label 直接作为条目 label（搜索按 label 召回），不带动作名前缀。
+     */
+    private fun ActionDefinition.searchEntries(): List<hunoia.luno.core.domain.ActionSearchEntry> {
+        if (variants.isEmpty()) {
+            return listOf(
+                hunoia.luno.core.domain.ActionSearchEntry(
+                    key = "action:$typeId",
+                    group = "action",
+                    label = name,
+                    typeId = typeId,
+                    icon = icon,
+                    action = StoredAction(typeId),
                 ),
             )
         }
+        return variants.map { variant ->
+            hunoia.luno.core.domain.ActionSearchEntry(
+                key = "action:$typeId#${variant.key}",
+                group = "action",
+                label = variant.label,
+                typeId = typeId,
+                icon = variant.icon ?: icon,
+                action = StoredAction.of(
+                    typeId,
+                    *variant.params.map { (key, value) -> key to value }.toTypedArray(),
+                ),
+            )
+        }
+    }
 
     override fun definitionName(typeId: String): String? =
         ActionDefinitions.byTypeId(typeId)?.name

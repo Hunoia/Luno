@@ -15,14 +15,6 @@ interface ActionSearchSource {
     fun index(): List<ActionSearchEntry>
 
     /**
-     * 系统设置页条目（`system.openSettings` 的各个 page）。
-     *
-     * 归在动作模块是因为「有哪些设置页、叫什么」的变化原因就是动作定义演进；
-     * 搜索只负责召回与排序。
-     */
-    fun settingsPages(label: (resId: Int) -> String): List<ActionSearchEntry> = emptyList()
-
-    /**
      * 动作库条目的标题/图标解析：库条目的 label 与图标规则属动作模块，
      * 搜索侧不持有 `ActionDefinitions` 与图标资源。
      */

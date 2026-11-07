@@ -29,6 +29,7 @@
     <string name="row_dialog_buttons_visibility">触钮显隐</string>
     <string name="row_dialog_float_ball">悬浮球显隐</string>
     <string name="row_dialog_open_settings">打开设置页</string>
+    <string name="row_dialog_quick_toggle">快捷开关</string>
     <string name="row_dialog_volume">音量控制</string>
     <string name="row_dialog_volume_scrub">滑动调音量</string>
     <string name="row_settings_buttons">触钮</string>
@@ -45,6 +46,7 @@
     <string name="row_settings_scope_only">仅选中</string>
     <string name="row_settings_sensitivity">灵敏度</string>
     <string name="row_settings_settings_page">设置页</string>
+    <string name="row_settings_toggle_kind">开关</string>
     <string name="row_settings_show">显示</string>
     <string name="row_settings_stream">音频流</string>
     <string name="row_settings_toggle">切换</string>

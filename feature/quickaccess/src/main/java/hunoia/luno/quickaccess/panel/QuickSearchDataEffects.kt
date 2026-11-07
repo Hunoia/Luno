@@ -21,7 +21,6 @@ import hunoia.luno.quickaccess.query.ensureCalls
 import hunoia.luno.quickaccess.query.ensureContacts
 import hunoia.luno.quickaccess.query.ensureMedia
 import hunoia.luno.quickaccess.query.ensureSms
-import hunoia.luno.quickaccess.query.invalidateToggleState
 import hunoia.luno.quickaccess.query.refreshPermissionCache
 import hunoia.luno.ui.permission.PermissionState
 import kotlinx.coroutines.Dispatchers
@@ -152,13 +151,12 @@ internal fun QuickSearchDataEffects(
             ticks.callsTick++
         }
     }
-    // 权限快照 + 开关状态缓存：面板每次打开都重新读一次真实值（打开期间各 tick 变化也刷）。
+    // 权限快照：面板每次打开都重新读一次真实值（打开期间各 tick 变化也刷）。
     LaunchedEffect(
         ticks.permTick, contactsPerm.isGranted, calendarPerm.isGranted, smsPerm.isGranted, callsPerm.isGranted,
     ) {
         withContext(Dispatchers.IO) {
             index.refreshPermissionCache()
-            invalidateToggleState()
         }
         ticks.permCacheTick++
     }

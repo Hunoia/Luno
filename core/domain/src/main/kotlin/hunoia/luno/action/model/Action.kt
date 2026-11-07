@@ -2,6 +2,7 @@ package hunoia.luno.action.model
 
 import hunoia.luno.core.domain.AudioStream
 import hunoia.luno.core.domain.QueryParam
+import hunoia.luno.core.domain.QuickToggleKind
 import hunoia.luno.core.domain.SettingsPage
 import hunoia.luno.core.domain.VolumeDirection
 
@@ -10,7 +11,7 @@ import hunoia.luno.core.domain.VolumeDirection
  *
  * 本类型是纯契约，住在 `:core:domain`，供执行口（Dispatcher / ExecutorRegistry）
  * 与动作目录（`:feature:actions` 的映射 / 展示元数据）共同引用。不得携带资源 id /
- * 配置默认值：展示文案与默认值由各自层提供（见 `SettingsPage.labelRes` 的 app 侧扩展）。
+ * 配置默认值：展示文案与默认值由各自层提供（见 `SettingsPage.label` 的 `:feature:actions` 扩展）。
  */
 
 /** 触钮显隐作用范围（沿用自动化旧 RuleScope 语义）。 */
@@ -109,6 +110,10 @@ sealed interface Action {
     }
     data object Flashlight : Action {
         override val typeId: String = "system.flashlight"
+    }
+    /** 系统快捷开关：一次执行翻转 [kind] 的当前状态（读状态 → 取反 → 写入 → 读回确认）。 */
+    data class QuickToggle(val kind: QuickToggleKind) : Action {
+        override val typeId: String = "system.toggle"
     }
     // Accessibility
     data object Back : Action {

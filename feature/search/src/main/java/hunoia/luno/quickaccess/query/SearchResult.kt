@@ -55,8 +55,6 @@ sealed interface SearchIcon {
     data class Text(val text: String) : SearchIcon
 }
 
-enum class SearchToggleKind { WIFI, BLUETOOTH, TORCH, DND, LOCATION, HOTSPOT }
-
 sealed interface SearchAction {
     /** 走动作分发（应用启动、动作库、设置页、剪贴板等）。 */
     data class Run(val action: StoredAction) : SearchAction
@@ -78,9 +76,6 @@ sealed interface SearchAction {
 
     /** 回填搜索框，不关面板。 */
     data class SetQuery(val text: String) : SearchAction
-
-    /** 开关类：WiFi/蓝牙/定位/热点跳设置，手电/勿扰直接切。 */
-    data class SystemToggle(val kind: SearchToggleKind) : SearchAction
 
     /** 图片搜索：先让用户选图，选完由 Activity 转成 [ShareImage]。 */
     data class PickImage(val packageName: String) : SearchAction

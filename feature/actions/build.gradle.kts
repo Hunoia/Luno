@@ -32,4 +32,5 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.coil)
     implementation(libs.coil.compose)
+    testImplementation(libs.junit)
 }

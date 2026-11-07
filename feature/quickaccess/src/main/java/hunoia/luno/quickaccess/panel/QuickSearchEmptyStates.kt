@@ -46,10 +46,8 @@ import hunoia.luno.config.model.SRC_CLIP
 import hunoia.luno.config.model.SRC_CONTACT
 import hunoia.luno.config.model.SRC_FILE
 import hunoia.luno.config.model.SRC_MUSIC
-import hunoia.luno.config.model.SRC_SETTINGS
 import hunoia.luno.config.model.SRC_SHORTCUT
 import hunoia.luno.config.model.SRC_SMS
-import hunoia.luno.config.model.SRC_TOGGLE
 import hunoia.luno.config.model.effectiveEngines
 import hunoia.luno.config.model.effectiveTrigger
 import hunoia.luno.quickaccess.query.ClipPools
@@ -341,14 +339,12 @@ internal fun QuickSearchTriggerHints(
             SRC_APP to Icons.Default.Apps,
             SRC_SHORTCUT to Icons.Default.Shortcut,
             SRC_ACTION to Icons.Default.PlayArrow,
-            SRC_SETTINGS to Icons.Default.Settings,
             SRC_CONTACT to Icons.Default.Person,
             SRC_MUSIC to Icons.Default.MusicNote,
             SRC_FILE to Icons.Default.Description,
             SRC_CALENDAR to Icons.Default.DateRange,
             SRC_SMS to Icons.AutoMirrored.Filled.Message,
             SRC_CALL to Icons.Default.Call,
-            SRC_TOGGLE to Icons.Default.Tune,
             SRC_CLIP to Icons.Default.ContentPaste,
         )
         SearchSourceRegistry.all.mapNotNull { source ->

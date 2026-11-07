@@ -13,10 +13,8 @@ import hunoia.luno.config.model.SRC_CLIP
 import hunoia.luno.config.model.SRC_CONTACT
 import hunoia.luno.config.model.SRC_FILE
 import hunoia.luno.config.model.SRC_MUSIC
-import hunoia.luno.config.model.SRC_SETTINGS
 import hunoia.luno.config.model.SRC_SHORTCUT
 import hunoia.luno.config.model.SRC_SMS
-import hunoia.luno.config.model.SRC_TOGGLE
 import hunoia.luno.config.model.effectiveTrigger
 
 /**
@@ -38,7 +36,6 @@ data class SearchContext(
     val libraryEntries: List<ActionLibraryEntry>,
     val plan: SearchQueryPlan,
     val now: Long,
-    val torchOn: Boolean,
     val clips: ClipPools = ClipPools(),
 )
 
@@ -106,12 +103,6 @@ object SearchSourceRegistry {
             },
         )
         source(
-            SRC_SETTINGS,
-            R.string.quick_search_group_settings,
-            enabled = { it.searchSettingsPages },
-            match = { c -> c.index.matchSettingsPages(c.plan) },
-        )
-        source(
             SRC_CONTACT,
             R.string.quick_search_contacts,
             enabled = { it.searchContacts },
@@ -153,12 +144,6 @@ object SearchSourceRegistry {
             match = { c -> c.index.matchCalls(c.plan, c.settings) },
         )
         source(
-            SRC_TOGGLE,
-            R.string.quick_search_toggles,
-            enabled = { it.searchToggles },
-            match = { c -> c.index.matchToggles(c.plan, c.settings) },
-        )
-        source(
             SRC_CLIP,
             R.string.quick_search_clipboard,
             enabled = { it.searchClipboard },
@@ -181,7 +166,7 @@ object SearchSourceRegistry {
     }
 
     @StringRes
-    fun titleRes(key: String): Int = byKey[key]?.titleRes ?: R.string.quick_search_group_settings
+    fun titleRes(key: String): Int = byKey[key]?.titleRes ?: R.string.quick_search_group_actions
 
     fun enabled(source: String, settings: QuickSearchSettings): Boolean {
         val entry = byKey[source] ?: return false

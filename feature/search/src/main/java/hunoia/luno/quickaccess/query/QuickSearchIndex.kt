@@ -33,7 +33,6 @@ data class AppIndexData(
 class QuickSearchIndex(internal val context: Context) {
 
     internal var actions: List<QuickSearchResult.ActionDef> = emptyList()
-    internal var settingsPages: List<QuickSearchResult.Settings> = emptyList()
     /** 应用/快捷方式/禁用包同代发布，避免读者拼出跨代数据。 */
     @Volatile internal var appData = AppIndexData()
     /** 联系人缓存：面板打开后在 IO 线程一次性加载，打字时只查内存。 */
@@ -60,8 +59,6 @@ class QuickSearchIndex(internal val context: Context) {
     @Volatile internal var calendarTried = false
     @Volatile internal var smsTried = false
     @Volatile internal var callsTried = false
-    /** 手电状态是 Activity 翻的（CameraManager 无 getter），存在 index 供开关行副标题用。 */
-    @Volatile var torchOn: Boolean = false
 
     /** 加载互斥：各源"查一次就够"的闸门靠它保证只跑一遍。 */
     private val loadLock = Any()
@@ -104,11 +101,9 @@ class QuickSearchIndex(internal val context: Context) {
         val builtActions = hunoia.luno.search.SearchCapabilities.actionSearch.index().map { entry ->
             QuickSearchResult.ActionDef(entry.action, entry.label, entry.icon)
         }
-        val builtPages = systemSettingsPages()
         synchronized(loadLock) {
             if (defsLoaded) return
             actions = builtActions
-            settingsPages = builtPages
             defsLoaded = true
             _indexVersion.value++
         }
@@ -199,7 +194,6 @@ fun QuickSearchResult.toConfigAction(): StoredAction = when (this) {
         "app.launchShortcut",
         "data" to JsonSerializer.encodeToString(shortcut),
     )
-    is QuickSearchResult.Settings -> StoredAction.of("system.openSettings", "page" to page.name)
     is QuickSearchResult.Url -> StoredAction.of("intent.openUrl", "url" to url)
     is QuickSearchResult.EngineSearch -> when (val launch = engine.effectiveLaunch()) {
         is SearchLaunch.Url -> StoredAction.of(
@@ -217,14 +211,13 @@ fun QuickSearchResult.toConfigAction(): StoredAction = when (this) {
         is SearchLaunch.ShareImage -> StoredAction.of(hunoia.luno.core.domain.NONE_TYPE_ID)
         is SearchLaunch.Action -> launch.action.fillSearchQuery(query)
     }
-    // Calc/联系人/媒体/日历/开关/短信/通话 在 toSearchResult 里转成
-    // SearchAction.Open/Copy/SystemToggle，由 Activity 直接执行。
+    // Calc/联系人/媒体/日历/短信/通话 在 toSearchResult 里转成
+    // SearchAction.Open/Copy，由 Activity 直接执行。
     is QuickSearchResult.Calc -> error("Calc is handled by QuickSearchActivity")
     is QuickSearchResult.Contact -> error("Contact is handled by QuickSearchActivity")
     is QuickSearchResult.AudioTrack -> error("AudioTrack is handled by QuickSearchActivity")
     is QuickSearchResult.ImageVideo -> error("ImageVideo is handled by QuickSearchActivity")
     is QuickSearchResult.DocFile -> error("DocFile is handled by QuickSearchActivity")
-    is QuickSearchResult.PhoneToggle -> error("PhoneToggle is handled by QuickSearchActivity")
     is QuickSearchResult.CalendarEvent -> error("CalendarEvent is handled by QuickSearchActivity")
     is QuickSearchResult.SmsMsg -> error("SmsMsg is handled by QuickSearchActivity")
     is QuickSearchResult.CallLogEntry -> error("CallLogEntry is handled by QuickSearchActivity")

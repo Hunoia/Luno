@@ -68,10 +68,8 @@ import hunoia.luno.config.model.SRC_CLIP
 import hunoia.luno.config.model.SRC_CONTACT
 import hunoia.luno.config.model.SRC_FILE
 import hunoia.luno.config.model.SRC_MUSIC
-import hunoia.luno.config.model.SRC_SETTINGS
 import hunoia.luno.config.model.SRC_SHORTCUT
 import hunoia.luno.config.model.SRC_SMS
-import hunoia.luno.config.model.SRC_TOGGLE
 import hunoia.luno.quickaccess.QuickLaunchFacade
 import hunoia.luno.ui.icon.SearchIconCache
 import hunoia.luno.quickaccess.query.SearchAction
@@ -96,21 +94,19 @@ private val GroupedCardGap = 10.dp
 
 /** 有图标的结果用竖版磁贴（图标上名字下）；其余源与历史用文本胶囊。 */
 private val TileSources = setOf(
-    SRC_APP, SRC_SHORTCUT, SRC_ACTION, SRC_SETTINGS, SRC_TOGGLE, SRC_CONTACT, SRC_MUSIC,
+    SRC_APP, SRC_SHORTCUT, SRC_ACTION, SRC_CONTACT, SRC_MUSIC,
 )
 
 private fun sourceIcon(key: String): ImageVector = when (key) {
     SRC_APP -> Icons.Default.Apps
     SRC_SHORTCUT -> Icons.Default.Shortcut
     SRC_ACTION -> Icons.Default.PlayArrow
-    SRC_SETTINGS -> Icons.Default.Settings
     SRC_CONTACT -> Icons.Default.Person
     SRC_MUSIC -> Icons.Default.MusicNote
     SRC_FILE -> Icons.Default.Description
     SRC_CALENDAR -> Icons.Default.DateRange
     SRC_SMS -> Icons.AutoMirrored.Filled.Message
     SRC_CALL -> Icons.Default.Call
-    SRC_TOGGLE -> Icons.Default.Tune
     SRC_CLIP -> Icons.Default.ContentPaste
     else -> Icons.Default.Search
 }

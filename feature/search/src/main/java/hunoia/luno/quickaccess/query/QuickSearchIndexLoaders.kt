@@ -1,9 +1,5 @@
 package hunoia.luno.quickaccess.query
 
-import hunoia.luno.search.R
-import hunoia.luno.core.domain.SettingsPage
-import kotlinx.serialization.json.contentOrNull
-
 fun QuickSearchIndex.hasContactsPermission(): Boolean =
     androidx.core.content.ContextCompat.checkSelfPermission(
         context,
@@ -389,101 +385,6 @@ fun QuickSearchIndex.recentFiles(limit: Int = 10): List<QuickSearchResult> {
     return out.sortedByDescending { it.first }.take(limit).map { it.second }
     }
 
-    /** 开关行的静态元数据：标题/关键词参与匹配，不含状态（零 IPC，可常驻）。 */
-data class ToggleSpec(
-    val kind: QuickSearchResult.ToggleKind,
-    val title: String,
-    val keywords: String,
-    )
-
-private val TOGGLE_SPECS = listOf(
-    ToggleSpec(QuickSearchResult.ToggleKind.WIFI, "Wi-Fi", "wifi 无线 局域网 wlan"),
-    ToggleSpec(QuickSearchResult.ToggleKind.BLUETOOTH, "蓝牙", "蓝牙 bluetooth"),
-    ToggleSpec(QuickSearchResult.ToggleKind.TORCH, "手电筒", "手电 闪光灯 torch"),
-    ToggleSpec(QuickSearchResult.ToggleKind.DND, "勿扰", "勿扰 免打扰 dnd"),
-    ToggleSpec(QuickSearchResult.ToggleKind.LOCATION, "定位", "定位 位置 gps"),
-    ToggleSpec(QuickSearchResult.ToggleKind.HOTSPOT, "热点", "热点 hotspot 共享 网络"),
-    )
-
-fun QuickSearchIndex.toggleSpecs(): List<ToggleSpec> = TOGGLE_SPECS
-
-/**
- * 开关状态（副标题）缓存：TTL 1s，命中缓存后同一会话内连打零 IPC；面板每次打开会
- * [invalidateToggleState]（Activity 侧还原真实值）。不缓存时每敲一字都要读 WiFi/蓝牙/
- * 勿扰/定位四条系统服务（4 次 binder）。
- */
-private data class ToggleStateCache(
-    val values: Map<QuickSearchResult.ToggleKind, String>,
-    val at: Long,
-    )
-
-private const val TOGGLE_TTL_MS = 1_000L
-
-@Volatile private var toggleCache: ToggleStateCache? = null
-
-fun invalidateToggleState() {
-    toggleCache = null
-    }
-
-    /** 单个开关的状态副标题：命中缓存直接用，未命中才整批读一遍系统服务。 */
-fun QuickSearchIndex.toggleSubtitle(kind: QuickSearchResult.ToggleKind): String {
-    val now = android.os.SystemClock.elapsedRealtime()
-    val cached = toggleCache?.takeIf { now - it.at <= TOGGLE_TTL_MS }
-    if (cached != null && cached.values.containsKey(kind)) return cached.values.getValue(kind)
-    val all = QuickSearchResult.ToggleKind.entries.associateWith { readToggleState(it) }
-    toggleCache = ToggleStateCache(all, now)
-    return all.getValue(kind)
-    }
-
-    /** 读单个开关状态（会 IPC）。TORCH 用 Activity 翻的标记，HOTSPOT 固定"去设置"。 */
-private fun QuickSearchIndex.readToggleState(kind: QuickSearchResult.ToggleKind): String {
-    val on = context.getString(R.string.quick_search_state_on)
-    val off = context.getString(R.string.quick_search_state_off)
-    return when (kind) {
-        QuickSearchResult.ToggleKind.WIFI -> runCatching {
-            val wm = context.applicationContext.getSystemService(android.net.wifi.WifiManager::class.java)
-            if (wm?.isWifiEnabled == true) on else off
-        }.getOrDefault(off)
-        QuickSearchResult.ToggleKind.BLUETOOTH -> runCatching {
-            val bm = context.applicationContext.getSystemService(android.bluetooth.BluetoothManager::class.java)
-            if (bm?.adapter?.isEnabled == true) on else off
-        }.getOrDefault(off)
-        QuickSearchResult.ToggleKind.TORCH -> if (torchOn) on else off
-        QuickSearchResult.ToggleKind.DND -> runCatching {
-            val nm = context.applicationContext.getSystemService(android.app.NotificationManager::class.java)
-            if (nm?.isNotificationPolicyAccessGranted != true) {
-                context.getString(R.string.quick_search_open_settings)
-            } else if (nm.currentInterruptionFilter ==
-                android.app.NotificationManager.INTERRUPTION_FILTER_NONE
-            ) {
-                on
-            } else {
-                off
-            }
-        }.getOrDefault("")
-        QuickSearchResult.ToggleKind.LOCATION -> runCatching {
-            val lm = context.applicationContext.getSystemService(android.location.LocationManager::class.java)
-            if (lm != null && (lm.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER) ||
-                    lm.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER))
-            ) {
-                on
-            } else {
-                off
-            }
-        }.getOrDefault("")
-        QuickSearchResult.ToggleKind.HOTSPOT ->
-            context.getString(R.string.quick_search_open_settings)
-    }
-    }
-
-    /**
-     * 开关行全集（空态/裸标识列项用）：一次读齐，避免逐行各读一次。
-     */
-fun QuickSearchIndex.toggleRows(): List<QuickSearchResult.PhoneToggle> =
-    TOGGLE_SPECS.map { spec ->
-        QuickSearchResult.PhoneToggle(spec.kind, spec.title, spec.keywords, toggleSubtitle(spec.kind))
-    }
-
 private fun QuickSearchIndex.formatSize(bytes: Long): String {
     if (bytes <= 0) return ""
     val kb = bytes / 1024.0
@@ -492,17 +393,3 @@ private fun QuickSearchIndex.formatSize(bytes: Long): String {
     if (mb < 1024) return "${if (mb < 10) String.format("%.1f", mb) else mb.toLong()} MB"
     return "${String.format("%.1f", mb / 1024.0)} GB"
     }
-
-    /** 设置页 label 同源：SettingsPage.labelRes（原 Enum 参数已改为选择页行尾设置）。 */
-fun QuickSearchIndex.systemSettingsPages(): List<QuickSearchResult.Settings> =
-    // 设置页条目由动作模块的契约提供（architecture §9.4）：搜索不持有页面文案与枚举含义。
-    hunoia.luno.search.SearchCapabilities.actionSearch
-        .settingsPages { context.getString(it) }
-        .mapNotNull { entry ->
-            val pageName = (entry.action.params["page"] as? kotlinx.serialization.json.JsonPrimitive)
-                ?.contentOrNull
-                ?: return@mapNotNull null
-            val page = runCatching { SettingsPage.valueOf(pageName) }.getOrNull()
-                ?: return@mapNotNull null
-            QuickSearchResult.Settings(page, entry.label)
-        }

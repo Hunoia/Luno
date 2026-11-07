@@ -6,20 +6,14 @@ import android.provider.CalendarContract
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.DoNotDisturbOn
-import androidx.compose.material.icons.filled.FlashlightOn
 import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Wifi
-import androidx.compose.material.icons.filled.WifiTethering
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -33,10 +27,8 @@ import hunoia.luno.config.model.SRC_CLIP
 import hunoia.luno.config.model.SRC_CONTACT
 import hunoia.luno.config.model.SRC_FILE
 import hunoia.luno.config.model.SRC_MUSIC
-import hunoia.luno.config.model.SRC_SETTINGS
 import hunoia.luno.config.model.SRC_SHORTCUT
 import hunoia.luno.config.model.SRC_SMS
-import hunoia.luno.config.model.SRC_TOGGLE
 import hunoia.luno.config.model.SearchLaunch
 import hunoia.luno.config.model.SearchLaunch.Action as SearchLaunchAction
 import hunoia.luno.config.model.SearchLaunch.Chooser
@@ -124,15 +116,6 @@ fun QuickSearchResult.toSearchResult(): SearchResult {
                     ),
                 ),
             ),
-        )
-
-        is QuickSearchResult.Settings -> SearchResult(
-            key = key,
-            source = SRC_SETTINGS,
-            title = title,
-            subtitle = subtitle,
-            icon = SearchIcon.Vector(Icons.Default.Search),
-            primary = SearchAction.Run(toConfigAction()),
         )
 
         is QuickSearchResult.Url -> SearchResult(
@@ -288,15 +271,6 @@ fun QuickSearchResult.toSearchResult(): SearchResult {
             ),
         )
 
-        is QuickSearchResult.PhoneToggle -> SearchResult(
-            key = key,
-            source = SRC_TOGGLE,
-            title = title,
-            subtitle = subtitle,
-            icon = SearchIcon.Vector(toggleIcon(kind)),
-            primary = SearchAction.SystemToggle(kind.toActionKind()),
-        )
-
         is QuickSearchResult.ClipEntry -> SearchResult(
             key = key,
             source = SRC_CLIP,
@@ -355,22 +329,4 @@ private fun iconOf(icon: Any?): SearchIcon = when (icon) {
     is ImageBitmap -> SearchIcon.Bitmap(icon)
     is TextIcon -> SearchIcon.Text(icon.text)
     else -> SearchIcon.Request(icon)
-}
-
-private fun toggleIcon(kind: QuickSearchResult.ToggleKind): ImageVector = when (kind) {
-    QuickSearchResult.ToggleKind.WIFI -> Icons.Default.Wifi
-    QuickSearchResult.ToggleKind.BLUETOOTH -> Icons.Default.Bluetooth
-    QuickSearchResult.ToggleKind.TORCH -> Icons.Default.FlashlightOn
-    QuickSearchResult.ToggleKind.DND -> Icons.Default.DoNotDisturbOn
-    QuickSearchResult.ToggleKind.LOCATION -> Icons.Default.LocationOn
-    QuickSearchResult.ToggleKind.HOTSPOT -> Icons.Default.WifiTethering
-}
-
-private fun QuickSearchResult.ToggleKind.toActionKind(): SearchToggleKind = when (this) {
-    QuickSearchResult.ToggleKind.WIFI -> SearchToggleKind.WIFI
-    QuickSearchResult.ToggleKind.BLUETOOTH -> SearchToggleKind.BLUETOOTH
-    QuickSearchResult.ToggleKind.TORCH -> SearchToggleKind.TORCH
-    QuickSearchResult.ToggleKind.DND -> SearchToggleKind.DND
-    QuickSearchResult.ToggleKind.LOCATION -> SearchToggleKind.LOCATION
-    QuickSearchResult.ToggleKind.HOTSPOT -> SearchToggleKind.HOTSPOT
 }

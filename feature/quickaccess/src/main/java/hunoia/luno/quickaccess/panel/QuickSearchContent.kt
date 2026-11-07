@@ -92,7 +92,6 @@ private data class SearchSnapshot(
     val calendarTick: Int,
     val smsTick: Int,
     val callsTick: Int,
-    val torchOn: Boolean,
     val clips: ClipPools,
 )
 /** 影响搜索结果的设置子集（纯值投影）：直接拿 QuickSearchSettings 当依赖会让改外观/删历史都触发全量重搜；recentQueries 有意排除。 */
@@ -104,13 +103,11 @@ private data class SearchInputs(
     val searchMusic: Boolean,
     val searchFiles: Boolean,
     val searchCalendar: Boolean,
-    val searchToggles: Boolean,
     val searchSms: Boolean,
     val searchCalls: Boolean,
     val searchApps: Boolean,
     val searchShortcuts: Boolean,
     val searchActions: Boolean,
-    val searchSettingsPages: Boolean,
     val engineOrder: List<String>,
     val pinnedResults: Map<String, List<String>>,
     val pinnedQueryOrder: List<String>,
@@ -124,13 +121,11 @@ private data class SearchInputs(
         searchMusic = searchMusic,
         searchFiles = searchFiles,
         searchCalendar = searchCalendar,
-        searchToggles = searchToggles,
         searchSms = searchSms,
         searchCalls = searchCalls,
         searchApps = searchApps,
         searchShortcuts = searchShortcuts,
         searchActions = searchActions,
-        searchSettingsPages = searchSettingsPages,
         engineOrder = engineOrder,
         pinnedResults = pinnedResults,
         pinnedQueryOrder = pinnedQueryOrder,
@@ -145,13 +140,11 @@ private data class SearchInputs(
             searchMusic = s.searchMusic,
             searchFiles = s.searchFiles,
             searchCalendar = s.searchCalendar,
-            searchToggles = s.searchToggles,
             searchSms = s.searchSms,
             searchCalls = s.searchCalls,
             searchApps = s.searchApps,
             searchShortcuts = s.searchShortcuts,
             searchActions = s.searchActions,
-            searchSettingsPages = s.searchSettingsPages,
             engineOrder = s.engineOrder,
             pinnedResults = s.pinnedResults,
             pinnedQueryOrder = s.pinnedQueryOrder,
@@ -164,7 +157,6 @@ private data class SearchInputs(
 internal fun QuickSearchContent(
     index: QuickSearchIndex,
     clipboardText: String?,
-    torchOn: Boolean,
     closing: Boolean,
     locked: Boolean,
     onClose: () -> Unit,
@@ -238,7 +230,7 @@ internal fun QuickSearchContent(
     val dataVersion = ticks.contactsTick + ticks.mediaTick + ticks.calendarTick +
         ticks.smsTick + ticks.callsTick + indexVersion + ticks.permCacheTick
     val searchFlow = remember(
-        appCtx, iconPx, searchInputs, effectiveSearchSettings, dataVersion, torchOn,
+        appCtx, iconPx, searchInputs, effectiveSearchSettings, dataVersion,
     ) {
         snapshotFlow {
             // 块内只读快照里没装但会影响结果的 State：query（打字即时触发）、
@@ -246,7 +238,7 @@ internal fun QuickSearchContent(
             // tick 已由 remember 的 key 带进闭包。
             SearchSnapshot(
                 query.text, entries, usageState.value, effectiveSearchSettings,
-                0, 0, 0, 0, 0, torchOn, clipsState.value,
+                0, 0, 0, 0, 0, clipsState.value,
             )
         }.mapLatest { s ->
             val text = s.text
@@ -256,7 +248,7 @@ internal fun QuickSearchContent(
                 withContext(Dispatchers.Default) {
                     val job = currentCoroutineContext()[Job]
                     val outcome = index.searchOutcome(
-                        text, s.entries, s.usage, s.search, s.torchOn, s.clips,
+                        text, s.entries, s.usage, s.search, s.clips,
                         isActive = { job?.isActive != false },
                     )
                     // 发射前把 App/快捷方式行的图标 resolve 进同步缓存：UI 线程读到即画，

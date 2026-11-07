@@ -3,8 +3,8 @@ package hunoia.luno.picker.components.rowsettings
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
+import hunoia.luno.action.definitions.ActionDefinitions
 import hunoia.luno.picker.R
-import hunoia.luno.actions.R as ActionsR
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -12,10 +12,9 @@ import kotlinx.serialization.json.buildJsonObject
 /** 内置可配置动作的行设置描述符。 */
 internal object BuiltinRowSettings {
 
-    private val settingsPages = listOf(
-        "WIFI", "BLUETOOTH", "DISPLAY", "BATTERY",
-        "APPS", "NETWORK", "ACCESSIBILITY", "MAIN",
-    )
+    private const val QUICK_TOGGLE_TYPE_ID = "system.toggle"
+    private const val OPEN_SETTINGS_TYPE_ID = "system.openSettings"
+
     private val audioStreams = listOf("MUSIC", "RING", "NOTIFICATION", "ALARM", "VOICE", "SYSTEM")
     private val floatBallVisibilityKeys = listOf("toggle", "true", "false", "HIDE_FOR")
     private val buttonsVisibilityKeys = listOf("true", "false", "HIDE_FOR")
@@ -25,8 +24,21 @@ internal object BuiltinRowSettings {
         register(volumeScrub())
         register(floatBallVisibility())
         register(buttonsVisibility())
-        register(openSettings())
+        register(
+            variantsAction(
+                OPEN_SETTINGS_TYPE_ID,
+                R.string.row_dialog_open_settings,
+                R.string.row_settings_settings_page,
+            ),
+        )
         register(volume())
+        register(
+            variantsAction(
+                QUICK_TOGGLE_TYPE_ID,
+                R.string.row_dialog_quick_toggle,
+                R.string.row_settings_toggle_kind,
+            ),
+        )
     }
 
     private fun volumeScrub() = ActionRowSettingsDescriptor(
@@ -156,28 +168,40 @@ internal object BuiltinRowSettings {
         },
     )
 
-    private fun openSettings() = ActionRowSettingsDescriptor(
-        typeId = "system.openSettings",
-        titleRes = R.string.row_dialog_open_settings,
-        subtitle = { params, context ->
-            context.getString(settingsPageLabelRes(params.str("page", RowSettingsDefaults.SettingsPage)))
-        },
-        canonicalize = { draft ->
-            buildJsonObject {
-                put("page", JsonPrimitive(draft.str("page", RowSettingsDefaults.SettingsPage)))
-            }
-        },
-        editor = { scope ->
-            val selected = settingsPages
-                .indexOf(scope.draft.str("page", RowSettingsDefaults.SettingsPage))
-                .coerceAtLeast(0)
-            SettingChoiceList(
-                title = stringResource(R.string.row_settings_settings_page),
-                options = settingsPages.map { stringResource(settingsPageLabelRes(it)) },
-                selectedIndex = selected,
-            ) { scope.setStr("page", settingsPages[it]) }
-        },
-    )
+    /**
+     * 合并式动作的通用编辑器：选项来自 `ActionDefinition.variants`，不在选择页里另抄一张表。
+     * 名称/图标由 `ActionDisplay` 按变体派生，副标题不再重复展现当前变体。
+     */
+    private fun variantsAction(
+        typeId: String,
+        titleRes: Int,
+        choiceTitleRes: Int,
+    ): ActionRowSettingsDescriptor {
+        val definition = { ActionDefinitions.byTypeId(typeId) }
+        return ActionRowSettingsDescriptor(
+            typeId = typeId,
+            titleRes = titleRes,
+            subtitle = { _, _ -> "" },
+            canonicalize = { draft ->
+                // 未选/脏值回退到缺省变体（定义表首位），不依赖调用方补值。
+                val variant = definition()?.resolvedVariant(draft)
+                buildJsonObject {
+                    variant?.params?.forEach { (key, value) -> put(key, JsonPrimitive(value)) }
+                }
+            },
+            editor = { scope ->
+                val def = definition()
+                val variants = def?.variants.orEmpty()
+                val selected = variants.indexOfFirst { it == def?.resolvedVariant(scope.draft) }
+                    .coerceAtLeast(0)
+                SettingChoiceList(
+                    title = stringResource(choiceTitleRes),
+                    options = variants.map { it.label },
+                    selectedIndex = selected,
+                ) { index -> scope.setParams(variants[index].params) }
+            },
+        )
+    }
 
     private fun volume() = ActionRowSettingsDescriptor(
         typeId = "system.volume",
@@ -282,17 +306,6 @@ internal object BuiltinRowSettings {
             )
         }
     }
-}
-
-private fun settingsPageLabelRes(page: String): Int = when (page) {
-    "WIFI" -> ActionsR.string.settings_page_wifi
-    "BLUETOOTH" -> ActionsR.string.settings_page_bluetooth
-    "DISPLAY" -> ActionsR.string.settings_page_display
-    "BATTERY" -> ActionsR.string.settings_page_battery
-    "APPS" -> ActionsR.string.settings_page_apps
-    "NETWORK" -> ActionsR.string.settings_page_network
-    "ACCESSIBILITY" -> ActionsR.string.settings_page_accessibility
-    else -> ActionsR.string.settings_page_main
 }
 
 private fun audioStreamLabelRes(stream: String): Int = when (stream) {

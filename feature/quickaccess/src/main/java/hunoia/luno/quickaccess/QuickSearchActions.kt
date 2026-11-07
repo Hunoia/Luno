@@ -3,10 +3,7 @@ package hunoia.luno.quickaccess
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import hunoia.luno.core.LunoLog as Log
-import androidx.compose.material.icons.filled.Settings
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import hunoia.luno.quickaccess.BuildConfig
 import hunoia.luno.quickaccess.R
@@ -17,7 +14,6 @@ import hunoia.luno.config.model.MAX_QUERY_CHARS
 import hunoia.luno.config.model.MAX_RECENT_QUERIES
 import hunoia.luno.config.model.MIN_HISTORY_CHARS
 import hunoia.luno.quickaccess.query.SearchAction
-import hunoia.luno.quickaccess.query.SearchToggleKind
 import kotlinx.coroutines.launch
 
 /** 直拷文本 + 已复制 toast：计算器/网址/引擎长按共用。 */
@@ -134,77 +130,6 @@ internal fun QuickSearchActivity.shareUri(uri: String, mime: String) {
         )
     }.isSuccess
     if (!ok) showToast(R.string.quick_search_no_handler)
-}
-
-internal fun QuickSearchActivity.toggleTorch() {
-    if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) !=
-        PackageManager.PERMISSION_GRANTED
-    ) {
-        torchPermissionLauncher.launch(android.Manifest.permission.CAMERA)
-        return
-    }
-    flipTorch()
-}
-
-internal fun QuickSearchActivity.flipTorch() {
-    val id = flashCameraId ?: return
-    val next = !torchState.value
-    val ok = runCatching {
-        getSystemService(android.hardware.camera2.CameraManager::class.java)?.setTorchMode(id, next)
-    }.isSuccess
-    if (ok) torchState.value = next
-}
-
-/**
-     * 快捷开关分发：能直切的切（手电/DND 已授权），不能直切的跳面板或设置页
-     * （WiFi/蓝牙/定位/热点/DND 未授权——Android 10+ 起第三方本就切不动，不硬调私有 API）。
-     */
-internal fun QuickSearchActivity.handleToggle(kind: SearchToggleKind) {
-    when (kind) {
-        SearchToggleKind.WIFI -> runCatching {
-            startActivity(Intent(android.provider.Settings.Panel.ACTION_WIFI))
-        }
-        SearchToggleKind.BLUETOOTH -> runCatching {
-            startActivity(Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS))
-        }
-        SearchToggleKind.TORCH -> toggleTorch()
-        SearchToggleKind.DND -> {
-            val nm = getSystemService(android.app.NotificationManager::class.java)
-            if (nm?.isNotificationPolicyAccessGranted == true) {
-                runCatching {
-                    nm.setInterruptionFilter(
-                        if (nm.currentInterruptionFilter ==
-                            android.app.NotificationManager.INTERRUPTION_FILTER_NONE
-                        ) {
-                            android.app.NotificationManager.INTERRUPTION_FILTER_ALL
-                        } else {
-                            android.app.NotificationManager.INTERRUPTION_FILTER_NONE
-                        },
-                    )
-                }
-                requestClose()
-            } else {
-                runCatching {
-                    startActivity(
-                        Intent(android.provider.Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS),
-                    )
-                }
-            }
-        }
-        SearchToggleKind.LOCATION -> runCatching {
-            startActivity(Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS))
-        }
-        SearchToggleKind.HOTSPOT -> {
-            val ok = runCatching {
-                startActivity(Intent("android.settings.TETHER_SETTINGS"))
-            }.isSuccess
-            if (!ok) {
-                runCatching {
-                    startActivity(Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS))
-                }
-            }
-        }
-    }
 }
 
 /**

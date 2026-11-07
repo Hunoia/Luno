@@ -47,7 +47,10 @@ fun Context.actionText(
     if (action.typeId == "app.launchShortcut") {
         return action.shortcutInfo()?.label ?: ""
     }
-    return ActionDefinitions.byTypeId(action.typeId)?.name
+    val definition = ActionDefinitions.byTypeId(action.typeId)
+    // 合并式动作（快捷开关/打开设置页）按变体展示：与 Composable 版同一个口径。
+    definition?.resolvedVariant(action.params)?.let { return it.label }
+    return definition?.name
         ?: if (emptyIfNone) "" else getString(R.string.action_none)
 }
 
@@ -105,7 +108,10 @@ fun actionText(
     if (action.typeId == "app.launchShortcut") {
         return action.shortcutInfo()?.label ?: ""
     }
-    return ActionDefinitions.byTypeId(action.typeId)?.name
+    val definition = ActionDefinitions.byTypeId(action.typeId)
+    // 合并式动作（快捷开关等）按变体展示：按钮上直接写「勿扰」而不是「快捷开关」。
+    definition?.resolvedVariant(action.params)?.let { return it.label }
+    return definition?.name
         ?: if (emptyIfNone) "" else stringResource(R.string.action_none)
 }
 
@@ -144,7 +150,8 @@ fun actionIcon(action: StoredAction): Any? {
             pkg?.let { context.packageManager.getApplicationIcon(it) }
         } ?: Icons.Default.SwapHoriz
     }
-    return ActionDefinitions.byTypeId(action.typeId)?.icon
+    val definition = ActionDefinitions.byTypeId(action.typeId)
+    return definition?.resolvedVariant(action.params)?.icon ?: definition?.icon
 }
 
 @Composable

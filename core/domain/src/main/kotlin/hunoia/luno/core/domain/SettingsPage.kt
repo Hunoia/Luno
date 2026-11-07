@@ -7,5 +7,11 @@ package hunoia.luno.core.domain
  * `:feature:actions`（展示知识）。
  */
 enum class SettingsPage {
-    WIFI, BLUETOOTH, DISPLAY, BATTERY, APPS, NETWORK, ACCESSIBILITY, MAIN
+    WIFI, BLUETOOTH, DISPLAY, BATTERY, APPS, NETWORK, ACCESSIBILITY, MAIN,
+    ;
+
+    companion object {
+        /** 缺省页：动作未配置时的目标，选择页回退与解码默认值共用同一个事实源。 */
+        val DEFAULT = MAIN
+    }
 }

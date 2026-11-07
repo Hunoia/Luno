@@ -77,6 +77,9 @@ fun ActionRowSettingsSheet(
                     ),
             )
         },
+        setParams = { params ->
+            draft = JsonObject(draft + params.mapValues { (_, value) -> JsonPrimitive(value) })
+        },
     )
 
     LunoSheet(

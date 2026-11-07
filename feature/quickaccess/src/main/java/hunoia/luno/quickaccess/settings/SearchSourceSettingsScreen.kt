@@ -19,10 +19,8 @@ import hunoia.luno.config.model.SRC_CLIP
 import hunoia.luno.config.model.SRC_CONTACT
 import hunoia.luno.config.model.SRC_FILE
 import hunoia.luno.config.model.SRC_MUSIC
-import hunoia.luno.config.model.SRC_SETTINGS
 import hunoia.luno.config.model.SRC_SHORTCUT
 import hunoia.luno.config.model.SRC_SMS
-import hunoia.luno.config.model.SRC_TOGGLE
 import hunoia.luno.config.model.allEngines
 import hunoia.luno.config.model.effectiveTrigger
 import hunoia.luno.domain.search.SearchCenter
@@ -38,7 +36,6 @@ private val SourceSwitches: Map<String, (QuickSearchSettings) -> Boolean> = mapO
     SRC_APP to { it.searchApps },
     SRC_SHORTCUT to { it.searchShortcuts },
     SRC_ACTION to { it.searchActions },
-    SRC_SETTINGS to { it.searchSettingsPages },
     SRC_CONTACT to { it.searchContacts },
     SRC_SMS to { it.searchSms },
     SRC_CALL to { it.searchCalls },
@@ -46,7 +43,6 @@ private val SourceSwitches: Map<String, (QuickSearchSettings) -> Boolean> = mapO
     SRC_FILE to { it.searchFiles },
     SRC_CLIP to { it.searchClipboard },
     SRC_CALENDAR to { it.searchCalendar },
-    SRC_TOGGLE to { it.searchToggles },
 )
 
 /** 内容源与来源标识设置：按类型分组，组内开关行（开关 = 启用，点行 = 改标识）。 */
@@ -83,10 +79,10 @@ fun SearchSourceSettingsScreen(onBack: () -> Unit) {
         onBack = onBack,
     ) {
         val groups = listOf(
-            R.string.search_source_group_apps to listOf(SRC_APP, SRC_SHORTCUT, SRC_ACTION, SRC_SETTINGS),
+            R.string.search_source_group_apps to listOf(SRC_APP, SRC_SHORTCUT, SRC_ACTION),
             R.string.search_source_group_comms to listOf(SRC_CONTACT, SRC_SMS, SRC_CALL),
             R.string.search_source_group_media to listOf(SRC_MUSIC, SRC_FILE, SRC_CLIP),
-            R.string.search_source_group_system to listOf(SRC_CALENDAR, SRC_TOGGLE),
+            R.string.search_source_group_system to listOf(SRC_CALENDAR),
         )
         groups.forEach { (titleRes, keys) ->
             LunoGroup(title = stringResource(titleRes)) {
@@ -103,7 +99,6 @@ fun SearchSourceSettingsScreen(onBack: () -> Unit) {
                                     SRC_APP -> current.copy(searchApps = v)
                                     SRC_SHORTCUT -> current.copy(searchShortcuts = v)
                                     SRC_ACTION -> current.copy(searchActions = v)
-                                    SRC_SETTINGS -> current.copy(searchSettingsPages = v)
                                     SRC_CONTACT -> current.copy(searchContacts = v)
                                     SRC_SMS -> current.copy(searchSms = v)
                                     SRC_CALL -> current.copy(searchCalls = v)
@@ -111,7 +106,6 @@ fun SearchSourceSettingsScreen(onBack: () -> Unit) {
                                     SRC_FILE -> current.copy(searchFiles = v)
                                     SRC_CLIP -> current.copy(searchClipboard = v)
                                     SRC_CALENDAR -> current.copy(searchCalendar = v)
-                                    SRC_TOGGLE -> current.copy(searchToggles = v)
                                     else -> current
                                 }
                             }

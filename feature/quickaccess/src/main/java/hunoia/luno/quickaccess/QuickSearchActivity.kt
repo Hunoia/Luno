@@ -113,24 +113,6 @@ class QuickSearchActivity : ComponentActivity() {
         }
     }
 
-    /** 手电状态（CameraManager 无 getter，翻一次记一次，供开关行副标题用）。 */
-    internal val torchState = mutableStateOf(false)
-    internal val flashCameraId: String? by lazy {
-        runCatching {
-            val cm = getSystemService(android.hardware.camera2.CameraManager::class.java) ?: return@runCatching null
-            cm.cameraIdList.firstOrNull { id ->
-                cm.getCameraCharacteristics(id)
-                    .get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
-            }
-        }.getOrNull()
-    }
-
-    /** 手电直切：无 CAMERA 运行时权限先要（ Manifest 已有 CAMERA），要到再翻。 */
-    internal val torchPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) flipTorch()
-        }
-
     internal val closingState = mutableStateOf(false)
 
     /** 图片搜索：PickImage 先记住目标包，选图回来再执行 ShareImage。 */
@@ -185,7 +167,6 @@ class QuickSearchActivity : ComponentActivity() {
                 QuickSearchContent(
                     index = index,
                     clipboardText = clipState.value,
-                    torchOn = torchState.value,
                     closing = closingState.value,
                     locked = lockedState.value,
                     onClose = { requestClose() },
@@ -266,7 +247,6 @@ class QuickSearchActivity : ComponentActivity() {
             is SearchAction.Share -> shareUri(action.uri, action.mime).also { requestClose() }
             // 由 QuickSearchContent 直接回填；万一走到这里不处理。
             is SearchAction.SetQuery -> Unit
-            is SearchAction.SystemToggle -> handleToggle(action.kind)
         }
     }
 

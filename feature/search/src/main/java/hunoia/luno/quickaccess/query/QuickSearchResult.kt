@@ -5,7 +5,6 @@ import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.config.model.SearchEngine
 import hunoia.luno.quickaccess.model.AppInfo
 import hunoia.luno.bridge.launcher.LauncherInfo
-import hunoia.luno.core.domain.SettingsPage
 
 /**
  * 搜索索引的原始结果。展示层通过 [toSearchResult] 转成 [SearchResult]，
@@ -33,10 +32,6 @@ sealed interface QuickSearchResult {
     data class Shortcut(val shortcut: LauncherInfo.ShortcutInfo) : QuickSearchResult {
         override val title: String get() = shortcut.label
         override val subtitle: String get() = shortcut.packageName
-    }
-    /** 打开系统设置页 */
-    data class Settings(val page: SettingsPage, override val title: String) : QuickSearchResult {
-        override val subtitle: String get() = ""
     }
     /** 打开网页 */
     data class Url(val url: String) : QuickSearchResult {
@@ -79,9 +74,6 @@ sealed interface QuickSearchResult {
         override val title: String get() = name
         override val subtitle: String get() = sizeText
     }
-    /** 开关：标题=开关名，副标题=当前状态（未知则空）；能直切就切、否则跳设置，Activity 直调。 */
-    enum class ToggleKind { WIFI, BLUETOOTH, TORCH, DND, LOCATION, HOTSPOT }
-    data class PhoneToggle(val kind: ToggleKind, override val title: String, val keywords: String, override val subtitle: String) : QuickSearchResult
     /** 日历事件：标题=事件名，副标题=时间地点；点看事件、长按复制，Activity 直调。 */
     data class CalendarEvent(val title_: String, val timeText: String, val location: String, val eventId: Long, val beginMillis: Long = 0) : QuickSearchResult {
         override val title: String get() = title_
@@ -119,7 +111,6 @@ fun QuickSearchResult.stableId(): String = when (this) {
     // 同包同 activity 多个快捷方式的字段。
     is QuickSearchResult.Shortcut ->
         "sc#${shortcut.packageName}/${shortcut.className}|${shortcut.intents.joinToString("\u0001")}"
-    is QuickSearchResult.Settings -> "sp#${page.name}"
     is QuickSearchResult.Url -> "url#$url"
     is QuickSearchResult.EngineSearch -> "es#${engine.id}|$query"
     is QuickSearchResult.Calc -> "calc#${expression}"
@@ -127,7 +118,6 @@ fun QuickSearchResult.stableId(): String = when (this) {
     is QuickSearchResult.AudioTrack -> "mu#$uri"
     is QuickSearchResult.ImageVideo -> "iv#$uri"
     is QuickSearchResult.DocFile -> "doc#$uri"
-    is QuickSearchResult.PhoneToggle -> "tg#${kind.name}"
     is QuickSearchResult.CalendarEvent -> "ce#$eventId\u0001$timeText"
     // 短信没有 id：发件人 + 时间 + 正文哈希。同一秒同发件人同正文的两条消息会撞，
     // 由 stableKeys 补序号兜底（视觉上但凡是完全等价的两行，错位不可见）。

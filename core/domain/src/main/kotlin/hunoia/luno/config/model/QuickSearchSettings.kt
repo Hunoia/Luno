@@ -51,8 +51,6 @@ data class QuickSearchSettings(
     val searchFiles: Boolean = true,
     /** 日历：标题/地点匹配，点看事件、长按复制；需 READ_CALENDAR。 */
     val searchCalendar: Boolean = true,
-    /** 快捷开关：WiFi/蓝牙/手电/勿扰/定位/热点，能直切就切、否则跳设置；无敏感权限。 */
-    val searchToggles: Boolean = true,
     /** 短信：发件人/正文匹配，点开会话、长按复制；需 READ_SMS。 */
     val searchSms: Boolean = true,
     /** 通话记录：姓名/号码匹配，点拨号、长按短信；需 READ_CALL_LOG。 */
@@ -63,8 +61,6 @@ data class QuickSearchSettings(
     val searchShortcuts: Boolean = true,
     /** 动作：动作库条目匹配。 */
     val searchActions: Boolean = true,
-    /** 设置页：Luno 自身设置项匹配。 */
-    val searchSettingsPages: Boolean = true,
     /**
      * 来源标识自定义（源 key → 标识，如 "sms" → "duanxin"）：缺 key 用内置默认，
      * 空串 = 关闭该源标识（只走全源搜）。跟引擎标识同规则，保存时判重。
@@ -222,14 +218,12 @@ fun QuickSearchSettings.withUniqueEngineTriggers(): QuickSearchSettings {
 const val SRC_APP = "app"
 const val SRC_SHORTCUT = "sc"
 const val SRC_ACTION = "act"
-const val SRC_SETTINGS = "set"
 const val SRC_CONTACT = "con"
 const val SRC_MUSIC = "mus"
 const val SRC_FILE = "fil"
 const val SRC_CALENDAR = "cal"
 const val SRC_SMS = "sms"
 const val SRC_CALL = "call"
-const val SRC_TOGGLE = "sw"
 const val SRC_CLIP = "clp"
 
 /** 来源内置默认标识：统一全英文短缩写。 */
@@ -237,14 +231,12 @@ val DefaultSourceTriggers: Map<String, String> = mapOf(
     SRC_APP to "app",
     SRC_SHORTCUT to "sc",
     SRC_ACTION to "act",
-    SRC_SETTINGS to "set",
     SRC_CONTACT to "con",
     SRC_MUSIC to "mus",
     SRC_FILE to "fil",
     SRC_CALENDAR to "cal",
     SRC_SMS to "sms",
     SRC_CALL to "call",
-    SRC_TOGGLE to "sw",
     SRC_CLIP to "clp",
 )
 
