@@ -39,5 +39,7 @@ object DataStoreFiles {
     const val CLIPBOARD_HISTORY = "clipboard_history"
     /** 剪贴板设置（记录开关 / 未固定上限）：随 `BackupDomain.CLIPBOARD` 导出。 */
     const val CLIPBOARD_SETTINGS = "clipboard_settings"
+    /** 定时自动备份的设备本地状态（开关 / 目录授权 / 上次执行结果）：授权是本机的，刻意不进备份。 */
+    const val AUTO_BACKUP = "auto_backup"
 }
 

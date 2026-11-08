@@ -6,6 +6,7 @@ import androidx.compose.material.icons.twotone.RadioButtonChecked
 import androidx.compose.material.icons.twotone.RestartAlt
 import androidx.compose.material.icons.twotone.Restore
 import androidx.compose.material.icons.twotone.Save
+import androidx.compose.material.icons.twotone.Schedule
 import androidx.compose.material.icons.twotone.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -55,6 +56,7 @@ fun HomeSettingsGroup(
 fun DataTransferGroup(
     onBackupClick: () -> Unit,
     onRestoreClick: () -> Unit,
+    onAutoBackupClick: () -> Unit,
     onResetClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -74,6 +76,12 @@ fun DataTransferGroup(
             icon = Icons.TwoTone.Restore,
             shape = shape,
             onClick = onRestoreClick,
+            ) }
+            item { shape -> LunoSettingsRow(
+            title = stringResource(R.string.auto_backup),
+            icon = Icons.TwoTone.Schedule,
+            shape = shape,
+            onClick = onAutoBackupClick,
             ) }
             item { shape -> LunoSettingsRow(
             title = stringResource(hunoia.luno.design.R.string.reset),

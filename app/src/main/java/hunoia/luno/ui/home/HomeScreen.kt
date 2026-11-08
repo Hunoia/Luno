@@ -129,6 +129,7 @@ fun HomeScreen(
     onNavToPersistentNotificationSettings: () -> Unit = {},
     onNavToStatusBarIconSettings: () -> Unit = {},
     onNavToLogSettings: () -> Unit = {},
+    onNavToAutoBackup: () -> Unit = {},
     onNavToClipboard: () -> Unit = {},
     onNavToHabits: () -> Unit = {},
     onNavToTodos: () -> Unit = {},
@@ -461,6 +462,7 @@ fun HomeScreen(
                                         createFileLauncher.launch("${appName}_$date.zip")
                                     },
                                     onRestoreClick = { getFileLauncher.launch("*/*") },
+                                    onAutoBackupClick = onNavToAutoBackup,
                                     onResetClick = { showResetConfirm = true },
                                 )
                             }

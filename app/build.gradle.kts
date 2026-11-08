@@ -195,6 +195,8 @@ dependencies {
     implementation(libs.com.tiann.freereflection)
     implementation(libs.jetbrains.kotlin.serialization)
     implementation(libs.androidx.datastore)
+    // 自动备份定时任务：Worker / 周期入队只在主进程使用（见 AutoBackupScheduler 注释）。
+    implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.collection)
     implementation(libs.material3)
     implementation(libs.haze)
