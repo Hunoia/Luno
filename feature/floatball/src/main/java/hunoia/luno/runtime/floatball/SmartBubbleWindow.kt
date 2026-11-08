@@ -924,7 +924,7 @@ internal class SmartBubbleWindow(private val context: android.content.Context) {
         const val MaxOriginDp = 200f
         const val PressScale = 0.97f
 
-        const val MaxWidthDp = 320f
+        const val MaxWidthDp = 180f
         const val WidthRatio = 0.48f
         const val CountHitDp = 44f
         const val CollapseThresholdDp = 48f
