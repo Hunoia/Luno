@@ -1565,6 +1565,9 @@ class FloatBallService : Service() {
                 rightAnchorY = if (!left) y else position.rightAnchorY,
             )
         }
+        // 球窗自己那份 settings 只在 collect 到达时更新；这里落盘后立即推送，
+        // 避免紧接着的拆窗重挂（尺寸/转屏/显隐）读到旧落点而换边。
+        ballWindow.updateSettings(settings)
         scope.launch {
             runCatching {
                 hunoia.luno.domain.floatball.FloatBallSettingsCenter.updateActionSettings { current ->

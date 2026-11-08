@@ -182,11 +182,15 @@ class FloatBallWindow(
         // 改尺寸只能拆窗重挂（新窗首组合直接按新球径画）。拆前记住纵向落点，
         // 重挂后按原侧别贴边重吸附（归一 x 乘新窗尺寸会留缝）。
         val yRatio = if (screenHeightPx > 0) posY / screenHeightPx else settings.position(landscape).y
+        // 拆窗重挂会经 attach 读落盘侧别；这里以拆前实位为准，避免存量落后于内存态时换边。
+        val wasLeft = isOnLeft()
         detach()
         ballPx = nextPx
         attachAnimated()
         posY = yRatio * screenHeightPx
-        snapToNearestEdge()
+        snapToNearestEdge(wasLeft)
+        // 只重摆静置平移，不碰复场的 alpha/scale 动画。
+        view?.translationX = if (idled) idleShiftPx() else 0f
         applyWindowBounds()
     }
 
@@ -195,10 +199,26 @@ class FloatBallWindow(
         if (this.landscape == landscape) return false
         this.landscape = landscape
         if (view == null) return true
-        // x 只保留侧别：归一 x 乘新屏宽会留下比例缝隙（球越大缝越大），统一贴边重吸附。
+        // 转屏路径可能先由运行态观察者触发（早于 Service.onConfigurationChanged 的失效）：
+        // 这里自己失效一次，避免按旧朝向的缓存宽高算贴边位。
+        DensityProvider.invalidateMetrics()
+        // 侧别必须按目标朝向自己那份落点判：旧朝向的像素 x 比新屏宽会在屏宽变化时
+        // 翻转侧别（竖屏贴右 → 横屏变左）；y 同样取该朝向记忆值。
+        cancelSettle()
+        posX = savedEdgeX(landscape)
         posY = settings.position(landscape).y * screenHeightPx
-        snapToNearestEdge()
         applyWindowBounds()
+        // 静置外移量与侧别/屏宽耦合，旧朝向的 translationX 会在新朝向上表现为
+        // 「偏离边缘 / 半颗球被裁」，必须按新位重摆。
+        realignVisualAfterReposition()
+        // 横竖屏的状态栏高度不同（LP 原点随之变化），转屏后重测一次；导航栏同样重取。
+        view?.let { root ->
+            root.post { applySystemInsets() }
+            postMeasureLpOriginY({ view }, { lpOriginY }) {
+                lpOriginY = it
+                applyWindowBounds()
+            }
+        }
         return true
     }
 
@@ -323,6 +343,11 @@ class FloatBallWindow(
         // attach 当下 rootWindowInsets 必然为空：等下一次遍历再补一次 best-effort，
         // 主路径是上面的 insets 监听。
         root.post { applySystemInsets() }
+        // x/y 都取该朝向落盘的落点：x 只保留侧别后贴边重吸附（归一 x 乘新球径会留缝）。
+        // 必须先定 posX/posY 再摆静置平移，否则 idleShiftPx 会按 posX 初值（0 = 左）算方向。
+        posX = savedEdgeX(landscape)
+        posY = settings.position(landscape).y * screenHeightPx
+        applyWindowBounds()
         scheduleIdle()
         // detach 不清 idled：锁屏隐藏规则/总闸这类拆窗重建（enabled false→true），
         // 直接把静置终态摆上（不走 applyVisual 的动画 —— 否则解锁瞬间能看见一次
@@ -331,10 +356,6 @@ class FloatBallWindow(
             root.alpha = FloatBallDefaults.IdleDimAlpha
             root.translationX = idleShiftPx()
         }
-        // x 只保留侧别（同转屏）：贴边重吸附，y 用该朝向记忆的归一落点。
-        posY = settings.position(landscape).y * screenHeightPx
-        snapToNearestEdge()
-        applyWindowBounds()
         // 实测 LP 原点（状态栏高度）：窗口摆出来才知道真实屏幕落点。
         postMeasureLpOriginY({ view }, { lpOriginY }) {
             lpOriginY = it
@@ -560,8 +581,7 @@ class FloatBallWindow(
         applyWindowBounds()
         // 松手后球贴到最近边缘（完整球在屏内，不留缝）；用短程缓动而不是瞬移。落盘记终点。
         if (screenWidthPx > 0 && screenHeightPx > 0) {
-            val maxX = max(0, screenWidthPx - ballPx).toFloat()
-            val targetX = if (posX * 2f + ballPx < screenWidthPx) 0f else maxX
+            val targetX = BallPlacement.edgeX(isOnLeft(), screenWidthPx, ballPx)
             settleToEdge(targetX)
             onDragFinished?.invoke(targetX / screenWidthPx, posY / screenHeightPx)
         }
@@ -588,7 +608,7 @@ class FloatBallWindow(
     fun repositionTo(leftEdge: Boolean, yRatio: Float, onLanded: (() -> Unit)? = null): Boolean {
         if (dragging || transferring || pressed) return false
         val target = view ?: return false
-        val targetX = if (leftEdge) 0f else max(0, screenWidthPx - ballPx).toFloat()
+        val targetX = BallPlacement.edgeX(leftEdge, screenWidthPx, ballPx)
         val maxY = max(lpOriginY, screenHeightPx - ballPx - bottomInsetPx)
         val targetY = (yRatio * screenHeightPx).coerceIn(lpOriginY.toFloat(), maxY.toFloat())
         if (kotlin.math.abs(targetX - posX) < 0.5f && kotlin.math.abs(targetY - posY) < 0.5f) {
@@ -670,12 +690,33 @@ class FloatBallWindow(
     }
 
     /** 主球当前是否在屏左半（按窗口实位、球心判，与静置外移方向同口径）。 */
-    fun isOnLeft(): Boolean = posX * 2f + ballPx < screenWidthPx
+    fun isOnLeft(): Boolean = BallPlacement.isOnLeft(posX, screenWidthPx, ballPx)
 
-    /** 贴边重吸附：x 按当前侧别吸到最近边缘（完整球在屏内），y 不动。 */
-    private fun snapToNearestEdge() {
+    /** 该朝向落盘落点对应的贴边 x（侧别按目标朝向自己的归一值判，不做跨朝向像素比较）。 */
+    private fun savedEdgeX(landscape: Boolean): Float =
+        BallPlacement.edgeX(settings.position(landscape).x, screenWidthPx, ballPx)
+
+    /** 贴边重吸附：x 吸到 [left] 侧边缘（完整球在屏内），y 不动。 */
+    private fun snapToNearestEdge(left: Boolean = isOnLeft()) {
         if (screenWidthPx <= 0) return
-        posX = if (isOnLeft()) 0f else max(0, screenWidthPx - ballPx).toFloat()
+        posX = BallPlacement.edgeX(left, screenWidthPx, ballPx)
+    }
+
+    /**
+     * 位置被外部改写（转屏 / 尺寸重建）后把姿态直接落定：静置外移量与侧别、屏宽耦合，
+     * 旧朝向的 translationX 在新朝向上会把球推到「离边缘一段距离」或半个球出屏。
+     * 不走 [applyVisual] 的动画 —— 转屏本身已经重排过一帧，再播一次位移会看到回弹。
+     */
+    private fun realignVisualAfterReposition() {
+        if (transferring || visualSuppressed) return
+        val target = view ?: return
+        visualAnimator?.cancel()
+        visualAnimator = null
+        val scale = if (pressed) FloatBallDefaults.PressScale else 1f
+        target.scaleX = scale
+        target.scaleY = scale
+        target.alpha = visualAlpha()
+        target.translationX = if (idled) idleShiftPx() else 0f
     }
 
     /** 主球窗实测的 LP 原点（屏幕 y）：胶囊窗复用它，避免两窗各自测量产生偏差。 */
@@ -753,9 +794,15 @@ class FloatBallWindow(
     // ---- 外观（View 层） ----
 
     /** 静置姿态的横向外移量（按当前贴边方向）。 */
-    private fun idleShiftPx(): Float {
-        val dir = if (posX * 2f + ballPx < screenWidthPx) -1f else 1f
-        return dir * FloatBallDefaults.IdleOutRatio * ballPx
+    private fun idleShiftPx(): Float =
+        BallPlacement.idleShiftPx(isOnLeft(), ballPx, FloatBallDefaults.IdleOutRatio)
+
+    /** 当前该有的不透明度：软隐藏/胶囊态全隐，静置半暗，否则全亮。 */
+    private fun visualAlpha(): Float = when {
+        capsuleActive -> 0f
+        visuallyHidden -> 0f
+        idled -> FloatBallDefaults.IdleDimAlpha
+        else -> 1f
     }
 
     /** 按压/静置的 alpha、scale 走 View 层而非 Compose：服务进程托管的 ComposeView 重组不上屏。 */
@@ -769,12 +816,7 @@ class FloatBallWindow(
         transferring = false
         val scale = if (pressed) FloatBallDefaults.PressScale else 1f
         // 软隐藏期间一律隐身：隐藏淡出被挪球/换位动画打断时，落位重绘不得把球画回来。
-        val alpha = when {
-            capsuleActive -> 0f
-            visuallyHidden -> 0f
-            idled -> FloatBallDefaults.IdleDimAlpha
-            else -> 1f
-        }
+        val alpha = visualAlpha()
         // 静置时球横向移出一截到屏幕外，方向 = 最近边缘。偏移走 View 平移：
         // 部分 ROM 会把越界 LP 夹回屏内，LP 方案不可靠。窗口留在贴边位，
         // 命中区仍是窗口方形，覆盖可见半圆。

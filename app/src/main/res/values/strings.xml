@@ -175,7 +175,6 @@
     <string name="action_deep_link_not_found">动作不存在或已删除</string>
 
     <!-- 动作编辑器 -->
-    <string name="action_param_multi_selected">已选 %1$d 个</string>
     <string name="action_capability_accessibility">无障碍</string>
     <string name="action_capability_shizuku">Shizuku</string>
 
