@@ -28,6 +28,9 @@ object VisibilityTargets {
     const val FLOAT_BALL = "surface:float_ball"
     const val NOTIFICATION_CAPSULE = "surface:notification_capsule"
     const val CLIPBOARD_BALL = "surface:clipboard_ball"
+
+    /** 全屏长按识屏：profile 命中且 visible=false 时不触发（不出卡、不预捕获、不碰触摸）。 */
+    const val SCREEN_PICK = "surface:screen_pick"
 }
 
 /**

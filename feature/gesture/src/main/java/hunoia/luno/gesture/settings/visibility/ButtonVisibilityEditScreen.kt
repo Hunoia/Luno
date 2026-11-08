@@ -363,6 +363,15 @@ private fun TargetPickerSheet(
                             },
                         )
                     }
+                    item(key = "screen_pick") {
+                        LunoSelectableRow(
+                            title = stringResource(R.string.button_visibility_target_screen_pick),
+                            selected = VisibilityTargets.SCREEN_PICK in current.targetIds,
+                            onSelectedChange = { checked ->
+                                onTargetToggle(VisibilityTargets.SCREEN_PICK, checked)
+                            },
+                        )
+                    }
                     items(buttons) { button ->
                         LunoSelectableRow(
                             title = button.name.ifBlank { button.id },

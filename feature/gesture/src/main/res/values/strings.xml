@@ -58,6 +58,11 @@
     <string name="button_visibility_target">作用元素</string>
     <string name="button_visibility_target_all">全部元素</string>
     <string name="button_visibility_target_clipboard_ball">剪贴板气泡</string>
+    <string name="button_visibility_target_screen_pick">长按识别</string>
+    <string name="button_visibility_blocklist_group">黑名单</string>
+    <string name="button_visibility_recent_apps_blocklist">最近应用黑名单</string>
+    <string name="button_visibility_recent_apps_blocklist_hint">在快速启动/最近应用列表中隐藏这些应用</string>
+    <string name="button_visibility_recent_apps_count">已禁用 %1$d 个应用</string>
     <string name="button_visibility_target_count">%1$d 个元素</string>
     <string name="button_visibility_target_except">除选中的元素</string>
     <string name="button_visibility_target_float_ball">悬浮球</string>

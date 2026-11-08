@@ -17,7 +17,6 @@ import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.RadioButtonChecked
@@ -77,7 +76,6 @@ fun ActionSettingsTab(
     onNavToActionPanels: () -> Unit = {},
     onNavToGridPanels: () -> Unit = {},
     onNavToButtonVisibility: () -> Unit = {},
-    onNavToRecentAppsBlocklist: () -> Unit = {},
     onNavToMiniWindowSettings: () -> Unit = {},
     onNavToScreenPickSettings: () -> Unit = {},
     onNavToActionSelect: () -> Unit = {},
@@ -210,7 +208,7 @@ fun ActionSettingsTab(
                         icon = Icons.Default.TouchApp,
                         title = stringResource(R.string.pointer),
                         subtitle = stringResource(R.string.pointer_hint),
-                        shape = segmentedShape(0, 5),
+                        shape = segmentedShape(0, 4),
                         onClick = { showPointer = true },
                     )
                     LunoSettingsRow(
@@ -223,30 +221,19 @@ fun ActionSettingsTab(
                                 R.string.screen_pick_settings_disabled
                             },
                         ),
-                        shape = segmentedShape(1, 5),
+                        shape = segmentedShape(1, 4),
                         onClick = onNavToScreenPickSettings,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Crop,
                         title = stringResource(R.string.action_settings_mini_window_position),
-                        shape = segmentedShape(2, 5),
+                        shape = segmentedShape(2, 4),
                         onClick = onNavToMiniWindowSettings,
-                    )
-                    LunoSettingsRow(
-                        icon = Icons.Default.History,
-                        title = stringResource(R.string.recent_apps_blocklist),
-                        subtitle = if (actionSettings.recentAppsBlocklist.isEmpty()) {
-                            ""
-                        } else {
-                            stringResource(R.string.action_param_multi_selected, actionSettings.recentAppsBlocklist.size)
-                        },
-                        shape = segmentedShape(3, 5),
-                        onClick = onNavToRecentAppsBlocklist,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Visibility,
                         title = stringResource(hunoia.luno.gesture.R.string.button_visibility),
-                        shape = segmentedShape(4, 5),
+                        shape = segmentedShape(3, 4),
                         onClick = onNavToButtonVisibility,
                     )
                 }

@@ -4,6 +4,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Android
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.twotone.Visibility
 import androidx.compose.runtime.Composable
@@ -23,6 +24,7 @@ import hunoia.luno.domain.tune.TuneConfig
 import hunoia.luno.ui.component.LunoFab
 import hunoia.luno.ui.component.feedback.EmptyState
 import hunoia.luno.ui.component.row.LunoGroup
+import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.row.segmentedShape
 import hunoia.luno.ui.component.screen.LunoScreenLazy
@@ -35,6 +37,7 @@ import kotlinx.coroutines.launch
 fun ButtonVisibilityScreen(
     onBack: () -> Unit,
     onEdit: (String) -> Unit,
+    onNavToRecentAppsBlocklist: () -> Unit = {},
 ) {
     val initial by GestureConfig.initial.collectAsStateWithLifecycle(initialValue = InitialSettings())
     val actionSettings by TuneConfig.action.collectAsStateWithLifecycle(initialValue = ActionSettings())
@@ -87,6 +90,25 @@ fun ButtonVisibilityScreen(
                         scope.launch { TuneConfig.updateAdvanced { it.copy(hideLunoFromRecents = hidden) } }
                     },
                     shape = segmentedShape(1, 2),
+                )
+            }
+        }
+        // 黑名单组：无条件从相关列表排除的应用，与上方场景显隐互不替代。
+        item(key = "blocklist") {
+            LunoGroup(title = stringResource(R.string.button_visibility_blocklist_group)) {
+                LunoSettingsRow(
+                    icon = Icons.Default.Block,
+                    title = stringResource(R.string.button_visibility_recent_apps_blocklist),
+                    subtitle = if (actionSettings.recentAppsBlocklist.isEmpty()) {
+                        stringResource(R.string.button_visibility_recent_apps_blocklist_hint)
+                    } else {
+                        stringResource(
+                            R.string.button_visibility_recent_apps_count,
+                            actionSettings.recentAppsBlocklist.size,
+                        )
+                    },
+                    onClick = onNavToRecentAppsBlocklist,
+                    shape = segmentedShape(0, 0),
                 )
             }
         }

@@ -124,6 +124,7 @@ import kotlin.reflect.KType
 import hunoia.luno.ui.component.sheet.LunoAppPicker
 import hunoia.luno.ui.component.row.LocalListStyle
 import hunoia.luno.config.model.AdvancedSettings
+import hunoia.luno.config.model.InitialSettings
 
 
 
@@ -204,7 +205,6 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToButtonVisibility = { navController.navigate(ButtonVisibility) },
                         onNavToActionPanels = { navController.navigate(ActionPanelList) },
                         onNavToGridPanels = { navController.navigate(GridPanelList) },
-                        onNavToRecentAppsBlocklist = { navController.navigate(RecentAppsBlocklist) },
                         onNavToMiniWindowSettings = { navController.navigate(MiniWindowSettings) },
                         onNavToLinkDispatch = { navController.navigate(LinkDispatchRules) },
                         onNavToActionSelect = {
@@ -354,6 +354,7 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onEdit = { profileId ->
                             navController.navigate(ButtonVisibilityEdit(profileId))
                         },
+                        onNavToRecentAppsBlocklist = { navController.navigate(RecentAppsBlocklist) },
                     )
                 }
                 myComposable<ButtonVisibilityEdit> {

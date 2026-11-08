@@ -34,6 +34,8 @@ import hunoia.luno.quickaccess.query.DisabledAppQuery
 import java.util.Locale
 import hunoia.luno.action.dispatcher.ActionDispatcher
 import hunoia.luno.runtime.environment.PreviousAppTracker
+import hunoia.luno.runtime.button.shouldShowSurface
+import hunoia.luno.runtime.RuntimeStateHub
 import hunoia.luno.runtime.button.ButtonHideRuntime
 import hunoia.luno.runtime.button.ButtonRefreshCoordinator
 import hunoia.luno.runtime.environment.BroadcastObserver
@@ -585,6 +587,17 @@ class GestureCoordinator(
                 if (openPanels.hasOpenPanels) return@listener
                 if (service.isOwnUiForeground() ||
                     service.isOwnWindowAt(point.x.toInt(), point.y.toInt())
+                ) {
+                    return@listener
+                }
+                // 场景显隐统一裁决：长按识别作为 VisibilityTarget，profile 命中且
+                // visible=false 时完全不触发（不出卡、不预捕获、不碰触摸）。
+                // visible=true 不强制开启：功能基线仍是识屏总开关 + Shizuku（config.enabled）。
+                if (!shouldShowSurface(
+                        hunoia.luno.config.model.VisibilityTargets.SCREEN_PICK,
+                        runtimeSettingsStore.snapshot().initialSettings,
+                        RuntimeStateHub.current(),
+                    )
                 ) {
                     return@listener
                 }
