@@ -85,6 +85,12 @@ class TodoEditDialogActivity : ComponentActivity() {
             }
         }
     }
+
+    /** 切走即关：透明弹窗不该在后台残留（未保存的输入随关闭丢弃）。 */
+    override fun onStop() {
+        super.onStop()
+        finish()
+    }
 }
 
 @Composable

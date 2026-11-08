@@ -56,6 +56,12 @@ class WidgetConfirmDialogActivity : ComponentActivity() {
         }
     }
 
+    /** 切走即关：透明弹窗不该在后台残留。 */
+    override fun onStop() {
+        super.onStop()
+        finish()
+    }
+
     enum class ConfirmKind(val value: String) {
         HABIT_CHECK("habit_check"),
         TODO_COMPLETE("todo_complete"),
