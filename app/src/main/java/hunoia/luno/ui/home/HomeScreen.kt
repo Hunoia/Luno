@@ -1,9 +1,6 @@
 package hunoia.luno.ui.home
 
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.result.contract.ActivityResultContracts.CreateDocument
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -92,7 +89,6 @@ import androidx.compose.material.icons.automirrored.twotone.LibraryBooks
 import androidx.compose.material.icons.twotone.Home
 import androidx.compose.material.icons.twotone.Settings
 import hunoia.luno.ui.theme.ListSpacing
-import hunoia.luno.ui.component.sheet.ConfirmDialog
 import hunoia.luno.ui.component.screen.HomeShell
 import hunoia.luno.ui.settings.action.ActionSettingsTab
 
@@ -151,9 +147,6 @@ fun HomeScreen(
             restore = { name -> if (name.isEmpty()) null else GesturePanelSection.valueOf(name) },
         )
     ) { mutableStateOf<GesturePanelSection?>(GesturePanelSection.TouchButton) }
-    var showResetConfirm by remember { mutableStateOf(false) }
-    var showRestoreConfirm by remember { mutableStateOf(false) }
-    var pendingRestoreUri by remember { mutableStateOf<Uri?>(null) }
     var colorPickerTarget by remember { mutableStateOf<Any?>(null) }
     val context = LocalContext.current
 
@@ -177,21 +170,6 @@ fun HomeScreen(
             }
         }
     ) { uiState ->
-        val createFileLauncher = rememberLauncherForActivityResult(
-            contract = CreateDocument("*/*")
-        ) { uri ->
-            uri ?: return@rememberLauncherForActivityResult
-            vm.backup(context, uri)
-        }
-        val getFileLauncher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.GetContent()
-        ) { uri ->
-            uri ?: return@rememberLauncherForActivityResult
-            vm.precheckRestore(context, uri) {
-                pendingRestoreUri = uri
-                showRestoreConfirm = true
-            }
-        }
         val lifecycleOwner = LocalLifecycleOwner.current
         LaunchedEffect(key1 = lifecycleOwner) {
             // 服务连接就绪/断开时主动刷新状态卡：冷启动时 bind 是异步的，
@@ -251,28 +229,6 @@ fun HomeScreen(
                     onDismissRequest = { vm.hideRenameDialog() },
                     onConfirm = { target, name -> vm.doRename(target, name) },
                 )
-                // 组合期捕获：确认时 onDismissRequest 已先清掉 pendingRestoreUri。
-                val restoreUri = pendingRestoreUri
-                if (showRestoreConfirm && restoreUri != null) {
-                    ConfirmDialog(
-                        title = stringResource(R.string.restore_confirm_title),
-                        text = stringResource(R.string.restore_confirm_desc),
-                        onDismissRequest = {
-                            showRestoreConfirm = false
-                            pendingRestoreUri = null
-                        },
-                        onConfirm = { vm.restore(context, restoreUri) },
-                    )
-                }
-                if (showResetConfirm) {
-                    ConfirmDialog(
-                        title = stringResource(R.string.reset_default_settings_warning),
-                        text = stringResource(R.string.reset_default_settings_warning_desc),
-                        destructive = true,
-                        onDismissRequest = { showResetConfirm = false },
-                        onConfirm = { vm.reset() },
-                    )
-                }
             },
             bottomBar = { hazeState ->
                 var showLibraryTypeMenu by remember { mutableStateOf(false) }
@@ -454,18 +410,9 @@ fun HomeScreen(
                                 )
                             }
 
-                            item(key = "data_transfer") {
-                                DataTransferGroup(
-                                    onBackupClick = {
-                                        val appName = context.getString(context.applicationInfo.labelRes)
-                                        val date = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
-                                        createFileLauncher.launch("${appName}_$date.zip")
-                                    },
-                                    onRestoreClick = { getFileLauncher.launch("*/*") },
-                                    onAutoBackupClick = onNavToAutoBackup,
-                                    onResetClick = { showResetConfirm = true },
-                                )
-                            }
+                item(key = "data_transfer") {
+                    DataTransferGroup(onBackupSettingsClick = onNavToAutoBackup)
+                }
                         }
 
                         MainTab.ActionLibrary -> ActionLibraryScreen(

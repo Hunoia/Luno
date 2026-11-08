@@ -2,11 +2,8 @@ package hunoia.luno.ui.home
 
 import hunoia.luno.facade.Facades
 
-import android.content.Context
-import android.net.Uri
 import androidx.lifecycle.viewModelScope
 import hunoia.luno.domain.gesture.GestureConfig
-import hunoia.luno.config.backup.RestorePrecheckResult
 import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.config.model.GestureButton
 import hunoia.luno.config.model.SubGesture
@@ -15,7 +12,6 @@ import hunoia.luno.core.AppContext
 import hunoia.luno.R
 import hunoia.luno.bridge.system.hasWriteSecureSettingsPermission
 import hunoia.luno.shizuku.ShizukuManager
-import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
@@ -38,48 +34,6 @@ class HomeVM(facades: Facades) : HomeVMBase(facades) {
         viewModelScope.launch {
             ShizukuManager.autoRequestPermissionIfNeeded()
             ShizukuManager.ensureWriteSecureSettings()
-        }
-    }
-
-    fun backup(context: Context, saveTo: Uri) {
-        viewModelScope.launchWithLoading(
-            Dispatchers.IO + CoroutineExceptionHandler { _, e ->
-                hunoia.luno.core.LunoLog.e(LOG_TAG, "backup failed", e)
-                toast(R.string.backup_failed)
-            },
-            cancelable = false
-        ) {
-            facades.backup.backup(context, saveTo)
-            toast(hunoia.luno.R.string.backup_success)
-        }
-    }
-
-    fun precheckRestore(context: Context, restoreFrom: Uri, onPassed: () -> Unit) {
-        viewModelScope.launchWithLoading(
-            Dispatchers.IO + CoroutineExceptionHandler { _, _ ->
-                toast(hunoia.luno.core.data.R.string.restore_precheck_invalid_format)
-            },
-            cancelable = false
-        ) {
-            when (val result = facades.backup.precheckRestore(context, restoreFrom)) {
-                RestorePrecheckResult.Passed -> withContext(Dispatchers.Main) { onPassed() }
-                is RestorePrecheckResult.Failed -> toast(result.reason.stringRes)
-            }
-        }
-    }
-
-    fun restore(context: Context, restoreFrom: Uri) {
-        viewModelScope.launchWithLoading(
-            Dispatchers.IO + CoroutineExceptionHandler { _, e ->
-                hunoia.luno.core.LunoLog.e(LOG_TAG, "restore failed", e)
-                toast(R.string.restore_failed)
-            },
-            cancelable = false
-        ) {
-            facades.backup.restore(context, restoreFrom)
-            toast(hunoia.luno.R.string.restore_success)
-            updatePermissionState()
-            refreshShizukuStatus()
         }
     }
 
