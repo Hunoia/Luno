@@ -30,8 +30,14 @@ import hunoia.luno.core.LunoLog
  * ```
  * adb shell am broadcast -n hunoia.luno.debug/hunoia.luno.domain.habit.IslandProbeReceiver \
  *     -a hunoia.luno.debug.ISLAND_PROBE --es json_b64 "$(base64 -w0 payload.json)" \
- *     --ei id 1001 --ei mode 1 --ez nofocus true
+ *     --ei id 1001 --ei mode 1 --ez nofocus true --es channel habit_reminder
  * ```
+ *
+ * 注意 `channel`：默认的 `island_probe` 通道是「常驻通知」，会被 Luno 自己的「隐藏常驻通知」
+ * 立刻 snooze 掉（表现为刚发就被撤）；传 `--es channel habit_reminder` 绕过（该通道被排除）。
+ *
+ * `--es fx_src/--es fx_color` 可试 SystemUI 的 `miui.effect.src` / `miui.bigIsland.effect.src` /
+ * `miui.effect.color` extras（实测对 promoted 通知不产生外发光，仅供以后对照）。
  */
 class IslandProbeReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -46,9 +52,9 @@ class IslandProbeReceiver : BroadcastReceiver() {
             return
         }
         val manager = app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channelId = "island_probe"
+        val channelId = intent.getStringExtra("channel") ?: "island_probe"
         manager.createNotificationChannel(
-            NotificationChannel(channelId, "island probe", NotificationManager.IMPORTANCE_HIGH).apply {
+            NotificationChannel(channelId, channelId, NotificationManager.IMPORTANCE_HIGH).apply {
                 setShowBadge(false)
             },
         )
@@ -73,9 +79,22 @@ class IslandProbeReceiver : BroadcastReceiver() {
             if (!intent.getBooleanExtra("nofocus", false)) {
                 putString("miui.focus.param", json)
             }
+            // 岛光效实验：SystemUI 侧的 effect extras（见 miui.effect.src / miui.bigIsland.effect.src）。
+            intent.getStringExtra("fx_src")?.let {
+                if (intent.getBooleanExtra("fx_big_only", false)) {
+                    putString("miui.bigIsland.effect.src", it)
+                } else if (intent.getBooleanExtra("fx_effect_only", false)) {
+                    putString("miui.effect.src", it)
+                } else {
+                    putString("miui.effect.src", it)
+                    putString("miui.bigIsland.effect.src", it)
+                }
+            }
+            intent.getStringExtra("fx_color")?.let { putString("miui.effect.color", it) }
             putBundle(
                 "miui.focus.pics",
                 Bundle().apply {
+                    if (intent.getBooleanExtra("nopics", false)) return@apply
                     val icon = Icon.createWithResource(app, R.mipmap.ic_launcher)
                     putParcelable("key_app_icon", icon)
                     putParcelable("key_ticker_pic", icon)
