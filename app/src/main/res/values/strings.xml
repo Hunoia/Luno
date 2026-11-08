@@ -14,18 +14,14 @@
     <string name="restore_from_file_hint">选择一份备份文件恢复当前配置</string>
     <string name="reset_default_settings_warning">恢复默认设置</string>
     <string name="reset_default_settings_warning_desc">将重置为初始默认设置并彻底删除所有数据。</string>
-    <string name="backup">备份</string>
-    <string name="restore">恢复</string>
     <string name="backup_success">备份成功</string>
     <string name="backup_failed">备份失败</string>
     <string name="restore_success">恢复成功</string>
     <string name="restore_failed">恢复失败</string>
     <!-- 定时自动备份：入口行、设置子页、失败通知（成功保持静默） -->
-    <string name="auto_backup">自动备份</string>
     <string name="auto_backup_switch">定时自动备份</string>
     <string name="auto_backup_switch_hint">每天一次、无条件执行；目录里只保留最近 7 份</string>
     <string name="auto_backup_directory">备份目录</string>
-    <string name="auto_backup_directory_hint">自动备份写入的目录，可随时更换</string>
     <string name="auto_backup_directory_unset">未选择目录</string>
     <string name="auto_backup_status">执行状态</string>
     <string name="auto_backup_status_never">还没有执行过自动备份</string>
