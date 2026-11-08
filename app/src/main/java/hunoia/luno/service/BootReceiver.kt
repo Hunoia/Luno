@@ -3,6 +3,7 @@ package hunoia.luno.service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import hunoia.luno.domain.habit.HabitReminderScheduler
 
 /**
  * 开机自启：拉起保活与悬浮球两个常驻前台服务。
@@ -19,6 +20,8 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
             ServiceAutoStart.restore(context)
+            // 习惯提醒闹钟是系统持久化之外的（AlarmManager 在重启后清空），开机重建。
+            HabitReminderScheduler.rescheduleAll(context)
         }
     }
 }

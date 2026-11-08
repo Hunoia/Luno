@@ -26,6 +26,11 @@
             </intent-filter>
         </receiver>
 
+        <!-- 超级岛 JSON 探针：adbd 直接投递 focus 通知，迭代岛模板时免重装。 -->
+        <receiver
+            android:name="hunoia.luno.domain.habit.IslandProbeReceiver"
+            android:exported="true" />
+
         <!-- 形状软度画廊：adbd 拉起即可，不挂任何入口 UI。 -->
         <activity
             android:name="hunoia.luno.ui.theme.ShapeGalleryActivity"
