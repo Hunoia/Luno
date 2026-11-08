@@ -95,6 +95,19 @@ object Launcher {
         }
     }
 
+    /**
+     * 以 freeform 小窗启动任意 Activity 用的启动参数（含 MIUI 合成层补偿）。
+     *
+     * 给本应用自己的页面用（如动作选择页横屏小窗）：调用方构造好自己的 Intent 后，
+     * 把本参数作为 [android.content.Context.startActivity] 的 options 传入。
+     * 非小窗场景传 null。
+     */
+    fun miniWindowActivityOptions(
+        context: Context,
+        miniWindowSettings: MiniWindowSettings = MiniWindowSettings(),
+        anchor: Pair<Int, Int>? = null,
+    ): Bundle = MiniWindowGeometry.activityOptionsBundle(context, miniWindowSettings, anchor)
+
     /** 解析 + 系统 launch intent 兜底，统一补 NEW_TASK；解析不到返回 null。 */
     private fun buildLaunchIntent(
         context: Context,

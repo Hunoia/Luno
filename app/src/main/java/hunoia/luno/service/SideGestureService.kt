@@ -12,9 +12,12 @@ import hunoia.luno.clipboard.ClipboardCapture
 import hunoia.luno.clipboard.ClipboardCenter
 import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.ColorSpec
+import hunoia.luno.config.model.MiniWindowSettings
+import hunoia.luno.config.model.miniWindowSettings
 import hunoia.luno.core.domain.StoredAction
 import hunoia.luno.core.domain.gridPanelId
 import hunoia.luno.quickaccess.launch.DisabledPackageEnabler
+import hunoia.luno.quickaccess.launch.Launcher
 import hunoia.luno.quickaccess.QuickLaunchFacade
 import hunoia.luno.runtime.GestureCoordinator
 import hunoia.luno.runtime.GestureHost
@@ -378,6 +381,17 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         hunoia.luno.gesture.GestureCommand.insertText = { text, x, y -> insertTextAt(text, x, y) }
         // 网格面板「加项」要起选择页：路由与宿主 Activity 都在 :app，面板模块只发中性请求。
         hunoia.luno.gridpanel.GridPanelCommand.openItemPicker = { pick ->
+            // 横屏用 freeform 小窗打开选择页（复用现有小窗几何，含 MIUI 合成补偿）；
+            // 竖屏维持全屏透明 Activity。面板让位/回显行为不变。
+            val landscape = resources.configuration.orientation ==
+                Configuration.ORIENTATION_LANDSCAPE
+            val options = if (landscape) {
+                Launcher.miniWindowActivityOptions(
+                    context = this,
+                    miniWindowSettings = advancedSettings?.miniWindowSettings()
+                        ?: MiniWindowSettings(),
+                )
+            } else null
             hunoia.luno.ui.actionselect.ActionSelectHostActivity.start(
                 this,
                 hunoia.luno.picker.ActionSelect(
@@ -385,6 +399,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
                     gridPanelPageIndex = pick.pageIndex,
                     gridPanelReplaceItemId = pick.replaceItemId.orEmpty(),
                 ),
+                options,
             )
         }
         gestureCoordinator.onSetOverlay()

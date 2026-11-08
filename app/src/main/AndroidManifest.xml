@@ -150,8 +150,10 @@
             android:exported="false"
             android:launchMode="singleTask"
             android:process=":service"
+            android:taskAffinity="hunoia.luno.actionselect"
             android:theme="@style/Theme.SideGesture.Transparent"
             android:windowSoftInputMode="adjustNothing" />
+        <!-- taskAffinity 独立：无亲和性时 NEW_TASK 会落进主页 task，小窗关闭后残留主页小窗。 -->
 
         <activity
             android:name=".quickaccess.QuickSearchActivity"

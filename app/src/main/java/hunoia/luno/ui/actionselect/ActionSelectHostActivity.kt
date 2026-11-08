@@ -113,11 +113,17 @@ class ActionSelectHostActivity : ComponentActivity() {
         private const val EXTRA_ACTION_SELECT = "hunoia.luno.extra.ACTION_SELECT"
 
         /** 起选择页；返回 false = 启动失败，调用方须自行兜底（面板的让位不可逆）。 */
-        fun start(context: Context, actionSelect: ActionSelect): Boolean {
+        fun start(context: Context, actionSelect: ActionSelect, options: Bundle? = null): Boolean {
             val intent = Intent(context, ActionSelectHostActivity::class.java).apply {
                 // 宿主现在从浮窗（服务侧，无 activity 上下文）发起，必须 NEW_TASK。
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 putExtra(EXTRA_ACTION_SELECT, JsonSerializer.encodeToString(actionSelect))
+            }
+            // 小窗启动失败（设备不支持 freeform / options 被拒）回退普通启动，别让面板白让位。
+            if (options != null &&
+                runCatching { context.startActivity(intent, options) }.isSuccess
+            ) {
+                return true
             }
             return runCatching { context.startActivity(intent) }.isSuccess
         }
