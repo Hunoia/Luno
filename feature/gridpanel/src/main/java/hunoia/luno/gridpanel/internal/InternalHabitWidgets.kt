@@ -101,12 +101,19 @@ internal fun HabitHistoryCell(
     spanY: Int = 2,
     enabled: Boolean = true,
     params: String? = null,
+    /** 指向的习惯被删 / 未配置且面板里有习惯时，点击空态 → 打开选择页原位重选。 */
+    onReconfigure: (() -> Unit)? = null,
 ) {
     val config by HabitCenter.habitConfig.collectAsState(initial = HabitConfig())
     val habit = config.habitById(parseHabitWidgetParams(params)?.habitId.orEmpty())
     val onCard = gridPanelOnCardColor
     if (habit == null) {
-        EmptyHabitCell(modifier = modifier, configHasHabits = config.hasHabits)
+        EmptyHabitCell(
+            modifier = modifier,
+            configHasHabits = config.hasHabits,
+            enabled = enabled,
+            onReconfigure = onReconfigure,
+        )
         return
     }
     val today = rememberTodayEpochDay()
@@ -322,20 +329,48 @@ private fun HabitDotView(
     }
 }
 
-/** 空态：无习惯或指向习惯被删。面板是 overlay，不做页面跳转，仅提示。 */
+/**
+ * 空态：无习惯或指向习惯被删。
+ *
+ * 指向习惯被删但面板里还有其他习惯、且非编辑态时**可点击**：走面板层「原位重选」——
+ * 打开选择页重新添加，新部件替换本项（位置不变）。无习惯可重选时仅提示。
+ */
 @Composable
-private fun EmptyHabitCell(modifier: Modifier, configHasHabits: Boolean) {
+private fun EmptyHabitCell(
+    modifier: Modifier,
+    configHasHabits: Boolean,
+    enabled: Boolean,
+    onReconfigure: (() -> Unit)?,
+) {
     val onCard = gridPanelOnCardColor
+    val clickable = enabled && configHasHabits && onReconfigure != null
+    val hint = stringResource(R.string.grid_panel_habit_missing_reselect)
     Box(
         modifier = modifier
             .fillMaxSize()
             .clip(containerShape(ItemCorner))
-            .alpha(0.5f),
+            .alpha(if (clickable) 0.65f else 0.5f)
+            .then(
+                if (clickable) {
+                    Modifier
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { onReconfigure?.invoke() }
+                        .semantics { contentDescription = hint }
+                } else {
+                    Modifier
+                },
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = stringResource(
-                if (configHasHabits) R.string.grid_panel_habit_missing else R.string.grid_panel_habit_empty,
+                when {
+                    clickable -> R.string.grid_panel_habit_missing_reselect
+                    configHasHabits -> R.string.grid_panel_habit_missing
+                    else -> R.string.grid_panel_habit_empty
+                },
             ),
             style = MaterialTheme.typography.bodySmall,
             color = onCard,

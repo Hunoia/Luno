@@ -383,6 +383,7 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
                 hunoia.luno.picker.ActionSelect(
                     gridPanelId = pick.gridPanelId,
                     gridPanelPageIndex = pick.pageIndex,
+                    gridPanelReplaceItemId = pick.replaceItemId.orEmpty(),
                 ),
             )
         }

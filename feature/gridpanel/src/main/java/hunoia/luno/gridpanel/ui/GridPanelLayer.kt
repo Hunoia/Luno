@@ -92,6 +92,8 @@ class GridItemActions(
     val onResizeEnd: () -> Unit,
     /** 内置小部件切换背景显示（左上角按钮），落盘 showBackground。 */
     val onToggleBackground: (GridPanelItem) -> Unit = { _ -> },
+    /** 内置小部件请求重新配置（如习惯部件删后重选）：面板层打开选择页，选中后原位替换该项。 */
+    val onReconfigureInternal: (GridPanelItem) -> Unit = { _ -> },
     /** 无障碍「移动一格」：编辑态给每个项挂 customActions。 */
     val onNudge: (GridPanelItem, dx: Int, dy: Int) -> Unit = { _, _, _ -> },
 )
@@ -346,6 +348,7 @@ fun GridPanelLayer(
                                             itemSpanY = item.spanY,
                                             enabled = !editMode,
                                             params = kind.params,
+                                            onReconfigure = { actions.onReconfigureInternal(item) },
                                         ),
                                     )
                                 }

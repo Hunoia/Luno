@@ -28,6 +28,11 @@ data class ActionSelect(
     val gridPanelId: String = "",
     /** 加项落到的页（派生页数可为最大页 +1，即编辑态虚页，落项即建页）。 */
     val gridPanelPageIndex: Int = 0,
+    /**
+     * 非空 = 网格面板里要**原位替换**的项 id（如习惯部件删后重选）：
+     * 落盘只改该项的 kind/params，保留位置与 span；找不到则回退新增。
+     */
+    val gridPanelReplaceItemId: String = "",
     /** 非空 = 在配悬浮球的这个槽（见 [FloatBallSlot]），与上面各 id 字段互斥。 */
     val floatBallSlot: String = "",
 )

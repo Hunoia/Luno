@@ -13,6 +13,7 @@
     <string name="grid_panel_internal_todo">待办</string>
     <string name="grid_panel_habit_empty">未配置习惯</string>
     <string name="grid_panel_habit_missing">习惯已删除</string>
+    <string name="grid_panel_habit_missing_reselect">习惯已删除，点击重选</string>
     <string name="grid_panel_habit_confirm_hint">再点一次确认打卡</string>
     <string name="grid_panel_habit_edit_hint">编辑习惯</string>
     <string name="grid_panel_habit_title">%1$s · %2$d 天</string>

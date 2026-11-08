@@ -16,6 +16,11 @@ data class PanelWidgetContentScope(
     val enabled: Boolean,
     /** 每实例配置（JSON 串，见 architecture §9.2）：无参部件为 null，有参部件自行解析。 */
     val params: String? = null,
+    /**
+     * 部件请求重新配置（如习惯部件指向的习惯被删后重选目标）：面板层接住后打开选择页，
+     * 选中新部件时**原位替换**该项。无配置需求的部件忽略此回调。
+     */
+    val onReconfigure: (() -> Unit)? = null,
 )
 
 /**
@@ -166,6 +171,7 @@ object PanelWidgetRegistry {
                     spanY = scope.spanY,
                     enabled = scope.enabled,
                     params = scope.params,
+                    onReconfigure = scope.onReconfigure,
                 )
             },
         )

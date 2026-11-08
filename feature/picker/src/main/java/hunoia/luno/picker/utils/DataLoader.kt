@@ -376,6 +376,31 @@ internal suspend fun saveGridPanelInternalWidget(
             return@updateAction settings
         }
         val ctx = gridContext(panel, actionSelect.gridPanelPageIndex)
+        // 原位替换（如习惯部件删后重选）：保留该项的位置/span/pageIndex，只改 kind + params。
+        // 找不到目标项（选择期间被外部删除）则回退新增，不丢操作。
+        val replaceId = actionSelect.gridPanelReplaceItemId
+        if (replaceId.isNotEmpty() && ctx.items.any { it.id == replaceId }) {
+            result = GridPanelSaveResult.Saved
+            return@updateAction settings.copy(
+                actionGridPanels = settings.actionGridPanels.withPanel(
+                    panel.withOrientation(ctx.landscape) { orientation ->
+                        orientation.copy(
+                            items = orientation.items.map { item ->
+                                if (item.id == replaceId) {
+                                    item.copy(
+                                        kind = GridPanelItem.Kind.Internal(
+                                            widgetId = widgetId,
+                                            showBackground = false,
+                                            params = params,
+                                        ),
+                                    )
+                                } else item
+                            },
+                        )
+                    },
+                ),
+            )
+        }
         val pageItems = ctx.items.filter { it.pageIndex == ctx.pageIndex }
         // 内置部件的默认 span 是 4×N，面板列数可能只有 2/3：必须先把宽度夹进面板，
         // 否则落盘的 spanX > columns，手势层的尺寸/命中/重排全部会跟着坏。

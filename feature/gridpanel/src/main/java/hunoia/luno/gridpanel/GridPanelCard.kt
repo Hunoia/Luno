@@ -426,6 +426,7 @@ fun GridPanelCard(
                             },
                             onResizeEnd = { baseActionsState.value.onResizeEnd() },
                             onToggleBackground = { item -> baseActionsState.value.onToggleBackground(item) },
+                            onReconfigureInternal = { item -> baseActionsState.value.onReconfigureInternal(item) },
                         )
                     }
                     // pager 会同时组合相邻页：拖拽视觉/落点预览只属于正在拖的那一页，

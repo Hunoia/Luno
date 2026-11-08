@@ -667,6 +667,18 @@ fun GridPanelRoot(
                             },
                         )
                     },
+                    onReconfigureInternal = { item ->
+                        // 内置部件重新配置（习惯部件删后重选）：打开现有选择页，
+                        // 选中新部件时落盘原位替换本项（位置/span 不变，见 saveGridPanelInternalWidget）。
+                        val started = onPickItem(
+                            GridPanelItemPick(
+                                gridPanelId = panel.id,
+                                pageIndex = item.pageIndex,
+                                replaceItemId = item.id,
+                            ),
+                        )
+                        if (!started) showToast(R.string.toast_select_page_failed)
+                    },
                     onNudge = { item, dx, dy -> state.nudge(pageIndex, item.id, dx, dy) },
                 )
             },

@@ -68,6 +68,8 @@ val LocalGridPanelDragGhost = staticCompositionLocalOf<GridPanelDragGhost?> { nu
 data class GridPanelItemPick(
     val gridPanelId: String,
     val pageIndex: Int,
+    /** 非空 = 替换该面板项（保留位置/span，只改 kind/params），否则新增。 */
+    val replaceItemId: String? = null,
 )
 
 /**
