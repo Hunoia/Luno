@@ -214,11 +214,8 @@ class ShizukuTouchInputSource(
     }
 
     private suspend fun scanTouchDevice(): GetEventDevice? = withContext(Dispatchers.IO) {
-        val result = ShizukuManager.executeShell("getevent -lp", maxChars = 256 * 1024)
-        if (!result.isSuccess) return@withContext null
-        val devices = GetEventParser.parseDevices(result.stdout)
-        devices.filter { it.isTouchscreen }.maxByOrNull { it.score }
-            ?: devices.maxByOrNull { it.score }
+        // 探测口径收敛在 TouchDeviceScanner（逐节点 -pl，原因见其注释）；设置页诊断复用同一实现。
+        TouchDeviceScanner.scan().touchscreen
     }
 
     private fun closeSession() {

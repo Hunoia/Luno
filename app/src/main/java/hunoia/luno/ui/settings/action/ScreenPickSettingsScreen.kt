@@ -41,6 +41,7 @@ import kotlinx.coroutines.launch
  *
  * 动作设置根页只留一个入口行；参数多，单独一页避免根页变成参数堆。
  * OCR 模型（运行环境 + PP-OCRv6 包导入/删除）内嵌在本页，不再单独页面。
+ * 识屏诊断：一键探测「开关 → Shizuku → 触摸设备」，结果弹窗展示。
  */
 @Composable
 fun ScreenPickSettingsScreen(onBack: () -> Unit) {
@@ -63,6 +64,29 @@ fun ScreenPickSettingsScreen(onBack: () -> Unit) {
     ) { uri ->
         uri ?: return@rememberLauncherForActivityResult
         scope.launch { facades.ocrModels.importPp(uri) }
+    }
+    // ===== 识屏诊断 =====
+    // stringResource 只能在组合期取：先全部解析，onClick 协程与弹窗里只用现成字符串。
+    // 结果在弹窗里展示：项数多、文案长，行副标题放不下。
+    val sDiagRunning = stringResource(R.string.screen_pick_diag_running)
+    val sDiagSwitchOk = stringResource(R.string.screen_pick_diag_switch_ok)
+    val sDiagSwitchOff = stringResource(R.string.screen_pick_diag_switch_off)
+    val sDiagShizukuOk = stringResource(R.string.screen_pick_diag_shizuku_ok)
+    val sDiagShizukuFail = stringResource(R.string.screen_pick_diag_shizuku_fail)
+    val sDiagDeviceOkPrefix = stringResource(R.string.screen_pick_diag_device_ok, "")
+    val sDiagDeviceFail = stringResource(R.string.screen_pick_diag_device_fail)
+    val sDiagNote = stringResource(R.string.screen_pick_diag_note)
+    var diagRunning by remember { mutableStateOf(false) }
+    var showDiagDialog by remember { mutableStateOf(false) }
+    var diag by remember { mutableStateOf<ScreenPickDiag?>(null) }
+    fun diagLines(d: ScreenPickDiag): List<String> = buildList {
+        add(if (d.switchOk) "✓ $sDiagSwitchOk" else "✗ $sDiagSwitchOff")
+        add(if (d.shizukuOk) "✓ $sDiagShizukuOk" else "✗ $sDiagShizukuFail")
+        add(
+            if (d.deviceName != null) "✓ ${sDiagDeviceOkPrefix}${d.deviceName}"
+            else "✗ $sDiagDeviceFail",
+        )
+        if (d.allOk) add(sDiagNote)
     }
 
     LunoScreen(title = stringResource(R.string.screen_pick_settings_title), onBack = onBack) {
@@ -123,6 +147,23 @@ fun ScreenPickSettingsScreen(onBack: () -> Unit) {
                 shape = segmentedShape(0, 1),
             )
         }
+        // ===== 识屏诊断 =====
+        LunoGroup(title = stringResource(R.string.screen_pick_diag_group)) {
+            LunoSettingsRow(
+                title = stringResource(R.string.screen_pick_diag_run),
+                subtitle = stringResource(R.string.screen_pick_diag_hint),
+                onClick = {
+                    scope.launch {
+                        diagRunning = true
+                        showDiagDialog = true
+                        diag = null
+                        diag = runScreenPickDiagChecks(initialSettings)
+                        diagRunning = false
+                    }
+                },
+                shape = segmentedShape(0, 0),
+            )
+        }
         // ===== OCR 模型管理（原独立页面，已内嵌） =====
         LunoGroup(title = stringResource(R.string.ocr_model_env_group)) {
             LunoSettingsRow(
@@ -175,6 +216,30 @@ fun ScreenPickSettingsScreen(onBack: () -> Unit) {
                 shape = segmentedShape(3, 4),
             )
         }
+    }
+
+    if (showDiagDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!diagRunning) showDiagDialog = false },
+            title = { Text(stringResource(R.string.screen_pick_diag_group)) },
+            text = {
+                val d = diag
+                Text(
+                    when {
+                        diagRunning || d == null -> sDiagRunning
+                        else -> diagLines(d).joinToString("\n")
+                    },
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { showDiagDialog = false },
+                    enabled = !diagRunning,
+                ) {
+                    Text(stringResource(hunoia.luno.design.R.string.close))
+                }
+            },
+        )
     }
 
     if (confirmDelete) {
@@ -265,4 +330,35 @@ private fun formatSize(bytes: Long): String = when {
     bytes >= 1024 * 1024 -> String.format(Locale.US, "%.1f MB", bytes / 1024.0 / 1024.0)
     bytes >= 1024 -> String.format(Locale.US, "%.0f KB", bytes / 1024.0)
     else -> "$bytes B"
+}
+
+/** 识屏诊断结果：设置页负责把字段渲染成文案，这里只出事实。 */
+private data class ScreenPickDiag(
+    val switchOk: Boolean,
+    val shizukuOk: Boolean,
+    val deviceName: String?,
+) {
+    val allOk: Boolean get() = switchOk && shizukuOk && deviceName != null
+}
+
+/**
+ * 全屏长按识屏诊断：逐项检查「开关 → Shizuku → 触摸设备探测」。
+ *
+ * 只能在设置页进程查静态链路；流式监听跑在无障碍服务进程（结果里提示重启服务）。
+ * 设备探测与运行时扫描共用 [hunoia.luno.gesture.touchsource.TouchDeviceScanner]，
+ * 避免两份 getevent 口径。
+ */
+private suspend fun runScreenPickDiagChecks(initial: InitialSettings): ScreenPickDiag {
+    hunoia.luno.shizuku.ShizukuManager.updateStatus()
+    val shizukuReady = hunoia.luno.shizuku.ShizukuManager.currentStatus().isReady
+    val device = if (initial.gestureEnabled && initial.screenPickGesture.enabled && shizukuReady) {
+        hunoia.luno.gesture.touchsource.TouchDeviceScanner.scan().touchscreen
+    } else {
+        null
+    }
+    return ScreenPickDiag(
+        switchOk = initial.gestureEnabled && initial.screenPickGesture.enabled,
+        shizukuOk = shizukuReady,
+        deviceName = device?.name?.ifBlank { device.path },
+    )
 }
