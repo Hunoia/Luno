@@ -85,10 +85,10 @@ class SystemExecutors(
 
     private suspend fun executeFlashlight(context: ExecutorContext): ActionResult {
         val appContext = context.appContext
-        if (!FlashlightController.isSupported(appContext)) {
+        if (!FlashlightController.hasTorchUnit(appContext)) {
             return ActionResult.Failed(
                 reason = ActionFailure.ExecutionFailed,
-                userMessage = appContext.getString(R.string.flashlight_failed),
+                userMessage = appContext.getString(R.string.flashlight_unsupported),
             )
         }
         if (!FlashlightController.hasPermission(appContext)) {

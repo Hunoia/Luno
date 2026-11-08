@@ -2,7 +2,8 @@
 <resources>
     <!-- 动作执行器独占文案：随 :feature:actions 迁移；通用文案归 :ui:design（Phase 3）。 -->
     <string name="grant_camera_permission">请开启"相机权限"以使用手电筒</string>
-    <string name="flashlight_failed">无法使用手电筒，请检查设备是否支持。</string>
+    <string name="flashlight_failed">手电筒操作失败，请稍后再试</string>
+    <string name="flashlight_unsupported">此设备不支持手电筒</string>
     <string name="quick_toggle_fallback">无法直接切换，已打开设置页</string>
     <string name="quick_toggle_unavailable">当前设备不支持切换该开关</string>
     <string name="random_name_generate_failed">生成失败</string>
