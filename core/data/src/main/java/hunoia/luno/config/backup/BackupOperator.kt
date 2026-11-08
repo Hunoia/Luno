@@ -14,12 +14,25 @@ import java.util.Base64
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import hunoia.luno.core.LOG_TAG
 
 object BackupOperator {
 
     private const val ZIP_BACKUP = "backup"
     private const val ZIP_ICONS = "icons"
+
+    /**
+     * 手动备份 / 单域导出与定时自动备份共用 [backupDir] 下的固定临时文件名，
+     * 同时跑会互踩（zip 写到一半被另一个调用 `deleteRecursively`）。
+     * 三者都在主进程执行，进程内互斥即可；`restore` / `importDomain` 用的是另一个目录，不参与。
+     */
+    private val operationMutex = Mutex()
+
+    /** 导出超过 8MB 上限。自动备份据此映射成「备份过大」，而不是笼统的写入失败。 */
+    class ExportTooLargeException(val bytes: Long) :
+        IllegalStateException("backup failed: exceeds 8MB ($bytes bytes)")
 
     /**
      * 单个 zip entry 解压后的字节上限。
@@ -113,38 +126,9 @@ object BackupOperator {
         }
     }
 
-    suspend fun backup(context: Context, saveTo: Uri) {
+    suspend fun backup(context: Context, saveTo: Uri) = operationMutex.withLock {
         try {
-            File(backupDir).mkdirs()
-
-            val backupItemBytes = getBackupItemBytes()
-            val backupItemFile = File(backupItemFilePath).also {
-                it.delete()
-                it.createNewFile()
-                it.appendBytes(backupItemBytes)
-            }
-
-            // 真正需要备份的用户数据是 shortcut_icons —— 快捷方式位图图标。
-            val zipIconDirFile = File(zipIconPath)
-            zipDirectory(Paths.ShortcutIcons, zipIconDirFile)
-
-            val zipFile = File(zipFilePath).also {
-                it.delete()
-                it.createNewFile()
-            }
-            ZipOutputStream(FileOutputStream(zipFile)).use { zos ->
-                for (file in listOf(backupItemFile, zipIconDirFile)) {
-                    zos.putNextEntry(ZipEntry(file.name))
-                    file.inputStream().use { it.copyTo(zos) }
-                    zos.closeEntry()
-                }
-            }
-            if (zipFile.length() > MAX_EXPORT_BYTES) {
-                throw IllegalStateException(
-                    "backup failed: exceeds 8MB (${zipFile.length()} bytes)"
-                )
-            }
-
+            val zipFile = buildBackupZip()
             val outputStream = context.contentResolver.openOutputStream(saveTo)
                 ?: throw IllegalStateException("Failed to open output stream for backup")
             outputStream.use { os ->
@@ -154,6 +138,54 @@ object BackupOperator {
         } finally {
             File(backupDir).deleteRecursively()
         }
+    }
+
+    /**
+     * 直写备份：SAF 在个别 ROM 上无法创建文档（见 `AutoBackupRepository.createBackupDocument`），
+     * 兜底把整机备份 zip 写到真实文件路径（需「所有文件访问」授权，仅 primary 卷）。
+     */
+    suspend fun backupToFile(context: Context, target: File) = operationMutex.withLock {
+        try {
+            val zipFile = buildBackupZip()
+            target.outputStream().use { os ->
+                zipFile.inputStream().use { it.copyTo(os) }
+                os.flush()
+            }
+        } finally {
+            File(backupDir).deleteRecursively()
+        }
+    }
+
+    /** 在 [backupDir] 构建整机备份 zip（含 icons），返回 zip 文件；超 8MB 抛 [ExportTooLargeException]。 */
+    private suspend fun buildBackupZip(): File {
+        File(backupDir).mkdirs()
+
+        val backupItemBytes = getBackupItemBytes()
+        val backupItemFile = File(backupItemFilePath).also {
+            it.delete()
+            it.createNewFile()
+            it.appendBytes(backupItemBytes)
+        }
+
+        // 真正需要备份的用户数据是 shortcut_icons —— 快捷方式位图图标。
+        val zipIconDirFile = File(zipIconPath)
+        zipDirectory(Paths.ShortcutIcons, zipIconDirFile)
+
+        val zipFile = File(zipFilePath).also {
+            it.delete()
+            it.createNewFile()
+        }
+        ZipOutputStream(FileOutputStream(zipFile)).use { zos ->
+            for (file in listOf(backupItemFile, zipIconDirFile)) {
+                zos.putNextEntry(ZipEntry(file.name))
+                file.inputStream().use { it.copyTo(zos) }
+                zos.closeEntry()
+            }
+        }
+        if (zipFile.length() > MAX_EXPORT_BYTES) {
+            throw ExportTooLargeException(zipFile.length())
+        }
+        return zipFile
     }
 
     fun precheckRestore(context: Context, restoreFrom: Uri): RestorePrecheckResult {
@@ -277,7 +309,7 @@ object BackupOperator {
         context: Context,
         domain: hunoia.luno.config.model.BackupDomain,
         saveTo: Uri,
-    ) {
+    ) = operationMutex.withLock {
         val dir = File(backupDir).also { it.mkdirs() }
         try {
             val itemBytes = run {

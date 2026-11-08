@@ -44,12 +44,6 @@ abstract class HomeVMBase(protected val facades: Facades) : BaseComposeVM<UiStat
         updateUiState { it.copy(shizukuStatus = ShizukuManager.currentStatus()).withRuntimeStatus() }
     }
 
-    fun reset() {
-        viewModelScope.launch {
-            facades.backup.resetAll()
-        }
-    }
-
     protected fun observeShizukuStatus() {
         viewModelScope.launch {
             ShizukuManager.statusFlow.collectLatest { status ->

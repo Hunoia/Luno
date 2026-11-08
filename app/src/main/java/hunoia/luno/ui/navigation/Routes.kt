@@ -133,6 +133,11 @@ data object FloatBallEdit
 @Serializable
 data object LogSettings
 
+/** 定时自动备份：开关、备份目录、执行状态、立即备份与从自动备份恢复。 */
+@Keep
+@Serializable
+data object AutoBackupSettings
+
 /** 剪贴板管理页：历史 / 固定 / 批量 / 导入导出 / 记录设置。 */
 @Keep
 @Serializable

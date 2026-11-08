@@ -41,6 +41,7 @@ import hunoia.luno.gesture.settings.GestureButtonSettings
 
 import hunoia.luno.ui.navigation.Home
 import hunoia.luno.ui.navigation.LogSettings
+import hunoia.luno.ui.navigation.AutoBackupSettings
 import hunoia.luno.ui.navigation.Clipboard
 import hunoia.luno.ui.navigation.ScreenPickSettings
 import hunoia.luno.ui.navigation.NotificationBlocklist
@@ -76,6 +77,7 @@ import hunoia.luno.ui.navigation.ActionLibraryEdit
 import hunoia.luno.picker.ActionSelectContent
 import hunoia.luno.actions.library.ActionLibraryEditScreen
 import hunoia.luno.ui.settings.action.LogSettingsScreen
+import hunoia.luno.ui.settings.backup.AutoBackupSettingsScreen
 import hunoia.luno.clipboard.ClipboardScreen
 import hunoia.luno.ui.settings.action.ScreenPickSettingsScreen
 import hunoia.luno.ui.settings.action.RecentAppsBlocklistScreen
@@ -223,6 +225,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToLogSettings = {
                             navController.navigate(LogSettings)
                         },
+                        onNavToAutoBackup = {
+                            navController.navigate(AutoBackupSettings)
+                        },
                         onNavToClipboard = {
                             navController.navigate(Clipboard)
                         },
@@ -267,6 +272,9 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 }
                 myComposable<LogSettings> {
                     LogSettingsScreen(onBack = { navController.popBackStack() })
+                }
+                myComposable<AutoBackupSettings> {
+                    AutoBackupSettingsScreen(onBack = { navController.popBackStack() })
                 }
                 myComposable<Clipboard> {
                     ClipboardScreen(onBack = { navController.popBackStack() })

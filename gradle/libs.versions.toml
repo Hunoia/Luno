@@ -26,6 +26,7 @@ konsist = "0.18.1"
 coroutines = "1.11.0"
 androidxAnnotation = "1.11.0"
 glance = "1.2.0"
+androidxWork = "2.12.0"
 
 
 [libraries]
@@ -46,6 +47,8 @@ com-aaronzzx-fastcompose-compose = { group = "com.github.aaronzzx.fastcompose", 
 com-aaronzzx-fastcompose-compose-accessibility = { group = "com.github.aaronzzx.fastcompose", name = "composeaccessibility", version.ref = "fastCompose" }
 jetbrains-kotlin-serialization = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinSerialization" }
 androidx-datastore = { group = "androidx.datastore", name = "datastore", version.ref = "dataStore" }
+# 自动备份定时：系统级周期调度（Doze 下会推迟，重启后自动恢复）。
+androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "androidxWork" }
 androidx-collection = { group = "androidx.collection", name = "collection", version.ref = "collection" }
 
 androidx-compose-runtime = { group = "androidx.compose.runtime", name = "runtime", version.ref = "composeTrain" }

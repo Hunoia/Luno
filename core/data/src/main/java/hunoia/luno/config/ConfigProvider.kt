@@ -7,6 +7,7 @@ import hunoia.luno.config.model.AdvancedSettings
 import hunoia.luno.config.model.AnnotateSettings
 import hunoia.luno.config.model.AppLaunchSource
 import hunoia.luno.config.model.AppUsageStats
+import hunoia.luno.config.model.AutoBackupSettings
 import hunoia.luno.config.model.Backup
 import hunoia.luno.config.model.BackupDomain
 import hunoia.luno.config.model.ClipboardEntry
@@ -62,6 +63,8 @@ object ConfigProvider {
     /** 剪贴板历史：设备本地派生数据；固定项随备份导出，普通历史不导出。 */
     val clipboardHistory: Flow<ClipboardHistory> = stores.clipboardHistory
     val clipboardSettings: Flow<ClipboardSettings> = stores.clipboardSettings
+    /** 定时自动备份状态：设备本地派生数据，不进备份、不被 resetAll 清掉。 */
+    val autoBackup: Flow<AutoBackupSettings> = stores.autoBackup
 
     /** 习惯配置：习惯定义 + 打卡记录。部件与管理页都订阅它。 */
     val habitConfig: Flow<HabitConfig> = stores.habitConfig
@@ -81,6 +84,11 @@ object ConfigProvider {
         stores._quickSearchSettings.data.first().withUniqueEngineTriggers()
     suspend fun getAnnotateSettings(): AnnotateSettings = stores._annotateSettings.data.first()
     suspend fun getClipboardSettings(): ClipboardSettings = stores._clipboardSettings.data.first()
+    suspend fun getAutoBackup(): AutoBackupSettings = stores._autoBackup.data.first()
+
+    suspend fun updateAutoBackup(transform: suspend (AutoBackupSettings) -> AutoBackupSettings) {
+        stores._autoBackup.updateData(transform)
+    }
 
     suspend fun updateInitialSettings(transform: suspend (InitialSettings) -> InitialSettings) {
         stores._initialSettings.updateData(transform)

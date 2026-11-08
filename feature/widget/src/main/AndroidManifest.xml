@@ -19,14 +19,19 @@
         <activity
             android:name=".HabitWidgetConfigActivity"
             android:exported="true"
+            android:excludeFromRecents="true"
             android:label="@string/widget_habit_title"
             android:theme="@style/WidgetDialogTheme"
             android:windowSoftInputMode="adjustNothing" />
 
-        <!-- 待办编辑弹窗（「+」/点行直达，不进应用页面）。 -->
+        <!-- 待办编辑弹窗（「+」/点行直达，不进应用页面）。
+             excludeFromRecents：透明弹窗 task 不进最近任务；
+             finishOnTaskLaunch：从旧入口重唤同 task 时销毁重建，避免复用旧实例。 -->
         <activity
             android:name=".TodoEditDialogActivity"
             android:exported="true"
+            android:excludeFromRecents="true"
+            android:finishOnTaskLaunch="true"
             android:label="@string/widget_todo_title"
             android:theme="@style/WidgetDialogTheme"
             android:windowSoftInputMode="adjustNothing" />
@@ -35,6 +40,8 @@
         <activity
             android:name=".WidgetConfirmDialogActivity"
             android:exported="true"
+            android:excludeFromRecents="true"
+            android:finishOnTaskLaunch="true"
             android:theme="@style/WidgetDialogTheme" />
 
         <!-- 待办桌面小部件（Glance）：无需配置，直接显示待办。 -->

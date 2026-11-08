@@ -3,10 +3,8 @@ package hunoia.luno.ui.home
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.twotone.Link
 import androidx.compose.material.icons.twotone.RadioButtonChecked
-import androidx.compose.material.icons.twotone.RestartAlt
-import androidx.compose.material.icons.twotone.Restore
-import androidx.compose.material.icons.twotone.Save
 import androidx.compose.material.icons.twotone.Search
+import androidx.compose.material.icons.twotone.SettingsBackupRestore
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -53,9 +51,7 @@ fun HomeSettingsGroup(
 
 @Composable
 fun DataTransferGroup(
-    onBackupClick: () -> Unit,
-    onRestoreClick: () -> Unit,
-    onResetClick: () -> Unit,
+    onBackupSettingsClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LunoGroup(
@@ -64,22 +60,10 @@ fun DataTransferGroup(
     ) {
         LunoSegmentedGroup {
             item { shape -> LunoSettingsRow(
-            title = stringResource(R.string.backup),
-            icon = Icons.TwoTone.Save,
+            title = stringResource(R.string.backup_settings_entry),
+            icon = Icons.TwoTone.SettingsBackupRestore,
             shape = shape,
-            onClick = onBackupClick,
-            ) }
-            item { shape -> LunoSettingsRow(
-            title = stringResource(R.string.restore),
-            icon = Icons.TwoTone.Restore,
-            shape = shape,
-            onClick = onRestoreClick,
-            ) }
-            item { shape -> LunoSettingsRow(
-            title = stringResource(hunoia.luno.design.R.string.reset),
-            icon = Icons.TwoTone.RestartAlt,
-            shape = shape,
-            onClick = onResetClick,
+            onClick = onBackupSettingsClick,
             ) }
         }
     }
