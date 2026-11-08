@@ -450,4 +450,37 @@
     <string name="log_settings_preview_hint">查看最后 %1$d 行</string>
     <string name="log_settings_preview_title">最近日志</string>
     <string name="log_settings_preview_empty">暂无日志</string>
+
+    <string name="habit_reminder_channel">习惯提醒</string>
+    <string name="habit_reminder_title">习惯提醒</string>
+    <string name="habit_reminder_body">%1$s · 该打卡了</string>
+    <string name="habit_reminder_done">完成</string>
+    <string name="habit_reminder_capsule">该打卡</string>
+
+    <string name="habit_reminder_settings_title">习惯提醒</string>
+    <string name="habit_reminder_settings_entry">习惯提醒</string>
+    <string name="habit_reminder_settings_entry_hint">通知样式、权限与每日提醒</string>
+    <string name="habit_reminder_style">通知样式</string>
+    <string name="habit_reminder_style_row">提醒呈现方式</string>
+    <string name="habit_reminder_style_hint">不可用时自动回退标准通知；小米 HyperOS 上「实时」就是系统超级岛</string>
+    <string name="habit_reminder_style_standard">标准</string>
+    <string name="habit_reminder_style_live_activity">实时</string>
+    <string name="habit_reminder_perm_group">权限状态</string>
+    <string name="habit_reminder_perm_notification">通知权限</string>
+    <string name="habit_reminder_perm_notification_on_hint">已允许 · 到点会弹出提醒</string>
+    <string name="habit_reminder_perm_notification_off_hint">未允许 · 提醒不会显示，点按去开启</string>
+    <string name="habit_reminder_perm_exact_alarm">精确闹钟</string>
+    <string name="habit_reminder_perm_exact_on_hint">已允许 · 按设定时间准时提醒</string>
+    <string name="habit_reminder_perm_exact_off_hint">未允许 · 系统可能延迟提醒</string>
+    <string name="habit_reminder_perm_live_update">实时活动 / 状态栏胶囊</string>
+    <string name="habit_reminder_perm_live_on_hint">已允许 · Android 16+ 可升为实时活动</string>
+    <string name="habit_reminder_perm_live_off_hint">未允许 · 点按去系统通知设置开启</string>
+    <string name="habit_reminder_perm_live_unsupported">当前系统不支持（需 Android 16+）</string>
+    <string name="habit_reminder_test_group">测试</string>
+    <string name="habit_reminder_test_send">发送测试通知</string>
+    <string name="habit_reminder_test_send_hint">用当前样式立即发一条，60 秒后自动收起</string>
+    <string name="habit_reminder_test_sent">已发送测试通知</string>
+    <string name="habit_reminder_test_name">测试提醒</string>
+    <string name="habit_reminder_test_title">习惯提醒（测试）</string>
+    <string name="habit_reminder_test_body">当前样式：%1$s · 60 秒后自动收起</string>
 </resources>

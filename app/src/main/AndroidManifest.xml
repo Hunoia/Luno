@@ -15,6 +15,13 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" android:minSdkVersion="34" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Android 16+ Live Update / 状态栏胶囊；HyperOS 4 的「超级岛」对第三方应用也走这条通道。
+         不要给这条 uses-permission 加 android:minSdkVersion：本应用 minSdk=33，合并时会把权限
+         整条丢掉，随后 POST_PROMOTED_NOTIFICATIONS appop 默认判否，setRequestPromotedOngoing
+         投递即被系统撤回（现象：实时通知 / 超级岛完全不出现）。 -->
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+    <!-- 习惯提醒：Android 12+ 精确闹钟（用户可关，关则降级非精确）。 -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="com.android.permission.GET_INSTALLED_APPS" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission
@@ -309,6 +316,11 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <!-- 习惯提醒：AlarmManager 触发（主进程广播）+ 通知「完成」按钮。 -->
+        <receiver
+            android:name=".domain.habit.HabitReminderReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

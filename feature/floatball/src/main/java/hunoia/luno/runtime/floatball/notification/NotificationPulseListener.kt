@@ -4,6 +4,7 @@ import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import hunoia.luno.bridge.system.PersistentNotificationShell
+import hunoia.luno.config.model.HABIT_REMINDER_CHANNEL_ID
 import hunoia.luno.config.model.PersistentNotificationHidingSettings
 import hunoia.luno.config.model.shouldHide
 import hunoia.luno.core.domain.NotificationPulse
@@ -189,6 +190,11 @@ class NotificationPulseListener : NotificationListenerService() {
         config: PersistentNotificationHidingSettings = hiding,
     ): Boolean {
         if (!hidingLoaded) return false
+        // 习惯提醒是用户显式开启、面向用户的常驻通知，不属于「固定通知隐藏」范围；
+        // 隐藏功能只该处理后台前台服务这类「系统运行痕迹」。
+        if (sbn.packageName == packageName && sbn.notification.channelId == HABIT_REMINDER_CHANNEL_ID) {
+            return false
+        }
         val flags = sbn.notification.flags
         val persistent = sbn.isOngoing ||
             (flags and (Notification.FLAG_ONGOING_EVENT or

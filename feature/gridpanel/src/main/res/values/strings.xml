@@ -91,6 +91,11 @@
     <string name="habit_recent_checks">近 30 天</string>
     <string name="habit_save">保存</string>
     <string name="habit_streak_summary">连续 %1$d 天</string>
+    <string name="habit_reminder">提醒</string>
+    <string name="habit_reminder_enable">开启提醒</string>
+    <string name="habit_reminder_time">提醒时间</string>
+    <string name="habit_reminder_time_value">%1$02d:%2$02d</string>
+    <string name="habit_reminder_cancel">取消</string>
 
     <string-array name="habit_weekdays">
         <item>一</item>

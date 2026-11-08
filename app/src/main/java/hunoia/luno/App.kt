@@ -80,6 +80,11 @@ class App : Application(), SingletonImageLoader.Factory {
         // 桌面小部件实时同步（architecture §7.5）：进程启动即订阅配置流。
         // receiver onUpdate 只在放置/周期更新触发，进程重启后不保证重发，故在此兜底。
         hunoia.luno.widget.WidgetSync.ensureStarted(applicationContext)
+        // 习惯提醒：闹钟 / 部件打卡等入口可能在 MainActivity 未打开时拉起主进程，
+        // 在这里订阅配置流才能保证「关提醒 / 打卡 / 删习惯」后立即撤销在屏通知与闹钟。
+        if (isProviderProcess) {
+            hunoia.luno.domain.habit.HabitReminderScheduler.startObserving(applicationContext)
+        }
         // Surface 动作统一进 Dispatcher：进程级门面不依赖无障碍服务生命周期。
         hunoia.luno.runtime.SurfaceActionRuntime.install(applicationContext)
         // 动作编辑页的 Activity 选择器：契约在 :core:domain，实现在 :app。

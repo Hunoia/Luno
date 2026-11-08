@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.TextFields
@@ -84,6 +85,7 @@ fun ActionSettingsTab(
     onNavToPrivilegedPermissions: () -> Unit = {},
     onNavToAccessibilityManager: () -> Unit = {},
     onNavToPersistentNotificationSettings: () -> Unit = {},
+    onNavToHabitReminderSettings: () -> Unit = {},
     onNavToStatusBarIconSettings: () -> Unit = {},
     onNavToLogSettings: () -> Unit = {},
     onNavToClipboard: () -> Unit = {},
@@ -193,14 +195,21 @@ fun ActionSettingsTab(
                     LunoSettingsRow(
                         icon = Icons.Default.CheckCircle,
                         title = stringResource(hunoia.luno.gridpanel.R.string.habit_list_title),
-                        shape = segmentedShape(0, 2),
+                        shape = segmentedShape(0, 3),
                         onClick = onNavToHabits,
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.Checklist,
                         title = stringResource(hunoia.luno.gridpanel.R.string.todo_list_title),
-                        shape = segmentedShape(1, 2),
+                        shape = segmentedShape(1, 3),
                         onClick = onNavToTodos,
+                    )
+                    LunoSettingsRow(
+                        icon = Icons.Default.NotificationsActive,
+                        title = stringResource(R.string.habit_reminder_settings_entry),
+                        subtitle = stringResource(R.string.habit_reminder_settings_entry_hint),
+                        shape = segmentedShape(2, 3),
+                        onClick = onNavToHabitReminderSettings,
                     )
                 }
             }

@@ -23,6 +23,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
@@ -31,6 +33,9 @@ import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Stable
@@ -64,6 +69,7 @@ import hunoia.luno.gridpanel.internal.rememberTodayEpochDay
 import hunoia.luno.ui.component.input.LunoTextSlider
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
+import hunoia.luno.ui.component.row.LunoSwitchRow
 import hunoia.luno.ui.component.screen.LunoScreen
 import hunoia.luno.ui.component.sheet.ColorPickerBottomSheet
 import hunoia.luno.ui.component.sheet.toColorSpec
@@ -100,6 +106,7 @@ import kotlin.math.roundToInt
  * 已加载的 [Habit] 值——配置流首帧为空（`initialValue`），否则会被空值初始化导致重进丢内容。
  * 增删改与打卡写入走 [HabitCenter] 门面（配置写入，不走 Action / Dispatcher）。
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HabitEditScreen(
     habitId: String?,
@@ -121,6 +128,9 @@ fun HabitEditScreen(
     )
     // 日历点阵用「当前编辑中的间隔」即时预览，保存前所见即所得。
     val shownInterval = state.interval ?: habit?.interval ?: 1
+    val shownReminderEnabled = state.reminderEnabled ?: habit?.reminderEnabled ?: false
+    val shownReminderHour = state.reminderHour ?: habit?.reminderHour ?: 20
+    val shownReminderMinute = state.reminderMinute ?: habit?.reminderMinute ?: 0
 
     fun save() {
         val trimmed = shownName.trim()
@@ -134,6 +144,9 @@ fun HabitEditScreen(
                         colorSource = shownColorSpec.source,
                         colorThemeKey = shownColorSpec.themeKey,
                         interval = shownInterval,
+                        reminderEnabled = shownReminderEnabled,
+                        reminderHour = shownReminderHour,
+                        reminderMinute = shownReminderMinute,
                         createdAt = System.currentTimeMillis(),
                     ),
                 )
@@ -145,6 +158,9 @@ fun HabitEditScreen(
                         colorSource = shownColorSpec.source,
                         colorThemeKey = shownColorSpec.themeKey,
                         interval = shownInterval,
+                        reminderEnabled = shownReminderEnabled,
+                        reminderHour = shownReminderHour,
+                        reminderMinute = shownReminderMinute,
                     ),
                 )
             }
@@ -257,6 +273,18 @@ fun HabitEditScreen(
                 }
                 null -> Unit
             }
+            if (state.showTimePicker) {
+                HabitTimePickerDialog(
+                    initialHour = shownReminderHour,
+                    initialMinute = shownReminderMinute,
+                    onDismiss = { state.showTimePicker = false },
+                    onConfirm = { hour, minute ->
+                        state.reminderHour = hour
+                        state.reminderMinute = minute
+                        state.showTimePicker = false
+                    },
+                )
+            }
         },
         sheets = {
             if (state.showColorPicker) {
@@ -315,6 +343,24 @@ fun HabitEditScreen(
                 steps = 28,
             )
         }
+        LunoGroup(title = stringResource(R.string.habit_reminder)) {
+            LunoSwitchRow(
+                title = stringResource(R.string.habit_reminder_enable),
+                checked = shownReminderEnabled,
+                onCheckedChange = { state.reminderEnabled = it },
+            )
+            if (shownReminderEnabled) {
+                LunoSettingsRow(
+                    title = stringResource(R.string.habit_reminder_time),
+                    subtitle = stringResource(
+                        R.string.habit_reminder_time_value,
+                        shownReminderHour,
+                        shownReminderMinute,
+                    ),
+                    onClick = { state.showTimePicker = true },
+                )
+            }
+        }
         if (habit != null) {
             RecentChecksGrid(
                 habitId = habit.id,
@@ -331,6 +377,37 @@ fun HabitEditScreen(
     }
 }
 
+/** 提醒时间选择：24 小时制 Material3 TimePicker，确定后回调 [onConfirm]。 */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HabitTimePickerDialog(
+    initialHour: Int,
+    initialMinute: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (hour: Int, minute: Int) -> Unit,
+) {
+    val timeState = rememberTimePickerState(
+        initialHour = initialHour,
+        initialMinute = initialMinute,
+        is24Hour = true,
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.habit_reminder_time)) },
+        text = { TimePicker(state = timeState) },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(timeState.hour, timeState.minute) }) {
+                Text(stringResource(hunoia.luno.design.R.string.confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.habit_reminder_cancel))
+            }
+        },
+    )
+}
+
 /** 一屏一个状态类型：字段草稿、颜色选择、确认弹层全在这里（architecture §8.4）。 */
 @Stable
 internal class HabitEditState(
@@ -339,13 +416,20 @@ internal class HabitEditState(
     colorSourceName: String? = null,
     colorThemeKeyName: String? = null,
     interval: Int? = null,
+    reminderEnabled: Boolean? = null,
+    reminderHour: Int? = null,
+    reminderMinute: Int? = null,
 ) {
     var name by mutableStateOf(name)
     var colorArgb by mutableStateOf(colorArgb)
     var colorSourceName by mutableStateOf(colorSourceName)
     var colorThemeKeyName by mutableStateOf(colorThemeKeyName)
     var interval by mutableStateOf(interval)
+    var reminderEnabled by mutableStateOf(reminderEnabled)
+    var reminderHour by mutableStateOf(reminderHour)
+    var reminderMinute by mutableStateOf(reminderMinute)
     var showColorPicker by mutableStateOf(false)
+    var showTimePicker by mutableStateOf(false)
     var dialog by mutableStateOf<HabitEditDialog?>(null)
 }
 
@@ -366,6 +450,9 @@ private val HabitEditStateSaver: Saver<HabitEditState, Bundle> = Saver(
             putString("colorSource", state.colorSourceName)
             putString("colorThemeKey", state.colorThemeKeyName)
             state.interval?.let { putInt("interval", it) }
+            state.reminderEnabled?.let { putBoolean("reminderEnabled", it) }
+            state.reminderHour?.let { putInt("reminderHour", it) }
+            state.reminderMinute?.let { putInt("reminderMinute", it) }
         }
     },
     restore = { bundle ->
@@ -375,6 +462,9 @@ private val HabitEditStateSaver: Saver<HabitEditState, Bundle> = Saver(
             colorSourceName = bundle.getString("colorSource"),
             colorThemeKeyName = bundle.getString("colorThemeKey"),
             interval = if (bundle.containsKey("interval")) bundle.getInt("interval") else null,
+            reminderEnabled = if (bundle.containsKey("reminderEnabled")) bundle.getBoolean("reminderEnabled") else null,
+            reminderHour = if (bundle.containsKey("reminderHour")) bundle.getInt("reminderHour") else null,
+            reminderMinute = if (bundle.containsKey("reminderMinute")) bundle.getInt("reminderMinute") else null,
         )
     },
 )

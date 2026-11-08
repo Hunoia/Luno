@@ -14,6 +14,25 @@ const val HabitHistoryRetentionDays = 90
 enum class HabitType { BOOLEAN }
 
 /**
+ * 习惯提醒的呈现方式（全局设置，单个习惯只决定开 / 关与时间）。
+ *
+ * - [STANDARD]：普通常驻通知，所有设备可用。
+ * - [LIVE_ACTIVITY]：Android 16+ 的 Live Update / 状态栏胶囊；无权限或系统不支持时回退标准通知。
+ *   在小米 HyperOS 4 上，这条通道就是系统渲染的「超级岛」（岛 / 胶囊），所以不再单列岛选项：
+ *   旧的 `miui.focus.param` 路线需要小米焦点通知白名单，第三方应用发出去会被系统整条撤回。
+ */
+@Keep
+enum class HabitNotificationStyle {
+    STANDARD,
+    LIVE_ACTIVITY,
+    ;
+
+    companion object {
+        val DEFAULT = STANDARD
+    }
+}
+
+/**
  * 一个习惯。打卡频率按「每 [interval] 日」滑动式判定（见 [habitDayState] / [currentStreak]）：
  * 上次打卡日之后，隔满 [interval] 日才是下一个应打卡日，中间是跳过日。
  *
@@ -33,6 +52,10 @@ data class Habit(
     val colorThemeKey: ThemeColorKey = ThemeColorKey.Primary,
     val type: HabitType = HabitType.BOOLEAN,
     val interval: Int = 1,
+    /** 提醒：到「应打卡日」的 [reminderHour]:[reminderMinute] 常驻通知；默认关。 */
+    val reminderEnabled: Boolean = false,
+    val reminderHour: Int = 20,
+    val reminderMinute: Int = 0,
     val createdAt: Long = 0L,
 ) {
     /** 渲染端统一入口：按 [colorSource] 解析，主题切换时实时跟随。 */

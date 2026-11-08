@@ -46,6 +46,11 @@ data object AccessibilityManager
 @Serializable
 data object PersistentNotificationSettings
 
+/** 习惯提醒：全局通知样式（标准 / 实时活动 / 超级岛）与权限状态。 */
+@Keep
+@Serializable
+data object HabitReminderSettings
+
 /** 状态栏图标隐藏：读写 `Settings.Secure.icon_blacklist`。 */
 @Keep
 @Serializable
