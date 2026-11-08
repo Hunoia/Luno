@@ -9,7 +9,8 @@ import hunoia.luno.config.ConfigProvider
 import hunoia.luno.config.model.Habit
 import hunoia.luno.config.model.HabitConfig
 import hunoia.luno.config.model.HabitDayState
-import hunoia.luno.config.model.HabitNotificationStyle
+import hunoia.luno.config.model.NotificationKind
+import hunoia.luno.config.model.NotificationMode
 import hunoia.luno.config.model.habitDayState
 import hunoia.luno.core.LunoLog
 import hunoia.luno.core.LOG_TAG
@@ -42,11 +43,21 @@ import java.util.concurrent.atomic.AtomicBoolean
 object HabitReminderScheduler {
 
     const val ACTION_REMINDER = "hunoia.luno.action.HABIT_REMINDER"
+
+    /** 通知 / 岛上的「完成」：直接打卡（幂等）。 */
     const val ACTION_MARK_DONE = "hunoia.luno.action.HABIT_REMINDER_DONE"
+
+    /** 通知 / 岛上的「推迟」请求：收起当前提醒，并在 N 分钟后重弹（N 来自习惯设置）。 */
+    const val ACTION_SNOOZE = "hunoia.luno.action.HABIT_REMINDER_SNOOZE"
+
+    /** 推迟到点：重算状态后重弹（已打卡 / 休整日不再弹）。 */
+    const val ACTION_SNOOZE_FIRE = "hunoia.luno.action.HABIT_REMINDER_SNOOZE_FIRE"
+
     /** 每日 0 点：收起前一天仍在屏的提醒，避免常驻通知跨到第二天。 */
     const val ACTION_EXPIRE = "hunoia.luno.action.HABIT_REMINDER_EXPIRE"
     const val EXTRA_HABIT_ID = "hunoia.luno.extra.HABIT_REMINDER_ID"
     const val EXTRA_DAY = "hunoia.luno.extra.HABIT_REMINDER_DAY"
+    const val EXTRA_SNOOZE_MINUTES = "hunoia.luno.extra.HABIT_REMINDER_SNOOZE_MINUTES"
 
     /** 与通知 id 同源的请求码种子（"HABT"）；与 habitId.hashCode() 异或避免跨习惯碰撞。 */
     private const val REQUEST_MAGIC = 0x48414254
@@ -61,11 +72,17 @@ object HabitReminderScheduler {
     /** 跨日收口闹钟的固定请求码（"HABE"），与习惯请求码空间错开。 */
     private const val EXPIRY_REQUEST_CODE = 0x48414245
 
+    /** 推迟闹钟请求码种子（"HABS"）：与每日提醒、通知 id、跨日收口都错开。 */
+    private const val SNOOZE_REQUEST_MAGIC = 0x48414253
+
     /** 补弹闹钟给接收器留的缓冲，避免 setExact 的 now 已过期。 */
     private const val CATCH_UP_DELAY_MS = 500L
 
     /** 未来应打卡日的搜索上界：interval 上限 30，60 天内必能命中下一个应打卡日。 */
     private const val LOOKAHEAD_DAYS = 60L
+
+    /** 推迟时长上限（一天）；UI 档位远小于它，这里只防脏数据。 */
+    private const val MAX_SNOOZE_MINUTES = 24 * 60
 
     /** 记录上次参与调度的习惯 id：删习惯后配置里查不到它，只能靠差集取消残留闹钟 / 通知。 */
     private const val PREFS_NAME = "habit_reminder_state"
@@ -75,10 +92,11 @@ object HabitReminderScheduler {
     private const val KEY_LAST_NOTIFIED_PREFIX = "last_notified_day_"
     private const val KEY_LAST_NOTIFIED_SLOT_PREFIX = "last_notified_slot_"
 
-    /** 入口：读配置 + 高级设置（通知样式），在接收器里用最新样式展示。 */
-    suspend fun currentStyle(): HabitNotificationStyle =
-        runCatching { ConfigProvider.getAdvancedSettings().habitReminderStyle }
-            .getOrDefault(HabitNotificationStyle.DEFAULT)
+    /** 入口：读配置 + 高级设置（通用通知显示设置），在接收器里用最终生效模式展示。 */
+    suspend fun currentMode(): NotificationMode =
+        runCatching {
+            ConfigProvider.getAdvancedSettings().notificationDisplay.modeFor(NotificationKind.HABIT)
+        }.getOrDefault(NotificationMode.DEFAULT)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val observing = AtomicBoolean(false)
@@ -125,6 +143,7 @@ object HabitReminderScheduler {
             val removedIds = prefs.getStringSet(KEY_KNOWN_IDS, emptySet()).orEmpty() - currentIds
             removedIds.forEach { habitId ->
                 cancelAlarm(app, habitId)
+                cancelSnooze(app, habitId)
                 HabitReminderNotifier.cancel(app, habitId)
                 prefs.edit()
                     .remove(lastNotifiedKey(habitId))
@@ -139,10 +158,12 @@ object HabitReminderScheduler {
                 // 今天已打卡 / 今天是跳过日：在屏的提醒通知应随之收起。
                 if (state == HabitDayState.CHECKED || state == HabitDayState.SKIPPED) {
                     HabitReminderNotifier.cancel(app, habit.id)
+                    cancelSnooze(app, habit.id)
                 }
                 if (!habit.reminderEnabled) {
-                    // 用户关掉提醒：仍在屏的常驻通知一并收起。
+                    // 用户关掉提醒：仍在屏的常驻通知与在途的推迟闹钟一并收起。
                     HabitReminderNotifier.cancel(app, habit.id)
+                    cancelSnooze(app, habit.id)
                     return@forEach
                 }
                 anyReminder = true
@@ -285,6 +306,44 @@ object HabitReminderScheduler {
     private fun cancelAlarm(context: Context, habitId: String) {
         val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         am.cancel(reminderPendingIntent(context, habitId))
+    }
+
+    /** 「推迟」到点重弹：独立闹钟，不动每日调度。 */
+    fun scheduleSnooze(context: Context, habitId: String, minutes: Int) {
+        val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+        val trigger = System.currentTimeMillis() +
+            minutes.coerceIn(1, MAX_SNOOZE_MINUTES).toLong() * 60_000L
+        val pi = snoozePendingIntent(context, habitId)
+        try {
+            val canExact = Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()
+            if (canExact) {
+                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pi)
+            } else {
+                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pi)
+            }
+        } catch (e: SecurityException) {
+            LunoLog.w(LOG_TAG, "habit snooze exact alarm denied, fallback: ${e.message}")
+            runCatching { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pi) }
+        }
+        LunoLog.i(LOG_TAG, "habit snooze scheduled: habit=$habitId minutes=$minutes")
+    }
+
+    fun cancelSnooze(context: Context, habitId: String) {
+        val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+        am.cancel(snoozePendingIntent(context, habitId))
+    }
+
+    private fun snoozePendingIntent(context: Context, habitId: String): PendingIntent {
+        val intent = Intent(context, HabitReminderReceiver::class.java).apply {
+            action = ACTION_SNOOZE_FIRE
+            putExtra(EXTRA_HABIT_ID, habitId)
+        }
+        return PendingIntent.getBroadcast(
+            context,
+            SNOOZE_REQUEST_MAGIC xor habitId.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
     }
 
     /** 下一个本地 0 点：通知只活到当天，跨日统一收起。 */

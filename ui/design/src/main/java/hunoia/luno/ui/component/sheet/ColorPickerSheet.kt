@@ -1,7 +1,6 @@
 package hunoia.luno.ui.component.sheet
 
 import android.graphics.Color as AndroidColor
-import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
@@ -62,6 +61,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.config.model.ThemeColorKey
 import hunoia.luno.design.R
 import hunoia.luno.ui.theme.CanvasStrokeWidth
@@ -237,7 +237,7 @@ fun ColorPickerBottomSheet(
                         IconButton(
                             onClick = {
                                 onCopyColor.invoke(previewHex)
-                                Toast.makeText(context, copiedHint, Toast.LENGTH_SHORT).show()
+                                showToast(copiedHint)
                             },
                         ) {
                             Icon(

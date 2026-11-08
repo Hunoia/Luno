@@ -1,6 +1,5 @@
 package hunoia.luno.ui.settings.action
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,6 +25,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.R
 import hunoia.luno.core.LogLevel
 import hunoia.luno.facade.LogStats
@@ -159,11 +159,7 @@ fun LogSettingsScreen(onBack: () -> Unit) {
                     scope.launch {
                         val ok = facades.logs.exportAndShare(context)
                         if (!ok) {
-                            Toast.makeText(
-                                context,
-                                R.string.log_settings_export_failed,
-                                Toast.LENGTH_SHORT,
-                            ).show()
+                            showToast(R.string.log_settings_export_failed)
                         }
                     }
                 },
@@ -228,7 +224,7 @@ fun LogSettingsScreen(onBack: () -> Unit) {
                 scope.launch {
                     withContext(Dispatchers.IO) { facades.logs.clear() }
                     tick++
-                    Toast.makeText(context, R.string.log_settings_cleared, Toast.LENGTH_SHORT).show()
+                    showToast(R.string.log_settings_cleared)
                 }
             },
         )

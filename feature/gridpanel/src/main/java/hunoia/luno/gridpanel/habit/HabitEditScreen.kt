@@ -61,12 +61,15 @@ import hunoia.luno.config.model.ColorSpec
 import hunoia.luno.config.model.Habit
 import hunoia.luno.config.model.HabitConfig
 import hunoia.luno.config.model.HabitDayState
+import hunoia.luno.config.model.HabitDefaultSnoozeMinutes
+import hunoia.luno.config.model.HabitSnoozeMinuteOptions
 import hunoia.luno.config.model.ThemeColorKey
 import hunoia.luno.config.model.habitDayState
 import hunoia.luno.domain.gridpanel.HabitCenter
 import hunoia.luno.gridpanel.R
 import hunoia.luno.gridpanel.internal.rememberTodayEpochDay
 import hunoia.luno.ui.component.input.LunoTextSlider
+import hunoia.luno.ui.component.row.ChoiceRow
 import hunoia.luno.ui.component.row.LunoGroup
 import hunoia.luno.ui.component.row.LunoSettingsRow
 import hunoia.luno.ui.component.row.LunoSwitchRow
@@ -80,6 +83,7 @@ import hunoia.luno.ui.theme.ContentBottom
 import hunoia.luno.ui.theme.FabSize
 import hunoia.luno.ui.theme.FloatingContentBottom
 import hunoia.luno.ui.theme.HabitCalendarCellGap
+import hunoia.luno.ui.theme.LargeShape
 import hunoia.luno.ui.theme.HabitCalendarHeaderGap
 import hunoia.luno.ui.theme.HabitCalendarPaddingVertical
 import hunoia.luno.ui.theme.HabitDayCellMinHeight
@@ -131,6 +135,7 @@ fun HabitEditScreen(
     val shownReminderEnabled = state.reminderEnabled ?: habit?.reminderEnabled ?: false
     val shownReminderHour = state.reminderHour ?: habit?.reminderHour ?: 20
     val shownReminderMinute = state.reminderMinute ?: habit?.reminderMinute ?: 0
+    val shownSnoozeMinutes = state.snoozeMinutes ?: habit?.snoozeMinutes ?: HabitDefaultSnoozeMinutes
 
     fun save() {
         val trimmed = shownName.trim()
@@ -147,6 +152,7 @@ fun HabitEditScreen(
                         reminderEnabled = shownReminderEnabled,
                         reminderHour = shownReminderHour,
                         reminderMinute = shownReminderMinute,
+                        snoozeMinutes = shownSnoozeMinutes,
                         createdAt = System.currentTimeMillis(),
                     ),
                 )
@@ -161,6 +167,7 @@ fun HabitEditScreen(
                         reminderEnabled = shownReminderEnabled,
                         reminderHour = shownReminderHour,
                         reminderMinute = shownReminderMinute,
+                        snoozeMinutes = shownSnoozeMinutes,
                     ),
                 )
             }
@@ -359,6 +366,17 @@ fun HabitEditScreen(
                     ),
                     onClick = { state.showTimePicker = true },
                 )
+                ChoiceRow(
+                    title = stringResource(R.string.habit_snooze),
+                    subtitle = stringResource(R.string.habit_snooze_hint),
+                    options = HabitSnoozeMinuteOptions.map {
+                        stringResource(R.string.habit_snooze_minutes, it)
+                    },
+                    selectedIndex = HabitSnoozeMinuteOptions
+                        .indexOf(shownSnoozeMinutes).coerceAtLeast(0),
+                    onSelect = { state.snoozeMinutes = HabitSnoozeMinuteOptions[it] },
+                    shape = LargeShape,
+                )
             }
         }
         if (habit != null) {
@@ -419,6 +437,7 @@ internal class HabitEditState(
     reminderEnabled: Boolean? = null,
     reminderHour: Int? = null,
     reminderMinute: Int? = null,
+    snoozeMinutes: Int? = null,
 ) {
     var name by mutableStateOf(name)
     var colorArgb by mutableStateOf(colorArgb)
@@ -428,6 +447,7 @@ internal class HabitEditState(
     var reminderEnabled by mutableStateOf(reminderEnabled)
     var reminderHour by mutableStateOf(reminderHour)
     var reminderMinute by mutableStateOf(reminderMinute)
+    var snoozeMinutes by mutableStateOf(snoozeMinutes)
     var showColorPicker by mutableStateOf(false)
     var showTimePicker by mutableStateOf(false)
     var dialog by mutableStateOf<HabitEditDialog?>(null)
@@ -453,6 +473,7 @@ private val HabitEditStateSaver: Saver<HabitEditState, Bundle> = Saver(
             state.reminderEnabled?.let { putBoolean("reminderEnabled", it) }
             state.reminderHour?.let { putInt("reminderHour", it) }
             state.reminderMinute?.let { putInt("reminderMinute", it) }
+            state.snoozeMinutes?.let { putInt("snoozeMinutes", it) }
         }
     },
     restore = { bundle ->
@@ -465,6 +486,7 @@ private val HabitEditStateSaver: Saver<HabitEditState, Bundle> = Saver(
             reminderEnabled = if (bundle.containsKey("reminderEnabled")) bundle.getBoolean("reminderEnabled") else null,
             reminderHour = if (bundle.containsKey("reminderHour")) bundle.getInt("reminderHour") else null,
             reminderMinute = if (bundle.containsKey("reminderMinute")) bundle.getInt("reminderMinute") else null,
+            snoozeMinutes = if (bundle.containsKey("snoozeMinutes")) bundle.getInt("snoozeMinutes") else null,
         )
     },
 )

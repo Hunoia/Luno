@@ -64,6 +64,15 @@ import hunoia.luno.core.LOG_TAG
 /** 冷启动/悬浮窗重建期间容器的面板列表未灌满时，揭示事件的等待重试参数。 */
 private const val BALL_PANEL_REVEAL_MAX_ATTEMPTS = 40
 
+/**
+ * 识屏让位带在状态栏高度之外再加的余量（dp）。
+ *
+ * 0 = 只让出状态栏本身（超级岛胶囊所在带）：岛卡片的「长按 + 拖动」和识屏是同一手势形态，
+ * 只能按起点位置区分。展开态大岛卡片伸到状态栏以下的部分**不**让位，否则屏幕顶部会多出
+ * 一条不能识屏的死区；代价是从卡片下半部分起手时识屏仍可能先弹出来。
+ */
+private const val SYSTEM_BAR_GESTURE_BAND_DP = 0f
+
 /** 键盘在屏期间的短轮询间隔：捕捉没有 a11y 事件的 IME 收起（如返回键/手势）。 */
 private const val KEYBOARD_WATCH_MS = 600L
 
@@ -135,8 +144,26 @@ class GestureCoordinator(
      * 全屏长按识屏检测器：复用 architecture §2.3 内核触摸流（需 Shizuku），不消费触摸。
      * 触发后由同一股原始触摸流继续喂拖动/抬手，幽灵卡靠它跟随手指。
      */
+    /**
+     * 识屏的「让位」区域：状态栏 + 超级岛胶囊。
+     *
+     * 岛卡片的长按拖动分享和「长按后拖动识屏」完全同形，只能按起点位置区分：
+     * 起点落在状态栏带内就交给 SystemUI，否则拖拽分享会先弹识屏卡。
+     */
+    private val systemBarGestureBandPx by lazy {
+        val res = host.context.resources
+        val id = res.getIdentifier("status_bar_height", "dimen", "android")
+        val bar = if (id > 0) {
+            runCatching { res.getDimensionPixelSize(id) }.getOrDefault(0)
+        } else {
+            0
+        }
+        bar + (SYSTEM_BAR_GESTURE_BAND_DP * hunoia.luno.bridge.ui.DensityProvider.density).toInt()
+    }
+
     private val globalScreenPickTrigger = GlobalLongPressTrigger(
         config = { screenPickGestureConfig },
+        shouldIgnoreStart = { _, y -> y <= systemBarGestureBandPx },
         onTrigger = { x, y ->
             hunoia.luno.service.SideGestureService.current?.showScreenPickPortal(
                 x,

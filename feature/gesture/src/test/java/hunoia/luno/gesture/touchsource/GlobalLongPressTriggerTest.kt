@@ -48,6 +48,8 @@ class GlobalLongPressTriggerTest {
     private val preCaptures = mutableListOf<Triple<Int, Int, Long>>()
     private var preCaptureCancels = 0
 
+    private var ignoredStart: ((Int, Int) -> Boolean) = { _, _ -> false }
+
     private fun trigger(
         config: ScreenPickGesture = ScreenPickGesture(
             enabled = true,
@@ -65,6 +67,7 @@ class GlobalLongPressTriggerTest {
         onRelease = { x, y -> releases += x to y },
         onPreCapture = { x, y, at -> preCaptures += Triple(x, y, at) },
         onPreCaptureCancel = { preCaptureCancels++ },
+        shouldIgnoreStart = { x, y -> ignoredStart(x, y) },
     )
 
     @Test
@@ -75,6 +78,23 @@ class GlobalLongPressTriggerTest {
         assertEquals(listOf(Triple(10, 20, 123L)), preCaptures)
         subject.onFrame(Offset(10f, 20f), TouchAction.Up)
         assertTrue(preCaptureCancels >= 1)
+    }
+
+    @Test
+    fun `ignored start point never arms`() {
+        ignoredStart = { _, y -> y <= 120 }
+        val subject = trigger()
+        subject.onFrame(Offset(10f, 60f), TouchAction.Down)
+        assertTrue(timer.entries.isEmpty())
+        assertTrue(preCaptures.isEmpty())
+
+        // 同一次会话里，再按在状态栏带以下仍然正常触发。
+        ignoredStart = { _, y -> y <= 120 }
+        subject.onFrame(Offset(10f, 400f), TouchAction.Down)
+        assertEquals(400L, timer.lastDelay)
+        timer.fire(400)
+        subject.onFrame(Offset(200f, 400f), TouchAction.Move)
+        assertEquals(listOf(10 to 400), triggers)
     }
 
     @Test

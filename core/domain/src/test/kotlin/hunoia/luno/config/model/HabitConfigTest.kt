@@ -10,6 +10,15 @@ class HabitConfigTest {
     // 纯数字 epochDay：算法不关心真实日期，只要相邻关系。
     private val today = 1000L
 
+    // ---------- 推迟 ----------
+
+    @Test
+    fun `snooze default is one of the offered options`() {
+        val habit = Habit(name = "cap")
+        assertEquals(HabitDefaultSnoozeMinutes, habit.snoozeMinutes)
+        assertTrue(HabitSnoozeMinuteOptions.contains(HabitDefaultSnoozeMinutes))
+    }
+
     // ---------- currentStreak ----------
 
     @Test

@@ -83,7 +83,7 @@ fun ActionSettingsTab(
     onNavToPrivilegedPermissions: () -> Unit = {},
     onNavToAccessibilityManager: () -> Unit = {},
     onNavToPersistentNotificationSettings: () -> Unit = {},
-    onNavToHabitReminderSettings: () -> Unit = {},
+    onNavToNotificationSettings: () -> Unit = {},
     onNavToStatusBarIconSettings: () -> Unit = {},
     onNavToLogSettings: () -> Unit = {},
     onNavToClipboard: () -> Unit = {},
@@ -204,10 +204,10 @@ fun ActionSettingsTab(
                     )
                     LunoSettingsRow(
                         icon = Icons.Default.NotificationsActive,
-                        title = stringResource(R.string.habit_reminder_settings_entry),
-                        subtitle = stringResource(R.string.habit_reminder_settings_entry_hint),
+                        title = stringResource(R.string.notification_display_settings_entry),
+                        subtitle = stringResource(R.string.notification_display_settings_entry_hint),
                         shape = segmentedShape(2, 3),
-                        onClick = onNavToHabitReminderSettings,
+                        onClick = onNavToNotificationSettings,
                     )
                 }
             }

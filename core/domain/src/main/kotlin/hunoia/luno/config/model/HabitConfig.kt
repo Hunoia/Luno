@@ -7,30 +7,17 @@ import java.util.UUID
 /** 打卡记录保留天数：早于 `today − retention` 的打卡日写时惰性裁剪，避免无限增长。 */
 const val HabitHistoryRetentionDays = 90
 
+/** 「推迟」可选档位（分钟），习惯编辑页与通知按钮文案共用。 */
+val HabitSnoozeMinuteOptions = listOf(10, 20, 30, 60)
+
+/** 「推迟」默认时长：30 分钟。 */
+const val HabitDefaultSnoozeMinutes = 30
+
 /**
  * 习惯类型。v1 只开放 [BOOLEAN]；枚举预留，数值习惯后续再开。
  */
 @Keep
 enum class HabitType { BOOLEAN }
-
-/**
- * 习惯提醒的呈现方式（全局设置，单个习惯只决定开 / 关与时间）。
- *
- * - [STANDARD]：普通常驻通知，所有设备可用。
- * - [LIVE_ACTIVITY]：Android 16+ 的 Live Update / 状态栏胶囊；无权限或系统不支持时回退标准通知。
- *   在小米 HyperOS 4 上，这条通道就是系统渲染的「超级岛」（岛 / 胶囊），所以不再单列岛选项：
- *   旧的 `miui.focus.param` 路线需要小米焦点通知白名单，第三方应用发出去会被系统整条撤回。
- */
-@Keep
-enum class HabitNotificationStyle {
-    STANDARD,
-    LIVE_ACTIVITY,
-    ;
-
-    companion object {
-        val DEFAULT = STANDARD
-    }
-}
 
 /**
  * 一个习惯。打卡频率按「每 [interval] 日」滑动式判定（见 [habitDayState] / [currentStreak]）：
@@ -56,6 +43,8 @@ data class Habit(
     val reminderEnabled: Boolean = false,
     val reminderHour: Int = 20,
     val reminderMinute: Int = 0,
+    /** 提醒被「推迟」时重弹的间隔（分钟）；档位见 [HabitSnoozeMinuteOptions]。 */
+    val snoozeMinutes: Int = HabitDefaultSnoozeMinutes,
     val createdAt: Long = 0L,
 ) {
     /** 渲染端统一入口：按 [colorSource] 解析，主题切换时实时跟随。 */

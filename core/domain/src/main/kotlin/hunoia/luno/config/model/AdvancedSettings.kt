@@ -18,6 +18,6 @@ data class AdvancedSettings(
     val hideLunoFromRecents: Boolean = true,
     /** 设置列表视觉风格：分段式（默认）/ 大卡分割线。 */
     val listStyle: ListStyle = ListStyle.Segmented,
-    /** 习惯提醒的呈现方式：标准通知 / 实时活动 / 小米超级岛（全局，默认标准）。 */
-    val habitReminderStyle: HabitNotificationStyle = HabitNotificationStyle.DEFAULT,
+    /** 通用通知显示设置（呈现模式 + 覆盖层，见 [NotificationDisplaySettings]）。 */
+    val notificationDisplay: NotificationDisplaySettings = NotificationDisplaySettings(),
 )

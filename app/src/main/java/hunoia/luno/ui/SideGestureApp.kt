@@ -48,7 +48,7 @@ import hunoia.luno.ui.navigation.NotificationBlocklist
 import hunoia.luno.ui.navigation.PrivilegedPermissions
 import hunoia.luno.ui.navigation.AccessibilityManager
 import hunoia.luno.ui.navigation.PersistentNotificationSettings
-import hunoia.luno.ui.navigation.HabitReminderSettings
+import hunoia.luno.ui.navigation.NotificationSettings
 import hunoia.luno.ui.navigation.StatusBarIconSettings
 import hunoia.luno.ui.navigation.RecentAppsBlocklist
 import hunoia.luno.ui.navigation.LinkDispatchRules
@@ -84,7 +84,7 @@ import hunoia.luno.ui.settings.action.ScreenPickSettingsScreen
 import hunoia.luno.ui.settings.action.RecentAppsBlocklistScreen
 import hunoia.luno.ui.settings.accessibility.AccessibilityManagerScreen
 import hunoia.luno.ui.settings.notification.PersistentNotificationSettingsScreen
-import hunoia.luno.ui.settings.habit.HabitReminderSettingsScreen
+import hunoia.luno.ui.settings.notification.NotificationSettingsScreen
 import hunoia.luno.ui.settings.statusbar.StatusBarIconSettingsScreen
 import hunoia.luno.ui.settings.permission.PrivilegedPermissionsScreen
 import hunoia.luno.ui.settings.action.MiniWindowAdjustScreen
@@ -220,8 +220,8 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                         onNavToPersistentNotificationSettings = {
                             navController.navigate(PersistentNotificationSettings)
                         },
-                        onNavToHabitReminderSettings = {
-                            navController.navigate(HabitReminderSettings)
+                        onNavToNotificationSettings = {
+                            navController.navigate(NotificationSettings)
                         },
                         onNavToStatusBarIconSettings = {
                             navController.navigate(StatusBarIconSettings)
@@ -331,8 +331,8 @@ fun SideGestureApp(navController: NavHostController = rememberNavController()) {
                 myComposable<PersistentNotificationSettings> {
                     PersistentNotificationSettingsScreen(onBack = { navController.popBackStack() })
                 }
-                myComposable<HabitReminderSettings> {
-                    HabitReminderSettingsScreen(onBack = { navController.popBackStack() })
+                myComposable<NotificationSettings> {
+                    NotificationSettingsScreen(onBack = { navController.popBackStack() })
                 }
                 myComposable<StatusBarIconSettings> {
                     StatusBarIconSettingsScreen(onBack = { navController.popBackStack() })

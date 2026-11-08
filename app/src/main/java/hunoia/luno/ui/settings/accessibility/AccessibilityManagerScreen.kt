@@ -1,6 +1,5 @@
 package hunoia.luno.ui.settings.accessibility
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,6 +26,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.R
 import hunoia.luno.a11y.A11yManagerFacade
 import hunoia.luno.a11y.A11yServiceEntry
@@ -120,7 +120,7 @@ fun AccessibilityManagerScreen(
             }
             togglingId = null
             if (!ok) {
-                Toast.makeText(context, R.string.a11y_toggle_failed, Toast.LENGTH_SHORT).show()
+                showToast(R.string.a11y_toggle_failed)
             }
             refresh()
         }

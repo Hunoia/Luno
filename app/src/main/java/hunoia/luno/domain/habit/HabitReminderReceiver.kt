@@ -4,9 +4,13 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import hunoia.luno.config.model.HabitDayState
+import hunoia.luno.config.model.HabitDefaultSnoozeMinutes
+import hunoia.luno.config.model.currentStreak
 import hunoia.luno.config.model.habitDayState
 import hunoia.luno.core.LunoLog
 import hunoia.luno.core.LOG_TAG
+import hunoia.luno.bridge.ui.showToast
+import hunoia.luno.R
 import hunoia.luno.domain.gridpanel.HabitCenter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,6 +25,8 @@ import java.time.LocalDate
  *   随后 [HabitReminderScheduler.rescheduleAll] 滚动到下一个应打卡日。
  * - ACTION_EXPIRE：每天 0 点收起昨天仍在屏的提醒，再按新的一天重排。
  * - ACTION_MARK_DONE：通知「完成」→ [HabitCenter.setHabitCheck] 打卡（幂等）并收起通知。
+ * - ACTION_SNOOZE：「推迟 N 分钟」→ 收起当前提醒并挂一个一次性闹钟（不动每日调度）。
+ * - ACTION_SNOOZE_FIRE：推迟到点 → 重算状态，已打卡 / 休整日不再弹，否则重弹提醒。
  */
 class HabitReminderReceiver : BroadcastReceiver() {
 
@@ -34,6 +40,14 @@ class HabitReminderReceiver : BroadcastReceiver() {
             HabitReminderScheduler.ACTION_MARK_DONE -> {
                 val habitId = intent.getStringExtra(HabitReminderScheduler.EXTRA_HABIT_ID) ?: return
                 onMarkDone(app, habitId, intent)
+            }
+            HabitReminderScheduler.ACTION_SNOOZE -> {
+                val habitId = intent.getStringExtra(HabitReminderScheduler.EXTRA_HABIT_ID) ?: return
+                onSnooze(app, habitId, intent)
+            }
+            HabitReminderScheduler.ACTION_SNOOZE_FIRE -> {
+                val habitId = intent.getStringExtra(HabitReminderScheduler.EXTRA_HABIT_ID) ?: return
+                onSnoozeFire(app, habitId)
             }
             HabitReminderScheduler.ACTION_EXPIRE -> onExpire(app)
             else -> Unit
@@ -53,7 +67,16 @@ class HabitReminderReceiver : BroadcastReceiver() {
                 LunoLog.i(LOG_TAG, "habit reminder fire: habit=${habit.id} state=$state today=$today checks=$checks")
                 // INACTIVE = 从未打卡：与调度口径一致，从今天起每日提醒，直到首次打卡进入周期。
                 if (state != HabitDayState.CHECKED && state != HabitDayState.SKIPPED) {
-                    HabitReminderNotifier.show(context, habit, today, HabitReminderScheduler.currentStyle())
+                    HabitReminderNotifier.show(
+                        context,
+                        habit,
+                        today,
+                        HabitReminderScheduler.currentMode(),
+                        HabitReminderStatus(
+                            state = state,
+                            streakDays = currentStreak(checks, today, habit.interval),
+                        ),
+                    )
                     HabitReminderScheduler.markNotified(context, habit, today)
                 }
                 // 无论是否 DUE 都滚动到下一次（当天已打 / 时间已过则顺延到下个应打卡日）。
@@ -67,6 +90,13 @@ class HabitReminderReceiver : BroadcastReceiver() {
     }
 
     private fun onMarkDone(context: Context, habitId: String, intent: Intent) {
+        LunoLog.i(LOG_TAG, "habit reminder mark done: habit=$habitId")
+        // 测试通知（假 id）：不写任何配置，只给一条轻反馈当「点击链路走通了」的信号。
+        if (HabitReminderNotifier.isTestHabit(habitId)) {
+            HabitReminderNotifier.cancel(context, habitId)
+            showToast(R.string.habit_reminder_test_done)
+            return
+        }
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -78,8 +108,51 @@ class HabitReminderReceiver : BroadcastReceiver() {
                     HabitCenter.setHabitCheck(habitId, day, true)
                 }
                 HabitReminderNotifier.cancel(context, habitId)
+                // 打卡后不该再被推迟闹钟唤回。
+                HabitReminderScheduler.cancelSnooze(context, habitId)
             } catch (e: Exception) {
                 LunoLog.w(LOG_TAG, "habit reminder mark done failed: ${e.message}")
+            } finally {
+                pending.finish()
+            }
+        }
+    }
+
+    /** 「推迟 N 分钟」：收起当前提醒并挂一次性闹钟；每日调度不受影响。 */
+    private fun onSnooze(context: Context, habitId: String, intent: Intent) {
+        val minutes = intent.getIntExtra(HabitReminderScheduler.EXTRA_SNOOZE_MINUTES, 0)
+            .takeIf { it > 0 }
+            ?: HabitDefaultSnoozeMinutes
+        LunoLog.i(LOG_TAG, "habit reminder snooze: habit=$habitId minutes=$minutes")
+        HabitReminderNotifier.cancel(context, habitId)
+        HabitReminderScheduler.scheduleSnooze(context, habitId, minutes)
+    }
+
+    /** 推迟到点：状态已变（已打卡 / 进入休整日）就静默收掉，不重复打扰。 */
+    private fun onSnoozeFire(context: Context, habitId: String) {
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val config = HabitCenter.getHabitConfig()
+                val habit = config.habitById(habitId)
+                if (habit == null || !habit.reminderEnabled) return@launch
+                val today = LocalDate.now().toEpochDay()
+                val checks = config.checks[habitId].orEmpty()
+                val state = habitDayState(checks, today, habit.interval, today)
+                if (state == HabitDayState.CHECKED || state == HabitDayState.SKIPPED) {
+                    LunoLog.i(LOG_TAG, "habit snooze fire skipped: habit=$habitId state=$state")
+                    return@launch
+                }
+                LunoLog.i(LOG_TAG, "habit snooze fire: habit=$habitId state=$state")
+                HabitReminderNotifier.show(
+                    context,
+                    habit,
+                    today,
+                    HabitReminderScheduler.currentMode(),
+                    HabitReminderStatus(state, currentStreak(checks, today, habit.interval)),
+                )
+            } catch (e: Exception) {
+                LunoLog.w(LOG_TAG, "habit snooze fire failed: ${e.message}")
             } finally {
                 pending.finish()
             }
@@ -94,7 +167,10 @@ class HabitReminderReceiver : BroadcastReceiver() {
                 val config = runCatching { HabitCenter.getHabitConfig() }.getOrNull()
                 val ids = HabitReminderScheduler.knownHabitIds(context) +
                     config?.habits?.map { it.id }.orEmpty()
-                ids.forEach { HabitReminderNotifier.cancel(context, it) }
+                ids.forEach {
+                    HabitReminderNotifier.cancel(context, it)
+                    HabitReminderScheduler.cancelSnooze(context, it)
+                }
                 if (config != null) {
                     HabitReminderScheduler.rescheduleAll(context, config)
                 }

@@ -1,6 +1,5 @@
 package hunoia.luno.ui.settings.permission
 
-import android.widget.Toast
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.MaterialTheme
@@ -23,6 +22,7 @@ import androidx.compose.ui.util.fastForEach
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.R
 import hunoia.luno.facade.PrivilegedPermission
 import hunoia.luno.facade.PrivilegedPermissionGroup
@@ -145,7 +145,7 @@ fun PrivilegedPermissionsScreen(
             busy = null
             // 成功不提示，只靠行内状态色变化；失败用 toast 提示原因。
             if (!ok) {
-                Toast.makeText(context, R.string.perm_grant_one_failed, Toast.LENGTH_SHORT).show()
+                showToast(R.string.perm_grant_one_failed)
             }
             refresh()
         }
@@ -163,12 +163,8 @@ fun PrivilegedPermissionsScreen(
             bulkBusy = false
             when {
                 summary == null || summary.total == 0 ->
-                    Toast.makeText(context, R.string.privileged_grant_failed, Toast.LENGTH_SHORT).show()
-                summary.failed > 0 -> Toast.makeText(
-                    context,
-                    context.getString(R.string.privileged_grant_partial, summary.failed),
-                    Toast.LENGTH_SHORT,
-                ).show()
+                    showToast(R.string.privileged_grant_failed)
+                summary.failed > 0 -> showToast(context.getString(R.string.privileged_grant_partial, summary.failed))
             }
             refresh()
         }

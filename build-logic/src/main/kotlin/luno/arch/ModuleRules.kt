@@ -11,7 +11,7 @@ object ModuleRules {
     /** 允许出现的模块。新增模块必须登记，否则构建失败。 */
     val knownModules: Set<String> = setOf(
         ":core:common", ":core:domain", ":core:bridge", ":core:data", ":core:runtime", ":core:facade",
-        ":ui:design", ":capability:launch", ":capability:ocr",
+        ":ui:design", ":capability:launch", ":capability:ocr", ":capability:notify",
         ":feature:execute", ":feature:actions",
         ":feature:link", ":feature:search", ":feature:quickaccess", ":feature:gesture",
         ":feature:floatball", ":feature:gridpanel", ":feature:annotate", ":feature:a11y",
@@ -33,6 +33,7 @@ object ModuleRules {
         ":ui:design" to setOf(":core:common", ":core:domain", ":core:bridge", ":core:facade"),
         ":capability:launch" to setOf(":core:common", ":core:domain", ":core:data", ":core:bridge"),
         ":capability:ocr" to setOf(":core:common", ":core:domain"),
+        ":capability:notify" to setOf(":core:common", ":core:domain", ":core:bridge"),
         ":feature:execute" to setOf(":core:common", ":core:domain", ":core:bridge"),
         // 偏差：动作定义/执行器与展示元数据仍同模块（ActionDefinition 完全二分挂账）
         ":feature:actions" to setOf(

@@ -22,10 +22,12 @@ import androidx.navigation.compose.rememberNavController
 import hunoia.luno.link.LinkExtras
 import hunoia.luno.gridpanel.HabitExtras
 import hunoia.luno.gridpanel.TodoExtras
+import hunoia.luno.domain.habit.HabitReminderNotifier
 import hunoia.luno.ui.navigation.PendingHabitEdit
 import hunoia.luno.ui.navigation.PendingLinkRule
 import hunoia.luno.gridpanel.todo.TodoListRequests
 import hunoia.luno.ui.SideGestureApp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -50,6 +52,12 @@ class MainActivity : ComponentActivity() {
         // 更新/重启后的恢复广播可能被 ROM 的自启动管控拦下（接收器跑不到），
         // 主进程随本 Activity 启动时按落盘配置兜底恢复常驻服务，进程内只做一次。
         AppGraph.runtime.restoreServicesOnce(applicationContext)
+
+        // 超级岛鉴权预热：配置里真的会用到岛时跑一次（内部自检能力 / 通道 / Shizuku），
+        // 让 SystemUI 提前缓存本包的焦点鉴权结果，首次提醒不必等 XMSF 回包。失败静默。
+        lifecycleScope.launch(Dispatchers.IO) {
+            HabitReminderNotifier.warmupIsland(applicationContext)
+        }
 
         handleLinkRuleIntent(intent)
         handleHabitEditIntent(intent)

@@ -1,7 +1,6 @@
 package hunoia.luno.ui.settings.backup
 
 import android.net.Uri
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.contract.ActivityResultContracts.CreateDocument
@@ -22,6 +21,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.R
 import hunoia.luno.config.backup.AutoBackupFile
 import hunoia.luno.config.backup.AutoBackupRepository
@@ -79,9 +79,9 @@ fun AutoBackupSettingsScreen(onBack: () -> Unit) {
         scope.launch {
             runCatching {
                 withContext(Dispatchers.IO) { facades.backup.backup(context, uri) }
-                Toast.makeText(context, R.string.backup_success, Toast.LENGTH_SHORT).show()
+                showToast(R.string.backup_success)
             }.onFailure {
-                Toast.makeText(context, R.string.backup_failed, Toast.LENGTH_SHORT).show()
+                showToast(R.string.backup_failed)
             }
         }
     }
@@ -98,11 +98,7 @@ fun AutoBackupSettingsScreen(onBack: () -> Unit) {
                     pendingRestore = uri
                     showRestoreConfirm = true
                 }
-                is RestorePrecheckResult.Failed -> Toast.makeText(
-                    context,
-                    result.reason.stringRes,
-                    Toast.LENGTH_SHORT,
-                ).show()
+                is RestorePrecheckResult.Failed -> showToast(result.reason.stringRes)
             }
         }
     }
@@ -119,7 +115,7 @@ fun AutoBackupSettingsScreen(onBack: () -> Unit) {
         scope.launch {
             runCatching { AutoBackupCenter.adoptTree(context, uri, enable = enable) }
                 .onFailure {
-                    Toast.makeText(context, R.string.auto_backup_fail_create, Toast.LENGTH_SHORT).show()
+                    showToast(R.string.auto_backup_fail_create)
                 }
         }
     }
@@ -221,11 +217,11 @@ fun AutoBackupSettingsScreen(onBack: () -> Unit) {
                 shape = segmentedShape(3, 4),
                 onClick = {
                     if (current?.hasTree() != true) {
-                        Toast.makeText(context, R.string.auto_backup_run_need_directory, Toast.LENGTH_SHORT).show()
+                        showToast(R.string.auto_backup_run_need_directory)
                         return@LunoSettingsRow
                     }
                     AutoBackupCenter.runNow(context)
-                    Toast.makeText(context, R.string.auto_backup_run_queued, Toast.LENGTH_SHORT).show()
+                    showToast(R.string.auto_backup_run_queued)
                 },
             )
         }
@@ -275,11 +271,7 @@ fun AutoBackupSettingsScreen(onBack: () -> Unit) {
                                         pendingRestore = file.uri
                                         showRestoreConfirm = true
                                     }
-                                    is RestorePrecheckResult.Failed -> Toast.makeText(
-                                        context,
-                                        result.reason.stringRes,
-                                        Toast.LENGTH_SHORT,
-                                    ).show()
+                                    is RestorePrecheckResult.Failed -> showToast(result.reason.stringRes)
                                 }
                             }
                         },
@@ -305,10 +297,10 @@ fun AutoBackupSettingsScreen(onBack: () -> Unit) {
                 scope.launch {
                     runCatching {
                         withContext(Dispatchers.IO) { facades.backup.restore(context, restoreUri) }
-                        Toast.makeText(context, R.string.restore_success, Toast.LENGTH_SHORT).show()
+                        showToast(R.string.restore_success)
                         refresh()
                     }.onFailure {
-                        Toast.makeText(context, R.string.restore_failed, Toast.LENGTH_SHORT).show()
+                        showToast(R.string.restore_failed)
                     }
                 }
             },
@@ -325,7 +317,7 @@ fun AutoBackupSettingsScreen(onBack: () -> Unit) {
                 scope.launch {
                     runCatching { facades.backup.resetAll() }
                         .onFailure {
-                            Toast.makeText(context, R.string.restore_failed, Toast.LENGTH_SHORT).show()
+                            showToast(R.string.restore_failed)
                         }
                 }
             },

@@ -1,6 +1,5 @@
 package hunoia.luno.ui.settings.statusbar
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
@@ -27,6 +26,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import hunoia.luno.bridge.ui.showToast
 import hunoia.luno.R
 import hunoia.luno.bridge.system.StatusBarIcons
 import hunoia.luno.domain.system.StatusBarIconHidingUseCase
@@ -93,7 +93,7 @@ fun StatusBarIconSettingsScreen(onBack: () -> Unit) {
                 StatusBarIconHidingUseCase.setHidden(context, slot, hidden)
             }.getOrDefault(false)
             if (!ok) {
-                Toast.makeText(context, R.string.status_bar_icons_write_failed, Toast.LENGTH_SHORT).show()
+                showToast(R.string.status_bar_icons_write_failed)
                 tick++
             }
         }
@@ -104,7 +104,7 @@ fun StatusBarIconSettingsScreen(onBack: () -> Unit) {
             val ok = runCatching { StatusBarIconHidingUseCase.showAll(context) }
                 .getOrDefault(false)
             if (!ok) {
-                Toast.makeText(context, R.string.status_bar_icons_write_failed, Toast.LENGTH_SHORT).show()
+                showToast(R.string.status_bar_icons_write_failed)
             }
             tick++
         }
@@ -207,19 +207,11 @@ fun StatusBarIconSettingsScreen(onBack: () -> Unit) {
                 onClick = {
                     val intent = StatusBarIcons.tunerIntent(context)
                     if (intent == null) {
-                        Toast.makeText(
-                            context,
-                            R.string.status_bar_icons_tuner_missing,
-                            Toast.LENGTH_SHORT,
-                        ).show()
+                        showToast(R.string.status_bar_icons_tuner_missing)
                     } else {
                         runCatching { context.startActivity(intent) }
                             .onFailure {
-                                Toast.makeText(
-                                    context,
-                                    R.string.status_bar_icons_tuner_missing,
-                                    Toast.LENGTH_SHORT,
-                                ).show()
+                                showToast(R.string.status_bar_icons_tuner_missing)
                             }
                     }
                 },

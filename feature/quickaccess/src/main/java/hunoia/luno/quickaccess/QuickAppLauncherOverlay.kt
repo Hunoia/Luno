@@ -2,8 +2,6 @@ package hunoia.luno.quickaccess
 
 import android.os.Looper
 import hunoia.luno.core.LunoLog as Log
-import android.widget.Toast
-import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -13,6 +11,7 @@ import hunoia.luno.core.AppContext
 import hunoia.luno.quickaccess.R
 import hunoia.luno.bridge.system.canDrawOverlays
 import hunoia.luno.bridge.system.gotoOverlaySettings
+import hunoia.luno.bridge.ui.showToastLong
 import hunoia.luno.core.Events
 import hunoia.luno.core.PanelShownEvent
 import hunoia.luno.quickaccess.launch.DisabledPackageEnabler
@@ -61,7 +60,7 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
         // 锁屏禁止悬浮窗：即使误触也不在 keyguard 之上/之后挂窗。
         if (isKeyguardLocked()) return
         if (!context.canDrawOverlays()) {
-            showPlatformToast(R.string.quick_launcher_need_overlay_permission)
+            showToastLong(R.string.quick_launcher_need_overlay_permission)
             context.gotoOverlaySettings()
             return
         }
@@ -131,7 +130,7 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
     }
 
     override fun onAddViewFailed() {
-        showPlatformToast(R.string.quick_launcher_start_failed)
+        showToastLong(R.string.quick_launcher_start_failed)
     }
 
     override fun teardownExtra() {
@@ -139,20 +138,10 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
         disabledPackageEnabler.release()
     }
 
-    /**
-     * 平台 Toast（非 Compose 通道）：引导授权时球必然已 detach，Compose 的 showToast
-     * 没有宿主消费会被静默丢弃；addView 失败时窗口没挂上，同样无主题宿主。
-     */
     private fun isKeyguardLocked(): Boolean =
         runCatching {
             context.getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true
         }.getOrDefault(false)
-
-    private fun showPlatformToast(@StringRes resId: Int) {
-        runCatching {
-            Toast.makeText(context.applicationContext, resId, Toast.LENGTH_LONG).show()
-        }
-    }
 
     @Composable
     override fun panelContent() {
@@ -180,7 +169,7 @@ object QuickAppLauncherOverlay : OverlayPanelHost(
                         ),
                         origin = hunoia.luno.core.domain.DispatchOrigin.PANEL,
                     ) { launched ->
-                        if (!launched) showPlatformToast(R.string.quick_launcher_start_failed)
+                        if (!launched) showToastLong(R.string.quick_launcher_start_failed)
                     }
                     // 已提交即视为「已接管」：真实失败由 onSettled 的平台 Toast 反馈。
                     true

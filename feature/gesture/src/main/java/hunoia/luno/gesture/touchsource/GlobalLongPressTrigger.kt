@@ -59,6 +59,13 @@ class GlobalLongPressTrigger(
     private val onPreCapture: (x: Int, y: Int, downAtMs: Long) -> Unit = { _, _, _ -> },
     /** 会话作废/松手时丢弃快照。 */
     private val onPreCaptureCancel: () -> Unit = {},
+    /**
+     * 起点过滤：返回 true 表示这次按下不参与识屏。
+     *
+     * 用于让出**系统手势区**：超级岛胶囊就在状态栏里，长按岛卡片拖动分享与
+     * 「长按后拖动识屏」是同一个手势形态，必须由位置区分，否则拖拽分享会先把识屏卡弹出来。
+     */
+    private val shouldIgnoreStart: (x: Int, y: Int) -> Boolean = { _, _ -> false },
 ) {
 
     private var pending: Cancelable? = null
@@ -88,6 +95,8 @@ class GlobalLongPressTrigger(
     private fun onDown(point: Offset) {
         // 多指：第二根手指落下不重开会话（内核会给同一个主指再报一次 Down）。
         if (active) return
+        // 系统手势区（状态栏 / 超级岛）：让给 SystemUI，不做识屏。
+        if (shouldIgnoreStart(point.x.toInt(), point.y.toInt())) return
         reset()
         val snapshot = config()
         if (!snapshot.enabled) return
