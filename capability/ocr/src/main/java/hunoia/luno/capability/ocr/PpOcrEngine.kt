@@ -12,7 +12,12 @@ import hunoia.luno.core.LOG_TAG
 import hunoia.luno.core.LunoLog as Log
 import java.io.File
 import kotlin.math.min
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -38,9 +43,30 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
 
         /** 同时常驻的 rec 模型上限：320/640 两档足够覆盖常见屏幕，960 用时再换入。 */
         const val MAX_RESIDENT_RECOGNIZERS = 2
+
+        /**
+         * 空闲多久后释放模型。识屏是低频动作，常驻进程不该为“可能马上要用”整天占着
+         * 三份 fp32 模型（实测 native ~70MB + GPU ~110MB）；识屏层开窗时本就会
+         * `ensureWarm()`，重新加载藏在框选期间，用户无感。
+         */
+        const val IDLE_RELEASE_MS = 120_000L
     }
 
     private val mutex = Mutex()
+
+    /**
+     * 进程级单例，只能用 application context：持有无障碍 Service 实例会让旧服务
+     * 无法回收（服务重建后单例仍指向上一代 `SideGestureService`）。
+     * lazy 是因为 Service 构造期 `getApplicationContext()` 尚未 attach、返回 null。
+     */
+    private val appContext: Context by lazy { context.applicationContext ?: context }
+
+    private val idleScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var idleReleaseJob: Job? = null
+
+    /** 每次使用的代号：空闲计时器醒来时据此判断期间是否又被用过。 */
+    private var useGeneration = 0L
+
     private var detector: PpOcrDetector? = null
 
     /** 是否已完成 det + rec 预热；reload / close 后失效。 */
@@ -53,8 +79,9 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
     override suspend fun recognize(bitmap: Bitmap, scripts: List<OcrScript>): OcrResult =
         withContext(Dispatchers.Default) {
             mutex.withLock {
+                scheduleIdleRelease()
                 if (bitmap.isRecycled) return@withContext OcrResult.Empty
-                if (!OcrModelStore.isReady(context)) {
+                if (!OcrModelStore.isReady(appContext)) {
                     Log.w(LOG_TAG, "ppocr: 模型未就绪（未导入 GPU 包），返回空结果")
                     return@withContext OcrResult.Empty
                 }
@@ -180,8 +207,9 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
     }
 
     private fun warmLocked(force: Boolean) {
+        scheduleIdleRelease()
         if (warmed && !force) return
-        if (!OcrModelStore.isReady(context)) {
+        if (!OcrModelStore.isReady(appContext)) {
             Log.i(LOG_TAG, "ppocr: 预热跳过（模型未就绪）")
             return
         }
@@ -231,10 +259,34 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
                 runCatching { d?.close() }
             }
         }
-        if (OcrModelStore.isReady(context)) warmUp()
+        if (OcrModelStore.isReady(appContext)) warmUp()
     }
 
+    /**
+     * 释放模型。非 suspend（服务 onDestroy 调用），真正释放放到空闲作用域里拿锁执行：
+     * 与正在跑的识别互斥，不阻塞调用线程，也不会有 use-after-close。
+     */
     override fun close() {
+        useGeneration++
+        idleReleaseJob?.cancel()
+        idleReleaseJob = null
+        idleScope.launch { mutex.withLock { releaseLocked() } }
+    }
+
+    /** 每次使用后重置空闲计时；到点释放模型，避免常驻进程整天占着 GPU / native 内存。 */
+    private fun scheduleIdleRelease() {
+        val generation = ++useGeneration
+        idleReleaseJob?.cancel()
+        idleReleaseJob = idleScope.launch {
+            delay(IDLE_RELEASE_MS)
+            mutex.withLock {
+                if (generation == useGeneration) releaseLocked()
+            }
+        }
+    }
+
+    /** 释放常驻模型；调用方必须持有 [mutex]。 */
+    private fun releaseLocked() {
         val d = detector
         detector = null
         warmed = false
@@ -249,14 +301,14 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
     }
 
     private fun openDetector(): PpOcrDetector {
-        val file = File(OcrModelStore.modelDir(context), OcrModelStore.DET_MODEL)
-        return PpOcrDetector(context, file)
+        val file = File(OcrModelStore.modelDir(appContext), OcrModelStore.DET_MODEL)
+        return PpOcrDetector(appContext, file)
     }
 
     /** 目录里已安装的 rec 档位（宽度 → 文件），按宽度升序；缓存到下次 reload。 */
     private fun recModelFiles(): List<Pair<Int, File>> {
         cachedRecFiles?.let { return it }
-        val dir = OcrModelStore.modelDir(context)
+        val dir = OcrModelStore.modelDir(appContext)
         return OcrModelStore.recFiles(dir)
             .mapNotNull { file -> OcrModelStore.recWidth(file.name)?.let { it to file } }
             .sortedBy { it.first }
@@ -303,9 +355,9 @@ class PpOcrEngine(private val context: Context) : OcrEngine {
     }
 
     private fun openRecognizer(file: File): PpOcrRecognizer = PpOcrRecognizer(
-        context = context,
+        context = appContext,
         modelFile = file,
-        dictFile = File(OcrModelStore.modelDir(context), OcrModelStore.DICT),
+        dictFile = File(OcrModelStore.modelDir(appContext), OcrModelStore.DICT),
     )
 
     /** 把输入位图等比铺进 [PpOcrDetector.SIZE]×[PpOcrDetector.SIZE]，白底居中（letterbox）。 */

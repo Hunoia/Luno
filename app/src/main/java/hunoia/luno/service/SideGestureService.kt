@@ -363,9 +363,9 @@ class SideGestureService : ComponentAccessibilityService(), GestureHost {
         ScreenPickProbe.hook = { x, y -> probeCapture(x, y) }
         // 剪贴板捕获的唯一监听点：常驻无障碍服务覆盖面大于球/面板，且不受应用窗口可见性限制。
         ClipboardCapture.start(coroutineScope)
-        // 服务起来就把引擎加载 / 预热一次：第一次长按不用再等 GPU delegate 建context，
-        // 加载失败也会在 logcat 留下 w 级日志（见 PpOcrModelRunner）。
-        coroutineScope.launch { runCatching { ocrEngine.warmUp() } }
+        // 不在服务启动时预热 OCR：三份模型（det + 两档 rec）常驻要吃掉 native ~70MB、
+        // GPU ~110MB，而识屏是低频动作。识屏层开窗时 ensureWarm()，加载藏在框选期间；
+        // 空闲两分钟后引擎自行释放（见 PpOcrEngine.scheduleIdleRelease）。
         if (::gestureCoordinator.isInitialized) gestureCoordinator.onDestroy()
         gestureCoordinator = GestureCoordinator(this)
         // 球侧（:feature:floatball）经注入点下发命令，避免反向依赖宿主服务。

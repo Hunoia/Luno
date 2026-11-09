@@ -13,9 +13,8 @@ import hunoia.luno.capability.ocr.PpOcrEngine
  * 注意：**不要取 `context.applicationContext`**。`SideGestureService` 在构造期初始化
  * `ocrEngine` 字段（传给 `ScreenPickOverlay`），此时 Service 的 `mBase` 尚未 attach，
  * `getApplicationContext()` 返回 null → NPE → 无障碍服务崩溃。`PpOcrEngine` 构造器只存
- * context 引用、不在构造期调用任何 context 方法，直接保存传入的 context 是安全的。
- * 调用方约定传入长生命周期 context（`SideGestureService` 自身 / `applicationContext`），
- * 不会因持有 Activity 引用而泄漏。
+ * context 引用、不在构造期调用任何 context 方法；首次模型操作时才取 `applicationContext`
+ * （拿不到则退回传入的 context），所以不会把 Service 实例钉在单例里。
  *
  * 模型包导入 / 删除后由 `SideGestureService.refreshOcrEngine()` 调 `reload()`；
  * `SurfaceActionRuntime` 存活期且无障碍服务不在位时删除模型，本实例不会自动 reload，

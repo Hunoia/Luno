@@ -33,6 +33,11 @@ NPU（QNN / HTP）方案因社区反馈 v6 算子覆盖问题弃用，切换为 
 - 预热必须显式处理 det 与 rec：白图检测不出文字框，只跑 `recognize()` 不会加载 rec。
   `PpOcrEngine.warmUp()` 逐档打开已安装的 rec（最多 `MAX_RESIDENT_RECOGNIZERS` 档）并各跑
   一次 dummy 推理；`ensureWarm()` 供识屏层打开时复用，已预热直接返回。
+- **不做常驻预热**：`SideGestureService` 启动时不再 warmUp。三份 fp32 模型常驻实测占
+   native ~70MB + GPU ~110MB，而识屏是低频动作；现在每次使用后重置空闲计时，
+  `IDLE_RELEASE_MS`（2 分钟）内无新使用就释放 det/rec（`close()` 同一路径，拿锁执行，
+  与进行中的识别互斥）。重新加载藏在识屏层打开的框选期间，`ClipboardOcrLauncher`
+  等直接调 `recognize()` 的路径首次会多付一次加载/设备端编译。
 - v6 det 输出为 fp32 sigmoid（0..1），无需 v5 int8 的概率还原系数。
 - 正 / 反两遍检测取并集，覆盖暗色模式与彩底白字。
 - rec 用**原图**裁剪（不是 640 检测图）：宽高比超过 `模型输入宽/高` 的行走切段识别，
@@ -44,7 +49,8 @@ NPU（QNN / HTP）方案因社区反馈 v6 算子覆盖问题弃用，切换为 
   保留区间严格首尾相接，不重复也不丢字。前缀丢弃按**实际重叠**算，不能按计划重叠——
   均分步进后实际重叠常更大，按计划值丢会让多出来的重叠区被两段各出一次字。
 - CTC 字典为统一 50 语言 `characters.json`（index 0 = blank）。
-- 不持有 Context / Bitmap；调用方负责裁剪与回收。
+- 引擎只持有 application context（不持有 Service / Activity），不持有 Bitmap；
+  调用方负责裁剪与回收。
 
 ## 使用方
 
@@ -52,5 +58,6 @@ NPU（QNN / HTP）方案因社区反馈 v6 算子覆盖问题弃用，切换为 
   长按取词走 a11y 字符级快照，不再调用 OCR（见 [architecture.md](../../docs/architecture.md) §7.4）。
 - 组装根 `:app`（`SideGestureService`）持有 `PpOcrEngine`，服务销毁时 `close()`；
   模型导入 / 删除后经 `DispatchClient.refreshOcrEngine()` 让 `:service` 重载并预热。
-- 识屏层打开时调用 `ensureWarm()`，把模型加载 / 设备端编译藏在用户框选期间。
+- 识屏层打开时调用 `ensureWarm()`，把模型加载 / 设备端编译藏在用户框选期间；
+  空闲释放后下一次开窗会自动重新预热。
 - 结果页不等待 OCR：框选 / 幽灵卡只做裁剪并立即交接，OCR 由结果页的 `ocrLoader` 懒加载。
