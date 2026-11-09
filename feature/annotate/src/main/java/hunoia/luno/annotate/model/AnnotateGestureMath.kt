@@ -42,6 +42,25 @@ internal fun orientedGeometry(box: PxRect, rot: Float, rotateGap: Float): Orient
     )
 }
 
+/**
+ * 最小可视选择框（图片像素）。
+ *
+ * 把 [box] 映射到视图，短边不足 [minViewSize] 时以中心为轴对称撑开，再映射回图片坐标。
+ * 视图空间保证小标注的四个角柄在屏幕上始终有足够间距，不会挤在同一点上。
+ * 中心不变，缩放时仍以元素中心为原点；旋转/缩放只影响可视框，真实元素尺寸由
+ * `transformed` 按可视框比例映射回去。
+ */
+internal fun minSelectionBox(box: PxRect, fit: ContainFit, minViewSize: Float): PxRect {
+    val view = fit.imageRectToView(box)
+    if (view.width >= minViewSize && view.height >= minViewSize) return box
+    val width = max(view.width, minViewSize)
+    val height = max(view.height, minViewSize)
+    val c = view.center
+    return fit.viewRectToImage(
+        PxRect(c.x - width / 2f, c.y - height / 2f, c.x + width / 2f, c.y + height / 2f),
+    )
+}
+
 /** 视图坐标点命中的选中柄（角 > 旋转），未命中返回 null。 */
 internal fun hitElementHandle(
     geom: OrientedGeometry,

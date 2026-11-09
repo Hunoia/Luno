@@ -95,6 +95,72 @@ class ShapeAndRotationTest {
     }
 
     @Test
+    fun `min selection box expands tiny element around its center`() {
+        val fit = ContainFit.identity(100, 100)
+        val tiny = PxRect(48f, 48f, 52f, 52f)
+        val box = minSelectionBox(tiny, fit, 48f)
+        assertEquals(48f, box.width, 0.01f)
+        assertEquals(48f, box.height, 0.01f)
+        assertEquals(tiny.center.x, box.center.x, 0.01f)
+        assertEquals(tiny.center.y, box.center.y, 0.01f)
+    }
+
+    @Test
+    fun `min selection box only expands the short side of a long line`() {
+        val fit = ContainFit.identity(300, 100)
+        val line = PxRect(20f, 48f, 220f, 52f)
+        val box = minSelectionBox(line, fit, 48f)
+        assertEquals(200f, box.width, 0.01f)
+        assertEquals(48f, box.height, 0.01f)
+        assertEquals(line.center.x, box.center.x, 0.01f)
+        assertEquals(line.center.y, box.center.y, 0.01f)
+    }
+
+    @Test
+    fun `min selection box stays constant in view space when zoomed`() {
+        val fit = ContainFit.identity(100, 100).withViewTransform(2f, Pt(0f, 0f))
+        val tiny = PxRect(50f, 50f, 52f, 52f)
+        val box = minSelectionBox(tiny, fit, 48f)
+        val view = fit.imageRectToView(box)
+        assertEquals(48f, view.width, 0.01f)
+        assertEquals(48f, view.height, 0.01f)
+        assertEquals(tiny.center.x, box.center.x, 0.01f)
+        assertEquals(tiny.center.y, box.center.y, 0.01f)
+    }
+
+    @Test
+    fun `handle hit leaves center of min box free for body drag`() {
+        val fit = ContainFit.identity(100, 100)
+        val box = PxRect(26f, 26f, 74f, 74f)
+        val geom = orientedGeometry(box, 0f, 20f)
+        val threshold = 18f
+        // 48dp 框中心距四角 34dp，18dp 命中半径不会吞掉本体拖动区。
+        assertNull(hitElementHandle(geom, fit, Pt(50f, 50f), threshold))
+        assertEquals(ElementHandle.TOP_LEFT, hitElementHandle(geom, fit, Pt(30f, 30f), threshold))
+        assertEquals(ElementHandle.ROTATE, hitElementHandle(geom, fit, Pt(50f, 6f), threshold))
+    }
+
+    @Test
+    fun `scaling from min box maps proportionally back to real element`() {
+        val fit = ContainFit.identity(100, 100)
+        val element = ShapeElement(
+            id = 1L,
+            start = Pt(48f, 48f),
+            end = Pt(52f, 52f),
+            colorArgb = 0xFFFF3B30,
+            width = 4f,
+            kind = ElementKind.RECT,
+        )
+        val real = element.bounds()
+        val visual = minSelectionBox(real, fit, 48f)
+        val to = adjustByHandle(visual, ElementHandle.BOTTOM_RIGHT, Pt(96f, 96f))
+        val scaled = element.transformed(visual, to)
+        val ratio = to.width / visual.width
+        assertEquals(real.width * ratio, scaled.bounds().width, 0.02f)
+        assertEquals(real.height * ratio, scaled.bounds().height, 0.02f)
+    }
+
+    @Test
     fun `adjust by corner handle`() {
         val box = PxRect(0f, 0f, 10f, 10f)
         assertEquals(PxRect(0f, 3f, 12f, 10f), adjustByHandle(box, ElementHandle.TOP_RIGHT, Pt(12f, 3f)))
